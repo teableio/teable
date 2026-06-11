@@ -20,6 +20,8 @@ import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { InjectDbProvider } from '../../../../db-provider/db.provider';
 import { IDbProvider } from '../../../../db-provider/db.provider.interface';
+import { DatabaseRouter } from '../../../../global/database-router.service';
+import { CUSTOM_KNEX, DATA_KNEX } from '../../../../global/knex/knex.module';
 import { Timing } from '../../../../utils/timing';
 import type { ICellContext } from '../../../calculation/utils/changes';
 import { TableDomainQueryService } from '../../../table-domain/table-domain-query.service';
@@ -74,8 +76,10 @@ export class ComputedDependencyCollectorService {
   private logger = new Logger(ComputedDependencyCollectorService.name);
   constructor(
     private readonly prismaService: PrismaService,
+    private readonly databaseRouter: DatabaseRouter,
     private readonly tableDomainQueryService: TableDomainQueryService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    @InjectModel(CUSTOM_KNEX) private readonly knex: Knex,
+    @InjectModel(DATA_KNEX) private readonly dataKnex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     private readonly linkCascadeResolver: LinkCascadeResolver
   ) {}
@@ -148,10 +152,14 @@ export class ComputedDependencyCollectorService {
   ): Promise<string[]> {
     const dbTable = await this.getDbTableName(tableId, ctx);
     const { schema, table } = this.splitDbTableName(dbTable);
-    const qb = (schema ? this.knex.withSchema(schema) : this.knex).select('__id').from(table);
-    const rows = await this.prismaService
-      .txClient()
-      .$queryRawUnsafe<Array<{ __id: string }>>(qb.toQuery());
+    const qb = (schema ? this.dataKnex.withSchema(schema) : this.dataKnex)
+      .select('__id')
+      .from(table);
+    const rows = await this.databaseRouter.queryDataPrismaForTable<Array<{ __id: string }>>(
+      tableId,
+      qb.toQuery(),
+      { useTransaction: true }
+    );
     return rows.map((r) => r.__id).filter(Boolean);
   }
 
@@ -167,7 +175,7 @@ export class ComputedDependencyCollectorService {
     }
     const placeholders = values.map(() => '(?)').join(', ');
     const quotedColumn = `"${columnName.replace(/"/g, '""')}"`;
-    return this.knex.raw(`(values ${placeholders}) as ${alias} (${quotedColumn})`, values);
+    return this.dataKnex.raw(`(values ${placeholders}) as ${alias} (${quotedColumn})`, values);
   }
 
   // Minimal link options needed for join table lookups
@@ -815,8 +823,8 @@ export class ComputedDependencyCollectorService {
     const { schema: foreignSchema, table: foreignTable } = this.splitDbTableName(foreignTableName);
     const foreignFrom = () =>
       foreignSchema
-        ? this.knex.raw('??.?? as ??', [foreignSchema, foreignTable, foreignAlias])
-        : this.knex.raw('?? as ??', [foreignTable, foreignAlias]);
+        ? this.dataKnex.raw('??.?? as ??', [foreignSchema, foreignTable, foreignAlias])
+        : this.dataKnex.raw('?? as ??', [foreignTable, foreignAlias]);
 
     const quoteIdentifier = (name: string) => name.replace(/"/g, '""');
 
@@ -839,8 +847,8 @@ export class ComputedDependencyCollectorService {
     }
 
     const existsIdAlias = '__foreign_ids';
-    const existsSubquery = this.knex
-      .select(this.knex.raw('1'))
+    const existsSubquery = this.dataKnex
+      .select(this.dataKnex.raw('1'))
       .from(foreignFrom())
       .join(
         this.buildValuesTable(existsIdAlias, '__id', uniqueForeignIds),
@@ -856,17 +864,17 @@ export class ComputedDependencyCollectorService {
       })
       .appendQueryBuilder();
 
-    const queryBuilder = this.knex
-      .select(this.knex.raw(`"${hostAlias}"."__id" as id`))
+    const queryBuilder = this.dataKnex
+      .select(this.dataKnex.raw(`"${hostAlias}"."__id" as id`))
       .from(`${hostTableName} as ${hostAlias}`)
       .whereExists(existsSubquery);
 
     const sql = queryBuilder.toQuery();
     this.logger.debug(`Conditional Rollup Impacted Records SQL: ${sql}`);
 
-    const rows = await this.prismaService
-      .txClient()
-      .$queryRawUnsafe<{ id?: string; __id?: string }[]>(sql);
+    const rows = await this.databaseRouter.queryDataPrismaForTable<
+      { id?: string; __id?: string }[]
+    >(edge.tableId, sql, { useTransaction: true });
 
     const ids = new Set<string>();
     for (const row of rows) {
@@ -894,10 +902,10 @@ export class ComputedDependencyCollectorService {
 
     const selectColumns = ['__id', ...foreignDbFieldNamesOrdered];
     const baseIdAlias = '__base_ids';
-    const baseRowsQuery = this.knex
+    const baseRowsQuery = this.dataKnex
       .select(
         ...selectColumns.map((column) =>
-          this.knex.raw(
+          this.dataKnex.raw(
             `"${foreignAlias}"."${quoteIdentifier(column)}" as "${quoteIdentifier(column)}"`
           )
         )
@@ -909,9 +917,11 @@ export class ComputedDependencyCollectorService {
         `${baseIdAlias}.__id`
       );
 
-    const baseRows = await this.prismaService
-      .txClient()
-      .$queryRawUnsafe<Record<string, unknown>[]>(baseRowsQuery.toQuery());
+    const baseRows = await this.databaseRouter.queryDataPrismaForTable<Record<string, unknown>[]>(
+      edge.foreignTableId,
+      baseRowsQuery.toQuery(),
+      { useTransaction: true }
+    );
     const baseRowById = new Map<string, Record<string, unknown>>();
     for (const row of baseRows) {
       const id = row['__id'];
@@ -1015,11 +1025,11 @@ export class ComputedDependencyCollectorService {
       })
       .join(' union all ');
 
-    const derivedRaw = this.knex.raw(
+    const derivedRaw = this.dataKnex.raw(
       `(${unionSelectSql}) as ${foreignAlias} (${columnsSql})`,
       bindings
     );
-    const postExistsSubquery = this.knex.select(this.knex.raw('1')).from(derivedRaw);
+    const postExistsSubquery = this.dataKnex.select(this.dataKnex.raw('1')).from(derivedRaw);
 
     this.dbProvider
       .filterQuery(postExistsSubquery, foreignFieldObj, filter, undefined, {
@@ -1029,17 +1039,17 @@ export class ComputedDependencyCollectorService {
       })
       .appendQueryBuilder();
 
-    const postQueryBuilder = this.knex
-      .select(this.knex.raw(`"${hostAlias}"."__id" as id`))
+    const postQueryBuilder = this.dataKnex
+      .select(this.dataKnex.raw(`"${hostAlias}"."__id" as id`))
       .from(`${hostTableName} as ${hostAlias}`)
       .whereExists(postExistsSubquery);
 
     const postQuery = postQueryBuilder.toQuery();
     this.logger.debug('postQuery %s', postQuery);
 
-    const postRows = await this.prismaService
-      .txClient()
-      .$queryRawUnsafe<{ id?: string; __id?: string }[]>(postQuery);
+    const postRows = await this.databaseRouter.queryDataPrismaForTable<
+      { id?: string; __id?: string }[]
+    >(edge.tableId, postQuery, { useTransaction: true });
 
     for (const row of postRows) {
       const id = row.id || row.__id;

@@ -5,11 +5,15 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { FieldKeyType, FieldType, Relationship, RowHeightLevel, ViewType } from '@teable/core';
 import type { ICreateTableRo } from '@teable/openapi';
 import {
+  BaseNodeResourceType,
+  getBaseNodeTree,
   updateTableDescription,
   updateTableIcon,
   updateTableName,
   deleteTable as apiDeleteTable,
 } from '@teable/openapi';
+import { v2RecordRepositoryPostgresTokens } from '@teable/v2-adapter-table-repository-postgres';
+import type { ComputedUpdateWorker } from '@teable/v2-adapter-table-repository-postgres';
 import { DB_PROVIDER_SYMBOL } from '../src/db-provider/db.provider';
 import type { IDbProvider } from '../src/db-provider/db.provider.interface';
 import { Events } from '../src/event-emitter/events';
@@ -19,6 +23,7 @@ import type {
   ViewCreateEvent,
   RecordCreateEvent,
 } from '../src/event-emitter/events';
+import { V2ContainerService } from '../src/features/v2/v2-container.service';
 import {
   createField,
   createRecords,
@@ -28,8 +33,13 @@ import {
   getRecords,
   getTable,
   initApp,
+  createBase,
+  permanentDeleteBase,
   updateRecord,
 } from './utils/init-app';
+
+const isForceV2 = process.env.FORCE_V2_ALL === 'true';
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const assertData: ICreateTableRo = {
   name: 'Project Management',
@@ -120,6 +130,7 @@ describe('OpenAPI TableController (e2e)', () => {
   let tableId = '';
   let dbProvider: IDbProvider;
   let event: EventEmitter2;
+  let v2ContainerService: V2ContainerService;
 
   const baseId = globalThis.testConfig.baseId;
   beforeAll(async () => {
@@ -127,6 +138,7 @@ describe('OpenAPI TableController (e2e)', () => {
     app = appCtx.app;
     dbProvider = app.get(DB_PROVIDER_SYMBOL);
     event = app.get(EventEmitter2);
+    v2ContainerService = app.get(V2ContainerService);
   });
 
   afterAll(async () => {
@@ -134,8 +146,85 @@ describe('OpenAPI TableController (e2e)', () => {
   });
 
   afterEach(async () => {
-    await permanentDeleteTable(baseId, tableId);
+    if (tableId) {
+      await permanentDeleteTable(baseId, tableId);
+      tableId = '';
+    }
   });
+
+  async function processV2Outbox(times = 1): Promise<void> {
+    if (!isForceV2) return;
+
+    const container = await v2ContainerService.getContainer();
+    const worker = container.resolve<ComputedUpdateWorker>(
+      v2RecordRepositoryPostgresTokens.computedUpdateWorker
+    );
+
+    for (let i = 0; i < times; i++) {
+      const maxIterations = 100;
+      let iterations = 0;
+
+      while (iterations < maxIterations) {
+        const result = await worker.runOnce({
+          workerId: 'table-delete-test-worker',
+          limit: 100,
+        });
+
+        if (result.isErr()) {
+          throw new Error(`Outbox processing failed: ${result.error.message}`);
+        }
+
+        if (result.value === 0) {
+          break;
+        }
+
+        iterations++;
+      }
+    }
+  }
+
+  async function waitForDeleteTableCleanup(
+    targetTableId: string,
+    options: {
+      twoWayLinkFieldId: string;
+      oneWayLinkFieldId: string;
+      lookupFieldId: string;
+      rollupFieldId: string;
+    }
+  ) {
+    const maxRetries = isForceV2 ? 40 : 1;
+
+    for (let i = 0; i < maxRetries; i++) {
+      if (isForceV2) {
+        await processV2Outbox();
+      }
+
+      const fields = await getFields(targetTableId);
+      const { records } = await getRecords(targetTableId, { fieldKeyType: FieldKeyType.Id });
+      const twoWayLinkField = fields.find((field) => field.id === options.twoWayLinkFieldId);
+      const oneWayLinkField = fields.find((field) => field.id === options.oneWayLinkFieldId);
+      const lookupField = fields.find((field) => field.id === options.lookupFieldId);
+      const rollupField = fields.find((field) => field.id === options.rollupFieldId);
+
+      const deleteSettled =
+        twoWayLinkField?.type === FieldType.SingleLineText &&
+        oneWayLinkField?.type === FieldType.SingleLineText &&
+        records[0]?.fields[options.twoWayLinkFieldId] === 'A' &&
+        records[0]?.fields[options.oneWayLinkFieldId] === 'A' &&
+        Boolean(lookupField?.hasError) &&
+        Boolean(rollupField?.hasError);
+
+      if (deleteSettled) {
+        return { fields, records };
+      }
+
+      await sleep(100);
+    }
+
+    const fields = await getFields(targetTableId);
+    const { records } = await getRecords(targetTableId, { fieldKeyType: FieldKeyType.Id });
+    return { fields, records };
+  }
 
   it('/api/table/ (POST) with assertData data', async () => {
     let eventCount = 0;
@@ -181,7 +270,7 @@ describe('OpenAPI TableController (e2e)', () => {
     const recordResult = await getRecords(tableId);
 
     expect(recordResult.records).toHaveLength(2);
-    expect(eventCount).toBe(4);
+    expect(eventCount).toBe(isForceV2 ? 0 : 4);
   });
 
   it('/api/table/ (POST) empty', async () => {
@@ -190,6 +279,40 @@ describe('OpenAPI TableController (e2e)', () => {
     tableId = result.id;
     const recordResult = await getRecords(tableId);
     expect(recordResult.records).toHaveLength(3);
+  });
+
+  it('should invalidate base-node tree cache after table creation', async () => {
+    const isolatedBase = await createBase({
+      spaceId: globalThis.testConfig.spaceId,
+      name: `base-node-cache-${Date.now()}`,
+    });
+
+    try {
+      const initialTree = await getBaseNodeTree(isolatedBase.id).then((res) => res.data);
+      const initialTableNodeIds = new Set(
+        initialTree.nodes
+          .filter((node) => node.resourceType === BaseNodeResourceType.Table)
+          .map((node) => node.resourceId)
+      );
+
+      const createdTable = await createTable(isolatedBase.id, {
+        name: 'cache invalidation table',
+        fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+        records: [],
+      });
+
+      const refreshedTree = await getBaseNodeTree(isolatedBase.id).then((res) => res.data);
+      const createdNode = refreshedTree.nodes.find(
+        (node) =>
+          node.resourceType === BaseNodeResourceType.Table && node.resourceId === createdTable.id
+      );
+
+      expect(initialTableNodeIds.has(createdTable.id)).toBe(false);
+      expect(createdNode).toBeDefined();
+    } finally {
+      await permanentDeleteBase(isolatedBase.id);
+    }
   });
 
   it('should refresh table lastModifyTime when add a record', async () => {
@@ -250,6 +373,20 @@ describe('OpenAPI TableController (e2e)', () => {
     expect(fields[0].type).toEqual(FieldType.SingleLineText);
     expect(fields[1].type).toEqual(FieldType.Formula);
     expect(fields[2].type).toEqual(FieldType.LongText);
+  });
+
+  it('should reject createTable when first field has unsupported primary type', async () => {
+    // Without the fix, the service would auto-promote a checkbox first field to primary
+    // (bypassing prepareCreateFields validation), persisting a bad-type primary.
+    await expect(
+      createTable(baseId, {
+        name: 'bad primary table',
+        fields: [
+          { name: 'Done', type: FieldType.Checkbox },
+          { name: 'Note', type: FieldType.SingleLineText },
+        ],
+      })
+    ).rejects.toThrow(/primary/i);
   });
 
   it('should update table simple properties', async () => {
@@ -349,8 +486,10 @@ describe('OpenAPI TableController (e2e)', () => {
       },
     };
 
-    await createField(table2.id, lookupFieldRo);
-    await createField(table2.id, rollupFieldRo);
+    const lookupField = await createField(table2.id, lookupFieldRo);
+    const rollupField = await createField(table2.id, rollupFieldRo);
+    const lookupFieldId = lookupField.id;
+    const rollupFieldId = rollupField.id;
 
     await updateRecord(table2.id, table2.records[0].id, {
       record: {
@@ -364,12 +503,30 @@ describe('OpenAPI TableController (e2e)', () => {
 
     await apiDeleteTable(baseId, table1.id);
 
-    const fields = await getFields(table2.id);
-    const { records } = await getRecords(table2.id, { fieldKeyType: FieldKeyType.Id });
+    const { fields, records } = await waitForDeleteTableCleanup(table2.id, {
+      twoWayLinkFieldId: twoWayLink.id,
+      oneWayLinkFieldId: oneWayLink.id,
+      lookupFieldId,
+      rollupFieldId,
+    });
+    const twoWayLinkField = fields.find((field) => field.id === twoWayLink.id);
+    const oneWayLinkField = fields.find((field) => field.id === oneWayLink.id);
+    const refreshedLookupField = fields.find((field) => field.id === lookupFieldId);
+    const refreshedRollupField = fields.find((field) => field.id === rollupFieldId);
 
-    expect(fields[1].type).toEqual(FieldType.SingleLineText);
-    expect(records[0].fields[fields[1].id]).toEqual('A');
-    expect(fields[2].hasError).toBeTruthy();
-    expect(fields[3].hasError).toBeTruthy();
+    if (!isForceV2) {
+      expect(twoWayLinkField?.type).toEqual(FieldType.SingleLineText);
+      expect(records[0].fields[twoWayLink.id]).toEqual('A');
+      expect(refreshedLookupField?.hasError).toBeTruthy();
+      expect(refreshedRollupField?.hasError).toBeTruthy();
+      return;
+    }
+
+    expect(twoWayLinkField?.type).toEqual(FieldType.SingleLineText);
+    expect(oneWayLinkField?.type).toEqual(FieldType.SingleLineText);
+    expect(records[0].fields[twoWayLink.id]).toEqual('A');
+    expect(records[0].fields[oneWayLink.id]).toEqual('A');
+    expect(refreshedLookupField?.hasError).toBeTruthy();
+    expect(refreshedRollupField?.hasError).toBeTruthy();
   });
 });

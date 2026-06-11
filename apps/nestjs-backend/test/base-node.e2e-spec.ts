@@ -1,8 +1,9 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import { FieldType, Role, ViewType } from '@teable/core';
+import { FieldType, Relationship, Role, ViewType } from '@teable/core';
 import type { IBaseNodeTableResourceMeta, IBaseNodeVo } from '@teable/openapi';
 import {
+  axios,
   createBaseNode,
   getBaseNodeTree,
   getBaseNode,
@@ -28,7 +29,7 @@ import {
 import type { AxiosInstance } from 'axios';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { getError } from './utils/get-error';
-import { initApp, permanentDeleteBase } from './utils/init-app';
+import { getFields, initApp, permanentDeleteBase } from './utils/init-app';
 
 // Constants for reused strings
 const nonExistentId = 'non-existent-node-id';
@@ -37,6 +38,7 @@ const originalName = 'Original Name';
 const testFolder = 'Test Folder';
 const updatedName = 'Updated Name';
 const testTableName = 'Test Table';
+const windowIdHeader = 'x-window-id';
 
 describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
   let app: INestApplication;
@@ -163,6 +165,258 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
       expect(response.data.resourceId).toBeDefined();
 
       nodesToCleanup.push(response.data.id);
+    });
+
+    it('should expose create-table canary headers when creating a table node', async () => {
+      const response = await axios.post(
+        urlBuilder(CREATE_BASE_NODE, { baseId }),
+        {
+          resourceType: BaseNodeResourceType.Table,
+          name: 'Create Via Node Route',
+          fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+          views: [{ name: 'Grid view', type: ViewType.Grid }],
+        },
+        {
+          headers: {
+            [windowIdHeader]: 'win-base-node-create-table',
+          },
+        }
+      );
+
+      expect(response.status).toBe(201);
+      expect(response.headers['x-teable-v2']).toBe('true');
+      expect(response.headers['x-teable-v2-feature']).toBe('createTable');
+      expect(response.headers['x-teable-v2-reason']).toBe('new_base');
+
+      nodesToCleanup.push(response.data.id);
+    });
+
+    it('should create all supported table field types through the node canary route', async () => {
+      const foreignNode = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'All Types Foreign',
+        fields: [
+          { name: 'Name', type: FieldType.SingleLineText },
+          { name: 'Revenue', type: FieldType.Number },
+        ],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      });
+      nodesToCleanup.push(foreignNode.data.id);
+
+      const foreignFields = await getFields(foreignNode.data.resourceId);
+      const foreignNameFieldId = foreignFields.find((field) => field.name === 'Name')?.id;
+      const foreignRevenueFieldId = foreignFields.find((field) => field.name === 'Revenue')?.id;
+
+      expect(foreignNameFieldId).toBeTruthy();
+      expect(foreignRevenueFieldId).toBeTruthy();
+      if (!foreignNameFieldId || !foreignRevenueFieldId) return;
+
+      const amountFieldId = 'fldalltypesamount01';
+      const companyLinkFieldId = 'fldalltypeslink0001';
+      const companyLookupFieldId = 'fldalltypeslook0001';
+      const companyRollupFieldId = 'fldalltypesroll0001';
+      const conditionalLookupFieldId = 'fldalltypescdl00001';
+      const conditionalRollupFieldId = 'fldalltypescdr00001';
+
+      const response = await axios.post(
+        urlBuilder(CREATE_BASE_NODE, { baseId }),
+        {
+          resourceType: BaseNodeResourceType.Table,
+          name: 'All Types Via Node Route',
+          fields: [
+            { name: 'Name', type: FieldType.SingleLineText },
+            { name: 'Description', type: FieldType.LongText, options: { defaultValue: 'Details' } },
+            {
+              id: amountFieldId,
+              name: 'Amount',
+              type: FieldType.Number,
+              options: {
+                formatting: { type: 'currency', precision: 2, symbol: '$' },
+                showAs: { type: 'bar', color: 'teal', showValue: true, maxValue: 100 },
+                defaultValue: 10,
+              },
+            },
+            {
+              name: 'Score',
+              type: FieldType.Formula,
+              options: { expression: `{${amountFieldId}} * 2` },
+            },
+            {
+              name: 'Priority',
+              type: FieldType.Rating,
+              options: { max: 5, icon: 'star', color: 'yellowBright' },
+            },
+            {
+              name: 'Status',
+              type: FieldType.SingleSelect,
+              options: {
+                choices: [
+                  { name: 'Todo', color: 'blue' },
+                  { name: 'Doing', color: 'yellow' },
+                  { name: 'Done', color: 'green' },
+                ],
+              },
+            },
+            {
+              name: 'Tags',
+              type: FieldType.MultipleSelect,
+              options: {
+                choices: [
+                  { name: 'Frontend', color: 'purple' },
+                  { name: 'Backend', color: 'orange' },
+                ],
+              },
+            },
+            { name: 'Done', type: FieldType.Checkbox, options: { defaultValue: true } },
+            { name: 'Files', type: FieldType.Attachment },
+            {
+              name: 'Due Date',
+              type: FieldType.Date,
+              options: {
+                formatting: { date: 'YYYY-MM-DD', time: 'HH:mm', timeZone: 'UTC' },
+                defaultValue: 'now',
+              },
+            },
+            { name: 'Auto Number', type: FieldType.AutoNumber },
+            { name: 'Created Time', type: FieldType.CreatedTime },
+            { name: 'Last Modified Time', type: FieldType.LastModifiedTime },
+            { name: 'Created By', type: FieldType.CreatedBy },
+            { name: 'Last Modified By', type: FieldType.LastModifiedBy },
+            {
+              name: 'Owner',
+              type: FieldType.User,
+              options: { isMultiple: true, shouldNotify: false, defaultValue: ['me'] },
+            },
+            {
+              name: 'Action',
+              type: FieldType.Button,
+              options: {
+                label: 'Run',
+                color: 'teal',
+                maxCount: 3,
+                resetCount: true,
+                workflow: { id: 'wflaaaaaaaaaaaaaaaa', name: 'Deploy', isActive: true },
+              },
+            },
+            {
+              id: companyLinkFieldId,
+              name: 'Company',
+              type: FieldType.Link,
+              options: {
+                relationship: Relationship.ManyOne,
+                foreignTableId: foreignNode.data.resourceId,
+                lookupFieldId: foreignNameFieldId,
+              },
+            },
+            {
+              id: companyLookupFieldId,
+              name: 'Company Name',
+              type: FieldType.SingleLineText,
+              isLookup: true,
+              lookupOptions: {
+                linkFieldId: companyLinkFieldId,
+                foreignTableId: foreignNode.data.resourceId,
+                lookupFieldId: foreignNameFieldId,
+              },
+            },
+            {
+              id: companyRollupFieldId,
+              name: 'Company Revenue Total',
+              type: FieldType.Rollup,
+              options: { expression: 'sum({values})', timeZone: 'UTC' },
+              lookupOptions: {
+                linkFieldId: companyLinkFieldId,
+                foreignTableId: foreignNode.data.resourceId,
+                lookupFieldId: foreignRevenueFieldId,
+              },
+            },
+            {
+              id: conditionalLookupFieldId,
+              name: 'High Revenue Companies',
+              type: FieldType.SingleLineText,
+              isLookup: true,
+              isConditionalLookup: true,
+              lookupOptions: {
+                foreignTableId: foreignNode.data.resourceId,
+                lookupFieldId: foreignNameFieldId,
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: foreignRevenueFieldId,
+                      operator: 'isGreater',
+                      value: 100,
+                    },
+                  ],
+                },
+              },
+            },
+            {
+              id: conditionalRollupFieldId,
+              name: 'High Revenue Total',
+              type: FieldType.ConditionalRollup,
+              options: {
+                foreignTableId: foreignNode.data.resourceId,
+                lookupFieldId: foreignRevenueFieldId,
+                expression: 'sum({values})',
+                timeZone: 'UTC',
+                filter: {
+                  conjunction: 'and',
+                  filterSet: [
+                    {
+                      fieldId: foreignRevenueFieldId,
+                      operator: 'isGreater',
+                      value: 100,
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+          views: [{ name: 'Grid view', type: ViewType.Grid }],
+        },
+        {
+          headers: {
+            [windowIdHeader]: 'win-base-node-all-types',
+          },
+        }
+      );
+
+      expect(response.status).toBe(201);
+      expect(response.headers['x-teable-v2']).toBe('true');
+      expect(response.headers['x-teable-v2-feature']).toBe('createTable');
+      expect(response.headers['x-teable-v2-reason']).toBe('new_base');
+
+      nodesToCleanup.push(response.data.id);
+
+      const fields = await getFields(response.data.resourceId);
+      const fieldByName = new Map(fields.map((field) => [field.name, field]));
+
+      expect(fieldByName.get('Name')?.type).toBe(FieldType.SingleLineText);
+      expect(fieldByName.get('Description')?.type).toBe(FieldType.LongText);
+      expect(fieldByName.get('Amount')?.type).toBe(FieldType.Number);
+      expect(fieldByName.get('Score')?.type).toBe(FieldType.Formula);
+      expect(fieldByName.get('Priority')?.type).toBe(FieldType.Rating);
+      expect(fieldByName.get('Status')?.type).toBe(FieldType.SingleSelect);
+      expect(fieldByName.get('Tags')?.type).toBe(FieldType.MultipleSelect);
+      expect(fieldByName.get('Done')?.type).toBe(FieldType.Checkbox);
+      expect(fieldByName.get('Files')?.type).toBe(FieldType.Attachment);
+      expect(fieldByName.get('Due Date')?.type).toBe(FieldType.Date);
+      expect(fieldByName.get('Auto Number')?.type).toBe(FieldType.AutoNumber);
+      expect(fieldByName.get('Created Time')?.type).toBe(FieldType.CreatedTime);
+      expect(fieldByName.get('Last Modified Time')?.type).toBe(FieldType.LastModifiedTime);
+      expect(fieldByName.get('Created By')?.type).toBe(FieldType.CreatedBy);
+      expect(fieldByName.get('Last Modified By')?.type).toBe(FieldType.LastModifiedBy);
+      expect(fieldByName.get('Owner')?.type).toBe(FieldType.User);
+      expect(fieldByName.get('Action')?.type).toBe(FieldType.Button);
+      expect(fieldByName.get('Company')?.type).toBe(FieldType.Link);
+      expect(fieldByName.get('Company Name')?.type).toBe(FieldType.SingleLineText);
+      expect(fieldByName.get('Company Name')?.isLookup).toBe(true);
+      expect(fieldByName.get('Company Revenue Total')?.type).toBe(FieldType.Rollup);
+      expect(fieldByName.get('High Revenue Companies')?.type).toBe(FieldType.SingleLineText);
+      expect(fieldByName.get('High Revenue Companies')?.isLookup).toBe(true);
+      expect(fieldByName.get('High Revenue Companies')?.isConditionalLookup).toBe(true);
+      expect(fieldByName.get('High Revenue Total')?.type).toBe(FieldType.ConditionalRollup);
     });
 
     it('should create a dashboard node successfully', async () => {
@@ -397,6 +651,32 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
 
       // Verify it's deleted
       const error = await getError(() => deleteBaseNode(baseId, folder.id));
+      expect(error?.status).toBeGreaterThanOrEqual(400);
+    });
+
+    it('should expose delete-table canary headers when deleting a table node', async () => {
+      const table = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Delete Via Node Route',
+        fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      });
+
+      const response = await axios.delete(
+        urlBuilder(DELETE_BASE_NODE, { baseId, nodeId: table.data.id }),
+        {
+          headers: {
+            [windowIdHeader]: 'win-base-node-delete-table',
+          },
+        }
+      );
+
+      expect(response.status).toBe(200);
+      expect(response.headers['x-teable-v2']).toBe('true');
+      expect(response.headers['x-teable-v2-feature']).toBe('deleteTable');
+      expect(response.headers['x-teable-v2-reason']).toBe('new_base');
+
+      const error = await getError(() => getBaseNode(baseId, table.data.id));
       expect(error?.status).toBeGreaterThanOrEqual(400);
     });
   });
@@ -726,6 +1006,37 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
       expect(duplicate.data.id).not.toBe(original.data.id);
       expect(duplicate.data.resourceId).not.toBe(original.data.resourceId);
       expect(duplicate.data.resourceMeta?.name).toBe('Duplicated Table');
+    });
+
+    it('should expose duplicate-table canary headers when duplicating a table node', async () => {
+      const original = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Original Table Via Node Route',
+        fields: [{ name: 'Field1', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      });
+      nodesToCleanup.push(original.data.id);
+
+      const response = await axios.post(
+        urlBuilder(DUPLICATE_BASE_NODE, { baseId, nodeId: original.data.id }),
+        {
+          name: 'Duplicated Table Via Node Route',
+          includeRecords: false,
+        },
+        {
+          headers: {
+            [windowIdHeader]: 'win-base-node-duplicate-table',
+          },
+        }
+      );
+
+      expect(response.status).toBe(201);
+      expect(response.headers['x-teable-v2']).toBe('true');
+      expect(response.headers['x-teable-v2-feature']).toBe('duplicateTable');
+      expect(response.headers['x-teable-v2-reason']).toBe('new_base');
+
+      nodesToCleanup.push(response.data.id);
+      expect(response.data.resourceMeta?.name).toBe('Duplicated Table Via Node Route');
     });
 
     it('should duplicate dashboard successfully', async () => {
@@ -1097,6 +1408,101 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
 
       expect(response.data).toHaveProperty('maxFolderDepth');
       expect(response.data.maxFolderDepth).toBe(2);
+    });
+
+    it('should fail when moving folder-with-subfolder into another root folder via parentId', async () => {
+      const folderA = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Subtree Depth A',
+      });
+      nodesToCleanup.push(folderA.data.id);
+
+      const subfolderB = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Subtree Depth B',
+        parentId: folderA.data.id,
+      });
+      nodesToCleanup.push(subfolderB.data.id);
+
+      const folderC = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Subtree Depth C',
+      });
+      nodesToCleanup.push(folderC.data.id);
+
+      // Moving folderA (which contains subfolderB) into folderC
+      // Result would be: C(1) > A(2) > B(3) — depth 3 exceeds maxFolderDepth=2
+      const error = await getError(() =>
+        moveBaseNode(baseId, folderA.data.id, {
+          parentId: folderC.data.id,
+        })
+      );
+
+      expect(error?.status).toBe(400);
+    });
+
+    it('should fail when moving folder-with-subfolder via anchorId inside a folder', async () => {
+      const folderD = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Subtree Anchor D',
+      });
+      nodesToCleanup.push(folderD.data.id);
+
+      const subfolderE = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Subtree Anchor E',
+        parentId: folderD.data.id,
+      });
+      nodesToCleanup.push(subfolderE.data.id);
+
+      const folderF = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Subtree Anchor F',
+      });
+      nodesToCleanup.push(folderF.data.id);
+
+      // Create a child inside folderF to use as anchor
+      const childInF = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Table in F',
+        parentId: folderF.data.id,
+        fields: [{ name: 'Field1', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      });
+      nodesToCleanup.push(childInF.data.id);
+
+      // Moving folderD (with subfolderE) next to childInF (inside folderF)
+      // Result would be: F(1) > D(2) > E(3) — depth 3 exceeds maxFolderDepth=2
+      const error = await getError(() =>
+        moveBaseNode(baseId, folderD.data.id, {
+          anchorId: childInF.data.id,
+          position: 'after',
+        })
+      );
+
+      expect(error?.status).toBe(400);
+    });
+
+    it('should allow moving leaf folder into another root folder', async () => {
+      const targetFolder = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Target Folder',
+      });
+      nodesToCleanup.push(targetFolder.data.id);
+
+      const leafFolder = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Leaf Folder',
+      });
+      nodesToCleanup.push(leafFolder.data.id);
+
+      // Moving a leaf folder (no children) into targetFolder — depth=2, within limit
+      const response = await moveBaseNode(baseId, leafFolder.data.id, {
+        parentId: targetFolder.data.id,
+      });
+
+      expect(response.data.id).toBe(leafFolder.data.id);
+      expect(response.data.parentId).toBe(targetFolder.data.id);
     });
   });
 
@@ -1593,6 +1999,172 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
         );
         expect(viewerDashboardNode).toBeDefined();
       });
+    });
+  });
+
+  describe('Resource ID resolution (using resourceId instead of nodeId)', () => {
+    const nodesToCleanup: string[] = [];
+
+    afterEach(async () => {
+      for (const nodeId of [...nodesToCleanup].reverse()) {
+        await deleteBaseNode(baseId, nodeId);
+      }
+      nodesToCleanup.length = 0;
+    });
+
+    it('should get node by resourceId (tableId)', async () => {
+      const node = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Resolve Get Test',
+        fields: [{ name: 'Field1', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      });
+      nodesToCleanup.push(node.data.id);
+
+      const response = await getBaseNode(baseId, node.data.resourceId);
+
+      expect(response.data.id).toBe(node.data.id);
+      expect(response.data.resourceId).toBe(node.data.resourceId);
+      expect(response.data.resourceMeta?.name).toBe('Resolve Get Test');
+    });
+
+    it('should update node by resourceId', async () => {
+      const node = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Resolve Update Test',
+        fields: [{ name: 'Field1', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      });
+      nodesToCleanup.push(node.data.id);
+
+      const response = await updateBaseNode(baseId, node.data.resourceId, {
+        name: 'Resolve Updated',
+      });
+
+      expect(response.data.id).toBe(node.data.id);
+      expect(response.data.resourceMeta?.name).toBe('Resolve Updated');
+    });
+
+    it('should duplicate node by resourceId', async () => {
+      const node = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Resolve Duplicate Test',
+        fields: [{ name: 'Field1', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      });
+      nodesToCleanup.push(node.data.id);
+
+      const duplicate = await duplicateBaseNode(baseId, node.data.resourceId, {
+        name: 'Resolve Duplicated',
+      });
+      nodesToCleanup.push(duplicate.data.id);
+
+      expect(duplicate.data.id).not.toBe(node.data.id);
+      expect(duplicate.data.resourceMeta?.name).toBe('Resolve Duplicated');
+    });
+
+    it('should move node by resourceId', async () => {
+      const folder = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Resolve Move Folder',
+      });
+      nodesToCleanup.push(folder.data.id);
+
+      const node = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Resolve Move Test',
+        fields: [{ name: 'Field1', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      });
+      nodesToCleanup.push(node.data.id);
+
+      const response = await moveBaseNode(baseId, node.data.resourceId, {
+        parentId: folder.data.id,
+      });
+
+      expect(response.data.id).toBe(node.data.id);
+      expect(response.data.parentId).toBe(folder.data.id);
+    });
+
+    it('should delete node by resourceId', async () => {
+      const node = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Resolve Delete Test',
+        fields: [{ name: 'Field1', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      });
+
+      await deleteBaseNode(baseId, node.data.resourceId);
+
+      const error = await getError(() => getBaseNode(baseId, node.data.id));
+      expect(error?.status).toBeGreaterThanOrEqual(400);
+    });
+
+    it('should move node with resourceId as parentId', async () => {
+      const folder = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Resolve Parent Folder',
+      });
+      nodesToCleanup.push(folder.data.id);
+
+      const node = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Resolve Parent Move Test',
+        fields: [{ name: 'Field1', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      });
+      nodesToCleanup.push(node.data.id);
+
+      const response = await moveBaseNode(baseId, node.data.id, {
+        parentId: folder.data.resourceId,
+      });
+
+      expect(response.data.id).toBe(node.data.id);
+      expect(response.data.parentId).toBe(folder.data.id);
+    });
+
+    it('should create node with resourceId as parentId', async () => {
+      const folder = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Resolve Create Parent Folder',
+      });
+      nodesToCleanup.push(folder.data.id);
+
+      const node = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Resolve Create In Folder Test',
+        parentId: folder.data.resourceId,
+        fields: [{ name: 'Field1', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      });
+      nodesToCleanup.push(node.data.id);
+
+      expect(node.data.parentId).toBe(folder.data.id);
+    });
+
+    it('should move node with resourceId as anchorId', async () => {
+      const anchor = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Anchor Table',
+        fields: [{ name: 'Field1', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      });
+      nodesToCleanup.push(anchor.data.id);
+
+      const node = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Movable Table',
+        fields: [{ name: 'Field1', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      });
+      nodesToCleanup.push(node.data.id);
+
+      const response = await moveBaseNode(baseId, node.data.id, {
+        anchorId: anchor.data.resourceId,
+        position: 'before',
+      });
+
+      expect(response.data.id).toBe(node.data.id);
     });
   });
 });

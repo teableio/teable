@@ -15,6 +15,21 @@ module.exports = function (options, webpack) {
 
   return {
     ...options,
+    resolve: {
+      ...options.resolve,
+      conditionNames: (() => {
+        const base = options.resolve?.conditionNames ?? ['require', 'node', 'default'];
+        if (base.includes('import')) return base;
+        const next = [...base];
+        const defaultIndex = next.indexOf('default');
+        if (defaultIndex === -1) {
+          next.push('import');
+        } else {
+          next.splice(defaultIndex, 0, 'import');
+        }
+        return next;
+      })(),
+    },
     entry: {
       index: ['webpack/hot/poll?100', options.entry],
       ...workerEntries,
@@ -27,12 +42,18 @@ module.exports = function (options, webpack) {
     devtool: 'eval-cheap-module-source-map',
     externals: [
       nodeExternals({
-        allowlist: ['webpack/hot/poll?100', /^@teable/],
+        allowlist: ['webpack/hot/poll?100', /^@teable/, /^@orpc/],
       }),
     ],
     // ignore tests hot reload
     watchOptions: {
-      ignored: ['**/test/**', '**/*.spec.ts', '**/node_modules/**', '**/*.d.ts'],
+      ignored: [
+        '**/test/**',
+        '**/*.spec.ts',
+        '**/node_modules/**',
+        '**/*.d.ts',
+        '**/i18n.generated.ts',
+      ],
       poll: false,
       aggregateTimeout: 200,
     },

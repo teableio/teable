@@ -1,6 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { IBaseRole, IRole } from '@teable/core';
 import { generateInvitationId, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -19,8 +20,11 @@ import { pick } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { IMailConfig } from '../../configs/mail.config';
 import { CustomHttpException } from '../../custom.exception';
+import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
 import { generateInvitationCode } from '../../utils/code-generate';
+import { Audit } from '../audit/audit.decorator';
+import { AuditScope } from '../audit/audit-scope';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { MailSenderService } from '../mail-sender/mail-sender.service';
 import { SettingOpenApiService } from '../setting/open-api/setting-open-api.service';
@@ -35,7 +39,9 @@ export class InvitationService {
     private readonly configService: ConfigService,
     private readonly mailSenderService: MailSenderService,
     private readonly collaboratorService: CollaboratorService,
-    private readonly userService: UserService
+    private readonly userService: UserService,
+    private readonly eventEmitter: EventEmitter2,
+    private readonly audit: AuditScope
   ) {}
 
   private generateInviteUrl(invitationId: string, invitationCode: string) {
@@ -72,6 +78,12 @@ export class InvitationService {
     }
   }
 
+  @Audit({
+    action: Events.INVITATION_EMAIL_SEND,
+    resourceId: (input: { resourceId: string }) => input.resourceId,
+    params: (input: { resourceType: CollaboratorType }) => ({ resourceType: input.resourceType }),
+    emit: (_result: unknown, input: { emails: string[] }) => ({ emailCount: input.emails.length }),
+  })
   private async emailInvitation({
     emails,
     role,
@@ -157,11 +169,9 @@ export class InvitationService {
             invitationId: id,
           },
         });
-        const { brandName } = await this.settingOpenApiService.getServerBrand();
 
         // get email info
         const inviteEmailOptions = await this.mailSenderService.inviteEmailOptions({
-          brandName,
           name: user.name,
           email: user.email,
           resourceName,
@@ -180,6 +190,7 @@ export class InvitationService {
         );
         result[sendUser.email] = { invitationId: id };
       }
+
       return result;
     });
   }
@@ -232,6 +243,12 @@ export class InvitationService {
     });
   }
 
+  @Audit({
+    action: Events.INVITATION_LINK_CREATE,
+    resourceId: (input: { resourceId: string }) => input.resourceId,
+    params: (input: { resourceType: CollaboratorType }) => ({ resourceType: input.resourceType }),
+    emit: true,
+  })
   async generateInvitationLink({
     role,
     resourceId,
@@ -255,6 +272,7 @@ export class InvitationService {
       resourceType,
       type: 'link',
     });
+
     return {
       invitationId: id,
       role: role as IRole,
@@ -481,7 +499,37 @@ export class InvitationService {
         });
       });
     }
+    await this.recordInvitationAccept({
+      resourceId: (spaceId || baseId) as string,
+      accepterId: currentUserId,
+      inviterId: createdBy,
+      resourceType: spaceId ? CollaboratorType.Space : CollaboratorType.Base,
+    });
+
     return { baseId, spaceId };
+  }
+
+  /**
+   * Decorated helper — splits out the audit write so resourceId (only known mid-method)
+   * can be passed in as a parameter the decorator reads.
+   */
+  @Audit({
+    action: Events.INVITATION_ACCEPT,
+    resourceId: (input: { resourceId: string }) => input.resourceId,
+    userId: (input: { accepterId: string }) => input.accepterId,
+    params: (input: { resourceType: CollaboratorType; inviterId: string }) => ({
+      resourceType: input.resourceType,
+      inviterId: input.inviterId,
+    }),
+    emit: true,
+  })
+  private async recordInvitationAccept(_input: {
+    resourceId: string;
+    accepterId: string;
+    inviterId: string;
+    resourceType: CollaboratorType;
+  }) {
+    // Decorator does all the work; body is empty.
   }
 
   private async checkInvitationLimits(): Promise<void> {

@@ -34,7 +34,7 @@ export const LoadingIndicator = (props: ILoadingIndicatorProps) => {
     coordInstance;
 
   return (
-    <div className="pointer-events-none absolute left-0 top-0 z-10">
+    <div className="pointer-events-none absolute left-0 top-0">
       {columnLoadings.map(({ index, progress, onCancel }) => {
         const columnWidth = coordInstance.getColumnWidth(index);
         const columnOffset = coordInstance.getColumnRelativeOffset(index, scrollLeft);
@@ -78,7 +78,10 @@ export const LoadingIndicator = (props: ILoadingIndicatorProps) => {
       })}
 
       {uniqueCellLoadings.map(([columnIndex, realRowIndex]) => {
+        if (realRowIndex >= coordInstance.pureRowCount) return null;
         const rowIndex = real2RowIndex(realRowIndex);
+        if (rowIndex == null) return null;
+
         const rowHeight = coordInstance.getRowHeight(rowIndex);
         const rowOffset = coordInstance.getRowOffset(rowIndex);
         const columnWidth = coordInstance.getColumnWidth(columnIndex);

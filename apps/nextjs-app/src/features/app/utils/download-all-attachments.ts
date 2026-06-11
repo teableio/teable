@@ -1,8 +1,29 @@
 /* eslint-disable sonarjs/cognitive-complexity */
-import type { IAttachmentCellValue, IFilter } from '@teable/core';
-import { FieldKeyType, mergeFilter } from '@teable/core';
+import type { IAttachmentCellValue, IFieldVo, IFilter } from '@teable/core';
+import { FieldKeyType, FieldType, mergeFilter } from '@teable/core';
 import type { IGetRecordsRo } from '@teable/openapi';
-import { getRecords, getRowCount } from '@teable/openapi';
+import {
+  getRecords,
+  getRowCount,
+  getShareViewRecords,
+  getShareViewRowCount,
+} from '@teable/openapi';
+import type { IFieldInstance } from '@teable/sdk';
+
+/**
+ * Check if should disable cache for this mimetype to avoid CORS issues.
+ * Media types (image/video/audio) may be cached by browser via native tags without CORS headers.
+ * Returns true (disable cache) if mimetype is media type or invalid.
+ */
+const shouldDisableCache = (mimetype: string | undefined, fileName: string): boolean => {
+  if (!mimetype || typeof mimetype !== 'string') {
+    console.error(`Invalid mimetype for: ${fileName}, using no-store fallback`);
+    return true;
+  }
+  return (
+    mimetype.startsWith('image/') || mimetype.startsWith('video/') || mimetype.startsWith('audio/')
+  );
+};
 
 export interface IDownloadProgress {
   downloaded: number;
@@ -16,9 +37,36 @@ export interface IDownloadAllAttachmentsOptions {
   fieldId: string;
   fieldName: string;
   viewId?: string;
+  shareId?: string;
   personalViewCommonQuery?: IGetRecordsRo;
+  namingField?: IFieldInstance;
+  /** When true, keep the original filename without any prefix (collisions resolved via _N suffix) */
+  noPrefix?: boolean;
+  groupByRow?: boolean;
   onProgress?: (progress: IDownloadProgress) => void;
   abortController?: AbortController;
+}
+
+/**
+ * Field types suitable for naming files
+ * These are fields that can produce meaningful text values for file names
+ */
+const NAMING_SUITABLE_FIELD_TYPES: FieldType[] = [
+  FieldType.SingleLineText,
+  FieldType.LongText,
+  FieldType.Number,
+  FieldType.AutoNumber,
+  FieldType.SingleSelect,
+  FieldType.Date,
+  FieldType.Formula,
+  FieldType.Rollup,
+];
+
+/**
+ * Check if a field is suitable for naming files
+ */
+export function isFieldSuitableForNaming(field: IFieldVo): boolean {
+  return NAMING_SUITABLE_FIELD_TYPES.includes(field.type as FieldType);
 }
 
 export interface IDownloadCellAttachmentsOptions {
@@ -45,6 +93,8 @@ interface IAttachmentWithRowIndex {
   rowIndex: number;
   attachmentIndex: number;
   attachment: IAttachmentCellValue[number];
+  namingValue?: string;
+  rowAttachmentCount: number; // Total attachments in this row (for groupByRow feature)
 }
 
 const PAGE_SIZE = 100;
@@ -82,31 +132,52 @@ function createAttachmentFilter(fieldId: string, existingFilter?: IFilter): IFil
 }
 
 /**
+ * Sanitize string for use as filename
+ * Remove or replace characters that are not allowed in file names
+ */
+function sanitizeForFilename(str: string): string {
+  // Replace characters not allowed in filenames with underscore
+  return str
+    .replace(/[<>:"/\\|?*]/g, '_') // Replace illegal characters
+    .replace(/\s+/g, '_') // Replace whitespace with underscore
+    .replace(/_+/g, '_') // Collapse multiple underscores
+    .replace(/^_+|_+$/g, '') // Trim leading/trailing underscores
+    .slice(0, 100); // Limit length to 100 characters
+}
+
+/**
  * Load all attachments from records with pagination
  */
 async function loadAllAttachments(
   tableId: string,
   fieldId: string,
   viewId?: string,
+  shareId?: string,
   personalViewCommonQuery?: IGetRecordsRo,
-  abortSignal?: AbortSignal
+  abortSignal?: AbortSignal,
+  namingField?: IFieldInstance
 ): Promise<{
   attachments: IAttachmentWithRowIndex[];
   rowsWithAttachments: number;
   totalAttachments: number;
   totalSize: number;
 }> {
-  const { ignoreViewQuery, filter, orderBy, groupBy } = personalViewCommonQuery ?? {};
+  const { ignoreViewQuery, filter, orderBy, groupBy, search } = personalViewCommonQuery ?? {};
 
   // 1. Create filter with non-empty attachment condition
   const attachmentFilter = createAttachmentFilter(fieldId, filter as IFilter | undefined);
 
-  // 2. Get total row count with the filter
-  const { data: rowCountData } = await getRowCount(tableId, {
-    viewId,
-    ...(ignoreViewQuery ? { ignoreViewQuery } : {}),
-    filter: attachmentFilter,
-  });
+  // 2. Get total row count with the filter (use share view API if shareId is provided)
+  const rowCountData = shareId
+    ? (await getShareViewRowCount(shareId, { filter: attachmentFilter, search })).data
+    : (
+        await getRowCount(tableId, {
+          viewId,
+          ...(ignoreViewQuery ? { ignoreViewQuery } : {}),
+          filter: attachmentFilter,
+          search,
+        })
+      ).data;
 
   const totalRows = rowCountData.rowCount;
 
@@ -119,7 +190,10 @@ async function loadAllAttachments(
     };
   }
 
-  // 3. Load all records with pagination
+  // 3. Build projection - include naming field if specified
+  const projection = namingField ? [fieldId, namingField.id] : [fieldId];
+
+  // 4. Load all records with pagination
   const attachments: IAttachmentWithRowIndex[] = [];
   let rowsWithAttachments = 0;
   let totalAttachments = 0;
@@ -136,14 +210,18 @@ async function loadAllAttachments(
       take: PAGE_SIZE,
       skip,
       fieldKeyType: FieldKeyType.Id,
-      projection: [fieldId],
+      projection,
       filter: attachmentFilter,
       ...(ignoreViewQuery ? { ignoreViewQuery } : {}),
       ...(orderBy ? { orderBy } : {}),
       ...(groupBy ? { groupBy } : {}),
+      ...(search ? { search } : {}),
     };
 
-    const { data } = await getRecords(tableId, query);
+    // Use share view API if shareId is provided
+    const { data } = shareId
+      ? await getShareViewRecords(shareId, query)
+      : await getRecords(tableId, query);
     const records = data.records;
 
     if (!records?.length) break;
@@ -160,11 +238,22 @@ async function loadAllAttachments(
           totalAttachments += downloadableAttachments.length;
           totalSize += downloadableAttachments.reduce((sum, a) => sum + (a.size || 0), 0);
 
+          // Get naming value using field's cellValue2String method
+          let namingValue: string | undefined;
+          if (namingField) {
+            const namingCellValue = record.fields[namingField.id];
+            const rawValue = namingField.cellValue2String(namingCellValue);
+            namingValue = rawValue ? sanitizeForFilename(rawValue) : undefined;
+          }
+
+          const rowAttachmentCount = downloadableAttachments.length;
           downloadableAttachments.forEach((attachment, attachmentIndex) => {
             attachments.push({
               rowIndex,
               attachmentIndex,
               attachment,
+              namingValue,
+              rowAttachmentCount,
             });
           });
         }
@@ -188,12 +277,14 @@ export async function getAttachmentPreview(
   tableId: string,
   fieldId: string,
   viewId?: string,
+  shareId?: string,
   personalViewCommonQuery?: IGetRecordsRo
 ): Promise<IAttachmentPreview> {
   const { rowsWithAttachments, totalAttachments, totalSize } = await loadAllAttachments(
     tableId,
     fieldId,
     viewId,
+    shareId,
     personalViewCommonQuery
   );
 
@@ -209,20 +300,86 @@ function getPaddedRowNumber(rowIndex: number, totalRows: number): string {
 }
 
 /**
+ * Generate folder name for groupByRow feature
+ */
+function generateFolderName(
+  rowIndex: number,
+  totalRows: number,
+  namingValue?: string,
+  isNamingValueDuplicated?: boolean
+): string {
+  if (namingValue) {
+    if (isNamingValueDuplicated) {
+      return `${namingValue}_${getPaddedRowNumber(rowIndex, totalRows)}`;
+    }
+    return namingValue;
+  }
+  return getPaddedRowNumber(rowIndex, totalRows);
+}
+
+/**
  * Generate unique filename for attachment within zip
+ * When namingValue is provided and is unique, use simple format: namingValue_fileName
+ * When namingValue is duplicated, add row number: namingValue_rowNumber_fileName
+ * When no namingValue, use row number as prefix
+ *
+ * When groupByRow is enabled and row has multiple attachments:
+ * - Put files in a folder named after the row
+ * - Use original filename (with index suffix if duplicated)
  */
 function generateZipFileName(
   rowIndex: number,
   attachmentIndex: number,
   fileName: string,
   totalRows: number,
-  hasMultipleInRow: boolean
+  rowAttachmentCount: number,
+  namingValue?: string,
+  isNamingValueDuplicated?: boolean,
+  groupByRow?: boolean,
+  noPrefix?: boolean
 ): string {
-  const paddedRow = getPaddedRowNumber(rowIndex, totalRows);
-  if (hasMultipleInRow) {
-    return `${paddedRow}_${attachmentIndex + 1}_${fileName}`;
+  const hasMultipleInRow = rowAttachmentCount > 1;
+
+  // No-prefix mode: keep original filename. groupByRow still wraps multi-attachment rows
+  // in a row-numbered folder so files within the same row stay together.
+  if (noPrefix) {
+    if (groupByRow && hasMultipleInRow) {
+      return `${getPaddedRowNumber(rowIndex, totalRows)}/${fileName}`;
+    }
+    return fileName;
   }
-  return `${paddedRow}_${fileName}`;
+
+  // When groupByRow is enabled and row has multiple attachments, use folder structure
+  if (groupByRow && hasMultipleInRow) {
+    const folderName = generateFolderName(
+      rowIndex,
+      totalRows,
+      namingValue,
+      isNamingValueDuplicated
+    );
+    // Use original filename, add index suffix to avoid duplicates within same row
+    return `${folderName}/${attachmentIndex + 1}_${fileName}`;
+  }
+
+  // Original flat structure
+  let prefix: string;
+
+  if (namingValue) {
+    // Has naming value: add row number only if duplicated
+    if (isNamingValueDuplicated) {
+      prefix = `${namingValue}_${getPaddedRowNumber(rowIndex, totalRows)}`;
+    } else {
+      prefix = namingValue;
+    }
+  } else {
+    // No naming value: use row number
+    prefix = getPaddedRowNumber(rowIndex, totalRows);
+  }
+
+  if (hasMultipleInRow) {
+    return `${prefix}_${attachmentIndex + 1}_${fileName}`;
+  }
+  return `${prefix}_${fileName}`;
 }
 
 /**
@@ -237,7 +394,11 @@ export async function downloadAllAttachments(
     fieldId,
     fieldName,
     viewId,
+    shareId,
     personalViewCommonQuery,
+    namingField,
+    noPrefix,
+    groupByRow,
     onProgress,
     abortController,
   } = options;
@@ -251,22 +412,38 @@ export async function downloadAllAttachments(
       tableId,
       fieldId,
       viewId,
+      shareId,
       personalViewCommonQuery,
-      abortSignal
+      abortSignal,
+      namingField
     );
 
     if (attachmentList.length === 0) {
       return { success: true, totalFiles: 0, failedFiles: [] };
     }
 
-    // 2. Count attachments per row for filename generation
-    const rowAttachmentCount = new Map<number, number>();
-    attachmentList.forEach(({ rowIndex }) => {
-      rowAttachmentCount.set(rowIndex, (rowAttachmentCount.get(rowIndex) || 0) + 1);
-    });
+    // 2. Get max row index for padding
     const maxRowIndex = Math.max(...attachmentList.map((a) => a.rowIndex));
 
-    // 3. Dynamic import streaming libraries (not loaded until needed)
+    // 3. Count naming values to detect duplicates (only count unique rows per naming value)
+    const namingValueRowCount = new Map<string, Set<number>>();
+    attachmentList.forEach(({ rowIndex, namingValue }) => {
+      if (namingValue) {
+        if (!namingValueRowCount.has(namingValue)) {
+          namingValueRowCount.set(namingValue, new Set());
+        }
+        namingValueRowCount.get(namingValue)!.add(rowIndex);
+      }
+    });
+    // A naming value is duplicated if it appears in more than one row
+    const duplicatedNamingValues = new Set<string>();
+    namingValueRowCount.forEach((rows, namingValue) => {
+      if (rows.size > 1) {
+        duplicatedNamingValues.add(namingValue);
+      }
+    });
+
+    // 4. Dynamic import streaming libraries (not loaded until needed)
     const [{ Zip, ZipPassThrough }, streamSaverModule] = await Promise.all([
       import('fflate'),
       import('streamsaver'),
@@ -279,7 +456,7 @@ export async function downloadAllAttachments(
       streamSaver.mitm = `${window.location.origin}/streamsaver/mitm.html?version=2.0.0`;
     }
 
-    // 4. Create file write stream
+    // 5. Create file write stream
     const zipFileName = `${fieldName}_attachments.zip`;
     const fileStream = streamSaver.createWriteStream(zipFileName);
     const writer = fileStream.getWriter();
@@ -287,7 +464,10 @@ export async function downloadAllAttachments(
     let downloadedBytes = 0;
     let processedFiles = 0;
 
-    // 5. Create zip stream
+    // Track final zip entry names for noPrefix mode to dedupe cross-row collisions.
+    const usedZipPaths = new Map<string, number>();
+
+    // 6. Create zip stream
     const zip = new Zip((err, chunk, final) => {
       if (err) {
         writer.abort();
@@ -299,21 +479,34 @@ export async function downloadAllAttachments(
       }
     });
 
-    // 6. Process each attachment
-    for (const { rowIndex, attachmentIndex, attachment } of attachmentList) {
+    // 7. Process each attachment
+    for (const {
+      rowIndex,
+      attachmentIndex,
+      attachment,
+      namingValue,
+      rowAttachmentCount: attachmentCountInRow,
+    } of attachmentList) {
       if (abortSignal?.aborted) {
         zip.end();
         throw new DOMException(DOWNLOAD_CANCELLED_MESSAGE, 'AbortError');
       }
 
-      const hasMultipleInRow = (rowAttachmentCount.get(rowIndex) || 0) > 1;
-      const fileName = generateZipFileName(
+      const isNamingValueDuplicated = namingValue ? duplicatedNamingValues.has(namingValue) : false;
+      let fileName = generateZipFileName(
         rowIndex,
         attachmentIndex,
         attachment.name,
         maxRowIndex,
-        hasMultipleInRow
+        attachmentCountInRow,
+        namingValue,
+        isNamingValueDuplicated,
+        groupByRow,
+        noPrefix
       );
+      if (noPrefix) {
+        fileName = generateUniqueFileName(fileName, usedZipPaths);
+      }
 
       // Skip attachments without valid presignedUrl
       if (!attachment.presignedUrl) {
@@ -334,8 +527,11 @@ export async function downloadAllAttachments(
       zip.add(file);
 
       try {
-        // Fetch the attachment
-        const response = await fetch(attachment.presignedUrl, { signal: abortSignal });
+        const disableCache = shouldDisableCache(attachment.mimetype, attachment.name);
+        const response = await fetch(attachment.presignedUrl, {
+          signal: abortSignal,
+          ...(disableCache && { cache: 'no-store' }),
+        });
 
         if (!response.ok) {
           failedFiles.push(attachment.name);
@@ -378,6 +574,7 @@ export async function downloadAllAttachments(
         if ((error as Error).name === 'AbortError') {
           throw error;
         }
+        console.error(`Fetch error for: ${attachment.name}`, error);
         failedFiles.push(attachment.name);
       }
     }
@@ -450,7 +647,13 @@ function generateUniqueFileName(fileName: string, filenameCount: Map<string, num
  * Shared logic for both column and cell downloads
  */
 async function streamAttachmentsToZip(
-  attachments: Array<{ fileName: string; url: string; originalName: string; size: number }>,
+  attachments: Array<{
+    fileName: string;
+    url: string;
+    originalName: string;
+    size: number;
+    mimetype: string;
+  }>,
   zipFileName: string,
   totalSize: number,
   onProgress?: (progress: IDownloadProgress) => void,
@@ -490,7 +693,7 @@ async function streamAttachmentsToZip(
   });
 
   // Process each attachment
-  for (const { fileName, url, originalName } of attachments) {
+  for (const { fileName, url, originalName, mimetype } of attachments) {
     if (abortSignal?.aborted) {
       zip.end();
       throw new DOMException(DOWNLOAD_CANCELLED_MESSAGE, 'AbortError');
@@ -508,7 +711,11 @@ async function streamAttachmentsToZip(
     zip.add(file);
 
     try {
-      const response = await fetch(url, { signal: abortSignal });
+      const disableCache = shouldDisableCache(mimetype, originalName);
+      const response = await fetch(url, {
+        signal: abortSignal,
+        ...(disableCache && { cache: 'no-store' }),
+      });
 
       if (!response.ok) {
         failedFiles.push(originalName);
@@ -548,6 +755,7 @@ async function streamAttachmentsToZip(
       if ((error as Error).name === 'AbortError') {
         throw error;
       }
+      console.error(`Fetch error for: ${originalName}`, error);
       failedFiles.push(originalName);
     }
   }
@@ -590,6 +798,7 @@ export async function downloadCellAttachments(
     url: a.presignedUrl!,
     originalName: a.name,
     size: a.size || 0,
+    mimetype: a.mimetype,
   }));
 
   try {

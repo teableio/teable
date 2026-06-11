@@ -1,4 +1,10 @@
 {
+  "crossSpace": {
+    "duplicateBaseTitle": "Уведомление",
+    "duplicateBaseDescription": "Перекрёстные ссылки между пространствами не поддерживаются. Копия будет преобразована в однострочное текстовое поле.",
+    "affectedTableSuffix": "({{count}} поле(й))",
+    "convertAndDuplicate": "Преобразовать и дублировать"
+  },
   "initialSpaceName": "{{name}}'s space",
   "action": {
     "createBase": "Создать базу",
@@ -51,9 +57,16 @@
     "exportTips2": "Вы можете импортировать файл .tea в пространство -> больше -> импорт",
     "exportTips3": "Поля связи между базами будут преобразованы в однострочный текст.",
     "exportIncludeDataLabel": "Включить записи",
-    "exportIncludeDataDescription": "Выключите, чтобы экспортировать только структуру и конфигурацию.",
+    "exportIncludeDataDescription": "При отключении экспортируется только структура и конфигурация",
+    "exportTitle": "Экспорт",
+    "exportDescription": "Экспортировать текущую базу данных в файл .tea, это может занять некоторое время.",
+    "exportStartButton": "Начать экспорт",
+    "exportSlowTip": "Объём данных большой. Экспорт может занять некоторое время. Вы можете временно покинуть страницу.",
+    "exportReadyDescription": "Пожалуйста, скачайте файл .tea, {{importHint}}",
     "moveBaseSuccessTitle": "Перемещение успешно",
-    "moveBaseSuccessDescription": "{{baseName}} успешно перемещена в {{spaceName}}"
+    "moveBaseSuccessDescription": "{{baseName}} успешно перемещена в {{spaceName}}",
+    "moveBaseCrossSpaceTitle": "Уведомление",
+    "moveBaseCrossSpaceDataLossWarning": "Перекрёстные ссылки между пространствами не поддерживаются. Связанные поля будут преобразованы в текстовые поля. Это действие нельзя отменить."
   },
   "deleteSpaceModal": {
     "title": "Удалить пространство",
@@ -66,10 +79,6 @@
     "title": "Общие базы",
     "description": "Все базы, в которые меня пригласили",
     "empty": "Общих баз пока нет"
-  },
-  "trash": {
-    "spaceDescription": "Все удалённые пространства в этом экземпляре",
-    "baseDescription": "Все удалённые базы в этом пространстве"
   },
   "integration": {
     "title": "Интеграции",
@@ -88,7 +97,28 @@
     "importing": "Импорт",
     "importWayTip": "Нажмите или перетащите файл в эту область для загрузки",
     "baseImportTips": "Нажмите или перетащите файл .tea в эту область для загрузки",
-    "confirm": "Подтвердить и продолжить"
+    "confirm": "Подтвердить и продолжить",
+    "phase": {
+      "parsingStructure": "Parsing structure",
+      "creatingBase": "Creating base: {{detail}}",
+      "creatingTable": "Creating table: {{detail}}",
+      "creatingCommonFields": "Creating basic fields for {{table}}: {{fields}}",
+      "creatingButtonFields": "Creating button fields for {{table}}: {{fields}}",
+      "creatingFormulaFields": "Creating formula fields for {{table}}: {{fields}}",
+      "creatingLinkFields": "Creating link fields for {{table}}: {{fields}}",
+      "creatingLookupFields": "Creating lookup fields for {{table}}: {{fields}}",
+      "creatingTableViews": "Creating views for {{table}}: {{fields}}",
+      "creatingPlugins": "Creating plugins",
+      "creatingFolders": "Creating folders",
+      "creatingWorkflows": "Creating workflows",
+      "creatingApps": "Creating apps",
+      "creatingAuthorityMatrix": "Creating authority matrix",
+      "queuingAttachments": "Queuing attachment uploads",
+      "uploadingAppFiles": "Uploading app files",
+      "queuingDataImport": "Queuing data import",
+      "done": "Import completed",
+      "clickToView": "Нажмите для просмотра"
+    }
   },
   "template": {
     "title": "Шаблон",
@@ -117,8 +147,8 @@
     "empty": "Баз пока нет"
   },
   "publishBase": {
-    "title": "Опубликовать базу в сообществе",
-    "description": "Публикация базы в один клик, вдохновение больше не одиноко! Пусть больше людей увидят, используют и ремикшируют ваше творчество, создавая более мощный бизнес вместе",
+    "title": "Опубликовать в центре шаблонов",
+    "description": "Публикация базы в центре шаблонов в один клик! Пусть больше людей увидят, используют и ремикшируют ваше творчество, создавая более мощный бизнес вместе",
     "infoTitle": "Основная информация",
     "form": {
       "title": "Название",
@@ -133,7 +163,7 @@
       "descriptionPlaceholder": "Кратко опишите свою идею...",
       "titlePlaceholder": "Назовите свою работу..."
     },
-    "publishToCommunity": "Опубликовать в сообществе",
+    "publishToCommunity": "Опубликовать в центре шаблонов",
     "publish": "Опубликовать",
     "publishSuccess": "Успешно опубликовано!",
     "previewTips": "Покажите свою работу миру",
@@ -141,7 +171,7 @@
     "unPublish": "Снять с публикации",
     "unPublishSuccess": "База успешно снята с публикации!",
     "unPublishConfirmTitle": "Подтвердите снятие с публикации",
-    "unPublishConfirmDescription": "Вы уверены, что хотите снять эту базу с публикации? Она больше не будет видна в центре шаблонов сообщества.",
+    "unPublishConfirmDescription": "Вы уверены, что хотите снять эту базу с публикации? Она больше не будет видна в центре шаблонов.",
     "usageCount": "Количество использований: ",
     "uploadCover": "Нажмите, чтобы загрузить обложку",
     "changeCover": "Нажмите, чтобы изменить обложку",
@@ -155,6 +185,10 @@
     },
     "urlCopied": "URL скопирован в буфер обмена!",
     "urlCopiedForDiscord": "URL скопирован в буфер обмена! Вы можете вставить его в Discord.",
+    "featuredLabel": "Featured",
+    "unfeaturedLabel": "Unfeatured",
+    "featuredTip": "Официально выбран как избранный. Ваш шаблон получит больше внимания.",
+    "unfeaturedTip": "Пока не избран. Продолжайте улучшать, чтобы получить шанс на рекомендацию. Пусть больше людей увидят вашу работу.",
     "publishSuccessDescription": "Поделитесь своей работой с миром",
     "shareWith": "Поделиться с",
     "unpublishedApps": {

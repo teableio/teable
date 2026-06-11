@@ -5,23 +5,38 @@ import { ShareDbModule } from '../../../share-db/share-db.module';
 import { StorageModule } from '../../attachments/plugins/storage.module';
 import { NotificationModule } from '../../notification/notification.module';
 import { RecordOpenApiModule } from '../../record/open-api/record-open-api.module';
+import { ImportMetricsModule } from '../metrics/import-metrics.module';
 import {
   ImportTableCsvChunkQueueProcessor,
   TABLE_IMPORT_CSV_CHUNK_QUEUE,
 } from './import-csv-chunk.processor';
 import { ImportTableCsvQueueProcessor, TABLE_IMPORT_CSV_QUEUE } from './import-csv.processor';
+import {
+  ImportTableResultQueueProcessor,
+  TABLE_IMPORT_RESULT_QUEUE,
+} from './import-result.processor';
 
 @Module({
-  providers: [ImportTableCsvChunkQueueProcessor, ImportTableCsvQueueProcessor],
+  providers: [
+    ImportTableCsvChunkQueueProcessor,
+    ImportTableCsvQueueProcessor,
+    ImportTableResultQueueProcessor,
+  ],
   imports: [
     EventJobModule.registerQueue(TABLE_IMPORT_CSV_CHUNK_QUEUE),
     EventJobModule.registerQueue(TABLE_IMPORT_CSV_QUEUE),
+    EventJobModule.registerQueue(TABLE_IMPORT_RESULT_QUEUE),
     ShareDbModule,
     RecordOpenApiModule,
     NotificationModule,
     StorageModule,
     EventEmitterModule,
+    ImportMetricsModule,
   ],
-  exports: [ImportTableCsvChunkQueueProcessor, ImportTableCsvQueueProcessor],
+  exports: [
+    ImportTableCsvChunkQueueProcessor,
+    ImportTableCsvQueueProcessor,
+    ImportTableResultQueueProcessor,
+  ],
 })
 export class ImportCsvChunkModule {}

@@ -1,42 +1,24 @@
-import { Filter as FilterIcon, Share2, Plus, EyeOff, Settings, AlertTriangle } from '@teable/icons';
+import { Filter as FilterIcon, Share2, EyeOff, Settings, AlertTriangle } from '@teable/icons';
 import type { CalendarView } from '@teable/sdk';
-import {
-  ViewFilter,
-  VisibleFields,
-  useTablePermission,
-  CreateRecordModal,
-  useIsTemplate,
-} from '@teable/sdk';
+import { ViewFilter, VisibleFields } from '@teable/sdk';
 import { useView } from '@teable/sdk/hooks/use-view';
-import { Button, cn } from '@teable/ui-lib/shadcn';
+import { cn } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
 import { CalendarConfig } from '../../calendar/components/CalendarConfig';
 import { useToolbarChange } from '../../hooks/useToolbarChange';
 import { ToolBarButton } from '../ToolBarButton';
+import { ScrollableToolbarGroup } from './ScrollableToolbarGroup';
 
 export const CalendarViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
   const { disabled } = props;
   const view = useView() as CalendarView | undefined;
-  const permission = useTablePermission();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { onFilterChange } = useToolbarChange();
-  const isTemplate = useIsTemplate();
   if (!view) return null;
 
   return (
-    <div className="flex items-center gap-1">
-      {!isTemplate && (
-        <>
-          <CreateRecordModal>
-            <Button size={'xs'} variant={'outline'} disabled={!permission['record|create']}>
-              <Plus className="size-4" />
-              {t('table:view.addRecord')}
-            </Button>
-          </CreateRecordModal>
-          <div className="mx-1 h-4 w-px shrink-0 bg-border" />
-        </>
-      )}
+    <ScrollableToolbarGroup className="items-center">
       <CalendarConfig>
         <ToolBarButton
           disabled={disabled}
@@ -64,8 +46,8 @@ export const CalendarViewOperators: React.FC<{ disabled?: boolean }> = (props) =
         onChange={onFilterChange}
         contentHeader={
           view.enableShare && (
-            <div className="flex max-w-full items-center justify-start rounded-t bg-accent px-4 py-2 text-[11px]">
-              <Share2 className="mr-4 size-4 shrink-0" />
+            <div className="mb-2 flex max-w-full items-center justify-start rounded-md border bg-muted px-3 py-2 text-xs text-muted-foreground dark:bg-white/5">
+              <Share2 className="mr-2 size-4 shrink-0" />
               <span className="text-muted-foreground">{t('table:toolbar.viewFilterInShare')}</span>
             </div>
           )
@@ -77,7 +59,7 @@ export const CalendarViewOperators: React.FC<{ disabled?: boolean }> = (props) =
             isActive={isActive}
             text={text}
             className={cn(
-              'max-w-xs',
+              'max-w-[200px]',
               isActive &&
                 'bg-violet-100 dark:bg-violet-600/30 hover:bg-violet-200 dark:hover:bg-violet-500/30',
               hasWarning && 'border-yellow-500'
@@ -85,12 +67,12 @@ export const CalendarViewOperators: React.FC<{ disabled?: boolean }> = (props) =
             textClassName="@2xl/toolbar:inline"
           >
             <>
-              <FilterIcon className="size-4 text-sm" />
-              {hasWarning && <AlertTriangle className="size-3.5 text-yellow-500" />}
+              <FilterIcon className="size-4 shrink-0 text-sm" />
+              {hasWarning && <AlertTriangle className="size-3.5 shrink-0 text-yellow-500" />}
             </>
           </ToolBarButton>
         )}
       </ViewFilter>
-    </div>
+    </ScrollableToolbarGroup>
   );
 };

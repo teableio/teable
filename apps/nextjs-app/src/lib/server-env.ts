@@ -1,6 +1,9 @@
 import React from 'react';
 
 export interface IServerEnv {
+  buildVersion?: string;
+  gitCommitSha?: string;
+  previewTag?: string;
   driver?: string;
   brandName?: string;
   brandLogo?: string;
@@ -9,6 +12,7 @@ export interface IServerEnv {
   umamiWebSiteId?: string;
   gaId?: string;
   googleAdsConversionId?: string;
+  marketingGaId?: string;
   umamiUrl?: string;
   sentryDsn?: string;
   socialAuthProviders?: string[];
@@ -38,6 +42,12 @@ export interface IServerEnv {
   resetPasswordSendMailCodeRate?: number;
   signupVerificationSendMailCodeRate?: number;
   enableCanaryFeature?: boolean;
+  task?: {
+    maxTaskRows?: number;
+  };
+  trash?: {
+    retentionDays?: number;
+  };
 }
 
 export const EnvContext = React.createContext<IServerEnv>({});

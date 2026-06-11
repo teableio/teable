@@ -1,9 +1,9 @@
-import { defaultDatetimeFormatting, formatDateToString } from '@teable/core';
+import { defaultDatetimeFormatting, formatDateToString, TimeFormatting } from '@teable/core';
 import { Calendar as CalendarIcon } from '@teable/icons';
 import { Button, Input, Popover, PopoverContent, PopoverTrigger, cn } from '@teable/ui-lib';
 import dayjs from 'dayjs';
 import type { ForwardRefRenderFunction } from 'react';
-import { forwardRef, useImperativeHandle, useRef, useState, useEffect } from 'react';
+import { forwardRef, useImperativeHandle, useMemo, useRef, useState, useEffect } from 'react';
 import { useTranslation } from '../../../context/app/i18n';
 import { useIsTouchDevice } from '../../../hooks';
 import type { IEditorRef } from '../type';
@@ -27,7 +27,17 @@ const DateEditorBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEditorMa
   const isTouchDevice = useIsTouchDevice();
   const { t } = useTranslation();
 
-  const formatting = options?.formatting || defaultDatetimeFormatting;
+  // When disableTimePicker is true, force date-only display (no time)
+  const formatting = useMemo(() => {
+    const baseFormatting = options?.formatting || defaultDatetimeFormatting;
+    if (disableTimePicker) {
+      return {
+        ...baseFormatting,
+        time: TimeFormatting.None,
+      };
+    }
+    return baseFormatting;
+  }, [options?.formatting, disableTimePicker]);
 
   useImperativeHandle(ref, () => ({
     setValue: (value?: string) => {
@@ -38,6 +48,27 @@ const DateEditorBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEditorMa
   useEffect(() => {
     setInputValue(formatDisplayValue(value || '', formatting));
   }, [value, formatting]);
+
+  // Radix Popover dismiss can be blocked by parent Dialog's onInteractOutside/preventDefault.
+  // Use an explicit capture-phase listener to reliably close the popover on outside clicks.
+  useEffect(() => {
+    if (!isPopoverOpen) return;
+
+    const handlePointerDown = (e: PointerEvent) => {
+      const target = e.target as Node | null;
+      if (
+        target &&
+        !popoverContentRef.current?.contains(target) &&
+        !popoverTriggerRef.current?.contains(target)
+      ) {
+        setPopoverOpen(false);
+        setEditing(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown, true);
+    return () => document.removeEventListener('pointerdown', handlePointerDown, true);
+  }, [isPopoverOpen]);
 
   const onInputBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     const relatedTarget = e.relatedTarget as HTMLElement;
@@ -58,6 +89,7 @@ const DateEditorBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEditorMa
   };
 
   const onCalendarChange = (value: string | null | undefined) => {
+    setInputValue(formatDisplayValue(value || '', formatting));
     onChange?.(value);
     setEditing(false);
   };
@@ -73,7 +105,7 @@ const DateEditorBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEditorMa
           <Button
             variant={'outline'}
             className={cn(
-              'w-full first-line:pl-3 text-left font-normal h-10 sm:h-9',
+              'w-full first-line:pl-3 text-left font-normal h-10 sm:h-9 dark:bg-[color-mix(in_oklab,white_5%,hsl(var(--background)))] hover:border-primary/30 dark:hover:bg-[color-mix(in_oklab,white_5%,hsl(var(--background)))] ',
               !value && 'text-muted-foreground',
               className
             )}
@@ -90,7 +122,7 @@ const DateEditorBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEditorMa
               value={inputValue}
               readOnly={readonly}
               placeholder={placeholder}
-              className={cn('w-full h-10 sm:h-8', className)}
+              className={cn('h-10 sm:h-8', className)}
               onChange={(e) => setInputValue(e.target.value)}
               onClick={onInputClick}
               onBlur={onInputBlur}
@@ -98,7 +130,7 @@ const DateEditorBase: ForwardRefRenderFunction<IEditorRef<string>, IDateEditorMa
             {!isEditing && (
               <Input
                 className={cn(
-                  'absolute left-0 top-0 w-full h-10 sm:h-8 shadow-none pointer-events-none disabled:opacity-100',
+                  'absolute left-0 top-0 h-10 sm:h-8 pointer-events-none disabled:opacity-100',
                   className
                 )}
                 placeholder={placeholder}

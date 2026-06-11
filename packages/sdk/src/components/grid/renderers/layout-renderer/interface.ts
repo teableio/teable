@@ -20,6 +20,7 @@ export interface IRowHeaderDrawerProps extends IRectangle {
   displayIndex: string;
   theme: IGridTheme;
   rowControls: IRowControlItem[];
+  rowControlPaddingX?: number;
   spriteManager: SpriteManager;
   fill?: string;
   stroke?: string;
@@ -70,6 +71,7 @@ export interface IGridHeaderDrawerProps extends IRectangle {
   theme: IGridTheme;
   isChecked: boolean;
   rowControls: IRowControlItem[];
+  rowControlPaddingX?: number;
   isMultiSelectionEnable?: boolean;
 }
 
@@ -98,6 +100,7 @@ export interface ICacheDrawerProps {
 export interface IGroupStatisticDrawerProps extends IRectangle {
   theme: IGridTheme;
   bgColor?: string;
+  hoverBgColor?: string;
   isHovered: boolean;
   text?: string;
   textOffsetY?: number;

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import type { TableDomain } from '@teable/core';
-import { FieldKeyType } from '@teable/core';
+import type { IAttachmentCellValue, TableDomain } from '@teable/core';
+import { FieldKeyType, FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IRecordInsertOrderRo } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
@@ -12,6 +12,7 @@ import { Timing } from '../../../utils/timing';
 import { BatchService } from '../../calculation/batch.service';
 import { LinkService } from '../../calculation/link.service';
 import { SystemFieldService } from '../../calculation/system-field.service';
+import type { ICellContext } from '../../calculation/utils/changes';
 import { composeOpMaps, type IOpsMap } from '../../calculation/utils/compose-maps';
 import { TableDomainQueryService } from '../../table-domain';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
@@ -62,6 +63,7 @@ export class RecordUpdateService {
     updateRecordsRo: IUpdateRecordsInternalRo,
     windowId?: string
   ) {
+    const effectiveWindowId = windowId ?? this.cls.get('windowId');
     const {
       records,
       order,
@@ -73,7 +75,7 @@ export class RecordUpdateService {
     const table = await this.tableDomainQueryService.getTableDomainById(tableId);
     const scopedRecords = this.filterRecordsByFieldKeys(records, fieldIds);
     const orderIndexesBefore =
-      order != null && windowId
+      order != null && effectiveWindowId
         ? await this.recordService.getRecordIndexes(
             table,
             records.map((r) => r.id),
@@ -144,14 +146,21 @@ export class RecordUpdateService {
       return ctxs;
     });
 
+    // Invalidate presigned URL cache for renamed attachments before reading snapshot,
+    // so the response contains fresh URLs with the new filename in Content-Disposition
+    const renamedTokens = this.detectAttachmentRenames(cellContexts, table);
+    if (renamedTokens.length > 0) {
+      await this.recordService.invalidateAttachmentPresignedUrlCache(renamedTokens);
+    }
+
     const recordIds = records.map((r) => r.id);
-    if (windowId) {
+    if (effectiveWindowId) {
       const orderIndexesAfter =
         order && (await this.recordService.getRecordIndexes(table, recordIds, order.viewId));
 
       this.eventEmitterService.emitAsync(Events.OPERATION_RECORDS_UPDATE, {
         tableId,
-        windowId,
+        windowId: effectiveWindowId,
         userId: this.cls.get('user.id'),
         recordIds,
         fieldIds: fieldIds?.length ? fieldIds : Object.keys(scopedRecords[0]?.fields || {}),
@@ -272,5 +281,26 @@ export class RecordUpdateService {
       return acc;
     }, new Set<string>());
     return ids.size ? { [table.id]: Array.from(ids) } : undefined;
+  }
+
+  private detectAttachmentRenames(cellContexts: ICellContext[], table: TableDomain): string[] {
+    const fieldsMap = table.getFieldsMap(FieldKeyType.Id);
+    const renamedTokens: string[] = [];
+    for (const ctx of cellContexts) {
+      const field = fieldsMap.get(ctx.fieldId);
+      if (!field || field.type !== FieldType.Attachment) continue;
+
+      const oldItems = (ctx.oldValue as IAttachmentCellValue) || [];
+      const newItems = (ctx.newValue as IAttachmentCellValue) || [];
+
+      const oldNameByToken = new Map(oldItems.map((item) => [item.token, item.name]));
+      for (const newItem of newItems) {
+        const oldName = oldNameByToken.get(newItem.token);
+        if (oldName != null && oldName !== newItem.name) {
+          renamedTokens.push(newItem.token);
+        }
+      }
+    }
+    return renamedTokens;
   }
 }

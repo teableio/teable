@@ -1,34 +1,28 @@
 import { useQuery } from '@tanstack/react-query';
 import { getAIDisableActions } from '@teable/openapi';
-import { useBaseId, useIsTemplate } from '@teable/sdk/hooks';
+import { useBaseId, useIsReadOnlyPreview } from '@teable/sdk/hooks';
 import { useMemo } from 'react';
 import { AIActions } from '../blocks/admin/setting/components/ai-config/AIControlCard';
 
 export const useDisableAIAction = () => {
   const baseId = useBaseId();
-  const isTemplate = useIsTemplate();
+  const isReadOnlyPreview = useIsReadOnlyPreview();
   const { data: { disableActions } = {} } = useQuery({
     queryKey: ['disable-ai-actions', baseId],
     queryFn: () => getAIDisableActions(baseId!).then((res) => res.data),
-    enabled: !!baseId && !isTemplate,
+    enabled: !!baseId && !isReadOnlyPreview,
   });
 
   return useMemo(() => {
     if (Array.isArray(disableActions) && disableActions.length > 0) {
       return {
-        suggestion: !disableActions.includes(AIActions.Suggestion),
-        buildBase: !disableActions.includes(AIActions.BuildBase),
-        buildAutomation: !disableActions.includes(AIActions.BuildAutomation),
-        baseResource: !disableActions.includes(AIActions.BaseResource),
-        buildApp: !disableActions.includes(AIActions.BaseApp),
+        aiField: !disableActions.includes(AIActions.AIField),
+        aiChat: !disableActions.includes(AIActions.AIChat),
       };
     }
     return {
-      suggestion: true,
-      buildBase: true,
-      baseResource: true,
-      buildAutomation: true,
-      buildApp: true,
+      aiField: true,
+      aiChat: true,
     };
   }, [disableActions]);
 };

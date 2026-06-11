@@ -1,5 +1,5 @@
 # All node_modules directories
-node_modules
+**/node_modules
 **/dist
 **/.next
 
@@ -45,6 +45,8 @@ tmp
 
 # other
 **/db
+!packages/v2/adapter-repository-postgres/src/db
+!packages/v2/adapter-repository-postgres/src/db/**
 **/.assets
 **/.temporary
 **.DS_Store

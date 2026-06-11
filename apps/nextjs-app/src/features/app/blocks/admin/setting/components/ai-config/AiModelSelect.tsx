@@ -42,6 +42,7 @@ export function AIModelSelect({
   needGroup,
   children,
   onlyImageOutput = false,
+  placeholder,
 }: IAIModelSelectProps) {
   const isCloud = useIsCloud();
   const { t } = useTranslation('common');
@@ -205,10 +206,11 @@ export function AIModelSelect({
               size={size}
               className={className}
               open={open}
+              placeholder={placeholder}
             />
           )}
         </PopoverTrigger>
-        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+        <PopoverContent className="p-0">
           <Command>
             <CommandInput placeholder={t('admin.setting.ai.searchModel')} />
             <CommandEmpty>{t('admin.setting.ai.noModelFound')}</CommandEmpty>
@@ -235,16 +237,12 @@ export function AIModelSelect({
                 {hasAnyOptions && <CommandSeparator />}
                 <CommandItem
                   className="flex items-center justify-center gap-2 text-[13px] text-muted-foreground"
-                  onSelect={() => {
-                    setPickerOpen(true);
-                  }}
+                  onSelect={() => setPickerOpen(true)}
                 >
                   <Plus className="size-4" />
                   {t('admin.setting.ai.moreModels')}
                   {!isLoadingGateway && pickerModels.length > 0 && (
-                    <span className="text-xs text-yellow-500 dark:text-yellow-600">
-                      ({pickerModels.length})
-                    </span>
+                    <span className="text-xs text-muted-foreground">({pickerModels.length})</span>
                   )}
                 </CommandItem>
               </Fragment>
@@ -261,7 +259,7 @@ export function AIModelSelect({
         isLoading={isLoadingGateway}
         selectedModelId={selectedModelIdForPicker}
         onSelectModel={handlePickerModelSelect}
-        priceMode={isCloud ? 'credits' : 'none'}
+        priceMode={isCloud ? 'multiplier' : 'none'}
       />
     </>
   );

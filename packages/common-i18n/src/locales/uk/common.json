@@ -15,6 +15,7 @@
     "zoomIn": "Збільшити",
     "zoomOut": "Зменшити",
     "back": "Назад",
+    "download": "Завантажити",
     "removeConfig": "Вилучити конфігурацію",
     "saveSucceed": "Збереження успішне!",
     "submitSucceed": "Надсилання успішне!",
@@ -46,10 +47,15 @@
     "view": "Переглянути",
     "preview": "Попередній перегляд",
     "viewAndEdit": "Переглянути та редагувати",
-    "getMore": "Отримати більше"
+    "getMore": "Отримати більше",
+    "copyToMySpace": "Copy to my space",
+    "saveToMySpace": "Save to my space",
+    "supportSaveCopy": "Support saving a copy",
+    "copySuccess": "Копіювання успішне",
+    "share": "Поділитися"
   },
   "quickAction": {
-    "title": "Швидкі дії...",
+    "title": "Швидкі дії",
     "placeHolder": "Введіть команду або виконайте пошук..."
   },
   "password": {
@@ -60,7 +66,12 @@
     "copy": "Скопійовано"
   },
   "template": {
+    "non": {
+      "share": "Поділитися",
+      "copy": "Скопійовано"
+    },
     "aiTitle": "Давайте будувати разом",
+    "aiGreeting": "Чим я можу допомогти, {{name}}?",
     "aiSubTitle": "Перша AI-платформа, де команди співпрацюють над даними та генерують виробничі додатки",
     "guideTitle": "Почніть зі свого сценарію",
     "watchVideo": "Дивитися відео",
@@ -71,6 +82,13 @@
     "loadMore": "Завантажити Більше",
     "allTemplatesLoaded": "Усі шаблони завантажені",
     "createTemplate": "Створити Шаблон",
+    "useTemplateDialog": {
+      "title": "Виберіть простір",
+      "description": "Виберіть простір для застосування шаблону",
+      "noSpaceDescription": "You don't have any spaces yet. Create one to continue.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create"
+    },
     "promptBox": {
       "placeholder": "Створіть свій бізнес-додаток з Teable",
       "start": "Почати",
@@ -85,10 +103,129 @@
       }
     }
   },
+  "baseShare": {
+    "shareTitle": "Поділитися",
+    "shareToWeb": "Опублікувати в інтернеті",
+    "linkHolderLabel": "Власник посилання",
+    "linkHolderCanView": "Може переглядати",
+    "linkHolderCanViewDesc": "Будь-хто з посиланням може переглядати дані",
+    "linkHolderCanEdit": "Може редагувати",
+    "linkHolderCanEditDesc": "Авторизовані користувачі можуть редагувати записи в таблиці",
+    "linkHolderCanCopyAndSave": "Зберегти як копію",
+    "linkHolderCanCopyAndSaveDesc": "Будь-хто з посиланням може зберегти копію у свій простір",
+    "refreshLink": "Перегенерувати посилання",
+    "advanced": "Додатково",
+    "allowCopyData": "Дозволити читачам копіювати дані",
+    "restrictByPassword": "Захист паролем",
+    "embedConfig": "Налаштування вбудовування",
+    "embedPreview": "Перегляд вбудовування",
+    "copyCode": "Копіювати код",
+    "enterPassword": "Введіть пароль",
+    "passwordTitle": "Встановити пароль",
+    "deleteConfirmTitle": "Видалити посилання спільного доступу",
+    "deleteConfirmDescription": "Цю дію не можна скасувати. Люди з цим посиланням більше не зможуть отримати доступ до спільної бази.",
+    "createSuccess": "Посилання спільного доступу створено",
+    "createFailed": "Не вдалося створити посилання спільного доступу",
+    "updateFailed": "Не вдалося оновити налаштування спільного доступу",
+    "deleteSuccess": "Посилання спільного доступу видалено",
+    "deleteFailed": "Не вдалося видалити посилання спільного доступу",
+    "refreshSuccess": "Посилання спільного доступу перегенеровано",
+    "refreshFailed": "Не вдалося перегенерувати посилання спільного доступу"
+  },
+  "share": {
+    "copyToSpaceDialog": {
+      "title": "Копіювати до простору",
+      "description": "Виберіть простір для копіювання цієї бази",
+      "baseName": "Назва бази",
+      "baseNamePlaceholder": "Введіть назву бази",
+      "selectSpace": "Виберіть простір",
+      "noSpaceDescription": "Немає доступних просторів. Створіть новий простір, щоб продовжити.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create",
+      "copyTarget": "Copy to",
+      "createNewBase": "New base",
+      "copyToExistingBase": "Existing base",
+      "selectBase": "Select base",
+      "selectBasePlaceholder": "Select a base",
+      "noBaseInSpace": "У цьому просторі немає доступних баз. Виберіть «Нова база»."
+    }
+  },
   "settings": {
     "title": "Приклад налаштувань",
+    "allSetting": "Налаштування простору й особисті",
     "personal": {
-      "title": "Особисті налаштування"
+      "title": "Особисте"
+    },
+    "templateAdmin": {
+      "title": "Керування шаблонами",
+      "noData": "Немає даних",
+      "importing": "Імпортування...",
+      "usageCount": "Кількість використань: {{count}}",
+      "useTemplate": "Використати цей шаблон",
+      "createdBy": "від {{user}}",
+      "backToTemplateList": "Повернутися до списку шаблонів",
+      "tips": {
+        "errorCategoryName": "Категорія не існує або була видалена",
+        "needSnapshot": "Перед публікацією створіть знімок, назва та опис шаблону не можуть бути порожніми",
+        "needPublish": "Опублікуйте шаблон перед встановленням як рекомендований",
+        "needBaseSource": "Виберіть базу-джерело перед створенням знімка",
+        "forbiddenUpdateSystemTemplate": "Системний шаблон не можна змінити",
+        "addCategoryTips": "Спочатку введіть назву категорії в поле пошуку.",
+        "categoryNamePlaceholder": "Введіть назву категорії",
+        "duplicateCategoryName": "Назва категорії вже існує"
+      },
+      "category": {
+        "menu": {
+          "getStarted": "Почати",
+          "recommended": "Рекомендовані",
+          "all": "Усі",
+          "browseByCategory": "Перегляд за категоріями"
+        }
+      },
+      "header": {
+        "cover": "Обкладинка",
+        "name": "Назва",
+        "description": "Опис",
+        "markdownDescription": "Опис у markdown",
+        "category": "Категорія",
+        "isSystem": "Системний",
+        "source": "Джерело",
+        "status": "Опубліковано",
+        "publishSnapshot": "Опублікувати знімок",
+        "snapshotTime": "Час знімка",
+        "actions": "Дії",
+        "featured": "Рекомендований",
+        "createdBy": "Створено",
+        "userNonExistent": "Користувач не існує",
+        "preview": "Попередній перегляд",
+        "usage": "Використання",
+        "visit": "Відвідування"
+      },
+      "actions": {
+        "title": "Дії",
+        "publish": "Опублікувати",
+        "delete": "Видалити",
+        "duplicate": "Дублювати",
+        "preview": "Попередній перегляд",
+        "use": "Використати",
+        "pinTop": "Закріпити зверху",
+        "addCategory": "Додати категорію",
+        "selectCategory": "Вибрати категорію",
+        "viewTemplate": "Переглянути шаблон",
+        "manageCategory": "Керування категоріями"
+      },
+      "relatedTemplates": "Пов'язані шаблони",
+      "noImage": "Немає зображення",
+      "baseSelectPanel": {
+        "title": "Виберіть джерело шаблону",
+        "description": "Виберіть базу для шаблону",
+        "confirm": "Підтвердити",
+        "search": "Пошук...",
+        "cancel": "Скасувати",
+        "selectBase": "Вибрати базу",
+        "createTemplate": "Створити шаблон",
+        "abnormalBase": "База не існує або була видалена"
+      }
     },
     "back": "Назад додому",
     "account": {
@@ -198,26 +335,6 @@
       "revokeDesc": "{{name}} більше не матиме доступу до Teable API. Ви не можете скасувати цю дію.",
       "scopeTitle": "Дозволи",
       "scopeDesc": "Ця програма зможе отримати наступні області:"
-    },
-    "templateAdmin": {
-      "header": {
-        "cover": "Обкладинка",
-        "name": "Назва",
-        "description": "Опис",
-        "markdownDescription": "Markdown опис",
-        "category": "Категорія",
-        "isSystem": "Система",
-        "source": "Джерело",
-        "status": "Опубліковано",
-        "publishSnapshot": "Опублікувати знімок",
-        "snapshotTime": "Час знімка",
-        "actions": "Дії",
-        "featured": "Рекомендовано",
-        "createdBy": "Створено",
-        "userNonExistent": "Користувач не існує",
-        "usage": "Використання",
-        "visit": "Відвідування"
-      }
     }
   },
   "noun": {
@@ -365,7 +482,7 @@
       "allowSignUp": "Дозволити створення нових облікових записів",
       "allowSignUpDescription": "Вимкнення цієї опції заборонить реєстрацію нових користувачів, і кнопка реєстрації більше не відображатиметься на сторінці входу.",
       "allowSpaceInvitation": "Дозволити запрошення в простір",
-      "allowSpaceInvitationDescription": "Відключення цієї опції заборонить користувачам, крім адміністраторів, запрошувати інших у простір. Увімкнення дозволить запрошеним створювати обліковий запис, навіть якщо реєстрацію нових облікових записів вимкнено.",
+      "allowSpaceInvitationDescription": "Відключення цієї опції заборонить користувачам, крім адміністраторів, запрошувати інших у простір. При увімкненні нові користувачі, запрошені електронною поштою, можуть завершити реєстрацію, натиснувши на посилання-запрошення в листі, але спільні посилання-запрошення не працюватимуть.",
       "allowSpaceCreation": "Дозволити всім створювати нові простори",
       "allowSpaceCreationDescription": "Вимкнення цієї опції заборонить користувачам, крім адміністраторів, створювати нові простори.",
       "enableEmailVerification": "Увімкнути перевірку електронної пошти",
@@ -410,12 +527,19 @@
         "chatModel": "Модель чату",
         "chatModelDescription": "Модель чату для використання, Підказка: середня модель кодування за замовчуванням використовується для генерації AI формул та споріднених функцій",
         "chatModels": {
-          "sm": "Мала модель чату",
-          "smDescription": "Використовується для автоматичної генерації заголовків чатів та назв баз. Рекомендовано: claude-haiku-4.5",
-          "md": "Середня модель чату",
-          "mdDescription": "Використовується для генерації AI-формул. Якщо не налаштовано, використовується lg. Рекомендовано: claude-haiku-4.5",
           "lg": "Розширена модель чату",
           "lgDescription": "Для планування, програмування та інших складних сценаріїв завдань. Рекомендовано: claude-sonnet-4.5"
+        },
+        "actions": {
+          "title": "Можливості ШІ",
+          "aiField": {
+            "title": "ШІ поле",
+            "description": "Функції ШІ полів, включаючи автозаповнення та налаштування ШІ в параметрах поля"
+          },
+          "aiChat": {
+            "title": "ШІ чат",
+            "description": "Бічна панель ШІ чату та всі функції агента"
+          }
         },
         "chatModelTest": {
           "text": "Тестова модель",
@@ -442,6 +566,18 @@
         "noModelFound": "Модель не знайдена",
         "searchModel": "Пошук моделі...",
         "selectModel": "Вибрати модель...",
+        "defaultModel": "{{name}} (За замовчуванням)",
+        "moreModels": "Більше моделей",
+        "agentModelWarningTitle": "Обирайте моделі уважно",
+        "agentModelWarningDescription": "Рекомендовані вище моделі оптимізовані для агентських задач, як-от використання інструментів і багатоетапне міркування. Інші моделі можуть мати обмежені можливості й давати неочікувані результати.",
+        "agentModelWarningConfirm": "Зрозуміло",
+        "recommendedModelNudge": {
+          "title": "Спробуйте {{model}}",
+          "description": "Отримуйте кращі результати AI з набагато меншим використанням кредитів.",
+          "use": "Використати {{model}}",
+          "later": "Пізніше"
+        },
+        "noModelsAvailable": "Немає доступних моделей",
         "input": "Ввід {{ratio}}",
         "output": "Вивід {{ratio}}",
         "inputOrOutputTip": "Співвідношення витрати-вихід являє собою обмінний курс між кредитами та токенами. Наприклад, \"1:1000\" означає, що 1 кредит приблизно дорівнює 1000 жетонів.<br></br>Примітка: за кожне використання віднімається принаймні 1 кредит. Навіть якщо фактичне споживання менше 1 кредиту, воно все одно стягуватиметься як 1 кредит.",
@@ -467,7 +603,6 @@
       },
       "app": {
         "domain": "Домен",
-        "v0ApiKey": "Ключ API v0",
         "customDomain": "Користувацький домен (необов'язково)",
         "customDomainDescription": "Налаштуйте свій користувацький домен для розгортання застосунку, перейдіть до <a>домену Vercel</a> для отримання користувацького домену",
         "vercelToken": "Токен API Vercel",
@@ -506,11 +641,6 @@
           "description": "Ви ще не налаштували AI LLM API, AI чат/AI автоматизація не буде використовуватися, <anchor>перейти до налаштувань</anchor>",
           "errorTips": "Ви ще не налаштували AI LLM API, AI чат/AI автоматизація не буде використовуватися"
         },
-        "app": {
-          "title": "Конструктор додатків",
-          "description": "Ви ще не налаштували v0 API, функція Конструктор додатків буде недоступна, <anchor>перейти до налаштувань</anchor>",
-          "errorTips": "Ви ще не налаштували v0 API, функція Конструктор додатків буде недоступна"
-        },
         "webSearch": {
           "title": "Веб-пошук",
           "description": "Ви ще не налаштували API веб-пошуку, функція веб-пошуку буде недоступна, <anchor>перейти до налаштувань</anchor>",
@@ -533,7 +663,11 @@
     "noUnread": "Немає {{status}} повідомлень",
     "changeSetting": "Змінити налаштування повідомлень",
     "new": "нових {{count}}",
-    "showMore": "Показати більше"
+    "showMore": "Показати більше",
+    "exportBase": {
+      "successText": "Дані експорту готові",
+      "failedText": "Експорт не вдався, спробуйте ще раз"
+    }
   },
   "role": {
     "title": {
@@ -555,13 +689,16 @@
     "spaceTrash": "Кошик простору",
     "type": "Тип",
     "resetTrash": "Очистити кошик",
-    "deletedBy": "Видалено",
-    "deletedTime": "Час видалення",
+    "deletedBy": "Ким",
+    "deletedTime": "Час",
     "fromSpace": "З простору \"{{name}}\"",
     "permanentDeleteTips": "Ви впевнені, що хочете остаточно видалити \"{{name}}\" {{resource}}?",
     "resetTrashConfirm": "Ви впевнені, що хочете очистити кошик?",
     "addToTrash": "Перемістити в кошик",
-    "description": "Дані в кошику все ще займають місце для використання записів та використання вкладень."
+    "description": "Дані в кошику все ще займають місце для використання записів та використання вкладень.",
+    "spaceDescription": "Відновити простори, видалені протягом останніх {{retentionDays}} днів",
+    "spaceInnerDescription": "Відновити бази, видалені з цього простору протягом останніх {{retentionDays}} днів",
+    "baseDescription": "Відновити ресурси, видалені з цієї бази протягом останніх {{retentionDays}} днів"
   },
   "pluginCenter": {
     "pluginUrlEmpty": "URL-адреса пуста",
@@ -677,9 +814,23 @@
             "failed": {
               "message": "❌ Імпорт {{tableName}} не вдався: {{errorMessage}}"
             },
+            "planLimitExceeded": {
+              "message": "❌ Імпорт {{tableName}} не вдався: Досягнуто ліміт рядків, оновіть план для імпорту більшої кількості записів"
+            },
+            "noRecordsProcessed": {
+              "message": "❌ Імпорт {{tableName}} не вдався: Жоден запис не був оброблений"
+            },
             "success": {
               "message": "🎉 {{tableName}} успішно імпортовано.",
               "inplace": "🎉 {{tableName}} успішно імпортовано на місці."
+            },
+            "partialSuccess": {
+              "message": "⚠️ {{tableName}} partially imported: {{successCount}} rows succeeded, {{failedCount}} rows failed. <a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 Download</a>",
+              "messageNoReport": "⚠️ {{tableName}} partially imported: {{successCount}} rows succeeded, {{failedCount}} rows failed."
+            },
+            "allFailed": {
+              "message": "❌ {{tableName}} import failed: all {{failedCount}} rows failed. <a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 Download</a>",
+              "messageNoReport": "❌ {{tableName}} import failed: all {{failedCount}} rows failed."
             }
           }
         },
@@ -696,6 +847,61 @@
           "insufficientCredit": {
             "title": "Автоматизація {{name}} не вдалася через недостатній кредит",
             "message": "Ваша автоматизація {{name}} не змогла виконатися через недостатній кредит. Будь ласка, оновіть підписку або зверніться до підтримки."
+          },
+          "runQuotaExceeded": {
+            "title": "Автоматизація {{name}} досягла максимального місячного ліміту запусків",
+            "message": "Місячний ліміт запусків для автоматизації {{name}} вичерпано, тому зараз запуск недоступний. Оновіть підписку або придбайте додаткові запуски."
+          },
+          "failedSummary": {
+            "title": "Автоматизація {{name}} завершилася помилкою {{failCount}} разів",
+            "message": "Ваша автоматизація {{name}} накопичила {{failCount}} послідовних помилок. Відкрийте історію запусків, щоб переглянути деталі."
+          }
+        },
+        "billing": {
+          "title": "Сповіщення про оплату",
+          "credit": {
+            "warning80": {
+              "title": "Простір {{spaceName}} кредити ШІ використано 80 %",
+              "message": "Ваш простір використав 80 % кредитів ШІ. Розгляньте можливість оновлення або придбання додаткових кредитів."
+            },
+            "warning90": {
+              "title": "Простір {{spaceName}} кредити ШІ використано 90 %",
+              "message": "Ваш простір використав 90 % кредитів ШІ. Оновіть план найближчим часом, щоб уникнути перебоїв."
+            },
+            "anomaly": {
+              "dailySpike": {
+                "title": "Простір {{spaceName}}: виявлено незвичний сплеск кредитів ШІ",
+                "message": "Сьогоднішнє використання кредитів ШІ ({{todayValue}}) у {{multiplier}} разів перевищує середній денний показник ({{ewma}}). Це може вказувати на неочікувану активність. Будь ласка, перевірте використання. Основні учасники: {{topContributors}}"
+              },
+              "burst": {
+                "title": "Простір {{spaceName}}: виявлено сплеск кредитів ШІ",
+                "message": "{{recentValue}} кредитів ШІ використано за останні {{windowMinutes}} хвилин, що у {{multiplier}} разів перевищує історичний годинний P95 ({{hourlyP95}}). Це може вказувати на неочікувану активність. Основні учасники: {{topContributors}}"
+              }
+            }
+          },
+          "automationRun": {
+            "warning80": {
+              "title": "Простір {{spaceName}} запуски автоматизації використано 80 % квоти",
+              "message": "Ваш простір використав {{usedRuns}} з {{totalLimit}} запусків автоматизації (80 %). Розгляньте можливість оновлення плану."
+            },
+            "warning90": {
+              "title": "Простір {{spaceName}} запуски автоматизації використано 90 % квоти",
+              "message": "Ваш простір використав {{usedRuns}} з {{totalLimit}} запусків автоматизації (90 %). Оновіть план найближчим часом, щоб уникнути перебоїв."
+            },
+            "gracePeriod": {
+              "title": "Простір {{spaceName}} запуски автоматизації перевищено – пільговий період активний",
+              "message": "Квоту запусків автоматизації перевищено. Автоматизації припинять роботу та будуть вимкнені через {{remainingHours}} годин. Будь ласка, оновіть свій план."
+            },
+            "anomaly": {
+              "dailySpike": {
+                "title": "Простір {{spaceName}}: незвичний сплеск запусків автоматизації",
+                "message": "Сьогоднішні запуски автоматизації ({{todayValue}}) у {{multiplier}} разів перевищують середній денний показник ({{ewma}}). Це може вказувати на некеровану автоматизацію. Будь ласка, перевірте свої робочі процеси. Основні учасники: {{topContributors}}"
+              },
+              "burst": {
+                "title": "Простір {{spaceName}}: виявлено сплеск запусків автоматизації",
+                "message": "{{recentValue}} запусків автоматизації виявлено за останні {{windowMinutes}} хвилин, що у {{multiplier}} разів перевищує історичний годинний P95 ({{hourlyP95}}). Це може вказувати на зациклення або помилку конфігурації. Основні учасники: {{topContributors}}"
+              }
+            }
           }
         },
         "exportBase": {
@@ -712,8 +918,26 @@
             "failed": {
               "title": "Завдання ШІ не вдалося в таблиці {{tableName}}",
               "message": "Завдання ШІ для поля {{fieldName}} в таблиці {{tableName}} (ID запису: {{recordId}}) не вдалося.\n\n{{errorMsg}}\n\nНатисніть кнопку нижче, щоб переглянути деталі."
+            },
+            "cancelled": {
+              "title": "Завдання ШІ скасовано",
+              "rateLimit": "Завдання ШІ для таблиці \"{{tableName}}\" було скасовано через обмеження частоти запитів (429). Будь ласка, спробуйте пізніше.",
+              "creditExhausted": "Завдання ШІ для таблиці \"{{tableName}}\" було скасовано, оскільки кредити вичерпано. Будь ласка, оновіть підписку або зачекайте на оновлення кредитів.",
+              "authFailed": "Завдання ШІ для таблиці \"{{tableName}}\" було скасовано через помилку автентифікації. Будь ласка, перевірте налаштування API-ключа.",
+              "serviceUnavailable": "Завдання ШІ для таблиці \"{{tableName}}\" було скасовано, оскільки сервіс ШІ тимчасово недоступний. Будь ласка, спробуйте пізніше.",
+              "unknown": "Завдання ШІ для таблиці \"{{tableName}}\" було скасовано. Помилка: {{errorMessage}}"
             }
           }
+        },
+        "rewardRejected": {
+          "title": "Заявку на винагороду відхилено",
+          "message": "Вашу заявку на винагороду для <a href=\"{{spaceUrl}}\">{{spaceName}}</a> було відхилено з наступних причин: {{errorMessages}}. Будь ласка, перевірте та надішліть повторно.",
+          "buttonText": "Переглянути Простір"
+        },
+        "rewardApproved": {
+          "title": "Заявку на винагороду схвалено",
+          "message": "Вітаємо! Вашу заявку на винагороду для <a href=\"{{spaceUrl}}\">{{spaceName}}</a> було схвалено. Додано {{amount}} кредитів, дійсних протягом {{expiredDays}} днів.",
+          "buttonText": "Переглянути Простір"
         }
       }
     }
@@ -751,6 +975,106 @@
     "createResource": "Створити ресурс",
     "noPermissionToCreateResource": "У вас немає дозволу створювати ресурс"
   },
+  "credit": {
+    "title": "Кредит",
+    "leftAmount": "Залишок кредитів",
+    "winFreeCredits": "Поділитися досвідом",
+    "getCredits": "Отримати 1000 безкоштовних кредитів",
+    "winCredit": {
+      "title": "Поділіться позитивним відгуком та заробіть",
+      "freeCredits": "1000 безкоштовних кредитів",
+      "guidelinesTitle": "Контрольний список для публікації",
+      "tagTeableio": "Позначте <bold>@teableio</bold>",
+      "minCharacters": "Напишіть відгук з <bold>80+</bold> символів",
+      "minFollowers": "Майте <bold>10+</bold> підписників",
+      "limitPerWeek": "500 кредитів за пост, до 2 постів на тиждень (X + LinkedIn)",
+      "postOnX": "Опублікувати в X",
+      "postOnLinkedIn": "Опублікувати в LinkedIn",
+      "preFilledDraft": "🌟 Готовий чернетка вже підготовлена для вас!",
+      "claimTitle": "Вставте URL поста, щоб отримати кредити",
+      "userEmail": "Email користувача",
+      "postUrlLabel": "URL поста (X або LinkedIn)",
+      "postUrlPlaceholder": "Вставте посилання на ваш пост тут",
+      "invalidUrl": "Будь ласка, введіть коректний URL поста X або LinkedIn",
+      "claiming": "Запит...",
+      "claimCredits": "Отримати кредити",
+      "congratulations": "Вітаємо!",
+      "claimSuccess": "Ви отримали 500 кредитів!",
+      "verifying": "Перевірка вашого поста...",
+      "verifyingDescription": "Ми перевіряємо вміст вашого поста, це зазвичай займає кілька секунд",
+      "verifyFailed": "Перевірка не вдалася",
+      "tryAgain": "Спробувати знову"
+    },
+    "error": {
+      "verificationFailed": "Перевірка не вдалася"
+    }
+  },
+  "reward": {
+    "title": "Винагорода",
+    "rewardCredits": "Кредити винагороди",
+    "minCharCount": "Пост повинен містити щонайменше {{count}} символів",
+    "minFollowerCount": "Обліковий запис повинен мати щонайменше {{count}} підписників",
+    "mustMention": "Пост повинен згадувати {{mention}}",
+    "fetchSnapshotFailed": "Не вдалося отримати знімок поста",
+    "alreadyClaimedThisWeek": "Ви вже отримали винагороду для цього облікового запису цього тижня",
+    "manage": {
+      "title": "Управління винагородами",
+      "description": "Переглядайте та керуйте записами винагород у всіх просторах",
+      "overview": "Огляд",
+      "records": "Записи",
+      "searchSpace": "Пошук простору...",
+      "searchRecords": "Пошук postUrl/userId...",
+      "dateRange": "Вибрати діапазон дат",
+      "from": "Від",
+      "to": "До",
+      "totalSpaces": "Всього: {{count}} просторів",
+      "totalRecords": "Всього: {{count}} записів",
+      "space": "Простір",
+      "allSpaces": "Усі простори",
+      "user": "Користувач",
+      "creator": "Створювач",
+      "sourceType": "Тип джерела",
+      "platform": "Платформа",
+      "allStatuses": "Усі статуси",
+      "allSourceTypes": "Усі типи джерел",
+      "allPlatforms": "Усі платформи",
+      "pendingCount": "Очікують",
+      "approvedCount": "Схвалених",
+      "rejectedCount": "Відхилених",
+      "approvedAmount": "Схвалена сума",
+      "consumedAmount": "Використана сума",
+      "availableAmount": "Доступна сума",
+      "expiringSoonAmount": "Скоро закінчується (7 днів)",
+      "amount": "Сума",
+      "remainingAmount": "Залишкова сума",
+      "createdTime": "Дата створення",
+      "rewardTime": "Дата винагороди",
+      "expiredTime": "Дата закінчення",
+      "lastModified": "Остання зміна",
+      "viewDetails": "Детальніше",
+      "details": "Деталі винагороди",
+      "basicInfo": "Основна інформація",
+      "amountInfo": "Інформація про суму",
+      "timeInfo": "Часова інформація",
+      "socialInfo": "Соціальна інформація",
+      "verifyResult": "Результат перевірки",
+      "uniqueKey": "Унікальний ключ",
+      "verify": "Перевірити",
+      "valid": "Дійсний",
+      "invalid": "Недійсний",
+      "errors": "Помилки",
+      "copied": "{{label}} скопійовано",
+      "openPost": "Відкрити пост",
+      "noData": "Немає даних",
+      "page": "Сторінка {{current}} з {{total}}",
+      "status": {
+        "label": "Статус",
+        "pending": "Очікування",
+        "approved": "Схвалено",
+        "rejected": "Відхилено"
+      }
+    }
+  },
   "clickToCopyTooltip": "Клацніть, щоб скопіювати в буфер обміну",
   "copiedTooltip": "Скопійовано!",
   "hiddenFieldCount_one": "{{count}} приховане поле",
@@ -781,5 +1105,43 @@
   "hideText": "Приховати текст",
   "showText": "Показати текст",
   "sourceTable": "Таблиця джерела",
-  "sourceView": "Вигляд джерела"
+  "sourceView": "Вигляд джерела",
+  "system": {
+    "notFound": {
+      "title": "Сторінку не знайдено",
+      "description": "Посилання, за яким ви перейшли, може бути недійсним, або сторінку переміщено."
+    },
+    "links": {
+      "backToHome": "Повернутися на головну"
+    },
+    "forbidden": {
+      "title": "Доступ обмежено",
+      "description": "Вам потрібен дозвіл для доступу до цього ресурсу.\nБудь ласка, зверніться до адміністратора."
+    },
+    "paymentRequired": {
+      "title": "Розблокувати преміум-функцію",
+      "description": "Ця функція доступна в розширених тарифах.\nОновіть план, щоб розширити можливості."
+    },
+    "error": {
+      "title": "Щось пішло не так",
+      "description": "Сталася неочікувана помилка. Будь ласка, спробуйте пізніше."
+    }
+  },
+  "import": {
+    "error": {
+      "dateOutOfRange": "{{fieldHint}}Помилка розбору дати, значення \"{{value}}\" виходить за допустимий діапазон",
+      "planRowLimit": "Досягнуто ліміт рядків: оновіть план для імпорту більшої кількості записів",
+      "notNullValidation": "{{fieldHint}}Обов'язкові поля не можуть бути порожніми",
+      "uniqueValidation": "{{fieldHint}}Дублікати значень в унікальних полях",
+      "requestTimeout": "Час очікування запиту вичерпано",
+      "chunkProcessingFailed": "Помилка пакетної обробки: {{reason}}",
+      "unknown": "{{fieldHint}}{{message}}"
+    }
+  },
+  "changelog": {
+    "newUpdate": "ОНОВЛЕННЯ ВІД 19 ТРАВНЯ",
+    "title": "Credits Teable стали ефективнішими у 10 разів!",
+    "url": "https://help.teable.ai/en/changelog#may-19-2026",
+    "id": "changelog-2026-05-19-teable-credits-up-10x"
+  }
 }

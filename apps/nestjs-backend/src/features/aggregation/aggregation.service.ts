@@ -7,10 +7,11 @@ import {
   identify,
   IdPrefix,
   mergeWithDefaultFilter,
+  mergeWithDefaultSort,
   nullsToUndefined,
   ViewType,
 } from '@teable/core';
-import type { IGridColumnMeta, IFilter, IGroup } from '@teable/core';
+import type { IGridColumnMeta, IFilter, IGroup, ISortItem } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { StatisticsFunc } from '@teable/openapi';
@@ -27,6 +28,8 @@ import type {
   ISearchIndexByQueryRo,
   ISearchCountRo,
   IGetRecordsRo,
+  IRecordIndexRo,
+  IRecordIndexVo,
 } from '@teable/openapi';
 import dayjs from 'dayjs';
 import { Knex } from 'knex';
@@ -37,6 +40,9 @@ import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.confi
 import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
+import type { IDataPrismaQueryExecutor } from '../../global/database-router.service';
+import { DatabaseRouter } from '../../global/database-router.service';
+import { DATA_KNEX } from '../../global/knex/knex.module';
 import type { IClsStore } from '../../types/cls';
 import { convertValueToStringify, string2Hash } from '../../utils';
 import { createFieldInstanceByRaw, type IFieldInstance } from '../field/model/factory';
@@ -55,7 +61,12 @@ type IStatisticsData = {
   viewId?: string;
   filter?: IFilter;
   statisticFields?: IAggregationField[];
+  // Resolved view.sort merged with caller-supplied orderBy. Used for the BASE
+  // CTE order when skip/take is applied; aggregation itself is order-invariant
+  // so this is undefined unless the caller is paginating.
+  sort?: ISortItem[];
 };
+
 /**
  * Version 2 implementation of the aggregation service
  * This is a placeholder implementation that will be developed in the future
@@ -68,13 +79,30 @@ export class AggregationService implements IAggregationService {
     private readonly recordService: RecordService,
     private readonly tableIndexService: TableIndexService,
     private readonly prisma: PrismaService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    private readonly databaseRouter: DatabaseRouter,
+    @InjectModel(DATA_KNEX) private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     private readonly cls: ClsService<IClsStore>,
     private readonly recordPermissionService: RecordPermissionService,
     @InjectRecordQueryBuilder() private readonly recordQueryBuilder: IRecordQueryBuilder
   ) {}
+
+  private async queryDataPrisma<T>(
+    tableId: string,
+    query: string,
+    ...values: unknown[]
+  ): Promise<T> {
+    return await this.databaseRouter.queryDataPrismaForTable<T>(tableId, query, ...values);
+  }
+
+  private async withDataPrismaTransaction<T>(
+    tableId: string,
+    fn: (prisma: IDataPrismaQueryExecutor) => Promise<T>
+  ): Promise<T> {
+    return await this.databaseRouter.dataPrismaTransactionForTable(tableId, fn);
+  }
+
   /**
    * Perform aggregation operations on table data
    * @param params - Parameters for aggregation including tableId, field IDs, view settings, and search
@@ -87,8 +115,15 @@ export class AggregationService implements IAggregationService {
     withView?: IWithView;
     search?: [string, string?, boolean?];
     useQueryModel?: boolean;
+    // Optional row-range slice: when provided, the aggregation is computed
+    // over rows [skip, skip+take) of the view's filtered + sorted output. Used
+    // by the grid selection statistic endpoint; existing callers (footer
+    // aggregation, row count) leave them undefined for unchanged behavior.
+    skip?: number;
+    take?: number;
+    orderBy?: ISortItem[];
   }): Promise<IRawAggregationValue> {
-    const { tableId, withFieldIds, withView, search, useQueryModel } = params;
+    const { tableId, withFieldIds, withView, search, useQueryModel, skip, take, orderBy } = params;
     // Retrieve the current user's ID to build user-related query conditions
     const currentUserId = this.cls.get('user.id');
 
@@ -96,12 +131,23 @@ export class AggregationService implements IAggregationService {
       tableId,
       withView,
       withFieldIds,
+      extraOrderBy: orderBy,
     });
 
     const dbTableName = await this.getDbTableName(this.prisma, tableId);
 
-    const { filter, statisticFields } = statisticsData;
+    const { filter, statisticFields, sort: resolvedSort } = statisticsData;
     const groupBy = withView?.groupBy;
+
+    // When paginating, BASE CTE needs a deterministic ORDER BY so [skip, take)
+    // matches what the grid renders. Sort = group + view-sort, falling back to
+    // the view's row-order column (or __auto_number) for a stable tiebreaker.
+    const isPaginated = take !== undefined;
+    const baseSort = isPaginated ? [...(groupBy ?? []), ...(resolvedSort ?? [])] : undefined;
+    const defaultOrderField = isPaginated
+      ? await this.recordService.getBasicOrderIndexField(tableId, dbTableName, withView?.viewId)
+      : undefined;
+
     const rawAggregationData = await this.handleAggregation({
       dbTableName,
       fieldInstanceMap,
@@ -112,6 +158,10 @@ export class AggregationService implements IAggregationService {
       withUserId: currentUserId,
       withView,
       useQueryModel,
+      skip,
+      take,
+      sort: baseSort && baseSort.length ? baseSort : undefined,
+      defaultOrderField,
     });
 
     const aggregationResult = rawAggregationData && rawAggregationData[0];
@@ -205,6 +255,13 @@ export class AggregationService implements IAggregationService {
     withUserId?: string;
     withView?: IWithView;
     useQueryModel?: boolean;
+    // Optional row-range slice + ordering. Only set when the caller is
+    // paginating (selection aggregation); footer/row-count callers leave them
+    // undefined and the BASE CTE sees the full filtered set.
+    skip?: number;
+    take?: number;
+    sort?: ISortItem[];
+    defaultOrderField?: string;
   }) {
     const {
       dbTableName,
@@ -217,6 +274,10 @@ export class AggregationService implements IAggregationService {
       withView,
       tableId,
       useQueryModel,
+      skip,
+      take,
+      sort,
+      defaultOrderField,
     } = params;
 
     if (!statisticFields?.length) {
@@ -262,6 +323,10 @@ export class AggregationService implements IAggregationService {
         projection,
         useQueryModel,
         builder: permissionProbe.builder,
+        sort,
+        defaultOrderField,
+        limit: take,
+        offset: skip,
       }
     );
 
@@ -278,7 +343,7 @@ export class AggregationService implements IAggregationService {
 
     const aggSql = qb.toQuery();
     this.logger.debug('handleAggregation aggSql: %s', aggSql);
-    return this.prisma.$queryRawUnsafe<{ [field: string]: unknown }[]>(aggSql);
+    return this.queryDataPrisma<{ [field: string]: unknown }[]>(tableId, aggSql);
   }
   /**
    * Perform grouped aggregation operations
@@ -485,6 +550,7 @@ export class AggregationService implements IAggregationService {
     });
     return tableMeta.dbTableName;
   }
+
   private async handleRowCount(params: {
     tableId: string;
     dbTableName: string;
@@ -573,18 +639,19 @@ export class AggregationService implements IAggregationService {
     const rawQuery = qb.toQuery();
 
     this.logger.debug('handleRowCount raw query: %s', rawQuery);
-    return await this.prisma.$queryRawUnsafe<{ count: number }[]>(rawQuery);
+    return await this.queryDataPrisma<{ count: number }[]>(tableId, rawQuery);
   }
 
   private async fetchStatisticsParams(params: {
     tableId: string;
     withView?: IWithView;
     withFieldIds?: string[];
+    extraOrderBy?: ISortItem[];
   }): Promise<{
     statisticsData: IStatisticsData;
     fieldInstanceMap: Record<string, IFieldInstance>;
   }> {
-    const { tableId, withView, withFieldIds } = params;
+    const { tableId, withView, withFieldIds, extraOrderBy } = params;
 
     const viewRaw = await this.findView(tableId, withView);
 
@@ -595,7 +662,12 @@ export class AggregationService implements IAggregationService {
       withFieldIds
     );
 
-    const statisticsData = this.buildStatisticsData(filteredFieldInstances, viewRaw, withView);
+    const statisticsData = this.buildStatisticsData(
+      filteredFieldInstances,
+      viewRaw,
+      withView,
+      extraOrderBy
+    );
 
     return { statisticsData, fieldInstanceMap };
   }
@@ -611,6 +683,7 @@ export class AggregationService implements IAggregationService {
           id: true,
           type: true,
           filter: true,
+          sort: true,
           group: true,
           options: true,
           columnMeta: true,
@@ -647,10 +720,12 @@ export class AggregationService implements IAggregationService {
           id: string | undefined;
           columnMeta: string | undefined;
           filter: string | undefined;
+          sort: string | undefined;
           group: string | undefined;
         }
       | undefined,
-    withView?: IWithView
+    withView?: IWithView,
+    extraOrderBy?: ISortItem[]
   ) {
     let statisticsData: IStatisticsData = {
       viewId: viewRaw?.id,
@@ -659,6 +734,12 @@ export class AggregationService implements IAggregationService {
     if (viewRaw?.filter || withView?.customFilter) {
       const filter = mergeWithDefaultFilter(viewRaw?.filter, withView?.customFilter);
       statisticsData = { ...statisticsData, filter };
+    }
+
+    if (viewRaw?.sort || extraOrderBy) {
+      // Same recipe as record list: caller's orderBy overrides view.sort.
+      const sort = mergeWithDefaultSort(viewRaw?.sort, extraOrderBy);
+      statisticsData = { ...statisticsData, sort };
     }
 
     if (viewRaw?.id || withView?.customFieldStats) {
@@ -811,7 +892,7 @@ export class AggregationService implements IAggregationService {
 
     const sql = queryBuilder.toQuery();
 
-    const result = await this.prisma.$queryRawUnsafe<{ count: number }[] | null>(sql);
+    const result = await this.queryDataPrisma<{ count: number }[] | null>(tableId, sql);
 
     return {
       count: result ? Number(result[0]?.count) : 0,
@@ -878,7 +959,11 @@ export class AggregationService implements IAggregationService {
       Object.values(fieldInstanceMap).map((f) => [f.id, `"${f.dbFieldName}"`])
     );
 
-    const basicSortIndex = await this.recordService.getBasicOrderIndexField(dbTableName, viewId);
+    const basicSortIndex = await this.recordService.getBasicOrderIndexField(
+      tableId,
+      dbTableName,
+      viewId
+    );
 
     const filterQuery = (qb: Knex.QueryBuilder) => {
       this.dbProvider
@@ -930,7 +1015,7 @@ export class AggregationService implements IAggregationService {
     this.logger.debug('getRecordIndexBySearchOrder sql: %s', sql);
 
     try {
-      return await this.prisma.$tx(async (prisma) => {
+      return await this.withDataPrismaTransaction(tableId, async (prisma) => {
         const result = await prisma.$queryRawUnsafe<{ __id: string; fieldId: string }[]>(sql);
 
         // no result found
@@ -972,7 +1057,7 @@ export class AggregationService implements IAggregationService {
         this.logger.debug('getRecordIndexBySearchOrder indexSql: %s', indexSql);
         const indexResult =
           // eslint-disable-next-line @typescript-eslint/naming-convention
-          await this.prisma.$queryRawUnsafe<{ row_num: number; __id: string }[]>(indexSql);
+          await prisma.$queryRawUnsafe<{ row_num: number; __id: string }[]>(indexSql);
 
         if (indexResult?.length === 0) {
           return null;
@@ -1007,6 +1092,45 @@ export class AggregationService implements IAggregationService {
       throw error;
     }
   }
+  async getRecordIndex(tableId: string, queryRo: IRecordIndexRo): Promise<IRecordIndexVo> {
+    const { recordId } = queryRo;
+
+    const { queryBuilder: viewRecordsQB, alias } = await this.recordService.buildFilterSortQuery(
+      tableId,
+      { ...queryRo, skip: undefined, take: undefined },
+      true
+    );
+
+    const dbTableName = await this.getDbTableName(this.prisma, tableId);
+
+    const { viewCte } = await this.recordPermissionService.wrapView(
+      tableId,
+      this.knex.queryBuilder(),
+      { viewId: queryRo.viewId }
+    );
+
+    const indexQueryBuilder = this.knex
+      .with('t', viewRecordsQB.from({ [alias]: viewCte || dbTableName }))
+      .with('t1', (db) => {
+        db.select('__id').select(this.knex.raw('ROW_NUMBER() OVER () as row_num')).from('t');
+      })
+      .select('t1.row_num')
+      .from('t1')
+      .where('t1.__id', recordId);
+
+    const sql = indexQueryBuilder.toQuery();
+    this.logger.debug('getRecordIndex sql: %s', sql);
+
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    const result = await this.queryDataPrisma<{ row_num: number }[]>(tableId, sql);
+
+    if (!result?.length) {
+      return null;
+    }
+
+    return { index: Number(result[0].row_num) - 1 };
+  }
+
   /**
    * Get calendar daily collection data
    * @param tableId - The table ID
@@ -1091,10 +1215,17 @@ export class AggregationService implements IAggregationService {
     const filterStr = viewRaw?.filter;
     const mergedFilter = mergeWithDefaultFilter(filterStr, filter);
     const currentUserId = this.cls.get('user.id');
+    const selectionMap = new Map(Object.values(fieldMap).map((f) => [f.id, `"${f.dbFieldName}"`]));
 
     if (mergedFilter) {
       this.dbProvider
-        .filterQuery(queryBuilder, fieldMap, mergedFilter, { withUserId: currentUserId })
+        .filterQuery(
+          queryBuilder,
+          fieldMap,
+          mergedFilter,
+          { withUserId: currentUserId },
+          { selectionMap }
+        )
         .appendQueryBuilder();
     }
 
@@ -1116,11 +1247,9 @@ export class AggregationService implements IAggregationService {
       endField: endField as DateFieldDto,
       dbTableName: viewCte || dbTableName,
     });
-    const result = await this.prisma
-      .txClient()
-      .$queryRawUnsafe<
-        { date: Date | string; count: number; ids: string[] | string }[]
-      >(queryBuilder.toQuery());
+    const result = await this.queryDataPrisma<
+      { date: Date | string; count: number; ids: string[] | string }[]
+    >(tableId, queryBuilder.toQuery());
 
     const countMap = result.reduce(
       (map, item) => {

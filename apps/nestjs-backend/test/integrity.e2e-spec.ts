@@ -44,8 +44,8 @@ describe('OpenAPI integrity (e2e)', () => {
 
   async function executeKnex(builder: Knex.SchemaBuilder | Knex.QueryBuilder) {
     const compiled = builder.toSQL();
-    const sqlItems = Array.isArray(compiled) ? compiled : [compiled];
-    const statements = sqlItems
+    const sqlStatements = Array.isArray(compiled) ? compiled : [compiled];
+    const statements = sqlStatements
       .map(({ sql, bindings }) => ({
         sql,
         bindings: bindings || [],
@@ -538,7 +538,6 @@ describe('OpenAPI integrity (e2e)', () => {
 
       await executeKnex(
         knex.schema.alterTable(options.fkHostTableName, (table) => {
-          table.dropForeign(options.foreignKeyName, `fk_${options.foreignKeyName}`);
           table.dropColumn(options.foreignKeyName);
           table.dropColumn(`${options.foreignKeyName}_order`);
         })
@@ -591,7 +590,6 @@ describe('OpenAPI integrity (e2e)', () => {
 
       await executeKnex(
         knex.schema.alterTable(options.fkHostTableName, (table) => {
-          table.dropForeign(options.foreignKeyName, `fk_${options.foreignKeyName}`);
           table.dropColumn(options.foreignKeyName);
         })
       );
@@ -638,7 +636,6 @@ describe('OpenAPI integrity (e2e)', () => {
 
       await executeKnex(
         knex.schema.alterTable(options.fkHostTableName, (table) => {
-          table.dropForeign(options.selfKeyName, `fk_${options.selfKeyName}`);
           table.dropColumn(options.selfKeyName);
         })
       );
@@ -952,6 +949,103 @@ describe('OpenAPI integrity (e2e)', () => {
     });
   });
 
+  describe('fix invalid filter operator', () => {
+    let baseId1: string;
+    let base1table1: ITableFullVo;
+    let base1table2: ITableFullVo;
+    beforeEach(async () => {
+      baseId1 = (await createBase({ spaceId, name: 'base1' })).data.id;
+      base1table1 = await createTable(baseId1, { name: 'base1table1' });
+      base1table2 = await createTable(baseId1, { name: 'base1table2' });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId1, base1table1.id);
+      await permanentDeleteTable(baseId1, base1table2.id);
+      await deleteBase(baseId1);
+    });
+
+    it('should detect and fix invalid filter operator in lookupOptions', async () => {
+      // Create a link field from table1 to table2
+      const linkFieldRo: IFieldRo = {
+        name: 'link field',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: base1table2.id,
+        },
+      };
+      const linkField = await createField(base1table1.id, linkFieldRo);
+
+      // Create a number field in table2 for filtering
+      const numberFieldRo: IFieldRo = {
+        name: 'score',
+        type: FieldType.Number,
+      };
+      const numberField = await createField(base1table2.id, numberFieldRo);
+
+      // Create a lookup field on table1 that looks up the primary field of table2
+      // with a valid filter: score isGreater 10
+      const lookupFieldRo: IFieldRo = {
+        name: 'lookup with filter',
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: base1table2.id,
+          lookupFieldId: base1table2.fields[0].id,
+          linkFieldId: linkField.id,
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: numberField.id,
+                operator: 'isGreater',
+                value: 10,
+              },
+            ],
+          },
+        },
+      };
+      const lookupField = await createField(base1table1.id, lookupFieldRo);
+
+      // Verify no issues initially
+      const integrity1 = await checkBaseIntegrity(baseId1, base1table1.id);
+      expect(integrity1.data.hasIssues).toEqual(false);
+
+      // Directly inject an invalid operator ("contains" is not valid for number fields)
+      const fieldRow = await prisma.txClient().field.findFirstOrThrow({
+        where: { id: lookupField.id },
+      });
+      const lookupOptions = JSON.parse(fieldRow.lookupOptions!);
+      lookupOptions.filter.filterSet[0].operator = 'contains';
+      await prisma.txClient().field.update({
+        where: { id: lookupField.id },
+        data: { lookupOptions: JSON.stringify(lookupOptions) },
+      });
+
+      // Check should detect the invalid operator
+      const integrity2 = await checkBaseIntegrity(baseId1, base1table1.id);
+      expect(integrity2.data.hasIssues).toEqual(true);
+      const issues = integrity2.data.linkFieldIssues.flatMap((i) => i.issues);
+      expect(issues.some((i) => i.type === IntegrityIssueType.InvalidFilterOperator)).toEqual(true);
+
+      // Fix should remove the invalid filter item
+      await fixBaseIntegrity(baseId1, base1table1.id);
+
+      // After fix, no more issues
+      const integrity3 = await checkBaseIntegrity(baseId1, base1table1.id);
+      expect(integrity3.data.hasIssues).toEqual(false);
+
+      // Verify the filter was cleaned up in DB
+      const fieldRowAfter = await prisma.txClient().field.findFirstOrThrow({
+        where: { id: lookupField.id },
+      });
+      const lookupOptionsAfter = JSON.parse(fieldRowAfter.lookupOptions!);
+      // The invalid filter item was removed, filterSet should be empty or filter null
+      expect(lookupOptionsAfter.filter).toBeNull();
+    });
+  });
+
   describe('fix empty string cell value', () => {
     let baseId1: string;
     let base1table: ITableFullVo;
@@ -983,6 +1077,174 @@ describe('OpenAPI integrity (e2e)', () => {
 
       const integrity3 = await checkBaseIntegrity(baseId1, base1table.id);
       expect(integrity3.data.hasIssues).toEqual(false);
+    });
+  });
+
+  describe('fix invalid primary', () => {
+    let baseId1: string;
+    let base1table: ITableFullVo;
+
+    beforeEach(async () => {
+      baseId1 = (await createBase({ spaceId, name: 'base1' })).data.id;
+      base1table = await createTable(baseId1, { name: 'base1table' });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId1, base1table.id);
+      await deleteBase(baseId1);
+    });
+
+    it('detects and fixes a primary field with unsupported type by promoting existing candidate', async () => {
+      // Inject the corrupt state directly: bulk paths historically allowed isPrimary=true on a
+      // checkbox field. Real-world examples in prod were created by AI / .tea import bypassing
+      // the source guards we added.
+      const originalPrimaryId = base1table.fields.find((f) => f.isPrimary)!.id;
+      await prisma.txClient().field.update({
+        where: { id: originalPrimaryId },
+        data: { isPrimary: null },
+      });
+      const checkboxField = await createField(base1table.id, {
+        name: 'broken primary',
+        type: FieldType.Checkbox,
+      });
+      await prisma.txClient().field.update({
+        where: { id: checkboxField.id },
+        data: { isPrimary: true },
+      });
+
+      const integrity = await checkBaseIntegrity(baseId1, base1table.id);
+      const issues = integrity.data.linkFieldIssues.flatMap((i) => i.issues);
+      expect(issues.some((i) => i.type === IntegrityIssueType.InvalidPrimaryType)).toEqual(true);
+
+      await fixBaseIntegrity(baseId1, base1table.id);
+
+      const integrity2 = await checkBaseIntegrity(baseId1, base1table.id);
+      expect(integrity2.data.hasIssues).toEqual(false);
+
+      // Promote-existing path: the demoted original SingleLineText is the first eligible
+      // candidate by order, so it gets re-promoted. No new formula field is created.
+      const primaries = await prisma.txClient().field.findMany({
+        where: { tableId: base1table.id, isPrimary: true, deletedTime: null },
+        select: { id: true },
+      });
+      expect(primaries).toHaveLength(1);
+      expect(primaries[0].id).toEqual(originalPrimaryId);
+
+      // Bad checkbox is demoted but NOT renamed — rename only happens in the formula
+      // fallback path where the new field needs to take the original name.
+      const checkboxAfter = await prisma.txClient().field.findFirst({
+        where: { id: checkboxField.id },
+        select: { isPrimary: true, name: true },
+      });
+      expect(checkboxAfter?.isPrimary).toBeNull();
+      expect(checkboxAfter?.name).toEqual('broken primary');
+    });
+
+    it('falls back to a new formula primary when no eligible candidate exists', async () => {
+      // Make every non-bad field ineligible so promote-existing has nothing to promote, then
+      // verify the formula fallback path runs and mirrors the bad primary's value.
+      const originalPrimary = base1table.fields.find((f) => f.isPrimary)!;
+      const otherFields = base1table.fields.filter((f) => !f.isPrimary);
+
+      // Mutate every non-primary field to attachment (not in PRIMARY_SUPPORTED_TYPES) so
+      // they can't be promoted.
+      for (const field of otherFields) {
+        await prisma.txClient().field.update({
+          where: { id: field.id },
+          data: { type: FieldType.Attachment },
+        });
+      }
+
+      // Replace the original SingleLineText primary with a checkbox bad primary.
+      await prisma.txClient().field.update({
+        where: { id: originalPrimary.id },
+        data: { isPrimary: null, type: FieldType.Attachment },
+      });
+      const checkboxField = await createField(base1table.id, {
+        name: 'broken primary',
+        type: FieldType.Checkbox,
+      });
+      await prisma.txClient().field.update({
+        where: { id: checkboxField.id },
+        data: { isPrimary: true },
+      });
+
+      await fixBaseIntegrity(baseId1, base1table.id);
+
+      const primaries = await prisma.txClient().field.findMany({
+        where: { tableId: base1table.id, isPrimary: true, deletedTime: null },
+        select: { id: true, type: true, name: true, options: true },
+      });
+      expect(primaries).toHaveLength(1);
+      expect(primaries[0].type).toEqual(FieldType.Formula);
+      expect(primaries[0].name).toEqual('broken primary');
+      // Formula expression references the old field id so the displayed value stays continuous.
+      expect(primaries[0].options).toContain(checkboxField.id);
+    });
+
+    it('preserves existing valid primary when an extra invalid primary is fixed', async () => {
+      // Defensive scenario: a valid primary already exists, but somehow a second isPrimary=true
+      // field with bad type sneaks in (race / direct SQL / future regression).
+      // Fix should demote the invalid one and keep the valid primary as-is, without
+      // creating a third "formula" primary.
+      const validPrimaryId = base1table.fields.find((f) => f.isPrimary)!.id;
+
+      const checkboxField = await createField(base1table.id, {
+        name: 'rogue checkbox primary',
+        type: FieldType.Checkbox,
+      });
+      await prisma.txClient().field.update({
+        where: { id: checkboxField.id },
+        data: { isPrimary: true },
+      });
+
+      const before = await prisma.txClient().field.findMany({
+        where: { tableId: base1table.id, isPrimary: true, deletedTime: null },
+      });
+      expect(before).toHaveLength(2);
+
+      await fixBaseIntegrity(baseId1, base1table.id);
+
+      const after = await prisma.txClient().field.findMany({
+        where: { tableId: base1table.id, isPrimary: true, deletedTime: null },
+        select: { id: true, type: true },
+      });
+      expect(after).toHaveLength(1);
+      expect(after[0].id).toEqual(validPrimaryId);
+
+      const checkboxAfter = await prisma.txClient().field.findFirst({
+        where: { id: checkboxField.id },
+        select: { isPrimary: true, name: true },
+      });
+      expect(checkboxAfter?.isPrimary).toBeNull();
+      // Kept-existing path: bad primary is demoted but NOT renamed.
+      expect(checkboxAfter?.name).toEqual('rogue checkbox primary');
+    });
+
+    it('detects and fixes a table missing its primary field by promoting existing candidate', async () => {
+      const primary = base1table.fields.find((f) => f.isPrimary)!;
+      await prisma.txClient().field.update({
+        where: { id: primary.id },
+        data: { isPrimary: null },
+      });
+
+      const integrity = await checkBaseIntegrity(baseId1, base1table.id);
+      const issues = integrity.data.linkFieldIssues.flatMap((i) => i.issues);
+      expect(issues.some((i) => i.type === IntegrityIssueType.MissingPrimary)).toEqual(true);
+
+      await fixBaseIntegrity(baseId1, base1table.id);
+
+      const integrity2 = await checkBaseIntegrity(baseId1, base1table.id);
+      expect(integrity2.data.hasIssues).toEqual(false);
+
+      // Should re-promote the existing primary, not create a duplicate "Name 2".
+      const primaries = await prisma.txClient().field.findMany({
+        where: { tableId: base1table.id, isPrimary: true, deletedTime: null },
+        select: { id: true, name: true },
+      });
+      expect(primaries).toHaveLength(1);
+      expect(primaries[0].id).toEqual(primary.id);
+      expect(primaries[0].name).toEqual(primary.name);
     });
   });
 });

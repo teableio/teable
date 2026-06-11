@@ -32,7 +32,7 @@ import { omit } from 'lodash';
 import { LucideEye } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import { QRCodeSVG } from 'qrcode.react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { CopyButton } from '@/features/app/components/CopyButton';
 import { tableConfig } from '@/features/i18n/table.config';
 
@@ -77,12 +77,21 @@ export const SharePopover: React.FC<{
   const [hideToolBar, setHideToolBar] = useState<boolean>();
   const [embed, setEmbed] = useState<boolean>();
 
+  // Optimistic toggle state: overrides view.enableShare until ShareDB syncs
+  const [optimisticEnabled, setOptimisticEnabled] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    setOptimisticEnabled(null);
+  }, [view?.enableShare]);
+
   const { mutate: enableShareFn, isPending: enableShareLoading } = useMutation({
     mutationFn: async (view: View) => view.apiEnableShare(),
+    onSuccess: () => setOptimisticEnabled(true),
   });
 
   const { mutate: disableShareFn, isPending: disableShareLoading } = useMutation({
     mutationFn: async (view: View) => view.disableShare(),
+    onSuccess: () => setOptimisticEnabled(false),
   });
 
   const shareUrl = useMemo(() => {
@@ -98,7 +107,8 @@ export const SharePopover: React.FC<{
     return children(ShareViewText, false);
   }
 
-  const { enableShare, shareMeta } = view;
+  const { shareMeta } = view;
+  const enableShare = optimisticEnabled ?? view.enableShare;
 
   const setShareMeta = (shareMeta: IShareViewMeta) => {
     view.setShareMeta({ ...view.shareMeta, ...shareMeta });
@@ -134,14 +144,18 @@ export const SharePopover: React.FC<{
   };
 
   const onSubmitRequireLoginChange = (check: boolean) => {
-    if (!shareMeta?.submit) {
-      return;
-    }
     setShareMeta({ submit: { ...shareMeta?.submit, requireLogin: check } });
   };
 
   const needConfigCopy = [ViewType.Grid].includes(view.type);
   const needConfigIncludeHiddenField = [ViewType.Grid].includes(view.type);
+  const needConfigAllowEdit = [
+    ViewType.Grid,
+    ViewType.Kanban,
+    ViewType.Gallery,
+    ViewType.Calendar,
+  ].includes(view.type);
+  const needConfigRequireLogin = [ViewType.Form].includes(view.type);
   const needEmbedHiddenToolbar = ![ViewType.Form].includes(view.type);
 
   return (
@@ -162,7 +176,7 @@ export const SharePopover: React.FC<{
         {enableShare ? (
           <>
             <div className="flex items-center gap-1">
-              <Input className="h-7 grow" id="share-link" value={shareUrl} readOnly />
+              <Input className="grow" size="sm" id="share-link" value={shareUrl} readOnly />
 
               <Popover>
                 <PopoverTrigger asChild>
@@ -178,8 +192,12 @@ export const SharePopover: React.FC<{
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button size={'xs'} variant={'outline'} onClick={() => view.setRefreshLink()}>
-                      <RefreshCcw />
+                    <Button
+                      size={'icon-xs'}
+                      variant={'outline'}
+                      onClick={() => view.setRefreshLink()}
+                    >
+                      <RefreshCcw className="size-4 shrink-0" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
@@ -214,6 +232,18 @@ export const SharePopover: React.FC<{
                   </Label>
                 </div>
               )}
+              {needConfigAllowEdit && (
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="share-allowEdit"
+                    checked={shareMeta?.allowEdit}
+                    onCheckedChange={(checked) => setShareMeta({ allowEdit: checked })}
+                  />
+                  <Label className="text-xs" htmlFor="share-allowEdit">
+                    {t('table:toolbar.others.share.allowEdit')}
+                  </Label>
+                </div>
+              )}
               <div className="flex items-center gap-2">
                 <Switch
                   id="share-password"
@@ -230,11 +260,11 @@ export const SharePopover: React.FC<{
                     size={'xs'}
                     onClick={() => setShowPasswordDialog(true)}
                   >
-                    <Edit />
+                    <Edit className="size-4 shrink-0" />
                   </Button>
                 )}
               </div>
-              {shareMeta?.submit && (
+              {needConfigRequireLogin && (
                 <div className="flex items-center gap-2">
                   <Switch
                     id="share-required-login"
@@ -358,7 +388,6 @@ export const SharePopover: React.FC<{
               <DialogDescription>{t('table:toolbar.others.share.passwordTips')}</DialogDescription>
             </DialogHeader>
             <Input
-              className="h-8"
               type="password"
               value={sharePassword}
               onChange={(e) => setSharePassword(e.target.value)}

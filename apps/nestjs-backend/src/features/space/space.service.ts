@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import { Injectable } from '@nestjs/common';
 import type { IRole } from '@teable/core';
 import {
@@ -14,15 +15,21 @@ import type {
   ICreateIntegrationRo,
   ICreateSpaceRo,
   IIntegrationItemVo,
+  ISpaceSearchRo,
+  ISpaceSearchVo,
   ITestLLMRo,
   IUpdateIntegrationRo,
   IUpdateSpaceRo,
 } from '@teable/openapi';
 import { ResourceType, CollaboratorType, PrincipalType, IntegrationType } from '@teable/openapi';
-import { keyBy, map } from 'lodash';
+import { Knex } from 'knex';
+import { keyBy, map, uniq } from 'lodash';
+import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
 import { CustomHttpException } from '../../custom.exception';
+import { InjectDbProvider } from '../../db-provider/db.provider';
+import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { PerformanceCache, PerformanceCacheService } from '../../performance-cache';
 import { generateIntegrationCacheKey } from '../../performance-cache/generate-keys';
 import type { IClsStore } from '../../types/cls';
@@ -32,29 +39,47 @@ import { BaseService } from '../base/base.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { SettingOpenApiService } from '../setting/open-api/setting-open-api.service';
 import { SettingService } from '../setting/setting.service';
+import { normalizeSpaceAIIntegrationConfig } from './ai-integration-config';
+import { DataDbBindingService } from './data-db-binding.service';
+
 @Injectable()
 export class SpaceService {
   constructor(
-    private readonly prismaService: PrismaService,
-    private readonly cls: ClsService<IClsStore>,
-    private readonly baseService: BaseService,
-    private readonly collaboratorService: CollaboratorService,
-    private readonly permissionService: PermissionService,
-    private readonly settingService: SettingService,
-    private readonly settingOpenApiService: SettingOpenApiService,
-    private readonly performanceCacheService: PerformanceCacheService,
-    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
+    protected readonly prismaService: PrismaService,
+    protected readonly cls: ClsService<IClsStore>,
+    protected readonly baseService: BaseService,
+    protected readonly collaboratorService: CollaboratorService,
+    protected readonly permissionService: PermissionService,
+    protected readonly settingService: SettingService,
+    protected readonly settingOpenApiService: SettingOpenApiService,
+    protected readonly performanceCacheService: PerformanceCacheService,
+    protected readonly dataDbBindingService: DataDbBindingService,
+    @ThresholdConfig() protected readonly thresholdConfig: IThresholdConfig,
+    @InjectModel('CUSTOM_KNEX') protected readonly knex: Knex,
+    @InjectDbProvider() protected readonly dbProvider: IDbProvider
   ) {}
 
-  async createSpaceByParams(spaceCreateInput: Prisma.SpaceCreateInput) {
-    return await this.prismaService.$tx(async () => {
-      const result = await this.prismaService.txClient().space.create({
+  protected supportsByodbSpaceCreation() {
+    return false;
+  }
+
+  protected createOrganizationSpace(
+    _space: { id: string; name: string },
+    _spaceCreateInput: Prisma.SpaceCreateInput
+  ): Promise<void> {
+    return Promise.resolve();
+  }
+
+  protected async createSpaceByParams(spaceCreateInput: Prisma.SpaceCreateInput) {
+    return await this.prismaService.$tx(async (prisma) => {
+      const result = await prisma.space.create({
         select: {
           id: true,
           name: true,
         },
         data: spaceCreateInput,
       });
+      await this.createOrganizationSpace(result, spaceCreateInput);
       await this.collaboratorService.createSpaceCollaborator({
         collaborators: [
           {
@@ -65,6 +90,7 @@ export class SpaceService {
         role: Role.Owner,
         spaceId: result.id,
       });
+      await this.createDefaultAIIntegration(result.id);
       return result;
     });
   }
@@ -190,15 +216,27 @@ export class SpaceService {
     const uniqName = getUniqName(createSpaceRo.name ?? 'Space', names);
 
     const spaceId = generateSpaceId();
+    if (createSpaceRo.dataDb?.mode === 'byodb' && !this.supportsByodbSpaceCreation()) {
+      throw new CustomHttpException(
+        'BYODB space creation is only available in Enterprise Edition',
+        HttpErrorCode.RESTRICTED_RESOURCE
+      );
+    }
+    const preparedDataDbBinding = await this.dataDbBindingService.prepareBindingForNewSpace(
+      createSpaceRo.dataDb
+    );
 
-    // create default ai integration
-    await this.createDefaultAIIntegration(spaceId);
-
-    return await this.createSpaceByParams({
+    const space = await this.createSpaceByParams({
       id: spaceId,
       name: uniqName,
       createdBy: userId,
     });
+    await this.dataDbBindingService.createPreparedBindingForNewSpace(
+      spaceId,
+      userId,
+      preparedDataDbBinding
+    );
+    return space;
   }
 
   async updateSpace(spaceId: string, updateSpaceRo: IUpdateSpaceRo) {
@@ -280,35 +318,250 @@ export class SpaceService {
       },
     });
 
-    const createdUserList = await this.prismaService.user.findMany({
-      where: { id: { in: baseList.map((base) => base.createdBy) } },
-      select: { id: true, name: true, avatar: true },
-    });
-    const createdUserMap = keyBy(createdUserList, 'id');
+    const baseIds = baseList.map((base) => base.id);
+
+    const [userList, sharedBaseList] = await Promise.all([
+      this.prismaService.user.findMany({
+        where: { id: { in: baseList.map((base) => base.createdBy) } },
+        select: { id: true, name: true, avatar: true },
+      }),
+      this.prismaService.baseShare.findMany({
+        where: { baseId: { in: baseIds }, nodeId: null, enabled: true },
+        select: { baseId: true },
+      }),
+    ]);
+    const userMap = keyBy(userList, 'id');
+    const sharedBaseIds = new Set(sharedBaseList.map((s) => s.baseId));
 
     return baseList.map((base) => {
       const role = roleMap[base.id] || roleMap[base.spaceId];
-      const createdUser = createdUserMap[base.createdBy];
+      const createdUser = userMap[base.createdBy];
       return {
         ...base,
         role,
+        isShared: sharedBaseIds.has(base.id),
         lastModifiedTime: base.lastModifiedTime?.toISOString(),
         createdTime: base.createdTime?.toISOString(),
-        createdUser: {
-          ...createdUser,
-          avatar: createdUser?.avatar && getPublicFullStorageUrl(createdUser.avatar),
-        },
+        createdUser: createdUser
+          ? {
+              ...createdUser,
+              avatar: createdUser.avatar ? getPublicFullStorageUrl(createdUser.avatar) : null,
+            }
+          : undefined,
       };
     });
   }
 
-  async permanentDeleteSpace(spaceId: string) {
-    const accessTokenId = this.cls.get('accessTokenId');
-    await this.permissionService.validPermissions(spaceId, ['space|delete'], accessTokenId, true);
+  protected getTableMapping(): Record<
+    string,
+    { table: string; hasDeletedTime: boolean; hasIcon?: boolean }
+  > {
+    return {
+      [ResourceType.Base]: { table: 'base', hasDeletedTime: true, hasIcon: true },
+      [ResourceType.Table]: { table: 'table_meta', hasDeletedTime: true, hasIcon: true },
+      [ResourceType.Dashboard]: { table: 'dashboard', hasDeletedTime: false, hasIcon: false },
+    };
+  }
 
-    await this.prismaService.space.findUniqueOrThrow({
-      where: { id: spaceId },
+  /**
+   * Parse cursor in format: {iso_timestamp}_{id}
+   */
+  private parseCursor(cursor?: string): { timeStr: string; id: string } | null {
+    if (!cursor) return null;
+    // Find the last underscore to handle IDs that might contain underscores
+    const lastUnderscoreIndex = cursor.lastIndexOf('_');
+    if (lastUnderscoreIndex === -1) return null;
+    const timeStr = cursor.substring(0, lastUnderscoreIndex);
+    const id = cursor.substring(lastUnderscoreIndex + 1);
+    return { timeStr, id };
+  }
+
+  /**
+   * Generate cursor from createdTime ISO string and id
+   */
+  private generateCursor(createdTimeStr: string, id: string): string {
+    return `${createdTimeStr}_${id}`;
+  }
+
+  async search(spaceId: string, query: ISpaceSearchRo): Promise<ISpaceSearchVo> {
+    const { search, pageSize = 10, cursor, type: filterType } = query;
+
+    const bases = await this.prismaService.base.findMany({
+      where: { spaceId, deletedTime: null },
+      select: { id: true, name: true, createdBy: true, spaceId: true },
     });
+    const baseMap = keyBy(bases, 'id');
+    const baseIds = bases.map((base) => base.id);
+    if (baseIds.length === 0) {
+      return { list: [], total: 0, nextCursor: null };
+    }
+
+    const tableMapping = this.getTableMapping();
+    const searchableTypes = Object.keys(tableMapping).map((key) => key as ResourceType);
+    const typesToSearch = filterType ? [filterType] : searchableTypes;
+
+    const cursorData = this.parseCursor(cursor);
+
+    const buildSubQuery = (resourceType: ResourceType) => {
+      const mapping = tableMapping[resourceType];
+      if (!mapping) return null;
+
+      const { table, hasDeletedTime, hasIcon } = mapping;
+      const isBase = resourceType === ResourceType.Base;
+
+      let subQuery = this.knex(table).select(
+        'id',
+        'name',
+        this.knex.raw('? as type', [resourceType]),
+        hasIcon ? this.knex.raw('COALESCE(icon, NULL) as icon') : this.knex.raw('NULL as icon'),
+        isBase ? this.knex.raw('id as base_id') : 'base_id',
+        'created_by',
+        'created_time'
+      );
+
+      subQuery = this.dbProvider.searchBuilder(subQuery, [['name', search]]);
+
+      if (isBase) {
+        subQuery = subQuery.whereIn('id', baseIds);
+      } else {
+        subQuery = subQuery.whereIn('base_id', baseIds);
+      }
+
+      if (hasDeletedTime) {
+        subQuery = subQuery.whereNull('deleted_time');
+      }
+
+      return subQuery;
+    };
+
+    const validQueries = typesToSearch
+      .map((t) => buildSubQuery(t))
+      .filter((q): q is Knex.QueryBuilder => q !== null);
+
+    if (validQueries.length === 0) {
+      return { list: [], total: 0, nextCursor: null };
+    }
+
+    let unionQuery = validQueries[0];
+    for (let i = 1; i < validQueries.length; i++) {
+      unionQuery = unionQuery.unionAll(validQueries[i]);
+    }
+
+    const isFirstPage = !cursorData;
+
+    const totalCountExpr = isFirstPage
+      ? this.knex.raw('COUNT(*) OVER() as total_count')
+      : this.knex.raw('0 as total_count');
+
+    let dataQuery = this.knex
+      .from(unionQuery.as('combined'))
+      .select('*', totalCountExpr)
+      .orderBy('created_time', 'desc')
+      .orderBy('id', 'desc')
+      .limit(pageSize + 1);
+
+    if (cursorData) {
+      dataQuery = dataQuery.whereRaw('(created_time, id) < (?, ?)', [
+        cursorData.timeStr,
+        cursorData.id,
+      ]);
+    }
+
+    interface ISearchResultRow {
+      id: string;
+      name: string;
+      type: ResourceType;
+      icon: string | null;
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      base_id: string;
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      created_by: string;
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      created_time: Date;
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      total_count: bigint | number;
+    }
+
+    const rows = await this.prismaService.$queryRawUnsafe<ISearchResultRow[]>(dataQuery.toQuery());
+
+    const total = isFirstPage && rows.length > 0 ? Number(rows[0].total_count) : 0;
+    const hasMore = rows.length > pageSize;
+    const resultsToReturn = hasMore ? rows.slice(0, pageSize) : rows;
+
+    const userIds = resultsToReturn
+      .map((row) => row.created_by)
+      .filter((id): id is string => id !== null);
+
+    const spaceIdsForBases = uniq(
+      resultsToReturn
+        .filter((row) => row.type === ResourceType.Base)
+        .map((row) => baseMap[row.base_id].spaceId)
+    );
+    const { validCreatorSet, spaceOwnerMap } =
+      await this.collaboratorService.buildSpaceOwnerContext(spaceIdsForBases);
+
+    const allUserIds = uniq([...userIds, ...spaceOwnerMap.values()]);
+    const userList = await this.prismaService.user.findMany({
+      where: { id: { in: allUserIds } },
+      select: { id: true, name: true, avatar: true },
+    });
+    const userMap = keyBy(userList, 'id');
+
+    const list = resultsToReturn.map((row) => {
+      const base = baseMap[row.base_id];
+      const isCreatorInSpace = validCreatorSet.has(`${base?.spaceId}:${row.created_by}`);
+      const displayUserId =
+        row.type === ResourceType.Base
+          ? isCreatorInSpace
+            ? row.created_by
+            : spaceOwnerMap.get(base.spaceId)
+          : row.created_by;
+      const displayUser = displayUserId ? userMap[displayUserId] : undefined;
+      return {
+        id: row.id,
+        name: row.name,
+        type: row.type,
+        icon: row.icon,
+        baseId: row.base_id,
+        baseName: base?.name ?? '',
+        createdTime: row.created_time.toISOString(),
+        createdUser: displayUser
+          ? {
+              ...displayUser,
+              avatar: displayUser.avatar && getPublicFullStorageUrl(displayUser.avatar),
+            }
+          : undefined,
+      };
+    });
+
+    const nextCursor =
+      hasMore && resultsToReturn.length > 0
+        ? this.generateCursor(
+            resultsToReturn[resultsToReturn.length - 1].created_time.toISOString(),
+            resultsToReturn[resultsToReturn.length - 1].id
+          )
+        : null;
+
+    return { list, total, nextCursor };
+  }
+
+  async permanentDeleteSpace(spaceId: string, ignorePermissionCheck: boolean = false) {
+    if (!ignorePermissionCheck) {
+      const accessTokenId = this.cls.get('accessTokenId');
+      await this.permissionService.validPermissions(spaceId, ['space|delete'], accessTokenId, true);
+    }
+
+    await this.prismaService.space
+      .findUniqueOrThrow({
+        where: { id: spaceId },
+      })
+      .catch(() => {
+        throw new CustomHttpException('Space not found', HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.space.notFound',
+          },
+        });
+      });
 
     await this.prismaService.$tx(
       async (prisma) => {
@@ -318,7 +571,7 @@ export class SpaceService {
         });
 
         for (const { id } of bases) {
-          await this.baseService.permanentDeleteBase(id);
+          await this.baseService.permanentDeleteBase(id, ignorePermissionCheck);
         }
 
         await this.cleanSpaceRelatedData(spaceId);
@@ -387,7 +640,8 @@ export class SpaceService {
   }
 
   async createIntegration(spaceId: string, addIntegrationRo: ICreateIntegrationRo) {
-    const { type, enable, config } = addIntegrationRo;
+    const { type, enable } = addIntegrationRo;
+    const { config } = addIntegrationRo;
 
     await this.performanceCacheService.del(generateIntegrationCacheKey(spaceId));
     if (type === IntegrationType.AI) {
@@ -399,28 +653,30 @@ export class SpaceService {
       });
 
       if (!aiIntegration) {
+        const nextConfig = normalizeSpaceAIIntegrationConfig(config);
         return await this.prismaService.integration.create({
           data: {
             id: generateIntegrationId(),
             resourceId: spaceId,
             type,
             enable,
-            config: JSON.stringify(config),
+            config: JSON.stringify(nextConfig),
           },
         });
       }
 
       const { id, enable: originalEnable } = aiIntegration;
       const originalConfig = JSON.parse(aiIntegration.config);
+      const nextConfig = normalizeSpaceAIIntegrationConfig({
+        ...originalConfig,
+        ...config,
+        llmProviders: [...originalConfig.llmProviders, ...config.llmProviders],
+      });
 
       return await this.prismaService.integration.update({
         where: { id },
         data: {
-          config: JSON.stringify({
-            ...originalConfig,
-            ...config,
-            llmProviders: [...originalConfig.llmProviders, ...config.llmProviders],
-          }),
+          config: JSON.stringify(nextConfig),
           enable: enable ?? originalEnable,
         },
       });
@@ -439,8 +695,8 @@ export class SpaceService {
     return res;
   }
 
-  async createDefaultAIIntegration(spaceId: string) {
-    const res = await this.prismaService.integration.create({
+  private async createDefaultAIIntegration(spaceId: string) {
+    const res = await this.prismaService.txClient().integration.create({
       data: {
         id: generateIntegrationId(),
         resourceId: spaceId,
@@ -460,7 +716,10 @@ export class SpaceService {
     updateIntegrationRo: IUpdateIntegrationRo,
     spaceId: string
   ) {
-    const { enable, config } = updateIntegrationRo;
+    const { enable } = updateIntegrationRo;
+    const config = updateIntegrationRo.config
+      ? normalizeSpaceAIIntegrationConfig(updateIntegrationRo.config)
+      : undefined;
     const updateData: Record<string, unknown> = {};
     if (enable != null) {
       updateData.enable = enable;

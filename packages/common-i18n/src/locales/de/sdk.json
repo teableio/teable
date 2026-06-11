@@ -31,7 +31,8 @@
     },
     "resetSuccess": "Erfolgreich zurückgesetzt",
     "click": "Klicken",
-    "clickedCount": "{{label}}: Klickt {{text}} mal"
+    "clickedCount": "{{label}}: Klickt {{text}} mal",
+    "atLeastOne": "Reservieren Sie zumindest ein {{noun}}"
   },
   "notification": {
     "title": "Benachrichtigung"
@@ -88,17 +89,23 @@
     "link": {
       "placeholder": "Zu verknüpfende Datensätze auswählen",
       "searchPlaceholder": "Datensätze durchsuchen",
+      "allFields": "Alle Felder",
+      "globalSearch": "Globale Suche",
+      "fieldSearch": "Feldsuche",
+      "maxFieldTips": "Die maximale Anzahl von {{count}} Feldern wurde überschritten, zusätzliche Felder werden ignoriert",
       "create": "Datensatz hinzufügen",
       "selectRecord": "Datensatz auswählen",
-      "unselected": "Unausgewählt",
+      "all": "Alle",
       "selected": "Ausgewählt",
       "expandRecordError": "Keine Erlaubnis, diesen Datensatz einzusehen.",
       "alreadyOpen": "Dieser Datensatz ist bereits geöffnet.",
+      "linkedTo": "Verknüpft mit",
       "goToForeignTable": "Gehe zu fremder Tabelle",
       "foreignTableIdRequired": "Fremdtabelle ist erforderlich",
       "linkFieldIdRequired": "Verknüpfungsfeld ist erforderlich",
       "selectTooManyRecords": "Die ausgewählten Datensätze sollten {{maxCount}} nicht überschreiten",
-      "relationshipRequired": "Beziehung ist erforderlich"
+      "relationshipRequired": "Beziehung ist erforderlich",
+      "rangeSelectFailed": "Auswahl von Datensätzen im Bereich fehlgeschlagen"
     },
     "user": {
       "searchPlaceholder": "Benutzer nach Namen suchen",
@@ -111,7 +118,7 @@
     "lookup": {
       "lookupFieldIdRequired": "Lookup-Feld ist erforderlich",
       "lookupOptionsNotAllowed": "Lookup-Optionen sind nicht erlaubt, wenn das isLookup-Attribut wahr ist oder der Feldtyp Rollup ist.",
-      "lookupOptionsRequired": "Lookup-Optionen sind erforderlich, wenn das isLookup-Attribut wahr ist oder der Feldtyp Rollup ist.",
+      "lookupOptionsRequired": "Lookup-Optionen sind erforderlich",
       "refineOptionsError": "Fehler beim Parsen der Lookup-Optionen {{message}}"
     },
     "rollup": {
@@ -151,6 +158,7 @@
     },
     "invalidateSelected": "Unzulässiger Wert",
     "invalidateSelectedTips": "Der ausgewählte Wert wurde gelöscht, bitte wählen Sie erneut",
+    "invalidConditionTip": "Diese Filterbedingung ist ungültig und wird ignoriert. Bitte passen Sie den Wert an.",
     "default": {
       "empty": "Es werden keine Filterbedingungen angewendet",
       "placeholder": "Einen Wert eingeben"
@@ -257,7 +265,8 @@
     "configLabel_other_visible": "{{count}} sichtbare Felder",
     "showAll": "Alle zeigen",
     "hideAll": "Alle verstecken",
-    "primaryKey": "Primäres Feld: Identifiziert Datensätze\nKann nicht ausgeblendet oder gelöscht werden, sichtbar in verknüpften Datensätzen."
+    "primaryKey": "Primäres Feld: Identifiziert Datensätze\nKann nicht ausgeblendet oder gelöscht werden, sichtbar in verknüpften Datensätzen.",
+    "notInCurrentView": "Feld „{{fieldName}}“ ist in der aktuellen Ansicht nicht sichtbar und kann nicht angesteuert werden"
   },
   "expandRecord": {
     "copy": "In die Zwischenablage kopieren",
@@ -276,7 +285,10 @@
       "viewRecord": "Datensatz anzeigen"
     },
     "showHiddenFields": "Zeige {{count}} versteckte Felder",
-    "hideHiddenFields": "Verstecke {{count}} versteckte Felder"
+    "hideHiddenFields": "Verstecke {{count}} versteckte Felder",
+    "showMore": "Show more",
+    "showLess": "Show less",
+    "recordFrom": "Datensatz aus"
   },
   "sort": {
     "label": "Sortieren",
@@ -408,6 +420,7 @@
       "appUpdate": "App aktualisieren",
       "userProfileRead": "Aktuelles Benutzerprofil lesen",
       "userEmailRead": "Aktuelles Benutzer E-Mail lesen",
+      "userIntegrations": "Manage user integrations",
       "recordHistoryRead": "Datensatzhistorie lesen",
       "baseQuery": "Base abfragen",
       "instanceRead": "Instanz lesen",
@@ -430,7 +443,8 @@
     "you": "Sie",
     "instance": "Instanz",
     "enterprise": "Unternehmen",
-    "history": "Historie"
+    "history": "Historie",
+    "global": "Global"
   },
   "formula": {
     "SUM": {
@@ -478,7 +492,7 @@
       "example": "ODD(0.1) => 1\nODD(-0.1) => -1"
     },
     "INT": {
-      "summary": "Gibt nummer1 zurück, wenn das logische Argument wahr ist, andernfalls nummer2. Kann auch verwendet werden, um verschachtelte IF-Anweisungen zu erstellen. Kann auch verwendet werden, um zu prüfen, ob eine Zelle leer ist.",
+      "summary": "Gibt die ganze Zahl eines Wertes zurück und rundet dabei gegen die negative Unendlichkeit.",
       "example": "INT(1.9) => 1\nINT(-1.9) => -2"
     },
     "ABS": {
@@ -631,7 +645,7 @@
     },
     "WEEKDAY": {
       "summary": "Liefert den Wochentag als Ganzzahl zwischen 0 und 6 einschließlich. Sie können optional ein zweites Argument angeben (entweder \"Sunday\" oder \"Monday\"), um Wochen an diesem Tag zu beginnen. Wird es weggelassen, beginnen die Wochen standardmäßig am Sonntag. Beispiel:\nWEEKDAY(TODAY(), \"Monday\")",
-      "example": "WEEKNUM(\"2023-09-08\") => 5"
+      "example": "WEEKDAY(\"2023-09-08\") => 5"
     },
     "DAY": {
       "summary": "Gibt den Tag des Monats eines Datums in Form einer Zahl zwischen 1-31 zurück.",
@@ -658,7 +672,7 @@
       "example": "TONOW({Date}, \"day\") => 25"
     },
     "DATETIME_DIFF": {
-      "summary": "Gibt die Differenz zwischen den Zeitpunkten in den angegebenen Einheiten zurück. Standardeinheiten sind Sekunden. (Siehe Liste der Einheitenspezifikationen hier.)\nDie Differenz zwischen Datumszeiten wird durch Subtraktion von [datum2] von [datum1] ermittelt. Das bedeutet, dass der resultierende Wert negativ ist, wenn [datum2] später als [datum1] liegt.",
+      "summary": "Gibt die Differenz zwischen den Zeitpunkten in den angegebenen Einheiten zurück. Standardeinheit ist \"day\".\nUnterstützte Einheiten: \"millisecond\" (ms), \"second\" (s), \"minute\" (m), \"hour\" (h), \"day\" (d), \"week\" (w), \"month\" (M), \"year\" (y).\nDie Differenz zwischen Datumszeiten wird durch Subtraktion von [datum2] von [datum1] ermittelt. Das bedeutet, dass der resultierende Wert negativ ist, wenn [datum2] später als [datum1] liegt.",
       "example": "DATETIME_DIFF(\"2023-09-08\", \"2022-08-01\", \"day\") => 403"
     },
     "WORKDAY": {
@@ -786,6 +800,11 @@
     "dateRangeOfMonths": "Datum Spanne (Monate)",
     "totalAttachmentSize": "Gesamtgröße Anhänge"
   },
+  "selectionStatistic": {
+    "tip": "Nur Felder vom Typ Zahl werden aggregiert.",
+    "copyTip": "Zum Kopieren klicken",
+    "copied": "Kopiert"
+  },
   "baseQuery": {
     "add": "Hinzufügen",
     "error": {
@@ -851,7 +870,8 @@
     },
     "toolbar": {
       "link": "Link",
-      "image": "Bild"
+      "image": "Bild",
+      "mention": "Erwähnung"
     },
     "floatToolbar": {
       "editLink": "Link bearbeiten",
@@ -895,6 +915,31 @@
     "automationNodeNeedTest": "Automatisierungsknoten benötigt Test",
     "automationNodeTestOutdated": "Automatisierungsknoten-Test veraltet",
     "invalidToken": "Ungültiges Token",
+    "limit": {
+      "fieldOptionsMaxBytes": "Field options are too large. Maximum is {{max}} bytes.",
+      "selectChoicesMax": "This select field has too many choices. Maximum is {{max}} choices.",
+      "selectChoiceNameMaxLength": "Select choice names are too long. Maximum is {{max}} characters.",
+      "selectDefaultValuesMax": "This select field has too many default values. Maximum is {{max}} values.",
+      "cellValueMaxBytes": "Cell value is too large. Maximum is {{max}} bytes.",
+      "recordFieldsMaxBytes": "Record payload is too large. Maximum is {{max}} bytes.",
+      "recordsPerMutationMax": "This operation changes too many records. Maximum is {{max}} records at a time.",
+      "computedCellValueMaxBytes": "Computed cell value is too large. Maximum is {{max}} bytes.",
+      "formulaMaxLength": "Formula is too long. Maximum is {{max}} characters.",
+      "tablesPerBaseMax": "This base has reached the table limit. Maximum is {{max}} tables.",
+      "fieldsPerTableMax": "This table has too many fields. Maximum is {{max}} fields.",
+      "rowsPerTableMax": "This table has too many records. Maximum is {{max}} records.",
+      "viewsPerTableMax": "This table has reached the view limit. Maximum is {{max}} views.",
+      "createTableFieldsMax": "The new table has too many fields. Maximum is {{max}} fields.",
+      "createTableViewsMax": "The new table has too many views. Maximum is {{max}} views.",
+      "createTableRecordsMax": "The new table has too many records. Maximum is {{max}} records.",
+      "viewFilterItemsMax": "This view has too many filter conditions. Maximum is {{max}} conditions.",
+      "viewFilterDepthMax": "This view filter is too deeply nested. Maximum depth is {{max}}.",
+      "viewSortItemsMax": "This view has too many sort rules. Maximum is {{max}} rules.",
+      "viewGroupItemsMax": "This view has too many group rules. Maximum is {{max}} rules.",
+      "viewOptionsMaxBytes": "View options are too large. Maximum is {{max}} bytes.",
+      "nameMaxLength": "Name is too long. Maximum is {{max}} characters.",
+      "descriptionMaxLength": "Description is too long. Maximum is {{max}} characters."
+    },
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" Feld \"{{fieldName}}\" darf keine leeren Werte enthalten, bitte vollständig ausfüllen bevor Sie absenden.",
       "fieldValueDuplicate": "\"{{tableName}}\" Feld \"{{fieldName}}\" darf keine doppelten Werte enthalten, bitte einen eindeutigen Wert vor dem Absenden ausfüllen.",
@@ -960,6 +1005,7 @@
       "nodeNotFound": "{{nodeId}} Knoten nicht gefunden",
       "triggerTestFailed": "Trigger-Test fehlgeschlagen, bitte überprüfen Sie die Trigger-Konfiguration",
       "testFailed": "Automatisierungstest fehlgeschlagen, bitte überprüfen Sie die Automatisierungskonfiguration",
+      "runFailed": "Automatisierungsausführung fehlgeschlagen",
       "nodeParseError": "{{name}} Knotenkonfiguration ist unvollständig oder fehlerhaft, bitte überprüfen Sie die Knotenkonfiguration",
       "nodeNeedTest": "{{name}} Knoten muss getestet werden",
       "nodeTestOutdated": "{{name}} Knotentest ist veraltet",
@@ -971,6 +1017,10 @@
       "tableNotInBase": "Sie können nur eine Tabelle innerhalb Ihrer Datenbank abonnieren",
       "alreadyActiveAndNotDraft": "Automatisierung ist bereits aktiv und kein Entwurf",
       "noActiveSnapshot": "Automatisierung hat keinen aktiven Snapshot",
+      "onlyFailedRunsCanRerun": "Nur fehlgeschlagene Ausführungen können erneut ausgeführt werden",
+      "workflowMustBeActiveToRerun": "Der Workflow muss aktiv sein, um erneut ausgeführt zu werden",
+      "snapshotChangedOnlyFullRerun": "Der Workflow wurde seit dieser Ausführung geändert. Nur eine vollständige Wiederholung ist zulässig.",
+      "controlStepsMissingOnlyFullRerun": "Kontrollknotendaten fehlen für diese Ausführung. Nur eine vollständige Wiederholung wird unterstützt.",
       "triggerNodeAlreadyExists": "Diese Automatisierung hat bereits einen Trigger-Knoten",
       "generateLogicError": "Fehler beim Generieren des Logikknotens",
       "logicNotFound": "Automatisierungs-Logikknoten nicht gefunden",
@@ -981,7 +1031,26 @@
       "insertNodeError": "Fehler beim Einfügen des Knotens",
       "controlNodeNotBeTested": "Kontrollknoten sollte nicht getestet werden",
       "invalidNodeType": "Ungültiger Knotentyp",
-      "unsupportedCategory": "Nicht unterstützte Kategorie"
+      "unsupportedCategory": "Nicht unterstützte Kategorie",
+      "unknownConnectionType": "Unbekannter E-Mail-Verbindungstyp",
+      "imapPasswordNotConfigured": "IMAP-Passwort nicht konfiguriert",
+      "integrationNotFound": "Integration nicht gefunden oder hat keine Anmeldedaten",
+      "webhookTriggerNotFound": "Webhook-Trigger nicht gefunden",
+      "emailReceivedTriggerNotFound": "E-Mail-Empfang-Trigger nicht gefunden",
+      "emailConnectorNotAvailable": "E-Mail-Connector-Dienst nicht verfügbar",
+      "listMailboxesFailed": "Postfächerliste konnte nicht abgerufen werden: {{detail}}"
+    },
+    "scrape": {
+      "unknownDataset": "Unbekannter Datensatz: {{datasetId}}",
+      "apiKeyNotConfigured": "Scrape-Dienst ist nicht konfiguriert",
+      "triggerFailed": "Scrape-Auslösung fehlgeschlagen: {{detail}}",
+      "snapshotError": "Scrape-Snapshot-Fehler: {{detail}}",
+      "timeout": "Scrape-Zeitüberschreitung nach {{seconds}}s"
+    },
+    "integration": {
+      "oauthCodeExchangeFailed": "Failed to exchange OAuth code: {{detail}}",
+      "oauthTokenRefreshFailed": "Failed to refresh OAuth token: {{detail}}",
+      "userInfoFetchFailed": "Failed to get user info: {{detail}}"
     },
     "space": {
       "notFound": "Space nicht gefunden",
@@ -992,7 +1061,9 @@
       "deleted": "Space wurde gelöscht",
       "cannotOperate": "Kann nicht auf einem Space operieren, bitte überprüfen Sie, dass es Organisationsmitglieder im Space gibt und sie Eigentümer sind",
       "notBelongToOrg": "Dieser Space gehört nicht zur Organisation",
-      "invalidSpaceIds": "Space-IDs sind ungültig: {{spaceIds}}"
+      "invalidSpaceIds": "Space-IDs sind ungültig: {{spaceIds}}",
+      "freeOwnedSpaceLimitExceeded": "You have reached the maximum number of free spaces you can own ({{max}}). Please upgrade an existing space or delete one to create a new free space.",
+      "freeOwnedSpaceLimitExceededOther": "{{name}} has reached the maximum number of free spaces they can own ({{max}})."
     },
     "base": {
       "notFound": "Base nicht gefunden",
@@ -1041,6 +1112,7 @@
     "share": {
       "incorrectPassword": "Falsches Passwort",
       "notAllowedToSubmit": "Formularübermittlung nicht erlaubt",
+      "notAllowedToEdit": "Bearbeiten ist für diese Freigabe nicht erlaubt",
       "viewRequired": "Ansicht ist für diesen Vorgang erforderlich",
       "hiddenFieldsSubmissionNotAllowed": "Formularübermittlung nicht erlaubt, wenn versteckte Felder enthalten sind",
       "submitRecordsError": "Datensatzübermittlung fehlgeschlagen",
@@ -1054,7 +1126,13 @@
     "shareAuth": {
       "passwordRestrictionNotEnabled": "Passwortbeschränkung ist für diese geteilte Ansicht nicht aktiviert",
       "shareViewNotFound": "Geteilte Ansicht nicht gefunden oder Freigabe ist deaktiviert",
-      "linkFieldNotFound": "Verknüpfungsfeld nicht gefunden"
+      "linkFieldNotFound": "Verknüpfungsfeld nicht gefunden",
+      "loginRequired": "Bitte anmelden, um diese geteilte Ansicht zu bearbeiten"
+    },
+    "baseShare": {
+      "notFound": "Base-Freigabe nicht gefunden oder Freigabe ist deaktiviert",
+      "alreadyExists": "Eine Freigabe existiert bereits für diesen Knoten",
+      "copyNotAllowed": "Diese Freigabe erlaubt kein Kopieren"
     },
     "shareSocket": {
       "viewPermissionNotAllowed": "Sie haben keine Berechtigung, auf diese Ansicht zuzugreifen",
@@ -1083,7 +1161,8 @@
       "notAllowedToExecuteSqlWithKeyword": "Ausführung von SQL mit Schlüsselwort {{keyword}} nicht erlaubt",
       "whiteListCheckError": "Fehler beim Überprüfen des Tabellenzugriffs: {{message}}",
       "databaseConnectionFailed": "Datenbankverbindung fehlgeschlagen: {{message}}",
-      "executeQuerySqlFailed": "Ausführung der Abfrage-SQL fehlgeschlagen: {{message}}"
+      "executeQuerySqlFailed": "Ausführung der Abfrage-SQL fehlgeschlagen: {{message}}",
+      "sqlSyntaxError": "SQL-Syntaxfehler, bitte überprüfen Sie Ihre Abfrage"
     },
     "permission": {
       "createRecordWithDeniedFields": "Sie haben keine Berechtigung, Datensätze mit Feldern({{fields}}) zu erstellen",
@@ -1149,6 +1228,7 @@
       "recordMapNotFound": "Datensatz nicht gefunden in Tabelle {{tableName}} für Feld {{fieldName}}",
       "forbidDeletePrimaryField": "Löschen des Primärfeldes verboten",
       "foreignTableIdInvalid": "Fremdtabelle {{foreignTableId}} ungültig",
+      "crossSpaceLinkForbidden": "Bereichsübergreifende Verweise werden nicht unterstützt. Bitte wählen Sie eine Tabelle im gleichen Bereich (Ziel {{foreignTableId}} befindet sich in einem anderen Bereich).",
       "relationshipInvalid": "Beziehung {{relationship}} ungültig",
       "linkFieldIdInvalid": "Verknüpfungsfeld {{linkFieldId}} ungültig",
       "lookupFieldIdInvalid": "Nachschlagefeld {{lookupFieldId}} ungültig",
@@ -1174,10 +1254,20 @@
       "notAttachment": "Feld ist kein Anhangfeld",
       "isComputed": "Feld ist berechnet und kann nicht geändert werden",
       "notFoundAICofig": "Feld hat keine AI-Konfiguration",
+      "foreignTableIdRequired": "Fremdtabelle ist erforderlich",
+      "lookupFieldIdRequired": "Suchfeld ist erforderlich",
+      "lookupFieldNotExist": "Suchfeld {{lookupFieldId}} existiert nicht",
+      "lookupFieldNotBelongToTable": "Suchfeld {{lookupFieldId}} gehört nicht zur Tabelle {{foreignTableId}}",
+      "lookupFieldTypeNotMatch": "Aktueller Feldtyp {{fieldType}} stimmt nicht mit Suchfeldtyp {{lookupFieldType}} überein",
+      "conditionalRollupOptionsRequired": "Optionen für bedingtes Rollup-Feld sind erforderlich",
+      "conditionalRollupParseError": "Fehler beim Parsen des bedingten Rollups: {{message}}",
+      "conditionalLookupOptionsRequired": "Optionen für bedingtes Lookup-Feld sind erforderlich",
       "button": {
         "clickCountReachedMaxCount": "Anzahl der Schaltflächenklicks hat das Maximum erreicht",
         "notSupportReset": "Schaltflächenfeld unterstützt kein Zurücksetzen"
-      }
+      },
+      "primaryCannotBeLookup": "Primärfeld kann nicht als Lookup-Feld konfiguriert werden",
+      "primaryFieldAlreadyExists": "Tabelle hat bereits ein Primärfeld"
     },
     "view": {
       "notFound": "Ansicht nicht gefunden",
@@ -1198,7 +1288,11 @@
     },
     "billing": {
       "insufficientCredit": "Unzureichendes Guthaben",
-      "exceedMaxRowLimit": "Maximale Zeilenanzahl {{maxRowCount}} überschritten"
+      "exceedMaxRowLimit": "Maximale Zeilenanzahl {{maxRowCount}} überschritten",
+      "exceedMaxAutomationRunLimit": "Maximale monatliche Anzahl von Automatisierungsausführungen erreicht",
+      "manualSubscriptionNotSupported": "Self-Service-Abonnement ist für diesen Space nicht verfügbar. Für Upgrades, Downgrades oder andere Abonnementänderungen wenden Sie sich bitte an den Teable-Support.",
+      "appSumoSubscriptionNotSupported": "AppSumo-Abonnements können über diese Oberfläche nicht geändert werden. Bitte verwalten Sie Ihr Abonnement auf AppSumo.",
+      "customerNotFound": "Kein Abrechnungskundendatensatz für diesen Space gefunden."
     },
     "aggregation": {
       "searchQueryRequired": "Suchanfrage ist erforderlich",
@@ -1262,7 +1356,8 @@
     "import": {
       "notSupportedFileFormat": "Dateiformat wird nicht unterstützt, nur {{supportType}} werden unterstützt, Ihr Dateityp ist {{fileFormat}}",
       "notSupportedFileType": "Import-Dateityp nicht unterstützt",
-      "exceedMaxFieldsLength": "Die Anzahl der Felder in der Tabelle darf {{maxFieldsLength}} nicht überschreiten, aktuell ist {{length}}"
+      "exceedMaxFieldsLength": "Die Anzahl der Felder in der Tabelle darf {{maxFieldsLength}} nicht überschreiten, aktuell ist {{length}}",
+      "tooManyConcurrentImports": "Too many import tasks in progress ({{current}}/{{max}}). Please try again later."
     },
     "invitation": {
       "disallowSpaceInvitation": "Die aktuelle Instanz verbietet Raumeinladungen durch den Administrator",
@@ -1281,6 +1376,8 @@
       "notFound": "Papierkorb-Element nicht gefunden",
       "parentSpaceTrashed": "Diese Basis kann nicht wiederhergestellt werden, da der übergeordnete Bereich ebenfalls im Papierkorb ist",
       "parentBaseOrSpaceTrashed": "Diese Tabelle kann nicht wiederhergestellt werden, da die übergeordnete Basis oder der Bereich ebenfalls im Papierkorb ist",
+      "parentBaseTrashed": "Dieses Element kann nicht wiederhergestellt werden, da seine übergeordnete Basis ebenfalls im Papierkorb ist",
+      "parentNotFound": "Übergeordnete Ressource nicht gefunden",
       "tableNotFound": "Tabellen-Papierkorb-Element nicht gefunden"
     },
     "license": {
@@ -1341,10 +1438,12 @@
       "invalidResourceType": "Ungültiger Ressourcentyp"
     },
     "template": {
+      "categoryNotFound": "Vorlagenkategorie nicht gefunden",
       "snapshotRequired": "Diese Vorlage konnte nicht veröffentlicht werden, da ein Snapshot fehlt",
       "sourceTemplateNotFound": "Quellvorlage nicht gefunden",
       "noMinOrderFound": "Keine Minimalreihenfolge gefunden",
-      "takeCountTooLarge": "Die Anzahl der angeforderten Vorlagen überschreitet das Maximum"
+      "takeCountTooLarge": "Die Anzahl der angeforderten Vorlagen überschreitet das Maximum",
+      "categoryLimitReached": "Vorlagenkategorie-Limit erreicht (maximal {{maxCount}})"
     },
     "department": {
       "parentNotFound": "Übergeordnete Abteilung nicht gefunden",
@@ -1385,7 +1484,9 @@
       "fetchLinkedInPostFailed": "Abrufen des LinkedIn-Beitrags fehlgeschlagen: {{error}}",
       "linkedInPostNotFound": "LinkedIn-Beitrag nicht gefunden: {{postId}}",
       "linkedInAuthorNotFound": "LinkedIn-Autor nicht gefunden: {{postId}}",
-      "fetchLinkedInUserFailed": "Abrufen des LinkedIn-Benutzers fehlgeschlagen: {{error}}"
+      "fetchLinkedInUserFailed": "Abrufen des LinkedIn-Benutzers fehlgeschlagen: {{error}}",
+      "domainAlreadyInUse": "Diese Domain ist bereits an eine andere App gebunden",
+      "domainReserved": "Subdomain ist reserviert"
     }
   }
 }

@@ -2,7 +2,6 @@
 import { pick, pullAll, uniq } from 'lodash';
 import { z } from 'zod';
 import { CellValueType, FieldType } from '../../field/constant';
-import type { FieldCore } from '../../field/field';
 
 export const is = z.literal('is');
 export const isNot = z.literal('isNot');
@@ -48,6 +47,7 @@ export const daysAgo = z.literal('daysAgo');
 export const daysFromNow = z.literal('daysFromNow');
 export const exactDate = z.literal('exactDate');
 export const exactFormatDate = z.literal('exactFormatDate');
+export const dateRange = z.literal('dateRange');
 
 // date sub operation by isWithin
 export const pastWeek = z.literal('pastWeek');
@@ -107,6 +107,7 @@ export const subOperators = z.union([
   daysFromNow,
   exactDate,
   exactFormatDate,
+  dateRange,
   // date sub operation by isWithin
   pastWeek,
   pastMonth,
@@ -278,6 +279,7 @@ export const dateTimeFieldSubOperators = z.union([
   daysFromNow,
   exactDate,
   exactFormatDate,
+  dateRange,
 ]);
 export type IDateTimeFieldSubOperator = z.infer<typeof dateTimeFieldSubOperators>;
 export const dateTimeFieldValidSubOperators = [
@@ -301,9 +303,30 @@ export const dateTimeFieldValidSubOperators = [
   daysFromNow.value,
   exactDate.value,
   exactFormatDate.value,
+  dateRange.value,
 ];
 
 export const dateTimeFieldSubOperatorsByIsWithin = z.union([
+  today,
+  tomorrow,
+  yesterday,
+  currentWeek,
+  lastWeek,
+  nextWeekPeriod,
+  currentMonth,
+  lastMonth,
+  nextMonthPeriod,
+  currentYear,
+  lastYear,
+  nextYearPeriod,
+  oneWeekAgo,
+  oneWeekFromNow,
+  oneMonthAgo,
+  oneMonthFromNow,
+  daysAgo,
+  daysFromNow,
+  exactDate,
+  exactFormatDate,
   pastWeek,
   pastMonth,
   pastYear,
@@ -317,6 +340,26 @@ export type IDateTimeFieldSubOperatorByIsWithin = z.infer<
   typeof dateTimeFieldSubOperatorsByIsWithin
 >;
 export const dateTimeFieldValidSubOperatorsByIsWithin = [
+  today.value,
+  tomorrow.value,
+  yesterday.value,
+  currentWeek.value,
+  lastWeek.value,
+  nextWeekPeriod.value,
+  currentMonth.value,
+  lastMonth.value,
+  nextMonthPeriod.value,
+  currentYear.value,
+  lastYear.value,
+  nextYearPeriod.value,
+  oneWeekAgo.value,
+  oneWeekFromNow.value,
+  oneMonthAgo.value,
+  oneMonthFromNow.value,
+  daysAgo.value,
+  daysFromNow.value,
+  exactDate.value,
+  exactFormatDate.value,
   pastWeek.value,
   pastMonth.value,
   pastYear.value,
@@ -327,7 +370,11 @@ export const dateTimeFieldValidSubOperatorsByIsWithin = [
   nextNumberOfDays.value,
 ];
 
-export function getFilterOperatorMapping(field: FieldCore) {
+export function getFilterOperatorMapping(field: {
+  cellValueType: CellValueType;
+  type: FieldType;
+  isMultipleCellValue?: boolean;
+}) {
   const validFilterOperators = getValidFilterOperators(field);
 
   return pick(mappingOperatorSymbol, validFilterOperators);
@@ -429,7 +476,12 @@ export function getValidFilterSubOperators(
 
   if (parentOperator === isWithIn.value) {
     return dateTimeFieldValidSubOperatorsByIsWithin;
-  } else {
+  }
+
+  // dateRange is only available for 'is' operator
+  if (parentOperator === is.value) {
     return dateTimeFieldValidSubOperators;
   }
+
+  return dateTimeFieldValidSubOperators.filter((op) => op !== dateRange.value);
 }

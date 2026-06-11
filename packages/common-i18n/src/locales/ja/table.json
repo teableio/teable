@@ -1,4 +1,13 @@
 {
+  "crossSpace": {
+    "duplicateFieldTitle": "ご注意",
+    "duplicateFieldDescription": "クロススペース参照はサポートされていません。複製は単一行テキストフィールドに変換されます。",
+    "duplicateTableTitle": "ご注意",
+    "duplicateTableDescription": "クロススペース参照はサポートされていません。複製は単一行テキストフィールドに変換されます。",
+    "duplicateBaseTitle": "ご注意",
+    "duplicateBaseDescription": "クロススペース参照はサポートされていません。複製は単一行テキストフィールドに変換されます。",
+    "convertAndDuplicate": "変換して複製"
+  },
   "toolbar": {
     "comingSoon": "近日公開",
     "viewFilterInShare": "このビューはビュー共有リンクで使用されています。ビュー構成を変更するとビュー共有リンクも変更されます。",
@@ -6,11 +15,12 @@
     "others": {
       "share": {
         "label": "共有",
-        "statusLabel": "共有中",
+        "statusLabel": "ビューをウェブに共有",
         "shareLink": "共有リンク",
         "copied": "コピーしました",
         "genLink": "新しいリンクを生成する",
         "allowCopy": "閲覧者がこのビューからデータをコピーできるようにする",
+        "allowEdit": "サインインしたユーザーが表示中のデータを編集できるようにする",
         "showAllFields": "展開されたレコードのすべてのフィールドを表示する",
         "restrict": "パスワードによる制限",
         "tips": "リンクを持っている人はそのビューを見ることができます。",
@@ -53,6 +63,16 @@
     "help": "詳細については、<HelpCenter /> をご覧ください",
     "helpCenter": "ヘルプセンター"
   },
+  "validation": {
+    "link": {
+      "batch_duplicate": "関連付けできません：同じバッチ内で、このレコードはすでに別のレコードに関連付けられています。一対多の関係では、各子レコードは1つの親レコードにのみ属できます。",
+      "one_many_duplicate": "関連付けできません：このレコードはすでに別のレコードに関連付けられています。一対多の関係では、各子レコードは1つの親レコードにのみ属できます。",
+      "one_one_duplicate": "関連付けできません：対象レコードは一対一の関係ですでに別のレコードに関連付けられています。"
+    },
+    "field": {
+      "maxColumnLimit": "テーブル「{{tableName}}」には最大 {{maxFieldCount}} 個のフィールドしか作成できません。"
+    }
+  },
   "field": {
     "fieldManagement": "フィールド管理",
     "fieldManagementDesc": "現在のテーブルのすべてのフィールドの詳細なプロパティ",
@@ -71,7 +91,7 @@
         "currencySymbol": "通貨記号",
         "defaultSymbol": "￥",
         "precision": "精度",
-        "decimalExample": "小数点 (1.0)",
+        "decimalExample": "数値 (123)",
         "currencyExample": "通貨 (￥100)",
         "percentExample": "パーセント (20%)"
       },
@@ -193,6 +213,9 @@
           "sum": "値を合計します。",
           "xor": "真の値の数が奇数のと場合、 true を返します。"
         }
+      },
+      "conditionalRollup": {
+        "title": "{{lookupFieldName}} 条件付きロールアップ"
       }
     },
     "editor": {
@@ -217,6 +240,7 @@
       "ring": "円",
       "bar": "棒",
       "text": "テキスト",
+      "markdown": "Markdown",
       "url": "Url",
       "email": "メール",
       "phone": "電話",
@@ -262,6 +286,25 @@
       "hideFields": "フィールドを非表示にする",
       "moreOptions": "オプションを表示",
       "allowNewOptionsWhenEditing": "編集時に新しいオプションを許可",
+      "deleteField": {
+        "title": "フィールドを削除",
+        "simpleConfirm": "フィールド <b>{{fieldName}}</b> を削除してもよろしいですか？",
+        "withDependencies": "フィールド <b>{{fieldName}}</b> を削除すると、以下のフィールドに影響します：",
+        "affectedFields": "影響を受けるフィールド：",
+        "fieldsToDelete": "削除するフィールド ({{count}})",
+        "unviewedHint": "{{count}} 個のフィールドが未確認",
+        "deleteCount": "{{count}} 個のフィールドを削除",
+        "noAffectedFields": "このフィールドは他のフィールドから参照されていません。",
+        "riskIdentified": "リスクあり({{count}})",
+        "noDependencies": "依存関係なし({{count}})",
+        "safeToDelete": "安全に削除可能",
+        "safeToDeleteDesc": "このフィールドは他のフィールドから参照されていないため、安全に削除できます",
+        "affectedItems": "影響を受ける項目",
+        "type": "タイプ",
+        "source": "ソース",
+        "sourceTable": "ソーステーブル",
+        "typeField": "フィールド"
+      },
       "conditionalLookup": {
         "sortLimitToggleLabel": "Sort linked records and limit the number of matches",
         "sortLabel": "Sort results",
@@ -382,6 +425,9 @@
     "baseInfo": "ベース情報",
     "typeOfDatabase": "データベースの種類",
     "descriptionForTable": "このテーブルの説明",
+    "loginUserTable": "アプリログイン",
+    "loginUserTableClickTips": "関連アプリを開く",
+    "linkedApps": "関連アプリ",
     "nameForTable": "このテーブルの名前",
     "deleteTip1": "この表にリンクされている他の表のリンクフィールドは削除されます",
     "deleteTip2": "このテーブルは削除後、ごみ箱から復元できます",
@@ -405,10 +451,33 @@
       "deleteFieldConfirmTitle": "以下のフィールドを削除します",
       "deleting": "削除中...",
       "deleteSuccessful": "削除成功",
+      "deleteStream": {
+        "preparing": "Preparing selection",
+        "deleting": "Deleting records",
+        "descriptionWithIssues": "Some delete chunks failed. Review the details below.",
+        "completedWithIssues": "Deletion completed with issues",
+        "issuesBadge": "{{count}} issues",
+        "chunkFailureTitle": "Chunk failure details",
+        "chunkFailureSummary": "{{count}} chunk(s) reported an error while the stream kept running.",
+        "chunkLabel": "Chunk {{index}}",
+        "rowsLabel": "{{count}} rows",
+        "partialFailureDescription": "Deleted {{deletedCount}} of {{totalCount}} records. Review chunk details in the dialog.",
+        "phaseLabel": {
+          "preparing": "Preparing",
+          "guarding": "Checking",
+          "deleting": "Deleting",
+          "publishing": "Publishing",
+          "finalizing": "Finalizing"
+        }
+      },
       "pasteFileFailed": "ファイルは添付ファイル欄にのみ貼り付けることができます",
       "copyError": {
         "noFocus": "ページをアクティブに保ち、ウィンドウを切り替えないでください"
-      }
+      },
+      "crossBaseCopyTitle": "プレーンテキストとしてコピーしますか？",
+      "crossBaseCopyDescription": "この選択範囲にはベース間のリンクフィールドが含まれています。データを元のベース内に留めるため、フィールドはプレーンテキストとしてコピーされ、リンク関係は失われます。",
+      "crossBaseCopyConfirm": "プレーンテキストとしてコピー",
+      "crossBaseCopyLoadFirst": "ベース間のフィールドをコピーする前に、選択したすべての行を読み込むためにスクロールしてください。"
     },
     "graph": {
       "tableLabel": "テーブルラベル",
@@ -421,7 +490,171 @@
       "title": "整合性チェック",
       "loading": "整合性チェック中...",
       "allGood": "すべて正常です！",
-      "fixIssues": "問題を修正"
+      "fixIssues": "問題を修正",
+      "v2": {
+        "dialogTitle": "スキーマ整合性",
+        "dialogDescription": "{{tableName}} に対して v2 のスキーマチェックと修復を実行します。",
+        "dialogDescriptionNoTable": "現在のベースに対して v2 スキーマチェックと修復を実行します。",
+        "runCheck": "チェック開始",
+        "recheck": "再チェック",
+        "repair": "修復",
+        "repairWarnings": "警告のみ修復",
+        "repairWarningsAndErrors": "警告とエラーを修復",
+        "repairRule": "このルールを修復",
+        "repairUnavailable": "このルールは自動修復できません",
+        "manual": "手動",
+        "manualRepairNotice": "この問題は手動で修復する必要があります",
+        "manualRepairNoticeWithCount": "{{count}} 件の問題は手動修復が必要です。各ルールの右側にある「手動」操作から修復ダイアログを開いてください。",
+        "manualRepairDialogTitle": "手動修復が必要です",
+        "manualRepairDialogDescription": "この問題は自動修復できません。以下の案内を確認し、どのように修復するか選択してください。",
+        "manualRepairDialogReason": "手動修復が必要な理由",
+        "manualRepairDialogHint": "このダイアログでは、現在はルールが要求する修復オプションのみを案内します。実行処理は後からこの契約の上に追加できます。",
+        "manualRepairDialogClose": "閉じる",
+        "checking": "スキーマをチェックしています...",
+        "repairing": "スキーマを修復しています...",
+        "streamError": "スキーマ整合性ストリームに失敗しました。",
+        "noTableSelected": "先にテーブルを選択して v2 スキーマチェックを実行してください。",
+        "noResults": "スキーマ結果はまだありません。",
+        "noFilteredResults": "現在のフィルターに一致する結果はありません。",
+        "systemColumns": "システム列",
+        "general": "一般",
+        "optional": "任意",
+        "statementCount": "{{count}} 件のステートメント",
+        "detailsMissing": "不足: {{details}}",
+        "detailsExtra": "余分: {{details}}",
+        "message": {
+          "schemaValid": "Schema is valid",
+          "schemaValidationFailed": "Schema validation failed",
+          "schemaElementMissing": "Schema element missing",
+          "schemaAlreadyValid": "Schema is already valid",
+          "schemaRepaired": "Schema repaired successfully",
+          "manualRepair": "Rule requires manual repair",
+          "noRepairStatements": "No repair statements available",
+          "skippedDependencies": "Skipped because dependencies are not satisfied",
+          "checkStreamConnected": "Schema integrity check stream connected",
+          "baseCheckStreamConnected": "Base schema integrity check stream connected",
+          "repairStreamConnected": "Schema integrity repair stream connected",
+          "baseRepairStreamConnected": "Base schema integrity repair stream connected",
+          "checkCompleted": "Schema integrity check completed",
+          "baseCheckCompleted": "Base schema integrity check completed",
+          "repairCompleted": "Schema integrity repair completed",
+          "baseRepairCompleted": "Base schema integrity repair completed"
+        },
+        "rule": {
+          "column": "Physical column",
+          "columnTyped": "Physical column ({{dataType}})",
+          "notNull": "NOT NULL constraint",
+          "columnUnique": "UNIQUE constraint",
+          "fkColumn": "Foreign key column",
+          "index": "Index",
+          "uniqueIndex": "Unique index",
+          "primaryKey": "PRIMARY KEY",
+          "defaultExpression": "Default expression",
+          "foreignKey": "Foreign key constraint",
+          "junctionTable": "Junction table",
+          "junctionUnique": "Junction table unique constraint",
+          "junctionIndex": "Junction table index",
+          "junctionForeignKey": "Junction table foreign key",
+          "reference": "Reference records",
+          "generatedColumn": "Generated column",
+          "generatedMeta": "Generated column state",
+          "linkValueColumn": "Link value column",
+          "orderColumn": "Order column",
+          "fieldMeta": "Field metadata",
+          "symmetricField": "Symmetric field relationship",
+          "systemColumn": "System column \"{{columnName}}\"",
+          "systemColumnTyped": "System column \"{{columnName}}\" ({{dataType}})",
+          "systemNotNull": "NOT NULL on system column \"{{columnName}}\"",
+          "systemUnique": "UNIQUE index on system column \"{{columnName}}\"",
+          "systemPrimaryKey": "PRIMARY KEY on system column \"{{columnName}}\"",
+          "systemDefault": "Default expression on system column \"{{columnName}}\"",
+          "connection": "Connection",
+          "completion": "Completion",
+          "unexpected": "Unexpected error"
+        },
+        "detail": {
+          "systemColumnMissing": "System column \"{{columnName}}\" not found",
+          "systemColumnNotNull": "System column \"{{columnName}}\" should be NOT NULL",
+          "systemColumnUnique": "System column \"{{columnName}}\" should have a UNIQUE index",
+          "systemColumnPrimaryKey": "System column \"{{columnName}}\" should be PRIMARY KEY",
+          "systemColumnDefault": "System column \"{{columnName}}\" should have a default expression",
+          "foreignKeyOrphanRows": "Field \"{{fieldName}}\" still has {{count}} rows pointing to missing linked records",
+          "foreignKeyOrphanRowsDescription": "Automatic repair cannot restore the foreign key for \"{{fieldName}}\" until the {{count}} invalid references to \"{{targetTableName}}\" are cleaned up.",
+          "junctionForeignKeyMissing": "The junction table for \"{{fieldName}}\" is missing one of its foreign keys",
+          "junctionForeignKeyMissingDescription": "Restore the junction foreign key for \"{{fieldName}}\" so relation rows stay linked to existing records in \"{{targetTableName}}\".",
+          "junctionForeignKeyTargetTableMissing": "The linked table for the junction of \"{{fieldName}}\" cannot be found",
+          "junctionForeignKeyTargetTableMissingDescription": "Automatic repair cannot restore the junction foreign key for \"{{fieldName}}\" because the target table \"{{targetPhysicalTableName}}\" does not exist.",
+          "junctionForeignKeyOrphanRows": "The junction table for \"{{fieldName}}\" still has {{count}} rows pointing to missing linked records",
+          "junctionForeignKeyOrphanRowsDescription": "Automatic repair cannot restore the junction foreign key for \"{{fieldName}}\" until the {{count}} invalid relation rows referencing \"{{targetTableName}}\" are cleaned up."
+        },
+        "phase": {
+          "check": "チェック結果",
+          "repair": "修復結果"
+        },
+        "summary": {
+          "checks": "{{count}} 件のチェック",
+          "success": "{{count}} 件成功",
+          "warn": "{{count}} 件警告",
+          "error": "{{count}} 件エラー",
+          "skipped": "{{count}} 件スキップ",
+          "repaired": "{{count}} 件修復",
+          "manual": "{{count}} 件手動対応",
+          "problems": "{{count}} 件の問題"
+        },
+        "status": {
+          "success": "成功",
+          "error": "エラー",
+          "warn": "警告",
+          "pending": "待機中",
+          "running": "実行中",
+          "skipped": "スキップ"
+        },
+        "outcome": {
+          "repaired": "修復済み",
+          "unchanged": "変更なし",
+          "manual": "手動",
+          "skipped": "スキップ"
+        },
+        "repairMeta": {
+          "reason": {
+            "alreadyValid": "This rule is already valid",
+            "manualRule": "This rule requires a manual decision",
+            "statementGenerationFailed": "The system could not generate a safe repair statement",
+            "noStatements": "This rule has no automatic repair statement",
+            "symmetricFieldConflict": "This symmetric link conflict needs a manual choice",
+            "foreignKeyTargetTableMissing": "Automatic repair is unavailable because the linked table is missing",
+            "foreignKeyOrphanRows": "Automatic repair is unavailable because invalid linked rows still exist",
+            "junctionForeignKeyTargetTableMissing": "Automatic repair is unavailable because the junction target table is missing",
+            "junctionForeignKeyOrphanRows": "Automatic repair is unavailable because invalid junction rows still exist"
+          },
+          "description": {
+            "symmetricFieldConflict": "More than one field points at the same symmetric link target. Pick which field should own the two-way relationship before repairing.",
+            "foreignKeyTargetTableMissing": "Check whether the linked table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
+            "foreignKeyOrphanRows": "Clean up the invalid linked rows for \"{{fieldName}}\" before adding the foreign key constraint again.",
+            "junctionForeignKeyTargetTableMissing": "Check whether the target table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
+            "junctionForeignKeyOrphanRows": "Clean up the invalid junction rows for \"{{fieldName}}\" before adding the foreign key back."
+          },
+          "manual": {
+            "apply": "Apply manual repair",
+            "symmetricField": {
+              "title": "Resolve symmetric link conflict",
+              "description": "Pick how this duplicate symmetric link should be repaired.",
+              "resolutionLabel": "Repair strategy",
+              "resolutionDescription": "Choose which field should keep the two-way link behavior.",
+              "option": {
+                "keepCurrent": "Keep the current field as the two-way link",
+                "keepDuplicate": "Keep the duplicate field as the two-way link",
+                "convertDuplicate": "Convert the duplicate field to a one-way link"
+              }
+            }
+          }
+        }
+      },
+      "errorType": {
+        "InvalidPrimaryLookup": "主フィールドが Lookup として誤設定",
+        "InvalidPrimaryType": "主フィールドのタイプが非対応",
+        "MissingPrimary": "テーブルに主フィールドがありません"
+      }
     },
     "index": {
       "description": "インデックスは、特に大量のデータ（{{rowCount}}行以上）を扱う場合、検索パフォーマンスを大幅に向上させることができます。ただし、書き込み操作が若干遅くなるというデメリットがあります。頻繁に検索を行う場合や大規模なデータセットがある場合は、インデックスを有効にすることをお勧めします。",
@@ -513,8 +746,9 @@
   },
   "form": {
     "fieldsManagement": "フィールド",
-    "addAll": "すべて追加",
-    "removeAll": "すべて削除",
+    "addAll": "すべて表示",
+    "removeAll": "すべて非表示",
+    "createField": "フィールドを作成",
     "hideFieldTip": "ここまでフィールドを非表示にする",
     "unableAddFieldTip": "このタイプのフィールドを追加できません",
     "removeFromFormTip": "フォームから削除",
@@ -594,7 +828,8 @@
     "expandGroup": "このグループとそのサブグループを展開",
     "collapseGroup": "このグループとそのサブグループを折りたたむ",
     "expandAllGroups": "すべてのグループを展開",
-    "collapseAllGroups": "すべてのグループを折りたたむ"
+    "collapseAllGroups": "すべてのグループを折りたたむ",
+    "addToChat": "チャットに追加"
   },
   "connection": {
     "title": "データベース接続",
@@ -610,11 +845,11 @@
     "dragToolTip": "自動並べ替えがオンになっており、手動ドラッグは利用できません",
     "insertToolTip": "自動並べ替えがオンになっているため、順序付き挿入は利用できません",
     "action": {
-      "rename": "ビューの名前を変更",
-      "duplicate": "ビューを複製",
-      "delete": "ビューの削除",
-      "lock": "ビューをロック",
-      "unlock": "ビューをロック解除",
+      "rename": "名前を変更",
+      "duplicate": "複製",
+      "delete": "削除",
+      "lock": "ロック",
+      "unlock": "ロック解除",
       "enable": "有効"
     },
     "category": {
@@ -637,32 +872,125 @@
   "lastModify": "最終更新: ",
   "tableTrash": {
     "title": "テーブルのごみ箱",
-    "resourceType": "リソースタイプ",
-    "deletedResource": "削除されたリソース"
+    "resourceType": "タイプ",
+    "deletedResource": "リソース"
+  },
+  "baseShare": {
+    "title": "ベースを共有",
+    "shareTitle": "共有",
+    "shareToWeb": "ウェブに共有",
+    "description": "「{{baseName}}」を他の人と共有",
+    "nodeShareDescription": "「{{nodeName}}」とその内容を共有",
+    "shareLinks": "共有リンク",
+    "newLink": "新しいリンク",
+    "noShareLinks": "共有リンクはまだありません",
+    "createFirstLink": "共有リンクを作成",
+    "editSettings": "設定を編集",
+    "refreshLink": "リンクを再生成",
+    "deleteLink": "リンクを削除",
+    "deleteConfirmTitle": "共有リンクを削除",
+    "deleteConfirmDescription": "この操作は元に戻せません。このリンクを持つ人は共有ベースにアクセスできなくなります。",
+    "createSuccess": "共有リンクが作成されました",
+    "createFailed": "共有リンクの作成に失敗しました",
+    "updateSuccess": "共有設定が更新されました",
+    "updateFailed": "共有設定の更新に失敗しました",
+    "deleteSuccess": "共有リンクが削除されました",
+    "deleteFailed": "共有リンクの削除に失敗しました",
+    "refreshSuccess": "共有リンクが再生成されました",
+    "refreshFailed": "共有リンクの再生成に失敗しました",
+    "copied": "リンクがクリップボードにコピーされました",
+    "shareLink": "共有リンク",
+    "linkHolderLabel": "リンクを取得した人",
+    "linkHolderCanView": "閲覧可能",
+    "linkHolderCanViewDesc": "Anyone with the link can view the data",
+    "linkHolderCanEdit": "編集可能",
+    "linkHolderCanEditDesc": "Logged-in users can edit records in the table",
+    "viewLinkHolderCanViewDesc": "リンクを持つ全員がこのビューのデータを閲覧できます",
+    "viewLinkHolderCanEditDesc": "ログインユーザーはビューの範囲内でデータを編集できます",
+    "linkExposureNoticeOne": "Visitors can see data from \"{{name}}\"",
+    "linkExposureNoticeMany": "Visitors can see data from \"{{name}}\" and {{count}} tables in total",
+    "linkExposureNoticeGeneric": "Visitors can see data from linked tables",
+    "restrictScope": "Restrict scope",
+    "linkScopeDesc": "Restrict which records and fields are selectable in this views link fields. The setting applies to the field itself and affects every view that uses it.",
+    "linkScopeDialogTitle": "Link field scope",
+    "linkHolderCanCopyAndSave": "コピーとして保存可能",
+    "linkHolderCanCopyAndSaveDesc": "Anyone with the link can save a copy to their space",
+    "editRequiresLogin": "Users must log in to edit records",
+    "passwordProtection": "パスワード保護",
+    "enterPassword": "パスワードを入力",
+    "selectNodes": "テーブルを選択",
+    "shareEntireBase": "ベース全体を共有",
+    "shareSelectedNodes": "選択したノードを共有",
+    "shareEntireBaseDescription": "このベースに追加された新しいテーブルとフォルダは自動的に共有されます",
+    "noNodesSelectedWarning": "共有するノードを少なくとも1つ選択してください",
+    "allowSave": "スペースに保存を許可",
+    "allowSaveDescription": "閲覧者がこのベースのコピーを自分のスペースに保存することを許可",
+    "allowCopy": "データのコピーを許可",
+    "allowCopyData": "閲覧者がデータをコピーすることを許可",
+    "allowDuplicate": "閲覧者に複製を許可",
+    "allowCopyDescription": "閲覧者がこの共有ベースからテーブルデータをコピーすることを許可",
+    "selectedNodes": "{{count}}個のテーブルが選択されました",
+    "allNodes": "すべてのテーブル",
+    "sharedNode": "共有ノード",
+    "sharedNodeDescription": "この共有リンクは特定のノードとその子孫用です",
+    "publicShareTitle": "リンクによる公開共有",
+    "publicShareCount": "{{count}}個の公開共有リンク",
+    "noPublicShare": "公開共有リンクはありません",
+    "security": "セキュリティ",
+    "restrictByPassword": "パスワードで制限",
+    "advanced": "詳細設定",
+    "embedConfig": "埋め込み設定",
+    "appPublicLink": "アプリ公開リンク",
+    "appNotPublished": "このアプリはまだ公開されていません。共有する前にまずアプリを公開してください。",
+    "goToPublish": "公開へ",
+    "publishSuccess": "アプリが正常に公開されました",
+    "publishFailed": "アプリの公開に失敗しました",
+    "openLink": "リンクを開く",
+    "appPublished": "アプリが公開されました",
+    "shareTableTab": "テーブルを共有",
+    "shareViewTab": "ビューを共有",
+    "shareNodeTab": "ノードを共有"
   },
   "aiChat": {
-    "tool": {
-      "getTableFields": "テーブルフィールドを取得",
-      "getTablesMeta": "テーブルメタデータを取得",
-      "sqlQuery": "SQL クエリを実行",
-      "generateScriptAction": "スクリプトアクションを生成",
-      "getScriptInput": "スクリプト入力を取得",
-      "getTeableApi": "API を取得",
-      "args": "引数",
-      "result": "結果"
+    "agent": {
+      "askUserQuestion": {
+        "otherPlaceholder": "または回答を入力…"
+      },
+      "messageActions": {
+        "copy": "コピー",
+        "copyToInput": "入力欄にコピー"
+      }
     },
-    "codeBlock": {
-      "hiddenLines": "{{count}} 行が非表示",
-      "collapseCode": "コードを折りたたむ",
-      "code": "コード",
-      "preview": "プレビュー"
+    "tool": {
+      "showLess": "折りたたむ",
+      "generateApp": {
+        "creatingApp": "アプリを作成中",
+        "updatingApp": "アプリを更新中",
+        "viewProgress": "進行状況を表示"
+      },
+      "htmlPreview": {
+        "preview": "プレビュー",
+        "code": "コード",
+        "download": "ダウンロード",
+        "downloadHtml": "HTML",
+        "downloadImage": "画像（PNG）",
+        "copy": "コピー",
+        "copied": "コピーしました！",
+        "fullscreen": "全画面",
+        "exitFullscreen": "全画面を終了",
+        "downloadSuccess": "画像を正常にダウンロードしました",
+        "downloadFailed": "画像のキャプチャに失敗しました",
+        "iframeFailed": "キャプチャに失敗：iframe にアクセスできません"
+      }
+    },
+    "action": {
+      "locateResource": "検索"
     },
     "newChat": "新しいチャット",
-    "clearChat": "チャットをクリア",
-    "clearChatConfirmTitle": "チャットのクリアを確認",
-    "clearChatConfirmDesc": "現在のチャット内容は保存されません。本当にクリアしますか？",
-    "dontShowAgain": "今後表示しない",
-    "noModel": "利用可能なモデルがありません",
+    "expand": "展開",
+    "history": "履歴",
+    "close": "折りたたむ",
+    "addAttachment": "添付ファイルを追加",
     "noHistory": "チャット履歴がありません",
     "noFoundHistory": "チャット履歴が見つかりません。新しいチャットを開始してください",
     "timeGroup": {
@@ -673,19 +1001,85 @@
       "other": "その他"
     },
     "context": {
-      "button": "コンテキストを追加",
+      "button": "ノードを追加",
       "search": "テーブルを追加",
       "searchEmpty": "一致するコンテキストが見つかりません",
-      "emptyContext": "追加するコンテキストがありません"
+      "emptyContext": "追加するコンテキストがありません",
+      "selectionRow": "Row {{row}}",
+      "selectionRows": "行 {{start}}-{{end}}",
+      "selectionColumn": "Col {{col}}",
+      "selectionColumns": "Col {{start}}-{{end}}"
     },
-    "inputPlaceholder": "メッセージを送信...",
+    "mention": {
+      "tables": "テーブル",
+      "apps": "アプリ",
+      "workflows": "自動化",
+      "folders": "フォルダ"
+    },
+    "inputPlaceholder": "@ でノードを追加",
+    "inputPlaceholderFiles": "ファイルを貼り付けまたはドロップ",
     "thought": "思考中",
     "meta": {
-      "timeCostUnit": "s",
-      "timeCostDescription": "生成時間: {{timeCost}}s",
-      "creditDescription": "{{credits}} クレジット使用済み",
-      "tokenDescription": "トークン使用数: {{tokens}}",
+      "input": "入力",
+      "output": "出力",
       "taskCompleted": "タスク完了"
+    },
+    "attachment": {
+      "pastedTextFileName": "貼り付けテキスト",
+      "imageNotSupported": "画像はサポートされていません"
+    },
+    "suggestions": {
+      "title": "何をお手伝いしましょうか？",
+      "whatCanIDo": "何ができますか？",
+      "createOrModifyDatabase": "データベースを作成または変更",
+      "buildAutomations": "オートメーションを構築",
+      "buildApps": "アプリを構築",
+      "buildMeCRM": "CRMを構築",
+      "addAIField": "AIフィールドを追加して各顧客を分析",
+      "createDataAnalysis": "データ分析レポートを作成",
+      "emailWhenRecordCreated": "レコード作成時にメール通知",
+      "syncStatusToSlack": "ステータス更新をSlackに同期",
+      "buildDashboard": "このテーブルからダッシュボードを構築",
+      "buildLeadCapture": "リード獲得ランディングページを構築"
+    },
+    "buildApp": {
+      "task": {
+        "foundResults": "{{count}} 件の結果が見つかりました"
+      }
+    },
+    "scriptPreview": {
+      "writeCodeHint": "コードを記述してフローチャートのプレビューを確認してください。",
+      "noPreview": "フローチャートのプレビューはありません。",
+      "codeChanged": "このプレビューが生成されてからコードが変更されました。"
+    }
+  },
+  "download": {
+    "allAttachments": {
+      "title": "すべての添付ファイルをダウンロード",
+      "loading": "プレビューを読み込み中...",
+      "rowsWithAttachments": "添付行",
+      "totalAttachments": "添付数",
+      "totalSize": "合計サイズ",
+      "confirmTitle": "{{count}} ファイルをダウンロード",
+      "confirmDescription": "合計サイズ: {{size}}。ファイルはZIPファイルに圧縮されます。",
+      "confirm": "ダウンロード",
+      "cancel": "キャンセル",
+      "downloading": "ダウンロード中...",
+      "downloadingFile": "ダウンロード中: {{fileName}}",
+      "progress": "{{downloaded}} / {{total}}",
+      "completed": "ダウンロード完了",
+      "cancelled": "ダウンロードがキャンセルされました",
+      "noAttachments": "ダウンロードする添付ファイルがありません",
+      "error": "ダウンロード失敗",
+      "errorPartial": "{{failedCount}} ファイルのダウンロードに失敗しました",
+      "requireHttps": "一括ダウンロードにはHTTPSが必要です。HTTPSまたはlocalhostでアクセスしてください。",
+      "advancedOptions": "詳細オプション",
+      "namingFieldLabel": "添付ファイル名のプレフィックス",
+      "selectField": "デフォルト: 添付ファイル番号",
+      "noPrefixOption": "プレフィックスなし",
+      "noPrefixOptionDesc": "元のファイル名を保持",
+      "groupByRow": "フォルダにアーカイブ",
+      "groupByRowTip": "行に複数の添付ファイルがある場合、同じフォルダに配置されます。添付ファイルが1つだけの行はフォルダを作成しません。"
     }
   }
 }

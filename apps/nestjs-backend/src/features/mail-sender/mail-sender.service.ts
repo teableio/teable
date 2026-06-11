@@ -27,6 +27,7 @@ import { buildEmailFrom, type ISendMailOptions } from './mail-helpers';
 export class MailSenderService {
   private logger = new Logger(MailSenderService.name);
   private readonly defaultTransportConfig: IMailTransportConfig;
+  private readonly isMailConfigured: boolean;
 
   constructor(
     private readonly mailService: MailerService,
@@ -37,7 +38,8 @@ export class MailSenderService {
     private readonly cacheService: CacheService,
     private readonly i18n: I18nService<I18nTranslations>
   ) {
-    const { host, port, secure, auth, sender, senderName } = this.mailConfig;
+    const { host, port, secure, auth, sender, senderName, isConfigured } = this.mailConfig;
+    this.isMailConfigured = isConfigured;
     this.defaultTransportConfig = {
       senderName,
       sender,
@@ -49,6 +51,25 @@ export class MailSenderService {
         pass: auth.pass || '',
       },
     };
+  }
+
+  /**
+   * Log email content when mail is not configured.
+   * This helps developers debug email sending without actually sending emails.
+   */
+  private logEmailContent(mailOptions: ISendMailOptions, from?: string): void {
+    const emailInfo = {
+      from: from ?? mailOptions.from,
+      to: mailOptions.to,
+      subject: mailOptions.subject,
+      template: mailOptions.template,
+      context: mailOptions.context,
+      body: mailOptions.html ?? mailOptions.text,
+    };
+
+    this.logger.log(
+      `[Mail Not Configured] Would send email:\n${JSON.stringify(emailInfo, null, 2)}`
+    );
   }
 
   async checkSendMailRateLimit<T>(
@@ -91,7 +112,23 @@ export class MailSenderService {
     return transporter;
   }
 
+  /**
+   * Check if a transport config is valid (has required SMTP settings)
+   */
+  private isTransportConfigValid(config: IMailTransportConfig): boolean {
+    return Boolean(config.host && config.auth?.user && config.auth?.pass);
+  }
+
   async sendMailByConfig(mailOptions: ISendMailOptions, config: IMailTransportConfig) {
+    // Check if the provided config is valid (could be from env vars or backend settings)
+    if (!this.isTransportConfigValid(config)) {
+      const from =
+        mailOptions.from ??
+        buildEmailFrom(config.sender, mailOptions.senderName ?? config.senderName);
+      this.logEmailContent(mailOptions, from as string);
+      return { messageId: 'mock-message-id-not-configured' };
+    }
+
     const instance = await this.createTransporter(config);
     const from =
       mailOptions.from ??
@@ -121,7 +158,11 @@ export class MailSenderService {
     return config;
   }
 
-  async notifyMergeOptions(list: ISendMailOptions & { mailType: MailType }[], brandName: string) {
+  async notifyMergeOptions(
+    list: ISendMailOptions & { mailType: MailType }[],
+    brandName: string,
+    brandLogo: string
+  ) {
     return {
       subject: this.i18n.t('common.email.templates.notify.subject', {
         args: { brandName },
@@ -130,6 +171,7 @@ export class MailSenderService {
       context: {
         partialBody: 'notify-merge-body',
         brandName,
+        brandLogo,
         list: list.map((item) => ({
           ...item,
           mailType: item.mailType,
@@ -167,12 +209,28 @@ export class MailSenderService {
     }
   ): Promise<boolean> {
     const { type, transportConfig, transporterName } = extra || {};
+
     let sender: Promise<boolean>;
     if (transportConfig) {
+      // Explicit transport config provided - sendMailByConfig will validate it
       sender = this.sendMailByConfig(mailOptions, transportConfig).then(() => true);
     } else if (transporterName) {
+      // Named transporter - may have config from backend settings, sendMailByTransporterName will validate
       sender = this.sendMailByTransporterName(mailOptions, transporterName, type).then(() => true);
     } else {
+      // No custom config - use default mailer service
+      // If env vars not configured, log the email instead
+      if (!this.isMailConfigured) {
+        const from =
+          mailOptions.from ??
+          buildEmailFrom(
+            this.mailConfig.sender,
+            mailOptions.senderName ?? this.mailConfig.senderName
+          );
+        this.logEmailContent(mailOptions, from as string);
+        return true;
+      }
+
       const from =
         mailOptions.from ??
         buildEmailFrom(
@@ -196,15 +254,15 @@ export class MailSenderService {
     });
   }
 
-  inviteEmailOptions(info: {
+  async inviteEmailOptions(info: {
     name: string;
-    brandName: string;
     email: string;
     resourceName: string;
     resourceType: CollaboratorType;
     inviteUrl: string;
   }) {
-    const { name, email, inviteUrl, resourceName, resourceType, brandName } = info;
+    const { name, email, inviteUrl, resourceName, resourceType } = info;
+    const { brandName, brandLogo } = await this.settingOpenApiService.getServerBrand();
     const resourceAlias = resourceType === CollaboratorType.Space ? 'Space' : 'Base';
 
     return {
@@ -220,6 +278,7 @@ export class MailSenderService {
         inviteUrl,
         partialBody: 'invite',
         brandName,
+        brandLogo,
         title: this.i18n.t('common.email.templates.invite.title'),
         message: this.i18n.t('common.email.templates.invite.message', {
           args: { name, email, resourceAlias, resourceName },
@@ -250,7 +309,7 @@ export class MailSenderService {
     const refLength = recordIds.length;
 
     const viewRecordUrlPrefix = `${this.mailConfig.origin}/base/${baseId}/table/${tableId}`;
-    const { brandName } = await this.settingOpenApiService.getServerBrand();
+    const { brandName, brandLogo } = await this.settingOpenApiService.getServerBrand();
     if (refLength <= 1) {
       subject = this.i18n.t('common.email.templates.collaboratorCellTag.subject', {
         args: { fromUserName, fieldName, tableName },
@@ -283,6 +342,7 @@ export class MailSenderService {
         viewRecordUrlPrefix,
         partialBody,
         brandName,
+        brandLogo,
         title: this.i18n.t('common.email.templates.collaboratorCellTag.title', {
           args: { fromUserName, fieldName, tableName },
         }),
@@ -299,7 +359,7 @@ export class MailSenderService {
     buttonText: string;
   }) {
     const { title, message } = info;
-    const { brandName } = await this.settingOpenApiService.getServerBrand();
+    const { brandName, brandLogo } = await this.settingOpenApiService.getServerBrand();
     return {
       notifyMessage: message,
       subject: `${title} - ${brandName}`,
@@ -307,6 +367,7 @@ export class MailSenderService {
       context: {
         partialBody: 'html-body',
         brandName,
+        brandLogo,
         ...info,
       },
     };
@@ -320,7 +381,7 @@ export class MailSenderService {
     buttonText: string;
   }) {
     const { title, message } = info;
-    const { brandName } = await this.settingOpenApiService.getServerBrand();
+    const { brandName, brandLogo } = await this.settingOpenApiService.getServerBrand();
     return {
       notifyMessage: message,
       subject: `${title} - ${brandName}`,
@@ -328,6 +389,7 @@ export class MailSenderService {
       context: {
         partialBody: 'common-body',
         brandName,
+        brandLogo,
         ...info,
       },
     };
@@ -335,7 +397,7 @@ export class MailSenderService {
 
   async sendTestEmailOptions(info: { message?: string }) {
     const { message } = info;
-    const { brandName } = await this.settingOpenApiService.getServerBrand();
+    const { brandName, brandLogo } = await this.settingOpenApiService.getServerBrand();
     return {
       subject: this.i18n.t('common.email.templates.test.subject', {
         args: { brandName },
@@ -344,6 +406,7 @@ export class MailSenderService {
       context: {
         partialBody: 'html-body',
         brandName,
+        brandLogo,
         title: this.i18n.t('common.email.templates.test.title'),
         message: message || this.i18n.t('common.email.templates.test.message'),
       },
@@ -358,7 +421,7 @@ export class MailSenderService {
     waitlistInviteUrl: string;
   }) {
     const { code, times, name, email, waitlistInviteUrl } = info;
-    const { brandName } = await this.settingOpenApiService.getServerBrand();
+    const { brandName, brandLogo } = await this.settingOpenApiService.getServerBrand();
     return {
       subject: this.i18n.t('common.email.templates.waitlistInvite.subject', {
         args: { name, email, brandName },
@@ -368,6 +431,7 @@ export class MailSenderService {
         ...info,
         partialBody: 'common-body',
         brandName,
+        brandLogo,
         title: this.i18n.t('common.email.templates.waitlistInvite.title'),
         message: this.i18n.t('common.email.templates.waitlistInvite.message', {
           args: { brandName, code, times },
@@ -380,7 +444,7 @@ export class MailSenderService {
 
   async resetPasswordEmailOptions(info: { name: string; email: string; resetPasswordUrl: string }) {
     const { resetPasswordUrl } = info;
-    const { brandName } = await this.settingOpenApiService.getServerBrand();
+    const { brandName, brandLogo } = await this.settingOpenApiService.getServerBrand();
 
     return {
       subject: this.i18n.t('common.email.templates.resetPassword.subject', {
@@ -392,6 +456,7 @@ export class MailSenderService {
       context: {
         partialBody: 'reset-password',
         brandName,
+        brandLogo,
         title: this.i18n.t('common.email.templates.resetPassword.title'),
         message: this.i18n.t('common.email.templates.resetPassword.message'),
         buttonText: this.i18n.t('common.email.templates.resetPassword.buttonText'),
@@ -431,7 +496,7 @@ export class MailSenderService {
 
   private async sendSignupVerificationEmailOptions(payload: { code: string; expiresIn: string }) {
     const { code, expiresIn } = payload;
-    const { brandName } = await this.settingOpenApiService.getServerBrand();
+    const { brandName, brandLogo } = await this.settingOpenApiService.getServerBrand();
     return {
       subject: this.i18n.t('common.email.templates.emailVerifyCode.signupVerification.subject', {
         args: {
@@ -442,6 +507,7 @@ export class MailSenderService {
       context: {
         partialBody: 'email-verify-code',
         brandName,
+        brandLogo,
         title: this.i18n.t('common.email.templates.emailVerifyCode.signupVerification.title'),
         message: this.i18n.t('common.email.templates.emailVerifyCode.signupVerification.message', {
           args: {
@@ -455,7 +521,7 @@ export class MailSenderService {
 
   private async sendChangeEmailCodeEmailOptions(payload: { code: string; expiresIn: string }) {
     const { code, expiresIn } = payload;
-    const { brandName } = await this.settingOpenApiService.getServerBrand();
+    const { brandName, brandLogo } = await this.settingOpenApiService.getServerBrand();
     return {
       subject: this.i18n.t(
         'common.email.templates.emailVerifyCode.changeEmailVerification.subject',
@@ -467,6 +533,7 @@ export class MailSenderService {
       context: {
         partialBody: 'email-verify-code',
         brandName,
+        brandLogo,
         title: this.i18n.t('common.email.templates.emailVerifyCode.changeEmailVerification.title'),
         message: this.i18n.t(
           'common.email.templates.emailVerifyCode.changeEmailVerification.message',
@@ -488,7 +555,7 @@ export class MailSenderService {
     expiresIn: string;
   }) {
     const { domain, name, code, expiresIn } = payload;
-    const { brandName } = await this.settingOpenApiService.getServerBrand();
+    const { brandName, brandLogo } = await this.settingOpenApiService.getServerBrand();
     return {
       subject: this.i18n.t('common.email.templates.emailVerifyCode.domainVerification.subject', {
         args: {
@@ -499,6 +566,7 @@ export class MailSenderService {
       context: {
         partialBody: 'email-verify-code',
         brandName,
+        brandLogo,
         title: this.i18n.t('common.email.templates.emailVerifyCode.domainVerification.title', {
           args: { domain, name },
         }),

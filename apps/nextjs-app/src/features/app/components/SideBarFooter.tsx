@@ -1,9 +1,10 @@
 import { useSession } from '@teable/sdk';
-import { useIsAnonymous, useIsTemplate } from '@teable/sdk/hooks';
+import { BaseContext } from '@teable/sdk/context';
+import { useIsAnonymous, useIsReadOnlyPreview } from '@teable/sdk/hooks';
 import { Button } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
 import { Trans } from 'next-i18next';
-import React from 'react';
+import React, { useContext } from 'react';
 import { TeableLogo } from '@/components/TeableLogo';
 import { NotificationsManage } from '@/features/app/components/notifications/NotificationsManage';
 import { UserAvatar } from '@/features/app/components/user/UserAvatar';
@@ -17,11 +18,12 @@ import { UserNav } from './user/UserNav';
 
 export const SideBarFooter: React.FC = () => {
   const { user } = useSession();
+  const { base } = useContext(BaseContext);
   const isAnonymous = useIsAnonymous();
-  const isTemplate = useIsTemplate();
+  const isReadOnlyPreview = useIsReadOnlyPreview();
   const { brandName } = useBrand();
 
-  if (isAnonymous || isTemplate) {
+  if (isAnonymous || isReadOnlyPreview) {
     return (
       <div className="mx-4 my-3 flex flex-col items-center gap-4">
         <PublicOperateButton />
@@ -61,7 +63,7 @@ export const SideBarFooter: React.FC = () => {
             </p>
           </Button>
         </UserNav>
-        <SettingDialog />
+        <SettingDialog spaceId={base?.spaceId} />
         <DuplicateBaseModal />
         <TemplateCreateBaseModal />
         <SpaceSubscriptionModal />

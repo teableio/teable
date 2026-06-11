@@ -15,6 +15,32 @@ export class Record extends RecordCore {
     value?: string;
   };
 
+  private normalizeCellValue(fieldId: string) {
+    const cellValue = this.fields[fieldId];
+    const field = this.fieldMap?.[fieldId];
+
+    if (!field) {
+      return cellValue;
+    }
+
+    if (cellValue == null) {
+      return cellValue;
+    }
+
+    const validated = field.validateCellValue(cellValue);
+    if (validated?.success) {
+      return validated.data;
+    }
+
+    try {
+      const repaired = field.repair(cellValue);
+      const repairedValidated = field.validateCellValue(repaired);
+      return repairedValidated?.success ? repairedValidated.data : repaired;
+    } catch {
+      return cellValue;
+    }
+  }
+
   constructor(
     protected doc: Doc<IRecord>,
     protected fieldMap: { [fieldId: string]: IFieldInstance }
@@ -33,10 +59,18 @@ export class Record extends RecordCore {
         return undefined;
       }
       this._title = {
-        value: primaryField.cellValue2String(this.fields[primaryFieldId]),
+        value: primaryField.cellValue2String(this.normalizeCellValue(primaryFieldId)),
       };
     }
     return this._title.value;
+  }
+
+  override getCellValue(fieldId: string): unknown {
+    return this.normalizeCellValue(fieldId);
+  }
+
+  override getCellValueAsString(fieldId: string) {
+    return this.fieldMap[fieldId].cellValue2String(this.normalizeCellValue(fieldId));
   }
 
   static isLocked(permissions: Record['permissions'], fieldId: string) {
@@ -77,9 +111,14 @@ export class Record extends RecordCore {
   }
 
   private updateComputedField = async (fieldIds: string[], record: IRecord) => {
-    const changeCellFieldIds = fieldIds.filter(
-      (fieldId) => !isEqual(this.fields[fieldId], record.fields[fieldId])
-    );
+    const changeCellFieldIds = fieldIds.filter((fieldId) => {
+      // Skip if the new value is undefined - computed field hasn't been updated yet (V2 async)
+      // This prevents clearing computed fields that will be updated via ShareDB op
+      if (record.fields[fieldId] === undefined) {
+        return false;
+      }
+      return !isEqual(this.fields[fieldId], record.fields[fieldId]);
+    });
     if (!changeCellFieldIds.length) {
       return;
     }
@@ -98,23 +137,23 @@ export class Record extends RecordCore {
     try {
       this.onCommitLocal(fieldId, cellValue);
       this.fields[fieldId] = cellValue;
-      const [, tableId] = this.doc.collection.split('_');
-      const res = await updateRecord(tableId, this.doc.id, {
+      const normalizedFields = {
+        // you have to set null to clear the value
+        [fieldId]: cellValue === undefined ? null : cellValue,
+      };
+      const res = await updateRecord(this.doc.collection.split('_')[1], this.doc.id, {
         fieldKeyType: FieldKeyType.Id,
-        record: {
-          fields: {
-            // you have to set null to clear the value
-            [fieldId]: cellValue === undefined ? null : cellValue,
-          },
-        },
+        record: { fields: normalizedFields },
       });
-      const computedField = Object.keys(this.fieldMap).filter(
-        (fieldId) =>
-          this.fieldMap[fieldId].type === FieldType.Link || this.fieldMap[fieldId].isComputed
+      const computedFieldIds = Object.keys(this.fieldMap).filter(
+        (fId) => this.fieldMap[fId].type === FieldType.Link || this.fieldMap[fId].isComputed
       );
-      if (computedField.length) {
-        this.updateComputedField(computedField, res.data);
+      const fieldsToSync = new Set(computedFieldIds);
+      // Only sync the edited field for types with server-enriched properties (e.g., presignedUrl for attachments)
+      if (this.fieldMap[fieldId]?.type === FieldType.Attachment) {
+        fieldsToSync.add(fieldId);
       }
+      this.updateComputedField([...fieldsToSync], res.data);
     } catch (error) {
       this.onCommitLocal(fieldId, oldCellValue, true);
 

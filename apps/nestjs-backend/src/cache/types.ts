@@ -23,6 +23,7 @@ export interface ICacheStore {
   // userId:tableId:windowId
   [key: `operations:undo:${string}:${string}:${string}`]: IUndoRedoOperation[];
   [key: `operations:redo:${string}:${string}:${string}`]: IUndoRedoOperation[];
+  [key: `operations:engine:${string}:${string}:${string}`]: 'v1' | 'v2';
   [key: `plugin:auth-code:${string}`]: IPluginAuthStore;
   [key: `signin:attempts:${string}`]: number;
   [key: `signin:lockout:${string}`]: boolean;
@@ -32,9 +33,23 @@ export interface ICacheStore {
   })[];
   [key: `waitlist:invite-code:${string}`]: number;
   [key: `send-mail-rate-limit:${string}`]: boolean;
+  [key: `oauth:token-rate:${string}:${string}`]: number;
   [key: `automation:email:rate:${string}:${number}`]: number;
+  [key: `automation:email-att:${string}`]: string[];
+  [key: `automation:fail-notify-count:${string}`]: number;
   // Distributed lock keys
   [key: `lock:${string}`]: string;
+  [key: `import:result:manifest:${string}`]: {
+    successCount: number;
+    failedCount: number;
+    errorFilePaths: string[];
+    fieldNames: string[];
+    maxWidth: number;
+    errorReportUrl?: string;
+  };
+  [key: `import:latest-job:${string}`]: string;
+  // trash cleanup: per-item backoff after failed cleanup attempts
+  [key: `trash-cleanup:skipped:${string}`]: { attempts: number; retryAfter: number };
 }
 
 export interface IAttachmentSignatureCache {
@@ -77,6 +92,8 @@ export interface IOAuthCodeState {
     name: string;
     email: string;
   };
+  codeChallenge?: string;
+  codeChallengeMethod?: 'S256';
 }
 
 export interface IOAuthTxnStore {
@@ -86,6 +103,8 @@ export interface IOAuthTxnStore {
   scopes: string[];
   userId: string;
   state?: string;
+  codeChallenge?: string;
+  codeChallengeMethod?: string;
 }
 
 export enum OperationName {
@@ -98,6 +117,7 @@ export enum OperationName {
   UpdateRecordsOrder = 'updateRecordsOrder',
   CreateFields = 'createFields',
   ConvertField = 'convertField',
+  ConvertFieldV2 = 'convertFieldV2',
   DeleteFields = 'deleteFields',
   PasteSelection = 'pasteSelection',
 }
@@ -177,6 +197,19 @@ export interface IConvertFieldOperation extends IUndoRedoOperationBase {
   };
 }
 
+export interface IConvertFieldV2Operation extends IUndoRedoOperationBase {
+  name: OperationName.ConvertFieldV2;
+  params: {
+    tableId: string;
+  };
+  result: {
+    oldField: IFieldVo;
+    newField: IFieldVo;
+    modifiedOps?: IOpsMap;
+    references?: string[];
+  };
+}
+
 export interface ICreateFieldsOperation extends IUndoRedoOperationBase {
   name: OperationName.CreateFields;
   params: {
@@ -253,6 +286,7 @@ export type IUndoRedoOperation =
   | ICreateFieldsOperation
   | IDeleteFieldsOperation
   | IConvertFieldOperation
+  | IConvertFieldV2Operation
   | IPasteSelectionOperation
   | ICreateViewOperation
   | IDeleteViewOperation

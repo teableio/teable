@@ -116,9 +116,18 @@ export const useGridAsyncRecords = (
         ? initGroupPoints
         : (extra as { groupPoints: IGroupPointsVo } | undefined)?.groupPoints) ?? null
   );
+  const recordsScopeKey = useMemo(
+    () =>
+      JSON.stringify({
+        initQuery,
+        outerQuery,
+      }),
+    [initQuery, outerQuery]
+  );
   const [visiblePages, setVisiblePages] = useState<IRectangle>(defaultVisiblePages);
   const visiblePagesRef = useRef(visiblePages);
   visiblePagesRef.current = visiblePages;
+  const previousRecordsScopeKeyRef = useRef(recordsScopeKey);
 
   const onForceUpdate = useCallback(() => {
     const startIndex = queryRef.current.skip ?? 0;
@@ -132,10 +141,16 @@ export const useGridAsyncRecords = (
       const newRecordsState: IRecordIndexMap = {};
       for (let i = cacheStartIndex; i < cacheEndIndex; i++) {
         if (startIndex <= i && i < startIndex + records.length) {
-          newRecordsState[i] = records[i - startIndex];
+          const record = records[i - startIndex];
+          if (record !== undefined) {
+            newRecordsState[i] = record;
+          }
           continue;
         }
-        newRecordsState[i] = preLoadedRecords[i];
+        const cachedRecord = preLoadedRecords[i];
+        if (cachedRecord !== undefined) {
+          newRecordsState[i] = cachedRecord;
+        }
       }
       return newRecordsState;
     });
@@ -156,10 +171,16 @@ export const useGridAsyncRecords = (
         const newRecordsState: Record<string, IRecordSearchHitIndex[number]> = {};
         for (let i = cacheStartIndex; i < cacheEndIndex; i++) {
           if (startIndex <= i && i < startIndex + indexes.length) {
-            newRecordsState[i] = indexes[i - startIndex];
+            const indexRecord = indexes[i - startIndex];
+            if (indexRecord !== undefined) {
+              newRecordsState[i] = indexRecord;
+            }
             continue;
           }
-          newRecordsState[i] = preLoadedRecords[i];
+          const cachedSearchHitRecord = preLoadedRecords[i];
+          if (cachedSearchHitRecord !== undefined) {
+            newRecordsState[i] = cachedSearchHitRecord;
+          }
         }
         return newRecordsState;
       });
@@ -171,6 +192,16 @@ export const useGridAsyncRecords = (
   }, [records, extra]);
 
   useEffect(() => onForceUpdate(), [onForceUpdate]);
+
+  useEffect(() => {
+    if (previousRecordsScopeKeyRef.current === recordsScopeKey) return;
+    previousRecordsScopeKeyRef.current = recordsScopeKey;
+
+    setLoadedRecordMap({});
+    setLoadedRecordSearchHitMap(undefined);
+    setGroupPoints(null);
+    setVisiblePages(defaultVisiblePages);
+  }, [recordsScopeKey]);
 
   useEffect(() => {
     const { y, height } = visiblePages;

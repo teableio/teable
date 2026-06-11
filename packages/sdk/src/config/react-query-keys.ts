@@ -2,6 +2,7 @@
 import type {
   IFieldRo,
   IConvertFieldRo,
+  NotificationSeverityEnum,
   NotificationStatesEnum,
   IGetFieldsQuery,
 } from '@teable/core';
@@ -12,7 +13,6 @@ import type {
   IAggregationRo,
   IGroupPointsRo,
   IQueryBaseRo,
-  ResourceType,
   ListSpaceCollaboratorRo,
   IGetRecordsRo,
   ListBaseCollaboratorRo,
@@ -26,6 +26,7 @@ import type {
   IRecordInsertOrderRo,
   IUpdateRecordOrdersRo,
   IRecordGetCollaboratorsRo,
+  TrashType,
 } from '@teable/openapi';
 
 export const ReactQueryKeys = {
@@ -104,8 +105,8 @@ export const ReactQueryKeys = {
   recordCollaboratorList: (tableId: string, options: IRecordGetCollaboratorsRo) =>
     ['record-collaborator-list', tableId, options] as const,
 
-  notifyList: (filter: { status: NotificationStatesEnum }) =>
-    ['notification', 'list', filter] as const,
+  notifyList: (filter?: { status: NotificationStatesEnum; severity?: NotificationSeverityEnum }) =>
+    filter ? (['notification', 'list', filter] as const) : (['notification', 'list'] as const),
   notifyUnreadCount: () => ['notification', 'unread-count'],
 
   rowCount: (tableId: string, query: IQueryBaseRo) => ['row-count', tableId, query] as const,
@@ -188,7 +189,14 @@ export const ReactQueryKeys = {
 
   getSharedBase: () => ['shared-base-list'] as const,
 
-  getSpaceTrash: (resourceType: ResourceType, spaceId?: string) =>
+  baseShareList: (baseId: string) => ['base-share-list', baseId] as const,
+
+  baseShareByNodeId: (baseId: string, nodeId: string) =>
+    ['base-share-by-node-id', baseId, nodeId] as const,
+
+  baseShareBase: (baseId: string) => ['base-share-base', baseId] as const,
+
+  getSpaceTrash: (resourceType: TrashType, spaceId?: string) =>
     ['space-trash', resourceType, spaceId] as const,
 
   getTrashItems: (resourceId: string) => ['trash-items', resourceId] as const,
@@ -203,6 +211,9 @@ export const ReactQueryKeys = {
 
   calendarDailyCollection: (tableId: string, query: ICalendarDailyCollectionRo) =>
     ['calendar-daily-collection', tableId, query] as const,
+
+  shareCalendarDailyCollection: (shareId: string, query: ICalendarDailyCollectionRo) =>
+    ['share-calendar-daily-collection', shareId, query] as const,
 
   getDepartmentList: (ro?: IGetDepartmentListRo) => ['department-list', ro] as const,
 
@@ -232,6 +243,10 @@ export const ReactQueryKeys = {
 
   chatHistory: (baseId: string) => ['chat-history', baseId] as const,
 
+  activeViewContext: (baseId: string) => ['active-view-context', baseId] as const,
+
+  gridSelection: (baseId: string) => ['grid-selection', baseId] as const,
+
   recentlyBase: () => ['recently-base'] as const,
 
   oauthAppList: () => ['oauth-app-list'] as const,
@@ -239,6 +254,9 @@ export const ReactQueryKeys = {
   oauthApp: (clientId: string) => ['oauth-app', clientId] as const,
 
   baseNodeTree: (baseId: string) => ['base-node-tree', baseId] as const,
+
+  linkEditorRecords: (tableId: string, query?: IGetRecordsRo) =>
+    ['link-editor-records', tableId, query] as const,
 
   workflowItem: (baseId: string, workflowId: string) =>
     ['workflow-item', baseId, workflowId] as const,

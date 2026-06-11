@@ -37,9 +37,10 @@ export const Rename = ({ name, onNameChange, isEditing, setIsEditing }: IRenameP
       {isEditing ? (
         <Input
           ref={inputRef}
-          className={cn('h-7 text-sm', {
+          className={cn({
             hidden: !isEditing,
           })}
+          size="sm"
           value={editingName ?? name}
           onChange={(e) => setEditingName(e.target.value)}
           onBlur={() => onChange()}

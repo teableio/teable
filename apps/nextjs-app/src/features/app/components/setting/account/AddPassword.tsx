@@ -1,6 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { addPassword } from '@teable/openapi';
-import { passwordSchema } from '@teable/openapi/src/auth/types';
+import { addPassword, passwordSchema } from '@teable/openapi';
 import { useSession } from '@teable/sdk/hooks';
 import { Error, Spin } from '@teable/ui-lib/base';
 import {
@@ -78,7 +77,7 @@ export const AddPassword = () => {
                 {t('settings.account.addPassword.password')}
               </Label>
               <Input
-                className="h-7"
+                size="sm"
                 id="newPassword"
                 autoComplete="new-password"
                 type="password"
@@ -92,7 +91,7 @@ export const AddPassword = () => {
                 {t('settings.account.addPassword.confirm')}
               </Label>
               <Input
-                className="h-7"
+                size="sm"
                 id="confirmPassword"
                 autoComplete="new-password"
                 type="password"

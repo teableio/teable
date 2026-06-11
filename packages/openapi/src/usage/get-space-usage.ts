@@ -1,7 +1,7 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
 import { axios } from '../axios';
-import { BillingProductLevel } from '../billing';
+import { BillingProductLevel, appSumoTierSchema } from '../billing';
 import { registerRoute, urlBuilder } from '../utils';
 
 export enum UsageFeature {
@@ -10,6 +10,7 @@ export enum UsageFeature {
   NumDatabaseConnections = 'numDatabaseConnections',
   NumCollaborators = 'numCollaborators',
   NumAutomationSendEmail = 'numAutomationSendEmail',
+  NumAutomationRuns = 'numAutomationRuns',
 }
 
 export const usageFeatureSchema = z.object({
@@ -18,11 +19,13 @@ export const usageFeatureSchema = z.object({
   [UsageFeature.NumDatabaseConnections]: z.number(),
   [UsageFeature.NumCollaborators]: z.number(),
   [UsageFeature.NumAutomationSendEmail]: z.number(),
+  [UsageFeature.NumAutomationRuns]: z.number(),
 });
 
 export enum UsageFeatureLimit {
   MaxRows = 'maxRows',
   MaxSizeAttachments = 'maxSizeAttachments',
+  MaxNumAutomationRuns = 'maxNumAutomationRuns',
   MaxNumDatabaseConnections = 'maxNumDatabaseConnections',
   MaxRevisionHistoryDays = 'maxRevisionHistoryDays',
   MaxAutomationHistoryDays = 'maxAutomationHistoryDays',
@@ -49,6 +52,7 @@ export enum UsageFeatureLimit {
 export const usageFeatureLimitSchema = z.object({
   [UsageFeatureLimit.MaxRows]: z.number(),
   [UsageFeatureLimit.MaxSizeAttachments]: z.number(),
+  [UsageFeatureLimit.MaxNumAutomationRuns]: z.number(),
   [UsageFeatureLimit.MaxNumDatabaseConnections]: z.number(),
   [UsageFeatureLimit.MaxRevisionHistoryDays]: z.number(),
   [UsageFeatureLimit.MaxAutomationHistoryDays]: z.number(),
@@ -75,6 +79,7 @@ export const usageFeatureLimitSchema = z.object({
 export const usageVoSchema = z.object({
   level: z.enum(BillingProductLevel),
   limit: usageFeatureLimitSchema,
+  appSumoTier: appSumoTierSchema.optional(),
 });
 
 export type IUsageVo = z.infer<typeof usageVoSchema>;

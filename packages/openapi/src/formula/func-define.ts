@@ -182,7 +182,7 @@ export const funcDefine: [
       name: FunctionName.Log,
       func: FUNCTIONS[FunctionName.Log],
       params: ['value', '[base=10]'],
-      definition: 'LOG(number, [base=10]))',
+      definition: 'LOG(number, [base=10])',
       returnType: CellValueType.Number,
     },
   ],
@@ -296,6 +296,26 @@ export const funcDefine: [
       params: ['text', 'oldText', 'newText', '[index]'],
       definition: 'SUBSTITUTE(text, oldText, newText, [index])',
       returnType: CellValueType.String,
+    },
+  ],
+  [
+    FunctionName.TextBefore,
+    {
+      name: FunctionName.TextBefore,
+      func: FUNCTIONS[FunctionName.TextBefore],
+      params: ['text', 'delimiter'],
+      definition: 'TEXTBEFORE(text, delimiter)',
+      returnType: CellValueType.String,
+    },
+  ],
+  [
+    FunctionName.TextSplit,
+    {
+      name: FunctionName.TextSplit,
+      func: FUNCTIONS[FunctionName.TextSplit],
+      params: ['text', 'delimiter'],
+      definition: 'TEXTSPLIT(text, delimiter)',
+      returnType: 'array',
     },
   ],
   [
@@ -587,8 +607,8 @@ export const funcDefine: [
     {
       name: FunctionName.DatetimeDiff,
       func: FUNCTIONS[FunctionName.DatetimeDiff],
-      params: ['date1', 'date2', '[unit]'],
-      definition: 'DATETIME_DIFF(date1, date2, [unit])',
+      params: ['endDate', 'startDate', '[unit]'],
+      definition: 'DATETIME_DIFF(endDate, startDate, [unit])',
       returnType: CellValueType.Number,
     },
   ],
@@ -607,8 +627,8 @@ export const funcDefine: [
     {
       name: FunctionName.WorkdayDiff,
       func: FUNCTIONS[FunctionName.WorkdayDiff],
-      params: ['date1', 'date2', '[holidayStr]'],
-      definition: 'WORKDAY_DIFF(date1, date2, [holidayStr])',
+      params: ['startDate', 'endDate', '[holidayStr]'],
+      definition: 'WORKDAY_DIFF(startDate, endDate, [holidayStr])',
       returnType: CellValueType.Number,
     },
   ],

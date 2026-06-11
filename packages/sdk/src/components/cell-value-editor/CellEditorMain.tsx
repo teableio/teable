@@ -19,7 +19,7 @@ import type {
 import { FieldType } from '@teable/core';
 import { temporaryPaste } from '@teable/openapi';
 import { useCallback, useEffect, useRef } from 'react';
-import { useTableId } from '../../hooks';
+import { useTableId, useTablePermission } from '../../hooks';
 import type { ButtonField } from '../../model/field/button.field';
 import { transformSelectOptions } from '../cell-value';
 import {
@@ -30,11 +30,13 @@ import {
   SelectEditor,
   TextEditor,
   RatingEditor,
+  MarkdownLongTextEditor,
   LongTextEditor,
   LinkEditor,
   UserEditor,
   ButtonEditor,
 } from '../editor';
+import { isMarkdownShowAs } from '../editor/long-text/utils';
 import type { IEditorRef } from '../editor/type';
 import type { ICellValueEditor } from './type';
 
@@ -49,10 +51,17 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
     context,
     buttonClickStatusHook,
     record,
+    hideExpand,
   } = props;
   const tableId = useTableId();
+  const permission = useTablePermission();
   const { id: fieldId, type, options } = field;
   const editorRef = useRef<IEditorRef<unknown>>(null);
+  // Adding a new option mutates the field's choices schema, so it requires
+  // field|update. Share-edit (record|update only) cannot create new options.
+  // Folded into the editor's existing preventAutoNewOptions semantics rather
+  // than swallowing the onOptionAdd callback.
+  const canAddOption = Boolean(permission['field|update']);
 
   useEffect(() => {
     editorRef?.current?.setValue?.(cellValue);
@@ -88,6 +97,18 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
       );
     }
     case FieldType.LongText: {
+      const isMarkdown = isMarkdownShowAs(options);
+      if (isMarkdown) {
+        return (
+          <MarkdownLongTextEditor
+            className={className}
+            value={cellValue as ILongTextCellValue}
+            onChange={onChange}
+            readonly={readonly}
+            hideExpand={hideExpand}
+          />
+        );
+      }
       return (
         <LongTextEditor
           ref={editorRef}
@@ -126,7 +147,9 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
           ref={editorRef}
           className={className}
           value={cellValue as ISingleSelectCellValue}
-          preventAutoNewOptions={(options as ISelectFieldOptions).preventAutoNewOptions}
+          preventAutoNewOptions={
+            (options as ISelectFieldOptions).preventAutoNewOptions || !canAddOption
+          }
           options={transformSelectOptions((options as ISelectFieldOptions).choices)}
           onChange={onChange}
           readonly={readonly}
@@ -140,6 +163,7 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
           ref={editorRef}
           className={className}
           value={cellValue as IMultipleSelectCellValue}
+          preventAutoNewOptions={!canAddOption}
           options={transformSelectOptions((options as ISelectFieldOptions).choices)}
           onChange={onChange}
           isMultiple
@@ -178,6 +202,9 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
         <AttachmentEditor
           key={`${field.id}-${recordId}`}
           className={className}
+          tableId={tableId}
+          recordId={recordId}
+          fieldId={field.id}
           value={cellValue as IAttachmentCellValue}
           onChange={onChange}
           readonly={readonly}

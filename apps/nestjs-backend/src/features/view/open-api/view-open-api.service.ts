@@ -12,6 +12,7 @@ import type {
   ILinkFieldOptions,
   IPluginViewOptions,
   IViewPropertyKeys,
+  CellValueType,
   ISort,
   IGroup,
   TableDomain,
@@ -28,7 +29,7 @@ import {
   generatePluginInstallId,
   generateOperationId,
   extractFieldIdsFromFilter,
-  validateFilterOperatorModeCompatibility,
+  analyzeFilterValidationIssues,
   HttpErrorCode,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -51,6 +52,8 @@ import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import { Events } from '../../../event-emitter/events';
+import { DatabaseRouter } from '../../../global/database-router.service';
+import { DATA_KNEX } from '../../../global/knex/knex.module';
 import type { IClsStore } from '../../../types/cls';
 import { Timing } from '../../../utils/timing';
 import { updateMultipleOrders, updateOrder } from '../../../utils/update-order';
@@ -68,6 +71,7 @@ export class ViewOpenApiService {
 
   constructor(
     private readonly prismaService: PrismaService,
+    private readonly databaseRouter: DatabaseRouter,
     private readonly recordService: RecordService,
     private readonly viewService: ViewService,
     private readonly fieldService: FieldService,
@@ -75,7 +79,7 @@ export class ViewOpenApiService {
     private readonly eventEmitterService: EventEmitterService,
     private readonly cls: ClsService<IClsStore>,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    @InjectModel(DATA_KNEX) private readonly knex: Knex,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
@@ -144,7 +148,11 @@ export class ViewOpenApiService {
     const { sortObjs } = viewOrderRo;
     const dbTableName = await this.recordService.getDbTableName(tableId);
     const fields = await this.fieldService.getFieldsByQuery(tableId, { viewId });
-    const indexField = await this.viewService.getOrCreateViewIndexField(dbTableName, viewId);
+    const indexField = await this.viewService.getOrCreateViewIndexFieldForTable(
+      tableId,
+      dbTableName,
+      viewId
+    );
 
     const queryBuilder = this.knex(dbTableName);
 
@@ -166,17 +174,18 @@ export class ViewOpenApiService {
       manualSort: true,
     };
 
-    await this.prismaService.$tx(
+    await this.databaseRouter.dataPrismaTransactionForTable(
+      tableId,
       async (prisma) => {
         await prisma.$executeRawUnsafe(
           this.updateRecordOrderSql(orderRawSql, dbTableName, indexField)
         );
-        await this.viewService.updateViewSort(tableId, viewId, newSort);
       },
       {
         timeout: this.thresholdConfig.bigTransactionTimeout,
       }
     );
+    await this.viewService.updateViewSort(tableId, viewId, newSort);
   }
 
   async updateViewColumnMeta(
@@ -289,7 +298,7 @@ export class ViewOpenApiService {
     if (fieldIds.length > 0) {
       const fields = await this.prismaService.field.findMany({
         where: { tableId, id: { in: fieldIds } },
-        select: { id: true, type: true },
+        select: { id: true, type: true, cellValueType: true, isMultipleCellValue: true },
       });
 
       // Check for unsupported Button type fields
@@ -306,15 +315,26 @@ export class ViewOpenApiService {
         );
       }
 
-      // Validate operator + mode compatibility for date fields
-      const fieldTypeMap = fields.reduce(
+      // Validate filter compatibility with the same shared analyzer used by SDK/query execution.
+      const fieldMetaMap = fields.reduce(
         (acc, f) => {
-          acc[f.id] = f.type as FieldType;
+          acc[f.id] = {
+            type: f.type as FieldType,
+            cellValueType: f.cellValueType as CellValueType,
+            isMultipleCellValue: Boolean(f.isMultipleCellValue),
+          };
           return acc;
         },
-        {} as Record<string, FieldType>
+        {} as Record<
+          string,
+          {
+            type: FieldType;
+            cellValueType: CellValueType;
+            isMultipleCellValue: boolean;
+          }
+        >
       );
-      const validationErrors = validateFilterOperatorModeCompatibility(filter, fieldTypeMap);
+      const validationErrors = analyzeFilterValidationIssues(filter, fieldMetaMap);
       if (validationErrors.length > 0) {
         throw new CustomHttpException(validationErrors[0].message, HttpErrorCode.VALIDATION_ERROR, {
           localization: {
@@ -612,8 +632,8 @@ export class ViewOpenApiService {
   /**
    * shuffle record order
    */
-  async shuffleRecords(dbTableName: string, indexField: string) {
-    const recordCount = await this.recordService.getAllRecordCount(dbTableName);
+  async shuffleRecords(tableId: string, dbTableName: string, indexField: string) {
+    const recordCount = await this.recordService.getAllRecordCount(dbTableName, tableId);
     if (recordCount > 100_000) {
       throw new CustomHttpException(
         `Not enough gap to shuffle the row here, record count: ${recordCount}`,
@@ -632,7 +652,7 @@ export class ViewOpenApiService {
       indexField
     );
 
-    await this.prismaService.$executeRawUnsafe(sql);
+    await this.databaseRouter.executeDataPrismaForTable(tableId, sql);
   }
 
   @Timing()
@@ -658,9 +678,8 @@ export class ViewOpenApiService {
       .where('__id', anchorId)
       .toQuery();
 
-    const anchorRecord = await this.prismaService
-      .txClient()
-      .$queryRawUnsafe<{ id: string; order: number }[]>(anchorRecordSql)
+    const anchorRecord = await this.databaseRouter
+      .queryDataPrismaForTable<{ id: string; order: number }[]>(tableId, anchorRecordSql)
       .then((res) => {
         return res[0];
       });
@@ -696,16 +715,15 @@ export class ViewOpenApiService {
           .orderBy(indexField, align)
           .limit(1)
           .toQuery();
-        return this.prismaService
-          .txClient()
-          .$queryRawUnsafe<{ id: string; order: number }[]>(nextRecordSql)
+        return this.databaseRouter
+          .queryDataPrismaForTable<{ id: string; order: number }[]>(tableId, nextRecordSql)
           .then((res) => {
             return res[0];
           });
       },
       update,
       shuffle: async () => {
-        await this.shuffleRecords(dbTableName, indexField);
+        await this.shuffleRecords(tableId, dbTableName, indexField);
       },
     });
   }
@@ -718,15 +736,12 @@ export class ViewOpenApiService {
       order?: Record<string, number>;
     }[]
   ) {
-    // for notify view update only
-    await this.prismaService.$tx(async () => {
-      const ops = ViewOpBuilder.editor.setViewProperty.build({
-        key: 'lastModifiedTime',
-        newValue: new Date().toISOString(),
-      });
-      await this.viewService.updateViewByOps(tableId, viewId, [ops]);
-      await this.recordService.updateRecordIndexes(tableId, recordsWithOrder);
+    await this.recordService.updateRecordIndexes(tableId, recordsWithOrder);
+    const ops = ViewOpBuilder.editor.setViewProperty.build({
+      key: 'lastModifiedTime',
+      newValue: new Date().toISOString(),
     });
+    await this.viewService.updateViewByOps(tableId, viewId, [ops]);
   }
 
   async updateRecordOrders(
@@ -741,7 +756,11 @@ export class ViewOpenApiService {
       ? await this.recordService.getRecordIndexes(table, recordIds, viewId)
       : undefined;
 
-    const indexField = await this.viewService.getOrCreateViewIndexField(dbTableName, viewId);
+    const indexField = await this.viewService.getOrCreateViewIndexFieldForTable(
+      table.id,
+      dbTableName,
+      viewId
+    );
 
     await this.updateRecordOrdersInner({
       tableId: table.id,
@@ -750,14 +769,7 @@ export class ViewOpenApiService {
       indexField,
       orderRo,
       update: async (indexes) => {
-        // for notify view update only
-        const ops = ViewOpBuilder.editor.setViewProperty.build({
-          key: 'lastModifiedTime',
-          newValue: new Date().toISOString(),
-        });
-
-        await this.prismaService.$tx(async (prisma) => {
-          await this.viewService.updateViewByOps(table.id, viewId, [ops]);
+        await this.databaseRouter.dataPrismaTransactionForTable(table.id, async (prisma) => {
           for (let i = 0; i < recordIds.length; i++) {
             const recordId = recordIds[i];
             const updateRecordSql = this.knex(dbTableName)
@@ -769,6 +781,11 @@ export class ViewOpenApiService {
             await prisma.$executeRawUnsafe(updateRecordSql);
           }
         });
+        const ops = ViewOpBuilder.editor.setViewProperty.build({
+          key: 'lastModifiedTime',
+          newValue: new Date().toISOString(),
+        });
+        await this.viewService.updateViewByOps(table.id, viewId, [ops]);
       },
     });
 
@@ -1022,9 +1039,9 @@ export class ViewOpenApiService {
         .whereIn('__id', Array.from(recordSet))
         .toQuery();
 
-      const list = await this.prismaService
-        .txClient()
-        .$queryRawUnsafe<{ id: string; title: string | null }[]>(nativeQuery);
+      const list = await this.databaseRouter.queryDataPrismaForTable<
+        { id: string; title: string | null }[]
+      >(foreignTableId, nativeQuery);
       const fieldInstances = createFieldInstanceByRaw(lookupedFieldRaw);
       res.push({
         tableId: foreignTableId,

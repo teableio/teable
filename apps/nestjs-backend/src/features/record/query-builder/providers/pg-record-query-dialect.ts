@@ -22,6 +22,34 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
 
   constructor(private readonly knex: Knex) {}
 
+  private buildDistinctFlattenedJsonArray(baseAggregate: string): string {
+    return `(SELECT jsonb_agg(to_jsonb(v.val))
+      FROM (
+        SELECT DISTINCT val
+        FROM (
+          SELECT leaf #>> '{}' AS val
+          FROM jsonb_array_elements(COALESCE(${baseAggregate}, '[]'::jsonb)) AS row_elem(elem)
+          CROSS JOIN LATERAL jsonb_array_elements(
+            CASE
+              WHEN jsonb_typeof(row_elem.elem) = 'array' THEN row_elem.elem
+              ELSE jsonb_build_array(row_elem.elem)
+            END
+          ) AS leaf_elem(leaf)
+        ) AS flattened
+        WHERE val IS NOT NULL AND val <> ''
+        ORDER BY val
+      ) AS v)`;
+  }
+
+  private normalizeSingleValueJsonArray(expr: string): string {
+    return `(CASE
+      WHEN ${expr} IS NULL THEN '[]'::jsonb
+      WHEN jsonb_typeof(to_jsonb(${expr})) = 'array' THEN to_jsonb(${expr})
+      WHEN jsonb_typeof(to_jsonb(${expr})) = 'null' THEN '[]'::jsonb
+      ELSE jsonb_build_array(to_jsonb(${expr}))
+    END)`;
+  }
+
   toText(expr: string): string {
     return `(${expr})::TEXT`;
   }
@@ -245,9 +273,7 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
     if (this.isNumericLiteral(expr)) {
       return `(${expr})::numeric`;
     }
-    const textExpr = `((${expr})::text)`;
-    const sanitized = `REGEXP_REPLACE(${textExpr}, '[^0-9.+-]', '', 'g')`;
-    return `NULLIF(${sanitized}, '')::numeric`;
+    return this.buildSafeNumericExpression(expr, 'numeric');
   }
 
   linkHasAny(selectionSql: string): string {
@@ -274,7 +300,8 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
 
   buildUserJsonObjectById(idRef: string): string {
     return `(
-        SELECT jsonb_build_object('id', u.id, 'title', u.name, 'email', u.email)
+        SELECT jsonb_build_object('id', u.id, 'title', u.name, 'email', u.email) ||
+          CASE WHEN u.is_system = true THEN jsonb_build_object('isSystem', true) ELSE '{}'::jsonb END
         FROM users u
         WHERE u.id = ${idRef}
       )`;
@@ -284,12 +311,11 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
     cteName: string,
     fieldId: string,
     isMultiple: boolean,
-    dbFieldType: DbFieldType
+    _dbFieldType: DbFieldType
   ): string | null {
     if (!isMultiple) return null;
     const columnRef = `"${cteName}"."lookup_${fieldId}"`;
-    const normalized =
-      dbFieldType === DbFieldType.Json ? `${columnRef}::jsonb` : `to_jsonb(${columnRef})`;
+    const normalized = `to_jsonb(${columnRef})`;
     return `(
             WITH RECURSIVE f(e) AS (
               SELECT ${normalized}
@@ -361,10 +387,27 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
     }
   }
 
-  private sanitizeNumericTextExpression(expression: string): string {
+  private buildSafeNumericExpression(
+    expression: string,
+    castType: 'numeric' | 'double precision'
+  ): string {
+    const cleaned = this.buildSanitizedNumericText(expression);
+    const numericPattern = `'^[+-]{0,1}(\\d+(\\.\\d+){0,1}|\\.\\d+)$'`;
+    return `(CASE
+      WHEN ${cleaned} IS NULL THEN NULL
+      WHEN ${cleaned} ~ ${numericPattern} THEN ${cleaned}::${castType}
+      ELSE NULL
+    END)`;
+  }
+
+  private buildSanitizedNumericText(expression: string): string {
     const textExpr = `((${expression})::text)`;
     const sanitized = `REGEXP_REPLACE(${textExpr}, '[^0-9.+-]', '', 'g')`;
-    return `NULLIF(${sanitized}, '')::double precision`;
+    return `NULLIF(${sanitized}, '')`;
+  }
+
+  private sanitizeNumericTextExpression(expression: string): string {
+    return this.buildSafeNumericExpression(expression, 'double precision');
   }
 
   private buildJsonNumericSumExpression(fieldExpression: string): string {
@@ -489,6 +532,12 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
           ? `STRING_AGG(${fieldExpression}::text, ', ' ORDER BY ${orderByField})`
           : `STRING_AGG(${fieldExpression}::text, ', ')`;
       case 'array_unique':
+        if (flattenNestedArray) {
+          const baseAggregate = orderByField
+            ? `jsonb_agg(to_jsonb(${fieldExpression}) ORDER BY ${orderByField}) FILTER (WHERE ${fieldExpression} IS NOT NULL)`
+            : `jsonb_agg(to_jsonb(${fieldExpression})) FILTER (WHERE ${fieldExpression} IS NOT NULL)`;
+          return this.buildDistinctFlattenedJsonArray(baseAggregate);
+        }
         return `json_agg(DISTINCT ${fieldExpression})`;
       case 'array_compact': {
         const buildAggregate = (expr: string) =>
@@ -557,6 +606,15 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
       case 'xor':
         return `(COALESCE((${fieldExpression})::boolean, false))`;
       case 'array_unique':
+        if (
+          requiresJsonArray &&
+          (options.targetField.isMultipleCellValue || options.targetField.isConditionalLookup)
+        ) {
+          return this.normalizeSingleValueJsonArray(fieldExpression);
+        }
+        return !requiresJsonArray
+          ? `${fieldExpression}`
+          : `(CASE WHEN ${fieldExpression} IS NULL THEN '[]'::jsonb ELSE jsonb_build_array(${fieldExpression}) END)`;
       case 'array_compact':
         if (!requiresJsonArray) {
           return `${fieldExpression}`;

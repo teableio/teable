@@ -107,7 +107,7 @@ export const SingleNumberShowAs: React.FC<ISingleNumberShowAsProps> = (props) =>
         <>
           <div className="flex w-full flex-col gap-2">
             <Label className="font-meidum text-sm">{t('table:field.editor.maxNumber')}</Label>
-            <Input defaultValue={maxValue} onChange={updateMaxValue} className="h-9 w-full" />
+            <Input defaultValue={maxValue} onChange={updateMaxValue} size="lg" />
           </div>
 
           <div className="flex h-8 items-center gap-2">

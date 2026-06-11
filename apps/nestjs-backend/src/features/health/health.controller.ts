@@ -17,7 +17,7 @@ export class HealthController {
   @HealthCheck()
   check() {
     try {
-      return this.health.check([() => this.db.pingCheck('database', this.prismaService)]);
+      return this.health.check([() => this.db.pingCheck('metaDatabase', this.prismaService)]);
     } catch (error) {
       this.logger.error(error);
       throw error;

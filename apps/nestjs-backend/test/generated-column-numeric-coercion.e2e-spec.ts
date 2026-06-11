@@ -302,14 +302,12 @@ describe('Generated column numeric coercion (e2e)', () => {
 
     it('supports date minus numeric operands and comparisons with TODAY()', async () => {
       const recordId = table.records[0].id;
-      const initialLead = addUtcDays(dueDateUtc, -2);
       const initialRecord = await getRecord(table.id, recordId);
       const storedDueDate = initialRecord.fields[dueDateField.id] as string | undefined;
       const expectedInitialLead = shiftDateString(storedDueDate, -2, dueDateUtc);
       expect(initialRecord.fields[startDateField.id]).toBe(expectedInitialLead);
       expect(initialRecord.fields[statusField.id]).toBe('pending');
 
-      const updatedLead = addUtcDays(dueDateUtc, -7);
       await updateRecordByApi(table.id, recordId, bufferDaysField.id, 7);
 
       const updatedRecord = await getRecord(table.id, recordId);
@@ -372,6 +370,67 @@ describe('Generated column numeric coercion (e2e)', () => {
 
       const updatedRecord = await getRecord(table.id, recordId);
       expect(updatedRecord.fields[workdayDiffField.id] ?? null).toBeNull();
+    });
+  });
+
+  describe('workday with date and numeric field inputs (regression)', () => {
+    let table: ITableFullVo;
+    let dateField: IFieldVo;
+    let numberField: IFieldVo;
+    let workdayField: IFieldVo;
+
+    beforeEach(async () => {
+      table = await createTable(baseId, {
+        name: 'generated_workday_date_number',
+        fields: [
+          {
+            name: 'Date',
+            type: FieldType.Date,
+          },
+          {
+            name: 'Number',
+            type: FieldType.Number,
+          },
+        ],
+        records: [
+          {
+            fields: {
+              Date: '2026-01-22',
+              Number: 1,
+            },
+          },
+        ],
+      });
+
+      const fieldMap = new Map(table.fields.map((field) => [field.name, field]));
+      dateField = fieldMap.get('Date')!;
+      numberField = fieldMap.get('Number')!;
+
+      workdayField = await createField(table.id, {
+        name: 'Workday Date',
+        type: FieldType.Formula,
+        options: {
+          expression: `DATESTR(WORKDAY({${dateField.id}}, {${numberField.id}}))`,
+          timeZone: 'Asia/Shanghai',
+        },
+      });
+    });
+
+    afterEach(async () => {
+      if (table) {
+        await permanentDeleteTable(baseId, table.id);
+      }
+    });
+
+    it('creates field and computes date when days parameter references number field', async () => {
+      const recordId = table.records[0].id;
+      const createdRecord = await getRecord(table.id, recordId);
+      expect(createdRecord.fields[workdayField.id]).toBe('2026-01-23');
+
+      await expect(updateRecordByApi(table.id, recordId, numberField.id, 3)).resolves.toBeDefined();
+
+      const updatedRecord = await getRecord(table.id, recordId);
+      expect(updatedRecord.fields[workdayField.id]).toBe('2026-01-27');
     });
   });
 

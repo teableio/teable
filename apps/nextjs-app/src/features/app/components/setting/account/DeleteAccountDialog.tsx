@@ -60,7 +60,11 @@ export const DeleteAccountDialog = () => {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="destructive" size={'sm'}>
+        <Button
+          variant="outline"
+          className="w-fit text-destructive hover:text-destructive/80"
+          size={'sm'}
+        >
           {t('settings.account.deleteAccount.title')}
         </Button>
       </DialogTrigger>
@@ -127,7 +131,7 @@ export const DeleteAccountDialog = () => {
             </Label>
             <Input
               id="confirm"
-              className="h-8 text-[13px]"
+              className="text-[13px]"
               value={confirmText}
               onChange={(e) => setConfirmText(e.target.value)}
               placeholder={t('settings.account.deleteAccount.confirm.placeholder')}

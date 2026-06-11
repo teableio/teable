@@ -93,7 +93,7 @@ export const QueryAggregation = (props: IQueryEditorProps<IQueryAggregation>) =>
                 onChange(newValue);
               }}
             >
-              <X />
+              <X className="size-4 shrink-0" />
             </Button>
           </div>
           <Error error={error[aggregation.column] ? t('baseQuery.error.invalidCol') : undefined} />
@@ -177,7 +177,8 @@ const AggregationStaticSelector = (props: {
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger
         disabled={!column}
-        className={cn('h-7 w-auto min-w-20 text-[13px]', className)}
+        size="sm"
+        className={cn('w-auto min-w-20 text-[13px]', className)}
       >
         <SelectValue placeholder={t('common.selectPlaceHolder')} />
       </SelectTrigger>

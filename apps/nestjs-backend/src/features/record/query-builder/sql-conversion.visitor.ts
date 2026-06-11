@@ -54,14 +54,13 @@ import type {
   IFormulaParamFieldMetadata,
   FormulaParamType,
   IDatetimeFormatting,
+  ITeableToDbFunctionConverter,
 } from '@teable/core';
-import type { ITeableToDbFunctionConverter } from '@teable/core/src/formula/function-convertor.interface';
-import type { RootContext, UnaryOpContext } from '@teable/core/src/formula/parser/Formula';
+import type { RootContext, UnaryOpContext } from '@teable/formula';
 import type { Knex } from 'knex';
 import { match } from 'ts-pattern';
 import type { IFieldSelectName } from './field-select.type';
 import { PgRecordQueryDialect } from './providers/pg-record-query-dialect';
-import { SqliteRecordQueryDialect } from './providers/sqlite-record-query-dialect';
 import type { IRecordSelectionMap } from './record-query-builder.interface';
 import type { IRecordQueryDialectProvider } from './record-query-dialect.interface';
 
@@ -87,6 +86,8 @@ const STRING_FUNCTIONS = new Set<FunctionName>([
   FunctionName.Lower,
   FunctionName.Trim,
   FunctionName.Substitute,
+  FunctionName.TextBefore,
+  FunctionName.TextSplit,
   FunctionName.Replace,
   FunctionName.T,
   FunctionName.Blank,
@@ -228,7 +229,7 @@ export interface IFormulaConversionResult {
 
 /**
  * Interface for database-specific generated column query implementations
- * Each database provider (PostgreSQL, SQLite) should implement this interface
+ * Database providers should implement this interface.
  * to provide SQL translations for Teable formula functions that will be used
  * in database generated columns. This interface ensures formula expressions
  * are converted to immutable SQL expressions suitable for generated columns.
@@ -238,7 +239,7 @@ export interface IGeneratedColumnQueryInterface
 
 /**
  * Interface for database-specific SELECT query implementations
- * Each database provider (PostgreSQL, SQLite) should implement this interface
+ * Database providers should implement this interface.
  * to provide SQL translations for Teable formula functions that will be used
  * in SELECT statements as computed columns. Unlike generated columns, these
  * expressions can use mutable functions and have different optimization strategies.
@@ -289,9 +290,6 @@ abstract class BaseSqlConversionVisitor<
   }
 
   protected getQuestionMarkExpression(): string {
-    if (this.context.driverClient === DriverClient.Sqlite) {
-      return 'CHAR(63)';
-    }
     return 'CHR(63)';
   }
 
@@ -305,8 +303,10 @@ abstract class BaseSqlConversionVisitor<
     // Initialize a dialect provider for use in driver-specific pieces when callers don't inject one
     if (!this.dialect) {
       const d = this.context.driverClient;
-      if (d === DriverClient.Pg) this.dialect = new PgRecordQueryDialect(this.knex);
-      else this.dialect = new SqliteRecordQueryDialect(this.knex);
+      if (d !== DriverClient.Pg) {
+        throw new Error(`Unsupported database driver: ${d}`);
+      }
+      this.dialect = new PgRecordQueryDialect(this.knex);
     }
   }
 
@@ -559,6 +559,19 @@ abstract class BaseSqlConversionVisitor<
           .with(FunctionName.Substitute, () =>
             this.formulaQuery.substitute(params[0], params[1], params[2], params[3])
           )
+          .with(FunctionName.TextBefore, () =>
+            this.formulaQuery.textBefore(
+              params[0],
+              params[1],
+              params[2],
+              params[3],
+              params[4],
+              params[5]
+            )
+          )
+          .with(FunctionName.TextSplit, () =>
+            this.formulaQuery.textSplit(params[0], params[1], params[2], params[3])
+          )
           .with(FunctionName.Lower, () => this.formulaQuery.lower(params[0]))
           .with(FunctionName.Upper, () => this.formulaQuery.upper(params[0]))
           .with(FunctionName.Rept, () => this.formulaQuery.rept(params[0], params[1]))
@@ -577,7 +590,7 @@ abstract class BaseSqlConversionVisitor<
           )
           .with(FunctionName.Datestr, () => this.formulaQuery.datestr(params[0]))
           .with(FunctionName.DatetimeDiff, () => {
-            const unitExpr = params[2] ?? `'day'`;
+            const unitExpr = params[2] ?? `'second'`;
             return this.formulaQuery.datetimeDiff(params[0], params[1], unitExpr);
           })
           .with(FunctionName.DatetimeFormat, () =>
@@ -587,7 +600,7 @@ abstract class BaseSqlConversionVisitor<
             this.formulaQuery.datetimeParse(params[0], params[1])
           )
           .with(FunctionName.Day, () => this.formulaQuery.day(params[0]))
-          .with(FunctionName.FromNow, () => this.formulaQuery.fromNow(params[0]))
+          .with(FunctionName.FromNow, () => this.formulaQuery.fromNow(params[0], params[1]))
           .with(FunctionName.Hour, () => this.formulaQuery.hour(params[0]))
           .with(FunctionName.IsAfter, () => this.formulaQuery.isAfter(params[0], params[1]))
           .with(FunctionName.IsBefore, () => this.formulaQuery.isBefore(params[0], params[1]))
@@ -599,10 +612,12 @@ abstract class BaseSqlConversionVisitor<
           .with(FunctionName.Month, () => this.formulaQuery.month(params[0]))
           .with(FunctionName.Second, () => this.formulaQuery.second(params[0]))
           .with(FunctionName.Timestr, () => this.formulaQuery.timestr(params[0]))
-          .with(FunctionName.ToNow, () => this.formulaQuery.toNow(params[0]))
+          .with(FunctionName.ToNow, () => this.formulaQuery.toNow(params[0], params[1]))
           .with(FunctionName.WeekNum, () => this.formulaQuery.weekNum(params[0]))
-          .with(FunctionName.Weekday, () => this.formulaQuery.weekday(params[0]))
-          .with(FunctionName.Workday, () => this.formulaQuery.workday(params[0], params[1]))
+          .with(FunctionName.Weekday, () => this.formulaQuery.weekday(params[0], params[1]))
+          .with(FunctionName.Workday, () =>
+            this.formulaQuery.workday(params[0], params[1], params[2])
+          )
           .with(FunctionName.WorkdayDiff, () => this.formulaQuery.workdayDiff(params[0], params[1]))
           .with(FunctionName.Year, () => this.formulaQuery.year(params[0]))
           .with(FunctionName.CreatedTime, () => this.formulaQuery.createdTime())
@@ -824,6 +839,9 @@ abstract class BaseSqlConversionVisitor<
       const needsNumericCoercion = (op: string) =>
         ['>', '<', '>=', '<=', '=', '!=', '<>'].includes(op);
       if (operator.text && needsNumericCoercion(operator.text)) {
+        const isEqualityComparison = ['=', '!=', '<>'].includes(operator.text);
+        const leftIsBlankLike = this.isBlankLikeExpression(exprContexts[0]);
+        const rightIsBlankLike = this.isBlankLikeExpression(exprContexts[1]);
         const isBooleanNumericCompare =
           (leftType === 'boolean' && rightType === 'number') ||
           (leftType === 'number' && rightType === 'boolean');
@@ -835,9 +853,17 @@ abstract class BaseSqlConversionVisitor<
             left = this.safeCastToNumeric(left);
             right = this.coerceBooleanToNumeric(right, exprContexts[1]);
           }
-        } else if (leftType === 'number' && rightType === 'string') {
+        } else if (
+          leftType === 'number' &&
+          rightType === 'string' &&
+          !(isEqualityComparison && rightIsBlankLike)
+        ) {
           right = this.safeCastToNumeric(right);
-        } else if (leftType === 'string' && rightType === 'number') {
+        } else if (
+          leftType === 'string' &&
+          rightType === 'number' &&
+          !(isEqualityComparison && leftIsBlankLike)
+        ) {
           left = this.safeCastToNumeric(left);
         }
       }
@@ -998,7 +1024,7 @@ abstract class BaseSqlConversionVisitor<
         );
       case FunctionName.Weekday:
         return this.buildPgDatetimeScalarAggregator(params[0], (scalar) =>
-          this.formulaQuery.weekday(scalar)
+          this.formulaQuery.weekday(scalar, params[1])
         );
       case FunctionName.WeekNum:
         return this.buildPgDatetimeScalarAggregator(params[0], (scalar) =>
@@ -1018,11 +1044,11 @@ abstract class BaseSqlConversionVisitor<
         );
       case FunctionName.FromNow:
         return this.buildPgDatetimeScalarAggregator(params[0], (scalar) =>
-          this.formulaQuery.fromNow(scalar)
+          this.formulaQuery.fromNow(scalar, params[1])
         );
       case FunctionName.ToNow:
         return this.buildPgDatetimeScalarAggregator(params[0], (scalar) =>
-          this.formulaQuery.toNow(scalar)
+          this.formulaQuery.toNow(scalar, params[1])
         );
       case FunctionName.Round:
         return this.buildPgNumericScalarAggregator(params[0], (scalar) =>
@@ -1226,20 +1252,7 @@ abstract class BaseSqlConversionVisitor<
       return expr;
     }
 
-    switch (this.dialect.driver) {
-      case DriverClient.Pg:
-        return this.buildPgSingleValueExtractor(expr, fieldInfo);
-      case DriverClient.Sqlite:
-        return this.buildSqliteSingleValueExtractor(expr);
-      default:
-        return expr;
-    }
-  }
-
-  private buildSqliteSingleValueExtractor(expr: string): string {
-    // SQLite formulas already treat multi-value columns as JSON text during coercion.
-    // Returning the original expression keeps existing behaviour consistent.
-    return expr;
+    return this.buildPgSingleValueExtractor(expr, fieldInfo);
   }
 
   private buildPgSingleValueExtractor(expr: string, _fieldInfo: FieldCore): string {
@@ -1517,25 +1530,15 @@ abstract class BaseSqlConversionVisitor<
 
   private coerceCaseBranchToText(expr: string): string {
     const trimmed = expr.trim();
-    const driver = this.context.driverClient ?? DriverClient.Pg;
-
     // eslint-disable-next-line regexp/prefer-w
     const nullPattern = /^NULL(?:::[a-zA-Z_][a-zA-Z0-9_\s]*)?$/i;
     if (!trimmed || nullPattern.test(trimmed)) {
-      return driver === DriverClient.Sqlite ? 'CAST(NULL AS TEXT)' : 'NULL::text';
+      return 'NULL::text';
     }
 
     const isStringLiteral = trimmed.length >= 2 && trimmed.startsWith("'") && trimmed.endsWith("'");
     if (isStringLiteral) {
       return expr;
-    }
-
-    if (driver === DriverClient.Sqlite) {
-      const upper = trimmed.toUpperCase();
-      if (upper.startsWith('CAST(') && upper.endsWith('AS TEXT)')) {
-        return expr;
-      }
-      return `CAST(${expr} AS TEXT)`;
     }
 
     if (/::\s*text\b/i.test(trimmed) || /\)::\s*text\b/i.test(trimmed)) {
@@ -1558,38 +1561,21 @@ abstract class BaseSqlConversionVisitor<
     }
 
     const type = this.inferExpressionType(exprCtx);
-    const driver = this.context.driverClient ?? DriverClient.Pg;
-
     if (type === 'boolean') {
-      if (driver === DriverClient.Sqlite) {
-        return `(CASE WHEN ${valueSql} IS NULL THEN 0 WHEN ${valueSql} <> 0 THEN 1 ELSE 0 END)`;
-      }
       return `(CASE WHEN ${valueSql} IS NULL THEN 0 WHEN ${valueSql} THEN 1 ELSE 0 END)`;
     }
 
     const numericExpr = this.safeCastToNumeric(valueSql);
-    if (driver === DriverClient.Sqlite) {
-      const flooredExpr = `CAST(${numericExpr} AS INTEGER)`;
-      return `COALESCE(CASE WHEN ${flooredExpr} < 0 THEN 0 ELSE ${flooredExpr} END, 0)`;
-    }
     const flooredExpr = `FLOOR(${numericExpr})`;
     return `COALESCE(GREATEST(${flooredExpr}, 0), 0)`;
   }
   private normalizeBooleanExpression(valueSql: string, exprCtx: ExprContext): string {
     const type = this.inferExpressionType(exprCtx);
-    const driver = this.context.driverClient ?? DriverClient.Pg;
 
     switch (type) {
       case 'boolean':
-        if (driver === DriverClient.Sqlite) {
-          return `(COALESCE((${valueSql}), 0) != 0)`;
-        }
         return `(COALESCE((${this.normalizeBooleanFieldReference(valueSql, exprCtx) ?? valueSql})::boolean, FALSE))`;
       case 'number': {
-        if (driver === DriverClient.Sqlite) {
-          const numericExpr = this.safeCastToNumeric(valueSql);
-          return `(COALESCE(${numericExpr}, 0) <> 0)`;
-        }
         const sanitized = `REGEXP_REPLACE(((${valueSql})::text), '[^0-9.+-]', '', 'g')`;
         const numericCandidate = `(CASE
           WHEN ${sanitized} ~ '^[-+]{0,1}(\\d+\\.\\d+|\\d+|\\.\\d+)$' THEN ${sanitized}::double precision
@@ -1598,11 +1584,6 @@ abstract class BaseSqlConversionVisitor<
         return `(COALESCE(${numericCandidate}, 0) <> 0)`;
       }
       case 'string': {
-        if (driver === DriverClient.Sqlite) {
-          const textExpr = `CAST(${valueSql} AS TEXT)`;
-          const trimmedExpr = `TRIM(${textExpr})`;
-          return `((${valueSql}) IS NOT NULL AND ${trimmedExpr} <> '' AND LOWER(${trimmedExpr}) <> 'null')`;
-        }
         const textExpr = `(${valueSql})::text`;
         const trimmedExpr = `TRIM(${textExpr})`;
         return `((${valueSql}) IS NOT NULL AND ${trimmedExpr} <> '' AND LOWER(${trimmedExpr}) <> 'null')`;
@@ -1640,9 +1621,26 @@ abstract class BaseSqlConversionVisitor<
     return `((${valueSql}))::boolean`;
   }
 
+  private unwrapExpression(ctx: ExprContext): ExprContext {
+    if (ctx instanceof BracketsContext) {
+      return this.unwrapExpression(ctx.expr());
+    }
+
+    if (
+      ctx instanceof LeftWhitespaceOrCommentsContext ||
+      ctx instanceof RightWhitespaceOrCommentsContext
+    ) {
+      return this.unwrapExpression(ctx.expr());
+    }
+
+    return ctx;
+  }
+
   private isBlankLikeExpression(ctx: ExprContext): boolean {
-    if (ctx instanceof StringLiteralContext) {
-      const raw = ctx.text;
+    const normalizedCtx = this.unwrapExpression(ctx);
+
+    if (normalizedCtx instanceof StringLiteralContext) {
+      const raw = normalizedCtx.text;
       if (raw.startsWith("'") && raw.endsWith("'")) {
         const unescaped = unescapeString(raw.slice(1, -1));
         return unescaped === '';
@@ -1650,8 +1648,8 @@ abstract class BaseSqlConversionVisitor<
       return false;
     }
 
-    if (ctx instanceof FunctionCallContext) {
-      const rawName = ctx.func_name().text.toUpperCase();
+    if (normalizedCtx instanceof FunctionCallContext) {
+      const rawName = normalizedCtx.func_name().text.toUpperCase();
       const fnName = normalizeFunctionNameAlias(rawName) as FunctionName;
       return fnName === FunctionName.Blank;
     }
@@ -2280,13 +2278,7 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
           return this.dialect!.linkExtractTitles(selectionSql, true);
         }
         const titleExpr = this.dialect!.jsonTitleFromExpr(selectionSql);
-        if (this.dialect!.driver === DriverClient.Pg) {
-          return `to_jsonb(${titleExpr})`;
-        }
-        if (this.dialect!.driver === DriverClient.Sqlite) {
-          return `json(${titleExpr})`;
-        }
-        return titleExpr;
+        return `to_jsonb(${titleExpr})`;
       }
       if (fieldInfo.isMultipleCellValue) {
         return this.dialect!.linkExtractTitles(selectionSql, true);
@@ -2309,13 +2301,7 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
         }
         // For single-value formulas targeting json columns, wrap scalar title as json
         const titleExpr = this.dialect!.jsonTitleFromExpr(selectionSql);
-        if (this.dialect!.driver === DriverClient.Pg) {
-          return `to_jsonb(${titleExpr})`;
-        }
-        if (this.dialect!.driver === DriverClient.Sqlite) {
-          return `json(${titleExpr})`;
-        }
-        return titleExpr;
+        return `to_jsonb(${titleExpr})`;
       }
 
       return this.dialect!.jsonTitleFromExpr(selectionSql);
@@ -2377,16 +2363,15 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
 
     const preferRaw = !!selectContext.preferRawFieldReferences;
     const targetDbType = selectContext.targetDbFieldType;
-    if (preferRaw && targetDbType === DbFieldType.Json) {
-      return expr;
-    }
-
     const trimmed = expr.trim();
     if (!trimmed || trimmed.toUpperCase() === 'NULL') {
       return expr;
     }
 
     const titlesExpr = dialect.linkExtractTitles(expr, !!fieldInfo.isMultipleCellValue);
+    if (preferRaw && targetDbType === DbFieldType.Json) {
+      return fieldInfo.isMultipleCellValue ? titlesExpr : expr;
+    }
     if (fieldInfo.isMultipleCellValue) {
       return dialect.formatStringArray(titlesExpr, { fieldInfo });
     }

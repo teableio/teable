@@ -17,6 +17,8 @@ import { Knex } from 'knex';
 import { groupBy, keyBy, uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
+import { DatabaseRouter } from '../../global/database-router.service';
+import { DATA_KNEX } from '../../global/knex/knex.module';
 import { majorFieldKeysChanged } from '../../utils/major-field-keys-changed';
 import { Timing } from '../../utils/timing';
 import { FieldCalculationService } from '../calculation/field-calculation.service';
@@ -47,18 +49,25 @@ interface ITinyTable {
   dbTableName: string;
 }
 
+interface IAffectedCountQuery {
+  fieldId: string;
+  fieldName: string;
+  query: string;
+}
+
 @Injectable()
 export class GraphService {
   private logger = new Logger(GraphService.name);
 
   constructor(
     private readonly prismaService: PrismaService,
+    private readonly databaseRouter: DatabaseRouter,
     private readonly fieldService: FieldService,
     private readonly referenceService: ReferenceService,
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly fieldCalculationService: FieldCalculationService,
     private readonly fieldConvertingLinkService: FieldConvertingLinkService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    @InjectModel(DATA_KNEX) private readonly knex: Knex,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
@@ -188,7 +197,8 @@ export class GraphService {
       field.id,
       [field.id],
       { [field.id]: field },
-      { [field.id]: tableMap[tableId].dbTableName }
+      { [field.id]: tableMap[tableId].dbTableName },
+      { [field.id]: tableId }
     );
     const estimateTime = field.isComputed ? this.getEstimateTime(updateCellCount) : 200;
     return {
@@ -414,7 +424,8 @@ export class GraphService {
       fieldId,
       topoFieldIds,
       fieldMap,
-      fieldId2DbTableName
+      fieldId2DbTableName,
+      fieldId2TableId
     );
 
     const resetLinkFieldLookupFieldIds =
@@ -453,47 +464,140 @@ export class GraphService {
     hostFieldId: string,
     fieldIds: string[],
     fieldMap: IFieldMap,
-    fieldId2DbTableName: Record<string, string>
+    fieldId2DbTableName: Record<string, string>,
+    fieldId2TableId: Record<string, string>
   ): Promise<number> {
-    const queries = fieldIds.map((fieldId) => {
-      const field = fieldMap[fieldId];
-      const lookupOptions = field.lookupOptions;
-
-      if (field.id !== hostFieldId) {
-        if (field.type === FieldType.Link) {
-          const { relationship, fkHostTableName, selfKeyName, foreignKeyName } =
-            field.options as ILinkFieldOptions;
-          const query =
-            relationship === Relationship.OneOne || relationship === Relationship.ManyOne
-              ? this.knex.count(foreignKeyName, { as: 'count' }).from(fkHostTableName)
-              : this.knex.countDistinct(selfKeyName, { as: 'count' }).from(fkHostTableName);
-
-          return query.toQuery();
-        }
-
-        if (lookupOptions && isLinkLookupOptions(lookupOptions)) {
-          const { relationship, fkHostTableName, selfKeyName, foreignKeyName } = lookupOptions;
-          const query =
-            relationship === Relationship.OneOne || relationship === Relationship.ManyOne
-              ? this.knex.count(foreignKeyName, { as: 'count' }).from(fkHostTableName)
-              : this.knex.countDistinct(selfKeyName, { as: 'count' }).from(fkHostTableName);
-
-          return query.toQuery();
-        }
-      }
-
-      const dbTableName = fieldId2DbTableName[fieldId];
-      return this.knex.count('*', { as: 'count' }).from(dbTableName).toQuery();
-    });
-    // console.log('queries', queries);
+    const queries = fieldIds
+      .map((fieldId) =>
+        this.buildAffectedCountQuery(hostFieldId, fieldId, fieldMap, fieldId2DbTableName)
+      )
+      .filter((query): query is IAffectedCountQuery => query != null);
 
     let total = 0;
-    for (const query of queries) {
-      const [{ count }] = await this.prismaService.$queryRawUnsafe<{ count: bigint }[]>(query);
-      // console.log('count', count);
-      total += Number(count);
+    for (const { fieldId, fieldName, query } of queries) {
+      try {
+        const tableId = fieldId2TableId[fieldId];
+        if (!tableId) {
+          this.logger.warn(
+            `Skip affected cell count for field=${fieldId} name="${fieldName}" because table id is missing`
+          );
+          continue;
+        }
+        const [{ count }] = await this.databaseRouter.queryDataPrismaForTable<{ count: bigint }[]>(
+          tableId,
+          query
+        );
+        total += Number(count);
+      } catch (error) {
+        if (this.shouldSkipAffectedCountError(error)) {
+          this.logger.warn(
+            `Skip affected cell count for field=${fieldId} name="${fieldName}" due to broken storage: ${
+              error.meta?.message || error.message
+            }`
+          );
+          continue;
+        }
+        throw error;
+      }
     }
     return total;
+  }
+
+  private buildAffectedCountQuery(
+    hostFieldId: string,
+    fieldId: string,
+    fieldMap: IFieldMap,
+    fieldId2DbTableName: Record<string, string>
+  ): IAffectedCountQuery | null {
+    const field = fieldMap[fieldId];
+
+    if (!field) {
+      this.logger.warn(`Skip affected cell count for missing field metadata: ${fieldId}`);
+      return null;
+    }
+
+    const lookupOptions = field.lookupOptions;
+
+    if (field.id !== hostFieldId) {
+      if (field.type === FieldType.Link) {
+        return this.buildLinkAffectedCountQuery(
+          field.id,
+          field.name,
+          field.options as ILinkFieldOptions
+        );
+      }
+
+      if (lookupOptions && isLinkLookupOptions(lookupOptions)) {
+        return this.buildLinkAffectedCountQuery(field.id, field.name, lookupOptions);
+      }
+    }
+
+    const dbTableName = fieldId2DbTableName[fieldId];
+    if (!dbTableName) {
+      this.logger.warn(
+        `Skip affected cell count for field=${fieldId} name="${field.name}" because db table name is missing`
+      );
+      return null;
+    }
+
+    return {
+      fieldId,
+      fieldName: field.name,
+      query: this.knex.count('*', { as: 'count' }).from(dbTableName).toQuery(),
+    };
+  }
+
+  private buildLinkAffectedCountQuery(
+    fieldId: string,
+    fieldName: string,
+    options: Pick<
+      ILinkFieldOptions,
+      'relationship' | 'fkHostTableName' | 'selfKeyName' | 'foreignKeyName'
+    >
+  ): IAffectedCountQuery | null {
+    const { relationship, fkHostTableName, selfKeyName, foreignKeyName } = options;
+
+    if (!fkHostTableName || !foreignKeyName) {
+      this.logger.warn(
+        `Skip affected cell count for field=${fieldId} name="${fieldName}" because link storage metadata is incomplete`
+      );
+      return null;
+    }
+
+    if (
+      relationship !== Relationship.OneOne &&
+      relationship !== Relationship.ManyOne &&
+      !selfKeyName
+    ) {
+      this.logger.warn(
+        `Skip affected cell count for field=${fieldId} name="${fieldName}" because link key metadata is incomplete`
+      );
+      return null;
+    }
+
+    const query =
+      relationship === Relationship.OneOne || relationship === Relationship.ManyOne
+        ? this.knex.count(foreignKeyName, { as: 'count' }).from(fkHostTableName)
+        : this.knex.countDistinct(selfKeyName as string, { as: 'count' }).from(fkHostTableName);
+
+    return {
+      fieldId,
+      fieldName,
+      query: query.toQuery(),
+    };
+  }
+
+  private shouldSkipAffectedCountError(error: unknown): error is {
+    meta?: { code?: string; message?: string };
+    message?: string;
+  } {
+    const prismaError = error as { code?: string; meta?: { code?: string } } | undefined;
+    if (prismaError?.code !== 'P2010') {
+      return false;
+    }
+
+    const storageErrorCode = prismaError.meta?.code;
+    return storageErrorCode === '42703' || storageErrorCode === '42P01';
   }
 
   @Timing()
@@ -523,7 +627,8 @@ export class GraphService {
       fieldId,
       allFieldIds,
       fieldMap,
-      fieldId2DbTableName
+      fieldId2DbTableName,
+      fieldId2TableId
     );
 
     return {

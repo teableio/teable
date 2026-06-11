@@ -7,7 +7,7 @@ import { Controller, FormProvider, useFormContext } from 'react-hook-form';
 import { cn } from '../utils';
 import { Label } from './label';
 
-const Form = FormProvider;
+const Form: typeof FormProvider = FormProvider;
 
 type FormFieldContextValue<
   TFieldValues extends FieldValues = FieldValues,
@@ -157,7 +157,7 @@ const FormMessage = React.forwardRef<
     <p
       ref={ref}
       id={formMessageId}
-      className={cn('text-[0.8rem] font-medium text-destructive', className)}
+      className={cn('text-xs text-destructive', className)}
       {...props}
     >
       {body}

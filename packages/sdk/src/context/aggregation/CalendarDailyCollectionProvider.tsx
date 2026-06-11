@@ -51,17 +51,19 @@ export const CalendarDailyCollectionProvider: FC<ICalendarDailyCollectionProvide
     };
   }, [query, viewId, searchQuery, shareId, viewFilter]);
 
-  const queryKey = useMemo(
+  const commonQueryKey = useMemo(
+    () => ReactQueryKeys.calendarDailyCollection(tableId as string, calenderDailyCollectionQuery),
+    [tableId, calenderDailyCollectionQuery]
+  );
+
+  const shareQueryKey = useMemo(
     () =>
-      ReactQueryKeys.calendarDailyCollection(
-        shareId || (tableId as string),
-        calenderDailyCollectionQuery
-      ),
-    [shareId, tableId, calenderDailyCollectionQuery]
+      ReactQueryKeys.shareCalendarDailyCollection(shareId as string, calenderDailyCollectionQuery),
+    [shareId, calenderDailyCollectionQuery]
   );
 
   const { data: commonCalendarDailyCollection } = useQuery({
-    queryKey,
+    queryKey: commonQueryKey,
     queryFn: ({ queryKey }) =>
       getCalendarDailyCollection(queryKey[1], queryKey[2]).then(({ data }) => data),
     enabled: Boolean(!shareId && tableId && isHydrated && isEnabled && visible),
@@ -70,7 +72,7 @@ export const CalendarDailyCollectionProvider: FC<ICalendarDailyCollectionProvide
   });
 
   const { data: shareCalendarDailyCollection } = useQuery({
-    queryKey,
+    queryKey: shareQueryKey,
     queryFn: ({ queryKey }) =>
       getShareViewCalendarDailyCollection(queryKey[1], queryKey[2]).then(({ data }) => data),
     enabled: Boolean(shareId && tableId && isHydrated && isEnabled && visible),
@@ -82,12 +84,14 @@ export const CalendarDailyCollectionProvider: FC<ICalendarDailyCollectionProvide
     ? shareCalendarDailyCollection
     : commonCalendarDailyCollection;
 
+  const activeQueryKey = shareId ? shareQueryKey : commonQueryKey;
+
   const updateCalendarDailyCollection = useCallback(
     () =>
       queryClient.invalidateQueries({
-        queryKey: queryKey.slice(0, 3),
+        queryKey: activeQueryKey.slice(0, 3),
       }),
-    [queryClient, queryKey]
+    [queryClient, activeQueryKey]
   );
 
   const throttleUpdateCalendarDailyCollection = useMemo(() => {
@@ -96,9 +100,9 @@ export const CalendarDailyCollectionProvider: FC<ICalendarDailyCollectionProvide
 
   const updateCalendarDailyCollectionForTable = useCallback(() => {
     queryClient.invalidateQueries({
-      queryKey: queryKey.slice(0, 2),
+      queryKey: activeQueryKey.slice(0, 2),
     });
-  }, [queryClient, queryKey]);
+  }, [queryClient, activeQueryKey]);
 
   const throttleUpdateCalendarDailyCollectionForTable = useMemo(() => {
     return throttle(updateCalendarDailyCollectionForTable, THROTTLE_TIME);
@@ -120,9 +124,9 @@ export const CalendarDailyCollectionProvider: FC<ICalendarDailyCollectionProvide
 
   useEffect(() => {
     return () => {
-      queryClient.removeQueries({ queryKey });
+      queryClient.removeQueries({ queryKey: activeQueryKey });
     };
-  }, [queryClient, queryKey]);
+  }, [queryClient, activeQueryKey]);
 
   return (
     <CalendarDailyCollectionContext.Provider value={calendarDailyCollection}>

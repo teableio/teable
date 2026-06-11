@@ -11,7 +11,7 @@ import { useTranslation } from 'next-i18next';
 import React, { useCallback, useState } from 'react';
 import { DeleteSpaceConfirm } from '@/features/app/components/space/DeleteSpaceConfirm';
 import { spaceConfig } from '@/features/i18n/space.config';
-import { SpaceInnerSettingModal, SettingTab } from '@overridable/SpaceInnerSettingModal';
+import { SpaceInnerSettingModal, SpaceSettingTab } from '@overridable/SpaceInnerSettingModal';
 
 interface ISpaceActionTrigger {
   space: IGetSpaceVo;
@@ -102,7 +102,7 @@ export const SpaceActionTrigger: React.FC<React.PropsWithChildren<ISpaceActionTr
       <SpaceInnerSettingModal
         open={settingModalOpen}
         setOpen={setSettingModalOpen}
-        defaultTab={SettingTab.General}
+        defaultTab={SpaceSettingTab.General}
       >
         <span className="hidden" />
       </SpaceInnerSettingModal>

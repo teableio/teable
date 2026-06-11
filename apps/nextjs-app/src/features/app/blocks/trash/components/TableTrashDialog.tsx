@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { resetTrashItems, ResourceType } from '@teable/openapi';
+import { Clean } from '@teable/icons';
+import { resetTrashItems, TrashType } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBasePermission } from '@teable/sdk/hooks';
 import { ConfirmDialog } from '@teable/ui-lib/base';
@@ -27,7 +28,7 @@ export const TableTrashDialog = (props: ITableTrashDialogProps) => {
   const hasResetPermission = permission?.['table|trash_reset'];
 
   const { mutateAsync: mutateResetTrash } = useMutation({
-    mutationFn: () => resetTrashItems({ resourceType: ResourceType.Table, resourceId: tableId }),
+    mutationFn: () => resetTrashItems({ resourceType: TrashType.Table, resourceId: tableId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getTrashItems(tableId) });
       toast.success(t('actions.resetSucceed'));
@@ -42,11 +43,12 @@ export const TableTrashDialog = (props: ITableTrashDialogProps) => {
             <DialogTitle className="flex items-center">{t('table:tableTrash.title')}</DialogTitle>
             {hasResetPermission && (
               <Button
-                size="xs"
+                size="sm"
                 className="mr-8"
-                variant="secondary"
+                variant="outline"
                 onClick={() => setConfirmVisible(true)}
               >
+                <Clean className="size-4 shrink-0" />
                 {t('trash.resetTrash')}
               </Button>
             )}

@@ -4,13 +4,12 @@ import type { IButtonFieldCellValue, IFieldRo, IFieldVo, ISelectFieldOptions } f
 import {
   CellFormat,
   Colors,
-  DriverClient,
   FieldKeyType,
   FieldType,
   generateWorkflowId,
   Relationship,
 } from '@teable/core';
-import { buttonClick, buttonReset, updateRecords, type ITableFullVo } from '@teable/openapi';
+import { axios, buttonClick, buttonReset, updateRecords, type ITableFullVo } from '@teable/openapi';
 import {
   convertField,
   createField,
@@ -28,6 +27,7 @@ import {
   updateRecord,
   updateRecordByApi,
 } from './utils/init-app';
+import { X_TEABLE_V2_HEADER } from '../src/features/canary/interceptors/v2-indicator.interceptor';
 
 describe('OpenAPI RecordController (e2e)', () => {
   let app: INestApplication;
@@ -211,11 +211,13 @@ describe('OpenAPI RecordController (e2e)', () => {
         typecast: true,
       });
 
+      const beforeNowTypecast = Date.now();
       const res3 = await updateRecord(table.id, table.records[0].id, {
         record: { fields: { [dateField.id]: 'now' } },
         fieldKeyType: FieldKeyType.Id,
         typecast: true,
       });
+      const afterNowTypecast = Date.now();
 
       expect(res1.fields[singleUserField.id]).toMatchObject({
         email: 'test@e2e.com',
@@ -229,9 +231,9 @@ describe('OpenAPI RecordController (e2e)', () => {
       ]);
 
       expect(res3.fields[dateField.id]).toBeDefined();
-      expect(new Date(res3.fields[dateField.id] as string).toISOString().slice(0, -7)).toEqual(
-        new Date().toISOString().slice(0, -7)
-      );
+      const typecastTime = new Date(res3.fields[dateField.id] as string).getTime();
+      expect(typecastTime).toBeGreaterThanOrEqual(beforeNowTypecast - 1000);
+      expect(typecastTime).toBeLessThanOrEqual(afterNowTypecast + 1000);
     });
 
     it('should not auto create options when preventAutoNewOptions is true', async () => {
@@ -467,47 +469,44 @@ describe('OpenAPI RecordController (e2e)', () => {
       });
     });
 
-    it.skipIf(globalThis.testConfig.driver === DriverClient.Sqlite)(
-      'should validate the not null values of the not null field',
-      async () => {
-        const sourceFieldRo: IFieldRo = {
-          name: 'TextField2',
-          type: FieldType.SingleLineText,
-        };
-        const convertFieldRo: IFieldRo = {
-          name: 'TextField2',
-          type: FieldType.SingleLineText,
-          notNull: true,
-        };
+    it('should validate the not null values of the not null field', async () => {
+      const sourceFieldRo: IFieldRo = {
+        name: 'TextField2',
+        type: FieldType.SingleLineText,
+      };
+      const convertFieldRo: IFieldRo = {
+        name: 'TextField2',
+        type: FieldType.SingleLineText,
+        notNull: true,
+      };
 
-        await clearRecords();
+      await clearRecords();
 
-        const sourceField = await createField(table.id, sourceFieldRo);
-        await convertField(table.id, sourceField.id, convertFieldRo);
+      const sourceField = await createField(table.id, sourceFieldRo);
+      await convertField(table.id, sourceField.id, convertFieldRo);
 
-        await createRecords(
-          table.id,
-          {
-            records: [
-              {
-                fields: {},
-              },
-            ],
-          },
-          400
-        );
-
-        await createRecords(table.id, {
+      await createRecords(
+        table.id,
+        {
           records: [
             {
-              fields: {
-                [sourceField.id]: '100',
-              },
+              fields: {},
             },
           ],
-        });
-      }
-    );
+        },
+        400
+      );
+
+      await createRecords(table.id, {
+        records: [
+          {
+            fields: {
+              [sourceField.id]: '100',
+            },
+          },
+        ],
+      });
+    });
   });
 
   describe('calculate', () => {
@@ -1357,6 +1356,191 @@ describe('OpenAPI RecordController (e2e)', () => {
   });
 
   describe('compute on create: link + lookup + rollup', () => {
+    describe('sparse single select batch updates in v1', () => {
+      let table: ITableFullVo;
+
+      const updateRecordsV1 = async (tableId: string, body: Record<string, unknown>) => {
+        return await axios.patch(`/table/${tableId}/record`, body, {
+          headers: {
+            'x-canary': 'false',
+          },
+        });
+      };
+
+      beforeEach(async () => {
+        table = await createTable(baseId, {
+          name: 'v1 sparse update single select',
+          fields: [
+            { name: 'Title', type: FieldType.SingleLineText, isPrimary: true },
+            {
+              name: 'Status',
+              type: FieldType.SingleSelect,
+              options: {
+                choices: [{ name: 'Open' }, { name: 'Closed' }],
+                preventAutoNewOptions: true,
+              },
+            },
+            { name: 'Notes', type: FieldType.SingleLineText },
+          ],
+        });
+      });
+
+      afterEach(async () => {
+        await permanentDeleteTable(baseId, table.id);
+      });
+
+      it('preserves omitted singleSelect values in sparse explicit batch updates for v1', async () => {
+        const titleFieldId = table.fields.find((field) => field.name === 'Title')?.id ?? '';
+        const statusFieldId = table.fields.find((field) => field.name === 'Status')?.id ?? '';
+        const notesFieldId = table.fields.find((field) => field.name === 'Notes')?.id ?? '';
+
+        const created = await createRecords(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          records: [
+            {
+              fields: {
+                [titleFieldId]: 'Alpha',
+                [statusFieldId]: 'Open',
+              },
+            },
+            {
+              fields: {
+                [titleFieldId]: 'Beta',
+                [statusFieldId]: 'Open',
+              },
+            },
+          ],
+        });
+
+        const response = await updateRecordsV1(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          records: [
+            {
+              id: created.records[0]!.id,
+              fields: {
+                [notesFieldId]: 'Touched',
+              },
+            },
+            {
+              id: created.records[1]!.id,
+              fields: {
+                [statusFieldId]: 'Closed',
+              },
+            },
+          ],
+        });
+
+        expect(response.status).toBe(200);
+        expect(response.headers[X_TEABLE_V2_HEADER]).toBe('false');
+
+        const refreshed = await getRecords(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          skip: 0,
+          take: 100,
+        });
+        const recordsByTitle = new Map(
+          refreshed.records.map((record) => [record.fields[titleFieldId], record])
+        );
+
+        expect(recordsByTitle.get('Alpha')?.fields[statusFieldId]).toBe('Open');
+        expect(recordsByTitle.get('Alpha')?.fields[notesFieldId]).toBe('Touched');
+        expect(recordsByTitle.get('Beta')?.fields[statusFieldId]).toBe('Closed');
+      });
+
+      it('does not fail required singleSelect validation when omitted in another batch row for v1', async () => {
+        const titleFieldId = table.fields.find((field) => field.name === 'Title')?.id ?? '';
+        const statusFieldId = table.fields.find((field) => field.name === 'Status')?.id ?? '';
+        const notesFieldId = table.fields.find((field) => field.name === 'Notes')?.id ?? '';
+        const statusField = table.fields.find((field) => field.id === statusFieldId);
+
+        if (!statusField) {
+          throw new Error('Status field not found');
+        }
+
+        const initialRows = await getRecords(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          skip: 0,
+          take: 100,
+        });
+
+        const primeResponse = await updateRecordsV1(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          records: initialRows.records.map((record) => ({
+            id: record.id,
+            fields: {
+              [statusFieldId]: 'Open',
+            },
+          })),
+        });
+
+        expect(primeResponse.status).toBe(200);
+        expect(primeResponse.headers[X_TEABLE_V2_HEADER]).toBe('false');
+
+        await convertField(table.id, statusFieldId, {
+          name: statusField.name,
+          type: statusField.type,
+          dbFieldName: statusField.dbFieldName,
+          notNull: true,
+          options: {
+            ...(statusField.options as ISelectFieldOptions),
+            choices: (statusField.options as ISelectFieldOptions).choices,
+          },
+        });
+
+        const created = await createRecords(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          records: [
+            {
+              fields: {
+                [titleFieldId]: 'Alpha',
+                [statusFieldId]: 'Open',
+              },
+            },
+            {
+              fields: {
+                [titleFieldId]: 'Beta',
+                [statusFieldId]: 'Open',
+              },
+            },
+          ],
+        });
+
+        const response = await updateRecordsV1(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          records: [
+            {
+              id: created.records[0]!.id,
+              fields: {
+                [statusFieldId]: 'Closed',
+              },
+            },
+            {
+              id: created.records[1]!.id,
+              fields: {
+                [notesFieldId]: 'Still open',
+              },
+            },
+          ],
+        });
+
+        expect(response.status).toBe(200);
+        expect(response.headers[X_TEABLE_V2_HEADER]).toBe('false');
+
+        const refreshed = await getRecords(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          skip: 0,
+          take: 100,
+        });
+        const recordsByTitle = new Map(
+          refreshed.records.map((record) => [record.fields[titleFieldId], record])
+        );
+
+        expect(recordsByTitle.get('Alpha')?.fields[statusFieldId]).toBe('Closed');
+        expect(recordsByTitle.get('Beta')?.fields[statusFieldId]).toBe('Open');
+        expect(recordsByTitle.get('Beta')?.fields[notesFieldId]).toBe('Still open');
+      });
+    });
+
     let mainTable: ITableFullVo;
     let foreignTable: ITableFullVo;
 

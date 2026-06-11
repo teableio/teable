@@ -1,6 +1,7 @@
 import { ViewType } from '@teable/core';
 import { ShareViewContext } from '@teable/sdk/context';
 import { useContext } from 'react';
+import { DownloadAllAttachmentsDialog } from '@/features/app/components/download-attachments';
 import { CalendarView } from './component/calendar/CalendarView';
 import { FormView } from './component/form/FormView';
 import { GalleryView } from './component/gallery/GalleryView';
@@ -11,6 +12,7 @@ import { PluginView } from './component/plugin/SharePluginView';
 export const ShareView = () => {
   const { view, shareId, extra } = useContext(ShareViewContext);
   const viewType = view?.type;
+
   const getViewComponent = () => {
     // eslint-disable-next-line sonarjs/no-small-switch
     switch (viewType) {
@@ -31,5 +33,10 @@ export const ShareView = () => {
     }
   };
 
-  return <div className="h-screen w-full">{getViewComponent()}</div>;
+  return (
+    <div className="flex h-screen w-full flex-col">
+      <div className="min-h-0 w-full flex-1">{getViewComponent()}</div>
+      <DownloadAllAttachmentsDialog />
+    </div>
+  );
 };

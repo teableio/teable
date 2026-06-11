@@ -80,9 +80,6 @@ export const SharePopover: React.FC<{
     }
     if (enableShare) {
       await enableShareFn(view);
-      setTimeout(() => {
-        !view?.shareMeta && setShareMeta({ submit: { requireLogin: false, allow: true } });
-      }, 100);
     } else {
       disableShareFn(view);
     }
@@ -108,9 +105,6 @@ export const SharePopover: React.FC<{
   };
 
   const onSubmitRequireLoginChange = (check: boolean) => {
-    if (!shareMeta?.submit) {
-      return;
-    }
     setShareMeta({ submit: { ...shareMeta?.submit, requireLogin: check } });
   };
 
@@ -132,12 +126,12 @@ export const SharePopover: React.FC<{
         {enableShare ? (
           <>
             <div className="flex items-center gap-1">
-              <Input className="h-7 grow" id="share-link" value={shareUrl} readOnly />
+              <Input className="grow" size="sm" id="share-link" value={shareUrl} readOnly />
 
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button size="xs" variant="outline">
-                    <Qrcode />
+                  <Button size="icon-xs" variant="outline">
+                    <Qrcode className="size-4 shrink-0" />
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="size-48 bg-white p-2">
@@ -148,8 +142,8 @@ export const SharePopover: React.FC<{
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button size={'xs'} variant={'outline'} onClick={() => view.setRefreshLink()}>
-                      <RefreshCcw />
+                    <Button size={'icon-xs'} variant={'outline'} onClick={() => view.setRefreshLink()}>
+                      <RefreshCcw className="size-4 shrink-0" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
@@ -171,7 +165,7 @@ export const SharePopover: React.FC<{
                 </Label>
                 {Boolean(shareMeta?.password) && (
                   <Button
-                    className="hover:text-muted-foreground h-5 py-0"
+                    className="h-5 py-0 hover:text-muted-foreground"
                     variant={'link'}
                     size={'xs'}
                     onClick={() => setShowPasswordDialog(true)}
@@ -193,7 +187,7 @@ export const SharePopover: React.FC<{
             </div>
           </>
         ) : (
-          <div className="text-muted-foreground text-center text-sm">
+          <div className="text-center text-sm text-muted-foreground">
             {!enableShare && permission['view|share'] ? t('share.tips') : t('share.noPermission')}
           </div>
         )}
@@ -208,7 +202,6 @@ export const SharePopover: React.FC<{
               <DialogDescription>{t('share.passwordTips')}</DialogDescription>
             </DialogHeader>
             <Input
-              className="h-8"
               type="password"
               value={sharePassword}
               onChange={(e) => setSharePassword(e.target.value)}

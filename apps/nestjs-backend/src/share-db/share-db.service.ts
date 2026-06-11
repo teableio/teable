@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { context as otelContext, trace as otelTrace } from '@opentelemetry/api';
 import { FieldOpBuilder, IdPrefix, ViewOpBuilder } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -8,14 +8,37 @@ import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
 import ShareDBClass from 'sharedb';
 import { CacheConfig, ICacheConfig } from '../configs/cache.config';
 import { EventEmitterService } from '../event-emitter/event-emitter.service';
+import { SessionHandleService } from '../features/auth/session/session-handle.service';
 import { PerformanceCacheService } from '../performance-cache';
 import type { IClsStore } from '../types/cls';
 import { Timing } from '../utils/timing';
 import { authMiddleware } from './auth.middleware';
 import type { IRawOpMap } from './interface';
+import { RealtimeMetricsService } from './metrics/realtime-metrics.service';
 import { RepairAttachmentOpService } from './repair-attachment-op/repair-attachment-op.service';
 import { ShareDbAdapter } from './share-db.adapter';
 import { RedisPubSub } from './sharedb-redis.pubsub';
+
+const v2ProjectionOpSourcePrefix = '@@v2-projection:';
+const v2ProjectionSubmitSource = '@@v2-projection';
+
+const hasClientStream = (
+  agent: unknown
+): agent is { stream: { write?: unknown; send?: unknown } } => {
+  if (!agent || typeof agent !== 'object') {
+    return false;
+  }
+  if (!('stream' in agent)) {
+    return false;
+  }
+
+  const stream = (agent as { stream?: unknown }).stream;
+  if (!stream || typeof stream !== 'object') {
+    return false;
+  }
+
+  return 'write' in stream || 'send' in stream;
+};
 
 @Injectable()
 export class ShareDbService extends ShareDBClass {
@@ -28,7 +51,9 @@ export class ShareDbService extends ShareDBClass {
     private readonly cls: ClsService<IClsStore>,
     private readonly repairAttachmentOpService: RepairAttachmentOpService,
     @CacheConfig() private readonly cacheConfig: ICacheConfig,
-    private readonly performanceCacheService: PerformanceCacheService
+    private readonly performanceCacheService: PerformanceCacheService,
+    private readonly sessionHandleService: SessionHandleService,
+    @Optional() private readonly realtimeMetrics?: RealtimeMetricsService
   ) {
     super({
       presence: true,
@@ -48,7 +73,7 @@ export class ShareDbService extends ShareDBClass {
       this.pubsub = redisPubsub;
     }
 
-    authMiddleware(this);
+    authMiddleware(this, this.sessionHandleService);
     this.use('submit', this.onSubmit);
 
     // broadcast raw op events to client
@@ -109,6 +134,7 @@ export class ShareDbService extends ShareDBClass {
     if (!rawOpMaps?.length) {
       return;
     }
+    let publishCount = 0;
     const repairAttachmentContext =
       await this.repairAttachmentOpService.getCollectionsAttachmentsContext(rawOpMaps);
     for (const rawOpMap of rawOpMaps) {
@@ -124,6 +150,7 @@ export class ShareDbService extends ShareDBClass {
             repairAttachmentContext
           );
           this.pubsub.publish(channels, repairedOp, noop);
+          publishCount++;
 
           if (this.shouldPublishAction(repairedOp)) {
             const tableId = collection.split('_')[1];
@@ -131,6 +158,9 @@ export class ShareDbService extends ShareDBClass {
           }
         }
       }
+    }
+    if (publishCount > 0) {
+      this.realtimeMetrics?.recordOpsPublished(publishCount);
     }
   }
 
@@ -165,17 +195,33 @@ export class ShareDbService extends ShareDBClass {
     const tracer = otelTrace.getTracer('default');
     const currentSpan = tracer.startSpan('submitOp');
 
-    // console.log('onSubmit start');
-
     otelContext.with(otelTrace.setSpan(otelContext.active(), currentSpan), () => {
+      const submitSource =
+        ((context as ShareDBClass.middleware.SubmitContext & { options?: { source?: unknown } })
+          .options?.source as unknown) ??
+        ((context as ShareDBClass.middleware.SubmitContext & { extra?: { source?: unknown } }).extra
+          ?.source as unknown);
+      if (submitSource === v2ProjectionSubmitSource) {
+        return next();
+      }
+
+      const opSource = typeof context.op.src === 'string' ? context.op.src : '';
+      if (opSource.startsWith(v2ProjectionOpSourcePrefix)) {
+        return next();
+      }
+
+      if (!hasClientStream(context.agent)) {
+        return next();
+      }
+
       const [docType] = context.collection.split('_');
 
       if (docType !== IdPrefix.Record || !context.op.op) {
+        this.realtimeMetrics?.recordOperationError('invalid_doc_type');
         return next(new Error('only record op can be committed'));
       }
+      this.realtimeMetrics?.recordOperationSubmit();
       next();
     });
-
-    // console.log('onSubmit end');
   };
 }

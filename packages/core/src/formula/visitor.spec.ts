@@ -196,6 +196,33 @@ describe('EvalVisitor', () => {
     expect(evalFormula('1 != 2')).toBe(true);
   });
 
+  it('does not treat numeric zero as blank in equality comparisons', () => {
+    const zeroRecord: IRecord = {
+      ...record,
+      fields: {
+        ...record.fields,
+        fldNumber: 0,
+      },
+    };
+    const blankRecord: IRecord = {
+      ...record,
+      fields: {
+        ...record.fields,
+        fldNumber: null,
+      },
+    };
+
+    expect(evalFormula('0 = BLANK()')).toBe(false);
+    expect(evalFormula('BLANK() = 0')).toBe(false);
+    expect(evalFormula('0 != BLANK()')).toBe(true);
+    expect(evalFormula('{fldNumber} = BLANK()', fieldContext, zeroRecord)).toBe(false);
+    expect(evalFormula('{fldNumber} != BLANK()', fieldContext, zeroRecord)).toBe(true);
+    expect(
+      evalFormula('IF({fldNumber} = BLANK(), "empty", "not empty")', fieldContext, zeroRecord)
+    ).toBe('not empty');
+    expect(evalFormula('{fldNumber} = BLANK()', fieldContext, blankRecord)).toBe(true);
+  });
+
   it('parentheses', () => {
     expect(evalFormula('(3 + 5) * 2')).toBe(16);
   });
@@ -212,6 +239,30 @@ describe('EvalVisitor', () => {
 
   it('function call', () => {
     expect(evalFormula('sum({fldNumber}, 1, 2, 3)', fieldContext, record)).toBe(14);
+  });
+
+  it('matches numeric field values stored as strings in SWITCH cases', () => {
+    const numericStringRecord: IRecord = {
+      ...record,
+      fields: {
+        ...record.fields,
+        fldNumber: '30',
+      },
+    };
+
+    expect(evalFormula('IF({fldNumber}=30,20,0)', fieldContext, numericStringRecord)).toBe(20);
+    expect(
+      evalFormula('SWITCH({fldNumber},30,20,45,30,60,40,0)', fieldContext, numericStringRecord)
+    ).toBe(20);
+  });
+
+  it('evaluates TEXTBEFORE and TEXTSPLIT function calls', () => {
+    expect(evalFormula('TEXTBEFORE("20, 04, 79", ",")', fieldContext, record)).toBe('20');
+    expect(evalFormula('TEXTSPLIT("20, 04, 79", ",")', fieldContext, record)).toEqual([
+      '20',
+      ' 04',
+      ' 79',
+    ]);
   });
 
   it('rollup call', () => {

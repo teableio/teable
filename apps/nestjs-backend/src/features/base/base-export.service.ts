@@ -1,13 +1,25 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Readable, PassThrough } from 'stream';
 import { Injectable, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import * as Sentry from '@sentry/nestjs';
-import type { ILinkFieldOptions, ILocalization } from '@teable/core';
+import type {
+  ILinkFieldOptions,
+  ILocalization,
+  IConditionalRollupFieldOptions,
+  IConditionalLookupOptions,
+} from '@teable/core';
 import { FieldType, getRandomString, ViewType, isLinkLookupOptions } from '@teable/core';
+import { DataPrismaService } from '@teable/db-data-prisma';
 import type { Field, View, TableMeta, Base } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { PluginPosition, UploadType } from '@teable/openapi';
-import type { BaseNodeResourceType, IBaseJson } from '@teable/openapi';
+import type {
+  BaseNodeResourceType,
+  ExportBaseProgressCallback,
+  IBaseJson,
+  IExportBaseVo,
+} from '@teable/openapi';
 import archiver from 'archiver';
 import { stringify } from 'csv-stringify/sync';
 import { Knex } from 'knex';
@@ -15,12 +27,16 @@ import { omit, pick } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { IStorageConfig, StorageConfig } from '../../configs/storage';
+import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
+import { DatabaseRouter } from '../../global/database-router.service';
+import { DATA_KNEX } from '../../global/knex/knex.module';
 import type { IClsStore } from '../../types/cls';
 import type { I18nPath } from '../../types/i18n.generated';
+import { resolveBuildVersion } from '../../utils/build-version';
 import { second } from '../../utils/second';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
@@ -61,10 +77,12 @@ export class BaseExportService {
     private readonly cls: ClsService<IClsStore>,
     private readonly notificationService: NotificationService,
     private readonly eventEmitterService: EventEmitterService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    @InjectModel(DATA_KNEX) private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
-    @StorageConfig() private readonly storageConfig: IStorageConfig
+    @StorageConfig() private readonly storageConfig: IStorageConfig,
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
+    private readonly databaseRouter: DatabaseRouter
   ) {}
 
   private captureExportError(
@@ -147,8 +165,13 @@ export class BaseExportService {
     }
   }
 
-  async exportBaseZip(baseId: string, includeData = true) {
+  async exportBaseZip(
+    baseId: string,
+    includeData = true,
+    onProgress?: ExportBaseProgressCallback
+  ): Promise<IExportBaseVo | undefined> {
     let baseName: string | undefined;
+    onProgress?.('preparing');
     try {
       ({ name: baseName } = await this.prismaService.base.findFirstOrThrow({
         where: {
@@ -197,29 +220,43 @@ export class BaseExportService {
     // Critical: Start upload first to ensure passThrough has a consumer, preventing backpressure blocking
     // If uploadFileStream is called after finalize(), large files will hang in append
     // Note: This occupies sockets, recommend setting BACKEND_STORAGE_S3_UPLOAD_QUEUE_SIZE=1 to control upload concurrency to 1
+    const exportFileName = `${baseName}.${BaseExportService.FILE_SUFFIX}`;
     const uploadPromise = this.storageAdapter.uploadFileStream(
       bucket,
       `${pathDir}/${token}.${BaseExportService.FILE_SUFFIX}`,
       passThrough,
       {
         // eslint-disable-next-line @typescript-eslint/naming-convention
-        'Content-Type': 'application/zip',
+        'Content-Type': 'application/octet-stream',
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(exportFileName)}`,
       }
     );
 
     try {
-      await this.pipeArchive(archive, baseId, includeData);
+      onProgress?.('exporting_archive');
+      await this.prismaService.$tx(
+        async (prisma) => {
+          await prisma.$executeRawUnsafe('SET TRANSACTION READ ONLY');
+          await this.pipeArchive(archive, baseId, includeData, onProgress);
+        },
+        {
+          isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+          timeout: this.thresholdConfig.bigTransactionTimeout,
+        }
+      );
       archive.finalize();
+      onProgress?.('uploading_archive');
       const uploadResult = await uploadPromise;
       const { path } = uploadResult;
-      const name = `${baseName}.${BaseExportService.FILE_SUFFIX}`;
+      onProgress?.('generating_download_url');
       const previewUrl = await this.storageAdapter.getPreviewUrl(
         StorageAdapter.getBucket(UploadType.ExportBase),
         path,
         second(this.storageConfig.tokenExpireIn),
         {
           // eslint-disable-next-line
-          'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(name)}`,
+          'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(exportFileName)}`,
         }
       );
       const message: ILocalization<I18nPath> = {
@@ -227,10 +264,19 @@ export class BaseExportService {
         context: {
           baseName,
           previewUrl,
-          name,
+          name: exportFileName,
         },
       };
-      this.notifyExportResult(baseId, message, previewUrl);
+      this.notifyExportResult(baseId, message, {
+        status: 'success',
+        previewUrl,
+        attachment: {
+          name: exportFileName,
+          path,
+        },
+      });
+      onProgress?.('done');
+      return { previewUrl, baseName, fileName: exportFileName };
     } catch (e) {
       this.captureExportError(e, {
         stage: 'processExport',
@@ -246,16 +292,32 @@ export class BaseExportService {
             errorMessage: e.message,
           },
         };
-        this.notifyExportResult(baseId, message);
+        this.notifyExportResult(baseId, message, {
+          status: 'failed',
+          errorMessage: e.message,
+        });
+      }
+      if (onProgress) {
+        throw e;
       }
     }
   }
 
-  async pipeArchive(archive: archiver.Archiver, baseId: string, includeData: boolean) {
-    await this.processExportBaseZip(baseId, includeData, archive);
+  async pipeArchive(
+    archive: archiver.Archiver,
+    baseId: string,
+    includeData: boolean,
+    onProgress?: ExportBaseProgressCallback
+  ) {
+    await this.processExportBaseZip(baseId, includeData, archive, onProgress);
   }
 
-  async processExportBaseZip(baseId: string, includeData: boolean, archive: archiver.Archiver) {
+  async processExportBaseZip(
+    baseId: string,
+    includeData: boolean,
+    archive: archiver.Archiver,
+    onProgress?: ExportBaseProgressCallback
+  ) {
     const prisma = this.prismaService.txClient();
     //  1. get all raw info
     const baseRaw = await prisma.base.findUniqueOrThrow({
@@ -295,6 +357,7 @@ export class BaseExportService {
     });
 
     // 2. generate base structure json
+    onProgress?.('exporting_structure');
     const structure = await this.generateBaseStructConfig({
       baseRaw,
       tableRaws,
@@ -309,6 +372,7 @@ export class BaseExportService {
 
     // 4 export data
     if (includeData) {
+      onProgress?.('exporting_attachments');
       this.logger.log(`export base ${baseRaw.id}/${baseRaw.name}: Start exporting attachments`);
       // 4.0 export attachments
       await this.appendAttachments('attachments', tableRaws, archive);
@@ -316,6 +380,7 @@ export class BaseExportService {
         `export base ${baseRaw.id}/${baseRaw.name}: End exporting attachments data csv`
       );
 
+      onProgress?.('exporting_attachment_metadata');
       // 4.1 export attachments data .csv
       this.logger.log(
         `export base ${baseRaw.id}/${baseRaw.name}: Start exporting attachments data csv`
@@ -325,6 +390,7 @@ export class BaseExportService {
         `export base ${baseRaw.id}/${baseRaw.name}: End exporting attachments data csv`
       );
 
+      onProgress?.('exporting_table_data');
       this.logger.log(`export base ${baseRaw.id}/${baseRaw.name}: Start exporting table data csv`);
 
       // 4.2 export table data csv
@@ -334,7 +400,15 @@ export class BaseExportService {
         crossBaseRelativeFieldIds.has(id)
       );
 
-      for (const tableRaw of tableRaws) {
+      for (const [index, tableRaw] of tableRaws.entries()) {
+        onProgress?.('table_data_started', tableRaw.name, {
+          type: 'progress',
+          phase: 'table_data_started',
+          tableId: tableRaw.id,
+          tableName: tableRaw.name,
+          tableIndex: index + 1,
+          totalTables: tableRaws.length,
+        });
         const crossBaseFieldRaws = crossBaseRelativeFieldsRaws.filter(
           ({ tableId }) => tableId === tableRaw.id
         );
@@ -351,23 +425,33 @@ export class BaseExportService {
           'tables',
           tableRaw,
           crossBaseFieldRaws,
-          excludeDbFieldNames
+          excludeDbFieldNames,
+          onProgress
         );
+        onProgress?.('table_data_done', tableRaw.name, {
+          type: 'progress',
+          phase: 'table_data_done',
+          tableId: tableRaw.id,
+          tableName: tableRaw.name,
+          tableIndex: index + 1,
+          totalTables: tableRaws.length,
+        });
       }
 
-      const linkFieldInstances = fieldRaws
+      const linkFieldRaws = fieldRaws
         .filter(({ type, isLookup }) => type === FieldType.Link && !isLookup)
-        .filter(({ id }) => !crossBaseRelativeFieldIds.has(id))
-        .map((f) => createFieldInstanceByRaw(f));
+        .filter(({ id }) => !crossBaseRelativeFieldIds.has(id));
 
       // 5. export junction csv for link fields
       const junctionTableName = [] as string[];
-      for (const linkField of linkFieldInstances) {
+      for (const linkFieldRaw of linkFieldRaws) {
+        const linkField = createFieldInstanceByRaw(linkFieldRaw);
         const { options } = linkField;
         const { fkHostTableName, selfKeyName, foreignKeyName } = options as ILinkFieldOptions;
         if (fkHostTableName.includes('junction_') && !junctionTableName.includes(fkHostTableName)) {
           await this.appendJunctionCsv(
             'tables',
+            linkFieldRaw.tableId,
             fkHostTableName,
             selfKeyName,
             foreignKeyName,
@@ -394,6 +478,12 @@ export class BaseExportService {
     // for enterprise version, do not delete these properties
     includedAppIds,
     includedWorkflowIds,
+    // Root node IDs - nodes that should have their parentId set to null
+    rootNodeIds,
+    // When set, fields whose foreign base lives in a different space are also
+    // degraded to text even when allowCrossBase=true (same-space cross-base
+    // remains a real link).
+    destSpaceId,
   }: {
     baseRaw: Base;
     tableRaws: TableMeta[];
@@ -406,8 +496,14 @@ export class BaseExportService {
     includedAppIds?: string[];
     includedWorkflowIds?: string[];
     excludedTableIds?: string[];
+    rootNodeIds?: string[];
+    destSpaceId?: string;
   }) {
     const { name: baseName, icon: baseIcon, id: baseId } = baseRaw;
+    const crossSpaceForeignBaseIds = await this.computeCrossSpaceForeignBaseIds(
+      fieldRaws,
+      destSpaceId
+    );
     const tables = [] as IBaseJson['tables'];
     for (const table of tableRaws) {
       const { name, description, order, id, icon, dbTableName } = table;
@@ -424,7 +520,8 @@ export class BaseExportService {
       tableObject.fields = this.generateFieldConfig(
         currentTableFields,
         allowCrossBase,
-        excludedTableIds
+        excludedTableIds,
+        crossSpaceForeignBaseIds
       );
       tableObject.views = this.generateViewConfig(viewRaws.filter(({ tableId }) => tableId === id));
       tables.push(tableObject);
@@ -432,13 +529,13 @@ export class BaseExportService {
 
     const plugins = await this.generatePluginConfig(baseId, includedDashboardIds);
     const folders = await this.generateFolderConfig(baseId, includedFolderIds);
-    const nodes = await this.generateNodeConfig(baseId, includeNodes);
+    const nodes = await this.generateNodeConfig(baseId, includeNodes, rootNodeIds);
 
     return {
       id: baseId,
       name: baseName,
       icon: baseIcon,
-      version: process.env.NEXT_PUBLIC_BUILD_VERSION!,
+      version: resolveBuildVersion(),
       tables,
       plugins,
       folders,
@@ -536,11 +633,14 @@ export class BaseExportService {
     filePath: string,
     tableRaw: TableMeta,
     crossBaseRelativeFields: Field[],
-    excludeDbFieldNames: string[]
+    excludeDbFieldNames: string[],
+    onProgress?: ExportBaseProgressCallback
   ) {
     const { dbTableName, id } = tableRaw;
     const csvStream = new PassThrough();
-    const prisma = this.prismaService.txClient();
+    const prisma = await this.databaseRouter.dataPrismaExecutorForTable(id, {
+      useTransaction: true,
+    });
     const columnInfoQuery = this.dbProvider.columnInfo(dbTableName);
     const columnInfo = await prisma.$queryRawUnsafe<{ name: string }[]>(columnInfoQuery);
 
@@ -560,6 +660,7 @@ export class BaseExportService {
     csvStream.write(`${headerRow}\n`);
 
     let offset = 0;
+    let processedRows = 0;
     let hasMoreData = true;
     archive.append(csvStream, { name: `${filePath}/${id}.csv` });
 
@@ -584,6 +685,7 @@ export class BaseExportService {
     // 2. write csv content
     while (hasMoreData) {
       const csvChunk = await this.getCsvChunk(
+        prisma,
         dbTableName,
         offset,
         crossBaseRelativeFields,
@@ -598,6 +700,16 @@ export class BaseExportService {
       });
       csvStream.write(csvString);
       offset += BaseExportService.CSV_CHUNK;
+      processedRows += csvChunk.length;
+      onProgress?.('table_data_progress', tableRaw.name, {
+        type: 'progress',
+        phase: 'table_data_progress',
+        tableId: tableRaw.id,
+        tableName: tableRaw.name,
+        processedRows,
+        batchProcessedRows: csvChunk.length,
+        currentBatch: Math.ceil(offset / BaseExportService.CSV_CHUNK),
+      });
     }
     csvStream.end();
   }
@@ -665,7 +777,10 @@ export class BaseExportService {
     });
 
     const csvString = stringify(
-      attachments.map((att) => pick(att, columnHeader)),
+      attachments.map((att) => ({
+        ...pick(att, columnHeader),
+        size: Number(att.size),
+      })),
       {
         columns: columnHeader,
       }
@@ -677,13 +792,16 @@ export class BaseExportService {
 
   private async appendJunctionCsv(
     filePath: string,
+    tableId: string,
     fkHostTableName: string,
     selfKeyName: string,
     foreignKeyName: string,
     archive: archiver.Archiver
   ) {
     const csvStream = new PassThrough();
-    const prisma = this.prismaService.txClient();
+    const prisma = await this.databaseRouter.dataPrismaExecutorForTable(tableId, {
+      useTransaction: true,
+    });
     const columnInfoQuery = this.dbProvider.columnInfo(fkHostTableName);
     const columnInfo = await prisma.$queryRawUnsafe<{ name: string }[]>(columnInfoQuery);
 
@@ -721,6 +839,7 @@ export class BaseExportService {
     // 2. write csv content
     while (hasMoreData) {
       const csvChunk = await this.getJunctionChunk(
+        prisma,
         fkHostTableName,
         offset,
         [selfKeyName, foreignKeyName],
@@ -740,12 +859,13 @@ export class BaseExportService {
   }
 
   private async getCsvChunk(
+    prisma: { $queryRawUnsafe<T = unknown>(query: string, ...values: unknown[]): Promise<T> },
     dbTableName: string,
     offset: number,
     crossBaseRelativeFields: Field[],
     excludeFieldNames: string[]
   ) {
-    const rawRecords = await this.getChunkRecords(dbTableName, offset);
+    const rawRecords = await this.getChunkRecords(prisma, dbTableName, offset);
     // 1. clear unless fields
     const records = rawRecords.map((record) => omit(record, excludeFieldNames));
     // 2. convert to csv value
@@ -755,12 +875,12 @@ export class BaseExportService {
   }
 
   private async getJunctionChunk(
+    prisma: { $queryRawUnsafe<T = unknown>(query: string, ...values: unknown[]): Promise<T> },
     fkHostTableName: string,
     offset: number,
     convertFields: [string, string],
     excludeFieldNames: string[]
   ) {
-    const prisma = this.prismaService.txClient();
     const recordsQuery = await this.knex(fkHostTableName)
       .select('*')
       .limit(BaseExportService.CSV_CHUNK)
@@ -785,8 +905,11 @@ export class BaseExportService {
     });
   }
 
-  private async getChunkRecords(dbTableName: string, offset: number) {
-    const prisma = this.prismaService.txClient();
+  private async getChunkRecords(
+    prisma: { $queryRawUnsafe<T = unknown>(query: string, ...values: unknown[]): Promise<T> },
+    dbTableName: string,
+    offset: number
+  ) {
     const recordsQuery = await this.knex(dbTableName)
       .select('*')
       .limit(BaseExportService.CSV_CHUNK)
@@ -840,7 +963,8 @@ export class BaseExportService {
   private generateFieldConfig(
     fieldRaws: Field[],
     allowCrossBase = false,
-    excludedTableIds?: string[]
+    excludedTableIds?: string[],
+    crossSpaceForeignBaseIds: Set<string> = new Set()
   ) {
     const fields = fieldRaws.map((fieldRaw) => createFieldInstanceByRaw(fieldRaw));
     const createdTimeMap = fieldRaws.reduce(
@@ -851,7 +975,11 @@ export class BaseExportService {
       {} as Record<string, string>
     );
 
-    const crossBaseRelativeFields = this.getCrossBaseFields(fieldRaws, allowCrossBase);
+    const crossBaseRelativeFields = this.getCrossBaseFields(
+      fieldRaws,
+      allowCrossBase,
+      crossSpaceForeignBaseIds
+    );
 
     const disconnectedFields = this.getDisconnectedFields(
       fieldRaws,
@@ -919,7 +1047,7 @@ export class BaseExportService {
         ]);
       });
 
-    // fields which rely on the cross base link fields
+    // fields which rely on the disconnected link fields (link-based lookup/rollup)
     const disconnectedRelativeFields = fields
       .filter(
         ({ type, isLookup }) =>
@@ -950,13 +1078,101 @@ export class BaseExportService {
         ]);
       });
 
+    const alreadyHandledIds = new Set([
+      ...disconnectedLinkFields.map(({ id }) => id),
+      ...disconnectedRelativeFields.map(({ id }) => id),
+    ]);
+
+    // Conditional fields (ConditionalLookup/ConditionalRollup) that directly reference excluded tables
+    // These don't go through a link field, so they aren't caught by the link-based check above
+    const disconnectedConditionalFields = fields
+      .filter(({ id }) => !alreadyHandledIds.has(id))
+      .filter(
+        ({ type, isLookup, isConditionalLookup }) =>
+          (isLookup && isConditionalLookup) || type === FieldType.ConditionalRollup
+      )
+      .filter((field) => {
+        const { type, isLookup, isConditionalLookup, lookupOptions, options } = field;
+
+        if (isLookup && isConditionalLookup) {
+          const conditionalOptions = lookupOptions as IConditionalLookupOptions | undefined;
+          return (
+            conditionalOptions?.foreignTableId &&
+            excludedTableIds.includes(conditionalOptions.foreignTableId)
+          );
+        }
+
+        if (type === FieldType.ConditionalRollup) {
+          const conditionalOptions = options as IConditionalRollupFieldOptions | undefined;
+          return (
+            conditionalOptions?.foreignTableId &&
+            excludedTableIds.includes(conditionalOptions.foreignTableId)
+          );
+        }
+
+        return false;
+      })
+      .map((field, index) => {
+        const res = {
+          ...pick(field, BaseExportService.EXPORT_FIELD_COLUMNS),
+          type: FieldType.SingleLineText,
+          createdTime: createdTimeMap[field.id],
+          order: fieldRaws[index].order,
+          dbFieldType: 'TEXT',
+          cellValueType: 'string',
+        };
+
+        return omit(res, [
+          'options',
+          'lookupOptions',
+          'isLookup',
+          'isConditionalLookup',
+          'isMultipleCellValue',
+        ]);
+      });
+
     return [
       ...disconnectedLinkFields,
       ...disconnectedRelativeFields,
+      ...disconnectedConditionalFields,
     ] as IBaseJson['tables'][number]['fields'];
   }
 
-  private getCrossBaseFields(fieldRaws: Field[], allowCrossBase = false) {
+  private async computeCrossSpaceForeignBaseIds(
+    fieldRaws: Field[],
+    destSpaceId?: string
+  ): Promise<Set<string>> {
+    if (!destSpaceId) return new Set();
+    const foreignBaseIds = new Set<string>();
+    for (const f of fieldRaws) {
+      try {
+        const opts = f.options ? JSON.parse(f.options as string) : null;
+        const baseId = opts?.baseId;
+        if (typeof baseId === 'string') foreignBaseIds.add(baseId);
+      } catch {
+        // ignore
+      }
+      try {
+        const lopts = f.lookupOptions ? JSON.parse(f.lookupOptions as string) : null;
+        const baseId = lopts?.baseId;
+        if (typeof baseId === 'string') foreignBaseIds.add(baseId);
+      } catch {
+        // ignore
+      }
+    }
+    if (foreignBaseIds.size === 0) return new Set();
+    const bases = await this.prismaService.txClient().base.findMany({
+      where: { id: { in: Array.from(foreignBaseIds) }, deletedTime: null },
+      select: { id: true, spaceId: true },
+    });
+    return new Set(bases.filter((b) => b.spaceId !== destSpaceId).map((b) => b.id));
+  }
+
+  private getCrossBaseFields(
+    fieldRaws: Field[],
+    allowCrossBase = false,
+    crossSpaceForeignBaseIds: Set<string> = new Set()
+  ) {
     const fields = fieldRaws.map((fieldRaw) => createFieldInstanceByRaw(fieldRaw));
     const createdTimeMap = fieldRaws.reduce(
       (acc, field) => {
@@ -965,29 +1181,50 @@ export class BaseExportService {
       },
       {} as Record<string, string>
     );
+
+    // When allowCrossBase=false, every cross-base field is degraded (legacy behavior).
+    // When allowCrossBase=true, only fields whose foreign base lives in a different
+    // space than the destination (crossSpaceForeignBaseIds) are degraded — same-space
+    // cross-base relationships are preserved.
+    const shouldDegradeByBaseId = (baseId: string | undefined): boolean => {
+      if (!baseId) return false;
+      if (!allowCrossBase) return true;
+      return crossSpaceForeignBaseIds.has(baseId);
+    };
+
+    const linkDegradeIds = new Set<string>(
+      fields
+        .filter(({ type, isLookup }) => type === FieldType.Link && !isLookup)
+        .filter(({ options }) =>
+          shouldDegradeByBaseId((options as ILinkFieldOptions | undefined)?.baseId)
+        )
+        .map(({ id }) => id)
+    );
+
+    const omitDegradedKeys = [
+      'options',
+      'lookupOptions',
+      'isLookup',
+      'isConditionalLookup',
+      'isMultipleCellValue',
+    ] as const;
+
     const crossBaseLinkFields = fields
       .filter(({ type, isLookup }) => type === FieldType.Link && !isLookup)
       .filter(({ options }) => Boolean((options as ILinkFieldOptions)?.baseId))
       .map((field, index) => {
+        const degrade = linkDegradeIds.has(field.id);
         const res = {
           ...pick(field, BaseExportService.EXPORT_FIELD_COLUMNS),
-          type: allowCrossBase ? field.type : FieldType.SingleLineText,
+          type: degrade ? FieldType.SingleLineText : field.type,
           createdTime: createdTimeMap[field.id],
           order: fieldRaws[index].order,
         };
 
-        return allowCrossBase
-          ? res
-          : omit(res, [
-              'options',
-              'lookupOptions',
-              'isLookup',
-              'isConditionalLookup',
-              'isMultipleCellValue',
-            ]);
+        return degrade ? omit(res, omitDegradedKeys) : res;
       });
 
-    // fields which rely on the cross base link fields
+    // fields which rely on the cross base link fields (link-based lookup/rollup)
     const relativeFields = fields
       .filter(
         ({ type, isLookup }) =>
@@ -1009,27 +1246,79 @@ export class BaseExportService {
         return crossBaseLinkFields.map(({ id }) => id).includes(lookupOptions.linkFieldId);
       })
       .map((field, index) => {
+        let degrade: boolean;
+        if (field.type === FieldType.Link && (field.options as ILinkFieldOptions)?.baseId) {
+          degrade = shouldDegradeByBaseId((field.options as ILinkFieldOptions).baseId);
+        } else if (field.lookupOptions && isLinkLookupOptions(field.lookupOptions)) {
+          degrade = linkDegradeIds.has(field.lookupOptions.linkFieldId);
+        } else {
+          degrade = !allowCrossBase;
+        }
+
         const res = {
           ...pick(field, BaseExportService.EXPORT_FIELD_COLUMNS),
-          type: allowCrossBase ? field.type : FieldType.SingleLineText,
+          type: degrade ? FieldType.SingleLineText : field.type,
           createdTime: createdTimeMap[field.id],
           order: fieldRaws[index].order,
-          dbFieldType: allowCrossBase ? field.dbFieldType : 'TEXT',
-          cellValueType: allowCrossBase ? field.cellValueType : 'string',
+          dbFieldType: degrade ? 'TEXT' : field.dbFieldType,
+          cellValueType: degrade ? 'string' : field.cellValueType,
         };
 
-        return allowCrossBase
-          ? res
-          : omit(res, [
-              'options',
-              'lookupOptions',
-              'isLookup',
-              'isConditionalLookup',
-              'isMultipleCellValue',
-            ]);
+        return degrade ? omit(res, omitDegradedKeys) : res;
       });
 
-    return [...crossBaseLinkFields, ...relativeFields] as IBaseJson['tables'][number]['fields'];
+    const alreadyHandledIds = new Set([
+      ...crossBaseLinkFields.map(({ id }) => id),
+      ...relativeFields.map(({ id }) => id),
+    ]);
+
+    // Conditional fields (ConditionalLookup/ConditionalRollup) that are cross-base
+    // These don't use a link field as intermediary, so they have their own baseId
+    const conditionalCrossBaseFields = fields
+      .filter(({ id }) => !alreadyHandledIds.has(id))
+      .filter(
+        ({ type, isLookup, isConditionalLookup }) =>
+          (isLookup && isConditionalLookup) || type === FieldType.ConditionalRollup
+      )
+      .filter((field) => {
+        const { type, isLookup, isConditionalLookup, lookupOptions, options } = field;
+
+        if (isLookup && isConditionalLookup) {
+          const conditionalOptions = lookupOptions as IConditionalLookupOptions | undefined;
+          return Boolean(conditionalOptions?.baseId);
+        }
+
+        if (type === FieldType.ConditionalRollup) {
+          const conditionalOptions = options as IConditionalRollupFieldOptions | undefined;
+          return Boolean(conditionalOptions?.baseId);
+        }
+
+        return false;
+      })
+      .map((field, index) => {
+        const conditionalBaseId =
+          field.isLookup && field.isConditionalLookup
+            ? (field.lookupOptions as IConditionalLookupOptions | undefined)?.baseId
+            : (field.options as IConditionalRollupFieldOptions | undefined)?.baseId;
+        const degrade = shouldDegradeByBaseId(conditionalBaseId);
+
+        const res = {
+          ...pick(field, BaseExportService.EXPORT_FIELD_COLUMNS),
+          type: degrade ? FieldType.SingleLineText : field.type,
+          createdTime: createdTimeMap[field.id],
+          order: fieldRaws[index].order,
+          dbFieldType: degrade ? 'TEXT' : field.dbFieldType,
+          cellValueType: degrade ? 'string' : field.cellValueType,
+        };
+
+        return degrade ? omit(res, omitDegradedKeys) : res;
+      });
+
+    return [
+      ...crossBaseLinkFields,
+      ...relativeFields,
+      ...conditionalCrossBaseFields,
+    ] as IBaseJson['tables'][number]['fields'];
   }
 
   private generateViewConfig(viewRaws: View[]): IBaseJson['tables'][number]['views'] {
@@ -1091,7 +1380,18 @@ export class BaseExportService {
     }));
   }
 
-  async generateNodeConfig(baseId: string, includeNodes?: string[]): Promise<IBaseJson['nodes']> {
+  /**
+   * Generate node configuration for base export/duplicate
+   *
+   * @param baseId - The base ID to get nodes from
+   * @param includeNodes - Optional array of node IDs to include
+   * @param rootNodeIds - Optional array of node IDs that should become root nodes (parentId = null)
+   */
+  async generateNodeConfig(
+    baseId: string,
+    includeNodes?: string[],
+    rootNodeIds?: string[]
+  ): Promise<IBaseJson['nodes']> {
     // If includeNodes is an empty array, return empty array (user filtered but no nodes selected)
     if (includeNodes !== undefined && includeNodes.length === 0) {
       return [];
@@ -1115,13 +1415,26 @@ export class BaseExportService {
       },
     });
 
-    return nodeRaws.map((nodeRaw) => ({
-      id: nodeRaw.id,
-      parentId: nodeRaw.parentId,
-      resourceId: nodeRaw.resourceId,
-      resourceType: nodeRaw.resourceType as BaseNodeResourceType,
-      order: nodeRaw.order,
-    }));
+    const rootNodeIdSet = rootNodeIds ? new Set(rootNodeIds) : null;
+
+    return nodeRaws.map((nodeRaw) => {
+      // Set parentId to null if:
+      // 1. This node is in rootNodeIds, or
+      // 2. The parent node is not in includeNodes
+      const parentId =
+        rootNodeIdSet?.has(nodeRaw.id) ||
+        (includeNodes && nodeRaw.parentId && !includeNodes.includes(nodeRaw.parentId))
+          ? null
+          : nodeRaw.parentId;
+
+      return {
+        id: nodeRaw.id,
+        parentId,
+        resourceId: nodeRaw.resourceId,
+        resourceType: nodeRaw.resourceType as BaseNodeResourceType,
+        order: nodeRaw.order,
+      };
+    });
   }
 
   async generatePluginConfig(baseId: string, includedDashboardIds?: string[]) {
@@ -1323,11 +1636,19 @@ export class BaseExportService {
   private async notifyExportResult(
     baseId: string,
     message: string | ILocalization<I18nPath>,
-    previewUrl?: string
+    result?: {
+      status: 'success' | 'failed';
+      previewUrl?: string;
+      attachment?: { name: string; path: string };
+      errorMessage?: string;
+    }
   ) {
     const userId = this.cls.get('user.id');
     await this.eventEmitterService.emit(Events.BASE_EXPORT_COMPLETE, {
-      previewUrl,
+      status: result?.status,
+      previewUrl: result?.previewUrl,
+      attachment: result?.attachment,
+      errorMessage: result?.errorMessage,
     });
     await this.notificationService.sendExportBaseResultNotify({
       baseId: baseId,

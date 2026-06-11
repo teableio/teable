@@ -6,6 +6,8 @@ import { uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { concatMap, lastValueFrom, map, range, toArray } from 'rxjs';
 import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
+import { DatabaseRouter } from '../../global/database-router.service';
+import { DATA_KNEX } from '../../global/knex/knex.module';
 import { Timing } from '../../utils/timing';
 import type { IFieldInstance, IFieldMap } from '../field/model/factory';
 import { InjectRecordQueryBuilder, IRecordQueryBuilder } from '../record/query-builder';
@@ -33,9 +35,10 @@ export interface ITopoOrdersContext {
 export class FieldCalculationService {
   constructor(
     private readonly prismaService: PrismaService,
+    private readonly databaseRouter: DatabaseRouter,
     private readonly referenceService: ReferenceService,
     @InjectRecordQueryBuilder() private readonly recordQueryBuilder: IRecordQueryBuilder,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    @InjectModel(DATA_KNEX) private readonly knex: Knex,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
@@ -46,7 +49,7 @@ export class FieldCalculationService {
     const directedGraph = customGraph || (await this.referenceService.getFieldGraphItems(fieldIds));
 
     // get all related field by undirected graph
-    const allFieldIds = uniq(this.referenceService.flatGraph(directedGraph).concat(fieldIds));
+    const rawAllFieldIds = uniq(this.referenceService.flatGraph(directedGraph).concat(fieldIds));
 
     // prepare all related data
     const {
@@ -55,16 +58,25 @@ export class FieldCalculationService {
       dbTableName2fields,
       fieldId2DbTableName,
       tableId2DbTableName,
-    } = await this.referenceService.createAuxiliaryData(allFieldIds);
+    } = await this.referenceService.createAuxiliaryData(rawAllFieldIds);
+
+    // Ignore reference edges that point to soft-deleted fields/tables. Auxiliary data only loads
+    // active metadata, so keeping stale nodes here would later desync the graph and field map.
+    const validFieldIds = new Set(Object.keys(fieldMap));
+    const filteredGraph = directedGraph.filter(
+      ({ fromFieldId, toFieldId }) => validFieldIds.has(fromFieldId) && validFieldIds.has(toFieldId)
+    );
+    const startFieldIds = fieldIds.filter((fieldId) => validFieldIds.has(fieldId));
+    const allFieldIds = uniq(this.referenceService.flatGraph(filteredGraph).concat(startFieldIds));
 
     // topological sorting
-    const topoOrders = prependStartFieldIds(getTopoOrders(directedGraph), fieldIds);
+    const topoOrders = prependStartFieldIds(getTopoOrders(filteredGraph), startFieldIds);
 
     return {
-      startFieldIds: fieldIds,
+      startFieldIds,
       allFieldIds,
       fieldMap,
-      directedGraph,
+      directedGraph: filteredGraph,
       topoOrders,
       tableId2DbTableName,
       fieldId2DbTableName,
@@ -102,9 +114,14 @@ export class FieldCalculationService {
       .limit(chunkSize)
       .offset(page * chunkSize)
       .toQuery();
-    return this.prismaService
-      .txClient()
-      .$queryRawUnsafe<{ [dbFieldName: string]: unknown }[]>(query);
+    return this.databaseRouter.queryDataPrismaForTable<{ [dbFieldName: string]: unknown }[]>(
+      tableId,
+      query
+    );
+  }
+
+  private getBaseIdFromDbTableName(dbTableName: string) {
+    return dbTableName.split('.')[0];
   }
 
   async getRecordsBatchByFields(
@@ -118,11 +135,11 @@ export class FieldCalculationService {
     } = {};
     const chunkSize = this.thresholdConfig.calcChunkSize;
     for (const dbTableName in dbTableName2fields) {
+      const tableId = dbTableName2tableId[dbTableName];
       // deduplication is needed
-      const rowCount = await this.getRowCount(dbTableName);
+      const rowCount = await this.getRowCount(dbTableName, tableId);
       const totalPages = Math.ceil(rowCount / chunkSize);
       const fields = dbTableName2fields[dbTableName];
-      const tableId = dbTableName2tableId[dbTableName];
 
       const records = await lastValueFrom(
         range(0, totalPages).pipe(
@@ -140,11 +157,14 @@ export class FieldCalculationService {
   }
 
   @Timing()
-  async getRowCount(dbTableName: string) {
+  async getRowCount(dbTableName: string, tableId?: string) {
     const query = this.knex.count('*', { as: 'count' }).from(dbTableName).toQuery();
-    const [{ count }] = await this.prismaService
-      .txClient()
-      .$queryRawUnsafe<{ count: bigint }[]>(query);
+    const [{ count }] = tableId
+      ? await this.databaseRouter.queryDataPrismaForTable<{ count: bigint }[]>(tableId, query)
+      : await this.databaseRouter.queryDataPrismaForBase<{ count: bigint }[]>(
+          this.getBaseIdFromDbTableName(dbTableName),
+          query
+        );
     return Number(count);
   }
 

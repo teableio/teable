@@ -22,7 +22,7 @@ export const SearchInput = ({ search, onSearch, ...props }: SearchInputProps) =>
       <Search className="absolute left-2 top-2.5 size-4 text-muted-foreground" />
       <Input
         {...props}
-        className="h-8 pl-8 text-[13px]"
+        className="pl-8 text-[13px]"
         value={searchInner}
         onChange={(e) => setSearchInner(e.target.value)}
         onCompositionStart={() => setIsComposing(true)}

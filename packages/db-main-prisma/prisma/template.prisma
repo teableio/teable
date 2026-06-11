@@ -8,6 +8,13 @@ datasource db {
   url      = env("PRISMA_DATABASE_URL")
 }
 
+enum ProvisionState {
+  pending
+  ready
+  error
+  deleting
+}
+
 model Space {
   id               String    @id @default(cuid())
   name             String
@@ -44,6 +51,8 @@ model Base {
   order            Float
   icon             String?
   schemaPass       String?     @map("schema_pass")
+  v2Enabled        Boolean     @default(false) @map("v2_enabled")
+  provisionState   ProvisionState @default(ready) @map("provision_state")
   deletedTime      DateTime?   @map("deleted_time")
   createdTime      DateTime    @default(now()) @map("created_time")
   createdBy        String      @map("created_by")
@@ -53,6 +62,7 @@ model Base {
   tables           TableMeta[]
 
   @@index([order])
+  @@index([spaceId])
   @@map("base")
 }
 
@@ -64,6 +74,7 @@ model TableMeta {
   icon              String?
   dbTableName       String              @map("db_table_name")
   dbViewName        String?             @map("db_view_name")
+  provisionState    ProvisionState      @default(ready) @map("provision_state")
   version           Int
   order             Float
   createdTime       DateTime            @default(now()) @map("created_time")
@@ -83,6 +94,36 @@ model TableMeta {
   @@map("table_meta")
 }
 
+model SchemaOperation {
+  id               String    @id
+  type             String
+  status           String
+  phase            String
+  resourceType     String    @map("resource_type")
+  resourceId       String    @map("resource_id")
+  baseId           String?   @map("base_id")
+  tableId          String?   @map("table_id")
+  idempotencyKey   String    @unique @map("idempotency_key")
+  payload          Json?
+  result           Json?
+  attempts         Int       @default(0)
+  maxAttempts      Int       @default(8) @map("max_attempts")
+  nextRunAt        DateTime  @default(now()) @map("next_run_at")
+  lockedAt         DateTime? @map("locked_at")
+  lockedBy         String?   @map("locked_by")
+  lastError        String?   @map("last_error")
+  createdTime      DateTime  @default(now()) @map("created_time")
+  createdBy        String    @map("created_by")
+  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
+  lastModifiedBy   String?   @map("last_modified_by")
+
+  @@index([status, nextRunAt])
+  @@index([resourceType, resourceId, status])
+  @@index([baseId, status])
+  @@index([tableId, status])
+  @@map("schema_operation")
+}
+
 model Field {
   id                  String    @id
   name                String
@@ -95,6 +136,7 @@ model Field {
   isMultipleCellValue Boolean?  @map("is_multiple_cell_value")
   dbFieldType         String    @map("db_field_type")
   dbFieldName         String    @map("db_field_name")
+  provisionState      ProvisionState @default(ready) @map("provision_state")
   notNull             Boolean?  @map("not_null")
   unique              Boolean?
   isPrimary           Boolean?  @map("is_primary")
@@ -119,6 +161,107 @@ model Field {
   @@index([lookupLinkedFieldId])
   @@index([tableId, deletedTime])
   @@map("field")
+}
+
+model ComputedUpdateOutbox {
+  id                 String   @id @default(cuid())
+  baseId             String   @map("base_id")
+  seedTableId        String   @map("seed_table_id")
+  seedRecordIds      Json?    @map("seed_record_ids")
+  changeType         String   @map("change_type")
+  steps              Json?
+  edges              Json?
+  status             String
+  attempts           Int      @default(0)
+  maxAttempts        Int      @default(8) @map("max_attempts")
+  nextRunAt          DateTime @default(now()) @map("next_run_at")
+  lockedAt           DateTime? @map("locked_at")
+  lockedBy           String?  @map("locked_by")
+  lastError          String?  @map("last_error")
+  estimatedComplexity Int     @default(0) @map("estimated_complexity")
+  planHash           String   @map("plan_hash")
+  dirtyStats         Json?    @map("dirty_stats")
+  runId              String   @map("run_id")
+  originRunIds       String[] @default([]) @map("origin_run_ids")
+  runTotalSteps      Int      @default(0) @map("run_total_steps")
+  runCompletedStepsBefore Int @default(0) @map("run_completed_steps_before")
+  affectedTableIds   String[] @default([]) @map("affected_table_ids")
+  affectedFieldIds   String[] @default([]) @map("affected_field_ids")
+  syncMaxLevel       Int?     @map("sync_max_level")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  seeds ComputedUpdateOutboxSeed[]
+
+  @@index([status, nextRunAt])
+  @@index([baseId, seedTableId])
+  @@index([planHash])
+  @@index([runId])
+  @@map("computed_update_outbox")
+}
+
+model ComputedUpdateOutboxSeed {
+  id       String               @id @default(cuid())
+  taskId   String               @map("task_id")
+  tableId  String               @map("table_id")
+  recordId String               @map("record_id")
+  task     ComputedUpdateOutbox @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, tableId, recordId])
+  @@index([taskId])
+  @@map("computed_update_outbox_seed")
+}
+
+model ComputedUpdateDeadLetter {
+  id                 String   @id
+  baseId             String   @map("base_id")
+  seedTableId        String   @map("seed_table_id")
+  seedRecordIds      Json?    @map("seed_record_ids")
+  changeType         String   @map("change_type")
+  steps              Json?
+  edges              Json?
+  status             String
+  attempts           Int      @default(0)
+  maxAttempts        Int      @default(8) @map("max_attempts")
+  nextRunAt          DateTime @map("next_run_at")
+  lockedAt           DateTime? @map("locked_at")
+  lockedBy           String?  @map("locked_by")
+  lastError          String?  @map("last_error")
+  estimatedComplexity Int     @default(0) @map("estimated_complexity")
+  planHash           String   @map("plan_hash")
+  dirtyStats         Json?    @map("dirty_stats")
+  runId              String   @map("run_id")
+  originRunIds       String[] @default([]) @map("origin_run_ids")
+  runTotalSteps      Int      @default(0) @map("run_total_steps")
+  runCompletedStepsBefore Int @default(0) @map("run_completed_steps_before")
+  affectedTableIds   String[] @default([]) @map("affected_table_ids")
+  affectedFieldIds   String[] @default([]) @map("affected_field_ids")
+  syncMaxLevel       Int?     @map("sync_max_level")
+  traceData          Json?    @map("trace_data")
+  failedAt           DateTime @map("failed_at")
+  createdAt          DateTime @map("created_at")
+  updatedAt          DateTime @map("updated_at")
+
+  @@index([baseId, seedTableId])
+  @@index([planHash])
+  @@index([runId])
+  @@map("computed_update_dead_letter")
+}
+
+model ComputedUpdatePauseScope {
+  id        String    @id
+  scopeType String    @map("scope_type")
+  scopeId   String    @map("scope_id")
+  pausedAt  DateTime  @default(now()) @map("paused_at")
+  pausedBy  String?   @map("paused_by")
+  resumeAt  DateTime? @map("resume_at")
+  reason    String?
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  updatedBy String?   @map("updated_by")
+
+  @@unique([scopeType, scopeId])
+  @@index([resumeAt])
+  @@map("computed_update_pause_scope")
 }
 
 model View {
@@ -221,7 +364,7 @@ model Attachments {
   id             String    @id @default(cuid())
   token          String    @unique
   hash           String
-  size           Int
+  size           BigInt
   mimetype       String
   path           String
   width          Int?
@@ -308,16 +451,17 @@ model InvitationRecord {
 }
 
 model Notification {
-  id          String   @id @default(cuid())
-  fromUserId  String   @map("from_user_id")
-  toUserId    String   @map("to_user_id")
-  type        String   @map("type")
-  message     String   @map("message")
-  messageI18n String?  @map("message_i18n")
-  urlPath     String?  @map("url_path")
-  isRead      Boolean  @default(false) @map("is_read")
-  createdTime DateTime @default(now()) @map("created_time")
-  createdBy   String   @map("created_by")
+  id                   String   @id @default(cuid())
+  fromUserId           String   @map("from_user_id")
+  toUserId             String   @map("to_user_id")
+  type                 String   @map("type")
+  message              String   @map("message")
+  messageI18n          String?  @map("message_i18n")
+  severity             String   @default("info")
+  urlPath              String?  @map("url_path")
+  isRead               Boolean  @default(false) @map("is_read")
+  createdTime          DateTime @default(now()) @map("created_time")
+  createdBy            String   @map("created_by")
 
   @@index([toUserId, isRead, createdTime])
   @@map("notification")
@@ -369,6 +513,7 @@ model OAuthApp {
   createdBy        String    @map("created_by")
   secrets          OAuthAppSecret[]
   authorized       OAuthAppAuthorized[]
+  tokens           OAuthAppToken[]
 
   @@map("oauth_app")
 }
@@ -402,13 +547,17 @@ model OAuthAppSecret {
 
 model OAuthAppToken {
   id               String   @id @default(cuid())
-  appSecretId      String   @map("app_secret_id")
+  clientId         String   @map("client_id")
+  appSecretId      String?  @map("app_secret_id")
   refreshTokenSign String   @unique @map("refresh_token_sign")
   expiredTime      DateTime @map("expired_time")
   createdTime      DateTime @default(now()) @map("created_time")
   createdBy        String   @map("created_by")
 
-  oAuthAppSecret OAuthAppSecret @relation(fields: [appSecretId], references: [id], onDelete: Cascade)
+  oAuthAppSecret OAuthAppSecret? @relation(fields: [appSecretId], references: [id], onDelete: Cascade)
+  oAuthApp OAuthApp @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+
+  @@index([clientId])
 
   @@map("oauth_app_token")
 }
@@ -735,4 +884,23 @@ model BaseNodeFolder {
   @@unique([baseId, name])
 
   @@map("base_node_folder")
+}
+
+model BaseShare {
+  id               String    @id @default(cuid())
+  baseId           String    @map("base_id")
+  shareId          String    @unique @map("share_id")
+  password         String?
+  nodeId           String?   @map("node_id")
+  allowSave        Boolean?  @map("allow_save")
+  allowCopy        Boolean?  @map("allow_copy")
+  allowEdit        Boolean?  @map("allow_edit")
+  enabled          Boolean   @default(true)
+  createdTime      DateTime  @default(now()) @map("created_time")
+  createdBy        String    @map("created_by")
+  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
+
+  @@unique([baseId, nodeId])
+  @@index([baseId])
+  @@map("base_share")
 }

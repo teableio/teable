@@ -46,13 +46,12 @@ export const CallbackEditor = (props: ICallbackEditorProps) => {
       {callbackURLs.map((callbackURL, index) => (
         <div key={index} className="flex items-center gap-4">
           <Input
-            className="h-8"
             type="text"
             value={callbackURL}
             onChange={(e) => updateCallbackURL(index, e.target.value)}
           />
-          <Button variant={'destructive'} size={'xs'} onClick={() => deleteCallbackURL(index)}>
-            <Trash2 />
+          <Button variant={'destructive'} size={'icon-xs'} onClick={() => deleteCallbackURL(index)}>
+            <Trash2 className="size-4 shrink-0" />
           </Button>
         </div>
       ))}
@@ -62,7 +61,7 @@ export const CallbackEditor = (props: ICallbackEditorProps) => {
         variant={'ghost'}
         onClick={() => addCallbackURL()}
       >
-        <Plus /> {t('oauth:form.callbackUrl.add')}
+        <Plus className="size-4 shrink-0" /> {t('oauth:form.callbackUrl.add')}
       </Button>
     </>
   );

@@ -17,6 +17,10 @@ export enum IntegrityIssueType {
   ReferenceFieldNotFound = 'ReferenceFieldNotFound',
   UniqueIndexNotFound = 'UniqueIndexNotFound',
   EmptyString = 'EmptyString',
+  InvalidFilterOperator = 'InvalidFilterOperator',
+  InvalidPrimaryLookup = 'InvalidPrimaryLookup',
+  InvalidPrimaryType = 'InvalidPrimaryType',
+  MissingPrimary = 'MissingPrimary',
 }
 
 // Define the schema for a single issue

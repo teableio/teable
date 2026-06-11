@@ -56,8 +56,8 @@ export const PersonalAccessTokenSection = () => {
         <SettingTabHeader
           leading={
             formType ? (
-              <Button variant="ghost" size="xs" onClick={onBack}>
-                <ChevronLeft className="size-4" />
+              <Button variant="ghost" size="icon-xs" onClick={onBack}>
+                <ChevronLeft className="size-4 shrink-0" />
               </Button>
             ) : undefined
           }
@@ -89,7 +89,7 @@ export const PersonalAccessTokenSection = () => {
                   </Link>
                 </Button>
                 <Button size="xs" onClick={() => setViewState({ formType: 'new' })}>
-                  <Plus />
+                  <Plus className="size-4 shrink-0" />
                   {t('token:new.button')}
                 </Button>
               </>

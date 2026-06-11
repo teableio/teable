@@ -1,10 +1,11 @@
-import { HelpCircle, MoreHorizontal, UserPlus, Share2 } from '@teable/icons';
+import { Copy, HelpCircle, MoreHorizontal, UserPlus } from '@teable/icons';
 import { BaseNodeResourceType } from '@teable/openapi';
 import {
   useBase,
   useIsHydrated,
-  useIsTemplate,
+  useIsReadOnlyPreview,
   useIsTouchDevice,
+  useTemplate,
   useView,
 } from '@teable/sdk/hooks';
 import {
@@ -20,6 +21,7 @@ import {
   SheetHeader,
   SheetTrigger,
 } from '@teable/ui-lib/shadcn';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -29,6 +31,7 @@ import { ShareBasePopover } from '@/features/app/components/collaborator/share/S
 import { PublicOperateButton } from '@/features/app/components/PublicOperateButton';
 import type { IBaseResourceTable } from '@/features/app/hooks/useBaseResource';
 import { useBaseResource } from '@/features/app/hooks/useBaseResource';
+import { useIsInIframe } from '@/features/app/hooks/useIsInIframe';
 import { tableConfig } from '@/features/i18n/table.config';
 import { BaseNodeMore } from '../../base/base-side-bar/BaseNodeMore';
 import { ExpandViewList } from '../../view/list/ExpandViewList';
@@ -52,10 +55,10 @@ const RightActions = ({ setIsEditing }: { setIsEditing?: (isEditing: boolean) =>
   const collapsedTrigger = (
     <Button
       variant="ghost"
-      size="xs"
+      size="icon-xs"
       className="shrink-0 truncate font-normal @md/view-header:hidden"
     >
-      <MoreHorizontal className="size-4" />
+      <MoreHorizontal className="size-4 shrink-0" />
     </Button>
   );
 
@@ -174,13 +177,11 @@ const RightActions = ({ setIsEditing }: { setIsEditing?: (isEditing: boolean) =>
             }}
           >
             <Button variant="default" className="mr-1 px-2 @md/view-header:px-3" size="sm">
-              <Share2 className="size-4" />
-              <span className="hidden @md/view-header:inline">
-                {t('table:toolbar.others.share.label')}
-              </span>
+              <UserPlus className="size-4" />
+              <span className="hidden @md/view-header:inline">{t('space:action.invite')}</span>
             </Button>
           </ShareBasePopover>
-          <Button asChild variant="ghost" className="w-7 p-0" size="xs">
+          <Button asChild variant="ghost" size="icon-xs">
             <Link
               href={t('help.mainLink')}
               title={t('help.title')}
@@ -195,7 +196,7 @@ const RightActions = ({ setIsEditing }: { setIsEditing?: (isEditing: boolean) =>
             resourceId={tableId}
             onRename={() => setIsEditing?.(true)}
           >
-            <Button className="w-7 p-0" variant="ghost" size="xs">
+            <Button variant="ghost" size="icon-xs">
               <MoreHorizontal className="size-4" />
             </Button>
           </BaseNodeMore>
@@ -209,9 +210,14 @@ const RightActions = ({ setIsEditing }: { setIsEditing?: (isEditing: boolean) =>
 };
 
 export const TableHeader: React.FC = () => {
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
   const view = useView();
   const { visible } = useLockedViewTipStore();
-  const isTemplate = useIsTemplate();
+  const isReadOnlyPreview = useIsReadOnlyPreview();
+  const template = useTemplate();
+  const isInIframe = useIsInIframe();
+  // Only show PublicOperateButton for real templates, not for share mode
+  const isRealTemplate = !!template && !isInIframe;
   const tipVisible = view?.isLocked && visible;
   const [isEditing, setIsEditing] = useState(false);
   return (
@@ -232,9 +238,22 @@ export const TableHeader: React.FC = () => {
         </ScrollArea>
         <AddView />
         <div className="grow basis-0"></div>
-        {!isTemplate && <RightActions setIsEditing={setIsEditing} />}
-        {isTemplate && (
-          <div className="min-w-20">
+        {!isReadOnlyPreview && <RightActions setIsEditing={setIsEditing} />}
+        {isRealTemplate && (
+          <div className="flex min-w-20 items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-[13px] font-normal"
+              onClick={() => {
+                const link = `${window.location.origin}/t/${template!.id}`;
+                navigator.clipboard.writeText(link);
+                toast.success(t('common:actions.copyLink'));
+              }}
+            >
+              <Copy className="size-4" />
+              {t('common:actions.copyLink')}
+            </Button>
             <PublicOperateButton />
           </div>
         )}

@@ -21,7 +21,7 @@ export const FileInput = (props: { onChange?: (files: File[]) => void; disabled?
       disabled={disabled}
     >
       <input type="file" className="hidden" multiple ref={fileInput} onChange={handleSelectFiles} />
-      <Plus /> {t('editor.attachment.upload')}
+      <Plus className="size-4 shrink-0" /> {t('editor.attachment.upload')}
     </Button>
   );
 };

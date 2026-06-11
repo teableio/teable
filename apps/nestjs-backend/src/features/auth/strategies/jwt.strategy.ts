@@ -67,13 +67,16 @@ export class JwtStrategy extends PassportStrategy(Strategy, JWT_TOKEN_STRATEGY_N
     this.cls.set('tempAuthBaseId', payload.baseId);
 
     if (payload.type === JwtAuthInternalType.App) {
-      await this.setAppIdFromToken(req);
+      await this.setAppIdFromToken(payload.baseId, req);
+    }
+    if (payload.type === JwtAuthInternalType.Automation) {
+      this.cls.set('workflowContext', payload.context);
     }
 
     return user;
   }
 
-  protected async setAppIdFromToken(_req: Request) {
+  protected async setAppIdFromToken(_baseId: string, _req: Request) {
     // This method is overridden in enterprise edition to support app authentication
     // Community edition does not have app model, so this is a no-op
   }
@@ -87,7 +90,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, JWT_TOKEN_STRATEGY_N
       throw new UnauthorizedException('Your account has been deactivated by the administrator');
     }
 
-    if (user.isSystem) {
+    if (user.isSystem && payload.allowSystemUser !== true) {
       throw new UnauthorizedException('User is system user');
     }
 

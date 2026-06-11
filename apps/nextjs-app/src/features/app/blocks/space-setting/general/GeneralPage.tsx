@@ -1,7 +1,6 @@
 /* eslint-disable jsx-a11y/no-autofocus */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { hasPermission } from '@teable/core';
-import { Edit } from '@teable/icons';
 import { deleteSpace, getSpaceById, permanentDeleteSpace, updateSpace } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { Button, Input } from '@teable/ui-lib/shadcn';
@@ -13,17 +12,18 @@ import { DeleteSpaceConfirm } from '@/features/app/components/space/DeleteSpaceC
 import { SpaceSettingContainer } from '@/features/app/components/SpaceSettingContainer';
 import { spaceConfig } from '@/features/i18n/space.config';
 
-export const GeneralPage = () => {
+export const GeneralPage = ({ spaceId: spaceIdProp }: { spaceId?: string } = {}) => {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
-  const spaceId = router.query.spaceId as string;
+  const spaceId = (spaceIdProp ?? router.query.spaceId) as string;
   const [isEditing, setIsEditing] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
 
   const { data: space } = useQuery({
     queryKey: ReactQueryKeys.space(spaceId),
     queryFn: ({ queryKey }) => getSpaceById(queryKey[1]).then((res) => res.data),
+    enabled: Boolean(spaceId),
   });
 
   const { mutateAsync: updateSpaceMutator } = useMutation({
@@ -78,51 +78,69 @@ export const GeneralPage = () => {
     <>
       <SpaceSettingContainer
         title={t('space:spaceSetting.general')}
-        description={
-          space && hasPermission(space.role, 'space|delete')
-            ? t('space:spaceSetting.generalDescription')
-            : undefined
-        }
+        description={t('space:spaceSetting.generalDescription')}
       >
         {!!space && (
-          <div className="flex flex-col gap-y-2 py-4">
-            <div className="flex justify-between">
-              <h2 className="mb-2 text-xl font-semibold">{t('common:noun.space')}</h2>
-              <Button variant="destructive" size="sm" onClick={() => setDeleteConfirm(true)}>
-                {t('actions.delete')}
+          <div className="flex h-full flex-col justify-between">
+            <div className="flex flex-col gap-y-4">
+              {/* Avatar */}
+              <div className="flex size-14 items-center justify-center rounded-md border text-2xl font-medium">
+                {space.name.charAt(0).toUpperCase()}
+              </div>
+
+              {/* Space name */}
+              <div className="flex w-full flex-col gap-y-2 overflow-visible sm:max-w-sm">
+                <label className="text-sm font-medium">{t('space:spaceSetting.spaceName')}</label>
+                {isEditing ? (
+                  <Input
+                    defaultValue={space.name}
+                    onBlur={onBlur}
+                    onKeyDown={onKeydown}
+                    autoFocus
+                    className="px-3"
+                  />
+                ) : (
+                  <Input
+                    value={space.name}
+                    readOnly
+                    onClick={() => hasPermission(space.role, 'space|update') && setIsEditing(true)}
+                    className={`px-3 ${hasPermission(space.role, 'space|update') ? 'cursor-pointer' : 'cursor-default'}`}
+                  />
+                )}
+              </div>
+
+              {/* Space ID */}
+              <div className="flex w-full flex-col gap-y-2 sm:max-w-sm">
+                <label className="text-sm font-medium">{t('space:spaceSetting.spaceId')}</label>
+                <div className="relative">
+                  <Input
+                    value={spaceId}
+                    readOnly
+                    tabIndex={-1}
+                    className="cursor-default px-3 pr-10"
+                  />
+                  <CopyButton
+                    variant="ghost"
+                    text={spaceId}
+                    size="xs"
+                    iconClassName="size-4"
+                    className="absolute right-1 top-1/2 -translate-y-1/2"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Delete space button */}
+            {hasPermission(space.role, 'space|delete') && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-fit text-destructive hover:text-destructive/80"
+                onClick={() => setDeleteConfirm(true)}
+              >
+                {t('space:deleteSpaceModal.title')}
               </Button>
-            </div>
-            <div className="flex h-8 items-center gap-x-1 text-sm">
-              <span className="w-24 text-gray-500">{t('space:spaceSetting.spaceName')}</span>
-              {isEditing ? (
-                <Input
-                  defaultValue={space.name}
-                  onBlur={onBlur}
-                  onKeyDown={onKeydown}
-                  autoFocus
-                  className="h-8"
-                />
-              ) : (
-                <>
-                  <span>{space.name}</span>
-                  {hasPermission(space.role, 'space|update') && (
-                    <Button variant="ghost" size="xs" onClick={() => setIsEditing(true)}>
-                      <Edit className="size-4 cursor-pointer text-gray-500" />
-                    </Button>
-                  )}
-                </>
-              )}
-            </div>
-            <div className="flex h-8 items-center gap-x-1 text-sm">
-              <span className="w-24 text-gray-500">{t('space:spaceSetting.spaceId')}</span>
-              <span>{spaceId}</span>
-              <CopyButton
-                variant="ghost"
-                text={spaceId}
-                size="xs"
-                iconClassName="size-4 text-gray-500"
-              />
-            </div>
+            )}
           </div>
         )}
       </SpaceSettingContainer>

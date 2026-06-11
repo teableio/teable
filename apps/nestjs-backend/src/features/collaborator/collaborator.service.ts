@@ -22,6 +22,7 @@ import { Knex } from 'knex';
 import { difference, keyBy, map } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
 import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
@@ -43,7 +44,8 @@ export class CollaboratorService {
     private readonly cls: ClsService<IClsStore>,
     private readonly eventEmitterService: EventEmitterService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
-    @InjectDbProvider() private readonly dbProvider: IDbProvider
+    @InjectDbProvider() private readonly dbProvider: IDbProvider,
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
   async createSpaceCollaborator({
@@ -81,6 +83,12 @@ export class CollaboratorService {
           },
         }
       );
+    }
+    if (role === Role.Owner) {
+      const userIds = collaborators
+        .filter((c) => c.principalType === PrincipalType.User)
+        .map((c) => c.principalId);
+      await this.validateOwnedSpaceLimit(spaceId, userIds);
     }
     // if has exist base collaborator, then delete it
     const bases = await this.prismaService.txClient().base.findMany({
@@ -548,6 +556,32 @@ export class CollaboratorService {
     return collaborators.length === 1 && collaborators[0].principal_id === userId;
   }
 
+  protected async getUserOwnedSpaceIds(userIds: string[]): Promise<Map<string, string[]>> {
+    if (userIds.length === 0) return new Map();
+    const builder = this.knex('collaborator')
+      .join('space', 'collaborator.resource_id', 'space.id')
+      .whereIn('collaborator.principal_id', userIds)
+      .where('collaborator.principal_type', PrincipalType.User)
+      .where('collaborator.resource_type', CollaboratorType.Space)
+      .where('collaborator.role_name', Role.Owner)
+      .whereNull('space.deleted_time')
+      .select('collaborator.principal_id as user_id', 'collaborator.resource_id as space_id');
+    const rows = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ user_id: string; space_id: string }[]>(builder.toQuery());
+    const map = new Map<string, string[]>();
+    for (const row of rows) {
+      const ids = map.get(row.user_id) ?? [];
+      ids.push(row.space_id);
+      map.set(row.user_id, ids);
+    }
+    return map;
+  }
+
+  async validateOwnedSpaceLimit(_spaceId: string, _userIds: string[]): Promise<void> {
+    // no-op in community; EE overrides with free-space limit
+  }
+
   async deleteCollaborator({
     resourceId,
     resourceType,
@@ -657,6 +691,15 @@ export class CollaboratorService {
           },
         }
       );
+    }
+
+    if (
+      role === Role.Owner &&
+      resourceType === CollaboratorType.Space &&
+      targetColl.roleName !== Role.Owner &&
+      principalType === PrincipalType.User
+    ) {
+      await this.validateOwnedSpaceLimit(resourceId, [principalId]);
     }
 
     const res = await this.prismaService.txClient().collaborator.updateMany({
@@ -1014,5 +1057,39 @@ export class CollaboratorService {
       ...item,
       avatar: item.avatar ? getPublicFullStorageUrl(item.avatar) : null,
     }));
+  }
+
+  /**
+   * Build space owner context for determining display user
+   * When the creator is no longer in the space, falls back to space owner
+   */
+  async buildSpaceOwnerContext(spaceIds: string[]): Promise<{
+    validCreatorSet: Set<string>;
+    spaceOwnerMap: Map<string, string>;
+  }> {
+    if (!spaceIds.length) {
+      return { validCreatorSet: new Set(), spaceOwnerMap: new Map() };
+    }
+
+    const spaceCollaborators = await this.prismaService.collaborator.findMany({
+      where: {
+        resourceType: CollaboratorType.Space,
+        resourceId: { in: spaceIds },
+        principalType: PrincipalType.User,
+      },
+      select: { resourceId: true, principalId: true, roleName: true },
+    });
+
+    const validCreatorSet = new Set(
+      spaceCollaborators.map((c) => `${c.resourceId}:${c.principalId}`)
+    );
+
+    const spaceOwnerMap = new Map(
+      spaceCollaborators
+        .filter((c) => c.roleName === Role.Owner)
+        .map((c) => [c.resourceId, c.principalId])
+    );
+
+    return { validCreatorSet, spaceOwnerMap };
   }
 }

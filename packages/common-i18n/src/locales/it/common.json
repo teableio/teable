@@ -16,6 +16,7 @@
     "zoomIn": "Ingrandisci",
     "zoomOut": "Riduci",
     "back": "Indietro",
+    "download": "Scarica",
     "remove": "Rimuovi",
     "removeConfig": "Rimuovi configurazione",
     "saveSucceed": "Salvataggio riuscito!",
@@ -57,16 +58,21 @@
     "refresh": "Aggiorna",
     "login": "Accedi",
     "useTemplate": "Usa modello",
+    "copyToMySpace": "Copy to my space",
+    "saveToMySpace": "Save to my space",
+    "supportSaveCopy": "Support saving a copy",
     "backToSpace": "Torna allo Spazio",
     "switchBase": "Cambia Base",
     "continue": "Continua",
     "export": "Esporta",
     "import": "Importa",
     "expand": "Espandi",
-    "getMore": "Ottieni di più"
+    "getMore": "Ottieni di più",
+    "copySuccess": "Copia riuscita",
+    "share": "Condividi"
   },
   "quickAction": {
-    "title": "Azioni rapide...",
+    "title": "Azioni rapide",
     "placeHolder": "Digita un comando o cerca..."
   },
   "password": {
@@ -91,7 +97,10 @@
     "createTemplate": "Crea Modello",
     "useTemplateDialog": {
       "title": "Seleziona spazio",
-      "description": "Seleziona uno spazio per il modello"
+      "description": "Seleziona uno spazio per il modello",
+      "noSpaceDescription": "You don't have any spaces yet. Create one to continue.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create"
     },
     "promptBox": {
       "placeholder": "Costruisci la tua app aziendale con Teable",
@@ -107,10 +116,129 @@
       }
     }
   },
+  "baseShare": {
+    "shareTitle": "Condividi",
+    "shareToWeb": "Condividi sul web",
+    "linkHolderLabel": "Persona con il link",
+    "linkHolderCanView": "Può visualizzare",
+    "linkHolderCanViewDesc": "Chiunque abbia il link può visualizzare i dati",
+    "linkHolderCanEdit": "Può modificare",
+    "linkHolderCanEditDesc": "Gli utenti connessi possono modificare i record nella tabella",
+    "linkHolderCanCopyAndSave": "Salva come copia",
+    "linkHolderCanCopyAndSaveDesc": "Chiunque abbia il link può salvare una copia nel proprio spazio",
+    "refreshLink": "Rigenera link",
+    "advanced": "Avanzate",
+    "allowCopyData": "Consenti ai lettori di copiare i dati",
+    "restrictByPassword": "Proteggi con password",
+    "embedConfig": "Configurazione incorporamento",
+    "embedPreview": "Anteprima incorporamento",
+    "copyCode": "Copia codice",
+    "enterPassword": "Inserisci password",
+    "passwordTitle": "Imposta password",
+    "deleteConfirmTitle": "Elimina link di condivisione",
+    "deleteConfirmDescription": "Questa azione non può essere annullata. Le persone con questo link non potranno più accedere alla base condivisa.",
+    "createSuccess": "Link di condivisione creato",
+    "createFailed": "Impossibile creare il link di condivisione",
+    "updateFailed": "Impossibile aggiornare le impostazioni di condivisione",
+    "deleteSuccess": "Link di condivisione eliminato",
+    "deleteFailed": "Impossibile eliminare il link di condivisione",
+    "refreshSuccess": "Link di condivisione rigenerato",
+    "refreshFailed": "Impossibile rigenerare il link di condivisione"
+  },
+  "share": {
+    "copyToSpaceDialog": {
+      "title": "Copia nello spazio",
+      "description": "Seleziona uno spazio in cui copiare questo database",
+      "baseName": "Nome database",
+      "baseNamePlaceholder": "Inserisci nome database",
+      "selectSpace": "Seleziona spazio",
+      "noSpaceDescription": "Nessuno spazio gestibile. Crea un nuovo spazio per continuare.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create",
+      "copyTarget": "Copy to",
+      "createNewBase": "New base",
+      "copyToExistingBase": "Existing base",
+      "selectBase": "Select base",
+      "selectBasePlaceholder": "Select a base",
+      "noBaseInSpace": "Nessuna base gestibile in questo spazio. Seleziona \"Nuova base\"."
+    }
+  },
   "settings": {
     "title": "Impostazioni dell'istanza",
+    "allSetting": "Impostazioni dello spazio e personali",
     "personal": {
-      "title": "Impostazioni personali"
+      "title": "Personale"
+    },
+    "templateAdmin": {
+      "title": "Gestione modelli",
+      "noData": "Nessun dato",
+      "importing": "Importazione...",
+      "usageCount": "Conteggio utilizzo: {{count}}",
+      "useTemplate": "Usa questo modello",
+      "createdBy": "da {{user}}",
+      "backToTemplateList": "Torna all'elenco modelli",
+      "tips": {
+        "errorCategoryName": "La categoria non esiste o è stata eliminata",
+        "needSnapshot": "Prima di pubblicare, crea uno snapshot, il nome e la descrizione del modello non possono essere vuoti",
+        "needPublish": "Pubblica il modello prima di impostarlo come in evidenza",
+        "needBaseSource": "Seleziona una base sorgente prima di creare uno snapshot",
+        "forbiddenUpdateSystemTemplate": "Il modello di sistema non può essere modificato",
+        "addCategoryTips": "Inserisci prima un nome categoria nell'input di ricerca.",
+        "categoryNamePlaceholder": "Inserisci nome categoria",
+        "duplicateCategoryName": "Il nome della categoria esiste già"
+      },
+      "category": {
+        "menu": {
+          "getStarted": "Inizia",
+          "recommended": "Consigliati",
+          "all": "Tutti",
+          "browseByCategory": "Sfoglia per categoria"
+        }
+      },
+      "header": {
+        "cover": "Copertina",
+        "name": "Nome",
+        "description": "Descrizione",
+        "markdownDescription": "Descrizione markdown",
+        "category": "Categoria",
+        "isSystem": "Sistema",
+        "source": "Fonte",
+        "status": "Pubblicato",
+        "publishSnapshot": "Pubblica snapshot",
+        "snapshotTime": "Ora snapshot",
+        "actions": "Azioni",
+        "featured": "In evidenza",
+        "createdBy": "Creato da",
+        "userNonExistent": "Utente non esistente",
+        "preview": "Anteprima",
+        "usage": "Utilizzo",
+        "visit": "Visite"
+      },
+      "actions": {
+        "title": "Azioni",
+        "publish": "Pubblica",
+        "delete": "Elimina",
+        "duplicate": "Duplica",
+        "preview": "Anteprima",
+        "use": "Usa",
+        "pinTop": "Fissa in alto",
+        "addCategory": "Aggiungi categoria",
+        "selectCategory": "Seleziona categoria",
+        "viewTemplate": "Visualizza modello",
+        "manageCategory": "Gestisci categorie"
+      },
+      "relatedTemplates": "Modelli correlati",
+      "noImage": "Nessuna immagine",
+      "baseSelectPanel": {
+        "title": "Seleziona fonte modello",
+        "description": "Seleziona una base come modello",
+        "confirm": "Conferma",
+        "search": "Cerca...",
+        "cancel": "Annulla",
+        "selectBase": "Seleziona base",
+        "createTemplate": "Crea modello",
+        "abnormalBase": "La base non esiste o è stata eliminata"
+      }
     },
     "back": "Torna alla home",
     "account": {
@@ -234,6 +362,10 @@
           "user": "Utente Slack",
           "workspace": "Area di lavoro Slack"
         },
+        "email": {
+          "user": "Utente",
+          "email": "Email"
+        },
         "deleteTitle": "Rimuovi account connesso",
         "deleteDesc": "Sei sicuro di voler rimuovere {{name}}?",
         "create": "Connetti nuovo account",
@@ -245,26 +377,6 @@
           "title": "Autorizzazione riuscita",
           "desc": "Puoi chiudere questa finestra ora."
         }
-      }
-    },
-    "templateAdmin": {
-      "header": {
-        "cover": "Copertina",
-        "name": "Nome",
-        "description": "Descrizione",
-        "markdownDescription": "Descrizione Markdown",
-        "category": "Categoria",
-        "isSystem": "Sistema",
-        "source": "Fonte",
-        "status": "Pubblicato",
-        "publishSnapshot": "Pubblica istantanea",
-        "snapshotTime": "Orario istantanea",
-        "actions": "Azioni",
-        "featured": "In evidenza",
-        "createdBy": "Creato da",
-        "userNonExistent": "Utente inesistente",
-        "usage": "Utilizzo",
-        "visit": "Visite"
       }
     }
   },
@@ -418,7 +530,7 @@
       "allowSignUp": "Consenti la creazione di nuovi account",
       "allowSignUpDescription": "Disabilitando questa opzione si proibiranno le nuove registrazioni degli utenti e il pulsante di registrazione non apparirà più nella pagina di accesso.",
       "allowSpaceInvitation": "Consenti l'invio di inviti per lo spazio",
-      "allowSpaceInvitationDescription": "Disabilitando questa opzione si impedirà agli utenti diversi dagli amministratori di invitare altri a unirsi agli spazi. Abilitando questa opzione si consentirà agli utenti invitati direttamente di creare un account anche se la registrazione di nuovi account è disabilitata.",
+      "allowSpaceInvitationDescription": "Disabilitando questa opzione si impedirà agli utenti diversi dagli amministratori di invitare altri a unirsi agli spazi. Quando abilitata, i nuovi utenti invitati via email possono completare la registrazione cliccando sul link di invito nell'email, ma i link di invito condivisi non funzioneranno.",
       "allowSpaceCreation": "Consenti a tutti di creare nuovi spazi",
       "allowSpaceCreationDescription": "Disabilitando questa opzione si impedirà agli utenti diversi dagli amministratori di creare nuovi spazi.",
       "enableEmailVerification": "Abilita la verifica email",
@@ -467,12 +579,19 @@
         "chatModel": "Modello di chat",
         "chatModelDescription": "Il modello di chat da utilizzare, Suggerimento: il modello di codifica medio viene utilizzato per impostazione predefinita per la generazione di formule AI e funzioni correlate",
         "chatModels": {
-          "sm": "Modello di chat piccolo",
-          "smDescription": "Utilizzato per la generazione automatica di titoli chat e nomi base. Consigliato: claude-haiku-4.5",
-          "md": "Modello di chat medio",
-          "mdDescription": "Utilizzato per la generazione di formule AI. Usa lg se non configurato. Consigliato: claude-haiku-4.5",
           "lg": "Modello di chat avanzato",
           "lgDescription": "Per pianificazione, programmazione e altri scenari di attività complesse. Consigliato: claude-sonnet-4.5"
+        },
+        "actions": {
+          "title": "Capacità IA",
+          "aiField": {
+            "title": "Campo IA",
+            "description": "Funzionalità campo IA incluso compilazione automatica e configurazione IA nelle impostazioni campo"
+          },
+          "aiChat": {
+            "title": "Chat IA",
+            "description": "Barra laterale Chat IA e tutte le funzionalità agente"
+          }
         },
         "chatModelTest": {
           "text": "Testa modello",
@@ -499,6 +618,18 @@
         "noModelFound": "Nessun modello trovato.",
         "searchModel": "Cerca modello...",
         "selectModel": "Seleziona modello...",
+        "defaultModel": "{{name}} (Predefinito)",
+        "moreModels": "Altri modelli",
+        "agentModelWarningTitle": "Scegli i modelli con attenzione",
+        "agentModelWarningDescription": "I modelli consigliati sopra sono ottimizzati per attività agentiche come l’uso di strumenti e il ragionamento multi-step. Altri modelli potrebbero avere capacità limitate e produrre risultati imprevisti.",
+        "agentModelWarningConfirm": "Ho capito",
+        "recommendedModelNudge": {
+          "title": "Prova {{model}}",
+          "description": "Ottieni risultati AI migliori con un consumo di crediti molto più basso.",
+          "use": "Usa {{model}}",
+          "later": "Più tardi"
+        },
+        "noModelsAvailable": "Nessun modello disponibile",
         "input": "Input {{ratio}}",
         "output": "Output {{ratio}}",
         "inputOrOutputTip": "Il rapporto rappresenta il tasso di cambio tra crediti e token, ad esempio \"1:1000\" significa che 1 credito ≈ 1000 token.<br></br>Nota: ogni utilizzo dedurrà almeno 1 credito. Anche se il consumo effettivo è inferiore a 1 credito, verrà comunque addebitato come 1 credito.",
@@ -524,7 +655,6 @@
       },
       "app": {
         "domain": "Dominio",
-        "v0ApiKey": "Chiave API v0",
         "customDomain": "Dominio Personalizzato (Opzionale)",
         "customDomainDescription": "Imposta il tuo dominio personalizzato per la distribuzione dell'app, accedi al <a>dominio Vercel</a> per ottenere il dominio personalizzato",
         "vercelToken": "Token API Vercel",
@@ -563,11 +693,6 @@
           "description": "Non hai ancora configurato l'API LLM AI, AI Chat/automazione AI non sarà utilizzabile, <anchor>vai alle impostazioni</anchor>",
           "errorTips": "Non hai ancora configurato l'API LLM AI, AI Chat/automazione AI non sarà utilizzabile"
         },
-        "app": {
-          "title": "Costruttore di app",
-          "description": "Non hai ancora configurato l'API v0, la funzione Costruttore di app non sarà disponibile, <anchor>vai alle impostazioni</anchor>",
-          "errorTips": "Non hai ancora configurato l'API v0, la funzione Costruttore di app non sarà disponibile"
-        },
         "webSearch": {
           "title": "Ricerca web",
           "description": "Non hai ancora configurato l'API di ricerca web, la funzione di ricerca web non sarà disponibile, <anchor>vai alle impostazioni</anchor>",
@@ -590,7 +715,11 @@
     "noUnread": "Nessuna notifica {{status}}",
     "changeSetting": "Cambia le impostazioni delle notifiche della pagina",
     "new": "nuovo {{count}}",
-    "showMore": "Mostra di più"
+    "showMore": "Mostra di più",
+    "exportBase": {
+      "successText": "I dati di esportazione sono pronti",
+      "failedText": "Esportazione fallita, riprova"
+    }
   },
   "role": {
     "title": {
@@ -612,13 +741,16 @@
     "spaceTrash": "Cestino dello spazio",
     "type": "Tipo",
     "resetTrash": "Svuota cestino",
-    "deletedBy": "Eliminato da",
-    "deletedTime": "Ora di eliminazione",
+    "deletedBy": "Da",
+    "deletedTime": "Data",
     "fromSpace": "Dallo spazio \"{{name}}\"",
     "permanentDeleteTips": "Sei sicuro di voler eliminare definitivamente \"{{name}}\" {{resource}}?",
     "resetTrashConfirm": "Sei sicuro di voler svuotare il cestino?",
     "addToTrash": "Muovi nel cestino",
-    "description": "I dati nel cestino occupano ancora spazio di utilizzo di record e di utilizzo di allegati."
+    "description": "I dati nel cestino occupano ancora spazio di utilizzo di record e di utilizzo di allegati.",
+    "spaceDescription": "Ripristina gli spazi eliminati negli ultimi {{retentionDays}} giorni",
+    "spaceInnerDescription": "Ripristina le basi eliminate da questo spazio negli ultimi {{retentionDays}} giorni",
+    "baseDescription": "Ripristina le risorse eliminate da questa base negli ultimi {{retentionDays}} giorni"
   },
   "pluginCenter": {
     "pluginUrlEmpty": "Plugin non impostato URL",
@@ -734,9 +866,23 @@
             "failed": {
               "message": "❌ Importazione di {{tableName}} fallita: {{errorMessage}}"
             },
+            "planLimitExceeded": {
+              "message": "❌ Importazione di {{tableName}} fallita: Limite di righe raggiunto, aggiorna il tuo piano per importare più record"
+            },
+            "noRecordsProcessed": {
+              "message": "❌ Importazione di {{tableName}} fallita: Nessun record è stato elaborato"
+            },
             "success": {
               "message": "🎉 {{tableName}} importato con successo.",
               "inplace": "🎉 {{tableName}} importato in loco con successo."
+            },
+            "partialSuccess": {
+              "message": "⚠️ {{tableName}} partially imported: {{successCount}} rows succeeded, {{failedCount}} rows failed. <a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 Download</a>",
+              "messageNoReport": "⚠️ {{tableName}} partially imported: {{successCount}} rows succeeded, {{failedCount}} rows failed."
+            },
+            "allFailed": {
+              "message": "❌ {{tableName}} import failed: all {{failedCount}} rows failed. <a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 Download</a>",
+              "messageNoReport": "❌ {{tableName}} import failed: all {{failedCount}} rows failed."
             }
           }
         },
@@ -753,6 +899,61 @@
           "insufficientCredit": {
             "title": "L'automazione {{name}} è fallita a causa di credito insufficiente",
             "message": "La tua automazione {{name}} non è riuscita ad essere eseguita a causa di credito insufficiente. Aggiorna l'abbonamento o contatta il supporto."
+          },
+          "runQuotaExceeded": {
+            "title": "L'automazione {{name}} ha raggiunto il numero massimo mensile di esecuzioni",
+            "message": "Le esecuzioni mensili dell'automazione {{name}} sono esaurite e l'esecuzione è temporaneamente non disponibile. Aggiorna l'abbonamento o acquista esecuzioni aggiuntive."
+          },
+          "failedSummary": {
+            "title": "L'automazione {{name}} ha fallito {{failCount}} volte",
+            "message": "La tua automazione {{name}} ha accumulato {{failCount}} errori consecutivi. Apri la cronologia delle esecuzioni per visualizzare i dettagli."
+          }
+        },
+        "billing": {
+          "title": "Notifica fatturazione",
+          "credit": {
+            "warning80": {
+              "title": "Spazio {{spaceName}} crediti IA 80 % utilizzati",
+              "message": "Il tuo spazio ha utilizzato l'80 % dei crediti IA. Considera l'upgrade o l'acquisto di crediti aggiuntivi."
+            },
+            "warning90": {
+              "title": "Spazio {{spaceName}} crediti IA 90 % utilizzati",
+              "message": "Il tuo spazio ha utilizzato il 90 % dei crediti IA. Aggiorna presto per evitare interruzioni."
+            },
+            "anomaly": {
+              "dailySpike": {
+                "title": "Spazio {{spaceName}}: picco insolito di crediti IA rilevato",
+                "message": "L'utilizzo di crediti IA di oggi ({{todayValue}}) è {{multiplier}}x la media giornaliera recente ({{ewma}}). Questo potrebbe indicare un'attività imprevista. Si prega di verificare l'utilizzo. Principali contributori: {{topContributors}}"
+              },
+              "burst": {
+                "title": "Spazio {{spaceName}}: burst di crediti IA rilevato",
+                "message": "{{recentValue}} crediti IA consumati negli ultimi {{windowMinutes}} minuti, pari a {{multiplier}}x il P95 orario storico ({{hourlyP95}}). Questo potrebbe indicare un'attività imprevista. Principali contributori: {{topContributors}}"
+              }
+            }
+          },
+          "automationRun": {
+            "warning80": {
+              "title": "Spazio {{spaceName}} esecuzioni automazione 80 % della quota utilizzata",
+              "message": "Il tuo spazio ha utilizzato {{usedRuns}} di {{totalLimit}} esecuzioni di automazione (80 %). Considera l'upgrade del tuo piano."
+            },
+            "warning90": {
+              "title": "Spazio {{spaceName}} esecuzioni automazione 90 % della quota utilizzata",
+              "message": "Il tuo spazio ha utilizzato {{usedRuns}} di {{totalLimit}} esecuzioni di automazione (90 %). Aggiorna presto per evitare interruzioni."
+            },
+            "gracePeriod": {
+              "title": "Spazio {{spaceName}} esecuzioni automazione superate - periodo di grazia attivo",
+              "message": "La quota di esecuzioni di automazione è stata superata. Le automazioni smetteranno di funzionare e verranno disattivate tra {{remainingHours}} ore. Aggiorna il tuo piano."
+            },
+            "anomaly": {
+              "dailySpike": {
+                "title": "Spazio {{spaceName}}: picco insolito di esecuzioni automazione",
+                "message": "Le esecuzioni automazione di oggi ({{todayValue}}) sono {{multiplier}}x la media giornaliera recente ({{ewma}}). Questo potrebbe indicare un'automazione fuori controllo. Si prega di verificare i flussi di lavoro. Principali contributori: {{topContributors}}"
+              },
+              "burst": {
+                "title": "Spazio {{spaceName}}: burst di esecuzioni automazione rilevato",
+                "message": "{{recentValue}} esecuzioni automazione rilevate negli ultimi {{windowMinutes}} minuti, pari a {{multiplier}}x il P95 orario storico ({{hourlyP95}}). Questo potrebbe indicare un loop o una configurazione errata. Principali contributori: {{topContributors}}"
+              }
+            }
           }
         },
         "exportBase": {
@@ -769,8 +970,26 @@
             "failed": {
               "title": "Attività AI fallita nella tabella {{tableName}}",
               "message": "L'attività AI per il campo {{fieldName}} nella tabella {{tableName}} (ID record: {{recordId}}) è fallita.\n\n{{errorMsg}}\n\nFai clic sul pulsante qui sotto per visualizzare i dettagli."
+            },
+            "cancelled": {
+              "title": "Attività IA annullata",
+              "rateLimit": "L'attività IA per la tabella \"{{tableName}}\" è stata annullata a causa del limite di velocità (429). Si prega di riprovare più tardi.",
+              "creditExhausted": "L'attività IA per la tabella \"{{tableName}}\" è stata annullata perché i crediti sono esauriti. Si prega di aggiornare l'abbonamento o attendere il rinnovo dei crediti.",
+              "authFailed": "L'attività IA per la tabella \"{{tableName}}\" è stata annullata a causa di un errore di autenticazione. Si prega di verificare la configurazione della chiave API.",
+              "serviceUnavailable": "L'attività IA per la tabella \"{{tableName}}\" è stata annullata perché il servizio IA è temporaneamente non disponibile. Si prega di riprovare più tardi.",
+              "unknown": "L'attività IA per la tabella \"{{tableName}}\" è stata annullata. Errore: {{errorMessage}}"
             }
           }
+        },
+        "rewardRejected": {
+          "title": "Richiesta di premio rifiutata",
+          "message": "La tua richiesta di premio per <a href=\"{{spaceUrl}}\">{{spaceName}}</a> è stata rifiutata per i seguenti motivi: {{errorMessages}}. Si prega di verificare e inviare nuovamente.",
+          "buttonText": "Visualizza Spazio"
+        },
+        "rewardApproved": {
+          "title": "Richiesta di premio approvata",
+          "message": "Congratulazioni! La tua richiesta di premio per <a href=\"{{spaceUrl}}\">{{spaceName}}</a> è stata approvata. Sono stati aggiunti {{amount}} crediti, validi per {{expiredDays}} giorni.",
+          "buttonText": "Visualizza Spazio"
         }
       }
     }
@@ -807,5 +1026,143 @@
     "deleteTip": "Sei sicuro di voler eliminare \"{{name}}\" base?",
     "createResource": "Crea risorsa",
     "noPermissionToCreateResource": "Non hai il permesso di creare una risorsa"
+  },
+  "credit": {
+    "title": "Credito",
+    "leftAmount": "Crediti rimanenti",
+    "winFreeCredits": "Condividi esperienza",
+    "getCredits": "Ottieni 1000 crediti gratuiti",
+    "winCredit": {
+      "title": "Condividi una recensione positiva per guadagnare",
+      "freeCredits": "1000 crediti gratuiti",
+      "guidelinesTitle": "Checklist di condivisione",
+      "tagTeableio": "Tagga <bold>@teableio</bold>",
+      "minCharacters": "Scrivi una recensione di <bold>80+</bold> caratteri",
+      "minFollowers": "Avere <bold>10+</bold> follower",
+      "limitPerWeek": "500 crediti per post, fino a 2 post settimanali (X + LinkedIn)",
+      "postOnX": "Pubblica su X",
+      "postOnLinkedIn": "Pubblica su LinkedIn",
+      "preFilledDraft": "🌟 Bozza precompilata pronta per te!",
+      "claimTitle": "Incolla l'URL del post per richiedere i tuoi crediti",
+      "userEmail": "Email utente",
+      "postUrlLabel": "URL del post (X o LinkedIn)",
+      "postUrlPlaceholder": "Incolla qui il link del tuo post",
+      "invalidUrl": "Inserisci un URL valido di X o LinkedIn",
+      "claiming": "Richiesta in corso...",
+      "claimCredits": "Richiedi crediti",
+      "congratulations": "Congratulazioni!",
+      "claimSuccess": "Hai richiesto 500 crediti!",
+      "verifying": "Verifica del tuo post...",
+      "verifyingDescription": "Stiamo controllando il contenuto del tuo post, di solito ci vogliono pochi secondi",
+      "verifyFailed": "Verifica fallita",
+      "tryAgain": "Riprova"
+    },
+    "error": {
+      "verificationFailed": "Verifica fallita"
+    }
+  },
+  "reward": {
+    "title": "Ricompensa",
+    "rewardCredits": "Crediti ricompensa",
+    "minCharCount": "Il post deve avere almeno {{count}} caratteri",
+    "minFollowerCount": "L'account deve avere almeno {{count}} follower",
+    "mustMention": "Il post deve menzionare {{mention}}",
+    "fetchSnapshotFailed": "Impossibile recuperare lo snapshot del post",
+    "alreadyClaimedThisWeek": "Hai già richiesto una ricompensa per questo account questa settimana",
+    "manage": {
+      "title": "Gestione ricompense",
+      "description": "Visualizza e gestisci i record delle ricompense in tutti gli spazi",
+      "overview": "Panoramica",
+      "records": "Record",
+      "searchSpace": "Cerca spazio...",
+      "searchRecords": "Cerca postUrl/userId...",
+      "dateRange": "Seleziona intervallo date",
+      "from": "Da",
+      "to": "A",
+      "totalSpaces": "Totale: {{count}} spazi",
+      "totalRecords": "Totale: {{count}} record",
+      "space": "Spazio",
+      "allSpaces": "Tutti gli spazi",
+      "user": "Utente",
+      "creator": "Creatore",
+      "sourceType": "Tipo di fonte",
+      "platform": "Piattaforma",
+      "allStatuses": "Tutti gli stati",
+      "allSourceTypes": "Tutti i tipi di fonte",
+      "allPlatforms": "Tutte le piattaforme",
+      "pendingCount": "Conteggio in sospeso",
+      "approvedCount": "Conteggio approvato",
+      "rejectedCount": "Conteggio rifiutato",
+      "approvedAmount": "Importo approvato",
+      "consumedAmount": "Importo consumato",
+      "availableAmount": "Importo disponibile",
+      "expiringSoonAmount": "Importo in scadenza (7g)",
+      "amount": "Importo",
+      "remainingAmount": "Importo rimanente",
+      "createdTime": "Data creazione",
+      "rewardTime": "Data ricompensa",
+      "expiredTime": "Data scadenza",
+      "lastModified": "Ultima modifica",
+      "viewDetails": "Visualizza dettagli",
+      "details": "Dettagli ricompensa",
+      "basicInfo": "Informazioni base",
+      "amountInfo": "Informazioni importo",
+      "timeInfo": "Informazioni temporali",
+      "socialInfo": "Informazioni social",
+      "verifyResult": "Risultato verifica",
+      "uniqueKey": "Chiave univoca",
+      "verify": "Verifica",
+      "valid": "Valido",
+      "invalid": "Non valido",
+      "errors": "Errori",
+      "copied": "{{label}} copiato",
+      "openPost": "Apri post",
+      "noData": "Nessun dato",
+      "page": "Pagina {{current}} di {{total}}",
+      "status": {
+        "label": "Stato",
+        "pending": "In sospeso",
+        "approved": "Approvato",
+        "rejected": "Rifiutato"
+      }
+    }
+  },
+  "system": {
+    "notFound": {
+      "title": "Pagina non trovata",
+      "description": "Il link che hai seguito potrebbe essere non valido o la pagina è stata spostata."
+    },
+    "links": {
+      "backToHome": "Torna alla home"
+    },
+    "forbidden": {
+      "title": "Accesso limitato",
+      "description": "Hai bisogno dell'autorizzazione per accedere a questa risorsa.\nContatta il tuo amministratore."
+    },
+    "paymentRequired": {
+      "title": "Sblocca funzionalità Premium",
+      "description": "Questa funzionalità è disponibile nei piani avanzati.\nEffettua l'upgrade per espandere le tue capacità."
+    },
+    "error": {
+      "title": "Qualcosa è andato storto",
+      "description": "Si è verificato un errore imprevisto. Riprova più tardi."
+    }
+  },
+  "import": {
+    "error": {
+      "dateOutOfRange": "{{fieldHint}}Analisi della data fallita, il valore \"{{value}}\" è fuori dall'intervallo valido",
+      "planRowLimit": "Limite di righe raggiunto: aggiorna il tuo piano per importare più record",
+      "notNullValidation": "{{fieldHint}}I campi obbligatori non possono essere vuoti",
+      "uniqueValidation": "{{fieldHint}}Valori duplicati nei campi univoci",
+      "requestTimeout": "Timeout della richiesta",
+      "chunkProcessingFailed": "Elaborazione batch fallita: {{reason}}",
+      "unknown": "{{fieldHint}}{{message}}"
+    }
+  },
+  "changelog": {
+    "newUpdate": "AGGIORNAMENTO DEL 19 MAGGIO",
+    "title": "I Credits Teable rendono 10x di piu!",
+    "url": "https://help.teable.ai/en/changelog#may-19-2026",
+    "id": "changelog-2026-05-19-teable-credits-up-10x"
   }
 }

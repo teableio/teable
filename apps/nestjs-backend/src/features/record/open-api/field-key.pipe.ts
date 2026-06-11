@@ -40,7 +40,10 @@ export class FieldKeyPipe<T extends IGetRecordsRo> implements PipeTransform {
     }
 
     const fields = await this.dataLoaderService.field.load(tableId);
-    const fieldMap = keyBy(fields, fieldKeyType);
+    const fieldMap = {
+      ...keyBy(fields, fieldKeyType),
+      ...keyBy(fields, FieldKeyType.Id),
+    };
 
     const transformedValue = { ...value };
 

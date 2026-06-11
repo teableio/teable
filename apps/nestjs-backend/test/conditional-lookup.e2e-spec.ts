@@ -514,6 +514,107 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
       await permanentDeleteTable(baseId, items.id);
       await permanentDeleteTable(baseId, colors.id);
     });
+
+    it('sorts records by formula-based conditional lookup values', async () => {
+      const foreign = await createTable(baseId, {
+        name: 'ConditionalLookup_RecordSort_Foreign',
+        fields: [
+          { name: 'Status', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Revenue', type: FieldType.Number } as IFieldRo,
+          { name: 'Quantity', type: FieldType.Number } as IFieldRo,
+        ],
+        records: [
+          { fields: { Status: 'Active', Revenue: 40, Quantity: 2 } },
+          { fields: { Status: 'Closed', Revenue: 25, Quantity: 5 } },
+          { fields: { Status: 'Draft', Revenue: 90, Quantity: 3 } },
+        ],
+      });
+
+      const statusId = foreign.fields.find((f) => f.name === 'Status')!.id;
+      const revenueId = foreign.fields.find((f) => f.name === 'Revenue')!.id;
+      const quantityId = foreign.fields.find((f) => f.name === 'Quantity')!.id;
+
+      const host = await createTable(baseId, {
+        name: 'ConditionalLookup_RecordSort_Host',
+        fields: [
+          { name: 'Label', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Status Filter', type: FieldType.SingleLineText } as IFieldRo,
+        ],
+        records: [
+          { fields: { Label: 'Active Host', 'Status Filter': 'Active' } },
+          { fields: { Label: 'Closed Host', 'Status Filter': 'Closed' } },
+          { fields: { Label: 'Draft Host', 'Status Filter': 'Draft' } },
+        ],
+      });
+
+      const labelId = host.fields.find((f) => f.name === 'Label')!.id;
+      const statusFilterId = host.fields.find((f) => f.name === 'Status Filter')!.id;
+
+      try {
+        const foreignFormula = await createField(foreign.id, {
+          name: 'Unit Price',
+          type: FieldType.Formula,
+          options: {
+            expression: `{${revenueId}} / {${quantityId}}`,
+            formatting: { type: NumberFormattingType.Decimal, precision: 2 },
+          },
+        } as IFieldRo);
+
+        const lookupField = await createField(host.id, {
+          name: 'Conditional Formula Price',
+          type: FieldType.Formula,
+          isLookup: true,
+          isConditionalLookup: true,
+          options: {
+            expression: `{${revenueId}} / {${quantityId}}`,
+            formatting: { type: NumberFormattingType.Decimal, precision: 2 },
+          },
+          lookupOptions: {
+            foreignTableId: foreign.id,
+            lookupFieldId: foreignFormula.id,
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: statusId,
+                  operator: 'is',
+                  value: { type: 'field', fieldId: statusFilterId },
+                },
+              ],
+            },
+          } as ILookupOptionsRo,
+        } as IFieldRo);
+
+        const ascRecords = (
+          await getRecords(host.id, {
+            fieldKeyType: FieldKeyType.Id,
+            orderBy: [{ fieldId: lookupField.id, order: SortFunc.Asc }],
+          })
+        ).records;
+
+        expect(ascRecords.map((record) => record.fields[labelId])).toEqual([
+          'Closed Host',
+          'Active Host',
+          'Draft Host',
+        ]);
+
+        const descRecords = (
+          await getRecords(host.id, {
+            fieldKeyType: FieldKeyType.Id,
+            orderBy: [{ fieldId: lookupField.id, order: SortFunc.Desc }],
+          })
+        ).records;
+
+        expect(descRecords.map((record) => record.fields[labelId])).toEqual([
+          'Draft Host',
+          'Active Host',
+          'Closed Host',
+        ]);
+      } finally {
+        await permanentDeleteTable(baseId, host.id);
+        await permanentDeleteTable(baseId, foreign.id);
+      }
+    });
   });
 
   describe('filter scenarios', () => {
@@ -1273,7 +1374,6 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
 
   describe('self-table field-reference lookups projecting alternate fields', () => {
     let table: ITableFullVo;
-    let titleId: string;
     let nameId: string;
     let nameMirrorId: string;
     let title2Id: string;
@@ -1300,7 +1400,6 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
         ],
       });
 
-      titleId = table.fields.find((f) => f.name === 'Title')!.id;
       nameId = table.fields.find((f) => f.name === 'Name')!.id;
       nameMirrorId = table.fields.find((f) => f.name === 'NameMirror')!.id;
       title2Id = table.fields.find((f) => f.name === 'Title2')!.id;
@@ -1354,7 +1453,6 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
 
   describe('self-table field-reference lookups selecting alternate titles', () => {
     let table: ITableFullVo;
-    let titleId: string;
     let nameId: string;
     let name2Id: string;
     let title2Id: string;
@@ -1381,7 +1479,6 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
         ],
       });
 
-      titleId = table.fields.find((f) => f.name === 'Title')!.id;
       nameId = table.fields.find((f) => f.name === 'Name')!.id;
       name2Id = table.fields.find((f) => f.name === 'Name2')!.id;
       title2Id = table.fields.find((f) => f.name === 'Title2')!.id;
@@ -1543,8 +1640,6 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
     let hostHardwareActiveId: string;
     let hostOfficeActiveId: string;
     let hostHardwareInactiveId: string;
-    let foreignLaptopId: string;
-    let foreignMonitorId: string;
 
     beforeAll(async () => {
       foreign = await createTable(baseId, {
@@ -1600,8 +1695,6 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
       amountId = foreign.fields.find((f) => f.name === 'Amount')!.id;
       quantityId = foreign.fields.find((f) => f.name === 'Quantity')!.id;
       statusId = foreign.fields.find((f) => f.name === 'Status')!.id;
-      foreignLaptopId = foreign.records.find((record) => record.fields.Title === 'Laptop')!.id;
-      foreignMonitorId = foreign.records.find((record) => record.fields.Title === 'Monitor')!.id;
 
       host = await createTable(baseId, {
         name: 'ConditionalLookup_FieldMatrix_Host',
@@ -2410,13 +2503,13 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
   });
 
   describe('conditional lookup referencing derived field types', () => {
+    let derivedBaseId: string;
     let suppliers: ITableFullVo;
     let products: ITableFullVo;
     let host: ITableFullVo;
     let supplierRatingId: string;
     let linkToSupplierField: IFieldVo;
     let supplierRatingLookup: IFieldVo;
-    let supplierRatingRollup: IFieldVo;
     let supplierRatingConditionalLookup: IFieldVo;
     let supplierRatingConditionalRollup: IFieldVo;
     let supplierRatingDoubleFormula: IFieldVo;
@@ -2433,7 +2526,13 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
     let subscriptionProductId: string;
 
     beforeAll(async () => {
-      suppliers = await createTable(baseId, {
+      const createdBase = await createBase({
+        spaceId: globalThis.testConfig.spaceId,
+        name: 'Conditional Lookup Derived Types',
+      });
+      derivedBaseId = createdBase.id;
+
+      suppliers = await createTable(derivedBaseId, {
         name: 'ConditionalLookup_Supplier',
         fields: [
           { name: 'SupplierName', type: FieldType.SingleLineText } as IFieldRo,
@@ -2450,7 +2549,7 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
         (record) => record.fields.SupplierName === 'Supplier B'
       )!.id;
 
-      products = await createTable(baseId, {
+      products = await createTable(derivedBaseId, {
         name: 'ConditionalLookup_Product',
         fields: [
           { name: 'ProductName', type: FieldType.SingleLineText } as IFieldRo,
@@ -2497,7 +2596,7 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
         } as ILookupOptionsRo,
       } as IFieldRo);
 
-      supplierRatingRollup = await createField(products.id, {
+      await createField(products.id, {
         name: 'Supplier Rating Sum',
         type: FieldType.Rollup,
         lookupOptions: {
@@ -2593,7 +2692,7 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
         options: supplierRatingConditionalRollupOptions,
       } as IFieldRo);
 
-      host = await createTable(baseId, {
+      host = await createTable(derivedBaseId, {
         name: 'ConditionalLookup_Derived_Host',
         fields: [{ name: 'Summary', type: FieldType.SingleLineText } as IFieldRo],
         records: [{ fields: { Summary: 'Global' } }],
@@ -2710,9 +2809,10 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
     });
 
     afterAll(async () => {
-      await permanentDeleteTable(baseId, host.id);
-      await permanentDeleteTable(baseId, products.id);
-      await permanentDeleteTable(baseId, suppliers.id);
+      await permanentDeleteTable(derivedBaseId, host.id);
+      await permanentDeleteTable(derivedBaseId, products.id);
+      await permanentDeleteTable(derivedBaseId, suppliers.id);
+      await deleteBase(derivedBaseId);
     });
 
     describe('standard lookup source', () => {
@@ -3429,6 +3529,93 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
     });
   });
 
+  describe('user field filters with multi host field', () => {
+    let foreign: ITableFullVo;
+    let host: ITableFullVo;
+    let lookupField: IFieldVo;
+    let titleId: string;
+    let foreignOwnerId: string;
+    let hostAssigneesId: string;
+    let assignedRecordId: string;
+    let emptyRecordId: string;
+
+    beforeAll(async () => {
+      const { userId, userName, email } = globalThis.testConfig;
+      const userCell = { id: userId, title: userName, email };
+
+      foreign = await createTable(baseId, {
+        name: 'ConditionalLookup_User_Foreign_MultiHost',
+        fields: [
+          { name: 'Task', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Owner', type: FieldType.User } as IFieldRo,
+        ],
+        records: [
+          { fields: { Task: 'Task Alpha', Owner: userCell } },
+          { fields: { Task: 'Task Beta', Owner: userCell } },
+          { fields: { Task: 'Task Gamma' } },
+        ],
+      });
+
+      titleId = foreign.fields.find((field) => field.name === 'Task')!.id;
+      foreignOwnerId = foreign.fields.find((field) => field.name === 'Owner')!.id;
+
+      host = await createTable(baseId, {
+        name: 'ConditionalLookup_User_Host_Multi',
+        fields: [
+          {
+            name: 'Assignees',
+            type: FieldType.User,
+            options: { isMultiple: true },
+          } as IFieldRo,
+        ],
+        records: [{ fields: { Assignees: [userCell] } }, { fields: { Assignees: null } }],
+      });
+
+      hostAssigneesId = host.fields.find((field) => field.name === 'Assignees')!.id;
+      assignedRecordId = host.records[0].id;
+      emptyRecordId = host.records[1].id;
+
+      const ownerMatchFilter: IFilter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: foreignOwnerId,
+            operator: 'is',
+            value: { type: 'field', fieldId: hostAssigneesId },
+          },
+        ],
+      };
+
+      lookupField = await createField(host.id, {
+        name: 'Owned Tasks',
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        isConditionalLookup: true,
+        lookupOptions: {
+          foreignTableId: foreign.id,
+          lookupFieldId: titleId,
+          filter: ownerMatchFilter,
+        } as ILookupOptionsRo,
+      } as IFieldRo);
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, host.id);
+      await permanentDeleteTable(baseId, foreign.id);
+    });
+
+    it('should match single user against multi user reference', async () => {
+      expect(lookupField.id).toBeDefined();
+
+      const assignedRecord = await getRecord(host.id, assignedRecordId);
+      const ownedTasks = [...((assignedRecord.fields[lookupField.id] as string[]) ?? [])].sort();
+      expect(ownedTasks).toEqual(['Task Alpha', 'Task Beta']);
+
+      const emptyRecord = await getRecord(host.id, emptyRecordId);
+      expect((emptyRecord.fields[lookupField.id] as string[] | undefined) ?? []).toEqual([]);
+    });
+  });
+
   describe('field reference compatibility validation', () => {
     it('marks lookup field as errored when reference field type changes', async () => {
       const { userId, userName, email } = globalThis.testConfig;
@@ -3566,7 +3753,6 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
   describe('numeric array field reference filters', () => {
     let games: ITableFullVo;
     let summary: ITableFullVo;
-    let roundScoresField: IFieldVo;
     let gamesLinkFieldId: string;
     let thresholdFieldId: string;
     let ceilingFieldId: string;
@@ -3644,7 +3830,7 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
 
       gamesLinkFieldId = summary.fields.find((f) => f.name === 'Games')!.id;
       const summaryPlayerFieldId = summary.fields.find((f) => f.name === 'Player')!.id;
-      roundScoresField = await createField(summary.id, {
+      await createField(summary.id, {
         name: 'Round Scores',
         type: FieldType.Number,
         isLookup: true,

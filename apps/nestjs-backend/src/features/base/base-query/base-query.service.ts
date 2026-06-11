@@ -10,6 +10,8 @@ import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../../custom.exception';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
+import { DatabaseRouter } from '../../../global/database-router.service';
+import { DATA_KNEX } from '../../../global/knex/knex.module';
 import type { IClsStore } from '../../../types/cls';
 import { FieldService } from '../../field/field.service';
 import {
@@ -30,11 +32,12 @@ export class BaseQueryService {
   private logger = new Logger(BaseQueryService.name);
 
   constructor(
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    @InjectModel(DATA_KNEX) private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
 
     private readonly fieldService: FieldService,
     private readonly prismaService: PrismaService,
+    private readonly databaseRouter: DatabaseRouter,
     private readonly cls: ClsService<IClsStore>,
     private readonly recordService: RecordService
   ) {}
@@ -134,8 +137,8 @@ export class BaseQueryService {
     const { queryBuilder, fieldMap } = await this.parseBaseQuery(baseId, baseQuery, 0);
     const query = queryBuilder.toQuery();
     this.logger.log('baseQuery SQL: ', query);
-    const rows = await this.prismaService
-      .$queryRawUnsafe<{ [key in string]: unknown }[]>(query)
+    const rows = await this.databaseRouter
+      .queryDataPrismaForBase<{ [key in string]: unknown }[]>(baseId, query)
       .catch((e) => {
         this.logger.error(e);
         throw new CustomHttpException('Query failed', HttpErrorCode.VALIDATION_ERROR, {

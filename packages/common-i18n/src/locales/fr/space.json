@@ -1,4 +1,10 @@
 {
+  "crossSpace": {
+    "duplicateBaseTitle": "Avis",
+    "duplicateBaseDescription": "Les références inter-espaces ne sont pas prises en charge. La copie sera convertie en un champ de texte sur une seule ligne.",
+    "affectedTableSuffix": "({{count}} champ(s))",
+    "convertAndDuplicate": "Convertir et dupliquer"
+  },
   "initialSpaceName": "Espace de {{name}}",
   "action": {
     "createBase": "Créer une base",
@@ -51,9 +57,16 @@
     "exportTips2": "Vous pouvez importer le fichier .tea dans espace -> plus -> importer",
     "exportTips3": "Les champs de relation inter-base seront convertis en texte sur une seule ligne.",
     "exportIncludeDataLabel": "Inclure les enregistrements",
-    "exportIncludeDataDescription": "Désactivez pour exporter uniquement la structure et la configuration.",
+    "exportIncludeDataDescription": "Exporter uniquement la structure et la configuration lorsque désactivé",
+    "exportTitle": "Exporter",
+    "exportDescription": "Exporter la base de données actuelle en fichier .tea, cela peut prendre un certain temps.",
+    "exportStartButton": "Commencer l'exportation",
+    "exportSlowTip": "Le volume de données est important. L'exportation peut prendre du temps. Vous pouvez quitter temporairement.",
+    "exportReadyDescription": "Veuillez télécharger le fichier .tea, {{importHint}}",
     "moveBaseSuccessTitle": "Déplacement réussi",
-    "moveBaseSuccessDescription": "{{baseName}} a été déplacé avec succès vers {{spaceName}}"
+    "moveBaseSuccessDescription": "{{baseName}} a été déplacé avec succès vers {{spaceName}}",
+    "moveBaseCrossSpaceTitle": "Avis",
+    "moveBaseCrossSpaceDataLossWarning": "Les références inter-espaces ne sont pas prises en charge. Les champs associés seront convertis en champs de texte. Cette action est irréversible."
   },
   "deleteSpaceModal": {
     "title": "Supprimer l'espace",
@@ -66,10 +79,6 @@
     "title": "Partagé avec moi",
     "description": "Toutes les bases auxquelles j'ai été invité à rejoindre",
     "empty": "Aucune base partagée avec moi pour le moment"
-  },
-  "trash": {
-    "spaceDescription": "Tous les espaces supprimés",
-    "baseDescription": "Toutes les bases supprimées dans cet espace"
   },
   "integration": {
     "title": "Intégrations",
@@ -88,7 +97,28 @@
     "importing": "Importation en cours",
     "importWayTip": "Cliquez ou glissez-déposez le fichier dans cette zone pour télécharger",
     "baseImportTips": "Cliquez ou glissez-déposez le fichier .tea dans cette zone pour télécharger",
-    "confirm": "Confirmer et continuer"
+    "confirm": "Confirmer et continuer",
+    "phase": {
+      "parsingStructure": "Parsing structure",
+      "creatingBase": "Creating base: {{detail}}",
+      "creatingTable": "Creating table: {{detail}}",
+      "creatingCommonFields": "Creating basic fields for {{table}}: {{fields}}",
+      "creatingButtonFields": "Creating button fields for {{table}}: {{fields}}",
+      "creatingFormulaFields": "Creating formula fields for {{table}}: {{fields}}",
+      "creatingLinkFields": "Creating link fields for {{table}}: {{fields}}",
+      "creatingLookupFields": "Creating lookup fields for {{table}}: {{fields}}",
+      "creatingTableViews": "Creating views for {{table}}: {{fields}}",
+      "creatingPlugins": "Creating plugins",
+      "creatingFolders": "Creating folders",
+      "creatingWorkflows": "Creating workflows",
+      "creatingApps": "Creating apps",
+      "creatingAuthorityMatrix": "Creating authority matrix",
+      "queuingAttachments": "Queuing attachment uploads",
+      "uploadingAppFiles": "Uploading app files",
+      "queuingDataImport": "Queuing data import",
+      "done": "Import completed",
+      "clickToView": "Cliquer pour voir"
+    }
   },
   "template": {
     "title": "Modèle",
@@ -117,8 +147,8 @@
     "empty": "Aucune base pour le moment"
   },
   "publishBase": {
-    "title": "Publier la Base dans la communauté",
-    "description": "Publiez votre base en un clic, l'inspiration n'est plus solitaire ! Laissez plus de gens voir, utiliser et remixer votre créativité, et construisez ensemble une entreprise plus puissante",
+    "title": "Publier dans le centre de modèles",
+    "description": "Publiez votre base dans le centre de modèles en un clic ! Laissez plus de gens voir, utiliser et remixer votre créativité, et construisez ensemble une entreprise plus puissante",
     "infoTitle": "Infos de base",
     "form": {
       "title": "Titre",
@@ -133,7 +163,7 @@
       "descriptionPlaceholder": "Décrivez brièvement votre idée...",
       "titlePlaceholder": "Nommez votre travail..."
     },
-    "publishToCommunity": "Publier dans la communauté",
+    "publishToCommunity": "Publier dans le centre de modèles",
     "publish": "Publier",
     "publishSuccess": "Publication réussie !",
     "previewTips": "Montrez votre travail au monde",
@@ -141,7 +171,7 @@
     "unPublish": "Dépublier",
     "unPublishSuccess": "Base dépubliée avec succès !",
     "unPublishConfirmTitle": "Confirmer la dépublication",
-    "unPublishConfirmDescription": "Êtes-vous sûr de vouloir dépublier cette base ? Elle ne sera plus visible dans le centre de modèles de la communauté.",
+    "unPublishConfirmDescription": "Êtes-vous sûr de vouloir dépublier cette base ? Elle ne sera plus visible dans le centre de modèles.",
     "usageCount": "Nombre d'utilisations : ",
     "uploadCover": "Cliquez pour télécharger l'image de couverture",
     "changeCover": "Cliquez pour changer la couverture",
@@ -155,6 +185,10 @@
     },
     "urlCopied": "URL copiée dans le presse-papiers !",
     "urlCopiedForDiscord": "URL copiée dans le presse-papiers ! Vous pouvez la coller dans Discord.",
+    "featuredLabel": "Featured",
+    "unfeaturedLabel": "Unfeatured",
+    "featuredTip": "Officiellement sélectionné comme vedette. Votre modèle recevra plus de visibilité.",
+    "unfeaturedTip": "Pas encore mis en vedette. Continuez à améliorer pour avoir une chance d'être recommandé. Laissez plus de gens voir votre travail.",
     "publishSuccessDescription": "Partagez votre travail avec le monde",
     "shareWith": "Partager avec",
     "unpublishedApps": {

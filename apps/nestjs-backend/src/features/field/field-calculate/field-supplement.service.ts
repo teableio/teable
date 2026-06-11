@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import {
   AttachmentFieldCore,
   AutoNumberFieldCore,
@@ -29,6 +29,7 @@ import {
   LastModifiedTimeFieldCore,
   LongTextFieldCore,
   NumberFieldCore,
+  PRIMARY_SUPPORTED_TYPES,
   RatingFieldCore,
   Relationship,
   RelationshipRevert,
@@ -54,6 +55,7 @@ import type {
   ITextFieldCustomizeAIConfig,
   ITextFieldSummarizeAIConfig,
   IConditionalLookupOptions,
+  INumberFieldOptions,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
@@ -64,11 +66,15 @@ import { fromZodError } from 'zod-validation-error';
 import { CustomHttpException } from '../../../custom.exception';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
+import type { IDataDbRoutingOptions } from '../../../global/data-db-client-manager.service';
+import { DatabaseRouter } from '../../../global/database-router.service';
+import { DATA_KNEX } from '../../../global/knex/knex.module';
 import { extractFieldReferences } from '../../../utils';
 import {
   majorFieldKeysChanged,
   NON_INFECT_OPTION_KEYS,
 } from '../../../utils/major-field-keys-changed';
+import { parseFieldJson } from '../../base/cross-space-detection.util';
 import { ReferenceService } from '../../calculation/reference.service';
 import { hasCycle } from '../../calculation/utils/dfs';
 import { FieldService } from '../field.service';
@@ -79,14 +85,22 @@ import { FormulaFieldDto } from '../model/field-dto/formula-field.dto';
 import type { LinkFieldDto } from '../model/field-dto/link-field.dto';
 import { RollupFieldDto } from '../model/field-dto/rollup-field.dto';
 
+type ILinkFieldReference = Pick<IFieldVo, 'name' | 'isMultipleCellValue'> & {
+  options: Pick<ILinkFieldOptionsRo, 'relationship' | 'foreignTableId'> &
+    Partial<Pick<ILinkFieldOptions, 'fkHostTableName' | 'selfKeyName' | 'foreignKeyName'>>;
+};
+
 @Injectable()
 export class FieldSupplementService {
+  private readonly logger = new Logger(FieldSupplementService.name);
+
   constructor(
     private readonly fieldService: FieldService,
     private readonly prismaService: PrismaService,
+    private readonly databaseRouter: DatabaseRouter,
     private readonly referenceService: ReferenceService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    @InjectModel(DATA_KNEX) private readonly knex: Knex
   ) {}
 
   private async getDbTableName(tableId: string) {
@@ -97,11 +111,105 @@ export class FieldSupplementService {
     return tableMeta.dbTableName;
   }
 
+  async isCrossSpaceTarget(tableId: string, foreignTableId: string): Promise<boolean> {
+    if (!foreignTableId || tableId === foreignTableId) return false;
+    const rows = await this.prismaService.txClient().tableMeta.findMany({
+      where: { id: { in: [tableId, foreignTableId] }, deletedTime: null },
+      select: { id: true, base: { select: { spaceId: true } } },
+    });
+    const spaceMap = new Map(rows.map((r) => [r.id, r.base.spaceId]));
+    const selfSpace = spaceMap.get(tableId);
+    const foreignSpace = spaceMap.get(foreignTableId);
+    return Boolean(selfSpace && foreignSpace && selfSpace !== foreignSpace);
+  }
+
+  async assertSameSpaceLinkTarget(tableId: string, foreignTableId: string): Promise<void> {
+    if (!(await this.isCrossSpaceTarget(tableId, foreignTableId))) return;
+    // Tag for post-deploy observability: count rejections to gauge how often
+    // clients try to create new cross-space refs after the forbid landed.
+    this.logger.warn(
+      `[cross-space] reject create: tableId=${tableId} foreignTableId=${foreignTableId}`
+    );
+    throw new CustomHttpException(
+      `Cross-space link is no longer supported (foreignTableId: ${foreignTableId})`,
+      HttpErrorCode.VALIDATION_ERROR,
+      {
+        localization: {
+          i18nKey: 'httpErrors.field.crossSpaceLinkForbidden',
+          context: { foreignTableId },
+        },
+      }
+    );
+  }
+
+  // Returns the field's foreign table reference: stored in `options` for
+  // Link / ConditionalRollup, in `lookupOptions` for Lookup / Rollup /
+  // ConditionalLookup. Accepts both parsed IFieldVo and raw Prisma rows
+  // (options/lookupOptions as JSON strings) — parseFieldJson short-circuits
+  // when already an object.
+  getForeignTableId(field: {
+    type: string;
+    isLookup?: boolean | null;
+    options?: unknown;
+    lookupOptions?: unknown;
+  }): string | undefined {
+    const readFt = (raw: unknown): string | undefined => {
+      const blob = parseFieldJson(raw);
+      const v = blob?.foreignTableId;
+      return typeof v === 'string' && v ? v : undefined;
+    };
+    if (field.type === FieldType.Link && !field.isLookup) {
+      return readFt(field.options);
+    }
+    if (field.type === FieldType.ConditionalRollup) {
+      return readFt(field.options);
+    }
+    if (field.isLookup || field.type === FieldType.Rollup) {
+      return readFt(field.lookupOptions);
+    }
+    return undefined;
+  }
+
+  // Composes getForeignTableId + isCrossSpaceTarget so callers don't have to
+  // re-derive the dual-location read every time. Returns true iff the field's
+  // foreignTableId resolves to a different space than `tableId`.
+  async isCrossSpaceField(
+    tableId: string,
+    field: {
+      type: string;
+      isLookup?: boolean | null;
+      options?: unknown;
+      lookupOptions?: unknown;
+    }
+  ): Promise<boolean> {
+    const ft = this.getForeignTableId(field);
+    if (!ft) return false;
+    return this.isCrossSpaceTarget(tableId, ft);
+  }
+
+  // Single guard at the public entry points: any new cross-space link / lookup /
+  // rollup / conditionalLookup / conditionalRollup is rejected. On update, keep
+  // legacy cross-space refs working as long as the foreignTableId is unchanged.
+  private async assertNoNewCrossSpaceField(
+    tableId: string,
+    newField: IFieldVo,
+    oldField?: IFieldVo
+  ): Promise<void> {
+    const newFt = this.getForeignTableId(newField);
+    if (!newFt) return;
+    if (oldField && this.getForeignTableId(oldField) === newFt) return;
+    await this.assertSameSpaceLinkTarget(tableId, newFt);
+  }
+
   private getForeignKeyFieldName(fieldId: string | undefined) {
     if (!fieldId) {
       return `__fk_rad${getRandomString(16)}`;
     }
     return `__fk_${fieldId}`;
+  }
+
+  private getDefaultTimeZone(): string {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
   }
 
   private async getJunctionTableName(
@@ -492,7 +600,7 @@ export class FieldSupplementService {
     return { hasOrderColumn: Boolean(hasOrderColumn) };
   }
 
-  private async prepareLookupOptions(field: IFieldRo, batchFieldVos?: IFieldVo[]) {
+  private async prepareLookupOptions(tableId: string, field: IFieldRo, batchFieldVos?: IFieldVo[]) {
     const { lookupOptions } = field;
     if (!lookupOptions) {
       throw new CustomHttpException(`lookupOptions is required`, HttpErrorCode.VALIDATION_ERROR, {
@@ -513,11 +621,31 @@ export class FieldSupplementService {
     });
 
     const optionsRaw = linkFieldRaw?.options || null;
-    const linkFieldOptions: ILinkFieldOptions =
-      (optionsRaw && JSON.parse(optionsRaw as string)) ||
-      batchFieldVos?.find((field) => field.id === linkFieldId)?.options;
+    const batchLinkField = batchFieldVos?.find(
+      (candidate) => candidate.id === linkFieldId && candidate.type === FieldType.Link
+    );
+    const linkFieldOptions: ILinkFieldReference['options'] | undefined =
+      (optionsRaw && (JSON.parse(optionsRaw as string) as ILinkFieldOptions)) ||
+      (batchLinkField?.options as ILinkFieldOptions | ILinkFieldOptionsRo | undefined);
 
-    if (!linkFieldOptions || !linkFieldRaw) {
+    const linkFieldReference: ILinkFieldReference | undefined =
+      linkFieldRaw && linkFieldOptions
+        ? {
+            name: linkFieldRaw.name,
+            isMultipleCellValue: linkFieldRaw.isMultipleCellValue ?? undefined,
+            options: linkFieldOptions,
+          }
+        : batchLinkField && linkFieldOptions
+          ? {
+              name: batchLinkField.name,
+              isMultipleCellValue:
+                batchLinkField.isMultipleCellValue ??
+                (isMultiValueLink(linkFieldOptions.relationship) || undefined),
+              options: linkFieldOptions,
+            }
+          : undefined;
+
+    if (!linkFieldReference) {
       throw new CustomHttpException(
         `linkFieldId ${linkFieldId} is invalid`,
         HttpErrorCode.VALIDATION_ERROR,
@@ -530,7 +658,7 @@ export class FieldSupplementService {
       );
     }
 
-    if (foreignTableId !== linkFieldOptions.foreignTableId) {
+    if (foreignTableId !== linkFieldReference.options.foreignTableId) {
       throw new CustomHttpException(
         `foreignTableId ${foreignTableId} is invalid`,
         HttpErrorCode.VALIDATION_ERROR,
@@ -563,13 +691,13 @@ export class FieldSupplementService {
     return {
       lookupOptions: {
         ...lookupOptions,
-        relationship: linkFieldOptions.relationship,
-        fkHostTableName: linkFieldOptions.fkHostTableName,
-        selfKeyName: linkFieldOptions.selfKeyName,
-        foreignKeyName: linkFieldOptions.foreignKeyName,
+        relationship: linkFieldReference.options.relationship,
+        fkHostTableName: linkFieldReference.options.fkHostTableName,
+        selfKeyName: linkFieldReference.options.selfKeyName,
+        foreignKeyName: linkFieldReference.options.foreignKeyName,
       },
       lookupFieldRaw,
-      linkFieldRaw,
+      linkField: linkFieldReference,
     };
   }
 
@@ -612,12 +740,13 @@ export class FieldSupplementService {
     };
   }
 
-  private async prepareLookupField(fieldRo: IFieldRo, batchFieldVos?: IFieldVo[]) {
+  private async prepareLookupField(tableId: string, fieldRo: IFieldRo, batchFieldVos?: IFieldVo[]) {
     if (fieldRo.isConditionalLookup) {
-      return this.prepareConditionalLookupField(fieldRo);
+      return this.prepareConditionalLookupField(tableId, fieldRo);
     }
 
-    const { lookupOptions, lookupFieldRaw, linkFieldRaw } = await this.prepareLookupOptions(
+    const { lookupOptions, lookupFieldRaw, linkField } = await this.prepareLookupOptions(
+      tableId,
       fieldRo,
       batchFieldVos
     );
@@ -636,7 +765,7 @@ export class FieldSupplementService {
     }
 
     const isMultipleCellValue =
-      linkFieldRaw.isMultipleCellValue || lookupFieldRaw.isMultipleCellValue || false;
+      linkField.isMultipleCellValue || lookupFieldRaw.isMultipleCellValue || false;
 
     const cellValueType = lookupFieldRaw.cellValueType as CellValueType;
 
@@ -649,7 +778,7 @@ export class FieldSupplementService {
 
     return {
       ...fieldRo,
-      name: fieldRo.name ?? `${lookupFieldRaw.name} (from ${linkFieldRaw.name})`,
+      name: fieldRo.name ?? `${lookupFieldRaw.name} (from ${linkField.name})`,
       options,
       lookupOptions,
       isMultipleCellValue,
@@ -659,20 +788,20 @@ export class FieldSupplementService {
     };
   }
 
-  private async prepareUpdateLookupField(fieldRo: IFieldRo, oldFieldVo: IFieldVo) {
+  private async prepareUpdateLookupField(tableId: string, fieldRo: IFieldRo, oldFieldVo: IFieldVo) {
     if (fieldRo.isConditionalLookup) {
-      return this.prepareConditionalLookupField(fieldRo);
+      return this.prepareConditionalLookupField(tableId, fieldRo);
     }
 
     const newLookupOptions = fieldRo.lookupOptions as ILookupOptionsRo | undefined;
     const oldLookupOptions = oldFieldVo.lookupOptions as ILookupOptionsVo | undefined;
 
     if (!newLookupOptions || !isLinkLookupOptions(newLookupOptions)) {
-      return this.prepareLookupField(fieldRo);
+      return this.prepareLookupField(tableId, fieldRo);
     }
 
     if (!oldLookupOptions || !isLinkLookupOptions(oldLookupOptions)) {
-      return this.prepareLookupField(fieldRo);
+      return this.prepareLookupField(tableId, fieldRo);
     }
     if (
       oldFieldVo.isLookup &&
@@ -680,12 +809,13 @@ export class FieldSupplementService {
       newLookupOptions.linkFieldId === oldLookupOptions.linkFieldId &&
       newLookupOptions.foreignTableId === oldLookupOptions.foreignTableId
     ) {
+      const showAs = (fieldRo.options as Record<string, unknown> | undefined)?.showAs;
       return {
         ...oldFieldVo,
         ...fieldRo,
         options: {
           ...oldFieldVo.options,
-          showAs: undefined,
+          showAs,
         },
         lookupOptions: {
           ...oldLookupOptions,
@@ -694,7 +824,7 @@ export class FieldSupplementService {
       };
     }
 
-    return this.prepareLookupField(fieldRo);
+    return this.prepareLookupField(tableId, fieldRo);
   }
 
   private async prepareFormulaField(fieldRo: IFieldRo, batchFieldVos?: IFieldVo[]) {
@@ -773,8 +903,7 @@ export class FieldSupplementService {
     const formatting =
       (fieldRo.options as IFormulaFieldOptions)?.formatting ?? getDefaultFormatting(cellValueType);
     const timeZone =
-      (fieldRo.options as IFormulaFieldOptions)?.timeZone ??
-      Intl.DateTimeFormat().resolvedOptions().timeZone;
+      (fieldRo.options as IFormulaFieldOptions)?.timeZone ?? this.getDefaultTimeZone();
 
     return {
       ...fieldRo,
@@ -838,8 +967,9 @@ export class FieldSupplementService {
     return this.prepareFormulaField(mergedFieldRo);
   }
 
-  private async prepareRollupField(field: IFieldRo, batchFieldVos?: IFieldVo[]) {
-    const { lookupOptions, linkFieldRaw, lookupFieldRaw } = await this.prepareLookupOptions(
+  private async prepareRollupField(tableId: string, field: IFieldRo, batchFieldVos?: IFieldVo[]) {
+    const { lookupOptions, linkField, lookupFieldRaw } = await this.prepareLookupOptions(
+      tableId,
       field,
       batchFieldVos
     );
@@ -862,7 +992,7 @@ export class FieldSupplementService {
       valueType = RollupFieldDto.getParsedValueType(
         options.expression,
         lookupField.cellValueType,
-        lookupField.isMultipleCellValue || linkFieldRaw.isMultipleCellValue || false
+        lookupField.isMultipleCellValue || linkField.isMultipleCellValue || false
       );
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
@@ -883,7 +1013,7 @@ export class FieldSupplementService {
 
     return {
       ...field,
-      name: field.name ?? `${lookupFieldRaw.name} Rollup (from ${linkFieldRaw.name})`,
+      name: field.name ?? `${lookupFieldRaw.name} Rollup (from ${linkField.name})`,
       options: {
         ...options,
         ...(formatting ? { formatting } : {}),
@@ -901,11 +1031,19 @@ export class FieldSupplementService {
   }
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
-  private async prepareConditionalRollupField(field: IFieldRo) {
+  private async prepareConditionalRollupField(tableId: string, field: IFieldRo) {
     const rawOptions = field.options as IConditionalRollupFieldOptions | undefined;
     const options = { ...(rawOptions || {}) } as IConditionalRollupFieldOptions | undefined;
     if (!options) {
-      throw new BadRequestException('Conditional rollup field options are required');
+      throw new CustomHttpException(
+        'Conditional rollup field options are required',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.conditionalRollupOptionsRequired',
+          },
+        }
+      );
     }
 
     if (!options.sort || options.sort.fieldId == null) {
@@ -918,11 +1056,27 @@ export class FieldSupplementService {
     const { foreignTableId, lookupFieldId } = options;
 
     if (!foreignTableId) {
-      throw new BadRequestException('Conditional rollup field foreignTableId is required');
+      throw new CustomHttpException(
+        'Conditional rollup field foreignTableId is required',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.foreignTableIdRequired',
+          },
+        }
+      );
     }
 
     if (!lookupFieldId) {
-      throw new BadRequestException('Conditional rollup field lookupFieldId is required');
+      throw new CustomHttpException(
+        'Conditional rollup field lookupFieldId is required',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.lookupFieldIdRequired',
+          },
+        }
+      );
     }
 
     const lookupFieldRaw = await this.prismaService.txClient().field.findFirst({
@@ -930,12 +1084,28 @@ export class FieldSupplementService {
     });
 
     if (!lookupFieldRaw) {
-      throw new BadRequestException(`Conditional rollup field ${lookupFieldId} is not exist`);
+      throw new CustomHttpException(
+        `Conditional rollup field ${lookupFieldId} is not exist`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.lookupFieldNotExist',
+            context: { lookupFieldId },
+          },
+        }
+      );
     }
 
     if (lookupFieldRaw.tableId !== foreignTableId) {
-      throw new BadRequestException(
-        `Conditional rollup field ${lookupFieldId} does not belong to table ${foreignTableId}`
+      throw new CustomHttpException(
+        `Conditional rollup field ${lookupFieldId} does not belong to table ${foreignTableId}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.lookupFieldNotBelongToTable',
+            context: { lookupFieldId, foreignTableId },
+          },
+        }
       );
     }
 
@@ -959,13 +1129,22 @@ export class FieldSupplementService {
       );
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
-      throw new BadRequestException(`Conditional rollup parse error: ${e.message}`);
+      throw new CustomHttpException(
+        `Conditional rollup parse error: ${e.message}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.conditionalRollupParseError',
+            context: { message: e.message },
+          },
+        }
+      );
     }
 
     const { cellValueType, isMultipleCellValue } = valueType;
 
     const formatting = options.formatting ?? getDefaultFormatting(cellValueType);
-    const timeZone = options.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const timeZone = options.timeZone ?? this.getDefaultTimeZone();
 
     const foreignTable = await this.prismaService.txClient().tableMeta.findUnique({
       where: { id: foreignTableId },
@@ -998,23 +1177,47 @@ export class FieldSupplementService {
     };
   }
 
-  private async prepareConditionalLookupField(field: IFieldRo) {
+  private async prepareConditionalLookupField(tableId: string, field: IFieldRo) {
     const lookupOptions = field.lookupOptions as ILookupOptionsRo | undefined;
     const conditionalLookup = isConditionalLookupOptions(lookupOptions)
       ? (lookupOptions as IConditionalLookupOptions)
       : undefined;
     if (!conditionalLookup) {
-      throw new BadRequestException('Conditional lookup configuration is required');
+      throw new CustomHttpException(
+        'Conditional lookup configuration is required',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.conditionalLookupOptionsRequired',
+          },
+        }
+      );
     }
 
     const { foreignTableId, lookupFieldId } = conditionalLookup;
 
     if (!foreignTableId) {
-      throw new BadRequestException('Conditional lookup foreignTableId is required');
+      throw new CustomHttpException(
+        'Conditional lookup foreignTableId is required',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.foreignTableIdRequired',
+          },
+        }
+      );
     }
 
     if (!lookupFieldId) {
-      throw new BadRequestException('Conditional lookup lookupFieldId is required');
+      throw new CustomHttpException(
+        'Conditional lookup lookupFieldId is required',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.lookupFieldIdRequired',
+          },
+        }
+      );
     }
 
     const lookupFieldRaw = await this.prismaService.txClient().field.findFirst({
@@ -1022,18 +1225,41 @@ export class FieldSupplementService {
     });
 
     if (!lookupFieldRaw) {
-      throw new BadRequestException(`Conditional lookup field ${lookupFieldId} is not exist`);
+      throw new CustomHttpException(
+        `Conditional lookup field ${lookupFieldId} is not exist`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.lookupFieldNotExist',
+            context: { lookupFieldId },
+          },
+        }
+      );
     }
 
     if (lookupFieldRaw.tableId !== foreignTableId) {
-      throw new BadRequestException(
-        `Conditional lookup field ${lookupFieldId} does not belong to table ${foreignTableId}`
+      throw new CustomHttpException(
+        `Conditional lookup field ${lookupFieldId} does not belong to table ${foreignTableId}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.lookupFieldNotBelongToTable',
+            context: { lookupFieldId, foreignTableId },
+          },
+        }
       );
     }
 
     if (lookupFieldRaw.type !== field.type) {
-      throw new BadRequestException(
-        `Current field type ${field.type} is not equal to lookup field (${lookupFieldRaw.type})`
+      throw new CustomHttpException(
+        `Current field type ${field.type} is not equal to lookup field (${lookupFieldRaw.type})`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.lookupFieldTypeNotMatch',
+            context: { fieldType: field.type, lookupFieldType: lookupFieldRaw.type },
+          },
+        }
       );
     }
 
@@ -1077,7 +1303,7 @@ export class FieldSupplementService {
     };
   }
 
-  private async prepareUpdateRollupField(fieldRo: IFieldRo, oldFieldVo: IFieldVo) {
+  private async prepareUpdateRollupField(tableId: string, fieldRo: IFieldRo, oldFieldVo: IFieldVo) {
     const newOptions = fieldRo.options as IRollupFieldOptions;
     const oldOptions = oldFieldVo.options as IRollupFieldOptions;
 
@@ -1094,7 +1320,7 @@ export class FieldSupplementService {
       !isLinkLookupOptions(newLookupOptions) ||
       !isLinkLookupOptions(oldLookupOptions)
     ) {
-      return this.prepareRollupField(fieldRo);
+      return this.prepareRollupField(tableId, fieldRo);
     }
     if (
       newOptions.expression === oldOptions.expression &&
@@ -1114,7 +1340,7 @@ export class FieldSupplementService {
       };
     }
 
-    return this.prepareRollupField(fieldRo);
+    return this.prepareRollupField(tableId, fieldRo);
   }
 
   private prepareSingleTextField(field: IFieldRo) {
@@ -1144,10 +1370,17 @@ export class FieldSupplementService {
   private prepareNumberField(field: IFieldRo) {
     const { name, options } = field;
 
+    // Handle empty options object - use default if options is null/undefined OR empty object without formatting
+    const numberOptions = options as INumberFieldOptions | undefined;
+    const needsDefault = !numberOptions || !numberOptions.formatting;
+    const finalOptions = needsDefault
+      ? { ...NumberFieldCore.defaultOptions(), ...numberOptions }
+      : numberOptions;
+
     return {
       ...field,
       name: name ?? 'Number',
-      options: options ?? NumberFieldCore.defaultOptions(),
+      options: finalOptions,
       cellValueType: CellValueType.Number,
       dbFieldType: DbFieldType.Real,
     };
@@ -1380,16 +1613,16 @@ export class FieldSupplementService {
     batchFieldVos?: IFieldVo[]
   ) {
     if (fieldRo.isLookup) {
-      return this.prepareLookupField(fieldRo, batchFieldVos);
+      return this.prepareLookupField(tableId, fieldRo, batchFieldVos);
     }
 
     switch (fieldRo.type) {
       case FieldType.Link:
         return this.prepareLinkField(tableId, fieldRo);
       case FieldType.Rollup:
-        return this.prepareRollupField(fieldRo, batchFieldVos);
+        return this.prepareRollupField(tableId, fieldRo, batchFieldVos);
       case FieldType.ConditionalRollup:
-        return this.prepareConditionalRollupField(fieldRo);
+        return this.prepareConditionalRollupField(tableId, fieldRo);
       case FieldType.Formula:
         return this.prepareFormulaField(fieldRo, batchFieldVos);
       case FieldType.SingleLineText:
@@ -1492,7 +1725,7 @@ export class FieldSupplementService {
     }
 
     if (fieldRo.isLookup && hasMajorChange) {
-      return this.prepareUpdateLookupField(fieldRo, oldFieldVo);
+      return this.prepareUpdateLookupField(tableId, fieldRo, oldFieldVo);
     }
 
     switch (fieldRo.type) {
@@ -1500,9 +1733,9 @@ export class FieldSupplementService {
         return this.prepareUpdateLinkField(tableId, fieldRo, oldFieldVo);
       }
       case FieldType.Rollup:
-        return this.prepareUpdateRollupField(fieldRo, oldFieldVo);
+        return this.prepareUpdateRollupField(tableId, fieldRo, oldFieldVo);
       case FieldType.ConditionalRollup:
-        return this.prepareConditionalRollupField(fieldRo);
+        return this.prepareConditionalRollupField(tableId, fieldRo);
       case FieldType.Formula:
         return this.prepareUpdateFormulaField(fieldRo, oldFieldVo);
       case FieldType.SingleLineText:
@@ -1563,8 +1796,8 @@ export class FieldSupplementService {
   }
 
   private validateFormattingShowAs(field: IFieldVo) {
-    const { cellValueType, isMultipleCellValue } = field;
-    const showAsSchema = getShowAsSchema(cellValueType, isMultipleCellValue);
+    const { cellValueType, isMultipleCellValue, type } = field;
+    const showAsSchema = getShowAsSchema(cellValueType, isMultipleCellValue, type);
 
     const showAs = 'showAs' in field.options ? field.options.showAs : undefined;
     const formatting = 'formatting' in field.options ? field.options.formatting : undefined;
@@ -1593,14 +1826,20 @@ export class FieldSupplementService {
    * prepare properties for computed field to make sure it's valid
    * this method do not do any db update
    */
-  async prepareCreateField(tableId: string, fieldRo: IFieldRo, batchFieldVos?: IFieldVo[]) {
+  async prepareCreateField(
+    tableId: string,
+    fieldRo: IFieldRo,
+    batchFieldVos?: IFieldVo[],
+    routingOptions?: IDataDbRoutingOptions
+  ) {
     const field = (await this.prepareCreateFieldInner(tableId, fieldRo, batchFieldVos)) as IFieldVo;
 
     const fieldId = field.id || generateFieldId();
     const fieldName = await this.uniqFieldName(tableId, field.name);
 
     const dbFieldName =
-      fieldRo.dbFieldName ?? (await this.fieldService.generateDbFieldName(tableId, fieldName));
+      fieldRo.dbFieldName ??
+      (await this.fieldService.generateDbFieldName(tableId, fieldName, routingOptions));
 
     if (fieldRo.dbFieldName) {
       const existField = await this.prismaService.txClient().field.findFirst({
@@ -1631,11 +1870,77 @@ export class FieldSupplementService {
 
     this.validateFormattingShowAs(fieldVo);
     this.validateAiConfig(fieldVo);
+    await this.validatePrimaryConfigurations(tableId, [fieldVo]);
+    await this.assertNoNewCrossSpaceField(tableId, fieldVo);
 
     return fieldVo;
   }
 
-  async prepareCreateFields(tableId: string, fieldRos: IFieldRo[], batchFieldVos?: IFieldVo[]) {
+  // Primary fields must be a static, supported type with no lookup configuration, and a table
+  // can have at most one primary. Bulk paths (table/base/field duplicate, .tea import, AI tools)
+  // historically passed isPrimary=true on raw field VOs, allowing link/checkbox/attachment/rollup
+  // primaries to slip in and tables to end up with multiple primaries. See T3367 follow-up.
+  // Aligns with v2's CreateFieldCommand guard (community/packages/v2/.../CreateFieldCommand.ts:52).
+  private async validatePrimaryConfigurations(tableId: string, fieldVos: IFieldVo[]) {
+    const newPrimaries = fieldVos.filter((f) => f.isPrimary);
+    if (newPrimaries.length === 0) return;
+
+    if (newPrimaries.length > 1) {
+      throw new CustomHttpException(
+        'Cannot create more than one primary field in a single batch',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: { i18nKey: 'httpErrors.field.primaryFieldAlreadyExists', context: {} },
+        }
+      );
+    }
+
+    for (const fieldVo of newPrimaries) {
+      if (!PRIMARY_SUPPORTED_TYPES.has(fieldVo.type)) {
+        throw new CustomHttpException(
+          `Field type ${fieldVo.type} is not supported as primary field`,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.field.unsupportedPrimaryFieldType',
+              context: { type: fieldVo.type },
+            },
+          }
+        );
+      }
+
+      if (fieldVo.isLookup || fieldVo.isConditionalLookup || fieldVo.lookupOptions) {
+        throw new CustomHttpException(
+          'Primary field cannot be configured as a lookup field',
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: { i18nKey: 'httpErrors.field.primaryCannotBeLookup', context: {} },
+          }
+        );
+      }
+    }
+
+    const existing = await this.prismaService.txClient().field.findFirst({
+      where: { tableId, isPrimary: true, deletedTime: null },
+      select: { id: true },
+    });
+    if (existing) {
+      throw new CustomHttpException(
+        'Table already has a primary field',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: { i18nKey: 'httpErrors.field.primaryFieldAlreadyExists', context: {} },
+        }
+      );
+    }
+  }
+
+  async prepareCreateFields(
+    tableId: string,
+    fieldRos: IFieldRo[],
+    batchFieldVos?: IFieldVo[],
+    routingOptions?: IDataDbRoutingOptions
+  ) {
     // throw error when dbFieldName is duplicated
     const fieldRoDbFieldNames = fieldRos
       .map((field) => field.dbFieldName)
@@ -1672,9 +1977,13 @@ export class FieldSupplementService {
       fields.map((field) => field.name)
     );
 
-    const dbFieldNames = await this.fieldService.generateDbFieldNames(tableId, uniqFieldNames);
+    const dbFieldNames = await this.fieldService.generateDbFieldNames(
+      tableId,
+      uniqFieldNames,
+      routingOptions
+    );
 
-    return fieldRos.map((fieldRo, index) => {
+    const fieldVos = fieldRos.map((fieldRo, index) => {
       const field = fields[index];
       const fieldId = field.id || generateFieldId();
       const fieldName = uniqFieldNames[index];
@@ -1690,6 +1999,11 @@ export class FieldSupplementService {
       this.validateAiConfig(fieldVo);
       return fieldVo;
     });
+    await this.validatePrimaryConfigurations(tableId, fieldVos);
+    for (const fieldVo of fieldVos) {
+      await this.assertNoNewCrossSpaceField(tableId, fieldVo);
+    }
+    return fieldVos;
   }
 
   async prepareUpdateField(
@@ -1697,19 +2011,27 @@ export class FieldSupplementService {
     fieldRo: IConvertFieldRo,
     oldFieldVo: IFieldVo
   ): Promise<IFieldVo> {
+    const normalizedFieldRo: IFieldRo = {
+      ...fieldRo,
+      options: fieldRo.options ?? undefined,
+    };
+
     const fieldVo = (await this.prepareUpdateFieldInner(
       tableId,
       {
-        ...fieldRo,
-        name: fieldRo.name ?? oldFieldVo.name,
-        dbFieldName: fieldRo.dbFieldName ?? oldFieldVo.dbFieldName,
+        ...normalizedFieldRo,
+        name: normalizedFieldRo.name ?? oldFieldVo.name,
+        dbFieldName: normalizedFieldRo.dbFieldName ?? oldFieldVo.dbFieldName,
         description:
-          fieldRo.description === undefined ? oldFieldVo.description : fieldRo.description,
+          normalizedFieldRo.description === undefined
+            ? oldFieldVo.description
+            : normalizedFieldRo.description,
       }, // for convenience, we fallback name adn dbFieldName when it be undefined
       oldFieldVo
     )) as IFieldVo;
     this.validateFormattingShowAs(fieldVo);
     this.validateAiConfig(fieldVo);
+    await this.assertNoNewCrossSpaceField(tableId, fieldVo, oldFieldVo);
 
     return {
       ...fieldVo,
@@ -1747,7 +2069,11 @@ export class FieldSupplementService {
     });
   }
 
-  async generateSymmetricField(tableId: string, field: LinkFieldDto) {
+  async generateSymmetricField(
+    tableId: string,
+    field: LinkFieldDto,
+    routingOptions?: IDataDbRoutingOptions
+  ) {
     if (!field.options.symmetricFieldId) {
       throw new CustomHttpException(
         'symmetricFieldId is required',
@@ -1766,7 +2092,7 @@ export class FieldSupplementService {
       select: { name: true, baseId: true },
     });
 
-    const fieldName = await this.uniqFieldName(tableId, tableName);
+    const fieldName = await this.uniqFieldName(field.options.foreignTableId, tableName);
 
     // lookup field id is the primary field of the table to which it is linked
     const { id: lookupFieldId } = await prisma.field.findFirstOrThrow({
@@ -1778,7 +2104,8 @@ export class FieldSupplementService {
     const isMultipleCellValue = isMultiValueLink(relationship) || undefined;
     const dbFieldName = await this.fieldService.generateDbFieldName(
       field.options.foreignTableId,
-      fieldName
+      fieldName,
+      routingOptions
     );
 
     return createFieldInstanceByVo({
@@ -1807,26 +2134,28 @@ export class FieldSupplementService {
 
   async cleanForeignKey(options: ILinkFieldOptions) {
     const { fkHostTableName, relationship, selfKeyName, foreignKeyName, isOneWay } = options;
+    const dataPrisma = await this.databaseRouter.dataPrismaExecutorForTable(
+      options.foreignTableId,
+      {
+        useTransaction: true,
+      }
+    );
     const dropTable = async (tableName: string) => {
       // Use provider to generate dialect-correct DROP TABLE SQL
       const sql = this.dbProvider.dropTable(tableName);
-      await this.prismaService.txClient().$executeRawUnsafe(sql);
+      await dataPrisma.$executeRawUnsafe(sql);
     };
 
     const dropColumn = async (tableName: string, columnName: string) => {
       const sqls = this.dbProvider.dropColumnAndIndex(tableName, columnName, `index_${columnName}`);
 
       for (const sql of sqls) {
-        await this.prismaService.txClient().$executeRawUnsafe(sql);
+        await dataPrisma.$executeRawUnsafe(sql);
       }
 
       // Drop the associated order column if it exists
       const orderColumn = `${columnName}_order`;
-      const exists = await this.dbProvider.checkColumnExist(
-        tableName,
-        orderColumn,
-        this.prismaService.txClient()
-      );
+      const exists = await this.dbProvider.checkColumnExist(tableName, orderColumn, dataPrisma);
       if (exists) {
         const dropOrderSqls = this.dbProvider.dropColumnAndIndex(
           tableName,
@@ -1834,7 +2163,7 @@ export class FieldSupplementService {
           `index_${orderColumn}`
         );
         for (const sql of dropOrderSqls) {
-          await this.prismaService.txClient().$executeRawUnsafe(sql);
+          await dataPrisma.$executeRawUnsafe(sql);
         }
       }
     };

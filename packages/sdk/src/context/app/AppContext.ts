@@ -7,6 +7,7 @@ export interface IAppContext {
   lang?: string;
   shareId?: string;
   template?: IGetBaseVo['template'];
+  maxSearchFieldCount?: number;
 }
 
 // eslint-disable-next-line @typescript-eslint/naming-convention, @typescript-eslint/no-non-null-assertion

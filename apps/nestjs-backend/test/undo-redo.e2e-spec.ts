@@ -23,14 +23,19 @@ import {
   deleteRecord,
   deleteRecords,
   deleteSelection,
+  deleteSelectionStream,
   deleteView,
+  duplicateSelectionStream,
   getField,
   getFields,
   getRecord,
   getRecords,
+  getTrashItems,
+  ResourceType,
   getView,
   getViewList,
   paste,
+  RangeType,
   redo,
   undo,
   updateRecord,
@@ -41,30 +46,70 @@ import {
   updateViewFilter,
   updateViewName,
   updateViewOrder,
+  X_CANARY_HEADER,
+  ensureUndoRedoWindowIdHeader,
 } from '@teable/openapi';
 import type { ITableFullVo } from '@teable/openapi';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
 import { Events } from '../src/event-emitter/events';
+import { X_TEABLE_V2_HEADER } from '../src/features/canary/interceptors/v2-indicator.interceptor';
+import { X_TEABLE_UNDO_REDO_ENGINE_HEADER } from '../src/features/undo-redo/open-api/undo-redo.service';
 import { createAwaitWithEvent } from './utils/event-promise';
 import { initApp, permanentDeleteTable, createTable, updateRecordByApi } from './utils/init-app';
 
+const isForceV2 = process.env.FORCE_V2_ALL === 'true';
+const canRunCanaryV2 =
+  process.env.FORCE_V2_ALL === 'true' || process.env.ENABLE_CANARY_FEATURE === 'true';
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const waitForTableTrashCount = async (tableId: string, expectedCount: number, maxRetries = 100) => {
+  for (let i = 0; i < maxRetries; i++) {
+    const result = await getTrashItems({ resourceId: tableId, resourceType: ResourceType.Table });
+    if (result.data.trashItems.length === expectedCount) {
+      return result;
+    }
+    await sleep(100);
+  }
+
+  return await getTrashItems({ resourceId: tableId, resourceType: ResourceType.Table });
+};
+const waitForViewVisibility = async (
+  tableId: string,
+  viewId: string,
+  visible: boolean,
+  maxRetries = 100
+) => {
+  for (let i = 0; i < maxRetries; i++) {
+    const views = (await getViewList(tableId)).data;
+    const view = views.find((v) => v.id === viewId);
+    if (Boolean(view) === visible) {
+      return view;
+    }
+    await sleep(100);
+  }
+
+  return (await getViewList(tableId)).data.find((v) => v.id === viewId);
+};
+
 describe('Undo Redo (e2e)', () => {
   let app: INestApplication;
+  let cookie: string;
   let table: ITableFullVo;
   let eventEmitterService: EventEmitterService;
   let awaitWithEvent: <T>(fn: () => Promise<T>) => Promise<T>;
+  let windowId: string;
   const baseId = globalThis.testConfig.baseId;
+  const windowIdHeader = 'X-Window-Id';
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
+    cookie = appCtx.cookie;
     eventEmitterService = app.get(EventEmitterService);
-    const windowId = 'win' + getRandomString(8);
-    axios.interceptors.request.use((config) => {
-      config.headers['X-Window-Id'] = windowId;
-      return config;
-    });
-    awaitWithEvent = createAwaitWithEvent(eventEmitterService, Events.OPERATION_PUSH);
+    windowId = 'win' + getRandomString(8);
+    ensureUndoRedoWindowIdHeader(windowId);
+    awaitWithEvent = isForceV2
+      ? async <T>(action: () => Promise<T>) => await action()
+      : createAwaitWithEvent(eventEmitterService, Events.OPERATION_PUSH);
   });
 
   afterAll(async () => {
@@ -83,17 +128,18 @@ describe('Undo Redo (e2e)', () => {
     await createField(table.id, { type: FieldType.CreatedTime });
     await createField(table.id, { type: FieldType.LastModifiedTime });
 
-    const record1 = (
-      await createRecords(table.id, {
-        fieldKeyType: FieldKeyType.Id,
-        records: [{ fields: { [table.fields[0].id]: 'record1' } }],
-        order: {
-          viewId: table.views[0].id,
-          anchorId: table.records[0].id,
-          position: 'after',
-        },
-      })
-    ).data.records[0];
+    const createRecordsRes = await createRecords(table.id, {
+      fieldKeyType: FieldKeyType.Id,
+      records: [{ fields: { [table.fields[0].id]: 'record1' } }],
+      order: {
+        viewId: table.views[0].id,
+        anchorId: table.records[0].id,
+        position: 'after',
+      },
+    });
+    const expectedUndoRedoEngine =
+      createRecordsRes.headers[X_TEABLE_V2_HEADER] === 'true' ? 'v2' : 'v1';
+    const record1 = createRecordsRes.data.records[0];
 
     const allRecords = await getRecords(table.id, {
       fieldKeyType: FieldKeyType.Id,
@@ -101,7 +147,8 @@ describe('Undo Redo (e2e)', () => {
     });
     expect(allRecords.data.records).toHaveLength(4);
 
-    await undo(table.id);
+    const undoRes = await undo(table.id);
+    expect(undoRes.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe(expectedUndoRedoEngine);
 
     const allRecordsAfterUndo = await getRecords(table.id, {
       fieldKeyType: FieldKeyType.Id,
@@ -110,7 +157,8 @@ describe('Undo Redo (e2e)', () => {
     expect(allRecordsAfterUndo.data.records).toHaveLength(3);
     expect(allRecordsAfterUndo.data.records.find((r) => r.id === record1.id)).toBeUndefined();
 
-    await redo(table.id);
+    const redoRes = await redo(table.id);
+    expect(redoRes.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe(expectedUndoRedoEngine);
 
     const allRecordsAfterRedo = await getRecords(table.id, {
       fieldKeyType: FieldKeyType.Id,
@@ -232,6 +280,187 @@ describe('Undo Redo (e2e)', () => {
     expect(allRecordsAfterRedo.data.records).toHaveLength(3);
     expect(allRecordsAfterRedo.data.records.find((r) => r.id === record1.id)).toBeUndefined();
   });
+
+  it.skipIf(!canRunCanaryV2)(
+    'should undo streamed delete selection with the same window undo stack',
+    async () => {
+      const previousWindowId = windowId;
+      const previousCanaryHeader = axios.defaults.headers.common[X_CANARY_HEADER];
+      const streamWindowId = 'win' + getRandomString(8);
+
+      windowId = streamWindowId;
+      axios.defaults.headers.common[windowIdHeader] = streamWindowId;
+      axios.defaults.headers.common[X_CANARY_HEADER] = 'true';
+
+      try {
+        const record1 = (
+          await createRecords(table.id, {
+            fieldKeyType: FieldKeyType.Id,
+            records: [{ fields: { [table.fields[0].id]: 'record1-stream' } }],
+            order: {
+              viewId: table.views[0].id,
+              anchorId: table.records[0].id,
+              position: 'after',
+            },
+          })
+        ).data.records[0];
+
+        const deleteResult = await deleteSelectionStream(
+          table.id,
+          {
+            viewId: table.views[0].id,
+            type: RangeType.Rows,
+            ranges: [[1, 1]],
+          },
+          {
+            headers: {
+              Cookie: cookie,
+            },
+          }
+        );
+
+        expect(deleteResult.data.ids).toEqual([record1.id]);
+
+        const allRecords = await getRecords(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          viewId: table.views[0].id,
+        });
+        expect(allRecords.data.records.find((r) => r.id === record1.id)).toBeUndefined();
+
+        const undoRes = await undo(table.id);
+        expect(undoRes.data.status).toEqual('fulfilled');
+        expect(undoRes.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v2');
+
+        const allRecordsAfterUndo = await getRecords(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          viewId: table.views[0].id,
+        });
+        expect(allRecordsAfterUndo.data.records.find((r) => r.id === record1.id)).toBeDefined();
+      } finally {
+        windowId = previousWindowId;
+        if (previousCanaryHeader == null) {
+          delete axios.defaults.headers.common[X_CANARY_HEADER];
+        } else {
+          axios.defaults.headers.common[X_CANARY_HEADER] = previousCanaryHeader;
+        }
+        axios.defaults.headers.common[windowIdHeader] = previousWindowId;
+      }
+    }
+  );
+
+  it.skipIf(!canRunCanaryV2)(
+    'should undo streamed duplicate selection with the same window undo stack',
+    async () => {
+      const previousWindowId = windowId;
+      const previousCanaryHeader = axios.defaults.headers.common[X_CANARY_HEADER];
+      const streamWindowId = 'win' + getRandomString(8);
+
+      windowId = streamWindowId;
+      axios.defaults.headers.common[windowIdHeader] = streamWindowId;
+      axios.defaults.headers.common[X_CANARY_HEADER] = 'true';
+
+      try {
+        const beforeRecords = await getRecords(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          viewId: table.views[0].id,
+        });
+
+        const duplicateResult = await duplicateSelectionStream(
+          table.id,
+          {
+            viewId: table.views[0].id,
+            type: RangeType.Rows,
+            ranges: [[0, 1]],
+          },
+          {
+            headers: {
+              Cookie: cookie,
+            },
+          }
+        );
+
+        expect(duplicateResult.errors).toHaveLength(0);
+        expect(duplicateResult.done.duplicatedCount).toBe(2);
+
+        const allRecords = await getRecords(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          viewId: table.views[0].id,
+        });
+        expect(allRecords.data.records).toHaveLength(beforeRecords.data.records.length + 2);
+
+        const undoRes = await undo(table.id);
+        expect(undoRes.data.status).toEqual('fulfilled');
+        expect(undoRes.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v2');
+
+        const allRecordsAfterUndo = await getRecords(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          viewId: table.views[0].id,
+        });
+        expect(allRecordsAfterUndo.data.records).toHaveLength(beforeRecords.data.records.length);
+        expect(
+          allRecordsAfterUndo.data.records.some((record) =>
+            duplicateResult.done.data.duplicatedRecordIds.includes(record.id)
+          )
+        ).toBe(false);
+      } finally {
+        windowId = previousWindowId;
+        if (previousCanaryHeader == null) {
+          delete axios.defaults.headers.common[X_CANARY_HEADER];
+        } else {
+          axios.defaults.headers.common[X_CANARY_HEADER] = previousCanaryHeader;
+        }
+        axios.defaults.headers.common[windowIdHeader] = previousWindowId;
+      }
+    }
+  );
+
+  it.skipIf(!canRunCanaryV2)(
+    'should remove v2 record trash after undo restores deleted records',
+    async () => {
+      const constrainedTable = await createTable(baseId, {
+        name: `undo-trash-${getRandomString(6)}`,
+        fields: [{ type: FieldType.SingleLineText, name: 'Title', isPrimary: true }],
+        records: [],
+      });
+      const previousCanaryHeader = axios.defaults.headers.common[X_CANARY_HEADER];
+      axios.defaults.headers.common[X_CANARY_HEADER] = 'true';
+
+      try {
+        const titleFieldId = constrainedTable.fields.find((field) => field.name === 'Title')?.id;
+        expect(titleFieldId).toBeTruthy();
+        if (!titleFieldId) {
+          return;
+        }
+
+        const created = await createRecords(constrainedTable.id, {
+          fieldKeyType: FieldKeyType.Id,
+          records: [{ fields: { [titleFieldId]: `trash-undo-${getRandomString(6)}` } }],
+        });
+        expect(created.headers[X_TEABLE_V2_HEADER]).toBe('true');
+        const recordId = created.data.records[0].id;
+
+        const deleteRes = await deleteRecord(constrainedTable.id, recordId);
+        expect(deleteRes.headers[X_TEABLE_V2_HEADER]).toBe('true');
+
+        const trashAfterDelete = await waitForTableTrashCount(constrainedTable.id, 1);
+        expect(trashAfterDelete.data.trashItems).toHaveLength(1);
+
+        const undoRes = await undo(constrainedTable.id);
+        expect(undoRes.data.status).toEqual('fulfilled');
+        expect(undoRes.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v2');
+
+        const trashAfterUndo = await waitForTableTrashCount(constrainedTable.id, 0);
+        expect(trashAfterUndo.data.trashItems).toHaveLength(0);
+      } finally {
+        if (previousCanaryHeader == null) {
+          delete axios.defaults.headers.common[X_CANARY_HEADER];
+        } else {
+          axios.defaults.headers.common[X_CANARY_HEADER] = previousCanaryHeader;
+        }
+        await permanentDeleteTable(baseId, constrainedTable.id);
+      }
+    }
+  );
 
   it('should undo / redo delete multiple records', async () => {
     await awaitWithEvent(() => createField(table.id, { type: FieldType.CreatedTime }));
@@ -533,6 +762,101 @@ describe('Undo Redo (e2e)', () => {
     expect(fieldsAfterRedo.length).toEqual(2);
   });
 
+  it.skipIf(!canRunCanaryV2)(
+    'should undo / redo delete field with not-null and unique constraints',
+    async () => {
+      const constrainedTable = await createTable(baseId, {
+        name: `undo-constrained-${getRandomString(6)}`,
+        fields: [{ type: FieldType.SingleLineText, name: 'Title', isPrimary: true }],
+        records: [],
+      });
+      const previousCanaryHeader = axios.defaults.headers.common[X_CANARY_HEADER];
+      axios.defaults.headers.common[X_CANARY_HEADER] = 'true';
+
+      try {
+        const titleFieldId = constrainedTable.fields.find((field) => field.name === 'Title')?.id;
+        const createCodeFieldRes = await createField(constrainedTable.id, {
+          type: FieldType.SingleLineText,
+          name: 'Code',
+          notNull: true,
+          unique: true,
+        });
+        expect(createCodeFieldRes.headers[X_TEABLE_V2_HEADER]).toBe('true');
+        const codeField = createCodeFieldRes.data;
+        const codeFieldId = codeField.id;
+
+        expect(titleFieldId).toBeTruthy();
+        expect(codeFieldId).toBeTruthy();
+        if (!titleFieldId || !codeFieldId) {
+          return;
+        }
+
+        await createRecords(constrainedTable.id, {
+          fieldKeyType: FieldKeyType.Id,
+          records: [
+            {
+              fields: {
+                [titleFieldId]: 'Alpha',
+                [codeFieldId]: 'CODE-001',
+              },
+            },
+            {
+              fields: {
+                [titleFieldId]: 'Beta',
+                [codeFieldId]: 'CODE-002',
+              },
+            },
+          ],
+        });
+
+        const deleteFieldRes = await deleteField(constrainedTable.id, codeFieldId);
+        expect(deleteFieldRes.headers[X_TEABLE_V2_HEADER]).toBe('true');
+
+        const fieldsAfterDelete = (
+          await getFields(constrainedTable.id, {
+            viewId: constrainedTable.views[0].id,
+          })
+        ).data;
+        expect(fieldsAfterDelete.some((field) => field.id === codeFieldId)).toBe(false);
+
+        const undoRes = await undo(constrainedTable.id);
+        expect(undoRes.data.status).toEqual('fulfilled');
+        expect(undoRes.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v2');
+
+        const restoredField = (await getField(constrainedTable.id, codeFieldId)).data;
+        expect(restoredField.notNull).toBe(true);
+        expect(restoredField.unique).toBe(true);
+
+        const recordsAfterUndo = (
+          await getRecords(constrainedTable.id, {
+            fieldKeyType: FieldKeyType.Id,
+            viewId: constrainedTable.views[0].id,
+          })
+        ).data;
+        expect(recordsAfterUndo.records[0].fields[codeFieldId]).toEqual('CODE-001');
+        expect(recordsAfterUndo.records[1].fields[codeFieldId]).toEqual('CODE-002');
+
+        const redoRes = await redo(constrainedTable.id);
+        expect(redoRes.data.status).toEqual('fulfilled');
+        expect(redoRes.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v2');
+
+        const fieldsAfterRedo = (
+          await getFields(constrainedTable.id, {
+            viewId: constrainedTable.views[0].id,
+          })
+        ).data;
+        expect(fieldsAfterRedo.some((field) => field.id === codeFieldId)).toBe(false);
+      } finally {
+        if (previousCanaryHeader == null) {
+          delete axios.defaults.headers.common[X_CANARY_HEADER];
+        } else {
+          axios.defaults.headers.common[X_CANARY_HEADER] = previousCanaryHeader;
+        }
+        await permanentDeleteTable(baseId, constrainedTable.id);
+      }
+    }
+  );
+
   it('should undo / redo create field', async () => {
     const field = await awaitWithEvent(() =>
       createField(table.id, {
@@ -683,7 +1007,6 @@ describe('Undo Redo (e2e)', () => {
     expect(recordAfterRedo.fields[fieldId]).toEqual(2);
   });
 
-  // event throw error because of sqlite(record history create many)
   it('should undo / redo delete field with outgoing references', async () => {
     // update and move 0 to 2
     const fieldId = table.fields[1].id;
@@ -917,12 +1240,14 @@ describe('Undo Redo (e2e)', () => {
       )
     ).data;
 
-    await undo(table.id);
+    const undoRes = await undo(table.id);
+    expect(undoRes.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v1');
 
     const viewsAfterUndo = (await getViewList(table.id)).data;
     expect(viewsAfterUndo.find((v) => v.id === view.id)).toBeUndefined();
 
-    await redo(table.id);
+    const redoRes = await redo(table.id);
+    expect(redoRes.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v1');
 
     const viewsAfterRedo = (await getViewList(table.id)).data;
     expect(viewsAfterRedo.find((v) => v.id === view.id)).toMatchObject({
@@ -946,8 +1271,7 @@ describe('Undo Redo (e2e)', () => {
 
     await undo(table.id);
 
-    const viewsAfterUndo = (await getViewList(table.id)).data;
-    expect(viewsAfterUndo.find((v) => v.id === view.id)).toMatchObject({
+    expect(await waitForViewVisibility(table.id, view.id, true)).toMatchObject({
       id: view.id,
       name: view.name,
       type: view.type,
@@ -955,8 +1279,7 @@ describe('Undo Redo (e2e)', () => {
 
     await redo(table.id);
 
-    const viewsAfterRedo = (await getViewList(table.id)).data;
-    expect(viewsAfterRedo.find((v) => v.id === view.id)).toBeUndefined();
+    expect(await waitForViewVisibility(table.id, view.id, false)).toBeUndefined();
   });
 
   it('should undo / redo update view property', async () => {

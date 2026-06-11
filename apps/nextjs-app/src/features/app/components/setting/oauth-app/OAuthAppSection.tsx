@@ -46,8 +46,8 @@ export const OAuthAppSection = () => {
         <SettingTabHeader
           leading={
             formType ? (
-              <Button variant="ghost" size="xs" onClick={onBack}>
-                <ChevronLeft className="size-4" />
+              <Button variant="ghost" size="icon-xs" onClick={onBack}>
+                <ChevronLeft className="size-4 shrink-0" />
               </Button>
             ) : undefined
           }
@@ -72,7 +72,7 @@ export const OAuthAppSection = () => {
           actions={
             !formType ? (
               <Button size="xs" onClick={() => setViewState({ formType: 'new' })}>
-                <Plus />
+                <Plus className="size-4 shrink-0" />
                 {t('oauth:add')}
               </Button>
             ) : undefined

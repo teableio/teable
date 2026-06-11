@@ -61,7 +61,6 @@ export const PreviewColumn = (props: IPreviewColumnProps) => {
             <TableCell className="relative min-w-56 font-medium">
               <Input
                 placeholder="fieldName"
-                className="h-8"
                 value={column.name}
                 onChange={(e) => {
                   const newColumns = [...columns];
@@ -72,6 +71,7 @@ export const PreviewColumn = (props: IPreviewColumnProps) => {
             </TableCell>
             <TableCell className="w-full max-w-md">
               <BaseSingleSelect
+                modal
                 className="m-1 w-full"
                 options={candidates}
                 popoverClassName="w-96 truncate"

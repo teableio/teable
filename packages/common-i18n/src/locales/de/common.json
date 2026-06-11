@@ -17,6 +17,7 @@
     "zoomIn": "Vergrößern",
     "zoomOut": "Verkleinern",
     "back": "Zurück",
+    "download": "Herunterladen",
     "remove": "Entfernen",
     "removeConfig": "Konfiguration entfernen",
     "saveSucceed": "Speichern erfolgreich!",
@@ -61,12 +62,17 @@
     "refresh": "Aktualisieren",
     "login": "Anmelden",
     "useTemplate": "Vorlage verwenden",
+    "copyToMySpace": "Copy to my space",
+    "saveToMySpace": "Save to my space",
+    "supportSaveCopy": "Support saving a copy",
     "backToSpace": "Zurück zum Space",
     "switchBase": "Base wechseln",
-    "getMore": "Mehr erhalten"
+    "getMore": "Mehr erhalten",
+    "copySuccess": "Kopieren erfolgreich",
+    "share": "Teilen"
   },
   "quickAction": {
-    "title": "Schnelle Aktionen...",
+    "title": "Schnelle Aktionen",
     "placeHolder": "Geben Sie einen Befehl ein oder suchen Sie..."
   },
   "password": {
@@ -104,13 +110,64 @@
     },
     "useTemplateDialog": {
       "title": "Space auswählen",
-      "description": "Bitte wählen Sie einen Space für die Vorlage aus"
+      "description": "Bitte wählen Sie einen Space für die Vorlage aus",
+      "noSpaceDescription": "You don't have any spaces yet. Create one to continue.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create"
+    }
+  },
+  "baseShare": {
+    "shareTitle": "Teilen",
+    "shareToWeb": "Im Web teilen",
+    "linkHolderLabel": "Person mit dem Link",
+    "linkHolderCanView": "Kann anzeigen",
+    "linkHolderCanViewDesc": "Jeder mit dem Link kann die Daten anzeigen",
+    "linkHolderCanEdit": "Kann bearbeiten",
+    "linkHolderCanEditDesc": "Angemeldete Benutzer können Datensätze in der Tabelle bearbeiten",
+    "linkHolderCanCopyAndSave": "Als Kopie speichern",
+    "linkHolderCanCopyAndSaveDesc": "Jeder mit dem Link kann eine Kopie in seinem Bereich speichern",
+    "refreshLink": "Link neu generieren",
+    "advanced": "Erweitert",
+    "allowCopyData": "Betrachtern das Kopieren von Daten erlauben",
+    "restrictByPassword": "Passwortschutz",
+    "embedConfig": "Einbettungskonfiguration",
+    "embedPreview": "Einbetten Vorschau",
+    "copyCode": "Code kopieren",
+    "enterPassword": "Passwort eingeben",
+    "passwordTitle": "Passwort festlegen",
+    "deleteConfirmTitle": "Freigabelink löschen",
+    "deleteConfirmDescription": "Diese Aktion kann nicht rückgängig gemacht werden. Personen mit diesem Link können nicht mehr auf die freigegebene Base zugreifen.",
+    "createSuccess": "Freigabelink erstellt",
+    "createFailed": "Freigabelink konnte nicht erstellt werden",
+    "updateFailed": "Freigabeeinstellungen konnten nicht aktualisiert werden",
+    "deleteSuccess": "Freigabelink gelöscht",
+    "deleteFailed": "Freigabelink konnte nicht gelöscht werden",
+    "refreshSuccess": "Freigabelink neu generiert",
+    "refreshFailed": "Freigabelink konnte nicht neu generiert werden"
+  },
+  "share": {
+    "copyToSpaceDialog": {
+      "title": "In Bereich kopieren",
+      "description": "Bitte wählen Sie einen Bereich aus, in den diese Basis kopiert werden soll",
+      "baseName": "Basisname",
+      "baseNamePlaceholder": "Basisname eingeben",
+      "selectSpace": "Bereich auswählen",
+      "noSpaceDescription": "Keine verwaltbaren Bereiche. Bitte erstellen Sie einen neuen Bereich.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create",
+      "copyTarget": "Copy to",
+      "createNewBase": "New base",
+      "copyToExistingBase": "Existing base",
+      "selectBase": "Select base",
+      "selectBasePlaceholder": "Select a base",
+      "noBaseInSpace": "In diesem Bereich gibt es keine verwaltbaren Basen. Bitte wählen Sie \"Neue Basis\"."
     }
   },
   "settings": {
     "title": "Instanzeinstellungen",
+    "allSetting": "Space- & persönliche Einstellungen",
     "personal": {
-      "title": "Persönliche Einstellungen"
+      "title": "Persönlich"
     },
     "back": "Zurück zum Start",
     "account": {
@@ -234,6 +291,10 @@
           "user": "Slack-Benutzer",
           "workspace": "Slack-Arbeitsbereich"
         },
+        "email": {
+          "user": "Benutzer",
+          "email": "E-Mail"
+        },
         "deleteTitle": "Verbundenes Konto entfernen",
         "deleteDesc": "Möchten Sie {{name}} wirklich entfernen?",
         "create": "Neues Konto verbinden",
@@ -300,7 +361,8 @@
         "pinTop": "Oben anheften",
         "addCategory": "Kategorie hinzufügen",
         "selectCategory": "Kategorie auswählen",
-        "viewTemplate": "Vorlage anzeigen"
+        "viewTemplate": "Vorlage anzeigen",
+        "manageCategory": "Kategorien verwalten"
       },
       "relatedTemplates": "Verwandte Vorlagen",
       "noImage": "Kein Bild",
@@ -466,7 +528,7 @@
       "allowSignUp": "Erstellen neuer Konten zulassen",
       "allowSignUpDescription": "Wenn Sie diese Option deaktivieren, werden neue Benutzerregistrierungen verhindert, und die Schaltfläche „Registrieren“ wird nicht mehr auf der Anmeldeseite angezeigt.",
       "allowSpaceInvitation": "Erlauben Sie das Versenden von Space-Einladungen",
-      "allowSpaceInvitationDescription": "Die Deaktivierung dieser Option verhindert, dass andere Benutzer als Administratoren andere Benutzer zu Spaces einladen können. Wenn Sie diese Option aktivieren, können direkt eingeladene Benutzer ein Konto erstellen, auch wenn die Registrierung neuer Konten deaktiviert ist.",
+      "allowSpaceInvitationDescription": "Die Deaktivierung dieser Option verhindert, dass andere Benutzer als Administratoren andere Benutzer zu Spaces einladen können. Wenn aktiviert, können neue Benutzer, die per E-Mail eingeladen wurden, die Registrierung durch Klicken auf den Einladungslink in der E-Mail abschließen, aber freigegebene Einladungslinks funktionieren nicht.",
       "allowSpaceCreation": "Jedem die Möglichkeit geben, neue Space anzulegen",
       "allowSpaceCreationDescription": "Wenn Sie diese Option deaktivieren, können andere Benutzer als Administratoren keine neuen Spaces erstellen.",
       "enableEmailVerification": "Aktivieren der E-Mail-Überprüfung",
@@ -512,12 +574,19 @@
         "chatModel": "Chat-Modell",
         "chatModelDescription": "Das zu verwendende Chat-Modell, Tipp: Das mittlere Kodierungsmodell wird standardmäßig für AI-Formelgenerierung und verwandte Funktionen verwendet",
         "chatModels": {
-          "sm": "Kleines Chat-Modell",
-          "smDescription": "Für die automatische Generierung von Chat-Titeln und Base-Namen. Empfohlen: claude-haiku-4.5",
-          "md": "Mittleres Chat-Modell",
-          "mdDescription": "Für AI-Formelgenerierung. Falls nicht konfiguriert, wird lg verwendet. Empfohlen: claude-haiku-4.5",
           "lg": "Erweiteres Chat-Modell",
           "lgDescription": "Für Planung, Programmierung und andere komplexe Aufgabenszenarien. Empfohlen: claude-sonnet-4.5"
+        },
+        "actions": {
+          "title": "KI-Fähigkeiten",
+          "aiField": {
+            "title": "KI-Feld",
+            "description": "KI-Feldfunktionen einschließlich automatischer Ausfüllung und KI-Konfiguration in Feldeinstellungen"
+          },
+          "aiChat": {
+            "title": "KI-Chat",
+            "description": "KI-Chat-Seitenleiste und alle Agent-Funktionen"
+          }
         },
         "chatModelTest": {
           "text": "Modell testen",
@@ -544,6 +613,18 @@
         "noModelFound": "Kein Modell gefunden.",
         "searchModel": "Suche Modell...",
         "selectModel": "Wähle Modell...",
+        "defaultModel": "{{name}} (Standard)",
+        "moreModels": "Weitere Modelle",
+        "agentModelWarningTitle": "Modelle sorgfältig auswählen",
+        "agentModelWarningDescription": "Die oben empfohlenen Modelle sind für Agent-Aufgaben wie Tool-Nutzung und mehrstufiges Reasoning optimiert. Andere Modelle haben möglicherweise eingeschränkte Fähigkeiten und können zu unerwarteten Ergebnissen führen.",
+        "agentModelWarningConfirm": "Verstanden",
+        "recommendedModelNudge": {
+          "title": "{{model}} ausprobieren",
+          "description": "Bessere AI-Ergebnisse mit deutlich geringerem Credit-Verbrauch erzielen.",
+          "use": "{{model}} verwenden",
+          "later": "Später"
+        },
+        "noModelsAvailable": "Keine Modelle verfügbar",
         "input": "Eingabe {{ratio}}",
         "output": "Ausgabe {{ratio}}",
         "inputOrOutputTip": "Das Verhältnis stellt den Wechselkurs zwischen Credits und Tokens dar. Beispielsweise bedeutet „1:1000“, dass 1 Credit ungefähr 1000 Tokens entspricht.<br></br>Hinweis: Bei jeder Nutzung wird mindestens 1 Credit abgezogen. Auch wenn der tatsächliche Verbrauch weniger als 1 Credit beträgt, wird er dennoch als 1 Credit abgerechnet.",
@@ -569,7 +650,6 @@
       },
       "app": {
         "domain": "Domain",
-        "v0ApiKey": "v0 API-Schlüssel",
         "customDomain": "Benutzerdefinierte Domain (Optional)",
         "customDomainDescription": "Legen Sie Ihre benutzerdefinierte Domain für die App-Bereitstellung fest, besuchen Sie <a>Vercel Domain</a> um eine benutzerdefinierte Domain zu erhalten",
         "vercelToken": "Vercel API Token",
@@ -608,11 +688,6 @@
           "description": "Sie haben die AI LLM API noch nicht konfiguriert. AI Chat/AI Automatisierung kann nicht verwendet werden, <anchor>zu den Einstellungen gehen</anchor>",
           "errorTips": "Sie haben die AI LLM API noch nicht konfiguriert. AI Chat/AI Automatisierung kann nicht verwendet werden"
         },
-        "app": {
-          "title": "App-Builder",
-          "description": "Sie haben die v0 API noch nicht konfiguriert. Die App-Builder-Funktion ist nicht verfügbar, <anchor>zu den Einstellungen gehen</anchor>",
-          "errorTips": "Sie haben die v0 API noch nicht konfiguriert. Die App-Builder-Funktion ist nicht verfügbar"
-        },
         "webSearch": {
           "title": "Websuche",
           "description": "Sie haben die Websuche-API noch nicht konfiguriert. Die Websuchfunktion ist nicht verfügbar, <anchor>zu den Einstellungen gehen</anchor>",
@@ -635,7 +710,11 @@
     "noUnread": "Keine Benachrichtigungen mit Status: {{status}}",
     "changeSetting": "Einstellungen für Seitenbenachrichtigungen ändern",
     "new": "{{count}} neue",
-    "showMore": "Zeige mehr"
+    "showMore": "Zeige mehr",
+    "exportBase": {
+      "successText": "Exportdaten sind bereit",
+      "failedText": "Export fehlgeschlagen, bitte erneut versuchen"
+    }
   },
   "role": {
     "title": {
@@ -657,13 +736,16 @@
     "spaceTrash": "Space Papierkorb",
     "type": "Typ",
     "resetTrash": "Papierkorb leeren",
-    "deletedBy": "Gelöscht von",
-    "deletedTime": "Gelöscht Zeit",
+    "deletedBy": "Von",
+    "deletedTime": "Zeit",
     "fromSpace": "Von \"{{name}}\" Space",
     "permanentDeleteTips": "Sind Sie sicher, dass Sie \"{{name}}\" {{resource}}? dauerhaft löschen möchten",
     "resetTrashConfirm": "Sind Sie sicher, dass Sie den Papierkorb leeren wollen?",
     "addToTrash": "Zum Papierkorb verschieben",
-    "description": "Daten im Papierkorb belegen immer noch Speicherplatz für Datensätze und Anhänge."
+    "description": "Daten im Papierkorb belegen immer noch Speicherplatz für Datensätze und Anhänge.",
+    "spaceDescription": "Stellen Sie Spaces wieder her, die in den letzten {{retentionDays}} Tagen gelöscht wurden",
+    "spaceInnerDescription": "Stellen Sie Bases wieder her, die in den letzten {{retentionDays}} Tagen aus diesem Space gelöscht wurden",
+    "baseDescription": "Stellen Sie Ressourcen wieder her, die in den letzten {{retentionDays}} Tagen aus dieser Base gelöscht wurden"
   },
   "pluginCenter": {
     "pluginUrlEmpty": "Plugin hat keine Url",
@@ -779,9 +861,23 @@
             "failed": {
               "message": "❌ {{tableName}} Import fehlgeschlagen: {{errorMessage}}"
             },
+            "planLimitExceeded": {
+              "message": "❌ {{tableName}} Import fehlgeschlagen: Zeilenlimit erreicht, bitte upgraden Sie Ihren Plan, um mehr Datensätze zu importieren"
+            },
+            "noRecordsProcessed": {
+              "message": "❌ {{tableName}} Import fehlgeschlagen: Keine Datensätze wurden verarbeitet"
+            },
             "success": {
               "message": "🎉 {{tableName}} erfolgreich importiert.",
               "inplace": "🎉 {{tableName}} erfolgreich inkrementell importiert."
+            },
+            "partialSuccess": {
+              "message": "⚠️ {{tableName}} partially imported: {{successCount}} rows succeeded, {{failedCount}} rows failed. <a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 Download</a>",
+              "messageNoReport": "⚠️ {{tableName}} partially imported: {{successCount}} rows succeeded, {{failedCount}} rows failed."
+            },
+            "allFailed": {
+              "message": "❌ {{tableName}} import failed: all {{failedCount}} rows failed. <a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 Download</a>",
+              "messageNoReport": "❌ {{tableName}} import failed: all {{failedCount}} rows failed."
             }
           }
         },
@@ -798,6 +894,61 @@
           "insufficientCredit": {
             "title": "Automatisierung {{name}} aufgrund unzureichenden Guthabens fehlgeschlagen",
             "message": "Ihre Automatisierung {{name}} konnte aufgrund unzureichenden Guthabens nicht ausgeführt werden. Bitte aktualisieren Sie Ihr Abonnement oder kontaktieren Sie den Support."
+          },
+          "runQuotaExceeded": {
+            "title": "Automatisierung {{name}} hat die maximale monatliche Ausführungsanzahl erreicht",
+            "message": "Die monatlichen Ausführungen für Automatisierung {{name}} sind aufgebraucht. Die Ausführung ist vorübergehend nicht möglich. Bitte upgraden Sie Ihr Abonnement oder kaufen Sie zusätzliche Ausführungen."
+          },
+          "failedSummary": {
+            "title": "Automatisierung {{name}} ist {{failCount}} Mal fehlgeschlagen",
+            "message": "Ihre Automatisierung {{name}} hat {{failCount}} aufeinanderfolgende Fehler angesammelt. Öffnen Sie den Ausführungsverlauf, um Details anzuzeigen."
+          }
+        },
+        "billing": {
+          "title": "Abrechnungsbenachrichtigung",
+          "credit": {
+            "warning80": {
+              "title": "Space {{spaceName}} KI-Guthaben 80 % verwendet",
+              "message": "Ihr Space hat 80 % des KI-Guthabens verwendet. Erwägen Sie ein Upgrade oder den Kauf weiterer Guthaben."
+            },
+            "warning90": {
+              "title": "Space {{spaceName}} KI-Guthaben 90 % verwendet",
+              "message": "Ihr Space hat 90 % des KI-Guthabens verwendet. Upgraden Sie bald, um Unterbrechungen zu vermeiden."
+            },
+            "anomaly": {
+              "dailySpike": {
+                "title": "Space {{spaceName}}: ungewöhnlicher Anstieg des KI-Guthabens erkannt",
+                "message": "Die heutige KI-Guthaben-Nutzung ({{todayValue}}) beträgt das {{multiplier}}-fache des aktuellen Tagesdurchschnitts ({{ewma}}). Dies kann auf unerwartete Aktivität hinweisen. Bitte überprüfen Sie Ihre Nutzung. Top-Beitragende: {{topContributors}}"
+              },
+              "burst": {
+                "title": "Space {{spaceName}}: KI-Guthaben-Burst erkannt",
+                "message": "{{recentValue}} KI-Guthaben in den letzten {{windowMinutes}} Minuten verbraucht, das ist das {{multiplier}}-fache des historischen stündlichen P95 ({{hourlyP95}}). Dies kann auf unerwartete Aktivität hinweisen. Top-Beitragende: {{topContributors}}"
+              }
+            }
+          },
+          "automationRun": {
+            "warning80": {
+              "title": "Space {{spaceName}} Automatisierungsläufe 80 % des Kontingents verwendet",
+              "message": "Ihr Space hat {{usedRuns}} von {{totalLimit}} Automatisierungsläufen (80 %) verwendet. Erwägen Sie ein Upgrade Ihres Plans."
+            },
+            "warning90": {
+              "title": "Space {{spaceName}} Automatisierungsläufe 90 % des Kontingents verwendet",
+              "message": "Ihr Space hat {{usedRuns}} von {{totalLimit}} Automatisierungsläufen (90 %) verwendet. Upgraden Sie bald, um Unterbrechungen zu vermeiden."
+            },
+            "gracePeriod": {
+              "title": "Space {{spaceName}} Automatisierungsläufe überschritten – Karenzzeit aktiv",
+              "message": "Ihr Kontingent an Automatisierungsläufen wurde überschritten. Automatisierungen werden in {{remainingHours}} Stunden gestoppt und deaktiviert. Bitte upgraden Sie Ihren Plan."
+            },
+            "anomaly": {
+              "dailySpike": {
+                "title": "Space {{spaceName}}: ungewöhnlicher Anstieg der Automatisierungsläufe",
+                "message": "Die heutigen Automatisierungsläufe ({{todayValue}}) betragen das {{multiplier}}-fache des aktuellen Tagesdurchschnitts ({{ewma}}). Dies kann auf eine außer Kontrolle geratene Automatisierung hinweisen. Bitte überprüfen Sie Ihre Workflows. Top-Beitragende: {{topContributors}}"
+              },
+              "burst": {
+                "title": "Space {{spaceName}}: Automatisierungslauf-Burst erkannt",
+                "message": "{{recentValue}} Automatisierungsläufe in den letzten {{windowMinutes}} Minuten erkannt, das ist das {{multiplier}}-fache des historischen stündlichen P95 ({{hourlyP95}}). Dies kann auf eine Schleife oder Fehlkonfiguration hinweisen. Top-Beitragende: {{topContributors}}"
+              }
+            }
           }
         },
         "exportBase": {
@@ -814,8 +965,26 @@
             "failed": {
               "title": "KI-Aufgabe in Tabelle {{tableName}} fehlgeschlagen",
               "message": "Die KI-Aufgabe für Feld {{fieldName}} in Tabelle {{tableName}} (Datensatz-ID: {{recordId}}) ist fehlgeschlagen.\n\n{{errorMsg}}\n\nKlicken Sie auf die Schaltfläche unten, um Details anzuzeigen."
+            },
+            "cancelled": {
+              "title": "KI-Aufgabe abgebrochen",
+              "rateLimit": "Die KI-Aufgabe für Tabelle \"{{tableName}}\" wurde aufgrund einer Ratenbegrenzung (429) abgebrochen. Bitte versuchen Sie es später erneut.",
+              "creditExhausted": "Die KI-Aufgabe für Tabelle \"{{tableName}}\" wurde abgebrochen, da das Guthaben erschöpft ist. Bitte aktualisieren Sie Ihr Abonnement oder warten Sie auf die Guthabenerneuerung.",
+              "authFailed": "Die KI-Aufgabe für Tabelle \"{{tableName}}\" wurde aufgrund eines Authentifizierungsfehlers abgebrochen. Bitte überprüfen Sie Ihre API-Schlüssel-Konfiguration.",
+              "serviceUnavailable": "Die KI-Aufgabe für Tabelle \"{{tableName}}\" wurde abgebrochen, da der KI-Dienst vorübergehend nicht verfügbar ist. Bitte versuchen Sie es später erneut.",
+              "unknown": "Die KI-Aufgabe für Tabelle \"{{tableName}}\" wurde abgebrochen. Fehler: {{errorMessage}}"
             }
           }
+        },
+        "rewardRejected": {
+          "title": "Prämienantrag abgelehnt",
+          "message": "Ihr Prämienantrag für <a href=\"{{spaceUrl}}\">{{spaceName}}</a> wurde aus folgendem Grund/folgenden Gründen abgelehnt: {{errorMessages}}. Bitte überprüfen und erneut einreichen.",
+          "buttonText": "Space anzeigen"
+        },
+        "rewardApproved": {
+          "title": "Prämienantrag genehmigt",
+          "message": "Herzlichen Glückwunsch! Ihr Prämienantrag für <a href=\"{{spaceUrl}}\">{{spaceName}}</a> wurde genehmigt. {{amount}} Guthaben wurden hinzugefügt, gültig für {{expiredDays}} Tage.",
+          "buttonText": "Space anzeigen"
         }
       }
     }
@@ -852,5 +1021,143 @@
     "deleteTip": "Sind Sie sicher, dass Sie \"{{name}}\" Base löschen möchten?",
     "createResource": "Ressource erstellen",
     "noPermissionToCreateResource": "Sie haben keine Berechtigung, eine Ressource zu erstellen"
+  },
+  "credit": {
+    "title": "Guthaben",
+    "leftAmount": "Verbleibendes Guthaben",
+    "winFreeCredits": "Erfahrung teilen",
+    "getCredits": "1000 kostenlose Credits erhalten",
+    "winCredit": {
+      "title": "Teilen Sie eine positive Bewertung und verdienen Sie",
+      "freeCredits": "1000 kostenloses Guthaben",
+      "guidelinesTitle": "Checkliste zum Teilen",
+      "tagTeableio": "Markieren Sie <bold>@teableio</bold>",
+      "minCharacters": "Schreiben Sie eine Bewertung mit <bold>80+</bold> Zeichen",
+      "minFollowers": "Haben Sie <bold>10+</bold> Follower",
+      "limitPerWeek": "500 Guthaben pro Beitrag, bis zu 2 Beiträge wöchentlich (X + LinkedIn)",
+      "postOnX": "Auf X posten",
+      "postOnLinkedIn": "Auf LinkedIn posten",
+      "preFilledDraft": "🌟 Vorausgefüllter Entwurf für Sie bereit!",
+      "claimTitle": "Fügen Sie die Beitrags-URL ein, um Ihr Guthaben zu beanspruchen",
+      "userEmail": "Benutzer-E-Mail",
+      "postUrlLabel": "Beitrags-URL (X oder LinkedIn)",
+      "postUrlPlaceholder": "Fügen Sie hier den Link zu Ihrem Beitrag ein",
+      "invalidUrl": "Bitte geben Sie eine gültige X- oder LinkedIn-Beitrags-URL ein",
+      "claiming": "Wird beansprucht...",
+      "claimCredits": "Guthaben beanspruchen",
+      "congratulations": "Herzlichen Glückwunsch!",
+      "claimSuccess": "Sie haben 500 Guthaben erhalten!",
+      "verifying": "Ihr Beitrag wird überprüft...",
+      "verifyingDescription": "Wir prüfen Ihren Beitragsinhalt, dies dauert normalerweise einige Sekunden",
+      "verifyFailed": "Überprüfung fehlgeschlagen",
+      "tryAgain": "Erneut versuchen"
+    },
+    "error": {
+      "verificationFailed": "Überprüfung fehlgeschlagen"
+    }
+  },
+  "reward": {
+    "title": "Belohnung",
+    "rewardCredits": "Belohnungsguthaben",
+    "minCharCount": "Beitrag muss mindestens {{count}} Zeichen haben",
+    "minFollowerCount": "Konto muss mindestens {{count}} Follower haben",
+    "mustMention": "Beitrag muss {{mention}} erwähnen",
+    "fetchSnapshotFailed": "Fehler beim Abrufen des Beitrags-Snapshots",
+    "alreadyClaimedThisWeek": "Sie haben diese Woche bereits eine Belohnung für dieses Konto beansprucht",
+    "manage": {
+      "title": "Belohnungsverwaltung",
+      "description": "Belohnungseinträge aller Spaces anzeigen und verwalten",
+      "overview": "Übersicht",
+      "records": "Einträge",
+      "searchSpace": "Space suchen...",
+      "searchRecords": "PostUrl/UserId suchen...",
+      "dateRange": "Datumsbereich auswählen",
+      "from": "Von",
+      "to": "Bis",
+      "totalSpaces": "Gesamt: {{count}} Spaces",
+      "totalRecords": "Gesamt: {{count}} Einträge",
+      "space": "Space",
+      "allSpaces": "Alle Spaces",
+      "user": "Benutzer",
+      "creator": "Ersteller",
+      "sourceType": "Quelltyp",
+      "platform": "Plattform",
+      "allStatuses": "Alle Status",
+      "allSourceTypes": "Alle Quelltypen",
+      "allPlatforms": "Alle Plattformen",
+      "pendingCount": "Ausstehende Anzahl",
+      "approvedCount": "Genehmigte Anzahl",
+      "rejectedCount": "Abgelehnte Anzahl",
+      "approvedAmount": "Genehmigter Betrag",
+      "consumedAmount": "Verbrauchter Betrag",
+      "availableAmount": "Verfügbarer Betrag",
+      "expiringSoonAmount": "Bald ablaufender Betrag (7 Tage)",
+      "amount": "Betrag",
+      "remainingAmount": "Verbleibender Betrag",
+      "createdTime": "Erstellungszeit",
+      "rewardTime": "Belohnungszeit",
+      "expiredTime": "Ablaufzeit",
+      "lastModified": "Zuletzt geändert",
+      "viewDetails": "Details anzeigen",
+      "details": "Belohnungsdetails",
+      "basicInfo": "Grundinformationen",
+      "amountInfo": "Betragsinformationen",
+      "timeInfo": "Zeitinformationen",
+      "socialInfo": "Soziale Informationen",
+      "verifyResult": "Überprüfungsergebnis",
+      "uniqueKey": "Eindeutiger Schlüssel",
+      "verify": "Überprüfen",
+      "valid": "Gültig",
+      "invalid": "Ungültig",
+      "errors": "Fehler",
+      "copied": "{{label}} kopiert",
+      "openPost": "Beitrag öffnen",
+      "noData": "Keine Daten",
+      "page": "Seite {{current}} von {{total}}",
+      "status": {
+        "label": "Status",
+        "pending": "Ausstehend",
+        "approved": "Genehmigt",
+        "rejected": "Abgelehnt"
+      }
+    }
+  },
+  "system": {
+    "notFound": {
+      "title": "Seite nicht gefunden",
+      "description": "Der Link, dem Sie gefolgt sind, ist möglicherweise fehlerhaft oder die Seite wurde verschoben."
+    },
+    "links": {
+      "backToHome": "Zurück zur Startseite"
+    },
+    "forbidden": {
+      "title": "Zugriff eingeschränkt",
+      "description": "Sie benötigen eine Berechtigung, um auf diese Ressource zuzugreifen.\nBitte wenden Sie sich an Ihren Administrator."
+    },
+    "paymentRequired": {
+      "title": "Premium-Funktion freischalten",
+      "description": "Diese Funktion ist in erweiterten Plänen verfügbar.\nUpgraden Sie, um Ihre Möglichkeiten zu erweitern."
+    },
+    "error": {
+      "title": "Etwas ist schief gelaufen",
+      "description": "Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es später erneut."
+    }
+  },
+  "import": {
+    "error": {
+      "dateOutOfRange": "{{fieldHint}}Datumsanalyse fehlgeschlagen, Wert \"{{value}}\" liegt außerhalb des gültigen Bereichs",
+      "planRowLimit": "Zeilenlimit erreicht: Bitte upgraden Sie Ihren Plan, um mehr Datensätze zu importieren",
+      "notNullValidation": "{{fieldHint}}Pflichtfeld(er) dürfen nicht leer sein",
+      "uniqueValidation": "{{fieldHint}}Doppelte Werte in eindeutigem Feld/Feldern",
+      "requestTimeout": "Zeitüberschreitung der Anfrage",
+      "chunkProcessingFailed": "Stapelverarbeitung fehlgeschlagen: {{reason}}",
+      "unknown": "{{fieldHint}}{{message}}"
+    }
+  },
+  "changelog": {
+    "newUpdate": "UPDATE VOM 19. MAI",
+    "title": "Teable Credits jetzt 10x effizienter!",
+    "url": "https://help.teable.ai/en/changelog#may-19-2026",
+    "id": "changelog-2026-05-19-teable-credits-up-10x"
   }
 }

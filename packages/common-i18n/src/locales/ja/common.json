@@ -16,6 +16,7 @@
     "zoomIn": "ズームイン",
     "zoomOut": "ズームアウト",
     "back": "戻る",
+    "download": "ダウンロード",
     "remove": "削除",
     "removeConfig": "設定を削除",
     "saveSucceed": "保存成功！",
@@ -58,15 +59,20 @@
     "refresh": "更新",
     "login": "ログイン",
     "useTemplate": "テンプレートを使用",
+    "copyToMySpace": "Copy to my space",
+    "saveToMySpace": "Save to my space",
+    "supportSaveCopy": "Support saving a copy",
     "backToSpace": "スペースに戻る",
     "switchBase": "ベースを切り替え",
     "continue": "続行",
     "export": "エクスポート",
     "import": "インポート",
-    "getMore": "もっと取得"
+    "getMore": "もっと取得",
+    "copySuccess": "コピー成功",
+    "share": "共有"
   },
   "quickAction": {
-    "title": "クイックアクション...",
+    "title": "クイックアクション",
     "placeHolder": "コマンドまたは検索の入力..."
   },
   "password": {
@@ -91,7 +97,10 @@
     "createTemplate": "テンプレートを作成",
     "useTemplateDialog": {
       "title": "スペースを選択",
-      "description": "テンプレート用のスペースを選択してください"
+      "description": "テンプレート用のスペースを選択してください",
+      "noSpaceDescription": "You don't have any spaces yet. Create one to continue.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create"
     },
     "promptBox": {
       "placeholder": "Teableでビジネスアプリを構築",
@@ -107,10 +116,129 @@
       }
     }
   },
+  "baseShare": {
+    "shareTitle": "共有",
+    "shareToWeb": "Webに公開",
+    "linkHolderLabel": "リンクを取得した人",
+    "linkHolderCanView": "閲覧可能",
+    "linkHolderCanViewDesc": "リンクを持つ人はデータを閲覧できます",
+    "linkHolderCanEdit": "編集可能",
+    "linkHolderCanEditDesc": "ログインユーザーはテーブルのレコードを編集できます",
+    "linkHolderCanCopyAndSave": "コピーとして保存",
+    "linkHolderCanCopyAndSaveDesc": "リンクを持つ人は自分のスペースにコピーを保存できます",
+    "refreshLink": "リンクを再生成",
+    "advanced": "詳細設定",
+    "allowCopyData": "閲覧者にデータのコピーを許可",
+    "restrictByPassword": "パスワードで保護",
+    "embedConfig": "埋め込み設定",
+    "embedPreview": "埋め込みプレビュー",
+    "copyCode": "コードをコピー",
+    "enterPassword": "パスワードを入力",
+    "passwordTitle": "パスワードを設定",
+    "deleteConfirmTitle": "共有リンクを削除",
+    "deleteConfirmDescription": "この操作は元に戻せません。このリンクを持つ人は共有ベースにアクセスできなくなります。",
+    "createSuccess": "共有リンクが作成されました",
+    "createFailed": "共有リンクの作成に失敗しました",
+    "updateFailed": "共有設定の更新に失敗しました",
+    "deleteSuccess": "共有リンクが削除されました",
+    "deleteFailed": "共有リンクの削除に失敗しました",
+    "refreshSuccess": "共有リンクが再生成されました",
+    "refreshFailed": "共有リンクの再生成に失敗しました"
+  },
+  "share": {
+    "copyToSpaceDialog": {
+      "title": "スペースにコピー",
+      "description": "このベースをコピーするスペースを選択してください",
+      "baseName": "ベース名",
+      "baseNamePlaceholder": "ベース名を入力",
+      "selectSpace": "スペースを選択",
+      "noSpaceDescription": "管理可能なスペースがありません。続行するには新規スペースを作成してください。",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create",
+      "copyTarget": "Copy to",
+      "createNewBase": "New base",
+      "copyToExistingBase": "Existing base",
+      "selectBase": "Select base",
+      "selectBasePlaceholder": "Select a base",
+      "noBaseInSpace": "このスペースに管理可能なベースがありません。「新規ベース」を選択してください。"
+    }
+  },
   "settings": {
     "title": "インスタンス設定",
+    "allSetting": "スペースと個人設定",
     "personal": {
-      "title": "個人設定"
+      "title": "個人"
+    },
+    "templateAdmin": {
+      "title": "テンプレート管理",
+      "noData": "データなし",
+      "importing": "インポート中...",
+      "usageCount": "使用回数: {{count}}",
+      "useTemplate": "このテンプレートを使用",
+      "createdBy": "作成者: {{user}}",
+      "backToTemplateList": "テンプレート一覧に戻る",
+      "tips": {
+        "errorCategoryName": "カテゴリが存在しないか削除されています",
+        "needSnapshot": "公開前にスナップショットを作成してください。テンプレート名と説明は空にできません",
+        "needPublish": "おすすめに設定する前にテンプレートを公開してください",
+        "needBaseSource": "スナップショットを作成する前にベースソースを選択してください",
+        "forbiddenUpdateSystemTemplate": "システムテンプレートは変更できません",
+        "addCategoryTips": "検索入力欄にカテゴリ名を先に入力してください",
+        "categoryNamePlaceholder": "カテゴリ名を入力",
+        "duplicateCategoryName": "カテゴリ名は既に存在します"
+      },
+      "category": {
+        "menu": {
+          "getStarted": "はじめに",
+          "recommended": "おすすめ",
+          "all": "すべて",
+          "browseByCategory": "カテゴリで閲覧"
+        }
+      },
+      "header": {
+        "cover": "カバー",
+        "name": "名前",
+        "description": "説明",
+        "markdownDescription": "Markdown説明",
+        "category": "カテゴリ",
+        "isSystem": "システム",
+        "source": "ソース",
+        "status": "公開済み",
+        "publishSnapshot": "スナップショットを公開",
+        "snapshotTime": "スナップショット時間",
+        "actions": "アクション",
+        "featured": "おすすめ",
+        "createdBy": "作成者",
+        "userNonExistent": "ユーザーが存在しません",
+        "preview": "プレビュー",
+        "usage": "使用回数",
+        "visit": "訪問回数"
+      },
+      "actions": {
+        "title": "アクション",
+        "publish": "公開",
+        "delete": "削除",
+        "duplicate": "複製",
+        "preview": "プレビュー",
+        "use": "使用",
+        "pinTop": "上部に固定",
+        "addCategory": "カテゴリを追加",
+        "selectCategory": "カテゴリを選択",
+        "viewTemplate": "テンプレートを表示",
+        "manageCategory": "カテゴリ管理"
+      },
+      "relatedTemplates": "関連テンプレート",
+      "noImage": "画像なし",
+      "baseSelectPanel": {
+        "title": "テンプレートソースを選択",
+        "description": "テンプレートとしてベースを選択",
+        "confirm": "確認",
+        "search": "検索...",
+        "cancel": "キャンセル",
+        "selectBase": "ベースを選択",
+        "createTemplate": "テンプレートを作成",
+        "abnormalBase": "ベースが存在しないか削除されています"
+      }
     },
     "back": "ホームに戻る",
     "account": {
@@ -236,6 +364,10 @@
           "user": "Slackユーザー",
           "workspace": "Slackワークスペース"
         },
+        "email": {
+          "user": "ユーザー",
+          "email": "メール"
+        },
         "deleteTitle": "接続されたアカウントを削除",
         "deleteDesc": "{{name}}を削除してもよろしいですか？",
         "create": "新しいアカウントを接続",
@@ -247,26 +379,6 @@
           "title": "認証に成功しました",
           "desc": "このウィンドウを閉じることができます。"
         }
-      }
-    },
-    "templateAdmin": {
-      "header": {
-        "cover": "カバー",
-        "name": "名前",
-        "description": "説明",
-        "markdownDescription": "マークダウン説明",
-        "category": "カテゴリ",
-        "isSystem": "システム",
-        "source": "ソース",
-        "status": "公開済み",
-        "publishSnapshot": "スナップショットを公開",
-        "snapshotTime": "スナップショット時刻",
-        "actions": "アクション",
-        "featured": "おすすめ",
-        "createdBy": "作成者",
-        "userNonExistent": "ユーザーが存在しません",
-        "usage": "使用回数",
-        "visit": "閲覧回数"
       }
     }
   },
@@ -420,7 +532,7 @@
       "allowSignUp": "新しいアカウントの作成を許可する",
       "allowSignUpDescription": "このオプションを無効にすると、新規ユーザーの登録が禁止され、ログインページに登録ボタンが表示されなくなります。",
       "allowSpaceInvitation": "スペースへの招待の送信を許可する",
-      "allowSpaceInvitationDescription": "このオプションを無効にすると、管理者以外のユーザーは他のユーザーをスペースに招待できなくなります。このオプションを有効にすると、新規アカウント登録が無効になっている場合でも、直接招待されたユーザーはアカウントを作成できるようになります。",
+      "allowSpaceInvitationDescription": "このオプションを無効にすると、管理者以外のユーザーは他のユーザーをスペースに招待できなくなります。有効にすると、メールで招待された新規ユーザーはメール内の招待リンクをクリックして登録を完了できますが、共有された招待リンクは機能しません。",
       "allowSpaceCreation": "誰でも新しいスペースを作成できるようにする",
       "allowSpaceCreationDescription": "このオプションを無効にすると、管理者以外のユーザーは新しいスペースを作成できなくなります。",
       "enableEmailVerification": "メールアドレスの確認を有効にする",
@@ -469,12 +581,19 @@
         "chatModel": "チャットモデル",
         "chatModelDescription": "使用するチャットモデル、ヒント: 中型コーディングモデルはAI数式生成と関連機能にデフォルトで使用されます",
         "chatModels": {
-          "sm": "小型チャットモデル",
-          "smDescription": "チャットタイトルとベース名の自動生成に使用。推奨: claude-haiku-4.5",
-          "md": "中型チャットモデル",
-          "mdDescription": "AI数式生成に使用。未設定の場合はlgにフォールバック。推奨: claude-haiku-4.5",
           "lg": "高度なチャットモデル",
           "lgDescription": "計画、コーディング、その他の複雑なタスクシナリオに使用。推奨: claude-sonnet-4.5"
+        },
+        "actions": {
+          "title": "AI機能",
+          "aiField": {
+            "title": "AIフィールド",
+            "description": "自動入力やフィールド設定のAI構成を含むAIフィールド機能"
+          },
+          "aiChat": {
+            "title": "AIチャット",
+            "description": "AIチャットサイドバーとすべてのエージェント機能"
+          }
         },
         "chatModelTest": {
           "text": "モデルをテスト",
@@ -501,6 +620,18 @@
         "noModelFound": "モデルが見つかりません",
         "searchModel": "モデルを検索...",
         "selectModel": "モデルを選択...",
+        "defaultModel": "{{name}}（デフォルト）",
+        "moreModels": "その他のモデル",
+        "agentModelWarningTitle": "モデルは慎重に選択してください",
+        "agentModelWarningDescription": "上記の推奨モデルは、ツール利用や複数ステップの推論などのエージェントタスク向けに最適化されています。その他のモデルでは機能が制限され、予期しない結果になる場合があります。",
+        "agentModelWarningConfirm": "了解",
+        "recommendedModelNudge": {
+          "title": "{{model}} を試す",
+          "description": "より少ないクレジット消費で、より良い AI 結果を得られます。",
+          "use": "{{model}} を使う",
+          "later": "後で"
+        },
+        "noModelsAvailable": "利用可能なモデルがありません",
         "input": "入力 {{ratio}}",
         "output": "出力 {{ratio}}",
         "inputOrOutputTip": "入力対出力比率は、クレジットとトークンの交換レートを表します。たとえば、「1:1000」は、1 クレジットが約 1000 トークンに等しいことを意味します。<br></br>注: 使用ごとに少なくとも 1 クレジットが差し引かれます。実際の消費量が 1 クレジット未満の場合でも、1 クレジットとして請求されます。",
@@ -526,7 +657,6 @@
       },
       "app": {
         "domain": "ドメイン",
-        "v0ApiKey": "v0 APIキー",
         "customDomain": "カスタムドメイン（オプション）",
         "customDomainDescription": "アプリのデプロイ用のカスタムドメインを設定し、<a>Vercelドメイン</a>にアクセスしてカスタムドメインを取得してください",
         "vercelToken": "Vercel APIトークン",
@@ -565,11 +695,6 @@
           "description": "AI LLM APIをまだ設定していません。AIチャット/AI自動化が使用できません。<anchor>設定に移動</anchor>",
           "errorTips": "AI LLM APIをまだ設定していません。AIチャット/AI自動化が使用できません"
         },
-        "app": {
-          "title": "アプリビルダー",
-          "description": "v0 APIをまだ設定していません。アプリビルダー機能が利用できません。<anchor>設定に移動</anchor>",
-          "errorTips": "v0 APIをまだ設定していません。アプリビルダー機能が利用できません"
-        },
         "webSearch": {
           "title": "ウェブ検索",
           "description": "ウェブ検索APIをまだ設定していません。ウェブ検索機能が利用できません。<anchor>設定に移動</anchor>",
@@ -592,7 +717,11 @@
     "noUnread": "{{status}}の通知はありません",
     "changeSetting": "ページ通知設定を変更する",
     "new": "{{count}}件の新たな通知",
-    "showMore": "もっと見る"
+    "showMore": "もっと見る",
+    "exportBase": {
+      "successText": "エクスポートデータの準備ができました",
+      "failedText": "エクスポートに失敗しました。再試行してください"
+    }
   },
   "role": {
     "title": {
@@ -625,12 +754,15 @@
     "type": "タイプ",
     "resetTrash": "ゴミ箱を空にする",
     "deletedBy": "削除者",
-    "deletedTime": "削除日時",
+    "deletedTime": "日時",
     "fromSpace": "「{{name}}」スペースから",
     "permanentDeleteTips": "「{{name}}」{{resource}}を完全に削除してもよろしいですか？",
     "resetTrashConfirm": "ゴミ箱を空にしてもよろしいですか？",
     "addToTrash": "ゴミ箱に移動",
-    "description": "ゴミ箱のデータは依然としてレコード使用量と添付ファイル使用量を占めています。"
+    "description": "ゴミ箱のデータは依然としてレコード使用量と添付ファイル使用量を占めています。",
+    "spaceDescription": "過去{{retentionDays}}日以内に削除されたスペースを復元",
+    "spaceInnerDescription": "過去{{retentionDays}}日以内にこのスペースから削除されたベースを復元",
+    "baseDescription": "過去{{retentionDays}}日以内にこのベースから削除されたリソースを復元"
   },
   "automation": {
     "turnOnTip": "現在のオートメーションを有効にしますか？"
@@ -736,9 +868,23 @@
             "failed": {
               "message": "❌ {{tableName}}のインポートが失敗しました：{{errorMessage}}"
             },
+            "planLimitExceeded": {
+              "message": "❌ {{tableName}}のインポートが失敗しました：行数上限に達しました。より多くのレコードをインポートするにはプランをアップグレードしてください"
+            },
+            "noRecordsProcessed": {
+              "message": "❌ {{tableName}}のインポートが失敗しました：レコードが処理されませんでした"
+            },
             "success": {
               "message": "🎉 {{tableName}}が正常にインポートされました。",
               "inplace": "🎉 {{tableName}}が正常にインプレースインポートされました。"
+            },
+            "partialSuccess": {
+              "message": "⚠️ {{tableName}} partially imported: {{successCount}} rows succeeded, {{failedCount}} rows failed. <a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 Download</a>",
+              "messageNoReport": "⚠️ {{tableName}} partially imported: {{successCount}} rows succeeded, {{failedCount}} rows failed."
+            },
+            "allFailed": {
+              "message": "❌ {{tableName}} import failed: all {{failedCount}} rows failed. <a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 Download</a>",
+              "messageNoReport": "❌ {{tableName}} import failed: all {{failedCount}} rows failed."
             }
           }
         },
@@ -755,6 +901,61 @@
           "insufficientCredit": {
             "title": "自動化{{name}}がクレジット不足により失敗しました",
             "message": "自動化{{name}}がクレジット不足により実行に失敗しました。サブスクリプションをアップグレードするか、サポートに連絡してください。"
+          },
+          "runQuotaExceeded": {
+            "title": "自動化{{name}}は月間実行回数の上限に達しました",
+            "message": "自動化{{name}}の今月の実行回数を使い切ったため、現在は実行できません。プランをアップグレードするか、追加実行回数を購入してください。"
+          },
+          "failedSummary": {
+            "title": "自動化{{name}}が{{failCount}}回連続で失敗しました",
+            "message": "自動化{{name}}が{{failCount}}回連続で失敗しています。実行履歴を開いて詳細をご確認ください。"
+          }
+        },
+        "billing": {
+          "title": "請求通知",
+          "credit": {
+            "warning80": {
+              "title": "スペース {{spaceName}} AIクレジット 80% 使用済み",
+              "message": "スペースのAIクレジットの80%を使用しました。アップグレードまたは追加クレジットの購入をご検討ください。"
+            },
+            "warning90": {
+              "title": "スペース {{spaceName}} AIクレジット 90% 使用済み",
+              "message": "スペースのAIクレジットの90%を使用しました。中断を避けるため、早めにアップグレードしてください。"
+            },
+            "anomaly": {
+              "dailySpike": {
+                "title": "スペース{{spaceName}}で異常なAIクレジットの急増を検出",
+                "message": "本日のAIクレジット使用量（{{todayValue}}）は、最近の日次平均（{{ewma}}）の{{multiplier}}倍です。予期しないアクティビティの可能性があります。使用状況をご確認ください。上位貢献者：{{topContributors}}"
+              },
+              "burst": {
+                "title": "スペース{{spaceName}}でAIクレジットのバーストを検出",
+                "message": "過去{{windowMinutes}}分間に{{recentValue}}のAIクレジットが消費されました。これは過去の1時間あたりP95（{{hourlyP95}}）の{{multiplier}}倍です。予期しないアクティビティの可能性があります。上位貢献者：{{topContributors}}"
+              }
+            }
+          },
+          "automationRun": {
+            "warning80": {
+              "title": "スペース {{spaceName}} 自動化実行回数 80% 使用済み",
+              "message": "スペースの自動化実行回数が {{usedRuns}}/{{totalLimit}} 回（80%）に達しました。プランのアップグレードをご検討ください。"
+            },
+            "warning90": {
+              "title": "スペース {{spaceName}} 自動化実行回数 90% 使用済み",
+              "message": "スペースの自動化実行回数が {{usedRuns}}/{{totalLimit}} 回（90%）に達しました。中断を避けるため、早めにアップグレードしてください。"
+            },
+            "gracePeriod": {
+              "title": "スペース {{spaceName}} 自動化実行回数超過 - 猶予期間中",
+              "message": "自動化実行回数の上限を超えました。自動化は {{remainingHours}} 時間後に停止します。プランをアップグレードしてください。"
+            },
+            "anomaly": {
+              "dailySpike": {
+                "title": "スペース{{spaceName}}で異常な自動化実行の急増",
+                "message": "本日の自動化実行（{{todayValue}}）は、最近の日次平均（{{ewma}}）の{{multiplier}}倍です。自動化の暴走の可能性があります。ワークフローをご確認ください。上位貢献者：{{topContributors}}"
+              },
+              "burst": {
+                "title": "スペース{{spaceName}}で自動化実行のバーストを検出",
+                "message": "過去{{windowMinutes}}分間に{{recentValue}}の自動化実行が検出されました。これは過去の1時間あたりP95（{{hourlyP95}}）の{{multiplier}}倍です。ループまたは設定ミスの可能性があります。上位貢献者：{{topContributors}}"
+              }
+            }
           }
         },
         "exportBase": {
@@ -771,8 +972,26 @@
             "failed": {
               "title": "テーブル{{tableName}}でAIタスクが失敗しました",
               "message": "テーブル{{tableName}}のフィールド{{fieldName}}のAIタスク（レコードID：{{recordId}}）が失敗しました。\n\n{{errorMsg}}\n\n下のボタンをクリックして詳細を表示してください。"
+            },
+            "cancelled": {
+              "title": "AIタスクがキャンセルされました",
+              "rateLimit": "テーブル \"{{tableName}}\" のAIタスクは、レート制限（429）によりキャンセルされました。後でもう一度お試しください。",
+              "creditExhausted": "テーブル \"{{tableName}}\" のAIタスクは、クレジットが使い切られたためキャンセルされました。サブスクリプションをアップグレードするか、クレジットの更新をお待ちください。",
+              "authFailed": "テーブル \"{{tableName}}\" のAIタスクは、認証エラーによりキャンセルされました。APIキーの設定をご確認ください。",
+              "serviceUnavailable": "テーブル \"{{tableName}}\" のAIタスクは、AIサービスが一時的に利用できないためキャンセルされました。後でもう一度お試しください。",
+              "unknown": "テーブル \"{{tableName}}\" のAIタスクがキャンセルされました。エラー：{{errorMessage}}"
             }
           }
+        },
+        "rewardRejected": {
+          "title": "報酬申請が却下されました",
+          "message": "<a href=\"{{spaceUrl}}\">{{spaceName}}</a>の報酬申請は、次の理由により却下されました：{{errorMessages}}。内容をご確認の上、再度ご提出ください。",
+          "buttonText": "スペースを表示"
+        },
+        "rewardApproved": {
+          "title": "報酬申請が承認されました",
+          "message": "おめでとうございます！<a href=\"{{spaceUrl}}\">{{spaceName}}</a>の報酬申請が承認されました。{{amount}}クレジットが追加され、{{expiredDays}}日間有効です。",
+          "buttonText": "スペースを表示"
         }
       }
     }
@@ -809,5 +1028,143 @@
     "deleteTip": "「{{name}}」ベースを削除してもよろしいですか？",
     "createResource": "リソースを作成",
     "noPermissionToCreateResource": "リソースを作成する権限がありません"
+  },
+  "credit": {
+    "title": "クレジット",
+    "leftAmount": "残りクレジット",
+    "winFreeCredits": "体験を共有",
+    "getCredits": "1000無料クレジットを取得",
+    "winCredit": {
+      "title": "ポジティブなレビューを共有して獲得",
+      "freeCredits": "1000無料クレジット",
+      "guidelinesTitle": "共有チェックリスト",
+      "tagTeableio": "<bold>@teableio</bold>をタグ付け",
+      "minCharacters": "<bold>80+</bold>文字のレビューを書く",
+      "minFollowers": "<bold>10+</bold>人のフォロワーを持つ",
+      "limitPerWeek": "投稿ごとに500クレジット、週に最大2投稿（X + LinkedIn）",
+      "postOnX": "Xに投稿",
+      "postOnLinkedIn": "LinkedInに投稿",
+      "preFilledDraft": "🌟 事前入力された下書きが準備されています！",
+      "claimTitle": "投稿URLを貼り付けてクレジットを請求",
+      "userEmail": "ユーザーメール",
+      "postUrlLabel": "投稿URL（XまたはLinkedIn）",
+      "postUrlPlaceholder": "投稿のリンクをここに貼り付け",
+      "invalidUrl": "有効なXまたはLinkedInの投稿URLを入力してください",
+      "claiming": "請求中...",
+      "claimCredits": "クレジットを請求",
+      "congratulations": "おめでとうございます！",
+      "claimSuccess": "500クレジットを獲得しました！",
+      "verifying": "投稿を確認中...",
+      "verifyingDescription": "投稿内容を確認しています。通常数秒かかります",
+      "verifyFailed": "確認に失敗しました",
+      "tryAgain": "再試行"
+    },
+    "error": {
+      "verificationFailed": "確認に失敗しました"
+    }
+  },
+  "reward": {
+    "title": "報酬",
+    "rewardCredits": "報酬クレジット",
+    "minCharCount": "投稿は少なくとも{{count}}文字必要です",
+    "minFollowerCount": "アカウントには少なくとも{{count}}人のフォロワーが必要です",
+    "mustMention": "投稿は{{mention}}をメンションする必要があります",
+    "fetchSnapshotFailed": "投稿スナップショットの取得に失敗しました",
+    "alreadyClaimedThisWeek": "今週すでにこのアカウントの報酬を請求しています",
+    "manage": {
+      "title": "報酬管理",
+      "description": "すべてのスペースの報酬記録を表示・管理",
+      "overview": "概要",
+      "records": "記録",
+      "searchSpace": "スペースを検索...",
+      "searchRecords": "postUrl/userIdを検索...",
+      "dateRange": "日付範囲を選択",
+      "from": "開始",
+      "to": "終了",
+      "totalSpaces": "合計: {{count}}スペース",
+      "totalRecords": "合計: {{count}}件の記録",
+      "space": "スペース",
+      "allSpaces": "すべてのスペース",
+      "user": "ユーザー",
+      "creator": "作成者",
+      "sourceType": "ソースタイプ",
+      "platform": "プラットフォーム",
+      "allStatuses": "すべてのステータス",
+      "allSourceTypes": "すべてのソースタイプ",
+      "allPlatforms": "すべてのプラットフォーム",
+      "pendingCount": "保留中の数",
+      "approvedCount": "承認済みの数",
+      "rejectedCount": "却下された数",
+      "approvedAmount": "承認済み金額",
+      "consumedAmount": "消費済み金額",
+      "availableAmount": "利用可能金額",
+      "expiringSoonAmount": "まもなく期限切れ（7日）",
+      "amount": "金額",
+      "remainingAmount": "残額",
+      "createdTime": "作成日時",
+      "rewardTime": "報酬日時",
+      "expiredTime": "有効期限",
+      "lastModified": "最終更新",
+      "viewDetails": "詳細を表示",
+      "details": "報酬の詳細",
+      "basicInfo": "基本情報",
+      "amountInfo": "金額情報",
+      "timeInfo": "時間情報",
+      "socialInfo": "ソーシャル情報",
+      "verifyResult": "確認結果",
+      "uniqueKey": "一意のキー",
+      "verify": "確認",
+      "valid": "有効",
+      "invalid": "無効",
+      "errors": "エラー",
+      "copied": "{{label}}をコピーしました",
+      "openPost": "投稿を開く",
+      "noData": "データなし",
+      "page": "{{total}}ページ中{{current}}ページ",
+      "status": {
+        "label": "ステータス",
+        "pending": "保留中",
+        "approved": "承認済み",
+        "rejected": "却下"
+      }
+    }
+  },
+  "system": {
+    "notFound": {
+      "title": "ページが見つかりません",
+      "description": "お探しのリンクは無効であるか、ページが移動された可能性があります。"
+    },
+    "links": {
+      "backToHome": "ホームへ戻る"
+    },
+    "forbidden": {
+      "title": "アクセス制限",
+      "description": "このリソースにアクセスするには権限が必要です。\n管理者にお問い合わせください。"
+    },
+    "paymentRequired": {
+      "title": "プレミアム機能のロック解除",
+      "description": "この機能は上位プランでご利用いただけます。\nアップグレードして機能を拡張しましょう。"
+    },
+    "error": {
+      "title": "エラーが発生しました",
+      "description": "予期しないエラーが発生しました。後でもう一度お試しください。"
+    }
+  },
+  "import": {
+    "error": {
+      "dateOutOfRange": "{{fieldHint}}日付解析エラー、値「{{value}}」が有効範囲外です",
+      "planRowLimit": "行数上限に達しました：より多くのレコードをインポートするにはプランをアップグレードしてください",
+      "notNullValidation": "{{fieldHint}}必須フィールドが空です",
+      "uniqueValidation": "{{fieldHint}}一意フィールドに重複値があります",
+      "requestTimeout": "リクエストがタイムアウトしました",
+      "chunkProcessingFailed": "バッチ処理に失敗しました：{{reason}}",
+      "unknown": "{{fieldHint}}{{message}}"
+    }
+  },
+  "changelog": {
+    "newUpdate": "5月19日アップデート",
+    "title": "Teable Credits が10倍に!",
+    "url": "https://help.teable.ai/en/changelog#may-19-2026",
+    "id": "changelog-2026-05-19-teable-credits-up-10x"
   }
 }

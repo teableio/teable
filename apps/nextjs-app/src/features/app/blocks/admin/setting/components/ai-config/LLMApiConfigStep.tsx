@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, ArrowUpRight, Database, Zap, AlertTriangle } from '@teable/icons';
+import { Check, ArrowUpRight, Database, Zap, AlertTriangle, RotateCw } from '@teable/icons';
 import type {
   ISettingVo,
   LLMProvider,
@@ -13,7 +13,7 @@ import type {
 import { Button, Input, Label, cn, Switch } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
 import { useTranslation } from 'next-i18next';
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import type { Control } from 'react-hook-form';
 import { useEnv } from '@/features/app/hooks/useEnv';
 import { AIProviderCard } from './AIProviderCard';
@@ -53,11 +53,16 @@ interface ILLMApiConfigStepProps {
 
   // Callbacks
   onComplete?: () => void;
+  onSave?: () => Promise<void>;
+  isSaving?: boolean;
+  isDirty?: boolean;
+  onResetGateway?: () => void;
 
   /** Whether to show pricing-related UI. Defaults to true (Cloud). */
   showPricing?: boolean;
 }
 
+// eslint-disable-next-line sonarjs/cognitive-complexity
 export function LLMApiConfigStep({
   mode,
   onModeChange,
@@ -77,6 +82,10 @@ export function LLMApiConfigStep({
   testProviderCallbackRef,
   testModelCallbackRef,
   onComplete,
+  onSave,
+  isSaving,
+  isDirty,
+  onResetGateway,
   showPricing = true,
 }: ILLMApiConfigStepProps) {
   const { t } = useTranslation('common');
@@ -88,11 +97,30 @@ export function LLMApiConfigStep({
     null
   );
 
-  const hasGatewayKey = Boolean(aiConfig?.aiGatewayApiKey);
-  const hasProviders = llmProviders.length > 0;
+  // Local state for gateway fields — only persisted after a successful test
+  const [localGatewayKey, setLocalGatewayKey] = useState(aiConfig?.aiGatewayApiKey || '');
+  const [localGatewayBaseUrl, setLocalGatewayBaseUrl] = useState(aiConfig?.aiGatewayBaseUrl || '');
 
-  // Determine if current mode is ready to proceed
-  const canProceed = mode === 'gateway' ? hasGatewayKey : hasProviders;
+  useEffect(() => {
+    setLocalGatewayKey(aiConfig?.aiGatewayApiKey || '');
+  }, [aiConfig?.aiGatewayApiKey]);
+
+  useEffect(() => {
+    setLocalGatewayBaseUrl(aiConfig?.aiGatewayBaseUrl || '');
+  }, [aiConfig?.aiGatewayBaseUrl]);
+
+  const hasLocalGatewayKey = Boolean(localGatewayKey);
+  const hasProviders = llmProviders.length > 0;
+  const savedGatewayKey = aiConfig?.aiGatewayApiKey || '';
+  const savedGatewayBaseUrl = aiConfig?.aiGatewayBaseUrl || '';
+  const isCurrentGatewayConfig =
+    localGatewayKey === savedGatewayKey && localGatewayBaseUrl === savedGatewayBaseUrl;
+
+  const isGatewayKeyVerified =
+    testResult === 'success' ||
+    (testResult !== 'error' && Boolean(savedGatewayKey) && isCurrentGatewayConfig);
+
+  const canProceed = mode === 'gateway' ? isGatewayKeyVerified || !localGatewayKey : hasProviders;
 
   // Get saved attachment test from aiConfig
   const savedAttachmentTest = useMemo(() => aiConfig?.attachmentTest, [aiConfig?.attachmentTest]);
@@ -105,8 +133,17 @@ export function LLMApiConfigStep({
     return testedOrigin !== publicOrigin;
   }, [savedAttachmentTest?.testedOrigin, publicOrigin]);
 
+  const handleClearGatewayKey = useCallback(() => {
+    setLocalGatewayKey('');
+    setLocalGatewayBaseUrl('');
+    setTestResult(null);
+    setTestErrorMessage(null);
+    setAttachmentTestResult(null);
+    onResetGateway?.();
+  }, [onResetGateway]);
+
   const handleTestGateway = useCallback(async () => {
-    if (!aiConfig?.aiGatewayApiKey) return;
+    if (!localGatewayKey) return;
 
     setIsTesting(true);
     setTestResult(null);
@@ -117,17 +154,28 @@ export function LLMApiConfigStep({
       const { testApiKey } = await import('@teable/openapi');
       const result = await testApiKey({
         type: 'aiGateway',
-        apiKey: aiConfig.aiGatewayApiKey,
-        baseUrl: aiConfig.aiGatewayBaseUrl,
-        testAttachment: true, // Also test attachment transfer modes
+        apiKey: localGatewayKey,
+        baseUrl: localGatewayBaseUrl || undefined,
+        testAttachment: true,
       });
 
       if (result.success) {
         setTestResult('success');
-        // Save attachment test result
+        const updates: Partial<NonNullable<ISettingVo['aiConfig']>> = {
+          aiGatewayApiKey: localGatewayKey,
+          aiGatewayBaseUrl: localGatewayBaseUrl || undefined,
+        };
         if (result.attachmentTest) {
           setAttachmentTestResult(result.attachmentTest);
+          updates.attachmentTest = result.attachmentTest;
+          if (
+            !result.attachmentTest.urlMode?.success &&
+            result.attachmentTest.base64Mode?.success
+          ) {
+            updates.attachmentTransferMode = 'base64';
+          }
         }
+        onAiConfigChange?.(updates);
         return;
       }
 
@@ -158,22 +206,22 @@ export function LLMApiConfigStep({
     } finally {
       setIsTesting(false);
     }
-  }, [aiConfig?.aiGatewayApiKey, aiConfig?.aiGatewayBaseUrl, t]);
+  }, [localGatewayKey, localGatewayBaseUrl, onAiConfigChange, t]);
 
   // Handle manual mode switch
   const handleTransferModeChange = useCallback(
     (useBase64: boolean) => {
       const newMode = useBase64 ? 'base64' : 'url';
-      onAiConfigChange?.({ ...aiConfig, attachmentTransferMode: newMode });
+      onAiConfigChange?.({ attachmentTransferMode: newMode });
     },
-    [aiConfig, onAiConfigChange]
+    [onAiConfigChange]
   );
 
   // Determine the effective attachment test result (from current test or saved)
   const effectiveAttachmentTest = attachmentTestResult || savedAttachmentTest;
 
   const handleTest = async (data: ITestLLMRo) => {
-    const { testLLM } = await import('@teable/openapi/src/admin/setting');
+    const { testLLM } = await import('@teable/openapi');
     return testLLM(data);
   };
 
@@ -278,7 +326,7 @@ export function LLMApiConfigStep({
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Label htmlFor="gateway-key">{t('admin.setting.app.aiGatewayApiKey')} *</Label>
-              <Button variant="outline" size="xs" asChild className="h-6 gap-1 px-2 text-xs">
+              <Button variant="outline" size="xs" asChild className="h-6 gap-1">
                 <Link
                   href="https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai%2Fapi-keys"
                   target="_blank"
@@ -293,19 +341,23 @@ export function LLMApiConfigStep({
               <Input
                 id="gateway-key"
                 type="password"
-                value={aiConfig?.aiGatewayApiKey || ''}
+                value={localGatewayKey}
                 placeholder={t('admin.action.enterApiKey')}
                 onChange={(e) => {
-                  const value = e.target.value?.trim() || undefined;
-                  onAiConfigChange?.({ ...aiConfig, aiGatewayApiKey: value });
+                  const value = e.target.value?.trim() || '';
+                  setLocalGatewayKey(value);
                   setTestResult(null);
+                  if (!value) {
+                    onResetGateway?.();
+                  }
                 }}
                 className="flex-1"
               />
               <Button
+                type="button"
                 variant="outline"
                 onClick={handleTestGateway}
-                disabled={!hasGatewayKey || isTesting}
+                disabled={!hasLocalGatewayKey || isTesting}
               >
                 {isTesting
                   ? t('admin.setting.ai.wizard.testing')
@@ -325,7 +377,7 @@ export function LLMApiConfigStep({
                 {testErrorMessage || t('admin.setting.ai.wizard.keyInvalid')}
               </div>
             )}
-            {hasGatewayKey && !testResult && (
+            {hasLocalGatewayKey && !testResult && (
               <p className="text-xs text-muted-foreground">
                 {t('admin.setting.ai.wizard.pleaseTest')}
               </p>
@@ -348,7 +400,7 @@ export function LLMApiConfigStep({
 
             {/* Attachment Transfer Mode Test Results */}
             {effectiveAttachmentTest && !originChanged && (
-              <div className="mt-3 rounded-md border bg-muted/30 p-3">
+              <div className="mt-3 rounded-md border bg-muted p-3">
                 <div className="mb-2 text-sm font-medium">
                   {t('admin.setting.ai.wizard.attachmentTest.title')}
                 </div>
@@ -404,6 +456,7 @@ export function LLMApiConfigStep({
                     <Switch
                       checked={currentTransferMode === 'base64'}
                       onCheckedChange={handleTransferModeChange}
+                      disabled={isSaving}
                     />
                   </div>
                 </div>
@@ -422,11 +475,11 @@ export function LLMApiConfigStep({
             <Input
               id="gateway-url"
               type="text"
-              value={aiConfig?.aiGatewayBaseUrl || ''}
+              value={localGatewayBaseUrl}
               placeholder="https://ai-gateway.vercel.sh/v1"
               onChange={(e) => {
-                const value = e.target.value?.trim() || undefined;
-                onAiConfigChange?.({ ...aiConfig, aiGatewayBaseUrl: value });
+                setLocalGatewayBaseUrl(e.target.value?.trim() || '');
+                setTestResult(null);
               }}
             />
           </div>
@@ -487,7 +540,6 @@ export function LLMApiConfigStep({
                     if (results.size > 0) {
                       const recommendedMode = hasUrlSupport ? 'url' : 'base64';
                       onAiConfigChange?.({
-                        ...aiConfig,
                         attachmentTransferMode: recommendedMode,
                         attachmentTest: {
                           urlMode: { success: hasUrlSupport },
@@ -569,6 +621,7 @@ export function LLMApiConfigStep({
                       <Switch
                         checked={currentTransferMode === 'base64'}
                         onCheckedChange={handleTransferModeChange}
+                        disabled={isSaving}
                       />
                     </div>
                   </div>
@@ -579,10 +632,25 @@ export function LLMApiConfigStep({
         </div>
       )}
 
-      {/* Continue Button */}
-      <div className="flex justify-end">
-        <Button onClick={onComplete} disabled={!canProceed}>
-          {t('admin.setting.ai.wizard.saveAndContinue')}
+      {/* Step actions */}
+      <div className="flex justify-end gap-2">
+        {mode === 'gateway' && Boolean(aiConfig?.aiGatewayApiKey) && (
+          <Button type="button" variant="outline" onClick={handleClearGatewayKey}>
+            <RotateCw className="mr-1.5 size-3.5" />
+            {t('email.resetConfig')}
+          </Button>
+        )}
+        <Button
+          type="button"
+          onClick={async () => {
+            if (isDirty) {
+              await onSave?.();
+            }
+            onComplete?.();
+          }}
+          disabled={!canProceed || isSaving}
+        >
+          {isDirty ? t('admin.setting.ai.wizard.saveAndContinue') : t('actions.continue')}
         </Button>
       </div>
     </div>

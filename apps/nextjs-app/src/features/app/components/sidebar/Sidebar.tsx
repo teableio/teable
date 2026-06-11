@@ -1,5 +1,5 @@
 import { ChevronsLeft } from '@teable/icons';
-import { useIsHydrated, useIsMobile, useIsTemplate } from '@teable/sdk';
+import { useIsHydrated, useIsMobile, useIsReadOnlyPreview } from '@teable/sdk';
 import { Button, cn } from '@teable/ui-lib';
 import { Resizable } from 're-resizable';
 import type { FC, PropsWithChildren, ReactNode } from 'react';
@@ -17,16 +17,17 @@ import { useSidebarStore } from './useSidebarStore';
 
 interface ISidebarProps {
   headerLeft: ReactNode;
+  headerRight?: ReactNode;
   className?: string;
 }
 
 const useSidebar = () => {
-  const isTemplate = useIsTemplate();
+  const isReadOnlyPreview = useIsReadOnlyPreview();
   const [isVisible, setVisible] = useState(true);
   const [width, setWidth] = useState(SIDE_BAR_WIDTH);
   const storedSidebarStore = useSidebarStore();
   return useMemo(() => {
-    if (isTemplate) {
+    if (isReadOnlyPreview) {
       return {
         isVisible,
         setVisible,
@@ -35,20 +36,18 @@ const useSidebar = () => {
       };
     }
     return storedSidebarStore;
-  }, [isVisible, setVisible, setWidth, width, isTemplate, storedSidebarStore]);
+  }, [isVisible, setVisible, setWidth, width, isReadOnlyPreview, storedSidebarStore]);
 };
 
 export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
-  const { headerLeft, children, className } = props;
+  const { headerLeft, headerRight, children, className } = props;
   const isMobile = useIsMobile();
   const { isVisible, setVisible, setWidth, width } = useSidebar();
   const isHydrated = useIsHydrated();
-
   const toggleSidebar = useCallback(() => {
     setVisible(!isVisible);
   }, [isVisible, setVisible]);
-
-  useHotkeys('meta+b', toggleSidebar, [toggleSidebar]);
+  useHotkeys(`mod+b`, toggleSidebar);
 
   const sidebarClassName = cn(
     'group/sidebar flex size-full flex-col overflow-hidden bg-background',
@@ -58,11 +57,11 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
   const sidebarContent = useMemo(
     () => (
       <>
-        <SidebarHeader headerLeft={headerLeft} onExpand={toggleSidebar} />
+        <SidebarHeader headerLeft={headerLeft} headerRight={headerRight} onExpand={toggleSidebar} />
         {children}
       </>
     ),
-    [headerLeft, children, toggleSidebar]
+    [headerLeft, headerRight, children, toggleSidebar]
   );
 
   // During SSR/hydration, render consistent layout to avoid mismatch
@@ -83,7 +82,7 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
     return (
       <SheetWrapper>
         <div className={sidebarClassName}>
-          <SidebarHeader headerLeft={headerLeft} />
+          <SidebarHeader headerLeft={headerLeft} headerRight={headerRight} />
           {children}
         </div>
       </SheetWrapper>
@@ -100,13 +99,14 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
             variant="outline"
             size="xs"
             onClick={toggleSidebar}
+            data-sidebar-toggle
           >
             <ChevronsLeft className="size-5 rotate-180" />
           </Button>
         </HoverWrapper.Trigger>
         <HoverWrapper.content>
           <div className={sidebarClassName} onContextMenu={(e) => e.preventDefault()}>
-            <SidebarHeader headerLeft={headerLeft} />
+            <SidebarHeader headerLeft={headerLeft} headerRight={headerRight} />
             {children}
           </div>
         </HoverWrapper.content>

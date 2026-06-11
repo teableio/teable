@@ -49,7 +49,7 @@ const UrlPanel = (props: IUrlPanel) => {
         <Input
           type="url"
           placeholder={importTypeMap[fileType].exampleUrl}
-          className="mr-2 w-full"
+          className="mr-2"
           value={linkUrl}
           onChange={(e) => {
             const { value } = e.target;

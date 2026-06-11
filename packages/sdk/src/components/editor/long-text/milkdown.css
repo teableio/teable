@@ -1,0 +1,712 @@
+/* Milkdown editor styles */
+.milkdown-editor-wrap .ProseMirror {
+  @apply p-2 outline-none min-h-[4rem];
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.milkdown-editor-wrap .ProseMirror.milkdown-readonly {
+  min-height: 0;
+  user-select: text;
+}
+
+.milkdown-editor-wrap .ProseMirror.milkdown-readonly a {
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+/* Shared prose styles for both milkdown editor and react-markdown readonly preview */
+/* Modeled after GitHub markdown (github-markdown.css) */
+
+.milkdown-editor-wrap .ProseMirror p,
+.milkdown-readonly-preview p {
+  margin-top: 0;
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+.milkdown-editor-wrap .ProseMirror h1,
+.milkdown-editor-wrap .ProseMirror h2,
+.milkdown-editor-wrap .ProseMirror h3,
+.milkdown-editor-wrap .ProseMirror h4,
+.milkdown-editor-wrap .ProseMirror h5,
+.milkdown-editor-wrap .ProseMirror h6,
+.milkdown-readonly-preview h1,
+.milkdown-readonly-preview h2,
+.milkdown-readonly-preview h3,
+.milkdown-readonly-preview h4,
+.milkdown-readonly-preview h5,
+.milkdown-readonly-preview h6 {
+  margin-top: 24px;
+  margin-bottom: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.milkdown-editor-wrap .ProseMirror h1,
+.milkdown-readonly-preview h1 {
+  font-size: 2em;
+}
+
+.milkdown-editor-wrap .ProseMirror h2,
+.milkdown-readonly-preview h2 {
+  font-size: 1.5em;
+}
+
+.milkdown-editor-wrap .ProseMirror h3,
+.milkdown-readonly-preview h3 {
+  font-size: 1.25em;
+}
+
+.milkdown-editor-wrap .ProseMirror h4,
+.milkdown-readonly-preview h4 {
+  font-size: 1em;
+}
+
+.milkdown-editor-wrap .ProseMirror h5,
+.milkdown-readonly-preview h5 {
+  font-size: 0.875em;
+}
+
+.milkdown-editor-wrap .ProseMirror h6,
+.milkdown-readonly-preview h6 {
+  font-size: 0.85em;
+  color: hsl(var(--muted-foreground));
+}
+
+.milkdown-editor-wrap .ProseMirror > *:first-child,
+.milkdown-readonly-preview > *:first-child {
+  margin-top: 0 !important;
+}
+
+.milkdown-editor-wrap .ProseMirror > *:last-child,
+.milkdown-readonly-preview > *:last-child {
+  margin-bottom: 0 !important;
+}
+
+.milkdown-editor-wrap .ProseMirror ul,
+.milkdown-editor-wrap .ProseMirror ol,
+.milkdown-readonly-preview ul,
+.milkdown-readonly-preview ol {
+  margin-top: 0;
+  margin-bottom: 16px;
+  padding-left: 2em;
+  list-style: revert;
+}
+
+.milkdown-editor-wrap .ProseMirror ul,
+.milkdown-readonly-preview ul {
+  list-style-type: disc;
+}
+
+.milkdown-editor-wrap .ProseMirror ol,
+.milkdown-readonly-preview ol {
+  list-style-type: decimal;
+}
+
+.milkdown-editor-wrap .ProseMirror ol ol,
+.milkdown-editor-wrap .ProseMirror ul ol,
+.milkdown-readonly-preview ol ol,
+.milkdown-readonly-preview ul ol {
+  list-style-type: lower-roman;
+}
+
+.milkdown-editor-wrap .ProseMirror ul ul ol,
+.milkdown-editor-wrap .ProseMirror ul ol ol,
+.milkdown-editor-wrap .ProseMirror ol ul ol,
+.milkdown-editor-wrap .ProseMirror ol ol ol,
+.milkdown-readonly-preview ul ul ol,
+.milkdown-readonly-preview ul ol ol,
+.milkdown-readonly-preview ol ul ol,
+.milkdown-readonly-preview ol ol ol {
+  list-style-type: lower-alpha;
+}
+
+.milkdown-editor-wrap .ProseMirror ul ul,
+.milkdown-editor-wrap .ProseMirror ul ol,
+.milkdown-editor-wrap .ProseMirror ol ol,
+.milkdown-editor-wrap .ProseMirror ol ul,
+.milkdown-readonly-preview ul ul,
+.milkdown-readonly-preview ul ol,
+.milkdown-readonly-preview ol ol,
+.milkdown-readonly-preview ol ul {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.milkdown-editor-wrap .ProseMirror li,
+.milkdown-readonly-preview li {
+  /* No extra margin — GitHub uses li+li 0.25em */
+}
+
+.milkdown-editor-wrap .ProseMirror li + li,
+.milkdown-readonly-preview li + li {
+  margin-top: 0.25em;
+}
+
+.milkdown-editor-wrap .ProseMirror li > p,
+.milkdown-readonly-preview li > p {
+  margin-top: 16px;
+}
+
+.milkdown-editor-wrap .ProseMirror blockquote,
+.milkdown-readonly-preview blockquote {
+  margin: 0 0 16px;
+  padding: 0 1em;
+  color: hsl(var(--muted-foreground));
+  border-left: 0.25em solid hsl(var(--border));
+}
+
+.milkdown-editor-wrap .ProseMirror blockquote > :first-child,
+.milkdown-readonly-preview blockquote > :first-child {
+  margin-top: 0;
+}
+
+.milkdown-editor-wrap .ProseMirror blockquote > :last-child,
+.milkdown-readonly-preview blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+.milkdown-editor-wrap .ProseMirror code,
+.milkdown-readonly-preview code {
+  padding: 0.2em 0.4em;
+  margin: 0;
+  font-size: 85%;
+  white-space: break-spaces;
+  background-color: hsl(var(--muted));
+  border-radius: 6px;
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    SF Mono,
+    Menlo,
+    Consolas,
+    Liberation Mono,
+    monospace;
+}
+
+.milkdown-editor-wrap .ProseMirror pre,
+.milkdown-readonly-preview pre {
+  padding: 16px;
+  overflow: auto;
+  font-size: 85%;
+  line-height: 1.45;
+  color: hsl(var(--foreground));
+  background-color: hsl(var(--muted));
+  border-radius: 6px;
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+.milkdown-editor-wrap .ProseMirror pre code,
+.milkdown-readonly-preview pre code {
+  display: inline;
+  max-width: initial;
+  padding: 0;
+  margin: 0;
+  overflow: visible;
+  line-height: inherit;
+  word-wrap: normal;
+  background-color: transparent;
+  border: 0;
+  font-size: 100%;
+  white-space: pre;
+}
+
+.milkdown-editor-wrap .ProseMirror hr,
+.milkdown-readonly-preview hr {
+  height: 0.25em;
+  padding: 0;
+  margin: 24px 0;
+  background-color: hsl(var(--border));
+  border: 0;
+  border-radius: 2px;
+}
+
+.milkdown-editor-wrap .ProseMirror a,
+.milkdown-readonly-preview a {
+  color: hsl(var(--primary));
+  text-decoration: underline;
+}
+
+.milkdown-editor-wrap .ProseMirror a:hover,
+.milkdown-readonly-preview a:hover {
+  text-decoration: underline;
+}
+
+.milkdown-editor-wrap .ProseMirror b,
+.milkdown-editor-wrap .ProseMirror strong,
+.milkdown-readonly-preview b,
+.milkdown-readonly-preview strong {
+  font-weight: 600;
+}
+
+.milkdown-editor-wrap .ProseMirror table,
+.milkdown-readonly-preview table {
+  border-spacing: 0;
+  border-collapse: collapse;
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow: auto;
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+.milkdown-editor-wrap .ProseMirror th,
+.milkdown-editor-wrap .ProseMirror td,
+.milkdown-readonly-preview th,
+.milkdown-readonly-preview td {
+  padding: 6px 13px;
+  border: 1px solid hsl(var(--border));
+}
+
+.milkdown-editor-wrap .ProseMirror th,
+.milkdown-readonly-preview th {
+  font-weight: 600;
+}
+
+.milkdown-editor-wrap .ProseMirror tr,
+.milkdown-readonly-preview tr {
+  background-color: hsl(var(--background));
+  border-top: 1px solid hsl(var(--border));
+}
+
+.milkdown-editor-wrap .ProseMirror tr:nth-child(2n),
+.milkdown-readonly-preview tr:nth-child(2n) {
+  background-color: hsl(var(--muted));
+}
+
+.milkdown-editor-wrap .ProseMirror img,
+.milkdown-readonly-preview img {
+  max-width: 100%;
+  box-sizing: content-box;
+  border-style: none;
+}
+
+/* Task list styles (milkdown-specific DOM structure) */
+.milkdown-editor-wrap .ProseMirror .task-list-item {
+  @apply list-none;
+}
+
+.milkdown-editor-wrap .ProseMirror li[data-checked] {
+  @apply list-none;
+}
+
+.milkdown-editor-wrap .ProseMirror li[data-item-type='task'] {
+  list-style: none;
+  position: relative;
+  padding-left: 1.4em;
+}
+
+.milkdown-editor-wrap .ProseMirror li[data-item-type='task']::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.38em;
+  width: 0.9em;
+  height: 0.9em;
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.2em;
+  background: hsl(var(--background));
+}
+
+.milkdown-editor-wrap .ProseMirror li[data-item-type='task'][data-checked='true']::before {
+  border-color: hsl(var(--primary));
+  background: hsl(var(--primary));
+}
+
+.milkdown-editor-wrap .ProseMirror li[data-item-type='task'][data-checked='true']::after {
+  content: '';
+  position: absolute;
+  left: 0.32em;
+  top: 0.52em;
+  width: 0.24em;
+  height: 0.5em;
+  border: solid hsl(var(--primary-foreground));
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.milkdown-editor-wrap .ProseMirror li[data-item-type='task'] > p {
+  margin: 0;
+}
+
+.milkdown-editor-wrap .ProseMirror li[data-item-type='task'][data-checked='true'] > p {
+  text-decoration: line-through;
+  color: hsl(var(--muted-foreground));
+}
+
+.milkdown-editor-wrap .ProseMirror .task-list-item + .task-list-item {
+  @apply mt-1;
+}
+
+.milkdown-editor-wrap .ProseMirror li[data-item-type='task'] + li[data-item-type='task'] {
+  @apply mt-1;
+}
+
+/* Support both GFM and Milkdown DOM shapes for task lists. */
+.milkdown-editor-wrap .ProseMirror .task-list-item-checkbox,
+.milkdown-editor-wrap .ProseMirror .task-list-item input[type='checkbox'],
+.milkdown-editor-wrap .ProseMirror li[data-checked] > input[type='checkbox'] {
+  margin: 0 0.2em 0.25em -1.4em;
+  vertical-align: middle;
+}
+
+.milkdown-editor-wrap .ProseMirror ul.contains-task-list {
+  padding-left: 1.6em;
+}
+
+/* Task list styles for react-markdown readonly preview */
+.milkdown-readonly-preview .task-list-item {
+  @apply list-none;
+}
+
+.milkdown-readonly-preview input[type='checkbox'] {
+  margin: 0 0.4em 0.15em -1.4em;
+  vertical-align: middle;
+  pointer-events: none;
+}
+
+.milkdown-readonly-preview ul.contains-task-list {
+  padding-left: 1.6em;
+}
+
+/* Milkdown floating toolbar */
+.milkdown-floating-toolbar {
+  position: absolute;
+  left: -34px;
+  top: 0;
+  z-index: 1;
+  pointer-events: auto;
+  display: block;
+}
+
+.milkdown-toolbar-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid hsl(var(--border) / 0.5);
+  border-radius: 8px;
+  background: hsl(var(--popover) / 0.88);
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  padding: 0;
+  box-shadow:
+    0 0 0 1px hsl(var(--foreground) / 0.03),
+    0 2px 8px hsl(var(--foreground) / 0.08);
+  backdrop-filter: blur(10px) saturate(1.4);
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease,
+    border-color 0.12s ease,
+    transform 0.1s ease;
+}
+
+.milkdown-toolbar-toggle:hover {
+  background: hsl(var(--accent) / 0.9);
+  color: hsl(var(--foreground));
+  border-color: hsl(var(--border));
+}
+
+.milkdown-toolbar-toggle:active {
+  transform: scale(0.9);
+}
+
+.milkdown-floating-toolbar.expanded .milkdown-toolbar-toggle {
+  background: hsl(var(--primary) / 0.12);
+  color: hsl(var(--primary));
+  border-color: hsl(var(--primary) / 0.25);
+}
+
+.milkdown-toolbar-panel {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2px;
+  min-width: 104px;
+  padding: 4px;
+  border: 1px solid hsl(var(--border) / 0.6);
+  border-radius: 10px;
+  background: hsl(var(--popover) / 0.92);
+  box-shadow:
+    0 0 0 1px hsl(var(--foreground) / 0.04),
+    0 4px 12px hsl(var(--foreground) / 0.08),
+    0 12px 28px hsl(var(--foreground) / 0.12);
+  backdrop-filter: blur(12px) saturate(1.6);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(6px) scale(0.95);
+  transform-origin: bottom left;
+  transition:
+    opacity 0.16s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.16s cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0.16s;
+}
+
+.milkdown-floating-toolbar.expanded .milkdown-toolbar-panel {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+}
+
+.milkdown-toolbar-separator {
+  grid-column: 1 / -1;
+  height: 1px;
+  margin: 2px 4px;
+  background: hsl(var(--border) / 0.4);
+}
+
+.milkdown-toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease,
+    transform 0.1s ease;
+}
+
+.milkdown-toolbar-btn:hover {
+  background: hsl(var(--accent) / 0.8);
+  color: hsl(var(--foreground));
+}
+
+.milkdown-toolbar-btn:active {
+  transform: scale(0.88);
+}
+
+.milkdown-toolbar-btn.active {
+  background: hsl(var(--primary) / 0.12);
+  color: hsl(var(--primary));
+}
+
+.milkdown-toolbar-btn svg {
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+}
+
+.milkdown-toolbar-toggle svg {
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+}
+
+/* Milkdown selection (inline) toolbar */
+.milkdown-selection-toolbar {
+  position: absolute;
+  z-index: 1300;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 3px;
+  border: 1px solid hsl(var(--border) / 0.6);
+  border-radius: 10px;
+  background: hsl(var(--popover) / 0.92);
+  box-shadow:
+    0 0 0 1px hsl(var(--foreground) / 0.04),
+    0 2px 6px hsl(var(--foreground) / 0.06),
+    0 8px 24px hsl(var(--foreground) / 0.1);
+  backdrop-filter: blur(12px) saturate(1.6);
+  animation: milkdown-selection-toolbar-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.milkdown-selection-toolbar.hidden {
+  display: none;
+}
+
+@keyframes milkdown-selection-toolbar-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.milkdown-selection-separator {
+  width: 1px;
+  height: 14px;
+  background: hsl(var(--border) / 0.5);
+  margin: 0 1px;
+  flex-shrink: 0;
+}
+
+.milkdown-selection-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease,
+    transform 0.1s ease;
+}
+
+.milkdown-selection-btn:hover {
+  background: hsl(var(--accent) / 0.8);
+  color: hsl(var(--foreground));
+}
+
+.milkdown-selection-btn:active {
+  transform: scale(0.92);
+}
+
+.milkdown-selection-btn.active {
+  background: hsl(var(--primary) / 0.12);
+  color: hsl(var(--primary));
+}
+
+.milkdown-selection-btn svg {
+  width: 15px;
+  height: 15px;
+  pointer-events: none;
+}
+
+/* Milkdown selection toolbar: buttons & link input modes */
+.milkdown-selection-buttons {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.milkdown-selection-link-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 2px;
+}
+
+.milkdown-link-input {
+  width: 200px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid hsl(var(--border) / 0.5);
+  border-radius: 7px;
+  background: hsl(var(--background) / 0.6);
+  color: hsl(var(--foreground));
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.milkdown-link-input:focus {
+  border-color: hsl(var(--primary) / 0.5);
+}
+
+.milkdown-link-input::placeholder {
+  color: hsl(var(--muted-foreground) / 0.6);
+}
+
+.milkdown-link-done-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 7px;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  flex-shrink: 0;
+  white-space: nowrap;
+  transition:
+    opacity 0.12s ease,
+    transform 0.1s ease;
+}
+
+.milkdown-link-done-btn:hover {
+  opacity: 0.88;
+}
+
+.milkdown-link-done-btn:active {
+  transform: scale(0.96);
+}
+
+/* Milkdown link tooltip */
+.milkdown-link-tooltip {
+  position: fixed;
+  z-index: 1300;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 8px;
+  background: hsl(var(--popover-foreground));
+  color: hsl(var(--popover));
+  font-size: 13px;
+  line-height: 1.4;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow:
+    0 2px 8px hsl(var(--foreground) / 0.15),
+    0 8px 20px hsl(var(--foreground) / 0.12);
+  animation: milkdown-link-tooltip-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.milkdown-link-tooltip.hidden {
+  display: none;
+}
+
+.milkdown-link-tooltip:hover {
+  opacity: 0.92;
+}
+
+@keyframes milkdown-link-tooltip-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.milkdown-link-tooltip-icon {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.milkdown-link-tooltip-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.milkdown-link-tooltip-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
+}

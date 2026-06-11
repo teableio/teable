@@ -112,32 +112,6 @@ const defaultFields: IFieldRo[] = [
 const normalizeSingle = <T>(value: T | T[]) =>
   Array.isArray(value) ? (value.length ? value[0] : undefined) : value;
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-const waitForLinkWithTitle = async (
-  tableId: string,
-  recordId: string,
-  fieldId: string,
-  expectedId: string,
-  expectedTitle: string,
-  retries = 10,
-  delayMs = 100
-) => {
-  for (let i = 0; i < retries; i++) {
-    const record = await getRecord(tableId, recordId);
-    const value = record.fields[fieldId];
-    if (
-      Array.isArray(value) &&
-      value.some((item) => item.id === expectedId && item.title === expectedTitle)
-    ) {
-      return record;
-    }
-    await sleep(delayMs);
-  }
-  // return last record state for assertion
-  return await getRecord(tableId, recordId);
-};
-
 describe('OpenAPI Lookup field (e2e)', () => {
   let app: INestApplication;
   const baseId = globalThis.testConfig.baseId;
@@ -905,7 +879,6 @@ describe('OpenAPI Lookup field (e2e)', () => {
       );
       expect(sourceRecord).toBeTruthy();
       expect(hostRecord).toBeTruthy();
-
       expect(hostRecord!.fields[HOST_LOOKUP_AUTO]).toEqual(sourceRecord!.fields[SOURCE_AUTO_FIELD]);
       expect(normalizeSingle(hostRecord!.fields[HOST_LOOKUP_CREATED_TIME] as unknown)).toEqual(
         sourceRecord!.fields[SOURCE_CREATED_TIME_FIELD]
@@ -1233,6 +1206,10 @@ describe('OpenAPI Lookup field (e2e)', () => {
   });
 
   describe('lookup filter', () => {
+    const itV2OverrideOnly =
+      process.cwd().includes('/enterprise/backend-ee') && process.env.FORCE_V2_ALL === 'true'
+        ? it
+        : it.skip;
     let table1: ITableFullVo;
     let table2: ITableFullVo;
     beforeEach(async () => {
@@ -1365,6 +1342,62 @@ describe('OpenAPI Lookup field (e2e)', () => {
       const table1Records = (await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id })).data;
       expect(table1Records.records[0].fields[lookupField.id]).toEqual(['B2', 'B3']);
     });
+
+    itV2OverrideOnly(
+      'should sync lookup filter option values when referenced select option names change',
+      async () => {
+        const statusField = await createField(table2.id, {
+          name: 'Status',
+          type: FieldType.SingleSelect,
+          options: {
+            choices: [
+              { id: 'cho_active', name: 'Active', color: Colors.Green },
+              { id: 'cho_closed', name: 'Closed', color: Colors.Blue },
+            ],
+          },
+        });
+
+        const linkField = await createField(table1.id, {
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.OneMany,
+            foreignTableId: table2.id,
+          },
+        });
+
+        const lookupField = await createField(table1.id, {
+          name: 'Filtered Lookup',
+          type: FieldType.SingleLineText,
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId: table2.id,
+            linkFieldId: linkField.id,
+            lookupFieldId: table2.fields[0].id,
+            filter: {
+              conjunction: 'and',
+              filterSet: [{ fieldId: statusField.id, operator: 'is', value: 'Active' }],
+            },
+          },
+        });
+
+        await convertField(table2.id, statusField.id, {
+          type: FieldType.SingleSelect,
+          options: {
+            choices: [
+              { id: 'cho_active', name: 'Active Plus', color: Colors.Green },
+              { id: 'cho_closed', name: 'Closed', color: Colors.Blue },
+            ],
+          },
+        });
+
+        const refreshed = await getField(table1.id, lookupField.id);
+        const filter = (refreshed.lookupOptions as ILookupLinkOptions | undefined)?.filter as
+          | { filterSet?: Array<{ value?: unknown }> }
+          | undefined;
+
+        expect(filter?.filterSet?.[0]?.value).toBe('Active Plus');
+      }
+    );
 
     it('should update a lookup field with filter', async () => {
       const linkField = await createField(table1.id, {

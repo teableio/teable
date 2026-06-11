@@ -33,7 +33,6 @@ export const validateRoleOperations = (sql: string) => {
 
 const databaseTypeMap = {
   [DriverClient.Pg]: 'postgresql',
-  [DriverClient.Sqlite]: 'sqlite',
 };
 
 const collectWithNames = (ast?: AST) => {
@@ -65,34 +64,60 @@ export const checkTableAccess = (
   const opt = {
     database: databaseTypeMap[database],
   };
-  const { ast } = parser.parse(sql, opt);
-  const withNames = Array.isArray(ast) ? ast.map(collectWithNames).flat() : collectWithNames(ast);
-  const allWithNames = new Set([...withNames, ...tableNames]);
-  const whiteColumnList = Array.from(allWithNames).map((table) => {
+  const { ast } = (() => {
+    try {
+      return parser.parse(sql, opt);
+    } catch {
+      throw new CustomHttpException(
+        'SQL syntax error, please check your query',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.baseSqlExecutor.sqlSyntaxError',
+          },
+        }
+      );
+    }
+  })();
+  const withNames = Array.isArray(ast) ? ast.flatMap(collectWithNames) : collectWithNames(ast);
+  const allowedTables = new Set([...withNames, ...tableNames]);
+  const whiteColumnList = Array.from(allowedTables).map((table) => {
     const [schema, tableName] = table.includes('.') ? table.split('.') : [null, table];
     return `select::${schema}::${tableName}`;
   });
 
+  let whiteListError: Error | undefined;
   try {
-    const error = parser.whiteListCheck(sql, whiteColumnList, opt);
-    if (error) {
-      throw error;
-    }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } catch (error: any) {
-    throw new CustomHttpException(
-      `An error occurred while checking table access: ${error?.message}`,
-      HttpErrorCode.VALIDATION_ERROR,
-      {
-        localization: {
-          i18nKey: 'httpErrors.baseSqlExecutor.whiteListCheckError',
-          context: {
-            message: error?.message,
-          },
-        },
-      }
-    );
+    whiteListError = parser.whiteListCheck(sql, whiteColumnList, opt);
+    if (!whiteListError) return;
+  } catch (e) {
+    whiteListError = e as Error;
   }
+
+  const sqlTableList = parser.tableList(sql, opt);
+  const invalidTableNames = sqlTableList
+    .filter((t: string) => !whiteColumnList.includes(t))
+    .map((t: string) => t.split('::').pop()!);
+
+  const message =
+    invalidTableNames.length > 0
+      ? `Table ${invalidTableNames.map((n: string) => `'${n}'`).join(', ')} not found. ` +
+        `dbTableName from table get is already \`schema.table\` (e.g. \`bseXXX.tblYYY\`); ` +
+        `use it in SQL as \`FROM "bseXXX"."tblYYY"\`.`
+      : String(whiteListError?.message ?? whiteListError);
+
+  throw new CustomHttpException(
+    `An error occurred while checking table access: ${message}`,
+    HttpErrorCode.VALIDATION_ERROR,
+    {
+      localization: {
+        i18nKey: 'httpErrors.baseSqlExecutor.whiteListCheckError',
+        context: {
+          message,
+        },
+      },
+    }
+  );
 };
 
 export const getTableNames = (sql: string) => {

@@ -1,20 +1,17 @@
 import { AlertTriangle, Check, Image, File, Settings } from '@teable/icons';
-import {
-  chatModelAbilityType,
-  type IAIIntegrationConfig,
-  type IChatModelAbility,
-  type IAbilityDetail,
-} from '@teable/openapi';
-import type { ISettingVo } from '@teable/openapi/src/admin/setting/get';
-import { ConfirmDialog } from '@teable/ui-lib/base';
+import { chatModelAbilityType } from '@teable/openapi';
+import type { IAIIntegrationConfig, IChatModelAbility, IAbilityDetail } from '@teable/openapi';
 import {
   cn,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
-import { Cpu } from 'lucide-react';
+import { ChevronRight, Cpu } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
 import { AIModelSelect, type IModelOption } from './AiModelSelect';
@@ -43,24 +40,25 @@ const getAbilitySupportDetails = (ability: boolean | IAbilityDetail | undefined)
 export const CodingModels = ({
   value,
   onChange,
-  formValues,
   models,
-  onEnableAI,
   needGroup,
+  placeholder,
 }: {
   value: IAIIntegrationConfig['chatModel'];
   onChange: (value: IAIIntegrationConfig['chatModel']) => void;
   models?: IModelOption[];
-  formValues?: NonNullable<ISettingVo['aiConfig']>;
-  onEnableAI?: () => void;
   // Kept for backward compatibility, but not used since testing happens in provider config
   onTestChatModelAbility?: (
     chatModel: IAIIntegrationConfig['chatModel']
   ) => Promise<IChatModelAbility | undefined>;
   needGroup?: boolean;
+  placeholder?: string;
 }) => {
   const { t } = useTranslation('common');
-  const [showEnableAIModal, setShowEnableAIModal] = useState(false);
+  const [tiersOpen, setTiersOpen] = useState(
+    () =>
+      Boolean(value?.md && value.md !== value?.lg) || Boolean(value?.sm && value.sm !== value?.lg)
+  );
 
   const abilityIconMap = useMemo(() => {
     return {
@@ -83,30 +81,37 @@ export const CodingModels = ({
     return selectedModel?.capabilities as IChatModelAbility | undefined;
   }, [value?.lg, value?.ability, models]);
 
-  const handleModelChange = (model: string) => {
+  const handleLgChange = (model: string) => {
     // Get ability from the model's capabilities (already tested)
     const selectedModel = models?.find((m) => m.modelKey === model);
     const ability = (selectedModel?.capabilities as IChatModelAbility) || {};
 
-    // Set all sizes to the same model (simplified selection)
-    onChange({ ...value, lg: model, md: model, sm: model, ability });
-
-    // Check if AI needs to be enabled
-    if (model && formValues && !formValues.enable) {
-      setShowEnableAIModal(true);
-    }
+    // Update lg; clear md/sm if they were inheriting (same as old lg)
+    const next: IAIIntegrationConfig['chatModel'] = { ...value, lg: model, ability };
+    if (value?.md === value?.lg) next.md = undefined;
+    if (value?.sm === value?.lg) next.sm = undefined;
+    onChange(next);
   };
 
-  const handleEnableAIConfirm = () => {
-    // Enable AI after model selection
-    onEnableAI?.();
-    setShowEnableAIModal(false);
+  const handleMdChange = (model: string) => {
+    onChange({ ...value, md: model || undefined });
   };
 
-  const handleEnableAICancel = () => {
-    // Don't enable AI, just close modal
-    setShowEnableAIModal(false);
+  const handleSmChange = (model: string) => {
+    onChange({ ...value, sm: model || undefined });
   };
+
+  // Display name of the lg model for inherit hint
+  const lgModelLabel = useMemo(() => {
+    if (!value?.lg || !models) return '';
+    const m = models.find((m) => m.modelKey === value.lg);
+    return m?.label || value.lg;
+  }, [value?.lg, models]);
+
+  const inheritPlaceholder = useMemo(
+    () => t('admin.setting.ai.chatModels.inheritHint', { model: lgModelLabel }),
+    [t, lgModelLabel]
+  );
 
   // Icon for chat model selection
   const chatModelIcon = useMemo(() => <Cpu className="size-4 text-purple-500" />, []);
@@ -149,12 +154,20 @@ export const CodingModels = ({
     return missing.length > 0 ? missing : null;
   }, [value?.lg, isModelTested, selectedModelAbility, t]);
 
+  // Count how many tiers have a custom (non-inherited) model
+  const customizedCount = useMemo(() => {
+    let count = 0;
+    if (value?.md && value.md !== value?.lg) count++;
+    if (value?.sm && value.sm !== value?.lg) count++;
+    return count;
+  }, [value?.lg, value?.md, value?.sm]);
+
   // Abilities to test and display
   const testableAbilities = chatModelAbilityType.options;
 
   return (
     <div className="flex flex-1 flex-col gap-4">
-      {/* Chat model selection - simplified to one model */}
+      {/* LG - Primary chat model (required) */}
       <div className="relative flex flex-col gap-2">
         <div className="flex shrink-0 items-center gap-2 truncate text-sm">
           {chatModelIcon}
@@ -167,15 +180,16 @@ export const CodingModels = ({
 
         <AIModelSelect
           value={value?.lg ?? ''}
-          onValueChange={handleModelChange}
+          onValueChange={handleLgChange}
           options={models}
           className="flex-1"
           needGroup={needGroup}
+          placeholder={placeholder}
         />
 
         {/* Model Ability Section - directly under model select */}
         {value?.lg && (
-          <div className="mt-2 rounded-md border bg-muted/30 p-3">
+          <div className="mt-2 rounded-md border bg-muted p-3">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">
                 {t('admin.setting.ai.chatModelAbility.lgModelAbility')}
@@ -251,16 +265,65 @@ export const CodingModels = ({
         )}
       </div>
 
-      <ConfirmDialog
-        open={showEnableAIModal}
-        onOpenChange={setShowEnableAIModal}
-        title={t('admin.setting.ai.chatModelTest.enableAITitle')}
-        description={t('admin.setting.ai.chatModelTest.enableAIDescription')}
-        confirmText={t('admin.setting.ai.chatModelTest.enableAI')}
-        cancelText={t('admin.setting.ai.chatModelTest.skipTest')}
-        onConfirm={handleEnableAIConfirm}
-        onCancel={handleEnableAICancel}
-      />
+      {/* Model tiers - collapsible */}
+      {value?.lg && (
+        <Collapsible open={tiersOpen} onOpenChange={setTiersOpen}>
+          <CollapsibleTrigger className="flex w-full items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+            <ChevronRight
+              className={cn('size-4 shrink-0 transition-transform', tiersOpen && 'rotate-90')}
+            />
+            <span>{t('admin.setting.ai.chatModels.modelTiers')}</span>
+            {!tiersOpen && (
+              <span className="ml-1 text-xs opacity-60">
+                {customizedCount > 0
+                  ? t('admin.setting.ai.chatModels.customized', { count: customizedCount })
+                  : t('admin.setting.ai.chatModels.allInheriting')}
+              </span>
+            )}
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="mt-2 text-xs text-muted-foreground">
+              {t('admin.setting.ai.chatModels.modelTiersDescription')}
+            </div>
+            <div className="mt-3 flex flex-col gap-4 rounded-md border bg-muted/30 p-4">
+              {/* MD - Standard */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-sm font-medium">{t('admin.setting.ai.chatModels.md')}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {t('admin.setting.ai.chatModels.mdDescription')}
+                  </span>
+                </div>
+                <AIModelSelect
+                  value={value?.md ?? ''}
+                  onValueChange={handleMdChange}
+                  options={models}
+                  className="flex-1"
+                  needGroup={needGroup}
+                  placeholder={inheritPlaceholder}
+                />
+              </div>
+              {/* SM - Lightweight */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-sm font-medium">{t('admin.setting.ai.chatModels.sm')}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {t('admin.setting.ai.chatModels.smDescription')}
+                  </span>
+                </div>
+                <AIModelSelect
+                  value={value?.sm ?? ''}
+                  onValueChange={handleSmChange}
+                  options={models}
+                  className="flex-1"
+                  needGroup={needGroup}
+                  placeholder={inheritPlaceholder}
+                />
+              </div>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
     </div>
   );
 };

@@ -12,11 +12,9 @@ import {
 import { RadioGroup, RadioGroupItem } from '@teable/ui-lib/shadcn/ui/radio-group';
 import { Skeleton } from '@teable/ui-lib/shadcn/ui/skeleton';
 import { useState, useEffect } from 'react';
+import { useEnv } from '@/features/app/hooks/useEnv';
 
 export type AiAutoFillMode = 'emptyOnly' | 'all' | 'saveOnly';
-
-/** Maximum number of rows that can be processed in a single task */
-export const MAX_TASK_ROWS = 1000;
 
 interface IAiAutoFillDialogProps {
   open: boolean;
@@ -67,7 +65,8 @@ export const AiAutoFillDialog = (props: IAiAutoFillDialogProps) => {
     onClose,
     onConfirm,
   } = props;
-
+  const { task } = useEnv();
+  const { maxTaskRows = 0 } = task ?? {};
   const [selectedMode, setSelectedMode] = useState<AiAutoFillMode>('emptyOnly');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -112,16 +111,18 @@ export const AiAutoFillDialog = (props: IAiAutoFillDialogProps) => {
     return count.toLocaleString();
   };
 
-  // Calculate actual counts that will be processed (limited by MAX_TASK_ROWS)
-  const actualEmptyCount = emptyCount != null ? Math.min(emptyCount, MAX_TASK_ROWS) : undefined;
-  const actualAllCount = Math.min(rowCount, MAX_TASK_ROWS);
+  // Helper to apply max limit (0 means no limit)
+  const limitByMax = (count: number) => (maxTaskRows > 0 ? Math.min(count, maxTaskRows) : count);
+  const exceedsLimit = (count: number) => maxTaskRows > 0 && count > maxTaskRows;
 
-  // Check if any mode exceeds the limit
-  const isEmptyExceedsLimit = emptyCount != null && emptyCount > MAX_TASK_ROWS;
-  const isAllExceedsLimit = rowCount > MAX_TASK_ROWS;
+  // Calculate actual counts that will be processed (limited by maxTaskRows)
+  const actualEmptyCount = emptyCount != null ? limitByMax(emptyCount) : undefined;
+  const actualAllCount = limitByMax(rowCount);
+
+  // Check if current selection exceeds the limit
   const showLimitWarning =
-    (selectedMode === 'emptyOnly' && isEmptyExceedsLimit) ||
-    (selectedMode === 'all' && isAllExceedsLimit);
+    (selectedMode === 'emptyOnly' && emptyCount != null && exceedsLimit(emptyCount)) ||
+    (selectedMode === 'all' && exceedsLimit(rowCount));
 
   // Get the actual count based on selected mode
   const getDisplayCount = () => {

@@ -8,23 +8,24 @@ export const openConnectIntegration = (
     ...queryParams,
     callBackType: 'page',
   }).toString();
-  // eslint-disable-next-line sonarjs/no-small-switch
   switch (provider) {
     case UserIntegrationProvider.Slack:
-      return window.open(
-        `/api/user-integrations/authorize/${UserIntegrationProvider.Slack}?${queryString}`,
-        '_blank'
-      );
+    case UserIntegrationProvider.Gmail:
+    case UserIntegrationProvider.Outlook:
+      return window.open(`/api/user-integrations/authorize/${provider}?${queryString}`, '_blank');
     default:
       throw new Error(`Unsupported provider: ${provider}`);
   }
 };
 
 export const getUserIntegrationName = (provider: UserIntegrationProvider) => {
-  // eslint-disable-next-line sonarjs/no-small-switch
   switch (provider) {
     case UserIntegrationProvider.Slack:
       return 'Slack';
+    case UserIntegrationProvider.Gmail:
+      return 'Gmail';
+    case UserIntegrationProvider.Outlook:
+      return 'Outlook';
     default:
       throw new Error(`Unsupported provider: ${provider}`);
   }

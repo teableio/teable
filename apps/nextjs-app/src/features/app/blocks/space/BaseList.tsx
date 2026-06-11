@@ -1,7 +1,9 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { hasPermission } from '@teable/core';
 import { ChevronDown, Clock4, LayoutList } from '@teable/icons';
 import {
   deleteBase,
+  getSpaceById,
   permanentDeleteBase,
   updateBase,
   updateBaseOrder,
@@ -30,7 +32,6 @@ import { useTranslation } from 'next-i18next';
 import { useState, useMemo, useCallback } from 'react';
 import { useLocalStorage } from 'react-use';
 import { spaceConfig } from '@/features/i18n/space.config';
-import { useChatPanelStore } from '../../components/sidebar/useChatPanelStore';
 import { BaseNodeProvider } from '../base/base-node/BaseNodeProvider';
 import { getNodeUrl } from '../base/base-node/hooks';
 import { BaseNodeTree } from '../base/base-side-bar/BaseNodeTree';
@@ -55,7 +56,6 @@ export const BaseList = (props: IBaseListProps) => {
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { open: openChatPanel } = useChatPanelStore();
   const [expandedBases, setExpandedBases] = useState<Set<string>>(new Set());
 
   const isHydrated = useIsHydrated();
@@ -79,6 +79,13 @@ export const BaseList = (props: IBaseListProps) => {
 
   const allBaseList = useBaseList();
   const { map: lastVisitBaseMap = {} } = useLastVisitBase();
+
+  const { data: space } = useQuery({
+    queryKey: ReactQueryKeys.space(spaceId!),
+    queryFn: ({ queryKey }) => getSpaceById(queryKey[1]).then((res) => res.data),
+    enabled: !!spaceId,
+  });
+  const canReorder = space && hasPermission(space.role, 'base|update');
 
   const { mutate: updateOrder } = useMutation({
     mutationFn: updateBaseOrder,
@@ -169,7 +176,6 @@ export const BaseList = (props: IBaseListProps) => {
   });
 
   const intoBase = (baseId: string) => {
-    openChatPanel();
     router.push(`/base/${baseId}`);
   };
 
@@ -234,62 +240,66 @@ export const BaseList = (props: IBaseListProps) => {
       isDragging?: boolean;
       listeners?: Record<string, unknown>;
     }
-  ) => (
-    <Collapsible
-      key={base.id}
-      open={expandedBases.has(base.id)}
-      onOpenChange={() => toggleExpanded(base.id)}
-    >
-      <BaseItem
-        base={base}
-        lastVisitTime={lastVisitBaseMap[base.id]?.lastVisitTime}
-        isExpanded={expandedBases.has(base.id)}
-        showDragHandle={options?.showDragHandle}
-        dragHandleListeners={options?.listeners}
-        onToggleExpand={() => toggleExpanded(base.id)}
-        onEnterBase={() => intoBase(base.id)}
-        onUpdate={(data) => updateBaseMutator({ baseId: base.id, updateBaseRo: data })}
-        onDelete={(permanent) => deleteBaseMutator({ baseId: base.id, permanent })}
-      />
-      <CollapsibleContent>
-        <AnchorContext.Provider value={{ baseId: base.id }}>
-          <BaseNodeProvider isRestrictedAuthority={base.restrictedAuthority}>
-            <div className={cn('bg-muted', isManual ? 'px-8' : 'px-2')}>
-              <BaseNodeTree
-                mode="view"
-                emptyText={t('space:baseList.noTables')}
-                skeleton={
-                  <div className="flex w-full flex-col items-center justify-center gap-2 p-2">
-                    <Spin className="size-4" />
-                  </div>
-                }
-                onPrimaryAction={(item) => {
-                  const node = item.getItemData();
-                  const { resourceType, resourceId } = node;
-                  const url = getNodeUrl({
-                    baseId: base.id,
-                    resourceType,
-                    resourceId,
-                  });
-                  if (url) {
-                    router.push(url);
+  ) => {
+    const showDragHandle = options?.showDragHandle && canReorder;
+
+    return (
+      <Collapsible
+        key={base.id}
+        open={expandedBases.has(base.id)}
+        onOpenChange={() => toggleExpanded(base.id)}
+      >
+        <BaseItem
+          base={base}
+          lastVisitTime={lastVisitBaseMap[base.id]?.lastVisitTime}
+          isExpanded={expandedBases.has(base.id)}
+          showDragHandle={showDragHandle}
+          dragHandleListeners={showDragHandle ? options?.listeners : undefined}
+          onToggleExpand={() => toggleExpanded(base.id)}
+          onEnterBase={() => intoBase(base.id)}
+          onUpdate={(data) => updateBaseMutator({ baseId: base.id, updateBaseRo: data })}
+          onDelete={(permanent) => deleteBaseMutator({ baseId: base.id, permanent })}
+        />
+        <CollapsibleContent>
+          <AnchorContext.Provider value={{ baseId: base.id }}>
+            <BaseNodeProvider isRestrictedAuthority={base.restrictedAuthority}>
+              <div className={cn('bg-muted', isManual ? 'px-8' : 'px-2')}>
+                <BaseNodeTree
+                  mode="view"
+                  emptyText={t('space:baseList.noTables')}
+                  skeleton={
+                    <div className="flex w-full flex-col items-center justify-center gap-2 p-2">
+                      <Spin className="size-4" />
+                    </div>
                   }
-                }}
-              />
-            </div>
-          </BaseNodeProvider>
-        </AnchorContext.Provider>
-      </CollapsibleContent>
-    </Collapsible>
-  );
+                  onPrimaryAction={(item) => {
+                    const node = item.getItemData();
+                    const { resourceType, resourceId } = node;
+                    const url = getNodeUrl({
+                      baseId: base.id,
+                      resourceType,
+                      resourceId,
+                    });
+                    if (url) {
+                      router.push(url);
+                    }
+                  }}
+                />
+              </div>
+            </BaseNodeProvider>
+          </AnchorContext.Provider>
+        </CollapsibleContent>
+      </Collapsible>
+    );
+  };
   return (
-    <ScrollArea className="h-full !border-none bg-background [&>[data-radix-scroll-area-viewport]>div]:!block [&>[data-radix-scroll-area-viewport]>div]:!min-h-0 [&>[data-radix-scroll-area-viewport]>div]:!min-w-0">
+    <div className="flex h-full flex-col bg-background">
       {/* Toolbar: View Mode Select */}
       {showToolbar && (
-        <div className="sticky top-0 z-10 flex items-center gap-4 bg-background">
+        <div className="flex items-center gap-4">
           {isHydrated ? (
             <Select value={viewMode} onValueChange={(value) => setViewMode(value as ViewMode)}>
-              <SelectTrigger className="h-8 w-auto gap-1 border-none bg-transparent shadow-none hover:bg-accent hover:text-accent-foreground focus:ring-0 dark:bg-transparent [&>svg]:hidden">
+              <SelectTrigger className="w-auto gap-1 border-none bg-transparent hover:bg-accent hover:text-accent-foreground dark:bg-transparent [&>svg]:hidden">
                 <div className="flex items-center gap-1">
                   {viewMode === ViewMode.Recent ? (
                     <Clock4 className="size-3.5" />
@@ -326,43 +336,46 @@ export const BaseList = (props: IBaseListProps) => {
       )}
 
       {/* Header */}
-      <div
-        className={cn(
-          'sticky z-10 flex h-8 items-center border-b bg-background text-xs font-medium text-muted-foreground',
-          showToolbar ? 'top-8' : 'top-0'
-        )}
-      >
+      <div className="flex h-8 items-center border-b text-xs font-medium text-muted-foreground">
         <div className="flex-1 truncate pl-6 pr-2">{t('space:baseList.allBases')}</div>
-        <div className="hidden shrink-0 px-2 sm:block sm:w-40">{t('space:baseList.owner')}</div>
-        <div className="hidden w-32 shrink-0 px-2 sm:block">{t('space:baseList.createdTime')}</div>
-        <div className="hidden w-32 shrink-0 px-2 sm:block">{t('space:baseList.lastOpened')}</div>
+        <div className="hidden w-[88px] shrink-0 px-2 sm:block xl:w-40 2xl:w-48">
+          {t('space:baseList.owner')}
+        </div>
+        <div className="hidden w-[88px] shrink-0 px-2 sm:block xl:w-28 2xl:w-48">
+          {t('space:baseList.createdTime')}
+        </div>
+        <div className="hidden w-[88px] shrink-0 px-2 sm:block xl:w-28 2xl:w-48">
+          {t('space:baseList.lastOpened')}
+        </div>
       </div>
 
-      {/* Rows */}
-      {!isHydrated ? (
-        <div className="divide-y">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="flex h-12 items-center px-6">
-              <Skeleton className="h-4 w-48" />
-            </div>
-          ))}
-        </div>
-      ) : isManual ? (
-        <DraggableBaseRows
-          items={currentList}
-          onDragEnd={onDragEndHandler}
-          renderRow={renderBaseRow}
-        />
-      ) : (
-        <div className="divide-y">{currentList.map((base) => renderBaseRow(base))}</div>
-      )}
+      <ScrollArea className="min-h-0 flex-1 !border-none [&>[data-radix-scroll-area-viewport]>div]:!block [&>[data-radix-scroll-area-viewport]>div]:!min-h-0 [&>[data-radix-scroll-area-viewport]>div]:!min-w-0">
+        {/* Rows */}
+        {!isHydrated ? (
+          <div className="divide-y">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex h-12 items-center px-6">
+                <Skeleton className="h-4 w-48" />
+              </div>
+            ))}
+          </div>
+        ) : isManual ? (
+          <DraggableBaseRows
+            items={currentList}
+            onDragEnd={onDragEndHandler}
+            renderRow={renderBaseRow}
+          />
+        ) : (
+          <div className="divide-y">{currentList.map((base) => renderBaseRow(base))}</div>
+        )}
 
-      {/* Empty state */}
-      {isHydrated && currentList.length === 0 && (
-        <div className="flex h-40 items-center justify-center text-muted-foreground">
-          {t('space:baseList.empty')}
-        </div>
-      )}
-    </ScrollArea>
+        {/* Empty state */}
+        {isHydrated && currentList.length === 0 && (
+          <div className="flex h-40 items-center justify-center text-muted-foreground">
+            {t('space:baseList.empty')}
+          </div>
+        )}
+      </ScrollArea>
+    </div>
   );
 };

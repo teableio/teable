@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { axios } from '../../axios';
 import { mailTransportConfigSchema } from '../../mail';
 import { registerRoute } from '../../utils';
-import { aiConfigVoSchema, appConfigSchema, canaryConfigSchema } from './update';
+import { aiConfigVoSchema, appConfigSchema, canaryConfigSchema, imConfigSchema } from './update';
 
 export const settingVoSchema = z.object({
   instanceId: z.string(),
@@ -21,6 +21,8 @@ export const settingVoSchema = z.object({
   automationMailTransportConfig: mailTransportConfigSchema.nullable().optional(),
   appConfig: appConfigSchema.nullable().optional(),
   canaryConfig: canaryConfigSchema.nullable().optional(),
+  trashCleanupEnabledAt: z.string().nullable().optional(),
+  imConfig: imConfigSchema.nullable().optional(),
   createdTime: z.string().optional(),
 });
 

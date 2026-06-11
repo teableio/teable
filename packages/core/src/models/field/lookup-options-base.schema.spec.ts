@@ -12,6 +12,48 @@ describe('lookupOptionsRoSchema validation', () => {
       const result = lookupOptionsRoSchema.safeParse(validLinkLookup);
       expect(result.success).toBe(true);
     });
+
+    it('should strip persisted link lookup metadata from read options', () => {
+      const persistedLinkLookup = {
+        foreignTableId: 'tblXXX',
+        lookupFieldId: 'fldYYY',
+        linkFieldId: 'fldZZZ',
+        relationship: 'manyOne',
+        fkHostTableName: 'base.table',
+        selfKeyName: '__fk_self',
+        foreignKeyName: '__id',
+        filterByViewId: 'viwActive',
+        visibleFieldIds: ['fldYYY'],
+        isOneWay: false,
+        symmetricFieldId: 'fldSymmetric',
+        filter: {
+          conjunction: 'and',
+          filterSet: [
+            {
+              fieldId: 'fldDate',
+              operator: 'is',
+              value: {
+                mode: 'today',
+                timeZone: 'UTC',
+              },
+            },
+          ],
+        },
+      };
+
+      const result = lookupOptionsRoSchema.safeParse(persistedLinkLookup);
+      expect(result.success).toBe(true);
+      if (!result.success) {
+        return;
+      }
+
+      expect(result.data).toEqual({
+        foreignTableId: 'tblXXX',
+        lookupFieldId: 'fldYYY',
+        linkFieldId: 'fldZZZ',
+        filter: persistedLinkLookup.filter,
+      });
+    });
   });
 
   describe('Common mistakes detection', () => {
@@ -95,10 +137,68 @@ describe('lookupOptionsVoSchema validation', () => {
       fkHostTableName: 'table1',
       selfKeyName: 'key1',
       foreignKeyName: 'key2',
+      filterByViewId: 'viwActive',
+      visibleFieldIds: ['fldYYY'],
     };
 
     const result = lookupOptionsVoSchema.safeParse(validLinkLookup);
     expect(result.success).toBe(true);
+  });
+
+  it('should keep link display config in lookup field VO payloads', () => {
+    const validLinkLookup = {
+      foreignTableId: 'tblXXX',
+      lookupFieldId: 'fldYYY',
+      linkFieldId: 'fldZZZ',
+      relationship: 'manyOne',
+      fkHostTableName: 'table1',
+      selfKeyName: 'key1',
+      foreignKeyName: 'key2',
+      filterByViewId: 'viwActive',
+      visibleFieldIds: ['fldYYY', 'fldZZZ'],
+    };
+
+    const result = lookupOptionsVoSchema.safeParse(validLinkLookup);
+    expect(result.success).toBe(true);
+    if (!result.success) {
+      return;
+    }
+
+    expect('filterByViewId' in result.data).toBe(true);
+    expect('visibleFieldIds' in result.data).toBe(true);
+    if (!('filterByViewId' in result.data) || !('visibleFieldIds' in result.data)) {
+      throw new Error('Expected link lookup options');
+    }
+
+    expect(result.data.filterByViewId).toBe('viwActive');
+    expect(result.data.visibleFieldIds).toEqual(['fldYYY', 'fldZZZ']);
+  });
+
+  it('should accept persisted lookup metadata extensions used by realtime field payloads', () => {
+    const persistedLookup = {
+      baseId: 'bseXXX',
+      foreignTableId: 'tblXXX',
+      lookupFieldId: 'fldYYY',
+      linkFieldId: 'fldZZZ',
+      relationship: 'oneMany',
+      fkHostTableName: 'base.table',
+      selfKeyName: '__fk_self',
+      foreignKeyName: '__id',
+      filterByViewId: 'viwActive',
+      isOneWay: false,
+      symmetricFieldId: 'fldSymmetric',
+    };
+
+    const result = lookupOptionsVoSchema.safeParse(persistedLookup);
+    expect(result.success).toBe(true);
+    if (!result.success) {
+      return;
+    }
+
+    expect(result.data).toMatchObject({
+      isOneWay: false,
+      symmetricFieldId: 'fldSymmetric',
+    });
   });
 
   it('should provide helpful error when expression is misplaced', () => {

@@ -3,9 +3,10 @@ import { IdPrefix, getTableCommentChannel } from '@teable/core';
 import type { IGetRecordsRo, ICommentCountVo } from '@teable/openapi';
 import { getCommentCount, CommentPatchType, saveQueryParams } from '@teable/openapi';
 import { get } from 'lodash';
-import { useMemo, useEffect, useState } from 'react';
+import { useContext, useMemo, useEffect, useState } from 'react';
 import { LARGE_QUERY_THRESHOLD } from '../components/grid-enhancements/hooks/constant';
 import { ReactQueryKeys } from '../config';
+import { ShareViewContext } from '../context/table/ShareViewContext';
 import { useConnection } from './use-connection';
 import { useSearch } from './use-search';
 import { useTableId } from './use-table-id';
@@ -22,6 +23,11 @@ export const useCommentCountMap = (query?: IGetRecordsRo) => {
   const { searchQuery } = useSearch();
 
   const { connection } = useConnection();
+  // Comments are intentionally hidden from share-view viewers (they would
+  // leak internal collaborator identities). Skip the fetch entirely; the
+  // server would 403 anyway under the new share-view GET rule.
+  const { shareId } = useContext(ShareViewContext);
+  const isShareContext = Boolean(shareId);
 
   const queryParams = useMemo<IGetRecordsRo>(() => {
     return {
@@ -50,7 +56,7 @@ export const useCommentCountMap = (query?: IGetRecordsRo) => {
       }
       return getCommentCount(tableId!, queryParams).then(({ data }) => data);
     },
-    enabled: !!tableId,
+    enabled: !!tableId && !isShareContext,
   });
 
   const [commentCount, setCommentCount] = useState<ICommentCountVo>([]);

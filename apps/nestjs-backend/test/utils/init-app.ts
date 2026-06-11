@@ -2,6 +2,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { WsAdapter } from '@nestjs/platform-ws';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import type {
@@ -62,12 +63,13 @@ import {
   permanentDeleteBase as apiPermanentDeleteBase,
 } from '@teable/openapi';
 import { json, urlencoded } from 'express';
-import type { ClsService } from 'nestjs-cls';
+import { ClsService } from 'nestjs-cls';
 import { AppModule } from '../../src/app.module';
 import type { IBaseConfig } from '../../src/configs/base.config';
 import { baseConfig } from '../../src/configs/base.config';
 import { SessionHandleService } from '../../src/features/auth/session/session-handle.service';
 import { BaseSqlExecutorModule } from '../../src/features/base-sql-executor/base-sql-executor.module';
+import { FieldOpenApiV2Service } from '../../src/features/field/open-api/field-open-api-v2.service';
 import { NextService } from '../../src/features/next/next.service';
 import { TableIndexService } from '../../src/features/table/table-index.service';
 import { GlobalExceptionFilter } from '../../src/filter/global-exception.filter';
@@ -99,7 +101,10 @@ export async function initApp() {
 
   const configService = app.get(ConfigService);
 
-  app.useGlobalFilters(new GlobalExceptionFilter(configService));
+  app.useGlobalFilters(
+    new GlobalExceptionFilter(configService, app.get<ClsService<IClsStore>>(ClsService))
+  );
+  app.useWebSocketAdapter(new WsAdapter(app));
   app.useGlobalPipes(
     new ValidationPipe({ transform: true, stopAtFirstError: true, forbidUnknownValues: false })
   );
@@ -133,6 +138,8 @@ export async function initApp() {
   const now = new Date();
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   console.log(`> Test NODE_ENV is ${process.env.NODE_ENV}`);
+  console.log(`> Test V2_COMPUTED_UPDATE_MODE is ${process.env.V2_COMPUTED_UPDATE_MODE}`);
+  console.log(`> Test FORCE_V2_ALL is ${process.env.FORCE_V2_ALL}`);
   console.log(`> Test Ready on ${url}`);
   console.log('> Test System Time Zone:', timeZone);
   console.log('> Test Current System Time:', now.toString());
@@ -467,6 +474,20 @@ export async function createField(
     }
     return {} as IFieldVo;
   }
+}
+
+export async function createFields(
+  tableId: string,
+  fieldRos: IFieldRo[],
+  appInstance?: INestApplication
+): Promise<IFieldVo[]> {
+  const normalizedFields = fieldRos.map((field) => ensureConditionalRollupOptions(field));
+  const app = appInstance ?? (await initApp()).app;
+  const fieldOpenApiV2Service = app.get(FieldOpenApiV2Service);
+  const clsService = (fieldOpenApiV2Service as unknown as { cls: ClsService<IClsStore> }).cls;
+  return await runWithTestUser(clsService, async () =>
+    fieldOpenApiV2Service.createFields(tableId, normalizedFields)
+  );
 }
 
 export async function deleteField(tableId: string, fieldId: string) {

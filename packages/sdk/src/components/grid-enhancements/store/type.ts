@@ -8,6 +8,7 @@ export interface IHeaderMenu {
   aiEnable?: boolean;
   onAutoFill?: (fieldId: string) => void;
   onSelectionClear?: () => void;
+  addToChat?: () => void;
 }
 
 export interface IRecordMenu {
@@ -22,6 +23,7 @@ export interface IRecordMenu {
   copyRecordUrl?: () => Promise<void>;
   viewRecordHistory?: () => Promise<void>;
   addRecordComment?: () => Promise<void>;
+  addToChat?: () => void;
 }
 
 export interface IStatisticMenu {

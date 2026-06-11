@@ -87,7 +87,8 @@ export const PluginPanelHeader = (props: { tableId: string }) => {
       <PluginPanelSelector tableId={tableId} />
       <Input
         ref={renameRef}
-        className={cn('absolute h-7 left-0 right-0', {
+        size="sm"
+        className={cn('absolute left-0 right-0', {
           hidden: rename === null,
         })}
         value={rename ?? ''}
@@ -107,15 +108,15 @@ export const PluginPanelHeader = (props: { tableId: string }) => {
       <div className="flex gap-1">
         <CreatePluginDialog tableId={tableId}>
           <Button variant="outline" size="xs">
-            <Plus />
+            <Plus className="size-4 shrink-0" />
             <span className="hidden @xs/plugin-panel-header:inline">{t('table:addPlugin')}</span>
           </Button>
         </CreatePluginDialog>
         {canManage && (
           <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="xs">
-                <MoreHorizontal className="size-3.5" />
+              <Button variant="outline" size="icon-xs">
+                <MoreHorizontal className="size-3.5 shrink-0" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="relative min-w-36 overflow-hidden">
@@ -143,8 +144,8 @@ export const PluginPanelHeader = (props: { tableId: string }) => {
             </DropdownMenuContent>
           </DropdownMenu>
         )}
-        <Button variant="outline" size="xs" onClick={toggleVisible}>
-          <X />
+        <Button variant="outline" size="icon-xs" onClick={toggleVisible}>
+          <X className="size-4 shrink-0" />
         </Button>
       </div>
     </div>

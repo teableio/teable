@@ -36,7 +36,7 @@ import { tableConfig } from '@/features/i18n/table.config';
 import { EventListContainer } from '../components/EventListContainer';
 import { EventMenu } from '../components/EventMenu';
 import { useCalendar, useEventMenuStore } from '../hooks';
-import { getColorByConfig, getDateByTimezone, getEventTitle } from '../util';
+import { getColorByConfig, getDateByTimezone, getEventTitle, getPlainCellText } from '../util';
 
 const ADD_EVENT_BUTTON_CLASS_NAME = 'calendar-add-event-button';
 const MORE_LINK_TEXT_CLASS_NAME = 'calendar-custom-more-link-text';
@@ -236,7 +236,7 @@ export const Calendar = (props: ICalendarProps) => {
         return {
           id: r.id,
           title: getEventTitle(
-            titleField.cellValue2String(title) || t('sdk:common.unnamedRecord'),
+            getPlainCellText(titleField, title) || t('sdk:common.unnamedRecord'),
             start as string,
             startDateField
           ),
@@ -433,8 +433,8 @@ export const Calendar = (props: ICalendarProps) => {
         <div className="flex items-center gap-2">
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm">
-                <CalendarIcon className="size-4" />
+              <Button variant="outline" size="icon-sm">
+                <CalendarIcon className="size-4 shrink-0" />
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
@@ -452,11 +452,11 @@ export const Calendar = (props: ICalendarProps) => {
             {t('sdk:editor.date.today')}
           </Button>
           <div className="flex items-center gap-1">
-            <Button variant="outline" size="sm" onClick={onPrevHandler}>
-              <ChevronLeft className="size-4" />
+            <Button variant="outline" size="icon-sm" onClick={onPrevHandler}>
+              <ChevronLeft className="size-4 shrink-0" />
             </Button>
-            <Button variant="outline" size="sm" onClick={onNextHandler}>
-              <ChevronRight className="size-4" />
+            <Button variant="outline" size="icon-sm" onClick={onNextHandler}>
+              <ChevronRight className="size-4 shrink-0" />
             </Button>
           </div>
         </div>

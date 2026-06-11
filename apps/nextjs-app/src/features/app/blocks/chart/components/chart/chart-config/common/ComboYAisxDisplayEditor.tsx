@@ -18,7 +18,7 @@ export const ComboYAxisDisplayEditor = (props: {
     <div className="space-y-2">
       <ConfigItem label={t('form.label')}>
         <Input
-          className="h-8 text-[13px]"
+          className="text-[13px]"
           value={label}
           onBlur={() => onChange({ ...value, label })}
           onChange={(e) => setLabel(e.target.value)}
@@ -31,7 +31,8 @@ export const ComboYAxisDisplayEditor = (props: {
           </span>
           <Input
             type="number"
-            className="h-7 text-[13px]"
+            className="text-[13px]"
+            size="sm"
             value={min ?? ''}
             onChange={(e) => setMin(e.target.value.length ? parseFloat(e.target.value) : undefined)}
             onBlur={() => {
@@ -49,7 +50,8 @@ export const ComboYAxisDisplayEditor = (props: {
           </span>
           <Input
             type="number"
-            className="h-7 text-[13px]"
+            className="text-[13px]"
+            size="sm"
             value={max ?? ''}
             onChange={(e) => setMax(e.target.value.length ? parseFloat(e.target.value) : undefined)}
             onBlur={() => {

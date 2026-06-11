@@ -1,6 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type {
+  CellFormat,
   IDatetimeFormatting,
   IFieldRo,
   IFieldVo,
@@ -11,7 +12,6 @@ import type {
 import {
   Colors,
   DateFormattingPreset,
-  DriverClient,
   FieldAIActionType,
   FieldType,
   NumberFormattingType,
@@ -27,6 +27,7 @@ import { Events } from '../src/event-emitter/events';
 import {
   createField,
   createTable,
+  convertField,
   deleteField,
   permanentDeleteTable,
   getFields,
@@ -36,6 +37,20 @@ import {
   createRecords,
   getRecords,
 } from './utils/init-app';
+
+const withForceV2All = async <T>(callback: () => Promise<T>) => {
+  const previousForceV2All = process.env.FORCE_V2_ALL;
+  process.env.FORCE_V2_ALL = 'true';
+  try {
+    return await callback();
+  } finally {
+    if (previousForceV2All == null) {
+      delete process.env.FORCE_V2_ALL;
+    } else {
+      process.env.FORCE_V2_ALL = previousForceV2All;
+    }
+  }
+};
 
 describe('OpenAPI FieldController (e2e)', () => {
   let app: INestApplication;
@@ -164,6 +179,24 @@ describe('OpenAPI FieldController (e2e)', () => {
         formatting: { type: NumberFormattingType.Decimal, precision: 2 },
       });
 
+      // Test number field with empty options object (AI tool scenario)
+      // When AI passes options: {} without formatting, server should provide defaults
+      const numberFieldWithEmptyOptions = await createFieldByType(FieldType.Number, {});
+      expect(numberFieldWithEmptyOptions.options).toEqual({
+        formatting: { type: NumberFormattingType.Decimal, precision: 2 },
+      });
+
+      // Test number field with partial options (only showAs, no formatting)
+      const numberFieldWithPartialOptions = await createFieldByType(FieldType.Number, {
+        showAs: undefined,
+      } as IFieldRo['options']);
+      expect((numberFieldWithPartialOptions.options as { formatting: unknown }).formatting).toEqual(
+        {
+          type: NumberFormattingType.Decimal,
+          precision: 2,
+        }
+      );
+
       const selectField = await createFieldByType(FieldType.SingleSelect);
       expect(selectField.name).toEqual('Select');
       expect(selectField.options).toEqual({
@@ -290,6 +323,187 @@ describe('OpenAPI FieldController (e2e)', () => {
           formatting: { type: NumberFormattingType.Decimal, precision: 2 },
         });
       });
+    });
+  });
+
+  describe('v2 lookup option sync', () => {
+    it('ignores API-supplied choices for lookup-backed single select fields', async () => {
+      let hostTable: ITableFullVo | undefined;
+      let foreignTable: ITableFullVo | undefined;
+
+      try {
+        await withForceV2All(async () => {
+          foreignTable = await createTable(baseId, {
+            name: 'lookup-option-sync-foreign',
+            fields: [
+              { name: 'Title', type: FieldType.SingleLineText },
+              {
+                name: 'Importance',
+                type: FieldType.SingleSelect,
+                options: {
+                  choices: [
+                    { id: 'choLookupCore', name: '核心', color: Colors.Blue },
+                    { id: 'choLookupImportant', name: '重要', color: Colors.Green },
+                    { id: 'choLookupReference', name: '参考', color: Colors.Orange },
+                  ],
+                },
+              },
+            ],
+          });
+          hostTable = await createTable(baseId, {
+            name: 'lookup-option-sync-host',
+            fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+          });
+
+          const foreignImportanceField = foreignTable.fields.find(
+            (field) => field.name === 'Importance'
+          )!;
+          const expectedChoices = (
+            foreignImportanceField.options as {
+              choices: Array<{ id: string; name: string; color: string }>;
+            }
+          ).choices;
+
+          const linkField = await createField(hostTable.id, {
+            name: 'Related',
+            type: FieldType.Link,
+            options: {
+              relationship: Relationship.ManyMany,
+              foreignTableId: foreignTable.id,
+            } as ILinkFieldOptionsRo,
+          });
+
+          const createdLookupField = await createField(hostTable.id, {
+            name: '章节重要程度',
+            type: FieldType.SingleSelect,
+            isLookup: true,
+            lookupOptions: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignImportanceField.id,
+              linkFieldId: linkField.id,
+            } as ILookupOptionsRo,
+            options: {
+              choices: [
+                { id: 'choBroken1', name: 'Option 1', color: Colors.Blue },
+                { id: 'choBroken2', name: 'Option 2', color: Colors.Green },
+              ],
+            },
+          });
+
+          expect(createdLookupField.options).toEqual({
+            choices: expectedChoices,
+          });
+
+          const persistedLookupField = (await getFields(hostTable.id)).find(
+            (field) => field.id === createdLookupField.id
+          );
+          expect(persistedLookupField?.options).toEqual({
+            choices: expectedChoices,
+          });
+        });
+      } finally {
+        if (hostTable) {
+          await permanentDeleteTable(baseId, hostTable.id);
+        }
+        if (foreignTable) {
+          await permanentDeleteTable(baseId, foreignTable.id);
+        }
+      }
+    });
+
+    it('ignores API-supplied choices for conditional lookup-backed single select fields', async () => {
+      let hostTable: ITableFullVo | undefined;
+      let foreignTable: ITableFullVo | undefined;
+
+      try {
+        await withForceV2All(async () => {
+          foreignTable = await createTable(baseId, {
+            name: 'conditional-lookup-option-sync-foreign',
+            fields: [
+              { name: 'Title', type: FieldType.SingleLineText },
+              { name: 'Category', type: FieldType.SingleLineText },
+              {
+                name: 'Importance',
+                type: FieldType.SingleSelect,
+                options: {
+                  choices: [
+                    { id: 'choCondCore', name: '核心', color: Colors.Blue },
+                    { id: 'choCondImportant', name: '重要', color: Colors.Green },
+                    { id: 'choCondReference', name: '参考', color: Colors.Orange },
+                  ],
+                },
+              },
+            ],
+          });
+          hostTable = await createTable(baseId, {
+            name: 'conditional-lookup-option-sync-host',
+            fields: [
+              { name: 'Name', type: FieldType.SingleLineText },
+              { name: 'Category Filter', type: FieldType.SingleLineText },
+            ],
+          });
+
+          const foreignCategoryField = foreignTable.fields.find(
+            (field) => field.name === 'Category'
+          )!;
+          const foreignImportanceField = foreignTable.fields.find(
+            (field) => field.name === 'Importance'
+          )!;
+          const hostCategoryField = hostTable.fields.find(
+            (field) => field.name === 'Category Filter'
+          )!;
+          const expectedChoices = (
+            foreignImportanceField.options as {
+              choices: Array<{ id: string; name: string; color: string }>;
+            }
+          ).choices;
+
+          const createdConditionalLookupField = await createField(hostTable.id, {
+            name: '条件重要程度',
+            type: FieldType.SingleSelect,
+            isLookup: true,
+            isConditionalLookup: true,
+            lookupOptions: {
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignImportanceField.id,
+              filter: {
+                conjunction: 'and',
+                filterSet: [
+                  {
+                    fieldId: foreignCategoryField.id,
+                    operator: 'is',
+                    value: { type: 'field', fieldId: hostCategoryField.id },
+                  },
+                ],
+              },
+            } as ILookupOptionsRo,
+            options: {
+              choices: [
+                { id: 'choCondBroken1', name: 'Option 1', color: Colors.Blue },
+                { id: 'choCondBroken2', name: 'Option 2', color: Colors.Green },
+              ],
+            },
+          });
+
+          expect(createdConditionalLookupField.options).toEqual({
+            choices: expectedChoices,
+          });
+
+          const persistedConditionalLookupField = (await getFields(hostTable.id)).find(
+            (field) => field.id === createdConditionalLookupField.id
+          );
+          expect(persistedConditionalLookupField?.options).toEqual({
+            choices: expectedChoices,
+          });
+        });
+      } finally {
+        if (hostTable) {
+          await permanentDeleteTable(baseId, hostTable.id);
+        }
+        if (foreignTable) {
+          await permanentDeleteTable(baseId, foreignTable.id);
+        }
+      }
     });
   });
 
@@ -440,74 +654,71 @@ describe('OpenAPI FieldController (e2e)', () => {
       await createFieldWithUnique(FieldType.AutoNumber, undefined, 400);
     });
 
-    it.skipIf(globalThis.testConfig.driver === DriverClient.Sqlite)(
-      'should create fail for a not null validation field with all field types',
-      async () => {
-        await createFieldWithNotNull(FieldType.SingleLineText, undefined, 400);
+    it('should create fail for a not null validation field with all field types', async () => {
+      await createFieldWithNotNull(FieldType.SingleLineText, undefined, 400);
 
-        await createFieldWithNotNull(FieldType.LongText, undefined, 400);
+      await createFieldWithNotNull(FieldType.LongText, undefined, 400);
 
-        await createFieldWithNotNull(FieldType.Number, undefined, 400);
+      await createFieldWithNotNull(FieldType.Number, undefined, 400);
 
-        await createFieldWithNotNull(FieldType.Date, undefined, 400);
+      await createFieldWithNotNull(FieldType.Date, undefined, 400);
 
-        await createFieldWithNotNull(FieldType.User, undefined, 400);
+      await createFieldWithNotNull(FieldType.User, undefined, 400);
 
-        await createFieldWithNotNull(FieldType.Checkbox, undefined, 400);
+      await createFieldWithNotNull(FieldType.Checkbox, undefined, 400);
 
-        await createFieldWithNotNull(FieldType.SingleSelect, undefined, 400);
+      await createFieldWithNotNull(FieldType.SingleSelect, undefined, 400);
 
-        await createFieldWithNotNull(FieldType.MultipleSelect, undefined, 400);
+      await createFieldWithNotNull(FieldType.MultipleSelect, undefined, 400);
 
-        await createFieldWithNotNull(FieldType.Rating, undefined, 400);
+      await createFieldWithNotNull(FieldType.Rating, undefined, 400);
 
-        await createFieldWithNotNull(
-          FieldType.Formula,
-          {
-            expression: '1 + 1',
-          },
-          400
-        );
+      await createFieldWithNotNull(
+        FieldType.Formula,
+        {
+          expression: '1 + 1',
+        },
+        400
+      );
 
-        await createFieldWithNotNull(
-          FieldType.Link,
-          {
-            foreignTableId: table2.id,
-            relationship: Relationship.ManyOne,
-          },
-          400
-        );
+      await createFieldWithNotNull(
+        FieldType.Link,
+        {
+          foreignTableId: table2.id,
+          relationship: Relationship.ManyOne,
+        },
+        400
+      );
 
-        const linkField = await createField(table1.id, {
-          type: FieldType.Link,
-          options: {
-            foreignTableId: table2.id,
-            relationship: Relationship.ManyOne,
-          } as ILinkFieldOptionsRo,
-        });
+      const linkField = await createField(table1.id, {
+        type: FieldType.Link,
+        options: {
+          foreignTableId: table2.id,
+          relationship: Relationship.ManyOne,
+        } as ILinkFieldOptionsRo,
+      });
 
-        const rollupFieldRo: IFieldRo = {
-          type: FieldType.Rollup,
-          options: {
-            expression: 'SUM({values})',
-          },
-          lookupOptions: {
-            foreignTableId: table2.id,
-            lookupFieldId: table2.fields[0].id,
-            linkFieldId: linkField.id,
-          } as ILookupOptionsRo,
-          notNull: true,
-        };
+      const rollupFieldRo: IFieldRo = {
+        type: FieldType.Rollup,
+        options: {
+          expression: 'SUM({values})',
+        },
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          linkFieldId: linkField.id,
+        } as ILookupOptionsRo,
+        notNull: true,
+      };
 
-        await createField(table1.id, rollupFieldRo, 400);
+      await createField(table1.id, rollupFieldRo, 400);
 
-        await createFieldWithNotNull(FieldType.CreatedTime, undefined, 400);
+      await createFieldWithNotNull(FieldType.CreatedTime, undefined, 400);
 
-        await createFieldWithNotNull(FieldType.LastModifiedTime, undefined, 400);
+      await createFieldWithNotNull(FieldType.LastModifiedTime, undefined, 400);
 
-        await createFieldWithNotNull(FieldType.AutoNumber, undefined, 400);
-      }
-    );
+      await createFieldWithNotNull(FieldType.AutoNumber, undefined, 400);
+    });
   });
 
   describe('should safe delete field', () => {
@@ -917,6 +1128,59 @@ describe('OpenAPI FieldController (e2e)', () => {
       // The new record should have an auto number that continues the sequence
       expect(typeof autoNumValue).toBe('number');
       expect(autoNumValue).toBeGreaterThan(existingCount);
+    });
+  });
+
+  describe('formula formatting regression', () => {
+    let table: ITableFullVo;
+
+    beforeAll(async () => {
+      table = await createTable(baseId, {
+        name: 'formula-formatting-regression',
+        records: [{ fields: {} }],
+      });
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, table.id);
+    });
+
+    it('keeps numeric formula expression and text value when converting formatting to percent', async () => {
+      const formulaField = await createField(table.id, {
+        name: 'Percent Formula',
+        type: FieldType.Formula,
+        options: {
+          expression: '1+1',
+        },
+      });
+
+      const recordId = table.records[0].id;
+
+      const recordBefore = await getRecord(table.id, recordId, 'text' as CellFormat);
+      expect(recordBefore.fields[formulaField.id]).toBe('2.00');
+
+      const updatedField = await convertField(table.id, formulaField.id, {
+        type: FieldType.Formula,
+        options: {
+          expression: '1+1',
+          formatting: {
+            type: NumberFormattingType.Percent,
+            precision: 2,
+          },
+        },
+      });
+
+      expect(updatedField.options).toMatchObject({
+        expression: '1+1',
+        formatting: {
+          type: NumberFormattingType.Percent,
+          precision: 2,
+        },
+      });
+      expect(updatedField.id).toBe(formulaField.id);
+
+      const recordAfter = await getRecord(table.id, recordId, 'text' as CellFormat);
+      expect(recordAfter.fields[formulaField.id]).toBe('200.00%');
     });
   });
 });

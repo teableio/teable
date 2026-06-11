@@ -1,6 +1,11 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { NotificationStatesEnum } from '@teable/core';
-import { Bell, CheckCircle2 as Read, RefreshCcw } from '@teable/icons';
+import type { INotification, INotificationIcon } from '@teable/core';
+import {
+  NotificationSeverityEnum,
+  NotificationStatesEnum,
+  NotificationTypeEnum,
+} from '@teable/core';
+import { Bell, CheckCircle2 as Read, Download, RefreshCcw } from '@teable/icons';
 import {
   getNotificationList,
   getNotificationUnreadCount,
@@ -11,11 +16,152 @@ import { ReactQueryKeys } from '@teable/sdk/config/react-query-keys';
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib';
 import { cn } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
+import dayjs from 'dayjs';
 import { useTranslation } from 'next-i18next';
+import type { TFunction } from 'next-i18next';
 import React, { useEffect, useState } from 'react';
+import { downloadUrlWithFileName } from '@/features/app/utils/download-url';
 import { LinkNotification } from './notification-component';
 import { NotificationIcon } from './NotificationIcon';
 import { NotificationList } from './NotificationList';
+
+const SHOWN_NOTIFICATIONS_LIMIT = 100;
+const TOAST_AUTO_CLOSE_DURATION = 1000 * 3;
+const TOAST_MANUAL_CLOSE_DURATION = Infinity;
+const shownNotificationIds = new Set<string>();
+const CREDIT_EXHAUSTED_NOTIFICATION_TOAST_ID = 'credit-exhausted-notification';
+const CREDIT_NOTIFICATION_I18N_KEYS = new Set([
+  'email.templates.notify.task.ai.cancelled.creditExhausted',
+  'email.templates.notify.automation.insufficientCredit.title',
+]);
+const NOTIFICATION_SEVERITIES = [
+  NotificationSeverityEnum.Critical,
+  NotificationSeverityEnum.Warning,
+  NotificationSeverityEnum.Info,
+] as const;
+
+const getNotificationToastDuration = (notification: Pick<INotification, 'severity'>) =>
+  notification.severity === NotificationSeverityEnum.Critical
+    ? TOAST_MANUAL_CLOSE_DURATION
+    : TOAST_AUTO_CLOSE_DURATION;
+
+const getNotificationToastId = (notification: INotification) => {
+  let i18nKey: string | undefined;
+  try {
+    const parsed = JSON.parse(notification.messageI18n || '{}');
+    i18nKey = typeof parsed?.i18nKey === 'string' ? parsed.i18nKey : undefined;
+  } catch {
+    // ignore invalid messageI18n
+  }
+
+  return i18nKey && CREDIT_NOTIFICATION_I18N_KEYS.has(i18nKey)
+    ? `${dayjs().format('YYYY-MM-DD')}-${CREDIT_EXHAUSTED_NOTIFICATION_TOAST_ID}`
+    : notification.id;
+};
+
+const dispatchExportBaseComplete = (notification: Pick<INotification, 'messageI18n' | 'url'>) => {
+  const { messageI18n, url } = notification;
+
+  try {
+    const parsed = JSON.parse(messageI18n || '{}');
+    const baseName = parsed?.context?.baseName || '';
+    const fileName = parsed?.context?.name || baseName;
+    const downloadUrl = url || parsed?.context?.previewUrl || '';
+    const isSuccess = !parsed?.i18nKey?.includes('failed');
+    const event = new CustomEvent('export-base-complete', {
+      cancelable: true,
+      detail: { downloadUrl, fileName, baseName, isSuccess },
+    });
+    window.dispatchEvent(event);
+    return event.defaultPrevented;
+  } catch {
+    return false;
+  }
+};
+
+const showExportBaseToast = (
+  notification: INotification & { notifyIcon: INotificationIcon },
+  toastId: string,
+  t: TFunction
+) => {
+  const { url, messageI18n } = notification;
+  let fileName = '';
+  let downloadUrl = url || '';
+  let isSuccess = true;
+  try {
+    const parsed = JSON.parse(messageI18n || '{}');
+    fileName = parsed?.context?.name || parsed?.context?.baseName || '';
+    isSuccess = !parsed?.i18nKey?.includes('failed');
+    if (!downloadUrl) {
+      downloadUrl = parsed?.context?.previewUrl || '';
+    }
+  } catch {
+    // ignore
+  }
+
+  const toastFn = isSuccess ? toast : toast.error;
+  const titleKey = isSuccess
+    ? 'notification.exportBase.successText'
+    : 'notification.exportBase.failedText';
+  toastFn(
+    <div className="flex w-full items-center gap-2">
+      <NotificationIcon notifyIcon={notification.notifyIcon} notifyType={notification.notifyType} />
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <div className="truncate text-sm font-medium">{t(titleKey)}</div>
+        {fileName && <div className="truncate text-xs text-muted-foreground">{fileName}</div>}
+      </div>
+      {isSuccess && downloadUrl && (
+        <a
+          href={downloadUrl}
+          download={fileName || undefined}
+          className="ml-auto"
+          onClick={(event) => {
+            if (!fileName) return;
+            event.preventDefault();
+            void downloadUrlWithFileName(downloadUrl, fileName);
+          }}
+        >
+          <Button variant="default" size="xs" className="shrink-0 gap-1">
+            <Download className="size-4" />
+            {t('actions.download')}
+          </Button>
+        </a>
+      )}
+    </div>,
+    {
+      id: toastId,
+      position: 'top-center',
+      duration: getNotificationToastDuration(notification),
+      closeButton: true,
+    }
+  );
+};
+
+const showGeneralNotificationToast = (notification: INotification, toastId: string) => {
+  toast.info(
+    <div className="flex items-center">
+      <NotificationIcon notifyIcon={notification.notifyIcon} notifyType={notification.notifyType} />
+      <LinkNotification data={notification} notifyStatus={NotificationStatesEnum.Unread} />
+    </div>,
+    {
+      id: toastId,
+      position: 'top-center',
+      duration: getNotificationToastDuration(notification),
+      closeButton: true,
+    }
+  );
+};
+
+const showNotificationToast = (notification: INotification, toastId: string, t: TFunction) => {
+  if (notification.notifyType === NotificationTypeEnum.ExportBase) {
+    if (!dispatchExportBaseComplete(notification)) {
+      showExportBaseToast(notification, toastId, t);
+    }
+    return;
+  }
+
+  showGeneralNotificationToast(notification, toastId);
+};
 
 export const NotificationsManage: React.FC = () => {
   const queryClient = useQueryClient();
@@ -28,6 +174,9 @@ export const NotificationsManage: React.FC = () => {
   const [newUnreadCount, setNewUnreadCount] = useState<number | undefined>(undefined);
 
   const [notifyStatus, setNotifyStatus] = useState(NotificationStatesEnum.Unread);
+  const [selectedSeverity, setSelectedSeverity] = useState<NotificationSeverityEnum | undefined>(
+    undefined
+  );
 
   const { data: queryUnreadCount = 0 } = useQuery({
     queryKey: ReactQueryKeys.notifyUnreadCount(),
@@ -48,32 +197,19 @@ export const NotificationsManage: React.FC = () => {
     if (notification?.notification == null) return;
     if (notification.notification.isRead) return;
 
-    // Use a stable toast id for credit-related notifications to prevent stacking
-    // Covers both AI task (creditExhausted) and automation (insufficientCredit) notifications
-    const isCreditNotification =
-      notification.notification.messageI18n?.includes('creditExhausted') ||
-      notification.notification.messageI18n?.includes('insufficientCredit');
-    const toastId = isCreditNotification ? 'credit-exhausted-notification' : undefined;
+    const notificationId = notification.notification.id;
+    if (shownNotificationIds.has(notificationId)) return;
+    if (shownNotificationIds.size >= SHOWN_NOTIFICATIONS_LIMIT) {
+      shownNotificationIds.clear();
+    }
+    shownNotificationIds.add(notificationId);
 
-    toast.info(
-      <div className="flex  items-center">
-        <NotificationIcon
-          notifyIcon={notification.notification.notifyIcon}
-          notifyType={notification.notification.notifyType}
-        />
-        <LinkNotification
-          data={notification.notification}
-          notifyStatus={NotificationStatesEnum.Unread}
-        />
-      </div>,
-      {
-        id: toastId,
-        position: 'top-center',
-        duration: 1000 * 3,
-        closeButton: true,
-      }
+    showNotificationToast(
+      notification.notification,
+      getNotificationToastId(notification.notification),
+      t
     );
-  }, [notification?.notification]);
+  }, [notification?.notification, t]);
 
   const {
     data: notifyPage,
@@ -81,11 +217,13 @@ export const NotificationsManage: React.FC = () => {
     hasNextPage,
     isFetchingNextPage,
   } = useInfiniteQuery({
-    queryKey: ReactQueryKeys.notifyList({ status: notifyStatus }),
+    queryKey: ReactQueryKeys.notifyList({ status: notifyStatus, severity: selectedSeverity }),
     queryFn: ({ pageParam }) =>
-      getNotificationList({ notifyStates: notifyStatus, cursor: pageParam }).then(
-        ({ data }) => data
-      ),
+      getNotificationList({
+        notifyStates: notifyStatus,
+        severity: selectedSeverity,
+        cursor: pageParam,
+      }).then(({ data }) => data),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     enabled: isOpen,
@@ -95,6 +233,7 @@ export const NotificationsManage: React.FC = () => {
   const { mutateAsync: markAllAsReadMutator } = useMutation({
     mutationFn: notificationReadAll,
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.notifyList() });
       refresh();
     },
   });
@@ -102,10 +241,16 @@ export const NotificationsManage: React.FC = () => {
   const refresh = () => {
     setNewUnreadCount(undefined);
     queryClient.invalidateQueries({ queryKey: ReactQueryKeys.notifyUnreadCount() });
-    queryClient.resetQueries({
-      queryKey: ReactQueryKeys.notifyList({ status: notifyStatus }),
-      exact: true,
-    });
+    queryClient.resetQueries({ queryKey: ReactQueryKeys.notifyList() });
+  };
+
+  const notifySummary = notifyPage?.pages[0]?.summary;
+
+  const getSeverityLabel = (severity: NotificationSeverityEnum) =>
+    t(`notification.severity.${severity}`);
+
+  const handleSeverityClick = (severity?: NotificationSeverityEnum) => {
+    setSelectedSeverity(severity);
   };
 
   const renderNewButton = () => {
@@ -166,7 +311,7 @@ export const NotificationsManage: React.FC = () => {
                 })}
                 onClick={() => setNotifyStatus(NotificationStatesEnum.Unread)}
               >
-                {t('notification.title')}
+                {t('notification.unread')}
               </Button>
               <Button
                 variant="ghost"
@@ -180,6 +325,56 @@ export const NotificationsManage: React.FC = () => {
               </Button>
             </div>
           </div>
+          <div className="flex gap-1.5 px-4 py-2.5">
+            <Button
+              variant="ghost"
+              size="xs"
+              className={cn(
+                'h-7 gap-1.5 rounded px-2.5 text-xs font-medium text-muted-foreground hover:bg-muted/70 hover:text-foreground',
+                selectedSeverity === undefined &&
+                  'bg-foreground/10 text-foreground hover:bg-foreground/10'
+              )}
+              onClick={() => handleSeverityClick(undefined)}
+            >
+              {t('notification.sections.all')}
+              <span
+                className={cn(
+                  'min-w-6 rounded-full px-2 py-0.5 text-center text-xs font-medium leading-none text-muted-foreground',
+                  selectedSeverity === undefined ? 'bg-background/80' : 'bg-muted/70'
+                )}
+              >
+                {notifySummary
+                  ? notifySummary.critical + notifySummary.warning + notifySummary.info
+                  : 0}
+              </span>
+            </Button>
+            {NOTIFICATION_SEVERITIES.map((severity) => {
+              const isSelected = selectedSeverity === severity;
+
+              return (
+                <Button
+                  key={severity}
+                  variant="ghost"
+                  size="xs"
+                  className={cn(
+                    'h-7 gap-1.5 rounded px-2.5 text-xs font-medium text-muted-foreground hover:bg-muted/70 hover:text-foreground',
+                    isSelected && 'bg-foreground/10 text-foreground hover:bg-foreground/10'
+                  )}
+                  onClick={() => handleSeverityClick(severity)}
+                >
+                  {getSeverityLabel(severity)}
+                  <span
+                    className={cn(
+                      'min-w-6 rounded-full px-2 py-0.5 text-center text-xs font-medium leading-none text-muted-foreground',
+                      isSelected ? 'bg-background/80' : 'bg-muted/70'
+                    )}
+                  >
+                    {notifySummary?.[severity] ?? 0}
+                  </span>
+                </Button>
+              );
+            })}
+          </div>
           <NotificationList
             className="relative max-h-[78vh] overflow-auto"
             notifyStatus={notifyStatus}
@@ -187,6 +382,11 @@ export const NotificationsManage: React.FC = () => {
             hasNextPage={hasNextPage}
             isFetchingNextPage={isFetchingNextPage}
             onShowMoreClick={() => fetchNextPage()}
+            emptyMessage={
+              selectedSeverity
+                ? t('notification.noSeverity', { severity: getSeverityLabel(selectedSeverity) })
+                : undefined
+            }
           />
           {notifyStatus === NotificationStatesEnum.Unread ? (
             <div className="my-1.5 flex justify-end">

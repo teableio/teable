@@ -54,7 +54,7 @@ export const ConditionGroup = (props: IConditionGroupProps) => {
         <div className="ml-auto flex">
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger>
-              <Button variant="ghost" size={'icon'} className="size-8 text-muted-foreground">
+              <Button variant="ghost" size="icon-sm" className="text-muted-foreground">
                 <Plus className="size-4" />
               </Button>
             </DropdownMenuTrigger>

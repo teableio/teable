@@ -31,6 +31,8 @@ interface IExpandRecordProps {
   serverData?: IRecord;
   recordHistoryVisible?: boolean;
   commentVisible?: boolean;
+  foreignTableName?: string;
+  onForeignTableClick?: () => void;
   onClose?: () => void;
   onPrev?: (recordId: string) => void;
   onNext?: (recordId: string) => void;
@@ -53,6 +55,8 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
     serverData,
     recordHistoryVisible,
     commentVisible,
+    foreignTableName,
+    onForeignTableClick,
     onPrev,
     onNext,
     onClose,
@@ -151,6 +155,8 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
             title={record?.title}
             recordHistoryVisible={recordHistoryVisible}
             commentVisible={commentVisible}
+            foreignTableName={foreignTableName}
+            onForeignTableClick={onForeignTableClick}
             disabledPrev={disabledPrev}
             disabledNext={disabledNext}
             onClose={onClose}
@@ -165,7 +171,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
             tableId={tableId}
           />
         )}
-        <div className="relative flex flex-1 overflow-hidden">
+        <div className="relative flex flex-1 overflow-hidden rounded-b-lg">
           {recordHistoryVisible ? (
             <div className="flex size-full overflow-hidden rounded-b bg-background">
               <RecordHistory recordId={recordId} />
@@ -173,7 +179,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
           ) : (
             <div className="relative flex w-full flex-1 justify-between overflow-y-auto">
               {fields.length > 0 ? (
-                <div className="size-full overflow-auto p-9">
+                <div className="size-full overflow-auto px-14 py-9">
                   <RecordEditor
                     record={record}
                     fields={fields}
@@ -189,7 +195,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
               )}
 
               {commentVisible && baseId && tableId && recordId && (
-                <div className="w-[360px] shrink-0">
+                <div className="w-[320px] shrink-0">
                   <CommentPanel
                     tableId={tableId}
                     recordId={recordId}

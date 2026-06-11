@@ -4,7 +4,6 @@ import type {
   FieldType,
   IFilter,
   ILookupLinkOptionsVo,
-  ILookupOptionsVo,
   ISortItem,
   TableDomain,
 } from '@teable/core';
@@ -58,6 +57,10 @@ export type ICalendarDailyCollectionQueryProps = {
   dbTableName: string;
 };
 
+export type IRawQueryExecutor = {
+  $queryRawUnsafe<T = unknown>(query: string, ...args: unknown[]): Promise<T>;
+};
+
 export interface IDbProvider {
   driver: DriverClient;
 
@@ -104,7 +107,7 @@ export interface IDbProvider {
   checkColumnExist(
     tableName: string,
     columnName: string,
-    prisma: Prisma.TransactionClient
+    prisma: IRawQueryExecutor
   ): Promise<boolean>;
 
   checkTableExist(tableName: string): string;

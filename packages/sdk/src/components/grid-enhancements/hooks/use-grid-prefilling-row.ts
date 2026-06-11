@@ -1,3 +1,4 @@
+import { generateAttachmentId } from '@teable/core';
 import type { IUpdateOrderRo } from '@teable/openapi';
 import { isEqual, keyBy } from 'lodash';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -23,6 +24,14 @@ export const useGridPrefillingRow = (columns: (IGridColumn & { id: string })[]) 
   const [prefillingFieldValueMap, setPrefillingFieldValueMap] = useState<
     { [fieldId: string]: unknown } | undefined
   >();
+  const [tempRecordId, setTempRecordId] = useState(() => generateAttachmentId());
+
+  // Reset tempRecordId for each prefilling row session
+  useEffect(() => {
+    if (prefillingRowIndex != null) {
+      setTempRecordId(generateAttachmentId());
+    }
+  }, [prefillingRowIndex]);
 
   const localRecord = useMemo(() => {
     if (prefillingFieldValueMap == null) {
@@ -54,8 +63,17 @@ export const useGridPrefillingRow = (columns: (IGridColumn & { id: string })[]) 
       const cellValue2GridDisplay = createCellValue2GridDisplay(fields);
       if (localRecord != null) {
         const fieldId = columns[columnIndex]?.id;
-        if (!fieldId) return { type: CellType.Loading };
-        return cellValue2GridDisplay(localRecord, columnIndex, true);
+        const field = fields.find((field) => field.id === fieldId);
+        if (!fieldId || !field) return { type: CellType.Loading };
+        const cellContent = cellValue2GridDisplay(localRecord, columnIndex, true);
+        if (!field.canCreateFieldRecord) {
+          return {
+            ...cellContent,
+            readonly: true,
+            locked: true,
+          };
+        }
+        return cellContent;
       }
       return { type: CellType.Loading };
     },
@@ -119,6 +137,7 @@ export const useGridPrefillingRow = (columns: (IGridColumn & { id: string })[]) 
       prefillingRowIndex,
       prefillingRowOrder,
       prefillingFieldValueMap,
+      tempRecordId,
       setPrefillingRowIndex,
       setPrefillingRowOrder,
       onPrefillingCellEdited,
@@ -130,6 +149,7 @@ export const useGridPrefillingRow = (columns: (IGridColumn & { id: string })[]) 
     prefillingRowIndex,
     prefillingRowOrder,
     prefillingFieldValueMap,
+    tempRecordId,
     setPrefillingRowIndex,
     setPrefillingRowOrder,
     onPrefillingCellEdited,

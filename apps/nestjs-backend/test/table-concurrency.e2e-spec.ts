@@ -5,6 +5,7 @@ import { createTable, initApp, permanentDeleteTable } from './utils/init-app';
 describe('Table Creation Concurrency (e2e)', () => {
   let app: INestApplication;
   const baseId = globalThis.testConfig.baseId;
+  const isForceV2 = process.env.FORCE_V2_ALL === 'true';
 
   beforeAll(async () => {
     const appCtx = await initApp();
@@ -47,7 +48,11 @@ describe('Table Creation Concurrency (e2e)', () => {
       expect(new Set(dbTableNames).size).toBe(tables.length);
 
       const tableNames = tables.map((table) => table.name);
-      expect(new Set(tableNames).size).toBe(tables.length);
+      if (isForceV2) {
+        expect(tableNames).toEqual(Array.from({ length: tables.length }, () => sharedName));
+      } else {
+        expect(new Set(tableNames).size).toBe(tables.length);
+      }
     } finally {
       for (const tableId of createdTableIds) {
         await permanentDeleteTable(baseId, tableId);

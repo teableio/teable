@@ -4,6 +4,11 @@ import { SelectionRegionType } from '@teable/sdk/components';
 import type { Field } from '@teable/sdk/model';
 import { isEqual, range } from 'lodash';
 
+export const DELETE_SELECTION_STREAM_ROW_THRESHOLD = 200;
+export const DUPLICATE_SELECTION_STREAM_ROW_THRESHOLD = 200;
+export const PASTE_SELECTION_STREAM_ROW_THRESHOLD = 200;
+export const CLEAR_SELECTION_STREAM_ROW_THRESHOLD = 200;
+
 export const selectionCoverAttachments = (selection: CombinedSelection, fields: Field[]) => {
   const { type, ranges } = selection;
   switch (type) {
@@ -117,7 +122,7 @@ export const getEffectCellCount = (
   return 0;
 };
 
-export const getEffectRows = (selection: CombinedSelection) => {
+export const getEffectRows = (selection: CombinedSelection, rowCount?: number | null) => {
   const { type, ranges } = selection;
   if (type === SelectionRegionType.Rows) {
     return ranges.reduce((acc, range) => acc + range[1] - range[0] + 1, 0);
@@ -130,5 +135,60 @@ export const getEffectRows = (selection: CombinedSelection) => {
     return endRow - startRow + 1;
   }
 
+  if (type === SelectionRegionType.Columns) {
+    return rowCount ?? 0;
+  }
+
   return 0;
+};
+
+export const selectionIncludesEditableField = (selection: CombinedSelection, fields: Field[]) => {
+  const isEditable = (field: Field | undefined) => Boolean(field && !field.isComputed);
+  const { type, ranges } = selection;
+
+  switch (type) {
+    case SelectionRegionType.Cells: {
+      const [[startCol], [endCol]] = selection.serialize();
+      return fields.slice(startCol, endCol + 1).some(isEditable);
+    }
+    case SelectionRegionType.Columns:
+      return ranges.some(([startCol, endCol]) =>
+        fields.slice(startCol, endCol + 1).some(isEditable)
+      );
+    case SelectionRegionType.Rows:
+      return fields.some(isEditable);
+    default:
+      return false;
+  }
+};
+
+export const shouldUseDeleteSelectionStream = (
+  selection: CombinedSelection,
+  rowCount?: number | null,
+  threshold = DELETE_SELECTION_STREAM_ROW_THRESHOLD
+) => {
+  return getEffectRows(selection, rowCount) > threshold;
+};
+
+export const shouldUseDuplicateSelectionStream = (
+  selection: CombinedSelection,
+  rowCount?: number | null,
+  threshold = DUPLICATE_SELECTION_STREAM_ROW_THRESHOLD
+) => {
+  return getEffectRows(selection, rowCount) > threshold;
+};
+
+export const shouldUsePasteSelectionStream = (
+  rowCount: number,
+  threshold = PASTE_SELECTION_STREAM_ROW_THRESHOLD
+) => {
+  return rowCount > threshold;
+};
+
+export const shouldUseClearSelectionStream = (
+  selection: CombinedSelection,
+  rowCount?: number | null,
+  threshold = CLEAR_SELECTION_STREAM_ROW_THRESHOLD
+) => {
+  return getEffectRows(selection, rowCount) > threshold;
 };

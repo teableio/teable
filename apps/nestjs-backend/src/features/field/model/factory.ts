@@ -31,17 +31,31 @@ import { UserFieldDto } from './field-dto/user-field.dto';
 
 // eslint-disable-next-line sonarjs/cognitive-complexity
 export function rawField2FieldObj(fieldRaw: Field): IFieldVo {
+  let options = fieldRaw.options && JSON.parse(fieldRaw.options as string);
+  if (
+    fieldRaw.type === FieldType.Link &&
+    options &&
+    typeof options === 'object' &&
+    (options as { isOneWay?: boolean }).isOneWay === true
+  ) {
+    delete (options as { symmetricFieldId?: string }).symmetricFieldId;
+  }
+
+  if (fieldRaw.isLookup && options == null) {
+    options = {};
+  }
+
   return {
     id: fieldRaw.id,
     dbFieldName: fieldRaw.dbFieldName,
     name: fieldRaw.name,
     type: fieldRaw.type as FieldType,
     description: fieldRaw.description || undefined,
-    options: fieldRaw.options && JSON.parse(fieldRaw.options as string),
+    options,
     meta: (fieldRaw.meta && JSON.parse(fieldRaw.meta as string)) || undefined,
     aiConfig: (fieldRaw.aiConfig && JSON.parse(fieldRaw.aiConfig as string)) || undefined,
     notNull: fieldRaw.notNull || undefined,
-    unique: fieldRaw.unique || undefined,
+    unique: fieldRaw.unique ?? false,
     isComputed: fieldRaw.isComputed || undefined,
     isPrimary: fieldRaw.isPrimary || undefined,
     isPending: fieldRaw.isPending || undefined,
@@ -51,7 +65,7 @@ export function rawField2FieldObj(fieldRaw: Field): IFieldVo {
     lookupOptions:
       (fieldRaw.lookupOptions && JSON.parse(fieldRaw.lookupOptions as string)) || undefined,
     cellValueType: fieldRaw.cellValueType as CellValueType,
-    isMultipleCellValue: fieldRaw.isMultipleCellValue || undefined,
+    isMultipleCellValue: fieldRaw.isMultipleCellValue ?? undefined,
     dbFieldType: fieldRaw.dbFieldType as DbFieldType,
   };
 }
@@ -89,50 +103,78 @@ export function createFieldInstanceByRaw(fieldRaw: Field) {
   return createFieldInstanceByVo(rawField2FieldObj(fieldRaw));
 }
 
+const normalizeConditionalLookupFieldVo = (field: IFieldVo): IFieldVo => {
+  if (field.type !== ('conditionalLookup' as FieldType)) {
+    return field;
+  }
+
+  const options =
+    field.options && typeof field.options === 'object' && !Array.isArray(field.options)
+      ? (field.options as Record<string, unknown>)
+      : {};
+  const innerTypeRaw = options.innerType;
+  const innerOptionsRaw = options.innerOptions;
+  const innerType =
+    typeof innerTypeRaw === 'string' ? (innerTypeRaw as FieldType) : FieldType.SingleLineText;
+  const innerOptions =
+    innerOptionsRaw && typeof innerOptionsRaw === 'object' && !Array.isArray(innerOptionsRaw)
+      ? (innerOptionsRaw as Record<string, unknown>)
+      : {};
+
+  return {
+    ...field,
+    type: innerType,
+    options: innerOptions,
+    isLookup: true,
+    isConditionalLookup: true,
+  };
+};
+
 export function createFieldInstanceByVo(field: IFieldVo) {
-  switch (field.type) {
+  const normalizedField = normalizeConditionalLookupFieldVo(field);
+  switch (normalizedField.type) {
     case FieldType.SingleLineText:
-      return plainToInstance(SingleLineTextFieldDto, field);
+      return plainToInstance(SingleLineTextFieldDto, normalizedField);
     case FieldType.LongText:
-      return plainToInstance(LongTextFieldDto, field);
+      return plainToInstance(LongTextFieldDto, normalizedField);
     case FieldType.Number:
-      return plainToInstance(NumberFieldDto, field);
+      return plainToInstance(NumberFieldDto, normalizedField);
     case FieldType.SingleSelect:
-      return plainToInstance(SingleSelectFieldDto, field);
+      return plainToInstance(SingleSelectFieldDto, normalizedField);
     case FieldType.MultipleSelect:
-      return plainToInstance(MultipleSelectFieldDto, field);
+      return plainToInstance(MultipleSelectFieldDto, normalizedField);
     case FieldType.Link:
-      return plainToInstance(LinkFieldDto, field);
+      return plainToInstance(LinkFieldDto, normalizedField);
     case FieldType.Formula:
-      return plainToInstance(FormulaFieldDto, field);
+      return plainToInstance(FormulaFieldDto, normalizedField);
     case FieldType.Attachment:
-      return plainToInstance(AttachmentFieldDto, field);
+      return plainToInstance(AttachmentFieldDto, normalizedField);
     case FieldType.Date:
-      return plainToInstance(DateFieldDto, field);
+      return plainToInstance(DateFieldDto, normalizedField);
     case FieldType.Checkbox:
-      return plainToInstance(CheckboxFieldDto, field);
+      return plainToInstance(CheckboxFieldDto, normalizedField);
     case FieldType.Rollup:
-      return plainToInstance(RollupFieldDto, field);
+      return plainToInstance(RollupFieldDto, normalizedField);
     case FieldType.ConditionalRollup:
-      return plainToInstance(ConditionalRollupFieldDto, field);
+      return plainToInstance(ConditionalRollupFieldDto, normalizedField);
     case FieldType.Rating:
-      return plainToInstance(RatingFieldDto, field);
+      return plainToInstance(RatingFieldDto, normalizedField);
     case FieldType.AutoNumber:
-      return plainToInstance(AutoNumberFieldDto, field);
+      return plainToInstance(AutoNumberFieldDto, normalizedField);
     case FieldType.CreatedTime:
-      return plainToInstance(CreatedTimeFieldDto, field);
+      return plainToInstance(CreatedTimeFieldDto, normalizedField);
     case FieldType.LastModifiedTime:
-      return plainToInstance(LastModifiedTimeFieldDto, field);
+      return plainToInstance(LastModifiedTimeFieldDto, normalizedField);
     case FieldType.User:
-      return plainToInstance(UserFieldDto, field);
+      return plainToInstance(UserFieldDto, normalizedField);
     case FieldType.CreatedBy:
-      return plainToInstance(CreatedByFieldDto, field);
+      return plainToInstance(CreatedByFieldDto, normalizedField);
     case FieldType.LastModifiedBy:
-      return plainToInstance(LastModifiedByFieldDto, field);
+      return plainToInstance(LastModifiedByFieldDto, normalizedField);
     case FieldType.Button:
-      return plainToInstance(ButtonFieldDto, field);
+      return plainToInstance(ButtonFieldDto, normalizedField);
     default:
-      assertNever(field.type);
+      assertNever(normalizedField.type);
   }
 }
 

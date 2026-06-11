@@ -102,7 +102,7 @@ const TextEditorBase: ForwardRefRenderFunction<
             ...attachStyle,
           }}
           value={value}
-          className="cursor-text border-2 px-2 text-[13px] shadow-none focus-visible:ring-transparent"
+          className="cursor-text border-2 text-[13px]"
           onChange={onChangeInner}
           onBlur={saveValue}
           onMouseDown={(e) => e.stopPropagation()}

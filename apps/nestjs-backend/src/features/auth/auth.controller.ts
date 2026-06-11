@@ -10,8 +10,6 @@ import { Response } from 'express';
 import { ClsService } from 'nestjs-cls';
 import { AUTH_SESSION_COOKIE_NAME } from '../../const';
 import { CustomHttpException } from '../../custom.exception';
-import { EmitControllerEvent } from '../../event-emitter/decorators/emit-controller-event.decorator';
-import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { DeleteUserService } from '../user/delete-user/delete-user.service';
@@ -31,7 +29,6 @@ export class AuthController {
 
   @Post('signout')
   @HttpCode(200)
-  @EmitControllerEvent(Events.USER_SIGNOUT)
   async signout(@Req() req: Express.Request, @Res({ passthrough: true }) res: Response) {
     await this.sessionService.signout(req);
     res.clearCookie(AUTH_SESSION_COOKIE_NAME);

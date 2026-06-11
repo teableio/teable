@@ -108,7 +108,6 @@ export const OAuthAppForm = forwardRef<IOAuthAppFormRef, IOAuthAppFormProps>((pr
           required
         >
           <Input
-            className="h-8"
             type="text"
             value={form.name}
             onChange={(e) => updateForm('name', e.target.value)}
@@ -132,7 +131,6 @@ export const OAuthAppForm = forwardRef<IOAuthAppFormRef, IOAuthAppFormProps>((pr
           required
         >
           <Input
-            className="h-8"
             type="text"
             value={form.homepage}
             onChange={(e) => updateForm('homepage', e.target.value)}
@@ -217,6 +215,7 @@ export const OAuthAppForm = forwardRef<IOAuthAppFormRef, IOAuthAppFormProps>((pr
         </div>
         <ScopesSelect
           actionsPrefixes={OAuthActionsPrefixes}
+          allowedActions={OAUTH_ACTIONS}
           initValue={form.scopes as Action[]}
           onChange={(value) =>
             updateForm(

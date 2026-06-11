@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import { BullModule } from '@nestjs/bullmq';
 import type { ModuleMetadata } from '@nestjs/common';
 import { Module } from '@nestjs/common';
@@ -40,17 +41,24 @@ import { PluginPanelModule } from './features/plugin-panel/plugin-panel.module';
 import { SelectionModule } from './features/selection/selection.module';
 import { AdminOpenApiModule } from './features/setting/open-api/admin-open-api.module';
 import { SettingOpenApiModule } from './features/setting/open-api/setting-open-api.module';
+import { BaseShareModule } from './features/base-share/base-share.module';
 import { ShareModule } from './features/share/share.module';
 import { SpaceModule } from './features/space/space.module';
 import { TemplateOpenApiModule } from './features/template/template-open-api.module';
 import { TrashModule } from './features/trash/trash.module';
 import { UndoRedoModule } from './features/undo-redo/open-api/undo-redo.module';
 import { UserModule } from './features/user/user.module';
+import { V2Module } from './features/v2/v2.module';
 import { GlobalModule } from './global/global.module';
 import { InitBootstrapProvider } from './global/init-bootstrap.provider';
 import { LoggerModule } from './logger/logger.module';
 import { ObservabilityModule } from './observability/observability.module';
 import { WsModule } from './ws/ws.module';
+
+// In CI or test environments, use a longer timeout for ConditionalModule
+// to avoid sporadic timeout errors when resources are under pressure
+const isTestOrCI = process.env.CI || process.env.NODE_ENV === 'test' || process.env.VITEST;
+const CONDITIONAL_MODULE_TIMEOUT = isTestOrCI ? 60000 : 5000;
 
 export const appModules = {
   imports: [
@@ -77,6 +85,7 @@ export const appModules = {
     CollaboratorModule,
     InvitationModule,
     ShareModule,
+    BaseShareModule,
     NotificationModule,
     AccessTokenModule,
     ImportOpenApiModule,
@@ -98,6 +107,7 @@ export const appModules = {
     ObservabilityModule,
     BuiltinAssetsInitModule,
     ExternalOAuth2Module,
+    V2Module,
   ],
   providers: [InitBootstrapProvider],
 };
@@ -126,7 +136,8 @@ export const appModules = {
       }),
       (env) => {
         return Boolean(env.BACKEND_CACHE_REDIS_URI);
-      }
+      },
+      { timeout: CONDITIONAL_MODULE_TIMEOUT }
     ),
   ],
   controllers: [],

@@ -26,7 +26,7 @@ interface IValidateFieldOptionProps {
   type: FieldType;
   isLookup?: boolean;
   isConditionalLookup?: boolean;
-  options?: IFieldOptionsRo;
+  options?: IFieldOptionsRo | null;
   aiConfig?: IFieldAIConfig | null;
   lookupOptions?: ILookupOptionsRo;
   meta?: IFieldMetaVo;
@@ -34,7 +34,7 @@ interface IValidateFieldOptionProps {
 
 // eslint-disable-next-line sonarjs/cognitive-complexity
 const validateLookupOptions = (data: IValidateFieldOptionProps) => {
-  const { isLookup, isConditionalLookup, lookupOptions, type, options } = data;
+  const { isLookup, isConditionalLookup, lookupOptions, type } = data;
   const res: IFieldValidateData[] = [];
 
   const isRollup = type === FieldType.Rollup;

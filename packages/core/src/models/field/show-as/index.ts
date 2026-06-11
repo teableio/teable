@@ -1,5 +1,6 @@
 import { z } from '../../../zod';
-import { CellValueType } from '../constant';
+import { CellValueType, FieldType } from '../constant';
+import { longTextShowAsSchema } from '../derivate/long-text-option.schema';
 import { multiNumberShowAsSchema, numberShowAsSchema, singleNumberShowAsSchema } from './number';
 import { singleLineTextShowAsSchema } from './text';
 
@@ -8,7 +9,8 @@ export * from './text';
 
 export const getShowAsSchema = (
   cellValueType: CellValueType,
-  isMultipleCellValue: boolean | undefined
+  isMultipleCellValue: boolean | undefined,
+  fieldType?: FieldType
 ) => {
   if (cellValueType === CellValueType.Number) {
     return isMultipleCellValue
@@ -17,6 +19,9 @@ export const getShowAsSchema = (
   }
 
   if (cellValueType === CellValueType.String) {
+    if (fieldType === FieldType.LongText) {
+      return longTextShowAsSchema.optional();
+    }
     return singleLineTextShowAsSchema.optional();
   }
 

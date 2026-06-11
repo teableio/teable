@@ -15,7 +15,7 @@ export const ComboXAxisDisplayEditor = (props: {
   return (
     <ConfigItem label={t('form.label')}>
       <Input
-        className="h-8 text-[13px]"
+        className="text-[13px]"
         value={value || ''}
         onBlur={() =>
           onChange({

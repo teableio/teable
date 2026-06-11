@@ -16,7 +16,8 @@ export const convertViewVoAttachmentUrl = (viewVo: IViewVo) => {
   }
   if (viewVo.type === ViewType.Plugin) {
     const pluginOptions = viewVo.options as IPluginViewOptions;
-    pluginOptions.pluginLogo = getPublicFullStorageUrl(pluginOptions.pluginLogo);
+    pluginOptions?.pluginLogo &&
+      (pluginOptions.pluginLogo = getPublicFullStorageUrl(pluginOptions.pluginLogo));
   }
   return viewVo;
 };

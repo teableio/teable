@@ -11,6 +11,8 @@ import { InjectModel } from 'nest-knexjs';
 import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
+import { DatabaseRouter } from '../../global/database-router.service';
+import { DATA_KNEX } from '../../global/knex/knex.module';
 import { Timing } from '../../utils/timing';
 import type { IFieldInstance, IFieldMap } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
@@ -58,11 +60,27 @@ export class LinkService {
   private logger = new Logger(LinkService.name);
   constructor(
     private readonly prismaService: PrismaService,
+    private readonly databaseRouter: DatabaseRouter,
     private readonly batchService: BatchService,
     @InjectRecordQueryBuilder() private readonly recordQueryBuilder: IRecordQueryBuilder,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    @InjectModel(DATA_KNEX) private readonly knex: Knex
   ) {}
+
+  private async executeForTable(tableId: string, query: string) {
+    return await this.databaseRouter.executeDataPrismaForTable(tableId, query, {
+      useTransaction: true,
+    });
+  }
+
+  private async queryForTable<T>(tableId: string, query: string, ...values: unknown[]) {
+    return await this.databaseRouter.queryDataPrismaForTable<T>(
+      tableId,
+      query,
+      { useTransaction: true },
+      ...values
+    );
+  }
 
   private validateLinkCell(cell: ILinkCellContext) {
     if (!Array.isArray(cell.newValue)) {
@@ -611,9 +629,7 @@ export class LinkService {
       .whereNotNull(foreignKeyName)
       .toQuery();
 
-    return this.prismaService
-      .txClient()
-      .$queryRawUnsafe<{ id: string; foreignId: string }[]>(query);
+    return this.queryForTable<{ id: string; foreignId: string }[]>(options.foreignTableId, query);
   }
 
   async getAllForeignKeys(options: ILinkFieldOptions) {
@@ -628,9 +644,7 @@ export class LinkService {
       .whereNotNull(foreignKeyName)
       .toQuery();
 
-    return this.prismaService
-      .txClient()
-      .$queryRawUnsafe<{ id: string; foreignId: string }[]>(query);
+    return this.queryForTable<{ id: string; foreignId: string }[]>(options.foreignTableId, query);
   }
 
   private async getJoinedForeignKeys(linkRecordIds: string[], options: ILinkFieldOptions) {
@@ -650,9 +664,7 @@ export class LinkService {
       .whereNotNull(foreignKeyName)
       .toQuery();
 
-    return this.prismaService
-      .txClient()
-      .$queryRawUnsafe<{ id: string; foreignId: string }[]>(query);
+    return this.queryForTable<{ id: string; foreignId: string }[]>(options.foreignTableId, query);
   }
 
   /**
@@ -998,9 +1010,10 @@ export class LinkService {
 
       const nativeQuery = qb.whereIn('__id', recordIds).toQuery();
       this.logger.debug(`Fetch records with query: ${nativeQuery}`);
-      const recordRaw = await this.prismaService
-        .txClient()
-        .$queryRawUnsafe<{ [dbTableName: string]: unknown }[]>(nativeQuery);
+      const recordRaw = await this.queryForTable<{ [dbTableName: string]: unknown }[]>(
+        tableId,
+        nativeQuery
+      );
 
       recordRaw.forEach((record) => {
         const recordId = record.__id as string;
@@ -1204,7 +1217,7 @@ export class LinkService {
         .whereIn(selfKeyName, recordIdsToDeleteAll)
         .delete()
         .toQuery();
-      await this.prismaService.txClient().$executeRawUnsafe(deleteAllQuery);
+      await this.executeForTable(field.options.foreignTableId, deleteAllQuery);
 
       // Re-insert all records in correct order
       const reinsertData = toDeleteAndReinsert.flatMap(([recordId, newKeys]) =>
@@ -1224,7 +1237,7 @@ export class LinkService {
 
       if (reinsertData.length) {
         const reinsertQuery = this.knex(fkHostTableName).insert(reinsertData).toQuery();
-        await this.prismaService.txClient().$executeRawUnsafe(reinsertQuery);
+        await this.executeForTable(field.options.foreignTableId, reinsertQuery);
       }
     }
 
@@ -1234,7 +1247,7 @@ export class LinkService {
         .whereIn([selfKeyName, foreignKeyName], toDelete)
         .delete()
         .toQuery();
-      await this.prismaService.txClient().$executeRawUnsafe(query);
+      await this.executeForTable(field.options.foreignTableId, query);
     }
 
     // Handle regular additions
@@ -1256,6 +1269,7 @@ export class LinkService {
         // Get current max order for this source record if field has order column
         if (field.getHasOrderColumn()) {
           currentMaxOrder = await this.getMaxOrderForTarget(
+            field.options.foreignTableId,
             fkHostTableName,
             selfKeyName,
             sourceRecordId,
@@ -1281,7 +1295,7 @@ export class LinkService {
       }
 
       const query = this.knex(fkHostTableName).insert(insertData).toQuery();
-      await this.prismaService.txClient().$executeRawUnsafe(query);
+      await this.executeForTable(field.options.foreignTableId, query);
     }
   }
 
@@ -1289,6 +1303,7 @@ export class LinkService {
    * Get the maximum order value for a specific target record in a link relationship
    */
   private async getMaxOrderForTarget(
+    routingTableId: string,
     tableName: string,
     foreignKeyColumn: string,
     targetRecordId: string,
@@ -1300,11 +1315,12 @@ export class LinkService {
       .first()
       .toQuery();
 
-    const maxOrderResult = await this.prismaService
-      .txClient()
-      .$queryRawUnsafe<{ maxOrder: unknown }[]>(maxOrderQuery);
+    const maxOrderResult = await this.queryForTable<{ maxOrder: unknown }[]>(
+      routingTableId,
+      maxOrderQuery
+    );
     const raw = maxOrderResult[0]?.maxOrder as unknown;
-    // Coerce SQLite BigInt or string results safely into number; default to 0
+    // Coerce aggregate results safely into number; default to 0
     return raw == null ? 0 : Number(raw);
   }
 
@@ -1340,7 +1356,7 @@ export class LinkService {
         .update(updateFields)
         .whereIn([selfKeyName, foreignKeyName], toDelete)
         .toQuery();
-      await this.prismaService.txClient().$executeRawUnsafe(query);
+      await this.executeForTable(field.options.foreignTableId, query);
     }
 
     if (toAdd.length) {
@@ -1367,6 +1383,7 @@ export class LinkService {
         // Get current max order for this target record if field has order column
         if (field.getHasOrderColumn()) {
           currentMaxOrder = await this.getMaxOrderForTarget(
+            field.options.foreignTableId,
             fkHostTableName,
             foreignKeyName,
             foreignRecordId,
@@ -1390,7 +1407,13 @@ export class LinkService {
         }
       }
 
-      await this.batchService.batchUpdateDB(fkHostTableName, selfKeyName, dbFields, updateData);
+      await this.batchService.batchUpdateDB(
+        fkHostTableName,
+        selfKeyName,
+        dbFields,
+        updateData,
+        field.options.foreignTableId
+      );
     }
   }
 
@@ -1419,7 +1442,7 @@ export class LinkService {
       .forUpdate()
       .toQuery();
 
-    await this.prismaService.txClient().$queryRawUnsafe(lockQuery);
+    await this.queryForTable(tableId, lockQuery);
   }
 
   private async saveForeignKeyForOneMany(
@@ -1459,7 +1482,7 @@ export class LinkService {
           .update(clearFields)
           .where(selfKeyName, recordId)
           .toQuery();
-        await this.prismaService.txClient().$executeRawUnsafe(clearQuery);
+        await this.executeForTable(field.options.foreignTableId, clearQuery);
 
         // Re-establish all links with correct order
         const dbFields = [
@@ -1482,7 +1505,8 @@ export class LinkService {
           fkHostTableName,
           foreignKeyName,
           dbFields,
-          updateData
+          updateData,
+          field.options.foreignTableId
         );
       } else {
         // Handle regular add/remove operations
@@ -1501,7 +1525,7 @@ export class LinkService {
             .update(updateFields)
             .whereIn([selfKeyName, foreignKeyName], deleteConditions)
             .toQuery();
-          await this.prismaService.txClient().$executeRawUnsafe(query);
+          await this.executeForTable(field.options.foreignTableId, query);
         }
 
         // Add new links and update order for all current links
@@ -1513,6 +1537,7 @@ export class LinkService {
             if (toAdd.length > 0) {
               // Get the current maximum order value for this target record
               const currentMaxOrder = await this.getMaxOrderForTarget(
+                field.options.foreignTableId,
                 fkHostTableName,
                 selfKeyName,
                 recordId,
@@ -1538,7 +1563,8 @@ export class LinkService {
                 fkHostTableName,
                 foreignKeyName,
                 dbFields,
-                addData
+                addData,
+                field.options.foreignTableId
               );
             }
           } else {
@@ -1560,7 +1586,8 @@ export class LinkService {
                 fkHostTableName,
                 foreignKeyName,
                 dbFields,
-                addData
+                addData,
+                field.options.foreignTableId
               );
             }
           }
@@ -1600,7 +1627,7 @@ export class LinkService {
           .update(updateFields)
           .whereIn([selfKeyName, foreignKeyName], toDelete)
           .toQuery();
-        await this.prismaService.txClient().$executeRawUnsafe(query);
+        await this.executeForTable(field.options.foreignTableId, query);
       }
 
       if (toAdd.length) {
@@ -1624,7 +1651,8 @@ export class LinkService {
               id: foreignRecordId,
               values,
             };
-          })
+          }),
+          field.options.foreignTableId
         );
       }
     }
@@ -1909,9 +1937,7 @@ export class LinkService {
       .whereNotNull(foreignKeyName)
       .toQuery();
 
-    return this.prismaService
-      .txClient()
-      .$queryRawUnsafe<{ id: string; foreignId: string }[]>(query);
+    return this.queryForTable<{ id: string; foreignId: string }[]>(options.foreignTableId, query);
   }
 
   async getRelatedLinkFieldRaws(tableId: string) {

@@ -1,6 +1,6 @@
 import { Lock, MoreHorizontal, Settings, Trash2 } from '@teable/icons';
 import { BillingProductLevel } from '@teable/openapi';
-import { useBasePermission, useIsTemplate } from '@teable/sdk/hooks';
+import { useBasePermission, useIsReadOnlyPreview } from '@teable/sdk/hooks';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,7 +16,6 @@ import { useMemo } from 'react';
 import { UpgradeWrapper } from '@/features/app/components/billing/UpgradeWrapper';
 import { ShareBaseDialog } from '@/features/app/components/collaborator/share/ShareBaseDialog';
 import { tableConfig } from '@/features/i18n/table.config';
-import { QuickAction } from './QuickAction';
 
 const MoreMenu = () => {
   const router = useRouter();
@@ -83,7 +82,7 @@ export const BasePageRouter = () => {
   const { baseId } = router.query;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const basePermission = useBasePermission();
-  const isTemplate = useIsTemplate();
+  const isReadOnlyPreview = useIsReadOnlyPreview();
 
   const pageRoutes: {
     href: string;
@@ -104,20 +103,13 @@ export const BasePageRouter = () => {
     [baseId, basePermission, t]
   );
 
-  if (isTemplate) {
-    return (
-      <div className="flex flex-col px-4 py-2 pb-4">
-        <QuickAction>{t('common:quickAction.title')}</QuickAction>
-      </div>
-    );
+  if (isReadOnlyPreview) {
+    return null;
   }
 
   return (
     <>
       <div className="flex flex-col gap-2 px-3">
-        <div>
-          <QuickAction>{t('common:quickAction.title')}</QuickAction>
-        </div>
         <ul>
           {pageRoutes.map(({ href, label, Icon, billingLevel }) => {
             return (

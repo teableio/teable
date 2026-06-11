@@ -84,7 +84,7 @@ export const AccessList = (props: IAccessListProps) => {
               {t('accessSelect.fullAccess.description')}
             </div>
             <Button variant={'ghost'} size={'sm'} onClick={() => onDeleteFullAccess()}>
-              <X />
+              <X className="size-4 shrink-0" />
             </Button>
           </div>
         </div>
@@ -108,7 +108,7 @@ export const AccessList = (props: IAccessListProps) => {
                     size={'sm'}
                     onClick={() => onDeleteSpaceId(displaySpace.id)}
                   >
-                    <X />
+                    <X className="size-4 shrink-0" />
                   </Button>
                 </div>
               )}
@@ -123,7 +123,7 @@ export const AccessList = (props: IAccessListProps) => {
                     {base.name}
                   </div>
                   <Button variant={'ghost'} size={'sm'} onClick={() => onDeleteBaseId(base.id)}>
-                    <X />
+                    <X className="size-4 shrink-0" />
                   </Button>
                 </div>
               ))}

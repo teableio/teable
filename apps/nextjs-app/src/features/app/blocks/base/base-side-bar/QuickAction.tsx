@@ -1,8 +1,8 @@
 import { LaptopIcon } from '@radix-ui/react-icons';
-import { Moon, Settings, Sun } from '@teable/icons';
+import { Moon, Search, Settings, Sun } from '@teable/icons';
 import { useTheme } from '@teable/next-themes';
 import { BaseNodeResourceType } from '@teable/openapi';
-import { useBaseId, useIsAnonymous, useIsHydrated, useIsTemplate } from '@teable/sdk/hooks';
+import { useBaseId, useIsAnonymous, useIsReadOnlyPreview } from '@teable/sdk/hooks';
 import {
   CommandDialog,
   CommandInput,
@@ -12,7 +12,10 @@ import {
   CommandItem,
   CommandSeparator,
   Button,
-  cn,
+  TooltipProvider,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
 } from '@teable/ui-lib/shadcn';
 import { groupBy } from 'lodash';
 import { useRouter } from 'next/router';
@@ -26,7 +29,7 @@ import { tableConfig } from '@/features/i18n/table.config';
 import { BaseNodeResourceIconMap, getNodeIcon, getNodeName, getNodeUrl } from '../base-node/hooks';
 import { useBaseNodeContext } from '../base-node/hooks/useBaseNodeContext';
 
-export const QuickAction = ({ children }: React.PropsWithChildren) => {
+export const QuickAction = () => {
   const baseId = useBaseId() as string;
   const [open, setOpen] = useState(false);
   const setting = useSettingStore();
@@ -34,7 +37,7 @@ export const QuickAction = ({ children }: React.PropsWithChildren) => {
   const theme = useTheme();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const isAnonymous = useIsAnonymous();
-  const isTemplate = useIsTemplate();
+  const isReadOnlyPreview = useIsReadOnlyPreview();
   const modKeyStr = useModKeyStr();
   useHotkeys(
     `mod+k`,
@@ -46,8 +49,6 @@ export const QuickAction = ({ children }: React.PropsWithChildren) => {
     }
   );
 
-  const isHydrated = useIsHydrated();
-
   const { treeItems } = useBaseNodeContext();
   const baseNodeTypeItems = groupBy(
     Object.values(treeItems).filter((item) => item.resourceType !== BaseNodeResourceType.Folder),
@@ -56,21 +57,26 @@ export const QuickAction = ({ children }: React.PropsWithChildren) => {
 
   return (
     <>
-      <Button
-        className="w-full justify-between text-sm font-normal text-muted-foreground shadow-none"
-        size="sm"
-        variant="outline"
-        onClick={() => setOpen(true)}
-      >
-        <span className="truncate">{children}</span>
-        {isHydrated && (
-          <kbd className="flex h-5 shrink-0 items-center gap-1 rounded border bg-muted px-2 font-mono text-xs">
-            <span className={cn({ 'text-sm': modKeyStr === '⌘' })}>{modKeyStr}</span>
-            <span>K</span>
-          </kbd>
-        )}
-      </Button>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              className="size-7 shrink-0 p-0"
+              variant="ghost"
+              size="xs"
+              onClick={() => setOpen(true)}
+            >
+              <Search className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent hideWhenDetached={true}>
+            {t('common:quickAction.title')}
+            <span>{modKeyStr}+K</span>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
       <CommandDialog
+        closeable={false}
         open={open}
         onOpenChange={setOpen}
         commandProps={{
@@ -115,7 +121,7 @@ export const QuickAction = ({ children }: React.PropsWithChildren) => {
                   });
                   return (
                     <CommandItem
-                      className="flex gap-2"
+                      className="flex h-8 gap-2"
                       key={id}
                       value={id}
                       keywords={[name]}
@@ -126,7 +132,7 @@ export const QuickAction = ({ children }: React.PropsWithChildren) => {
                         }
                       }}
                     >
-                      <div className="flex size-4 shrink-0 items-center justify-center">
+                      <div className="flex size-4 shrink-0 items-center justify-center text-muted-foreground">
                         {icon ? (
                           <Emoji emoji={icon} size="1em" />
                         ) : IconComponent ? (
@@ -143,7 +149,7 @@ export const QuickAction = ({ children }: React.PropsWithChildren) => {
           <CommandSeparator />
           <CommandGroup heading={t('common:settings.setting.theme')}>
             <CommandItem
-              className="flex gap-2"
+              className="flex h-8 gap-2"
               onSelect={() => {
                 setOpen(false);
                 theme.setTheme('light');
@@ -151,11 +157,13 @@ export const QuickAction = ({ children }: React.PropsWithChildren) => {
               value={t('common:settings.setting.light')}
               keywords={[t('common:settings.setting.light')]}
             >
-              <Sun className="size-4" />
+              <div className="flex size-4 shrink-0 items-center justify-center text-muted-foreground">
+                <Sun className="size-full" />
+              </div>
               <span>{t('common:settings.setting.light')}</span>
             </CommandItem>
             <CommandItem
-              className="flex gap-2"
+              className="flex h-8 gap-2"
               onSelect={() => {
                 setOpen(false);
                 theme.setTheme('dark');
@@ -163,11 +171,13 @@ export const QuickAction = ({ children }: React.PropsWithChildren) => {
               value={t('common:settings.setting.dark')}
               keywords={[t('common:settings.setting.dark')]}
             >
-              <Moon className="size-4" />
+              <div className="flex size-4 shrink-0 items-center justify-center text-muted-foreground">
+                <Moon className="size-full" />
+              </div>
               <span>{t('common:settings.setting.dark')}</span>
             </CommandItem>
             <CommandItem
-              className="flex gap-2"
+              className="flex h-8 gap-2"
               onSelect={() => {
                 setOpen(false);
                 theme.setTheme('system');
@@ -175,24 +185,28 @@ export const QuickAction = ({ children }: React.PropsWithChildren) => {
               value={t('common:settings.setting.system')}
               keywords={[t('common:settings.setting.system')]}
             >
-              <LaptopIcon className="size-4" />
+              <div className="flex size-4 shrink-0 items-center justify-center text-muted-foreground">
+                <LaptopIcon className="size-full" />
+              </div>
               <span>{t('common:settings.setting.system')}</span>
             </CommandItem>
           </CommandGroup>
           <CommandSeparator />
-          {!isAnonymous && !isTemplate && (
+          {!isAnonymous && !isReadOnlyPreview && (
             <CommandGroup heading={t('common:settings.nav.settings')}>
               <CommandItem
-                className="flex gap-2"
+                className="flex h-8 gap-2"
                 onSelect={() => {
                   setOpen(false);
                   setting.setOpen(true);
                 }}
-                value={t('common:settings.personal.title')}
-                keywords={[t('common:settings.personal.title')]}
+                value={t('common:settings.allSetting')}
+                keywords={[t('common:settings.allSetting')]}
               >
-                <Settings className="size-4" />
-                <span>{t('common:settings.personal.title')}</span>
+                <div className="flex size-4 shrink-0 items-center justify-center text-muted-foreground">
+                  <Settings className="size-full" />
+                </div>
+                <span>{t('common:settings.allSetting')}</span>
               </CommandItem>
             </CommandGroup>
           )}

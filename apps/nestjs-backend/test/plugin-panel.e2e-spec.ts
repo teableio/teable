@@ -18,7 +18,6 @@ import {
   renamePluginPanel,
   renamePluginPanelPlugin,
   submitPlugin,
-  updateDashboardPluginStorage,
   updatePluginPanelLayout,
   updatePluginPanelStorage,
 } from '@teable/openapi';

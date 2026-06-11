@@ -4,6 +4,7 @@ import type { FieldCore, IFilter, ISortItem, TableDomain } from '@teable/core';
 import { Knex } from 'knex';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
+import { DATA_KNEX } from '../../../global/knex/knex.module';
 import { isUserOrLink } from '../../../utils/is-user-or-link';
 import { ID_FIELD_NAME, preservedDbFieldNames } from '../../field/constant';
 import { TableDomainQueryService } from '../../table-domain/table-domain-query.service';
@@ -29,7 +30,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     private readonly tableDomainQueryService: TableDomainQueryService,
     @InjectDbProvider()
     private readonly dbProvider: IDbProvider,
-    @Inject('CUSTOM_KNEX') private readonly knex: Knex,
+    @Inject(DATA_KNEX) private readonly knex: Knex,
     @InjectRecordQueryDialect()
     private readonly dialect: IRecordQueryDialectProvider
   ) {}
@@ -149,6 +150,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
         defaultOrderField: options.defaultOrderField,
         hasSearch: options.hasSearch,
         restrictRecordIds: options.restrictRecordIds,
+        paginationMode: options.paginationMode,
       });
       this.buildFieldCtes(
         qb,
@@ -231,14 +233,28 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       currentUserId,
       useQueryModel,
       restrictRecordIds,
+      sort,
+      defaultOrderField,
+      limit,
+      offset,
     } = options;
+    const usePaginatedRange = limit !== undefined;
+    // The tableCache path skips applyBasePaginationIfNeeded, which would silently
+    // aggregate the entire view instead of the requested [offset, offset+limit)
+    // slice. Force the table path whenever a row range is requested.
+    const effectiveUseQueryModel = usePaginatedRange ? false : useQueryModel;
     const { qb, table, alias, state } = await this.createQueryBuilder(from, tableId, {
       builder: options.builder,
-      useQueryModel,
+      useQueryModel: effectiveUseQueryModel,
       projection: options.projection,
       filter,
       currentUserId,
       restrictRecordIds,
+      sort,
+      defaultOrderField,
+      limit,
+      offset,
+      paginationMode: usePaginatedRange ? 'full' : undefined,
     });
 
     this.buildAggregateSelect(qb, table, state);
@@ -325,9 +341,9 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       const rawChoices = (field.options as { choices?: { name: string }[] } | undefined)?.choices;
       const choices = Array.isArray(rawChoices) ? rawChoices : [];
       if (choices.length) {
-        const arrayLiteral = `ARRAY[${choices
-          .map(({ name }) => this.knex.raw('?', [name]).toQuery())
-          .join(', ')}]`;
+        const choiceNames = choices.map(({ name }) => name);
+        const placeholders = choiceNames.map(() => '?').join(', ');
+        const arrayLiteral = `ARRAY[${placeholders}]`;
 
         if (field.type === FieldType.MultipleSelect) {
           const firstIndexExpr = `CASE
@@ -336,7 +352,11 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
               THEN ARRAY_POSITION(${arrayLiteral}, jsonb_path_query_first(${orderableSelection}::jsonb, '$[0]') #>> '{}')
             ELSE ARRAY_POSITION(${arrayLiteral}, ${orderableSelection}::text)
           END`;
-          qb.orderByRaw(`${firstIndexExpr} ${direction} ${nullOrdering}`);
+          // arrayLiteral appears twice in firstIndexExpr, so duplicate bindings
+          qb.orderByRaw(`${firstIndexExpr} ${direction} ${nullOrdering}`, [
+            ...choiceNames,
+            ...choiceNames,
+          ]);
           qb.orderByRaw(`${orderableSelection}::jsonb::text ${direction} ${nullOrdering}`);
           return;
         } else {
@@ -345,7 +365,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
             field.dbFieldType
           );
           const arrayPositionExpr = `ARRAY_POSITION(${arrayLiteral}, ${normalizedExpr})`;
-          qb.orderByRaw(`${arrayPositionExpr} ${direction} ${nullOrdering}`);
+          qb.orderByRaw(`${arrayPositionExpr} ${direction} ${nullOrdering}`, choiceNames);
           return;
         }
       }
@@ -407,6 +427,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       defaultOrderField?: string;
       hasSearch?: boolean;
       restrictRecordIds?: string[];
+      paginationMode?: 'split' | 'full';
     }
   ): void {
     const {
@@ -418,6 +439,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       defaultOrderField,
       hasSearch,
       restrictRecordIds,
+      paginationMode = 'split',
     } = params;
     state.setBaseCteName(undefined);
 
@@ -430,7 +452,8 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       return;
     }
 
-    const baseLimit = this.resolveBaseLimit(limit, offset);
+    const safeOffset = offset && offset > 0 ? offset : 0;
+    const baseLimit = paginationMode === 'full' ? limit : this.resolveBaseLimit(limit, offset);
     let applyPagination = Boolean(baseLimit) && !hasSearch;
     const normalizedRecordIds = Array.from(
       new Set(
@@ -482,6 +505,9 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
 
     if (applyPagination && baseLimit) {
       baseBuilder.limit(baseLimit);
+      if (paginationMode === 'full' && safeOffset > 0) {
+        baseBuilder.offset(safeOffset);
+      }
     }
 
     if (applyRecordRestriction) {

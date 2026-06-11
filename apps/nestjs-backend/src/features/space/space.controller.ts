@@ -12,6 +12,7 @@ import type {
   ListSpaceCollaboratorVo,
   IGetBaseAllVo,
   ITestLLMVo,
+  ISpaceSearchVo,
 } from '@teable/openapi';
 import {
   createSpaceRoSchema,
@@ -39,6 +40,8 @@ import {
   IUpdateIntegrationRo,
   testLLMRoSchema,
   ITestLLMRo,
+  spaceSearchRoSchema,
+  ISpaceSearchRo,
 } from '@teable/openapi';
 import { CustomHttpException } from '../../custom.exception';
 import { EmitControllerEvent } from '../../event-emitter/decorators/emit-controller-event.decorator';
@@ -130,6 +133,15 @@ export class SpaceController {
     return await this.spaceService.getBaseListBySpaceId(spaceId);
   }
 
+  @Permissions('space|read')
+  @Get(':spaceId/search')
+  async search(
+    @Param('spaceId') spaceId: string,
+    @Query(new ZodValidationPipe(spaceSearchRoSchema)) query: ISpaceSearchRo
+  ): Promise<ISpaceSearchVo> {
+    return await this.spaceService.search(spaceId, query);
+  }
+
   @Permissions('space|invite_link')
   @Patch(':spaceId/invitation/link/:invitationId')
   async updateInvitationLink(
@@ -180,6 +192,7 @@ export class SpaceController {
   }
 
   @Patch(':spaceId/collaborators')
+  @Permissions('space|read')
   async updateCollaborator(
     @Param('spaceId') spaceId: string,
     @Body(new ZodValidationPipe(updateSpaceCollaborateRoSchema))
@@ -210,6 +223,7 @@ export class SpaceController {
   }
 
   @Delete(':spaceId/collaborators')
+  @Permissions('space|read')
   async deleteCollaborator(
     @Param('spaceId') spaceId: string,
     @Query(new ZodValidationPipe(deleteSpaceCollaboratorRoSchema))
@@ -245,6 +259,7 @@ export class SpaceController {
     return { spaceId, permanent: true };
   }
 
+  @Permissions('space|read')
   @Post(':spaceId/collaborator')
   async addCollaborators(
     @Param('spaceId') spaceId: string,

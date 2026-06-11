@@ -47,7 +47,7 @@ export const QueryJoin = (props: IQueryEditorProps<IBaseQueryJoin[]>) => {
               onChange(newValue);
             }}
           >
-            <X />
+            <X className="size-4 shrink-0" />
           </Button>
         </div>
       ))}

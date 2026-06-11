@@ -48,8 +48,7 @@ export const TextEditor = (props: ITextEditorProps) => {
         <div className="flex flex-1 items-center gap-2">
           <Input
             value={currentValue}
-            size={12}
-            className="h-8 flex-1"
+            className="flex-1"
             maxLength={maxLength}
             onChange={(e) => {
               setCurrentValue(e.target.value);
@@ -69,7 +68,7 @@ export const TextEditor = (props: ITextEditorProps) => {
             ref={inputRef}
           />
           {maxLength && (
-            <span className="shrink-0 text-xs text-gray-500">
+            <span className="shrink-0 text-xs text-muted-foreground">
               {currentValue.length}/{maxLength}
             </span>
           )}
@@ -80,7 +79,7 @@ export const TextEditor = (props: ITextEditorProps) => {
             'flex-1 cursor-pointer',
             singleLine ? 'truncate' : 'line-clamp-6 break-words',
             {
-              'text-gray-500': !value && value !== '0',
+              'text-muted-foreground': !value && value !== '0',
             }
           )}
           title={value}

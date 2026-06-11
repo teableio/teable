@@ -55,7 +55,7 @@ export const PluginMenu = (props: { tableId?: string; closeRecordMenu: () => voi
                   })}
                 >
                   {t('common:actions.more')}
-                  <ChevronRight />
+                  <ChevronRight className="size-4 shrink-0" />
                 </Button>
               </HoverCardTrigger>
               <HoverCardContent

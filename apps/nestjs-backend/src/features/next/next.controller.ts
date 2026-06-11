@@ -1,4 +1,4 @@
-import { All, Body, Controller, Get, Post, Req, Res } from '@nestjs/common';
+import { All, Body, Controller, Get, Next, Post, Req, Res } from '@nestjs/common';
 import { ApiExcludeEndpoint } from '@nestjs/swagger';
 import type { IQueryParamsVo } from '@teable/openapi';
 import { IQueryParamsRo, queryParamsRoSchema } from '@teable/openapi';
@@ -83,9 +83,9 @@ export class NextController {
   @ApiExcludeEndpoint()
   @Public()
   @All(['socket', 'socket/*'])
-  public async socket(@Req() req: Request, @Res() res: Response) {
+  public async socket(@Req() req: Request, @Res() res: Response, @Next() next: NextFunction) {
     if (!this.nextService.server) {
-      return res.status(404).send('Not Found');
+      return next();
     }
     await this.nextService.server.getRequestHandler()(req, res);
   }

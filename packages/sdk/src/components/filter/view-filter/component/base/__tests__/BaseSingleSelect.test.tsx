@@ -90,4 +90,27 @@ describe('BaseSingleSelect', () => {
     expect(option).toHaveLength(1);
     expect(option[0]).toHaveTextContent('label-1');
   });
+
+  it('should scroll the option list when wheeling over the popover container', async () => {
+    const longOptions = Array.from({ length: 20 }, (_, index) => ({
+      label: `label-${index}`,
+      value: `value-${index}`,
+    }));
+
+    render(<BaseSingleSelect options={longOptions} onSelect={onSelect} value={null} />, {
+      wrapper: createAppContext(),
+    });
+    toggleOpen();
+
+    const dialog = screen.getByRole('dialog');
+    const list = screen.getByRole('listbox') as HTMLDivElement;
+
+    Object.defineProperty(list, 'clientHeight', { configurable: true, value: 272 });
+    Object.defineProperty(list, 'scrollHeight', { configurable: true, value: 1200 });
+    Object.defineProperty(list, 'scrollTop', { configurable: true, value: 0, writable: true });
+
+    fireEvent.wheel(dialog, { deltaY: 120 });
+
+    expect(list.scrollTop).toBe(120);
+  });
 });

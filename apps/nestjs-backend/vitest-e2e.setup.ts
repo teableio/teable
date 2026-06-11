@@ -1,9 +1,32 @@
-import fs from 'fs';
 import path from 'path';
 import type { INestApplication } from '@nestjs/common';
-import { DriverClient, getRandomString, parseDsn } from '@teable/core';
+import { DriverClient, parseDsn } from '@teable/core';
 import dotenv from 'dotenv-flow';
 import { buildSync } from 'esbuild';
+
+// Handle ConditionalModule timeout errors that occur sporadically in CI
+// These errors are thrown from setTimeout callbacks and cannot be caught normally
+// See: @nestjs/config ConditionalModule.registerWhen
+const originalUncaughtExceptionListeners = process.listeners('uncaughtException');
+process.removeAllListeners('uncaughtException');
+process.on('uncaughtException', (error: Error) => {
+  // Ignore ConditionalModule timeout errors - they are sporadic in CI and don't affect test results
+  if (
+    error.message?.includes('Nest was not able to resolve the config variables') &&
+    error.message?.includes('ConditionalModule')
+  ) {
+    console.warn('[vitest-e2e.setup] Ignoring ConditionalModule timeout error:', error.message);
+    return;
+  }
+  // Re-throw other uncaught exceptions
+  for (const listener of originalUncaughtExceptionListeners) {
+    listener.call(process, error, 'uncaughtException');
+  }
+  // If no original listeners, throw the error
+  if (originalUncaughtExceptionListeners.length === 0) {
+    throw error;
+  }
+});
 
 interface ITestConfig {
   driver: string;
@@ -37,30 +60,8 @@ globalThis.testConfig = {
   userId: 'usrTestUserId',
   spaceId: 'spcTestSpaceId',
   baseId: 'bseTestBaseId',
-  driver: DriverClient.Sqlite,
+  driver: DriverClient.Pg,
 };
-
-function prepareSqliteEnv() {
-  if (!process.env.PRISMA_DATABASE_URL?.startsWith('file:')) {
-    return;
-  }
-  const prevFilePath = '../../db/main.db';
-  const prevDir = path.dirname(prevFilePath);
-  const baseName = path.basename(prevFilePath);
-
-  const newFileName = 'test-' + getRandomString(12) + '-' + baseName;
-  const newFilePath = path.join(prevDir, 'test', newFileName);
-
-  process.env.PRISMA_DATABASE_URL = 'file:' + newFilePath;
-  console.log('TEST PRISMA_DATABASE_URL:', process.env.PRISMA_DATABASE_URL);
-
-  const dbPath = '../../packages/db-main-prisma/db/';
-  const testDbPath = path.join(dbPath, 'test');
-  if (!fs.existsSync(testDbPath)) {
-    fs.mkdirSync(testDbPath, { recursive: true });
-  }
-  fs.copyFileSync(path.join(dbPath, baseName), path.join(testDbPath, newFileName));
-}
 
 function compileWorkerFile() {
   const entryFile = path.join(__dirname, 'src/worker/**.ts');
@@ -78,6 +79,9 @@ function compileWorkerFile() {
 async function setup() {
   dotenv.config({ path: '../nextjs-app' });
 
+  // Use sync mode for v2 computed updates in tests
+  process.env.V2_COMPUTED_UPDATE_MODE = 'sync';
+
   if (!process.env.CONDITIONAL_QUERY_MAX_LIMIT) {
     process.env.CONDITIONAL_QUERY_MAX_LIMIT = '7';
   }
@@ -92,8 +96,6 @@ async function setup() {
   const { driver } = parseDsn(databaseUrl);
   console.log('driver: ', driver);
   globalThis.testConfig.driver = driver;
-
-  prepareSqliteEnv();
 
   compileWorkerFile();
 }

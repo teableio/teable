@@ -9,40 +9,26 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
-import { CircleHelp } from 'lucide-react';
+import { CircleHelp, TriangleAlert } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 interface SwitchListProps {
   disableActions: string[];
-  onChange: (value: { disableActions: string[] }) => void;
+  instanceDisableActions?: string[];
+  sandboxConfigured?: boolean;
+  disabled?: boolean;
+  onChange: (value: { disableActions: string[] }) => Promise<unknown> | void;
 }
 
 export enum AIActions {
-  BuildBase = 'build-base-agent',
-  BuildAutomation = 'build-automation-agent',
-  BaseResource = 'base-resource-crud-agent',
-  Suggestion = 'suggestion',
-  BaseApp = 'build-app-agent',
-  AIBasicCapability = 'ai-basic-capability',
+  AIField = 'ai-field',
+  AIChat = 'ai-chat',
 }
 
-const AIFeatureList = [
-  AIActions.AIBasicCapability,
-  AIActions.BuildBase,
-  AIActions.BaseApp,
-  AIActions.BuildAutomation,
-  AIActions.BaseResource,
-  AIActions.Suggestion,
-];
+const AIFeatureList = [AIActions.AIField, AIActions.AIChat];
 
-const SwitchableActions = [
-  AIActions.BuildBase,
-  AIActions.BaseApp,
-  AIActions.BuildAutomation,
-  AIActions.BaseResource,
-  AIActions.Suggestion,
-];
+const SwitchableActions = [AIActions.AIField, AIActions.AIChat];
 
 const TooltipWrap = ({
   children,
@@ -64,28 +50,26 @@ const TooltipWrap = ({
 };
 
 const SwitchList = (props: SwitchListProps) => {
-  const { onChange, disableActions } = props;
+  const {
+    onChange,
+    disableActions,
+    instanceDisableActions = [],
+    sandboxConfigured,
+    disabled: disabledAll,
+  } = props;
   const { t } = useTranslation('common');
 
   const AIFeatureListNameMap = useMemo(() => {
     return {
-      [AIActions.BuildBase]: t('admin.setting.ai.actions.buildBase.title'),
-      [AIActions.BuildAutomation]: t('admin.setting.ai.actions.buildAutomation.title'),
-      [AIActions.BaseResource]: t('admin.setting.ai.actions.baseResource.title'),
-      [AIActions.Suggestion]: t('admin.setting.ai.actions.suggestion.title'),
-      [AIActions.BaseApp]: t('admin.setting.ai.actions.buildApp.title'),
-      [AIActions.AIBasicCapability]: t('admin.setting.ai.actions.aiBasicCapability.title'),
+      [AIActions.AIField]: t('admin.setting.ai.actions.aiField.title'),
+      [AIActions.AIChat]: t('admin.setting.ai.actions.aiChat.title'),
     };
   }, [t]);
 
   const AIFeatureListDescriptionMap = useMemo(() => {
     return {
-      [AIActions.BuildBase]: t('admin.setting.ai.actions.buildBase.description'),
-      [AIActions.BuildAutomation]: t('admin.setting.ai.actions.buildAutomation.description'),
-      [AIActions.BaseResource]: t('admin.setting.ai.actions.baseResource.description'),
-      [AIActions.Suggestion]: t('admin.setting.ai.actions.suggestion.description'),
-      [AIActions.BaseApp]: t('admin.setting.ai.actions.buildApp.description'),
-      [AIActions.AIBasicCapability]: t('admin.setting.ai.actions.aiBasicCapability.description'),
+      [AIActions.AIField]: t('admin.setting.ai.actions.aiField.description'),
+      [AIActions.AIChat]: t('admin.setting.ai.actions.aiChat.description'),
     };
   }, [t]);
 
@@ -94,9 +78,9 @@ const SwitchList = (props: SwitchListProps) => {
       name: AIFeatureListNameMap[item],
       key: item,
       description: AIFeatureListDescriptionMap[item],
-      disabled: !SwitchableActions.includes(item),
+      disabled: !SwitchableActions.includes(item) || instanceDisableActions.includes(item),
     }));
-  }, [AIFeatureListDescriptionMap, AIFeatureListNameMap]);
+  }, [AIFeatureListDescriptionMap, AIFeatureListNameMap, instanceDisableActions]);
 
   const onCheckItemHandler = useCallback(
     (actionName: AIActions, open: boolean) => {
@@ -117,43 +101,86 @@ const SwitchList = (props: SwitchListProps) => {
     [disableActions, onChange]
   );
 
-  return AIFeatureListWithOptions.map(({ name, description, disabled, key }) => (
-    <div className="flex items-center justify-between" key={key}>
-      <div className="flex items-center gap-x-1">
-        <Label
-          htmlFor={key}
-          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-        >
-          {name}
-        </Label>
-        <TooltipWrap description={description}>
-          <CircleHelp className="size-4 cursor-pointer text-gray-400" />
-        </TooltipWrap>
-      </div>
-      <Switch
-        id={key}
-        onCheckedChange={(open) => {
-          onCheckItemHandler(key, open);
-        }}
-        checked={!disableActions?.includes(key)}
-        disabled={disabled}
-      />
-    </div>
-  ));
+  return (
+    <>
+      {AIFeatureListWithOptions.map(({ name, description, disabled, key }) => (
+        <div className="flex items-center justify-between" key={key}>
+          <div className="flex items-center gap-x-1">
+            <Label
+              htmlFor={key}
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
+              {name}
+            </Label>
+            <TooltipWrap description={description}>
+              <CircleHelp className="size-4 cursor-pointer text-muted-foreground" />
+            </TooltipWrap>
+            {key === AIActions.AIChat && sandboxConfigured === false && (
+              <TooltipWrap description={t('admin.setting.ai.actions.aiChat.sandboxWarning')}>
+                <TriangleAlert className="size-4 cursor-pointer text-yellow-500" />
+              </TooltipWrap>
+            )}
+          </div>
+          <Switch
+            id={key}
+            onCheckedChange={(open) => {
+              onCheckItemHandler(key, open);
+            }}
+            checked={!disableActions?.includes(key) && !instanceDisableActions.includes(key)}
+            disabled={disabledAll || disabled}
+          />
+        </div>
+      ))}
+    </>
+  );
 };
 
 export const AIControlCard = ({
   disableActions,
+  instanceDisableActions,
+  sandboxConfigured,
+  disabled,
   onChange,
 }: {
   disableActions: string[];
-  onChange: (value: { disableActions: string[] }) => void;
+  instanceDisableActions?: string[];
+  sandboxConfigured?: boolean;
+  disabled?: boolean;
+  onChange: (value: { disableActions: string[] }) => Promise<unknown> | void;
 }) => {
+  const { t } = useTranslation('common');
+  const [localDisableActions, setLocalDisableActions] = useState(disableActions);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    setLocalDisableActions(disableActions);
+  }, [disableActions]);
+
+  const handleChange = async (value: { disableActions: string[] }) => {
+    const previousDisableActions = localDisableActions;
+    setLocalDisableActions(value.disableActions);
+    try {
+      setIsSaving(true);
+      await onChange(value);
+    } catch (error) {
+      setLocalDisableActions(previousDisableActions);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
-    <Card className="pt-6 shadow-sm">
-      <CardContent>
-        <div className="space-y-2">
-          <SwitchList onChange={onChange} disableActions={disableActions} />
+    <Card className="p-5 shadow-none">
+      <CardContent className="flex flex-col gap-4 p-0">
+        <p className="font-medium">{t('admin.setting.ai.actions.title')}</p>
+        <div className="flex flex-col gap-3">
+          <SwitchList
+            onChange={handleChange}
+            disableActions={localDisableActions}
+            instanceDisableActions={instanceDisableActions}
+            sandboxConfigured={sandboxConfigured}
+            disabled={disabled || isSaving}
+          />
         </div>
       </CardContent>
     </Card>

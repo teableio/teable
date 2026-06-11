@@ -8,6 +8,8 @@ export const oauthConfig = registerAs('oauth', () => ({
   transactionExpireIn: process.env.BACKEND_OAUTH_TRANSACTION_EXPIRE_IN || '5m',
   codeExpireIn: process.env.BACKEND_OAUTH_CODE_EXPIRE_IN || '5m',
   authorizedExpireIn: process.env.BACKEND_OAUTH_AUTHORIZED_EXPIRE_IN || '7d',
+  tokenRateLimit: Number(process.env.BACKEND_OAUTH_TOKEN_RATE_LIMIT || 30),
+  tokenRateWindow: process.env.BACKEND_OAUTH_TOKEN_RATE_WINDOW || '15m',
 }));
 
 // eslint-disable-next-line @typescript-eslint/naming-convention

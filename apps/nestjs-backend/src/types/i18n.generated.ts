@@ -205,6 +205,7 @@ export type I18nTranslations = {
             "zoomIn": string;
             "zoomOut": string;
             "back": string;
+            "download": string;
             "remove": string;
             "removeConfig": string;
             "saveSucceed": string;
@@ -249,10 +250,17 @@ export type I18nTranslations = {
             "refresh": string;
             "login": string;
             "useTemplate": string;
+            "copyToMySpace": string;
+            "saveToMySpace": string;
+            "supportSaveCopy": string;
             "backToSpace": string;
             "switchBase": string;
             "getMore": string;
+            "copySuccess": string;
+            "share": string;
+            "clear": string;
             "retry": string;
+            "copyLink": string;
             "collapse": string;
             "viewDetails": string;
         };
@@ -296,10 +304,61 @@ export type I18nTranslations = {
             "useTemplateDialog": {
                 "title": string;
                 "description": string;
+                "noSpaceDescription": string;
+                "newSpacePlaceholder": string;
+                "createSpace": string;
+            };
+        };
+        "baseShare": {
+            "shareTitle": string;
+            "shareToWeb": string;
+            "linkHolderLabel": string;
+            "linkHolderCanView": string;
+            "linkHolderCanViewDesc": string;
+            "linkHolderCanEdit": string;
+            "linkHolderCanEditDesc": string;
+            "linkHolderCanCopyAndSave": string;
+            "linkHolderCanCopyAndSaveDesc": string;
+            "refreshLink": string;
+            "advanced": string;
+            "allowCopyData": string;
+            "restrictByPassword": string;
+            "embedConfig": string;
+            "embedPreview": string;
+            "copyCode": string;
+            "enterPassword": string;
+            "passwordTitle": string;
+            "deleteConfirmTitle": string;
+            "deleteConfirmDescription": string;
+            "createSuccess": string;
+            "createFailed": string;
+            "updateFailed": string;
+            "deleteSuccess": string;
+            "deleteFailed": string;
+            "refreshSuccess": string;
+            "refreshFailed": string;
+        };
+        "share": {
+            "copyToSpaceDialog": {
+                "title": string;
+                "description": string;
+                "baseName": string;
+                "baseNamePlaceholder": string;
+                "selectSpace": string;
+                "noSpaceDescription": string;
+                "newSpacePlaceholder": string;
+                "createSpace": string;
+                "copyTarget": string;
+                "createNewBase": string;
+                "copyToExistingBase": string;
+                "selectBase": string;
+                "selectBasePlaceholder": string;
+                "noBaseInSpace": string;
             };
         };
         "settings": {
             "title": string;
+            "allSetting": string;
             "personal": {
                 "title": string;
             };
@@ -428,6 +487,10 @@ export type I18nTranslations = {
                         "user": string;
                         "workspace": string;
                     };
+                    "email": {
+                        "user": string;
+                        "email": string;
+                    };
                     "deleteTitle": string;
                     "deleteDesc": string;
                     "create": string;
@@ -464,6 +527,8 @@ export type I18nTranslations = {
                     "needBaseSource": string;
                     "forbiddenUpdateSystemTemplate": string;
                     "addCategoryTips": string;
+                    "categoryNamePlaceholder": string;
+                    "duplicateCategoryName": string;
                 };
                 "category": {
                     "menu": {
@@ -503,6 +568,7 @@ export type I18nTranslations = {
                     "addCategory": string;
                     "selectCategory": string;
                     "viewTemplate": string;
+                    "manageCategory": string;
                 };
                 "relatedTemplates": string;
                 "noImage": string;
@@ -644,6 +710,9 @@ export type I18nTranslations = {
                 "description": string;
                 "viewDetail": string;
             };
+            "app": {
+                "previewAppError": string;
+            };
         };
         "help": {
             "title": string;
@@ -737,12 +806,33 @@ export type I18nTranslations = {
                     "chatModel": string;
                     "chatModelDescription": string;
                     "chatModels": {
-                        "sm": string;
-                        "smDescription": string;
-                        "md": string;
-                        "mdDescription": string;
                         "lg": string;
                         "lgDescription": string;
+                        "md": string;
+                        "mdDescription": string;
+                        "sm": string;
+                        "smDescription": string;
+                        "inheritHint": string;
+                        "modelTiers": string;
+                        "modelTiersDescription": string;
+                        "allInheriting": string;
+                        "customized": string;
+                    };
+                    "actions": {
+                        "title": string;
+                        "aiField": {
+                            "title": string;
+                            "description": string;
+                        };
+                        "aiChat": {
+                            "title": string;
+                            "description": string;
+                            "sandboxWarning": string;
+                        };
+                        "modelSelection": {
+                            "title": string;
+                            "description": string;
+                        };
                     };
                     "chatModelTest": {
                         "text": string;
@@ -777,6 +867,18 @@ export type I18nTranslations = {
                     "noModelFound": string;
                     "searchModel": string;
                     "selectModel": string;
+                    "defaultModel": string;
+                    "moreModels": string;
+                    "agentModelWarningTitle": string;
+                    "agentModelWarningDescription": string;
+                    "agentModelWarningConfirm": string;
+                    "recommendedModelNudge": {
+                        "title": string;
+                        "description": string;
+                        "use": string;
+                        "later": string;
+                    };
+                    "noModelsAvailable": string;
                     "input": string;
                     "output": string;
                     "inputOrOutputTip": string;
@@ -800,38 +902,10 @@ export type I18nTranslations = {
                     "customModelDescription": string;
                     "aiAbilitySettings": string;
                     "aiAbilitySettingsDescription": string;
-                    "actions": {
-                        "aiBasicCapability": {
-                            "title": string;
-                            "description": string;
-                        };
-                        "buildBase": {
-                            "title": string;
-                            "description": string;
-                        };
-                        "buildApp": {
-                            "title": string;
-                            "description": string;
-                        };
-                        "buildAutomation": {
-                            "title": string;
-                            "description": string;
-                        };
-                        "baseResource": {
-                            "title": string;
-                            "description": string;
-                        };
-                        "suggestion": {
-                            "title": string;
-                            "description": string;
-                        };
-                    };
                     "imageModelAbility": {
                         "generation": string;
                         "imageToImage": string;
                     };
-                    "moreModels": string;
-                    "noModelsAvailable": string;
                     "testCompleteWithCount": string;
                     "allTestsFailed": string;
                     "batchTest": string;
@@ -894,6 +968,16 @@ export type I18nTranslations = {
                     "applyPricing": string;
                     "pricingApplied": string;
                     "pricingAppliedCount": string;
+                    "relativeRatio": string;
+                    "webSearch": string;
+                    "referencePricingTip": string;
+                    "applyReferencePricingTip": string;
+                    "optionalPricing": string;
+                    "gatewayRatio": string;
+                    "gatewayRatioTip": string;
+                    "generatedPricing": string;
+                    "generatedPricingTip": string;
+                    "relativeRatioTip": string;
                     "hint": {
                         "title": string;
                         "missingV1Suffix": string;
@@ -1040,14 +1124,12 @@ export type I18nTranslations = {
                 };
                 "app": {
                     "domain": string;
-                    "v0ApiKey": string;
                     "customDomain": string;
                     "customDomainDescription": string;
                     "vercelToken": string;
                     "vercelTokenDescription": string;
                     "apiProxy": string;
                     "apiProxyDescription": string;
-                    "v0BaseUrl": string;
                     "vercelBaseUrl": string;
                     "aiGateway": string;
                     "aiGatewayDescription": string;
@@ -1088,11 +1170,6 @@ export type I18nTranslations = {
                         "description": string;
                         "errorTips": string;
                     };
-                    "app": {
-                        "title": string;
-                        "description": string;
-                        "errorTips": string;
-                    };
                     "webSearch": {
                         "title": string;
                         "description": string;
@@ -1119,15 +1196,14 @@ export type I18nTranslations = {
                         "title": string;
                         "description": string;
                     };
-                    "appBuilderV0": {
-                        "title": string;
-                        "description": string;
-                    };
                     "appBuilderDomain": {
                         "title": string;
                         "description": string;
                     };
                     "appBuilderApiProxy": {
+                        "title": string;
+                    };
+                    "sandboxVercel": {
                         "title": string;
                         "description": string;
                     };
@@ -1169,6 +1245,18 @@ export type I18nTranslations = {
             "showMore": string;
             "exportBase": {
                 "successText": string;
+                "failedText": string;
+            };
+            "noAttention": string;
+            "noSeverity": string;
+            "sections": {
+                "needsAction": string;
+                "all": string;
+            };
+            "severity": {
+                "critical": string;
+                "warning": string;
+                "info": string;
             };
         };
         "role": {
@@ -1198,6 +1286,9 @@ export type I18nTranslations = {
             "resetTrashConfirm": string;
             "addToTrash": string;
             "description": string;
+            "spaceDescription": string;
+            "spaceInnerDescription": string;
+            "baseDescription": string;
         };
         "pluginCenter": {
             "pluginUrlEmpty": string;
@@ -1313,9 +1404,23 @@ export type I18nTranslations = {
                             "failed": {
                                 "message": string;
                             };
+                            "planLimitExceeded": {
+                                "message": string;
+                            };
+                            "noRecordsProcessed": {
+                                "message": string;
+                            };
                             "success": {
                                 "message": string;
                                 "inplace": string;
+                            };
+                            "partialSuccess": {
+                                "message": string;
+                                "messageNoReport": string;
+                            };
+                            "allFailed": {
+                                "message": string;
+                                "messageNoReport": string;
                             };
                         };
                     };
@@ -1332,6 +1437,61 @@ export type I18nTranslations = {
                         "insufficientCredit": {
                             "title": string;
                             "message": string;
+                        };
+                        "runQuotaExceeded": {
+                            "title": string;
+                            "message": string;
+                        };
+                        "failedSummary": {
+                            "title": string;
+                            "message": string;
+                        };
+                    };
+                    "billing": {
+                        "title": string;
+                        "credit": {
+                            "warning80": {
+                                "title": string;
+                                "message": string;
+                            };
+                            "warning90": {
+                                "title": string;
+                                "message": string;
+                            };
+                            "anomaly": {
+                                "dailySpike": {
+                                    "title": string;
+                                    "message": string;
+                                };
+                                "burst": {
+                                    "title": string;
+                                    "message": string;
+                                };
+                            };
+                        };
+                        "automationRun": {
+                            "warning80": {
+                                "title": string;
+                                "message": string;
+                            };
+                            "warning90": {
+                                "title": string;
+                                "message": string;
+                            };
+                            "gracePeriod": {
+                                "title": string;
+                                "message": string;
+                            };
+                            "anomaly": {
+                                "dailySpike": {
+                                    "title": string;
+                                    "message": string;
+                                };
+                                "burst": {
+                                    "title": string;
+                                    "message": string;
+                                };
+                            };
                         };
                     };
                     "exportBase": {
@@ -1406,13 +1566,6 @@ export type I18nTranslations = {
             "createResource": string;
             "noPermissionToCreateResource": string;
         };
-        "noPermissionToCreateBase": string;
-        "app": {
-            "title": string;
-            "description": string;
-            "previewAppError": string;
-            "sendErrorToAI": string;
-        };
         "credit": {
             "title": string;
             "leftAmount": string;
@@ -1471,8 +1624,10 @@ export type I18nTranslations = {
                 "allSpaces": string;
                 "user": string;
                 "creator": string;
+                "sourceType": string;
                 "platform": string;
                 "allStatuses": string;
+                "allSourceTypes": string;
                 "allPlatforms": string;
                 "pendingCount": string;
                 "approvedCount": string;
@@ -1511,9 +1666,62 @@ export type I18nTranslations = {
                 };
             };
         };
+        "system": {
+            "notFound": {
+                "title": string;
+                "description": string;
+            };
+            "links": {
+                "backToHome": string;
+            };
+            "forbidden": {
+                "title": string;
+                "description": string;
+            };
+            "paymentRequired": {
+                "title": string;
+                "description": string;
+            };
+            "error": {
+                "title": string;
+                "description": string;
+            };
+        };
+        "import": {
+            "error": {
+                "dateOutOfRange": string;
+                "planRowLimit": string;
+                "notNullValidation": string;
+                "uniqueValidation": string;
+                "requestTimeout": string;
+                "chunkProcessingFailed": string;
+                "unknown": string;
+            };
+        };
+        "changelog": {
+            "newUpdate": string;
+            "title": string;
+            "url": string;
+            "id": string;
+        };
+        "noPermissionToCreateBase": string;
         "chat": {
+            "responseInterrupted": string;
             "serverError": string;
             "serverErrorHint": string;
+            "modelNotSupported": string;
+            "byokModelNotSupported": string;
+            "modelServiceUnavailable": string;
+            "modelServiceError": string;
+            "imageProcessingFailed": string;
+            "imageProcessingFailedDescription": string;
+            "sandboxActiveRunBusy": string;
+            "sandboxCapacityFull": string;
+            "sandboxTransient": string;
+            "sandboxSnapshotNotFound": string;
+            "agentStartFailed": string;
+            "idleTimeout": string;
+            "danglingToolUse": string;
         };
         "clickToCopyTooltip": string;
         "copiedTooltip": string;
@@ -1794,6 +2002,7 @@ export type I18nTranslations = {
             "resetSuccess": string;
             "click": string;
             "clickedCount": string;
+            "atLeastOne": string;
         };
         "notification": {
             "title": string;
@@ -1831,6 +2040,11 @@ export type I18nTranslations = {
             "date": {
                 "placeholder": string;
                 "today": string;
+                "rangePlaceholder": string;
+                "rangeSelected": string;
+                "invalidTimeRange": string;
+                "from": string;
+                "to": string;
             };
             "formula": {
                 "title": string;
@@ -1856,17 +2070,23 @@ export type I18nTranslations = {
             "link": {
                 "placeholder": string;
                 "searchPlaceholder": string;
+                "allFields": string;
+                "globalSearch": string;
+                "fieldSearch": string;
+                "maxFieldTips": string;
                 "create": string;
                 "selectRecord": string;
-                "unselected": string;
+                "all": string;
                 "selected": string;
                 "expandRecordError": string;
                 "alreadyOpen": string;
+                "linkedTo": string;
                 "goToForeignTable": string;
                 "foreignTableIdRequired": string;
                 "linkFieldIdRequired": string;
                 "selectTooManyRecords": string;
                 "relationshipRequired": string;
+                "rangeSelectFailed": string;
             };
             "user": {
                 "searchPlaceholder": string;
@@ -1919,6 +2139,7 @@ export type I18nTranslations = {
             };
             "invalidateSelected": string;
             "invalidateSelectedTips": string;
+            "invalidConditionTip": string;
             "default": {
                 "empty": string;
                 "placeholder": string;
@@ -1995,6 +2216,7 @@ export type I18nTranslations = {
                     "nextYear": string;
                     "pastNumberOfDays": string;
                     "nextNumberOfDays": string;
+                    "dateRange": string;
                 };
             };
         };
@@ -2026,6 +2248,7 @@ export type I18nTranslations = {
             "showAll": string;
             "hideAll": string;
             "primaryKey": string;
+            "notInCurrentView": string;
         };
         "expandRecord": {
             "copy": string;
@@ -2045,6 +2268,9 @@ export type I18nTranslations = {
             };
             "showHiddenFields": string;
             "hideHiddenFields": string;
+            "showMore": string;
+            "showLess": string;
+            "recordFrom": string;
         };
         "sort": {
             "label": string;
@@ -2176,6 +2402,7 @@ export type I18nTranslations = {
                 "appUpdate": string;
                 "userProfileRead": string;
                 "userEmailRead": string;
+                "userIntegrations": string;
                 "recordHistoryRead": string;
                 "baseQuery": string;
                 "instanceRead": string;
@@ -2199,6 +2426,7 @@ export type I18nTranslations = {
             "instance": string;
             "enterprise": string;
             "history": string;
+            "global": string;
         };
         "formula": {
             "SUM": {
@@ -2521,6 +2749,14 @@ export type I18nTranslations = {
                 "summary": string;
                 "example": string;
             };
+            "TEXTBEFORE": {
+                "summary": string;
+                "example": string;
+            };
+            "TEXTSPLIT": {
+                "summary": string;
+                "example": string;
+            };
         };
         "functionType": {
             "fields": string;
@@ -2553,6 +2789,11 @@ export type I18nTranslations = {
             "dateRangeOfDays": string;
             "dateRangeOfMonths": string;
             "totalAttachmentSize": string;
+        };
+        "selectionStatistic": {
+            "tip": string;
+            "copyTip": string;
+            "copied": string;
         };
         "baseQuery": {
             "add": string;
@@ -2620,6 +2861,7 @@ export type I18nTranslations = {
             "toolbar": {
                 "link": string;
                 "image": string;
+                "mention": string;
             };
             "floatToolbar": {
                 "editLink": string;
@@ -2663,6 +2905,31 @@ export type I18nTranslations = {
             "automationNodeNeedTest": string;
             "automationNodeTestOutdated": string;
             "invalidToken": string;
+            "limit": {
+                "fieldOptionsMaxBytes": string;
+                "selectChoicesMax": string;
+                "selectChoiceNameMaxLength": string;
+                "selectDefaultValuesMax": string;
+                "cellValueMaxBytes": string;
+                "recordFieldsMaxBytes": string;
+                "recordsPerMutationMax": string;
+                "computedCellValueMaxBytes": string;
+                "formulaMaxLength": string;
+                "tablesPerBaseMax": string;
+                "fieldsPerTableMax": string;
+                "rowsPerTableMax": string;
+                "viewsPerTableMax": string;
+                "createTableFieldsMax": string;
+                "createTableViewsMax": string;
+                "createTableRecordsMax": string;
+                "viewFilterItemsMax": string;
+                "viewFilterDepthMax": string;
+                "viewSortItemsMax": string;
+                "viewGroupItemsMax": string;
+                "viewOptionsMaxBytes": string;
+                "nameMaxLength": string;
+                "descriptionMaxLength": string;
+            };
             "custom": {
                 "fieldValueNotNull": string;
                 "fieldValueDuplicate": string;
@@ -2728,6 +2995,7 @@ export type I18nTranslations = {
                 "nodeNotFound": string;
                 "triggerTestFailed": string;
                 "testFailed": string;
+                "runFailed": string;
                 "nodeParseError": string;
                 "nodeNeedTest": string;
                 "nodeTestOutdated": string;
@@ -2739,6 +3007,10 @@ export type I18nTranslations = {
                 "tableNotInBase": string;
                 "alreadyActiveAndNotDraft": string;
                 "noActiveSnapshot": string;
+                "onlyFailedRunsCanRerun": string;
+                "workflowMustBeActiveToRerun": string;
+                "snapshotChangedOnlyFullRerun": string;
+                "controlStepsMissingOnlyFullRerun": string;
                 "triggerNodeAlreadyExists": string;
                 "generateLogicError": string;
                 "logicNotFound": string;
@@ -2750,6 +3022,25 @@ export type I18nTranslations = {
                 "controlNodeNotBeTested": string;
                 "invalidNodeType": string;
                 "unsupportedCategory": string;
+                "unknownConnectionType": string;
+                "imapPasswordNotConfigured": string;
+                "integrationNotFound": string;
+                "webhookTriggerNotFound": string;
+                "emailReceivedTriggerNotFound": string;
+                "emailConnectorNotAvailable": string;
+                "listMailboxesFailed": string;
+            };
+            "scrape": {
+                "unknownDataset": string;
+                "apiKeyNotConfigured": string;
+                "triggerFailed": string;
+                "snapshotError": string;
+                "timeout": string;
+            };
+            "integration": {
+                "oauthCodeExchangeFailed": string;
+                "oauthTokenRefreshFailed": string;
+                "userInfoFetchFailed": string;
             };
             "space": {
                 "notFound": string;
@@ -2761,6 +3052,8 @@ export type I18nTranslations = {
                 "cannotOperate": string;
                 "notBelongToOrg": string;
                 "invalidSpaceIds": string;
+                "freeOwnedSpaceLimitExceeded": string;
+                "freeOwnedSpaceLimitExceededOther": string;
             };
             "base": {
                 "notFound": string;
@@ -2809,6 +3102,7 @@ export type I18nTranslations = {
             "share": {
                 "incorrectPassword": string;
                 "notAllowedToSubmit": string;
+                "notAllowedToEdit": string;
                 "viewRequired": string;
                 "hiddenFieldsSubmissionNotAllowed": string;
                 "submitRecordsError": string;
@@ -2823,6 +3117,12 @@ export type I18nTranslations = {
                 "passwordRestrictionNotEnabled": string;
                 "shareViewNotFound": string;
                 "linkFieldNotFound": string;
+                "loginRequired": string;
+            };
+            "baseShare": {
+                "notFound": string;
+                "alreadyExists": string;
+                "copyNotAllowed": string;
             };
             "shareSocket": {
                 "viewPermissionNotAllowed": string;
@@ -2852,6 +3152,8 @@ export type I18nTranslations = {
                 "whiteListCheckError": string;
                 "databaseConnectionFailed": string;
                 "executeQuerySqlFailed": string;
+                "sqlSyntaxError": string;
+                "readOnlyCheckFailed": string;
             };
             "permission": {
                 "createRecordWithDeniedFields": string;
@@ -2917,6 +3219,7 @@ export type I18nTranslations = {
                 "recordMapNotFound": string;
                 "forbidDeletePrimaryField": string;
                 "foreignTableIdInvalid": string;
+                "crossSpaceLinkForbidden": string;
                 "relationshipInvalid": string;
                 "linkFieldIdInvalid": string;
                 "lookupFieldIdInvalid": string;
@@ -2942,10 +3245,20 @@ export type I18nTranslations = {
                 "notAttachment": string;
                 "isComputed": string;
                 "notFoundAICofig": string;
+                "foreignTableIdRequired": string;
+                "lookupFieldIdRequired": string;
+                "lookupFieldNotExist": string;
+                "lookupFieldNotBelongToTable": string;
+                "lookupFieldTypeNotMatch": string;
+                "conditionalRollupOptionsRequired": string;
+                "conditionalRollupParseError": string;
+                "conditionalLookupOptionsRequired": string;
                 "button": {
                     "clickCountReachedMaxCount": string;
                     "notSupportReset": string;
                 };
+                "primaryCannotBeLookup": string;
+                "primaryFieldAlreadyExists": string;
             };
             "view": {
                 "notFound": string;
@@ -2967,6 +3280,10 @@ export type I18nTranslations = {
             "billing": {
                 "insufficientCredit": string;
                 "exceedMaxRowLimit": string;
+                "exceedMaxAutomationRunLimit": string;
+                "manualSubscriptionNotSupported": string;
+                "appSumoSubscriptionNotSupported": string;
+                "customerNotFound": string;
             };
             "aggregation": {
                 "searchQueryRequired": string;
@@ -3033,6 +3350,7 @@ export type I18nTranslations = {
                 "notSupportedFileFormat": string;
                 "notSupportedFileType": string;
                 "exceedMaxFieldsLength": string;
+                "tooManyConcurrentImports": string;
             };
             "invitation": {
                 "disallowSpaceInvitation": string;
@@ -3051,6 +3369,8 @@ export type I18nTranslations = {
                 "notFound": string;
                 "parentSpaceTrashed": string;
                 "parentBaseOrSpaceTrashed": string;
+                "parentBaseTrashed": string;
+                "parentNotFound": string;
                 "tableNotFound": string;
             };
             "license": {
@@ -3111,10 +3431,12 @@ export type I18nTranslations = {
                 "invalidResourceType": string;
             };
             "template": {
+                "categoryNotFound": string;
                 "snapshotRequired": string;
                 "sourceTemplateNotFound": string;
                 "noMinOrderFound": string;
                 "takeCountTooLarge": string;
+                "categoryLimitReached": string;
             };
             "department": {
                 "parentNotFound": string;
@@ -3137,6 +3459,8 @@ export type I18nTranslations = {
                 "noFilesInZip": string;
                 "zipFileTooLarge": string;
                 "invalidZip": string;
+                "domainAlreadyInUse": string;
+                "domainReserved": string;
             };
             "reward": {
                 "notFound": string;
@@ -3159,6 +3483,8 @@ export type I18nTranslations = {
                 "linkedInPostNotFound": string;
                 "linkedInAuthorNotFound": string;
                 "fetchLinkedInUserFailed": string;
+                "domainAlreadyInUse": string;
+                "domainReserved": string;
             };
         };
         "aiError": {
@@ -3177,14 +3503,29 @@ export type I18nTranslations = {
             "title": string;
             "submit": string;
             "password": string;
+            "passwordTooShort": string;
         };
         "toolbar": {
             "filterLinkSelectPlaceholder": string;
         };
+        "view": {
+            "signInToEdit": string;
+            "login": string;
+        };
         "openOnNewPage": string;
         "errorTips": string;
+        "form": {
+            "requireLoginTip": string;
+            "login": string;
+        };
     };
     "space": {
+        "crossSpace": {
+            "duplicateBaseTitle": string;
+            "duplicateBaseDescription": string;
+            "affectedTableSuffix": string;
+            "convertAndDuplicate": string;
+        };
         "initialSpaceName": string;
         "action": {
             "createBase": string;
@@ -3240,8 +3581,15 @@ export type I18nTranslations = {
             "exportTips3": string;
             "exportIncludeDataLabel": string;
             "exportIncludeDataDescription": string;
+            "exportTitle": string;
+            "exportDescription": string;
+            "exportStartButton": string;
+            "exportSlowTip": string;
+            "exportReadyDescription": string;
             "moveBaseSuccessTitle": string;
             "moveBaseSuccessDescription": string;
+            "moveBaseCrossSpaceTitle": string;
+            "moveBaseCrossSpaceDataLossWarning": string;
         };
         "deleteSpaceModal": {
             "title": string;
@@ -3254,10 +3602,6 @@ export type I18nTranslations = {
             "title": string;
             "description": string;
             "empty": string;
-        };
-        "trash": {
-            "spaceDescription": string;
-            "baseDescription": string;
         };
         "integration": {
             "title": string;
@@ -3277,6 +3621,53 @@ export type I18nTranslations = {
             "importWayTip": string;
             "baseImportTips": string;
             "confirm": string;
+            "phase": {
+                "parsingStructure": string;
+                "creatingBase": string;
+                "creatingTable": string;
+                "creatingCommonFields": string;
+                "creatingButtonFields": string;
+                "creatingFormulaFields": string;
+                "creatingLinkFields": string;
+                "creatingLookupFields": string;
+                "creatingTableViews": string;
+                "creatingPlugins": string;
+                "creatingFolders": string;
+                "creatingWorkflows": string;
+                "creatingApps": string;
+                "creatingAuthorityMatrix": string;
+                "queuingAttachments": string;
+                "uploadingAppFiles": string;
+                "queuingDataImport": string;
+                "done": string;
+                "clickToView": string;
+                "importingV2": string;
+                "tableStructureStarted": string;
+                "tableStructureValidating": string;
+                "tableStructureCommitting": string;
+                "tableStructureDone": string;
+                "tableStructureData": string;
+                "tableStructureTablesProgress": string;
+                "tableStructureTablesDone": string;
+                "restoringBaseNodes": string;
+                "importingTableData": string;
+                "restoringLinkRelations": string;
+                "tableDataStarted": string;
+                "tableDataProgress": string;
+                "tableDataDone": string;
+                "linkFieldsData": string;
+                "linkFieldsProgress": string;
+                "linkFieldsDone": string;
+                "tableDataRowsProgress": string;
+                "tableDataRowsDone": string;
+                "tableDataRowsTotalProgress": string;
+                "tableDataRowsTotalDone": string;
+                "tableDataBatch": string;
+                "tableDataBatchRows": string;
+                "tableDataEmpty": string;
+                "computedBackfill": string;
+                "computedBackfillFailed": string;
+            };
         };
         "template": {
             "title": string;
@@ -3348,6 +3739,10 @@ export type I18nTranslations = {
             };
             "urlCopied": string;
             "urlCopiedForDiscord": string;
+            "featuredLabel": string;
+            "unfeaturedLabel": string;
+            "featuredTip": string;
+            "unfeaturedTip": string;
             "publishSuccessDescription": string;
             "shareWith": string;
             "unpublishedApps": {
@@ -3369,29 +3764,97 @@ export type I18nTranslations = {
         };
         "collaborators": string;
         "more": string;
-    };
-    "system": {
-        "notFound": {
-            "title": string;
-            "description": string;
+        "export": {
+            "phase": {
+                "preparing": string;
+                "exportingArchive": string;
+                "exportingStructure": string;
+                "exportingAttachments": string;
+                "exportingAttachmentMetadata": string;
+                "exportingTableData": string;
+                "tableDataStarted": string;
+                "tableDataProgress": string;
+                "tableDataDone": string;
+                "exportingExtraFiles": string;
+                "exportingAppFiles": string;
+                "uploadingArchive": string;
+                "generatingDownloadUrl": string;
+                "rowsProgress": string;
+                "done": string;
+            };
         };
-        "links": {
-            "backToHome": string;
-        };
-        "forbidden": {
-            "title": string;
-            "description": string;
-        };
-        "paymentRequired": {
-            "title": string;
-            "description": string;
-        };
-        "error": {
-            "title": string;
-            "description": string;
+        "dataDb": {
+            "create": {
+                "title": string;
+                "description": string;
+                "defaultOption": string;
+                "defaultHint": string;
+                "byodbOption": string;
+                "byodbHint": string;
+                "urlLabel": string;
+                "sslHint": string;
+                "testConnection": string;
+                "testing": string;
+                "retestRequired": string;
+                "databaseLabel": string;
+                "databasePlaceholder": string;
+                "databaseHint": string;
+                "preflightPassed": string;
+                "preflightFailed": string;
+                "missingCapabilities": string;
+                "testFailed": string;
+                "errors": {
+                    "INVALID_DATABASE_URL": {
+                        "message": string;
+                    };
+                    "PRIVATE_NETWORK_BLOCKED": {
+                        "message": string;
+                        "remediation": string;
+                    };
+                    "CONNECTION_FAILED": {
+                        "message": string;
+                        "remediation": string;
+                    };
+                    "IPV6_NETWORK_UNREACHABLE": {
+                        "message": string;
+                        "remediation": string;
+                    };
+                    "PRIVILEGE_CHECK_FAILED": {
+                        "message": string;
+                    };
+                    "DDL_PRIVILEGE_CHECK_FAILED": {
+                        "message": string;
+                        "remediation": string;
+                    };
+                    "NON_EMPTY_UNKNOWN_DATABASE": {
+                        "message": string;
+                        "remediation": string;
+                    };
+                    "INCOMPATIBLE_TEABLE_DATABASE": {
+                        "message": string;
+                        "remediation": string;
+                    };
+                };
+            };
+            "fields": {
+                "host": string;
+                "database": string;
+                "internalSchema": string;
+                "version": string;
+                "classification": string;
+            };
         };
     };
     "table": {
+        "crossSpace": {
+            "duplicateFieldTitle": string;
+            "duplicateFieldDescription": string;
+            "duplicateTableTitle": string;
+            "duplicateTableDescription": string;
+            "duplicateBaseTitle": string;
+            "duplicateBaseDescription": string;
+            "convertAndDuplicate": string;
+        };
         "toolbar": {
             "comingSoon": string;
             "viewFilterInShare": string;
@@ -3405,6 +3868,7 @@ export type I18nTranslations = {
                     "copied": string;
                     "genLink": string;
                     "allowCopy": string;
+                    "allowEdit": string;
                     "showAllFields": string;
                     "restrict": string;
                     "tips": string;
@@ -3418,6 +3882,11 @@ export type I18nTranslations = {
                     "cancel": string;
                     "save": string;
                     "requireLogin": string;
+                    "copyCode": string;
+                    "theme": string;
+                    "themeSystem": string;
+                    "themeLight": string;
+                    "themeDark": string;
                 };
                 "extensions": {
                     "label": string;
@@ -3478,6 +3947,16 @@ export type I18nTranslations = {
             "description": string;
             "help": string;
             "helpCenter": string;
+        };
+        "validation": {
+            "link": {
+                "batch_duplicate": string;
+                "one_many_duplicate": string;
+                "one_one_duplicate": string;
+            };
+            "field": {
+                "maxColumnLimit": string;
+            };
         };
         "field": {
             "fieldManagement": string;
@@ -3651,6 +4130,7 @@ export type I18nTranslations = {
                 "ring": string;
                 "bar": string;
                 "text": string;
+                "markdown": string;
                 "url": string;
                 "email": string;
                 "phone": string;
@@ -3701,6 +4181,27 @@ export type I18nTranslations = {
                 "hideFields": string;
                 "moreOptions": string;
                 "allowNewOptionsWhenEditing": string;
+                "deleteField": {
+                    "title": string;
+                    "simpleConfirm": string;
+                    "withDependencies": string;
+                    "affectedFields": string;
+                    "fieldsToDelete": string;
+                    "unviewedHint": string;
+                    "deleteCount": string;
+                    "noAffectedFields": string;
+                    "riskIdentified": string;
+                    "noDependencies": string;
+                    "safeToDelete": string;
+                    "safeToDeleteDesc": string;
+                    "affectedItems": string;
+                    "type": string;
+                    "source": string;
+                    "sourceTable": string;
+                    "typeField": string;
+                    "loginEmailFieldWarning": string;
+                    "loginEmailFieldConvertWarning": string;
+                };
                 "conditionalLookup": {
                     "sortLimitToggleLabel": string;
                     "sortLabel": string;
@@ -3712,6 +4213,7 @@ export type I18nTranslations = {
                     "sortMissingWarningTitle": string;
                     "sortMissingWarningDescription": string;
                 };
+                "fieldUnavailable": string;
                 "lastModifiedScope": string;
                 "lastModifiedAll": string;
                 "lastModifiedSpecific": string;
@@ -3722,16 +4224,6 @@ export type I18nTranslations = {
                     "fieldMapping": string;
                     "selectBaseField": string;
                     "noMappings": string;
-                };
-                "deleteField": {
-                    "title": string;
-                    "simpleConfirm": string;
-                    "withDependencies": string;
-                    "affectedFields": string;
-                    "fieldsToDelete": string;
-                    "unviewedHint": string;
-                    "deleteCount": string;
-                    "noAffectedFields": string;
                 };
             };
             "subTitle": {
@@ -3871,6 +4363,9 @@ export type I18nTranslations = {
             "baseInfo": string;
             "typeOfDatabase": string;
             "descriptionForTable": string;
+            "loginUserTable": string;
+            "loginUserTableClickTips": string;
+            "linkedApps": string;
             "nameForTable": string;
             "deleteTip1": string;
             "deleteTip2": string;
@@ -3894,15 +4389,42 @@ export type I18nTranslations = {
                 "deleteFieldConfirmTitle": string;
                 "deleting": string;
                 "deleteSuccessful": string;
+                "deleteStream": {
+                    "preparing": string;
+                    "deleting": string;
+                    "descriptionWithIssues": string;
+                    "completedWithIssues": string;
+                    "issuesBadge": string;
+                    "chunkFailureTitle": string;
+                    "chunkFailureSummary": string;
+                    "chunkLabel": string;
+                    "rowsLabel": string;
+                    "partialFailureDescription": string;
+                    "phaseLabel": {
+                        "preparing": string;
+                        "guarding": string;
+                        "deleting": string;
+                        "publishing": string;
+                        "finalizing": string;
+                    };
+                };
                 "pasteFileFailed": string;
                 "copyError": {
                     "noFocus": string;
                     "noPermission": string;
                 };
+                "crossBaseCopyTitle": string;
+                "crossBaseCopyDescription": string;
+                "crossBaseCopyConfirm": string;
+                "crossBaseCopyLoadFirst": string;
+                "pasteNoEditableFields": string;
+                "clearFailed": string;
                 "clearConfirmTitle": string;
                 "clearConfirmDescription": string;
                 "deleteRecordConfirmTitle": string;
                 "deleteRecordConfirmDescription": string;
+                "duplicateRecordsConfirmTitle": string;
+                "duplicateRecordsConfirmDescription": string;
                 "pasteConfirmTitle": string;
                 "pasteConfirmDescription": string;
                 "expandCommonDescription": string;
@@ -3912,6 +4434,69 @@ export type I18nTranslations = {
                 "deleteRecord": string;
                 "clear": string;
                 "conjunction": string;
+                "duplicating": string;
+                "deleteFailed": string;
+                "duplicateFailed": string;
+                "duplicateSuccessful": string;
+                "duplicateRecords": string;
+                "duplicateStream": {
+                    "preparing": string;
+                    "duplicating": string;
+                    "descriptionWithIssues": string;
+                    "completedWithIssues": string;
+                    "issuesBadge": string;
+                    "chunkFailureTitle": string;
+                    "chunkFailureSummary": string;
+                    "chunkLabel": string;
+                    "rowsLabel": string;
+                    "partialFailureDescription": string;
+                    "phaseLabel": {
+                        "preparing": string;
+                        "guarding": string;
+                        "processing": string;
+                        "publishing": string;
+                        "finalizing": string;
+                    };
+                };
+                "pasteStream": {
+                    "preparing": string;
+                    "pasting": string;
+                    "descriptionWithIssues": string;
+                    "completedWithIssues": string;
+                    "issuesBadge": string;
+                    "chunkFailureTitle": string;
+                    "chunkFailureSummary": string;
+                    "chunkLabel": string;
+                    "rowsLabel": string;
+                    "partialFailureDescription": string;
+                    "phaseLabel": {
+                        "preparing": string;
+                        "guarding": string;
+                        "processing": string;
+                        "publishing": string;
+                        "finalizing": string;
+                    };
+                };
+                "clearStream": {
+                    "confirmDescription": string;
+                    "preparing": string;
+                    "clearing": string;
+                    "descriptionWithIssues": string;
+                    "completedWithIssues": string;
+                    "issuesBadge": string;
+                    "chunkFailureTitle": string;
+                    "chunkFailureSummary": string;
+                    "chunkLabel": string;
+                    "rowsLabel": string;
+                    "partialFailureDescription": string;
+                    "phaseLabel": {
+                        "preparing": string;
+                        "guarding": string;
+                        "processing": string;
+                        "publishing": string;
+                        "finalizing": string;
+                    };
+                };
                 "pasing": string;
             };
             "graph": {
@@ -3926,9 +4511,245 @@ export type I18nTranslations = {
                 "loading": string;
                 "allGood": string;
                 "fixIssues": string;
-                "type": string;
-                "message": string;
+                "v2": {
+                    "dialogTitle": string;
+                    "dialogDescription": string;
+                    "dialogDescriptionNoTable": string;
+                    "runCheck": string;
+                    "recheck": string;
+                    "repair": string;
+                    "repairWarnings": string;
+                    "repairWarningsAndErrors": string;
+                    "repairRule": string;
+                    "repairUnavailable": string;
+                    "manual": string;
+                    "manualRepairNotice": string;
+                    "manualRepairNoticeWithCount": string;
+                    "manualRepairDialogTitle": string;
+                    "manualRepairDialogDescription": string;
+                    "manualRepairDialogReason": string;
+                    "manualRepairDialogHint": string;
+                    "manualRepairDialogClose": string;
+                    "checking": string;
+                    "repairing": string;
+                    "streamError": string;
+                    "noTableSelected": string;
+                    "noResults": string;
+                    "noFilteredResults": string;
+                    "systemColumns": string;
+                    "general": string;
+                    "optional": string;
+                    "statementCount": string;
+                    "detailsMissing": string;
+                    "detailsExtra": string;
+                    "message": {
+                        "schemaValid": string;
+                        "schemaValidationFailed": string;
+                        "schemaElementMissing": string;
+                        "schemaAlreadyValid": string;
+                        "schemaRepaired": string;
+                        "manualRepair": string;
+                        "noRepairStatements": string;
+                        "skippedDependencies": string;
+                        "checkStreamConnected": string;
+                        "baseCheckStreamConnected": string;
+                        "repairStreamConnected": string;
+                        "baseRepairStreamConnected": string;
+                        "checkCompleted": string;
+                        "baseCheckCompleted": string;
+                        "repairCompleted": string;
+                        "baseRepairCompleted": string;
+                        "skippedStatusNotSelected": string;
+                        "skippedRepairUnavailable": string;
+                    };
+                    "rule": {
+                        "column": string;
+                        "columnTyped": string;
+                        "notNull": string;
+                        "columnUnique": string;
+                        "fkColumn": string;
+                        "index": string;
+                        "uniqueIndex": string;
+                        "primaryKey": string;
+                        "defaultExpression": string;
+                        "foreignKey": string;
+                        "junctionTable": string;
+                        "junctionUnique": string;
+                        "junctionIndex": string;
+                        "junctionForeignKey": string;
+                        "reference": string;
+                        "generatedColumn": string;
+                        "generatedMeta": string;
+                        "linkValueColumn": string;
+                        "orderColumn": string;
+                        "fieldMeta": string;
+                        "symmetricField": string;
+                        "systemColumn": string;
+                        "systemColumnTyped": string;
+                        "systemNotNull": string;
+                        "systemUnique": string;
+                        "systemPrimaryKey": string;
+                        "systemDefault": string;
+                        "connection": string;
+                        "completion": string;
+                        "unexpected": string;
+                    };
+                    "detail": {
+                        "systemColumnMissing": string;
+                        "systemColumnNotNull": string;
+                        "systemColumnUnique": string;
+                        "systemColumnPrimaryKey": string;
+                        "systemColumnDefault": string;
+                        "foreignKeyOrphanRows": string;
+                        "foreignKeyOrphanRowsDescription": string;
+                        "junctionForeignKeyMissing": string;
+                        "junctionForeignKeyMissingDescription": string;
+                        "junctionForeignKeyTargetTableMissing": string;
+                        "junctionForeignKeyTargetTableMissingDescription": string;
+                        "junctionForeignKeyOrphanRows": string;
+                        "junctionForeignKeyOrphanRowsDescription": string;
+                        "columnUniqueMissing": string;
+                        "columnUniqueMissingDescription": string;
+                        "columnUniqueIndexMismatch": string;
+                        "columnUniqueIndexMismatchDescription": string;
+                        "foreignKeyMissing": string;
+                        "foreignKeyMissingDescription": string;
+                        "foreignKeyTargetTableMissing": string;
+                        "foreignKeyTargetTableMissingDescription": string;
+                        "referenceMissing": string;
+                        "referenceMissingDescription": string;
+                        "symmetricFieldTargetMissing": string;
+                        "symmetricFieldWrongType": string;
+                        "symmetricFieldInvalidOptions": string;
+                        "symmetricFieldMissingBackReference": string;
+                        "symmetricFieldWrongBackReference": string;
+                        "symmetricFieldDuplicateUsage": string;
+                        "symmetricFieldDuplicateUsageDescription": string;
+                    };
+                    "phase": {
+                        "check": string;
+                        "repair": string;
+                    };
+                    "summary": {
+                        "checks": string;
+                        "success": string;
+                        "warn": string;
+                        "error": string;
+                        "skipped": string;
+                        "repaired": string;
+                        "manual": string;
+                        "problems": string;
+                    };
+                    "status": {
+                        "success": string;
+                        "error": string;
+                        "warn": string;
+                        "pending": string;
+                        "running": string;
+                        "skipped": string;
+                    };
+                    "outcome": {
+                        "repaired": string;
+                        "unchanged": string;
+                        "manual": string;
+                        "skipped": string;
+                    };
+                    "repairMeta": {
+                        "reason": {
+                            "alreadyValid": string;
+                            "manualRule": string;
+                            "statementGenerationFailed": string;
+                            "noStatements": string;
+                            "symmetricFieldConflict": string;
+                            "foreignKeyTargetTableMissing": string;
+                            "foreignKeyOrphanRows": string;
+                            "junctionForeignKeyTargetTableMissing": string;
+                            "junctionForeignKeyOrphanRows": string;
+                            "symmetricFieldMissing": string;
+                            "symmetricFieldBroken": string;
+                        };
+                        "description": {
+                            "symmetricFieldConflict": string;
+                            "foreignKeyTargetTableMissing": string;
+                            "foreignKeyOrphanRows": string;
+                            "junctionForeignKeyTargetTableMissing": string;
+                            "junctionForeignKeyOrphanRows": string;
+                            "autoRule": string;
+                            "symmetricFieldMissing": string;
+                            "symmetricFieldBroken": string;
+                        };
+                        "manual": {
+                            "apply": string;
+                            "symmetricField": {
+                                "title": string;
+                                "description": string;
+                                "resolutionLabel": string;
+                                "resolutionDescription": string;
+                                "option": {
+                                    "keepCurrent": string;
+                                    "keepDuplicate": string;
+                                    "convertDuplicate": string;
+                                };
+                            };
+                            "symmetricFieldMissing": {
+                                "title": string;
+                                "description": string;
+                                "resolutionLabel": string;
+                                "resolutionDescription": string;
+                                "option": {
+                                    "convertCurrent": string;
+                                };
+                            };
+                            "symmetricFieldBroken": {
+                                "title": string;
+                                "description": string;
+                                "resolutionLabel": string;
+                                "resolutionDescription": string;
+                                "option": {
+                                    "convertCurrent": string;
+                                };
+                            };
+                            "foreignKeyOrphanRows": {
+                                "title": string;
+                                "description": string;
+                                "resolutionLabel": string;
+                                "resolutionDescription": string;
+                                "option": {
+                                    "clearOrphanValues": string;
+                                };
+                            };
+                            "junctionForeignKeyOrphanRows": {
+                                "title": string;
+                                "description": string;
+                                "resolutionLabel": string;
+                                "resolutionDescription": string;
+                                "option": {
+                                    "deleteOrphanRows": string;
+                                };
+                            };
+                        };
+                    };
+                    "manualRepairPreview": string;
+                    "manualRepairPreviewTip": string;
+                    "repairPreviewTitle": string;
+                    "repairPreviewDescription": string;
+                    "repairPreviewTooltip": string;
+                    "repairPreviewMissingTable": string;
+                    "repairPreviewUnavailableStatus": string;
+                    "repairPreviewWhat": string;
+                    "repairPreviewTarget": string;
+                    "repairPreviewPrinciple": string;
+                    "repairPreviewNoPrinciple": string;
+                    "repairPreviewSql": string;
+                    "repairPreviewNoSql": string;
+                    "repairPreviewCannotConfirm": string;
+                    "repairPreviewParameters": string;
+                    "repairPreviewConfirm": string;
+                };
                 "errorType": {
+                    "InvalidPrimaryLookup": string;
+                    "InvalidPrimaryType": string;
+                    "MissingPrimary": string;
                     "ForeignTableNotFound": string;
                     "ForeignKeyNotFound": string;
                     "SelfKeyNotFound": string;
@@ -3939,7 +4760,10 @@ export type I18nTranslations = {
                     "ReferenceFieldNotFound": string;
                     "UniqueIndexNotFound": string;
                     "EmptyString": string;
+                    "InvalidFilterOperator": string;
                 };
+                "type": string;
+                "message": string;
             };
             "index": {
                 "description": string;
@@ -3953,6 +4777,7 @@ export type I18nTranslations = {
                 "keepAsIs": string;
                 "ignoreIndexError": string;
             };
+            "loginDeleteWarning": string;
             "searchTips": {
                 "maxFieldTips_limited": string;
             };
@@ -4041,6 +4866,7 @@ export type I18nTranslations = {
             "fieldsManagement": string;
             "addAll": string;
             "removeAll": string;
+            "createField": string;
             "hideFieldTip": string;
             "unableAddFieldTip": string;
             "removeFromFormTip": string;
@@ -4142,6 +4968,8 @@ export type I18nTranslations = {
             "collapseGroup": string;
             "expandAllGroups": string;
             "collapseAllGroups": string;
+            "addToChat": string;
+            "duplicateRecords": string;
             "duplicateField": string;
             "downloadAllAttachments": string;
         };
@@ -4198,81 +5026,130 @@ export type I18nTranslations = {
             "resourceType": string;
             "deletedResource": string;
         };
+        "baseShare": {
+            "title": string;
+            "shareTitle": string;
+            "shareToWeb": string;
+            "description": string;
+            "nodeShareDescription": string;
+            "shareLinks": string;
+            "newLink": string;
+            "noShareLinks": string;
+            "createFirstLink": string;
+            "editSettings": string;
+            "refreshLink": string;
+            "deleteLink": string;
+            "deleteConfirmTitle": string;
+            "deleteConfirmDescription": string;
+            "createSuccess": string;
+            "createFailed": string;
+            "updateSuccess": string;
+            "updateFailed": string;
+            "deleteSuccess": string;
+            "deleteFailed": string;
+            "refreshSuccess": string;
+            "refreshFailed": string;
+            "copied": string;
+            "shareLink": string;
+            "linkHolderLabel": string;
+            "linkHolderCanView": string;
+            "linkHolderCanViewDesc": string;
+            "linkHolderCanEdit": string;
+            "linkHolderCanEditDesc": string;
+            "viewLinkHolderCanViewDesc": string;
+            "viewLinkHolderCanEditDesc": string;
+            "linkExposureNoticeOne": string;
+            "linkExposureNoticeMany": string;
+            "linkExposureNoticeGeneric": string;
+            "restrictScope": string;
+            "linkScopeDesc": string;
+            "linkScopeDialogTitle": string;
+            "linkHolderCanCopyAndSave": string;
+            "linkHolderCanCopyAndSaveDesc": string;
+            "editRequiresLogin": string;
+            "passwordProtection": string;
+            "enterPassword": string;
+            "selectNodes": string;
+            "shareEntireBase": string;
+            "shareSelectedNodes": string;
+            "shareEntireBaseDescription": string;
+            "noNodesSelectedWarning": string;
+            "allowSave": string;
+            "allowSaveDescription": string;
+            "allowCopy": string;
+            "allowCopyData": string;
+            "allowDuplicate": string;
+            "allowCopyDescription": string;
+            "selectedNodes": string;
+            "allNodes": string;
+            "sharedNode": string;
+            "sharedNodeDescription": string;
+            "publicShareTitle": string;
+            "publicShareCount": string;
+            "noPublicShare": string;
+            "security": string;
+            "restrictByPassword": string;
+            "advanced": string;
+            "embedConfig": string;
+            "appPublicLink": string;
+            "appNotPublished": string;
+            "goToPublish": string;
+            "publishSuccess": string;
+            "publishFailed": string;
+            "openLink": string;
+            "appPublished": string;
+            "shareTableTab": string;
+            "shareViewTab": string;
+            "shareNodeTab": string;
+        };
         "aiChat": {
-            "tool": {
-                "getTableFields": string;
-                "getTablesMeta": string;
-                "sqlQuery": string;
-                "generateScriptAction": string;
-                "getScriptInput": string;
-                "getTeableApi": string;
-                "args": string;
-                "result": string;
-                "dataVisualization": string;
-                "updateBase": string;
-                "thinking": string;
-                "toBeConfirmed": string;
-                "errorMessage": string;
-                "confirm": string;
-                "createRecordsSuccess": string;
-                "createRecordsFailed": string;
-                "updateRecordsSuccess": string;
-                "updateRecordsFailed": string;
-                "generatingRecords": string;
-                "creatingRecords": string;
-                "updatingRecords": string;
-                "recordsPreview": string;
-                "andMoreRecords": string;
-                "unknownError": string;
-                "recordIds": string;
-                "records": string;
-                "viewAll": string;
-                "showLess": string;
-                "generatingData": string;
-                "generatingUpdates": string;
-                "recordsGenerated": string;
-                "recordsCount": string;
-                "fieldsCount": string;
-                "fieldsGenerated": string;
-                "updatedProperties": string;
-                "configured": string;
-                "recordsToUpdate": string;
-                "showingLast": string;
-                "recordLabel": string;
-                "statusGenerating": string;
-                "statusCreating": string;
-                "statusUpdating": string;
-                "statusCreated": string;
-                "statusUpdated": string;
-                "getApps": {
-                    "title": string;
-                    "loading": string;
-                    "foundApps": string;
-                    "noApps": string;
-                    "openApp": string;
+            "agent": {
+                "askUserQuestion": {
+                    "otherPlaceholder": string;
+                    "asked": string;
+                    "skipped": string;
+                    "previousQuestion": string;
+                    "nextQuestion": string;
                 };
-                "generateApp": {
+                "messageActions": {
+                    "copy": string;
+                    "copyToInput": string;
+                    "helpful": string;
+                    "notHelpful": string;
+                    "commentTitle": string;
+                    "commentPlaceholder": string;
+                    "saveFailed": string;
+                    "copied": string;
+                };
+                "completion": {
+                    "completed": string;
+                    "noDetails": string;
+                    "model": string;
+                    "contextWindow": string;
+                    "contextTooltip": string;
+                    "contextTipNewChat": string;
+                    "contextTipMemory": string;
+                };
+                "contextCompaction": {
+                    "auto": string;
+                    "manual": string;
+                };
+                "taskProgress": {
                     "title": string;
+                };
+                "tool": {
+                    "copy": string;
+                    "copied": string;
+                    "collapse": string;
+                    "linesHidden": string;
+                };
+            };
+            "tool": {
+                "showLess": string;
+                "generateApp": {
                     "creatingApp": string;
                     "updatingApp": string;
-                    "generatingApp": string;
-                    "generating": string;
-                    "openApp": string;
                     "viewProgress": string;
-                    "newApp": string;
-                    "building": string;
-                };
-                "generateAutomation": {
-                    "title": string;
-                    "creatingAutomation": string;
-                    "updatingAutomation": string;
-                    "generatingAutomation": string;
-                    "building": string;
-                    "openAutomation": string;
-                    "viewProgress": string;
-                    "testResults": string;
-                    "triggerTest": string;
-                    "actionTest": string;
                 };
                 "htmlPreview": {
                     "preview": string;
@@ -4287,58 +5164,18 @@ export type I18nTranslations = {
                     "downloadSuccess": string;
                     "downloadFailed": string;
                     "iframeFailed": string;
+                    "iframeTitle": string;
                 };
-                "loadAttachment": {
-                    "title": string;
-                    "loading": string;
-                    "failed": string;
-                    "empty": string;
-                    "modeNative": string;
-                    "modeNativeDesc": string;
-                    "modeExtracted": string;
-                    "modeExtractedDesc": string;
-                    "visionLoaded": string;
-                    "textExtracted": string;
-                    "contextLoaded": string;
-                };
-                "textExtract": {
-                    "title": string;
-                    "loading": string;
-                    "failed": string;
-                    "empty": string;
-                    "preview": string;
-                    "truncated": string;
-                    "previews": string;
-                    "chars": string;
-                    "totalCharacters": string;
-                    "filesTruncated": string;
-                };
-                "importExcel": {
-                    "title": string;
-                    "loading": string;
-                    "failed": string;
-                    "suggestions": string;
-                    "analyzeComplete": string;
-                    "worksheets": string;
-                    "columns": string;
-                    "nextStep": string;
-                    "importComplete": string;
-                    "stageAnalyze": string;
-                    "stageImport": string;
-                };
+                "retrying": string;
             };
-            "codeBlock": {
-                "hiddenLines": string;
-                "collapseCode": string;
-                "code": string;
-                "preview": string;
+            "action": {
+                "locateResource": string;
             };
             "newChat": string;
-            "clearChat": string;
-            "clearChatConfirmTitle": string;
-            "clearChatConfirmDesc": string;
-            "dontShowAgain": string;
-            "noModel": string;
+            "expand": string;
+            "history": string;
+            "close": string;
+            "addAttachment": string;
             "noHistory": string;
             "noFoundHistory": string;
             "timeGroup": {
@@ -4353,270 +5190,31 @@ export type I18nTranslations = {
                 "search": string;
                 "searchEmpty": string;
                 "emptyContext": string;
+                "selectionRow": string;
+                "selectionRows": string;
+                "selectionColumn": string;
+                "selectionColumns": string;
+            };
+            "mention": {
+                "tables": string;
+                "apps": string;
+                "workflows": string;
+                "folders": string;
+                "envs": string;
             };
             "inputPlaceholder": string;
+            "inputPlaceholderFiles": string;
             "thought": string;
             "meta": {
-                "timeCostUnit": string;
-                "timeCostDescription": string;
-                "creditDescription": string;
-                "tokenDescription": string;
-                "taskCompleted": string;
                 "input": string;
                 "output": string;
-                "tokens": string;
-                "totalTimeCost": string;
-                "totalCreditCost": string;
-                "customModel": string;
-                "tokenDetails": string;
-                "cachedInput": string;
-                "cacheWrite": string;
-                "reasoning": string;
-            };
-            "tools": {
-                "getTeableApi": string;
-                "readFiles": string;
-                "writeFile": string;
-                "deleteFiles": string;
-                "listFiles": string;
-                "addDependencies": string;
-                "checkBuildErrors": string;
-                "lint": string;
-            };
-            "fallback": {
-                "previewLoadFailed": string;
-                "retry": string;
-                "chatAborted": string;
-            };
-            "preview": {
-                "deletedTable": string;
-                "deletedView": string;
-                "deletedField": string;
-                "deletedRecords": string;
-            };
-            "agentName": {
-                "tableOperatorAgent": string;
-                "viewOperatorAgent": string;
-                "fieldOperatorAgent": string;
-                "recordOperatorAgent": string;
-                "buildBaseAgent": string;
-                "buildAutomationAgent": string;
-            };
-            "confirm": {
-                "toBeConfirmed": string;
-                "deleteWarning": string;
-            };
-            "action": {
-                "createTable": string;
-                "updateTable": string;
-                "updateTableName": string;
-                "deleteTable": string;
-                "createView": string;
-                "updateView": string;
-                "updateViewName": string;
-                "deleteView": string;
-                "createField": string;
-                "createAiField": string;
-                "createLinkField": string;
-                "createLookupField": string;
-                "createRollupField": string;
-                "createFormulaField": string;
-                "deleteField": string;
-                "updateField": string;
-                "createRecord": string;
-                "createRecords": string;
-                "deleteRecord": string;
-                "updateRecord": string;
-                "updateRecords": string;
-                "updateBase": string;
-                "planTask": string;
-                "generateTables": string;
-                "generatePrimaryFields": string;
-                "generateFields": string;
-                "generateViews": string;
-                "generateRecords": string;
-                "generateAIFields": string;
-                "generateLinkFields": string;
-                "generateLookupFields": string;
-                "generateRollupFields": string;
-                "generateFormulaFields": string;
-                "generateWorkflow": string;
-                "generateTrigger": string;
-                "generateScriptAction": string;
-                "generateSendMailAction": string;
-                "generateAction": string;
-                "setupAutomationTrigger": string;
-                "testAutomationNode": string;
-                "activateAutomation": string;
-                "executeScript": string;
-                "wait": string;
-                "initialize": string;
-                "rename": string;
-                "buildTest": string;
-                "developTask": string;
-                "generateSummary": string;
-                "previewEnvironment": string;
-                "getRelativeData": string;
-                "getPreviousNodeOutputVariables": string;
-                "getApiJson": string;
-                "generateScriptAndDependencies": string;
-                "analyzingAttachment": string;
-                "locateResource": string;
-                "goTo": string;
-                "operationSuccess": string;
-                "operationFailed": string;
-            };
-            "queryTool": {
-                "getRecords": string;
-                "getRecordsWithTable": string;
-                "getFields": string;
-                "getFieldsWithTable": string;
-                "getTables": string;
-                "getViews": string;
-                "getViewsWithTable": string;
-                "sqlQuery": string;
-                "querying": string;
-                "queryFailed": string;
-                "aborted": string;
-                "noData": string;
-                "dataFormatError": string;
-                "unsupportedQueryType": string;
-                "returnedRecords": string;
-                "record": string;
-                "moreRecords": string;
-                "foundFields": string;
-                "moreFields": string;
-                "foundTables": string;
-                "moreTables": string;
-                "foundViews": string;
-                "moreViews": string;
-                "queryReturned": string;
-                "row": string;
-                "moreRows": string;
-                "getDoc": string;
-                "getDocWithTopic": string;
-                "getAutomations": string;
-                "getAutomation": string;
-                "getAutomationRuns": string;
-                "foundAutomations": string;
-                "moreAutomations": string;
-                "foundRuns": string;
-                "moreRuns": string;
-                "active": string;
-                "trigger": string;
-                "actions": string;
-                "moreActions": string;
-                "getUserIntegrations": string;
-                "connectedIntegrations": string;
-                "availableToConnect": string;
-                "connect": string;
-                "noIntegrationsAvailable": string;
-            };
-            "showUI": {
-                "connect": string;
-                "connecting": string;
-                "connected": string;
-                "connectToUse": string;
-                "checkingConnection": string;
-                "confirm": string;
-                "confirmed": string;
-            };
-            "buildFlow": {
-                "progress": string;
-                "completed": string;
-                "completedDesc": string;
-                "stepStatus": {
-                    "initializing": string;
-                    "naming": string;
-                    "planning": string;
-                    "developing": string;
-                    "summarizing": string;
-                    "deploying": string;
-                    "testing": string;
-                };
-                "moduleStatus": {
-                    "running": string;
-                    "completed": string;
-                    "error": string;
-                    "pending": string;
-                };
-                "toolStatus": {
-                    "running": string;
-                    "completed": string;
-                    "error": string;
-                };
-            };
-            "generateScript": {
-                "generateSuccess": string;
-            };
-            "buildBase": {
-                "title": string;
-                "generateSuccess": string;
-                "generateError": string;
-            };
-            "buildAutomation": {
-                "title": string;
-                "generateSuccess": string;
-            };
-            "automation": {
-                "created": string;
-                "updated": string;
-                "workflow": string;
-                "trigger": string;
-                "scriptAction": string;
-                "workflowLabel": string;
-                "triggerLabel": string;
-                "scriptActionLabel": string;
-                "workflowId": string;
-                "triggerId": string;
-                "scriptActionId": string;
-                "viewAutomation": string;
-                "navigateToAutomation": string;
-                "triggerType": {
-                    "recordCreated": string;
-                    "recordUpdated": string;
-                    "recordCreatedOrUpdated": string;
-                    "formSubmitted": string;
-                    "scheduledTime": string;
-                    "buttonClick": string;
-                };
-                "testPassed": string;
-                "testFailed": string;
-                "testOutput": string;
-                "activated": string;
-                "deactivated": string;
-                "discarded": string;
-                "activateFailed": string;
-                "deactivateFailed": string;
-                "discardFailed": string;
-                "scriptUpdated": string;
-                "scriptUpdateFailed": string;
-                "scriptExecuted": string;
-                "scriptExecutionFailed": string;
-                "generatingScript": string;
-                "scriptReady": string;
-                "executingScript": string;
-                "waitedSeconds": string;
-                "waitFailed": string;
-            };
-            "expand": string;
-            "history": string;
-            "close": string;
-            "dataVisualization": {
-                "error": string;
-            };
-            "tips": {
-                "modelTips": string;
+                "taskCompleted": string;
             };
             "attachment": {
+                "pastedTextFileName": string;
                 "imageNotSupported": string;
-                "attachmentSizeExceeded": string;
             };
             "suggestions": {
-                "recommend": string;
-                "ask": string;
-                "analyze": string;
-                "build": string;
                 "title": string;
                 "whatCanIDo": string;
                 "createOrModifyDatabase": string;
@@ -4631,18 +5229,109 @@ export type I18nTranslations = {
                 "buildLeadCapture": string;
             };
             "buildApp": {
-                "thinking": {
-                    "duration": string;
-                };
                 "task": {
-                    "searching": string;
-                    "readingFiles": string;
                     "foundResults": string;
-                    "noIssuesFound": string;
-                    "defaultTitle": string;
                 };
-                "codeProject": {
-                    "defaultTitle": string;
+            };
+            "scriptPreview": {
+                "writeCodeHint": string;
+                "noPreview": string;
+                "codeChanged": string;
+            };
+            "showUI": {
+                "skip": string;
+                "next": string;
+                "submit": string;
+            };
+            "clearChat": string;
+            "clearChatConfirmTitle": string;
+            "clearChatConfirmDesc": string;
+            "dontShowAgain": string;
+            "modelSwitchTitle": string;
+            "modelSwitchHint": string;
+            "effort": {
+                "title": string;
+                "low": string;
+                "medium": string;
+                "high": string;
+                "xhigh": string;
+            };
+            "sandboxExpiry": {
+                "expiresIn": string;
+                "reset": string;
+                "resetTitle": string;
+                "runningTasks_one": string;
+                "runningTasks_other": string;
+                "noRunningTasks": string;
+                "newSandboxHint": string;
+                "cancel": string;
+                "confirmReset": string;
+                "confirmResetWithTasks": string;
+                "expiresSoon": string;
+                "resetFailed": string;
+            };
+            "queue": {
+                "nQueued": string;
+                "edit": string;
+                "forceSend": string;
+                "removeFromQueue": string;
+            };
+            "partTool": {
+                "bash": string;
+                "read": string;
+                "write": string;
+                "edit": string;
+                "glob": string;
+                "grep": string;
+                "webSearch": string;
+                "skill": string;
+                "foundFiles": string;
+                "moreTools": string;
+                "moreItems": string;
+                "fallbackName": string;
+                "questionCount_one": string;
+                "questionCount_other": string;
+            };
+            "retry": {
+                "interrupted": string;
+                "button": string;
+                "offline": string;
+                "pausedHidden": string;
+                "maxAttemptsReached": string;
+            };
+            "guide": {
+                "goToScenario": string;
+            };
+            "initChatFailed": string;
+            "app": {
+                "loadingChatHistory": string;
+                "generatorTitle": string;
+                "generatorDesc": string;
+            };
+            "voice": {
+                "start": string;
+                "stop": string;
+                "accept": string;
+                "cancel": string;
+                "permissionTip": string;
+                "connecting": string;
+                "reconnecting": string;
+                "listening": string;
+                "preview": string;
+                "error": {
+                    "microphoneDenied": string;
+                    "microphoneUnavailable": string;
+                    "unsupportedBrowser": string;
+                    "sessionFailed": string;
+                    "connectionFailed": string;
+                    "localConnectionFailed": string;
+                    "disconnected": string;
+                    "missingServerKey": string;
+                    "unauthenticated": string;
+                    "rateLimited": string;
+                    "upstreamAuthFailed": string;
+                    "upstreamBadRequest": string;
+                    "upstreamUnavailable": string;
                 };
             };
         };
@@ -4653,7 +5342,6 @@ export type I18nTranslations = {
                 "rowsWithAttachments": string;
                 "totalAttachments": string;
                 "totalSize": string;
-                "startDownload": string;
                 "confirmTitle": string;
                 "confirmDescription": string;
                 "confirm": string;
@@ -4667,6 +5355,13 @@ export type I18nTranslations = {
                 "error": string;
                 "errorPartial": string;
                 "requireHttps": string;
+                "advancedOptions": string;
+                "namingFieldLabel": string;
+                "selectField": string;
+                "noPrefixOption": string;
+                "noPrefixOptionDesc": string;
+                "groupByRow": string;
+                "groupByRowTip": string;
             };
         };
         "plugin": {
@@ -4696,6 +5391,15 @@ export type I18nTranslations = {
                 "deniedRead": string;
                 "deniedUpdate": string;
             };
+        };
+        "upload": {
+            "panelUploading": string;
+            "panelFailed": string;
+            "panelCompleted": string;
+            "statusFailed": string;
+            "statusCompleted": string;
+            "statusCancel": string;
+            "statusRetry": string;
         };
     };
     "token": {

@@ -39,6 +39,7 @@ export interface IModelOption {
   contextWindow?: number; // Context window size
   maxTokens?: number; // Maximum output tokens
   description?: string; // Model description
+  i18nDescription?: { en?: string; zh?: string }; // Admin-curated i18n description
 }
 
 export interface IAIModelSelectProps {
@@ -52,6 +53,7 @@ export interface IAIModelSelectProps {
   modelDefinationMap?: IModelDefinationMap;
   children?: ReactNode;
   onlyImageOutput?: boolean; // if true, only show image output models
+  placeholder?: string; // Custom placeholder when no model is selected
 }
 
 // Categorized model options

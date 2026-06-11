@@ -11,7 +11,7 @@ import {
 } from '@teable/openapi';
 import { AttachmentManager } from '@teable/sdk/components';
 import { useBase } from '@teable/sdk/hooks';
-import { Spin } from '@teable/ui-lib';
+import { Spin, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@teable/ui-lib';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -121,6 +121,8 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
     queryFn: () => getTemplateByBaseId(baseId!).then((res) => res.data),
     enabled: !!baseId,
   });
+  const isTemplatePublished = templateDetail?.isPublished;
+  const isTemplateFeatured = templateDetail?.featured ?? false;
 
   // Handle template data changes (replaces onSuccess callback removed in React Query v5)
   useEffect(() => {
@@ -579,9 +581,36 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
                         {title || t('publishBase.form.titlePlaceholder')}
                       </p>
 
-                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                        <Heart className="size-4" />
-                        {templateDetail?.usageCount || 0}
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        {isTemplatePublished && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span
+                                  className={cn(
+                                    'inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium',
+                                    isTemplateFeatured
+                                      ? 'border-amber-200 bg-amber-50 text-amber-700'
+                                      : 'border-muted-foreground/20 bg-muted text-muted-foreground'
+                                  )}
+                                >
+                                  {isTemplateFeatured
+                                    ? t('publishBase.featuredLabel')
+                                    : t('publishBase.unfeaturedLabel')}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent hideWhenDetached={true}>
+                                {isTemplateFeatured
+                                  ? t('publishBase.featuredTip')
+                                  : t('publishBase.unfeaturedTip')}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                        <div className="flex items-center gap-1">
+                          <Heart className="size-4" />
+                          {templateDetail?.usageCount || 0}
+                        </div>
                       </div>
                     </div>
                     <span
@@ -650,15 +679,10 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
                 <Link className="size-4 shrink-0" />
                 <div className="flex-1 truncate">{shareUrl}</div>
               </div>
-              <Button size="sm" variant="outline" className="size-9 p-0" onClick={handleCopyUrl}>
+              <Button size="icon" variant="outline" onClick={handleCopyUrl}>
                 <Copy className="size-4" />
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="size-9 p-0"
-                onClick={() => window.open(shareUrl, '_blank')}
-              >
+              <Button size="icon" variant="outline" onClick={() => window.open(shareUrl, '_blank')}>
                 <ExternalLink className="size-4" />
               </Button>
             </div>

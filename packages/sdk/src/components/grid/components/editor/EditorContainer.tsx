@@ -62,6 +62,7 @@ export interface IEditorProps<T extends IInnerCell = IInnerCell> {
   theme: IGridTheme;
   style?: CSSProperties;
   isEditing?: boolean;
+  isScrolling?: boolean;
   initialSearch?: string;
   setEditing?: React.Dispatch<React.SetStateAction<boolean>>;
   onChange?: (value: unknown) => void;
@@ -101,7 +102,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     getCellContent,
     scrollBy,
   } = props;
-  const { scrollLeft, scrollTop } = scrollState;
+  const { scrollLeft, scrollTop, isScrolling } = scrollState;
   const { rowIndex, realRowIndex, columnIndex } = useMemo(() => {
     const [columnIndex, realRowIndex] = activeCell ?? [-1, -1];
     return {
@@ -114,7 +115,10 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     return getCellContent([columnIndex, realRowIndex]) as IInnerCell;
   }, [columnIndex, realRowIndex, getCellContent]);
   const { type: cellType, readonly, editorWidth } = cellContent;
-  const editingEnable = !readonly && isEditing && activeCell;
+  const enableReadonlyCustomEditor = Boolean(readonly && cellContent.readonlyCustomEditor);
+  const editingEnable = Boolean(
+    (!readonly && isEditing && activeCell) || enableReadonlyCustomEditor
+  );
   const width = editorWidth ?? coordInstance.getColumnWidth(columnIndex);
   const height = activeCellBound?.height ?? coordInstance.getRowHeight(rowIndex);
   const editorRef = useRef<IEditorRef | null>(null);
@@ -139,7 +143,11 @@ export const EditorContainerBase: ForwardRefRenderFunction<
 
     initialSearchRef.current = '';
 
-    requestAnimationFrame(() => (editorRef.current || defaultFocusRef.current)?.focus?.());
+    requestAnimationFrame(() => {
+      // Don't steal focus from dialogs/modals/sheets
+      if (document.activeElement?.closest('[role="dialog"]')) return;
+      (editorRef.current || defaultFocusRef.current)?.focus?.();
+    });
   }, [cellType, activeCell, selection, isEditing]);
 
   useKeyboardSelection({
@@ -190,9 +198,10 @@ export const EditorContainerBase: ForwardRefRenderFunction<
   }, [coordInstance, rowIndex, columnIndex, width, height, scrollLeft, scrollTop, editorId]);
 
   const EditorRenderer = useMemo(() => {
-    if (readonly) return null;
+    if (readonly && !enableReadonlyCustomEditor) return null;
 
     const onChangeInner = (value: unknown) => {
+      if (readonly) return;
       onChange?.([columnIndex, realRowIndex], {
         ...cellContent,
         data: value,
@@ -209,6 +218,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
           style: editorStyle,
           cell: cellContent as IInnerCell,
           isEditing,
+          isScrolling,
           setEditing,
           onChange: onChangeInner,
           initialSearch: initialSearchRef.current,
@@ -271,16 +281,18 @@ export const EditorContainerBase: ForwardRefRenderFunction<
         return null;
     }
   }, [
-    rect,
-    theme,
     readonly,
-    cellType,
+    enableReadonlyCustomEditor,
     cellContent,
+    cellType,
+    onChange,
     columnIndex,
     realRowIndex,
+    rect,
+    theme,
     editorStyle,
     isEditing,
-    onChange,
+    isScrolling,
     setEditing,
   ]);
 

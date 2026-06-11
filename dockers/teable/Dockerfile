@@ -8,8 +8,10 @@ ARG BUILD_VERSION="1.0.0-alpha"
 
 FROM node:${NODE_VERSION}-bookworm AS deps
 ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable && pnpm add npm-run-all2 zx -g
+ENV PATH="$PNPM_HOME:$PNPM_HOME/bin:$PATH"
+RUN corepack enable \
+ && corepack prepare pnpm@9.13.0 --activate \
+ && pnpm add npm-run-all2 zx -g
 
 # Disabling some well-known postinstall scripts
 ENV HUSKY=0
@@ -53,7 +55,7 @@ RUN set -ex; \
         if [ -n "$INTEGRATION_TEST" ]; then \
               pnpm -F "./packages/**" run build; \
         else \
-              NODE_OPTIONS=--max-old-space-size=8192 pnpm g:build; \
+              NODE_OPTIONS=--max-old-space-size=8192 pnpm -r run build; \
         fi
 
 
@@ -68,6 +70,7 @@ ENV NODE_ENV=production
 WORKDIR /app
 
 ARG UPLOAD_ASSETS_LIST=""
+ARG UPLOAD_ASSETS_LIST_B64=""
 
 RUN set -ex; \
         rm -fr node_modules; \
@@ -82,7 +85,7 @@ RUN set -ex; \
         apt-get install -y --no-install-recommends rsync; \
         rm -rf /var/lib/apt/lists/*; \
         chmod +x ./scripts/upload-assets.mjs; \
-        zx ./scripts/upload-assets.mjs --list="$UPLOAD_ASSETS_LIST";
+        zx ./scripts/upload-assets.mjs --list="$UPLOAD_ASSETS_LIST" --listB64="$UPLOAD_ASSETS_LIST_B64";
 
 
 ##################################################################
@@ -98,11 +101,12 @@ ENV TZ=UTC \
     PORT=${NEXTJS_APP_PORT:-3000}\
     NEXTJS_DIR=apps/nextjs-app \
     PNPM_HOME="/pnpm" \
-    PATH="$PNPM_HOME:$PATH"
+    PATH="$PNPM_HOME:$PNPM_HOME/bin:$PATH"
 
 RUN set -ex; \
         npm install zx -g; \
         corepack enable; \
+        corepack prepare pnpm@9.13.0 --activate; \
         apt-get update; \
         apt-get install -y --no-install-recommends \
                 curl \
@@ -133,23 +137,23 @@ COPY --from=post-builder --chown=nodejs:nodejs /app/apps/nextjs-app/next.config.
         /app/apps/nextjs-app/.env \
         ./apps/nextjs-app/
 
-COPY --from=post-builder --chown=nodejs:nodejs /app/apps/nextjs-app/.next ./apps/nextjs-app/.next
-COPY --from=post-builder --chown=nodejs:nodejs /app/apps/nextjs-app/node_modules ./apps/nextjs-app/node_modules
-COPY --from=post-builder --chown=nodejs:nodejs /app/apps/nextjs-app/public ./apps/nextjs-app/public
+COPY --from=post-builder --link --chown=nodejs:nodejs /app/apps/nextjs-app/.next ./apps/nextjs-app/.next
+COPY --from=post-builder --link --chown=nodejs:nodejs /app/apps/nextjs-app/node_modules ./apps/nextjs-app/node_modules
+COPY --from=post-builder --link --chown=nodejs:nodejs /app/apps/nextjs-app/public ./apps/nextjs-app/public
 
-COPY --from=post-builder --chown=nodejs:nodejs /app/apps/nestjs-backend/dist ./apps/nestjs-backend/dist
-COPY --from=post-builder --chown=nodejs:nodejs /app/apps/nestjs-backend/node_modules ./apps/nestjs-backend/node_modules
-COPY --from=post-builder --chown=nodejs:nodejs /app/apps/nestjs-backend/package.json ./apps/nestjs-backend/
+COPY --from=post-builder --link --chown=nodejs:nodejs /app/apps/nestjs-backend/dist ./apps/nestjs-backend/dist
+COPY --from=post-builder --link --chown=nodejs:nodejs /app/apps/nestjs-backend/node_modules ./apps/nestjs-backend/node_modules
+COPY --from=post-builder --link --chown=nodejs:nodejs /app/apps/nestjs-backend/package.json ./apps/nestjs-backend/
 
 # mv it is necessary
-COPY --from=builder --chown=nodejs:nodejs /app/packages/common-i18n/ ./packages/common-i18n/
+COPY --from=builder --link --chown=nodejs:nodejs /app/packages/common-i18n/ ./packages/common-i18n/
 
-COPY --from=post-builder --chown=nodejs:nodejs /app/packages ./packages
-COPY --from=post-builder --chown=nodejs:nodejs /app/node_modules ./node_modules
-COPY --from=post-builder --chown=nodejs:nodejs /app/package.json ./package.json
+COPY --from=post-builder --link --chown=nodejs:nodejs /app/packages ./packages
+COPY --from=post-builder --link --chown=nodejs:nodejs /app/node_modules ./node_modules
+COPY --from=post-builder --link --chown=nodejs:nodejs /app/package.json ./package.json
 
-COPY --from=post-builder --chown=nodejs:nodejs /app/plugins/.next/standalone/plugins ./plugins
-COPY --from=post-builder --chown=nodejs:nodejs /app/apps/nestjs-backend/static ./static
+COPY --from=post-builder --link --chown=nodejs:nodejs /app/plugins/.next/standalone/plugins ./plugins
+COPY --from=post-builder --link --chown=nodejs:nodejs /app/apps/nestjs-backend/static ./static
 
 COPY --chown=nodejs:nodejs scripts/start.sh ./scripts/start.sh
 COPY --chown=nodejs:nodejs scripts/db-migrate.mjs ./scripts/db-migrate.mjs

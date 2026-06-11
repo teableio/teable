@@ -39,7 +39,7 @@ try {
   const rootDir = process.env.ROOT_DIR || '/app';
   const appsPath = `${rootDir}/apps`;
   const packagesPath = `${rootDir}/packages`;
-
+  
   // Remove specific directories and node modules
   await $`rm -fr ${packagesPath}/eslint-config-bases`;
   console.log('Cleared specific directories and node modules.');

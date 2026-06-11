@@ -20,6 +20,8 @@ export class SessionHandleService {
       saveUninitialized: false,
       cookie: {
         maxAge: ms('1y'),
+        httpOnly: true,
+        sameSite: 'lax',
         secure: this.authConfig.session.cookie.secure,
       },
       store: this.sessionStoreService,

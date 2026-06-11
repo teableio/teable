@@ -21,17 +21,98 @@ const CELL_VERTICAL_PADDING = 4;
 
 enum IUserRegionType {
   DeleteBtn = 'DeleteBtn',
+  Chip = 'Chip',
 }
 
 interface IUserRegion extends IRectangle {
   type: IUserRegionType;
+  index: number;
 }
 
 const positionCache: LRUCache<string, IUserRegion[]> = new LRUCache({
   max: 10,
 });
 
-const { cellHorizontalPadding, cellVerticalPaddingSM } = GRID_DEFAULT;
+const { cellHorizontalPadding, cellVerticalPaddingSM, maxRowCount } = GRID_DEFAULT;
+
+type IUserCellRegionResult =
+  | {
+      type: CellRegionType.Update;
+      data: IUserCell['data'] | null;
+    }
+  | {
+      type: CellRegionType.Hover;
+      data: IRectangle & { user: IUserCell['data'][number] };
+    };
+
+const getCacheKey = (width: number, userSets: IUserCell['data']) => {
+  return `${String(width)}-${userSets.map((u) => u.id).join(',')}`;
+};
+
+const getVisibleRows = (isActive: boolean, drawAreaHeight: number) => {
+  if (isActive) return Infinity;
+  return Math.max(
+    1,
+    Math.floor((drawAreaHeight - ITEM_HEIGHT) / (ITEM_HEIGHT + cellVerticalPaddingSM)) + 1
+  );
+};
+
+const clipInactiveCell = (
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  isActive: boolean
+) => {
+  if (isActive) return;
+  ctx.rect(x, y, width, height);
+  ctx.clip();
+};
+
+const getDeleteRegionResult = (
+  positions: IUserRegion[],
+  hoverX: number,
+  adjustedY: number,
+  data: IUserCell['data'],
+  shouldCalculate?: boolean
+): IUserCellRegionResult | null => {
+  for (const pos of positions) {
+    if (pos.type !== IUserRegionType.DeleteBtn) continue;
+    const { x, y, width, height } = pos;
+    if (isPointInsideRectangle([hoverX, adjustedY], [x, y], [x + width, y + height])) {
+      if (!shouldCalculate) return { type: CellRegionType.Update, data: null };
+      const result = data.filter((_, index) => index !== pos.index);
+      return {
+        type: CellRegionType.Update,
+        data: result.length ? result : null,
+      };
+    }
+  }
+
+  return null;
+};
+
+const getChipRegionResult = (
+  positions: IUserRegion[],
+  hoverX: number,
+  adjustedY: number,
+  scrollTop: number,
+  data: IUserCell['data']
+): IUserCellRegionResult | null => {
+  for (const pos of positions) {
+    if (pos.type !== IUserRegionType.Chip) continue;
+    const { x, y, width, height } = pos;
+    if (isPointInsideRectangle([hoverX, adjustedY], [x, y], [x + width, y + height])) {
+      return {
+        type: CellRegionType.Hover,
+        data: { x, y: y - scrollTop, width, height, user: data[pos.index] },
+      };
+    }
+  }
+
+  return null;
+};
 
 export const userCellRenderer: IInternalCellRenderer<IUserCell> = {
   type: CellType.User,
@@ -66,10 +147,11 @@ export const userCellRenderer: IInternalCellRenderer<IUserCell> = {
     const rightEdgeOfDrawArea = drawArea.x + drawArea.width;
     const lineHeight = ITEM_HEIGHT + cellVerticalPaddingSM;
 
-    const cacheKey = `${String(width)}-${userSets.map((u) => u.id).join(',')}`;
+    const cacheKey = getCacheKey(width, userSets);
     const positions: IUserRegion[] = [];
 
-    for (const user of userSets) {
+    for (let i = 0; i < userSets.length; i++) {
+      const user = userSets[i];
       const text = user.name;
       ctx.font = `${fontSizeXS}px ${fontFamily}`;
       const { width: displayWidth } = drawSingleLineText(ctx, {
@@ -89,12 +171,23 @@ export const userCellRenderer: IInternalCellRenderer<IUserCell> = {
         y += lineHeight;
       }
 
+      const rectX = x;
+      const rectY = y;
+
+      positions.push({
+        type: IUserRegionType.Chip,
+        index: i,
+        x: rectX,
+        y: rectY,
+        width: chipWidth,
+        height: ITEM_HEIGHT,
+      });
+
       if (!readonly) {
-        const rectX = x;
-        const rectY = y;
         const deleteX = rectX + chipWidth - cellHorizontalPadding - fontSizeXS;
         positions.push({
           type: IUserRegionType.DeleteBtn,
+          index: i,
           x: deleteX,
           y: rectY + (ITEM_HEIGHT - fontSizeXS) / 2,
           width: fontSizeXS,
@@ -107,14 +200,12 @@ export const userCellRenderer: IInternalCellRenderer<IUserCell> = {
 
     positionCache.set(cacheKey, positions);
 
-    const totalHeight =
-      2 * CELL_VERTICAL_PADDING +
-      lineCount * ITEM_HEIGHT +
-      Math.max(0, lineCount - 1) * cellVerticalPaddingSM;
+    const totalHeight = CELL_VERTICAL_PADDING + lineCount * lineHeight;
+    const displayRowCount = Math.min(maxRowCount, lineCount);
 
     return {
       width,
-      height: Math.max(height, totalHeight),
+      height: Math.max(height, CELL_VERTICAL_PADDING + displayRowCount * lineHeight),
       totalHeight,
     };
   },
@@ -142,10 +233,7 @@ export const userCellRenderer: IInternalCellRenderer<IUserCell> = {
       width: width - 2 * cellHorizontalPadding,
       height: height - 2 * CELL_VERTICAL_PADDING,
     };
-    const rows = Math.max(
-      1,
-      Math.floor((drawArea.height - ITEM_HEIGHT) / (ITEM_HEIGHT + cellVerticalPaddingSM)) + 1
-    );
+    const rows = getVisibleRows(!!isActive, drawArea.height);
     const editable = !readonly && !!isActive;
     const deleteBtnWidth = editable ? fontSizeXS : 0;
     const fixedWidthWithoutText =
@@ -158,8 +246,7 @@ export const userCellRenderer: IInternalCellRenderer<IUserCell> = {
 
     ctx.save();
     ctx.beginPath();
-    ctx.rect(_x, _y, width, height);
-    ctx.clip();
+    clipInactiveCell(ctx, _x, _y, width, height, !!isActive);
 
     ctx.font = `${fontSizeXS}px ${fontFamily}`;
 
@@ -243,31 +330,30 @@ export const userCellRenderer: IInternalCellRenderer<IUserCell> = {
   checkRegion: (cell: IUserCell, props: ICellClickProps, shouldCalculate?: boolean) => {
     const { data, readonly } = cell;
     const { width, isActive, hoverCellPosition, activeCellBound } = props;
-    const editable = !readonly && isActive && activeCellBound;
-    if (!editable) return { type: CellRegionType.Blank };
 
-    const { scrollTop } = activeCellBound;
     const [hoverX, hoverY] = hoverCellPosition;
-
-    const cacheKey = `${String(width)}-${data.map((u) => u.id).join(',')}`;
+    const cacheKey = getCacheKey(width, data);
     const positions = positionCache.get(cacheKey);
 
     if (!positions) return { type: CellRegionType.Blank };
 
-    for (let i = 0; i < positions.length; i++) {
-      const { x, y, width: regionWidth, height } = positions[i];
-      if (
-        isPointInsideRectangle([hoverX, scrollTop + hoverY], [x, y], [x + regionWidth, y + height])
-      ) {
-        if (!shouldCalculate) return { type: CellRegionType.Update, data: null };
+    const editable = !readonly && isActive && activeCellBound;
+    const scrollTop = activeCellBound?.scrollTop ?? 0;
+    const adjustedY = scrollTop + hoverY;
 
-        const result = data.filter((_, index) => index !== i);
-        return {
-          type: CellRegionType.Update,
-          data: result.length ? result : null,
-        };
-      }
+    if (editable) {
+      const deleteRegion = getDeleteRegionResult(
+        positions,
+        hoverX,
+        adjustedY,
+        data,
+        shouldCalculate
+      );
+      if (deleteRegion) return deleteRegion;
     }
+
+    const chipRegion = getChipRegionResult(positions, hoverX, adjustedY, scrollTop, data);
+    if (chipRegion) return chipRegion;
 
     return { type: CellRegionType.Blank };
   },

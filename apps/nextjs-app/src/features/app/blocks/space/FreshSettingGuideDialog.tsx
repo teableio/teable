@@ -11,6 +11,8 @@ import { useBrand } from '../../hooks/useBrand';
 import { useIsCloud } from '../../hooks/useIsCloud';
 import { useSetting } from '../../hooks/useSetting';
 
+const FRESH_INSTANCE_WINDOW_HOURS = 4;
+
 export const FreshSettingGuideDialog = () => {
   const isCloud = useIsCloud();
   const {
@@ -18,11 +20,11 @@ export const FreshSettingGuideDialog = () => {
   } = useSession();
 
   const { createdTime } = useSetting();
+  const isNewInstance =
+    createdTime && dayjs().isBefore(dayjs(createdTime).add(FRESH_INSTANCE_WINDOW_HOURS, 'hour'));
 
   const [freshAdmin, setFreshAdmin] = useLocalStorage('freshAdmin', true);
-  const showGuideModal = Boolean(
-    freshAdmin && isAdmin && !isCloud && dayjs().isAfter(dayjs(createdTime).add(4, 'hour'))
-  );
+  const showGuideModal = Boolean(freshAdmin && isAdmin && !isCloud && isNewInstance);
   const [isModalOpen, setIsModalOpen] = useState(showGuideModal);
   const { t } = useTranslation('common');
 
@@ -52,7 +54,7 @@ export const FreshSettingGuideDialog = () => {
         >
           <div className="flex flex-col items-center">
             <Image
-              src={isDark ? '/images/layout/eelcome-dark.png' : '/images/layout/welcome-light.png'}
+              src={isDark ? '/images/layout/welcome-dark.png' : '/images/layout/welcome-light.png'}
               alt="Init setting guide"
               width={240}
               height={240}

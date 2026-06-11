@@ -1,46 +1,40 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { testIntegrationLLM, type IAIIntegrationConfig } from '@teable/openapi';
+import { useQuery } from '@tanstack/react-query';
+import { testIntegrationLLM, aiConfigVoSchema, getPublicSetting } from '@teable/openapi';
 import type {
+  IAIIntegrationConfig,
   IChatModelAbility,
   IImageModelAbility,
   ITestLLMRo,
   LLMProvider,
-} from '@teable/openapi/src/admin/setting';
-import {
-  aiConfigVoSchema,
-  chatModelAbilityType,
-  getPublicSetting,
-} from '@teable/openapi/src/admin/setting';
+} from '@teable/openapi';
 import { Form, toast } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import type { ReactElement } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { AIControlCard } from '../../../admin/setting/components/ai-config/AIControlCard';
-import { AIModelPreferencesCard } from '../../../admin/setting/components/ai-config/AIModelPreferencesCard';
-import type { IModelOption } from '../../../admin/setting/components/ai-config/AiModelSelect';
 import { AIProviderCard } from '../../../admin/setting/components/ai-config/AIProviderCard';
 import { BatchTestModels } from '../../../admin/setting/components/ai-config/BatchTestModels';
 import type { IModelTestResult } from '../../../admin/setting/components/ai-config/LlmproviderManage';
 import {
-  generateModelKeyList,
-  generateGatewayModelKeyList,
+  normalizeLLMProviderModelConfigs,
   parseModelKey,
 } from '../../../admin/setting/components/ai-config/utils';
 
 interface IAIConfigProps {
   config: IAIIntegrationConfig;
-  onChange: (value: IAIIntegrationConfig) => void;
-  onEnableAI?: () => void;
-  children: ReactElement;
+  onChange: (value: IAIIntegrationConfig) => Promise<unknown> | void;
+  spaceId?: string;
+  disabled?: boolean;
 }
 
+const emptyArray: never[] = [];
+
 export const AIConfig = (props: IAIConfigProps) => {
-  const { config, onChange, onEnableAI: onEnableAIProp, children } = props;
+  const { config, onChange, spaceId: spaceIdProp } = props;
   const router = useRouter();
-  const spaceId = router.query.spaceId as string;
+  const spaceId = (spaceIdProp ?? router.query.spaceId) as string;
 
   const defaultValues = useMemo(
     () =>
@@ -55,7 +49,7 @@ export const AIConfig = (props: IAIConfigProps) => {
     resolver: zodResolver(aiConfigVoSchema),
     defaultValues: defaultValues,
   });
-  const llmProviders = form.watch('llmProviders') ?? [];
+  const llmProviders = form.watch('llmProviders') ?? emptyArray;
   const { reset } = form;
   const { t } = useTranslation('common');
 
@@ -64,22 +58,6 @@ export const AIConfig = (props: IAIConfigProps) => {
     queryKey: ['public-setting'],
     queryFn: () => getPublicSetting().then(({ data }) => data),
   });
-
-  // Generate combined model list: space models, gateway models, instance models
-  const models = useMemo((): IModelOption[] => {
-    const providerModels = generateModelKeyList(llmProviders);
-
-    // Get gateway models from public settings (enabled models only)
-    const publicGatewayModels = setting?.aiConfig?.gatewayModels || [];
-    const gatewayModels = generateGatewayModelKeyList(publicGatewayModels);
-
-    // Separate space and instance models
-    const spaceModels = providerModels.filter((m) => !m.isInstance);
-    const instanceModels = providerModels.filter((m) => m.isInstance);
-
-    // Combine in order: space models, gateway models, instance models
-    return [...spaceModels, ...gatewayModels, ...instanceModels];
-  }, [llmProviders, setting?.aiConfig?.gatewayModels]);
 
   // State for batch testing models
   const [modelTestResults, setModelTestResults] = useState<Map<string, IModelTestResult>>(
@@ -92,53 +70,32 @@ export const AIConfig = (props: IAIConfigProps) => {
     ((provider: LLMProvider, model: string, modelKey: string) => Promise<void>) | null
   >(null);
 
-  const { mutateAsync: onTestChatModelAbility } = useMutation({
-    mutationFn: async (chatModel: IAIIntegrationConfig['chatModel']) => {
-      const testModelKey = chatModel?.lg;
-      if (!testModelKey) {
-        return;
-      }
-      const testModel = parseModelKey(testModelKey);
-      const testLLMIndex = llmProviders.findIndex(
-        (provider) =>
-          provider.type === testModel.type &&
-          provider.models.includes(testModel.model) &&
-          provider.name === testModel.name
-      );
-      const testLLMProvider = llmProviders[testLLMIndex] as Required<LLMProvider>;
-      if (!testLLMProvider) {
-        return;
-      }
-      return testIntegrationLLM(spaceId, {
-        ...testLLMProvider,
-        modelKey: testModelKey,
-        ability: chatModelAbilityType.options,
-      }).then((res) => {
-        if (res.success) {
-          return res.ability;
-        }
-      });
-    },
-  });
-
   useEffect(() => {
     reset(defaultValues);
   }, [defaultValues, reset]);
 
+  const normalizeAiConfig = useCallback((data: IAIIntegrationConfig): IAIIntegrationConfig => {
+    return {
+      ...data,
+      llmProviders: data.llmProviders?.map(normalizeLLMProviderModelConfigs) ?? [],
+    };
+  }, []);
+
   const onSubmit = useCallback(
     async (data: IAIIntegrationConfig) => {
-      onChange(data);
+      await onChange(normalizeAiConfig(data));
       toast({
         title: t('admin.setting.ai.configUpdated'),
       });
     },
-    [onChange, t]
+    [normalizeAiConfig, onChange, t]
   );
 
   const onProvidersUpdate = (providers: LLMProvider[]) => {
-    form.setValue('llmProviders', providers);
+    const normalizedProviders = providers.map(normalizeLLMProviderModelConfigs);
+    form.setValue('llmProviders', normalizedProviders);
     form.trigger('llmProviders');
-    onSubmit(form.getValues());
+    void onSubmit({ ...form.getValues(), llmProviders: normalizedProviders });
   };
 
   const onTest = async (data: ITestLLMRo) => testIntegrationLLM(spaceId, data);
@@ -160,7 +117,7 @@ export const AIConfig = (props: IAIConfigProps) => {
       if (providerIndex === -1) return;
 
       const provider = currentProviders[providerIndex];
-      const updatedProvider = {
+      const updatedProvider = normalizeLLMProviderModelConfigs({
         ...provider,
         modelConfigs: {
           ...provider.modelConfigs,
@@ -171,16 +128,16 @@ export const AIConfig = (props: IAIConfigProps) => {
             testedAt: Date.now(),
           },
         },
-      };
+      });
 
       const newProviders = [...currentProviders];
       newProviders[providerIndex] = updatedProvider;
 
       form.setValue('llmProviders', newProviders);
       // Silent save without toast
-      onChange(form.getValues());
+      void onChange(normalizeAiConfig({ ...form.getValues(), llmProviders: newProviders }));
     },
-    [form, onChange]
+    [form, normalizeAiConfig, onChange]
   );
 
   // Toggle image model flag
@@ -196,7 +153,7 @@ export const AIConfig = (props: IAIConfigProps) => {
       if (providerIndex === -1) return;
 
       const provider = currentProviders[providerIndex];
-      const updatedProvider = {
+      const updatedProvider = normalizeLLMProviderModelConfigs({
         ...provider,
         modelConfigs: {
           ...provider.modelConfigs,
@@ -205,41 +162,51 @@ export const AIConfig = (props: IAIConfigProps) => {
             isImageModel,
             // Clear previous test results when toggling
             ability: isImageModel ? undefined : provider.modelConfigs?.[model]?.ability,
-            imageAbility: isImageModel ? provider.modelConfigs?.[model]?.imageAbility : undefined,
           },
         },
-      };
+      });
 
       const newProviders = [...currentProviders];
       newProviders[providerIndex] = updatedProvider;
 
       form.setValue('llmProviders', newProviders);
-      onChange(form.getValues());
+      void onChange(normalizeAiConfig({ ...form.getValues(), llmProviders: newProviders }));
     },
-    [form, onChange]
+    [form, normalizeAiConfig, onChange]
   );
-
-  // Enable custom model (AI) - calls the parent's enable handler
-  const onEnableAI = useCallback(() => {
-    onEnableAIProp?.();
-  }, [onEnableAIProp]);
 
   const instanceAIDisableActions = setting?.aiConfig?.capabilities?.disableActions || [];
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-6">
         <AIControlCard
           disableActions={config?.capabilities?.disableActions || instanceAIDisableActions}
+          instanceDisableActions={instanceAIDisableActions}
           onChange={(value: { disableActions: string[] }) => {
-            form.setValue('capabilities', value);
-            onSubmit(form.getValues());
+            const current = form.getValues('capabilities') ?? {};
+            form.setValue('capabilities', { ...current, ...value });
+            return onSubmit(form.getValues());
           }}
+          disabled={props.disabled}
         />
-        {children}
-        <div>
-          <div className="flex items-center justify-between pb-2">
-            <div className="text-lg font-medium">{t('admin.setting.ai.provider')}</div>
+        <AIProviderCard
+          control={form.control}
+          onChange={onProvidersUpdate}
+          onTest={onTest}
+          modelTestResults={modelTestResults}
+          onToggleImageModel={onToggleImageModel}
+          onTestProvider={(provider) => testProviderCallbackRef.current?.(provider)}
+          onTestModel={(provider, model, modelKey) =>
+            testModelCallbackRef.current?.(provider, model, modelKey) ?? Promise.resolve()
+          }
+          testingProviders={testingProviders}
+          testingModels={testingModels}
+          hideModelRates
+          providerNameMode="auto"
+          onSaveTestResult={onSaveTestResult}
+          title={t('admin.setting.ai.provider')}
+          headerActions={
             <BatchTestModels
               providers={llmProviders}
               disabled={!llmProviders?.length}
@@ -255,36 +222,8 @@ export const AIConfig = (props: IAIConfigProps) => {
                 testModelCallbackRef.current = callback;
               }}
             />
-          </div>
-          <AIProviderCard
-            control={form.control}
-            onChange={onProvidersUpdate}
-            onTest={onTest}
-            modelTestResults={modelTestResults}
-            onToggleImageModel={onToggleImageModel}
-            onTestProvider={(provider) => testProviderCallbackRef.current?.(provider)}
-            onTestModel={(provider, model, modelKey) =>
-              testModelCallbackRef.current?.(provider, model, modelKey) ?? Promise.resolve()
-            }
-            testingProviders={testingProviders}
-            testingModels={testingModels}
-            hideModelRates
-            onSaveTestResult={onSaveTestResult}
-          />
-        </div>
-        <div className="flex flex-col gap-y-2">
-          <div className="text-lg font-medium">{t('admin.setting.ai.modelPreferences')}</div>
-          <div className="text-base font-medium">{t(`admin.setting.ai.chatModel`)}</div>
-          <AIModelPreferencesCard
-            control={form.control}
-            models={models}
-            onChange={() => onSubmit(form.getValues())}
-            onTestChatModelAbility={onTestChatModelAbility}
-            onEnableAI={onEnableAI}
-            needGroup={true}
-            hideEmbeddingModel
-          />
-        </div>
+          }
+        />
       </form>
     </Form>
   );

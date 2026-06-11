@@ -5,4 +5,5 @@ export * from './is-before-sets';
 export * from './is-on-or-before-sets';
 export * from './is-after-sets';
 export * from './is-on-or-after-sets';
+export * from './date-range-sets';
 export * from './date-field';

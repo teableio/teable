@@ -18,7 +18,15 @@ const SelectEditorBase: ForwardRefRenderFunction<
   const editorRef = useRef<IEditorRef<string | string[] | undefined>>(null);
 
   const optionsMap = useMemo(() => keyBy(options, 'value'), [options]);
-  const arrayValue = isMultiple ? (value as string[]) : value ? [value] : [];
+  const arrayValue = isMultiple
+    ? Array.isArray(value)
+      ? (value as string[])
+      : value
+        ? [value as string]
+        : []
+    : value
+      ? [value]
+      : [];
 
   const displayOptions = arrayValue?.map((value) => optionsMap[value as string]).filter(Boolean);
 
@@ -48,13 +56,13 @@ const SelectEditorBase: ForwardRefRenderFunction<
       role="combobox"
       aria-expanded={open}
       className={cn(
-        'w-full h-auto min-h-[32px] flex py-1 flex-wrap justify-start hover:bg-transparent gap-1.5 px-2',
+        'w-full h-auto min-h-9 flex py-1 flex-wrap dark:bg-[color-mix(in_oklab,white_5%,hsl(var(--background)))] hover:border-primary/30 hover:bg-background dark:hover:bg-[color-mix(in_oklab,white_5%,hsl(var(--background)))] justify-start gap-1.5 px-2',
         className
       )}
     >
       {displayOptions?.map(({ value, label, backgroundColor, color }) => (
         <SelectTag
-          className="flex items-center"
+          className={cn('flex items-center', !readonly && 'pr-1.5')}
           key={value}
           label={label}
           color={color}
@@ -62,7 +70,8 @@ const SelectEditorBase: ForwardRefRenderFunction<
         >
           {!readonly && (
             <X
-              className="cursor-pointer opacity-50 hover:opacity-100"
+              className="size-[14px] shrink-0 cursor-pointer opacity-70 hover:opacity-100"
+              style={{ color: 'inherit' }}
               onClick={(e) => {
                 e.preventDefault();
                 onDelete(value);

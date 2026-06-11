@@ -1,94 +1,48 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { FieldType } from '@teable/core';
-import { Field, PrismaService } from '@teable/db-main-prisma';
-import { IUserInfoVo, PrincipalType } from '@teable/openapi';
-import { Knex } from 'knex';
-import { InjectModel } from 'nest-knexjs';
-import { InjectDbProvider } from '../../db-provider/db.provider';
-import { IDbProvider } from '../../db-provider/db.provider.interface';
+import { ModuleRef } from '@nestjs/core';
+import { IUserInfoVo } from '@teable/openapi';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
-import { Timing } from '../../utils/timing';
+import { V2UserRenamePropagationService } from '../v2/v2-user-rename-propagation.service';
 
 @Injectable()
 export class UserNameListener {
   private readonly logger = new Logger(UserNameListener.name);
 
   constructor(
-    private readonly prismaService: PrismaService,
     private readonly eventEmitterService: EventEmitterService,
-    @InjectDbProvider() private readonly dbProvider: IDbProvider,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    private readonly moduleRef: ModuleRef
   ) {}
 
-  private async getFieldsForUser(userId: string) {
-    const spaceBaseQuery = this.knex('collaborator')
-      .join('space', 'collaborator.resource_id', 'space.id')
-      .join('base', 'space.id', 'base.space_id')
-      .whereNull('space.deleted_time')
-      .whereNull('base.deleted_time')
-      .where('collaborator.principal_id', userId)
-      .where('collaborator.principal_type', PrincipalType.User)
-      .select('base.id as base_id', 'collaborator.principal_id as user_id');
-    const baseQuery = this.knex('collaborator')
-      .join('base', 'collaborator.resource_id', 'base.id')
-      .join('space', 'base.space_id', 'space.id')
-      .whereNull('space.deleted_time')
-      .whereNull('base.deleted_time')
-      .where('collaborator.principal_type', PrincipalType.User)
-      .select('base.id as base_id', 'collaborator.principal_id as user_id');
-    const query = this.knex
-      .with('c', this.knex.union([spaceBaseQuery, baseQuery]))
-      .join('table_meta', 'c.base_id', 'table_meta.base_id')
-      .join('field', 'table_meta.id', 'field.table_id')
-      .from('c')
-      // Only normal User fields should be updated on rename.
-      // CreatedBy/LastModifiedBy are generated and not updatable.
-      .whereIn('field.type', [FieldType.User])
-      .whereNull('table_meta.deleted_time')
-      .whereNull('field.deleted_time')
-      // Only update physical (non-lookup) user fields
-      .whereNull('field.is_lookup')
-      .select({
-        id: 'field.id',
-        tableId: 'field.table_id',
-        type: 'field.type',
-        dbFieldName: 'field.db_field_name',
-        isMultipleCellValue: 'field.is_multiple_cell_value',
-      })
-      .toQuery();
-    return this.prismaService.$queryRawUnsafe<Field[]>(query);
-  }
-
-  @Timing()
-  private async updateUserFieldName(field: Field, id: string, name: string) {
-    const tableId = field.tableId;
-    const { dbTableName } = await this.prismaService.tableMeta.findUniqueOrThrow({
-      where: { id: tableId },
-      select: { dbTableName: true },
+  private async propagateRename(user: IUserInfoVo) {
+    // Resolve lazily to avoid wiring RecordModule back to V2Module. V2Module already depends on
+    // ShareDb/Table modules, which pull RecordModule in transitively.
+    const propagationService = this.moduleRef.get(V2UserRenamePropagationService, {
+      strict: false,
     });
+    if (!propagationService) {
+      this.logger.warn(
+        'V2UserRenamePropagationService is unavailable, skipping user rename propagation'
+      );
+      return;
+    }
 
-    const sql = field.isMultipleCellValue
-      ? this.dbProvider.updateJsonArrayColumn(dbTableName, field.dbFieldName, id, 'title', name)
-      : this.dbProvider.updateJsonColumn(dbTableName, field.dbFieldName, id, 'title', name);
-
-    return await this.prismaService.$executeRawUnsafe(sql);
+    await propagationService.propagateUserRename({
+      actorId: user.id,
+      userId: user.id,
+      requestId: `user-rename:${user.id}:${Date.now()}`,
+      name: user.name,
+    });
   }
 
   @OnEvent(Events.USER_RENAME, { async: true })
   async updateUserName(user: IUserInfoVo) {
-    const fields = await this.getFieldsForUser(user.id);
-
-    this.logger.log(`Updating user name for ${fields.length} fields`);
-
-    for (const field of fields) {
-      try {
-        await this.updateUserFieldName(field, user.id, user.name);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } catch (e: any) {
-        this.logger.error(e.message, e.stack);
-      }
+    try {
+      await this.propagateRename(user);
+    } catch (e: unknown) {
+      const error = e as Error;
+      this.logger.error(error.message, error.stack);
     }
 
     this.eventEmitterService.emit(Events.TABLE_USER_RENAME_COMPLETE, user);

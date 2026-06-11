@@ -1,0 +1,63 @@
+{
+  "name": "@teable/v2-benchmark-node",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
+  "types": "src/index.ts",
+  "exports": {
+    ".": {
+      "@teable/source": "./src/index.ts",
+      "types": "./src/index.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsdown --tsconfig tsconfig.build.json",
+    "dev": "tsdown --tsconfig tsconfig.build.json --watch",
+    "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo ./.eslintcache",
+    "lint": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --cache --cache-location ../../../.cache/eslint/v2-benchmark-node.eslintcache",
+    "typecheck": "tsc --project ./tsconfig.json --noEmit",
+    "bench": "vitest bench --run",
+    "bench:watch": "vitest bench",
+    "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
+  },
+  "dependencies": {
+    "@hono/node-server": "1.13.5",
+    "@teable/v2-adapter-db-postgres-pg": "workspace:*",
+    "@teable/v2-adapter-db-postgres-postgresjs": "workspace:*",
+    "@teable/v2-container-node-test": "workspace:*",
+    "@teable/v2-contract-http": "workspace:*",
+    "@teable/v2-contract-http-client": "workspace:*",
+    "@teable/v2-contract-http-express": "workspace:*",
+    "@teable/v2-contract-http-fastify": "workspace:*",
+    "@teable/v2-contract-http-hono": "workspace:*",
+    "@teable/v2-core": "workspace:*",
+    "@teable/v2-di": "workspace:*",
+    "@teable/v2-table-templates": "workspace:*",
+    "express": "4.21.1",
+    "fastify": "4.29.1",
+    "hono": "4.11.1"
+  },
+  "devDependencies": {
+    "@teable/v2-tsdown-config": "workspace:*",
+    "@teable/eslint-config-bases": "workspace:^",
+    "@types/express": "4.17.21",
+    "@types/node": "22.18.0",
+    "@vitest/coverage-v8": "4.0.17",
+    "eslint": "8.57.0",
+    "prettier": "3.2.5",
+    "rimraf": "5.0.5",
+    "tsdown": "0.18.1",
+    "typescript": "5.4.3",
+    "vitest": "4.0.17"
+  }
+}

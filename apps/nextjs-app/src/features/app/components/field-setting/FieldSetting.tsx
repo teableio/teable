@@ -16,18 +16,25 @@ import {
   isLinkLookupOptions,
   StatisticsFunc,
 } from '@teable/core';
-import { type IPlanFieldConvertVo, getAggregation } from '@teable/openapi';
+import {
+  BaseNodeResourceType,
+  type IBaseNodeTableResourceMeta,
+  type IPlanFieldConvertVo,
+  getAggregation,
+} from '@teable/openapi';
 import { useTableId, useView, useFieldOperations, useRowCount } from '@teable/sdk/hooks';
 import { ConfirmDialog, Spin } from '@teable/ui-lib/base';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import { Sheet, SheetContent } from '@teable/ui-lib/shadcn/ui/sheet';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useTranslation } from 'next-i18next';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fromZodError } from 'zod-validation-error';
 import { tableConfig } from '@/features/i18n/table.config';
+import { useBaseNodeContext } from '../../blocks/base/base-node/hooks/useBaseNodeContext';
 import { DynamicFieldGraph } from '../../blocks/graph/DynamicFieldGraph';
 import { ProgressBar } from '../../blocks/graph/ProgressBar';
+import { LoginAppWarning } from '../../components/LoginAppWarning';
 import type { AiAutoFillMode } from './dialog/AiAutoFillDialog';
 import { AiAutoFillDialog } from './dialog/AiAutoFillDialog';
 import { DynamicFieldEditor } from './DynamicFieldEditor';
@@ -105,6 +112,26 @@ export const sanitizeLookupOptions = (
   return undefined;
 };
 
+const parseFieldEditorOptions = (originField: IFieldVo): IFieldEditorRo['options'] => {
+  if (originField.options == null) {
+    return undefined;
+  }
+
+  const result = getOptionsSchema(originField.type).safeParse(originField.options);
+  return result.success ? result.data : undefined;
+};
+
+const toFieldEditorState = (originField?: IFieldVo): IFieldEditorRo =>
+  originField
+    ? {
+        ...originField,
+        options: parseFieldEditorOptions(originField),
+        lookupOptions: sanitizeLookupOptions(originField.lookupOptions),
+      }
+    : {
+        type: FieldType.SingleLineText,
+      };
+
 export const FieldSetting = (props: IFieldSetting) => {
   const { operator, order } = props;
 
@@ -117,6 +144,7 @@ export const FieldSetting = (props: IFieldSetting) => {
 
   const [graphVisible, setGraphVisible] = useState<boolean>(false);
   const [processVisible, setProcessVisible] = useState<boolean>(false);
+  const [loginConvertVisible, setLoginConvertVisible] = useState<boolean>(false);
   const [plan, setPlan] = useState<IPlanFieldConvertVo>();
   const [fieldRo, setFieldRo] = useState<IFieldRo>();
   const [aiConfirmVisible, setAiConfirmVisible] = useState(false);
@@ -127,6 +155,29 @@ export const FieldSetting = (props: IFieldSetting) => {
   }>({ isLoading: false });
   const autoFillModeRef = useRef<AiAutoFillMode | null>(null);
   const { t } = useTranslation(tableConfig.i18nNamespaces);
+
+  const { treeItems } = useBaseNodeContext();
+  const loginAppsForField = useMemo(() => {
+    if (operator !== FieldOperator.Edit || !props.field?.id) return undefined;
+    const node = Object.values(treeItems).find(
+      (n) => n.resourceType === BaseNodeResourceType.Table && n.resourceId === tableId
+    );
+    const meta = node?.resourceMeta as IBaseNodeTableResourceMeta | undefined;
+    const apps = meta?.loginApps?.filter((a) => a.emailFieldId === props.field?.id);
+    return apps?.length ? apps : undefined;
+  }, [treeItems, tableId, operator, props.field?.id]);
+
+  const getEditFieldId = () => {
+    if (operator !== FieldOperator.Edit) {
+      return undefined;
+    }
+
+    return props.field?.id;
+  };
+
+  const notifyMissingEditField = () => {
+    toast.error(t('table:field.editor.fieldUnavailable'));
+  };
 
   // Fetch field stats (empty/filled count) for AI field dialog
   const fetchFieldStats = async (fieldId: string) => {
@@ -211,7 +262,10 @@ export const FieldSetting = (props: IFieldSetting) => {
     let result: IFieldVo | undefined;
     try {
       if (operator === FieldOperator.Add) {
-        result = await createNewField(field);
+        result = await createNewField({
+          ...field,
+          viewId: view?.id,
+        });
       }
 
       if (operator === FieldOperator.Insert) {
@@ -228,9 +282,12 @@ export const FieldSetting = (props: IFieldSetting) => {
       }
 
       if (operator === FieldOperator.Edit) {
-        const fieldId = props.field?.id;
+        const fieldId = getEditFieldId();
         if (tableId && fieldId) {
           result = await convertField({ tableId, fieldId, fieldRo: field });
+        } else {
+          notifyMissingEditField();
+          return;
         }
       }
 
@@ -250,11 +307,18 @@ export const FieldSetting = (props: IFieldSetting) => {
 
   const getPlan = async (fieldRo: IFieldRo) => {
     if (operator === FieldOperator.Edit) {
-      return await planFieldConvert({ tableId, fieldId: props.field?.id as string, fieldRo });
+      const fieldId = getEditFieldId();
+      if (!fieldId) {
+        notifyMissingEditField();
+        return;
+      }
+
+      return await planFieldConvert({ tableId, fieldId, fieldRo });
     }
     return await planFieldCreate({ tableId, fieldRo });
   };
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   const onConfirm = async (fieldRo?: IFieldRo) => {
     if (!fieldRo) {
       return onCancel();
@@ -284,30 +348,43 @@ export const FieldSetting = (props: IFieldSetting) => {
     }
 
     const plan = await getPlan(fieldRo);
+    if (!plan) {
+      return;
+    }
     setFieldRo(fieldRo);
     setPlan(plan);
     const estimateTime = plan?.estimateTime || 0;
     const linkFieldCount = plan?.linkFieldCount || 0;
+    const isTypeChanging =
+      operator === FieldOperator.Edit && props.field?.type && fieldRo.type !== props.field.type;
     if (estimateTime > 1000 || linkFieldCount > 0) {
       setGraphVisible(true);
+      return;
+    }
+    if (isTypeChanging && loginAppsForField) {
+      setLoginConvertVisible(true);
       return;
     }
     await performAction(fieldRo);
   };
 
   const handleConfirmWithAutoFill = async (mode: AiAutoFillMode) => {
-    if (!fieldRo) return;
+    if (!fieldRo) return false;
     autoFillModeRef.current = mode;
 
     const plan = await getPlan(fieldRo);
+    if (!plan) {
+      return false;
+    }
     setPlan(plan);
     const estimateTime = plan?.estimateTime || 0;
     const linkFieldCount = plan?.linkFieldCount || 0;
     if (estimateTime > 1000 || linkFieldCount > 0) {
       setGraphVisible(true);
-      return;
+      return true;
     }
     await performAction(fieldRo);
+    return true;
   };
 
   return (
@@ -319,6 +396,14 @@ export const FieldSetting = (props: IFieldSetting) => {
         onOpenChange={setGraphVisible}
         content={
           <>
+            {loginAppsForField && fieldRo?.type !== props.field?.type && (
+              <div className="mb-2">
+                <LoginAppWarning
+                  message={t('table:field.editor.deleteField.loginEmailFieldConvertWarning')}
+                  apps={loginAppsForField}
+                />
+              </div>
+            )}
             <DynamicFieldGraph tableId={tableId} fieldId={props.field?.id} fieldRo={fieldRo} />
             <p className="text-sm">{t('table:field.editor.areYouSurePerformIt')}</p>
           </>
@@ -327,6 +412,24 @@ export const FieldSetting = (props: IFieldSetting) => {
         confirmText={t('common:actions.confirm')}
         onCancel={() => setGraphVisible(false)}
         onConfirm={() => performAction(fieldRo as IFieldRo)}
+      />
+      <ConfirmDialog
+        title={t('table:field.editor.confirmFieldChange')}
+        open={loginConvertVisible}
+        onOpenChange={setLoginConvertVisible}
+        content={
+          <LoginAppWarning
+            message={t('table:field.editor.deleteField.loginEmailFieldConvertWarning')}
+            apps={loginAppsForField ?? []}
+          />
+        }
+        cancelText={t('common:actions.cancel')}
+        confirmText={t('common:actions.confirm')}
+        onCancel={() => setLoginConvertVisible(false)}
+        onConfirm={() => {
+          setLoginConvertVisible(false);
+          performAction(fieldRo as IFieldRo);
+        }}
       />
       <AiAutoFillDialog
         open={aiConfirmVisible}
@@ -355,8 +458,10 @@ export const FieldSetting = (props: IFieldSetting) => {
         }}
         onClose={() => setAiConfirmVisible(false)}
         onConfirm={async (mode) => {
-          setAiConfirmVisible(false);
-          await handleConfirmWithAutoFill(mode);
+          const shouldClose = await handleConfirmWithAutoFill(mode);
+          if (shouldClose) {
+            setAiConfirmVisible(false);
+          }
         }}
       />
       <ConfirmDialog
@@ -371,23 +476,21 @@ export const FieldSetting = (props: IFieldSetting) => {
   );
 };
 
-const FieldSettingBase = (props: IFieldSettingBase) => {
+export const FieldSettingBase = (props: IFieldSettingBase) => {
   const { visible, field: originField, operator, onConfirm, onCancel } = props;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
-  const [field, setField] = useState<IFieldEditorRo>(
-    originField
-      ? {
-          ...originField,
-          options: getOptionsSchema(originField.type).parse(originField.options),
-          lookupOptions: sanitizeLookupOptions(originField.lookupOptions),
-        }
-      : {
-          type: FieldType.SingleLineText,
-        }
-  );
+  const [field, setField] = useState<IFieldEditorRo>(() => toFieldEditorState(originField));
   const [alertVisible, setAlertVisible] = useState<boolean>(false);
   const [updateCount, setUpdateCount] = useState<number>(0);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const isMissingEditField = operator === FieldOperator.Edit && !originField?.id;
+
+  useEffect(() => {
+    if (updateCount > 0) {
+      return;
+    }
+    setField(toFieldEditorState(originField));
+  }, [originField, updateCount]);
 
   const onOpenChange = (open?: boolean) => {
     if (open) {
@@ -417,6 +520,11 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
   };
 
   const onSave = async () => {
+    if (isMissingEditField) {
+      toast.error(t('table:field.editor.fieldUnavailable'));
+      return;
+    }
+
     if (operator === FieldOperator.Edit && !updateCount) {
       onConfirm?.();
       return;
@@ -451,7 +559,11 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
     if (result.success) {
       setIsSaving(true);
       try {
-        await onConfirm?.(result.data);
+        const confirmField: IFieldRo = {
+          ...(result.data as IFieldRo),
+          options: (result.data as IFieldRo).options ?? undefined,
+        };
+        await onConfirm?.(confirmField);
       } finally {
         setIsSaving(false);
       }
@@ -508,7 +620,7 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
               <Button size={'sm'} variant={'ghost'} onClick={onCancel} disabled={isSaving}>
                 {t('common:actions.cancel')}
               </Button>
-              <Button size={'sm'} onClick={onSave} disabled={isSaving}>
+              <Button size={'sm'} onClick={onSave} disabled={isSaving || isMissingEditField}>
                 {isSaving ? <Spin className="size-4" /> : t('common:actions.save')}
               </Button>
             </div>

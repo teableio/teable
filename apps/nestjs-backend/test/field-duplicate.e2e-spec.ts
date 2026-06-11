@@ -16,6 +16,7 @@ import {
   Relationship,
   ViewType,
 } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import type { ICreateBaseVo, ITableFullVo } from '@teable/openapi';
 import {
   createField,
@@ -36,6 +37,7 @@ import {
   initApp,
   createRecords,
   getRecords,
+  convertField,
 } from './utils/init-app';
 
 describe('OpenAPI FieldOpenApiController for duplicate field (e2e)', () => {
@@ -66,7 +68,7 @@ describe('OpenAPI FieldOpenApiController for duplicate field (e2e)', () => {
         ],
       });
 
-      const autoLen = await createField(table.id, {
+      await createField(table.id, {
         name: 'auto-len',
         type: FieldType.Formula,
         options: {
@@ -101,6 +103,148 @@ describe('OpenAPI FieldOpenApiController for duplicate field (e2e)', () => {
 
       expect(first.fields[autoLenFieldId]).toEqual(1);
       expect(first.fields[duplicated.data.id]).toEqual(1);
+    });
+  });
+
+  describe('duplicate field response compatibility under FORCE_V2', () => {
+    let table: ITableFullVo;
+    let foreignTable: ITableFullVo;
+    let linkFieldId: string;
+    let foreignPrimaryFieldId: string;
+
+    beforeAll(async () => {
+      foreignTable = await createTable(baseId, {
+        name: 'dup_force_v2_compat_foreign',
+        fields: [
+          {
+            type: FieldType.SingleLineText,
+            name: 'foreign_name',
+          },
+        ],
+      });
+      foreignPrimaryFieldId = foreignTable.fields.find((f) => f.isPrimary)!.id;
+
+      table = await createTable(baseId, {
+        name: 'dup_force_v2_compat_main',
+      });
+
+      const linkField = (
+        await createField(table.id, {
+          type: FieldType.Link,
+          name: 'to_foreign',
+          options: {
+            relationship: Relationship.ManyMany,
+            foreignTableId: foreignTable.id,
+            isOneWay: false,
+          },
+        })
+      ).data;
+      linkFieldId = linkField.id;
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, table.id);
+      await permanentDeleteTable(baseId, foreignTable.id);
+    });
+
+    it('keeps description but omits false/linked compatibility keys in duplicated fields', async () => {
+      const describedField = (
+        await createField(table.id, {
+          type: FieldType.Number,
+          name: 'number_with_description',
+          description: 'description_kept',
+        })
+      ).data;
+      const duplicatedDescribedField = (
+        await duplicateField(table.id, describedField.id, {
+          name: 'number_with_description_copy',
+        })
+      ).data;
+      expect(duplicatedDescribedField.description).toBe('description_kept');
+
+      const lookupField = (
+        await createField(table.id, {
+          type: FieldType.SingleLineText,
+          name: 'lookup_force_v2_compat',
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId: foreignTable.id,
+            linkFieldId,
+            lookupFieldId: foreignPrimaryFieldId,
+          },
+        })
+      ).data;
+      const duplicatedLookupField = (
+        await duplicateField(table.id, lookupField.id, {
+          name: 'lookup_force_v2_compat_copy',
+        })
+      ).data;
+      const duplicatedLookupOptions = duplicatedLookupField.lookupOptions as
+        | Record<string, unknown>
+        | undefined;
+
+      expect(Object.prototype.hasOwnProperty.call(duplicatedLookupOptions ?? {}, 'isOneWay')).toBe(
+        false
+      );
+      expect(
+        Object.prototype.hasOwnProperty.call(duplicatedLookupOptions ?? {}, 'symmetricFieldId')
+      ).toBe(false);
+
+      const rollupField = (
+        await createField(table.id, {
+          type: FieldType.Rollup,
+          name: 'rollup_force_v2_compat',
+          lookupOptions: {
+            foreignTableId: foreignTable.id,
+            linkFieldId,
+            lookupFieldId: foreignPrimaryFieldId,
+          },
+          options: {
+            expression: 'countall({values})',
+          },
+        })
+      ).data;
+      const duplicatedRollupField = (
+        await duplicateField(table.id, rollupField.id, {
+          name: 'rollup_force_v2_compat_copy',
+        })
+      ).data;
+      const duplicatedRollupLookupOptions = duplicatedRollupField.lookupOptions as
+        | Record<string, unknown>
+        | undefined;
+
+      expect(
+        Object.prototype.hasOwnProperty.call(duplicatedRollupLookupOptions ?? {}, 'isOneWay')
+      ).toBe(false);
+      expect(
+        Object.prototype.hasOwnProperty.call(
+          duplicatedRollupLookupOptions ?? {},
+          'symmetricFieldId'
+        )
+      ).toBe(false);
+
+      const buttonField = (
+        await createField(table.id, {
+          type: FieldType.Button,
+          name: 'button_force_v2_compat',
+          options: {
+            label: 'go',
+            color: Colors.Blue,
+            workflow: {
+              id: generateWorkflowId(),
+              name: 'wf_for_compat',
+              isActive: true,
+            },
+          },
+        })
+      ).data;
+      const duplicatedButtonField = (
+        await duplicateField(table.id, buttonField.id, {
+          name: 'button_force_v2_compat_copy',
+        })
+      ).data;
+
+      expect(duplicatedButtonField.isMultipleCellValue).toBeUndefined();
     });
   });
 
@@ -456,6 +600,96 @@ describe('OpenAPI FieldOpenApiController for duplicate field (e2e)', () => {
       await permanentDeleteTable(baseId, table.id);
       await permanentDeleteTable(baseId, subTable.id);
     });
+
+    it('keeps symmetric field names unique after converting a duplicated one-way link back to two-way', async () => {
+      let sourceTable: ITableFullVo | undefined;
+      let foreignTable: ITableFullVo | undefined;
+
+      try {
+        sourceTable = await createTable(baseId, {
+          name: 'dup_link_name_source',
+          fields: [{ name: 'Name', type: FieldType.SingleLineText, isPrimary: true } as IFieldRo],
+        });
+
+        foreignTable = await createTable(baseId, {
+          name: 'dup_link_name_foreign',
+          fields: [{ name: 'Title', type: FieldType.SingleLineText, isPrimary: true } as IFieldRo],
+        });
+
+        const foreignPrimaryFieldId = foreignTable.fields.find((field) => field.isPrimary)?.id;
+        expect(foreignPrimaryFieldId).toBeDefined();
+        if (!foreignPrimaryFieldId) {
+          throw new Error('Missing foreign primary field');
+        }
+
+        const originalField = (
+          await createField(sourceTable.id, {
+            type: FieldType.Link,
+            name: 'Customer',
+            options: {
+              relationship: Relationship.ManyMany,
+              foreignTableId: foreignTable.id,
+              lookupFieldId: foreignPrimaryFieldId,
+              isOneWay: false,
+            },
+          })
+        ).data;
+
+        const originalSymmetricFieldId = (originalField.options as ILinkFieldOptions)
+          .symmetricFieldId;
+        expect(originalSymmetricFieldId).toBeDefined();
+        if (!originalSymmetricFieldId) {
+          throw new Error('Missing original symmetric field');
+        }
+
+        const duplicatedField = (
+          await duplicateField(sourceTable.id, originalField.id, {
+            name: 'Customer Copy',
+          })
+        ).data;
+
+        expect((duplicatedField.options as ILinkFieldOptions).isOneWay).toBe(true);
+        expect((duplicatedField.options as ILinkFieldOptions).symmetricFieldId).toBeUndefined();
+
+        const convertedField = await convertField(sourceTable.id, duplicatedField.id, {
+          type: FieldType.Link,
+          name: duplicatedField.name,
+          options: {
+            relationship: Relationship.ManyMany,
+            foreignTableId: foreignTable.id,
+            lookupFieldId: foreignPrimaryFieldId,
+            isOneWay: false,
+          },
+        });
+
+        const convertedSymmetricFieldId = (convertedField.options as ILinkFieldOptions)
+          .symmetricFieldId;
+        expect(convertedSymmetricFieldId).toBeDefined();
+        if (!convertedSymmetricFieldId) {
+          throw new Error('Missing converted symmetric field');
+        }
+
+        const foreignFields = (await getFields(foreignTable.id)).data;
+        const originalSymmetricField = foreignFields.find(
+          (field) => field.id === originalSymmetricFieldId
+        );
+        const convertedSymmetricField = foreignFields.find(
+          (field) => field.id === convertedSymmetricFieldId
+        );
+
+        expect(originalSymmetricField?.name).toBeDefined();
+        expect(convertedSymmetricField?.name).toBeDefined();
+        expect(originalSymmetricField?.name).not.toBe(convertedSymmetricField?.name);
+        expect(new Set([originalSymmetricField?.name, convertedSymmetricField?.name]).size).toBe(2);
+      } finally {
+        if (sourceTable) {
+          await permanentDeleteTable(baseId, sourceTable.id);
+        }
+        if (foreignTable) {
+          await permanentDeleteTable(baseId, foreignTable.id);
+        }
+      }
+    });
   });
 
   describe('duplicate link field should copy cell data', () => {
@@ -672,6 +906,158 @@ describe('OpenAPI FieldOpenApiController for duplicate field (e2e)', () => {
     });
   });
 
+  describe('duplicate filtered lookup fields that target conditional lookups', () => {
+    let issuesTable: ITableFullVo;
+    let releasesTable: ITableFullVo;
+    let launchesTable: ITableFullVo;
+    let originalForceV2All: string | undefined;
+    let issueTitleFieldId: string;
+    let issuePrFieldId: string;
+    let releasePrFieldId: string;
+    let releaseEditionFieldId: string;
+    let issuesTitleLookupFieldId: string;
+    let relatedReleasesFieldId: string;
+    let releaseIssuesFieldId: string;
+
+    beforeAll(async () => {
+      originalForceV2All = process.env.FORCE_V2_ALL;
+      process.env.FORCE_V2_ALL = 'false';
+
+      issuesTable = await createTable(baseId, {
+        name: 'duplicate_nested_lookup_issues',
+        fields: [
+          { name: 'Title', type: FieldType.SingleLineText },
+          { name: 'PR', type: FieldType.SingleLineText },
+        ],
+      });
+
+      const issueFields = (await getFields(issuesTable.id)).data;
+      issueTitleFieldId = issueFields.find((field) => field.name === 'Title')!.id;
+      issuePrFieldId = issueFields.find((field) => field.name === 'PR')!.id;
+
+      releasesTable = await createTable(baseId, {
+        name: 'duplicate_nested_lookup_releases',
+        fields: [
+          { name: 'Tag', type: FieldType.SingleLineText },
+          { name: 'PR', type: FieldType.SingleLineText },
+          {
+            name: 'Edition',
+            type: FieldType.SingleSelect,
+            options: {
+              choices: [{ name: 'cloud' }, { name: 'ee' }],
+            },
+          },
+        ],
+      });
+
+      const releaseFields = (await getFields(releasesTable.id)).data;
+      releasePrFieldId = releaseFields.find((field) => field.name === 'PR')!.id;
+      releaseEditionFieldId = releaseFields.find((field) => field.name === 'Edition')!.id;
+
+      issuesTitleLookupFieldId = (
+        await createField(releasesTable.id, {
+          name: 'Issues title',
+          type: FieldType.SingleLineText,
+          isLookup: true,
+          isConditionalLookup: true,
+          lookupOptions: {
+            foreignTableId: issuesTable.id,
+            lookupFieldId: issueTitleFieldId,
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: issuePrFieldId,
+                  operator: 'is',
+                  value: {
+                    type: 'field',
+                    fieldId: releasePrFieldId,
+                    tableId: releasesTable.id,
+                  },
+                },
+              ],
+            },
+          },
+        })
+      ).data.id;
+
+      launchesTable = await createTable(baseId, {
+        name: 'duplicate_nested_lookup_launches',
+        fields: [{ name: 'Launch', type: FieldType.SingleLineText }],
+      });
+
+      relatedReleasesFieldId = (
+        await createField(launchesTable.id, {
+          name: 'Related Releases',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyMany,
+            foreignTableId: releasesTable.id,
+            isOneWay: false,
+          },
+        })
+      ).data.id;
+
+      releaseIssuesFieldId = (
+        await createField(launchesTable.id, {
+          name: 'Release Issues',
+          type: FieldType.SingleLineText,
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId: releasesTable.id,
+            linkFieldId: relatedReleasesFieldId,
+            lookupFieldId: issuesTitleLookupFieldId,
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: releaseEditionFieldId,
+                  operator: 'is',
+                  value: 'cloud',
+                },
+              ],
+            },
+          },
+        })
+      ).data.id;
+
+      process.env.FORCE_V2_ALL = originalForceV2All;
+    });
+
+    afterAll(async () => {
+      process.env.FORCE_V2_ALL = originalForceV2All;
+      await permanentDeleteTable(baseId, launchesTable.id);
+      await permanentDeleteTable(baseId, releasesTable.id);
+      await permanentDeleteTable(baseId, issuesTable.id);
+    });
+
+    it('should duplicate filtered lookups whose source field is conditional lookup', async () => {
+      const duplicated = (
+        await duplicateField(launchesTable.id, releaseIssuesFieldId, {
+          name: 'Release Issues Copy',
+        })
+      ).data;
+
+      expect(duplicated.isLookup).toBe(true);
+      expect(duplicated.isConditionalLookup).not.toBe(true);
+      expect(duplicated.lookupOptions).toMatchObject({
+        foreignTableId: releasesTable.id,
+        linkFieldId: relatedReleasesFieldId,
+        lookupFieldId: issuesTitleLookupFieldId,
+        filter: {
+          conjunction: 'and',
+          filterSet: [
+            expect.objectContaining({
+              fieldId: releaseEditionFieldId,
+              operator: 'is',
+              value: 'cloud',
+            }),
+          ],
+        },
+      });
+    });
+  });
+
   describe('duplicate rollup fields', () => {
     let table: ITableFullVo;
     let subTable: ITableFullVo;
@@ -732,7 +1118,7 @@ describe('OpenAPI FieldOpenApiController for duplicate field (e2e)', () => {
       const copiedRollupField = fields.find((f) => f.name.endsWith('_copy'))!;
 
       const expectedRollupField = {
-        ...omit(copiedRollupField, ['name', 'dbFieldName', 'id', 'isPrimary']),
+        ...omit(copiedRollupField, ['name', 'dbFieldName', 'id', 'isPrimary', 'unique']),
         options: {
           ...rollupField.options,
           expression: 'countall({values})',
@@ -740,7 +1126,7 @@ describe('OpenAPI FieldOpenApiController for duplicate field (e2e)', () => {
         isPending: true,
       };
       const assertRollupField = {
-        ...omit(rollupField, ['name', 'dbFieldName', 'id', 'isPrimary']),
+        ...omit(rollupField, ['name', 'dbFieldName', 'id', 'isPrimary', 'unique']),
       };
 
       expect(expectedRollupField).toEqual(assertRollupField);
@@ -802,6 +1188,66 @@ describe('OpenAPI FieldOpenApiController for duplicate field (e2e)', () => {
 
       const keys = ['name', 'dbFieldName', 'id', 'isPrimary'];
       expect(omit(expectedButtonField, keys)).toEqual(omit(copiedButtonField, keys));
+    });
+  });
+
+  describe('duplicate field falls back to end when source has no columnMeta entry', () => {
+    let table: ITableFullVo;
+    let view: { id: string };
+    let sourceField: { id: string; name: string };
+
+    beforeAll(async () => {
+      table = await createTable(baseId, {
+        name: 'sparse_columnmeta_table',
+        fields: [
+          { type: FieldType.SingleLineText, name: 'source' } as IFieldRo,
+          { type: FieldType.SingleLineText, name: 'after' } as IFieldRo,
+        ],
+      });
+      view = (await createView(table.id, { name: 'sparse_view', type: ViewType.Grid })).data;
+      sourceField = table.fields.find((f) => f.name === 'source')!;
+
+      // Simulate sparse columnMeta: drop the source field's entry directly in
+      // DB. Reproduces the legacy/migrated-view shape where columnMeta is not
+      // exhaustive — the path that used to yield `NaN` orderIndex and dump the
+      // duplicate to position 0.
+      const prisma = app.get(PrismaService);
+      const row = await prisma.view.findUniqueOrThrow({
+        where: { id: view.id },
+        select: { columnMeta: true },
+      });
+      const meta = row.columnMeta
+        ? (JSON.parse(row.columnMeta) as Record<string, { order: number }>)
+        : {};
+      delete meta[sourceField.id];
+      await prisma.view.update({
+        where: { id: view.id },
+        data: { columnMeta: JSON.stringify(meta) },
+      });
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, table.id);
+    });
+
+    it('places duplicate at the rightmost end, never at position 0', async () => {
+      const dup = (
+        await duplicateField(table.id, sourceField.id, {
+          name: `${sourceField.name}_copy`,
+          viewId: view.id,
+        })
+      ).data;
+
+      const afterView = (await getView(table.id, view.id)).data;
+      const dupOrder = afterView.columnMeta[dup.id]?.order;
+      const otherOrders = Object.entries(afterView.columnMeta)
+        .filter(([fid]) => fid !== dup.id)
+        .map(([, c]) => (c as { order: number }).order)
+        .filter((o) => typeof o === 'number' && Number.isFinite(o));
+
+      expect(typeof dupOrder).toBe('number');
+      expect(Number.isFinite(dupOrder)).toBe(true);
+      expect(otherOrders.every((o) => o < dupOrder)).toBe(true);
     });
   });
 

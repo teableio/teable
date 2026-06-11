@@ -2,12 +2,14 @@
 import type { ParsedUrlQuery } from 'querystring';
 import { parseDsn } from '@teable/core';
 import { isUndefined, omitBy, toNumber } from 'lodash';
+import ms from 'ms';
 import type {
   GetServerSidePropsContext,
   GetServerSidePropsResult,
   PreviewData,
   GetServerSideProps as NextGetServerSideProps,
 } from 'next';
+import { getAppDatabaseUrl } from './database-url';
 
 type GetServerSideProps<
   P extends { [key: string]: any } = { [key: string]: any },
@@ -19,16 +21,26 @@ export default function withEnv<P extends { [key: string]: any }>(
   handler: GetServerSideProps<P, ParsedUrlQuery, PreviewData>
 ): NextGetServerSideProps<P> {
   return async (context: GetServerSidePropsContext) => {
-    const { driver } = parseDsn(process.env.PRISMA_DATABASE_URL as string);
+    const { driver } = parseDsn(getAppDatabaseUrl());
     const envMaxSearchFieldCount = toNumber(process.env.MAX_SEARCH_FIELD_COUNT);
+    const task = {
+      maxTaskRows: toNumber(process.env.MAX_TASK_ROWS),
+    };
     const storage = {
       provider: process.env.BACKEND_STORAGE_PROVIDER ?? 'local',
       prefix: process.env.STORAGE_PREFIX ?? process.env.PUBLIC_ORIGIN,
       publicBucket: process.env.BACKEND_STORAGE_PUBLIC_BUCKET ?? 'public',
       publicUrl: process.env.BACKEND_STORAGE_PUBLIC_URL,
     };
+    const trashRetention = process.env.TRASH_RETENTION ?? '30d';
+    const trash = {
+      retentionDays: ms(trashRetention) / ms('1d'),
+    };
     const env = omitBy(
       {
+        buildVersion: process.env.BUILD_VERSION,
+        gitCommitSha: process.env.GIT_COMMIT_SHA,
+        previewTag: process.env.PREVIEW_TAG,
         driver,
         templateSiteLink: process.env.TEMPLATE_SITE_LINK,
         microsoftClarityId: process.env.MICROSOFT_CLARITY_ID,
@@ -36,6 +48,7 @@ export default function withEnv<P extends { [key: string]: any }>(
         umamiWebSiteId: process.env.UMAMI_WEBSITE_ID,
         gaId: process.env.GA_ID,
         googleAdsConversionId: process.env.GOOGLE_ADS_CONVERSION_ID,
+        marketingGaId: process.env.MARKETING_GA_ID,
         sentryDsn: process.env.SENTRY_DSN,
         socialAuthProviders: process.env.SOCIAL_AUTH_PROVIDERS?.split(','),
         storage: omitBy(storage, isUndefined),
@@ -48,6 +61,8 @@ export default function withEnv<P extends { [key: string]: any }>(
             : envMaxSearchFieldCount,
         publicOrigin: process.env.PUBLIC_ORIGIN,
         enableCanaryFeature: process.env.ENABLE_CANARY_FEATURE === 'true' ? true : undefined,
+        task,
+        trash,
       },
       isUndefined
     );

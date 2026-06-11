@@ -1,0 +1,249 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`buildBatchUpdateSql > generates correct SQL for: 'JSONB fields (attachment)' 1`] = `
+"WITH matched AS (
+  SELECT
+    "__id" AS "matched_id",
+    "__version" AS "old_version",
+    "col_name" AS "old_0",
+    "col_files" AS "old_1"
+  FROM "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb"
+  WHERE "__id" = ANY(ARRAY['rec_401', 'rec_402'])
+)
+UPDATE "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" AS t
+SET "col_name" = CASE WHEN v."__has_0" THEN v."col_name" ELSE t."col_name" END, "col_files" = CASE WHEN v."__has_1" THEN v."col_files" ELSE t."col_files" END, "__last_modified_time" = v."__last_modified_time", "__last_modified_by" = v."__last_modified_by", "__version" = t."__version" + 1
+FROM matched, (VALUES
+  ('rec_401', TRUE, 'Document 1', TRUE, '[{"id":"att_001","name":"file1.pdf"}]'::jsonb, '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test'),
+  ('rec_402', TRUE, 'Document 2', TRUE, '[{"id":"att_002","name":"file2.pdf"}]'::jsonb, '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test')
+) AS v("__id", "__has_0", "col_name", "__has_1", "col_files", "__last_modified_time", "__last_modified_by")
+WHERE t."__id" = v."__id"
+  AND t."__id" = matched."matched_id" AND ((v."__has_0" AND t."col_name" IS DISTINCT FROM v."col_name") OR (v."__has_1" AND t."col_files" IS DISTINCT FROM v."col_files"))
+RETURNING t."__id" AS "record_id",
+  t."__version" AS "new_version",
+  matched."old_version" AS "old_version",
+  matched."old_0" AS "old_0",
+  matched."old_1" AS "old_1""
+`;
+
+exports[`buildBatchUpdateSql > generates correct SQL for: 'NULL values' 1`] = `
+"WITH matched AS (
+  SELECT
+    "__id" AS "matched_id",
+    "__version" AS "old_version",
+    "col_name" AS "old_0",
+    "col_count" AS "old_1"
+  FROM "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb"
+  WHERE "__id" = ANY(ARRAY['rec_501', 'rec_502'])
+)
+UPDATE "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" AS t
+SET "col_name" = CASE WHEN v."__has_0" THEN v."col_name" ELSE t."col_name" END, "col_count" = CASE WHEN v."__has_1" THEN v."col_count" ELSE t."col_count" END, "__last_modified_time" = v."__last_modified_time", "__last_modified_by" = v."__last_modified_by", "__version" = t."__version" + 1
+FROM matched, (VALUES
+  ('rec_501', TRUE, 'Alice', TRUE, NULL::double precision, '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test'),
+  ('rec_502', TRUE, NULL, TRUE, 42::double precision, '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test')
+) AS v("__id", "__has_0", "col_name", "__has_1", "col_count", "__last_modified_time", "__last_modified_by")
+WHERE t."__id" = v."__id"
+  AND t."__id" = matched."matched_id" AND ((v."__has_0" AND t."col_name" IS DISTINCT FROM v."col_name") OR (v."__has_1" AND t."col_count" IS DISTINCT FROM v."col_count"))
+RETURNING t."__id" AS "record_id",
+  t."__version" AS "new_version",
+  matched."old_version" AS "old_version",
+  matched."old_0" AS "old_0",
+  matched."old_1" AS "old_1""
+`;
+
+exports[`buildBatchUpdateSql > generates correct SQL for: 'date field' 1`] = `
+"WITH matched AS (
+  SELECT
+    "__id" AS "matched_id",
+    "__version" AS "old_version",
+    "col_event" AS "old_0",
+    "col_date" AS "old_1"
+  FROM "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb"
+  WHERE "__id" = ANY(ARRAY['rec_601', 'rec_602'])
+)
+UPDATE "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" AS t
+SET "col_event" = CASE WHEN v."__has_0" THEN v."col_event" ELSE t."col_event" END, "col_date" = CASE WHEN v."__has_1" THEN v."col_date" ELSE t."col_date" END, "__last_modified_time" = v."__last_modified_time", "__last_modified_by" = v."__last_modified_by", "__version" = t."__version" + 1
+FROM matched, (VALUES
+  ('rec_601', TRUE, 'Meeting', TRUE, '2025-01-15T10:00:00.000Z'::timestamptz, '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test'),
+  ('rec_602', TRUE, 'Conference', TRUE, '2025-02-20T14:30:00.000Z'::timestamptz, '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test')
+) AS v("__id", "__has_0", "col_event", "__has_1", "col_date", "__last_modified_time", "__last_modified_by")
+WHERE t."__id" = v."__id"
+  AND t."__id" = matched."matched_id" AND ((v."__has_0" AND t."col_event" IS DISTINCT FROM v."col_event") OR (v."__has_1" AND t."col_date" IS DISTINCT FROM v."col_date"))
+RETURNING t."__id" AS "record_id",
+  t."__version" AS "new_version",
+  matched."old_version" AS "old_version",
+  matched."old_0" AS "old_0",
+  matched."old_1" AS "old_1""
+`;
+
+exports[`buildBatchUpdateSql > generates correct SQL for: 'large batch (5 records)' 1`] = `
+"WITH matched AS (
+  SELECT
+    "__id" AS "matched_id",
+    "__version" AS "old_version",
+    "col_name" AS "old_0",
+    "col_value" AS "old_1"
+  FROM "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb"
+  WHERE "__id" = ANY(ARRAY['rec_900', 'rec_901', 'rec_902', 'rec_903', 'rec_904'])
+)
+UPDATE "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" AS t
+SET "col_name" = CASE WHEN v."__has_0" THEN v."col_name" ELSE t."col_name" END, "col_value" = CASE WHEN v."__has_1" THEN v."col_value" ELSE t."col_value" END, "__last_modified_time" = v."__last_modified_time", "__last_modified_by" = v."__last_modified_by", "__version" = t."__version" + 1
+FROM matched, (VALUES
+  ('rec_900', TRUE, 'Record 1', TRUE, 10::double precision, '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test'),
+  ('rec_901', TRUE, 'Record 2', TRUE, 20::double precision, '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test'),
+  ('rec_902', TRUE, 'Record 3', TRUE, 30::double precision, '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test'),
+  ('rec_903', TRUE, 'Record 4', TRUE, 40::double precision, '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test'),
+  ('rec_904', TRUE, 'Record 5', TRUE, 50::double precision, '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test')
+) AS v("__id", "__has_0", "col_name", "__has_1", "col_value", "__last_modified_time", "__last_modified_by")
+WHERE t."__id" = v."__id"
+  AND t."__id" = matched."matched_id" AND ((v."__has_0" AND t."col_name" IS DISTINCT FROM v."col_name") OR (v."__has_1" AND t."col_value" IS DISTINCT FROM v."col_value"))
+RETURNING t."__id" AS "record_id",
+  t."__version" AS "new_version",
+  matched."old_version" AS "old_version",
+  matched."old_0" AS "old_0",
+  matched."old_1" AS "old_1""
+`;
+
+exports[`buildBatchUpdateSql > generates correct SQL for: 'multiple text fields' 1`] = `
+"WITH matched AS (
+  SELECT
+    "__id" AS "matched_id",
+    "__version" AS "old_version",
+    "col_first_name" AS "old_0",
+    "col_last_name" AS "old_1"
+  FROM "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb"
+  WHERE "__id" = ANY(ARRAY['rec_101', 'rec_102'])
+)
+UPDATE "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" AS t
+SET "col_first_name" = CASE WHEN v."__has_0" THEN v."col_first_name" ELSE t."col_first_name" END, "col_last_name" = CASE WHEN v."__has_1" THEN v."col_last_name" ELSE t."col_last_name" END, "__last_modified_time" = v."__last_modified_time", "__last_modified_by" = v."__last_modified_by", "__version" = t."__version" + 1
+FROM matched, (VALUES
+  ('rec_101', TRUE, 'John', TRUE, 'Doe', '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test'),
+  ('rec_102', TRUE, 'Jane', TRUE, 'Smith', '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test')
+) AS v("__id", "__has_0", "col_first_name", "__has_1", "col_last_name", "__last_modified_time", "__last_modified_by")
+WHERE t."__id" = v."__id"
+  AND t."__id" = matched."matched_id" AND ((v."__has_0" AND t."col_first_name" IS DISTINCT FROM v."col_first_name") OR (v."__has_1" AND t."col_last_name" IS DISTINCT FROM v."col_last_name"))
+RETURNING t."__id" AS "record_id",
+  t."__version" AS "new_version",
+  matched."old_version" AS "old_version",
+  matched."old_0" AS "old_0",
+  matched."old_1" AS "old_1""
+`;
+
+exports[`buildBatchUpdateSql > generates correct SQL for: 'multipleSelect field (JSONB)' 1`] = `
+"WITH matched AS (
+  SELECT
+    "__id" AS "matched_id",
+    "__version" AS "old_version",
+    "col_item" AS "old_0",
+    "col_tags" AS "old_1"
+  FROM "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb"
+  WHERE "__id" = ANY(ARRAY['rec_701', 'rec_702'])
+)
+UPDATE "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" AS t
+SET "col_item" = CASE WHEN v."__has_0" THEN v."col_item" ELSE t."col_item" END, "col_tags" = CASE WHEN v."__has_1" THEN v."col_tags" ELSE t."col_tags" END, "__last_modified_time" = v."__last_modified_time", "__last_modified_by" = v."__last_modified_by", "__version" = t."__version" + 1
+FROM matched, (VALUES
+  ('rec_701', TRUE, 'Product A', TRUE, '["tag1","tag2","tag3"]'::jsonb, '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test'),
+  ('rec_702', TRUE, 'Product B', TRUE, '["tag2","tag4"]'::jsonb, '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test')
+) AS v("__id", "__has_0", "col_item", "__has_1", "col_tags", "__last_modified_time", "__last_modified_by")
+WHERE t."__id" = v."__id"
+  AND t."__id" = matched."matched_id" AND ((v."__has_0" AND t."col_item" IS DISTINCT FROM v."col_item") OR (v."__has_1" AND t."col_tags" IS DISTINCT FROM v."col_tags"))
+RETURNING t."__id" AS "record_id",
+  t."__version" AS "new_version",
+  matched."old_version" AS "old_version",
+  matched."old_0" AS "old_0",
+  matched."old_1" AS "old_1""
+`;
+
+exports[`buildBatchUpdateSql > generates correct SQL for: 'number and checkbox fields' 1`] = `
+"WITH matched AS (
+  SELECT
+    "__id" AS "matched_id",
+    "__version" AS "old_version",
+    "col_score" AS "old_0",
+    "col_active" AS "old_1"
+  FROM "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb"
+  WHERE "__id" = ANY(ARRAY['rec_301', 'rec_302'])
+)
+UPDATE "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" AS t
+SET "col_score" = CASE WHEN v."__has_0" THEN v."col_score" ELSE t."col_score" END, "col_active" = CASE WHEN v."__has_1" THEN v."col_active" ELSE t."col_active" END, "__last_modified_time" = v."__last_modified_time", "__last_modified_by" = v."__last_modified_by", "__version" = t."__version" + 1
+FROM matched, (VALUES
+  ('rec_301', TRUE, 95.5::double precision, TRUE, true::boolean, '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test'),
+  ('rec_302', TRUE, 82.3::double precision, TRUE, false::boolean, '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test')
+) AS v("__id", "__has_0", "col_score", "__has_1", "col_active", "__last_modified_time", "__last_modified_by")
+WHERE t."__id" = v."__id"
+  AND t."__id" = matched."matched_id" AND ((v."__has_0" AND t."col_score" IS DISTINCT FROM v."col_score") OR (v."__has_1" AND t."col_active" IS DISTINCT FROM v."col_active"))
+RETURNING t."__id" AS "record_id",
+  t."__version" AS "new_version",
+  matched."old_version" AS "old_version",
+  matched."old_0" AS "old_0",
+  matched."old_1" AS "old_1""
+`;
+
+exports[`buildBatchUpdateSql > generates correct SQL for: 'single record update' 1`] = `
+"WITH matched AS (
+  SELECT
+    "__id" AS "matched_id",
+    "__version" AS "old_version",
+    "col_name" AS "old_0"
+  FROM "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb"
+  WHERE "__id" = ANY(ARRAY['rec_801'])
+)
+UPDATE "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" AS t
+SET "col_name" = CASE WHEN v."__has_0" THEN v."col_name" ELSE t."col_name" END, "__last_modified_time" = v."__last_modified_time", "__last_modified_by" = v."__last_modified_by", "__version" = t."__version" + 1
+FROM matched, (VALUES
+  ('rec_801', TRUE, 'Only One', '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test')
+) AS v("__id", "__has_0", "col_name", "__last_modified_time", "__last_modified_by")
+WHERE t."__id" = v."__id"
+  AND t."__id" = matched."matched_id" AND ((v."__has_0" AND t."col_name" IS DISTINCT FROM v."col_name"))
+RETURNING t."__id" AS "record_id",
+  t."__version" AS "new_version",
+  matched."old_version" AS "old_version",
+  matched."old_0" AS "old_0""
+`;
+
+exports[`buildBatchUpdateSql > generates correct SQL for: 'single text field' 1`] = `
+"WITH matched AS (
+  SELECT
+    "__id" AS "matched_id",
+    "__version" AS "old_version",
+    "col_name" AS "old_0"
+  FROM "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb"
+  WHERE "__id" = ANY(ARRAY['rec_001', 'rec_002'])
+)
+UPDATE "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" AS t
+SET "col_name" = CASE WHEN v."__has_0" THEN v."col_name" ELSE t."col_name" END, "__last_modified_time" = v."__last_modified_time", "__last_modified_by" = v."__last_modified_by", "__version" = t."__version" + 1
+FROM matched, (VALUES
+  ('rec_001', TRUE, 'Alice', '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test'),
+  ('rec_002', TRUE, 'Bob', '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test')
+) AS v("__id", "__has_0", "col_name", "__last_modified_time", "__last_modified_by")
+WHERE t."__id" = v."__id"
+  AND t."__id" = matched."matched_id" AND ((v."__has_0" AND t."col_name" IS DISTINCT FROM v."col_name"))
+RETURNING t."__id" AS "record_id",
+  t."__version" AS "new_version",
+  matched."old_version" AS "old_version",
+  matched."old_0" AS "old_0""
+`;
+
+exports[`buildBatchUpdateSql > generates correct SQL for: 'sparse updates (different fields per …' 1`] = `
+"WITH matched AS (
+  SELECT
+    "__id" AS "matched_id",
+    "__version" AS "old_version",
+    "col_name" AS "old_0",
+    "col_age" AS "old_1"
+  FROM "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb"
+  WHERE "__id" = ANY(ARRAY['rec_201', 'rec_202'])
+)
+UPDATE "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" AS t
+SET "col_name" = CASE WHEN v."__has_0" THEN v."col_name" ELSE t."col_name" END, "col_age" = CASE WHEN v."__has_1" THEN v."col_age" ELSE t."col_age" END, "__last_modified_time" = v."__last_modified_time", "__last_modified_by" = v."__last_modified_by", "__version" = t."__version" + 1
+FROM matched, (VALUES
+  ('rec_201', TRUE, 'Alice', FALSE, NULL::double precision, '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test'),
+  ('rec_202', FALSE, NULL, TRUE, 30::double precision, '2025-01-17T00:00:00.000Z'::timestamptz, 'usr_test')
+) AS v("__id", "__has_0", "col_name", "__has_1", "col_age", "__last_modified_time", "__last_modified_by")
+WHERE t."__id" = v."__id"
+  AND t."__id" = matched."matched_id" AND ((v."__has_0" AND t."col_name" IS DISTINCT FROM v."col_name") OR (v."__has_1" AND t."col_age" IS DISTINCT FROM v."col_age"))
+RETURNING t."__id" AS "record_id",
+  t."__version" AS "new_version",
+  matched."old_version" AS "old_version",
+  matched."old_0" AS "old_0",
+  matched."old_1" AS "old_1""
+`;

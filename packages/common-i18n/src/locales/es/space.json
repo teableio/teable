@@ -1,4 +1,10 @@
 {
+  "crossSpace": {
+    "duplicateBaseTitle": "Aviso",
+    "duplicateBaseDescription": "Las referencias entre espacios no son compatibles. El duplicado se convertirá en un campo de texto de una sola línea.",
+    "affectedTableSuffix": "({{count}} campo(s))",
+    "convertAndDuplicate": "Convertir y duplicar"
+  },
   "initialSpaceName": "Espacio de {{name}}",
   "action": {
     "createBase": "Crear una base",
@@ -51,9 +57,16 @@
     "exportTips2": "Puedes importar el archivo .tea en espacio -> más -> importar",
     "exportTips3": "Los campos de relación entre bases se convertirán en texto de una sola línea.",
     "exportIncludeDataLabel": "Incluir registros",
-    "exportIncludeDataDescription": "Desactiva para exportar solo la estructura y la configuración.",
+    "exportIncludeDataDescription": "Exportar solo estructura y configuración al desactivar",
+    "exportTitle": "Exportar",
+    "exportDescription": "Exportar la base de datos actual a un archivo .tea, lo cual puede tardar un tiempo.",
+    "exportStartButton": "Iniciar exportación",
+    "exportSlowTip": "El volumen de datos es grande. La exportación puede tardar un rato. Puede salir temporalmente.",
+    "exportReadyDescription": "Por favor descargue el archivo .tea, {{importHint}}",
     "moveBaseSuccessTitle": "Movimiento exitoso",
-    "moveBaseSuccessDescription": "{{baseName}} ha sido movido exitosamente a {{spaceName}}"
+    "moveBaseSuccessDescription": "{{baseName}} ha sido movido exitosamente a {{spaceName}}",
+    "moveBaseCrossSpaceTitle": "Aviso",
+    "moveBaseCrossSpaceDataLossWarning": "Las referencias entre espacios no son compatibles. Los campos relacionados se convertirán en campos de texto. Esta acción no se puede deshacer."
   },
   "deleteSpaceModal": {
     "title": "Eliminar espacio",
@@ -66,10 +79,6 @@
     "title": "Bases compartidas",
     "description": "Todas las bases a las que me invitaron a unirme",
     "empty": "Aún no hay bases compartidas"
-  },
-  "trash": {
-    "spaceDescription": "Todos los espacios",
-    "baseDescription": "Todas las bases eliminadas en este espacio"
   },
   "integration": {
     "title": "Integración",
@@ -88,7 +97,28 @@
     "importing": "Importando",
     "importWayTip": "Haz clic o arrastra y suelta el archivo en esta área para subirlo",
     "baseImportTips": "Haz clic o arrastra y suelta el archivo .tea en esta área para subirlo",
-    "confirm": "Confirmar y continuar"
+    "confirm": "Confirmar y continuar",
+    "phase": {
+      "parsingStructure": "Parsing structure",
+      "creatingBase": "Creating base: {{detail}}",
+      "creatingTable": "Creating table: {{detail}}",
+      "creatingCommonFields": "Creating basic fields for {{table}}: {{fields}}",
+      "creatingButtonFields": "Creating button fields for {{table}}: {{fields}}",
+      "creatingFormulaFields": "Creating formula fields for {{table}}: {{fields}}",
+      "creatingLinkFields": "Creating link fields for {{table}}: {{fields}}",
+      "creatingLookupFields": "Creating lookup fields for {{table}}: {{fields}}",
+      "creatingTableViews": "Creating views for {{table}}: {{fields}}",
+      "creatingPlugins": "Creating plugins",
+      "creatingFolders": "Creating folders",
+      "creatingWorkflows": "Creating workflows",
+      "creatingApps": "Creating apps",
+      "creatingAuthorityMatrix": "Creating authority matrix",
+      "queuingAttachments": "Queuing attachment uploads",
+      "uploadingAppFiles": "Uploading app files",
+      "queuingDataImport": "Queuing data import",
+      "done": "Import completed",
+      "clickToView": "Haga clic para ver"
+    }
   },
   "template": {
     "title": "Plantilla",
@@ -117,8 +147,8 @@
     "empty": "No hay bases aún"
   },
   "publishBase": {
-    "title": "Publicar Base en la comunidad",
-    "description": "Publica la base con un clic, ¡la inspiración ya no es solitaria! Deja que más personas vean, usen y hagan Remix de tu creatividad, y construyan juntos un negocio más poderoso",
+    "title": "Publicar en el centro de plantillas",
+    "description": "¡Publica la base en el centro de plantillas con un clic! Deja que más personas vean, usen y hagan Remix de tu creatividad, y construyan juntos un negocio más poderoso",
     "infoTitle": "Información básica",
     "form": {
       "title": "Título",
@@ -133,7 +163,7 @@
       "descriptionPlaceholder": "Describe brevemente tu idea...",
       "titlePlaceholder": "Nombra tu trabajo..."
     },
-    "publishToCommunity": "Publicar en la comunidad",
+    "publishToCommunity": "Publicar en el centro de plantillas",
     "publish": "Publicar",
     "publishSuccess": "¡Publicación exitosa!",
     "previewTips": "Deja que el mundo vea tu trabajo",
@@ -141,7 +171,7 @@
     "unPublish": "Despublicar",
     "unPublishSuccess": "¡Base despublicada con éxito!",
     "unPublishConfirmTitle": "Confirmar despublicación",
-    "unPublishConfirmDescription": "¿Estás seguro de que deseas despublicar esta base? Ya no será visible en el centro de plantillas de la comunidad.",
+    "unPublishConfirmDescription": "¿Estás seguro de que deseas despublicar esta base? Ya no será visible en el centro de plantillas.",
     "usageCount": "Recuento de uso: ",
     "uploadCover": "Clic para subir imagen de portada",
     "changeCover": "Clic para cambiar portada",
@@ -155,6 +185,10 @@
     },
     "urlCopied": "¡URL copiada al portapapeles!",
     "urlCopiedForDiscord": "¡URL copiada al portapapeles! Puedes pegarla en Discord.",
+    "featuredLabel": "Featured",
+    "unfeaturedLabel": "Unfeatured",
+    "featuredTip": "Seleccionado oficialmente como destacado. Tu plantilla recibirá más exposición.",
+    "unfeaturedTip": "Aún no destacado. Sigue mejorando para tener la oportunidad de ser recomendado. Deja que más personas vean tu trabajo.",
     "publishSuccessDescription": "Comparte tu trabajo con el mundo",
     "shareWith": "Compartir con",
     "unpublishedApps": {

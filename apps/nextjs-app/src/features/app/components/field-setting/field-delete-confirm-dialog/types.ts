@@ -1,6 +1,3 @@
-import type { FieldType } from '@teable/core';
-import type { IPlanFieldDeleteVo } from '@teable/openapi';
-
 export interface FieldDeleteConfirmDialogProps {
   open: boolean;
   tableId: string;
@@ -8,19 +5,33 @@ export interface FieldDeleteConfirmDialogProps {
   onClose?: () => void;
 }
 
-export interface AffectedField {
+export type AffectedItemType = 'field' | 'workflow' | 'authorityMatrix' | 'view';
+
+export interface AffectedBaseSource {
   id: string;
   name: string;
-  type: FieldType;
-  tableName?: string;
+  icon?: string | null;
 }
 
-export interface DeleteAnalysis {
-  fieldNames: string[];
-  affectedFields: AffectedField[];
+export interface AffectedTableSource {
+  id: string;
+  name: string;
+  icon?: string | null;
+  base: AffectedBaseSource;
 }
 
-export type PlanData = {
-  fieldId: string;
-  data: IPlanFieldDeleteVo | null;
-};
+export interface AffectedWorkflowSource {
+  id: string;
+  name: string;
+  base: AffectedBaseSource;
+}
+
+export type AffectedItemSource = AffectedTableSource | AffectedWorkflowSource;
+
+export interface AffectedItem {
+  id: string;
+  name: string;
+  itemType: AffectedItemType;
+  type?: string;
+  source?: AffectedItemSource;
+}

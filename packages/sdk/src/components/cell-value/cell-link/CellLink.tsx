@@ -5,10 +5,11 @@ import type { ICellValue } from '../type';
 
 interface ICellLink extends ICellValue<ILinkCellValue | ILinkCellValue[]> {
   itemClassName?: string;
+  ellipsis?: boolean;
 }
 
 export const CellLink = (props: ICellLink) => {
-  const { value, className, style, itemClassName } = props;
+  const { value, className, style, itemClassName, ellipsis } = props;
 
   const innerValue = useMemo(() => {
     if (value == null || Array.isArray(value)) return value;
@@ -16,7 +17,14 @@ export const CellLink = (props: ICellLink) => {
   }, [value]);
 
   return (
-    <div className={cn('flex gap-1 flex-wrap', className)} style={style}>
+    <div
+      className={cn(
+        'flex gap-1',
+        ellipsis ? 'flex-nowrap overflow-hidden' : 'flex-wrap',
+        className
+      )}
+      style={style}
+    >
       {innerValue?.map((itemVal) => {
         const { id, title = 'Unnamed record' } = itemVal;
         return (

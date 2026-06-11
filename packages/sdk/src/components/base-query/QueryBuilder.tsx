@@ -303,7 +303,7 @@ const QueryBuilderContainer = forwardRef<
           variant={'outline'}
           onClick={() => onChange(undefined)}
         >
-          <X />
+          <X className="size-4 shrink-0" />
         </Button>
       )}
       <QueryFrom addButton={!fromType} maxDepth={maxDepth <= depth + 1} onClick={onFromChange}>

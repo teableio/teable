@@ -2,7 +2,6 @@ import type { SUPPORTEDTYPE } from '@teable/openapi';
 import { importTypeMap } from '@teable/openapi';
 import { useRef } from 'react';
 import { useDropArea } from 'react-use';
-import { transformTextFile2UTF8 } from './utils';
 
 interface IUploadProps {
   fileType: SUPPORTEDTYPE;
@@ -29,12 +28,11 @@ export const Trigger = (props: IUploadProps) => {
         multiple={false}
         autoComplete="off"
         tabIndex={-1}
-        onChange={async (e) => {
+        onChange={(e) => {
           onBeforeUpload?.();
           const files = (e.target.files && Array.from(e.target.files)) || null;
           if (files && files.length > 0) {
-            const utf8File = await transformTextFile2UTF8(files[0]);
-            onChange(utf8File);
+            onChange(files[0]);
           }
         }}
       ></input>

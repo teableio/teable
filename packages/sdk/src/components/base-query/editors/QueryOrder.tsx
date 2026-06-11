@@ -88,7 +88,7 @@ export const QueryOrder = (props: IQueryEditorProps<IBaseQueryOrderBy>) => {
                 onChange(newValue);
               }}
             >
-              <X />
+              <X className="size-4 shrink-0" />
             </Button>
           </div>
           <Error error={error[orderBy.column] ? t('baseQuery.error.invalidCol') : undefined} />
@@ -158,7 +158,7 @@ const SortFuncSelector = (props: { value?: SortFunc; onChange: (value: SortFunc)
   }, [t]);
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="h-7 flex-1 py-0 text-[13px]">
+      <SelectTrigger size="sm" className="flex-1 py-0 text-[13px]">
         <SelectValue placeholder={t('common.selectPlaceHolder')} />
       </SelectTrigger>
       <SelectContent>

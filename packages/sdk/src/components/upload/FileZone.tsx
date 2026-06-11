@@ -44,7 +44,7 @@ export const FileZone = (props: {
   useEffect(() => {
     if (boundRef.current) {
       requestAnimationFrame(() => {
-        boundRef.current?.focus();
+        boundRef.current?.focus({ preventScroll: true });
       });
     }
   }, []);

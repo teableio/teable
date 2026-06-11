@@ -1,4 +1,4 @@
-import type { ColumnDef } from '@tanstack/react-table';
+import type { ColumnDef, SortingState, OnChangeFn } from '@tanstack/react-table';
 import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { TableHeader, TableRow, TableHead, TableBody, TableCell, Table, cn } from '@teable/ui-lib';
 import { useCallback, useEffect, useRef } from 'react';
@@ -9,12 +9,25 @@ interface IInfiniteTableProps<T> {
   columns: ColumnDef<T>[];
   className?: string;
   fetchNextPage?: () => void;
+  sorting?: SortingState;
+  onSortingChange?: OnChangeFn<SortingState>;
+  emptyText?: string;
+  density?: 'default' | 'compact';
 }
 
 export const InfiniteTable = <T extends { [key: string]: unknown }>(
   props: IInfiniteTableProps<T>
 ) => {
-  const { rows, columns, className, fetchNextPage } = props;
+  const {
+    rows,
+    columns,
+    className,
+    fetchNextPage,
+    sorting,
+    onSortingChange,
+    emptyText,
+    density = 'default',
+  } = props;
 
   const { t } = useTranslation();
   const listRef = useRef<HTMLDivElement>(null);
@@ -23,6 +36,11 @@ export const InfiniteTable = <T extends { [key: string]: unknown }>(
     data: rows,
     columns,
     getCoreRowModel: getCoreRowModel(),
+    ...(onSortingChange && {
+      manualSorting: true,
+      onSortingChange,
+      state: { sorting },
+    }),
   });
 
   const fetchMoreOnBottomReached = useCallback(
@@ -43,18 +61,20 @@ export const InfiniteTable = <T extends { [key: string]: unknown }>(
     fetchMoreOnBottomReached(listRef.current);
   }, [fetchMoreOnBottomReached]);
 
+  const cellPaddingClass = density === 'compact' ? 'px-2.5' : 'px-4';
+
   return (
     <div
       ref={listRef}
-      className={cn('relative size-full overflow-auto px-2', className)}
+      className={cn('relative size-full overflow-auto', className)}
       onScroll={(e) => fetchMoreOnBottomReached(e.target as HTMLDivElement)}
     >
-      <Table className="relative scroll-smooth">
-        <TableHeader className="sticky top-0 z-10 bg-background">
+      <Table className="relative w-full scroll-smooth">
+        <TableHeader className="sticky top-0 z-10 bg-muted">
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow
               key={headerGroup.id}
-              className="flex h-10 bg-background text-[13px] hover:bg-background"
+              className="flex h-10 bg-muted text-[13px] hover:bg-muted"
             >
               {headerGroup.headers.map((header) => {
                 const width = header.getSize();
@@ -62,13 +82,19 @@ export const InfiniteTable = <T extends { [key: string]: unknown }>(
                 return (
                   <TableHead
                     key={header.id}
-                    className={cn('flex items-center px-0', isAutoSize && 'flex-1')}
+                    className={cn(
+                      'flex items-center',
+                      cellPaddingClass,
+                      isAutoSize ? 'min-w-0 flex-1' : 'truncate'
+                    )}
                     style={{
                       minWidth: header.column.columnDef.minSize,
                       width: isAutoSize ? undefined : width,
                     }}
                   >
-                    {flexRender(header.column.columnDef.header, header.getContext())}
+                    <span className="truncate">
+                      {flexRender(header.column.columnDef.header, header.getContext())}
+                    </span>
                   </TableHead>
                 );
               })}
@@ -86,8 +112,9 @@ export const InfiniteTable = <T extends { [key: string]: unknown }>(
                     <TableCell
                       key={cell.id}
                       className={cn(
-                        'flex min-h-[40px] items-center px-0 overflow-hidden',
-                        isAutoSize && 'flex-1'
+                        'flex min-h-[40px] items-center overflow-hidden',
+                        cellPaddingClass,
+                        isAutoSize && 'min-w-0 flex-1'
                       )}
                       style={{
                         minWidth: cell.column.columnDef.minSize,
@@ -103,7 +130,7 @@ export const InfiniteTable = <T extends { [key: string]: unknown }>(
           ) : (
             <TableRow>
               <TableCell colSpan={columns.length} className="h-24 text-center">
-                {t('common.empty')}
+                {emptyText ?? t('common.empty')}
               </TableCell>
             </TableRow>
           )}

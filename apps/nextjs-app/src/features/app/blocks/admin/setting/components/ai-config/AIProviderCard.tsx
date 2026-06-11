@@ -1,20 +1,23 @@
-import type { IAIIntegrationConfig } from '@teable/openapi';
 import type {
+  IAIIntegrationConfig,
   IChatModelAbility,
   IImageModelAbility,
   ITestLLMRo,
   ITestLLMVo,
   LLMProvider,
-} from '@teable/openapi/src/admin/setting';
+} from '@teable/openapi';
 import {
   Card,
   CardContent,
+  CardHeader,
   FormControl,
   FormField,
   FormItem,
   FormMessage,
 } from '@teable/ui-lib/shadcn';
+import type { ReactNode } from 'react';
 import type { Control } from 'react-hook-form';
+import type { ProviderNameMode } from './LlmProviderForm';
 import type { IModelTestResult } from './LlmproviderManage';
 import { LLMProviderManage } from './LlmproviderManage';
 
@@ -37,6 +40,11 @@ interface IAIProviderCardProps {
     ability: IChatModelAbility | undefined,
     imageAbility: IImageModelAbility | undefined
   ) => void;
+  /** Optional header title */
+  title?: string;
+  /** Optional header actions (e.g., BatchTestModels) */
+  headerActions?: ReactNode;
+  providerNameMode?: ProviderNameMode;
 }
 
 export const AIProviderCard = ({
@@ -51,10 +59,19 @@ export const AIProviderCard = ({
   testingModels,
   hideModelRates,
   onSaveTestResult,
+  title,
+  headerActions,
+  providerNameMode,
 }: IAIProviderCardProps) => {
   return (
-    <Card className="pt-4 shadow-sm">
-      <CardContent className="p-4 pt-0">
+    <Card className="shadow-sm">
+      {(title || headerActions) && (
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 pb-0 pt-4">
+          {title && <div className="text-sm font-semibold">{title}</div>}
+          {headerActions}
+        </CardHeader>
+      )}
+      <CardContent className="p-4">
         <FormField
           control={control}
           name="llmProviders"
@@ -73,6 +90,7 @@ export const AIProviderCard = ({
                   testingModels={testingModels}
                   hideModelRates={hideModelRates}
                   onSaveTestResult={onSaveTestResult}
+                  providerNameMode={providerNameMode}
                 />
               </FormControl>
               <FormMessage />

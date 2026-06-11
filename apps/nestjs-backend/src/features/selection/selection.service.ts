@@ -27,6 +27,13 @@ import {
   stringifyClipboardText,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import {
+  IdReturnType,
+  RangeType,
+  UpdateRecordAction,
+  CreateRecordAction,
+  ICreateRecordsRo,
+} from '@teable/openapi';
 import type {
   IUpdateRecordsRo,
   IRangesToIdQuery,
@@ -36,9 +43,7 @@ import type {
   IRangesRo,
   IDeleteVo,
   ITemporaryPasteVo,
-  ICreateRecordsRo,
 } from '@teable/openapi';
-import { IdReturnType, RangeType, UpdateRecordAction, CreateRecordAction } from '@teable/openapi';
 import { difference, pick } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
@@ -48,6 +53,8 @@ import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
 import { IAggregationService } from '../aggregation/aggregation.service.interface';
 import { InjectAggregationService } from '../aggregation/aggregation.service.provider';
+import { AuditScope } from '../audit/audit-scope';
+import { Audit } from '../audit/audit.decorator';
 import { FieldCreatingService } from '../field/field-calculate/field-creating.service';
 import { FieldSupplementService } from '../field/field-calculate/field-supplement.service';
 import { FieldService } from '../field/field.service';
@@ -55,7 +62,7 @@ import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByVo } from '../field/model/factory';
 import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
 import { RecordService } from '../record/record.service';
-import type { IUpdateRecordsInternalRo } from '../record/type';
+import { IUpdateRecordsInternalRo } from '../record/type';
 
 @Injectable()
 export class SelectionService {
@@ -69,7 +76,8 @@ export class SelectionService {
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly eventEmitterService: EventEmitterService,
     private readonly cls: ClsService<IClsStore>,
-    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
+    private readonly audit: AuditScope
   ) {}
 
   async getIdsFromRanges(tableId: string, query: IRangesToIdQuery): Promise<IRangesToIdVo> {
@@ -164,9 +172,7 @@ export class SelectionService {
         recordIds = recordIds.concat(result.ids);
       }
 
-      return ranges.reduce<string[]>((acc, range) => {
-        return acc.concat(recordIds.slice(range[0], range[1] + 1));
-      }, []);
+      return recordIds;
     }
 
     const [start, end] = ranges;
@@ -511,6 +517,61 @@ export class SelectionService {
     return records;
   }
 
+  private getFirstCopiedDateValue(sourceField: IFieldInstance, cellValue: unknown) {
+    if (Array.isArray(cellValue)) {
+      return cellValue[0];
+    }
+
+    if (typeof cellValue !== 'string' || !sourceField.isMultipleCellValue) {
+      return cellValue;
+    }
+
+    const segments = cellValue
+      .split(',')
+      .map((segment) => segment.trim())
+      .filter(Boolean);
+
+    if (segments.length <= 1) {
+      return cellValue;
+    }
+
+    const parserField = createFieldInstanceByVo({
+      ...(pick(
+        sourceField,
+        'id',
+        'dbFieldName',
+        'name',
+        'type',
+        'description',
+        'options',
+        'meta',
+        'aiConfig',
+        'notNull',
+        'unique',
+        'isPrimary',
+        'isPending',
+        'hasError',
+        'cellValueType',
+        'dbFieldType'
+      ) as IFieldVo),
+      isComputed: false,
+      isLookup: false,
+      isConditionalLookup: false,
+      isMultipleCellValue: false,
+    });
+
+    let candidate = '';
+    for (const segment of segments) {
+      candidate = candidate ? `${candidate}, ${segment}` : segment;
+      const parsed = parserField.convertStringToCellValue(candidate);
+      if (parsed != null) {
+        return parsed;
+      }
+    }
+
+    return segments[0];
+  }
+
   private cellValueToRecords({
     tableData,
     fields,
@@ -552,9 +613,7 @@ export class SelectionService {
           case FieldType.Date:
             recordField[field.id] =
               sourceField.type === FieldType.Date
-                ? Array.isArray(cellValue)
-                  ? cellValue[0]
-                  : cellValue
+                ? this.getFirstCopiedDateValue(sourceField, cellValue)
                 : sourceField.cellValue2String(cellValue);
             break;
           case FieldType.Link: {
@@ -759,6 +818,7 @@ export class SelectionService {
       windowId?: string;
     } = {}
   ) {
+    const effectiveWindowId = windowId ?? this.cls.get('windowId');
     const { content, header, ...rangesRo } = pasteRo;
     const { ranges, type, ...queryRo } = rangesRo;
     const { viewId } = queryRo;
@@ -871,18 +931,8 @@ export class SelectionService {
               ...maybeInternal,
               fieldIds: updateFieldIds,
             };
-      const { cellContexts } = await this.recordOpenApiService.updateRecords(
-        tableId,
-        updateRecordsPayload
-      );
-
-      if (updateRecordsPayload?.records?.length) {
-        await this.emitPasteSelectionAuditLog(
-          UpdateRecordAction.PasteRecord,
-          tableId,
-          updateRecordsPayload?.records?.length
-        );
-      }
+      const updateResult = await this.runPasteUpdate(tableId, updateRecordsPayload);
+      const { cellContexts } = updateResult;
 
       let newRecords: IRecord[] | undefined;
       // create record
@@ -896,16 +946,10 @@ export class SelectionService {
         const filteredCreateRecordsRo = permissionFilter
           ? await permissionFilter('create', createRecordsRo, newFields)
           : createRecordsRo;
-        this.cls.set('skipRecordAuditLog', true);
-        newRecords = (
-          await this.recordOpenApiService.createRecords(tableId, filteredCreateRecordsRo, undefined)
-        ).records;
+        newRecords = await this.runPasteCreate(tableId, filteredCreateRecordsRo);
       }
 
-      updateRange[1] = [
-        col + updateFields.length - 1 + newFields.length,
-        row + updateFields.length - 1 + (newRecords?.length ?? 0),
-      ];
+      updateRange[1] = [col + updateFields.length - 1, row + tableRowCount - 1];
       return {
         updateRecords: {
           cellContexts,
@@ -916,24 +960,15 @@ export class SelectionService {
       };
     });
 
-    if (windowId) {
+    if (effectiveWindowId) {
       this.eventEmitterService.emitAsync(Events.OPERATION_PASTE_SELECTION, {
-        windowId,
+        windowId: effectiveWindowId,
         userId: this.cls.get('user.id'),
         tableId,
         updateRecords,
         newFields,
         newRecords,
       });
-    }
-
-    if (newRecords?.length) {
-      // Emit audit log for paste operation
-      await this.emitPasteSelectionAuditLog(
-        CreateRecordAction.RecordPaste,
-        tableId,
-        newRecords?.length
-      );
     }
 
     return updateRange;
@@ -998,23 +1033,29 @@ export class SelectionService {
     return { ids: filteredRecordIds };
   }
 
-  private async emitPasteSelectionAuditLog(
-    action: UpdateRecordAction | CreateRecordAction,
-    tableId: string,
-    newRecordLength?: number
-  ) {
-    const userId = this.cls.get('user.id');
-    const origin = this.cls.get('origin');
-    this.cls.set('skipRecordAuditLog', true);
+  /**
+   * Paste-update phase. Opens an audit operation only when there are actually rows to
+   * update (action function returns undefined to skip the scope otherwise).
+   */
+  @Audit({
+    rootAction: (_tableId: string, payload: IUpdateRecordsInternalRo | undefined) =>
+      payload?.records?.length ? UpdateRecordAction.PasteRecord : undefined,
+    resourceId: (tableId: string) => tableId,
+  })
+  private async runPasteUpdate(tableId: string, payload: IUpdateRecordsInternalRo) {
+    return this.recordOpenApiService.updateRecords(tableId, payload);
+  }
 
-    await this.cls.run(async () => {
-      this.cls.set('origin', origin!);
-      this.cls.set('user.id', userId);
-      await this.eventEmitterService.emitAsync(Events.TABLE_RECORD_CREATE_RELATIVE, {
-        action,
-        resourceId: tableId,
-        recordCount: newRecordLength ?? 0,
-      });
-    });
+  /**
+   * Paste-create phase. The caller only invokes this when there are new rows to add,
+   * so the operation is always opened (no conditional action).
+   */
+  @Audit({
+    rootAction: CreateRecordAction.RecordPaste,
+    resourceId: (tableId: string) => tableId,
+  })
+  private async runPasteCreate(tableId: string, ro: ICreateRecordsRo): Promise<IRecord[]> {
+    const result = await this.recordOpenApiService.createRecords(tableId, ro, undefined);
+    return result.records;
   }
 }

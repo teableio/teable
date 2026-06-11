@@ -35,6 +35,8 @@ export class OAuthTxStore {
         clientId: txnStore.clientId,
         redirectUri: txnStore.redirectURI,
         scopes: txnStore.scopes,
+        codeChallenge: txnStore.codeChallenge,
+        codeChallengeMethod: txnStore.codeChallengeMethod as 'S256',
       },
       req: {
         clientID: txnStore.clientId,
@@ -62,16 +64,17 @@ export class OAuthTxStore {
   ) {
     const transactionID = getRandomString(16);
     const { redirectURI, client } = txn;
-
     await this.cacheService.set(
       `oauth:txn:${transactionID}`,
       {
         clientId: client.clientId,
         redirectURI,
         type: txn.req.type,
-        scopes: txn.client.scopes,
+        scopes: client.scopes,
         state: txn.req.state,
         userId: (req.user as IUserMeVo).id,
+        codeChallenge: client.codeChallenge,
+        codeChallengeMethod: client.codeChallengeMethod,
       },
       this.oauth2Config.transactionExpireIn
     );

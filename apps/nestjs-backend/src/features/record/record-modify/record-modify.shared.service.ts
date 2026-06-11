@@ -48,6 +48,14 @@ export class RecordModifySharedService {
     private readonly dataLoaderService: DataLoaderService
   ) {}
 
+  private buildMissingFieldsMessage(missedFields: string[]): string {
+    if (missedFields.length === 1) {
+      return `Field "${missedFields[0]}" does not exist in this table`;
+    }
+
+    return `Fields ${missedFields.map((field) => `"${field}"`).join(', ')} do not exist in this table`;
+  }
+
   // Shared change compression and filtering utilities
   compressAndFilterChanges(table: TableDomain, cellContexts: ICellContext[]): ICellChange[] {
     if (!cellContexts.length) return [];
@@ -95,6 +103,7 @@ export class RecordModifySharedService {
 
     const usedFieldIdsOrNames = Array.from(fieldIdsOrNamesSet);
     const fieldsMap = table.getFieldsMap(fieldKeyType);
+    const availableFieldKeys = Array.from(fieldsMap.keys());
 
     const usedFields = usedFieldIdsOrNames
       .map((fieldIdOrName) => fieldsMap.get(fieldIdOrName))
@@ -106,9 +115,12 @@ export class RecordModifySharedService {
         (fieldIdOrName) => !usedSet.has(fieldIdOrName)
       );
       throw new CustomHttpException(
-        `Field ${fieldKeyType}: ${missedFields.join(', ')} not found`,
+        this.buildMissingFieldsMessage(missedFields),
         HttpErrorCode.NOT_FOUND,
         {
+          fieldKeyType,
+          missedFields,
+          availableFieldKeys,
           localization: {
             i18nKey: 'httpErrors.field.fieldKeyTypeNotFound',
             context: {
@@ -261,7 +273,11 @@ export class RecordModifySharedService {
       tableId: table.id,
       dbTableName,
       itemLength: recordCount,
-      indexField: await this.viewService.getOrCreateViewIndexField(dbTableName, orderRo.viewId),
+      indexField: await this.viewService.getOrCreateViewIndexFieldForTable(
+        table.id,
+        dbTableName,
+        orderRo.viewId
+      ),
       orderRo,
       update: async (result) => {
         indexes = result;

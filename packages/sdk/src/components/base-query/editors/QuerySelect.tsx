@@ -94,7 +94,7 @@ export const QuerySelect = (props: IQueryEditorProps<IBaseQuerySelect[]>) => {
                       onChange?.(newV?.length ? newV : undefined);
                     }}
                   >
-                    <X />
+                    <X className="size-4 shrink-0" />
                   </Button>
                 </Badge>
               )) || t('common.selectPlaceHolder')}

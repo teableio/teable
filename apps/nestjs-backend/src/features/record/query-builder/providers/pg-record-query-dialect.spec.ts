@@ -16,13 +16,13 @@ describe('PgRecordQueryDialect#flattenLookupCteValue', () => {
     expect(result).toBeNull();
   });
 
-  it('keeps jsonb payloads when field is stored as json', () => {
+  it('normalizes json-stored lookup payloads with to_jsonb', () => {
     const sql = dialect.flattenLookupCteValue('cte_lookup', 'fld_json', true, DbFieldType.Json);
-    expect(sql).toContain('"cte_lookup"."lookup_fld_json"::jsonb');
-    expect(sql).not.toContain('to_jsonb("cte_lookup"."lookup_fld_json")');
+    expect(sql).toContain('to_jsonb("cte_lookup"."lookup_fld_json")');
+    expect(sql).not.toContain('"cte_lookup"."lookup_fld_json"::jsonb');
   });
 
-  it('wraps scalar payloads with to_jsonb for non-json fields', () => {
+  it('normalizes scalar lookup payloads with to_jsonb', () => {
     const sql = dialect.flattenLookupCteValue('cte_lookup', 'fld_scalar', true, DbFieldType.Text);
     expect(sql).toContain('to_jsonb("cte_lookup"."lookup_fld_scalar")');
   });
@@ -43,5 +43,23 @@ describe('PgRecordQueryDialect#linkExtractTitles', () => {
     const sql = dialect.linkExtractTitles('"cte"."link_value"', true);
     expect(sql).toContain('jsonb_array_elements("cte"."link_value"::jsonb)');
     expect(sql).not.toContain('pg_typeof');
+  });
+});
+
+describe('PgRecordQueryDialect#coerceToNumericForCompare', () => {
+  const dialect = new PgRecordQueryDialect({} as unknown as Knex);
+
+  it('keeps trusted numeric literals as direct numeric casts', () => {
+    const sql = dialect.coerceToNumericForCompare('39.93');
+    expect(sql).toBe('(39.93)::numeric');
+  });
+
+  it('guards malformed sanitized text before numeric cast', () => {
+    const sql = dialect.coerceToNumericForCompare('"t"."DisplayPrice"');
+    expect(sql).toContain("REGEXP_REPLACE(((\"t\".\"DisplayPrice\")::text), '[^0-9.+-]', '', 'g')");
+    expect(sql).toContain("~ '^[+-]{0,1}(\\d+(\\.\\d+){0,1}|\\.\\d+)$'");
+    expect(sql).toContain('THEN NULLIF(');
+    expect(sql).toContain('::numeric');
+    expect(sql).toContain('ELSE NULL');
   });
 });

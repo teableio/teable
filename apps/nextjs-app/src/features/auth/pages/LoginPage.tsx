@@ -3,13 +3,14 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { NextSeo } from 'next-seo';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { TeableLogo } from '@/components/TeableLogo';
 import { useAutoFavicon } from '@/features/app/hooks/useAutoFavicon';
 import { useBrand } from '@/features/app/hooks/useBrand';
 import { useEnv } from '@/features/app/hooks/useEnv';
 import { useInitializationZodI18n } from '@/features/app/hooks/useInitializationZodI18n';
 import { authConfig } from '@/features/i18n/auth.config';
+import { isValidRedirectPath } from '@/lib/isValidRedirectPath';
 import { DescContent } from '../components/DescContent';
 import { SignForm } from '../components/SignForm';
 import { SocialAuth } from '../components/SocialAuth';
@@ -27,8 +28,18 @@ export const LoginPage = (props: { children?: React.ReactNode | React.ReactNode[
   const signType = router.pathname.endsWith('/signup') ? 'signup' : 'signin';
   const { passwordLoginDisabled } = useEnv();
   const disallowSignUp = useDisallowSignUp();
+  const hasInvitationRedirect = useMemo(() => {
+    try {
+      const base =
+        typeof window !== 'undefined' ? window.location.origin : 'http://placeholder.local';
+      const url = new URL(redirect, base);
+      return url.searchParams.has('invitationId') && url.searchParams.has('invitationCode');
+    } catch {
+      return false;
+    }
+  }, [redirect]);
   const onSuccess = useCallback(() => {
-    if (redirect) {
+    if (redirect && isValidRedirectPath(redirect)) {
       router.push(redirect);
     } else {
       router.push({
@@ -54,7 +65,7 @@ export const LoginPage = (props: { children?: React.ReactNode | React.ReactNode[
                 <Link href={{ pathname: '/auth/login', query: { ...router.query } }} shallow>
                   <TabsTrigger value="signin">{t('auth:button.signin')}</TabsTrigger>
                 </Link>
-                {!disallowSignUp && (
+                {(!disallowSignUp || hasInvitationRedirect) && (
                   <Link href={{ pathname: '/auth/signup', query: { ...router.query } }} shallow>
                     <TabsTrigger value="signup">{t('auth:button.signup')}</TabsTrigger>
                   </Link>

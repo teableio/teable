@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/no-duplicate-string */
 import { readFile } from 'fs/promises';
 import { join, resolve } from 'path';
@@ -10,6 +11,7 @@ import type {
   IChatModelAbility,
   IAbilityDetail,
   ISettingVo,
+  IPublicSettingVo,
   ITestLLMRo,
   ITestLLMVo,
   IBatchTestLLMRo,
@@ -18,25 +20,47 @@ import type {
   LLMProvider,
   ITestApiKeyRo,
   ITestApiKeyVo,
+  ITestPublicAccessVo,
   GatewayModelType,
   GatewayModelTag,
   GatewayModelProvider,
+  IImageSize,
+  IAIConfig,
+  IAppConfig,
+  IUpdateAiConfigRo,
+  IUpdateAiConfigVo,
+  IUpdateAppConfigRo,
+  IUpdateAppConfigVo,
 } from '@teable/openapi';
-import { chatModelAbilityType, UploadType, LLMProviderType } from '@teable/openapi';
-import { createGateway, generateText, tool, experimental_generateImage } from 'ai';
+import {
+  chatModelAbilityType,
+  DEFAULT_REALTIME_TRANSCRIPTION_MAX_SESSION_DURATION_SEC,
+  DEFAULT_REALTIME_TRANSCRIPTION_MODEL,
+  getImageModelConfig,
+  getImageModelConfigByGatewayId,
+  UploadType,
+  LLMProviderType,
+  resolveOpenAIRealtimeEndpoints,
+  SettingKey,
+} from '@teable/openapi';
+import { createGateway, generateText, tool, generateImage } from 'ai';
 import type { LanguageModel, TextPart, FilePart } from 'ai';
 import axios from 'axios';
 import { uniq } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { z } from 'zod';
 import { BaseConfig, IBaseConfig } from '../../../configs/base.config';
+import { type IStorageConfig, StorageConfig } from '../../../configs/storage';
 import { CustomHttpException } from '../../../custom.exception';
 import type { IClsStore } from '../../../types/cls';
+import { resolveBuildVersion } from '../../../utils/build-version';
+import { INSTANCE_PROVIDER_NAME } from '../../ai/ai.service';
 import { getAdaptedProviderOptions, modelProviders } from '../../ai/util';
 import { AttachmentsStorageService } from '../../attachments/attachments-storage.service';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { getPublicFullStorageUrl } from '../../attachments/plugins/utils';
+import { EMAIL_LOGO_TOKEN } from '../../builtin-assets-init';
 import { verifyTransport } from '../../mail-sender/mail-helpers';
 import { SettingService } from '../setting.service';
 
@@ -50,6 +74,27 @@ const testImagePath = 'static/test/test-image.png';
 const testPdfPath = 'static/test/test-pdf.pdf';
 // Expected letter in test files - use uppercase K for stricter matching
 const expectedLetter = 'k';
+const clearUndefinedPatchValues = <T extends Record<string, unknown>>(patch: T): Partial<T> => {
+  return Object.fromEntries(
+    Object.entries(patch)
+      .filter(([, value]) => value !== undefined)
+      .map(([key, value]) => [key, value === null ? undefined : value])
+  ) as Partial<T>;
+};
+
+const hasRealtimeClientSecret = (value: unknown): boolean => {
+  if (!value || typeof value !== 'object') return false;
+  const data = value as {
+    value?: unknown;
+    client_secret?: { value?: unknown };
+    session?: { client_secret?: { value?: unknown } };
+  };
+  return Boolean(
+    typeof data.value === 'string'
+      ? data.value
+      : data.client_secret?.value || data.session?.client_secret?.value
+  );
+};
 
 @Injectable()
 export class SettingOpenApiService {
@@ -58,6 +103,7 @@ export class SettingOpenApiService {
   constructor(
     private readonly prismaService: PrismaService,
     @BaseConfig() private readonly baseConfig: IBaseConfig,
+    @StorageConfig() private readonly storageConfig: IStorageConfig,
     @InjectStorageAdapter() readonly storageAdapter: StorageAdapter,
     private readonly cls: ClsService<IClsStore>,
     private readonly settingService: SettingService,
@@ -69,13 +115,151 @@ export class SettingOpenApiService {
   }
 
   async updateSetting(updateSettingRo: Partial<ISettingVo>): Promise<ISettingVo> {
+    // Instance providers must use "teable" as name so modelKeys end with @teable,
+    // allowing a simple suffix check to distinguish instance vs BYOK models.
+    if (updateSettingRo.aiConfig) {
+      this.normalizeInstanceProviderNames(updateSettingRo.aiConfig as Record<string, unknown>);
+    }
     return this.settingService.updateSetting(updateSettingRo);
   }
 
+  async updateAiConfig(updateAiConfigRo: IUpdateAiConfigRo): Promise<IUpdateAiConfigVo> {
+    const { aiConfig } = await this.settingService.getSetting([SettingKey.AI_CONFIG]);
+    const patch = clearUndefinedPatchValues(updateAiConfigRo.patch);
+    const nextAiConfig = {
+      ...(aiConfig ?? {}),
+      ...patch,
+    } as IAIConfig;
+
+    this.normalizeInstanceProviderNames(nextAiConfig as Record<string, unknown>);
+
+    await this.settingService.updateSetting({
+      [SettingKey.AI_CONFIG]: nextAiConfig,
+    } as Partial<ISettingVo>);
+
+    return {
+      aiConfig: Object.fromEntries(
+        Object.keys(patch).map((key) => [key, nextAiConfig[key as keyof IAIConfig]])
+      ) as Partial<IAIConfig>,
+    };
+  }
+
+  async updateAppConfig(updateAppConfigRo: IUpdateAppConfigRo): Promise<IUpdateAppConfigVo> {
+    const { appConfig } = await this.settingService.getSetting([SettingKey.APP_CONFIG]);
+    const patch = clearUndefinedPatchValues(updateAppConfigRo.patch);
+    const nextAppConfig = {
+      ...(appConfig ?? {}),
+      ...patch,
+    } as IAppConfig;
+
+    await this.settingService.updateSetting({
+      [SettingKey.APP_CONFIG]: nextAppConfig,
+    } as Partial<ISettingVo>);
+
+    return {
+      appConfig: Object.fromEntries(
+        Object.keys(patch).map((key) => [key, nextAppConfig[key as keyof IAppConfig]])
+      ) as Partial<IAppConfig>,
+    };
+  }
+
+  /**
+   * Rewrite all provider names to "teable" and update chatModel keys accordingly.
+   * Admin-configured providers are always instance-level; the @teable suffix
+   * lets the rest of the system distinguish them from BYOK (space-level) providers.
+   */
+  private normalizeInstanceProviderNames(aiConfig: Record<string, unknown>): void {
+    const name = INSTANCE_PROVIDER_NAME;
+    const providers = aiConfig.llmProviders as Array<Record<string, unknown>> | undefined;
+    if (providers) {
+      for (const provider of providers) {
+        provider.name = name;
+      }
+    }
+    const chatModel = aiConfig.chatModel as Record<string, string | undefined> | undefined;
+    if (chatModel) {
+      for (const tier of ['lg', 'md', 'sm']) {
+        const key = chatModel[tier];
+        if (key && key.includes('@')) {
+          const parts = key.split('@');
+          parts[parts.length - 1] = name;
+          chatModel[tier] = parts.join('@');
+        }
+      }
+    }
+  }
+
   async getServerBrand(): Promise<{ brandName: string; brandLogo: string }> {
+    const logoPath = join(StorageAdapter.getDir(UploadType.Logo), EMAIL_LOGO_TOKEN);
     return {
       brandName: 'Teable',
-      brandLogo: `${this.baseConfig.publicOrigin}/images/favicon/apple-touch-icon.png`,
+      brandLogo: getPublicFullStorageUrl(logoPath),
+    };
+  }
+
+  /**
+   * Returns the core public setting (without controller-only fields like turnstile/threshold).
+   * Overridable in EE to append platform-specific providers (e.g. Slack from DB config).
+   */
+  async getPublicSetting(): Promise<
+    Omit<
+      IPublicSettingVo,
+      | 'turnstileSiteKey'
+      | 'changeEmailSendCodeMailRate'
+      | 'resetPasswordSendMailRate'
+      | 'signupVerificationSendCodeMailRate'
+    >
+  > {
+    const setting = await this.getSetting([
+      SettingKey.INSTANCE_ID,
+      SettingKey.BRAND_NAME,
+      SettingKey.BRAND_LOGO,
+      SettingKey.DISALLOW_SIGN_UP,
+      SettingKey.DISALLOW_SPACE_CREATION,
+      SettingKey.DISALLOW_SPACE_INVITATION,
+      SettingKey.DISALLOW_DASHBOARD,
+      SettingKey.ENABLE_EMAIL_VERIFICATION,
+      SettingKey.ENABLE_WAITLIST,
+      SettingKey.ENABLE_CREDIT_REWARD,
+      SettingKey.AI_CONFIG,
+      SettingKey.APP_CONFIG,
+    ]);
+    const { aiConfig, appConfig, enableCreditReward, ...rest } = setting;
+
+    const availableIntegrationProviders: string[] = [
+      ...(process.env.GMAIL_CLIENT_ID ? ['gmail'] : []),
+      ...(process.env.OUTLOOK_CLIENT_ID ? ['outlook'] : []),
+    ];
+
+    return {
+      ...rest,
+      enableCreditReward: enableCreditReward ?? undefined,
+      aiConfig: {
+        enable: Boolean(aiConfig?.chatModel?.lg),
+        llmProviders:
+          aiConfig?.llmProviders?.map((provider) => ({
+            type: provider.type,
+            name: provider.name,
+            models: provider.models,
+            isInstance: true,
+            modelConfigs: provider.modelConfigs,
+          })) ?? [],
+        chatModel: aiConfig?.chatModel ?? undefined,
+        capabilities: aiConfig?.capabilities,
+        gatewayModels: aiConfig?.gatewayModels,
+        voiceInput: {
+          enabled: Boolean(
+            (aiConfig?.realtimeTranscription?.enabled ?? true) &&
+              (aiConfig?.realtimeTranscription?.apiKey || process.env.OPENAI_REALTIME_API_KEY)
+          ),
+          model: aiConfig?.realtimeTranscription?.model ?? DEFAULT_REALTIME_TRANSCRIPTION_MODEL,
+          maxSessionDurationSec:
+            aiConfig?.realtimeTranscription?.maxSessionDurationSec ??
+            DEFAULT_REALTIME_TRANSCRIPTION_MAX_SESSION_DURATION_SEC,
+        },
+      },
+      appGenerationEnabled: Boolean(appConfig?.vercelToken),
+      availableIntegrationProviders,
     };
   }
 
@@ -229,18 +413,27 @@ export class SettingOpenApiService {
   }
 
   /**
+   * Get test file buffer
+   */
+  private async getTestFileBuffer(filePath: string): Promise<Buffer | null> {
+    try {
+      const fullPath = resolve(process.cwd(), filePath);
+      return await readFile(fullPath);
+    } catch (error) {
+      this.logger.error(`Failed to read test file ${filePath}: ${error}`);
+      return null;
+    }
+  }
+
+  /**
    * Get base64 data URL for a test file
    */
   private async getTestFileBase64(filePath: string, contentType: string): Promise<string | null> {
-    try {
-      const fullPath = resolve(process.cwd(), filePath);
-      const fileBuffer = await readFile(fullPath);
-      const base64 = fileBuffer.toString('base64');
-      return `data:${contentType};base64,${base64}`;
-    } catch (error) {
-      this.logger.error(`Failed to read file for base64 ${filePath}: ${error}`);
-      return null;
-    }
+    const fileBuffer = await this.getTestFileBuffer(filePath);
+    if (!fileBuffer) return null;
+
+    const base64 = fileBuffer.toString('base64');
+    return `data:${contentType};base64,${base64}`;
   }
 
   /**
@@ -409,7 +602,7 @@ export class SettingOpenApiService {
 
         // Handle image generation model testing
         if (testImageGeneration) {
-          // Gemini image models via Gateway use generateText, not experimental_generateImage
+          // Gemini image models via Gateway use generateText, not generateImage
           throw new CustomHttpException(
             'Image generation testing not supported for AI Gateway models yet',
             HttpErrorCode.VALIDATION_ERROR
@@ -432,6 +625,11 @@ export class SettingOpenApiService {
         };
       }
 
+      const shouldTestImageGeneration = this.shouldTestImageGenerationModel(
+        type,
+        model,
+        testImageGeneration
+      );
       const provider = modelProviders[type as keyof typeof modelProviders];
       const providerOptions = getAdaptedProviderOptions(type, {
         name: model,
@@ -443,7 +641,7 @@ export class SettingOpenApiService {
       } as never) as OpenAIProvider;
 
       // Handle image generation model testing
-      if (testImageGeneration) {
+      if (shouldTestImageGeneration) {
         return await this.testImageGenerationModel(modelProvider, model, type, testImageToImage);
       }
 
@@ -475,6 +673,20 @@ export class SettingOpenApiService {
     }
   }
 
+  private shouldTestImageGenerationModel(
+    providerType: LLMProviderType,
+    model: string,
+    testImageGeneration?: boolean
+  ): boolean {
+    if (testImageGeneration != null) return testImageGeneration;
+
+    const config =
+      providerType === LLMProviderType.AI_GATEWAY
+        ? getImageModelConfigByGatewayId(model)
+        : getImageModelConfig(providerType, model);
+    return config?.modelType === 'image';
+  }
+
   private async testImageGenerationModel(
     modelProvider: OpenAIProvider,
     model: string,
@@ -487,33 +699,38 @@ export class SettingOpenApiService {
         return await this.testGoogleImageGeneration(modelProvider, model, testImageToImage);
       }
 
-      // OpenAI-style image generation (DALL-E, etc.)
-
+      // OpenAI-style image generation (DALL-E, GPT Image, etc.)
       const imageModel = modelProvider.image(model);
+      const size = this.getImageGenerationTestSize(providerType, model);
+      const sizeOptions = size ? { size } : {};
 
       if (testImageToImage) {
+        const testImageBuffer = await this.getTestFileBuffer(testImagePath);
+        if (!testImageBuffer) {
+          return {
+            success: false,
+            response: 'Test image file not found',
+          };
+        }
+
         // Test image-to-image: provide an image as input
         // Note: Not all image models support this, so we catch errors gracefully
-        const testImageUrl =
-          'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
-        await experimental_generateImage({
+        await generateImage({
           model: imageModel,
-          prompt: 'A simple test image',
-          n: 1,
-          size: '256x256',
-          providerOptions: {
-            openai: {
-              image: testImageUrl,
-            },
+          prompt: {
+            text: 'Create a very simple variation of this image.',
+            images: [testImageBuffer],
           },
+          n: 1,
+          ...sizeOptions,
         });
       } else {
         // Test basic text-to-image generation
-        await experimental_generateImage({
+        await generateImage({
           model: imageModel,
           prompt: 'A simple test: draw a small red circle',
           n: 1,
-          size: '256x256',
+          ...sizeOptions,
         });
       }
 
@@ -524,12 +741,22 @@ export class SettingOpenApiService {
           : 'Image generation successful',
       };
     } catch (error) {
+      this.logger.error('testImageGenerationModel Error', (error as Error)?.stack);
       const message = error instanceof Error ? error.message : 'Image generation failed';
       return {
         success: false,
         response: message,
       };
     }
+  }
+
+  private getImageGenerationTestSize(
+    providerType: LLMProviderType,
+    model: string
+  ): IImageSize | undefined {
+    const config = getImageModelConfig(providerType, model);
+    if (!config || config.modelType !== 'image') return undefined;
+    return config.defaultSize ?? config.supportedSizes?.[0];
   }
 
   /**
@@ -787,7 +1014,7 @@ export class SettingOpenApiService {
   }
 
   /**
-   * Test API key validity for AI Gateway or v0
+   * Test API key validity for AI Gateway
    * Optionally also tests attachment transfer modes (URL and Base64)
    * When testAttachment is true, results are automatically saved to appConfig
    */
@@ -814,11 +1041,110 @@ export class SettingOpenApiService {
         ...keyResult,
         attachmentTest: attachmentResult,
       };
-    } else if (type === 'v0') {
-      return this.testV0Key(apiKey, baseUrl);
+    } else if (type === 'vercel') {
+      return this.testVercelToken(apiKey, baseUrl);
+    } else if (type === 'realtimeTranscription') {
+      return this.testRealtimeTranscriptionKey(apiKey, baseUrl);
     }
 
     return { success: false, error: { code: 'unknown', message: 'Unknown API type' } };
+  }
+
+  private static readonly URL_CHECKER_ENDPOINT = 'https://access-checker.teable.ai/check';
+  private static readonly URL_CHECKER_KEY = 'teable-checker-sk-2026xYz9Kw3mN7pQ';
+
+  private getStorageTestFileUrl(): string | undefined {
+    const { provider } = this.storageConfig;
+    if (provider === 'local') {
+      return undefined;
+    }
+    const logoPath = join(StorageAdapter.getDir(UploadType.Logo), EMAIL_LOGO_TOKEN);
+    return getPublicFullStorageUrl(logoPath);
+  }
+
+  private async checkUrlAccessible(
+    url: string,
+    setting: { instanceId?: string; createdTime?: string | number | Date }
+  ): Promise<{
+    success: boolean;
+    statusCode?: number;
+    error?: string;
+    checkedFrom?: string;
+  }> {
+    const deployedAt = String(setting.createdTime || '');
+    const resp = await axios.get<{
+      success: boolean;
+      statusCode?: number;
+      latencyMs: number;
+      error?: string;
+      checkedFrom: string;
+    }>(SettingOpenApiService.URL_CHECKER_ENDPOINT, {
+      timeout: 20000,
+      params: {
+        url,
+        instanceId: setting.instanceId || '',
+        version: resolveBuildVersion(),
+        deployedAt,
+      },
+      headers: {
+        Authorization: `Bearer ${SettingOpenApiService.URL_CHECKER_KEY}`,
+      },
+    });
+    return resp.data;
+  }
+
+  private async checkStorageAccess(setting: {
+    instanceId?: string;
+    createdTime?: string | number | Date;
+  }): Promise<ITestPublicAccessVo['storageCheck']> {
+    const storageUrl = this.getStorageTestFileUrl();
+    if (!storageUrl) {
+      return undefined;
+    }
+
+    try {
+      const data = await this.checkUrlAccessible(storageUrl, setting);
+      if (data.success) {
+        return { success: true, storageUrl };
+      }
+      return {
+        success: false,
+        storageUrl,
+        error: data.error || `Not reachable (HTTP ${data.statusCode}) from ${data.checkedFrom}`,
+      };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Storage check failed';
+      this.logger.warn(`Storage access check failed: ${msg}`);
+      return { success: false, storageUrl, error: msg };
+    }
+  }
+
+  async testPublicAccess(): Promise<ITestPublicAccessVo> {
+    const publicOrigin = this.baseConfig.publicOrigin;
+
+    if (!publicOrigin) {
+      return { success: false, error: 'PUBLIC_ORIGIN not set' };
+    }
+
+    try {
+      const setting = await this.settingService.getSetting();
+
+      const originData = await this.checkUrlAccessible(`${publicOrigin}/health`, setting);
+      const originOk = originData.success;
+      const originError = originOk
+        ? undefined
+        : originData.error ||
+          `Not reachable (HTTP ${originData.statusCode}) from ${originData.checkedFrom}`;
+
+      const storageCheck = await this.checkStorageAccess(setting);
+      const allOk = originOk && (storageCheck?.success ?? true);
+
+      return { success: allOk, publicOrigin, error: originError, storageCheck };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Check failed';
+      this.logger.warn(`Public access check failed: ${message}`);
+      return { success: false, publicOrigin, error: message };
+    }
   }
 
   /**
@@ -956,6 +1282,64 @@ export class SettingOpenApiService {
     }
   }
 
+  private async testRealtimeTranscriptionKey(
+    apiKey: string,
+    endpoint?: string
+  ): Promise<ITestApiKeyVo> {
+    try {
+      const { clientSecretsUrl } = resolveOpenAIRealtimeEndpoints(endpoint);
+      const response = await fetch(clientSecretsUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          expires_after: {
+            anchor: 'created_at',
+            seconds: 10,
+          },
+          session: {
+            type: 'transcription',
+            audio: {
+              input: {
+                transcription: {
+                  model: DEFAULT_REALTIME_TRANSCRIPTION_MODEL,
+                },
+              },
+            },
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const detail = await response.text();
+        return this.parseApiKeyError(
+          {
+            status: response.status,
+            message: detail || response.statusText,
+          },
+          'OpenAI Realtime transcription'
+        );
+      }
+
+      const data = (await response.json()) as unknown;
+      if (!hasRealtimeClientSecret(data)) {
+        return {
+          success: false,
+          error: {
+            code: 'unknown',
+            message: 'OpenAI Realtime transcription response did not include a client secret',
+          },
+        };
+      }
+
+      return { success: true };
+    } catch (error) {
+      return this.parseApiKeyError(error, 'OpenAI Realtime transcription');
+    }
+  }
+
   private parseApiKeyError(error: unknown, service: string): ITestApiKeyVo {
     const errorMessage = String(error).toLowerCase();
     const rawMessage = String(error);
@@ -1037,59 +1421,34 @@ export class SettingOpenApiService {
     return 'unknown';
   }
 
-  private async testV0Key(apiKey: string, baseUrl?: string): Promise<ITestApiKeyVo> {
-    const url = `${baseUrl || 'https://api.v0.dev/v1'}/projects`;
+  private async testVercelToken(token: string, baseUrl?: string): Promise<ITestApiKeyVo> {
+    const apiBase = baseUrl || 'https://api.vercel.com';
 
+    const url = `${apiBase}/v2/user`;
     try {
-      await axios.get(url, {
-        headers: { Authorization: `Bearer ${apiKey}` },
-      });
+      await axios.get(url, { headers: { Authorization: `Bearer ${token}` } });
       return { success: true };
     } catch (error) {
       if (!axios.isAxiosError(error)) {
-        return this.parseApiKeyError(error, 'v0');
+        return this.parseApiKeyError(error, 'vercel');
       }
 
       const status = error.response?.status;
-      const data = error.response?.data as {
-        error?: { type?: string; code?: string; message?: string };
-      };
-      const detailedMessage = data?.error?.message || error.message;
+      const detailedMessage =
+        (error.response?.data as { error?: { message?: string } })?.error?.message || error.message;
 
-      this.logger.error('v0 key test failed: status=%s, message=%s', status, detailedMessage);
+      this.logger.error('Vercel token test failed: status=%s, message=%s', status, detailedMessage);
 
-      // No response = network error
       if (!error.response) {
         return { success: false, error: { code: 'network_error', message: detailedMessage } };
       }
 
-      const code = this.getV0ErrorCode(status, data, detailedMessage);
-      return { success: false, error: { code, message: detailedMessage } };
+      if (status === 401 || status === 403) {
+        return { success: false, error: { code: 'unauthorized', message: detailedMessage } };
+      }
+
+      return { success: false, error: { code: 'unknown', message: detailedMessage } };
     }
-  }
-
-  private getV0ErrorCode(
-    status: number | undefined,
-    data: { error?: { type?: string; code?: string; message?: string } } | undefined,
-    message: string
-  ): 'unauthorized' | 'forbidden' | 'insufficient_quota' | 'unknown' {
-    if (status === 401) return 'unauthorized';
-    if (status === 403) return 'forbidden';
-
-    const errorType = data?.error?.type?.toLowerCase() || '';
-    const errorCode = data?.error?.code?.toLowerCase() || '';
-    const errorMsg = message.toLowerCase();
-
-    if (
-      errorType.includes('insufficient') ||
-      errorCode.includes('insufficient') ||
-      errorMsg.includes('insufficient') ||
-      errorMsg.includes('quota')
-    ) {
-      return 'insufficient_quota';
-    }
-
-    return 'unknown';
   }
 
   /**
@@ -1109,7 +1468,7 @@ export class SettingOpenApiService {
       maxTokens?: number;
       created?: number;
       ownedBy?: GatewayModelProvider;
-      pricing?: Record<string, string>;
+      pricing?: Record<string, unknown>;
     }>;
   }> {
     // Check if gateway is configured

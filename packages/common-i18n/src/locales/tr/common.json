@@ -16,6 +16,7 @@
     "zoomIn": "Yakınlaştır",
     "zoomOut": "Uzaklaştır",
     "back": "Geri",
+    "download": "İndir",
     "remove": "Kaldır",
     "removeConfig": "Yapılandırmayı sil",
     "saveSucceed": "Başarıyla Kaydedildi!",
@@ -58,15 +59,20 @@
     "refresh": "Yenile",
     "login": "Giriş Yap",
     "useTemplate": "Şablon Kullan",
+    "copyToMySpace": "Copy to my space",
+    "saveToMySpace": "Save to my space",
+    "supportSaveCopy": "Support saving a copy",
     "backToSpace": "Alana Dön",
     "switchBase": "Veritabanı Değiştir",
     "continue": "Devam Et",
     "export": "Dışa Aktar",
     "import": "İçe Aktar",
-    "getMore": "Daha fazla al"
+    "getMore": "Daha fazla al",
+    "copySuccess": "Kopyalama başarılı",
+    "share": "Paylaş"
   },
   "quickAction": {
-    "title": "Hızlı İşlemler...",
+    "title": "Hızlı İşlemler",
     "placeHolder": "Bir komut yazın veya arayın..."
   },
   "password": {
@@ -91,7 +97,10 @@
     "createTemplate": "Şablon Oluştur",
     "useTemplateDialog": {
       "title": "Alan Seçin",
-      "description": "Şablon için bir alan seçin"
+      "description": "Şablon için bir alan seçin",
+      "noSpaceDescription": "You don't have any spaces yet. Create one to continue.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create"
     },
     "promptBox": {
       "placeholder": "Teable ile iş uygulamanızı oluşturun",
@@ -107,10 +116,129 @@
       }
     }
   },
+  "baseShare": {
+    "shareTitle": "Paylaş",
+    "shareToWeb": "Web'de paylaş",
+    "linkHolderLabel": "Bağlantıya sahip kişi",
+    "linkHolderCanView": "Görüntüleyebilir",
+    "linkHolderCanViewDesc": "Bağlantıya sahip herkes verileri görüntüleyebilir",
+    "linkHolderCanEdit": "Düzenleyebilir",
+    "linkHolderCanEditDesc": "Oturum açmış kullanıcılar tablodaki kayıtları düzenleyebilir",
+    "linkHolderCanCopyAndSave": "Kopya olarak kaydet",
+    "linkHolderCanCopyAndSaveDesc": "Bağlantıya sahip herkes kendi alanına bir kopya kaydedebilir",
+    "refreshLink": "Bağlantıyı yeniden oluştur",
+    "advanced": "Gelişmiş",
+    "allowCopyData": "Görüntüleyenlerin verileri kopyalamasına izin ver",
+    "restrictByPassword": "Şifre ile koru",
+    "embedConfig": "Yerleştirme yapılandırması",
+    "embedPreview": "Yerleştirme önizlemesi",
+    "copyCode": "Kodu kopyala",
+    "enterPassword": "Şifre girin",
+    "passwordTitle": "Şifre belirle",
+    "deleteConfirmTitle": "Paylaşım bağlantısını sil",
+    "deleteConfirmDescription": "Bu işlem geri alınamaz. Bu bağlantıya sahip kişiler artık paylaşılan tabana erişemeyecektir.",
+    "createSuccess": "Paylaşım bağlantısı oluşturuldu",
+    "createFailed": "Paylaşım bağlantısı oluşturulamadı",
+    "updateFailed": "Paylaşım ayarları güncellenemedi",
+    "deleteSuccess": "Paylaşım bağlantısı silindi",
+    "deleteFailed": "Paylaşım bağlantısı silinemedi",
+    "refreshSuccess": "Paylaşım bağlantısı yeniden oluşturuldu",
+    "refreshFailed": "Paylaşım bağlantısı yeniden oluşturulamadı"
+  },
+  "share": {
+    "copyToSpaceDialog": {
+      "title": "Alana kopyala",
+      "description": "Bu veritabanını kopyalamak için bir alan seçin",
+      "baseName": "Veritabanı adı",
+      "baseNamePlaceholder": "Veritabanı adını girin",
+      "selectSpace": "Alan seç",
+      "noSpaceDescription": "Yönetilebilir alan yok. Devam etmek için yeni bir alan oluşturun.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create",
+      "copyTarget": "Copy to",
+      "createNewBase": "New base",
+      "copyToExistingBase": "Existing base",
+      "selectBase": "Select base",
+      "selectBasePlaceholder": "Select a base",
+      "noBaseInSpace": "Bu alanda yönetilebilir veritabanı yok. \"Yeni veritabanı\"nı seçin."
+    }
+  },
   "settings": {
     "title": "Örnek Ayarları",
+    "allSetting": "Alan ve kişisel ayarlar",
     "personal": {
-      "title": "Kişisel ayarlar"
+      "title": "Kişisel"
+    },
+    "templateAdmin": {
+      "title": "Şablon yönetimi",
+      "noData": "Veri yok",
+      "importing": "İçe aktarılıyor...",
+      "usageCount": "Kullanım sayısı: {{count}}",
+      "useTemplate": "Bu şablonu kullan",
+      "createdBy": "{{user}} tarafından",
+      "backToTemplateList": "Şablon listesine dön",
+      "tips": {
+        "errorCategoryName": "Kategori mevcut değil veya silindi",
+        "needSnapshot": "Yayınlamadan önce bir anlık görüntü oluşturun, şablon adı ve açıklaması boş olamaz",
+        "needPublish": "Öne çıkan olarak ayarlamadan önce şablonu yayınlayın",
+        "needBaseSource": "Anlık görüntü oluşturmadan önce bir kaynak veritabanı seçin",
+        "forbiddenUpdateSystemTemplate": "Sistem şablonu değiştirilemez",
+        "addCategoryTips": "Lütfen önce arama kutusuna bir kategori adı girin.",
+        "categoryNamePlaceholder": "Kategori adını girin",
+        "duplicateCategoryName": "Kategori adı zaten mevcut"
+      },
+      "category": {
+        "menu": {
+          "getStarted": "Başlayın",
+          "recommended": "Önerilen",
+          "all": "Tümü",
+          "browseByCategory": "Kategoriye göre gözat"
+        }
+      },
+      "header": {
+        "cover": "Kapak",
+        "name": "Ad",
+        "description": "Açıklama",
+        "markdownDescription": "Markdown açıklaması",
+        "category": "Kategori",
+        "isSystem": "Sistem",
+        "source": "Kaynak",
+        "status": "Yayınlandı",
+        "publishSnapshot": "Anlık görüntü yayınla",
+        "snapshotTime": "Anlık görüntü zamanı",
+        "actions": "Eylemler",
+        "featured": "Öne çıkan",
+        "createdBy": "Oluşturan",
+        "userNonExistent": "Kullanıcı mevcut değil",
+        "preview": "Önizleme",
+        "usage": "Kullanım",
+        "visit": "Ziyaret"
+      },
+      "actions": {
+        "title": "Eylemler",
+        "publish": "Yayınla",
+        "delete": "Sil",
+        "duplicate": "Çoğalt",
+        "preview": "Önizleme",
+        "use": "Kullan",
+        "pinTop": "Üste sabitle",
+        "addCategory": "Kategori ekle",
+        "selectCategory": "Kategori seç",
+        "viewTemplate": "Şablonu görüntüle",
+        "manageCategory": "Kategorileri yönet"
+      },
+      "relatedTemplates": "İlgili Şablonlar",
+      "noImage": "Resim yok",
+      "baseSelectPanel": {
+        "title": "Şablon kaynağını seçin",
+        "description": "Şablon olarak bir veritabanı seçin",
+        "confirm": "Onayla",
+        "search": "Ara...",
+        "cancel": "İptal",
+        "selectBase": "Veritabanı seç",
+        "createTemplate": "Şablon oluştur",
+        "abnormalBase": "Veritabanı mevcut değil veya silindi"
+      }
     },
     "back": "Ana sayfaya dön",
     "account": {
@@ -222,26 +350,6 @@
       "revokeDesc": "{{name}} artık Teable API'sine erişemeyecek. Bu işlem geri alınamaz.",
       "scopeTitle": "İzinler",
       "scopeDesc": "Bu uygulama aşağıdaki kapsamlara erişebilecek:"
-    },
-    "templateAdmin": {
-      "header": {
-        "cover": "Kapak",
-        "name": "Ad",
-        "description": "Açıklama",
-        "markdownDescription": "Markdown Açıklama",
-        "category": "Kategori",
-        "isSystem": "Sistem",
-        "source": "Kaynak",
-        "status": "Yayınlandı",
-        "publishSnapshot": "Anlık görüntü yayınla",
-        "snapshotTime": "Anlık görüntü zamanı",
-        "actions": "İşlemler",
-        "featured": "Öne çıkan",
-        "createdBy": "Oluşturan",
-        "userNonExistent": "Kullanıcı mevcut değil",
-        "usage": "Kullanım",
-        "visit": "Ziyaret"
-      }
     }
   },
   "noun": {
@@ -385,7 +493,7 @@
       "allowSignUp": "Yeni hesap oluşturmaya izin ver",
       "allowSignUpDescription": "Bu seçeneği devre dışı bırakmak yeni kullanıcı kayıtlarını yasaklar ve kayıt düğmesi artık giriş sayfasında görünmez.",
       "allowSpaceInvitation": "Alan davetleri göndermeye izin ver",
-      "allowSpaceInvitationDescription": "Bu seçeneği devre dışı bırakmak, yöneticiler dışındaki kullanıcıların başkalarını alanlara davet etmesini engeller. Bu seçeneği etkinleştirmek, yeni hesap kaydı devre dışı bırakılmış olsa bile doğrudan davet edilen kullanıcıların hesap oluşturmasına izin verir.",
+      "allowSpaceInvitationDescription": "Bu seçeneği devre dışı bırakmak, yöneticiler dışındaki kullanıcıların başkalarını alanlara davet etmesini engeller. Etkinleştirildiğinde, e-posta ile davet edilen yeni kullanıcılar e-postadaki davet bağlantısına tıklayarak kaydı tamamlayabilir, ancak paylaşılan davet bağlantıları çalışmaz.",
       "allowSpaceCreation": "Herkesin yeni alan oluşturmasına izin ver",
       "allowSpaceCreationDescription": "Bu seçeneği devre dışı bırakmak, yöneticiler dışındaki kullanıcıların yeni alan oluşturmasını engeller.",
       "enableEmailVerification": "E-posta doğrulamasını etkinleştir",
@@ -430,12 +538,19 @@
         "chatModel": "Sohbet modeli",
         "chatModelDescription": "Kullanılacak sohbet modeli, İpucu: orta kodlama modeli varsayılan olarak AI formül üretimi ve ilgili özellikler için kullanılır",
         "chatModels": {
-          "sm": "Küçük sohbet modeli",
-          "smDescription": "Sohbet başlıkları ve base adlarının otomatik oluşturulması için kullanılır. Önerilen: claude-haiku-4.5",
-          "md": "Orta sohbet modeli",
-          "mdDescription": "AI formül oluşturma için kullanılır. Yapılandırılmamışsa lg kullanılır. Önerilen: claude-haiku-4.5",
           "lg": "Gelişmiş sohbet modeli",
           "lgDescription": "Planlama, kodlama ve diğer karmaşık görev senaryoları için. Önerilen: claude-sonnet-4.5"
+        },
+        "actions": {
+          "title": "AI Yetenekleri",
+          "aiField": {
+            "title": "AI Alan",
+            "description": "Otomatik doldurma ve alan ayarlarında AI yapılandırması dahil AI alan işlevleri"
+          },
+          "aiChat": {
+            "title": "AI Sohbet",
+            "description": "AI Sohbet kenar çubuğu ve tüm ajan işlevleri"
+          }
         },
         "chatModelTest": {
           "text": "Test modeli",
@@ -462,6 +577,18 @@
         "noModelFound": "Model bulunamadı",
         "searchModel": "Model ara...",
         "selectModel": "Model seç...",
+        "defaultModel": "{{name}} (Varsayılan)",
+        "moreModels": "Daha fazla model",
+        "agentModelWarningTitle": "Modelleri dikkatli seçin",
+        "agentModelWarningDescription": "Yukarıdaki önerilen modeller, araç kullanımı ve çok adımlı akıl yürütme gibi ajan görevleri için optimize edilmiştir. Diğer modellerin yetenekleri sınırlı olabilir ve beklenmeyen sonuçlara yol açabilir.",
+        "agentModelWarningConfirm": "Anladım",
+        "recommendedModelNudge": {
+          "title": "{{model}} modelini deneyin",
+          "description": "Çok daha düşük kredi kullanımıyla daha iyi AI sonuçları alın.",
+          "use": "{{model}} kullan",
+          "later": "Daha sonra"
+        },
+        "noModelsAvailable": "Kullanılabilir model yok",
         "input": "Giriş {{ratio}}",
         "output": "Çıkış {{ratio}}",
         "inputOrOutputTip": "Oran, hesaplama gücü ile Token arasındaki dönüşüm ilişkisini temsil eder, örneğin \"1:1000\" 1 hesaplama gücü ≈ 1000 Token anlamına gelir.<br></br>Not: Her kullanımda en az 1 hesaplama gücü kesilir, gerçek tüketim 1 hesaplama gücünden az olsa bile",
@@ -487,7 +614,6 @@
       },
       "app": {
         "domain": "Alan Adı",
-        "v0ApiKey": "v0 API Anahtarı",
         "customDomain": "Özel Alan Adı (İsteğe Bağlı)",
         "customDomainDescription": "Uygulama dağıtımı için özel alan adınızı ayarlayın, özel alan adı almak için <a>Vercel alan adına</a> erişin",
         "vercelToken": "Vercel API Token",
@@ -526,11 +652,6 @@
           "description": "AI LLM API'sını henüz yapılandırmadınız, AI Sohbet/AI otomasyon kullanılamayacak, <anchor>ayarlara git</anchor>",
           "errorTips": "AI LLM API'sını henüz yapılandırmadınız, AI Sohbet/AI otomasyon kullanılamayacak"
         },
-        "app": {
-          "title": "Uygulama Üretimi",
-          "description": "v0 API'sını henüz yapılandırmadınız, Uygulama Üretimi özelliği kullanılamayacak, <anchor>ayarlara git</anchor>",
-          "errorTips": "v0 API'sını henüz yapılandırmadınız, Uygulama Üretimi özelliği kullanılamayacak"
-        },
         "webSearch": {
           "title": "Web Araması",
           "description": "Web arama API'sını henüz yapılandırmadınız, web arama özelliği kullanılamayacak, <anchor>ayarlara git</anchor>",
@@ -553,7 +674,11 @@
     "noUnread": "{{status}} bildirim yok",
     "changeSetting": "Sayfa bildirim ayarlarını değiştir",
     "new": "yeni {{count}}",
-    "showMore": "Daha fazla göster"
+    "showMore": "Daha fazla göster",
+    "exportBase": {
+      "successText": "Dışa aktarma verileri hazır",
+      "failedText": "Dışa aktarma başarısız oldu, lütfen tekrar deneyin"
+    }
   },
   "role": {
     "title": {
@@ -575,13 +700,16 @@
     "spaceTrash": "Alan çöp kutusu",
     "type": "Tür",
     "resetTrash": "Çöp kutusunu boşalt",
-    "deletedBy": "Silen",
-    "deletedTime": "Silinme zamanı",
+    "deletedBy": "Kişi",
+    "deletedTime": "Zaman",
     "fromSpace": "\"{{name}}\" alanından",
     "permanentDeleteTips": "\"{{name}}\" {{resource}} öğesini kalıcı olarak silmek istediğinizden emin misiniz?",
     "resetTrashConfirm": "Çöp kutusunu boşaltmak istediğinizden emin misiniz?",
     "addToTrash": "Çöp kutusuna taşı",
-    "description": "Çöp kutusundaki veriler hala kayıt kullanımı ve ekli dosya kullanımı kaplar."
+    "description": "Çöp kutusundaki veriler hala kayıt kullanımı ve ekli dosya kullanımı kaplar.",
+    "spaceDescription": "Son {{retentionDays}} gün içinde silinen alanları geri yükle",
+    "spaceInnerDescription": "Son {{retentionDays}} gün içinde bu alandan silinen veritabanlarını geri yükle",
+    "baseDescription": "Son {{retentionDays}} gün içinde bu veritabanından silinen kaynakları geri yükle"
   },
   "pluginCenter": {
     "pluginUrlEmpty": "Eklenti URL'si Ayarlanmamış",
@@ -697,9 +825,23 @@
             "failed": {
               "message": "❌ {{tableName}} içe aktarma başarısız oldu: {{errorMessage}}"
             },
+            "planLimitExceeded": {
+              "message": "❌ {{tableName}} içe aktarma başarısız oldu: Satır sınırına ulaşıldı, daha fazla kayıt içe aktarmak için planınızı yükseltin"
+            },
+            "noRecordsProcessed": {
+              "message": "❌ {{tableName}} içe aktarma başarısız oldu: Hiçbir kayıt işlenmedi"
+            },
             "success": {
               "message": "🎉 {{tableName}} başarıyla içe aktarıldı.",
               "inplace": "🎉 {{tableName}} yerinde başarıyla içe aktarıldı."
+            },
+            "partialSuccess": {
+              "message": "⚠️ {{tableName}} partially imported: {{successCount}} rows succeeded, {{failedCount}} rows failed. <a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 Download</a>",
+              "messageNoReport": "⚠️ {{tableName}} partially imported: {{successCount}} rows succeeded, {{failedCount}} rows failed."
+            },
+            "allFailed": {
+              "message": "❌ {{tableName}} import failed: all {{failedCount}} rows failed. <a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 Download</a>",
+              "messageNoReport": "❌ {{tableName}} import failed: all {{failedCount}} rows failed."
             }
           }
         },
@@ -716,6 +858,61 @@
           "insufficientCredit": {
             "title": "Otomasyon {{name}} yetersiz kredi nedeniyle başarısız oldu",
             "message": "Otomasyonunuz {{name}} yetersiz kredi nedeniyle çalıştırılamadı. Lütfen aboneliği yükseltin veya destekle iletişime geçin."
+          },
+          "runQuotaExceeded": {
+            "title": "Otomasyon {{name}} aylık maksimum çalıştırma sayısına ulaştı",
+            "message": "Otomasyon {{name}} için aylık çalıştırma hakkı tükendiği için şu anda çalıştırılamıyor. Aboneliğinizi yükseltin veya ek çalıştırma satın alın."
+          },
+          "failedSummary": {
+            "title": "Otomasyon {{name}} {{failCount}} kez başarısız oldu",
+            "message": "Otomasyonunuz {{name}} art arda {{failCount}} kez başarısız oldu. Ayrıntıları görmek için çalıştırma geçmişini açın."
+          }
+        },
+        "billing": {
+          "title": "Fatura bildirimi",
+          "credit": {
+            "warning80": {
+              "title": "Alan {{spaceName}} yapay zeka kredileri %80 kullanıldı",
+              "message": "Alanınız yapay zeka kredilerinin %80'ini kullandı. Yükseltmeyi veya daha fazla kredi satın almayı düşünün."
+            },
+            "warning90": {
+              "title": "Alan {{spaceName}} yapay zeka kredileri %90 kullanıldı",
+              "message": "Alanınız yapay zeka kredilerinin %90'ını kullandı. Kesinti yaşamamak için yakında yükseltin."
+            },
+            "anomaly": {
+              "dailySpike": {
+                "title": "Alan {{spaceName}}: olağandışı yapay zeka kredisi artışı tespit edildi",
+                "message": "Bugünkü yapay zeka kredisi kullanımı ({{todayValue}}), son günlük ortalamanın ({{ewma}}) {{multiplier}} katıdır. Bu, beklenmeyen bir aktiviteye işaret edebilir. Lütfen kullanımınızı gözden geçirin. En çok katkıda bulunanlar: {{topContributors}}"
+              },
+              "burst": {
+                "title": "Alan {{spaceName}}: yapay zeka kredisi patlaması tespit edildi",
+                "message": "Son {{windowMinutes}} dakikada {{recentValue}} yapay zeka kredisi tüketildi, bu tarihsel saatlik P95'in ({{hourlyP95}}) {{multiplier}} katıdır. Bu, beklenmeyen bir aktiviteye işaret edebilir. En çok katkıda bulunanlar: {{topContributors}}"
+              }
+            }
+          },
+          "automationRun": {
+            "warning80": {
+              "title": "Alan {{spaceName}} otomasyon çalıştırmaları kotanın %80'i kullanıldı",
+              "message": "Alanınız {{usedRuns}}/{{totalLimit}} otomasyon çalıştırmasının %80'ini kullandı. Planınızı yükseltmeyi düşünün."
+            },
+            "warning90": {
+              "title": "Alan {{spaceName}} otomasyon çalıştırmaları kotanın %90'ı kullanıldı",
+              "message": "Alanınız {{usedRuns}}/{{totalLimit}} otomasyon çalıştırmasının %90'ını kullandı. Kesinti yaşamamak için yakında yükseltin."
+            },
+            "gracePeriod": {
+              "title": "Alan {{spaceName}} otomasyon çalıştırmaları aşıldı – ek süre aktif",
+              "message": "Otomasyon çalıştırma kotanız aşıldı. Otomasyonlar {{remainingHours}} saat sonra çalışmayı durduracak ve kapatılacak. Lütfen planınızı yükseltin."
+            },
+            "anomaly": {
+              "dailySpike": {
+                "title": "Alan {{spaceName}}: olağandışı otomasyon çalıştırma artışı",
+                "message": "Bugünkü otomasyon çalıştırmaları ({{todayValue}}), son günlük ortalamanın ({{ewma}}) {{multiplier}} katıdır. Bu, kontrolden çıkmış bir otomasyona işaret edebilir. Lütfen iş akışlarınızı gözden geçirin. En çok katkıda bulunanlar: {{topContributors}}"
+              },
+              "burst": {
+                "title": "Alan {{spaceName}}: otomasyon çalıştırma patlaması tespit edildi",
+                "message": "Son {{windowMinutes}} dakikada {{recentValue}} otomasyon çalıştırması tespit edildi, bu tarihsel saatlik P95'in ({{hourlyP95}}) {{multiplier}} katıdır. Bu, bir döngü veya yanlış yapılandırmaya işaret edebilir. En çok katkıda bulunanlar: {{topContributors}}"
+              }
+            }
           }
         },
         "exportBase": {
@@ -732,8 +929,26 @@
             "failed": {
               "title": "AI görevi {{tableName}} tablosunda başarısız oldu",
               "message": "{{tableName}} tablosundaki {{fieldName}} alanı için AI görevi (Kayıt ID: {{recordId}}) başarısız oldu.\n\n{{errorMsg}}\n\nAyrıntıları görmek için aşağıdaki düğmeye tıklayın."
+            },
+            "cancelled": {
+              "title": "AI görevi iptal edildi",
+              "rateLimit": "\"{{tableName}}\" tablosu için AI görevi, hız sınırlaması (429) nedeniyle iptal edildi. Lütfen daha sonra tekrar deneyin.",
+              "creditExhausted": "\"{{tableName}}\" tablosu için AI görevi, krediler tükendiği için iptal edildi. Lütfen aboneliğinizi yükseltin veya kredilerin yenilenmesini bekleyin.",
+              "authFailed": "\"{{tableName}}\" tablosu için AI görevi, kimlik doğrulama hatası nedeniyle iptal edildi. Lütfen API anahtarı yapılandırmanızı kontrol edin.",
+              "serviceUnavailable": "\"{{tableName}}\" tablosu için AI görevi, AI hizmeti geçici olarak kullanılamadığı için iptal edildi. Lütfen daha sonra tekrar deneyin.",
+              "unknown": "\"{{tableName}}\" tablosu için AI görevi iptal edildi. Hata: {{errorMessage}}"
             }
           }
+        },
+        "rewardRejected": {
+          "title": "Ödül talebi reddedildi",
+          "message": "<a href=\"{{spaceUrl}}\">{{spaceName}}</a> için ödül talebiniz şu nedenlerle reddedildi: {{errorMessages}}. Lütfen gözden geçirip tekrar gönderin.",
+          "buttonText": "Alanı Görüntüle"
+        },
+        "rewardApproved": {
+          "title": "Ödül talebi onaylandı",
+          "message": "Tebrikler! <a href=\"{{spaceUrl}}\">{{spaceName}}</a> için ödül talebiniz onaylandı. {{amount}} kredi eklendi, {{expiredDays}} gün geçerlidir.",
+          "buttonText": "Alanı Görüntüle"
         }
       }
     }
@@ -771,6 +986,106 @@
     "createResource": "Kaynak oluştur",
     "noPermissionToCreateResource": "Kaynak oluşturma izniniz yok"
   },
+  "credit": {
+    "title": "Kredi",
+    "leftAmount": "Kalan kredi",
+    "winFreeCredits": "Deneyim paylaş",
+    "getCredits": "1000 ücretsiz kredi al",
+    "winCredit": {
+      "title": "Olumlu bir inceleme paylaşarak kazan",
+      "freeCredits": "1000 ücretsiz kredi",
+      "guidelinesTitle": "Paylaşım kontrol listesi",
+      "tagTeableio": "<bold>@teableio</bold>'yu etiketle",
+      "minCharacters": "<bold>80+</bold> karakter inceleme yaz",
+      "minFollowers": "<bold>10+</bold> takipçiye sahip ol",
+      "limitPerWeek": "Gönderi başına 500 kredi, haftalık en fazla 2 gönderi (X + LinkedIn)",
+      "postOnX": "X'te paylaş",
+      "postOnLinkedIn": "LinkedIn'de paylaş",
+      "preFilledDraft": "🌟 Sizin için önceden doldurulmuş taslak hazır!",
+      "claimTitle": "Kredilerinizi almak için gönderi URL'sini yapıştırın",
+      "userEmail": "Kullanıcı e-postası",
+      "postUrlLabel": "Gönderi URL'si (X veya LinkedIn)",
+      "postUrlPlaceholder": "Gönderinizin bağlantısını buraya yapıştırın",
+      "invalidUrl": "Lütfen geçerli bir X veya LinkedIn gönderi URL'si girin",
+      "claiming": "Talep ediliyor...",
+      "claimCredits": "Kredi talep et",
+      "congratulations": "Tebrikler!",
+      "claimSuccess": "500 kredi kazandınız!",
+      "verifying": "Gönderiniz doğrulanıyor...",
+      "verifyingDescription": "Gönderi içeriğinizi kontrol ediyoruz, bu genellikle birkaç saniye sürer",
+      "verifyFailed": "Doğrulama başarısız",
+      "tryAgain": "Tekrar dene"
+    },
+    "error": {
+      "verificationFailed": "Doğrulama başarısız"
+    }
+  },
+  "reward": {
+    "title": "Ödül",
+    "rewardCredits": "Ödül kredileri",
+    "minCharCount": "Gönderi en az {{count}} karakter içermelidir",
+    "minFollowerCount": "Hesapta en az {{count}} takipçi olmalıdır",
+    "mustMention": "Gönderi {{mention}}'dan bahsetmelidir",
+    "fetchSnapshotFailed": "Gönderi anlık görüntüsü alınamadı",
+    "alreadyClaimedThisWeek": "Bu hesap için bu hafta zaten bir ödül talep ettiniz",
+    "manage": {
+      "title": "Ödül Yönetimi",
+      "description": "Tüm alanlardaki ödül kayıtlarını görüntüle ve yönet",
+      "overview": "Genel Bakış",
+      "records": "Kayıtlar",
+      "searchSpace": "Alan ara...",
+      "searchRecords": "postUrl/userId ara...",
+      "dateRange": "Tarih aralığı seç",
+      "from": "Başlangıç",
+      "to": "Bitiş",
+      "totalSpaces": "Toplam: {{count}} alan",
+      "totalRecords": "Toplam: {{count}} kayıt",
+      "space": "Alan",
+      "allSpaces": "Tüm Alanlar",
+      "user": "Kullanıcı",
+      "creator": "Oluşturan",
+      "sourceType": "Kaynak Türü",
+      "platform": "Platform",
+      "allStatuses": "Tüm Durumlar",
+      "allSourceTypes": "Tüm Kaynak Türleri",
+      "allPlatforms": "Tüm Platformlar",
+      "pendingCount": "Bekleyen Sayısı",
+      "approvedCount": "Onaylanan Sayısı",
+      "rejectedCount": "Reddedilen Sayısı",
+      "approvedAmount": "Onaylanan Miktar",
+      "consumedAmount": "Tüketilen Miktar",
+      "availableAmount": "Kullanılabilir Miktar",
+      "expiringSoonAmount": "Yakında Sona Erecek (7g)",
+      "amount": "Miktar",
+      "remainingAmount": "Kalan Miktar",
+      "createdTime": "Oluşturma Zamanı",
+      "rewardTime": "Ödül Zamanı",
+      "expiredTime": "Sona Erme Zamanı",
+      "lastModified": "Son Değişiklik",
+      "viewDetails": "Detayları Görüntüle",
+      "details": "Ödül Detayları",
+      "basicInfo": "Temel Bilgi",
+      "amountInfo": "Miktar Bilgisi",
+      "timeInfo": "Zaman Bilgisi",
+      "socialInfo": "Sosyal Bilgi",
+      "verifyResult": "Doğrulama Sonucu",
+      "uniqueKey": "Benzersiz Anahtar",
+      "verify": "Doğrula",
+      "valid": "Geçerli",
+      "invalid": "Geçersiz",
+      "errors": "Hatalar",
+      "copied": "{{label}} kopyalandı",
+      "openPost": "Gönderiyi aç",
+      "noData": "Veri yok",
+      "page": "Sayfa {{current}} / {{total}}",
+      "status": {
+        "label": "Durum",
+        "pending": "Bekliyor",
+        "approved": "Onaylandı",
+        "rejected": "Reddedildi"
+      }
+    }
+  },
   "clickToCopyTooltip": "Panoya kopyalamak için tıklayın",
   "copiedTooltip": "Kopyalandı!",
   "hiddenFieldCount_one": "{{count}} gizli alan",
@@ -801,5 +1116,43 @@
   "hideText": "Metni Gizle",
   "showText": "Metni Göster",
   "sourceTable": "Kaynak Tablo",
-  "sourceView": "Kaynak Görünüm"
+  "sourceView": "Kaynak Görünüm",
+  "system": {
+    "notFound": {
+      "title": "Sayfa bulunamadı",
+      "description": "Takip ettiğiniz bağlantı bozuk olabilir veya sayfa taşınmış olabilir."
+    },
+    "links": {
+      "backToHome": "Ana sayfaya dön"
+    },
+    "forbidden": {
+      "title": "Erişim kısıtlı",
+      "description": "Bu kaynağa erişmek için izne ihtiyacınız var.\nLütfen yöneticinizle iletişime geçin."
+    },
+    "paymentRequired": {
+      "title": "Premium özelliğin kilidini aç",
+      "description": "Bu özellik gelişmiş planlarda kullanılabilir.\nYeteneklerinizi genişletmek için yükseltin."
+    },
+    "error": {
+      "title": "Bir şeyler yanlış gitti",
+      "description": "Beklenmeyen bir hata oluştu. Lütfen daha sonra tekrar deneyin."
+    }
+  },
+  "import": {
+    "error": {
+      "dateOutOfRange": "{{fieldHint}}Tarih ayrıştırma hatası, \"{{value}}\" değeri geçerli aralığın dışında",
+      "planRowLimit": "Satır sınırına ulaşıldı: daha fazla kayıt içe aktarmak için planınızı yükseltin",
+      "notNullValidation": "{{fieldHint}}Zorunlu alan(lar) boş olamaz",
+      "uniqueValidation": "{{fieldHint}}Benzersiz alan(lar)da yinelenen değerler",
+      "requestTimeout": "İstek zaman aşımına uğradı",
+      "chunkProcessingFailed": "Toplu işlem başarısız oldu: {{reason}}",
+      "unknown": "{{fieldHint}}{{message}}"
+    }
+  },
+  "changelog": {
+    "newUpdate": "19 MAYIS GUNCELLEMESI",
+    "title": "Teable Credits 10 kat daha verimli!",
+    "url": "https://help.teable.ai/en/changelog#may-19-2026",
+    "id": "changelog-2026-05-19-teable-credits-up-10x"
+  }
 }

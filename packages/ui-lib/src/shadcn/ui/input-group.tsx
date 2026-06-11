@@ -7,7 +7,7 @@ import * as React from 'react';
 
 import { cn } from '../utils';
 import { Button } from './button';
-import { Input } from './input';
+import { Input, type InputProps } from './input';
 import { Textarea } from './textarea';
 
 function InputGroup({ className, ...props }: React.ComponentProps<'div'>) {
@@ -124,14 +124,11 @@ function InputGroupText({ className, ...props }: React.ComponentProps<'span'>) {
   );
 }
 
-function InputGroupInput({ className, ...props }: React.ComponentProps<'input'>) {
+function InputGroupInput({ className, ...props }: InputProps) {
   return (
     <Input
       data-slot="input-group-control"
-      className={cn(
-        'flex-1 rounded-none border-0 bg-transparent shadow-none focus-visible:ring-0 dark:bg-transparent',
-        className
-      )}
+      className={cn('flex-1 rounded-none border-0 bg-transparent dark:bg-transparent', className)}
       {...props}
     />
   );

@@ -5,11 +5,19 @@ concurrency:
   cancel-in-progress: true
 
 on:
+  workflow_dispatch:
+    inputs:
+      release_timestamp:
+        description: 'Optional UTC timestamp for release id (e.g. 2026-04-20T10:38:57Z)'
+        required: false
+        type: string
+      release_sequence:
+        description: 'Optional release id sequence suffix'
+        required: false
+        type: string
   push:
     branches:
       - develop
-    tags:
-      - 'v*'
     paths:
       - 'apps/nestjs-backend/**'
       - 'apps/nextjs-app/**'
@@ -18,21 +26,65 @@ on:
       - 'scripts/**'
 
 jobs:
+  prepare-release:
+    runs-on: ubuntu-latest
+    outputs:
+      release_id: ${{ steps.release.outputs.release_id }}
+      release_timestamp: ${{ steps.release.outputs.release_timestamp }}
+      release_sequence: ${{ steps.release.outputs.release_sequence }}
+    steps:
+      - name: Compute release id
+        id: release
+        env:
+          INPUT_RELEASE_TIMESTAMP: ${{ inputs.release_timestamp }}
+          INPUT_RELEASE_SEQUENCE: ${{ inputs.release_sequence }}
+        run: |
+          RELEASE_TIMESTAMP="${INPUT_RELEASE_TIMESTAMP}"
+          if [ -z "$RELEASE_TIMESTAMP" ]; then
+            RELEASE_TIMESTAMP="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          fi
+
+          RELEASE_SEQUENCE="${INPUT_RELEASE_SEQUENCE:-${GITHUB_RUN_NUMBER:-1}}"
+          RELEASE_TIMESTAMP_NO_MS=$(printf '%s' "$RELEASE_TIMESTAMP" | sed -E 's/\.[0-9]{3}Z$/Z/')
+          RELEASE_TIMESTAMP_TAG=$(printf '%s' "$RELEASE_TIMESTAMP_NO_MS" | tr ':' '-')
+          RELEASE_ID="release.${RELEASE_TIMESTAMP_TAG}.${RELEASE_SEQUENCE}"
+
+          echo "release_timestamp=$RELEASE_TIMESTAMP_NO_MS" >> "$GITHUB_OUTPUT"
+          echo "release_sequence=$RELEASE_SEQUENCE" >> "$GITHUB_OUTPUT"
+          echo "release_id=$RELEASE_ID" >> "$GITHUB_OUTPUT"
+
+          echo "Release timestamp: $RELEASE_TIMESTAMP_NO_MS"
+          echo "Release sequence: $RELEASE_SEQUENCE"
+          echo "Release id: $RELEASE_ID"
+
   build-push:
+    needs: prepare-release
     strategy:
       matrix:
-        target: [app, db-migrate]
-        arch: [amd64, arm64]
         include:
           - target: app
             file: Dockerfile
             image: teable-community
+            platform: linux/amd64
+            platform_key: linux-amd64
+            runner: ubuntu-latest
+          - target: app
+            file: Dockerfile
+            image: teable-community
+            platform: linux/arm64
+            platform_key: linux-arm64
+            runner: ubuntu-24.04-arm
           - target: db-migrate
             file: Dockerfile.db-migrate
             image: teable-db-migrate-community
-          - arch: amd64
+            platform: linux/amd64
+            platform_key: linux-amd64
             runner: ubuntu-latest
-          - arch: arm64
+          - target: db-migrate
+            file: Dockerfile.db-migrate
+            image: teable-db-migrate-community
+            platform: linux/arm64
+            platform_key: linux-arm64
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
 
@@ -47,51 +99,46 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.PACKAGES_KEY }}
 
-      - name: Login to Docker Hub registry
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_HUB_NAME }}
-          password: ${{ secrets.DOCKER_HUB_AK }}
-
-      - name: Login to Ali container registry
-        uses: docker/login-action@v3
-        with:
-          registry: registry.cn-shenzhen.aliyuncs.com
-          username: ${{ secrets.ALI_DOCKER_USERNAME }}
-          password: ${{ secrets.ALI_DOCKER_PASSWORD }}
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22.18.0
-      - name: ⚙️ Install zx
-        run: npm install -g zx
 
-      - name: ⚙️ Docker meta
-        id: meta
-        uses: docker/metadata-action@v5
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v6
         with:
-          images: |
-            registry.cn-shenzhen.aliyuncs.com/teable/${{ matrix.image }}
-            ghcr.io/teableio/${{ matrix.image }}
-            docker.io/teableio/${{ matrix.image }}
-          tags: |
-            type=sha,format=long
-            type=raw,value=latest
+          context: .
+          file: dockers/teable/${{ matrix.file }}
+          platforms: ${{ matrix.platform }}
+          build-args: |
+            ENABLE_CSP=false
+            BUILD_VERSION=${{ needs.prepare-release.outputs.release_id }}
+          cache-from: type=gha,scope=release-community-${{ matrix.target }}-${{ matrix.platform_key }}
+          cache-to: type=gha,mode=max,scope=release-community-${{ matrix.target }}-${{ matrix.platform_key }},ignore-error=true
+          outputs: type=image,name=ghcr.io/teableio/${{ matrix.image }},push-by-digest=true,name-canonical=true,push=true
+          provenance: false
 
-      - name: 📦 Build and push
+      - name: Export digest artifact
         run: |
-          zx scripts/build-image.mjs --file=dockers/teable/${{ matrix.file }} \
-              --build-arg="ENABLE_CSP=false" \
-              --tag="${{ steps.meta.outputs.tags }}" \
-              --platform="linux/${{ matrix.arch }}" \
-              --push
+          mkdir -p /tmp/digests
+          echo "${{ steps.build.outputs.digest }}" > "/tmp/digests/${{ matrix.platform_key }}.digest"
 
-  create-manifest:
-    needs: build-push
+      - name: Upload digest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.target }}-${{ matrix.platform_key }}
+          path: /tmp/digests/${{ matrix.platform_key }}.digest
+          if-no-files-found: error
+          retention-days: 1
+
+  merge-manifests:
+    needs: [prepare-release, build-push]
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        target: [app, db-migrate]
         include:
           - target: app
             image: teable-community
@@ -106,30 +153,113 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.PACKAGES_KEY }}
 
-      - name: Login to Docker Hub registry
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_HUB_NAME }}
-          password: ${{ secrets.DOCKER_HUB_AK }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Login to Ali container registry
-        uses: docker/login-action@v3
+      - name: Docker meta for canonical image
+        id: meta
+        uses: docker/metadata-action@v5
         with:
-          registry: registry.cn-shenzhen.aliyuncs.com
-          username: ${{ secrets.ALI_DOCKER_USERNAME }}
-          password: ${{ secrets.ALI_DOCKER_PASSWORD }}
+          images: ghcr.io/teableio/${{ matrix.image }}
+          tags: |
+            type=raw,value=beta
+            type=raw,value=${{ needs.prepare-release.outputs.release_id }}
+            type=raw,value=${{ github.sha }}
 
-      - name: Create and push manifest
+      - name: Download digest artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests/${{ matrix.target }}
+          pattern: digests-${{ matrix.target }}-*
+          merge-multiple: true
+
+      - name: Create manifests
+        env:
+          META_JSON: ${{ steps.meta.outputs.json }}
+          CANONICAL_IMAGE: ghcr.io/teableio/${{ matrix.image }}
         run: |
-          REGISTRIES=("registry.cn-shenzhen.aliyuncs.com/teable" "ghcr.io/teableio" "docker.io/teableio")
-          TAGS=("latest" "sha-${{ github.sha }}")
+          mapfile -t TAGS < <(jq -r '.tags[]' <<<"$META_JSON")
+          mapfile -t DIGEST_FILES < <(find "/tmp/digests/${{ matrix.target }}" -type f -name '*.digest' | sort)
 
-          for REGISTRY in "${REGISTRIES[@]}"; do
-            for TAG in "${TAGS[@]}"; do
-              docker manifest create $REGISTRY/${{ matrix.image }}:$TAG \
-                $REGISTRY/${{ matrix.image }}:${TAG}-amd64 \
-                $REGISTRY/${{ matrix.image }}:${TAG}-arm64
-              
-              docker manifest push $REGISTRY/${{ matrix.image }}:$TAG
+          if [ "${#DIGEST_FILES[@]}" -eq 0 ]; then
+            echo "No digest artifacts found for ${{ matrix.target }}" >&2
+            exit 1
+          fi
+
+          SOURCES=()
+          for digest_file in "${DIGEST_FILES[@]}"; do
+            digest="$(tr -d '\n' < "$digest_file")"
+            SOURCES+=("${CANONICAL_IMAGE}@${digest}")
+          done
+
+          for full_tag in "${TAGS[@]}"; do
+            tag_name="${full_tag##*:}"
+            if [ -z "$tag_name" ]; then
+              continue
+            fi
+            docker buildx imagetools create \
+              --tag "${CANONICAL_IMAGE}:${tag_name}" \
+              "${SOURCES[@]}"
+          done
+
+  sync-dockerhub:
+    needs: [prepare-release, build-push, merge-manifests]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install skopeo
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y skopeo
+
+      - name: Sync images to Docker Hub
+        env:
+          SRC_CREDS: ${{ github.actor }}:${{ secrets.PACKAGES_KEY }}
+          DST_CREDS: ${{ secrets.DOCKER_HUB_NAME }}:${{ secrets.DOCKER_HUB_AK }}
+          TAGS: beta,${{ needs.prepare-release.outputs.release_id }},${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          IFS=',' read -ra TAG_LIST <<< "$TAGS"
+          IMAGES=("teable-community" "teable-db-migrate-community")
+
+          for image in "${IMAGES[@]}"; do
+            for tag in "${TAG_LIST[@]}"; do
+              [ -n "$tag" ] || continue
+              skopeo copy --all \
+                --src-creds="$SRC_CREDS" \
+                --dest-creds="$DST_CREDS" \
+                "docker://ghcr.io/teableio/${image}:${tag}" \
+                "docker://docker.io/teableio/${image}:${tag}"
+            done
+          done
+
+  sync-aliyun:
+    needs: [prepare-release, build-push, merge-manifests]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install skopeo
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y skopeo
+
+      - name: Sync images to Aliyun
+        env:
+          SRC_CREDS: ${{ github.actor }}:${{ secrets.PACKAGES_KEY }}
+          DST_CREDS: ${{ secrets.ALI_DOCKER_USERNAME }}:${{ secrets.ALI_DOCKER_PASSWORD }}
+          TAGS: beta,${{ needs.prepare-release.outputs.release_id }},${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          IFS=',' read -ra TAG_LIST <<< "$TAGS"
+          IMAGES=("teable-community" "teable-db-migrate-community")
+
+          for image in "${IMAGES[@]}"; do
+            for tag in "${TAG_LIST[@]}"; do
+              [ -n "$tag" ] || continue
+              skopeo copy --all \
+                --src-creds="$SRC_CREDS" \
+                --dest-creds="$DST_CREDS" \
+                "docker://ghcr.io/teableio/${image}:${tag}" \
+                "docker://registry.cn-shenzhen.aliyuncs.com/teable/${image}:${tag}"
             done
           done

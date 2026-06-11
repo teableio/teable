@@ -55,7 +55,8 @@ export const QueryEditor = ({
     case 'limit': {
       return (
         <Input
-          className="h-7 w-16 text-[13px]"
+          className="w-16 text-[13px]"
+          size="sm"
           type="number"
           value={query[type]}
           onChange={(e) => onChange(type, Number(e.target.value))}

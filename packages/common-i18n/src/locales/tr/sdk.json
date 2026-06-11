@@ -31,7 +31,8 @@
     },
     "resetSuccess": "Sıfırlama başarılı",
     "click": "Tıkla",
-    "clickedCount": "{{label}}: Tıklanma sayısı {{text}}"
+    "clickedCount": "{{label}}: Tıklanma sayısı {{text}}",
+    "atLeastOne": "En az bir {{noun}} bulunmalıdır"
   },
   "notification": {
     "title": "Bildirim"
@@ -88,17 +89,23 @@
     "link": {
       "placeholder": "Bağlanacak kayıtları seçin",
       "searchPlaceholder": "Kayıtlarda ara",
+      "allFields": "Tüm alanlar",
+      "globalSearch": "Global arama",
+      "fieldSearch": "Alan araması",
+      "maxFieldTips": "Maksimum {{count}} alan sayısı aşıldı, fazla alanlar göz ardı edilecek",
       "create": "Kayıt Ekle",
       "selectRecord": "Kayıt Seç",
-      "unselected": "Seçilmemiş",
+      "all": "Tümü",
       "selected": "Seçilmiş",
       "expandRecordError": "Bu kaydı görüntüleme izniniz yok.",
       "alreadyOpen": "Bu kayıt zaten açık.",
+      "linkedTo": "Bağlantılı",
       "goToForeignTable": "Yabancı tabloya git",
       "foreignTableIdRequired": "Yabancı tablo gereklidir",
       "linkFieldIdRequired": "Bağlantı alanı gereklidir",
       "selectTooManyRecords": "Seçilen kayıtlar {{maxCount}} değerini aşmamalıdır",
-      "relationshipRequired": "İlişki gereklidir"
+      "relationshipRequired": "İlişki gereklidir",
+      "rangeSelectFailed": "Aralıktaki kayıtları seçme başarısız oldu"
     },
     "user": {
       "searchPlaceholder": "İsme göre kullanıcı ara",
@@ -111,7 +118,7 @@
     "lookup": {
       "lookupFieldIdRequired": "Arama alanı gereklidir",
       "lookupOptionsNotAllowed": "isLookup özniteliği doğru olduğunda veya alan türü rollup olduğunda arama seçenekleri izin verilmez.",
-      "lookupOptionsRequired": "isLookup özniteliği doğru olduğunda veya alan türü rollup olduğunda arama seçenekleri gereklidir.",
+      "lookupOptionsRequired": "Arama seçenekleri gereklidir",
       "refineOptionsError": "Arama seçenekleri ayrıştırma hatası {{message}}"
     },
     "rollup": {
@@ -151,6 +158,7 @@
     },
     "invalidateSelected": "Geçersiz değer",
     "invalidateSelectedTips": "Seçilen değer silindi, lütfen tekrar seçin",
+    "invalidConditionTip": "Bu filtre koşulu geçersiz ve yok sayılacak. Lütfen değeri ayarlayın.",
     "default": {
       "empty": "Filtre koşulu uygulanmadı",
       "placeholder": "Bir değer girin"
@@ -257,7 +265,8 @@
     "configLabel_other_visible": "{{count}} görünür alan",
     "showAll": "Tümünü Göster",
     "hideAll": "Tümünü Gizle",
-    "primaryKey": "Birincil alan: Kayıtları tanımlar\ngizlenemez veya silinemez, bağlantılı kayıtlarda görünür."
+    "primaryKey": "Birincil alan: Kayıtları tanımlar\ngizlenemez veya silinemez, bağlantılı kayıtlarda görünür.",
+    "notInCurrentView": "\"{{fieldName}}\" alanı mevcut görünümde görünmüyor, bu yüzden alana gidilemiyor"
   },
   "expandRecord": {
     "copy": "Panoya kopyala",
@@ -276,7 +285,10 @@
       "viewRecord": "Kaydı görüntüle"
     },
     "showHiddenFields": "{{count}} gizli alanı göster",
-    "hideHiddenFields": "{{count}} gizli alanı gizle"
+    "hideHiddenFields": "{{count}} gizli alanı gizle",
+    "showMore": "Show more",
+    "showLess": "Show less",
+    "recordFrom": "Kaynak tablo"
   },
   "sort": {
     "label": "Sırala",
@@ -408,6 +420,7 @@
       "appUpdate": "Uygulama güncelle",
       "userProfileRead": "Read current user profile",
       "userEmailRead": "Kullanıcı e-postası oku",
+      "userIntegrations": "Manage user integrations",
       "recordHistoryRead": "Kayıt geçmişi oku",
       "baseQuery": "Veritabanı sorgula",
       "instanceRead": "Örnek oku",
@@ -430,7 +443,8 @@
     "you": "Sen",
     "instance": "Örnek",
     "enterprise": "Kurumsal",
-    "history": "Geçmiş"
+    "history": "Geçmiş",
+    "global": "Global"
   },
   "formula": {
     "SUM": {
@@ -478,7 +492,7 @@
       "example": "ODD(0.1) => 1\nODD(-0.1) => -1"
     },
     "INT": {
-      "summary": "Mantıksal argüman doğruysa number1'i, değilse number2'yi döndürür. İç içe IF ifadeleri yapmak için de kullanılabilir.\nAyrıca bir hücrenin boş olup olmadığını kontrol etmek için de kullanılabilir.",
+      "summary": "Bir sayıyı en yakın tam sayıya aşağı doğru yuvarlar.",
       "example": "INT(1.9) => 1\nINT(-1.9) => -2"
     },
     "ABS": {
@@ -631,7 +645,7 @@
     },
     "WEEKDAY": {
       "summary": "Haftanın gününü 0 ile 6 arasında bir tam sayı olarak döndürür. İsteğe bağlı olarak ikinci bir argüman (\"Sunday\" veya \"Monday\") sağlayarak haftaların o günden başlamasını sağlayabilirsiniz. Belirtilmezse, haftalar varsayılan olarak Pazar gününden başlar.",
-      "example": "WEEKNUM(\"2023-09-08\") => 5"
+      "example": "WEEKDAY(\"2023-09-08\") => 5"
     },
     "DAY": {
       "summary": "Bir tarih/saatin gününü 1-31 arasında bir sayı olarak döndürür.",
@@ -658,7 +672,7 @@
       "example": "TONOW({Date}, \"day\") => 25"
     },
     "DATETIME_DIFF": {
-      "summary": "Tarih/saatler arasındaki farkı belirtilen birimde döndürür. Varsayılan birim saniyedir. (Birim belirteçlerinin listesi için buraya bakın.)\nTarih/saatler arasındaki fark [date2]'nin [date1]'den çıkarılmasıyla belirlenir. Bu, eğer [date2] [date1]'den sonraysa, sonuç değerinin negatif olacağı anlamına gelir.",
+      "summary": "Tarih/saatler arasındaki farkı belirtilen birimde döndürür. Varsayılan birim \"day\"dir.\nDesteklenen birimler: \"millisecond\" (ms), \"second\" (s), \"minute\" (m), \"hour\" (h), \"day\" (d), \"week\" (w), \"month\" (M), \"year\" (y).\nTarih/saatler arasındaki fark [date2]'nin [date1]'den çıkarılmasıyla belirlenir. Bu, eğer [date2] [date1]'den sonraysa, sonuç değerinin negatif olacağı anlamına gelir.",
       "example": "DATETIME_DIFF(\"2023-09-08\", \"2022-08-01\", \"day\") => 403"
     },
     "WORKDAY": {
@@ -786,6 +800,11 @@
     "dateRangeOfMonths": "Tarih Aralığı (ay)",
     "totalAttachmentSize": "Toplam Ek Boyutu"
   },
+  "selectionStatistic": {
+    "tip": "Yalnızca Sayı türündeki alanlar toplanır.",
+    "copyTip": "Kopyalamak için tıklayın",
+    "copied": "Kopyalandı"
+  },
   "baseQuery": {
     "add": "Ekle",
     "error": {
@@ -851,7 +870,8 @@
     },
     "toolbar": {
       "link": "Bağlantı",
-      "image": "Görsel"
+      "image": "Görsel",
+      "mention": "Bahset"
     },
     "floatToolbar": {
       "editLink": "Bağlantıyı Düzenle",
@@ -895,6 +915,31 @@
     "automationNodeNeedTest": "Otomasyon Düğümü Test Gereksinimi",
     "automationNodeTestOutdated": "Otomasyon Düğümü Testi Güncel Değil",
     "invalidToken": "Geçersiz token",
+    "limit": {
+      "fieldOptionsMaxBytes": "Field options are too large. Maximum is {{max}} bytes.",
+      "selectChoicesMax": "This select field has too many choices. Maximum is {{max}} choices.",
+      "selectChoiceNameMaxLength": "Select choice names are too long. Maximum is {{max}} characters.",
+      "selectDefaultValuesMax": "This select field has too many default values. Maximum is {{max}} values.",
+      "cellValueMaxBytes": "Cell value is too large. Maximum is {{max}} bytes.",
+      "recordFieldsMaxBytes": "Record payload is too large. Maximum is {{max}} bytes.",
+      "recordsPerMutationMax": "This operation changes too many records. Maximum is {{max}} records at a time.",
+      "computedCellValueMaxBytes": "Computed cell value is too large. Maximum is {{max}} bytes.",
+      "formulaMaxLength": "Formula is too long. Maximum is {{max}} characters.",
+      "tablesPerBaseMax": "This base has reached the table limit. Maximum is {{max}} tables.",
+      "fieldsPerTableMax": "This table has too many fields. Maximum is {{max}} fields.",
+      "rowsPerTableMax": "This table has too many records. Maximum is {{max}} records.",
+      "viewsPerTableMax": "This table has reached the view limit. Maximum is {{max}} views.",
+      "createTableFieldsMax": "The new table has too many fields. Maximum is {{max}} fields.",
+      "createTableViewsMax": "The new table has too many views. Maximum is {{max}} views.",
+      "createTableRecordsMax": "The new table has too many records. Maximum is {{max}} records.",
+      "viewFilterItemsMax": "This view has too many filter conditions. Maximum is {{max}} conditions.",
+      "viewFilterDepthMax": "This view filter is too deeply nested. Maximum depth is {{max}}.",
+      "viewSortItemsMax": "This view has too many sort rules. Maximum is {{max}} rules.",
+      "viewGroupItemsMax": "This view has too many group rules. Maximum is {{max}} rules.",
+      "viewOptionsMaxBytes": "View options are too large. Maximum is {{max}} bytes.",
+      "nameMaxLength": "Name is too long. Maximum is {{max}} characters.",
+      "descriptionMaxLength": "Description is too long. Maximum is {{max}} characters."
+    },
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" alanı \"{{fieldName}}\" boş değerlere izin vermiyor, lütfen tamamlayınız ve gönderimden önce doldurun.",
       "fieldValueDuplicate": "\"{{tableName}}\" alanı \"{{fieldName}}\" tekrarlayan değerlere izin vermiyor, lütfen benzersiz bir değer doldurun ve gönderimden önce doldurun.",
@@ -960,6 +1005,7 @@
       "nodeNotFound": "{{nodeId}} düğümü bulunamadı",
       "triggerTestFailed": "Tetikleyici testi başarısız, lütfen tetikleyici yapılandırmasını kontrol edin",
       "testFailed": "Otomasyon testi başarısız, otomasyon yapılandırmasını kontrol edin",
+      "runFailed": "Otomasyon çalıştırması başarısız oldu",
       "nodeParseError": "{{name}} düğüm yapılandırması eksik veya hatalı, lütfen düğüm yapılandırmasını kontrol edin",
       "nodeNeedTest": "{{name}} düğümün test edilmesi gerekiyor",
       "nodeTestOutdated": "{{name}} düğüm testi güncel değil",
@@ -971,6 +1017,10 @@
       "tableNotInBase": "Yalnızca veritabanınızdaki bir tabloya abone olabilirsiniz",
       "alreadyActiveAndNotDraft": "Otomasyon zaten aktif ve taslak değil",
       "noActiveSnapshot": "Otomasyonun aktif anlık görüntüsü yok",
+      "onlyFailedRunsCanRerun": "Yalnızca başarısız çalıştırmalar yeniden çalıştırılabilir",
+      "workflowMustBeActiveToRerun": "Yeniden çalıştırmak için iş akışı etkin olmalıdır",
+      "snapshotChangedOnlyFullRerun": "Bu çalıştırmadan sonra iş akışı değiştirildi. Yalnızca tam yeniden çalıştırmaya izin verilir.",
+      "controlStepsMissingOnlyFullRerun": "Bu çalıştırma için kontrol düğümü verileri eksik. Yalnızca tam yeniden çalıştırma desteklenmektedir.",
       "triggerNodeAlreadyExists": "Bu otomasyonun zaten bir tetikleyici düğümü var",
       "generateLogicError": "Mantık düğümü oluşturma hatası",
       "logicNotFound": "Otomasyon mantık düğümü bulunamadı",
@@ -981,7 +1031,26 @@
       "insertNodeError": "Düğüm ekleme hatası",
       "controlNodeNotBeTested": "Kontrol düğümü test edilmemeli",
       "invalidNodeType": "Geçersiz düğüm türü",
-      "unsupportedCategory": "Desteklenmeyen kategori"
+      "unsupportedCategory": "Desteklenmeyen kategori",
+      "unknownConnectionType": "Bilinmeyen e-posta bağlantı türü",
+      "imapPasswordNotConfigured": "IMAP şifresi yapılandırılmamış",
+      "integrationNotFound": "Entegrasyon bulunamadı veya kimlik bilgileri yok",
+      "webhookTriggerNotFound": "Webhook tetikleyicisi bulunamadı",
+      "emailReceivedTriggerNotFound": "E-posta alım tetikleyicisi bulunamadı",
+      "emailConnectorNotAvailable": "E-posta bağlayıcı hizmeti kullanılamıyor",
+      "listMailboxesFailed": "Posta kutuları listelenemedi: {{detail}}"
+    },
+    "scrape": {
+      "unknownDataset": "Bilinmeyen veri seti: {{datasetId}}",
+      "apiKeyNotConfigured": "Kazıma servisi yapılandırılmamış",
+      "triggerFailed": "Kazıma tetiklemesi başarısız: {{detail}}",
+      "snapshotError": "Kazıma anlık görüntü hatası: {{detail}}",
+      "timeout": "Kazıma {{seconds}}s sonra zaman aşımına uğradı"
+    },
+    "integration": {
+      "oauthCodeExchangeFailed": "Failed to exchange OAuth code: {{detail}}",
+      "oauthTokenRefreshFailed": "Failed to refresh OAuth token: {{detail}}",
+      "userInfoFetchFailed": "Failed to get user info: {{detail}}"
     },
     "space": {
       "notFound": "Alan bulunamadı",
@@ -992,7 +1061,9 @@
       "deleted": "Space has been deleted",
       "cannotOperate": "Bir alan üzerinde işlem yapılamıyor, alanda organizasyon üyelerinin bulunduğunu ve sahip olduklarını doğrulayın",
       "notBelongToOrg": "Bu alan organizasyona ait değil",
-      "invalidSpaceIds": "Alan kimlikleri geçersiz: {{spaceIds}}"
+      "invalidSpaceIds": "Alan kimlikleri geçersiz: {{spaceIds}}",
+      "freeOwnedSpaceLimitExceeded": "You have reached the maximum number of free spaces you can own ({{max}}). Please upgrade an existing space or delete one to create a new free space.",
+      "freeOwnedSpaceLimitExceededOther": "{{name}} has reached the maximum number of free spaces they can own ({{max}})."
     },
     "base": {
       "notFound": "Base bulunamadı",
@@ -1041,6 +1112,7 @@
     "share": {
       "incorrectPassword": "Yanlış şifre",
       "notAllowedToSubmit": "Form gönderimi izin verilmiyor",
+      "notAllowedToEdit": "Bu paylaşımda düzenlemeye izin verilmiyor",
       "viewRequired": "Bu işlem için görünüm gereklidir",
       "hiddenFieldsSubmissionNotAllowed": "Gizli alanlar dahil edildiğinde form gönderimi izin verilmiyor",
       "submitRecordsError": "Kayıt gönderimi başarısız oldu",
@@ -1054,7 +1126,13 @@
     "shareAuth": {
       "passwordRestrictionNotEnabled": "Bu paylaşılan görünüm için şifre kısıtlaması etkin değil",
       "shareViewNotFound": "Paylaşılan görünüm bulunamadı veya paylaşım devre dışı",
-      "linkFieldNotFound": "Bağlantı alanı bulunamadı"
+      "linkFieldNotFound": "Bağlantı alanı bulunamadı",
+      "loginRequired": "Bu paylaşılan görünümü düzenlemek için oturum açın"
+    },
+    "baseShare": {
+      "notFound": "Taban paylaşımı bulunamadı veya paylaşım devre dışı",
+      "alreadyExists": "Bu düğüm için zaten bir paylaşım mevcut",
+      "copyNotAllowed": "Bu paylaşım kopyalamaya izin vermiyor"
     },
     "shareSocket": {
       "viewPermissionNotAllowed": "Bu görünüme erişim izniniz yok",
@@ -1083,7 +1161,8 @@
       "notAllowedToExecuteSqlWithKeyword": "{{keyword}} anahtar kelimesiyle SQL çalıştırılmasına izin verilmiyor",
       "whiteListCheckError": "Tablo erişimi kontrol edilirken bir hata oluştu: {{message}}",
       "databaseConnectionFailed": "Veritabanı bağlantısı başarısız oldu: {{message}}",
-      "executeQuerySqlFailed": "Sorgu SQL'i çalıştırılamadı: {{message}}"
+      "executeQuerySqlFailed": "Sorgu SQL'i çalıştırılamadı: {{message}}",
+      "sqlSyntaxError": "SQL sözdizimi hatası, lütfen sorgunuzu kontrol edin"
     },
     "permission": {
       "createRecordWithDeniedFields": "Alanları({{fields}}) olan kayıtlar oluşturma izniniz yok",
@@ -1148,6 +1227,7 @@
       "recordMapNotFound": "Tablo {{tableName}} içinde alan {{fieldName}} için kayıt bulunamadı",
       "forbidDeletePrimaryField": "Birincil alanı silmek yasaktır",
       "foreignTableIdInvalid": "Yabancı tablo {{foreignTableId}} geçersiz",
+      "crossSpaceLinkForbidden": "Alanlar arası referanslar desteklenmiyor. Lütfen aynı alandaki bir tablo seçin (hedef {{foreignTableId}} farklı bir alanda).",
       "relationshipInvalid": "İlişki {{relationship}} geçersiz",
       "linkFieldIdInvalid": "Bağlantı alanı {{linkFieldId}} geçersiz",
       "lookupFieldIdInvalid": "Arama alanı {{lookupFieldId}} geçersiz",
@@ -1172,10 +1252,20 @@
       "notAttachment": "Alan bir ek alanı değil",
       "isComputed": "Alan hesaplanmış ve değiştirilemez",
       "notFoundAICofig": "Alan AI yapılandırmasına sahip değil",
+      "foreignTableIdRequired": "Dış tablo gereklidir",
+      "lookupFieldIdRequired": "Arama alanı gereklidir",
+      "lookupFieldNotExist": "Arama alanı {{lookupFieldId}} mevcut değil",
+      "lookupFieldNotBelongToTable": "Arama alanı {{lookupFieldId}}, {{foreignTableId}} tablosuna ait değil",
+      "lookupFieldTypeNotMatch": "Geçerli alan türü {{fieldType}}, arama alanı türü {{lookupFieldType}} ile eşleşmiyor",
+      "conditionalRollupOptionsRequired": "Koşullu toplama alanı seçenekleri gereklidir",
+      "conditionalRollupParseError": "Koşullu toplama ayrıştırma hatası: {{message}}",
+      "conditionalLookupOptionsRequired": "Koşullu arama alanı seçenekleri gereklidir",
       "button": {
         "clickCountReachedMaxCount": "Düğme tıklama sayısı maksimum sınıra ulaştı",
         "notSupportReset": "Düğme sıfırlamayı desteklemiyor"
-      }
+      },
+      "primaryCannotBeLookup": "Birincil alan Lookup alanı olarak yapılandırılamaz",
+      "primaryFieldAlreadyExists": "Tablonun zaten bir birincil alanı var"
     },
     "view": {
       "notFound": "Görünüm bulunamadı",
@@ -1193,7 +1283,11 @@
     },
     "billing": {
       "insufficientCredit": "Yetersiz kredi",
-      "exceedMaxRowLimit": "Maksimum satır sınırı {{maxRowCount}} aşıldı"
+      "exceedMaxRowLimit": "Maksimum satır sınırı {{maxRowCount}} aşıldı",
+      "exceedMaxAutomationRunLimit": "Aylık maksimum otomasyon çalıştırma sayısına ulaşıldı",
+      "manualSubscriptionNotSupported": "Bu alan için self-servis abonelik kullanılamamaktadır. Yükseltme, düşürme veya diğer abonelik değişiklikleri için lütfen Teable desteğiyle iletişime geçin.",
+      "appSumoSubscriptionNotSupported": "AppSumo abonelikleri bu arayüz üzerinden değiştirilemez. Lütfen aboneliğinizi AppSumo'da yönetin.",
+      "customerNotFound": "Bu alan için fatura müşteri kaydı bulunamadı."
     },
     "aggregation": {
       "searchQueryRequired": "Arama sorgusu gereklidir",
@@ -1257,7 +1351,8 @@
     "import": {
       "notSupportedFileFormat": "Dosya biçimi desteklenmiyor, yalnızca {{supportType}} destekleniyor, dosyanızın içerik türü {{fileFormat}}",
       "notSupportedFileType": "İçe aktarma dosya türü desteklenmiyor",
-      "exceedMaxFieldsLength": "Tablodaki alan sayısı {{maxFieldsLength}} değerini aşamaz, mevcut değer {{length}}"
+      "exceedMaxFieldsLength": "Tablodaki alan sayısı {{maxFieldsLength}} değerini aşamaz, mevcut değer {{length}}",
+      "tooManyConcurrentImports": "Too many import tasks in progress ({{current}}/{{max}}). Please try again later."
     },
     "invitation": {
       "disallowSpaceInvitation": "Mevcut örnek, yönetici tarafından alan davetine izin vermiyor",
@@ -1276,6 +1371,8 @@
       "notFound": "Çöp kutusu öğesi bulunamadı",
       "parentSpaceTrashed": "Üst alan da çöp kutusunda olduğu için bu taban geri yüklenemiyor",
       "parentBaseOrSpaceTrashed": "Üst taban veya alan da çöp kutusunda olduğu için bu tablo geri yüklenemiyor",
+      "parentBaseTrashed": "Üst taban da çöp kutusunda olduğu için bu öğe geri yüklenemiyor",
+      "parentNotFound": "Üst kaynak bulunamadı",
       "tableNotFound": "Tablo çöp kutusu öğesi bulunamadı"
     },
     "license": {
@@ -1327,10 +1424,12 @@
       "invalidResourceType": "Geçersiz kaynak türü"
     },
     "template": {
+      "categoryNotFound": "Şablon kategorisi bulunamadı",
       "snapshotRequired": "Anlık görüntü eksik olduğu için bu şablon yayınlanamadı",
       "sourceTemplateNotFound": "Kaynak şablon bulunamadı",
       "noMinOrderFound": "Minimum sıra bulunamadı",
-      "takeCountTooLarge": "İstenen şablon sayısı maksimum sınırı aşıyor"
+      "takeCountTooLarge": "İstenen şablon sayısı maksimum sınırı aşıyor",
+      "categoryLimitReached": "Şablon kategori sınırına ulaşıldı (maksimum {{maxCount}})"
     },
     "domainVerification": {
       "notFound": "Domain doğrulama kodu bulunamadı",
@@ -1379,7 +1478,9 @@
       "fetchLinkedInPostFailed": "LinkedIn gönderisi alınamadı: {{error}}",
       "linkedInPostNotFound": "LinkedIn gönderisi bulunamadı: {{postId}}",
       "linkedInAuthorNotFound": "LinkedIn yazarı bulunamadı: {{postId}}",
-      "fetchLinkedInUserFailed": "LinkedIn kullanıcısı alınamadı: {{error}}"
+      "fetchLinkedInUserFailed": "LinkedIn kullanıcısı alınamadı: {{error}}",
+      "domainAlreadyInUse": "Bu alan adı zaten başka bir uygulamaya bağlı",
+      "domainReserved": "Alt alan adı ayrılmış"
     }
   }
 }

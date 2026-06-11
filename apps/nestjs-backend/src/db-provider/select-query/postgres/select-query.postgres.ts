@@ -3,7 +3,12 @@
 import { DateFormattingPreset, DbFieldType, TimeFormatting } from '@teable/core';
 import type { IDatetimeFormatting } from '@teable/core';
 import type { ISelectFormulaConversionContext } from '../../../features/record/query-builder/sql-conversion.visitor';
-import { normalizeAirtableDatetimeFormatExpression } from '../../utils/datetime-format.util';
+import {
+  buildDatetimeFormatSql,
+  buildDatetimeParseGuardRegex,
+  hasDatetimeTimezoneToken,
+  normalizeDatetimeFormatExpression,
+} from '../../utils/datetime-format.util';
 import { getDefaultDatetimeParsePattern } from '../../utils/default-datetime-parse-pattern';
 import {
   isBooleanLikeParam,
@@ -795,6 +800,18 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
     return `${wrappedBase}::timestamptz AT TIME ZONE '${safeTz}'`;
   }
 
+  private buildTimezoneOffsetSql(localTimestampSql: string): string {
+    const tz = this.context?.timeZone as string | undefined;
+    if (!tz) {
+      return "'+00:00'";
+    }
+
+    const safeTz = tz.replace(/'/g, "''");
+    const offsetMinutesSql = `ROUND(EXTRACT(EPOCH FROM (((${localTimestampSql}) AT TIME ZONE 'UTC') - ((${localTimestampSql}) AT TIME ZONE '${safeTz}'))) / 60)::int`;
+
+    return `(CASE WHEN ${offsetMinutesSql} >= 0 THEN '+' ELSE '-' END || LPAD((ABS(${offsetMinutesSql}) / 60)::int::text, 2, '0') || ':' || LPAD((ABS(${offsetMinutesSql}) % 60)::int::text, 2, '0'))`;
+  }
+
   private getDatePattern(date: DateFormattingPreset | string): string {
     const presetValues = Object.values(DateFormattingPreset) as string[];
     const normalizedPreset = presetValues.includes(date)
@@ -1178,6 +1195,27 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
     return `REPLACE(${source}, ${search}, ${replacement})`;
   }
 
+  textBefore(
+    text: string,
+    delimiter: string,
+    _instanceNum?: string,
+    _matchMode?: string,
+    _matchEnd?: string,
+    ifNotFound?: string
+  ): string {
+    const source = this.coerceArrayLikeToText(text, 0);
+    const search = this.coerceArrayLikeToText(delimiter, 1);
+    const fallback = ifNotFound ? this.coerceArrayLikeToText(ifNotFound, 5) : 'NULL';
+    const position = `POSITION(${search} IN ${source})`;
+    return `(CASE WHEN ${position} = 0 THEN ${fallback} ELSE LEFT(${source}, ${position} - 1) END)`;
+  }
+
+  textSplit(text: string, delimiter: string, _ignoreEmpty?: string, _matchMode?: string): string {
+    const source = this.coerceArrayLikeToText(text, 0);
+    const search = this.coerceArrayLikeToText(delimiter, 1);
+    return `to_jsonb(string_to_array(${source}, ${search}))`;
+  }
+
   lower(text: string): string {
     const operand = this.coerceArrayLikeToText(text, 0);
     return `LOWER(${operand})`;
@@ -1209,8 +1247,26 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
   }
 
   encodeUrlComponent(text: string): string {
-    // PostgreSQL doesn't have built-in URL encoding, would need custom function
-    return `encode(${text}::bytea, 'escape')`;
+    const textExpr = `(${text})::text`;
+    const encodedSql = `(SELECT string_agg(
+      CASE
+        WHEN byte_val BETWEEN 48 AND 57
+          OR byte_val BETWEEN 65 AND 90
+          OR byte_val BETWEEN 97 AND 122
+          OR byte_val IN (45, 95, 46, 33, 126, 42, 39, 40, 41)
+        THEN chr(byte_val)
+        ELSE '%' || UPPER(LPAD(to_hex(byte_val), 2, '0'))
+      END,
+      ''
+      ORDER BY ord
+    )
+    FROM (
+      SELECT ord, get_byte(src.bytes, ord) AS byte_val
+      FROM (SELECT convert_to(${textExpr}, 'UTF8') AS bytes) AS src
+      CROSS JOIN generate_series(0, octet_length(src.bytes) - 1) AS ord
+    ) AS utf8_bytes)`;
+
+    return `(CASE WHEN ${text} IS NULL THEN NULL ELSE COALESCE(${encodedSql}, '') END)`;
   }
 
   // DateTime Functions - These can use mutable functions in SELECT context
@@ -1288,8 +1344,12 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
   }
 
   datetimeFormat(date: string, format: string): string {
-    const normalizedFormat = normalizeAirtableDatetimeFormatExpression(format);
-    return `TO_CHAR(${this.tzWrap(date, 0)}, ${normalizedFormat})`;
+    const timestampExpr = this.tzWrap(date, 0);
+    return buildDatetimeFormatSql(
+      timestampExpr,
+      format,
+      this.buildTimezoneOffsetSql(timestampExpr)
+    );
   }
 
   datetimeParse(dateString: string, format?: string): string {
@@ -1297,36 +1357,63 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
     const trustedDatetimeInput = this.hasTrustedDatetimeInput(0);
 
     if (format == null) {
-      return trustedDatetimeInput ? valueExpr : this.guardDefaultDatetimeParse(valueExpr);
+      return trustedDatetimeInput ? valueExpr : this.parseDatetimeParseWithoutFormat(valueExpr);
     }
     const trimmedFormat = format.trim();
     if (!trimmedFormat || trimmedFormat === 'undefined' || trimmedFormat.toLowerCase() === 'null') {
-      return trustedDatetimeInput ? valueExpr : this.guardDefaultDatetimeParse(valueExpr);
+      return trustedDatetimeInput ? valueExpr : this.parseDatetimeParseWithoutFormat(valueExpr);
     }
     if (trustedDatetimeInput) {
-      return valueExpr;
+      const localTimestampExpr = this.tzWrap(valueExpr, 0);
+      const formattedExpr = buildDatetimeFormatSql(
+        localTimestampExpr,
+        trimmedFormat,
+        this.buildTimezoneOffsetSql(localTimestampExpr)
+      );
+      return this.parseDatetimeParseWithFormat(formattedExpr, trimmedFormat);
     }
-    const normalizedFormat = normalizeAirtableDatetimeFormatExpression(trimmedFormat);
-    const toTimestampExpr = `TO_TIMESTAMP(${valueExpr}::text, ${normalizedFormat})`;
-    const guardPattern = this.buildDatetimeParseGuardRegex(normalizedFormat);
-    if (!guardPattern) {
-      return toTimestampExpr;
-    }
-    const textExpr = `${valueExpr}::text`;
-    const escapedPattern = guardPattern.replace(/'/g, "''");
-    return `(CASE WHEN ${valueExpr} IS NULL THEN NULL WHEN ${textExpr} = '' THEN NULL WHEN ${textExpr} ~ '${escapedPattern}' THEN ${toTimestampExpr} ELSE NULL END)`;
+
+    return this.parseDatetimeParseWithFormat(`${valueExpr}::text`, trimmedFormat, valueExpr);
   }
 
   day(date: string): string {
     return `EXTRACT(DAY FROM ${this.tzWrap(date, 0)})::int`;
   }
 
-  fromNow(date: string): string {
+  private buildNowDiffByUnit(nowExpr: string, dateExpr: string, unit: string): string {
+    const diffUnit = this.normalizeDiffUnit(unit.replace(/^'|'$/g, ''));
+    const diffSeconds = `EXTRACT(EPOCH FROM (${nowExpr} - ${dateExpr}))`;
+    const diffMonths = `EXTRACT(MONTH FROM AGE(${nowExpr}, ${dateExpr})) + EXTRACT(YEAR FROM AGE(${nowExpr}, ${dateExpr})) * 12`;
+    const diffYears = `EXTRACT(YEAR FROM AGE(${nowExpr}, ${dateExpr}))`;
+    switch (diffUnit) {
+      case 'millisecond':
+        return `(${diffSeconds}) * 1000`;
+      case 'second':
+        return `(${diffSeconds})`;
+      case 'minute':
+        return `(${diffSeconds}) / 60`;
+      case 'hour':
+        return `(${diffSeconds}) / 3600`;
+      case 'week':
+        return `(${diffSeconds}) / (86400 * 7)`;
+      case 'month':
+        return diffMonths;
+      case 'quarter':
+        return `(${diffMonths}) / 3.0`;
+      case 'year':
+        return diffYears;
+      case 'day':
+      default:
+        return `(${diffSeconds}) / 86400`;
+    }
+  }
+
+  fromNow(date: string, unit = 'day'): string {
     const tz = this.context?.timeZone?.replace(/'/g, "''");
     if (tz) {
-      return `EXTRACT(EPOCH FROM ((NOW() AT TIME ZONE '${tz}') - ${this.tzWrap(date, 0)}))`;
+      return this.buildNowDiffByUnit(`(NOW() AT TIME ZONE '${tz}')`, this.tzWrap(date, 0), unit);
     }
-    return `EXTRACT(EPOCH FROM (NOW() - ${date}::timestamp))`;
+    return this.buildNowDiffByUnit('NOW()', `${date}::timestamp`, unit);
   }
 
   hour(date: string): string {
@@ -1379,28 +1466,74 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
     return `(${this.tzWrap(date, 0)})::time::text`;
   }
 
-  toNow(date: string): string {
-    const tz = this.context?.timeZone?.replace(/'/g, "''");
-    if (tz) {
-      return `EXTRACT(EPOCH FROM (${this.tzWrap(date, 0)} - (NOW() AT TIME ZONE '${tz}')))`;
-    }
-    return `EXTRACT(EPOCH FROM (${date}::timestamp - NOW()))`;
+  toNow(date: string, unit = 'day'): string {
+    return this.fromNow(date, unit);
   }
 
   weekNum(date: string): string {
     return `EXTRACT(WEEK FROM ${this.tzWrap(date, 0)})::int`;
   }
 
-  weekday(date: string): string {
-    return `EXTRACT(DOW FROM ${this.tzWrap(date, 0)})::int`;
+  weekday(date: string, startDayOfWeek?: string): string {
+    const weekdaySql = `EXTRACT(DOW FROM ${this.tzWrap(date, 0)})::int`;
+    if (!startDayOfWeek) {
+      return weekdaySql;
+    }
+
+    const normalizedStartDay = `LOWER(BTRIM(COALESCE((${startDayOfWeek})::text, '')))`;
+    return `CASE WHEN ${normalizedStartDay} = 'monday' THEN ((${weekdaySql} + 6) % 7) ELSE ${weekdaySql} END`;
   }
 
-  workday(startDate: string, days: string): string {
+  workday(startDate: string, days: string, holidayStr?: string): string {
     if (!this.isDateLikeOperand(0)) {
       return 'NULL';
     }
-    // Simplified implementation in the target timezone; tzWrap sanitizes untrusted inputs
-    return `(${this.tzWrap(startDate, 0)})::date + INTERVAL '${days} days'`;
+    const startDateSql = `(${this.tzWrap(startDate, 0)})::date`;
+    const dayCountSql = `COALESCE((${this.toNumericSafe(days, 1)})::integer, 0)`;
+    const holidayTextSql = holidayStr ? `COALESCE((${holidayStr})::text, '')` : `''`;
+
+    return `(
+      WITH params AS (
+        SELECT ${startDateSql} AS start_date, ${dayCountSql} AS day_count, ${holidayTextSql} AS holiday_text
+      ),
+      holiday_parts AS (
+        SELECT BTRIM(part) AS holiday_part
+        FROM params p
+        CROSS JOIN LATERAL regexp_split_to_table(p.holiday_text, ',') AS part
+      ),
+      holiday_dates AS (
+        SELECT DISTINCT TO_DATE(LEFT(holiday_part, 10), 'YYYY-MM-DD') AS holiday_date
+        FROM holiday_parts
+        WHERE holiday_part <> ''
+          AND holiday_part ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+          AND TO_CHAR(TO_DATE(LEFT(holiday_part, 10), 'YYYY-MM-DD'), 'YYYY-MM-DD') = LEFT(holiday_part, 10)
+      ),
+      candidates AS (
+        SELECT
+          (p.start_date + CASE WHEN p.day_count >= 0 THEN seq.n ELSE -seq.n END)::date AS candidate_date,
+          seq.n
+        FROM params p
+        CROSS JOIN LATERAL generate_series(1, ABS(p.day_count) * 7 + 366) AS seq(n)
+      ),
+      workdays AS (
+        SELECT c.candidate_date, c.n
+        FROM candidates c
+        LEFT JOIN holiday_dates h ON h.holiday_date = c.candidate_date
+        WHERE EXTRACT(DOW FROM c.candidate_date)::int NOT IN (0, 6)
+          AND h.holiday_date IS NULL
+        ORDER BY c.n
+      )
+      SELECT CASE
+        WHEN p.day_count = 0 THEN p.start_date::timestamp
+        ELSE (
+          SELECT w.candidate_date::timestamp
+          FROM workdays w
+          OFFSET ABS(p.day_count) - 1
+          LIMIT 1
+        )
+      END
+      FROM params p
+    )`;
   }
 
   workdayDiff(startDate: string, endDate: string): string {
@@ -1599,7 +1732,22 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
   }
 
   countAll(value: string): string {
-    return this.countANonNullExpression(value, 0);
+    const paramInfo = this.getParamInfo(0);
+    if (paramInfo.isJsonField || paramInfo.isMultiValueField) {
+      const baseExpr =
+        paramInfo.isFieldReference && paramInfo.fieldDbName
+          ? this.tableAlias
+            ? `"${this.tableAlias}"."${paramInfo.fieldDbName}"`
+            : `"${paramInfo.fieldDbName}"`
+          : value;
+      const normalized = `COALESCE(NULLIF((${baseExpr})::jsonb, 'null'::jsonb), '[]'::jsonb)`;
+      return `(CASE
+        WHEN jsonb_typeof(${normalized}) = 'array' THEN jsonb_array_length(${normalized})
+        ELSE 1
+      END)`;
+    }
+
+    return `CASE WHEN ${value} IS NULL THEN 0 ELSE 1 END`;
   }
 
   private normalizeJsonbArray(array: string): string {
@@ -1872,58 +2020,48 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
     return `(CASE WHEN ${valueExpr} IS NULL THEN NULL WHEN ${sanitizedExpr} IS NULL THEN NULL WHEN ${sanitizedExpr} ~ '${pattern}' THEN ${valueExpr} ELSE NULL END)`;
   }
 
-  private buildDatetimeParseGuardRegex(formatLiteral: string): string | null {
-    if (!formatLiteral.startsWith("'") || !formatLiteral.endsWith("'")) {
-      return null;
+  private parseDatetimeParseWithoutFormat(valueExpr: string): string {
+    const textExpr = `${valueExpr}::text`;
+    const trimmedExpr = `NULLIF(BTRIM(${textExpr}), '')`;
+    const sanitizedExpr = `CASE WHEN ${trimmedExpr} IS NULL THEN NULL WHEN LOWER(${trimmedExpr}) IN ('null', 'undefined') THEN NULL ELSE ${trimmedExpr} END`;
+    const pattern = getDefaultDatetimeParsePattern();
+    const hasClockTime = `(${sanitizedExpr} ~ '[ T][0-9]{1,2}:[0-9]{2}')`;
+    const hasExplicitTimeZone = `(${sanitizedExpr} ~* '(Z|[+-][0-9]{2}:[0-9]{2}|[+-][0-9]{4}|[+-][0-9]{2})$')`;
+    const safeTz = (this.context?.timeZone ?? 'UTC').replace(/'/g, "''");
+    const localTimestampExpr = `(${sanitizedExpr})::timestamp AT TIME ZONE '${safeTz}'`;
+    const explicitZoneExpr = `(${sanitizedExpr})::timestamptz`;
+
+    return `(CASE
+      WHEN ${valueExpr} IS NULL THEN NULL
+      WHEN ${sanitizedExpr} IS NULL THEN NULL
+      WHEN ${sanitizedExpr} ~ '${pattern}' THEN
+        (CASE
+          WHEN ${hasClockTime} AND NOT ${hasExplicitTimeZone} THEN ${localTimestampExpr}
+          ELSE ${explicitZoneExpr}
+        END)
+      ELSE NULL
+    END)`;
+  }
+
+  private parseDatetimeParseWithFormat(
+    textExpr: string,
+    formatExpr: string,
+    nullGuardExpr: string = textExpr
+  ): string {
+    const normalizedFormat = normalizeDatetimeFormatExpression(formatExpr);
+    const toTimestampExpr = `TO_TIMESTAMP(${textExpr}::text, ${normalizedFormat})`;
+    const safeTz = (this.context?.timeZone ?? 'UTC').replace(/'/g, "''");
+    const hasTimezoneToken = hasDatetimeTimezoneToken(formatExpr);
+    const parsedExpr =
+      hasTimezoneToken === false
+        ? `(${toTimestampExpr})::timestamp AT TIME ZONE '${safeTz}'`
+        : toTimestampExpr;
+    const guardPattern = buildDatetimeParseGuardRegex(formatExpr);
+    if (!guardPattern) {
+      return parsedExpr;
     }
-    const literal = formatLiteral.slice(1, -1);
-    const tokenPatterns: Array<[string, string]> = [
-      ['HH24', '\\d{2}'],
-      ['HH12', '\\d{2}'],
-      ['HH', '\\d{2}'],
-      ['AM', '[AaPp][Mm]'],
-      ['MI', '\\d{2}'],
-      ['SS', '\\d{2}'],
-      ['MS', '\\d{1,3}'],
-      ['YYYY', '\\d{4}'],
-      ['YYY', '\\d{3}'],
-      ['YY', '\\d{2}'],
-      ['Y', '\\d'],
-      ['MM', '\\d{2}'],
-      ['DD', '\\d{2}'],
-    ];
-    const optionalTokens = new Set(['FM', 'TM', 'TH']);
-    let pattern = '^';
-    for (let i = 0; i < literal.length; ) {
-      let matched = false;
-      const remaining = literal.slice(i);
-      const upperRemaining = remaining.toUpperCase();
-      for (const [token, tokenPattern] of tokenPatterns) {
-        if (upperRemaining.startsWith(token)) {
-          pattern += tokenPattern;
-          i += token.length;
-          matched = true;
-          break;
-        }
-      }
-      if (matched) {
-        continue;
-      }
-      const optionalToken = upperRemaining.slice(0, 2);
-      if (optionalTokens.has(optionalToken)) {
-        i += optionalToken.length;
-        continue;
-      }
-      const currentChar = literal[i];
-      if (/\s/.test(currentChar)) {
-        pattern += '\\s';
-      } else {
-        pattern += currentChar.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      }
-      i += 1;
-    }
-    pattern += '$';
-    return pattern;
+    const escapedPattern = guardPattern.replace(/'/g, "''");
+    return `(CASE WHEN ${nullGuardExpr} IS NULL THEN NULL WHEN ${textExpr} = '' THEN NULL WHEN ${textExpr} ~ '${escapedPattern}' THEN ${parsedExpr} ELSE NULL END)`;
   }
 
   private hasTrustedDatetimeInput(index: number): boolean {

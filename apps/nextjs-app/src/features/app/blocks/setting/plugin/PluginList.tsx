@@ -42,7 +42,7 @@ export const PluginList = () => {
             router.push({ pathname: router.pathname, query: { form: 'new' } });
           }}
         >
-          <Plus />
+          <Plus className="size-4 shrink-0" />
           {t('plugin:add')}
         </Button>
       </div>
@@ -80,7 +80,7 @@ export const PluginList = () => {
                     });
                   }}
                 >
-                  <Settings />
+                  <Settings className="size-4 shrink-0" />
                 </Button>
                 <Button
                   className="h-5 p-0.5"

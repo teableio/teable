@@ -20,9 +20,10 @@ import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { spaceConfig } from '@/features/i18n/space.config';
-import { SpaceInnerSettingModal, SettingTab } from '@overridable/SpaceInnerSettingModal';
+import { SpaceSettingTab, SpaceInnerSettingModal } from '@overridable/SpaceInnerSettingModal';
 import { LevelWithUpgrade } from '../../components/billing/LevelWithUpgrade';
 import { Collaborators } from '../../components/collaborator-manage/space-inner/Collaborators';
+import { PersonalSettingTab } from '../../components/setting/useSettingStore';
 import { SpaceActionBar } from '../../components/space/SpaceActionBar';
 import { SpaceRenaming } from '../../components/space/SpaceRenaming';
 import { useIsCloud } from '../../hooks/useIsCloud';
@@ -47,6 +48,9 @@ export const SpaceInnerPage: React.FC = () => {
   const [renaming, setRenaming] = useState<boolean>(false);
   const [spaceName, setSpaceName] = useState<string>();
   const [settingModalOpen, setSettingModalOpen] = useState(false);
+  const [settingDefaultTab, setSettingDefaultTab] = useState<SpaceSettingTab | PersonalSettingTab>(
+    SpaceSettingTab.Plan
+  );
 
   const { data: space } = useQuery({
     queryKey: ReactQueryKeys.space(spaceId),
@@ -159,6 +163,19 @@ export const SpaceInnerPage: React.FC = () => {
     return null;
   };
 
+  useEffect(() => {
+    const { subscribeLevel, host } = router.query;
+    if (!subscribeLevel) return;
+
+    if (host === 'self-hosted') {
+      setSettingDefaultTab(PersonalSettingTab.LicensePlan);
+      setSettingModalOpen(true);
+    } else if (isCloud && space?.role === Role.Owner) {
+      setSettingDefaultTab(SpaceSettingTab.Plan);
+      setSettingModalOpen(true);
+    }
+  }, [router.query, isCloud, space?.role]);
+
   return (
     space && (
       <div ref={ref} className={cn('flex h-full min-w-0 flex-1 flex-col py-6 sm:min-w-[760px]')}>
@@ -260,7 +277,7 @@ export const SpaceInnerPage: React.FC = () => {
         <SpaceInnerSettingModal
           open={settingModalOpen}
           setOpen={setSettingModalOpen}
-          defaultTab={SettingTab.Plan}
+          defaultTab={settingDefaultTab}
         >
           <span className="hidden" />
         </SpaceInnerSettingModal>

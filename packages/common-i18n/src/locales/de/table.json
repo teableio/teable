@@ -1,4 +1,13 @@
 {
+  "crossSpace": {
+    "duplicateFieldTitle": "Hinweis",
+    "duplicateFieldDescription": "Bereichsübergreifende Verweise werden nicht unterstützt. Das Duplikat wird in ein einzeiliges Textfeld umgewandelt.",
+    "duplicateTableTitle": "Hinweis",
+    "duplicateTableDescription": "Bereichsübergreifende Verweise werden nicht unterstützt. Das Duplikat wird in ein einzeiliges Textfeld umgewandelt.",
+    "duplicateBaseTitle": "Hinweis",
+    "duplicateBaseDescription": "Bereichsübergreifende Verweise werden nicht unterstützt. Das Duplikat wird in ein einzeiliges Textfeld umgewandelt.",
+    "convertAndDuplicate": "Umwandeln & duplizieren"
+  },
   "toolbar": {
     "comingSoon": "Demnächst verfügbar",
     "viewFilterInShare": "Diese Ansicht wird in einem Ansichtsfreigabelink verwendet. Änderungen an der Konfiguration der Ansicht ändern auch den Link zur Ansichtsfreigabe.",
@@ -6,12 +15,13 @@
     "others": {
       "share": {
         "label": "Teilen",
-        "statusLabel": "Freigegeben",
+        "statusLabel": "Ansicht im Web teilen",
         "noPermission": "Keine Erlaubnis zum Teilen der Ansicht",
         "shareLink": "Freigabelink",
         "copied": "Kopiert",
         "genLink": "Erzeuge neuen Link",
         "allowCopy": "Betrachtern das Kopieren von Daten aus dieser Ansicht ermöglichen",
+        "allowEdit": "Angemeldete Betrachter dürfen sichtbare Daten bearbeiten",
         "showAllFields": "Alle Felder in erweiterten Datensätzen anzeigen",
         "restrict": "Durch Passwort beschränken",
         "tips": "Diejenigen, die den Link haben, können die Ansicht sehen.",
@@ -55,6 +65,16 @@
     "help": "Weitere Informationen finden Sie im <HelpCenter />.",
     "helpCenter": "Hilfe-Center"
   },
+  "validation": {
+    "link": {
+      "batch_duplicate": "Verknüpfung nicht möglich: Im selben Batch wurde der Datensatz bereits von einem anderen Datensatz verknüpft. In Eins-zu-viele-Beziehungen kann jeder untergeordnete Datensatz nur zu einem übergeordneten Datensatz gehören.",
+      "one_many_duplicate": "Verknüpfung nicht möglich: Der Datensatz ist bereits mit einem anderen Datensatz verknüpft. In Eins-zu-viele-Beziehungen kann jeder untergeordnete Datensatz nur zu einem übergeordneten Datensatz gehören.",
+      "one_one_duplicate": "Verknüpfung nicht möglich: Der Zieldatensatz ist in einer Eins-zu-eins-Beziehung bereits mit einem anderen Datensatz verknüpft."
+    },
+    "field": {
+      "maxColumnLimit": "Die Tabelle \"{{tableName}}\" darf höchstens {{maxFieldCount}} Felder enthalten."
+    }
+  },
   "field": {
     "fieldManagement": "Feld-Management",
     "fieldManagementDesc": "Detaillierte Eigenschaften für alle Felder der aktuellen Tabelle",
@@ -73,7 +93,7 @@
         "currencySymbol": "Währungssymbol",
         "defaultSymbol": "€",
         "precision": "Genaugikeit",
-        "decimalExample": "Dezimal (1.0)",
+        "decimalExample": "Zahl (123)",
         "currencyExample": "Währung (€100)",
         "percentExample": "Prozent (20%)"
       },
@@ -195,6 +215,9 @@
           "sum": "Addieren der Werte.",
           "xor": "Gibt wahr zurück, wenn und nur wenn eine ungerade Anzahl von Werten wahr ist."
         }
+      },
+      "conditionalRollup": {
+        "title": "{{lookupFieldName}} bedingtes Rollup"
       }
     },
     "editor": {
@@ -221,6 +244,7 @@
       "ring": "Ring",
       "bar": "Balken",
       "text": "Text",
+      "markdown": "Markdown",
       "url": "Url",
       "email": "E-Mail",
       "phone": "Telfonnummer",
@@ -271,6 +295,25 @@
       "hideFields": "Felder verstecken",
       "moreOptions": "Mehr Optionen",
       "allowNewOptionsWhenEditing": "Neue Optionen bei der Bearbeitung zulassen",
+      "deleteField": {
+        "title": "Feld löschen",
+        "simpleConfirm": "Sind Sie sicher, dass Sie das Feld <b>{{fieldName}}</b> löschen möchten?",
+        "withDependencies": "Das Löschen des Felds <b>{{fieldName}}</b> wirkt sich auf die folgenden Felder aus:",
+        "affectedFields": "Betroffene Felder:",
+        "fieldsToDelete": "Zu löschende Felder ({{count}})",
+        "unviewedHint": "{{count}} Feld(er) nicht überprüft",
+        "deleteCount": "{{count}} Felder löschen",
+        "noAffectedFields": "Dieses Feld wird von keinen anderen Feldern referenziert.",
+        "riskIdentified": "Risiko identifiziert({{count}})",
+        "noDependencies": "Keine Abhängigkeiten({{count}})",
+        "safeToDelete": "Sicher zu löschen",
+        "safeToDeleteDesc": "Dieses Feld wird von keinen anderen Feldern referenziert und kann sicher gelöscht werden",
+        "affectedItems": "Betroffene Elemente",
+        "type": "Typ",
+        "source": "Quelle",
+        "sourceTable": "Quelltabelle",
+        "typeField": "Feld"
+      },
       "conditionalLookup": {
         "sortLimitToggleLabel": "Sort linked records and limit the number of matches",
         "sortLabel": "Sort results",
@@ -391,6 +434,9 @@
     "baseInfo": "Base Info",
     "typeOfDatabase": "Typ der Databank",
     "descriptionForTable": "Beschreibung für diese Tabelle",
+    "loginUserTable": "App-Anmeldung",
+    "loginUserTableClickTips": "Verknüpfte App öffnen",
+    "linkedApps": "Verknüpfte Apps",
     "nameForTable": "Name für diese Tabelle",
     "deleteTip1": "Verknüpfungsfelder, die mit dieser Tabelle in anderen Tabellen verknüpft sind, werden gelöscht.",
     "deleteTip2": "Diese Tabelle kann nach dem Löschen aus dem Papierkorb wiederhergestellt werden.",
@@ -414,10 +460,33 @@
       "deleteFieldConfirmTitle": "Sie werden die folgenden Felder löschen",
       "deleting": "Lösche...",
       "deleteSuccessful": "Löschen erfolgreich",
+      "deleteStream": {
+        "preparing": "Preparing selection",
+        "deleting": "Deleting records",
+        "descriptionWithIssues": "Some delete chunks failed. Review the details below.",
+        "completedWithIssues": "Deletion completed with issues",
+        "issuesBadge": "{{count}} issues",
+        "chunkFailureTitle": "Chunk failure details",
+        "chunkFailureSummary": "{{count}} chunk(s) reported an error while the stream kept running.",
+        "chunkLabel": "Chunk {{index}}",
+        "rowsLabel": "{{count}} rows",
+        "partialFailureDescription": "Deleted {{deletedCount}} of {{totalCount}} records. Review chunk details in the dialog.",
+        "phaseLabel": {
+          "preparing": "Preparing",
+          "guarding": "Checking",
+          "deleting": "Deleting",
+          "publishing": "Publishing",
+          "finalizing": "Finalizing"
+        }
+      },
       "pasteFileFailed": "Dateien können nur in ein Anhangsfeld eingefügt werden",
       "copyError": {
         "noFocus": "Bitte lassen Sie die Seite aktiv und wechseln Sie nicht das Fenster"
-      }
+      },
+      "crossBaseCopyTitle": "Als Klartext kopieren?",
+      "crossBaseCopyDescription": "Die Auswahl enthält ein basenübergreifendes Verknüpfungsfeld. Damit die Daten in ihrer ursprünglichen Base bleiben, wird das Feld als Klartext kopiert und verliert seine Verknüpfungen.",
+      "crossBaseCopyConfirm": "Als Klartext kopieren",
+      "crossBaseCopyLoadFirst": "Bitte scrollen Sie, um alle ausgewählten Zeilen zu laden, bevor Sie basenübergreifende Felder kopieren."
     },
     "graph": {
       "tableLabel": "Tabelle Label",
@@ -430,7 +499,171 @@
       "title": "Integritätsprüfung",
       "loading": "Prüfe Integrität...",
       "allGood": "Alles super!",
-      "fixIssues": "Probleme beheben"
+      "fixIssues": "Probleme beheben",
+      "v2": {
+        "dialogTitle": "Schema-Integrität",
+        "dialogDescription": "Führe den v2-Schema-Check und die Reparatur für {{tableName}} aus.",
+        "dialogDescriptionNoTable": "Führe den v2-Schema-Check und die Reparatur für die aktuelle Base aus.",
+        "runCheck": "Prüfung starten",
+        "recheck": "Erneut prüfen",
+        "repair": "Reparieren",
+        "repairWarnings": "Nur Warnungen reparieren",
+        "repairWarningsAndErrors": "Warnungen und Fehler reparieren",
+        "repairRule": "Regel reparieren",
+        "repairUnavailable": "Diese Regel kann nicht automatisch repariert werden",
+        "manual": "Manuell",
+        "manualRepairNotice": "Dieses Problem muss manuell repariert werden",
+        "manualRepairNoticeWithCount": "{{count}} Probleme müssen manuell repariert werden. Klicken Sie rechts an der jeweiligen Regel auf „Manuell“, um den Reparaturdialog zu öffnen.",
+        "manualRepairDialogTitle": "Manuelle Reparatur erforderlich",
+        "manualRepairDialogDescription": "Dieses Problem kann nicht automatisch repariert werden. Prüfen Sie die Hinweise unten und wählen Sie, wie es behoben werden soll.",
+        "manualRepairDialogReason": "Warum eine manuelle Reparatur erforderlich ist",
+        "manualRepairDialogHint": "Dieser Dialog zeigt derzeit die von der Regel benötigten Reparaturoptionen. Die eigentliche Ausführung kann später auf diesem Vertrag aufbauen.",
+        "manualRepairDialogClose": "Schließen",
+        "checking": "Schema wird geprüft...",
+        "repairing": "Schema wird repariert...",
+        "streamError": "Schema-Integritäts-Stream fehlgeschlagen.",
+        "noTableSelected": "Wähle zuerst eine Tabelle aus, um den v2-Schema-Check auszuführen.",
+        "noResults": "Noch keine Schema-Ergebnisse.",
+        "noFilteredResults": "Keine Ergebnisse entsprechen den aktuellen Filtern.",
+        "systemColumns": "Systemspalten",
+        "general": "Allgemein",
+        "optional": "Optional",
+        "statementCount": "{{count}} Anweisungen",
+        "detailsMissing": "Fehlend: {{details}}",
+        "detailsExtra": "Zusätzlich: {{details}}",
+        "message": {
+          "schemaValid": "Schema is valid",
+          "schemaValidationFailed": "Schema validation failed",
+          "schemaElementMissing": "Schema element missing",
+          "schemaAlreadyValid": "Schema is already valid",
+          "schemaRepaired": "Schema repaired successfully",
+          "manualRepair": "Rule requires manual repair",
+          "noRepairStatements": "No repair statements available",
+          "skippedDependencies": "Skipped because dependencies are not satisfied",
+          "checkStreamConnected": "Schema integrity check stream connected",
+          "baseCheckStreamConnected": "Base schema integrity check stream connected",
+          "repairStreamConnected": "Schema integrity repair stream connected",
+          "baseRepairStreamConnected": "Base schema integrity repair stream connected",
+          "checkCompleted": "Schema integrity check completed",
+          "baseCheckCompleted": "Base schema integrity check completed",
+          "repairCompleted": "Schema integrity repair completed",
+          "baseRepairCompleted": "Base schema integrity repair completed"
+        },
+        "rule": {
+          "column": "Physical column",
+          "columnTyped": "Physical column ({{dataType}})",
+          "notNull": "NOT NULL constraint",
+          "columnUnique": "UNIQUE constraint",
+          "fkColumn": "Foreign key column",
+          "index": "Index",
+          "uniqueIndex": "Unique index",
+          "primaryKey": "PRIMARY KEY",
+          "defaultExpression": "Default expression",
+          "foreignKey": "Foreign key constraint",
+          "junctionTable": "Junction table",
+          "junctionUnique": "Junction table unique constraint",
+          "junctionIndex": "Junction table index",
+          "junctionForeignKey": "Junction table foreign key",
+          "reference": "Reference records",
+          "generatedColumn": "Generated column",
+          "generatedMeta": "Generated column state",
+          "linkValueColumn": "Link value column",
+          "orderColumn": "Order column",
+          "fieldMeta": "Field metadata",
+          "symmetricField": "Symmetric field relationship",
+          "systemColumn": "System column \"{{columnName}}\"",
+          "systemColumnTyped": "System column \"{{columnName}}\" ({{dataType}})",
+          "systemNotNull": "NOT NULL on system column \"{{columnName}}\"",
+          "systemUnique": "UNIQUE index on system column \"{{columnName}}\"",
+          "systemPrimaryKey": "PRIMARY KEY on system column \"{{columnName}}\"",
+          "systemDefault": "Default expression on system column \"{{columnName}}\"",
+          "connection": "Connection",
+          "completion": "Completion",
+          "unexpected": "Unexpected error"
+        },
+        "detail": {
+          "systemColumnMissing": "System column \"{{columnName}}\" not found",
+          "systemColumnNotNull": "System column \"{{columnName}}\" should be NOT NULL",
+          "systemColumnUnique": "System column \"{{columnName}}\" should have a UNIQUE index",
+          "systemColumnPrimaryKey": "System column \"{{columnName}}\" should be PRIMARY KEY",
+          "systemColumnDefault": "System column \"{{columnName}}\" should have a default expression",
+          "foreignKeyOrphanRows": "Field \"{{fieldName}}\" still has {{count}} rows pointing to missing linked records",
+          "foreignKeyOrphanRowsDescription": "Automatic repair cannot restore the foreign key for \"{{fieldName}}\" until the {{count}} invalid references to \"{{targetTableName}}\" are cleaned up.",
+          "junctionForeignKeyMissing": "The junction table for \"{{fieldName}}\" is missing one of its foreign keys",
+          "junctionForeignKeyMissingDescription": "Restore the junction foreign key for \"{{fieldName}}\" so relation rows stay linked to existing records in \"{{targetTableName}}\".",
+          "junctionForeignKeyTargetTableMissing": "The linked table for the junction of \"{{fieldName}}\" cannot be found",
+          "junctionForeignKeyTargetTableMissingDescription": "Automatic repair cannot restore the junction foreign key for \"{{fieldName}}\" because the target table \"{{targetPhysicalTableName}}\" does not exist.",
+          "junctionForeignKeyOrphanRows": "The junction table for \"{{fieldName}}\" still has {{count}} rows pointing to missing linked records",
+          "junctionForeignKeyOrphanRowsDescription": "Automatic repair cannot restore the junction foreign key for \"{{fieldName}}\" until the {{count}} invalid relation rows referencing \"{{targetTableName}}\" are cleaned up."
+        },
+        "phase": {
+          "check": "Prüfergebnisse",
+          "repair": "Reparaturergebnisse"
+        },
+        "summary": {
+          "checks": "{{count}} Prüfungen",
+          "success": "{{count}} bestanden",
+          "warn": "{{count}} Warnungen",
+          "error": "{{count}} Fehler",
+          "skipped": "{{count}} übersprungen",
+          "repaired": "{{count}} repariert",
+          "manual": "{{count}} manuell",
+          "problems": "{{count}} Probleme"
+        },
+        "status": {
+          "success": "Bestanden",
+          "error": "Fehler",
+          "warn": "Warnung",
+          "pending": "Ausstehend",
+          "running": "Läuft",
+          "skipped": "Übersprungen"
+        },
+        "outcome": {
+          "repaired": "Repariert",
+          "unchanged": "Unverändert",
+          "manual": "Manuell",
+          "skipped": "Übersprungen"
+        },
+        "repairMeta": {
+          "reason": {
+            "alreadyValid": "This rule is already valid",
+            "manualRule": "This rule requires a manual decision",
+            "statementGenerationFailed": "The system could not generate a safe repair statement",
+            "noStatements": "This rule has no automatic repair statement",
+            "symmetricFieldConflict": "This symmetric link conflict needs a manual choice",
+            "foreignKeyTargetTableMissing": "Automatic repair is unavailable because the linked table is missing",
+            "foreignKeyOrphanRows": "Automatic repair is unavailable because invalid linked rows still exist",
+            "junctionForeignKeyTargetTableMissing": "Automatic repair is unavailable because the junction target table is missing",
+            "junctionForeignKeyOrphanRows": "Automatic repair is unavailable because invalid junction rows still exist"
+          },
+          "description": {
+            "symmetricFieldConflict": "More than one field points at the same symmetric link target. Pick which field should own the two-way relationship before repairing.",
+            "foreignKeyTargetTableMissing": "Check whether the linked table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
+            "foreignKeyOrphanRows": "Clean up the invalid linked rows for \"{{fieldName}}\" before adding the foreign key constraint again.",
+            "junctionForeignKeyTargetTableMissing": "Check whether the target table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
+            "junctionForeignKeyOrphanRows": "Clean up the invalid junction rows for \"{{fieldName}}\" before adding the foreign key back."
+          },
+          "manual": {
+            "apply": "Apply manual repair",
+            "symmetricField": {
+              "title": "Resolve symmetric link conflict",
+              "description": "Pick how this duplicate symmetric link should be repaired.",
+              "resolutionLabel": "Repair strategy",
+              "resolutionDescription": "Choose which field should keep the two-way link behavior.",
+              "option": {
+                "keepCurrent": "Keep the current field as the two-way link",
+                "keepDuplicate": "Keep the duplicate field as the two-way link",
+                "convertDuplicate": "Convert the duplicate field to a one-way link"
+              }
+            }
+          }
+        }
+      },
+      "errorType": {
+        "InvalidPrimaryLookup": "Primärfeld fälschlich als Lookup konfiguriert",
+        "InvalidPrimaryType": "Primärfeld hat einen nicht unterstützten Typ",
+        "MissingPrimary": "Tabelle hat kein Primärfeld"
+      }
     },
     "index": {
       "description": "Indizes können die Suchleistung erheblich verbessern, insbesondere bei großen Datenmengen (über {{rowCount}} Zeilen). Der Nachteil sind etwas langsamere Schreibvorgänge. Wenn Sie häufig Suchen durchführen oder große Datenmengen haben, sollten Sie die Indizierung aktivieren.",
@@ -523,8 +756,9 @@
   },
   "form": {
     "fieldsManagement": "Felder",
-    "addAll": "Alle hinzufügen",
-    "removeAll": "Alle entfernen",
+    "addAll": "Alle anzeigen",
+    "removeAll": "Alle ausblenden",
+    "createField": "Feld erstellen",
     "hideFieldTip": "Das Feld bis hierhin ausblenden",
     "unableAddFieldTip": "Feld dieses Typs kann nicht hinzugefügt werden",
     "removeFromFormTip": "Aus dem Formular entfernen",
@@ -607,7 +841,8 @@
     "expandGroup": "Gruppe und Untergruppen erweitern",
     "collapseGroup": "Gruppe und Untergruppen einklappen",
     "expandAllGroups": "Alle Gruppen erweitern",
-    "collapseAllGroups": "Alle Gruppen einklappen"
+    "collapseAllGroups": "Alle Gruppen einklappen",
+    "addToChat": "Zum Chat hinzufügen"
   },
   "connection": {
     "title": "Datenbankverbindung",
@@ -623,11 +858,11 @@
     "dragToolTip": "Die automatische Sortierung ist eingeschaltet, manuelles Ziehen ist nicht möglich.",
     "insertToolTip": "Automatische Sortierung ist eingeschaltet, Einfügen mit Auftrag ist nicht verfügbar",
     "action": {
-      "rename": "Ansicht umbenennen",
-      "duplicate": "Ansicht duplizieren",
-      "delete": "Ansicht löschen",
-      "lock": "Ansicht sperren",
-      "unlock": "Ansicht entsprren",
+      "rename": "Umbenennen",
+      "duplicate": "Duplizieren",
+      "delete": "Löschen",
+      "lock": "Sperren",
+      "unlock": "Entsperren",
       "enable": "Aktivieren"
     },
     "category": {
@@ -659,32 +894,125 @@
   },
   "tableTrash": {
     "title": "Tabelle Papierkorb",
-    "resourceType": "Typ der Ressource",
-    "deletedResource": "Gelöschte Ressource"
+    "resourceType": "Typ",
+    "deletedResource": "Ressource"
+  },
+  "baseShare": {
+    "title": "Base teilen",
+    "shareTitle": "Teilen",
+    "shareToWeb": "Im Web teilen",
+    "description": "\"{{baseName}}\" mit anderen teilen",
+    "nodeShareDescription": "\"{{nodeName}}\" und dessen Inhalte teilen",
+    "shareLinks": "Freigabelinks",
+    "newLink": "Neuer Link",
+    "noShareLinks": "Noch keine Freigabelinks",
+    "createFirstLink": "Freigabelink erstellen",
+    "editSettings": "Einstellungen bearbeiten",
+    "refreshLink": "Link erneuern",
+    "deleteLink": "Link löschen",
+    "deleteConfirmTitle": "Freigabelink löschen",
+    "deleteConfirmDescription": "Diese Aktion kann nicht rückgängig gemacht werden. Personen mit diesem Link können nicht mehr auf die geteilte Base zugreifen.",
+    "createSuccess": "Freigabelink erstellt",
+    "createFailed": "Freigabelink konnte nicht erstellt werden",
+    "updateSuccess": "Freigabeeinstellungen aktualisiert",
+    "updateFailed": "Freigabeeinstellungen konnten nicht aktualisiert werden",
+    "deleteSuccess": "Freigabelink gelöscht",
+    "deleteFailed": "Freigabelink konnte nicht gelöscht werden",
+    "refreshSuccess": "Freigabelink erneuert",
+    "refreshFailed": "Freigabelink konnte nicht erneuert werden",
+    "copied": "Link in Zwischenablage kopiert",
+    "shareLink": "Freigabelink",
+    "linkHolderLabel": "Die Person, die den Link erhalten hat",
+    "linkHolderCanView": "Kann anzeigen",
+    "linkHolderCanViewDesc": "Anyone with the link can view the data",
+    "linkHolderCanEdit": "Kann bearbeiten",
+    "linkHolderCanEditDesc": "Logged-in users can edit records in the table",
+    "viewLinkHolderCanViewDesc": "Personen mit dem Link können die Daten dieser Ansicht ansehen",
+    "viewLinkHolderCanEditDesc": "Angemeldete Benutzer können Daten im Rahmen der Ansicht bearbeiten",
+    "linkExposureNoticeOne": "Visitors can see data from \"{{name}}\"",
+    "linkExposureNoticeMany": "Visitors can see data from \"{{name}}\" and {{count}} tables in total",
+    "linkExposureNoticeGeneric": "Visitors can see data from linked tables",
+    "restrictScope": "Restrict scope",
+    "linkScopeDesc": "Restrict which records and fields are selectable in this views link fields. The setting applies to the field itself and affects every view that uses it.",
+    "linkScopeDialogTitle": "Link field scope",
+    "linkHolderCanCopyAndSave": "Kann als Kopie speichern",
+    "linkHolderCanCopyAndSaveDesc": "Anyone with the link can save a copy to their space",
+    "editRequiresLogin": "Users must log in to edit records",
+    "passwordProtection": "Passwortschutz",
+    "enterPassword": "Passwort eingeben",
+    "selectNodes": "Tabellen auswählen",
+    "shareEntireBase": "Gesamte Base teilen",
+    "shareSelectedNodes": "Ausgewählte Knoten teilen",
+    "shareEntireBaseDescription": "Neue Tabellen und Ordner, die dieser Base hinzugefügt werden, werden automatisch geteilt",
+    "noNodesSelectedWarning": "Bitte wählen Sie mindestens einen Knoten zum Teilen aus",
+    "allowSave": "Im Space speichern erlauben",
+    "allowSaveDescription": "Betrachtern erlauben, eine Kopie dieser Base in ihrem eigenen Space zu speichern",
+    "allowCopy": "Daten kopieren erlauben",
+    "allowCopyData": "Betrachtern erlauben, Daten zu kopieren",
+    "allowDuplicate": "Betrachtern erlauben, zu duplizieren",
+    "allowCopyDescription": "Betrachtern erlauben, Tabellendaten aus dieser geteilten Base zu kopieren",
+    "selectedNodes": "{{count}} Tabellen ausgewählt",
+    "allNodes": "Alle Tabellen",
+    "sharedNode": "Geteilter Knoten",
+    "sharedNodeDescription": "Dieser Freigabelink ist für einen bestimmten Knoten und dessen Unterknoten",
+    "publicShareTitle": "Öffentlicher Link zum Teilen",
+    "publicShareCount": "{{count}} öffentliche Freigabelink(s)",
+    "noPublicShare": "Keine öffentlichen Freigabelinks",
+    "security": "Sicherheit",
+    "restrictByPassword": "Mit Passwort einschränken",
+    "advanced": "Erweitert",
+    "embedConfig": "Einbettungskonfiguration",
+    "appPublicLink": "Öffentlicher App-Link",
+    "appNotPublished": "Diese App ist noch nicht veröffentlicht. Bitte veröffentlichen Sie die App zuerst, bevor Sie sie teilen.",
+    "goToPublish": "Zur Veröffentlichung",
+    "publishSuccess": "App erfolgreich veröffentlicht",
+    "publishFailed": "App konnte nicht veröffentlicht werden",
+    "openLink": "Link öffnen",
+    "appPublished": "App veröffentlicht",
+    "shareTableTab": "Tabelle teilen",
+    "shareViewTab": "Ansicht teilen",
+    "shareNodeTab": "Knoten teilen"
   },
   "aiChat": {
-    "tool": {
-      "getTableFields": "Tabelle Felder abrufen",
-      "getTablesMeta": "Tabelle Metadaten abrufen",
-      "sqlQuery": "SQL Abfrage ausführen",
-      "generateScriptAction": "Skript Aktion generieren",
-      "getScriptInput": "Skript Eingabe abrufen",
-      "getTeableApi": "API abrufen",
-      "args": "Argumente",
-      "result": "Ergebnis"
+    "agent": {
+      "askUserQuestion": {
+        "otherPlaceholder": "Oder Antwort eingeben…"
+      },
+      "messageActions": {
+        "copy": "Kopieren",
+        "copyToInput": "In Eingabe kopieren"
+      }
     },
-    "codeBlock": {
-      "hiddenLines": "{{count}} Zeilen ausgeblendet",
-      "collapseCode": "Code einklappen",
-      "code": "Code",
-      "preview": "Vorschau"
+    "tool": {
+      "showLess": "Weniger anzeigen",
+      "generateApp": {
+        "creatingApp": "App wird erstellt",
+        "updatingApp": "App wird aktualisiert",
+        "viewProgress": "Fortschritt anzeigen"
+      },
+      "htmlPreview": {
+        "preview": "Vorschau",
+        "code": "Code",
+        "download": "Herunterladen",
+        "downloadHtml": "HTML",
+        "downloadImage": "Bild (PNG)",
+        "copy": "Kopieren",
+        "copied": "Kopiert!",
+        "fullscreen": "Vollbild",
+        "exitFullscreen": "Vollbild beenden",
+        "downloadSuccess": "Bild erfolgreich heruntergeladen",
+        "downloadFailed": "Bild konnte nicht aufgenommen werden",
+        "iframeFailed": "Aufnahme fehlgeschlagen: iframe nicht zugänglich"
+      }
+    },
+    "action": {
+      "locateResource": "Suchen"
     },
     "newChat": "Neue Chat",
-    "clearChat": "Chat löschen",
-    "clearChatConfirmTitle": "Chat löschen bestätigen",
-    "clearChatConfirmDesc": "Der aktuelle Chat-Inhalt wird nicht gespeichert. Sind Sie sicher, dass Sie ihn löschen möchten?",
-    "dontShowAgain": "Nicht mehr anzeigen",
-    "noModel": "Keine verfügbaren Modelle",
+    "expand": "Erweitern",
+    "history": "Verlauf",
+    "close": "Einklappen",
+    "addAttachment": "Anhang hinzufügen",
     "noHistory": "Keine Chat-Verlauf",
     "noFoundHistory": "Keine passenden Chat-Verlauf gefunden, starten Sie einen neuen Chat",
     "timeGroup": {
@@ -695,19 +1023,85 @@
       "other": "Andere"
     },
     "context": {
-      "button": "Kontext hinzufügen",
+      "button": "Knoten hinzufügen",
       "search": "Tabellen hinzufügen",
       "searchEmpty": "Kein passender Kontext gefunden",
-      "emptyContext": "Kein Kontext zum Hinzufügen"
+      "emptyContext": "Kein Kontext zum Hinzufügen",
+      "selectionRow": "Row {{row}}",
+      "selectionRows": "Zeilen {{start}}-{{end}}",
+      "selectionColumn": "Col {{col}}",
+      "selectionColumns": "Col {{start}}-{{end}}"
     },
-    "inputPlaceholder": "Nachricht senden...",
+    "mention": {
+      "tables": "Tabellen",
+      "apps": "Apps",
+      "workflows": "Automatisierungen",
+      "folders": "Ordner"
+    },
+    "inputPlaceholder": "@ tippen, um Knoten hinzuzufügen",
+    "inputPlaceholderFiles": "Dateien hier einfügen oder ablegen",
     "thought": "Denken",
     "meta": {
-      "timeCostUnit": "s",
-      "timeCostDescription": "Generierungszeit: {{timeCost}}s",
-      "creditDescription": "{{credits}} Credits verbraucht",
-      "tokenDescription": "Tokens verwendet: {{tokens}}",
+      "input": "Eingabe",
+      "output": "Ausgabe",
       "taskCompleted": "Aufgabe abgeschlossen"
+    },
+    "attachment": {
+      "pastedTextFileName": "Eingefügter Text",
+      "imageNotSupported": "Bild wird nicht unterstützt"
+    },
+    "suggestions": {
+      "title": "Wie kann ich helfen?",
+      "whatCanIDo": "Was kann ich tun?",
+      "createOrModifyDatabase": "Datenbank erstellen oder ändern",
+      "buildAutomations": "Automatisierungen erstellen",
+      "buildApps": "Apps erstellen",
+      "buildMeCRM": "Erstellen Sie mir ein CRM",
+      "addAIField": "KI-Feld hinzufügen, um jeden Kunden zu analysieren",
+      "createDataAnalysis": "Erstellen Sie mir einen Datenanalysebericht",
+      "emailWhenRecordCreated": "E-Mail senden, wenn Datensatz erstellt wurde",
+      "syncStatusToSlack": "Statusaktualisierungen mit Slack synchronisieren",
+      "buildDashboard": "Dashboard aus dieser Tabelle erstellen",
+      "buildLeadCapture": "Erstellen Sie mir eine Lead-Erfassungs-Landingpage"
+    },
+    "buildApp": {
+      "task": {
+        "foundResults": "{{count}} Ergebnisse gefunden"
+      }
+    },
+    "scriptPreview": {
+      "writeCodeHint": "Schreiben Sie Code, um die Flussdiagramm-Vorschau anzuzeigen.",
+      "noPreview": "Keine Flussdiagramm-Vorschau verfügbar.",
+      "codeChanged": "Der Code wurde seit der letzten Vorschau geändert."
+    }
+  },
+  "download": {
+    "allAttachments": {
+      "title": "Alle Anhänge herunterladen",
+      "loading": "Vorschau wird geladen...",
+      "rowsWithAttachments": "Anhangzeilen",
+      "totalAttachments": "Anhänge",
+      "totalSize": "Gesamtgröße",
+      "confirmTitle": "{{count}} Dateien herunterladen",
+      "confirmDescription": "Gesamtgröße: {{size}}. Die Dateien werden in eine ZIP-Datei komprimiert.",
+      "confirm": "Herunterladen",
+      "cancel": "Abbrechen",
+      "downloading": "Wird heruntergeladen...",
+      "downloadingFile": "Wird heruntergeladen: {{fileName}}",
+      "progress": "{{downloaded}} / {{total}}",
+      "completed": "Download abgeschlossen",
+      "cancelled": "Download abgebrochen",
+      "noAttachments": "Keine Anhänge zum Herunterladen",
+      "error": "Download fehlgeschlagen",
+      "errorPartial": "{{failedCount}} Dateien konnten nicht heruntergeladen werden",
+      "requireHttps": "Batch-Download erfordert HTTPS. Bitte über HTTPS oder localhost zugreifen.",
+      "advancedOptions": "Erweiterte Optionen",
+      "namingFieldLabel": "Präfix für Anhangsname",
+      "selectField": "Standard: Anhangsindex",
+      "noPrefixOption": "Kein Präfix",
+      "noPrefixOptionDesc": "Originaldateiname beibehalten",
+      "groupByRow": "In Ordner archivieren",
+      "groupByRowTip": "Wenn eine Zeile mehrere Anhänge hat, werden sie im selben Ordner abgelegt; Zeilen mit nur einem Anhang erstellen keinen Ordner."
     }
   }
 }

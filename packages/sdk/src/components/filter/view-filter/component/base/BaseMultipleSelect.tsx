@@ -14,9 +14,10 @@ import {
 
 import { debounce } from 'lodash';
 import { Check, ChevronDown } from 'lucide-react';
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from '../../../../../context/app/i18n';
 import type { IOption, IBaseMultipleSelect } from './types';
+import { scrollListByWheel } from './wheel-scroll-list';
 
 function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>(
   props: IBaseMultipleSelect<V, O>
@@ -37,6 +38,7 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
     modal,
   } = props;
   const [open, setOpen] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
   const [searchValue, setSearchValue] = useState('');
   const [isComposing, setIsComposing] = useState(false);
 
@@ -102,7 +104,7 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
           disabled={disabled}
           className={cn('justify-between overflow-hidden px-2', className)}
         >
-          <div className="flex shrink gap-1 overflow-auto whitespace-nowrap">
+          <div className="flex shrink gap-1.5 overflow-hidden whitespace-nowrap">
             {selectedValues?.length ? (
               selectedValues?.map(
                 (value, index) =>
@@ -128,13 +130,17 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
           />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className={cn('p-1', popoverClassName)}>
+      <PopoverContent
+        align="start"
+        className={cn('p-1', popoverClassName)}
+        onWheelCapture={(event) => scrollListByWheel(event, listRef.current)}
+      >
         <Command
           className="rounded-sm"
           filter={onSearch ? undefined : commandFilter}
           shouldFilter={!onSearch}
         >
-          <CommandList className="mt-1">
+          <CommandList ref={listRef} className="mt-1">
             <CommandInput
               placeholder={t('common.search.placeholder')}
               className="placeholder:text-[13px]"
@@ -149,7 +155,7 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
                   key={option.value}
                   value={option.value}
                   onSelect={() => selectHandler(option.value)}
-                  className="truncate p-1 text-[13px]"
+                  className="w-full truncate p-1 text-[13px]"
                 >
                   <Check
                     className={cn(

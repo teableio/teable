@@ -1,14 +1,14 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions */
 /* eslint-disable jsx-a11y/click-events-have-key-events */
 import { Check, Loader2, Play, X } from '@teable/icons';
+import { chatModelAbilityType } from '@teable/openapi';
 import type {
   IChatModelAbility,
   IImageModelAbility,
   ITestLLMRo,
   ITestLLMVo,
   LLMProvider,
-} from '@teable/openapi/src/admin/setting';
-import { chatModelAbilityType } from '@teable/openapi/src/admin/setting';
+} from '@teable/openapi';
 
 // Image model ability types
 const imageModelAbilities = ['generation', 'imageToImage'] as const;
@@ -26,6 +26,7 @@ import {
 import { SlidersHorizontalIcon, XIcon } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 
+import type { ProviderNameMode } from './LlmProviderForm';
 import { NewLLMProviderForm, UpdateLLMProviderForm } from './LlmProviderForm';
 
 // Model test result interface
@@ -57,6 +58,7 @@ interface ILLMProviderManageProps {
     ability: IChatModelAbility | undefined,
     imageAbility: IImageModelAbility | undefined
   ) => void;
+  providerNameMode?: ProviderNameMode;
 }
 
 export const LLMProviderManage = ({
@@ -71,6 +73,7 @@ export const LLMProviderManage = ({
   testingModels,
   hideModelRates,
   onSaveTestResult,
+  providerNameMode,
 }: ILLMProviderManageProps) => {
   const { t } = useTranslation('common');
   const handleAdd = (data: LLMProvider) => {
@@ -95,6 +98,7 @@ export const LLMProviderManage = ({
         onTest={onTest}
         hideModelRates={hideModelRates}
         onSaveTestResult={onSaveTestResult}
+        providerNameMode={providerNameMode}
       />
     );
   }
@@ -166,8 +170,9 @@ export const LLMProviderManage = ({
                     onTest={onTest}
                     hideModelRates={hideModelRates}
                     onSaveTestResult={onSaveTestResult}
+                    providerNameMode={providerNameMode}
                   >
-                    <Button size="xs" variant="ghost" className="w-7 p-0">
+                    <Button size="icon-xs" variant="ghost">
                       <SlidersHorizontalIcon className="size-4 text-muted-foreground" />
                     </Button>
                   </UpdateLLMProviderForm>
@@ -179,7 +184,22 @@ export const LLMProviderManage = ({
                 <div className="mt-3 flex flex-col gap-2">
                   {models.map((model) => {
                     const modelKey = `${provider.type}@${model}@${provider.name}`;
-                    const testResult = modelTestResults?.get(modelKey);
+                    const testResult =
+                      modelTestResults?.get(modelKey) ??
+                      (() => {
+                        // Fall back to persisted modelConfigs if no transient test result
+                        const config = provider.modelConfigs?.[model];
+                        if (config?.ability || config?.imageAbility) {
+                          return {
+                            modelKey,
+                            status: 'success' as const,
+                            ability: config.ability,
+                            imageAbility: config.imageAbility,
+                            isImageModel: config.isImageModel,
+                          };
+                        }
+                        return undefined;
+                      })();
                     const isImageModel = provider.modelConfigs?.[model]?.isImageModel;
                     const isModelTesting = testingModels?.has(modelKey);
                     return (
@@ -207,6 +227,7 @@ export const LLMProviderManage = ({
           onTest={onTest}
           hideModelRates={hideModelRates}
           onSaveTestResult={onSaveTestResult}
+          providerNameMode={providerNameMode}
         />
       </div>
     </div>
@@ -306,7 +327,7 @@ const ModelRow = ({
   };
 
   return (
-    <div className="rounded-md border bg-muted/30 p-3">
+    <div className="rounded-md border bg-muted p-3">
       {/* Model header row */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">

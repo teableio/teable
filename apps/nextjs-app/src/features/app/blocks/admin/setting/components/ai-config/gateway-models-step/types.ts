@@ -1,5 +1,6 @@
 import type {
   IGatewayModel,
+  IModelPricing,
   GatewayModelType,
   GatewayModelTag,
   GatewayModelProvider,
@@ -8,13 +9,11 @@ import type {
 // Recommended model IDs - all details fetched from API
 export const RECOMMENDED_MODEL_IDS = [
   // Language models
-  'anthropic/claude-sonnet-4.5', // Best quality
-  'anthropic/claude-haiku-4.5', // Fast & cheap
-  'openai/gpt-5.2', // OpenAI flagship
-  'google/gemini-3-pro-preview', // Google flagship
+  'anthropic/claude-opus-4.6', // Best quality
+  'openai/gpt-5.2-chat', // OpenAI flagship
+  'google/gemini-3.1-pro-preview', // Google flagship
   // Image generation
   'google/gemini-3-pro-image', // Multimodal image generation
-  'xai/grok-4', // Grok
 ];
 
 // API response model structure from backend (camelCase, converted from Vercel AI Gateway snake_case)
@@ -29,13 +28,7 @@ export interface IGatewayModelAPI {
   maxTokens?: number;
   type?: GatewayModelType;
   tags?: GatewayModelTag[];
-  pricing?: {
-    input?: string; // Price per token in USD, e.g., "0.00000006"
-    output?: string;
-    inputCacheRead?: string;
-    inputCacheWrite?: string;
-    webSearch?: string; // Price per web search query in credits
-  };
+  pricing?: IModelPricing;
 }
 
 export interface IGatewayModelsStepProps {

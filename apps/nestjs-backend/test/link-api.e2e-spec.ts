@@ -14,7 +14,6 @@ import type {
 } from '@teable/core';
 import {
   Colors,
-  DriverClient,
   FieldKeyType,
   FieldType,
   getRandomString,
@@ -55,6 +54,8 @@ import {
   updateRecordByApi,
 } from './utils/init-app';
 
+const isForceV2 = process.env.FORCE_V2_ALL === 'true';
+
 describe('OpenAPI link (e2e)', () => {
   let app: INestApplication;
   const baseId = globalThis.testConfig.baseId;
@@ -72,7 +73,9 @@ describe('OpenAPI link (e2e)', () => {
       config.headers['X-Window-Id'] = windowId;
       return config;
     });
-    awaitWithEvent = createAwaitWithEvent(eventEmitterService, Events.OPERATION_PUSH);
+    awaitWithEvent = isForceV2
+      ? async <T>(action: () => Promise<T>) => await action()
+      : createAwaitWithEvent(eventEmitterService, Events.OPERATION_PUSH);
   });
 
   afterAll(async () => {
@@ -3547,6 +3550,74 @@ describe('OpenAPI link (e2e)', () => {
     });
   });
 
+  it('clears link when primary formula embeds lookup value', async () => {
+    const tableB = await createTable(baseId, {
+      name: 'link-formula-lookup-b',
+      fields: [
+        { name: 'Name', type: FieldType.SingleLineText } as IFieldRo,
+        { name: 'Code', type: FieldType.SingleLineText } as IFieldRo,
+      ],
+      records: [{ fields: { Name: 'B1', Code: 'C1' } }],
+    });
+
+    const tableA = await createTable(baseId, {
+      name: 'link-formula-lookup-a',
+      fields: [{ name: 'Title', type: FieldType.SingleLineText } as IFieldRo],
+      records: [{ fields: { Title: 'A1' } }],
+    });
+
+    try {
+      const linkField = await createField(tableA.id, {
+        name: 'A->B',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: tableB.id,
+        },
+      } as IFieldRo);
+
+      const lookupField = await createField(tableA.id, {
+        name: 'B Code',
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: tableB.id,
+          lookupFieldId: tableB.fields[1].id,
+          linkFieldId: linkField.id,
+        },
+      } as IFieldRo);
+
+      const primaryField = tableA.fields.find((field) => field.isPrimary)!;
+      await convertField(tableA.id, primaryField.id, {
+        type: FieldType.Formula,
+        options: {
+          expression: `{${lookupField.id}}`,
+        },
+      });
+
+      await updateRecordByApi(tableA.id, tableA.records[0].id, linkField.id, {
+        id: tableB.records[0].id,
+      });
+
+      const linked = await getRecord(tableA.id, tableA.records[0].id);
+      expect((linked.fields[linkField.id] as { id: string } | undefined)?.id).toBe(
+        tableB.records[0].id
+      );
+      expect(linked.fields[lookupField.id]).toBe('C1');
+      expect(linked.fields[primaryField.id]).toBe('C1');
+
+      await updateRecordByApi(tableA.id, tableA.records[0].id, linkField.id, null);
+
+      const cleared = await getRecord(tableA.id, tableA.records[0].id);
+      expect(cleared.fields[linkField.id]).toBeUndefined();
+      expect(cleared.fields[lookupField.id]).toBeUndefined();
+      expect(cleared.fields[primaryField.id]).toBeUndefined();
+    } finally {
+      await permanentDeleteTable(baseId, tableA.id);
+      await permanentDeleteTable(baseId, tableB.id);
+    }
+  });
+
   describe('Create two bi-link for two tables', () => {
     let table1: ITableFullVo;
     let table2: ITableFullVo;
@@ -3707,52 +3778,49 @@ describe('OpenAPI link (e2e)', () => {
       await deleteRecord(table1.id, table1.records[0].id);
     });
 
-    it.skipIf(globalThis.testConfig.driver === DriverClient.Sqlite)(
-      'should delete a record with link field not null constraint',
-      async () => {
-        // create link field
-        const table1LinkFieldRo: IFieldRo = {
-          name: 'link field',
-          type: FieldType.Link,
-          options: {
-            relationship: Relationship.ManyOne,
-            foreignTableId: table2.id,
+    it('should delete a record with link field not null constraint', async () => {
+      // create link field
+      const table1LinkFieldRo: IFieldRo = {
+        name: 'link field',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      };
+
+      const table1LinkField = (await createField(table1.id, table1LinkFieldRo)) as LinkFieldCore;
+
+      const lookupFieldRo: IFieldRo = {
+        type: FieldType.Link,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table1LinkField.options.symmetricFieldId as string,
+          linkFieldId: table1LinkField.id,
+        },
+      };
+
+      await createField(table1.id, lookupFieldRo);
+
+      await updateRecord(table1.id, table1.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+        record: {
+          fields: {
+            [table1LinkField.id]: { id: table2.records[0].id },
           },
-        };
+        },
+      });
+      await deleteRecord(table1.id, table1.records[1].id);
+      await deleteRecord(table1.id, table1.records[2].id);
 
-        const table1LinkField = (await createField(table1.id, table1LinkFieldRo)) as LinkFieldCore;
+      await convertField(table1.id, table1LinkField.id, {
+        ...table1LinkFieldRo,
+        notNull: true,
+      });
 
-        const lookupFieldRo: IFieldRo = {
-          type: FieldType.Link,
-          isLookup: true,
-          lookupOptions: {
-            foreignTableId: table2.id,
-            lookupFieldId: table1LinkField.options.symmetricFieldId as string,
-            linkFieldId: table1LinkField.id,
-          },
-        };
-
-        await createField(table1.id, lookupFieldRo);
-
-        await updateRecord(table1.id, table1.records[0].id, {
-          fieldKeyType: FieldKeyType.Id,
-          record: {
-            fields: {
-              [table1LinkField.id]: { id: table2.records[0].id },
-            },
-          },
-        });
-        await deleteRecord(table1.id, table1.records[1].id);
-        await deleteRecord(table1.id, table1.records[2].id);
-
-        await convertField(table1.id, table1LinkField.id, {
-          ...table1LinkFieldRo,
-          notNull: true,
-        });
-
-        await deleteRecord(table1.id, table1.records[0].id);
-      }
-    );
+      await deleteRecord(table1.id, table1.records[0].id);
+    });
   });
 
   describe('update multi cell when contains link field', () => {
@@ -5208,6 +5276,70 @@ describe('OpenAPI link (e2e)', () => {
       const t4RollupField = t4Fields.find((f) => f.id === rollupT4.id)!;
       const t4Res = await getRecords(table4.id);
       expect(t4Res.records[0].fields[t4RollupField.name]).toEqual(24);
+    });
+  });
+
+  describe('link filter sync on foreign field update', () => {
+    let table1: ITableFullVo;
+    let table2: ITableFullVo;
+
+    beforeEach(async () => {
+      table1 = await createTable(baseId, {
+        name: 'LinkFilterSync_Host',
+        fields: [{ name: 'Title', type: FieldType.SingleLineText }],
+      });
+      table2 = await createTable(baseId, {
+        name: 'LinkFilterSync_Foreign',
+        fields: [{ name: 'Title', type: FieldType.SingleLineText }],
+      });
+    });
+
+    afterEach(async () => {
+      table1 && (await permanentDeleteTable(baseId, table1.id));
+      table2 && (await permanentDeleteTable(baseId, table2.id));
+    });
+
+    it('should update link filter option values when referenced select option names change', async () => {
+      const statusField = await createField(table2.id, {
+        name: 'Status',
+        type: FieldType.SingleSelect,
+        options: {
+          choices: [
+            { id: 'cho_active', name: 'Active', color: Colors.Green },
+            { id: 'cho_closed', name: 'Closed', color: Colors.Blue },
+          ],
+        },
+      });
+
+      const linkField = await createField(table1.id, {
+        name: 'Filtered Link',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: table2.id,
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: statusField.id, operator: 'is', value: 'Active' }],
+          },
+        },
+      });
+
+      await convertField(table2.id, statusField.id, {
+        name: 'Status',
+        type: FieldType.SingleSelect,
+        options: {
+          choices: [
+            { id: 'cho_active', name: 'Active Plus', color: Colors.Green },
+            { id: 'cho_closed', name: 'Closed', color: Colors.Blue },
+          ],
+        },
+      });
+
+      const refreshed = await getField(table1.id, linkField.id);
+      const filter = (refreshed.options as ILinkFieldOptions | undefined)?.filter as
+        | { filterSet?: Array<{ value?: unknown }> }
+        | undefined;
+      expect(filter?.filterSet?.[0]?.value).toBe('Active Plus');
     });
   });
 });

@@ -81,6 +81,20 @@ export abstract class SelectQueryAbstract implements ISelectQueryInterface {
   abstract replace(oldText: string, startNum: string, numChars: string, newText: string): string;
   abstract regexpReplace(text: string, pattern: string, replacement: string): string;
   abstract substitute(text: string, oldText: string, newText: string, instanceNum?: string): string;
+  abstract textBefore(
+    text: string,
+    delimiter: string,
+    instanceNum?: string,
+    matchMode?: string,
+    matchEnd?: string,
+    ifNotFound?: string
+  ): string;
+  abstract textSplit(
+    text: string,
+    delimiter: string,
+    ignoreEmpty?: string,
+    matchMode?: string
+  ): string;
   abstract lower(text: string): string;
   abstract upper(text: string): string;
   abstract rept(text: string, numTimes: string): string;
@@ -98,7 +112,7 @@ export abstract class SelectQueryAbstract implements ISelectQueryInterface {
   abstract datetimeFormat(date: string, format: string): string;
   abstract datetimeParse(dateString: string, format?: string): string;
   abstract day(date: string): string;
-  abstract fromNow(date: string): string;
+  abstract fromNow(date: string, unit?: string): string;
   abstract hour(date: string): string;
   abstract isAfter(date1: string, date2: string): string;
   abstract isBefore(date1: string, date2: string): string;
@@ -108,10 +122,10 @@ export abstract class SelectQueryAbstract implements ISelectQueryInterface {
   abstract month(date: string): string;
   abstract second(date: string): string;
   abstract timestr(date: string): string;
-  abstract toNow(date: string): string;
+  abstract toNow(date: string, unit?: string): string;
   abstract weekNum(date: string): string;
-  abstract weekday(date: string): string;
-  abstract workday(startDate: string, days: string): string;
+  abstract weekday(date: string, startDayOfWeek?: string): string;
+  abstract workday(startDate: string, days: string, holidayStr?: string): string;
   abstract workdayDiff(startDate: string, endDate: string): string;
   abstract year(date: string): string;
   abstract createdTime(): string;

@@ -39,18 +39,23 @@ export class AuthService {
     }
   }
 
-  async getTempToken() {
+  async getTempToken(expiresIn: string = '10m', userId?: string, allowSystemUser?: boolean) {
     const payload: IJwtAuthInfo = {
-      userId: this.cls.get('user.id'),
+      userId: userId ?? this.cls.get('user.id'),
+      ...(allowSystemUser ? { allowSystemUser: true } : {}),
     };
-    const expiresIn = '10m';
     return {
       accessToken: await this.jwtService.signAsync(payload, { expiresIn }),
       expiresTime: new Date(Date.now() + ms(expiresIn)).toISOString(),
     };
   }
 
-  async getTempInternalToken(baseId: string, type: JwtAuthInternalType, expiresIn: string = '10m') {
+  async getTempInternalToken(
+    baseId: string,
+    type: JwtAuthInternalType,
+    expiresIn: string = '10m',
+    context?: IJwtAuthInternalInfo['context']
+  ) {
     // For User type tokens, userId is required
     const userId = this.cls.get('user.id');
     if (type === JwtAuthInternalType.User && !userId) {
@@ -62,6 +67,7 @@ export class AuthService {
       baseId,
       // Include userId for User type tokens to maintain user identity
       ...(type === JwtAuthInternalType.User ? { userId } : {}),
+      ...(context ? { context } : {}),
     };
     return {
       accessToken: await this.jwtService.signAsync(payload, { expiresIn }),

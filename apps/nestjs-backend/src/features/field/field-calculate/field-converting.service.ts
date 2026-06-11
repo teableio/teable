@@ -7,10 +7,8 @@ import type {
   IConvertFieldRo,
   ILinkFieldOptions,
   FieldCore,
-  LinkFieldCore,
 } from '@teable/core';
 import {
-  CellValueType,
   ColorUtils,
   DbFieldType,
   FIELD_VO_PROPERTIES,
@@ -28,6 +26,8 @@ import { Knex } from 'knex';
 import { difference, intersection, isEmpty, isEqual, keyBy, set, uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { CustomHttpException } from '../../../custom.exception';
+import { DATA_KNEX } from '../../../global/knex/knex.module';
+import { DatabaseRouter } from '../../../global/database-router.service';
 import { handleDBValidationErrors } from '../../../utils/db-validation-error';
 import {
   majorFieldKeysChanged,
@@ -69,13 +69,14 @@ export class FieldConvertingService {
     private readonly fieldService: FieldService,
     private readonly batchService: BatchService,
     private readonly prismaService: PrismaService,
+    private readonly databaseRouter: DatabaseRouter,
     private readonly fieldConvertingLinkService: FieldConvertingLinkService,
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly fieldCalculationService: FieldCalculationService,
     private readonly collaboratorService: CollaboratorService,
     private readonly tableIndexService: TableIndexService,
     private readonly computedOrchestrator: ComputedOrchestratorService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    @InjectModel(DATA_KNEX) private readonly knex: Knex
   ) {}
 
   private fieldOpsMap() {
@@ -619,11 +620,9 @@ export class FieldConvertingService {
       .toSQL()
       .toNative();
 
-    const result = await this.prismaService
-      .txClient()
-      .$queryRawUnsafe<
-        { __id: string; [dbFieldName: string]: string }[]
-      >(nativeSql.sql, ...nativeSql.bindings);
+    const result = await this.databaseRouter.queryDataPrismaForTable<
+      { __id: string; [dbFieldName: string]: string }[]
+    >(tableId, nativeSql.sql, { useTransaction: true }, ...nativeSql.bindings);
 
     for (const row of result) {
       const oldCellValue = field.convertDBValue2CellValue(row[field.dbFieldName]) as string[];
@@ -673,11 +672,9 @@ export class FieldConvertingService {
       .toSQL()
       .toNative();
 
-    const result = await this.prismaService
-      .txClient()
-      .$queryRawUnsafe<
-        { __id: string; [dbFieldName: string]: string }[]
-      >(nativeSql.sql, ...nativeSql.bindings);
+    const result = await this.databaseRouter.queryDataPrismaForTable<
+      { __id: string; [dbFieldName: string]: string }[]
+    >(tableId, nativeSql.sql, { useTransaction: true }, ...nativeSql.bindings);
 
     for (const row of result) {
       let oldCellValue = field.convertDBValue2CellValue(row[field.dbFieldName]) as string;
@@ -769,11 +766,9 @@ export class FieldConvertingService {
       .toSQL()
       .toNative();
 
-    const result = await this.prismaService
-      .txClient()
-      .$queryRawUnsafe<
-        { __id: string; [dbFieldName: string]: string }[]
-      >(nativeSql.sql, ...nativeSql.bindings);
+    const result = await this.databaseRouter.queryDataPrismaForTable<
+      { __id: string; [dbFieldName: string]: string }[]
+    >(tableId, nativeSql.sql, { useTransaction: true }, ...nativeSql.bindings);
 
     for (const row of result) {
       let oldCellValue = field.convertDBValue2CellValue(row[dbFieldName]) as number;
@@ -820,9 +815,9 @@ export class FieldConvertingService {
     const opsMap: { [recordId: string]: IOtOperation[] } = {};
     const nativeSql = this.knex(dbTableName).select('__id', dbFieldName).whereNotNull(dbFieldName);
 
-    const result = await this.prismaService
-      .txClient()
-      .$queryRawUnsafe<{ __id: string; [dbFieldName: string]: string }[]>(nativeSql.toQuery());
+    const result = await this.databaseRouter.queryDataPrismaForTable<
+      { __id: string; [dbFieldName: string]: string }[]
+    >(tableId, nativeSql.toQuery(), { useTransaction: true });
 
     for (const row of result) {
       const oldCellValue = field.convertDBValue2CellValue(row[dbFieldName]);
@@ -869,9 +864,9 @@ export class FieldConvertingService {
       .select('__id', field.dbFieldName)
       .whereNotNull(field.dbFieldName);
 
-    const result = await this.prismaService
-      .txClient()
-      .$queryRawUnsafe<{ __id: string; [dbFieldName: string]: string }[]>(nativeSql.toQuery());
+    const result = await this.databaseRouter.queryDataPrismaForTable<
+      { __id: string; [dbFieldName: string]: string }[]
+    >(tableId, nativeSql.toQuery(), { useTransaction: true });
     for (const row of result) {
       const oldCellValue = field.convertDBValue2CellValue(row[field.dbFieldName]);
       opsMap[row.__id] = [
@@ -948,7 +943,13 @@ export class FieldConvertingService {
   }
 
   private getOriginFieldKeys(newField: IFieldInstance, oldField: FieldCore) {
-    return FIELD_VO_PROPERTIES.filter((key) => !isEqual(newField[key], oldField[key]));
+    return FIELD_VO_PROPERTIES.filter((key) => {
+      // For boolean constraint properties, treat undefined/null/false as equivalent (no constraint)
+      if (key === 'unique' || key === 'notNull') {
+        return Boolean(newField[key]) !== Boolean(oldField[key]);
+      }
+      return !isEqual(newField[key], oldField[key]);
+    });
   }
 
   private getOriginFieldOps(newField: IFieldInstance, oldField: FieldCore) {
@@ -1461,9 +1462,15 @@ export class FieldConvertingService {
   async deleteOrCreateSupplementLink(
     tableId: string,
     newField: IFieldInstance,
-    oldField: IFieldInstance
+    oldField: IFieldInstance,
+    skipDestructive?: boolean
   ) {
-    await this.fieldConvertingLinkService.deleteOrCreateSupplementLink(tableId, newField, oldField);
+    await this.fieldConvertingLinkService.deleteOrCreateSupplementLink(
+      tableId,
+      newField,
+      oldField,
+      skipDestructive
+    );
   }
 
   private needTempleCloseFieldConstraint(newField: IFieldInstance, oldField: IFieldInstance) {
@@ -1482,10 +1489,7 @@ export class FieldConvertingService {
         select: { dbTableName: true, name: true },
       });
 
-    // index do not support date cell value type
-    if (newField.cellValueType !== CellValueType.DateTime) {
-      await this.tableIndexService.createSearchFieldSingleIndex(tableId, newField);
-    }
+    await this.tableIndexService.createSearchFieldSingleIndex(tableId, newField);
 
     if (!this.needTempleCloseFieldConstraint(newField, oldField)) {
       return;
@@ -1506,7 +1510,10 @@ export class FieldConvertingService {
       .toQuery();
 
     await handleDBValidationErrors({
-      fn: () => this.prismaService.txClient().$executeRawUnsafe(fieldValidationQuery),
+      fn: () =>
+        this.databaseRouter.executeDataPrismaForTable(tableId, fieldValidationQuery, {
+          useTransaction: true,
+        }),
       handleUniqueError: () => {
         throw new CustomHttpException(
           `Field ${oldField.id} unique validation failed`,
@@ -1549,6 +1556,7 @@ export class FieldConvertingService {
     }
 
     const matchedIndexes = await this.fieldService.findUniqueIndexesForField(
+      tableId,
       dbTableName,
       dbFieldName
     );
@@ -1567,7 +1575,9 @@ export class FieldConvertingService {
       .map(({ sql }) => sql);
 
     for (const sql of executeSqls) {
-      await this.prismaService.txClient().$executeRawUnsafe(sql);
+      await this.databaseRouter.executeDataPrismaForTable(tableId, sql, {
+        useTransaction: true,
+      });
     }
   }
 
@@ -1583,6 +1593,28 @@ export class FieldConvertingService {
           localization: {
             i18nKey: 'httpErrors.field.unsupportedPrimaryFieldType',
             context: { type: updateFieldRo.type },
+          },
+        }
+      );
+    }
+
+    // Primary fields must stay as regular (editable) fields. Converting a primary to a
+    // lookup / conditional-lookup produces a computed primary whose cell value is derived
+    // from a link, which in turn breaks base duplication (findFirstOrThrow for the foreign
+    // table's primary can't locate a valid static primary). See T3367.
+    // lookupOptions is included for symmetry with the createField guard — leaving stray
+    // lookupOptions on a primary is the same semantic corruption even without isLookup=true.
+    if (
+      oldField.isPrimary &&
+      (updateFieldRo.isLookup || updateFieldRo.isConditionalLookup || updateFieldRo.lookupOptions)
+    ) {
+      throw new CustomHttpException(
+        'Primary field cannot be configured as a lookup field',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.primaryCannotBeLookup',
+            context: {},
           },
         }
       );

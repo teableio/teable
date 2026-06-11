@@ -9,7 +9,7 @@ export const ReactionPicker = (props: IEmojiPickerProps) => {
   const { onReactionClick } = props;
 
   return (
-    <div className="m-1 flex size-full items-center gap-1 bg-card">
+    <div className="m-1 flex size-full items-center gap-1 rounded-md bg-transparent">
       {Emojis.map((emoji) => {
         return (
           <Button

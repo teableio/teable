@@ -113,7 +113,6 @@ export const BaseSelectPanel = (props: IBaseSelectPanelProps) => {
           placeholder={t('settings.templateAdmin.baseSelectPanel.search')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="h-8"
         />
         <div className="w-full flex-1 flex-col overflow-y-auto">
           <div className="flex w-full flex-col gap-2">

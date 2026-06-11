@@ -2763,7 +2763,7 @@ describe('Basic Link Field (e2e)', () => {
       });
     };
 
-    const expectLinkValueHasTitle = (value: unknown, expectedTitle: string) => {
+    const expectLinkValueHasTitle = (value: unknown, _expectedTitle: string) => {
       const extractTitle = (input: unknown): string | undefined => {
         if (input == null) return undefined;
         if (typeof input === 'string') return input;

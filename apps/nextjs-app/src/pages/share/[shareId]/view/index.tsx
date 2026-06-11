@@ -1,10 +1,11 @@
 import { parseDsn, type DriverClient, type IHttpError } from '@teable/core';
-import type { ShareViewGetVo } from '@teable/openapi';
+import type { IUserMeVo, ShareViewGetVo } from '@teable/openapi';
 import type { GetServerSideProps } from 'next';
 import { SsrApi } from '@/backend/api/rest/ssr-api';
 import type { IShareViewPageProps } from '@/features/app/blocks/share/view/ShareViewPage';
 import { ShareViewPage } from '@/features/app/blocks/share/view/ShareViewPage';
 import { shareConfig } from '@/features/i18n/share.config';
+import { getAppDatabaseUrl } from '@/lib/database-url';
 import { getTranslationsProps } from '@/lib/i18n';
 import withEnv from '@/lib/withEnv';
 
@@ -19,7 +20,7 @@ export const getServerSideProps: GetServerSideProps<IShareViewPageProps> =
       const ssrApi = new SsrApi();
       ssrApi.axios.defaults.headers['cookie'] = req.headers.cookie || '';
       const shareViewData = await ssrApi.getShareView(shareId as string);
-      const driver = parseDsn(process.env.PRISMA_DATABASE_URL as string).driver as DriverClient;
+      const driver = parseDsn(getAppDatabaseUrl()).driver as DriverClient;
       if (shareViewData.shareMeta?.submit?.requireLogin) {
         const user = await ssrApi.getUserMe().catch(() => null);
         if (!user) {
@@ -31,10 +32,17 @@ export const getServerSideProps: GetServerSideProps<IShareViewPageProps> =
           };
         }
       }
+      // For allowEdit shares, probe the viewer's identity server-side so the
+      // client doesn't need to fire a userMe request (which would 401 for
+      // anonymous viewers and trip the global 401-redirect handler).
+      const ssrUser = shareViewData.shareMeta?.allowEdit
+        ? await ssrApi.getUserMe().catch(() => null)
+        : null;
       return {
         props: {
           shareViewData,
           driver,
+          ssrUser,
           ...(await getTranslationsProps(context, i18nNamespaces)),
         },
       };
@@ -57,9 +65,11 @@ export const getServerSideProps: GetServerSideProps<IShareViewPageProps> =
 export default function ShareView({
   shareViewData,
   driver,
+  ssrUser,
 }: {
   shareViewData: ShareViewGetVo;
   driver: DriverClient;
+  ssrUser?: IUserMeVo | null;
 }) {
-  return <ShareViewPage shareViewData={shareViewData} driver={driver} />;
+  return <ShareViewPage shareViewData={shareViewData} driver={driver} ssrUser={ssrUser ?? null} />;
 }

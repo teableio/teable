@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { IColumn, IColumnMeta } from '@teable/core';
 import { FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import type { IDataDbRoutingOptions } from '../../../global/data-db-client-manager.service';
 import { ViewService } from '../../view/view.service';
 import { FieldService } from '../field.service';
 import type { IFieldInstance } from '../model/factory';
@@ -23,14 +24,15 @@ export class FieldCreatingService {
     tableId: string,
     field: IFieldInstance,
     initViewColumnMap?: Record<string, IColumn>,
-    isSymmetricField?: boolean
+    isSymmetricField?: boolean,
+    routingOptions?: IDataDbRoutingOptions
   ) {
     const fieldId = field.id;
 
     await this.fieldSupplementService.createReference(field);
     await this.fieldSupplementService.createFieldTaskReference(tableId, field);
 
-    const dbTableName = await this.fieldService.getDbTableName(tableId);
+    const dbTableName = await this.fieldService.getDbTableName(tableId, routingOptions);
 
     await this.fieldService.batchCreateFields(tableId, dbTableName, [field], isSymmetricField);
 
@@ -45,11 +47,12 @@ export class FieldCreatingService {
     tableId: string,
     fieldInstances: IFieldInstance[],
     initViewColumnMapList?: Array<Record<string, IColumn> | undefined>,
-    isSymmetricField?: boolean
+    isSymmetricField?: boolean,
+    routingOptions?: IDataDbRoutingOptions
   ) {
     if (!fieldInstances.length) return;
 
-    const dbTableName = await this.fieldService.getDbTableName(tableId);
+    const dbTableName = await this.fieldService.getDbTableName(tableId, routingOptions);
 
     for (const field of fieldInstances) {
       await this.fieldSupplementService.createReference(field);
@@ -77,9 +80,10 @@ export class FieldCreatingService {
   async createFields(
     tableId: string,
     fieldInstances: IFieldInstance[],
-    initViewColumnMap?: Record<string, IColumn>
+    initViewColumnMap?: Record<string, IColumn>,
+    routingOptions?: IDataDbRoutingOptions
   ) {
-    const dbTableName = await this.fieldService.getDbTableName(tableId);
+    const dbTableName = await this.fieldService.getDbTableName(tableId, routingOptions);
 
     for (const field of fieldInstances) {
       await this.fieldSupplementService.createReference(field);
@@ -97,14 +101,21 @@ export class FieldCreatingService {
 
   async alterCreateFieldsInExistingTable(
     tableId: string,
-    fields: Array<{ field: IFieldInstance; columnMeta?: Record<string, IColumn> }>
+    fields: Array<{ field: IFieldInstance; columnMeta?: Record<string, IColumn> }>,
+    routingOptions?: IDataDbRoutingOptions
   ) {
     if (!fields.length) return [] as { tableId: string; field: IFieldInstance }[];
 
     const baseFieldInstances = fields.map(({ field }) => field);
     const initViewColumnMapList = fields.map(({ columnMeta }) => columnMeta);
 
-    await this.createFieldItemsBatch(tableId, baseFieldInstances, initViewColumnMapList);
+    await this.createFieldItemsBatch(
+      tableId,
+      baseFieldInstances,
+      initViewColumnMapList,
+      undefined,
+      routingOptions
+    );
 
     const created: { tableId: string; field: IFieldInstance }[] = baseFieldInstances.map(
       (field) => ({
@@ -117,55 +128,71 @@ export class FieldCreatingService {
       (field) => field.type === FieldType.Link && !field.isLookup
     ) as LinkFieldDto[];
 
-    const symmetricByTable = new Map<string, LinkFieldDto[]>();
+    // Generate and create symmetric fields one-by-one so that each subsequent
+    // generateSymmetricField can see the previously created field records and
+    // PostgreSQL columns, avoiding duplicate dbFieldName collisions.
     for (const linkField of linkFields) {
       if (!linkField.options.symmetricFieldId) continue;
       const symmetricField = await this.fieldSupplementService.generateSymmetricField(
         tableId,
-        linkField
+        linkField,
+        routingOptions
       );
       const foreignTableId = linkField.options.foreignTableId;
-      const list = symmetricByTable.get(foreignTableId) ?? [];
-      list.push(symmetricField);
-      symmetricByTable.set(foreignTableId, list);
-    }
-
-    for (const [foreignTableId, symmetricFields] of symmetricByTable.entries()) {
-      await this.createFieldItemsBatch(foreignTableId, symmetricFields, undefined, true);
-      symmetricFields.forEach((field) => created.push({ tableId: foreignTableId, field }));
+      await this.createFieldItemsBatch(
+        foreignTableId,
+        [symmetricField],
+        undefined,
+        true,
+        routingOptions
+      );
+      created.push({ tableId: foreignTableId, field: symmetricField });
     }
 
     return created;
   }
 
-  async alterCreateField(tableId: string, field: IFieldInstance, columnMeta?: IColumnMeta) {
+  async alterCreateField(
+    tableId: string,
+    field: IFieldInstance,
+    columnMeta?: IColumnMeta,
+    routingOptions?: IDataDbRoutingOptions
+  ) {
     const newFields: { tableId: string; field: IFieldInstance }[] = [];
     if (field.type === FieldType.Link && !field.isLookup) {
       // Foreign key creation is now handled by the visitor in createFieldItem
-      await this.createFieldItem(tableId, field, columnMeta);
+      await this.createFieldItem(tableId, field, columnMeta, undefined, routingOptions);
       newFields.push({ tableId, field });
 
       if (field.options.symmetricFieldId) {
         const symmetricField = await this.fieldSupplementService.generateSymmetricField(
           tableId,
-          field
+          field,
+          routingOptions
         );
 
-        await this.createFieldItem(field.options.foreignTableId, symmetricField, columnMeta, true);
+        await this.createFieldItem(
+          field.options.foreignTableId,
+          symmetricField,
+          columnMeta,
+          true,
+          routingOptions
+        );
         newFields.push({ tableId: field.options.foreignTableId, field: symmetricField });
       }
 
       return newFields;
     }
 
-    await this.createFieldItem(tableId, field, columnMeta);
+    await this.createFieldItem(tableId, field, columnMeta, undefined, routingOptions);
     return [{ tableId, field: field }];
   }
 
   async alterCreateFields(
     tableId: string,
     fieldInstances: IFieldInstance[],
-    columnMeta?: IColumnMeta
+    columnMeta?: IColumnMeta,
+    routingOptions?: IDataDbRoutingOptions
   ) {
     const newFields: { tableId: string; field: IFieldInstance }[] = fieldInstances.map((field) => ({
       tableId,
@@ -174,7 +201,7 @@ export class FieldCreatingService {
 
     const primaryField = fieldInstances.find((field) => field.isPrimary)!;
 
-    await this.createFieldItem(tableId, primaryField, columnMeta);
+    await this.createFieldItem(tableId, primaryField, columnMeta, undefined, routingOptions);
 
     const linkFields = fieldInstances.filter(
       (field) => field.type === FieldType.Link && !field.isLookup
@@ -184,24 +211,32 @@ export class FieldCreatingService {
       const initViewColumnMapList = columnMeta
         ? linkFields.map(() => columnMeta as unknown as Record<string, IColumn>)
         : undefined;
-      await this.createFieldItemsBatch(tableId, linkFields, initViewColumnMapList);
+      await this.createFieldItemsBatch(
+        tableId,
+        linkFields,
+        initViewColumnMapList,
+        undefined,
+        routingOptions
+      );
 
-      const symmetricByTable = new Map<string, LinkFieldDto[]>();
+      // Generate and create symmetric fields one-by-one to avoid duplicate
+      // dbFieldName collisions when multiple links target the same foreign table.
       for (const field of linkFields) {
         if (!field.options.symmetricFieldId) continue;
         const symmetricField = await this.fieldSupplementService.generateSymmetricField(
           tableId,
-          field
+          field,
+          routingOptions
         );
         const foreignTableId = field.options.foreignTableId;
-        const list = symmetricByTable.get(foreignTableId) ?? [];
-        list.push(symmetricField);
-        symmetricByTable.set(foreignTableId, list);
+        await this.createFieldItemsBatch(
+          foreignTableId,
+          [symmetricField],
+          undefined,
+          true,
+          routingOptions
+        );
         newFields.push({ tableId: foreignTableId, field: symmetricField });
-      }
-
-      for (const [foreignTableId, symmetricFields] of symmetricByTable.entries()) {
-        await this.createFieldItemsBatch(foreignTableId, symmetricFields, undefined, true);
       }
     }
 
@@ -210,7 +245,7 @@ export class FieldCreatingService {
         (linkFields.length ? !linkFields.map(({ id }) => id).includes(id) : true) && !isPrimary
     );
 
-    await this.createFields(tableId, otherFields, columnMeta);
+    await this.createFields(tableId, otherFields, columnMeta, routingOptions);
     return newFields;
   }
 }

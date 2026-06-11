@@ -25,7 +25,7 @@ export const QueryFrom = (props: {
       <DropdownMenuTrigger asChild>
         <Button className="text-[13px]" variant="outline" size={'xs'}>
           {t('baseQuery.add')}
-          <Plus />
+          <Plus className="size-4 shrink-0" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56">

@@ -1,6 +1,12 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AlertCircle, Check, Loader2, Plus, X, Eye, Image } from '@teable/icons';
+import { AlertCircle, Check, Loader2, Plus, X, Eye, Image, HelpCircle } from '@teable/icons';
+import {
+  getImageModelTagsFromAbility,
+  llmProviderSchema,
+  LLMProviderType,
+  chatModelAbilityType,
+} from '@teable/openapi';
 import type {
   ITestLLMVo,
   ITestLLMRo,
@@ -8,12 +14,8 @@ import type {
   IModelConfig,
   IChatModelAbility,
   IImageModelAbility,
-} from '@teable/openapi/src/admin/setting';
-import {
-  llmProviderSchema,
-  LLMProviderType,
-  chatModelAbilityType,
-} from '@teable/openapi/src/admin/setting';
+  IModelPricing,
+} from '@teable/openapi';
 import {
   Button,
   cn,
@@ -45,7 +47,14 @@ import type { PropsWithChildren } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useIsCloud } from '@/features/app/hooks/useIsCloud';
+import { calculateMultiplier, formatMultiplier } from './ai-model-select/utils';
 import { LLM_PROVIDERS } from './constant';
+import type { IGatewayModelAPI } from './gateway-models-step/types';
+import { formatUsdPriceShort } from './gateway-models-step/utils';
+import { testImageModelCapability, TEXT_MODEL_TIMEOUT_MS, withTimeout } from './model-test-utils';
+import { generateByokProviderName } from './utils';
+
+const CUSTOM_MODEL_DOC_URL = 'https://help.teable.ai/en/basic/ai/custom-model';
 
 interface TestResult {
   success: boolean;
@@ -63,17 +72,7 @@ interface IModelTestStatus {
   isImageModel?: boolean;
 }
 
-const TEXT_MODEL_TIMEOUT_MS = 30000; // 30 seconds timeout for text models
-const IMAGE_MODEL_TIMEOUT_MS = 120000; // 2 minutes timeout for image models
 const CONCURRENCY = 3; // Concurrent test count
-
-// Helper to wrap promise with timeout
-const withTimeout = <T,>(promise: Promise<T>, ms: number, errorMessage: string): Promise<T> => {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(errorMessage)), ms)),
-  ]);
-};
 
 type ErrorPattern = {
   keywords: string[];
@@ -182,7 +181,10 @@ interface LLMProviderFormProps {
     ability: IChatModelAbility | undefined,
     imageAbility: IImageModelAbility | undefined
   ) => void;
+  providerNameMode?: ProviderNameMode;
 }
+
+export type ProviderNameMode = 'manual' | 'auto';
 
 export const UpdateLLMProviderForm = ({
   value,
@@ -191,6 +193,7 @@ export const UpdateLLMProviderForm = ({
   onTest,
   hideModelRates,
   onSaveTestResult,
+  providerNameMode,
 }: PropsWithChildren<Omit<LLMProviderFormProps, 'onAdd'>>) => {
   const [open, setOpen] = useState(false);
   const { t } = useTranslation('common');
@@ -201,9 +204,14 @@ export const UpdateLLMProviderForm = ({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[720px]">
         <DialogHeader>
-          <DialogTitle>{t('admin.setting.ai.updateLLMProvider')}</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            {t('admin.setting.ai.updateLLMProvider')}
+            <a href={CUSTOM_MODEL_DOC_URL} target="_blank" rel="noopener noreferrer">
+              <HelpCircle className="size-4 text-muted-foreground hover:text-foreground" />
+            </a>
+          </DialogTitle>
         </DialogHeader>
         <LLMProviderForm
           value={value}
@@ -211,6 +219,7 @@ export const UpdateLLMProviderForm = ({
           onTest={onTest}
           hideModelRates={hideModelRates}
           onSaveTestResult={onSaveTestResult}
+          providerNameMode={providerNameMode}
         />
       </DialogContent>
     </Dialog>
@@ -223,6 +232,7 @@ export const NewLLMProviderForm = ({
   onTest,
   hideModelRates,
   onSaveTestResult,
+  providerNameMode,
 }: PropsWithChildren<Omit<LLMProviderFormProps, 'onChange'>>) => {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -234,15 +244,20 @@ export const NewLLMProviderForm = ({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {children ?? (
-          <Button size="sm" variant="outline" className="gap-2">
+          <Button size="sm" variant="outline" className="w-fit gap-2">
             <Plus className="size-4" />
             {t('admin.setting.ai.addProvider')}
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[450px]">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[720px]">
         <DialogHeader>
-          <DialogTitle>{t('admin.setting.ai.addProvider')}</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            {t('admin.setting.ai.addProvider')}
+            <a href={CUSTOM_MODEL_DOC_URL} target="_blank" rel="noopener noreferrer">
+              <HelpCircle className="size-4 text-muted-foreground hover:text-foreground" />
+            </a>
+          </DialogTitle>
           <DialogDescription>{t('admin.setting.ai.addProviderDescription')}</DialogDescription>
         </DialogHeader>
         <LLMProviderForm
@@ -250,20 +265,12 @@ export const NewLLMProviderForm = ({
           onTest={onTest}
           hideModelRates={hideModelRates}
           onSaveTestResult={onSaveTestResult}
+          providerNameMode={providerNameMode}
         />
       </DialogContent>
     </Dialog>
   );
 };
-
-// Rate field keys for model configuration
-type RateFieldKey =
-  | 'inputRate'
-  | 'outputRate'
-  | 'cacheReadRate'
-  | 'cacheWriteRate'
-  | 'reasoningRate'
-  | 'imageRate';
 
 // Component for configuring rates per model
 interface ModelRatesConfigProps {
@@ -272,10 +279,130 @@ interface ModelRatesConfigProps {
   onChange: (configs: Record<string, IModelConfig>) => void;
 }
 
+const compactPricing = (pricing: IModelPricing | undefined): IModelPricing | undefined => {
+  if (!pricing) return undefined;
+  const next = Object.fromEntries(
+    Object.entries(pricing).filter(([, value]) => value !== undefined && value !== '')
+  ) as IModelPricing;
+  return Object.keys(next).length > 0 ? next : undefined;
+};
+
+const getGatewayReferencePricing = (
+  model: string,
+  gatewayModels: IGatewayModelAPI[]
+): IModelPricing | undefined => {
+  const normalizedModel = model.toLowerCase();
+  const direct = gatewayModels.find((item) => item.id.toLowerCase() === normalizedModel);
+  if (direct?.pricing) return direct.pricing;
+
+  const suffixMatch = gatewayModels.find((item) => {
+    const id = item.id.toLowerCase();
+    return id.endsWith(`/${normalizedModel}`) || normalizedModel.endsWith(`/${id}`);
+  });
+  return suffixMatch?.pricing;
+};
+
+const getPricingSummary = (pricing: IModelPricing | undefined): string => {
+  if (!pricing) return '-';
+  if (pricing.input || pricing.output) {
+    return `${formatUsdPriceShort(pricing.input)} / ${formatUsdPriceShort(pricing.output)}`;
+  }
+  if (pricing.image) return `$${pricing.image}`;
+  if (pricing.webSearch) return `$${pricing.webSearch}/1K`;
+  return '-';
+};
+
+const scalePrice = (price: string | undefined, ratio: number): string | undefined => {
+  if (!price) return undefined;
+  const value = parseFloat(price);
+  if (Number.isNaN(value)) return undefined;
+  return String(value * ratio);
+};
+
+const scalePricing = (
+  pricing: IModelPricing | undefined,
+  ratio: number
+): IModelPricing | undefined => {
+  if (!pricing || Number.isNaN(ratio)) return undefined;
+  return compactPricing({
+    input: scalePrice(pricing.input, ratio),
+    output: scalePrice(pricing.output, ratio),
+    inputCacheRead: scalePrice(pricing.inputCacheRead, ratio),
+    inputCacheWrite: scalePrice(pricing.inputCacheWrite, ratio),
+    reasoning: scalePrice(pricing.reasoning, ratio),
+    image: scalePrice(pricing.image, ratio),
+    webSearch: scalePrice(pricing.webSearch, ratio),
+    inputTiers: pricing.inputTiers?.map((tier) => ({
+      ...tier,
+      cost: scalePrice(tier.cost, ratio) ?? tier.cost,
+    })),
+    outputTiers: pricing.outputTiers?.map((tier) => ({
+      ...tier,
+      cost: scalePrice(tier.cost, ratio) ?? tier.cost,
+    })),
+    inputCacheReadTiers: pricing.inputCacheReadTiers?.map((tier) => ({
+      ...tier,
+      cost: scalePrice(tier.cost, ratio) ?? tier.cost,
+    })),
+    inputCacheWriteTiers: pricing.inputCacheWriteTiers?.map((tier) => ({
+      ...tier,
+      cost: scalePrice(tier.cost, ratio) ?? tier.cost,
+    })),
+  });
+};
+
+const inferGatewayRatio = (
+  currentPricing: IModelPricing | undefined,
+  referencePricing: IModelPricing | undefined
+): number | undefined => {
+  const fields: (keyof Pick<
+    IModelPricing,
+    'input' | 'output' | 'inputCacheRead' | 'inputCacheWrite' | 'reasoning' | 'image' | 'webSearch'
+  >)[] = [
+    'input',
+    'output',
+    'inputCacheRead',
+    'inputCacheWrite',
+    'reasoning',
+    'image',
+    'webSearch',
+  ];
+
+  for (const field of fields) {
+    const current = currentPricing?.[field];
+    const reference = referencePricing?.[field];
+    if (!current || !reference) continue;
+    const currentValue = parseFloat(current);
+    const referenceValue = parseFloat(reference);
+    if (Number.isNaN(currentValue) || Number.isNaN(referenceValue) || referenceValue === 0) {
+      continue;
+    }
+    return currentValue / referenceValue;
+  }
+};
+
+const formatGatewayRatio = (ratio: number | undefined): string => {
+  if (ratio === undefined || Number.isNaN(ratio)) return '';
+  if (ratio === 0) return '0';
+  if (ratio < 0.0001) return ratio.toPrecision(3);
+  if (ratio < 1) return ratio.toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
+  return ratio.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+};
+
+const parseGatewayRatio = (value: string): number | undefined => {
+  const ratio = parseFloat(value);
+  if (Number.isNaN(ratio) || ratio < 0) return undefined;
+  return ratio;
+};
+
 const ModelRatesConfig = ({ models, modelConfigs = {}, onChange }: ModelRatesConfigProps) => {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [gatewayModels, setGatewayModels] = useState<IGatewayModelAPI[]>([]);
+  const [isLoadingPricing, setIsLoadingPricing] = useState(false);
+  const [pricingError, setPricingError] = useState<string | null>(null);
+  const [gatewayRatioInputs, setGatewayRatioInputs] = useState<Record<string, string>>({});
 
   const modelList = useMemo(() => {
     return models
@@ -284,19 +411,92 @@ const ModelRatesConfig = ({ models, modelConfigs = {}, onChange }: ModelRatesCon
       .filter(Boolean);
   }, [models]);
 
-  if (modelList.length === 0) return null;
+  const fetchGatewayPricing = useCallback(async () => {
+    setIsLoadingPricing(true);
+    setPricingError(null);
+    try {
+      const response = await fetch('/api/admin/setting/gateway-models');
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const data = (await response.json()) as { models?: IGatewayModelAPI[] };
+      setGatewayModels(data.models ?? []);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setPricingError(message);
+    } finally {
+      setIsLoadingPricing(false);
+    }
+  }, []);
 
-  const handleRateChange = (model: string, field: RateFieldKey, value: string) => {
-    const numValue = value === '' ? undefined : parseFloat(value) || 0;
+  useEffect(() => {
+    if (expanded && gatewayModels.length === 0 && !isLoadingPricing) {
+      fetchGatewayPricing();
+    }
+  }, [expanded, fetchGatewayPricing, gatewayModels.length, isLoadingPricing]);
+
+  const setModelPricing = (model: string, pricing: IModelPricing | undefined) => {
     const currentConfig = modelConfigs[model] || {};
     onChange({
       ...modelConfigs,
       [model]: {
         ...currentConfig,
-        [field]: numValue,
+        pricing,
       },
     });
   };
+
+  const applyPricingRatio = (
+    model: string,
+    referencePricing: IModelPricing | undefined,
+    value: string
+  ) => {
+    setGatewayRatioInputs((prev) => ({ ...prev, [model]: value }));
+    if (!referencePricing) return;
+    const ratio = parseGatewayRatio(value);
+    if (ratio === undefined) return;
+    setModelPricing(model, scalePricing(referencePricing, ratio));
+  };
+
+  const applyAllMatchedPricing = () => {
+    const nextConfigs = { ...modelConfigs };
+    let count = 0;
+    for (const model of modelList) {
+      const referencePricing = getGatewayReferencePricing(model, gatewayModels);
+      if (!referencePricing) continue;
+      const currentPricing = nextConfigs[model]?.pricing;
+      const ratio =
+        parseGatewayRatio(gatewayRatioInputs[model] ?? '') ??
+        inferGatewayRatio(currentPricing, referencePricing);
+      if (ratio === undefined) continue;
+      const pricing = scalePricing(referencePricing, ratio);
+      if (!pricing) continue;
+      nextConfigs[model] = {
+        ...nextConfigs[model],
+        pricing,
+      };
+      count++;
+    }
+    onChange(nextConfigs);
+    if (count > 0) {
+      toast.success(t('admin.setting.ai.pricingAppliedCount', { count }));
+    }
+  };
+
+  const matchedPricingCount = modelList.filter((model) =>
+    Boolean(getGatewayReferencePricing(model, gatewayModels))
+  ).length;
+  const applicablePricingCount = modelList.filter((model) => {
+    const referencePricing = getGatewayReferencePricing(model, gatewayModels);
+    if (!referencePricing) return false;
+    const currentPricing = modelConfigs[model]?.pricing;
+    return (
+      parseGatewayRatio(gatewayRatioInputs[model] ?? '') !== undefined ||
+      inferGatewayRatio(currentPricing, referencePricing) !== undefined
+    );
+  }).length;
+
+  if (modelList.length === 0) return null;
 
   return (
     <div className="space-y-2">
@@ -311,7 +511,6 @@ const ModelRatesConfig = ({ models, modelConfigs = {}, onChange }: ModelRatesCon
 
       {expanded && (
         <div className="space-y-3 rounded-md border bg-muted/20 p-3">
-          {/* Rate explanation */}
           <div className="rounded bg-blue-50 p-2 text-xs text-blue-800 dark:bg-blue-950 dark:text-blue-200">
             <div className="font-medium">{t('admin.setting.ai.rateExplanationTitle')}</div>
             <div className="mt-1 space-y-0.5 text-[11px] opacity-90">
@@ -320,45 +519,104 @@ const ModelRatesConfig = ({ models, modelConfigs = {}, onChange }: ModelRatesCon
             </div>
           </div>
 
-          {/* Basic rates */}
-          <div className="space-y-2">
-            <div className="grid grid-cols-[1fr,80px,80px] gap-2 text-xs font-medium text-muted-foreground">
-              <div>{t('admin.setting.ai.model')}</div>
-              <div title={t('admin.setting.ai.inputRateTip')}>
-                {t('admin.setting.ai.inputRate')}
-              </div>
-              <div title={t('admin.setting.ai.outputRateTip')}>
-                {t('admin.setting.ai.outputRate')}
-              </div>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>
+                {t('admin.setting.ai.pricingPreviewDesc', {
+                  matched: matchedPricingCount,
+                  total: modelList.length,
+                })}
+              </span>
             </div>
-            {modelList.map((model) => {
-              const config = modelConfigs[model] || {};
-              return (
-                <div key={model} className="grid grid-cols-[1fr,80px,80px] items-center gap-2">
-                  <div className="truncate text-sm" title={model}>
-                    {model}
-                  </div>
-                  <Input
-                    type="number"
-                    step="0.0001"
-                    min="0"
-                    value={config.inputRate ?? ''}
-                    onChange={(e) => handleRateChange(model, 'inputRate', e.target.value)}
-                    placeholder="0"
-                    className="h-7 text-xs"
-                  />
-                  <Input
-                    type="number"
-                    step="0.0001"
-                    min="0"
-                    value={config.outputRate ?? ''}
-                    onChange={(e) => handleRateChange(model, 'outputRate', e.target.value)}
-                    placeholder="0"
-                    className="h-7 text-xs"
-                  />
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={fetchGatewayPricing}
+                disabled={isLoadingPricing}
+              >
+                {isLoadingPricing
+                  ? t('admin.setting.ai.batchTesting')
+                  : t('admin.setting.ai.fetchPricing')}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={applyAllMatchedPricing}
+                disabled={applicablePricingCount === 0}
+              >
+                {t('admin.setting.ai.applyPricing', { count: applicablePricingCount })}
+              </Button>
+            </div>
+          </div>
+          {pricingError && (
+            <div className="text-xs text-destructive">
+              {t('admin.setting.ai.fetchPricingError')}: {pricingError}
+            </div>
+          )}
+
+          <div className="overflow-x-auto">
+            <div className="min-w-[660px] space-y-2">
+              <div className="grid grid-cols-[minmax(120px,1fr),140px,88px,150px,64px] gap-2 text-xs font-medium text-muted-foreground">
+                <div>{t('admin.setting.ai.model')}</div>
+                <div title={t('admin.setting.ai.referencePricingTip')}>
+                  {t('admin.setting.ai.pricingPreview')}
                 </div>
-              );
-            })}
+                <div title={t('admin.setting.ai.gatewayRatioTip')}>
+                  {t('admin.setting.ai.gatewayRatio')}
+                </div>
+                <div title={t('admin.setting.ai.generatedPricingTip')}>
+                  {t('admin.setting.ai.generatedPricing')}
+                </div>
+                <div title={t('admin.setting.ai.relativeRatioTip')}>
+                  {t('admin.setting.ai.relativeRatio')}
+                </div>
+              </div>
+              {modelList.map((model) => {
+                const config = modelConfigs[model] || {};
+                const referencePricing = getGatewayReferencePricing(model, gatewayModels);
+                const currentPricing = config.pricing;
+                const multiplier = formatMultiplier(calculateMultiplier(currentPricing));
+                const referenceMultiplier = formatMultiplier(calculateMultiplier(referencePricing));
+                const ratioValue =
+                  gatewayRatioInputs[model] ??
+                  formatGatewayRatio(inferGatewayRatio(currentPricing, referencePricing));
+                return (
+                  <div
+                    key={model}
+                    className="grid grid-cols-[minmax(120px,1fr),140px,88px,150px,64px] items-center gap-2"
+                  >
+                    <div className="truncate text-sm" title={model}>
+                      {model}
+                    </div>
+                    <div
+                      className="truncate text-xs text-muted-foreground"
+                      title={referencePricing ? getPricingSummary(referencePricing) : undefined}
+                    >
+                      {referencePricing
+                        ? `${getPricingSummary(referencePricing)}${referenceMultiplier ? ` · ${referenceMultiplier}` : ''}`
+                        : t('admin.setting.ai.notFound')}
+                    </div>
+                    <Input
+                      type="text"
+                      value={ratioValue}
+                      onChange={(e) => applyPricingRatio(model, referencePricing, e.target.value)}
+                      placeholder="0.1"
+                      size="sm"
+                    />
+                    <div
+                      className="truncate text-xs text-muted-foreground"
+                      title={getPricingSummary(currentPricing)}
+                    >
+                      {getPricingSummary(currentPricing)}
+                    </div>
+                    <div className="text-xs font-medium tabular-nums">{multiplier ?? '-'}</div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           {/* Advanced rates toggle */}
@@ -374,70 +632,55 @@ const ModelRatesConfig = ({ models, modelConfigs = {}, onChange }: ModelRatesCon
           {/* Advanced rates (cache, reasoning, image) */}
           {showAdvanced && (
             <div className="space-y-2 rounded border bg-background/50 p-2">
-              <div className="grid grid-cols-[1fr,70px,70px,70px,70px] gap-1 text-[10px] font-medium text-muted-foreground">
-                <div>{t('admin.setting.ai.model')}</div>
-                <div title={t('admin.setting.ai.cacheReadRateTip')}>
-                  {t('admin.setting.ai.cacheRead')}
-                </div>
-                <div title={t('admin.setting.ai.cacheWriteRateTip')}>
-                  {t('admin.setting.ai.cacheWrite')}
-                </div>
-                <div title={t('admin.setting.ai.reasoningRateTip')}>
-                  {t('admin.setting.ai.reasoning')}
-                </div>
-                <div title={t('admin.setting.ai.imageRateTip')}>
-                  {t('admin.setting.ai.perImage')}
+              <div className="overflow-x-auto">
+                <div className="min-w-[520px] space-y-2">
+                  <div className="grid grid-cols-[minmax(100px,1fr),70px,70px,70px,70px,70px] gap-1 text-[10px] font-medium text-muted-foreground">
+                    <div>{t('admin.setting.ai.model')}</div>
+                    <div title={t('admin.setting.ai.cacheReadRateTip')}>
+                      {t('admin.setting.ai.cacheRead')}
+                    </div>
+                    <div title={t('admin.setting.ai.cacheWriteRateTip')}>
+                      {t('admin.setting.ai.cacheWrite')}
+                    </div>
+                    <div title={t('admin.setting.ai.reasoningRateTip')}>
+                      {t('admin.setting.ai.reasoning')}
+                    </div>
+                    <div title={t('admin.setting.ai.imageRateTip')}>
+                      {t('admin.setting.ai.perImage')}
+                    </div>
+                    <div>{t('admin.setting.ai.webSearch')}</div>
+                  </div>
+                  {modelList.map((model) => {
+                    const config = modelConfigs[model] || {};
+                    const currentPricing = config.pricing;
+                    return (
+                      <div
+                        key={`adv-${model}`}
+                        className="grid grid-cols-[minmax(100px,1fr),70px,70px,70px,70px,70px] items-center gap-1"
+                      >
+                        <div className="truncate text-xs" title={model}>
+                          {model}
+                        </div>
+                        <div className="truncate text-xs tabular-nums text-muted-foreground">
+                          {currentPricing?.inputCacheRead ?? '-'}
+                        </div>
+                        <div className="truncate text-xs tabular-nums text-muted-foreground">
+                          {currentPricing?.inputCacheWrite ?? '-'}
+                        </div>
+                        <div className="truncate text-xs tabular-nums text-muted-foreground">
+                          {currentPricing?.reasoning ?? '-'}
+                        </div>
+                        <div className="truncate text-xs tabular-nums text-muted-foreground">
+                          {currentPricing?.image ?? '-'}
+                        </div>
+                        <div className="truncate text-xs tabular-nums text-muted-foreground">
+                          {currentPricing?.webSearch ?? '-'}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-              {modelList.map((model) => {
-                const config = modelConfigs[model] || {};
-                return (
-                  <div
-                    key={`adv-${model}`}
-                    className="grid grid-cols-[1fr,70px,70px,70px,70px] items-center gap-1"
-                  >
-                    <div className="truncate text-xs" title={model}>
-                      {model}
-                    </div>
-                    <Input
-                      type="number"
-                      step="0.0001"
-                      min="0"
-                      value={config.cacheReadRate ?? ''}
-                      onChange={(e) => handleRateChange(model, 'cacheReadRate', e.target.value)}
-                      placeholder="auto"
-                      className="h-6 text-[10px]"
-                    />
-                    <Input
-                      type="number"
-                      step="0.0001"
-                      min="0"
-                      value={config.cacheWriteRate ?? ''}
-                      onChange={(e) => handleRateChange(model, 'cacheWriteRate', e.target.value)}
-                      placeholder="auto"
-                      className="h-6 text-[10px]"
-                    />
-                    <Input
-                      type="number"
-                      step="0.0001"
-                      min="0"
-                      value={config.reasoningRate ?? ''}
-                      onChange={(e) => handleRateChange(model, 'reasoningRate', e.target.value)}
-                      placeholder="auto"
-                      className="h-6 text-[10px]"
-                    />
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={config.imageRate ?? ''}
-                      onChange={(e) => handleRateChange(model, 'imageRate', e.target.value)}
-                      placeholder="0"
-                      className="h-6 text-[10px]"
-                    />
-                  </div>
-                );
-              })}
               <p className="text-[10px] text-muted-foreground">
                 {t('admin.setting.ai.advancedRatesDescription')}
               </p>
@@ -458,6 +701,7 @@ export const LLMProviderForm = ({
   onTest,
   hideModelRates,
   onSaveTestResult,
+  providerNameMode = 'manual',
 }: LLMProviderFormProps) => {
   const { t } = useTranslation();
   const isCloud = useIsCloud();
@@ -467,11 +711,12 @@ export const LLMProviderForm = ({
   const [modelTestStatuses, setModelTestStatuses] = useState<IModelTestStatus[]>([]);
   const [testProgress, setTestProgress] = useState({ current: 0, total: 0 });
   const abortRef = useRef(false);
+  const isAutoProviderName = providerNameMode === 'auto';
 
   const form = useForm<LLMProvider>({
     resolver: zodResolver(llmProviderSchema),
     defaultValues: value || {
-      name: '',
+      name: isAutoProviderName ? generateByokProviderName() : '',
       type: LLMProviderType.OPENAI,
       apiKey: '',
       baseUrl: '',
@@ -553,72 +798,11 @@ export const LLMProviderForm = ({
       if (!onTest) {
         return { status: 'failed', error: 'Test function not provided', isImageModel: true };
       }
-      try {
-        const { type, name, apiKey, baseUrl, models } = provider;
-        const modelKey = `${type}@${model}@${name}`;
-
-        // Test image generation (text-to-image)
-        const generationResult = await withTimeout(
-          onTest({
-            type,
-            name,
-            apiKey,
-            baseUrl,
-            models,
-            modelKey,
-            testImageGeneration: true,
-          }),
-          IMAGE_MODEL_TIMEOUT_MS,
-          `Timeout after ${IMAGE_MODEL_TIMEOUT_MS / 1000}s`
-        );
-
-        // Test image-to-image if generation works
-        let imageToImage = false;
-        if (generationResult.success) {
-          try {
-            const i2iResult = await withTimeout(
-              onTest({
-                type,
-                name,
-                apiKey,
-                baseUrl,
-                models,
-                modelKey,
-                testImageGeneration: true,
-                testImageToImage: true,
-              }),
-              IMAGE_MODEL_TIMEOUT_MS,
-              `Timeout`
-            );
-            imageToImage = i2iResult.success;
-          } catch {
-            // Image-to-image not supported, that's ok
-          }
-        }
-
-        if (!generationResult.success) {
-          return {
-            status: 'failed',
-            error: generationResult.response || 'Image generation test failed',
-            isImageModel: true,
-          };
-        }
-
-        return {
-          status: 'success',
-          isImageModel: true,
-          imageAbility: {
-            generation: true,
-            imageToImage,
-          },
-        };
-      } catch (error) {
-        return {
-          status: 'failed',
-          isImageModel: true,
-          error: error instanceof Error ? error.message : 'Unknown error',
-        };
-      }
+      return testImageModelCapability({
+        modelKey: `${provider.type}@${model}@${provider.name}`,
+        provider,
+        onTest,
+      });
     },
     [onTest]
   );
@@ -681,6 +865,7 @@ export const LLMProviderForm = ({
     let completedCount = 0;
     let successCount = 0;
     let nextIndex = 0;
+    const errors: string[] = [];
 
     const updateModelStatus = (model: string, update: Partial<IModelTestStatus>) => {
       setModelTestStatuses((prev) =>
@@ -703,9 +888,25 @@ export const LLMProviderForm = ({
 
       updateModelStatus(model, result);
       completedCount++;
+      if (result.status === 'failed' && result.error) {
+        errors.push(result.error);
+      }
       if (result.status === 'success') {
         successCount++;
-        // Save test result to provider config
+        // Save test result to form's modelConfigs so it persists on submit
+        const currentConfigs = form.getValues('modelConfigs') ?? {};
+        const tags = getImageModelTagsFromAbility(result.imageAbility, currentConfigs[model]?.tags);
+        form.setValue('modelConfigs', {
+          ...currentConfigs,
+          [model]: {
+            ...currentConfigs[model],
+            ability: result.ability,
+            imageAbility: result.imageAbility,
+            ...(result.imageAbility ? { tags } : {}),
+            testedAt: Date.now(),
+          },
+        });
+        // Save test result to parent provider config (for already-added providers)
         const modelKey = `${provider.type}@${model}@${provider.name}`;
         onSaveTestResult?.(modelKey, result.ability, result.imageAbility);
       }
@@ -736,10 +937,19 @@ export const LLMProviderForm = ({
           total: modelList.length,
         })
       );
-    } else {
+    }
+
+    // Show error details whenever any model fails
+    if (errors.length > 0) {
+      const firstError = errors[0];
+      const analysis = analyzeError(firstError, provider.baseUrl, provider.type);
       setTestResult({
         success: false,
-        message: t('admin.setting.ai.allTestsFailed'),
+        message:
+          successCount === 0
+            ? `${t('admin.setting.ai.allTestsFailed')}: ${analysis.message}`
+            : analysis.message,
+        suggestions: analysis.suggestions,
       });
     }
   }, [form, t, testTextModel, testImageModel, onSaveTestResult]);
@@ -766,7 +976,7 @@ export const LLMProviderForm = ({
       <FormField
         name="name"
         render={({ field }) => (
-          <FormItem>
+          <FormItem className={isAutoProviderName ? 'hidden' : undefined}>
             <div>
               <FormLabel>{t('admin.setting.ai.name')}</FormLabel>
               <FormDescription>{t('admin.setting.ai.nameDescription')}</FormDescription>
@@ -874,7 +1084,7 @@ export const LLMProviderForm = ({
 
           {/* Test Error Display */}
           {testResult && !testResult.success && (
-            <div className="space-y-2 rounded-md border bg-muted/30 p-3 text-sm">
+            <div className="space-y-2 rounded-md border bg-muted p-3 text-sm">
               <div className="flex items-start gap-2">
                 <AlertCircle className="mt-0.5 size-4 shrink-0" />
                 <p className="break-all font-medium">{testResult.message}</p>
@@ -897,7 +1107,7 @@ export const LLMProviderForm = ({
 
           {/* Test Progress Display */}
           {modelTestStatuses.length > 0 && (
-            <div className="space-y-3 rounded-md border bg-muted/30 p-3">
+            <div className="space-y-3 rounded-md border bg-muted p-3">
               {/* Progress bar */}
               {testProgress.total > 0 && (
                 <div className="flex items-center gap-3">
@@ -916,6 +1126,24 @@ export const LLMProviderForm = ({
                   <ModelTestPill key={status.model} status={status} />
                 ))}
               </div>
+              {/* Per-model error messages */}
+              {modelTestStatuses.some((s) => s.status === 'failed' && s.error) && (
+                <div className="space-y-1">
+                  {modelTestStatuses
+                    .filter((s) => s.status === 'failed' && s.error)
+                    .map((s) => (
+                      <div
+                        key={s.model}
+                        className="flex items-start gap-1.5 text-xs text-destructive"
+                      >
+                        <X className="mt-0.5 size-3 shrink-0" />
+                        <span>
+                          <span className="font-medium">{s.model}</span>: {s.error}
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -1025,7 +1253,6 @@ const ModelTestPill = ({ status }: IModelTestPillProps) => {
         getStatusStyles(),
         isImageModel && 'ring-1 ring-blue-200 dark:bg-blue-500/10 dark:ring-blue-500/20'
       )}
-      title={error || model}
     >
       <span className="max-w-[100px] truncate">{model}</span>
 

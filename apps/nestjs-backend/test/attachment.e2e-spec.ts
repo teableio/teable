@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import fs from 'fs';
 import path from 'path';
 import type { INestApplication } from '@nestjs/common';
@@ -72,11 +73,16 @@ describe('OpenAPI AttachmentController (e2e)', () => {
     console.log('record1.data.fields[field.id]', record1.data.fields[field.id]);
     expect((record1.data.fields[field.id] as Array<IAttachmentItem>)[0]!.name).toEqual('😀1 2.txt');
 
+    const existingAttachment = (record1.data.fields[field.id] as IAttachmentCellValue)[0]!;
+    const presignedUrl = existingAttachment.presignedUrl || '';
+    const localAttachmentUrl = presignedUrl.startsWith('http')
+      ? presignedUrl
+      : `${appUrl}${presignedUrl}`;
     const record2 = await uploadAttachment(
       table.id,
       table.records[0].id,
       field.id,
-      'https://app.teable.ai/favicon.ico'
+      localAttachmentUrl
     );
     expect(record2.status).toBe(201);
     expect((record2.data.fields[field.id] as Array<object>).length).toEqual(2);
@@ -134,6 +140,41 @@ describe('OpenAPI AttachmentController (e2e)', () => {
     expect(attachment?.lgThumbnailUrl).toBe(attachment.presignedUrl);
     expect(attachment?.smThumbnailUrl).toBeDefined();
     expect(attachment.smThumbnailUrl).not.toBe(attachment.presignedUrl);
+  });
+
+  it('should keep cross-origin headers on the 304 cache-hit read path', async () => {
+    const field = await createField(table.id, { type: FieldType.Attachment });
+    const uploadResult = await uploadAttachment(
+      table.id,
+      table.records[0].id,
+      field.id,
+      fs.createReadStream(filePath)
+    );
+    expect(uploadResult.status).toBe(201);
+
+    const attachment = (uploadResult.data.fields[field.id] as IAttachmentCellValue)[0]!;
+    const presignedUrl = attachment.presignedUrl ?? '';
+    const readUrl = presignedUrl.startsWith('http') ? presignedUrl : `${appUrl}${presignedUrl}`;
+
+    const axios = createAxios();
+    axios.defaults.validateStatus = (status) => status === 200 || status === 304;
+
+    // The 200 read sets a non-`same-origin` CORP so the attachment can be
+    // embedded cross-origin.
+    const firstRes = await axios.get(readUrl, { responseType: 'arraybuffer' });
+    expect(firstRes.status).toBe(200);
+    const corp = firstRes.headers['cross-origin-resource-policy'];
+    expect(corp).not.toBe('same-origin');
+
+    // Regression: revalidation returns 304 — it must carry the same CORP header
+    // as the 200 read, otherwise helmet's default `same-origin` leaks into the
+    // 304 and the browser blocks the cross-origin embedded attachment.
+    const cachedRes = await axios.get(readUrl, {
+      responseType: 'arraybuffer',
+      headers: { 'If-Modified-Since': firstRes.headers['last-modified'] },
+    });
+    expect(cachedRes.status).toBe(304);
+    expect(cachedRes.headers['cross-origin-resource-policy']).toBe(corp);
   });
 
   it('should write attachment with simplified ro format without typecast', async () => {
@@ -240,6 +281,66 @@ describe('OpenAPI AttachmentController (e2e)', () => {
     expect(resultAttachment2.size).toBeDefined();
     expect(resultAttachment2.mimetype).toBeDefined();
     expect(resultAttachment2.path).toBeDefined();
+  });
+
+  it('should regenerate presignedUrl when attachment name is changed', async () => {
+    const field = await createField(table.id, { type: FieldType.Attachment });
+
+    expect(fs.existsSync(filePath)).toBe(true);
+
+    // Step 1: Upload attachment with the original name
+    const fileContent = fs.createReadStream(filePath);
+    const uploadResult = await uploadAttachment(
+      table.id,
+      table.records[0].id,
+      field.id,
+      fileContent,
+      { filename: 'original-name.txt' }
+    );
+    expect(uploadResult.status).toBe(201);
+    const uploadedAttachment = (uploadResult.data.fields[field.id] as IAttachmentCellValue)[0]!;
+    expect(uploadedAttachment.name).toBe('original-name.txt');
+
+    // Step 2: Read the record to capture the cached presignedUrl from the read path
+    const recordBefore = await getRecord(table.id, table.records[0].id, {
+      fieldKeyType: FieldKeyType.Id,
+    });
+    const attachmentBefore = (recordBefore.data.fields[field.id] as IAttachmentCellValue)[0]!;
+    expect(attachmentBefore.presignedUrl).toBeDefined();
+
+    // Step 3: Rename the attachment (same token, different name)
+    const updateResult = await updateRecord(table.id, table.records[0].id, {
+      fieldKeyType: FieldKeyType.Id,
+      record: {
+        fields: {
+          [field.id]: [
+            {
+              id: uploadedAttachment.id,
+              name: 'renamed-file.txt',
+              token: uploadedAttachment.token,
+            },
+          ],
+        },
+      },
+    });
+
+    // Verify the updateRecord response itself contains the correct presignedUrl
+    const attachmentFromUpdate = (updateResult.data.fields[field.id] as IAttachmentCellValue)[0]!;
+    expect(attachmentFromUpdate.name).toBe('renamed-file.txt');
+    expect(attachmentFromUpdate.presignedUrl).toBeDefined();
+    expect(attachmentFromUpdate.presignedUrl).toContain('renamed-file.txt');
+    expect(attachmentFromUpdate.presignedUrl).not.toContain('original-name.txt');
+
+    // Step 4: Read again — presignedUrl must also be correct on the read path
+    const recordAfter = await getRecord(table.id, table.records[0].id, {
+      fieldKeyType: FieldKeyType.Id,
+    });
+    const attachmentAfter = (recordAfter.data.fields[field.id] as IAttachmentCellValue)[0]!;
+    expect(attachmentAfter.name).toBe('renamed-file.txt');
+    expect(attachmentAfter.presignedUrl).toBeDefined();
+    expect(attachmentAfter.presignedUrl).not.toBe(attachmentBefore.presignedUrl);
+    expect(attachmentAfter.presignedUrl).toContain('renamed-file.txt');
+    expect(attachmentAfter.presignedUrl).not.toContain('original-name.txt');
   });
 
   it('should get attachment absolute url by token', async () => {

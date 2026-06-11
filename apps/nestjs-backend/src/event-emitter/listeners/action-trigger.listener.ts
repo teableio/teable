@@ -3,8 +3,11 @@ import { OnEvent } from '@nestjs/event-emitter';
 import type { ITableActionKey, IGridColumn, IViewActionKey } from '@teable/core';
 import { getActionTriggerChannel, OpName } from '@teable/core';
 import { isEmpty } from 'lodash';
+import { ClsService } from 'nestjs-cls';
 import { match } from 'ts-pattern';
+import { getV2CreateTableLegacyEventsFlag } from '../../features/v2/v2-create-table-compat.constants';
 import { ShareDbService } from '../../share-db/share-db.service';
+import type { IClsStore } from '../../types/cls';
 import type {
   RecordCreateEvent,
   RecordDeleteEvent,
@@ -34,7 +37,10 @@ export interface IActionTriggerData {
 export class ActionTriggerListener {
   private readonly logger = new Logger(ActionTriggerListener.name);
 
-  constructor(private readonly shareDbService: ShareDbService) {}
+  constructor(
+    private readonly shareDbService: ShareDbService,
+    private readonly cls: ClsService<IClsStore>
+  ) {}
 
   @OnEvent(Events.TABLE_VIEW_UPDATE, { async: true })
   @OnEvent(Events.TABLE_FIELD_UPDATE, { async: true })
@@ -42,6 +48,13 @@ export class ActionTriggerListener {
   @OnEvent(Events.TABLE_FIELD_DELETE, { async: true })
   @OnEvent('table.record.*', { async: true })
   private async listener(listenerEvent: IListenerEvent): Promise<void> {
+    if (
+      getV2CreateTableLegacyEventsFlag(this.cls) &&
+      (this.isTableFieldCreateEvent(listenerEvent) || this.isTableRecordEvent(listenerEvent))
+    ) {
+      return;
+    }
+
     // Handling table view update events
     if (this.isTableViewUpdateEvent(listenerEvent)) {
       await this.handleTableViewUpdate(listenerEvent as ViewUpdateEvent);

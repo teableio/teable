@@ -1,0 +1,530 @@
+import { inject, injectable } from '@teable/v2-di';
+import { err, ok, safeTry } from 'neverthrow';
+import type { Result } from 'neverthrow';
+
+import {
+  beginTableSchemaOperation,
+  completeTableSchemaOperation,
+  failTableSchemaOperation,
+} from '../application/services/TableSchemaOperationLifecycleService';
+import {
+  RecordWritePluginExecution,
+  RecordWritePluginRunner,
+} from '../application/services/RecordWritePluginRunner';
+import { TableOperationPluginRunner } from '../application/services/TableOperationPluginRunner';
+import type { DomainError } from '../domain/shared/DomainError';
+import { domainError } from '../domain/shared/DomainError';
+import type { IDomainEvent } from '../domain/shared/DomainEvent';
+import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
+import { FieldName } from '../domain/table/fields/FieldName';
+import type { TableRecord } from '../domain/table/records/TableRecord';
+import { Table } from '../domain/table/Table';
+import { TableName } from '../domain/table/TableName';
+import * as CsvParserPort from '../ports/CsvParser';
+import { NoopLogger } from '../ports/defaults/NoopLogger';
+import * as EventBusPort from '../ports/EventBus';
+import * as ExecutionContextPort from '../ports/ExecutionContext';
+import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
+import { RecordWriteOperationKind, type RecordWriteFieldValues } from '../ports/RecordWritePlugin';
+import { TableOperationKind } from '../ports/TableOperationPlugin';
+import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
+import * as TableRepositoryPort from '../ports/TableRepository';
+import * as TableSchemaRepositoryPort from '../ports/TableSchemaRepository';
+import { v2CoreTokens } from '../ports/tokens';
+import { TraceSpan } from '../ports/TraceSpan';
+import * as UnitOfWorkPort from '../ports/UnitOfWork';
+import { CommandHandler, type ICommandHandler } from './CommandHandler';
+import { ImportCsvCommand } from './ImportCsvCommand';
+
+type ChunkPluginOptions = {
+  readonly table: Table;
+  readonly batchSize: number;
+  readonly operationId: string;
+  readonly totalRecordCount: number;
+};
+
+const tableRecordToRecordWriteFieldValues = (record: TableRecord): RecordWriteFieldValues =>
+  new Map(
+    record
+      .fields()
+      .entries()
+      .map((entry) => [entry.fieldId.toString(), entry.value.toValue()] as const)
+  );
+
+/**
+ * CSV 导入结果
+ */
+export class ImportCsvResult {
+  private constructor(
+    readonly table: Table,
+    readonly totalImported: number,
+    readonly events: ReadonlyArray<IDomainEvent>
+  ) {}
+
+  static create(
+    table: Table,
+    totalImported: number,
+    events: ReadonlyArray<IDomainEvent>
+  ): ImportCsvResult {
+    return new ImportCsvResult(table, totalImported, [...events]);
+  }
+}
+
+/**
+ * CSV 导入 Handler
+ *
+ * 流程：
+ * 1. 解析 CSV 头部获取列名
+ * 2. 创建表（所有列为 SingleLineText 类型）
+ * 3. 流式导入数据
+ */
+@CommandHandler(ImportCsvCommand)
+@injectable()
+export class ImportCsvHandler implements ICommandHandler<ImportCsvCommand, ImportCsvResult> {
+  constructor(
+    @inject(v2CoreTokens.csvParser)
+    private readonly csvParser: CsvParserPort.ICsvParser,
+    @inject(v2CoreTokens.tableRepository)
+    private readonly tableRepository: TableRepositoryPort.ITableRepository,
+    @inject(v2CoreTokens.tableSchemaRepository)
+    private readonly tableSchemaRepository: TableSchemaRepositoryPort.ITableSchemaRepository,
+    @inject(v2CoreTokens.tableRecordRepository)
+    private readonly tableRecordRepository: TableRecordRepositoryPort.ITableRecordRepository,
+    @inject(v2CoreTokens.eventBus)
+    private readonly eventBus: EventBusPort.IEventBus,
+    @inject(v2CoreTokens.unitOfWork)
+    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork,
+    @inject(v2CoreTokens.recordWritePluginRunner)
+    private readonly recordWritePluginRunner: RecordWritePluginRunner = new RecordWritePluginRunner(
+      [],
+      new NoopLogger(),
+      new DefaultTableMapper()
+    ),
+    @inject(v2CoreTokens.tableOperationPluginRunner)
+    private readonly tableOperationPluginRunner: TableOperationPluginRunner = new TableOperationPluginRunner(
+      [],
+      new NoopLogger()
+    )
+  ) {}
+
+  @TraceSpan()
+  async handle(
+    context: ExecutionContextPort.IExecutionContext,
+    command: ImportCsvCommand
+  ): Promise<Result<ImportCsvResult, DomainError>> {
+    const handler = this;
+    return safeTry<ImportCsvResult, DomainError>(async function* () {
+      // 1. 解析 CSV（根据数据源类型选择同步或异步）
+      const parseResult = yield* await handler.parseCsvSource(command.csvSource);
+      const rows = parseResult.rowsAsync ? undefined : [...parseResult.rows];
+
+      if (parseResult.headers.length === 0) {
+        return err(
+          domainError.validation({
+            message: 'CSV file has no columns',
+            code: 'csv.no_columns',
+          })
+        );
+      }
+
+      // 2. 创建表名
+      const tableName =
+        command.tableName ??
+        (yield* TableName.create(
+          `Import_${new Date().toISOString().slice(0, 19).replace(/[:-]/g, '')}`
+        ));
+
+      // 3. 构建表（所有列为 SingleLineText）
+      const table = yield* handler.buildTableFromHeaders(
+        command.baseId,
+        tableName,
+        parseResult.headers
+      );
+      const tablePluginExecution = yield* await handler.tableOperationPluginRunner.prepare({
+        kind: TableOperationKind.importCsv,
+        executionContext: context,
+        payload: {
+          baseId: command.baseId,
+          tableName,
+          table,
+          fieldCount: table.getFields().length,
+          viewCount: table.views().length,
+          recordCount: rows?.length ?? 0,
+        },
+        isTransactionBound: false,
+      });
+      yield* await tablePluginExecution.guard();
+
+      const persistedTable = yield* await handler.unitOfWork.withTransaction(
+        context,
+        async (metaTransactionContext) =>
+          safeTry<Table, DomainError>(async function* () {
+            const persistedTable = yield* await handler.tableRepository.insert(
+              metaTransactionContext,
+              table
+            );
+            yield* await beginTableSchemaOperation(
+              handler.unitOfWork,
+              handler.tableRepository,
+              metaTransactionContext,
+              persistedTable,
+              {
+                type: 'table.import',
+                payload: {
+                  source: 'csv',
+                  durableSource: false,
+                },
+              }
+            );
+            return ok(persistedTable);
+          }),
+        { scope: 'meta' }
+      );
+
+      const importResult = await handler.unitOfWork.withTransaction(
+        context,
+        async (dataTransactionContext) => {
+          return safeTry<{ totalImported: number }, DomainError>(async function* () {
+            yield* await handler.tableSchemaRepository.insert(
+              dataTransactionContext,
+              persistedTable
+            );
+            const totalRecordCount = rows?.length ?? 0;
+            const operationId = `import-csv:${persistedTable.id().toString()}`;
+            const pluginExecution = yield* await handler.recordWritePluginRunner.prepare({
+              kind: RecordWriteOperationKind.createStream,
+              executionContext: dataTransactionContext,
+              table: persistedTable,
+              payload: {
+                recordsFieldValues: [],
+                batchSize: command.batchSize,
+                recordCount: totalRecordCount,
+              },
+              orchestration: {
+                mode: 'stream',
+                scope: 'operation',
+                operationId,
+                totalRecordCount,
+              },
+              isTransactionBound: true,
+            });
+            yield* await pluginExecution.guard();
+
+            const fieldIdMap = handler.buildFieldIdMap(persistedTable, parseResult.headers);
+
+            const recordsIterable = parseResult.rowsAsync
+              ? handler.createRecordsIterableAsync(parseResult.rowsAsync, fieldIdMap)
+              : handler.createRecordsIterable(rows ?? [], fieldIdMap);
+
+            const batchGenerator = parseResult.rowsAsync
+              ? persistedTable.createRecordsStreamAsync(
+                  recordsIterable as AsyncIterable<ReadonlyMap<string, unknown>>,
+                  {
+                    batchSize: command.batchSize,
+                  }
+                )
+              : persistedTable.createRecordsStream(
+                  recordsIterable as Iterable<ReadonlyMap<string, unknown>>,
+                  {
+                    batchSize: command.batchSize,
+                  }
+                );
+
+            const insertResult = yield* await handler.tableRecordRepository.insertManyStream(
+              dataTransactionContext,
+              persistedTable,
+              parseResult.rowsAsync
+                ? handler.consumeBatchesAsync(
+                    batchGenerator as AsyncGenerator<
+                      Result<ReadonlyArray<TableRecord>, DomainError>
+                    >,
+                    pluginExecution,
+                    dataTransactionContext,
+                    {
+                      table: persistedTable,
+                      batchSize: command.batchSize,
+                      operationId,
+                      totalRecordCount,
+                    }
+                  )
+                : handler.consumeBatches(
+                    batchGenerator as Generator<Result<ReadonlyArray<TableRecord>, DomainError>>,
+                    pluginExecution,
+                    dataTransactionContext,
+                    {
+                      table: persistedTable,
+                      batchSize: command.batchSize,
+                      operationId,
+                      totalRecordCount,
+                    }
+                  )
+            );
+
+            return ok({ totalImported: insertResult.totalInserted });
+          });
+        },
+        { scope: 'data' }
+      );
+      if (importResult.isErr()) {
+        yield* await failTableSchemaOperation(
+          handler.unitOfWork,
+          handler.tableRepository,
+          context,
+          persistedTable,
+          {
+            lastError: importResult.error.message,
+            type: 'table.import',
+            payload: {
+              source: 'csv',
+              durableSource: false,
+            },
+          }
+        );
+        return err(importResult.error);
+      }
+
+      yield* await completeTableSchemaOperation(
+        handler.unitOfWork,
+        handler.tableRepository,
+        context,
+        persistedTable,
+        { type: 'table.import' }
+      );
+
+      // 5. 发布事件
+      const events = [...table.pullDomainEvents()];
+      yield* await handler.eventBus.publishMany(context, events);
+
+      return ok(ImportCsvResult.create(persistedTable, importResult.value.totalImported, events));
+    });
+  }
+
+  /**
+   * 从 CSV 头部构建表
+   * 所有列都是 SingleLineText 类型，第一列为主键
+   */
+  private buildTableFromHeaders(
+    baseId: ImportCsvCommand['baseId'],
+    tableName: TableName,
+    headers: ReadonlyArray<string>
+  ): Result<Table, DomainError> {
+    const builder = Table.builder().withBaseId(baseId).withName(tableName);
+
+    for (let i = 0; i < headers.length; i++) {
+      const header = headers[i];
+      const fieldNameResult = FieldName.create(header || `Column_${i + 1}`);
+      if (fieldNameResult.isErr()) {
+        return err(fieldNameResult.error);
+      }
+
+      const fieldBuilder = builder.field().singleLineText().withName(fieldNameResult.value);
+
+      // 第一列设为主键
+      if (i === 0) {
+        fieldBuilder.primary();
+      }
+
+      fieldBuilder.done();
+    }
+
+    // 添加默认 Grid 视图
+    builder.view().defaultGrid().done();
+
+    return builder.build();
+  }
+
+  /**
+   * 构建字段 ID 映射（CSV 列名 → 字段 ID）
+   */
+  private buildFieldIdMap(table: Table, headers: ReadonlyArray<string>): Map<string, string> {
+    const fields = table.getFields();
+    const map = new Map<string, string>();
+
+    // 按顺序匹配（假设字段顺序与 headers 顺序一致）
+    for (let i = 0; i < headers.length && i < fields.length; i++) {
+      const header = headers[i];
+      const field = fields[i];
+      map.set(header, field.id().toString());
+    }
+
+    return map;
+  }
+
+  /**
+   * 将 CSV 行转换为记录字段值的 Iterable
+   */
+  private *createRecordsIterable(
+    rows: Iterable<Record<string, string>>,
+    fieldIdMap: Map<string, string>
+  ): Iterable<ReadonlyMap<string, unknown>> {
+    for (const row of rows) {
+      const fieldValues = new Map<string, unknown>();
+
+      for (const [csvColumn, value] of Object.entries(row)) {
+        const fieldId = fieldIdMap.get(csvColumn);
+        if (fieldId) {
+          fieldValues.set(fieldId, value);
+        }
+      }
+
+      yield fieldValues;
+    }
+  }
+
+  /**
+   * 消费批次生成器，解包 Result
+   */
+  private async *consumeBatches(
+    generator: Generator<Result<ReadonlyArray<TableRecord>, DomainError>>,
+    pluginExecution: RecordWritePluginExecution,
+    transactionContext: ExecutionContextPort.IExecutionContext,
+    options: ChunkPluginOptions
+  ): AsyncGenerator<ReadonlyArray<TableRecord>> {
+    let chunkIndex = 0;
+    for (const batchResult of generator) {
+      if (batchResult.isErr()) {
+        throw batchResult.error;
+      }
+      const chunkPluginExecution = await this.prepareChunkPluginExecution(
+        transactionContext,
+        pluginExecution,
+        batchResult.value,
+        {
+          ...options,
+          chunkIndex,
+        }
+      );
+      if (chunkPluginExecution.isErr()) {
+        throw chunkPluginExecution.error;
+      }
+      const beforePersistResult =
+        await chunkPluginExecution.value.beforePersist(transactionContext);
+      if (beforePersistResult.isErr()) {
+        throw beforePersistResult.error;
+      }
+      chunkIndex += 1;
+      yield batchResult.value;
+    }
+  }
+
+  /**
+   * 消费异步批次生成器，解包 Result
+   */
+  private async *consumeBatchesAsync(
+    generator: AsyncGenerator<Result<ReadonlyArray<TableRecord>, DomainError>>,
+    pluginExecution: RecordWritePluginExecution,
+    transactionContext: ExecutionContextPort.IExecutionContext,
+    options: ChunkPluginOptions
+  ): AsyncGenerator<ReadonlyArray<TableRecord>> {
+    let chunkIndex = 0;
+    for await (const batchResult of generator) {
+      if (batchResult.isErr()) {
+        throw batchResult.error;
+      }
+      const chunkPluginExecution = await this.prepareChunkPluginExecution(
+        transactionContext,
+        pluginExecution,
+        batchResult.value,
+        {
+          ...options,
+          chunkIndex,
+        }
+      );
+      if (chunkPluginExecution.isErr()) {
+        throw chunkPluginExecution.error;
+      }
+      const beforePersistResult =
+        await chunkPluginExecution.value.beforePersist(transactionContext);
+      if (beforePersistResult.isErr()) {
+        throw beforePersistResult.error;
+      }
+      chunkIndex += 1;
+      yield batchResult.value;
+    }
+  }
+
+  private async prepareChunkPluginExecution(
+    transactionContext: ExecutionContextPort.IExecutionContext,
+    previousExecution: RecordWritePluginExecution,
+    records: ReadonlyArray<TableRecord>,
+    options: ChunkPluginOptions & { chunkIndex: number }
+  ): Promise<Result<RecordWritePluginExecution, DomainError>> {
+    const recordsFieldValues = records.map(tableRecordToRecordWriteFieldValues);
+    const result = await this.recordWritePluginRunner.prepare(
+      {
+        kind: RecordWriteOperationKind.createStream,
+        executionContext: transactionContext,
+        table: options.table,
+        payload: {
+          recordsFieldValues,
+          batchSize: options.batchSize,
+          recordCount: records.length,
+        },
+        orchestration: {
+          mode: 'stream',
+          scope: 'chunk',
+          operationId: options.operationId,
+          totalRecordCount: options.totalRecordCount,
+          chunkIndex: options.chunkIndex,
+        },
+        isTransactionBound: true,
+      },
+      { previousExecution }
+    );
+    if (result.isErr()) {
+      return err(result.error);
+    }
+
+    const guardResult = await result.value.guard();
+    if (guardResult.isErr()) {
+      return err(guardResult.error);
+    }
+
+    return ok(result.value);
+  }
+
+  /**
+   * 解析 CSV 数据源
+   * 根据类型选择同步或异步解析
+   */
+  private async parseCsvSource(
+    source: CsvParserPort.CsvSource
+  ): Promise<Result<CsvParserPort.CsvParseResult, DomainError>> {
+    // stream 和 url 类型需要异步解析
+    if (source.type === 'stream' || source.type === 'url') {
+      if (!this.csvParser.parseAsync) {
+        return err(
+          domainError.infrastructure({
+            message: 'CSV parser does not support async parsing for stream/url sources',
+            code: 'csv.async_not_supported',
+          })
+        );
+      }
+      return this.csvParser.parseAsync(source);
+    }
+
+    // string 和 buffer 使用同步解析
+    return this.csvParser.parse(source);
+  }
+
+  /**
+   * 将 CSV 行异步迭代器转换为记录字段值的 AsyncIterable
+   */
+  private async *createRecordsIterableAsync(
+    rows: AsyncIterable<Record<string, string>>,
+    fieldIdMap: Map<string, string>
+  ): AsyncIterable<ReadonlyMap<string, unknown>> {
+    for await (const row of rows) {
+      const fieldValues = new Map<string, unknown>();
+
+      for (const [csvColumn, value] of Object.entries(row)) {
+        const fieldId = fieldIdMap.get(csvColumn);
+        if (fieldId) {
+          fieldValues.set(fieldId, value);
+        }
+      }
+
+      yield fieldValues;
+    }
+  }
+}

@@ -10,8 +10,7 @@ import type { Knex } from 'knex';
 
 /**
  * Database-dialect provider for Record Query Builder.
- * Centralizes all SQL fragment differences between PostgreSQL and SQLite so callers
- * can build queries without sprinkling driver-specific if/else throughout the codebase.
+ * Keeps query-builder code from sprinkling driver-specific SQL throughout the codebase.
  *
  * All methods return SQL snippets as strings that can be embedded in knex.raw or string
  * templating. Implementations MUST ensure generated SQL is valid for their driver.
@@ -20,7 +19,6 @@ export interface IRecordQueryDialectProvider {
   /**
    * Current driver this provider targets.
    * - PG example: DriverClient.Pg
-   * - SQLite example: DriverClient.Sqlite
    */
   readonly driver: DriverClient;
 
@@ -29,12 +27,10 @@ export interface IRecordQueryDialectProvider {
   /**
    * Cast any SQL expression to text string.
    * - PG: returns `(expr)::TEXT`
-   * - SQLite: returns `CAST(expr AS TEXT)`
    * @example
    * ```ts
    * dialect.toText('t.amount')
    * // PG:     (t.amount)::TEXT
-   * // SQLite: CAST(t.amount AS TEXT)
    * ```
    */
   toText(expr: string): string;
@@ -46,7 +42,6 @@ export interface IRecordQueryDialectProvider {
    * ```ts
    * dialect.formatNumber('t.price', { type: 'decimal', precision: 2 })
    * // PG:     ROUND(CAST(t.price AS NUMERIC), 2)::TEXT
-   * // SQLite: PRINTF('%.2f', t.price)
    * ```
    */
   formatNumber(expr: string, formatting: INumberFormatting): string;
@@ -59,8 +54,6 @@ export interface IRecordQueryDialectProvider {
    * dialect.formatNumberArray('t.values', { type: 'percent', precision: 1 })
    * // PG:     SELECT string_agg(ROUND(...), ', ')
    * //          FROM jsonb_array_elements((t.values)::jsonb) WITH ORDINALITY
-   * // SQLite: SELECT GROUP_CONCAT(PRINTF(...), ', ')
-   * //          FROM json_each(CASE WHEN json_valid(t.values) THEN t.values ELSE json('[]') END)
    * ```
    */
   formatNumberArray(expr: string, formatting: INumberFormatting): string;
@@ -73,8 +66,6 @@ export interface IRecordQueryDialectProvider {
    * dialect.formatStringArray('t.tags')
    * // PG:     SELECT string_agg(CASE ... END, ', ')
    * //          FROM jsonb_array_elements((t.tags)::jsonb) WITH ORDINALITY
-   * // SQLite: SELECT GROUP_CONCAT(CASE ... END, ', ')
-   * //          FROM json_each(CASE WHEN json_valid(t.tags) THEN t.tags ELSE json('[]') END)
    * ```
    */
   formatStringArray(expr: string, opts?: { fieldInfo?: FieldCore }): string;
@@ -86,8 +77,6 @@ export interface IRecordQueryDialectProvider {
    * dialect.formatRating('t.rating')
    * // PG:     CASE WHEN (t.rating = ROUND(t.rating))
    * //            THEN ROUND(t.rating)::TEXT ELSE (t.rating)::TEXT END
-   * // SQLite: CASE WHEN (t.rating = CAST(t.rating AS INTEGER))
-   * //            THEN CAST(CAST(t.rating AS INTEGER) AS TEXT) ELSE CAST(t.rating AS TEXT) END
    * ```
    */
   formatRating(expr: string): string;
@@ -123,7 +112,6 @@ export interface IRecordQueryDialectProvider {
    * ```ts
    * dialect.linkHasAny('"cte"."link_value"')
    * // PG:     (cte.link_value IS NOT NULL AND (cte.link_value)::text != 'null' AND (cte.link_value)::text != '[]')
-   * // SQLite: (cte.link_value IS NOT NULL AND cte.link_value != 'null' AND cte.link_value != '[]')
    * ```
    */
   linkHasAny(selectionSql: string): string;
@@ -137,13 +125,6 @@ export interface IRecordQueryDialectProvider {
    * (SELECT json_agg(value->>'title')
    *  FROM jsonb_array_elements(cte.link_value::jsonb) AS value)::jsonb
    * ```
-   * @example SQLite
-   * ```sql
-   * (SELECT json_group_array(json_extract(value, '$.title'))
-   *  FROM json_each(CASE WHEN json_valid(cte.link_value) AND json_type(cte.link_value)='array'
-   *                      THEN cte.link_value ELSE json('[]') END)
-   *  ORDER BY key)
-   * ```
    */
   linkExtractTitles(selectionSql: string, isMultiple: boolean): string;
 
@@ -153,7 +134,6 @@ export interface IRecordQueryDialectProvider {
    * ```ts
    * dialect.jsonTitleFromExpr('t.user_json')
    * // PG:     (t.user_json->>'title')
-   * // SQLite: json_extract(t.user_json, '$.title')
    * ```
    */
   jsonTitleFromExpr(selectionSql: string): string;
@@ -164,7 +144,6 @@ export interface IRecordQueryDialectProvider {
    * ```ts
    * dialect.selectUserNameById('"t"."__created_by"')
    * // PG:     (SELECT u.name FROM users u WHERE u.id = "t"."__created_by")
-   * // SQLite: (SELECT name FROM users WHERE id = "t"."__created_by")
    * ```
    */
   selectUserNameById(idRef: string): string;
@@ -175,7 +154,6 @@ export interface IRecordQueryDialectProvider {
    * ```ts
    * dialect.buildUserJsonObjectById('"t"."__created_by"')
    * // PG:     (SELECT jsonb_build_object('id', u.id, 'title', u.name, 'email', u.email) FROM users u WHERE u.id = "t"."__created_by")
-   * // SQLite: json_object('id', "t"."__created_by", 'title', (SELECT name FROM users WHERE id = "t"."__created_by"), 'email', (SELECT email FROM users WHERE id = "t"."__created_by"))
    * ```
    */
   buildUserJsonObjectById(idRef: string): string;
@@ -205,7 +183,6 @@ export interface IRecordQueryDialectProvider {
    * ```ts
    * dialect.jsonAggregateNonNull('f.title', 'f.__id ASC')
    * // PG:     json_agg(f.title ORDER BY f.__id ASC) FILTER (WHERE f.title IS NOT NULL)
-   * // SQLite: json_group_array(CASE WHEN f.title IS NOT NULL THEN f.title END)
    * ```
    */
   jsonAggregateNonNull(expression: string, orderByClause?: string): string;
@@ -216,7 +193,6 @@ export interface IRecordQueryDialectProvider {
    * ```ts
    * dialect.stringAggregate('t.name', ', ', 't.__id')
    * // PG:     STRING_AGG(t.name::text, ', ' ORDER BY t.__id)
-   * // SQLite: GROUP_CONCAT(t.name, ', ')
    * ```
    */
   stringAggregate(expression: string, delimiter: string, orderByClause?: string): string;
@@ -227,7 +203,6 @@ export interface IRecordQueryDialectProvider {
    * ```ts
    * dialect.jsonArrayLength('t.tags')
    * // PG:     jsonb_array_length(t.tags::jsonb)
-   * // SQLite: json_array_length(t.tags)
    * ```
    */
   jsonArrayLength(expr: string): string;
@@ -235,14 +210,12 @@ export interface IRecordQueryDialectProvider {
   /**
    * Dialect-specific typed NULL for JSON contexts
    * - PG: NULL::json
-   * - SQLite: NULL
    */
   nullJson(): string;
 
   /**
    * Produce a typed NULL literal appropriate for the provided database field type.
    * - PG: returns casts like NULL::jsonb, NULL::timestamptz, etc.
-   * - SQLite: plain NULL (no strong typing).
    */
   typedNullFor(dbFieldType: DbFieldType): string;
 
@@ -256,7 +229,6 @@ export interface IRecordQueryDialectProvider {
    * ```ts
    * dialect.rollupAggregate('sum', 'f.amount', { orderByField: 'j.__id' })
    * // PG:     CAST(COALESCE(SUM(f.amount), 0) AS DOUBLE PRECISION)
-   * // SQLite: COALESCE(SUM(f.amount), 0)
    * ```
    */
   rollupAggregate(
@@ -286,12 +258,10 @@ export interface IRecordQueryDialectProvider {
 
   /**
    * Build conditional JSON for link cell: { id, title? }.
-   * If the title expression is NULL, omit title in PG (strip nulls) or omit the key in SQLite.
    * @example
    * ```ts
    * dialect.buildLinkJsonObject('f."__id"', 'formattedTitleExpr', 'rawTitleExpr')
    * // PG:     jsonb_strip_nulls(jsonb_build_object('id', f."__id", 'title', formattedTitleExpr))::jsonb
-   * // SQLite: CASE WHEN rawTitleExpr IS NOT NULL THEN json_object('id', f."__id", 'title', formattedTitleExpr) ELSE json_object('id', f."__id") END
    * ```
    */
   buildLinkJsonObject(
@@ -301,8 +271,7 @@ export interface IRecordQueryDialectProvider {
   ): string;
 
   /**
-   * Apply deterministic ordering workarounds for JSON aggregations in CTEs.
-   * Only SQLite typically modifies the builder (e.g., ORDER BY junction.__id); PG is a no-op.
+   * Apply deterministic ordering for JSON aggregations in CTEs.
    * @example
    * ```ts
    * dialect.applyLinkCteOrdering(qb, { relationship: Relationship.OneMany, usesJunctionTable: false, hasOrderColumn: true, junctionAlias: 'j', foreignAlias: 'f', selfKeyName: 'main_id' })
@@ -321,9 +290,7 @@ export interface IRecordQueryDialectProvider {
   ): void;
 
   /**
-   * Build deterministic ordered aggregate for multi-value LOOKUP (SQLite path).
-   * - PG: return null and let caller use json_agg ORDER BY directly.
-   * - SQLite: return a correlated subquery using json_group_array with ORDER BY to preserve order.
+   * Return null and let callers use json_agg ORDER BY directly.
    * @example
    * ```ts
    * dialect.buildDeterministicLookupAggregate({

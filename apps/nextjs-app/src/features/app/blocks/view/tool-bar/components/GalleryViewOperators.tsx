@@ -1,35 +1,20 @@
-import {
-  ArrowUpDown,
-  Filter as FilterIcon,
-  Share2,
-  Settings,
-  Plus,
-  AlertTriangle,
-} from '@teable/icons';
+import { ArrowUpDown, Filter as FilterIcon, Share2, Settings, AlertTriangle } from '@teable/icons';
 import type { GalleryView } from '@teable/sdk';
-import {
-  Sort,
-  ViewFilter,
-  VisibleFields,
-  useTablePermission,
-  CreateRecordModal,
-  useIsTemplate,
-} from '@teable/sdk';
+import { Sort, ViewFilter, VisibleFields } from '@teable/sdk';
 import { useView } from '@teable/sdk/hooks/use-view';
-import { Button, Label, Switch, cn } from '@teable/ui-lib/shadcn';
+import { Label, Switch, cn } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useToolbarChange } from '../../hooks/useToolbarChange';
 import { ToolBarButton } from '../ToolBarButton';
 import { CoverFieldSelect } from './CoverFieldSelect';
+import { ScrollableToolbarGroup } from './ScrollableToolbarGroup';
 
 export const GalleryViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
   const { disabled } = props;
   const view = useView() as GalleryView | undefined;
-  const permission = useTablePermission();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { onFilterChange, onSortChange } = useToolbarChange();
-  const isTemplate = useIsTemplate();
   const { coverFieldId, isCoverFit, isFieldNameHidden } = view?.options ?? {};
 
   const onCoverFieldChange = (fieldId: string | null) => {
@@ -47,18 +32,7 @@ export const GalleryViewOperators: React.FC<{ disabled?: boolean }> = (props) =>
   if (!view) return null;
 
   return (
-    <div className="flex items-center gap-1">
-      {!isTemplate && (
-        <>
-          <CreateRecordModal>
-            <Button size={'xs'} variant={'outline'} disabled={!permission['record|create']}>
-              <Plus className="size-4" />
-              {t('table:view.addRecord')}
-            </Button>
-          </CreateRecordModal>
-          <div className="mx-1 h-4 w-px shrink-0 bg-border" />
-        </>
-      )}
+    <ScrollableToolbarGroup className="items-center">
       <VisibleFields
         footer={
           <>
@@ -69,14 +43,13 @@ export const GalleryViewOperators: React.FC<{ disabled?: boolean }> = (props) =>
               onCheckedChange={onCoverFitChange}
               className="border-t"
             />
-            <div className="flex h-9 items-center justify-between border-t px-4">
+            <div className="flex h-10 items-center justify-between border-t px-4">
               <Label htmlFor="is-field-name-hidden" className="text-sm font-normal">
                 {t('table:kanban.toolbar.hideFieldName')}
               </Label>
               <Switch
                 id="is-field-name-hidden"
-                size={'sm'}
-                classNameThumb="size-3 data-[state=checked]:translate-x-3"
+                size={'default'}
                 checked={isFieldNameHidden}
                 onCheckedChange={onFieldNameHiddenChange}
               />
@@ -100,8 +73,8 @@ export const GalleryViewOperators: React.FC<{ disabled?: boolean }> = (props) =>
         onChange={onFilterChange}
         contentHeader={
           view.enableShare && (
-            <div className="flex max-w-full items-center justify-start rounded-t bg-accent px-4 py-2 text-[11px]">
-              <Share2 className="mr-4 size-4 shrink-0" />
+            <div className="mb-2 flex max-w-full items-center justify-start rounded-md border bg-muted px-3 py-2 text-xs text-muted-foreground dark:bg-white/5">
+              <Share2 className="mr-2 size-4 shrink-0" />
               <span className="text-muted-foreground">{t('table:toolbar.viewFilterInShare')}</span>
             </div>
           )
@@ -113,7 +86,7 @@ export const GalleryViewOperators: React.FC<{ disabled?: boolean }> = (props) =>
             isActive={isActive}
             text={text}
             className={cn(
-              'max-w-xs',
+              'max-w-[200px]',
               isActive &&
                 'bg-violet-100 dark:bg-violet-600/30 hover:bg-violet-200 dark:hover:bg-violet-500/30',
               hasWarning && 'border-yellow-500'
@@ -121,8 +94,8 @@ export const GalleryViewOperators: React.FC<{ disabled?: boolean }> = (props) =>
             textClassName="@2xl/toolbar:inline"
           >
             <>
-              <FilterIcon className="size-4 text-sm" />
-              {hasWarning && <AlertTriangle className="size-3.5 text-yellow-500" />}
+              <FilterIcon className="size-4 shrink-0 text-sm" />
+              {hasWarning && <AlertTriangle className="size-3.5 shrink-0 text-yellow-500" />}
             </>
           </ToolBarButton>
         )}
@@ -134,16 +107,16 @@ export const GalleryViewOperators: React.FC<{ disabled?: boolean }> = (props) =>
             isActive={isActive}
             text={text}
             className={cn(
-              'max-w-xs',
+              'max-w-[200px]',
               isActive &&
                 'bg-orange-100 dark:bg-orange-600/30 hover:bg-orange-200 dark:hover:bg-orange-500/30'
             )}
             textClassName="@2xl/toolbar:inline"
           >
-            <ArrowUpDown className="size-4 text-sm" />
+            <ArrowUpDown className="size-4 shrink-0 text-sm" />
           </ToolBarButton>
         )}
       </Sort>
-    </div>
+    </ScrollableToolbarGroup>
   );
 };

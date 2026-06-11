@@ -17,7 +17,6 @@ import {
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { ITableFullVo } from '@teable/openapi';
-import { RecordModifySharedService } from '../src/features/record/record-modify/record-modify.shared.service';
 import { getError } from './utils/get-error';
 import {
   createBase,

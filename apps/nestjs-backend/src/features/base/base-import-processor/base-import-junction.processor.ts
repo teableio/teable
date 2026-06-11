@@ -13,18 +13,30 @@ import { UploadType } from '@teable/openapi';
 import type { Job } from 'bullmq';
 import { Queue } from 'bullmq';
 import * as csvParser from 'csv-parser';
-import { Knex } from 'knex';
-import { InjectModel } from 'nest-knexjs';
 import * as unzipper from 'unzipper';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
+import { DataDbClientManager } from '../../../global/data-db-client-manager.service';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { createFieldInstanceByRaw } from '../../field/model/factory';
+import { PersistedComputedBackfillService } from '../../record/computed/services/persisted-computed-backfill.service';
 import { BatchProcessor } from '../BatchProcessor.class';
+
+type IDataPrismaExecutor = {
+  $queryRawUnsafe<T = unknown>(query: string, ...values: unknown[]): Promise<T>;
+  $executeRawUnsafe(query: string, ...values: unknown[]): Promise<number>;
+};
+
+type IDataPrismaScopedClient = IDataPrismaExecutor & {
+  $tx?: <T>(fn: (prisma: IDataPrismaExecutor) => Promise<T>) => Promise<T>;
+  $transaction?: <T>(fn: (prisma: IDataPrismaExecutor) => Promise<T>) => Promise<T>;
+};
 
 interface IBaseImportJunctionCsvJob {
   path: string;
+  baseId: string;
+  tableIdMap: Record<string, string>;
   fieldIdMap: Record<string, string>;
   structure: IBaseJson;
 }
@@ -39,11 +51,12 @@ export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
 
   constructor(
     private readonly prismaService: PrismaService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    private readonly persistedComputedBackfillService: PersistedComputedBackfillService,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
     @InjectQueue(BASE_IMPORT_JUNCTION_CSV_QUEUE)
     public readonly queue: Queue<IBaseImportJunctionCsvJob>,
-    @InjectDbProvider() private readonly dbProvider: IDbProvider
+    @InjectDbProvider() private readonly dbProvider: IDbProvider,
+    private readonly dataDbClientManager: DataDbClientManager
   ) {
     super();
   }
@@ -57,10 +70,11 @@ export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
 
     this.processedJobs.add(jobId);
 
-    const { path, fieldIdMap, structure } = job.data;
+    const { path, baseId, tableIdMap, fieldIdMap, structure } = job.data;
 
     try {
-      await this.importJunctionChunk(path, fieldIdMap, structure);
+      await this.importJunctionChunk(path, baseId, fieldIdMap, structure);
+      await this.persistedComputedBackfillService.recomputeForTables(Object.values(tableIdMap));
     } catch (error) {
       this.logger.error(
         `Process base import junction csv failed: ${(error as Error)?.message}`,
@@ -71,6 +85,7 @@ export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
 
   private async importJunctionChunk(
     path: string,
+    baseId: string,
     fieldIdMap: Record<string, string>,
     structure: IBaseJson
   ) {
@@ -166,7 +181,7 @@ export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
           } = junctionInfo;
 
           const batchProcessor = new BatchProcessor<Record<string, unknown>>((chunk) =>
-            this.handleJunctionChunk(chunk, targetFkHostTableName)
+            this.handleJunctionChunk(baseId, chunk, targetFkHostTableName)
           );
 
           entry
@@ -174,7 +189,8 @@ export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
               csvParser.default({
                 // strict: true,
                 mapValues: ({ value }) => {
-                  return value;
+                  // deal with old junction order case
+                  return value === '' ? null : value;
                 },
                 mapHeaders: ({ header }) => {
                   return header
@@ -190,7 +206,6 @@ export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
             })
             .on('end', () => {
               this.logger.log(`csv ${junctionTableName} finished`);
-              resolve({ success: true });
             });
         } else {
           entry.autodrain();
@@ -209,7 +224,23 @@ export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
     });
   }
 
+  private async dataTransaction<T>(
+    dataPrisma: IDataPrismaScopedClient,
+    fn: (prisma: IDataPrismaExecutor) => Promise<T>
+  ) {
+    if (dataPrisma.$tx) {
+      return await dataPrisma.$tx(fn);
+    }
+
+    if (dataPrisma.$transaction) {
+      return await dataPrisma.$transaction(fn);
+    }
+
+    return await fn(dataPrisma);
+  }
+
   private async handleJunctionChunk(
+    baseId: string,
     results: Record<string, unknown>[],
     targetFkHostTableName: string
   ) {
@@ -222,7 +253,12 @@ export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
       dbTableName: string;
     }[];
 
-    await this.prismaService.$tx(async (prisma) => {
+    const dataPrisma = (await this.dataDbClientManager.dataPrismaForBase(
+      baseId
+    )) as IDataPrismaScopedClient;
+    const dataKnex = await this.dataDbClientManager.dataKnexForBase(baseId);
+
+    await this.dataTransaction(dataPrisma, async (prisma) => {
       // delete foreign keys if(exist) then duplicate table data
       const foreignKeysInfoSql = this.dbProvider.getForeignKeysInfo(targetFkHostTableName);
       const foreignKeysInfo = await prisma.$queryRawUnsafe<
@@ -241,7 +277,7 @@ export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
       allForeignKeyInfos.push(...newForeignKeyInfos);
 
       for (const { constraint_name, column_name, dbTableName } of allForeignKeyInfos) {
-        const dropForeignKeyQuery = this.knex.schema
+        const dropForeignKeyQuery = dataKnex.schema
           .alterTable(dbTableName, (table) => {
             table.dropForeign(column_name, constraint_name);
           })
@@ -250,7 +286,7 @@ export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
         await prisma.$executeRawUnsafe(dropForeignKeyQuery);
       }
 
-      const sql = this.knex.table(targetFkHostTableName).insert(results).toQuery();
+      const sql = dataKnex.table(targetFkHostTableName).insert(results).toQuery();
       try {
         await prisma.$executeRawUnsafe(sql);
       } catch (error) {
@@ -272,7 +308,7 @@ export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
         }
       }
 
-      // add foreign keys
+      // add foreign keys with NOT VALID to skip existing data validation
       for (const {
         constraint_name,
         column_name,
@@ -281,13 +317,20 @@ export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
         referenced_table_name: referencedTableName,
         referenced_column_name: referencedColumnName,
       } of allForeignKeyInfos) {
-        const addForeignKeyQuery = this.knex.schema
-          .alterTable(dbTableName, (table) => {
-            table
-              .foreign(column_name, constraint_name)
-              .references(referencedColumnName)
-              .inTable(`${referencedTableSchema}.${referencedTableName}`);
-          })
+        const [schema, tableName] = dbTableName.split('.');
+        const addForeignKeyQuery = dataKnex
+          .raw(
+            'ALTER TABLE ??.?? ADD CONSTRAINT ?? FOREIGN KEY (??) REFERENCES ??.??(??) NOT VALID',
+            [
+              schema,
+              tableName,
+              constraint_name,
+              column_name,
+              referencedTableSchema,
+              referencedTableName,
+              referencedColumnName,
+            ]
+          )
           .toQuery();
         await prisma.$executeRawUnsafe(addForeignKeyQuery);
       }

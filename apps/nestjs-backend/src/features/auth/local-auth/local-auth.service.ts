@@ -17,10 +17,7 @@ import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.co
 import { CustomHttpException } from '../../../custom.exception';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import { Events } from '../../../event-emitter/events';
-import {
-  UserSignUpEvent,
-  UserEmailChangeEvent,
-} from '../../../event-emitter/events/user/user.event';
+import { UserEmailChangeEvent } from '../../../event-emitter/events/user/user.event';
 import type { IClsStore } from '../../../types/cls';
 import { second } from '../../../utils/second';
 import { MailSenderService } from '../../mail-sender/mail-sender.service';
@@ -284,7 +281,7 @@ export class LocalAuthService {
         inviteCode
       );
     });
-    this.eventEmitterService.emitAsync(Events.USER_SIGNUP, new UserSignUpEvent(res.id));
+    await this.userService.recordSignup(res.id);
     return res;
   }
 
@@ -476,7 +473,11 @@ export class LocalAuthService {
           HttpErrorCode.INVALID_CAPTCHA
         );
       });
-    if (newEmail !== email || _currentEmail !== currentEmail || _code !== code) {
+    if (
+      newEmail.toLowerCase() !== email.toLowerCase() ||
+      _currentEmail !== currentEmail ||
+      _code !== code
+    ) {
       throw new CustomHttpException('Verification code is invalid', HttpErrorCode.INVALID_CAPTCHA, {
         localization: {
           i18nKey: 'httpErrors.auth.verificationCodeInvalid',
@@ -484,13 +485,14 @@ export class LocalAuthService {
       });
     }
     const user = this.cls.get('user');
+    const normalizedEmail = newEmail.toLowerCase();
     await this.prismaService.txClient().user.update({
       where: { id: user.id, deletedTime: null, deactivatedTime: null },
-      data: { email: newEmail },
+      data: { email: normalizedEmail },
     });
     this.eventEmitterService.emitAsync(
       Events.USER_EMAIL_CHANGE,
-      new UserEmailChangeEvent(user.id, currentEmail, newEmail)
+      new UserEmailChangeEvent(user.id, currentEmail, normalizedEmail)
     );
     // clear session
     await this.sessionStoreService.clearByUserId(user.id);
@@ -498,7 +500,7 @@ export class LocalAuthService {
 
   async sendChangeEmailCode(newEmail: string, password: string) {
     const email = this.cls.get('user.email');
-    if (newEmail === email) {
+    if (newEmail.toLowerCase() === email.toLowerCase()) {
       throw new CustomHttpException(
         'New email is the same as the current email',
         HttpErrorCode.CONFLICT,

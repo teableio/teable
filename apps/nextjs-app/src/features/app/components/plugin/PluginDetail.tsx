@@ -17,7 +17,7 @@ export const PluginDetail = (props: {
   return (
     <div className="absolute left-0 top-0 flex size-full flex-col rounded bg-background">
       <Button className="ml-2 mt-2 w-20" variant={'ghost'} size={'sm'} onClick={onBack}>
-        <ArrowLeft />
+        <ArrowLeft className="size-4 shrink-0" />
         {t('common:actions.back')}
       </Button>
       <div className="flex-1 gap-3 overflow-auto px-4 md:flex">

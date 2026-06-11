@@ -6,6 +6,12 @@ import { userIntegrationMetadataSchema, UserIntegrationProvider } from './types'
 
 export const GET_USER_INTEGRATION_LIST = '/user-integrations';
 
+export const getUserIntegrationListRoSchema = z.object({
+  provider: z.enum(UserIntegrationProvider).optional().describe('Filter by provider'),
+});
+
+export type IUserIntegrationListRo = z.infer<typeof getUserIntegrationListRoSchema>;
+
 export const getUserIntegrationItemVoSchema = z.object({
   id: z.string(),
   userId: z.string(),
@@ -31,6 +37,9 @@ export const getUserIntegrationListRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_USER_INTEGRATION_LIST,
   description: 'Get user integration list',
+  request: {
+    query: getUserIntegrationListRoSchema,
+  },
   responses: {
     200: {
       description: 'Returns the list of user integration.',
@@ -44,6 +53,6 @@ export const getUserIntegrationListRoute: RouteConfig = registerRoute({
   tags: ['user-integration'],
 });
 
-export const getUserIntegrationList = async () => {
-  return await axios.get<IUserIntegrationListVo>(GET_USER_INTEGRATION_LIST);
+export const getUserIntegrationList = async (query?: IUserIntegrationListRo) => {
+  return await axios.get<IUserIntegrationListVo>(GET_USER_INTEGRATION_LIST, { params: query });
 };

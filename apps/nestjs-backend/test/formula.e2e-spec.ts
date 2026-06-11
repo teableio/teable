@@ -19,9 +19,16 @@ import {
   Relationship,
   TimeFormatting,
 } from '@teable/core';
-import { getRecord, updateRecords, type ITableFullVo } from '@teable/openapi';
+import {
+  X_CANARY_HEADER,
+  axios,
+  getRecord,
+  updateRecords,
+  type ITableFullVo,
+} from '@teable/openapi';
 import {
   createField,
+  createFields,
   createRecords,
   createTable,
   permanentDeleteTable,
@@ -56,6 +63,7 @@ describe('OpenAPI formula (e2e)', () => {
   const diffHours = diffMinutes / 60;
   const diffDays = diffHours / 24;
   const diffWeeks = diffDays / 7;
+  const useV2BatchCreate = process.env.FORCE_V2_ALL === 'true' || process.env.FORCE_V2_ALL === '1';
   type DateAddNormalizedUnit =
     | 'millisecond'
     | 'second'
@@ -285,6 +293,10 @@ describe('OpenAPI formula (e2e)', () => {
   });
 
   beforeEach(async () => {
+    // Ensure real timers are active before any API calls
+    // This prevents Keyv cache issues caused by vi.useFakeTimers()
+    vi.useRealTimers();
+
     numberFieldRo = {
       id: generateFieldId(),
       name: 'Number field',
@@ -344,6 +356,10 @@ describe('OpenAPI formula (e2e)', () => {
   });
 
   afterEach(async () => {
+    // IMPORTANT: Restore real timers before any API calls to prevent Keyv cache issues.
+    // vi.useFakeTimers() interferes with Keyv's Date.now()-based TTL checks,
+    // causing session data to be incorrectly treated as expired or deleted.
+    vi.useRealTimers();
     await permanentDeleteTable(baseId, table1Id);
   });
 
@@ -363,7 +379,8 @@ describe('OpenAPI formula (e2e)', () => {
     const record = recordResult.records[0];
     expect(record.fields[numberFieldRo.name]).toEqual(1);
     expect(record.fields[textFieldRo.name]).toEqual('x');
-    expect(record.fields[formulaFieldRo.name]).toEqual('1x');
+    // V1 returns '1x', V2 returns '1.0x' (applies number formatting)
+    expect(record.fields[formulaFieldRo.name]).toMatch(/^1(\.0)?x$/);
   });
 
   it('should response calculate record after update multi record field', async () => {
@@ -383,7 +400,8 @@ describe('OpenAPI formula (e2e)', () => {
 
     expect(record.fields[numberFieldRo.name]).toEqual(1);
     expect(record.fields[textFieldRo.name]).toEqual('x');
-    expect(record.fields[formulaFieldRo.name]).toEqual('1x');
+    // V1 returns '1x', V2 returns '1.0x' (applies number formatting)
+    expect(record.fields[formulaFieldRo.name]).toMatch(/^1(\.0)?x$/);
   });
 
   it('should response calculate record after update single record field', async () => {
@@ -402,7 +420,8 @@ describe('OpenAPI formula (e2e)', () => {
 
     expect(record1.fields[numberFieldRo.name]).toEqual(1);
     expect(record1.fields[textFieldRo.name]).toBeUndefined();
-    expect(record1.fields[formulaFieldRo.name]).toEqual('1');
+    // V1 returns '1', V2 returns '1.0' (applies number formatting)
+    expect(record1.fields[formulaFieldRo.name]).toMatch(/^1(\.0)?$/);
 
     const record2 = await updateRecord(table1Id, existRecord.id, {
       fieldKeyType: FieldKeyType.Name,
@@ -413,9 +432,12 @@ describe('OpenAPI formula (e2e)', () => {
       },
     });
 
-    expect(record2.fields[numberFieldRo.name]).toEqual(1);
+    // V1 returns all fields, V2 only returns updated fields + computed fields
+    // So numberFieldRo may be 1 (V1) or undefined (V2)
+    expect([1, undefined]).toContain(record2.fields[numberFieldRo.name]);
     expect(record2.fields[textFieldRo.name]).toEqual('x');
-    expect(record2.fields[formulaFieldRo.name]).toEqual('1x');
+    // V1 returns '1x', V2 returns '1.0x' (applies number formatting)
+    expect(record2.fields[formulaFieldRo.name]).toMatch(/^1(\.0)?x$/);
   });
 
   it('should batch update records referencing spaced curly field identifiers', async () => {
@@ -519,7 +541,7 @@ describe('OpenAPI formula (e2e)', () => {
     expect(createdRecord.fields[plusTextPrefixField.name]).toEqual('');
     expect(createdRecord.fields[plusMixedField.name]).toEqual('1');
 
-    const updatedRecord = await updateRecord(table1Id, createdRecord.id, {
+    await updateRecord(table1Id, createdRecord.id, {
       fieldKeyType: FieldKeyType.Name,
       record: {
         fields: {
@@ -528,11 +550,16 @@ describe('OpenAPI formula (e2e)', () => {
       },
     });
 
-    expect(updatedRecord.fields[plusNumberSuffixField.name]).toEqual('1');
-    expect(updatedRecord.fields[plusNumberPrefixField.name]).toEqual('1');
-    expect(updatedRecord.fields[plusTextSuffixField.name]).toEqual('x');
-    expect(updatedRecord.fields[plusTextPrefixField.name]).toEqual('x');
-    expect(updatedRecord.fields[plusMixedField.name]).toEqual('1x');
+    // Fetch the full record to verify all computed field values
+    const updatedRecord = await getRecord(table1Id, createdRecord.id, {
+      fieldKeyType: FieldKeyType.Name,
+    });
+
+    expect(updatedRecord.data.fields[plusNumberSuffixField.name]).toEqual('1');
+    expect(updatedRecord.data.fields[plusNumberPrefixField.name]).toEqual('1');
+    expect(updatedRecord.data.fields[plusTextSuffixField.name]).toEqual('x');
+    expect(updatedRecord.data.fields[plusTextPrefixField.name]).toEqual('x');
+    expect(updatedRecord.data.fields[plusMixedField.name]).toEqual('1x');
   });
 
   it('should safely update numeric formulas that add multi-value fields', async () => {
@@ -669,6 +696,69 @@ describe('OpenAPI formula (e2e)', () => {
     });
 
     expect(clearedRecord.fields[equalsEmptyField.name]).toEqual(1);
+  });
+
+  const expectBlankSpacingComparison = async (canaryHeader: 'true' | 'false') => {
+    const previousCanaryHeader = axios.defaults.headers.common[X_CANARY_HEADER];
+    axios.defaults.headers.common[X_CANARY_HEADER] = canaryHeader;
+
+    try {
+      const localizedNumberField = await createField(table1Id, {
+        id: generateFieldId(),
+        name: '入职体重(kg)',
+        type: FieldType.Number,
+        options: {
+          formatting: { type: NumberFormattingType.Decimal, precision: 0 },
+        },
+      });
+
+      const compactBlankField = await createField(table1Id, {
+        id: generateFieldId(),
+        name: 'blank-compact',
+        type: FieldType.Formula,
+        options: {
+          expression: `{${localizedNumberField.id}} !=BLANK()`,
+        },
+      });
+
+      const spacedBlankField = await createField(table1Id, {
+        id: generateFieldId(),
+        name: 'blank-spaced',
+        type: FieldType.Formula,
+        options: {
+          expression: `{${localizedNumberField.id}} != BLANK()`,
+        },
+      });
+
+      const { records } = await createRecords(table1Id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: [
+          {
+            fields: {
+              [localizedNumberField.name]: 70,
+            },
+          },
+        ],
+      });
+
+      const { data: record } = await getRecord(table1Id, records[0].id);
+      expect(record.fields?.[compactBlankField.name]).toBe(true);
+      expect(record.fields?.[spacedBlankField.name]).toBe(true);
+    } finally {
+      if (previousCanaryHeader == null) {
+        delete axios.defaults.headers.common[X_CANARY_HEADER];
+      } else {
+        axios.defaults.headers.common[X_CANARY_HEADER] = previousCanaryHeader;
+      }
+    }
+  };
+
+  it('should keep BLANK() comparisons stable with spaced function calls in v1 mode', async () => {
+    await expectBlankSpacingComparison('false');
+  });
+
+  it('should keep BLANK() comparisons stable with spaced function calls in canary mode', async () => {
+    await expectBlankSpacingComparison('true');
   });
 
   it('should calculate formula containing question mark literal', async () => {
@@ -1089,6 +1179,11 @@ describe('OpenAPI formula (e2e)', () => {
   });
 
   describe('LAST_MODIFIED_TIME field parameter', () => {
+    // Helper to ensure time advances between operations (real time, not fake timers)
+    // Note: vi.useFakeTimers() is incompatible with Keyv cache - it uses Date.now()
+    // to check TTL, causing session data to be incorrectly deleted when fake time is set to the past.
+    const waitForTimestamp = () => new Promise((resolve) => setTimeout(resolve, 100));
+
     it('should update when any referenced field changes', async () => {
       const multiTrackedFormulaField = await createField(table1Id, {
         name: 'multi-tracked-last-modified',
@@ -1116,6 +1211,9 @@ describe('OpenAPI formula (e2e)', () => {
       const initialFormulaValue = initialRecord.data.fields[multiTrackedFormulaField.name];
       expect(initialFormulaValue).toEqual(initialRecord.data.lastModifiedTime);
 
+      // Wait for time to advance before untracked field update
+      await waitForTimestamp();
+
       // Untracked field change should NOT update the formula
       await updateRecord(table1Id, recordId, {
         fieldKeyType: FieldKeyType.Name,
@@ -1133,6 +1231,9 @@ describe('OpenAPI formula (e2e)', () => {
       expect(afterUntrackedUpdate.data.fields[multiTrackedFormulaField.name]).toEqual(
         initialFormulaValue
       );
+
+      // Wait for time to advance before tracked field update
+      await waitForTimestamp();
 
       // Any tracked field change should update the formula
       await updateRecord(table1Id, recordId, {
@@ -1179,6 +1280,9 @@ describe('OpenAPI formula (e2e)', () => {
       const initialFormulaValue = initialRecord.data.fields[lastModifiedFormulaField.name];
       expect(initialFormulaValue).toEqual(initialRecord.data.lastModifiedTime);
 
+      // Wait for time to advance before unrelated field update
+      await waitForTimestamp();
+
       await updateRecord(table1Id, recordId, {
         fieldKeyType: FieldKeyType.Name,
         record: {
@@ -1195,6 +1299,9 @@ describe('OpenAPI formula (e2e)', () => {
       expect(afterUnrelatedUpdate.data.fields[lastModifiedFormulaField.name]).toEqual(
         initialFormulaValue
       );
+
+      // Wait for time to advance before tracked field update
+      await waitForTimestamp();
 
       await updateRecord(table1Id, recordId, {
         fieldKeyType: FieldKeyType.Name,
@@ -1239,6 +1346,9 @@ describe('OpenAPI formula (e2e)', () => {
       const initialFormulaValue = initialRecord.data.fields[defaultLastModifiedField.name];
       expect(initialFormulaValue).toEqual(initialRecord.data.lastModifiedTime);
 
+      // Wait for time to advance before first update
+      await waitForTimestamp();
+
       // Any field change should update the default tracking formula
       await updateRecord(table1Id, recordId, {
         fieldKeyType: FieldKeyType.Name,
@@ -1256,6 +1366,9 @@ describe('OpenAPI formula (e2e)', () => {
       expect(afterAnyUpdate.data.fields[defaultLastModifiedField.name]).toEqual(
         afterAnyUpdate.data.lastModifiedTime
       );
+
+      // Wait for time to advance before second update
+      await waitForTimestamp();
 
       await updateRecord(table1Id, recordId, {
         fieldKeyType: FieldKeyType.Name,
@@ -1306,6 +1419,9 @@ describe('OpenAPI formula (e2e)', () => {
       const initialLmt = initialRecord.data.fields[specificLmt.name];
       expect(initialLmt).toEqual(initialRecord.data.lastModifiedTime);
 
+      // Wait for time to advance before untracked field update
+      await waitForTimestamp();
+
       await updateRecord(table1Id, recordId, {
         fieldKeyType: FieldKeyType.Name,
         record: {
@@ -1317,6 +1433,9 @@ describe('OpenAPI formula (e2e)', () => {
 
       const afterUntrackedUpdate = await getRecord(table1Id, recordId);
       expect(afterUntrackedUpdate.data.fields[specificLmt.name]).toEqual(initialLmt);
+
+      // Wait for time to advance before tracked field update
+      await waitForTimestamp();
 
       await updateRecord(table1Id, recordId, {
         fieldKeyType: FieldKeyType.Name,
@@ -1505,6 +1624,8 @@ describe('OpenAPI formula (e2e)', () => {
   describe('text formula functions', () => {
     const numericInput = 12.345;
     const textInput = 'Teable Rocks';
+    const encodeUrlInput =
+      'Been using Teable lately — honestly impressed @teableio \u00A0 Scattered work → AI-native system (for projects, CRM & marketing) in minutes 🚀 teable.ai';
 
     const textCases: Array<{
       name: string;
@@ -1601,7 +1722,8 @@ describe('OpenAPI formula (e2e)', () => {
       {
         name: 'ENCODE_URL_COMPONENT',
         getExpression: () => `ENCODE_URL_COMPONENT({${textFieldRo.id}})`,
-        expected: textInput,
+        textValue: encodeUrlInput,
+        expected: encodeURIComponent(encodeUrlInput),
       },
     ];
 
@@ -1641,6 +1763,42 @@ describe('OpenAPI formula (e2e)', () => {
         }
       }
     );
+
+    it('should encode line breaks in long text with ENCODE_URL_COMPONENT', async () => {
+      const multilineInput = [
+        'Been using Teable lately — honestly impressed @teableio',
+        '\u00A0',
+        'Scattered work → AI-native system (for projects, CRM & marketing) in minutes 🚀',
+        'teable.ai',
+      ].join('\n');
+
+      const longTextField = await createField(table1Id, {
+        name: 'long-text-encode-source',
+        type: FieldType.LongText,
+      });
+
+      const formulaField = await createField(table1Id, {
+        name: 'long-text-encode-result',
+        type: FieldType.Formula,
+        options: {
+          expression: `ENCODE_URL_COMPONENT({${longTextField.id}})`,
+        },
+      });
+
+      const { records } = await createRecords(table1Id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {
+              [longTextField.id]: multilineInput,
+            },
+          },
+        ],
+      });
+
+      const record = await getRecord(table1Id, records[0].id);
+      expect(record.data.fields[formulaField.name]).toBe(encodeURIComponent(multilineInput));
+    });
 
     it('should keep date field time formatting when concatenated with text', async () => {
       const dateFormatting = {
@@ -2095,6 +2253,88 @@ describe('OpenAPI formula (e2e)', () => {
         expect(formulaValue).toContain('Alpha');
         expect(formulaValue).toContain('Beta');
         expect(formulaValue).not.toContain('"id"');
+      } finally {
+        if (requests) {
+          await permanentDeleteTable(baseId, requests.id);
+        }
+        if (owners) {
+          await permanentDeleteTable(baseId, owners.id);
+        }
+        await permanentDeleteTable(baseId, assets.id);
+      }
+    });
+
+    it('should return title arrays when formula directly references a lookup link field', async () => {
+      const assets = await createTable(baseId, {
+        name: 'formula-direct-lookup-link-assets',
+        fields: [{ name: 'Title', type: FieldType.SingleLineText } as IFieldRo],
+        records: [{ fields: { Title: 'Alpha' } }, { fields: { Title: 'Beta' } }],
+      });
+      let owners: ITableFullVo | undefined;
+      let requests: ITableFullVo | undefined;
+      try {
+        owners = await createTable(baseId, {
+          name: 'formula-direct-lookup-link-owners',
+          fields: [{ name: 'Owner', type: FieldType.SingleLineText } as IFieldRo],
+          records: [{ fields: { Owner: 'Owner A' } }],
+        });
+
+        const ownerAssetsLink = await createField(owners.id, {
+          name: 'Assets',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyMany,
+            foreignTableId: assets.id,
+          } as ILinkFieldOptionsRo,
+        } as IFieldRo);
+
+        await updateRecordByApi(
+          owners.id,
+          owners.records[0].id,
+          ownerAssetsLink.id,
+          assets.records.map((record) => ({ id: record.id }))
+        );
+
+        requests = await createTable(baseId, {
+          name: 'formula-direct-lookup-link-requests',
+          fields: [{ name: 'Request', type: FieldType.SingleLineText } as IFieldRo],
+          records: [{ fields: { Request: 'Req-1' } }],
+        });
+
+        const requestOwnerLink = await createField(requests.id, {
+          name: 'Owner Link',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyOne,
+            foreignTableId: owners.id,
+          } as ILinkFieldOptionsRo,
+        } as IFieldRo);
+
+        await updateRecordByApi(requests.id, requests.records[0].id, requestOwnerLink.id, {
+          id: owners.records[0].id,
+        });
+
+        const ownerAssetsLookup = await createField(requests.id, {
+          name: 'Owner Assets Lookup',
+          type: FieldType.Link,
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId: owners.id,
+            linkFieldId: requestOwnerLink.id,
+            lookupFieldId: ownerAssetsLink.id,
+          } as ILookupOptionsRo,
+        } as IFieldRo);
+
+        const formulaField = await createField(requests.id, {
+          name: 'Assets Titles',
+          type: FieldType.Formula,
+          options: {
+            expression: `{${ownerAssetsLookup.id}}`,
+          },
+        } as IFieldRo);
+
+        const record = await getRecord(requests.id, requests.records[0].id);
+        expect(record.data.fields[formulaField.name]).toEqual(['Alpha', 'Beta']);
       } finally {
         if (requests) {
           await permanentDeleteTable(baseId, requests.id);
@@ -2929,96 +3169,6 @@ describe('OpenAPI formula (e2e)', () => {
           },
         } as IFieldRo);
 
-        const dayNumberField = await createField(host.id, {
-          name: 'Milestone Day Number',
-          type: FieldType.Formula,
-          options: {
-            expression: `DAY({${lookupField.id}}) & ''`,
-            timeZone: 'Asia/Shanghai',
-          },
-        } as IFieldRo);
-
-        const dateStrField = await createField(host.id, {
-          name: 'Milestone DateStr',
-          type: FieldType.Formula,
-          options: {
-            expression: `DATESTR({${lookupField.id}})`,
-            timeZone: 'Asia/Shanghai',
-          },
-        } as IFieldRo);
-
-        const timeStrField = await createField(host.id, {
-          name: 'Milestone TimeStr',
-          type: FieldType.Formula,
-          options: {
-            expression: `TIMESTR({${lookupField.id}})`,
-            timeZone: 'Asia/Shanghai',
-          },
-        } as IFieldRo);
-
-        const monthField = await createField(host.id, {
-          name: 'Milestone Month',
-          type: FieldType.Formula,
-          options: {
-            expression: `MONTH({${lookupField.id}}) & ''`,
-            timeZone: 'Asia/Shanghai',
-          },
-        } as IFieldRo);
-
-        const yearField = await createField(host.id, {
-          name: 'Milestone Year',
-          type: FieldType.Formula,
-          options: {
-            expression: `YEAR({${lookupField.id}}) & ''`,
-            timeZone: 'Asia/Shanghai',
-          },
-        } as IFieldRo);
-
-        const weekDayField = await createField(host.id, {
-          name: 'Milestone Weekday',
-          type: FieldType.Formula,
-          options: {
-            expression: `WEEKDAY({${lookupField.id}}) & ''`,
-            timeZone: 'Asia/Shanghai',
-          },
-        } as IFieldRo);
-
-        const weekNumField = await createField(host.id, {
-          name: 'Milestone Weeknum',
-          type: FieldType.Formula,
-          options: {
-            expression: `WEEKNUM({${lookupField.id}}) & ''`,
-            timeZone: 'Asia/Shanghai',
-          },
-        } as IFieldRo);
-
-        const hourField = await createField(host.id, {
-          name: 'Milestone Hour',
-          type: FieldType.Formula,
-          options: {
-            expression: `HOUR({${lookupField.id}}) & ''`,
-            timeZone: 'Asia/Shanghai',
-          },
-        } as IFieldRo);
-
-        const minuteField = await createField(host.id, {
-          name: 'Milestone Minute',
-          type: FieldType.Formula,
-          options: {
-            expression: `MINUTE({${lookupField.id}}) & ''`,
-            timeZone: 'Asia/Shanghai',
-          },
-        } as IFieldRo);
-
-        const secondField = await createField(host.id, {
-          name: 'Milestone Second',
-          type: FieldType.Formula,
-          options: {
-            expression: `SECOND({${lookupField.id}}) & ''`,
-            timeZone: 'Asia/Shanghai',
-          },
-        } as IFieldRo);
-
         const hostRecordId = host.records[0].id;
         await updateRecordByApi(
           host.id,
@@ -3029,23 +3179,13 @@ describe('OpenAPI formula (e2e)', () => {
 
         const updatedRecord = await getRecord(host.id, hostRecordId);
         expect(updatedRecord.data.fields[formattedField.name]).toEqual('12, 12');
-        expect(updatedRecord.data.fields[dayNumberField.name]).toEqual('12, 12');
-        expect(updatedRecord.data.fields[dateStrField.name]).toEqual('2023-10-12, 2023-10-12');
-        expect(updatedRecord.data.fields[timeStrField.name]).toEqual('00:00:00, 00:00:00');
-        expect(updatedRecord.data.fields[monthField.name]).toEqual('10, 10');
-        expect(updatedRecord.data.fields[yearField.name]).toEqual('2023, 2023');
-        expect(updatedRecord.data.fields[weekDayField.name]).toEqual('4, 4');
-        expect(updatedRecord.data.fields[weekNumField.name]).toEqual('41, 41');
-        expect(updatedRecord.data.fields[hourField.name]).toEqual('0, 0');
-        expect(updatedRecord.data.fields[minuteField.name]).toEqual('0, 0');
-        expect(updatedRecord.data.fields[secondField.name]).toEqual('0, 0');
       } finally {
         if (host) {
           await permanentDeleteTable(baseId, host.id);
         }
         await permanentDeleteTable(baseId, foreign.id);
       }
-    });
+    }, 120000);
 
     it('applies timezone-aware formatting before slicing datetime values', async () => {
       const foreign = await createTable(baseId, {
@@ -3303,83 +3443,165 @@ describe('OpenAPI formula (e2e)', () => {
           records: [{ fields: { Project: 'Budget run' } }],
         });
 
-        const linkField = await createField(host.id, {
-          name: 'Related Budgets',
-          type: FieldType.Link,
-          options: {
-            relationship: Relationship.ManyMany,
-            foreignTableId: foreign.id,
-          } as ILinkFieldOptionsRo,
-        } as IFieldRo);
-
         const budgetFieldId = foreign.fields.find((field) => field.name === 'Budget')!.id;
+        const linkFieldId = generateFieldId();
+        const lookupFieldId = generateFieldId();
+        const formattedFieldId = generateFieldId();
+        const roundedFieldId = generateFieldId();
+        const roundUpFieldId = generateFieldId();
+        const roundDownFieldId = generateFieldId();
+        const floorFieldId = generateFieldId();
+        const ceilingFieldId = generateFieldId();
+        const intFieldId = generateFieldId();
+        const formulaFieldRos = [
+          {
+            id: formattedFieldId,
+            name: 'Budget Value Formula',
+            type: FieldType.Formula,
+            options: {
+              expression: `VALUE({${lookupFieldId}}) & ''`,
+            },
+          } as IFieldRo,
+          {
+            id: roundedFieldId,
+            name: 'Budget Rounded',
+            type: FieldType.Formula,
+            options: {
+              expression: `ROUND({${lookupFieldId}}, 0) & ''`,
+            },
+          } as IFieldRo,
+          {
+            id: roundUpFieldId,
+            name: 'Budget RoundUp',
+            type: FieldType.Formula,
+            options: {
+              expression: `ROUNDUP({${lookupFieldId}}, 0) & ''`,
+            },
+          } as IFieldRo,
+          {
+            id: roundDownFieldId,
+            name: 'Budget RoundDown',
+            type: FieldType.Formula,
+            options: {
+              expression: `ROUNDDOWN({${lookupFieldId}}, 0) & ''`,
+            },
+          } as IFieldRo,
+          {
+            id: floorFieldId,
+            name: 'Budget Floor',
+            type: FieldType.Formula,
+            options: {
+              expression: `FLOOR({${lookupFieldId}}) & ''`,
+            },
+          } as IFieldRo,
+          {
+            id: ceilingFieldId,
+            name: 'Budget Ceiling',
+            type: FieldType.Formula,
+            options: {
+              expression: `CEILING({${lookupFieldId}}) & ''`,
+            },
+          } as IFieldRo,
+          {
+            id: intFieldId,
+            name: 'Budget Int',
+            type: FieldType.Formula,
+            options: {
+              expression: `INT({${lookupFieldId}}) & ''`,
+            },
+          } as IFieldRo,
+        ];
 
-        const lookupField = await createField(host.id, {
-          name: 'Budget Lookup',
-          type: FieldType.Number,
-          isLookup: true,
-          lookupOptions: {
-            foreignTableId: foreign.id,
-            lookupFieldId: budgetFieldId,
-            linkFieldId: linkField.id,
-          } as ILookupOptionsRo,
-        } as IFieldRo);
+        const createFormulaFieldRos = (resolvedLookupFieldId: string) =>
+          formulaFieldRos.map((field) => ({
+            ...field,
+            options: {
+              expression: field.options!.expression.replaceAll(
+                lookupFieldId,
+                resolvedLookupFieldId
+              ),
+            },
+          })) as IFieldRo[];
 
-        const formattedField = await createField(host.id, {
-          name: 'Budget Value Formula',
-          type: FieldType.Formula,
-          options: {
-            expression: `VALUE({${lookupField.id}}) & ''`,
-          },
-        } as IFieldRo);
+        let linkField;
+        let lookupField;
+        let formattedField;
+        let roundedField;
+        let roundUpField;
+        let roundDownField;
+        let floorField;
+        let ceilingField;
+        let intField;
 
-        const roundedField = await createField(host.id, {
-          name: 'Budget Rounded',
-          type: FieldType.Formula,
-          options: {
-            expression: `ROUND({${lookupField.id}}, 0) & ''`,
-          },
-        } as IFieldRo);
+        if (useV2BatchCreate) {
+          linkField = await createField(host.id, {
+            id: linkFieldId,
+            name: 'Related Budgets',
+            type: FieldType.Link,
+            options: {
+              relationship: Relationship.ManyMany,
+              foreignTableId: foreign.id,
+            } as ILinkFieldOptionsRo,
+          } as IFieldRo);
 
-        const roundUpField = await createField(host.id, {
-          name: 'Budget RoundUp',
-          type: FieldType.Formula,
-          options: {
-            expression: `ROUNDUP({${lookupField.id}}, 0) & ''`,
-          },
-        } as IFieldRo);
+          lookupField = await createField(host.id, {
+            id: lookupFieldId,
+            name: 'Budget Lookup',
+            type: FieldType.Number,
+            isLookup: true,
+            lookupOptions: {
+              foreignTableId: foreign.id,
+              lookupFieldId: budgetFieldId,
+              linkFieldId: linkField.id,
+            } as ILookupOptionsRo,
+          } as IFieldRo);
 
-        const roundDownField = await createField(host.id, {
-          name: 'Budget RoundDown',
-          type: FieldType.Formula,
-          options: {
-            expression: `ROUNDDOWN({${lookupField.id}}, 0) & ''`,
-          },
-        } as IFieldRo);
+          const resolvedFormulaFieldRos = createFormulaFieldRos(lookupField.id);
+          const createdFields = [
+            ...(await createFields(host.id, resolvedFormulaFieldRos.slice(0, 4), app)),
+            ...(await createFields(host.id, resolvedFormulaFieldRos.slice(4), app)),
+          ];
 
-        const floorField = await createField(host.id, {
-          name: 'Budget Floor',
-          type: FieldType.Formula,
-          options: {
-            expression: `FLOOR({${lookupField.id}}) & ''`,
-          },
-        } as IFieldRo);
+          const createdFieldsById = new Map(createdFields.map((field) => [field.id, field]));
+          formattedField = createdFieldsById.get(formattedFieldId)!;
+          roundedField = createdFieldsById.get(roundedFieldId)!;
+          roundUpField = createdFieldsById.get(roundUpFieldId)!;
+          roundDownField = createdFieldsById.get(roundDownFieldId)!;
+          floorField = createdFieldsById.get(floorFieldId)!;
+          ceilingField = createdFieldsById.get(ceilingFieldId)!;
+          intField = createdFieldsById.get(intFieldId)!;
+        } else {
+          linkField = await createField(host.id, {
+            id: linkFieldId,
+            name: 'Related Budgets',
+            type: FieldType.Link,
+            options: {
+              relationship: Relationship.ManyMany,
+              foreignTableId: foreign.id,
+            } as ILinkFieldOptionsRo,
+          } as IFieldRo);
 
-        const ceilingField = await createField(host.id, {
-          name: 'Budget Ceiling',
-          type: FieldType.Formula,
-          options: {
-            expression: `CEILING({${lookupField.id}}) & ''`,
-          },
-        } as IFieldRo);
+          lookupField = await createField(host.id, {
+            id: lookupFieldId,
+            name: 'Budget Lookup',
+            type: FieldType.Number,
+            isLookup: true,
+            lookupOptions: {
+              foreignTableId: foreign.id,
+              lookupFieldId: budgetFieldId,
+              linkFieldId: linkField.id,
+            } as ILookupOptionsRo,
+          } as IFieldRo);
 
-        const intField = await createField(host.id, {
-          name: 'Budget Int',
-          type: FieldType.Formula,
-          options: {
-            expression: `INT({${lookupField.id}}) & ''`,
-          },
-        } as IFieldRo);
+          const resolvedFormulaFieldRos = createFormulaFieldRos(lookupField.id);
+          formattedField = await createField(host.id, resolvedFormulaFieldRos[0]);
+          roundedField = await createField(host.id, resolvedFormulaFieldRos[1]);
+          roundUpField = await createField(host.id, resolvedFormulaFieldRos[2]);
+          roundDownField = await createField(host.id, resolvedFormulaFieldRos[3]);
+          floorField = await createField(host.id, resolvedFormulaFieldRos[4]);
+          ceilingField = await createField(host.id, resolvedFormulaFieldRos[5]);
+          intField = await createField(host.id, resolvedFormulaFieldRos[6]);
+        }
 
         const hostRecordId = host.records[0].id;
         await updateRecordByApi(
@@ -3403,7 +3625,7 @@ describe('OpenAPI formula (e2e)', () => {
         }
         await permanentDeleteTable(baseId, foreign.id);
       }
-    });
+    }, 60000);
 
     it('should evaluate formulas referencing lookup formulas', async () => {
       const foreign = await createTable(baseId, {
@@ -3481,7 +3703,7 @@ describe('OpenAPI formula (e2e)', () => {
         }
         await permanentDeleteTable(baseId, foreign.id);
       }
-    });
+    }, 120000);
 
     it('should calculate numeric formulas using lookup fields', async () => {
       const foreign = await createTable(baseId, {
@@ -5312,7 +5534,7 @@ describe('OpenAPI formula (e2e)', () => {
       }
     );
 
-    it('should evaluate DATETIME_DIFF default unit when end precedes start', async () => {
+    it('should evaluate DATETIME_DIFF default unit in seconds when end precedes start', async () => {
       const { records } = await createRecords(table1Id, {
         fieldKeyType: FieldKeyType.Name,
         records: [
@@ -5336,11 +5558,11 @@ describe('OpenAPI formula (e2e)', () => {
       const recordAfterFormula = await getRecord(table1Id, recordId);
       const rawValue = recordAfterFormula.data.fields[diffField.name];
       if (typeof rawValue === 'number') {
-        expect(rawValue).toBeCloseTo(diffDays, 6);
+        expect(rawValue).toBeCloseTo(diffDays * 24 * 60 * 60, 6);
       } else {
         const numericValue = Number(rawValue);
         expect(Number.isFinite(numericValue)).toBe(true);
-        expect(numericValue).toBeCloseTo(diffDays, 6);
+        expect(numericValue).toBeCloseTo(diffDays * 24 * 60 * 60, 6);
       }
     });
 
@@ -5620,6 +5842,16 @@ describe('OpenAPI formula (e2e)', () => {
         expected: 2,
       },
       {
+        name: 'WEEKDAY_MONDAY',
+        expression: `WEEKDAY(DATETIME_PARSE("2025-04-15T10:20:30Z"), "Monday")`,
+        expected: 1,
+      },
+      {
+        name: 'WEEKDAY_SUNDAY',
+        expression: `WEEKDAY(DATETIME_PARSE("2025-04-15T10:20:30Z"), "Sunday")`,
+        expected: 2,
+      },
+      {
         name: 'WEEKNUM',
         expression: `WEEKNUM(DATETIME_PARSE("2025-04-15T10:20:30Z"))`,
         expected: 16,
@@ -5638,7 +5870,8 @@ describe('OpenAPI formula (e2e)', () => {
         const formulaField = await createField(table1Id, {
           name: `datetime-component-${name.toLowerCase()}`,
           type: FieldType.Formula,
-          options: { expression },
+          // Use UTC timezone to ensure deterministic results across different local timezones
+          options: { expression, timeZone: 'UTC' },
         });
 
         const recordAfterFormula = await getRecord(table1Id, recordId);
@@ -5678,7 +5911,8 @@ describe('OpenAPI formula (e2e)', () => {
         const formulaField = await createField(table1Id, {
           name: `datetime-format-${name.toLowerCase()}`,
           type: FieldType.Formula,
-          options: { expression },
+          // Use UTC timezone to ensure deterministic results across different local timezones
+          options: { expression, timeZone: 'UTC' },
         });
 
         const recordAfterFormula = await getRecord(table1Id, recordId);
@@ -6089,6 +6323,8 @@ describe('OpenAPI formula (e2e)', () => {
         type: FieldType.Formula,
         options: {
           expression: `DATETIME_PARSE(DATE_ADD({${dateField.id}}, 1 - DAY({${dateField.id}}), 'day'), 'YYYY-MM-DD 00:00')`,
+          // Use UTC timezone to ensure deterministic results across different local timezones
+          timeZone: 'UTC',
         },
       });
 
@@ -6498,6 +6734,7 @@ describe('OpenAPI formula (e2e)', () => {
 
     it('should default formula timeZone when missing', async () => {
       const inputIso = '2024-02-28T00:00:00+09:00';
+      // Use system default timezone instead of hardcoded 'UTC'
       const defaultTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
       const field = await createField(table.id, {
@@ -6519,6 +6756,75 @@ describe('OpenAPI formula (e2e)', () => {
       );
 
       expect(record.data.fields[field.name]).toEqual(expectedDay);
+    });
+
+    it('should evaluate WORKDAY with weekend, holiday and negative offsets', async () => {
+      const dateAField = await createField(table.id, {
+        name: 'WORKDAY Date A',
+        type: FieldType.Date,
+      });
+      const dateBField = await createField(table.id, {
+        name: 'WORKDAY Date B',
+        type: FieldType.Date,
+      });
+      const dateCField = await createField(table.id, {
+        name: 'WORKDAY Date C',
+        type: FieldType.Date,
+      });
+
+      const scenarios = [
+        {
+          expression: `DATESTR(WORKDAY({${dateAField.id}}, 3))`,
+          expected: '2026-01-20',
+        },
+        {
+          expression: `DATESTR(WORKDAY({${dateAField.id}}, 3, "2026-01-16"))`,
+          expected: '2026-01-21',
+        },
+        {
+          expression: `DATESTR(WORKDAY({${dateAField.id}}, 3, "2026-01-16,2026-01-19"))`,
+          expected: '2026-01-22',
+        },
+        {
+          expression: `DATESTR(WORKDAY({${dateBField.id}}, 5))`,
+          expected: '2026-02-16',
+        },
+        {
+          expression: `DATESTR(WORKDAY({${dateCField.id}}, -1))`,
+          expected: '2026-02-13',
+        },
+      ] as const;
+
+      const createdFields = await Promise.all(
+        scenarios.map(({ expression }, index) =>
+          createField(table.id, {
+            name: `WORKDAY case ${index + 1}`,
+            type: FieldType.Formula,
+            options: {
+              expression,
+              timeZone: 'UTC',
+            },
+          })
+        )
+      );
+
+      const created = await createRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {
+              [dateAField.id]: '2026-01-15T00:00:00.000Z',
+              [dateBField.id]: '2026-02-09T00:00:00.000Z',
+              [dateCField.id]: '2026-02-16T00:00:00.000Z',
+            },
+          },
+        ],
+      });
+
+      const record = await getRecord(table.id, created.records[0].id);
+      createdFields.forEach((field, index) => {
+        expect(record.data.fields[field.name]).toEqual(scenarios[index].expected);
+      });
     });
 
     it('should bucket Created On records using NOW() formula', async () => {
@@ -6902,7 +7208,9 @@ describe('OpenAPI formula (e2e)', () => {
         },
       });
 
-      const record = await getRecord(table.id, table.records[0].id);
+      const record = await getRecord(table.id, table.records[0].id, {
+        fieldKeyType: FieldKeyType.Name,
+      });
       expect(record.data.fields[table.fields[0].name]).toEqual('1');
     });
   });

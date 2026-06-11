@@ -1,13 +1,49 @@
-import { ArrowUpRight, Settings as Edit, Edit as Fill } from '@teable/icons';
-import { useTableId, useTablePermission, useViewId } from '@teable/sdk/hooks';
-import { Button } from '@teable/ui-lib/shadcn';
+import { Settings as Edit, Edit as Fill, Share2 } from '@teable/icons';
+import { useTableId, useTablePermission, useView, useViewId } from '@teable/sdk/hooks';
+import { Tabs, TabsList, TabsTrigger } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { useBaseNodeContext } from '@/features/app/blocks/base/base-node/hooks/useBaseNodeContext';
+import { useSharedNodeIds } from '@/features/app/blocks/base/base-side-bar/BaseNodeShareIndicator';
 import { tableConfig } from '@/features/i18n/table.config';
 import { generateUniqLocalKey } from '../form/util';
-import { SharePopover } from './SharePopover';
 import { FormMode, useFormModeStore } from './store';
 import { ToolBarButton } from './ToolBarButton';
+import { UnifiedShareDialog } from './UnifiedShareDialog';
+
+const FormShareButton = ({ disabled }: { disabled: boolean }) => {
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const view = useView();
+  const tableId = useTableId();
+  const { treeItems } = useBaseNodeContext();
+  const { sharedNodeIds } = useSharedNodeIds();
+  const [open, setOpen] = useState(false);
+
+  const isNodeShared = useMemo(() => {
+    if (!tableId) return false;
+    const entry = Object.entries(treeItems).find(([, item]) => item.resourceId === tableId);
+    return entry ? sharedNodeIds.has(entry[0]) : false;
+  }, [tableId, treeItems, sharedNodeIds]);
+
+  const isActive = !!view?.enableShare || isNodeShared;
+  const text = t('table:toolbar.others.share.label');
+
+  return (
+    <>
+      <ToolBarButton
+        isActive={isActive}
+        text={text}
+        textClassName="inline"
+        className="justify-start"
+        disabled={disabled}
+        onClick={() => setOpen(true)}
+      >
+        <Share2 className="size-4" />
+      </ToolBarButton>
+      <UnifiedShareDialog open={open} onOpenChange={setOpen} defaultTab="view" showTabs={false} />
+    </>
+  );
+};
 
 export const FormToolBar: React.FC = () => {
   const tableId = useTableId();
@@ -42,39 +78,26 @@ export const FormToolBar: React.FC = () => {
   );
 
   return (
-    <div className="flex flex-wrap items-center justify-end border-y py-2 pl-8 pr-4 @container/toolbar sm:justify-between">
+    <div className="flex flex-wrap items-center justify-end border-y px-4 py-2 @container/toolbar sm:justify-between">
       <div className="hidden flex-1 sm:flex">
-        {isEditable &&
-          FORM_MODE_BUTTON_LIST.map((item) => {
-            const { text, Icon, mode } = item;
-            return (
-              <Button
-                key={mode}
-                variant={currentMode === mode ? 'default' : 'outline'}
-                size={'xs'}
-                className="mr-4 px-8 font-normal"
-                onClick={() => setFormMode(mode)}
-              >
-                <Icon />
-                {text}
-              </Button>
-            );
-          })}
+        {isEditable && (
+          <Tabs size="sm" value={currentMode} onValueChange={(v) => setFormMode(v as FormMode)}>
+            <TabsList>
+              {FORM_MODE_BUTTON_LIST.map((item) => {
+                const { text, Icon, mode } = item;
+                return (
+                  <TabsTrigger key={mode} value={mode} className="w-20 gap-1">
+                    <Icon className="size-4" />
+                    {text}
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+          </Tabs>
+        )}
       </div>
 
-      <SharePopover>
-        {(text, isActive) => (
-          <ToolBarButton
-            isActive={isActive}
-            text={text}
-            textClassName="inline"
-            className="justify-start rounded-none"
-            disabled={!permission['view|update']}
-          >
-            <ArrowUpRight className="size-4" />
-          </ToolBarButton>
-        )}
-      </SharePopover>
+      <FormShareButton disabled={!permission['view|update']} />
     </div>
   );
 };

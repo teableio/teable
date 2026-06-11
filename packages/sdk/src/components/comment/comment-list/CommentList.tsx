@@ -136,7 +136,11 @@ export const CommentList = forwardRef<CommentListRefHandle, ICommentListProps>((
               ...data,
             } as ICommentVo,
           ]);
-          if (data.createdBy === self.id) {
+          const createdById =
+            typeof data.createdBy === 'object' && data.createdBy !== null
+              ? (data.createdBy as { id: string }).id
+              : data.createdBy;
+          if (createdById === self.id) {
             setTimeout(() => {
               scrollToBottom();
             }, 100);
@@ -196,13 +200,14 @@ export const CommentList = forwardRef<CommentListRefHandle, ICommentListProps>((
           )}
 
           {commentList?.length ? (
-            commentList.map((comment) => (
+            commentList.map((comment, index) => (
               <CommentItem
                 key={comment.id}
                 {...comment}
                 tableId={tableId}
                 recordId={recordId}
                 commentId={commentId}
+                index={index}
               />
             ))
           ) : (

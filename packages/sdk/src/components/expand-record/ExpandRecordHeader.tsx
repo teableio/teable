@@ -1,11 +1,9 @@
 import {
   ChevronDown,
   ChevronUp,
-  Copy,
   History,
   Link,
   MoreHorizontal,
-  Trash2,
   X,
   MessageSquare,
 } from '@teable/icons';
@@ -18,6 +16,7 @@ import {
   DropdownMenuTrigger,
   Separator,
 } from '@teable/ui-lib';
+import { CopyPlus, Trash } from 'lucide-react';
 import { useMeasure } from 'react-use';
 import { useTranslation } from '../../context/app/i18n';
 import { useTablePermission } from '../../hooks';
@@ -30,6 +29,7 @@ interface IExpandRecordHeader {
   title?: string;
   recordHistoryVisible?: boolean;
   commentVisible?: boolean;
+  foreignTableName?: string;
   disabledPrev?: boolean;
   disabledNext?: boolean;
   onClose?: () => void;
@@ -40,6 +40,7 @@ interface IExpandRecordHeader {
   onCommentToggle?: () => void;
   onDelete?: () => Promise<void>;
   onDuplicate?: () => Promise<void>;
+  onForeignTableClick?: () => void;
 }
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -54,6 +55,7 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
     title,
     recordHistoryVisible,
     commentVisible,
+    foreignTableName,
     disabledPrev,
     disabledNext,
     onPrev,
@@ -64,12 +66,15 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
     onCommentToggle,
     onDelete,
     onDuplicate,
+    onForeignTableClick,
   } = props;
 
   const permission = useTablePermission();
   const editable = Boolean(permission['record|update']);
   const canRead = Boolean(permission['record|read']);
   const canDelete = Boolean(permission['record|delete']);
+  const canComment = Boolean(permission['record|comment']);
+  const canDuplicate = Boolean(permission['record|create']);
   const [ref, { width }] = useMeasure<HTMLDivElement>();
   const { t } = useTranslation();
   const showTitle = width > MIN_TITLE_WIDTH;
@@ -80,7 +85,8 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
     <div
       ref={ref}
       className={cn(
-        'w-full h-12 flex items-center gap-4 px-4 border-b border-solid border-border',
+        'w-full flex items-center gap-4 px-4 border-b border-solid border-border',
+        foreignTableName ? 'h-14' : 'h-12',
         { 'justify-between': !showTitle }
       )}
     >
@@ -89,41 +95,58 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
           <Button
             variant={'ghost'}
             tabIndex={-1}
-            size={'xs'}
+            size={'icon-xs'}
             onClick={onPrev}
             disabled={disabledPrev}
           >
-            <ChevronUp />
+            <ChevronUp className="size-4 shrink-0" />
           </Button>
         </TooltipWrap>
         <TooltipWrap description="Next record" disabled={disabledNext}>
           <Button
             variant={'ghost'}
-            size={'xs'}
+            size={'icon-xs'}
             tabIndex={-1}
             onClick={onNext}
             disabled={disabledNext}
           >
-            <ChevronDown />
+            <ChevronDown className="size-4 shrink-0" />
           </Button>
         </TooltipWrap>
       </div>
       {showTitle && (
-        <h4
-          title={title}
-          className="flex-1 scroll-m-20 truncate text-xl font-semibold tracking-tight"
+        <div
+          className="min-w-0 flex-1"
+          data-link-highlight-target={foreignTableName ? tableId : undefined}
         >
-          {title || t('common.unnamedRecord')}
-        </h4>
+          <h4 title={title} className="scroll-m-20 truncate text-xl font-semibold tracking-tight">
+            {title || t('common.unnamedRecord')}
+          </h4>
+          {foreignTableName && (
+            <p className="truncate text-xs text-muted-foreground">
+              {t('expandRecord.recordFrom')}{' '}
+              {onForeignTableClick ? (
+                <button
+                  className="cursor-pointer text-primary hover:underline"
+                  onClick={onForeignTableClick}
+                >
+                  {foreignTableName}
+                </button>
+              ) : (
+                <span>{foreignTableName}</span>
+              )}
+            </p>
+          )}
+        </div>
       )}
       {showOperator && (
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-1">
           <TooltipWrap description={t('expandRecord.copyRecordUrl')}>
-            <Button variant={'ghost'} size={'xs'} onClick={onCopyUrl}>
-              <Link />
+            <Button variant={'ghost'} size={'icon-xs'} onClick={onCopyUrl}>
+              <Link className="size-4 shrink-0" />
             </Button>
           </TooltipWrap>
-          {editable && (
+          {editable && onRecordHistoryToggle && (
             <TooltipWrap
               description={
                 recordHistoryVisible
@@ -133,23 +156,23 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
             >
               <Button
                 variant={recordHistoryVisible ? 'secondary' : 'ghost'}
-                size={'xs'}
+                size={'icon-xs'}
                 onClick={onRecordHistoryToggle}
               >
-                <History />
+                <History className="size-4 shrink-0" />
               </Button>
             </TooltipWrap>
           )}
 
-          {editable && (
+          {canComment && (
             <TooltipWrap description={t('comment.title')}>
               <Button
-                size={'xs'}
+                size={'icon-xs'}
                 onClick={onCommentToggle}
                 variant={commentVisible ? 'secondary' : 'ghost'}
                 className="relative"
               >
-                <MessageSquare />
+                <MessageSquare className="size-4 shrink-0" />
                 {recordCommentCount ? (
                   <div className="absolute left-4 top-0.5 flex h-3 min-w-3 max-w-5 items-center justify-center rounded-[2px] bg-orange-500 px-0.5 text-[8px] text-white">
                     {recordCommentCount > 99 ? '99+' : recordCommentCount}
@@ -159,40 +182,42 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
             </TooltipWrap>
           )}
 
-          {canDelete ? (
+          {(canDelete || (canDuplicate && !!onDuplicate)) && (
             <DropdownMenu modal={false}>
-              <DropdownMenuTrigger className="px-2">
-                <MoreHorizontal />
+              <DropdownMenuTrigger className="size-7 rounded-md px-1.5 hover:bg-accent hover:text-accent-foreground">
+                <MoreHorizontal className="size-4 shrink-0" />
               </DropdownMenuTrigger>
               <DropdownMenuContent>
-                {!!onDuplicate && (
+                {canDuplicate && !!onDuplicate && (
                   <DropdownMenuItem
-                    className="flex cursor-pointer items-center gap-2 px-4 py-2 text-sm outline-none"
+                    className="flex cursor-pointer items-center gap-2 text-sm outline-none"
                     onClick={async () => {
                       await onDuplicate();
                       setTimeout(() => onClose?.(), 100);
                     }}
                   >
-                    <Copy /> {t('expandRecord.duplicateRecord')}
+                    <CopyPlus className="size-4 shrink-0" /> {t('expandRecord.duplicateRecord')}
                   </DropdownMenuItem>
                 )}
-                <DropdownMenuItem
-                  className="flex cursor-pointer items-center gap-2 px-4 py-2 text-sm text-red-500 outline-none hover:text-red-500 focus:text-red-500 aria-selected:text-red-500"
-                  onClick={async () => {
-                    await onDelete?.();
-                    setTimeout(() => onClose?.(), 100);
-                  }}
-                >
-                  <Trash2 /> {t('expandRecord.deleteRecord')}
-                </DropdownMenuItem>
+                {canDelete && (
+                  <DropdownMenuItem
+                    className="flex cursor-pointer items-center gap-2 text-sm text-red-500 outline-none hover:text-red-500 focus:text-red-500 aria-selected:text-red-500"
+                    onClick={async () => {
+                      await onDelete?.();
+                      setTimeout(() => onClose?.(), 100);
+                    }}
+                  >
+                    <Trash className="size-4 shrink-0" /> {t('expandRecord.deleteRecord')}
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
-          ) : null}
+          )}
         </div>
       )}
       <Separator className="h-6" orientation="vertical" />
-      <Button variant={'ghost'} size={'xs'} onClick={onClose}>
-        <X />
+      <Button variant={'ghost'} size={'icon-xs'} onClick={onClose}>
+        <X className="size-4 shrink-0" />
       </Button>
     </div>
   );

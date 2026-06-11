@@ -1,15 +1,18 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
+import { realtimeTranscriptionModelSchema } from '../../ai/realtime-transcription';
 import { axios } from '../../axios';
 import { registerRoute } from '../../utils';
+import { gatewayModelSchema } from './gateway-model';
 import { settingVoSchema } from './get';
-import { chatModelSchema, gatewayModelSchema, llmProviderSchema } from './update';
+import { chatModelSchema, llmProviderSchema } from './update';
 
 export const simpleLLMProviderSchema = llmProviderSchema.pick({
   type: true,
   name: true,
   models: true,
   isInstance: true,
+  modelConfigs: true,
 });
 
 export type ISimpleLLMProvider = z.infer<typeof simpleLLMProviderSchema>;
@@ -21,10 +24,18 @@ const publicAiConfigSchema = z.object({
   capabilities: z
     .object({
       disableActions: z.array(z.string()).optional(),
+      disableModelSelection: z.boolean().optional(),
     })
     .optional(),
   // Gateway models enabled by admin (for space-level AI config)
   gatewayModels: z.array(gatewayModelSchema).optional(),
+  voiceInput: z
+    .object({
+      enabled: z.boolean(),
+      model: realtimeTranscriptionModelSchema,
+      maxSessionDurationSec: z.number(),
+    })
+    .optional(),
 });
 
 export const publicSettingVoSchema = settingVoSchema
@@ -48,6 +59,7 @@ export const publicSettingVoSchema = settingVoSchema
     resetPasswordSendMailRate: z.number().optional(),
     signupVerificationSendCodeMailRate: z.number().optional(),
     enableCreditReward: z.boolean().optional(),
+    availableIntegrationProviders: z.array(z.string()).optional(),
   });
 export type IPublicSettingVo = z.infer<typeof publicSettingVoSchema>;
 

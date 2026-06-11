@@ -99,7 +99,7 @@ export const PersonAccessTokenPage = () => {
                 })
               }
             >
-              <Plus />
+              <Plus className="size-4 shrink-0" />
               {t('token:new.button')}
             </Button>
           </>

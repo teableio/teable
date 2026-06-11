@@ -9,6 +9,8 @@ import {
   SettingKey,
   Task,
   convertGatewayApiModel,
+  normalizeGatewayPricing,
+  supportsImageInputForImageGeneration,
 } from '@teable/openapi';
 import type {
   IAIConfig,
@@ -30,8 +32,11 @@ import { PerformanceCacheService } from '../../performance-cache';
 import { SettingService } from '../setting/setting.service';
 import { getAdaptedProviderOptions, getTaskModelKey, modelProviders } from './util';
 
-// Fixed name for AI Gateway provider in modelKey (format: aiGateway@<modelId>@teable)
-export const AI_GATEWAY_PROVIDER_NAME = 'teable';
+// Fixed name for instance-level provider config in modelKey.
+// Admin AI setting providers are normalized to @teable, including both AI Gateway
+// and custom providers. Distinguish them by provider type, not by this suffix.
+// Space BYOK providers keep their custom provider name.
+export const INSTANCE_PROVIDER_NAME = 'teable';
 
 export type ILanguageModelV2 = Exclude<LanguageModel, string>;
 
@@ -41,6 +46,12 @@ const gatewayModelsCacheTtl = 10 * 60 * 1000;
 interface IGatewayModelsCache {
   data: IGatewayApiModel[];
   expiresAt: number;
+}
+
+export interface IResolvedModelMapping {
+  requestedModelKey: string;
+  effectiveModelKey: string;
+  mapped: boolean;
 }
 
 @Injectable()
@@ -67,11 +78,43 @@ export class AiService {
    * Format: aiGateway@<modelId>@teable
    */
   public isGatewayModel(modelKey: string): boolean {
-    const { type, name } = this.parseModelKey(modelKey);
-    return (
-      type?.toLowerCase() === LLMProviderType.AI_GATEWAY.toLowerCase() &&
-      name?.toLowerCase() === AI_GATEWAY_PROVIDER_NAME.toLowerCase()
+    const { type } = this.parseModelKey(modelKey);
+    return type?.toLowerCase() === LLMProviderType.AI_GATEWAY.toLowerCase();
+  }
+
+  private providerHasModel(provider: LLMProvider, model: string): boolean {
+    return provider.models
+      .split(',')
+      .map((item) => item.trim())
+      .includes(model);
+  }
+
+  private modelConfigHasRates(provider: LLMProvider, model: string): boolean {
+    const config = provider.modelConfigs?.[model];
+    return Boolean(
+      config?.pricing?.input ||
+        config?.pricing?.output ||
+        config?.pricing?.image ||
+        config?.inputRate != null ||
+        config?.outputRate != null ||
+        config?.imageRate != null
     );
+  }
+
+  public isInstanceAIModelByConfig(modelKey: string, llmProviders: LLMProvider[] = []): boolean {
+    const { type, model, name } = this.parseModelKey(modelKey);
+    if (!type || !model || !name) return false;
+    if (this.isGatewayModel(modelKey)) return true;
+
+    const provider = llmProviders.find(
+      (p) =>
+        p.type.toLowerCase() === type.toLowerCase() &&
+        p.name.toLowerCase() === name.toLowerCase() &&
+        this.providerHasModel(p, model)
+    );
+    if (provider) return Boolean(provider.isInstance);
+
+    return this.checkInstanceAIModel(modelKey);
   }
 
   /**
@@ -79,7 +122,99 @@ export class AiService {
    * @param modelId Gateway model ID (e.g., "anthropic/claude-sonnet-4")
    */
   public buildGatewayModelKey(modelId: string): string {
-    return `${LLMProviderType.AI_GATEWAY}@${modelId}@${AI_GATEWAY_PROVIDER_NAME}`;
+    return `${LLMProviderType.AI_GATEWAY}@${modelId}@${INSTANCE_PROVIDER_NAME}`;
+  }
+
+  private validateMappedTargetModel(modelKey: string, llmProviders: LLMProvider[]): void {
+    const { type, model, name } = this.parseModelKey(modelKey);
+    if (
+      !type ||
+      !model ||
+      !name ||
+      type.toLowerCase() === LLMProviderType.AI_GATEWAY.toLowerCase()
+    ) {
+      throw new CustomHttpException(
+        'AI model mapping target must be an instance custom provider model',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.ai.providerConfigurationNotSet',
+          },
+        }
+      );
+    }
+
+    const provider = llmProviders.find(
+      (p) =>
+        p.type.toLowerCase() === type.toLowerCase() &&
+        p.name.toLowerCase() === name.toLowerCase() &&
+        this.providerHasModel(p, model)
+    );
+    if (!provider?.isInstance) {
+      throw new CustomHttpException(
+        'AI model mapping target provider is not configured as an instance provider',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.ai.providerConfigurationNotSet',
+          },
+        }
+      );
+    }
+    if (!this.modelConfigHasRates(provider, model)) {
+      throw new CustomHttpException(
+        'AI model mapping target pricing is not configured',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.ai.providerConfigurationNotSet',
+          },
+        }
+      );
+    }
+  }
+
+  public resolveModelMapping(
+    modelKey: string,
+    llmProviders: LLMProvider[] = [],
+    aiConfig?: IAIConfig | null
+  ): IResolvedModelMapping {
+    if (!this.baseConfig.isCloud || !this.isGatewayModel(modelKey)) {
+      return { requestedModelKey: modelKey, effectiveModelKey: modelKey, mapped: false };
+    }
+
+    const mapping = aiConfig?.modelMappings?.find(
+      (item) => item.enabled !== false && item.sourceModelKey === modelKey
+    );
+    if (!mapping) {
+      return { requestedModelKey: modelKey, effectiveModelKey: modelKey, mapped: false };
+    }
+
+    if (mapping.targetModelKey === modelKey) {
+      throw new CustomHttpException(
+        'AI model mapping target cannot be the same as source',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.ai.providerConfigurationNotSet',
+          },
+        }
+      );
+    }
+    this.validateMappedTargetModel(mapping.targetModelKey, llmProviders);
+    return { requestedModelKey: modelKey, effectiveModelKey: mapping.targetModelKey, mapped: true };
+  }
+
+  public async resolveEffectiveModelKey(
+    modelKey: string,
+    llmProviders: LLMProvider[] = []
+  ): Promise<IResolvedModelMapping> {
+    if (!this.baseConfig.isCloud || !this.isGatewayModel(modelKey)) {
+      return { requestedModelKey: modelKey, effectiveModelKey: modelKey, mapped: false };
+    }
+
+    const { aiConfig } = await this.settingService.getSetting([SettingKey.AI_CONFIG]);
+    return this.resolveModelMapping(modelKey, llmProviders, aiConfig);
   }
 
   /**
@@ -93,10 +228,11 @@ export class AiService {
 
   // modelKey-> type@model@name
   async getModelConfig(modelKey: string, llmProviders: LLMProvider[] = []) {
-    const { type, model, name } = this.parseModelKey(modelKey);
+    const { effectiveModelKey } = await this.resolveEffectiveModelKey(modelKey, llmProviders);
+    const { type, model, name } = this.parseModelKey(effectiveModelKey);
 
     // Special handling for AI Gateway models
-    if (this.isGatewayModel(modelKey)) {
+    if (this.isGatewayModel(effectiveModelKey)) {
       const { aiConfig } = await this.settingService.getSetting([SettingKey.AI_CONFIG]);
 
       if (!aiConfig?.aiGatewayApiKey) {
@@ -244,7 +380,13 @@ export class AiService {
     const aiIntegrationConfig = aiIntegration?.config ? JSON.parse(aiIntegration.config) : null;
     const { aiConfig } = await this.settingService.getSetting();
 
-    if (!aiIntegrationConfig && (!aiConfig || !aiConfig.enable)) {
+    const hasInstanceAIConfig =
+      aiConfig &&
+      (aiConfig.enable ||
+        aiConfig.chatModel?.lg ||
+        aiConfig.llmProviders?.length > 0 ||
+        aiConfig.aiGatewayApiKey);
+    if (!aiIntegrationConfig && !hasInstanceAIConfig) {
       throw new CustomHttpException('AI configuration is not set', HttpErrorCode.VALIDATION_ERROR, {
         localization: {
           i18nKey: 'httpErrors.ai.configurationNotSet',
@@ -273,13 +415,13 @@ export class AiService {
           ability,
         },
       } as IAIConfig;
-    } else if (!aiConfig?.enable) {
+    } else if (!aiConfig?.chatModel?.lg) {
       config = aiIntegrationConfig as IAIConfig;
     } else {
-      const lg = aiIntegrationConfig.chatModel?.lg;
-      const sm = aiIntegrationConfig.chatModel?.sm;
-      const md = aiIntegrationConfig.chatModel?.md;
-      const ability = aiIntegrationConfig.chatModel?.ability;
+      const lg = aiConfig.chatModel.lg;
+      const sm = aiConfig.chatModel.sm;
+      const md = aiConfig.chatModel.md;
+      const ability = aiConfig.chatModel.ability;
       config = {
         ...aiIntegrationConfig,
         // Include gateway models from admin config (space config doesn't have gateway models)
@@ -334,46 +476,44 @@ export class AiService {
     });
 
     const aiIntegrationConfig = aiIntegration?.config ? JSON.parse(aiIntegration.config) : null;
-    const disableAIActionsFromSpaceIntegration = aiIntegrationConfig?.capabilities?.disableActions;
+    const disableAIActionsFromSpaceIntegration =
+      aiIntegrationConfig?.capabilities?.disableActions ?? [];
 
     // get instance ai setting
     const { aiConfig } = await this.settingService.getSetting();
-    const disableAIActionsFromInstanceAiSetting = aiConfig?.capabilities?.disableActions;
+    const disableAIActionsFromInstanceAiSetting = aiConfig?.capabilities?.disableActions ?? [];
 
+    // merge both: instance-level disableActions should always be respected
+    const merged = [
+      ...disableAIActionsFromInstanceAiSetting,
+      ...disableAIActionsFromSpaceIntegration,
+    ];
     return {
-      disableActions:
-        disableAIActionsFromSpaceIntegration || disableAIActionsFromInstanceAiSetting || [],
-    };
-  }
-
-  async getToolApiKeys(baseId: string) {
-    const { appConfig } = await this.settingService.getSetting([SettingKey.APP_CONFIG]);
-    const { spaceId } = await this.prismaService.base.findUniqueOrThrow({
-      where: { id: baseId },
-    });
-    const aiIntegration = await this.prismaService.integration.findFirst({
-      where: { resourceId: spaceId, type: IntegrationType.AI },
-    });
-    const aiIntegrationConfig = aiIntegration?.config ? JSON.parse(aiIntegration.config) : null;
-    return {
-      v0ApiKey: aiIntegrationConfig?.appConfig?.apiKey || appConfig?.apiKey,
+      disableActions: [...new Set(merged)],
     };
   }
 
   async getSimplifiedAIConfig(baseId: string) {
     try {
       const config = await this.getAIConfig(baseId);
+      const llmProviders = this.baseConfig.isCloud
+        ? config.llmProviders.filter(({ isInstance }) => !isInstance)
+        : config.llmProviders;
       return {
-        ...config,
-        llmProviders: config.llmProviders.map(
-          ({ type, name, models, isInstance, modelConfigs }) => ({
-            type,
-            name,
-            models,
-            isInstance,
-            modelConfigs,
-          })
-        ),
+        enable: config.enable,
+        llmProviders: llmProviders.map(({ type, name, models, isInstance, modelConfigs }) => ({
+          type,
+          name,
+          models,
+          isInstance,
+          modelConfigs,
+        })),
+        embeddingModel: config.embeddingModel,
+        translationModel: config.translationModel,
+        chatModel: config.chatModel,
+        capabilities: config.capabilities,
+        gatewayModels: config.gatewayModels,
+        attachmentTransferMode: config.attachmentTransferMode,
       };
     } catch {
       return null;
@@ -422,7 +562,7 @@ export class AiService {
 
     const { aiConfig } = await this.settingService.getSetting();
 
-    if (!aiConfig?.enable) return null;
+    if (!aiConfig?.chatModel?.lg) return null;
 
     return aiConfig;
   }
@@ -434,49 +574,19 @@ export class AiService {
       (p) =>
         p.name.toLowerCase() === name.toLowerCase() &&
         p.type.toLowerCase() === type.toLowerCase() &&
-        p.models.includes(model)
+        this.providerHasModel(p, model)
     );
     return !!providerConfig;
   }
 
   /**
-   * Check if a gateway model should be billed
-   * All AI Gateway models should be billed as long as aiGatewayApiKey is configured
-   * The gatewayModels list is just for recommended/displayed models, not a billing whitelist
+   * Check if a model is an instance (platform-provided) model.
+   * Instance-level admin AI setting models use the "@teable" provider name suffix.
+   * This includes both AI Gateway and admin custom providers; use provider type
+   * when code needs to distinguish the two.
    */
-  async findModelInGateway(modelKey: string): Promise<boolean> {
-    if (!this.isGatewayModel(modelKey)) {
-      this.logger.debug(`[findModelInGateway] ${modelKey} is not a gateway model`);
-      return false;
-    }
-
-    const { model: modelId } = this.parseModelKey(modelKey);
-    const { aiConfig } = await this.settingService.getSetting([SettingKey.AI_CONFIG]);
-
-    // Check if gateway is configured - if yes, all gateway models should be billed
-    if (!aiConfig?.aiGatewayApiKey) {
-      this.logger.warn(
-        `[findModelInGateway] No aiGatewayApiKey configured, model ${modelId} will not be billed`
-      );
-      return false;
-    }
-
-    this.logger.debug(
-      `[findModelInGateway] AI Gateway configured, model ${modelId} will be billed`
-    );
-    return true;
-  }
-
-  async checkInstanceAIModel(modelKey: string): Promise<boolean> {
-    // Check gateway models first
-    if (this.isGatewayModel(modelKey)) {
-      return this.findModelInGateway(modelKey);
-    }
-
-    const aiConfig = await this.getInstanceAIConfig();
-    if (!aiConfig) return false;
-
-    return this.findModelInProviders(modelKey, aiConfig.llmProviders);
+  checkInstanceAIModel(modelKey: string): boolean {
+    return modelKey.endsWith(`@${INSTANCE_PROVIDER_NAME}`);
   }
 
   async getChatModelInstance(baseId: string) {
@@ -541,6 +651,8 @@ export class AiService {
       ability: chatModel?.ability,
       isInstance,
       lgModelKey: chatModel.lg,
+      mdModelKey: chatModel.md,
+      smModelKey: chatModel.sm,
     };
   }
 
@@ -590,18 +702,8 @@ export class AiService {
     if (type === LLMProviderType.AI_GATEWAY) {
       try {
         const gatewayModel = await this.getGatewayModelConfig(model);
-        if (gatewayModel?.tags?.length) {
-          const tags = [...gatewayModel.tags];
-          // Patch: Google models with image-generation capability also support vision (image-to-image)
-          // This is because Gemini image models can accept images as input for image generation
-          if (
-            model.startsWith('google/') &&
-            tags.includes('image-generation') &&
-            !tags.includes('vision')
-          ) {
-            tags.push('vision');
-          }
-          return tags;
+        if (gatewayModel) {
+          return this.addImageInputTagForImageGeneration(model, gatewayModel.tags ?? []);
         }
       } catch (error) {
         this.logger.warn(`[getModelTags] Failed to get gateway config for ${model}: ${error}`);
@@ -624,6 +726,19 @@ export class AiService {
     }
 
     return [];
+  }
+
+  private addImageInputTagForImageGeneration(
+    modelId: string,
+    tags: readonly GatewayModelTag[]
+  ): GatewayModelTag[] {
+    const nextTags = [...tags];
+    // Some image generation models accept image inputs but Gateway may only report
+    // image-generation. Add vision so AI fields forward attachment source images.
+    if (supportsImageInputForImageGeneration(modelId, nextTags) && !nextTags.includes('vision')) {
+      nextTags.push('vision');
+    }
+    return nextTags;
   }
 
   /**
@@ -649,15 +764,16 @@ export class AiService {
     const { aiConfig } = await this.settingService.getSetting([SettingKey.AI_CONFIG]);
     const gatewayModels = aiConfig?.gatewayModels ?? [];
     const localModel = gatewayModels.find((m) => m.id === modelId);
-
     if (localModel?.pricing) {
+      // Normalize handles both camelCase (admin UI) and snake_case (legacy stored data)
+      const pricing = normalizeGatewayPricing(localModel.pricing);
       this.logger.debug(
-        `[getGatewayModelPricing] Found local pricing for ${modelId}: ${JSON.stringify(localModel.pricing)}`
+        `[getGatewayModelPricing] Found local pricing for ${modelId}: ${JSON.stringify(pricing)}`
       );
-      return localModel.pricing;
+      return pricing;
     }
 
-    // If not found locally, fetch from API
+    // If not found locally, fetch from API (already normalized by convertGatewayApiModel)
     try {
       const apiModel = await this.getGatewayApiModel(modelId);
       if (apiModel?.pricing) {
@@ -682,7 +798,15 @@ export class AiService {
    */
   private async getGatewayApiModel(modelId: string): Promise<IGatewayApiModel | undefined> {
     const models = await this.fetchGatewayModelsFromApi();
-    return models.find((m) => m.id === modelId);
+    const normalize = (s: string) =>
+      s.split('/').pop()!.replaceAll('.', '').replaceAll('-', '').toLowerCase();
+    const stripDateSuffix = (s: string) => s.replace(/\d{8,}$/, '');
+    return models.find((m) => {
+      const a = normalize(modelId);
+      const b = normalize(m.id);
+      if (a === b) return true;
+      return stripDateSuffix(a) === stripDateSuffix(b);
+    });
   }
 
   /**
@@ -733,5 +857,70 @@ export class AiService {
   async getAttachmentTransferMode(): Promise<'url' | 'base64'> {
     const { aiConfig } = await this.settingService.getSetting([SettingKey.AI_CONFIG]);
     return aiConfig?.attachmentTransferMode || 'url';
+  }
+
+  /**
+   * Find the first model that supports vision capability from configured models.
+   * Searches in order: gateway models (enabled), then custom llm providers.
+   * Returns complete model info to avoid redundant lookups.
+   *
+   * @param llmProviders - List of configured LLM providers
+   * @returns Complete vision model info, or undefined if none found
+   */
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  async findFirstVisionModel(llmProviders: LLMProvider[]): Promise<
+    | {
+        modelKey: string;
+        modelInstance: ILanguageModelV2;
+        isInstance: boolean;
+        tags: GatewayModelTag[];
+      }
+    | undefined
+  > {
+    const { aiConfig } = await this.settingService.getSetting([SettingKey.AI_CONFIG]);
+
+    // 1. Check gateway models first (they are typically more capable)
+    const gatewayModels = aiConfig?.gatewayModels ?? [];
+    for (const model of gatewayModels) {
+      if (!model.enabled) continue;
+
+      if (model.tags?.includes('vision')) {
+        const modelKey = this.buildGatewayModelKey(model.id);
+        const modelInstance = await this.getModelInstance(modelKey, llmProviders);
+        return {
+          modelKey,
+          modelInstance,
+          isInstance: true, // Gateway models are always instance-level
+          tags: model.tags,
+        };
+      }
+    }
+
+    // 2. Check custom LLM providers
+    for (const provider of llmProviders) {
+      const models = provider.models?.split(',').map((m) => m.trim()) ?? [];
+      for (const model of models) {
+        const modelConfig = provider.modelConfigs?.[model];
+        if (!modelConfig) continue;
+
+        // Check tags (new format) or ability (backward compatibility)
+        const hasVision = modelConfig.tags?.includes('vision') || modelConfig.ability?.image;
+        if (hasVision) {
+          const modelKey = `${provider.type}@${model}@${provider.name}`;
+          const modelInstance = await this.getModelInstance(modelKey, llmProviders);
+          // Convert ability to tags for backward compatibility
+          const tags: GatewayModelTag[] =
+            modelConfig.tags ?? this.abilityToTags(modelConfig.ability ?? {});
+          return {
+            modelKey,
+            modelInstance,
+            isInstance: !!provider.isInstance,
+            tags,
+          };
+        }
+      }
+    }
+
+    return undefined;
   }
 }

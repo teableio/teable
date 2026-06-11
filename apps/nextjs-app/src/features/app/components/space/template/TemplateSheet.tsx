@@ -51,7 +51,7 @@ export const TemplateSheet = (props: ITemplateSheetProps) => {
                 <Input
                   placeholder={t('common:settings.templateAdmin.baseSelectPanel.search')}
                   value={inputValue}
-                  className={cn('h-8 flex-1', {
+                  className={cn('flex-1', {
                     'opacity-0': currentTemplateId,
                   })}
                   onChange={(e) => setInputValue(e.target.value)}

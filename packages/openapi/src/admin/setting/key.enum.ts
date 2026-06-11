@@ -14,4 +14,6 @@ export enum SettingKey {
   AUTOMATION_MAIL_TRANSPORT_CONFIG = 'automationMailTransportConfig',
   ENABLE_CREDIT_REWARD = 'enableCreditReward',
   CANARY_CONFIG = 'canaryConfig',
+  TRASH_CLEANUP_ENABLED_AT = 'trashCleanupEnabledAt',
+  IM_CONFIG = 'imConfig',
 }

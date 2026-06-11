@@ -131,7 +131,7 @@ export const CollaboratorAdd = (props: ICollaboratorAddProps) => {
               memberSelectorRef.current?.open();
             }}
           >
-            <Plus />
+            <Plus className="size-4 shrink-0" />
             {t('common:invite.addOrgCollaborator.placeholder')}
           </Button>
         </div>
@@ -155,7 +155,7 @@ export const CollaboratorAdd = (props: ICollaboratorAddProps) => {
                     deleteMember(member.id);
                   }}
                 >
-                  <X />
+                  <X className="size-4 shrink-0" />
                 </Button>
               </div>
             );
@@ -176,7 +176,7 @@ export const CollaboratorAdd = (props: ICollaboratorAddProps) => {
                   deleteMember(member.id);
                 }}
               >
-                <X />
+                <X className="size-4 shrink-0" />
               </Button>
             </div>
           );

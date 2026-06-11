@@ -2,12 +2,10 @@
 
 import { Injectable, Logger } from '@nestjs/common';
 import { TableDomain, type IRecord } from '@teable/core';
-import { PrismaService } from '@teable/db-main-prisma';
-import { Knex } from 'knex';
-import { InjectModel } from 'nest-knexjs';
+import { DatabaseRouter } from '../../global/database-router.service';
 import { Timing } from '../../utils/timing';
 import type { IFieldInstance } from '../field/model/factory';
-import { createFieldInstanceByRaw, fieldCore2FieldInstance } from '../field/model/factory';
+import { fieldCore2FieldInstance } from '../field/model/factory';
 import { InjectRecordQueryBuilder, IRecordQueryBuilder } from './query-builder';
 
 /**
@@ -19,8 +17,7 @@ export class RecordQueryService {
   private readonly logger = new Logger(RecordQueryService.name);
 
   constructor(
-    private readonly prismaService: PrismaService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    private readonly databaseRouter: DatabaseRouter,
     @InjectRecordQueryBuilder() private readonly recordQueryBuilder: IRecordQueryBuilder
   ) {}
 
@@ -62,9 +59,9 @@ export class RecordQueryService {
 
       this.logger.debug(`Querying records: ${sql}`);
 
-      const rawRecords = await this.prismaService
-        .txClient()
-        .$queryRawUnsafe<{ [key: string]: unknown }[]>(sql);
+      const rawRecords = await this.databaseRouter.queryDataPrismaForTable<
+        { [key: string]: unknown }[]
+      >(table.id, sql);
 
       const fields = table.fieldList.map((f) => fieldCore2FieldInstance(f));
 

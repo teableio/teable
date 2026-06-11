@@ -15,7 +15,7 @@ export const BlockImageElement = (props: IBlockImageElementProps) => {
 
   return (
     <FilePreviewProvider>
-      <div className={cn('flex', className)}>
+      <div className={cn('flex max-w-full', className)}>
         <FilePreviewItem src={url} name="comment-img" mimetype="image/jpeg">
           <img src={url} width={width || 'auto'} alt="img" className="cursor-pointer rounded" />
         </FilePreviewItem>

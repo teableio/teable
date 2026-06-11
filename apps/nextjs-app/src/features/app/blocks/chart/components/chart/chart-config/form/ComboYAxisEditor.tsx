@@ -57,8 +57,8 @@ export const ComboYAxisEditor = (props: {
         <YAxisConfigEditor value={value} onChange={onChangeConfig} />
       )}
       {!hiddenDelete && (
-        <Button size="xs" variant="outline" onClick={onDelete}>
-          <X />
+        <Button size="icon-xs" variant="outline" onClick={onDelete}>
+          <X className="size-4 shrink-0" />
         </Button>
       )}
     </div>
@@ -79,8 +79,8 @@ const YAxisConfigEditor = (props: {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button className={className} size="xs" variant={'outline'}>
-          <Settings />
+        <Button className={className} size="icon-xs" variant={'outline'}>
+          <Settings className="size-4 shrink-0" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="max-h-64 space-y-4 overflow-auto">
@@ -92,7 +92,8 @@ const YAxisConfigEditor = (props: {
         />
         <ConfigItem label={t('form.label')}>
           <Input
-            className="h-7 text-[13px]"
+            className="text-[13px]"
+            size="sm"
             value={label || ''}
             onBlur={() => onChange({ ...value, label })}
             onChange={(e) => setLabel(e.target.value)}
@@ -100,7 +101,8 @@ const YAxisConfigEditor = (props: {
         </ConfigItem>
         <ConfigItem label={t('form.prefix')}>
           <Input
-            className="h-7 text-[13px]"
+            className="text-[13px]"
+            size="sm"
             value={prefix || ''}
             onBlur={() => onChange({ ...value, prefix })}
             onChange={(e) => setPrefix(e.target.value)}
@@ -108,7 +110,8 @@ const YAxisConfigEditor = (props: {
         </ConfigItem>
         <ConfigItem label={t('form.suffix')}>
           <Input
-            className="h-7 text-[13px]"
+            className="text-[13px]"
+            size="sm"
             value={suffix || ''}
             onBlur={() => onChange({ ...value, suffix })}
             onChange={(e) => setSuffix(e.target.value)}
@@ -117,7 +120,8 @@ const YAxisConfigEditor = (props: {
         <ConfigItem label={t('form.decimal')}>
           <Input
             value={decimal ?? ''}
-            className="h-7 text-[13px]"
+            className="text-[13px]"
+            size="sm"
             type="number"
             onBlur={() => {
               const newValue = decimal ? Math.max(0, Math.min(decimal, 10)) : undefined;

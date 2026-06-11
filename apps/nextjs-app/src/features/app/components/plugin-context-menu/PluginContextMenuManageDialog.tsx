@@ -170,12 +170,12 @@ export const PluginContextMenuManageDialog = forwardRef<
                 }}
               >
                 <Button size={'sm'} variant={'outline'}>
-                  <Plus />
+                  <Plus className="size-4 shrink-0" />
                   {t('table:addPlugin')}
                 </Button>
               </PluginCenterDialog>
               <Button size={'sm'} variant={'outline'} onClick={() => setOpen(false)}>
-                <X />
+                <X className="size-4 shrink-0" />
               </Button>
             </div>
           </div>
@@ -230,7 +230,7 @@ export const PluginContextMenuManageDialog = forwardRef<
                           {renamePluginInstallId === plugin.pluginInstallId && (
                             <Input
                               ref={renameInputRef}
-                              className="absolute z-20 flex-1 bg-background text-[13px]"
+                              className="absolute z-20 flex-1 text-[13px]"
                               value={name}
                               // eslint-disable-next-line jsx-a11y/no-autofocus
                               autoFocus
@@ -263,7 +263,7 @@ export const PluginContextMenuManageDialog = forwardRef<
                               setName(plugin.name);
                             }}
                           >
-                            <Pencil />
+                            <Pencil className="size-4 shrink-0" />
                           </Button>
                           <Button
                             size={'icon'}
@@ -273,7 +273,7 @@ export const PluginContextMenuManageDialog = forwardRef<
                               setDeletePluginInstallId(plugin.pluginInstallId);
                             }}
                           >
-                            <Trash2 />
+                            <Trash2 className="size-4 shrink-0" />
                           </Button>
                           <DraggableHandle className="size-4 text-gray-500" />
                         </div>

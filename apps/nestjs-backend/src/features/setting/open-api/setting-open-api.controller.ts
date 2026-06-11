@@ -19,6 +19,11 @@ import type {
   IUploadLogoVo,
   IBatchTestLLMVo,
   ITestApiKeyVo,
+  ITestPublicAccessVo,
+  IUpdateAiConfigRo,
+  IUpdateAiConfigVo,
+  IUpdateAppConfigRo,
+  IUpdateAppConfigVo,
 } from '@teable/openapi';
 import {
   IUpdateSettingRo,
@@ -27,11 +32,12 @@ import {
   ITestLLMRo,
   setSettingMailTransportConfigRoSchema,
   ISetSettingMailTransportConfigRo,
-  SettingKey,
   batchTestLLMRoSchema,
   IBatchTestLLMRo,
   testApiKeyRoSchema,
   ITestApiKeyRo,
+  updateAiConfigRoSchema,
+  updateAppConfigRoSchema,
 } from '@teable/openapi';
 import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
@@ -63,38 +69,9 @@ export class SettingOpenApiController {
   @Public()
   @Get('public')
   async getPublicSetting(): Promise<IPublicSettingVo> {
-    const setting = await this.settingOpenApiService.getSetting([
-      SettingKey.INSTANCE_ID,
-      SettingKey.BRAND_NAME,
-      SettingKey.BRAND_LOGO,
-      SettingKey.DISALLOW_SIGN_UP,
-      SettingKey.DISALLOW_SPACE_CREATION,
-      SettingKey.DISALLOW_SPACE_INVITATION,
-      SettingKey.DISALLOW_DASHBOARD,
-      SettingKey.ENABLE_EMAIL_VERIFICATION,
-      SettingKey.ENABLE_WAITLIST,
-      SettingKey.ENABLE_CREDIT_REWARD,
-      SettingKey.AI_CONFIG,
-      SettingKey.APP_CONFIG,
-    ]);
-    const { aiConfig, appConfig, enableCreditReward, ...rest } = setting;
+    const setting = await this.settingOpenApiService.getPublicSetting();
     return {
-      ...rest,
-      enableCreditReward: enableCreditReward ?? undefined,
-      aiConfig: {
-        enable: aiConfig?.enable ?? false,
-        llmProviders:
-          aiConfig?.llmProviders?.map((provider) => ({
-            type: provider.type,
-            name: provider.name,
-            models: provider.models,
-          })) ?? [],
-        chatModel: aiConfig?.chatModel,
-        capabilities: aiConfig?.capabilities,
-        // Include gateway models for space-level AI config
-        gatewayModels: aiConfig?.gatewayModels,
-      },
-      appGenerationEnabled: Boolean(appConfig?.apiKey),
+      ...setting,
       turnstileSiteKey: this.turnstileService.getTurnstileSiteKey(),
       changeEmailSendCodeMailRate: this.thresholdConfig.changeEmailSendCodeMailRate,
       resetPasswordSendMailRate: this.thresholdConfig.resetPasswordSendMailRate,
@@ -109,6 +86,24 @@ export class SettingOpenApiController {
     updateSettingRo: IUpdateSettingRo
   ): Promise<ISettingVo> {
     return await this.settingOpenApiService.updateSetting(updateSettingRo);
+  }
+
+  @Patch('ai-config')
+  @Permissions('instance|update')
+  async updateAiConfig(
+    @Body(new ZodValidationPipe(updateAiConfigRoSchema))
+    updateAiConfigRo: IUpdateAiConfigRo
+  ): Promise<IUpdateAiConfigVo> {
+    return await this.settingOpenApiService.updateAiConfig(updateAiConfigRo);
+  }
+
+  @Patch('app-config')
+  @Permissions('instance|update')
+  async updateAppConfig(
+    @Body(new ZodValidationPipe(updateAppConfigRoSchema))
+    updateAppConfigRo: IUpdateAppConfigRo
+  ): Promise<IUpdateAppConfigVo> {
+    return await this.settingOpenApiService.updateAppConfig(updateAppConfigRo);
   }
 
   @UseInterceptors(
@@ -128,7 +123,7 @@ export class SettingOpenApiController {
   @Patch('logo')
   @Permissions('instance|update')
   async uploadLogo(@UploadedFile() file: Express.Multer.File): Promise<IUploadLogoVo> {
-    return this.settingOpenApiService.uploadLogo(file);
+    return await this.settingOpenApiService.uploadLogo(file);
   }
 
   @Permissions('instance|update')
@@ -153,6 +148,12 @@ export class SettingOpenApiController {
     @Body(new ZodValidationPipe(testApiKeyRoSchema)) testApiKeyRo: ITestApiKeyRo
   ): Promise<ITestApiKeyVo> {
     return await this.settingOpenApiService.testApiKey(testApiKeyRo);
+  }
+
+  @Permissions('instance|update')
+  @Get('test-public-access')
+  async testPublicAccess(): Promise<ITestPublicAccessVo> {
+    return await this.settingOpenApiService.testPublicAccess();
   }
 
   @Permissions('instance|update')

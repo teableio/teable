@@ -1,8 +1,17 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
 import { isEqual } from 'lodash';
 import type { Dispatch, ForwardRefRenderFunction, SetStateAction } from 'react';
-import { useState, useRef, forwardRef, useImperativeHandle, useMemo, useLayoutEffect } from 'react';
-import { useClickAway, useMouse } from 'react-use';
+import {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  forwardRef,
+  useImperativeHandle,
+  useMemo,
+  useLayoutEffect,
+} from 'react';
+import { useMouse } from 'react-use';
 import type { CellScrollerRef } from './CellScroller';
 import { CellScroller } from './CellScroller';
 import type { IEditorContainerRef } from './components';
@@ -106,6 +115,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     draggable,
     selectable,
     rowControls,
+    rowControlPaddingX,
     mouseState,
     scrollState,
     imageManager,
@@ -120,6 +130,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     columnHeaderHeight,
     collapsedGroupIds,
     collaborators,
+    isRowClickSelectionEnabled,
     searchCursor,
     searchHitIndex,
     activeCell,
@@ -155,6 +166,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     onColumnStatisticClick,
     onCollapsedGroupChanged,
     onFillSelection,
+    onRowControlClick,
+    onRowRangeSelected,
     onDragStart: _onDragStart,
   } = props;
 
@@ -234,9 +247,12 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     selectable,
     coordInstance,
     isMultiSelectionEnable,
+    isRowClickSelectionEnabled,
     getLinearRow,
     setActiveCell,
     onSelectionChanged,
+    onRowControlClick,
+    onRowRangeSelected,
   });
   const { dragState, setDragState, onDragStart, onDragChange, onDragEnd } = useDrag(
     coordInstance,
@@ -330,6 +346,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       coordInstance,
       scrollState,
       rowControls,
+      rowControlPaddingX,
       isFreezing,
       isOutOfBounds,
       isColumnResizable,
@@ -611,7 +628,9 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       const { type } = region;
 
       if (type === CellRegionType.Hover) {
-        const { x, y, width, height } = region.data as IRectangle;
+        const { x, y, width, height, ...extraData } = region.data as IRectangle & {
+          [key: string]: unknown;
+        };
         const offsetX = coordInstance.getColumnOffset(columnIndex);
         const offsetY = coordInstance.getRowOffset(rowIndex);
         onItemHovered?.(
@@ -625,7 +644,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
             width,
             height,
           },
-          [columnIndex, realIndex]
+          [columnIndex, realIndex],
+          extraData
         );
       }
 
@@ -768,10 +788,27 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   useEventListener('mousemove', onMouseMove, isInteracting ? window : stageRef.current, true);
   useEventListener('mouseup', onMouseUp, isInteracting ? window : stageRef.current, true);
 
-  useClickAway(containerRef, () => {
+  const onClickAway = useCallback(() => {
     setEditing(false);
     editorContainerRef.current?.saveValue?.();
-  });
+  }, [setEditing]);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const el = containerRef.current;
+      if (!el) return;
+      const target = event.target as HTMLElement | null;
+      if (el.contains(target)) return;
+      if (target?.closest('.click-outside-ignore')) return;
+      onClickAway();
+    };
+    document.addEventListener('mousedown', handler);
+    document.addEventListener('touchstart', handler);
+    return () => {
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('touchstart', handler);
+    };
+  }, [containerRef, onClickAway]);
 
   useLayoutEffect(() => {
     if (activeColumnIndex == null || activeRowIndex == null) return;
@@ -806,6 +843,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
           columnStatistics={columnStatistics}
           coordInstance={coordInstance}
           rowControls={rowControls}
+          rowControlPaddingX={rowControlPaddingX}
           imageManager={imageManager}
           spriteManager={spriteManager}
           visibleRegion={visibleRegion}

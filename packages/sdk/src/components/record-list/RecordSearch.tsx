@@ -1,5 +1,5 @@
 import type { InputProps } from '@teable/ui-lib';
-import { Input, cn } from '@teable/ui-lib';
+import { Input } from '@teable/ui-lib';
 import { forwardRef } from 'react';
 import { useTranslation } from '../../context/app/i18n';
 
@@ -11,7 +11,7 @@ export const RecordSearch = forwardRef<HTMLInputElement, InputProps>(
         <Input
           ref={ref}
           type={type}
-          className={cn('h-8', className)}
+          className={className}
           placeholder={placeholder || t('editor.link.searchPlaceholder')}
           {...props}
         />

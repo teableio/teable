@@ -226,7 +226,7 @@ export const LinkedRecordSortLimitConfig = ({
           <div className="space-y-2">
             <span className="neutral-content label-text">{limitLabel}</span>
             <Input
-              className="h-9"
+              size="lg"
               type="text"
               inputMode="numeric"
               pattern="\d*"

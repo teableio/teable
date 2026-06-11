@@ -6,6 +6,7 @@ import type {
   IBaseNodeVo,
   IBaseNodeWorkflowResourceMeta,
   IBaseNodeAppResourceMeta,
+  IBaseNodeTableResourceMeta,
 } from '@teable/openapi';
 import { BaseNodeResourceType } from '@teable/openapi';
 import { LocalStorageKeys, ReactQueryKeys } from '@teable/sdk/config';
@@ -31,13 +32,15 @@ import {
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn/ui/tooltip';
 import { Tree, TreeDragLine, TreeItem, TreeItemLabel } from '@teable/ui-lib/shadcn/ui/tree';
-import { ChevronDownIcon } from 'lucide-react';
+import { ChevronDownIcon, ShieldCheck } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useClickAway, useLocalStorage } from 'react-use';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
 import { EmojiPicker } from '@/features/app/components/emoji/EmojiPicker';
+import { useShareUrlPrefix } from '@/features/app/context/ShareContext';
 import { useBaseResource } from '@/features/app/hooks/useBaseResource';
 import { useDisableAIAction } from '@/features/app/hooks/useDisableAIAction';
 import { useIsCommunity } from '@/features/app/hooks/useIsCommunity';
@@ -57,9 +60,16 @@ import type { TreeItemData } from '../base-node/hooks';
 import { useBaseNodeContext } from '../base-node/hooks/useBaseNodeContext';
 import { BaseNodeAddResourceButton } from './BaseNodeAddResourceButton';
 import { BaseNodeMore } from './BaseNodeMore';
+import { BaseNodeShareIndicator, useSharedNodeIds } from './BaseNodeShareIndicator';
 import { BaseNodeStarButton } from './BaseNodeStarButton';
 
 const INDENTATION_WIDTH = 24;
+const GROUP_ACTIVE_WIDTH_CLS =
+  'group-hover:w-auto group-has-[[data-state=open]]:w-auto group-data-[context-menu]:w-auto';
+const GROUP_ACTIVE_OPACITY_CLS =
+  'group-hover:opacity-100 group-has-[[data-state=open]]:opacity-100 group-data-[context-menu]:opacity-100';
+const GROUP_ACTIVE_HIDDEN_CLS =
+  'group-hover:hidden group-has-[[data-state=open]]:hidden group-data-[context-menu]:hidden';
 const SCROLL_EDGE_THRESHOLD = 60; // pixels from edge to trigger scroll
 const SCROLL_MAX_SPEED = 15; // max pixels per frame
 
@@ -136,21 +146,22 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
   const { mode = 'edit', emptyText, onPrimaryAction } = props;
   const isEditMode = mode === 'edit';
   const queryClient = useQueryClient();
-  const { t } = useTranslation(['common']);
+  const { t } = useTranslation(['common', 'table']);
   const baseId = useBaseId() as string;
   const router = useRouter();
   const baseResource = useBaseResource();
   const { highlightedTableId } = useGridSearchStore();
   const { hrefMap: tableHrefMap, viewIdMap: tableViewIdsMap } = useTableHref();
   const permission = useBasePermission();
-  const { buildApp: buildAppEnabled } = useDisableAIAction();
+  const { aiChat: aiChatEnabled } = useDisableAIAction();
   const { disallowDashboard } = useSetting();
   const pinMap = usePinMap();
   const isCommunity = useIsCommunity();
+  const shareUrlPrefix = useShareUrlPrefix();
   const canCreateTable = Boolean(permission?.['table|create']);
   const canCreateDashboard = Boolean(permission?.['base|update'] && !disallowDashboard);
   const canCreateWorkflow = !isCommunity && Boolean(permission?.['automation|create']);
-  const canCreateApp = !isCommunity && Boolean(buildAppEnabled && permission?.['app|create']);
+  const canCreateApp = !isCommunity && Boolean(aiChatEnabled && permission?.['app|create']);
   const canCreateFolder = Boolean(permission?.['base|update']);
   const canUpdateTable = Boolean(permission?.['table|update']);
 
@@ -160,13 +171,23 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
       canCreateTable || canCreateDashboard || canCreateWorkflow || canCreateApp || canCreateFolder
     );
   const canMoveNode = isEditMode && Boolean(permission?.['base|update']);
+  const { sharedNodeIds } = useSharedNodeIds();
 
   const { isLoading, maxFolderDepth, treeItems, setTreeItems } = useBaseNodeContext();
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    nodeId: string;
+    resourceType: BaseNodeResourceType;
+    resourceId: string;
+  } | null>(null);
+  const [contextMenuOpen, setContextMenuOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const draggedItemsRef = useRef<ItemInstance<TreeItemData>[]>([]);
   const treeItemsRef = useRef(treeItems);
   const viewportRef = useRef<HTMLDivElement>(null);
+  const focusedNodeIdRef = useRef<string | null>(null);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [expandedItemsMap, setExpandedItemsMap] = useLocalStorage<Record<string, string[]>>(
     LocalStorageKeys.BaseNodeTreeExpandedItems,
@@ -182,6 +203,42 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
     });
   }, [expandedItems, baseId, setExpandedItemsMap]);
 
+  const getItemUrl = useCallback(
+    (item: ItemInstance<TreeItemData>): string | null => {
+      const node = item.getItemData();
+      const { resourceType, resourceId } = node;
+
+      if (resourceType === BaseNodeResourceType.Table) {
+        const url = tableHrefMap[resourceId];
+        if (url) return url;
+      }
+
+      const urlObj = getNodeUrl({
+        baseId,
+        resourceType,
+        resourceId,
+        urlPrefix: shareUrlPrefix,
+      });
+      return urlObj?.pathname ?? null;
+    },
+    [baseId, tableHrefMap, shareUrlPrefix]
+  );
+
+  const handleModifierClick = useCallback(
+    (e: React.MouseEvent, item: ItemInstance<TreeItemData>) => {
+      // Check for Cmd (Mac) or Ctrl (Windows/Linux)
+      if (e.metaKey || e.ctrlKey) {
+        const url = getItemUrl(item);
+        if (url) {
+          e.preventDefault();
+          e.stopPropagation();
+          window.open(url, '_blank');
+        }
+      }
+    },
+    [getItemUrl]
+  );
+
   const handlePrimaryAction = useCallback(
     (item: ItemInstance<TreeItemData>) => {
       if (onPrimaryAction) {
@@ -190,12 +247,14 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
       }
       const node = item.getItemData();
       const { resourceType, resourceId } = node;
+      // Share pages need full navigation (no shallow) so getServerSideProps runs
+      const isSharePage = Boolean(shareUrlPrefix);
       if (resourceType === BaseNodeResourceType.Table) {
         const viewId = tableViewIdsMap[resourceId];
         const url = tableHrefMap[resourceId];
         if (url) {
           router.push({ pathname: url }, undefined, {
-            shallow: Boolean(viewId),
+            shallow: !isSharePage && Boolean(viewId),
           });
           return;
         }
@@ -205,13 +264,14 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
         baseId,
         resourceType,
         resourceId,
+        urlPrefix: shareUrlPrefix,
       });
       if (!url) return;
       router.push(url, undefined, {
-        shallow: true,
+        shallow: !isSharePage,
       });
     },
-    [baseId, router, tableHrefMap, tableViewIdsMap, onPrimaryAction]
+    [baseId, router, tableHrefMap, tableViewIdsMap, onPrimaryAction, shareUrlPrefix]
   );
 
   const handleDrop = (items: ItemInstance<TreeItemData>[], target: DragTarget<TreeItemData>) => {
@@ -270,6 +330,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
     getItemName: (item) => getNodeName(item.getItemData()),
     isItemFolder: (item) => item.getItemData().resourceType === BaseNodeResourceType.Folder,
     canReorder: true,
+    canDrag: () => !editingNodeId,
     canDrop: (items, target) => {
       // Basic validation
       if (editingNodeId || !canMoveNode || items.length !== 1) return false;
@@ -286,13 +347,15 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
       }
 
       // === Folder items ===
+      const subtreeDepth = getMaxFolderSubtreeDepth(items[0].getId(), treeItemsRef.current);
+
       if (isReordering) {
-        // Reorder at level 0, 1: ✅ | Reorder at level >= 2: ❌
-        return target.dragLineLevel < maxFolderDepth;
+        return target.dragLineLevel + subtreeDepth < maxFolderDepth;
       }
 
-      // Drop into level 0 folder: ✅ | Drop into level 1+ folder or non-folder: ❌
-      return target.item.isFolder() && getItemLevel(target.item) < maxFolderDepth - 1;
+      return (
+        target.item.isFolder() && getItemLevel(target.item) + subtreeDepth < maxFolderDepth - 1
+      );
     },
     onDrop: handleDrop,
     onPrimaryAction: handlePrimaryAction,
@@ -317,6 +380,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
         resourceType,
         resourceId,
         viewId,
+        urlPrefix: shareUrlPrefix,
       });
       if (url) {
         if (resourceType === BaseNodeResourceType.Table) {
@@ -331,7 +395,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
       }
       setSelectedItems([node.id]);
     },
-    [baseId, router, setExpandedItems, setSelectedItems]
+    [baseId, router, setExpandedItems, setSelectedItems, shareUrlPrefix]
   );
 
   const updateSuccefulyCallback = useCallback(
@@ -388,38 +452,72 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
     }
   }, [baseResource]);
 
-  useEffect(() => {
-    if (Object.keys(treeItems).length === 0) return;
+  const currentRouteNodeId = useMemo(() => {
     const nodes = Object.values(treeItems);
     const { resourceType } = baseResource;
-    const node = nodes.find(
-      (node) => node.resourceType === resourceType && node.resourceId === currentResourceId
+    return (
+      nodes.find(
+        (node) => node.resourceType === resourceType && node.resourceId === currentResourceId
+      )?.id ?? null
+    );
+  }, [treeItems, baseResource, currentResourceId]);
+
+  useEffect(() => {
+    if (Object.keys(treeItems).length === 0) return;
+    if (!currentRouteNodeId) {
+      setSelectedItems([]);
+      return;
+    }
+
+    const parentIds = getAllParentIds(currentRouteNodeId);
+    if (parentIds.length > 0) {
+      setExpandedItems((prev) => [...new Set([...(prev ?? []), ...parentIds])]);
+    }
+    setSelectedItems([currentRouteNodeId]);
+  }, [treeItems, currentRouteNodeId, getAllParentIds, setExpandedItems, setSelectedItems]);
+
+  useEffect(() => {
+    if (Object.keys(treeItems).length === 0) return;
+    if (selectedItems.length === 0) {
+      focusedNodeIdRef.current = null;
+      return;
+    }
+    const currentId = selectedItems[0];
+    if (focusedNodeIdRef.current === currentId) return;
+    const focusItem = tree.getItemInstance(currentId);
+    if (!focusItem) return;
+
+    focusItem.setFocused();
+    focusedNodeIdRef.current = currentId;
+
+    const draggedNodeId = draggedItemsRef.current[0]?.getId();
+    if (!draggedNodeId) {
+      focusItem.scrollTo({ block: 'nearest', inline: 'nearest' });
+      return;
+    }
+
+    const isCurrentRouteNode = currentId === currentRouteNodeId;
+    if (draggedNodeId !== currentId || isCurrentRouteNode) {
+      draggedItemsRef.current = [];
+    }
+  }, [currentRouteNodeId, selectedItems, tree, treeItems]);
+
+  useEffect(() => {
+    if (!highlightedTableId || Object.keys(treeItems).length === 0) return;
+    const node = Object.values(treeItems).find(
+      (n) => n.resourceType === BaseNodeResourceType.Table && n.resourceId === highlightedTableId
     );
     if (!node) return;
-
     const parentIds = getAllParentIds(node.id);
     if (parentIds.length > 0) {
       setExpandedItems((prev) => [...new Set([...(prev ?? []), ...parentIds])]);
     }
-    setSelectedItems([node.id]);
-  }, [
-    treeItems,
-    baseResource,
-    currentResourceId,
-    getAllParentIds,
-    setExpandedItems,
-    setSelectedItems,
-  ]);
-
-  useEffect(() => {
-    if (selectedItems.length === 0) return;
-    if (Object.keys(treeItems).length === 0) return;
-    const focusItem = tree.getItemInstance(selectedItems[0]);
-    if (focusItem) {
-      focusItem.setFocused();
-      focusItem.scrollTo({ block: 'nearest', inline: 'nearest' });
-    }
-  }, [selectedItems, tree, treeItems]);
+    const raf = requestAnimationFrame(() => {
+      const item = tree.getItemInstance(node.id);
+      item?.scrollTo({ block: 'nearest', inline: 'nearest' });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [highlightedTableId, treeItems, tree, getAllParentIds, setExpandedItems]);
 
   useEffect(() => {
     if (isLoading) return;
@@ -561,16 +659,18 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
             const isPinned = pinMap?.[resourceId];
             return (
               <TreeItem asChild key={nodeId} item={item}>
-                <div className="h-8 w-full cursor-pointer">
+                <div
+                  className="h-8 w-full cursor-pointer"
+                  onClickCapture={(e) => handleModifierClick(e, item)}
+                >
                   <TreeItemLabel className={cn('size-full min-w-0 py-0')}>
                     <div className="flex min-w-0 flex-1 items-center gap-2">
                       <ItemIcon item={item} />
-                      <div className="flex min-w-0 grow items-center gap-1" title={name}>
+                      <div className="flex min-w-0 grow items-center" title={name}>
                         <span className="truncate text-left">{name}</span>
-
-                        <ItemStatus item={item} />
-                        {
-                          // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
+                        <div className="ml-auto flex shrink-0 items-center gap-1 pl-1">
+                          <ItemStatus item={item} />
+                          {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
                           <div
                             onClick={(e) => {
                               e.stopPropagation();
@@ -584,7 +684,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                               resourceId={resourceId}
                             />
                           </div>
-                        }
+                        </div>
                       </div>
                     </div>
                   </TreeItemLabel>
@@ -613,20 +713,47 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
       >
         <Tree indent={INDENTATION_WIDTH} tree={tree} className="py-1">
           <AssistiveTreeDescription tree={tree} />
+          {/* eslint-disable-next-line sonarjs/cognitive-complexity */}{' '}
           {tree.getItems().map((item) => {
             const nodeId = item.getId();
             const node = item.getItemData();
             if (!node || Object.keys(node).length === 0) return null;
             const { resourceType, resourceId } = node;
             const name = getNodeName(node);
-            const isHighlighted = isEditMode && highlightedTableId === resourceId;
+            const isHighlighted = highlightedTableId === resourceId;
             const isPinned = pinMap?.[resourceId];
+            const showShareIndicator = !shareUrlPrefix;
+            const isContextMenuTarget = contextMenuOpen && contextMenu?.nodeId === nodeId;
+            const tableMeta = node.resourceMeta as IBaseNodeTableResourceMeta | undefined;
+            const hasLoginApps =
+              resourceType === BaseNodeResourceType.Table &&
+              Boolean(tableMeta?.loginApps?.length || tableMeta?.loginAppId);
             return (
               <TreeItem asChild key={nodeId} item={item}>
-                <div className="h-8 w-full cursor-pointer">
+                <div
+                  className="h-8 w-full cursor-pointer"
+                  data-table-id={
+                    resourceType === BaseNodeResourceType.Table ? resourceId : undefined
+                  }
+                  data-context-menu={isContextMenuTarget ? '' : undefined}
+                  onClickCapture={(e) => handleModifierClick(e, item)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    setContextMenu({
+                      x: e.clientX,
+                      y: e.clientY,
+                      nodeId,
+                      resourceType,
+                      resourceId,
+                    });
+                    setContextMenuOpen(true);
+                  }}
+                >
                   <TreeItemLabel
                     className={cn('size-full min-w-0 py-0', {
                       'bg-orange-300/40 hover:bg-orange-300/40': isHighlighted,
+                      'group-has-[[data-state=open]]:bg-accent': !isHighlighted,
+                      'bg-accent': isContextMenuTarget && !isHighlighted,
                     })}
                   >
                     <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -634,12 +761,8 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                         <Input
                           ref={inputRef}
                           type="text"
-                          placeholder="name"
                           defaultValue={item.getItemName()}
-                          style={{
-                            boxShadow: 'none',
-                          }}
-                          className="round-none size-full cursor-text bg-background outline-none"
+                          className="h-7 w-full cursor-text select-text"
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                               const newVal = e.currentTarget.value;
@@ -661,7 +784,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                       ) : (
                         <>
                           <ItemIcon item={item} />
-                          <div className="flex min-w-0 grow items-center gap-1" title={name}>
+                          <div className="flex min-w-0 grow items-center" title={name}>
                             <span
                               className="truncate text-left"
                               onDoubleClick={() => {
@@ -670,8 +793,9 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                             >
                               {name}
                             </span>
-
-                            <ItemStatus item={item} />
+                            <div className="ml-auto flex shrink-0 items-center gap-1 pl-1">
+                              <ItemStatus item={item} />
+                            </div>
                           </div>
                           {
                             // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
@@ -679,15 +803,24 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                               onClick={(e) => {
                                 e.stopPropagation();
                               }}
-                              className={cn(
-                                'flex shrink-0 cursor-pointer items-center gap-2 overflow-hidden',
-                                {
-                                  'w-0 group-hover:w-auto has-[[data-state=open]]:w-auto':
-                                    !isPinned,
-                                }
-                              )}
+                              className="flex shrink-0 items-center"
                             >
-                              <div className="opacity-0 group-hover:opacity-100 group-data-[folder=false]:hidden">
+                              <BaseNodeStarButton
+                                resourceType={resourceType}
+                                resourceId={resourceId}
+                                className={cn(
+                                  isPinned ? 'w-auto' : 'w-0',
+                                  !isPinned && GROUP_ACTIVE_WIDTH_CLS,
+                                  GROUP_ACTIVE_OPACITY_CLS
+                                )}
+                              />
+                              <div
+                                className={cn(
+                                  'flex shrink-0 items-center overflow-hidden gap-1',
+                                  GROUP_ACTIVE_WIDTH_CLS,
+                                  isContextMenuTarget ? 'w-auto' : 'w-0'
+                                )}
+                              >
                                 {canCreateResource && (
                                   <BaseNodeAddResourceButton
                                     createNode={curdHooks.createNode}
@@ -700,29 +833,53 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                                     canCreateWorkflow={canCreateWorkflow}
                                     canCreateApp={canCreateApp}
                                   >
-                                    <Button variant="ghost" size="xs" className="size-4 p-0">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon-xs"
+                                      className="size-4 shrink-0 p-0 group-data-[folder=false]:hidden"
+                                    >
                                       <AddBoldIcon className="size-full" />
                                     </Button>
                                   </BaseNodeAddResourceButton>
                                 )}
-                              </div>
-                              {
-                                <BaseNodeStarButton
+                                <BaseNodeMore
                                   resourceType={resourceType}
                                   resourceId={resourceId}
-                                />
-                              }
-                              <BaseNodeMore
-                                resourceType={resourceType}
-                                resourceId={resourceId}
-                                onRename={() => setEditingNodeId(nodeId)}
-                                onCreateSuccess={createSuccefulyCallback}
-                                onUpdateSuccess={updateSuccefulyCallback}
-                              >
-                                <Button variant="ghost" size="xs" className="size-4 p-0">
-                                  <MoreHorizontal className="size-full" />
-                                </Button>
-                              </BaseNodeMore>
+                                  onRename={() => setEditingNodeId(nodeId)}
+                                  onCreateSuccess={createSuccefulyCallback}
+                                  onUpdateSuccess={updateSuccefulyCallback}
+                                >
+                                  <Button
+                                    variant="ghost"
+                                    size="icon-xs"
+                                    className="size-4 shrink-0 p-0"
+                                  >
+                                    <MoreHorizontal className="size-full" />
+                                  </Button>
+                                </BaseNodeMore>
+                              </div>
+                              {!isContextMenuTarget && (
+                                <>
+                                  {hasLoginApps && (
+                                    <span
+                                      className={cn(
+                                        'flex size-4 shrink-0 items-center justify-center text-muted-foreground',
+                                        GROUP_ACTIVE_HIDDEN_CLS
+                                      )}
+                                    >
+                                      <ShieldCheck className="size-3.5" />
+                                    </span>
+                                  )}
+                                  {showShareIndicator && (
+                                    <BaseNodeShareIndicator
+                                      nodeId={nodeId}
+                                      sharedNodeIds={sharedNodeIds}
+                                      node={node}
+                                      className={cn('ml-1', GROUP_ACTIVE_HIDDEN_CLS)}
+                                    />
+                                  )}
+                                </>
+                              )}
                             </div>
                           }
                         </>
@@ -735,6 +892,39 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
           })}
           <TreeDragLine />
         </Tree>
+        {contextMenu &&
+          typeof document !== 'undefined' &&
+          createPortal(
+            <div
+              style={{
+                position: 'fixed',
+                left: contextMenu.x,
+                top: contextMenu.y,
+                width: 0,
+                height: 0,
+                zIndex: 50,
+              }}
+            >
+              <BaseNodeMore
+                key={`${contextMenu.nodeId}-${contextMenu.x}-${contextMenu.y}`}
+                resourceType={contextMenu.resourceType}
+                resourceId={contextMenu.resourceId}
+                open={contextMenuOpen}
+                setOpen={setContextMenuOpen}
+                contentAlign="start"
+                onRename={() => {
+                  setEditingNodeId(contextMenu.nodeId);
+                  setContextMenu(null);
+                  setContextMenuOpen(false);
+                }}
+                onCreateSuccess={createSuccefulyCallback}
+                onUpdateSuccess={updateSuccefulyCallback}
+              >
+                <span className="absolute size-0 overflow-hidden" />
+              </BaseNodeMore>
+            </div>,
+            document.body
+          )}
         <ScrollBar className="z-30" />
       </ScrollArea>
     );
@@ -788,6 +978,19 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
 const getItemLevel = (item: ItemInstance<TreeItemData>) => {
   const meta = item.getItemMeta();
   return meta.level;
+};
+
+const getMaxFolderSubtreeDepth = (
+  itemId: string,
+  treeItems: Record<string, TreeItemData>
+): number => {
+  const item = treeItems[itemId];
+  if (!item?.children?.length) return 0;
+  const folderChildren = item.children.filter(
+    (childId) => treeItems[childId]?.resourceType === BaseNodeResourceType.Folder
+  );
+  if (folderChildren.length === 0) return 0;
+  return 1 + Math.max(...folderChildren.map((id) => getMaxFolderSubtreeDepth(id, treeItems)));
 };
 
 const checkCanCreateFolder = (item: ItemInstance<TreeItemData>, maxFolderDepth: number) => {

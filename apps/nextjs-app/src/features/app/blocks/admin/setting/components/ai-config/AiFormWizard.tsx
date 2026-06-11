@@ -1,45 +1,75 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { MessageSquareDot, Zap, Box } from '@teable/icons';
+import { MessageSquareDot, Zap, Box, Loader2 } from '@teable/icons';
+import { aiConfigVoSchema } from '@teable/openapi';
 import type {
   IGatewayModel,
   IChatModelAbility,
   IImageModelAbility,
   LLMProvider,
+  ISettingVo,
+  IUpdateAiConfigRo,
 } from '@teable/openapi';
-import { aiConfigVoSchema } from '@teable/openapi/src/admin/setting';
-import type { ISettingVo } from '@teable/openapi/src/admin/setting/get';
-import { Form } from '@teable/ui-lib/shadcn';
-import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
+import { Button, Form } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useIsCloud } from '@/features/app/hooks/useIsCloud';
-import { AIEnableCard } from './AIEnableCard';
 import { AISetupWizard, useAISetupSteps, type LLMApiMode } from './AISetupWizard';
 import { DefaultModelsStep } from './DefaultModelsStep';
 import { GatewayModelsStep } from './GatewayModelsStep';
 import { LLMApiConfigStep } from './LLMApiConfigStep';
 import type { IModelTestResult } from './LlmproviderManage';
 import { SetupStepCard } from './SetupStepCard';
-import { generateModelKeyList, generateGatewayModelKeyList, parseModelKey } from './utils';
+import {
+  generateModelKeyList,
+  generateGatewayModelKeyList,
+  normalizeLLMProviderModelConfigs,
+  parseModelKey,
+} from './utils';
+
+const toCompareString = (value: unknown) => JSON.stringify(value ?? null);
+
+function StepSaveBar({
+  isSaving,
+  disabled,
+  onSave,
+  label,
+}: {
+  isSaving: boolean;
+  disabled?: boolean;
+  onSave: () => void | Promise<void>;
+  label: string;
+}) {
+  return (
+    <div className="mt-4 flex items-center justify-end border-t bg-muted/30 px-4 py-3">
+      <Button
+        type="button"
+        size="lg"
+        className="min-w-28 shadow-sm"
+        onClick={onSave}
+        disabled={disabled || isSaving}
+      >
+        {isSaving && <Loader2 className="size-4 animate-spin" />}
+        {label}
+      </Button>
+    </div>
+  );
+}
 
 // Props to control whether to show pricing-related UI
 interface IAIConfigFormWizardProps {
   aiConfig: ISettingVo['aiConfig'];
-  setAiConfig: (data: NonNullable<ISettingVo['aiConfig']>) => void;
+  onSaveAiConfig: (payload: IUpdateAiConfigRo) => Promise<unknown>;
   /** Whether to show pricing/billing related UI. Defaults to isCloud. */
   showPricing?: boolean;
-  /** Whether to show the enable card. Set to false when toggle is in parent. Defaults to true. */
-  showEnableCard?: boolean;
 }
 
 export function AIConfigFormWizard({
   aiConfig,
-  setAiConfig,
+  onSaveAiConfig,
   showPricing,
-  showEnableCard = true,
 }: IAIConfigFormWizardProps) {
   const isCloud = useIsCloud();
   // showPricing defaults to isCloud if not explicitly provided
@@ -47,7 +77,6 @@ export function AIConfigFormWizard({
   const defaultValues = useMemo(
     () =>
       aiConfig ?? {
-        enable: false,
         llmProviders: [],
         gatewayModels: [],
       },
@@ -62,7 +91,7 @@ export function AIConfigFormWizard({
   const llmProviders = form.watch('llmProviders') ?? [];
   const gatewayModels = form.watch('gatewayModels') ?? [];
   const chatModel = form.watch('chatModel');
-  const aiEnabled = form.watch('enable') ?? false;
+  const draftAiConfig = form.watch();
   const providerModels = generateModelKeyList(llmProviders);
   const gatewayModelsList = generateGatewayModelKeyList(gatewayModels);
 
@@ -74,6 +103,7 @@ export function AIConfigFormWizard({
   );
   const [testingProviders, setTestingProviders] = useState<Set<string>>(new Set());
   const [testingModels, setTestingModels] = useState<Set<string>>(new Set());
+  const [savingSection, setSavingSection] = useState<IUpdateAiConfigRo['section'] | null>(null);
   const testProviderCallbackRef = useRef<((provider: LLMProvider) => void) | null>(null);
   const testModelCallbackRef = useRef<
     ((provider: LLMProvider, model: string, modelKey: string) => Promise<void>) | null
@@ -81,11 +111,33 @@ export function AIConfigFormWizard({
 
   // LLM API mode: gateway or custom
   // Auto-detect initial mode based on existing config
-  const [llmApiMode, setLlmApiMode] = useState<LLMApiMode>(() => {
+  const [llmApiMode, setLlmApiModeRaw] = useState<LLMApiMode>(() => {
     if (aiConfig?.aiGatewayApiKey) return 'gateway';
     if (llmProviders.length > 0) return 'custom';
     return 'gateway'; // Default to gateway
   });
+
+  const setLlmApiMode = useCallback((mode: LLMApiMode) => {
+    setLlmApiModeRaw(mode);
+  }, []);
+
+  const handleResetGateway = useCallback(() => {
+    const current = form.getValues();
+    const currentChatModel = current.chatModel;
+    const hasGatewayChatModel = [currentChatModel?.lg, currentChatModel?.md, currentChatModel?.sm]
+      .filter(Boolean)
+      .some((modelKey) => modelKey?.startsWith('aiGateway@'));
+    const clearedConfig: NonNullable<ISettingVo['aiConfig']> = {
+      ...current,
+      gatewayModels: [],
+      aiGatewayApiKey: null,
+      aiGatewayBaseUrl: null,
+      chatModel: hasGatewayChatModel ? null : currentChatModel,
+      attachmentTest: null,
+      attachmentTransferMode: null,
+    };
+    form.reset(clearedConfig);
+  }, [form]);
 
   // Current step state
   // Default collapsed on page load, user can expand steps manually.
@@ -94,8 +146,8 @@ export function AIConfigFormWizard({
   // Compute step completion status
   const { hasGatewayKey, isStep1Complete, isStep2Complete } = useAISetupSteps({
     aiConfig,
-    gatewayModels,
-    llmProviders,
+    gatewayModels: aiConfig?.gatewayModels ?? [],
+    llmProviders: aiConfig?.llmProviders ?? [],
     llmApiMode,
   });
 
@@ -112,56 +164,110 @@ export function AIConfigFormWizard({
     reset(defaultValues);
   }, [defaultValues, reset]);
 
+  const normalizeAiConfig = useCallback((data: NonNullable<ISettingVo['aiConfig']>) => {
+    return {
+      ...data,
+      llmProviders: data.llmProviders?.map(normalizeLLMProviderModelConfigs) ?? [],
+    };
+  }, []);
+
+  const savedLlmApiConfig = useMemo(
+    () => ({
+      llmProviders: aiConfig?.llmProviders?.map(normalizeLLMProviderModelConfigs) ?? [],
+      aiGatewayApiKey: aiConfig?.aiGatewayApiKey ?? null,
+      aiGatewayBaseUrl: aiConfig?.aiGatewayBaseUrl ?? null,
+      attachmentTest: aiConfig?.attachmentTest ?? null,
+      attachmentTransferMode: aiConfig?.attachmentTransferMode ?? null,
+    }),
+    [aiConfig]
+  );
+
+  const draftLlmApiConfig = useMemo(() => {
+    const normalized = normalizeAiConfig(draftAiConfig);
+    return {
+      llmProviders: normalized.llmProviders,
+      aiGatewayApiKey: normalized.aiGatewayApiKey ?? null,
+      aiGatewayBaseUrl: normalized.aiGatewayBaseUrl ?? null,
+      attachmentTest: normalized.attachmentTest ?? null,
+      attachmentTransferMode: normalized.attachmentTransferMode ?? null,
+    };
+  }, [draftAiConfig, normalizeAiConfig]);
+
+  const isLlmApiDirty = useMemo(
+    () => toCompareString(savedLlmApiConfig) !== toCompareString(draftLlmApiConfig),
+    [draftLlmApiConfig, savedLlmApiConfig]
+  );
+
+  const isModelPoolDirty = useMemo(
+    () => toCompareString(aiConfig?.gatewayModels ?? []) !== toCompareString(gatewayModels),
+    [aiConfig?.gatewayModels, gatewayModels]
+  );
+
+  const isDefaultModelsDirty = useMemo(
+    () =>
+      toCompareString({
+        chatModel: aiConfig?.chatModel ?? null,
+        embeddingModel: aiConfig?.embeddingModel ?? null,
+        translationModel: aiConfig?.translationModel ?? null,
+      }) !==
+      toCompareString({
+        chatModel: draftAiConfig.chatModel ?? null,
+        embeddingModel: draftAiConfig.embeddingModel ?? null,
+        translationModel: draftAiConfig.translationModel ?? null,
+      }),
+    [
+      aiConfig?.chatModel,
+      aiConfig?.embeddingModel,
+      aiConfig?.translationModel,
+      draftAiConfig.chatModel,
+      draftAiConfig.embeddingModel,
+      draftAiConfig.translationModel,
+    ]
+  );
+
   const onSubmit = useCallback(
-    (data: NonNullable<ISettingVo['aiConfig']>) => {
-      console.log('onSubmit', data);
-      setAiConfig(data);
-      toast.success(t('admin.setting.ai.configUpdated'));
+    async (data: NonNullable<ISettingVo['aiConfig']>) => {
+      const normalizedData = normalizeAiConfig(data);
+      try {
+        setSavingSection('llmApi');
+        await onSaveAiConfig({
+          section: 'llmApi',
+          patch: {
+            llmProviders: normalizedData.llmProviders,
+            aiGatewayApiKey: normalizedData.aiGatewayApiKey ?? null,
+            aiGatewayBaseUrl: normalizedData.aiGatewayBaseUrl ?? null,
+            attachmentTest: normalizedData.attachmentTest ?? null,
+            attachmentTransferMode: normalizedData.attachmentTransferMode ?? null,
+          },
+        });
+      } finally {
+        setSavingSection(null);
+      }
     },
-    [setAiConfig, t]
+    [normalizeAiConfig, onSaveAiConfig]
   );
 
   const updateProviders = useCallback(
     (providers: LLMProvider[]) => {
-      form.setValue('llmProviders', providers);
+      const normalizedProviders = providers.map(normalizeLLMProviderModelConfigs);
+      form.setValue('llmProviders', normalizedProviders);
       form.trigger('llmProviders');
-      onSubmit(form.getValues());
     },
-    [form, onSubmit]
+    [form]
   );
 
   const updateGatewayModels = useCallback(
     (models: IGatewayModel[]) => {
       form.setValue('gatewayModels', models);
-      onSubmit(form.getValues());
     },
-    [form, onSubmit]
+    [form]
   );
 
   const updateChatModel = useCallback(
     (chatModel: { lg?: string; md?: string; sm?: string }) => {
       form.setValue('chatModel', chatModel);
-      // Auto-enable AI when chat model is configured
-      const shouldAutoEnable = chatModel.lg && !form.getValues('enable');
-      if (shouldAutoEnable) {
-        form.setValue('enable', true);
-      }
-      // Get current values and ensure enable is true if auto-enabled
-      const currentValues = form.getValues();
-      onSubmit({
-        ...currentValues,
-        enable: shouldAutoEnable ? true : currentValues.enable,
-      });
     },
-    [form, onSubmit]
-  );
-
-  const updateEnabled = useCallback(
-    (enabled: boolean) => {
-      form.setValue('enable', enabled);
-      onSubmit(form.getValues());
-    },
-    [form, onSubmit]
+    [form]
   );
 
   const onSaveTestResult = useCallback(
@@ -180,7 +286,7 @@ export function AIConfigFormWizard({
       if (providerIndex === -1) return;
 
       const provider = currentProviders[providerIndex];
-      const updatedProvider = {
+      const updatedProvider = normalizeLLMProviderModelConfigs({
         ...provider,
         modelConfigs: {
           ...provider.modelConfigs,
@@ -191,15 +297,14 @@ export function AIConfigFormWizard({
             testedAt: Date.now(),
           },
         },
-      };
+      });
 
       const newProviders = [...currentProviders];
       newProviders[providerIndex] = updatedProvider;
 
       form.setValue('llmProviders', newProviders);
-      setAiConfig(form.getValues());
     },
-    [form, setAiConfig]
+    [form]
   );
 
   const onToggleImageModel = useCallback(
@@ -214,62 +319,76 @@ export function AIConfigFormWizard({
       if (providerIndex === -1) return;
 
       const provider = currentProviders[providerIndex];
-      const updatedProvider = {
+      const currentConfig = provider.modelConfigs?.[model];
+      const updatedProvider = normalizeLLMProviderModelConfigs({
         ...provider,
         modelConfigs: {
           ...provider.modelConfigs,
           [model]: {
-            ...provider.modelConfigs?.[model],
+            ...currentConfig,
             isImageModel,
             ability: isImageModel ? undefined : provider.modelConfigs?.[model]?.ability,
-            imageAbility: isImageModel ? provider.modelConfigs?.[model]?.imageAbility : undefined,
           },
         },
-      };
+      });
 
       const newProviders = [...currentProviders];
       newProviders[providerIndex] = updatedProvider;
 
       form.setValue('llmProviders', newProviders);
-      setAiConfig(form.getValues());
     },
-    [form, setAiConfig]
+    [form]
   );
 
   // Handler for updating gateway-related fields in aiConfig
   const updateAiConfig = useCallback(
     (updates: Partial<NonNullable<ISettingVo['aiConfig']>>) => {
-      const currentValues = form.getValues();
-      const updatedConfig = { ...currentValues, ...updates };
-      // Update form values
       Object.entries(updates).forEach(([key, value]) => {
         form.setValue(key as keyof typeof updates, value);
       });
-      // Save to backend
-      setAiConfig(updatedConfig);
     },
-    [form, setAiConfig]
+    [form]
   );
+
+  const saveLlmApi = useCallback(async () => {
+    await onSubmit(form.getValues());
+  }, [form, onSubmit]);
+
+  const saveModelPool = useCallback(async () => {
+    try {
+      setSavingSection('modelPool');
+      await onSaveAiConfig({
+        section: 'modelPool',
+        patch: { gatewayModels: form.getValues('gatewayModels') ?? [] },
+      });
+    } finally {
+      setSavingSection(null);
+    }
+  }, [form, onSaveAiConfig]);
+
+  const saveDefaultModels = useCallback(async () => {
+    try {
+      setSavingSection('defaultModels');
+      await onSaveAiConfig({
+        section: 'defaultModels',
+        patch: {
+          chatModel: form.getValues('chatModel') ?? null,
+          embeddingModel: form.getValues('embeddingModel') ?? null,
+          translationModel: form.getValues('translationModel') ?? null,
+        },
+      });
+    } finally {
+      setSavingSection(null);
+    }
+  }, [form, onSaveAiConfig]);
 
   // Unified wizard view for both Cloud and EE
   // The only difference is `shouldShowPricing` controls whether to display pricing UI
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)}>
+      <form onSubmit={(e) => e.preventDefault()}>
         <AISetupWizard>
           <div className="space-y-4">
-            {/* AI Enable Toggle - Only visible when showEnableCard is true */}
-            {showEnableCard && (
-              <AIEnableCard
-                enabled={aiEnabled}
-                onEnabledChange={updateEnabled}
-                hasGatewayKey={llmApiMode === 'gateway' ? hasGatewayKey : true}
-                hasModels={isStep2Complete}
-                hasChatModel={Boolean(chatModel?.lg)}
-                isCloud={isCloud}
-              />
-            )}
-
             {/* Step 1: Configure LLM API (Gateway OR Custom Provider) */}
             <SetupStepCard
               icon={<Zap className="size-4" />}
@@ -282,8 +401,9 @@ export function AIConfigFormWizard({
               <LLMApiConfigStep
                 mode={llmApiMode}
                 onModeChange={setLlmApiMode}
-                aiConfig={form.getValues()}
+                aiConfig={draftAiConfig}
                 onAiConfigChange={updateAiConfig}
+                onResetGateway={handleResetGateway}
                 llmProviders={llmProviders}
                 onProvidersChange={updateProviders}
                 control={form.control}
@@ -297,6 +417,9 @@ export function AIConfigFormWizard({
                 onToggleImageModel={onToggleImageModel}
                 testProviderCallbackRef={testProviderCallbackRef}
                 testModelCallbackRef={testModelCallbackRef}
+                onSave={saveLlmApi}
+                isSaving={savingSection === 'llmApi'}
+                isDirty={isLlmApiDirty}
                 onComplete={() => setCurrentStep(1)}
                 showPricing={shouldShowPricing}
               />
@@ -313,13 +436,25 @@ export function AIConfigFormWizard({
               disabled={!isStep1Complete}
             >
               {llmApiMode === 'gateway' ? (
-                <GatewayModelsStep
-                  gatewayModels={gatewayModels}
-                  onChange={updateGatewayModels}
-                  disabled={!hasGatewayKey}
-                  apiKey={form.getValues().aiGatewayApiKey}
-                  showPricing={shouldShowPricing}
-                />
+                <>
+                  <GatewayModelsStep
+                    gatewayModels={gatewayModels}
+                    onChange={updateGatewayModels}
+                    disabled={!hasGatewayKey}
+                    apiKey={form.getValues().aiGatewayApiKey ?? undefined}
+                    showPricing={shouldShowPricing}
+                  />
+                  {isModelPoolDirty && (
+                    <StepSaveBar
+                      isSaving={savingSection === 'modelPool'}
+                      label={t('actions.save')}
+                      onSave={async () => {
+                        await saveModelPool();
+                        setCurrentStep(2);
+                      }}
+                    />
+                  )}
+                </>
               ) : (
                 <div className="space-y-4">
                   <div className="rounded-md bg-green-50 p-3 text-sm text-green-700 dark:bg-green-500/10 dark:text-green-400">
@@ -342,17 +477,25 @@ export function AIConfigFormWizard({
               icon={<MessageSquareDot className="size-4" />}
               title={t('admin.setting.ai.wizard.step.chatModel')}
               description={t('admin.setting.ai.wizard.step.chatModelDesc')}
-              isComplete={Boolean(chatModel?.lg)}
+              isComplete={Boolean(aiConfig?.chatModel?.lg)}
               isExpanded={currentStep === 2}
               onToggle={() => setCurrentStep(currentStep === 2 ? -1 : 2)}
               disabled={!isStep2Complete}
             >
               <DefaultModelsStep
-                chatModel={chatModel}
+                chatModel={chatModel ?? undefined}
                 models={availableModels}
                 onChange={updateChatModel}
                 disabled={!isStep2Complete}
               />
+              {isDefaultModelsDirty && (
+                <StepSaveBar
+                  isSaving={savingSection === 'defaultModels'}
+                  disabled={!chatModel?.lg || !isStep2Complete}
+                  label={t('actions.save')}
+                  onSave={saveDefaultModels}
+                />
+              )}
             </SetupStepCard>
           </div>
         </AISetupWizard>

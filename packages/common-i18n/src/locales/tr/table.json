@@ -1,4 +1,13 @@
 {
+  "crossSpace": {
+    "duplicateFieldTitle": "Bildirim",
+    "duplicateFieldDescription": "Alanlar arası referanslar desteklenmiyor. Kopya tek satırlı bir metin alanına dönüştürülecek.",
+    "duplicateTableTitle": "Bildirim",
+    "duplicateTableDescription": "Alanlar arası referanslar desteklenmiyor. Kopya tek satırlı bir metin alanına dönüştürülecek.",
+    "duplicateBaseTitle": "Bildirim",
+    "duplicateBaseDescription": "Alanlar arası referanslar desteklenmiyor. Kopya tek satırlı bir metin alanına dönüştürülecek.",
+    "convertAndDuplicate": "Dönüştür ve kopyala"
+  },
   "toolbar": {
     "comingSoon": "Çok yakında",
     "viewFilterInShare": "Bu görünüm bir görünüm paylaşım bağlantısında kullanılıyor. Görünüm yapılandırmasındaki değişiklikler görünüm paylaşım bağlantısını da değiştirecektir.",
@@ -6,12 +15,13 @@
     "others": {
       "share": {
         "label": "Paylaş",
-        "statusLabel": "Paylaşım",
+        "statusLabel": "Görünümü web'de paylaş",
         "noPermission": "Görünümü paylaşma izni yok",
         "shareLink": "Paylaşım Bağlantısı",
         "copied": "Kopyalandı",
         "genLink": "Yeni bağlantı oluştur",
         "allowCopy": "İzleyicilerin bu görünümden veri kopyalamasına izin ver",
+        "allowEdit": "Oturum açmış kullanıcıların görünür verileri düzenlemesine izin ver",
         "showAllFields": "Genişletilmiş kayıtlarda tüm alanları göster",
         "restrict": "Şifre ile kısıtla",
         "tips": "Bağlantıya sahip kişiler görünümü görebilir.",
@@ -55,6 +65,16 @@
     "help": "Daha fazla bilgi için <HelpCenter /> adresini ziyaret edin",
     "helpCenter": "Yardım Merkezi"
   },
+  "validation": {
+    "link": {
+      "batch_duplicate": "Kayıt bağlanamıyor: aynı grupta bu kayıt zaten başka bir kayıt tarafından bağlanmış. Bire-çok ilişkilerde her alt kayıt yalnızca bir üst kayda ait olabilir.",
+      "one_many_duplicate": "Kayıt bağlanamıyor: bu kayıt zaten başka bir kayda bağlı. Bire-çok ilişkilerde her alt kayıt yalnızca bir üst kayda ait olabilir.",
+      "one_one_duplicate": "Kayıt bağlanamıyor: hedef kayıt bire-bir ilişkide zaten başka bir kayıt tarafından bağlanmış."
+    },
+    "field": {
+      "maxColumnLimit": "\"{{tableName}}\" tablosunda en fazla {{maxFieldCount}} alan olabilir."
+    }
+  },
   "field": {
     "fieldManagement": "Alan Yönetimi",
     "fieldManagementDesc": "Mevcut tablonun tüm alanları için detaylı özellikler",
@@ -73,7 +93,7 @@
         "currencySymbol": "Para Birimi Sembolü",
         "defaultSymbol": "₺",
         "precision": "Hassasiyet",
-        "decimalExample": "Ondalık (1.0)",
+        "decimalExample": "Sayı (123)",
         "currencyExample": "Para Birimi (₺100)",
         "percentExample": "Yüzde (%20)"
       },
@@ -195,6 +215,9 @@
           "sum": "Değerleri toplar.",
           "xor": "Yalnızca tek sayıda değer doğruysa true döndürür."
         }
+      },
+      "conditionalRollup": {
+        "title": "{{lookupFieldName}} koşullu toplama"
       }
     },
     "editor": {
@@ -220,6 +243,7 @@
       "ring": "Halka",
       "bar": "Çubuk",
       "text": "Metin",
+      "markdown": "Markdown",
       "url": "URL",
       "email": "E-posta",
       "phone": "Telefon",
@@ -269,6 +293,25 @@
       "hideFields": "Alanları gizle",
       "moreOptions": "Daha fazla seçenek",
       "allowNewOptionsWhenEditing": "Düzenlerken yeni seçeneklere izin ver",
+      "deleteField": {
+        "title": "Alanı Sil",
+        "simpleConfirm": "<b>{{fieldName}}</b> alanını silmek istediğinizden emin misiniz?",
+        "withDependencies": "<b>{{fieldName}}</b> alanını silmek aşağıdaki alanları etkileyecektir:",
+        "affectedFields": "Etkilenen alanlar:",
+        "fieldsToDelete": "Silinecek alanlar ({{count}})",
+        "unviewedHint": "{{count}} alan incelenmedi",
+        "deleteCount": "{{count}} alanı sil",
+        "noAffectedFields": "Bu alan diğer alanlar tarafından referans alınmıyor.",
+        "riskIdentified": "Risk tespit edildi({{count}})",
+        "noDependencies": "Bağımlılık yok({{count}})",
+        "safeToDelete": "Güvenle silinebilir",
+        "safeToDeleteDesc": "Bu alan diğer alanlar tarafından referans alınmıyor, güvenle silinebilir",
+        "affectedItems": "Etkilenen öğeler",
+        "type": "Tür",
+        "source": "Kaynak",
+        "sourceTable": "Kaynak tablo",
+        "typeField": "Alan"
+      },
       "conditionalLookup": {
         "sortLimitToggleLabel": "Sort linked records and limit the number of matches",
         "sortLabel": "Sort results",
@@ -390,6 +433,9 @@
     "tableInfoDetail": "Tablo için temel bilgiler",
     "typeOfDatabase": "Veritabanı türü",
     "descriptionForTable": "Bu tablo için açıklama",
+    "loginUserTable": "Uygulama girişi",
+    "loginUserTableClickTips": "İlgili uygulamayı aç",
+    "linkedApps": "Bağlı uygulamalar",
     "nameForTable": "Bu tablo için ad",
     "deleteTip1": "Diğer tablolardaki bu tabloyla bağlantılı bağlantı alanları silinecek.",
     "deleteTip2": "Bu tablo silindikten sonra çöp kutusundan geri yüklenebilir.",
@@ -413,16 +459,210 @@
       "deleteFieldConfirmTitle": "Aşağıdaki alanları silmek üzeresiniz",
       "deleting": "Siliniyor...",
       "deleteSuccessful": "Silme başarılı",
+      "deleteStream": {
+        "preparing": "Preparing selection",
+        "deleting": "Deleting records",
+        "descriptionWithIssues": "Some delete chunks failed. Review the details below.",
+        "completedWithIssues": "Deletion completed with issues",
+        "issuesBadge": "{{count}} issues",
+        "chunkFailureTitle": "Chunk failure details",
+        "chunkFailureSummary": "{{count}} chunk(s) reported an error while the stream kept running.",
+        "chunkLabel": "Chunk {{index}}",
+        "rowsLabel": "{{count}} rows",
+        "partialFailureDescription": "Deleted {{deletedCount}} of {{totalCount}} records. Review chunk details in the dialog.",
+        "phaseLabel": {
+          "preparing": "Preparing",
+          "guarding": "Checking",
+          "deleting": "Deleting",
+          "publishing": "Publishing",
+          "finalizing": "Finalizing"
+        }
+      },
       "pasteFileFailed": "Dosyalar yalnızca bir ek alanına yapıştırılabilir",
       "copyError": {
         "noFocus": "Lütfen pencereyi değiştirmeyin"
-      }
+      },
+      "crossBaseCopyTitle": "Düz metin olarak kopyalansın mı?",
+      "crossBaseCopyDescription": "Bu seçim, tabanlar arası bir bağlantı alanı içeriyor. Verileri orijinal tabanı içinde tutmak için alan düz metin olarak kopyalanacak ve bağlantı ilişkilerini kaybedecek.",
+      "crossBaseCopyConfirm": "Düz metin olarak kopyala",
+      "crossBaseCopyLoadFirst": "Tabanlar arası alanları kopyalamadan önce seçili tüm satırları yüklemek için lütfen kaydırın."
     },
     "graph": {
       "tableLabel": "Tablo etiketi",
       "effectCells": "Etkilenebilecek hücreler",
       "estimatedTime": "Tahmini süre",
       "linkFieldCount": "Etkilenebilecek bağlantılı alan sayısı"
+    },
+    "integrity": {
+      "check": "Kontrol et",
+      "title": "Bütünlük kontrolü",
+      "loading": "Bütünlük kontrol ediliyor...",
+      "allGood": "Her şey yolunda!",
+      "fixIssues": "Sorunları düzelt",
+      "v2": {
+        "dialogTitle": "Şema Bütünlüğü",
+        "dialogDescription": "{{tableName}} için v2 şema denetimi ve onarım akışını çalıştır.",
+        "dialogDescriptionNoTable": "Geçerli base için v2 şema denetimi ve onarım akışını çalıştır.",
+        "runCheck": "Kontrolü başlat",
+        "recheck": "Tekrar kontrol et",
+        "repair": "Onar",
+        "repairWarnings": "Yalnızca uyarıları onar",
+        "repairWarningsAndErrors": "Uyarıları ve hataları onar",
+        "repairRule": "Kuralı onar",
+        "repairUnavailable": "Bu kural otomatik olarak onarılamaz",
+        "manual": "Manuel",
+        "manualRepairNotice": "Bu sorun manuel onarım gerektiriyor",
+        "manualRepairNoticeWithCount": "{{count}} sorun manuel onarım gerektiriyor. Onarım penceresini açmak için her kuralın sağındaki \"Manuel\" eylemini kullanın.",
+        "manualRepairDialogTitle": "Manuel onarım gerekli",
+        "manualRepairDialogDescription": "Bu sorun otomatik olarak onarılamaz. Aşağıdaki yönlendirmeyi inceleyin ve nasıl düzeltileceğini seçin.",
+        "manualRepairDialogReason": "Neden manuel onarım gerekiyor",
+        "manualRepairDialogHint": "Bu pencere şu anda yalnızca kuralın istediği onarım seçeneklerini gösterir. Gerçek çalıştırma daha sonra bu sözleşmenin üzerine eklenebilir.",
+        "manualRepairDialogClose": "Kapat",
+        "checking": "Şema kontrol ediliyor...",
+        "repairing": "Şema onarılıyor...",
+        "streamError": "Şema bütünlüğü sonuçları akış halinde alınamadı.",
+        "noTableSelected": "v2 şema denetimini çalıştırmak için önce bir tablo seçin.",
+        "noResults": "Henüz şema sonucu yok.",
+        "noFilteredResults": "Mevcut filtrelerle eşleşen sonuç yok.",
+        "systemColumns": "Sistem sütunları",
+        "general": "Genel",
+        "optional": "İsteğe bağlı",
+        "statementCount": "{{count}} komut",
+        "detailsMissing": "Eksik: {{details}}",
+        "detailsExtra": "Fazladan: {{details}}",
+        "message": {
+          "schemaValid": "Schema is valid",
+          "schemaValidationFailed": "Schema validation failed",
+          "schemaElementMissing": "Schema element missing",
+          "schemaAlreadyValid": "Schema is already valid",
+          "schemaRepaired": "Schema repaired successfully",
+          "manualRepair": "Rule requires manual repair",
+          "noRepairStatements": "No repair statements available",
+          "skippedDependencies": "Skipped because dependencies are not satisfied",
+          "checkStreamConnected": "Schema integrity check stream connected",
+          "baseCheckStreamConnected": "Base schema integrity check stream connected",
+          "repairStreamConnected": "Schema integrity repair stream connected",
+          "baseRepairStreamConnected": "Base schema integrity repair stream connected",
+          "checkCompleted": "Schema integrity check completed",
+          "baseCheckCompleted": "Base schema integrity check completed",
+          "repairCompleted": "Schema integrity repair completed",
+          "baseRepairCompleted": "Base schema integrity repair completed"
+        },
+        "rule": {
+          "column": "Physical column",
+          "columnTyped": "Physical column ({{dataType}})",
+          "notNull": "NOT NULL constraint",
+          "columnUnique": "UNIQUE constraint",
+          "fkColumn": "Foreign key column",
+          "index": "Index",
+          "uniqueIndex": "Unique index",
+          "primaryKey": "PRIMARY KEY",
+          "defaultExpression": "Default expression",
+          "foreignKey": "Foreign key constraint",
+          "junctionTable": "Junction table",
+          "junctionUnique": "Junction table unique constraint",
+          "junctionIndex": "Junction table index",
+          "junctionForeignKey": "Junction table foreign key",
+          "reference": "Reference records",
+          "generatedColumn": "Generated column",
+          "generatedMeta": "Generated column state",
+          "linkValueColumn": "Link value column",
+          "orderColumn": "Order column",
+          "fieldMeta": "Field metadata",
+          "symmetricField": "Symmetric field relationship",
+          "systemColumn": "System column \"{{columnName}}\"",
+          "systemColumnTyped": "System column \"{{columnName}}\" ({{dataType}})",
+          "systemNotNull": "NOT NULL on system column \"{{columnName}}\"",
+          "systemUnique": "UNIQUE index on system column \"{{columnName}}\"",
+          "systemPrimaryKey": "PRIMARY KEY on system column \"{{columnName}}\"",
+          "systemDefault": "Default expression on system column \"{{columnName}}\"",
+          "connection": "Connection",
+          "completion": "Completion",
+          "unexpected": "Unexpected error"
+        },
+        "detail": {
+          "systemColumnMissing": "System column \"{{columnName}}\" not found",
+          "systemColumnNotNull": "System column \"{{columnName}}\" should be NOT NULL",
+          "systemColumnUnique": "System column \"{{columnName}}\" should have a UNIQUE index",
+          "systemColumnPrimaryKey": "System column \"{{columnName}}\" should be PRIMARY KEY",
+          "systemColumnDefault": "System column \"{{columnName}}\" should have a default expression",
+          "foreignKeyOrphanRows": "Field \"{{fieldName}}\" still has {{count}} rows pointing to missing linked records",
+          "foreignKeyOrphanRowsDescription": "Automatic repair cannot restore the foreign key for \"{{fieldName}}\" until the {{count}} invalid references to \"{{targetTableName}}\" are cleaned up.",
+          "junctionForeignKeyMissing": "The junction table for \"{{fieldName}}\" is missing one of its foreign keys",
+          "junctionForeignKeyMissingDescription": "Restore the junction foreign key for \"{{fieldName}}\" so relation rows stay linked to existing records in \"{{targetTableName}}\".",
+          "junctionForeignKeyTargetTableMissing": "The linked table for the junction of \"{{fieldName}}\" cannot be found",
+          "junctionForeignKeyTargetTableMissingDescription": "Automatic repair cannot restore the junction foreign key for \"{{fieldName}}\" because the target table \"{{targetPhysicalTableName}}\" does not exist.",
+          "junctionForeignKeyOrphanRows": "The junction table for \"{{fieldName}}\" still has {{count}} rows pointing to missing linked records",
+          "junctionForeignKeyOrphanRowsDescription": "Automatic repair cannot restore the junction foreign key for \"{{fieldName}}\" until the {{count}} invalid relation rows referencing \"{{targetTableName}}\" are cleaned up."
+        },
+        "phase": {
+          "check": "Kontrol sonuçları",
+          "repair": "Onarım sonuçları"
+        },
+        "summary": {
+          "checks": "{{count}} kontrol",
+          "success": "{{count}} başarılı",
+          "warn": "{{count}} uyarı",
+          "error": "{{count}} hata",
+          "skipped": "{{count}} atlandı",
+          "repaired": "{{count}} onarıldı",
+          "manual": "{{count}} manuel",
+          "problems": "{{count}} sorun"
+        },
+        "status": {
+          "success": "Başarılı",
+          "error": "Hata",
+          "warn": "Uyarı",
+          "pending": "Bekliyor",
+          "running": "Çalışıyor",
+          "skipped": "Atlandı"
+        },
+        "outcome": {
+          "repaired": "Onarıldı",
+          "unchanged": "Değişmedi",
+          "manual": "Manuel",
+          "skipped": "Atlandı"
+        },
+        "repairMeta": {
+          "reason": {
+            "alreadyValid": "This rule is already valid",
+            "manualRule": "This rule requires a manual decision",
+            "statementGenerationFailed": "The system could not generate a safe repair statement",
+            "noStatements": "This rule has no automatic repair statement",
+            "symmetricFieldConflict": "This symmetric link conflict needs a manual choice",
+            "foreignKeyTargetTableMissing": "Automatic repair is unavailable because the linked table is missing",
+            "foreignKeyOrphanRows": "Automatic repair is unavailable because invalid linked rows still exist",
+            "junctionForeignKeyTargetTableMissing": "Automatic repair is unavailable because the junction target table is missing",
+            "junctionForeignKeyOrphanRows": "Automatic repair is unavailable because invalid junction rows still exist"
+          },
+          "description": {
+            "symmetricFieldConflict": "More than one field points at the same symmetric link target. Pick which field should own the two-way relationship before repairing.",
+            "foreignKeyTargetTableMissing": "Check whether the linked table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
+            "foreignKeyOrphanRows": "Clean up the invalid linked rows for \"{{fieldName}}\" before adding the foreign key constraint again.",
+            "junctionForeignKeyTargetTableMissing": "Check whether the target table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
+            "junctionForeignKeyOrphanRows": "Clean up the invalid junction rows for \"{{fieldName}}\" before adding the foreign key back."
+          },
+          "manual": {
+            "apply": "Apply manual repair",
+            "symmetricField": {
+              "title": "Resolve symmetric link conflict",
+              "description": "Pick how this duplicate symmetric link should be repaired.",
+              "resolutionLabel": "Repair strategy",
+              "resolutionDescription": "Choose which field should keep the two-way link behavior.",
+              "option": {
+                "keepCurrent": "Keep the current field as the two-way link",
+                "keepDuplicate": "Keep the duplicate field as the two-way link",
+                "convertDuplicate": "Convert the duplicate field to a one-way link"
+              }
+            }
+          }
+        }
+      },
+      "errorType": {
+        "InvalidPrimaryLookup": "Birincil alan Lookup olarak yanlış yapılandırıldı",
+        "InvalidPrimaryType": "Birincil alanın türü desteklenmiyor",
+        "MissingPrimary": "Tabloda birincil alan yok"
+      }
     }
   },
   "import": {
@@ -504,8 +744,9 @@
   },
   "form": {
     "fieldsManagement": "Alanlar",
-    "addAll": "Tümünü Ekle",
-    "removeAll": "Tümünü Kaldır",
+    "addAll": "Tümünü göster",
+    "removeAll": "Tümünü gizle",
+    "createField": "Alan oluştur",
     "hideFieldTip": "Alanı buraya gizle",
     "unableAddFieldTip": "Bu tür alan eklenemiyor",
     "removeFromFormTip": "Formdan kaldır",
@@ -588,7 +829,8 @@
     "expandGroup": "Bu grup ve alt gruplarını genişlet",
     "collapseGroup": "Bu grup ve alt gruplarını daralt",
     "expandAllGroups": "Tüm grupları genişlet",
-    "collapseAllGroups": "Tüm grupları daralt"
+    "collapseAllGroups": "Tüm grupları daralt",
+    "addToChat": "Sohbete ekle"
   },
   "connection": {
     "title": "Veritabanı Bağlantısı",
@@ -603,8 +845,8 @@
     "dragToolTip": "Otomatik sıralama açık, manuel sürükleme kullanılamaz",
     "insertToolTip": "Otomatik sıralama açık, sırayla ekleme kullanılamaz",
     "action": {
-      "rename": "Görünümü yeniden adlandır",
-      "delete": "Görünümü sil",
+      "rename": "Yeniden adlandır",
+      "delete": "Sil",
       "enable": "Etkinleştir"
     },
     "category": {
@@ -633,5 +875,133 @@
   "pasteNewRecords": {
     "title": "Birden fazla kayıt eklemek istiyor musunuz?",
     "description": "{{count}} kayıt tabloya eklenecek."
+  },
+  "download": {
+    "allAttachments": {
+      "title": "Tüm ekleri indir",
+      "loading": "Önizleme yükleniyor...",
+      "rowsWithAttachments": "Ekli satırlar",
+      "totalAttachments": "Ekler",
+      "totalSize": "Toplam boyut",
+      "confirmTitle": "{{count}} dosya indir",
+      "confirmDescription": "Toplam boyut: {{size}}. Dosyalar ZIP dosyasına sıkıştırılacak.",
+      "confirm": "İndir",
+      "cancel": "İptal",
+      "downloading": "İndiriliyor...",
+      "downloadingFile": "İndiriliyor: {{fileName}}",
+      "progress": "{{downloaded}} / {{total}}",
+      "completed": "İndirme tamamlandı",
+      "cancelled": "İndirme iptal edildi",
+      "noAttachments": "İndirilecek ek yok",
+      "error": "İndirme başarısız",
+      "errorPartial": "{{failedCount}} dosya indirilemedi",
+      "requireHttps": "Toplu indirme HTTPS gerektirir. Lütfen HTTPS veya localhost üzerinden erişin.",
+      "advancedOptions": "Gelişmiş seçenekler",
+      "namingFieldLabel": "Ek adı öneki",
+      "selectField": "Varsayılan: ek dizini",
+      "noPrefixOption": "Önek yok",
+      "noPrefixOptionDesc": "Orijinal dosya adını koru",
+      "groupByRow": "Klasörlere arşivle",
+      "groupByRowTip": "Bir satırda birden fazla ek varsa, aynı klasöre yerleştirilir; yalnızca bir eki olan satırlar klasör oluşturmaz."
+    }
+  },
+  "baseShare": {
+    "title": "Tabanı Paylaş",
+    "shareTitle": "Paylaş",
+    "shareToWeb": "Web'de paylaş",
+    "description": "\"{{baseName}}\" başkalarıyla paylaş",
+    "nodeShareDescription": "\"{{nodeName}}\" ve içeriğini paylaş",
+    "shareLinks": "Paylaşım bağlantıları",
+    "newLink": "Yeni bağlantı",
+    "noShareLinks": "Henüz paylaşım bağlantısı yok",
+    "createFirstLink": "Paylaşım bağlantısı oluştur",
+    "editSettings": "Ayarları düzenle",
+    "refreshLink": "Bağlantıyı yenile",
+    "deleteLink": "Bağlantıyı sil",
+    "deleteConfirmTitle": "Paylaşım bağlantısını sil",
+    "deleteConfirmDescription": "Bu işlem geri alınamaz. Bu bağlantıya sahip kişiler artık paylaşılan tabana erişemeyecek.",
+    "createSuccess": "Paylaşım bağlantısı oluşturuldu",
+    "createFailed": "Paylaşım bağlantısı oluşturulamadı",
+    "updateSuccess": "Paylaşım ayarları güncellendi",
+    "updateFailed": "Paylaşım ayarları güncellenemedi",
+    "deleteSuccess": "Paylaşım bağlantısı silindi",
+    "deleteFailed": "Paylaşım bağlantısı silinemedi",
+    "refreshSuccess": "Paylaşım bağlantısı yenilendi",
+    "refreshFailed": "Paylaşım bağlantısı yenilenemedi",
+    "copied": "Bağlantı panoya kopyalandı",
+    "shareLink": "Paylaşım bağlantısı",
+    "linkHolderLabel": "Bağlantıyı alan kişi",
+    "linkHolderCanView": "Görüntüleyebilir",
+    "linkHolderCanViewDesc": "Anyone with the link can view the data",
+    "linkHolderCanEdit": "Düzenleyebilir",
+    "linkHolderCanEditDesc": "Logged-in users can edit records in the table",
+    "viewLinkHolderCanViewDesc": "Bağlantıya sahip herkes bu görünümün verilerini görüntüleyebilir",
+    "viewLinkHolderCanEditDesc": "Oturum açmış kullanıcılar görünüm kapsamında veri düzenleyebilir",
+    "linkExposureNoticeOne": "Visitors can see data from \"{{name}}\"",
+    "linkExposureNoticeMany": "Visitors can see data from \"{{name}}\" and {{count}} tables in total",
+    "linkExposureNoticeGeneric": "Visitors can see data from linked tables",
+    "restrictScope": "Restrict scope",
+    "linkScopeDesc": "Restrict which records and fields are selectable in this views link fields. The setting applies to the field itself and affects every view that uses it.",
+    "linkScopeDialogTitle": "Link field scope",
+    "linkHolderCanCopyAndSave": "Kopya olarak kaydedebilir",
+    "linkHolderCanCopyAndSaveDesc": "Anyone with the link can save a copy to their space",
+    "editRequiresLogin": "Users must log in to edit records",
+    "passwordProtection": "Şifre koruması",
+    "enterPassword": "Şifre girin",
+    "selectNodes": "Tabloları seç",
+    "shareEntireBase": "Tüm tabanı paylaş",
+    "shareSelectedNodes": "Seçili düğümleri paylaş",
+    "shareEntireBaseDescription": "Bu tabana eklenen yeni tablolar ve klasörler otomatik olarak paylaşılacak",
+    "noNodesSelectedWarning": "Lütfen paylaşmak için en az bir düğüm seçin",
+    "allowSave": "Alana kaydetmeye izin ver",
+    "allowSaveDescription": "İzleyicilerin bu tabanın bir kopyasını kendi alanlarına kaydetmesine izin ver",
+    "allowCopy": "Veri kopyalamaya izin ver",
+    "allowCopyData": "İzleyicilerin veri kopyalamasına izin ver",
+    "allowDuplicate": "İzleyicilerin çoğaltmasına izin ver",
+    "allowCopyDescription": "İzleyicilerin bu paylaşılan tabandan tablo verilerini kopyalamasına izin ver",
+    "selectedNodes": "{{count}} tablo seçildi",
+    "allNodes": "Tüm tablolar",
+    "sharedNode": "Paylaşılan düğüm",
+    "sharedNodeDescription": "Bu paylaşım bağlantısı belirli bir düğüm ve alt öğeleri içindir",
+    "publicShareTitle": "Bağlantıyla herkese açık paylaşım",
+    "publicShareCount": "{{count}} herkese açık paylaşım bağlantısı",
+    "noPublicShare": "Herkese açık paylaşım bağlantısı yok",
+    "security": "Güvenlik",
+    "restrictByPassword": "Şifre ile kısıtla",
+    "advanced": "Gelişmiş",
+    "embedConfig": "Yerleştirme yapılandırması",
+    "appPublicLink": "Uygulama herkese açık bağlantısı",
+    "appNotPublished": "Bu uygulama henüz yayınlanmadı. Paylaşmadan önce lütfen uygulamayı yayınlayın.",
+    "goToPublish": "Yayınlamaya git",
+    "publishSuccess": "Uygulama başarıyla yayınlandı",
+    "publishFailed": "Uygulama yayınlanamadı",
+    "openLink": "Bağlantıyı aç",
+    "appPublished": "Uygulama yayınlandı",
+    "shareTableTab": "Tabloyu paylaş",
+    "shareViewTab": "Görünümü paylaş",
+    "shareNodeTab": "Düğümü paylaş"
+  },
+  "aiChat": {
+    "agent": {
+      "askUserQuestion": {
+        "otherPlaceholder": "Veya yanıtınızı yazın…"
+      },
+      "messageActions": {
+        "copy": "Kopyala",
+        "copyToInput": "Girişe kopyala"
+      }
+    },
+    "mention": {
+      "tables": "Tablolar",
+      "apps": "Uygulamalar",
+      "workflows": "Otomasyonlar",
+      "folders": "Klasörler"
+    },
+    "inputPlaceholder": "Düğüm eklemek için @ yazın",
+    "inputPlaceholderFiles": "Dosyaları buraya yapıştırın veya bırakın",
+    "attachment": {
+      "pastedTextFileName": "Yapıştırılan metin",
+      "imageNotSupported": "Görsel desteklenmiyor"
+    }
   }
 }

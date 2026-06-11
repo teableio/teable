@@ -3,8 +3,6 @@ import { useMutation } from '@tanstack/react-query';
 import type { IFilter, IGroup, ISort } from '@teable/core';
 import { FieldType, getValidFilterOperators } from '@teable/core';
 import {
-  Trash2,
-  Edit,
   EyeOff,
   ArrowLeft,
   ArrowRight,
@@ -12,25 +10,28 @@ import {
   Filter,
   LayoutList,
   ArrowUpDown,
-  Copy,
+  Edit,
   MagicAi,
   Download,
+  MessageSquareDot,
 } from '@teable/icons';
 import type { IDuplicateFieldRo } from '@teable/openapi';
-import { duplicateField } from '@teable/openapi';
+import { duplicateField, duplicateFieldCheck } from '@teable/openapi';
 import type { GridView } from '@teable/sdk';
 import {
+  useBaseId,
   useFieldPermission,
   useFields,
   useGridViewStore,
   useIsTouchDevice,
   usePersonalView,
+  useSearch,
   useTableId,
   useTablePermission,
   useView,
 } from '@teable/sdk';
 import { insertSingle } from '@teable/sdk/utils';
-
+import { ConfirmDialog } from '@teable/ui-lib/base';
 import {
   cn,
   Command,
@@ -45,12 +46,17 @@ import {
   SheetContent,
   SheetHeader,
 } from '@teable/ui-lib/shadcn';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
+import { CopyPlus, Trash } from 'lucide-react';
+import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { useClickAway } from 'react-use';
 import { useColumnDownloadDialogStore } from '@/features/app/components/download-attachments';
 import { FieldDeleteConfirmDialog } from '@/features/app/components/field-setting/field-delete-confirm-dialog/FieldDeleteConfirmDialog';
 import { FieldOperator } from '@/features/app/components/field-setting/type';
+import { useAI } from '@/features/app/hooks/useAI';
+import { useBaseUsage } from '@/features/app/hooks/useBaseUsage';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useFieldSettingStore } from '../../field/useFieldSettingStore';
 import { useToolBarStore } from '../../tool-bar/components/useToolBarStore';
@@ -70,6 +76,7 @@ enum MenuItemType {
   Group = 'Group',
   Duplicate = 'Duplicate',
   DownloadAllAttachments = 'DownloadAllAttachments',
+  AddToChat = 'AddToChat',
 }
 
 const iconClassName = 'mr-2 h-4 w-4';
@@ -77,9 +84,12 @@ const iconClassName = 'mr-2 h-4 w-4';
 // eslint-disable-next-line sonarjs/cognitive-complexity
 export const FieldMenu = () => {
   const isTouchDevice = useIsTouchDevice();
+  const router = useRouter();
   const view = useView() as GridView | undefined;
   const { filter, sort, group } = view || {};
   const tableId = useTableId();
+  const baseId = useBaseId();
+  const shareId = router.query.shareId as string | undefined;
   const { headerMenu, closeHeaderMenu } = useGridViewStore();
   const { isViewConfigurable } = useViewConfigurable();
   const { openSetting } = useFieldSettingStore();
@@ -88,9 +98,14 @@ export const FieldMenu = () => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const allFields = useFields({ withHidden: true, withDenied: true });
   const fieldSettingRef = useRef<HTMLDivElement>(null);
-  const { fields, aiEnable, onSelectionClear, onAutoFill } = headerMenu ?? {};
+  const { fields, aiEnable, onSelectionClear, onAutoFill, addToChat } = headerMenu ?? {};
   const { filterRef, sortRef, groupRef } = useToolBarStore();
-  const { personalViewCommonQuery } = usePersonalView();
+  const { enable: baseAiEnable } = useAI();
+  const usage = useBaseUsage();
+  const chatEnabled = Boolean(baseAiEnable && usage?.limit?.chatAIEnable);
+  const { personalViewCommonQuery, isPersonalView } = usePersonalView();
+  const { searchQuery } = useSearch();
+  const isViewLocked = Boolean(view?.isLocked && !isPersonalView);
   const emptyFieldMenu = !view || !fields?.length || !allFields.length;
   const [deleteFieldDialog, setDeleteFieldDialog] = useState<{
     open: boolean;
@@ -99,6 +114,13 @@ export const FieldMenu = () => {
   }>({
     open: false,
   });
+  const [crossSpaceFieldDup, setCrossSpaceFieldDup] = useState<{
+    open: boolean;
+    tableId?: string;
+    fieldId?: string;
+    name?: string;
+    viewId?: string;
+  }>({ open: false });
   const { openDialog: openDownloadDialog } = useColumnDownloadDialogStore();
 
   const { mutateAsync: duplicateFieldFn } = useMutation({
@@ -168,12 +190,29 @@ export const FieldMenu = () => {
   const handleDownloadAllAttachments = () => {
     if (!tableId || !fields?.length) return;
     const field = fields[0];
+
+    // For share view: use view's filter/sort/group directly (no personal view in share view)
+    // For normal view: use personalViewCommonQuery
+    const baseQuery = shareId
+      ? view?.filter || view?.sort || view?.group
+        ? {
+            filter: view?.filter ?? undefined,
+            orderBy: view?.sort?.sortObjs ?? undefined,
+            groupBy: view?.group ?? undefined,
+          }
+        : undefined
+      : personalViewCommonQuery;
+
+    const downloadQuery =
+      searchQuery || baseQuery ? { ...baseQuery, search: searchQuery } : undefined;
+
     openDownloadDialog({
       tableId,
       fieldId: field.id,
       fieldName: field.name,
       viewId: view?.id,
-      personalViewCommonQuery: personalViewCommonQuery ?? undefined,
+      shareId,
+      personalViewCommonQuery: downloadQuery,
     });
   };
 
@@ -194,21 +233,41 @@ export const FieldMenu = () => {
       {
         type: MenuItemType.Duplicate,
         name: t('table:menu.duplicateField'),
-        icon: <Copy className={iconClassName} />,
+        icon: <CopyPlus className={iconClassName} />,
         hidden: fieldIds.length !== 1 || !menuFieldPermission['field|update'],
         onClick: async () => {
-          if (!tableId) return;
+          if (!tableId || !baseId) return;
           const fieldId = fieldIds[0];
           const field = allFields.find((f) => f.id === fieldId);
           const newName = `${field?.name} ${t('common:noun.copy')}`;
-          await duplicateFieldFn({
-            tableId,
-            fieldId: fieldIds[0],
-            duplicateFieldRo: {
-              name: newName,
-              viewId: view.id,
-            },
-          });
+          const toastId = toast.loading(t('table:import.menu.duplicating'));
+          try {
+            const previewRes = await duplicateFieldCheck(baseId, tableId, fieldId);
+            const affected = previewRes.data.affectedFields;
+            if (affected.length > 0) {
+              toast.dismiss(toastId);
+              setCrossSpaceFieldDup({
+                open: true,
+                tableId,
+                fieldId,
+                name: newName,
+                viewId: view.id,
+              });
+              return;
+            }
+            await duplicateFieldFn({
+              tableId,
+              fieldId,
+              duplicateFieldRo: { name: newName, viewId: view.id },
+            });
+            toast.success(t('table:import.menu.duplicateSuccess'), { id: toastId });
+            onSelectionClear?.();
+            closeHeaderMenu();
+          } catch {
+            toast.error(t('table:import.menu.duplicateFailed'), { id: toastId });
+            onSelectionClear?.();
+            closeHeaderMenu();
+          }
         },
       },
     ],
@@ -229,6 +288,15 @@ export const FieldMenu = () => {
         icon: <Download className={iconClassName} />,
         hidden: fieldIds.length !== 1 || fields[0]?.type !== FieldType.Attachment,
         onClick: handleDownloadAllAttachments,
+      },
+      {
+        type: MenuItemType.AddToChat,
+        name: t('table:menu.addToChat'),
+        icon: <MessageSquareDot className={iconClassName} />,
+        hidden: !chatEnabled || !addToChat,
+        onClick: () => {
+          addToChat?.();
+        },
       },
     ],
     [
@@ -252,7 +320,8 @@ export const FieldMenu = () => {
         type: MenuItemType.Filter,
         name: t('table:menu.filterField'),
         icon: <Filter className={iconClassName} />,
-        hidden: fieldIds.length !== 1 || !permission['view|update'] || !isViewConfigurable,
+        hidden: fieldIds.length !== 1 || !isViewConfigurable,
+        disabled: isViewLocked,
         onClick: async () => {
           if (!headerMenu) {
             return;
@@ -286,7 +355,8 @@ export const FieldMenu = () => {
         type: MenuItemType.Sort,
         name: t('table:menu.sortField'),
         icon: <ArrowUpDown className={iconClassName} />,
-        hidden: fieldIds.length !== 1 || !permission['view|update'] || !isViewConfigurable,
+        hidden: fieldIds.length !== 1 || !isViewConfigurable,
+        disabled: isViewLocked,
         onClick: async () => {
           if (!headerMenu) {
             return;
@@ -323,7 +393,8 @@ export const FieldMenu = () => {
         type: MenuItemType.Group,
         name: t('table:menu.groupField'),
         icon: <LayoutList className={iconClassName} />,
-        hidden: fieldIds.length !== 1 || !permission['view|update'] || !isViewConfigurable,
+        hidden: fieldIds.length !== 1 || !isViewConfigurable,
+        disabled: isViewLocked,
         onClick: async () => {
           if (!headerMenu) {
             return;
@@ -357,7 +428,8 @@ export const FieldMenu = () => {
         type: MenuItemType.Freeze,
         name: t('table:menu.freezeUpField'),
         icon: <FreezeColumn className={iconClassName} />,
-        hidden: fieldIds.length !== 1 || !permission['view|update'] || !isViewConfigurable,
+        hidden: fieldIds.length !== 1 || !isViewConfigurable,
+        disabled: isViewLocked,
         onClick: async () => await freezeField(),
       },
     ],
@@ -366,8 +438,8 @@ export const FieldMenu = () => {
         type: MenuItemType.Hidden,
         name: t('table:menu.hideField'),
         icon: <EyeOff className={iconClassName} />,
-        hidden: !permission['view|update'] || !isViewConfigurable,
-        disabled: fields.some((f) => f.isPrimary),
+        hidden: !isViewConfigurable,
+        disabled: fields.some((f) => f.isPrimary) || isViewLocked,
         onClick: async () => {
           const fieldIdsSet = new Set(fieldIds);
           const filteredFields = allFields.filter((f) => fieldIdsSet.has(f.id)).filter(Boolean);
@@ -383,7 +455,7 @@ export const FieldMenu = () => {
           fieldIds.length > 1
             ? t('table:menu.deleteAllSelectedFields')
             : t('table:menu.deleteField'),
-        icon: <Trash2 className={iconClassName} />,
+        icon: <Trash className={iconClassName} />,
         hidden: !menuFieldPermission['field|delete'],
         disabled: fields.some((f) => f.isPrimary),
         className: 'text-red-500 aria-selected:text-red-500',
@@ -428,8 +500,10 @@ export const FieldMenu = () => {
                     if (disabled) return;
 
                     await onClick();
-                    // Don't auto-close menu for delete action
-                    if (type !== MenuItemType.Delete) {
+                    // Don't auto-close for actions that own their own follow-up
+                    // dialog; those handle closing the menu after the dialog
+                    // resolves.
+                    if (type !== MenuItemType.Delete && type !== MenuItemType.Duplicate) {
                       onSelectionClear?.();
                       closeHeaderMenu();
                     }
@@ -474,8 +548,10 @@ export const FieldMenu = () => {
                                 return;
                               }
                               await onClick();
-                              // Don't auto-close menu for delete action
-                              if (type !== MenuItemType.Delete) {
+                              // Don't auto-close for actions that own their own
+                              // follow-up dialog; those handle closing the menu
+                              // after the dialog resolves.
+                              if (type !== MenuItemType.Delete && type !== MenuItemType.Duplicate) {
                                 onSelectionClear?.();
                                 closeHeaderMenu();
                               }
@@ -505,6 +581,48 @@ export const FieldMenu = () => {
           onSelectionClear?.();
           closeHeaderMenu();
         }}
+      />
+
+      <ConfirmDialog
+        open={crossSpaceFieldDup.open}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCrossSpaceFieldDup({ open: false });
+            onSelectionClear?.();
+            closeHeaderMenu();
+          }
+        }}
+        title={t('table:crossSpace.duplicateFieldTitle')}
+        cancelText={t('common:actions.cancel')}
+        confirmText={t('table:crossSpace.convertAndDuplicate')}
+        onCancel={() => {
+          setCrossSpaceFieldDup({ open: false });
+          onSelectionClear?.();
+          closeHeaderMenu();
+        }}
+        onConfirm={async () => {
+          const { tableId: tId, fieldId, name, viewId } = crossSpaceFieldDup;
+          if (!tId || !fieldId || !name) return;
+          const toastId = toast.loading(t('table:import.menu.duplicating'));
+          try {
+            await duplicateFieldFn({
+              tableId: tId,
+              fieldId,
+              duplicateFieldRo: {
+                name,
+                viewId,
+              },
+            });
+            toast.success(t('table:import.menu.duplicateSuccess'), { id: toastId });
+          } catch {
+            toast.error(t('table:import.menu.duplicateFailed'), { id: toastId });
+          } finally {
+            setCrossSpaceFieldDup({ open: false });
+            onSelectionClear?.();
+            closeHeaderMenu();
+          }
+        }}
+        content={<p className="text-sm">{t('table:crossSpace.duplicateFieldDescription')}</p>}
       />
     </>
   );

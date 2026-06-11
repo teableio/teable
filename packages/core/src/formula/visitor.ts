@@ -1,31 +1,31 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { AbstractParseTreeVisitor } from 'antlr4ts/tree/AbstractParseTreeVisitor';
-import { CellValueType } from '../models/field/constant';
-import type { FieldCore } from '../models/field/field';
-import type { IRecord } from '../models/record';
-import { extractFieldReferenceId } from './field-reference.util';
-import { normalizeFunctionNameAlias } from './function-aliases';
-import { FunctionName } from './functions/common';
-import type { FormulaFunc } from './functions/common';
-import { FUNCTIONS } from './functions/factory';
-import { FormulaBaseError } from './functions/logical';
 import type {
   BinaryOpContext,
   BooleanLiteralContext,
   BracketsContext,
   DecimalLiteralContext,
+  FieldReferenceCurlyContext,
   FunctionCallContext,
   IntegerLiteralContext,
   LeftWhitespaceOrCommentsContext,
   RightWhitespaceOrCommentsContext,
   RootContext,
   StringLiteralContext,
-  FieldReferenceCurlyContext,
   UnaryOpContext,
-} from './parser/Formula';
-import type { FormulaVisitor } from './parser/FormulaVisitor';
+  FormulaVisitor,
+} from '@teable/formula';
+import { extractFieldReferenceId } from '@teable/formula';
+import { AbstractParseTreeVisitor } from 'antlr4ts/tree/AbstractParseTreeVisitor';
+import { CellValueType } from '../models/field/constant';
+import type { FieldCore } from '../models/field/field';
+import type { IRecord } from '../models/record';
+import { normalizeFunctionNameAlias } from './function-aliases';
+import { FunctionName } from './functions/common';
+import type { FormulaFunc } from './functions/common';
+import { FUNCTIONS } from './functions/factory';
+import { FormulaBaseError } from './functions/logical';
 import { TypedValue } from './typed-value';
 import { TypedValueConverter } from './typed-value-converter';
 
@@ -316,6 +316,9 @@ export class EvalVisitor
       leftValue,
       rightValue
     );
+    if (this.shouldUseStrictBlankEquality(leftTypedValue, rightTypedValue, leftValue, rightValue)) {
+      return normalized.left === normalized.right;
+    }
     return normalized.left == normalized.right;
   }
 
@@ -332,7 +335,35 @@ export class EvalVisitor
       rightValue
     );
 
+    if (this.shouldUseStrictBlankEquality(leftTypedValue, rightTypedValue, leftValue, rightValue)) {
+      return normalizedLeft !== normalizedRight;
+    }
+
     return normalizedLeft != normalizedRight;
+  }
+
+  private shouldUseStrictBlankEquality(
+    leftTypedValue: TypedValue,
+    rightTypedValue: TypedValue,
+    leftValue: unknown,
+    rightValue: unknown
+  ) {
+    const hasNumericOperand =
+      this.isNumericLikeTypedValue(leftTypedValue) || this.isNumericLikeTypedValue(rightTypedValue);
+    if (!hasNumericOperand) {
+      return false;
+    }
+    return (
+      this.isBlankEqualityValue(leftTypedValue, leftValue) ||
+      this.isBlankEqualityValue(rightTypedValue, rightValue)
+    );
+  }
+
+  private isBlankEqualityValue(typedValue: TypedValue, value: unknown) {
+    if (typedValue.isBlank || value == null) {
+      return true;
+    }
+    return this.isStringLikeTypedValue(typedValue) && value === '';
   }
 
   private normalizeEqualityValues(
@@ -372,7 +403,7 @@ export class EvalVisitor
     }
 
     if (value == null && this.isNumericLikeTypedValue(typedValue)) {
-      return 0;
+      return '';
     }
 
     return value;
@@ -405,6 +436,15 @@ export class EvalVisitor
   private createTypedValueByField(field: FieldCore) {
     let value: any = this.record ? this.record.fields[field.id] : null;
 
+    if (field.cellValueType === CellValueType.Number) {
+      return new TypedValue(
+        this.normalizeNumberCellValue(value, field.isMultipleCellValue),
+        field.cellValueType,
+        field.isMultipleCellValue,
+        field
+      );
+    }
+
     if (
       value == null ||
       ![CellValueType.String, CellValueType.DateTime].includes(field.cellValueType)
@@ -421,6 +461,21 @@ export class EvalVisitor
       value = field.cellValue2String(value);
     }
     return new TypedValue(value, field.cellValueType, field.isMultipleCellValue, field);
+  }
+
+  private normalizeNumberCellValue(value: any, isMultiple?: boolean) {
+    const normalize = (cellValue: any) => {
+      if (cellValue == null || cellValue === '') {
+        return null;
+      }
+      return typeof cellValue === 'number' ? cellValue : Number(cellValue);
+    };
+
+    if (isMultiple) {
+      return Array.isArray(value) ? value.map(normalize) : value;
+    }
+
+    return normalize(value);
   }
 
   visitFieldReferenceCurly(ctx: FieldReferenceCurlyContext) {

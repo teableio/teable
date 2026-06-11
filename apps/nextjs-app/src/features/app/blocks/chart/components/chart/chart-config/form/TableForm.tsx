@@ -133,8 +133,8 @@ export const TableForm = (props: {
                     <div className="flex-1 text-[13px]">{column.name}</div>
                     <Popover>
                       <PopoverTrigger>
-                        <Button variant="ghost" size="xs">
-                          <Settings />
+                        <Button variant="ghost" size="icon-xs">
+                          <Settings className="size-4 shrink-0" />
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="space-y-2">
@@ -168,7 +168,8 @@ const LabelInput = (props: { value?: string; onChange: (value?: string) => void 
   const [inputValue, setInputValue] = useState(value);
   return (
     <Input
-      className="h-7 text-[13px]"
+      className="text-[13px]"
+      size="sm"
       value={inputValue}
       onBlur={() => inputValue !== value && onChange(inputValue)}
       onChange={(e) => setInputValue(e.target.value)}

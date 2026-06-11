@@ -26,7 +26,6 @@ export const DebounceInput = ({
 
   return (
     <Input
-      className="h-8"
       type="search"
       {...restProps}
       value={search}

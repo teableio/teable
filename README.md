@@ -15,7 +15,7 @@
 </div>
 
 <p align="center">
-  <a target="_blank" href="https://teable.ai">Home</a> | <a target="_blank" href="https://help.teable.ai">Help</a> | <a target="_blank" href="https://teable.ai/blog">Blog</a> | <a target="_blank" href="https://teable.ai/templates">Template</a> | <a target="_blank" href="https://help.teable.ai/en/api-doc/token">API</a> | <a target="_blank" href="https://discord.gg/uZwp7tDE5W">Discord</a> | <a target="_blank" href="https://twitter.com/teableio">Twitter</a>
+  <a target="_blank" href="https://teable.ai">Home</a> | <a target="_blank" href="https://help.teable.ai">Help</a> | <a target="_blank" href="https://teable.ai/blog">Blog</a> | <a target="_blank" href="https://teable.ai/templates">Template</a> | <a target="_blank" href="https://help.teable.ai/en/api-doc/token">API</a> | <a target="_blank" href="https://community.teable.ai">Community</a> | <a target="_blank" href="https://twitter.com/teableio">Twitter</a>
 </p>
 
 <p align="center">
@@ -156,7 +156,6 @@ These platforms are easy to deploy with one click and come with free credits.
 
 [![Deploy on AlibabaCloud ComputeNest](https://service-info-public.oss-cn-hangzhou.aliyuncs.com/computenest-en.svg)](https://computenest.console.aliyun.com/service/instance/create/default?ServiceName=Teable%20%E7%A4%BE%E5%8C%BA%E7%89%88)
 
-
 ## Development
 
 #### 1. Initialize
@@ -169,9 +168,7 @@ corepack enable
 pnpm install
 ```
 
-#### 2. Select Database
-
-we currently support `sqlite` (dev only) and `postgres`, you can switch between them by running the following command
+#### 2. Initialize Postgres
 
 ```sh
 make switch-db-mode
@@ -194,6 +191,7 @@ pnpm dev
 ```
 
 By default, the plugin development server is not started. To preview and develop plugins, run:
+
 ```sh
 # build packages
 pnpm build:packages
@@ -202,8 +200,8 @@ pnpm build:packages
 cd plugins
 pnpm dev
 ```
-This will start the plugin development server on port 3002.
 
+This will start the plugin development server on port 3002.
 
 ## Why Teable?
 
@@ -234,16 +232,18 @@ In essence, Teable isn't just another no-code solution, it's a comprehensive ans
 
 Teable Community Edition (CE) is free for self-hosting under the AGPL license. See [./LICENSE](./LICENSE) for details.
 
-Teable Enterprise Edition (EE) includes advanced features such as AI, authority matrix, automation and advanced admin. For detailed information and pricing, please visit [pricing](https://app.teable.ai/public/pricing?host=self-hosted&billing=year).
+Teable Enterprise Edition (EE) includes advanced features such as AI, authority matrix, automation and advanced admin. For detailed information and pricing, please visit [pricing](https://teable.ai/pricing).
 
+## Internal image build
 
-
+```bash
 git tag v1.10.0
 
 docker login gitlab.tao5g.net:5050
 
-zx scripts/build-image.mjs --file=dockers/teable/Dockerfile --platform=linux/amd64 --tag=gitlab.tao5g.net:5050/teable:v1.10.2 
+zx scripts/build-image.mjs --file=dockers/teable/Dockerfile --platform=linux/amd64 --tag=gitlab.tao5g.net:5050/teable:v1.10.2
 
 docker tag gitlab.tao5g.net:1.10.2-alpha-amd64 gitlab.tao5g.net:5050/zctc/teable:1.10.2-alpha-amd64
 
-docker push gitlab.tao5g.net:5050/zctc/teable:1.10.2-alpha-amd64 
+docker push gitlab.tao5g.net:5050/zctc/teable:1.10.2-alpha-amd64
+```

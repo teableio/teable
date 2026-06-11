@@ -20,11 +20,11 @@ import {
   IdPrefix,
   TemplateRolePermission,
   actionPrefixMap,
+  getRandomString,
   getBasePermission,
   isLinkLookupOptions,
 } from '@teable/core';
-import { PrismaService } from '@teable/db-main-prisma';
-import { CreateRecordAction, ResourceType } from '@teable/openapi';
+import { PrismaService, ProvisionState } from '@teable/db-main-prisma';
 import type {
   ICreateRecordsRo,
   ICreateTableRo,
@@ -35,6 +35,7 @@ import type {
   ITableVo,
   IUpdateOrderRo,
 } from '@teable/openapi';
+import { CreateRecordAction, ResourceType } from '@teable/openapi';
 import { nanoid } from 'nanoid';
 import { ClsService } from 'nestjs-cls';
 import { ThresholdConfig, IThresholdConfig } from '../../../configs/threshold.config';
@@ -43,9 +44,13 @@ import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import { Events } from '../../../event-emitter/events';
+import type { IDataDbRoutingOptions } from '../../../global/data-db-client-manager.service';
+import { DatabaseRouter } from '../../../global/database-router.service';
 import { RawOpType } from '../../../share-db/interface';
 import type { IClsStore } from '../../../types/cls';
 import { updateOrder } from '../../../utils/update-order';
+import { AuditScope } from '../../audit/audit-scope';
+import { Audit } from '../../audit/audit.decorator';
 import { PermissionService } from '../../auth/permission.service';
 import { BatchService } from '../../calculation/batch.service';
 import { LinkService } from '../../calculation/link.service';
@@ -58,12 +63,14 @@ import { RecordService } from '../../record/record.service';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
 import { TableDuplicateService } from '../table-duplicate.service';
 import { TableService } from '../table.service';
+import { TableMutationCacheInvalidator } from './table-mutation-cache-invalidator';
 
 @Injectable()
 export class TableOpenApiService {
   private logger = new Logger(TableOpenApiService.name);
   constructor(
     private readonly prismaService: PrismaService,
+    private readonly databaseRouter: DatabaseRouter,
     private readonly recordOpenApiService: RecordOpenApiService,
     private readonly viewOpenApiService: ViewOpenApiService,
     private readonly recordService: RecordService,
@@ -78,7 +85,9 @@ export class TableOpenApiService {
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     private readonly cls: ClsService<IClsStore>,
-    private readonly eventEmitterService: EventEmitterService
+    private readonly eventEmitterService: EventEmitterService,
+    private readonly tableMutationCacheInvalidator: TableMutationCacheInvalidator,
+    private readonly audit: AuditScope
   ) {}
 
   private async createView(tableId: string, viewRos: IViewRo[]) {
@@ -140,32 +149,113 @@ export class TableOpenApiService {
     return this.recordOpenApiService.createRecords(tableId, data);
   }
 
+  private async completeTableCreateSchemaOperation(
+    baseId: string,
+    tableId: string,
+    recordCount: number
+  ) {
+    const now = new Date();
+    const userId = this.cls.get('user.id');
+
+    await this.prismaService.txClient().schemaOperation.upsert({
+      where: {
+        idempotencyKey: `table.create:table:${tableId}`,
+      },
+      create: {
+        id: `sgo${getRandomString(16)}`,
+        type: 'table.create',
+        status: 'ready',
+        phase: 'ready',
+        resourceType: 'table',
+        resourceId: tableId,
+        baseId,
+        tableId,
+        idempotencyKey: `table.create:table:${tableId}`,
+        payload: { recordCount },
+        attempts: 0,
+        maxAttempts: 8,
+        nextRunAt: now,
+        createdBy: userId,
+        lastModifiedTime: now,
+        lastModifiedBy: userId,
+      },
+      update: {
+        type: 'table.create',
+        status: 'ready',
+        phase: 'ready',
+        resourceType: 'table',
+        resourceId: tableId,
+        baseId,
+        tableId,
+        payload: { recordCount },
+        attempts: 0,
+        maxAttempts: 8,
+        nextRunAt: now,
+        lockedAt: null,
+        lockedBy: null,
+        lastError: null,
+        lastModifiedBy: userId,
+      },
+    });
+  }
+
+  private async cleanupCreatedDataTable(
+    baseId: string,
+    table: Pick<ITableVo, 'id' | 'dbTableName'> | undefined,
+    reason: unknown
+  ) {
+    if (!table?.dbTableName) {
+      return;
+    }
+
+    try {
+      await this.databaseRouter.executeDataPrismaForBase(
+        baseId,
+        this.dbProvider.dropTable(table.dbTableName)
+      );
+      await this.tableMutationCacheInvalidator.invalidateDroppedTable(table.dbTableName);
+    } catch (cleanupError) {
+      this.logger.error(
+        `Failed to clean up data table ${table.dbTableName} (${table.id}) after table creation rollback: ${
+          reason instanceof Error ? reason.message : String(reason)
+        }`,
+        cleanupError instanceof Error ? cleanupError.stack : undefined
+      );
+    }
+  }
+
   private async prepareFields(tableId: string, fieldRos: IFieldRo[]) {
-    const simpleFields: IFieldRo[] = [];
-    const computeFields: IFieldRo[] = [];
+    const independentFields: IFieldRo[] = [];
+    const dependentFields: IFieldRo[] = [];
     fieldRos.forEach((field) => {
-      if (field.type === FieldType.Link || field.type === FieldType.Formula || field.isLookup) {
-        computeFields.push(field);
+      if (field.type === FieldType.Formula || field.type === FieldType.Rollup || field.isLookup) {
+        dependentFields.push(field);
       } else {
-        simpleFields.push(field);
+        independentFields.push(field);
       }
     });
 
     const fields: IFieldVo[] = await this.fieldSupplementService.prepareCreateFields(
       tableId,
-      simpleFields
+      independentFields,
+      undefined,
+      { useTransaction: true }
     );
 
-    const allFieldRos = simpleFields.concat(computeFields);
+    const allFieldRos = independentFields.concat(dependentFields);
 
     const fieldVoMap = new Map<IFieldRo, IFieldVo>();
-    simpleFields.forEach((f, i) => fieldVoMap.set(f, fields[i]));
+    independentFields.forEach((f, i) => fieldVoMap.set(f, fields[i]));
 
-    for (const fieldRo of computeFields) {
+    for (const fieldRo of dependentFields) {
+      const batchFieldVos = allFieldRos
+        .filter((ro) => ro !== fieldRo)
+        .map((ro) => fieldVoMap.get(ro) ?? (ro as unknown as IFieldVo));
       const computedFieldVo = await this.fieldSupplementService.prepareCreateField(
         tableId,
         fieldRo,
-        allFieldRos.filter((ro) => ro !== fieldRo) as IFieldVo[]
+        batchFieldVos,
+        { useTransaction: true }
       );
       fieldVoMap.set(fieldRo, computedFieldVo);
     }
@@ -190,60 +280,87 @@ export class TableOpenApiService {
   }
 
   async createTable(baseId: string, tableRo: ICreateTableWithDefault): Promise<ITableFullVo> {
-    const schema = await this.prismaService.$tx(async () => {
-      const tableVo = await this.createTableMeta(baseId, tableRo);
-      const tableId = tableVo.id;
+    let createdTable: ITableVo | undefined;
+    const schema = await this.prismaService
+      .$tx(async () => {
+        const tableVo = await this.createTableMeta(baseId, tableRo);
+        createdTable = tableVo;
+        const tableId = tableVo.id;
 
-      const preparedFields = await this.prepareFields(tableId, tableRo.fields);
+        // Mark the first field as primary BEFORE prepareFields so the validation in
+        // prepareCreateFields catches bad-type / lookup-ish primaries from internal callers
+        // (template/import/AI) that don't go through the prepareCreateTableRo pipe.
+        if (
+          tableRo.fields.length &&
+          !tableRo.fields.find((field) => (field as IFieldVo).isPrimary)
+        ) {
+          (tableRo.fields[0] as IFieldVo).isPrimary = true;
+        }
 
-      // set the first field to be the primary field if not set
-      if (!preparedFields.find((field) => field.isPrimary)) {
-        preparedFields[0].isPrimary = true;
-      }
+        const preparedFields = await this.prepareFields(tableId, tableRo.fields);
 
-      // create teable should not set computed field isPending, because noting need to calculate when create
-      preparedFields.forEach((field) => delete field.isPending);
-      const fieldVos = await this.createFields(tableId, preparedFields);
+        // create teable should not set computed field isPending, because noting need to calculate when create
+        preparedFields.forEach((field) => delete field.isPending);
+        await this.createFields(tableId, preparedFields);
 
-      const viewVos = await this.createView(tableId, tableRo.views);
+        const viewVos = await this.createView(tableId, tableRo.views);
+        const allFieldVos = await this.fieldOpenApiService.getFields(tableId, {
+          filterHidden: false,
+        });
 
-      return {
-        ...tableVo,
-        total: tableRo.records?.length || 0,
-        fields: fieldVos,
-        views: viewVos,
-        defaultViewId: viewVos[0].id,
-      };
-    });
+        // Maintain original field order from input to ensure consistent API response
+        const fieldIdOrder = new Map(preparedFields.map((f, i) => [f.id, i]));
+        const fieldVos = allFieldVos.sort((a, b) => {
+          const orderA = fieldIdOrder.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+          const orderB = fieldIdOrder.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+          return orderA - orderB;
+        });
+        await this.completeTableCreateSchemaOperation(
+          baseId,
+          tableId,
+          tableRo.records?.length ?? 0
+        );
 
-    const isDefaultRecords =
-      tableRo.records?.length === 3 &&
-      tableRo?.records?.every(({ fields }) => Object.keys(fields).length === 0);
+        return {
+          ...tableVo,
+          total: tableRo.records?.length || 0,
+          fields: fieldVos,
+          views: viewVos,
+          defaultViewId: viewVos[0].id,
+        };
+      })
+      .catch(async (error) => {
+        await this.cleanupCreatedDataTable(baseId, createdTable, error);
+        throw error;
+      });
 
-    // default records
-    if (isDefaultRecords) {
-      this.cls.set('skipRecordAuditLog', true);
-    }
+    const records = await this.createInitialRecords(schema.id, tableRo);
+    return { ...schema, records };
+  }
 
-    const records = await this.prismaService.$tx(async () => {
+  @Audit({
+    // Only mark with CreateDefaultRecords when the caller is actually creating the
+    // canonical 3-empty-row default; otherwise (custom records or no records) skip.
+    rootAction: (_tableId: string, ro: ICreateTableWithDefault) => {
+      const isDefault =
+        ro.records?.length === 3 &&
+        ro.records?.every(({ fields }) => Object.keys(fields).length === 0);
+      return isDefault ? CreateRecordAction.CreateDefaultRecords : undefined;
+    },
+    resourceId: (tableId: string) => tableId,
+    params: (_tableId: string, ro: ICreateTableWithDefault) =>
+      ro as unknown as Record<string, unknown>,
+  })
+  private async createInitialRecords(tableId: string, tableRo: ICreateTableWithDefault) {
+    return this.prismaService.$tx(async () => {
       const recordsVo =
         tableRo.records?.length &&
-        (await this.createRecords(schema.id, {
+        (await this.createRecords(tableId, {
           records: tableRo.records,
           fieldKeyType: tableRo.fieldKeyType ?? FieldKeyType.Name,
         }));
-
       return recordsVo ? recordsVo.records : [];
     });
-
-    if (isDefaultRecords) {
-      await this.emitDefaultRecordsAuditLog(schema.id, tableRo);
-    }
-
-    return {
-      ...schema,
-      records,
-    };
   }
 
   async duplicateTable(baseId: string, tableId: string, tableRo: IDuplicateTableRo) {
@@ -264,6 +381,7 @@ export class TableOpenApiService {
       where: {
         baseId,
         deletedTime: null,
+        provisionState: ProvisionState.ready,
         id: includeTableIds ? { in: includeTableIds } : undefined,
       },
     });
@@ -294,26 +412,8 @@ export class TableOpenApiService {
   }
 
   async detachLink(tableId: string) {
-    // handle the link field in this table
-    const linkFields = await this.prismaService.txClient().field.findMany({
-      where: { tableId, type: FieldType.Link, isLookup: null, deletedTime: null },
-      select: { id: true, options: true },
-    });
-
-    for (const field of linkFields) {
-      if (field.options) {
-        const options = JSON.parse(field.options as string) as ILinkFieldOptions;
-        // if the link field is a self-link field, skip it
-        if (options.foreignTableId === tableId) {
-          continue;
-        }
-      }
-      await this.fieldOpenApiService.convertField(tableId, field.id, {
-        type: FieldType.SingleLineText,
-      });
-    }
-
-    // handle the link field in related tables
+    // Only surviving tables need detaching. The deleted table's own link fields can remain intact
+    // so that a later restore can preserve their original link configuration.
     const relatedLinkFieldRaws = await this.linkService.getRelatedLinkFieldRaws(tableId);
 
     for (const field of relatedLinkFieldRaws) {
@@ -342,7 +442,7 @@ export class TableOpenApiService {
       async () => {
         await this.dropTables(tableIds);
         await this.cleanTaskRelatedData(tableIds);
-        await this.cleanTablesRelatedData(baseId, tableIds);
+        await this.cleanTablesRelatedData(baseId, tableIds, { useTransaction: true });
       },
       {
         timeout: this.thresholdConfig.bigTransactionTimeout,
@@ -355,16 +455,18 @@ export class TableOpenApiService {
       where: { id: { in: tableIds } },
       select: { dbTableName: true, version: true, id: true, baseId: true, deletedTime: true },
     });
-
     for (const table of tables) {
       if (!table.deletedTime) {
         await this.batchService.saveRawOps(table.baseId, RawOpType.Del, IdPrefix.Table, [
           { docId: table.id, version: table.version },
         ]);
       }
-      await this.prismaService
-        .txClient()
-        .$executeRawUnsafe(this.dbProvider.dropTable(table.dbTableName));
+      await this.databaseRouter.executeDataPrismaForTable(
+        table.id,
+        this.dbProvider.dropTable(table.dbTableName),
+        { useTransaction: true }
+      );
+      await this.tableMutationCacheInvalidator.invalidateDroppedTable(table.dbTableName);
     }
   }
 
@@ -408,53 +510,66 @@ export class TableOpenApiService {
     });
   }
 
-  async cleanTablesRelatedData(baseId: string, tableIds: string[]) {
+  async cleanTablesRelatedData(
+    baseId: string,
+    tableIds: string[],
+    routingOptions?: IDataDbRoutingOptions
+  ) {
+    const metaPrisma = this.prismaService.txClient();
+
     // delete field for table
-    await this.prismaService.txClient().field.deleteMany({
+    await metaPrisma.field.deleteMany({
       where: { tableId: { in: tableIds } },
     });
 
     // delete view for table
-    await this.prismaService.txClient().view.deleteMany({
+    await metaPrisma.view.deleteMany({
       where: { tableId: { in: tableIds } },
     });
 
     // clean attachment for table
-    await this.prismaService.txClient().attachmentsTable.deleteMany({
+    await metaPrisma.attachmentsTable.deleteMany({
       where: { tableId: { in: tableIds } },
     });
 
     // clear ops for view/field/record
-    await this.prismaService.txClient().ops.deleteMany({
+    await metaPrisma.ops.deleteMany({
       where: { collection: { in: tableIds } },
     });
 
     // clean ops for table
-    await this.prismaService.txClient().ops.deleteMany({
+    await metaPrisma.ops.deleteMany({
       where: { collection: baseId, docId: { in: tableIds } },
     });
 
-    await this.prismaService.txClient().tableMeta.deleteMany({
+    await metaPrisma.tableMeta.deleteMany({
       where: { id: { in: tableIds } },
     });
 
+    // record history and trash snapshots live with the physical record tables on the data DB.
+    const routedDataPrisma = await this.databaseRouter.dataPrismaForBase(baseId, routingOptions);
+    const dataPrisma =
+      'txClient' in routedDataPrisma && typeof routedDataPrisma.txClient === 'function'
+        ? routedDataPrisma.txClient()
+        : routedDataPrisma;
+
     // clean record history for table
-    await this.prismaService.txClient().recordHistory.deleteMany({
+    await dataPrisma.recordHistory.deleteMany({
       where: { tableId: { in: tableIds } },
     });
 
     // clean trash for table
-    await this.prismaService.txClient().trash.deleteMany({
+    await metaPrisma.trash.deleteMany({
       where: { resourceId: { in: tableIds }, resourceType: ResourceType.Table },
     });
 
     // clean table trash
-    await this.prismaService.txClient().tableTrash.deleteMany({
+    await dataPrisma.tableTrash.deleteMany({
       where: { tableId: { in: tableIds } },
     });
 
     // clean record trash
-    await this.prismaService.txClient().recordTrash.deleteMany({
+    await dataPrisma.recordTrash.deleteMany({
       where: { tableId: { in: tableIds } },
     });
   }
@@ -518,10 +633,6 @@ export class TableOpenApiService {
           where: { tableId, deletedTime },
           data: { deletedTime: null },
         });
-
-        await prisma.trash.deleteMany({
-          where: { resourceId: tableId },
-        });
       },
       {
         timeout: this.thresholdConfig.bigTransactionTimeout,
@@ -551,7 +662,7 @@ export class TableOpenApiService {
     `;
     this.logger.log('sqlQuery:sql:combine: ' + combinedQuery);
 
-    return this.prismaService.$queryRawUnsafe(combinedQuery);
+    return this.databaseRouter.queryDataPrismaForTable(tableId, combinedQuery);
   }
 
   async updateName(baseId: string, tableId: string, name: string) {
@@ -615,51 +726,82 @@ export class TableOpenApiService {
     );
     const lookupFieldsQuery = this.dbProvider.lookupOptionsQuery('fkHostTableName', oldDbTableName);
 
-    await this.prismaService.$tx(async (prisma) => {
-      const linkFieldsRaw =
-        await this.prismaService.$queryRawUnsafe<{ id: string; options: string }[]>(
-          linkFieldsQuery
-        );
-      const lookupFieldsRaw =
-        await this.prismaService.$queryRawUnsafe<{ id: string; lookupOptions: string }[]>(
-          lookupFieldsQuery
-        );
+    const renameSql = this.dbProvider.renameTableName(oldDbTableName, dbTableName);
+    const rollbackRenameSql = this.dbProvider.renameTableName(dbTableName, oldDbTableName);
 
-      for (const field of linkFieldsRaw) {
-        const options = JSON.parse(field.options as string) as ILinkFieldOptions;
-        await prisma.field.update({
-          where: { id: field.id },
-          data: { options: JSON.stringify({ ...options, fkHostTableName: dbTableName }) },
-        });
-      }
-
-      for (const field of lookupFieldsRaw) {
-        const lookupOptions = JSON.parse(field.lookupOptions as string) as ILookupOptionsVo;
-        if (!isLinkLookupOptions(lookupOptions)) {
-          continue;
+    await this.databaseRouter.dataPrismaTransactionForTable(
+      tableId,
+      async (prisma) => {
+        for (const sql of renameSql) {
+          await prisma.$executeRawUnsafe(sql);
         }
-        await prisma.field.update({
-          where: { id: field.id },
-          data: {
-            lookupOptions: JSON.stringify({
-              ...lookupOptions,
-              fkHostTableName: dbTableName,
-            }),
-          },
-        });
+      },
+      {
+        timeout: this.thresholdConfig.bigTransactionTimeout,
       }
+    );
 
-      await this.tableService.updateTable(baseId, tableId, { dbTableName });
-      const renameSql = this.dbProvider.renameTableName(oldDbTableName, dbTableName);
-      for (const sql of renameSql) {
-        await prisma.$executeRawUnsafe(sql);
-      }
-    });
+    try {
+      await this.prismaService.$tx(async (prisma) => {
+        const linkFieldsRaw =
+          await prisma.$queryRawUnsafe<{ id: string; options: string }[]>(linkFieldsQuery);
+        const lookupFieldsRaw =
+          await prisma.$queryRawUnsafe<{ id: string; lookupOptions: string }[]>(lookupFieldsQuery);
+
+        for (const field of linkFieldsRaw) {
+          const options = JSON.parse(field.options as string) as ILinkFieldOptions;
+          await prisma.field.update({
+            where: { id: field.id },
+            data: { options: JSON.stringify({ ...options, fkHostTableName: dbTableName }) },
+          });
+        }
+
+        for (const field of lookupFieldsRaw) {
+          const lookupOptions = JSON.parse(field.lookupOptions as string) as ILookupOptionsVo;
+          if (!isLinkLookupOptions(lookupOptions)) {
+            continue;
+          }
+          await prisma.field.update({
+            where: { id: field.id },
+            data: {
+              lookupOptions: JSON.stringify({
+                ...lookupOptions,
+                fkHostTableName: dbTableName,
+              }),
+            },
+          });
+        }
+
+        await this.tableService.updateTable(baseId, tableId, { dbTableName });
+      });
+    } catch (error) {
+      await this.databaseRouter
+        .dataPrismaTransactionForTable(
+          tableId,
+          async (prisma) => {
+            for (const sql of rollbackRenameSql) {
+              await prisma.$executeRawUnsafe(sql);
+            }
+          },
+          {
+            timeout: this.thresholdConfig.bigTransactionTimeout,
+          }
+        )
+        .catch((rollbackError) => {
+          this.logger.error(
+            `Failed to rollback data table rename ${dbTableName} -> ${oldDbTableName}: ${
+              rollbackError instanceof Error ? rollbackError.message : String(rollbackError)
+            }`,
+            rollbackError instanceof Error ? rollbackError.stack : undefined
+          );
+        });
+      throw error;
+    }
   }
 
   async shuffle(baseId: string) {
     const tables = await this.prismaService.tableMeta.findMany({
-      where: { baseId, deletedTime: null },
+      where: { baseId, deletedTime: null, provisionState: ProvisionState.ready },
       select: { id: true },
       orderBy: { order: 'asc' },
     });
@@ -681,6 +823,7 @@ export class TableOpenApiService {
       where: {
         baseId,
         deletedTime: null,
+        provisionState: ProvisionState.ready,
       },
       select: {
         order: true,
@@ -699,7 +842,7 @@ export class TableOpenApiService {
     const table = await this.prismaService.tableMeta
       .findFirstOrThrow({
         select: { order: true, id: true },
-        where: { baseId, id: tableId, deletedTime: null },
+        where: { baseId, id: tableId, deletedTime: null, provisionState: ProvisionState.ready },
       })
       .catch(() => {
         throw new CustomHttpException(`Table ${tableId} not found`, HttpErrorCode.NOT_FOUND, {
@@ -712,7 +855,7 @@ export class TableOpenApiService {
     const anchorTable = await this.prismaService.tableMeta
       .findFirstOrThrow({
         select: { order: true, id: true },
-        where: { baseId, id: anchorId, deletedTime: null },
+        where: { baseId, id: anchorId, deletedTime: null, provisionState: ProvisionState.ready },
       })
       .catch(() => {
         throw new CustomHttpException(`Anchor ${anchorId} not found`, HttpErrorCode.NOT_FOUND, {
@@ -733,6 +876,7 @@ export class TableOpenApiService {
           where: {
             baseId,
             deletedTime: null,
+            provisionState: ProvisionState.ready,
             order: whereOrder,
           },
           orderBy: { order: align },
@@ -752,10 +896,22 @@ export class TableOpenApiService {
   }
 
   async getPermission(baseId: string, tableId: string): Promise<ITablePermissionVo> {
+    const baseShare = this.cls.get('baseShare');
     if (this.cls.get('template') || this.cls.get('template.baseId') === baseId) {
       return this.getPermissionByPermissionMap(
         TemplateRolePermission as Record<BasePermission, boolean>
       );
+    }
+    if (baseShare?.baseId === baseId) {
+      const clsPermissions = new Set(this.cls.get('permissions'));
+      // Build permission map from CLS permissions (already curated by permission service)
+      const permissionMap = { ...TemplateRolePermission } as Record<BasePermission, boolean>;
+      for (const perm of Object.keys(permissionMap) as BasePermission[]) {
+        if (clsPermissions.has(perm)) {
+          permissionMap[perm as BasePermission] = true;
+        }
+      }
+      return this.getPermissionByPermissionMap(permissionMap);
     }
     let role: IRole | null = await this.permissionService.getRoleByBaseId(baseId);
     if (!role) {
@@ -815,14 +971,5 @@ export class TableOpenApiService {
   async getPermissionByRole(tableId: string, role: IRole) {
     const permissionMap = getBasePermission(role);
     return this.getPermissionByPermissionMap(permissionMap);
-  }
-
-  private async emitDefaultRecordsAuditLog(tableId: string, ro: ICreateTableWithDefault) {
-    this.eventEmitterService.emit(Events.TABLE_RECORD_CREATE_RELATIVE, {
-      resourceId: tableId,
-      action: CreateRecordAction.CreateDefaultRecords,
-      recordCount: 3,
-      params: ro,
-    });
   }
 }

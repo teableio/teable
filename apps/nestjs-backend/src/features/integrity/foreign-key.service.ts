@@ -4,6 +4,8 @@ import { Prisma, PrismaService } from '@teable/db-main-prisma';
 import { IntegrityIssueType, type IIntegrityIssue } from '@teable/openapi';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
+import { DatabaseRouter } from '../../global/database-router.service';
+import { DATA_KNEX } from '../../global/knex/knex.module';
 import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
 
 @Injectable()
@@ -12,7 +14,8 @@ export class ForeignKeyIntegrityService {
 
   constructor(
     private readonly prismaService: PrismaService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    private readonly databaseRouter: DatabaseRouter,
+    @InjectModel(DATA_KNEX) private readonly knex: Knex
   ) {}
 
   async getIssues(tableId: string, field: LinkFieldDto): Promise<IIntegrityIssue[]> {
@@ -40,6 +43,7 @@ export class ForeignKeyIntegrityService {
         field,
         referencedTableName: selfTableName,
         isSelfReference: true,
+        routingTableId: tableId,
       });
       issues.push(...selfIssues);
     }
@@ -53,6 +57,7 @@ export class ForeignKeyIntegrityService {
         field,
         referencedTableName: foreignTableName,
         isSelfReference: false,
+        routingTableId: tableId,
       });
       issues.push(...foreignIssues);
     }
@@ -67,6 +72,7 @@ export class ForeignKeyIntegrityService {
     field,
     referencedTableName,
     isSelfReference,
+    routingTableId,
   }: {
     fkHostTableName: string;
     targetTableName: string;
@@ -74,6 +80,7 @@ export class ForeignKeyIntegrityService {
     field: { id: string; name: string };
     referencedTableName: string;
     isSelfReference: boolean;
+    routingTableId: string;
   }): Promise<IIntegrityIssue[]> {
     const issues: IIntegrityIssue[] = [];
 
@@ -85,8 +92,11 @@ export class ForeignKeyIntegrityService {
       .toQuery();
 
     try {
-      const invalidRefs =
-        await this.prismaService.$queryRawUnsafe<{ count: bigint }[]>(invalidQuery);
+      const invalidRefs = await this.databaseRouter.queryDataPrismaForTable<{ count: bigint }[]>(
+        routingTableId,
+        invalidQuery,
+        { useTransaction: true }
+      );
       const refCount = Number(invalidRefs[0]?.count || 0);
 
       if (refCount > 0) {
@@ -136,6 +146,7 @@ export class ForeignKeyIntegrityService {
         fkHostTableName,
         targetTableName: table.dbTableName,
         keyName: selfKeyName,
+        routingTableId: tableId,
       });
       totalFixed += selfDeleted;
     }
@@ -146,6 +157,7 @@ export class ForeignKeyIntegrityService {
         fkHostTableName,
         targetTableName: foreignTable.dbTableName,
         keyName: foreignKeyName,
+        routingTableId: tableId,
       });
       totalFixed += foreignDeleted;
     }
@@ -163,10 +175,12 @@ export class ForeignKeyIntegrityService {
     fkHostTableName,
     targetTableName,
     keyName,
+    routingTableId,
   }: {
     fkHostTableName: string;
     targetTableName: string;
     keyName: string;
+    routingTableId: string;
   }) {
     if (!fkHostTableName.split('.')[1].startsWith('junction_')) {
       throw new Error(`fkHostTableName: ${fkHostTableName} is not a junction table`);
@@ -181,6 +195,8 @@ export class ForeignKeyIntegrityService {
       )
       .delete()
       .toQuery();
-    return await this.prismaService.$executeRawUnsafe(deleteQuery);
+    return await this.databaseRouter.executeDataPrismaForTable(routingTableId, deleteQuery, {
+      useTransaction: true,
+    });
   }
 }

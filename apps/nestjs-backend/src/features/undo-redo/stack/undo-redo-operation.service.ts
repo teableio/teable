@@ -7,12 +7,15 @@ import type { IUndoRedoOperation } from '../../../cache/types';
 import { OperationName } from '../../../cache/types';
 import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
 import { Events, IEventRawContext } from '../../../event-emitter/events';
+import { DataDbClientManager } from '../../../global/data-db-client-manager.service';
+import { FieldOpenApiV2Service } from '../../field/open-api/field-open-api-v2.service';
 import { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { RecordService } from '../../record/record.service';
 import { TableDomainQueryService } from '../../table-domain';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
 import { ViewService } from '../../view/view.service';
+import { ConvertFieldV2Operation } from '../operations/convert-field-v2.operation';
 import { ConvertFieldOperation, IConvertFieldPayload } from '../operations/convert-field.operation';
 import { CreateFieldsOperation, ICreateFieldsPayload } from '../operations/create-fields.operation';
 import type { ICreateRecordsPayload } from '../operations/create-records.operation';
@@ -49,6 +52,7 @@ export class UndoRedoOperationService {
   createFields: CreateFieldsOperation;
   deleteFields: DeleteFieldsOperation;
   convertField: ConvertFieldOperation;
+  convertFieldV2: ConvertFieldV2Operation;
   pasteSelection: PasteSelectionOperation;
   deleteView: DeleteViewOperation;
   createView: CreateViewOperation;
@@ -58,10 +62,12 @@ export class UndoRedoOperationService {
     private readonly undoRedoStackService: UndoRedoStackService,
     private readonly recordOpenApiService: RecordOpenApiService,
     private readonly fieldOpenApiService: FieldOpenApiService,
+    private readonly fieldOpenApiV2Service: FieldOpenApiV2Service,
     private readonly viewOpenApiService: ViewOpenApiService,
     private readonly recordService: RecordService,
     private readonly viewService: ViewService,
     private readonly prismaService: PrismaService,
+    private readonly dataDbClientManager: DataDbClientManager,
     private readonly tableDomainQueryService: TableDomainQueryService,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {
@@ -72,8 +78,8 @@ export class UndoRedoOperationService {
     );
     this.deleteRecords = new DeleteRecordsOperation(
       this.recordOpenApiService,
-      this.prismaService,
-      this.thresholdConfig
+      this.thresholdConfig,
+      this.dataDbClientManager
     );
     this.updateRecords = new UpdateRecordsOperation(this.recordOpenApiService, this.recordService);
     this.updateRecordsOrder = new UpdateRecordsOrderOperation(this.viewOpenApiService);
@@ -84,13 +90,14 @@ export class UndoRedoOperationService {
     this.deleteFields = new DeleteFieldsOperation(
       this.fieldOpenApiService,
       this.recordOpenApiService,
-      this.prismaService
+      this.dataDbClientManager
     );
     this.convertField = new ConvertFieldOperation(
       this.fieldOpenApiService,
       this.prismaService,
       this.thresholdConfig
     );
+    this.convertFieldV2 = new ConvertFieldV2Operation(this.fieldOpenApiV2Service);
     this.pasteSelection = new PasteSelectionOperation(
       this.recordOpenApiService,
       this.fieldOpenApiService
@@ -98,7 +105,7 @@ export class UndoRedoOperationService {
     this.deleteView = new DeleteViewOperation(
       this.viewOpenApiService,
       this.viewService,
-      this.prismaService
+      this.dataDbClientManager
     );
     this.createView = new CreateViewOperation(this.viewOpenApiService, this.viewService);
     this.updateView = new UpdateViewOperation(this.viewOpenApiService);
@@ -122,6 +129,8 @@ export class UndoRedoOperationService {
         return this.pasteSelection.undo(operation);
       case OperationName.ConvertField:
         return this.convertField.undo(operation);
+      case OperationName.ConvertFieldV2:
+        return this.convertFieldV2.undo(operation);
       case OperationName.DeleteView:
         return this.deleteView.undo(operation);
       case OperationName.CreateView:
@@ -151,6 +160,8 @@ export class UndoRedoOperationService {
         return this.pasteSelection.redo(operation);
       case OperationName.ConvertField:
         return this.convertField.redo(operation);
+      case OperationName.ConvertFieldV2:
+        return this.convertFieldV2.redo(operation);
       case OperationName.DeleteView:
         return this.deleteView.redo(operation);
       case OperationName.CreateView:

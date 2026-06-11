@@ -1,3 +1,4 @@
+import type { INumberFormatting } from '@teable/core';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
 import { useTranslation } from '../../../context/app/i18n';
@@ -14,6 +15,7 @@ const GridNumberEditorBase: ForwardRefRenderFunction<
   IWrapperEditorProps & IEditorProps
 > = (props, ref) => {
   const { field, record, rect, style, theme, cell, isEditing } = props;
+  const formatting = (field.options as { formatting?: INumberFormatting })?.formatting;
   const { t } = useTranslation();
   const { cellLineColorActived } = theme;
   const editorRef = useRef<IEditorRef<number>>(null);
@@ -50,6 +52,7 @@ const GridNumberEditorBase: ForwardRefRenderFunction<
       style={{ border: `2px solid ${cellLineColorActived}`, ...style, ...attachStyle }}
       onChange={saveValue}
       saveOnBlur={false}
+      formatting={formatting}
     />
   );
 };

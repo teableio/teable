@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import KeyvRedis from '@keyv/redis';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Keyv from 'keyv';
 import { floor } from 'lodash';
@@ -29,7 +29,7 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
 
   constructor(
     private readonly configService: ConfigService,
-    private readonly cacheMetricsService: CacheMetricsService
+    @Optional() private readonly cacheMetricsService?: CacheMetricsService
   ) {
     try {
       const redisUri = this.configService.get<string>('BACKEND_PERFORMANCE_CACHE');
@@ -93,9 +93,9 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
     else stats.misses++;
     this.typeStats[cacheType] = stats;
     type === 'hits'
-      ? this.cacheMetricsService.recordHit(cacheType)
-      : this.cacheMetricsService.recordMiss(cacheType);
-    this.cacheMetricsService.recordHitRate(
+      ? this.cacheMetricsService?.recordHit(cacheType)
+      : this.cacheMetricsService?.recordMiss(cacheType);
+    this.cacheMetricsService?.recordHitRate(
       cacheType,
       floor(stats.hits / Math.max(stats.hits + stats.misses, 1), 4) * 100
     );
@@ -131,7 +131,7 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
       const value = await this.keyv.get(key as string);
       const endTime = Date.now();
       const durationMs = endTime - startTime;
-      options.statsType && this.cacheMetricsService.recordGetTime(options.statsType, durationMs);
+      options.statsType && this.cacheMetricsService?.recordGetTime(options.statsType, durationMs);
       if (value == undefined) {
         this.stats.misses++;
         this.recordTypeStats('misses', options.statsType);

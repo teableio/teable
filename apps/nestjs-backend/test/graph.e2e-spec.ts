@@ -1,12 +1,26 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import { FieldType, Relationship, type IFieldRo, FieldKeyType } from '@teable/core';
+import {
+  FieldType,
+  Relationship,
+  type IFieldRo,
+  type ILinkFieldOptions,
+  FieldKeyType,
+} from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import type { ITableFullVo } from '@teable/openapi';
 import { planField, planFieldCreate, planFieldConvert, updateRecord } from '@teable/openapi';
-import { createField, createTable, permanentDeleteTable, initApp } from './utils/init-app';
+import {
+  createField,
+  createTable,
+  deleteTable,
+  permanentDeleteTable,
+  initApp,
+} from './utils/init-app';
 
 describe('OpenAPI Graph (e2e)', () => {
   let app: INestApplication;
+  let prisma: PrismaService;
   const baseId = globalThis.testConfig.baseId;
   let table1: ITableFullVo;
   let table2: ITableFullVo;
@@ -14,6 +28,7 @@ describe('OpenAPI Graph (e2e)', () => {
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
+    prisma = app.get(PrismaService);
   });
 
   afterAll(async () => {
@@ -50,6 +65,34 @@ describe('OpenAPI Graph (e2e)', () => {
     expect(plan.graph?.nodes).toHaveLength(2);
     expect(plan.graph?.edges).toHaveLength(1);
     expect(plan.graph?.combos).toHaveLength(1);
+  });
+
+  it('should return a create field plan in v2 canary mode', async () => {
+    const previousForceV2All = process.env.FORCE_V2_ALL;
+    process.env.FORCE_V2_ALL = 'true';
+
+    try {
+      const formulaRo: IFieldRo = {
+        name: 'formula',
+        type: FieldType.Formula,
+        options: {
+          expression: `{${table1.fields[0].id}}`,
+        },
+      };
+
+      const { data: plan } = await planFieldCreate(table1.id, formulaRo);
+
+      expect(plan).toEqual({
+        estimateTime: 0,
+        updateCellCount: 0,
+      });
+    } finally {
+      if (previousForceV2All == null) {
+        delete process.env.FORCE_V2_ALL;
+      } else {
+        process.env.FORCE_V2_ALL = previousForceV2All;
+      }
+    }
   });
 
   it('should create lookup field plan', async () => {
@@ -336,5 +379,132 @@ describe('OpenAPI Graph (e2e)', () => {
     expect(plan.graph?.nodes).toHaveLength(3);
     expect(plan.graph?.edges).toHaveLength(2);
     expect(plan.graph?.combos).toHaveLength(2);
+  });
+
+  it('should ignore stale references to deleted fields when planning single select conversion', async () => {
+    const hostField = await createField(table1.id, {
+      name: 'stale source',
+      type: FieldType.SingleLineText,
+    });
+    const tempTable = await createTable(baseId, {
+      name: 'stale-temp-table',
+    });
+    const deletedFieldId = tempTable.fields[0].id;
+    const staleReferenceId = `ref-stale-${Date.now()}`;
+
+    try {
+      await deleteTable(baseId, tempTable.id);
+
+      const deletedField = await prisma.txClient().field.findUnique({
+        where: { id: deletedFieldId },
+        select: { id: true, deletedTime: true },
+      });
+      expect(deletedField?.deletedTime).toBeTruthy();
+
+      await prisma.txClient().reference.create({
+        data: {
+          id: staleReferenceId,
+          fromFieldId: hostField.id,
+          toFieldId: deletedFieldId,
+        },
+      });
+
+      const { data: plan } = await planFieldConvert(table1.id, hostField.id, {
+        type: FieldType.SingleSelect,
+      });
+
+      expect(plan.skip).toBeUndefined();
+      expect(plan.updateCellCount).toEqual(table1.records.length);
+      expect(plan.graph?.nodes).toHaveLength(1);
+      expect(plan.graph?.edges).toHaveLength(0);
+      expect(plan.graph?.combos).toHaveLength(1);
+    } finally {
+      await prisma.txClient().reference.deleteMany({
+        where: { id: staleReferenceId },
+      });
+      await permanentDeleteTable(baseId, tempTable.id);
+    }
+  });
+
+  it('should ignore broken link key metadata when planning single select conversion', async () => {
+    const hostField = table1.fields[0];
+    const linkField = await createField(table2.id, {
+      name: 'broken key link',
+      type: FieldType.Link,
+      options: {
+        relationship: Relationship.ManyMany,
+        foreignTableId: table1.id,
+      },
+    });
+    const originalOptions = linkField.options as ILinkFieldOptions;
+
+    try {
+      const { selfKeyName: _selfKeyName, ...brokenOptions } = originalOptions;
+      await prisma.txClient().field.update({
+        where: { id: linkField.id },
+        data: {
+          options: JSON.stringify(brokenOptions),
+        },
+      });
+
+      const { data: plan } = await planFieldConvert(table1.id, hostField.id, {
+        type: FieldType.SingleSelect,
+      });
+
+      expect(plan.skip).toBeUndefined();
+      expect(plan.updateCellCount).toEqual(table1.records.length);
+      expect(plan.graph?.nodes).toHaveLength(2);
+      expect(plan.graph?.edges).toHaveLength(1);
+      expect(plan.graph?.combos).toHaveLength(2);
+    } finally {
+      await prisma.txClient().field.update({
+        where: { id: linkField.id },
+        data: {
+          options: JSON.stringify(originalOptions),
+        },
+      });
+    }
+  });
+
+  it('should ignore missing junction storage when planning single select conversion', async () => {
+    const hostField = table1.fields[0];
+    const linkField = await createField(table2.id, {
+      name: 'broken storage link',
+      type: FieldType.Link,
+      options: {
+        relationship: Relationship.ManyMany,
+        foreignTableId: table1.id,
+      },
+    });
+    const originalOptions = linkField.options as ILinkFieldOptions;
+
+    try {
+      await prisma.txClient().field.update({
+        where: { id: linkField.id },
+        data: {
+          options: JSON.stringify({
+            ...originalOptions,
+            fkHostTableName: `${originalOptions.fkHostTableName}_missing`,
+          }),
+        },
+      });
+
+      const { data: plan } = await planFieldConvert(table1.id, hostField.id, {
+        type: FieldType.SingleSelect,
+      });
+
+      expect(plan.skip).toBeUndefined();
+      expect(plan.updateCellCount).toEqual(table1.records.length);
+      expect(plan.graph?.nodes).toHaveLength(2);
+      expect(plan.graph?.edges).toHaveLength(1);
+      expect(plan.graph?.combos).toHaveLength(2);
+    } finally {
+      await prisma.txClient().field.update({
+        where: { id: linkField.id },
+        data: {
+          options: JSON.stringify(originalOptions),
+        },
+      });
+    }
   });
 });

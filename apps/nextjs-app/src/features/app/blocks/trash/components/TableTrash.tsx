@@ -7,7 +7,7 @@ import type {
   IViewSnapshotItemVo,
   IFieldSnapshotItemVo,
 } from '@teable/openapi';
-import { getTrashItems, ResourceType, restoreTrash } from '@teable/openapi';
+import { getTrashItems, TrashType, restoreTrash, TableTrashType } from '@teable/openapi';
 import { CollaboratorWithHoverCard, InfiniteTable } from '@teable/sdk/components';
 import { VIEW_ICON_MAP } from '@teable/sdk/components/view/constant';
 import { ReactQueryKeys } from '@teable/sdk/config';
@@ -42,7 +42,7 @@ export const TableTrash = (props: ITableTrashProps) => {
     pageParam,
   }: QueryFunctionContext<readonly ['trash-items', string], string | undefined>) => {
     const res = await getTrashItems({
-      resourceType: ResourceType.Table,
+      resourceType: TrashType.Table,
       resourceId: queryKey[1] as string,
       cursor: pageParam,
     });
@@ -63,7 +63,7 @@ export const TableTrash = (props: ITableTrashProps) => {
   });
 
   const { mutateAsync: mutateRestore } = useMutation({
-    mutationFn: (props: { trashId: string }) => restoreTrash(props.trashId),
+    mutationFn: (props: { trashId: string }) => restoreTrash(props.trashId, tableId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getTrashItems(tableId) });
       toast.success(t('actions.restoreSucceed'));
@@ -78,18 +78,67 @@ export const TableTrash = (props: ITableTrashProps) => {
   const columns: ColumnDef<ITableTrashItemVo>[] = useMemo(() => {
     const result: ColumnDef<ITableTrashItemVo>[] = [
       {
-        accessorKey: 'deletedTime',
-        header: t('trash.deletedTime'),
-        size: 90,
+        accessorKey: 'resourceIds',
+        header: t('table:tableTrash.deletedResource'),
+        size: Number.MAX_SAFE_INTEGER,
+        minSize: 200,
         cell: ({ row }) => {
-          const deletedTime = row.getValue<string>('deletedTime');
-          const deletedDate = dayjs(deletedTime);
-          const isToday = deletedDate.isSame(dayjs(), 'day');
+          const resourceType = row.getValue<TableTrashType>('resourceType');
+          const resourceIds = row.getValue<ITableTrashItemVo['resourceIds']>('resourceIds');
+          const resourceList = resourceIds
+            .map((resourceId) => {
+              return resourceMap[resourceId];
+            })
+            .filter(Boolean);
           return (
-            <div className="text-xs" title={deletedDate.format('YYYY/MM/DD HH:mm')}>
-              {deletedDate.format(isToday ? 'HH:mm' : 'YYYY/MM/DD')}
-            </div>
+            <Fragment>
+              {resourceList.length ? (
+                <div className="flex w-full flex-wrap gap-1">
+                  {resourceList.map((resource) => {
+                    const { id, name } = resource;
+                    const Icon =
+                      resourceType === TableTrashType.Field
+                        ? getFieldStatic((resource as IFieldSnapshotItemVo).type, {
+                            isLookup: Boolean((resource as IFieldSnapshotItemVo).isLookup),
+                            isConditionalLookup: Boolean(
+                              (resource as IFieldSnapshotItemVo).isConditionalLookup
+                            ),
+                            hasAiConfig: false,
+                          }).Icon
+                        : resourceType === TableTrashType.View
+                          ? VIEW_ICON_MAP[(resource as IViewSnapshotItemVo).type]
+                          : null;
+                    return (
+                      <div
+                        key={id}
+                        className="flex items-center rounded-sm border bg-muted px-2 py-[2px] text-xs"
+                      >
+                        {Icon && <Icon className="mr-1 size-3" />}
+                        {name || t('sdk:common.unnamedRecord')}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <span className="text-muted-foreground">{t('common.empty')}</span>
+              )}
+            </Fragment>
           );
+        },
+      },
+      {
+        accessorKey: 'resourceType',
+        header: t('table:tableTrash.resourceType'),
+        size: 96,
+        cell: ({ row }) => {
+          const resourceType = row.getValue<string>('resourceType');
+          const resourceStringMap: Record<string, string> = {
+            [TableTrashType.View]: t('noun.view'),
+            [TableTrashType.Field]: t('noun.field'),
+            [TableTrashType.Record]: t('noun.record'),
+          };
+
+          return <div className="flex items-center gap-x-1">{resourceStringMap[resourceType]}</div>;
         },
       },
       {
@@ -112,66 +161,17 @@ export const TableTrash = (props: ITableTrashProps) => {
         },
       },
       {
-        accessorKey: 'resourceType',
-        header: t('table:tableTrash.resourceType'),
-        size: 100,
+        accessorKey: 'deletedTime',
+        header: t('trash.deletedTime'),
+        size: 80,
         cell: ({ row }) => {
-          const resourceType = row.getValue<string>('resourceType');
-          const resourceStringMap: Record<string, string> = {
-            [ResourceType.View]: t('noun.view'),
-            [ResourceType.Field]: t('noun.field'),
-            [ResourceType.Record]: t('noun.record'),
-          };
-
-          return <div className="flex items-center gap-x-1">{resourceStringMap[resourceType]}</div>;
-        },
-      },
-      {
-        accessorKey: 'resourceIds',
-        header: t('table:tableTrash.deletedResource'),
-        size: Number.MAX_SAFE_INTEGER,
-        minSize: 200,
-        cell: ({ row }) => {
-          const resourceType = row.getValue<ResourceType>('resourceType');
-          const resourceIds = row.getValue<ITableTrashItemVo['resourceIds']>('resourceIds');
-          const resourceList = resourceIds
-            .map((resourceId) => {
-              return resourceMap[resourceId];
-            })
-            .filter(Boolean);
+          const deletedTime = row.getValue<string>('deletedTime');
+          const deletedDate = dayjs(deletedTime);
+          const isToday = deletedDate.isSame(dayjs(), 'day');
           return (
-            <Fragment>
-              {resourceList.length ? (
-                <div className="flex w-full flex-wrap gap-1">
-                  {resourceList.map((resource) => {
-                    const { id, name } = resource;
-                    const Icon =
-                      resourceType === ResourceType.Field
-                        ? getFieldStatic((resource as IFieldSnapshotItemVo).type, {
-                            isLookup: Boolean((resource as IFieldSnapshotItemVo).isLookup),
-                            isConditionalLookup: Boolean(
-                              (resource as IFieldSnapshotItemVo).isConditionalLookup
-                            ),
-                            hasAiConfig: false,
-                          }).Icon
-                        : resourceType === ResourceType.View
-                          ? VIEW_ICON_MAP[(resource as IViewSnapshotItemVo).type]
-                          : null;
-                    return (
-                      <div
-                        key={id}
-                        className="flex items-center rounded-sm bg-muted px-2 py-[2px] text-xs"
-                      >
-                        {Icon && <Icon className="mr-1 size-3" />}
-                        {name || t('sdk:common.unnamedRecord')}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <span className="text-gray-500">{t('common.empty')}</span>
-              )}
-            </Fragment>
+            <div className="text-xs" title={deletedDate.format('YYYY/MM/DD HH:mm')}>
+              {deletedDate.format(isToday ? 'HH:mm' : 'YYYY/MM/DD')}
+            </div>
           );
         },
       },
@@ -181,11 +181,12 @@ export const TableTrash = (props: ITableTrashProps) => {
       result.push({
         accessorKey: 'id',
         header: t('actions.title'),
-        size: 80,
+        size: 104,
+        minSize: 104,
         cell: ({ row }) => {
           const trashId = row.getValue<string>('id');
           return (
-            <Button size="sm" onClick={() => mutateRestore({ trashId })}>
+            <Button size="sm" variant={'outline'} onClick={() => mutateRestore({ trashId })}>
               {t('actions.restore')}
             </Button>
           );

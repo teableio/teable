@@ -54,7 +54,7 @@ export const ShareFormLinkEditor = (props: IShareFormLinkEditorProps) => {
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button variant="outline" size={'sm'} className={className}>
-            <Plus />
+            <Plus className="size-4 shrink-0" />
             {t('table:view.addRecord')}
           </Button>
         </PopoverTrigger>

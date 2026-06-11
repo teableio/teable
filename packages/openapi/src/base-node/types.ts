@@ -1,11 +1,12 @@
+import { ResourceType } from '../types';
 import { z } from '../zod';
 
 export enum BaseNodeResourceType {
-  Table = 'table',
-  Dashboard = 'dashboard',
-  Workflow = 'workflow',
-  App = 'app',
-  Folder = 'folder',
+  Table = ResourceType.Table,
+  Dashboard = ResourceType.Dashboard,
+  Workflow = ResourceType.Workflow,
+  App = ResourceType.App,
+  Folder = ResourceType.Folder,
 }
 
 const defaultResourceMetaSchema = z.object({
@@ -19,6 +20,10 @@ export type IBaseNodeFolderResourceMeta = z.infer<typeof baseNodeFolderResourceM
 
 export const baseNodeTableResourceMetaSchema = defaultResourceMetaSchema.extend({
   defaultViewId: z.string().nullable().optional(),
+  loginAppId: z.string().optional(),
+  loginApps: z
+    .array(z.object({ id: z.string(), name: z.string(), emailFieldId: z.string().optional() }))
+    .optional(),
 });
 
 export type IBaseNodeTableResourceMeta = z.infer<typeof baseNodeTableResourceMetaSchema>;

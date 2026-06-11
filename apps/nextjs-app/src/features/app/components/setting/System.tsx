@@ -10,6 +10,9 @@ import { SettingTabHeader, SettingTabShell } from './SettingTabShell';
 export const System: React.FC = () => {
   const { t } = useTranslation('common');
   const { theme, setTheme } = useTheme();
+  const themeCardClassName = 'min-w-0 max-w-[256px] flex-1';
+  const themeImageClassName =
+    'aspect-[3/2] h-auto w-full overflow-hidden rounded-md border bg-muted object-cover';
 
   const isSupportsMultiplePointers = useMemo(() => {
     const touchSupported: boolean =
@@ -31,63 +34,63 @@ export const System: React.FC = () => {
             <p className="text-xs text-muted-foreground">{t('settings.setting.themeDesc')}</p>
           </div>
           <RadioGroup
-            className="grid max-w-screen-md grid-cols-3 gap-4 sm:gap-8"
+            className="flex w-full justify-evenly"
             defaultValue={theme}
             onValueChange={(value) => {
               setTheme(value);
             }}
           >
-            <div>
+            <div className={themeCardClassName}>
               <RadioGroupItem value="light" id="light" className="peer sr-only" />
               <Label
                 htmlFor="light"
                 className="flex cursor-pointer flex-col rounded-lg border-2 border-transparent bg-popover p-1 peer-data-[state=checked]:border-primary peer-data-[state=checked]:shadow-[0_4px_12px_rgba(0,0,0,0.08),0_2px_2px_rgba(0,0,0,0.06)] hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary"
               >
                 <Image
-                  className="overflow-hidden rounded-md border"
+                  className={themeImageClassName}
                   src={'/images/theme/theme-light.png'}
                   alt=""
                   width={198}
                   height={132}
                 />
               </Label>
-              <span className="mt-1 block w-full text-center text-sm font-normal">
+              <span className="mt-2 block w-full text-center text-sm font-normal">
                 {t('settings.setting.light')}
               </span>
             </div>
-            <div>
+            <div className={themeCardClassName}>
               <RadioGroupItem value="dark" id="dark" className="peer sr-only" />
               <Label
                 htmlFor="dark"
                 className="flex cursor-pointer flex-col rounded-lg border-2 border-transparent bg-popover p-1 peer-data-[state=checked]:border-primary peer-data-[state=checked]:shadow-[0_4px_12px_rgba(0,0,0,0.08),0_2px_2px_rgba(0,0,0,0.06)] hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary"
               >
                 <Image
-                  className="overflow-hidden rounded-md border"
+                  className={themeImageClassName}
                   src={'/images/theme/theme-dark.png'}
                   alt=""
                   width={198}
                   height={132}
                 />
               </Label>
-              <span className="mt-1 block w-full text-center text-sm font-normal">
+              <span className="mt-2 block w-full text-center text-sm font-normal">
                 {t('settings.setting.dark')}
               </span>
             </div>
-            <div>
+            <div className={themeCardClassName}>
               <RadioGroupItem value="system" id="system" className="peer sr-only" />
               <Label
                 htmlFor="system"
                 className="flex cursor-pointer flex-col rounded-lg border-2 border-transparent bg-popover p-1 peer-data-[state=checked]:border-primary peer-data-[state=checked]:shadow-[0_4px_12px_rgba(0,0,0,0.08),0_2px_2px_rgba(0,0,0,0.06)] hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary"
               >
                 <Image
-                  className="overflow-hidden rounded-md border"
+                  className={themeImageClassName}
                   src={'/images/theme/theme-system.png'}
                   alt=""
                   width={198}
                   height={132}
                 />
               </Label>
-              <span className="mt-1 block w-full text-center text-sm font-normal">
+              <span className="mt-2 block w-full text-center text-sm font-normal">
                 {t('settings.setting.system')}
               </span>
             </div>

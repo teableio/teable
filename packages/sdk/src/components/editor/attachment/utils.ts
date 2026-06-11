@@ -17,3 +17,12 @@ export const getFieldIconString = (mimetype: string, theme?: 'light' | 'dark') =
 export const isSystemFileIcon = (mimetype: string) => {
   return !isImage(mimetype);
 };
+
+export function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '0B';
+  const units = ['B', 'k', 'M', 'G', 'T', 'P', 'E'];
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  const value = bytes / Math.pow(1024, i);
+  const formatted = value < 10 ? value.toFixed(1) : Math.round(value).toString();
+  return `${formatted}${units[i]}`;
+}

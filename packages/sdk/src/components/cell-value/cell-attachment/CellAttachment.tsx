@@ -26,7 +26,8 @@ export const CellAttachment = (props: ICellAttachment) => {
               className={cn(
                 'shrink-0 size-7 border rounded border-slate-200 overflow-hidden cursor-pointer',
                 {
-                  'border-none': isSystemFileIcon(attachment.mimetype),
+                  'border-none':
+                    isSystemFileIcon(attachment.mimetype) && !attachment.lgThumbnailUrl,
                 },
                 itemClassName
               )}

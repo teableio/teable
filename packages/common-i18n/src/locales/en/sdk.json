@@ -31,7 +31,8 @@
     },
     "resetSuccess": "Reset successfully",
     "click": "Click",
-    "clickedCount": "{{label}}: Clicked {{text}} times"
+    "clickedCount": "{{label}}: Clicked {{text}} times",
+    "atLeastOne": "At least reserve a {{noun}}"
   },
   "notification": {
     "title": "Notification"
@@ -73,7 +74,12 @@
     },
     "date": {
       "placeholder": "Pick a date",
-      "today": "Today"
+      "today": "Today",
+      "rangePlaceholder": "Pick a date range",
+      "rangeSelected": "Selected",
+      "invalidTimeRange": "End time must be after start time",
+      "from": "From",
+      "to": "To"
     },
     "formula": {
       "title": "Formula editor",
@@ -99,17 +105,23 @@
     "link": {
       "placeholder": "Select records to link",
       "searchPlaceholder": "Search records",
+      "allFields": "All Fields",
+      "globalSearch": "Global search",
+      "fieldSearch": "Search field",
+      "maxFieldTips": "Exceeded the maximum {{count}} number of fields, extra fields will be ignored",
       "create": "Add record",
       "selectRecord": "Select record",
-      "unselected": "Unselected",
+      "all": "All",
       "selected": "Selected",
       "expandRecordError": "No permission to view this record.",
       "alreadyOpen": "This record is already open.",
+      "linkedTo": "Linked to",
       "goToForeignTable": "Go to foreign table",
       "foreignTableIdRequired": "Foreign table is required",
       "linkFieldIdRequired": "Link field is required",
       "selectTooManyRecords": "The selected records should not exceed {{maxCount}}",
-      "relationshipRequired": "Relationship is required"
+      "relationshipRequired": "Relationship is required",
+      "rangeSelectFailed": "Failed to select records in range"
     },
     "user": {
       "searchPlaceholder": "Find users by name",
@@ -122,7 +134,7 @@
     "lookup": {
       "lookupFieldIdRequired": "Lookup field is required",
       "lookupOptionsNotAllowed": "Lookup options are not allowed when isLookup attribute is true or field type is rollup.",
-      "lookupOptionsRequired": "Lookup options are required when isLookup attribute is true or field type is rollup.",
+      "lookupOptionsRequired": "Lookup options are required",
       "refineOptionsError": "Parse lookup options error {{message}}"
     },
     "rollup": {
@@ -162,6 +174,7 @@
     },
     "invalidateSelected": "Invalid value",
     "invalidateSelectedTips": "The selected value has been deleted, please select again",
+    "invalidConditionTip": "This filter condition is invalid and will be ignored. Please adjust the value.",
     "default": {
       "empty": "No filter conditions are applied",
       "placeholder": "Enter a value"
@@ -221,6 +234,7 @@
         "daysFromNow": "days from now",
         "exactDate": "exact date",
         "exactFormatDate": "exact date (formatted)",
+        "dateRange": "custom range",
         "currentWeek": "current week",
         "currentMonth": "current month",
         "currentYear": "current year",
@@ -268,7 +282,8 @@
     "configLabel_other_visible": "{{count}} visible fields",
     "showAll": "Show all",
     "hideAll": "Hide all",
-    "primaryKey": "Primary field: Identifies records\nCannot be hidden or deleted, visible in linked records."
+    "primaryKey": "Primary field: Identifies records\nCannot be hidden or deleted, visible in linked records.",
+    "notInCurrentView": "Field \"{{fieldName}}\" is not visible in the current view and can't be jumped to"
   },
   "expandRecord": {
     "copy": "Copy to clipboard",
@@ -287,7 +302,10 @@
       "viewRecord": "View record"
     },
     "showHiddenFields": "Show {{count}} hidden fields",
-    "hideHiddenFields": "Hide {{count}} hidden fields"
+    "hideHiddenFields": "Hide {{count}} hidden fields",
+    "showMore": "Show more",
+    "showLess": "Show less",
+    "recordFrom": "Record from"
   },
   "sort": {
     "label": "Sort",
@@ -419,6 +437,7 @@
       "appUpdate": "Update app",
       "userProfileRead": "Read current user profile",
       "userEmailRead": "Read current user email",
+      "userIntegrations": "Manage user integrations",
       "recordHistoryRead": "Read record history",
       "baseQuery": "Query base",
       "instanceRead": "Read instance",
@@ -441,7 +460,8 @@
     "you": "You",
     "instance": "Instance",
     "enterprise": "Enterprise",
-    "history": "History"
+    "history": "History",
+    "global": "Global"
   },
   "formula": {
     "SUM": {
@@ -489,7 +509,7 @@
       "example": "ODD(0.1) => 1\nODD(-0.1) => -1"
     },
     "INT": {
-      "summary": "Returns number1 if the logical argument is true, otherwise it returns number2. Can also be used to make nested IF statements.\nCan also be used to check if a cell is blank/is empty.",
+      "summary": "Returns the integer part of a number, rounding down toward negative infinity.",
       "example": "INT(1.9) => 1\nINT(-1.9) => -2"
     },
     "ABS": {
@@ -555,6 +575,14 @@
     "SUBSTITUTE": {
       "summary": "Replaces occurrences of old_text with new_text.\nYou can optionally specify an index number (starting from 1) to replace just a specific occurrence of old_text. If no index number is specified, then all occurrences of old_text will be replaced.",
       "example": "SUBSTITUTE(\"Hello Table\", \"Table\", \"Teable\") => \"Hello Teable\""
+    },
+    "TEXTBEFORE": {
+      "summary": "Returns the text before a delimiter.",
+      "example": "TEXTBEFORE(\"20, 04, 79\", \",\") => \"20\""
+    },
+    "TEXTSPLIT": {
+      "summary": "Splits text by a delimiter and returns multiple text values.",
+      "example": "TEXTSPLIT(\"20, 04, 79\", \",\") => [\"20\", \" 04\", \" 79\"]"
     },
     "LOWER": {
       "summary": "Makes a string lowercase.",
@@ -642,7 +670,7 @@
     },
     "WEEKDAY": {
       "summary": "Returns the day of the week as an integer between 0 and 6, inclusive. You may optionally provide a second argument (either \"Sunday\" or \"Monday\") to start weeks on that day. If omitted, weeks start on Sunday by default. Example:\nWEEKDAY(TODAY(), \"Monday\")",
-      "example": "WEEKNUM(\"2023-09-08\") => 5"
+      "example": "WEEKDAY(\"2023-09-08\") => 5"
     },
     "DAY": {
       "summary": "Returns the day of the month of a datetime in the form of a number between 1-31.",
@@ -669,16 +697,16 @@
       "example": "TONOW({Date}, \"day\") => 25"
     },
     "DATETIME_DIFF": {
-      "summary": "Returns the difference between datetimes in specified units. Default units are seconds. (See list of unit specifiers here.)\nThe difference between datetimes is determined by subtracting [date2] from [date1]. This means that if [date2] is later than [date1], the resulting value will be negative.",
-      "example": "DATETIME_DIFF(\"2023-09-08\", \"2022-08-01\", \"day\") => 403"
+      "summary": "Returns the difference between datetimes in specified units. Default unit is \"second\".\nSupported units: \"millisecond\" (ms), \"second\" (s), \"minute\" (m), \"hour\" (h), \"day\" (d), \"week\" (w), \"month\" (M), \"year\" (y).\nDATETIME_DIFF always subtracts the second argument from the first (`date1 - date2`). If you want elapsed time from a start date to a later end date, call `DATETIME_DIFF(endDate, startDate, unit)`.",
+      "example": "DATETIME_DIFF(\"2026-03-13\", \"2026-03-09\") => 345600\nDATETIME_DIFF(\"2026-03-13\", \"2026-03-09\", \"day\") => 4"
     },
     "WORKDAY": {
       "summary": "Returns the workday to the start date, excluding the specified holidays",
       "example": "WORKDAY(\"2023-09-08\", 200) => \"2024-06-14 00:00:00\"\nWORKDAY(\"2023-09-08\", 200, \"2024-01-22, 2024-01-23, 2024-01-24, 2024-01-25\") => \"2024-06-20 00:00:00\""
     },
     "WORKDAY_DIFF": {
-      "summary": "Returns the number of working days between date1 and date2. Working days exclude weekends and an optional list of holidays, formatted as a comma-separated string of ISO-formatted dates.",
-      "example": "WORKDAY_DIFF(\"2023-06-18\", \"2023-10-01\") => 75\nWORKDAY(\"2023-06-18\", \"2023-10-01\", \"2023-07-12, 2023-08-18, 2023-08-19\") => 73"
+      "summary": "Returns the number of working days after [startDate] up to and including [endDate]. This is a business-day count, not a calendar-day diff, so weekends and an optional list of holidays are excluded. For calendar-day elapsed time, use `DATETIME_DIFF(endDate, startDate, \"day\")`. The result is negative when [endDate] is earlier than [startDate], and WORKDAY_DIFF(startDate, WORKDAY(startDate, n)) returns n.",
+      "example": "WORKDAY_DIFF(\"2026-03-09\", \"2026-03-13\") => 4\nWORKDAY_DIFF(\"2026-03-09\", WORKDAY(\"2026-03-09\", 5)) => 5"
     },
     "IS_SAME": {
       "summary": "Compares two dates up to a unit and determines whether they are identical. Returns true if yes, false if no.",
@@ -705,7 +733,7 @@
       "example": "DATESTR(\"2023/09/08 16:50:30\") => \"16:50:30\""
     },
     "DATETIME_FORMAT": {
-      "summary": "Formats a datetime into a specified string. For an explanation of how to use this function with date fields, click here. For a list of supported format specifiers, please click here.",
+      "summary": "Formats a datetime into a specified string. Supported specifiers: YY, YYYY, M, MM, MMM, MMMM, D, DD, d, dd, ddd, dddd, H, HH, h, hh, m, mm, s, ss, SSS, Z, ZZ, A, a, LT, LTS, L, LL, LLL, LLLL, l, ll, lll, llll.",
       "example": "DATETIME_FORMAT(\"2023-09-08\", \"DD-MM-YYYY\") => \"08-09-2023\""
     },
     "DATETIME_PARSE": {
@@ -797,6 +825,11 @@
     "dateRangeOfMonths": "Date range (months)",
     "totalAttachmentSize": "Total attachment size"
   },
+  "selectionStatistic": {
+    "tip": "Only Number-typed fields are aggregated.",
+    "copyTip": "Click to copy",
+    "copied": "Copied"
+  },
   "baseQuery": {
     "add": "Add",
     "error": {
@@ -862,7 +895,8 @@
     },
     "toolbar": {
       "link": "Link",
-      "image": "Image"
+      "image": "Image",
+      "mention": "Mention"
     },
     "floatToolbar": {
       "editLink": "Edit link",
@@ -906,6 +940,31 @@
     "automationNodeNeedTest": "Automation node need test",
     "automationNodeTestOutdated": "Automation node test outdated",
     "invalidToken": "Invalid token",
+    "limit": {
+      "fieldOptionsMaxBytes": "Field options are too large. Maximum is {{max}} bytes.",
+      "selectChoicesMax": "This select field has too many choices. Maximum is {{max}} choices.",
+      "selectChoiceNameMaxLength": "Select choice names are too long. Maximum is {{max}} characters.",
+      "selectDefaultValuesMax": "This select field has too many default values. Maximum is {{max}} values.",
+      "cellValueMaxBytes": "Cell value is too large. Maximum is {{max}} bytes.",
+      "recordFieldsMaxBytes": "Record payload is too large. Maximum is {{max}} bytes.",
+      "recordsPerMutationMax": "This operation changes too many records. Maximum is {{max}} records at a time.",
+      "computedCellValueMaxBytes": "Computed cell value is too large. Maximum is {{max}} bytes.",
+      "formulaMaxLength": "Formula is too long. Maximum is {{max}} characters.",
+      "tablesPerBaseMax": "This base has reached the table limit. Maximum is {{max}} tables.",
+      "fieldsPerTableMax": "This table has too many fields. Maximum is {{max}} fields.",
+      "rowsPerTableMax": "This table has too many records. Maximum is {{max}} records.",
+      "viewsPerTableMax": "This table has reached the view limit. Maximum is {{max}} views.",
+      "createTableFieldsMax": "The new table has too many fields. Maximum is {{max}} fields.",
+      "createTableViewsMax": "The new table has too many views. Maximum is {{max}} views.",
+      "createTableRecordsMax": "The new table has too many records. Maximum is {{max}} records.",
+      "viewFilterItemsMax": "This view has too many filter conditions. Maximum is {{max}} conditions.",
+      "viewFilterDepthMax": "This view filter is too deeply nested. Maximum depth is {{max}}.",
+      "viewSortItemsMax": "This view has too many sort rules. Maximum is {{max}} rules.",
+      "viewGroupItemsMax": "This view has too many group rules. Maximum is {{max}} rules.",
+      "viewOptionsMaxBytes": "View options are too large. Maximum is {{max}} bytes.",
+      "nameMaxLength": "Name is too long. Maximum is {{max}} characters.",
+      "descriptionMaxLength": "Description is too long. Maximum is {{max}} characters."
+    },
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" field \"{{fieldName}}\" does not allow empty values, please fill in completely before submitting.",
       "fieldValueDuplicate": "\"{{tableName}}\" field \"{{fieldName}}\" does not allow duplicate values, please fill in a unique value before submitting.",
@@ -971,6 +1030,7 @@
       "nodeNotFound": "{{nodeId}} node not found",
       "triggerTestFailed": "Trigger test failed, please check the trigger configuration",
       "testFailed": "Automation test failed, please check the automation configuration",
+      "runFailed": "Automation run failed",
       "nodeParseError": "{{name}} node configuration is incomplete or has errors, please check the node configuration",
       "nodeNeedTest": "{{name}} node needs to be tested",
       "nodeTestOutdated": "{{name}} node test outdated",
@@ -982,6 +1042,10 @@
       "tableNotInBase": "You can only subscribe to a table within your base",
       "alreadyActiveAndNotDraft": "Automation already active and not draft",
       "noActiveSnapshot": "Automation has no active snapshot",
+      "onlyFailedRunsCanRerun": "Only failed runs can be rerun",
+      "workflowMustBeActiveToRerun": "Workflow must be active to rerun",
+      "snapshotChangedOnlyFullRerun": "Workflow has been modified since this run. Only full rerun is allowed.",
+      "controlStepsMissingOnlyFullRerun": "Control node data is missing for this run. Only full rerun is supported.",
       "triggerNodeAlreadyExists": "This automation already has a trigger node",
       "unSupportLogicType": "Unsupported logic type",
       "generateLogicError": "Generate logic node error",
@@ -992,7 +1056,26 @@
       "unSupportDuplicateWorkflowNodeType": "UnSupport duplicate automation node type",
       "controlNodeNotBeTested": "Control node should not be tested",
       "invalidNodeType": "Invalid node type",
-      "unsupportedCategory": "Unsupported category"
+      "unsupportedCategory": "Unsupported category",
+      "unknownConnectionType": "Unknown email connection type",
+      "imapPasswordNotConfigured": "IMAP password not configured",
+      "integrationNotFound": "Integration not found or has no credentials",
+      "webhookTriggerNotFound": "Webhook trigger not found",
+      "emailReceivedTriggerNotFound": "EmailReceived trigger not found",
+      "emailConnectorNotAvailable": "Email connector service not available",
+      "listMailboxesFailed": "Failed to list mailboxes: {{detail}}"
+    },
+    "scrape": {
+      "unknownDataset": "Unknown dataset: {{datasetId}}",
+      "apiKeyNotConfigured": "Scrape service is not configured",
+      "triggerFailed": "Scrape trigger failed: {{detail}}",
+      "snapshotError": "Scrape snapshot error: {{detail}}",
+      "timeout": "Scrape timed out after {{seconds}}s"
+    },
+    "integration": {
+      "oauthCodeExchangeFailed": "Failed to exchange OAuth code: {{detail}}",
+      "oauthTokenRefreshFailed": "Failed to refresh OAuth token: {{detail}}",
+      "userInfoFetchFailed": "Failed to get user info: {{detail}}"
     },
     "space": {
       "notFound": "Space not found",
@@ -1003,7 +1086,9 @@
       "deleted": "Space has been deleted",
       "cannotOperate": "Can't operate on a space, please verify that there are organization members in the space and they are owners",
       "notBelongToOrg": "This space not belong to the organization",
-      "invalidSpaceIds": "Space ids is invalid: {{spaceIds}}"
+      "invalidSpaceIds": "Space ids is invalid: {{spaceIds}}",
+      "freeOwnedSpaceLimitExceeded": "You have reached the maximum number of free spaces you can own ({{max}}). Please upgrade an existing space or delete one to create a new free space.",
+      "freeOwnedSpaceLimitExceededOther": "{{name}} has reached the maximum number of free spaces they can own ({{max}})."
     },
     "base": {
       "notFound": "Base not found",
@@ -1052,6 +1137,7 @@
     "share": {
       "incorrectPassword": "Incorrect password",
       "notAllowedToSubmit": "Form submission is not allowed",
+      "notAllowedToEdit": "Editing is not allowed for this share",
       "viewRequired": "View is required for this operation",
       "hiddenFieldsSubmissionNotAllowed": "Form submission is not allowed when hidden fields are included",
       "submitRecordsError": "Record submission failed",
@@ -1063,9 +1149,15 @@
       "viewTypeNotAllowed": "This view type is not allowed for this operation"
     },
     "shareAuth": {
-      "passwordRestrictionNotEnabled": "Password restriction is not enabled for this shared view",
+      "passwordRestrictionNotEnabled": "Password restriction is not enabled for this share",
       "shareViewNotFound": "Shared view not found or sharing is disabled",
-      "linkFieldNotFound": "Link field not found"
+      "linkFieldNotFound": "Link field not found",
+      "loginRequired": "Sign in to edit this shared view"
+    },
+    "baseShare": {
+      "notFound": "Base share not found or sharing is disabled",
+      "alreadyExists": "A share already exists for this node",
+      "copyNotAllowed": "This share does not allow copying"
     },
     "shareSocket": {
       "viewPermissionNotAllowed": "You do not have permission to access this view",
@@ -1094,7 +1186,9 @@
       "notAllowedToExecuteSqlWithKeyword": "Not allowed to execute sql with keyword {{keyword}}",
       "whiteListCheckError": "An error occurred while checking table access: {{message}}",
       "databaseConnectionFailed": "Database connection failed: {{message}}",
-      "executeQuerySqlFailed": "Execute query sql failed: {{message}}"
+      "executeQuerySqlFailed": "Execute query sql failed: {{message}}",
+      "readOnlyCheckFailed": "Read only check failed: {{message}}",
+      "sqlSyntaxError": "SQL syntax error, please check your query"
     },
     "permission": {
       "createRecordWithDeniedFields": "You don't have permission to create record with fields({{fields}})",
@@ -1160,6 +1254,7 @@
       "recordMapNotFound": "Record not found in table {{tableName}} for field {{fieldName}}",
       "forbidDeletePrimaryField": "Forbid delete primary field",
       "foreignTableIdInvalid": "Foreign table {{foreignTableId}} invalid",
+      "crossSpaceLinkForbidden": "Cross-space references are not supported. Please pick a table in the same space (target {{foreignTableId}} is in a different space).",
       "relationshipInvalid": "Relationship {{relationship}} invalid",
       "linkFieldIdInvalid": "Link field {{linkFieldId}} invalid",
       "lookupFieldIdInvalid": "Lookup field {{lookupFieldId}} invalid",
@@ -1185,10 +1280,20 @@
       "notAttachment": "Field is not an attachment field",
       "isComputed": "Field is computed and cannot be modified",
       "notFoundAICofig": "Field does not have AI configuration",
+      "foreignTableIdRequired": "Foreign table is required",
+      "lookupFieldIdRequired": "Lookup field is required",
+      "lookupFieldNotExist": "Lookup field {{lookupFieldId}} does not exist",
+      "lookupFieldNotBelongToTable": "Lookup field {{lookupFieldId}} does not belong to table {{foreignTableId}}",
+      "lookupFieldTypeNotMatch": "Current field type {{fieldType}} does not match lookup field type {{lookupFieldType}}",
+      "conditionalRollupOptionsRequired": "Conditional rollup field options are required",
+      "conditionalRollupParseError": "Conditional rollup parse error: {{message}}",
+      "conditionalLookupOptionsRequired": "Conditional lookup field options are required",
       "button": {
         "clickCountReachedMaxCount": "Button click count has reached the maximum limit",
         "notSupportReset": "Button field does not support reset"
-      }
+      },
+      "primaryCannotBeLookup": "Primary field cannot be configured as a lookup field",
+      "primaryFieldAlreadyExists": "Table already has a primary field"
     },
     "view": {
       "notFound": "View not found",
@@ -1209,7 +1314,11 @@
     },
     "billing": {
       "insufficientCredit": "Insufficient credit",
-      "exceedMaxRowLimit": "Maximum row limit {{maxRowCount}} exceeded"
+      "exceedMaxRowLimit": "Maximum row limit {{maxRowCount}} exceeded",
+      "exceedMaxAutomationRunLimit": "Maximum automation run limit exceeded",
+      "manualSubscriptionNotSupported": "Self-service subscription is not available for this space. For upgrades, downgrades, or other subscription changes, please contact Teable support.",
+      "appSumoSubscriptionNotSupported": "AppSumo subscriptions cannot be modified through this interface. Please manage your subscription on AppSumo.",
+      "customerNotFound": "No billing customer record found for this space."
     },
     "aggregation": {
       "searchQueryRequired": "Search query is required",
@@ -1275,7 +1384,8 @@
     "import": {
       "notSupportedFileFormat": "File format is not supported, only {{supportType}} are supported, your file's content type is {{fileFormat}}",
       "notSupportedFileType": "Import file type not supported",
-      "exceedMaxFieldsLength": "The number of fields in the table cannot exceed {{maxFieldsLength}}, current is {{length}}"
+      "exceedMaxFieldsLength": "The number of fields in the table cannot exceed {{maxFieldsLength}}, current is {{length}}",
+      "tooManyConcurrentImports": "Too many import tasks in progress ({{current}}/{{max}}). Please try again later."
     },
     "invitation": {
       "disallowSpaceInvitation": "The current instance disallow space invitation by the administrator",
@@ -1294,6 +1404,8 @@
       "notFound": "Trash item not found",
       "parentSpaceTrashed": "Unable to restore this base because its parent space is also in trash",
       "parentBaseOrSpaceTrashed": "Unable to restore this table because its parent base or space is also in trash",
+      "parentBaseTrashed": "Unable to restore this item because its parent base is also in trash",
+      "parentNotFound": "Parent resource not found",
       "tableNotFound": "Table trash item not found"
     },
     "license": {
@@ -1354,10 +1466,12 @@
       "invalidResourceType": "Invalid resource type"
     },
     "template": {
+      "categoryNotFound": "Template category not found",
       "snapshotRequired": "This template could not be published due to missing snapshot",
       "sourceTemplateNotFound": "Source template not found",
       "noMinOrderFound": "No minimum order found",
-      "takeCountTooLarge": "The number of templates requested exceeds the maximum limit"
+      "takeCountTooLarge": "The number of templates requested exceeds the maximum limit",
+      "categoryLimitReached": "Template category limit reached (max {{maxCount}})"
     },
     "department": {
       "parentNotFound": "Parent department not found",
@@ -1379,7 +1493,9 @@
       "noDeploymentUrlAvailable": "No deployment URL available",
       "noFilesInZip": "No files found in ZIP",
       "zipFileTooLarge": "ZIP file size exceeds 5MB limit",
-      "invalidZip": "Invalid ZIP file"
+      "invalidZip": "Invalid ZIP file",
+      "domainAlreadyInUse": "This domain is already bound to another app",
+      "domainReserved": "Subdomain is reserved"
     },
     "reward": {
       "notFound": "Reward not found",

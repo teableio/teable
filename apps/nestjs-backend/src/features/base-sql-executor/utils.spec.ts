@@ -1,4 +1,6 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import { DriverClient } from '@teable/core';
+import { CustomHttpException } from '../../custom.exception';
 import { validateRoleOperations, checkTableAccess } from './utils';
 
 describe('base sql executor utils', () => {
@@ -78,6 +80,61 @@ describe('base sql executor utils', () => {
         tableNames: ['c'],
         database: DriverClient.Pg,
       });
+    });
+
+    it('should report invalid table names when using display name instead of db table name', () => {
+      const sql = 'SELECT "Biao_Ti" FROM "bseXXX"."xxx" ORDER BY "Ri_Qi" DESC LIMIT 1';
+      expect(() =>
+        checkTableAccess(sql, {
+          tableNames: ['bseXXX.actual_db_table_name'],
+          database: DriverClient.Pg,
+        })
+      ).toThrow(/Table 'xxx' not found/);
+    });
+
+    it('error message shows the correct "schema"."table" example when dbTableName was misused', () => {
+      const sql = 'SELECT count(*) FROM "bseXXX"."bseXXX.tblYYY"';
+      expect(() =>
+        checkTableAccess(sql, {
+          tableNames: ['bseXXX.tblYYY'],
+          database: DriverClient.Pg,
+        })
+      ).toThrow(/FROM "bseXXX"\."tblYYY"/);
+    });
+
+    it('error message does not enumerate valid table refs (avoid leaking base table list)', () => {
+      const sql = 'SELECT count(*) FROM "bseXXX"."bseXXX.tblYYY"';
+      expect(() =>
+        checkTableAccess(sql, {
+          tableNames: ['bseXXX.tblYYY', 'bseXXX.Biao_Ge_5', 'bseXXX.Issue_20management'],
+          database: DriverClient.Pg,
+        })
+      ).toThrow(
+        // Should NOT leak the other table names in the base
+        expect.objectContaining({
+          message: expect.not.stringContaining('Biao_Ge_5'),
+        })
+      );
+    });
+
+    it('should throw CustomHttpException for SQL syntax errors instead of SyntaxError', () => {
+      const invalidSql = 'SELEC * FORM users';
+      expect(() =>
+        checkTableAccess(invalidSql, {
+          tableNames: ['users'],
+          database: DriverClient.Pg,
+        })
+      ).toThrow(CustomHttpException);
+    });
+
+    it('correctly-split "schema"."table" form passes the whitelist', () => {
+      const sql = 'SELECT count(*) FROM "bseXXX"."tblYYY"';
+      expect(() =>
+        checkTableAccess(sql, {
+          tableNames: ['bseXXX.tblYYY'],
+          database: DriverClient.Pg,
+        })
+      ).not.toThrow();
     });
   });
 });

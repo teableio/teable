@@ -5,7 +5,6 @@ import {
   Share2,
   Layers,
   Settings,
-  Plus,
   AlertTriangle,
 } from '@teable/icons';
 import type { IFieldInstance, IFieldCreateOrSelectModalRef, KanbanView } from '@teable/sdk';
@@ -18,11 +17,10 @@ import {
   generateLocalId,
   FieldCreateOrSelectModal,
   useTablePermission,
-  CreateRecordModal,
-  useIsTemplate,
+  usePersonalView,
 } from '@teable/sdk';
 import { useView } from '@teable/sdk/hooks/use-view';
-import { Button, Label, Switch, cn } from '@teable/ui-lib/shadcn';
+import { Label, Switch, cn } from '@teable/ui-lib/shadcn';
 import { Trans, useTranslation } from 'next-i18next';
 import { useEffect, useMemo, useRef } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
@@ -30,6 +28,7 @@ import { useToolbarChange } from '../../hooks/useToolbarChange';
 import { useKanbanStackCollapsedStore } from '../../kanban/store';
 import { ToolBarButton } from '../ToolBarButton';
 import { CoverFieldSelect } from './CoverFieldSelect';
+import { ScrollableToolbarGroup } from './ScrollableToolbarGroup';
 
 export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
   const { disabled } = props;
@@ -41,11 +40,13 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
   const { onFilterChange, onSortChange } = useToolbarChange();
   const { setCollapsedStackMap } = useKanbanStackCollapsedStore();
   const dialogRef = useRef<IFieldCreateOrSelectModalRef>(null);
-  const isTemplate = useIsTemplate();
+  const { isPersonalView } = usePersonalView();
   const { stackFieldId, coverFieldId, isCoverFit, isEmptyStackHidden, isFieldNameHidden } =
     view?.options ?? {};
+  const readOnly = Boolean(view?.isLocked && !isPersonalView);
 
   const onFieldSelected = async (field: IFieldVo | IFieldInstance) => {
+    if (readOnly) return;
     if (field.id === stackFieldId) return;
     await view?.updateOption({ stackFieldId: field.id });
     const localId = generateLocalId(tableId, view?.id);
@@ -65,6 +66,7 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
   };
 
   const onEmptyStackHiddenChange = (checked: boolean) => {
+    if (readOnly) return;
     view?.updateOption({ isEmptyStackHidden: checked });
   };
 
@@ -83,18 +85,7 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
   if (!view) return null;
 
   return (
-    <div className="flex items-center gap-1">
-      {!isTemplate && (
-        <>
-          <CreateRecordModal>
-            <Button size={'xs'} variant={'outline'} disabled={!permission['record|create']}>
-              <Plus className="size-4" />
-              {t('table:view.addRecord')}
-            </Button>
-          </CreateRecordModal>
-          <div className="mx-1 h-4 w-px shrink-0 bg-border"></div>
-        </>
-      )}
+    <ScrollableToolbarGroup className="items-center">
       <FieldCreateOrSelectModal
         ref={dialogRef}
         title={t('table:kanban.toolbar.chooseStackingField')}
@@ -104,6 +95,7 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
             <Switch
               id="hide-empty-stack"
               checked={isEmptyStackHidden}
+              disabled={readOnly}
               onCheckedChange={(checked) => onEmptyStackHiddenChange(checked)}
             />
             <Label htmlFor="hide-empty-stack" className="text-sm font-normal">
@@ -112,6 +104,7 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
           </div>
         }
         isCreatable={permission['field|create']}
+        readOnly={readOnly}
         selectedFieldId={stackFieldId}
         onConfirm={onFieldSelected}
         getCreateBtnText={(fieldName) => (
@@ -145,14 +138,13 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
               onCheckedChange={onCoverFitChange}
               className="border-t"
             />
-            <div className="flex h-9 items-center justify-between border-t px-4">
+            <div className="flex h-10 items-center justify-between border-t px-4">
               <Label htmlFor="is-field-name-hidden" className="text-sm font-normal">
                 {t('table:kanban.toolbar.hideFieldName')}
               </Label>
               <Switch
                 id="is-field-name-hidden"
-                size={'sm'}
-                classNameThumb="size-3 data-[state=checked]:translate-x-3"
+                size={'default'}
                 checked={isFieldNameHidden}
                 onCheckedChange={onFieldNameHiddenChange}
               />
@@ -176,8 +168,8 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
         onChange={onFilterChange}
         contentHeader={
           view.enableShare && (
-            <div className="flex max-w-full items-center justify-start rounded-t bg-accent px-4 py-2 text-[11px]">
-              <Share2 className="mr-4 size-4 shrink-0" />
+            <div className="mb-2 flex max-w-full items-center justify-start rounded-md border bg-muted px-3 py-2 text-xs text-muted-foreground dark:bg-white/5">
+              <Share2 className="mr-2 size-4 shrink-0" />
               <span className="text-muted-foreground">{t('table:toolbar.viewFilterInShare')}</span>
             </div>
           )
@@ -189,7 +181,7 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
             isActive={isActive}
             text={text}
             className={cn(
-              'max-w-xs',
+              'max-w-[200px]',
               isActive &&
                 'bg-violet-100 dark:bg-violet-600/30 hover:bg-violet-200 dark:hover:bg-violet-500/30',
               hasWarning && 'border-yellow-500'
@@ -197,8 +189,8 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
             textClassName="@2xl/toolbar:inline"
           >
             <>
-              <FilterIcon className="size-4 text-sm" />
-              {hasWarning && <AlertTriangle className="size-3.5 text-yellow-500" />}
+              <FilterIcon className="size-4 shrink-0 text-sm" />
+              {hasWarning && <AlertTriangle className="size-3.5 shrink-0 text-yellow-500" />}
             </>
           </ToolBarButton>
         )}
@@ -210,16 +202,16 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
             isActive={isActive}
             text={text}
             className={cn(
-              'max-w-xs',
+              'max-w-[200px]',
               isActive &&
                 'bg-orange-100 dark:bg-orange-600/30 hover:bg-orange-200 dark:hover:bg-orange-500/30'
             )}
             textClassName="@2xl/toolbar:inline"
           >
-            <ArrowUpDown className="size-4 text-sm" />
+            <ArrowUpDown className="size-4 shrink-0 text-sm" />
           </ToolBarButton>
         )}
       </Sort>
-    </div>
+    </ScrollableToolbarGroup>
   );
 };

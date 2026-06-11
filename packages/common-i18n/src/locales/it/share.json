@@ -2,10 +2,15 @@
   "auth": {
     "title": "Inserisci la tua password per visualizzare questa pagina",
     "submit": "Invia",
-    "password": "Password"
+    "password": "Password",
+    "passwordTooShort": "La password deve contenere almeno 3 caratteri"
   },
   "toolbar": {
     "filterLinkSelectPlaceholder": "Seleziona..."
+  },
+  "view": {
+    "signInToEdit": "<a>Accedi</a> per modificare",
+    "login": "Accedi"
   },
   "openOnNewPage": "Apri in una nuova pagina",
   "errorTips": "La fonte di condivisione ha abilitato una Matrice di Autorità, la visualizzazione non è consentita"

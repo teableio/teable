@@ -7,30 +7,32 @@ import type { ITemplateBaseProps } from './TemplateMain';
 interface ITemplateCardProps extends Pick<ITemplateBaseProps, 'onClickTemplateCardHandler'> {
   template: ITemplateVo;
   size: 'xs' | 'sm' | 'md' | 'lg';
+  className?: string;
 }
 
-const ImageSizeMap = {
-  xs: '100px',
-  sm: '136px',
-  md: '180px',
-  lg: '218px',
+const AspectRatioMap = {
+  xs: 'aspect-[16/10]',
+  sm: 'aspect-[16/10]',
+  md: 'aspect-[16/9]',
+  lg: 'aspect-[16/9]',
 };
 
-// sign
 export const TemplateCard = ({
   template,
   onClickTemplateCardHandler,
   size = 'sm',
+  className,
 }: ITemplateCardProps) => {
   const { name, description, cover, visitCount, id: templateId } = template;
   const { presignedUrl } = cover ?? {};
-  const { t } = useTranslation(['common']);
+  const { t, i18n } = useTranslation(['common']);
 
-  const imageSize = ImageSizeMap[size];
+  const formatCount = (count: number) =>
+    Intl.NumberFormat([i18n.language, 'en'], { notation: 'compact' }).format(count);
 
   return (
     <div
-      className="relative flex w-full shrink-0 cursor-pointer flex-col"
+      className={cn('relative flex w-full shrink-0 cursor-pointer flex-col', className)}
       role="button"
       tabIndex={0}
       onClick={(e) => {
@@ -46,11 +48,9 @@ export const TemplateCard = ({
     >
       <div
         className={cn(
-          'group w-auto shrink-0 overflow-hidden rounded-lg border bg-secondary p-0  transition-shadow hover:shadow-[0_4px_12px_-4px_rgba(0,0,0,0.08),0_3px_6px_-2px_rgba(0,0,0,0.08)]'
+          'group w-full shrink-0 overflow-hidden rounded-lg border bg-secondary p-0 transition-shadow hover:shadow-[0_4px_12px_-4px_rgba(0,0,0,0.08),0_3px_6px_-2px_rgba(0,0,0,0.08)]',
+          AspectRatioMap[size]
         )}
-        style={{
-          height: imageSize,
-        }}
       >
         {presignedUrl ? (
           <img
@@ -87,7 +87,7 @@ export const TemplateCard = ({
             })}
           >
             <Eye className="size-4" />
-            <span>{visitCount > 999 ? '999+' : visitCount}</span>
+            <span>{formatCount(visitCount)}</span>
           </div>
         </h2>
         <p

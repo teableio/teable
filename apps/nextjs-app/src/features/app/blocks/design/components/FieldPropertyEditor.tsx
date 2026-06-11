@@ -61,7 +61,8 @@ export const FieldPropertyEditor = ({
         <div ref={containerRef} className="flex gap-2" onBlur={handleBlur}>
           <Input
             ref={inputRef}
-            className="h-7 w-40"
+            className="w-40"
+            size="sm"
             readOnly={!canUpdate}
             value={newValue}
             onChange={(e) => setNewValue(e.target.value)}

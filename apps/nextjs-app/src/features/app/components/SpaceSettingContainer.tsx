@@ -21,12 +21,14 @@ export const SpaceSettingContainer = ({
 }: SpaceSettingContainerProps) => {
   return (
     <div className={cn('h-full w-full', wrapperClassName)}>
-      <div className={cn('h-full w-full px-4 py-6', headerClassName)}>
-        <div className={cn('border-b pb-4', titleClassName)}>
-          <h1 className="text-3xl font-semibold">{title}</h1>
-          {description && <div className="mt-3 text-sm text-slate-500">{description}</div>}
+      <div className={cn('h-full w-full flex flex-col p-6', headerClassName)}>
+        <div className={cn('pb-6', titleClassName)}>
+          <p className="text-lg font-semibold">{title}</p>
+          {description && <div className="mt-1 text-sm text-muted-foreground">{description}</div>}
         </div>
-        <div className={cn('h-[calc(100%-85px)] overflow-y-auto', className)}>{children}</div>
+        <div className={cn('overflow-y-auto flex flex-col flex-1 gap-6', className)}>
+          {children}
+        </div>
       </div>
     </div>
   );

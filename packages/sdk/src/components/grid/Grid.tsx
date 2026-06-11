@@ -40,12 +40,13 @@ import type { ISpriteMap, CombinedSelection, IIndicesMap } from './managers';
 import { CoordinateManager, SpriteManager, ImageManager } from './managers';
 import { getCellRenderer, type ICell, type IInnerCell } from './renderers';
 import { TouchLayer } from './TouchLayer';
-import { measuredCanvas } from './utils';
+import { getRowControlExtraWidth, measuredCanvas } from './utils';
 
 export interface IGridExternalProps {
   theme?: Partial<IGridTheme>;
   customIcons?: ISpriteMap;
   rowControls?: IRowControlItem[];
+  rowControlPaddingX?: number;
   smoothScrollX?: boolean;
   smoothScrollY?: boolean;
   scrollBufferX?: number;
@@ -84,6 +85,7 @@ export interface IGridExternalProps {
    * @type {boolean}
    */
   isMultiSelectionEnable?: boolean;
+  isRowClickSelectionEnabled?: boolean;
 
   groupCollection?: IGroupCollection | null;
   collapsedGroupIds?: Set<string> | null;
@@ -118,7 +120,12 @@ export interface IGridExternalProps {
   /**
    * Triggered when the mouse hovers over the every type of region
    */
-  onItemHovered?: (type: RegionType, bounds: IRectangle, cellItem: ICellItem) => void;
+  onItemHovered?: (
+    type: RegionType,
+    bounds: IRectangle,
+    cellItem: ICellItem,
+    data?: unknown
+  ) => void;
 
   /**
    * Triggered when the mouse clicks the every type of region
@@ -130,6 +137,18 @@ export interface IGridExternalProps {
    * Only vertical fill is supported. Provides current selection ranges and the target end real row index
    */
   onFillSelection?: (selectionRanges: [IRange, IRange], targetEndRealRowIndex: number) => void;
+
+  /**
+   * Triggered when user clicks a row control (checkbox, expand, drag)
+   * For checkbox: checked indicates the state after click (true = selected, false = deselected)
+   */
+  onRowControlClick?: (rowIndex: number, type: RowControlType, checked: boolean) => void;
+
+  /**
+   * Triggered when user shift+clicks to select a range of rows
+   * Provides the row ranges selected (can be used to fetch recordIds via API)
+   */
+  onRowRangeSelected?: (ranges: IRange[]) => void;
 }
 
 export interface IGridProps extends IGridExternalProps {
@@ -190,6 +209,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     rowCount: originRowCount,
     rowHeight = defaultRowHeight,
     rowControls = [{ type: RowControlType.Checkbox }],
+    rowControlPaddingX = 0,
     theme: customTheme,
     isTouchDevice,
     smoothScrollX = true,
@@ -199,6 +219,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     scrollBarVisible = true,
     rowIndexVisible = true,
     isMultiSelectionEnable = true,
+    isRowClickSelectionEnabled = true,
     style,
     customIcons,
     collaborators,
@@ -235,6 +256,8 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     onItemClick,
     onScrollChanged,
     onFillSelection,
+    onRowControlClick,
+    onRowRangeSelected,
   } = props;
 
   useImperativeHandle(forwardRef, () => ({
@@ -337,8 +360,12 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   const { iconSizeMD } = theme;
 
   const columnInitSize = useMemo(() => {
-    return !rowIndexVisible && !rowControlCount ? 0 : Math.max(rowControlCount, 2) * iconSizeMD;
-  }, [rowControlCount, rowIndexVisible, iconSizeMD]);
+    if (!rowIndexVisible && !rowControlCount) return 0;
+    return (
+      Math.max(rowControlCount, 2) * iconSizeMD +
+      getRowControlExtraWidth(theme, rowControlPaddingX) * 2
+    );
+  }, [rowControlCount, rowIndexVisible, iconSizeMD, theme, rowControlPaddingX]);
 
   const defaultRowsInfo = useMemo(() => {
     return {
@@ -629,6 +656,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             mouseState={mouseState}
             scrollState={scrollState}
             rowControls={rowControls}
+            rowControlPaddingX={rowControlPaddingX}
             collaborators={collaborators}
             searchCursor={searchCursor}
             searchHitIndex={searchHitIndex}
@@ -667,10 +695,12 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             commentCountMap={commentCountMap}
             draggable={draggable}
             selectable={selectable}
+            isRowClickSelectionEnabled={isRowClickSelectionEnabled}
             collaborators={collaborators}
             searchCursor={searchCursor}
             searchHitIndex={searchHitIndex}
             rowControls={rowControls}
+            rowControlPaddingX={rowControlPaddingX}
             imageManager={imageManager}
             spriteManager={spriteManager}
             coordInstance={coordInstance}
@@ -718,6 +748,8 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             onItemHovered={onItemHovered}
             onItemClick={onItemClick}
             onFillSelection={onFillSelection}
+            onRowControlClick={onRowControlClick}
+            onRowRangeSelected={onRowRangeSelected}
           />
         )}
       </div>

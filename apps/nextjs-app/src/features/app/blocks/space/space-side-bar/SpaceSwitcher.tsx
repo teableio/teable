@@ -37,7 +37,7 @@ import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import { spaceConfig } from '@/features/i18n/space.config';
 import {
   SpaceInnerSettingModal as SpaceInnerSettingModalComponent,
-  SettingTab,
+  SpaceSettingTab,
 } from '@overridable/SpaceInnerSettingModal';
 import { Level } from '../../../components/billing/Level';
 import { SpaceAvatar } from '../../../components/space/SpaceAvatar';
@@ -117,7 +117,6 @@ export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
   }, [spaceList, currentSpaceId]);
 
   const organization = user?.organization;
-
   const { mutate: addSpace, isPending: isLoading } = useMutation({
     mutationFn: createSpace,
     onSuccess: async (data) => {
@@ -142,6 +141,10 @@ export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
   };
 
   const handleCreateSpace = () => {
+    if (isLoading) {
+      return;
+    }
+
     const name =
       spaceName.trim() ||
       getUniqName(t('common:noun.space'), spaceList?.length ? spaceList?.map((s) => s.name) : []);
@@ -168,11 +171,15 @@ export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
 
   return (
     <>
-      <Popover open={open} onOpenChange={handleOpenChange}>
+      <Popover modal open={open} onOpenChange={handleOpenChange}>
         <PopoverTrigger asChild>
-          <Button variant="ghost" size="sm" className="h-10 min-w-0 justify-start p-2 text-base">
-            <SpaceAvatar name={currentSpace?.name ?? ''} className="size-8" />
-            <p className="truncate text-left font-semibold ">{currentSpace?.name}</p>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-10 max-w-full justify-start overflow-hidden p-2 text-base"
+          >
+            <SpaceAvatar name={currentSpace?.name ?? ''} className="size-8 shrink-0" />
+            <p className="min-w-0 truncate text-left font-semibold">{currentSpace?.name}</p>
             <ChevronDown className="size-4 shrink-0" />
           </Button>
         </PopoverTrigger>
@@ -332,22 +339,20 @@ export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
         }}
         onConfirm={handleCreateSpace}
         content={
-          <div className="space-y-2">
-            <div className="flex flex-col gap-2">
-              <Input
-                placeholder={getUniqName(
-                  t('common:noun.space'),
-                  spaceList?.length ? spaceList?.map((s) => s.name) : []
-                )}
-                value={spaceName}
-                onChange={(e) => setSpaceName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleCreateSpace();
-                  }
-                }}
-              />
-            </div>
+          <div className="flex flex-col gap-2">
+            <Input
+              placeholder={getUniqName(
+                t('common:noun.space'),
+                spaceList?.length ? spaceList?.map((s) => s.name) : []
+              )}
+              value={spaceName}
+              onChange={(e) => setSpaceName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleCreateSpace();
+                }
+              }}
+            />
           </div>
         }
       />
@@ -358,7 +363,7 @@ export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
         <SpaceInnerSettingModalComponent
           open={settingModalOpen}
           setOpen={setSettingModalOpen}
-          defaultTab={SettingTab.General}
+          defaultTab={SpaceSettingTab.General}
         >
           <span className="hidden" />
         </SpaceInnerSettingModalComponent>

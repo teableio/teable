@@ -57,7 +57,7 @@ export const LanguagePicker: React.FC<{ className?: string }> = ({ className }) 
 
   return (
     <Select value={selectedValue} onValueChange={setLanguage}>
-      <SelectTrigger className={`w-full max-w-[320px] ${className || ''}`}>
+      <SelectTrigger size="lg" className={`max-w-[320px] ${className || ''}`}>
         <SelectValue placeholder="Select Language" />
       </SelectTrigger>
       <SelectContent>

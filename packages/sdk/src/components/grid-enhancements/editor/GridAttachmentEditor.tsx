@@ -6,7 +6,6 @@ import { cn, FilePreviewDialog, FilePreviewProvider } from '@teable/ui-lib';
 import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
 import { useTranslation } from '../../../context/app/i18n';
 import { AttachmentEditorMain } from '../../editor';
-import { AttachmentManager } from '../../editor/attachment/upload-attachment/uploadManage';
 import type { IEditorProps } from '../../grid/components';
 import { useAttachmentPreviewI18Map } from '../../hooks';
 import { useGridPopupPosition } from '../hooks';
@@ -26,8 +25,8 @@ export const GridAttachmentEditor = forwardRef<
   const attachments = record.getCellValue(field.id) as IAttachmentCellValue;
   const imagePreviewDialogRef = useRef<IFilePreviewDialogRef>(null);
   const i18nMap = useAttachmentPreviewI18Map();
-  const attachmentManager = useRef(new AttachmentManager(2));
   const { t } = useTranslation();
+
   const previewFiles = useMemo(() => {
     return attachments
       ? attachments.map((item) => ({
@@ -73,7 +72,9 @@ export const GridAttachmentEditor = forwardRef<
           className="relative flex-1 overflow-hidden"
           value={attachments || []}
           onChange={setAttachments}
-          attachmentManager={attachmentManager.current}
+          tableId={field.tableId}
+          recordId={record.id}
+          fieldId={field.id}
         />
         <FilePreviewProvider i18nMap={i18nMap}>
           <FilePreviewDialog ref={imagePreviewDialogRef} files={previewFiles} />

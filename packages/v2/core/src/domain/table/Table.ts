@@ -1,0 +1,1377 @@
+import type { ITableActionKey } from '@teable/core';
+import { err, ok } from 'neverthrow';
+import type { Result } from 'neverthrow';
+import { z } from 'zod';
+import { type ITableMapper } from '../../ports/mappers/TableMapper';
+import type { BaseId } from '../base/BaseId';
+import { AggregateRoot } from '../shared/AggregateRoot';
+import type { IDomainContext } from '../shared/DomainContext';
+import { domainError, type DomainError } from '../shared/DomainError';
+import { topologicalSort } from '../shared/graph/topologicalSort';
+import type { ISpecification } from '../shared/specification/ISpecification';
+import type { ISpecVisitor } from '../shared/specification/ISpecVisitor';
+import { NotSpec } from '../shared/specification/NotSpec';
+
+import { DbTableName } from './DbTableName';
+import type { RecordCreateSource } from './events/RecordFieldValuesDTO';
+import { TableActionTriggerRequested } from './events/TableActionTriggerRequested';
+import { TableCreated } from './events/TableCreated';
+import { TableDeleted } from './events/TableDeleted';
+import { TableRestored } from './events/TableRestored';
+import { TableTrashed } from './events/TableTrashed';
+import type { DbFieldName } from './fields/DbFieldName';
+import type { Field } from './fields/Field';
+import type { FieldId } from './fields/FieldId';
+import { FieldName } from './fields/FieldName';
+import { FieldType } from './fields/FieldType';
+import { validateForeignTablesForFields } from './fields/ForeignTableRelatedField';
+import { FieldIsComputedSpec } from './fields/specs/FieldIsComputedSpec';
+import type { FieldHasError } from './fields/types/FieldHasError';
+import type { FieldNotNull } from './fields/types/FieldNotNull';
+import type { FieldUnique } from './fields/types/FieldUnique';
+import { MultipleSelectField } from './fields/types/MultipleSelectField';
+import {
+  ensureSelectFieldOptionCountWithinLimit,
+  ensureSelectFieldOptionNamesWithinLimit,
+} from './fields/types/SelectFieldOptionWriteConfig';
+import type { SelectOption } from './fields/types/SelectOption';
+import { SingleSelectField } from './fields/types/SingleSelectField';
+import { FieldCellValueSchemaVisitor } from './fields/visitors/FieldCellValueSchemaVisitor';
+import { FieldDefaultValueVisitor } from './fields/visitors/FieldDefaultValueVisitor';
+import {
+  LinkForeignTableReferenceVisitor,
+  type LinkForeignTableReference,
+} from './fields/visitors/LinkForeignTableReferenceVisitor';
+import {
+  duplicate as duplicateMethod,
+  type DuplicateMethodParams as TableDuplicateParams,
+  type DuplicateMethodResult as TableDuplicateResult,
+} from './methods/duplicate';
+import {
+  getOrderedVisibleFieldIds as getOrderedVisibleFieldIdsMethod,
+  type GetOrderedVisibleFieldIdsOptions,
+} from './methods/getOrderedVisibleFieldIds';
+import {
+  createRecord as createRecordMethod,
+  createRecords as createRecordsMethod,
+  createRecordsStream as createRecordsStreamMethod,
+  createRecordsStreamAsync as createRecordsStreamAsyncMethod,
+  updateRecord as updateRecordMethod,
+  updateRecordsStream as updateRecordsStreamMethod,
+  type CreateRecordsMethodResult,
+  type CreateRecordsStreamOptions,
+  type UpdateRecordItem,
+} from './methods/records';
+import { rename as renameMethod } from './methods/rename';
+import { validateFormSubmission as validateFormSubmissionMethod } from './methods/validateFormSubmission';
+import type { RecordCreateResult } from './records/RecordCreateResult';
+import type { RecordId } from './records/RecordId';
+import type { RecordUpdateResult } from './records/RecordUpdateResult';
+import type { TableRecord } from './records/TableRecord';
+import { resolveFormulaFields } from './resolveFormulaFields';
+import type { ITableSpecVisitor } from './specs/ITableSpecVisitor';
+import { TableSpecBuilder } from './specs/TableSpecBuilder';
+import type { ITableBuildProps } from './TableBuilder';
+import { TableBuilder } from './TableBuilder';
+import type { TableId } from './TableId';
+import { TableMutator, type TableUpdateResult } from './TableMutator';
+import type { TableName } from './TableName';
+import type { View } from './views/View';
+import { ViewColumnMeta, type ViewColumnMetaEntry } from './views/ViewColumnMeta';
+import type { ViewId } from './views/ViewId';
+import { CloneViewVisitor } from './views/visitors/CloneViewVisitor';
+
+export class Table extends AggregateRoot<TableId> {
+  private dbTableNameValue: DbTableName;
+
+  private constructor(
+    id: TableId,
+    private readonly baseIdValue: BaseId,
+    private readonly nameValue: TableName,
+    private readonly fieldsValue: ReadonlyArray<Field>,
+    private readonly viewsValue: ReadonlyArray<View>,
+    private readonly primaryFieldIdValue: FieldId,
+    options: { emitCreatedEvent: boolean }
+  ) {
+    super(id);
+
+    if (options.emitCreatedEvent) {
+      this.addDomainEvent(
+        TableCreated.create({
+          tableId: id,
+          baseId: this.baseIdValue,
+          tableName: nameValue,
+          fieldIds: fieldsValue.map((f) => f.id()),
+          viewIds: viewsValue.map((v) => v.id()),
+        })
+      );
+    }
+    this.dbTableNameValue = DbTableName.empty();
+  }
+
+  static builder(): TableBuilder {
+    const factory = (props: ITableBuildProps): Table =>
+      new Table(
+        props.id,
+        props.baseId,
+        props.name,
+        props.fields,
+        props.views,
+        props.primaryFieldId,
+        {
+          emitCreatedEvent: true,
+        }
+      );
+    return TableBuilder.create(factory);
+  }
+
+  static specs(baseId?: BaseId): TableSpecBuilder {
+    return TableSpecBuilder.create(baseId);
+  }
+
+  specs(): TableSpecBuilder {
+    return TableSpecBuilder.create(this.baseIdValue);
+  }
+
+  static rehydrate(props: ITableBuildProps): Result<Table, DomainError> {
+    if (props.fields.length === 0)
+      return err(domainError.unexpected({ message: 'Table requires at least one Field' }));
+    if (!props.fields.some((f) => f.id().equals(props.primaryFieldId)))
+      return err(domainError.validation({ message: 'Primary Field must exist in Table fields' }));
+
+    const table = new Table(
+      props.id,
+      props.baseId,
+      props.name,
+      props.fields,
+      props.views,
+      props.primaryFieldId,
+      {
+        emitCreatedEvent: false,
+      }
+    );
+
+    if (props.dbTableName) {
+      const setResult = table.setDbTableName(props.dbTableName);
+      if (setResult.isErr()) return err(setResult.error);
+    }
+
+    return ok(table);
+  }
+
+  baseId(): BaseId {
+    return this.baseIdValue;
+  }
+
+  name(): TableName {
+    return this.nameValue;
+  }
+
+  dbTableName(): Result<DbTableName, DomainError> {
+    const valueResult = this.dbTableNameValue.value();
+    if (valueResult.isErr()) return err(valueResult.error);
+    return ok(this.dbTableNameValue);
+  }
+
+  clone(mapper: ITableMapper): Result<Table, DomainError> {
+    return mapper.toDTO(this).andThen((dto) => mapper.toDomain(dto));
+  }
+
+  duplicate(params: TableDuplicateParams): Result<TableDuplicateResult, DomainError> {
+    return duplicateMethod.call(this, params);
+  }
+
+  setDbTableName(dbTableName: DbTableName): Result<void, DomainError> {
+    const nextValue = dbTableName.value();
+    if (nextValue.isErr()) return err(nextValue.error);
+
+    const currentValue = this.dbTableNameValue.value();
+    if (currentValue.isOk()) {
+      if (currentValue.value !== nextValue.value)
+        return err(domainError.invariant({ message: 'DbTableName already set' }));
+      return ok(undefined);
+    }
+
+    this.dbTableNameValue = dbTableName;
+    return ok(undefined);
+  }
+
+  getField<T extends Field>(predicate: (field: Field) => field is T): Result<T, DomainError>;
+  getField(predicate: (field: Field) => boolean): Result<Field, DomainError>;
+  getField(spec: ISpecification<Field, ISpecVisitor>): Result<Field, DomainError>;
+  getField<T extends Field>(
+    predicateOrSpec:
+      | ((field: Field) => field is T)
+      | ((field: Field) => boolean)
+      | ISpecification<Field, ISpecVisitor>
+  ): Result<T | Field, DomainError> {
+    const predicate =
+      typeof predicateOrSpec === 'function'
+        ? predicateOrSpec
+        : (field: Field) => predicateOrSpec.isSatisfiedBy(field);
+    const field = this.fieldsValue.find(predicate);
+    if (!field) return err(domainError.notFound({ message: 'Field not found' }));
+    return ok(field);
+  }
+
+  getFields<T extends Field>(predicate: (field: Field) => field is T): ReadonlyArray<T>;
+  getFields(predicate: (field: Field) => boolean): ReadonlyArray<Field>;
+  getFields(spec: ISpecification<Field, ISpecVisitor>): ReadonlyArray<Field>;
+  getFields(): ReadonlyArray<Field>;
+  getFields<T extends Field>(
+    predicateOrSpec?:
+      | ((field: Field) => field is T)
+      | ((field: Field) => boolean)
+      | ISpecification<Field, ISpecVisitor>
+  ): ReadonlyArray<T | Field> {
+    if (!predicateOrSpec) return [...this.fieldsValue];
+    const predicate =
+      typeof predicateOrSpec === 'function'
+        ? predicateOrSpec
+        : (field: Field) => predicateOrSpec.isSatisfiedBy(field);
+    return this.fieldsValue.filter(predicate);
+  }
+
+  generateFieldName(baseName: FieldName): Result<FieldName, DomainError> {
+    const existingNames = this.fieldsValue.map((field) => field.name());
+    if (!existingNames.some((name) => name.equals(baseName))) {
+      return ok(baseName);
+    }
+
+    const baseValue = baseName.toString();
+    for (let index = 1; index <= 100; index += 1) {
+      const suffix = index === 1 ? ' (linked)' : ` (linked ${index})`;
+      const candidateResult = FieldName.create(`${baseValue}${suffix}`);
+      if (candidateResult.isErr()) return err(candidateResult.error);
+      const candidate = candidateResult.value;
+      if (!existingNames.some((name) => name.equals(candidate))) {
+        return ok(candidate);
+      }
+    }
+
+    return err(domainError.conflict({ message: 'Failed to generate unique FieldName' }));
+  }
+
+  primaryFieldId(): FieldId {
+    return this.primaryFieldIdValue;
+  }
+
+  primaryField(): Result<Field, DomainError> {
+    const field = this.fieldsValue.find((f) => f.id().equals(this.primaryFieldIdValue));
+    if (!field) return err(domainError.notFound({ message: 'Primary field not found' }));
+    return ok(field);
+  }
+
+  views(): ReadonlyArray<View> {
+    return [...this.viewsValue];
+  }
+
+  /**
+   * Get a view by its ID.
+   * @param viewId - The view ID to find
+   * @returns Result containing the view or a not found error
+   */
+  getView(viewId: ViewId): Result<View, DomainError> {
+    const view = this.viewsValue.find((v) => v.id().equals(viewId));
+    if (!view) {
+      return err(
+        domainError.notFound({
+          code: 'view.not_found',
+          message: `View not found: ${viewId.toString()}`,
+        })
+      );
+    }
+    return ok(view);
+  }
+
+  /**
+   * Get a view by its ID string.
+   * @param viewIdStr - The view ID string to find
+   * @returns Result containing the view or a not found error
+   */
+  getViewById(viewIdStr: string): Result<View, DomainError> {
+    const view = this.viewsValue.find((v) => v.id().toString() === viewIdStr);
+    if (!view) {
+      return err(
+        domainError.notFound({
+          code: 'view.not_found',
+          message: `View not found: ${viewIdStr}`,
+        })
+      );
+    }
+    return ok(view);
+  }
+
+  /**
+   * Get ordered visible field IDs for a view.
+   *
+   * - If projection is provided, uses the projection's field order
+   * - Otherwise filters hidden fields based on view type and sorts by columnMeta order
+   *
+   * @param viewId - The view ID
+   * @param options - Optional projection for custom field order
+   * @returns Ordered visible field IDs
+   */
+  getOrderedVisibleFieldIds(
+    viewId: string,
+    options?: GetOrderedVisibleFieldIdsOptions
+  ): Result<ReadonlyArray<FieldId>, DomainError> {
+    return getOrderedVisibleFieldIdsMethod.call(this, viewId, options);
+  }
+
+  validateFormSubmission(
+    formId: string,
+    fieldValues: ReadonlyMap<string, unknown>
+  ): Result<void, DomainError> {
+    return validateFormSubmissionMethod.call(this, formId, fieldValues);
+  }
+
+  fieldsByDependencies(): {
+    ordered: ReadonlyArray<Field>;
+    cycles: ReadonlyArray<ReadonlyArray<FieldId>>;
+  } {
+    const nodes = this.fieldsValue.map((field) => ({
+      id: field.id(),
+      dependencies: field.dependencies(),
+    }));
+    const result = topologicalSort(nodes);
+    const fieldById = new Map(
+      this.fieldsValue.map((field) => [field.id().toString(), field] as const)
+    );
+    return {
+      ordered: result.order.map((id) => fieldById.get(id.toString())!),
+      cycles: result.cycles,
+    };
+  }
+
+  fieldIds(): ReadonlyArray<FieldId> {
+    return this.fieldsValue.map((f) => f.id());
+  }
+
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
+    const visitor = new LinkForeignTableReferenceVisitor();
+    return this.fieldsValue
+      .reduce<Result<ReadonlyArray<LinkForeignTableReference>, DomainError>>(
+        (acc, field) =>
+          acc.andThen((refs) => field.accept(visitor).map((next) => [...refs, ...next])),
+        ok([])
+      )
+      .map((refs) => {
+        const seen = new Set<string>();
+        const unique: LinkForeignTableReference[] = [];
+        for (const ref of refs) {
+          const baseKey = ref.baseId ? ref.baseId.toString() : 'local';
+          const key = `${baseKey}:${ref.foreignTableId.toString()}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          unique.push(ref);
+        }
+        return unique;
+      });
+  }
+
+  /**
+   * Get editable (non-computed) fields in this table.
+   * Uses NotSpec(FieldIsComputedSpec) internally.
+   */
+  getEditableFields(): ReadonlyArray<Field> {
+    const notComputedSpec = new NotSpec(FieldIsComputedSpec.create());
+    return this.getFields(notComputedSpec);
+  }
+
+  getRequiredFieldsWithoutDefaults(
+    excludeFieldIds: ReadonlyArray<FieldId> = []
+  ): Result<ReadonlyArray<Field>, DomainError> {
+    const excludedFieldIds = new Set(excludeFieldIds.map((fieldId) => fieldId.toString()));
+    const defaultValueVisitor = FieldDefaultValueVisitor.create();
+    const blockingFields: Field[] = [];
+
+    for (const field of this.getEditableFields()) {
+      if (excludedFieldIds.has(field.id().toString()) || !field.notNull().toBoolean()) {
+        continue;
+      }
+
+      const defaultValueResult = field.accept(defaultValueVisitor);
+      if (defaultValueResult.isErr()) {
+        return err(defaultValueResult.error);
+      }
+
+      if (defaultValueResult.value === undefined) {
+        blockingFields.push(field);
+      }
+    }
+
+    return ok(blockingFields);
+  }
+
+  validateCreateWithPrimaryOnly(): Result<void, DomainError> {
+    return this.primaryField().andThen((primaryField) => {
+      if (primaryField.computed().toBoolean()) {
+        return err(
+          domainError.validation({
+            code: 'paste.link_auto_create_computed_primary_unsupported',
+            message:
+              'Auto-creating linked rows from paste is not supported when the foreign primary field is computed.',
+            details: {
+              tableId: this.id().toString(),
+              primaryFieldId: primaryField.id().toString(),
+            },
+          })
+        );
+      }
+
+      if (!primaryField.type().equals(FieldType.singleLineText())) {
+        return err(
+          domainError.validation({
+            code: 'paste.link_auto_create_requires_text_primary',
+            message:
+              'Auto-creating linked rows from paste is only supported when the foreign primary field is single line text.',
+            details: {
+              tableId: this.id().toString(),
+              primaryFieldId: primaryField.id().toString(),
+              primaryFieldType: primaryField.type().toString(),
+            },
+          })
+        );
+      }
+
+      return this.getRequiredFieldsWithoutDefaults([primaryField.id()]).andThen(
+        (blockingRequiredFields) => {
+          if (blockingRequiredFields.length === 0) {
+            return ok(undefined);
+          }
+
+          return err(
+            domainError.validation({
+              code: 'paste.link_auto_create_missing_required_fields',
+              message:
+                'Auto-creating linked rows from paste is not supported when the foreign table has required fields without defaults.',
+              details: {
+                tableId: this.id().toString(),
+                primaryFieldId: primaryField.id().toString(),
+                requiredFieldIds: blockingRequiredFields.map((field) => field.id().toString()),
+                requiredFieldNames: blockingRequiredFields.map((field) => field.name().toString()),
+              },
+            })
+          );
+        }
+      );
+    });
+  }
+
+  /**
+   * Create a Zod schema for record input validation.
+   * Only includes editable (non-computed) fields.
+   *
+   * @returns Result containing the Zod object schema
+   *
+   * @example
+   * ```typescript
+   * const schemaResult = table.createRecordInputSchema();
+   * if (schemaResult.isOk()) {
+   *   const validated = schemaResult.value.safeParse({ fieldId: 'value' });
+   * }
+   * ```
+   */
+  createRecordInputSchema(): Result<z.ZodObject<Record<string, z.ZodTypeAny>>, DomainError> {
+    const editableFields = this.getEditableFields();
+    const schemaShape: Record<string, z.ZodTypeAny> = {};
+    const visitor = FieldCellValueSchemaVisitor.create();
+
+    for (const field of editableFields) {
+      const schemaResult = field.accept(visitor);
+      if (schemaResult.isErr()) {
+        return err(schemaResult.error);
+      }
+      schemaShape[field.id().toString()] = schemaResult.value;
+    }
+
+    return ok(z.object(schemaShape));
+  }
+
+  /**
+   * Create a new record for this table with the given field values.
+   *
+   * This method:
+   * 1. Generates a new record ID
+   * 2. Validates and applies field values using the mutation spec builder
+   * 3. Returns the fully constructed record
+   *
+   * @param fieldValues - Map of field IDs to raw values
+   * @param options - Optional configuration
+   * @param options.typecast - If true, values are converted to the expected type (e.g., "123" → 123)
+   * @returns Result containing the RecordCreateResult (record + mutateSpec) or validation error
+   *
+   * @example
+   * ```typescript
+   * const recordResult = table.createRecord(new Map([
+   *   ['fld123', 'John Doe'],
+   *   ['fld456', 30],
+   * ]));
+   * ```
+   */
+  createRecord(
+    fieldValues: ReadonlyMap<string, unknown>,
+    options?: { typecast?: boolean; source?: RecordCreateSource }
+  ): Result<RecordCreateResult, DomainError> {
+    return createRecordMethod.call(this, fieldValues, options);
+  }
+
+  /**
+   * Update a record with the given field values.
+   *
+   * This method:
+   * 1. Validates provided field values (no defaults are applied)
+   * 2. Builds a mutation spec for the provided fields
+   * 3. Returns both the mutated record and the mutation spec
+   *
+   * The mutation spec can be used by repository adapters to generate
+   * optimized SQL statements (e.g., atomic increments, batch updates).
+   *
+   * @param recordId - The record to update
+   * @param fieldValues - Map of field IDs to raw values
+   * @param options - Optional configuration
+   * @param options.typecast - If true, values are converted to the expected type (e.g., "123" → 123)
+   * @returns Result containing the RecordUpdateResult (record + mutateSpec) or validation error
+   */
+  updateRecord(
+    recordId: RecordId,
+    fieldValues: ReadonlyMap<string, unknown>,
+    options?: { typecast?: boolean }
+  ): Result<RecordUpdateResult, DomainError> {
+    return updateRecordMethod.call(this, recordId, fieldValues, options);
+  }
+
+  /**
+   * Update records in a streaming/batched fashion using a Generator.
+   *
+   * This method is memory-friendly for bulk updates:
+   * - Lazily processes input update items
+   * - Yields batches of RecordUpdateResults (containing record + mutateSpec)
+   * - Only keeps batchSize records in memory at a time
+   * - Stops immediately on first validation error
+   *
+   * @param updates - Iterable of { recordId, fieldValues } items
+   * @param options - Optional configuration
+   * @param options.typecast - If true, values are converted to the expected type
+   * @param options.batchSize - Number of records per batch (default: 500)
+   * @returns Generator yielding Result batches of RecordUpdateResult
+   *
+   * @example
+   * ```typescript
+   * // Process bulk updates with bounded memory
+   * function* generateUpdates() {
+   *   for (const { recordId, values } of updateItems) {
+   *     yield { recordId, fieldValues: new Map(Object.entries(values)) };
+   *   }
+   * }
+   *
+   * for (const batchResult of table.updateRecordsStream(generateUpdates(), { batchSize: 500 })) {
+   *   if (batchResult.isErr()) {
+   *     console.error(batchResult.error);
+   *     break;
+   *   }
+   *   // Process batch using repository.updateManyStream
+   * }
+   * ```
+   */
+  *updateRecordsStream(
+    updates: Iterable<UpdateRecordItem>,
+    options?: { typecast?: boolean; batchSize?: number }
+  ): Generator<Result<ReadonlyArray<RecordUpdateResult>, DomainError>> {
+    yield* updateRecordsStreamMethod.call(this, updates, options);
+  }
+
+  /**
+   * Create multiple records for this table with the given field values.
+   *
+   * This method:
+   * 1. Iterates through all field values arrays
+   * 2. Creates each record using the same logic as createRecord
+   * 3. Returns all created records or the first validation error
+   *
+   * @param recordsFieldValues - Array of record seeds (field values and optional IDs)
+   * @returns Result containing records and fieldKeyMapping, or validation error
+   *
+   * @example
+   * ```typescript
+   * // Keys can be fieldId or fieldName
+   * const recordsResult = table.createRecords([
+   *   new Map([['fld123', 'John'], ['Age', 30]]),
+   *   new Map([['fld123', 'Jane'], ['Age', 25]]),
+   * ]);
+   * ```
+   */
+  createRecords(
+    recordsFieldValues: ReadonlyArray<
+      ReadonlyMap<string, unknown> | { id?: RecordId; fieldValues: ReadonlyMap<string, unknown> }
+    >,
+    options?: {
+      typecast?: boolean;
+      valuesAreValidated?: boolean;
+      emitRecordCreatedEvents?: boolean;
+    }
+  ): Result<CreateRecordsMethodResult, DomainError> {
+    return createRecordsMethod.call(this, recordsFieldValues, options);
+  }
+
+  /**
+   * Create records in a streaming/batched fashion using a Generator.
+   *
+   * This method is memory-friendly for large record sets:
+   * - Lazily processes input records
+   * - Yields batches of created records
+   * - Only keeps batchSize records in memory at a time
+   * - Stops immediately on first validation error
+   *
+   * @param recordsFieldValues - Iterable of field value maps (can be lazy/streaming)
+   * @param options - Optional configuration
+   * @param options.batchSize - Number of records per batch (default: 500)
+   * @returns Generator yielding Result batches of created records
+   *
+   * @example
+   * ```typescript
+   * // Process 100k records with bounded memory
+   * function* generateRecords() {
+   *   for (let i = 0; i < 100000; i++) {
+   *     yield new Map([['fld123', `Record ${i}`]]);
+   *   }
+   * }
+   *
+   * for (const batchResult of table.createRecordsStream(generateRecords(), { batchSize: 500 })) {
+   *   if (batchResult.isErr()) {
+   *     console.error(batchResult.error);
+   *     break;
+   *   }
+   *   // Process batch of 500 records
+   *   await repository.insertMany(batchResult.value);
+   * }
+   * ```
+   */
+  *createRecordsStream(
+    recordsFieldValues: Iterable<ReadonlyMap<string, unknown>>,
+    options?: CreateRecordsStreamOptions
+  ): Generator<Result<ReadonlyArray<TableRecord>, DomainError>> {
+    yield* createRecordsStreamMethod.call(this, recordsFieldValues, options);
+  }
+
+  /**
+   * Async version of createRecordsStream for AsyncIterable sources.
+   * Useful for streaming from URLs or large files without loading into memory.
+   *
+   * @param recordsFieldValues - An async iterable yielding Maps of field ID -> value
+   * @param options.batchSize - Number of records per batch (default: 500)
+   * @returns An async generator yielding Results containing batches of TableRecords
+   */
+  async *createRecordsStreamAsync(
+    recordsFieldValues: AsyncIterable<ReadonlyMap<string, unknown>>,
+    options?: CreateRecordsStreamOptions
+  ): AsyncGenerator<Result<ReadonlyArray<TableRecord>, DomainError>> {
+    yield* createRecordsStreamAsyncMethod.call(this, recordsFieldValues, options);
+  }
+
+  viewIds(): ReadonlyArray<ViewId> {
+    return this.viewsValue.map((v) => v.id());
+  }
+
+  markDeleted(): Result<void, DomainError> {
+    this.addDomainEvent(
+      TableDeleted.create({
+        tableId: this.id(),
+        baseId: this.baseIdValue,
+        tableName: this.nameValue,
+        fieldIds: this.fieldIds(),
+        viewIds: this.viewIds(),
+      })
+    );
+    return ok(undefined);
+  }
+
+  markTrashed(): Result<void, DomainError> {
+    this.addDomainEvent(
+      TableTrashed.create({
+        tableId: this.id(),
+        baseId: this.baseIdValue,
+        tableName: this.nameValue,
+        fieldIds: this.fieldIds(),
+        viewIds: this.viewIds(),
+      })
+    );
+    return ok(undefined);
+  }
+
+  markRestored(): Result<void, DomainError> {
+    this.addDomainEvent(
+      TableRestored.create({
+        tableId: this.id(),
+        baseId: this.baseIdValue,
+        tableName: this.nameValue,
+        fieldIds: this.fieldIds(),
+        viewIds: this.viewIds(),
+      })
+    );
+    return ok(undefined);
+  }
+
+  requestActionTrigger(params: {
+    actionKey: ITableActionKey;
+    payload?: Record<string, unknown>;
+    tableId?: TableId;
+    baseId?: BaseId;
+  }): void {
+    this.addDomainEvent(
+      TableActionTriggerRequested.create({
+        tableId: params.tableId ?? this.id(),
+        baseId: params.baseId ?? this.baseIdValue,
+        actionKey: params.actionKey,
+        payload: params.payload,
+      })
+    );
+  }
+
+  update(build: (mutator: TableMutator) => TableMutator): Result<TableUpdateResult, DomainError> {
+    const mutator = build(TableMutator.create(this));
+    return mutator.apply();
+  }
+
+  updateField(
+    fieldId: FieldId,
+    buildSpecs: (
+      currentField: Field
+    ) => Result<ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>, DomainError>,
+    options?: { foreignTables?: ReadonlyArray<Table> }
+  ): Result<
+    {
+      previousField: Field;
+      updatedField: Field;
+      specs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>;
+      updateResult: TableUpdateResult;
+    },
+    DomainError
+  > {
+    const currentFieldResult = this.getField((field) => field.id().equals(fieldId));
+    if (currentFieldResult.isErr()) return err(currentFieldResult.error);
+    const previousField = currentFieldResult.value;
+
+    const specsResult = buildSpecs(previousField);
+    if (specsResult.isErr()) return err(specsResult.error);
+    const appliedSpecs = specsResult.value;
+
+    const updateResult = this.update((mutator) =>
+      mutator.updateField(fieldId, appliedSpecs, options)
+    );
+    if (updateResult.isErr()) return err(updateResult.error);
+
+    const updatedFieldResult = updateResult.value.table.getField((field) =>
+      field.id().equals(fieldId)
+    );
+    if (updatedFieldResult.isErr()) return err(updatedFieldResult.error);
+
+    return ok({
+      previousField,
+      updatedField: updatedFieldResult.value,
+      specs: appliedSpecs,
+      updateResult: updateResult.value,
+    });
+  }
+
+  updateFieldWithSpecs(
+    fieldId: FieldId,
+    specs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>,
+    options?: { foreignTables?: ReadonlyArray<Table> }
+  ): Result<
+    {
+      updatedField: Field;
+      specs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>;
+      updateResult: TableUpdateResult;
+    },
+    DomainError
+  > {
+    const updateResult = this.update((mutator) => mutator.updateField(fieldId, specs, options));
+    if (updateResult.isErr()) return err(updateResult.error);
+
+    const updatedFieldResult = updateResult.value.table.getField((field) =>
+      field.id().equals(fieldId)
+    );
+    if (updatedFieldResult.isErr()) return err(updatedFieldResult.error);
+
+    return ok({
+      updatedField: updatedFieldResult.value,
+      specs,
+      updateResult: updateResult.value,
+    });
+  }
+
+  rename(nextName: TableName): Result<Table, DomainError> {
+    return renameMethod.call(this, nextName);
+  }
+
+  addField(
+    field: Field,
+    options?: {
+      foreignTables?: ReadonlyArray<Table>;
+      domainContext?: IDomainContext;
+      targetViewId?: ViewId;
+    }
+  ): Result<Table, DomainError> {
+    if (this.fieldsValue.some((existing) => existing.id().equals(field.id()))) {
+      return err(domainError.conflict({ message: 'Field already exists' }));
+    }
+    if (this.fieldsValue.some((existing) => existing.name().equals(field.name()))) {
+      return err(domainError.conflict({ message: 'Field names must be unique' }));
+    }
+
+    const nextDbFieldNameResult = field.dbFieldName().andThen((dbFieldName) => dbFieldName.value());
+    if (nextDbFieldNameResult.isOk()) {
+      const hasDuplicateDbFieldName = this.fieldsValue.some((existing) => {
+        const existingDbFieldNameResult = existing
+          .dbFieldName()
+          .andThen((dbFieldName) => dbFieldName.value());
+        return (
+          existingDbFieldNameResult.isOk() &&
+          existingDbFieldNameResult.value === nextDbFieldNameResult.value
+        );
+      });
+
+      if (hasDuplicateDbFieldName) {
+        return err(
+          domainError.conflict({
+            message: `Db Field name ${nextDbFieldNameResult.value} already exists in this table`,
+          })
+        );
+      }
+    }
+
+    const validationResult = this.validateForeignTables([field], options?.foreignTables);
+    if (validationResult.isErr()) return err(validationResult.error);
+
+    const nextFields = [...this.fieldsValue, field];
+    const nextViewsResult = this.cloneViewsWithField(nextFields, field, {
+      targetViewId: options?.targetViewId,
+    });
+    if (nextViewsResult.isErr()) return err(nextViewsResult.error);
+
+    const props: ITableBuildProps = {
+      id: this.id(),
+      baseId: this.baseIdValue,
+      name: this.nameValue,
+      fields: nextFields,
+      views: nextViewsResult.value,
+      primaryFieldId: this.primaryFieldIdValue,
+    };
+
+    if (this.dbTableNameValue.isRehydrated()) {
+      props.dbTableName = this.dbTableNameValue;
+    }
+
+    return Table.rehydrate(props).andThen((nextTable) => {
+      const resolved = field.type().equals(FieldType.formula())
+        ? resolveFormulaFields(nextTable, {
+            ignoreMissingReferenceOnExisting: true,
+            strictFieldId: field.id(),
+          })
+        : ok(undefined);
+      if (resolved.isErr()) return err(resolved.error);
+      return ok(nextTable);
+    });
+  }
+
+  removeField(fieldId: FieldId): Result<Table, DomainError> {
+    if (this.primaryFieldIdValue.equals(fieldId)) {
+      return err(
+        domainError.forbidden({
+          code: 'forbidden.table.delete_primary_field',
+          message: 'Cannot delete primary field',
+        })
+      );
+    }
+
+    const targetField = this.fieldsValue.find((field) => field.id().equals(fieldId));
+    if (!targetField) return err(domainError.notFound({ message: 'Field not found' }));
+
+    const nextFields = this.fieldsValue.filter((field) => !field.id().equals(fieldId));
+    if (nextFields.length === 0)
+      return err(domainError.unexpected({ message: 'Table requires at least one Field' }));
+
+    const nextViewsResult = this.cloneViewsWithoutField(nextFields, fieldId);
+    if (nextViewsResult.isErr()) return err(nextViewsResult.error);
+
+    const props: ITableBuildProps = {
+      id: this.id(),
+      baseId: this.baseIdValue,
+      name: this.nameValue,
+      fields: nextFields,
+      views: nextViewsResult.value,
+      primaryFieldId: this.primaryFieldIdValue,
+    };
+
+    if (this.dbTableNameValue.isRehydrated()) {
+      props.dbTableName = this.dbTableNameValue;
+    }
+
+    return Table.rehydrate(props).map((nextTable) => {
+      return nextTable;
+    });
+  }
+
+  addSelectOptions(
+    fieldId: FieldId,
+    options: ReadonlyArray<SelectOption>,
+    domainContext?: IDomainContext
+  ): Result<Table, DomainError> {
+    if (options.length === 0) {
+      return ok(this);
+    }
+
+    const fieldResult = this.getField((field) => field.id().equals(fieldId));
+    if (fieldResult.isErr()) return err(fieldResult.error);
+
+    const field = fieldResult.value;
+    if (
+      !field.type().equals(FieldType.singleSelect()) &&
+      !field.type().equals(FieldType.multipleSelect())
+    ) {
+      return err(domainError.validation({ message: 'Field is not a select field' }));
+    }
+
+    const isSingle = field.type().equals(FieldType.singleSelect());
+    const existingOptions = isSingle
+      ? (field as SingleSelectField).selectOptions()
+      : (field as MultipleSelectField).selectOptions();
+    const existingIds = new Set(existingOptions.map((option) => option.id().toString()));
+    const existingNames = new Set(existingOptions.map((option) => option.name().toString()));
+    const newOptions = options.filter(
+      (option) =>
+        !existingIds.has(option.id().toString()) && !existingNames.has(option.name().toString())
+    );
+    if (newOptions.length === 0) {
+      return ok(this);
+    }
+
+    const mergedOptions = [...existingOptions, ...newOptions];
+    const limitResult = ensureSelectFieldOptionCountWithinLimit(
+      mergedOptions.length,
+      domainContext
+    );
+    if (limitResult.isErr()) return err(limitResult.error);
+    const nameLimitResult = ensureSelectFieldOptionNamesWithinLimit(
+      mergedOptions.map((option) => option.name().toString()),
+      domainContext
+    );
+    if (nameLimitResult.isErr()) return err(nameLimitResult.error);
+
+    const nextFieldResult = isSingle
+      ? SingleSelectField.create({
+          id: field.id(),
+          name: field.name(),
+          options: mergedOptions,
+          defaultValue: (field as SingleSelectField).defaultValue(),
+          preventAutoNewOptions: (field as SingleSelectField).preventAutoNewOptions(),
+        })
+      : MultipleSelectField.create({
+          id: field.id(),
+          name: field.name(),
+          options: mergedOptions,
+          defaultValue: (field as MultipleSelectField).defaultValue(),
+          preventAutoNewOptions: (field as MultipleSelectField).preventAutoNewOptions(),
+        });
+    if (nextFieldResult.isErr()) return err(nextFieldResult.error);
+    const nextField = nextFieldResult.value;
+
+    const setDescriptionResult = nextField.setDescription(field.description());
+    if (setDescriptionResult.isErr()) return err(setDescriptionResult.error);
+    const setAiConfigResult = nextField.setAiConfig(field.aiConfig());
+    if (setAiConfigResult.isErr()) return err(setAiConfigResult.error);
+    const setNotNullResult = nextField.setNotNull(field.notNull());
+    if (setNotNullResult.isErr()) return err(setNotNullResult.error);
+    const setUniqueResult = nextField.setUnique(field.unique());
+    if (setUniqueResult.isErr()) return err(setUniqueResult.error);
+
+    const dbFieldNameResult = field.dbFieldName();
+    if (dbFieldNameResult.isOk()) {
+      const setDbFieldNameResult = nextField.setDbFieldName(dbFieldNameResult.value);
+      if (setDbFieldNameResult.isErr()) return err(setDbFieldNameResult.error);
+    }
+
+    const dbFieldTypeResult = field.dbFieldType();
+    if (dbFieldTypeResult.isOk()) {
+      const setDbFieldTypeResult = nextField.setDbFieldType(dbFieldTypeResult.value);
+      if (setDbFieldTypeResult.isErr()) return err(setDbFieldTypeResult.error);
+    }
+
+    const nextFields = this.fieldsValue.map((current) =>
+      current.id().equals(fieldId) ? nextField : current
+    );
+
+    const props: ITableBuildProps = {
+      id: this.id(),
+      baseId: this.baseIdValue,
+      name: this.nameValue,
+      fields: nextFields,
+      views: this.viewsValue,
+      primaryFieldId: this.primaryFieldIdValue,
+    };
+
+    if (this.dbTableNameValue.isRehydrated()) {
+      props.dbTableName = this.dbTableNameValue;
+    }
+
+    return Table.rehydrate(props);
+  }
+  /**
+   * Update a field's name.
+   * @param fieldId - The field to update
+   * @param nextName - The new name
+   * @returns Result containing the updated table or an error
+   */
+  updateFieldName(fieldId: FieldId, nextName: FieldName): Result<Table, DomainError> {
+    const fieldResult = this.getField((field) => field.id().equals(fieldId));
+    if (fieldResult.isErr()) return err(fieldResult.error);
+
+    const field = fieldResult.value;
+
+    // Check for name uniqueness (excluding the current field)
+    const nameConflict = this.fieldsValue.some(
+      (f) => !f.id().equals(fieldId) && f.name().equals(nextName)
+    );
+    if (nameConflict) {
+      return err(domainError.conflict({ message: 'Field names must be unique' }));
+    }
+
+    // Create updated field using duplicate with new name
+    const updatedFieldResult = field.duplicate({
+      newId: field.id(),
+      newName: nextName,
+      baseId: this.baseIdValue,
+      tableId: this.id(),
+    });
+    if (updatedFieldResult.isErr()) return err(updatedFieldResult.error);
+
+    const updatedField = updatedFieldResult.value;
+
+    const descriptionResult = updatedField.setDescription(field.description());
+    if (descriptionResult.isErr()) return err(descriptionResult.error);
+
+    const dbFieldNameResult = field.dbFieldName();
+    if (dbFieldNameResult.isOk()) {
+      const setDbFieldNameResult = updatedField.setDbFieldName(dbFieldNameResult.value);
+      if (setDbFieldNameResult.isErr()) return err(setDbFieldNameResult.error);
+    }
+
+    const dbFieldTypeResult = field.dbFieldType();
+    if (dbFieldTypeResult.isOk()) {
+      const setDbFieldTypeResult = updatedField.setDbFieldType(dbFieldTypeResult.value);
+      if (setDbFieldTypeResult.isErr()) return err(setDbFieldTypeResult.error);
+    }
+
+    const nextFields = this.fieldsValue.map((f) => (f.id().equals(fieldId) ? updatedField : f));
+
+    const props: ITableBuildProps = {
+      id: this.id(),
+      baseId: this.baseIdValue,
+      name: this.nameValue,
+      fields: nextFields,
+      views: this.viewsValue,
+      primaryFieldId: this.primaryFieldIdValue,
+    };
+
+    if (this.dbTableNameValue.isRehydrated()) {
+      props.dbTableName = this.dbTableNameValue;
+    }
+
+    return Table.rehydrate(props);
+  }
+
+  updateFieldDescription(fieldId: FieldId, description: string | null): Result<Table, DomainError> {
+    const fieldResult = this.getField((field) => field.id().equals(fieldId));
+    if (fieldResult.isErr()) return err(fieldResult.error);
+
+    const field = fieldResult.value;
+    const setDescriptionResult = field.setDescription(description);
+    if (setDescriptionResult.isErr()) return err(setDescriptionResult.error);
+
+    return ok(this);
+  }
+
+  updateFieldDbFieldName(fieldId: FieldId, dbFieldName: DbFieldName): Result<Table, DomainError> {
+    const fieldResult = this.getField((field) => field.id().equals(fieldId));
+    if (fieldResult.isErr()) return err(fieldResult.error);
+
+    const field = fieldResult.value;
+    const renameResult = field.renameDbFieldName(dbFieldName);
+    if (renameResult.isErr()) return err(renameResult.error);
+
+    return ok(this);
+  }
+
+  /**
+   * Replace a field with a new field (for type conversion).
+   * The new field must have the same ID as the old field.
+   * @param fieldId - The field to replace
+   * @param newField - The new field instance
+   * @returns Result containing the updated table or an error
+   */
+  replaceField(
+    fieldId: FieldId,
+    newField: Field,
+    _options?: { foreignTables?: ReadonlyArray<Table> }
+  ): Result<Table, DomainError> {
+    if (!fieldId.equals(newField.id())) {
+      return err(
+        domainError.validation({ message: 'New field must have the same ID as the old field' })
+      );
+    }
+
+    const oldFieldResult = this.getField((field) => field.id().equals(fieldId));
+    if (oldFieldResult.isErr()) return err(oldFieldResult.error);
+    const oldField = oldFieldResult.value;
+
+    const oldDbFieldNameResult = oldField.dbFieldName();
+    if (oldDbFieldNameResult.isOk() && newField.dbFieldName().isErr()) {
+      const setDbFieldNameResult = newField.setDbFieldName(oldDbFieldNameResult.value);
+      if (setDbFieldNameResult.isErr()) return err(setDbFieldNameResult.error);
+    }
+
+    // Primary field conversion aligns with v1: conversion is allowed but target type is restricted.
+    if (this.primaryFieldIdValue.equals(fieldId)) {
+      if (!oldField.type().equals(newField.type())) {
+        const nextType = newField.type().toString();
+        if (!newField.type().isPrimarySupported()) {
+          return err(
+            domainError.validation({
+              message: `Field type ${nextType} is not supported as primary field`,
+            })
+          );
+        }
+      }
+    }
+
+    if (!oldField.name().equals(newField.name())) {
+      const nameConflict = this.fieldsValue.some(
+        (f) => !f.id().equals(fieldId) && f.name().equals(newField.name())
+      );
+      if (nameConflict) {
+        return err(domainError.conflict({ message: 'Field names must be unique' }));
+      }
+    }
+
+    const nextFields = this.fieldsValue.map((f) => (f.id().equals(fieldId) ? newField : f));
+
+    const props: ITableBuildProps = {
+      id: this.id(),
+      baseId: this.baseIdValue,
+      name: this.nameValue,
+      fields: nextFields,
+      views: this.viewsValue,
+      primaryFieldId: this.primaryFieldIdValue,
+    };
+
+    if (this.dbTableNameValue.isRehydrated()) {
+      props.dbTableName = this.dbTableNameValue;
+    }
+
+    return Table.rehydrate(props).andThen((nextTable) => {
+      const resolved = newField.type().equals(FieldType.formula())
+        ? resolveFormulaFields(nextTable, {
+            ignoreMissingReferenceOnExisting: true,
+            strictFieldId: newField.id(),
+          })
+        : ok(undefined);
+      if (resolved.isErr()) return err(resolved.error);
+      return ok(nextTable);
+    });
+  }
+
+  /**
+   * Update a field's constraints (notNull, unique).
+   * @param fieldId - The field to update
+   * @param notNull - The new notNull constraint
+   * @param unique - The new unique constraint
+   * @returns Result containing the updated table or an error
+   */
+  updateFieldConstraints(
+    fieldId: FieldId,
+    notNull: FieldNotNull,
+    unique: FieldUnique
+  ): Result<Table, DomainError> {
+    const fieldResult = this.getField((field) => field.id().equals(fieldId));
+    if (fieldResult.isErr()) return err(fieldResult.error);
+
+    const field = fieldResult.value;
+
+    // Apply constraints to the field
+    const setNotNullResult = field.setNotNull(notNull);
+    if (setNotNullResult.isErr()) return err(setNotNullResult.error);
+
+    const setUniqueResult = field.setUnique(unique);
+    if (setUniqueResult.isErr()) return err(setUniqueResult.error);
+
+    // Table structure doesn't change, just field state
+    return ok(this);
+  }
+
+  /**
+   * Update a field's error state.
+   * Used when computed fields have broken references.
+   * @param fieldId - The field to update
+   * @param hasError - The new error state
+   * @returns Result containing the updated table or an error
+   */
+  updateFieldHasError(fieldId: FieldId, hasError: FieldHasError): Result<Table, DomainError> {
+    const fieldResult = this.getField((field) => field.id().equals(fieldId));
+    if (fieldResult.isErr()) return err(fieldResult.error);
+
+    const field = fieldResult.value;
+    field.setHasError(hasError);
+
+    // Table structure doesn't change, just field state
+    return ok(this);
+  }
+
+  private validateForeignTables(
+    fields: ReadonlyArray<Field>,
+    foreignTables?: ReadonlyArray<Table>
+  ): Result<void, DomainError> {
+    if (!foreignTables || foreignTables.length === 0) return ok(undefined);
+    return validateForeignTablesForFields(fields, { hostTable: this, foreignTables });
+  }
+
+  private cloneViewsWithField(
+    fields: ReadonlyArray<Field>,
+    newField: Field,
+    options?: {
+      targetViewId?: ViewId;
+    }
+  ): Result<ReadonlyArray<View>, DomainError> {
+    const defaultMetaByType = new Map<string, ViewColumnMeta>();
+    const newFieldKey = newField.id().toString();
+
+    const clones = this.viewsValue.map((view) => {
+      const currentMetaResult = view.columnMeta();
+      if (currentMetaResult.isErr()) return err(currentMetaResult.error);
+      const currentMeta = currentMetaResult.value.toDto();
+
+      const viewType = view.type().toString();
+      let defaultMeta = defaultMetaByType.get(viewType);
+      if (!defaultMeta) {
+        const metaResult = ViewColumnMeta.forView({
+          viewType: view.type(),
+          fields,
+          primaryFieldId: this.primaryFieldIdValue,
+        });
+        if (metaResult.isErr()) return err(metaResult.error);
+        defaultMeta = metaResult.value;
+        defaultMetaByType.set(viewType, defaultMeta);
+      }
+
+      const defaultEntry = defaultMeta.toDto()[newFieldKey];
+      if (!defaultEntry)
+        return err(domainError.validation({ message: 'Missing new field column meta' }));
+
+      const currentEntries = Object.values(currentMeta);
+      const maxOrder = currentEntries.length
+        ? Math.max(...currentEntries.map((entry) => entry.order ?? -1))
+        : -1;
+
+      const nextEntry = this.buildAddedFieldColumnMetaEntry({
+        view,
+        currentMeta,
+        defaultEntry,
+        targetViewId: options?.targetViewId,
+      });
+
+      const nextMeta = {
+        ...currentMeta,
+        [newFieldKey]: { ...nextEntry, order: maxOrder + 1 },
+      };
+
+      const nextMetaResult = ViewColumnMeta.create(nextMeta);
+      if (nextMetaResult.isErr()) return err(nextMetaResult.error);
+
+      const cloneResult = view.accept(new CloneViewVisitor());
+      if (cloneResult.isErr()) return err(cloneResult.error);
+
+      const clone = cloneResult.value;
+      const setResult = clone.setColumnMeta(nextMetaResult.value);
+      if (setResult.isErr()) return err(setResult.error);
+
+      const queryDefaultsResult = view.queryDefaults();
+      if (queryDefaultsResult.isErr()) return err(queryDefaultsResult.error);
+      const setQueryResult = clone.setQueryDefaults(queryDefaultsResult.value);
+      if (setQueryResult.isErr()) return err(setQueryResult.error);
+
+      return ok(clone);
+    });
+
+    return clones.reduce<Result<ReadonlyArray<View>, DomainError>>(
+      (acc, next) => acc.andThen((arr) => next.map((value) => [...arr, value])),
+      ok([])
+    );
+  }
+
+  private cloneViewsWithoutField(
+    fields: ReadonlyArray<Field>,
+    removedFieldId: FieldId
+  ): Result<ReadonlyArray<View>, DomainError> {
+    const removedKey = removedFieldId.toString();
+    const clones = this.viewsValue.map((view) => {
+      const currentMetaResult = view.columnMeta();
+      if (currentMetaResult.isErr()) return err(currentMetaResult.error);
+      const currentMeta = currentMetaResult.value.toDto();
+      if (currentMeta[removedKey]) {
+        delete currentMeta[removedKey];
+      }
+
+      const nextMetaResult = ViewColumnMeta.create(currentMeta);
+      if (nextMetaResult.isErr()) return err(nextMetaResult.error);
+
+      const cloneResult = view.accept(new CloneViewVisitor());
+      if (cloneResult.isErr()) return err(cloneResult.error);
+
+      const clone = cloneResult.value;
+      const setResult = clone.setColumnMeta(nextMetaResult.value);
+      if (setResult.isErr()) return err(setResult.error);
+
+      const queryDefaultsResult = view.queryDefaults();
+      if (queryDefaultsResult.isErr()) return err(queryDefaultsResult.error);
+      const setQueryResult = clone.setQueryDefaults(queryDefaultsResult.value);
+      if (setQueryResult.isErr()) return err(setQueryResult.error);
+
+      return ok(clone);
+    });
+
+    return clones.reduce<Result<ReadonlyArray<View>, DomainError>>(
+      (acc, next) => acc.andThen((arr) => next.map((value) => [...arr, value])),
+      ok([])
+    );
+  }
+
+  private buildAddedFieldColumnMetaEntry(params: {
+    view: View;
+    currentMeta: Record<string, ViewColumnMetaEntry>;
+    defaultEntry: ViewColumnMetaEntry;
+    targetViewId?: ViewId;
+  }): ViewColumnMetaEntry {
+    const { view, currentMeta, defaultEntry, targetViewId } = params;
+
+    if (targetViewId && view.id().equals(targetViewId)) {
+      return { ...defaultEntry };
+    }
+
+    if (view.type().toString() !== 'grid') {
+      return { ...defaultEntry };
+    }
+
+    const hasExplicitHiddenVisibilityConfig = Object.values(currentMeta).some((entry) =>
+      Object.prototype.hasOwnProperty.call(entry, 'hidden')
+    );
+    if (!hasExplicitHiddenVisibilityConfig) {
+      return { ...defaultEntry };
+    }
+
+    return {
+      ...defaultEntry,
+      hidden: true,
+    };
+  }
+}
