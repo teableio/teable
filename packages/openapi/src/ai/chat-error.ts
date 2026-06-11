@@ -23,6 +23,7 @@ export enum ChatErrorCode {
 
   // Agent engine errors
   AGENT_START_FAILED = 'agent_start_failed',
+  CONNECTION_INTERRUPTED = 'connection_interrupted',
 
   // API/infrastructure errors
   API_ERROR_5XX = 'api_error_5xx',
@@ -35,6 +36,7 @@ export enum ChatErrorCode {
 
   // Session recovery
   DANGLING_TOOL_USE = 'dangling_tool_use',
+  CONTEXT_IMPORT_FAILED = 'context_import_failed',
 
   // Generic
   UNKNOWN = 'unknown',

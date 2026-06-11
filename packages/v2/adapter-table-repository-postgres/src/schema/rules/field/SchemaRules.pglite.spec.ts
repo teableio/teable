@@ -621,6 +621,7 @@ describe('Schema Rules Unit Tests with PGlite', () => {
 
   const createContext = (tableName: string, field: Field): SchemaRuleContext => ({
     db,
+    metaDb: db,
     introspector,
     schema: TEST_SCHEMA,
     tableName,

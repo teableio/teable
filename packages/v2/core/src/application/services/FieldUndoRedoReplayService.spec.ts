@@ -334,15 +334,22 @@ class FakeUnitOfWork implements IUnitOfWork {
 
 class FakeTableUpdateFlow {
   calls = 0;
+  latestTable?: Table;
 
   async execute(
     _: IExecutionContext,
-    target: { table: Table }
+    target: { table: Table },
+    mutate: (table: Table) => Result<{ table: Table }, DomainError>
   ): Promise<
     Result<{ table: Table; events: IDomainEvent[]; postPersistEvents: IDomainEvent[] }, DomainError>
   > {
     this.calls += 1;
-    return ok({ table: target.table, events: [], postPersistEvents: [] });
+    const mutateResult = mutate(target.table);
+    if (mutateResult.isErr()) {
+      return err(mutateResult.error);
+    }
+    this.latestTable = mutateResult.value.table;
+    return ok({ table: mutateResult.value.table, events: [], postPersistEvents: [] });
   }
 }
 
@@ -379,7 +386,7 @@ describe('FieldUndoRedoReplayService', () => {
         views: [
           {
             viewId: table.views()[0]!.id().toString(),
-            columnMeta: { width: 420 },
+            columnMeta: { width: 420, order: 99 },
             query: { manualSort: true },
             orderedFieldIds: [restoredFieldId.toString(), table.primaryFieldId().toString()],
           },
@@ -394,6 +401,14 @@ describe('FieldUndoRedoReplayService', () => {
     expect(command.fieldId.toString()).toBe(restoredFieldId.toString());
     expect(command.fieldUpdate.name).toBe('Score Restored');
     expect(tableUpdateFlow.calls).toBe(2);
+    const replayedMeta = tableUpdateFlow.latestTable
+      ?.views()[0]
+      ?.columnMeta()
+      ._unsafeUnwrap()
+      .toDto();
+    expect(replayedMeta?.[restoredFieldId.toString()]?.order).toBe(0);
+    expect(replayedMeta?.[restoredFieldId.toString()]?.width).toBe(420);
+    expect(replayedMeta?.[table.primaryFieldId().toString()]?.order).toBe(1);
   });
 
   it('creates a missing field, replays stored values, and defers constraint restoration until after data is restored', async () => {
