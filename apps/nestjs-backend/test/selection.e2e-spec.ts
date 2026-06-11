@@ -6,6 +6,7 @@ import {
   Colors,
   FieldKeyType,
   FieldType,
+  Me,
   MultiNumberDisplayType,
   Relationship,
   Role,
@@ -34,6 +35,7 @@ import {
   deleteSelection,
   clear,
   updateViewFilter,
+  updateViewGroup,
   updateViewSort,
   USER_ME,
   UPDATE_USER_NAME,
@@ -52,6 +54,7 @@ import {
   initApp,
   createTable,
   createRecords,
+  convertField,
   permanentDeleteTable,
   permanentDeleteSpace,
   updateRecordByApi,
@@ -3872,5 +3875,125 @@ describe('OpenAPI SelectionController (e2e)', () => {
         ).toBe(false);
       }
     );
+
+    it('T4992 should paste grouped tail rows in v2 when the view filter references Me', async () => {
+      const assigneeValue = {
+        id: globalThis.testConfig.userId,
+        title: globalThis.testConfig.userName,
+        email: globalThis.testConfig.email,
+      };
+      const requiredTable = await createTable(baseId, {
+        name: 'T4992 grouped paste required field',
+        fields: [
+          { name: 'Title', type: FieldType.SingleLineText },
+          {
+            name: 'Status',
+            type: FieldType.SingleSelect,
+            options: {
+              choices: [
+                { name: 'Need more information', color: Colors.Red },
+                { name: 'Added to backlog', color: Colors.Teal },
+                { name: 'Entered development workflow', color: Colors.Purple },
+                { name: 'Launched', color: Colors.Green },
+                { name: 'Closed as completed', color: Colors.Green },
+                { name: 'Closed as not planned', color: Colors.Red },
+              ],
+            },
+          },
+          { name: 'Assignee', type: FieldType.User },
+          { name: 'Email', type: FieldType.SingleLineText },
+        ],
+        records: [
+          ...Array.from({ length: 14 }, (_, index) => ({
+            fields: {
+              Title: `Blank-${index + 1}`,
+              Assignee: assigneeValue,
+              Email: `blank-${index + 1}@example.com`,
+            },
+          })),
+          ...Array.from({ length: 3 }, (_, index) => ({
+            fields: {
+              Title: `Need-${index + 1}`,
+              Status: 'Need more information',
+              Assignee: assigneeValue,
+              Email: `need-${index + 1}@example.com`,
+            },
+          })),
+          ...Array.from({ length: 7 }, (_, index) => ({
+            fields: {
+              Title: `Backlog-${index + 1}`,
+              Status: 'Added to backlog',
+              Assignee: assigneeValue,
+              Email: `backlog-${index + 1}@example.com`,
+            },
+          })),
+          ...Array.from({ length: 5 }, (_, index) => ({
+            fields: {
+              Title: `Workflow-${index + 1}`,
+              Status: 'Entered development workflow',
+              Assignee: assigneeValue,
+              Email: `workflow-${index + 1}@example.com`,
+            },
+          })),
+        ],
+      });
+
+      try {
+        const viewId = requiredTable.views[0].id;
+        const statusField = requiredTable.fields.find((field) => field.name === 'Status')!;
+        const assigneeField = requiredTable.fields.find((field) => field.name === 'Assignee')!;
+        const emailField = requiredTable.fields.find((field) => field.name === 'Email')!;
+        await convertField(requiredTable.id, emailField.id, { ...emailField, notNull: true });
+        await updateViewFilter(requiredTable.id, viewId, {
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              { fieldId: assigneeField.id, operator: 'is', value: Me },
+              {
+                fieldId: statusField.id,
+                operator: 'isNoneOf',
+                value: ['Closed as not planned', 'Closed as completed', 'Launched'],
+              },
+            ],
+          },
+        });
+        const groupBy = [{ fieldId: statusField.id, order: SortFunc.Asc }] as const;
+        await updateViewGroup(requiredTable.id, viewId, { group: [...groupBy] });
+
+        const pasteRes = await pasteWithCanary(
+          requiredTable.id,
+          {
+            viewId,
+            content: [['Launched']],
+            ranges: [
+              [1, 24],
+              [1, 28],
+            ],
+            header: [statusField],
+            groupBy: [...groupBy],
+          },
+          true
+        );
+
+        expect(pasteRes.status).toBe(200);
+        expect(pasteRes.headers['x-teable-v2']).toBe('true');
+
+        const allRecords = await getRecords(requiredTable.id, {
+          fieldKeyType: FieldKeyType.Id,
+          take: 100,
+        });
+
+        expect(allRecords.data.records).toHaveLength(29);
+        const workflowRecords = allRecords.data.records.filter((record) =>
+          String(record.fields[requiredTable.fields[0].id] ?? '').startsWith('Workflow-')
+        );
+        expect(workflowRecords).toHaveLength(5);
+        expect(
+          workflowRecords.every((record) => record.fields[statusField.id] === 'Launched')
+        ).toBe(true);
+      } finally {
+        await permanentDeleteTable(baseId, requiredTable.id);
+      }
+    });
   });
 });

@@ -69,6 +69,7 @@
     "import": "Importer",
     "getMore": "Obtenir plus",
     "copySuccess": "Copie réussie",
+    "openLink": "Ouvrir le lien",
     "share": "Partager"
   },
   "quickAction": {
@@ -482,6 +483,7 @@
     },
     "addOrgCollaborator": {
       "title": "Ajouter un collaborateur d'organisation",
+      "button": "Ajouter depuis l'organisation",
       "placeholder": "Sélectionner un membre ou département de l'organisation"
     }
   },
@@ -796,6 +798,7 @@
     "unsubscribeTime": "Heure de désabonnement",
     "source": "Source",
     "sourceAutomationDeleted": "Automatisation ou nœud supprimé",
+    "sourceApiSend": "Envoi d'e-mail via API",
     "processing": "Traitement en cours...",
     "unsubscribeH1": "Confirmer le désabonnement ?",
     "unsubscribeH2": "Vous êtes sur le point de vous désabonner des futures promotions et mises à jour de produits Teable. Êtes-vous sûr de vouloir vous désabonner ?",
