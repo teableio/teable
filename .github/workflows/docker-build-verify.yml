@@ -40,17 +40,6 @@ on:
         required: true
         default: true
         type: boolean
-  push:
-    branches:
-      - develop
-    paths:
-      - 'apps/nestjs-backend/**'
-      - 'apps/nextjs-app/**'
-      - 'packages/**'
-      - 'dockers/teable/**'
-      - '.github/workflows/docker-build-verify.yml'
-      - 'scripts/**'
-
 jobs:
   prepare:
     runs-on: ubuntu-latest
@@ -72,11 +61,7 @@ jobs:
           echo "platforms=${INPUT_PLATFORMS:-linux/amd64}" >> "$GITHUB_OUTPUT"
           echo "release_id=${INPUT_RELEASE_ID:-release.2026-06-03T15-01-34Z.1831}" >> "$GITHUB_OUTPUT"
           echo "image_tag=${INPUT_IMAGE_TAG:-v1.10.4}" >> "$GITHUB_OUTPUT"
-          if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
-            echo "publish=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "publish=${INPUT_PUBLISH:-true}" >> "$GITHUB_OUTPUT"
-          fi
+          echo "publish=${INPUT_PUBLISH:-true}" >> "$GITHUB_OUTPUT"
 
       - name: Resolve target matrix
         id: matrix
@@ -123,7 +108,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ github.token }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Docker meta
         id: meta
