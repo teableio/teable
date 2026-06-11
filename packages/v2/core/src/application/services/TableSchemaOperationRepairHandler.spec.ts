@@ -211,6 +211,45 @@ describe('TableSchemaOperationRepairHandler', () => {
     );
   });
 
+  it('repairs a schema-only duplicate operation and completes the same operation key', async () => {
+    const table = createTable('h', 'Repair Duplicate');
+    const { handler, tableRepository, tableSchemaRepository, fieldCreationSideEffectService } =
+      createHandler([table]);
+
+    const result = await handler.run(
+      context(),
+      operation(table, {
+        type: 'table.duplicate',
+        status: 'pending',
+        phase: 'metadata_pending',
+        payload: {
+          tableId: table.id().toString(),
+        },
+        lastError: null,
+      })
+    );
+
+    expect(result._unsafeUnwrap()).toEqual({
+      result: {
+        repaired: 'table_schema',
+        tableIds: [table.id().toString()],
+      },
+    });
+    expect(tableSchemaRepository.ensureInsertedMany).toHaveBeenCalledWith(expect.any(Object), [
+      table,
+    ]);
+    expect(fieldCreationSideEffectService.execute).toHaveBeenCalledOnce();
+    expect(tableRepository.setProvisionState).toHaveBeenCalledWith(
+      expect.any(Object),
+      table,
+      'ready',
+      expect.objectContaining({
+        idempotencyKey: `repair-op:table:${table.id().toString()}`,
+        operationType: 'table.duplicate',
+      })
+    );
+  });
+
   it('keeps arbitrary table update failures visible without replaying unsafe schema repair', async () => {
     const table = createTable('g', 'Unsafe Update');
     const { handler, tableRepository, tableSchemaRepository } = createHandler([table]);
