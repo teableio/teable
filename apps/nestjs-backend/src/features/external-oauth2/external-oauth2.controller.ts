@@ -282,6 +282,7 @@ export class ExternalOAuth2Controller {
       providerId,
       type: 'oauth2',
     });
+    await this.oauth2.bindUserAccessToken(user.id, token.access_token, token.expires_in);
 
     const u = user as unknown as {
       id: string;

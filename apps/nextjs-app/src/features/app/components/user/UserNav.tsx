@@ -30,7 +30,9 @@ export const UserNav: React.FC<React.PropsWithChildren> = (props) => {
 
   const loginOutClick = async () => {
     await loginOut();
-    router.push('/auth/login');
+    const redirectUrl = `${window.location.origin}/auth/login`;
+    const logoutUrl = `https://auth.zctc.cc/logout?redirect_url=${encodeURIComponent(redirectUrl)}`;
+    window.location.assign(logoutUrl);
   };
 
   return (

@@ -62,6 +62,10 @@ export class ExternalOAuth2Service {
     return `query-params:ext_oauth2:token:${accessToken}` as const;
   }
 
+  private userTokenKey(userId: string) {
+    return `query-params:ext_oauth2:user_token:${this.config.clientSecret}:${userId}` as const;
+  }
+
   genCodeChallengeS256(verifier: string): string {
     return crypto.createHash('sha256').update(verifier).digest('base64url');
   }
@@ -225,6 +229,43 @@ export class ExternalOAuth2Service {
       token.expires_in || 3600
     );
     return token;
+  }
+
+  async bindUserAccessToken(userId: string, accessToken: string, expiresIn?: number) {
+    if (!userId || !accessToken) return;
+    await this.cache.setDetail(
+      this.userTokenKey(userId),
+      { accessToken },
+      Math.max(60, expiresIn || 3600)
+    );
+  }
+
+  async clearUserAccessToken(userId: string) {
+    if (!userId) return;
+    await this.cache.del(this.userTokenKey(userId));
+  }
+
+  async validateUserAccessToken(userId: string) {
+    if (!userId) return true;
+    const cached = (await this.cache.get(this.userTokenKey(userId))) as
+      | { accessToken?: string }
+      | undefined;
+    const accessToken = cached?.accessToken;
+    // No cached token: do not force signout to avoid false logout after cache eviction/restart.
+    if (!accessToken) return true;
+    try {
+      await this.test(accessToken);
+      return true;
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        const message = error.message || '';
+        if (message.includes('token invalid: 401') || message.includes('token invalid: 403')) {
+          return false;
+        }
+      }
+      // Network glitches / remote transient errors should not force local logout.
+      return true;
+    }
   }
 
   async test(accessToken: string): Promise<IExternalOAuth2TestData> {

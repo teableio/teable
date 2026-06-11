@@ -5,6 +5,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { authConfig, type IAuthConfig } from '../../configs/auth.config';
 import { AccessTokenModule } from '../access-token/access-token.module';
+import { ExternalOAuth2Module } from '../external-oauth2/external-oauth2.module';
 import { DeleteUserModule } from '../user/delete-user/delete-user.module';
 import { UserModule } from '../user/user.module';
 import { AuthController } from './auth.controller';
@@ -30,6 +31,7 @@ const CONDITIONAL_MODULE_TIMEOUT = process.env.CI ? 30000 : 5000;
     PassportModule.register({ session: true }),
     SessionModule,
     AccessTokenModule,
+    ExternalOAuth2Module,
     ConditionalModule.registerWhen(
       LocalAuthModule,
       (env) => {
