@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import type { IRole } from '@teable/core';
 import {
   HttpErrorCode,
@@ -41,6 +41,7 @@ import { SettingOpenApiService } from '../setting/open-api/setting-open-api.serv
 import { SettingService } from '../setting/setting.service';
 import { normalizeSpaceAIIntegrationConfig } from './ai-integration-config';
 import { DataDbBindingService } from './data-db-binding.service';
+import { SpaceDataDbMigrationGuardService } from './space-data-db-migration-guard.service';
 
 @Injectable()
 export class SpaceService {
@@ -56,8 +57,14 @@ export class SpaceService {
     protected readonly dataDbBindingService: DataDbBindingService,
     @ThresholdConfig() protected readonly thresholdConfig: IThresholdConfig,
     @InjectModel('CUSTOM_KNEX') protected readonly knex: Knex,
-    @InjectDbProvider() protected readonly dbProvider: IDbProvider
+    @InjectDbProvider() protected readonly dbProvider: IDbProvider,
+    @Optional()
+    protected readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService
   ) {}
+
+  private async assertSpaceWritable(spaceId: string) {
+    await this.spaceDataDbMigrationGuard?.assertSpaceWritable(spaceId);
+  }
 
   protected supportsByodbSpaceCreation() {
     return false;
@@ -240,6 +247,7 @@ export class SpaceService {
   }
 
   async updateSpace(spaceId: string, updateSpaceRo: IUpdateSpaceRo) {
+    await this.assertSpaceWritable(spaceId);
     const userId = this.cls.get('user.id');
 
     return await this.prismaService.space.update({
@@ -259,6 +267,7 @@ export class SpaceService {
   }
 
   async deleteSpace(spaceId: string) {
+    await this.assertSpaceWritable(spaceId);
     const userId = this.cls.get('user.id');
 
     await this.prismaService.$tx(async () => {
@@ -546,6 +555,7 @@ export class SpaceService {
   }
 
   async permanentDeleteSpace(spaceId: string, ignorePermissionCheck: boolean = false) {
+    await this.assertSpaceWritable(spaceId);
     if (!ignorePermissionCheck) {
       const accessTokenId = this.cls.get('accessTokenId');
       await this.permissionService.validPermissions(spaceId, ['space|delete'], accessTokenId, true);

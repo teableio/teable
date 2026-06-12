@@ -16,7 +16,7 @@ import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
 @injectable()
 export class PostgresUserLookupService implements IUserLookupService {
   constructor(
-    @inject(v2RecordRepositoryPostgresTokens.db)
+    @inject(v2RecordRepositoryPostgresTokens.metaDb)
     private readonly db: Kysely<V1TeableDatabase>
   ) {}
 

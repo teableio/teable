@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { FieldKeyType } from '@teable/core';
 import type { IMakeOptional } from '@teable/core';
 import type {
@@ -7,6 +7,7 @@ import type {
   ICreateRecordsVo,
   IRecordInsertOrderRo,
 } from '@teable/openapi';
+import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migration-guard.service';
 import { TableDomainQueryService } from '../../table-domain';
 import type { IRecordInnerRo } from '../record.service';
 import type { IUpdateRecordsInternalRo } from '../type';
@@ -22,18 +23,26 @@ export class RecordModifyService {
     private readonly updateService: RecordUpdateService,
     private readonly deleteService: RecordDeleteService,
     private readonly duplicateService: RecordDuplicateService,
-    private readonly tableDomainQueryService: TableDomainQueryService
+    private readonly tableDomainQueryService: TableDomainQueryService,
+    @Optional()
+    private readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService
   ) {}
+
+  private async assertTableWritable(tableId: string) {
+    await this.spaceDataDbMigrationGuard?.assertTableWritable(tableId);
+  }
 
   async updateRecords(
     tableId: string,
     updateRecordsRo: IUpdateRecordsInternalRo,
     windowId?: string
   ) {
+    await this.assertTableWritable(tableId);
     return this.updateService.updateRecords(tableId, updateRecordsRo, windowId);
   }
 
   async simpleUpdateRecords(tableId: string, updateRecordsRo: IUpdateRecordsInternalRo) {
+    await this.assertTableWritable(tableId);
     return this.updateService.simpleUpdateRecords(tableId, updateRecordsRo);
   }
 
@@ -42,6 +51,7 @@ export class RecordModifyService {
     createRecordsRo: ICreateRecordsRo,
     ignoreMissingFields: boolean = false
   ): Promise<ICreateRecordsVo> {
+    await this.assertTableWritable(tableId);
     return this.createService.multipleCreateRecords(tableId, createRecordsRo, ignoreMissingFields);
   }
 
@@ -51,6 +61,7 @@ export class RecordModifyService {
     fieldKeyType?: FieldKeyType,
     projection?: string[]
   ): Promise<ICreateRecordsVo> {
+    await this.assertTableWritable(tableId);
     const table = await this.tableDomainQueryService.getTableDomainById(tableId);
     return this.createService.createRecords(
       table,
@@ -61,14 +72,17 @@ export class RecordModifyService {
   }
 
   async createRecordsOnlySql(tableId: string, createRecordsRo: ICreateRecordsRo): Promise<void> {
+    await this.assertTableWritable(tableId);
     return this.createService.createRecordsOnlySql(tableId, createRecordsRo);
   }
 
   async deleteRecord(tableId: string, recordId: string, windowId?: string) {
+    await this.assertTableWritable(tableId);
     return this.deleteService.deleteRecord(tableId, recordId, windowId);
   }
 
   async deleteRecords(tableId: string, recordIds: string[], windowId?: string) {
+    await this.assertTableWritable(tableId);
     return this.deleteService.deleteRecords(tableId, recordIds, windowId);
   }
 
@@ -78,6 +92,7 @@ export class RecordModifyService {
     order: IRecordInsertOrderRo,
     projection?: string[]
   ): Promise<IRecord> {
+    await this.assertTableWritable(tableId);
     return this.duplicateService.duplicateRecord(tableId, recordId, order, projection);
   }
 }

@@ -80,6 +80,42 @@ const createService = () =>
     {} as never
   ) as unknown as ITestFieldOpenApiV2Service;
 
+const createV2ContainerService = (commandBus: unknown, tableQueryService: unknown) => {
+  const tracer = {
+    startSpan: vi.fn(() => ({
+      setAttribute: vi.fn(),
+      setAttributes: vi.fn(),
+      recordError: vi.fn(),
+      end: vi.fn(),
+    })),
+    withSpan: vi.fn(async (_span, callback: () => Promise<unknown>) => callback()),
+    getActiveSpan: vi.fn(),
+  };
+  const container = {
+    resolve: vi.fn((token: { description?: string }) => {
+      if (token.description === 'v2.core.tracer') {
+        return tracer;
+      }
+      if (token.description === 'v2.core.commandBus') {
+        return commandBus;
+      }
+      if (token.description === 'v2.core.tableQueryService') {
+        return tableQueryService;
+      }
+      return undefined;
+    }),
+  };
+
+  return {
+    getContainerForTable: vi.fn().mockResolvedValue(container),
+    getContainer: vi.fn().mockResolvedValue(container),
+  };
+};
+
+const createFieldSupplementService = () => ({
+  assertSameSpaceLinkTarget: vi.fn(),
+});
+
 describe('FieldOpenApiV2Service mapConvertFieldToV2', () => {
   it('maps lookup convert options with filter/sort/limit', () => {
     const service = createService();
@@ -1034,7 +1070,7 @@ describe('FieldOpenApiV2Service normalizeFieldVo', () => {
       {} as never,
       {} as never,
       {} as never,
-      {} as never,
+      createFieldSupplementService() as never,
       {} as never
     ) as unknown as ITestFieldOpenApiV2Service;
 
@@ -1424,17 +1460,13 @@ describe('FieldOpenApiV2Service createField', () => {
       }),
     };
     const service = new FieldOpenApiV2Service(
-      {
-        getContainer: async () => ({
-          resolve: vi.fn().mockReturnValueOnce(commandBus).mockReturnValueOnce(tableQueryService),
-        }),
-      } as never,
+      createV2ContainerService(commandBus, tableQueryService) as never,
       { createContext: async () => ({ requestId: 'reqTestId' }) } as never,
       { field: { invalidateTables: vi.fn() } } as never,
       {} as never,
       {} as never,
       {} as never,
-      {} as never,
+      createFieldSupplementService() as never,
       {} as never
     ) as unknown as ITestFieldOpenApiV2Service;
 
@@ -1494,17 +1526,13 @@ describe('FieldOpenApiV2Service createField', () => {
       }),
     };
     const service = new FieldOpenApiV2Service(
-      {
-        getContainer: async () => ({
-          resolve: vi.fn().mockReturnValueOnce(commandBus).mockReturnValueOnce(tableQueryService),
-        }),
-      } as never,
+      createV2ContainerService(commandBus, tableQueryService) as never,
       { createContext: async () => ({ requestId: 'reqTestId' }) } as never,
       { field: { invalidateTables: vi.fn() } } as never,
       {} as never,
       {} as never,
       {} as never,
-      {} as never,
+      createFieldSupplementService() as never,
       {} as never
     ) as unknown as ITestFieldOpenApiV2Service;
 
@@ -1581,11 +1609,7 @@ describe('FieldOpenApiV2Service createFields', () => {
       }),
     };
     const service = new FieldOpenApiV2Service(
-      {
-        getContainer: async () => ({
-          resolve: vi.fn().mockReturnValueOnce(commandBus).mockReturnValueOnce(tableQueryService),
-        }),
-      } as never,
+      createV2ContainerService(commandBus, tableQueryService) as never,
       { createContext: async () => ({ requestId: 'reqTestId' }) } as never,
       { field: { invalidateTables: vi.fn() } } as never,
       {} as never,

@@ -257,6 +257,7 @@ export type I18nTranslations = {
             "switchBase": string;
             "getMore": string;
             "copySuccess": string;
+            "openLink": string;
             "share": string;
             "clear": string;
             "retry": string;
@@ -697,6 +698,7 @@ export type I18nTranslations = {
             };
             "addOrgCollaborator": {
                 "title": string;
+                "button": string;
                 "placeholder": string;
             };
             "sendInvitationSuccess": string;
@@ -1334,6 +1336,7 @@ export type I18nTranslations = {
             "unsubscribeTime": string;
             "source": string;
             "sourceAutomationDeleted": string;
+            "sourceApiSend": string;
             "processing": string;
             "unsubscribeH1": string;
             "unsubscribeH2": string;
@@ -1722,6 +1725,7 @@ export type I18nTranslations = {
             "agentStartFailed": string;
             "idleTimeout": string;
             "danglingToolUse": string;
+            "contextImportFailed": string;
         };
         "clickToCopyTooltip": string;
         "copiedTooltip": string;
@@ -2929,6 +2933,11 @@ export type I18nTranslations = {
                 "viewOptionsMaxBytes": string;
                 "nameMaxLength": string;
                 "descriptionMaxLength": string;
+            };
+            "validation": {
+                "field": {
+                    "unique": string;
+                };
             };
             "custom": {
                 "fieldValueNotNull": string;
@@ -4309,6 +4318,9 @@ export type I18nTranslations = {
                     "medium": string;
                     "high": string;
                 };
+                "tip": {
+                    "gptImageResolution": string;
+                };
                 "autoFill": {
                     "title": string;
                     "tip": string;
@@ -4979,6 +4991,7 @@ export type I18nTranslations = {
             "noPermission": string;
             "connectionCountTip": string;
             "createFailed": string;
+            "readonlyUnavailable": string;
             "helpLink": string;
         };
         "view": {
@@ -5205,6 +5218,11 @@ export type I18nTranslations = {
             "inputPlaceholder": string;
             "inputPlaceholderFiles": string;
             "thought": string;
+            "stage": {
+                "initializing": string;
+                "working": string;
+                "committing": string;
+            };
             "meta": {
                 "input": string;
                 "output": string;
@@ -5291,6 +5309,8 @@ export type I18nTranslations = {
                 "fallbackName": string;
                 "questionCount_one": string;
                 "questionCount_other": string;
+                "presentFiles": string;
+                "download": string;
             };
             "retry": {
                 "interrupted": string;
