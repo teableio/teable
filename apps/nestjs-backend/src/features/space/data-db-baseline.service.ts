@@ -9,4 +9,8 @@ export class DataDbBaselineService {
     await this.migrationService.migrate(url, internalSchema);
     return this.migrationService.getLatestSchemaVersion();
   }
+
+  getLatestSchemaVersion() {
+    return this.migrationService.getLatestSchemaVersion();
+  }
 }

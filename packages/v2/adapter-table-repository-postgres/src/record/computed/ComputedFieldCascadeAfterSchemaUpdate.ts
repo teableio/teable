@@ -13,7 +13,10 @@ import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
-import type { ComputedFieldBackfillService } from './ComputedFieldBackfillService';
+import type {
+  ComputedFieldBackfillManyResult,
+  ComputedFieldBackfillService,
+} from './ComputedFieldBackfillService';
 import type { ComputedUpdatePlanner } from './ComputedUpdatePlanner';
 
 export type CascadeInput = {
@@ -81,6 +84,9 @@ export class ComputedFieldCascadeAfterSchemaUpdate {
           backfilledFieldIdSet.add(field.id().toString());
         }
       };
+      const markBackfillResult = (result: ComputedFieldBackfillManyResult): void => {
+        markBackfilled(result.fields);
+      };
 
       const eligibleSelfBackfillFieldIds = filterDeferredIds(selfBackfillFieldIds);
       const eligibleValueChangedFieldIds = filterDeferredIds(valueChangedFieldIds);
@@ -91,13 +97,13 @@ export class ComputedFieldCascadeAfterSchemaUpdate {
           filterDeferredFields(resolveFields(table, eligibleSelfBackfillFieldIds))
         );
         if (fields.length > 0) {
-          yield* await service.backfillService.backfillMany(context, {
+          const backfillResult = yield* await service.backfillService.backfillMany(context, {
             table,
             fields,
             skipDistinctFilter: hasDbStorageTypeChange,
             includeOneManyTwoWay: true,
           });
-          markBackfilled(fields);
+          markBackfillResult(backfillResult);
         }
       }
 
@@ -127,13 +133,13 @@ export class ComputedFieldCascadeAfterSchemaUpdate {
           filterDeferredFields(collectChangedFields(table))
         );
         if (tableFields.length > 0) {
-          yield* await service.backfillService.backfillMany(context, {
+          const backfillResult = yield* await service.backfillService.backfillMany(context, {
             table,
             fields: tableFields,
             skipDistinctFilter: hasDbStorageTypeChange,
             includeOneManyTwoWay: true,
           });
-          markBackfilled(tableFields);
+          markBackfillResult(backfillResult);
         }
 
         if (unresolvedFieldIdSet.size > 0) {
@@ -166,13 +172,13 @@ export class ComputedFieldCascadeAfterSchemaUpdate {
             if (symmetricFields.length === 0) continue;
 
             unresolvedFieldIdSet.delete(symmetricFieldId.toString());
-            yield* await service.backfillService.backfillMany(context, {
+            const backfillResult = yield* await service.backfillService.backfillMany(context, {
               table: foreignTable,
               fields: filterDeferredFields(symmetricFields),
               skipDistinctFilter: hasDbStorageTypeChange,
               includeOneManyTwoWay: true,
             });
-            markBackfilled(symmetricFields);
+            markBackfillResult(backfillResult);
           }
         }
       }
@@ -185,9 +191,13 @@ export class ComputedFieldCascadeAfterSchemaUpdate {
           changeType: 'update',
           cyclePolicy: 'skip',
         },
-        context
+        context,
+        {
+          tableProvisionStates: ['ready', 'deleting'],
+          scopedPendingTableIds: [table.id()],
+          includeComputedSeedFields: true,
+        }
       );
-
       if (plan.steps.length === 0) return ok(undefined);
 
       const sortedSteps = [...plan.steps].sort((a, b) => a.level - b.level);
@@ -208,13 +218,13 @@ export class ComputedFieldCascadeAfterSchemaUpdate {
         );
         if (fields.length === 0) continue;
 
-        yield* await service.backfillService.backfillMany(context, {
+        const backfillResult = yield* await service.backfillService.backfillMany(context, {
           table: targetTable,
           fields,
           skipDistinctFilter: hasDbStorageTypeChange,
           includeOneManyTwoWay: true,
         });
-        markBackfilled(fields);
+        markBackfillResult(backfillResult);
       }
 
       return ok(undefined);

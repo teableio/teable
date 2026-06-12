@@ -168,6 +168,7 @@ class FakeTableRepository implements ITableRepository {
 
 class FakeTableRecordRepository implements ITableRecordRepository {
   inserted: TableRecord[] = [];
+  insertManyStreamOptions: InsertManyStreamOptions | undefined;
 
   async insert(
     _: IExecutionContext,
@@ -191,6 +192,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     batches: Iterable<ReadonlyArray<TableRecord>> | AsyncIterable<ReadonlyArray<TableRecord>>,
     options?: InsertManyStreamOptions
   ): Promise<Result<{ totalInserted: number }, DomainError>> {
+    this.insertManyStreamOptions = options;
     let totalInserted = 0;
     let batchIndex = 0;
 
@@ -591,6 +593,10 @@ describe('ImportRecordsHandler', () => {
     expect(published[0]).toBe(event);
     expect(isRecordsBatchCreatedEvent(published[1])).toBe(true);
     expect(tableRecordRepository.inserted).toHaveLength(1);
+    expect(tableRecordRepository.insertManyStreamOptions).toMatchObject({
+      deferComputedUpdates: true,
+      enqueueDeferredComputedUpdates: true,
+    });
   });
 
   it('resolves mutate specs before yielding imported records', async () => {

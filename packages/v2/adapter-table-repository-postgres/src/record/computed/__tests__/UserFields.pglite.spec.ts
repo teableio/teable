@@ -3,7 +3,7 @@
  *
  * This test verifies the complete flow:
  * 1. INSERT record with system columns (__created_by, __last_modified_by) storing user IDs
- * 2. INSERT also populates user field columns with full user objects via subquery
+ * 2. INSERT also populates user field columns with context-built user snapshots
  * 3. SELECT reads the pre-populated JSON value directly (no computed update needed)
  *
  * This matches v1 behavior where user fields are populated during INSERT, not computed update.
@@ -19,7 +19,6 @@ import {
   PostgresAdapter,
   PostgresIntrospector,
   PostgresQueryCompiler,
-  sql,
 } from 'kysely';
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 
@@ -31,6 +30,7 @@ const RECORD_ID = `rec${'f'.repeat(16)}`;
 const USER_ID = 'usr_test_user';
 const USER_NAME = 'Test User';
 const USER_EMAIL = 'test@example.com';
+const AVATAR_PREFIX = '/api/attachments/read/public/avatar/';
 
 // PGlite Kysely dialect implementation
 class PGliteDriver {
@@ -124,25 +124,6 @@ describe('UserFields PGlite E2E integration', () => {
     // Create schema
     await db.schema.createSchema(TEST_SCHEMA).ifNotExists().execute();
 
-    // Create public schema users table (required for user field population)
-    await db.schema
-      .createTable('users')
-      .ifNotExists()
-      .addColumn('id', 'varchar', (col) => col.primaryKey())
-      .addColumn('name', 'varchar')
-      .addColumn('email', 'varchar')
-      .execute();
-
-    // Insert test user
-    await db
-      .insertInto('users' as any)
-      .values({
-        id: USER_ID,
-        name: USER_NAME,
-        email: USER_EMAIL,
-      })
-      .execute();
-
     // Create test table with system columns and user field columns
     await db.schema
       .createTable(fullTableName)
@@ -162,33 +143,14 @@ describe('UserFields PGlite E2E integration', () => {
     await db.destroy();
   });
 
-  it('should populate user fields with complete user object directly in INSERT via subquery', async () => {
+  it('should persist user field snapshots without requiring a users table in the data DB', async () => {
     const now = new Date().toISOString();
-    const avatarPrefix = '/api/attachments/read/public/avatar/';
-
-    // INSERT record with user field columns populated via subquery (simulating RecordInsertBuilder behavior)
-    // This matches what RecordInsertBuilder now generates - INSERT with subquery values for user fields
-    const createdBySubquery = sql`(
-      SELECT jsonb_build_object(
-        'id', u.id,
-        'title', u.name,
-        'email', u.email,
-        'avatarUrl', ${avatarPrefix} || u.id
-      )
-      FROM public.users u
-      WHERE u.id = ${USER_ID}
-    )`;
-
-    const lastModifiedBySubquery = sql`(
-      SELECT jsonb_build_object(
-        'id', u.id,
-        'title', u.name,
-        'email', u.email,
-        'avatarUrl', ${avatarPrefix} || u.id
-      )
-      FROM public.users u
-      WHERE u.id = ${USER_ID}
-    )`;
+    const userSnapshot = JSON.stringify({
+      id: USER_ID,
+      title: USER_NAME,
+      email: USER_EMAIL,
+      avatarUrl: `${AVATAR_PREFIX}${USER_ID}`,
+    });
 
     await db
       .insertInto(fullTableName as any)
@@ -200,8 +162,8 @@ describe('UserFields PGlite E2E integration', () => {
         __last_modified_by: USER_ID, // System column stores user ID
         __version: 1,
         col_name: 'Test Record',
-        col_created_by: createdBySubquery, // User field populated via subquery
-        col_last_modified_by: lastModifiedBySubquery, // User field populated via subquery
+        col_created_by: userSnapshot,
+        col_last_modified_by: userSnapshot,
       } as any)
       .execute();
 
@@ -237,50 +199,16 @@ describe('UserFields PGlite E2E integration', () => {
     expect(afterInsert!.__last_modified_by).toBe(USER_ID);
   });
 
-  it('should handle user that does not exist in users table (with fallback)', async () => {
+  it('should persist fallback snapshots when user identity is unresolved', async () => {
     const nonExistentUserId = 'usr_does_not_exist';
     const recordId2 = `rec${'g'.repeat(16)}`;
     const now = new Date().toISOString();
-    const avatarPrefix = '/api/attachments/read/public/avatar/';
-
-    // INSERT record with non-existent user ID - COALESCE provides fallback
-    const createdBySubquery = sql`COALESCE(
-      (
-        SELECT jsonb_build_object(
-          'id', u.id,
-          'title', u.name,
-          'email', u.email,
-          'avatarUrl', ${avatarPrefix} || u.id
-        )
-        FROM public.users u
-        WHERE u.id = ${nonExistentUserId}::text
-      ),
-      jsonb_build_object(
-        'id', ${nonExistentUserId}::text,
-        'title', ${nonExistentUserId}::text,
-        'email', NULL::text,
-        'avatarUrl', ${avatarPrefix}::text || ${nonExistentUserId}::text
-      )
-    )`;
-
-    const lastModifiedBySubquery = sql`COALESCE(
-      (
-        SELECT jsonb_build_object(
-          'id', u.id,
-          'title', u.name,
-          'email', u.email,
-          'avatarUrl', ${avatarPrefix} || u.id
-        )
-        FROM public.users u
-        WHERE u.id = ${nonExistentUserId}::text
-      ),
-      jsonb_build_object(
-        'id', ${nonExistentUserId}::text,
-        'title', ${nonExistentUserId}::text,
-        'email', NULL::text,
-        'avatarUrl', ${avatarPrefix}::text || ${nonExistentUserId}::text
-      )
-    )`;
+    const fallbackSnapshot = JSON.stringify({
+      id: nonExistentUserId,
+      title: nonExistentUserId,
+      email: null,
+      avatarUrl: `${AVATAR_PREFIX}${nonExistentUserId}`,
+    });
 
     await db
       .insertInto(fullTableName as any)
@@ -292,8 +220,8 @@ describe('UserFields PGlite E2E integration', () => {
         __last_modified_by: nonExistentUserId,
         __version: 1,
         col_name: 'Test Record 2',
-        col_created_by: createdBySubquery,
-        col_last_modified_by: lastModifiedBySubquery,
+        col_created_by: fallbackSnapshot,
+        col_last_modified_by: fallbackSnapshot,
       } as any)
       .execute();
 
