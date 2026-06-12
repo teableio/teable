@@ -306,6 +306,7 @@ describe('ListTableRecordsHandler', () => {
       updateOne: async (_context, _table, _spec) =>
         err(domainError.notFound({ message: 'Not found' })),
       delete: async (_context, _table) => err(domainError.notFound({ message: 'Not found' })),
+      restore: async (_context, _table) => err(domainError.notFound({ message: 'Not found' })),
     };
 
     const recordQueryRepo: ITableRecordQueryRepository = {
@@ -543,6 +544,10 @@ describe('ListTableRecordsHandler', () => {
         column: `__row_${viewId}`,
         direction: 'asc',
       },
+      {
+        column: '__auto_number',
+        direction: 'asc',
+      },
     ]);
   });
 
@@ -651,12 +656,20 @@ describe('ListTableRecordsHandler', () => {
       {
         fieldId: titleField.id().toString(),
         direction: 'desc',
+        column: undefined,
       },
       {
         fieldId: statusField.id().toString(),
         direction: 'asc',
+        column: undefined,
       },
       {
+        fieldId: undefined,
+        column: `__row_${view.id().toString()}`,
+        direction: 'asc',
+      },
+      {
+        fieldId: undefined,
         column: '__auto_number',
         direction: 'asc',
       },

@@ -78,7 +78,7 @@ const getColumnThemeByField = ({
   field: IFieldInstance;
 }) => {
   const { id, isPending, hasError } = field;
-  const { rose, yellow } = colors;
+  const { amber, red } = colors;
   const isDark = theme === 'dark';
   const themeKey = isDark ? 'dark' : 'light';
   const opacity = isDark ? 1 : 0.8;
@@ -130,8 +130,8 @@ const getColumnThemeByField = ({
 
   if (hasError || isPending) {
     const c = hasError
-      ? { light: [rose[100], rose[200]] as const, dark: [rose[500], rose[400]] as const }
-      : { light: [yellow[100], yellow[200]] as const, dark: [yellow[500], yellow[400]] as const };
+      ? { light: [red[100], red[200]] as const, dark: ['#3A2020', '#4A2828'] as const }
+      : { light: [amber[100], amber[200]] as const, dark: ['#3A2B14', '#4A3818'] as const };
     const [h, hs] = c[themeKey];
     customTheme = {
       ...customTheme,

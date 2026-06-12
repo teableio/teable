@@ -8,19 +8,22 @@ import {
 import type {
   IFieldPropertyKey,
   IFieldVo,
+  IFilter,
   IOtOperation,
   IRecord,
   ISnapshotBase,
   ITablePropertyKey,
 } from '@teable/core';
 import {
+  collectQueryFieldIds,
+  extractFieldIdsFromFilter,
   FieldOpBuilder,
   getRandomString,
   IdPrefix,
   RecordOpBuilder,
   TableOpBuilder,
 } from '@teable/core';
-import type { ITableVo } from '@teable/openapi';
+import type { IGetRecordsRo, ITableVo } from '@teable/openapi';
 import { omit } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { CreateOp, DeleteOp, EditOp } from 'sharedb';
@@ -52,6 +55,11 @@ type IProjection = { [fieldNameOrId: string]: boolean };
 @Injectable()
 export class ShareDbAdapter extends ShareDb.DB {
   private logger = new Logger(ShareDbAdapter.name);
+
+  // Read by sharedb QueryEmitter (lib/query-emitter.js): ops arriving while a
+  // poll is in flight or within this window are coalesced into a single
+  // trailing poll, instead of one poll per op.
+  pollDebounce = Number(process.env.SHAREDB_QUERY_POLL_DEBOUNCE_MS ?? 200);
 
   closed: boolean;
 
@@ -167,15 +175,61 @@ export class ShareDbAdapter extends ShareDb.DB {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
   skipPoll(
-    _collection: string,
+    collection: string,
     _id: string,
     op: CreateOp | DeleteOp | EditOp,
-    _query: unknown
+    query: unknown
   ): boolean {
-    // ShareDB is in charge of doing the validation of ops, so at this point we
-    // should be able to assume that the op is structured validly
     if (op.create || op.del) return false;
-    return !op.op;
+    if (!op.op) return true;
+    const [docType] = collection.split('_');
+    if (docType !== IdPrefix.Record) return false;
+
+    const modifiedFieldIds = this.extractModifiedFieldIds(op.op);
+    if (!modifiedFieldIds || modifiedFieldIds.size === 0) return false;
+
+    // subscribers may attach their authority-matrix read filter; rows enter or
+    // leave their visible set when its fields change, so those fields are
+    // relevant too. Advisory only: read enforcement never relies on it
+    const recordQuery = query as
+      | (IGetRecordsRo & { recordReadFilter?: IFilter })
+      | null
+      | undefined;
+    if (!recordQuery) return false;
+    // a viewId query depends on the view's server-side filter/sort, whose
+    // fields are not visible here, so it must always poll
+    if (recordQuery.viewId && !recordQuery.ignoreViewQuery) return false;
+
+    const queryFieldIds = collectQueryFieldIds(recordQuery);
+    if (!queryFieldIds) return false;
+    for (const fieldId of extractFieldIdsFromFilter(recordQuery.recordReadFilter, true)) {
+      queryFieldIds.add(fieldId);
+    }
+
+    for (const fieldId of modifiedFieldIds) {
+      if (queryFieldIds.has(fieldId)) return false;
+    }
+    this.logger.log(
+      `skipping poll for op on ${collection} ${_id} because modified fields do not affect the query`
+    );
+    return true;
+  }
+
+  // Returns null when the op touches anything that is not a plain field value
+  // (e.g. the view row order pseudo column fields.__row_<viewId>), meaning the
+  // op may affect query order/membership in ways field analysis cannot see.
+  private extractModifiedFieldIds(ops: IOtOperation[]): Set<string> | null {
+    const fieldIds = new Set<string>();
+    for (const subOp of ops) {
+      if (subOp.p?.[0] !== 'fields') continue;
+      // core's SetRecordBuilder owns the ['fields', fieldId] op path schema
+      const fieldId = RecordOpBuilder.editor.setRecord.detect(subOp)?.fieldId;
+      if (typeof fieldId !== 'string' || !fieldId.startsWith(IdPrefix.Field)) {
+        return null;
+      }
+      fieldIds.add(fieldId);
+    }
+    return fieldIds;
   }
 
   close(callback: () => void) {

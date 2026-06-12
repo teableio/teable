@@ -224,4 +224,102 @@ describe('lookup computed update scope regression', () => {
       await deleteTableSafe(ctx, sourceTableId);
     }
   });
+
+  test('refreshes an existing lookup when a linked multi-user source gains another user', async () => {
+    let sourceTableId: string | undefined;
+    let hostTableId: string | undefined;
+
+    try {
+      const bobCell = { id: 'usrLookupMultiUserBob', title: 'Bob' };
+      await sql`
+        insert into users (id, name, email)
+        values (${bobCell.id}, ${bobCell.title}, ${'bob+lookup-multi-user@e2e.com'})
+        on conflict (id) do nothing
+      `.execute(ctx.testContainer.db);
+
+      const aliceCell = { id: ctx.testUser.id, title: ctx.testUser.name };
+      const sourceNameFieldId = createFieldId();
+      const sourceUserFieldId = createFieldId();
+      const hostNameFieldId = createFieldId();
+      const hostLinkFieldId = createFieldId();
+      const hostLookupFieldId = createFieldId();
+
+      const sourceTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: 'LookupMultiUserSource',
+        fields: [
+          { type: 'singleLineText', id: sourceNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'user',
+            id: sourceUserFieldId,
+            name: 'Members',
+            options: { isMultiple: true, shouldNotify: false },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      sourceTableId = sourceTable.id;
+
+      const hostTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: 'LookupMultiUserHost',
+        fields: [
+          { type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            id: hostLinkFieldId,
+            name: 'Source',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: sourceTable.id,
+              lookupFieldId: sourceNameFieldId,
+            },
+          },
+          {
+            type: 'lookup',
+            id: hostLookupFieldId,
+            name: 'Lookup Members',
+            options: {
+              linkFieldId: hostLinkFieldId,
+              foreignTableId: sourceTable.id,
+              lookupFieldId: sourceUserFieldId,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      hostTableId = hostTable.id;
+
+      const source = await ctx.createRecord(sourceTable.id, {
+        [sourceNameFieldId]: 'A-1',
+        [sourceUserFieldId]: [aliceCell],
+      });
+
+      const host = await ctx.createRecord(hostTable.id, {
+        [hostNameFieldId]: 'B-1',
+        [hostLinkFieldId]: { id: source.id },
+      });
+      await ctx.drainOutbox();
+
+      const beforeRecords = await ctx.listRecords(hostTable.id);
+      const beforeLookup = beforeRecords.find((record) => record.id === host.id)?.fields[
+        hostLookupFieldId
+      ];
+      expect(beforeLookup).toMatchObject([aliceCell]);
+
+      await ctx.updateRecord(sourceTable.id, source.id, {
+        [sourceUserFieldId]: [aliceCell, bobCell],
+      });
+      await ctx.drainOutbox();
+
+      const afterRecords = await ctx.listRecords(hostTable.id);
+      const afterLookup = afterRecords.find((record) => record.id === host.id)?.fields[
+        hostLookupFieldId
+      ];
+      expect(afterLookup).toMatchObject([aliceCell, bobCell]);
+    } finally {
+      await deleteTableSafe(ctx, hostTableId);
+      await deleteTableSafe(ctx, sourceTableId);
+    }
+  });
 });
