@@ -464,6 +464,9 @@
         "attachmentNotSupported": "💡 当前模型不支持传入附件，仅 Gemini 模型支持图生图",
         "singleImageOnly": "该模型每次只能生成一张图片"
       },
+      "tip": {
+        "gptImageResolution": "受总像素上限限制，4K 模式会使用当前可生成的最大合规尺寸"
+      },
       "auto": "自动",
       "resolution": {
         "1K": "1K (标准)",
@@ -1136,6 +1139,7 @@
     "noPermission": "你没有权限访问数据库连接",
     "connectionCountTip": "最大数据库连接数为 <b>{{max}}</b> 当前已建立的连接数为 <b>{{current}}</b>",
     "createFailed": "请确保环境变量 PUBLIC_DATABASE_PROXY 设置正确",
+    "readonlyUnavailable": "当前数据数据库不支持创建只读分享连接。请为 Teable 数据库用户授予创建角色和授权的权限，或更换支持只读角色的数据库。",
     "helpLink": "https://help.teable.cn/zh/deploy/database-connection"
   },
   "view": {
@@ -1474,7 +1478,9 @@
       "moreTools": "还有 {{count}} 个工具",
       "moreItems": "还有 {{count}} 个",
       "fallbackName": "工具",
-      "questionCount_other": "{{count}} 个问题"
+      "questionCount_other": "{{count}} 个问题",
+      "presentFiles": "已生成文件",
+      "download": "下载"
     },
     "retry": {
       "interrupted": "响应已中断",

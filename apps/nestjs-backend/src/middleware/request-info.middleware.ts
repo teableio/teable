@@ -6,6 +6,57 @@ import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../types/cls';
 
 const automationRobotUserId = 'automationRobot';
+const fallbackScheduleV2BackgroundTask: NonNullable<IClsStore['scheduleV2BackgroundTask']> = (
+  task
+) => {
+  const handle = setTimeout(() => void task(), 0);
+  handle.unref?.();
+};
+
+const createAfterResponseScheduler = (
+  cls: ClsService<IClsStore>,
+  res: Response
+): NonNullable<IClsStore['scheduleV2BackgroundTask']> => {
+  const pendingTasks: Array<() => Promise<void> | void> = [];
+  let responseFinished = res.writableEnded || res.destroyed;
+  let flushScheduled = false;
+
+  const scheduleFlush = () => {
+    if (flushScheduled) {
+      return;
+    }
+    flushScheduled = true;
+    const handle = setTimeout(() => {
+      flushScheduled = false;
+      const tasks = pendingTasks.splice(0);
+      for (const task of tasks) {
+        void task();
+      }
+    }, 0);
+    handle.unref?.();
+  };
+
+  const markResponseFinished = () => {
+    responseFinished = true;
+    scheduleFlush();
+  };
+
+  res.once('finish', markResponseFinished);
+  res.once('close', markResponseFinished);
+
+  return (task) => {
+    const store = cls.get();
+    pendingTasks.push(() => {
+      if (store) {
+        return cls.runWith(store, task);
+      }
+      return task();
+    });
+    if (responseFinished) {
+      scheduleFlush();
+    }
+  };
+};
 
 @Injectable()
 export class RequestInfoMiddleware implements NestMiddleware {
@@ -50,6 +101,11 @@ export class RequestInfoMiddleware implements NestMiddleware {
     if (typeof canaryHeader === 'string') {
       this.cls.set('canaryHeader', canaryHeader);
     }
+
+    this.cls.set(
+      'scheduleV2BackgroundTask',
+      res ? createAfterResponseScheduler(this.cls, res) : fallbackScheduleV2BackgroundTask
+    );
 
     next();
   }

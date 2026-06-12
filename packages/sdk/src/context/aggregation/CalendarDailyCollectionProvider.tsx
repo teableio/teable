@@ -1,13 +1,17 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ITableActionKey, IViewActionKey } from '@teable/core';
+import type { IFilter, ITableActionKey, IViewActionKey } from '@teable/core';
 import type { ICalendarDailyCollectionRo } from '@teable/openapi';
 import { getCalendarDailyCollection, getShareViewCalendarDailyCollection } from '@teable/openapi';
 import { throttle } from 'lodash';
 import type { FC, ReactNode } from 'react';
 import { useCallback, useContext, useEffect, useMemo } from 'react';
 import { ReactQueryKeys } from '../../config';
-import { useSearch, useIsHydrated, useTableListener, useViewListener, useView } from '../../hooks';
+import { useSearch, useIsHydrated, useViewListener, useView } from '../../hooks';
 import { useDocumentVisible } from '../../hooks/use-document-visible';
+import {
+  collectRelevantFieldIds,
+  useFieldAwareTableListener,
+} from '../../hooks/use-field-aware-table-listener';
 import type { CalendarView } from '../../model';
 import { AnchorContext } from '../anchor';
 import { ShareViewContext } from '../table/ShareViewContext';
@@ -108,11 +112,32 @@ export const CalendarDailyCollectionProvider: FC<ICalendarDailyCollectionProvide
     return throttle(updateCalendarDailyCollectionForTable, THROTTLE_TIME);
   }, [updateCalendarDailyCollectionForTable]);
 
+  const ignoreViewQuery = calenderDailyCollectionQuery?.ignoreViewQuery ?? false;
+
+  const relevantFieldIds = useMemo(
+    () =>
+      collectRelevantFieldIds({
+        queryFilter: calenderDailyCollectionQuery.filter as IFilter | undefined,
+        viewFilter: ignoreViewQuery ? undefined : (view?.filter as IFilter | undefined),
+        search: calenderDailyCollectionQuery.search,
+        extraFieldIds: [
+          calenderDailyCollectionQuery.startDateFieldId,
+          calenderDailyCollectionQuery.endDateFieldId,
+        ].filter(Boolean),
+      }),
+    [calenderDailyCollectionQuery, view?.filter, ignoreViewQuery]
+  );
+
   const tableMatches = useMemo<ITableActionKey[]>(
     () => ['setRecord', 'addRecord', 'deleteRecord'],
     []
   );
-  useTableListener(tableId, tableMatches, throttleUpdateCalendarDailyCollectionForTable);
+  useFieldAwareTableListener(
+    tableId,
+    tableMatches,
+    relevantFieldIds,
+    throttleUpdateCalendarDailyCollectionForTable
+  );
 
   const viewMatches = useMemo<IViewActionKey[]>(() => ['applyViewFilter'], []);
   useViewListener(viewId, viewMatches, throttleUpdateCalendarDailyCollection);
