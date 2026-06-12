@@ -34,7 +34,7 @@ export interface ICacheStore {
   [key: `waitlist:invite-code:${string}`]: number;
   [key: `send-mail-rate-limit:${string}`]: boolean;
   [key: `oauth:token-rate:${string}:${string}`]: number;
-  [key: `automation:email:rate:${string}:${number}`]: number;
+  [key: `email:send:rate:${string}:${number}`]: number;
   [key: `automation:email-att:${string}`]: string[];
   [key: `automation:fail-notify-count:${string}`]: number;
   // Distributed lock keys

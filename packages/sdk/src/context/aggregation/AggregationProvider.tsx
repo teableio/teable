@@ -1,28 +1,39 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ITableActionKey, IViewActionKey } from '@teable/core';
-import type { IQueryBaseRo } from '@teable/openapi';
+import type { IFilter, IGridColumnMeta, ITableActionKey, IViewActionKey } from '@teable/core';
+import type { IAggregationRo, IQueryBaseRo } from '@teable/openapi';
 import { getAggregation } from '@teable/openapi';
 import { throttle } from 'lodash';
 import type { FC, ReactNode } from 'react';
 import { useCallback, useContext, useMemo } from 'react';
 import { ReactQueryKeys } from '../../config';
-import { useSearch, useTableListener, useView, useViewListener } from '../../hooks';
+import { useSearch, useView, useViewListener } from '../../hooks';
 import { useDocumentVisible } from '../../hooks/use-document-visible';
+import {
+  collectRelevantFieldIds,
+  useFieldAwareTableListener,
+} from '../../hooks/use-field-aware-table-listener';
 import { AnchorContext } from '../anchor';
 import { AggregationContext } from './AggregationContext';
 
 interface IAggregationProviderProps {
   children: ReactNode;
-  query?: IQueryBaseRo;
+  query?: IQueryBaseRo & Pick<IAggregationRo, 'field'>;
 }
 
 const THROTTLE_TIME = 2000;
+
+const getAggregatedFieldIds = (columnMeta: IGridColumnMeta | undefined): string[] => {
+  if (!columnMeta) return [];
+  return Object.entries(columnMeta)
+    .filter(([, meta]) => meta.statisticFunc)
+    .map(([fieldId]) => fieldId);
+};
 
 export const AggregationProvider: FC<IAggregationProviderProps> = ({ children, query }) => {
   const { tableId, viewId } = useContext(AnchorContext);
   const view = useView(viewId);
   const queryClient = useQueryClient();
-  const { searchQuery } = useSearch();
+  const { filteringSearchQuery } = useSearch();
   const visible = useDocumentVisible();
   const { group } = view || {};
 
@@ -30,13 +41,13 @@ export const AggregationProvider: FC<IAggregationProviderProps> = ({ children, q
     () => {
       return {
         viewId,
-        search: searchQuery,
+        search: filteringSearchQuery,
         groupBy: group,
         ...query,
       };
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [searchQuery, viewId, query, JSON.stringify(group)]
+    [filteringSearchQuery, viewId, query, JSON.stringify(group)]
   );
   const ignoreViewQuery = aggQuery?.ignoreViewQuery ?? false;
   const { data: resAggregations } = useQuery({
@@ -71,11 +82,34 @@ export const AggregationProvider: FC<IAggregationProviderProps> = ({ children, q
     return throttle(updateAggregationsForTable, THROTTLE_TIME);
   }, [updateAggregationsForTable]);
 
+  // aggregation values depend on which rows pass the filters/search, not just
+  // on the aggregated fields themselves. Statistic fields come from the shared
+  // view's columnMeta or, for personal views, from the query's own field map
+  const relevantFieldIds = useMemo(
+    () =>
+      collectRelevantFieldIds({
+        queryFilter: aggQuery.filter as IFilter | undefined,
+        viewFilter: ignoreViewQuery ? undefined : (view?.filter as IFilter | undefined),
+        search: aggQuery.search,
+        groupBy: aggQuery.groupBy,
+        extraFieldIds: [
+          ...getAggregatedFieldIds(view?.columnMeta as IGridColumnMeta | undefined),
+          ...Object.values(aggQuery.field ?? {}).flat(),
+        ],
+      }),
+    [aggQuery, ignoreViewQuery, view?.filter, view?.columnMeta]
+  );
+
   const tableMatches = useMemo<ITableActionKey[]>(
     () => ['setRecord', 'addRecord', 'deleteRecord'],
     []
   );
-  useTableListener(tableId, tableMatches, throttleUpdateAggregationsForTable);
+  useFieldAwareTableListener(
+    tableId,
+    tableMatches,
+    relevantFieldIds,
+    throttleUpdateAggregationsForTable
+  );
 
   const viewMatches = useMemo<IViewActionKey[]>(
     () => (ignoreViewQuery ? [] : ['applyViewFilter', 'showViewField', 'applyViewStatisticFunc']),

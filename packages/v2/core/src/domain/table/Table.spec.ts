@@ -2104,11 +2104,17 @@ describe('Table.createRecordsStream', () => {
       (field) => field.id === duplicatedLookupFieldId
     );
     expect(duplicatedLookupField?.isLookup).toBe(true);
+    // lookupOptions carries the parent (duplicated) link's stable physical join metadata.
+    const duplicatedSelfLinkOptions =
+      duplicatedSelfLinkField?.type === 'link' ? duplicatedSelfLinkField.options : undefined;
     expect(duplicatedLookupField?.lookupOptions).toEqual({
       linkFieldId: duplicatedSelfLinkFieldId,
       foreignTableId: duplicatedTableId.toString(),
       lookupFieldId: duplicatedPrimaryFieldId,
       relationship: 'manyMany',
+      fkHostTableName: duplicatedSelfLinkOptions?.fkHostTableName,
+      selfKeyName: duplicatedSelfLinkOptions?.selfKeyName,
+      foreignKeyName: duplicatedSelfLinkOptions?.foreignKeyName,
     });
 
     const duplicatedButtonField = duplicatedDto.fields.find(

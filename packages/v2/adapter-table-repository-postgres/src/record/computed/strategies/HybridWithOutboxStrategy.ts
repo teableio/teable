@@ -21,6 +21,7 @@ import type { Result } from 'neverthrow';
 
 import { v2RecordRepositoryPostgresTokens } from '../../di/tokens';
 import { buildBeforeImageRecordsFromStepChanges } from '../ComputedBeforeImageFromChanges';
+import { isComputedUpdateLockUnavailable } from '../ComputedUpdateLock';
 import type {
   ComputedFieldUpdater,
   ComputedUpdateResult,
@@ -211,10 +212,46 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
       });
       const lockResult = await updater.acquireLocks(currentPlan, context, {
         logContext: toRunLogContext(run),
+        wait: false,
       });
-      if (lockResult.isErr()) return err(lockResult.error);
 
       const runLogger = this.logger.child(toRunLogContext(run));
+      if (lockResult.isErr()) {
+        if (!isComputedUpdateLockUnavailable(lockResult.error)) return err(lockResult.error);
+
+        const task = buildOutboxTaskInput({
+          plan: currentPlan,
+          dirtyStats: prepared.value.dirtyStats,
+          syncMaxLevel: -1,
+          hasher: this.hasher,
+          runId,
+          originRunIds: [...originRunIds],
+          runTotalSteps: totalSteps,
+          runCompletedStepsBefore: completedSteps,
+          affectedFieldIds: collectStepFieldIds(currentPlan).map((id) => id.toString()),
+          affectedTableIds: collectStepTableIds(currentPlan).map((id) => id.toString()),
+          orchestration: context.batchMutation,
+        });
+        const enqueueResult = await this.outbox.enqueueOrMerge(task, context);
+        if (enqueueResult.isErr()) {
+          runLogger.warn('computed:outbox:enqueue_failed', {
+            error: enqueueResult.error.message,
+            planHash: task.planHash,
+            reason: 'lock_unavailable',
+          });
+          return err(enqueueResult.error);
+        }
+
+        runLogger.info('computed:run:queued', {
+          taskId: enqueueResult.value.taskId,
+          pendingSteps: currentPlan.steps.length,
+          asyncStepCount: currentPlan.steps.length,
+          reason: 'lock_unavailable',
+        });
+
+        this.scheduleDispatch(context);
+        return ok({ changesByStep: allSyncChangesByStep });
+      }
 
       runLogger.info('computed:run:start', {
         baseId: currentPlan.baseId.toString(),
