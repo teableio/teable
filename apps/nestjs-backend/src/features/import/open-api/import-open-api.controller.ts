@@ -16,6 +16,7 @@ import {
   importOptionRoSchema,
   IInplaceImportOptionRo,
   inplaceImportOptionRoSchema,
+  SUPPORTEDTYPE,
 } from '@teable/openapi';
 import type { ITableFullVo, IAnalyzeVo, IImportStatusVo } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
@@ -55,12 +56,22 @@ export class ImportController {
   }
 
   @Post(':baseId')
+  @UseV2Feature('importCsv')
   @Permissions('base|table_import')
   @TokenAccess()
   async createTableFromImport(
     @Param('baseId') baseId: string,
     @Body(new ZodValidationPipe(importOptionRoSchema)) importRo: IImportOptionRo
   ): Promise<ITableFullVo[]> {
+    if (this.cls.get('useV2') && importRo.fileType === SUPPORTEDTYPE.CSV) {
+      return await this.importOpenApiV2Service.createTableFromCsvImport(baseId, importRo);
+    }
+
+    if (this.cls.get('useV2')) {
+      this.cls.set('useV2', false);
+      this.cls.set('v2Reason', 'unsupported_feature');
+    }
+
     return await this.importOpenService.createTableFromImport(baseId, importRo);
   }
 

@@ -44,6 +44,7 @@ export * from './application/services/DotTeaExportFieldNormalizer';
 export * from './application/services/ForeignTableLoaderService';
 export * from './application/services/LinkFieldUpdateSideEffectService';
 export * from './application/services/LinkTitleResolverService';
+export * from './application/services/PreloadedTableContext';
 export * from './application/services/TableDeletionSideEffectService';
 export * from './application/services/AttachmentValueDecoratorService';
 export * from './application/services/AttachmentValueResolverService';
