@@ -1134,6 +1134,7 @@
     "noPermission": "You don't have permission to access the database",
     "connectionCountTip": "The maximum number of database connections is <b>{{max}}</b> and the current connections is <b>{{current}}</b>",
     "createFailed": "Please ensure that the PUBLIC_DATABASE_PROXY environment variable is set correctly",
+    "readonlyUnavailable": "Readonly database sharing is unavailable for this data database. Grant the Teable database user permission to create roles and grants, or use a target database that supports readonly roles.",
     "helpLink": "https://help.teable.ai/en/deploy/database-connection"
   },
   "view": {
@@ -1473,7 +1474,9 @@
       "moreItems": "+{{count}} more",
       "fallbackName": "Tool",
       "questionCount_one": "{{count}} question",
-      "questionCount_other": "{{count}} questions"
+      "questionCount_other": "{{count}} questions",
+      "presentFiles": "Presented files",
+      "download": "Download"
     },
     "retry": {
       "interrupted": "Response interrupted",

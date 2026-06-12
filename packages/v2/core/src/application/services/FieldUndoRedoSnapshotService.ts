@@ -40,6 +40,20 @@ const stripUndefinedDeep = (value: unknown): unknown => {
   return result;
 };
 
+// The persisted/realtime lookupOptions is enriched with derived data (relationship, and the
+// parent link field's physical metadata: fkHostTableName/selfKeyName/foreignKeyName, baseId,
+// filterByViewId, visibleFieldIds, isOneWay). The undo/redo snapshot must reduce it back to the
+// canonical create-field input accepted by `lookupOptionsSchema` (.strict()), so we keep only the
+// input keys rather than stripping a denylist that can drift as enrichment grows.
+const LOOKUP_INPUT_OPTION_KEYS = [
+  'linkFieldId',
+  'foreignTableId',
+  'lookupFieldId',
+  'filter',
+  'sort',
+  'limit',
+] as const;
+
 const normalizeLookupOptions = (
   options: Record<string, unknown> | undefined
 ): Record<string, unknown> | undefined => {
@@ -47,8 +61,13 @@ const normalizeLookupOptions = (
     return undefined;
   }
 
-  const { relationship: _relationship, ...rest } = options;
-  return rest;
+  const result: Record<string, unknown> = {};
+  for (const key of LOOKUP_INPUT_OPTION_KEYS) {
+    if (options[key] !== undefined) {
+      result[key] = options[key];
+    }
+  }
+  return result;
 };
 
 const toFieldSnapshotInput = (
