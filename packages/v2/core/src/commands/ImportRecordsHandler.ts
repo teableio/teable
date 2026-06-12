@@ -195,6 +195,7 @@ export class ImportRecordsHandler
             recordBatches,
             {
               deferComputedUpdates: true,
+              enqueueDeferredComputedUpdates: true,
               onBatchInserted: (progress) => {
                 onProgress?.({
                   phase: 'inserting',

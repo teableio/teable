@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import {
   CellValueType,
   HttpErrorCode,
@@ -17,7 +16,7 @@ import { PrismaService } from '@teable/db-main-prisma';
 import { StatisticsFunc } from '@teable/openapi';
 import type {
   IAggregationField,
-  IQueryBaseRo,
+  IRowCountRo,
   IRawAggregationValue,
   IRawAggregations,
   IRawRowCountValue,
@@ -501,7 +500,7 @@ export class AggregationService implements IAggregationService {
    * @returns Promise<IRawRowCountValue> - The row count result
    * @throws NotImplementedException - This method is not yet implemented
    */
-  async performRowCount(tableId: string, queryRo: IQueryBaseRo): Promise<IRawRowCountValue> {
+  async performRowCount(tableId: string, queryRo: IRowCountRo): Promise<IRawRowCountValue> {
     const {
       viewId,
       ignoreViewQuery,
@@ -509,6 +508,7 @@ export class AggregationService implements IAggregationService {
       filterLinkCellSelected,
       selectedRecordIds,
       search,
+      projection,
     } = queryRo;
     // Retrieve the current user's ID to build user-related query conditions
     const currentUserId = this.cls.get('user.id');
@@ -534,6 +534,7 @@ export class AggregationService implements IAggregationService {
       filterLinkCellSelected,
       selectedRecordIds,
       search,
+      projection,
       withUserId: currentUserId,
       viewId: queryRo?.viewId,
     });
@@ -560,6 +561,7 @@ export class AggregationService implements IAggregationService {
     filterLinkCellSelected?: IGetRecordsRo['filterLinkCellSelected'];
     selectedRecordIds?: IGetRecordsRo['selectedRecordIds'];
     search?: [string, string?, boolean?];
+    projection?: string[];
     withUserId?: string;
     viewId?: string;
   }) {
@@ -572,6 +574,7 @@ export class AggregationService implements IAggregationService {
       filterLinkCellSelected,
       selectedRecordIds,
       search,
+      projection,
       withUserId,
       viewId,
     } = params;
@@ -605,10 +608,17 @@ export class AggregationService implements IAggregationService {
     );
 
     if (search && search[2]) {
+      const enabledFieldIds = wrap.enabledFieldIds;
+      const searchProjection = projection
+        ? enabledFieldIds
+          ? projection.filter((fieldId) => enabledFieldIds.includes(fieldId))
+          : projection
+        : enabledFieldIds;
       const searchFields = await this.recordService.getSearchFields(
         fieldInstanceMap,
         search,
-        viewId
+        viewId,
+        searchProjection
       );
       const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
       qb.where((builder) => {
@@ -1014,8 +1024,15 @@ export class AggregationService implements IAggregationService {
 
     this.logger.debug('getRecordIndexBySearchOrder sql: %s', sql);
 
+    const searchTimeout = this.thresholdConfig.searchTimeout;
+
     try {
       return await this.withDataPrismaTransaction(tableId, async (prisma) => {
+        // Bound the search at the DB level: a short / CJK term can defeat the pg_trgm index and
+        // degrade to a full-table scan. SET LOCAL statement_timeout makes Postgres cancel the
+        // statement and release the pooled connection, instead of the client abandoning the
+        // request while the query keeps running and starves the connection pool.
+        await prisma.$executeRawUnsafe(`SET LOCAL statement_timeout = ${searchTimeout}`);
         const result = await prisma.$queryRawUnsafe<{ __id: string; fieldId: string }[]>(sql);
 
         // no result found
@@ -1080,17 +1097,51 @@ export class AggregationService implements IAggregationService {
             recordId: item.__id,
           };
         });
+        // statement_timeout (above) is the real cap; give the JS-side tx timer headroom so
+        // Postgres cancels the statement first, instead of the data-tx default timeout firing early.
       });
     } catch (error) {
-      if (error instanceof PrismaClientKnownRequestError && error.code === 'P2028') {
-        throw new CustomHttpException(`${error.message}`, HttpErrorCode.REQUEST_TIMEOUT, {
-          localization: {
-            i18nKey: 'httpErrors.aggregation.searchTimeOut',
-          },
-        });
+      if (this.isSearchTimeoutError(error)) {
+        throw new CustomHttpException(
+          `${(error as Error).message}`,
+          HttpErrorCode.REQUEST_TIMEOUT,
+          {
+            localization: {
+              i18nKey: 'httpErrors.aggregation.searchTimeOut',
+            },
+          }
+        );
       }
       throw error;
     }
+  }
+
+  /**
+   * Detects a search timeout from any of the layers involved. The search runs on the data-db
+   * Prisma client, whose error classes come from a *separate* generated runtime, so cross-package
+   * `instanceof` (PrismaClientKnownRequestError / TimeoutHttpException) is unreliable here — we
+   * duck-type on the error shape instead:
+   *  - Postgres cancels the statement via `SET LOCAL statement_timeout` → SQLSTATE 57014,
+   *  - Prisma's interactive-transaction timeout → code P2028,
+   *  - the data-prisma proxy converts P2028 into a TimeoutHttpException → code 'request_timeout'.
+   * The DB-level cancellation (57014) is what actually releases the pooled connection.
+   */
+  private isSearchTimeoutError(error: unknown): boolean {
+    if (typeof error !== 'object' || error === null) {
+      return false;
+    }
+    const err = error as { code?: unknown; meta?: unknown; message?: unknown };
+    const pgErrorCode =
+      typeof err.meta === 'object' && err.meta !== null
+        ? (err.meta as { code?: unknown }).code
+        : undefined;
+    const message = typeof err.message === 'string' ? err.message : '';
+    return (
+      err.code === 'P2028' ||
+      err.code === 'request_timeout' ||
+      pgErrorCode === '57014' ||
+      /canceling statement due to statement timeout|Transaction already closed/i.test(message)
+    );
   }
   async getRecordIndex(tableId: string, queryRo: IRecordIndexRo): Promise<IRecordIndexVo> {
     const { recordId } = queryRo;

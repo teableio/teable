@@ -25,7 +25,13 @@ import {
   failRecoverableTableSchemaOperation,
 } from './TableSchemaOperationLifecycleService';
 
-const repairTypes = ['table.create', 'table.create_many', 'table.import', 'table.update'] as const;
+const repairTypes = [
+  'table.create',
+  'table.create_many',
+  'table.duplicate',
+  'table.import',
+  'table.update',
+] as const;
 
 type PayloadRecord = Record<string, unknown>;
 
