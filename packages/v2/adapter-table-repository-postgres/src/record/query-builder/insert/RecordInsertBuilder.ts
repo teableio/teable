@@ -6,7 +6,7 @@ import { sql } from 'kysely';
 
 import { safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
-import { buildUserAvatarUrl, resolveUserAvatarUrlPrefix } from '../../../shared/userAvatarUrl';
+import { buildUserAvatarUrl } from '../../../shared/userAvatarUrl';
 import { buildAttachmentTableInsertQuery } from '../../attachments/attachmentTableMutations';
 import { buildFilledLinkValueExpression } from '../../buildFilledLinkValueExpression';
 import { isPersistedAsGeneratedColumn } from '../../computed/isPersistedAsGeneratedColumn';
@@ -105,12 +105,12 @@ export interface RecordInsertDataResult {
   exclusivityConstraints: InsertExclusivityConstraint[];
   /** Extra seed records for computed update locking (foreign records being linked to) */
   extraSeedRecords: InsertExtraSeedGroup[];
-  /** User fields that need to be populated via subquery during INSERT */
+  /** User snapshot fields populated from the execution context during INSERT */
   userFieldColumns: UserFieldColumn[];
 }
 
 /**
- * Describes a user field column that needs to be populated with user object.
+ * Describes a system user field snapshot column.
  */
 export interface UserFieldColumn {
   /** The database column name */
@@ -133,10 +133,10 @@ export interface RecordInsertBuilderContext {
   createdBy?: string;
   createdByName?: string;
   createdByEmail?: string;
-  lastModifiedTime?: string;
-  lastModifiedBy?: string;
-  lastModifiedByName?: string;
-  lastModifiedByEmail?: string;
+  lastModifiedTime?: string | null;
+  lastModifiedBy?: string | null;
+  lastModifiedByName?: string | null;
+  lastModifiedByEmail?: string | null;
   autoNumber?: number;
   /** When true, generate SQL to fill missing link titles via JOIN */
   fillLinkTitles?: boolean;
@@ -200,8 +200,10 @@ export class RecordInsertBuilder {
     return safeTry<RecordInsertDataResult, DomainError>(function* () {
       const createdTime = context.createdTime ?? context.now;
       const createdBy = context.createdBy ?? context.actorId;
-      const lastModifiedTime = context.lastModifiedTime ?? createdTime;
-      const lastModifiedBy = context.lastModifiedBy ?? createdBy;
+      const lastModifiedTime =
+        context.lastModifiedTime === undefined ? createdTime : context.lastModifiedTime;
+      const lastModifiedBy =
+        context.lastModifiedBy === undefined ? createdBy : context.lastModifiedBy;
 
       // System columns
       const values: Record<string, unknown> = {
@@ -257,15 +259,19 @@ export class RecordInsertBuilder {
             const dbFieldName = dbFieldNameValueResult.value;
             const systemColumn = isCreatedBy ? CREATED_BY_COLUMN : LAST_MODIFIED_BY_COLUMN;
             userFieldColumns.push({ dbFieldName, systemColumn });
-            values[dbFieldName] = buildUserFieldJsonValue({
-              userId: isCreatedBy ? createdBy : lastModifiedBy,
-              userName: isCreatedBy
-                ? context.createdByName ?? context.actorName ?? createdBy
-                : context.lastModifiedByName ?? context.actorName ?? lastModifiedBy,
-              userEmail: isCreatedBy
-                ? context.createdByEmail ?? context.actorEmail
-                : context.lastModifiedByEmail ?? context.actorEmail,
-            });
+            const userId = isCreatedBy ? createdBy : lastModifiedBy;
+            values[dbFieldName] =
+              userId == null
+                ? null
+                : buildUserFieldJsonValue({
+                    userId,
+                    userName: isCreatedBy
+                      ? context.createdByName ?? context.actorName ?? createdBy
+                      : context.lastModifiedByName ?? context.actorName ?? userId,
+                    userEmail: isCreatedBy
+                      ? context.createdByEmail ?? context.actorEmail
+                      : context.lastModifiedByEmail ?? context.actorEmail,
+                  });
             continue;
           }
 
@@ -651,13 +657,7 @@ export class RecordInsertBuilder {
     });
   }
 
-  /**
-   *
-   * @param tableName - The fully qualified table name (schema.table)
-   * @param recordId - The record ID to update
-   * @param userFieldColumns - List of user field columns to populate
-   * @returns A compiled UPDATE statement, or undefined if no user fields
-   */
+  /** @deprecated System user field snapshots are populated during INSERT from execution context. */
   static buildUserFieldUpdateStatement(
     db: Kysely<DynamicDB>,
     tableName: string,
@@ -668,32 +668,15 @@ export class RecordInsertBuilder {
       return undefined;
     }
 
-    // Build SET clause with subqueries for each user field
-    // Use COALESCE to provide a fallback when user doesn't exist in users table
     const setValues: Record<string, unknown> = {};
-    const avatarPrefix = resolveUserAvatarUrlPrefix();
 
     for (const { dbFieldName, systemColumn } of userFieldColumns) {
-      // Use raw SQL to build the subquery expression for user object
-      const userSubquery = sql`COALESCE(
-        (
-          SELECT jsonb_build_object(
-            'id', u.id,
-            'title', u.name,
-            'email', u.email,
-            'avatarUrl', ${avatarPrefix} || u.id
-          )
-          FROM public.users u
-          WHERE u.id = ${sql.ref(systemColumn)}
-        ),
-        jsonb_build_object(
-          'id', ${sql.ref(systemColumn)},
-          'title', ${sql.ref(systemColumn)},
-          'email', NULL::text,
-          'avatarUrl', ${avatarPrefix} || ${sql.ref(systemColumn)}
-        )
+      setValues[dbFieldName] = sql`jsonb_build_object(
+        'id', ${sql.ref(systemColumn)},
+        'title', ${sql.ref(systemColumn)},
+        'email', NULL::text,
+        'avatarUrl', '/api/attachments/read/public/avatar/'::text || ${sql.ref(systemColumn)}
       )`;
-      setValues[dbFieldName] = userSubquery;
     }
 
     const updateQuery = db
@@ -709,10 +692,14 @@ export class RecordInsertBuilder {
 }
 
 function buildUserFieldJsonValue(params: {
-  userId: string;
-  userName?: string;
-  userEmail?: string;
-}): string {
+  userId: string | null;
+  userName?: string | null;
+  userEmail?: string | null;
+}): string | null {
+  if (params.userId == null) {
+    return null;
+  }
+
   return JSON.stringify({
     id: params.userId,
     title: params.userName ?? params.userId,

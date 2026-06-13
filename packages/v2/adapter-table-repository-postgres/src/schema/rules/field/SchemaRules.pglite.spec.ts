@@ -621,6 +621,7 @@ describe('Schema Rules Unit Tests with PGlite', () => {
 
   const createContext = (tableName: string, field: Field): SchemaRuleContext => ({
     db,
+    metaDb: db,
     introspector,
     schema: TEST_SCHEMA,
     tableName,
@@ -2641,6 +2642,29 @@ describe('Schema Rules Unit Tests with PGlite', () => {
         await sql`DELETE FROM field WHERE id = ${field.id().toString()}`.execute(db);
       }
     });
+
+    it('should skip metadata repair statements when optimizing brand-new empty tables', () => {
+      const fieldResult = createRealField('fmr006', 'Link Empty Table', 'link_col');
+      const field = fieldResult._unsafeUnwrap();
+
+      const rule = FieldMetaRule.forOrderColumn(field);
+      const ctx = createContext(TABLE_NAME, field);
+
+      expect(
+        rule
+          .up(ctx)
+          ._unsafeUnwrap()
+          .map((statement) => statement.scope)
+      ).toEqual(['meta']);
+      expect(
+        rule
+          .up({
+            ...ctx,
+            optimizeForEmptyTables: true,
+          })
+          ._unsafeUnwrap()
+      ).toEqual([]);
+    });
   });
 
   describe('SelectOptionsMetaRule', () => {
@@ -2966,6 +2990,32 @@ describe('Schema Rules Unit Tests with PGlite', () => {
         },
       });
       expect(repairHint._unsafeUnwrap()?.description?.fallback).toContain('display');
+    });
+
+    it('should skip repair statements when optimizing brand-new empty tables', () => {
+      const field = createRealSingleSelectField({
+        id: 'som009',
+        name: 'Status Empty Table',
+        dbFieldName: 'status_col',
+        choices: expectedChoices,
+      })._unsafeUnwrap();
+      const rule = new SelectOptionsMetaRule(field);
+      const ctx = createContext(TABLE_NAME, field);
+
+      expect(
+        rule
+          .up(ctx)
+          ._unsafeUnwrap()
+          .map((statement) => statement.scope)
+      ).toEqual(['data', 'meta']);
+      expect(
+        rule
+          .up({
+            ...ctx,
+            optimizeForEmptyTables: true,
+          })
+          ._unsafeUnwrap()
+      ).toEqual([]);
     });
 
     it('should register the select options rule for both single and multiple select fields', () => {

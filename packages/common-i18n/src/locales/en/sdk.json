@@ -965,6 +965,11 @@
       "nameMaxLength": "Name is too long. Maximum is {{max}} characters.",
       "descriptionMaxLength": "Description is too long. Maximum is {{max}} characters."
     },
+    "validation": {
+      "field": {
+        "unique": "Field must have a unique value"
+      }
+    },
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" field \"{{fieldName}}\" does not allow empty values, please fill in completely before submitting.",
       "fieldValueDuplicate": "\"{{tableName}}\" field \"{{fieldName}}\" does not allow duplicate values, please fill in a unique value before submitting.",

@@ -17,6 +17,10 @@ export class SelectOptionId extends ValueObject {
   }
 
   static create(raw: unknown): Result<SelectOptionId, DomainError> {
+    if (typeof raw === 'string' && raw.length > 0) {
+      return ok(new SelectOptionId(raw));
+    }
+
     const parsed = selectOptionIdSchema.safeParse(raw);
     if (!parsed.success) return err(domainError.validation({ message: 'Invalid SelectOptionId' }));
     return ok(new SelectOptionId(parsed.data));

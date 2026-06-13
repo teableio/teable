@@ -15,7 +15,12 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
-import type { FieldDependencyEdge, FieldDependencyGraph, FieldMeta } from './FieldDependencyGraph';
+import type {
+  FieldDependencyEdge,
+  FieldDependencyGraph,
+  FieldMeta,
+  TableProvisionStatesForDependencyGraph,
+} from './FieldDependencyGraph';
 
 export type UpdateContext = {
   table: Table;
@@ -24,6 +29,17 @@ export type UpdateContext = {
   changeType: 'insert' | 'update' | 'delete';
   impact?: UpdateImpactHint;
   cyclePolicy?: ComputedUpdateCyclePolicy;
+};
+
+export type ComputedUpdatePlannerOptions = {
+  tableProvisionStates?: TableProvisionStatesForDependencyGraph;
+  scopedPendingTableIds?: ReadonlyArray<TableId>;
+  /**
+   * Schema-update cascades may seed a computed field because they first try to
+   * self-backfill it. Keep those fields in the plan so the cascade can still
+   * backfill them later when the early self-backfill path skipped them.
+   */
+  includeComputedSeedFields?: boolean;
 };
 
 export type ComputedSeedGroup = {
@@ -213,7 +229,8 @@ export class ComputedUpdatePlanner {
 
   async plan(
     context: UpdateContext,
-    executionContext?: IExecutionContext
+    executionContext?: IExecutionContext,
+    options: ComputedUpdatePlannerOptions = {}
   ): Promise<Result<ComputedUpdatePlan, DomainError>> {
     return this.planStage(
       {
@@ -228,7 +245,8 @@ export class ComputedUpdatePlanner {
         table: context.table,
         cyclePolicy: context.cyclePolicy,
       },
-      executionContext
+      executionContext,
+      options
     );
   }
 
@@ -237,7 +255,8 @@ export class ComputedUpdatePlanner {
       PlanStageContext,
       'baseId' | 'seedTableId' | 'changedFieldIds' | 'changeType' | 'impact'
     >,
-    executionContext?: IExecutionContext
+    executionContext?: IExecutionContext,
+    options: ComputedUpdatePlannerOptions = {}
   ): Promise<Result<ComputedBeforeImageRequirements, DomainError>> {
     return safeTry<ComputedBeforeImageRequirements, DomainError>(
       async function* (this: ComputedUpdatePlanner) {
@@ -255,6 +274,8 @@ export class ComputedUpdatePlanner {
 
         const graphData = yield* await this.graph.load(context.baseId, executionContext, {
           requiredFieldIds: impactSeedFieldIds,
+          tableProvisionStates: options.tableProvisionStates ?? ['ready'],
+          scopedPendingTableIds: options.scopedPendingTableIds,
         });
         const { fieldsById, edges } = graphData;
 
@@ -281,7 +302,8 @@ export class ComputedUpdatePlanner {
 
   async planStage(
     context: PlanStageContext,
-    executionContext?: IExecutionContext
+    executionContext?: IExecutionContext,
+    options: ComputedUpdatePlannerOptions = {}
   ): Promise<Result<ComputedUpdatePlan, DomainError>> {
     return safeTry<ComputedUpdatePlan, DomainError>(
       async function* (this: ComputedUpdatePlanner) {
@@ -301,6 +323,8 @@ export class ComputedUpdatePlanner {
 
         const graphData = yield* await this.graph.load(context.baseId, executionContext, {
           requiredFieldIds: planningSeedFieldIds,
+          tableProvisionStates: options.tableProvisionStates ?? ['ready'],
+          scopedPendingTableIds: options.scopedPendingTableIds,
         });
         const { fieldsById, edges } = graphData;
 
@@ -556,46 +580,78 @@ export class ComputedUpdatePlanner {
           }
         }
 
-        // Fallback for incomplete dependency graph: if a formula expression directly
-        // references any seed field from this mutation, force it into affected set.
+        // Fallback for incomplete dependency graph: schema conversions may temporarily
+        // leave reference rows unavailable. Walk same-table formula expressions so
+        // formula chains still cascade in dependency order.
+        const fallbackFormulaEdges: FieldDependencyEdge[] = [];
         if (context.changeType !== 'delete' && context.table) {
-          const seedFieldIdSet = new Set<string>([
+          const reachableFieldIdSet = new Set<string>([
             ...valueSeedFieldIds.keys(),
             ...linkSeedFieldIds.keys(),
           ]);
-          for (const field of context.table.getFields()) {
-            if (field.type().toString() !== 'formula') continue;
-            const formulaField = field as FormulaField;
-            const refsResult = formulaField.expression().getReferencedFieldIds();
-            if (refsResult.isErr() || refsResult.value.length === 0) continue;
-            const referencesSeedField = refsResult.value.some((id) =>
-              seedFieldIdSet.has(id.toString())
-            );
-            if (!referencesSeedField) continue;
+          let changed = true;
 
-            const fieldId = field.id().toString();
-            if (!fieldsById.has(fieldId)) {
-              fieldsById.set(fieldId, {
-                id: field.id(),
-                tableId: context.seedTableId,
-                type: 'formula',
-                isComputed: true,
-                options: null,
-                lookupOptions: null,
-                conditionalOptions: null,
-              });
+          while (changed) {
+            changed = false;
+            for (const field of context.table.getFields()) {
+              if (field.type().toString() !== 'formula') continue;
+              const fieldId = field.id().toString();
+              if (reachableFieldIdSet.has(fieldId)) continue;
+
+              const formulaField = field as FormulaField;
+              const refsResult = formulaField.expression().getReferencedFieldIds();
+              if (refsResult.isErr() || refsResult.value.length === 0) continue;
+              const reachableReferenceIds = refsResult.value.filter((id) =>
+                reachableFieldIdSet.has(id.toString())
+              );
+              if (reachableReferenceIds.length === 0) continue;
+
+              if (!fieldsById.has(fieldId)) {
+                fieldsById.set(fieldId, {
+                  id: field.id(),
+                  tableId: context.seedTableId,
+                  type: 'formula',
+                  isComputed: true,
+                  options: null,
+                  lookupOptions: null,
+                  conditionalOptions: null,
+                });
+              }
+              for (const referenceId of reachableReferenceIds) {
+                fallbackFormulaEdges.push({
+                  fromFieldId: referenceId,
+                  toFieldId: field.id(),
+                  fromTableId: context.seedTableId,
+                  toTableId: context.seedTableId,
+                  kind: 'same_record',
+                  semantic: 'formula_ref',
+                });
+              }
+              affectedFieldIds.add(fieldId);
+              reachableFieldIdSet.add(fieldId);
+              changed = true;
             }
-            affectedFieldIds.add(fieldId);
           }
         }
 
         const includeValueEdges = impact.includesValueChange || impact.includesLinkRelation;
-        let relevantEdges = edges.filter(
+        const graphEdges =
+          fallbackFormulaEdges.length > 0 ? [...edges, ...fallbackFormulaEdges] : edges;
+        let relevantEdges = graphEdges.filter(
           (edge) =>
             (includeValueEdges && isEdgeRelevantForValue(edge)) ||
             (impact.includesLinkRelation && isEdgeRelevantForLink(edge))
         );
         let computedFieldIds = filterComputedFields(fieldsById, affectedFieldIds);
+        if (options.includeComputedSeedFields) {
+          for (const fieldId of impactSeedFieldIds) {
+            const fieldKey = fieldId.toString();
+            const meta = fieldsById.get(fieldKey);
+            if (meta && isComputedFieldType(meta.type)) {
+              computedFieldIds.add(fieldKey);
+            }
+          }
+        }
         let cycleInfo: ComputedUpdateCycleInfo | undefined;
 
         // For INSERT operations, filter out oneMany link fields in the seed table
@@ -889,7 +945,11 @@ const resolveUpdateImpact = (
 
   for (const fieldId of context.changedFieldIds) {
     const meta = fieldsById.get(fieldId.toString());
-    if (!meta) continue;
+    if (!meta) {
+      includesValueChange = true;
+      valueSeedFieldIds.push(fieldId);
+      continue;
+    }
     if (meta.type === 'link') {
       // Note: oneMany link fields are NOT filtered here. They are filtered later in
       // filterOneManyLinksOnInsert which has access to explicitly changed field IDs
