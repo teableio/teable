@@ -17,6 +17,7 @@ import {
   RecordsBatchCreated,
   RecordsBatchUpdated,
   RecordUpdated,
+  scheduleExecutionContextBackgroundTask,
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
@@ -45,6 +46,26 @@ type IUserFieldOptions = {
 };
 
 const maxRecordTitles = 10;
+const collaboratorNotificationLogger = new Logger('V2CollaboratorNotificationProjection');
+
+const scheduleCollaboratorNotificationRun = (
+  context: IExecutionContext,
+  task: () => Promise<void>,
+  eventType: string
+): void => {
+  scheduleExecutionContextBackgroundTask(context, async () => {
+    try {
+      await task();
+    } catch (error) {
+      collaboratorNotificationLogger.error(
+        `Error handling ${eventType} collaborator notification projection: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        error instanceof Error ? error.stack : undefined
+      );
+    }
+  });
+};
 
 const getNotificationDb = async (
   v2ContainerService: V2ContainerService
@@ -240,16 +261,21 @@ export class V2RecordCreatedCollaboratorNotificationProjection
     context: IExecutionContext,
     event: RecordCreated
   ): Promise<Result<void, DomainError>> {
-    await this.dispatcher.notifyUserFields({
-      actorId: context.actorId.toString(),
-      tableId: event.tableId.toString(),
-      records: [
-        {
-          id: event.recordId.toString(),
-          fields: fieldValuesToObject(event.fieldValues),
-        },
-      ],
-    });
+    scheduleCollaboratorNotificationRun(
+      context,
+      () =>
+        this.dispatcher.notifyUserFields({
+          actorId: context.actorId.toString(),
+          tableId: event.tableId.toString(),
+          records: [
+            {
+              id: event.recordId.toString(),
+              fields: fieldValuesToObject(event.fieldValues),
+            },
+          ],
+        }),
+      'record create'
+    );
     return ok(undefined);
   }
 }
@@ -264,14 +290,19 @@ export class V2RecordsBatchCreatedCollaboratorNotificationProjection
     context: IExecutionContext,
     event: RecordsBatchCreated
   ): Promise<Result<void, DomainError>> {
-    await this.dispatcher.notifyUserFields({
-      actorId: context.actorId.toString(),
-      tableId: event.tableId.toString(),
-      records: event.records.map((record: RecordValuesDTO) => ({
-        id: record.recordId,
-        fields: fieldValuesToObject(record.fields),
-      })),
-    });
+    scheduleCollaboratorNotificationRun(
+      context,
+      () =>
+        this.dispatcher.notifyUserFields({
+          actorId: context.actorId.toString(),
+          tableId: event.tableId.toString(),
+          records: event.records.map((record: RecordValuesDTO) => ({
+            id: record.recordId,
+            fields: fieldValuesToObject(record.fields),
+          })),
+        }),
+      'batch record create'
+    );
     return ok(undefined);
   }
 }
@@ -290,16 +321,21 @@ export class V2RecordUpdatedCollaboratorNotificationProjection
       return ok(undefined);
     }
 
-    await this.dispatcher.notifyUserFields({
-      actorId: context.actorId.toString(),
-      tableId: event.tableId.toString(),
-      records: [
-        {
-          id: event.recordId.toString(),
-          fields: changesToNewValues(event.changes),
-        },
-      ],
-    });
+    scheduleCollaboratorNotificationRun(
+      context,
+      () =>
+        this.dispatcher.notifyUserFields({
+          actorId: context.actorId.toString(),
+          tableId: event.tableId.toString(),
+          records: [
+            {
+              id: event.recordId.toString(),
+              fields: changesToNewValues(event.changes),
+            },
+          ],
+        }),
+      'record update'
+    );
     return ok(undefined);
   }
 }
@@ -318,14 +354,19 @@ export class V2RecordsBatchUpdatedCollaboratorNotificationProjection
       return ok(undefined);
     }
 
-    await this.dispatcher.notifyUserFields({
-      actorId: context.actorId.toString(),
-      tableId: event.tableId.toString(),
-      records: event.updates.map((update) => ({
-        id: update.recordId,
-        fields: changesToNewValues(update.changes),
-      })),
-    });
+    scheduleCollaboratorNotificationRun(
+      context,
+      () =>
+        this.dispatcher.notifyUserFields({
+          actorId: context.actorId.toString(),
+          tableId: event.tableId.toString(),
+          records: event.updates.map((update) => ({
+            id: update.recordId,
+            fields: changesToNewValues(update.changes),
+          })),
+        }),
+      'batch record update'
+    );
     return ok(undefined);
   }
 }

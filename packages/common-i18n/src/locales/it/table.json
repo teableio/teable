@@ -403,6 +403,9 @@
         "medium": "Medio",
         "high": "Alto"
       },
+      "tip": {
+        "gptImageResolution": "A causa del limite sul numero totale di pixel, in modalità 4K alcuni rapporti useranno la dimensione di output conforme più grande disponibile."
+      },
       "autoFill": {
         "title": "Aggiorna Automaticamente",
         "tip": "Dopo averlo abilitato, il campo corrente verrà aggiornato sincronizzando il contenuto con le modifiche della configurazione AI"
@@ -850,6 +853,7 @@
     "noPermission": "Non hai il permesso di accedere al database",
     "connectionCountTip": "Il numero massimo di connessioni al database è <b>{{max}}</b> e le connessioni attuali sono <b>{{current}}</b>",
     "createFailed": "Assicurati che la variabile d'ambiente PUBLIC_DATABASE_PROXY sia impostata correttamente",
+    "readonlyUnavailable": "Readonly database sharing is unavailable for this data database. Grant the Teable database user permission to create roles and grants, or use a target database that supports readonly roles.",
     "helpLink": "https://help.teable.ai/en/deploy/database-connection"
   },
   "view": {
@@ -1045,6 +1049,11 @@
     "inputPlaceholder": "Digita @ per aggiungere un nodo",
     "inputPlaceholderFiles": "Incolla o trascina file qui",
     "thought": "Pensando",
+    "stage": {
+      "initializing": "Inizializzazione",
+      "working": "In lavorazione",
+      "committing": "Commit in corso"
+    },
     "meta": {
       "input": "Input",
       "output": "Output",

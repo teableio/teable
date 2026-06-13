@@ -1,4 +1,5 @@
 import type { FieldAction, RecordAction, TableAction, ViewAction } from '@teable/core';
+import { filterSchema } from '@teable/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
@@ -10,6 +11,10 @@ export const tablePermissionVoSchema = z.object({
   view: z.record(z.custom<ViewAction>(), z.boolean()),
   record: z.record(z.custom<RecordAction>(), z.boolean()),
   field: z.record(z.custom<FieldAction>(), z.boolean()),
+  recordReadFilter: filterSchema.optional().meta({
+    description:
+      'Row-level read filter the authority matrix applies to the current user; rows not matching it are invisible to this user. Absent when the user is unrestricted. Informational only: the server always enforces it on queries.',
+  }),
 });
 
 export type ITablePermissionVo = z.infer<typeof tablePermissionVoSchema>;

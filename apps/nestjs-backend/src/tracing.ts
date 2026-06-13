@@ -65,7 +65,8 @@ const nativeRequire: NodeRequire =
   typeof __non_webpack_require__ !== 'undefined' ? __non_webpack_require__ : require;
 
 const { BatchLogRecordProcessor } = opentelemetry.logs;
-const { PeriodicExportingMetricReader, AggregationType } = opentelemetry.metrics;
+const { PeriodicExportingMetricReader, AggregationType, createAllowListAttributesProcessor } =
+  opentelemetry.metrics;
 const { AlwaysOnSampler } = opentelemetry.node;
 
 const otelLogger = new Logger('OpenTelemetry');
@@ -145,7 +146,6 @@ const metricExportIntervalMs = Math.max(
   1000,
   parseNumber(getConfig('OTEL_METRIC_EXPORT_INTERVAL_MS'), 60000)
 );
-
 // Exporters
 const createExporterOptions = (url?: string) => ({
   url,
@@ -164,7 +164,9 @@ const metricsExporter = metricsEndpoint
 
 // Strip high-cardinality resource attributes from metrics only.
 // Traces and logs keep these for debugging; metrics drop them to prevent
-// cardinality explosion in ephemeral containers (each restart = new host.name + pid).
+// cardinality explosion (each restart = new host.name + pid; each deploy =
+// new service.version build tag, so the unique metric series count would grow
+// unbounded over time as releases accumulate).
 if (metricsExporter) {
   const dropFromMetricResource = new Set([
     'host.name',
@@ -178,6 +180,7 @@ if (metricsExporter) {
     'process.executable.path',
     'process.owner',
     'service.instance.id',
+    'service.version',
   ]);
   const origExport = metricsExporter.export.bind(metricsExporter);
   metricsExporter.export = (metrics, cb) => {
@@ -200,6 +203,19 @@ const getTraceDecision = (traceId: string): boolean => {
   return hash % 10000 < exportRatio * 10000;
 };
 
+// Prisma emits ~11 spans per query (operation, client:middleware/serialize,
+// engine:query/connection/db_query/serialize/...). Keep only the spine
+// (operation -> engine:query -> db_query) and drop the rest. The full spine is kept
+// so the surviving db_query is never orphaned (which renders as a "Missing Span").
+const PRISMA_SPINE_SPANS = new Set([
+  'prisma:client:operation',
+  'prisma:engine:query',
+  'prisma:engine:db_query',
+]);
+
+const isDroppedPrismaSpan = (span: opentelemetry.tracing.ReadableSpan): boolean =>
+  span.name.startsWith('prisma:') && !PRISMA_SPINE_SPANS.has(span.name);
+
 const shouldExportSpan = (span: opentelemetry.tracing.ReadableSpan): boolean => {
   if (exportRatio >= 1.0) return true;
 
@@ -214,6 +230,7 @@ const shouldExportSpan = (span: opentelemetry.tracing.ReadableSpan): boolean => 
   const durationMs = span.duration[0] * 1000 + span.duration[1] / 1_000_000;
   if (durationMs > latencyThresholdMs) return true;
 
+  if (isDroppedPrismaSpan(span)) return false;
   // Consistent export decision based on traceId - all spans in same trace have same fate
   return getTraceDecision(span.spanContext().traceId);
 };
@@ -318,9 +335,9 @@ const ignorePaths = [
 // ─────────────────────────────────────────────────────────────────────────────
 const drop = { type: AggregationType.DROP } as const;
 const buckets = (boundaries: number[]) =>
-  ({ type: AggregationType.EXPLICIT_BUCKET_HISTOGRAM, boundaries }) as const;
+  ({ type: AggregationType.EXPLICIT_BUCKET_HISTOGRAM, options: { boundaries } }) as const;
 
-const metricViews = [
+const metricViews: opentelemetry.metrics.ViewOptions[] = [
   // Drop inbound HTTP metrics — 200+ routes cause cardinality explosion;
   // traces already provide per-request latency/status via SigNoz APM.
   { instrumentName: 'http.server.duration', aggregation: drop },
@@ -329,19 +346,22 @@ const metricViews = [
 
   // Outbound HTTP — keep but drop server.address to cap cardinality
   // (50+ webhook hosts and growing). Only method + status remain.
+  // Boundaries are in seconds (instrumentation-http records seconds).
   {
     instrumentName: 'http.client.request.duration',
     aggregation: buckets([0.05, 0.25, 1, 5, 30]),
-    attributeKeys: ['http.request.method', 'http.response.status_code'],
+    attributesProcessors: [
+      createAllowListAttributesProcessor(['http.request.method', 'http.response.status_code']),
+    ],
   },
 
-  // Reduce high-cardinality auto-instrumented histograms from 14 → 5 buckets
-  // 1ms=cached, 5ms=indexed, 25ms=scan, 100ms=slow, 1s=very-slow
-  // Keep only operation name + system; drop db.namespace, server.address/port, etc.
+  // Reduce high-cardinality auto-instrumented histograms from 16 → 6 series per label set.
+  // Boundaries are in seconds: 1ms=cached, 5ms=indexed, 25ms=scan, 100ms=slow, 1s=very-slow.
+  // Keep only operation name + system; drop db.namespace, server.address/port, error.type.
   {
     instrumentName: 'db.client.operation.duration',
     aggregation: buckets([0.001, 0.005, 0.025, 0.1, 1]),
-    attributeKeys: ['db.operation.name', 'db.system'],
+    attributesProcessors: [createAllowListAttributesProcessor(['db.operation.name', 'db.system'])],
   },
 ];
 

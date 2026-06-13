@@ -4,9 +4,43 @@
  * These tests validate that the generated SQL statements actually work
  * against a real PostgreSQL-compatible database using PGlite.
  */
-import { describe, it } from 'vitest';
+import type { Field } from '@teable/v2-core';
+import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
+import { Kysely, sql } from 'kysely';
+import { describe, expect, it } from 'vitest';
+
+import { executeTableSchemaStatements } from '../../../shared/db';
+import { FieldTypeConversionVisitorFactory } from '../FieldTypeConversionVisitor';
+import { createPGliteDb } from './helpers/createPGliteDb';
+import { createTextField, createUsrField } from './helpers/fieldFactories';
 
 describe('FieldTypeConversionVisitor (PGlite)', () => {
+  const DB_FIELD_NAME = 'user_text';
+
+  const executeConversion = async (
+    dataDb: Kysely<V1TeableDatabase>,
+    metaDb: Kysely<V1TeableDatabase>,
+    sourceField: Field,
+    targetField: Field
+  ) => {
+    const factory = new FieldTypeConversionVisitorFactory({
+      db: dataDb,
+      schema: null,
+      tableName: 'records',
+      tableId: 'tblTestTable0000001',
+      dbFieldName: DB_FIELD_NAME,
+    });
+    const visitorResult = sourceField.accept(factory);
+    expect(visitorResult.isOk()).toBe(true);
+    const statementsResult = targetField.accept(visitorResult._unsafeUnwrap());
+    expect(statementsResult.isOk()).toBe(true);
+    await executeTableSchemaStatements(dataDb, statementsResult._unsafeUnwrap(), {
+      dataDb,
+      metaDb,
+      enforceRelationAccess: true,
+    });
+  };
+
   describe('Text to Number', () => {
     it.todo(
       'should convert valid numeric strings to numbers'
@@ -91,6 +125,119 @@ describe('FieldTypeConversionVisitor (PGlite)', () => {
   });
 
   describe('Text to User', () => {
+    it('should resolve matching text via meta DB and clear non-matching text', async () => {
+      const { db: dataDb } = await createPGliteDb();
+      const { db: metaDb } = await createPGliteDb();
+      try {
+        await sql`CREATE TABLE records (__id text PRIMARY KEY, user_text text)`.execute(dataDb);
+        await sql`
+          INSERT INTO records (__id, user_text)
+          VALUES
+            ('rec_email', 'alice@example.com'),
+            ('rec_name', 'Bob'),
+            ('rec_missing', 'random text value')
+        `.execute(dataDb);
+        await sql`CREATE TABLE users (id text PRIMARY KEY, name text NOT NULL, email text)`.execute(
+          metaDb
+        );
+        await sql`
+          INSERT INTO users (id, name, email)
+          VALUES
+            ('usr_alice', 'Alice', 'alice@example.com'),
+            ('usr_bob', 'Bob', NULL)
+        `.execute(metaDb);
+
+        await executeConversion(
+          dataDb,
+          metaDb,
+          createTextField('srcText', 'Source Text', DB_FIELD_NAME)._unsafeUnwrap(),
+          createUsrField('tgtUsr', 'Target User', DB_FIELD_NAME, false)._unsafeUnwrap()
+        );
+
+        const rows = await sql<{ __id: string; user_text: unknown | null }>`
+          SELECT __id, user_text
+          FROM records
+          ORDER BY __id
+        `.execute(dataDb);
+
+        expect(rows.rows).toEqual([
+          {
+            __id: 'rec_email',
+            user_text: {
+              id: 'usr_alice',
+              title: 'Alice',
+              email: 'alice@example.com',
+              avatarUrl: '/api/attachments/read/public/avatar/usr_alice',
+            },
+          },
+          { __id: 'rec_missing', user_text: null },
+          {
+            __id: 'rec_name',
+            user_text: {
+              id: 'usr_bob',
+              title: 'Bob',
+              email: null,
+              avatarUrl: '/api/attachments/read/public/avatar/usr_bob',
+            },
+          },
+        ]);
+      } finally {
+        await dataDb.destroy();
+        await metaDb.destroy();
+      }
+    });
+
+    it('should create array format for multiple user field', async () => {
+      const { db: dataDb } = await createPGliteDb();
+      const { db: metaDb } = await createPGliteDb();
+      try {
+        await sql`CREATE TABLE records (__id text PRIMARY KEY, user_text text)`.execute(dataDb);
+        await sql`INSERT INTO records (__id, user_text) VALUES ('rec_multi', 'Alice, Bob')`.execute(
+          dataDb
+        );
+        await sql`CREATE TABLE users (id text PRIMARY KEY, name text NOT NULL, email text)`.execute(
+          metaDb
+        );
+        await sql`
+          INSERT INTO users (id, name, email)
+          VALUES
+            ('usr_alice', 'Alice', 'alice@example.com'),
+            ('usr_bob', 'Bob', NULL)
+        `.execute(metaDb);
+
+        await executeConversion(
+          dataDb,
+          metaDb,
+          createTextField('srcText', 'Source Text', DB_FIELD_NAME)._unsafeUnwrap(),
+          createUsrField('tgtUsr', 'Target User', DB_FIELD_NAME, true)._unsafeUnwrap()
+        );
+
+        const rows = await sql<{ user_text: unknown }>`
+          SELECT user_text
+          FROM records
+          WHERE __id = 'rec_multi'
+        `.execute(dataDb);
+
+        expect(rows.rows[0]?.user_text).toEqual([
+          {
+            id: 'usr_alice',
+            title: 'Alice',
+            email: 'alice@example.com',
+            avatarUrl: '/api/attachments/read/public/avatar/usr_alice',
+          },
+          {
+            id: 'usr_bob',
+            title: 'Bob',
+            email: null,
+            avatarUrl: '/api/attachments/read/public/avatar/usr_bob',
+          },
+        ]);
+      } finally {
+        await dataDb.destroy();
+        await metaDb.destroy();
+      }
+    });
+
     it.todo(
       'should match text against user email'
       // Setup: Create users table with test user, insert user email as text

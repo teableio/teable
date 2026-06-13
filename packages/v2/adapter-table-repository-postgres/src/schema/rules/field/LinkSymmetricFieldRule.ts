@@ -33,6 +33,7 @@ export class LinkSymmetricFieldRule implements ISchemaRule {
   readonly dependencies: ReadonlyArray<string> = [];
   readonly required = true;
   readonly repairMode = 'manual' as const;
+  readonly validationScope = 'meta';
 
   private readonly manualRepairSchema = withManualRepairFormMeta(
     z.object({

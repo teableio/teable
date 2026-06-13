@@ -132,6 +132,12 @@ const toFieldEditorState = (originField?: IFieldVo): IFieldEditorRo =>
         type: FieldType.SingleLineText,
       };
 
+const toCreateFieldRoInput = (field: IFieldEditorRo): IFieldEditorRo => {
+  const fieldRo = { ...field };
+  delete fieldRo.order;
+  return fieldRo;
+};
+
 export const FieldSetting = (props: IFieldSetting) => {
   const { operator, order } = props;
 
@@ -272,7 +278,7 @@ export const FieldSetting = (props: IFieldSetting) => {
         result = await createNewField({
           ...field,
           order:
-            view && order != null
+            view && typeof order === 'number' && Number.isFinite(order)
               ? {
                   viewId: view.id,
                   orderIndex: order,
@@ -555,7 +561,9 @@ export const FieldSettingBase = (props: IFieldSettingBase) => {
 
     const fieldRoSchema =
       operator === FieldOperator.Edit ? convertFieldRoSchema : createFieldRoSchema;
-    const result = fieldRoSchema.safeParse(normalizedField);
+    const fieldRoInput =
+      operator === FieldOperator.Edit ? normalizedField : toCreateFieldRoInput(normalizedField);
+    const result = fieldRoSchema.safeParse(fieldRoInput);
     if (result.success) {
       setIsSaving(true);
       try {
@@ -570,7 +578,7 @@ export const FieldSettingBase = (props: IFieldSettingBase) => {
       return;
     }
 
-    console.error('fieldConFirm', normalizedField);
+    console.error('fieldConFirm', fieldRoInput);
     console.error('fieldConFirmResult', fromZodError(result.error).message);
     const errorMessage = fromZodError(result.error).message;
     toast.error(`Validation Error`, {

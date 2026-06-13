@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { HttpErrorCode, type IGetFieldsQuery } from '@teable/core';
 import type { IGetRecordsRo } from '@teable/openapi';
 import { difference } from 'lodash';
@@ -7,6 +7,7 @@ import { FieldService } from '../field/field.service';
 import { RecordService } from '../record/record.service';
 import { ViewService } from '../view/view.service';
 import type { IShareViewInfo } from './share-auth.service';
+import { isLinkRecordSelectionQuery } from './share-link-query.util';
 
 @Injectable()
 export class ShareSocketService {
@@ -113,10 +114,12 @@ export class ShareSocketService {
 
     const { id } = view ?? {};
     const { filterByViewId } = linkOptions ?? {};
-    const viewId = filterByViewId ?? id;
-    // if filterLinkCellSelected is not empty, use it as filter
-    const defaultFilter = linkOptions?.filter ?? query.filter;
-    const filter = !query.filterLinkCellSelected ? defaultFilter : undefined;
+    // Queries that load already-linked records (filterLinkCellSelected or explicit
+    // selectedRecordIds) must return them in full, even when they fall outside the link
+    // field's view scope. The view scope/filter only constrains the candidate list. T4864.
+    const isLinkSelectionQuery = Boolean(linkOptions) && isLinkRecordSelectionQuery(query);
+    const viewId = isLinkSelectionQuery ? id : filterByViewId ?? id;
+    const filter = isLinkSelectionQuery ? undefined : linkOptions?.filter ?? query.filter;
     let projection = query.projection;
 
     if (linkOptions) {
