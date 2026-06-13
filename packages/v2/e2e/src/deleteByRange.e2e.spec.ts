@@ -5,7 +5,9 @@ import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 import {
   setupGroupedLinkRangeFixture,
+  setupGroupedSingleSelectRangeFixture,
   type GroupedLinkRangeFixture,
+  type GroupedSingleSelectRangeFixture,
 } from './shared/groupedLinkRangeFixture';
 
 /**
@@ -588,6 +590,106 @@ describe('v2 http deleteByRange (e2e)', () => {
     });
   });
 
+  describe('deleteByRange with grouped singleSelect view order parity', () => {
+    const expectOnlySecondVisibleRowDeleted = async (fixture: GroupedSingleSelectRangeFixture) => {
+      const records = await ctx.listRecords(fixture.tableId);
+
+      // Visible order follows the view row order (reverse of creation), so the
+      // second visible row is 加单3.
+      expect(records.find((record) => record.id === fixture.recordIds.order2)).toBeDefined();
+      expect(records.find((record) => record.id === fixture.recordIds.order3)).toBeUndefined();
+      expect(records.find((record) => record.id === fixture.recordIds.order4)).toBeDefined();
+    };
+
+    it('should delete the visible row in a saved grouped view when row order differs', async () => {
+      const fixture = await setupGroupedSingleSelectRangeFixture(ctx, 'delete-saved-group', {
+        persistViewQuery: true,
+      });
+
+      const result = await ctx.deleteByRange({
+        tableId: fixture.tableId,
+        viewId: fixture.viewId,
+        ranges: [[1, 1]],
+        type: 'rows',
+      });
+
+      expect(result.deletedCount).toBe(1);
+      expect(result.deletedRecordIds).toEqual([fixture.recordIds.order3]);
+      await expectOnlySecondVisibleRowDeleted(fixture);
+    });
+
+    it('should list records using saved view group order so visible row offsets match range commands', async () => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Saved Group List Order ${Date.now()}`,
+        fields: [
+          { name: 'Name', type: 'singleLineText', isPrimary: true },
+          {
+            name: 'Store',
+            type: 'singleSelect',
+            options: {
+              choices: [
+                { name: 'A', color: 'blueLight1' },
+                { name: 'B', color: 'greenLight1' },
+              ],
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      const viewId = table.views[0]?.id;
+      const nameFieldId = table.fields.find((field) => field.isPrimary)?.id;
+      const storeFieldId = table.fields.find((field) => field.name === 'Store')?.id;
+      if (!viewId || !nameFieldId || !storeFieldId) {
+        throw new Error('Failed to resolve saved group list fixture metadata');
+      }
+
+      const b1 = await ctx.createRecord(table.id, { [nameFieldId]: 'B1', [storeFieldId]: 'B' });
+      const a1 = await ctx.createRecord(table.id, { [nameFieldId]: 'A1', [storeFieldId]: 'A' });
+      const b2 = await ctx.createRecord(table.id, { [nameFieldId]: 'B2', [storeFieldId]: 'B' });
+      const a2 = await ctx.createRecord(table.id, { [nameFieldId]: 'A2', [storeFieldId]: 'A' });
+      await ctx.drainOutbox();
+
+      await ctx.testContainer.db
+        .updateTable('view')
+        .set({
+          group: JSON.stringify([{ fieldId: storeFieldId, order: 'asc' }]),
+        })
+        .where('id', '=', viewId)
+        .execute();
+
+      const visibleRecords = await ctx.listRecords(table.id, { viewId });
+      expect(visibleRecords.map((record) => record.id)).toEqual([a1.id, a2.id, b1.id, b2.id]);
+
+      const result = await ctx.deleteByRange({
+        tableId: table.id,
+        viewId,
+        ranges: [[1, 1]],
+        type: 'rows',
+      });
+
+      expect(result.deletedRecordIds).toEqual([a2.id]);
+    });
+
+    it('should delete the visible row in a personal grouped view request', async () => {
+      const fixture = await setupGroupedSingleSelectRangeFixture(ctx, 'delete-personal-group');
+
+      const result = await ctx.deleteByRange({
+        tableId: fixture.tableId,
+        viewId: fixture.viewId,
+        ranges: [[1, 1]],
+        type: 'rows',
+        ignoreViewQuery: true,
+        groupBy: fixture.groupByAsc,
+        sort: fixture.sortAsc,
+      });
+
+      expect(result.deletedCount).toBe(1);
+      expect(result.deletedRecordIds).toEqual([fixture.recordIds.order3]);
+      await expectOnlySecondVisibleRowDeleted(fixture);
+    });
+  });
+
   describe('deleteByRange with self conditional rollups', () => {
     it('deletes a row without error when same-table conditionalRollup filters use field references', async () => {
       const table = await ctx.createTable({
@@ -1078,11 +1180,11 @@ describe('v2 http deleteByRange (e2e)', () => {
 
     it('should delete correct row at large offset when sort values tie', async () => {
       const targetOffset = 400;
-      const orderColumn = `__row_${tieViewId}`;
+      // All sort values tie, so the visible order follows the view row order column.
       const expected = await sql<{ __id: string }>`
         SELECT "__id"
         FROM ${sql.table(tieDbTableName)}
-        ORDER BY ${sql.ref(orderColumn)} ASC
+        ORDER BY ${sql.ref(`__row_${tieViewId}`)} ASC
         OFFSET ${targetOffset}
         LIMIT 1
       `.execute(ctx.testContainer.db);

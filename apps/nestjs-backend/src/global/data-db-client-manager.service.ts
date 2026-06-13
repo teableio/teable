@@ -27,11 +27,27 @@ export interface IResolvedDataDatabase {
   internalSchema?: string;
 }
 
+export interface IDataDbPreviewBinding {
+  spaceId: string;
+  connectionId: string;
+  encryptedUrl: string;
+  internalSchema: string;
+  urlFingerprint?: string | null;
+  displayHost?: string | null;
+  displayDatabase?: string | null;
+}
+
 export interface IDataDbRoutingOptions {
   useTransaction?: boolean;
+  previewBinding?: IDataDbPreviewBinding;
+  sourceConnectionId?: string | null;
 }
 
 type IMetaRoutingClient = PrismaService | NonNullable<IClsStore['tx']['client']>;
+
+type IResolvedSpaceDataDbRoute =
+  | { isMetaFallback: true }
+  | { connectionId: string; internalSchema: string; isMetaFallback: false; url: string };
 
 @Injectable()
 export class DataDbClientManager {
@@ -205,10 +221,15 @@ export class DataDbClientManager {
   private async resolveSpaceDataDb(
     spaceId: string,
     options?: IDataDbRoutingOptions
-  ): Promise<
-    | { isMetaFallback: true }
-    | { connectionId: string; internalSchema: string; isMetaFallback: false; url: string }
-  > {
+  ): Promise<IResolvedSpaceDataDbRoute> {
+    if ('sourceConnectionId' in (options ?? {})) {
+      return await this.resolveSourceSpaceDataDb(options);
+    }
+
+    if (options?.previewBinding?.spaceId === spaceId) {
+      return this.resolvePreviewSpaceDataDb(spaceId, options.previewBinding);
+    }
+
     const binding = await this.getMetaRoutingClient(options).spaceDataDbBinding.findUnique({
       where: { spaceId },
       include: { dataDbConnection: true },
@@ -263,6 +284,53 @@ export class DataDbClientManager {
       internalSchema: connection.internalSchema,
       isMetaFallback: false,
       url,
+    };
+  }
+
+  private resolvePreviewSpaceDataDb(
+    spaceId: string,
+    preview: IDataDbPreviewBinding
+  ): IResolvedSpaceDataDbRoute {
+    if (this.cls?.isActive()) {
+      this.cls.set('dataDb', {
+        mode: 'byodb',
+        spaceId,
+        connectionId: preview.connectionId,
+        urlFingerprint: preview.urlFingerprint ?? null,
+        displayHost: preview.displayHost ?? null,
+        displayDatabase: preview.displayDatabase ?? null,
+        internalSchema: preview.internalSchema,
+      });
+    }
+
+    return {
+      connectionId: preview.connectionId,
+      internalSchema: preview.internalSchema,
+      isMetaFallback: false,
+      url: decryptDataDbUrl(preview.encryptedUrl),
+    };
+  }
+
+  private async resolveSourceSpaceDataDb(
+    options?: IDataDbRoutingOptions
+  ): Promise<IResolvedSpaceDataDbRoute> {
+    const sourceConnectionId = options?.sourceConnectionId ?? null;
+    if (!sourceConnectionId) {
+      return { isMetaFallback: true };
+    }
+
+    const connection = await this.getMetaRoutingClient(options).dataDbConnection.findUnique({
+      where: { id: sourceConnectionId },
+    });
+    if (!connection?.encryptedUrl) {
+      throw new Error(`Data database source connection ${sourceConnectionId} was not found`);
+    }
+
+    return {
+      connectionId: connection.id,
+      internalSchema: connection.internalSchema,
+      isMetaFallback: false,
+      url: decryptDataDbUrl(connection.encryptedUrl),
     };
   }
 
