@@ -10,10 +10,13 @@ import {
   type Table,
   type IEventBus,
   type ILogger,
+  domainError,
   ok,
 } from '@teable/v2-core';
+import { err } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
+import { COMPUTED_UPDATE_LOCK_UNAVAILABLE_CODE } from '../ComputedUpdateLock';
 import type { ComputedFieldUpdater, PreparedDirtyState } from '../ComputedFieldUpdater';
 import type {
   ComputedUpdatePlan,
@@ -457,6 +460,76 @@ describe('HybridWithOutboxStrategy', () => {
     expect(enqueueOrMerge).toHaveBeenCalledTimes(1);
     const outboxTask = enqueueOrMerge.mock.calls[0][0];
     expect(outboxTask.steps).toHaveLength(3);
+  });
+
+  it('queues the current plan instead of waiting when sync computed locks are unavailable', async () => {
+    const plan = createPlan();
+    const { updater, acquireLocks, prepareDirtyState, executePreparedSteps } = createUpdaterStub();
+    const { outbox, enqueueOrMerge } = createOutboxStub();
+    const { worker, runOnce } = createWorkerStub();
+    const { planner } = createPlannerStub();
+
+    prepareDirtyState.mockResolvedValue(
+      ok(createPreparedState([{ tableId: SEED_TABLE_ID, recordCount: 1 }]))
+    );
+    acquireLocks.mockResolvedValue(
+      err(
+        domainError.infrastructure({
+          code: COMPUTED_UPDATE_LOCK_UNAVAILABLE_CODE,
+          message: 'Computed update lock unavailable: lock-key',
+        })
+      )
+    );
+    enqueueOrMerge.mockResolvedValue(ok({ taskId: 'task-1', merged: false }));
+
+    runOnce.mockResolvedValue(ok(0));
+
+    vi.useFakeTimers();
+    try {
+      const strategy = new HybridWithOutboxStrategy(
+        outbox,
+        worker,
+        {
+          syncPolicy: 'seedTableOnly',
+          syncMaxDirtyPerTable: 2000,
+          syncMaxTotalDirty: 5000,
+          syncMaxLevelHardCap: 1,
+          dispatchMode: 'push',
+          dispatchWorkerLimit: 50,
+          dispatchWorkerId: 'computed-inline',
+          dispatchDelayMs: 0,
+        },
+        createLogger(),
+        testHasher,
+        planner,
+        createEventBusStub()
+      );
+      const actorId = ActorId.create('usr_test')._unsafeUnwrap();
+
+      const result = await strategy.execute(updater, plan, { actorId });
+      expect(result.isOk()).toBe(true);
+
+      expect(acquireLocks).toHaveBeenCalledWith(plan, expect.anything(), {
+        logContext: expect.anything(),
+        wait: false,
+      });
+      expect(executePreparedSteps).not.toHaveBeenCalled();
+      expect(enqueueOrMerge).toHaveBeenCalledTimes(1);
+      const outboxTask = enqueueOrMerge.mock.calls[0][0];
+      expect(outboxTask.steps).toHaveLength(3);
+      expect(outboxTask.syncMaxLevel).toBe(-1);
+
+      await vi.runAllTimersAsync();
+      expect(runOnce).toHaveBeenCalledWith({
+        actorId,
+        limit: 50,
+        requestId: undefined,
+        tracer: undefined,
+        workerId: 'computed-inline',
+      });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('dispatches worker after enqueue when enabled', async () => {

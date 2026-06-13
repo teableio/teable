@@ -55,14 +55,16 @@ const createSizeImageModel = (
 const createOpenAIGptImageModel = (
   model: string,
   displayName: string,
-  supportedSizes: IImageSize[] = OPENAI_GPT_IMAGE_SIZES
+  supportedSizes: IImageSize[] = OPENAI_GPT_IMAGE_SIZES,
+  defaultSize?: IImageSize
 ): IImageModelConfig => ({
   provider: 'openai',
   model,
   displayName,
   sizeType: 'size',
   supportedSizes,
-  defaultSize: '1024x1024',
+  defaultSize,
+  supportsAutoSize: true,
   supportsQuality: true,
   supportsStyle: true,
   modelType: 'image',
@@ -127,9 +129,14 @@ export const IMAGE_MODEL_CONFIGS: IImageModelConfig[] = [
 
   // OpenAI
   createOpenAIGptImageModel('gpt-image-2', 'GPT Image 2', OPENAI_GPT_IMAGE_2_SIZES),
-  createOpenAIGptImageModel('gpt-image-1.5', 'GPT Image 1.5'),
-  createOpenAIGptImageModel('gpt-image-1-mini', 'GPT Image 1 Mini'),
-  createOpenAIGptImageModel('gpt-image-1', 'GPT Image 1'),
+  createOpenAIGptImageModel('gpt-image-1.5', 'GPT Image 1.5', OPENAI_GPT_IMAGE_SIZES, '1024x1024'),
+  createOpenAIGptImageModel(
+    'gpt-image-1-mini',
+    'GPT Image 1 Mini',
+    OPENAI_GPT_IMAGE_SIZES,
+    '1024x1024'
+  ),
+  createOpenAIGptImageModel('gpt-image-1', 'GPT Image 1', OPENAI_GPT_IMAGE_SIZES, '1024x1024'),
   {
     provider: 'openai',
     model: 'dall-e-3',
