@@ -27,7 +27,7 @@ import { ClsService } from 'nestjs-cls';
 import { z } from 'zod';
 import type { IClsStore } from '../../types/cls';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
-import { Permissions } from '../auth/decorators/permissions.decorator';
+import { AnyPermissions, Permissions } from '../auth/decorators/permissions.decorator';
 import { PermissionGuard } from '../auth/guard/permission.guard';
 import { UseV2Feature } from '../canary/decorators/use-v2-feature.decorator';
 import { V2FeatureGuard } from '../canary/guards/v2-feature.guard';
@@ -147,6 +147,7 @@ export class IntegrityV2Controller {
 
   @Post('table/:tableId/repair-stream')
   @Permissions('table|update')
+  @AnyPermissions(['instance|update'])
   @UseV2Feature(v2SchemaIntegrityFeature)
   async repairTable(
     @Param('tableId') tableId: string,
