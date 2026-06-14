@@ -35,7 +35,7 @@ export class S3Storage implements StorageAdapter {
   private logger = new Logger(S3Storage.name);
 
   constructor(@StorageConfig() readonly config: IStorageConfig) {
-    const { endpoint, region, accessKey, secretKey, maxSockets } = this.config.s3;
+    const { endpoint, region, accessKey, secretKey, maxSockets, forcePathStyle } = this.config.s3;
     this.checkConfig();
     this.httpsAgent = new https.Agent({
       maxSockets,
@@ -50,6 +50,7 @@ export class S3Storage implements StorageAdapter {
       region,
       endpoint,
       requestHandler,
+      forcePathStyle,
       credentials: {
         accessKeyId: accessKey,
         secretAccessKey: secretKey,
@@ -64,6 +65,7 @@ export class S3Storage implements StorageAdapter {
           endpoint,
           bucketEndpoint: true,
           requestHandler,
+          forcePathStyle,
           credentials: {
             accessKeyId: accessKey,
             secretAccessKey: secretKey,
