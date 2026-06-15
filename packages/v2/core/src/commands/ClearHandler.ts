@@ -43,7 +43,10 @@ import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import { createUndoRedoCommand, type UndoRedoCommandLeafData } from '../ports/UndoRedoStore';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
-import { buildSanitizedRecordConditionSpec } from '../queries/RecordFilterMapper';
+import {
+  buildSanitizedRecordConditionSpec,
+  replaceCurrentUserTagInFilter,
+} from '../queries/RecordFilterMapper';
 import { resolveVisibleRowSearch } from '../queries/RecordSearch';
 import { ClearCommand } from './ClearCommand';
 import { ClearStreamCommand } from './ClearStreamCommand';
@@ -231,7 +234,12 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
 
       // 3. Build filter spec from effective view filter. Search-aware visible rows are handled
       // by the query repository so field-type-specific search semantics stay centralized.
-      const filterSpec = yield* buildSanitizedRecordConditionSpec(table, effectiveFilter);
+      const actorResolvedFilter = replaceCurrentUserTagInFilter(
+        table,
+        effectiveFilter,
+        context.actorId.toString()
+      );
+      const filterSpec = yield* buildSanitizedRecordConditionSpec(table, actorResolvedFilter);
       const visibleRowSearch = resolveVisibleRowSearch(command.search, orderedFieldIds);
 
       // 4. Get total row count for columns/rows type normalization
@@ -327,8 +335,7 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
         return ok({ updatedCount: 0 });
       }
 
-      // 8. Build orderBy from group + sort for correct row mapping
-      // If none provided, fall back to view row order column (__row_{viewId})
+      // 8. Build orderBy from group + sort to match the visible list row order.
       const effectiveGroup = command.ignoreViewQuery
         ? command.groupBy ?? undefined
         : mergedDefaults.group();
@@ -956,7 +963,12 @@ export class ClearStreamApplicationService extends ClearHandler {
       ? command.groupBy ?? undefined
       : mergedDefaults.group();
 
-    const filterSpecResult = await buildSanitizedRecordConditionSpec(table, effectiveFilter);
+    const actorResolvedFilter = replaceCurrentUserTagInFilter(
+      table,
+      effectiveFilter,
+      context.actorId.toString()
+    );
+    const filterSpecResult = await buildSanitizedRecordConditionSpec(table, actorResolvedFilter);
     if (filterSpecResult.isErr()) {
       return err(filterSpecResult.error);
     }

@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react';
-import { useUnmount, useUpdateEffect } from 'react-use';
+import { useEffect, useRef, useState } from 'react';
+import { useUpdateEffect } from 'react-use';
 import type { IGridProps } from '../Grid';
 import type { ICellItem, ILinearRow, IMouseState, IPosition, IRange } from '../interface';
 import { RegionType, SelectionRegionType, SelectableType, RowControlType } from '../interface';
@@ -36,9 +36,27 @@ export const useSelection = (props: IUseSelectionProps) => {
   const [isSelecting, setSelecting] = useState(false);
   const [selection, setSelection] = useState(() => new CombinedSelection());
   const { pureRowCount } = coordInstance;
-  onSelectionChangedRef.current = onSelectionChanged;
-  onRowControlClickRef.current = onRowControlClick;
-  onRowRangeSelectedRef.current = onRowRangeSelected;
+
+  useEffect(() => {
+    onSelectionChangedRef.current = onSelectionChanged;
+    return () => {
+      onSelectionChangedRef.current = undefined;
+    };
+  }, [onSelectionChanged]);
+
+  useEffect(() => {
+    onRowControlClickRef.current = onRowControlClick;
+    return () => {
+      onRowControlClickRef.current = undefined;
+    };
+  }, [onRowControlClick]);
+
+  useEffect(() => {
+    onRowRangeSelectedRef.current = onRowRangeSelected;
+    return () => {
+      onRowRangeSelectedRef.current = undefined;
+    };
+  }, [onRowRangeSelected]);
 
   const onSelectionStart = (
     event: React.MouseEvent<HTMLDivElement, MouseEvent>,
@@ -280,10 +298,6 @@ export const useSelection = (props: IUseSelectionProps) => {
   useUpdateEffect(() => {
     onSelectionChangedRef.current?.(selection);
   }, [selection]);
-
-  useUnmount(() => {
-    onSelectionChangedRef.current = undefined;
-  });
 
   return {
     selection,
