@@ -101,7 +101,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22.18.0
+          node-version: 22.22.3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3

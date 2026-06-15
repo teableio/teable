@@ -82,6 +82,7 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
   private readonly selfBackfillFieldIdSet = new Map<string, FieldId>();
   private readonly valueChangedFieldIdSet = new Map<string, FieldId>();
   private readonly deferredBackfillFieldIdSet = new Map<string, FieldId>();
+  private readonly recordActionFieldIdSet = new Map<string, FieldId>();
   private dbStorageTypeChanged = false;
 
   selfBackfillFields(): ReadonlyArray<FieldId> {
@@ -90,6 +91,10 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
 
   valueChangedFields(): ReadonlyArray<FieldId> {
     return [...this.valueChangedFieldIdSet.values()];
+  }
+
+  recordActionFields(): ReadonlyArray<FieldId> {
+    return [...this.recordActionFieldIdSet.values()];
   }
 
   deferredBackfillFields(): ReadonlyArray<FieldId> {
@@ -112,6 +117,10 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
 
   private addValueChanged(fieldId: FieldId): void {
     this.valueChangedFieldIdSet.set(fieldId.toString(), fieldId);
+  }
+
+  private addRecordAction(fieldId: FieldId): void {
+    this.recordActionFieldIdSet.set(fieldId.toString(), fieldId);
   }
 
   private addDeferredBackfill(fieldId: FieldId): void {
@@ -392,6 +401,9 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
     if (spec.renamedOptions().length > 0 || spec.removedOptions().length > 0) {
       this.addValueChanged(spec.fieldId());
     }
+    if (spec.removedOptions().length > 0) {
+      this.addRecordAction(spec.fieldId());
+    }
     return ok(undefined);
   }
 
@@ -414,6 +426,9 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
   ): Result<void, DomainError> {
     if (spec.renamedOptions().length > 0 || spec.removedOptions().length > 0) {
       this.addValueChanged(spec.fieldId());
+    }
+    if (spec.removedOptions().length > 0) {
+      this.addRecordAction(spec.fieldId());
     }
     return ok(undefined);
   }

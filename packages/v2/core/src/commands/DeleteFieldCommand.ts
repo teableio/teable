@@ -21,7 +21,8 @@ export class DeleteFieldCommand extends TableUpdateCommand {
     readonly baseId: BaseId,
     readonly tableId: TableId,
     readonly fieldId: FieldId,
-    private readonly skipUndoRedoValue = false
+    private readonly skipUndoRedoValue = false,
+    private readonly skipTargetSnapshotValue = false
   ) {
     super(baseId, tableId);
   }
@@ -30,6 +31,7 @@ export class DeleteFieldCommand extends TableUpdateCommand {
     raw: unknown,
     options?: {
       skipUndoRedo?: boolean;
+      skipTargetSnapshot?: boolean;
     }
   ): Result<DeleteFieldCommand, DomainError> {
     const parsed = deleteFieldInputSchema.safeParse(raw);
@@ -40,12 +42,25 @@ export class DeleteFieldCommand extends TableUpdateCommand {
           details: z.formatError(parsed.error),
         })
       );
+    if (options?.skipTargetSnapshot === true && options?.skipUndoRedo !== true) {
+      return err(
+        domainError.validation({
+          message: 'skipTargetSnapshot requires skipUndoRedo',
+        })
+      );
+    }
 
     return BaseId.create(parsed.data.baseId).andThen((baseId) =>
       TableId.create(parsed.data.tableId).andThen((tableId) =>
         FieldId.create(parsed.data.fieldId).map(
           (fieldId) =>
-            new DeleteFieldCommand(baseId, tableId, fieldId, options?.skipUndoRedo === true)
+            new DeleteFieldCommand(
+              baseId,
+              tableId,
+              fieldId,
+              options?.skipUndoRedo === true,
+              options?.skipTargetSnapshot === true
+            )
         )
       )
     );
@@ -53,5 +68,9 @@ export class DeleteFieldCommand extends TableUpdateCommand {
 
   skipUndoRedo(): boolean {
     return this.skipUndoRedoValue;
+  }
+
+  skipTargetSnapshot(): boolean {
+    return this.skipTargetSnapshotValue;
   }
 }
