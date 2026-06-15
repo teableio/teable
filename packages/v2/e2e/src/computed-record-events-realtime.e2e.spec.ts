@@ -18,6 +18,7 @@ import { NoopLogger } from '@teable/v2-core';
 import type { ICreateTableCommandInput } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import express from 'express';
+import { sql } from 'kysely';
 import ShareDb from 'sharedb';
 import type { Doc } from 'sharedb/lib/client';
 import { Connection } from 'sharedb/lib/client';
@@ -403,6 +404,105 @@ describe('v2 computed record events and realtime projection (e2e)', () => {
           expectedValue: [9],
           trigger: async () => {
             await updateRecord(foreignTable.id, foreignRecord.id, { [foreignValueFieldId]: 9 });
+          },
+        };
+      },
+    },
+    {
+      label: 'lookup multi-user',
+      setup: async () => {
+        const aliceEmail = 'alice+realtime-lookup@e2e.com';
+        const bobEmail = 'bob+realtime-lookup@e2e.com';
+        const aliceCell = {
+          id: 'usrRealtimeLookupAlice',
+          title: 'Alice',
+          email: aliceEmail,
+          avatarUrl: '/api/attachments/read/public/avatar/usrRealtimeLookupAlice',
+        };
+        const bobCell = {
+          id: 'usrRealtimeLookupBob',
+          title: 'Bob',
+          email: bobEmail,
+          avatarUrl: '/api/attachments/read/public/avatar/usrRealtimeLookupBob',
+        };
+        await sql`
+          insert into users (id, name, email)
+          values
+            (${aliceCell.id}, ${aliceCell.title}, ${aliceEmail}),
+            (${bobCell.id}, ${bobCell.title}, ${bobEmail})
+          on conflict (id) do nothing
+        `.execute(testContainer.db);
+
+        const foreignPrimaryFieldId = createFieldId();
+        const foreignUserFieldId = createFieldId();
+        const foreignTable = await createTable({
+          baseId,
+          name: `Computed Event Lookup User Foreign ${fieldIdCounter}`,
+          fields: [
+            { type: 'singleLineText', id: foreignPrimaryFieldId, name: 'Name', isPrimary: true },
+            {
+              type: 'user',
+              id: foreignUserFieldId,
+              name: 'Members',
+              options: { isMultiple: true, shouldNotify: false },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        const hostPrimaryFieldId = createFieldId();
+        const linkFieldId = createFieldId();
+        const lookupFieldId = createFieldId();
+        const hostTable = await createTable({
+          baseId,
+          name: `Computed Event Lookup User Host ${fieldIdCounter}`,
+          fields: [
+            { type: 'singleLineText', id: hostPrimaryFieldId, name: 'Name', isPrimary: true },
+            {
+              type: 'link',
+              id: linkFieldId,
+              name: 'Link',
+              options: {
+                relationship: 'manyOne',
+                foreignTableId: foreignTable.id,
+                lookupFieldId: foreignPrimaryFieldId,
+                isOneWay: true,
+              },
+            },
+            {
+              type: 'lookup',
+              id: lookupFieldId,
+              name: 'Lookup Members',
+              options: {
+                linkFieldId,
+                foreignTableId: foreignTable.id,
+                lookupFieldId: foreignUserFieldId,
+              },
+            },
+          ],
+          views: [{ type: 'grid' }],
+        });
+
+        const foreignRecord = await createRecord(foreignTable.id, {
+          [foreignPrimaryFieldId]: 'Source 1',
+          [foreignUserFieldId]: [aliceCell],
+        });
+        const hostRecord = await createRecord(hostTable.id, {
+          [hostPrimaryFieldId]: 'Host 1',
+          [linkFieldId]: { id: foreignRecord.id },
+        });
+        await drainOutbox(testContainer);
+
+        return {
+          hostTableId: hostTable.id,
+          hostRecordId: hostRecord.id,
+          computedFieldId: lookupFieldId,
+          initialValue: [aliceCell],
+          expectedValue: [aliceCell, bobCell],
+          trigger: async () => {
+            await updateRecord(foreignTable.id, foreignRecord.id, {
+              [foreignUserFieldId]: [aliceCell, bobCell],
+            });
           },
         };
       },

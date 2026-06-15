@@ -9,11 +9,13 @@ import type {
 } from '@teable/core';
 import {
   ANONYMOUS_USER_ID,
+  DateFormattingPreset,
   FieldKeyType,
   FieldType,
   is,
   Relationship,
   SortFunc,
+  TimeFormatting,
   ViewType,
 } from '@teable/core';
 import {
@@ -27,6 +29,7 @@ import {
   getShareViewLinkRecords as apiGetShareViewLinkRecords,
   getShareViewCollaborators as apiGetShareViewCollaborators,
   getShareViewRecords as apiGetShareViewRecords,
+  getShareViewCalendarDailyCollection as apiGetShareViewCalendarDailyCollection,
   getBaseCollaboratorList as apiGetBaseCollaboratorList,
   updateViewColumnMeta as apiUpdateViewColumnMeta,
   updateViewShareMeta as apiUpdateViewShareMeta,
@@ -66,6 +69,7 @@ import {
   getField,
   deleteField,
   convertField,
+  updateRecordByApi,
   permanentDeleteBase,
 } from './utils/init-app';
 
@@ -90,7 +94,6 @@ describe('OpenAPI ShareController (e2e)', () => {
   const spaceId = globalThis.testConfig.spaceId;
   const userId = globalThis.testConfig.userId;
   const userName = globalThis.testConfig.userName;
-  const userEmail = globalThis.testConfig.email;
   let fieldIds: string[] = [];
   let anonymousUser: ReturnType<typeof createAnonymousUserAxios>;
 
@@ -237,7 +240,6 @@ describe('OpenAPI ShareController (e2e)', () => {
       await updateViewShareMeta(tableId, formViewId, {
         submit: {
           requireLogin: true,
-          allow: true,
         },
       });
       const error = await getError(() =>
@@ -388,6 +390,94 @@ describe('OpenAPI ShareController (e2e)', () => {
 
       // Restore no password
       await apiUpdateViewShareMeta(recordsTableId, recordsViewId, { password: undefined });
+    });
+  });
+
+  // A share view's hidden columns must never reach a visitor, regardless of what
+  // field references the client puts in the query. The per-endpoint default
+  // projection only protects the default case; a crafted projection (records) or
+  // the full-record calendar payload bypass it because the share context carries
+  // no authority matrix to restrict columns server side.
+  describe('api/:shareId/view hidden field read protection', () => {
+    let leakTableId: string;
+    let leakViewId: string;
+    let leakShareId: string;
+    let dueFieldId: string;
+    let secretFieldId: string;
+    const secretValue = 'top-secret-value';
+
+    beforeAll(async () => {
+      const table = await createTable(baseId, {
+        name: 'hidden-read-leak',
+        fields: [
+          { name: 'Name', type: FieldType.SingleLineText },
+          {
+            name: 'Due',
+            type: FieldType.Date,
+            options: {
+              formatting: {
+                date: DateFormattingPreset.ISO,
+                time: TimeFormatting.None,
+                timeZone: 'Asia/Singapore',
+              },
+            },
+          },
+          { name: 'Secret', type: FieldType.SingleLineText },
+        ],
+        records: [
+          { fields: { Name: 'Visible', Due: '2022-03-01T10:00:00.000Z', Secret: secretValue } },
+        ],
+      });
+      leakTableId = table.id;
+      leakViewId = table.defaultViewId!;
+      dueFieldId = table.fields[1].id;
+      secretFieldId = table.fields[2].id;
+
+      const shareResult = await apiEnableShareView({ tableId: leakTableId, viewId: leakViewId });
+      leakShareId = shareResult.data.shareId;
+
+      // hide the Secret column from the shared view
+      await updateViewColumnMeta(leakTableId, leakViewId, [
+        { fieldId: secretFieldId, columnMeta: { hidden: true } },
+      ]);
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, leakTableId);
+    });
+
+    it('omits the hidden column from the records payload by default', async () => {
+      const result = await apiGetShareViewRecords(leakShareId, { take: 10 });
+
+      expect(result.data.records).toHaveLength(1);
+      expect(result.data.records[0].fields).not.toHaveProperty(secretFieldId);
+    });
+
+    it('must not return a hidden column even when the client requests it via projection', async () => {
+      const result = await apiGetShareViewRecords(leakShareId, {
+        take: 10,
+        projection: [secretFieldId],
+      });
+
+      const leaked = result.data.records.some(
+        (record) => record.fields[secretFieldId] === secretValue
+      );
+      expect(leaked).toBe(false);
+    });
+
+    it('must not return hidden columns in the calendar daily collection records', async () => {
+      const result = await apiGetShareViewCalendarDailyCollection(leakShareId, {
+        startDateFieldId: dueFieldId,
+        endDateFieldId: dueFieldId,
+        startDate: '2022-02-27T16:00:00.000Z',
+        endDate: '2022-03-12T16:00:00.000Z',
+      });
+
+      expect(result.data.records.length).toBeGreaterThan(0);
+      const leaked = result.data.records.some((record) =>
+        Object.prototype.hasOwnProperty.call(record.fields, secretFieldId)
+      );
+      expect(leaked).toBe(false);
     });
   });
 
@@ -908,12 +998,10 @@ describe('OpenAPI ShareController (e2e)', () => {
         const mulResult = await apiGetShareViewCollaborators(gridViewShareId, {
           fieldId: multipleUserFieldId,
         });
-        expect(result.data).toEqual([
-          { userId, userName, email: userEmail, avatar: expect.any(String) },
-        ]);
-        expect(mulResult.data).toEqual([
-          { userId, userName, email: userEmail, avatar: expect.any(String) },
-        ]);
+        // Email is intentionally omitted from share responses to avoid leaking
+        // the member directory to anonymous viewers.
+        expect(result.data).toEqual([{ userId, userName, avatar: expect.any(String) }]);
+        expect(mulResult.data).toEqual([{ userId, userName, avatar: expect.any(String) }]);
 
         await apiDeleteRecords(
           userTableRes.id,
@@ -965,6 +1053,24 @@ describe('OpenAPI ShareController (e2e)', () => {
             fieldId: userFieldId,
             columnMeta: { visible: false },
           },
+        ]);
+      });
+      it('should search collaborators by name but not by email', async () => {
+        await apiUpdateViewColumnMeta(userTableRes.id, formViewId, [
+          { fieldId: userFieldId, columnMeta: { visible: true } },
+        ]);
+        const byName = await apiGetShareViewCollaborators(fromViewShareId, {
+          search: userName,
+        });
+        expect(byName.data.map((user) => user.userId)).toContain(userId);
+        // Email is neither returned nor searchable for anonymous shares, so a
+        // full email must not surface a collaborator (membership oracle closed).
+        const byEmail = await apiGetShareViewCollaborators(fromViewShareId, {
+          search: globalThis.testConfig.email,
+        });
+        expect(byEmail.data).toEqual([]);
+        await apiUpdateViewColumnMeta(userTableRes.id, formViewId, [
+          { fieldId: userFieldId, columnMeta: { visible: false } },
         ]);
       });
     });
@@ -1126,6 +1232,78 @@ describe('OpenAPI ShareController (e2e)', () => {
         filterLinkCellCandidate: linkField.data.id,
       });
       expect(unmatched.data.records).toHaveLength(0);
+    });
+
+    // T4864: a record linked before (or outside of) the link field's filterByViewId
+    // scope must still appear in the selected list / detail panel. The view scope only
+    // limits which records can be newly linked (candidate list), not the existing links.
+    it('selected list ignores the link field filterByViewId scope', async () => {
+      const primary = table2.fields[0];
+
+      const foreignRecords = await apiCreateRecords(table2.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          { fields: { [primary.id]: 'in view' } },
+          { fields: { [primary.id]: 'out of view' } },
+        ],
+      });
+      const inViewId = foreignRecords.data.records[0].id;
+      const outOfViewId = foreignRecords.data.records[1].id;
+
+      // scope the foreign default view so only the "in view" record is visible
+      await updateViewFilter(table2.id, table2.defaultViewId!, {
+        filter: {
+          conjunction: 'and',
+          filterSet: [{ fieldId: primary.id, operator: is.value, value: 'in view' }],
+        },
+      });
+
+      const linkField = await createField(table1.id, {
+        name: 'scoped link',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+          filterByViewId: table2.defaultViewId,
+        },
+      });
+
+      const hostRecords = await apiCreateRecords(table1.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [{ fields: {} }],
+      });
+      const hostId = hostRecords.data.records[0].id;
+
+      // link the host record to the record that is NOT in the configured view
+      await updateRecordByApi(table1.id, hostId, linkField.data.id, {
+        id: outOfViewId,
+      });
+
+      const selectedQuery = {
+        filterLinkCellSelected: [linkField.data.id, hostId] as [string, string],
+      };
+
+      // the already-linked record must be visible even though it fails the view filter
+      const selected = await apiGetShareViewRecords(linkField.data.id, selectedQuery);
+      expect(selected.data.records.map((r) => r.id)).toEqual([outOfViewId]);
+
+      const selectedRowCount = await getShareViewRowCount(linkField.data.id, selectedQuery);
+      expect(selectedRowCount.data.rowCount).toEqual(1);
+
+      // the expand-record card loads already-linked records by selectedRecordIds and
+      // must also bypass the view scope
+      const byIds = await apiGetShareViewRecords(linkField.data.id, {
+        selectedRecordIds: [outOfViewId],
+      });
+      expect(byIds.data.records.map((r) => r.id)).toEqual([outOfViewId]);
+
+      // the candidate list must still respect the view filter
+      const candidate = await apiGetShareViewRecords(linkField.data.id, {
+        filterLinkCellCandidate: [linkField.data.id, hostId],
+      });
+      const candidateIds = candidate.data.records.map((r) => r.id);
+      expect(candidateIds).toContain(inViewId);
+      expect(candidateIds).not.toContain(outOfViewId);
     });
   });
 
