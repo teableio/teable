@@ -1,4 +1,5 @@
 import { PGlite } from '@electric-sql/pglite';
+import { PostgresUnitOfWorkTransaction } from '@teable/v2-adapter-db-postgres-shared';
 import {
   ActorId,
   BaseId,
@@ -38,13 +39,14 @@ import { PostgresTableSchemaRepository } from './PostgresTableSchemaRepository';
 
 class PGliteDriver {
   #client: PGlite;
+  readonly queries: CompiledQuery[] = [];
 
   constructor(client: PGlite) {
     this.#client = client;
   }
 
   async acquireConnection() {
-    return new PGliteConnection(this.#client);
+    return new PGliteConnection(this.#client, this.queries);
   }
 
   async beginTransaction(connection: PGliteConnection) {
@@ -75,11 +77,15 @@ class PGliteDriver {
 class PGliteConnection {
   #client: PGlite;
 
-  constructor(client: PGlite) {
+  constructor(
+    client: PGlite,
+    private readonly queries: CompiledQuery[]
+  ) {
     this.#client = client;
   }
 
   async executeQuery<R>(compiledQuery: CompiledQuery): Promise<QueryResult<R>> {
+    this.queries.push(compiledQuery);
     const result = await this.#client.query<R>(compiledQuery.sql, [...compiledQuery.parameters]);
     return {
       rows: result.rows,
@@ -109,14 +115,14 @@ class PGliteConnection {
 }
 
 class PGliteDialect implements Dialect {
-  #client: PGlite;
+  readonly driver: PGliteDriver;
 
   constructor(client: PGlite) {
-    this.#client = client;
+    this.driver = new PGliteDriver(client);
   }
 
   createDriver() {
-    return new PGliteDriver(this.#client);
+    return this.driver;
   }
 
   createAdapter() {
@@ -179,7 +185,7 @@ class FakeComputedFieldBackfillService {
       skipDistinctFilter: input.skipDistinctFilter,
       includeOneManyTwoWay: input.includeOneManyTwoWay,
     });
-    return ok(undefined);
+    return ok({ fields: input.fields });
   }
 
   async executeSync() {
@@ -187,7 +193,7 @@ class FakeComputedFieldBackfillService {
   }
 
   async executeSyncMany() {
-    return ok(undefined);
+    return ok({ fields: [] });
   }
 }
 
@@ -356,6 +362,81 @@ describe('PostgresTableSchemaRepository', () => {
       schema: baseId.toString(),
     });
 
+    const results = await collectFinalCheckResults(checker.checkTable(table));
+
+    expect(
+      results.filter((result) => result.status === 'error' || result.status === 'warn')
+    ).toEqual([]);
+  });
+
+  it('creates generated system field columns directly during table creation', async () => {
+    const baseId = BaseId.generate()._unsafeUnwrap();
+    const tableId = TableId.generate()._unsafeUnwrap();
+    const tableName = TableName.create('Generated Columns')._unsafeUnwrap();
+    const actorId = ActorId.create('system')._unsafeUnwrap();
+    const context: IExecutionContext = { actorId };
+
+    const builder = Table.builder().withBaseId(baseId).withId(tableId).withName(tableName);
+    builder.field().singleLineText().withName(FieldName.create('Name')._unsafeUnwrap()).done();
+    builder.field().createdBy().withName(FieldName.create('Creator')._unsafeUnwrap()).done();
+    builder.field().autoNumber().withName(FieldName.create('No')._unsafeUnwrap()).done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+
+    const tableRepository = new FakeTableRepository([table]);
+    const repository = new PostgresTableSchemaRepository(
+      db,
+      tableRepository as never,
+      new FakeComputedFieldBackfillService(),
+      new FakeComputedFieldCascadeService(),
+      new FakeComputedUpdatePlanner() as never,
+      new FakeFieldDependencyGraph() as never
+    );
+
+    (await repository.insert(context, table))._unsafeUnwrap();
+
+    const { schema, tableName: dbTableName } = table
+      .dbTableName()
+      .andThen((name) => name.split({ defaultSchema: null }))
+      ._unsafeUnwrap();
+    const introspector = new PostgresSchemaIntrospector(db);
+    const generatedFields = table.getFields().filter((field) => {
+      const persistedResult =
+        'isPersistedAsGeneratedColumn' in field ? field.isPersistedAsGeneratedColumn() : ok(false);
+      return persistedResult.isOk() && persistedResult.value;
+    });
+
+    for (const field of generatedFields) {
+      const columnName = field
+        .dbFieldName()
+        .andThen((name) => name.value())
+        ._unsafeUnwrap();
+      const column = (
+        await introspector.getColumn(schema, dbTableName, columnName)
+      )._unsafeUnwrap();
+      expect(column?.isGenerated).toBe(true);
+    }
+
+    const createdByField = table
+      .getFields()
+      .find((field) => field.type().toString() === 'createdBy');
+    const createdByColumnName = createdByField
+      ?.dbFieldName()
+      .andThen((name) => name.value())
+      ._unsafeUnwrap();
+    if (!createdByColumnName) {
+      throw new Error('Created By field missing');
+    }
+    const createdByColumn = (
+      await introspector.getColumn(schema, dbTableName, createdByColumnName)
+    )._unsafeUnwrap();
+    expect(createdByColumn?.isGenerated).toBe(false);
+
+    const checker = createSchemaChecker({
+      db,
+      introspector,
+      schema: baseId.toString(),
+    });
     const results = await collectFinalCheckResults(checker.checkTable(table));
 
     expect(
@@ -720,6 +801,113 @@ describe('PostgresTableSchemaRepository', () => {
       .executeTakeFirst();
 
     expect(columnResult?.column_name).toBe(fkColumnName);
+  });
+
+  it('does not reinstall undo capture triggers after batch table creation in a transaction', async () => {
+    const pglite = await PGlite.create();
+    const dialect = new PGliteDialect(pglite);
+    const db = new Kysely<V1TeableDatabase>({ dialect });
+
+    try {
+      await installUndoCaptureGlobals(db);
+
+      const baseId = BaseId.generate()._unsafeUnwrap();
+      const actorId = ActorId.create('system')._unsafeUnwrap();
+      const context: IExecutionContext = { actorId };
+      const tables = ['Batch Undo A', 'Batch Undo B'].map((name) => {
+        const builder = Table.builder()
+          .withBaseId(baseId)
+          .withId(TableId.generate()._unsafeUnwrap())
+          .withName(TableName.create(name)._unsafeUnwrap());
+        builder.field().singleLineText().withName(FieldName.create('Name')._unsafeUnwrap()).done();
+        builder.view().defaultGrid().done();
+        return builder.build()._unsafeUnwrap();
+      });
+
+      const repository = new PostgresTableSchemaRepository(
+        db,
+        new FakeTableRepository(tables) as never,
+        new FakeComputedFieldBackfillService(),
+        new FakeComputedFieldCascadeService(),
+        new FakeComputedUpdatePlanner() as never,
+        new FakeFieldDependencyGraph() as never
+      );
+      dialect.driver.queries.length = 0;
+
+      await db.transaction().execute(async (trx) => {
+        const result = await repository.insertMany(
+          { ...context, transaction: new PostgresUnitOfWorkTransaction(trx as never) },
+          tables
+        );
+        result._unsafeUnwrap();
+      });
+
+      const triggerInstallQueries = dialect.driver.queries.filter((query) =>
+        query.sql.includes('CREATE OR REPLACE TRIGGER "__teable_undo_capture"')
+      );
+
+      expect(triggerInstallQueries).toHaveLength(tables.length);
+    } finally {
+      await db.destroy();
+    }
+  });
+
+  it('deduplicates schema creation and can skip undo capture setup for batch table import', async () => {
+    const pglite = await PGlite.create();
+    const dialect = new PGliteDialect(pglite);
+    const db = new Kysely<V1TeableDatabase>({ dialect });
+
+    try {
+      await installUndoCaptureGlobals(db);
+
+      const baseId = BaseId.generate()._unsafeUnwrap();
+      const actorId = ActorId.create('system')._unsafeUnwrap();
+      const context: IExecutionContext = { actorId };
+      const tables = ['Batch Import A', 'Batch Import B'].map((name) => {
+        const builder = Table.builder()
+          .withBaseId(baseId)
+          .withId(TableId.generate()._unsafeUnwrap())
+          .withName(TableName.create(name)._unsafeUnwrap());
+        builder.field().singleLineText().withName(FieldName.create('Name')._unsafeUnwrap()).done();
+        builder.view().defaultGrid().done();
+        return builder.build()._unsafeUnwrap();
+      });
+
+      const repository = new PostgresTableSchemaRepository(
+        db,
+        new FakeTableRepository(tables) as never,
+        new FakeComputedFieldBackfillService(),
+        new FakeComputedFieldCascadeService(),
+        new FakeComputedUpdatePlanner() as never,
+        new FakeFieldDependencyGraph() as never
+      );
+      dialect.driver.queries.length = 0;
+
+      await db.transaction().execute(async (trx) => {
+        const result = await repository.insertMany(
+          { ...context, transaction: new PostgresUnitOfWorkTransaction(trx as never) },
+          tables,
+          { optimizeForEmptyTables: true, skipUndoCaptureSetup: true }
+        );
+        result._unsafeUnwrap();
+      });
+
+      const createSchemaQueries = dialect.driver.queries.filter((query) =>
+        query.sql.includes(`create schema if not exists "${baseId.toString()}"`)
+      );
+      const triggerProbeQueries = dialect.driver.queries.filter((query) =>
+        query.sql.includes('FROM pg_trigger AS t')
+      );
+      const triggerInstallQueries = dialect.driver.queries.filter((query) =>
+        query.sql.includes('CREATE OR REPLACE TRIGGER "__teable_undo_capture"')
+      );
+
+      expect(createSchemaQueries).toHaveLength(1);
+      expect(triggerProbeQueries).toHaveLength(0);
+      expect(triggerInstallQueries).toHaveLength(0);
+    } finally {
+      await db.destroy();
+    }
   });
 
   it('routes batch reference metadata statements to the meta DB when databases are split', async () => {

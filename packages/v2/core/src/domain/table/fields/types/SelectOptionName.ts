@@ -13,6 +13,11 @@ export class SelectOptionName extends ValueObject {
   }
 
   static create(raw: unknown): Result<SelectOptionName, DomainError> {
+    if (typeof raw === 'string') {
+      const value = raw.trim();
+      if (value.length > 0) return ok(new SelectOptionName(value));
+    }
+
     const parsed = selectOptionNameSchema.safeParse(raw);
     if (!parsed.success) {
       const issues = parsed.error.issues.map((i) => i.message).join(', ');

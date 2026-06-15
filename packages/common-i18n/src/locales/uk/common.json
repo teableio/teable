@@ -52,6 +52,7 @@
     "saveToMySpace": "Save to my space",
     "supportSaveCopy": "Support saving a copy",
     "copySuccess": "Копіювання успішне",
+    "openLink": "Відкрити посилання",
     "share": "Поділитися"
   },
   "quickAction": {
@@ -439,6 +440,7 @@
     },
     "addOrgCollaborator": {
       "title": "Додати співавтора організації",
+      "button": "Додати з організації",
       "placeholder": "Виберіть члена організації або відділ"
     }
   },
@@ -744,6 +746,7 @@
     "unsubscribeTime": "Час відписки",
     "source": "Джерело",
     "sourceAutomationDeleted": "Автоматизацію або вузол видалено",
+    "sourceApiSend": "Надсилання листа через API",
     "processing": "Обробка...",
     "unsubscribeH1": "Підтвердити скасування підписки?",
     "unsubscribeH2": "Ви збираєтеся відписатися від майбутніх рекламних акцій та оновлень продуктів Teable. Ви впевнені, що хочете відписатися?",
