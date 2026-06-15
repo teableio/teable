@@ -1,16 +1,18 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/cognitive-complexity */
-import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus, Optional } from '@nestjs/common';
 import { trace } from '@opentelemetry/api';
 import {
   CellFormat,
   CellValueType,
   FieldKeyType,
   FieldType,
+  HttpErrorCode,
   TimeFormatting,
   formatDateToString,
   isMeTag,
   parseClipboardText,
+  type IAttachmentItem,
   type IDatetimeFormatting,
   type IFieldVo,
   type IFilter,
@@ -26,13 +28,15 @@ import type {
   IRecord,
   ICreateRecordsVo,
   IGetRecordsRo,
+  ICreateRecordsRo,
+  IUpdateRecordsRo,
   IPasteRo,
   IPasteVo,
   IRangesRo,
   IRecordsVo,
   IRecordInsertOrderRo,
 } from '@teable/openapi';
-import { ICreateRecordsRo, IUpdateRecordsRo, RangeType } from '@teable/openapi';
+import { RangeType } from '@teable/openapi';
 import { mapDomainErrorToHttpError, mapDomainErrorToHttpStatus } from '@teable/v2-contract-http';
 import {
   executeCreateRecordsEndpoint,
@@ -77,6 +81,7 @@ import { CustomHttpException, getDefaultCodeByStatus } from '../../../custom.exc
 import { DataDbClientManager } from '../../../global/data-db-client-manager.service';
 import type { IClsStore } from '../../../types/cls';
 import { AggregationService } from '../../aggregation/aggregation.service';
+import { AttachmentsService } from '../../attachments/attachments.service';
 import { AuditScope } from '../../audit/audit-scope';
 import { FieldService } from '../../field/field.service';
 import type { IFieldInstance } from '../../field/model/factory';
@@ -122,7 +127,8 @@ export class RecordOpenApiV2Service {
     private readonly recordPermissionService: RecordPermissionService,
     private readonly aggregationService: AggregationService,
     private readonly dataDbClientManager: DataDbClientManager,
-    private readonly audit: AuditScope
+    private readonly audit: AuditScope,
+    @Optional() private readonly attachmentsService?: AttachmentsService
   ) {}
 
   private throwV2Error(
@@ -650,7 +656,13 @@ export class RecordOpenApiV2Service {
     throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
   }
 
-  async updateRecords(tableId: string, updateRecordsRo: IUpdateRecordsRo): Promise<IRecord[]> {
+  async updateRecords(
+    tableId: string,
+    updateRecordsRo: IUpdateRecordsRo,
+    options?: {
+      configureContext?: (context: IExecutionContext) => void;
+    }
+  ): Promise<IRecord[]> {
     const rawRecords = updateRecordsRo.records ?? [];
     const records = this.mergeDuplicateRecordUpdates(rawRecords);
     const recordIds = records.map((record) => record.id);
@@ -680,6 +692,7 @@ export class RecordOpenApiV2Service {
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext(container);
+    options?.configureContext?.(context);
     const updateResult = await executeUpdateRecordsEndpoint(
       context,
       {
@@ -709,6 +722,100 @@ export class RecordOpenApiV2Service {
       updateResult.body.data.records.length
     );
     return updateResult.body.data.records;
+  }
+
+  private async getValidateAttachmentRecord(tableId: string, recordId: string, fieldId: string) {
+    const field = await this.fieldService.getField(tableId, fieldId);
+
+    if (field.type !== FieldType.Attachment) {
+      throw new CustomHttpException('Field is not an attachment', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.field.notAttachment',
+        },
+      });
+    }
+
+    if (field.isComputed) {
+      throw new CustomHttpException('Field is computed', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.field.isComputed',
+        },
+      });
+    }
+
+    const recordData = await this.recordService.getRecordsById(tableId, [recordId]);
+    const record = recordData.records[0];
+    if (!record) {
+      throw new CustomHttpException(`Record ${recordId} not found`, HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.record.notFound',
+        },
+      });
+    }
+    return record;
+  }
+
+  async uploadAttachment(
+    tableId: string,
+    recordId: string,
+    fieldId: string,
+    file?: Express.Multer.File,
+    fileUrl?: string
+  ) {
+    if (!file && !fileUrl) {
+      throw new CustomHttpException('No file or URL provided', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.record.noFileOrUrlProvided',
+        },
+      });
+    }
+
+    if (!this.attachmentsService) {
+      throw new CustomHttpException(internalServerError, HttpErrorCode.INTERNAL_SERVER_ERROR);
+    }
+
+    const record = await this.getValidateAttachmentRecord(tableId, recordId, fieldId);
+    const attachmentItem = file
+      ? await this.attachmentsService.uploadFile(file)
+      : await this.attachmentsService.uploadFromUrl(fileUrl as string);
+
+    return await this.updateRecord(tableId, recordId, {
+      fieldKeyType: FieldKeyType.Id,
+      record: {
+        fields: {
+          [fieldId]: ((record.fields[fieldId] || []) as IAttachmentItem[]).concat(attachmentItem),
+        },
+      },
+    });
+  }
+
+  async insertAttachment(
+    tableId: string,
+    recordId: string,
+    fieldId: string,
+    attachments: IAttachmentItem[],
+    anchorId?: string
+  ) {
+    if (!attachments.length) {
+      throw new CustomHttpException('No attachments provided', HttpErrorCode.VALIDATION_ERROR);
+    }
+
+    const record = await this.getValidateAttachmentRecord(tableId, recordId, fieldId);
+    const current = (record.fields[fieldId] || []) as IAttachmentItem[];
+    const anchorIndex = anchorId ? current.findIndex((item) => item.id === anchorId) : -1;
+    const next =
+      anchorIndex >= 0
+        ? [...current.slice(0, anchorIndex + 1), ...attachments, ...current.slice(anchorIndex + 1)]
+        : current.concat(attachments);
+
+    return await this.updateRecord(tableId, recordId, {
+      fieldKeyType: FieldKeyType.Id,
+      record: {
+        fields: {
+          [fieldId]: next,
+        },
+      },
+    });
   }
 
   async createRecords(

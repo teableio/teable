@@ -66,6 +66,7 @@ import {
   getField,
   deleteField,
   convertField,
+  updateRecordByApi,
   permanentDeleteBase,
 } from './utils/init-app';
 
@@ -90,7 +91,6 @@ describe('OpenAPI ShareController (e2e)', () => {
   const spaceId = globalThis.testConfig.spaceId;
   const userId = globalThis.testConfig.userId;
   const userName = globalThis.testConfig.userName;
-  const userEmail = globalThis.testConfig.email;
   let fieldIds: string[] = [];
   let anonymousUser: ReturnType<typeof createAnonymousUserAxios>;
 
@@ -908,12 +908,10 @@ describe('OpenAPI ShareController (e2e)', () => {
         const mulResult = await apiGetShareViewCollaborators(gridViewShareId, {
           fieldId: multipleUserFieldId,
         });
-        expect(result.data).toEqual([
-          { userId, userName, email: userEmail, avatar: expect.any(String) },
-        ]);
-        expect(mulResult.data).toEqual([
-          { userId, userName, email: userEmail, avatar: expect.any(String) },
-        ]);
+        // Email is intentionally omitted from share responses to avoid leaking
+        // the member directory to anonymous viewers.
+        expect(result.data).toEqual([{ userId, userName, avatar: expect.any(String) }]);
+        expect(mulResult.data).toEqual([{ userId, userName, avatar: expect.any(String) }]);
 
         await apiDeleteRecords(
           userTableRes.id,
@@ -965,6 +963,24 @@ describe('OpenAPI ShareController (e2e)', () => {
             fieldId: userFieldId,
             columnMeta: { visible: false },
           },
+        ]);
+      });
+      it('should search collaborators by name but not by email', async () => {
+        await apiUpdateViewColumnMeta(userTableRes.id, formViewId, [
+          { fieldId: userFieldId, columnMeta: { visible: true } },
+        ]);
+        const byName = await apiGetShareViewCollaborators(fromViewShareId, {
+          search: userName,
+        });
+        expect(byName.data.map((user) => user.userId)).toContain(userId);
+        // Email is neither returned nor searchable for anonymous shares, so a
+        // full email must not surface a collaborator (membership oracle closed).
+        const byEmail = await apiGetShareViewCollaborators(fromViewShareId, {
+          search: globalThis.testConfig.email,
+        });
+        expect(byEmail.data).toEqual([]);
+        await apiUpdateViewColumnMeta(userTableRes.id, formViewId, [
+          { fieldId: userFieldId, columnMeta: { visible: false } },
         ]);
       });
     });
@@ -1126,6 +1142,78 @@ describe('OpenAPI ShareController (e2e)', () => {
         filterLinkCellCandidate: linkField.data.id,
       });
       expect(unmatched.data.records).toHaveLength(0);
+    });
+
+    // T4864: a record linked before (or outside of) the link field's filterByViewId
+    // scope must still appear in the selected list / detail panel. The view scope only
+    // limits which records can be newly linked (candidate list), not the existing links.
+    it('selected list ignores the link field filterByViewId scope', async () => {
+      const primary = table2.fields[0];
+
+      const foreignRecords = await apiCreateRecords(table2.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          { fields: { [primary.id]: 'in view' } },
+          { fields: { [primary.id]: 'out of view' } },
+        ],
+      });
+      const inViewId = foreignRecords.data.records[0].id;
+      const outOfViewId = foreignRecords.data.records[1].id;
+
+      // scope the foreign default view so only the "in view" record is visible
+      await updateViewFilter(table2.id, table2.defaultViewId!, {
+        filter: {
+          conjunction: 'and',
+          filterSet: [{ fieldId: primary.id, operator: is.value, value: 'in view' }],
+        },
+      });
+
+      const linkField = await createField(table1.id, {
+        name: 'scoped link',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+          filterByViewId: table2.defaultViewId,
+        },
+      });
+
+      const hostRecords = await apiCreateRecords(table1.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [{ fields: {} }],
+      });
+      const hostId = hostRecords.data.records[0].id;
+
+      // link the host record to the record that is NOT in the configured view
+      await updateRecordByApi(table1.id, hostId, linkField.data.id, {
+        id: outOfViewId,
+      });
+
+      const selectedQuery = {
+        filterLinkCellSelected: [linkField.data.id, hostId] as [string, string],
+      };
+
+      // the already-linked record must be visible even though it fails the view filter
+      const selected = await apiGetShareViewRecords(linkField.data.id, selectedQuery);
+      expect(selected.data.records.map((r) => r.id)).toEqual([outOfViewId]);
+
+      const selectedRowCount = await getShareViewRowCount(linkField.data.id, selectedQuery);
+      expect(selectedRowCount.data.rowCount).toEqual(1);
+
+      // the expand-record card loads already-linked records by selectedRecordIds and
+      // must also bypass the view scope
+      const byIds = await apiGetShareViewRecords(linkField.data.id, {
+        selectedRecordIds: [outOfViewId],
+      });
+      expect(byIds.data.records.map((r) => r.id)).toEqual([outOfViewId]);
+
+      // the candidate list must still respect the view filter
+      const candidate = await apiGetShareViewRecords(linkField.data.id, {
+        filterLinkCellCandidate: [linkField.data.id, hostId],
+      });
+      const candidateIds = candidate.data.records.map((r) => r.id);
+      expect(candidateIds).toContain(inViewId);
+      expect(candidateIds).not.toContain(outOfViewId);
     });
   });
 

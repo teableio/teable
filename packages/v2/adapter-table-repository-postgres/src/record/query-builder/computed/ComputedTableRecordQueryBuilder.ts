@@ -37,7 +37,6 @@ import type { Result } from 'neverthrow';
 import { err, ok, safeTry } from 'neverthrow';
 import { match } from 'ts-pattern';
 
-import { resolveUserAvatarUrlPrefix } from '../../../shared/userAvatarUrl';
 import { TableRecordConditionWhereVisitor } from '../../visitors';
 import { buildDateLikeOrderExpression } from '../dateLikeOrderBy';
 import type {
@@ -48,6 +47,10 @@ import type {
   QB,
 } from '../ITableRecordQueryBuilder';
 import type { QueryMode } from '../TableRecordQueryBuilderManager';
+import {
+  buildUserJsonObjectFromSnapshotExpr,
+  type UserSnapshotActorFallback,
+} from '../userSnapshotSql';
 import {
   ComputedFieldSelectExpressionVisitor,
   type ILateralContext,
@@ -118,6 +121,40 @@ type ResolvedOrderBy = {
 
 const isSimpleConditionalRollupScalar = (value: unknown): value is string | number | boolean =>
   typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean';
+
+const resolveUserSnapshotActorFallback = (
+  context: unknown,
+  current?: UserSnapshotActorFallback
+): UserSnapshotActorFallback | undefined => {
+  if (!context || typeof context !== 'object') {
+    return current;
+  }
+
+  const raw = context as {
+    actorId?: { toString(): string } | string;
+    actorName?: unknown;
+    actorEmail?: unknown;
+  };
+  const actorId =
+    typeof raw.actorId === 'string'
+      ? raw.actorId
+      : typeof raw.actorId?.toString === 'function'
+        ? raw.actorId.toString()
+        : undefined;
+
+  if (!actorId) {
+    return current;
+  }
+
+  const actorName = typeof raw.actorName === 'string' ? raw.actorName : current?.actorName;
+  const actorEmail = typeof raw.actorEmail === 'string' ? raw.actorEmail : current?.actorEmail;
+
+  return {
+    actorId,
+    ...(actorName != null ? { actorName } : {}),
+    ...(actorEmail != null ? { actorEmail } : {}),
+  };
+};
 
 const isOrderInsensitiveRollupExpression = (expression: RollupFunction): boolean =>
   ORDER_INSENSITIVE_ROLLUP_EXPRESSIONS.has(expression);
@@ -365,7 +402,10 @@ export interface IComputedQueryBuilderOptions {
   readonly typeValidationStrategy: IPgTypeValidationStrategy;
   /** Prefer stored values for non-deterministic formulas like LAST_MODIFIED_TIME(field) */
   readonly preferStoredLastModifiedFormula?: boolean;
+  readonly erroredLookupReferenceMode?: 'stored' | 'error';
   readonly forceLookupArrayOutput?: boolean;
+  readonly userSnapshotActorFallback?: UserSnapshotActorFallback;
+  readonly resolveSystemUserSnapshotsFromUsers?: boolean;
 }
 
 /**
@@ -384,7 +424,10 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
   private dirtyFilterConfig: IDirtyFilterConfig | null = null;
   private readonly typeValidationStrategy: IPgTypeValidationStrategy;
   private readonly preferStoredLastModifiedFormula: boolean;
+  private readonly erroredLookupReferenceMode: 'stored' | 'error';
   private readonly forceLookupArrayOutput: boolean;
+  private userSnapshotActorFallback?: UserSnapshotActorFallback;
+  private readonly resolveSystemUserSnapshotsFromUsers: boolean;
 
   readonly mode: QueryMode = 'computed';
 
@@ -395,7 +438,10 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     this.foreignTables = options.foreignTables ?? new Map();
     this.typeValidationStrategy = options.typeValidationStrategy;
     this.preferStoredLastModifiedFormula = options.preferStoredLastModifiedFormula ?? false;
+    this.erroredLookupReferenceMode = options.erroredLookupReferenceMode ?? 'stored';
     this.forceLookupArrayOutput = options.forceLookupArrayOutput ?? true;
+    this.userSnapshotActorFallback = options.userSnapshotActorFallback;
+    this.resolveSystemUserSnapshotsFromUsers = options.resolveSystemUserSnapshotsFromUsers ?? false;
   }
 
   from(table: Table): this {
@@ -451,6 +497,10 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     }
 
     const table = this.table;
+    this.userSnapshotActorFallback = resolveUserSnapshotActorFallback(
+      deps.context,
+      this.userSnapshotActorFallback
+    );
 
     return safeTry<void, DomainError>(
       async function* (this: ComputedTableRecordQueryBuilder) {
@@ -774,7 +824,10 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           {
             preferStoredLastModifiedFormula: this.preferStoredLastModifiedFormula,
             missingForeignTableIds: this.missingForeignTableIds,
+            erroredLookupReferenceMode: this.erroredLookupReferenceMode,
             forceLookupArrayOutput: this.forceLookupArrayOutput,
+            userSnapshotActorFallback: this.userSnapshotActorFallback,
+            resolveSystemUserSnapshotsFromUsers: this.resolveSystemUserSnapshotsFromUsers,
           }
         );
         const columns: AliasedRawBuilder<unknown, string>[] = [];
@@ -1140,16 +1193,44 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
         const rankedAlias = `${alias}_src`;
         const limitValue = group.limit ?? CONDITIONAL_QUERY_DEFAULT_LIMIT;
         const orderBy = DEFAULT_CONDITIONAL_ORDER_BY;
-        const rankedQuery = this.db
-          .selectFrom(`${hostTableName} as ${H}`)
-          .innerJoin(`${foreignTableName} as ${F}`, (join) => join.on(whereClause))
-          .select([
-            sql`${sql.ref(`${H}.__id`)}`.as('__host_id'),
-            sql`row_number() over (partition by ${sql.ref(`${H}.__id`)} order by ${sql.ref(`${F}.${orderBy.column}`)} ${sql.raw(orderBy.direction)})`.as(
-              '__rn'
-            ),
-          ])
-          .selectAll(F);
+        const dirtyConfig = this.dirtyFilterConfig;
+        const rankedColumns = [
+          sql`${sql.ref(`${H}.__id`)}`.as('__host_id'),
+          sql`row_number() over (partition by ${sql.ref(`${H}.__id`)} order by ${sql.ref(`${F}.${orderBy.column}`)} ${sql.raw(orderBy.direction)})`.as(
+            '__rn'
+          ),
+        ];
+        const rankedQuery = dirtyConfig
+          ? this.db
+              .selectFrom(
+                this.db
+                  .selectFrom(`${hostTableName} as ${H}`)
+                  .innerJoin(
+                    `${dirtyConfig.dirtyTableName ?? 'tmp_computed_dirty'} as __cond_dirty`,
+                    (join) =>
+                      join
+                        .onRef(
+                          `${H}.__id`,
+                          '=',
+                          `__cond_dirty.${dirtyConfig.recordIdColumn ?? 'record_id'}`
+                        )
+                        .on(
+                          `__cond_dirty.${dirtyConfig.tableIdColumn ?? 'table_id'}`,
+                          '=',
+                          dirtyConfig.tableId
+                        )
+                  )
+                  .selectAll(H)
+                  .as(H)
+              )
+              .innerJoin(`${foreignTableName} as ${F}`, (join) => join.on(whereClause))
+              .select(rankedColumns)
+              .selectAll(F)
+          : this.db
+              .selectFrom(`${hostTableName} as ${H}`)
+              .innerJoin(`${foreignTableName} as ${F}`, (join) => join.on(whereClause))
+              .select(rankedColumns)
+              .selectAll(F);
 
         const selectExprs: AliasedRawBuilder<unknown, string>[] = [];
         for (const col of columns) {
@@ -1458,22 +1539,6 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     return `"${escapeIdentifier(tableAlias)}"."${escapeIdentifier(columnName)}"`;
   }
 
-  private buildSystemUserJsonExpr(tableAlias: string, systemColumn: string): RawBuilder<unknown> {
-    const systemColRef = sql.ref(`${tableAlias}.${systemColumn}`);
-    const avatarPrefix = resolveUserAvatarUrlPrefix();
-
-    return sql`(
-      select jsonb_build_object(
-        'id', u.id,
-        'title', u.name,
-        'email', u.email,
-        'avatarUrl', ${avatarPrefix} || u.id
-      )
-      from public.users u
-      where u.id = ${systemColRef}
-    )`;
-  }
-
   private getFieldSourceExpr(
     field: {
       type: () => FieldType;
@@ -1489,13 +1554,6 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
       return ok({ expr: sql.ref(`${tableAlias}.__created_time`) });
     }
 
-    if (field.type().equals(FieldType.createdBy())) {
-      return ok({
-        expr: this.buildSystemUserJsonExpr(tableAlias, '__created_by'),
-        isJsonbStorage: true,
-      });
-    }
-
     if (
       field.type().equals(FieldType.lastModifiedTime()) &&
       (field as { isTrackAll?: () => boolean }).isTrackAll?.()
@@ -1503,20 +1561,38 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
       return ok({ expr: sql.ref(`${tableAlias}.__last_modified_time`) });
     }
 
-    if (
-      field.type().equals(FieldType.lastModifiedBy()) &&
-      (field as { isTrackAll?: () => boolean }).isTrackAll?.()
-    ) {
-      return ok({
-        expr: this.buildSystemUserJsonExpr(tableAlias, '__last_modified_by'),
-        isJsonbStorage: true,
-      });
-    }
-
     return field
       .dbFieldName()
       .andThen((dbFieldName) => dbFieldName.value())
-      .map((columnName) => ({ expr: sql.ref(`${tableAlias}.${columnName}`) }));
+      .map((columnName) => {
+        const snapshotRef = sql.ref(`${tableAlias}.${columnName}`);
+        if (field.type().equals(FieldType.createdBy())) {
+          return {
+            expr: buildUserJsonObjectFromSnapshotExpr(
+              snapshotRef,
+              sql.ref(`${tableAlias}.__created_by`),
+              this.userSnapshotActorFallback
+            ),
+            isJsonbStorage: true,
+          };
+        }
+
+        if (field.type().equals(FieldType.lastModifiedBy())) {
+          const fallbackRef = (field as { isTrackAll?: () => boolean }).isTrackAll?.()
+            ? sql.ref(`${tableAlias}.__last_modified_by`)
+            : undefined;
+          return {
+            expr: buildUserJsonObjectFromSnapshotExpr(
+              snapshotRef,
+              fallbackRef,
+              this.userSnapshotActorFallback
+            ),
+            isJsonbStorage: true,
+          };
+        }
+
+        return { expr: snapshotRef };
+      });
   }
 
   private getForeignColRef(

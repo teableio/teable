@@ -208,6 +208,7 @@ describe('FieldValueChangeCollectorVisitor', () => {
       spec.accept(visitor);
 
       expect(visitor.valueChangedFields().map((id) => id.toString())).toEqual([fieldId.toString()]);
+      expect(visitor.recordActionFields()).toEqual([]);
     });
 
     it('should collect valueChangedFieldIds when options are removed', () => {
@@ -225,6 +226,7 @@ describe('FieldValueChangeCollectorVisitor', () => {
       spec.accept(visitor);
 
       expect(visitor.valueChangedFields().map((id) => id.toString())).toEqual([fieldId.toString()]);
+      expect(visitor.recordActionFields().map((id) => id.toString())).toEqual([fieldId.toString()]);
     });
 
     it('should not collect anything when only options are added', () => {
@@ -243,6 +245,7 @@ describe('FieldValueChangeCollectorVisitor', () => {
       spec.accept(visitor);
 
       expect(visitor.valueChangedFields()).toEqual([]);
+      expect(visitor.recordActionFields()).toEqual([]);
       expect(visitor.selfBackfillFields()).toEqual([]);
     });
   });
@@ -275,6 +278,7 @@ describe('FieldValueChangeCollectorVisitor', () => {
       spec.accept(visitor);
 
       expect(visitor.valueChangedFields().map((id) => id.toString())).toEqual([fieldId.toString()]);
+      expect(visitor.recordActionFields()).toEqual([]);
     });
 
     it('should collect valueChangedFieldIds when options are removed', () => {
@@ -292,6 +296,7 @@ describe('FieldValueChangeCollectorVisitor', () => {
       spec.accept(visitor);
 
       expect(visitor.valueChangedFields().map((id) => id.toString())).toEqual([fieldId.toString()]);
+      expect(visitor.recordActionFields().map((id) => id.toString())).toEqual([fieldId.toString()]);
     });
   });
 
