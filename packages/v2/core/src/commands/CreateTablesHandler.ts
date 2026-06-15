@@ -385,10 +385,16 @@ export class CreateTablesHandler
         { scope: 'meta' }
       );
 
-      const dataResult = await handler.unitOfWork.withTransaction(
-        context,
-        async (dataTransactionContext) =>
-          safeTry<TransactionResult, DomainError>(async function* () {
+      const previousPendingInitializationContext = context.pendingTableDataInitialization;
+      context.pendingTableDataInitialization = {
+        tableIds: metadataResult.map((table) => table.id().toString()),
+      };
+      const dataResult = await (async () => {
+        try {
+          return await handler.unitOfWork.withTransaction(
+            context,
+            async (dataTransactionContext) =>
+              safeTry<TransactionResult, DomainError>(async function* () {
             const creationResult = yield* await handler.tableCreationService.provisionData(
               dataTransactionContext,
               {
@@ -447,9 +453,13 @@ export class CreateTablesHandler
               tableState: creationResult.tableState,
               sideEffectEvents: creationResult.sideEffectEvents,
             });
-          }),
-        { scope: 'data' }
-      );
+              }),
+            { scope: 'data' }
+          );
+        } finally {
+          context.pendingTableDataInitialization = previousPendingInitializationContext;
+        }
+      })();
 
       if (dataResult.isErr()) {
         yield* await failTablesSchemaOperation(
