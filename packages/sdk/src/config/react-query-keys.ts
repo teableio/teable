@@ -108,6 +108,7 @@ export const ReactQueryKeys = {
   notifyList: (filter?: { status: NotificationStatesEnum; severity?: NotificationSeverityEnum }) =>
     filter ? (['notification', 'list', filter] as const) : (['notification', 'list'] as const),
   notifyUnreadCount: () => ['notification', 'unread-count'],
+  notifyCriticalAdmin: () => ['notification', 'critical-admin'] as const,
 
   rowCount: (tableId: string, query: IQueryBaseRo) => ['row-count', tableId, query] as const,
   groupPoints: (tableId: string, query: IGroupPointsRo) =>

@@ -1,5 +1,10 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import { notificationSchema, NotificationSeverityEnum, NotificationStatesEnum } from '@teable/core';
+import {
+  notificationSchema,
+  NotificationSeverityEnum,
+  NotificationStatesEnum,
+  NotificationTypeEnum,
+} from '@teable/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
@@ -9,6 +14,7 @@ export const NOTIFICATION_LIST = '/notifications';
 export const getNotifyListQuerySchema = z.object({
   notifyStates: z.enum(NotificationStatesEnum),
   severity: z.enum(NotificationSeverityEnum).optional(),
+  notifyType: z.enum(NotificationTypeEnum).optional(),
   cursor: z.string().nullish(),
 });
 

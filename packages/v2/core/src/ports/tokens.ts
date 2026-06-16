@@ -39,6 +39,7 @@ export const v2CoreTokens = {
   userLookupService: Symbol('v2.core.userLookupService'),
   userRenamePropagationService: Symbol('v2.core.userRenamePropagationService'),
   computedUpdateDrainService: Symbol('v2.core.computedUpdateDrainService'),
+  computedFieldBackfillService: Symbol('v2.core.computedFieldBackfillService'),
   schemaOperationRunnerService: Symbol('v2.core.schemaOperationRunnerService'),
   schemaOperationHandlers: Symbol('v2.core.schemaOperationHandlers'),
   recordWritePluginRunner: Symbol('v2.core.recordWritePluginRunner'),
