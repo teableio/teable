@@ -46,6 +46,36 @@ describe('PgRecordQueryDialect#linkExtractTitles', () => {
   });
 });
 
+describe('PgRecordQueryDialect user snapshots', () => {
+  const dialect = new PgRecordQueryDialect({} as unknown as Knex);
+
+  it('builds CreatedBy/LastModifiedBy display JSON without users joins', () => {
+    const sql = dialect.buildUserJsonObjectFromSnapshot(
+      '"t"."fld_created_by"',
+      '"t"."__created_by"'
+    );
+
+    expect(sql).toContain('to_jsonb("t"."fld_created_by")');
+    expect(sql).toContain('"t"."__created_by"');
+    expect(sql).toContain('jsonb_build_object');
+    expect(sql).not.toContain('users');
+    expect(sql).not.toContain('public.users');
+  });
+
+  it('builds formula display text from snapshot with system id fallback', () => {
+    const sql = dialect.userTitleFromSnapshot(
+      '"t"."fld_last_modified_by"',
+      '"t"."__last_modified_by"'
+    );
+
+    expect(sql).toContain('to_jsonb("t"."fld_last_modified_by")');
+    expect(sql).toContain("->>'title'");
+    expect(sql).toContain('"t"."__last_modified_by"');
+    expect(sql).not.toContain('users');
+    expect(sql).not.toContain('public.users');
+  });
+});
+
 describe('PgRecordQueryDialect#coerceToNumericForCompare', () => {
   const dialect = new PgRecordQueryDialect({} as unknown as Knex);
 
