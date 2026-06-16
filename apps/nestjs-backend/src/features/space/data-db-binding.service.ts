@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { ICreateSpaceRo, IDataDbPreflightRo, IDataDbPreflightVo } from '@teable/openapi';
@@ -13,8 +13,17 @@ import {
   getDatabaseUrlDisplayParts,
 } from './data-db-preflight.service';
 import { decryptDataDbUrl, encryptDataDbUrl } from './data-db-url-secret';
+import {
+  migrateSpaceTargetMode,
+  spaceDataDbAdminOnlyErrorCode,
+  spaceDataDbAdminOnlyMessage,
+} from './space-data-db-migration.constants';
+import { SpaceDataDbMigrationService } from './space-data-db-migration.service';
 
 type IDataDbCreateOptions = NonNullable<ICreateSpaceRo['dataDb']>;
+type IDataDbUpdateOptions = {
+  allowSpaceMigration?: boolean;
+};
 type IPreparedDataDbBinding = {
   encryptedUrl: string;
   urlFingerprint: string;
@@ -23,6 +32,20 @@ type IPreparedDataDbBinding = {
   internalSchema: string;
   schemaVersion: string | null;
   capabilities: IDataDbPreflightVo['capabilities'];
+};
+type IExistingDataDbConnection = {
+  id: string;
+  encryptedUrl: string;
+  displayHost: string | null;
+  displayDatabase: string | null;
+  internalSchema: string;
+  createdBy?: string | null;
+};
+type IExistingBindingUpdateTarget = {
+  preflight: IDataDbPreflightVo;
+  internalSchema: string;
+  displayHost: string;
+  displayDatabase: string;
 };
 
 const initializeEmptyTargetMode = 'initialize-empty';
@@ -43,7 +66,8 @@ export class DataDbBindingService {
     private readonly preflightService: DataDbPreflightService,
     private readonly baselineService: DataDbBaselineService,
     private readonly dataDbClientManager: DataDbClientManager,
-    private readonly dataDbMigrationService?: DataDbMigrationService
+    @Optional() private readonly dataDbMigrationService?: DataDbMigrationService,
+    @Optional() private readonly spaceDataDbMigrationService?: SpaceDataDbMigrationService
   ) {}
 
   async createBindingForNewSpace(
@@ -187,7 +211,12 @@ export class DataDbBindingService {
     return applied;
   }
 
-  async updateBindingForSpace(spaceId: string, updatedBy: string, dataDb: IDataDbPreflightRo) {
+  async updateBindingForSpace(
+    spaceId: string,
+    updatedBy: string,
+    dataDb: IDataDbPreflightRo,
+    options: IDataDbUpdateOptions = {}
+  ) {
     if (!dataDb.url) {
       throw new CustomHttpException(dataDbUrlRequiredError, HttpErrorCode.VALIDATION_ERROR);
     }
@@ -197,55 +226,23 @@ export class DataDbBindingService {
       include: { dataDbConnection: true },
     });
     if (binding?.mode !== 'byodb' || !binding.dataDbConnection?.encryptedUrl) {
-      if (dataDb.targetMode === adoptExistingTargetMode) {
-        await this.createBindingForExistingSpace(spaceId, updatedBy, dataDb);
-        return;
-      }
-
-      throw new CustomHttpException(
-        'BYODB data database binding was not found',
-        HttpErrorCode.NOT_FOUND
-      );
+      await this.updateDefaultSpaceBinding(spaceId, updatedBy, dataDb, options);
+      return;
     }
 
     const current = binding.dataDbConnection;
-    const internalSchema = resolveDataDbInternalSchema(
-      dataDb.internalSchema ?? current.internalSchema,
-      dataDb.url
-    );
-    const nextDisplayParts = getDatabaseUrlDisplayParts(dataDb.url);
+    const target = await this.prepareExistingBindingUpdateTarget(dataDb, current);
+    this.assertExistingBindingTargetUnchanged(current, target);
 
-    if (
-      current.internalSchema !== internalSchema ||
-      current.displayHost !== nextDisplayParts.displayHost ||
-      current.displayDatabase !== nextDisplayParts.displayDatabase
-    ) {
-      throw new CustomHttpException(
-        'Changing the BYODB database or internal schema is not supported yet',
-        HttpErrorCode.VALIDATION_ERROR
-      );
-    }
-
-    const preflight = await this.preflightService.preflight({
-      url: dataDb.url,
-      targetMode: initializeEmptyTargetMode,
-      internalSchema,
-    });
-    if (!preflight.ok) {
-      throw new CustomHttpException(buildPreflightErrorMessage(preflight), HttpErrorCode.CONFLICT, {
-        preflight,
-      });
-    }
-
-    const schemaVersion = await this.baselineService.initialize(dataDb.url, internalSchema);
+    const schemaVersion = await this.baselineService.initialize(dataDb.url, target.internalSchema);
     await this.prismaService.dataDbConnection.update({
       where: { id: current.id },
       data: {
         encryptedUrl: encryptDataDbUrl(dataDb.url),
-        urlFingerprint: fingerprintDataDbConnection(dataDb.url, internalSchema),
+        urlFingerprint: fingerprintDataDbConnection(dataDb.url, target.internalSchema),
         status: 'ready',
         schemaVersion,
-        capabilities: preflight.capabilities,
+        capabilities: target.preflight.capabilities,
         lastValidatedAt: new Date(),
         lastError: null,
         createdBy: current.createdBy ?? updatedBy,
@@ -256,6 +253,101 @@ export class DataDbBindingService {
       data: { state: 'ready' },
     });
     await this.dataDbClientManager.invalidateConnection(current.id);
+  }
+
+  private async updateDefaultSpaceBinding(
+    spaceId: string,
+    updatedBy: string,
+    dataDb: IDataDbPreflightRo,
+    options: IDataDbUpdateOptions
+  ) {
+    if (dataDb.targetMode === adoptExistingTargetMode) {
+      await this.createBindingForExistingSpace(spaceId, updatedBy, dataDb);
+      return;
+    }
+    if (dataDb.targetMode === migrateSpaceTargetMode) {
+      this.assertSpaceMigrationAllowed(options);
+      await this.startSpaceMigration(spaceId, updatedBy, dataDb);
+      return;
+    }
+
+    throw new CustomHttpException(
+      'BYODB data database binding was not found',
+      HttpErrorCode.NOT_FOUND
+    );
+  }
+
+  private assertSpaceMigrationAllowed(options: IDataDbUpdateOptions) {
+    if (options.allowSpaceMigration) {
+      return;
+    }
+    throw new CustomHttpException(spaceDataDbAdminOnlyMessage, HttpErrorCode.RESTRICTED_RESOURCE, {
+      errorCode: spaceDataDbAdminOnlyErrorCode,
+    });
+  }
+
+  private async startSpaceMigration(
+    spaceId: string,
+    updatedBy: string,
+    dataDb: IDataDbPreflightRo
+  ) {
+    if (!this.spaceDataDbMigrationService) {
+      throw new CustomHttpException(
+        'Space data database migration service is unavailable',
+        HttpErrorCode.CONFLICT
+      );
+    }
+    await this.spaceDataDbMigrationService.startMigrationForSpace(spaceId, updatedBy, dataDb);
+  }
+
+  private async prepareExistingBindingUpdateTarget(
+    dataDb: IDataDbPreflightRo,
+    current: IExistingDataDbConnection
+  ): Promise<IExistingBindingUpdateTarget> {
+    const preflight = await this.preflightService.preflight({
+      url: dataDb.url,
+      targetMode: initializeEmptyTargetMode,
+      internalSchema: dataDb.internalSchema ?? current.internalSchema,
+    });
+    if (!preflight.ok) {
+      throw new CustomHttpException(buildPreflightErrorMessage(preflight), HttpErrorCode.CONFLICT, {
+        preflight,
+      });
+    }
+
+    const internalSchema =
+      preflight.internalSchema ??
+      resolveDataDbInternalSchema(dataDb.internalSchema ?? current.internalSchema, dataDb.url);
+    const displayParts =
+      preflight.displayHost && preflight.displayDatabase != null
+        ? {
+            displayHost: preflight.displayHost,
+            displayDatabase: preflight.displayDatabase,
+          }
+        : getDatabaseUrlDisplayParts(dataDb.url);
+
+    return {
+      preflight,
+      internalSchema,
+      ...displayParts,
+    };
+  }
+
+  private assertExistingBindingTargetUnchanged(
+    current: Pick<IExistingDataDbConnection, 'internalSchema' | 'displayHost' | 'displayDatabase'>,
+    next: Pick<IExistingBindingUpdateTarget, 'internalSchema' | 'displayHost' | 'displayDatabase'>
+  ) {
+    if (
+      current.internalSchema === next.internalSchema &&
+      current.displayHost === next.displayHost &&
+      current.displayDatabase === next.displayDatabase
+    ) {
+      return;
+    }
+    throw new CustomHttpException(
+      'Changing the BYODB database or internal schema is not supported yet',
+      HttpErrorCode.VALIDATION_ERROR
+    );
   }
 
   async createBindingForExistingSpace(
@@ -328,11 +420,10 @@ export class DataDbBindingService {
     dataDb: IDataDbPreflightRo,
     targetMode: IDataDbPreflightRo['targetMode']
   ): Promise<IPreparedDataDbBinding> {
-    const internalSchema = resolveDataDbInternalSchema(dataDb.internalSchema, dataDb.url);
     const preflight = await this.preflightService.preflight({
       url: dataDb.url,
       targetMode,
-      internalSchema,
+      internalSchema: dataDb.internalSchema,
     });
     if (!preflight.ok) {
       throw new CustomHttpException(buildPreflightErrorMessage(preflight), HttpErrorCode.CONFLICT, {
@@ -340,9 +431,17 @@ export class DataDbBindingService {
       });
     }
 
+    const internalSchema =
+      preflight.internalSchema ?? resolveDataDbInternalSchema(dataDb.internalSchema, dataDb.url);
     const schemaVersion = await this.baselineService.initialize(dataDb.url, internalSchema);
 
-    const { displayHost, displayDatabase } = getDatabaseUrlDisplayParts(dataDb.url);
+    const { displayHost, displayDatabase } =
+      preflight.displayHost && preflight.displayDatabase != null
+        ? {
+            displayHost: preflight.displayHost,
+            displayDatabase: preflight.displayDatabase,
+          }
+        : getDatabaseUrlDisplayParts(dataDb.url);
     return {
       encryptedUrl: encryptDataDbUrl(dataDb.url),
       urlFingerprint: fingerprintDataDbConnection(dataDb.url, internalSchema),

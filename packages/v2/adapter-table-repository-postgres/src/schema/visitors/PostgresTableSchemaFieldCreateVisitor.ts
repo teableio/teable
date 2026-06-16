@@ -34,13 +34,18 @@ import type { Result } from 'neverthrow';
 import {
   createFieldSchemaRules,
   createSchemaRuleContext,
+  FkColumnRule,
+  GeneratedColumnRule,
+  OrderColumnRule,
   PostgresSchemaIntrospector,
   schemaRuleResolver,
   type FieldSchemaRulesContext,
   type SchemaRuleContext,
 } from '../rules';
+import type { ISchemaRule } from '../rules/core';
 import type { TableSchemaStatementBuilder } from '../rules/core';
 import type { TableIdentifier } from '../rules/helpers';
+import { resolveColumnName, resolveColumnType } from './PostgresTableSchemaFieldColumn';
 
 type ICreateTableBuilder = CreateTableBuilder<string, string>;
 
@@ -76,6 +81,8 @@ export const buildTableLocationsById = (
 export class PostgresTableSchemaFieldCreateVisitor extends AbstractFieldVisitor<
   ReadonlyArray<TableSchemaStatementBuilder>
 > {
+  private readonly createTableHelperColumnNames = new Set<string>();
+
   private constructor(
     private readonly db: Kysely<V1TeableDatabase>,
     private rulesContext: FieldSchemaRulesContext,
@@ -95,6 +102,7 @@ export class PostgresTableSchemaFieldCreateVisitor extends AbstractFieldVisitor<
     tableName: string;
     tableId: string;
     tableLocationsById?: ReadonlyMap<string, TableIdentifier>;
+    optimizeForEmptyTables?: boolean;
   }): PostgresTableSchemaFieldCreateVisitor {
     return new PostgresTableSchemaFieldCreateVisitor(
       params.db,
@@ -103,6 +111,7 @@ export class PostgresTableSchemaFieldCreateVisitor extends AbstractFieldVisitor<
         tableName: params.tableName,
         tableId: params.tableId,
         tableLocationsById: params.tableLocationsById,
+        optimizeForEmptyTables: params.optimizeForEmptyTables,
       },
       params.builderRef
     );
@@ -118,12 +127,14 @@ export class PostgresTableSchemaFieldCreateVisitor extends AbstractFieldVisitor<
     tableName: string;
     tableId: string;
     tableLocationsById?: ReadonlyMap<string, TableIdentifier>;
+    optimizeForEmptyTables?: boolean;
   }): PostgresTableSchemaFieldCreateVisitor {
     return new PostgresTableSchemaFieldCreateVisitor(params.db, {
       schema: params.schema,
       tableName: params.tableName,
       tableId: params.tableId,
       tableLocationsById: params.tableLocationsById,
+      optimizeForEmptyTables: params.optimizeForEmptyTables,
     });
   }
 
@@ -178,7 +189,94 @@ export class PostgresTableSchemaFieldCreateVisitor extends AbstractFieldVisitor<
       tableName: this.rulesContext.tableName,
       tableId: this.rulesContext.tableId,
       field,
+      optimizeForEmptyTables: this.rulesContext.optimizeForEmptyTables,
     });
+  }
+
+  private addCreateTableColumnFromRules(
+    field: Field,
+    rules: ReadonlyArray<ISchemaRule>
+  ): Result<ReadonlyArray<ISchemaRule>, DomainError> {
+    return safeTry<ReadonlyArray<ISchemaRule>, DomainError>(
+      function* (this: PostgresTableSchemaFieldCreateVisitor) {
+        if (!this.builderRef) {
+          return ok(rules);
+        }
+
+        const fieldId = field.id().toString();
+        const columnRuleId = `column:${fieldId}`;
+        const linkValueColumnRuleId = `link_value_column:${fieldId}`;
+        const generatedColumnRuleId = `generated_column:${fieldId}`;
+        const fkColumnRuleId = `fk_column:${fieldId}`;
+        const orderColumnRuleId = `order_column:${fieldId}`;
+        const skipRuleIds = new Set<string>();
+        const currentTable: TableIdentifier = {
+          schema: this.rulesContext.schema,
+          tableName: this.rulesContext.tableName,
+        };
+
+        const generatedColumnRule = rules.find(
+          (rule): rule is GeneratedColumnRule =>
+            rule.id === generatedColumnRuleId && rule instanceof GeneratedColumnRule
+        );
+
+        if (generatedColumnRule) {
+          const columnName = yield* resolveColumnName(field);
+          this.builderRef.builder = this.builderRef.builder.addColumn(
+            columnName,
+            generatedColumnRule.createTableColumnType()
+          );
+          skipRuleIds.add(generatedColumnRuleId);
+        } else if (rules.some((rule) => rule.id === columnRuleId)) {
+          const columnName = yield* resolveColumnName(field);
+          const dataType = yield* resolveColumnType(field);
+          this.builderRef.builder = this.builderRef.builder.addColumn(columnName, dataType);
+          skipRuleIds.add(columnRuleId);
+          skipRuleIds.add(`generated_meta:${fieldId}`);
+        } else if (rules.some((rule) => rule.id === linkValueColumnRuleId)) {
+          const columnName = yield* resolveColumnName(field);
+          this.builderRef.builder = this.builderRef.builder.addColumn(columnName, 'jsonb');
+          skipRuleIds.add(linkValueColumnRuleId);
+        }
+
+        const fkColumnRule = rules.find(
+          (rule): rule is FkColumnRule => rule.id === fkColumnRuleId && rule instanceof FkColumnRule
+        );
+        const fkColumn = fkColumnRule?.createTableColumnForTarget(currentTable);
+        if (fkColumn) {
+          if (!this.createTableHelperColumnNames.has(fkColumn.columnName)) {
+            this.builderRef.builder = this.builderRef.builder.addColumn(
+              fkColumn.columnName,
+              fkColumn.dataType
+            );
+            this.createTableHelperColumnNames.add(fkColumn.columnName);
+          }
+          skipRuleIds.add(fkColumnRuleId);
+        }
+
+        const orderColumnRule = rules.find(
+          (rule): rule is OrderColumnRule =>
+            rule.id === orderColumnRuleId && rule instanceof OrderColumnRule
+        );
+        const orderColumn = orderColumnRule?.createTableColumnForTarget(currentTable);
+        if (orderColumn) {
+          if (!this.createTableHelperColumnNames.has(orderColumn.columnName)) {
+            this.builderRef.builder = this.builderRef.builder.addColumn(
+              orderColumn.columnName,
+              orderColumn.dataType
+            );
+            this.createTableHelperColumnNames.add(orderColumn.columnName);
+          }
+          skipRuleIds.add(orderColumnRuleId);
+        }
+
+        if (skipRuleIds.size === 0) {
+          return ok(rules);
+        }
+
+        return ok(rules.filter((rule) => !skipRuleIds.has(rule.id)));
+      }.bind(this)
+    );
   }
 
   /**
@@ -192,7 +290,9 @@ export class PostgresTableSchemaFieldCreateVisitor extends AbstractFieldVisitor<
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(
       function* (this: PostgresTableSchemaFieldCreateVisitor) {
         const rulesResult = createFieldSchemaRules(field, this.rulesContext);
-        const rules = yield* rulesResult;
+        const rules = yield* rulesResult.andThen((rules) =>
+          this.addCreateTableColumnFromRules(field, rules)
+        );
 
         const ctx = this.createRuleContext(field);
         const statementsResult = schemaRuleResolver.upAll(rules, ctx);

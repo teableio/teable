@@ -5,7 +5,9 @@ import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 import {
   setupGroupedLinkRangeFixture,
+  setupGroupedSingleSelectRangeFixture,
   type GroupedLinkRangeFixture,
+  type GroupedSingleSelectRangeFixture,
 } from './shared/groupedLinkRangeFixture';
 
 /**
@@ -271,6 +273,142 @@ describe('v2 http clear (e2e)', () => {
     });
   });
 
+  describe('clear with wide projection', () => {
+    it('should clear the populated row when a blank row is directly above it', async () => {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: `Wide Clear Projection ${Date.now()}`,
+        fields: [
+          { name: 'Primary Label', type: 'singleLineText', isPrimary: true },
+          { name: 'Context A', type: 'singleLineText' },
+          { name: 'Context B', type: 'singleLineText' },
+          { name: 'Row Key', type: 'singleLineText' },
+          { name: 'Tag', type: 'singleLineText' },
+          { name: 'Reference', type: 'singleLineText' },
+          { name: 'Target Text', type: 'singleLineText' },
+          { name: 'Target Number', type: 'number' },
+          { name: 'Target Owner', type: 'singleLineText' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const viewId = table.views[0].id;
+      const fieldByName = new Map(table.fields.map((field) => [field.name, field.id]));
+      const primaryFieldId = fieldByName.get('Primary Label') ?? '';
+      const contextAFieldId = fieldByName.get('Context A') ?? '';
+      const contextBFieldId = fieldByName.get('Context B') ?? '';
+      const rowKeyFieldId = fieldByName.get('Row Key') ?? '';
+      const tagFieldId = fieldByName.get('Tag') ?? '';
+      const referenceFieldId = fieldByName.get('Reference') ?? '';
+      const targetTextFieldId = fieldByName.get('Target Text') ?? '';
+      const targetNumberFieldId = fieldByName.get('Target Number') ?? '';
+      const targetOwnerFieldId = fieldByName.get('Target Owner') ?? '';
+
+      const projection = [
+        primaryFieldId,
+        contextAFieldId,
+        contextBFieldId,
+        rowKeyFieldId,
+        tagFieldId,
+        referenceFieldId,
+        targetTextFieldId,
+        targetNumberFieldId,
+        targetOwnerFieldId,
+      ];
+
+      await ctx.createRecords(table.id, [
+        {
+          fields: {
+            [primaryFieldId]: 'row-1',
+            [contextAFieldId]: 'context-a-1',
+            [rowKeyFieldId]: 'key-1',
+            [tagFieldId]: 'tag-1',
+            [referenceFieldId]: 'ref-1',
+            [targetTextFieldId]: 'unrelated text',
+            [targetNumberFieldId]: 1,
+            [targetOwnerFieldId]: 'owner-1',
+          },
+        },
+        {
+          fields: {
+            [primaryFieldId]: 'row-2',
+            [rowKeyFieldId]: 'key-2',
+          },
+        },
+        {
+          fields: {
+            [primaryFieldId]: 'row-3',
+            [rowKeyFieldId]: 'key-3',
+          },
+        },
+        {
+          fields: {
+            [primaryFieldId]: 'row-before-target',
+            [contextAFieldId]: 'context-before-target',
+            [rowKeyFieldId]: 'key-before-target',
+          },
+        },
+        {
+          fields: {
+            [primaryFieldId]: 'target-row',
+            [contextAFieldId]: 'context-target',
+            [contextBFieldId]: 'context-b-target',
+            [rowKeyFieldId]: 'key-target',
+            [tagFieldId]: 'tag-target',
+            [referenceFieldId]: 'ref-target',
+            [targetTextFieldId]: 'target text',
+            [targetNumberFieldId]: 2,
+            [targetOwnerFieldId]: 'target owner',
+          },
+        },
+        {
+          fields: {
+            [primaryFieldId]: 'row-after-target',
+            [contextAFieldId]: 'context-after-target',
+            [contextBFieldId]: 'context-b-after-target',
+            [rowKeyFieldId]: 'key-after-target',
+            [tagFieldId]: 'tag-after-target',
+            [referenceFieldId]: 'ref-after-target',
+            [targetTextFieldId]: 'after target text',
+            [targetNumberFieldId]: 3,
+            [targetOwnerFieldId]: 'after target owner',
+          },
+        },
+      ]);
+
+      const result = await ctx.clear({
+        tableId: table.id,
+        viewId,
+        ranges: [
+          [6, 4],
+          [8, 4],
+        ],
+        projection,
+      });
+
+      expect(result.updatedCount).toBe(1);
+
+      const records = await ctx.listRecords(table.id);
+      const blankAboveTarget = records.find(
+        (record) => record.fields[rowKeyFieldId] === 'key-before-target'
+      );
+      const target = records.find((record) => record.fields[rowKeyFieldId] === 'key-target');
+      const nextRecord = records.find(
+        (record) => record.fields[rowKeyFieldId] === 'key-after-target'
+      );
+
+      expect(blankAboveTarget?.fields[targetTextFieldId]).toBeNull();
+      expect(blankAboveTarget?.fields[targetNumberFieldId]).toBeNull();
+      expect(blankAboveTarget?.fields[targetOwnerFieldId]).toBeNull();
+      expect(target?.fields[targetTextFieldId]).toBeNull();
+      expect(target?.fields[targetNumberFieldId]).toBeNull();
+      expect(target?.fields[targetOwnerFieldId]).toBeNull();
+      expect(nextRecord?.fields[targetTextFieldId]).toBe('after target text');
+      expect(nextRecord?.fields[targetNumberFieldId]).toBe(3);
+      expect(nextRecord?.fields[targetOwnerFieldId]).toBe('after target owner');
+    });
+  });
+
   describe('clear with filter', () => {
     let tableId: string;
     let viewId: string;
@@ -407,6 +545,59 @@ describe('v2 http clear (e2e)', () => {
       expect(github2?.fields[fixture.nameFieldId]).toBeNull();
       expect(github1?.fields[fixture.nameFieldId]).toBe('Github 1');
       expect(linkedIn1?.fields[fixture.nameFieldId]).toBe('LinkedIn 1');
+    });
+  });
+
+  describe('clear with grouped singleSelect view order parity', () => {
+    const expectOnlySecondVisibleRowCleared = async (fixture: GroupedSingleSelectRangeFixture) => {
+      const records = await ctx.listRecords(fixture.tableId);
+      const order2 = records.find((record) => record.id === fixture.recordIds.order2);
+      const order3 = records.find((record) => record.id === fixture.recordIds.order3);
+      const order4 = records.find((record) => record.id === fixture.recordIds.order4);
+
+      // Visible order follows the view row order (reverse of creation), so the
+      // second visible row is 加单3.
+      expect(order4?.fields[fixture.nameFieldId]).toBe('加单4');
+      expect(order3?.fields[fixture.nameFieldId]).toBeNull();
+      expect(order2?.fields[fixture.nameFieldId]).toBe('加单2');
+    };
+
+    it('should clear the visible row in a saved grouped view when row order differs', async () => {
+      const fixture = await setupGroupedSingleSelectRangeFixture(ctx, 'clear-saved-group', {
+        persistViewQuery: true,
+      });
+
+      const result = await ctx.clear({
+        tableId: fixture.tableId,
+        viewId: fixture.viewId,
+        ranges: [
+          [0, 1],
+          [0, 1],
+        ],
+      });
+
+      expect(result.updatedCount).toBe(1);
+      await expectOnlySecondVisibleRowCleared(fixture);
+    });
+
+    it('should clear the visible row in a personal grouped view request', async () => {
+      const fixture = await setupGroupedSingleSelectRangeFixture(ctx, 'clear-personal-group');
+
+      const result = await ctx.clear({
+        tableId: fixture.tableId,
+        viewId: fixture.viewId,
+        ranges: [
+          [0, 1],
+          [0, 1],
+        ],
+        ignoreViewQuery: true,
+        groupBy: fixture.groupByAsc,
+        sort: fixture.sortAsc,
+        projection: fixture.projection,
+      });
+
+      expect(result.updatedCount).toBe(1);
+      await expectOnlySecondVisibleRowCleared(fixture);
     });
   });
 
@@ -1041,11 +1232,11 @@ describe('v2 http clear (e2e)', () => {
 
     it('should clear correct row at large offset when sort values tie', async () => {
       const targetOffset = 400;
-      const orderColumn = `__row_${tieViewId}`;
+      // All sort values tie, so the visible order follows the view row order column.
       const expected = await sql<{ __id: string }>`
         SELECT "__id"
         FROM ${sql.table(tieDbTableName)}
-        ORDER BY ${sql.ref(orderColumn)} ASC
+        ORDER BY ${sql.ref(`__row_${tieViewId}`)} ASC
         OFFSET ${targetOffset}
         LIMIT 1
       `.execute(ctx.testContainer.db);
