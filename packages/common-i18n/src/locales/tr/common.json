@@ -69,6 +69,7 @@
     "import": "İçe Aktar",
     "getMore": "Daha fazla al",
     "copySuccess": "Kopyalama başarılı",
+    "openLink": "Bağlantıyı aç",
     "share": "Paylaş"
   },
   "quickAction": {
@@ -755,6 +756,7 @@
     "unsubscribeTime": "Abonelikten çıkma zamanı",
     "source": "Kaynak",
     "sourceAutomationDeleted": "Otomasyon veya düğüm silindi",
+    "sourceApiSend": "API ile e-posta gönderimi",
     "processing": "İşleniyor...",
     "unsubscribeH1": "Abonelikten çıkışı onaylıyor musunuz?",
     "unsubscribeH2": "Gelecekteki Teable promosyonları ve ürün güncellemelerinden aboneliğinizi iptal etmek üzeresiniz. Abonelikten çıkmak istediğinizden emin misiniz?",
@@ -1147,6 +1149,83 @@
       "requestTimeout": "İstek zaman aşımına uğradı",
       "chunkProcessingFailed": "Toplu işlem başarısız oldu: {{reason}}",
       "unknown": "{{fieldHint}}{{message}}"
+    }
+  },
+  "skills": {
+    "title": "Beceriler",
+    "tabs": {
+      "mySkills": "Becerilerim"
+    },
+    "actions": {
+      "import": "Beceri İçe Aktar",
+      "sync": "Senkronize Et",
+      "delete": "Sil",
+      "enable": "Etkinleştir",
+      "disable": "Devre Dışı Bırak",
+      "edit": "Düzenle",
+      "copyToApp": "Uygulamaya kopyala"
+    },
+    "import": {
+      "title": "Beceri İçe Aktar",
+      "description": "GitHub deposundan veya ZIP dosyasından bir beceri içe aktarın",
+      "githubTab": "GitHub URL",
+      "fileTab": "ZIP Dosyası",
+      "githubPlaceholder": "https://github.com/owner/repo/tree/main/skills/my-skill",
+      "fileHint": "SKILL.md içeren bir ZIP dosyası yükleyin",
+      "or": "veya",
+      "selectFile": "Dosya seç",
+      "replaceWarning": "Bu kapsamda aynı ada sahip bir beceri zaten varsa, içe aktarma onu değiştirir.",
+      "importing": "İçe aktarılıyor...",
+      "submit": "İçe Aktar",
+      "success": "Beceri başarıyla içe aktarıldı",
+      "error": "Beceri içe aktarılamadı"
+    },
+    "detail": {
+      "slug": "Slug",
+      "description": "Açıklama",
+      "source": "Kaynak",
+      "skillLabel": "Beceri",
+      "syncStatus": "Senkronizasyon Durumu",
+      "preview": "SKILL.md Önizleme"
+    },
+    "scope": {
+      "label": "Kapsam",
+      "system": "Sistem",
+      "base": "Base",
+      "user": "Kişisel",
+      "userDescription": "Yalnızca size açık",
+      "baseDescription": "Bu Base'deki işbirlikçilerle paylaşılır",
+      "app": "App",
+      "appDescription": "Yalnızca bu uygulamada kullanılabilir",
+      "cuppyclaw": "Bot",
+      "cuppyclawDescription": "Yalnızca bu bot için kullanılabilir"
+    },
+    "source": {
+      "github": "GitHub",
+      "file": "Dosya Yükleme",
+      "manual": "Manuel"
+    },
+    "status": {
+      "enabled": "Etkin",
+      "disabled": "Devre Dışı",
+      "synced": "Senkronize Edildi",
+      "failed": "Senkronizasyon Başarısız"
+    },
+    "empty": {
+      "mySkills": "Henüz kişisel beceri yok. Başlamak için bir tane içe aktarın."
+    },
+    "confirm": {
+      "deleteTitle": "Beceriyi Sil",
+      "deleteDescription": "Bu beceriyi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz."
+    },
+    "toast": {
+      "syncing": "Beceri senkronize ediliyor...",
+      "syncSuccess": "Beceri başarıyla senkronize edildi",
+      "syncError": "Beceri senkronize edilemedi",
+      "deleting": "Beceri siliniyor...",
+      "deleteSuccess": "Beceri başarıyla silindi",
+      "deleteError": "Beceri silinemedi",
+      "updateSuccess": "Beceri başarıyla güncellendi"
     }
   },
   "changelog": {

@@ -60,6 +60,7 @@ export const fieldColorValues = [
 
 export const fieldColorSchema = z.enum(fieldColorValues);
 export type FieldColorValue = z.infer<typeof fieldColorSchema>;
+const fieldColorSet: ReadonlySet<string> = new Set(fieldColorValues);
 
 export class FieldColor extends ValueObject {
   private constructor(private readonly value: FieldColorValue) {
@@ -67,6 +68,10 @@ export class FieldColor extends ValueObject {
   }
 
   static create(raw: unknown): Result<FieldColor, DomainError> {
+    if (typeof raw === 'string' && fieldColorSet.has(raw)) {
+      return ok(new FieldColor(raw as FieldColorValue));
+    }
+
     const parsed = fieldColorSchema.safeParse(raw);
     if (!parsed.success) return err(domainError.validation({ message: 'Invalid FieldColor' }));
     return ok(new FieldColor(parsed.data));
