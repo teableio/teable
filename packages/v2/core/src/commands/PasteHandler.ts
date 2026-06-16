@@ -79,6 +79,7 @@ import type { RecordFilter } from '../queries/RecordFilterDto';
 import {
   buildRecordConditionSpec,
   buildSanitizedRecordConditionSpec,
+  replaceCurrentUserTagInFilter,
 } from '../queries/RecordFilterMapper';
 import type { RecordSearch } from '../queries/RecordSearch';
 import { resolveVisibleRowSearch } from '../queries/RecordSearch';
@@ -353,7 +354,15 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
 
       // 3. Build filter spec from effective view filter. Search-aware visible rows are handled
       // by the query repository so field-type-specific search semantics stay centralized.
-      const filterSpec = yield* buildSanitizedRecordConditionSpec(persistedTable, effectiveFilter);
+      const actorResolvedFilter = replaceCurrentUserTagInFilter(
+        persistedTable,
+        effectiveFilter,
+        context.actorId.toString()
+      );
+      const filterSpec = yield* buildSanitizedRecordConditionSpec(
+        persistedTable,
+        actorResolvedFilter
+      );
       const visibleRowSearch = resolveVisibleRowSearch(command.search, orderedFieldIds);
 
       // 4. Get total row count for columns/rows type normalization
@@ -421,8 +430,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         return ok({ updatedCount: 0, createdCount: 0, createdRecordIds: [] });
       }
 
-      // 10. Build orderBy from group + sort for correct row mapping
-      // If none provided, fall back to view row order column (__row_{viewId})
+      // 10. Build orderBy from group + sort to match the visible list row order.
       const effectiveGroup = command.ignoreViewQuery
         ? command.groupBy ?? undefined
         : mergedDefaults.group();
@@ -2464,9 +2472,14 @@ export class PasteStreamApplicationService extends PasteHandler {
       ? command.sort ?? undefined
       : mergedDefaults.sort();
 
+    const actorResolvedFilter = replaceCurrentUserTagInFilter(
+      persistedTable,
+      effectiveFilter,
+      context.actorId.toString()
+    );
     const filterSpecResult = await buildSanitizedRecordConditionSpec(
       persistedTable,
-      effectiveFilter
+      actorResolvedFilter
     );
     if (filterSpecResult.isErr()) {
       return err(filterSpecResult.error);

@@ -21,6 +21,148 @@ describe('BaseService', () => {
     expect(service).toBeDefined();
   });
 
+  describe('enrichBaseListV2Status', () => {
+    const createService = () => {
+      const canaryService = {
+        shouldUseV2WithReason: vi.fn().mockResolvedValue({ useV2: true, reason: 'space_feature' }),
+        isSpaceInCanary: vi.fn().mockResolvedValue(true),
+      };
+
+      return {
+        service: new BaseService(
+          {} as never,
+          {} as never,
+          {} as never,
+          {} as never,
+          {} as never,
+          {} as never,
+          {} as never,
+          {} as never,
+          {} as never,
+          {} as never,
+          canaryService as never,
+          {} as never,
+          {} as never,
+          {} as never,
+          {} as never,
+          {} as never
+        ),
+        canaryService,
+      };
+    };
+
+    it('adds canary-space v2 status for list items that are not new-base v2', async () => {
+      const { service, canaryService } = createService();
+
+      const result = await service.enrichBaseListV2Status([
+        { id: 'bse1', spaceId: 'spc1', v2Enabled: false },
+      ]);
+
+      expect(canaryService.shouldUseV2WithReason).toHaveBeenCalledTimes(1);
+      expect(canaryService.shouldUseV2WithReason).toHaveBeenCalledWith('spc1', 'getRecords');
+      expect(canaryService.isSpaceInCanary).toHaveBeenCalledWith('spc1');
+      expect(result[0]).toMatchObject({
+        id: 'bse1',
+        isCanary: true,
+        v2Status: { useV2: true, reason: 'space_feature' },
+      });
+    });
+
+    it('keeps new-base v2 status while batching space-level canary checks', async () => {
+      const { service, canaryService } = createService();
+
+      const result = await service.enrichBaseListV2Status([
+        { id: 'bse1', spaceId: 'spc1', v2Enabled: true },
+        { id: 'bse2', spaceId: 'spc1', v2Enabled: false },
+      ]);
+
+      expect(canaryService.shouldUseV2WithReason).toHaveBeenCalledTimes(1);
+      expect(result).toMatchObject([
+        {
+          id: 'bse1',
+          v2Status: { useV2: true, reason: 'new_base' },
+        },
+        {
+          id: 'bse2',
+          v2Status: { useV2: true, reason: 'space_feature' },
+        },
+      ]);
+    });
+  });
+
+  describe('getAllBaseList', () => {
+    it('includes v2 status for canary-space bases from the all-base list endpoint', async () => {
+      const spaceId = 'spc1';
+      const createdTime = new Date('2026-06-13T00:00:00.000Z');
+      const base = {
+        id: 'bse1',
+        name: 'Base',
+        order: 1,
+        spaceId,
+        icon: null,
+        createdBy: 'usr1',
+        createdTime,
+        lastModifiedTime: createdTime,
+        v2Enabled: false,
+      };
+      const prismaService = {
+        base: {
+          findMany: vi.fn().mockResolvedValue([base]),
+        },
+        user: {
+          findMany: vi.fn().mockResolvedValue([{ id: 'usr1', name: 'Nee', avatar: null }]),
+        },
+        baseShare: {
+          findMany: vi.fn().mockResolvedValue([]),
+        },
+      };
+      const collaboratorService = {
+        getCurrentUserCollaboratorsBaseAndSpaceArray: vi.fn().mockResolvedValue({
+          spaceIds: [spaceId],
+          baseIds: [],
+          roleMap: { [spaceId]: Role.Owner },
+        }),
+        buildSpaceOwnerContext: vi.fn().mockResolvedValue({
+          validCreatorSet: new Set([`${spaceId}:usr1`]),
+          spaceOwnerMap: new Map([[spaceId, 'usr1']]),
+        }),
+      };
+      const canaryService = {
+        shouldUseV2WithReason: vi.fn().mockResolvedValue({ useV2: true, reason: 'space_feature' }),
+        isSpaceInCanary: vi.fn().mockResolvedValue(true),
+      };
+      const testService = new BaseService(
+        prismaService as never,
+        {} as never,
+        {} as never,
+        collaboratorService as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        canaryService as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never
+      );
+
+      const result = await testService.getAllBaseList();
+
+      expect(canaryService.shouldUseV2WithReason).toHaveBeenCalledWith(spaceId, 'getRecords');
+      expect(result[0]).toMatchObject({
+        id: base.id,
+        role: Role.Owner,
+        isCanary: true,
+        v2Status: { useV2: true, reason: 'space_feature' },
+      });
+      expect(result[0]).not.toHaveProperty('v2Enabled');
+    });
+  });
+
   describe('getBaseById', () => {
     const createService = (params: {
       base: {
@@ -58,8 +200,8 @@ describe('BaseService', () => {
         service: new BaseService(
           prismaService as never,
           {} as never,
-          {} as never,
           cls as never,
+          {} as never,
           {} as never,
           {} as never,
           permissionService as never,
@@ -173,13 +315,14 @@ describe('BaseService', () => {
       const { service } = {
         service: new BaseService(
           {} as never,
-          defaultDataPrisma as never,
           dataDbClientManager as never,
           {} as never,
           {} as never,
           {} as never,
           {} as never,
+          {} as never,
           tableOpenApiService as never,
+          {} as never,
           {} as never,
           {} as never,
           {} as never,
@@ -215,6 +358,7 @@ describe('BaseService', () => {
         {} as never,
         {} as never,
         tableOpenApiService as never,
+        {} as never,
         {} as never,
         {} as never,
         {} as never,

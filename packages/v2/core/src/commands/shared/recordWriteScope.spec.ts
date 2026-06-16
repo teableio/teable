@@ -15,6 +15,7 @@ import { TableId } from '../../domain/table/TableId';
 import { TableName } from '../../domain/table/TableName';
 import type { TableRecordReadModel } from '../../ports/TableRecordReadModel';
 import type {
+  ITableRecordQueryOptions,
   ITableRecordQueryRepository,
   ITableRecordQueryResult,
 } from '../../ports/TableRecordQueryRepository';
@@ -43,7 +44,7 @@ const buildTable = () => {
 };
 
 class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
-  calls: Array<{ options?: { mode?: string; includeTotal?: boolean } }> = [];
+  calls: Array<{ options?: ITableRecordQueryOptions }> = [];
 
   constructor(private readonly result: Result<ITableRecordQueryResult, DomainError>) {}
 
@@ -51,7 +52,7 @@ class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
     _context: IExecutionContext,
     _table: Table,
     _spec?: unknown,
-    options?: { mode?: string; includeTotal?: boolean }
+    options?: ITableRecordQueryOptions
   ): Promise<Result<ITableRecordQueryResult, DomainError>> {
     this.calls.push({ options });
     return this.result;
@@ -121,7 +122,8 @@ describe('recordWriteScope', () => {
       requestedIds,
       RecordByIdsSpec.create(requestedIds),
       queryRepository,
-      'deleteMany'
+      'deleteMany',
+      { projectionFieldIds: [table.primaryFieldId()] }
     );
 
     expect(result.isErr()).toBe(true);
@@ -132,7 +134,15 @@ describe('recordWriteScope', () => {
       requestedRecordCount: 2,
       authorizedRecordCount: 1,
     });
-    expect(queryRepository.calls).toEqual([{ options: { mode: 'stored', includeTotal: false } }]);
+    expect(queryRepository.calls).toEqual([
+      {
+        options: {
+          mode: 'stored',
+          includeTotal: false,
+          projectionFieldIds: [table.primaryFieldId()],
+        },
+      },
+    ]);
   });
 
   it('propagates query repository errors', async () => {
