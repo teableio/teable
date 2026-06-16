@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import { context as otelContext, ROOT_CONTEXT } from '@opentelemetry/api';
 import Redis from 'ioredis';
 import type { Error as ShareDBError } from 'sharedb';
 import { PubSub } from 'sharedb';
@@ -122,7 +123,13 @@ export class RedisPubSub extends PubSub {
   }
 
   handleMessage(channel: string, message: string) {
-    this._emit(channel, JSON.parse(message));
+    // The message listener was registered during app bootstrap, so without
+    // detaching, every pubsub-triggered query poll (and its loopback HTTP
+    // call) inherits the bootstrap trace and piles up in one giant trace for
+    // the pod's whole lifetime. ROOT_CONTEXT lets each poll start its own.
+    otelContext.with(ROOT_CONTEXT, () => {
+      this._emit(channel, JSON.parse(message));
+    });
   }
 
   _unsubscribe(channel: string, callback: (err: ShareDBError | null) => void): void {

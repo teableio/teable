@@ -5,10 +5,12 @@ import {
   domainError,
   generatePrefixedId,
   type DomainError,
+  type IComputedFieldBackfillService,
   type IExecutionContext,
   type IHasher,
   type ILogger,
   type ITableRepository,
+  type ComputedFieldBackfillManyResult,
   type LinkField,
   type Table,
   v2CoreTokens,
@@ -33,7 +35,15 @@ type ComputedFieldBackfillInput = {
   field: Field;
 };
 
+export type { ComputedFieldBackfillManyResult } from '@teable/v2-core';
+
 const BACKFILL_SYNC_FIELD_CHUNK_SIZE = 1;
+
+const hasTrackedFieldIds = (
+  field: Field
+): field is Field & { trackedFieldIds: () => ReadonlyArray<unknown> } => {
+  return 'trackedFieldIds' in field && typeof field.trackedFieldIds === 'function';
+};
 
 const chunkArray = <T>(items: ReadonlyArray<T>, size: number): ReadonlyArray<ReadonlyArray<T>> => {
   if (size <= 0 || items.length <= size) return [items];
@@ -104,7 +114,7 @@ export const defaultFieldBackfillConfig: FieldBackfillConfig = {
  * ```
  */
 @injectable()
-export class ComputedFieldBackfillService {
+export class ComputedFieldBackfillService implements IComputedFieldBackfillService {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: ITableRepository,
@@ -170,14 +180,14 @@ export class ComputedFieldBackfillService {
       skipDistinctFilter?: boolean;
       includeOneManyTwoWay?: boolean;
     }
-  ): Promise<Result<void, DomainError>> {
+  ): Promise<Result<ComputedFieldBackfillManyResult, DomainError>> {
     const computedFieldsResult = await this.collectBackfillFields(context, input);
     if (computedFieldsResult.isErr()) {
       return err(computedFieldsResult.error);
     }
     const computedFields = computedFieldsResult.value;
     if (computedFields.length === 0) {
-      return ok(undefined);
+      return ok({ fields: [] });
     }
 
     if (
@@ -188,22 +198,24 @@ export class ComputedFieldBackfillService {
         tableId: input.table.id().toString(),
         fieldIds: computedFields.map((field) => field.id().toString()),
       });
-      return this.enqueueMany(context, {
+      const result = await this.enqueueMany(context, {
         table: input.table,
         fields: computedFields,
         includeOneManyTwoWay: input.includeOneManyTwoWay,
       });
+      return result.map(() => ({ fields: computedFields }));
     }
 
     // Determine execution mode
     const shouldAsync = await this.shouldUseAsyncMode(context, input.table);
 
     if (shouldAsync) {
-      return this.enqueueMany(context, {
+      const result = await this.enqueueMany(context, {
         table: input.table,
         fields: computedFields,
         includeOneManyTwoWay: input.includeOneManyTwoWay,
       });
+      return result.map(() => ({ fields: computedFields }));
     }
 
     const syncResult = await this.executeSyncMany(context, {
@@ -216,7 +228,7 @@ export class ComputedFieldBackfillService {
       return syncResult;
     }
 
-    return this.enqueueManyAfterSyncFailure(
+    const fallbackResult = await this.enqueueManyAfterSyncFailure(
       context,
       {
         table: input.table,
@@ -225,6 +237,7 @@ export class ComputedFieldBackfillService {
       },
       syncResult.error
     );
+    return fallbackResult.map(() => ({ fields: computedFields }));
   }
 
   private async enqueueAfterSyncFailure(
@@ -382,6 +395,7 @@ export class ComputedFieldBackfillService {
         const builder = new ComputedTableRecordQueryBuilder(db, {
           typeValidationStrategy: this.typeValidationStrategy,
           forceLookupArrayOutput: true,
+          resolveSystemUserSnapshotsFromUsers: true,
         })
           .from(input.table)
           .select([fieldId]);
@@ -446,12 +460,12 @@ export class ComputedFieldBackfillService {
       skipDistinctFilter?: boolean;
       includeOneManyTwoWay?: boolean;
     }
-  ): Promise<Result<void, DomainError>> {
+  ): Promise<Result<ComputedFieldBackfillManyResult, DomainError>> {
     const computedFields = input.fields.filter((f) =>
       this.needsBackfill(f, input.includeOneManyTwoWay)
     );
     if (computedFields.length === 0) {
-      return ok(undefined);
+      return ok({ fields: [] });
     }
 
     const filtered: Field[] = [];
@@ -460,7 +474,7 @@ export class ComputedFieldBackfillService {
       if (persistedAsGenerated.isErr()) return err(persistedAsGenerated.error);
       if (!persistedAsGenerated.value) filtered.push(field);
     }
-    if (filtered.length === 0) return ok(undefined);
+    if (filtered.length === 0) return ok({ fields: [] });
 
     const db = this.resolveDb(context);
     const fieldIds = filtered.map((f) => f.id());
@@ -470,7 +484,7 @@ export class ComputedFieldBackfillService {
       fieldIds: fieldIds.map((id) => id.toString()),
     });
 
-    return safeTry<void, DomainError>(
+    return safeTry<ComputedFieldBackfillManyResult, DomainError>(
       async function* (this: ComputedFieldBackfillService) {
         const fieldChunks = chunkArray(filtered, BACKFILL_SYNC_FIELD_CHUNK_SIZE);
         for (let index = 0; index < fieldChunks.length; index += 1) {
@@ -480,6 +494,7 @@ export class ComputedFieldBackfillService {
           const builder = new ComputedTableRecordQueryBuilder(db, {
             typeValidationStrategy: this.typeValidationStrategy,
             forceLookupArrayOutput: true,
+            resolveSystemUserSnapshotsFromUsers: true,
           })
             .from(input.table)
             .select(chunkFieldIds);
@@ -529,7 +544,7 @@ export class ComputedFieldBackfillService {
           fieldCount: fieldIds.length,
         });
 
-        return ok(undefined);
+        return ok({ fields: filtered });
       }.bind(this)
     );
   }
@@ -540,6 +555,15 @@ export class ComputedFieldBackfillService {
    * link fields (which store JSONB values derived from FK/junction relationships).
    */
   private needsBackfill(field: Field, includeOneManyTwoWay = false): boolean {
+    if (
+      (field.type().equals(FieldType.lastModifiedTime()) ||
+        field.type().equals(FieldType.lastModifiedBy())) &&
+      hasTrackedFieldIds(field) &&
+      field.trackedFieldIds().length > 0
+    ) {
+      return false;
+    }
+
     // Computed fields (formula, lookup, rollup, conditionalLookup, conditionalRollup)
     const specResult = Field.specs().isComputed().build();
     if (specResult.isOk() && specResult.value.isSatisfiedBy(field)) {

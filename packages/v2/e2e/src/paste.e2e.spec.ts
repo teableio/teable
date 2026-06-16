@@ -5,7 +5,9 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 import {
   setupGroupedLinkRangeFixture,
+  setupGroupedSingleSelectRangeFixture,
   type GroupedLinkRangeFixture,
+  type GroupedSingleSelectRangeFixture,
 } from './shared/groupedLinkRangeFixture';
 
 /**
@@ -3582,6 +3584,66 @@ describe('v2 http paste (e2e)', () => {
     });
   });
 
+  describe('paste with grouped singleSelect view order parity', () => {
+    const expectOnlySecondVisibleRowPasted = async (
+      fixture: GroupedSingleSelectRangeFixture,
+      value: string
+    ) => {
+      const records = await ctx.listRecords(fixture.tableId);
+      const order2 = records.find((record) => record.id === fixture.recordIds.order2);
+      const order3 = records.find((record) => record.id === fixture.recordIds.order3);
+      const order4 = records.find((record) => record.id === fixture.recordIds.order4);
+
+      // Visible order follows the view row order (reverse of creation), so the
+      // second visible row is 加单3.
+      expect(order4?.fields[fixture.nameFieldId]).toBe('加单4');
+      expect(order3?.fields[fixture.nameFieldId]).toBe(value);
+      expect(order2?.fields[fixture.nameFieldId]).toBe('加单2');
+    };
+
+    it('should paste to the visible row in a saved grouped view when row order differs', async () => {
+      const fixture = await setupGroupedSingleSelectRangeFixture(ctx, 'paste-saved-group', {
+        persistViewQuery: true,
+      });
+      const value = '保存视图粘贴';
+
+      const result = await ctx.paste({
+        tableId: fixture.tableId,
+        viewId: fixture.viewId,
+        ranges: [
+          [0, 1],
+          [0, 1],
+        ],
+        content: [[value]],
+      });
+
+      expect(result.updatedCount).toBe(1);
+      await expectOnlySecondVisibleRowPasted(fixture, value);
+    });
+
+    it('should paste to the visible row in a personal grouped view request', async () => {
+      const fixture = await setupGroupedSingleSelectRangeFixture(ctx, 'paste-personal-group');
+      const value = '个人视图粘贴';
+
+      const result = await ctx.paste({
+        tableId: fixture.tableId,
+        viewId: fixture.viewId,
+        ranges: [
+          [0, 1],
+          [0, 1],
+        ],
+        content: [[value]],
+        ignoreViewQuery: true,
+        groupBy: fixture.groupByAsc,
+        sort: fixture.sortAsc,
+        projection: fixture.projection,
+      });
+
+      expect(result.updatedCount).toBe(1);
+      await expectOnlySecondVisibleRowPasted(fixture, value);
+    });
+  });
+
   describe('paste with multi-column sort', () => {
     let multiSortTableId: string;
     let multiSortViewId: string;
@@ -3896,11 +3958,11 @@ describe('v2 http paste (e2e)', () => {
 
     it('should paste to correct row at large offset when sort values tie', async () => {
       const targetOffset = 400;
-      const orderColumn = `__row_${tieViewId}`;
+      // All sort values tie, so the visible order follows the view row order column.
       const expected = await sql<{ __id: string }>`
         SELECT "__id"
         FROM ${sql.table(tieDbTableName)}
-        ORDER BY ${sql.ref(orderColumn)} ASC
+        ORDER BY ${sql.ref(`__row_${tieViewId}`)} ASC
         OFFSET ${targetOffset}
         LIMIT 1
       `.execute(ctx.testContainer.db);

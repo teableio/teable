@@ -6,6 +6,7 @@ import {
   Colors,
   FieldKeyType,
   FieldType,
+  Me,
   MultiNumberDisplayType,
   Relationship,
   Role,
@@ -33,7 +34,9 @@ import {
   getFields,
   deleteSelection,
   clear,
+  updateRecordOrders,
   updateViewFilter,
+  updateViewGroup,
   updateViewSort,
   USER_ME,
   UPDATE_USER_NAME,
@@ -52,6 +55,7 @@ import {
   initApp,
   createTable,
   createRecords,
+  convertField,
   permanentDeleteTable,
   permanentDeleteSpace,
   updateRecordByApi,
@@ -2304,35 +2308,37 @@ describe('OpenAPI SelectionController (e2e)', () => {
       const recordOpenApiV2Service = app.get(RecordOpenApiV2Service);
       const deleteByRangeStreamSpy = vi
         .spyOn(recordOpenApiV2Service, 'deleteByRangeStream')
-        .mockImplementation(async function* () {
-          yield {
-            id: 'progress',
-            phase: 'deleting',
-            batchIndex: 0,
-            totalCount: 3,
-            deletedCount: 1,
-            batchDeletedCount: 1,
-          };
-          yield {
-            id: 'error',
-            phase: 'deleting',
-            batchIndex: 1,
-            totalCount: 3,
-            deletedCount: 1,
-            recordIds: [streamTable.records[1]!.id],
-            message: 'chunk 2 failed',
-            code: 'unexpected',
-          };
-          yield {
-            id: 'done',
-            totalCount: 3,
-            deletedCount: 2,
-            data: {
+        .mockImplementation(async () =>
+          (async function* () {
+            yield {
+              id: 'progress',
+              phase: 'deleting',
+              batchIndex: 0,
+              totalCount: 3,
+              deletedCount: 1,
+              batchDeletedCount: 1,
+            };
+            yield {
+              id: 'error',
+              phase: 'deleting',
+              batchIndex: 1,
+              totalCount: 3,
+              deletedCount: 1,
+              recordIds: [streamTable.records[1]!.id],
+              message: 'chunk 2 failed',
+              code: 'unexpected',
+            };
+            yield {
+              id: 'done',
+              totalCount: 3,
               deletedCount: 2,
-              deletedRecordIds: [streamTable.records[0]!.id, streamTable.records[2]!.id],
-            },
-          };
-        });
+              data: {
+                deletedCount: 2,
+                deletedRecordIds: [streamTable.records[0]!.id, streamTable.records[2]!.id],
+              },
+            };
+          })()
+        );
 
       try {
         const { progressEvents, doneEvent, errorEvents } = await deleteStreamWithCanary(
@@ -3188,6 +3194,98 @@ describe('OpenAPI SelectionController (e2e)', () => {
     });
   });
 
+  describe('paste with sort ties and manual row order (personal view)', () => {
+    /**
+     * Repro for paste row misalignment under personal views:
+     * the grid displays rows via the v1 read path, which always breaks sort
+     * ties by the view's manual row order (__row_{viewId}), while v2 range
+     * commands broke ties by __auto_number. With duplicate sort values and a
+     * manually reordered row, paste targeted a different record than the one
+     * displayed at the same offset.
+     */
+    let tieTable: ITableFullVo;
+
+    beforeEach(async () => {
+      // Creation order (auto number): A, B, C tie in group 1; D, E in group 2
+      tieTable = await createTable(baseId, {
+        name: 'tie-paste-table',
+        fields: [
+          { name: 'Name', type: FieldType.SingleLineText },
+          { name: 'Group', type: FieldType.Number },
+        ],
+        records: [
+          { fields: { Name: 'RecordA', Group: 1 } },
+          { fields: { Name: 'RecordB', Group: 1 } },
+          { fields: { Name: 'RecordC', Group: 1 } },
+          { fields: { Name: 'RecordD', Group: 2 } },
+          { fields: { Name: 'RecordE', Group: 2 } },
+        ],
+      });
+      // Make the manual row order differ from creation order within the tied
+      // group: move C before A -> view row order: C, A, B, D, E
+      await updateRecordOrders(tieTable.id, tieTable.views[0].id, {
+        anchorId: tieTable.records[0].id,
+        position: 'before',
+        recordIds: [tieTable.records[2].id],
+      });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, tieTable.id);
+    });
+
+    it.each(
+      isForceV2
+        ? [{ label: 'v2-forced', useV2: true }]
+        : [
+            { label: 'v1', useV2: false },
+            { label: 'v2', useV2: true },
+          ]
+    )('should paste into the displayed row when the sort has ties ($label)', async ({ useV2 }) => {
+      const nameField = tieTable.fields.find((f) => f.name === 'Name')!;
+      const groupField = tieTable.fields.find((f) => f.name === 'Group')!;
+      // Mimic a personal view: the client sends its own sort with
+      // ignoreViewQuery instead of relying on the saved view config.
+      const personalViewQuery = {
+        viewId: tieTable.views[0].id,
+        ignoreViewQuery: true,
+        orderBy: [{ fieldId: groupField.id, order: SortFunc.Asc }],
+      };
+
+      // Ground truth: the row order the grid displays (v1 read path breaks
+      // the Group=1 tie by manual row order, so RecordC is the first row).
+      const displayed = await getRecordsWithCanary(
+        tieTable.id,
+        { ...personalViewQuery, fieldKeyType: FieldKeyType.Id },
+        false
+      );
+      expect(displayed.data.records[0].fields[nameField.id]).toBe('RecordC');
+
+      // Paste a single cell into the first displayed row (Name column).
+      await pasteWithCanary(
+        tieTable.id,
+        {
+          ...personalViewQuery,
+          content: 'PastedTop',
+          ranges: [
+            [0, 0],
+            [0, 0],
+          ],
+        },
+        useV2
+      );
+
+      const allRecords = await getRecords(tieTable.id, { fieldKeyType: FieldKeyType.Id });
+      const recordC = allRecords.data.records.find((r) => r.id === tieTable.records[2].id);
+      const recordA = allRecords.data.records.find((r) => r.id === tieTable.records[0].id);
+
+      // The displayed first row (RecordC) must receive the pasted value;
+      // RecordA (first by auto number within the tie) must stay unchanged.
+      expect(recordC?.fields[nameField.id]).toBe('PastedTop');
+      expect(recordA?.fields[nameField.id]).toBe('RecordA');
+    });
+  });
+
   describe('paste with view-level sort and filter (no client orderBy)', () => {
     /**
      * Regression test: when the view has a saved sort/filter but the client
@@ -3872,5 +3970,125 @@ describe('OpenAPI SelectionController (e2e)', () => {
         ).toBe(false);
       }
     );
+
+    it('T4992 should paste grouped tail rows in v2 when the view filter references Me', async () => {
+      const assigneeValue = {
+        id: globalThis.testConfig.userId,
+        title: globalThis.testConfig.userName,
+        email: globalThis.testConfig.email,
+      };
+      const requiredTable = await createTable(baseId, {
+        name: 'T4992 grouped paste required field',
+        fields: [
+          { name: 'Title', type: FieldType.SingleLineText },
+          {
+            name: 'Status',
+            type: FieldType.SingleSelect,
+            options: {
+              choices: [
+                { name: 'Need more information', color: Colors.Red },
+                { name: 'Added to backlog', color: Colors.Teal },
+                { name: 'Entered development workflow', color: Colors.Purple },
+                { name: 'Launched', color: Colors.Green },
+                { name: 'Closed as completed', color: Colors.Green },
+                { name: 'Closed as not planned', color: Colors.Red },
+              ],
+            },
+          },
+          { name: 'Assignee', type: FieldType.User },
+          { name: 'Email', type: FieldType.SingleLineText },
+        ],
+        records: [
+          ...Array.from({ length: 14 }, (_, index) => ({
+            fields: {
+              Title: `Blank-${index + 1}`,
+              Assignee: assigneeValue,
+              Email: `blank-${index + 1}@example.com`,
+            },
+          })),
+          ...Array.from({ length: 3 }, (_, index) => ({
+            fields: {
+              Title: `Need-${index + 1}`,
+              Status: 'Need more information',
+              Assignee: assigneeValue,
+              Email: `need-${index + 1}@example.com`,
+            },
+          })),
+          ...Array.from({ length: 7 }, (_, index) => ({
+            fields: {
+              Title: `Backlog-${index + 1}`,
+              Status: 'Added to backlog',
+              Assignee: assigneeValue,
+              Email: `backlog-${index + 1}@example.com`,
+            },
+          })),
+          ...Array.from({ length: 5 }, (_, index) => ({
+            fields: {
+              Title: `Workflow-${index + 1}`,
+              Status: 'Entered development workflow',
+              Assignee: assigneeValue,
+              Email: `workflow-${index + 1}@example.com`,
+            },
+          })),
+        ],
+      });
+
+      try {
+        const viewId = requiredTable.views[0].id;
+        const statusField = requiredTable.fields.find((field) => field.name === 'Status')!;
+        const assigneeField = requiredTable.fields.find((field) => field.name === 'Assignee')!;
+        const emailField = requiredTable.fields.find((field) => field.name === 'Email')!;
+        await convertField(requiredTable.id, emailField.id, { ...emailField, notNull: true });
+        await updateViewFilter(requiredTable.id, viewId, {
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              { fieldId: assigneeField.id, operator: 'is', value: Me },
+              {
+                fieldId: statusField.id,
+                operator: 'isNoneOf',
+                value: ['Closed as not planned', 'Closed as completed', 'Launched'],
+              },
+            ],
+          },
+        });
+        const groupBy = [{ fieldId: statusField.id, order: SortFunc.Asc }] as const;
+        await updateViewGroup(requiredTable.id, viewId, { group: [...groupBy] });
+
+        const pasteRes = await pasteWithCanary(
+          requiredTable.id,
+          {
+            viewId,
+            content: [['Launched']],
+            ranges: [
+              [1, 24],
+              [1, 28],
+            ],
+            header: [statusField],
+            groupBy: [...groupBy],
+          },
+          true
+        );
+
+        expect(pasteRes.status).toBe(200);
+        expect(pasteRes.headers['x-teable-v2']).toBe('true');
+
+        const allRecords = await getRecords(requiredTable.id, {
+          fieldKeyType: FieldKeyType.Id,
+          take: 100,
+        });
+
+        expect(allRecords.data.records).toHaveLength(29);
+        const workflowRecords = allRecords.data.records.filter((record) =>
+          String(record.fields[requiredTable.fields[0].id] ?? '').startsWith('Workflow-')
+        );
+        expect(workflowRecords).toHaveLength(5);
+        expect(
+          workflowRecords.every((record) => record.fields[statusField.id] === 'Launched')
+        ).toBe(true);
+      } finally {
+        await permanentDeleteTable(baseId, requiredTable.id);
+      }
+    });
   });
 });

@@ -5,7 +5,10 @@ import z from 'zod';
 import { domainError, type DomainError } from '../../../../shared/DomainError';
 import type { Field } from '../../../fields/Field';
 import { FieldType } from '../../../fields/FieldType';
-import { FieldCellValueSchemaVisitor } from '../../../fields/visitors/FieldCellValueSchemaVisitor';
+import {
+  FieldCellValueSchemaVisitor,
+  type FieldCellValueSchema,
+} from '../../../fields/visitors/FieldCellValueSchemaVisitor';
 import { SetFieldValueSpecFactoryVisitor } from '../../../fields/visitors/SetFieldValueSpecFactoryVisitor';
 import type { ICellValueSpec } from './ICellValueSpecVisitor';
 import { NoopCellValueSpec } from './NoopCellValueSpec';
@@ -32,7 +35,11 @@ export class SetFieldValueSpecFactory {
    * @param value - The raw value to validate and wrap
    * @returns A Result containing either the spec or a validation error
    */
-  static create(field: Field, value: unknown): Result<ICellValueSpec, DomainError> {
+  static create(
+    field: Field,
+    value: unknown,
+    schema?: FieldCellValueSchema
+  ): Result<ICellValueSpec, DomainError> {
     if (field.type().equals(FieldType.button())) {
       return ok(NoopCellValueSpec.create());
     }
@@ -53,9 +60,8 @@ export class SetFieldValueSpecFactory {
       }
       return ok(ClearFieldValueSpec.create(field));
     }
-    // Step 1: Get the validation schema for this field type
-    const schemaVisitor = FieldCellValueSchemaVisitor.create();
-    return field.accept(schemaVisitor).andThen((schema) => {
+    const schemaResult = schema ? ok(schema) : field.accept(FieldCellValueSchemaVisitor.create());
+    return schemaResult.andThen((schema) => {
       // Step 2: Validate the value against the schema
       const parseResult = schema.safeParse(value);
       if (!parseResult.success) {
