@@ -78,4 +78,14 @@ describe('direct field references', () => {
       }
     });
   });
+
+  describe('attachment field display value extraction', () => {
+    it('should return attachment filenames, not raw JSON objects', async () => {
+      const context = await buildFormulaSnapshotContext(testTable, 'Direct_Attachment');
+
+      expect(context.result).toBe('10, 20');
+      expect(context.result).not.toContain('"id"');
+      expect(context.result).not.toContain('"mimetype"');
+    });
+  });
 });

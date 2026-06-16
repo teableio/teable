@@ -46,6 +46,16 @@ describe('update-field: user property updates', () => {
     return fieldId;
   };
 
+  const getPersistedMultiplicity = async (fieldId: string) => {
+    const row = await ctx.testContainer.db
+      .selectFrom('field')
+      .select('is_multiple_cell_value')
+      .where('id', '=', fieldId)
+      .executeTakeFirst();
+
+    return row?.is_multiple_cell_value;
+  };
+
   beforeAll(async () => {
     ctx = await getSharedTestContext();
 
@@ -87,6 +97,7 @@ describe('update-field: user property updates', () => {
     if (isUserField(updatedField!)) {
       expect(updatedField.options?.isMultiple).toBe(true);
     }
+    expect(await getPersistedMultiplicity(fieldId)).toBe(true);
 
     const records = await ctx.listRecordsWithoutDrain(tableId);
     const v1 = records.find((r) => r.id === r1.id)?.fields[fieldId] as
@@ -101,6 +112,49 @@ describe('update-field: user property updates', () => {
 
     await ctx.deleteField({ tableId, fieldId });
     await ctx.deleteRecords(tableId, [r1.id, r2.id]);
+  });
+
+  test('should refresh dependent formula when converting single user to multiple users', async () => {
+    const fieldId = await createUserField('Single User Formula Source', {
+      isMultiple: false,
+      shouldNotify: false,
+    });
+    const formulaFieldId = createFieldId();
+    await ctx.createField({
+      baseId: ctx.baseId,
+      tableId,
+      field: {
+        type: 'formula',
+        id: formulaFieldId,
+        name: 'User Formula',
+        options: { expression: `{${fieldId}}` },
+      },
+    });
+    const r1 = await ctx.createRecord(tableId, {
+      [fieldId]: { id: ctx.testUser.id, title: ctx.testUser.name, email: ctx.testUser.email },
+    });
+
+    const beforeRecords = await ctx.listRecords(tableId);
+    expect(beforeRecords.find((r) => r.id === r1.id)?.fields[formulaFieldId]).toBe(
+      ctx.testUser.name
+    );
+
+    await ctx.updateField({
+      tableId,
+      fieldId,
+      field: { type: 'user', options: { isMultiple: true, shouldNotify: false } },
+    });
+
+    const records = await ctx.listRecords(tableId);
+    const record = records.find((r) => r.id === r1.id);
+    expect(record?.fields[fieldId]).toMatchObject([
+      { id: ctx.testUser.id, title: ctx.testUser.name, email: ctx.testUser.email },
+    ]);
+    expect(record?.fields[formulaFieldId]).toEqual([ctx.testUser.name]);
+
+    await ctx.deleteField({ tableId, fieldId: formulaFieldId });
+    await ctx.deleteField({ tableId, fieldId });
+    await ctx.deleteRecords(tableId, [r1.id]);
   });
 
   test('should convert multiple users to single user', async () => {
@@ -127,6 +181,7 @@ describe('update-field: user property updates', () => {
     if (isUserField(updatedField!)) {
       expect(updatedField.options?.isMultiple).toBe(false);
     }
+    expect(await getPersistedMultiplicity(fieldId)).toBe(false);
 
     const records = await ctx.listRecordsWithoutDrain(tableId);
     const value = records.find((r) => r.id === r1.id)?.fields[fieldId] as

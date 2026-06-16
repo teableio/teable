@@ -464,6 +464,9 @@
         "attachmentNotSupported": "💡 当前模型不支持传入附件，仅 Gemini 模型支持图生图",
         "singleImageOnly": "该模型每次只能生成一张图片"
       },
+      "tip": {
+        "gptImageResolution": "受总像素上限限制，4K 模式会使用当前可生成的最大合规尺寸"
+      },
       "auto": "自动",
       "resolution": {
         "1K": "1K (标准)",
@@ -1136,6 +1139,7 @@
     "noPermission": "你没有权限访问数据库连接",
     "connectionCountTip": "最大数据库连接数为 <b>{{max}}</b> 当前已建立的连接数为 <b>{{current}}</b>",
     "createFailed": "请确保环境变量 PUBLIC_DATABASE_PROXY 设置正确",
+    "readonlyUnavailable": "当前数据数据库不支持创建只读分享连接。请为 Teable 数据库用户授予创建角色和授权的权限，或更换支持只读角色的数据库。",
     "helpLink": "https://help.teable.cn/zh/deploy/database-connection"
   },
   "view": {
@@ -1317,7 +1321,8 @@
       },
       "contextCompaction": {
         "auto": "上下文已自动压缩",
-        "manual": "上下文已压缩"
+        "manual": "上下文已压缩",
+        "compacting": "正在压缩上下文…"
       },
       "taskProgress": {
         "title": "任务进度"
@@ -1421,7 +1426,12 @@
     },
     "inputPlaceholder": "输入 @ 添加节点",
     "inputPlaceholderFiles": "粘贴或拖入文件",
-    "thought": "深度思考",
+    "thought": "思考中",
+    "stage": {
+      "initializing": "初始化",
+      "working": "工作中",
+      "committing": "提交中"
+    },
     "meta": {
       "input": "输入",
       "output": "输出",
@@ -1458,6 +1468,10 @@
     "queue": {
       "nQueued": "{{count}} 条排队中",
       "edit": "编辑",
+      "steerNow": "发送补充，不中断模型运行",
+      "steerFailed": "发送失败，消息已保留在队列中",
+      "steeredBadge": "已补充",
+      "steeredBadgeTooltip": "运行中发送的补充消息，不会中断当前任务",
       "forceSend": "中断并立即发送",
       "removeFromQueue": "移除"
     },
@@ -1467,14 +1481,19 @@
       "write": "创建文件",
       "edit": "编辑文件",
       "glob": "查找文件",
+      "find": "查找文件",
       "grep": "搜索文件内容",
+      "ls": "列出目录",
       "webSearch": "搜索网页",
       "skill": "加载技能",
       "foundFiles": "找到 {{count}} 个文件",
+      "listedEntries": "{{count}} 个条目",
       "moreTools": "还有 {{count}} 个工具",
       "moreItems": "还有 {{count}} 个",
       "fallbackName": "工具",
-      "questionCount_other": "{{count}} 个问题"
+      "questionCount_other": "{{count}} 个问题",
+      "presentFiles": "已生成文件",
+      "download": "下载"
     },
     "retry": {
       "interrupted": "响应已中断",

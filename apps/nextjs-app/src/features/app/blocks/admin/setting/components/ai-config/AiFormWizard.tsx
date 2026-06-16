@@ -13,9 +13,11 @@ import type {
 } from '@teable/openapi';
 import { Button, Form } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
+import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useIsCloud } from '@/features/app/hooks/useIsCloud';
+import type { IModelOption } from './AiModelSelect';
 import { AISetupWizard, useAISetupSteps, type LLMApiMode } from './AISetupWizard';
 import { DefaultModelsStep } from './DefaultModelsStep';
 import { GatewayModelsStep } from './GatewayModelsStep';
@@ -64,12 +66,14 @@ interface IAIConfigFormWizardProps {
   onSaveAiConfig: (payload: IUpdateAiConfigRo) => Promise<unknown>;
   /** Whether to show pricing/billing related UI. Defaults to isCloud. */
   showPricing?: boolean;
+  chatModelExtension?: (params: { models: IModelOption[] }) => ReactNode;
 }
 
 export function AIConfigFormWizard({
   aiConfig,
   onSaveAiConfig,
   showPricing,
+  chatModelExtension,
 }: IAIConfigFormWizardProps) {
   const isCloud = useIsCloud();
   // showPricing defaults to isCloud if not explicitly provided
@@ -487,6 +491,7 @@ export function AIConfigFormWizard({
                 models={availableModels}
                 onChange={updateChatModel}
                 disabled={!isStep2Complete}
+                agentRoutingSlot={chatModelExtension?.({ models: availableModels })}
               />
               {isDefaultModelsDirty && (
                 <StepSaveBar
