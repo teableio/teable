@@ -111,6 +111,19 @@ const isTrackedLastModifiedField = (field: core.Field): boolean => {
   );
 };
 
+const hasLastModifiedByField = (table: core.Table): boolean =>
+  table.getFields().some((field) => field.type().equals(core.FieldType.lastModifiedBy()));
+
+const isPendingTableInitializationRecordInsert = (
+  context: core.IExecutionContext,
+  table: core.Table,
+  changeType: 'insert' | 'update' | 'delete'
+): boolean =>
+  changeType === 'insert' &&
+  (context.pendingTableDataInitialization?.tableIds.includes(table.id().toString()) === true ||
+    (context.duplicateTable?.includeRecords === true &&
+      context.duplicateTable.duplicatedTableId === table.id().toString()));
+
 const buildDistinctUserFieldWhere = (
   table: core.Table,
   setClauses: Record<string, unknown>
@@ -275,6 +288,13 @@ interface InternalInsertManyOptions extends core.InsertOptions {
    * infrastructure is installed in ephemeral databases.
    */
   skipSnapshotCapture?: boolean;
+
+  /**
+   * When true, do not return changed field payloads for inserted rows. Bulk
+   * restore/duplicate flows only need the row count and can avoid pulling large
+   * JSON/text values back from Postgres.
+   */
+  skipChangedFields?: boolean;
 }
 
 /**
@@ -937,7 +957,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
 
   private async resolveRestoreActorIdentity(
     db: Kysely<DynamicDB>,
-    userId: string | undefined,
+    userId: string | null | undefined,
     fallback: ActorIdentity
   ): Promise<ActorIdentity> {
     if (!userId) {
@@ -945,6 +965,19 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
     }
 
     return this.resolveActorIdentity(db, userId, fallback);
+  }
+
+  private async resolveUpdateActorIdentity(
+    context: core.IExecutionContext,
+    table: core.Table,
+    actorId: string,
+    actorContext: ActorIdentity
+  ): Promise<ActorIdentity> {
+    if (!hasLastModifiedByField(table) || actorContext.actorName != null) {
+      return actorContext;
+    }
+
+    return this.resolveActorIdentity(this.resolveMetaDb(context), actorId, actorContext);
   }
 
   async insert(
@@ -977,7 +1010,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         );
         const lastModifiedByIdentity = await this.resolveRestoreActorIdentity(
           actorLookupDb,
-          restoreValues?.lastModifiedBy,
+          restoreValues?.lastModifiedBy ?? undefined,
           restoreValues?.lastModifiedBy === restoreValues?.createdBy
             ? createdByIdentity
             : restoreValues?.lastModifiedBy === actorId
@@ -1014,10 +1047,10 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             ...(createdByIdentity.actorEmail
               ? { createdByEmail: createdByIdentity.actorEmail }
               : {}),
-            ...(restoreValues?.lastModifiedTime
+            ...(restoreValues?.lastModifiedTime !== undefined
               ? { lastModifiedTime: restoreValues.lastModifiedTime }
               : {}),
-            ...(restoreValues?.lastModifiedBy
+            ...(restoreValues?.lastModifiedBy !== undefined
               ? { lastModifiedBy: restoreValues.lastModifiedBy }
               : {}),
             ...(lastModifiedByIdentity.actorName
@@ -1204,7 +1237,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         const actorIdentity = await this.resolveActorIdentity(actorLookupDb, actorId, actorContext);
         const restoreIdentityCache = new Map<string, ActorIdentity>();
         const resolveRestoreIdentity = async (
-          userId: string | undefined,
+          userId: string | null | undefined,
           fallback: ActorIdentity
         ) => {
           if (!userId) {
@@ -1274,7 +1307,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             restoreValues?.createdBy === actorId ? actorIdentity : {}
           );
           const lastModifiedByIdentity = await resolveRestoreIdentity(
-            restoreValues?.lastModifiedBy,
+            restoreValues?.lastModifiedBy ?? undefined,
             restoreValues?.lastModifiedBy === restoreValues?.createdBy
               ? createdByIdentity
               : restoreValues?.lastModifiedBy === actorId
@@ -1300,10 +1333,10 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
               ...(createdByIdentity.actorEmail
                 ? { createdByEmail: createdByIdentity.actorEmail }
                 : {}),
-              ...(restoreValues?.lastModifiedTime
+              ...(restoreValues?.lastModifiedTime !== undefined
                 ? { lastModifiedTime: restoreValues.lastModifiedTime }
                 : {}),
-              ...(restoreValues?.lastModifiedBy
+              ...(restoreValues?.lastModifiedBy !== undefined
                 ? { lastModifiedBy: restoreValues.lastModifiedBy }
                 : {}),
               ...(lastModifiedByIdentity.actorName
@@ -1433,7 +1466,9 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             uniqueChangedFieldIds.push(fieldId);
             uniqueChangedFieldIdSet.add(fieldIdStr);
           }
-          const changedFieldColumns = yield* toChangedFieldColumns(table, uniqueChangedFieldIds);
+          const changedFieldColumns = options?.skipChangedFields
+            ? []
+            : yield* toChangedFieldColumns(table, uniqueChangedFieldIds);
           const changedFieldsByRecord = new Map<string, ReadonlyMap<string, unknown>>();
           for (let i = 0; i < allValues.length; i += batchSize) {
             const batch = allValues.slice(i, i + batchSize);
@@ -1578,6 +1613,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       const result = await this.insertMany(context, batchTable, records, {
         skipComputedUpdates: skipComputed || deferComputed,
         skipSnapshotCapture: restoreRecordsById != null,
+        skipChangedFields: options?.skipChangedFields,
         ...(restoreRecordsById ? { restoreRecordsById } : {}),
       });
       if (result.isErr()) {
@@ -1750,6 +1786,12 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
 
         // Use transaction-aware database connection
         const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
+        const actorIdentity = await this.resolveUpdateActorIdentity(
+          context,
+          table,
+          actorId,
+          actorContext
+        );
 
         // Use RecordUpdateBuilder to build all SQL statements from mutateSpec
         const updateBuilder = new RecordUpdateBuilder(db);
@@ -1762,8 +1804,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             context: {
               actorId,
               now,
-              actorName: actorContext.actorName,
-              actorEmail: actorContext.actorEmail,
+              actorName: actorIdentity.actorName,
+              actorEmail: actorIdentity.actorEmail,
               ...(options?.fillLinkTitles ? { fillLinkTitles: true } : {}),
               ...(options?.fillLinkTitleForeignTables
                 ? { fillLinkTitleForeignTables: options.fillLinkTitleForeignTables }
@@ -1914,13 +1956,19 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         const deferComputed = !skipComputed && (options?.deferComputedUpdates ?? false);
         const enqueueDeferredComputedUpdates =
           deferComputed && (options?.enqueueDeferredComputedUpdates ?? false);
+        const actorIdentity = await this.resolveUpdateActorIdentity(
+          context,
+          table,
+          actorId,
+          actorContext
+        );
 
         const mutateVisitor = CellValueMutateVisitor.create(db, table, tableName, {
           recordId: '__bulk_update__',
           actorId,
           now,
-          actorName: actorContext.actorName,
-          actorEmail: actorContext.actorEmail,
+          actorName: actorIdentity.actorName,
+          actorEmail: actorIdentity.actorEmail,
           ...(options?.fillLinkTitles ? { fillLinkTitles: true } : {}),
           ...(options?.fillLinkTitleForeignTables
             ? { fillLinkTitleForeignTables: options.fillLinkTitleForeignTables }
@@ -2145,6 +2193,12 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         const deferComputed = !skipComputed && (options?.deferComputedUpdates ?? false);
         const enqueueDeferredComputedUpdates =
           deferComputed && (options?.enqueueDeferredComputedUpdates ?? false);
+        const actorIdentity = await this.resolveUpdateActorIdentity(
+          context,
+          table,
+          actorId,
+          actorContext
+        );
         const normalizeBatch = (
           batch: core.UpdateManyStreamBatchInput
         ): { batchTable: core.Table; updates: ReadonlyArray<core.RecordUpdateResult> } =>
@@ -2197,12 +2251,13 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             context: {
               actorId: context.actorId.toString(),
               now,
-              actorName: actorContext.actorName,
-              actorEmail: actorContext.actorEmail,
+              actorName: actorIdentity.actorName,
+              actorEmail: actorIdentity.actorEmail,
               ...(options?.fillLinkTitles ? { fillLinkTitles: true } : {}),
               ...(options?.fillLinkTitleForeignTables
                 ? { fillLinkTitleForeignTables: options.fillLinkTitleForeignTables }
                 : {}),
+              ...(options?.assumeEmptyLinkState ? { assumeEmptyLinkState: true } : {}),
             },
           });
           if (batchDataResult.isErr()) {
@@ -2234,13 +2289,18 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
               ...batchImpactHint.valueFieldIds,
               ...batchImpactHint.linkFieldIds,
             ]);
-            const beforeImageCapturePlan = await this.resolveBeforeImageCapturePlan(
-              context,
-              batchTable,
-              batchChangedFieldIds,
-              'update',
-              normalizedBatchImpact
-            );
+            const beforeImageCapturePlan = skipComputed
+              ? ok<BeforeImageCapturePlan, DomainError>({
+                  needsBeforeImage: false,
+                  trackedFields: [],
+                })
+              : await this.resolveBeforeImageCapturePlan(
+                  context,
+                  batchTable,
+                  batchChangedFieldIds,
+                  'update',
+                  normalizedBatchImpact
+                );
             if (beforeImageCapturePlan.isErr()) {
               return err(beforeImageCapturePlan.error);
             }
@@ -3203,7 +3263,14 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         table,
       };
 
-      const planResult = await this.computedUpdatePlanner.planStage(planInput, context);
+      const plannerOptions = isPendingTableInitializationRecordInsert(context, table, changeType)
+        ? ({ tableProvisionStates: ['ready', 'pending'] } as const)
+        : undefined;
+      const planResult = await this.computedUpdatePlanner.planStage(
+        planInput,
+        context,
+        plannerOptions
+      );
       if (planResult.isErr()) {
         this.logger.warn('computed:seed:plan_many_failed', {
           error: planResult.error.message,
@@ -3443,13 +3510,24 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
       return;
     }
 
-    const publishResult = await this.eventBus.publishMany(context, events);
-    if (publishResult.isErr()) {
-      this.logger.warn('computed:events_publish_failed', {
-        error: publishResult.error.message,
-        eventCount: events.length,
-      });
+    const publish = async () => {
+      const publishResult = await this.eventBus.publishMany(
+        core.withoutTransaction(context),
+        events
+      );
+      if (publishResult.isErr()) {
+        this.logger.warn('computed:events_publish_failed', {
+          error: publishResult.error.message,
+          eventCount: events.length,
+        });
+      }
+    };
+
+    if (core.registerAfterCommit(context, publish)) {
+      return;
     }
+
+    await publish();
   }
 
   private expandComputedSeedFieldIds(

@@ -29,6 +29,7 @@ import type { IFindOptions } from '../ports/RepositoryQuery';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
+import { flattenUndoRedoCommands } from '../ports/UndoRedoStore';
 import { DeleteFieldCommand } from './DeleteFieldCommand';
 import { DeleteFieldHandler } from './DeleteFieldHandler';
 import {
@@ -319,6 +320,43 @@ describe('DeleteFieldHandler', () => {
 
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
     expect(result._unsafeUnwrapErr().message).toBe('Field not found');
+  });
+
+  it('skips the target undo snapshot when the caller already captured it', async () => {
+    const { table, baseId, tableId, secondaryFieldId } = buildTable();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+
+    const snapshotService = new FakeFieldUndoRedoSnapshotService();
+    const handler = new DeleteFieldHandler(
+      tableRepository,
+      new TableUpdateFlow(
+        tableRepository,
+        new FakeTableSchemaRepository(),
+        new FakeEventBus(),
+        new FakeUnitOfWork()
+      ),
+      new FakeFieldDeletionSideEffectService() as unknown as FieldDeletionSideEffectService,
+      new FakeForeignTableLoaderService() as unknown as ForeignTableLoaderService,
+      createFieldOperationPluginRunner(),
+      noopUndoRedoService,
+      snapshotService as unknown as FieldUndoRedoSnapshotService
+    );
+
+    const command = DeleteFieldCommand.create(
+      {
+        baseId: baseId.toString(),
+        tableId: tableId.toString(),
+        fieldId: secondaryFieldId.toString(),
+      },
+      { skipUndoRedo: true, skipTargetSnapshot: true }
+    )._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isOk()).toBe(true);
+    expect(snapshotService.captured).toHaveLength(0);
+    expect(flattenUndoRedoCommands(result._unsafeUnwrap().undoCommand)).toEqual([]);
   });
 
   it('captures related undo snapshots from explicit field deletion reactions', async () => {

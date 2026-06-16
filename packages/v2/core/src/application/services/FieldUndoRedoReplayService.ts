@@ -359,6 +359,7 @@ export class FieldUndoRedoReplayService {
       }
 
       const targetFieldId = fieldId.toString();
+      const orderedTargetOrder = nextMetaRaw[targetFieldId]?.order;
       if (snapshot.columnMeta === null) {
         const currentOrderMeta = nextMetaRaw[targetFieldId];
         if (
@@ -373,10 +374,14 @@ export class FieldUndoRedoReplayService {
         }
       } else if (snapshot.columnMeta !== undefined) {
         const currentMetaForTarget = nextMetaRaw[targetFieldId];
-        nextMetaRaw[targetFieldId] =
+        const restoredMeta =
           currentMetaForTarget && typeof currentMetaForTarget === 'object'
             ? { ...currentMetaForTarget, ...snapshot.columnMeta }
             : snapshot.columnMeta;
+        nextMetaRaw[targetFieldId] =
+          typeof orderedTargetOrder === 'number'
+            ? { ...restoredMeta, order: orderedTargetOrder }
+            : restoredMeta;
       }
 
       const nextMetaResult = ViewColumnMeta.create(nextMetaRaw);

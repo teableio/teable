@@ -394,6 +394,9 @@
         "medium": "中",
         "high": "高"
       },
+      "tip": {
+        "gptImageResolution": "総画素数の上限があるため、4K モードでは一部のアスペクト比で生成可能な最大の準拠サイズが使用されます。"
+      },
       "autoFill": {
         "title": "自動更新",
         "tip": "有効にすると、現在のフィールドは AI 構成の内容の変更と同期して更新されます"
@@ -687,6 +690,7 @@
     "menu": {
       "addFromOtherSource": "他のソースから追加",
       "excelFile": "Microsoft Excelル",
+      "airtable": "Airtable",
       "csvFile": "CSVファイル",
       "importCsvData": "CSVデータをインポート",
       "importExcelData": "Microsoft Excelデータをインポート",
@@ -837,6 +841,7 @@
     "noPermission": "データベースにアクセスする権限がありません",
     "connectionCountTip": "データベース接続の最大数は <b>{{max}}</b> で、現在の接続数は <b>{{current}}</b> です",
     "createFailed": "PUBLIC_DATABASE_PROXY 環境変数が正しく設定されていることを確認してください",
+    "readonlyUnavailable": "Readonly database sharing is unavailable for this data database. Grant the Teable database user permission to create roles and grants, or use a target database that supports readonly roles.",
     "helpLink": "https://help.teable.ai/en/deploy/database-connection"
   },
   "view": {
@@ -1016,9 +1021,18 @@
       "workflows": "自動化",
       "folders": "フォルダ"
     },
+    "slashCommand": {
+      "skills": "Skills",
+      "searchEmpty": "No results found"
+    },
     "inputPlaceholder": "@ でノードを追加",
     "inputPlaceholderFiles": "ファイルを貼り付けまたはドロップ",
     "thought": "思考中",
+    "stage": {
+      "initializing": "初期化中",
+      "working": "作業中",
+      "committing": "コミット中"
+    },
     "meta": {
       "input": "入力",
       "output": "出力",
