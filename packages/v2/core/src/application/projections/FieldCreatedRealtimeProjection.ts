@@ -5,7 +5,6 @@ import type { Result } from 'neverthrow';
 import type { DomainError } from '../../domain/shared/DomainError';
 import { domainError } from '../../domain/shared/DomainError';
 import { FieldCreated } from '../../domain/table/events/FieldCreated';
-import { Table } from '../../domain/table/Table';
 import type { IEventHandler } from '../../ports/EventHandler';
 import type * as ExecutionContextPort from '../../ports/ExecutionContext';
 import * as TableMapperPort from '../../ports/mappers/TableMapper';
@@ -14,6 +13,8 @@ import * as RealtimeEnginePort from '../../ports/RealtimeEngine';
 import * as TableRepositoryPort from '../../ports/TableRepository';
 import { v2CoreTokens } from '../../ports/tokens';
 import { ProjectionHandler } from './Projection';
+import { loadRealtimeTableSnapshot } from './RealtimeTableSnapshotCache';
+import { scheduleRealtimeProjection } from './scheduleRealtimeProjection';
 
 const tableCollectionPrefix = 'tbl';
 const fieldCollectionPrefix = 'fld';
@@ -36,37 +37,45 @@ export class FieldCreatedRealtimeProjection implements IEventHandler<FieldCreate
   ): Promise<Result<void, DomainError>> {
     const { realtimeEngine, tableRepository, tableMapper } = this;
 
-    return safeTry(async function* () {
-      // Fetch table data from repository
-      const spec = yield* Table.specs(event.baseId).byId(event.tableId).build().safeUnwrap();
-      const table = yield* (await tableRepository.findOne(context, spec)).safeUnwrap();
-      const snapshot = yield* tableMapper.toDTO(table).safeUnwrap();
-
-      // Ensure table document exists (for tables created before realtime was enabled)
-      const tableCollection = `${tableCollectionPrefix}_${event.baseId.toString()}`;
-      const tableDocId = yield* RealtimeDocId.fromParts(
-        tableCollection,
-        event.tableId.toString()
-      ).safeUnwrap();
-      yield* (await realtimeEngine.ensure(context, tableDocId, snapshot)).safeUnwrap();
-
-      // Create field document
-      const fieldDto = snapshot.fields.find((field) => field.id === event.fieldId.toString());
-      if (!fieldDto) {
-        return err(
-          domainError.validation({
-            message: `Missing field snapshot for ${event.fieldId.toString()}`,
+    return scheduleRealtimeProjection(context, FieldCreatedRealtimeProjection.name, (context) =>
+      safeTry(async function* () {
+        const snapshot = yield* (
+          await loadRealtimeTableSnapshot(context, {
+            baseId: event.baseId,
+            tableId: event.tableId,
+            tableRepository,
+            tableMapper,
+            isSnapshotUsable: (candidate) =>
+              candidate.fields.some((field) => field.id === event.fieldId.toString()),
           })
-        );
-      }
+        ).safeUnwrap();
 
-      const fieldCollection = `${fieldCollectionPrefix}_${event.tableId.toString()}`;
-      const fieldDocId = yield* RealtimeDocId.fromParts(
-        fieldCollection,
-        event.fieldId.toString()
-      ).safeUnwrap();
+        // Ensure table document exists (for tables created before realtime was enabled)
+        const tableCollection = `${tableCollectionPrefix}_${event.baseId.toString()}`;
+        const tableDocId = yield* RealtimeDocId.fromParts(
+          tableCollection,
+          event.tableId.toString()
+        ).safeUnwrap();
+        yield* (await realtimeEngine.ensure(context, tableDocId, snapshot)).safeUnwrap();
 
-      return realtimeEngine.ensure(context, fieldDocId, fieldDto);
-    });
+        // Create field document
+        const fieldDto = snapshot.fields.find((field) => field.id === event.fieldId.toString());
+        if (!fieldDto) {
+          return err(
+            domainError.validation({
+              message: `Missing field snapshot for ${event.fieldId.toString()}`,
+            })
+          );
+        }
+
+        const fieldCollection = `${fieldCollectionPrefix}_${event.tableId.toString()}`;
+        const fieldDocId = yield* RealtimeDocId.fromParts(
+          fieldCollection,
+          event.fieldId.toString()
+        ).safeUnwrap();
+
+        return realtimeEngine.ensure(context, fieldDocId, fieldDto);
+      })
+    );
   }
 }

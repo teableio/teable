@@ -29,7 +29,8 @@ import { AbstractFieldVisitor } from './AbstractFieldVisitor';
 import { parseDateValue } from './dateValueParser';
 
 // Zod schema types
-type ZodSchema = z.ZodTypeAny;
+export type FieldCellValueSchema = z.ZodTypeAny;
+type ZodSchema = FieldCellValueSchema;
 
 // Attachment item schema
 const attachmentItemSchema = z.object({

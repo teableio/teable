@@ -221,6 +221,21 @@ export class FormulaSqlPgVisitor
       return normalizeLookupLinkTitles(expr);
     }
 
+    if (
+      expr.storageKind === 'json' &&
+      expr.isArray &&
+      expr.field?.type().equals(FieldType.attachment())
+    ) {
+      const normalizedArray = normalizeJsonArraySql(expr);
+      return {
+        ...expr,
+        displayValueSql: `(
+      SELECT string_agg(${buildJsonObjectText('elem')}, ', ' ORDER BY ord)
+      FROM jsonb_array_elements(${normalizedArray}) WITH ORDINALITY AS arr(elem, ord)
+    )`,
+      };
+    }
+
     // For JSON object fields (button, link), extract the display value (title/name)
     // when directly referenced in a formula. This ensures that {Button} and {LinkField}
     // return the human-readable title instead of the raw JSON object.
