@@ -257,6 +257,7 @@ export type I18nTranslations = {
             "switchBase": string;
             "getMore": string;
             "copySuccess": string;
+            "openLink": string;
             "share": string;
             "clear": string;
             "retry": string;
@@ -697,6 +698,7 @@ export type I18nTranslations = {
             };
             "addOrgCollaborator": {
                 "title": string;
+                "button": string;
                 "placeholder": string;
             };
             "sendInvitationSuccess": string;
@@ -1334,6 +1336,7 @@ export type I18nTranslations = {
             "unsubscribeTime": string;
             "source": string;
             "sourceAutomationDeleted": string;
+            "sourceApiSend": string;
             "processing": string;
             "unsubscribeH1": string;
             "unsubscribeH2": string;
@@ -1698,6 +1701,95 @@ export type I18nTranslations = {
                 "unknown": string;
             };
         };
+        "skills": {
+            "title": string;
+            "tabs": {
+                "mySkills": string;
+            };
+            "actions": {
+                "import": string;
+                "sync": string;
+                "delete": string;
+                "enable": string;
+                "disable": string;
+                "edit": string;
+                "copyToApp": string;
+                "replace": string;
+                "download": string;
+                "uninstall": string;
+                "copyToBase": string;
+                "copyToPersonal": string;
+            };
+            "import": {
+                "title": string;
+                "description": string;
+                "githubTab": string;
+                "fileTab": string;
+                "githubPlaceholder": string;
+                "fileHint": string;
+                "or": string;
+                "selectFile": string;
+                "replaceWarning": string;
+                "importing": string;
+                "submit": string;
+                "success": string;
+                "error": string;
+            };
+            "detail": {
+                "slug": string;
+                "description": string;
+                "source": string;
+                "skillLabel": string;
+                "syncStatus": string;
+                "preview": string;
+                "addedBy": string;
+            };
+            "scope": {
+                "label": string;
+                "system": string;
+                "base": string;
+                "user": string;
+                "userDescription": string;
+                "baseDescription": string;
+                "app": string;
+                "appDescription": string;
+                "cuppyclaw": string;
+                "cuppyclawDescription": string;
+            };
+            "source": {
+                "github": string;
+                "file": string;
+                "manual": string;
+            };
+            "status": {
+                "enabled": string;
+                "disabled": string;
+                "synced": string;
+                "failed": string;
+            };
+            "empty": {
+                "mySkills": string;
+            };
+            "confirm": {
+                "deleteTitle": string;
+                "deleteDescription": string;
+                "copyTitle": string;
+                "copyDescription": string;
+                "copyOverwriteWarning": string;
+            };
+            "toast": {
+                "syncing": string;
+                "syncSuccess": string;
+                "syncError": string;
+                "deleting": string;
+                "deleteSuccess": string;
+                "deleteError": string;
+                "updateSuccess": string;
+                "copying": string;
+                "copySuccess": string;
+                "copyError": string;
+            };
+        };
         "changelog": {
             "newUpdate": string;
             "title": string;
@@ -1719,9 +1811,12 @@ export type I18nTranslations = {
             "sandboxCapacityFull": string;
             "sandboxTransient": string;
             "sandboxSnapshotNotFound": string;
+            "sandboxProviderError": string;
+            "sandboxProviderErrorDescription": string;
             "agentStartFailed": string;
             "idleTimeout": string;
             "danglingToolUse": string;
+            "contextImportFailed": string;
         };
         "clickToCopyTooltip": string;
         "copiedTooltip": string;
@@ -2930,6 +3025,11 @@ export type I18nTranslations = {
                 "nameMaxLength": string;
                 "descriptionMaxLength": string;
             };
+            "validation": {
+                "field": {
+                    "unique": string;
+                };
+            };
             "custom": {
                 "fieldValueNotNull": string;
                 "fieldValueDuplicate": string;
@@ -3316,6 +3416,28 @@ export type I18nTranslations = {
                 "unsupportedActionType": string;
                 "gatewayApiKeyNotSet": string;
                 "geminiImageNotSupportedViaGateway": string;
+            };
+            "skill": {
+                "notFound": string;
+                "onlyGithubCanSync": string;
+                "syncFailed": string;
+                "skillMdNotFoundAtSource": string;
+                "slugChangedUpstream": string;
+                "skillMdNotFoundAtPath": string;
+                "invalidSkillFile": string;
+                "tooManyResourceFiles": string;
+                "noSkillMdInPackage": string;
+                "multipleSkillMdInPackage": string;
+                "invalidResourcePaths": string;
+                "nameFieldRequired": string;
+                "invalidSlugFormat": string;
+                "filesExceedSizeLimit": string;
+                "binaryFilesNotAllowed": string;
+                "totalSizeExceedsLimit": string;
+                "invalidGithubUrl": string;
+                "directoryTooDeep": string;
+                "importFailed": string;
+                "alreadyInScope": string;
             };
             "role": {
                 "notFound": string;
@@ -4309,6 +4431,9 @@ export type I18nTranslations = {
                     "medium": string;
                     "high": string;
                 };
+                "tip": {
+                    "gptImageResolution": string;
+                };
                 "autoFill": {
                     "title": string;
                     "tip": string;
@@ -4979,6 +5104,7 @@ export type I18nTranslations = {
             "noPermission": string;
             "connectionCountTip": string;
             "createFailed": string;
+            "readonlyUnavailable": string;
             "helpLink": string;
         };
         "view": {
@@ -5133,6 +5259,7 @@ export type I18nTranslations = {
                 "contextCompaction": {
                     "auto": string;
                     "manual": string;
+                    "compacting": string;
                 };
                 "taskProgress": {
                     "title": string;
@@ -5202,9 +5329,18 @@ export type I18nTranslations = {
                 "folders": string;
                 "envs": string;
             };
+            "slashCommand": {
+                "skills": string;
+                "searchEmpty": string;
+            };
             "inputPlaceholder": string;
             "inputPlaceholderFiles": string;
             "thought": string;
+            "stage": {
+                "initializing": string;
+                "working": string;
+                "committing": string;
+            };
             "meta": {
                 "input": string;
                 "output": string;
@@ -5273,6 +5409,10 @@ export type I18nTranslations = {
             "queue": {
                 "nQueued": string;
                 "edit": string;
+                "steerNow": string;
+                "steerFailed": string;
+                "steeredBadge": string;
+                "steeredBadgeTooltip": string;
                 "forceSend": string;
                 "removeFromQueue": string;
             };
@@ -5282,15 +5422,26 @@ export type I18nTranslations = {
                 "write": string;
                 "edit": string;
                 "glob": string;
+                "find": string;
                 "grep": string;
+                "ls": string;
                 "webSearch": string;
                 "skill": string;
                 "foundFiles": string;
+                "listedEntries": string;
                 "moreTools": string;
                 "moreItems": string;
                 "fallbackName": string;
                 "questionCount_one": string;
                 "questionCount_other": string;
+                "presentFiles": string;
+                "download": string;
+                "installSkill": string;
+                "installSkillTitle": string;
+                "installSkillDescription": string;
+                "skillInstalled": string;
+                "installSkillFailed": string;
+                "installSkillReplaceWarning": string;
             };
             "retry": {
                 "interrupted": string;

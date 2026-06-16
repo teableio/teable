@@ -463,6 +463,9 @@
         "attachmentNotSupported": "💡 This model does not support attachment input. Only Gemini models support image-to-image generation.",
         "singleImageOnly": "This model can only generate one image at a time"
       },
+      "tip": {
+        "gptImageResolution": "4K is still limited by the total pixel cap, so some aspect ratios use the largest compliant size instead of a full 3840px edge."
+      },
       "auto": "Auto",
       "resolution": {
         "1K": "1K (Standard)",
@@ -1134,6 +1137,7 @@
     "noPermission": "You don't have permission to access the database",
     "connectionCountTip": "The maximum number of database connections is <b>{{max}}</b> and the current connections is <b>{{current}}</b>",
     "createFailed": "Please ensure that the PUBLIC_DATABASE_PROXY environment variable is set correctly",
+    "readonlyUnavailable": "Readonly database sharing is unavailable for this data database. Grant the Teable database user permission to create roles and grants, or use a target database that supports readonly roles.",
     "helpLink": "https://help.teable.ai/en/deploy/database-connection"
   },
   "view": {
@@ -1315,7 +1319,8 @@
       },
       "contextCompaction": {
         "auto": "Context was automatically compacted",
-        "manual": "Context was compacted"
+        "manual": "Context was compacted",
+        "compacting": "Compacting context…"
       },
       "taskProgress": {
         "title": "Task Progress"
@@ -1417,9 +1422,18 @@
       "folders": "Folders",
       "envs": "Secrets"
     },
+    "slashCommand": {
+      "skills": "Skills",
+      "searchEmpty": "No results found"
+    },
     "inputPlaceholder": "Type @ to add node",
     "inputPlaceholderFiles": "Paste or drop files here",
     "thought": "Thinking",
+    "stage": {
+      "initializing": "Preparing",
+      "working": "Working",
+      "committing": "Committing"
+    },
     "meta": {
       "input": "Input",
       "output": "Output",
@@ -1456,6 +1470,10 @@
     "queue": {
       "nQueued": "{{count}} Queued",
       "edit": "Edit",
+      "steerNow": "Send follow-up without interrupting",
+      "steerFailed": "Couldn't send follow-up. Message kept in queue.",
+      "steeredBadge": "Follow-up sent",
+      "steeredBadgeTooltip": "Follow-up message sent during the run without interrupting the current task",
       "forceSend": "Stop & send now",
       "removeFromQueue": "Remove"
     },
@@ -1465,15 +1483,26 @@
       "write": "Create file",
       "edit": "Edit file",
       "glob": "Find files",
+      "find": "Find files",
       "grep": "Search in files",
+      "ls": "List directory",
       "webSearch": "Search web",
       "skill": "Loading skill",
       "foundFiles": "Found {{count}} files",
+      "listedEntries": "{{count}} entries",
       "moreTools": "+{{count}} more tools",
       "moreItems": "+{{count}} more",
       "fallbackName": "Tool",
       "questionCount_one": "{{count}} question",
-      "questionCount_other": "{{count}} questions"
+      "questionCount_other": "{{count}} questions",
+      "presentFiles": "Presented files",
+      "download": "Download",
+      "installSkill": "Install",
+      "installSkillTitle": "Install skill",
+      "installSkillDescription": "Choose where to install this skill",
+      "skillInstalled": "Installed",
+      "installSkillFailed": "Failed to install skill",
+      "installSkillReplaceWarning": "If a skill with the same name already exists in this scope, it will be replaced."
     },
     "retry": {
       "interrupted": "Response interrupted",

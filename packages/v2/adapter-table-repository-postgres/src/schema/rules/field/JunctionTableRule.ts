@@ -5,6 +5,7 @@ import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
 import { resolveColumnName } from '../../visitors/PostgresTableSchemaFieldColumn';
+import { PostgresSchemaIntrospector } from '../context/PostgresSchemaIntrospector';
 import type { SchemaRuleContext } from '../context/SchemaRuleContext';
 import type {
   ISchemaRule,
@@ -381,56 +382,60 @@ export class JunctionTableExistsRule implements ISchemaRule {
       }
       statements.push(dataStatement(createTableBuilder));
 
-      // Also repair partially-created junction tables by adding any missing columns.
-      statements.push(
-        dataStatement(
-          schemaBuilder
-            .alterTable(config.junctionTable.tableName)
-            .addColumn('__id', 'serial', (col) => col.ifNotExists())
-        )
-      );
-      statements.push(
-        dataStatement(
-          schemaBuilder
-            .alterTable(config.junctionTable.tableName)
-            .addColumn(config.selfKeyName, 'text', (col) => col.ifNotExists())
-        )
-      );
-      statements.push(
-        dataStatement(
-          schemaBuilder
-            .alterTable(config.junctionTable.tableName)
-            .addColumn(config.foreignKeyName, 'text', (col) => col.ifNotExists())
-        )
-      );
-
-      if (config.orderColumnName) {
+      if (!ctx.optimizeForEmptyTables) {
+        // Also repair partially-created junction tables by adding any missing columns.
         statements.push(
           dataStatement(
             schemaBuilder
               .alterTable(config.junctionTable.tableName)
-              .addColumn(config.orderColumnName, 'double precision', (col) => col.ifNotExists())
+              .addColumn('__id', 'serial', (col) => col.ifNotExists())
           )
         );
+        statements.push(
+          dataStatement(
+            schemaBuilder
+              .alterTable(config.junctionTable.tableName)
+              .addColumn(config.selfKeyName, 'text', (col) => col.ifNotExists())
+          )
+        );
+        statements.push(
+          dataStatement(
+            schemaBuilder
+              .alterTable(config.junctionTable.tableName)
+              .addColumn(config.foreignKeyName, 'text', (col) => col.ifNotExists())
+          )
+        );
+
+        if (config.orderColumnName) {
+          statements.push(
+            dataStatement(
+              schemaBuilder
+                .alterTable(config.junctionTable.tableName)
+                .addColumn(config.orderColumnName, 'double precision', (col) => col.ifNotExists())
+            )
+          );
+        }
       }
 
-      const sourceLinkValueColumnName = yield* resolveColumnName(self.field);
-      const sameColumnLinkFieldCount =
-        ctx.table?.getFields().filter((field) => {
-          const dbFieldName = field.dbFieldName().andThen((name) => name.value());
-          return dbFieldName.isOk() && dbFieldName.value === sourceLinkValueColumnName;
-        }).length ?? 1;
-      statements.push(
-        backfillJunctionTableFromLinkValueStatement({
-          sourceTable: config.sourceTable,
-          sourceLinkValueColumnName,
-          junctionTable: config.junctionTable,
-          selfKeyName: config.selfKeyName,
-          foreignKeyName: config.foreignKeyName,
-          orderColumnName: config.orderColumnName,
-          skipBackfill: sameColumnLinkFieldCount > 1,
-        })
-      );
+      if (!ctx.optimizeForEmptyTables) {
+        const sourceLinkValueColumnName = yield* resolveColumnName(self.field);
+        const sameColumnLinkFieldCount =
+          ctx.table?.getFields().filter((field) => {
+            const dbFieldName = field.dbFieldName().andThen((name) => name.value());
+            return dbFieldName.isOk() && dbFieldName.value === sourceLinkValueColumnName;
+          }).length ?? 1;
+        statements.push(
+          backfillJunctionTableFromLinkValueStatement({
+            sourceTable: config.sourceTable,
+            sourceLinkValueColumnName,
+            junctionTable: config.junctionTable,
+            selfKeyName: config.selfKeyName,
+            foreignKeyName: config.foreignKeyName,
+            orderColumnName: config.orderColumnName,
+            skipBackfill: sameColumnLinkFieldCount > 1,
+          })
+        );
+      }
 
       return ok(statements);
     });
@@ -707,7 +712,8 @@ export class JunctionTableForeignKeyRule implements ISchemaRule {
       return ok(this.targetTable);
     }
 
-    const tableMetaExists = await ctx.introspector.tableExists('public', 'table_meta');
+    const metaIntrospector = new PostgresSchemaIntrospector(ctx.metaDb);
+    const tableMetaExists = await metaIntrospector.tableExists('public', 'table_meta');
     if (tableMetaExists.isErr()) {
       return err(tableMetaExists.error);
     }
@@ -722,7 +728,7 @@ export class JunctionTableForeignKeyRule implements ISchemaRule {
         WHERE id = ${this.targetTableMetaId}
           AND deleted_time IS NULL
         LIMIT 1
-      `.execute(ctx.db);
+      `.execute(ctx.metaDb);
 
       const dbTableName = result.rows[0]?.db_table_name;
       if (!dbTableName) {
