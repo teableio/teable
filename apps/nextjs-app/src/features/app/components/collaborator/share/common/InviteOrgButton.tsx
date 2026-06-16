@@ -7,7 +7,7 @@ export const InviteOrgButton = ({ onClick }: { onClick: () => void }) => {
   return (
     <Button variant="outline" size="sm" onClick={onClick}>
       <Plus className="size-4" />
-      {t('invite.addOrgCollaborator.title')}
+      {t('invite.addOrgCollaborator.button')}
     </Button>
   );
 };

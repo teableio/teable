@@ -8,6 +8,7 @@ import type { IExecutionContext } from './ExecutionContext';
 import type { PluginTraceContext } from './Tracer';
 
 export const TableOperationKind = {
+  read: 'read',
   create: 'create',
   createMany: 'createMany',
   duplicate: 'duplicate',
@@ -28,6 +29,11 @@ interface ITableOperationPluginContextBase<TKind extends TableOperationKind, TPa
   readonly trace?: PluginTraceContext;
   readonly isTransactionBound: boolean;
 }
+
+export type TableOperationReadPayload = {
+  readonly baseId: BaseId;
+  readonly table: Table;
+};
 
 export type TableOperationCreatePayload = {
   readonly baseId: BaseId;
@@ -69,6 +75,10 @@ export type ITableOperationCreateContext = ITableOperationPluginContextBase<
   'create',
   TableOperationCreatePayload
 >;
+export type ITableOperationReadContext = ITableOperationPluginContextBase<
+  'read',
+  TableOperationReadPayload
+>;
 export type ITableOperationCreateManyContext = ITableOperationPluginContextBase<
   'createMany',
   TableOperationCreateManyPayload
@@ -87,6 +97,7 @@ export type ITableOperationRenameContext = ITableOperationPluginContextBase<
 >;
 
 export type TableOperationPluginContextMap = {
+  read: ITableOperationReadContext;
   create: ITableOperationCreateContext;
   createMany: ITableOperationCreateManyContext;
   duplicate: ITableOperationDuplicateContext;

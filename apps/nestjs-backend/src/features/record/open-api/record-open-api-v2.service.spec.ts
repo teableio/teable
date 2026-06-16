@@ -340,6 +340,8 @@ describe('RecordOpenApiV2Service', () => {
       filterLinkCellCandidate
     );
     expect((query as ListTableRecordsQuery).selectedRecordIds).toEqual(selectedRecordIds);
+    expect((query as ListTableRecordsQuery).projection).toEqual([]);
+    expect((query as ListTableRecordsQuery).includeTotal).toBe(false);
     expect((query as ListTableRecordsQuery).viewId).toBe(viewId);
     expect((query as ListTableRecordsQuery).ignoreViewQuery).toBe(true);
     expect(getReadQuerySource).toHaveBeenCalledWith(`tbl${'c'.repeat(16)}`, {

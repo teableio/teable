@@ -1,5 +1,6 @@
 export { default as A } from './components/A';
 export { default as Admin } from './components/Admin';
+export { default as Airtable } from './components/Airtable';
 export { default as ActionAI } from './components/ActionAI';
 export { default as ActionCreateRecord } from './components/ActionCreateRecord';
 export { default as ActionGetRecord } from './components/ActionGetRecord';

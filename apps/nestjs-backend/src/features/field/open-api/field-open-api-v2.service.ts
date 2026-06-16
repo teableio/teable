@@ -45,12 +45,16 @@ import {
   FieldId,
   type ICommandBus,
   type IExecutionContext,
+  type ISpan,
   type ITableMapper,
+  type ITracer,
   LinkFieldConfig,
   LinkRelationship,
   TableId,
   type Table,
   type TableQueryService,
+  TeableSpanAttributes,
+  bindPreloadedTableToExecutionContext,
   v2CoreTokens,
 } from '@teable/v2-core';
 import { instanceToPlain } from 'class-transformer';
@@ -100,6 +104,87 @@ type IPreparedLegacyCreateField = {
   v2Field: Record<string, unknown>;
   hasAiConfig: boolean;
   nextAiConfig: IFieldVo['aiConfig'] | undefined;
+};
+
+const fieldOpenApiV2Component = 'service';
+
+const withV2Span = async <T>(
+  context: IExecutionContext | undefined,
+  operation: string,
+  callback: () => Promise<T>,
+  attributes: Record<string, string | number | boolean> = {}
+): Promise<T> => {
+  const tracer = context?.tracer;
+  let span: ISpan | undefined;
+  try {
+    span = tracer?.startSpan(`teable.FieldOpenApiV2Service.${operation}`, {
+      [TeableSpanAttributes.VERSION]: 'v2',
+      [TeableSpanAttributes.COMPONENT]: fieldOpenApiV2Component,
+      [TeableSpanAttributes.HANDLER]: 'FieldOpenApiV2Service',
+      [TeableSpanAttributes.OPERATION]: `FieldOpenApiV2Service.${operation}`,
+      ...attributes,
+    });
+  } catch {
+    span = undefined;
+  }
+
+  if (!span || !tracer) {
+    return callback();
+  }
+
+  return tracer.withSpan(span, async () => {
+    try {
+      return await callback();
+    } catch (error) {
+      span.recordError(error instanceof Error ? error.message : String(error));
+      throw error;
+    } finally {
+      span.end();
+    }
+  });
+};
+
+const withTracerSpan = async <T>(
+  tracer: ITracer | undefined,
+  operation: string,
+  callback: () => Promise<T>,
+  attributes: Record<string, string | number | boolean> = {}
+): Promise<T> => {
+  let span: ISpan | undefined;
+  try {
+    span = tracer?.startSpan(`teable.FieldOpenApiV2Service.${operation}`, {
+      [TeableSpanAttributes.VERSION]: 'v2',
+      [TeableSpanAttributes.COMPONENT]: fieldOpenApiV2Component,
+      [TeableSpanAttributes.HANDLER]: 'FieldOpenApiV2Service',
+      [TeableSpanAttributes.OPERATION]: `FieldOpenApiV2Service.${operation}`,
+      ...attributes,
+    });
+  } catch {
+    span = undefined;
+  }
+
+  if (!span || !tracer) {
+    return callback();
+  }
+
+  return tracer.withSpan(span, async () => {
+    try {
+      return await callback();
+    } catch (error) {
+      span.recordError(error instanceof Error ? error.message : String(error));
+      throw error;
+    } finally {
+      span.end();
+    }
+  });
+};
+
+const getTableIdText = (table: Table): string | undefined => {
+  try {
+    return table.id().toString();
+  } catch {
+    return undefined;
+  }
 };
 
 @Injectable()
@@ -691,31 +776,58 @@ export class FieldOpenApiV2Service {
     table: Table;
   }> {
     const container = await this.v2ContainerService.getContainerForTable(tableId);
-    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-    const tableQueryService = container.resolve<TableQueryService>(v2CoreTokens.tableQueryService);
-    const context = await this.v2ContextFactory.createContext(container);
-    const tableIdResult = TableId.create(tableId);
-    if (tableIdResult.isErr()) {
-      throw new HttpException('Invalid table id', HttpStatus.BAD_REQUEST);
-    }
+    const tracer = container.resolve<ITracer>(v2CoreTokens.tracer);
+    return withTracerSpan(
+      tracer,
+      'getCreateFieldContext',
+      async () => {
+        const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+        const tableQueryService = container.resolve<TableQueryService>(
+          v2CoreTokens.tableQueryService
+        );
+        const context = await withTracerSpan(
+          tracer,
+          'createExecutionContext',
+          () => this.v2ContextFactory.createContext(container),
+          {
+            [TeableSpanAttributes.TABLE_ID]: tableId,
+          }
+        );
+        const tableIdResult = TableId.create(tableId);
+        if (tableIdResult.isErr()) {
+          throw new HttpException('Invalid table id', HttpStatus.BAD_REQUEST);
+        }
 
-    const tableResult = await tableQueryService.getById(context, tableIdResult.value);
-    if (tableResult.isErr()) {
-      const errMsg = tableResult.error.message ?? 'Table not found';
-      const isNotFound =
-        tableResult.error.code === 'table.not_found' || errMsg.includes('not found');
-      throw new HttpException(
-        errMsg,
-        isNotFound ? HttpStatus.NOT_FOUND : HttpStatus.INTERNAL_SERVER_ERROR
-      );
-    }
+        const tableResult = await withV2Span(
+          context,
+          'loadCreateFieldTable',
+          () => tableQueryService.getById(context, tableIdResult.value),
+          {
+            [TeableSpanAttributes.TABLE_ID]: tableId,
+          }
+        );
+        if (tableResult.isErr()) {
+          const errMsg = tableResult.error.message ?? 'Table not found';
+          const isNotFound =
+            tableResult.error.code === 'table.not_found' || errMsg.includes('not found');
+          throw new HttpException(
+            errMsg,
+            isNotFound ? HttpStatus.NOT_FOUND : HttpStatus.INTERNAL_SERVER_ERROR
+          );
+        }
+        bindPreloadedTableToExecutionContext(context, tableResult.value);
 
-    return {
-      commandBus,
-      tableQueryService,
-      context,
-      table: tableResult.value,
-    };
+        return {
+          commandBus,
+          tableQueryService,
+          context,
+          table: tableResult.value,
+        };
+      },
+      {
+        [TeableSpanAttributes.TABLE_ID]: tableId,
+      }
+    );
   }
 
   private async prepareLegacyCreateField(
@@ -729,12 +841,28 @@ export class FieldOpenApiV2Service {
     const nextAiConfig = hasAiConfig
       ? (rawFieldRo.aiConfig as IFieldVo['aiConfig'] | null | undefined) ?? null
       : undefined;
-    const mappedField = this.mapLegacyCreateFieldToV2(fieldRo);
-    const v2Field = await this.completeLegacyLinkDbConfigForCreate(
-      mappedField,
-      currentTable,
-      tableQueryService,
-      context
+    const currentTableId = getTableIdText(currentTable);
+    const mappedField = await withV2Span(
+      context,
+      'mapLegacyCreateFieldToV2',
+      async () => this.mapLegacyCreateFieldToV2(fieldRo),
+      {
+        ...(currentTableId ? { [TeableSpanAttributes.TABLE_ID]: currentTableId } : {}),
+      }
+    );
+    const v2Field = await withV2Span(
+      context,
+      'completeLegacyLinkDbConfigForCreate',
+      () =>
+        this.completeLegacyLinkDbConfigForCreate(
+          mappedField,
+          currentTable,
+          tableQueryService,
+          context
+        ),
+      {
+        ...(currentTableId ? { [TeableSpanAttributes.TABLE_ID]: currentTableId } : {}),
+      }
     );
 
     return {
@@ -780,13 +908,25 @@ export class FieldOpenApiV2Service {
       forceCompatLookupRead?: boolean;
     }
   ): Promise<IFieldVo> {
-    const createdFieldFromDomain = await this.extractFieldVoFromDomainTable(
-      table,
-      fieldId,
-      context
+    const createdFieldFromDomain = await withV2Span(
+      context,
+      'extractFieldVoFromDomainTable',
+      () => this.extractFieldVoFromDomainTable(table, fieldId, context),
+      {
+        [TeableSpanAttributes.TABLE_ID]: tableId,
+        [TeableSpanAttributes.FIELD_ID]: fieldId,
+      }
     );
     return options?.forceCompatLookupRead === true || createdFieldFromDomain.isLookup === true
-      ? await this.getFieldFromV2(tableId, fieldId, context)
+      ? await withV2Span(
+          context,
+          'getCreatedFieldFromV2Compat',
+          () => this.getFieldFromV2(tableId, fieldId, context),
+          {
+            [TeableSpanAttributes.TABLE_ID]: tableId,
+            [TeableSpanAttributes.FIELD_ID]: fieldId,
+          }
+        )
       : createdFieldFromDomain;
   }
 
@@ -1285,14 +1425,23 @@ export class FieldOpenApiV2Service {
       );
     }
 
-    const preparedField = await this.prepareLegacyCreateField(
-      fieldRo,
-      table,
-      tableQueryService,
-      context
+    const preparedField = await withV2Span(
+      context,
+      'prepareLegacyCreateField',
+      () => this.prepareLegacyCreateField(fieldRo, table, tableQueryService, context),
+      {
+        [TeableSpanAttributes.TABLE_ID]: tableId,
+      }
     );
     const { hasAiConfig, nextAiConfig, v2Field } = preparedField;
-    await this.assertCrossSpaceForV2Field(tableId, v2Field);
+    await withV2Span(
+      context,
+      'assertCrossSpaceForV2Field',
+      () => this.assertCrossSpaceForV2Field(tableId, v2Field),
+      {
+        [TeableSpanAttributes.TABLE_ID]: tableId,
+      }
+    );
     const legacyViewId =
       fieldRo && typeof fieldRo === 'object' && 'viewId' in fieldRo
         ? (fieldRo.viewId as string | undefined)
@@ -1313,13 +1462,21 @@ export class FieldOpenApiV2Service {
             orderIndex: legacyOrder.orderIndex,
           }
         : undefined;
-    const commandResult = CreateFieldCommand.create({
-      baseId: table.baseId().toString(),
-      tableId,
-      field: v2Field,
-      ...(typeof legacyViewId === 'string' ? { viewId: legacyViewId } : {}),
-      ...(normalizedOrder ? { order: normalizedOrder } : {}),
-    });
+    const commandResult = await withV2Span(
+      context,
+      'createCreateFieldCommand',
+      async () =>
+        CreateFieldCommand.create({
+          baseId: table.baseId().toString(),
+          tableId,
+          field: v2Field,
+          ...(typeof legacyViewId === 'string' ? { viewId: legacyViewId } : {}),
+          ...(normalizedOrder ? { order: normalizedOrder } : {}),
+        }),
+      {
+        [TeableSpanAttributes.TABLE_ID]: tableId,
+      }
+    );
 
     if (commandResult.isErr()) {
       this.throwV2Error(
@@ -1328,9 +1485,13 @@ export class FieldOpenApiV2Service {
       );
     }
 
-    const result = await commandBus.execute<CreateFieldCommand, CreateFieldResult>(
+    const result = await withV2Span(
       context,
-      commandResult.value
+      'executeCreateFieldCommand',
+      () => commandBus.execute<CreateFieldCommand, CreateFieldResult>(context, commandResult.value),
+      {
+        [TeableSpanAttributes.TABLE_ID]: tableId,
+      }
     );
 
     if (result.isErr()) {
@@ -1343,15 +1504,19 @@ export class FieldOpenApiV2Service {
     this.invalidateFieldLoader(this.collectFieldInvalidateTableIds(tableId, [v2Field]));
 
     if (typeof v2Field.id === 'string') {
+      const createdFieldId = v2Field.id;
       const shouldForceCompatLookupRead =
         v2Field.type === 'lookup' || v2Field.type === 'conditionalLookup';
-      const createdField = await this.materializeCreatedFieldVo(
-        tableId,
-        result.value.table,
-        v2Field.id,
+      const createdField = await withV2Span(
         context,
+        'materializeCreatedFieldVo',
+        () =>
+          this.materializeCreatedFieldVo(tableId, result.value.table, createdFieldId, context, {
+            forceCompatLookupRead: shouldForceCompatLookupRead,
+          }),
         {
-          forceCompatLookupRead: shouldForceCompatLookupRead,
+          [TeableSpanAttributes.TABLE_ID]: tableId,
+          [TeableSpanAttributes.FIELD_ID]: createdFieldId,
         }
       );
 

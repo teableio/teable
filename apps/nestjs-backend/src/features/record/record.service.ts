@@ -23,9 +23,9 @@ import type {
 import {
   and,
   CellFormat,
-  CellValueType,
   DbFieldType,
   DriverClient,
+  extractFieldIdsFromFilter,
   FieldKeyType,
   FieldType,
   generateRecordHistoryId,
@@ -67,7 +67,6 @@ import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.confi
 import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
-import { Events } from '../../event-emitter/events';
 import { DatabaseRouter } from '../../global/database-router.service';
 import { DATA_KNEX } from '../../global/knex/knex.module';
 import { RawOpType } from '../../share-db/interface';
@@ -570,6 +569,45 @@ export class RecordService {
     }
   }
 
+  private resolveAggregateProjection(params: {
+    groupBy?: IGroup;
+    filter?: IFilter;
+    searchFields?: IFieldInstance[];
+    allowedFieldIds?: string[];
+  }): string[] | undefined {
+    const { groupBy, filter, searchFields, allowedFieldIds } = params;
+    const projectionSet = new Set<string>();
+
+    groupBy?.forEach(({ fieldId }) => {
+      if (fieldId) {
+        projectionSet.add(fieldId);
+      }
+    });
+
+    if (filter) {
+      for (const fieldId of extractFieldIdsFromFilter(filter)) {
+        projectionSet.add(fieldId);
+      }
+    }
+
+    searchFields?.forEach((fieldInstance) => {
+      projectionSet.add(fieldInstance.id);
+    });
+
+    if (projectionSet.size === 0) {
+      return undefined;
+    }
+
+    const projectionArray = Array.from(projectionSet);
+    if (!allowedFieldIds?.length) {
+      return projectionArray;
+    }
+
+    const allowedSet = new Set(allowedFieldIds);
+    const filtered = projectionArray.filter((fieldId) => allowedSet.has(fieldId));
+    return filtered.length ? filtered : undefined;
+  }
+
   private async sanitizeFilterByEnabledFields(
     tableId: string,
     filter: IFilter | undefined,
@@ -830,6 +868,7 @@ export class RecordService {
       | 'groupBy'
       | 'filter'
       | 'search'
+      | 'projection'
       | 'filterLinkCellCandidate'
       | 'filterLinkCellSelected'
       | 'collapsedGroupIds'
@@ -920,11 +959,19 @@ export class RecordService {
     }
 
     if (search && search[2] && fieldMap) {
+      // query.projection narrows search to the fields the caller displays
+      // (e.g. personal view visible columns); intersect it with the permission
+      // whitelist so it can only ever shrink the searchable set
+      const searchProjection = query.projection?.length
+        ? enabledFieldIds
+          ? query.projection.filter((fieldId) => enabledFieldIds.includes(fieldId))
+          : query.projection
+        : enabledFieldIds;
       const searchFields = await this.getSearchFields(
         fieldMap,
         search,
         query?.viewId,
-        enabledFieldIds
+        searchProjection
       );
       const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
       qb.where((builder) => {
@@ -2053,7 +2100,7 @@ export class RecordService {
       },
       useQueryModel
     );
-    const { queryBuilder, dbTableName } = await this.buildFilterSortQuery(
+    const { queryBuilder, dbTableName, alias } = await this.buildFilterSortQuery(
       tableId,
       {
         ...query,
@@ -2061,7 +2108,9 @@ export class RecordService {
       },
       useQueryModel
     );
-    // queryBuilder.select(this.knex.ref(`${selectDbTableName}.__id`));
+    // This path only needs record IDs. Avoid evaluating display projections such as
+    // CreatedBy user lookups, which may reference meta-plane tables outside BYODB.
+    queryBuilder.clearSelect().select(`${alias}.__id`);
 
     skip && queryBuilder.offset(skip);
     if (take !== -1) {
@@ -2181,6 +2230,10 @@ export class RecordService {
     return uniqBy(
       orderBy(
         Object.values(fieldInstanceMap)
+          // shared searchability predicate from @teable/core, also used by
+          // client-side highlighting; must run before the spread below which
+          // strips class methods
+          .filter((field) => field.isSearchable(search[0], { isSearchAllFields }))
           .map((field) => ({
             ...field,
             isStructuredCellValue: field.isStructuredCellValue,
@@ -2204,23 +2257,6 @@ export class RecordService {
 
             const searchArr = search?.[1]?.split(',') || [];
             return searchArr.includes(field.id);
-          })
-          .filter((field) => {
-            if (field.type === FieldType.Button) {
-              return false;
-            }
-            if (field.cellValueType === CellValueType.Boolean) {
-              return false;
-            }
-            if (isSearchAllFields) {
-              if (field.cellValueType === CellValueType.DateTime) {
-                return false;
-              }
-              if (field.cellValueType === CellValueType.Number && isNaN(Number(search[0]))) {
-                return false;
-              }
-            }
-            return true;
           })
           .map((field) => {
             return {
@@ -2626,7 +2662,8 @@ export class RecordService {
     filter?: IFilter,
     search?: [string, string?, boolean?],
     viewId?: string,
-    useQueryModel = false
+    useQueryModel = false,
+    projection?: string[]
   ) {
     const withUserId = this.cls.get('user.id');
     const wrap = await this.recordPermissionService.wrapView(
@@ -2649,6 +2686,7 @@ export class RecordService {
         currentUserId: withUserId,
         useQueryModel,
         builder: wrap.builder,
+        projection,
       }
     );
 
@@ -2739,6 +2777,15 @@ export class RecordService {
 
     const withUserId = this.cls.get('user.id');
     const shouldUseQueryModel = useQueryModel && !viewCte;
+    const searchFields = search?.[2]
+      ? await this.getSearchFields(fieldInstanceMap, search, viewId)
+      : [];
+    const aggregateProjection = this.resolveAggregateProjection({
+      groupBy,
+      filter: mergedFilter,
+      searchFields,
+      allowedFieldIds: enabledFieldIds,
+    });
     const { qb: queryBuilder, selectionMap } =
       await this.recordQueryBuilder.createRecordAggregateBuilder(viewCte ?? dbTableName, {
         tableId,
@@ -2755,10 +2802,10 @@ export class RecordService {
         currentUserId: withUserId,
         useQueryModel: shouldUseQueryModel,
         builder: permissionBuilder,
+        projection: aggregateProjection,
       });
 
     if (search && search[2]) {
-      const searchFields = await this.getSearchFields(fieldInstanceMap, search, viewId);
       const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
       queryBuilder.where((builder) => {
         this.dbProvider.searchQuery(builder, searchFields, tableIndex, search, { selectionMap });
@@ -2777,7 +2824,8 @@ export class RecordService {
       mergedFilter,
       search,
       viewId,
-      useQueryModel
+      useQueryModel,
+      aggregateProjection
     );
 
     try {
