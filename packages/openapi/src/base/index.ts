@@ -24,6 +24,7 @@ export * from './collaborator-get-list-user';
 export * from './export';
 export * from './publish';
 export * from './import';
+export * from './import-airtable';
 export * from './move';
 export * from './move-check';
 export * from './erd';
