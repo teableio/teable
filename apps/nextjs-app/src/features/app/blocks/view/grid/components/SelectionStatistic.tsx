@@ -543,7 +543,7 @@ const SelectionStatisticInner = (props: ISelectionStatisticProps) => {
           <TooltipContent
             side="top"
             sideOffset={8}
-            className="max-w-[260px] whitespace-normal text-xs leading-relaxed"
+            className="max-w-[400px] whitespace-normal text-xs leading-relaxed"
           >
             {t('sdk:selectionStatistic.tip')}
           </TooltipContent>

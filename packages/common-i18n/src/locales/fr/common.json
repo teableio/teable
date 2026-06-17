@@ -69,6 +69,7 @@
     "import": "Importer",
     "getMore": "Obtenir plus",
     "copySuccess": "Copie réussie",
+    "openLink": "Ouvrir le lien",
     "share": "Partager"
   },
   "quickAction": {
@@ -482,7 +483,14 @@
     },
     "addOrgCollaborator": {
       "title": "Ajouter un collaborateur d'organisation",
+      "button": "Ajouter depuis l'organisation",
       "placeholder": "Sélectionner un membre ou département de l'organisation"
+    },
+    "table": {
+      "collaborator": "Collaborateur",
+      "accessPermission": "Permission d'accès",
+      "joinAt": "Date d'adhésion",
+      "lastLogin": "Dernière connexion"
     }
   },
   "help": {
@@ -621,7 +629,7 @@
         "defaultModel": "{{name}} (Par défaut)",
         "moreModels": "Plus de modèles",
         "agentModelWarningTitle": "Choisissez les modèles avec soin",
-        "agentModelWarningDescription": "Les modèles recommandés ci-dessus sont optimisés pour les tâches d’agent, comme l’utilisation d’outils et le raisonnement en plusieurs étapes. Les autres modèles peuvent avoir des capacités limitées et produire des résultats inattendus.",
+        "agentModelWarningDescription": "Les modèles recommandés ci-dessus sont optimisés pour les tâches d'agent, comme l'utilisation d'outils et le raisonnement en plusieurs étapes. Les autres modèles peuvent avoir des capacités limitées et produire des résultats inattendus.",
         "agentModelWarningConfirm": "Compris",
         "recommendedModelNudge": {
           "title": "Essayez {{model}}",
@@ -719,6 +727,10 @@
     "exportBase": {
       "successText": "Les données d'exportation sont prêtes",
       "failedText": "L'exportation a échoué, veuillez réessayer"
+    },
+    "importantNotice": {
+      "title": "Important Notice",
+      "acknowledge": "I Understand"
     }
   },
   "role": {
@@ -796,6 +808,7 @@
     "unsubscribeTime": "Heure de désabonnement",
     "source": "Source",
     "sourceAutomationDeleted": "Automatisation ou nœud supprimé",
+    "sourceApiSend": "Envoi d'e-mail via API",
     "processing": "Traitement en cours...",
     "unsubscribeH1": "Confirmer le désabonnement ?",
     "unsubscribeH2": "Vous êtes sur le point de vous désabonner des futures promotions et mises à jour de produits Teable. Êtes-vous sûr de vouloir vous désabonner ?",
@@ -1159,10 +1172,87 @@
       "unknown": "{{fieldHint}}{{message}}"
     }
   },
+  "skills": {
+    "title": "Compétences",
+    "tabs": {
+      "mySkills": "Mes compétences"
+    },
+    "actions": {
+      "import": "Importer une compétence",
+      "sync": "Synchroniser",
+      "delete": "Supprimer",
+      "enable": "Activer",
+      "disable": "Désactiver",
+      "edit": "Modifier",
+      "copyToApp": "Copier vers l'application"
+    },
+    "import": {
+      "title": "Importer une compétence",
+      "description": "Importez une compétence depuis un dépôt GitHub ou un fichier ZIP",
+      "githubTab": "URL GitHub",
+      "fileTab": "Fichier ZIP",
+      "githubPlaceholder": "https://github.com/owner/repo/tree/main/skills/my-skill",
+      "fileHint": "Téléversez un fichier ZIP contenant SKILL.md",
+      "or": "ou",
+      "selectFile": "Choisir un fichier",
+      "replaceWarning": "Si une compétence du même nom existe déjà dans cette portée, l'importation la remplacera.",
+      "importing": "Importation...",
+      "submit": "Importer",
+      "success": "Compétence importée avec succès",
+      "error": "Échec de l'importation de la compétence"
+    },
+    "detail": {
+      "slug": "Slug",
+      "description": "Description",
+      "source": "Source",
+      "skillLabel": "Compétence",
+      "syncStatus": "État de synchronisation",
+      "preview": "Aperçu SKILL.md"
+    },
+    "scope": {
+      "label": "Portée",
+      "system": "Système",
+      "base": "Base",
+      "user": "Personnel",
+      "userDescription": "Disponible uniquement pour vous",
+      "baseDescription": "Partagée avec les collaborateurs de cette base",
+      "app": "App",
+      "appDescription": "Disponible uniquement pour cette application",
+      "cuppyclaw": "Bot",
+      "cuppyclawDescription": "Disponible uniquement pour ce bot"
+    },
+    "source": {
+      "github": "GitHub",
+      "file": "Téléversement de fichier",
+      "manual": "Manuel"
+    },
+    "status": {
+      "enabled": "Activé",
+      "disabled": "Désactivé",
+      "synced": "Synchronisé",
+      "failed": "Échec de la synchronisation"
+    },
+    "empty": {
+      "mySkills": "Aucune compétence personnelle pour l'instant. Importez-en une pour commencer."
+    },
+    "confirm": {
+      "deleteTitle": "Supprimer la compétence",
+      "deleteDescription": "Êtes-vous sûr de vouloir supprimer cette compétence ? Cette action est irréversible."
+    },
+    "toast": {
+      "syncing": "Synchronisation de la compétence...",
+      "syncSuccess": "Compétence synchronisée avec succès",
+      "syncError": "Échec de la synchronisation de la compétence",
+      "deleting": "Suppression de la compétence...",
+      "deleteSuccess": "Compétence supprimée avec succès",
+      "deleteError": "Échec de la suppression de la compétence",
+      "updateSuccess": "Compétence mise à jour avec succès"
+    }
+  },
   "changelog": {
-    "newUpdate": "MISE A JOUR DU 19 MAI",
-    "title": "Les credits Teable sont 10x plus efficaces !",
-    "url": "https://help.teable.ai/en/changelog#may-19-2026",
-    "id": "changelog-2026-05-19-teable-credits-up-10x"
+    "newUpdate": "MISE A JOUR DU 17 JUIN",
+    "title": "Résumé de sélection dans la vue Grille",
+    "url": "https://help.teable.ai/en/changelog#jun-17-2026",
+    "id": "changelog-2026-06-17-selection-summary-in-grid-view"
   }
 }

@@ -673,7 +673,7 @@ export class TableMetaUpdateVisitor
   visitUpdateUserMultiplicity(
     spec: UpdateUserMultiplicitySpec
   ): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
-    return this.buildFieldOptionsUpdate(spec.fieldId());
+    return this.buildFieldStorageMetadataUpdate(spec.fieldId());
   }
 
   visitUpdateUserNotification(

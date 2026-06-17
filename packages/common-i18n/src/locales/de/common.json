@@ -69,6 +69,7 @@
     "switchBase": "Base wechseln",
     "getMore": "Mehr erhalten",
     "copySuccess": "Kopieren erfolgreich",
+    "openLink": "Link öffnen",
     "share": "Teilen"
   },
   "quickAction": {
@@ -480,7 +481,14 @@
     },
     "addOrgCollaborator": {
       "title": "Organisationskollaborateur hinzufügen",
+      "button": "Aus Organisation hinzufügen",
       "placeholder": "Organisationskollaborateur oder Abteilung auswählen"
+    },
+    "table": {
+      "collaborator": "Mitarbeiter",
+      "accessPermission": "Zugriffsberechtigung",
+      "joinAt": "Beigetreten am",
+      "lastLogin": "Letzter Login"
     }
   },
   "help": {
@@ -714,6 +722,10 @@
     "exportBase": {
       "successText": "Exportdaten sind bereit",
       "failedText": "Export fehlgeschlagen, bitte erneut versuchen"
+    },
+    "importantNotice": {
+      "title": "Important Notice",
+      "acknowledge": "I Understand"
     }
   },
   "role": {
@@ -791,6 +803,7 @@
     "unsubscribeTime": "Abbestellzeit",
     "source": "Quelle",
     "sourceAutomationDeleted": "Automatisierung oder Knoten gelöscht",
+    "sourceApiSend": "E-Mail-Versand per API",
     "processing": "Verarbeitung...",
     "unsubscribeH1": "Abmeldung bestätigen?",
     "unsubscribeH2": "Sie sind dabei, sich von zukünftigen Teable-Werbeaktionen und Produktaktualisierungen abzumelden. Möchten Sie sich wirklich abmelden?",
@@ -1154,10 +1167,87 @@
       "unknown": "{{fieldHint}}{{message}}"
     }
   },
+  "skills": {
+    "title": "Fähigkeiten",
+    "tabs": {
+      "mySkills": "Meine Fähigkeiten"
+    },
+    "actions": {
+      "import": "Fähigkeit importieren",
+      "sync": "Synchronisieren",
+      "delete": "Löschen",
+      "enable": "Aktivieren",
+      "disable": "Deaktivieren",
+      "edit": "Bearbeiten",
+      "copyToApp": "In App kopieren"
+    },
+    "import": {
+      "title": "Fähigkeit importieren",
+      "description": "Importieren Sie eine Fähigkeit aus einem GitHub-Repository oder einer ZIP-Datei",
+      "githubTab": "GitHub-URL",
+      "fileTab": "ZIP-Datei",
+      "githubPlaceholder": "https://github.com/owner/repo/tree/main/skills/my-skill",
+      "fileHint": "Laden Sie eine ZIP-Datei mit SKILL.md hoch",
+      "or": "oder",
+      "selectFile": "Datei auswählen",
+      "replaceWarning": "Wenn in diesem Bereich bereits eine Fähigkeit mit demselben Namen existiert, wird sie beim Import ersetzt.",
+      "importing": "Importiere...",
+      "submit": "Importieren",
+      "success": "Fähigkeit erfolgreich importiert",
+      "error": "Fähigkeit konnte nicht importiert werden"
+    },
+    "detail": {
+      "slug": "Slug",
+      "description": "Beschreibung",
+      "source": "Quelle",
+      "skillLabel": "Fähigkeit",
+      "syncStatus": "Synchronisierungsstatus",
+      "preview": "SKILL.md-Vorschau"
+    },
+    "scope": {
+      "label": "Bereich",
+      "system": "System",
+      "base": "Base",
+      "user": "Persönlich",
+      "userDescription": "Nur für Sie verfügbar",
+      "baseDescription": "Mit Kollaborateuren dieser Base geteilt",
+      "app": "App",
+      "appDescription": "Nur in dieser App verfügbar",
+      "cuppyclaw": "Bot",
+      "cuppyclawDescription": "Nur für diesen Bot verfügbar"
+    },
+    "source": {
+      "github": "GitHub",
+      "file": "Datei-Upload",
+      "manual": "Manuell"
+    },
+    "status": {
+      "enabled": "Aktiviert",
+      "disabled": "Deaktiviert",
+      "synced": "Synchronisiert",
+      "failed": "Synchronisierung fehlgeschlagen"
+    },
+    "empty": {
+      "mySkills": "Noch keine persönlichen Fähigkeiten. Importieren Sie eine, um zu beginnen."
+    },
+    "confirm": {
+      "deleteTitle": "Fähigkeit löschen",
+      "deleteDescription": "Sind Sie sicher, dass Sie diese Fähigkeit löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden."
+    },
+    "toast": {
+      "syncing": "Fähigkeit wird synchronisiert...",
+      "syncSuccess": "Fähigkeit erfolgreich synchronisiert",
+      "syncError": "Fähigkeit konnte nicht synchronisiert werden",
+      "deleting": "Fähigkeit wird gelöscht...",
+      "deleteSuccess": "Fähigkeit erfolgreich gelöscht",
+      "deleteError": "Fähigkeit konnte nicht gelöscht werden",
+      "updateSuccess": "Fähigkeit erfolgreich aktualisiert"
+    }
+  },
   "changelog": {
-    "newUpdate": "UPDATE VOM 19. MAI",
-    "title": "Teable Credits jetzt 10x effizienter!",
-    "url": "https://help.teable.ai/en/changelog#may-19-2026",
-    "id": "changelog-2026-05-19-teable-credits-up-10x"
+    "newUpdate": "UPDATE VOM 17. JUNI",
+    "title": "Auswahlzusammenfassung in der Rasteransicht",
+    "url": "https://help.teable.ai/en/changelog#jun-17-2026",
+    "id": "changelog-2026-06-17-selection-summary-in-grid-view"
   }
 }

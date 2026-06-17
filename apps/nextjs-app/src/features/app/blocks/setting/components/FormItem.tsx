@@ -5,7 +5,8 @@ import type { z } from 'zod';
 import { RequireCom } from './RequireCom';
 
 interface IFormItemProps {
-  title: string;
+  title: React.ReactNode;
+  titleExtra?: React.ReactNode;
   description?: string;
   required?: boolean;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -19,7 +20,7 @@ export interface IFormItemRef {
 }
 
 export const FormItem = forwardRef<IFormItemRef, IFormItemProps>((props, ref) => {
-  const { title, description, required, children, validateSchema } = props;
+  const { title, titleExtra, description, required, children, validateSchema } = props;
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string>();
 
@@ -44,7 +45,7 @@ export const FormItem = forwardRef<IFormItemRef, IFormItemProps>((props, ref) =>
     <div ref={containerRef}>
       <div className="space-y-2">
         <Label>
-          {title} {required && <RequireCom />}
+          {title} {required && <RequireCom />} {titleExtra}
           {description && (
             <div className="text-xs font-normal text-muted-foreground">{description}</div>
           )}
