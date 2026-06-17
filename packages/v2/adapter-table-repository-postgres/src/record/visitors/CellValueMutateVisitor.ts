@@ -38,7 +38,7 @@ import { sql } from 'kysely';
 import { err, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import { resolveUserAvatarUrlPrefix } from '../../shared/userAvatarUrl';
+import { buildUserAvatarUrl } from '../../shared/userAvatarUrl';
 import { buildAttachmentTableReplaceQueries } from '../attachments/attachmentTableMutations';
 import { buildFilledLinkValueExpression } from '../buildFilledLinkValueExpression';
 import { isPersistedAsGeneratedColumn } from '../computed/isPersistedAsGeneratedColumn';
@@ -317,30 +317,13 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
     return ok(validTracked);
   }
 
-  /**
-   * Build the value for LastModifiedBy field using COALESCE subquery.
-   * Fetches user info from users table, with fallback to just the actor ID.
-   */
-  private buildLastModifiedByValue(): ReturnType<typeof sql> {
-    const avatarPrefix = resolveUserAvatarUrlPrefix();
-    return sql`COALESCE(
-      (
-        SELECT jsonb_build_object(
-          'id', u.id,
-          'title', u.name,
-          'email', u.email,
-          'avatarUrl', ${avatarPrefix} || u.id
-        )
-        FROM public.users u
-        WHERE u.id = ${this.ctx.actorId}::text
-      ),
-      jsonb_build_object(
-        'id', ${this.ctx.actorId}::text,
-        'title', ${this.ctx.actorId}::text,
-        'email', NULL::text,
-        'avatarUrl', ${avatarPrefix}::text || ${this.ctx.actorId}::text
-      )
-    )`;
+  private buildLastModifiedByValue(): string {
+    return JSON.stringify({
+      id: this.ctx.actorId,
+      title: this.ctx.actorName ?? this.ctx.actorId,
+      email: this.ctx.actorEmail ?? null,
+      avatarUrl: buildUserAvatarUrl(this.ctx.actorId),
+    });
   }
 
   private addSimpleValue(fieldId: FieldId, rawValue: unknown): Result<void, DomainError> {

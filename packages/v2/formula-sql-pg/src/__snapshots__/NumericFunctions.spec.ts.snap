@@ -12864,7 +12864,7 @@ exports[`numeric functions > 'Value' with 'autoNumber' 1`] = `
     },
   },
   "result": "1",
-  "sql": "("t"."AutoNumber")::double precision",
+  "sql": "COALESCE(("t"."AutoNumber")::double precision, 0)",
 }
 `;
 
@@ -12883,7 +12883,7 @@ exports[`numeric functions > 'Value' with 'button' 1`] = `
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_number",
-  "sql": "CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE (NULL::double precision)::text END",
+  "sql": "CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE (COALESCE(NULL::double precision, 0))::text END",
 }
 `;
 
@@ -12902,7 +12902,7 @@ exports[`numeric functions > 'Value' with 'checkbox' 1`] = `
     },
   },
   "result": "1",
-  "sql": "(CASE WHEN "t"."Checkbox" IS NULL THEN NULL WHEN "t"."Checkbox" THEN 1 ELSE 0 END)::double precision",
+  "sql": "COALESCE((CASE WHEN "t"."Checkbox" IS NULL THEN NULL WHEN "t"."Checkbox" THEN 1 ELSE 0 END)::double precision, 0)",
 }
 `;
 
@@ -12986,8 +12986,8 @@ exports[`numeric functions > 'Value' with 'conditionalRollup' 1`] = `
       "rawValue": null,
     },
   },
-  "result": null,
-  "sql": "("t"."ConditionalRollupType")::double precision",
+  "result": "0",
+  "sql": "COALESCE(("t"."ConditionalRollupType")::double precision, 0)",
 }
 `;
 
@@ -13014,7 +13014,7 @@ exports[`numeric functions > 'Value' with 'createdBy' 1`] = `
     WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
     WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
     ELSE to_jsonb("t"."CreatedBy") #>> '{}'
-  END) AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE '#ERROR:TYPE:cannot_cast_to_number' END ELSE ((CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT (CASE
+  END) AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE '#ERROR:TYPE:cannot_cast_to_number' END ELSE (COALESCE((CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT (CASE
     WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
     WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
     ELSE to_jsonb("t"."CreatedBy") #>> '{}'
@@ -13026,7 +13026,7 @@ exports[`numeric functions > 'Value' with 'createdBy' 1`] = `
     WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
     WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
     ELSE to_jsonb("t"."CreatedBy") #>> '{}'
-  END) AS val) AS v) END))::text END",
+  END) AS val) AS v) END), 0))::text END",
 }
 `;
 
@@ -13049,7 +13049,7 @@ exports[`numeric functions > 'Value' with 'createdTime' 1`] = `
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_datetime_to_number_value",
-  "sql": "CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_datetime_to_number_value' ELSE (NULL::double precision)::text END",
+  "sql": "CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_datetime_to_number_value' ELSE (COALESCE(NULL::double precision, 0))::text END",
 }
 `;
 
@@ -13072,7 +13072,7 @@ exports[`numeric functions > 'Value' with 'date' 1`] = `
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_datetime_to_number_value",
-  "sql": "CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_datetime_to_number_value' ELSE (NULL::double precision)::text END",
+  "sql": "CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_datetime_to_number_value' ELSE (COALESCE(NULL::double precision, 0))::text END",
 }
 `;
 
@@ -13094,7 +13094,7 @@ exports[`numeric functions > 'Value' with 'formula' 1`] = `
     },
   },
   "result": "10",
-  "sql": "(10)::double precision",
+  "sql": "COALESCE((10)::double precision, 0)",
 }
 `;
 
@@ -13121,7 +13121,7 @@ exports[`numeric functions > 'Value' with 'lastModifiedBy' 1`] = `
     WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
     WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
     ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
-  END) AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE '#ERROR:TYPE:cannot_cast_to_number' END ELSE ((CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT (CASE
+  END) AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE '#ERROR:TYPE:cannot_cast_to_number' END ELSE (COALESCE((CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT (CASE
     WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
     WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
     ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
@@ -13133,7 +13133,7 @@ exports[`numeric functions > 'Value' with 'lastModifiedBy' 1`] = `
     WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
     WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
     ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
-  END) AS val) AS v) END))::text END",
+  END) AS val) AS v) END), 0))::text END",
 }
 `;
 
@@ -13156,7 +13156,7 @@ exports[`numeric functions > 'Value' with 'lastModifiedTime' 1`] = `
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_datetime_to_number_value",
-  "sql": "CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_datetime_to_number_value' ELSE (NULL::double precision)::text END",
+  "sql": "CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_datetime_to_number_value' ELSE (COALESCE(NULL::double precision, 0))::text END",
 }
 `;
 
@@ -13175,7 +13175,7 @@ exports[`numeric functions > 'Value' with 'link' 1`] = `
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_number",
-  "sql": "CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE (NULL::double precision)::text END",
+  "sql": "CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE (COALESCE(NULL::double precision, 0))::text END",
 }
 `;
 
@@ -13194,11 +13194,11 @@ exports[`numeric functions > 'Value' with 'longText' 1`] = `
     },
   },
   "result": "10",
-  "sql": "CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT "t"."LongText" AS val) AS v) THEN CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT "t"."LongText" AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE '#ERROR:TYPE:cannot_cast_to_number' END ELSE ((CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT "t"."LongText" AS val) AS v) THEN NULL ELSE (SELECT (CASE
+  "sql": "CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT "t"."LongText" AS val) AS v) THEN CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT "t"."LongText" AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE '#ERROR:TYPE:cannot_cast_to_number' END ELSE (COALESCE((CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT "t"."LongText" AS val) AS v) THEN NULL ELSE (SELECT (CASE
         WHEN NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NULL THEN NULL
         WHEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric')) THEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'))::double precision
         ELSE NULL
-      END) FROM (SELECT "t"."LongText" AS val) AS v) END))::text END",
+      END) FROM (SELECT "t"."LongText" AS val) AS v) END), 0))::text END",
 }
 `;
 
@@ -13317,7 +13317,7 @@ exports[`numeric functions > 'Value' with 'number' 1`] = `
     },
   },
   "result": "10",
-  "sql": "("t"."Number")::double precision",
+  "sql": "COALESCE(("t"."Number")::double precision, 0)",
 }
 `;
 
@@ -13336,7 +13336,7 @@ exports[`numeric functions > 'Value' with 'rating' 1`] = `
     },
   },
   "result": "4",
-  "sql": "("t"."Rating")::double precision",
+  "sql": "COALESCE(("t"."Rating")::double precision, 0)",
 }
 `;
 
@@ -13357,8 +13357,8 @@ exports[`numeric functions > 'Value' with 'rollup' 1`] = `
       "rawValue": null,
     },
   },
-  "result": null,
-  "sql": "("t"."RollupType")::double precision",
+  "result": "0",
+  "sql": "COALESCE(("t"."RollupType")::double precision, 0)",
 }
 `;
 
@@ -13377,11 +13377,11 @@ exports[`numeric functions > 'Value' with 'singleLineText' 1`] = `
     },
   },
   "result": "10",
-  "sql": "CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT "t"."SingleLineText" AS val) AS v) THEN CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT "t"."SingleLineText" AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE '#ERROR:TYPE:cannot_cast_to_number' END ELSE ((CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT "t"."SingleLineText" AS val) AS v) THEN NULL ELSE (SELECT (CASE
+  "sql": "CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT "t"."SingleLineText" AS val) AS v) THEN CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT "t"."SingleLineText" AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE '#ERROR:TYPE:cannot_cast_to_number' END ELSE (COALESCE((CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT "t"."SingleLineText" AS val) AS v) THEN NULL ELSE (SELECT (CASE
         WHEN NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NULL THEN NULL
         WHEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric')) THEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'))::double precision
         ELSE NULL
-      END) FROM (SELECT "t"."SingleLineText" AS val) AS v) END))::text END",
+      END) FROM (SELECT "t"."SingleLineText" AS val) AS v) END), 0))::text END",
 }
 `;
 
@@ -13400,11 +13400,11 @@ exports[`numeric functions > 'Value' with 'singleSelect' 1`] = `
     },
   },
   "result": "10",
-  "sql": "CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT "t"."SingleSelect" AS val) AS v) THEN CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT "t"."SingleSelect" AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE '#ERROR:TYPE:cannot_cast_to_number' END ELSE ((CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT "t"."SingleSelect" AS val) AS v) THEN NULL ELSE (SELECT (CASE
+  "sql": "CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT "t"."SingleSelect" AS val) AS v) THEN CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT "t"."SingleSelect" AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE '#ERROR:TYPE:cannot_cast_to_number' END ELSE (COALESCE((CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT "t"."SingleSelect" AS val) AS v) THEN NULL ELSE (SELECT (CASE
         WHEN NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NULL THEN NULL
         WHEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric')) THEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'))::double precision
         ELSE NULL
-      END) FROM (SELECT "t"."SingleSelect" AS val) AS v) END))::text END",
+      END) FROM (SELECT "t"."SingleSelect" AS val) AS v) END), 0))::text END",
 }
 `;
 
@@ -13451,11 +13451,11 @@ exports[`numeric functions > 'ValueBad' uses constant input 1`] = `
   "funcId": "ValueBad",
   "inputs": {},
   "result": "#ERROR:TYPE:cannot_cast_to_number",
-  "sql": "CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT 'not-a-number' AS val) AS v) THEN CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT 'not-a-number' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE '#ERROR:TYPE:cannot_cast_to_number' END ELSE ((CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT 'not-a-number' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+  "sql": "CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT 'not-a-number' AS val) AS v) THEN CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT 'not-a-number' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE '#ERROR:TYPE:cannot_cast_to_number' END ELSE (COALESCE((CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT 'not-a-number' AS val) AS v) THEN NULL ELSE (SELECT (CASE
         WHEN NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NULL THEN NULL
         WHEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric')) THEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'))::double precision
         ELSE NULL
-      END) FROM (SELECT 'not-a-number' AS val) AS v) END))::text END",
+      END) FROM (SELECT 'not-a-number' AS val) AS v) END), 0))::text END",
 }
 `;
 
@@ -13465,10 +13465,10 @@ exports[`numeric functions > 'ValueComma' uses constant input 1`] = `
   "funcId": "ValueComma",
   "inputs": {},
   "result": "1000",
-  "sql": "CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT '1,000' AS val) AS v) THEN CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT '1,000' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE '#ERROR:TYPE:cannot_cast_to_number' END ELSE ((CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT '1,000' AS val) AS v) THEN NULL ELSE (SELECT (CASE
+  "sql": "CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT '1,000' AS val) AS v) THEN CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT '1,000' AS val) AS v) THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE '#ERROR:TYPE:cannot_cast_to_number' END ELSE (COALESCE((CASE WHEN (SELECT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NOT (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric'))) FROM (SELECT '1,000' AS val) AS v) THEN NULL ELSE (SELECT (CASE
         WHEN NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NULL THEN NULL
         WHEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)') IS NOT NULL AND NOT (NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') IS NOT NULL AND NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') ~ '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)[eE][+-]?\\d+') AND __teable_input_is_valid(SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'), 'numeric')) THEN (SUBSTRING(NULLIF(REGEXP_REPLACE(BTRIM((v.val)::text), '[,\\s]', '', 'g'), '') FROM '^([+-]?\\d+\\.?\\d*|[+-]?\\d*\\.\\d+)'))::double precision
         ELSE NULL
-      END) FROM (SELECT '1,000' AS val) AS v) END))::text END",
+      END) FROM (SELECT '1,000' AS val) AS v) END), 0))::text END",
 }
 `;
