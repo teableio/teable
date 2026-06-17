@@ -1,4 +1,5 @@
 import { PGlite } from '@electric-sql/pglite';
+import { PostgresUnitOfWorkTransaction } from '@teable/v2-adapter-db-postgres-shared';
 import { BaseId, FieldId, NoopHasher, RecordId, TableId, type ILogger } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Dialect, QueryResult } from 'kysely';
@@ -402,6 +403,72 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
     const actualKeys = new Set(seedRows.map((row) => `${row.table_id}|${row.record_id}`));
 
     expect(actualKeys.size).toBe(expectedKeys.size);
+  });
+
+  it('merges duplicate seed tasks inside the caller transaction', async () => {
+    const baseId = BaseId.create(`bse${'a'.repeat(16)}`)._unsafeUnwrap();
+    const seedTableId = TableId.create(`tbl${'b'.repeat(16)}`)._unsafeUnwrap();
+    const firstFieldId = FieldId.create(`fld${'c'.repeat(16)}`)._unsafeUnwrap();
+    const secondFieldId = FieldId.create(`fld${'h'.repeat(16)}`)._unsafeUnwrap();
+    const hasher = new NoopHasher();
+    const outbox = createTestOutbox(db);
+
+    const firstTask = buildSeedTaskInput({
+      baseId,
+      seedTableId,
+      seedRecordIds: [createRecordId(1), createRecordId(2)],
+      extraSeedRecords: [],
+      changedFieldIds: [firstFieldId],
+      changeType: 'update',
+      hasher,
+      runId: 'run-first',
+    });
+    const secondTask = buildSeedTaskInput({
+      baseId,
+      seedTableId,
+      seedRecordIds: [createRecordId(2), createRecordId(3)],
+      extraSeedRecords: [],
+      changedFieldIds: [secondFieldId],
+      changeType: 'update',
+      hasher,
+      runId: 'run-second',
+    });
+
+    await db.transaction().execute(async (trx) => {
+      const context = {
+        transaction: new PostgresUnitOfWorkTransaction(trx as never, 'data'),
+      };
+
+      const first = await outbox.enqueueSeedTask(firstTask, context as never);
+      const second = await outbox.enqueueSeedTask(secondTask, context as never);
+
+      expect(first.isOk()).toBe(true);
+      expect(first._unsafeUnwrap()).toMatchObject({ merged: false });
+      expect(second.isOk()).toBe(true);
+      expect(second._unsafeUnwrap()).toMatchObject({
+        taskId: first._unsafeUnwrap().taskId,
+        merged: true,
+      });
+    });
+
+    const outboxRows = await db.selectFrom('computed_update_outbox').selectAll().execute();
+    expect(outboxRows.length).toBe(1);
+    expect(outboxRows[0].affected_field_ids).toEqual([
+      firstFieldId.toString(),
+      secondFieldId.toString(),
+    ]);
+
+    const seedRows = await db
+      .selectFrom('computed_update_outbox_seed')
+      .select(['table_id', 'record_id'])
+      .orderBy('record_id')
+      .execute();
+
+    expect(seedRows.map((row) => `${row.table_id}|${row.record_id}`)).toEqual([
+      `${seedTableId.toString()}|${createRecordId(1).toString()}`,
+      `${seedTableId.toString()}|${createRecordId(2).toString()}`,
+      `${seedTableId.toString()}|${createRecordId(3).toString()}`,
+    ]);
   });
 
   it('reclaims stale processing tasks after the lease expires', async () => {

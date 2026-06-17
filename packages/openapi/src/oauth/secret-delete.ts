@@ -10,6 +10,7 @@ export const deleteOauthSecretRoute = registerRoute({
   description: 'Delete the OAuth secret',
   request: {
     params: z.object({
+      clientId: z.string(),
       secretId: z.string(),
     }),
   },

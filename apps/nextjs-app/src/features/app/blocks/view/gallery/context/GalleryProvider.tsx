@@ -6,8 +6,8 @@ import {
   useView,
   useFields,
   useTablePermission,
-  usePersonalView,
   useButtonClickStatus,
+  useDeepCompareMemoize,
 } from '@teable/sdk/hooks';
 import type { AttachmentField, GalleryView, IFieldInstance } from '@teable/sdk/model';
 import { useRouter } from 'next/router';
@@ -17,12 +17,12 @@ import { GalleryContext } from './GalleryContext';
 export const GalleryProvider = ({ children }: { children: ReactNode }) => {
   const tableId = useTableId();
   const view = useView() as GalleryView | undefined;
-  const { personalViewCommonQuery } = usePersonalView();
   const { shareId } = useContext(ShareViewContext) ?? {};
   const { sort, filter } = view ?? {};
   const permission = useTablePermission();
   const fields = useFields();
   const allFields = useFields({ withHidden: true, withDenied: true });
+  const visibleFieldIds = useDeepCompareMemoize(fields.map(({ id }) => id).sort()) as string[];
   const { coverFieldId, isCoverFit, isFieldNameHidden } = view?.options ?? {};
   const [expandRecordId, setExpandRecordId] = useState<string>();
   const buttonClickStatusHook = useButtonClickStatus(tableId!, shareId);
@@ -40,21 +40,21 @@ export const GalleryProvider = ({ children }: { children: ReactNode }) => {
   }, [routerRecordId, setExpandRecordId]);
 
   const recordQuery = useMemo(() => {
-    const { ignoreViewQuery } = personalViewCommonQuery ?? {};
+    // same contract as useRecords: search must only hit the fields this view
+    // displays, so every record query in the gallery view declares it explicitly
     const baseQuery = {
       orderBy: sort?.sortObjs,
       filter: filter,
+      projection: visibleFieldIds,
     };
 
     if (shareId) return baseQuery;
 
-    if (ignoreViewQuery) {
-      return {
-        ...baseQuery,
-        ignoreViewQuery,
-      };
-    }
-  }, [shareId, sort, filter, personalViewCommonQuery]);
+    return {
+      ...baseQuery,
+      ignoreViewQuery: true,
+    };
+  }, [shareId, sort, filter, visibleFieldIds]);
 
   const galleryPermission = useMemo(() => {
     return {
