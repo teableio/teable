@@ -69,6 +69,7 @@
     "import": "Импорт",
     "getMore": "Получить больше",
     "copySuccess": "Копирование успешно",
+    "openLink": "Открыть ссылку",
     "share": "Поделиться"
   },
   "quickAction": {
@@ -451,6 +452,12 @@
       "desc_other": "Эта база поделена с {{count}} сотрудниками.",
       "baseTitle": "Сотрудники базы",
       "collaboratorSearchPlaceholder": "Найдите сотрудника базы по имени или электронной почте"
+    },
+    "table": {
+      "collaborator": "Сотрудник",
+      "accessPermission": "Права доступа",
+      "joinAt": "Дата присоединения",
+      "lastLogin": "Последний вход"
     }
   },
   "help": {
@@ -687,6 +694,10 @@
     "exportBase": {
       "successText": "Данные экспорта готовы",
       "failedText": "Экспорт не удался, попробуйте снова"
+    },
+    "importantNotice": {
+      "title": "Important Notice",
+      "acknowledge": "I Understand"
     }
   },
   "role": {
@@ -754,6 +765,7 @@
     "unsubscribeTime": "Время отписки",
     "source": "Источник",
     "sourceAutomationDeleted": "Автоматизация или узел удалены",
+    "sourceApiSend": "Отправка письма через API",
     "processing": "Обработка...",
     "unsubscribeH1": "Подтвердить отписку?",
     "unsubscribeH2": "Вы собираетесь отписаться от будущих рекламных акций и обновлений продуктов Teable. Вы уверены, что хотите отписаться?",
@@ -1115,6 +1127,83 @@
       "requestTimeout": "Превышено время ожидания запроса",
       "chunkProcessingFailed": "Ошибка пакетной обработки: {{reason}}",
       "unknown": "{{fieldHint}}{{message}}"
+    }
+  },
+  "skills": {
+    "title": "Навыки",
+    "tabs": {
+      "mySkills": "Мои навыки"
+    },
+    "actions": {
+      "import": "Импортировать навык",
+      "sync": "Синхронизировать",
+      "delete": "Удалить",
+      "enable": "Включить",
+      "disable": "Отключить",
+      "edit": "Редактировать",
+      "copyToApp": "Копировать в приложение"
+    },
+    "import": {
+      "title": "Импортировать навык",
+      "description": "Импортируйте навык из репозитория GitHub или ZIP-файла",
+      "githubTab": "URL GitHub",
+      "fileTab": "ZIP-файл",
+      "githubPlaceholder": "https://github.com/owner/repo/tree/main/skills/my-skill",
+      "fileHint": "Загрузите ZIP-файл, содержащий SKILL.md",
+      "or": "или",
+      "selectFile": "Выбрать файл",
+      "replaceWarning": "Если в этой области уже существует навык с таким же именем, при импорте он будет заменён.",
+      "importing": "Импорт...",
+      "submit": "Импортировать",
+      "success": "Навык успешно импортирован",
+      "error": "Не удалось импортировать навык"
+    },
+    "detail": {
+      "slug": "Slug",
+      "description": "Описание",
+      "source": "Источник",
+      "skillLabel": "Навык",
+      "syncStatus": "Статус синхронизации",
+      "preview": "Предпросмотр SKILL.md"
+    },
+    "scope": {
+      "label": "Область действия",
+      "system": "Система",
+      "base": "Base",
+      "user": "Личный",
+      "userDescription": "Доступно только вам",
+      "baseDescription": "Доступно сотрудникам этой базы",
+      "app": "App",
+      "appDescription": "Доступно только для этого приложения",
+      "cuppyclaw": "Бот",
+      "cuppyclawDescription": "Доступно только для этого бота"
+    },
+    "source": {
+      "github": "GitHub",
+      "file": "Загрузка файла",
+      "manual": "Вручную"
+    },
+    "status": {
+      "enabled": "Включён",
+      "disabled": "Отключён",
+      "synced": "Синхронизирован",
+      "failed": "Ошибка синхронизации"
+    },
+    "empty": {
+      "mySkills": "Персональных навыков пока нет. Импортируйте один, чтобы начать."
+    },
+    "confirm": {
+      "deleteTitle": "Удалить навык",
+      "deleteDescription": "Вы уверены, что хотите удалить этот навык? Это действие нельзя отменить."
+    },
+    "toast": {
+      "syncing": "Синхронизация навыка...",
+      "syncSuccess": "Навык успешно синхронизирован",
+      "syncError": "Не удалось синхронизировать навык",
+      "deleting": "Удаление навыка...",
+      "deleteSuccess": "Навык успешно удалён",
+      "deleteError": "Не удалось удалить навык",
+      "updateSuccess": "Навык успешно обновлён"
     }
   },
   "changelog": {

@@ -50,6 +50,8 @@ export const listTableRecordsInputSchema = z
     filterLinkCellSelected: parseJsonInput(incomingLinkSelectionSchema).optional(),
     filterLinkCellCandidate: parseJsonInput(incomingLinkSelectionSchema).optional(),
     selectedRecordIds: parseJsonInput(z.array(z.string().min(1))).optional(),
+    projection: parseJsonInput(z.array(z.string().min(1))).optional(),
+    includeTotal: z.coerce.boolean().optional(),
     viewId: z.string().min(1).optional(),
     ignoreViewQuery: z.coerce.boolean().optional(),
     limit: z.coerce.number().int().positive().max(MAX_RECORDS_LIMIT).optional(),
@@ -82,6 +84,8 @@ export class ListTableRecordsQuery {
     readonly filterLinkCellSelected?: string | [string, string],
     readonly filterLinkCellCandidate?: string | [string, string],
     readonly selectedRecordIds?: ReadonlyArray<string>,
+    readonly projection?: ReadonlyArray<string>,
+    readonly includeTotal?: boolean,
     readonly viewId?: string,
     readonly ignoreViewQuery?: boolean
   ) {}
@@ -111,6 +115,8 @@ export class ListTableRecordsQuery {
             parsed.data.filterLinkCellSelected,
             parsed.data.filterLinkCellCandidate,
             parsed.data.selectedRecordIds,
+            parsed.data.projection,
+            parsed.data.includeTotal,
             parsed.data.viewId,
             parsed.data.ignoreViewQuery
           )

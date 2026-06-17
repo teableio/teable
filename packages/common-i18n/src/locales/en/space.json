@@ -9,7 +9,8 @@
   "action": {
     "createBase": "Create a base",
     "createSpace": "Create a space",
-    "invite": "Invite"
+    "invite": "Invite",
+    "startFromScratch": "Start from scratch"
   },
   "allSpaces": "All spaces",
   "emptySpaceTitle": "No bases in this space",
@@ -320,5 +321,58 @@
       "version": "Version",
       "classification": "Classification"
     }
+  },
+  "airtableImport": {
+    "title": "Import from Airtable",
+    "close": "Close",
+    "pickBase": "Choose a base to import",
+    "noBases": "No accessible bases were found for this token.",
+    "optionRecords": "Import records",
+    "optionAttachments": "Download and import attachments",
+    "import": "Start import",
+    "done": "Import completed",
+    "failed": "Import failed",
+    "openBase": "Open base",
+    "issuesSummary": "{{count}} items were adjusted during import:",
+    "issuesMore": "+{{count}} more",
+    "issue": {
+      "fieldDegraded": "{{tableName}} / {{fieldName}}: {{fromType}} → {{toType}}",
+      "fieldSkipped": "{{tableName}} / {{fieldName}} ({{fromType}}) skipped: {{reason}}",
+      "viewSkipped": "{{tableName}} / view \"{{viewName}}\" ({{fromType}}) skipped",
+      "valuesDropped": "{{tableName}} / {{fieldName}}: {{count}} values dropped ({{reason}})",
+      "viewConfigDegraded": "{{tableName}} / view \"{{viewName}}\": {{reason}}"
+    },
+    "phase": {
+      "fetchingSchema": "Reading Airtable base schema",
+      "creatingBase": "Creating base: {{detail}}",
+      "creatingTable": "Creating table: {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "creatingLinks": "Creating link fields",
+      "fillingLinks": "{{tableName}} (links)",
+      "done": "Import completed",
+      "applyingViewConfig": "Importing view configuration"
+    },
+    "searchBases": "Search bases",
+    "noSearchResults": "No bases match your search.",
+    "detecting": "Checking Airtable connection…",
+    "connectWithAirtable": "Connect Airtable account",
+    "waitingOAuth": "Finish authorizing in the popup…",
+    "connectedAs": "Connected: {{account}}",
+    "permission": {
+      "create": "Creator",
+      "edit": "Editor",
+      "comment": "Commenter",
+      "read": "Read-only"
+    },
+    "integrationRequired": "The Airtable integration is not configured on this instance. Ask an administrator to set it up.",
+    "loadingBases": "Loading bases…",
+    "optionViewConfig": "Import view filters, sorts and grouping",
+    "viewConfig": {
+      "help": "The Airtable API does not expose view settings. In Airtable open the base’s Share menu → \"Share to web\" → turn on full base access, then paste the read-only shared-base link here.",
+      "mismatch": "This shared link points to a different base than the one selected.",
+      "disableReminder": "Done — you can now turn off the shared-base link in Airtable."
+    }
+  },
+  "createBaseDialog": {
+    "title": "How do you want to start?"
   }
 }
