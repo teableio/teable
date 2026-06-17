@@ -11,7 +11,6 @@ import type { ICell, ICellItem, IGridColumn, IInnerCell, IRange } from '../../gr
 import { CellType, SelectionRegionType } from '../../grid/interface';
 import { CombinedSelection, emptySelection } from '../../grid/managers';
 import { useGridViewStore } from '../store/useGridViewStore';
-import { isNeedPersistEditing } from '../utils/persist-editing';
 import { LARGE_QUERY_THRESHOLD } from './constant';
 import { useCreateCellValue2GridDisplay } from './use-grid-columns';
 
@@ -30,6 +29,9 @@ export interface IActiveCell {
   rowIndex: number;
   columnIndex: number;
 }
+
+const findLoadedRecordEntry = (recordMap: Record<string, IRecord>, recordId: string) =>
+  Object.entries(recordMap).find(([, record]) => record?.id === recordId);
 
 export const useGridSelection = (props: IUseGridSelectionProps) => {
   const { recordMap, columns, viewQuery, gridRef } = props;
@@ -77,35 +79,20 @@ export const useGridSelection = (props: IUseGridSelectionProps) => {
       }
       return getRecordStatus(tableId, recordId, { ...viewQuery, viewId, skip, take: 1 });
     },
-    onSuccess: (data) => {
-      if (activeCell == null) return setActiveCell(undefined);
-
+    onSuccess: (data, { recordId, skip }) => {
       const { isDeleted, isVisible } = data.data;
-
-      if (!isDeleted && !isVisible) {
-        const { recordId, fieldId } = activeCell;
-        const recordEntry = Object.entries(recordMap).find(
-          ([_, record]) => record?.id === recordId
-        );
-
-        setPresortRecordData({ rowIndex: activeCell.rowIndex, recordId });
-
-        if (!recordEntry) return gridRef.current?.setSelection(emptySelection);
-
-        const rowIndex = parseInt(recordEntry[0]);
-        const columnIndex = columns.findIndex((column) => column.id === fieldId);
-        const range = [columnIndex, rowIndex] as IRange;
-
-        if (gridRef.current?.isEditing() && isNeedPersistEditing(fields, fieldId)) {
-          return gridRef.current?.setSelection(
-            new CombinedSelection(SelectionRegionType.Cells, [range, range])
-          );
-        }
-      }
 
       if (isDeleted) {
         setActiveCell(undefined);
         setSelection(emptySelection);
+        gridRef.current?.setSelection(emptySelection);
+        return;
+      }
+
+      // Moved away and no longer loaded → keep the presort floating row.
+      if (!isVisible) {
+        if (findLoadedRecordEntry(recordMap, recordId)) return;
+        setPresortRecordData({ rowIndex: skip, recordId });
         gridRef.current?.setSelection(emptySelection);
       }
     },
@@ -198,6 +185,27 @@ export const useGridSelection = (props: IUseGridSelectionProps) => {
     [activeCell, columns, recordMap, setSelection]
   );
 
+  // Follow a record that left its row: select its new position if still loaded,
+  // otherwise ask the server (deleted → clear, else → floating row).
+  const followRecord = useCallback(
+    (recordId: string, fieldId: string, skip: number) => {
+      const entry = findLoadedRecordEntry(recordMap, recordId);
+      if (entry) {
+        setPresortRecordData(undefined);
+        const columnIndex = columns.findIndex((column) => column.id === fieldId);
+        if (columnIndex < 0) return;
+        const range = [columnIndex, parseInt(entry[0])] as IRange;
+        gridRef.current?.setSelection(
+          new CombinedSelection(SelectionRegionType.Cells, [range, range])
+        );
+        return;
+      }
+      if (isShareContext) return;
+      mutateGetRecordStatus({ tableId, recordId, skip });
+    },
+    [columns, gridRef, recordMap, isShareContext, tableId, mutateGetRecordStatus]
+  );
+
   useEffect(() => {
     if (activeCell == null || prevActiveCellRef.current == null) return;
 
@@ -210,14 +218,10 @@ export const useGridSelection = (props: IUseGridSelectionProps) => {
     const activeRecordId = activeCell.recordId;
 
     if (recordMap[rowIndex]?.id === activeRecordId) return;
-    if (isShareContext) return;
 
-    mutateGetRecordStatus({
-      tableId,
-      recordId: activeCell.recordId,
-      skip: activeCell.rowIndex,
-    });
-  }, [activeCell, gridRef, recordMap, tableId, mutateGetRecordStatus, isShareContext]);
+    // The focused record left its row → follow it.
+    followRecord(activeRecordId, activeCell.fieldId, activeCell.rowIndex);
+  }, [activeCell, recordMap, followRecord]);
 
   useEffect(() => {
     if (!gridRef.current?.isEditing()) return;

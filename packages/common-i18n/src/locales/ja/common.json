@@ -69,6 +69,7 @@
     "import": "インポート",
     "getMore": "もっと取得",
     "copySuccess": "コピー成功",
+    "openLink": "リンクを開く",
     "share": "共有"
   },
   "quickAction": {
@@ -484,7 +485,14 @@
     },
     "addOrgCollaborator": {
       "title": "組織の共同作業者を追加",
+      "button": "組織から追加",
       "placeholder": "組織のメンバーまたは部門を選択"
+    },
+    "table": {
+      "collaborator": "コラボレーター",
+      "accessPermission": "アクセス権限",
+      "joinAt": "参加日",
+      "lastLogin": "最終ログイン"
     }
   },
   "help": {
@@ -721,6 +729,10 @@
     "exportBase": {
       "successText": "エクスポートデータの準備ができました",
       "failedText": "エクスポートに失敗しました。再試行してください"
+    },
+    "importantNotice": {
+      "title": "Important Notice",
+      "acknowledge": "I Understand"
     }
   },
   "role": {
@@ -798,6 +810,7 @@
     "unsubscribeTime": "購読解除時刻",
     "source": "ソース",
     "sourceAutomationDeleted": "自動化またはノードが削除されました",
+    "sourceApiSend": "API メール送信",
     "processing": "処理中...",
     "unsubscribeH1": "登録解除を確認しますか？",
     "unsubscribeH2": "今後のTeable のプロモーションや製品アップデート情報の配信を解除しようとしています。登録解除してもよろしいですか？",
@@ -1159,6 +1172,83 @@
       "requestTimeout": "リクエストがタイムアウトしました",
       "chunkProcessingFailed": "バッチ処理に失敗しました：{{reason}}",
       "unknown": "{{fieldHint}}{{message}}"
+    }
+  },
+  "skills": {
+    "title": "スキル",
+    "tabs": {
+      "mySkills": "マイスキル"
+    },
+    "actions": {
+      "import": "スキルをインポート",
+      "sync": "同期",
+      "delete": "削除",
+      "enable": "有効化",
+      "disable": "無効化",
+      "edit": "編集",
+      "copyToApp": "アプリにコピー"
+    },
+    "import": {
+      "title": "スキルをインポート",
+      "description": "GitHub リポジトリまたは ZIP ファイルからスキルをインポートします",
+      "githubTab": "GitHub URL",
+      "fileTab": "ZIPファイル",
+      "githubPlaceholder": "https://github.com/owner/repo/tree/main/skills/my-skill",
+      "fileHint": "SKILL.mdを含むZIPファイルをアップロード",
+      "or": "または",
+      "selectFile": "ファイルを選択",
+      "replaceWarning": "このスコープに同名のスキルが既に存在する場合、インポートすると置き換えられます。",
+      "importing": "インポート中...",
+      "submit": "インポート",
+      "success": "スキルのインポートに成功しました",
+      "error": "スキルのインポートに失敗しました"
+    },
+    "detail": {
+      "slug": "スラッグ",
+      "description": "説明",
+      "source": "ソース",
+      "skillLabel": "スキル",
+      "syncStatus": "同期状態",
+      "preview": "SKILL.mdプレビュー"
+    },
+    "scope": {
+      "label": "スコープ",
+      "system": "システム",
+      "base": "Base",
+      "user": "個人",
+      "userDescription": "自分のみ利用可能",
+      "baseDescription": "この Base の共同作業者と共有",
+      "app": "App",
+      "appDescription": "このアプリでのみ利用可能",
+      "cuppyclaw": "ボット",
+      "cuppyclawDescription": "このボットでのみ利用可能"
+    },
+    "source": {
+      "github": "GitHub",
+      "file": "ファイルアップロード",
+      "manual": "手動"
+    },
+    "status": {
+      "enabled": "有効",
+      "disabled": "無効",
+      "synced": "同期済み",
+      "failed": "同期失敗"
+    },
+    "empty": {
+      "mySkills": "個人スキルはまだありません。インポートして始めましょう。"
+    },
+    "confirm": {
+      "deleteTitle": "スキルを削除",
+      "deleteDescription": "このスキルを削除してもよろしいですか？この操作は元に戻せません。"
+    },
+    "toast": {
+      "syncing": "スキルを同期中...",
+      "syncSuccess": "スキルの同期に成功しました",
+      "syncError": "スキルの同期に失敗しました",
+      "deleting": "スキルを削除中...",
+      "deleteSuccess": "スキルを削除しました",
+      "deleteError": "スキルの削除に失敗しました",
+      "updateSuccess": "スキルを更新しました"
     }
   },
   "changelog": {

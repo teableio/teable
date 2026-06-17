@@ -4,6 +4,7 @@ import { CanaryModule } from '../../canary/canary.module';
 import { FieldOpenApiModule } from '../../field/open-api/field-open-api.module';
 import { NotificationModule } from '../../notification/notification.module';
 import { RecordOpenApiModule } from '../../record/open-api/record-open-api.module';
+import { SpaceModule } from '../../space/space.module';
 import { TableOpenApiModule } from '../../table/open-api/table-open-api.module';
 import { V2Module } from '../../v2/v2.module';
 import { ImportMetricsModule } from '../metrics/import-metrics.module';
@@ -23,6 +24,7 @@ import { ImportOpenApiService } from './import-open-api.service';
     V2Module,
     CanaryModule,
     ImportMetricsModule,
+    SpaceModule,
   ],
   controllers: [ImportController],
   providers: [ImportOpenApiService, ImportOpenApiV2Service],
