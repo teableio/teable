@@ -385,71 +385,84 @@ export class CreateTablesHandler
         { scope: 'meta' }
       );
 
-      const dataResult = await handler.unitOfWork.withTransaction(
-        context,
-        async (dataTransactionContext) =>
-          safeTry<TransactionResult, DomainError>(async function* () {
-            const creationResult = yield* await handler.tableCreationService.provisionData(
-              dataTransactionContext,
-              {
-                baseId: command.baseId,
-                tables: builtTables,
-                externalTables,
-                referencesByTable,
-                persistedTables: metadataResult,
-              }
-            );
+      const previousPendingInitializationContext = context.pendingTableDataInitialization;
+      context.pendingTableDataInitialization = {
+        tableIds: metadataResult.map((table) => table.id().toString()),
+      };
+      const dataResult = await (async () => {
+        try {
+          return await handler.unitOfWork.withTransaction(
+            context,
+            async (dataTransactionContext) =>
+              safeTry<TransactionResult, DomainError>(async function* () {
+                const creationResult = yield* await handler.tableCreationService.provisionData(
+                  dataTransactionContext,
+                  {
+                    baseId: command.baseId,
+                    tables: builtTables,
+                    externalTables,
+                    referencesByTable,
+                    persistedTables: metadataResult,
+                  }
+                );
 
-            const tablesWithRecords: TableWithRecords[] = [];
-            for (let index = 0; index < tableCommands.length; index += 1) {
-              const persistedTable = creationResult.persistedTables[index];
-              const recordsFieldValues = tableCommands[index]?.records ?? [];
-              if (persistedTable && recordsFieldValues.length > 0) {
-                tablesWithRecords.push({
-                  tableId: persistedTable.id(),
+                const tablesWithRecords: TableWithRecords[] = [];
+                for (let index = 0; index < tableCommands.length; index += 1) {
+                  const persistedTable = creationResult.persistedTables[index];
+                  const recordsFieldValues = tableCommands[index]?.records ?? [];
+                  if (persistedTable && recordsFieldValues.length > 0) {
+                    tablesWithRecords.push({
+                      tableId: persistedTable.id(),
+                      table: persistedTable,
+                      recordsFieldValues,
+                    });
+                  }
+                }
+
+                const sortedTablesWithRecords = sortTablesByRecordDependencies(tablesWithRecords);
+
+                for (const {
                   table: persistedTable,
                   recordsFieldValues,
+                } of sortedTablesWithRecords) {
+                  const pluginExecution = yield* await handler.recordWritePluginRunner.prepare({
+                    kind: RecordWriteOperationKind.createMany,
+                    executionContext: dataTransactionContext,
+                    table: persistedTable,
+                    payload: {
+                      recordsFieldValues: recordsFieldValues.map((record) => record.fieldValues),
+                      fieldKeyType: FieldKeyType.Id,
+                      typecast: false,
+                      recordCount: recordsFieldValues.length,
+                    },
+                    isTransactionBound: true,
+                  });
+                  yield* await pluginExecution.guard();
+                  const recordSpan = dataTransactionContext.tracer?.startSpan(
+                    'teable.CreateTablesHandler.createRecords'
+                  );
+                  const { records } = yield* persistedTable.createRecords(recordsFieldValues);
+                  recordSpan?.end();
+                  yield* await pluginExecution.beforePersist(dataTransactionContext);
+                  yield* await handler.tableRecordRepository.insertMany(
+                    dataTransactionContext,
+                    persistedTable,
+                    records
+                  );
+                }
+
+                return ok({
+                  persistedTables: creationResult.persistedTables,
+                  tableState: creationResult.tableState,
+                  sideEffectEvents: creationResult.sideEffectEvents,
                 });
-              }
-            }
-
-            const sortedTablesWithRecords = sortTablesByRecordDependencies(tablesWithRecords);
-
-            for (const { table: persistedTable, recordsFieldValues } of sortedTablesWithRecords) {
-              const pluginExecution = yield* await handler.recordWritePluginRunner.prepare({
-                kind: RecordWriteOperationKind.createMany,
-                executionContext: dataTransactionContext,
-                table: persistedTable,
-                payload: {
-                  recordsFieldValues: recordsFieldValues.map((record) => record.fieldValues),
-                  fieldKeyType: FieldKeyType.Id,
-                  typecast: false,
-                  recordCount: recordsFieldValues.length,
-                },
-                isTransactionBound: true,
-              });
-              yield* await pluginExecution.guard();
-              const recordSpan = dataTransactionContext.tracer?.startSpan(
-                'teable.CreateTablesHandler.createRecords'
-              );
-              const { records } = yield* persistedTable.createRecords(recordsFieldValues);
-              recordSpan?.end();
-              yield* await pluginExecution.beforePersist(dataTransactionContext);
-              yield* await handler.tableRecordRepository.insertMany(
-                dataTransactionContext,
-                persistedTable,
-                records
-              );
-            }
-
-            return ok({
-              persistedTables: creationResult.persistedTables,
-              tableState: creationResult.tableState,
-              sideEffectEvents: creationResult.sideEffectEvents,
-            });
-          }),
-        { scope: 'data' }
-      );
+              }),
+            { scope: 'data' }
+          );
+        } finally {
+          context.pendingTableDataInitialization = previousPendingInitializationContext;
+        }
+      })();
 
       if (dataResult.isErr()) {
         yield* await failTablesSchemaOperation(

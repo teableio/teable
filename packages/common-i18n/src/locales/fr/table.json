@@ -394,6 +394,9 @@
         "medium": "Moyenne",
         "high": "Élevée"
       },
+      "tip": {
+        "gptImageResolution": "En raison de la limite du nombre total de pixels, le mode 4K utilise pour certains formats la plus grande taille de sortie conforme disponible."
+      },
       "autoFill": {
         "title": "Mise à jour automatique",
         "tip": "Après activation, le champ actuel sera mis à jour de manière synchrone avec les modifications du contenu de la configuration AI"
@@ -687,6 +690,7 @@
     "menu": {
       "addFromOtherSource": "Ajouter depuis d'autres sources",
       "excelFile": "Microsoft Excel",
+      "airtable": "Airtable",
       "csvFile": "Fichier CSV",
       "importCsvData": "Importer des données CSV",
       "importExcelData": "Importer des données Microsoft Excel",
@@ -838,6 +842,7 @@
     "noPermission": "Vous n'avez pas la permission d'accéder à la base de données",
     "connectionCountTip": "Le nombre maximum de connexions à la base de données est <b>{{max}}</b> et les connexions actuelles sont <b>{{current}}</b>",
     "createFailed": "Veuillez vérifier que la variable d'environnement PUBLIC_DATABASE_PROXY est correctement configurée",
+    "readonlyUnavailable": "Readonly database sharing is unavailable for this data database. Grant the Teable database user permission to create roles and grants, or use a target database that supports readonly roles.",
     "helpLink": "https://help.teable.ai/en/deploy/database-connection"
   },
   "view": {
@@ -1017,9 +1022,18 @@
       "workflows": "Automatisations",
       "folders": "Dossiers"
     },
+    "slashCommand": {
+      "skills": "Skills",
+      "searchEmpty": "No results found"
+    },
     "inputPlaceholder": "Tapez @ pour ajouter un nœud",
     "inputPlaceholderFiles": "Collez ou déposez des fichiers ici",
     "thought": "En train de penser",
+    "stage": {
+      "initializing": "Initialisation",
+      "working": "En cours",
+      "committing": "Validation"
+    },
     "meta": {
       "input": "Entrée",
       "output": "Sortie",

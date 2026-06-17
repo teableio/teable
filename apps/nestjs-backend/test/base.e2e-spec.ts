@@ -507,12 +507,11 @@ describe('OpenAPI BaseController (e2e)', () => {
     expect(res.data.find((v) => v.id === baseId2)).toBeDefined();
   });
 
-  describe('Base owner display after member removal', () => {
+  describe('Base creator display after member removal', () => {
     const userAEmail = 'userA-t1606@example.com';
     const userBEmail = 'userB-t1606@example.com';
     let userARequest: AxiosInstance;
     let userBRequest: AxiosInstance;
-    let userAId: string;
     let userBId: string;
     let spaceId: string;
     let baseId: string;
@@ -527,10 +526,6 @@ describe('OpenAPI BaseController (e2e)', () => {
         email: userBEmail,
         password: '12345678',
       });
-
-      // Get user A's ID (space owner)
-      const userAInfo = await userARequest.get<IUserMeVo>(USER_ME);
-      userAId = userAInfo.data.id;
 
       // Get user B's ID
       const userBInfo = await userBRequest.get<IUserMeVo>(USER_ME);
@@ -562,7 +557,7 @@ describe('OpenAPI BaseController (e2e)', () => {
       await userARequest.delete(urlBuilder(DELETE_SPACE, { spaceId }));
     });
 
-    it('should fallback to space owner when creator is removed from space', async () => {
+    it('should still show the creator after they are removed from the space', async () => {
       // Verify user B is the creator before removal (via getBaseAll)
       const beforeRemoval = await userARequest.get(GET_BASE_ALL);
       const baseBefore = beforeRemoval.data.find((b: { id: string }) => b.id === baseId);
@@ -575,13 +570,14 @@ describe('OpenAPI BaseController (e2e)', () => {
         params: { principalId: userBId, principalType: PrincipalType.User },
       });
 
-      // Verify createdUser is now the space owner (user A) after removal
+      // The real creator (user B) is still resolvable, so createdUser stays user B
+      // even though they are no longer a space collaborator (T5261). The space-owner
+      // fallback only applies when the creator's user record cannot be resolved.
       const afterRemoval = await userARequest.get(GET_BASE_ALL);
       const baseAfter = afterRemoval.data.find((b: { id: string }) => b.id === baseId);
       expect(baseAfter).toBeDefined();
-      // The createdUser should fallback to space owner (user A) since user B is no longer in the space
       expect(baseAfter.createdUser).toBeDefined();
-      expect(baseAfter.createdUser.id).toBe(userAId);
+      expect(baseAfter.createdUser.id).toBe(userBId);
     });
   });
 
