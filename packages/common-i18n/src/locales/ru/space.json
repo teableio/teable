@@ -9,7 +9,8 @@
   "action": {
     "createBase": "Создать базу",
     "createSpace": "Создать пространство",
-    "invite": "Пригласить"
+    "invite": "Пригласить",
+    "startFromScratch": "Начать с нуля"
   },
   "allSpaces": "Все пространства",
   "emptySpaceTitle": "В этом пространстве нет баз",
@@ -207,5 +208,58 @@
       "redeploy": "Повторить развёртывание",
       "unnamedApp": "Безымянное приложение"
     }
+  },
+  "airtableImport": {
+    "title": "Импорт из Airtable",
+    "close": "Закрыть",
+    "pickBase": "Выберите базу для импорта",
+    "noBases": "Для этого токена не найдено доступных баз.",
+    "optionRecords": "Импортировать записи",
+    "optionAttachments": "Скачать и импортировать вложения",
+    "import": "Начать импорт",
+    "done": "Импорт завершён",
+    "failed": "Импорт не удался",
+    "openBase": "Открыть базу",
+    "issuesSummary": "Во время импорта скорректировано элементов: {{count}}",
+    "issuesMore": "+{{count}} ещё",
+    "issue": {
+      "fieldDegraded": "{{tableName}} / {{fieldName}}: {{fromType}} → {{toType}}",
+      "fieldSkipped": "{{tableName}} / {{fieldName}} ({{fromType}}) пропущено: {{reason}}",
+      "viewSkipped": "{{tableName}} / представление «{{viewName}}» ({{fromType}}) пропущено",
+      "valuesDropped": "{{tableName}} / {{fieldName}}: отброшено значений: {{count}} ({{reason}})",
+      "viewConfigDegraded": "{{tableName}} / представление «{{viewName}}»: {{reason}}"
+    },
+    "phase": {
+      "fetchingSchema": "Чтение структуры базы Airtable",
+      "creatingBase": "Создание базы: {{detail}}",
+      "creatingTable": "Создание таблицы: {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "creatingLinks": "Создание полей связи",
+      "fillingLinks": "{{tableName}} (связи)",
+      "done": "Импорт завершён",
+      "applyingViewConfig": "Импорт конфигурации представлений"
+    },
+    "searchBases": "Поиск баз",
+    "noSearchResults": "Нет баз, соответствующих запросу.",
+    "detecting": "Проверка подключения к Airtable…",
+    "connectWithAirtable": "Подключить аккаунт Airtable",
+    "waitingOAuth": "Завершите авторизацию во всплывающем окне…",
+    "connectedAs": "Подключено: {{account}}",
+    "permission": {
+      "create": "Создатель",
+      "edit": "Редактор",
+      "comment": "Комментатор",
+      "read": "Только чтение"
+    },
+    "integrationRequired": "Интеграция с Airtable не настроена в этом экземпляре. Обратитесь к администратору.",
+    "loadingBases": "Загрузка баз…",
+    "optionViewConfig": "Импортировать фильтры, сортировку и группировку представлений",
+    "viewConfig": {
+      "help": "API Airtable не предоставляет настройки представлений. В Airtable откройте меню «Share» базы → «Share to web» → включите полный доступ к базе и вставьте сюда ссылку только для чтения.",
+      "mismatch": "Эта ссылка указывает на другую базу, а не на выбранную.",
+      "disableReminder": "Готово — теперь можно отключить ссылку общего доступа в Airtable."
+    }
+  },
+  "createBaseDialog": {
+    "title": "С чего хотите начать?"
   }
 }

@@ -152,6 +152,7 @@ type NormalizedFieldOptions = {
 export type NormalizeFieldOptions = {
   readonly availableTableIds?: ReadonlySet<string>;
   readonly fieldIdsByTableId?: ReadonlyMap<string, ReadonlySet<string>>;
+  readonly hostFieldTypesById?: ReadonlyMap<string, string>;
 };
 
 const referencesMissingForeignTable = (
@@ -209,6 +210,22 @@ const referencesMissingHostLinkField = (
   fieldTypesById: ReadonlyMap<string, string>
 ): boolean => Boolean(linkFieldId && fieldTypesById.get(linkFieldId) !== 'link');
 
+const exportedFieldType = (field: DotTeaFieldInput): string =>
+  field.isConditionalLookup ? 'conditionalLookup' : field.isLookup ? 'lookup' : field.type;
+
+const normalizedFieldType = (field: NormalizedDotTeaField): string => field.type;
+
+const areFieldTypeMapsEqual = (
+  left: ReadonlyMap<string, string>,
+  right: ReadonlyMap<string, string>
+): boolean => {
+  if (left.size !== right.size) return false;
+  for (const [key, value] of left) {
+    if (right.get(key) !== value) return false;
+  }
+  return true;
+};
+
 /**
  * Normalize a field's options from v1 (dottea) format to v2 format.
  * This handles the conversion of link, lookup, formula, rollup, conditionalRollup,
@@ -229,6 +246,7 @@ export const normalizeFieldOptions = (
       ? normalizeSelectChoices(rawOptions)
       : rawOptions;
   const rawLookupOptions = asRecord(field.lookupOptions);
+  const hostFieldTypesById = options?.hostFieldTypesById ?? fieldTypesById;
 
   const lookupOptions = normalizeLookupOptions(rawLookupOptions);
   // v1 exports lookup fields using the looked-up value type plus isLookup=true.
@@ -266,7 +284,10 @@ export const normalizeFieldOptions = (
     }
     if (
       referencesMissingForeignTable(readString(lookupOptions, 'foreignTableId'), options) ||
-      referencesMissingHostLinkField(readString(lookupOptions, 'linkFieldId'), fieldTypesById) ||
+      referencesMissingHostLinkField(
+        readString(lookupOptions, 'linkFieldId'),
+        hostFieldTypesById
+      ) ||
       referencesMissingForeignField(
         readString(lookupOptions, 'foreignTableId'),
         readString(lookupOptions, 'lookupFieldId'),
@@ -288,11 +309,7 @@ export const normalizeFieldOptions = (
         readString(linkOptions, 'lookupFieldId'),
         options
       ) ||
-      referencesMissingVisibleField(
-        readString(linkOptions, 'foreignTableId'),
-        linkOptions,
-        options
-      )
+      referencesMissingVisibleField(readString(linkOptions, 'foreignTableId'), linkOptions, options)
     ) {
       return { type: 'singleLineText', options: normalizedSelectOptions };
     }
@@ -304,7 +321,10 @@ export const normalizeFieldOptions = (
     return formulaOptions &&
       lookupOptions &&
       !referencesMissingForeignTable(readString(lookupOptions, 'foreignTableId'), options) &&
-      !referencesMissingHostLinkField(readString(lookupOptions, 'linkFieldId'), fieldTypesById) &&
+      !referencesMissingHostLinkField(
+        readString(lookupOptions, 'linkFieldId'),
+        hostFieldTypesById
+      ) &&
       !referencesMissingForeignField(
         readString(lookupOptions, 'foreignTableId'),
         readString(lookupOptions, 'lookupFieldId'),
@@ -402,4 +422,31 @@ export const normalizeField = (
   }
 
   return baseField;
+};
+
+export const normalizeFields = (
+  fields: ReadonlyArray<DotTeaFieldInput>,
+  options?: NormalizeFieldOptions
+): ReadonlyArray<NormalizedDotTeaField> => {
+  const rawFieldTypesById = new Map(
+    fields.filter((field) => field.id).map((field) => [field.id!, exportedFieldType(field)])
+  );
+  let hostFieldTypesById: ReadonlyMap<string, string> = rawFieldTypesById;
+
+  for (let i = 0; i <= fields.length; i++) {
+    const normalized = fields.map((field) =>
+      normalizeField(field, rawFieldTypesById, { ...options, hostFieldTypesById })
+    );
+    const nextHostFieldTypesById = new Map(
+      normalized.filter((field) => field.id).map((field) => [field.id!, normalizedFieldType(field)])
+    );
+    if (areFieldTypeMapsEqual(hostFieldTypesById, nextHostFieldTypesById)) {
+      return normalized;
+    }
+    hostFieldTypesById = nextHostFieldTypesById;
+  }
+
+  return fields.map((field) =>
+    normalizeField(field, rawFieldTypesById, { ...options, hostFieldTypesById })
+  );
 };

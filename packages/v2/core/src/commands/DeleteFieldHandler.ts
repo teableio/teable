@@ -107,11 +107,13 @@ export class DeleteFieldHandler implements ICommandHandler<DeleteFieldCommand, D
       const fieldSpec = yield* Field.specs().withFieldId(command.fieldId).build();
       const targetField = table.getFields(fieldSpec)[0];
       if (!targetField) return err(domainError.notFound({ message: 'Field not found' }));
-      const snapshot = yield* await handler.fieldUndoRedoSnapshotService.capture(
-        context,
-        table,
-        command.fieldId
-      );
+      const snapshot = command.skipTargetSnapshot()
+        ? undefined
+        : yield* await handler.fieldUndoRedoSnapshotService.capture(
+            context,
+            table,
+            command.fieldId
+          );
       const relatedUndoSnapshots = yield* await handler.captureRelatedUndoSnapshots(
         context,
         table,
@@ -220,11 +222,15 @@ export class DeleteFieldHandler implements ICommandHandler<DeleteFieldCommand, D
       );
 
       const undoCommand = composeUndoRedoCommands([
-        createUndoRedoCommand('ApplyFieldSnapshot', {
-          baseId: command.baseId.toString(),
-          tableId: command.tableId.toString(),
-          snapshot,
-        }),
+        ...(snapshot
+          ? [
+              createUndoRedoCommand('ApplyFieldSnapshot', {
+                baseId: command.baseId.toString(),
+                tableId: command.tableId.toString(),
+                snapshot,
+              }),
+            ]
+          : []),
         ...relatedUndoSnapshots.map((relatedSnapshot) =>
           createUndoRedoCommand('ApplyFieldSnapshot', {
             baseId: relatedSnapshot.baseId,
