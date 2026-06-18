@@ -43,11 +43,17 @@ import type {
 import { RecordsBatchCreated } from '../domain/table/events/RecordsBatchCreated';
 import { RecordsBatchUpdated } from '../domain/table/events/RecordsBatchUpdated';
 import type { Field } from '../domain/table/fields/Field';
-import type { FieldId } from '../domain/table/fields/FieldId';
+import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldType } from '../domain/table/fields/FieldType';
 import { DateTimeFormatting } from '../domain/table/fields/types/DateTimeFormatting';
 import type { LinkField } from '../domain/table/fields/types/LinkField';
+import type { MultipleSelectField } from '../domain/table/fields/types/MultipleSelectField';
 import { NumberFormatting } from '../domain/table/fields/types/NumberFormatting';
+import type { SingleSelectField } from '../domain/table/fields/types/SingleSelectField';
+import {
+  normalizeCellDisplayValue,
+  normalizeCellDisplayValues,
+} from '../domain/table/fields/visitors/normalizeCellDisplayValue';
 import type { RecordWriteSideEffect } from '../domain/table/fields/visitors/RecordWriteSideEffectVisitor';
 import type { UpdateRecordItem } from '../domain/table/methods/records';
 import { calculateBatchSize } from '../domain/table/methods/records/calculateBatchSize';
@@ -79,6 +85,7 @@ import type { RecordFilter } from '../queries/RecordFilterDto';
 import {
   buildRecordConditionSpec,
   buildSanitizedRecordConditionSpec,
+  replaceCurrentUserTagInFilter,
 } from '../queries/RecordFilterMapper';
 import type { RecordSearch } from '../queries/RecordSearch';
 import { resolveVisibleRowSearch } from '../queries/RecordSearch';
@@ -174,6 +181,7 @@ type PendingUpdateEvent = {
   recordId: string;
   oldVersion: number;
   oldValues: Map<string, unknown>;
+  newValues: ReadonlyMap<string, unknown>;
 };
 
 type PendingCreatedRecord = {
@@ -353,7 +361,15 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
 
       // 3. Build filter spec from effective view filter. Search-aware visible rows are handled
       // by the query repository so field-type-specific search semantics stay centralized.
-      const filterSpec = yield* buildSanitizedRecordConditionSpec(persistedTable, effectiveFilter);
+      const actorResolvedFilter = replaceCurrentUserTagInFilter(
+        persistedTable,
+        effectiveFilter,
+        context.actorId.toString()
+      );
+      const filterSpec = yield* buildSanitizedRecordConditionSpec(
+        persistedTable,
+        actorResolvedFilter
+      );
       const visibleRowSearch = resolveVisibleRowSearch(command.search, orderedFieldIds);
 
       // 4. Get total row count for columns/rows type normalization
@@ -421,8 +437,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         return ok({ updatedCount: 0, createdCount: 0, createdRecordIds: [] });
       }
 
-      // 10. Build orderBy from group + sort for correct row mapping
-      // If none provided, fall back to view row order column (__row_{viewId})
+      // 10. Build orderBy from group + sort to match the visible list row order.
       const effectiveGroup = command.ignoreViewQuery
         ? command.groupBy ?? undefined
         : mergedDefaults.group();
@@ -1378,9 +1393,11 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         }
 
         const oldValues = new Map<string, unknown>();
-        const fieldValues = this.buildEditableFieldValues(
-          op.rowData,
+        const fieldValues = this.buildUpdateFieldValues(
+          batchTable,
           batchEditableColumns,
+          typecast,
+          op.rowData,
           (fieldId, rawValue) => {
             oldValues.set(fieldId, op.existingRecord.fields[fieldId]);
             return this.hydrateLinkValue(
@@ -1390,13 +1407,21 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
             );
           }
         );
+        if (fieldValues.size === 0) {
+          continue;
+        }
 
         updateItems.push({ recordId: recordId.value, fieldValues });
         pendingUpdateEvents.push({
           recordId: op.existingRecord.id,
           oldVersion: op.existingRecord.version,
           oldValues,
+          newValues: fieldValues,
         });
+      }
+
+      if (updateItems.length === 0) {
+        continue;
       }
 
       let resolvedUpdateIndex = 0;
@@ -1430,10 +1455,12 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
           }
 
           const changes: RecordFieldChangeDTO[] = [];
-          for (const column of batchEditableColumns) {
-            const fieldId = column.fieldId;
-            const fieldIdStr = fieldId.toString();
-            const newValue = updateResult.record.fields().get(fieldId)?.toValue() ?? null;
+          for (const [fieldIdStr, submittedNewValue] of pending.newValues.entries()) {
+            const resolvedEntry = updateResult.record
+              .fields()
+              .entries()
+              .find((entry) => entry.fieldId.toString() === fieldIdStr);
+            const newValue = resolvedEntry ? resolvedEntry.value.toValue() : submittedNewValue;
             const oldValue = pending.oldValues.get(fieldIdStr);
             if (areRecordFieldValuesEqual(oldValue, newValue)) {
               continue;
@@ -1805,6 +1832,68 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       fieldValues.set(fieldId, transform ? transform(fieldId, rawValue) : rawValue);
     }
     return fieldValues;
+  }
+
+  protected buildUpdateFieldValues(
+    table: Table,
+    editableColumns: ReadonlyArray<EditableColumn>,
+    typecast: boolean,
+    rowData: ReadonlyArray<unknown>,
+    transform?: (fieldId: string, rawValue: unknown) => unknown
+  ): Map<string, unknown> {
+    const fieldValues = new Map<string, unknown>();
+    for (const column of editableColumns) {
+      const fieldId = column.fieldId.toString();
+      const rawValue = rowData[column.columnIndex] ?? null;
+      if (this.shouldSkipPreventedSelectUpdate(table, column, rawValue, typecast)) {
+        continue;
+      }
+      fieldValues.set(fieldId, transform ? transform(fieldId, rawValue) : rawValue);
+    }
+    return fieldValues;
+  }
+
+  protected shouldSkipPreventedSelectUpdate(
+    table: Table,
+    column: EditableColumn,
+    rawValue: unknown,
+    typecast: boolean
+  ): boolean {
+    if (!typecast || rawValue == null) {
+      return false;
+    }
+
+    const fieldResult = table.getField((field) => field.id().equals(column.fieldId));
+    if (fieldResult.isErr()) {
+      return false;
+    }
+
+    const field = fieldResult.value;
+    const fieldType = field.type();
+    const isSingleSelect = fieldType.equals(FieldType.singleSelect());
+    const isMultipleSelect = fieldType.equals(FieldType.multipleSelect());
+    if (!isSingleSelect && !isMultipleSelect) {
+      return false;
+    }
+
+    const selectField = field as SingleSelectField | MultipleSelectField;
+    if (!selectField.preventAutoNewOptions().toBoolean()) {
+      return false;
+    }
+
+    const validValues = new Set(
+      selectField
+        .selectOptions()
+        .flatMap((option) => [option.id().toString(), option.name().toString()])
+    );
+
+    if (isSingleSelect) {
+      const candidate = normalizeCellDisplayValue(rawValue);
+      return candidate != null && !validValues.has(candidate);
+    }
+
+    const candidates = normalizeCellDisplayValues(rawValue);
+    return candidates.length > 0 && candidates.some((candidate) => !validValues.has(candidate));
   }
 
   protected async resolvePasteLinkAutoCreate(
@@ -2464,9 +2553,14 @@ export class PasteStreamApplicationService extends PasteHandler {
       ? command.sort ?? undefined
       : mergedDefaults.sort();
 
+    const actorResolvedFilter = replaceCurrentUserTagInFilter(
+      persistedTable,
+      effectiveFilter,
+      context.actorId.toString()
+    );
     const filterSpecResult = await buildSanitizedRecordConditionSpec(
       persistedTable,
-      effectiveFilter
+      actorResolvedFilter
     );
     if (filterSpecResult.isErr()) {
       return err(filterSpecResult.error);
