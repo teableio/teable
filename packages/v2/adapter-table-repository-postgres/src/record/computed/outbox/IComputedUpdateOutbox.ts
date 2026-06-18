@@ -62,7 +62,7 @@ export const defaultComputedUpdateOutboxConfig: ComputedUpdateOutboxConfig = {
   processingLeaseMs: 2 * 60 * 1000,
   heartbeatIntervalMs: 30 * 1000,
   reclaimBatchSize: 50,
-  maxSeedRecordsPerTask: 500,
+  maxSeedRecordsPerTask: 5000,
   maxConcurrentProcessingPerBase: 2,
   maxConcurrentProcessingPerSeedTable: 2,
   taskStatementTimeoutMs: 60 * 1000,

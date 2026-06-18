@@ -4,13 +4,12 @@ import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import type { IGridProps, IRectangle } from '../..';
 import { useSearch } from '../../../hooks';
 import { useRecordsQuery } from '../../../hooks/use-records-query';
-import {
-  type ISearchHits,
-  type IRecordIndexMap,
-  type IRecordSearchHitIndex,
-  type IRecordSearchHitIndexMap,
-  LOAD_PAGE_SIZE,
-} from './use-grid-async-records';
+import { type IRecordIndexMap, LOAD_PAGE_SIZE } from './use-grid-async-records';
+
+type ISearchHits = { recordId: string; fieldId: string }[];
+type IRecordSearchHitIndexItem = { recordId: string; fieldId: string[] };
+type IRecordSearchHitIndex = IRecordSearchHitIndexItem[];
+type IRecordSearchHitIndexMap = Record<string | number, IRecordSearchHitIndexItem>;
 
 type IRes = {
   searchHitIndex?: { fieldId: string; recordId: string }[];
