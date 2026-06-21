@@ -364,7 +364,7 @@ const getDialogDescription = (
   }
 
   if (status === 'error') {
-    return latestError ?? t(config.failedTitleKey);
+    return latestError ? null : t(config.failedTitleKey);
   }
 
   if (status === 'success') {
@@ -557,9 +557,11 @@ const SelectionActionChunkErrorDetails = ({
                 })}
               </span>
             </div>
-            <div className="mt-2 text-sm text-foreground">{error.message}</div>
+            <div className="mt-2 whitespace-pre-wrap break-words text-sm text-foreground">
+              {error.message}
+            </div>
             {error.recordIds.length ? (
-              <div className="mt-1 line-clamp-2 font-mono text-[11px] text-muted-foreground">
+              <div className="mt-1 whitespace-pre-wrap break-all font-mono text-[11px] text-muted-foreground">
                 {error.recordIds.join(', ')}
               </div>
             ) : null}

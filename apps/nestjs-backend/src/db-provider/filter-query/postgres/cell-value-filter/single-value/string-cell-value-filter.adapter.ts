@@ -1,5 +1,4 @@
 import {
-  CellValueType,
   isFieldReferenceValue,
   type IFieldReferenceValue,
   type IFilterOperator,
@@ -22,8 +21,10 @@ export class StringCellValueFilterAdapter extends CellValueFilterPostgres {
       builderClient.whereRaw(`${this.tableColumnRef} = ${ref}`);
       return builderClient;
     }
-    const parseValue = this.field.cellValueType === CellValueType.Number ? Number(value) : value;
-    builderClient.whereRaw(`${this.tableColumnRef} = ?`, [parseValue]);
+    // Column is text; coerce numeric/boolean literals to string so the comparison stays
+    // text = text. Otherwise a numeric value renders as a bigint literal and Postgres
+    // rejects it with "operator does not exist: text = bigint".
+    builderClient.whereRaw(`${this.tableColumnRef} = ?`, [String(value)]);
     return builderClient;
   }
 
@@ -33,14 +34,12 @@ export class StringCellValueFilterAdapter extends CellValueFilterPostgres {
     value: ILiteralValue | IFieldReferenceValue,
     _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
-    const { cellValueType } = this.field;
     if (isFieldReferenceValue(value)) {
       const ref = this.resolveFieldReference(value);
       builderClient.whereRaw(`${this.tableColumnRef} IS DISTINCT FROM ${ref}`);
       return builderClient;
     }
-    const parseValue = cellValueType === CellValueType.Number ? Number(value) : value;
-    builderClient.whereRaw(`${this.tableColumnRef} IS DISTINCT FROM ?`, [parseValue]);
+    builderClient.whereRaw(`${this.tableColumnRef} IS DISTINCT FROM ?`, [String(value)]);
     return builderClient;
   }
 

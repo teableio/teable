@@ -400,9 +400,16 @@ export interface IDateRangePickerProps {
   onChange: (value: IDateRangeValue | null) => void;
   options?: IDateFieldOptions;
   className?: string;
+  placeholder?: string;
 }
 
-export function DateRangePicker({ value, onChange, options, className }: IDateRangePickerProps) {
+export function DateRangePicker({
+  value,
+  onChange,
+  options,
+  className,
+  placeholder,
+}: IDateRangePickerProps) {
   const { t } = useTranslation();
   const { lang = 'en' } = useContext(AppContext);
   const locale = LOCALE_MAP[lang] || enUS;
@@ -610,7 +617,7 @@ export function DateRangePicker({ value, onChange, options, className }: IDateRa
     return 'w-44';
   }, [timeFormatting]);
 
-  const inputDisplayValue = displayValue || t('editor.date.rangePlaceholder');
+  const inputDisplayValue = displayValue || placeholder || t('editor.date.rangePlaceholder');
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
