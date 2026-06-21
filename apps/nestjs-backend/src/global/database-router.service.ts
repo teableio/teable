@@ -32,6 +32,24 @@ type IDataPrismaScopedClient = IDataPrismaQueryExecutor & {
   ) => Promise<T>;
 };
 
+const isCachedPlanResultTypeError = (error: unknown): boolean => {
+  const err = error as {
+    code?: unknown;
+    meta?: { code?: unknown; message?: unknown };
+    message?: unknown;
+  };
+  const pgCode = typeof err.meta?.code === 'string' ? err.meta.code : undefined;
+  const messageParts = [err.message, err.meta?.message].filter(
+    (part): part is string => typeof part === 'string'
+  );
+
+  return (
+    err.code === 'P2010' &&
+    pgCode === '0A000' &&
+    messageParts.some((message) => message.includes('cached plan must not change result type'))
+  );
+};
+
 @Injectable()
 export class DatabaseRouter {
   constructor(
@@ -74,6 +92,10 @@ export class DatabaseRouter {
     return await this.dataDbClientManager.getDataDatabaseUrlForBase(baseId, options);
   }
 
+  async getDataDatabaseForBase(baseId: string, options?: IDataDbRoutingOptions) {
+    return await this.dataDbClientManager.getDataDatabaseForBase(baseId, options);
+  }
+
   async dataKnexForSpace(spaceId: string, options?: IDataDbRoutingOptions) {
     return await this.dataDbClientManager.dataKnexForSpace(spaceId, options);
   }
@@ -102,6 +124,24 @@ export class DatabaseRouter {
     return prisma.txClient?.() ?? prisma;
   }
 
+  private async queryWithCachedPlanRetry<T>(
+    prisma: IDataPrismaQueryExecutor,
+    query: string,
+    queryValues: unknown[],
+    shouldRetry: boolean
+  ): Promise<T> {
+    try {
+      return await prisma.$queryRawUnsafe<T>(query, ...queryValues);
+    } catch (error) {
+      if (!shouldRetry || !isCachedPlanResultTypeError(error)) {
+        throw error;
+      }
+
+      await prisma.$executeRawUnsafe('DISCARD PLANS');
+      return await prisma.$queryRawUnsafe<T>(query, ...queryValues);
+    }
+  }
+
   async dataPrismaExecutorForTable(
     tableId: string,
     options?: IDataDbRoutingOptions
@@ -126,7 +166,12 @@ export class DatabaseRouter {
   ): Promise<T> {
     const { options, queryValues } = this.normalizeRoutingOptions(optionsOrFirstValue, values);
     const prisma = await this.dataPrismaExecutorForTable(tableId, options);
-    return await prisma.$queryRawUnsafe<T>(query, ...queryValues);
+    return await this.queryWithCachedPlanRetry<T>(
+      prisma,
+      query,
+      queryValues,
+      !options?.useTransaction
+    );
   }
 
   async executeDataPrismaForTable(
@@ -148,7 +193,12 @@ export class DatabaseRouter {
   ): Promise<T> {
     const { options, queryValues } = this.normalizeRoutingOptions(optionsOrFirstValue, values);
     const prisma = await this.dataPrismaExecutorForBase(baseId, options);
-    return await prisma.$queryRawUnsafe<T>(query, ...queryValues);
+    return await this.queryWithCachedPlanRetry<T>(
+      prisma,
+      query,
+      queryValues,
+      !options?.useTransaction
+    );
   }
 
   async executeDataPrismaForBase(
@@ -215,11 +265,12 @@ export class DatabaseRouter {
   }
 
   private isRoutingOptions(value: unknown): value is IDataDbRoutingOptions {
+    const routingOptionKeys = new Set(['useTransaction', 'previewBinding']);
     return (
       Boolean(value) &&
       typeof value === 'object' &&
       Object.keys(value as Record<string, unknown>).length > 0 &&
-      Object.keys(value as Record<string, unknown>).every((key) => key === 'useTransaction')
+      Object.keys(value as Record<string, unknown>).every((key) => routingOptionKeys.has(key))
     );
   }
 

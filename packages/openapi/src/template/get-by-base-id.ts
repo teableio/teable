@@ -1,6 +1,7 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
+import { z } from '../zod';
 import type { ITemplateVo } from './get';
 import { templateVoSchema } from './get';
 
@@ -11,7 +12,11 @@ export const GetTemplateByBaseIdRoute: RouteConfig = registerRoute({
   path: GET_TEMPLATE_BY_BASE_ID,
   description: 'get template by baseId',
   summary: 'get template by baseId',
-  request: {},
+  request: {
+    params: z.object({
+      baseId: z.string(),
+    }),
+  },
   responses: {
     200: {
       description: 'Successfully get template.',

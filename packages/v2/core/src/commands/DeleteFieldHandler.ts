@@ -31,6 +31,7 @@ import type { Table } from '../domain/table/Table';
 import { TableUpdateResult } from '../domain/table/TableMutator';
 import { implementsOnTeableViewFieldDeleted } from '../domain/table/views/OnTeableViewFieldDeleted';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
+import type { IFieldDeleteSnapshotSink } from '../ports/FieldDeleteSnapshotSink';
 import { FieldOperationKind, FieldOperationTargetKind } from '../ports/FieldOperationPlugin';
 import * as TableRepositoryPort from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
@@ -84,7 +85,9 @@ export class DeleteFieldHandler implements ICommandHandler<DeleteFieldCommand, D
     @inject(v2CoreTokens.undoRedoService)
     private readonly undoRedoStackService: UndoRedoStackService,
     @inject(v2CoreTokens.fieldUndoRedoSnapshotService)
-    private readonly fieldUndoRedoSnapshotService: FieldUndoRedoSnapshotService
+    private readonly fieldUndoRedoSnapshotService: FieldUndoRedoSnapshotService,
+    @inject(v2CoreTokens.fieldDeleteSnapshotSink)
+    private readonly fieldDeleteSnapshotSink: IFieldDeleteSnapshotSink
   ) {}
 
   @TraceSpan()
@@ -107,11 +110,21 @@ export class DeleteFieldHandler implements ICommandHandler<DeleteFieldCommand, D
       const fieldSpec = yield* Field.specs().withFieldId(command.fieldId).build();
       const targetField = table.getFields(fieldSpec)[0];
       if (!targetField) return err(domainError.notFound({ message: 'Field not found' }));
-      const snapshot = yield* await handler.fieldUndoRedoSnapshotService.capture(
-        context,
-        table,
-        command.fieldId
-      );
+      const snapshot = command.skipTargetSnapshot()
+        ? undefined
+        : yield* await handler.fieldUndoRedoSnapshotService.capture(
+            context,
+            table,
+            command.fieldId
+          );
+      if (snapshot && !command.skipDeleteSnapshotSink() && context.undoRedo?.mode == null) {
+        yield* await handler.fieldDeleteSnapshotSink.prepare(context, {
+          baseId: command.baseId.toString(),
+          tableId: command.tableId.toString(),
+          fieldIds: [command.fieldId.toString()],
+          snapshots: [{ table, snapshot }],
+        });
+      }
       const relatedUndoSnapshots = yield* await handler.captureRelatedUndoSnapshots(
         context,
         table,
@@ -220,11 +233,15 @@ export class DeleteFieldHandler implements ICommandHandler<DeleteFieldCommand, D
       );
 
       const undoCommand = composeUndoRedoCommands([
-        createUndoRedoCommand('ApplyFieldSnapshot', {
-          baseId: command.baseId.toString(),
-          tableId: command.tableId.toString(),
-          snapshot,
-        }),
+        ...(snapshot
+          ? [
+              createUndoRedoCommand('ApplyFieldSnapshot', {
+                baseId: command.baseId.toString(),
+                tableId: command.tableId.toString(),
+                snapshot,
+              }),
+            ]
+          : []),
         ...relatedUndoSnapshots.map((relatedSnapshot) =>
           createUndoRedoCommand('ApplyFieldSnapshot', {
             baseId: relatedSnapshot.baseId,

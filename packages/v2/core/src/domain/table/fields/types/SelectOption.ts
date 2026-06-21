@@ -24,6 +24,22 @@ export class SelectOption extends ValueObject {
   }
 
   static create(raw: unknown): Result<SelectOption, DomainError> {
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+      const option = raw as { id?: unknown; name?: unknown; color?: unknown };
+      if (
+        (option.id === undefined || typeof option.id === 'string') &&
+        typeof option.name === 'string' &&
+        typeof option.color === 'string'
+      ) {
+        return SelectOptionName.create(option.name).andThen((name) => {
+          const idResult = option.id ? SelectOptionId.create(option.id) : SelectOptionId.generate();
+          return idResult.andThen((id) =>
+            FieldColor.create(option.color).map((color) => new SelectOption(id, name, color))
+          );
+        });
+      }
+    }
+
     const parsed = selectOptionSchema.safeParse(raw);
     if (!parsed.success) return err(domainError.validation({ message: 'Invalid SelectOption' }));
 

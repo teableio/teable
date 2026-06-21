@@ -110,6 +110,7 @@ describe('FieldDependencyGraph PGlite integration', () => {
   const reportLinkFieldId = FieldId.create(`fld${'i'.repeat(16)}`)._unsafeUnwrap();
   const reportLookupFieldId = FieldId.create(`fld${'j'.repeat(16)}`)._unsafeUnwrap();
   const reportFallbackLookupFieldId = FieldId.create(`fld${'k'.repeat(16)}`)._unsafeUnwrap();
+  const reportFormulaOverLookupFieldId = FieldId.create(`fld${'l'.repeat(16)}`)._unsafeUnwrap();
   const logger = {
     debug() {},
     warn() {},
@@ -273,7 +274,24 @@ describe('FieldDependencyGraph PGlite integration', () => {
             lookupFieldId: productNameFieldId.toString(),
           }),
         },
+        {
+          id: reportFormulaOverLookupFieldId.toString(),
+          table_id: reportsTableId.toString(),
+          type: 'singleLineText',
+          is_computed: true,
+          options: JSON.stringify({
+            expression: `{${reportLookupFieldId.toString()}}`,
+          }),
+        },
       ])
+      .execute();
+
+    await db
+      .insertInto(`${TEST_SCHEMA}.reference` as any)
+      .values({
+        from_field_id: reportLookupFieldId.toString(),
+        to_field_id: reportFormulaOverLookupFieldId.toString(),
+      })
       .execute();
   });
 
@@ -403,6 +421,31 @@ describe('FieldDependencyGraph PGlite integration', () => {
           edge.fromFieldId.equals(reportLinkFieldId) &&
           edge.toFieldId.equals(reportFallbackLookupFieldId) &&
           edge.kind === 'same_record'
+      )
+    ).toBe(true);
+  });
+
+  it('normalizes v1 formula result-type rows so lookup changes reach dependent formulas', async () => {
+    await pglite.query(`SET search_path TO ${TEST_SCHEMA}`);
+    const graph = new FieldDependencyGraph(db as any, logger as any);
+
+    const result = await graph.load(baseId, undefined, {
+      requiredFieldIds: [reportLookupFieldId],
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) {
+      throw result.error;
+    }
+
+    const formulaMeta = result.value.fieldsById.get(reportFormulaOverLookupFieldId.toString());
+    expect(formulaMeta?.type).toBe('formula');
+    expect(
+      result.value.edges.some(
+        (edge) =>
+          edge.fromFieldId.equals(reportLookupFieldId) &&
+          edge.toFieldId.equals(reportFormulaOverLookupFieldId) &&
+          edge.semantic === 'formula_ref'
       )
     ).toBe(true);
   });
