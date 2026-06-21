@@ -412,6 +412,69 @@ describe('TableUpdateFlow', () => {
     expect(observedNames).toEqual(['Flow Table Final']);
   });
 
+  it('marks physical schema updates pending before applying data schema changes', async () => {
+    const table = buildTable();
+    const repository = new FakeTableRepository();
+    const order: string[] = [];
+    const flow = new TableUpdateFlow(
+      repository,
+      {
+        insert: async () => ok(undefined),
+        insertMany: async () => ok(undefined),
+        update: async (_context, nextTable) => {
+          order.push(`schema-update-after-${repository.provisionStateChanges.join(',')}`);
+          return ok(nextTable);
+        },
+        delete: async () => ok(undefined),
+      },
+      new FakeEventBus(),
+      new FakeUnitOfWork()
+    );
+
+    const addedField = buildTextField('c', 'Added Field');
+    const result = await flow.execute(createContext(), { table }, (tableToUpdate) =>
+      tableToUpdate.update((mutator) => mutator.addField(addedField))
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(order).toEqual(['schema-update-after-pending']);
+    expect(repository.provisionStateChanges).toEqual(['pending', 'ready']);
+    expect(repository.provisionOperations.map((operation) => operation?.status)).toEqual([
+      'pending',
+      undefined,
+    ]);
+  });
+
+  it('resets early pending state when physical schema prepare validation fails', async () => {
+    const table = buildTable();
+    const repository = new FakeTableRepository();
+    const flow = new TableUpdateFlow(
+      repository,
+      new FakeTableSchemaRepository(),
+      new FakeEventBus(),
+      new FakeUnitOfWork()
+    );
+
+    const addedField = buildTextField('d', 'Prepare Failed Field');
+    const result = await flow.execute(
+      createContext(),
+      { table },
+      (tableToUpdate) => tableToUpdate.update((mutator) => mutator.addField(addedField)),
+      {
+        hooks: {
+          prepare: async () => err(domainError.validation({ message: 'prepare failed' })),
+        },
+      }
+    );
+
+    expect(result._unsafeUnwrapErr().message).toBe('prepare failed');
+    expect(repository.provisionStateChanges).toEqual(['pending', 'ready']);
+    expect(repository.provisionOperations.map((operation) => operation?.status)).toEqual([
+      'pending',
+      undefined,
+    ]);
+  });
+
   it('keeps tables available when an outer transaction rolls back after deferring ready', async () => {
     const table = buildTable();
     const repository = new FakeTableRepository();
@@ -464,7 +527,7 @@ describe('TableUpdateFlow', () => {
     );
 
     expect(result._unsafeUnwrapErr().message).toBe('meta failed');
-    expect(repository.provisionStateChanges).toEqual(['ready', 'ready']);
+    expect(repository.provisionStateChanges).toEqual(['pending', 'ready']);
     expect(repository.provisionOperations.map((operation) => operation?.status)).toEqual([
       'pending',
       undefined,
@@ -472,6 +535,34 @@ describe('TableUpdateFlow', () => {
     expect(repository.provisionOperations.at(-1)?.result).toEqual({
       nonRepairableFailure: 'meta failed',
     });
+  });
+
+  it('records schema failures when metadata persists but the data phase fails', async () => {
+    const table = buildTable();
+    const repository = new FakeTableRepository();
+    const flow = new TableUpdateFlow(
+      repository,
+      {
+        insert: async () => ok(undefined),
+        insertMany: async () => ok(undefined),
+        update: async () => err(domainError.infrastructure({ message: 'data failed' })),
+        delete: async () => ok(undefined),
+      },
+      new FakeEventBus(),
+      new FakeUnitOfWork()
+    );
+
+    const nextName = TableName.create('Flow Table Data Failed')._unsafeUnwrap();
+    const result = await flow.execute(createContext(), { table }, (tableToUpdate) =>
+      tableToUpdate.update((mutator) => mutator.rename(nextName))
+    );
+
+    expect(result._unsafeUnwrapErr().message).toBe('data failed');
+    expect(repository.provisionStateChanges).toEqual(['ready', 'ready']);
+    expect(repository.provisionOperations.map((operation) => operation?.status)).toEqual([
+      'pending',
+      'error',
+    ]);
   });
 
   it('records repairable schema failures when an outer rollback can leave physical schema missing', async () => {
@@ -499,7 +590,7 @@ describe('TableUpdateFlow', () => {
     );
 
     expect(outerResult._unsafeUnwrapErr().message).toBe('outer rollback');
-    expect(repository.provisionStateChanges).toEqual(['ready', 'ready']);
+    expect(repository.provisionStateChanges).toEqual(['pending', 'ready']);
     expect(repository.provisionOperations.map((operation) => operation?.status)).toEqual([
       'pending',
       'error',

@@ -5,9 +5,12 @@ import type { ICreateBaseShareRo, IUpdateBaseShareRo, IBaseShareVo } from '@teab
 import { BaseNodeResourceType } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
+import { Events } from '../../event-emitter/events';
 import { PerformanceCache, PerformanceCacheService } from '../../performance-cache';
 import { generateBaseShareListCacheKey } from '../../performance-cache/generate-keys';
 import type { IClsStore } from '../../types/cls';
+import { AuditScope } from '../audit/audit-scope';
+import { Audit } from '../audit/audit.decorator';
 
 const baseShareNotFoundMessage = 'Base share not found';
 const baseShareNotFoundKey = 'httpErrors.baseShare.notFound';
@@ -19,7 +22,8 @@ export class BaseShareService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
-    private readonly performanceCacheService: PerformanceCacheService
+    private readonly performanceCacheService: PerformanceCacheService,
+    private readonly audit: AuditScope
   ) {}
 
   private async invalidateBaseShareListCache(baseId: string): Promise<void> {
@@ -75,6 +79,16 @@ export class BaseShareService {
     };
   }
 
+  @Audit({
+    action: Events.BASE_SHARE_CREATE,
+    resourceId: (baseId: string) => baseId,
+    params: (baseId: string, data: ICreateBaseShareRo) => ({
+      baseId,
+      nodeId: data.nodeId ?? null,
+      type: data.nodeId ? 'node' : 'base',
+    }),
+    emit: (result: IBaseShareVo) => ({ shareId: result.shareId, enabled: result.enabled }),
+  })
   async createBaseShare(baseId: string, data: ICreateBaseShareRo): Promise<IBaseShareVo> {
     const nodeId = data.nodeId ?? null;
 
@@ -154,6 +168,22 @@ export class BaseShareService {
     return this.formatBaseShareVo(share);
   }
 
+  @Audit({
+    action: Events.BASE_SHARE_UPDATE,
+    resourceId: (_baseId: string, shareId: string) => shareId,
+    params: (baseId: string, shareId: string, data: IUpdateBaseShareRo) => ({
+      baseId,
+      shareId,
+      // First-pass: store raw request body so any field change is preserved.
+      // Password value itself is never logged — controller-layer secrets stay opaque.
+      changes: { ...data, password: data.password !== undefined ? '[set]' : undefined },
+    }),
+    emit: (result: IBaseShareVo) => ({
+      nodeId: result.nodeId,
+      type: result.nodeId ? 'node' : 'base',
+      enabled: result.enabled,
+    }),
+  })
   async updateBaseShare(
     baseId: string,
     shareId: string,
@@ -199,6 +229,12 @@ export class BaseShareService {
     return this.formatBaseShareVo(updated);
   }
 
+  @Audit({
+    action: Events.BASE_SHARE_DELETE,
+    resourceId: (_baseId: string, shareId: string) => shareId,
+    params: (baseId: string, shareId: string) => ({ baseId, shareId }),
+    emit: true,
+  })
   async deleteBaseShare(baseId: string, shareId: string): Promise<void> {
     const share = await this.prismaService.baseShare.findFirst({
       where: { baseId, shareId, enabled: true },
@@ -222,6 +258,12 @@ export class BaseShareService {
     await this.invalidateBaseShareListCache(baseId);
   }
 
+  @Audit({
+    action: Events.BASE_SHARE_REFRESH,
+    resourceId: (_baseId: string, shareId: string) => shareId,
+    params: (baseId: string, shareId: string) => ({ baseId, oldShareId: shareId }),
+    emit: (result: IBaseShareVo) => ({ newShareId: result.shareId }),
+  })
   async refreshBaseShareId(baseId: string, shareId: string): Promise<IBaseShareVo> {
     const share = await this.prismaService.baseShare.findFirst({
       where: { baseId, shareId, enabled: true },
