@@ -12,7 +12,10 @@ import { TableId } from '../../domain/table/TableId';
 import { TableName } from '../../domain/table/TableName';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import type { ITableRepository } from '../../ports/TableRepository';
-import type { ITableSchemaRepository } from '../../ports/TableSchemaRepository';
+import type {
+  ITableSchemaRepository,
+  TableSchemaInsertManyOptions,
+} from '../../ports/TableSchemaRepository';
 import { TableCreationService } from './TableCreationService';
 
 const createContext = (): IExecutionContext => {
@@ -68,7 +71,7 @@ class FakeTableRepository implements ITableRepository {
 
 class FakeTableSchemaRepository implements ITableSchemaRepository {
   inserted: Table[] = [];
-  insertManyOptions: Array<{ knownTables?: ReadonlyArray<Table> } | undefined> = [];
+  insertManyOptions: Array<TableSchemaInsertManyOptions | undefined> = [];
 
   async insert(_context: IExecutionContext, table: Table) {
     this.inserted.push(table);
@@ -78,7 +81,7 @@ class FakeTableSchemaRepository implements ITableSchemaRepository {
   async insertMany(
     _context: IExecutionContext,
     tables: ReadonlyArray<Table>,
-    options?: { knownTables?: ReadonlyArray<Table> }
+    options?: TableSchemaInsertManyOptions
   ) {
     this.inserted.push(...tables);
     this.insertManyOptions.push(options);
@@ -195,5 +198,61 @@ describe('TableCreationService', () => {
     expect(
       schemaRepository.insertManyOptions[0]?.knownTables?.map((t) => t.id().toString())
     ).toEqual([externalTable.id().toString(), table.id().toString()]);
+  });
+
+  it('passes schema optimization options to schema repository', async () => {
+    const table = buildTable('e', 'a');
+    const tableRepository = new FakeTableRepository();
+    const schemaRepository = new FakeTableSchemaRepository();
+    const sideEffectService = new FakeFieldCreationSideEffectService();
+    const service = new TableCreationService(
+      tableRepository,
+      schemaRepository,
+      sideEffectService as never
+    );
+
+    const result = await service.execute(createContext(), {
+      baseId: table.baseId(),
+      tables: [table],
+      externalTables: [],
+      referencesByTable: [[]],
+      schemaOptions: {
+        optimizeForEmptyTables: true,
+        skipUndoCaptureSetup: true,
+      },
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(schemaRepository.insertManyOptions[0]?.optimizeForEmptyTables).toBe(true);
+    expect(schemaRepository.insertManyOptions[0]?.skipUndoCaptureSetup).toBe(true);
+  });
+
+  it('skips field creation side effects when requested', async () => {
+    const table = buildTable('f', 'a');
+    const externalTable = buildTable('f', 'b');
+    const tableRepository = new FakeTableRepository();
+    const schemaRepository = new FakeTableSchemaRepository();
+    const sideEffectService = new FakeFieldCreationSideEffectService();
+    const service = new TableCreationService(
+      tableRepository,
+      schemaRepository,
+      sideEffectService as never
+    );
+
+    const result = await service.execute(createContext(), {
+      baseId: table.baseId(),
+      tables: [table],
+      externalTables: [externalTable],
+      referencesByTable: [[]],
+      sideEffectOptions: {
+        skipFieldCreationSideEffects: true,
+      },
+    });
+
+    const payload = result._unsafeUnwrap();
+    expect(sideEffectService.calls).toHaveLength(0);
+    expect(payload.sideEffectEvents).toEqual([]);
+    expect(payload.tableState.get(externalTable.id().toString())).toBe(externalTable);
+    expect(payload.tableState.get(table.id().toString())).toBe(table);
   });
 });

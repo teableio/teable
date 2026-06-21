@@ -1,6 +1,6 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
+import { IdPrefix } from '@teable/core';
 import { axios } from '../axios';
-import type { IQueryBaseRo } from '../record';
 import { queryBaseSchema } from '../record';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
@@ -16,6 +16,15 @@ export const rowCountVoSchema = rawRowCountValueSchema;
 
 export type IRowCountVo = z.infer<typeof rowCountVoSchema>;
 
+export const rowCountRoSchema = queryBaseSchema.extend({
+  projection: z.array(z.string().startsWith(IdPrefix.Field)).optional().meta({
+    description:
+      'Limit search matching to these fields, e.g. the visible fields of a personal view. Only affects the search condition.',
+  }),
+});
+
+export type IRowCountRo = z.infer<typeof rowCountRoSchema>;
+
 export const GET_ROW_COUNT = '/table/{tableId}/aggregation/row-count';
 
 export const GetRowCountRoute: RouteConfig = registerRoute({
@@ -27,7 +36,7 @@ export const GetRowCountRoute: RouteConfig = registerRoute({
     params: z.object({
       tableId: z.string(),
     }),
-    query: queryBaseSchema,
+    query: rowCountRoSchema,
   },
   responses: {
     200: {
@@ -42,7 +51,7 @@ export const GetRowCountRoute: RouteConfig = registerRoute({
   tags: ['aggregation'],
 });
 
-export const getRowCount = async (tableId: string, query?: IQueryBaseRo) => {
+export const getRowCount = async (tableId: string, query?: IRowCountRo) => {
   return axios.get<IRowCountVo>(urlBuilder(GET_ROW_COUNT, { tableId }), {
     params: {
       ...query,

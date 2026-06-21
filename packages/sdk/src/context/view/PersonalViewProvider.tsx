@@ -1,8 +1,9 @@
-import type { IFieldVo, ISort, ITableActionKey, IViewVo, StatisticsFunc } from '@teable/core';
+import type { IFieldVo, IGridColumnMeta, ISort, ITableActionKey, IViewVo } from '@teable/core';
 import type { IGetRecordsRo, IAggregationRo } from '@teable/openapi';
 import { useCallback, useMemo } from 'react';
 import { useFields, useTableId, useTableListener, useView } from '../../hooks';
 import { validatePersonalViewProps } from '../../utils/personalView';
+import { buildStatisticFieldMap } from '../../utils/statistic';
 import { PersonalViewContext } from './PersonalViewContext';
 import { useResolvedPersonalViewStore } from './store';
 
@@ -37,25 +38,9 @@ export const PersonalViewProvider = ({ children }: IPersonalViewProviderProps) =
     } as IGetRecordsRo;
     const aggregationQuery = {
       ...commonQuery,
-      field: Object.entries(columnMeta || {})
-        .map(([fieldId, { statisticFunc }]) => {
-          if (!statisticFunc) return;
-          return {
-            fieldId,
-            statisticFunc,
-          };
-        })
-        .filter((item): item is { fieldId: string; statisticFunc: StatisticsFunc } => Boolean(item))
-        .reduce(
-          (acc, { fieldId, statisticFunc }) => {
-            if (!acc[statisticFunc]) {
-              acc[statisticFunc] = [];
-            }
-            acc[statisticFunc].push(fieldId);
-            return acc;
-          },
-          {} as Record<StatisticsFunc, string[]>
-        ),
+      // statistic funcs for visible columns only — hidden columns are not part
+      // of this view's projection
+      field: buildStatisticFieldMap(columnMeta as IGridColumnMeta | undefined, visibleFieldIds),
     } as IAggregationRo;
 
     return {
