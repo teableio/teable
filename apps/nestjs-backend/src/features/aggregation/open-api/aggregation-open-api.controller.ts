@@ -18,10 +18,10 @@ import {
   groupPointsRoSchema,
   IAggregationRo,
   IGroupPointsRo,
-  IQueryBaseRo,
+  IRowCountRo,
   searchCountRoSchema,
   ISearchCountRo,
-  queryBaseSchema,
+  rowCountRoSchema,
   ICalendarDailyCollectionRo,
   ISearchIndexByQueryRo,
   searchIndexByQueryRoSchema,
@@ -115,7 +115,7 @@ export class AggregationOpenApiController {
   @Permissions('table|read')
   async getRowCount(
     @Param('tableId') tableId: string,
-    @Query(new ZodValidationPipe(queryBaseSchema), TqlPipe) query?: IQueryBaseRo
+    @Query(new ZodValidationPipe(rowCountRoSchema), TqlPipe) query?: IRowCountRo
   ): Promise<IRowCountVo> {
     return await this.getAggregationWithCache('row_count', tableId, query, () =>
       this.aggregationOpenApiService.getRowCount(tableId, query)

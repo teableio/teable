@@ -163,10 +163,10 @@ const EmbedConfigPopover = ({
             </div>
           )}
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-2">
             <Label className="text-xs">{t('common:settings.setting.theme')}</Label>
             <RadioGroup
-              className="flex h-5 gap-3"
+              className="flex flex-wrap gap-3"
               defaultValue={shareTheme}
               onValueChange={(e) => setShareTheme(e)}
             >

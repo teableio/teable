@@ -16,8 +16,14 @@ export const unsubscribeAutomationSendEmailSchema = z.object({
 
 export type IUnsubscribeAutomationSendEmail = z.infer<typeof unsubscribeAutomationSendEmailSchema>;
 
+export const unsubscribeApiSendEmailSchema = z.object({
+  type: z.literal(MailType.ApiSendEmailAction),
+});
+
+export type IUnsubscribeApiSendEmail = z.infer<typeof unsubscribeApiSendEmailSchema>;
+
 // Response schema - used when returning unsubscribe data in API responses
-export const unsubscribeEmailLinkMetaDataVoSchema = z.object({
+export const unsubscribeAutomationSendEmailMetaDataVoSchema = z.object({
   type: z.literal(MailType.AutomationSendEmailAction),
   workflow: z
     .object({
@@ -32,11 +38,24 @@ export const unsubscribeEmailLinkMetaDataVoSchema = z.object({
   }),
 });
 
+export const unsubscribeApiSendEmailMetaDataVoSchema = z.object({
+  type: z.literal(MailType.ApiSendEmailAction),
+});
+
+// emailLink covers both automation- and API-sent emails; `type` discriminates them.
+export const unsubscribeEmailLinkMetaDataVoSchema = z.discriminatedUnion('type', [
+  unsubscribeAutomationSendEmailMetaDataVoSchema,
+  unsubscribeApiSendEmailMetaDataVoSchema,
+]);
+
 export type IUnsubscribeEmailLinkMetaDataVo = z.infer<typeof unsubscribeEmailLinkMetaDataVoSchema>;
 
 // Storage metadata types (for database operations)
 export type UnsubscribeSourceMetaDataMap = {
-  [UnsubscribeSourceType.EmailLink]: IUnsubscribeAutomationSendEmail | null;
+  [UnsubscribeSourceType.EmailLink]:
+    | IUnsubscribeAutomationSendEmail
+    | IUnsubscribeApiSendEmail
+    | null;
   [UnsubscribeSourceType.Import]: null;
   [UnsubscribeSourceType.Empty]: null;
   [UnsubscribeSourceType.Legacy]: null;
