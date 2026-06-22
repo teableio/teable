@@ -15,7 +15,7 @@ class NoopComputedFieldBackfillService {
   }
 
   async backfillMany() {
-    return ok(undefined);
+    return ok({ fields: [] });
   }
 
   async executeSync() {
@@ -23,7 +23,7 @@ class NoopComputedFieldBackfillService {
   }
 
   async executeSyncMany() {
-    return ok(undefined);
+    return ok({ fields: [] });
   }
 }
 
@@ -56,6 +56,12 @@ export const registerV2PostgresDdlAdapter = async (
     c.registerInstance(
       v2RecordRepositoryPostgresTokens.computedFieldBackfillService,
       new NoopComputedFieldBackfillService()
+    );
+  }
+  if (!c.isRegistered(v2CoreTokens.computedFieldBackfillService)) {
+    c.registerInstance(
+      v2CoreTokens.computedFieldBackfillService,
+      c.resolve(v2RecordRepositoryPostgresTokens.computedFieldBackfillService)
     );
   }
 

@@ -72,7 +72,8 @@ describe('table locale coverage', () => {
 });
 
 describe('sdk table data safety limit locale coverage', () => {
-  const expectedKeys = Object.keys(enSdk.httpErrors.limit).sort();
+  const enLimitMessages = enSdk.httpErrors.limit;
+  const expectedKeys = Object.keys(enLimitMessages).sort();
   const locales = {
     de: deSdk,
     en: enSdk,
@@ -92,11 +93,50 @@ describe('sdk table data safety limit locale coverage', () => {
       expect(Object.keys(sdk.httpErrors.limit).sort()).toEqual(expectedKeys);
     }
   );
+
+  it.each(Object.entries(locales).filter(([locale]) => locale !== 'en'))(
+    'localizes all table data safety limit messages in %s',
+    (_locale, sdk) => {
+      const reusedEnglishKeys = expectedKeys.filter((key) => {
+        const limitKey = key as keyof typeof enLimitMessages;
+        return sdk.httpErrors.limit[limitKey] === enLimitMessages[limitKey];
+      });
+      expect(reusedEnglishKeys).toEqual([]);
+    }
+  );
+});
+
+describe('sdk validation error locale coverage', () => {
+  const locales = {
+    de: deSdk,
+    en: enSdk,
+    es: esSdk,
+    fr: frSdk,
+    it: itSdk,
+    ja: jaSdk,
+    ru: ruSdk,
+    tr: trSdk,
+    uk: ukSdk,
+    zh: zhSdk,
+  };
+
+  it.each(Object.entries(locales))(
+    'covers unique field validation message in %s',
+    (_locale, sdk) => {
+      expect(sdk.httpErrors.validation.field.unique).toBeTruthy();
+    }
+  );
 });
 
 const t: ILocaleFunction = ((key: string, options?: Record<string, unknown>) => {
+  if (key === 'httpErrors.validation.field.unique') {
+    return `${key}:${options?.fieldName ?? ''}`;
+  }
   if (key === 'sdk:httpErrors.limit.nameMaxLength') {
     return `${key}:${options?.max}`;
+  }
+  if (key === 'sdk:httpErrors.validation.field.unique') {
+    return `${key}:${options?.fieldName ?? ''}`;
   }
   return key;
 }) as ILocaleFunction;
@@ -125,6 +165,52 @@ describe('getHttpErrorMessage', () => {
         data: {
           domainCode: 'validation.limit.unknown_limit',
           details: { max: 1 },
+        },
+      },
+      t,
+      'sdk'
+    );
+
+    expect(message).toBe('fallback');
+  });
+
+  it('localizes v2 validation errors by domain code', () => {
+    const message = getHttpErrorMessage(
+      {
+        message: 'Cannot complete update: field fldEmail must have a unique value',
+        data: {
+          domainCode: 'validation.field.unique',
+          details: { fieldName: 'Email' },
+        },
+      },
+      t,
+      'sdk'
+    );
+
+    expect(message).toBe('sdk:httpErrors.validation.field.unique:Email');
+  });
+
+  it('localizes v2 validation errors by domain code without namespace prefix', () => {
+    const message = getHttpErrorMessage(
+      {
+        message: 'Cannot complete update: field fldEmail must have a unique value',
+        data: {
+          domainCode: 'validation.field.unique',
+          details: { fieldName: 'Email' },
+        },
+      },
+      t
+    );
+
+    expect(message).toBe('httpErrors.validation.field.unique:Email');
+  });
+
+  it('falls back to the server message for unknown domain code keys', () => {
+    const message = getHttpErrorMessage(
+      {
+        message: 'fallback',
+        data: {
+          domainCode: 'validation.field.unknown',
         },
       },
       t,

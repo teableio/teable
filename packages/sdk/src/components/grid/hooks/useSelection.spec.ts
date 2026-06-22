@@ -111,4 +111,50 @@ describe('useSelection', () => {
     expect(result.current.selection.type).toBe(SelectionRegionType.Rows);
     expect(result.current.selection.ranges).toEqual([[1, 1]]);
   });
+
+  it('clamps the dragged cell selection to row/column 0 when dragged above the grid', () => {
+    const { result } = renderHook(() =>
+      useSelection({
+        coordInstance,
+        selectable: SelectableType.All,
+        isMultiSelectionEnable: true,
+        getLinearRow,
+        setActiveCell: createSetActiveCell(),
+        onSelectionChanged: undefined,
+        onRowControlClick: vi.fn(),
+      })
+    );
+
+    // Anchor a cell selection at row 2 and enter the dragging state.
+    act(() => {
+      result.current.onSelectionStart(createMouseEvent(), {
+        type: RegionType.Cell,
+        rowIndex: 2,
+        columnIndex: 0,
+        x: 0,
+        y: 0,
+        isOutOfBounds: false,
+      });
+    });
+
+    // Dragging above the grid: getPosition hands back -Infinity on both axes.
+    act(() => {
+      result.current.onSelectionChange({
+        type: RegionType.Cell,
+        rowIndex: -Infinity,
+        columnIndex: -Infinity,
+        x: 0,
+        y: -10,
+        isOutOfBounds: true,
+      });
+    });
+
+    expect(result.current.selection.type).toBe(SelectionRegionType.Cells);
+    expect(result.current.selection.ranges).toEqual([
+      [0, 2],
+      [0, 0],
+    ]);
+    // -Infinity must never leak into the selection range.
+    expect(result.current.selection.ranges.flat().every(Number.isFinite)).toBe(true);
+  });
 });

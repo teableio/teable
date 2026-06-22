@@ -3,8 +3,17 @@ import { EllipsisFileName } from '@teable/sdk/components/upload/EllipsisFileName
 import { FileCover } from '@teable/sdk/components/upload/FileCover';
 import type { IGlobalUploadTask } from '@teable/sdk/store/use-attachment-upload-store';
 import { cn, isImage } from '@teable/ui-lib';
+import {
+  Button,
+  Tooltip,
+  TooltipContent,
+  TooltipPortal,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@teable/ui-lib/shadcn';
 import { RotateCcw, X } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
+import type { ReactNode } from 'react';
 import { useEffect, useRef, useState } from 'react';
 
 interface ITaskItemProps {
@@ -14,8 +23,40 @@ interface ITaskItemProps {
   onRetry: () => void;
 }
 
+const UploadActionButton = ({
+  label,
+  onClick,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  children: ReactNode;
+}) => {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            className="text-muted-foreground"
+            onClick={onClick}
+            aria-label={label}
+          >
+            {children}
+          </Button>
+        </TooltipTrigger>
+        <TooltipPortal>
+          <TooltipContent>{label}</TooltipContent>
+        </TooltipPortal>
+      </Tooltip>
+    </TooltipProvider>
+  );
+};
+
 export const TaskItem = ({ task, onCancel, onRemove, onRetry }: ITaskItemProps) => {
-  const { t } = useTranslation('table');
+  const { t } = useTranslation(['table', 'common']);
   const mimetype = task.file.type || 'application/octet-stream';
   const isError = task.status === 'error';
   const isCompleted = task.status === 'completed';
@@ -59,10 +100,10 @@ export const TaskItem = ({ task, onCancel, onRemove, onRetry }: ITaskItemProps) 
   return (
     <div
       className={cn(
-        'group flex items-center gap-3 px-3 py-2.5 hover:bg-muted/30 w-full overflow-hidden'
+        'group relative flex w-full items-center gap-3 overflow-hidden px-4 py-2.5 hover:bg-accent dark:hover:bg-[#303132]'
       )}
     >
-      <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded bg-muted/40">
+      <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded bg-muted">
         {shouldRenderPreviewImage ? (
           <img className="size-full object-cover" src={previewUrl} alt={task.fileName} />
         ) : (
@@ -75,14 +116,14 @@ export const TaskItem = ({ task, onCancel, onRemove, onRetry }: ITaskItemProps) 
         )}
       </div>
 
-      <div className="flex-1 overflow-hidden">
+      <div className="min-w-0 flex-1 overflow-hidden">
         <EllipsisFileName className="justify-start" name={task.fileName} />
 
-        <div className="mt-0.5 flex items-center gap-1.5">
+        <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
           {isUploading ? (
             <span className="text-[11px] text-primary">{task.progress}%</span>
           ) : isError ? (
-            <span className="text-[11px] text-destructive">
+            <span className="min-w-0 whitespace-normal break-words text-[11px] leading-4 text-destructive [overflow-wrap:anywhere]">
               {task.error || t('upload.statusFailed')}
             </span>
           ) : (
@@ -93,36 +134,25 @@ export const TaskItem = ({ task, onCancel, onRemove, onRetry }: ITaskItemProps) 
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-        {isError ? (
-          <button
-            type="button"
-            className="flex size-6 items-center justify-center rounded transition-colors hover:bg-muted/50"
-            onClick={onRetry}
-            title={t('upload.statusRetry')}
-          >
-            <RotateCcw className="size-3.5 text-muted-foreground" />
-          </button>
-        ) : null}
-        {isUploading ? (
-          <button
-            type="button"
-            className="flex size-6 items-center justify-center rounded transition-colors hover:bg-muted/50"
-            onClick={onCancel}
-            title={t('upload.statusCancel')}
-          >
-            <X className="size-3.5 text-muted-foreground" />
-          </button>
-        ) : null}
-        {shouldShowRemove ? (
-          <button
-            type="button"
-            className="flex size-6 items-center justify-center rounded transition-colors hover:bg-muted/50"
-            onClick={onRemove}
-          >
-            <X className="size-3.5 text-muted-foreground" />
-          </button>
-        ) : null}
+      <div className="absolute right-0 top-0 z-10 hidden h-full items-center group-focus-within:flex group-hover:flex">
+        <div className="h-full w-8 bg-gradient-to-r from-accent/0 to-accent dark:from-[#303132]/0 dark:to-[#303132]" />
+        <div className="flex h-full items-center gap-1 bg-accent px-2 py-1 dark:bg-[#303132]">
+          {isError ? (
+            <UploadActionButton label={t('upload.statusRetry')} onClick={onRetry}>
+              <RotateCcw className="size-4" />
+            </UploadActionButton>
+          ) : null}
+          {isUploading ? (
+            <UploadActionButton label={t('upload.statusCancel')} onClick={onCancel}>
+              <X className="size-4" />
+            </UploadActionButton>
+          ) : null}
+          {shouldShowRemove ? (
+            <UploadActionButton label={t('common:actions.clear')} onClick={onRemove}>
+              <X className="size-4" />
+            </UploadActionButton>
+          ) : null}
+        </div>
       </div>
     </div>
   );

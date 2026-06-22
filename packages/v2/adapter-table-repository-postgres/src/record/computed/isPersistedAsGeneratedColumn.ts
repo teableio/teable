@@ -27,9 +27,10 @@ class PersistedAsGeneratedColumnVisitor extends AbstractFieldVisitor<boolean> {
   visitRatingField(): Result<boolean, DomainError> {
     return ok(false);
   }
-  visitFormulaField(field: FormulaField): Result<boolean, DomainError> {
-    // Only FormulaField has domain meta for this flag.
-    return field.isPersistedAsGeneratedColumn();
+  visitFormulaField(_field: FormulaField): Result<boolean, DomainError> {
+    // Formula fields currently persist into normal columns and are maintained by computed backfill.
+    // Their meta flag is historical/read-model metadata, not a physical DB generated-column signal.
+    return ok(false);
   }
   visitRollupField(): Result<boolean, DomainError> {
     return ok(false);
