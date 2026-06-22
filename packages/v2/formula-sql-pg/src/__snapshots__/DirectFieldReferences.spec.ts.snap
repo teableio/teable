@@ -13,8 +13,16 @@ exports[`direct field references > direct reference to 'attachment' field 1`] = 
       "rawValue": "[{"id": "att_1", "name": "10", "path": "/tmp/10", "size": 10, "token": "tok_1", "mimetype": "text/plain"}, {"id": "att_2", "name": "20", "path": "/tmp/20", "size": 20, "token": "tok_2", "mimetype": "text/plain"}]",
     },
   },
-  "result": "[{"id": "att_1", "name": "10", "path": "/tmp/10", "size": 10, "token": "tok_1", "mimetype": "text/plain"}, {"id": "att_2", "name": "20", "path": "/tmp/20", "size": 20, "token": "tok_2", "mimetype": "text/plain"}]",
-  "sql": ""t"."Attachment"",
+  "result": "10, 20",
+  "sql": "(
+      SELECT string_agg(COALESCE(elem->>'title', elem->>'name', elem #>> '{}'), ', ' ORDER BY ord)
+      FROM jsonb_array_elements((CASE
+    WHEN "t"."Attachment" IS NULL THEN '[]'::jsonb
+    WHEN jsonb_typeof(("t"."Attachment")::jsonb) = 'array' THEN ("t"."Attachment")::jsonb
+    WHEN jsonb_typeof(("t"."Attachment")::jsonb) = 'null' THEN '[]'::jsonb
+    ELSE jsonb_build_array(("t"."Attachment")::jsonb)
+  END)) WITH ORDINALITY AS arr(elem, ord)
+    )",
 }
 `;
 

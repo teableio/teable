@@ -10,6 +10,7 @@ export enum ChatErrorCode {
   SANDBOX_CAPACITY_FULL = 'sandbox_capacity_full',
   SANDBOX_TRANSIENT = 'sandbox_transient',
   SANDBOX_SNAPSHOT_NOT_FOUND = 'sandbox_snapshot_not_found',
+  SANDBOX_PROVIDER_ERROR = 'sandbox_provider_error',
 
   // Model errors
   MODEL_NOT_SUPPORTED = 'model_not_supported',
@@ -23,6 +24,7 @@ export enum ChatErrorCode {
 
   // Agent engine errors
   AGENT_START_FAILED = 'agent_start_failed',
+  CONNECTION_INTERRUPTED = 'connection_interrupted',
 
   // API/infrastructure errors
   API_ERROR_5XX = 'api_error_5xx',
@@ -35,6 +37,7 @@ export enum ChatErrorCode {
 
   // Session recovery
   DANGLING_TOOL_USE = 'dangling_tool_use',
+  CONTEXT_IMPORT_FAILED = 'context_import_failed',
 
   // Generic
   UNKNOWN = 'unknown',
