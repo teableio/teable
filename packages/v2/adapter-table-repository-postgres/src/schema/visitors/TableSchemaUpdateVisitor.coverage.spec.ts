@@ -269,7 +269,10 @@ describe('TableSchemaUpdateVisitor coverage', () => {
       ._unsafeUnwrap()
       .map((statement) => normalizeSql(statement.compile(db).sql));
     expect(singleSqls[0]).toContain('SET "single_sel" = $1 WHERE "single_sel" = $2');
-    expect(singleSqls[1]).toContain('SET "single_sel" = NULL WHERE "single_sel" = $1');
+    expect(singleSqls[1]).toContain(
+      'SET "single_sel" = NULL, "__version" = "__version" + 1 WHERE "single_sel" = $1'
+    );
+    expect(singleSqls[1]).toContain('RETURNING "__id" AS "recordId"');
 
     const multiResult = visitor.visitUpdateMultipleSelectOptions(
       UpdateMultipleSelectOptionsSpec.create(
@@ -286,6 +289,9 @@ describe('TableSchemaUpdateVisitor coverage', () => {
     expect(multiSqls[0]).toContain('jsonb_array_elements_text("multi_sel")');
     expect(multiSqls[0]).toContain('value = $1 THEN $2 ELSE value END');
     expect(multiSqls[1]).toContain('WHERE value <> $1');
+    expect(multiSqls[1]).toContain('SET "multi_sel" = candidates."newValue"');
+    expect(multiSqls[1]).toContain('"__version" = t."__version" + 1');
+    expect(multiSqls[1]).toContain('RETURNING t."__id" AS "recordId"');
   });
 
   it('clears persisted button values when workflow changes', () => {

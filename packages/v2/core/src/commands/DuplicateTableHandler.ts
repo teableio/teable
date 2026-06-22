@@ -159,10 +159,7 @@ export class DuplicateTableHandler
         context,
         async (dataTransactionContext) =>
           safeTry<void, DomainError>(async function* () {
-            yield* await handler.tableSchemaRepository.insert(
-              dataTransactionContext,
-              persistedTable
-            );
+            yield* await handler.tableSchemaRepository.insert(dataTransactionContext, persistedTable);
 
             if (records.length > 0) {
               const pluginExecution = yield* await handler.recordWritePluginRunner.prepare({
@@ -183,7 +180,10 @@ export class DuplicateTableHandler
                 dataTransactionContext,
                 persistedTable,
                 records,
-                restoreRecordsById ? { restoreRecordsById } : undefined
+                {
+                  ...(restoreRecordsById ? { restoreRecordsById } : {}),
+                  allowPendingTableProvisionForComputedUpdates: true,
+                }
               );
             }
 
@@ -219,18 +219,7 @@ export class DuplicateTableHandler
         restoreRecordsById
       );
 
-      const previousDuplicateContext = context.duplicateTable;
-      context.duplicateTable = {
-        sourceTableId: command.tableId.toString(),
-        duplicatedTableId: persistedTable.id().toString(),
-        includeRecords: command.includeRecords,
-      };
-
-      try {
-        yield* await handler.eventBus.publishMany(context, events);
-      } finally {
-        context.duplicateTable = previousDuplicateContext;
-      }
+      yield* await handler.eventBus.publishMany(context, events);
 
       return ok(
         DuplicateTableResult.create(
@@ -372,7 +361,7 @@ const aggregateDuplicateTableEvents = (
       fields: event.fieldValues,
       orders: restoreRecordsById?.get(event.recordId.toString())?.orders,
     })),
-    source: recordCreatedEvents[0]?.source ?? { type: 'user' },
+    source: { type: 'tableDuplicate' },
   });
 
   const aggregatedEvents: IDomainEvent[] = [];

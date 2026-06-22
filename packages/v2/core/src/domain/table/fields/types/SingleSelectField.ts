@@ -1,5 +1,6 @@
 import type { Result } from 'neverthrow';
 
+import type { IDomainContext } from '../../../shared/DomainContext';
 import type { DomainError } from '../../../shared/DomainError';
 import { Field } from '../Field';
 import type { FieldDuplicateParams } from '../Field';
@@ -10,7 +11,7 @@ import type { IFieldVisitor } from '../visitors/IFieldVisitor';
 import { SelectAutoNewOptions } from './SelectAutoNewOptions';
 import type { SelectDefaultValue } from './SelectDefaultValue';
 import type { SelectOption } from './SelectOption';
-import { validateSelectOptions } from './SelectOptions';
+import { validateSelectOptions, type SelectOptionsValidationContext } from './SelectOptions';
 
 export class SingleSelectField extends Field {
   private constructor(
@@ -29,8 +30,17 @@ export class SingleSelectField extends Field {
     options: ReadonlyArray<SelectOption>;
     defaultValue?: SelectDefaultValue;
     preventAutoNewOptions?: SelectAutoNewOptions;
+    domainContext?: IDomainContext;
   }): Result<SingleSelectField, DomainError> {
-    return validateSelectOptions(params.options, params.defaultValue, 'single').map(
+    const validationContext: SelectOptionsValidationContext = {
+      domainContext: params.domainContext,
+    };
+    return validateSelectOptions(
+      params.options,
+      params.defaultValue,
+      'single',
+      validationContext
+    ).map(
       (options) =>
         new SingleSelectField(
           params.id,

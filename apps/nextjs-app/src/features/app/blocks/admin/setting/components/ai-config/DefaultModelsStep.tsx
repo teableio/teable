@@ -14,6 +14,7 @@ import {
 } from '@teable/ui-lib/shadcn';
 import { ChevronRight } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
+import type { ReactNode } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import type { IModelOption } from './AiModelSelect';
 import { AIModelSelect } from './AiModelSelect';
@@ -29,6 +30,7 @@ interface IDefaultModelsStepProps {
   models: IModelOption[];
   onChange: (chatModel: IChatModel) => void;
   disabled?: boolean;
+  agentRoutingSlot?: ReactNode;
 }
 
 export function DefaultModelsStep({
@@ -36,6 +38,7 @@ export function DefaultModelsStep({
   models,
   onChange,
   disabled,
+  agentRoutingSlot,
 }: IDefaultModelsStepProps) {
   const { t } = useTranslation('common');
   const [tiersOpen, setTiersOpen] = useState(
@@ -238,6 +241,8 @@ export function DefaultModelsStep({
           {t('admin.setting.ai.wizard.readyToUse')}
         </div>
       )}
+
+      {agentRoutingSlot}
     </div>
   );
 }
