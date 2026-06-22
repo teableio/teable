@@ -42,6 +42,21 @@ import type { IRecordInnerRo } from '../record.service';
 import { RecordService } from '../record.service';
 import type { IUpdateRecordsInternalRo } from '../type';
 
+const getAllowedRecordHistoryFieldIds = (
+  fieldIds?: string[],
+  projectionIds?: string[]
+): string[] | undefined => {
+  if (!fieldIds?.length) {
+    return projectionIds;
+  }
+
+  if (!projectionIds?.length) {
+    return fieldIds;
+  }
+
+  return fieldIds.filter((fieldId) => projectionIds.includes(fieldId));
+};
+
 @Injectable()
 export class RecordOpenApiService {
   constructor(
@@ -184,8 +199,10 @@ export class RecordOpenApiService {
     query: IGetRecordHistoryQuery,
     projectionIds?: string[]
   ): Promise<IRecordHistoryVo> {
-    const { cursor, startDate, endDate } = query;
+    const { cursor, startDate, endDate, fieldIds, createdByIds } = query;
     const limit = 20;
+    const allowedFieldIds = getAllowedRecordHistoryFieldIds(fieldIds, projectionIds);
+    const shouldFilterByField = Boolean(fieldIds?.length || projectionIds?.length);
 
     const dateFilter: { [key: string]: Date } = {};
     if (startDate) {
@@ -201,7 +218,8 @@ export class RecordOpenApiService {
         tableId,
         ...(recordId ? { recordId } : {}),
         ...(Object.keys(dateFilter).length > 0 ? { createdTime: dateFilter } : {}),
-        ...(projectionIds?.length ? { fieldId: { in: projectionIds } } : {}),
+        ...(shouldFilterByField ? { fieldId: { in: allowedFieldIds ?? [] } } : {}),
+        ...(createdByIds?.length ? { createdBy: { in: createdByIds } } : {}),
       },
       select: {
         id: true,

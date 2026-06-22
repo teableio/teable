@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { UserIntegrationProviderLogo } from '@/features/app/components/user-integration/ProviderLogo';
 import { openConnectIntegration } from '../../../user-integration/utils';
 import { ActionMenu } from './ActionMenu';
+import { AccountItem } from './provider/AccountItem';
 import { EmailItem } from './provider/EmailItem';
 import { SlackItem } from './provider/SlackItem';
 import { Rename } from './Rename';
@@ -60,7 +61,18 @@ export const List = (props: { list?: IUserIntegrationListVo['integrations'] }) =
                   }
                 />
               </EmailItem>
-            ) : null}
+            ) : (
+              <AccountItem item={integration}>
+                <Rename
+                  name={integration.name}
+                  setIsEditing={(editing) => setEditingId(editing ? integration.id : undefined)}
+                  isEditing={integration.id === editingId}
+                  onNameChange={(name) =>
+                    updateUserIntegrationNameMutate({ id: integration.id, name })
+                  }
+                />
+              </AccountItem>
+            )}
           </div>
           <div className="flex shrink-0 items-center gap-4">
             <div className="text-xs text-muted-foreground">
