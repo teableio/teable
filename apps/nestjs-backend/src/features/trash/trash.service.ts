@@ -1,8 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import type { FieldType, IFieldVo } from '@teable/core';
 import { FieldKeyType, HttpErrorCode, IdPrefix, Role } from '@teable/core';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import { PrismaService, type Prisma } from '@teable/db-main-prisma';
 import type {
   IResetTrashItemsRo,
@@ -40,6 +39,7 @@ import { CanaryService, type IV2Decision } from '../canary/canary.service';
 import { FieldOpenApiService } from '../field/open-api/field-open-api.service';
 import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
 import { RecordService } from '../record/record.service';
+import { SpaceDataDbMigrationGuardService } from '../space/space-data-db-migration-guard.service';
 import { SpaceService } from '../space/space.service';
 import { TableOpenApiV2Service } from '../table/open-api/table-open-api-v2.service';
 import { TableOpenApiService } from '../table/open-api/table-open-api.service';
@@ -52,15 +52,54 @@ import { resolveV2TrashRecordDisplayName } from './v2-trash-record-name';
 
 type IRecordTrashSnapshot = IDeleteRecordsPayload['records'][number];
 
+type ITableTrashDelegate = {
+  findMany<TArgs>(args: TArgs): Promise<
+    Array<{
+      id: string;
+      tableId: string;
+      resourceType: string;
+      snapshot: string;
+      createdBy: string;
+      createdTime: Date;
+    }>
+  >;
+  findUniqueOrThrow<TArgs>(args: TArgs): Promise<{
+    tableId: string;
+    resourceType: string;
+    snapshot: string;
+    createdTime: Date;
+  }>;
+  delete<TArgs>(args: TArgs): Promise<unknown>;
+  deleteMany<TArgs>(args: TArgs): Promise<unknown>;
+};
+
+type IRecordTrashDelegate = {
+  findMany<TArgs>(args: TArgs): Promise<
+    Array<{
+      id: string;
+      recordId: string;
+      snapshot: string;
+      createdTime: Date;
+    }>
+  >;
+  deleteMany<TArgs>(args: TArgs): Promise<unknown>;
+};
+
 type ITrashDataPrisma = {
-  tableTrash: DataPrismaService['tableTrash'];
-  recordTrash: DataPrismaService['recordTrash'];
+  tableTrash: ITableTrashDelegate;
+  recordTrash: IRecordTrashDelegate;
 };
 
 type IScopedTrashDataPrisma = ITrashDataPrisma & {
   txClient?: () => ITrashDataPrisma;
-  $tx?: DataPrismaService['$tx'];
-  $transaction?: DataPrismaService['$transaction'];
+  $tx?: <T>(
+    fn: (prisma: ITrashDataPrisma) => Promise<T>,
+    options?: { timeout?: number }
+  ) => Promise<T>;
+  $transaction?: <T>(
+    fn: (prisma: ITrashDataPrisma) => Promise<T>,
+    options?: { timeout?: number }
+  ) => Promise<T>;
 };
 
 @Injectable()
@@ -84,8 +123,39 @@ export class TrashService {
     protected readonly canaryService: CanaryService,
     protected readonly dataDbClientManager: DataDbClientManager,
     @ThresholdConfig() protected readonly thresholdConfig: IThresholdConfig,
-    @InjectModel(META_KNEX) protected readonly knex: Knex
+    @InjectModel(META_KNEX) protected readonly knex: Knex,
+    @Optional()
+    protected readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService
   ) {}
+
+  private async assertSpaceWritable(spaceId: string) {
+    await this.spaceDataDbMigrationGuard?.assertSpaceWritable(spaceId);
+  }
+
+  private async assertBaseWritable(baseId: string) {
+    await this.spaceDataDbMigrationGuard?.assertBaseWritable(baseId);
+  }
+
+  private async assertTableWritable(tableId: string) {
+    await this.spaceDataDbMigrationGuard?.assertTableWritable(tableId);
+  }
+
+  private async assertTrashResourceWritable(
+    resourceType: TrashType,
+    resourceId: string,
+    parentId?: string | null
+  ) {
+    switch (resourceType) {
+      case TrashType.Space:
+        return await this.assertSpaceWritable(resourceId);
+      case TrashType.Base:
+        return await this.assertBaseWritable(resourceId);
+      case TrashType.Table:
+        return parentId
+          ? await this.assertBaseWritable(parentId)
+          : await this.assertTableWritable(resourceId);
+    }
+  }
 
   private getTrashDataPrismaExecutor(prisma: IScopedTrashDataPrisma): ITrashDataPrisma {
     return prisma.txClient?.() ?? prisma;
@@ -770,6 +840,7 @@ export class TrashService {
       });
     }
 
+    await this.assertBaseWritable(decision.baseId);
     await this.assertParentNotTrashed(decision.baseId);
     await this.restoreTableV2(decision.baseId, decision.tableId);
   }
@@ -783,6 +854,7 @@ export class TrashService {
 
   async restoreResource(trash: { resourceType: TrashType; resourceId: string }) {
     const { resourceType, resourceId } = trash;
+    await this.assertTrashResourceWritable(resourceType, resourceId);
     switch (resourceType) {
       case TrashType.Space:
         return this.restoreSpace(resourceId);
@@ -816,6 +888,7 @@ export class TrashService {
         }
       );
     }
+    await this.assertTableWritable(routedTableId);
     const lookupDataPrisma = this.getTrashDataPrismaExecutor(
       await this.trashDataPrismaForTable(routedTableId)
     );
@@ -846,6 +919,9 @@ export class TrashService {
           }
         );
       });
+    if (tableId !== routedTableId) {
+      await this.assertTableWritable(tableId);
+    }
     const dataPrisma = routedTableId
       ? lookupDataPrisma
       : this.getTrashDataPrismaExecutor(await this.trashDataPrismaForTable(tableId));
@@ -1053,6 +1129,11 @@ export class TrashService {
         });
 
       await this.assertParentNotTrashed(trash.parentId);
+      await this.assertTrashResourceWritable(
+        trash.resourceType as TrashType,
+        trash.resourceId,
+        trash.parentId
+      );
 
       await this.restoreResource({
         resourceType: trash.resourceType as TrashType,
@@ -1106,6 +1187,8 @@ export class TrashService {
         }
       );
     }
+
+    await this.assertTrashResourceWritable(resourceType, resourceId);
 
     if (resourceType === TrashType.Base) {
       await this.resetBaseTrashResource(resetTrashItemsRo);
@@ -1219,6 +1302,7 @@ export class TrashService {
     ignorePermissionCheck = false
   ): Promise<void> {
     const { resourceType, resourceId, parentId } = trash;
+    await this.assertTrashResourceWritable(resourceType, resourceId, parentId);
 
     switch (resourceType) {
       case TrashType.Space:

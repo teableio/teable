@@ -48,7 +48,10 @@ import type { SpanAttributes } from '../../ports/Tracer';
 import * as UnitOfWorkPort from '../../ports/UnitOfWork';
 import type { RecordSortValue } from '../../queries/ListTableRecordsQuery';
 import type { RecordFilter } from '../../queries/RecordFilterDto';
-import { buildSanitizedRecordConditionSpec } from '../../queries/RecordFilterMapper';
+import {
+  buildSanitizedRecordConditionSpec,
+  replaceCurrentUserTagInFilter,
+} from '../../queries/RecordFilterMapper';
 import {
   resolveVisibleRowSearch,
   type RecordQuerySearch,
@@ -318,7 +321,12 @@ export class DuplicateRecordsApplicationService {
       ? command.groupBy ?? undefined
       : mergedDefaults.group();
 
-    const filterSpecResult = await buildSanitizedRecordConditionSpec(table, effectiveFilter);
+    const actorResolvedFilter = replaceCurrentUserTagInFilter(
+      table,
+      effectiveFilter,
+      context.actorId.toString()
+    );
+    const filterSpecResult = await buildSanitizedRecordConditionSpec(table, actorResolvedFilter);
     if (filterSpecResult.isErr()) {
       return err(filterSpecResult.error);
     }

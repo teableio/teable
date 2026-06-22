@@ -479,7 +479,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     this.updateStreamContexts.push(context);
     this.onUpdateManyStream?.(table);
     let totalUpdated = 0;
-    const updatedRecords: NonNullable<UpdateManyStreamResult['updatedRecords']> = [];
+    const updatedRecords: Array<NonNullable<UpdateManyStreamResult['updatedRecords']>[number]> = [];
     const normalizeBatch = (
       batch: UpdateManyStreamBatchInput
     ): ReadonlyArray<RecordUpdateResult> =>
@@ -865,7 +865,7 @@ describe('PasteHandler', () => {
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
         eventBus,
-        undoRedoService as unknown as UndoRedoService,
+        undoRedoService as unknown as UndoRedoStackService,
         unitOfWork
       );
 
@@ -925,7 +925,7 @@ describe('PasteHandler', () => {
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
         eventBus,
-        undoRedoService as unknown as UndoRedoService,
+        undoRedoService as unknown as UndoRedoStackService,
         unitOfWork
       );
 

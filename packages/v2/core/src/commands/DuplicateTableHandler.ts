@@ -155,42 +155,55 @@ export class DuplicateTableHandler
         { scope: 'meta' }
       );
 
-      const duplicateResult = await handler.unitOfWork.withTransaction(
-        context,
-        async (dataTransactionContext) =>
-          safeTry<void, DomainError>(async function* () {
-            yield* await handler.tableSchemaRepository.insert(
-              dataTransactionContext,
-              persistedTable
-            );
+      const previousDuplicateContext = context.duplicateTable;
+      context.duplicateTable = {
+        sourceTableId: command.tableId.toString(),
+        duplicatedTableId: persistedTable.id().toString(),
+        includeRecords: command.includeRecords,
+      };
 
-            if (records.length > 0) {
-              const pluginExecution = yield* await handler.recordWritePluginRunner.prepare({
-                kind: RecordWriteOperationKind.createMany,
-                executionContext: dataTransactionContext,
-                table: persistedTable,
-                payload: {
-                  recordsFieldValues: records.map(tableRecordToRecordWriteFieldValues),
-                  fieldKeyType: FieldKeyType.Id,
-                  typecast: false,
-                  recordCount: records.length,
-                },
-                isTransactionBound: true,
-              });
-              yield* await pluginExecution.guard();
-              yield* await pluginExecution.beforePersist(dataTransactionContext);
-              yield* await handler.tableRecordRepository.insertMany(
-                dataTransactionContext,
-                persistedTable,
-                records,
-                restoreRecordsById ? { restoreRecordsById } : undefined
-              );
-            }
+      const duplicateResult = await (async () => {
+        try {
+          return await handler.unitOfWork.withTransaction(
+            context,
+            async (dataTransactionContext) =>
+              safeTry<void, DomainError>(async function* () {
+                yield* await handler.tableSchemaRepository.insert(
+                  dataTransactionContext,
+                  persistedTable
+                );
 
-            return ok(undefined);
-          }),
-        { scope: 'data' }
-      );
+                if (records.length > 0) {
+                  const pluginExecution = yield* await handler.recordWritePluginRunner.prepare({
+                    kind: RecordWriteOperationKind.createMany,
+                    executionContext: dataTransactionContext,
+                    table: persistedTable,
+                    payload: {
+                      recordsFieldValues: records.map(tableRecordToRecordWriteFieldValues),
+                      fieldKeyType: FieldKeyType.Id,
+                      typecast: false,
+                      recordCount: records.length,
+                    },
+                    isTransactionBound: true,
+                  });
+                  yield* await pluginExecution.guard();
+                  yield* await pluginExecution.beforePersist(dataTransactionContext);
+                  yield* await handler.tableRecordRepository.insertMany(
+                    dataTransactionContext,
+                    persistedTable,
+                    records,
+                    restoreRecordsById ? { restoreRecordsById } : undefined
+                  );
+                }
+
+                return ok(undefined);
+              }),
+            { scope: 'data' }
+          );
+        } finally {
+          context.duplicateTable = previousDuplicateContext;
+        }
+      })();
       if (duplicateResult.isErr()) {
         yield* await failTableSchemaOperation(
           handler.unitOfWork,
@@ -219,7 +232,6 @@ export class DuplicateTableHandler
         restoreRecordsById
       );
 
-      const previousDuplicateContext = context.duplicateTable;
       context.duplicateTable = {
         sourceTableId: command.tableId.toString(),
         duplicatedTableId: persistedTable.id().toString(),

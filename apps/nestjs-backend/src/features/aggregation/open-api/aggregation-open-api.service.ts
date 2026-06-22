@@ -9,7 +9,7 @@ import type {
   ICalendarDailyCollectionVo,
   IGroupPointsRo,
   IGroupPointsVo,
-  IQueryBaseRo,
+  IRowCountRo,
   IRowCountVo,
   ISearchCountRo,
   IRecordIndexRo,
@@ -69,7 +69,7 @@ export class AggregationOpenApiService {
     return { aggregations: result?.aggregations };
   }
 
-  async getRowCount(tableId: string, query: IQueryBaseRo = {}): Promise<IRowCountVo> {
+  async getRowCount(tableId: string, query: IRowCountRo = {}): Promise<IRowCountVo> {
     const result = await this.aggregationService.performRowCount(tableId, query);
     return {
       rowCount: result.rowCount,
