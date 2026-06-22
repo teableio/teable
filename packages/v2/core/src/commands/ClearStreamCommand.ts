@@ -11,6 +11,9 @@ import { MAX_SELECTION_STREAM_BATCH_SIZE } from './shared/streamBatchSize';
 
 export const clearStreamCommandInputSchema = clearCommandInputSchema.extend({
   batchSize: z.number().int().min(1).max(MAX_SELECTION_STREAM_BATCH_SIZE).optional(),
+  targetRecordIds: z.array(z.string()).optional(),
+  excludedTargetRecordIds: z.array(z.string()).optional(),
+  targetFieldIds: z.array(z.string()).optional(),
 });
 
 export type IClearStreamCommandInput = z.input<typeof clearStreamCommandInputSchema>;
@@ -27,6 +30,9 @@ export class ClearStreamCommand extends ClearCommand {
     groupBy: ClearCommand['groupBy'],
     projection: ClearCommand['projection'],
     ignoreViewQuery: boolean,
+    readonly targetRecordIds?: ReadonlyArray<string>,
+    readonly excludedTargetRecordIds?: ReadonlyArray<string>,
+    readonly targetFieldIds?: ReadonlyArray<string>,
     readonly batchSize?: number
   ) {
     super(
@@ -74,6 +80,9 @@ export class ClearStreamCommand extends ClearCommand {
             baseCommand.groupBy,
             baseCommand.projection,
             baseCommand.ignoreViewQuery,
+            parsed.data.targetRecordIds,
+            parsed.data.excludedTargetRecordIds,
+            parsed.data.targetFieldIds,
             parsed.data.batchSize
           )
       )

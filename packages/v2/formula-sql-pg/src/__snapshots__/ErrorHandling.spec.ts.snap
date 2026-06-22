@@ -521,7 +521,7 @@ exports[`error handling > 'ValueTypeError': 'Value with non-convertible type' 1`
     },
   },
   "result": "#ERROR:TYPE:cannot_cast_to_number",
-  "sql": "CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE (NULL::double precision)::text END",
+  "sql": "CASE WHEN TRUE THEN '#ERROR:TYPE:cannot_cast_to_number' ELSE (COALESCE(NULL::double precision, 0))::text END",
 }
 `;
 
