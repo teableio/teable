@@ -87,6 +87,12 @@ export interface IGridExternalProps {
   isMultiSelectionEnable?: boolean;
   isRowClickSelectionEnabled?: boolean;
 
+  /**
+   * Keep the cursor on the active cell after Enter instead of moving to the next
+   * row, so the caller can follow a record that re-positions on edit.
+   */
+  disableEnterMoveDown?: boolean;
+
   groupCollection?: IGroupCollection | null;
   collapsedGroupIds?: Set<string> | null;
   groupPoints?: IGroupPoint[] | null;
@@ -220,6 +226,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     rowIndexVisible = true,
     isMultiSelectionEnable = true,
     isRowClickSelectionEnabled = true,
+    disableEnterMoveDown = false,
     style,
     customIcons,
     collaborators,
@@ -708,6 +715,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             collapsedGroupIds={collapsedGroupIds}
             columnHeaderHeight={columnHeaderHeight}
             isMultiSelectionEnable={isMultiSelectionEnable}
+            disableEnterMoveDown={disableEnterMoveDown}
             activeCell={activeCell}
             mouseState={mouseState}
             scrollState={scrollState}
@@ -787,6 +795,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
         cellErrors={cellErrors}
         coordInstance={coordInstance}
         scrollState={scrollState}
+        real2RowIndex={real2RowIndex}
       />
     </div>
   );
