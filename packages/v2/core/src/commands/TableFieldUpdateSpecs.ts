@@ -121,6 +121,7 @@ import { TableUpdateFieldAiConfigSpec } from '../domain/table/specs/TableUpdateF
 import { TableUpdateFieldConstraintsSpec } from '../domain/table/specs/TableUpdateFieldConstraintsSpec';
 import { TableUpdateFieldDbFieldNameSpec } from '../domain/table/specs/TableUpdateFieldDbFieldNameSpec';
 import { TableUpdateFieldDescriptionSpec } from '../domain/table/specs/TableUpdateFieldDescriptionSpec';
+import { TableUpdateFieldHasErrorSpec } from '../domain/table/specs/TableUpdateFieldHasErrorSpec';
 import { TableUpdateFieldNameSpec } from '../domain/table/specs/TableUpdateFieldNameSpec';
 import { TableUpdateFieldTypeSpec } from '../domain/table/specs/TableUpdateFieldTypeSpec';
 import type { Table } from '../domain/table/Table';
@@ -190,11 +191,14 @@ const parseRequiredFormulaShowAs = (raw: unknown): Result<FormulaShowAs, DomainE
 
 const sequence = <T>(
   values: ReadonlyArray<Result<T, DomainError>>
-): Result<ReadonlyArray<T>, DomainError> =>
-  values.reduce<Result<ReadonlyArray<T>, DomainError>>(
-    (acc, next) => acc.andThen((arr) => next.map((v) => [...arr, v])),
-    ok([])
-  );
+): Result<ReadonlyArray<T>, DomainError> => {
+  const result: T[] = [];
+  for (const value of values) {
+    if (value.isErr()) return err<ReadonlyArray<T>, DomainError>(value.error);
+    result.push(value.value);
+  }
+  return ok(result);
+};
 
 const parseTrackedFieldIds = (
   raw: unknown
@@ -2228,6 +2232,11 @@ class UpdateFormulaFieldSpec implements IUpdateTableFieldSpec {
             this.expressionValue
           )
         );
+        if (currentField.hasError().isError()) {
+          specs.push(
+            TableUpdateFieldHasErrorSpec.clearError(currentField.id(), currentField.hasError())
+          );
+        }
       }
     }
 

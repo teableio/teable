@@ -170,6 +170,25 @@ describe('OpenAPI ViewController view order sort (e2e)', () => {
     expect(viewSort).toEqual(assertSort.sort);
   });
 
+  it('/api/table/{tableId}/view/{viewId}/sort clears view sort with null (PUT)', async () => {
+    await apiSetViewSort(tableId, viewId, {
+      sort: {
+        sortObjs: [
+          {
+            fieldId: fields[0].id as string,
+            order: SortFunc.Asc,
+          },
+        ],
+        manualSort: false,
+      },
+    });
+
+    await apiSetViewSort(tableId, viewId, { sort: null });
+
+    const updatedView = await getView(tableId, viewId);
+    expect(updatedView.sort).toBeUndefined();
+  });
+
   it('sort date should always use a second precision when formatting time is not none', async () => {
     await createRecords(tableId, {
       records: [

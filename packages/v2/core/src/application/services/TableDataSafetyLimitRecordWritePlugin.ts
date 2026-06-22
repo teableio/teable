@@ -51,6 +51,10 @@ const recordsFromContext = (
 };
 
 const recordCountFromContext = (context: RecordWritePluginContext): number => {
+  if (context.orchestration?.mode === 'stream' && context.orchestration.scope === 'operation') {
+    return recordsFromContext(context).length;
+  }
+
   switch (context.kind) {
     case RecordWriteOperationKind.createOne:
     case RecordWriteOperationKind.submit:

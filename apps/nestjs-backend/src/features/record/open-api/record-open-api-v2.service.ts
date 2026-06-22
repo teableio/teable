@@ -1,16 +1,18 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/cognitive-complexity */
-import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus, Optional } from '@nestjs/common';
 import { trace } from '@opentelemetry/api';
 import {
   CellFormat,
   CellValueType,
   FieldKeyType,
   FieldType,
+  HttpErrorCode,
   TimeFormatting,
   formatDateToString,
   isMeTag,
   parseClipboardText,
+  type IAttachmentItem,
   type IDatetimeFormatting,
   type IFieldVo,
   type IFilter,
@@ -26,13 +28,18 @@ import type {
   IRecord,
   ICreateRecordsVo,
   IGetRecordsRo,
+  ICreateRecordsRo,
+  IUpdateRecordsRo,
   IPasteRo,
+  IPasteByIdStreamRo,
   IPasteVo,
   IRangesRo,
+  ISelectionIdMutationBaseRo,
+  ISelectionIdsRo,
   IRecordsVo,
   IRecordInsertOrderRo,
 } from '@teable/openapi';
-import { ICreateRecordsRo, IUpdateRecordsRo, RangeType } from '@teable/openapi';
+import { RangeType } from '@teable/openapi';
 import { mapDomainErrorToHttpError, mapDomainErrorToHttpStatus } from '@teable/v2-contract-http';
 import {
   executeCreateRecordsEndpoint,
@@ -77,6 +84,7 @@ import { CustomHttpException, getDefaultCodeByStatus } from '../../../custom.exc
 import { DataDbClientManager } from '../../../global/data-db-client-manager.service';
 import type { IClsStore } from '../../../types/cls';
 import { AggregationService } from '../../aggregation/aggregation.service';
+import { AttachmentsService } from '../../attachments/attachments.service';
 import { AuditScope } from '../../audit/audit-scope';
 import { FieldService } from '../../field/field.service';
 import type { IFieldInstance } from '../../field/model/factory';
@@ -92,6 +100,7 @@ import { RecordService } from '../record.service';
 const internalServerError = 'Internal server error';
 const invalidFilterCode = 'validation.invalid_filter';
 const dataTxClientKey = 'dataTx.client';
+const maxResolveSelectionRecordIdsPageSize = 1000;
 const v1SymbolOperatorMap: Record<string, string> = {
   '=': 'is',
   '!=': 'isNot',
@@ -122,7 +131,8 @@ export class RecordOpenApiV2Service {
     private readonly recordPermissionService: RecordPermissionService,
     private readonly aggregationService: AggregationService,
     private readonly dataDbClientManager: DataDbClientManager,
-    private readonly audit: AuditScope
+    private readonly audit: AuditScope,
+    @Optional() private readonly attachmentsService?: AttachmentsService
   ) {}
 
   private throwV2Error(
@@ -267,6 +277,8 @@ export class RecordOpenApiV2Service {
         fieldKeyType: FieldKeyType.Id,
         limit: query.take,
         offset: query.skip,
+        projection: [],
+        includeTotal: false,
         ...(normalizedFilter ? { filter: normalizedFilter } : {}),
         ...(normalizedSort?.length ? { sort: normalizedSort } : {}),
         ...(normalizedGroupBy?.length ? { groupBy: normalizedGroupBy } : {}),
@@ -331,6 +343,51 @@ export class RecordOpenApiV2Service {
     return queryExtra
       ? { records: normalizedRecords, extra: queryExtra }
       : { records: normalizedRecords };
+  }
+
+  async resolveRecordIdsBySelection(
+    tableId: string,
+    selectionRo: Pick<
+      ISelectionIdMutationBaseRo,
+      | 'selection'
+      | 'viewId'
+      | 'ignoreViewQuery'
+      | 'filter'
+      | 'orderBy'
+      | 'groupBy'
+      | 'search'
+      | 'collapsedGroupIds'
+      | 'projection'
+    >
+  ): Promise<string[]> {
+    const { selection, ...queryRo } = selectionRo;
+    if (selection.recordIds) {
+      return selection.recordIds;
+    }
+
+    const rangeQuery = await this.normalizeRangeQuery(tableId, queryRo);
+    const records: IRecordsVo['records'] = [];
+    let skip = 0;
+    let hasMore = true;
+    while (hasMore) {
+      const result = await this.getRecords(tableId, {
+        viewId: rangeQuery.viewId,
+        ignoreViewQuery: rangeQuery.ignoreViewQuery,
+        filter: rangeQuery.filter,
+        orderBy: rangeQuery.orderBy,
+        groupBy: rangeQuery.groupBy,
+        search: rangeQuery.search,
+        projection: queryRo.projection,
+        skip,
+        take: maxResolveSelectionRecordIdsPageSize,
+        fieldKeyType: FieldKeyType.Id,
+      });
+      records.push(...result.records);
+      hasMore = result.records.length === maxResolveSelectionRecordIdsPageSize;
+      skip += maxResolveSelectionRecordIdsPageSize;
+    }
+    const excludedIds = new Set(selection.excludeRecordIds ?? []);
+    return records.map((record) => record.id).filter((recordId) => !excludedIds.has(recordId));
   }
 
   private async withTableDataClient<T>(tableId: string, fn: () => Promise<T>): Promise<T> {
@@ -650,7 +707,13 @@ export class RecordOpenApiV2Service {
     throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
   }
 
-  async updateRecords(tableId: string, updateRecordsRo: IUpdateRecordsRo): Promise<IRecord[]> {
+  async updateRecords(
+    tableId: string,
+    updateRecordsRo: IUpdateRecordsRo,
+    options?: {
+      configureContext?: (context: IExecutionContext) => void;
+    }
+  ): Promise<IRecord[]> {
     const rawRecords = updateRecordsRo.records ?? [];
     const records = this.mergeDuplicateRecordUpdates(rawRecords);
     const recordIds = records.map((record) => record.id);
@@ -680,6 +743,7 @@ export class RecordOpenApiV2Service {
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext(container);
+    options?.configureContext?.(context);
     const updateResult = await executeUpdateRecordsEndpoint(
       context,
       {
@@ -709,6 +773,100 @@ export class RecordOpenApiV2Service {
       updateResult.body.data.records.length
     );
     return updateResult.body.data.records;
+  }
+
+  private async getValidateAttachmentRecord(tableId: string, recordId: string, fieldId: string) {
+    const field = await this.fieldService.getField(tableId, fieldId);
+
+    if (field.type !== FieldType.Attachment) {
+      throw new CustomHttpException('Field is not an attachment', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.field.notAttachment',
+        },
+      });
+    }
+
+    if (field.isComputed) {
+      throw new CustomHttpException('Field is computed', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.field.isComputed',
+        },
+      });
+    }
+
+    const recordData = await this.recordService.getRecordsById(tableId, [recordId]);
+    const record = recordData.records[0];
+    if (!record) {
+      throw new CustomHttpException(`Record ${recordId} not found`, HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.record.notFound',
+        },
+      });
+    }
+    return record;
+  }
+
+  async uploadAttachment(
+    tableId: string,
+    recordId: string,
+    fieldId: string,
+    file?: Express.Multer.File,
+    fileUrl?: string
+  ) {
+    if (!file && !fileUrl) {
+      throw new CustomHttpException('No file or URL provided', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.record.noFileOrUrlProvided',
+        },
+      });
+    }
+
+    if (!this.attachmentsService) {
+      throw new CustomHttpException(internalServerError, HttpErrorCode.INTERNAL_SERVER_ERROR);
+    }
+
+    const record = await this.getValidateAttachmentRecord(tableId, recordId, fieldId);
+    const attachmentItem = file
+      ? await this.attachmentsService.uploadFile(file)
+      : await this.attachmentsService.uploadFromUrl(fileUrl as string);
+
+    return await this.updateRecord(tableId, recordId, {
+      fieldKeyType: FieldKeyType.Id,
+      record: {
+        fields: {
+          [fieldId]: ((record.fields[fieldId] || []) as IAttachmentItem[]).concat(attachmentItem),
+        },
+      },
+    });
+  }
+
+  async insertAttachment(
+    tableId: string,
+    recordId: string,
+    fieldId: string,
+    attachments: IAttachmentItem[],
+    anchorId?: string
+  ) {
+    if (!attachments.length) {
+      throw new CustomHttpException('No attachments provided', HttpErrorCode.VALIDATION_ERROR);
+    }
+
+    const record = await this.getValidateAttachmentRecord(tableId, recordId, fieldId);
+    const current = (record.fields[fieldId] || []) as IAttachmentItem[];
+    const anchorIndex = anchorId ? current.findIndex((item) => item.id === anchorId) : -1;
+    const next =
+      anchorIndex >= 0
+        ? [...current.slice(0, anchorIndex + 1), ...attachments, ...current.slice(anchorIndex + 1)]
+        : current.concat(attachments);
+
+    return await this.updateRecord(tableId, recordId, {
+      fieldKeyType: FieldKeyType.Id,
+      record: {
+        fields: {
+          [fieldId]: next,
+        },
+      },
+    });
   }
 
   async createRecords(
@@ -891,6 +1049,86 @@ export class RecordOpenApiV2Service {
     }
 
     return this.wrapStreamAndClearPreference(result.value, tableId);
+  }
+
+  async pasteByIdStream(
+    tableId: string,
+    pasteRo: IPasteByIdStreamRo,
+    options?: {
+      updateFilter?: IFilterSet | null;
+      windowId?: string;
+      allowFieldExpansion?: boolean;
+      allowRecordExpansion?: boolean;
+    }
+  ): Promise<AsyncIterable<IPasteSelectionStreamEvent>> {
+    const fieldIds = this.resolveSelectedFieldIds(pasteRo.selection);
+    const recordIds = this.resolveSelectedRecordIds(pasteRo.selection);
+    const syntheticPasteRo: IPasteRo = {
+      ...pasteRo,
+      projection: fieldIds ?? pasteRo.projection,
+      ranges: [
+        [0, 0],
+        [Math.max((fieldIds?.length ?? 1) - 1, 0), Math.max((recordIds?.length ?? 1) - 1, 0)],
+      ],
+    };
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const context = await this.v2ContextFactory.createContext(container);
+    (
+      context as IExecutionContext & {
+        [V2_RECORD_PASTE_AUDIT_CONTEXT_KEY]?: boolean;
+      }
+    )[V2_RECORD_PASTE_AUDIT_CONTEXT_KEY] = true;
+
+    const preparedPaste = await this.preparePasteCommandInput(tableId, syntheticPasteRo, options);
+    const commandResult = PasteStreamCommand.create({
+      ...preparedPaste.commandInput,
+      targetRecordIds: recordIds,
+      excludedTargetRecordIds: this.resolveExcludedRecordIds(pasteRo.selection),
+      targetFieldIds: fieldIds,
+    });
+    if (commandResult.isErr()) {
+      this.throwV2Error(
+        mapDomainErrorToHttpError(commandResult.error),
+        mapDomainErrorToHttpStatus(commandResult.error)
+      );
+    }
+
+    const result = await commandBus.execute<PasteStreamCommand, PasteStreamResult>(
+      context,
+      commandResult.value
+    );
+    if (result.isErr()) {
+      this.throwV2Error(
+        mapDomainErrorToHttpError(result.error),
+        mapDomainErrorToHttpStatus(result.error)
+      );
+    }
+
+    return this.wrapStreamAndClearPreference(result.value, tableId);
+  }
+
+  private resolveSelectedRecordIds(selection: ISelectionIdsRo['selection']): string[] | undefined {
+    if (selection.allRecords) {
+      return [];
+    }
+    const excluded = new Set(selection.excludedRecordIds ?? []);
+    return selection.recordIds?.filter((recordId) => !excluded.has(recordId));
+  }
+
+  private resolveExcludedRecordIds(selection: ISelectionIdsRo['selection']): string[] | undefined {
+    if (!selection.allRecords) {
+      return undefined;
+    }
+    return selection.excludedRecordIds?.length ? selection.excludedRecordIds : undefined;
+  }
+
+  private resolveSelectedFieldIds(selection: ISelectionIdsRo['selection']): string[] | undefined {
+    if (selection.allFields) {
+      return undefined;
+    }
+    const excluded = new Set(selection.excludedFieldIds ?? []);
+    return selection.fieldIds?.filter((fieldId) => !excluded.has(fieldId));
   }
 
   private async preparePasteCommandInput(
@@ -1333,6 +1571,60 @@ export class RecordOpenApiV2Service {
     return this.wrapStreamAndClearPreference(result.value, tableId);
   }
 
+  async clearByIdStream(
+    tableId: string,
+    selectionRo: ISelectionIdsRo
+  ): Promise<AsyncIterable<IClearSelectionStreamEvent>> {
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const context = await this.v2ContextFactory.createContext(container);
+    const rangeQuery = await this.normalizeRangeQuery(tableId, selectionRo);
+    const normalizedFilter = await this.normalizeFilterForV2(tableId, rangeQuery.filter);
+    const sortWithGroupFallback = this.mergeGroupByIntoSort(rangeQuery.groupBy, rangeQuery.orderBy);
+
+    const commandResult = ClearStreamCommand.create({
+      tableId,
+      viewId: rangeQuery.viewId,
+      ranges: [
+        [0, 0],
+        [0, 0],
+      ],
+      projection: selectionRo.projection,
+      filter: normalizedFilter,
+      search: rangeQuery.search,
+      sort: sortWithGroupFallback,
+      groupBy: rangeQuery.groupBy?.map((item) => ({
+        fieldId: item.fieldId,
+        order: item.order,
+      })),
+      ignoreViewQuery: rangeQuery.ignoreViewQuery,
+      targetRecordIds: selectionRo.selection.allRecords
+        ? []
+        : this.resolveSelectedRecordIds(selectionRo.selection),
+      excludedTargetRecordIds: this.resolveExcludedRecordIds(selectionRo.selection),
+      targetFieldIds: this.resolveSelectedFieldIds(selectionRo.selection),
+    });
+    if (commandResult.isErr()) {
+      this.throwV2Error(
+        mapDomainErrorToHttpError(commandResult.error),
+        mapDomainErrorToHttpStatus(commandResult.error)
+      );
+    }
+
+    const result = await commandBus.execute<ClearStreamCommand, ClearStreamResult>(
+      context,
+      commandResult.value
+    );
+    if (result.isErr()) {
+      this.throwV2Error(
+        mapDomainErrorToHttpError(result.error),
+        mapDomainErrorToHttpStatus(result.error)
+      );
+    }
+
+    return this.wrapStreamAndClearPreference(result.value, tableId);
+  }
+
   /**
    * Get record IDs from ranges for undo/redo support and permission checks.
    * This method queries the record IDs that will be affected by a range-based operation.
@@ -1487,6 +1779,58 @@ export class RecordOpenApiV2Service {
         order: item.order,
       })),
       ignoreViewQuery: rangeQuery.ignoreViewQuery,
+    });
+    if (commandResult.isErr()) {
+      this.throwV2Error(
+        mapDomainErrorToHttpError(commandResult.error),
+        mapDomainErrorToHttpStatus(commandResult.error)
+      );
+    }
+
+    const result = await commandBus.execute<DeleteByRangeStreamCommand, DeleteByRangeStreamResult>(
+      context,
+      commandResult.value
+    );
+    if (result.isErr()) {
+      this.throwV2Error(
+        mapDomainErrorToHttpError(result.error),
+        mapDomainErrorToHttpStatus(result.error)
+      );
+    }
+
+    return this.wrapStreamAndClearPreference(result.value, tableId);
+  }
+
+  async deleteByIdStream(
+    tableId: string,
+    selectionRo: ISelectionIdsRo
+  ): Promise<AsyncIterable<IDeleteSelectionStreamEvent>> {
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const context = await this.v2ContextFactory.createContext(container);
+    const rangeQuery = await this.normalizeRangeQuery(tableId, selectionRo);
+    const sortWithGroupFallback = this.mergeGroupByIntoSort(rangeQuery.groupBy, rangeQuery.orderBy);
+
+    const commandResult = DeleteByRangeStreamCommand.create({
+      tableId,
+      viewId: rangeQuery.viewId,
+      ranges: [
+        [0, 0],
+        [0, 0],
+      ],
+      filter: await this.normalizeFilterForV2(tableId, rangeQuery.filter),
+      sort: sortWithGroupFallback?.map((item) => ({
+        fieldId: item.fieldId,
+        order: item.order,
+      })),
+      search: rangeQuery.search,
+      groupBy: rangeQuery.groupBy?.map((item) => ({
+        fieldId: item.fieldId,
+        order: item.order,
+      })),
+      ignoreViewQuery: rangeQuery.ignoreViewQuery,
+      targetRecordIds: this.resolveSelectedRecordIds(selectionRo.selection),
+      excludedTargetRecordIds: this.resolveExcludedRecordIds(selectionRo.selection),
     });
     if (commandResult.isErr()) {
       this.throwV2Error(
