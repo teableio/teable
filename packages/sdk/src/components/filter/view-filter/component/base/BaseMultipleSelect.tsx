@@ -30,6 +30,7 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
     className,
     popoverClassName,
     placeholderClassName,
+    placeholder = t('common.selectPlaceHolder'),
     disabled = false,
     optionRender,
     notFoundText = t('common.noRecords'),
@@ -58,7 +59,7 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
     } else {
       newCellValue = [...values, name];
     }
-    onSelect?.(newCellValue);
+    onSelect?.(newCellValue ?? []);
   };
 
   const selectedValues = useMemo<O[]>(() => {
@@ -118,7 +119,7 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
               <span
                 className={cn('text-xs font-normal text-muted-foreground', placeholderClassName)}
               >
-                {t('common.selectPlaceHolder')}
+                {placeholder}
               </span>
             )}
           </div>

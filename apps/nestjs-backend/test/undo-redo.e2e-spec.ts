@@ -1271,7 +1271,7 @@ describe('Undo Redo (e2e)', () => {
 
     await undo(table.id);
 
-    expect(await waitForViewVisibility(table.id, view.id, true)).toMatchObject({
+    expect(await waitForViewVisibility(table.id, view.id, true, 300)).toMatchObject({
       id: view.id,
       name: view.name,
       type: view.type,
@@ -1279,7 +1279,7 @@ describe('Undo Redo (e2e)', () => {
 
     await redo(table.id);
 
-    expect(await waitForViewVisibility(table.id, view.id, false)).toBeUndefined();
+    expect(await waitForViewVisibility(table.id, view.id, false, 300)).toBeUndefined();
   });
 
   it('should undo / redo update view property', async () => {
