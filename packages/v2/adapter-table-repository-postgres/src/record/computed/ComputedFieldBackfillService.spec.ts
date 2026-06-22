@@ -1,7 +1,13 @@
 import {
   BaseId,
+  CellValueMultiplicity,
+  CellValueType,
   FieldId,
+  FieldName,
+  FormulaExpression,
+  FormulaMeta,
   TableId,
+  createFormulaField,
   domainError,
   type Field,
   type IExecutionContext,
@@ -134,6 +140,35 @@ const createService = () =>
   );
 
 describe('ComputedFieldBackfillService collectBackfillFields', () => {
+  it('backfills formula fields even when legacy meta says generated column', async () => {
+    const service = createService();
+    const table = createTestTable();
+    const field = createFormulaField({
+      id: FieldId.create(FIELD_ID)._unsafeUnwrap(),
+      name: FieldName.create('Formula')._unsafeUnwrap(),
+      expression: FormulaExpression.create('1 + 1')._unsafeUnwrap(),
+      meta: FormulaMeta.rehydrate({ persistedAsGeneratedColumn: true })._unsafeUnwrap(),
+      resultType: {
+        cellValueType: CellValueType.number(),
+        isMultipleCellValue: CellValueMultiplicity.single(),
+      },
+    })._unsafeUnwrap();
+    const executeSyncMany = vi.spyOn(service, 'executeSyncMany');
+
+    executeSyncMany.mockResolvedValueOnce(ok({ fields: [field] }));
+
+    const result = await service.backfillMany({} as IExecutionContext, {
+      table,
+      fields: [field],
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(executeSyncMany).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ fields: [field] })
+    );
+  });
+
   it('uses oneMany foreign-table fallback when self key is absent on fkHost', async () => {
     const service = createService();
     const table = createTestTable();

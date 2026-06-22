@@ -102,7 +102,7 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
             sourceTableName: readQuerySource?.tableName,
           });
 
-          if (options?.projectionFieldIds?.length) {
+          if (options?.projectionFieldIds !== undefined) {
             queryBuilder.select(options.projectionFieldIds);
           }
 
@@ -497,7 +497,7 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
           );
         }
 
-        if (options?.projectionFieldIds?.length) {
+        if (options?.projectionFieldIds !== undefined) {
           queryBuilder.select(options.projectionFieldIds);
         }
 
