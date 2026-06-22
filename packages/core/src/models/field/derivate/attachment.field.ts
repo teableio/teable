@@ -68,6 +68,13 @@ export class AttachmentFieldCore extends FieldCore {
       : '';
   }
 
+  // attachments are excluded from search: server-side matching could only
+  // run over the stored JSON text (mimetype/path/property names included),
+  // which produces noise hits for keywords like "png" or "pdf"
+  isSearchable() {
+    return false;
+  }
+
   convertStringToCellValue(_value: string, _ctx?: unknown): IAttachmentCellValue | null {
     return null;
   }
