@@ -97,9 +97,11 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
       case CellValueType.String: {
         if (isStructuredCellValue) {
           return this.multipleJson();
-        } else {
-          return this.multipleText();
         }
+        if (field.type === FieldType.MultipleSelect) {
+          return this.multipleSelectText();
+        }
+        return this.multipleText();
       }
       case CellValueType.DateTime: {
         return this.multipleDate();
@@ -178,6 +180,16 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
     `,
       [escapedSearchValue]
     );
+  }
+
+  // multipleSelect stores a plain string[] of option names. Match the whole cell as text so the
+  // predicate is sargable against the gin_trgm index (built on the same "<col>"::text expression)
+  // instead of a jsonb_array_elements + regex subquery that cannot use the index. Trades negligible
+  // precision (JSON brackets/quotes become matchable) for index usage.
+  protected multipleSelectText() {
+    const { search, knex } = this;
+    const escapedSearchValue = escapeLikeWildcards(search[0]);
+    return knex.raw(`(${this.fieldName})::text ILIKE ? ESCAPE '\\'`, [`%${escapedSearchValue}%`]);
   }
 
   protected multipleNumber() {

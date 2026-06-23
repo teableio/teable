@@ -14,6 +14,8 @@ import { MAX_SELECTION_STREAM_BATCH_SIZE } from './shared/streamBatchSize';
 
 export const deleteByRangeStreamCommandInputSchema = deleteByRangeCommandInputSchema.extend({
   batchSize: z.number().int().min(1).max(MAX_SELECTION_STREAM_BATCH_SIZE).optional(),
+  targetRecordIds: z.array(z.string()).optional(),
+  excludedTargetRecordIds: z.array(z.string()).optional(),
 });
 
 export type IDeleteByRangeStreamCommandInput = z.input<
@@ -31,6 +33,8 @@ export class DeleteByRangeStreamCommand {
     readonly search: RecordSearch | undefined,
     readonly groupBy: ReadonlyArray<RecordGroupByValue> | undefined,
     readonly ignoreViewQuery: boolean,
+    readonly targetRecordIds?: ReadonlyArray<string>,
+    readonly excludedTargetRecordIds?: ReadonlyArray<string>,
     readonly batchSize?: number
   ) {}
 
@@ -63,6 +67,8 @@ export class DeleteByRangeStreamCommand {
             RecordSearch.fromOptionalTuple(parsed.data.search),
             parsed.data.groupBy ?? undefined,
             parsed.data.ignoreViewQuery ?? false,
+            parsed.data.targetRecordIds,
+            parsed.data.excludedTargetRecordIds,
             parsed.data.batchSize
           )
       )

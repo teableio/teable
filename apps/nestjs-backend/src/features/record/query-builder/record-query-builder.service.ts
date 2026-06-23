@@ -157,7 +157,8 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
         tables,
         state,
         options.projection,
-        options.preferRawFieldReferences ?? false
+        options.preferRawFieldReferences ?? false,
+        options.preferStoredLookupFields ?? false
       );
     }
 
@@ -181,6 +182,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     options: ICreateRecordQueryBuilderOptions
   ): Promise<{ qb: Knex.QueryBuilder; alias: string; selectionMap: IReadonlyRecordSelectionMap }> {
     const { tableId, filter, sort, currentUserId, restrictRecordIds } = options;
+    const preferStoredLookupFields = options.preferStoredLookupFields ?? !options.rawProjection;
     const { qb, alias, table, state } = await this.createQueryBuilder(from, tableId, {
       builder: options.builder,
       useQueryModel: options.useQueryModel,
@@ -196,6 +198,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       hasSearch: options.hasSearch,
       restrictRecordIds,
       preferRawFieldReferences: options.preferRawFieldReferences,
+      preferStoredLookupFields,
     });
 
     this.buildSelect(
@@ -204,7 +207,8 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       state,
       options.projection,
       options.rawProjection,
-      options.preferRawFieldReferences ?? false
+      options.preferRawFieldReferences ?? false,
+      preferStoredLookupFields
     );
 
     // Selection map collected as fields are visited.
@@ -237,6 +241,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       defaultOrderField,
       limit,
       offset,
+      preferStoredLookupFields = true,
     } = options;
     const usePaginatedRange = limit !== undefined;
     // The tableCache path skips applyBasePaginationIfNeeded, which would silently
@@ -255,9 +260,10 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       limit,
       offset,
       paginationMode: usePaginatedRange ? 'full' : undefined,
+      preferStoredLookupFields,
     });
 
-    this.buildAggregateSelect(qb, table, state);
+    this.buildAggregateSelect(qb, table, state, options.projection, preferStoredLookupFields);
     const selectionMap = state.getSelectionMap();
 
     if (filter) {
@@ -305,7 +311,8 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     tables: Tables | undefined,
     state: IMutableQueryBuilderState,
     projection?: string[],
-    preferRawFieldReferences: boolean = false
+    preferRawFieldReferences: boolean = false,
+    preferStoredLookupFields: boolean = false
   ): void {
     if (!tables) {
       return;
@@ -317,7 +324,8 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       state,
       this.dialect,
       projection,
-      !preferRawFieldReferences
+      !preferRawFieldReferences,
+      preferStoredLookupFields
     );
     visitor.build();
   }
@@ -628,7 +636,8 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     state: IMutableQueryBuilderState,
     projection?: string[],
     rawProjection: boolean = false,
-    preferRawFieldReferences: boolean = false
+    preferRawFieldReferences: boolean = false,
+    preferStoredLookupFields: boolean = false
   ): this {
     const readyLinkFieldIds = this.getReadyLinkFieldIds(state);
     const visitor = new FieldSelectVisitor(
@@ -641,7 +650,9 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       rawProjection,
       preferRawFieldReferences,
       undefined,
-      readyLinkFieldIds
+      readyLinkFieldIds,
+      undefined,
+      preferStoredLookupFields
     );
     const alias = getTableAliasFromTable(table);
 
@@ -672,7 +683,9 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
   private buildAggregateSelect(
     qb: Knex.QueryBuilder,
     table: TableDomain,
-    state: IMutableQueryBuilderState
+    state: IMutableQueryBuilderState,
+    projection?: string[],
+    preferStoredLookupFields: boolean = false
   ): this {
     const readyLinkFieldIds = this.getReadyLinkFieldIds(state);
     const visitor = new FieldSelectVisitor(
@@ -685,11 +698,15 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       false,
       false,
       undefined,
-      readyLinkFieldIds
+      readyLinkFieldIds,
+      undefined,
+      preferStoredLookupFields
     );
 
-    // Add field-specific selections using visitor pattern
-    for (const field of table.fields.ordered) {
+    // Add field-specific selections using visitor pattern. Aggregations only need
+    // selections for fields referenced by aggregation/group/search/filter callers.
+    const orderedFields = getOrderedFieldsByProjection(table, projection, true) as FieldCore[];
+    for (const field of orderedFields) {
       field.accept(visitor);
     }
 
