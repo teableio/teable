@@ -334,6 +334,8 @@ export class TableDuplicateService {
         !name.startsWith('__fk_fld') &&
         !computedSet.has(name)
     );
+    const sourceColumnSet = new Set(allSourceColumns);
+    const copyableFieldColumns = newFieldColumns.filter((name) => sourceColumnSet.has(name));
 
     const oldFkColumns = oldOriginColumns.filter((name) => name.startsWith('__fk_fld'));
 
@@ -381,12 +383,12 @@ export class TableDuplicateService {
 
     // use new table field columns info
     // old table contains ghost columns or customer columns
-    const oldColumns = newFieldColumns
+    const oldColumns = copyableFieldColumns
       .concat(oldRowColumns)
       .concat(oldFkColumns)
       .filter((dbFieldName) => !excludeColumnsSet.has(dbFieldName));
 
-    const newColumns = newFieldColumns
+    const newColumns = copyableFieldColumns
       .concat(newRowColumns)
       .concat(newFkColumns)
       .filter((dbFieldName) => !excludeColumnsSet.has(dbFieldName));

@@ -1,7 +1,8 @@
-import { ColorUtils } from '@teable/core';
+import { useTheme } from '@teable/next-themes';
 import { cn } from '@teable/ui-lib';
 import { useMemo } from 'react';
 import type { SingleSelectField } from '../../../../model';
+import { getSelectColorPairs } from '../../../../utils/select-color';
 import type { IColorOption } from './base';
 import { BaseSingleSelect } from './base';
 import { DefaultErrorLabel } from './DefaultErrorLabel';
@@ -18,6 +19,7 @@ interface ISingleSelect {
 
 function FilterSingleSelect(props: ISingleSelect) {
   const { onSelect, field, value, className, popoverClassName, modal } = props;
+  const { resolvedTheme } = useTheme();
 
   const options = useMemo<IColorOption[]>(() => {
     return field?.options?.choices.map((choice) => ({
@@ -29,13 +31,14 @@ function FilterSingleSelect(props: ISingleSelect) {
 
   const optionRender = (option: IColorOption) => {
     const { color, label, value } = option;
+    const colorPair = getSelectColorPairs(color, resolvedTheme);
     return (
       <div
         key={value}
         className="flex h-5 max-w-full items-center overflow-hidden rounded-full px-2 text-xs"
         style={{
-          backgroundColor: ColorUtils.getHexForColor(color),
-          color: ColorUtils.shouldUseLightTextOnColor(color) ? '#ffffff' : '#000000',
+          backgroundColor: colorPair.backgroundColor,
+          color: colorPair.color,
         }}
         title={label}
       >
