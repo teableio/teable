@@ -1171,7 +1171,10 @@ describe('useInstances hook', () => {
     expect(createSubscribeQuery).toHaveBeenCalledTimes(1);
   });
 
-  it('recreates record queries with grouping when bare setRecord presence arrives', async () => {
+  // op-carrying mutations are propagated by the server-side query poll and
+  // doc op pushes; resubscribing here would re-query records on every cell
+  // edit for any filtered/sorted/grouped subscription
+  it('does not recreate record queries when a bare setRecord presence arrives', async () => {
     const { connection, createSubscribeQuery, presenceController, collection } =
       createMockConnection({
         collection: 'rec_tblSchemaRefresh12',
@@ -1201,11 +1204,15 @@ describe('useInstances hook', () => {
         {
           actionKey: 'setRecord',
         },
+        {
+          actionKey: 'setRecord',
+          payload: { fieldIds: ['fldAnything000001'] },
+        },
       ]);
       await Promise.resolve();
     });
 
-    expect(createSubscribeQuery).toHaveBeenCalledTimes(2);
+    expect(createSubscribeQuery).toHaveBeenCalledTimes(1);
   });
 
   it('removes projected record instances when deleteRecord presence carries record ids', () => {

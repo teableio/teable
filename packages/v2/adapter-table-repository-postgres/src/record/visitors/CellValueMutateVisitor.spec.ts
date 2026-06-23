@@ -153,6 +153,22 @@ const createVisitor = (...fields: Array<ReturnType<typeof createField>>) =>
     }
   );
 
+const createVisitorWithContext = (
+  fields: Array<ReturnType<typeof createField>>,
+  context: Partial<Parameters<typeof CellValueMutateVisitor.create>[3]>
+) =>
+  CellValueMutateVisitor.create(
+    createTestDb() as never,
+    createTable(...fields) as never,
+    'public.records',
+    {
+      recordId: mkRecordId('source'),
+      actorId: 'usrActor000000001',
+      now: '2025-01-01T00:00:00.000Z',
+      ...context,
+    }
+  );
+
 const createForeignTable = (params: {
   tableId?: string;
   dbTableName: string;
@@ -553,13 +569,52 @@ describe('CellValueMutateVisitor', () => {
     const buildResult = visitor.build();
     expect(buildResult.isOk()).toBe(true);
     const built = buildResult._unsafeUnwrap();
+    const setClauses = visitor.getSetClausesRaw().setClauses;
     expect(built.changedFieldIds.map((id) => id.toString())).toEqual([
       textField.id().toString(),
       lastModifiedTimeField.id().toString(),
       lastModifiedByField.id().toString(),
     ]);
     expect(normalizeSql(built.mainUpdate.sql)).toContain('"lmt_col" = $');
-    expect(normalizeSql(built.mainUpdate.sql)).toContain('jsonb_build_object');
+    expect(normalizeSql(built.mainUpdate.sql)).not.toContain('public.users');
+    expect(JSON.parse(setClauses.lmb_col as string)).toMatchObject({
+      id: 'usrActor000000001',
+      title: 'usrActor000000001',
+      email: null,
+    });
+  });
+
+  it('uses actor identity context for tracked last-modified-by snapshots', () => {
+    const textField = createField({
+      fieldId: 'trackedText',
+      type: 'singleLineText',
+      dbFieldName: 'text_col',
+    });
+    const lastModifiedByField = createTrackedLastModifiedByField({
+      fieldId: 'trackedBy',
+      dbFieldName: 'lmb_col',
+      trackedFieldIds: [textField.id()],
+    });
+    const visitor = createVisitorWithContext([textField, lastModifiedByField as never], {
+      actorName: 'Nee',
+      actorEmail: 'nee@teable.io',
+    });
+
+    expect(
+      visitor
+        .visitSetSingleLineTextValue({
+          fieldId: textField.id(),
+          value: CellValue.fromValidated('updated'),
+        } as never)
+        .isOk()
+    ).toBe(true);
+
+    expect(visitor.build().isOk()).toBe(true);
+    expect(JSON.parse(visitor.getSetClausesRaw().setClauses.lmb_col as string)).toMatchObject({
+      id: 'usrActor000000001',
+      title: 'Nee',
+      email: 'nee@teable.io',
+    });
   });
 
   it('handles row-order updates and unsupported logical combinators', () => {

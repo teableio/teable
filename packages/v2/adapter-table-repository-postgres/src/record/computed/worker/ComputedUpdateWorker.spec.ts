@@ -20,7 +20,11 @@ import {
   type SeedOutboxItem,
   type IComputedUpdateOutbox,
 } from '../outbox/IComputedUpdateOutbox';
-import { ComputedUpdateWorker } from './ComputedUpdateWorker';
+import {
+  ComputedUpdateWorker,
+  splitComputedTaskForSeedRecordLimit,
+  splitSeedTaskForSeedRecordLimit,
+} from './ComputedUpdateWorker';
 
 const BASE_ID = `bse${'a'.repeat(16)}`;
 const TABLE_ID = `tbl${'b'.repeat(16)}`;
@@ -151,6 +155,28 @@ const createMockSeedTask = (overrides: Partial<SeedOutboxItem> = {}): SeedOutbox
 });
 
 describe('ComputedUpdateWorker', () => {
+  describe('seed record chunking', () => {
+    it('keeps 4k seed tasks whole by default', () => {
+      const seedRecordIds = Array.from(
+        { length: 4000 },
+        (_, index) => `rec${index.toString().padStart(16, '0')}`
+      );
+
+      expect(
+        splitSeedTaskForSeedRecordLimit(
+          createMockSeedTask({ seedRecordIds }),
+          defaultComputedUpdateOutboxConfig.maxSeedRecordsPerTask
+        )
+      ).toEqual([]);
+      expect(
+        splitComputedTaskForSeedRecordLimit(
+          createMockTask({ seedRecordIds }),
+          defaultComputedUpdateOutboxConfig.maxSeedRecordsPerTask
+        )
+      ).toEqual([]);
+    });
+  });
+
   describe('runOnce', () => {
     it('returns 0 when no tasks are claimed', async () => {
       const outbox = createOutboxStub();

@@ -28,7 +28,8 @@ interface IFilterUserBaseProps extends IFilterUserProps {
   data?: {
     userId: string;
     userName: string;
-    email: string;
+    // Optional: share (anonymous) collaborator responses omit email.
+    email?: string;
     avatar?: string | null;
   }[];
   disableMe?: boolean;
