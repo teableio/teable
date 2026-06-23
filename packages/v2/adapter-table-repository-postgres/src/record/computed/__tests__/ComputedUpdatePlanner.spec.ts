@@ -1,4 +1,13 @@
-import { BaseId, FieldId, RecordId, TableId } from '@teable/v2-core';
+import {
+  BaseId,
+  FieldId,
+  FieldName,
+  FormulaExpression,
+  RecordId,
+  Table,
+  TableId,
+  TableName,
+} from '@teable/v2-core';
 import { ok } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -18,6 +27,323 @@ const edgeTargetsField = (
   edge.propagationTargetFieldIds?.some((targetFieldId) => targetFieldId.equals(fieldId)) === true;
 
 describe('ComputedUpdatePlanner', () => {
+  it('skips dependency graph loading when a base has no computed targets', async () => {
+    const baseId = BaseId.create(`bse${'a'.repeat(15)}0`)._unsafeUnwrap();
+    const tableId = TableId.create(`tbl${'b'.repeat(15)}0`)._unsafeUnwrap();
+    const textFieldId = FieldId.create(`fld${'c'.repeat(15)}0`)._unsafeUnwrap();
+    const recordId = RecordId.create(`rec${'d'.repeat(15)}0`)._unsafeUnwrap();
+    const graph = {
+      hasComputedTargets: vi.fn().mockResolvedValue(ok(false)),
+      load: vi.fn(),
+    };
+    const planner = new ComputedUpdatePlanner(graph as never);
+
+    const planResult = await planner.planStage({
+      baseId,
+      seedTableId: tableId,
+      seedRecordIds: [recordId],
+      extraSeedRecords: [],
+      changedFieldIds: [textFieldId],
+      changeType: 'insert',
+    });
+
+    expect(planResult.isOk()).toBe(true);
+    expect(planResult._unsafeUnwrap().steps).toEqual([]);
+    expect(graph.hasComputedTargets).toHaveBeenCalledOnce();
+    expect(graph.load).not.toHaveBeenCalled();
+  });
+
+  it('propagates link relation changes from lookup fields into dependent formulas', async () => {
+    const baseId = BaseId.create(`bse${'a'.repeat(15)}9`)._unsafeUnwrap();
+    const hostTableId = TableId.create(`tbl${'b'.repeat(15)}9`)._unsafeUnwrap();
+    const foreignTableId = TableId.create(`tbl${'c'.repeat(15)}9`)._unsafeUnwrap();
+    const foreignPrimaryFieldId = FieldId.create(`fld${'d'.repeat(15)}9`)._unsafeUnwrap();
+    const linkFieldId = FieldId.create(`fld${'e'.repeat(15)}9`)._unsafeUnwrap();
+    const lookupFieldId = FieldId.create(`fld${'f'.repeat(15)}9`)._unsafeUnwrap();
+    const formulaFieldId = FieldId.create(`fld${'g'.repeat(15)}9`)._unsafeUnwrap();
+
+    const fields: FieldMeta[] = [
+      {
+        id: foreignPrimaryFieldId,
+        tableId: foreignTableId,
+        type: 'singleLineText',
+        isComputed: false,
+        options: null,
+        lookupOptions: null,
+        conditionalOptions: null,
+      },
+      {
+        id: linkFieldId,
+        tableId: hostTableId,
+        type: 'link',
+        isComputed: true,
+        options: {
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: foreignPrimaryFieldId.toString(),
+        },
+        lookupOptions: null,
+        conditionalOptions: null,
+      },
+      {
+        id: lookupFieldId,
+        tableId: hostTableId,
+        type: 'lookup',
+        isComputed: true,
+        options: null,
+        lookupOptions: {
+          linkFieldId: linkFieldId.toString(),
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: foreignPrimaryFieldId.toString(),
+        },
+        conditionalOptions: null,
+      },
+      {
+        id: formulaFieldId,
+        tableId: hostTableId,
+        type: 'formula',
+        isComputed: true,
+        options: null,
+        lookupOptions: null,
+        conditionalOptions: null,
+      },
+    ];
+
+    const edges: FieldDependencyEdge[] = [
+      {
+        fromFieldId: linkFieldId,
+        toFieldId: lookupFieldId,
+        fromTableId: hostTableId,
+        toTableId: hostTableId,
+        kind: 'same_record',
+        semantic: 'lookup_link',
+      },
+      {
+        fromFieldId: lookupFieldId,
+        toFieldId: formulaFieldId,
+        fromTableId: hostTableId,
+        toTableId: hostTableId,
+        kind: 'same_record',
+        semantic: 'formula_ref',
+      },
+    ];
+
+    const fieldsById = new Map<string, FieldMeta>(
+      fields.map((field) => [field.id.toString(), field])
+    );
+    const graph = { load: vi.fn().mockResolvedValue(ok({ fieldsById, edges })) };
+    const planner = new ComputedUpdatePlanner(graph as never);
+
+    const planResult = await planner.planStage({
+      baseId,
+      seedTableId: hostTableId,
+      seedRecordIds: [],
+      extraSeedRecords: [],
+      changedFieldIds: [linkFieldId],
+      changeType: 'update',
+    });
+
+    expect(planResult.isOk()).toBe(true);
+    const plannedFieldIds = planResult
+      ._unsafeUnwrap()
+      .steps.flatMap((step) => step.fieldIds.map((id) => id.toString()));
+
+    expect(plannedFieldIds).toEqual(
+      expect.arrayContaining([lookupFieldId.toString(), formulaFieldId.toString()])
+    );
+  });
+
+  it('propagates changed fields that no longer have loadable metadata into dependents', async () => {
+    const baseId = BaseId.create(`bse${'a'.repeat(15)}8`)._unsafeUnwrap();
+    const tableId = TableId.create(`tbl${'b'.repeat(15)}8`)._unsafeUnwrap();
+    const lookupFieldId = FieldId.create(`fld${'c'.repeat(15)}8`)._unsafeUnwrap();
+    const formulaFieldId = FieldId.create(`fld${'d'.repeat(15)}8`)._unsafeUnwrap();
+
+    const fieldsById = new Map<string, FieldMeta>([
+      [
+        formulaFieldId.toString(),
+        {
+          id: formulaFieldId,
+          tableId,
+          type: 'formula',
+          isComputed: true,
+          options: null,
+          lookupOptions: null,
+          conditionalOptions: null,
+        },
+      ],
+    ]);
+    const edges: FieldDependencyEdge[] = [
+      {
+        fromFieldId: lookupFieldId,
+        toFieldId: formulaFieldId,
+        fromTableId: tableId,
+        toTableId: tableId,
+        kind: 'same_record',
+        semantic: 'formula_ref',
+      },
+    ];
+
+    const graph = { load: vi.fn().mockResolvedValue(ok({ fieldsById, edges })) };
+    const planner = new ComputedUpdatePlanner(graph as never);
+
+    const planResult = await planner.planStage({
+      baseId,
+      seedTableId: tableId,
+      seedRecordIds: [],
+      extraSeedRecords: [],
+      changedFieldIds: [lookupFieldId],
+      changeType: 'update',
+    });
+
+    expect(planResult.isOk()).toBe(true);
+    expect(
+      planResult._unsafeUnwrap().steps.flatMap((step) => step.fieldIds.map((id) => id.toString()))
+    ).toEqual([formulaFieldId.toString()]);
+  });
+
+  it('falls back to in-memory formula chains when reference graph is incomplete', async () => {
+    const baseId = BaseId.generate()._unsafeUnwrap();
+    const tableId = TableId.generate()._unsafeUnwrap();
+    const sourceFieldId = FieldId.generate()._unsafeUnwrap();
+    const firstFormulaId = FieldId.generate()._unsafeUnwrap();
+    const secondFormulaId = FieldId.generate()._unsafeUnwrap();
+    const builder = Table.builder()
+      .withBaseId(baseId)
+      .withId(tableId)
+      .withName(TableName.create('Formula Chain')._unsafeUnwrap());
+
+    builder
+      .field()
+      .singleLineText()
+      .withId(sourceFieldId)
+      .withName(FieldName.create('Source')._unsafeUnwrap())
+      .done();
+    builder
+      .field()
+      .formula()
+      .withId(firstFormulaId)
+      .withName(FieldName.create('F1')._unsafeUnwrap())
+      .withExpression(
+        FormulaExpression.create(`VALUE({${sourceFieldId.toString()}}) + 1`)._unsafeUnwrap()
+      )
+      .done();
+    builder
+      .field()
+      .formula()
+      .withId(secondFormulaId)
+      .withName(FieldName.create('F2')._unsafeUnwrap())
+      .withExpression(
+        FormulaExpression.create(`{${firstFormulaId.toString()}} + 1`)._unsafeUnwrap()
+      )
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    const graph = { load: vi.fn().mockResolvedValue(ok({ fieldsById: new Map(), edges: [] })) };
+    const planner = new ComputedUpdatePlanner(graph as never);
+
+    const planResult = await planner.plan({
+      table,
+      changedFieldIds: [sourceFieldId],
+      changedRecordIds: [],
+      changeType: 'update',
+    });
+
+    expect(planResult.isOk()).toBe(true);
+    expect(
+      planResult._unsafeUnwrap().steps.flatMap((step) => step.fieldIds.map((id) => id.toString()))
+    ).toEqual([firstFormulaId.toString(), secondFormulaId.toString()]);
+  });
+
+  it('can keep computed seed fields in schema-update plans', async () => {
+    const baseId = BaseId.generate()._unsafeUnwrap();
+    const tableId = TableId.generate()._unsafeUnwrap();
+    const sourceFieldId = FieldId.generate()._unsafeUnwrap();
+    const firstFormulaId = FieldId.generate()._unsafeUnwrap();
+    const secondFormulaId = FieldId.generate()._unsafeUnwrap();
+
+    const fields: FieldMeta[] = [
+      {
+        id: sourceFieldId,
+        tableId,
+        type: 'number',
+        isComputed: false,
+        options: null,
+        lookupOptions: null,
+        conditionalOptions: null,
+      },
+      {
+        id: firstFormulaId,
+        tableId,
+        type: 'formula',
+        isComputed: true,
+        options: null,
+        lookupOptions: null,
+        conditionalOptions: null,
+      },
+      {
+        id: secondFormulaId,
+        tableId,
+        type: 'formula',
+        isComputed: true,
+        options: null,
+        lookupOptions: null,
+        conditionalOptions: null,
+      },
+    ];
+    const fieldsById = new Map(fields.map((field) => [field.id.toString(), field]));
+    const edges: FieldDependencyEdge[] = [
+      {
+        fromFieldId: sourceFieldId,
+        toFieldId: firstFormulaId,
+        fromTableId: tableId,
+        toTableId: tableId,
+        kind: 'same_record',
+        semantic: 'formula_ref',
+      },
+      {
+        fromFieldId: firstFormulaId,
+        toFieldId: secondFormulaId,
+        fromTableId: tableId,
+        toTableId: tableId,
+        kind: 'same_record',
+        semantic: 'formula_ref',
+      },
+    ];
+    const graph = { load: vi.fn().mockResolvedValue(ok({ fieldsById, edges })) };
+    const planner = new ComputedUpdatePlanner(graph as never);
+
+    const defaultPlan = await planner.planStage({
+      baseId,
+      seedTableId: tableId,
+      seedRecordIds: [],
+      extraSeedRecords: [],
+      changedFieldIds: [firstFormulaId],
+      changeType: 'update',
+    });
+    const schemaPlan = await planner.planStage(
+      {
+        baseId,
+        seedTableId: tableId,
+        seedRecordIds: [],
+        extraSeedRecords: [],
+        changedFieldIds: [firstFormulaId],
+        changeType: 'update',
+      },
+      undefined,
+      { includeComputedSeedFields: true }
+    );
+
+    expect(defaultPlan.isOk()).toBe(true);
+    expect(
+      defaultPlan._unsafeUnwrap().steps.flatMap((step) => step.fieldIds.map((id) => id.toString()))
+    ).toEqual([secondFormulaId.toString()]);
+    expect(schemaPlan.isOk()).toBe(true);
+    expect(
+      schemaPlan._unsafeUnwrap().steps.flatMap((step) => step.fieldIds.map((id) => id.toString()))
+    ).toEqual([firstFormulaId.toString(), secondFormulaId.toString()]);
+  });
+
   it('updates lookup that depends on title but not lookup that depends on another field', async () => {
     const baseId = BaseId.create(`bse${'a'.repeat(16)}`)._unsafeUnwrap();
     const componentsTableId = TableId.create(`tbl${'b'.repeat(16)}`)._unsafeUnwrap();
@@ -245,21 +571,22 @@ describe('ComputedUpdatePlanner', () => {
       edges,
     };
     const graph = {
-      load: vi
-        .fn()
-        .mockImplementation(
-          (
-            _baseId: BaseId,
-            _executionContext: unknown,
-            options?: { requiredFieldIds?: ReadonlyArray<FieldId> }
-          ) => {
-            const requiredFieldIds = options?.requiredFieldIds ?? [];
-            if (!requiredFieldIds.some((fieldId) => fieldId.equals(hostLinkFieldId))) {
-              return Promise.resolve(ok({ fieldsById: new Map<string, FieldMeta>(), edges: [] }));
-            }
-            return Promise.resolve(ok(graphData));
+      load: vi.fn().mockImplementation(
+        (
+          _baseId: BaseId,
+          _executionContext: unknown,
+          options?: {
+            requiredFieldIds?: ReadonlyArray<FieldId>;
+            tableProvisionStates?: ReadonlyArray<'ready' | 'pending' | 'deleting'>;
           }
-        ),
+        ) => {
+          const requiredFieldIds = options?.requiredFieldIds ?? [];
+          if (!requiredFieldIds.some((fieldId) => fieldId.equals(hostLinkFieldId))) {
+            return Promise.resolve(ok({ fieldsById: new Map<string, FieldMeta>(), edges: [] }));
+          }
+          return Promise.resolve(ok(graphData));
+        }
+      ),
     };
     const planner = new ComputedUpdatePlanner(graph as never);
 
@@ -279,6 +606,7 @@ describe('ComputedUpdatePlanner', () => {
     expect(planResult.isOk()).toBe(true);
     expect(graph.load).toHaveBeenCalledWith(baseId, undefined, {
       requiredFieldIds: [hostLinkFieldId],
+      tableProvisionStates: ['ready'],
     });
     const plan = planResult._unsafeUnwrap();
     const plannedFieldIds = plan.steps.flatMap((step) => step.fieldIds.map((id) => id.toString()));

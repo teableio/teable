@@ -1,5 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { OAUTH_ACTIONS, type Action } from '@teable/core';
+import { ArrowUpRight } from '@teable/icons';
 import {
   UploadType,
   oauthCreateRoSchema,
@@ -194,6 +195,19 @@ export const OAuthAppForm = forwardRef<IOAuthAppFormRef, IOAuthAppFormProps>((pr
         <div className="space-y-2">
           <FormItem
             title={t('oauth:form.callbackUrl.label')}
+            titleExtra={
+              <Button
+                className="inline-flex h-auto gap-1 p-0 align-baseline text-xs"
+                size="xs"
+                variant="link"
+                asChild
+              >
+                <a href={t('oauth:help.link')} target="_blank" rel="noreferrer">
+                  {t('oauth:help.title')}
+                  <ArrowUpRight className="size-3" />
+                </a>
+              </Button>
+            }
             description={t('oauth:form.callbackUrl.description')}
             validateSchema={oauthCreateRoSchema.shape.redirectUris}
             ref={(el) => {

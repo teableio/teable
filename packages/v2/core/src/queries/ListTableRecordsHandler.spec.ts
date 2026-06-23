@@ -140,10 +140,11 @@ describe('ListTableRecordsHandler', () => {
     const tableRepository = new MemoryTableRepository();
     await tableRepository.insert(createContext(), table);
 
-    const captured: { spec?: unknown } = {};
+    const captured: { spec?: unknown; options?: unknown } = {};
     const recordQueryRepo: ITableRecordQueryRepository = {
-      find: async (_context, _table, spec) => {
+      find: async (_context, _table, spec, options) => {
         captured.spec = spec;
+        captured.options = options;
         const records: TableRecordReadModel[] = [
           { id: 'rec1', fields: { Title: 'Hello' }, version: 1 },
         ];
@@ -163,6 +164,54 @@ describe('ListTableRecordsHandler', () => {
     expect(payload.records.length).toBe(1);
     expect(payload.total).toBe(1);
     expect(captured.spec).toBeUndefined();
+    expect(
+      (
+        captured.options as {
+          projectionFieldIds?: unknown;
+          includeTotal?: boolean;
+        }
+      ).projectionFieldIds
+    ).toBeUndefined();
+    expect((captured.options as { includeTotal?: boolean }).includeTotal).toBeUndefined();
+  });
+
+  it('passes empty projection and includeTotal false to the query repository', async () => {
+    const table = buildTable();
+    const tableRepository = new MemoryTableRepository();
+    await tableRepository.insert(createContext(), table);
+
+    const captured: { options?: unknown } = {};
+    const recordQueryRepo: ITableRecordQueryRepository = {
+      find: async (_context, _table, _spec, options) => {
+        captured.options = options;
+        return ok({
+          records: [{ id: 'rec1', fields: {}, version: 1 }],
+          total: 1,
+        });
+      },
+      findOne: async () => err(domainError.notFound({ message: 'Not found' })),
+      async *findStream() {},
+    };
+
+    const queryResult = ListTableRecordsQuery.create({
+      tableId: table.id().toString(),
+      fieldKeyType: FieldKeyType.Id,
+      projection: [],
+      includeTotal: false,
+    });
+    const handler = new ListTableRecordsHandler(tableRepository, recordQueryRepo, new NoopLogger());
+    const result = await handler.handle(createContext(), queryResult._unsafeUnwrap());
+
+    expect(result.isOk()).toBe(true);
+    expect(
+      (
+        captured.options as {
+          projectionFieldIds?: ReadonlyArray<{ toString(): string }>;
+          includeTotal?: boolean;
+        }
+      ).projectionFieldIds?.map((fieldId) => fieldId.toString())
+    ).toEqual([]);
+    expect((captured.options as { includeTotal?: boolean }).includeTotal).toBe(false);
   });
 
   it('passes filter specs to the query repository', async () => {
@@ -306,6 +355,7 @@ describe('ListTableRecordsHandler', () => {
       updateOne: async (_context, _table, _spec) =>
         err(domainError.notFound({ message: 'Not found' })),
       delete: async (_context, _table) => err(domainError.notFound({ message: 'Not found' })),
+      restore: async (_context, _table) => err(domainError.notFound({ message: 'Not found' })),
     };
 
     const recordQueryRepo: ITableRecordQueryRepository = {
@@ -543,6 +593,10 @@ describe('ListTableRecordsHandler', () => {
         column: `__row_${viewId}`,
         direction: 'asc',
       },
+      {
+        column: '__auto_number',
+        direction: 'asc',
+      },
     ]);
   });
 
@@ -651,12 +705,20 @@ describe('ListTableRecordsHandler', () => {
       {
         fieldId: titleField.id().toString(),
         direction: 'desc',
+        column: undefined,
       },
       {
         fieldId: statusField.id().toString(),
         direction: 'asc',
+        column: undefined,
       },
       {
+        fieldId: undefined,
+        column: `__row_${view.id().toString()}`,
+        direction: 'asc',
+      },
+      {
+        fieldId: undefined,
         column: '__auto_number',
         direction: 'asc',
       },

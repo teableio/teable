@@ -77,6 +77,9 @@ export class NextController {
     't/?*',
   ])
   public async home(@Req() req: Request, @Res() res: Response) {
+    if (!this.nextService.server) {
+      return res.status(404).send('Not Found');
+    }
     await this.nextService.server.getRequestHandler()(req, res);
   }
 
