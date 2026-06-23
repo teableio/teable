@@ -37,6 +37,13 @@ export class NoopTableRepository implements ITableRepository {
     return ok([]);
   }
 
+  async count(
+    _: IExecutionContext,
+    __: ISpecification<Table, ITableSpecVisitor>
+  ): Promise<Result<number, DomainError>> {
+    return ok(0);
+  }
+
   async updateOne(
     _: IExecutionContext,
     __: Table,

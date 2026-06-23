@@ -153,6 +153,13 @@ export interface InsertManyStreamOptions {
    * related tables and junction rows are present.
    */
   skipComputedUpdates?: boolean;
+
+  /**
+   * When true, adapters may skip returning per-field changed values for each
+   * inserted record. Restore-style callers that only need persistence/progress
+   * can avoid sending large inserted values back over the database connection.
+   */
+  skipChangedFields?: boolean;
 }
 
 /**
@@ -242,6 +249,13 @@ export interface UpdateManyStreamOptions {
    * Foreign tables referenced by missing-title link payloads.
    */
   fillLinkTitleForeignTables?: ReadonlyMap<string, Table>;
+
+  /**
+   * When true, link fields in the batch are known to have no existing persisted
+   * relation state, so adapters can skip loading old link ids while collecting
+   * relation impact.
+   */
+  assumeEmptyLinkState?: boolean;
 }
 
 /**
@@ -310,8 +324,8 @@ export interface RecordRestoreSystemValues {
   autoNumber?: number;
   createdTime?: string;
   createdBy?: string;
-  lastModifiedTime?: string;
-  lastModifiedBy?: string;
+  lastModifiedTime?: string | null;
+  lastModifiedBy?: string | null;
   /** Preserve per-view row-order snapshot during undo/redo restore. */
   orders?: Readonly<Record<string, number>>;
   /**
@@ -338,6 +352,13 @@ export interface InsertOptions {
    * Keys are stringified record ids.
    */
   restoreRecordsById?: ReadonlyMap<string, RecordRestoreSystemValues>;
+
+  /**
+   * When true, computed planning for this insert may include tables whose
+   * schema/data provisioning is still pending. Used by create-table flows while
+   * inserting initial records before the table is marked ready.
+   */
+  allowPendingTableProvisionForComputedUpdates?: boolean;
 
   /**
    * Optional record ids whose table trash metadata should be removed within

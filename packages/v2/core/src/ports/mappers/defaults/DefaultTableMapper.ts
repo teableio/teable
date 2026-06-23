@@ -12,8 +12,8 @@ import { FieldId } from '../../../domain/table/fields/FieldId';
 import { FieldName } from '../../../domain/table/fields/FieldName';
 import { AttachmentField } from '../../../domain/table/fields/types/AttachmentField';
 import { AutoNumberField } from '../../../domain/table/fields/types/AutoNumberField';
-import { ButtonField } from '../../../domain/table/fields/types/ButtonField';
 import { ButtonConfirm } from '../../../domain/table/fields/types/ButtonConfirm';
+import { ButtonField } from '../../../domain/table/fields/types/ButtonField';
 import { ButtonLabel } from '../../../domain/table/fields/types/ButtonLabel';
 import { ButtonMaxCount } from '../../../domain/table/fields/types/ButtonMaxCount';
 import { ButtonResetCount } from '../../../domain/table/fields/types/ButtonResetCount';
@@ -126,11 +126,14 @@ import type {
 
 const sequenceResults = <T>(
   values: ReadonlyArray<Result<T, DomainError>>
-): Result<ReadonlyArray<T>, DomainError> =>
-  values.reduce<Result<ReadonlyArray<T>, DomainError>>(
-    (acc, next) => acc.andThen((arr) => next.map((v) => [...arr, v])),
-    ok([])
-  );
+): Result<ReadonlyArray<T>, DomainError> => {
+  const result: T[] = [];
+  for (const value of values) {
+    if (value.isErr()) return err<ReadonlyArray<T>, DomainError>(value.error);
+    result.push(value.value);
+  }
+  return ok(result);
+};
 
 const optional = <T>(
   raw: unknown,
@@ -262,7 +265,10 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
   constructor(
     private readonly resolveLookupRelationship?: (
       linkFieldId: string
-    ) => ILinkFieldOptionsDTO['relationship'] | undefined
+    ) => ILinkFieldOptionsDTO['relationship'] | undefined,
+    private readonly resolveLinkFieldOptions?: (
+      linkFieldId: string
+    ) => ILinkFieldOptionsDTO | undefined
   ) {}
 
   private baseField(field: Field): {
@@ -631,6 +637,26 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
     };
   }
 
+  /**
+   * Pick ONLY the parent link's stable physical join metadata. The client's fieldVoSchema requires
+   * these three keys on a lookup's lookupOptions to resolve the join.
+   *
+   * We deliberately exclude the link's mutable record-scoping config (filter / filterByViewId /
+   * visibleFieldIds / baseId / isOneWay): copying those into the lookup would bake in a write-time
+   * snapshot that goes stale when the link changes, and the client does not need them for a lookup.
+   */
+  private pickLinkJoinMetadata(
+    linkOptions: ILinkFieldOptionsDTO
+  ): Partial<Pick<ILinkFieldOptionsDTO, 'fkHostTableName' | 'selfKeyName' | 'foreignKeyName'>> {
+    const result: Partial<
+      Pick<ILinkFieldOptionsDTO, 'fkHostTableName' | 'selfKeyName' | 'foreignKeyName'>
+    > = {};
+    if (linkOptions.fkHostTableName != null) result.fkHostTableName = linkOptions.fkHostTableName;
+    if (linkOptions.selfKeyName != null) result.selfKeyName = linkOptions.selfKeyName;
+    if (linkOptions.foreignKeyName != null) result.foreignKeyName = linkOptions.foreignKeyName;
+    return result;
+  }
+
   visitLinkField(field: LinkField): Result<ITableFieldPersistenceDTO, DomainError> {
     const optionsResult = field.configDto().orElse(() => ok(this.mapLinkFieldOptions(field)));
     if (optionsResult.isErr()) {
@@ -687,6 +713,17 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
           : {}),
     };
 
+    // Enrich lookupOptions with the parent link field's stable physical join metadata
+    // (fkHostTableName / selfKeyName / foreignKeyName). Without these the client's fieldVoSchema
+    // rejects the lookup. The lookup's own options (incl. its own filter) come first and are kept.
+    const linkOptions = this.resolveLinkFieldOptions?.(lookupOptions.linkFieldId);
+    const enrichedLookupOptions: ILookupOptionsDTO = linkOptions
+      ? ({
+          ...lookupOptionsWithRelationship,
+          ...this.pickLinkJoinMetadata(linkOptions),
+        } as ILookupOptionsDTO)
+      : lookupOptionsWithRelationship;
+
     // For pending lookup fields (inner field not yet resolved), use singleLineText as default type
     if (field.isPending()) {
       return ok({
@@ -694,11 +731,16 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
         type: 'singleLineText' as const,
         isLookup: true,
         isConditionalLookup,
-        lookupOptions: lookupOptionsWithRelationship,
+        lookupOptions: enrichedLookupOptions,
         isComputed: true,
         ...(isMultipleCellValue != null ? { isMultipleCellValue } : {}),
       });
     }
+
+    // Resolve the document-root cellValueType (v1 format). The shape-refresh projection reads
+    // this back; if it is absent the realtime op would publish a null cellValueType and corrupt
+    // the field on the client until a full reload.
+    const cellValueTypeResult = field.cellValueType();
 
     // Get the inner field's DTO representation
     return field
@@ -729,10 +771,13 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
           type: unwrappedInner.innerType ?? innerDto.type,
           isLookup: true,
           isConditionalLookup,
-          lookupOptions: lookupOptionsWithRelationship,
+          lookupOptions: enrichedLookupOptions,
           isComputed: true,
           ...(mergedInnerOptions !== undefined ? { options: mergedInnerOptions } : {}),
           ...(isMultipleCellValue != null ? { isMultipleCellValue } : {}),
+          ...(cellValueTypeResult.isOk()
+            ? { cellValueType: cellValueTypeResult.value.toString() }
+            : {}),
         } as ITableFieldPersistenceDTO;
       });
   }
@@ -886,15 +931,21 @@ const mapViewToDto = (view: View): Result<ITableViewPersistenceDTO, DomainError>
 export class DefaultTableMapper implements ITableMapper {
   toDTO(table: Table): Result<ITablePersistenceDTO, DomainError> {
     const relationshipByLinkFieldId = new Map<string, ILinkFieldOptionsDTO['relationship']>();
+    const linkOptionsByLinkFieldId = new Map<string, ILinkFieldOptionsDTO>();
     for (const field of table.getFields()) {
       if (!(field instanceof LinkField)) {
         continue;
       }
       relationshipByLinkFieldId.set(field.id().toString(), field.relationship().toString());
+      const linkOptionsResult = field.configDto();
+      if (linkOptionsResult.isOk()) {
+        linkOptionsByLinkFieldId.set(field.id().toString(), linkOptionsResult.value);
+      }
     }
 
-    const fieldVisitor = new FieldToPersistenceVisitor((linkFieldId) =>
-      relationshipByLinkFieldId.get(linkFieldId)
+    const fieldVisitor = new FieldToPersistenceVisitor(
+      (linkFieldId) => relationshipByLinkFieldId.get(linkFieldId),
+      (linkFieldId) => linkOptionsByLinkFieldId.get(linkFieldId)
     );
     const dbTableName = table
       .dbTableName()
