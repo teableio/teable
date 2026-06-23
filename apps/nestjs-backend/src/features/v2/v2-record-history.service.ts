@@ -10,10 +10,13 @@ import {
   FieldValueTypeVisitor,
   ProjectionHandler,
   RecordUpdated,
+  RecordsBatchCreated,
   RecordsBatchUpdated,
   TableQueryService,
   ok,
+  scheduleExecutionContextBackgroundTask,
   v2CoreTokens,
+  withoutTransaction,
 } from '@teable/v2-core';
 import type {
   DomainError,
@@ -29,15 +32,34 @@ import type { DependencyContainer } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { ColumnType, Kysely } from 'kysely';
 import { isEqual, isString } from 'lodash';
-import { ClsService } from 'nestjs-cls';
 import { BaseConfig, IBaseConfig } from '../../configs/base.config';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
-import type { IClsStore } from '../../types/cls';
 import { V2ContainerService } from './v2-container.service';
 import { V2ProjectionRegistrar, type IV2ProjectionRegistrar } from './v2-projection-registrar';
 
 const SELECT_FIELD_TYPE_SET = new Set([CoreFieldType.SingleSelect, CoreFieldType.MultipleSelect]);
+const recordHistoryProjectionLogger = new Logger('V2RecordHistoryProjection');
+
+const scheduleRecordHistoryRun = (
+  context: IExecutionContext,
+  task: (backgroundContext: IExecutionContext) => Promise<void>,
+  eventType: string
+): void => {
+  const backgroundContext = withoutTransaction(context);
+  scheduleExecutionContextBackgroundTask(backgroundContext, async () => {
+    try {
+      await task(backgroundContext);
+    } catch (error) {
+      recordHistoryProjectionLogger.error(
+        `Error handling ${eventType} record history projection: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        error instanceof Error ? error.stack : undefined
+      );
+    }
+  });
+};
 
 interface IRecordHistoryEntry {
   id: string;
@@ -243,7 +265,6 @@ const buildHistoryValue = (
 export class V2RecordUpdatedHistoryProjection implements IEventHandler<RecordUpdated> {
   constructor(
     private readonly v2ContainerService: V2ContainerService,
-    private readonly cls: ClsService<IClsStore>,
     private readonly baseConfig: IBaseConfig,
     private readonly tableQueryService: TableQueryService,
     private readonly eventEmitterService: EventEmitterService
@@ -253,29 +274,42 @@ export class V2RecordUpdatedHistoryProjection implements IEventHandler<RecordUpd
     context: IExecutionContext,
     event: RecordUpdated
   ): Promise<Result<void, DomainError>> {
-    // Check if record history is disabled
     if (this.baseConfig.recordHistoryDisabled) {
       return ok(undefined);
     }
 
-    // Skip computed updates - we only track user-initiated changes
     if (event.source === 'computed') {
       return ok(undefined);
     }
 
-    const tableIdStr = event.tableId.toString();
-    const recordId = event.recordId.toString();
-    const userId = this.cls.get('user.id');
-
-    // Get field IDs from changes
     if (event.changes.length === 0) {
       return ok(undefined);
     }
 
+    scheduleRecordHistoryRun(
+      context,
+      (backgroundContext) => this.writeRecordUpdatedHistory(backgroundContext, event),
+      'record update'
+    );
+
+    return ok(undefined);
+  }
+
+  private async writeRecordUpdatedHistory(
+    context: IExecutionContext,
+    event: RecordUpdated
+  ): Promise<void> {
+    const tableIdStr = event.tableId.toString();
+    const recordId = event.recordId.toString();
+    // Use the actor captured in the event's execution snapshot, not CLS.
+    // CLS (AsyncLocalStorage) is read at drain time, which runs in an unrelated
+    // request's async context, so it would attribute history to the wrong user.
+    const userId = context.actorId.toString();
+
     // Load table from V2 domain
     const tableResult = await this.tableQueryService.getById(context, event.tableId);
     if (tableResult.isErr()) {
-      return ok(undefined); // Silently skip if table not found
+      return; // Silently skip if table not found
     }
     const table = tableResult.value;
 
@@ -323,8 +357,116 @@ export class V2RecordUpdatedHistoryProjection implements IEventHandler<RecordUpd
     this.eventEmitterService.emit(Events.RECORD_HISTORY_CREATE, {
       recordIds: [recordId],
     });
+  }
+}
+
+/**
+ * V2 projection handler that writes record history for batch record creation events.
+ * Import and paste create records in batches; history is written to the routed v2 data DB.
+ */
+@ProjectionHandler(RecordsBatchCreated)
+export class V2RecordsBatchCreatedHistoryProjection implements IEventHandler<RecordsBatchCreated> {
+  constructor(
+    private readonly v2ContainerService: V2ContainerService,
+    private readonly baseConfig: IBaseConfig,
+    private readonly tableQueryService: TableQueryService,
+    private readonly eventEmitterService: EventEmitterService
+  ) {}
+
+  async handle(
+    context: IExecutionContext,
+    event: RecordsBatchCreated
+  ): Promise<Result<void, DomainError>> {
+    if (this.baseConfig.recordHistoryDisabled) {
+      return ok(undefined);
+    }
+
+    const fieldIdSet = new Set<string>();
+    for (const record of event.records) {
+      for (const field of record.fields) {
+        fieldIdSet.add(field.fieldId);
+      }
+    }
+
+    if (fieldIdSet.size === 0) {
+      return ok(undefined);
+    }
+
+    scheduleRecordHistoryRun(
+      context,
+      (backgroundContext) =>
+        this.writeRecordsBatchCreatedHistory(backgroundContext, event, fieldIdSet),
+      'batch record create'
+    );
 
     return ok(undefined);
+  }
+
+  private async writeRecordsBatchCreatedHistory(
+    context: IExecutionContext,
+    event: RecordsBatchCreated,
+    fieldIdSet: Set<string>
+  ): Promise<void> {
+    const tableIdStr = event.tableId.toString();
+    // Use the actor captured in the event's execution snapshot, not CLS.
+    // CLS (AsyncLocalStorage) is read at drain time, which runs in an unrelated
+    // request's async context, so it would attribute history to the wrong user.
+    const userId = context.actorId.toString();
+
+    const tableResult = await this.tableQueryService.getById(context, event.tableId);
+    if (tableResult.isErr()) {
+      return;
+    }
+    const table = tableResult.value;
+
+    const fieldMetaMap = new Map<string, IFieldHistoryMeta>();
+    for (const fieldIdStr of fieldIdSet) {
+      const fieldIdResult = FieldId.create(fieldIdStr);
+      if (fieldIdResult.isErr()) continue;
+
+      const fieldResult = table.getField((f) => f.id().equals(fieldIdResult.value));
+      if (fieldResult.isOk()) {
+        fieldMetaMap.set(fieldIdStr, extractFieldMeta(fieldResult.value));
+      }
+    }
+
+    const recordHistoryList: IRecordHistoryEntry[] = [];
+    const recordIds: string[] = [];
+    const batchSize = 5000;
+
+    for (const record of event.records) {
+      recordIds.push(record.recordId);
+
+      for (const field of record.fields) {
+        const value = field.value;
+        if (value === '' || value == null) continue;
+
+        const meta = fieldMetaMap.get(field.fieldId);
+        if (!meta || meta.isComputed) continue;
+
+        recordHistoryList.push({
+          id: generateRecordHistoryId(),
+          table_id: tableIdStr,
+          record_id: record.recordId,
+          field_id: field.fieldId,
+          before: JSON.stringify(buildHistoryValue(null, meta)),
+          after: JSON.stringify(buildHistoryValue(value, meta)),
+          created_by: userId as string,
+        });
+      }
+    }
+
+    const db = await getRecordHistoryDb(this.v2ContainerService, tableIdStr);
+    for (let i = 0; i < recordHistoryList.length; i += batchSize) {
+      const batch = recordHistoryList.slice(i, i + batchSize);
+      await insertRecordHistoryEntries(db, batch);
+    }
+
+    if (recordIds.length > 0) {
+      this.eventEmitterService.emit(Events.RECORD_HISTORY_CREATE, {
+        recordIds,
+      });
+    }
   }
 }
 
@@ -336,7 +478,6 @@ export class V2RecordUpdatedHistoryProjection implements IEventHandler<RecordUpd
 export class V2RecordsBatchUpdatedHistoryProjection implements IEventHandler<RecordsBatchUpdated> {
   constructor(
     private readonly v2ContainerService: V2ContainerService,
-    private readonly cls: ClsService<IClsStore>,
     private readonly baseConfig: IBaseConfig,
     private readonly tableQueryService: TableQueryService,
     private readonly eventEmitterService: EventEmitterService
@@ -346,20 +487,14 @@ export class V2RecordsBatchUpdatedHistoryProjection implements IEventHandler<Rec
     context: IExecutionContext,
     event: RecordsBatchUpdated
   ): Promise<Result<void, DomainError>> {
-    // Check if record history is disabled
     if (this.baseConfig.recordHistoryDisabled) {
       return ok(undefined);
     }
 
-    // Skip computed updates
     if (event.source === 'computed') {
       return ok(undefined);
     }
 
-    const tableIdStr = event.tableId.toString();
-    const userId = this.cls.get('user.id');
-
-    // Collect all field IDs from all updates
     const fieldIdSet = new Set<string>();
     for (const update of event.updates) {
       for (const change of update.changes) {
@@ -371,10 +506,31 @@ export class V2RecordsBatchUpdatedHistoryProjection implements IEventHandler<Rec
       return ok(undefined);
     }
 
+    scheduleRecordHistoryRun(
+      context,
+      (backgroundContext) =>
+        this.writeRecordsBatchUpdatedHistory(backgroundContext, event, fieldIdSet),
+      'batch record update'
+    );
+
+    return ok(undefined);
+  }
+
+  private async writeRecordsBatchUpdatedHistory(
+    context: IExecutionContext,
+    event: RecordsBatchUpdated,
+    fieldIdSet: Set<string>
+  ): Promise<void> {
+    const tableIdStr = event.tableId.toString();
+    // Use the actor captured in the event's execution snapshot, not CLS.
+    // CLS (AsyncLocalStorage) is read at drain time, which runs in an unrelated
+    // request's async context, so it would attribute history to the wrong user.
+    const userId = context.actorId.toString();
+
     // Load table from V2 domain
     const tableResult = await this.tableQueryService.getById(context, event.tableId);
     if (tableResult.isErr()) {
-      return ok(undefined); // Silently skip if table not found
+      return; // Silently skip if table not found
     }
     const table = tableResult.value;
 
@@ -435,8 +591,6 @@ export class V2RecordsBatchUpdatedHistoryProjection implements IEventHandler<Rec
         recordIds,
       });
     }
-
-    return ok(undefined);
   }
 }
 
@@ -451,7 +605,6 @@ export class V2RecordHistoryService implements IV2ProjectionRegistrar {
 
   constructor(
     private readonly v2ContainerService: V2ContainerService,
-    private readonly cls: ClsService<IClsStore>,
     @BaseConfig() private readonly baseConfig: IBaseConfig,
     private readonly eventEmitterService: EventEmitterService
   ) {}
@@ -470,7 +623,16 @@ export class V2RecordHistoryService implements IV2ProjectionRegistrar {
       V2RecordUpdatedHistoryProjection,
       new V2RecordUpdatedHistoryProjection(
         this.v2ContainerService,
-        this.cls,
+        this.baseConfig,
+        tableQueryService,
+        this.eventEmitterService
+      )
+    );
+
+    container.registerInstance(
+      V2RecordsBatchCreatedHistoryProjection,
+      new V2RecordsBatchCreatedHistoryProjection(
+        this.v2ContainerService,
         this.baseConfig,
         tableQueryService,
         this.eventEmitterService
@@ -481,7 +643,6 @@ export class V2RecordHistoryService implements IV2ProjectionRegistrar {
       V2RecordsBatchUpdatedHistoryProjection,
       new V2RecordsBatchUpdatedHistoryProjection(
         this.v2ContainerService,
-        this.cls,
         this.baseConfig,
         tableQueryService,
         this.eventEmitterService

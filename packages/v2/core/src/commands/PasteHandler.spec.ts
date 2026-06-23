@@ -15,6 +15,7 @@ import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import { FieldOptionsAdded } from '../domain/table/events/FieldOptionsAdded';
+import { isRecordsBatchCreatedEvent } from '../domain/table/events/RecordsBatchCreated';
 import { isRecordsBatchUpdatedEvent } from '../domain/table/events/RecordsBatchUpdated';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
@@ -479,7 +480,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     this.updateStreamContexts.push(context);
     this.onUpdateManyStream?.(table);
     let totalUpdated = 0;
-    const updatedRecords: NonNullable<UpdateManyStreamResult['updatedRecords']> = [];
+    const updatedRecords: Array<NonNullable<UpdateManyStreamResult['updatedRecords']>[number]> = [];
     const normalizeBatch = (
       batch: UpdateManyStreamBatchInput
     ): ReadonlyArray<RecordUpdateResult> =>
@@ -865,7 +866,7 @@ describe('PasteHandler', () => {
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
         eventBus,
-        undoRedoService as unknown as UndoRedoService,
+        undoRedoService as unknown as UndoRedoStackService,
         unitOfWork
       );
 
@@ -925,7 +926,7 @@ describe('PasteHandler', () => {
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
         eventBus,
-        undoRedoService as unknown as UndoRedoService,
+        undoRedoService as unknown as UndoRedoStackService,
         unitOfWork
       );
 
@@ -2437,6 +2438,12 @@ describe('PasteHandler', () => {
       chunkIndex: 0,
       scope: 'operation',
     });
+    expect(batchUpdatedEvent?.source).toBe('user');
+    expect(batchUpdatedEvent?.auditSource).toBe('paste');
+
+    const batchCreatedEvent = eventBus.published.find(isRecordsBatchCreatedEvent);
+    expect(batchCreatedEvent?.source).toEqual({ type: 'user' });
+    expect(batchCreatedEvent?.auditSource).toBe('paste');
   });
 
   describe('PasteStreamApplicationService', () => {
@@ -2567,28 +2574,25 @@ describe('PasteHandler', () => {
         chunkIndex: 0,
         scope: 'chunk',
       });
+      expect(batchUpdatedEvents[0]?.source).toBe('user');
+      expect(batchUpdatedEvents[0]?.auditSource).toBe('paste');
 
-      const batchCreatedEvents = eventBus.published.filter(
-        (event) => event.constructor.name === 'RecordsBatchCreated'
-      ) as Array<{
-        orchestration?: {
-          groupId?: string;
-          chunkIndex?: number;
-          totalChunkCount?: number;
-          scope?: string;
-        };
-      }>;
+      const batchCreatedEvents = eventBus.published.filter(isRecordsBatchCreatedEvent);
       expect(batchCreatedEvents).toHaveLength(2);
       expect(batchCreatedEvents[0]?.orchestration).toMatchObject({
         chunkIndex: 1,
         totalChunkCount: 3,
         scope: 'chunk',
       });
+      expect(batchCreatedEvents[0]?.source).toEqual({ type: 'user' });
+      expect(batchCreatedEvents[0]?.auditSource).toBe('paste');
       expect(batchCreatedEvents[1]?.orchestration).toMatchObject({
         chunkIndex: 2,
         totalChunkCount: 3,
         scope: 'chunk',
       });
+      expect(batchCreatedEvents[1]?.source).toEqual({ type: 'user' });
+      expect(batchCreatedEvents[1]?.auditSource).toBe('paste');
 
       expect(recordRepository.updateStreamContexts[0]?.batchMutation).toEqual({
         operationId: expect.any(String),

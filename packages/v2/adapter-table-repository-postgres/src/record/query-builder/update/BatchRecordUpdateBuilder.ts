@@ -268,6 +268,7 @@ export class BatchRecordUpdateBuilder {
           tableName,
           recordId: recordIdStr,
           mutateSpec: update.mutateSpec,
+          assumeEmptyLinkState: context.assumeEmptyLinkState,
         });
         if (linkChangesResult.isErr()) {
           return err(linkChangesResult.error);

@@ -4,7 +4,11 @@ import { DomainEventName } from '../../shared/DomainEventName';
 import { OccurredAt } from '../../shared/OccurredAt';
 import type { TableId } from '../TableId';
 import { AbstractTableUpdatedEvent } from './AbstractTableUpdatedEvent';
-import type { RecordCreateSource, RecordValuesDTO } from './RecordFieldValuesDTO';
+import type {
+  RecordAuditSource,
+  RecordCreateSource,
+  RecordValuesDTO,
+} from './RecordFieldValuesDTO';
 
 export interface IRecordsBatchCreatedOrchestration {
   readonly operationId?: string;
@@ -24,7 +28,8 @@ export class RecordsBatchCreated extends AbstractTableUpdatedEvent {
     baseId: BaseId,
     readonly records: ReadonlyArray<RecordValuesDTO>,
     readonly source: RecordCreateSource,
-    readonly orchestration?: IRecordsBatchCreatedOrchestration
+    readonly orchestration?: IRecordsBatchCreatedOrchestration,
+    readonly auditSource?: RecordAuditSource
   ) {
     super(tableId, baseId);
   }
@@ -35,13 +40,15 @@ export class RecordsBatchCreated extends AbstractTableUpdatedEvent {
     records: ReadonlyArray<RecordValuesDTO>;
     source?: RecordCreateSource;
     orchestration?: IRecordsBatchCreatedOrchestration;
+    auditSource?: RecordAuditSource;
   }): RecordsBatchCreated {
     return new RecordsBatchCreated(
       params.tableId,
       params.baseId,
       params.records,
       params.source ?? { type: 'user' },
-      params.orchestration
+      params.orchestration,
+      params.auditSource
     );
   }
 }

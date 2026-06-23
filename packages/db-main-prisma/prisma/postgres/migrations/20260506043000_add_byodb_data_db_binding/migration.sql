@@ -84,7 +84,9 @@ ON "space_data_db_binding"("data_db_connection_id");
 DO $$
 BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint WHERE conname = 'space_data_db_binding_space_id_fkey'
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'space_data_db_binding_space_id_fkey'
+      AND conrelid = '"space_data_db_binding"'::regclass
   ) THEN
     ALTER TABLE "space_data_db_binding"
     ADD CONSTRAINT "space_data_db_binding_space_id_fkey"
@@ -98,7 +100,9 @@ END $$;
 DO $$
 BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint WHERE conname = 'space_data_db_binding_data_db_connection_id_fkey'
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'space_data_db_binding_data_db_connection_id_fkey'
+      AND conrelid = '"space_data_db_binding"'::regclass
   ) THEN
     ALTER TABLE "space_data_db_binding"
     ADD CONSTRAINT "space_data_db_binding_data_db_connection_id_fkey"
