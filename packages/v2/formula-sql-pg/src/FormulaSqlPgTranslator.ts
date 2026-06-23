@@ -104,8 +104,12 @@ export class FormulaSqlPgTranslator {
   }
 
   renderSql(expr: SqlExpr): string {
-    if (!expr.errorConditionSql) return expr.valueSql;
+    const renderedValueSql = expr.displayValueSql ?? expr.valueSql;
+    if (!expr.errorConditionSql) return renderedValueSql;
     const errorMessage = expr.errorMessageSql ?? buildErrorLiteral('INTERNAL', 'unknown_error');
+    if (expr.displayValueSql) {
+      return `CASE WHEN ${expr.errorConditionSql} THEN ${errorMessage} ELSE ${renderedValueSql} END`;
+    }
     if (expr.isArray) {
       return `CASE WHEN ${expr.errorConditionSql} THEN jsonb_build_array(${errorMessage}) ELSE ${expr.valueSql} END`;
     }

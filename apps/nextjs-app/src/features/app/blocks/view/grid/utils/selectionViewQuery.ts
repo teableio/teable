@@ -35,3 +35,11 @@ export const buildSelectionViewQuery = ({
     projection,
   };
 };
+
+export const getSelectionGroupBy = ({
+  selectionViewQuery,
+  viewGroup,
+}: {
+  selectionViewQuery?: ISelectionViewQuery;
+  viewGroup?: ISelectionViewQuery['groupBy'];
+}) => (selectionViewQuery ? selectionViewQuery.groupBy : viewGroup);

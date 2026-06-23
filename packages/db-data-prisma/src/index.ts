@@ -1,4 +1,4 @@
-export { Prisma, PrismaClient } from '@prisma/client';
+export { Prisma, PrismaClient } from './generated/client';
 export * from './database-url';
 export * from './utils';
 export * from './prisma.module';
