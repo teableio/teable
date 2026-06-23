@@ -1466,6 +1466,48 @@ describe('OpenAPI AggregationController (e2e)', () => {
     });
   });
 
+  describe('row count with search projection', () => {
+    let table: ITableFullVo;
+
+    beforeAll(async () => {
+      table = await createTable(baseId, {
+        name: 'agg_row_count_projection',
+        fields: [
+          { name: 'Title', type: FieldType.SingleLineText },
+          { name: 'Note', type: FieldType.SingleLineText },
+        ],
+        records: [
+          { fields: { Title: 'apple', Note: 'banana' } },
+          { fields: { Title: 'banana', Note: 'cherry' } },
+        ],
+      });
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, table.id);
+    });
+
+    it('should exclude search hits on fields outside the projection', async () => {
+      const viewId = table.views[0].id;
+      const search: [string, string?, boolean?] = ['banana', '', true];
+
+      const { rowCount: withoutProjection } = (await getRowCount(table.id, { viewId, search }))
+        .data;
+      expect(withoutProjection).toEqual(2);
+
+      // simulate a personal view that hides the Note field: only Title is searched
+      const { rowCount } = (
+        await getRowCount(table.id, {
+          viewId,
+          ignoreViewQuery: true,
+          search,
+          projection: [table.fields[0].id],
+        })
+      ).data;
+      expect(rowCount).toEqual(1);
+    });
+  });
+
   describe('attachment total size aggregation with groupBy', () => {
     let tableId: string;
     let groupFieldId: string;

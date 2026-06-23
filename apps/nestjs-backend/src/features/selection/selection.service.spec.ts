@@ -118,6 +118,51 @@ describe('selectionService', () => {
 
       expect(result?.content).toEqual('1\t2\n1\t2');
     });
+
+    it('should return content from selected record and field ids', async () => {
+      const fields = [
+        { id: 'field1', name: 'Field 1', type: FieldType.SingleLineText },
+        { id: 'field2', name: 'Field 2', type: FieldType.SingleLineText },
+      ] as IFieldVo[];
+      const records = [
+        {
+          id: 'record2',
+          fields: {
+            field1: 'A2',
+            field2: 'B2',
+          },
+        },
+        {
+          id: 'record1',
+          fields: {
+            field1: 'A1',
+            field2: 'B1',
+          },
+        },
+      ];
+      vi.spyOn(selectionService, 'resolveRecordIdsBySelection').mockResolvedValue([
+        'record2',
+        'record1',
+      ]);
+      vi.spyOn(selectionService, 'resolveFieldsBySelection').mockResolvedValue(fields);
+      vi.spyOn(selectionService, 'getRecordsByIdsForFields').mockResolvedValue(records);
+
+      const result = await selectionService.copyById(tableId, {
+        viewId,
+        selection: {
+          recordIds: ['record2', 'record1'],
+          fieldIds: ['field1', 'field2'],
+        },
+      });
+
+      expect(selectionService.getRecordsByIdsForFields).toHaveBeenCalledWith(
+        tableId,
+        ['record2', 'record1'],
+        ['field1', 'field2']
+      );
+      expect(result.content).toEqual('A2\tB2\nA1\tB1');
+      expect(result.header).toEqual(fields);
+    });
   });
 
   describe('parseCopyContent', () => {

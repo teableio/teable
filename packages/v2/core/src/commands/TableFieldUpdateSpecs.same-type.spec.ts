@@ -14,6 +14,7 @@ import { CellValueType } from '../domain/table/fields/types/CellValueType';
 import { CheckboxDefaultValue } from '../domain/table/fields/types/CheckboxDefaultValue';
 import { DateTimeFormatting } from '../domain/table/fields/types/DateTimeFormatting';
 import { FieldColor } from '../domain/table/fields/types/FieldColor';
+import { FieldHasError } from '../domain/table/fields/types/FieldHasError';
 import { FormulaExpression } from '../domain/table/fields/types/FormulaExpression';
 import { NumberDefaultValue } from '../domain/table/fields/types/NumberDefaultValue';
 import { NumberFormatting } from '../domain/table/fields/types/NumberFormatting';
@@ -34,6 +35,7 @@ import { UpdateSingleSelectOptionsSpec } from '../domain/table/specs/field-updat
 import { TableUpdateFieldAiConfigSpec } from '../domain/table/specs/TableUpdateFieldAiConfigSpec';
 import { TableUpdateFieldDbFieldNameSpec } from '../domain/table/specs/TableUpdateFieldDbFieldNameSpec';
 import { TableUpdateFieldDescriptionSpec } from '../domain/table/specs/TableUpdateFieldDescriptionSpec';
+import { TableUpdateFieldHasErrorSpec } from '../domain/table/specs/TableUpdateFieldHasErrorSpec';
 import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
@@ -806,6 +808,43 @@ describe('TableFieldUpdateSpecs same-type updates', () => {
     expect(specsResult.value.some((spec) => spec instanceof TableUpdateFieldDescriptionSpec)).toBe(
       true
     );
+  });
+
+  it('clears formula hasError when replacing the broken expression', () => {
+    const { currentField } = buildHarness('x', 'x', (builder, fieldId, primaryFieldId) => {
+      builder
+        .field()
+        .formula()
+        .withId(fieldId)
+        .withName(FieldName.create('Calc')._unsafeUnwrap())
+        .withExpression(FormulaExpression.create(`{${primaryFieldId.toString()}}`)._unsafeUnwrap())
+        .withResultType({
+          cellValueType: CellValueType.string(),
+          isMultipleCellValue: CellValueMultiplicity.single(),
+        })
+        .done();
+    });
+    currentField.setHasError(FieldHasError.error());
+
+    const specsResult = buildUpdateFieldSpecs(currentField, {
+      type: 'formula',
+      options: {
+        expression: '"repaired"',
+      },
+    });
+
+    expect(specsResult.isOk()).toBe(true);
+    if (specsResult.isErr()) {
+      return;
+    }
+
+    const specNames = specsResult.value.map((spec) => spec.constructor.name);
+    expect(specNames).toContain('UpdateFormulaExpressionSpec');
+    const hasErrorSpec = specsResult.value.find(
+      (spec): spec is TableUpdateFieldHasErrorSpec => spec instanceof TableUpdateFieldHasErrorSpec
+    );
+    expect(hasErrorSpec).toBeDefined();
+    expect(hasErrorSpec?.isSettingError()).toBe(false);
   });
 
   it.each([
