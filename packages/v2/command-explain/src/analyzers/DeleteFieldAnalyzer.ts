@@ -7,6 +7,7 @@ import {
   FieldDeletionSideEffectService,
   FieldUndoRedoSnapshotService,
   ForeignTableLoaderService,
+  NoopFieldDeleteSnapshotSink,
   TableByIdSpec,
   type DomainError,
   type IExecutionContext,
@@ -93,7 +94,8 @@ export class DeleteFieldAnalyzer implements ICommandAnalyzer<DeleteFieldCommand>
         analyzer.foreignTableLoaderService,
         createNoopFieldOperationPluginRunner(),
         createNoopUndoRedoService() as never,
-        analyzer.fieldUndoRedoSnapshotService
+        analyzer.fieldUndoRedoSnapshotService,
+        new NoopFieldDeleteSnapshotSink()
       );
 
       const commandResult = await handler.handle(context, command);
