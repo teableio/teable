@@ -1,5 +1,6 @@
 import type { ISpan, ITracer, SpanAttributes, SpanAttributeValue } from '@teable/v2-core';
 import type { CompiledQuery, Kysely } from 'kysely';
+import { sql } from 'kysely';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { TableSchemaStatementBuilder } from '../schema/rules/core';
@@ -62,6 +63,30 @@ const statement = (
   scope,
   compile: vi.fn(() => compiled),
 });
+
+const executorDb = (compiledSql: string | ReadonlyArray<string>) => {
+  const compiledSqls = Array.isArray(compiledSql) ? [...compiledSql] : [compiledSql];
+  let compileIndex = 0;
+  const executeQuery = vi.fn(async () => ({ rows: [] }));
+  const executor = {
+    transformQuery: vi.fn((node) => node),
+    compileQuery: vi.fn(() => {
+      const sql = compiledSqls[compileIndex] ?? compiledSqls.at(-1) ?? 'select 1';
+      compileIndex += 1;
+      return compiledQuery(sql);
+    }),
+    executeQuery,
+    withPlugins: vi.fn(() => executor),
+  };
+
+  return {
+    executeQuery: vi.fn(async () => ({ rows: [] })),
+    getExecutor: vi.fn(() => executor),
+    executorExecuteQuery: executeQuery,
+  } as unknown as Kysely<unknown> & {
+    executorExecuteQuery: ReturnType<typeof vi.fn>;
+  };
+};
 
 describe('executeTableSchemaStatements', () => {
   it('creates timing spans for each schema statement when a tracer is provided', async () => {
@@ -134,6 +159,27 @@ describe('executeTableSchemaStatements', () => {
     expect(db.executeQuery).not.toHaveBeenCalled();
   });
 
+  it('rejects data-scoped statements that access user metadata relations', async () => {
+    const db = {
+      executeQuery: vi.fn(async () => ({ rows: [] })),
+    } as unknown as Kysely<unknown>;
+
+    await expect(
+      executeTableSchemaStatements(
+        db,
+        [
+          statement(
+            compiledQuery(
+              'select u.id from public.users u join collaborator c on c.principal_id = u.id'
+            )
+          ),
+        ],
+        { enforceRelationAccess: true }
+      )
+    ).rejects.toThrow('cannot access relations owned by another storage plane');
+    expect(db.executeQuery).not.toHaveBeenCalled();
+  });
+
   it('allows metadata-scoped statements to access metadata relations', async () => {
     const db = {
       executeQuery: vi.fn(async () => ({ rows: [] })),
@@ -144,5 +190,49 @@ describe('executeTableSchemaStatements', () => {
     ]);
 
     expect(db.executeQuery).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects custom data executor statements that access metadata relations', async () => {
+    const dataDb = executorDb('select * from field');
+    const metaDb = executorDb('select * from field');
+    const customStatement: TableSchemaStatementBuilder = {
+      scope: 'data',
+      compile: vi.fn(() => compiledQuery('select 1')),
+      execute: async ({ dataDb }) => {
+        await sql.raw('select * from field').execute(dataDb);
+      },
+    };
+
+    await expect(
+      executeTableSchemaStatements(dataDb, [customStatement], {
+        dataDb,
+        metaDb,
+        enforceRelationAccess: true,
+      })
+    ).rejects.toThrow('cannot access relations owned by another storage plane');
+    expect(dataDb.executorExecuteQuery).not.toHaveBeenCalled();
+    expect(metaDb.executorExecuteQuery).not.toHaveBeenCalled();
+  });
+
+  it('allows custom statements to use each storage plane through the matching executor', async () => {
+    const dataDb = executorDb('select * from "tblData"');
+    const metaDb = executorDb('select * from field');
+    const customStatement: TableSchemaStatementBuilder = {
+      scope: 'meta',
+      compile: vi.fn(() => compiledQuery('select * from field')),
+      execute: async ({ dataDb, metaDb }) => {
+        await sql.raw('select * from "tblData"').execute(dataDb);
+        await sql.raw('select * from field').execute(metaDb);
+      },
+    };
+
+    await executeTableSchemaStatements(metaDb, [customStatement], {
+      dataDb,
+      metaDb,
+      enforceRelationAccess: true,
+    });
+
+    expect(dataDb.executorExecuteQuery).toHaveBeenCalledTimes(1);
+    expect(metaDb.executorExecuteQuery).toHaveBeenCalledTimes(1);
   });
 });

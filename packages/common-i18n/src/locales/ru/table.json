@@ -394,6 +394,9 @@
         "medium": "Среднее",
         "high": "Высокое"
       },
+      "tip": {
+        "gptImageResolution": "Из-за ограничения на общее число пикселей режим 4K для некоторых соотношений сторон использует максимально допустимый размер."
+      },
       "autoFill": {
         "title": "Автоматическое обновление",
         "tip": "После включения текущее поле будет синхронно обновляться с изменениями содержимого конфигурации AI"
@@ -687,6 +690,7 @@
     "menu": {
       "addFromOtherSource": "Добавить из других источников",
       "excelFile": "Microsoft Excel",
+      "airtable": "Airtable",
       "csvFile": "Csv файл",
       "importCsvData": "Импортировать данные CSV",
       "importExcelData": "Импортировать данные Microsoft Excel",
@@ -838,6 +842,7 @@
     "noPermission": "У вас нет разрешения на доступ к базе данных",
     "connectionCountTip": "Максимальное количество подключений к базе данных - <b>{{max}}</b>, текущее количество подключений - <b>{{current}}</b>",
     "createFailed": "Пожалуйста, убедитесь, что переменная окружения PUBLIC_DATABASE_PROXY установлена правильно",
+    "readonlyUnavailable": "Readonly database sharing is unavailable for this data database. Grant the Teable database user permission to create roles and grants, or use a target database that supports readonly roles.",
     "helpLink": "https://help.teable.ai/en/deploy/database-connection"
   },
   "view": {
@@ -1017,9 +1022,19 @@
       "workflows": "Автоматизации",
       "folders": "Папки"
     },
+    "slashCommand": {
+      "skills": "Skills",
+      "searchEmpty": "No results found"
+    },
     "inputPlaceholder": "Введите @, чтобы добавить узел",
     "inputPlaceholderFiles": "Вставьте или перетащите файлы сюда",
     "thought": "Мысли",
+    "stage": {
+      "initializing": "Инициализация",
+      "working": "Работает",
+      "committing": "Фиксация",
+      "recovering": "Восстановление"
+    },
     "meta": {
       "input": "Ввод",
       "output": "Вывод",
