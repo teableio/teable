@@ -164,6 +164,7 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
 
   const previousInitRef = useRef<IDateFilter | null>(initValue ?? null);
   const previousOperatorRef = useRef<string>(operator);
+  const preservedModeOnClearRef = useRef<IDateFilter['mode'] | null>(null);
   const onModeChangeRef = useRef(onModeChange);
   const onSelectRef = useRef(onSelect);
 
@@ -211,6 +212,17 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
     if (normalizedInit) {
       setInnerValue(normalizedInit);
       onModeChangeRef.current?.(normalizedInit.mode);
+      return;
+    }
+
+    if (preservedModeOnClearRef.current) {
+      const mode = preservedModeOnClearRef.current;
+      preservedModeOnClearRef.current = null;
+      setInnerValue({
+        mode,
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone as ITimeZoneString,
+      });
+      onModeChangeRef.current?.(mode);
       return;
     }
 
@@ -282,7 +294,14 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
 
   const dateRangeSelect = useCallback(
     (val: { exactDate?: string; exactDateEnd?: string; timeZone: ITimeZoneString } | null) => {
-      if (!val || !val.exactDate || !val.exactDateEnd) {
+      if (val === null) {
+        preservedModeOnClearRef.current = dateRange.value;
+        onModeChangeRef.current?.(dateRange.value);
+        onSelectRef.current?.(null);
+        return;
+      }
+
+      if (!val.exactDate || !val.exactDateEnd) {
         // Don't clear the filter when partially selected
         return;
       }
