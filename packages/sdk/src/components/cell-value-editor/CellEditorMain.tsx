@@ -17,6 +17,7 @@ import type {
   IUserFieldOptions,
 } from '@teable/core';
 import { FieldType } from '@teable/core';
+import { useTheme } from '@teable/next-themes';
 import { temporaryPaste } from '@teable/openapi';
 import { useCallback, useEffect, useRef } from 'react';
 import { useTableId, useTablePermission } from '../../hooks';
@@ -41,6 +42,7 @@ import type { IEditorRef } from '../editor/type';
 import type { ICellValueEditor } from './type';
 
 export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | 'wrapStyle'>) => {
+  const { resolvedTheme } = useTheme();
   const {
     field,
     recordId,
@@ -150,7 +152,7 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
           preventAutoNewOptions={
             (options as ISelectFieldOptions).preventAutoNewOptions || !canAddOption
           }
-          options={transformSelectOptions((options as ISelectFieldOptions).choices)}
+          options={transformSelectOptions((options as ISelectFieldOptions).choices, resolvedTheme)}
           onChange={onChange}
           readonly={readonly}
           onOptionAdd={onOptionAdd}
@@ -164,7 +166,7 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
           className={className}
           value={cellValue as IMultipleSelectCellValue}
           preventAutoNewOptions={!canAddOption}
-          options={transformSelectOptions((options as ISelectFieldOptions).choices)}
+          options={transformSelectOptions((options as ISelectFieldOptions).choices, resolvedTheme)}
           onChange={onChange}
           isMultiple
           readonly={readonly}

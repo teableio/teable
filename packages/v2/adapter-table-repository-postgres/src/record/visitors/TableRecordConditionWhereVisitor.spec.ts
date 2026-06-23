@@ -10,6 +10,8 @@ import {
   IncomingLinkCandidateSpec,
   IncomingLinkSelectedSpec,
   LinkFieldConfig,
+  LookupField,
+  LookupOptions,
   RecordByIdSpec,
   RecordByIdsSpec,
   RecordId,
@@ -332,6 +334,28 @@ const createLinkTitleReferenceFields = () => {
   return { linkField, tagNameField };
 };
 
+const createLookupLinkTitleReferenceFields = () => {
+  const { linkField, tagNameField } = createLinkTitleReferenceFields();
+  const lookupOptions = LookupOptions.create({
+    linkFieldId: linkField.id().toString(),
+    lookupFieldId: linkField.id().toString(),
+    foreignTableId: `tbl${'f'.repeat(16)}`,
+  })._unsafeUnwrap();
+  const lookupField = LookupField.create({
+    id: FieldId.create(`fld${'p'.repeat(16)}`)._unsafeUnwrap(),
+    name: FieldName.create('Lookup Tags')._unsafeUnwrap(),
+    innerField: linkField,
+    lookupOptions,
+    isMultipleCellValue: true,
+  })._unsafeUnwrap();
+
+  lookupField
+    .setDbFieldName(DbFieldName.rehydrate('col_lookup_tags')._unsafeUnwrap())
+    ._unsafeUnwrap();
+
+  return { lookupField, tagNameField };
+};
+
 // ============================================================================
 // Tests
 // ============================================================================
@@ -536,6 +560,29 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
 
       const { sql, parameters } = compileWhere(db, where.value);
       expect(sql).toContain(`__link->>'title' = ("t"."col_tag_name")::text`);
+      expect(parameters).toEqual([]);
+    });
+
+    test('lookup of link title comparison to host text stays on the title-matching path', () => {
+      const { lookupField, tagNameField } = createLookupLinkTitleReferenceFields();
+      const value = RecordConditionFieldReferenceValue.create(tagNameField)._unsafeUnwrap();
+      const spec = lookupField.spec().create({ operator: 'is', value });
+      expect(spec.isOk()).toBe(true);
+      if (spec.isErr()) return;
+
+      const visitor = new TableRecordConditionWhereVisitor({
+        tableAlias: 'f',
+        hostTableAlias: 't',
+      });
+      const visitResult = spec.value.accept(visitor);
+      expect(visitResult.isOk()).toBe(true);
+      const where = visitor.where();
+      expect(where.isOk()).toBe(true);
+      if (where.isErr()) return;
+
+      const { sql, parameters } = compileWhere(db, where.value);
+      expect(sql).toContain(`__link->>'title' = ("t"."col_tag_name")::text`);
+      expect(sql).not.toBe('1 = 0');
       expect(parameters).toEqual([]);
     });
 
