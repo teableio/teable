@@ -13,6 +13,8 @@ import {
 import type { IImageModelMetadata, IResolvedImageModelConfig } from '@teable/openapi';
 import { useCallback, useMemo } from 'react';
 
+const AUTO_SIZE_ID = '';
+
 const getModelDefaults = (
   resolvedModel?: IResolvedImageModelConfig
 ): Partial<IAttachmentFieldGenerateImageAIConfig> => {
@@ -20,10 +22,9 @@ const getModelDefaults = (
   if (!config) return {};
 
   const isPromptControlledModel = isPromptControlledImageGenerationModel(config);
-  const sizeCandidates = getImageSizeCandidates(config);
 
   return {
-    size: supportsImageSizeSelection(config) ? config.defaultSize ?? sizeCandidates[0] : undefined,
+    size: supportsImageSizeSelection(config) ? config.defaultSize : undefined,
     quality: config.supportsQuality ? ImageQuality.Medium : undefined,
     n: supportsImageCountSelection(config) ? 1 : undefined,
     aspectRatio:
@@ -42,8 +43,7 @@ const getInitialLoadUpdates = (
 
   const updates: Partial<IAttachmentFieldGenerateImageAIConfig> = {};
   const isPromptControlledModel = isPromptControlledImageGenerationModel(config);
-  const sizeCandidates = getImageSizeCandidates(config);
-  const defaultSize = config.defaultSize ?? sizeCandidates[0];
+  const defaultSize = config.defaultSize;
 
   if (supportsImageSizeSelection(config) && !currentConfig?.size && defaultSize) {
     updates.size = defaultSize;
@@ -126,14 +126,14 @@ export const useImageModelUiState = (
     hasAdvancedOptions,
     imageSizeValues,
     aspectRatioValues,
-    currentSize:
-      aiConfig?.size || imageModelConfig?.defaultSize || imageSizeValues[0] || '1024x1024',
+    currentSize: aiConfig?.size || imageModelConfig?.defaultSize || AUTO_SIZE_ID,
     currentQuality: aiConfig?.quality ?? ImageQuality.Medium,
     currentCount: aiConfig?.n || 1,
     currentAspectRatio: aiConfig?.aspectRatio || imageModelConfig?.defaultAspectRatio,
     currentResolution: aiConfig?.resolution,
     maxCount: imageModelConfig?.maxImagesPerCall || 10,
     maxImagesPerCall: imageModelConfig?.maxImagesPerCall,
+    imageModelId: imageModelConfig?.model,
     getSettingsUpdates,
   };
 };
