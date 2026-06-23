@@ -69,6 +69,7 @@
     "expand": "Expandir",
     "getMore": "Obtener más",
     "copySuccess": "Copia exitosa",
+    "openLink": "Abrir enlace",
     "share": "Compartir"
   },
   "quickAction": {
@@ -480,7 +481,14 @@
     },
     "addOrgCollaborator": {
       "title": "Agregar colaborador de organización",
+      "button": "Agregar desde la organización",
       "placeholder": "Seleccionar miembro o departamento de la organización"
+    },
+    "table": {
+      "collaborator": "Colaborador",
+      "accessPermission": "Permiso de acceso",
+      "joinAt": "Fecha de ingreso",
+      "lastLogin": "Último inicio de sesión"
     }
   },
   "help": {
@@ -717,6 +725,10 @@
     "exportBase": {
       "successText": "Los datos de exportación están listos",
       "failedText": "La exportación falló, por favor reinténtelo"
+    },
+    "importantNotice": {
+      "title": "Important Notice",
+      "acknowledge": "I Understand"
     }
   },
   "role": {
@@ -794,6 +806,7 @@
     "unsubscribeTime": "Fecha de cancelación de suscripción",
     "source": "Fuente",
     "sourceAutomationDeleted": "Automatización o nodo eliminado",
+    "sourceApiSend": "Envío de correo por API",
     "processing": "Procesando...",
     "unsubscribeH1": "¿Confirmar cancelación de suscripción?",
     "unsubscribeH2": "Estás a punto de cancelar la suscripción a futuras promociones y actualizaciones de productos de Teable. ¿Estás seguro de que deseas cancelar la suscripción?",
@@ -1157,10 +1170,93 @@
       "unknown": "{{fieldHint}}{{message}}"
     }
   },
+  "skills": {
+    "title": "Habilidades",
+    "tabs": {
+      "mySkills": "Mis habilidades"
+    },
+    "actions": {
+      "import": "Importar habilidad",
+      "sync": "Sincronizar",
+      "delete": "Eliminar",
+      "enable": "Activar",
+      "disable": "Desactivar",
+      "edit": "Editar",
+      "tryInChat": "Probar en el chat",
+      "replace": "Reemplazar",
+      "download": "Descargar",
+      "uninstall": "Desinstalar",
+      "copyToBase": "Copiar a Base",
+      "copyToPersonal": "Copiar a personal",
+      "copyToApp": "Copiar a la aplicación"
+    },
+    "import": {
+      "title": "Importar habilidad",
+      "description": "Importe una habilidad desde un repositorio de GitHub o un archivo ZIP",
+      "githubTab": "URL de GitHub",
+      "fileTab": "Archivo ZIP",
+      "githubPlaceholder": "https://github.com/owner/repo/tree/main/skills/my-skill",
+      "fileHint": "Suba un archivo ZIP que contenga SKILL.md",
+      "or": "o",
+      "selectFile": "Seleccionar archivo",
+      "replaceWarning": "Si ya existe una habilidad con el mismo nombre en este ámbito, se reemplazará al importar.",
+      "importing": "Importando...",
+      "submit": "Importar",
+      "success": "Habilidad importada correctamente",
+      "error": "Error al importar la habilidad"
+    },
+    "detail": {
+      "slug": "Slug",
+      "description": "Descripción",
+      "source": "Origen",
+      "skillLabel": "Habilidad",
+      "syncStatus": "Estado de sincronización",
+      "preview": "Vista previa de SKILL.md"
+    },
+    "scope": {
+      "label": "Ámbito",
+      "system": "Sistema",
+      "base": "Base",
+      "user": "Personal",
+      "userDescription": "Solo disponible para ti",
+      "baseDescription": "Compartida con los colaboradores de esta base",
+      "app": "App",
+      "appDescription": "Solo disponible para esta aplicación",
+      "cuppyclaw": "Bot",
+      "cuppyclawDescription": "Solo disponible para este bot"
+    },
+    "source": {
+      "github": "GitHub",
+      "file": "Carga de archivo",
+      "manual": "Manual"
+    },
+    "status": {
+      "enabled": "Activado",
+      "disabled": "Desactivado",
+      "synced": "Sincronizado",
+      "failed": "Sincronización fallida"
+    },
+    "empty": {
+      "mySkills": "Aún no tiene habilidades personales. Importe una para comenzar."
+    },
+    "confirm": {
+      "deleteTitle": "Eliminar habilidad",
+      "deleteDescription": "¿Está seguro de que desea eliminar esta habilidad? Esta acción no se puede deshacer."
+    },
+    "toast": {
+      "syncing": "Sincronizando habilidad...",
+      "syncSuccess": "Habilidad sincronizada correctamente",
+      "syncError": "Error al sincronizar la habilidad",
+      "deleting": "Eliminando habilidad...",
+      "deleteSuccess": "Habilidad eliminada correctamente",
+      "deleteError": "Error al eliminar la habilidad",
+      "updateSuccess": "Habilidad actualizada correctamente"
+    }
+  },
   "changelog": {
-    "newUpdate": "ACTUALIZACION DEL 19 DE MAYO",
-    "title": "Los Credits de Teable rinden 10x mas!",
-    "url": "https://help.teable.ai/en/changelog#may-19-2026",
-    "id": "changelog-2026-05-19-teable-credits-up-10x"
+    "newUpdate": "ACTUALIZACION DEL 17 DE JUNIO",
+    "title": "Resumen de selección en la vista de cuadrícula",
+    "url": "https://help.teable.ai/en/changelog#jun-17-2026",
+    "id": "changelog-2026-06-17-selection-summary-in-grid-view"
   }
 }

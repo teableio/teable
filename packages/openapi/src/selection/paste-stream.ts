@@ -7,6 +7,13 @@ import { pasteRoSchema, pasteVoSchema, PASTE_URL } from './paste';
 
 export const PASTE_STREAM_URL = `${PASTE_URL}-stream`;
 
+const pasteSelectionResultSchema = z.object({
+  recordIds: z.array(z.string()),
+  fieldIds: z.array(z.string()),
+});
+
+const pasteCreatedChoiceIdsByFieldIdSchema = z.record(z.string(), z.array(z.string()));
+
 export const pasteSelectionStreamProgressEventSchema = z.object({
   id: z.literal('progress'),
   phase: z.enum(['preparing', 'pasting']),
@@ -28,7 +35,14 @@ export const pasteSelectionStreamDoneEventSchema = z.object({
     updatedCount: z.number(),
     createdCount: z.number(),
     createdRecordIds: z.array(z.string()),
+    pastedRecordIds: z.array(z.string()).optional(),
+    pastedFieldIds: z.array(z.string()).optional(),
+    createdFieldIds: z.array(z.string()).optional(),
+    createdChoiceIdsByFieldId: pasteCreatedChoiceIdsByFieldIdSchema.optional(),
+    createdForeignRecordIds: z.array(z.string()).optional(),
+    skippedAttachments: z.array(z.unknown()).optional(),
     ranges: pasteVoSchema.shape.ranges.optional(),
+    selection: pasteSelectionResultSchema.optional(),
   }),
 });
 
