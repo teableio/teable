@@ -52,10 +52,18 @@ const resolveLookupInnerField = (field: core.Field): core.Field | undefined => {
   return undefined;
 };
 
-const fieldIsLookupWithUserOrLinkInner = (field: core.Field): boolean => {
+const resolveEffectiveLookupField = (field: core.Field): core.Field => {
   const innerField = resolveLookupInnerField(field);
-  return innerField ? fieldIsUserOrLink(innerField) : false;
+  return innerField ? resolveEffectiveLookupField(innerField) : field;
 };
+
+const fieldIsLookupWithUserOrLinkInner = (field: core.Field): boolean => {
+  const effectiveField = resolveEffectiveLookupField(field);
+  return effectiveField !== field && fieldIsUserOrLink(effectiveField);
+};
+
+const fieldHasLinkDisplayValue = (field: core.Field): boolean =>
+  fieldIsLink(resolveEffectiveLookupField(field));
 
 const isArrayLikeOutputField = (field: core.Field, isMultiple: boolean): boolean => {
   // Query model currently forces lookup/conditionalLookup output to arrays for v1 parity.
@@ -444,7 +452,7 @@ const classifyFieldReferenceComparison = (
       if (rightIsUserOrLinkLike) {
         return ok({ kind: 'userOrLinkIds' });
       }
-      if (fieldIsLink(field)) {
+      if (fieldHasLinkDisplayValue(field)) {
         return ok({ kind: 'linkTitle' });
       }
       return ok(hasHostTableAlias ? { kind: 'incompatible' } : { kind: 'generic' });

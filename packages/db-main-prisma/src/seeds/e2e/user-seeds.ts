@@ -48,7 +48,7 @@ export class UserSeeds extends AbstractSeed {
       const { id, name, email, ...userNonUnique } = u;
       const user = await this.prisma.user.upsert({
         where: { email },
-        update: userNonUnique,
+        update: { ...userNonUnique, name },
         create: u,
       });
       this.log('UPSERT', `User ${user.id} - ${user.email} - ${user.password}`);
