@@ -177,7 +177,7 @@ export class SetFieldValueSpecFactoryVisitor extends AbstractFieldVisitor<ICellV
 
   visitLinkField(field: LinkField): Result<ICellValueSpec, DomainError> {
     const cellValue = CellValue.fromValidated<LinkItem[]>(this.value as LinkItem[] | null);
-    return ok(new SetLinkValueSpec(field.id(), cellValue));
+    return ok(new SetLinkValueSpec(field.id(), cellValue, field.foreignTableId()));
   }
 
   visitConditionalRollupField(_field: ConditionalRollupField): Result<ICellValueSpec, DomainError> {

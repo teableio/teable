@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { IButtonFieldCellValue } from '@teable/core';
-import { checkButtonClickable, Colors, ColorUtils } from '@teable/core';
+import { checkButtonClickable, Colors } from '@teable/core';
+import { useTheme } from '@teable/next-themes';
 import {
   Button,
   cn,
@@ -10,11 +11,11 @@ import {
   TooltipTrigger,
 } from '@teable/ui-lib';
 import { type FC, useMemo } from 'react';
-import colors from 'tailwindcss/colors';
 import { useTranslation } from '../../../context/app/i18n';
 import type { IButtonClickStatusHook } from '../../../hooks';
 import type { Record } from '../../../model';
 import type { ButtonField } from '../../../model/field/button.field';
+import { getSelectColorPairs } from '../../../utils/select-color';
 import type { ICellEditor } from '../type';
 
 interface IButtonEditor extends ICellEditor<IButtonFieldCellValue> {
@@ -26,6 +27,7 @@ interface IButtonEditor extends ICellEditor<IButtonFieldCellValue> {
 
 export const ButtonEditor: FC<IButtonEditor> = (props) => {
   const { t } = useTranslation();
+  const { resolvedTheme } = useTheme();
   const { className, field, recordId, value, statusHook, record } = props;
 
   const { options: fieldOptions, isLookup } = field;
@@ -48,15 +50,17 @@ export const ButtonEditor: FC<IButtonEditor> = (props) => {
 
   const button = useMemo(() => {
     const rectColor = isClickable ? fieldOptions.color : Colors.Gray;
-    const bgColor = ColorUtils.getHexForColor(rectColor);
-    const textColor = ColorUtils.shouldUseLightTextOnColor(rectColor) ? colors.white : colors.black;
+    const { color: textColor, backgroundColor: bgColor } = getSelectColorPairs(
+      rectColor,
+      resolvedTheme
+    );
 
     return {
       bgColor,
       textColor,
       label: fieldOptions.label,
     };
-  }, [fieldOptions, isClickable]);
+  }, [fieldOptions, isClickable, resolvedTheme]);
 
   return (
     <div className={cn('flex items-center h-8')}>

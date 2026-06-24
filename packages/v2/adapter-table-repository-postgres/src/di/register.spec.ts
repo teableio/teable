@@ -99,6 +99,7 @@ describe('registerV2TableRepositoryPostgresAdapter', () => {
     const { TableRecordQueryBuilderManager } = await import('../record/query-builder');
     const {
       HybridWithOutboxStrategy,
+      ComputedFieldBackfillService,
       defaultFieldBackfillConfig,
       defaultHybridWithOutboxStrategyConfig,
     } = await import('../record/computed');
@@ -150,6 +151,18 @@ describe('registerV2TableRepositoryPostgresAdapter', () => {
     ).toEqual({
       token: v2RecordRepositoryPostgresTokens.computedUpdateStrategy,
       implementation: HybridWithOutboxStrategy,
+      options: { lifecycle: Lifecycle.Singleton },
+    });
+    expect(
+      getRegistration(container, v2RecordRepositoryPostgresTokens.computedFieldBackfillService)
+    ).toEqual({
+      token: v2RecordRepositoryPostgresTokens.computedFieldBackfillService,
+      implementation: ComputedFieldBackfillService,
+      options: { lifecycle: Lifecycle.Singleton },
+    });
+    expect(getRegistration(container, v2CoreTokens.computedFieldBackfillService)).toEqual({
+      token: v2CoreTokens.computedFieldBackfillService,
+      implementation: ComputedFieldBackfillService,
       options: { lifecycle: Lifecycle.Singleton },
     });
   });
