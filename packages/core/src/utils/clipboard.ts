@@ -9,9 +9,6 @@ export const parseClipboardText = (content: string) => {
   if (content.endsWith(_newline)) {
     content = content.slice(0, -1 * _newline.length);
   }
-  if (content.startsWith(_newline)) {
-    content = content.slice(_newline.length);
-  }
   if (!content.includes('"')) {
     return content.split(_newline).map((row) => row.split(delimiter));
   }

@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import { RecordOpenApiService } from './record-open-api.service';
 
+const userId = 'usr1';
+const startDate = '2026-01-01T00:00:00.000Z';
+const endDate = '2026-01-02T00:00:00.000Z';
+
 const createService = ({
   prismaService = {},
   dataPrismaService = {},
@@ -14,7 +18,6 @@ const createService = ({
 } = {}) =>
   new RecordOpenApiService(
     prismaService as never,
-    dataPrismaService as never,
     recordService as never,
     {} as never,
     {} as never,
@@ -26,7 +29,8 @@ const createService = ({
     {} as never,
     (dataDbClientManager ?? {
       dataPrismaForTable: vi.fn().mockResolvedValue(dataPrismaService),
-    }) as never
+    }) as never,
+    {} as never
   );
 
 describe('RecordOpenApiService', () => {
@@ -43,13 +47,13 @@ describe('RecordOpenApiService', () => {
         fieldId: 'fld1',
         before: JSON.stringify({ meta: { type: 'singleLineText' }, data: 'old' }),
         after: JSON.stringify({ meta: { type: 'singleLineText' }, data: 'new' }),
-        createdTime: new Date('2026-01-01T00:00:00.000Z'),
-        createdBy: 'usr1',
+        createdTime: new Date(startDate),
+        createdBy: userId,
       },
     ]);
     const userFindMany = vi.fn().mockResolvedValue([
       {
-        id: 'usr1',
+        id: userId,
         name: 'Ada',
         email: 'ada@example.com',
         avatar: null,
@@ -72,15 +76,12 @@ describe('RecordOpenApiService', () => {
       },
     });
 
-    const result = await service.getRecordHistory(
-      'tbl1',
-      'rec1',
-      {
-        startDate: '2026-01-01T00:00:00.000Z',
-        endDate: '2026-01-02T00:00:00.000Z',
-      },
-      ['fld1']
-    );
+    const result = await service.getRecordHistory('tbl1', 'rec1', {
+      startDate,
+      endDate,
+      fieldIds: ['fld1'],
+      createdByIds: [userId],
+    });
 
     expect(dataRecordHistoryFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -88,6 +89,7 @@ describe('RecordOpenApiService', () => {
           tableId: 'tbl1',
           recordId: 'rec1',
           fieldId: { in: ['fld1'] },
+          createdBy: { in: [userId] },
         }),
         take: 21,
         orderBy: { createdTime: 'desc' },
@@ -96,7 +98,7 @@ describe('RecordOpenApiService', () => {
     expect(dataPrismaForTable).toHaveBeenCalledWith('tbl1');
     expect(metaRecordHistoryFindMany).not.toHaveBeenCalled();
     expect(userFindMany).toHaveBeenCalledWith({
-      where: { id: { in: ['usr1'] } },
+      where: { id: { in: [userId] } },
       select: {
         id: true,
         name: true,
@@ -112,15 +114,48 @@ describe('RecordOpenApiService', () => {
         fieldId: 'fld1',
         before: { meta: { type: 'singleLineText' }, data: 'old' },
         after: { meta: { type: 'singleLineText' }, data: 'new' },
-        createdTime: '2026-01-01T00:00:00.000Z',
-        createdBy: 'usr1',
+        createdTime: startDate,
+        createdBy: userId,
       },
     ]);
-    expect(result.userMap.usr1).toEqual({
-      id: 'usr1',
+    expect(result.userMap[userId]).toEqual({
+      id: userId,
       name: 'Ada',
       email: 'ada@example.com',
       avatar: null,
     });
+  });
+
+  it('keeps field filtering when selected fields are outside projection', async () => {
+    const dataRecordHistoryFindMany = vi.fn().mockResolvedValue([]);
+    const userFindMany = vi.fn().mockResolvedValue([]);
+
+    const service = createService({
+      prismaService: {
+        user: { findMany: userFindMany },
+      },
+      dataPrismaService: {
+        recordHistory: { findMany: dataRecordHistoryFindMany },
+      },
+    });
+
+    await service.getRecordHistory(
+      'tbl1',
+      'rec1',
+      {
+        fieldIds: ['fldDenied'],
+      },
+      ['fldAllowed']
+    );
+
+    expect(dataRecordHistoryFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tableId: 'tbl1',
+          recordId: 'rec1',
+          fieldId: { in: [] },
+        }),
+      })
+    );
   });
 });
