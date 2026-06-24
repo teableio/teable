@@ -19,9 +19,9 @@ import {
   useTablePermission,
   useFieldPermission,
   useBaseId,
-  usePersonalView,
   useIsReadOnlyPreview,
   useButtonClickStatus,
+  useDeepCompareMemoize,
 } from '@teable/sdk/hooks';
 import type { KanbanView, IFieldInstance, AttachmentField } from '@teable/sdk/model';
 import { useRouter } from 'next/router';
@@ -39,13 +39,13 @@ const UNCATEGORIZED_STACK_DATA = {
 export const KanbanProvider = ({ children }: { children: ReactNode }) => {
   const tableId = useTableId();
   const view = useView() as KanbanView | undefined;
-  const { personalViewCommonQuery } = usePersonalView();
   const baseId = useBaseId() as string;
   const { shareId } = useContext(ShareViewContext) ?? {};
   const { sort, filter } = view ?? {};
   const permission = useTablePermission();
   const fields = useFields();
   const allFields = useFields({ withHidden: true, withDenied: true });
+  const visibleFieldIds = useDeepCompareMemoize(fields.map(({ id }) => id).sort()) as string[];
   const { stackFieldId, coverFieldId, isCoverFit, isFieldNameHidden, isEmptyStackHidden } =
     view?.options ?? {};
   const fieldPermission = useFieldPermission();
@@ -66,21 +66,21 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
   }, [routerRecordId, setExpandRecordId]);
 
   const recordQuery = useMemo(() => {
-    const { ignoreViewQuery } = personalViewCommonQuery ?? {};
+    // same contract as useRecords: search must only hit the fields this view
+    // displays, so every record query in the kanban view declares it explicitly
     const baseQuery = {
       orderBy: sort?.sortObjs,
       filter: filter,
+      projection: visibleFieldIds,
     };
 
     if (shareId) return baseQuery;
 
-    if (ignoreViewQuery) {
-      return {
-        ...baseQuery,
-        ignoreViewQuery,
-      };
-    }
-  }, [shareId, sort, filter, personalViewCommonQuery]);
+    return {
+      ...baseQuery,
+      ignoreViewQuery: true,
+    };
+  }, [shareId, sort, filter, visibleFieldIds]);
 
   const stackField = useMemo(() => {
     if (!stackFieldId) return;

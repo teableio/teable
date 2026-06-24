@@ -20,6 +20,7 @@ import { SpaceActionTrigger } from '../../blocks/space/component/SpaceActionTrig
 import { UploadPanelDialog } from '../../blocks/space/component/upload-panel';
 import { useBaseList } from '../../blocks/space/useBaseList';
 import { InviteSpacePopover } from '../collaborator/space/InviteSpacePopover';
+import { CreateBaseDialog, useCreateBaseChooserEnabled } from './create-base';
 
 interface ActionBarProps {
   space: IGetSpaceVo;
@@ -43,11 +44,13 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
     onPermanentDelete,
   } = props;
   const [importBaseOpen, setImportBaseOpen] = React.useState(false);
+  const [createBaseOpen, setCreateBaseOpen] = React.useState(false);
 
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
   const isMobile = useIsMobile();
   const router = useRouter();
   const bases = useBaseList();
+  const chooserEnabled = useCreateBaseChooserEnabled();
 
   const basesInSpace = useMemo(() => {
     return bases?.filter((base) => base.spaceId === space.id);
@@ -64,6 +67,10 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
   });
 
   const handleCreateBase = () => {
+    if (chooserEnabled) {
+      setCreateBaseOpen(true);
+      return;
+    }
     const name = getUniqName(t('common:noun.base'), basesInSpace?.map((base) => base.name) || []);
     createBaseMutator({ spaceId: space.id, name });
   };
@@ -137,6 +144,8 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
         open={importBaseOpen}
         onOpenChange={setImportBaseOpen}
       />
+
+      <CreateBaseDialog spaceId={space.id} open={createBaseOpen} onOpenChange={setCreateBaseOpen} />
     </div>
   );
 };

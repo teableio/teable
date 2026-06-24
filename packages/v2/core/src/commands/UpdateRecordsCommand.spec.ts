@@ -70,6 +70,41 @@ describe('UpdateRecordsCommand', () => {
     });
   });
 
+  it('keeps record-write plugin runner options out of raw command input', () => {
+    const commandResult = UpdateRecordsCommand.create({
+      tableId,
+      fields: {
+        [numberFieldId]: 42,
+      },
+      recordIds: [`rec${'d'.repeat(16)}`],
+      recordWritePluginRunnerOptions: {
+        skipPluginNames: new Set(['plugin-from-body']),
+      },
+    });
+
+    const command = commandResult._unsafeUnwrap();
+    expect(command.recordWritePluginRunnerOptions).toBeUndefined();
+  });
+
+  it('accepts server-side record-write plugin runner options', () => {
+    const skipPluginNames = new Set(['plugin-from-server-option']);
+    const commandResult = UpdateRecordsCommand.create(
+      {
+        tableId,
+        fields: {
+          [numberFieldId]: 42,
+        },
+        recordIds: [`rec${'d'.repeat(16)}`],
+      },
+      {
+        recordWritePluginRunnerOptions: { skipPluginNames },
+      }
+    );
+
+    const command = commandResult._unsafeUnwrap();
+    expect(command.recordWritePluginRunnerOptions?.skipPluginNames).toBe(skipPluginNames);
+  });
+
   it('creates command with explicit recordIds', () => {
     const recordIdA = `rec${'d'.repeat(16)}`;
     const recordIdB = `rec${'e'.repeat(16)}`;

@@ -115,19 +115,3 @@ exports[`FieldReferenceSqlVisitor > scalar fields > should return direct column 
   "valueType": "unknown",
 }
 `;
-
-exports[`FieldReferenceSqlVisitor > user ID fields > should generate user name lookup SQL for CreatedBy field 1`] = `
-{
-  "isArray": false,
-  "valueSql": "COALESCE((SELECT u.name FROM public.users u WHERE u.id = "t"."__created_by"), "t"."__created_by")",
-  "valueType": "string",
-}
-`;
-
-exports[`FieldReferenceSqlVisitor > user ID fields > should generate user name lookup SQL for LastModifiedBy field 1`] = `
-{
-  "isArray": false,
-  "valueSql": "COALESCE((SELECT u.name FROM public.users u WHERE u.id = "t"."__last_modified_by"), "t"."__last_modified_by")",
-  "valueType": "string",
-}
-`;
