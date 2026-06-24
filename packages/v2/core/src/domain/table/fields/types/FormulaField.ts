@@ -10,6 +10,7 @@ import type {
   OnTeableFieldDeleted,
 } from '../../OnTeableFieldDeleted';
 import { UpdateFormulaExpressionSpec } from '../../specs/field-updates/UpdateFormulaExpressionSpec';
+import { UpdateUserMultiplicitySpec } from '../../specs/field-updates/UpdateUserMultiplicitySpec';
 import type { ITableSpecVisitor } from '../../specs/ITableSpecVisitor';
 import { TableUpdateFieldHasErrorSpec } from '../../specs/TableUpdateFieldHasErrorSpec';
 import { TableUpdateFieldTypeSpec } from '../../specs/TableUpdateFieldTypeSpec';
@@ -271,12 +272,21 @@ export class FormulaField extends Field implements OnTeableFieldUpdated, OnTeabl
         spec.isTypeConversion()
     );
 
+    const dependencyMultiplicityChanged = updateSpecs.some(
+      (spec): spec is UpdateUserMultiplicitySpec =>
+        spec instanceof UpdateUserMultiplicitySpec && spec.fieldId().equals(updatedField.id())
+    );
+
     const dependencyFormulaExpressionChanged = updateSpecs.some(
       (spec): spec is UpdateFormulaExpressionSpec =>
         spec instanceof UpdateFormulaExpressionSpec && spec.fieldId().equals(updatedField.id())
     );
 
-    if (!dependencyTypeChanged && !dependencyFormulaExpressionChanged) {
+    if (
+      !dependencyTypeChanged &&
+      !dependencyMultiplicityChanged &&
+      !dependencyFormulaExpressionChanged
+    ) {
       return ok(undefined);
     }
 
