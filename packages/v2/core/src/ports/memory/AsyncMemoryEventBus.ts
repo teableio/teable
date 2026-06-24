@@ -42,19 +42,22 @@ const resolveErrorMessage = (error: unknown): string => {
 };
 
 const defaultScheduler: AsyncEventBusScheduler = (task) => {
-  const immediate = (globalThis as { setImmediate?: (task: () => void) => void }).setImmediate;
-  if (typeof immediate === 'function') {
-    immediate(() => void task());
-    return;
-  }
-
   const timeout = (
     globalThis as {
       setTimeout?: (handler: () => void, timeout: number) => void;
     }
   ).setTimeout;
   if (typeof timeout === 'function') {
-    timeout(() => void task(), 0);
+    // Let the HTTP response path finish before heavy fire-and-forget projections start.
+    timeout(() => {
+      timeout(() => void task(), 0);
+    }, 0);
+    return;
+  }
+
+  const immediate = (globalThis as { setImmediate?: (task: () => void) => void }).setImmediate;
+  if (typeof immediate === 'function') {
+    immediate(() => void task());
     return;
   }
 
@@ -127,7 +130,7 @@ export class AsyncMemoryEventBus implements IEventBus {
     const wasDraining = this.draining;
     this.enrichWithRequestId(context, event);
     this.maybeRecordPublishedEvents([event]);
-    const targetSeq = this.enqueue(context, [event]);
+    const targetSeq = this.enqueue(context, [event], !shouldAwait);
     if (shouldAwait && !wasDraining) {
       await this.waitUntilProcessed(targetSeq);
     }
@@ -147,7 +150,7 @@ export class AsyncMemoryEventBus implements IEventBus {
       this.enrichWithRequestId(context, event);
     }
     this.maybeRecordPublishedEvents(events);
-    const targetSeq = this.enqueue(context, events);
+    const targetSeq = this.enqueue(context, events, !shouldAwait);
     if (shouldAwait && !wasDraining) {
       await this.waitUntilProcessed(targetSeq);
     }
@@ -168,7 +171,11 @@ export class AsyncMemoryEventBus implements IEventBus {
     this.publishedEvents.push(...events);
   }
 
-  private enqueue(context: IExecutionContext, events: ReadonlyArray<IDomainEvent>): number {
+  private enqueue(
+    context: IExecutionContext,
+    events: ReadonlyArray<IDomainEvent>,
+    preferContextBackgroundTask: boolean
+  ): number {
     const contextSnapshot = snapshotExecutionContext(context);
     let targetSeq = this.processedSeq;
     for (const event of events) {
@@ -179,7 +186,7 @@ export class AsyncMemoryEventBus implements IEventBus {
     }
     if (!this.draining) {
       this.draining = true;
-      this.scheduleDrain();
+      this.scheduleDrain(contextSnapshot, preferContextBackgroundTask);
     }
     return targetSeq;
   }
@@ -206,7 +213,17 @@ export class AsyncMemoryEventBus implements IEventBus {
     }
   }
 
-  private scheduleDrain(): void {
+  private scheduleDrain(
+    context: IExecutionContext,
+    preferContextBackgroundTask: boolean = false
+  ): void {
+    if (preferContextBackgroundTask && context.scheduleBackgroundTask) {
+      context.scheduleBackgroundTask(async () => {
+        await this.drain();
+      });
+      return;
+    }
+
     const schedule = this.options.schedule ?? defaultScheduler;
     schedule(async () => {
       await this.drain();
@@ -224,7 +241,7 @@ export class AsyncMemoryEventBus implements IEventBus {
     this.draining = false;
     if (this.queue.length > 0) {
       this.draining = true;
-      this.scheduleDrain();
+      this.scheduleDrain(this.queue[0]!.context);
     }
   }
 
@@ -368,8 +385,8 @@ export class AsyncMemoryEventBus implements IEventBus {
 
 const snapshotExecutionContext = (context: IExecutionContext): IExecutionContext => ({
   ...context,
+  scheduleBackgroundTask: context.scheduleBackgroundTask,
   undoRedo: context.undoRedo ? { ...context.undoRedo } : undefined,
-  duplicateTable: context.duplicateTable ? { ...context.duplicateTable } : undefined,
   config: context.config
     ? {
         ...context.config,

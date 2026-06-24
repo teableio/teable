@@ -85,6 +85,7 @@ const MAX_PREDICTED_BATCH_DURATION_MS = 30000;
 const ELAPSED_TIME_HIGH_PRECISION_MS = 10000;
 const ELAPSED_TIME_MEDIUM_PRECISION_MS = 60000;
 const ELAPSED_TIME_LOW_PRECISION_MS = 10 * 60 * 1000;
+const SUCCESS_AUTO_DISMISS_DELAY_MS = 3000;
 
 const clampPredictedBatchDuration = (durationMs: number) =>
   Math.min(MAX_PREDICTED_BATCH_DURATION_MS, Math.max(MIN_PREDICTED_BATCH_DURATION_MS, durationMs));
@@ -364,7 +365,7 @@ const getDialogDescription = (
   }
 
   if (status === 'error') {
-    return latestError ?? t(config.failedTitleKey);
+    return latestError ? null : t(config.failedTitleKey);
   }
 
   if (status === 'success') {
@@ -557,9 +558,11 @@ const SelectionActionChunkErrorDetails = ({
                 })}
               </span>
             </div>
-            <div className="mt-2 text-sm text-foreground">{error.message}</div>
+            <div className="mt-2 whitespace-pre-wrap break-words text-sm text-foreground">
+              {error.message}
+            </div>
             {error.recordIds.length ? (
-              <div className="mt-1 line-clamp-2 font-mono text-[11px] text-muted-foreground">
+              <div className="mt-1 whitespace-pre-wrap break-all font-mono text-[11px] text-muted-foreground">
                 {error.recordIds.join(', ')}
               </div>
             ) : null}
@@ -743,6 +746,21 @@ export const SelectionActionProgressDialog = ({
     mode,
     resolvedStatus,
   });
+
+  useEffect(() => {
+    if (!open || mode !== 'progress' || resolvedStatus !== 'success') {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      onOpenChange?.(false);
+    }, SUCCESS_AUTO_DISMISS_DELAY_MS);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [mode, onOpenChange, open, resolvedStatus]);
+
   const handleOpenChange = (nextOpen: boolean) => {
     if (!canDismiss) {
       return;

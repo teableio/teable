@@ -652,7 +652,10 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
 
       {menuPermission.tableRecordHistory && (
         <Dialog open={tableHistoryDialogOpen} onOpenChange={setTableHistoryDialogOpen}>
-          <DialogContent className="flex h-[90%] max-w-4xl flex-col gap-0 p-0">
+          <DialogContent
+            className="flex max-w-4xl flex-col gap-0 p-0 outline-none focus:outline-none focus-visible:outline-none"
+            style={{ height: 'calc(100% - 100px)' }}
+          >
             <DialogHeader className="border-b p-4">
               <DialogTitle>{t('table:table.tableRecordHistory')}</DialogTitle>
             </DialogHeader>

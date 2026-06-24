@@ -32,6 +32,7 @@ export const GetCommentDetailRoute: RouteConfig = registerRoute({
     params: z.object({
       tableId: z.string(),
       recordId: z.string(),
+      commentId: z.string(),
     }),
   },
   responses: {

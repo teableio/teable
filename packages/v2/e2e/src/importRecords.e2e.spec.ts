@@ -9,6 +9,20 @@ describe('v2 http importRecords (e2e)', () => {
     ctx = await getSharedTestContext();
   });
 
+  const expectSingleLookupValue = (value: unknown, expected: string) => {
+    if (Array.isArray(value)) {
+      expect(value).toEqual([expected]);
+      return;
+    }
+    expect(value).toBe(expected);
+  };
+
+  const expectLinkTitles = (value: unknown, expectedTitles: string[]) => {
+    expect(Array.isArray(value)).toBe(true);
+    const actualTitles = (value as Array<{ title?: unknown }>).map((item) => item.title).sort();
+    expect(actualTitles).toEqual([...expectedTitles].sort());
+  };
+
   describe('basic import', () => {
     it('should import CSV records into a simple text table', async () => {
       // Create table with text fields
@@ -207,6 +221,106 @@ describe('v2 http importRecords (e2e)', () => {
       });
 
       expect(result.totalImported).toBe(150);
+    });
+
+    it('updates lookup values and reverse links when typecasting link titles across batches', async () => {
+      const sourceTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: 'ImportLinkLookupSource',
+        fields: [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'singleLineText', name: 'Status' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      const sourceNameFieldId = sourceTable.fields.find((f) => f.name === 'Name')!.id;
+      const sourceStatusFieldId = sourceTable.fields.find((f) => f.name === 'Status')!.id;
+
+      const sourceRecords = await ctx.createRecords(sourceTable.id, [
+        { fields: { [sourceNameFieldId]: 'Source A', [sourceStatusFieldId]: 'Status A' } },
+        { fields: { [sourceNameFieldId]: 'Source B', [sourceStatusFieldId]: 'Status B' } },
+      ]);
+      const sourceRecordByName = new Map(
+        sourceRecords.map((record) => [record.fields[sourceNameFieldId], record])
+      );
+
+      const targetTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: 'ImportLinkLookupTarget',
+        fields: [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            name: 'Source',
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: sourceTable.id,
+              lookupFieldId: sourceNameFieldId,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      const targetNameFieldId = targetTable.fields.find((f) => f.name === 'Name')!.id;
+      const targetLinkFieldId = targetTable.fields.find((f) => f.name === 'Source')!.id;
+
+      const tableWithLookup = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: targetTable.id,
+        field: {
+          type: 'lookup',
+          name: 'Source Status',
+          options: {
+            linkFieldId: targetLinkFieldId,
+            foreignTableId: sourceTable.id,
+            lookupFieldId: sourceStatusFieldId,
+          },
+        },
+      });
+      const lookupFieldId = tableWithLookup.fields.find((f) => f.name === 'Source Status')!.id;
+      const sourceTableWithSymmetricLink = await ctx.getTableById(sourceTable.id);
+      const symmetricLinkFieldId = sourceTableWithSymmetricLink.fields.find(
+        (field) =>
+          field.type === 'link' &&
+          (field.options as { symmetricFieldId?: string }).symmetricFieldId === targetLinkFieldId
+      )?.id;
+      expect(symmetricLinkFieldId).toBeDefined();
+      if (!symmetricLinkFieldId) {
+        throw new Error('Missing symmetric link field');
+      }
+
+      const result = await ctx.importRecords({
+        tableId: targetTable.id,
+        fileType: 'csv',
+        sourceColumnMap: {
+          [targetNameFieldId]: 0,
+          [targetLinkFieldId]: 1,
+        },
+        csvData: 'Name,Source\nImported 1,Source A\nImported 2,Source B',
+        options: {
+          typecast: true,
+          batchSize: 1,
+        },
+      });
+
+      expect(result.totalImported).toBe(2);
+      await ctx.drainOutbox();
+
+      const targetRecords = await ctx.listRecordsWithoutDrain(targetTable.id);
+      const targetByName = new Map(
+        targetRecords.map((record) => [record.fields[targetNameFieldId], record])
+      );
+      expectSingleLookupValue(targetByName.get('Imported 1')?.fields[lookupFieldId], 'Status A');
+      expectSingleLookupValue(targetByName.get('Imported 2')?.fields[lookupFieldId], 'Status B');
+
+      const sourceRecordsAfterImport = await ctx.listRecordsWithoutDrain(sourceTable.id);
+      const sourceByName = new Map(
+        sourceRecordsAfterImport.map((record) => [record.fields[sourceNameFieldId], record])
+      );
+      expectLinkTitles(sourceByName.get('Source A')?.fields[symmetricLinkFieldId], ['Imported 1']);
+      expectLinkTitles(sourceByName.get('Source B')?.fields[symmetricLinkFieldId], ['Imported 2']);
+      expect(sourceRecordByName.get('Source A')?.id).toBe(sourceByName.get('Source A')?.id);
+      expect(sourceRecordByName.get('Source B')?.id).toBe(sourceByName.get('Source B')?.id);
     });
   });
 

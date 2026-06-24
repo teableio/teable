@@ -32,7 +32,12 @@ describe('SelectionController', () => {
   let recordOpenApiV2Service: Mocked<
     Pick<
       RecordOpenApiV2Service,
-      'clearStream' | 'deleteByRangeStream' | 'duplicateByRangeStream' | 'pasteStream'
+      | 'clearStream'
+      | 'deleteByRangeStream'
+      | 'deleteRecordsByIds'
+      | 'duplicateByRangeStream'
+      | 'pasteStream'
+      | 'resolveRecordIdsBySelection'
     >
   >;
   let cls: { get: ReturnType<typeof vi.fn> };
@@ -93,8 +98,10 @@ describe('SelectionController', () => {
     recordOpenApiV2Service = {
       clearStream: vi.fn(),
       deleteByRangeStream: vi.fn(),
+      deleteRecordsByIds: vi.fn(),
       duplicateByRangeStream: vi.fn(),
       pasteStream: vi.fn(),
+      resolveRecordIdsBySelection: vi.fn(),
     };
     cls = {
       get: vi.fn(),

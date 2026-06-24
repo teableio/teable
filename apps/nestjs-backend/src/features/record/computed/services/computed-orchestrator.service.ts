@@ -3,11 +3,9 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { FieldType } from '@teable/core';
 import type { TableDomain, LastModifiedByFieldCore, LastModifiedTimeFieldCore } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { ClsService } from 'nestjs-cls';
 import { InjectDbProvider } from '../../../../db-provider/db.provider';
 import { IDbProvider } from '../../../../db-provider/db.provider.interface';
 import { DatabaseRouter } from '../../../../global/database-router.service';
-import type { IClsStore } from '../../../../types/cls';
 import { Timing } from '../../../../utils/timing';
 import type { ICellContext } from '../../../calculation/utils/changes';
 import { TableDomainQueryService } from '../../../table-domain/table-domain-query.service';
@@ -27,7 +25,6 @@ export class ComputedOrchestratorService {
     private readonly prismaService: PrismaService,
     private readonly databaseRouter: DatabaseRouter,
     private readonly tableDomainQueryService: TableDomainQueryService,
-    private readonly cls: ClsService<IClsStore>,
     @InjectDbProvider() private readonly dbProvider: IDbProvider
   ) {}
 
@@ -319,14 +316,15 @@ export class ComputedOrchestratorService {
    */
   async computeCellChangesForFieldsAfterCreate(
     sources: IFieldChangeSource[],
-    update: () => Promise<void>
+    update: () => Promise<void>,
+    options: { skipComputedEvaluation?: boolean } = {}
   ): Promise<{
     publishedOps: number;
     impact: Record<string, { fieldIds: string[]; recordIds: string[] }>;
   }> {
     await update();
 
-    if (this.cls.get('skipFieldComputation')) {
+    if (options.skipComputedEvaluation) {
       return { publishedOps: 0, impact: {} };
     }
 
