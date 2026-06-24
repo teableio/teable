@@ -340,6 +340,8 @@ describe('RecordOpenApiV2Service', () => {
       filterLinkCellCandidate
     );
     expect((query as ListTableRecordsQuery).selectedRecordIds).toEqual(selectedRecordIds);
+    expect((query as ListTableRecordsQuery).projection).toEqual([]);
+    expect((query as ListTableRecordsQuery).includeTotal).toBe(false);
     expect((query as ListTableRecordsQuery).viewId).toBe(viewId);
     expect((query as ListTableRecordsQuery).ignoreViewQuery).toBe(true);
     expect(getReadQuerySource).toHaveBeenCalledWith(`tbl${'c'.repeat(16)}`, {
@@ -351,6 +353,98 @@ describe('RecordOpenApiV2Service', () => {
       { id: 'rec1111111111111111', fields: {} },
       { id: 'rec2222222222222222', fields: {} },
     ]);
+  });
+
+  it('loads grouped query extra by default for grouped record reads', async () => {
+    const tableId = `tbl${'c'.repeat(16)}`;
+    const groupBy = [{ fieldId: statusFieldId, order: SortFunc.Asc }];
+    const extra = {
+      groupPoints: [{ type: 1, count: 2 }],
+      allGroupHeaderRefs: [],
+    };
+    getDocIdsByQuery.mockResolvedValueOnce({ extra });
+
+    const result = await service.getRecords(tableId, {
+      fieldKeyType: FieldKeyType.Id,
+      skip: 0,
+      take: 2,
+      groupBy,
+    });
+
+    expect(getDocIdsByQuery).toHaveBeenCalledWith(
+      tableId,
+      expect.objectContaining({ groupBy }),
+      true
+    );
+    expect(result.extra).toEqual(extra);
+  });
+
+  it('skips grouped query extra when includeQueryExtra is false', async () => {
+    const tableId = `tbl${'c'.repeat(16)}`;
+    const groupBy = [{ fieldId: statusFieldId, order: SortFunc.Asc }];
+
+    const result = await service.getRecords(tableId, {
+      fieldKeyType: FieldKeyType.Id,
+      skip: 0,
+      take: 2,
+      groupBy,
+      includeQueryExtra: false,
+    });
+
+    expect(getDocIdsByQuery).not.toHaveBeenCalled();
+    expect(result.extra).toBeUndefined();
+
+    const query = execute.mock.calls[0]?.[1];
+    expect(query).toBeInstanceOf(ListTableRecordsQuery);
+    expect((query as ListTableRecordsQuery).sort).toEqual(groupBy);
+    expect((query as ListTableRecordsQuery).groupBy).toEqual([statusFieldId]);
+  });
+
+  it('skips grouped query extra by default for projected record reads', async () => {
+    const tableId = `tbl${'c'.repeat(16)}`;
+    const groupBy = [{ fieldId: statusFieldId, order: SortFunc.Asc }];
+
+    const result = await service.getRecords(tableId, {
+      fieldKeyType: FieldKeyType.Id,
+      skip: 0,
+      take: 2,
+      groupBy,
+      projection: [statusFieldId, noteFieldId],
+    });
+
+    expect(getDocIdsByQuery).not.toHaveBeenCalled();
+    expect(result.extra).toBeUndefined();
+
+    const query = execute.mock.calls[0]?.[1];
+    expect(query).toBeInstanceOf(ListTableRecordsQuery);
+    expect((query as ListTableRecordsQuery).sort).toEqual(groupBy);
+    expect((query as ListTableRecordsQuery).groupBy).toEqual([statusFieldId]);
+  });
+
+  it('loads grouped query extra for projected record reads when explicitly requested', async () => {
+    const tableId = `tbl${'c'.repeat(16)}`;
+    const groupBy = [{ fieldId: statusFieldId, order: SortFunc.Asc }];
+    const extra = {
+      groupPoints: [{ type: 1, count: 2 }],
+      allGroupHeaderRefs: [],
+    };
+    getDocIdsByQuery.mockResolvedValueOnce({ extra });
+
+    const result = await service.getRecords(tableId, {
+      fieldKeyType: FieldKeyType.Id,
+      skip: 0,
+      take: 2,
+      groupBy,
+      projection: [statusFieldId, noteFieldId],
+      includeQueryExtra: true,
+    });
+
+    expect(getDocIdsByQuery).toHaveBeenCalledWith(
+      tableId,
+      expect.objectContaining({ groupBy, projection: [statusFieldId, noteFieldId] }),
+      true
+    );
+    expect(result.extra).toEqual(extra);
   });
 
   it('runs legacy snapshot compatibility reads against the table data client for BYODB tables', async () => {

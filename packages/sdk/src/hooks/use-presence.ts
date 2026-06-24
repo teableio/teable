@@ -60,10 +60,13 @@ export const useActionListener = <T extends IActionData>(
       return;
     }
 
+    // a batch may carry several entries of the same actionKey with different
+    // payloads (e.g. setRecord with distinct fieldIds), deliver every match
     const cb = (_id: string, res: T[]) => {
-      const result = res.find(({ actionKey }) => relevantProps.has(actionKey));
-      if (result) {
-        callback(result.actionKey, result.payload);
+      for (const result of res) {
+        if (relevantProps.has(result.actionKey)) {
+          callback(result.actionKey, result.payload);
+        }
       }
     };
 

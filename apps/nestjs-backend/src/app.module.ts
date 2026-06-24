@@ -10,10 +10,12 @@ import { ConfigModule } from './configs/config.module';
 import { AccessTokenModule } from './features/access-token/access-token.module';
 import { AggregationOpenApiModule } from './features/aggregation/open-api/aggregation-open-api.module';
 import { AiModule } from './features/ai/ai.module';
+import { AirtableImportModule } from './features/airtable-import/airtable-import.module';
 import { AttachmentsModule } from './features/attachments/attachments.module';
 import { AuthModule } from './features/auth/auth.module';
 import { BaseModule } from './features/base/base.module';
 import { BaseNodeModule } from './features/base-node/base-node.module';
+import { BaseShareModule } from './features/base-share/base-share.module';
 import { BuiltinAssetsInitModule } from './features/builtin-assets-init';
 import { CanaryModule } from './features/canary';
 import { ChatModule } from './features/chat/chat.module';
@@ -40,7 +42,6 @@ import { PluginPanelModule } from './features/plugin-panel/plugin-panel.module';
 import { SelectionModule } from './features/selection/selection.module';
 import { AdminOpenApiModule } from './features/setting/open-api/admin-open-api.module';
 import { SettingOpenApiModule } from './features/setting/open-api/setting-open-api.module';
-import { BaseShareModule } from './features/base-share/base-share.module';
 import { ShareModule } from './features/share/share.module';
 import { SpaceModule } from './features/space/space.module';
 import { TemplateOpenApiModule } from './features/template/template-open-api.module';
@@ -88,6 +89,7 @@ export const appModules = {
     NotificationModule,
     AccessTokenModule,
     ImportOpenApiModule,
+    AirtableImportModule,
     ExportOpenApiModule,
     PinModule,
     AdminOpenApiModule,
