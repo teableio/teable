@@ -1,4 +1,4 @@
-import { BadRequestException, Logger } from '@nestjs/common';
+import { BadRequestException, Logger, RequestTimeoutException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GlobalExceptionFilter } from './global-exception.filter';
 
@@ -67,9 +67,11 @@ describe('GlobalExceptionFilter', () => {
   const response: {
     status: ReturnType<typeof vi.fn>;
     json: ReturnType<typeof vi.fn>;
+    setHeader: ReturnType<typeof vi.fn>;
   } = {
     status: vi.fn(),
     json: vi.fn(),
+    setHeader: vi.fn(),
   };
   response.status.mockReturnValue(response);
 
@@ -111,6 +113,73 @@ describe('GlobalExceptionFilter', () => {
     expect(captureException).toHaveBeenCalledWith(exception, {
       mechanism: { handled: false, type: 'auto.function.nestjs.exception_captured' },
     });
+  });
+
+  it('captures unexpected exceptions with V2 attribution context', () => {
+    const cls = {
+      get: vi.fn((key: string) => {
+        const values = new Map<string, unknown>([
+          ['spaceId', spaceId],
+          ['useV2', true],
+          ['v2Reason', 'space_feature'],
+          ['v2Feature', 'deleteField'],
+        ]);
+        return values.get(key);
+      }),
+    };
+    const exception = new Error('delete failed');
+    const filter = new GlobalExceptionFilter(configService as never, cls as never);
+
+    filter.catch(exception, host as never);
+
+    expect(response.setHeader).toHaveBeenCalledWith('x-teable-v2', 'true');
+    expect(response.setHeader).toHaveBeenCalledWith('x-teable-v2-reason', 'space_feature');
+    expect(response.setHeader).toHaveBeenCalledWith('x-teable-v2-feature', 'deleteField');
+    expect(sentryScope.setTag).toHaveBeenCalledWith('teable.version', 'v2');
+    expect(sentryScope.setTag).toHaveBeenCalledWith('teable.v2.enabled', 'true');
+    expect(sentryScope.setTag).toHaveBeenCalledWith('teable.v2.reason', 'space_feature');
+    expect(sentryScope.setTag).toHaveBeenCalledWith('teable.v2.feature', 'deleteField');
+    expect(sentryScope.setTag).toHaveBeenCalledWith('teable.request.attribution', 'v2');
+    expect(activeSpan.setAttributes).toHaveBeenCalledWith(
+      expect.objectContaining({
+        'teable.request.attribution': 'v2',
+        'teable.v2.enabled': true,
+        'teable.v2.reason': 'space_feature',
+        'teable.v2.feature': 'deleteField',
+      })
+    );
+  });
+
+  it('logs V2 attribution for request timeout HTTP exceptions that are not captured', () => {
+    const loggerError = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    const cls = {
+      get: vi.fn((key: string) => {
+        const values = new Map<string, unknown>([
+          ['useV2', false],
+          ['v2Reason', 'disabled'],
+          ['v2Feature', 'deleteField'],
+        ]);
+        return values.get(key);
+      }),
+    };
+    const filter = new GlobalExceptionFilter(configService as never, cls as never);
+
+    filter.catch(new RequestTimeoutException('timeout'), host as never);
+
+    expect(withScope).not.toHaveBeenCalled();
+    expect(response.setHeader).toHaveBeenCalledWith('x-teable-v2', 'false');
+    expect(loggerError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: '/api/test',
+        v2: {
+          attribution: 'v1',
+          enabled: false,
+          reason: 'disabled',
+          feature: 'deleteField',
+        },
+      }),
+      expect.any(String)
+    );
   });
 
   it('does not capture expected Nest HTTP exceptions', () => {

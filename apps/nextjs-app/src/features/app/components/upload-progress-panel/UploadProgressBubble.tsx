@@ -79,9 +79,6 @@ export const UploadProgressBubble = ({
                   />
                 </svg>
               </div>
-              <span className="absolute text-[8px] font-medium text-muted-foreground">
-                {progress}
-              </span>
             </>
           ) : hasErrors ? (
             <AlertCircle className="size-5 text-destructive" />
@@ -92,6 +89,9 @@ export const UploadProgressBubble = ({
         <span className="text-[13px] font-medium text-foreground">
           {hasTasks ? statusText : t('upload.panelCompleted', { count: 0 })}
         </span>
+        {hasActiveUploads ? (
+          <span className="text-[12px] font-medium text-muted-foreground">{progress}%</span>
+        ) : null}
       </div>
       <div className="flex items-center gap-0.5">
         <button

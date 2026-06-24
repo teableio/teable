@@ -3,10 +3,11 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
+import type { RecordWritePluginExecution } from '../application/services/RecordWritePluginRunner';
 import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
-import { domainError, type DomainError } from '../domain/shared/DomainError';
+import { domainError, isDomainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import { RecordsBatchCreated } from '../domain/table/events/RecordsBatchCreated';
 import type { RecordValuesDTO } from '../domain/table/events/RecordFieldValuesDTO';
@@ -16,7 +17,12 @@ import { TableByIdSpec } from '../domain/table/specs/TableByIdSpec';
 import type { Table } from '../domain/table/Table';
 import * as EventBusPort from '../ports/EventBus';
 import type { IExecutionContext } from '../ports/ExecutionContext';
-import { RecordWriteOperationKind, type RecordWriteFieldValues } from '../ports/RecordWritePlugin';
+import {
+  RecordWriteOperationKind,
+  type RecordWriteFieldValues,
+  type RecordWriteImportAppendPayload,
+  type RecordWritePluginOrchestration,
+} from '../ports/RecordWritePlugin';
 import type {
   IImportParseResult,
   IImportProgress,
@@ -52,6 +58,13 @@ interface ImportStreamState {
   table: Table;
   events: IDomainEvent[];
   currentBatch: number;
+  operationId: string;
+  totalRecordCount: number;
+  totalChunkCount: number;
+  sourceType: string;
+  sourceColumnMap: SourceColumnMap;
+  maxRowCount?: number;
+  previousPluginExecution: RecordWritePluginExecution;
 }
 
 /**
@@ -148,28 +161,42 @@ export class ImportRecordsHandler
         }
         throw error;
       }
-      const pluginExecution = yield* await handler.recordWritePluginRunner.prepare({
-        kind: RecordWriteOperationKind.importAppend,
-        executionContext: context,
+      const operationId = `import-records:${tableId.toString()}`;
+      const totalChunkCount = collectedBatches.batches.length;
+      const operationPluginExecution = yield* await handler.preparePluginExecution(
+        context,
         table,
-        payload: {
+        {
           sourceType: source.type,
           sourceColumnMap,
-          recordsFieldValues: collectedBatches.batches.flat(),
+          recordsFieldValues: [],
           batchSize,
           typecast,
           recordCount: collectedBatches.totalCount,
           maxRowCount,
         },
-        isTransactionBound: false,
-      });
-      yield* await pluginExecution.guard();
+        {
+          mode: 'stream',
+          scope: 'operation',
+          operationId,
+          totalRecordCount: collectedBatches.totalCount,
+          totalChunkCount,
+        },
+        false
+      );
 
       // 5. Create streaming state
       const state: ImportStreamState = {
         table,
         events: [],
         currentBatch: 0,
+        operationId,
+        totalRecordCount: collectedBatches.totalCount,
+        totalChunkCount,
+        sourceType: source.type,
+        sourceColumnMap,
+        maxRowCount,
+        previousPluginExecution: operationPluginExecution,
       };
 
       // 6. Stream insert via insertManyStream
@@ -178,32 +205,40 @@ export class ImportRecordsHandler
       insertResult = yield* await handler.unitOfWork.withTransaction(
         context,
         async (transactionContext) => {
-          const recordBatches = handler.createRecordBatchesStream(
-            transactionContext,
-            state,
-            collectedBatches.batches,
-            typecast,
-            onProgress
-          );
-          const beforePersistResult = await pluginExecution.beforePersist(transactionContext);
-          if (beforePersistResult.isErr()) {
-            return err(beforePersistResult.error);
-          }
-          return handler.tableRecordRepository.insertManyStream(
-            transactionContext,
-            state.table,
-            recordBatches,
-            {
-              deferComputedUpdates: true,
-              onBatchInserted: (progress) => {
-                onProgress?.({
-                  phase: 'inserting',
-                  processedRows: progress.totalInserted,
-                  currentBatch: state.currentBatch,
-                });
-              },
+          try {
+            const recordBatches = handler.createRecordBatchesStream(
+              transactionContext,
+              state,
+              collectedBatches.batches,
+              typecast,
+              onProgress
+            );
+            return await handler.tableRecordRepository.insertManyStream(
+              transactionContext,
+              state.table,
+              recordBatches,
+              {
+                deferComputedUpdates: true,
+                enqueueDeferredComputedUpdates: true,
+                onBatchInserted: (progress) => {
+                  onProgress?.({
+                    phase: 'inserting',
+                    processedRows: progress.totalInserted,
+                    currentBatch: state.currentBatch,
+                  });
+                },
+              }
+            );
+          } catch (error) {
+            if (isDomainError(error)) {
+              return err(error);
             }
-          );
+            return err(
+              domainError.fromUnknown(error, {
+                code: 'import.insert_stream_failed',
+              })
+            );
+          }
         }
       );
 
@@ -217,10 +252,41 @@ export class ImportRecordsHandler
         processedRows: insertResult.totalInserted,
         currentBatch: state.currentBatch,
       });
-      await pluginExecution.afterCommit();
+      await state.previousPluginExecution.afterCommit();
 
       return ok(ImportRecordsResult.create(insertResult.totalInserted, state.events));
     });
+  }
+
+  private async preparePluginExecution(
+    context: IExecutionContext,
+    table: Table,
+    payload: RecordWriteImportAppendPayload,
+    orchestration: RecordWritePluginOrchestration,
+    isTransactionBound: boolean,
+    previousExecution?: RecordWritePluginExecution
+  ): Promise<Result<RecordWritePluginExecution, DomainError>> {
+    const pluginExecutionResult = await this.recordWritePluginRunner.prepare(
+      {
+        kind: RecordWriteOperationKind.importAppend,
+        executionContext: context,
+        table,
+        payload,
+        orchestration,
+        isTransactionBound,
+      },
+      previousExecution ? { previousExecution } : undefined
+    );
+    if (pluginExecutionResult.isErr()) {
+      return err(pluginExecutionResult.error);
+    }
+
+    const guardResult = await pluginExecutionResult.value.guard();
+    if (guardResult.isErr()) {
+      return err(guardResult.error);
+    }
+
+    return ok(pluginExecutionResult.value);
   }
 
   /**
@@ -235,10 +301,41 @@ export class ImportRecordsHandler
     onProgress?: (progress: IImportProgress) => void
   ): AsyncGenerator<ReadonlyArray<TableRecord>> {
     for (const batchFieldValues of fieldValueBatches) {
+      const chunkIndex = state.currentBatch;
       state.currentBatch++;
-      onProgress?.({ phase: 'inserting', processedRows: 0, currentBatch: state.currentBatch });
+      const currentBatch = state.currentBatch;
+      onProgress?.({ phase: 'inserting', processedRows: 0, currentBatch });
 
       if (batchFieldValues.length === 0) continue;
+
+      const pluginExecutionResult = await this.preparePluginExecution(
+        context,
+        state.table,
+        {
+          sourceType: state.sourceType,
+          sourceColumnMap: state.sourceColumnMap,
+          recordsFieldValues: batchFieldValues,
+          batchSize: batchFieldValues.length,
+          typecast,
+          recordCount: batchFieldValues.length,
+          maxRowCount: state.maxRowCount,
+        },
+        {
+          mode: 'stream',
+          scope: 'chunk',
+          operationId: state.operationId,
+          totalRecordCount: state.totalRecordCount,
+          totalChunkCount: state.totalChunkCount,
+          chunkIndex,
+        },
+        true,
+        state.previousPluginExecution
+      );
+      if (pluginExecutionResult.isErr()) {
+        throw pluginExecutionResult.error;
+      }
+      const pluginExecution = pluginExecutionResult.value;
+      state.previousPluginExecution = pluginExecution;
 
       // Handle side effects for this batch (discover new select options)
       if (typecast) {
@@ -292,8 +389,20 @@ export class ImportRecordsHandler
             tableId: state.table.id(),
             baseId: state.table.baseId(),
             records: eventRecords,
+            orchestration: {
+              operationId: state.operationId,
+              totalRecordCount: state.totalRecordCount,
+              totalChunkCount: state.totalChunkCount,
+              chunkIndex,
+              scope: 'chunk',
+            },
           })
         );
+      }
+
+      const beforePersistResult = await pluginExecution.beforePersist(context);
+      if (beforePersistResult.isErr()) {
+        throw beforePersistResult.error;
       }
 
       // Yield processed batch for insertion

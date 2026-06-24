@@ -7,6 +7,7 @@ import { RecordUpdated } from '../../domain/table/events/RecordUpdated';
 import { NoopAttachmentUrlSignerService } from '../../ports/defaults/NoopAttachmentUrlSignerService';
 import type { IEventHandler } from '../../ports/EventHandler';
 import type * as ExecutionContextPort from '../../ports/ExecutionContext';
+import type { RealtimeChange } from '../../ports/RealtimeChange';
 import { RealtimeDocId } from '../../ports/RealtimeDocId';
 import * as RealtimeEnginePort from '../../ports/RealtimeEngine';
 import { v2CoreTokens } from '../../ports/tokens';
@@ -43,6 +44,7 @@ export class RecordUpdatedRealtimeProjection implements IEventHandler<RecordUpda
       // For updates, only send UPDATE ops (not CREATE).
       // The record already exists in the client, so we should NOT call ensure()
       // which would broadcast a create op with empty fields and overwrite client data.
+      const batchedChanges: RealtimeChange[] = [];
       for (const change of event.changes) {
         const oldValue = change.oldValue;
         const newValue = yield* (
@@ -52,20 +54,21 @@ export class RecordUpdatedRealtimeProjection implements IEventHandler<RecordUpda
             oldValue
           )
         ).safeUnwrap();
-        yield* (
-          await realtimeEngine.applyChange(
-            context,
-            docId,
-            {
-              type: 'set',
-              path: ['fields', change.fieldId],
-              value: newValue,
-              ...(oldValue === undefined ? {} : { oldValue }),
-            },
-            { version: event.oldVersion }
-          )
-        ).safeUnwrap();
+        batchedChanges.push({
+          type: 'set',
+          path: ['fields', change.fieldId],
+          value: newValue,
+          ...(oldValue === undefined ? {} : { oldValue }),
+        });
       }
+
+      if (batchedChanges.length === 0) return ok(undefined);
+
+      yield* (
+        await realtimeEngine.applyChange(context, docId, batchedChanges, {
+          version: event.oldVersion,
+        })
+      ).safeUnwrap();
 
       return ok(undefined);
     });

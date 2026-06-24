@@ -286,6 +286,31 @@ export class AttachmentsService {
     return await this.notifyToAttachmentItem(token, filename);
   }
 
+  /**
+   * Streams an already-open file stream of a known size straight into
+   * storage — no temp file, works the same for local, S3 and MinIO backends.
+   */
+  async uploadFromStream(
+    stream: Readable,
+    params: { filename: string; contentType: string; contentLength: number },
+    uploadType: UploadType = UploadType.Table
+  ): Promise<IAttachmentItem> {
+    const MAX_FILE_SIZE = this.thresholdConfig.maxOpenapiAttachmentUploadSize;
+    const { filename, contentType, contentLength } = params;
+    if (contentLength > MAX_FILE_SIZE) {
+      this.throwFileSizeExceeded(MAX_FILE_SIZE);
+    }
+
+    const { token, url } = await this.signature({
+      type: uploadType,
+      contentLength,
+      contentType,
+      internal: true,
+    });
+    await this.uploadStreamToStorage(url, stream, contentType, contentLength);
+    return await this.notifyToAttachmentItem(token, filename);
+  }
+
   async uploadFromUrl(
     fileUrl: string,
     uploadType: UploadType = UploadType.Table
