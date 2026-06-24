@@ -21,6 +21,17 @@ import { v2CoreTokens } from '../../ports/tokens';
 import { tableFieldInputSchema } from '../../schemas/field';
 import { TraceSpan } from '../../ports/TraceSpan';
 
+type SnapshotRecordValues = NonNullable<UndoRedoFieldSnapshot['records']>;
+type SnapshotRecordValue = SnapshotRecordValues[number];
+type MutableSnapshotRecordValues = SnapshotRecordValue[];
+
+type SnapshotSource = {
+  readonly field: Field;
+  readonly fieldId: string;
+  readonly snapshotField: UndoRedoFieldSnapshot['field'];
+  readonly views: UndoRedoFieldSnapshot['views'];
+};
+
 const stripUndefinedDeep = (value: unknown): unknown => {
   if (Array.isArray(value)) {
     return value.map(stripUndefinedDeep);
@@ -40,6 +51,20 @@ const stripUndefinedDeep = (value: unknown): unknown => {
   return result;
 };
 
+// The persisted/realtime lookupOptions is enriched with derived data (relationship, and the
+// parent link field's physical metadata: fkHostTableName/selfKeyName/foreignKeyName, baseId,
+// filterByViewId, visibleFieldIds, isOneWay). The undo/redo snapshot must reduce it back to the
+// canonical create-field input accepted by `lookupOptionsSchema` (.strict()), so we keep only the
+// input keys rather than stripping a denylist that can drift as enrichment grows.
+const LOOKUP_INPUT_OPTION_KEYS = [
+  'linkFieldId',
+  'foreignTableId',
+  'lookupFieldId',
+  'filter',
+  'sort',
+  'limit',
+] as const;
+
 const normalizeLookupOptions = (
   options: Record<string, unknown> | undefined
 ): Record<string, unknown> | undefined => {
@@ -47,8 +72,13 @@ const normalizeLookupOptions = (
     return undefined;
   }
 
-  const { relationship: _relationship, ...rest } = options;
-  return rest;
+  const result: Record<string, unknown> = {};
+  for (const key of LOOKUP_INPUT_OPTION_KEYS) {
+    if (options[key] !== undefined) {
+      result[key] = options[key];
+    }
+  }
+  return result;
 };
 
 const toFieldSnapshotInput = (
@@ -162,37 +192,91 @@ export class FieldUndoRedoSnapshotService {
       includeRecords?: boolean;
     }
   ): Promise<Result<UndoRedoFieldSnapshot, DomainError>> {
+    const snapshotsResult = await this.captureMany(context, table, [fieldId], options);
+    return snapshotsResult.map((snapshots) => snapshots[0]!);
+  }
+
+  @TraceSpan()
+  async captureMany(
+    context: IExecutionContext,
+    table: Table,
+    fieldIds: ReadonlyArray<FieldId>,
+    options?: {
+      includeRecords?: boolean;
+    }
+  ): Promise<Result<ReadonlyArray<UndoRedoFieldSnapshot>, DomainError>> {
     const service = this;
-    return safeTry<UndoRedoFieldSnapshot, DomainError>(async function* () {
-      const field = yield* table.getField((candidate) => candidate.id().equals(fieldId));
+    return safeTry<ReadonlyArray<UndoRedoFieldSnapshot>, DomainError>(async function* () {
       const tableDto = yield* service.tableMapper.toDTO(table);
-      const fieldDto = tableDto.fields.find((candidate) => candidate.id === fieldId.toString());
-      if (!fieldDto) {
-        return err(domainError.notFound({ message: 'Field snapshot source not found' }));
+      const orderedFieldIdsByViewId = yield* service.captureOrderedFieldIdsByView(table);
+
+      const sources: SnapshotSource[] = [];
+      for (const fieldId of fieldIds) {
+        sources.push(
+          yield* service.buildSnapshotSource(table, tableDto, orderedFieldIdsByViewId, fieldId)
+        );
       }
 
-      const snapshotField = yield* toFieldSnapshotInput(field, fieldDto);
-      const orderedFieldIdsByViewId = yield* service.captureOrderedFieldIdsByView(table);
-      const views = tableDto.views.map((view) =>
-        service.toViewSnapshot(
+      const recordsByFieldId =
+        options?.includeRecords === false
+          ? new Map<string, SnapshotRecordValues | undefined>()
+          : yield* await service.captureRecordsForFields(
+              context,
+              table,
+              sources.map((source) => source.field)
+            );
+
+      return ok(
+        sources.map((source) => service.toSnapshot(source, recordsByFieldId.get(source.fieldId)))
+      );
+    });
+  }
+
+  private buildSnapshotSource(
+    table: Table,
+    tableDto: {
+      fields: ReadonlyArray<ITableFieldPersistenceDTO>;
+      views: ReadonlyArray<ITableViewPersistenceDTO>;
+    },
+    orderedFieldIdsByViewId: ReadonlyMap<string, ReadonlyArray<string>>,
+    fieldId: FieldId
+  ): Result<SnapshotSource, DomainError> {
+    const field = table.getField((candidate) => candidate.id().equals(fieldId));
+    if (field.isErr()) {
+      return err(field.error);
+    }
+
+    const fieldIdText = fieldId.toString();
+    const fieldDto = tableDto.fields.find((candidate) => candidate.id === fieldIdText);
+    if (!fieldDto) {
+      return err(domainError.notFound({ message: 'Field snapshot source not found' }));
+    }
+
+    return toFieldSnapshotInput(field.value, fieldDto).map((snapshotField) => ({
+      field: field.value,
+      fieldId: fieldIdText,
+      snapshotField,
+      views: tableDto.views.map((view) =>
+        this.toViewSnapshot(
           view,
-          fieldId.toString(),
+          fieldIdText,
           orderedFieldIdsByViewId.get(view.id) ??
             table.getFields().map((field) => field.id().toString())
         )
-      );
-      const records =
-        options?.includeRecords === false
-          ? undefined
-          : yield* await service.captureRecords(context, table, field);
+      ),
+    }));
+  }
 
-      return ok({
-        field: snapshotField,
-        hasError: field.hasError().toBoolean(),
-        views,
-        ...(records ? { records } : {}),
-      });
-    });
+  private toSnapshot(
+    source: SnapshotSource,
+    records: SnapshotRecordValues | undefined
+  ): UndoRedoFieldSnapshot {
+    return {
+      field: source.snapshotField,
+      hasError: source.field.hasError().toBoolean(),
+      views: source.views,
+      ...(records ? { records } : {}),
+    };
   }
 
   private toViewSnapshot(
@@ -279,6 +363,70 @@ export class FieldUndoRedoSnapshotService {
     }
 
     return ok(queryResult.value.records.map((row) => this.toRecordSnapshot(row, fieldId)));
+  }
+
+  private async captureRecordsForFields(
+    context: IExecutionContext,
+    table: Table,
+    fields: ReadonlyArray<Field>
+  ): Promise<Result<ReadonlyMap<string, SnapshotRecordValues | undefined>, DomainError>> {
+    const recordsByFieldId = new Map<string, SnapshotRecordValues | undefined>();
+    const storedFields = fields.filter((field) => !field.computed().toBoolean());
+
+    for (const field of fields) {
+      if (field.computed().toBoolean()) {
+        recordsByFieldId.set(field.id().toString(), undefined);
+      }
+    }
+
+    if (!storedFields.length) {
+      return ok(recordsByFieldId);
+    }
+
+    for (const field of storedFields) {
+      this.ensureFieldDbFieldName(field);
+    }
+
+    const queryResult = await this.tableRecordQueryRepository.find(context, table, undefined, {
+      mode: 'stored',
+      includeTotal: false,
+      projectionFieldIds: storedFields.map((field) => field.id()),
+    });
+    if (queryResult.isErr()) {
+      if (!this.isMissingColumnError(queryResult.error)) {
+        return err(queryResult.error);
+      }
+
+      if (storedFields.length === 1) {
+        recordsByFieldId.set(storedFields[0]!.id().toString(), []);
+        return ok(recordsByFieldId);
+      }
+
+      for (const field of storedFields) {
+        const fieldRecordsResult = await this.captureRecords(context, table, field);
+        if (fieldRecordsResult.isErr()) {
+          return err(fieldRecordsResult.error);
+        }
+        recordsByFieldId.set(field.id().toString(), fieldRecordsResult.value);
+      }
+      return ok(recordsByFieldId);
+    }
+
+    const storedFieldIds = storedFields.map((field) => field.id().toString());
+    const mutableRecordsByFieldId = new Map<string, MutableSnapshotRecordValues>();
+    for (const fieldId of storedFieldIds) {
+      const records: MutableSnapshotRecordValues = [];
+      mutableRecordsByFieldId.set(fieldId, records);
+      recordsByFieldId.set(fieldId, records);
+    }
+
+    for (const row of queryResult.value.records) {
+      for (const fieldId of storedFieldIds) {
+        mutableRecordsByFieldId.get(fieldId)!.push(this.toRecordSnapshot(row, fieldId));
+      }
+    }
+
+    return ok(recordsByFieldId);
   }
 
   private toRecordSnapshot(

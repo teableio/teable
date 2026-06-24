@@ -1,9 +1,10 @@
-import type { IRecord } from '@teable/core';
+import type { IRecord, ISearchHitIndex } from '@teable/core';
+import { computeSearchHitIndex } from '@teable/core';
 import type { IGetRecordsRo, IGroupHeaderRef, IGroupPointsVo } from '@teable/openapi';
-import { inRange, debounce, get } from 'lodash';
+import { inRange, debounce } from 'lodash';
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import type { IGridProps, IRectangle } from '../..';
-import { useSearch } from '../../../hooks';
+import { useFields, useSearch, useView } from '../../../hooks';
 import { useRecords } from '../../../hooks/use-records';
 import type { Record as IRecordInstance } from '../../../model';
 
@@ -14,7 +15,7 @@ const defaultVisiblePages = { x: 0, y: 0, width: 0, height: 0 };
 type IRes = {
   allGroupHeaderRefs: IGroupHeaderRef[];
   groupPoints: IGroupPointsVo | null;
-  searchHitIndex?: { fieldId: string; recordId: string }[];
+  searchHitIndex?: ISearchHitIndex;
   recordMap: IRecordIndexMap;
   onReset: () => void;
   onForceUpdate: () => void;
@@ -23,57 +24,6 @@ type IRes = {
 };
 
 export type IRecordIndexMap = { [i: number | string]: IRecordInstance };
-
-export type IRecordSearchHitIndexItem = { recordId: string; fieldId: string[] };
-export type IRecordSearchHitIndex = IRecordSearchHitIndexItem[];
-export type IRecordSearchHitIndexMap = Record<string | number, IRecordSearchHitIndexItem>;
-export type ISearchHits = {
-  recordId: string;
-  fieldId: string;
-}[];
-
-const getRecordSearchHitIndex = (extra: unknown) => {
-  const searchHitIndex = get(extra, 'searchHitIndex') as ISearchHits | undefined;
-  if (!searchHitIndex || !searchHitIndex.length) {
-    return [] as IRecordSearchHitIndex;
-  }
-
-  const groupedIndexes = [] as IRecordSearchHitIndex;
-  searchHitIndex.forEach((item) => {
-    const index = groupedIndexes.findIndex((group) => group.recordId === item.recordId);
-    if (index > -1) {
-      groupedIndexes[index] = {
-        recordId: item.recordId,
-        fieldId: [...groupedIndexes[index].fieldId, item.fieldId],
-      };
-    } else {
-      groupedIndexes.push({
-        recordId: item.recordId,
-        fieldId: [item.fieldId],
-      });
-    }
-  });
-  return groupedIndexes;
-};
-
-const getRecordSearchHitIndexMap = (extra: unknown) => {
-  const groupedSearchHitIndex = getRecordSearchHitIndex(extra);
-  return groupedSearchHitIndex.reduce((acc, item, index) => {
-    acc[index] = item;
-    return acc;
-  }, {} as IRecordSearchHitIndexMap);
-};
-
-const getSearchHitIndexFromRecordMap = (
-  groupedSearchHitIndexMap: IRecordSearchHitIndexMap | undefined
-) => {
-  if (!groupedSearchHitIndexMap || Object.values(groupedSearchHitIndexMap).length === 0) {
-    return undefined;
-  }
-  return Object.values(groupedSearchHitIndexMap)
-    .filter((item) => !!item)
-    .flatMap((item) => item.fieldId.map((fieldId) => ({ fieldId, recordId: item.recordId })));
-};
 
 export const useGridAsyncRecords = (
   initRecords?: IRecord[],
@@ -90,8 +40,9 @@ export const useGridAsyncRecords = (
   const queryRef = useRef(query);
   queryRef.current = query;
 
-  const { searchQuery } = useSearch();
-  const [searchValue, searchFields] = searchQuery || [];
+  const view = useView();
+  const { searchQuery, hideNotMatchRow } = useSearch();
+  const fields = useFields();
   const { records, extra } = useRecords(recordsQuery, initRecords);
   const [loadedRecordMap, setLoadedRecordMap] = useState<IRecordIndexMap>(() =>
     records.reduce((acc, record, i) => {
@@ -100,15 +51,10 @@ export const useGridAsyncRecords = (
     }, {} as IRecordIndexMap)
   );
 
-  const [loadedRecordSearchHitMap, setLoadedRecordSearchHitMap] = useState<
-    IRecordSearchHitIndexMap | undefined
-  >(() => {
-    return getRecordSearchHitIndexMap(extra);
-  });
-
-  const loadedSearchHitIndex = useMemo<ISearchHits | undefined>(() => {
-    return getSearchHitIndexFromRecordMap(loadedRecordSearchHitMap);
-  }, [loadedRecordSearchHitMap]);
+  const searchHitIndex = useMemo<ISearchHitIndex | undefined>(
+    () => computeSearchHitIndex(Object.values(loadedRecordMap), fields, searchQuery),
+    [loadedRecordMap, fields, searchQuery]
+  );
 
   const [groupPoints, setGroupPoints] = useState<IGroupPointsVo>(
     () =>
@@ -124,14 +70,36 @@ export const useGridAsyncRecords = (
       }),
     [initQuery, outerQuery]
   );
+  // on a shared (non-personal) view the server resolves filter/sort (and
+  // row-hiding search) through viewId, so they redefine the result set without
+  // appearing in initQuery/outerQuery: the subscription stays alive and the
+  // server pushes nothing when the new result set equals the old one. For those
+  // changes the cache must keep the current page (still correct in that case)
+  // and only drop the entries retained from the previous result set. Group and
+  // personal-view changes also flow through outerQuery — the scope wipe handles
+  // them and takes precedence in the combined effect below.
+  const viewQueryScopeKey = useMemo(
+    () =>
+      JSON.stringify({
+        viewId: view?.id,
+        filter: view?.filter,
+        sort: view?.sort,
+        group: view?.group,
+        search: hideNotMatchRow ? searchQuery : null,
+      }),
+    [view, hideNotMatchRow, searchQuery]
+  );
   const [visiblePages, setVisiblePages] = useState<IRectangle>(defaultVisiblePages);
   const visiblePagesRef = useRef(visiblePages);
   visiblePagesRef.current = visiblePages;
   const previousRecordsScopeKeyRef = useRef(recordsScopeKey);
+  const previousViewQueryScopeKeyRef = useRef(viewQueryScopeKey);
+  const lastMergedSkipRef = useRef(0);
 
   const onForceUpdate = useCallback(() => {
     const startIndex = queryRef.current.skip ?? 0;
     const take = queryRef.current.take ?? LOAD_PAGE_SIZE;
+    lastMergedSkipRef.current = startIndex;
     setLoadedRecordMap((preLoadedRecords) => {
       const cacheLen = take * 2;
       const [cacheStartIndex, cacheEndIndex] = [
@@ -155,37 +123,6 @@ export const useGridAsyncRecords = (
       return newRecordsState;
     });
 
-    if (get(extra, 'searchHitIndex')) {
-      setLoadedRecordSearchHitMap((preLoadedRecords) => {
-        if (!preLoadedRecords || Object.values(preLoadedRecords).length === 0) {
-          return getRecordSearchHitIndexMap(extra);
-        }
-
-        const indexes = getRecordSearchHitIndex(extra);
-        const cacheLen = take * 2;
-        const [cacheStartIndex, cacheEndIndex] = [
-          Math.max(startIndex - cacheLen / 2, 0),
-          startIndex + indexes.length + cacheLen / 2,
-        ];
-
-        const newRecordsState: Record<string, IRecordSearchHitIndex[number]> = {};
-        for (let i = cacheStartIndex; i < cacheEndIndex; i++) {
-          if (startIndex <= i && i < startIndex + indexes.length) {
-            const indexRecord = indexes[i - startIndex];
-            if (indexRecord !== undefined) {
-              newRecordsState[i] = indexRecord;
-            }
-            continue;
-          }
-          const cachedSearchHitRecord = preLoadedRecords[i];
-          if (cachedSearchHitRecord !== undefined) {
-            newRecordsState[i] = cachedSearchHitRecord;
-          }
-        }
-        return newRecordsState;
-      });
-    }
-
     if (extra != null) {
       setGroupPoints((extra as { groupPoints: IGroupPointsVo } | undefined)?.groupPoints ?? null);
     }
@@ -194,14 +131,35 @@ export const useGridAsyncRecords = (
   useEffect(() => onForceUpdate(), [onForceUpdate]);
 
   useEffect(() => {
-    if (previousRecordsScopeKeyRef.current === recordsScopeKey) return;
+    const recordsScopeChanged = previousRecordsScopeKeyRef.current !== recordsScopeKey;
+    const viewQueryScopeChanged = previousViewQueryScopeKeyRef.current !== viewQueryScopeKey;
     previousRecordsScopeKeyRef.current = recordsScopeKey;
+    previousViewQueryScopeKeyRef.current = viewQueryScopeKey;
 
-    setLoadedRecordMap({});
-    setLoadedRecordSearchHitMap(undefined);
-    setGroupPoints(null);
-    setVisiblePages(defaultVisiblePages);
-  }, [recordsScopeKey]);
+    // a scope change re-creates the subscription, which always delivers a fresh
+    // ready event — drop everything and show the loading state. This must win
+    // over the seed below: group and personal-view changes flip both keys at once
+    if (recordsScopeChanged) {
+      setLoadedRecordMap({});
+      setGroupPoints(null);
+      setVisiblePages(defaultVisiblePages);
+      return;
+    }
+
+    if (!viewQueryScopeChanged) return;
+
+    // view-query-only change: the subscription stays alive and the server pushes
+    // nothing when the new result set equals the old one — keep the current page
+    // (still correct in that case, diff events overwrite it otherwise) and only
+    // drop the entries retained from the previous result set
+    const startIndex = lastMergedSkipRef.current;
+    setLoadedRecordMap(() =>
+      records.reduce((acc, record, i) => {
+        acc[startIndex + i] = record;
+        return acc;
+      }, {} as IRecordIndexMap)
+    );
+  }, [recordsScopeKey, viewQueryScopeKey, records, extra]);
 
   useEffect(() => {
     const { y, height } = visiblePages;
@@ -251,13 +209,8 @@ export const useGridAsyncRecords = (
 
   const onReset = useCallback(() => {
     setLoadedRecordMap({});
-    setLoadedRecordSearchHitMap(undefined);
     setVisiblePages(defaultVisiblePages);
   }, []);
-
-  useEffect(() => {
-    setLoadedRecordSearchHitMap(undefined);
-  }, [searchFields, searchValue]);
 
   return {
     groupPoints,
@@ -268,6 +221,6 @@ export const useGridAsyncRecords = (
     recordsQuery,
     onForceUpdate,
     onReset,
-    searchHitIndex: loadedSearchHitIndex,
+    searchHitIndex,
   };
 };

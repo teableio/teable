@@ -3,11 +3,13 @@ import { PGlite } from '@electric-sql/pglite';
 import {
   ActorId,
   BaseId,
+  DbTableName,
   FieldName,
   RecordId,
   Table,
   TableId,
   TableName,
+  ViewId,
   ViewName,
 } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
@@ -256,5 +258,91 @@ describe('PostgresRecordOrderCalculator (pglite)', () => {
       expect(result.error.code).toBe('record.not_found');
       expect(result.error.tags).toContain('not-found');
     }
+  });
+
+  it('creates distinct order indexes for long table names and multiple views', async () => {
+    const seed = 'long-index';
+    const baseId = BaseId.create(createId('bse', seed))._unsafeUnwrap();
+    const tableId = TableId.create(createId('tbl', seed))._unsafeUnwrap();
+    const schemaName = baseId.toString();
+    const physicalTableName = `t${'26Nian_Qu_Yu_Shui_Wu_Jian_Cha_Qing_Kuan'.repeat(2)}`;
+    const fullTableName = `${schemaName}.${physicalTableName}`;
+    const firstViewId = ViewId.create(`viw${'a'.repeat(16)}`)._unsafeUnwrap();
+    const secondViewId = ViewId.create(`viw${'b'.repeat(16)}`)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withBaseId(baseId)
+      .withId(tableId)
+      .withName(TableName.create('Long physical table')._unsafeUnwrap())
+      .withDbTableName(DbTableName.rehydrate(fullTableName)._unsafeUnwrap());
+    builder.field().singleLineText().withName(FieldName.create('Name')._unsafeUnwrap()).done();
+    builder
+      .view()
+      .grid()
+      .withId(firstViewId)
+      .withName(ViewName.create('Grid A')._unsafeUnwrap())
+      .done();
+    builder
+      .view()
+      .grid()
+      .withId(secondViewId)
+      .withName(ViewName.create('Grid B')._unsafeUnwrap())
+      .done();
+    const table = builder.build()._unsafeUnwrap();
+
+    await sql`CREATE SCHEMA ${sql.id(schemaName)}`.execute(db);
+    createdSchemas.push(schemaName);
+    await sql`
+      CREATE TABLE ${sql.table(fullTableName)} (
+        __id text PRIMARY KEY,
+        __auto_number integer NOT NULL
+      )
+    `.execute(db);
+
+    const recordIds = [
+      RecordId.create(createId('rec', `${seed}-a`))._unsafeUnwrap(),
+      RecordId.create(createId('rec', `${seed}-b`))._unsafeUnwrap(),
+    ];
+    for (let i = 0; i < recordIds.length; i++) {
+      await sql`
+        INSERT INTO ${sql.table(fullTableName)} (__id, __auto_number)
+        VALUES (${recordIds[i]!.toString()}, ${i + 1})
+      `.execute(db);
+    }
+
+    const calculator = new PostgresRecordOrderCalculator(db);
+    const context = { actorId: ActorId.create('tester')._unsafeUnwrap() };
+
+    const firstResult = await calculator.calculateOrders(
+      context,
+      table,
+      firstViewId,
+      recordIds[0]!,
+      'after',
+      1
+    );
+    expect(firstResult.isOk()).toBe(true);
+
+    const secondResult = await calculator.calculateOrders(
+      context,
+      table,
+      secondViewId,
+      recordIds[0]!,
+      'after',
+      1
+    );
+    expect(secondResult.isOk()).toBe(true);
+
+    const indexRows = await sql<{ indexname: string }>`
+      SELECT indexname
+      FROM pg_indexes
+      WHERE schemaname = ${schemaName}
+        AND tablename = ${physicalTableName}
+        AND indexname LIKE 'idx_%'
+      ORDER BY indexname ASC
+    `.execute(db);
+    expect(indexRows.rows).toHaveLength(2);
+    expect(new Set(indexRows.rows.map((row) => row.indexname)).size).toBe(2);
+    expect(indexRows.rows.every((row) => row.indexname.length <= 63)).toBe(true);
   });
 });

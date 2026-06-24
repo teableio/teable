@@ -461,6 +461,21 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
     expect(compiled.sql.toLowerCase()).toContain('"t"."col_due" <');
     expect(compiled.sql.toLowerCase()).not.toContain('to_char(');
   });
+
+  it('compiles multiple-select searches to a text-cast ILIKE (gin_trgm-sargable) instead of a jsonb_array_elements subquery', async () => {
+    const fixture = await setupSearchFixture({ db, createdSchemas, seed: 'multi-select-sql' });
+
+    const compiled = compileSearchQuery({
+      db,
+      table: fixture.table,
+      fullTableName: fixture.fullTableName,
+      search: RecordSearch.fromTuple(['Beta', fixture.fieldIds.tags.toString(), true]),
+    });
+
+    const lower = compiled.sql.toLowerCase();
+    expect(lower).toContain('::text ilike');
+    expect(lower).not.toContain('jsonb_array_elements');
+  });
   it('does not filter rows for checkbox field-specific visible-row search', async () => {
     const fixture = await setupSearchFixture({ db, createdSchemas, seed: 'checkbox' });
 

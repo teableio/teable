@@ -3,7 +3,11 @@ import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 import type { IGetRecordHistoryQuery, IRecordHistoryVo } from './get-record-history';
-import { recordHistoryVoSchema } from './get-record-history';
+import {
+  getRecordHistoryQuerySchema,
+  recordHistoryVoSchema,
+  serializeRecordHistoryQuery,
+} from './get-record-history';
 
 export const GET_RECORD_LIST_HISTORY_URL = '/table/{tableId}/record/history';
 
@@ -17,6 +21,7 @@ export const GetRecordListHistoryRoute: RouteConfig = registerRoute({
     params: z.object({
       tableId: z.string(),
     }),
+    query: getRecordHistoryQuerySchema,
   },
   responses: {
     200: {
@@ -36,6 +41,6 @@ export const getRecordListHistory = async (tableId: string, query: IGetRecordHis
     urlBuilder(GET_RECORD_LIST_HISTORY_URL, {
       tableId,
     }),
-    { params: query }
+    { params: query, paramsSerializer: serializeRecordHistoryQuery }
   );
 };

@@ -1,5 +1,6 @@
 export { default as A } from './components/A';
 export { default as Admin } from './components/Admin';
+export { default as Airtable } from './components/Airtable';
 export { default as ActionAI } from './components/ActionAI';
 export { default as ActionCreateRecord } from './components/ActionCreateRecord';
 export { default as ActionGetRecord } from './components/ActionGetRecord';
@@ -218,6 +219,7 @@ export { default as Video } from './components/Video';
 export { default as Webhook } from './components/Webhook';
 export { default as WorkflowLogic } from './components/WorkflowLogic';
 export { default as X } from './components/X';
+export { default as XFilled } from './components/XFilled';
 export { default as Xai } from './components/Xai';
 export { default as Zap } from './components/Zap';
 export { default as Zapier } from './components/Zapier';

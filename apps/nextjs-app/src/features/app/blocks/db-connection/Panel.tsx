@@ -11,6 +11,7 @@ import { CopyButton } from '../../components/CopyButton';
 import { useBaseUsage } from '../../hooks/useBaseUsage';
 import { useIsCloud } from '../../hooks/useIsCloud';
 import { useIsCommunity } from '../../hooks/useIsCommunity';
+import { getDbConnectionCreateErrorI18nKey } from './db-connection-errors';
 import { useDbConnection } from './hooks';
 
 export const DbConnectionPanel = ({ className }: { className?: string }) => {
@@ -33,6 +34,12 @@ export const DbConnectionPanel = ({ className }: { className?: string }) => {
       if (!data.data) {
         toast.error(t('table:connection.createFailed'));
       }
+    },
+    onError: (error) => {
+      toast.error(t(getDbConnectionCreateErrorI18nKey(error)));
+    },
+    meta: {
+      preventGlobalError: true,
     },
   });
 
