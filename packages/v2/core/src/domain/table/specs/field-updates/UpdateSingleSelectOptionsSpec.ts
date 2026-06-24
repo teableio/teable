@@ -141,6 +141,7 @@ export class UpdateSingleSelectOptionsSpec<
       options: this.nextOptionsValue,
       defaultValue: field.defaultValue(),
       preventAutoNewOptions: field.preventAutoNewOptions(),
+      domainContext: this.domainContextValue,
     });
     if (updatedFieldResult.isErr()) return err(updatedFieldResult.error);
 

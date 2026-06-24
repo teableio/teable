@@ -3,6 +3,7 @@ import type { CommandExplain } from '../services/CommandExplain';
 import type { ComputedTaskControl } from '../services/ComputedTaskControl';
 import type { ComputedTaskInspector } from '../services/ComputedTaskInspector';
 import type { DatabaseConfig } from '../services/Database';
+import type { DataDbMigrationInspector } from '../services/DataDbMigrationInspector';
 import type { DebugData } from '../services/DebugData';
 import type { DotTeaImporter } from '../services/DotTeaImporter';
 import type { MockRecords } from '../services/MockRecords';
@@ -16,6 +17,7 @@ import { CommandExplainLive } from './CommandExplainLive';
 import { ComputedTaskControlLive } from './ComputedTaskControlLive';
 import { ComputedTaskInspectorLive } from './ComputedTaskInspectorLive';
 import { DatabaseLive, DatabaseConfigFromOption } from './DatabaseLive';
+import { DataDbMigrationInspectorLive } from './DataDbMigrationInspectorLive';
 import { DebugDataLive } from './DebugDataLive';
 import { DotTeaImporterLive } from './DotTeaImporterLive';
 import { MockRecordsLive } from './MockRecordsLive';
@@ -68,6 +70,7 @@ export const FullLayer = (connectionString?: string) => {
     CommandExplainLive.pipe(Layer.provide(dbLayer)),
     ComputedTaskControlLive.pipe(Layer.provide(dbLayer)),
     ComputedTaskInspectorLive.pipe(Layer.provide(dbLayer)),
+    DataDbMigrationInspectorLive.pipe(Layer.provide(dbLayer)),
     MockRecordsLive.pipe(Layer.provide(dbLayer)),
     SchemaCheckerLive.pipe(Layer.provide(dbLayer)),
     SchemaOperationControlLive.pipe(Layer.provide(dbLayer)),
@@ -87,6 +90,7 @@ export type AppLayerType = Layer.Layer<
     CommandExplain['Type'] &
     ComputedTaskControl['Type'] &
     ComputedTaskInspector['Type'] &
+    DataDbMigrationInspector['Type'] &
     MockRecords['Type'] &
     SchemaChecker['Type'] &
     SchemaOperationControl['Type'] &

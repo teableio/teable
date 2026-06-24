@@ -326,6 +326,65 @@ describe('MemoryEventBus', () => {
 });
 
 describe('AsyncMemoryEventBus', () => {
+  it('defers default fire-and-forget dispatch by two timer turns', async () => {
+    const globalWithSchedulers = globalThis as {
+      setTimeout?: typeof setTimeout;
+      setImmediate?: typeof setImmediate;
+    };
+    const originalSetTimeout = globalWithSchedulers.setTimeout;
+    const originalSetImmediate = globalWithSchedulers.setImmediate;
+    const calls: string[] = [];
+    const timers: Array<() => void> = [];
+
+    globalWithSchedulers.setTimeout = ((handler: () => void) => {
+      calls.push('timeout');
+      timers.push(handler);
+      return 0 as unknown as ReturnType<typeof setTimeout>;
+    }) as typeof setTimeout;
+    globalWithSchedulers.setImmediate = ((handler: () => void) => {
+      calls.push('immediate');
+      handler();
+      return undefined as unknown as ReturnType<typeof setImmediate>;
+    }) as typeof setImmediate;
+
+    try {
+      class TimerDispatchEvent implements IDomainEvent {
+        readonly name = DomainEventName.tableCreated();
+        readonly occurredAt = OccurredAt.now();
+      }
+
+      let handled = false;
+      @ProjectionHandler(TimerDispatchEvent)
+      class TimerDispatchHandler implements IEventHandler<TimerDispatchEvent> {
+        async handle(
+          _context: IExecutionContext,
+          _event: TimerDispatchEvent
+        ): ReturnType<IEventHandler<TimerDispatchEvent>['handle']> {
+          handled = true;
+          return ok(undefined);
+        }
+      }
+      expect(TimerDispatchHandler).toBeDefined();
+
+      const bus = new AsyncMemoryEventBus(new MapResolver());
+      await bus.publish(createContext(), new TimerDispatchEvent());
+
+      expect(calls).toEqual(['timeout']);
+      expect(handled).toBe(false);
+
+      timers.shift()?.();
+      expect(calls).toEqual(['timeout', 'timeout']);
+      expect(handled).toBe(false);
+
+      timers.shift()?.();
+      await waitForPredicate(() => handled);
+      expect(handled).toBe(true);
+    } finally {
+      globalWithSchedulers.setTimeout = originalSetTimeout;
+      globalWithSchedulers.setImmediate = originalSetImmediate;
+    }
+  });
+
   it('publishes events without waiting for handlers', async () => {
     class PingEvent implements IDomainEvent {
       readonly name = DomainEventName.tableCreated();
@@ -363,6 +422,109 @@ describe('AsyncMemoryEventBus', () => {
     await tasks.shift()?.();
 
     expect(handled).toBe(1);
+  });
+
+  it('uses execution-context background scheduling for non-awaitable events', async () => {
+    class BackgroundScheduledEvent implements IDomainEvent {
+      readonly name = DomainEventName.tableCreated();
+      readonly occurredAt = OccurredAt.now();
+    }
+
+    let handled = false;
+
+    @EventHandler(BackgroundScheduledEvent)
+    class BackgroundScheduledHandler implements IEventHandler<BackgroundScheduledEvent> {
+      async handle(
+        _context: IExecutionContext,
+        _event: BackgroundScheduledEvent
+      ): ReturnType<IEventHandler<BackgroundScheduledEvent>['handle']> {
+        handled = true;
+        return ok(undefined);
+      }
+    }
+    expect(BackgroundScheduledHandler).toBeDefined();
+
+    const scheduledTasks: Array<() => Promise<void>> = [];
+    const backgroundTasks: Array<() => Promise<void> | void> = [];
+    const schedule: AsyncEventBusScheduler = (task) => {
+      scheduledTasks.push(task);
+    };
+
+    const resolver = new MapResolver();
+    const bus = new AsyncMemoryEventBus(resolver, { schedule });
+    const context: IExecutionContext = {
+      ...createContext(),
+      scheduleBackgroundTask: (task) => {
+        backgroundTasks.push(task);
+      },
+    };
+
+    const publishResult = await bus.publish(context, new BackgroundScheduledEvent());
+    publishResult._unsafeUnwrap();
+
+    expect(scheduledTasks).toHaveLength(0);
+    expect(backgroundTasks).toHaveLength(1);
+    expect(handled).toBe(false);
+
+    await backgroundTasks.shift()?.();
+
+    expect(handled).toBe(true);
+  });
+
+  it('keeps awaitable events on the event-bus scheduler', async () => {
+    class AwaitableEvent implements IDomainEvent {
+      readonly name = DomainEventName.fieldCreated();
+      readonly occurredAt = OccurredAt.now();
+    }
+
+    let handled = false;
+
+    @EventHandler(AwaitableEvent)
+    class AwaitableHandler implements IEventHandler<AwaitableEvent> {
+      async handle(
+        _context: IExecutionContext,
+        _event: AwaitableEvent
+      ): ReturnType<IEventHandler<AwaitableEvent>['handle']> {
+        handled = true;
+        return ok(undefined);
+      }
+    }
+    expect(AwaitableHandler).toBeDefined();
+
+    const scheduledTasks: Array<() => Promise<void>> = [];
+    const backgroundTasks: Array<() => Promise<void> | void> = [];
+    const schedule: AsyncEventBusScheduler = (task) => {
+      scheduledTasks.push(task);
+    };
+
+    const resolver = new MapResolver();
+    const bus = new AsyncMemoryEventBus(resolver, { schedule });
+    const context: IExecutionContext = {
+      ...createContext(),
+      scheduleBackgroundTask: (task) => {
+        backgroundTasks.push(task);
+      },
+    };
+
+    let publishResolved = false;
+    const publishPromise = bus.publish(context, new AwaitableEvent()).then((result) => {
+      publishResolved = true;
+      return result;
+    });
+
+    await Promise.resolve();
+
+    expect(scheduledTasks).toHaveLength(1);
+    expect(backgroundTasks).toHaveLength(0);
+    expect(handled).toBe(false);
+    expect(publishResolved).toBe(false);
+
+    await scheduledTasks.shift()?.();
+    const publishResult = await publishPromise;
+
+    publishResult._unsafeUnwrap();
+    expect(handled).toBe(true);
+    expect(publishResolved).toBe(true);
   });
 
   it('does not retain published events when recording is disabled', async () => {
@@ -466,33 +628,19 @@ describe('AsyncMemoryEventBus', () => {
       tasks.push(task);
     };
 
-    const duplicateTable = {
-      sourceTableId: 'tblSource',
-      duplicatedTableId: 'tblDuplicated',
-      includeRecords: true,
-    };
     const context: IExecutionContext = {
       ...createContext(),
-      duplicateTable,
+      undoRedo: { mode: 'normal' },
     };
     const bus = new AsyncMemoryEventBus(new MapResolver(), { schedule });
 
     await bus.publishMany(context, [new SnapshotEvent()]);
 
-    duplicateTable.includeRecords = false;
-    context.duplicateTable = {
-      sourceTableId: 'tblOther',
-      duplicatedTableId: 'tblOtherDuplicate',
-      includeRecords: false,
-    };
+    context.undoRedo = { mode: 'undo' };
 
     await tasks.shift()?.();
 
-    expect(handledContext?.duplicateTable).toEqual({
-      sourceTableId: 'tblSource',
-      duplicatedTableId: 'tblDuplicated',
-      includeRecords: true,
-    });
+    expect(handledContext?.undoRedo).toEqual({ mode: 'normal' });
   });
 
   it('dispatches consecutive projection handlers concurrently', async () => {

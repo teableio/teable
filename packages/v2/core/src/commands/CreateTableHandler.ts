@@ -3,6 +3,11 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
+import { FieldOperationPluginRunner } from '../application/services/FieldOperationPluginRunner';
+import {
+  collectFieldCreationAddSideEffects,
+  prepareFieldAddSideEffectPlugins,
+} from '../application/services/FieldOperationSideEffectPluginSupport';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { TableOperationPluginRunner } from '../application/services/TableOperationPluginRunner';
@@ -18,6 +23,7 @@ import type { Table } from '../domain/table/Table';
 import { NoopLogger } from '../ports/defaults/NoopLogger';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
+import { FieldOperationKind } from '../ports/FieldOperationPlugin';
 import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import { TableOperationKind } from '../ports/TableOperationPlugin';
@@ -69,6 +75,12 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
     private readonly tableOperationPluginRunner: TableOperationPluginRunner = new TableOperationPluginRunner(
       [],
       new NoopLogger()
+    ),
+    @inject(v2CoreTokens.fieldOperationPluginRunner)
+    private readonly fieldOperationPluginRunner: FieldOperationPluginRunner = new FieldOperationPluginRunner(
+      [],
+      new NoopLogger(),
+      new DefaultTableMapper()
     )
   ) {}
 
@@ -122,6 +134,23 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
             ).values(),
           ]
         : foreignTables;
+      const domainContext = ExecutionContextPort.getDomainContext(context);
+      const plannedSideEffects = yield* collectFieldCreationAddSideEffects(
+        table,
+        tableFields,
+        foreignTablesForSideEffects,
+        domainContext
+      );
+      const sideEffectPluginExecution = yield* await prepareFieldAddSideEffectPlugins({
+        runner: handler.fieldOperationPluginRunner,
+        executionContext: context,
+        sourceOperation: FieldOperationKind.create,
+        sourceTable: table,
+        foreignTables: foreignTablesForSideEffects,
+        domainContext,
+        sideEffects: plannedSideEffects,
+      });
+      yield* await sideEffectPluginExecution.guard();
       const persistedTable = yield* await handler.unitOfWork.withTransaction(
         context,
         async (metaTransactionContext) =>
@@ -156,12 +185,14 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
                 dataTransactionContext,
                 persistedTable
               );
+              yield* await sideEffectPluginExecution.beforePersist(dataTransactionContext);
               const sideEffectResult = yield* await handler.fieldCreationSideEffectService.execute(
                 dataTransactionContext,
                 {
                   table,
                   fields: tableFields,
                   foreignTables: foreignTablesForSideEffects,
+                  domainContext,
                 }
               );
               if (recordsFieldValues.length > 0) {
@@ -187,7 +218,8 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
                 yield* await handler.tableRecordRepository.insertMany(
                   dataTransactionContext,
                   persistedTable,
-                  records
+                  records,
+                  { allowPendingTableProvisionForComputedUpdates: true }
                 );
               }
               return ok({ sideEffectEvents: sideEffectResult.events });
@@ -227,6 +259,7 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
         ...dataResult.value.sideEffectEvents,
       ];
       yield* await handler.eventBus.publishMany(context, events);
+      await sideEffectPluginExecution.afterCommit();
       return ok(CreateTableResult.create(persistedTable, events));
     });
   }

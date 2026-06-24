@@ -229,6 +229,7 @@ export class TableSpecEventVisitor implements ITableSpecVisitor<void> {
               baseId: this.table.baseId(),
               viewId: update.viewId,
               fieldId: field.id(),
+              fieldInColumnMeta: true,
             })
           );
         }
