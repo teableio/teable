@@ -2,10 +2,7 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import {
-  buildOperationBatchMutation,
-  withBatchMutation,
-} from '../../commands/shared/batchMutationOrchestration';
+import { buildOperationBatchMutation } from '../../commands/shared/batchMutationOrchestration';
 import type { DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import { RecordCreated, isRecordCreatedEvent } from '../../domain/table/events/RecordCreated';
@@ -16,7 +13,7 @@ import type { RecordInsertOrder } from '../../domain/table/records/RecordInsertO
 import type { ICellValueSpec } from '../../domain/table/records/specs/values/ICellValueSpecVisitor';
 import type { TableRecord } from '../../domain/table/records/TableRecord';
 import type { Table } from '../../domain/table/Table';
-import type { IExecutionContext } from '../../ports/ExecutionContext';
+import type { IBatchMutationOrchestration, IExecutionContext } from '../../ports/ExecutionContext';
 import { RecordWriteOperationKind } from '../../ports/RecordWritePlugin';
 import { ITableRecordRepository } from '../../ports/TableRecordRepository';
 import type {
@@ -148,20 +145,20 @@ export class RecordBatchCreationService {
       }
 
       const batchMutation = buildOperationBatchMutation(context, records.length);
-      const contextWithBatchMutation = withBatchMutation(context, batchMutation);
 
-      yield* await pluginExecution.beforePersist(contextWithBatchMutation);
+      yield* await pluginExecution.beforePersist(context);
       const fillLinkTitleForeignTables = input.typecast
         ? yield* await service.foreignTableLoaderService.loadForLinkTitleFill(
-            contextWithBatchMutation,
+            context,
             mutateSpecs
           )
         : new Map();
       const mutationResult = yield* await service.tableRecordRepository.insertMany(
-        contextWithBatchMutation,
+        context,
         tableForCreate,
         records,
         {
+          orchestration: batchMutation,
           ...(input.order ? { order: input.order } : {}),
           ...(input.typecast ? { fillLinkTitles: true } : {}),
           ...(fillLinkTitleForeignTables.size > 0 ? { fillLinkTitleForeignTables } : {}),
@@ -281,7 +278,7 @@ export class RecordBatchCreationService {
     table: Table,
     mutationResult: BatchRecordMutationResult,
     rawEvents: ReadonlyArray<IDomainEvent>,
-    orchestration?: IExecutionContext['batchMutation']
+    orchestration?: IBatchMutationOrchestration
   ): ReadonlyArray<IDomainEvent> {
     const recordCreatedEvents: RecordCreated[] = [];
     const otherEvents: IDomainEvent[] = [];

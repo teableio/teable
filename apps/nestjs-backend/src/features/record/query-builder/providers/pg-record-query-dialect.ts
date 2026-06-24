@@ -294,17 +294,37 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
     return `(${selectionSql}->>'title')`;
   }
 
-  selectUserNameById(idRef: string): string {
-    return `(SELECT u.name FROM users u WHERE u.id = ${idRef})`;
+  private userSnapshotJson(snapshotRef: string): string {
+    const snapshotJson = `to_jsonb(${snapshotRef})`;
+    return `(CASE
+      WHEN ${snapshotRef} IS NULL THEN NULL::jsonb
+      WHEN jsonb_typeof(${snapshotJson}) = 'object' THEN ${snapshotJson}
+      WHEN jsonb_typeof(${snapshotJson}) = 'string' THEN jsonb_build_object('id', ${snapshotRef}, 'title', ${snapshotRef})
+      ELSE jsonb_build_object('id', ${snapshotRef}::text, 'title', ${snapshotRef}::text)
+    END)`;
   }
 
-  buildUserJsonObjectById(idRef: string): string {
-    return `(
-        SELECT jsonb_build_object('id', u.id, 'title', u.name, 'email', u.email) ||
-          CASE WHEN u.is_system = true THEN jsonb_build_object('isSystem', true) ELSE '{}'::jsonb END
-        FROM users u
-        WHERE u.id = ${idRef}
-      )`;
+  userTitleFromSnapshot(snapshotRef: string, idFallbackRef?: string): string {
+    const snapshotJson = this.userSnapshotJson(snapshotRef);
+    const fallback = idFallbackRef ?? `${snapshotJson}->>'id'`;
+    return `COALESCE(${snapshotJson}->>'title', ${snapshotJson}->>'name', ${fallback})`;
+  }
+
+  buildUserJsonObjectFromSnapshot(snapshotRef: string, idFallbackRef?: string): string {
+    const snapshotJson = this.userSnapshotJson(snapshotRef);
+    const fallback = idFallbackRef ?? `${snapshotJson}->>'id'`;
+    return `jsonb_strip_nulls(
+      CASE
+        WHEN ${snapshotJson} IS NULL AND ${idFallbackRef ? `${idFallbackRef} IS NULL` : 'TRUE'} THEN NULL::jsonb
+        ELSE COALESCE(
+          ${snapshotJson},
+          jsonb_build_object('id', ${fallback}, 'title', ${fallback})
+        ) || jsonb_build_object(
+          'id', COALESCE(${snapshotJson}->>'id', ${fallback}),
+          'title', COALESCE(${snapshotJson}->>'title', ${snapshotJson}->>'name', ${fallback})
+        )
+      END
+    )`;
   }
 
   flattenLookupCteValue(

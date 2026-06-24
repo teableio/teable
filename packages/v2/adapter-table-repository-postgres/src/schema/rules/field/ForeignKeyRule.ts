@@ -1,9 +1,10 @@
 import { domainError, type DomainError, type Field } from '@teable/v2-core';
+import { sql } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
-import { sql } from 'kysely';
 import { z } from 'zod';
 
+import { PostgresSchemaIntrospector } from '../context/PostgresSchemaIntrospector';
 import type { SchemaRuleContext } from '../context/SchemaRuleContext';
 import type {
   ISchemaRule,
@@ -19,7 +20,10 @@ import {
   withManualRepairFieldMeta,
   withManualRepairFormMeta,
 } from '../core/ManualRepairSchema';
-import { countOrphanForeignKeyRows } from '../helpers/ForeignKeyDiagnostics';
+import {
+  countOrphanForeignKeyRows,
+  foreignKeyExistsForColumnTarget,
+} from '../helpers/ForeignKeyDiagnostics';
 import {
   compressSql,
   createForeignKeyConstraintStatement,
@@ -148,7 +152,8 @@ export class ForeignKeyRule implements ISchemaRule {
       return ok(this.targetTable);
     }
 
-    const tableMetaExists = await ctx.introspector.tableExists('public', 'table_meta');
+    const metaIntrospector = new PostgresSchemaIntrospector(ctx.metaDb);
+    const tableMetaExists = await metaIntrospector.tableExists('public', 'table_meta');
     if (tableMetaExists.isErr()) {
       return err(tableMetaExists.error);
     }
@@ -163,7 +168,7 @@ export class ForeignKeyRule implements ISchemaRule {
         WHERE id = ${this.targetTableMetaId}
           AND deleted_time IS NULL
         LIMIT 1
-      `.execute(ctx.db);
+      `.execute(ctx.metaDb);
 
       const dbTableName = result.rows[0]?.db_table_name;
       if (!dbTableName) {
@@ -269,6 +274,19 @@ export class ForeignKeyRule implements ISchemaRule {
               },
             ],
           });
+        }
+
+        const equivalentFkExistsResult = await foreignKeyExistsForColumnTarget(
+          ctx.db,
+          self.getLocalTable(ctx),
+          self.columnName,
+          targetTable,
+          '__id'
+        );
+        const equivalentFkExists = yield* equivalentFkExistsResult;
+
+        if (equivalentFkExists) {
+          return ok({ valid: true });
         }
 
         const orphanCountResult = await countOrphanForeignKeyRows(

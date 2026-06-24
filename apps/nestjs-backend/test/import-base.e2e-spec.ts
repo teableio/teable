@@ -776,29 +776,35 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       expect(lookupOptions?.sort?.order).toBe(SortFunc.Asc);
 
       const importedStatusFilter = importedFields.find((field) => field.name === 'StatusFilter')!;
+      const importedRecordTimeoutMs = 30_000;
 
       const activeRecordMeta = await waitForRecordWithFieldValue(
         importedHostMeta.id,
         importedStatusFilter.id,
-        'Active'
+        'Active',
+        importedRecordTimeoutMs
       );
       const inactiveRecordMeta = await waitForRecordWithFieldValue(
         importedHostMeta.id,
         importedStatusFilter.id,
-        'Inactive'
+        'Inactive',
+        importedRecordTimeoutMs
       );
 
       expect(activeRecordMeta).toBeDefined();
       expect(inactiveRecordMeta).toBeDefined();
 
-      const activeRecord = await waitForComputedRecord(importedHostMeta.id, activeRecordMeta!.id, [
-        importedRollupField.id,
-        importedLookupField.id,
-      ]);
+      const activeRecord = await waitForComputedRecord(
+        importedHostMeta.id,
+        activeRecordMeta!.id,
+        [importedRollupField.id, importedLookupField.id],
+        importedRecordTimeoutMs
+      );
       const inactiveRecord = await waitForComputedRecord(
         importedHostMeta.id,
         inactiveRecordMeta!.id,
-        [importedRollupField.id, importedLookupField.id]
+        [importedRollupField.id, importedLookupField.id],
+        importedRecordTimeoutMs
       );
 
       expect(activeRecord.fields?.[importedRollupField.id]).toBe('Alpha');

@@ -1,12 +1,14 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { IDateFieldOptions, ITimeZoneString } from '@teable/core';
 import { TimeFormatting } from '@teable/core';
+import { XFilled } from '@teable/icons';
 import {
   Button,
   Calendar,
   cn,
   Input,
   Popover,
+  PopoverAnchor,
   PopoverContent,
   PopoverTrigger,
 } from '@teable/ui-lib';
@@ -400,9 +402,16 @@ export interface IDateRangePickerProps {
   onChange: (value: IDateRangeValue | null) => void;
   options?: IDateFieldOptions;
   className?: string;
+  placeholder?: string;
 }
 
-export function DateRangePicker({ value, onChange, options, className }: IDateRangePickerProps) {
+export function DateRangePicker({
+  value,
+  onChange,
+  options,
+  className,
+  placeholder,
+}: IDateRangePickerProps) {
   const { t } = useTranslation();
   const { lang = 'en' } = useContext(AppContext);
   const locale = LOCALE_MAP[lang] || enUS;
@@ -602,6 +611,20 @@ export function DateRangePicker({ value, onChange, options, className }: IDateRa
     setOpen(false);
   }, [fromDate, toDate, fromTime, toTime, hasTimeFormat, timeZone, onChange]);
 
+  const handleClear = useCallback(
+    (e?: React.SyntheticEvent) => {
+      e?.preventDefault();
+      e?.stopPropagation();
+      setFromDate(undefined);
+      setToDate(undefined);
+      setFromTime(START_DEFAULT_TIME);
+      setToTime(END_DEFAULT_TIME);
+      setSelectionPhase('start');
+      onChange(null);
+    },
+    [onChange]
+  );
+
   const isConfirmDisabled = !fromDate || !toDate || !isTimeRangeValid;
 
   const inputWidthClass = useMemo(() => {
@@ -610,23 +633,42 @@ export function DateRangePicker({ value, onChange, options, className }: IDateRa
     return 'w-44';
   }, [timeFormatting]);
 
-  const inputDisplayValue = displayValue || t('editor.date.rangePlaceholder');
+  const hasConfirmedValue = Boolean(value?.exactDate);
+  const inputDisplayValue = displayValue || placeholder || t('editor.date.rangePlaceholder');
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
-      <PopoverTrigger asChild>
-        <Input
-          value={inputDisplayValue}
-          readOnly
+      <PopoverAnchor asChild>
+        <div
           className={cn(
-            'cursor-pointer text-left',
+            'group flex h-8 items-center rounded-md border border-border bg-background px-2 py-1 text-sm transition-colors hover:border-primary/30 focus-within:border-primary dark:bg-[color-mix(in_oklab,white_5%,hsl(var(--background)))]',
             inputWidthClass,
             !displayValue && 'text-muted-foreground',
             className
           )}
-        />
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
+        >
+          <PopoverTrigger asChild>
+            <button type="button" className="min-w-0 flex-1 truncate text-left focus:outline-none">
+              {inputDisplayValue}
+            </button>
+          </PopoverTrigger>
+          {hasConfirmedValue && (
+            <XFilled
+              role="button"
+              tabIndex={0}
+              className="ml-1 hidden size-4 shrink-0 cursor-pointer text-muted-foreground hover:text-foreground focus:block group-hover:block"
+              onClick={handleClear}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  handleClear(e);
+                }
+              }}
+              aria-label={t('common.clear')}
+            />
+          )}
+        </div>
+      </PopoverAnchor>
+      <PopoverContent className="w-auto p-0" align="start" sideOffset={4}>
         <div className="flex flex-col">
           <div className="flex gap-2 p-2">
             <div className="flex flex-col">
@@ -669,15 +711,28 @@ export function DateRangePicker({ value, onChange, options, className }: IDateRa
           </div>
 
           <div className="flex items-center justify-between border-t px-3 py-2">
-            <span className="text-sm text-muted-foreground">
+            <span className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
               {!isTimeRangeValid ? (
                 <span className="text-destructive">{t('editor.date.invalidTimeRange')}</span>
               ) : (
                 <>
-                  {fromDate && (
-                    <span className="font-medium">{t('editor.date.rangeSelected')}: </span>
+                  <span className="min-w-0 truncate">
+                    {fromDate && (
+                      <span className="font-medium">{t('editor.date.rangeSelected')}: </span>
+                    )}
+                    {tempDisplayValue}
+                  </span>
+                  {hasConfirmedValue && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs font-normal text-muted-foreground"
+                      onClick={handleClear}
+                    >
+                      {t('common.clear')}
+                    </Button>
                   )}
-                  {tempDisplayValue}
                 </>
               )}
             </span>
