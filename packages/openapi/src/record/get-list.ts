@@ -182,6 +182,18 @@ export const contentQueryBaseSchema = queryBaseSchema.extend({
     example: 'qry_xxxxxxxx',
     description: 'When provided, other query parameters will be merged with the saved ones.',
   }),
+  includeQueryExtra: z
+    .string()
+    .or(z.boolean())
+    .transform((value: string | boolean) => {
+      if (typeof value === 'boolean') return value;
+      return value.toLowerCase() !== 'false';
+    })
+    .optional()
+    .meta({
+      description:
+        'Whether to include grouped query extra metadata such as group points. Defaults to true.',
+    }),
 });
 
 export const getRecordsRoSchema = getRecordQuerySchema.extend(contentQueryBaseSchema.shape).extend({

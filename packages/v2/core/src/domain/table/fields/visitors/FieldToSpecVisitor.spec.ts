@@ -382,6 +382,13 @@ describe('FieldToSpecVisitor', () => {
       expect(result.isOk()).toBe(true);
     });
 
+    it('converts currency-formatted string to number in typecast mode', () => {
+      const visitor = FieldToSpecVisitor.create('$123.00', true);
+      const result = field.accept(visitor);
+      expect(result.isOk()).toBe(true);
+      expect((result._unsafeUnwrap() as SetNumberValueSpec).value.toValue()).toBe(123);
+    });
+
     it('returns null for non-numeric string in typecast mode', () => {
       const visitor = FieldToSpecVisitor.create('abc', true);
       const result = field.accept(visitor);
