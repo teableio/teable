@@ -86,6 +86,51 @@ describe('DeleteSelectionProgressDialog', () => {
     expect(screen.getByText('rec3')).toBeVisible();
   });
 
+  it('T5256: keeps stream error details readable without duplicating the message', async () => {
+    const longMessage = `Delete selection by id stream failed: 403 {"message":"You don't have permission to delete records: recA,recB,recC"}`;
+
+    render(
+      <DeleteSelectionProgressDialog
+        open
+        mode="progress"
+        progress={{
+          id: 'progress',
+          phase: 'deleting',
+          batchIndex: -1,
+          totalCount: 2000,
+          deletedCount: 0,
+          batchDeletedCount: 0,
+        }}
+        summary={null}
+        errors={[
+          {
+            id: 'error',
+            phase: 'deleting',
+            batchIndex: -1,
+            totalCount: 2000,
+            deletedCount: 0,
+            recordIds: ['recA', 'recB', 'recC'],
+            message: longMessage,
+          },
+        ]}
+        status="error"
+        onOpenChange={() => undefined}
+      />
+    );
+
+    expect(screen.queryByText(longMessage)).not.toBeInTheDocument();
+
+    const trigger = screen
+      .getByText('table:table.actionTips.deleteStream.chunkFailureTitle')
+      .closest('button');
+    expect(trigger).not.toBeNull();
+
+    await userEvent.click(trigger!);
+
+    expect(screen.getByText(longMessage)).toBeVisible();
+    expect(screen.getByText('recA, recB, recC')).toBeVisible();
+  });
+
   it('stays dismissible when the request finishes with errors but without a summary', () => {
     render(
       <DeleteSelectionProgressDialog
@@ -126,7 +171,7 @@ describe('DeleteSelectionProgressDialog', () => {
         mode="progress"
         progress={{
           id: 'progress',
-          phase: 'finalizing',
+          phase: 'deleting',
           batchIndex: 4,
           totalCount: 1000,
           deletedCount: 1000,
@@ -153,6 +198,46 @@ describe('DeleteSelectionProgressDialog', () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByText('+200')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'common:actions.close' })).toBeInTheDocument();
+  });
+
+  it('T5281: auto-closes the completed success state', () => {
+    vi.useFakeTimers();
+    const onOpenChange = vi.fn();
+
+    render(
+      <DeleteSelectionProgressDialog
+        open
+        mode="progress"
+        progress={{
+          id: 'progress',
+          phase: 'deleting',
+          batchIndex: 4,
+          totalCount: 1000,
+          deletedCount: 1000,
+          batchDeletedCount: 200,
+        }}
+        summary={{
+          id: 'done',
+          totalCount: 1000,
+          deletedCount: 1000,
+          data: {
+            deletedCount: 1000,
+            deletedRecordIds: ['rec1'],
+          },
+        }}
+        errors={[]}
+        status="success"
+        onOpenChange={onOpenChange}
+      />
+    );
+
+    expect(screen.getAllByText('table:table.actionTips.deleteSuccessful')).not.toHaveLength(0);
+
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
   it('renders a confirmation state and triggers delete on confirm', async () => {

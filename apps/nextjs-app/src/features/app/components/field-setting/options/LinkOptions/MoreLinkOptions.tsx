@@ -163,6 +163,7 @@ export const MoreLinkOptions = (props: IMoreOptionsProps) => {
           onChange={onHiddenChange}
         >
           <Button
+            size="sm"
             variant={'outline'}
             className={cn('font-normal shrink-0 truncate text-sm ', {
               'bg-secondary hover:opacity-80 ': Boolean(visibleCount),
