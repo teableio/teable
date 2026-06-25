@@ -18,7 +18,13 @@ export type RecordValuesDTO = {
 };
 
 /** Source of record creation */
-export type RecordCreateSource = { type: 'user' } | { type: 'form'; formId: string };
+export type RecordCreateSource =
+  | { type: 'user' }
+  | { type: 'form'; formId: string }
+  | { type: 'tableDuplicate' };
+
+/** Audit source for record mutations whose product action differs from the base source. */
+export type RecordAuditSource = 'paste';
 
 /** Field change with old and new value (for update events) */
 export type RecordFieldChangeDTO = {

@@ -1,7 +1,7 @@
 import type { IFilter, IGroup, ISortItem, StatisticsFunc } from '@teable/core';
 import type {
   IAggregationField,
-  IQueryBaseRo,
+  IRowCountRo,
   IRawAggregationValue,
   IRawAggregations,
   IRawRowCountValue,
@@ -60,7 +60,7 @@ export interface IAggregationService {
    * @param queryRo - Query parameters for filtering
    * @returns Promise<IRawRowCountValue> - The row count result
    */
-  performRowCount(tableId: string, queryRo: IQueryBaseRo): Promise<IRawRowCountValue>;
+  performRowCount(tableId: string, queryRo: IRowCountRo): Promise<IRawRowCountValue>;
 
   /**
    * Get field data for a table

@@ -530,10 +530,9 @@ describe('DuplicateTableHandler', () => {
     expect(eventBus.published.some(isRecordCreatedEvent)).toBe(false);
     const batchCreatedEvent = eventBus.published.find(isRecordsBatchCreatedEvent);
     expect(batchCreatedEvent?.records).toHaveLength(2);
-    expect(eventBus.publishedContexts.at(-1)?.duplicateTable).toMatchObject({
-      sourceTableId,
-      duplicatedTableId: duplicated.table.id().toString(),
-      includeRecords: true,
+    expect(batchCreatedEvent?.source).toEqual({ type: 'tableDuplicate' });
+    expect(tableRecordRepository.lastOptions).toMatchObject({
+      allowPendingTableProvisionForComputedUpdates: true,
     });
 
     const duplicatedPrimaryFieldId = duplicated.fieldIdMap.get(primaryFieldId);

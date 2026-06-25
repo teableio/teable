@@ -15,13 +15,22 @@ export interface DuplicateBaseRecordInput {
   autoNumber?: number;
   createdTime?: string;
   createdBy?: string;
-  lastModifiedTime?: string;
-  lastModifiedBy?: string;
+  lastModifiedTime?: string | null;
+  lastModifiedBy?: string | null;
+}
+
+export type DuplicateBaseRecordReadPhase = 'insert' | 'linkRestore';
+
+export interface DuplicateBaseRecordReadOptions {
+  phase?: DuplicateBaseRecordReadPhase;
 }
 
 export interface DuplicateBaseSource {
   structure: NormalizedDotTeaStructure;
-  records(tableId: string): AsyncIterable<DuplicateBaseRecordInput>;
+  records(
+    tableId: string,
+    options?: DuplicateBaseRecordReadOptions
+  ): AsyncIterable<DuplicateBaseRecordInput>;
 }
 
 export interface DuplicateBaseProgressEvent {

@@ -37,6 +37,7 @@ import type {
   ITableRecordRepository,
   InsertManyStreamOptions,
   InsertManyStreamResult,
+  InsertOptions,
   RecordMutationResult,
 } from '../ports/TableRecordRepository';
 import type { ITableRepository, TableProvisionState } from '../ports/TableRepository';
@@ -176,6 +177,7 @@ class FakeTableSchemaRepository implements ITableSchemaRepository {
 class FakeTableRecordRepository implements ITableRecordRepository {
   inserted: TableRecord[] = [];
   lastContext: IExecutionContext | undefined;
+  lastInsertOptions: InsertOptions | undefined;
 
   async insert(context: IExecutionContext, _table: Table, record: TableRecord) {
     this.lastContext = context;
@@ -183,8 +185,14 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     return ok({} as RecordMutationResult);
   }
 
-  async insertMany(context: IExecutionContext, _table: Table, records: ReadonlyArray<TableRecord>) {
+  async insertMany(
+    context: IExecutionContext,
+    _table: Table,
+    records: ReadonlyArray<TableRecord>,
+    options?: InsertOptions
+  ) {
     this.lastContext = context;
+    this.lastInsertOptions = options;
     this.inserted.push(...records);
     return ok({} as BatchRecordMutationResult);
   }
@@ -447,6 +455,9 @@ describe('CreateTableHandler', () => {
 
     expect(recordRepository.inserted.length).toBe(2);
     expect(recordRepository.lastContext?.transaction?.kind).toBe('unitOfWorkTransaction');
+    expect(recordRepository.lastInsertOptions).toMatchObject({
+      allowPendingTableProvisionForComputedUpdates: true,
+    });
   });
 
   it('resolves formula dependencies and types', async () => {

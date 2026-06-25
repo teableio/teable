@@ -28,6 +28,8 @@ type PreparedTableDataSafetyOperationLimitState = {
 
 const tableNameLength = (context: TableOperationPluginContext): number => {
   switch (context.kind) {
+    case TableOperationKind.read:
+      return 0;
     case TableOperationKind.create:
     case TableOperationKind.duplicate:
     case TableOperationKind.importCsv:
@@ -52,8 +54,8 @@ export class TableDataSafetyLimitTableOperationPlugin
     private readonly limitComposer: TableDataSafetyLimitComposer
   ) {}
 
-  supports(_operation: TableOperationKind): boolean {
-    return true;
+  supports(operation: TableOperationKind): boolean {
+    return operation !== TableOperationKind.read;
   }
 
   async prepare(
@@ -82,6 +84,8 @@ export class TableDataSafetyLimitTableOperationPlugin
     if (nameResult.isErr()) return nameResult;
 
     switch (context.kind) {
+      case TableOperationKind.read:
+        return ok(undefined);
       case TableOperationKind.create: {
         const tableCountResult = await this.ensureTablesPerBaseLimit(
           context.executionContext,
@@ -298,18 +302,24 @@ export class TableDataSafetyLimitTableOperationPlugin
   ): Promise<Result<void, DomainError>> {
     const whereSpec = Table.specs(baseId).byBaseId().build();
     if (whereSpec.isErr()) return err(whereSpec.error);
-    const existingTablesResult = await this.tableRepository.find(context, whereSpec.value, {
-      state: 'active',
-    });
-    if (existingTablesResult.isErr()) return err(existingTablesResult.error);
+    const existingTableCountResult = this.tableRepository.count
+      ? await this.tableRepository.count(context, whereSpec.value, { state: 'active' })
+      : await (async () => {
+          const existingTablesResult = await this.tableRepository.find(context, whereSpec.value, {
+            state: 'active',
+          });
+          return existingTablesResult.map((tables) => tables.length);
+        })();
+    if (existingTableCountResult.isErr()) return err(existingTableCountResult.error);
+    const existingTableCount = existingTableCountResult.value;
 
     return ensureWithinTableDataSafetyLimit(
       'validation.limit.tables_per_base_max',
-      existingTablesResult.value.length + addedTableCount,
+      existingTableCount + addedTableCount,
       limits.tableSchema.maxTablesPerBase,
       {
         baseId: baseId.toString(),
-        currentTableCount: existingTablesResult.value.length,
+        currentTableCount: existingTableCount,
         addedTableCount,
       }
     );
