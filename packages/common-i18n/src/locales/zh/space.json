@@ -9,7 +9,8 @@
   "action": {
     "createBase": "创建数据库",
     "createSpace": "创建空间",
-    "invite": "邀请"
+    "invite": "邀请",
+    "startFromScratch": "从零开始创建"
   },
   "allSpaces": "所有空间",
   "emptySpaceTitle": "此空间暂无数据库",
@@ -188,7 +189,7 @@
   },
   "baseList": {
     "allBases": "所有数据库",
-    "owner": "所有者",
+    "creator": "创建者",
     "createdTime": "创建时间",
     "lastOpened": "最近打开",
     "enter": "进入",
@@ -320,5 +321,67 @@
       "version": "版本",
       "classification": "分类"
     }
+  },
+  "airtableImport": {
+    "title": "从 Airtable 导入",
+    "close": "关闭",
+    "pickBase": "选择要导入的 base",
+    "noBases": "此令牌没有可访问的 base。",
+    "optionRecords": "导入记录数据",
+    "optionAttachments": "下载并导入附件",
+    "import": "开始导入",
+    "done": "导入完成",
+    "failed": "导入失败",
+    "openBase": "打开 base",
+    "issuesSummary": "导入过程中有 {{count}} 项做了调整：",
+    "issuesMore": "还有 {{count}} 项…",
+    "issue": {
+      "fieldDegraded": "{{tableName}} / {{fieldName}}：{{fromType}} → {{toType}}",
+      "fieldSkipped": "{{tableName}} / {{fieldName}}（{{fromType}}）已跳过：{{reason}}",
+      "viewSkipped": "{{tableName}} / 视图“{{viewName}}”（{{fromType}}）已跳过",
+      "valuesDropped": "{{tableName}} / {{fieldName}}：丢弃了 {{count}} 个值（{{reason}}）",
+      "viewConfigDegraded": "{{tableName}} / 视图「{{viewName}}」：{{reason}}"
+    },
+    "phase": {
+      "fetchingSchema": "正在读取 Airtable base 结构",
+      "creatingBase": "正在创建 base：{{detail}}",
+      "creatingTable": "正在创建表：{{tableName}}（{{tableIndex}}/{{totalTables}}）",
+      "creatingLinks": "正在创建关联字段",
+      "fillingLinks": "{{tableName}}（关联）",
+      "done": "导入完成",
+      "applyingViewConfig": "导入视图配置"
+    },
+    "searchBases": "搜索 base",
+    "noSearchResults": "没有匹配的 base。",
+    "detecting": "正在检查 Airtable 连接…",
+    "connectWithAirtable": "连接 Airtable 账号",
+    "waitingOAuth": "请在弹窗中完成授权…",
+    "connectedAs": "已连接：{{account}}",
+    "permission": {
+      "create": "创建者",
+      "edit": "可编辑",
+      "comment": "可评论",
+      "read": "只读"
+    },
+    "integrationRequired": "当前部署未配置 Airtable 集成，请联系管理员开启。",
+    "optionViewConfig": "导入视图的筛选、排序和分组",
+    "viewConfig": {
+      "help": "Airtable API 不提供视图配置，需通过只读共享链接获取。",
+      "helpStep1": "在 Airtable 打开该 base 的 Share 菜单",
+      "helpStep2": "选择「Share to web」并开启完整 base 访问",
+      "helpStep3": "复制只读共享链接，粘贴到上方输入框",
+      "linkPlaceholder": "在此粘贴共享链接",
+      "mismatch": "这个共享链接指向的 base 与所选的不一致。",
+      "disableReminder": "完成——现在可以回 Airtable 关闭刚才的共享链接了。"
+    }
+  },
+  "createBaseDialog": {
+    "title": "你想如何开始？"
+  },
+  "importBaseDialog": {
+    "title": "导入数据库",
+    "fromFile": "从文件导入",
+    "fromFileDesc": "上传 .tea 数据库文件",
+    "fromAirtableDesc": "连接 Airtable 账号导入 base"
   }
 }

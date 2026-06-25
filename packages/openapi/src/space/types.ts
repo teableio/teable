@@ -18,6 +18,7 @@ export const userCollaboratorItem = z.object({
   role: roleSchema,
   avatar: z.string().nullable(),
   createdTime: z.string(),
+  lastSignTime: z.string().nullable().optional(),
   type: z.literal(PrincipalType.User),
   resourceType: z.enum(CollaboratorType),
   isSystem: z.boolean().optional(),

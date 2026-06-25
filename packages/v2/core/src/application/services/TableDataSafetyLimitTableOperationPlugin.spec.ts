@@ -51,6 +51,8 @@ const createTable = (
 
 class FakeTableRepository implements ITableRepository {
   tables: Table[] = [];
+  findCalls = 0;
+  countCalls = 0;
 
   async insert(_context: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
     this.tables.push(table);
@@ -79,7 +81,16 @@ class FakeTableRepository implements ITableRepository {
     spec: ISpecification<Table, ITableSpecVisitor>,
     _options?: IFindOptions<TableSortKey>
   ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
+    this.findCalls += 1;
     return ok(this.tables.filter((table) => spec.isSatisfiedBy(table)));
+  }
+
+  async count(
+    _context: IExecutionContext,
+    spec: ISpecification<Table, ITableSpecVisitor>
+  ): Promise<Result<number, DomainError>> {
+    this.countCalls += 1;
+    return ok(this.tables.filter((table) => spec.isSatisfiedBy(table)).length);
   }
 
   async updateOne(): Promise<Result<void, DomainError>> {
@@ -402,6 +413,48 @@ describe('TableDataSafetyLimitTableOperationPlugin', () => {
 
     expect(result.isErr()).toBe(true);
     expect(result._unsafeUnwrapErr().code).toBe('validation.limit.fields_per_table_max');
+  });
+
+  it('counts existing tables without hydrating table aggregates', async () => {
+    const repository = new FakeTableRepository();
+    repository.tables.push(createTable('b', 'Existing'));
+
+    const result = await runPlugin(
+      createPlugin(repository),
+      createContext(TableOperationKind.create, {
+        baseId,
+        tableName: TableName.create('Create')._unsafeUnwrap(),
+        fieldCount: 1,
+        viewCount: 1,
+        recordCount: 0,
+        viewNames: ['View A'],
+      })
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(repository.countCalls).toBe(1);
+    expect(repository.findCalls).toBe(0);
+  });
+
+  it('falls back to find when the repository cannot count tables directly', async () => {
+    const repository = new FakeTableRepository();
+    Object.defineProperty(repository, 'count', { value: undefined });
+    repository.tables.push(createTable('b', 'Existing'));
+
+    const result = await runPlugin(
+      createPlugin(repository),
+      createContext(TableOperationKind.create, {
+        baseId,
+        tableName: TableName.create('Create')._unsafeUnwrap(),
+        fieldCount: 1,
+        viewCount: 1,
+        recordCount: 0,
+        viewNames: ['View A'],
+      })
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(repository.findCalls).toBe(1);
   });
 
   it('rejects create when a built field exceeds display text limits', async () => {

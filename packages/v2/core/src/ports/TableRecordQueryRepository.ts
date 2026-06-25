@@ -29,6 +29,13 @@ export type SystemOrderColumn =
   | '__last_modified_time'
   | `__row_${string}`;
 
+export interface IRecordReadQuerySource {
+  readonly tableName: string;
+  readonly cteName: string;
+  readonly cteSql: string;
+  readonly enabledFieldIds?: ReadonlyArray<string>;
+}
+
 export interface ITableRecordQueryOptions {
   /**
    * Query mode:
@@ -83,6 +90,11 @@ export interface ITableRecordQueryOptions {
    * through record-filter operators.
    */
   readonly search?: RecordQuerySearch;
+
+  /**
+   * Optional explicit read source used by permission-scoped record reads.
+   */
+  readonly recordReadQuerySource?: IRecordReadQuerySource;
 }
 
 /**
@@ -150,6 +162,11 @@ export interface ITableRecordQueryStreamOptions {
    * Optional v1-compatible search query used for visible-row semantics.
    */
   readonly search?: RecordQuerySearch;
+
+  /**
+   * Optional explicit read source used by permission-scoped record reads.
+   */
+  readonly recordReadQuerySource?: IRecordReadQuerySource;
 }
 
 /** Result type for paginated record queries */
@@ -190,7 +207,7 @@ export interface ITableRecordQueryRepository {
     context: IExecutionContext,
     table: Table,
     recordId: RecordId,
-    options?: Pick<ITableRecordQueryOptions, 'mode' | 'includeOrders'>
+    options?: Pick<ITableRecordQueryOptions, 'mode' | 'includeOrders' | 'recordReadQuerySource'>
   ): Promise<Result<TableRecordReadModel, DomainError>>;
 
   /**

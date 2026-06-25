@@ -94,6 +94,9 @@ const rangesEnvelope = (ranges: ReadonlyArray<readonly [number, number]>): [numb
 const cellRangeFromCells = (ranges: ReadonlyArray<readonly [number, number]>): IRange | null => {
   if (ranges.length < 2) return null;
   const [[c0, r0], [c1, r1]] = ranges;
+  // Reject non-finite bounds (e.g. -Infinity from a selection dragged above the
+  // grid) so skip/take stay valid and we never fire a degenerate aggregation.
+  if (![c0, r0, c1, r1].every(Number.isFinite)) return null;
   if ((c1 - c0 + 1) * (r1 - r0 + 1) < 2) return null;
   return [c0, r0, c1, r1] as const;
 };
@@ -543,7 +546,7 @@ const SelectionStatisticInner = (props: ISelectionStatisticProps) => {
           <TooltipContent
             side="top"
             sideOffset={8}
-            className="max-w-[260px] whitespace-normal text-xs leading-relaxed"
+            className="max-w-[400px] whitespace-normal text-xs leading-relaxed"
           >
             {t('sdk:selectionStatistic.tip')}
           </TooltipContent>

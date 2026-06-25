@@ -1,9 +1,10 @@
 import type { IViewVo, ISort, IColumnMetaRo, IFilter, IGroup, IColumnMeta } from '@teable/core';
-import { useEffect, useState } from 'react';
+import { useContext, useEffect, useMemo, useState } from 'react';
 import { useView } from '../../hooks/use-view';
 import type { IViewInstance } from '../../model/view/factory';
 import { createViewInstance } from '../../model/view/factory';
 import { ViewContext } from '../view/ViewContext';
+import { ShareViewContext } from './ShareViewContext';
 
 // Properties that don't need to be updated when view updates come from op
 const enableKey = ['filter', 'sort'];
@@ -42,7 +43,20 @@ export const getViewData = (view?: IViewInstance, initData?: IViewVo[]) => {
 export const ShareViewProxy = (props: IViewProxyProps) => {
   const { serverData, children } = props;
   const view = useView();
+  const shareView = useContext(ShareViewContext);
   const [viewData, setViewData] = useState<IViewVo>(getViewData(view, serverData));
+
+  // ShareViewContext.view is a load-time snapshot, but consumers (useRecords,
+  // aggregation providers) read the shared view's stored filter/sort from it;
+  // re-provide it from the subscribed view doc so owner edits propagate
+  const liveShareView = useMemo(() => {
+    const liveViewData = view?.['doc']?.data as IViewVo | undefined;
+    if (!shareView.shareId || !liveViewData || liveViewData.id !== shareView.view?.id) {
+      return shareView;
+    }
+    return { ...shareView, view: liveViewData };
+  }, [shareView, view]);
+
   const [proxyView, setProxyView] = useState<IProxyView | undefined>(() => {
     if (!viewData || !view?.id) return;
     return createViewInstance(viewData) as IProxyView;
@@ -105,8 +119,10 @@ export const ShareViewProxy = (props: IViewProxyProps) => {
   }, [viewData, view?.id]);
 
   return (
-    <ViewContext.Provider value={{ views: (proxyView ? [proxyView] : []) as IViewInstance[] }}>
-      {children}
-    </ViewContext.Provider>
+    <ShareViewContext.Provider value={liveShareView}>
+      <ViewContext.Provider value={{ views: (proxyView ? [proxyView] : []) as IViewInstance[] }}>
+        {children}
+      </ViewContext.Provider>
+    </ShareViewContext.Provider>
   );
 };
