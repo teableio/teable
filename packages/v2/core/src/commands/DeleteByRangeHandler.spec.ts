@@ -41,6 +41,7 @@ import type {
   RecordStoredSnapshot,
 } from '../ports/TableRecordRepository';
 import type { ITableRepository } from '../ports/TableRepository';
+import type { ISpan, ITracer, SpanAttributes } from '../ports/Tracer';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { DeleteByRangeCommand } from './DeleteByRangeCommand';
 import { DeleteByRangeHandler } from './DeleteByRangeHandler';
@@ -51,9 +52,33 @@ import {
 } from './recordWritePluginRunnerTestUtils';
 import { createNoopUndoRedoStackService } from './undoRedoStackServiceTestUtils';
 
-const createContext = (): IExecutionContext => {
+class FakeSpan implements ISpan {
+  end = () => undefined;
+  recordError = (_message: string) => undefined;
+  setAttribute = (_key: string, _value: string | number | boolean) => undefined;
+  setAttributes = (_attributes: SpanAttributes) => undefined;
+}
+
+class FakeTracer implements ITracer {
+  readonly spans: Array<{ name: string; attributes?: SpanAttributes }> = [];
+
+  startSpan(name: string, attributes?: SpanAttributes): ISpan {
+    this.spans.push({ name, attributes });
+    return new FakeSpan();
+  }
+
+  async withSpan<T>(_span: ISpan, callback: () => Promise<T>): Promise<T> {
+    return callback();
+  }
+
+  getActiveSpan(): ISpan | undefined {
+    return undefined;
+  }
+}
+
+const createContext = (tracer?: ITracer): IExecutionContext => {
   const actorId = ActorId.create('system')._unsafeUnwrap();
-  return { actorId, requestId: 'req-delete-direct-test' };
+  return { actorId, requestId: 'req-delete-direct-test', tracer };
 };
 
 const noopUndoRedoService = createNoopUndoRedoStackService();
@@ -272,18 +297,40 @@ class FakeUnitOfWork implements IUnitOfWork {
 class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
   records: TableRecordReadModel[] = [];
   total = 0;
+  findCalls: Array<{
+    spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>;
+    options?: ITableRecordQueryOptions;
+  }> = [];
 
   async find(
     _context: IExecutionContext,
     _table: Table,
-    _spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
+    spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
     options?: ITableRecordQueryOptions
   ): Promise<Result<ITableRecordQueryResult, DomainError>> {
+    this.findCalls.push({ spec, options });
+    const scopedRecords =
+      spec instanceof RecordByIdsSpec
+        ? this.records.filter((record) =>
+            spec.recordIds().some((recordId) => recordId.toString() === record.id)
+          )
+        : this.records;
+    const orderedRecords = options?.recordIdsOrder?.length
+      ? options.recordIdsOrder
+          .map((recordId) => scopedRecords.find((record) => record.id === recordId.toString()))
+          .filter((record): record is TableRecordReadModel => Boolean(record))
+      : scopedRecords;
     // Simulate pagination - OffsetPagination has methods that return value objects
     const offset = options?.pagination?.offset()?.toNumber() ?? 0;
-    const limit = options?.pagination?.limit()?.toNumber() ?? this.records.length;
-    const paginatedRecords = this.records.slice(offset, offset + limit);
-    return ok({ records: paginatedRecords, total: this.total || this.records.length });
+    const limit = options?.pagination?.limit()?.toNumber() ?? orderedRecords.length;
+    const paginatedRecords = orderedRecords.slice(offset, offset + limit);
+    return ok({
+      records: paginatedRecords,
+      total:
+        options?.includeTotal === false
+          ? paginatedRecords.length
+          : this.total || scopedRecords.length,
+    });
   }
 
   async findOne(
@@ -379,6 +426,13 @@ describe('DeleteByRangeHandler', () => {
       [textFieldId.toString()]: 'Record A',
     });
     expect(deletedEvent?.recordSnapshots[0].displayName).toBe('Record A');
+    expect(
+      queryRepository.findCalls[0].options?.projectionFieldIds?.map((id) => id.toString())
+    ).toEqual([textFieldId.toString()]);
+    expect(queryRepository.findCalls[0].options?.includeTotal).toBe(false);
+    expect(queryRepository.findCalls.some((call) => call.spec instanceof RecordByIdsSpec)).toBe(
+      false
+    );
   });
 
   it('skips plugins that do not support deleteMany', async () => {
@@ -458,6 +512,118 @@ describe('DeleteByRangeHandler', () => {
       totalRecordCount: 2,
       totalChunkCount: 1,
     });
+  });
+
+  it('validates delete plugin record scope with a narrow projection', async () => {
+    const { table, tableId, viewId, textFieldId, numberFieldId } = buildTable();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+
+    const queryRepository = new FakeTableRecordQueryRepository();
+    queryRepository.records = [
+      {
+        id: `rec${'a'.repeat(16)}`,
+        fields: { [textFieldId.toString()]: 'Record A', [numberFieldId.toString()]: 42 },
+        version: 1,
+      },
+      {
+        id: `rec${'b'.repeat(16)}`,
+        fields: { [textFieldId.toString()]: 'Record B', [numberFieldId.toString()]: 42 },
+        version: 1,
+      },
+    ];
+    queryRepository.total = 2;
+    const scopedValues: unknown[] = [];
+    const recordSpec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> = {
+      isSatisfiedBy(record) {
+        const value = record.fields().get(numberFieldId)?.toValue();
+        scopedValues.push(value);
+        return value === 42;
+      },
+      mutate(record) {
+        return ok(record);
+      },
+      accept() {
+        return ok(undefined);
+      },
+    };
+    const plugin = {
+      name: 'scoped-delete-plugin',
+      supports: (operation: RecordWriteOperationKind) =>
+        operation === RecordWriteOperationKind.deleteMany,
+      prepare: () => ok(undefined),
+      scope: () => ok({ recordSpec }),
+      guard: () => ok(undefined),
+      beforePersist: () => ok(undefined),
+      afterCommit: () => ok(undefined),
+    };
+
+    const handler = createHandler({
+      tableRepository,
+      queryRepository,
+      plugins: [plugin],
+    });
+
+    const command = DeleteByRangeCommand.create({
+      tableId: tableId.toString(),
+      viewId,
+      ranges: [[0, 1]],
+      type: 'rows',
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    result._unsafeUnwrap();
+
+    expect(
+      queryRepository.findCalls[0].options?.projectionFieldIds?.map((id) => id.toString())
+    ).toEqual([textFieldId.toString()]);
+    expect(queryRepository.findCalls[0].options?.includeTotal).toBe(false);
+    const scopeReadCall = queryRepository.findCalls.filter(
+      (call) => call.options?.includeTotal === false
+    )[1];
+    expect(scopeReadCall?.options?.projectionFieldIds?.map((id) => id.toString())).toEqual([
+      textFieldId.toString(),
+    ]);
+    expect(scopedValues).toEqual([]);
+  });
+
+  it('traces direct delete preparation, persistence, and finalization spans', async () => {
+    const { table, tableId, viewId } = buildTable();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+
+    const queryRepository = new FakeTableRecordQueryRepository();
+    queryRepository.records = [
+      { id: `rec${'a'.repeat(16)}`, fields: { title: 'Record A' }, version: 1 },
+      { id: `rec${'b'.repeat(16)}`, fields: { title: 'Record B' }, version: 1 },
+    ];
+    queryRepository.total = 2;
+    const tracer = new FakeTracer();
+
+    const handler = createHandler({
+      tableRepository,
+      queryRepository,
+    });
+
+    const command = DeleteByRangeCommand.create({
+      tableId: tableId.toString(),
+      viewId,
+      ranges: [[0, 1]],
+      type: 'rows',
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(tracer), command);
+    result._unsafeUnwrap();
+
+    expect(tracer.spans.map((span) => span.name)).toEqual(
+      expect.arrayContaining([
+        'teable.DeleteByRangeApplicationService.prepareDeletePlan',
+        'teable.DeleteByRangeApplicationService.prepareDeletePlugins',
+        'teable.DeleteByRangeApplicationService.validateDeletePluginScope',
+        'teable.DeleteByRangeApplicationService.deleteRecords',
+        'teable.DeleteByRangeApplicationService.finalizeDeletePlan',
+      ])
+    );
   });
 
   it('returns empty result when no records in range', async () => {

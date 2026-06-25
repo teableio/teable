@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { FieldType, type ILinkFieldOptions, type ILinkFieldOptionsRo } from '@teable/core';
 import { Settings } from '@teable/icons';
 import { convertField } from '@teable/openapi';
-import { useFields, useTableId, useTables, useView } from '@teable/sdk/hooks';
+import { useFieldStaticGetter, useFields, useTableId, useTables, useView } from '@teable/sdk/hooks';
 import type { IFieldInstance } from '@teable/sdk/model';
 import {
   Button,
@@ -14,6 +14,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@teable/ui-lib';
+import { Settings2 } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import { useEffect, useState } from 'react';
 import { MoreLinkOptions } from '@/features/app/components/field-setting/options/LinkOptions/MoreLinkOptions';
@@ -82,8 +83,8 @@ export const ShareLinkScopeSettings = () => {
     // share Dialog (UnifiedShareDialog). The link-scope dialog acts as a
     // sibling-feeling layer; the share panel stays mounted underneath.
     <Dialog open={dialogOpen} onOpenChange={setDialogOpen} modal={false}>
-      <div className="flex items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs dark:border-amber-500/30 dark:bg-amber-500/10">
-        <span className="flex min-w-0 items-center gap-1.5 text-amber-900 dark:text-amber-200">
+      <div className="flex items-center justify-between gap-2 rounded-md border border-amber-700/20 bg-amber-50 px-2.5 py-1.5 text-xs text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-500">
+        <span className="flex min-w-0 items-center gap-1.5">
           <span className="truncate">
             {foreignTableNames.length === 0
               ? t('table:baseShare.linkExposureNoticeGeneric')
@@ -98,20 +99,20 @@ export const ShareLinkScopeSettings = () => {
         <button
           type="button"
           onClick={() => setDialogOpen(true)}
-          className="shrink-0 whitespace-nowrap font-medium text-amber-700 hover:underline dark:text-amber-300"
+          className="shrink-0 whitespace-nowrap text-amber-700 hover:underline dark:text-amber-500"
         >
           {t('table:baseShare.restrictScope')} →
         </button>
       </div>
-      <DialogContent className="max-h-[80vh] max-w-md overflow-hidden">
+      <DialogContent className="max-h-[80vh] max-w-[400px] gap-2 overflow-hidden p-4">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 text-base">
             <Settings className="size-4" />
             {t('table:baseShare.linkScopeDialogTitle')}
           </DialogTitle>
         </DialogHeader>
         <p className="text-xs text-muted-foreground">{t('table:baseShare.linkScopeDesc')}</p>
-        <div className="flex max-h-[60vh] flex-col gap-2 overflow-y-auto">
+        <div className="mt-2 flex max-h-[60vh] flex-col gap-2 overflow-y-auto">
           {linkFields.map((field) => (
             <LinkFieldScopeRow
               key={field.id}
@@ -134,6 +135,8 @@ interface IRowProps {
 
 const LinkFieldScopeRow = ({ field, isSaving, onSave }: IRowProps) => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const fieldStaticGetter = useFieldStaticGetter();
+  const FieldIcon = fieldStaticGetter(field.type).Icon;
   const fieldOptions = field.options as ILinkFieldOptions;
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<ILinkFieldOptions>(fieldOptions);
@@ -149,12 +152,23 @@ const LinkFieldScopeRow = ({ field, isSaving, onSave }: IRowProps) => {
     <Popover modal open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className="w-full justify-between">
-          <span className="truncate">{field.name}</span>
-          <Settings className="size-3.5 shrink-0 text-muted-foreground" />
+          <span className="flex min-w-0 items-center gap-2">
+            {FieldIcon && <FieldIcon className="size-4 shrink-0 text-muted-foreground" />}
+            <span className="truncate">{field.name}</span>
+          </span>
+          <Settings2 className="size-4 shrink-0 text-muted-foreground" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent side="right" align="start" className="w-96 p-4">
-        <div className="text-sm font-medium">{field.name}</div>
+      <PopoverContent
+        side="right"
+        align="start"
+        collisionPadding={16}
+        className="max-h-[calc(var(--radix-popover-content-available-height)-1rem)] w-96 overflow-y-auto p-4"
+      >
+        <div className="flex min-w-0 items-center gap-2 text-sm font-medium">
+          {FieldIcon && <FieldIcon className="size-4 shrink-0 text-muted-foreground" />}
+          <span className="truncate">{field.name}</span>
+        </div>
         <MoreLinkOptions
           foreignTableId={draft.foreignTableId}
           fieldId={field.id}
