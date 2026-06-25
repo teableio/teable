@@ -24,6 +24,7 @@ beforeAll(async () => {
     { name: 'NestedFormula', expression: '{BaseFormula} + 10' },
     { name: 'ErrorFormula', expression: '1 / 0' },
     { name: 'FieldByName', expression: '{Number} + {SingleLineText}' },
+    { name: 'ValueBlank', expression: 'VALUE(BLANK())' },
   ];
   testTable = await createFormulaTestTable(container, formulaFields, {
     profile: 'minimal',
@@ -47,6 +48,11 @@ describe('FormulaSqlPgTranslator edge cases', () => {
     it('should handle division by zero error', async () => {
       const result = await executeFormulaAsText(testTable, 'ErrorFormula');
       expect(result).toContain('#ERROR:DIV0');
+    });
+
+    it('should treat blank VALUE input as zero', async () => {
+      const result = await executeFormulaAsText(testTable, 'ValueBlank');
+      expect(result).toBe('0');
     });
   });
 

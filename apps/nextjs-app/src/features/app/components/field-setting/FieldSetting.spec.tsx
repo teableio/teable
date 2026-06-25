@@ -62,6 +62,26 @@ vi.mock('./DynamicFieldEditor', () => ({
         onClick={() =>
           onChange?.({
             ...field,
+            name: 'User',
+            type: FieldType.User,
+            options: {
+              isMultiple: true,
+              shouldNotify: true,
+            },
+            order: {
+              viewId: 'viwTest0000000001',
+              orderIndex: null,
+            },
+          })
+        }
+      >
+        Mock polluted user field
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          onChange?.({
+            ...field,
             name: 'AI Reply',
             aiConfig: {
               type: FieldAIActionType.Customization,
@@ -73,6 +93,25 @@ vi.mock('./DynamicFieldEditor', () => ({
         }
       >
         Mock change AI config
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          onChange?.({
+            ...field,
+            name: 'AI Image',
+            type: FieldType.Attachment,
+            aiConfig: {
+              type: FieldAIActionType.ImageCustomization,
+              modelKey: 'aiGateway@openai/gpt-image-2@teable',
+              prompt: 'Generate an image from the referenced content.',
+              isAutoFill: false,
+              size: '1536x1024',
+            },
+          })
+        }
+      >
+        Mock GPT image customization
       </button>
       <button type="button" onClick={() => onSave?.()}>
         Mock editor save
@@ -108,6 +147,31 @@ describe('FieldSettingBase', () => {
     );
 
     expect(screen.getByRole('button', { name: 'common:actions.save' })).toBeDisabled();
+  });
+
+  it('drops polluted local order before validating a new field', async () => {
+    const onConfirm = vi.fn();
+    render(
+      <FieldSettingBase
+        visible
+        field={undefined}
+        operator={FieldOperator.Insert}
+        onCancel={() => undefined}
+        onConfirm={onConfirm}
+      />
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Mock polluted user field' }));
+    await userEvent.click(screen.getByRole('button', { name: 'common:actions.save' }));
+
+    expect(onConfirm).toHaveBeenCalledWith({
+      name: 'User',
+      type: FieldType.User,
+      options: {
+        isMultiple: true,
+        shouldNotify: true,
+      },
+    });
   });
 
   it('hydrates local editor state when originField arrives after initial fallback render', () => {
@@ -243,6 +307,56 @@ describe('FieldSettingBase', () => {
       tableId: 'tblTest0000000001',
       fieldId: field.id,
       query: { viewId: 'viwTest0000000001', mode: 'all' },
+    });
+  });
+
+  it('submits GPT Image 2 customization without prompt-controlled leftovers', async () => {
+    fieldOperationMocks.planFieldCreate.mockResolvedValue({
+      estimateTime: 0,
+      linkFieldCount: 0,
+    });
+    fieldOperationMocks.createField.mockResolvedValue({
+      id: 'fldCreated000000001',
+      name: 'AI Image',
+      type: FieldType.Attachment,
+      aiConfig: {
+        type: FieldAIActionType.ImageCustomization,
+        modelKey: 'aiGateway@openai/gpt-image-2@teable',
+        prompt: 'Generate an image from the referenced content.',
+        isAutoFill: false,
+        size: '1536x1024',
+      },
+    });
+
+    render(
+      <TestAnchorProvider>
+        <FieldSetting
+          visible
+          field={undefined}
+          operator={FieldOperator.Add}
+          onCancel={() => undefined}
+          onConfirm={() => undefined}
+        />
+      </TestAnchorProvider>
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Mock GPT image customization' }));
+    await userEvent.click(screen.getByRole('button', { name: 'common:actions.save' }));
+
+    expect(fieldOperationMocks.createField).toHaveBeenCalledWith({
+      tableId: 'tblTest0000000001',
+      fieldRo: expect.objectContaining({
+        name: 'AI Image',
+        type: FieldType.Attachment,
+        viewId: 'viwTest0000000001',
+        aiConfig: {
+          type: FieldAIActionType.ImageCustomization,
+          modelKey: 'aiGateway@openai/gpt-image-2@teable',
+          prompt: 'Generate an image from the referenced content.',
+          isAutoFill: false,
+          size: '1536x1024',
+        },
+      }),
     });
   });
 });

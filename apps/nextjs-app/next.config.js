@@ -243,7 +243,11 @@ const nextConfig = {
         source: '/:path((?!api|streamsaver).*)*',
         headers: [
           ...secureHeaders,
-          { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
+          // allow-popups (not same-origin) so OAuth connect popups keep their
+          // opener link across the cross-origin provider hop — otherwise the
+          // opener can't close the popup and window.close() inside it is blocked,
+          // leaving a stranded "Connected" window. (streamsaver uses the same.)
+          { key: 'Cross-Origin-Opener-Policy', value: 'same-origin-allow-popups' },
           { key: 'Cross-Origin-Embedder-Policy', value: 'same-origin' },
         ],
       },

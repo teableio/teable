@@ -22,8 +22,11 @@ import { DateTimeFormatting } from '../../../domain/table/fields/types/DateTimeF
 import { FieldColor } from '../../../domain/table/fields/types/FieldColor';
 import { FormulaExpression } from '../../../domain/table/fields/types/FormulaExpression';
 import { FormulaField } from '../../../domain/table/fields/types/FormulaField';
+import { LinkFieldConfig } from '../../../domain/table/fields/types/LinkFieldConfig';
+import { LinkRelationship } from '../../../domain/table/fields/types/LinkRelationship';
 import { LongTextField } from '../../../domain/table/fields/types/LongTextField';
 import { LookupField } from '../../../domain/table/fields/types/LookupField';
+import { LookupOptions } from '../../../domain/table/fields/types/LookupOptions';
 import { MultipleSelectField } from '../../../domain/table/fields/types/MultipleSelectField';
 import { NumberDefaultValue } from '../../../domain/table/fields/types/NumberDefaultValue';
 import { NumberField } from '../../../domain/table/fields/types/NumberField';
@@ -56,6 +59,7 @@ import { ViewColumnMeta } from '../../../domain/table/views/ViewColumnMeta';
 import { ViewId } from '../../../domain/table/views/ViewId';
 import { ViewName } from '../../../domain/table/views/ViewName';
 import { ViewQueryDefaults } from '../../../domain/table/views/ViewQueryDefaults';
+import type { ITableFieldPersistenceDTO } from '../TableMapper';
 import { DefaultTableMapper } from './DefaultTableMapper';
 
 const createFieldId = (seed: string) => FieldId.create(`fld${seed.repeat(16)}`);
@@ -622,6 +626,108 @@ describe('DefaultTableMapper', () => {
 
     expect(lookupField?.dbFieldName).toBe(lookupDbFieldName);
     expect(lookupField?.dbFieldName).not.toBe('__auto_number');
+  });
+
+  it('enriches lookup options with link fk metadata and resolves cellValueType', () => {
+    const baseId = BaseId.create(`bse${'r'.repeat(16)}`)._unsafeUnwrap();
+    const tableId = TableId.create(`tbl${'r'.repeat(16)}`)._unsafeUnwrap();
+    const primaryFieldId = createFieldId('s')._unsafeUnwrap();
+    const linkFieldId = createFieldId('t')._unsafeUnwrap();
+    const lookupFieldId = createFieldId('u')._unsafeUnwrap();
+    const foreignTableId = TableId.create(`tbl${'v'.repeat(16)}`)._unsafeUnwrap();
+    const foreignTargetFieldId = createFieldId('w')._unsafeUnwrap();
+
+    const linkConfig = LinkFieldConfig.create({
+      relationship: LinkRelationship.manyOne().toString(),
+      foreignTableId: foreignTableId.toString(),
+      lookupFieldId: foreignTargetFieldId.toString(),
+      // mutable link config that must NOT be copied into the lookup's options
+      visibleFieldIds: [foreignTargetFieldId.toString()],
+    })._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('Lookup Enrichment')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(primaryFieldId)
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .link()
+      .withId(linkFieldId)
+      .withName(FieldName.create('Link')._unsafeUnwrap())
+      .withConfig(linkConfig)
+      .done();
+    builder
+      .field()
+      .lookup()
+      .withId(lookupFieldId)
+      .withName(FieldName.create('Lookup Amount')._unsafeUnwrap())
+      .withInnerField(
+        NumberField.create({
+          id: createFieldId('x')._unsafeUnwrap(),
+          name: FieldName.create('Amount')._unsafeUnwrap(),
+          formatting: NumberFormatting.create({ type: 'decimal', precision: 2 })._unsafeUnwrap(),
+        })._unsafeUnwrap()
+      )
+      .withLookupOptions(
+        LookupOptions.create({
+          linkFieldId: linkFieldId.toString(),
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: foreignTargetFieldId.toString(),
+        })._unsafeUnwrap()
+      )
+      .withIsMultipleCellValue(false)
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    const dto = new DefaultTableMapper().toDTO(table)._unsafeUnwrap();
+
+    const lookupDto = dto.fields.find((field) => field.id === lookupFieldId.toString()) as
+      | (ITableFieldPersistenceDTO & {
+          lookupOptions?: Record<string, unknown>;
+          cellValueType?: string;
+        })
+      | undefined;
+
+    // The lookup must carry the parent link's stable physical join metadata so it passes
+    // fieldVoSchema on the client.
+    expect(lookupDto?.lookupOptions?.fkHostTableName).toBeTruthy();
+    expect(lookupDto?.lookupOptions?.selfKeyName).toBeTruthy();
+    expect(lookupDto?.lookupOptions?.foreignKeyName).toBeTruthy();
+    expect(lookupDto?.lookupOptions?.linkFieldId).toBe(linkFieldId.toString());
+    // cellValueType must be resolved (not null) so the shape-refresh op does not corrupt the field.
+    expect(lookupDto?.cellValueType).toBe('number');
+    expect(lookupDto?.type).toBe('number');
+
+    // The lookup must NOT bake in the link's mutable record-scoping config (would go stale).
+    const linkDto = dto.fields.find((field) => field.id === linkFieldId.toString()) as
+      | (ITableFieldPersistenceDTO & { options?: Record<string, unknown> })
+      | undefined;
+    expect((linkDto?.options as Record<string, unknown>)?.visibleFieldIds).toBeTruthy();
+    const allowedLookupKeys = new Set([
+      'linkFieldId',
+      'lookupFieldId',
+      'foreignTableId',
+      'relationship',
+      'fkHostTableName',
+      'selfKeyName',
+      'foreignKeyName',
+      'filter',
+      'sort',
+      'limit',
+    ]);
+    for (const key of Object.keys(lookupDto?.lookupOptions ?? {})) {
+      expect(allowedLookupKeys.has(key)).toBe(true);
+    }
+    expect(lookupDto?.lookupOptions).not.toHaveProperty('visibleFieldIds');
+    expect(lookupDto?.lookupOptions).not.toHaveProperty('filterByViewId');
   });
 
   it('rehydrates conditional lookup inner formula when result type is provided', () => {
