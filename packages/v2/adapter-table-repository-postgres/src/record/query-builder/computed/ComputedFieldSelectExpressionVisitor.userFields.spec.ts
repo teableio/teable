@@ -1,8 +1,8 @@
 /**
  * Integration tests for CreatedBy/LastModifiedBy fields in ComputedFieldSelectExpressionVisitor.
  *
- * These fields should read from system columns (__created_by, __last_modified_by)
- * and join the users table to populate complete user objects.
+ * These fields should read stored data-table snapshots and fall back to system ids without
+ * joining meta-plane users from the data DB.
  */
 import {
   BaseId,
@@ -106,36 +106,31 @@ const createTableWithUserFields = () => {
 };
 
 describe('ComputedTableRecordQueryBuilder with CreatedBy/LastModifiedBy fields', () => {
-  it('should read CreatedBy field from __created_by system column with users join', () => {
+  it('should read CreatedBy field from stored snapshot with __created_by fallback', () => {
     const db = createTestDb();
     const table = createTableWithUserFields();
 
     const qb = new ComputedTableRecordQueryBuilder(db, { typeValidationStrategy });
     const { sql, parameters } = compileQuery(db, qb.from(table));
 
-    // CreatedBy field should read from __created_by system column
-    expect(sql).toContain('where u.id = "t"."__created_by"');
-
-    // Should build user object with jsonb_build_object
+    expect(sql).not.toContain('public.users');
+    expect(sql).not.toContain('where u.id');
+    expect(sql).toContain('to_jsonb("t"."col_created_by")');
+    expect(sql).toContain('"t"."__created_by"');
     expect(sql).toContain('jsonb_build_object');
-    expect(sql).toContain("'id', u.id");
-    expect(sql).toContain("'title', u.name");
-    expect(sql).toContain("'email', u.email");
-    expect(sql).toContain("'avatarUrl'");
-
-    // Should have avatar prefix parameter
-    expect(parameters).toContain('/api/attachments/read/public/avatar/');
+    expect(parameters).toEqual([]);
   });
 
-  it('should read LastModifiedBy field from __last_modified_by system column with users join', () => {
+  it('should read LastModifiedBy field from stored snapshot with __last_modified_by fallback', () => {
     const db = createTestDb();
     const table = createTableWithUserFields();
 
     const qb = new ComputedTableRecordQueryBuilder(db, { typeValidationStrategy });
     const { sql } = compileQuery(db, qb.from(table));
 
-    // LastModifiedBy field should read from __last_modified_by system column
-    expect(sql).toContain('where u.id = "t"."__last_modified_by"');
+    expect(sql).not.toContain('public.users');
+    expect(sql).toContain('to_jsonb("t"."col_last_modified_by")');
+    expect(sql).toContain('"t"."__last_modified_by"');
   });
 
   it('should generate correct SELECT expression for user fields', () => {
@@ -145,12 +140,45 @@ describe('ComputedTableRecordQueryBuilder with CreatedBy/LastModifiedBy fields',
     const qb = new ComputedTableRecordQueryBuilder(db, { typeValidationStrategy });
     const { sql, parameters } = compileQuery(db, qb.from(table));
 
-    // Should have exactly 2 avatar prefix parameters (one for CreatedBy, one for LastModifiedBy)
-    const avatarPrefixes = parameters.filter((p) => p === '/api/attachments/read/public/avatar/');
-    expect(avatarPrefixes).toHaveLength(2);
-
-    // Should alias as the field's db column name
     expect(sql).toContain('as "col_created_by"');
     expect(sql).toContain('as "col_last_modified_by"');
+    expect(sql).not.toContain('public.users');
+    expect(parameters).toEqual([]);
+  });
+
+  it('should use actor fallback for empty system user snapshots without joining users', () => {
+    const db = createTestDb();
+    const table = createTableWithUserFields();
+
+    const qb = new ComputedTableRecordQueryBuilder(db, {
+      typeValidationStrategy,
+      userSnapshotActorFallback: {
+        actorId: 'usrTestUserId',
+        actorName: 'test',
+        actorEmail: 'test@teable.ai',
+      },
+    });
+    const { sql, parameters } = compileQuery(db, qb.from(table));
+
+    expect(sql).not.toContain('public.users');
+    expect(parameters).toContain('usrTestUserId');
+    expect(parameters).toContain('test');
+    expect(parameters).toContain('test@teable.ai');
+  });
+
+  it('should optionally resolve system user snapshots through users during backfill', () => {
+    const db = createTestDb();
+    const table = createTableWithUserFields();
+
+    const qb = new ComputedTableRecordQueryBuilder(db, {
+      typeValidationStrategy,
+      resolveSystemUserSnapshotsFromUsers: true,
+    });
+    const { sql, parameters } = compileQuery(db, qb.from(table));
+
+    expect(sql).toContain('FROM public.users u');
+    expect(sql).toContain('COALESCE(u.name, u.id)');
+    expect(sql).toContain("'/api/attachments/read/public/avatar/'");
+    expect(parameters).toEqual([]);
   });
 });

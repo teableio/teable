@@ -1,6 +1,6 @@
-import { Colors, ColorUtils } from '@teable/core';
+import { Colors } from '@teable/core';
 import { LRUCache } from 'lru-cache';
-import colors from 'tailwindcss/colors';
+import { getSelectColorPairs } from '../../../../utils/select-color';
 
 import type { IGridTheme } from '../../configs';
 import { GRID_DEFAULT } from '../../configs';
@@ -159,8 +159,10 @@ export const buttonCellRenderer: IInternalCellRenderer<IButtonCell> = {
     const { ctx, rect, theme } = props;
     const { x, y, width, height } = rect;
     const rectColor = readonly ? Colors.Gray : fieldOptions.color;
-    const bgColor = ColorUtils.getHexForColor(rectColor);
-    const textColor = ColorUtils.shouldUseLightTextOnColor(rectColor) ? colors.white : colors.black;
+    const { color: textColor, backgroundColor: bgColor } = getSelectColorPairs(
+      rectColor,
+      theme.themeKey
+    );
     const position = calcPosition(cell, {
       width,
       ctx,

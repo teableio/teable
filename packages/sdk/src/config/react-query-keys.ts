@@ -26,6 +26,7 @@ import type {
   IRecordInsertOrderRo,
   IUpdateRecordOrdersRo,
   IRecordGetCollaboratorsRo,
+  IGetRecordHistoryQuery,
   TrashType,
 } from '@teable/openapi';
 
@@ -108,6 +109,7 @@ export const ReactQueryKeys = {
   notifyList: (filter?: { status: NotificationStatesEnum; severity?: NotificationSeverityEnum }) =>
     filter ? (['notification', 'list', filter] as const) : (['notification', 'list'] as const),
   notifyUnreadCount: () => ['notification', 'unread-count'],
+  notifyCriticalAdmin: () => ['notification', 'critical-admin'] as const,
 
   rowCount: (tableId: string, query: IQueryBaseRo) => ['row-count', tableId, query] as const,
   groupPoints: (tableId: string, query: IGroupPointsRo) =>
@@ -184,8 +186,8 @@ export const ReactQueryKeys = {
 
   getBasePermission: (baseId: string) => ['base-permission', baseId] as const,
 
-  getRecordHistory: (tableId: string, recordId?: string) =>
-    ['record-history', tableId, recordId] as const,
+  getRecordHistory: (tableId: string, recordId?: string, query?: IGetRecordHistoryQuery) =>
+    ['record-history', tableId, recordId, query] as const,
 
   getSharedBase: () => ['shared-base-list'] as const,
 
@@ -242,6 +244,8 @@ export const ReactQueryKeys = {
   getTaskStatusCollection: (tableId: string) => ['task-status-collection', tableId] as const,
 
   chatHistory: (baseId: string) => ['chat-history', baseId] as const,
+
+  chatMessage: (chatId: string) => ['chat-message', chatId] as const,
 
   activeViewContext: (baseId: string) => ['active-view-context', baseId] as const,
 
