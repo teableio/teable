@@ -14,6 +14,10 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { resolvePostgresDbOrTx } from '../../shared/db';
+import {
+  splitSchemaQualifiedTableName,
+  toPostgresIdentifierWithHash,
+} from '../../shared/sqlIdentifiers';
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
 import type { DynamicDB } from '../query-builder';
 
@@ -152,10 +156,10 @@ export class PostgresRecordOrderCalculator implements IRecordOrderCalculator {
         SET ${sql.id(orderColumnName)} = __auto_number
       `.execute(db);
 
-      const [, tableNameOnly] = tableName.split('.');
-      const indexName = `idx_${tableNameOnly}_${orderColumnName}`;
+      const { plainTableName } = splitSchemaQualifiedTableName(tableName);
+      const indexName = toPostgresIdentifierWithHash(`idx_${plainTableName}_${orderColumnName}`);
       await sql`
-        CREATE INDEX ${sql.id(indexName)}
+        CREATE INDEX IF NOT EXISTS ${sql.id(indexName)}
         ON ${sql.table(tableName)} (${sql.id(orderColumnName)})
       `.execute(db);
     }

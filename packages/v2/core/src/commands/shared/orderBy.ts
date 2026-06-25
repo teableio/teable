@@ -15,7 +15,7 @@ import type * as TableRecordQueryRepositoryPort from '../../ports/TableRecordQue
  * const groupBy = resolveGroupByToOrderBy(group).value;
  * const sortBy = resolveOrderBy(sort).value;
  * const orderBy = mergeOrderBy(groupBy, sortBy, 'viw0000000000000001');
- * // orderBy -> [{ fieldId: ... }, { fieldId: ... }, { column: '__row_viw...' }]
+ * // orderBy -> [{ fieldId: ... }, { fieldId: ... }, { column: '__row_viw...' }, { column: '__auto_number' }]
  * ```
  */
 export type SortLike = {
@@ -59,9 +59,13 @@ export const resolveGroupByToOrderBy = (
 
 /**
  * Merge groupBy + sort order into a single orderBy list.
- * Always appends a stable tie-breaker for consistent pagination.
- * Use view row order only when the caller did not request any field/group sorting;
- * otherwise fall back to `__auto_number` to match v1's tie-breaking semantics.
+ * Always appends stable tie-breakers for consistent pagination.
+ * Tie-breakers must match the v1 read path that drives the grid's visible
+ * order (`buildFilterSortQuery` appends the view row order column after the
+ * requested sorts): field/group sorts first, then the view's manual row
+ * order, then auto number. Breaking ties by auto number alone makes
+ * offset-addressed range commands (paste/clear/delete) resolve different
+ * rows than the grid displays whenever the sort has duplicate values.
  */
 export const mergeOrderBy = (
   groupByOrderBy: ReadonlyArray<TableRecordQueryRepositoryPort.FieldOrderBy> | undefined,
@@ -82,53 +86,26 @@ export const mergeOrderBy = (
   groupByOrderBy?.forEach(pushUnique);
   sortOrderBy?.forEach(pushUnique);
 
-  const hasExplicitOrder = result.length > 0;
-
-  // Use view row order only for pure manual row ordering. Once a field/group sort is active,
-  // v1 falls back to auto number within ties instead of reusing the view row column.
-  pushUnique({
-    column: !hasExplicitOrder && viewId ? `__row_${viewId}` : '__auto_number',
-    direction: 'asc',
-  });
+  // The repository falls back per-table to auto number when the view row
+  // column does not exist, so the view row tie-breaker is always safe to emit.
+  if (viewId) {
+    pushUnique({ column: `__row_${viewId}`, direction: 'asc' });
+  }
+  pushUnique({ column: '__auto_number', direction: 'asc' });
 
   return result.length > 0 ? result : undefined;
 };
 
 /**
  * Merge groupBy + sort order for offset-targeted range commands.
- * Range commands address visible rows, so ties must continue to respect the view row order
- * before falling back to auto number for a final deterministic ordering.
+ * Range commands address the same visible rows returned by list queries, so they must use
+ * the same final tie-breaker as `mergeOrderBy`. Otherwise grouped views can display rows in
+ * one order while clear/paste/delete resolves the selected offset in another order.
  */
 export const mergeOrderByWithViewRowTieBreaker = (
   groupByOrderBy: ReadonlyArray<TableRecordQueryRepositoryPort.FieldOrderBy> | undefined,
   sortOrderBy: ReadonlyArray<TableRecordQueryRepositoryPort.FieldOrderBy> | undefined,
   viewId: string | undefined
 ): ReadonlyArray<TableRecordQueryRepositoryPort.TableRecordOrderBy> | undefined => {
-  const result: TableRecordQueryRepositoryPort.TableRecordOrderBy[] = [];
-  const seen = new Set<string>();
-
-  const pushUnique = (item: TableRecordQueryRepositoryPort.TableRecordOrderBy) => {
-    const key =
-      'fieldId' in item ? `field:${item.fieldId.toString()}` : `column:${String(item.column)}`;
-    if (seen.has(key)) return;
-    seen.add(key);
-    result.push(item);
-  };
-
-  groupByOrderBy?.forEach(pushUnique);
-  sortOrderBy?.forEach(pushUnique);
-
-  if (viewId) {
-    pushUnique({
-      column: `__row_${viewId}`,
-      direction: 'asc',
-    });
-  }
-
-  pushUnique({
-    column: '__auto_number',
-    direction: 'asc',
-  });
-
-  return result.length > 0 ? result : undefined;
+  return mergeOrderBy(groupByOrderBy, sortOrderBy, viewId);
 };

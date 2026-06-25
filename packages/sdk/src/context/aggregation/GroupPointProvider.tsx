@@ -1,16 +1,28 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { IKanbanViewOptions, ITableActionKey, IViewActionKey } from '@teable/core';
+import { useQueryClient } from '@tanstack/react-query';
+import type { IFilter, IKanbanViewOptions, ITableActionKey, IViewActionKey } from '@teable/core';
 import { SortFunc, ViewType } from '@teable/core';
 import type { IGroupPointsRo } from '@teable/openapi';
-import { getGroupPoints } from '@teable/openapi';
+import { getGroupPoints, getShareViewGroupPoints } from '@teable/openapi';
 import { throttle } from 'lodash';
 import type { FC, ReactNode } from 'react';
 import { useCallback, useContext, useMemo } from 'react';
 import { ReactQueryKeys } from '../../config';
-import { useIsHydrated, useSearch, useTableListener, useView, useViewListener } from '../../hooks';
+import {
+  useIsHydrated,
+  useSearch,
+  useServerViewFilter,
+  useView,
+  useViewListener,
+} from '../../hooks';
 import { useDocumentVisible } from '../../hooks/use-document-visible';
+import {
+  collectRelevantFieldIds,
+  useFieldAwareTableListener,
+} from '../../hooks/use-field-aware-table-listener';
 import { AnchorContext } from '../anchor';
+import { ShareViewContext } from '../table/ShareViewContext';
 import { GroupPointContext } from './GroupPointContext';
+import { useShareAwareQuery } from './use-share-aware-query';
 
 interface GroupPointProviderProps {
   children: ReactNode;
@@ -22,9 +34,10 @@ const THROTTLE_TIME = 2000;
 export const GroupPointProvider: FC<GroupPointProviderProps> = ({ children, query }) => {
   const isHydrated = useIsHydrated();
   const { tableId, viewId } = useContext(AnchorContext);
+  const { shareId } = useContext(ShareViewContext);
   const queryClient = useQueryClient();
   const view = useView(viewId);
-  const { searchQuery } = useSearch();
+  const { filteringSearchQuery } = useSearch();
   const { type, group, options } = view || {};
   const visible = useDocumentVisible();
 
@@ -41,29 +54,48 @@ export const GroupPointProvider: FC<GroupPointProviderProps> = ({ children, quer
     return {
       viewId,
       groupBy,
-      search: searchQuery,
-      filter: query?.filter,
+      search: filteringSearchQuery,
+      // the visitor's local filter only exists on the proxied view and must
+      // travel with the share query
+      filter: shareId ? view?.filter : query?.filter,
       ignoreViewQuery: query?.ignoreViewQuery,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewId, JSON.stringify(groupBy), searchQuery, query]);
+  }, [viewId, JSON.stringify(groupBy), filteringSearchQuery, query, shareId, view?.filter]);
 
   const ignoreViewQuery = groupPointQuery?.ignoreViewQuery ?? false;
-  const { data: resGroupPoints } = useQuery({
-    queryKey: ReactQueryKeys.groupPoints(tableId as string, groupPointQuery),
-    queryFn: ({ queryKey }) => getGroupPoints(queryKey[1], queryKey[2]).then((data) => data.data),
+
+  // Use different query keys for common and share queries to avoid conflicts
+  const commonQueryKey = useMemo(
+    () => ReactQueryKeys.groupPoints(tableId as string, groupPointQuery),
+    [tableId, groupPointQuery]
+  );
+  const shareQueryKey = useMemo(
+    () => ReactQueryKeys.shareViewGroupPoints(shareId as string, groupPointQuery),
+    [shareId, groupPointQuery]
+  );
+
+  const { data: resGroupPoints, activeQueryKey } = useShareAwareQuery({
+    shareId,
     enabled: Boolean(tableId && isHydrated && groupBy?.length) && visible,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: true,
-    retry: 1,
+    common: {
+      queryKey: commonQueryKey,
+      queryFn: () => getGroupPoints(tableId as string, groupPointQuery).then((data) => data.data),
+    },
+    share: {
+      queryKey: shareQueryKey,
+      queryFn: () =>
+        getShareViewGroupPoints(shareId as string, groupPointQuery).then((data) => data.data),
+    },
+    options: { retry: 1 },
   });
 
   const updateGroupPoints = useCallback(
     () =>
       queryClient.invalidateQueries({
-        queryKey: ReactQueryKeys.groupPoints(tableId as string, groupPointQuery).slice(0, 3),
+        queryKey: activeQueryKey.slice(0, 3),
       }),
-    [groupPointQuery, queryClient, tableId]
+    [queryClient, activeQueryKey]
   );
 
   const throttleUpdateGroupPoints = useMemo(() => {
@@ -73,20 +105,38 @@ export const GroupPointProvider: FC<GroupPointProviderProps> = ({ children, quer
   const updateGroupPointsForTable = useCallback(
     () =>
       queryClient.invalidateQueries({
-        queryKey: ReactQueryKeys.groupPoints(tableId as string, groupPointQuery).slice(0, 2),
+        queryKey: activeQueryKey.slice(0, 2),
       }),
-    [groupPointQuery, queryClient, tableId]
+    [queryClient, activeQueryKey]
   );
 
   const throttleUpdateGroupPointsForTable = useMemo(() => {
     return throttle(updateGroupPointsForTable, THROTTLE_TIME);
   }, [updateGroupPointsForTable]);
 
+  const serverViewFilter = useServerViewFilter();
+
+  const relevantFieldIds = useMemo(
+    () =>
+      collectRelevantFieldIds({
+        queryFilter: groupPointQuery.filter as IFilter | undefined,
+        viewFilter: serverViewFilter,
+        search: groupPointQuery.search,
+        groupBy,
+      }),
+    [groupBy, serverViewFilter, groupPointQuery]
+  );
+
   const tableMatches = useMemo<ITableActionKey[]>(
     () => ['setRecord', 'addRecord', 'deleteRecord', 'setField'],
     []
   );
-  useTableListener(tableId, tableMatches, throttleUpdateGroupPointsForTable);
+  useFieldAwareTableListener(
+    tableId,
+    tableMatches,
+    relevantFieldIds,
+    throttleUpdateGroupPointsForTable
+  );
 
   const viewMatches = useMemo<IViewActionKey[]>(
     () => (ignoreViewQuery ? [] : ['applyViewFilter']),

@@ -7,8 +7,31 @@ import { TeableSpanAttributes } from './Tracer';
 import { TraceSpan, isTraceSpanWrapped } from './TraceSpan';
 
 export interface IEventHandler<TEvent extends IDomainEvent> {
-  handle(context: IExecutionContext, event: TEvent): Promise<Result<void, DomainError>>;
+  handle(
+    context: IExecutionContext,
+    event: TEvent,
+    dispatchScope?: IEventDispatchScope
+  ): Promise<Result<void, DomainError>>;
 }
+
+export interface IEventDispatchScope {
+  getOrCreate<T>(key: symbol, factory: () => T): T;
+}
+
+export const createEventDispatchScope = (): IEventDispatchScope => {
+  const values = new Map<symbol, unknown>();
+  return {
+    getOrCreate<T>(key: symbol, factory: () => T): T {
+      if (values.has(key)) {
+        return values.get(key) as T;
+      }
+
+      const value = factory();
+      values.set(key, value);
+      return value;
+    },
+  };
+};
 
 export type EventType<TEvent extends IDomainEvent> = {
   readonly prototype: TEvent;
