@@ -13,6 +13,7 @@ import type {
   IButtonFieldOptions,
 } from '@teable/core';
 import { CellValueType, FieldType } from '@teable/core';
+import { useTheme } from '@teable/next-themes';
 import type { IFieldInstance } from '../../model';
 import { isMarkdownShowAs, normalizeMarkdownValue, stripMarkdown } from '../editor/long-text/utils';
 import { CellAttachment } from './cell-attachment';
@@ -46,6 +47,7 @@ interface RenderContext {
   formatImageUrl?: (url: string) => string;
   readonly?: boolean;
   plainLongText?: boolean;
+  theme?: string;
 }
 
 type RenderFn = (ctx: RenderContext) => JSX.Element;
@@ -103,11 +105,12 @@ const renderDate: RenderFn = ({ value, className, ellipsis, options }) => (
   />
 );
 
-const renderSelect: RenderFn = ({ value, className, ellipsis, itemClassName, options }) => (
+const renderSelect: RenderFn = ({ value, className, ellipsis, itemClassName, options, theme }) => (
   <CellSelect
     value={value as ISingleSelectCellValue | IMultipleSelectCellValue}
     options={transformSelectOptions(
-      (options as { choices?: ISelectFieldOptions['choices'] }).choices ?? []
+      (options as { choices?: ISelectFieldOptions['choices'] }).choices ?? [],
+      theme
     )}
     className={className}
     itemClassName={itemClassName}
@@ -247,6 +250,7 @@ const typeRenderers: Partial<Record<FieldType, RenderFn>> = {
 };
 
 export const CellValue = (props: ICellValueContainer) => {
+  const { resolvedTheme } = useTheme();
   const {
     field,
     value,
@@ -274,5 +278,6 @@ export const CellValue = (props: ICellValueContainer) => {
     formatImageUrl,
     readonly,
     plainLongText,
+    theme: resolvedTheme,
   });
 };

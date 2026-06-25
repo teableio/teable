@@ -7,6 +7,7 @@ export const UPDATE_USER_NOTIFY_META = '/user/notify-meta';
 
 export const userNotifyMetaSchema = z.object({
   email: z.boolean().optional(),
+  appBuilderChatIntroDismissed: z.boolean().optional(),
 });
 
 export type IUserNotifyMeta = z.infer<typeof userNotifyMetaSchema>;

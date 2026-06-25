@@ -20,6 +20,7 @@ import type {
   IBaseNodePresenceDeletePayload,
   IBaseNodePresenceUpdatePayload,
   IBaseNodeTableResourceMeta,
+  IUserInfoVo,
   V2Feature,
 } from '@teable/openapi';
 import { BaseNodeResourceType } from '@teable/openapi';
@@ -56,8 +57,24 @@ type IBaseNodeEntry = {
   resourceType: string;
   resourceId: string;
   order: number;
+  createdBy?: string | null;
+  createdTime?: Date | string | null;
+  lastModifiedBy?: string | null;
+  lastModifiedTime?: Date | string | null;
   children: { id: string; order: number }[];
   parent: { id: string } | null;
+};
+
+type IBaseNodeResourceInput = Omit<
+  IBaseNodeResourceMeta,
+  'createdByUser' | 'lastModifiedByUser' | 'createdTime' | 'lastModifiedTime'
+> & {
+  id: string;
+  type?: BaseNodeResourceType;
+  createdBy?: string | null;
+  createdTime?: Date | string | null;
+  lastModifiedBy?: string | null;
+  lastModifiedTime?: Date | string | null;
 };
 
 @Injectable()
@@ -115,6 +132,10 @@ export class BaseNodeService {
       resourceType: true,
       resourceId: true,
       order: true,
+      createdBy: true,
+      createdTime: true,
+      lastModifiedBy: true,
+      lastModifiedTime: true,
       children: {
         select: { id: true, order: true },
         orderBy: { order: 'asc' as const },
@@ -190,68 +211,115 @@ export class BaseNodeService {
 
   private async entry2vo(
     entry: IBaseNodeEntry,
-    resource?: IBaseNodeResourceMeta
+    resource?: IBaseNodeResourceInput,
+    userMap?: Map<string, IUserInfoVo>
   ): Promise<IBaseNodeVo> {
-    const resourceMeta =
-      resource ||
+    const baseNodeEntry = omit(entry, [
+      'createdBy',
+      'createdTime',
+      'lastModifiedBy',
+      'lastModifiedTime',
+    ]) as Omit<IBaseNodeEntry, 'createdBy' | 'createdTime' | 'lastModifiedBy' | 'lastModifiedTime'>;
+    const resourceType = baseNodeEntry.resourceType as BaseNodeResourceType;
+    const rawResource: IBaseNodeResourceInput =
+      resource ??
       (
-        await this.getNodeResource(entry.baseId, entry.resourceType as BaseNodeResourceType, [
-          entry.resourceId,
-        ])
+        await this.getNodeResource(baseNodeEntry.baseId, resourceType, [baseNodeEntry.resourceId])
       )[0];
-    const resourceMetaWithoutId = resource ? resource : omit(resourceMeta, 'id');
+    const { id, type, createdBy, createdTime, lastModifiedBy, lastModifiedTime, ...resourceMeta } =
+      rawResource;
+    const map = userMap ?? (await this.getUserMap([createdBy, lastModifiedBy]));
+    const resolveUser = (userId?: string | null) => (userId ? map.get(userId) ?? null : null);
+    const formatDate = (value: unknown) =>
+      value instanceof Date ? value.toISOString() : typeof value === 'string' ? value : null;
+    const resourceMetaWithAudit = {
+      ...resourceMeta,
+      createdTime: formatDate(createdTime),
+      createdByUser: resolveUser(createdBy),
+      lastModifiedTime: formatDate(lastModifiedTime),
+      lastModifiedByUser: resolveUser(lastModifiedBy),
+    } as IBaseNodeResourceMeta;
 
     const defaultUrl = this.generateDefaultUrl(
-      entry.baseId,
-      entry.resourceType as BaseNodeResourceType,
-      entry.resourceId,
-      resourceMetaWithoutId
+      baseNodeEntry.baseId,
+      resourceType,
+      baseNodeEntry.resourceId,
+      resourceMetaWithAudit
     );
 
     return {
-      ...entry,
-      resourceType: entry.resourceType as BaseNodeResourceType,
-      resourceMeta: resourceMetaWithoutId,
+      ...baseNodeEntry,
+      resourceType,
+      resourceMeta: resourceMetaWithAudit,
       defaultUrl,
     };
   }
 
-  protected getTableResources(baseId: string, ids?: string[]) {
-    return this.prismaService.tableMeta.findMany({
+  private async getUserMap(
+    userIds: Array<string | null | undefined>
+  ): Promise<Map<string, IUserInfoVo>> {
+    const ids = [...new Set(userIds.filter(Boolean) as string[])];
+    if (ids.length === 0) {
+      return new Map();
+    }
+
+    const users = await this.prismaService.user.findMany({
+      where: { id: { in: ids } },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        avatar: true,
+      },
+    });
+
+    return new Map(users.map((user) => [user.id, user]));
+  }
+
+  protected async getTableResources(baseId: string, ids?: string[]) {
+    return await this.prismaService.tableMeta.findMany({
       where: { baseId, id: { in: ids ? ids : undefined }, deletedTime: null },
       select: {
         id: true,
         name: true,
         icon: true,
+        createdBy: true,
+        createdTime: true,
+        lastModifiedBy: true,
+        lastModifiedTime: true,
       },
     });
   }
 
-  protected getDashboardResources(baseId: string, ids?: string[]) {
-    return this.prismaService.dashboard.findMany({
+  protected async getDashboardResources(baseId: string, ids?: string[]) {
+    return await this.prismaService.dashboard.findMany({
       where: { baseId, id: { in: ids ? ids : undefined } },
       select: {
         id: true,
         name: true,
+        createdBy: true,
+        createdTime: true,
+        lastModifiedBy: true,
+        lastModifiedTime: true,
       },
     });
   }
 
-  protected getFolderResources(baseId: string, ids?: string[]) {
-    return this.prismaService.baseNodeFolder.findMany({
+  protected async getFolderResources(baseId: string, ids?: string[]) {
+    return await this.prismaService.baseNodeFolder.findMany({
       where: { baseId, id: { in: ids ? ids : undefined } },
       select: {
         id: true,
         name: true,
+        createdBy: true,
+        createdTime: true,
+        lastModifiedBy: true,
+        lastModifiedTime: true,
       },
     });
   }
 
-  protected async getNodeResource(
-    baseId: string,
-    type: BaseNodeResourceType,
-    ids?: string[]
-  ): Promise<IBaseNodeResourceMetaWithId[]> {
+  protected async getNodeResource(baseId: string, type: BaseNodeResourceType, ids?: string[]) {
     switch (type) {
       case BaseNodeResourceType.Folder:
         return this.getFolderResources(baseId, ids);
@@ -290,6 +358,9 @@ export class BaseNodeService {
       list.map((r) => ({ ...r, type: resourceTypes[index] }))
     );
 
+    const userMap = await this.getUserMap(
+      resources.flatMap((resource) => [resource.createdBy, resource.lastModifiedBy])
+    );
     const resourceMap = keyBy(resources, (r) => `${r.type}_${r.id}`);
     const resourceKeys = new Set(resources.map((r) => `${r.type}_${r.id}`));
 
@@ -309,23 +380,13 @@ export class BaseNodeService {
     );
 
     if (toCreate.length === 0 && toDelete.length === 0 && orphans.length === 0) {
-      return nodes.map((entry) => {
-        const key = `${entry.resourceType}_${entry.resourceId}`;
-        const resource = resourceMap[key];
-        const resourceMeta = omit(resource, 'id');
-        const defaultUrl = this.generateDefaultUrl(
-          baseId,
-          entry.resourceType as BaseNodeResourceType,
-          entry.resourceId,
-          resourceMeta
-        );
-        return {
-          ...entry,
-          resourceType: entry.resourceType as BaseNodeResourceType,
-          resourceMeta,
-          defaultUrl,
-        };
-      });
+      return Promise.all(
+        nodes.map((entry) => {
+          const key = `${entry.resourceType}_${entry.resourceId}`;
+          const resource = resourceMap[key];
+          return this.entry2vo(entry, resource, userMap);
+        })
+      );
     }
 
     const finalMenus = await this.prismaService.$tx(async (prisma) => {
@@ -381,7 +442,7 @@ export class BaseNodeService {
       finalMenus.map(async (entry) => {
         const key = `${entry.resourceType}_${entry.resourceId}`;
         const resource = resourceMap[key];
-        return await this.entry2vo(entry, omit(resource, 'id'));
+        return await this.entry2vo(entry, resource, userMap);
       })
     );
   }
@@ -455,7 +516,7 @@ export class BaseNodeService {
       select: this.getSelect(),
     });
 
-    const vo = await this.entry2vo(entry, omit(resource, 'id'));
+    const vo = await this.entry2vo(entry, resource);
     this.presenceHandler(baseId, (presence) => {
       presence.submit({
         event: 'create',
@@ -604,7 +665,7 @@ export class BaseNodeService {
       };
     });
 
-    const vo = await this.entry2vo(entry, omit(resource, 'id'));
+    const vo = await this.entry2vo(entry, resource);
     this.presenceHandler(baseId, (presence) => {
       presence.submit({
         event: 'create',
