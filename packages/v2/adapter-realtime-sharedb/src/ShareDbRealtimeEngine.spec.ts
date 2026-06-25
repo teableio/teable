@@ -9,6 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
 
 import { ShareDbBackendPublisher } from './ShareDbBackendPublisher';
+import { ShareDbPubSubPublisher } from './ShareDbPubSubPublisher';
 import { ShareDbRealtimeEngine } from './ShareDbRealtimeEngine';
 import { ShareDbWebSocketServer } from './ShareDbWebSocketServer';
 
@@ -225,6 +226,8 @@ const createShareDbClientDoc = <T>(params: {
 
   return { ready, doc, dispose };
 };
+
+const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 const submitOp = <T>(doc: Doc<T>, op: unknown): Promise<void> =>
   new Promise((resolve, reject) => {
@@ -557,5 +560,105 @@ describe('ShareDbRealtimeEngine', () => {
     } finally {
       client.dispose();
     }
+  });
+
+  // Regression: a multi-field update (e.g. an automation setting a text
+  // and a date field at once) must land all fields live. Over the pub/sub path each
+  // op carries the engine-assigned (src, seq) and version, so two separate ops on one
+  // doc collide and ShareDB drops the second. A single batched op is the safe shape.
+  describe('multi-field update over the pub/sub broadcast path', () => {
+    const setUpExistingDoc = async (documentId: string) => {
+      if (!runtime) throw new Error('Missing ShareDB runtime');
+
+      const actorId = ActorId.create('test-actor')._unsafeUnwrap();
+      const context = { actorId };
+      const collection = 'tbl_test';
+      const docId = RealtimeDocId.fromParts(collection, documentId)._unsafeUnwrap();
+      const initial = { id: documentId, fields: {} as Record<string, unknown> };
+
+      // Create the doc in the backend store so the subscribing client fetches a
+      // baseline snapshot at version 1, matching the broadcast op version below.
+      const backendEngine = new ShareDbRealtimeEngine(new ShareDbBackendPublisher(runtime.backend));
+      const ensureResult = await backendEngine.ensure(context, docId, initial);
+      expect(ensureResult.isOk()).toBe(true);
+
+      // The projection broadcasts via the pub/sub publisher in production.
+      const pubsubEngine = new ShareDbRealtimeEngine(
+        new ShareDbPubSubPublisher(runtime.backend.pubsub)
+      );
+
+      const client = createShareDbClientDoc<typeof initial>({
+        url: runtime.url,
+        collection,
+        docId: documentId,
+      });
+      await client.ready;
+
+      return { context, docId, client, pubsubEngine, baselineVersion: 1 };
+    };
+
+    it('drops the second field when each field is sent as its own op (reproduces T4621)', async () => {
+      const { context, docId, client, pubsubEngine, baselineVersion } =
+        await setUpExistingDoc('doc_multifield_bug');
+
+      try {
+        const remoteUpdated = waitNextRemoteOp(client.doc);
+
+        // Mirror the buggy projection: one applyChange per field, sharing the same
+        // context (same src) and the same version (event.oldVersion).
+        const first = await pubsubEngine.applyChange(
+          context,
+          docId,
+          { type: 'set', path: ['fields', 'fldText'], value: 'clicked' },
+          { version: baselineVersion }
+        );
+        const second = await pubsubEngine.applyChange(
+          context,
+          docId,
+          { type: 'set', path: ['fields', 'fldDate'], value: '2026-06-22T08:21:10.614Z' },
+          { version: baselineVersion }
+        );
+        expect(first.isOk()).toBe(true);
+        expect(second.isOk()).toBe(true);
+
+        await remoteUpdated;
+        // Give the dropped second op time to be processed (and discarded).
+        await delay(100);
+
+        expect(client.doc.data?.fields.fldText).toBe('clicked');
+        // The bug: the date field never arrives live.
+        expect(client.doc.data?.fields.fldDate).toBeUndefined();
+      } finally {
+        client.dispose();
+      }
+    });
+
+    it('lands every field when the update is sent as a single batched op (proves the fix)', async () => {
+      const { context, docId, client, pubsubEngine, baselineVersion } =
+        await setUpExistingDoc('doc_multifield_fixed');
+
+      try {
+        const remoteUpdated = waitNextRemoteOp(client.doc);
+
+        const result = await pubsubEngine.applyChange(
+          context,
+          docId,
+          [
+            { type: 'set', path: ['fields', 'fldText'], value: 'clicked' },
+            { type: 'set', path: ['fields', 'fldDate'], value: '2026-06-22T08:21:10.614Z' },
+          ],
+          { version: baselineVersion }
+        );
+        expect(result.isOk()).toBe(true);
+
+        await remoteUpdated;
+        await delay(100);
+
+        expect(client.doc.data?.fields.fldText).toBe('clicked');
+        expect(client.doc.data?.fields.fldDate).toBe('2026-06-22T08:21:10.614Z');
+      } finally {
+        client.dispose();
+      }
+    });
   });
 });

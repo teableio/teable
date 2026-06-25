@@ -242,6 +242,15 @@ export class LinkField
     );
   }
 
+  override withName(params: FieldDuplicateParams): Result<Field, DomainError> {
+    return LinkField.create({
+      id: params.newId,
+      name: params.newName,
+      config: this.configValue,
+      meta: this.metaValue,
+    });
+  }
+
   lookupField(foreignTable: ForeignTable): Result<Field, DomainError> {
     return this.ensureForeignTable(foreignTable).andThen(() =>
       foreignTable.fieldById(this.lookupFieldId())

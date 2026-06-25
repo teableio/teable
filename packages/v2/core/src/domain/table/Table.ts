@@ -61,6 +61,8 @@ import {
   type CreateRecordsMethodResult,
   type CreateRecordsStreamOptions,
   type UpdateRecordItem,
+  type UpdateRecordOptions,
+  type UpdateRecordsStreamOptions,
 } from './methods/records';
 import { rename as renameMethod } from './methods/rename';
 import { validateFormSubmission as validateFormSubmissionMethod } from './methods/validateFormSubmission';
@@ -537,7 +539,7 @@ export class Table extends AggregateRoot<TableId> {
   updateRecord(
     recordId: RecordId,
     fieldValues: ReadonlyMap<string, unknown>,
-    options?: { typecast?: boolean }
+    options?: UpdateRecordOptions
   ): Result<RecordUpdateResult, DomainError> {
     return updateRecordMethod.call(this, recordId, fieldValues, options);
   }
@@ -555,6 +557,7 @@ export class Table extends AggregateRoot<TableId> {
    * @param options - Optional configuration
    * @param options.typecast - If true, values are converted to the expected type
    * @param options.batchSize - Number of records per batch (default: 500)
+   * @param options.maxBatchSize - Dynamic batch-size cap when batchSize is not specified
    * @returns Generator yielding Result batches of RecordUpdateResult
    *
    * @example
@@ -577,7 +580,7 @@ export class Table extends AggregateRoot<TableId> {
    */
   *updateRecordsStream(
     updates: Iterable<UpdateRecordItem>,
-    options?: { typecast?: boolean; batchSize?: number }
+    options?: UpdateRecordsStreamOptions
   ): Generator<Result<ReadonlyArray<RecordUpdateResult>, DomainError>> {
     yield* updateRecordsStreamMethod.call(this, updates, options);
   }
@@ -967,6 +970,7 @@ export class Table extends AggregateRoot<TableId> {
           options: mergedOptions,
           defaultValue: (field as SingleSelectField).defaultValue(),
           preventAutoNewOptions: (field as SingleSelectField).preventAutoNewOptions(),
+          domainContext,
         })
       : MultipleSelectField.create({
           id: field.id(),
@@ -974,6 +978,7 @@ export class Table extends AggregateRoot<TableId> {
           options: mergedOptions,
           defaultValue: (field as MultipleSelectField).defaultValue(),
           preventAutoNewOptions: (field as MultipleSelectField).preventAutoNewOptions(),
+          domainContext,
         });
     if (nextFieldResult.isErr()) return err(nextFieldResult.error);
     const nextField = nextFieldResult.value;
@@ -1038,8 +1043,7 @@ export class Table extends AggregateRoot<TableId> {
       return err(domainError.conflict({ message: 'Field names must be unique' }));
     }
 
-    // Create updated field using duplicate with new name
-    const updatedFieldResult = field.duplicate({
+    const updatedFieldResult = field.withName({
       newId: field.id(),
       newName: nextName,
       baseId: this.baseIdValue,
