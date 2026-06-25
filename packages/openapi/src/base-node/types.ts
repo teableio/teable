@@ -1,3 +1,4 @@
+import { userInfoVoSchema } from '../auth/user';
 import { ResourceType } from '../types';
 import { z } from '../zod';
 
@@ -12,6 +13,10 @@ export enum BaseNodeResourceType {
 const defaultResourceMetaSchema = z.object({
   name: z.string(),
   icon: z.string().nullable().optional(),
+  createdByUser: userInfoVoSchema.nullable().optional(),
+  createdTime: z.string().nullable().optional(),
+  lastModifiedByUser: userInfoVoSchema.nullable().optional(),
+  lastModifiedTime: z.string().nullable().optional(),
 });
 
 export const baseNodeFolderResourceMetaSchema = defaultResourceMetaSchema;

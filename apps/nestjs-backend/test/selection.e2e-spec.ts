@@ -6,6 +6,7 @@ import {
   Colors,
   FieldKeyType,
   FieldType,
+  Me,
   MultiNumberDisplayType,
   Relationship,
   Role,
@@ -13,17 +14,31 @@ import {
   defaultNumberFormatting,
 } from '@teable/core';
 import type { IFieldRo, IUserCellValue } from '@teable/core';
-import type { IRecordsVo, IPasteRo, IPasteVo, ITableFullVo, IUserMeVo } from '@teable/openapi';
+import type {
+  IRecordsVo,
+  IGetRecordsRo,
+  IPasteByIdVo,
+  IPasteRo,
+  IPasteVo,
+  ITableFullVo,
+  IUserMeVo,
+} from '@teable/openapi';
 import {
   RangeType,
   IdReturnType,
   CLEAR_URL,
+  CLEAR_BY_ID_URL,
+  CLEAR_BY_ID_STREAM_URL,
   CLEAR_STREAM_URL,
+  DELETE_BY_ID_URL,
+  DELETE_BY_ID_STREAM_URL,
   DELETE_STREAM_URL,
   DUPLICATE_STREAM_URL,
   DELETE_URL,
   GET_RECORDS_URL,
   PASTE_URL,
+  PASTE_BY_ID_URL,
+  PASTE_BY_ID_STREAM_URL,
   PASTE_STREAM_URL,
   X_CANARY_HEADER,
   axios,
@@ -33,7 +48,10 @@ import {
   getFields,
   deleteSelection,
   clear,
+  updateRecordOrders,
+  updateViewColumnMeta,
   updateViewFilter,
+  updateViewGroup,
   updateViewSort,
   USER_ME,
   UPDATE_USER_NAME,
@@ -52,6 +70,7 @@ import {
   initApp,
   createTable,
   createRecords,
+  convertField,
   permanentDeleteTable,
   permanentDeleteSpace,
   updateRecordByApi,
@@ -152,6 +171,48 @@ describe('OpenAPI SelectionController (e2e)', () => {
           groupBy: JSON.stringify(deleteRo.groupBy),
           ranges: JSON.stringify(deleteRo.ranges),
           collapsedGroupIds: JSON.stringify(deleteRo.collapsedGroupIds),
+        },
+      }
+    );
+  };
+
+  const pasteByIdWithCanary = async (tableId: string, pasteRo: unknown, useV2: boolean) => {
+    return axios.patch<IPasteByIdVo>(
+      urlBuilder(PASTE_BY_ID_URL, {
+        tableId,
+      }),
+      pasteRo,
+      {
+        headers: {
+          [X_CANARY_HEADER]: useV2 ? 'true' : 'false',
+        },
+      }
+    );
+  };
+
+  const clearByIdWithCanary = async (tableId: string, clearRo: unknown, useV2: boolean) => {
+    return axios.patch<null>(
+      urlBuilder(CLEAR_BY_ID_URL, {
+        tableId,
+      }),
+      clearRo,
+      {
+        headers: {
+          [X_CANARY_HEADER]: useV2 ? 'true' : 'false',
+        },
+      }
+    );
+  };
+
+  const deleteByIdWithCanary = async (tableId: string, deleteRo: unknown, useV2: boolean) => {
+    return axios.post<{ ids: string[] }>(
+      urlBuilder(DELETE_BY_ID_URL, {
+        tableId,
+      }),
+      deleteRo,
+      {
+        headers: {
+          [X_CANARY_HEADER]: useV2 ? 'true' : 'false',
         },
       }
     );
@@ -593,6 +654,73 @@ describe('OpenAPI SelectionController (e2e)', () => {
     };
   };
 
+  const patchSelectionByIdStreamWithCanary = async <TBody extends object>(
+    url: string,
+    tableId: string,
+    body: TBody,
+    useV2: boolean
+  ) => {
+    const streamUrl = axios.getUri({
+      baseURL: axios.defaults.baseURL,
+      url: urlBuilder(url, {
+        tableId,
+      }),
+    });
+
+    const response = await fetch(streamUrl, {
+      method: 'PATCH',
+      headers: {
+        Accept: 'text/event-stream',
+        'Content-Type': 'application/json',
+        Cookie: cookie,
+        [X_CANARY_HEADER]: useV2 ? 'true' : 'false',
+      },
+      body: JSON.stringify(body),
+    });
+
+    expect(response.ok).toBe(true);
+    expect(response.headers.get('content-type')).toContain('text/event-stream');
+
+    const reader = response.body!.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    const progressEvents: Array<Record<string, unknown>> = [];
+    let doneEvent: Record<string, unknown> | undefined;
+    const errorEvents: Array<Record<string, unknown>> = [];
+
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue;
+        const jsonStr = line.slice(5).trim();
+        if (!jsonStr || jsonStr === '[DONE]') continue;
+        const event = JSON.parse(jsonStr) as Record<string, unknown>;
+        if (event.id === 'progress') {
+          progressEvents.push(event);
+        }
+        if (event.id === 'done') {
+          doneEvent = event;
+        }
+        if (event.id === 'error') {
+          errorEvents.push(event);
+        }
+      }
+    }
+
+    return {
+      progressEvents,
+      doneEvent,
+      errorEvents,
+    };
+  };
+
   describe('getIdsFromRanges', () => {
     it('should return all ids for cell range ', async () => {
       const viewId = table.views[0].id;
@@ -626,6 +754,33 @@ describe('OpenAPI SelectionController (e2e)', () => {
 
       expect(data.recordIds).toHaveLength(2);
       expect(data.fieldIds).toHaveLength(table.fields.length);
+    });
+
+    it('T5266: should batch row range ids past the search index page limit', async () => {
+      const bigTable = await createTable(baseId, {
+        name: 'range-to-id-big-copy',
+        fields: [{ name: 'name', type: FieldType.SingleLineText }],
+        records: Array.from({ length: 1005 }, (_, index) => ({
+          fields: { name: `row-${index}` },
+        })),
+      });
+
+      try {
+        const data = (
+          await apiGetIdsFromRanges(bigTable.id, {
+            viewId: bigTable.views[0].id,
+            ranges: [[0, 1004]],
+            type: RangeType.Rows,
+            returnType: IdReturnType.RecordId,
+          })
+        ).data;
+
+        expect(data.recordIds).toHaveLength(1005);
+        expect(data.recordIds?.[0]).toBe(bigTable.records[0].id);
+        expect(data.recordIds?.[1004]).toBe(bigTable.records[1004].id);
+      } finally {
+        await permanentDeleteTable(baseId, bigTable.id);
+      }
     });
 
     it('should return all ids for column range', async () => {
@@ -1216,6 +1371,7 @@ describe('OpenAPI SelectionController (e2e)', () => {
             groupBy: [...groupBy],
             orderBy: [...orderBy],
             fieldKeyType: FieldKeyType.Id,
+            includeQueryExtra: true,
           });
           const firstGroupHeader = groupedResult.data.extra?.groupPoints?.find(
             (point) => point.type === 0 && 'id' in point
@@ -2119,6 +2275,7 @@ describe('OpenAPI SelectionController (e2e)', () => {
             groupBy: [...groupBy],
             orderBy: [...orderBy],
             fieldKeyType: FieldKeyType.Id,
+            includeQueryExtra: true,
           });
           const firstGroupHeader = groupedResult.data.extra?.groupPoints?.find(
             (point) => point.type === 0 && 'id' in point
@@ -2165,6 +2322,1392 @@ describe('OpenAPI SelectionController (e2e)', () => {
           ).toBe(true);
         } finally {
           await permanentDeleteTable(baseId, deleteTable.id);
+        }
+      }
+    );
+  });
+
+  describe('api/table/:tableId/selection id-based mutations', () => {
+    const modes = isForceV2
+      ? [{ label: 'v2-forced', useV2: true }]
+      : [
+          { label: 'v1', useV2: false },
+          { label: 'v2', useV2: true },
+        ];
+
+    it.each(modes)(
+      'paste-by-id updates explicit record ids in request order ($label)',
+      async ({ useV2 }) => {
+        const idTable = await createTable(baseId, {
+          name: 'paste-by-id',
+          fields: [
+            { name: 'Name', type: FieldType.SingleLineText },
+            { name: 'Status', type: FieldType.SingleLineText },
+          ],
+          records: [
+            { fields: { Name: 'A', Status: 'old-a' } },
+            { fields: { Name: 'B', Status: 'old-b' } },
+            { fields: { Name: 'C', Status: 'old-c' } },
+          ],
+        });
+
+        try {
+          const statusFieldId = idTable.fields.find((field) => field.name === 'Status')!.id;
+          await pasteByIdWithCanary(
+            idTable.id,
+            {
+              viewId: idTable.views[0].id,
+              selection: {
+                recordIds: [idTable.records[2].id, idTable.records[0].id],
+                fieldIds: [statusFieldId],
+              },
+              content: 'new-c\nnew-a',
+            },
+            useV2
+          );
+
+          const { data } = await getRecordsWithCanary(
+            idTable.id,
+            { viewId: idTable.views[0].id, fieldKeyType: FieldKeyType.Id },
+            useV2
+          );
+          const fieldsById = Object.fromEntries(
+            data.records.map((record) => [record.id, record.fields[statusFieldId]])
+          );
+          expect(fieldsById[idTable.records[0].id]).toBe('new-a');
+          expect(fieldsById[idTable.records[1].id]).toBe('old-b');
+          expect(fieldsById[idTable.records[2].id]).toBe('new-c');
+        } finally {
+          await permanentDeleteTable(baseId, idTable.id);
+        }
+      }
+    );
+
+    it.each(modes)(
+      'paste-by-id expands one copied cell across selected records and fields with header ($label)',
+      async ({ useV2 }) => {
+        const idTable = await createTable(baseId, {
+          name: 'paste-by-id-expand-one-cell',
+          fields: [
+            { name: 'Name', type: FieldType.SingleLineText },
+            { name: 'Status', type: FieldType.SingleLineText },
+          ],
+          records: [
+            { fields: { Name: 'A', Status: 'old-a' } },
+            { fields: { Name: 'B', Status: 'old-b' } },
+            { fields: { Name: 'C', Status: 'old-c' } },
+          ],
+        });
+
+        try {
+          const [nameField, statusField] = idTable.fields;
+          await pasteByIdWithCanary(
+            idTable.id,
+            {
+              viewId: idTable.views[0].id,
+              selection: {
+                recordIds: idTable.records.map((record) => record.id),
+                fieldIds: [nameField.id, statusField.id],
+              },
+              content: [['1']],
+              header: [nameField],
+            },
+            useV2
+          );
+
+          const { data } = await getRecordsWithCanary(
+            idTable.id,
+            { viewId: idTable.views[0].id, fieldKeyType: FieldKeyType.Id },
+            useV2
+          );
+          data.records.forEach((record) => {
+            expect(record.fields[nameField.id]).toBe('1');
+            expect(record.fields[statusField.id]).toBe('1');
+          });
+        } finally {
+          await permanentDeleteTable(baseId, idTable.id);
+        }
+      }
+    );
+
+    it.each(modes)(
+      'paste-by-id uses explicit target fields for multi-column content and creates extra rows ($label)',
+      async ({ useV2 }) => {
+        const idTable = await createTable(baseId, {
+          name: 'paste-by-id-expand-anchor',
+          fields: [
+            { name: 'Name', type: FieldType.SingleLineText },
+            { name: 'Score', type: FieldType.Number },
+            {
+              name: 'Status',
+              type: FieldType.SingleSelect,
+              options: {
+                choices: [
+                  { name: 'Todo', color: Colors.Orange },
+                  { name: 'Done', color: Colors.Green },
+                ],
+              },
+            },
+          ],
+          records: [{ fields: { Name: 'A', Score: 0, Status: 'Todo' } }],
+        });
+
+        try {
+          const [nameField, scoreField, statusField] = idTable.fields;
+          const result = await pasteByIdWithCanary(
+            idTable.id,
+            {
+              viewId: idTable.views[0].id,
+              selection: {
+                recordIds: [idTable.records[0].id],
+                fieldIds: [nameField.id, scoreField.id, statusField.id],
+              },
+              content: [
+                ['row-1', 1, 'Done'],
+                ['row-2', 2, 'Todo'],
+                ['row-3', 3, 'Done'],
+              ],
+              header: [nameField, scoreField, statusField],
+            },
+            useV2
+          );
+
+          expect(result.data.selection.fieldIds).toEqual([
+            nameField.id,
+            scoreField.id,
+            statusField.id,
+          ]);
+          expect(result.data.selection.recordIds).toHaveLength(3);
+          expect(result.data.selection.recordIds[0]).toBe(idTable.records[0].id);
+          expect(result.data.createdRecordIds).toHaveLength(2);
+          expect(result.data.pastedRecordIds).toEqual(result.data.selection.recordIds);
+          expect(result.data.pastedFieldIds).toEqual(result.data.selection.fieldIds);
+          expect(result.data.createdFieldIds).toBeUndefined();
+          expect(result.data.skippedAttachments).toEqual([]);
+
+          const { data } = await getRecordsWithCanary(
+            idTable.id,
+            { viewId: idTable.views[0].id, fieldKeyType: FieldKeyType.Id },
+            useV2
+          );
+          const fieldsById = Object.fromEntries(
+            data.records.map((record) => [record.id, record.fields])
+          );
+          const [firstRecordId, secondRecordId, thirdRecordId] = result.data.selection
+            .recordIds as [string, string, string];
+
+          expect(fieldsById[firstRecordId][nameField.id]).toBe('row-1');
+          expect(fieldsById[firstRecordId][scoreField.id]).toBe(1);
+          expect(fieldsById[firstRecordId][statusField.id]).toBe('Done');
+          expect(fieldsById[secondRecordId][nameField.id]).toBe('row-2');
+          expect(fieldsById[secondRecordId][scoreField.id]).toBe(2);
+          expect(fieldsById[secondRecordId][statusField.id]).toBe('Todo');
+          expect(fieldsById[thirdRecordId][nameField.id]).toBe('row-3');
+          expect(fieldsById[thirdRecordId][scoreField.id]).toBe(3);
+          expect(fieldsById[thirdRecordId][statusField.id]).toBe('Done');
+        } finally {
+          await permanentDeleteTable(baseId, idTable.id);
+        }
+      }
+    );
+
+    it.each(modes)(
+      'paste-by-id creates overflowing target fields and returns pasted field ids ($label)',
+      async ({ useV2 }) => {
+        const sourceTable = await createTable(baseId, {
+          name: 'paste-by-id-source-fields',
+          fields: [
+            { name: 'Name', type: FieldType.SingleLineText },
+            { name: 'Score', type: FieldType.Number },
+            { name: 'Note', type: FieldType.SingleLineText },
+          ],
+          records: [],
+        });
+        const targetTable = await createTable(baseId, {
+          name: 'paste-by-id-create-fields',
+          fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+          records: [],
+        });
+
+        try {
+          const [targetNameField] = targetTable.fields;
+          const result = await pasteByIdWithCanary(
+            targetTable.id,
+            {
+              viewId: targetTable.views[0].id,
+              selection: {
+                recordIds: [],
+                fieldIds: [targetNameField.id],
+              },
+              content: [
+                ['row-1', 10, 'note-1'],
+                ['row-2', 20, 'note-2'],
+              ],
+              header: sourceTable.fields,
+            },
+            useV2
+          );
+
+          expect(result.data.createdRecordIds).toHaveLength(2);
+          expect(result.data.createdFieldIds).toHaveLength(2);
+          expect(result.data.pastedRecordIds).toEqual(result.data.createdRecordIds);
+          expect(result.data.pastedFieldIds).toEqual([
+            targetNameField.id,
+            ...(result.data.createdFieldIds ?? []),
+          ]);
+
+          const fieldsAfter = (await getFields(targetTable.id, { viewId: targetTable.views[0].id }))
+            .data;
+          const createdFieldsById = Object.fromEntries(
+            fieldsAfter
+              .filter((field) => result.data.createdFieldIds?.includes(field.id))
+              .map((field) => [field.id, field])
+          );
+          const [scoreFieldId, noteFieldId] = result.data.createdFieldIds as [string, string];
+          expect(createdFieldsById[scoreFieldId].name).toBe('Score');
+          expect(createdFieldsById[scoreFieldId].type).toBe(FieldType.Number);
+          expect(createdFieldsById[noteFieldId].name).toBe('Note');
+
+          const { data } = await getRecordsWithCanary(
+            targetTable.id,
+            { viewId: targetTable.views[0].id, fieldKeyType: FieldKeyType.Id },
+            useV2
+          );
+          const createdRows = data.records.filter((record) =>
+            result.data.createdRecordIds?.includes(record.id)
+          );
+          expect(createdRows.map((record) => record.fields[targetNameField.id])).toEqual([
+            'row-1',
+            'row-2',
+          ]);
+          expect(createdRows.map((record) => record.fields[scoreFieldId])).toEqual([10, 20]);
+          expect(createdRows.map((record) => record.fields[noteFieldId])).toEqual([
+            'note-1',
+            'note-2',
+          ]);
+        } finally {
+          await permanentDeleteTable(baseId, targetTable.id);
+          await permanentDeleteTable(baseId, sourceTable.id);
+        }
+      }
+    );
+
+    it.each(modes)('paste-by-id returns created select choice ids ($label)', async ({ useV2 }) => {
+      const idTable = await createTable(baseId, {
+        name: 'paste-by-id-created-choice',
+        fields: [
+          { name: 'Name', type: FieldType.SingleLineText },
+          {
+            name: 'Status',
+            type: FieldType.SingleSelect,
+            options: {
+              choices: [{ name: 'Todo', color: Colors.Orange }],
+            },
+          },
+        ],
+        records: [{ fields: { Name: 'A', Status: 'Todo' } }],
+      });
+
+      try {
+        const statusField = idTable.fields.find((field) => field.name === 'Status')!;
+        const result = await pasteByIdWithCanary(
+          idTable.id,
+          {
+            viewId: idTable.views[0].id,
+            selection: {
+              recordIds: [idTable.records[0].id],
+              fieldIds: [statusField.id],
+            },
+            content: [['In Progress']],
+          },
+          useV2
+        );
+
+        expect(result.data.createdChoiceIdsByFieldId?.[statusField.id]).toHaveLength(1);
+
+        const fieldsAfter = (await getFields(idTable.id, { viewId: idTable.views[0].id })).data;
+        const statusFieldAfter = fieldsAfter.find((field) => field.id === statusField.id)!;
+        const choices =
+          (statusFieldAfter.options as { choices?: Array<{ id: string; name: string }> }).choices ??
+          [];
+        const createdChoiceId = result.data.createdChoiceIdsByFieldId?.[statusField.id]?.[0];
+        expect(choices.some((choice) => choice.id === createdChoiceId)).toBe(true);
+        expect(choices.some((choice) => choice.name === 'In Progress')).toBe(true);
+      } finally {
+        await permanentDeleteTable(baseId, idTable.id);
+      }
+    });
+
+    it.each(modes)(
+      'paste-by-id create-only keeps Teable paste behavior without filter defaults ($label)',
+      async ({ useV2 }) => {
+        const idTable = await createTable(baseId, {
+          name: 'paste-by-id-no-filter-defaults',
+          fields: [
+            { name: 'Name', type: FieldType.SingleLineText },
+            { name: 'Status', type: FieldType.SingleLineText },
+          ],
+          records: [],
+        });
+
+        try {
+          const [nameField, statusField] = idTable.fields;
+          await updateViewFilter(idTable.id, idTable.views[0].id, {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: statusField.id,
+                  operator: 'is',
+                  value: 'Default Status',
+                },
+              ],
+            },
+          });
+
+          const result = await pasteByIdWithCanary(
+            idTable.id,
+            {
+              viewId: idTable.views[0].id,
+              selection: {
+                recordIds: [],
+                fieldIds: [nameField.id],
+              },
+              content: [['created-without-default']],
+              header: [nameField],
+            },
+            useV2
+          );
+
+          expect(result.data.createdRecordIds).toHaveLength(1);
+
+          const recordsAfter = await getRecordsWithCanary(
+            idTable.id,
+            { fieldKeyType: FieldKeyType.Id, ignoreViewQuery: true },
+            useV2
+          );
+          const createdRecord = recordsAfter.data.records.find(
+            (record) => record.id === result.data.createdRecordIds?.[0]
+          );
+          expect(createdRecord?.fields[nameField.id]).toBe('created-without-default');
+          expect(createdRecord?.fields[statusField.id] ?? null).toBeNull();
+        } finally {
+          await permanentDeleteTable(baseId, idTable.id);
+        }
+      }
+    );
+
+    it.each(modes)(
+      'paste-by-id create-only keeps Teable field default values ($label)',
+      async ({ useV2 }) => {
+        const idTable = await createTable(baseId, {
+          name: 'paste-by-id-field-defaults',
+          fields: [
+            { name: 'Name', type: FieldType.SingleLineText },
+            {
+              name: 'Status',
+              type: FieldType.SingleLineText,
+              options: { defaultValue: 'Default Status' },
+            },
+          ],
+          records: [],
+        });
+
+        try {
+          const [nameField, statusField] = idTable.fields;
+          const result = await pasteByIdWithCanary(
+            idTable.id,
+            {
+              viewId: idTable.views[0].id,
+              selection: {
+                recordIds: [],
+                fieldIds: [nameField.id],
+              },
+              content: [['created-with-field-default']],
+              header: [nameField],
+            },
+            useV2
+          );
+
+          expect(result.data.createdRecordIds).toHaveLength(1);
+
+          const recordsAfter = await getRecordsWithCanary(
+            idTable.id,
+            { fieldKeyType: FieldKeyType.Id },
+            useV2
+          );
+          const createdRecord = recordsAfter.data.records.find(
+            (record) => record.id === result.data.createdRecordIds?.[0]
+          );
+          expect(createdRecord?.fields[nameField.id]).toBe('created-with-field-default');
+          expect(createdRecord?.fields[statusField.id]).toBe('Default Status');
+        } finally {
+          await permanentDeleteTable(baseId, idTable.id);
+        }
+      }
+    );
+
+    it.each(modes)(
+      'paste-by-id treats empty record ids as create-only target ($label)',
+      async ({ useV2 }) => {
+        const idTable = await createTable(baseId, {
+          name: 'paste-by-id-empty-record-ids',
+          fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+          records: [{ fields: { Name: 'A' } }],
+        });
+
+        try {
+          const [nameField] = idTable.fields;
+          const result = await pasteByIdWithCanary(
+            idTable.id,
+            {
+              viewId: idTable.views[0].id,
+              selection: {
+                recordIds: [],
+                fieldIds: [nameField.id],
+              },
+              content: [['row-1'], ['row-2']],
+              header: [nameField],
+            },
+            useV2
+          );
+
+          expect(result.data.createdRecordIds).toHaveLength(2);
+          expect(result.data.selection.recordIds).toEqual(result.data.createdRecordIds);
+
+          const { data } = await getRecordsWithCanary(
+            idTable.id,
+            { viewId: idTable.views[0].id, fieldKeyType: FieldKeyType.Id },
+            useV2
+          );
+          expect(data.records.some((record) => record.fields[nameField.id] === 'A')).toBe(true);
+          expect(data.records.some((record) => record.fields[nameField.id] === 'row-1')).toBe(true);
+          expect(data.records.some((record) => record.fields[nameField.id] === 'row-2')).toBe(true);
+        } finally {
+          await permanentDeleteTable(baseId, idTable.id);
+        }
+      }
+    );
+
+    it.each(modes)(
+      'paste-by-id pastes into a whole selected column with query scope and exclude ids ($label)',
+      async ({ useV2 }) => {
+        const idTable = await createTable(baseId, {
+          name: 'paste-by-id-column',
+          fields: [
+            { name: 'Name', type: FieldType.SingleLineText },
+            { name: 'Status', type: FieldType.SingleLineText },
+          ],
+          records: [
+            { fields: { Name: 'A', Status: 'old-a' } },
+            { fields: { Name: 'B', Status: 'keep-b' } },
+            { fields: { Name: 'C', Status: 'old-c' } },
+          ],
+        });
+
+        try {
+          const statusFieldId = idTable.fields.find((field) => field.name === 'Status')!.id;
+          await pasteByIdWithCanary(
+            idTable.id,
+            {
+              viewId: idTable.views[0].id,
+              selection: {
+                fieldIds: [statusFieldId],
+                excludeRecordIds: [idTable.records[1].id],
+              },
+              content: 'new-a\nnew-c',
+            },
+            useV2
+          );
+
+          const { data } = await getRecordsWithCanary(
+            idTable.id,
+            { viewId: idTable.views[0].id, fieldKeyType: FieldKeyType.Id },
+            useV2
+          );
+          const fieldsById = Object.fromEntries(
+            data.records.map((record) => [record.id, record.fields[statusFieldId]])
+          );
+          expect(fieldsById[idTable.records[0].id]).toBe('new-a');
+          expect(fieldsById[idTable.records[1].id]).toBe('keep-b');
+          expect(fieldsById[idTable.records[2].id]).toBe('new-c');
+        } finally {
+          await permanentDeleteTable(baseId, idTable.id);
+        }
+      }
+    );
+
+    it.each(modes)(
+      'clear-by-id clears a whole selected column with query scope and exclude ids ($label)',
+      async ({ useV2 }) => {
+        const idTable = await createTable(baseId, {
+          name: 'clear-by-id',
+          fields: [
+            { name: 'Name', type: FieldType.SingleLineText },
+            { name: 'Status', type: FieldType.SingleLineText },
+          ],
+          records: [
+            { fields: { Name: 'A', Status: 'clear-a' } },
+            { fields: { Name: 'B', Status: 'keep-b' } },
+            { fields: { Name: 'C', Status: 'clear-c' } },
+          ],
+        });
+
+        try {
+          const statusFieldId = idTable.fields.find((field) => field.name === 'Status')!.id;
+          await clearByIdWithCanary(
+            idTable.id,
+            {
+              viewId: idTable.views[0].id,
+              selection: {
+                fieldIds: [statusFieldId],
+                excludeRecordIds: [idTable.records[1].id],
+              },
+            },
+            useV2
+          );
+
+          const { data } = await getRecordsWithCanary(
+            idTable.id,
+            { viewId: idTable.views[0].id, fieldKeyType: FieldKeyType.Id },
+            useV2
+          );
+          const fieldsById = Object.fromEntries(
+            data.records.map((record) => [record.id, record.fields[statusFieldId] ?? null])
+          );
+          expect(fieldsById[idTable.records[0].id]).toBeNull();
+          expect(fieldsById[idTable.records[1].id]).toBe('keep-b');
+          expect(fieldsById[idTable.records[2].id]).toBeNull();
+        } finally {
+          await permanentDeleteTable(baseId, idTable.id);
+        }
+      }
+    );
+
+    it.each(modes)(
+      'clear-by-id clears whole selected rows with query field scope ($label)',
+      async ({ useV2 }) => {
+        const idTable = await createTable(baseId, {
+          name: 'clear-by-id-row',
+          fields: [
+            { name: 'Name', type: FieldType.SingleLineText },
+            { name: 'Status', type: FieldType.SingleLineText },
+            { name: 'Note', type: FieldType.SingleLineText },
+          ],
+          records: [
+            { fields: { Name: 'A', Status: 'clear-a', Note: 'note-a' } },
+            { fields: { Name: 'B', Status: 'keep-b', Note: 'keep-note-b' } },
+            { fields: { Name: 'C', Status: 'clear-c', Note: 'note-c' } },
+          ],
+        });
+
+        try {
+          const statusFieldId = idTable.fields.find((field) => field.name === 'Status')!.id;
+          const noteFieldId = idTable.fields.find((field) => field.name === 'Note')!.id;
+          await clearByIdWithCanary(
+            idTable.id,
+            {
+              viewId: idTable.views[0].id,
+              selection: {
+                recordIds: [idTable.records[0].id, idTable.records[2].id],
+              },
+            },
+            useV2
+          );
+
+          const { data } = await getRecordsWithCanary(
+            idTable.id,
+            { viewId: idTable.views[0].id, fieldKeyType: FieldKeyType.Id },
+            useV2
+          );
+          const fieldsById = Object.fromEntries(
+            data.records.map((record) => [record.id, record.fields])
+          );
+          expect(fieldsById[idTable.records[0].id][statusFieldId] ?? null).toBeNull();
+          expect(fieldsById[idTable.records[0].id][noteFieldId] ?? null).toBeNull();
+          expect(fieldsById[idTable.records[1].id][statusFieldId]).toBe('keep-b');
+          expect(fieldsById[idTable.records[1].id][noteFieldId]).toBe('keep-note-b');
+          expect(fieldsById[idTable.records[2].id][statusFieldId] ?? null).toBeNull();
+          expect(fieldsById[idTable.records[2].id][noteFieldId] ?? null).toBeNull();
+        } finally {
+          await permanentDeleteTable(baseId, idTable.id);
+        }
+      }
+    );
+
+    it.each(modes)(
+      'delete-by-id deletes query-selected rows except excluded ids ($label)',
+      async ({ useV2 }) => {
+        const idTable = await createTable(baseId, {
+          name: 'delete-by-id',
+          fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+          records: [
+            { fields: { Name: 'A' } },
+            { fields: { Name: 'B' } },
+            { fields: { Name: 'C' } },
+          ],
+        });
+
+        try {
+          const result = await deleteByIdWithCanary(
+            idTable.id,
+            {
+              viewId: idTable.views[0].id,
+              selection: {
+                excludeRecordIds: [idTable.records[1].id],
+              },
+            },
+            useV2
+          );
+
+          expect(result.data.ids).toEqual([idTable.records[0].id, idTable.records[2].id]);
+          const { data } = await getRecordsWithCanary(
+            idTable.id,
+            { viewId: idTable.views[0].id, fieldKeyType: FieldKeyType.Id },
+            useV2
+          );
+          expect(data.records.map((record) => record.id)).toEqual([idTable.records[1].id]);
+        } finally {
+          await permanentDeleteTable(baseId, idTable.id);
+        }
+      }
+    );
+
+    it.each(modes)(
+      'by-id mutations follow saved view filter and sort for query-scoped rows ($label)',
+      async ({ useV2 }) => {
+        const idTable = await createTable(baseId, {
+          name: 'by-id-saved-view-filter-sort',
+          fields: [
+            { name: 'Name', type: FieldType.SingleLineText },
+            { name: 'Value', type: FieldType.Number },
+            { name: 'Marker', type: FieldType.SingleLineText },
+            { name: 'Note', type: FieldType.SingleLineText },
+          ],
+          records: [
+            { fields: { Name: 'RecordA', Value: 100, Marker: 'old-a', Note: 'note-a' } },
+            { fields: { Name: 'RecordB', Value: 200, Marker: 'old-b', Note: 'note-b' } },
+            { fields: { Name: 'RecordC', Value: 300, Marker: 'old-c', Note: 'note-c' } },
+            { fields: { Name: 'RecordD', Value: 400, Marker: 'old-d', Note: 'note-d' } },
+            { fields: { Name: 'RecordE', Value: 500, Marker: 'old-e', Note: 'note-e' } },
+          ],
+        });
+
+        try {
+          const viewId = idTable.views[0].id;
+          const nameField = idTable.fields.find((field) => field.name === 'Name')!;
+          const valueField = idTable.fields.find((field) => field.name === 'Value')!;
+          const markerField = idTable.fields.find((field) => field.name === 'Marker')!;
+          const noteField = idTable.fields.find((field) => field.name === 'Note')!;
+
+          await updateViewSort(idTable.id, viewId, {
+            sort: {
+              sortObjs: [{ fieldId: valueField.id, order: SortFunc.Desc }],
+              manualSort: false,
+            },
+          });
+          await updateViewFilter(idTable.id, viewId, {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: valueField.id,
+                  operator: 'isGreaterEqual',
+                  value: 200,
+                },
+              ],
+            },
+          });
+
+          const visibleBefore = await getRecordsWithCanary(
+            idTable.id,
+            { viewId, fieldKeyType: FieldKeyType.Id },
+            useV2
+          );
+          expect(visibleBefore.data.records.map((record) => record.fields[nameField.id])).toEqual([
+            'RecordE',
+            'RecordD',
+            'RecordC',
+            'RecordB',
+          ]);
+
+          const pasteResult = await pasteByIdWithCanary(
+            idTable.id,
+            {
+              viewId,
+              selection: {
+                fieldIds: [markerField.id],
+              },
+              content: 'paste-e\npaste-d\npaste-c\npaste-b',
+            },
+            useV2
+          );
+          expect(pasteResult.data.selection.recordIds).toEqual(
+            visibleBefore.data.records.map((record) => record.id)
+          );
+
+          await clearByIdWithCanary(
+            idTable.id,
+            {
+              viewId,
+              selection: {
+                fieldIds: [noteField.id],
+              },
+            },
+            useV2
+          );
+
+          const recordDId = idTable.records.find((record) => record.fields.Name === 'RecordD')!.id;
+          const deleteResult = await deleteByIdWithCanary(
+            idTable.id,
+            {
+              viewId,
+              selection: {
+                excludeRecordIds: [recordDId],
+              },
+            },
+            useV2
+          );
+          expect(deleteResult.data.ids).toEqual(
+            visibleBefore.data.records
+              .filter((record) => record.id !== recordDId)
+              .map((record) => record.id)
+          );
+
+          const recordsAfter = await getRecordsWithCanary(
+            idTable.id,
+            { fieldKeyType: FieldKeyType.Id, ignoreViewQuery: true },
+            useV2
+          );
+          const fieldsByName = Object.fromEntries(
+            recordsAfter.data.records.map((record) => [record.fields[nameField.id], record.fields])
+          );
+          expect(Object.keys(fieldsByName)).toEqual(['RecordA', 'RecordD']);
+          expect(fieldsByName.RecordA[markerField.id]).toBe('old-a');
+          expect(fieldsByName.RecordA[noteField.id]).toBe('note-a');
+          expect(fieldsByName.RecordD[markerField.id]).toBe('paste-d');
+          expect(fieldsByName.RecordD[noteField.id] ?? null).toBeNull();
+        } finally {
+          await permanentDeleteTable(baseId, idTable.id);
+        }
+      }
+    );
+
+    it.each(modes)(
+      'by-id mutations respect search hide-not-match query scope ($label)',
+      async ({ useV2 }) => {
+        const idTable = await createTable(baseId, {
+          name: 'by-id-search-hide-not-match',
+          fields: [
+            { name: 'Name', type: FieldType.SingleLineText },
+            { name: 'Marker', type: FieldType.SingleLineText },
+            { name: 'Note', type: FieldType.SingleLineText },
+          ],
+          records: [
+            { fields: { Name: 'Alpha', Marker: 'old-alpha', Note: 'note-alpha' } },
+            { fields: { Name: 'target-one', Marker: 'old-one', Note: 'note-one' } },
+            { fields: { Name: 'Bravo', Marker: 'old-bravo', Note: 'note-bravo' } },
+            { fields: { Name: 'target-two', Marker: 'old-two', Note: 'note-two' } },
+            { fields: { Name: 'Charlie', Marker: 'old-charlie', Note: 'note-charlie' } },
+          ],
+        });
+
+        try {
+          const viewId = idTable.views[0].id;
+          const nameField = idTable.fields.find((field) => field.name === 'Name')!;
+          const markerField = idTable.fields.find((field) => field.name === 'Marker')!;
+          const noteField = idTable.fields.find((field) => field.name === 'Note')!;
+          const targetTwoId = idTable.records.find((record) => {
+            return record.fields.Name === 'target-two';
+          })!.id;
+
+          const pasteResult = await pasteByIdWithCanary(
+            idTable.id,
+            {
+              viewId,
+              search: ['target', '', true],
+              selection: {
+                fieldIds: [markerField.id],
+              },
+              content: 'paste-one\npaste-two',
+            },
+            useV2
+          );
+          expect(pasteResult.data.selection.recordIds).toEqual([
+            idTable.records[1].id,
+            idTable.records[3].id,
+          ]);
+
+          await clearByIdWithCanary(
+            idTable.id,
+            {
+              viewId,
+              search: ['target', '', true],
+              selection: {
+                fieldIds: [noteField.id],
+              },
+            },
+            useV2
+          );
+
+          const deleteResult = await deleteByIdWithCanary(
+            idTable.id,
+            {
+              viewId,
+              search: ['target', '', true],
+              selection: {
+                excludeRecordIds: [targetTwoId],
+              },
+            },
+            useV2
+          );
+          expect(deleteResult.data.ids).toEqual([idTable.records[1].id]);
+
+          const recordsAfter = await getRecordsWithCanary(
+            idTable.id,
+            { fieldKeyType: FieldKeyType.Id, ignoreViewQuery: true },
+            useV2
+          );
+          const fieldsByName = Object.fromEntries(
+            recordsAfter.data.records.map((record) => [record.fields[nameField.id], record.fields])
+          );
+          expect(Object.keys(fieldsByName)).toEqual(['Alpha', 'Bravo', 'target-two', 'Charlie']);
+          expect(fieldsByName.Alpha[markerField.id]).toBe('old-alpha');
+          expect(fieldsByName.Alpha[noteField.id]).toBe('note-alpha');
+          expect(fieldsByName.Bravo[markerField.id]).toBe('old-bravo');
+          expect(fieldsByName.Bravo[noteField.id]).toBe('note-bravo');
+          expect(fieldsByName['target-two'][markerField.id]).toBe('paste-two');
+          expect(fieldsByName['target-two'][noteField.id] ?? null).toBeNull();
+          expect(fieldsByName.Charlie[markerField.id]).toBe('old-charlie');
+          expect(fieldsByName.Charlie[noteField.id]).toBe('note-charlie');
+        } finally {
+          await permanentDeleteTable(baseId, idTable.id);
+        }
+      }
+    );
+
+    it.each(modes)(
+      'paste-by-id follows saved grouped and sorted view order for query-scoped rows ($label)',
+      async ({ useV2 }) => {
+        const idTable = await createTable(baseId, {
+          name: 'paste-by-id-saved-view-matrix',
+          fields: [
+            { name: 'Title', type: FieldType.SingleLineText },
+            {
+              name: 'Status',
+              type: FieldType.SingleSelect,
+              options: {
+                choices: [
+                  { name: 'GroupA', color: Colors.Blue },
+                  { name: 'GroupB', color: Colors.Green },
+                ],
+              },
+            },
+            { name: 'Marker', type: FieldType.SingleLineText },
+          ],
+          records: [
+            { fields: { Title: 'A-01', Status: 'GroupA', Marker: 'old-a01' } },
+            { fields: { Title: 'A-02', Status: 'GroupA', Marker: 'old-a02' } },
+            { fields: { Title: 'B-01', Status: 'GroupB', Marker: 'old-b01' } },
+            { fields: { Title: 'B-02', Status: 'GroupB', Marker: 'old-b02' } },
+          ],
+        });
+
+        try {
+          const viewId = idTable.views[0].id;
+          const titleField = idTable.fields.find((field) => field.name === 'Title')!;
+          const statusField = idTable.fields.find((field) => field.name === 'Status')!;
+          const markerField = idTable.fields.find((field) => field.name === 'Marker')!;
+
+          await updateViewGroup(idTable.id, viewId, {
+            group: [{ fieldId: statusField.id, order: SortFunc.Asc }],
+          });
+          await updateViewSort(idTable.id, viewId, {
+            sort: {
+              sortObjs: [{ fieldId: titleField.id, order: SortFunc.Desc }],
+              manualSort: false,
+            },
+          });
+
+          const visibleBefore = await getRecordsWithCanary(
+            idTable.id,
+            { viewId, fieldKeyType: FieldKeyType.Id },
+            useV2
+          );
+          const visibleTitles = visibleBefore.data.records.map(
+            (record) => record.fields[titleField.id] as string
+          );
+          expect(visibleTitles).toEqual(expect.arrayContaining(['A-01', 'A-02', 'B-01', 'B-02']));
+          expect(visibleTitles).toHaveLength(4);
+
+          const result = await pasteByIdWithCanary(
+            idTable.id,
+            {
+              viewId,
+              selection: {
+                fieldIds: [markerField.id],
+              },
+              content: visibleTitles.map((title) => `paste-${title.toLowerCase()}`).join('\n'),
+            },
+            useV2
+          );
+
+          expect(result.data.selection.recordIds).toEqual(
+            visibleBefore.data.records.map((record) => record.id)
+          );
+          expect(result.data.selection.fieldIds).toEqual([markerField.id]);
+
+          const allRecords = await getRecordsWithCanary(
+            idTable.id,
+            { fieldKeyType: FieldKeyType.Id, ignoreViewQuery: true },
+            useV2
+          );
+          const markerByTitle = Object.fromEntries(
+            allRecords.data.records.map((record) => [
+              record.fields[titleField.id],
+              record.fields[markerField.id],
+            ])
+          );
+          visibleTitles.forEach((title) => {
+            expect(markerByTitle[title]).toBe(`paste-${title.toLowerCase()}`);
+          });
+        } finally {
+          await permanentDeleteTable(baseId, idTable.id);
+        }
+      }
+    );
+
+    it.each(modes)(
+      'paste-by-id follows personal grouped query and collapsed groups for query-scoped rows ($label)',
+      async ({ useV2 }) => {
+        const idTable = await createTable(baseId, {
+          name: 'paste-by-id-personal-view-matrix',
+          fields: [
+            { name: 'Title', type: FieldType.SingleLineText },
+            {
+              name: 'Status',
+              type: FieldType.SingleSelect,
+              options: {
+                choices: [
+                  { name: 'GroupA', color: Colors.Blue },
+                  { name: 'GroupB', color: Colors.Green },
+                ],
+              },
+            },
+            { name: 'Marker', type: FieldType.SingleLineText },
+          ],
+          records: [
+            { fields: { Title: 'A-01', Status: 'GroupA', Marker: 'old-a01' } },
+            { fields: { Title: 'A-02', Status: 'GroupA', Marker: 'old-a02' } },
+            { fields: { Title: 'B-01', Status: 'GroupB', Marker: 'old-b01' } },
+            { fields: { Title: 'B-02', Status: 'GroupB', Marker: 'old-b02' } },
+          ],
+        });
+
+        try {
+          const viewId = idTable.views[0].id;
+          const titleField = idTable.fields.find((field) => field.name === 'Title')!;
+          const statusField = idTable.fields.find((field) => field.name === 'Status')!;
+          const markerField = idTable.fields.find((field) => field.name === 'Marker')!;
+
+          await updateViewSort(idTable.id, viewId, {
+            sort: {
+              sortObjs: [{ fieldId: titleField.id, order: SortFunc.Desc }],
+              manualSort: false,
+            },
+          });
+          await updateViewFilter(idTable.id, viewId, {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: statusField.id,
+                  operator: 'is',
+                  value: 'GroupA',
+                },
+              ],
+            },
+          });
+
+          const personalFilter: NonNullable<IGetRecordsRo['filter']> = {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: statusField.id,
+                operator: 'isAnyOf',
+                value: ['GroupA', 'GroupB'],
+              },
+            ],
+          };
+          const personalGroupBy = [{ fieldId: statusField.id, order: SortFunc.Asc }] as const;
+          const personalOrderBy = [{ fieldId: titleField.id, order: SortFunc.Asc }] as const;
+
+          const groupedResult = await getRecordsWithCanary(
+            idTable.id,
+            {
+              viewId,
+              ignoreViewQuery: true,
+              filter: personalFilter,
+              groupBy: [...personalGroupBy],
+              orderBy: [...personalOrderBy],
+              fieldKeyType: FieldKeyType.Id,
+              includeQueryExtra: true,
+            },
+            useV2
+          );
+          expect(groupedResult.data.records.map((record) => record.fields[titleField.id])).toEqual([
+            'A-01',
+            'A-02',
+            'B-01',
+            'B-02',
+          ]);
+          const firstGroupHeader = groupedResult.data.extra?.groupPoints?.find(
+            (point) => point.type === 0 && 'id' in point
+          );
+          expect(firstGroupHeader).toBeDefined();
+          const collapsedGroupIds = [(firstGroupHeader as { id: string }).id];
+
+          const result = await pasteByIdWithCanary(
+            idTable.id,
+            {
+              viewId,
+              ignoreViewQuery: true,
+              filter: personalFilter,
+              groupBy: [...personalGroupBy],
+              orderBy: [...personalOrderBy],
+              collapsedGroupIds,
+              selection: {
+                fieldIds: [markerField.id],
+              },
+              content: 'paste-b01\npaste-b02',
+            },
+            useV2
+          );
+
+          const allRecords = await getRecordsWithCanary(
+            idTable.id,
+            { fieldKeyType: FieldKeyType.Id, ignoreViewQuery: true },
+            useV2
+          );
+          const markerByTitle = Object.fromEntries(
+            allRecords.data.records.map((record) => [
+              record.fields[titleField.id],
+              record.fields[markerField.id],
+            ])
+          );
+          expect(result.data.selection.recordIds).toHaveLength(2);
+          expect(markerByTitle).toMatchObject({
+            'A-01': 'old-a01',
+            'A-02': 'old-a02',
+            'B-01': 'paste-b01',
+            'B-02': 'paste-b02',
+          });
+        } finally {
+          await permanentDeleteTable(baseId, idTable.id);
+        }
+      }
+    );
+
+    it.each(modes)(
+      'clear-by-id uses personal projection over saved hidden fields for query-scoped fields ($label)',
+      async ({ useV2 }) => {
+        const idTable = await createTable(baseId, {
+          name: 'clear-by-id-personal-projection-matrix',
+          fields: [
+            { name: 'Title', type: FieldType.SingleLineText },
+            {
+              name: 'Status',
+              type: FieldType.SingleSelect,
+              options: {
+                choices: [
+                  { name: 'GroupA', color: Colors.Blue },
+                  { name: 'GroupB', color: Colors.Green },
+                ],
+              },
+            },
+            { name: 'Marker', type: FieldType.SingleLineText },
+            { name: 'PersonalOnly', type: FieldType.SingleLineText },
+          ],
+          records: [
+            {
+              fields: {
+                Title: 'A-01',
+                Status: 'GroupA',
+                Marker: 'marker-a01',
+                PersonalOnly: 'personal-a01',
+              },
+            },
+            {
+              fields: {
+                Title: 'A-02',
+                Status: 'GroupA',
+                Marker: 'marker-a02',
+                PersonalOnly: 'personal-a02',
+              },
+            },
+            {
+              fields: {
+                Title: 'B-01',
+                Status: 'GroupB',
+                Marker: 'marker-b01',
+                PersonalOnly: 'personal-b01',
+              },
+            },
+            {
+              fields: {
+                Title: 'B-02',
+                Status: 'GroupB',
+                Marker: 'marker-b02',
+                PersonalOnly: 'personal-b02',
+              },
+            },
+          ],
+        });
+
+        try {
+          const viewId = idTable.views[0].id;
+          const titleField = idTable.fields.find((field) => field.name === 'Title')!;
+          const statusField = idTable.fields.find((field) => field.name === 'Status')!;
+          const markerField = idTable.fields.find((field) => field.name === 'Marker')!;
+          const personalField = idTable.fields.find((field) => field.name === 'PersonalOnly')!;
+
+          await updateViewColumnMeta(idTable.id, viewId, [
+            {
+              fieldId: personalField.id,
+              columnMeta: {
+                hidden: true,
+              },
+            },
+          ]);
+          await updateViewFilter(idTable.id, viewId, {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: statusField.id,
+                  operator: 'is',
+                  value: 'GroupA',
+                },
+              ],
+            },
+          });
+
+          const personalFilter: NonNullable<IGetRecordsRo['filter']> = {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: statusField.id,
+                operator: 'isAnyOf',
+                value: ['GroupA', 'GroupB'],
+              },
+            ],
+          };
+          const personalGroupBy = [{ fieldId: statusField.id, order: SortFunc.Asc }] as const;
+          const personalOrderBy = [{ fieldId: titleField.id, order: SortFunc.Asc }] as const;
+          const personalProjection = [personalField.id, markerField.id];
+
+          const groupedResult = await getRecordsWithCanary(
+            idTable.id,
+            {
+              viewId,
+              ignoreViewQuery: true,
+              filter: personalFilter,
+              groupBy: [...personalGroupBy],
+              orderBy: [...personalOrderBy],
+              projection: personalProjection,
+              fieldKeyType: FieldKeyType.Id,
+              includeQueryExtra: true,
+            },
+            useV2
+          );
+          const firstGroupHeader = groupedResult.data.extra?.groupPoints?.find(
+            (point) => point.type === 0 && 'id' in point
+          );
+          expect(firstGroupHeader).toBeDefined();
+          const collapsedGroupIds = [(firstGroupHeader as { id: string }).id];
+
+          await clearByIdWithCanary(
+            idTable.id,
+            {
+              viewId,
+              ignoreViewQuery: true,
+              filter: personalFilter,
+              groupBy: [...personalGroupBy],
+              orderBy: [...personalOrderBy],
+              projection: personalProjection,
+              collapsedGroupIds,
+              selection: {},
+            },
+            useV2
+          );
+
+          const allRecords = await getRecordsWithCanary(
+            idTable.id,
+            { fieldKeyType: FieldKeyType.Id, ignoreViewQuery: true },
+            useV2
+          );
+          const fieldsByTitle = Object.fromEntries(
+            allRecords.data.records.map((record) => [record.fields[titleField.id], record.fields])
+          );
+          expect(fieldsByTitle['A-01'][statusField.id]).toBe('GroupA');
+          expect(fieldsByTitle['A-01'][markerField.id]).toBe('marker-a01');
+          expect(fieldsByTitle['A-01'][personalField.id]).toBe('personal-a01');
+          expect(fieldsByTitle['A-02'][markerField.id]).toBe('marker-a02');
+          expect(fieldsByTitle['A-02'][personalField.id]).toBe('personal-a02');
+          expect(fieldsByTitle['B-01'][statusField.id]).toBe('GroupB');
+          expect(fieldsByTitle['B-01'][markerField.id] ?? null).toBeNull();
+          expect(fieldsByTitle['B-01'][personalField.id] ?? null).toBeNull();
+          expect(fieldsByTitle['B-02'][markerField.id] ?? null).toBeNull();
+          expect(fieldsByTitle['B-02'][personalField.id] ?? null).toBeNull();
+        } finally {
+          await permanentDeleteTable(baseId, idTable.id);
+        }
+      }
+    );
+
+    it.each(modes)(
+      'delete-by-id uses personal grouped query and collapsed groups for query-scoped rows ($label)',
+      async ({ useV2 }) => {
+        const idTable = await createTable(baseId, {
+          name: 'delete-by-id-personal-view-matrix',
+          fields: [
+            { name: 'Title', type: FieldType.SingleLineText },
+            {
+              name: 'Status',
+              type: FieldType.SingleSelect,
+              options: {
+                choices: [
+                  { name: 'GroupA', color: Colors.Blue },
+                  { name: 'GroupB', color: Colors.Green },
+                ],
+              },
+            },
+          ],
+          records: [
+            { fields: { Title: 'A-01', Status: 'GroupA' } },
+            { fields: { Title: 'A-02', Status: 'GroupA' } },
+            { fields: { Title: 'B-01', Status: 'GroupB' } },
+            { fields: { Title: 'B-02', Status: 'GroupB' } },
+          ],
+        });
+
+        try {
+          const viewId = idTable.views[0].id;
+          const titleField = idTable.fields.find((field) => field.name === 'Title')!;
+          const statusField = idTable.fields.find((field) => field.name === 'Status')!;
+
+          await updateViewFilter(idTable.id, viewId, {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: statusField.id,
+                  operator: 'is',
+                  value: 'GroupA',
+                },
+              ],
+            },
+          });
+
+          const personalFilter: NonNullable<IGetRecordsRo['filter']> = {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: statusField.id,
+                operator: 'isAnyOf',
+                value: ['GroupA', 'GroupB'],
+              },
+            ],
+          };
+          const personalGroupBy = [{ fieldId: statusField.id, order: SortFunc.Asc }] as const;
+          const personalOrderBy = [{ fieldId: titleField.id, order: SortFunc.Asc }] as const;
+          const groupedResult = await getRecordsWithCanary(
+            idTable.id,
+            {
+              viewId,
+              ignoreViewQuery: true,
+              filter: personalFilter,
+              groupBy: [...personalGroupBy],
+              orderBy: [...personalOrderBy],
+              fieldKeyType: FieldKeyType.Id,
+              includeQueryExtra: true,
+            },
+            useV2
+          );
+          const firstGroupHeader = groupedResult.data.extra?.groupPoints?.find(
+            (point) => point.type === 0 && 'id' in point
+          );
+          expect(firstGroupHeader).toBeDefined();
+          const collapsedGroupIds = [(firstGroupHeader as { id: string }).id];
+          const b02RecordId = idTable.records.find((record) => {
+            return record.fields.Title === 'B-02';
+          })!.id;
+
+          const result = await deleteByIdWithCanary(
+            idTable.id,
+            {
+              viewId,
+              ignoreViewQuery: true,
+              filter: personalFilter,
+              groupBy: [...personalGroupBy],
+              orderBy: [...personalOrderBy],
+              collapsedGroupIds,
+              selection: {
+                excludeRecordIds: [b02RecordId],
+              },
+            },
+            useV2
+          );
+
+          expect(result.data.ids).toHaveLength(1);
+          const recordsAfter = await getRecordsWithCanary(
+            idTable.id,
+            { fieldKeyType: FieldKeyType.Id, ignoreViewQuery: true },
+            useV2
+          );
+          expect(recordsAfter.data.records.map((record) => record.fields[titleField.id])).toEqual([
+            'A-01',
+            'A-02',
+            'B-02',
+          ]);
+        } finally {
+          await permanentDeleteTable(baseId, idTable.id);
+        }
+      }
+    );
+
+    it.each(modes)(
+      'delete-by-id deletes the whole table when using query scope without exclusions ($label)',
+      async ({ useV2 }) => {
+        const idTable = await createTable(baseId, {
+          name: 'delete-by-id-all',
+          fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+          records: [
+            { fields: { Name: 'A' } },
+            { fields: { Name: 'B' } },
+            { fields: { Name: 'C' } },
+          ],
+        });
+
+        try {
+          const result = await deleteByIdWithCanary(
+            idTable.id,
+            {
+              viewId: idTable.views[0].id,
+              selection: {},
+            },
+            useV2
+          );
+
+          expect(result.data.ids).toEqual(idTable.records.map((record) => record.id));
+          const { data } = await getRecordsWithCanary(
+            idTable.id,
+            { viewId: idTable.views[0].id, fieldKeyType: FieldKeyType.Id },
+            useV2
+          );
+          expect(data.records).toHaveLength(0);
+        } finally {
+          await permanentDeleteTable(baseId, idTable.id);
         }
       }
     );
@@ -2304,34 +3847,36 @@ describe('OpenAPI SelectionController (e2e)', () => {
       const recordOpenApiV2Service = app.get(RecordOpenApiV2Service);
       const deleteByRangeStreamSpy = vi
         .spyOn(recordOpenApiV2Service, 'deleteByRangeStream')
-        .mockImplementation(async function* () {
-          yield {
-            id: 'progress',
-            phase: 'deleting',
-            batchIndex: 0,
-            totalCount: 3,
-            deletedCount: 1,
-            batchDeletedCount: 1,
-          };
-          yield {
-            id: 'error',
-            phase: 'deleting',
-            batchIndex: 1,
-            totalCount: 3,
-            deletedCount: 1,
-            recordIds: [streamTable.records[1]!.id],
-            message: 'chunk 2 failed',
-            code: 'unexpected',
-          };
-          yield {
-            id: 'done',
-            totalCount: 3,
-            deletedCount: 2,
-            data: {
+        .mockImplementation(async () => {
+          return (async function* () {
+            yield {
+              id: 'progress',
+              phase: 'deleting',
+              batchIndex: 0,
+              totalCount: 3,
+              deletedCount: 1,
+              batchDeletedCount: 1,
+            };
+            yield {
+              id: 'error',
+              phase: 'deleting',
+              batchIndex: 1,
+              totalCount: 3,
+              deletedCount: 1,
+              recordIds: [streamTable.records[1]!.id],
+              message: 'chunk 2 failed',
+              code: 'unexpected',
+            };
+            yield {
+              id: 'done',
+              totalCount: 3,
               deletedCount: 2,
-              deletedRecordIds: [streamTable.records[0]!.id, streamTable.records[2]!.id],
-            },
-          };
+              data: {
+                deletedCount: 2,
+                deletedRecordIds: [streamTable.records[0]!.id, streamTable.records[2]!.id],
+              },
+            };
+          })();
         });
 
       try {
@@ -2745,6 +4290,274 @@ describe('OpenAPI SelectionController (e2e)', () => {
         }
       }
     );
+  });
+
+  describe('api/table/:tableId/selection/*-by-id-stream (SSE)', () => {
+    it('T5268: should preserve leading empty paste rows in by-id stream content', async () => {
+      const streamTable = await createTable(baseId, {
+        name: 'paste-leading-empty-row',
+        fields: [{ name: 'name', type: FieldType.SingleLineText }],
+        records: [{ fields: { name: 'old-1' } }, { fields: { name: 'old-2' } }],
+      });
+
+      try {
+        const nameFieldId = streamTable.fields.find((field) => field.name === 'name')!.id;
+
+        const { doneEvent, errorEvents } = await patchSelectionByIdStreamWithCanary(
+          PASTE_BY_ID_STREAM_URL,
+          streamTable.id,
+          {
+            viewId: streamTable.views[0].id,
+            selection: {
+              recordIds: [streamTable.records[0]!.id, streamTable.records[1]!.id],
+              fieldIds: [nameFieldId],
+            },
+            content: '\nnew-2',
+          },
+          true
+        );
+
+        expect(errorEvents).toHaveLength(0);
+        expect(doneEvent).toMatchObject({ processedCount: 2, updatedCount: 2 });
+
+        const recordsAfter = await getRecords(streamTable.id, {
+          fieldKeyType: FieldKeyType.Id,
+        });
+        expect(recordsAfter.data.records.map((record) => record.fields[nameFieldId])).toEqual([
+          '',
+          'new-2',
+        ]);
+      } finally {
+        await permanentDeleteTable(baseId, streamTable.id);
+      }
+    });
+
+    it('T5265: should clear large by-id stream selections without falling back to clear-by-id', async () => {
+      const streamTable = await createTable(baseId, {
+        name: 'clear-by-id-stream-large',
+        fields: [{ name: 'name', type: FieldType.SingleLineText }],
+        records: Array.from({ length: 205 }, (_, index) => ({
+          fields: { name: `row-${index}` },
+        })),
+      });
+
+      try {
+        const nameFieldId = streamTable.fields.find((field) => field.name === 'name')!.id;
+
+        const { progressEvents, doneEvent, errorEvents } = await patchSelectionByIdStreamWithCanary(
+          CLEAR_BY_ID_STREAM_URL,
+          streamTable.id,
+          {
+            viewId: streamTable.views[0].id,
+            selection: {
+              recordIds: streamTable.records.map((record) => record.id),
+              fieldIds: [nameFieldId],
+            },
+          },
+          true
+        );
+
+        expect(errorEvents).toHaveLength(0);
+        expect(doneEvent).toMatchObject({ processedCount: 205, clearedCount: 205 });
+        expect(progressEvents.some((event) => event.totalCount === 205)).toBe(true);
+
+        const recordsAfter = await getRecords(streamTable.id, {
+          fieldKeyType: FieldKeyType.Id,
+        });
+        expect(
+          recordsAfter.data.records.every((record) => record.fields[nameFieldId] == null)
+        ).toBe(true);
+      } finally {
+        await permanentDeleteTable(baseId, streamTable.id);
+      }
+    });
+
+    it('T5267: should delete stream selections after resolving unloaded row ranges to ids', async () => {
+      const streamTable = await createTable(baseId, {
+        name: 'delete-unloaded-range-stream',
+        fields: [{ name: 'name', type: FieldType.SingleLineText }],
+        records: Array.from({ length: 205 }, (_, index) => ({
+          fields: { name: `row-${index}` },
+        })),
+      });
+
+      try {
+        const idsData = (
+          await apiGetIdsFromRanges(streamTable.id, {
+            viewId: streamTable.views[0].id,
+            ranges: [[0, 204]],
+            type: RangeType.Rows,
+            returnType: IdReturnType.RecordId,
+          })
+        ).data;
+
+        const { doneEvent, errorEvents } = await patchSelectionByIdStreamWithCanary(
+          DELETE_BY_ID_STREAM_URL,
+          streamTable.id,
+          {
+            viewId: streamTable.views[0].id,
+            selection: {
+              recordIds: idsData.recordIds,
+            },
+          },
+          true
+        );
+
+        expect(errorEvents).toHaveLength(0);
+        expect(doneEvent).toMatchObject({ totalCount: 205, deletedCount: 205 });
+
+        const recordsAfter = await getRecords(streamTable.id, {
+          fieldKeyType: FieldKeyType.Id,
+        });
+        expect(recordsAfter.data.records).toHaveLength(0);
+      } finally {
+        await permanentDeleteTable(baseId, streamTable.id);
+      }
+    });
+
+    it('should clear only selected cells by record ids and field ids in v2', async () => {
+      const streamTable = await createTable(baseId, {
+        name: 'clear-by-id-stream',
+        fields: [
+          { name: 'name', type: FieldType.SingleLineText },
+          { name: 'number', type: FieldType.Number },
+        ],
+        records: [
+          { fields: { name: 'keep-name-1', number: 1 } },
+          { fields: { name: 'clear-name-2', number: 2 } },
+          { fields: { name: 'keep-name-3', number: 3 } },
+        ],
+      });
+
+      try {
+        const nameFieldId = streamTable.fields.find((field) => field.name === 'name')!.id;
+        const numberFieldId = streamTable.fields.find((field) => field.name === 'number')!.id;
+        const targetRecordId = streamTable.records[1]!.id;
+
+        const { progressEvents, doneEvent, errorEvents } = await patchSelectionByIdStreamWithCanary(
+          CLEAR_BY_ID_STREAM_URL,
+          streamTable.id,
+          {
+            viewId: streamTable.views[0].id,
+            selection: {
+              recordIds: [targetRecordId],
+              fieldIds: [nameFieldId],
+            },
+          },
+          true
+        );
+
+        expect(errorEvents).toHaveLength(0);
+        expect(doneEvent).toMatchObject({ processedCount: 1, clearedCount: 1 });
+        expect(progressEvents.some((event) => event.totalCount === 1)).toBe(true);
+
+        const recordsAfter = await getRecords(streamTable.id, {
+          fieldKeyType: FieldKeyType.Id,
+        });
+        expect(recordsAfter.data.records.map((record) => record.fields[nameFieldId])).toEqual([
+          'keep-name-1',
+          undefined,
+          'keep-name-3',
+        ]);
+        expect(recordsAfter.data.records.map((record) => record.fields[numberFieldId])).toEqual([
+          1, 2, 3,
+        ]);
+      } finally {
+        await permanentDeleteTable(baseId, streamTable.id);
+      }
+    });
+
+    it('should paste multi-column content by explicit target ids and expand rows in v2', async () => {
+      const streamTable = await createTable(baseId, {
+        name: 'paste-by-id-stream',
+        fields: [
+          { name: 'name', type: FieldType.SingleLineText },
+          { name: 'number', type: FieldType.Number },
+        ],
+        records: [{ fields: { name: 'old-1', number: 1 } }],
+      });
+
+      try {
+        const nameFieldId = streamTable.fields.find((field) => field.name === 'name')!.id;
+        const numberFieldId = streamTable.fields.find((field) => field.name === 'number')!.id;
+
+        const { progressEvents, doneEvent, errorEvents } = await patchSelectionByIdStreamWithCanary(
+          PASTE_BY_ID_STREAM_URL,
+          streamTable.id,
+          {
+            viewId: streamTable.views[0].id,
+            selection: {
+              recordIds: [streamTable.records[0]!.id],
+              fieldIds: [nameFieldId, numberFieldId],
+            },
+            content: [
+              ['new-1', 11],
+              ['new-2', 22],
+              ['new-3', 33],
+            ],
+          },
+          true
+        );
+
+        expect(errorEvents).toHaveLength(0);
+        expect(doneEvent).toMatchObject({ processedCount: 3, updatedCount: 1, createdCount: 2 });
+        expect(progressEvents.some((event) => event.totalCount === 3)).toBe(true);
+
+        const recordsAfter = await getRecords(streamTable.id, {
+          fieldKeyType: FieldKeyType.Id,
+        });
+        expect(recordsAfter.data.records.map((record) => record.fields[nameFieldId])).toEqual([
+          'new-1',
+          'new-2',
+          'new-3',
+        ]);
+        expect(recordsAfter.data.records.map((record) => record.fields[numberFieldId])).toEqual([
+          11, 22, 33,
+        ]);
+      } finally {
+        await permanentDeleteTable(baseId, streamTable.id);
+      }
+    });
+
+    it('should delete all records except excluded ids without sending all row ids in v2', async () => {
+      const streamTable = await createTable(baseId, {
+        name: 'delete-by-id-stream',
+        fields: [{ name: 'name', type: FieldType.SingleLineText }],
+        records: [
+          { fields: { name: 'delete-1' } },
+          { fields: { name: 'keep-2' } },
+          { fields: { name: 'delete-3' } },
+        ],
+      });
+
+      try {
+        const keepRecordId = streamTable.records[1]!.id;
+
+        const { progressEvents, doneEvent, errorEvents } = await patchSelectionByIdStreamWithCanary(
+          DELETE_BY_ID_STREAM_URL,
+          streamTable.id,
+          {
+            viewId: streamTable.views[0].id,
+            selection: {
+              allRecords: true,
+              excludedRecordIds: [keepRecordId],
+            },
+          },
+          true
+        );
+
+        expect(errorEvents).toHaveLength(0);
+        expect(doneEvent).toMatchObject({ totalCount: 2, deletedCount: 2 });
+        expect(progressEvents.some((event) => event.totalCount === 2)).toBe(true);
+
+        const recordsAfter = await getRecords(streamTable.id, {
+          fieldKeyType: FieldKeyType.Id,
+        });
+        expect(recordsAfter.data.records.map((record) => record.id)).toEqual([keepRecordId]);
+      } finally {
+        await permanentDeleteTable(baseId, streamTable.id);
+      }
+    });
   });
 
   describe('paste user', () => {
@@ -3185,6 +4998,98 @@ describe('OpenAPI SelectionController (e2e)', () => {
 
       expect(recordA?.fields[nameField.id]).toBe('AscTestUpdated');
       expect(recordE?.fields[nameField.id]).toBe('RecordE'); // Should remain unchanged
+    });
+  });
+
+  describe('paste with sort ties and manual row order (personal view)', () => {
+    /**
+     * Repro for paste row misalignment under personal views:
+     * the grid displays rows via the v1 read path, which always breaks sort
+     * ties by the view's manual row order (__row_{viewId}), while v2 range
+     * commands broke ties by __auto_number. With duplicate sort values and a
+     * manually reordered row, paste targeted a different record than the one
+     * displayed at the same offset.
+     */
+    let tieTable: ITableFullVo;
+
+    beforeEach(async () => {
+      // Creation order (auto number): A, B, C tie in group 1; D, E in group 2
+      tieTable = await createTable(baseId, {
+        name: 'tie-paste-table',
+        fields: [
+          { name: 'Name', type: FieldType.SingleLineText },
+          { name: 'Group', type: FieldType.Number },
+        ],
+        records: [
+          { fields: { Name: 'RecordA', Group: 1 } },
+          { fields: { Name: 'RecordB', Group: 1 } },
+          { fields: { Name: 'RecordC', Group: 1 } },
+          { fields: { Name: 'RecordD', Group: 2 } },
+          { fields: { Name: 'RecordE', Group: 2 } },
+        ],
+      });
+      // Make the manual row order differ from creation order within the tied
+      // group: move C before A -> view row order: C, A, B, D, E
+      await updateRecordOrders(tieTable.id, tieTable.views[0].id, {
+        anchorId: tieTable.records[0].id,
+        position: 'before',
+        recordIds: [tieTable.records[2].id],
+      });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, tieTable.id);
+    });
+
+    it.each(
+      isForceV2
+        ? [{ label: 'v2-forced', useV2: true }]
+        : [
+            { label: 'v1', useV2: false },
+            { label: 'v2', useV2: true },
+          ]
+    )('should paste into the displayed row when the sort has ties ($label)', async ({ useV2 }) => {
+      const nameField = tieTable.fields.find((f) => f.name === 'Name')!;
+      const groupField = tieTable.fields.find((f) => f.name === 'Group')!;
+      // Mimic a personal view: the client sends its own sort with
+      // ignoreViewQuery instead of relying on the saved view config.
+      const personalViewQuery = {
+        viewId: tieTable.views[0].id,
+        ignoreViewQuery: true,
+        orderBy: [{ fieldId: groupField.id, order: SortFunc.Asc }],
+      };
+
+      // Ground truth: the row order the grid displays (v1 read path breaks
+      // the Group=1 tie by manual row order, so RecordC is the first row).
+      const displayed = await getRecordsWithCanary(
+        tieTable.id,
+        { ...personalViewQuery, fieldKeyType: FieldKeyType.Id },
+        false
+      );
+      expect(displayed.data.records[0].fields[nameField.id]).toBe('RecordC');
+
+      // Paste a single cell into the first displayed row (Name column).
+      await pasteWithCanary(
+        tieTable.id,
+        {
+          ...personalViewQuery,
+          content: 'PastedTop',
+          ranges: [
+            [0, 0],
+            [0, 0],
+          ],
+        },
+        useV2
+      );
+
+      const allRecords = await getRecords(tieTable.id, { fieldKeyType: FieldKeyType.Id });
+      const recordC = allRecords.data.records.find((r) => r.id === tieTable.records[2].id);
+      const recordA = allRecords.data.records.find((r) => r.id === tieTable.records[0].id);
+
+      // The displayed first row (RecordC) must receive the pasted value;
+      // RecordA (first by auto number within the tie) must stay unchanged.
+      expect(recordC?.fields[nameField.id]).toBe('PastedTop');
+      expect(recordA?.fields[nameField.id]).toBe('RecordA');
     });
   });
 
@@ -3812,6 +5717,7 @@ describe('OpenAPI SelectionController (e2e)', () => {
           groupBy: [...groupBy],
           orderBy: [...orderBy],
           fieldKeyType: FieldKeyType.Id,
+          includeQueryExtra: true,
         });
 
         const firstGroupHeader = groupedResult.data.extra?.groupPoints?.find(
@@ -3872,5 +5778,125 @@ describe('OpenAPI SelectionController (e2e)', () => {
         ).toBe(false);
       }
     );
+
+    it('T4992 should paste grouped tail rows in v2 when the view filter references Me', async () => {
+      const assigneeValue = {
+        id: globalThis.testConfig.userId,
+        title: globalThis.testConfig.userName,
+        email: globalThis.testConfig.email,
+      };
+      const requiredTable = await createTable(baseId, {
+        name: 'T4992 grouped paste required field',
+        fields: [
+          { name: 'Title', type: FieldType.SingleLineText },
+          {
+            name: 'Status',
+            type: FieldType.SingleSelect,
+            options: {
+              choices: [
+                { name: 'Need more information', color: Colors.Red },
+                { name: 'Added to backlog', color: Colors.Teal },
+                { name: 'Entered development workflow', color: Colors.Purple },
+                { name: 'Launched', color: Colors.Green },
+                { name: 'Closed as completed', color: Colors.Green },
+                { name: 'Closed as not planned', color: Colors.Red },
+              ],
+            },
+          },
+          { name: 'Assignee', type: FieldType.User },
+          { name: 'Email', type: FieldType.SingleLineText },
+        ],
+        records: [
+          ...Array.from({ length: 14 }, (_, index) => ({
+            fields: {
+              Title: `Blank-${index + 1}`,
+              Assignee: assigneeValue,
+              Email: `blank-${index + 1}@example.com`,
+            },
+          })),
+          ...Array.from({ length: 3 }, (_, index) => ({
+            fields: {
+              Title: `Need-${index + 1}`,
+              Status: 'Need more information',
+              Assignee: assigneeValue,
+              Email: `need-${index + 1}@example.com`,
+            },
+          })),
+          ...Array.from({ length: 7 }, (_, index) => ({
+            fields: {
+              Title: `Backlog-${index + 1}`,
+              Status: 'Added to backlog',
+              Assignee: assigneeValue,
+              Email: `backlog-${index + 1}@example.com`,
+            },
+          })),
+          ...Array.from({ length: 5 }, (_, index) => ({
+            fields: {
+              Title: `Workflow-${index + 1}`,
+              Status: 'Entered development workflow',
+              Assignee: assigneeValue,
+              Email: `workflow-${index + 1}@example.com`,
+            },
+          })),
+        ],
+      });
+
+      try {
+        const viewId = requiredTable.views[0].id;
+        const statusField = requiredTable.fields.find((field) => field.name === 'Status')!;
+        const assigneeField = requiredTable.fields.find((field) => field.name === 'Assignee')!;
+        const emailField = requiredTable.fields.find((field) => field.name === 'Email')!;
+        await convertField(requiredTable.id, emailField.id, { ...emailField, notNull: true });
+        await updateViewFilter(requiredTable.id, viewId, {
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              { fieldId: assigneeField.id, operator: 'is', value: Me },
+              {
+                fieldId: statusField.id,
+                operator: 'isNoneOf',
+                value: ['Closed as not planned', 'Closed as completed', 'Launched'],
+              },
+            ],
+          },
+        });
+        const groupBy = [{ fieldId: statusField.id, order: SortFunc.Asc }] as const;
+        await updateViewGroup(requiredTable.id, viewId, { group: [...groupBy] });
+
+        const pasteRes = await pasteWithCanary(
+          requiredTable.id,
+          {
+            viewId,
+            content: [['Launched']],
+            ranges: [
+              [1, 24],
+              [1, 28],
+            ],
+            header: [statusField],
+            groupBy: [...groupBy],
+          },
+          true
+        );
+
+        expect(pasteRes.status).toBe(200);
+        expect(pasteRes.headers['x-teable-v2']).toBe('true');
+
+        const allRecords = await getRecords(requiredTable.id, {
+          fieldKeyType: FieldKeyType.Id,
+          take: 100,
+        });
+
+        expect(allRecords.data.records).toHaveLength(29);
+        const workflowRecords = allRecords.data.records.filter((record) =>
+          String(record.fields[requiredTable.fields[0].id] ?? '').startsWith('Workflow-')
+        );
+        expect(workflowRecords).toHaveLength(5);
+        expect(
+          workflowRecords.every((record) => record.fields[statusField.id] === 'Launched')
+        ).toBe(true);
+      } finally {
+        await permanentDeleteTable(baseId, requiredTable.id);
+      }
+    });
   });
 });

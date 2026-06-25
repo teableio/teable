@@ -51,6 +51,7 @@ export enum Events {
   SHARED_VIEW_CREATE = 'shared.view.create',
   SHARED_VIEW_DELETE = 'shared.view.delete',
   SHARED_VIEW_UPDATE = 'shared.view.update',
+  SHARED_VIEW_REFRESH = 'shared.view.refresh',
 
   USER_SIGNIN = 'user.signin',
   USER_SIGNUP = 'user.signup',
@@ -66,6 +67,20 @@ export enum Events {
   COLLABORATOR_CREATE = 'collaborator.create',
   COLLABORATOR_DELETE = 'collaborator.delete',
   COLLABORATOR_UPDATE = 'collaborator.update',
+
+  // Base-scope collaborator audit actions (parallel to the generic COLLABORATOR_*
+  // business events above, which are kept for internal pub/sub). Future space-level
+  // audit can mirror this with SPACE_COLLABORATOR_*.
+  BASE_COLLABORATOR_CREATE = 'base.collaborator.create',
+  BASE_COLLABORATOR_DELETE = 'base.collaborator.delete',
+  BASE_COLLABORATOR_UPDATE = 'base.collaborator.update',
+
+  // Base/Node share lifecycle (covers both node-scoped and base-wide shares;
+  // payload.type distinguishes 'node' | 'base').
+  BASE_SHARE_CREATE = 'base.share.create',
+  BASE_SHARE_UPDATE = 'base.share.update',
+  BASE_SHARE_DELETE = 'base.share.delete',
+  BASE_SHARE_REFRESH = 'base.share.refresh',
 
   BASE_FOLDER_CREATE = 'base.folder.create',
   BASE_FOLDER_DELETE = 'base.folder.delete',
@@ -98,6 +113,7 @@ export enum Events {
   // completion point — past `lastChunk`, error-file write, and presence cleanup —
   // instead of racing against per-chunk audit emits.
   TABLE_IMPORT_FINISH = 'table.import.finish',
+  V2_TABLE_IMPORT_FINISH = 'v2.table.import.finish',
 
   // Composite-operation terminal signals. Currently only e2e tests subscribe; reserved
   // for future use by notifications / webhooks / billing. Each fires after the synchronous
