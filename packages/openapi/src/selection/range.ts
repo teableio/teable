@@ -129,7 +129,9 @@ export const getIdsFromRanges = async (tableId: string, rangesToIdQuery: IRanges
         ...rangesToIdQuery,
         filter: JSON.stringify(rangesToIdQuery.filter),
         orderBy: JSON.stringify(rangesToIdQuery.orderBy),
+        groupBy: JSON.stringify(rangesToIdQuery.groupBy),
         ranges: JSON.stringify(rangesToIdQuery.ranges),
+        collapsedGroupIds: JSON.stringify(rangesToIdQuery.collapsedGroupIds),
       },
     }
   );

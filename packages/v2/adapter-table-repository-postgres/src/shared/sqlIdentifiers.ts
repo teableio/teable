@@ -2,7 +2,27 @@ export type QualifiedIdentifierLiteral = string & {
   readonly __brand: 'QualifiedIdentifierLiteral';
 };
 
+const POSTGRES_IDENTIFIER_MAX_LENGTH = 63;
+
 const quoteIdentifierName = (identifier: string) => `"${identifier.replaceAll('"', '""')}"`;
+
+const hashIdentifier = (identifier: string): string => {
+  let hash = 2166136261;
+  for (let i = 0; i < identifier.length; i++) {
+    hash ^= identifier.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36).padStart(7, '0');
+};
+
+export const toPostgresIdentifierWithHash = (identifier: string): string => {
+  if (identifier.length <= POSTGRES_IDENTIFIER_MAX_LENGTH) {
+    return identifier;
+  }
+
+  const suffix = `_${hashIdentifier(identifier)}`;
+  return `${identifier.slice(0, POSTGRES_IDENTIFIER_MAX_LENGTH - suffix.length)}${suffix}`;
+};
 
 export const splitSchemaQualifiedTableName = (
   tableName: string
