@@ -1,10 +1,16 @@
 export * from './clear';
 export * from './clear-stream';
+export { clearSelectionByIdStream } from './clear-by-id-stream';
 export * from './copy';
 export * from './paste';
 export * from './paste-stream';
+export { pasteByIdStreamRoSchema, pasteSelectionByIdStream } from './paste-by-id-stream';
+export type { IPasteByIdStreamRo } from './paste-by-id-stream';
 export * from './range';
+export * from './id';
 export * from './delete';
 export * from './delete-stream';
+export { deleteSelectionByIdStream } from './delete-by-id-stream';
 export * from './duplicate-stream';
 export * from './temporary-paste';
+export * from './id-mutation';
