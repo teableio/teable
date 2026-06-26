@@ -438,7 +438,8 @@ export class CreateTablesHandler
               yield* await handler.tableRecordRepository.insertMany(
                 dataTransactionContext,
                 persistedTable,
-                records
+                records,
+                { allowPendingTableProvisionForComputedUpdates: true }
               );
             }
 

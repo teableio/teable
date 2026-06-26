@@ -142,6 +142,18 @@ export class AccessTokenService {
   @Audit({
     action: Events.ACCESS_TOKEN_CREATE,
     resourceId: (input: { userId?: string }, ctx) => input.userId ?? ctx.cls.get('user.id')!,
+    userId: (input: { userId?: string }, ctx) => input.userId ?? ctx.cls.get('user.id'),
+    // Record the token's settings so the audit row shows what access was granted. NEVER the secret:
+    // the token `sign` is generated server-side and is not part of the input, so this is safe.
+    params: (input: CreateAccessTokenRo & { clientId?: string }) => ({
+      name: input.name,
+      description: input.description,
+      scopes: input.scopes,
+      spaceIds: input.spaceIds,
+      baseIds: input.baseIds,
+      expiredTime: input.expiredTime,
+      hasFullAccess: input.hasFullAccess,
+    }),
     emit: true,
   })
   async createAccessToken(
