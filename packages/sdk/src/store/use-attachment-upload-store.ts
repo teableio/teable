@@ -24,6 +24,8 @@ interface ICellUploadState {
   recordId: string;
   fieldId: string;
   baseId?: string;
+  /** Share id, set when uploading inside a share view so the signature request carries the share header */
+  shareId?: string;
   tasks: ICellUploadTask[];
   manager: AttachmentManager;
   /** When true, completed uploads are held without calling insertAttachment */
@@ -58,7 +60,8 @@ interface ICellAttachmentUploadState {
     recordId: string,
     fieldId: string,
     files: File[],
-    baseId?: string
+    baseId?: string,
+    shareId?: string
   ) => void;
 
   // Start upload in pending mode (no auto insertAttachment on completion)
@@ -67,7 +70,8 @@ interface ICellAttachmentUploadState {
     tempRecordId: string,
     fieldId: string,
     files: File[],
-    baseId?: string
+    baseId?: string,
+    shareId?: string
   ) => void;
 
   // Get completed attachments for a pending record (keyed by fieldId)
@@ -304,13 +308,15 @@ const getOrCreateManager = (cellKey: string): AttachmentManager => {
 export const useCellAttachmentUploadStore = create<ICellAttachmentUploadState>((set, get) => ({
   cellUploads: {},
 
-  startUpload: (tableId, recordId, fieldId, files, baseId) => {
+  startUpload: (tableId, recordId, fieldId, files, baseId, shareId) => {
     if (files.length === 0) return;
 
     const cellKey = buildCellKey(tableId, recordId, fieldId);
 
     // Get or create manager for this cell
     const manager = getOrCreateManager(cellKey);
+    // Carry the share context so the signature request sends the Tea-Share-Id header
+    manager.shareId = shareId;
 
     // Create new tasks
     const uploadFiles: IFile[] = files.map((file) => ({
@@ -336,6 +342,7 @@ export const useCellAttachmentUploadStore = create<ICellAttachmentUploadState>((
             recordId,
             fieldId,
             baseId,
+            shareId,
             tasks: [...(existing?.tasks || []), ...newTasks],
             manager,
           },
@@ -370,11 +377,13 @@ export const useCellAttachmentUploadStore = create<ICellAttachmentUploadState>((
     );
   },
 
-  startPendingUpload: (tableId, tempRecordId, fieldId, files, baseId) => {
+  startPendingUpload: (tableId, tempRecordId, fieldId, files, baseId, shareId) => {
     if (files.length === 0) return;
 
     const cellKey = buildCellKey(tableId, tempRecordId, fieldId);
     const manager = getOrCreateManager(cellKey);
+    // Carry the share context so the signature request sends the Tea-Share-Id header
+    manager.shareId = shareId;
 
     const uploadFiles: IFile[] = files.map((file) => ({
       id: generateAttachmentId(),
@@ -398,6 +407,7 @@ export const useCellAttachmentUploadStore = create<ICellAttachmentUploadState>((
             recordId: tempRecordId,
             fieldId,
             baseId,
+            shareId,
             tasks: [...(existing?.tasks || []), ...newTasks],
             manager,
             isPending: true,
@@ -773,7 +783,8 @@ export const useCellAttachmentUploadStore = create<ICellAttachmentUploadState>((
         cellState.recordId,
         cellState.fieldId,
         [task.file],
-        cellState.baseId
+        cellState.baseId,
+        cellState.shareId
       );
       return;
     }
@@ -782,7 +793,8 @@ export const useCellAttachmentUploadStore = create<ICellAttachmentUploadState>((
       cellState.recordId,
       cellState.fieldId,
       [task.file],
-      cellState.baseId
+      cellState.baseId,
+      cellState.shareId
     );
   },
 }));

@@ -208,12 +208,15 @@ export class TableEventGeneratingSpecVisitor implements ITableSpecVisitor<void> 
 
   visitTableUpdateViewColumnMeta(spec: TableUpdateViewColumnMetaSpec): Result<void, DomainError> {
     for (const update of spec.updates()) {
+      const columnMetaDto = update.columnMeta.toDto();
+      const fieldId = update.fieldId.toString();
       this.events.push(
         ViewColumnMetaUpdated.create({
           tableId: this.table.id(),
           baseId: this.table.baseId(),
           viewId: update.viewId,
           fieldId: update.fieldId,
+          fieldInColumnMeta: Boolean(columnMetaDto[fieldId]),
         })
       );
     }
