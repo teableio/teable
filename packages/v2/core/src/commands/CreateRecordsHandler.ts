@@ -42,10 +42,7 @@ import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import type { RecordFieldValues } from './CreateRecordCommand';
 import { CreateRecordsCommand } from './CreateRecordsCommand';
-import {
-  buildOperationBatchMutation,
-  withBatchMutation,
-} from './shared/batchMutationOrchestration';
+import { buildOperationBatchMutation } from './shared/batchMutationOrchestration';
 
 export class CreateRecordsResult {
   private constructor(
@@ -205,33 +202,30 @@ export class CreateRecordsHandler
             },
             DomainError
           >(async function* () {
-            const batchMutation = buildOperationBatchMutation(context, records.length);
-            const transactionContextWithBatchMutation = withBatchMutation(
-              transactionContext,
-              batchMutation
-            );
+            const batchMutation = buildOperationBatchMutation(context.requestId, records.length);
             let tableEvents: ReadonlyArray<IDomainEvent> = [];
             if (tableUpdateResult) {
               const tableFlowResult = yield* await handler.tableUpdateFlow.execute(
-                transactionContextWithBatchMutation,
+                transactionContext,
                 { table },
                 () => ok(tableUpdateResult),
                 { publishEvents: false }
               );
               tableEvents = tableFlowResult.events;
             }
-            yield* await pluginExecution.beforePersist(transactionContextWithBatchMutation);
+            yield* await pluginExecution.beforePersist(transactionContext);
             const fillLinkTitleForeignTables = command.typecast
               ? yield* await handler.foreignTableLoaderService.loadForLinkTitleFill(
-                  transactionContextWithBatchMutation,
+                  transactionContext,
                   mutateSpecs
                 )
               : new Map();
             const mutation = yield* await handler.tableRecordRepository.insertMany(
-              transactionContextWithBatchMutation,
+              transactionContext,
               tableForCreate,
               records,
               {
+                orchestration: batchMutation,
                 ...(command.order ? { order: command.order } : {}),
                 ...(command.typecast ? { fillLinkTitles: true } : {}),
                 ...(fillLinkTitleForeignTables.size > 0 ? { fillLinkTitleForeignTables } : {}),
@@ -308,7 +302,7 @@ export class CreateRecordsHandler
             orders: mutationResult.mutation.recordOrders?.get(e.recordId.toString()),
           })),
           source,
-          orchestration: buildOperationBatchMutation(context, records.length),
+          orchestration: buildOperationBatchMutation(context.requestId, records.length),
         });
         events = [batchEvent, ...otherEvents];
       } else {

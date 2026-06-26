@@ -7,19 +7,12 @@ import {
   FieldKeyType,
   FieldType,
   generateFieldId,
-  generateOperationId,
   getDefaultFormatting,
   getDbFieldType,
-  ViewOpBuilder,
-  ViewType,
   type IConvertFieldRo,
   type IFieldRo,
   type IFieldVo,
-  type IGridColumnMeta,
-  type IGridViewOptions,
-  type IOtOperation,
   type IUpdateFieldRo,
-  type IViewVo,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IDuplicateFieldRo, IPlanFieldVo } from '@teable/openapi';
@@ -45,12 +38,15 @@ import {
   FieldId,
   type ICommandBus,
   type IExecutionContext,
+  type ISpan,
   type ITableMapper,
+  type ITracer,
   LinkFieldConfig,
   LinkRelationship,
   TableId,
   type Table,
   type TableQueryService,
+  TeableSpanAttributes,
   v2CoreTokens,
 } from '@teable/v2-core';
 import { instanceToPlain } from 'class-transformer';
@@ -59,37 +55,16 @@ import { CustomHttpException, getDefaultCodeByStatus } from '../../../custom.exc
 import type { IClsStore } from '../../../types/cls';
 import type { IOpsMap } from '../../calculation/utils/compose-maps';
 import { DataLoaderService } from '../../data-loader/data-loader.service';
-import {
-  V2_FIELD_UPDATE_AUDIT_CONTEXT_KEY,
-  type IV2FieldUpdateAuditContext,
-} from '../../v2/v2-audit-log.constants';
 import { V2ContainerService } from '../../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
-import {
-  V2_FIELD_DELETE_COMPAT_CONTEXT_KEY,
-  type IV2FieldDeleteCompatContext,
-} from '../../v2/v2-field-delete-compat.constants';
-import {
-  V2_FIELD_CONVERT_UNDO_CONTEXT_KEY,
-  type IV2FieldConvertUndoContext,
-} from '../../v2/v2-undo-redo.constants';
-import { adjustFrozenField } from '../../view/utils/derive-frozen-fields';
-import { ViewService } from '../../view/view.service';
 import { FieldSupplementService } from '../field-calculate/field-supplement.service';
 import { FieldOpenApiService } from './field-open-api.service';
 
 const internalServerError = 'Internal server error';
 // eslint-disable-next-line @typescript-eslint/naming-convention
 type ConvertFieldExecutionOptions = {
-  emitOperation?: boolean;
   suppressWindowId?: boolean;
   undoRedoMode?: 'undo' | 'redo' | 'normal';
-};
-
-type IGridViewDeleteSnapshot = {
-  viewId: string;
-  options: IGridViewOptions;
-  columnMeta: IGridColumnMeta;
 };
 
 type ITableDtoWithFields = {
@@ -102,6 +77,87 @@ type IPreparedLegacyCreateField = {
   nextAiConfig: IFieldVo['aiConfig'] | undefined;
 };
 
+const fieldOpenApiV2Component = 'service';
+
+const withV2Span = async <T>(
+  context: IExecutionContext | undefined,
+  operation: string,
+  callback: () => Promise<T>,
+  attributes: Record<string, string | number | boolean> = {}
+): Promise<T> => {
+  const tracer = context?.tracer;
+  let span: ISpan | undefined;
+  try {
+    span = tracer?.startSpan(`teable.FieldOpenApiV2Service.${operation}`, {
+      [TeableSpanAttributes.VERSION]: 'v2',
+      [TeableSpanAttributes.COMPONENT]: fieldOpenApiV2Component,
+      [TeableSpanAttributes.HANDLER]: 'FieldOpenApiV2Service',
+      [TeableSpanAttributes.OPERATION]: `FieldOpenApiV2Service.${operation}`,
+      ...attributes,
+    });
+  } catch {
+    span = undefined;
+  }
+
+  if (!span || !tracer) {
+    return callback();
+  }
+
+  return tracer.withSpan(span, async () => {
+    try {
+      return await callback();
+    } catch (error) {
+      span.recordError(error instanceof Error ? error.message : String(error));
+      throw error;
+    } finally {
+      span.end();
+    }
+  });
+};
+
+const withTracerSpan = async <T>(
+  tracer: ITracer | undefined,
+  operation: string,
+  callback: () => Promise<T>,
+  attributes: Record<string, string | number | boolean> = {}
+): Promise<T> => {
+  let span: ISpan | undefined;
+  try {
+    span = tracer?.startSpan(`teable.FieldOpenApiV2Service.${operation}`, {
+      [TeableSpanAttributes.VERSION]: 'v2',
+      [TeableSpanAttributes.COMPONENT]: fieldOpenApiV2Component,
+      [TeableSpanAttributes.HANDLER]: 'FieldOpenApiV2Service',
+      [TeableSpanAttributes.OPERATION]: `FieldOpenApiV2Service.${operation}`,
+      ...attributes,
+    });
+  } catch {
+    span = undefined;
+  }
+
+  if (!span || !tracer) {
+    return callback();
+  }
+
+  return tracer.withSpan(span, async () => {
+    try {
+      return await callback();
+    } catch (error) {
+      span.recordError(error instanceof Error ? error.message : String(error));
+      throw error;
+    } finally {
+      span.end();
+    }
+  });
+};
+
+const getTableIdText = (table: Table): string | undefined => {
+  try {
+    return table.id().toString();
+  } catch {
+    return undefined;
+  }
+};
+
 @Injectable()
 export class FieldOpenApiV2Service {
   constructor(
@@ -109,7 +165,6 @@ export class FieldOpenApiV2Service {
     private readonly v2ContextFactory: V2ExecutionContextFactory,
     private readonly dataLoaderService: DataLoaderService,
     private readonly fieldOpenApiService: FieldOpenApiService,
-    private readonly viewService: ViewService,
     private readonly cls: ClsService<IClsStore>,
     private readonly fieldSupplementService: FieldSupplementService,
     private readonly prismaService: PrismaService
@@ -160,79 +215,6 @@ export class FieldOpenApiV2Service {
     );
     if (!ids.length) return;
     this.dataLoaderService.field.invalidateTables(ids);
-  }
-
-  private async captureGridViewDeleteSnapshots(
-    tableId: string
-  ): Promise<IGridViewDeleteSnapshot[]> {
-    const views = await this.viewService.getViews(tableId);
-    return views.flatMap((view) => this.toGridViewDeleteSnapshot(view));
-  }
-
-  private toGridViewDeleteSnapshot(view: IViewVo): IGridViewDeleteSnapshot[] {
-    if (view.type !== ViewType.Grid) {
-      return [];
-    }
-
-    const options = (view.options ?? {}) as IGridViewOptions;
-    const columnMeta = (view.columnMeta ?? {}) as IGridColumnMeta;
-    return [
-      {
-        viewId: view.id,
-        options,
-        columnMeta,
-      },
-    ];
-  }
-
-  private buildFrozenFieldDeleteOps(
-    viewSnapshots: ReadonlyArray<IGridViewDeleteSnapshot>,
-    fieldIds: ReadonlyArray<string>
-  ): Record<string, IOtOperation[]> {
-    const columnMetaUpdate = Object.fromEntries(fieldIds.map((fieldId) => [fieldId, null]));
-    const opsMap: Record<string, IOtOperation[]> = {};
-
-    for (const snapshot of viewSnapshots) {
-      const nextOptions = adjustFrozenField(
-        snapshot.options,
-        snapshot.columnMeta,
-        columnMetaUpdate as unknown as IGridColumnMeta
-      );
-      if (!nextOptions) {
-        continue;
-      }
-
-      opsMap[snapshot.viewId] = [
-        ViewOpBuilder.editor.setViewProperty.build({
-          key: 'options',
-          oldValue: snapshot.options,
-          newValue: nextOptions,
-        }),
-      ];
-    }
-
-    return opsMap;
-  }
-
-  private attachDeleteFieldCompatContext(
-    context: IExecutionContext,
-    tableId: string,
-    fieldIds: ReadonlyArray<string>,
-    payload: Awaited<ReturnType<FieldOpenApiService['captureDeleteFieldsLegacyPayload']>>,
-    gridViewSnapshots: ReadonlyArray<IGridViewDeleteSnapshot>
-  ): void {
-    (
-      context as IExecutionContext & {
-        [V2_FIELD_DELETE_COMPAT_CONTEXT_KEY]?: IV2FieldDeleteCompatContext;
-      }
-    )[V2_FIELD_DELETE_COMPAT_CONTEXT_KEY] = {
-      tableId,
-      userId: this.cls.get('user.id'),
-      operationId: generateOperationId(),
-      remainingFieldIds: new Set(fieldIds),
-      frozenFieldOps: this.buildFrozenFieldDeleteOps(gridViewSnapshots, fieldIds),
-      legacyDeletePayload: payload,
-    };
   }
 
   private throwV2Error(
@@ -691,31 +673,56 @@ export class FieldOpenApiV2Service {
     table: Table;
   }> {
     const container = await this.v2ContainerService.getContainerForTable(tableId);
-    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-    const tableQueryService = container.resolve<TableQueryService>(v2CoreTokens.tableQueryService);
-    const context = await this.v2ContextFactory.createContext(container);
-    const tableIdResult = TableId.create(tableId);
-    if (tableIdResult.isErr()) {
-      throw new HttpException('Invalid table id', HttpStatus.BAD_REQUEST);
-    }
+    const tracer = container.resolve<ITracer>(v2CoreTokens.tracer);
+    return withTracerSpan(
+      tracer,
+      'getCreateFieldContext',
+      async () => {
+        const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+        const tableQueryService = container.resolve<TableQueryService>(
+          v2CoreTokens.tableQueryService
+        );
+        const context = await withTracerSpan(
+          tracer,
+          'createExecutionContext',
+          () => this.v2ContextFactory.createContext(container),
+          {
+            [TeableSpanAttributes.TABLE_ID]: tableId,
+          }
+        );
+        const tableIdResult = TableId.create(tableId);
+        if (tableIdResult.isErr()) {
+          throw new HttpException('Invalid table id', HttpStatus.BAD_REQUEST);
+        }
 
-    const tableResult = await tableQueryService.getById(context, tableIdResult.value);
-    if (tableResult.isErr()) {
-      const errMsg = tableResult.error.message ?? 'Table not found';
-      const isNotFound =
-        tableResult.error.code === 'table.not_found' || errMsg.includes('not found');
-      throw new HttpException(
-        errMsg,
-        isNotFound ? HttpStatus.NOT_FOUND : HttpStatus.INTERNAL_SERVER_ERROR
-      );
-    }
-
-    return {
-      commandBus,
-      tableQueryService,
-      context,
-      table: tableResult.value,
-    };
+        const tableResult = await withV2Span(
+          context,
+          'loadCreateFieldTable',
+          () => tableQueryService.getById(context, tableIdResult.value),
+          {
+            [TeableSpanAttributes.TABLE_ID]: tableId,
+          }
+        );
+        if (tableResult.isErr()) {
+          const errMsg = tableResult.error.message ?? 'Table not found';
+          const isNotFound =
+            tableResult.error.code === 'table.not_found' || errMsg.includes('not found');
+          throw new HttpException(
+            errMsg,
+            isNotFound ? HttpStatus.NOT_FOUND : HttpStatus.INTERNAL_SERVER_ERROR
+          );
+        }
+        return {
+          commandBus,
+          tableQueryService,
+          context,
+          table: tableResult.value,
+        };
+      },
+      {
+        [TeableSpanAttributes.TABLE_ID]: tableId,
+      }
+    );
   }
 
   private async prepareLegacyCreateField(
@@ -729,12 +736,28 @@ export class FieldOpenApiV2Service {
     const nextAiConfig = hasAiConfig
       ? (rawFieldRo.aiConfig as IFieldVo['aiConfig'] | null | undefined) ?? null
       : undefined;
-    const mappedField = this.mapLegacyCreateFieldToV2(fieldRo);
-    const v2Field = await this.completeLegacyLinkDbConfigForCreate(
-      mappedField,
-      currentTable,
-      tableQueryService,
-      context
+    const currentTableId = getTableIdText(currentTable);
+    const mappedField = await withV2Span(
+      context,
+      'mapLegacyCreateFieldToV2',
+      async () => this.mapLegacyCreateFieldToV2(fieldRo),
+      {
+        ...(currentTableId ? { [TeableSpanAttributes.TABLE_ID]: currentTableId } : {}),
+      }
+    );
+    const v2Field = await withV2Span(
+      context,
+      'completeLegacyLinkDbConfigForCreate',
+      () =>
+        this.completeLegacyLinkDbConfigForCreate(
+          mappedField,
+          currentTable,
+          tableQueryService,
+          context
+        ),
+      {
+        ...(currentTableId ? { [TeableSpanAttributes.TABLE_ID]: currentTableId } : {}),
+      }
     );
 
     return {
@@ -780,13 +803,25 @@ export class FieldOpenApiV2Service {
       forceCompatLookupRead?: boolean;
     }
   ): Promise<IFieldVo> {
-    const createdFieldFromDomain = await this.extractFieldVoFromDomainTable(
-      table,
-      fieldId,
-      context
+    const createdFieldFromDomain = await withV2Span(
+      context,
+      'extractFieldVoFromDomainTable',
+      () => this.extractFieldVoFromDomainTable(table, fieldId, context),
+      {
+        [TeableSpanAttributes.TABLE_ID]: tableId,
+        [TeableSpanAttributes.FIELD_ID]: fieldId,
+      }
     );
     return options?.forceCompatLookupRead === true || createdFieldFromDomain.isLookup === true
-      ? await this.getFieldFromV2(tableId, fieldId, context)
+      ? await withV2Span(
+          context,
+          'getCreatedFieldFromV2Compat',
+          () => this.getFieldFromV2(tableId, fieldId, context),
+          {
+            [TeableSpanAttributes.TABLE_ID]: tableId,
+            [TeableSpanAttributes.FIELD_ID]: fieldId,
+          }
+        )
       : createdFieldFromDomain;
   }
 
@@ -1285,14 +1320,23 @@ export class FieldOpenApiV2Service {
       );
     }
 
-    const preparedField = await this.prepareLegacyCreateField(
-      fieldRo,
-      table,
-      tableQueryService,
-      context
+    const preparedField = await withV2Span(
+      context,
+      'prepareLegacyCreateField',
+      () => this.prepareLegacyCreateField(fieldRo, table, tableQueryService, context),
+      {
+        [TeableSpanAttributes.TABLE_ID]: tableId,
+      }
     );
     const { hasAiConfig, nextAiConfig, v2Field } = preparedField;
-    await this.assertCrossSpaceForV2Field(tableId, v2Field);
+    await withV2Span(
+      context,
+      'assertCrossSpaceForV2Field',
+      () => this.assertCrossSpaceForV2Field(tableId, v2Field),
+      {
+        [TeableSpanAttributes.TABLE_ID]: tableId,
+      }
+    );
     const legacyViewId =
       fieldRo && typeof fieldRo === 'object' && 'viewId' in fieldRo
         ? (fieldRo.viewId as string | undefined)
@@ -1313,13 +1357,26 @@ export class FieldOpenApiV2Service {
             orderIndex: legacyOrder.orderIndex,
           }
         : undefined;
-    const commandResult = CreateFieldCommand.create({
-      baseId: table.baseId().toString(),
-      tableId,
-      field: v2Field,
-      ...(typeof legacyViewId === 'string' ? { viewId: legacyViewId } : {}),
-      ...(normalizedOrder ? { order: normalizedOrder } : {}),
-    });
+    const commandResult = await withV2Span(
+      context,
+      'createCreateFieldCommand',
+      async () =>
+        CreateFieldCommand.create(
+          {
+            baseId: table.baseId().toString(),
+            tableId,
+            field: v2Field,
+            ...(typeof legacyViewId === 'string' ? { viewId: legacyViewId } : {}),
+            ...(normalizedOrder ? { order: normalizedOrder } : {}),
+          },
+          {
+            preloadedTable: table,
+          }
+        ),
+      {
+        [TeableSpanAttributes.TABLE_ID]: tableId,
+      }
+    );
 
     if (commandResult.isErr()) {
       this.throwV2Error(
@@ -1328,9 +1385,13 @@ export class FieldOpenApiV2Service {
       );
     }
 
-    const result = await commandBus.execute<CreateFieldCommand, CreateFieldResult>(
+    const result = await withV2Span(
       context,
-      commandResult.value
+      'executeCreateFieldCommand',
+      () => commandBus.execute<CreateFieldCommand, CreateFieldResult>(context, commandResult.value),
+      {
+        [TeableSpanAttributes.TABLE_ID]: tableId,
+      }
     );
 
     if (result.isErr()) {
@@ -1343,15 +1404,19 @@ export class FieldOpenApiV2Service {
     this.invalidateFieldLoader(this.collectFieldInvalidateTableIds(tableId, [v2Field]));
 
     if (typeof v2Field.id === 'string') {
+      const createdFieldId = v2Field.id;
       const shouldForceCompatLookupRead =
         v2Field.type === 'lookup' || v2Field.type === 'conditionalLookup';
-      const createdField = await this.materializeCreatedFieldVo(
-        tableId,
-        result.value.table,
-        v2Field.id,
+      const createdField = await withV2Span(
         context,
+        'materializeCreatedFieldVo',
+        () =>
+          this.materializeCreatedFieldVo(tableId, result.value.table, createdFieldId, context, {
+            forceCompatLookupRead: shouldForceCompatLookupRead,
+          }),
         {
-          forceCompatLookupRead: shouldForceCompatLookupRead,
+          [TeableSpanAttributes.TABLE_ID]: tableId,
+          [TeableSpanAttributes.FIELD_ID]: createdFieldId,
         }
       );
 
@@ -1571,18 +1636,6 @@ export class FieldOpenApiV2Service {
       );
     }
 
-    const [legacyDeletePayload, gridViewSnapshots] = await Promise.all([
-      this.fieldOpenApiService.captureDeleteFieldsLegacyPayload(tableId, [fieldId]),
-      this.captureGridViewDeleteSnapshots(tableId),
-    ]);
-    this.attachDeleteFieldCompatContext(
-      context,
-      tableId,
-      [fieldId],
-      legacyDeletePayload,
-      gridViewSnapshots
-    );
-
     const result = await executeDeleteFieldEndpoint(
       context,
       {
@@ -1626,18 +1679,6 @@ export class FieldOpenApiV2Service {
       );
     }
 
-    const [legacyDeletePayload, gridViewSnapshots] = await Promise.all([
-      this.fieldOpenApiService.captureDeleteFieldsLegacyPayload(tableId, fieldIds),
-      this.captureGridViewDeleteSnapshots(tableId),
-    ]);
-    this.attachDeleteFieldCompatContext(
-      context,
-      tableId,
-      fieldIds,
-      legacyDeletePayload,
-      gridViewSnapshots
-    );
-
     const commandResult = DeleteFieldsCommand.create({
       baseId: tableResult.value.baseId().toString(),
       tableId,
@@ -1677,27 +1718,25 @@ export class FieldOpenApiV2Service {
     const context = await this.v2ContextFactory.createContext(container);
     const currentField = await this.getFieldFromV2(tableId, fieldId, context);
 
+    const v2Field = this.mapLegacyUpdateFieldToV2(
+      updateFieldRo,
+      currentField as Record<string, unknown>
+    );
     const v2Input = {
       tableId,
       fieldId,
-      field: this.mapLegacyUpdateFieldToV2(updateFieldRo, currentField as Record<string, unknown>),
-    };
-
-    (
-      context as IExecutionContext & {
-        [V2_FIELD_UPDATE_AUDIT_CONTEXT_KEY]?: IV2FieldUpdateAuditContext;
-      }
-    )[V2_FIELD_UPDATE_AUDIT_CONTEXT_KEY] = {
-      tableId,
-      fieldId,
-      oldField: currentField,
-      inputField: { ...v2Input.field },
+      field: v2Field,
     };
 
     const result = await executeUpdateFieldEndpoint(context, v2Input, commandBus);
 
     if (result.status === 200 && result.body.ok) {
-      this.invalidateFieldLoader([tableId]);
+      this.invalidateFieldLoader(
+        this.collectFieldInvalidateTableIds(tableId, [
+          currentField as Record<string, unknown>,
+          v2Field,
+        ])
+      );
       return this.getFieldFromV2(tableId, fieldId, context);
     }
 
@@ -1717,8 +1756,6 @@ export class FieldOpenApiV2Service {
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext(container);
-    const shouldTrackUndoContext =
-      executionOptions?.emitOperation !== false && Boolean(context.windowId && context.actorId);
     if (executionOptions?.undoRedoMode) {
       context.undoRedo = { mode: executionOptions.undoRedoMode };
     }
@@ -1726,24 +1763,13 @@ export class FieldOpenApiV2Service {
       delete context.windowId;
     }
     const currentField = await this.getFieldFromV2(tableId, fieldId, context);
-    if (shouldTrackUndoContext) {
-      (
-        context as IExecutionContext & {
-          [V2_FIELD_CONVERT_UNDO_CONTEXT_KEY]?: IV2FieldConvertUndoContext;
-        }
-      )[V2_FIELD_CONVERT_UNDO_CONTEXT_KEY] = {
-        tableId,
-        fieldId,
-        oldField: currentField,
-      };
-    }
     // v2 uses UpdateFieldCommand for both update and convert
     const v2Input = {
       tableId,
       fieldId,
       field: {
         ...this.mapConvertFieldToV2(convertFieldRo, currentField as Record<string, unknown>),
-        replaceOptions: true,
+        updateMode: 'full',
       },
     };
     await this.assertCrossSpaceForV2Field(tableId, v2Input.field as Record<string, unknown>);

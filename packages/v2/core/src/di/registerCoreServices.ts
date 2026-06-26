@@ -50,6 +50,8 @@ import { UserValueResolverService } from '../application/services/UserValueResol
 import { ViewOperationPluginRunner } from '../application/services/ViewOperationPluginRunner';
 import { PasteStreamApplicationService } from '../commands/PasteHandler';
 import { NoopAttachmentUrlSignerService } from '../ports/defaults/NoopAttachmentUrlSignerService';
+import { NoopComputedFieldBackfillService } from '../ports/defaults/NoopComputedFieldBackfillService';
+import { NoopFieldDeleteSnapshotSink } from '../ports/defaults/NoopFieldDeleteSnapshotSink';
 import { NoopRecordOrderCalculator } from '../ports/defaults/NoopRecordOrderCalculator';
 import { NoopUndoRedoStore } from '../ports/defaults/NoopUndoRedoStore';
 import type { IFieldOperationPlugin } from '../ports/FieldOperationPlugin';
@@ -175,6 +177,13 @@ export const registerV2CoreServices = (
     );
   }
 
+  if (!container.isRegistered(v2CoreTokens.fieldDeleteSnapshotSink)) {
+    container.registerInstance(
+      v2CoreTokens.fieldDeleteSnapshotSink,
+      new NoopFieldDeleteSnapshotSink()
+    );
+  }
+
   // FieldUpdateSideEffectService - cascading field updates for dependent fields
   if (!container.isRegistered(v2CoreTokens.fieldUpdateSideEffectService)) {
     container.register(v2CoreTokens.fieldUpdateSideEffectService, FieldUpdateSideEffectService, {
@@ -255,6 +264,16 @@ export const registerV2CoreServices = (
     container.register(v2CoreTokens.pasteStreamApplicationService, PasteStreamApplicationService, {
       lifecycle,
     });
+  }
+
+  if (!container.isRegistered(v2CoreTokens.computedFieldBackfillService)) {
+    container.register(
+      v2CoreTokens.computedFieldBackfillService,
+      NoopComputedFieldBackfillService,
+      {
+        lifecycle,
+      }
+    );
   }
 
   // AttachmentValueResolverService - resolve attachment values
