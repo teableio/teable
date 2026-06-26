@@ -47,9 +47,12 @@ import {
   X_CANARY_HEADER,
 } from '@teable/openapi';
 import type { Knex } from 'knex';
+import type { MockInstance } from 'vitest';
+import { vi } from 'vitest';
 import { DB_PROVIDER_SYMBOL } from '../src/db-provider/db.provider';
 import type { IDbProvider } from '../src/db-provider/db.provider.interface';
 import { FieldService } from '../src/features/field/field.service';
+import { ComputedOrchestratorService } from '../src/features/record/computed/services/computed-orchestrator.service';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import {
   getRecords,
@@ -78,6 +81,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
   let prisma: PrismaService;
   let fieldService: FieldService;
   let knex: Knex;
+  let computedOrchestrator: ComputedOrchestratorService;
 
   beforeAll(async () => {
     const appCtx = await initApp();
@@ -86,6 +90,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
     prisma = appCtx.app.get<PrismaService>(PrismaService);
     fieldService = appCtx.app.get<FieldService>(FieldService);
     knex = appCtx.app.get('CUSTOM_KNEX');
+    computedOrchestrator = appCtx.app.get(ComputedOrchestratorService);
   });
 
   afterAll(async () => {
@@ -260,6 +265,57 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect((newField.options as { timeZone?: string }).timeZone?.toLowerCase()).toEqual(
         Intl.DateTimeFormat().resolvedOptions().timeZone.toLowerCase()
       );
+    });
+
+    it('should not recompute dependent fields when only defaultValue changes', async () => {
+      const statusField = await createField(table1.id, {
+        name: 'Status',
+        type: FieldType.SingleSelect,
+        options: {
+          choices: [
+            { id: 'choTodo', name: 'Todo', color: Colors.Cyan },
+            { id: 'choDone', name: 'Done', color: Colors.Blue },
+          ],
+          defaultValue: 'Todo',
+        },
+      });
+
+      const formulaField = await createField(table1.id, {
+        name: 'Status formula',
+        type: FieldType.Formula,
+        options: {
+          expression: `{${statusField.id}}`,
+        },
+      });
+
+      await updateRecordByApi(table1.id, table1.records[0].id, statusField.id, 'Todo');
+
+      const computeSpy: MockInstance = vi.spyOn(
+        computedOrchestrator,
+        'computeCellChangesForFields'
+      );
+
+      try {
+        const updatedField = await convertField(table1.id, statusField.id, {
+          type: FieldType.SingleSelect,
+          options: {
+            choices: [
+              { id: 'choTodo', name: 'Todo', color: Colors.Cyan },
+              { id: 'choDone', name: 'Done', color: Colors.Blue },
+            ],
+            defaultValue: 'Done',
+          },
+        });
+
+        expect((updatedField.options as ISelectFieldOptions).defaultValue).toEqual('Done');
+        expect(computeSpy).not.toHaveBeenCalled();
+
+        const record = await getRecord(table1.id, table1.records[0].id);
+        expect(record.fields[statusField.id]).toEqual('Todo');
+        expect(record.fields[formulaField.id]).toEqual('Todo');
+      } finally {
+        computeSpy.mockRestore();
+      }
     });
 
     it('should modify field validation', async () => {
@@ -5094,6 +5150,56 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         dropUniqueField.dbFieldName
       );
       expect(matchedIndexes2).toHaveLength(0);
+    });
+
+    it('should drop stale standalone unique index when unique is disabled', async () => {
+      const sourceField = await createField(table1.id, {
+        name: 'Stale unique text',
+        type: FieldType.SingleLineText,
+      });
+      const { records } = await createRecords(table1.id, {
+        records: [
+          { fields: { [sourceField.id]: 'alpha' } },
+          { fields: { [sourceField.id]: 'beta' } },
+        ],
+      });
+      const uniqueField = await convertField(table1.id, sourceField.id, {
+        ...sourceField,
+        unique: true,
+      });
+      const [schemaName, physicalTableName] = dbProvider.splitTableName(table1.dbTableName);
+      const staleIndexName = `${physicalTableName}_${uniqueField.dbFieldName}_unique`;
+      const staleIndexSql = knex
+        .raw('CREATE UNIQUE INDEX ?? ON ??.?? (??)', [
+          staleIndexName,
+          schemaName,
+          physicalTableName,
+          uniqueField.dbFieldName,
+        ])
+        .toQuery();
+
+      await prisma.txClient().$executeRawUnsafe(staleIndexSql);
+
+      const matchedIndexes1 = await fieldService.findUniqueIndexesForField(
+        table1.dbTableName,
+        uniqueField.dbFieldName
+      );
+      expect(matchedIndexes1).toEqual(expect.arrayContaining([staleIndexName]));
+      expect(matchedIndexes1.length).toBeGreaterThanOrEqual(2);
+
+      const dropUniqueField = await convertField(table1.id, uniqueField.id, {
+        ...uniqueField,
+        unique: false,
+      });
+      expect(dropUniqueField.unique).toEqual(false);
+
+      const matchedIndexes2 = await fieldService.findUniqueIndexesForField(
+        table1.dbTableName,
+        dropUniqueField.dbFieldName
+      );
+      expect(matchedIndexes2).toHaveLength(0);
+
+      await updateRecordByApi(table1.id, records[1].id, dropUniqueField.id, 'alpha');
     });
 
     it('should modify old unique property', async () => {

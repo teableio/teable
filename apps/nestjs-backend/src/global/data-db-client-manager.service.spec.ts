@@ -8,6 +8,13 @@ const withTxClient = <T extends object>(txClient: T) => ({
   txClient: vi.fn(() => txClient),
 });
 
+const dataUrl = 'postgresql://teable:secret@example.com:5432/teable_data';
+const internalSchema = 'teable_meta_test';
+const connectionId = 'dcnxxx';
+const displayHost = 'example.com';
+const displayDatabase = 'teable_data';
+const urlFingerprint = 'fp_xxx';
+
 describe('DataDbClientManager', () => {
   it('falls back to the meta DB clients when a space has no BYODB binding', async () => {
     const prismaService = withTxClient({
@@ -156,8 +163,6 @@ describe('DataDbClientManager', () => {
   });
 
   it('resolves BYODB connection details from a ready space binding', async () => {
-    const dataUrl = 'postgresql://teable:secret@example.com:5432/teable_data';
-    const internalSchema = 'teable_meta_test';
     const cls = {
       isActive: vi.fn().mockReturnValue(true),
       set: vi.fn(),
@@ -168,12 +173,12 @@ describe('DataDbClientManager', () => {
           mode: 'byodb',
           state: 'ready',
           dataDbConnection: {
-            id: 'dcnxxx',
+            id: connectionId,
             status: 'ready',
             internalSchema,
-            displayHost: 'example.com',
-            displayDatabase: 'teable_data',
-            urlFingerprint: 'fp_xxx',
+            displayHost,
+            displayDatabase,
+            urlFingerprint,
             encryptedUrl: encryptDataDbUrl(dataUrl),
           },
         }),
@@ -194,27 +199,134 @@ describe('DataDbClientManager', () => {
       `${dataUrl}?schema=${internalSchema}&options=-c+search_path%3D${internalSchema}`
     );
     await expect(manager.getDataDatabaseForSpace('spcxxx')).resolves.toMatchObject({
-      cacheKey: 'dcnxxx',
-      connectionId: 'dcnxxx',
+      cacheKey: connectionId,
+      connectionId,
       isMetaFallback: false,
       url: `${dataUrl}?schema=${internalSchema}&options=-c+search_path%3D${internalSchema}`,
     });
     expect(cls.set).toHaveBeenCalledWith('dataDb', {
       mode: 'byodb',
       spaceId: 'spcxxx',
-      connectionId: 'dcnxxx',
-      urlFingerprint: 'fp_xxx',
-      displayHost: 'example.com',
-      displayDatabase: 'teable_data',
+      connectionId,
+      urlFingerprint,
+      displayHost,
+      displayDatabase,
       internalSchema,
     });
     await expect(manager.dataKnexForSpace('spcxxx')).resolves.not.toBe(metaFallbackDataKnex);
     await manager.onModuleDestroy();
   });
 
+  it('can preview a BYODB route for a space without writing a binding', async () => {
+    const prismaService = withTxClient({
+      spaceDataDbBinding: {
+        findUnique: vi.fn().mockResolvedValue(null),
+      },
+    });
+    const manager = new DataDbClientManager(
+      prismaService as never,
+      {} as never,
+      {} as never,
+      new DataDbRuntimeCacheService()
+    );
+
+    await expect(
+      manager.getDataDatabaseForSpace('spcxxx', {
+        previewBinding: {
+          spaceId: 'spcxxx',
+          connectionId,
+          encryptedUrl: encryptDataDbUrl(dataUrl),
+          internalSchema,
+          urlFingerprint,
+          displayHost,
+          displayDatabase,
+        },
+      })
+    ).resolves.toMatchObject({
+      cacheKey: connectionId,
+      connectionId,
+      internalSchema,
+      isMetaFallback: false,
+      url: `${dataUrl}?schema=${internalSchema}&options=-c+search_path%3D${internalSchema}`,
+    });
+    expect(prismaService.spaceDataDbBinding.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('can force the original source route to meta fallback during migration', async () => {
+    vi.stubEnv('PRISMA_DATABASE_URL', 'postgresql://meta.example/teable');
+    const prismaService = withTxClient({
+      dataDbConnection: {
+        findUnique: vi.fn(),
+      },
+      spaceDataDbBinding: {
+        findUnique: vi.fn().mockResolvedValue({
+          mode: 'byodb',
+          state: 'migrating',
+          dataDbConnection: {
+            id: connectionId,
+            status: 'migrating',
+            internalSchema,
+            encryptedUrl: encryptDataDbUrl(dataUrl),
+          },
+        }),
+      },
+    });
+    const manager = new DataDbClientManager(
+      prismaService as never,
+      {} as never,
+      {} as never,
+      new DataDbRuntimeCacheService()
+    );
+
+    await expect(
+      manager.getDataDatabaseForSpace('spcxxx', { sourceConnectionId: null })
+    ).resolves.toMatchObject({
+      cacheKey: 'meta-fallback',
+      isMetaFallback: true,
+    });
+    expect(prismaService.spaceDataDbBinding.findUnique).not.toHaveBeenCalled();
+    expect(prismaService.dataDbConnection.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('can resolve the original source BYODB connection during migration', async () => {
+    const sourceConnectionId = 'dcnsource';
+    const sourceSchema = 'source_schema';
+    const sourceUrl = 'postgresql://teable:secret@source.example.com:5432/teable_data';
+    const prismaService = withTxClient({
+      dataDbConnection: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: sourceConnectionId,
+          internalSchema: sourceSchema,
+          encryptedUrl: encryptDataDbUrl(sourceUrl),
+        }),
+      },
+      spaceDataDbBinding: {
+        findUnique: vi.fn(),
+      },
+    });
+    const manager = new DataDbClientManager(
+      prismaService as never,
+      {} as never,
+      {} as never,
+      new DataDbRuntimeCacheService()
+    );
+
+    await expect(
+      manager.getDataDatabaseForSpace('spcxxx', { sourceConnectionId })
+    ).resolves.toMatchObject({
+      cacheKey: sourceConnectionId,
+      connectionId: sourceConnectionId,
+      internalSchema: sourceSchema,
+      isMetaFallback: false,
+      url: `${sourceUrl}?schema=${sourceSchema}&options=-c+search_path%3D${sourceSchema}`,
+    });
+    expect(prismaService.dataDbConnection.findUnique).toHaveBeenCalledWith({
+      where: { id: sourceConnectionId },
+    });
+    expect(prismaService.spaceDataDbBinding.findUnique).not.toHaveBeenCalled();
+  });
+
   it('resolves BYODB connection details when no CLS context is active', async () => {
-    const dataUrl = 'postgresql://teable:secret@example.com:5432/teable_data';
-    const internalSchema = 'teable_meta_test';
     const cls = {
       isActive: vi.fn().mockReturnValue(false),
       set: vi.fn(() => {
@@ -227,12 +339,12 @@ describe('DataDbClientManager', () => {
           mode: 'byodb',
           state: 'ready',
           dataDbConnection: {
-            id: 'dcnxxx',
+            id: connectionId,
             status: 'ready',
             internalSchema,
-            displayHost: 'example.com',
-            displayDatabase: 'teable_data',
-            urlFingerprint: 'fp_xxx',
+            displayHost,
+            displayDatabase,
+            urlFingerprint,
             encryptedUrl: encryptDataDbUrl(dataUrl),
           },
         }),
@@ -254,8 +366,6 @@ describe('DataDbClientManager', () => {
   });
 
   it('ensures the BYODB internal schema is migrated before returning a scoped URL', async () => {
-    const dataUrl = 'postgresql://teable:secret@example.com:5432/teable_data';
-    const internalSchema = 'teable_meta_test';
     const dataDbMigrationService = {
       ensureConnectionMigrated: vi.fn().mockResolvedValue([]),
     };
@@ -265,7 +375,7 @@ describe('DataDbClientManager', () => {
           mode: 'byodb',
           state: 'migrating',
           dataDbConnection: {
-            id: 'dcnxxx',
+            id: connectionId,
             status: 'migrating',
             internalSchema,
             encryptedUrl: encryptDataDbUrl(dataUrl),
@@ -282,13 +392,13 @@ describe('DataDbClientManager', () => {
     );
 
     await expect(manager.getDataDatabaseForSpace('spcxxx')).resolves.toMatchObject({
-      cacheKey: 'dcnxxx',
-      connectionId: 'dcnxxx',
+      cacheKey: connectionId,
+      connectionId,
       internalSchema,
       isMetaFallback: false,
     });
     expect(dataDbMigrationService.ensureConnectionMigrated).toHaveBeenCalledWith({
-      connectionId: 'dcnxxx',
+      connectionId,
       internalSchema,
       url: dataUrl,
     });

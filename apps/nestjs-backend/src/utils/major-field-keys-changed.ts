@@ -11,6 +11,7 @@ export const NON_INFECT_OPTION_KEYS = new Set([
   'filter',
   'sort',
   'limit',
+  'defaultValue',
 ]);
 
 export const majorOptionsKeyChanged = (
