@@ -5,7 +5,11 @@ import type { Result } from 'neverthrow';
 
 import type { ComputedFieldUpdater, ComputedUpdateResult } from '../ComputedFieldUpdater';
 import type { ComputedUpdatePlan } from '../ComputedUpdatePlanner';
-import type { IUpdateStrategy, UpdateStrategyMode } from './IUpdateStrategy';
+import type {
+  IUpdateStrategy,
+  UpdateStrategyExecuteOptions,
+  UpdateStrategyMode,
+} from './IUpdateStrategy';
 
 /**
  * Async strategy placeholder.
@@ -22,7 +26,8 @@ export class AsyncWithRetryStrategy implements IUpdateStrategy {
   async execute(
     _updater: ComputedFieldUpdater,
     _plan: ComputedUpdatePlan,
-    _context: IExecutionContext
+    _context: IExecutionContext,
+    _options?: UpdateStrategyExecuteOptions
   ): Promise<Result<ComputedUpdateResult | undefined, DomainError>> {
     return err(
       domainError.unexpected({

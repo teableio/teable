@@ -61,6 +61,12 @@ describe('ComputedUpdateOutbox', () => {
       const now = new Date('2026-01-05T12:00:00Z');
       let updateValues: Record<string, unknown> | null = null;
       let selectedLeaseOwner: string | null = null;
+      const selectedRows = [{ id: 'cuo123456789012345' }, undefined];
+      const executor = {
+        transformQuery: vi.fn((node) => node),
+        compileQuery: vi.fn(() => ({ sql: 'select 1', parameters: [] })),
+        withPlugins: vi.fn(() => executor),
+      };
 
       const selectChain = {
         where: vi.fn().mockImplementation((_col, _op, value) => {
@@ -70,14 +76,17 @@ describe('ComputedUpdateOutbox', () => {
           return selectChain;
         }),
         forUpdate: vi.fn().mockReturnValue({
-          executeTakeFirst: vi.fn().mockResolvedValue({ id: 'cuo123456789012345' }),
+          executeTakeFirst: vi.fn().mockImplementation(() => Promise.resolve(selectedRows.shift())),
         }),
       };
       const mockDb = {
         transaction: () => ({
           execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
         }),
+        executeQuery: vi.fn().mockResolvedValue({ rows: [] }),
+        getExecutor: vi.fn(() => executor),
         selectFrom: vi.fn().mockReturnValue({
+          selectAll: vi.fn().mockReturnValue(selectChain),
           select: vi.fn().mockReturnValue(selectChain),
         }),
         updateTable: vi.fn().mockReturnValue({
