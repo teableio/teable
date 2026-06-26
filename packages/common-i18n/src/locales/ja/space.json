@@ -9,7 +9,8 @@
   "action": {
     "createBase": "ベースの作成",
     "createSpace": "スペースの作成",
-    "invite": "招待"
+    "invite": "招待",
+    "startFromScratch": "最初から作成"
   },
   "allSpaces": "すべてのスペース",
   "emptySpaceTitle": "このスペースにはベースがありません",
@@ -139,7 +140,7 @@
   },
   "baseList": {
     "allBases": "すべてのBase",
-    "owner": "所有者",
+    "creator": "作成者",
     "createdTime": "作成日時",
     "lastOpened": "最終閲覧",
     "enter": "入る",
@@ -207,5 +208,67 @@
       "redeploy": "再デプロイ",
       "unnamedApp": "無名のアプリ"
     }
+  },
+  "airtableImport": {
+    "title": "Airtable からインポート",
+    "close": "閉じる",
+    "pickBase": "インポートするベースを選択",
+    "noBases": "このトークンでアクセスできるベースが見つかりません。",
+    "optionRecords": "レコードをインポート",
+    "optionAttachments": "添付ファイルをダウンロードしてインポート",
+    "import": "インポート開始",
+    "done": "インポートが完了しました",
+    "failed": "インポートに失敗しました",
+    "openBase": "ベースを開く",
+    "issuesSummary": "インポート中に {{count}} 件の調整がありました：",
+    "issuesMore": "他 {{count}} 件…",
+    "issue": {
+      "fieldDegraded": "{{tableName}} / {{fieldName}}：{{fromType}} → {{toType}}",
+      "fieldSkipped": "{{tableName}} / {{fieldName}}（{{fromType}}）はスキップされました：{{reason}}",
+      "viewSkipped": "{{tableName}} / ビュー「{{viewName}}」（{{fromType}}）はスキップされました",
+      "valuesDropped": "{{tableName}} / {{fieldName}}：{{count}} 件の値が破棄されました（{{reason}}）",
+      "viewConfigDegraded": "{{tableName}} / ビュー「{{viewName}}」：{{reason}}"
+    },
+    "phase": {
+      "fetchingSchema": "Airtable のベース構造を読み込み中",
+      "creatingBase": "ベースを作成中：{{detail}}",
+      "creatingTable": "テーブルを作成中：{{tableName}}（{{tableIndex}}/{{totalTables}}）",
+      "creatingLinks": "リンクフィールドを作成中",
+      "fillingLinks": "{{tableName}}（リンク）",
+      "done": "インポート完了",
+      "applyingViewConfig": "ビュー設定をインポート中"
+    },
+    "searchBases": "ベースを検索",
+    "noSearchResults": "一致するベースがありません。",
+    "detecting": "Airtable 連携を確認しています…",
+    "connectWithAirtable": "Airtable アカウントを接続",
+    "waitingOAuth": "ポップアップで認可を完了してください…",
+    "connectedAs": "接続済み：{{account}}",
+    "permission": {
+      "create": "作成者",
+      "edit": "編集可",
+      "comment": "コメント可",
+      "read": "閲覧のみ"
+    },
+    "integrationRequired": "このインスタンスでは Airtable 連携が設定されていません。管理者に設定を依頼してください。",
+    "optionViewConfig": "ビューのフィルター・並べ替え・グループ化をインポート",
+    "viewConfig": {
+      "help": "Airtable API はビュー設定を公開していないため、読み取り専用の共有リンクが必要です。",
+      "helpStep1": "Airtable でベースの「Share」メニューを開く",
+      "helpStep2": "「Share to web」を選択し、ベース全体の公開を有効にする",
+      "helpStep3": "読み取り専用リンクをコピーして上の入力欄に貼り付ける",
+      "linkPlaceholder": "共有リンクを貼り付け",
+      "mismatch": "この共有リンクは選択中のベースとは別のベースを指しています。",
+      "disableReminder": "完了しました。Airtable で共有リンクをオフにできます。"
+    }
+  },
+  "createBaseDialog": {
+    "title": "どのように始めますか？"
+  },
+  "importBaseDialog": {
+    "title": "ベースをインポート",
+    "fromFile": "ファイルからインポート",
+    "fromFileDesc": ".tea データベースファイルをアップロード",
+    "fromAirtableDesc": "Airtable アカウントを接続"
   }
 }

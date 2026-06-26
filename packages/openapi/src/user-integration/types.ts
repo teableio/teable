@@ -4,6 +4,7 @@ export enum UserIntegrationProvider {
   Slack = 'slack',
   Gmail = 'gmail',
   Outlook = 'outlook',
+  Airtable = 'airtable',
   // Future: Discord = 'discord',
   // Future: Telegram = 'telegram',
   // Future: Teams = 'teams',
@@ -40,10 +41,22 @@ export const userIntegrationOutlookMetadataSchema = userIntegrationEmailMetadata
 
 export type IUserIntegrationOutlookMetadata = IUserIntegrationEmailMetadata;
 
+export const userIntegrationAirtableMetadataSchema = z.object({
+  userInfo: z.object({
+    id: z.string(),
+    email: z.string().optional(),
+  }),
+});
+
+export type IUserIntegrationAirtableMetadata = z.infer<
+  typeof userIntegrationAirtableMetadataSchema
+>;
+
 export const userIntegrationMetadataSchema = z.union([
   userIntegrationSlackMetadataSchema,
   userIntegrationGmailMetadataSchema,
   userIntegrationOutlookMetadataSchema,
+  userIntegrationAirtableMetadataSchema,
 ]);
 
 export type IUserIntegrationMetadata = z.infer<typeof userIntegrationMetadataSchema>;

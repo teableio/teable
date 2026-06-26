@@ -1,6 +1,7 @@
 import {
   CellValue,
   FieldId,
+  SetAttachmentValueSpec,
   SetLinkValueByTitleSpec,
   SetLinkValueSpec,
   SetUserValueByIdentifierSpec,
@@ -10,8 +11,8 @@ import {
 import { err, ok } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
-import { MAX_FILLED_LINK_VALUE_ITEMS } from '../buildFilledLinkValueExpression';
 import { createTestDb } from '../../schema/visitors/__tests__/helpers/createTestDb';
+import { MAX_FILLED_LINK_VALUE_ITEMS } from '../buildFilledLinkValueExpression';
 import { CellValueMutateVisitor } from './CellValueMutateVisitor';
 
 const normalizeSql = (sql: string) => sql.replace(/\s+/g, ' ').trim();
@@ -132,6 +133,7 @@ const createTrackedLastModifiedByField = (params: {
 };
 
 const createTable = (...fields: Array<ReturnType<typeof createField>>) => ({
+  id: () => mkTableId('table'),
   getField: (predicate: (field: ReturnType<typeof createField>) => boolean) => {
     const field = fields.find(predicate);
     return field ? ok(field) : err(domainError.notFound({ message: 'Field not found' }));
@@ -150,6 +152,22 @@ const createVisitor = (...fields: Array<ReturnType<typeof createField>>) =>
       recordId: mkRecordId('source'),
       actorId: 'usrActor000000001',
       now: '2025-01-01T00:00:00.000Z',
+    }
+  );
+
+const createVisitorWithContext = (
+  fields: Array<ReturnType<typeof createField>>,
+  context: Partial<Parameters<typeof CellValueMutateVisitor.create>[3]>
+) =>
+  CellValueMutateVisitor.create(
+    createTestDb() as never,
+    createTable(...fields) as never,
+    'public.records',
+    {
+      recordId: mkRecordId('source'),
+      actorId: 'usrActor000000001',
+      now: '2025-01-01T00:00:00.000Z',
+      ...context,
     }
   );
 
@@ -225,6 +243,42 @@ describe('CellValueMutateVisitor', () => {
     expect(visitor.getSetClausesRaw().setClauses.text_col).toBeNull();
     expect(visitor.getChangedFieldIds().map((id) => id.toString())).toEqual([
       textField.id().toString(),
+    ]);
+  });
+
+  it('can defer attachment table replacement for batch updates', () => {
+    const attachmentField = createField({
+      fieldId: 'filesField',
+      type: 'attachment',
+      dbFieldName: 'files_col',
+    });
+    const visitor = createVisitorWithContext([attachmentField], {
+      deferAttachmentTableReplace: true,
+    });
+    const spec = new SetAttachmentValueSpec(
+      attachmentField.id(),
+      CellValue.fromValidated([
+        {
+          id: 'act000000000000001',
+          token: 'tok-1',
+          name: 'a.txt',
+        },
+      ])
+    );
+
+    const result = visitor.visitSetAttachmentValue(spec);
+
+    expect(result.isOk()).toBe(true);
+    expect(visitor.getSetClausesRaw().setClauses.files_col).toBe(
+      JSON.stringify([{ id: 'act000000000000001', token: 'tok-1', name: 'a.txt' }])
+    );
+    expect(visitor.getSetClausesRaw().additionalStatements).toHaveLength(0);
+    expect(visitor.getAttachmentTableReplacements()).toEqual([
+      expect.objectContaining({
+        recordId: mkRecordId('source'),
+        fieldId: attachmentField.id().toString(),
+        value: [{ id: 'act000000000000001', token: 'tok-1', name: 'a.txt' }],
+      }),
     ]);
   });
 
@@ -553,13 +607,52 @@ describe('CellValueMutateVisitor', () => {
     const buildResult = visitor.build();
     expect(buildResult.isOk()).toBe(true);
     const built = buildResult._unsafeUnwrap();
+    const setClauses = visitor.getSetClausesRaw().setClauses;
     expect(built.changedFieldIds.map((id) => id.toString())).toEqual([
       textField.id().toString(),
       lastModifiedTimeField.id().toString(),
       lastModifiedByField.id().toString(),
     ]);
     expect(normalizeSql(built.mainUpdate.sql)).toContain('"lmt_col" = $');
-    expect(normalizeSql(built.mainUpdate.sql)).toContain('jsonb_build_object');
+    expect(normalizeSql(built.mainUpdate.sql)).not.toContain('public.users');
+    expect(JSON.parse(setClauses.lmb_col as string)).toMatchObject({
+      id: 'usrActor000000001',
+      title: 'usrActor000000001',
+      email: null,
+    });
+  });
+
+  it('uses actor identity context for tracked last-modified-by snapshots', () => {
+    const textField = createField({
+      fieldId: 'trackedText',
+      type: 'singleLineText',
+      dbFieldName: 'text_col',
+    });
+    const lastModifiedByField = createTrackedLastModifiedByField({
+      fieldId: 'trackedBy',
+      dbFieldName: 'lmb_col',
+      trackedFieldIds: [textField.id()],
+    });
+    const visitor = createVisitorWithContext([textField, lastModifiedByField as never], {
+      actorName: 'Nee',
+      actorEmail: 'nee@teable.io',
+    });
+
+    expect(
+      visitor
+        .visitSetSingleLineTextValue({
+          fieldId: textField.id(),
+          value: CellValue.fromValidated('updated'),
+        } as never)
+        .isOk()
+    ).toBe(true);
+
+    expect(visitor.build().isOk()).toBe(true);
+    expect(JSON.parse(visitor.getSetClausesRaw().setClauses.lmb_col as string)).toMatchObject({
+      id: 'usrActor000000001',
+      title: 'Nee',
+      email: 'nee@teable.io',
+    });
   });
 
   it('handles row-order updates and unsupported logical combinators', () => {

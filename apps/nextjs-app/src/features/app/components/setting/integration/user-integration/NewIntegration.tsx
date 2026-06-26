@@ -4,12 +4,14 @@ import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
 import { usePublicSettingQuery } from '@/features/app/hooks/useSetting';
 import { UserIntegrationProviderLogo } from '../../../user-integration/ProviderLogo';
-import { getUserIntegrationName, openConnectIntegration } from '../../../user-integration/utils';
+import { useConnectIntegration } from '../../../user-integration/useConnectIntegration';
+import { getUserIntegrationName } from '../../../user-integration/utils';
 
 export const NewIntegration = (props: { children: React.ReactNode }) => {
   const { children } = props;
   const [open, setOpen] = useState(false);
   const { t } = useTranslation('common');
+  const { connect } = useConnectIntegration();
   const { data: publicSetting } = usePublicSettingQuery();
   const availableIntegrationProviders = publicSetting?.availableIntegrationProviders;
 
@@ -28,7 +30,7 @@ export const NewIntegration = (props: { children: React.ReactNode }) => {
             size="sm"
             className="w-full justify-start gap-2 px-2 text-sm font-normal"
             onClick={() => {
-              openConnectIntegration(provider, {
+              connect(provider, {
                 name: t('settings.integration.userIntegration.defaultName', {
                   name: getUserIntegrationName(provider),
                 }),

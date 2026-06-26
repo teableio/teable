@@ -13,6 +13,7 @@ interface UseCellAttachmentUploadParams {
   fieldId: string;
   attachments: IAttachmentCellValue;
   baseId?: string;
+  shareId?: string;
   enabled: boolean;
 }
 
@@ -25,7 +26,7 @@ interface UseCellAttachmentUploadReturn {
 export const useCellAttachmentUpload = (
   params: UseCellAttachmentUploadParams
 ): UseCellAttachmentUploadReturn => {
-  const { tableId, recordId, fieldId, attachments, baseId, enabled } = params;
+  const { tableId, recordId, fieldId, attachments, baseId, shareId, enabled } = params;
   const startCellUpload = useCellAttachmentUploadStore((state) => state.startUpload);
   const cancelCellTask = useCellAttachmentUploadStore((state) => state.cancelTask);
   const syncCellAttachments = useCellAttachmentUploadStore((state) => state.syncCellAttachments);
@@ -56,9 +57,9 @@ export const useCellAttachmentUpload = (
     (files: File[]) => {
       if (files.length === 0) return;
       if (!enabled) return;
-      startCellUpload(tableId, recordId, fieldId, files, baseId);
+      startCellUpload(tableId, recordId, fieldId, files, baseId, shareId);
     },
-    [baseId, enabled, fieldId, recordId, startCellUpload, tableId]
+    [baseId, shareId, enabled, fieldId, recordId, startCellUpload, tableId]
   );
 
   const onCancelUpload = useCallback(

@@ -27,6 +27,7 @@ import { SingleSelectField } from '../domain/table/fields/types/SingleSelectFiel
 import { FieldValueTypeVisitor } from '../domain/table/fields/visitors/FieldValueTypeVisitor';
 import { UpdateLinkConfigSpec } from '../domain/table/specs/field-updates/UpdateLinkConfigSpec';
 import { UpdateLookupOptionsSpec } from '../domain/table/specs/field-updates/UpdateLookupOptionsSpec';
+import { TableUpdateFieldNameSpec } from '../domain/table/specs/TableUpdateFieldNameSpec';
 import { TableUpdateFieldTypeSpec } from '../domain/table/specs/TableUpdateFieldTypeSpec';
 import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
@@ -631,7 +632,7 @@ describe('TableFieldUpdateSpecs', () => {
     expect(valueTypeResult.value.isMultipleCellValue.toBoolean()).toBe(true);
   });
 
-  it('clears lookup filter/sort/limit when replaceOptions is enabled', () => {
+  it('clears lookup filter/sort/limit in full update mode', () => {
     const baseId = createBaseId('g');
     const hostTableId = createTableId('g');
     const foreignTableId = createTableId('h');
@@ -733,7 +734,7 @@ describe('TableFieldUpdateSpecs', () => {
           foreignTableId: foreignTableId.toString(),
           lookupFieldId: foreignPrimaryId.toString(),
         },
-        replaceOptions: true,
+        updateMode: 'full',
       },
       {
         hostTable,
@@ -760,7 +761,7 @@ describe('TableFieldUpdateSpecs', () => {
     expect(nextOptions.limit).toBeUndefined();
   });
 
-  it('keeps lookup filter/sort/limit when replaceOptions is disabled', () => {
+  it('keeps lookup filter/sort/limit in partial update mode', () => {
     const baseId = createBaseId('p');
     const hostTableId = createTableId('p');
     const foreignTableId = createTableId('q');
@@ -997,7 +998,7 @@ describe('TableFieldUpdateSpecs', () => {
     expect(lookupSpec.nextOptions().lookupFieldId().equals(foreignPrimaryBId)).toBe(true);
   });
 
-  it('forces a lookup options spec when replaceOptions clears showAs without changing other options', () => {
+  it('forces a lookup options spec when full update mode clears showAs without changing other options', () => {
     const baseId = createBaseId('a');
     const hostTableId = createTableId('a');
     const foreignTableId = createTableId('b');
@@ -1080,7 +1081,7 @@ describe('TableFieldUpdateSpecs', () => {
           foreignTableId: foreignTableId.toString(),
           lookupFieldId: foreignPrimaryId.toString(),
         },
-        replaceOptions: true,
+        updateMode: 'full',
       },
       {
         hostTable,
@@ -1583,7 +1584,7 @@ describe('TableFieldUpdateSpecs', () => {
     expect(specsResult._unsafeUnwrapErr().message).toContain('innerOptions.expression is required');
   });
 
-  it('clears link filter options when replaceOptions is enabled', () => {
+  it('clears link filter options in full update mode', () => {
     const baseId = createBaseId('y');
     const hostTableId = createTableId('y');
     const foreignTableId = createTableId('z');
@@ -1657,7 +1658,7 @@ describe('TableFieldUpdateSpecs', () => {
           foreignTableId: foreignTableId.toString(),
           lookupFieldId: foreignPrimaryId.toString(),
         },
-        replaceOptions: true,
+        updateMode: 'full',
       },
       {
         hostTable,
@@ -1684,7 +1685,7 @@ describe('TableFieldUpdateSpecs', () => {
     expect(nextConfig.filter()).toBeUndefined();
   });
 
-  it('keeps link filter options when replaceOptions is disabled', () => {
+  it('keeps link filter options in partial update mode', () => {
     const baseId = createBaseId('e');
     const hostTableId = createTableId('e');
     const foreignTableId = createTableId('f');
@@ -1770,23 +1771,98 @@ describe('TableFieldUpdateSpecs', () => {
       return;
     }
 
-    const linkSpec = specsResult.value.find(
-      (spec): spec is UpdateLinkConfigSpec => spec instanceof UpdateLinkConfigSpec
-    );
-    expect(linkSpec).toBeDefined();
-    if (!linkSpec) {
-      return;
-    }
-
-    const nextConfig = linkSpec.nextConfig();
-    expect(nextConfig.filterByViewId()?.toString()).toBe(`viw${'m'.repeat(16)}`);
-    expect(nextConfig.visibleFieldIds()?.map((id) => id.toString())).toEqual([
-      foreignPrimaryId.toString(),
-    ]);
-    expect(nextConfig.filter()).toEqual({
+    expect(specsResult.value.some((spec) => spec instanceof UpdateLinkConfigSpec)).toBe(false);
+    expect(currentField.config().filterByViewId()?.toString()).toBe(`viw${'m'.repeat(16)}`);
+    expect(
+      currentField
+        .config()
+        .visibleFieldIds()
+        ?.map((id) => id.toString())
+    ).toEqual([foreignPrimaryId.toString()]);
+    expect(currentField.config().filter()).toEqual({
       conjunction: 'and',
       filterSet: [{ fieldId: foreignStatusId.toString(), operator: 'is', value: 'Active' }],
     });
+  });
+
+  it('skips link config specs when a metadata update carries unchanged options', () => {
+    const baseId = createBaseId('n');
+    const hostTableId = createTableId('n');
+    const foreignTableId = createTableId('o');
+    const foreignPrimaryId = createFieldId('p');
+    const hostPrimaryId = createFieldId('q');
+    const linkFieldId = createFieldId('r');
+
+    const foreignBuilder = Table.builder()
+      .withBaseId(baseId)
+      .withId(foreignTableId)
+      .withName(TableName.create('Link Noop Foreign')._unsafeUnwrap());
+    foreignBuilder
+      .field()
+      .singleLineText()
+      .withId(foreignPrimaryId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    foreignBuilder.view().defaultGrid().done();
+    const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+
+    const linkConfig = LinkFieldConfig.create({
+      relationship: 'manyMany',
+      foreignTableId: foreignTableId.toString(),
+      lookupFieldId: foreignPrimaryId.toString(),
+    })._unsafeUnwrap();
+
+    const hostBuilder = Table.builder()
+      .withBaseId(baseId)
+      .withId(hostTableId)
+      .withName(TableName.create('Link Noop Host')._unsafeUnwrap());
+    hostBuilder
+      .field()
+      .singleLineText()
+      .withId(hostPrimaryId)
+      .withName(FieldName.create('Primary')._unsafeUnwrap())
+      .primary()
+      .done();
+    hostBuilder
+      .field()
+      .link()
+      .withId(linkFieldId)
+      .withName(FieldName.create('Link')._unsafeUnwrap())
+      .withConfig(linkConfig)
+      .done();
+    hostBuilder.view().defaultGrid().done();
+    const hostTable = hostBuilder.build()._unsafeUnwrap();
+
+    const currentField = hostTable
+      .getField((field) => field.id().equals(linkFieldId))
+      ._unsafeUnwrap() as LinkField;
+    const currentOptions = currentField.config().toDto()._unsafeUnwrap();
+
+    const specsResult = buildUpdateFieldSpecs(
+      currentField,
+      {
+        type: 'link',
+        name: 'Renamed Link',
+        options: currentOptions,
+      },
+      {
+        hostTable,
+        foreignTables: [foreignTable],
+      }
+    );
+
+    expect(specsResult.isOk()).toBe(true);
+    if (specsResult.isErr()) {
+      return;
+    }
+
+    const nameSpecs = specsResult.value.filter(
+      (spec): spec is TableUpdateFieldNameSpec => spec instanceof TableUpdateFieldNameSpec
+    );
+    expect(nameSpecs).toHaveLength(1);
+    expect(nameSpecs[0].nextName().toString()).toBe('Renamed Link');
+    expect(specsResult.value.some((spec) => spec instanceof UpdateLinkConfigSpec)).toBe(false);
   });
 
   it('defaults link lookupFieldId to the new foreign table primary field when foreignTableId changes', () => {

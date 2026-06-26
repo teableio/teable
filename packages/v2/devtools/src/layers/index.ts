@@ -3,6 +3,7 @@ export * from './DebugDataLive';
 export * from './CommandExplainLive';
 export * from './ComputedTaskControlLive';
 export * from './ComputedTaskInspectorLive';
+export * from './DataDbMigrationInspectorLive';
 export * from './MockRecordsLive';
 export * from './NodeCryptoHasher';
 export * from './OutputLive';

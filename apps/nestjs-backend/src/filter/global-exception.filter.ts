@@ -18,6 +18,13 @@ import type { Request, Response } from 'express';
 import { ClsService } from 'nestjs-cls';
 import type { ILoggerConfig } from '../configs/logger.config';
 import { TemplateAppTokenNotAllowedException } from '../custom.exception';
+import {
+  getV2Attribution,
+  getV2AttributionLogContext,
+  getV2AttributionSpanAttributes,
+  setV2AttributionHeaders,
+  setV2AttributionOnSentryScope,
+} from '../features/canary/v2-attribution';
 import { classifyDataDbRuntimeError } from '../global/data-db-runtime-error';
 import type { IDataDbRuntimeErrorClassification } from '../global/data-db-runtime-error';
 import type { IClsStore } from '../types/cls';
@@ -58,6 +65,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const dataDbContext = this.getDataDbContext();
     const dataDbError = dataDbContext ? classifyDataDbRuntimeError(exception) : null;
 
+    setV2AttributionHeaders(response, getV2Attribution(this.cls));
     this.annotateActiveSpan(dataDbError);
     this.recordDataDbMetric(dataDbError);
     this.captureException(exception, dataDbError);
@@ -139,6 +147,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       if (spaceId) {
         scope.setTag('space.id', spaceId);
       }
+      setV2AttributionOnSentryScope(scope, getV2Attribution(this.cls));
     } catch {
       // CLS may not be active (e.g., non-HTTP contexts)
     }
@@ -167,11 +176,16 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   }
 
   private annotateActiveSpan(dataDbError?: IDataDbRuntimeErrorClassification | null) {
-    const dataDbContext = this.getDataDbContext();
-    if (!dataDbContext || !dataDbError) return;
-
     const span = trace.getActiveSpan();
     if (!span) return;
+
+    const v2Attributes = getV2AttributionSpanAttributes(getV2Attribution(this.cls));
+    if (Object.keys(v2Attributes).length) {
+      span.setAttributes(v2Attributes);
+    }
+
+    const dataDbContext = this.getDataDbContext();
+    if (!dataDbContext || !dataDbError) return;
 
     span.setAttributes({
       [dataDbOtelAttribute.mode]: dataDbContext.mode,
@@ -216,10 +230,12 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   protected logError(exception: Error, request: Request) {
     const dataDbContext = this.getDataDbContext();
     const dataDbError = dataDbContext ? classifyDataDbRuntimeError(exception) : null;
+    const v2 = getV2AttributionLogContext(getV2Attribution(this.cls));
     this.logger.error(
       {
         url: request?.url,
         message: exception.message,
+        v2,
         dataDb: dataDbError
           ? {
               code: dataDbError.code,

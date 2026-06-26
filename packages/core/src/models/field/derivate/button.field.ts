@@ -32,6 +32,10 @@ export class ButtonFieldCore extends FieldCore {
     return '';
   }
 
+  isSearchable() {
+    return false;
+  }
+
   item2String(_value?: unknown): string {
     return '';
   }

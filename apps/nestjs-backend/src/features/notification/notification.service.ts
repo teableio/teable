@@ -522,12 +522,16 @@ export class NotificationService {
   }
 
   async getNotifyList(userId: string, query: IGetNotifyListQuery): Promise<INotificationVo> {
-    const { notifyStates, cursor, severity } = query;
+    const { notifyStates, cursor, severity, notifyType } = query;
     const where: Prisma.NotificationWhereInput = {
       toUserId: userId,
       isRead: notifyStates === NotificationStatesEnum.Read,
     };
-    const listWhere: Prisma.NotificationWhereInput = severity ? { ...where, severity } : where;
+    const listWhere: Prisma.NotificationWhereInput = {
+      ...where,
+      ...(severity ? { severity } : {}),
+      ...(notifyType ? { type: notifyType } : {}),
+    };
 
     const [{ records, nextCursor }, summary] = await Promise.all([
       this.getNotificationRecords(listWhere, cursor),
