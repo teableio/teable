@@ -339,7 +339,7 @@ export const BaseList = (props: IBaseListProps) => {
       <div className="flex h-8 items-center border-b text-xs font-medium text-muted-foreground">
         <div className="flex-1 truncate pl-6 pr-2">{t('space:baseList.allBases')}</div>
         <div className="hidden w-[88px] shrink-0 px-2 sm:block xl:w-40 2xl:w-48">
-          {t('space:baseList.owner')}
+          {t('space:baseList.creator')}
         </div>
         <div className="hidden w-[88px] shrink-0 px-2 sm:block xl:w-28 2xl:w-48">
           {t('space:baseList.createdTime')}

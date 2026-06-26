@@ -138,15 +138,39 @@ export interface SharedTestContext {
   deleteRecords: (tableId: string, recordIds: string[]) => Promise<void>;
   listRecords: (
     tableId: string,
-    options?: { limit?: number; offset?: number; baseId?: string }
+    options?: {
+      limit?: number;
+      offset?: number;
+      baseId?: string;
+      viewId?: string;
+      ignoreViewQuery?: boolean;
+      sort?: Array<{ fieldId: string; order: 'asc' | 'desc' }>;
+      groupBy?: Array<{ fieldId: string; order: 'asc' | 'desc' }>;
+    }
   ) => Promise<Array<{ id: string; fields: Record<string, unknown> }>>;
   listRecordsWithoutDrain: (
     tableId: string,
-    options?: { limit?: number; offset?: number; baseId?: string }
+    options?: {
+      limit?: number;
+      offset?: number;
+      baseId?: string;
+      viewId?: string;
+      ignoreViewQuery?: boolean;
+      sort?: Array<{ fieldId: string; order: 'asc' | 'desc' }>;
+      groupBy?: Array<{ fieldId: string; order: 'asc' | 'desc' }>;
+    }
   ) => Promise<Array<{ id: string; fields: Record<string, unknown> }>>;
   listRecordsWithPagination: (
     tableId: string,
-    options?: { limit?: number; offset?: number; baseId?: string }
+    options?: {
+      limit?: number;
+      offset?: number;
+      baseId?: string;
+      viewId?: string;
+      ignoreViewQuery?: boolean;
+      sort?: Array<{ fieldId: string; order: 'asc' | 'desc' }>;
+      groupBy?: Array<{ fieldId: string; order: 'asc' | 'desc' }>;
+    }
   ) => Promise<ReturnType<typeof parseListRecordsResponse>>;
   getTableById: (
     tableId: string,
@@ -704,12 +728,26 @@ const initSharedContext = async (
 
   const listRecordsWithPaginationWithoutDrain = async (
     tableId: string,
-    options?: { limit?: number; offset?: number; baseId?: string }
+    options?: {
+      limit?: number;
+      offset?: number;
+      baseId?: string;
+      viewId?: string;
+      ignoreViewQuery?: boolean;
+      sort?: Array<{ fieldId: string; order: 'asc' | 'desc' }>;
+      groupBy?: Array<{ fieldId: string; order: 'asc' | 'desc' }>;
+    }
   ) => {
     const params = new URLSearchParams({ tableId });
     if (options?.limit !== undefined) params.set('limit', String(options.limit));
     if (options?.offset !== undefined) params.set('offset', String(options.offset));
     if (options?.baseId) params.set('baseId', options.baseId);
+    if (options?.viewId) params.set('viewId', options.viewId);
+    if (options?.ignoreViewQuery !== undefined) {
+      params.set('ignoreViewQuery', String(options.ignoreViewQuery));
+    }
+    if (options?.sort) params.set('sort', JSON.stringify(options.sort));
+    if (options?.groupBy) params.set('groupBy', JSON.stringify(options.groupBy));
     const response = await fetch(`${baseUrl}/tables/listRecords?${params.toString()}`, {
       method: 'GET',
       headers: { 'content-type': 'application/json' },
@@ -723,7 +761,7 @@ const initSharedContext = async (
 
   const listRecordsWithPagination = async (
     tableId: string,
-    options?: { limit?: number; offset?: number; baseId?: string }
+    options?: Parameters<typeof listRecordsWithPaginationWithoutDrain>[1]
   ) => {
     await drainOutbox();
     return listRecordsWithPaginationWithoutDrain(tableId, options);
@@ -731,7 +769,7 @@ const initSharedContext = async (
 
   const listRecordsWithoutDrain = async (
     tableId: string,
-    options?: { limit?: number; offset?: number; baseId?: string }
+    options?: Parameters<typeof listRecordsWithPaginationWithoutDrain>[1]
   ) => {
     const result = await listRecordsWithPaginationWithoutDrain(tableId, options);
     return result.records;
@@ -739,7 +777,7 @@ const initSharedContext = async (
 
   const listRecords = async (
     tableId: string,
-    options?: { limit?: number; offset?: number; baseId?: string }
+    options?: Parameters<typeof listRecordsWithPaginationWithoutDrain>[1]
   ) => {
     const result = await listRecordsWithPagination(tableId, options);
     return result.records;
