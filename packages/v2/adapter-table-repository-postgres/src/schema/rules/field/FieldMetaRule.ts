@@ -21,6 +21,7 @@ export class FieldMetaRule implements ISchemaRule {
   readonly description: string;
   readonly dependencies: ReadonlyArray<string>;
   readonly required = true;
+  readonly validationScope = 'meta';
 
   /**
    * @param field - The field to update metadata for
@@ -129,6 +130,12 @@ export class FieldMetaRule implements ISchemaRule {
   }
 
   up(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    if (ctx.optimizeForEmptyTables) {
+      // Duplicate/import persists the field aggregate metadata up front. The repair statement is
+      // only needed when reconciling existing metadata drift.
+      return ok([]);
+    }
+
     const fieldId = this.field.id().toString();
     const patch = JSON.stringify(this.meta);
     const updateMeta = ctx.db

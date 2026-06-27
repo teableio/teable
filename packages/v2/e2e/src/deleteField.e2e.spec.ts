@@ -547,6 +547,7 @@ describe('v2 http deleteField (e2e)', () => {
       let tableId: string | undefined;
       try {
         const sourceFieldId = createFieldId();
+        const fallbackFieldId = createFieldId();
         const formulaFieldId = createFieldId();
         const table = await ctx.createTable({
           baseId: ctx.baseId,
@@ -554,8 +555,17 @@ describe('v2 http deleteField (e2e)', () => {
           fields: [
             { type: 'singleLineText', name: 'Name', isPrimary: true },
             { type: 'singleLineText', id: sourceFieldId, name: 'Source' },
+            { type: 'singleLineText', id: fallbackFieldId, name: 'Fallback' },
           ],
-          records: [{ fields: { Name: 'r1', [sourceFieldId]: 'Source 1' } }],
+          records: [
+            {
+              fields: {
+                Name: 'r1',
+                [sourceFieldId]: 'Source 1',
+                [fallbackFieldId]: 'Fallback 1',
+              },
+            },
+          ],
         });
         tableId = table.id;
 
@@ -591,6 +601,26 @@ describe('v2 http deleteField (e2e)', () => {
         expect(await getStoredCellValue(tableId, firstRecordId, formulaDbFieldName)).toBeNull();
         const recordsAfter = await ctx.listRecordsWithoutDrain(tableId);
         expect(recordsAfter).toHaveLength(1);
+
+        await ctx.updateField({
+          tableId,
+          fieldId: formulaFieldId,
+          field: {
+            type: 'formula',
+            options: { expression: `LOWER({${fallbackFieldId}})` },
+          },
+        });
+        await ctx.drainOutbox();
+
+        const tableAfterFormulaRepair = await ctx.getTableById(tableId);
+        const repairedFormulaField = tableAfterFormulaRepair.fields.find(
+          (field) => field.id === formulaFieldId
+        );
+        expect(repairedFormulaField?.type).toBe('formula');
+        expect(repairedFormulaField?.hasError).toBeFalsy();
+        expect(await getStoredCellValue(tableId, firstRecordId, formulaDbFieldName)).toBe(
+          'fallback 1'
+        );
       } finally {
         await safeDeleteTable(tableId);
       }

@@ -43,7 +43,10 @@ import type {
   ForeignTableValidationContext,
 } from '../ForeignTableRelatedField';
 import type { FieldUpdateContext, OnTeableFieldUpdated } from '../OnTeableFieldUpdated';
+import { FieldValueTypeVisitor } from '../visitors/FieldValueTypeVisitor';
 import type { IFieldVisitor } from '../visitors/IFieldVisitor';
+import { CellValueMultiplicity } from './CellValueMultiplicity';
+import { CellValueType } from './CellValueType';
 import {
   LinkFieldConfig,
   type LinkFieldConfigValue,
@@ -242,6 +245,15 @@ export class LinkField
     );
   }
 
+  override withName(params: FieldDuplicateParams): Result<Field, DomainError> {
+    return LinkField.create({
+      id: params.newId,
+      name: params.newName,
+      config: this.configValue,
+      meta: this.metaValue,
+    });
+  }
+
   lookupField(foreignTable: ForeignTable): Result<Field, DomainError> {
     return this.ensureForeignTable(foreignTable).andThen(() =>
       foreignTable.fieldById(this.lookupFieldId())
@@ -353,7 +365,7 @@ export class LinkField
     return ok(undefined);
   }
 
-  validateAutoCreateTarget(hostTable: Table, foreignTable: Table): Result<void, DomainError> {
+  validateTitleResolutionTarget(hostTable: Table, foreignTable: Table): Result<void, DomainError> {
     if (foreignTable.id().equals(hostTable.id())) {
       return err(
         domainError.validation({
@@ -385,7 +397,40 @@ export class LinkField
       );
     }
 
-    return foreignTable.validateCreateWithPrimaryOnly();
+    const primaryFieldResult = foreignTable.primaryField();
+    if (primaryFieldResult.isErr()) return err(primaryFieldResult.error);
+
+    const valueTypeResult = primaryFieldResult.value.accept(new FieldValueTypeVisitor());
+    if (valueTypeResult.isErr()) return err(valueTypeResult.error);
+
+    const { cellValueType, isMultipleCellValue } = valueTypeResult.value;
+    if (
+      !cellValueType.equals(CellValueType.string()) ||
+      !isMultipleCellValue.equals(CellValueMultiplicity.single())
+    ) {
+      return err(
+        domainError.validation({
+          code: 'paste.link_auto_create_requires_text_primary',
+          message:
+            'Auto-creating linked rows from paste is only supported when the foreign primary field resolves to a single string value.',
+          details: {
+            tableId: foreignTable.id().toString(),
+            primaryFieldId: primaryFieldResult.value.id().toString(),
+            primaryFieldType: primaryFieldResult.value.type().toString(),
+            cellValueType: cellValueType.toString(),
+            isMultipleCellValue: isMultipleCellValue.toString(),
+          },
+        })
+      );
+    }
+
+    return ok(undefined);
+  }
+
+  validateAutoCreateTarget(hostTable: Table, foreignTable: Table): Result<void, DomainError> {
+    return this.validateTitleResolutionTarget(hostTable, foreignTable).andThen(() =>
+      foreignTable.validateCreateWithPrimaryOnly()
+    );
   }
 
   accept<T = void>(visitor: IFieldVisitor<T>): Result<T, DomainError> {

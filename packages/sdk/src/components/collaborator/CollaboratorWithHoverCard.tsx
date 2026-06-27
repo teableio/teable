@@ -24,7 +24,9 @@ export const CollaboratorWithHoverCard = (props: ICollaboratorUser) => {
     <HoverCard openDelay={200}>
       <HoverCardTrigger asChild>
         {children ? (
-          <span className="cursor-pointer">{children}</span>
+          <span className="inline-flex min-w-0 max-w-full cursor-pointer align-top">
+            {children}
+          </span>
         ) : (
           <div className="relative overflow-hidden">
             <UserAvatar

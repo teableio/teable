@@ -39,9 +39,18 @@ import {
   Switch,
 } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
-import { AppWindowMacIcon, CopyPlus, FileInputIcon, Pen, ShieldCheck, Trash } from 'lucide-react';
+import {
+  AppWindowMacIcon,
+  CopyPlus,
+  FileInputIcon,
+  Info,
+  Pen,
+  ShieldCheck,
+  Trash,
+} from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
+import type { ReactNode } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useBaseResource } from '@/features/app/hooks/useBaseResource';
 import { useSetting } from '@/features/app/hooks/useSetting';
@@ -56,15 +65,15 @@ import { APIDialog } from '../../view/tool-bar/APIDialog';
 import type { TreeItemData } from '../base-node/hooks';
 import { findAdjacentNonFolderNode, getNodeUrl, useBaseNodeCrud } from '../base-node/hooks';
 import { useBaseNodeContext } from '../base-node/hooks/useBaseNodeContext';
+import { BaseNodeInfoDialog } from './BaseNodeInfoDialog';
 import { NodeShareDialog } from './NodeShareDialog';
 
-// Hook to get nodeId from resourceId
-const useNodeId = (resourceId: string) => {
+const useNode = (resourceId: string) => {
   const { treeItems } = useBaseNodeContext();
-  return useMemo(() => {
-    const node = Object.values(treeItems).find((item) => item.resourceId === resourceId);
-    return node?.id ?? '';
-  }, [treeItems, resourceId]);
+  return useMemo(
+    () => Object.values(treeItems).find((item) => item.resourceId === resourceId),
+    [treeItems, resourceId]
+  );
 };
 
 // Menu item component for list variant (mobile)
@@ -74,7 +83,7 @@ const ListMenuItem = ({
   onClick,
   destructive,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   onClick: () => void;
   destructive?: boolean;
@@ -93,7 +102,7 @@ const ListMenuItem = ({
 );
 
 interface IBaseNodeMoreProps {
-  children?: React.ReactNode;
+  children?: ReactNode;
   resourceType: BaseNodeResourceType;
   resourceId: string;
 
@@ -119,7 +128,7 @@ interface IBaseNodeMoreProps {
 }
 
 interface ICommonOperationProps extends IBaseNodeMoreProps {
-  children?: React.ReactNode;
+  children?: ReactNode;
   canRename?: boolean;
   canDelete?: boolean;
   canPermanentDelete?: boolean;
@@ -147,18 +156,14 @@ const CommonOperation = (props: ICommonOperationProps) => {
     nodeTypeLabel,
   } = props;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
-  const { treeItems } = useBaseNodeContext();
 
   const [duplicateSetting, setDuplicateSetting] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [nodeInfoDialogOpen, setNodeInfoDialogOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const nodeId = useNodeId(resourceId);
-
-  // Get node name from treeItems
-  const nodeName = useMemo(() => {
-    const node = Object.values(treeItems).find((n) => n.resourceId === resourceId);
-    return node?.resourceMeta?.name;
-  }, [treeItems, resourceId]);
+  const node = useNode(resourceId);
+  const nodeName = node?.resourceMeta?.name;
+  const shareNodeId = canShare && node ? node.id : undefined;
 
   const defaultName = useMemo(
     () => `${nodeName ?? nodeTypeLabel} ${t('space:baseModal.copy')}`,
@@ -204,7 +209,7 @@ const CommonOperation = (props: ICommonOperationProps) => {
     />
   );
 
-  if (!canRename && !canDelete && !canPermanentDelete && !canDuplicate && !canShare) {
+  if (!canRename && !canDelete && !canPermanentDelete && !canDuplicate && !canShare && !node) {
     return null;
   }
 
@@ -226,11 +231,18 @@ const CommonOperation = (props: ICommonOperationProps) => {
             onClick={handleDuplicateClick}
           />
         )}
-        {canShare && (
+        {shareNodeId && (
           <ListMenuItem
             icon={<Share2 className="size-4" />}
             label={t('common:template.non.share')}
             onClick={() => setShareDialogOpen(true)}
+          />
+        )}
+        {node && (
+          <ListMenuItem
+            icon={<Info className="size-4" />}
+            label={t('table:baseNode.info.menu')}
+            onClick={() => setNodeInfoDialogOpen(true)}
           />
         )}
         {canPermanentDelete && (
@@ -249,11 +261,18 @@ const CommonOperation = (props: ICommonOperationProps) => {
           />
         )}
         {duplicateDialog}
-        {canShare && (
+        {shareNodeId && (
           <NodeShareDialog
             open={shareDialogOpen}
             onOpenChange={setShareDialogOpen}
-            nodeId={nodeId}
+            nodeId={shareNodeId}
+          />
+        )}
+        {node && (
+          <BaseNodeInfoDialog
+            node={node}
+            open={nodeInfoDialogOpen}
+            onOpenChange={setNodeInfoDialogOpen}
           />
         )}
       </>
@@ -283,10 +302,16 @@ const CommonOperation = (props: ICommonOperationProps) => {
               {t('table:import.menu.duplicate')}
             </DropdownMenuItem>
           )}
-          {canShare && (
+          {shareNodeId && (
             <DropdownMenuItem onClick={() => setShareDialogOpen(true)}>
               <Share2 className="mr-2 size-4" />
               {t('common:template.non.share')}
+            </DropdownMenuItem>
+          )}
+          {node && (
+            <DropdownMenuItem onClick={() => setNodeInfoDialogOpen(true)}>
+              <Info className="mr-2 size-4" />
+              {t('table:baseNode.info.menu')}
             </DropdownMenuItem>
           )}
           {canPermanentDelete && (
@@ -310,8 +335,19 @@ const CommonOperation = (props: ICommonOperationProps) => {
         </DropdownMenuContent>
       </DropdownMenu>
       {duplicateDialog}
-      {canShare && (
-        <NodeShareDialog open={shareDialogOpen} onOpenChange={setShareDialogOpen} nodeId={nodeId} />
+      {shareNodeId && (
+        <NodeShareDialog
+          open={shareDialogOpen}
+          onOpenChange={setShareDialogOpen}
+          nodeId={shareNodeId}
+        />
+      )}
+      {node && (
+        <BaseNodeInfoDialog
+          node={node}
+          open={nodeInfoDialogOpen}
+          onOpenChange={setNodeInfoDialogOpen}
+        />
       )}
     </>
   );
@@ -431,14 +467,13 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
   const basePermission = useBasePermission();
   const canTableRecordHistoryRead = basePermission?.['table_record_history|read'];
   const canTableTrashRead = basePermission?.['table|trash_read'];
-  const nodeId = useNodeId(resourceId);
-  const { treeItems } = useBaseNodeContext();
+  const node = useNode(resourceId);
+  const nodeId = node?.id ?? '';
   const loginApps = useMemo(() => {
-    const node = Object.values(treeItems).find((n) => n.resourceId === resourceId);
     const meta = node?.resourceMeta as IBaseNodeTableResourceMeta | undefined;
     if (meta?.loginApps?.length) return meta.loginApps;
     if (meta?.loginAppId) return [{ id: meta.loginAppId, name: '' }];
-  }, [treeItems, resourceId]);
+  }, [node]);
 
   const router = useRouter();
   const [apiDialogOpen, setApiDialogOpen] = useState(false);
@@ -449,6 +484,7 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
   const [duplicateSetting, setDuplicateSetting] = useState(false);
   const [importType, setImportType] = useState(SUPPORTEDTYPE.CSV);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [nodeInfoDialogOpen, setNodeInfoDialogOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const table = useMemo(() => tables.find((t) => t.id === resourceId), [tables, resourceId]);
   const { trigger } = useDownload({ downloadUrl: `/api/export/${resourceId}`, key: 'table' });
@@ -478,6 +514,7 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
       shareTable: basePermission?.['base|update'],
     };
   }, [basePermission, table?.permission, canTableRecordHistoryRead, canTableTrashRead]);
+  const shareNodeId = menuPermission.shareTable && node ? node.id : undefined;
 
   const deleteTable = async (permanent: boolean) => {
     if (!resourceId) return;
@@ -542,7 +579,7 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
     return null;
   }
 
-  if (!Object.values(menuPermission).some(Boolean)) {
+  if (!nodeId && !Object.values(menuPermission).some(Boolean)) {
     return null;
   }
 
@@ -652,7 +689,10 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
 
       {menuPermission.tableRecordHistory && (
         <Dialog open={tableHistoryDialogOpen} onOpenChange={setTableHistoryDialogOpen}>
-          <DialogContent className="flex h-[90%] max-w-4xl flex-col gap-0 p-0">
+          <DialogContent
+            className="flex max-w-4xl flex-col gap-0 p-0 outline-none focus:outline-none focus-visible:outline-none"
+            style={{ height: 'calc(100% - 100px)' }}
+          >
             <DialogHeader className="border-b p-4">
               <DialogTitle>{t('table:table.tableRecordHistory')}</DialogTitle>
             </DialogHeader>
@@ -675,8 +715,19 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
         </APIDialog>
       )}
 
-      {menuPermission.shareTable && (
-        <NodeShareDialog open={shareDialogOpen} onOpenChange={setShareDialogOpen} nodeId={nodeId} />
+      {shareNodeId && (
+        <NodeShareDialog
+          open={shareDialogOpen}
+          onOpenChange={setShareDialogOpen}
+          nodeId={shareNodeId}
+        />
+      )}
+      {node && (
+        <BaseNodeInfoDialog
+          node={node}
+          open={nodeInfoDialogOpen}
+          onOpenChange={setNodeInfoDialogOpen}
+        />
       )}
     </>
   );
@@ -772,11 +823,18 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
             </SheetContent>
           </Sheet>
         )}
-        {menuPermission.shareTable && (
+        {shareNodeId && (
           <ListMenuItem
             icon={<Share2 className="size-4" />}
             label={t('common:template.non.share')}
             onClick={() => setShareDialogOpen(true)}
+          />
+        )}
+        {node && (
+          <ListMenuItem
+            icon={<Info className="size-4" />}
+            label={t('table:baseNode.info.menu')}
+            onClick={() => setNodeInfoDialogOpen(true)}
           />
         )}
         {menuPermission.deleteTable && (
@@ -921,10 +979,17 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
             </DropdownMenuSub>
           )}
 
-          {menuPermission.shareTable && (
+          {shareNodeId && (
             <DropdownMenuItem onClick={() => setShareDialogOpen(true)}>
               <Share2 className="mr-2 size-4" />
               {t('common:template.non.share')}
+            </DropdownMenuItem>
+          )}
+
+          {node && (
+            <DropdownMenuItem onClick={() => setNodeInfoDialogOpen(true)}>
+              <Info className="mr-2 size-4" />
+              {t('table:baseNode.info.menu')}
             </DropdownMenuItem>
           )}
 

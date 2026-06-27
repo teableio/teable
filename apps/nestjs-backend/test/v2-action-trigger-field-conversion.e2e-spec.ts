@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { INestApplication } from '@nestjs/common';
-import { FieldKeyType, FieldType, getActionTriggerChannel } from '@teable/core';
+import { FieldKeyType, FieldType } from '@teable/core';
 import { axios, X_CANARY_HEADER } from '@teable/openapi';
-import type { Connection } from 'sharedb/lib/client';
 import { ShareDbService } from '../src/share-db/share-db.service';
+import { collectActionTriggers } from './utils/action-trigger';
 import {
   createField,
   createRecords,
@@ -12,12 +12,8 @@ import {
   permanentDeleteTable,
 } from './utils/init-app';
 
-interface IActionTrigger {
-  actionKey: string;
-  payload?: Record<string, unknown>;
-}
-
 const amountTextFieldName = 'Amount Text';
+const v2ResponseHeader = 'x-teable-v2';
 
 let fieldIdCounter = 0;
 
@@ -25,116 +21,6 @@ const createFieldId = () => {
   const suffix = fieldIdCounter.toString(36).padStart(16, '0');
   fieldIdCounter += 1;
   return `fld${suffix}`;
-};
-
-const createConnection = (
-  shareDbService: ShareDbService,
-  cookie: string,
-  port: string
-): Connection => {
-  return shareDbService.connect(undefined, {
-    url: `ws://localhost:${port}/socket`,
-    headers: { cookie },
-  });
-};
-
-const collectActionTriggers = async (params: {
-  shareDbService: ShareDbService;
-  cookie: string;
-  port: string;
-  tableId: string;
-  act: () => Promise<unknown>;
-  idleMs?: number;
-  timeoutMs?: number;
-  until?: (actions: ReadonlyArray<IActionTrigger>) => boolean;
-}): Promise<IActionTrigger[]> => {
-  const {
-    shareDbService,
-    cookie,
-    port,
-    tableId,
-    act,
-    idleMs = 300,
-    timeoutMs = 5000,
-    until,
-  } = params;
-
-  return new Promise<IActionTrigger[]>((resolve, reject) => {
-    const connection = createConnection(shareDbService, cookie, port);
-    const presence = connection.getPresence(getActionTriggerChannel(tableId));
-    const received: IActionTrigger[] = [];
-    let capture = false;
-    let settled = false;
-    let actCompleted = false;
-    let idleTimer: NodeJS.Timeout | undefined;
-
-    const cleanup = () => {
-      clearTimeout(timeout);
-      if (idleTimer) clearTimeout(idleTimer);
-      presence.removeListener('receive', onReceive);
-      try {
-        presence.unsubscribe();
-        presence.destroy();
-      } catch {
-        void 0;
-      }
-      connection.close();
-    };
-
-    const finish = (error?: unknown) => {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      if (error) {
-        reject(error instanceof Error ? error : new Error(String(error)));
-        return;
-      }
-      resolve(received);
-    };
-
-    const onReceive = (_id: string, batch: IActionTrigger[]) => {
-      if (!capture) {
-        return;
-      }
-      received.push(...batch);
-      if (until?.(received)) {
-        finish();
-        return;
-      }
-      if (!actCompleted) {
-        return;
-      }
-      if (idleTimer) clearTimeout(idleTimer);
-      idleTimer = setTimeout(() => finish(), idleMs);
-    };
-
-    const timeout = setTimeout(() => {
-      finish(new Error('Action trigger timeout'));
-    }, timeoutMs);
-
-    presence.subscribe(async (error: unknown) => {
-      if (error) {
-        finish(error);
-        return;
-      }
-
-      presence.on('receive', onReceive);
-
-      try {
-        capture = true;
-        await act();
-        actCompleted = true;
-        if (until?.(received)) {
-          finish();
-          return;
-        }
-        if (idleTimer) clearTimeout(idleTimer);
-        idleTimer = setTimeout(() => finish(), idleMs);
-      } catch (actError) {
-        finish(actError);
-      }
-    });
-  });
 };
 
 describe('V2 action trigger field conversion (e2e)', () => {
@@ -164,7 +50,7 @@ describe('V2 action trigger field conversion (e2e)', () => {
     const table = await createTable(baseId, {
       name: 'v2-action-trigger-field-conversion',
       fields: [
-        { name: 'Name', type: FieldType.SingleLineText, isPrimary: true },
+        { name: 'Name', type: FieldType.SingleLineText },
         { name: amountTextFieldName, type: FieldType.SingleLineText },
       ],
     });
@@ -212,7 +98,7 @@ describe('V2 action trigger field conversion (e2e)', () => {
         );
 
         expect(response.status).toBe(200);
-        expect(response.headers['x-teable-v2']).toBe('true');
+        expect(response.headers[v2ResponseHeader]).toBe('true');
       },
     });
 
@@ -253,7 +139,7 @@ describe('V2 action trigger field conversion (e2e)', () => {
     const table = await createTable(baseId, {
       name: 'v2-action-trigger-field-conversion-formula',
       fields: [
-        { name: 'Name', type: FieldType.SingleLineText, isPrimary: true },
+        { name: 'Name', type: FieldType.SingleLineText },
         { name: amountTextFieldName, type: FieldType.SingleLineText },
       ],
     });
@@ -304,7 +190,7 @@ describe('V2 action trigger field conversion (e2e)', () => {
         );
 
         expect(response.status).toBe(200);
-        expect(response.headers['x-teable-v2']).toBe('true');
+        expect(response.headers[v2ResponseHeader]).toBe('true');
       },
     });
 
@@ -330,7 +216,7 @@ describe('V2 action trigger field conversion (e2e)', () => {
     const foreignTable = await createTable(baseId, {
       name: 'v2-action-trigger-foreign-schema-source',
       fields: [
-        { name: 'Name', type: 'singleLineText', isPrimary: true },
+        { name: 'Name', type: 'singleLineText' },
         {
           name: 'Status',
           type: 'singleSelect',
@@ -356,7 +242,6 @@ describe('V2 action trigger field conversion (e2e)', () => {
           id: hostPrimaryFieldId,
           name: 'Name',
           type: 'singleLineText',
-          isPrimary: true,
         },
         {
           id: linkFieldId,
@@ -436,7 +321,7 @@ describe('V2 action trigger field conversion (e2e)', () => {
         );
 
         expect(response.status).toBe(200);
-        expect(response.headers['x-teable-v2']).toBe('true');
+        expect(response.headers[v2ResponseHeader]).toBe('true');
       },
     });
 
@@ -461,7 +346,7 @@ describe('V2 action trigger field conversion (e2e)', () => {
     const table = await createTable(baseId, {
       name: 'v2-action-trigger-create-formula-field',
       fields: [
-        { name: 'Name', type: FieldType.SingleLineText, isPrimary: true },
+        { name: 'Name', type: FieldType.SingleLineText },
         { id: sourceFieldId, name: amountTextFieldName, type: FieldType.Number },
       ],
     });
@@ -499,7 +384,7 @@ describe('V2 action trigger field conversion (e2e)', () => {
         );
 
         expect(response.status).toBe(201);
-        expect(response.headers['x-teable-v2']).toBe('true');
+        expect(response.headers[v2ResponseHeader]).toBe('true');
       },
     });
 
