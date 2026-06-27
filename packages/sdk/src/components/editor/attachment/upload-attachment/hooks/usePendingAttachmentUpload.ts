@@ -12,6 +12,7 @@ interface UsePendingAttachmentUploadParams {
   tempRecordId: string;
   fieldId: string;
   baseId?: string;
+  shareId?: string;
   attachments: IAttachmentCellValue;
   onChange?: (attachment: IAttachmentCellValue | null) => void;
 }
@@ -25,7 +26,7 @@ interface UsePendingAttachmentUploadReturn {
 export const usePendingAttachmentUpload = (
   params: UsePendingAttachmentUploadParams
 ): UsePendingAttachmentUploadReturn => {
-  const { tableId, tempRecordId, fieldId, baseId, attachments, onChange } = params;
+  const { tableId, tempRecordId, fieldId, baseId, shareId, attachments, onChange } = params;
 
   const startPendingUpload = useCellAttachmentUploadStore((state) => state.startPendingUpload);
   const cancelCellTask = useCellAttachmentUploadStore((state) => state.cancelTask);
@@ -98,9 +99,9 @@ export const usePendingAttachmentUpload = (
   const onUpload = useCallback(
     (files: File[]) => {
       if (files.length === 0) return;
-      startPendingUpload(tableId, tempRecordId, fieldId, files, baseId);
+      startPendingUpload(tableId, tempRecordId, fieldId, files, baseId, shareId);
     },
-    [baseId, fieldId, startPendingUpload, tableId, tempRecordId]
+    [baseId, shareId, fieldId, startPendingUpload, tableId, tempRecordId]
   );
 
   const onCancelUpload = useCallback(

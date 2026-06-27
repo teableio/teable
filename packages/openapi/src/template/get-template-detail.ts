@@ -21,6 +21,9 @@ export const GetTemplateDetailRoute: RouteConfig = registerRoute({
   description: 'get template detail by templateId',
   summary: 'get template detail by templateId',
   request: {
+    params: z.object({
+      templateId: z.string(),
+    }),
     query: getTemplateDetailQuerySchema,
   },
   responses: {

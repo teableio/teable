@@ -27,8 +27,120 @@ model Space {
   isTemplate       Boolean?  @map("is_template")
 
   baseGroup Base[]
+  dataDbBinding       SpaceDataDbBinding?
+  dataDbMigrationJobs SpaceDataDbMigrationJob[]
 
   @@map("space")
+}
+
+enum DataDbProvider {
+  postgres
+}
+
+enum DataDbConnectionStatus {
+  pending
+  validating
+  ready
+  error
+  migrating
+  disabled
+}
+
+enum SpaceDataDbBindingMode {
+  default
+  byodb
+}
+
+enum SpaceDataDbBindingState {
+  ready
+  validating
+  initializing
+  migrating
+  error
+  disabled
+}
+
+enum SpaceDataDbMigrationJobState {
+  pending
+  waiting_worker
+  preflight
+  freezing_writes
+  copying
+  validating
+  switching
+  succeeded
+  failed
+  canceled
+  rolled_back
+}
+
+model DataDbConnection {
+  id               String                 @id @default(cuid())
+  provider         DataDbProvider         @default(postgres)
+  encryptedUrl     String                 @map("encrypted_url")
+  urlFingerprint   String                 @unique @map("url_fingerprint")
+  displayHost      String?                @map("display_host")
+  displayDatabase  String?                @map("display_database")
+  internalSchema   String                 @map("internal_schema")
+  status           DataDbConnectionStatus @default(pending)
+  schemaVersion    String?                @map("schema_version")
+  capabilities     Json?
+  lastValidatedAt  DateTime?              @map("last_validated_at")
+  lastError        String?                @map("last_error")
+  createdBy        String                 @map("created_by")
+  createdTime      DateTime               @default(now()) @map("created_time")
+  lastModifiedTime DateTime?              @updatedAt @map("last_modified_time")
+
+  spaceBindings SpaceDataDbBinding[]
+  sourceMigrationJobs SpaceDataDbMigrationJob[] @relation("SpaceDataDbMigrationSourceConnection")
+  targetMigrationJobs SpaceDataDbMigrationJob[] @relation("SpaceDataDbMigrationTargetConnection")
+
+  @@map("data_db_connection")
+}
+
+model SpaceDataDbBinding {
+  id                 String                  @id @default(cuid())
+  spaceId            String                  @unique @map("space_id")
+  dataDbConnectionId String?                 @map("data_db_connection_id")
+  mode               SpaceDataDbBindingMode  @default(default)
+  state              SpaceDataDbBindingState @default(ready)
+  createdBy          String                  @map("created_by")
+  createdTime        DateTime                @default(now()) @map("created_time")
+  lastModifiedTime   DateTime?               @updatedAt @map("last_modified_time")
+  space              Space                   @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  dataDbConnection   DataDbConnection?       @relation(fields: [dataDbConnectionId], references: [id])
+
+  @@index([dataDbConnectionId])
+  @@map("space_data_db_binding")
+}
+
+model SpaceDataDbMigrationJob {
+  id                   String                       @id @default(cuid())
+  spaceId              String                       @map("space_id")
+  sourceConnectionId   String?                      @map("source_connection_id")
+  targetConnectionId   String?                      @map("target_connection_id")
+  targetMode           String                       @default("migrate-space") @map("target_mode")
+  switchOnCompletion   Boolean                      @default(false) @map("switch_on_completion")
+  state                SpaceDataDbMigrationJobState @default(pending)
+  targetUrlFingerprint String                       @map("target_url_fingerprint")
+  targetInternalSchema String                       @map("target_internal_schema")
+  inventory            Json?
+  copyStats            Json?                        @map("copy_stats")
+  validationStats      Json?                        @map("validation_stats")
+  lastError            String?                      @map("last_error")
+  startedAt            DateTime?                    @map("started_at")
+  completedAt          DateTime?                    @map("completed_at")
+  createdBy            String                       @map("created_by")
+  createdTime          DateTime                     @default(now()) @map("created_time")
+  lastModifiedTime     DateTime?                    @updatedAt @map("last_modified_time")
+  space                Space                        @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  sourceConnection     DataDbConnection?            @relation("SpaceDataDbMigrationSourceConnection", fields: [sourceConnectionId], references: [id])
+  targetConnection     DataDbConnection?            @relation("SpaceDataDbMigrationTargetConnection", fields: [targetConnectionId], references: [id])
+
+  @@index([spaceId, state])
+  @@index([sourceConnectionId])
+  @@index([targetConnectionId])
+  @@map("space_data_db_migration_job")
 }
 
 model PinResource {
@@ -108,19 +220,19 @@ model SchemaOperation {
   result           Json?
   attempts         Int       @default(0)
   maxAttempts      Int       @default(8) @map("max_attempts")
-  nextRunAt        DateTime  @default(now()) @map("next_run_at")
-  lockedAt         DateTime? @map("locked_at")
+  nextRunAt        DateTime  @default(now()) @map("next_run_at")        @db.Timestamptz(6)
+  lockedAt         DateTime? @map("locked_at")                          @db.Timestamptz(6)
   lockedBy         String?   @map("locked_by")
   lastError        String?   @map("last_error")
-  createdTime      DateTime  @default(now()) @map("created_time")
+  createdTime      DateTime  @default(now()) @map("created_time")       @db.Timestamptz(6)
   createdBy        String    @map("created_by")
-  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
+  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")      @db.Timestamptz(6)
   lastModifiedBy   String?   @map("last_modified_by")
 
   @@index([status, nextRunAt])
-  @@index([resourceType, resourceId, status])
-  @@index([baseId, status])
-  @@index([tableId, status])
+  @@index([resourceType, resourceId, status], map: "schema_operation_resource_status_idx")
+  @@index([baseId, status],                   map: "schema_operation_base_status_idx")
+  @@index([tableId, status],                  map: "schema_operation_table_status_idx")
   @@map("schema_operation")
 }
 
@@ -256,7 +368,7 @@ model ComputedUpdatePauseScope {
   pausedBy  String?   @map("paused_by")
   resumeAt  DateTime? @map("resume_at")
   reason    String?
-  updatedAt DateTime  @updatedAt @map("updated_at")
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at")
   updatedBy String?   @map("updated_by")
 
   @@unique([scopeType, scopeId])

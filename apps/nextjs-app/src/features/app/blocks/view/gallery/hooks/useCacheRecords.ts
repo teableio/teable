@@ -16,7 +16,7 @@ const DEFAULT_TAKE = 300;
 const CACHE_COUNT = 800;
 
 export const useCacheRecords = (
-  query: Pick<IGetRecordsRo, 'filter' | 'orderBy'> | undefined
+  query: Pick<IGetRecordsRo, 'filter' | 'orderBy' | 'projection' | 'ignoreViewQuery'> | undefined
 ): UseVirtualRecordsReturn => {
   const [skip, setSkip] = useState(0);
   const recordQuery = useMemo(() => {

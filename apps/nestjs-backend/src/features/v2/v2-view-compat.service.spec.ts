@@ -1,5 +1,6 @@
 import { IdPrefix, ViewOpBuilder } from '@teable/core';
 import { describe, expect, it, vi } from 'vitest';
+import { RawOpType } from '../../share-db/interface';
 
 const mockV2Tokens = vi.hoisted(() => ({
   v2MetaDbTokens: {
@@ -69,8 +70,12 @@ const createV2ContextFactory = () => ({
   }),
 });
 
+const createBatchService = () => ({
+  saveRawOps: vi.fn(),
+});
+
 describe('V2ViewCompatService', () => {
-  it('updates matching views through the v2 db and stores raw ops in cls state', async () => {
+  it('updates matching views through the v2 db and stores raw ops through the raw-op sink', async () => {
     const executeSelect = vi.fn().mockResolvedValue([{ id: 'viwCompat000000001', version: 3 }]);
     const selectQuery = {
       where: vi.fn().mockReturnThis(),
@@ -90,23 +95,20 @@ describe('V2ViewCompatService', () => {
     const viewOperationPluginRunner = createViewOperationPluginRunner();
     const v2ContainerService = createV2ContainerService(db, viewOperationPluginRunner);
     const v2ContextFactory = createV2ContextFactory();
-    const clsState = new Map<string, unknown>();
+    const batchService = createBatchService();
     const cls = {
-      getId: vi.fn().mockReturnValue('cls-request-id'),
       get: vi.fn((key: string) => {
         if (key === 'user.id') {
           return 'usrCompatWriter00001';
         }
 
-        return clsState.get(key);
-      }),
-      set: vi.fn((key: string, value: unknown) => {
-        clsState.set(key, value);
+        return undefined;
       }),
     };
     const service = new V2ViewCompatService(
       v2ContainerService as never,
       cls as never,
+      batchService as never,
       v2ContextFactory as never
     );
     const ops = [
@@ -142,16 +144,18 @@ describe('V2ViewCompatService', () => {
       last_modified_by: 'usrCompatWriter00001',
     });
     expect(executeUpdate).toHaveBeenCalledTimes(1);
-
-    const rawOpMaps = clsState.get('tx.rawOpMaps') as Array<
-      Record<string, Record<string, unknown>>
-    >;
-    expect(rawOpMaps).toHaveLength(1);
-    expect(Object.keys(rawOpMaps[0])).toEqual([`${IdPrefix.View}_tblCompatTable0001`]);
-    expect(rawOpMaps[0][`${IdPrefix.View}_tblCompatTable0001`].viwCompat000000001).toMatchObject({
-      op: ops,
-      v: 3,
-    });
+    expect(batchService.saveRawOps).toHaveBeenCalledWith(
+      'tblCompatTable0001',
+      RawOpType.Edit,
+      IdPrefix.View,
+      [
+        {
+          docId: 'viwCompat000000001',
+          version: 3,
+          data: ops,
+        },
+      ]
+    );
   });
 
   it('rejects view updates when the v2 view operation plugin reports a limit error', async () => {
@@ -177,14 +181,14 @@ describe('V2ViewCompatService', () => {
     };
     const viewOperationPluginRunner = createViewOperationPluginRunner(errResult(limitError));
     const v2ContainerService = createV2ContainerService(db, viewOperationPluginRunner);
+    const batchService = createBatchService();
     const cls = {
-      getId: vi.fn().mockReturnValue('cls-request-id'),
       get: vi.fn().mockReturnValue(undefined),
-      set: vi.fn(),
     };
     const service = new V2ViewCompatService(
       v2ContainerService as never,
       cls as never,
+      batchService as never,
       createV2ContextFactory() as never
     );
     const ops = [
@@ -206,5 +210,6 @@ describe('V2ViewCompatService', () => {
       },
     });
     expect(db.updateTable).not.toHaveBeenCalled();
+    expect(batchService.saveRawOps).not.toHaveBeenCalled();
   });
 });

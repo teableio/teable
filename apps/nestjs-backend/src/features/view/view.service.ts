@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import type {
   ISnapshotBase,
   IViewRo,
@@ -50,6 +50,7 @@ import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
 import { convertViewVoAttachmentUrl } from '../../utils/convert-view-vo-attachment-url';
 import { BatchService } from '../calculation/batch.service';
+import { SpaceDataDbMigrationGuardService } from '../space/space-data-db-migration-guard.service';
 import { ROW_ORDER_FIELD_PREFIX } from './constant';
 import { createViewInstanceByRaw, createViewVoByRaw } from './model/factory';
 import { adjustFrozenField } from './utils/derive-frozen-fields';
@@ -67,8 +68,14 @@ export class ViewService implements IReadonlyAdapterService {
     @InjectModel(CUSTOM_KNEX) private readonly knex: Knex,
     @InjectModel(DATA_KNEX) private readonly dataKnex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
-    private readonly viewDataSafetyLimitService: ViewDataSafetyLimitService
+    private readonly viewDataSafetyLimitService: ViewDataSafetyLimitService,
+    @Optional()
+    private readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService
   ) {}
+
+  private async assertTableWritable(tableId: string) {
+    await this.spaceDataDbMigrationGuard?.assertTableWritable(tableId);
+  }
 
   getRowIndexFieldName(viewId: string) {
     return `${ROW_ORDER_FIELD_PREFIX}_${viewId}`;
@@ -253,6 +260,7 @@ export class ViewService implements IReadonlyAdapterService {
   }
 
   async restoreView(tableId: string, viewId: string) {
+    await this.assertTableWritable(tableId);
     await this.prismaService.$tx(async () => {
       await this.prismaService.txClient().view.update({
         where: { id: viewId },
@@ -270,6 +278,7 @@ export class ViewService implements IReadonlyAdapterService {
 
   async createDbView(tableId: string, viewRo: IViewRo) {
     const userId = this.cls.get('user.id');
+    await this.assertTableWritable(tableId);
     await this.viewDataSafetyLimitService.ensureCanCreateView(tableId);
     const createViewRo = await this.viewDataCompensation(tableId, viewRo);
 
@@ -363,6 +372,7 @@ export class ViewService implements IReadonlyAdapterService {
   }
 
   async deleteView(tableId: string, viewId: string) {
+    await this.assertTableWritable(tableId);
     // Use SELECT FOR UPDATE to lock all views in the table to prevent concurrent deletion
     // This ensures that when checking if this is the last view, no other transaction
     // can delete views simultaneously
@@ -408,6 +418,7 @@ export class ViewService implements IReadonlyAdapterService {
   }
 
   async updateViewSort(tableId: string, viewId: string, sort: ISort) {
+    await this.assertTableWritable(tableId);
     this.viewDataSafetyLimitService.ensureSort(sort);
     const viewRaw = await this.prismaService
       .txClient()
@@ -465,6 +476,7 @@ export class ViewService implements IReadonlyAdapterService {
   }
 
   async batchUpdateViewByOps(tableId: string, opsMap: { [viewId: string]: IOtOperation[] }) {
+    await this.assertTableWritable(tableId);
     const { updateViewMap, updateViewKeySet } = this.getBatchUpdateViewContext(opsMap);
     if (updateViewKeySet.size === 0) {
       return;
@@ -568,6 +580,7 @@ export class ViewService implements IReadonlyAdapterService {
   }
 
   async del(_version: number, _tableId: string, viewId: string) {
+    await this.assertTableWritable(_tableId);
     await this.prismaService.txClient().view.update({
       where: { id: viewId },
       data: {
