@@ -88,28 +88,6 @@ const createOpenAICompatibleWrapper = (
   });
 };
 
-const createClaudeCodeWrapper = (
-  options: Parameters<typeof createAnthropic>[0]
-): ReturnType<typeof createAnthropic> => {
-  const baseFetch = createFixingFetch();
-  const claudeCodeDefaultUa = 'claude-cli/2.1.71 (external, cli)';
-  return createAnthropic({
-    ...options,
-    fetch: async (input, init) => {
-      const initHeaders = (init?.headers ?? {}) as Record<string, string>;
-      const ua = initHeaders['user-agent'];
-      return baseFetch(input, {
-        ...init,
-        headers: {
-          ...init?.headers,
-          // eslint-disable-next-line @typescript-eslint/naming-convention
-          'user-agent': ua?.includes('claude-cli') ? ua : claudeCodeDefaultUa,
-        },
-      });
-    },
-  });
-};
-
 export const modelProviders = {
   [LLMProviderType.OPENAI]: createOpenAI,
   [LLMProviderType.ANTHROPIC]: createAnthropic,
@@ -127,7 +105,6 @@ export const modelProviders = {
   [LLMProviderType.AMAZONBEDROCK]: createAmazonBedrock,
   [LLMProviderType.OPENROUTER]: createOpenRouter,
   [LLMProviderType.OPENAI_COMPATIBLE]: createOpenAICompatibleWrapper,
-  [LLMProviderType.CLAUDE_CODE]: createClaudeCodeWrapper,
   // AI_GATEWAY is handled separately in ai.service.ts using createGateway from 'ai'
 } as const;
 

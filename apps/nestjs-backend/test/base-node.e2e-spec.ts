@@ -1,10 +1,16 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
 import { FieldType, Relationship, Role, ViewType } from '@teable/core';
-import type { IBaseNodeTableResourceMeta, IBaseNodeVo } from '@teable/openapi';
+import type {
+  IBaseNodeResourceMeta,
+  IBaseNodeTableResourceMeta,
+  IBaseNodeVo,
+  ICreateBaseNodeRo,
+} from '@teable/openapi';
 import {
   axios,
   createBaseNode,
+  getBaseNodeList,
   getBaseNodeTree,
   getBaseNode,
   updateBaseNode,
@@ -39,6 +45,42 @@ const testFolder = 'Test Folder';
 const updatedName = 'Updated Name';
 const testTableName = 'Test Table';
 const windowIdHeader = 'x-window-id';
+
+const nodeInfoCases: ICreateBaseNodeRo[] = [
+  {
+    resourceType: BaseNodeResourceType.Folder,
+    name: 'Info Folder',
+  },
+  {
+    resourceType: BaseNodeResourceType.Table,
+    name: 'Info Table',
+    fields: [{ name: 'Field1', type: FieldType.SingleLineText }],
+    views: [{ name: 'Grid view', type: ViewType.Grid }],
+  },
+  {
+    resourceType: BaseNodeResourceType.Dashboard,
+    name: 'Info Dashboard',
+  },
+];
+
+const expectResourceAuditInfo = (
+  resourceMeta: IBaseNodeResourceMeta,
+  expected: { name?: string }
+) => {
+  if (expected.name) {
+    expect(resourceMeta.name).toBe(expected.name);
+  }
+  expect(resourceMeta.createdByUser).toMatchObject({
+    id: globalThis.testConfig.userId,
+    name: globalThis.testConfig.userName,
+    email: globalThis.testConfig.email,
+  });
+  expect(Date.parse(resourceMeta.createdTime!)).not.toBeNaN();
+  expect(resourceMeta).not.toHaveProperty('createdBy');
+  expect(resourceMeta).not.toHaveProperty('lastModifiedBy');
+  expect(resourceMeta).toHaveProperty('lastModifiedByUser');
+  expect(resourceMeta).toHaveProperty('lastModifiedTime');
+};
 
 describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
   let app: INestApplication;
@@ -123,6 +165,49 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
 
       expect(error?.status).toBeGreaterThanOrEqual(400);
     });
+  });
+
+  describe('GET /api/base/:baseId/node - Get node resource audit info', () => {
+    const nodesToCleanup: string[] = [];
+
+    afterEach(async () => {
+      for (const nodeId of [...nodesToCleanup].reverse()) {
+        await deleteBaseNode(baseId, nodeId);
+      }
+      nodesToCleanup.length = 0;
+    });
+
+    it.each(nodeInfoCases)(
+      'should return $resourceType ($name) resource audit info in resourceMeta',
+      async (ro) => {
+        const node = await createBaseNode(baseId, ro).then((res) => res.data);
+        nodesToCleanup.push(node.id);
+
+        const singleNode = await getBaseNode(baseId, node.id).then((res) => res.data);
+        const list = await getBaseNodeList(baseId).then((res) => res.data);
+        const listNode = list.find((item) => item.id === node.id);
+        const tree = await getBaseNodeTree(baseId).then((res) => res.data);
+        const treeNode = tree.nodes.find((item) => item.id === node.id);
+
+        expect(singleNode.resourceType).toBe(ro.resourceType);
+        expect(singleNode.resourceId).toBe(node.resourceId);
+        expectResourceAuditInfo(singleNode.resourceMeta, { name: ro.name });
+        expect(listNode).toBeTruthy();
+        if (!listNode) {
+          return;
+        }
+        expect(listNode.resourceType).toBe(ro.resourceType);
+        expect(listNode.resourceId).toBe(node.resourceId);
+        expectResourceAuditInfo(listNode.resourceMeta, { name: ro.name });
+        expect(treeNode).toBeTruthy();
+        if (!treeNode) {
+          return;
+        }
+        expect(treeNode.resourceType).toBe(ro.resourceType);
+        expect(treeNode.resourceId).toBe(node.resourceId);
+        expectResourceAuditInfo(treeNode.resourceMeta, { name: ro.name });
+      }
+    );
   });
 
   describe('POST /api/base/:baseId/node - Create node', () => {

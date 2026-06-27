@@ -258,20 +258,20 @@ export class UpdateRecordHandler
               tableEvents = tableFlowResult.events;
             }
             yield* await pluginExecution.beforePersist(transactionContext);
-            const fillLinkTitleForeignTables = command.typecast
-              ? yield* await handler.foreignTableLoaderService.loadForLinkTitleFill(
-                  transactionContext,
-                  [recordUpdateResult.mutateSpec ?? null]
-                )
-              : new Map();
+            const fillLinkTitleForeignTables =
+              yield* await handler.foreignTableLoaderService.loadForLinkTitleFill(
+                transactionContext,
+                [mutateSpec]
+              );
             const mutation = yield* await handler.tableRecordRepository.updateOne(
               transactionContext,
               tableForUpdate,
               command.recordId,
               mutateSpec,
               {
-                ...(command.typecast ? { fillLinkTitles: true } : {}),
-                ...(fillLinkTitleForeignTables.size > 0 ? { fillLinkTitleForeignTables } : {}),
+                ...(fillLinkTitleForeignTables.size > 0
+                  ? { fillLinkTitles: true, fillLinkTitleForeignTables }
+                  : {}),
               }
             );
 

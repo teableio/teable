@@ -6,6 +6,7 @@ import {
   type DomainError,
   FieldType,
   type IExecutionContext,
+  type IRecordReadQuerySource,
   type ITableRecordQueryRepository,
   RecordByIdSpec,
   type ITableRecordQueryOptions,
@@ -57,16 +58,6 @@ type OrderColumnExistsCacheEntry = {
   cachedAt: number;
 };
 
-type IRecordReadQuerySource = {
-  tableName: string;
-  cteName: string;
-  cteSql: string;
-};
-
-type IExecutionContextWithRecordReadQuerySource = IExecutionContext & {
-  recordReadQuerySource?: IRecordReadQuerySource;
-};
-
 @injectable()
 export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepository {
   private readonly orderColumnExistsCache = new Map<string, OrderColumnExistsCacheEntry>();
@@ -95,14 +86,14 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
     const executeFind = async (): Promise<Result<ITableRecordQueryResult, DomainError>> => {
       return await safeTry<ITableRecordQueryResult, DomainError>(
         async function* (this: PostgresTableRecordQueryRepository) {
-          const readQuerySource = this.getRecordReadQuerySource(context);
+          const readQuerySource = this.getRecordReadQuerySource(options);
           // Create query builder via manager (it handles prepare)
           const queryBuilder = yield* await this.queryBuilderManager.createBuilder(context, table, {
             mode: resolveQueryMode(table, options?.mode),
             sourceTableName: readQuerySource?.tableName,
           });
 
-          if (options?.projectionFieldIds?.length) {
+          if (options?.projectionFieldIds !== undefined) {
             queryBuilder.select(options.projectionFieldIds);
           }
 
@@ -274,14 +265,14 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
     context: IExecutionContext,
     table: Table,
     recordId: RecordId,
-    options?: Pick<ITableRecordQueryOptions, 'mode' | 'includeOrders'>
+    options?: Pick<ITableRecordQueryOptions, 'mode' | 'includeOrders' | 'recordReadQuerySource'>
   ): Promise<Result<TableRecordReadModel, DomainError>> {
     const span = context.tracer?.startSpan('teable.repository.record.findOne');
 
     const executeFindOne = async (): Promise<Result<TableRecordReadModel, DomainError>> => {
       return await safeTry<TableRecordReadModel, DomainError>(
         async function* (this: PostgresTableRecordQueryRepository) {
-          const readQuerySource = this.getRecordReadQuerySource(context);
+          const readQuerySource = this.getRecordReadQuerySource(options);
           // Create query builder via manager
           const queryBuilder = yield* await this.queryBuilderManager.createBuilder(context, table, {
             mode: resolveQueryMode(table, options?.mode),
@@ -465,6 +456,7 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
       includeTotal: false,
       projectionFieldIds: options?.projectionFieldIds,
       search: options?.search,
+      recordReadQuerySource: options?.recordReadQuerySource,
     });
 
     if (result.isErr()) {
@@ -486,7 +478,7 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
       async function* (this: PostgresTableRecordQueryRepository) {
         const queryBuilder = yield* await this.queryBuilderManager.createBuilder(context, table, {
           mode: resolveQueryMode(table, options?.mode),
-          sourceTableName: this.getRecordReadQuerySource(context)?.tableName,
+          sourceTableName: this.getRecordReadQuerySource(options)?.tableName,
         });
 
         if (!isCursorOrderBySupported(options?.orderBy)) {
@@ -497,7 +489,7 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
           );
         }
 
-        if (options?.projectionFieldIds?.length) {
+        if (options?.projectionFieldIds !== undefined) {
           queryBuilder.select(options.projectionFieldIds);
         }
 
@@ -533,7 +525,7 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
 
         const compiled = this.withRecordReadQuerySource(
           builtQuery.compile(),
-          this.getRecordReadQuerySource(context)
+          this.getRecordReadQuerySource(options)
         );
         this.logger.debug(`findStream:mode:${queryBuilder.mode}:cursor:sql\n${compiled.sql}`, {
           parameters: compiled.parameters,
@@ -597,8 +589,10 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
     return exists;
   }
 
-  private getRecordReadQuerySource(context: IExecutionContext): IRecordReadQuerySource | undefined {
-    const source = (context as IExecutionContextWithRecordReadQuerySource).recordReadQuerySource;
+  private getRecordReadQuerySource(
+    options: { readonly recordReadQuerySource?: IRecordReadQuerySource } | undefined
+  ): IRecordReadQuerySource | undefined {
+    const source = options?.recordReadQuerySource;
     if (!source) {
       return undefined;
     }

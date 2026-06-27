@@ -168,6 +168,8 @@ class FakeTableRepository implements ITableRepository {
 
 class FakeTableRecordRepository implements ITableRecordRepository {
   inserted: TableRecord[] = [];
+  insertedBatches: TableRecord[][] = [];
+  insertManyStreamOptions: InsertManyStreamOptions | undefined;
 
   async insert(
     _: IExecutionContext,
@@ -191,11 +193,13 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     batches: Iterable<ReadonlyArray<TableRecord>> | AsyncIterable<ReadonlyArray<TableRecord>>,
     options?: InsertManyStreamOptions
   ): Promise<Result<{ totalInserted: number }, DomainError>> {
+    this.insertManyStreamOptions = options;
     let totalInserted = 0;
     let batchIndex = 0;
 
     if (isAsyncIterable(batches)) {
       for await (const batch of batches) {
+        this.insertedBatches.push([...batch]);
         this.inserted.push(...batch);
         totalInserted += batch.length;
         options?.onBatchInserted?.({ batchIndex, insertedCount: batch.length, totalInserted });
@@ -203,6 +207,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
       }
     } else {
       for (const batch of batches) {
+        this.insertedBatches.push([...batch]);
         this.inserted.push(...batch);
         totalInserted += batch.length;
         options?.onBatchInserted?.({ batchIndex, insertedCount: batch.length, totalInserted });
@@ -425,7 +430,15 @@ describe('ImportRecordsHandler', () => {
     expect(result._unsafeUnwrap().totalImported).toBe(1);
     expect(tableRecordRepository.inserted).toHaveLength(1);
     expect(adapter.parseCalls).toHaveLength(1);
-    expectRecordWritePluginToBeSkipped(calls, RecordWriteOperationKind.importAppend);
+    expect(calls.supports).toEqual([
+      RecordWriteOperationKind.importAppend,
+      RecordWriteOperationKind.importAppend,
+    ]);
+    expect(calls.prepare).toHaveLength(0);
+    expect(calls.prepareStates).toHaveLength(0);
+    expect(calls.guard).toHaveLength(0);
+    expect(calls.beforePersist).toHaveLength(0);
+    expect(calls.afterCommit).toHaveLength(0);
   });
 
   it('returns validation.limit.rows_per_table_max for async sources that exceed maxRowCount', async () => {
@@ -477,6 +490,83 @@ describe('ImportRecordsHandler', () => {
     expect(tableRecordRepository.inserted).toHaveLength(0);
     expect(calls.prepare).toHaveLength(0);
     expect(calls.guard).toHaveLength(0);
+  });
+
+  it('checks importAppend plugins per append chunk instead of the whole imported row count', async () => {
+    const { table, textFieldId } = buildTable();
+    const adapter = new FakeImportSourceAdapter(
+      ok({
+        headers: ['Title'],
+        rows: [['row 1'], ['row 2']],
+      })
+    );
+    const tableRecordRepository = new FakeTableRecordRepository();
+    const seenScopes: Array<{
+      scope?: 'operation' | 'chunk';
+      recordCount: number;
+      recordsLength: number;
+      chunkIndex?: number;
+    }> = [];
+
+    const handler = new ImportRecordsHandler(
+      new FakeImportSourceRegistry(adapter),
+      new FakeTableRepository([table]),
+      tableRecordRepository,
+      {
+        needsResolution: () => ok(false),
+        resolveAndReplaceMany: async () => ok([]),
+      } as unknown as RecordMutationSpecResolverService,
+      createRecordWritePluginRunner([
+        {
+          name: 'chunk-record-limit',
+          supports: (operation) => operation === RecordWriteOperationKind.importAppend,
+          async guard(context) {
+            seenScopes.push({
+              scope: context.orchestration?.scope,
+              recordCount: context.payload.recordCount,
+              recordsLength: context.payload.recordsFieldValues.length,
+              chunkIndex: context.orchestration?.chunkIndex,
+            });
+
+            if (context.orchestration?.scope === 'chunk' && context.payload.recordCount > 1) {
+              return err(
+                domainError.validation({
+                  code: 'validation.limit.records_per_mutation_max',
+                  message: 'too many rows in one mutation',
+                })
+              );
+            }
+
+            return ok(undefined);
+          },
+        },
+      ]),
+      {
+        execute: () => ok({ table, updateResult: undefined }),
+      } as unknown as RecordWriteSideEffectService,
+      {
+        execute: async () => ok({ table, events: [] }),
+      } as unknown as TableUpdateFlow,
+      new FakeEventBus(),
+      new FakeUnitOfWork()
+    );
+
+    const result = await handler.handle(
+      createContext(),
+      createCommand(table.id().toString(), textFieldId.toString(), undefined, {
+        batchSize: 1,
+        typecast: true,
+      })
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().totalImported).toBe(2);
+    expect(tableRecordRepository.insertedBatches.map((batch) => batch.length)).toEqual([1, 1]);
+    expect(seenScopes).toEqual([
+      { scope: 'operation', recordCount: 2, recordsLength: 0, chunkIndex: undefined },
+      { scope: 'chunk', recordCount: 1, recordsLength: 1, chunkIndex: 0 },
+      { scope: 'chunk', recordCount: 1, recordsLength: 1, chunkIndex: 1 },
+    ]);
   });
 
   it('stops before insert when plugin beforePersist rejects', async () => {
@@ -591,6 +681,10 @@ describe('ImportRecordsHandler', () => {
     expect(published[0]).toBe(event);
     expect(isRecordsBatchCreatedEvent(published[1])).toBe(true);
     expect(tableRecordRepository.inserted).toHaveLength(1);
+    expect(tableRecordRepository.insertManyStreamOptions).toMatchObject({
+      deferComputedUpdates: true,
+      enqueueDeferredComputedUpdates: true,
+    });
   });
 
   it('resolves mutate specs before yielding imported records', async () => {
