@@ -3,7 +3,10 @@ import { sql } from 'kysely';
 import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import { resolveColumnName } from '../../visitors/PostgresTableSchemaFieldColumn';
+import {
+  resolveColumnName,
+  type TableColumnDataType,
+} from '../../visitors/PostgresTableSchemaFieldColumn';
 import type { SchemaRuleContext } from '../context/SchemaRuleContext';
 import type {
   ISchemaRule,
@@ -83,6 +86,12 @@ export class GeneratedColumnRule implements ISchemaRule {
     return new GeneratedColumnRule(field, '__auto_number', 'double precision');
   }
 
+  createTableColumnType(): TableColumnDataType {
+    return sql`${sql.raw(this.columnType)} generated always as (${sql.ref(
+      this.sourceColumn
+    )}) stored`;
+  }
+
   async isValid(ctx: SchemaRuleContext): Promise<Result<SchemaRuleValidationResult, DomainError>> {
     return safeTry<SchemaRuleValidationResult, DomainError>(async function* () {
       const columnName = yield* resolveColumnName(ctx.field);
@@ -130,7 +139,9 @@ export class GeneratedColumnRule implements ISchemaRule {
 
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const columnName = yield* resolveColumnName(ctx.field);
-      const definition = sql`${sql.raw(columnType)} generated always as (${sql.ref(sourceColumn)}) stored`;
+      const definition = sql`${sql.raw(columnType)} generated always as (${sql.ref(
+        sourceColumn
+      )}) stored`;
       const table: TableIdentifier = { schema: ctx.schema, tableName: ctx.tableName };
       // If the column exists but is not generated, Postgres can't "ALTER" it into a generated column.
       // Drop+recreate is safe because generated columns are always derived from source columns.

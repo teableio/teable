@@ -9,6 +9,8 @@ export const testLLMRoSchema = llmProviderSchema
   .omit({
     isInstance: true,
     modelConfigs: true,
+    // Display-only label, irrelevant to a connectivity/capability test.
+    displayName: true,
   })
   .required()
   .extend({

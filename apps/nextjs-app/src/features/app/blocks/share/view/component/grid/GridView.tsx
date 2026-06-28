@@ -1,4 +1,9 @@
-import { RecordProvider, RowCountProvider, ShareViewContext } from '@teable/sdk/context';
+import {
+  AggregationProvider,
+  RecordProvider,
+  RowCountProvider,
+  ShareViewContext,
+} from '@teable/sdk/context';
 import { SearchProvider } from '@teable/sdk/context/query';
 import { useIsHydrated } from '@teable/sdk/hooks';
 import { cn } from '@teable/ui-lib/shadcn';
@@ -9,7 +14,6 @@ import { TeableLogo } from '@/components/TeableLogo';
 import { useBrand } from '@/features/app/hooks/useBrand';
 import { EmbedFooter } from '../../EmbedFooter';
 import { ShareSignInButton } from '../../ShareSignInButton';
-import { AggregationProvider } from './aggregation';
 import { GridViewBase } from './GridViewBase';
 import { Toolbar } from './toolbar';
 

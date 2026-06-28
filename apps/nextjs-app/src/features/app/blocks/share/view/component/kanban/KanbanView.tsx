@@ -1,4 +1,4 @@
-import { RecordProvider, ShareViewContext } from '@teable/sdk/context';
+import { GroupPointProvider, RecordProvider, ShareViewContext } from '@teable/sdk/context';
 import { SearchProvider } from '@teable/sdk/context/query';
 import { useIsHydrated } from '@teable/sdk/hooks';
 import { cn } from '@teable/ui-lib/shadcn';
@@ -11,7 +11,6 @@ import { KanbanViewBase } from '@/features/app/blocks/view/kanban/KanbanViewBase
 import { useBrand } from '@/features/app/hooks/useBrand';
 import { EmbedFooter } from '../../EmbedFooter';
 import { ShareSignInButton } from '../../ShareSignInButton';
-import { GroupPointProvider } from '../grid/aggregation';
 import { KanbanToolbar } from './toolbar';
 
 export const KanbanView = () => {

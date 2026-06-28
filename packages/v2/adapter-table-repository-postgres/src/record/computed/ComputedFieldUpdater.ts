@@ -1557,6 +1557,9 @@ export class ComputedFieldUpdater {
           tableIds.set(edge.fromTableId.toString(), edge.fromTableId);
           tableIds.set(edge.toTableId.toString(), edge.toTableId);
         }
+        for (const tableId of plan.seedAllTableIds ?? []) {
+          tableIds.set(tableId.toString(), tableId);
+        }
 
         if (tableIds.size === 0) return ok([]);
 

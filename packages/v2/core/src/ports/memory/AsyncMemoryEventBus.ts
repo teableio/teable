@@ -7,8 +7,12 @@ import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import { isRecordsBatchCreatedEvent } from '../../domain/table/events/RecordsBatchCreated';
 import { isRecordsBatchUpdatedEvent } from '../../domain/table/events/RecordsBatchUpdated';
 import type { IEventBus } from '../EventBus';
-import type { EventType, IEventHandler } from '../EventHandler';
-import { getEventHandlerRole, getEventHandlerTokens } from '../EventHandler';
+import type { EventType, IEventDispatchScope, IEventHandler } from '../EventHandler';
+import {
+  createEventDispatchScope,
+  getEventHandlerRole,
+  getEventHandlerTokens,
+} from '../EventHandler';
 import type { IExecutionContext } from '../ExecutionContext';
 import type { IClassToken, IHandlerResolver } from '../HandlerResolver';
 import { TeableSpanAttributes } from '../Tracer';
@@ -42,19 +46,22 @@ const resolveErrorMessage = (error: unknown): string => {
 };
 
 const defaultScheduler: AsyncEventBusScheduler = (task) => {
-  const immediate = (globalThis as { setImmediate?: (task: () => void) => void }).setImmediate;
-  if (typeof immediate === 'function') {
-    immediate(() => void task());
-    return;
-  }
-
   const timeout = (
     globalThis as {
       setTimeout?: (handler: () => void, timeout: number) => void;
     }
   ).setTimeout;
   if (typeof timeout === 'function') {
-    timeout(() => void task(), 0);
+    // Let the HTTP response path finish before heavy fire-and-forget projections start.
+    timeout(() => {
+      timeout(() => void task(), 0);
+    }, 0);
+    return;
+  }
+
+  const immediate = (globalThis as { setImmediate?: (task: () => void) => void }).setImmediate;
+  if (typeof immediate === 'function') {
+    immediate(() => void task());
     return;
   }
 
@@ -69,8 +76,12 @@ const defaultScheduler: AsyncEventBusScheduler = (task) => {
 
 export class AsyncMemoryEventBus implements IEventBus {
   private readonly publishedEvents: IDomainEvent[] = [];
-  private readonly queue: Array<{ context: IExecutionContext; event: IDomainEvent; seq: number }> =
-    [];
+  private readonly queue: Array<{
+    context: IExecutionContext;
+    dispatchScope: IEventDispatchScope;
+    event: IDomainEvent;
+    seq: number;
+  }> = [];
   private readonly waiters: Array<{ targetSeq: number; resolve: () => void }> = [];
   private draining = false;
   private nextSeq = 0;
@@ -127,7 +138,7 @@ export class AsyncMemoryEventBus implements IEventBus {
     const wasDraining = this.draining;
     this.enrichWithRequestId(context, event);
     this.maybeRecordPublishedEvents([event]);
-    const targetSeq = this.enqueue(context, [event]);
+    const targetSeq = this.enqueue(context, [event], !shouldAwait);
     if (shouldAwait && !wasDraining) {
       await this.waitUntilProcessed(targetSeq);
     }
@@ -147,7 +158,7 @@ export class AsyncMemoryEventBus implements IEventBus {
       this.enrichWithRequestId(context, event);
     }
     this.maybeRecordPublishedEvents(events);
-    const targetSeq = this.enqueue(context, events);
+    const targetSeq = this.enqueue(context, events, !shouldAwait);
     if (shouldAwait && !wasDraining) {
       await this.waitUntilProcessed(targetSeq);
     }
@@ -168,18 +179,23 @@ export class AsyncMemoryEventBus implements IEventBus {
     this.publishedEvents.push(...events);
   }
 
-  private enqueue(context: IExecutionContext, events: ReadonlyArray<IDomainEvent>): number {
+  private enqueue(
+    context: IExecutionContext,
+    events: ReadonlyArray<IDomainEvent>,
+    preferContextBackgroundTask: boolean
+  ): number {
     const contextSnapshot = snapshotExecutionContext(context);
+    const dispatchScope = createEventDispatchScope();
     let targetSeq = this.processedSeq;
     for (const event of events) {
       const seq = this.nextSeq;
       this.nextSeq += 1;
       targetSeq = seq;
-      this.queue.push({ context: contextSnapshot, event, seq });
+      this.queue.push({ context: contextSnapshot, dispatchScope, event, seq });
     }
     if (!this.draining) {
       this.draining = true;
-      this.scheduleDrain();
+      this.scheduleDrain(contextSnapshot, preferContextBackgroundTask);
     }
     return targetSeq;
   }
@@ -206,7 +222,17 @@ export class AsyncMemoryEventBus implements IEventBus {
     }
   }
 
-  private scheduleDrain(): void {
+  private scheduleDrain(
+    context: IExecutionContext,
+    preferContextBackgroundTask: boolean = false
+  ): void {
+    if (preferContextBackgroundTask && context.scheduleBackgroundTask) {
+      context.scheduleBackgroundTask(async () => {
+        await this.drain();
+      });
+      return;
+    }
+
     const schedule = this.options.schedule ?? defaultScheduler;
     schedule(async () => {
       await this.drain();
@@ -217,18 +243,22 @@ export class AsyncMemoryEventBus implements IEventBus {
     while (this.queue.length > 0) {
       const next = this.queue.shift();
       if (!next) continue;
-      await this.dispatch(next.context, next.event);
+      await this.dispatch(next.context, next.event, next.dispatchScope);
       this.processedSeq = next.seq;
       this.resolveWaiters();
     }
     this.draining = false;
     if (this.queue.length > 0) {
       this.draining = true;
-      this.scheduleDrain();
+      this.scheduleDrain(this.queue[0]!.context);
     }
   }
 
-  private async dispatch(context: IExecutionContext, event: IDomainEvent): Promise<void> {
+  private async dispatch(
+    context: IExecutionContext,
+    event: IDomainEvent,
+    dispatchScope: IEventDispatchScope
+  ): Promise<void> {
     const eventType = (event as { constructor: EventType<IDomainEvent> }).constructor;
     const handlers = getEventHandlerTokens(eventType as EventType<IDomainEvent>);
     let projectionGroup: Array<IClassToken<IEventHandler<IDomainEvent>>> = [];
@@ -262,14 +292,14 @@ export class AsyncMemoryEventBus implements IEventBus {
           if (shouldDispatchProjectionGroupConcurrently || currentGroup.length === 1) {
             await Promise.all(
               currentGroup.map((handlerToken) =>
-                this.dispatchToHandler(context, event, handlerToken)
+                this.dispatchToHandler(context, event, handlerToken, dispatchScope)
               )
             );
             return;
           }
 
           for (const handlerToken of currentGroup) {
-            await this.dispatchToHandler(context, event, handlerToken);
+            await this.dispatchToHandler(context, event, handlerToken, dispatchScope);
           }
         }
       );
@@ -282,7 +312,7 @@ export class AsyncMemoryEventBus implements IEventBus {
       }
 
       await flushProjectionGroup();
-      await this.dispatchToHandler(context, event, handlerToken);
+      await this.dispatchToHandler(context, event, handlerToken, dispatchScope);
     }
 
     await flushProjectionGroup();
@@ -332,7 +362,8 @@ export class AsyncMemoryEventBus implements IEventBus {
   private async dispatchToHandler(
     context: IExecutionContext,
     event: IDomainEvent,
-    handlerToken: IClassToken<IEventHandler<IDomainEvent>>
+    handlerToken: IClassToken<IEventHandler<IDomainEvent>>,
+    dispatchScope: IEventDispatchScope
   ): Promise<void> {
     let handler: IEventHandler<IDomainEvent>;
     try {
@@ -343,7 +374,7 @@ export class AsyncMemoryEventBus implements IEventBus {
     }
 
     try {
-      const result = await handler.handle(context, event);
+      const result = await handler.handle(context, event, dispatchScope);
       if (result.isErr()) {
         this.notifyError(result.error, event, handlerToken);
       }
@@ -368,8 +399,8 @@ export class AsyncMemoryEventBus implements IEventBus {
 
 const snapshotExecutionContext = (context: IExecutionContext): IExecutionContext => ({
   ...context,
+  scheduleBackgroundTask: context.scheduleBackgroundTask,
   undoRedo: context.undoRedo ? { ...context.undoRedo } : undefined,
-  duplicateTable: context.duplicateTable ? { ...context.duplicateTable } : undefined,
   config: context.config
     ? {
         ...context.config,
