@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useEffect } from 'react';
 
 export const useScrollFrameRate = (scrollFunction?: (deltaX: number, deltaY: number) => void) => {
   const requestRef = useRef(0);
@@ -55,6 +55,12 @@ export const useScrollFrameRate = (scrollFunction?: (deltaX: number, deltaY: num
     [measureFrameRate, scrollFunction]
   );
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (window as any).measureRate = measureRate;
+  useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any).measureRate = measureRate;
+    return () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (window as any).measureRate;
+    };
+  }, [measureRate]);
 };

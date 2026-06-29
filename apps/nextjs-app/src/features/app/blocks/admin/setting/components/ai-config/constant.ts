@@ -56,7 +56,6 @@ export const LLM_PROVIDER_ICONS = {
   [LLMProviderType.OPENROUTER]: OpenRouter,
   [LLMProviderType.OPENAI_COMPATIBLE]: Openai,
   [LLMProviderType.AI_GATEWAY]: Zap, // AI Gateway uses Zap icon
-  [LLMProviderType.CLAUDE_CODE]: Anthropic,
 };
 
 export const LLM_PROVIDERS = [

@@ -1,5 +1,5 @@
 import { err, ok } from 'neverthrow';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { BaseId } from '../../domain/base/BaseId';
 import { ActorId } from '../../domain/shared/ActorId';
@@ -19,6 +19,10 @@ import { ViewColumnMetaUpdated } from '../../domain/table/events/ViewColumnMetaU
 import { FieldId } from '../../domain/table/fields/FieldId';
 import { FieldName } from '../../domain/table/fields/FieldName';
 import { LinkFieldConfig } from '../../domain/table/fields/types/LinkFieldConfig';
+import { LinkRelationship } from '../../domain/table/fields/types/LinkRelationship';
+import { LookupOptions } from '../../domain/table/fields/types/LookupOptions';
+import { NumberField } from '../../domain/table/fields/types/NumberField';
+import { NumberFormatting } from '../../domain/table/fields/types/NumberFormatting';
 import { SelectOption } from '../../domain/table/fields/types/SelectOption';
 import { RecordId } from '../../domain/table/records/RecordId';
 import { TableAddSelectOptionsSpec } from '../../domain/table/specs/TableAddSelectOptionsSpec';
@@ -29,6 +33,7 @@ import { TableId } from '../../domain/table/TableId';
 import { TableName } from '../../domain/table/TableName';
 import { ViewId } from '../../domain/table/views/ViewId';
 import type { IAttachmentUrlSignerService } from '../../ports/AttachmentUrlSignerService';
+import { createEventDispatchScope } from '../../ports/EventHandler';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import { DefaultTableMapper } from '../../ports/mappers/defaults/DefaultTableMapper';
 import type { ITableMapper, ITablePersistenceDTO } from '../../ports/mappers/TableMapper';
@@ -48,6 +53,7 @@ import { RecordsBatchUpdatedRealtimeProjection } from './RecordsBatchUpdatedReal
 import { RecordsDeletedRealtimeProjection } from './RecordsDeletedRealtimeProjection';
 import { RecordUpdatedRealtimeProjection } from './RecordUpdatedRealtimeProjection';
 import { REALTIME_TASK_CONCURRENCY_LIMIT } from './runRealtimeTasks';
+import { setRealtimeProjectionSchedulerForTest } from './scheduleRealtimeProjection';
 import { TableCreatedRealtimeProjection } from './TableCreatedRealtimeProjection';
 import { buildRecordCollection } from './TableRecordRealtimeDTO';
 import { ViewColumnMetaUpdatedRealtimeProjection } from './ViewColumnMetaUpdatedRealtimeProjection';
@@ -66,6 +72,11 @@ const fieldUpdateSemantics = {
   formatting: {
     realtimePath: ['options'],
     presencePath: ['options', 'formatting'],
+    mayRequirePresence: true,
+  },
+  lookupOptions: {
+    realtimePath: ['lookupOptions'],
+    presencePath: ['lookupOptions'],
     mayRequirePresence: true,
   },
 } as const;
@@ -146,6 +157,12 @@ class FakeRealtimeEngine implements IRealtimeEngine {
 }
 
 class FakeTableRepository implements ITableRepository {
+  findOneCount = 0;
+  findOneDeferred?: {
+    promise: Promise<void>;
+    resolve: () => void;
+  };
+
   constructor(private readonly table: Table) {}
 
   async insert() {
@@ -157,6 +174,8 @@ class FakeTableRepository implements ITableRepository {
   }
 
   async findOne() {
+    this.findOneCount += 1;
+    await this.findOneDeferred?.promise;
     return ok(this.table);
   }
 
@@ -212,7 +231,19 @@ class FakeAttachmentUrlSignerService implements IAttachmentUrlSignerService {
 const buildAttachmentValueDecorator = () =>
   new AttachmentValueDecoratorService(new FakeAttachmentUrlSignerService());
 
+const captureRealtimeTasks = () => {
+  const tasks: Array<() => Promise<void>> = [];
+  setRealtimeProjectionSchedulerForTest((task) => {
+    tasks.push(task);
+  });
+  return tasks;
+};
+
 describe('Realtime projections', () => {
+  afterEach(() => {
+    setRealtimeProjectionSchedulerForTest();
+  });
+
   it('builds record collection names', () => {
     expect(buildRecordCollection('tbl123')).toBe('rec_tbl123');
   });
@@ -318,12 +349,14 @@ describe('Realtime projections', () => {
     // ensure() broadcasts a create op with empty fields which would overwrite client data
     expect(engine.ensures).toHaveLength(0);
     expect(engine.changes).toHaveLength(1);
-    expect(engine.changes[0]?.change).toEqual({
-      type: 'set',
-      path: ['fields', table.primaryFieldId().toString()],
-      value: 'New',
-      oldValue: 'Old',
-    });
+    expect(engine.changes[0]?.change).toEqual([
+      {
+        type: 'set',
+        path: ['fields', table.primaryFieldId().toString()],
+        value: 'New',
+        oldValue: 'Old',
+      },
+    ]);
   });
 
   it('decorates attachment preview urls before projecting record updates', async () => {
@@ -361,19 +394,21 @@ describe('Realtime projections', () => {
     const result = await projection.handle(createContext(), event);
     result._unsafeUnwrap();
 
-    expect(engine.changes[0]?.change).toEqual({
-      type: 'set',
-      path: ['fields', attachmentFieldId],
-      oldValue: [],
-      value: [
-        expect.objectContaining({
-          token: 'tok-update',
-          presignedUrl: '/preview/tok-update',
-          smThumbnailUrl: '/preview/tok-update_sm',
-          lgThumbnailUrl: '/preview/tok-update_lg',
-        }),
-      ],
-    });
+    expect(engine.changes[0]?.change).toEqual([
+      {
+        type: 'set',
+        path: ['fields', attachmentFieldId],
+        oldValue: [],
+        value: [
+          expect.objectContaining({
+            token: 'tok-update',
+            presignedUrl: '/preview/tok-update',
+            smThumbnailUrl: '/preview/tok-update_sm',
+            lgThumbnailUrl: '/preview/tok-update_lg',
+          }),
+        ],
+      },
+    ]);
   });
 
   it('projects batch record updates', async () => {
@@ -917,6 +952,7 @@ describe('Realtime projections', () => {
     const repository = new FakeTableRepository(table);
     const mapper = new FakeTableMapper(buildTableDto);
     const projection = new FieldCreatedRealtimeProjection(engine, repository, mapper);
+    const realtimeTasks = captureRealtimeTasks();
 
     const event = FieldCreated.create({
       baseId: table.baseId(),
@@ -926,6 +962,10 @@ describe('Realtime projections', () => {
 
     const result = await projection.handle(createContext(), event);
     result._unsafeUnwrap();
+
+    expect(engine.ensures.length).toBe(0);
+    expect(realtimeTasks).toHaveLength(1);
+    await realtimeTasks[0]!();
 
     expect(engine.ensures.length).toBe(2);
   });
@@ -939,6 +979,7 @@ describe('Realtime projections', () => {
       fields: [],
     }));
     const projection = new FieldCreatedRealtimeProjection(engine, repository, mapper);
+    const realtimeTasks = captureRealtimeTasks();
 
     const event = FieldCreated.create({
       baseId: table.baseId(),
@@ -947,8 +988,12 @@ describe('Realtime projections', () => {
     });
 
     const result = await projection.handle(createContext(), event);
+    result._unsafeUnwrap();
 
-    expect(result._unsafeUnwrapErr().message).toContain('Missing field snapshot');
+    expect(realtimeTasks).toHaveLength(1);
+    await realtimeTasks[0]!();
+
+    expect(engine.ensures).toHaveLength(1);
   });
 
   it('projects field deletion', async () => {
@@ -975,6 +1020,7 @@ describe('Realtime projections', () => {
     const repository = new FakeTableRepository(table);
     const mapper = new FakeTableMapper(buildTableDto);
     const projection = new ViewColumnMetaUpdatedRealtimeProjection(engine, repository, mapper);
+    const realtimeTasks = captureRealtimeTasks();
 
     const event = ViewColumnMetaUpdated.create({
       baseId: table.baseId(),
@@ -987,6 +1033,11 @@ describe('Realtime projections', () => {
 
     const result = await projection.handle(createContext(), event);
     result._unsafeUnwrap();
+
+    expect(engine.ensures).toHaveLength(0);
+    expect(engine.changes).toHaveLength(0);
+    expect(realtimeTasks).toHaveLength(1);
+    await realtimeTasks[0]!();
 
     expect(engine.ensures).toHaveLength(2);
     expect(engine.ensures[0]?.docId.toString()).toBe(
@@ -1010,12 +1061,318 @@ describe('Realtime projections', () => {
     expect(engine.changes[1]?.options).toEqual({ version: 7 });
   });
 
+  it('coalesces pending view column meta realtime updates for the same view', async () => {
+    const table = buildTable('c', 'd', 'v');
+    const viewId = table.views()[0]?.id() ?? ViewId.create(`viw${'v'.repeat(16)}`)._unsafeUnwrap();
+    const engine = new FakeRealtimeEngine();
+    const repository = new FakeTableRepository(table);
+    const mapper = new FakeTableMapper(buildTableDto);
+    const projection = new ViewColumnMetaUpdatedRealtimeProjection(engine, repository, mapper);
+    const context = createContext();
+    const dispatchScope = createEventDispatchScope();
+    const realtimeTasks = captureRealtimeTasks();
+
+    const firstResult = await projection.handle(
+      context,
+      ViewColumnMetaUpdated.create({
+        baseId: table.baseId(),
+        tableId: table.id(),
+        viewId,
+        fieldId: table.primaryFieldId(),
+        oldVersion: 7,
+        newVersion: 8,
+      }),
+      dispatchScope
+    );
+    const secondResult = await projection.handle(
+      context,
+      ViewColumnMetaUpdated.create({
+        baseId: table.baseId(),
+        tableId: table.id(),
+        viewId,
+        fieldId: table.primaryFieldId(),
+        oldVersion: 8,
+        newVersion: 9,
+      }),
+      dispatchScope
+    );
+
+    firstResult._unsafeUnwrap();
+    secondResult._unsafeUnwrap();
+
+    expect(realtimeTasks).toHaveLength(1);
+    await realtimeTasks[0]!();
+
+    expect(repository.findOneCount).toBe(1);
+    expect(engine.changes).toHaveLength(2);
+    expect(engine.changes[1]?.options).toEqual({ version: 7 });
+  });
+
+  it('reuses a cached snapshot for repeated view column meta updates after a field is deleted', async () => {
+    const table = buildTable('c', 'd', 'w');
+    const viewId = table.views()[0]?.id() ?? ViewId.create(`viw${'w'.repeat(16)}`)._unsafeUnwrap();
+    const deletedFieldId = FieldId.create(`fld${'w'.repeat(16)}`)._unsafeUnwrap();
+    const engine = new FakeRealtimeEngine();
+    const repository = new FakeTableRepository(table);
+    const mapper = new FakeTableMapper(buildTableDto);
+    const projection = new ViewColumnMetaUpdatedRealtimeProjection(engine, repository, mapper);
+    const context = createContext();
+    const dispatchScope = createEventDispatchScope();
+    const realtimeTasks = captureRealtimeTasks();
+
+    const firstResult = await projection.handle(
+      context,
+      ViewColumnMetaUpdated.create({
+        baseId: table.baseId(),
+        tableId: table.id(),
+        viewId,
+        fieldId: deletedFieldId,
+      }),
+      dispatchScope
+    );
+    firstResult._unsafeUnwrap();
+    await realtimeTasks.shift()!();
+
+    const secondResult = await projection.handle(
+      context,
+      ViewColumnMetaUpdated.create({
+        baseId: table.baseId(),
+        tableId: table.id(),
+        viewId,
+        fieldId: deletedFieldId,
+      }),
+      dispatchScope
+    );
+    secondResult._unsafeUnwrap();
+    await realtimeTasks.shift()!();
+
+    expect(repository.findOneCount).toBe(1);
+  });
+
+  it('reuses a table snapshot across field create realtime projections in one context', async () => {
+    const table = buildTable('c', 'd', 'f');
+    const viewId = table.views()[0]?.id() ?? ViewId.create(`viw${'b'.repeat(16)}`)._unsafeUnwrap();
+    const engine = new FakeRealtimeEngine();
+    const repository = new FakeTableRepository(table);
+    const mapper = new FakeTableMapper(buildTableDto);
+    const fieldProjection = new FieldCreatedRealtimeProjection(engine, repository, mapper);
+    const viewProjection = new ViewColumnMetaUpdatedRealtimeProjection(engine, repository, mapper);
+    const context = createContext();
+    const dispatchScope = createEventDispatchScope();
+    const realtimeTasks = captureRealtimeTasks();
+
+    const fieldResult = await fieldProjection.handle(
+      context,
+      FieldCreated.create({
+        baseId: table.baseId(),
+        tableId: table.id(),
+        fieldId: table.primaryFieldId(),
+      }),
+      dispatchScope
+    );
+    fieldResult._unsafeUnwrap();
+
+    expect(repository.findOneCount).toBe(0);
+    await realtimeTasks.shift()!();
+
+    const viewResult = await viewProjection.handle(
+      context,
+      ViewColumnMetaUpdated.create({
+        baseId: table.baseId(),
+        tableId: table.id(),
+        viewId,
+        fieldId: table.primaryFieldId(),
+      }),
+      dispatchScope
+    );
+    viewResult._unsafeUnwrap();
+
+    await realtimeTasks.shift()!();
+
+    expect(repository.findOneCount).toBe(1);
+  });
+
+  it('reuses a deleted-field table snapshot across view column meta projections in one context', async () => {
+    const table = buildTable('c', 'd', 'j');
+    const viewId = table.views()[0]?.id() ?? ViewId.create(`viw${'j'.repeat(16)}`)._unsafeUnwrap();
+    const firstDeletedFieldId = table.primaryFieldId();
+    const secondDeletedFieldId = FieldId.create(`fld${'k'.repeat(16)}`)._unsafeUnwrap();
+    const engine = new FakeRealtimeEngine();
+    const repository = new FakeTableRepository(table);
+    const mapper = new FakeTableMapper(() => {
+      const base = buildTableDto(table);
+      return {
+        ...base,
+        fields: [],
+        views: base.views.map((view) => ({
+          ...view,
+          columnMeta: {},
+        })),
+      };
+    });
+    const projection = new ViewColumnMetaUpdatedRealtimeProjection(engine, repository, mapper);
+    const context = createContext();
+    const dispatchScope = createEventDispatchScope();
+    const realtimeTasks = captureRealtimeTasks();
+
+    const firstResult = await projection.handle(
+      context,
+      ViewColumnMetaUpdated.create({
+        baseId: table.baseId(),
+        tableId: table.id(),
+        viewId,
+        fieldId: firstDeletedFieldId,
+        fieldInColumnMeta: false,
+      }),
+      dispatchScope
+    );
+    firstResult._unsafeUnwrap();
+    await realtimeTasks.shift()!();
+
+    const secondResult = await projection.handle(
+      context,
+      ViewColumnMetaUpdated.create({
+        baseId: table.baseId(),
+        tableId: table.id(),
+        viewId,
+        fieldId: secondDeletedFieldId,
+        fieldInColumnMeta: false,
+      }),
+      dispatchScope
+    );
+    secondResult._unsafeUnwrap();
+    await realtimeTasks.shift()!();
+
+    expect(repository.findOneCount).toBe(1);
+  });
+
+  it('deduplicates concurrent table snapshot loads across field create realtime projections', async () => {
+    const table = buildTable('c', 'd', 'i');
+    const viewId = table.views()[0]?.id() ?? ViewId.create(`viw${'c'.repeat(16)}`)._unsafeUnwrap();
+    const engine = new FakeRealtimeEngine();
+    const repository = new FakeTableRepository(table);
+    let releaseFindOne!: () => void;
+    repository.findOneDeferred = {
+      promise: new Promise<void>((resolve) => {
+        releaseFindOne = resolve;
+      }),
+      resolve: () => releaseFindOne(),
+    };
+    const mapper = new FakeTableMapper(buildTableDto);
+    const fieldProjection = new FieldCreatedRealtimeProjection(engine, repository, mapper);
+    const viewProjection = new ViewColumnMetaUpdatedRealtimeProjection(engine, repository, mapper);
+    const context = createContext();
+    const dispatchScope = createEventDispatchScope();
+    const realtimeTasks = captureRealtimeTasks();
+
+    const fieldResult = await fieldProjection.handle(
+      context,
+      FieldCreated.create({
+        baseId: table.baseId(),
+        tableId: table.id(),
+        fieldId: table.primaryFieldId(),
+      }),
+      dispatchScope
+    );
+    fieldResult._unsafeUnwrap();
+    const viewResult = await viewProjection.handle(
+      context,
+      ViewColumnMetaUpdated.create({
+        baseId: table.baseId(),
+        tableId: table.id(),
+        viewId,
+        fieldId: table.primaryFieldId(),
+      }),
+      dispatchScope
+    );
+    viewResult._unsafeUnwrap();
+
+    const runningTasks = realtimeTasks.map((task) => task());
+    await Promise.resolve();
+
+    expect(repository.findOneCount).toBe(1);
+
+    repository.findOneDeferred.resolve();
+    await Promise.all(runningTasks);
+
+    expect(repository.findOneCount).toBe(1);
+    expect(engine.ensures.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('refreshes a cached table snapshot when a later field create needs a newer field', async () => {
+    const table = buildTable('c', 'd', 'g');
+    const firstFieldId = table.primaryFieldId();
+    const secondFieldId = FieldId.create(`fld${'n'.repeat(16)}`)._unsafeUnwrap();
+    const engine = new FakeRealtimeEngine();
+    const repository = new FakeTableRepository(table);
+    const mapper = new FakeTableMapper(() => {
+      const base = buildTableDto(table);
+      if (repository.findOneCount < 2) {
+        return base;
+      }
+
+      return {
+        ...base,
+        fields: [
+          ...base.fields,
+          {
+            id: secondFieldId.toString(),
+            name: 'Notes',
+            type: 'longText',
+          },
+        ],
+        views: base.views.map((view) => ({
+          ...view,
+          columnMeta: {
+            ...view.columnMeta,
+            [secondFieldId.toString()]: { order: 1 },
+          },
+        })),
+      };
+    });
+    const projection = new FieldCreatedRealtimeProjection(engine, repository, mapper);
+    const context = createContext();
+    const dispatchScope = createEventDispatchScope();
+    const realtimeTasks = captureRealtimeTasks();
+
+    const firstResult = await projection.handle(
+      context,
+      FieldCreated.create({
+        baseId: table.baseId(),
+        tableId: table.id(),
+        fieldId: firstFieldId,
+      }),
+      dispatchScope
+    );
+    firstResult._unsafeUnwrap();
+    await realtimeTasks.shift()!();
+
+    const secondResult = await projection.handle(
+      context,
+      FieldCreated.create({
+        baseId: table.baseId(),
+        tableId: table.id(),
+        fieldId: secondFieldId,
+      }),
+      dispatchScope
+    );
+    secondResult._unsafeUnwrap();
+    await realtimeTasks.shift()!();
+
+    expect(repository.findOneCount).toBe(2);
+    expect(engine.ensures.at(-1)?.initial).toMatchObject({
+      id: secondFieldId.toString(),
+      name: 'Notes',
+    });
+  });
+
   it('ignores missing views', async () => {
     const table = buildTable('f', 'g', 'h');
     const engine = new FakeRealtimeEngine();
     const repository = new FakeTableRepository(table);
     const mapper = new FakeTableMapper(buildTableDto);
     const projection = new ViewColumnMetaUpdatedRealtimeProjection(engine, repository, mapper);
+    const realtimeTasks = captureRealtimeTasks();
 
     const event = ViewColumnMetaUpdated.create({
       baseId: table.baseId(),
@@ -1026,6 +1383,9 @@ describe('Realtime projections', () => {
 
     const result = await projection.handle(createContext(), event);
     result._unsafeUnwrap();
+
+    expect(realtimeTasks).toHaveLength(1);
+    await realtimeTasks[0]!();
 
     expect(engine.ensures).toHaveLength(0);
     expect(engine.changes).toHaveLength(0);
@@ -1458,6 +1818,156 @@ describe('Realtime projections', () => {
         { type: 'set', path: ['innerOptions'], value: null },
       ])
     );
+  });
+
+  it('refreshes enriched lookupOptions, cellValueType and inner type/options on a lookup change', async () => {
+    const baseId = BaseId.create(`bse${'s'.repeat(16)}`)._unsafeUnwrap();
+    const tableId = TableId.create(`tbl${'t'.repeat(16)}`)._unsafeUnwrap();
+    const foreignTableId = TableId.create(`tbl${'u'.repeat(16)}`)._unsafeUnwrap();
+    const primaryFieldId = FieldId.create(`fld${'v'.repeat(16)}`)._unsafeUnwrap();
+    const linkFieldId = FieldId.create(`fld${'w'.repeat(16)}`)._unsafeUnwrap();
+    const lookupFieldId = FieldId.create(`fld${'x'.repeat(16)}`)._unsafeUnwrap();
+    const foreignTargetFieldId = FieldId.create(`fld${'y'.repeat(16)}`)._unsafeUnwrap();
+
+    const linkConfig = LinkFieldConfig.create({
+      relationship: LinkRelationship.manyOne().toString(),
+      foreignTableId: foreignTableId.toString(),
+      lookupFieldId: foreignTargetFieldId.toString(),
+    })._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('Lookup Table')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(primaryFieldId)
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .link()
+      .withId(linkFieldId)
+      .withName(FieldName.create('Link')._unsafeUnwrap())
+      .withConfig(linkConfig)
+      .done();
+    builder
+      .field()
+      .lookup()
+      .withId(lookupFieldId)
+      .withName(FieldName.create('Lookup Amount')._unsafeUnwrap())
+      .withInnerField(
+        NumberField.create({
+          id: FieldId.create(`fld${'z'.repeat(16)}`)._unsafeUnwrap(),
+          name: FieldName.create('Amount')._unsafeUnwrap(),
+          formatting: NumberFormatting.create({ type: 'decimal', precision: 2 })._unsafeUnwrap(),
+        })._unsafeUnwrap()
+      )
+      .withLookupOptions(
+        LookupOptions.create({
+          linkFieldId: linkFieldId.toString(),
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: foreignTargetFieldId.toString(),
+        })._unsafeUnwrap()
+      )
+      .withIsMultipleCellValue(false)
+      .done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+
+    const engine = new FakeRealtimeEngine();
+    const repository = new FakeTableRepository(table);
+    const mapper = new DefaultTableMapper();
+    const projection = new FieldUpdatedRealtimeProjection(engine, repository, mapper);
+
+    const event = FieldUpdated.create({
+      baseId: table.baseId(),
+      tableId: table.id(),
+      fieldId: lookupFieldId,
+      updatedProperties: ['lookupOptions'],
+      propertySemantics: {
+        lookupOptions: fieldUpdateSemantics.lookupOptions,
+      },
+    });
+
+    const result = await projection.handle(createContext(), event);
+    result._unsafeUnwrap();
+
+    expect(engine.changes).toHaveLength(1);
+    const changes = engine.changes[0]?.change as RealtimeChange[];
+
+    // lookupOptions must be published WITH the link's physical metadata (regression: was dropped).
+    const lookupOptionsChange = changes.find(
+      (change) => JSON.stringify(change.path) === JSON.stringify(['lookupOptions'])
+    );
+    expect(lookupOptionsChange?.value).toEqual(
+      expect.objectContaining({
+        linkFieldId: linkFieldId.toString(),
+        lookupFieldId: foreignTargetFieldId.toString(),
+        foreignTableId: foreignTableId.toString(),
+        fkHostTableName: expect.any(String),
+        selfKeyName: expect.any(String),
+        foreignKeyName: expect.any(String),
+      })
+    );
+
+    // cellValueType must be the resolved inner type, never null (regression: was null).
+    expect(changes).toContainEqual({ type: 'set', path: ['cellValueType'], value: 'number' });
+    // The resolved inner type/options must refresh so changing the looked-up field is reflected
+    // (dbFieldType, when carried by the persisted snapshot, goes through the same scalar path).
+    expect(changes).toContainEqual({ type: 'set', path: ['type'], value: 'number' });
+    expect(
+      changes.some((change) => JSON.stringify(change.path) === JSON.stringify(['options']))
+    ).toBe(true);
+  });
+
+  it('clears stale inner options and skips absent storage metadata when a lookup is pending', async () => {
+    const table = buildTable('p', 'q', 'r');
+    const fieldId = table.primaryFieldId();
+    const engine = new FakeRealtimeEngine();
+    const repository = new FakeTableRepository(table);
+    // A pending lookup (inner field unresolved) falls back to singleLineText and omits both
+    // `options` and `dbFieldType` from its DTO.
+    const mapper = new FakeTableMapper((candidate) => ({
+      ...buildTableDto(candidate),
+      fields: [
+        {
+          id: fieldId.toString(),
+          name: 'Pending Lookup',
+          type: 'singleLineText',
+          isLookup: true,
+          isComputed: true,
+          lookupOptions: {
+            linkFieldId: `fld${'k'.repeat(16)}`,
+            lookupFieldId: `fld${'l'.repeat(16)}`,
+            foreignTableId: `tbl${'m'.repeat(16)}`,
+          },
+        },
+      ],
+    }));
+    const projection = new FieldUpdatedRealtimeProjection(engine, repository, mapper);
+
+    const event = FieldUpdated.create({
+      baseId: table.baseId(),
+      tableId: table.id(),
+      fieldId,
+      updatedProperties: ['lookupOptions'],
+      propertySemantics: { lookupOptions: fieldUpdateSemantics.lookupOptions },
+    });
+
+    const result = await projection.handle(createContext(), event);
+    result._unsafeUnwrap();
+
+    const changes = engine.changes[0]?.change as RealtimeChange[];
+    // Stale inner options (e.g. previous number formatting) are cleared, not left untouched.
+    expect(changes).toContainEqual({ type: 'set', path: ['options'], value: {} });
+    expect(changes).toContainEqual({ type: 'set', path: ['type'], value: 'singleLineText' });
+    // dbFieldType is absent from the pending snapshot → must NOT publish a null that corrupts it.
+    expect(
+      changes.some((change) => JSON.stringify(change.path) === JSON.stringify(['dbFieldType']))
+    ).toBe(false);
   });
 
   it('projects formatting-only field updates through the field options snapshot', async () => {

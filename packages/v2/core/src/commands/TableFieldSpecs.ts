@@ -1498,7 +1498,8 @@ class CreateSingleSelectFieldSpec implements ICreateTableFieldSpec {
     private readonly defaultValue: SelectDefaultValue | undefined,
     private readonly preventAutoNewOptions: SelectAutoNewOptions | undefined,
     private readonly notNull: FieldNotNull,
-    private readonly unique: FieldUnique
+    private readonly unique: FieldUnique,
+    private readonly domainContext: IDomainContext | undefined
   ) {}
 
   static create(
@@ -1522,7 +1523,8 @@ class CreateSingleSelectFieldSpec implements ICreateTableFieldSpec {
         meta.defaultValue,
         meta.preventAutoNewOptions,
         meta.notNull,
-        meta.unique
+        meta.unique,
+        meta.domainContext
       ).withPrimary(meta.isPrimary)
     );
   }
@@ -1554,6 +1556,7 @@ class CreateSingleSelectFieldSpec implements ICreateTableFieldSpec {
         options: this.options,
         defaultValue: this.defaultValue,
         preventAutoNewOptions: this.preventAutoNewOptions,
+        domainContext: this.domainContext,
         notNull: this.notNull,
         unique: this.unique,
       })
@@ -1580,7 +1583,8 @@ class CreateMultipleSelectFieldSpec implements ICreateTableFieldSpec {
     private readonly defaultValue: SelectDefaultValue | undefined,
     private readonly preventAutoNewOptions: SelectAutoNewOptions | undefined,
     private readonly notNull: FieldNotNull,
-    private readonly unique: FieldUnique
+    private readonly unique: FieldUnique,
+    private readonly domainContext: IDomainContext | undefined
   ) {}
 
   static create(
@@ -1604,7 +1608,8 @@ class CreateMultipleSelectFieldSpec implements ICreateTableFieldSpec {
         meta.defaultValue,
         meta.preventAutoNewOptions,
         meta.notNull,
-        meta.unique
+        meta.unique,
+        meta.domainContext
       ).withPrimary(meta.isPrimary)
     );
   }
@@ -1636,6 +1641,7 @@ class CreateMultipleSelectFieldSpec implements ICreateTableFieldSpec {
         options: this.options,
         defaultValue: this.defaultValue,
         preventAutoNewOptions: this.preventAutoNewOptions,
+        domainContext: this.domainContext,
         notNull: this.notNull,
         unique: this.unique,
       })
@@ -2254,11 +2260,14 @@ class CreateButtonFieldSpec implements ICreateTableFieldSpec {
 
 const sequence = <T>(
   values: ReadonlyArray<Result<T, DomainError>>
-): Result<ReadonlyArray<T>, DomainError> =>
-  values.reduce<Result<ReadonlyArray<T>, DomainError>>(
-    (acc, next) => acc.andThen((arr) => next.map((v) => [...arr, v])),
-    ok([])
-  );
+): Result<ReadonlyArray<T>, DomainError> => {
+  const result: T[] = [];
+  for (const value of values) {
+    if (value.isErr()) return err<ReadonlyArray<T>, DomainError>(value.error);
+    result.push(value.value);
+  }
+  return ok(result);
+};
 
 const optional = <T>(
   raw: unknown,
@@ -2318,17 +2327,28 @@ type ParsedSelectOptions = {
   preventAutoNewOptions?: SelectAutoNewOptions;
 };
 
+const parseSelectOptionList = (
+  values: ReadonlyArray<unknown>,
+  parser: (value: unknown, index: number) => Result<SelectOption, DomainError>
+): Result<ReadonlyArray<SelectOption>, DomainError> => {
+  const options: SelectOption[] = [];
+  for (let index = 0; index < values.length; index += 1) {
+    const optionResult = parser(values[index], index);
+    if (optionResult.isErr()) return err(optionResult.error);
+    options.push(optionResult.value);
+  }
+  return ok(options);
+};
+
 const parseSelectOptions = (raw: unknown): Result<ParsedSelectOptions, DomainError> => {
   if (raw == null) return ok({ options: [] });
 
   if (Array.isArray(raw)) {
-    const optionsResult = sequence(
-      raw.map((name, index) =>
-        SelectOption.create({
-          name,
-          color: fieldColorValues[index % fieldColorValues.length],
-        })
-      )
+    const optionsResult = parseSelectOptionList(raw, (name, index) =>
+      SelectOption.create({
+        name,
+        color: fieldColorValues[index % fieldColorValues.length],
+      })
     );
     return optionsResult.map((options) => ({ options }));
   }
@@ -2340,20 +2360,18 @@ const parseSelectOptions = (raw: unknown): Result<ParsedSelectOptions, DomainErr
   };
   const rawChoices = Array.isArray(rawOptions.choices) ? rawOptions.choices : [];
 
-  return sequence(
-    rawChoices.map((choice, index) => {
-      if (choice && typeof choice === 'object' && !Array.isArray(choice)) {
-        const rawChoice = choice as Record<string, unknown>;
-        if (rawChoice.color == null) {
-          return SelectOption.create({
-            ...rawChoice,
-            color: fieldColorValues[index % fieldColorValues.length],
-          });
-        }
+  return parseSelectOptionList(rawChoices, (choice, index) => {
+    if (choice && typeof choice === 'object' && !Array.isArray(choice)) {
+      const rawChoice = choice as Record<string, unknown>;
+      if (rawChoice.color == null) {
+        return SelectOption.create({
+          ...rawChoice,
+          color: fieldColorValues[index % fieldColorValues.length],
+        });
       }
-      return SelectOption.create(choice);
-    })
-  ).andThen((options) =>
+    }
+    return SelectOption.create(choice);
+  }).andThen((options) =>
     optional(rawOptions.defaultValue, SelectDefaultValue.create).andThen((defaultValue) =>
       optional(rawOptions.preventAutoNewOptions, SelectAutoNewOptions.create).map(
         (preventAutoNewOptions) => ({

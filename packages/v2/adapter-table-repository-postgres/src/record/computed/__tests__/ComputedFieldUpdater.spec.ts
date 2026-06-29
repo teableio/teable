@@ -178,6 +178,11 @@ const createTableRepository = (tables: ReadonlyArray<Table>): ITableRepository =
     err(domainError.notImplemented({ message: 'ITableRepository.delete not used in tests' })),
 });
 
+const createFilteringTableRepository = (tables: ReadonlyArray<Table>): ITableRepository => ({
+  ...createTableRepository(tables),
+  find: async (_context, spec) => ok(tables.filter((table) => spec.isSatisfiedBy(table))),
+});
+
 const toSnapshot = (queries: ReadonlyArray<CompiledQuery>) =>
   queries.map((query) => ({ sql: query.sql, parameters: query.parameters }));
 
@@ -692,6 +697,52 @@ describe('ComputedFieldUpdater', () => {
     expect(result._unsafeUnwrapErr().code).toBe(COMPUTED_UPDATE_LOCK_UNAVAILABLE_CODE);
     expect(driver.queries[0]?.sql).toContain('pg_try_advisory_xact_lock');
     expect(driver.queries[0]?.sql).not.toContain('pg_advisory_xact_lock');
+  });
+
+  it('loads tables referenced only by seedAllTableIds before dirty seeding', async () => {
+    const { baseId, table, plusOneFieldId } = createSameTableFormulaChainTable();
+    const { hostTable: seedAllTable } = createLinkTables();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+    const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
+
+    const plan: ComputedUpdatePlan = {
+      baseId,
+      seedTableId: table.id(),
+      seedRecordIds: [recordId],
+      extraSeedRecords: [],
+      seedAllTableIds: [seedAllTable.id()],
+      steps: [
+        {
+          tableId: table.id(),
+          fieldIds: [plusOneFieldId],
+          level: 0,
+        },
+      ],
+      edges: [],
+      estimatedComplexity: 1,
+      changeType: 'update',
+      sameTableBatches: [],
+    };
+
+    const { db, driver } = createRecordingDb();
+    const updater = new ComputedFieldUpdater(
+      createFilteringTableRepository([table, seedAllTable]),
+      createLogger(),
+      db as unknown as Kysely<V1TeableDatabase>,
+      undefined,
+      createTypeValidationStrategy()
+    );
+
+    const result = await updater.prepareDirtyState(plan, { actorId });
+
+    expect(result.isOk()).toBe(true);
+    expect(
+      driver.queries.some(
+        (query) =>
+          query.sql.includes('insert into "tmp_computed_dirty"') &&
+          query.sql.includes(`from "${BASE_ID}"."${TABLE_ID}"`)
+      )
+    ).toBe(true);
   });
 
   it('generates SQL for link computed updates with dirty propagation', async () => {

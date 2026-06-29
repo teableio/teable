@@ -1,28 +1,13 @@
-import type {
-  IExecutionContext,
-  IExecutionContextBatchMutation,
-} from '../../ports/ExecutionContext';
+import type { IBatchMutationOrchestration } from '../../ports/BatchMutationOrchestration';
 
 export const buildOperationBatchMutation = (
-  context: IExecutionContext,
+  operationId: string | undefined,
   totalRecordCount: number
-): IExecutionContextBatchMutation => {
-  return (
-    context.batchMutation ?? {
-      operationId: context.requestId,
-      groupId: context.requestId,
-      totalRecordCount,
-      totalChunkCount: 1,
-      chunkIndex: 0,
-      scope: 'operation',
-    }
-  );
-};
-
-export const withBatchMutation = (
-  context: IExecutionContext,
-  batchMutation: IExecutionContextBatchMutation
-): IExecutionContext => ({
-  ...context,
-  batchMutation,
+): IBatchMutationOrchestration => ({
+  operationId,
+  groupId: operationId,
+  totalRecordCount,
+  totalChunkCount: 1,
+  chunkIndex: 0,
+  scope: 'operation',
 });

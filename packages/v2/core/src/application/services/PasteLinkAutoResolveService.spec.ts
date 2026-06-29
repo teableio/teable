@@ -1,28 +1,31 @@
 import { err, ok, type Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
-import { LinkTitleResolverService } from './LinkTitleResolverService';
-import { PasteLinkAutoResolveService } from './PasteLinkAutoResolveService';
-import type { RecordBatchCreationService } from './RecordBatchCreationService';
-import { TableQueryService } from './TableQueryService';
 import { BaseId } from '../../domain/base/BaseId';
 import { ActorId } from '../../domain/shared/ActorId';
 import { domainError, type DomainError } from '../../domain/shared/DomainError';
+import type { ISpecification } from '../../domain/shared/specification/ISpecification';
 import { FieldId } from '../../domain/table/fields/FieldId';
 import { FieldName } from '../../domain/table/fields/FieldName';
 import { FieldNotNull } from '../../domain/table/fields/types/FieldNotNull';
 import { FormulaExpression } from '../../domain/table/fields/types/FormulaExpression';
 import { LinkFieldConfig } from '../../domain/table/fields/types/LinkFieldConfig';
+import type { ITableSpecVisitor } from '../../domain/table/specs/ITableSpecVisitor';
 import { Table } from '../../domain/table/Table';
 import { TableId } from '../../domain/table/TableId';
 import { TableName } from '../../domain/table/TableName';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import type { ITableRecordQueryRepository } from '../../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../../ports/TableRecordReadModel';
-import type { ITableRepository } from '../../ports/TableRepository';
-import type { TableFindOptions, TableUpdatePersistResult } from '../../ports/TableRepository';
-import type { ITableSpecVisitor } from '../../domain/table/specs/ITableSpecVisitor';
-import type { ISpecification } from '../../domain/shared/specification/ISpecification';
+import type {
+  ITableRepository,
+  TableFindOptions,
+  TableUpdatePersistResult,
+} from '../../ports/TableRepository';
+import { LinkTitleResolverService } from './LinkTitleResolverService';
+import { PasteLinkAutoResolveService } from './PasteLinkAutoResolveService';
+import type { RecordBatchCreationService } from './RecordBatchCreationService';
+import { TableQueryService } from './TableQueryService';
 
 const createContext = (): IExecutionContext => ({
   actorId: ActorId.create('system')._unsafeUnwrap(),
@@ -44,7 +47,7 @@ const buildTextTable = (baseSeed: string, name: string) => {
   return builder.build()._unsafeUnwrap();
 };
 
-const buildFormulaPrimaryTable = (baseSeed: string, name: string) => {
+const buildFormulaPrimaryTable = (baseSeed: string, name: string, expression = '1 + 1') => {
   const baseId = BaseId.create(`bse${baseSeed.repeat(16)}`)._unsafeUnwrap();
   const builder = Table.builder()
     .withBaseId(baseId)
@@ -53,7 +56,7 @@ const buildFormulaPrimaryTable = (baseSeed: string, name: string) => {
     .field()
     .formula()
     .withName(FieldName.create('Name')._unsafeUnwrap())
-    .withExpression(FormulaExpression.create('1 + 1')._unsafeUnwrap())
+    .withExpression(FormulaExpression.create(expression)._unsafeUnwrap())
     .primary()
     .done();
   builder.view().defaultGrid().done();
@@ -382,6 +385,51 @@ describe('PasteLinkAutoResolveService', () => {
     expect(result._unsafeUnwrapErr().code).toBe('db.unique_violation');
   });
 
+  it('reuses existing titles when the foreign primary field is a string formula', async () => {
+    const foreignTable = buildFormulaPrimaryTable('i', 'Formula Primary', "'Alpha'");
+    const hostTable = buildHostTable(foreignTable.baseId(), foreignTable);
+    const existingRecordId = `rec${'i'.repeat(16)}`;
+    const linkField = hostTable.getFields().find((field) => field.type().toString() === 'link');
+    expect(linkField).toBeDefined();
+    if (!linkField) return;
+
+    let creationCalls = 0;
+    const service = new PasteLinkAutoResolveService(
+      new TableQueryService(new FakeTableRepository([foreignTable, hostTable])),
+      new LinkTitleResolverService(
+        new FakeTableRepository([foreignTable, hostTable]),
+        new FakeRecordQueryRepository([
+          {
+            id: existingRecordId,
+            fields: {
+              [foreignTable.primaryFieldId().toString()]: 'Alpha',
+            },
+            version: 1,
+          },
+        ])
+      ),
+      {
+        create: async () => {
+          creationCalls += 1;
+          return err(domainError.unexpected({ message: 'should not create' }));
+        },
+      } as unknown as RecordBatchCreationService
+    );
+
+    const result = await service.resolve(createContext(), {
+      table: hostTable,
+      editableColumns: [{ fieldId: linkField.id(), columnIndex: 0 }],
+      rowDataList: [['Alpha']],
+    });
+
+    const resolved = result._unsafeUnwrap();
+    expect(creationCalls).toBe(0);
+    expect(resolved.resolvedValues.get(linkField.id().toString())?.get('Alpha')).toEqual({
+      id: existingRecordId,
+      title: 'Alpha',
+    });
+  });
+
   it('rejects self-link auto-create', async () => {
     const baseId = BaseId.create(`bse${'b'.repeat(16)}`)._unsafeUnwrap();
     const tableId = TableId.create(`tbl${'b'.repeat(16)}`)._unsafeUnwrap();
@@ -467,7 +515,7 @@ describe('PasteLinkAutoResolveService', () => {
   });
 
   it('rejects auto-create when the foreign primary field is computed', async () => {
-    const foreignTable = buildFormulaPrimaryTable('d', 'Formula Primary');
+    const foreignTable = buildFormulaPrimaryTable('d', 'Formula Primary', "'Computed'");
     const hostTable = buildHostTable(foreignTable.baseId(), foreignTable);
     const linkField = hostTable.getFields().find((field) => field.type().toString() === 'link');
     expect(linkField).toBeDefined();

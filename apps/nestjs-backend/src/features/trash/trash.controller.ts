@@ -1,5 +1,6 @@
 import { Controller, Delete, Get, Param, Post, Query, Res } from '@nestjs/common';
-import type { ITrashVo } from '@teable/openapi';
+import { IdPrefix } from '@teable/core';
+import type { ITrashVo, V2Feature } from '@teable/openapi';
 import {
   ITrashRo,
   trashItemsRoSchema,
@@ -22,7 +23,7 @@ import { TrashService } from './trash.service';
 
 @Controller('api/trash/')
 export class TrashController {
-  protected static readonly restoreTableV2Feature = 'restoreTable';
+  protected static readonly restoreTableV2Feature: V2Feature = 'restoreTable';
 
   constructor(
     private readonly trashService: TrashService,
@@ -49,8 +50,11 @@ export class TrashController {
     @Query('tableId') tableId: string | undefined,
     @Res({ passthrough: true }) response: Response
   ): Promise<void> {
-    await this.prepareRestoreTableCanary(trashId, response);
+    await this.prepareRestoreTableCanary(trashId, tableId, response);
     if (this.cls.get('useV2')) {
+      if (trashId.startsWith(IdPrefix.Operation)) {
+        return await this.trashService.restoreTableResourceV2(trashId, tableId);
+      }
       return await this.trashService.restoreTrashV2(trashId);
     }
     return await this.trashService.restoreTrash(trashId, tableId);
@@ -70,18 +74,26 @@ export class TrashController {
     return await this.trashService.delete(trashId);
   }
 
-  protected async prepareRestoreTableCanary(trashId: string, response: Response): Promise<void> {
-    const decision = await this.trashService.getRestoreTableV2Decision(trashId);
+  protected async prepareRestoreTableCanary(
+    trashId: string,
+    tableId: string | undefined,
+    response: Response
+  ): Promise<void> {
+    const decision = trashId.startsWith(IdPrefix.Operation)
+      ? await this.trashService.getRestoreTableResourceV2Decision(trashId, tableId)
+      : await this.trashService.getRestoreTableV2Decision(trashId);
     if (!decision) {
       return;
     }
 
+    const feature =
+      'feature' in decision ? decision.feature : TrashController.restoreTableV2Feature;
     this.cls.set('useV2', decision.useV2);
-    this.cls.set('v2Feature', TrashController.restoreTableV2Feature);
+    this.cls.set('v2Feature', feature);
     this.cls.set('v2Reason', decision.reason);
 
     response.setHeader(X_TEABLE_V2_HEADER, decision.useV2 ? 'true' : 'false');
-    response.setHeader(X_TEABLE_V2_FEATURE_HEADER, TrashController.restoreTableV2Feature);
+    response.setHeader(X_TEABLE_V2_FEATURE_HEADER, feature);
     response.setHeader(X_TEABLE_V2_REASON_HEADER, decision.reason);
   }
 }
