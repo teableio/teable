@@ -18,6 +18,7 @@ export const GetRecordCommentCountRoute: RouteConfig = registerRoute({
   request: {
     params: z.object({
       tableId: z.string(),
+      recordId: z.string(),
     }),
   },
   responses: {

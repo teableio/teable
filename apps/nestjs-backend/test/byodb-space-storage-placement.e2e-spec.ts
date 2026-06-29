@@ -1,4 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
+/* eslint-disable @typescript-eslint/naming-convention */
+import { spawnSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import type { INestApplication } from '@nestjs/common';
@@ -14,8 +16,10 @@ import {
   getGroupPoints,
   getImportStatus as apiGetImportStatus,
   getRecordHistory,
+  getTrashItems,
   getRowCount,
   getSignature as apiGetSignature,
+  getSpaceDataDbMigration,
   getTableList,
   getTableActivatedIndex,
   GroupPointType,
@@ -25,6 +29,7 @@ import {
   notify as apiNotify,
   redo,
   ResourceType,
+  restoreTrash,
   SettingKey,
   SUPPORTEDTYPE,
   TableIndex,
@@ -37,6 +42,7 @@ import {
   uploadFile as apiUploadFile,
   X_CANARY_HEADER,
   type ITableFullVo,
+  type IDataDbMigrationJobStatusVo,
 } from '@teable/openapi';
 import Knex from 'knex';
 import type { Knex as KnexType } from 'knex';
@@ -47,11 +53,14 @@ import { baseConfig } from '../src/configs/base.config';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
 import { Events } from '../src/event-emitter/events';
 import StorageAdapter from '../src/features/attachments/plugins/adapter';
+import { BaseSqlExecutorService } from '../src/features/base-sql-executor/base-sql-executor.service';
 import {
   X_TEABLE_V2_HEADER,
   X_TEABLE_V2_REASON_HEADER,
 } from '../src/features/canary/interceptors/v2-indicator.interceptor';
 import { CsvImporter } from '../src/features/import/open-api/import.class';
+import { SpaceDataDbMigrationWorkerService } from '../src/features/space/space-data-db-migration-worker.service';
+import { SpaceDataDbMigrationService } from '../src/features/space/space-data-db-migration.service';
 import { createAwaitWithEventWithResult } from './utils/event-promise';
 import {
   createBase,
@@ -84,12 +93,18 @@ const metaDatabaseUrl =
   process.env.PRISMA_META_DATABASE_URL ??
   process.env.PRISMA_DATABASE_URL ??
   process.env.DATABASE_URL;
+const defaultDataDatabaseUrl =
+  process.env.PRISMA_DATABASE_URL ?? process.env.DATABASE_URL ?? metaDatabaseUrl;
 const byodbDataDatabaseUrl = process.env.BYODB_E2E_DATA_DATABASE_URL;
 const isIndependentByodbDataDb =
   databaseIdentity(metaDatabaseUrl) != null &&
   databaseIdentity(byodbDataDatabaseUrl) != null &&
   databaseIdentity(metaDatabaseUrl) !== databaseIdentity(byodbDataDatabaseUrl);
 const describeByodbStorage = isIndependentByodbDataDb ? describe : describe.skip;
+const hasPostgresMigrationTools = ['pg_dump', 'pg_restore', 'psql'].every(
+  (command) => spawnSync('which', [command], { stdio: 'ignore' }).status === 0
+);
+const itWithMigrationTools = hasPostgresMigrationTools ? it : it.skip;
 
 const dataPlaneSystemTables = [
   '__teable_data_schema_migrations',
@@ -100,6 +115,8 @@ const dataPlaneSystemTables = [
   'record_history',
   'table_trash',
   'record_trash',
+  'attachments',
+  'attachments_table',
   '__undo_log',
 ];
 
@@ -173,6 +190,29 @@ const relationExists = async (client: KnexType, schemaName: string, tableName: s
 const tableExists = async (client: KnexType, dbTableName: string) => {
   const { schemaName, tableName } = parseDbTableName(dbTableName);
   return relationExists(client, schemaName, tableName);
+};
+
+const undoCaptureTriggerFunctionSchema = async (client: KnexType, dbTableName: string) => {
+  const { schemaName, tableName } = parseDbTableName(dbTableName);
+  const rows = await rawRows<{ function_schema: string | null }>(
+    client,
+    `
+      SELECT pn.nspname AS function_schema
+      FROM pg_trigger tg
+      JOIN pg_class c ON c.oid = tg.tgrelid
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      JOIN pg_proc p ON p.oid = tg.tgfoid
+      JOIN pg_namespace pn ON pn.oid = p.pronamespace
+      WHERE NOT tg.tgisinternal
+        AND tg.tgname = '__teable_undo_capture'
+        AND n.nspname = ?
+        AND c.relname = ?
+      LIMIT 1
+    `,
+    [schemaName, tableName]
+  );
+
+  return rows[0]?.function_schema ?? null;
 };
 
 const columnExists = async (client: KnexType, dbTableName: string, columnName: string) => {
@@ -332,6 +372,33 @@ const waitForImportCompleted = async (tableId: string, expectedSuccessCount: num
   throw new Error(`BYODB import timed out with latest status: ${data.status}`);
 };
 
+type IGetMigrationStatus = (spaceId: string, jobId: string) => Promise<IDataDbMigrationJobStatusVo>;
+
+const waitForMigrationSucceeded = async (
+  spaceId: string,
+  jobId: string,
+  getStatus: IGetMigrationStatus = async (statusSpaceId, statusJobId) =>
+    (await getSpaceDataDbMigration(statusSpaceId, statusJobId)).data
+) => {
+  const maxRetries = 240;
+  let latest: IDataDbMigrationJobStatusVo | undefined;
+
+  for (let i = 0; i < maxRetries; i++) {
+    latest = await getStatus(spaceId, jobId);
+    if (latest.state === 'succeeded') {
+      return latest;
+    }
+    if (['failed', 'canceled', 'rolled_back'].includes(latest.state)) {
+      throw new Error(
+        `BYODB migration ${jobId} ended as ${latest.state}: ${latest.lastError ?? 'unknown error'}`
+      );
+    }
+    await sleep(500);
+  }
+
+  throw new Error(`BYODB migration ${jobId} timed out at state: ${latest?.state ?? 'unknown'}`);
+};
+
 const createPgClient = (url: string) =>
   Knex({
     client: 'pg',
@@ -373,6 +440,18 @@ const uploadImportCsv = async () => {
   }
 };
 
+const expectRequestStatus = async (request: () => Promise<unknown>, status: number) => {
+  try {
+    await request();
+    throw new Error(`Expected request to fail with ${status}`);
+  } catch (error) {
+    const actualStatus =
+      (error as { status?: number; response?: { status?: number } }).status ??
+      (error as { response?: { status?: number } }).response?.status;
+    expect(actualStatus).toBe(status);
+  }
+};
+
 const safeDropSchema = async (client: KnexType | undefined, schemaName: string | undefined) => {
   if (!client || !schemaName) {
     return;
@@ -386,22 +465,57 @@ const safeDropSchema = async (client: KnexType | undefined, schemaName: string |
 describeByodbStorage('BYODB space storage placement (e2e)', () => {
   let app: INestApplication;
   let metaDb: KnexType;
+  let defaultDataDb: KnexType;
   let dataDb: KnexType;
   let baseConfigService: IBaseConfig;
+  let baseSqlExecutorService: BaseSqlExecutorService;
+  let migrationService: SpaceDataDbMigrationService;
+  let migrationWorkerService: SpaceDataDbMigrationWorkerService;
   let recordHistoryDisabled: boolean | undefined;
   let spaceId: string | undefined;
   let baseId: string | undefined;
   const userId = globalThis.testConfig.userId;
 
   const internalSchema = `byodb_e2e_${Date.now().toString(36)}`;
+  const waitForTrashId = async (resourceId: string, resourceType: ResourceType) => {
+    const maxRetries = 60;
+
+    for (let i = 0; i < maxRetries; i++) {
+      const trashRows = await rawRows<{ id: string }>(
+        metaDb,
+        `
+          SELECT ${quoteIdent('id')}
+          FROM ${quoteIdent('trash')}
+          WHERE ${quoteIdent('resource_id')} = ?
+            AND ${quoteIdent('resource_type')} = ?
+          ORDER BY ${quoteIdent('deleted_time')} DESC
+          LIMIT 1
+        `,
+        [resourceId, resourceType]
+      );
+      const trashId = trashRows[0]?.id;
+
+      if (trashId) {
+        return trashId;
+      }
+
+      await sleep(100);
+    }
+
+    throw new Error(`Timed out waiting for trash item ${resourceType}:${resourceId}`);
+  };
 
   beforeAll(async () => {
     metaDb = createPgClient(metaDatabaseUrl!);
+    defaultDataDb = createPgClient(defaultDataDatabaseUrl!);
     dataDb = createPgClient(byodbDataDatabaseUrl!);
 
     const appCtx = await initApp();
     app = appCtx.app;
     baseConfigService = app.get(baseConfig.KEY) as IBaseConfig;
+    baseSqlExecutorService = app.get(BaseSqlExecutorService);
+    migrationService = app.get(SpaceDataDbMigrationService);
+    migrationWorkerService = app.get(SpaceDataDbMigrationWorkerService);
     recordHistoryDisabled = baseConfigService.recordHistoryDisabled;
     baseConfigService.recordHistoryDisabled = false;
     ensureUndoRedoWindowIdHeader(`win_byodb_storage_${Date.now()}`);
@@ -425,6 +539,7 @@ describeByodbStorage('BYODB space storage placement (e2e)', () => {
     }
 
     await dataDb?.destroy().catch(() => undefined);
+    await defaultDataDb?.destroy().catch(() => undefined);
     await metaDb?.destroy().catch(() => undefined);
     await app?.close();
   }, 60_000);
@@ -574,6 +689,12 @@ describeByodbStorage('BYODB space storage placement (e2e)', () => {
     expect(initialRowCount.data.rowCount).toBe(3);
     await expect(countDbTableRows(dataDb, mainTable.dbTableName)).resolves.toBe(3);
     await expect(countDbTableRows(metaDb, mainTable.dbTableName)).resolves.toBe(0);
+    const { schemaName, tableName } = parseDbTableName(mainTable.dbTableName);
+    const sqlQueryRows = await baseSqlExecutorService.executeQuerySql<{ count: number }[]>(
+      base.id,
+      `SELECT COUNT(*)::int AS count FROM ${quoteIdent(schemaName)}.${quoteIdent(tableName)}`
+    );
+    expect(sqlQueryRows[0]?.count).toBe(3);
 
     const mainRecords = await createRecords(mainTable.id, {
       fieldKeyType: FieldKeyType.Id,
@@ -742,6 +863,499 @@ describeByodbStorage('BYODB space storage placement (e2e)', () => {
     await assertDotTeaBaseImportRouting(space.id);
     await assertComputedSideEffectsStayOutOfMetaDb(base.id, mainTable.id, recordId);
   }, 240_000);
+
+  itWithMigrationTools(
+    'migrates an existing default space and routes post-switch writes to BYODB only',
+    async () => {
+      const migrationInternalSchema = `byodb_existing_migrate_${Date.now().toString(36)}`;
+      let migrationSpaceId: string | undefined;
+      let migrationBaseId: string | undefined;
+      let migratedTable: ITableFullVo | undefined;
+      let otherSpaceId: string | undefined;
+      let otherBaseId: string | undefined;
+      let otherTable: ITableFullVo | undefined;
+
+      try {
+        const space = await createSpace({ name: 'BYODB existing-space migration e2e' });
+        migrationSpaceId = space.id;
+        const base = await createBase({
+          spaceId: space.id,
+          name: 'BYODB existing-space migration base',
+        });
+        migrationBaseId = base.id;
+        migratedTable = await createTable(base.id, {
+          name: 'BYODB existing-space migration table',
+          fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+          records: [{ fields: { Name: 'Before migration' } }],
+        });
+        const primaryFieldId = migratedTable.fields.find((field) => field.isPrimary)?.id;
+        const sourceRecordId = migratedTable.records[0]?.id;
+        expect(primaryFieldId).toBeTruthy();
+        expect(sourceRecordId).toBeTruthy();
+
+        const otherSpace = await createSpace({
+          name: 'BYODB other default-space during migration e2e',
+        });
+        otherSpaceId = otherSpace.id;
+        const otherBase = await createBase({
+          spaceId: otherSpace.id,
+          name: 'BYODB other default-space migration base',
+        });
+        otherBaseId = otherBase.id;
+        otherTable = await createTable(otherBase.id, {
+          name: 'BYODB other default-space migration table',
+          fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+          records: [{ fields: { Name: 'Other before migration' } }],
+        });
+        const otherPrimaryFieldId = otherTable.fields.find((field) => field.isPrimary)?.id;
+        expect(otherPrimaryFieldId).toBeTruthy();
+
+        await updateRecord(migratedTable.id, sourceRecordId!, {
+          fieldKeyType: FieldKeyType.Id,
+          record: {
+            fields: {
+              [primaryFieldId!]: 'Updated before migration',
+            },
+          },
+        });
+
+        await expect(tableExists(defaultDataDb, migratedTable.dbTableName)).resolves.toBe(true);
+        await expect(tableExists(dataDb, migratedTable.dbTableName)).resolves.toBe(false);
+        await expect(
+          waitForAtLeast(
+            () =>
+              countRows(
+                defaultDataDb,
+                'public',
+                'record_history',
+                `${quoteIdent('table_id')} = ? AND ${quoteIdent('record_id')} = ?`,
+                [migratedTable!.id, sourceRecordId]
+              ),
+            1
+          )
+        ).resolves.toBeGreaterThan(0);
+
+        const migration = await migrationService.startMigrationForSpace(space.id, userId, {
+          url: byodbDataDatabaseUrl!,
+          targetMode: 'migrate-space',
+          internalSchema: migrationInternalSchema,
+          confirmLargeMigration: true,
+          switchOnCompletion: true,
+        });
+        const jobId = migration.jobId;
+        expect(jobId).toBeTruthy();
+
+        const otherDuringMigrationRecords = await createRecords(otherTable.id, {
+          fieldKeyType: FieldKeyType.Id,
+          records: [{ fields: { [otherPrimaryFieldId!]: 'Other during migration' } }],
+        });
+        const otherDuringMigrationRecordId = otherDuringMigrationRecords.records[0].id;
+        await expect(
+          countDbTableRowsWhere(
+            defaultDataDb,
+            otherTable.dbTableName,
+            `${quoteIdent('__id')} = ?`,
+            [otherDuringMigrationRecordId]
+          )
+        ).resolves.toBe(1);
+        await expect(tableExists(dataDb, otherTable.dbTableName)).resolves.toBe(false);
+
+        const workerResult = await migrationWorkerService.runOnce();
+        expect(workerResult?.jobId).toBe(jobId);
+        expect(workerResult?.status).toBe('succeeded');
+
+        const status = await waitForMigrationSucceeded(
+          space.id,
+          jobId,
+          (statusSpaceId, statusJobId) =>
+            migrationService.getMigrationJobStatus(statusSpaceId, statusJobId)
+        );
+        expect(status.targetInternalSchema).toBe(migrationInternalSchema);
+        await assertDataPlaneBaseline(migrationInternalSchema);
+        await expect(tableExists(defaultDataDb, migratedTable.dbTableName)).resolves.toBe(true);
+        await expect(tableExists(dataDb, migratedTable.dbTableName)).resolves.toBe(true);
+        await expect(
+          countDbTableRowsWhere(dataDb, migratedTable.dbTableName, `${quoteIdent('__id')} = ?`, [
+            sourceRecordId,
+          ])
+        ).resolves.toBe(1);
+
+        const postSwitchRecords = await createRecords(migratedTable.id, {
+          fieldKeyType: FieldKeyType.Id,
+          records: [{ fields: { [primaryFieldId!]: 'After migration' } }],
+        });
+        const postSwitchRecordId = postSwitchRecords.records[0].id;
+        await expect(
+          countDbTableRowsWhere(dataDb, migratedTable.dbTableName, `${quoteIdent('__id')} = ?`, [
+            postSwitchRecordId,
+          ])
+        ).resolves.toBe(1);
+        await expect(
+          countDbTableRowsWhere(
+            defaultDataDb,
+            migratedTable.dbTableName,
+            `${quoteIdent('__id')} = ?`,
+            [postSwitchRecordId]
+          )
+        ).resolves.toBe(0);
+
+        await updateRecord(migratedTable.id, postSwitchRecordId, {
+          fieldKeyType: FieldKeyType.Id,
+          record: {
+            fields: {
+              [primaryFieldId!]: 'Updated after migration',
+            },
+          },
+        });
+        await expect(
+          waitForAtLeast(
+            () =>
+              countRows(
+                dataDb,
+                migrationInternalSchema,
+                'record_history',
+                `${quoteIdent('table_id')} = ? AND ${quoteIdent('record_id')} = ?`,
+                [migratedTable!.id, postSwitchRecordId]
+              ),
+            1
+          )
+        ).resolves.toBeGreaterThan(0);
+        await expect(
+          countRows(
+            defaultDataDb,
+            'public',
+            'record_history',
+            `${quoteIdent('table_id')} = ? AND ${quoteIdent('record_id')} = ?`,
+            [migratedTable.id, postSwitchRecordId]
+          )
+        ).resolves.toBe(0);
+        await expect(
+          undoCaptureTriggerFunctionSchema(dataDb, migratedTable.dbTableName)
+        ).resolves.toBe(migrationInternalSchema);
+
+        await deleteRecord(migratedTable.id, postSwitchRecordId);
+        await expect(
+          waitForCount(
+            () =>
+              countRows(
+                dataDb,
+                migrationInternalSchema,
+                'record_trash',
+                `${quoteIdent('table_id')} = ? AND ${quoteIdent('record_id')} = ?`,
+                [migratedTable!.id, postSwitchRecordId]
+              ),
+            1
+          )
+        ).resolves.toBe(1);
+        await expect(
+          countRows(
+            defaultDataDb,
+            'public',
+            'record_trash',
+            `${quoteIdent('table_id')} = ? AND ${quoteIdent('record_id')} = ?`,
+            [migratedTable.id, postSwitchRecordId]
+          )
+        ).resolves.toBe(0);
+
+        const undoResult = await undo(migratedTable.id);
+        expect(undoResult.data.status).toBe('fulfilled');
+        await expect(
+          waitForCount(
+            () =>
+              countRows(
+                dataDb,
+                migrationInternalSchema,
+                'record_trash',
+                `${quoteIdent('table_id')} = ? AND ${quoteIdent('record_id')} = ?`,
+                [migratedTable!.id, postSwitchRecordId]
+              ),
+            0
+          )
+        ).resolves.toBe(0);
+        await expect(
+          countRows(
+            defaultDataDb,
+            'public',
+            'record_trash',
+            `${quoteIdent('table_id')} = ? AND ${quoteIdent('record_id')} = ?`,
+            [migratedTable.id, postSwitchRecordId]
+          )
+        ).resolves.toBe(0);
+      } finally {
+        if (migrationBaseId) {
+          await permanentDeleteBase(migrationBaseId).catch(() => undefined);
+        }
+        if (otherBaseId) {
+          await permanentDeleteBase(otherBaseId).catch(() => undefined);
+        }
+        if (migrationSpaceId) {
+          await permanentDeleteSpace(migrationSpaceId).catch(() => undefined);
+        }
+        if (otherSpaceId) {
+          await permanentDeleteSpace(otherSpaceId).catch(() => undefined);
+        }
+        await safeDropSchema(dataDb, migrationBaseId);
+        await safeDropSchema(defaultDataDb, migrationBaseId);
+        await safeDropSchema(metaDb, migrationBaseId);
+        await safeDropSchema(dataDb, otherBaseId);
+        await safeDropSchema(defaultDataDb, otherBaseId);
+        await safeDropSchema(metaDb, otherBaseId);
+        await safeDropSchema(dataDb, migrationInternalSchema);
+        await safeDropSchema(metaDb, migrationInternalSchema);
+      }
+    },
+    240_000
+  );
+
+  it('rejects import trash and schema restore writes while a space migration is active', async () => {
+    const freezeInternalSchema = `byodb_freeze_${Date.now().toString(36)}`;
+    const migrationJobId = `sdmjfreeze${Date.now().toString(36)}`;
+    let freezeSpaceId: string | undefined;
+    let freezeBaseId: string | undefined;
+    let restoreTableId: string | undefined;
+
+    try {
+      const freezeSpace = await createSpace({ name: 'BYODB migration freeze e2e' });
+      freezeSpaceId = freezeSpace.id;
+      const freezeBase = await createBase({
+        spaceId: freezeSpace.id,
+        name: 'BYODB migration freeze base',
+      });
+      freezeBaseId = freezeBase.id;
+      const activeTable = await createTable(freezeBase.id, {
+        name: 'BYODB migration freeze active table',
+        fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+        records: [{ fields: { Name: 'Active row' } }],
+      });
+      const restoreTable = await createTable(freezeBase.id, {
+        name: 'BYODB migration freeze restore table',
+        fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+        records: [{ fields: { Name: 'Restore row' } }],
+      });
+      restoreTableId = restoreTable.id;
+
+      const attachmentUrl = await uploadImportCsv();
+      const {
+        data: { worksheets },
+      } = await apiAnalyzeFile({
+        attachmentUrl,
+        fileType: SUPPORTEDTYPE.CSV,
+      });
+      const columns = worksheets[CsvImporter.DEFAULT_SHEETKEY].columns.map((column, index) => ({
+        ...column,
+        sourceColumnIndex: index,
+      }));
+
+      await deleteTable(freezeBase.id, restoreTable.id, 200);
+      const trashId = await waitForTrashId(restoreTable.id, ResourceType.Table);
+
+      await metaDb('space_data_db_migration_job').insert({
+        id: migrationJobId,
+        space_id: freezeSpace.id,
+        target_mode: 'migrate-space',
+        switch_on_completion: true,
+        state: 'copying',
+        target_url_fingerprint: `dbfp_${migrationJobId}`,
+        target_internal_schema: freezeInternalSchema,
+        inventory: {
+          baseIds: [freezeBase.id],
+          tableIds: [activeTable.id, restoreTable.id],
+          dbTableNames: [activeTable.dbTableName, restoreTable.dbTableName],
+        },
+        started_at: new Date(),
+        created_by: userId,
+      });
+
+      await expectRequestStatus(
+        () =>
+          apiImportTableFromFile(freezeBase.id, {
+            attachmentUrl,
+            fileType: SUPPORTEDTYPE.CSV,
+            worksheets: {
+              [CsvImporter.DEFAULT_SHEETKEY]: {
+                name: 'BYODB migration freeze imported table',
+                columns,
+                useFirstRowAsHeader: true,
+                importData: true,
+              },
+            },
+            tz: 'Asia/Shanghai',
+          }),
+        409
+      );
+      await deleteTable(freezeBase.id, activeTable.id, 409);
+      await expectRequestStatus(() => restoreTrash(trashId!), 409);
+      await permanentDeleteTable(freezeBase.id, restoreTable.id, 409);
+
+      await expect(tableExists(defaultDataDb, activeTable.dbTableName)).resolves.toBe(true);
+      await expect(
+        countRows(metaDb, 'public', 'trash', `${quoteIdent('id')} = ?`, [trashId])
+      ).resolves.toBe(1);
+    } finally {
+      await metaDb('space_data_db_migration_job')
+        .where({ id: migrationJobId })
+        .delete()
+        .catch(() => undefined);
+      if (freezeBaseId && restoreTableId) {
+        await permanentDeleteTable(freezeBaseId, restoreTableId).catch(() => undefined);
+      }
+      if (freezeBaseId) {
+        await permanentDeleteBase(freezeBaseId).catch(() => undefined);
+      }
+      if (freezeSpaceId) {
+        await permanentDeleteSpace(freezeSpaceId).catch(() => undefined);
+      }
+      await safeDropSchema(dataDb, freezeBaseId);
+      await safeDropSchema(defaultDataDb, freezeBaseId);
+      await safeDropSchema(metaDb, freezeBaseId);
+      await safeDropSchema(dataDb, freezeInternalSchema);
+      await safeDropSchema(metaDb, freezeInternalSchema);
+    }
+  }, 180_000);
+
+  it('restores canary V2 record trash from a BYODB data DB', async () => {
+    const restoreInternalSchema = `byodb_restore_v2_${Date.now().toString(36)}`;
+    const previousEnableCanaryFeature = process.env.ENABLE_CANARY_FEATURE;
+    process.env.ENABLE_CANARY_FEATURE = 'true';
+    let restoreSpaceId: string | undefined;
+    let restoreBaseId: string | undefined;
+    let restoreTableId: string | undefined;
+
+    try {
+      const restoreSpace = await createSpace({
+        name: 'BYODB V2 record trash restore e2e',
+        dataDb: {
+          mode: 'byodb',
+          url: byodbDataDatabaseUrl!,
+          targetMode: 'initialize-empty',
+          internalSchema: restoreInternalSchema,
+        },
+      });
+      restoreSpaceId = restoreSpace.id;
+      await updateSetting({
+        [SettingKey.CANARY_CONFIG]: {
+          enabled: true,
+          spaceIds: [restoreSpace.id],
+        },
+      });
+
+      const restoreBase = await createBase({
+        spaceId: restoreSpace.id,
+        name: 'BYODB V2 record trash restore base',
+      });
+      restoreBaseId = restoreBase.id;
+      const restoreTable = await createTable(restoreBase.id, {
+        name: 'BYODB V2 record trash restore table',
+        fields: [{ name: 'Name', type: FieldType.SingleLineText, isPrimary: true }],
+        records: [{ fields: { Name: 'Restore row' } }],
+      });
+      restoreTableId = restoreTable.id;
+      const recordId = restoreTable.records[0]!.id;
+
+      await deleteRecord(restoreTable.id, recordId);
+      await expect(
+        waitForCount(
+          () =>
+            countRows(
+              dataDb,
+              restoreInternalSchema,
+              'table_trash',
+              `${quoteIdent('table_id')} = ? AND ${quoteIdent('resource_type')} = ?`,
+              [restoreTable.id, ResourceType.Record]
+            ),
+          1
+        )
+      ).resolves.toBe(1);
+      await expect(
+        waitForCount(
+          () =>
+            countRows(
+              dataDb,
+              restoreInternalSchema,
+              'record_trash',
+              `${quoteIdent('table_id')} = ? AND ${quoteIdent('record_id')} = ?`,
+              [restoreTable.id, recordId]
+            ),
+          1
+        )
+      ).resolves.toBe(1);
+      await expect(
+        countRows(
+          metaDb,
+          'public',
+          'record_trash',
+          `${quoteIdent('table_id')} = ? AND ${quoteIdent('record_id')} = ?`,
+          [restoreTable.id, recordId]
+        )
+      ).resolves.toBe(0);
+
+      const trash = await getTrashItems({
+        resourceId: restoreTable.id,
+        resourceType: ResourceType.Table,
+      });
+      const recordTrashItem = trash.data.trashItems.find(
+        (item) =>
+          item.resourceType === ResourceType.Record &&
+          'resourceIds' in item &&
+          item.resourceIds.includes(recordId)
+      );
+      expect(recordTrashItem).toBeDefined();
+
+      const restored = await restoreTrash(recordTrashItem!.id, restoreTable.id);
+      expect(restored.status).toBe(201);
+      expect(restored.headers[X_TEABLE_V2_HEADER]).toBe('true');
+
+      await expect(
+        waitForCount(
+          () =>
+            countRows(
+              dataDb,
+              restoreInternalSchema,
+              'record_trash',
+              `${quoteIdent('table_id')} = ? AND ${quoteIdent('record_id')} = ?`,
+              [restoreTable.id, recordId]
+            ),
+          0
+        )
+      ).resolves.toBe(0);
+      await expect(
+        countDbTableRowsWhere(dataDb, restoreTable.dbTableName, `${quoteIdent('__id')} = ?`, [
+          recordId,
+        ])
+      ).resolves.toBe(1);
+      await expect(
+        countDbTableRowsWhere(metaDb, restoreTable.dbTableName, `${quoteIdent('__id')} = ?`, [
+          recordId,
+        ])
+      ).resolves.toBe(0);
+    } finally {
+      if (previousEnableCanaryFeature === undefined) {
+        delete process.env.ENABLE_CANARY_FEATURE;
+      } else {
+        process.env.ENABLE_CANARY_FEATURE = previousEnableCanaryFeature;
+      }
+      await updateSetting({
+        [SettingKey.CANARY_CONFIG]: {
+          enabled: false,
+          spaceIds: [],
+        },
+      }).catch(() => undefined);
+      if (restoreBaseId && restoreTableId) {
+        await permanentDeleteTable(restoreBaseId, restoreTableId).catch(() => undefined);
+      }
+      if (restoreBaseId) {
+        await permanentDeleteBase(restoreBaseId).catch(() => undefined);
+      }
+      if (restoreSpaceId) {
+        await permanentDeleteSpace(restoreSpaceId).catch(() => undefined);
+      }
+      await safeDropSchema(dataDb, restoreBaseId);
+      await safeDropSchema(defaultDataDb, restoreBaseId);
+      await safeDropSchema(metaDb, restoreBaseId);
+      await safeDropSchema(dataDb, restoreInternalSchema);
+      await safeDropSchema(metaDb, restoreInternalSchema);
+    }
+  });
 
   const assertMetaPlaneRows = async (
     targetSpaceId: string,
@@ -1134,7 +1748,10 @@ describeByodbStorage('BYODB space storage placement (e2e)', () => {
       { name: 'order_count', type: FieldType.Number },
     ]);
 
-    await waitForImportCompleted(importedTable.id, 2);
+    const isV2Import = importResult.headers[X_TEABLE_V2_HEADER] === 'true';
+    if (!isV2Import) {
+      await waitForImportCompleted(importedTable.id, 2);
+    }
 
     const importedRecords = await getRecords(importedTable.id, {
       fieldKeyType: FieldKeyType.Name,
@@ -1180,6 +1797,7 @@ describeByodbStorage('BYODB space storage placement (e2e)', () => {
     await expect(countDbTableRows(dataDb, importedTable.dbTableName)).resolves.toBe(2);
     await expect(countDbTableRows(metaDb, importedTable.dbTableName)).resolves.toBe(0);
 
+    const expectedSchemaOperationType = isV2Import ? 'table.import' : 'table.create';
     await expect(
       countRows(
         metaDb,
@@ -1188,7 +1806,7 @@ describeByodbStorage('BYODB space storage placement (e2e)', () => {
         `${quoteIdent('base_id')} = ? AND ${quoteIdent('table_id')} = ? AND ${quoteIdent(
           'type'
         )} = ? AND ${quoteIdent('status')} = ?`,
-        [targetBaseId, importedTable.id, 'table.create', 'ready']
+        [targetBaseId, importedTable.id, expectedSchemaOperationType, 'ready']
       )
     ).resolves.toBe(1);
     await expect(

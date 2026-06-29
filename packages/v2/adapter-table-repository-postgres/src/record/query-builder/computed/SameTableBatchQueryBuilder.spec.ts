@@ -504,7 +504,7 @@ describe('SameTableBatchQueryBuilder', () => {
 
       expect(sqlText).toContain('"level_0"."PlusOne"');
       expect(sqlText).toContain(
-        'FROM "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" AS u JOIN "level_1"'
+        'FROM "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" AS "u" JOIN "level_1"'
       );
       expect(sqlText).not.toContain(
         'FROM "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" AS u, "level_0", "level_1"'
@@ -644,7 +644,7 @@ describe('SameTableBatchQueryBuilder', () => {
       expect(sqlText).toContain('"__cse"."__cse_0" as "SameA"');
       expect(sqlText).toContain('"__cse"."__cse_0" as "SameB"');
       expect((sqlText.match(/as "__cse_0"/g) ?? []).length).toBe(1);
-      expect(sqlText).toContain('JOIN "level_1" ON u."__id" = "level_1"."__id"');
+      expect(sqlText).toContain('JOIN "level_1" ON "u"."__id" = "level_1"."__id"');
       expect(sqlText).not.toContain(
         'FROM "bseaaaaaaaaaaaaaaaa"."tbldddddddddddddddd" AS u, "level_0", "level_1"'
       );

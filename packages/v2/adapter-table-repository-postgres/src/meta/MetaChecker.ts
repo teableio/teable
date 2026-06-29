@@ -17,6 +17,8 @@ import {
 import type { MetaValidationIssue, MetaValidationResult } from './MetaValidationResult';
 import { MetaValidationVisitor } from './MetaValidationVisitor';
 
+const yieldToEventLoop = () => new Promise<void>((resolve) => setImmediate(resolve));
+
 /**
  * Options for MetaChecker.
  */
@@ -130,6 +132,7 @@ export class MetaChecker {
           message: `Unexpected error: ${describeError(error)}`,
         };
       }
+      await yieldToEventLoop();
     }
   }
 
@@ -260,6 +263,7 @@ export async function* checkTableMetaWithTables(
         message: `Unexpected error: ${describeError(error)}`,
       };
     }
+    await yieldToEventLoop();
   }
 }
 

@@ -1,6 +1,7 @@
+import { SortFunc } from '@teable/core';
 import type { IGetRecordsRo } from '@teable/openapi';
 import { describe, expect, it } from 'vitest';
-import { buildSelectionViewQuery } from './selectionViewQuery';
+import { buildSelectionViewQuery, getSelectionGroupBy } from './selectionViewQuery';
 
 describe('buildSelectionViewQuery', () => {
   it('returns undefined when there is no personal view query', () => {
@@ -34,8 +35,12 @@ describe('buildSelectionViewQuery', () => {
       conjunction: 'and',
       filterSet: [{ fieldId: 'fldValue', operator: 'is', value: 'Open' }],
     };
-    const orderBy: NonNullable<IGetRecordsRo['orderBy']> = [{ fieldId: 'fldSort', order: 'desc' }];
-    const groupBy: NonNullable<IGetRecordsRo['groupBy']> = [{ fieldId: 'fldGroup', order: 'asc' }];
+    const orderBy: NonNullable<IGetRecordsRo['orderBy']> = [
+      { fieldId: 'fldSort', order: SortFunc.Desc },
+    ];
+    const groupBy: NonNullable<IGetRecordsRo['groupBy']> = [
+      { fieldId: 'fldGroup', order: SortFunc.Asc },
+    ];
 
     const personalViewCommonQuery = {
       ignoreViewQuery: true,
@@ -78,10 +83,72 @@ describe('buildSelectionViewQuery', () => {
   it('returns full query with custom sorting', () => {
     const personalViewCommonQuery = {
       ignoreViewQuery: true,
-      orderBy: [{ fieldId: 'fldSort', order: 'asc' as const }],
+      orderBy: [{ fieldId: 'fldSort', order: SortFunc.Asc }],
       projection: ['fldPrimary'],
     };
 
     expect(buildSelectionViewQuery({ personalViewCommonQuery })).toEqual(personalViewCommonQuery);
+  });
+
+  it('uses the personal view group for selection operations when it differs from the saved view', () => {
+    const viewGroup: NonNullable<IGetRecordsRo['groupBy']> = [
+      { fieldId: 'fldSavedGroup', order: SortFunc.Asc },
+    ];
+    const personalGroup: NonNullable<IGetRecordsRo['groupBy']> = [
+      { fieldId: 'fldLiveGroup', order: SortFunc.Desc },
+    ];
+
+    expect(
+      getSelectionGroupBy({
+        selectionViewQuery: {
+          ignoreViewQuery: true,
+          groupBy: personalGroup,
+        },
+        viewGroup,
+      })
+    ).toEqual(personalGroup);
+  });
+
+  it('keeps an intentionally empty personal view group instead of falling back to the saved view', () => {
+    const viewGroup: NonNullable<IGetRecordsRo['groupBy']> = [
+      { fieldId: 'fldSavedGroup', order: SortFunc.Asc },
+    ];
+
+    expect(
+      getSelectionGroupBy({
+        selectionViewQuery: {
+          ignoreViewQuery: true,
+          groupBy: [],
+        },
+        viewGroup,
+      })
+    ).toEqual([]);
+  });
+
+  it('keeps an ungrouped personal view request instead of falling back to the saved view', () => {
+    const viewGroup: NonNullable<IGetRecordsRo['groupBy']> = [
+      { fieldId: 'fldSavedGroup', order: SortFunc.Asc },
+    ];
+
+    expect(
+      getSelectionGroupBy({
+        selectionViewQuery: {
+          ignoreViewQuery: true,
+        },
+        viewGroup,
+      })
+    ).toBeUndefined();
+  });
+
+  it('falls back to the saved view group when there is no personal view query', () => {
+    const viewGroup: NonNullable<IGetRecordsRo['groupBy']> = [
+      { fieldId: 'fldSavedGroup', order: SortFunc.Asc },
+    ];
+
+    expect(
+      getSelectionGroupBy({
+        viewGroup,
+      })
+    ).toEqual(viewGroup);
   });
 });

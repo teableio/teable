@@ -194,7 +194,7 @@ export const SpaceQuickSearch: FC<Props> = ({ spaceId }) => {
                   <div className="flex w-full items-center gap-2 pl-6 text-xs text-muted-foreground">
                     {item.createdUser && (
                       <div className="flex shrink-0 items-center gap-1">
-                        <span>{t('space:baseList.owner')}:</span>
+                        <span>{t('space:baseList.creator')}:</span>
                         <UserAvatar user={item.createdUser} className="size-4 border" />
                         <span className="truncate">{item.createdUser.name}</span>
                       </div>

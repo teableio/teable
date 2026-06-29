@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/naming-convention */
 import {
   Injectable,
   type NestInterceptor,
@@ -6,48 +5,24 @@ import {
   type CallHandler,
   Logger,
 } from '@nestjs/common';
-import * as Sentry from '@sentry/nestjs';
 import { trace } from '@opentelemetry/api';
 import type { Response } from 'express';
 import { ClsService } from 'nestjs-cls';
 import type { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import type { IClsStore } from '../../../types/cls';
-
-export const X_TEABLE_V2_HEADER = 'x-teable-v2';
-export const X_TEABLE_V2_REASON_HEADER = 'x-teable-v2-reason';
-export const X_TEABLE_V2_FEATURE_HEADER = 'x-teable-v2-feature';
-export const TEABLE_REQUEST_ATTRIBUTION = 'teable.request.attribution';
-
-type SentryScopeLike = {
-  setTag(key: string, value: string): void;
-};
-
-const getSentryScopes = (): SentryScopeLike[] => {
-  const sentryApi = Sentry as unknown as {
-    getCurrentScope?: () => SentryScopeLike | undefined;
-    getIsolationScope?: () => SentryScopeLike | undefined;
-    getCurrentHub?: () => { getScope?: () => SentryScopeLike | undefined };
-  };
-
-  const scopes = [
-    sentryApi.getCurrentScope?.(),
-    sentryApi.getIsolationScope?.(),
-    sentryApi.getCurrentHub?.()?.getScope?.(),
-  ].filter((scope): scope is SentryScopeLike => Boolean(scope));
-
-  return [...new Set(scopes)];
-};
-
-const setSentryTag = (key: string, value: string | undefined) => {
-  if (value == null) {
-    return;
-  }
-
-  for (const scope of getSentryScopes()) {
-    scope.setTag(key, value);
-  }
-};
+import {
+  getV2Attribution,
+  getV2AttributionSpanAttributes,
+  setV2AttributionHeaders,
+  setV2AttributionOnCurrentSentryScopes,
+} from '../v2-attribution';
+export {
+  TEABLE_REQUEST_ATTRIBUTION,
+  X_TEABLE_V2_FEATURE_HEADER,
+  X_TEABLE_V2_HEADER,
+  X_TEABLE_V2_REASON_HEADER,
+} from '../v2-attribution';
 
 /**
  * Interceptor that adds V2 indicator to response headers and logs.
@@ -65,56 +40,22 @@ export class V2IndicatorInterceptor implements NestInterceptor {
 
   constructor(private readonly cls: ClsService<IClsStore>) {}
 
-  private setHeaderIfPossible(response: Response, name: string, value: string) {
-    if (response.headersSent || response.writableEnded || response.destroyed) {
-      return;
-    }
-
-    response.setHeader(name, value);
-  }
-
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
-    const useV2 = this.cls.get('useV2');
-    const v2Reason = this.cls.get('v2Reason');
-    const v2Feature = this.cls.get('v2Feature');
-
     const response = context.switchToHttp().getResponse<Response>();
     const request = context.switchToHttp().getRequest();
 
-    // Add V2 indicator headers regardless of useV2 value
-    // This allows clients to understand why V2 was or wasn't used
-    this.setHeaderIfPossible(response, X_TEABLE_V2_HEADER, useV2 ? 'true' : 'false');
-    if (v2Reason) {
-      this.setHeaderIfPossible(response, X_TEABLE_V2_REASON_HEADER, v2Reason);
-    }
-    if (v2Feature) {
-      this.setHeaderIfPossible(response, X_TEABLE_V2_FEATURE_HEADER, v2Feature);
-    }
-
-    // Mirror V2 indicators into Sentry tags so issue search can distinguish v1/v2 requests.
-    setSentryTag('teable.version', useV2 ? 'v2' : 'v1');
-    setSentryTag('teable.v2.enabled', useV2 ? 'true' : 'false');
-    setSentryTag('teable.v2.reason', v2Reason);
-    setSentryTag('teable.v2.feature', v2Feature);
-    setSentryTag(TEABLE_REQUEST_ATTRIBUTION, useV2 ? 'v2' : 'v1');
-
-    // Add span attributes for tracing
-    const span = trace.getActiveSpan();
-    if (span) {
-      span.setAttributes({
-        [TEABLE_REQUEST_ATTRIBUTION]: useV2 ? 'v2' : 'v1',
-        'teable.v2.enabled': useV2 ?? false,
-        ...(v2Reason && { 'teable.v2.reason': v2Reason }),
-        ...(v2Feature && { 'teable.v2.feature': v2Feature }),
-      });
-    }
-
-    if (!useV2) {
-      return next.handle();
-    }
+    // Stamp the guard decision before the handler runs so thrown requests keep attribution.
+    this.annotateRequest(response);
 
     return next.handle().pipe(
       tap(() => {
+        // Re-stamp after success to reflect any controller-level fallback.
+        const attribution = this.annotateRequest(response);
+
+        if (!attribution.useV2) {
+          return;
+        }
+
         // Log V2 usage for tracing
         this.logger.debug({
           message: 'V2 implementation used',
@@ -122,10 +63,27 @@ export class V2IndicatorInterceptor implements NestInterceptor {
           path: request.path,
           tableId: request.params?.tableId,
           useV2: true,
-          v2Reason,
-          v2Feature,
+          v2Reason: attribution.v2Reason,
+          v2Feature: attribution.v2Feature,
         });
       })
     );
+  }
+
+  private annotateRequest(response: Response) {
+    const attribution = getV2Attribution(this.cls);
+
+    setV2AttributionHeaders(response, attribution);
+    setV2AttributionOnCurrentSentryScopes(attribution);
+
+    const span = trace.getActiveSpan();
+    if (span) {
+      const attributes = getV2AttributionSpanAttributes(attribution);
+      if (Object.keys(attributes).length) {
+        span.setAttributes(attributes);
+      }
+    }
+
+    return attribution;
   }
 }
