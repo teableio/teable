@@ -2,22 +2,33 @@ import type { QueryFunctionContext } from '@tanstack/react-query';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
 import type {
+  IRestoreFieldTrashStreamDoneEvent,
+  IRestoreFieldTrashStreamErrorEvent,
+  IRestoreFieldTrashStreamProgressEvent,
   ITrashVo,
   ITableTrashItemVo,
   IViewSnapshotItemVo,
   IFieldSnapshotItemVo,
 } from '@teable/openapi';
-import { getTrashItems, TrashType, restoreTrash, TableTrashType } from '@teable/openapi';
+import {
+  getTrashItems,
+  TrashType,
+  restoreTrash,
+  restoreFieldTrashStream,
+  TableTrashType,
+} from '@teable/openapi';
 import { CollaboratorWithHoverCard, InfiniteTable } from '@teable/sdk/components';
 import { VIEW_ICON_MAP } from '@teable/sdk/components/view/constant';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { useBasePermission, useFieldStaticGetter, useIsHydrated } from '@teable/sdk/hooks';
+import { useBase, useBasePermission, useFieldStaticGetter, useIsHydrated } from '@teable/sdk/hooks';
 import { Button } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import dayjs from 'dayjs';
 import { useTranslation } from 'next-i18next';
-import { Fragment, useCallback, useMemo, useState } from 'react';
+import { Fragment, useCallback, useMemo, useRef, useState } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
+import { RestoreFieldTrashProgressDialog } from './RestoreFieldTrashProgressDialog';
+import type { SelectionActionDialogStatus } from '../../view/grid/components/SelectionActionProgressDialog';
 
 interface ITableTrashProps {
   tableId: string;
@@ -30,12 +41,24 @@ export const TableTrash = (props: ITableTrashProps) => {
   const queryClient = useQueryClient();
   const getFieldStatic = useFieldStaticGetter();
   const permission = useBasePermission();
+  const base = useBase();
 
   const hasRestorePermission = permission?.['table|trash_update'];
+  const useV2RestoreField = base?.v2Status?.useV2 ?? Boolean(base?.isCanary);
 
   const [nextCursor, setNextCursor] = useState<string | null | undefined>();
   const [userMap, setUserMap] = useState<ITrashVo['userMap']>({});
   const [resourceMap, setResourceMap] = useState<ITrashVo['resourceMap']>({});
+  const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
+  const [restoreProgress, setRestoreProgress] =
+    useState<IRestoreFieldTrashStreamProgressEvent | null>(null);
+  const [restoreSummary, setRestoreSummary] =
+    useState<IRestoreFieldTrashStreamDoneEvent | null>(null);
+  const [restoreErrors, setRestoreErrors] = useState<IRestoreFieldTrashStreamErrorEvent[]>([]);
+  const [restoreStatus, setRestoreStatus] = useState<SelectionActionDialogStatus | null>(null);
+  const [restoringTrashId, setRestoringTrashId] = useState<string | null>(null);
+  const restoreErrorsRef = useRef<IRestoreFieldTrashStreamErrorEvent[]>([]);
+  const restoreProgressRef = useRef<IRestoreFieldTrashStreamProgressEvent | null>(null);
 
   const queryFn = async ({
     queryKey,
@@ -69,6 +92,72 @@ export const TableTrash = (props: ITableTrashProps) => {
       toast.success(t('actions.restoreSucceed'));
     },
   });
+
+  const restoreFieldTrash = useCallback(
+    async (trashId: string) => {
+      setRestoringTrashId(trashId);
+      setRestoreProgress(null);
+      setRestoreSummary(null);
+      setRestoreErrors([]);
+      restoreErrorsRef.current = [];
+      restoreProgressRef.current = null;
+      setRestoreStatus('running');
+      setRestoreDialogOpen(true);
+
+      try {
+        const { done, errors } = await restoreFieldTrashStream(trashId, tableId, {
+          onProgress: (progress) => {
+            restoreProgressRef.current = progress;
+            setRestoreProgress(progress);
+          },
+          onError: (error) => {
+            restoreErrorsRef.current = [...restoreErrorsRef.current, error];
+            setRestoreErrors(restoreErrorsRef.current);
+          },
+        });
+
+        setRestoreSummary(done);
+        setRestoreErrors(errors);
+        restoreErrorsRef.current = errors;
+        setRestoreStatus(errors.length ? 'partial' : 'success');
+        queryClient.invalidateQueries({ queryKey: ReactQueryKeys.getTrashItems(tableId) });
+        toast.success(t('actions.restoreSucceed'));
+      } catch (error) {
+        if (!restoreErrorsRef.current.length) {
+          const message = error instanceof Error ? error.message : String(error);
+          const latestProgress = restoreProgressRef.current as
+            | IRestoreFieldTrashStreamProgressEvent
+            | null;
+          const streamError: IRestoreFieldTrashStreamErrorEvent = {
+            id: 'error',
+            phase: 'restoring',
+            batchIndex: -1,
+            totalCount: latestProgress?.totalCount ?? 0,
+            processedCount: latestProgress?.processedCount ?? 0,
+            updatedCount: latestProgress?.updatedCount ?? 0,
+            message,
+          };
+          restoreErrorsRef.current = [streamError];
+          setRestoreErrors(restoreErrorsRef.current);
+        }
+        setRestoreStatus('error');
+      } finally {
+        setRestoringTrashId(null);
+      }
+    },
+    [queryClient, t, tableId]
+  );
+
+  const handleRestore = useCallback(
+    async (item: ITableTrashItemVo) => {
+      if (item.resourceType === TableTrashType.Field && useV2RestoreField) {
+        await restoreFieldTrash(item.id);
+        return;
+      }
+      await mutateRestore({ trashId: item.id });
+    },
+    [mutateRestore, restoreFieldTrash, useV2RestoreField]
+  );
 
   const allRows = useMemo(
     () => (data ? data.pages.flatMap((d) => d) : []) as ITableTrashItemVo[],
@@ -185,8 +274,14 @@ export const TableTrash = (props: ITableTrashProps) => {
         minSize: 104,
         cell: ({ row }) => {
           const trashId = row.getValue<string>('id');
+          const isRestoring = restoringTrashId === trashId;
           return (
-            <Button size="sm" variant={'outline'} onClick={() => mutateRestore({ trashId })}>
+            <Button
+              size="sm"
+              variant={'outline'}
+              disabled={isRestoring}
+              onClick={() => handleRestore(row.original)}
+            >
               {t('actions.restore')}
             </Button>
           );
@@ -194,7 +289,15 @@ export const TableTrash = (props: ITableTrashProps) => {
       });
     }
     return result;
-  }, [t, userMap, resourceMap, hasRestorePermission, getFieldStatic, mutateRestore]);
+  }, [
+    t,
+    userMap,
+    resourceMap,
+    hasRestorePermission,
+    getFieldStatic,
+    restoringTrashId,
+    handleRestore,
+  ]);
 
   const fetchNextPageInner = useCallback(() => {
     if (!isFetching && nextCursor) {
@@ -205,11 +308,21 @@ export const TableTrash = (props: ITableTrashProps) => {
   if (!isHydrated || isLoading) return null;
 
   return (
-    <InfiniteTable
-      rows={allRows}
-      columns={columns}
-      className="sm:overflow-x-hidden"
-      fetchNextPage={fetchNextPageInner}
-    />
+    <>
+      <InfiniteTable
+        rows={allRows}
+        columns={columns}
+        className="sm:overflow-x-hidden"
+        fetchNextPage={fetchNextPageInner}
+      />
+      <RestoreFieldTrashProgressDialog
+        open={restoreDialogOpen}
+        progress={restoreProgress}
+        summary={restoreSummary}
+        errors={restoreErrors}
+        status={restoreStatus}
+        onOpenChange={setRestoreDialogOpen}
+      />
+    </>
   );
 };

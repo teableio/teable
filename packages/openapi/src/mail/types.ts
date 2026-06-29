@@ -21,12 +21,18 @@ export enum MailType {
   NotifyMerge = 'notifyMerge',
   WaitlistInvite = 'waitlistInvite',
   AutomationSendEmailAction = 'automationSendEmailAction',
+  ApiSendEmailAction = 'apiSendEmailAction',
 }
 
 export enum EmailVerifyCodeType {
   Signup = 'signup',
   ChangeEmail = 'changeEmail',
   DomainVerification = 'domainVerification',
+}
+
+export enum MailBodyType {
+  Markdown = 'markdown',
+  Html = 'html',
 }
 
 export const mailTransportConfigSchema = z.object({

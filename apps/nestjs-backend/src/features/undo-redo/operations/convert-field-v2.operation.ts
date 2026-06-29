@@ -110,7 +110,6 @@ export class ConvertFieldV2Operation {
     mode: 'undo' | 'redo'
   ) {
     await this.fieldOpenApiV2Service.convertField(tableId, fieldId, this.toConvertFieldRo(field), {
-      emitOperation: false,
       suppressWindowId: true,
       undoRedoMode: mode,
     });

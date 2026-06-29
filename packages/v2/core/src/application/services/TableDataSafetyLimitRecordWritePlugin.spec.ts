@@ -46,7 +46,8 @@ const values = (entries: ReadonlyArray<readonly [string, unknown]> = []): Record
 const createContext = (
   kind: RecordWriteOperationKind,
   payload: Record<string, unknown>,
-  tableLimits: TableDataSafetyLimitConfig
+  tableLimits: TableDataSafetyLimitConfig,
+  orchestration?: RecordWritePluginContext['orchestration']
 ): RecordWritePluginContext =>
   ({
     kind,
@@ -56,6 +57,7 @@ const createContext = (
     } satisfies IExecutionContext,
     table,
     payload,
+    orchestration,
     isTransactionBound: false,
   }) as unknown as RecordWritePluginContext;
 
@@ -249,6 +251,59 @@ describe('TableDataSafetyLimitRecordWritePlugin', () => {
       expect(result._unsafeUnwrapErr().code).toBe('validation.limit.records_per_mutation_max');
     }
   );
+
+  it('checks streamed operation hooks by concrete payload size and streamed chunks by chunk size', async () => {
+    const tableLimits = { recordValues: { maxRecordsPerMutation: 2 } };
+    const operationResult = await runPlugin(
+      createContext(
+        RecordWriteOperationKind.importAppend,
+        {
+          sourceType: 'csv',
+          sourceColumnMap: {},
+          recordsFieldValues: [],
+          batchSize: 2,
+          typecast: false,
+          recordCount: 3,
+        },
+        tableLimits,
+        {
+          mode: 'stream',
+          scope: 'operation',
+          operationId: 'import-records:test',
+          totalRecordCount: 3,
+          totalChunkCount: 2,
+        }
+      )
+    );
+
+    expect(operationResult.isOk()).toBe(true);
+
+    const chunkResult = await runPlugin(
+      createContext(
+        RecordWriteOperationKind.importAppend,
+        {
+          sourceType: 'csv',
+          sourceColumnMap: {},
+          recordsFieldValues: [values(), values(), values()],
+          batchSize: 3,
+          typecast: false,
+          recordCount: 3,
+        },
+        tableLimits,
+        {
+          mode: 'stream',
+          scope: 'chunk',
+          operationId: 'import-records:test',
+          totalRecordCount: 3,
+          totalChunkCount: 1,
+          chunkIndex: 0,
+        }
+      )
+    );
+
+    expect(chunkResult.isErr()).toBe(true);
+    expect(chunkResult._unsafeUnwrapErr().code).toBe('validation.limit.records_per_mutation_max');
+  });
 
   it('rejects oversized cell values', async () => {
     const result = await runPlugin(
