@@ -401,6 +401,9 @@
         "medium": "Medio",
         "high": "Alto"
       },
+      "tip": {
+        "gptImageResolution": "Debido al límite total de píxeles, el modo 4K usará el mayor tamaño compatible disponible para algunas relaciones de aspecto."
+      },
       "autoFill": {
         "title": "Actualizar automáticamente",
         "tip": "Después de habilitarlo, el campo actual se actualizará sincronizadamente con los cambios del contenido de la configuración de IA"
@@ -691,6 +694,7 @@
     "menu": {
       "addFromOtherSource": "Agregar de otras fuentes",
       "excelFile": "Microsoft Excel",
+      "airtable": "Airtable",
       "csvFile": "Archivo CSV",
       "importCsvData": "Importar datos CSV",
       "importExcelData": "Importar datos de Microsoft Excel",
@@ -843,6 +847,7 @@
     "description": "Puede acceder a la base de datos directamente a través de la conexión de la base de datos, incluidas todas las tablas bajo la base actual",
     "noPermission": "No tiene permiso para acceder a la base de datos",
     "createFailed": "Asegúrese de que la variable de entorno public_database_proxy esté configurada correctamente",
+    "readonlyUnavailable": "Readonly database sharing is unavailable for this data database. Grant the Teable database user permission to create roles and grants, or use a target database that supports readonly roles.",
     "helpLink": "https://help.table.io/en/deploy/database-connection"
   },
   "view": {
@@ -1031,9 +1036,19 @@
       "workflows": "Automatizaciones",
       "folders": "Carpetas"
     },
+    "slashCommand": {
+      "skills": "Skills",
+      "searchEmpty": "No results found"
+    },
     "inputPlaceholder": "Escribe @ para añadir nodo",
     "inputPlaceholderFiles": "Pega o suelta archivos aquí",
     "thought": "Pensando",
+    "stage": {
+      "initializing": "Inicializando",
+      "working": "Trabajando",
+      "committing": "Confirmando",
+      "recovering": "Recuperando"
+    },
     "meta": {
       "input": "Entrada",
       "output": "Salida",
@@ -1095,6 +1110,19 @@
       "noPrefixOptionDesc": "Mantener el nombre original",
       "groupByRow": "Archivar en carpetas",
       "groupByRowTip": "Cuando una fila tiene múltiples adjuntos, se colocarán en la misma carpeta; las filas con solo un adjunto no crearán una carpeta."
+    }
+  },
+  "baseNode": {
+    "info": {
+      "menu": "Información del nodo",
+      "createdBy": "Creado por",
+      "createdTime": "Hora de creación",
+      "lastModifiedBy": "Modificado por",
+      "lastModifiedTime": "Hora de modificación",
+      "folderId": "ID de carpeta",
+      "tableId": "ID de tabla",
+      "automationId": "ID de automatización",
+      "appId": "ID de aplicación"
     }
   }
 }

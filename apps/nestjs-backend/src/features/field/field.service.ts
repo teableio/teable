@@ -744,6 +744,29 @@ export class FieldService implements IReadonlyAdapterService {
       .map((index) => index.name);
   }
 
+  getDropUniqueIndexSqls(dbTableName: string, indexNames: string[]) {
+    const [schemaName, tableName] = this.dbProvider.splitTableName(dbTableName);
+    const quoteTable = tableName
+      ? (constraintName: string) =>
+          this.knex
+            .raw('ALTER TABLE ??.?? DROP CONSTRAINT IF EXISTS ??', [
+              schemaName,
+              tableName,
+              constraintName,
+            ])
+            .toQuery()
+      : (constraintName: string) =>
+          this.knex
+            .raw('ALTER TABLE ?? DROP CONSTRAINT IF EXISTS ??', [dbTableName, constraintName])
+            .toQuery();
+    const quoteIndex = tableName
+      ? (indexName: string) =>
+          this.knex.raw('DROP INDEX IF EXISTS ??.??', [schemaName, indexName]).toQuery()
+      : (indexName: string) => this.knex.raw('DROP INDEX IF EXISTS ??', [indexName]).toQuery();
+
+    return indexNames.flatMap((indexName) => [quoteTable(indexName), quoteIndex(indexName)]);
+  }
+
   private async alterTableModifyFieldValidation(
     fieldId: string,
     key: 'unique' | 'notNull',
@@ -777,15 +800,17 @@ export class FieldService implements IReadonlyAdapterService {
 
     const dbTableName = table.dbTableName;
     const matchedIndexes = await this.findUniqueIndexesForField(table.id, dbTableName, dbFieldName);
+    const dropUniqueIndexSqls =
+      key === 'unique' && !newValue ? this.getDropUniqueIndexSqls(dbTableName, matchedIndexes) : [];
 
     const fieldValidationSqls = this.knex.schema
       .alterTable(dbTableName, (table) => {
         if (key === 'unique') {
-          newValue
-            ? table.unique([dbFieldName], {
-                indexName: this.getFieldUniqueKeyName(dbTableName, dbFieldName, fieldId),
-              })
-            : matchedIndexes.forEach((indexName) => table.dropUnique([dbFieldName], indexName));
+          if (newValue) {
+            table.unique([dbFieldName], {
+              indexName: this.getFieldUniqueKeyName(dbTableName, dbFieldName, fieldId),
+            });
+          }
         }
 
         if (key === 'notNull') {
@@ -797,6 +822,7 @@ export class FieldService implements IReadonlyAdapterService {
     const executeSqls = fieldValidationSqls
       .filter((s) => !s.sql.startsWith('PRAGMA'))
       .map(({ sql }) => sql);
+    executeSqls.push(...dropUniqueIndexSqls);
 
     await handleDBValidationErrors({
       fn: () => {

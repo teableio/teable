@@ -2,11 +2,10 @@ import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { FieldType, Relationship } from '@teable/core';
 import { BaseDuplicateMode } from '@teable/openapi';
-import { v2RecordRepositoryPostgresTokens } from '@teable/v2-adapter-table-repository-postgres';
-import { TableByIdSpec, v2CoreTokens } from '@teable/v2-core';
+import { v2CoreTokens, type DuplicateBaseRecordReadOptions } from '@teable/v2-core';
 import { GlobalModule } from '../../global/global.module';
 import { BaseDuplicateService } from './base-duplicate.service';
-import type { BaseImportProgressCallback, IBaseImportProgress } from './base-import.service';
+import type { IBaseImportProgress } from './base-import.service';
 import { BaseModule } from './base.module';
 import type { ILinkFieldTableMap } from './utils';
 
@@ -150,7 +149,6 @@ describe('BaseDuplicateService normalizeDuplicateStructureForV2', () => {
 });
 
 describe('BaseDuplicateService duplicateBaseV2', () => {
-  const okResult = <T>(value: T) => ({ isErr: () => false, value });
   type IServiceArgs = ConstructorParameters<typeof BaseDuplicateService>;
   const duplicateBaseName = 'Duplicated base';
   const sourceTableName = 'Source table';
@@ -160,15 +158,20 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
     buildDuplicateStructureConfig: (...args: unknown[]) => Promise<unknown>;
     getCrossBaseLinkFieldTableMap: (...args: unknown[]) => Promise<ILinkFieldTableMap>;
     getDisconnectedLinkFieldTableMap: (...args: unknown[]) => Promise<ILinkFieldTableMap>;
+    getV2CrossBaseLinkFieldTableMap: (...args: unknown[]) => Promise<ILinkFieldTableMap>;
+    getV2DisconnectedLinkFieldTableMap: (...args: unknown[]) => Promise<ILinkFieldTableMap>;
+    getV2InternalLinkRelationTableMap: (...args: unknown[]) => Promise<Record<string, unknown[]>>;
     getDisconnectedLinkFieldIds: (...args: unknown[]) => Promise<string[]>;
     normalizeDuplicateStructureForV2: (structure: unknown) => unknown;
     createDuplicateBaseSource: (...args: unknown[]) => {
-      records(tableId: string): AsyncIterable<{ fields: Record<string, unknown> }>;
+      records(
+        tableId: string,
+        options?: DuplicateBaseRecordReadOptions
+      ): AsyncIterable<{ fields: Record<string, unknown> }>;
     };
     duplicateTableData: (...args: unknown[]) => Promise<number>;
     duplicateAttachments: (...args: unknown[]) => Promise<void>;
     duplicateLinkJunction: (...args: unknown[]) => Promise<void>;
-    backfillDuplicatedBaseComputedFields: (...args: unknown[]) => Promise<void>;
   };
 
   it('should create the v2 execution context from the space data container', async () => {
@@ -231,9 +234,9 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       {} as IServiceArgs[6],
       { get: vi.fn().mockReturnValue('usrTest') } as unknown as IServiceArgs[7],
       {} as IServiceArgs[8],
-      {} as IServiceArgs[9],
-      v2ContainerService as unknown as IServiceArgs[10],
-      v2ContextFactory as unknown as IServiceArgs[11]
+      v2ContainerService as unknown as IServiceArgs[9],
+      v2ContextFactory as unknown as IServiceArgs[10],
+      {} as IServiceArgs[11]
     );
     const internals = service as unknown as IDuplicateServiceInternals;
 
@@ -243,9 +246,9 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       structure,
       sourceDbTableNameByTableId,
     });
-    vi.spyOn(internals, 'getCrossBaseLinkFieldTableMap').mockResolvedValue({});
-    vi.spyOn(internals, 'getDisconnectedLinkFieldTableMap').mockResolvedValue({});
-    vi.spyOn(internals, 'getDisconnectedLinkFieldIds').mockResolvedValue([]);
+    vi.spyOn(internals, 'getV2CrossBaseLinkFieldTableMap').mockResolvedValue({});
+    vi.spyOn(internals, 'getV2DisconnectedLinkFieldTableMap').mockResolvedValue({});
+    vi.spyOn(internals, 'getV2InternalLinkRelationTableMap').mockResolvedValue({});
     vi.spyOn(internals, 'normalizeDuplicateStructureForV2').mockReturnValue(structure);
     vi.spyOn(internals, 'createDuplicateBaseSource').mockReturnValue(source);
 
@@ -262,15 +265,17 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       'bseSource',
       structure,
       {},
-      sourceDbTableNameByTableId
+      sourceDbTableNameByTableId,
+      {}
     );
     expect(commandBus.execute).toHaveBeenCalledWith(context, expect.any(Object));
   });
 
-  it('should create v2 structure first and copy records with raw table duplication', async () => {
+  it('should copy direct duplicate records through bulk SQL after v2 structure creation', async () => {
     const spaceId = 'spcTarget';
     const targetBaseId = 'bseTarget';
     const tableIdMap = { tblSource: 'tblTarget' };
+    const targetTableId = tableIdMap.tblSource;
     const fieldIdMap = { fldLink: 'fldTargetLink' };
     const viewIdMap = { viwSource: 'viwTarget' };
     const context = { requestId: 'ctx' };
@@ -335,10 +340,10 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       {} as IServiceArgs[5],
       persistedComputedBackfillService as unknown as IServiceArgs[6],
       { get: vi.fn().mockReturnValue('usrTest') } as unknown as IServiceArgs[7],
-      {} as IServiceArgs[8],
-      dataDbClientManager as unknown as IServiceArgs[9],
-      v2ContainerService as unknown as IServiceArgs[10],
-      v2ContextFactory as unknown as IServiceArgs[11]
+      dataDbClientManager as unknown as IServiceArgs[8],
+      v2ContainerService as unknown as IServiceArgs[9],
+      v2ContextFactory as unknown as IServiceArgs[10],
+      {} as IServiceArgs[11]
     );
     const internals = service as unknown as IDuplicateServiceInternals;
     const mergedLinkFieldTableMap = {
@@ -349,17 +354,17 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       structure,
       sourceDbTableNameByTableId: { tblSource: sourceDbTableName },
     });
-    vi.spyOn(internals, 'getCrossBaseLinkFieldTableMap').mockResolvedValue({});
-    vi.spyOn(internals, 'getDisconnectedLinkFieldTableMap').mockResolvedValue(
+    vi.spyOn(internals, 'getV2CrossBaseLinkFieldTableMap').mockResolvedValue({});
+    vi.spyOn(internals, 'getV2DisconnectedLinkFieldTableMap').mockResolvedValue(
       mergedLinkFieldTableMap
     );
+    vi.spyOn(internals, 'getV2InternalLinkRelationTableMap').mockResolvedValue({});
     vi.spyOn(internals, 'getDisconnectedLinkFieldIds').mockResolvedValue(['fldDisconnected']);
     vi.spyOn(internals, 'normalizeDuplicateStructureForV2').mockReturnValue(structure);
     vi.spyOn(internals, 'createDuplicateBaseSource').mockReturnValue(source);
     vi.spyOn(internals, 'duplicateTableData').mockResolvedValue(12);
     vi.spyOn(internals, 'duplicateAttachments').mockResolvedValue(undefined);
     vi.spyOn(internals, 'duplicateLinkJunction').mockResolvedValue(undefined);
-    vi.spyOn(internals, 'backfillDuplicatedBaseComputedFields').mockResolvedValue(undefined);
 
     const result = await service.duplicateBaseV2({
       fromBaseId: 'bseSource',
@@ -368,15 +373,18 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       withRecords: true,
     });
 
-    const executedCommand = commandBus.execute.mock.calls[0]?.[1] as { withRecords: boolean };
+    const executedCommand = commandBus.execute.mock.calls[0]?.[1] as {
+      withRecords: boolean;
+      batchSize: number;
+    };
     expect(executedCommand.withRecords).toBe(false);
+    expect(executedCommand.batchSize).toBe(500);
     expect(internals.duplicateTableData).toHaveBeenCalledWith(
       targetBaseId,
       tableIdMap,
       fieldIdMap,
       viewIdMap,
-      mergedLinkFieldTableMap,
-      undefined
+      mergedLinkFieldTableMap
     );
     expect(internals.duplicateLinkJunction).toHaveBeenCalledWith(
       targetBaseId,
@@ -385,72 +393,18 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       true,
       ['fldDisconnected']
     );
-    expect(persistedComputedBackfillService.recomputeForTables).toHaveBeenCalledWith(['tblTarget']);
-    expect(internals.backfillDuplicatedBaseComputedFields).toHaveBeenCalledWith(
-      container,
-      context,
-      ['tblTarget']
+    expect(persistedComputedBackfillService.recomputeForTables).toHaveBeenCalledWith([
+      targetTableId,
+    ]);
+    expect(internals.duplicateAttachments).toHaveBeenCalledWith(
+      targetBaseId,
+      tableIdMap,
+      fieldIdMap
     );
     expect(result.recordsLength).toBe(12);
   });
 
-  it('should synchronously backfill v2 computed and link fields after raw record copy', async () => {
-    const targetTableId = 'tblaaaaaaaaaaaaaaaa';
-    const context = { requestId: 'ctx' };
-    const fields = [{ name: 'Owner' }];
-    const table = {
-      getFields: vi.fn().mockReturnValue(fields),
-    };
-    const tableRepository = {
-      findOne: vi.fn().mockResolvedValue(okResult(table)),
-    };
-    const backfillService = {
-      executeSyncMany: vi.fn().mockResolvedValue(okResult(undefined)),
-    };
-    const container = {
-      resolve: vi.fn((token: symbol) => {
-        if (token === v2CoreTokens.tableRepository) {
-          return tableRepository;
-        }
-        if (token === v2RecordRepositoryPostgresTokens.computedFieldBackfillService) {
-          return backfillService;
-        }
-        throw new Error('Unexpected token');
-      }),
-    };
-
-    const service = new BaseDuplicateService(
-      {} as IServiceArgs[0],
-      {} as IServiceArgs[1],
-      {} as IServiceArgs[2],
-      {} as IServiceArgs[3],
-      {} as IServiceArgs[4],
-      {} as IServiceArgs[5],
-      {} as IServiceArgs[6],
-      {} as IServiceArgs[7],
-      {} as IServiceArgs[8],
-      {} as IServiceArgs[9],
-      {} as IServiceArgs[10],
-      {} as IServiceArgs[11]
-    );
-    const internals = service as unknown as IDuplicateServiceInternals;
-
-    await internals.backfillDuplicatedBaseComputedFields(container, context, [targetTableId]);
-
-    expect(container.resolve).toHaveBeenCalledWith(v2CoreTokens.tableRepository);
-    expect(container.resolve).toHaveBeenCalledWith(
-      v2RecordRepositoryPostgresTokens.computedFieldBackfillService
-    );
-    expect(tableRepository.findOne).toHaveBeenCalledWith(context, expect.any(TableByIdSpec));
-    expect(backfillService.executeSyncMany).toHaveBeenCalledWith(context, {
-      table,
-      fields,
-      skipDistinctFilter: true,
-      includeOneManyTwoWay: true,
-    });
-  });
-
-  it('should forward real row totals through duplicateBaseV2 progress events', async () => {
+  it('should stream v2 duplicate records when source and target data databases differ', async () => {
     const spaceId = 'spcTarget';
     const targetBaseId = 'bseTarget';
     const tableIdMap = { tblSource: 'tblTarget' };
@@ -479,7 +433,144 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
             tableIdMap,
             fieldIdMap,
             viewIdMap,
-            recordsLength: 0,
+            recordsLength: 7,
+          };
+        })(),
+      }),
+    };
+    const container = {
+      resolve: vi.fn().mockReturnValueOnce(commandBus).mockReturnValueOnce(db),
+    };
+    const baseUpdate = vi.fn();
+    const baseImportService = {
+      createBaseV2: vi.fn().mockResolvedValue({ id: targetBaseId }),
+      restoreBaseExtrasV2: vi.fn().mockResolvedValue({ appIdMap: {}, workflowIdMap: {} }),
+    };
+    const dataDbClientManager = {
+      getDataDatabaseForBase: vi
+        .fn()
+        .mockResolvedValueOnce({ cacheKey: 'source-db' })
+        .mockResolvedValueOnce({ cacheKey: 'target-db' }),
+    };
+    const v2ContainerService = {
+      getContainerForSpace: vi.fn().mockResolvedValue(container),
+    };
+    const v2ContextFactory = {
+      createContext: vi.fn().mockResolvedValue(context),
+    };
+
+    const service = new BaseDuplicateService(
+      {
+        txClient: vi.fn().mockReturnValue({
+          base: { update: baseUpdate },
+        }),
+      } as unknown as IServiceArgs[0],
+      {} as IServiceArgs[1],
+      {} as IServiceArgs[2],
+      baseImportService as unknown as IServiceArgs[3],
+      {} as IServiceArgs[4],
+      {} as IServiceArgs[5],
+      {} as IServiceArgs[6],
+      { get: vi.fn().mockReturnValue('usrTest') } as unknown as IServiceArgs[7],
+      dataDbClientManager as unknown as IServiceArgs[8],
+      v2ContainerService as unknown as IServiceArgs[9],
+      v2ContextFactory as unknown as IServiceArgs[10],
+      {} as IServiceArgs[11]
+    );
+    const internals = service as unknown as IDuplicateServiceInternals;
+
+    vi.spyOn(internals, 'buildDuplicateStructureConfig').mockResolvedValue({
+      structure,
+      sourceDbTableNameByTableId: { tblSource: sourceDbTableName },
+    });
+    vi.spyOn(internals, 'getV2CrossBaseLinkFieldTableMap').mockResolvedValue({});
+    vi.spyOn(internals, 'getV2DisconnectedLinkFieldTableMap').mockResolvedValue({});
+    vi.spyOn(internals, 'getV2InternalLinkRelationTableMap').mockResolvedValue({});
+    vi.spyOn(internals, 'getDisconnectedLinkFieldIds').mockResolvedValue([]);
+    vi.spyOn(internals, 'normalizeDuplicateStructureForV2').mockReturnValue(structure);
+    vi.spyOn(internals, 'createDuplicateBaseSource').mockReturnValue(source);
+    vi.spyOn(internals, 'duplicateTableData').mockResolvedValue(0);
+    vi.spyOn(internals, 'duplicateAttachments').mockResolvedValue(undefined);
+    vi.spyOn(internals, 'duplicateLinkJunction').mockResolvedValue(undefined);
+
+    const result = await service.duplicateBaseV2({
+      fromBaseId: 'bseSource',
+      spaceId,
+      name: duplicateBaseName,
+      withRecords: true,
+    });
+
+    expect(dataDbClientManager.getDataDatabaseForBase).toHaveBeenCalledWith('bseSource', {
+      useTransaction: true,
+    });
+    expect(dataDbClientManager.getDataDatabaseForBase).toHaveBeenCalledWith(targetBaseId, {
+      useTransaction: true,
+    });
+    expect((commandBus.execute.mock.calls[0]?.[1] as { withRecords: boolean }).withRecords).toBe(
+      true
+    );
+    expect(internals.duplicateTableData).not.toHaveBeenCalled();
+    expect(internals.duplicateLinkJunction).not.toHaveBeenCalled();
+    expect(internals.duplicateAttachments).toHaveBeenCalledWith(
+      targetBaseId,
+      tableIdMap,
+      fieldIdMap
+    );
+    expect(result.recordsLength).toBe(7);
+  });
+
+  it('should forward real row totals through duplicateBaseV2 progress events', async () => {
+    const spaceId = 'spcTarget';
+    const targetBaseId = 'bseTarget';
+    const tableIdMap = { tblSource: 'tblTarget' };
+    const fieldIdMap = { fldText: 'fldTargetText' };
+    const viewIdMap = { viwSource: 'viwTarget' };
+    const context = { requestId: 'ctx' };
+    const db = { dialect: 'pg' };
+    const structure = {
+      name: duplicateBaseName,
+      icon: undefined,
+      tables: [{ id: 'tblSource', name: sourceTableName, fields: [], views: [] }],
+    };
+    const source = {
+      structure,
+      records: async function* () {
+        yield undefined as never;
+      },
+    };
+    const commandBus = {
+      execute: vi.fn().mockResolvedValue({
+        isErr: () => false,
+        value: (async function* () {
+          yield {
+            id: 'progress',
+            phase: 'table_data_start',
+            processedRows: 0,
+            totalRows: 12,
+          };
+          yield {
+            id: 'progress',
+            phase: 'table_data_progress',
+            tableId: 'tblTarget',
+            tableName: sourceTableName,
+            processedRows: 5,
+            batchProcessedRows: 5,
+            currentBatch: 1,
+            totalRows: 12,
+          };
+          yield {
+            id: 'progress',
+            phase: 'table_data_done',
+            processedRows: 12,
+            totalRows: 12,
+          };
+          yield {
+            id: 'done',
+            baseId: targetBaseId,
+            tableIdMap,
+            fieldIdMap,
+            viewIdMap,
+            recordsLength: 12,
           };
         })(),
       }),
@@ -517,10 +608,10 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       {} as IServiceArgs[5],
       persistedComputedBackfillService as unknown as IServiceArgs[6],
       { get: vi.fn().mockReturnValue('usrTest') } as unknown as IServiceArgs[7],
-      {} as IServiceArgs[8],
-      dataDbClientManager as unknown as IServiceArgs[9],
-      v2ContainerService as unknown as IServiceArgs[10],
-      v2ContextFactory as unknown as IServiceArgs[11]
+      dataDbClientManager as unknown as IServiceArgs[8],
+      v2ContainerService as unknown as IServiceArgs[9],
+      v2ContextFactory as unknown as IServiceArgs[10],
+      {} as IServiceArgs[11]
     );
     const internals = service as unknown as IDuplicateServiceInternals;
     const progressEvents: unknown[] = [];
@@ -529,29 +620,14 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       structure,
       sourceDbTableNameByTableId: { tblSource: sourceDbTableName },
     });
-    vi.spyOn(internals, 'getCrossBaseLinkFieldTableMap').mockResolvedValue({});
-    vi.spyOn(internals, 'getDisconnectedLinkFieldTableMap').mockResolvedValue({});
-    vi.spyOn(internals, 'getDisconnectedLinkFieldIds').mockResolvedValue([]);
+    vi.spyOn(internals, 'getV2CrossBaseLinkFieldTableMap').mockResolvedValue({});
+    vi.spyOn(internals, 'getV2DisconnectedLinkFieldTableMap').mockResolvedValue({});
+    vi.spyOn(internals, 'getV2InternalLinkRelationTableMap').mockResolvedValue({});
     vi.spyOn(internals, 'normalizeDuplicateStructureForV2').mockReturnValue(structure);
     vi.spyOn(internals, 'createDuplicateBaseSource').mockReturnValue(source);
-    vi.spyOn(internals, 'duplicateTableData').mockImplementation(async (...args: unknown[]) => {
-      const onProgress = args[5] as BaseImportProgressCallback | undefined;
-      onProgress?.({ phase: 'table_data_start', processedRows: 0, totalRows: 12 });
-      onProgress?.({
-        phase: 'table_data_progress',
-        tableId: 'tblTarget',
-        tableName: sourceTableName,
-        processedRows: 5,
-        batchProcessedRows: 5,
-        currentBatch: 1,
-        totalRows: 12,
-      });
-      onProgress?.({ phase: 'table_data_done', processedRows: 12, totalRows: 12 });
-      return 12;
-    });
+    vi.spyOn(internals, 'duplicateTableData').mockResolvedValue(12);
     vi.spyOn(internals, 'duplicateAttachments').mockResolvedValue(undefined);
     vi.spyOn(internals, 'duplicateLinkJunction').mockResolvedValue(undefined);
-    vi.spyOn(internals, 'backfillDuplicatedBaseComputedFields').mockResolvedValue(undefined);
 
     const result = await service.duplicateBaseV2(
       {
@@ -565,13 +641,9 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       (event: string | IBaseImportProgress) => progressEvents.push(event)
     );
 
-    expect(internals.duplicateTableData).toHaveBeenCalledWith(
-      targetBaseId,
-      tableIdMap,
-      fieldIdMap,
-      viewIdMap,
-      {},
-      expect.any(Function)
+    expect(internals.duplicateTableData).not.toHaveBeenCalled();
+    expect((commandBus.execute.mock.calls[0]?.[1] as { withRecords: boolean }).withRecords).toBe(
+      true
     );
     expect(progressEvents).toEqual(
       expect.arrayContaining([
@@ -661,10 +733,10 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       knex as unknown as IServiceArgs[5],
       {} as IServiceArgs[6],
       {} as IServiceArgs[7],
-      {} as IServiceArgs[8],
       {
         dataPrismaForBase: vi.fn().mockResolvedValue(dataPrisma),
-      } as unknown as IServiceArgs[9],
+      } as unknown as IServiceArgs[8],
+      {} as IServiceArgs[9],
       {} as IServiceArgs[10],
       {} as IServiceArgs[11]
     );
@@ -724,10 +796,10 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       {} as IServiceArgs[5],
       {} as IServiceArgs[6],
       {} as IServiceArgs[7],
-      {} as IServiceArgs[8],
       {
         dataKnexForBase: vi.fn().mockResolvedValue(dataKnex),
-      } as unknown as IServiceArgs[9],
+      } as unknown as IServiceArgs[8],
+      {} as IServiceArgs[9],
       {} as IServiceArgs[10],
       {} as IServiceArgs[11]
     );
@@ -768,7 +840,503 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
         recordId: 'recSource',
         fields: { fldText: 'A' },
         autoNumber: 1,
+        lastModifiedTime: null,
+        lastModifiedBy: null,
       },
     ]);
+  });
+
+  it('should skip internal v2 link relation reads during insert phase', async () => {
+    const sourceTableQuery = {
+      select: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      limit: vi
+        .fn()
+        .mockResolvedValueOnce([
+          {
+            __id: 'recSource',
+            __auto_number: 1,
+            fldStory: [{ id: 'recStale', title: 'Deleted story' }],
+          },
+        ])
+        .mockResolvedValueOnce([]),
+    };
+    const dataKnex = vi.fn((tableName: string) => {
+      if (tableName === 'bseSource.tblSource') return sourceTableQuery;
+      throw new Error(`unexpected table ${tableName}`);
+    });
+    const service = new BaseDuplicateService(
+      {} as IServiceArgs[0],
+      {} as IServiceArgs[1],
+      {} as IServiceArgs[2],
+      {} as IServiceArgs[3],
+      {} as IServiceArgs[4],
+      {} as IServiceArgs[5],
+      {} as IServiceArgs[6],
+      {} as IServiceArgs[7],
+      { dataKnexForBase: vi.fn().mockResolvedValue(dataKnex) } as unknown as IServiceArgs[8],
+      {} as IServiceArgs[9],
+      {} as IServiceArgs[10],
+      {} as IServiceArgs[11]
+    );
+    const internals = service as unknown as IDuplicateServiceInternals;
+    const source = internals.createDuplicateBaseSource(
+      'bseSource',
+      {
+        name: duplicateBaseName,
+        tables: [
+          {
+            id: 'tblSource',
+            name: sourceTableName,
+            dbTableName: 'tblShortName',
+            fields: [
+              {
+                id: 'fldStory',
+                name: 'Story',
+                dbFieldName: 'fldStory',
+                type: FieldType.Link,
+              },
+            ],
+            views: [],
+          },
+        ],
+      },
+      {},
+      { tblSource: 'bseSource.tblSource' },
+      {
+        tblSource: [
+          {
+            fieldId: 'fldStory',
+            dbFieldName: 'fldStory',
+            foreignTableId: 'tblStory',
+            lookupFieldId: 'fldStoryName',
+            relationship: 'manyMany',
+            fkHostTableName: 'bseSource.junction_fldStory',
+            selfKeyName: '__fk_self',
+            foreignKeyName: '__fk_foreign',
+            isOneWay: false,
+            isMultipleCellValue: true,
+            orderColumnName: '__order',
+          },
+        ],
+      }
+    );
+
+    const records = [];
+    for await (const record of source.records('tblSource', { phase: 'insert' })) {
+      records.push(record);
+    }
+
+    expect(dataKnex).toHaveBeenCalledWith('bseSource.tblSource');
+    expect(dataKnex).not.toHaveBeenCalledWith('bseSource.junction_fldStory');
+    expect(records[0].fields.fldStory).toEqual([{ id: 'recStale', title: 'Deleted story' }]);
+  });
+
+  it('should rebuild internal v2 link values from relation storage and ignore stale cache ids', async () => {
+    const sourceTableQuery = {
+      select: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      limit: vi
+        .fn()
+        .mockResolvedValueOnce([
+          {
+            __id: 'recSource',
+            __auto_number: 1,
+            fldStory: [
+              { id: 'recExisting', title: 'Existing story' },
+              { id: 'recStale', title: 'Deleted story' },
+            ],
+          },
+        ])
+        .mockResolvedValueOnce([]),
+    };
+    const junctionQuery = {
+      select: vi.fn().mockReturnThis(),
+      whereIn: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockResolvedValue([
+        {
+          sourceRecordId: 'recSource',
+          foreignRecordId: 'recExisting',
+        },
+      ]),
+    };
+    const dataKnex = vi.fn((tableName: string) => {
+      if (tableName === 'bseSource.tblSource') return sourceTableQuery;
+      if (tableName === 'bseSource.junction_fldStory') return junctionQuery;
+      throw new Error(`unexpected table ${tableName}`);
+    });
+    const service = new BaseDuplicateService(
+      {} as IServiceArgs[0],
+      {} as IServiceArgs[1],
+      {} as IServiceArgs[2],
+      {} as IServiceArgs[3],
+      {} as IServiceArgs[4],
+      {} as IServiceArgs[5],
+      {} as IServiceArgs[6],
+      {} as IServiceArgs[7],
+      { dataKnexForBase: vi.fn().mockResolvedValue(dataKnex) } as unknown as IServiceArgs[8],
+      {} as IServiceArgs[9],
+      {} as IServiceArgs[10],
+      {} as IServiceArgs[11]
+    );
+    const internals = service as unknown as IDuplicateServiceInternals;
+    const source = internals.createDuplicateBaseSource(
+      'bseSource',
+      {
+        name: duplicateBaseName,
+        tables: [
+          {
+            id: 'tblSource',
+            name: sourceTableName,
+            dbTableName: 'tblShortName',
+            fields: [
+              {
+                id: 'fldStory',
+                name: 'Story',
+                dbFieldName: 'fldStory',
+                type: FieldType.Link,
+              },
+            ],
+            views: [],
+          },
+        ],
+      },
+      {},
+      { tblSource: 'bseSource.tblSource' },
+      {
+        tblSource: [
+          {
+            fieldId: 'fldStory',
+            dbFieldName: 'fldStory',
+            foreignTableId: 'tblStory',
+            lookupFieldId: 'fldStoryName',
+            relationship: 'manyMany',
+            fkHostTableName: 'bseSource.junction_fldStory',
+            selfKeyName: '__fk_self',
+            foreignKeyName: '__fk_foreign',
+            isOneWay: false,
+            isMultipleCellValue: true,
+            orderColumnName: '__order',
+          },
+        ],
+      }
+    );
+
+    const records = [];
+    for await (const record of source.records('tblSource', { phase: 'linkRestore' })) {
+      records.push(record);
+    }
+
+    expect(dataKnex).toHaveBeenCalledWith('bseSource.tblSource');
+    expect(dataKnex).toHaveBeenCalledWith('bseSource.junction_fldStory');
+    expect(junctionQuery.whereIn).toHaveBeenCalledWith('__fk_self', ['recSource']);
+    expect(records[0].fields.fldStory).toEqual([{ id: 'recExisting' }]);
+  });
+
+  it('should rebuild many-one internal v2 link values from current table FK storage', async () => {
+    const sourceTableQuery = {
+      select: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      limit: vi
+        .fn()
+        .mockResolvedValueOnce([
+          {
+            __id: 'recChild',
+            __auto_number: 1,
+            fldParent: { id: 'recStale', title: 'Deleted parent' },
+          },
+        ])
+        .mockResolvedValueOnce([]),
+      whereIn: vi.fn().mockReturnThis(),
+      whereNotNull: vi.fn().mockResolvedValue([
+        {
+          sourceRecordId: 'recChild',
+          foreignRecordId: 'recParent',
+        },
+      ]),
+    };
+    const dataKnex = vi.fn((tableName: string) => {
+      if (tableName === 'bseSource.childTable') return sourceTableQuery;
+      throw new Error(`unexpected table ${tableName}`);
+    });
+    const service = new BaseDuplicateService(
+      {} as IServiceArgs[0],
+      {} as IServiceArgs[1],
+      {} as IServiceArgs[2],
+      {} as IServiceArgs[3],
+      {} as IServiceArgs[4],
+      {} as IServiceArgs[5],
+      {} as IServiceArgs[6],
+      {} as IServiceArgs[7],
+      { dataKnexForBase: vi.fn().mockResolvedValue(dataKnex) } as unknown as IServiceArgs[8],
+      {} as IServiceArgs[9],
+      {} as IServiceArgs[10],
+      {} as IServiceArgs[11]
+    );
+    const internals = service as unknown as IDuplicateServiceInternals;
+    const source = internals.createDuplicateBaseSource(
+      'bseSource',
+      {
+        name: duplicateBaseName,
+        tables: [
+          {
+            id: 'tblChild',
+            name: sourceTableName,
+            dbTableName: 'childTable',
+            fields: [
+              {
+                id: 'fldParent',
+                name: 'Parent',
+                dbFieldName: 'fldParent',
+                type: FieldType.Link,
+              },
+            ],
+            views: [],
+          },
+        ],
+      },
+      {},
+      { tblChild: 'bseSource.childTable' },
+      {
+        tblChild: [
+          {
+            fieldId: 'fldParent',
+            dbFieldName: 'fldParent',
+            foreignTableId: 'tblParent',
+            lookupFieldId: 'fldParentName',
+            relationship: 'manyOne',
+            fkHostTableName: 'bseSource.childTable',
+            selfKeyName: '__id',
+            foreignKeyName: '__fk_parent',
+            isOneWay: false,
+            isMultipleCellValue: false,
+            orderColumnName: '__fk_parent_order',
+          },
+        ],
+      }
+    );
+
+    const records = [];
+    for await (const record of source.records('tblChild', { phase: 'linkRestore' })) {
+      records.push(record);
+    }
+
+    expect(dataKnex).toHaveBeenCalledWith('bseSource.childTable');
+    expect(sourceTableQuery.whereIn).toHaveBeenCalledWith('__id', ['recChild']);
+    expect(sourceTableQuery.whereNotNull).toHaveBeenCalledWith('__fk_parent');
+    expect(records[0].fields.fldParent).toEqual({ id: 'recParent' });
+  });
+
+  it('should rebuild two-way one-many internal v2 link values from foreign table FK storage', async () => {
+    const sourceTableQuery = {
+      select: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      limit: vi
+        .fn()
+        .mockResolvedValueOnce([
+          {
+            __id: 'recParent',
+            __auto_number: 1,
+            fldChildren: [
+              { id: 'recChildExisting', title: 'Existing child' },
+              { id: 'recChildStale', title: 'Deleted child' },
+            ],
+          },
+        ])
+        .mockResolvedValueOnce([]),
+    };
+    const foreignTableQuery = {
+      select: vi.fn().mockReturnThis(),
+      whereIn: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockResolvedValue([
+        {
+          sourceRecordId: 'recParent',
+          foreignRecordId: 'recChildExisting',
+        },
+      ]),
+    };
+    const dataKnex = vi.fn((tableName: string) => {
+      if (tableName === 'bseSource.parentTable') return sourceTableQuery;
+      if (tableName === 'bseSource.childTable') return foreignTableQuery;
+      throw new Error(`unexpected table ${tableName}`);
+    });
+    const service = new BaseDuplicateService(
+      {} as IServiceArgs[0],
+      {} as IServiceArgs[1],
+      {} as IServiceArgs[2],
+      {} as IServiceArgs[3],
+      {} as IServiceArgs[4],
+      {} as IServiceArgs[5],
+      {} as IServiceArgs[6],
+      {} as IServiceArgs[7],
+      { dataKnexForBase: vi.fn().mockResolvedValue(dataKnex) } as unknown as IServiceArgs[8],
+      {} as IServiceArgs[9],
+      {} as IServiceArgs[10],
+      {} as IServiceArgs[11]
+    );
+    const internals = service as unknown as IDuplicateServiceInternals;
+    const source = internals.createDuplicateBaseSource(
+      'bseSource',
+      {
+        name: duplicateBaseName,
+        tables: [
+          {
+            id: 'tblParent',
+            name: sourceTableName,
+            dbTableName: 'parentTable',
+            fields: [
+              {
+                id: 'fldChildren',
+                name: 'Children',
+                dbFieldName: 'fldChildren',
+                type: FieldType.Link,
+              },
+            ],
+            views: [],
+          },
+        ],
+      },
+      {},
+      { tblParent: 'bseSource.parentTable' },
+      {
+        tblParent: [
+          {
+            fieldId: 'fldChildren',
+            dbFieldName: 'fldChildren',
+            foreignTableId: 'tblChild',
+            lookupFieldId: 'fldChildName',
+            relationship: 'oneMany',
+            fkHostTableName: 'bseSource.childTable',
+            selfKeyName: '__fk_parent',
+            foreignKeyName: '__id',
+            isOneWay: false,
+            isMultipleCellValue: true,
+            orderColumnName: '__fk_parent_order',
+          },
+        ],
+      }
+    );
+
+    const records = [];
+    for await (const record of source.records('tblParent', { phase: 'linkRestore' })) {
+      records.push(record);
+    }
+
+    expect(dataKnex).toHaveBeenCalledWith('bseSource.childTable');
+    expect(foreignTableQuery.whereIn).toHaveBeenCalledWith('__fk_parent', ['recParent']);
+    expect(foreignTableQuery.orderBy).toHaveBeenCalledWith('__fk_parent_order', 'asc');
+    expect(records[0].fields.fldChildren).toEqual([{ id: 'recChildExisting' }]);
+  });
+
+  it('should normalize postgres array literal link values when downgrading v2 cross-base links', async () => {
+    const query = {
+      select: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      limit: vi
+        .fn()
+        .mockResolvedValueOnce([
+          {
+            __id: 'recSource',
+            __auto_number: 1,
+            fldVendor: '{"{\\"id\\":\\"recVendor\\",\\"title\\":\\"Vendor A\\"}"}',
+          },
+        ])
+        .mockResolvedValueOnce([]),
+    };
+    const dataKnex = vi.fn().mockReturnValue(query);
+    const service = new BaseDuplicateService(
+      {} as IServiceArgs[0],
+      {} as IServiceArgs[1],
+      {} as IServiceArgs[2],
+      {} as IServiceArgs[3],
+      {} as IServiceArgs[4],
+      {} as IServiceArgs[5],
+      {} as IServiceArgs[6],
+      {} as IServiceArgs[7],
+      {
+        dataKnexForBase: vi.fn().mockResolvedValue(dataKnex),
+      } as unknown as IServiceArgs[8],
+      {} as IServiceArgs[9],
+      {} as IServiceArgs[10],
+      {} as IServiceArgs[11]
+    );
+    const internals = service as unknown as IDuplicateServiceInternals;
+    const source = internals.createDuplicateBaseSource(
+      'bseSource',
+      {
+        name: duplicateBaseName,
+        tables: [
+          {
+            id: 'tblSource',
+            name: sourceTableName,
+            dbTableName: 'tblSource',
+            fields: [
+              {
+                id: 'fldVendor',
+                name: 'Vendor',
+                dbFieldName: 'fldVendor',
+                type: FieldType.SingleLineText,
+              },
+            ],
+            views: [],
+          },
+        ],
+      },
+      {
+        tblSource: [
+          {
+            dbFieldName: 'fldVendor',
+            selfKeyName: 'fk_fld_vendor',
+            isMultipleCellValue: true,
+          },
+        ],
+      },
+      { tblSource: 'bseSource.tblSource' }
+    );
+
+    const records = [];
+    for await (const record of source.records('tblSource')) {
+      records.push(record);
+    }
+
+    expect(records[0].fields.fldVendor).toBe('Vendor A');
+  });
+
+  it('should include nullable isLookup host link fields when building v2 cross-base maps', async () => {
+    const fieldFindMany = vi.fn().mockResolvedValue([]);
+    const service = new BaseDuplicateService(
+      {
+        txClient: vi.fn().mockReturnValue({
+          field: { findMany: fieldFindMany },
+        }),
+      } as unknown as IServiceArgs[0],
+      {} as IServiceArgs[1],
+      {} as IServiceArgs[2],
+      {} as IServiceArgs[3],
+      {} as IServiceArgs[4],
+      {} as IServiceArgs[5],
+      {} as IServiceArgs[6],
+      {} as IServiceArgs[7],
+      {} as IServiceArgs[8],
+      {} as IServiceArgs[9],
+      {} as IServiceArgs[10],
+      {} as IServiceArgs[11]
+    );
+    const internals = service as unknown as IDuplicateServiceInternals;
+
+    await internals.getV2CrossBaseLinkFieldTableMap({ tblSource: 'tblSource' });
+
+    expect(fieldFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [{ isLookup: false }, { isLookup: null }],
+        }),
+      })
+    );
   });
 });

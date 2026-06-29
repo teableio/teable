@@ -2254,17 +2254,22 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
 
     // Handle user-related fields
     if (fieldInfo.type === FieldType.CreatedBy) {
-      // For system user fields, derive directly from system columns to avoid JSON dependency
       const alias = selectContext.tableAlias;
       const idRef = alias ? `"${alias}"."__created_by"` : `"__created_by"`;
-      return this.dialect!.selectUserNameById(idRef);
+      const snapshotRef = alias
+        ? `"${alias}"."${fieldInfo.dbFieldName}"`
+        : `"${fieldInfo.dbFieldName}"`;
+      return this.dialect!.userTitleFromSnapshot(snapshotRef, idRef);
     }
     if (fieldInfo.type === FieldType.LastModifiedBy) {
       const trackAll = (fieldInfo as LastModifiedByFieldCore).isTrackAll();
       if (trackAll) {
         const alias = selectContext.tableAlias;
         const idRef = alias ? `"${alias}"."__last_modified_by"` : `"__last_modified_by"`;
-        return this.dialect!.selectUserNameById(idRef);
+        const snapshotRef = alias
+          ? `"${alias}"."${fieldInfo.dbFieldName}"`
+          : `"${fieldInfo.dbFieldName}"`;
+        return this.dialect!.userTitleFromSnapshot(snapshotRef, idRef);
       }
       if (!selectionSql) {
         if (selectContext.tableAlias) {

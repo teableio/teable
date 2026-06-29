@@ -33,7 +33,7 @@ const INLINE_ICONS: Record<string, LucideIcon> = {
 function createSvgIcon(id: string): string {
   const Icon = INLINE_ICONS[id];
   if (!Icon) return '';
-  return renderToStaticMarkup(createElement(Icon, { size: 16, strokeWidth: 1.75 }));
+  return renderToStaticMarkup(createElement(Icon, { size: 16, strokeWidth: 2.25 }));
 }
 
 function buildInlineItems(schema: Schema): InlineToolbarItem[] {
@@ -330,8 +330,8 @@ export function createSelectionToolbarPlugin(options?: SelectionToolbarOptions):
       left = Math.max(4, Math.min(window.innerWidth - tooltipWidth - 4, left));
       top = Math.max(4, Math.min(window.innerHeight - tooltipHeight - 4, top));
 
-      tooltip.style.top = `${top}px`;
-      tooltip.style.left = `${left}px`;
+      tooltip.style.top = `${Math.round(top)}px`;
+      tooltip.style.left = `${Math.round(left)}px`;
     } else {
       const containerRect = containerEl.getBoundingClientRect();
       const scrollTop = containerEl.scrollTop;
@@ -346,8 +346,8 @@ export function createSelectionToolbarPlugin(options?: SelectionToolbarOptions):
 
       left = Math.max(0, Math.min(containerEl.scrollWidth - tooltipWidth, left));
 
-      tooltip.style.top = `${top}px`;
-      tooltip.style.left = `${left}px`;
+      tooltip.style.top = `${Math.round(top)}px`;
+      tooltip.style.left = `${Math.round(left)}px`;
     }
   }
 

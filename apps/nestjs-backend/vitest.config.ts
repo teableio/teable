@@ -6,6 +6,9 @@ const testFiles = ['**/src/**/*.{test,spec}.{js,ts}'];
 
 export default defineConfig({
   resolve: {
+    alias: {
+      buffer: 'node:buffer',
+    },
     conditions: ['@teable/source'],
   },
   ssr: {
@@ -26,6 +29,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    setupFiles: './vitest.setup.ts',
     passWithNoTests: true,
     pool: 'forks',
     coverage: {

@@ -33,6 +33,9 @@ export const CreateDbConnectionRoute: RouteConfig = registerRoute({
   path: CREATE_DB_CONNECTION,
   description: 'Create a db connection url',
   request: {
+    params: z.object({
+      baseId: z.string(),
+    }),
     body: {
       content: {
         'application/json': {

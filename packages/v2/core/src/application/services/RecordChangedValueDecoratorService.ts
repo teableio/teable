@@ -14,7 +14,8 @@ export interface IRecordChangedValueDecoratorService {
 
   decorateChangedFieldsByRecord(
     table: Table,
-    changedFieldsByRecord?: ReadonlyMap<string, ReadonlyMap<string, unknown>>
+    changedFieldsByRecord?: ReadonlyMap<string, ReadonlyMap<string, unknown>>,
+    previousFieldsByRecord?: ReadonlyMap<string, Record<string, unknown>>
   ): Promise<Result<ReadonlyMap<string, ReadonlyMap<string, unknown>> | undefined, DomainError>>;
 }
 
@@ -30,7 +31,8 @@ export class NullRecordChangedValueDecoratorService implements IRecordChangedVal
 
   async decorateChangedFieldsByRecord(
     _table: Table,
-    changedFieldsByRecord?: ReadonlyMap<string, ReadonlyMap<string, unknown>>
+    changedFieldsByRecord?: ReadonlyMap<string, ReadonlyMap<string, unknown>>,
+    _previousFieldsByRecord?: ReadonlyMap<string, Record<string, unknown>>
   ): Promise<Result<ReadonlyMap<string, ReadonlyMap<string, unknown>> | undefined, DomainError>> {
     return ok(changedFieldsByRecord);
   }
