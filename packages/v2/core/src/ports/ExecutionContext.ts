@@ -8,25 +8,22 @@ import type { ITracer } from './Tracer';
 export interface IUnitOfWorkTransaction {
   readonly kind: 'unitOfWorkTransaction';
   readonly scope?: UnitOfWorkScope;
+  readonly committed?: boolean;
+  readonly rolledBack?: boolean;
   afterCommit?(handler: UnitOfWorkAfterCommitHandler): void;
   afterRollback?(handler: UnitOfWorkAfterCommitHandler): void;
 }
 
 export type UnitOfWorkAfterCommitHandler = () => Promise<void> | void;
 export type UnitOfWorkScope = 'meta' | 'data';
+export type ExecutionContextBackgroundTask = () => Promise<void> | void;
+export type ExecutionContextBackgroundTaskScheduler = (
+  task: ExecutionContextBackgroundTask
+) => void;
 
 export type IExecutionContextTransactions = Partial<
   Record<UnitOfWorkScope, IUnitOfWorkTransaction>
 >;
-
-export interface IExecutionContextBatchMutation {
-  readonly operationId?: string;
-  readonly groupId?: string;
-  readonly totalRecordCount: number;
-  readonly totalChunkCount: number;
-  readonly chunkIndex: number;
-  readonly scope: 'operation' | 'chunk';
-}
 
 export interface IExecutionContext {
   actorId: ActorId;
@@ -35,13 +32,8 @@ export interface IExecutionContext {
   tracer?: ITracer;
   requestId?: string;
   windowId?: string;
-  batchMutation?: IExecutionContextBatchMutation;
+  scheduleBackgroundTask?: ExecutionContextBackgroundTaskScheduler;
   undoRedo?: { mode: 'undo' | 'redo' | 'normal' };
-  duplicateTable?: {
-    sourceTableId: string;
-    duplicatedTableId?: string;
-    includeRecords: boolean;
-  };
   config?: {
     tableLimits?: TableDataSafetyLimitConfig;
     /** @deprecated Use `tableLimits.fieldOptions.maxSelectChoices`. */
@@ -120,6 +112,44 @@ export const getExecutionContextTranslator = (
 
   return (key: string, options?: Record<string, unknown>) =>
     context.$t?.(key as TableI18nKey, options) ?? key;
+};
+
+export const scheduleExecutionContextBackgroundTask = (
+  context: IExecutionContext,
+  task: ExecutionContextBackgroundTask
+): void => {
+  if (context.scheduleBackgroundTask) {
+    context.scheduleBackgroundTask(task);
+    return;
+  }
+
+  const timeout = (
+    globalThis as {
+      setTimeout?: (handler: () => void, timeout: number) => { unref?: () => void } | unknown;
+    }
+  ).setTimeout;
+  if (typeof timeout === 'function') {
+    const handle = timeout(() => void task(), 0) as { unref?: () => void } | undefined;
+    handle?.unref?.();
+    return;
+  }
+
+  const immediate = (
+    globalThis as { setImmediate?: (handler: () => void) => { unref?: () => void } | unknown }
+  ).setImmediate;
+  if (typeof immediate === 'function') {
+    const handle = immediate(() => void task()) as { unref?: () => void } | undefined;
+    handle?.unref?.();
+    return;
+  }
+
+  const scheduler = (globalThis as { queueMicrotask?: (task: () => void) => void }).queueMicrotask;
+  if (typeof scheduler === 'function') {
+    scheduler(() => void task());
+    return;
+  }
+
+  void task();
 };
 
 export const getDomainContext = (context?: IExecutionContext): IDomainContext | undefined => {

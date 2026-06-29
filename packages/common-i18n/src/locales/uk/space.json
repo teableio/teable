@@ -9,7 +9,8 @@
   "action": {
     "createBase": "Створіть базу",
     "createSpace": "Створіть простір",
-    "invite": "Запросити"
+    "invite": "Запросити",
+    "startFromScratch": "Почати з нуля"
   },
   "allSpaces": "Всі простори",
   "emptySpaceTitle": "У цьому просторі немає баз",
@@ -139,7 +140,7 @@
   },
   "baseList": {
     "allBases": "Усі бази",
-    "owner": "Власник",
+    "creator": "Творець",
     "createdTime": "Створено",
     "lastOpened": "Останнє відкриття",
     "enter": "Увійти",
@@ -207,5 +208,67 @@
       "redeploy": "Повторне розгортання",
       "unnamedApp": "Безіменний додаток"
     }
+  },
+  "airtableImport": {
+    "title": "Імпорт з Airtable",
+    "close": "Закрити",
+    "pickBase": "Виберіть базу для імпорту",
+    "noBases": "Для цього токена не знайдено доступних баз.",
+    "optionRecords": "Імпортувати записи",
+    "optionAttachments": "Завантажити та імпортувати вкладення",
+    "import": "Почати імпорт",
+    "done": "Імпорт завершено",
+    "failed": "Не вдалося імпортувати",
+    "openBase": "Відкрити базу",
+    "issuesSummary": "Під час імпорту скориговано елементів: {{count}}",
+    "issuesMore": "+{{count}} ще",
+    "issue": {
+      "fieldDegraded": "{{tableName}} / {{fieldName}}: {{fromType}} → {{toType}}",
+      "fieldSkipped": "{{tableName}} / {{fieldName}} ({{fromType}}) пропущено: {{reason}}",
+      "viewSkipped": "{{tableName}} / подання «{{viewName}}» ({{fromType}}) пропущено",
+      "valuesDropped": "{{tableName}} / {{fieldName}}: відкинуто значень: {{count}} ({{reason}})",
+      "viewConfigDegraded": "{{tableName}} / подання «{{viewName}}»: {{reason}}"
+    },
+    "phase": {
+      "fetchingSchema": "Читання структури бази Airtable",
+      "creatingBase": "Створення бази: {{detail}}",
+      "creatingTable": "Створення таблиці: {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "creatingLinks": "Створення полів зв’язку",
+      "fillingLinks": "{{tableName}} (зв’язки)",
+      "done": "Імпорт завершено",
+      "applyingViewConfig": "Імпорт конфігурації подань"
+    },
+    "searchBases": "Пошук баз",
+    "noSearchResults": "Немає баз, що відповідають запиту.",
+    "detecting": "Перевірка підключення до Airtable…",
+    "connectWithAirtable": "Підключити обліковий запис Airtable",
+    "waitingOAuth": "Завершіть авторизацію у спливаючому вікні…",
+    "connectedAs": "Підключено: {{account}}",
+    "permission": {
+      "create": "Створювач",
+      "edit": "Редактор",
+      "comment": "Коментатор",
+      "read": "Лише читання"
+    },
+    "integrationRequired": "Інтеграцію з Airtable не налаштовано в цьому екземплярі. Зверніться до адміністратора.",
+    "optionViewConfig": "Імпортувати фільтри, сортування та групування подань",
+    "viewConfig": {
+      "help": "API Airtable не надає налаштування подань, тому потрібне посилання лише для читання.",
+      "helpStep1": "В Airtable відкрийте меню «Share» бази",
+      "helpStep2": "Виберіть «Share to web» та увімкніть повний доступ до бази",
+      "helpStep3": "Скопіюйте посилання лише для читання та вставте його в поле вище",
+      "linkPlaceholder": "Вставте посилання для спільного доступу",
+      "mismatch": "Це посилання вказує на іншу базу, а не на вибрану.",
+      "disableReminder": "Готово — тепер можна вимкнути посилання спільного доступу в Airtable."
+    }
+  },
+  "createBaseDialog": {
+    "title": "Як ви хочете почати?"
+  },
+  "importBaseDialog": {
+    "title": "Імпорт бази",
+    "fromFile": "Імпорт з файлу",
+    "fromFileDesc": "Завантажте файл бази .tea",
+    "fromAirtableDesc": "Підключіть обліковий запис Airtable"
   }
 }
