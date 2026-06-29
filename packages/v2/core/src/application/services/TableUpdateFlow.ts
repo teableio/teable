@@ -173,10 +173,27 @@ export class TableUpdateFlow {
       events.push(...hostEvents);
 
       const mutateSpec = updated.mutateSpec;
+      const requiresPhysicalSchemaRepair = mayRequirePhysicalSchemaRepair(mutateSpec);
 
       let transactionContextRef: IExecutionContext | undefined;
       let schemaOperationStarted = false;
       let tableMetadataPersisted = false;
+      if (requiresPhysicalSchemaRepair) {
+        // Split meta/data databases can expose committed DDL before the meta transaction commits.
+        yield* await beginTableSchemaOperation(
+          handler.unitOfWork,
+          handler.tableRepository,
+          context,
+          latestTable,
+          {
+            type: 'table.update',
+            state: 'pending',
+            status: 'pending',
+          }
+        );
+        schemaOperationStarted = true;
+      }
+
       const transactionResult = await handler.unitOfWork.withTransaction(
         context,
         async (metaTransactionContext) => {
@@ -195,18 +212,20 @@ export class TableUpdateFlow {
               latestTable = normalizedResult.table ?? latestTable;
             }
 
-            yield* await beginTableSchemaOperation(
-              handler.unitOfWork,
-              handler.tableRepository,
-              metaTransactionContext,
-              latestTable,
-              {
-                type: 'table.update',
-                state: 'ready',
-                status: 'pending',
-              }
-            );
-            schemaOperationStarted = true;
+            if (!requiresPhysicalSchemaRepair) {
+              yield* await beginTableSchemaOperation(
+                handler.unitOfWork,
+                handler.tableRepository,
+                metaTransactionContext,
+                latestTable,
+                {
+                  type: 'table.update',
+                  state: 'ready',
+                  status: 'pending',
+                }
+              );
+              schemaOperationStarted = true;
+            }
 
             tableUpdatePersistResult = yield* await handler.tableRepository.updateOne(
               metaTransactionContext,
@@ -255,7 +274,7 @@ export class TableUpdateFlow {
           abortTableUpdateTransactionScope(transactionContextRef);
         }
         if (schemaOperationStarted && shouldFailSchemaOperation(transactionResult.error)) {
-          await (tableMetadataPersisted && mayRequirePhysicalSchemaRepair(mutateSpec)
+          await (tableMetadataPersisted
             ? failRecoverableTableSchemaOperation(
                 handler.unitOfWork,
                 handler.tableRepository,
@@ -278,6 +297,19 @@ export class TableUpdateFlow {
                   },
                 }
               ));
+        } else if (schemaOperationStarted && requiresPhysicalSchemaRepair) {
+          await completeTableSchemaOperation(
+            handler.unitOfWork,
+            handler.tableRepository,
+            context,
+            latestTable,
+            {
+              type: 'table.update',
+              result: {
+                nonRepairableFailure: transactionResult.error.message,
+              },
+            }
+          );
         }
         // Preserve the original failure; the operation-state write can fail when
         // a reused transaction has already been aborted by the data phase.
@@ -298,7 +330,7 @@ export class TableUpdateFlow {
       };
       if (registerAfterCommit(context, finalizeReady)) {
         registerAfterRollback(context, async () => {
-          const operationResult = mayRequirePhysicalSchemaRepair(mutateSpec)
+          const operationResult = requiresPhysicalSchemaRepair
             ? await failRecoverableTableSchemaOperation(
                 handler.unitOfWork,
                 handler.tableRepository,
@@ -444,6 +476,7 @@ export class TableUpdateFlow {
           baseId: event.baseId,
           viewId: event.viewId,
           fieldId: event.fieldId,
+          fieldInColumnMeta: event.fieldInColumnMeta,
           oldVersion: versionChange.oldVersion,
           newVersion: versionChange.newVersion,
         });

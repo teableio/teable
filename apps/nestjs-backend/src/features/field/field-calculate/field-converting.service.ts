@@ -1560,12 +1560,12 @@ export class FieldConvertingService {
       dbTableName,
       dbFieldName
     );
+    const dropUniqueIndexSqls = unique
+      ? this.fieldService.getDropUniqueIndexSqls(dbTableName, matchedIndexes)
+      : [];
 
     const fieldValidationQuery = this.knex.schema
       .alterTable(dbTableName, (table) => {
-        if (unique) {
-          matchedIndexes.forEach((indexName) => table.dropUnique([dbFieldName], indexName));
-        }
         if (notNull) table.setNullable(dbFieldName);
       })
       .toSQL();
@@ -1573,6 +1573,7 @@ export class FieldConvertingService {
     const executeSqls = fieldValidationQuery
       .filter((s) => !s.sql.startsWith('PRAGMA'))
       .map(({ sql }) => sql);
+    executeSqls.push(...dropUniqueIndexSqls);
 
     for (const sql of executeSqls) {
       await this.databaseRouter.executeDataPrismaForTable(tableId, sql, {
