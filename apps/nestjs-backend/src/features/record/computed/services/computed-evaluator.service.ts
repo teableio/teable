@@ -1,7 +1,7 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import type { FieldCore, FormulaFieldCore, TableDomain } from '@teable/core';
+import type { FormulaFieldCore, TableDomain } from '@teable/core';
 import { FieldType, IdPrefix, RecordOpBuilder, Tables } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { Knex } from 'knex';
@@ -106,6 +106,7 @@ export class ComputedEvaluatorService {
           projection: Array.from(validFieldIdSet),
           rawProjection: true,
           preferRawFieldReferences: true,
+          preferStoredLookupFields: this.shouldPreferStoredLookupFields(fieldInstances),
           projectionByTable,
           restrictRecordIds: builderRestrictRecordIds,
           tables: tablesOverride,
@@ -282,6 +283,18 @@ export class ComputedEvaluatorService {
     return tableDomain.fieldList
       .filter((field) => requested.has(field.id))
       .map((field) => field as unknown as IFieldInstance);
+  }
+
+  private shouldPreferStoredLookupFields(fieldInstances: IFieldInstance[]): boolean {
+    if (!fieldInstances.length) {
+      return false;
+    }
+    return !fieldInstances.some(
+      (field) =>
+        (field as unknown as { isLookup?: boolean }).isLookup === true ||
+        field.type === FieldType.Rollup ||
+        field.type === FieldType.ConditionalRollup
+    );
   }
 
   private buildTablesOverride(

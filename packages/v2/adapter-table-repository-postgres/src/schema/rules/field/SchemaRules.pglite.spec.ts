@@ -564,11 +564,13 @@ describe('Schema Rules Unit Tests with PGlite', () => {
       tableId TEXT,
       db_field_name TEXT,
       deleted_time TIMESTAMPTZ,
+      is_lookup BOOLEAN,
       meta TEXT
     )`.execute(db);
 
     await sql`CREATE TABLE IF NOT EXISTS table_meta (
       id TEXT PRIMARY KEY,
+      base_id TEXT,
       db_table_name TEXT,
       deleted_time TIMESTAMPTZ
     )`.execute(db);
@@ -621,6 +623,7 @@ describe('Schema Rules Unit Tests with PGlite', () => {
 
   const createContext = (tableName: string, field: Field): SchemaRuleContext => ({
     db,
+    metaDb: db,
     introspector,
     schema: TEST_SCHEMA,
     tableName,
@@ -768,6 +771,16 @@ describe('Schema Rules Unit Tests with PGlite', () => {
       WHERE n.nspname = ${TEST_SCHEMA}
         AND t.relname = ${tableName}
         AND c.conname = ${constraintName}
+    `.execute(db);
+    return result.rows[0]?.cnt === '1';
+  };
+
+  const tableExists = async (tableName: string): Promise<boolean> => {
+    const result = await sql<{ cnt: string }>`
+      SELECT count(*)::text AS cnt
+      FROM information_schema.tables
+      WHERE table_schema = ${TEST_SCHEMA}
+        AND table_name = ${tableName}
     `.execute(db);
     return result.rows[0]?.cnt === '1';
   };
@@ -2641,6 +2654,29 @@ describe('Schema Rules Unit Tests with PGlite', () => {
         await sql`DELETE FROM field WHERE id = ${field.id().toString()}`.execute(db);
       }
     });
+
+    it('should skip metadata repair statements when optimizing brand-new empty tables', () => {
+      const fieldResult = createRealField('fmr006', 'Link Empty Table', 'link_col');
+      const field = fieldResult._unsafeUnwrap();
+
+      const rule = FieldMetaRule.forOrderColumn(field);
+      const ctx = createContext(TABLE_NAME, field);
+
+      expect(
+        rule
+          .up(ctx)
+          ._unsafeUnwrap()
+          .map((statement) => statement.scope)
+      ).toEqual(['meta']);
+      expect(
+        rule
+          .up({
+            ...ctx,
+            optimizeForEmptyTables: true,
+          })
+          ._unsafeUnwrap()
+      ).toEqual([]);
+    });
   });
 
   describe('SelectOptionsMetaRule', () => {
@@ -2966,6 +3002,32 @@ describe('Schema Rules Unit Tests with PGlite', () => {
         },
       });
       expect(repairHint._unsafeUnwrap()?.description?.fallback).toContain('display');
+    });
+
+    it('should skip repair statements when optimizing brand-new empty tables', () => {
+      const field = createRealSingleSelectField({
+        id: 'som009',
+        name: 'Status Empty Table',
+        dbFieldName: 'status_col',
+        choices: expectedChoices,
+      })._unsafeUnwrap();
+      const rule = new SelectOptionsMetaRule(field);
+      const ctx = createContext(TABLE_NAME, field);
+
+      expect(
+        rule
+          .up(ctx)
+          ._unsafeUnwrap()
+          .map((statement) => statement.scope)
+      ).toEqual(['data', 'meta']);
+      expect(
+        rule
+          .up({
+            ...ctx,
+            optimizeForEmptyTables: true,
+          })
+          ._unsafeUnwrap()
+      ).toEqual([]);
     });
 
     it('should register the select options rule for both single and multiple select fields', () => {
@@ -3868,6 +3930,130 @@ describe('Schema Rules Unit Tests with PGlite', () => {
       expect(checkResults.find((result) => result.ruleId === 'system_unique:__id')?.status).toBe(
         'success'
       );
+    });
+
+    it('should repair orphaned junction link storage in the system repair path', async () => {
+      const tableName = 'test_schema_orphaned_link_target';
+      const junctionTableName = 'junction_fldorphanedrepair';
+      const orphanedFkColumnName = '__fk_fldorphanedrepair';
+
+      await createExplicitTestTable(tableName, [
+        '__id TEXT NOT NULL UNIQUE',
+        '__auto_number SERIAL PRIMARY KEY',
+        '__created_time TIMESTAMPTZ NOT NULL DEFAULT NOW()',
+        '__last_modified_time TIMESTAMPTZ',
+        '__created_by TEXT NOT NULL',
+        '__last_modified_by TEXT',
+        '__version INTEGER NOT NULL',
+        'title_col TEXT',
+      ]);
+      await sql`
+        CREATE TABLE ${sql.id(TEST_SCHEMA)}.${sql.id(junctionTableName)} (
+          "__id" TEXT PRIMARY KEY,
+          ${sql.id(orphanedFkColumnName)} TEXT REFERENCES ${sql.id(TEST_SCHEMA)}.${sql.id(
+            tableName
+          )}("__id"),
+          "__fk_source" TEXT
+        )
+      `.execute(db);
+
+      const field = createRealField('orphan001', 'Title', 'title_col')._unsafeUnwrap();
+      const table = createTableAggregate(tableName, field);
+      const checker = createSchemaChecker({ db, introspector, schema: TEST_SCHEMA });
+
+      const beforeCheckResults = await collectFinalResults(
+        checker.checkField(table, SYSTEM_RULE_FIELD_ID)
+      );
+      expect(
+        beforeCheckResults.find((result) => result.ruleId === 'system_orphaned_link_storage')
+          ?.status
+      ).toBe('warn');
+
+      const repairer = createSchemaRepairer({ db, introspector, schema: TEST_SCHEMA });
+      const repairResults = await collectFinalRepairResults(
+        repairer.repairRule(table, SYSTEM_RULE_FIELD_ID, 'system_orphaned_link_storage', {
+          targetStatuses: ['warn'],
+        })
+      );
+
+      expect(
+        repairResults.find((result) => result.ruleId === 'system_orphaned_link_storage')?.outcome
+      ).toBe('repaired');
+      expect(await tableExists(junctionTableName)).toBe(false);
+
+      const afterCheckResults = await collectFinalResults(
+        checker.checkField(table, SYSTEM_RULE_FIELD_ID)
+      );
+      expect(
+        afterCheckResults.find((result) => result.ruleId === 'system_orphaned_link_storage')?.status
+      ).toBe('success');
+    });
+
+    it('should keep active junction link storage during system repair', async () => {
+      const tableName = 'test_schema_active_link_target';
+      const junctionTableName = 'junction_fldactiverepair';
+      const targetFkColumnName = '__fk_fldactiverepair_target';
+      const sourceFkColumnName = '__fk_fldactiverepair_source';
+
+      await createExplicitTestTable(tableName, [
+        '__id TEXT NOT NULL UNIQUE',
+        '__auto_number SERIAL PRIMARY KEY',
+        '__created_time TIMESTAMPTZ NOT NULL DEFAULT NOW()',
+        '__last_modified_time TIMESTAMPTZ',
+        '__created_by TEXT NOT NULL',
+        '__last_modified_by TEXT',
+        '__version INTEGER NOT NULL',
+        'title_col TEXT',
+      ]);
+      await sql`
+        CREATE TABLE ${sql.id(TEST_SCHEMA)}.${sql.id(junctionTableName)} (
+          "__id" TEXT PRIMARY KEY,
+          ${sql.id(targetFkColumnName)} TEXT REFERENCES ${sql.id(TEST_SCHEMA)}.${sql.id(
+            tableName
+          )}("__id"),
+          ${sql.id(sourceFkColumnName)} TEXT
+        )
+      `.execute(db);
+
+      await sql`
+        INSERT INTO field (id, name, type, options, table_id, deleted_time, is_lookup)
+        VALUES (
+          'fld_active_link_repair',
+          'Active Link',
+          'link',
+          ${JSON.stringify({
+            fkHostTableName: `${TEST_SCHEMA}.${junctionTableName}`,
+            selfKeyName: sourceFkColumnName,
+            foreignKeyName: targetFkColumnName,
+          })},
+          'tbl_source_link_repair',
+          NULL,
+          NULL
+        )
+      `.execute(db);
+
+      const field = createRealField('active001', 'Title', 'title_col')._unsafeUnwrap();
+      const table = createTableAggregate(tableName, field);
+      const checker = createSchemaChecker({ db, introspector, schema: TEST_SCHEMA });
+      const checkResults = await collectFinalResults(
+        checker.checkField(table, SYSTEM_RULE_FIELD_ID)
+      );
+
+      expect(
+        checkResults.find((result) => result.ruleId === 'system_orphaned_link_storage')?.status
+      ).toBe('success');
+
+      const repairer = createSchemaRepairer({ db, introspector, schema: TEST_SCHEMA });
+      const repairResults = await collectFinalRepairResults(
+        repairer.repairRule(table, SYSTEM_RULE_FIELD_ID, 'system_orphaned_link_storage', {
+          targetStatuses: ['warn'],
+        })
+      );
+
+      expect(
+        repairResults.find((result) => result.ruleId === 'system_orphaned_link_storage')?.outcome
+      ).toBe('unchanged');
+      expect(await tableExists(junctionTableName)).toBe(true);
     });
 
     it('should repair a missing column when repairing a table', async () => {
@@ -5686,6 +5872,74 @@ describe('Schema Rules Unit Tests with PGlite', () => {
           ruleId: `junction_fk:${field.id().toString()}:self`,
           expectedStatus: 'warn',
         });
+      });
+
+      it('should accept an equivalent junction foreign key with a legacy constraint name', async () => {
+        const sourceTableName = createValidTableId('src_junction_fk_legacy');
+        const targetTableName = createValidTableId('tgt_junction_fk_legacy');
+        const junctionTableName = 'junction_fk_rule_legacy';
+        const selfKeyName = '__fk_junction_fk_legacy_self';
+        const foreignKeyName = '__fk_junction_fk_legacy_foreign';
+
+        await createTestTable(sourceTableName, ['link_value JSONB']);
+        await createTestTable(targetTableName);
+        await createExplicitTestTable(junctionTableName, [
+          '__id SERIAL PRIMARY KEY',
+          `${selfKeyName} TEXT`,
+          `${foreignKeyName} TEXT`,
+          '__order DOUBLE PRECISION',
+        ]);
+        await sql
+          .raw(
+            `ALTER TABLE ${TEST_SCHEMA}.${junctionTableName}
+             ADD CONSTRAINT uniq_${selfKeyName}_${foreignKeyName} UNIQUE (${selfKeyName}, ${foreignKeyName})`
+          )
+          .execute(db);
+        await sql
+          .raw(
+            `CREATE INDEX index_${selfKeyName} ON ${TEST_SCHEMA}.${junctionTableName}(${selfKeyName})`
+          )
+          .execute(db);
+        await sql
+          .raw(
+            `CREATE INDEX index_${foreignKeyName} ON ${TEST_SCHEMA}.${junctionTableName}(${foreignKeyName})`
+          )
+          .execute(db);
+        await sql
+          .raw(
+            `ALTER TABLE ${TEST_SCHEMA}.${junctionTableName}
+             ADD CONSTRAINT fk_${selfKeyName}
+             FOREIGN KEY (${selfKeyName}) REFERENCES ${TEST_SCHEMA}.${sourceTableName}(__id) ON DELETE CASCADE`
+          )
+          .execute(db);
+        await sql
+          .raw(
+            `ALTER TABLE ${TEST_SCHEMA}.${junctionTableName}
+             ADD CONSTRAINT legacy_${foreignKeyName}
+             FOREIGN KEY (${foreignKeyName}) REFERENCES ${TEST_SCHEMA}.${targetTableName}(__id) ON DELETE CASCADE`
+          )
+          .execute(db);
+
+        const field = createRealLinkField({
+          id: 'jctfklegacy001',
+          name: 'Junction Legacy Foreign Key',
+          dbFieldName: 'link_value',
+          relationship: 'manyMany',
+          foreignTableId: targetTableName,
+          fkHostTableName: junctionTableName,
+          selfKeyName,
+          foreignKeyName,
+          hasOrderColumn: true,
+        })._unsafeUnwrap();
+        const table = createTableAggregate(sourceTableName, field);
+        const checker = createSchemaChecker({ db, introspector, schema: TEST_SCHEMA });
+
+        const results = await collectFinalResults(checker.checkField(table, field.id().toString()));
+
+        expect(
+          results.find((result) => result.ruleId === `junction_fk:${field.id().toString()}:foreign`)
+            ?.status
+        ).toBe('success');
       });
 
       it('should repair a missing junction foreign key when the logical target resolves to a physical table', async () => {

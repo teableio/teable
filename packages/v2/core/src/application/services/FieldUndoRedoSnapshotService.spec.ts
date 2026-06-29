@@ -9,6 +9,9 @@ import { FieldId } from '../../domain/table/fields/FieldId';
 import { FieldName } from '../../domain/table/fields/FieldName';
 import { FormulaExpression } from '../../domain/table/fields/types/FormulaExpression';
 import { FormulaField } from '../../domain/table/fields/types/FormulaField';
+import { LinkFieldConfig } from '../../domain/table/fields/types/LinkFieldConfig';
+import { LinkRelationship } from '../../domain/table/fields/types/LinkRelationship';
+import { LookupOptions } from '../../domain/table/fields/types/LookupOptions';
 import { NumberField } from '../../domain/table/fields/types/NumberField';
 import { SingleLineTextField } from '../../domain/table/fields/types/SingleLineTextField';
 import { Table } from '../../domain/table/Table';
@@ -45,7 +48,9 @@ const createIds = () => ({
   viewId: ViewId.create(`viw${'f'.repeat(16)}`)._unsafeUnwrap(),
 });
 
-const buildTable = (mode: 'number' | 'formula'): { table: Table; targetFieldId: FieldId } => {
+const buildTable = (
+  mode: 'number' | 'formula'
+): { table: Table; targetFieldId: FieldId; titleFieldId: FieldId } => {
   const { baseId, tableId, titleFieldId, amountFieldId, formulaFieldId, viewId } = createIds();
   const titleField = SingleLineTextField.create({
     id: titleFieldId,
@@ -96,18 +101,26 @@ const buildTable = (mode: 'number' | 'formula'): { table: Table; targetFieldId: 
       primaryFieldId: titleField.id(),
     })._unsafeUnwrap(),
     targetFieldId: targetField.id(),
+    titleFieldId,
   };
 };
 
 class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
   calls = 0;
+  options: ITableRecordQueryOptions[] = [];
   rows: TableRecordReadModel[] = [];
   error: DomainError | undefined;
 
-  async find(): Promise<
-    Result<{ records: ReadonlyArray<TableRecordReadModel>; total: number }, DomainError>
-  > {
+  async find(
+    _context?: IExecutionContext,
+    _table?: Table,
+    _spec?: unknown,
+    options?: ITableRecordQueryOptions
+  ): Promise<Result<{ records: ReadonlyArray<TableRecordReadModel>; total: number }, DomainError>> {
     this.calls += 1;
+    if (options) {
+      this.options.push(options);
+    }
     if (this.error) {
       return err(this.error);
     }
@@ -160,6 +173,49 @@ describe('FieldUndoRedoSnapshotService', () => {
     expect(repository.calls).toBe(1);
   });
 
+  it('captures multiple stored field snapshots with one projected record query', async () => {
+    const { table, targetFieldId, titleFieldId } = buildTable('number');
+    const repository = new FakeTableRecordQueryRepository();
+    repository.rows = [
+      {
+        id: `rec${'1'.repeat(16)}`,
+        fields: {
+          [titleFieldId.toString()]: 'A',
+          [targetFieldId.toString()]: 42,
+        },
+        version: 1,
+      },
+      {
+        id: `rec${'2'.repeat(16)}`,
+        fields: {
+          [titleFieldId.toString()]: 'B',
+        },
+        version: 2,
+      },
+    ];
+    const service = new FieldUndoRedoSnapshotService(new DefaultTableMapper(), repository);
+
+    const result = await service.captureMany(buildContext(), table, [titleFieldId, targetFieldId]);
+    const snapshots = result._unsafeUnwrap();
+
+    expect(repository.calls).toBe(1);
+    expect(repository.options[0]?.projectionFieldIds?.map((fieldId) => fieldId.toString())).toEqual(
+      [titleFieldId.toString(), targetFieldId.toString()]
+    );
+    expect(snapshots.map((snapshot) => snapshot.field.id)).toEqual([
+      titleFieldId.toString(),
+      targetFieldId.toString(),
+    ]);
+    expect(snapshots[0]?.records).toEqual([
+      { recordId: `rec${'1'.repeat(16)}`, value: 'A' },
+      { recordId: `rec${'2'.repeat(16)}`, value: 'B' },
+    ]);
+    expect(snapshots[1]?.records).toEqual([
+      { recordId: `rec${'1'.repeat(16)}`, value: 42 },
+      { recordId: `rec${'2'.repeat(16)}`, value: null },
+    ]);
+  });
+
   it('skips record capture for computed fields and when includeRecords is false', async () => {
     const formulaScenario = buildTable('formula');
     const repository = new FakeTableRecordQueryRepository();
@@ -182,6 +238,82 @@ describe('FieldUndoRedoSnapshotService', () => {
     );
     expect(normalSnapshot._unsafeUnwrap().records).toBeUndefined();
     expect(repository.calls).toBe(0);
+  });
+
+  it('captures a lookup field whose enriched options carry link fk metadata', async () => {
+    const baseId = BaseId.create(`bse${'g'.repeat(16)}`)._unsafeUnwrap();
+    const tableId = TableId.create(`tbl${'h'.repeat(16)}`)._unsafeUnwrap();
+    const foreignTableId = TableId.create(`tbl${'i'.repeat(16)}`)._unsafeUnwrap();
+    const primaryFieldId = FieldId.create(`fld${'j'.repeat(16)}`)._unsafeUnwrap();
+    const linkFieldId = FieldId.create(`fld${'k'.repeat(16)}`)._unsafeUnwrap();
+    const lookupFieldId = FieldId.create(`fld${'l'.repeat(16)}`)._unsafeUnwrap();
+    const foreignTargetFieldId = FieldId.create(`fld${'m'.repeat(16)}`)._unsafeUnwrap();
+
+    const linkConfig = LinkFieldConfig.create({
+      relationship: LinkRelationship.manyOne().toString(),
+      foreignTableId: foreignTableId.toString(),
+      lookupFieldId: foreignTargetFieldId.toString(),
+    })._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('Lookup Undo')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(primaryFieldId)
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .link()
+      .withId(linkFieldId)
+      .withName(FieldName.create('Link')._unsafeUnwrap())
+      .withConfig(linkConfig)
+      .done();
+    builder
+      .field()
+      .lookup()
+      .withId(lookupFieldId)
+      .withName(FieldName.create('Lookup Amount')._unsafeUnwrap())
+      .withInnerField(
+        NumberField.create({
+          id: FieldId.create(`fld${'n'.repeat(16)}`)._unsafeUnwrap(),
+          name: FieldName.create('Amount')._unsafeUnwrap(),
+        })._unsafeUnwrap()
+      )
+      .withLookupOptions(
+        LookupOptions.create({
+          linkFieldId: linkFieldId.toString(),
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: foreignTargetFieldId.toString(),
+        })._unsafeUnwrap()
+      )
+      .withIsMultipleCellValue(false)
+      .done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+
+    const service = new FieldUndoRedoSnapshotService(
+      new DefaultTableMapper(),
+      new FakeTableRecordQueryRepository()
+    );
+
+    // Regression: the enriched lookupOptions (fk metadata) must be reduced to the strict
+    // create-field input schema; otherwise capture fails with "Invalid field undo/redo snapshot input".
+    const snapshot = (await service.capture(buildContext(), table, lookupFieldId))._unsafeUnwrap();
+
+    expect(snapshot.field.type).toBe('lookup');
+    const options = (snapshot.field as { options?: Record<string, unknown> }).options ?? {};
+    expect(options).toEqual({
+      linkFieldId: linkFieldId.toString(),
+      foreignTableId: foreignTableId.toString(),
+      lookupFieldId: foreignTargetFieldId.toString(),
+    });
+    expect(options).not.toHaveProperty('fkHostTableName');
+    expect(options).not.toHaveProperty('relationship');
   });
 
   it('returns empty record snapshots when the stored column is missing', async () => {

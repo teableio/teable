@@ -5,6 +5,7 @@ import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import { notSpec } from '../domain/shared/specification/NotSpec';
 import { FieldId } from '../domain/table/fields/FieldId';
+import { FieldType } from '../domain/table/fields/FieldType';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import { RecordConditionSpecBuilder } from '../domain/table/records/specs/RecordConditionSpecBuilder';
 import type { RecordConditionValue } from '../domain/table/records/specs/RecordConditionValues';
@@ -27,6 +28,8 @@ import {
   type RecordFilterNode,
   type RecordFilterValue,
 } from './RecordFilterDto';
+
+const currentUserFilterValue = 'Me';
 
 const resolveField = (table: Table, rawFieldId: string) => {
   return FieldId.create(rawFieldId).andThen((fieldId) =>
@@ -149,6 +152,60 @@ const sanitizeNode = (
 
   return err(domainError.validation({ message: 'Invalid record filter node' }));
 };
+
+function isUserLikeFieldType(type: FieldType): boolean {
+  return (
+    type.equals(FieldType.user()) ||
+    type.equals(FieldType.createdBy()) ||
+    type.equals(FieldType.lastModifiedBy())
+  );
+}
+
+export function replaceCurrentUserTagInFilter(
+  table: Table,
+  filter: RecordFilter | null | undefined,
+  actorId: string
+): RecordFilter | null | undefined {
+  if (!filter) {
+    return filter;
+  }
+
+  const replaceNode = (node: RecordFilterNode): RecordFilterNode => {
+    if (isRecordFilterNot(node)) {
+      return { not: replaceNode(node.not) };
+    }
+
+    if (isRecordFilterGroup(node)) {
+      return {
+        ...node,
+        items: node.items.map((item) => replaceNode(item)),
+      };
+    }
+
+    if (!isRecordFilterCondition(node)) {
+      return node;
+    }
+
+    const fieldResult = table.getField((field) => field.id().toString() === node.fieldId);
+    if (fieldResult.isErr() || !isUserLikeFieldType(fieldResult.value.type())) {
+      return node;
+    }
+
+    const replaceValue = (value: RecordFilterValue): RecordFilterValue => {
+      if (Array.isArray(value)) {
+        return value.map((item) => (item === currentUserFilterValue ? actorId : item));
+      }
+      return value === currentUserFilterValue ? actorId : value;
+    };
+
+    return {
+      ...node,
+      value: replaceValue(node.value),
+    };
+  };
+
+  return replaceNode(filter);
+}
 
 export const buildRecordConditionSpec = (
   table: Table,

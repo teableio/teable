@@ -1,6 +1,8 @@
-import { Colors, ColorUtils, FieldType } from '@teable/core';
+import { Colors, FieldType } from '@teable/core';
 import type { IButtonFieldOptions } from '@teable/core';
 import { Plus } from '@teable/icons';
+import { useTheme } from '@teable/next-themes';
+import { getSelectColorPairs } from '@teable/sdk';
 import { FieldSelector } from '@teable/sdk/components';
 import { useFields } from '@teable/sdk/hooks';
 import {
@@ -218,7 +220,8 @@ export const ButtonOptions = (props: {
 }) => {
   const { isLookup, options, onChange, onSave } = props;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
-  const bgColor = ColorUtils.getHexForColor(options?.color ?? Colors.Teal);
+  const { resolvedTheme } = useTheme();
+  const bgColor = getSelectColorPairs(options?.color ?? Colors.Teal, resolvedTheme).backgroundColor;
   const [limitClickCount, setLimitClickCount] = useState<boolean>((options?.maxCount ?? 0) > 0);
 
   return (
@@ -239,8 +242,9 @@ export const ButtonOptions = (props: {
                     <div style={{ backgroundColor: bgColor }} className="size-3 rounded-full" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-2">
+                <PopoverContent className="w-auto bg-background p-2">
                   <ColorPicker
+                    themeAwareSelectColor
                     color={options?.color ?? Colors.Teal}
                     onSelect={(color) => onChange?.({ ...options, color })}
                   />

@@ -81,6 +81,7 @@ export interface RecordUpdateBuilderContext {
   actorEmail?: string;
   fillLinkTitles?: boolean;
   fillLinkTitleForeignTables?: ReadonlyMap<string, Table>;
+  assumeEmptyLinkState?: boolean;
 }
 
 export type RecordUpdateSeedGroup = {
@@ -193,6 +194,7 @@ export class RecordUpdateBuilder {
         recordId,
         mutateSpec,
         changedFieldIds,
+        context,
       });
       if (impactResult.isErr()) {
         return err(impactResult.error);
@@ -217,8 +219,9 @@ export class RecordUpdateBuilder {
     recordId: string;
     mutateSpec: ICellValueSpec;
     changedFieldIds: ReadonlyArray<FieldId>;
+    context: RecordUpdateBuilderContext;
   }): Promise<Result<RecordUpdateImpact, DomainError>> {
-    const { table, tableName, recordId, mutateSpec, changedFieldIds } = params;
+    const { table, tableName, recordId, mutateSpec, changedFieldIds, context } = params;
     const valueFieldIds: FieldId[] = [];
 
     for (const fieldId of changedFieldIds) {
@@ -238,6 +241,7 @@ export class RecordUpdateBuilder {
       tableName,
       recordId,
       mutateSpec,
+      assumeEmptyLinkState: context.assumeEmptyLinkState,
     });
     if (linkChangesResult.isErr()) {
       return err(linkChangesResult.error);
@@ -359,8 +363,9 @@ export const collectLinkChanges = async (params: {
   tableName: string;
   recordId: string;
   mutateSpec: ICellValueSpec;
+  assumeEmptyLinkState?: boolean;
 }): Promise<Result<CollectLinkChangesResult, DomainError>> => {
-  const { db, table, tableName, recordId, mutateSpec } = params;
+  const { db, table, tableName, recordId, mutateSpec, assumeEmptyLinkState } = params;
 
   try {
     const linkValueVisitor = new LinkValueCollectorVisitor();
@@ -385,18 +390,16 @@ export const collectLinkChanges = async (params: {
       }
 
       const linkField = field as LinkField;
-      const existingLinksResult = await loadExistingLinkRecordIds(
-        db,
-        tableName,
-        recordId,
-        linkField
-      );
+      const existingLinksResult = assumeEmptyLinkState
+        ? ok<string[], DomainError>([])
+        : await loadExistingLinkRecordIds(db, tableName, recordId, linkField);
       if (existingLinksResult.isErr()) return err(existingLinksResult.error);
+      const existingLinks = existingLinksResult.value;
 
       // Collect link changes
       const changeVisitor = LinkChangeCollectorVisitor.create({
         recordId,
-        existingLinkIds: existingLinksResult.value,
+        existingLinkIds: existingLinks,
         newRawValue,
       });
       const changeResult = linkField.accept(changeVisitor);
@@ -406,7 +409,7 @@ export const collectLinkChanges = async (params: {
       // Collect exclusivity constraints (for oneOne and oneMany relationships)
       const exclusivityVisitor = LinkExclusivityConstraintCollector.create({
         recordId,
-        existingLinkIds: existingLinksResult.value,
+        existingLinkIds: existingLinks,
         newRawValue,
       });
       const exclusivityResult = linkField.accept(exclusivityVisitor);

@@ -6,6 +6,7 @@ import { useCallback, useMemo } from 'react';
 import { useTranslation } from '../../../context/app/i18n/useTranslation';
 import { useFields, useView } from '../../../hooks';
 import type { IFieldInstance } from '../../../model';
+import { getDisplayChoiceMap } from '../../../utils/select-color';
 import { getFileCover, isSystemFileIcon } from '../../editor';
 import { GRID_DEFAULT } from '../../grid/configs';
 import type { IGridColumn } from '../../grid/interface';
@@ -209,7 +210,7 @@ const useGenerateGroupCellFn = () => {
               data,
               displayData: data,
               choiceSorted: field.options.choices,
-              choiceMap: field.displayChoiceMap,
+              choiceMap: getDisplayChoiceMap(field.options.choices, resolvedTheme),
               isMultiple,
             };
           }
