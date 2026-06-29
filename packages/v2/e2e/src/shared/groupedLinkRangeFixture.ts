@@ -1,6 +1,8 @@
+import { sql } from 'kysely';
 import type { SharedTestContext } from './globalTestContext';
 
 type GroupByClause = { fieldId: string; order: 'asc' | 'desc' };
+type SortClause = { fieldId: string; order: 'asc' | 'desc' };
 
 export interface GroupedLinkRangeFixture {
   tableId: string;
@@ -15,6 +17,24 @@ export interface GroupedLinkRangeFixture {
     linkedIn1: string;
     linkedIn2: string;
     x1: string;
+  };
+}
+
+export interface GroupedSingleSelectRangeFixture {
+  tableId: string;
+  viewId: string;
+  nameFieldId: string;
+  storeFieldId: string;
+  timeFieldId: string;
+  groupByAsc: GroupByClause[];
+  sortAsc: SortClause[];
+  projection: string[];
+  expectedVisibleOrderIds: string[];
+  recordIds: {
+    order1: string;
+    order2: string;
+    order3: string;
+    order4: string;
   };
 }
 
@@ -107,6 +127,104 @@ export const setupGroupedLinkRangeFixture = async (
       linkedIn1: linkedIn1.id,
       linkedIn2: linkedIn2.id,
       x1: x1.id,
+    },
+  };
+};
+
+export const setupGroupedSingleSelectRangeFixture = async (
+  ctx: SharedTestContext,
+  label: string,
+  options: { persistViewQuery?: boolean } = {}
+): Promise<GroupedSingleSelectRangeFixture> => {
+  const suffix = `${label}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+  const table = await ctx.createTable({
+    baseId: ctx.baseId,
+    name: `Grouped Range Orders ${suffix}`,
+    fields: [
+      { name: '编码', type: 'singleLineText', isPrimary: true },
+      {
+        name: '配送店铺',
+        type: 'singleSelect',
+        options: { choices: [{ name: '下沙店', color: 'greenLight1' }] },
+      },
+      { name: '送出时间', type: 'singleLineText' },
+      { name: '日期', type: 'date' },
+    ],
+    views: [{ type: 'grid' }],
+  });
+
+  const viewId = table.views[0]?.id;
+  const nameFieldId = table.fields.find((field) => field.isPrimary)?.id;
+  const storeFieldId = table.fields.find((field) => field.name === '配送店铺')?.id;
+  const timeFieldId = table.fields.find((field) => field.name === '送出时间')?.id;
+  const dateFieldId = table.fields.find((field) => field.name === '日期')?.id;
+
+  if (!viewId || !nameFieldId || !storeFieldId || !timeFieldId || !dateFieldId) {
+    throw new Error('Failed to resolve grouped single-select fixture metadata');
+  }
+
+  const records = [];
+  for (const name of ['加单1', '加单2', '加单3', '加单4']) {
+    records.push(
+      await ctx.createRecord(table.id, {
+        [nameFieldId]: name,
+        [storeFieldId]: '下沙店',
+        [timeFieldId]: '16:30',
+        [dateFieldId]: '2026-06-01',
+      })
+    );
+  }
+
+  const tableMeta = await ctx.testContainer.db
+    .selectFrom('table_meta')
+    .select('db_table_name')
+    .where('id', '=', table.id)
+    .executeTakeFirst();
+  const dbTableName = tableMeta?.db_table_name;
+  if (!dbTableName) {
+    throw new Error('Failed to resolve grouped single-select fixture storage table');
+  }
+
+  const orderColumn = `__row_${viewId}`;
+  await sql`
+    ALTER TABLE ${sql.table(dbTableName)}
+    ADD COLUMN IF NOT EXISTS ${sql.id(orderColumn)} double precision
+  `.execute(ctx.testContainer.db);
+  await sql`
+    UPDATE ${sql.table(dbTableName)}
+    SET ${sql.ref(orderColumn)} = 5 - ${sql.ref('__auto_number')}
+  `.execute(ctx.testContainer.db);
+
+  const groupByAsc = [{ fieldId: storeFieldId, order: 'asc' }] as const;
+  const sortAsc = [{ fieldId: timeFieldId, order: 'asc' }] as const;
+
+  if (options.persistViewQuery) {
+    await ctx.testContainer.db
+      .updateTable('view')
+      .set({
+        group: JSON.stringify(groupByAsc),
+        sort: JSON.stringify({ sortObjs: sortAsc, manualSort: false }),
+      })
+      .where('id', '=', viewId)
+      .execute();
+  }
+
+  return {
+    tableId: table.id,
+    viewId,
+    nameFieldId,
+    storeFieldId,
+    timeFieldId,
+    groupByAsc: [...groupByAsc],
+    sortAsc: [...sortAsc],
+    projection: [nameFieldId, storeFieldId, timeFieldId, dateFieldId],
+    expectedVisibleOrderIds: records.map((record) => record.id),
+    recordIds: {
+      order1: records[0].id,
+      order2: records[1].id,
+      order3: records[2].id,
+      order4: records[3].id,
     },
   };
 };

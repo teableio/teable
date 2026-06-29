@@ -23,6 +23,8 @@ export interface IImageModelConfig {
   supportedAspectRatios?: IAspectRatio[];
   /** Whether the provider supports automatic aspect ratio selection */
   supportsAutoAspectRatio?: boolean;
+  /** Whether the provider supports automatic size selection by omitting size */
+  supportsAutoSize?: boolean;
   /** Supported size range for models that accept arbitrary dimensions */
   sizeRange?: IImageSizeRange;
   /** Supported aspect ratio range for models that accept arbitrary ratios */

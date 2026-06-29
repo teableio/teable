@@ -69,6 +69,7 @@ export class UpdateRecordsHandler
         enqueueDeferredComputedUpdates: command.enqueueDeferredComputedUpdates,
         fieldKeyType: command.fieldKeyType,
         order: command.order,
+        recordWritePluginRunnerOptions: command.recordWritePluginRunnerOptions,
       });
 
       return ok(

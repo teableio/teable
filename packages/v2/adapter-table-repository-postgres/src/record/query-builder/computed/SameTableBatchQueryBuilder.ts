@@ -503,7 +503,7 @@ export class SameTableBatchQueryBuilder {
       let fromClause: string;
       if (cte.previousCteName) {
         // Join with main table and previous CTE
-        fromClause = `FROM ${qualifiedTableName} AS "${T}" JOIN "${cte.previousCteName}" ON "${T}"."__id" = "${cte.previousCteName}"."__id"`;
+        fromClause = `FROM ${qualifiedTableName} AS ${quoteIdentifier(T)} JOIN ${quoteIdentifier(cte.previousCteName)} ON ${quoteRef(T, '__id')} = ${quoteRef(cte.previousCteName, '__id')}`;
       } else {
         // First level - select from main table with optional dirty filter + explicit record slicing.
         const dirtyJoin = (() => {
@@ -513,17 +513,19 @@ export class SameTableBatchQueryBuilder {
           const recordIdColumn = dirtyFilter.recordIdColumn ?? 'record_id';
           // Note: tableId is a trusted internal ID, embedded as a SQL literal.
           const tableIdLiteral = escapeSqlLiteral(dirtyFilter.tableId);
-          return ` INNER JOIN "${dirtyTableName}" AS "__dirty" ON "${T}"."__id" = "__dirty"."${recordIdColumn}" AND "__dirty"."${tableIdColumn}" = '${tableIdLiteral}'`;
+          return ` INNER JOIN ${quoteIdentifier(dirtyTableName)} AS "__dirty" ON ${quoteRef(T, '__id')} = ${quoteRef('__dirty', recordIdColumn)} AND ${quoteRef('__dirty', tableIdColumn)} = '${tableIdLiteral}'`;
         })();
 
         const recordIdsJoin =
           recordIds.length > 0
             ? ` INNER JOIN (VALUES ${recordIds
                 .map((recordId) => `('${escapeSqlLiteral(recordId)}')`)
-                .join(', ')}) AS "__record_ids"("__id") ON "${T}"."__id" = "__record_ids"."__id"`
+                .join(
+                  ', '
+                )}) AS "__record_ids"("__id") ON ${quoteRef(T, '__id')} = ${quoteRef('__record_ids', '__id')}`
             : '';
 
-        fromClause = `FROM ${qualifiedTableName} AS "${T}"${dirtyJoin}${recordIdsJoin}`;
+        fromClause = `FROM ${qualifiedTableName} AS ${quoteIdentifier(T)}${dirtyJoin}${recordIdsJoin}`;
       }
 
       const cteDef = cte.buildCteSql(fromClause);
@@ -532,16 +534,16 @@ export class SameTableBatchQueryBuilder {
 
     // Build final SELECT from the last CTE only (earlier levels are carried forward).
     const cteNames = ctes.map((c) => c.name);
-    const finalSelectCols = ['u."__id"'];
+    const finalSelectCols = [quoteRef('u', '__id')];
     for (const mapping of fieldMappings) {
       finalSelectCols.push(
-        `"${mapping.cteName}"."${mapping.columnName}" as "${mapping.columnName}"`
+        `${quoteRef(mapping.cteName, mapping.columnName)} as ${quoteIdentifier(mapping.columnName)}`
       );
     }
 
     const cteClause = `WITH ${cteDefinitions.join(', ')}`;
     const selectClause = `SELECT ${finalSelectCols.join(', ')}`;
-    const fromClause = `FROM ${qualifiedTableName} AS u JOIN "${lastCte.name}" ON u."__id" = "${lastCte.name}"."__id"`;
+    const fromClause = `FROM ${qualifiedTableName} AS ${quoteIdentifier('u')} JOIN ${quoteIdentifier(lastCte.name)} ON ${quoteRef('u', '__id')} = ${quoteRef(lastCte.name, '__id')}`;
     const fullSql = `${cteClause} ${selectClause} ${fromClause}`;
     // Wrap WITH query as a derived table source; callers use selectQuery.as(...)
     // and PostgreSQL requires WITH to be inside parentheses in that position.
@@ -561,6 +563,7 @@ export class SameTableBatchQueryBuilder {
 
 const escapeSqlLiteral = (value: string): string => value.replaceAll("'", "''");
 const quoteIdentifier = (value: string): string => `"${value.replaceAll('"', '""')}"`;
+const quoteRef = (...parts: string[]): string => parts.map(quoteIdentifier).join('.');
 const quoteQualifiedTableName = (tableName: string): string =>
   tableName
     .split('.')

@@ -5,7 +5,7 @@ import { createContext } from 'react';
 import type { IGalleryPermission } from '../type';
 
 export interface IGalleryContext {
-  recordQuery?: Pick<IGetRecordsRo, 'filter' | 'orderBy'>;
+  recordQuery?: Pick<IGetRecordsRo, 'filter' | 'orderBy' | 'projection' | 'ignoreViewQuery'>;
   coverField?: AttachmentField;
   isCoverFit?: boolean;
   isFieldNameHidden?: boolean;
