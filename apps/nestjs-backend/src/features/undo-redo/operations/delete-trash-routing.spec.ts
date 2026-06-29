@@ -32,7 +32,7 @@ describe('trash-backed undo operations', () => {
       params: { tableId: 'tbl1' },
       result: {
         fields: [{ id: 'fld1', name: 'Name' }],
-        records: [{ id: 'rec1' }],
+        records: [{ id: 'rec1', fields: { fld1: 'restored', fld2: null } }],
       },
       operationId: 'otrash1',
     } as never);
@@ -51,11 +51,100 @@ describe('trash-backed undo operations', () => {
     );
     expect(recordOpenApiService.updateRecords).toHaveBeenCalledWith('tbl1', {
       fieldKeyType: FieldKeyType.Id,
-      records: [{ id: 'rec1' }],
+      records: [{ id: 'rec1', fields: { fld1: 'restored' } }],
     });
     expect(dataPrismaService.tableTrash.delete).toHaveBeenCalledWith({
       where: { id: 'otrash1' },
     });
+  });
+
+  it('DeleteFieldsOperation restores only non-empty field values from sparse v2 compat snapshots', async () => {
+    const fieldOpenApiService = {
+      createFields: vi.fn().mockResolvedValue(undefined),
+    };
+    const recordOpenApiService = {
+      updateRecords: vi.fn().mockResolvedValue(undefined),
+    };
+    const dataPrismaService = {
+      tableTrash: {
+        count: vi.fn().mockResolvedValue(1),
+        delete: vi.fn().mockResolvedValue(undefined),
+      },
+    };
+    const dataDbClientManager = {
+      dataPrismaForTable: vi.fn().mockResolvedValue(dataPrismaService),
+    };
+    const operation = new DeleteFieldsOperation(
+      fieldOpenApiService as never,
+      recordOpenApiService as never,
+      dataDbClientManager as never
+    );
+
+    await operation.undo({
+      name: 'DeleteFields',
+      params: { tableId: 'tbl1' },
+      result: {
+        fields: [{ id: 'fld1', name: 'Name' }],
+        records: [
+          { id: 'rec1', fields: { fld1: null } },
+          { id: 'rec2', fields: { fld1: [], fld2: undefined } },
+          { id: 'rec3', fields: { fld1: 'value' } },
+          { id: 'rec4', fields: { fld1: 0, fld2: false, fld3: '' } },
+        ],
+      },
+      operationId: 'otrash1',
+    } as never);
+
+    expect(recordOpenApiService.updateRecords).toHaveBeenCalledTimes(1);
+    expect(recordOpenApiService.updateRecords).toHaveBeenCalledWith('tbl1', {
+      fieldKeyType: FieldKeyType.Id,
+      records: [
+        { id: 'rec3', fields: { fld1: 'value' } },
+        { id: 'rec4', fields: { fld1: 0, fld2: false, fld3: '' } },
+      ],
+    });
+  });
+
+  it('DeleteFieldsOperation restores field values in chunks', async () => {
+    const fieldOpenApiService = {
+      createFields: vi.fn().mockResolvedValue(undefined),
+    };
+    const recordOpenApiService = {
+      updateRecords: vi.fn().mockResolvedValue(undefined),
+    };
+    const dataPrismaService = {
+      tableTrash: {
+        count: vi.fn().mockResolvedValue(1),
+        delete: vi.fn().mockResolvedValue(undefined),
+      },
+    };
+    const dataDbClientManager = {
+      dataPrismaForTable: vi.fn().mockResolvedValue(dataPrismaService),
+    };
+    const operation = new DeleteFieldsOperation(
+      fieldOpenApiService as never,
+      recordOpenApiService as never,
+      dataDbClientManager as never
+    );
+    const records = Array.from({ length: 1001 }, (_, index) => ({
+      id: `rec${index}`,
+      fields: { fld1: `value-${index}` },
+    }));
+
+    await operation.undo({
+      name: 'DeleteFields',
+      params: { tableId: 'tbl1' },
+      result: {
+        fields: [{ id: 'fld1', name: 'Name' }],
+        records,
+      },
+      operationId: 'otrash1',
+    } as never);
+
+    expect(recordOpenApiService.updateRecords).toHaveBeenCalledTimes(3);
+    expect(recordOpenApiService.updateRecords.mock.calls[0][1].records).toHaveLength(500);
+    expect(recordOpenApiService.updateRecords.mock.calls[1][1].records).toHaveLength(500);
+    expect(recordOpenApiService.updateRecords.mock.calls[2][1].records).toHaveLength(1);
   });
 
   it('DeleteRecordsOperation restores records before deleting data-db trash snapshots', async () => {

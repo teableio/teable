@@ -10,6 +10,7 @@ import {
 } from '../domain/table/records/RecordInsertOrder';
 import { RecordId } from '../domain/table/records/RecordId';
 import { TableId } from '../domain/table/TableId';
+import type { RecordWritePluginRunnerOptions } from '../ports/RecordWritePlugin';
 import { recordFilterNodeSchema, type RecordFilterNode } from '../queries/RecordFilterDto';
 import type { RecordFieldValues } from './CreateRecordCommand';
 
@@ -87,6 +88,10 @@ export interface IUpdateRecordsItem {
   readonly fieldValues: RecordFieldValues;
 }
 
+export interface IUpdateRecordsCommandOptions {
+  readonly recordWritePluginRunnerOptions?: RecordWritePluginRunnerOptions;
+}
+
 export class UpdateRecordsCommand {
   private constructor(
     readonly tableId: TableId,
@@ -98,10 +103,14 @@ export class UpdateRecordsCommand {
     readonly deferComputedUpdates: boolean,
     readonly enqueueDeferredComputedUpdates: boolean,
     readonly fieldKeyType: FieldKeyType,
-    readonly order: RecordInsertOrder | undefined
+    readonly order: RecordInsertOrder | undefined,
+    readonly recordWritePluginRunnerOptions: RecordWritePluginRunnerOptions | undefined
   ) {}
 
-  static create(raw: unknown): Result<UpdateRecordsCommand, DomainError> {
+  static create(
+    raw: unknown,
+    options?: IUpdateRecordsCommandOptions
+  ): Result<UpdateRecordsCommand, DomainError> {
     const parsed = updateRecordsInputSchema.safeParse(raw);
     if (!parsed.success) {
       return err(
@@ -127,7 +136,8 @@ export class UpdateRecordsCommand {
                 parsed.data.deferComputedUpdates,
                 parsed.data.enqueueDeferredComputedUpdates,
                 parsed.data.fieldKeyType,
-                order
+                order,
+                options?.recordWritePluginRunnerOptions
               )
           )
         )
