@@ -1,7 +1,14 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { faker } from '@faker-js/faker';
 import type { INestApplication } from '@nestjs/common';
-import { FieldKeyType, FieldType, ViewType, generateRecordTrashId } from '@teable/core';
+import type { ILinkFieldOptions } from '@teable/core';
+import {
+  FieldKeyType,
+  FieldType,
+  Relationship,
+  ViewType,
+  generateRecordTrashId,
+} from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { ITableTrashItemVo } from '@teable/openapi';
 import {
@@ -16,6 +23,7 @@ import {
   resetTrashItems,
   ResourceType,
   restoreTrash,
+  updateRecords,
   updateSetting,
 } from '@teable/openapi';
 import { vi } from 'vitest';
@@ -499,6 +507,8 @@ describe('Trash (e2e)', () => {
 
         const restored = await restoreTrash(recordTrashItem!.id, tableId);
         expect(restored.status).toEqual(201);
+        expect(restored.headers['x-teable-v2']).toBe('true');
+        expect(restored.headers['x-teable-v2-feature']).toBe('createRecord');
         expect(legacyRestoreSpy).not.toHaveBeenCalled();
 
         const recordsAfterRestore = await getRecords(tableId, {
@@ -523,6 +533,62 @@ describe('Trash (e2e)', () => {
           },
         });
         legacyRestoreSpy.mockRestore();
+      }
+    });
+
+    it('should restore V2 field trash values from a sparse snapshot', async () => {
+      await updateSetting({
+        [SettingKey.CANARY_CONFIG]: {
+          enabled: true,
+          spaceIds: [globalThis.testConfig.spaceId],
+        },
+      });
+
+      try {
+        const field = await createField(tableId, {
+          name: `restore-v2-sparse-${Date.now()}`,
+          type: FieldType.SingleLineText,
+        });
+        const created = await createRecords(tableId, {
+          fieldKeyType: FieldKeyType.Id,
+          records: Array.from({ length: 501 }, (_, index) => ({
+            fields: {
+              [field.id]: `restore-value-${index}`,
+            },
+          })),
+        });
+        expect(created.headers['x-teable-v2']).toBe('true');
+        const recordIds = created.data.records.map((record) => record.id);
+
+        const deleteRes = await deleteFields(tableId, [field.id]);
+        expect(deleteRes.headers['x-teable-v2']).toBe('true');
+
+        const itemsRes = await waitForTableTrashItems(tableId, 1);
+        const fieldTrashItem = itemsRes.data.trashItems.find(
+          (t) => (t as ITableTrashItemVo).resourceType === ResourceType.Field
+        ) as ITableTrashItemVo | undefined;
+
+        expect(fieldTrashItem).toBeTruthy();
+
+        const restored = await restoreTrash(fieldTrashItem!.id, tableId);
+        expect(restored.status).toEqual(201);
+        expect(restored.headers['x-teable-v2']).toBe('true');
+        expect(restored.headers['x-teable-v2-feature']).toBe('createField');
+
+        const recordsAfterRestore = await getRecords(tableId, {
+          fieldKeyType: FieldKeyType.Id,
+        });
+        const restoredRecord = recordsAfterRestore.records.find(
+          (record) => record.id === recordIds[0]
+        );
+        expect(restoredRecord?.fields[field.id]).toBe('restore-value-0');
+      } finally {
+        await updateSetting({
+          [SettingKey.CANARY_CONFIG]: {
+            enabled: false,
+            spaceIds: [],
+          },
+        });
       }
     });
 
@@ -563,6 +629,93 @@ describe('Trash (e2e)', () => {
 
       const afterFields = await getFields(tableId);
       expect(afterFields.find((f) => f.id === field.id)).toBeTruthy();
+    });
+
+    it('should restore a two-way link field together with its deleted symmetric field', async () => {
+      await updateSetting({
+        [SettingKey.CANARY_CONFIG]: {
+          enabled: true,
+          spaceIds: [globalThis.testConfig.spaceId],
+        },
+      });
+
+      const foreignTable = await createTable(baseId, {
+        name: `restore-link-target-${Date.now()}`,
+        fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+        records: [{ fields: { Name: 'target' } }],
+      });
+
+      try {
+        const linkField = await createField(tableId, {
+          name: 'restore link',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyMany,
+            foreignTableId: foreignTable.id,
+          },
+        });
+        const symmetricFieldId = (linkField.options as ILinkFieldOptions).symmetricFieldId;
+        expect(symmetricFieldId).toBeTruthy();
+
+        const sourceRecord = (await getRecords(tableId, { fieldKeyType: FieldKeyType.Id }))
+          .records[0];
+        const targetRecord = (await getRecords(foreignTable.id, { fieldKeyType: FieldKeyType.Id }))
+          .records[0];
+
+        await updateRecords(tableId, {
+          fieldKeyType: FieldKeyType.Id,
+          records: [
+            {
+              id: sourceRecord.id,
+              fields: {
+                [linkField.id]: [{ id: targetRecord.id }],
+              },
+            },
+          ],
+        });
+
+        const deleteRes = await deleteFields(tableId, [linkField.id]);
+        expect(deleteRes.headers['x-teable-v2']).toBe('true');
+
+        const deletedMain = await prisma.field.findUnique({ where: { id: linkField.id } });
+        const deletedSymmetric = await prisma.field.findUnique({
+          where: { id: symmetricFieldId! },
+        });
+        expect(deletedMain?.deletedTime).toBeTruthy();
+        expect(deletedSymmetric?.deletedTime).toBeTruthy();
+
+        const itemsRes = await waitForTableTrashItems(tableId, 1);
+        const fieldTrashItem = itemsRes.data.trashItems.find(
+          (t) => (t as ITableTrashItemVo).resourceType === ResourceType.Field
+        ) as ITableTrashItemVo | undefined;
+
+        expect(fieldTrashItem).toBeTruthy();
+
+        const restored = await restoreTrash(fieldTrashItem!.id, tableId);
+        expect(restored.status).toEqual(201);
+        expect(restored.headers['x-teable-v2']).toBe('true');
+        expect(restored.headers['x-teable-v2-feature']).toBe('createField');
+
+        const afterSourceFields = await getFields(tableId);
+        const afterTargetFields = await getFields(foreignTable.id);
+        expect(afterSourceFields.find((f) => f.id === linkField.id)).toBeTruthy();
+        expect(afterTargetFields.find((f) => f.id === symmetricFieldId)).toBeTruthy();
+
+        const sourceAfterRestore = (
+          await getRecords(tableId, { fieldKeyType: FieldKeyType.Id })
+        ).records.find((record) => record.id === sourceRecord.id);
+        expect(sourceAfterRestore?.fields[linkField.id]).toEqual([
+          expect.objectContaining({ id: targetRecord.id }),
+        ]);
+      } finally {
+        await updateSetting({
+          [SettingKey.CANARY_CONFIG]: {
+            enabled: false,
+            spaceIds: [],
+          },
+        });
+        await permanentDeleteTable(baseId, foreignTable.id);
+      }
     });
 
     it('should restore fields successfully', async () => {

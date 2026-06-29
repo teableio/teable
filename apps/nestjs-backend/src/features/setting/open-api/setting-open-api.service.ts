@@ -229,6 +229,7 @@ export class SettingOpenApiService {
     const availableIntegrationProviders: string[] = [
       ...(process.env.GMAIL_CLIENT_ID ? ['gmail'] : []),
       ...(process.env.OUTLOOK_CLIENT_ID ? ['outlook'] : []),
+      ...(process.env.AIRTABLE_CLIENT_ID ? ['airtable'] : []),
     ];
 
     return {

@@ -26,6 +26,8 @@ import { FieldName } from './fields/FieldName';
 import { FieldType } from './fields/FieldType';
 import { validateForeignTablesForFields } from './fields/ForeignTableRelatedField';
 import { FieldIsComputedSpec } from './fields/specs/FieldIsComputedSpec';
+import { CellValueMultiplicity } from './fields/types/CellValueMultiplicity';
+import { CellValueType } from './fields/types/CellValueType';
 import type { FieldHasError } from './fields/types/FieldHasError';
 import type { FieldNotNull } from './fields/types/FieldNotNull';
 import type { FieldUnique } from './fields/types/FieldUnique';
@@ -38,6 +40,7 @@ import type { SelectOption } from './fields/types/SelectOption';
 import { SingleSelectField } from './fields/types/SingleSelectField';
 import { FieldCellValueSchemaVisitor } from './fields/visitors/FieldCellValueSchemaVisitor';
 import { FieldDefaultValueVisitor } from './fields/visitors/FieldDefaultValueVisitor';
+import { FieldValueTypeVisitor } from './fields/visitors/FieldValueTypeVisitor';
 import {
   LinkForeignTableReferenceVisitor,
   type LinkForeignTableReference,
@@ -61,6 +64,8 @@ import {
   type CreateRecordsMethodResult,
   type CreateRecordsStreamOptions,
   type UpdateRecordItem,
+  type UpdateRecordOptions,
+  type UpdateRecordsStreamOptions,
 } from './methods/records';
 import { rename as renameMethod } from './methods/rename';
 import { validateFormSubmission as validateFormSubmissionMethod } from './methods/validateFormSubmission';
@@ -420,16 +425,29 @@ export class Table extends AggregateRoot<TableId> {
         );
       }
 
-      if (!primaryField.type().equals(FieldType.singleLineText())) {
+      const primaryFieldValueTypeResult = primaryField.accept(new FieldValueTypeVisitor());
+      if (primaryFieldValueTypeResult.isErr()) {
+        return err(primaryFieldValueTypeResult.error);
+      }
+
+      if (
+        !primaryFieldValueTypeResult.value.cellValueType.equals(CellValueType.string()) ||
+        !primaryFieldValueTypeResult.value.isMultipleCellValue.equals(
+          CellValueMultiplicity.single()
+        )
+      ) {
         return err(
           domainError.validation({
             code: 'paste.link_auto_create_requires_text_primary',
             message:
-              'Auto-creating linked rows from paste is only supported when the foreign primary field is single line text.',
+              'Auto-creating linked rows from paste is only supported when the foreign primary field resolves to a single string value.',
             details: {
               tableId: this.id().toString(),
               primaryFieldId: primaryField.id().toString(),
               primaryFieldType: primaryField.type().toString(),
+              cellValueType: primaryFieldValueTypeResult.value.cellValueType.toString(),
+              isMultipleCellValue:
+                primaryFieldValueTypeResult.value.isMultipleCellValue.toBoolean(),
             },
           })
         );
@@ -537,7 +555,7 @@ export class Table extends AggregateRoot<TableId> {
   updateRecord(
     recordId: RecordId,
     fieldValues: ReadonlyMap<string, unknown>,
-    options?: { typecast?: boolean }
+    options?: UpdateRecordOptions
   ): Result<RecordUpdateResult, DomainError> {
     return updateRecordMethod.call(this, recordId, fieldValues, options);
   }
@@ -555,6 +573,7 @@ export class Table extends AggregateRoot<TableId> {
    * @param options - Optional configuration
    * @param options.typecast - If true, values are converted to the expected type
    * @param options.batchSize - Number of records per batch (default: 500)
+   * @param options.maxBatchSize - Dynamic batch-size cap when batchSize is not specified
    * @returns Generator yielding Result batches of RecordUpdateResult
    *
    * @example
@@ -577,7 +596,7 @@ export class Table extends AggregateRoot<TableId> {
    */
   *updateRecordsStream(
     updates: Iterable<UpdateRecordItem>,
-    options?: { typecast?: boolean; batchSize?: number }
+    options?: UpdateRecordsStreamOptions
   ): Generator<Result<ReadonlyArray<RecordUpdateResult>, DomainError>> {
     yield* updateRecordsStreamMethod.call(this, updates, options);
   }
@@ -967,6 +986,7 @@ export class Table extends AggregateRoot<TableId> {
           options: mergedOptions,
           defaultValue: (field as SingleSelectField).defaultValue(),
           preventAutoNewOptions: (field as SingleSelectField).preventAutoNewOptions(),
+          domainContext,
         })
       : MultipleSelectField.create({
           id: field.id(),
@@ -974,6 +994,7 @@ export class Table extends AggregateRoot<TableId> {
           options: mergedOptions,
           defaultValue: (field as MultipleSelectField).defaultValue(),
           preventAutoNewOptions: (field as MultipleSelectField).preventAutoNewOptions(),
+          domainContext,
         });
     if (nextFieldResult.isErr()) return err(nextFieldResult.error);
     const nextField = nextFieldResult.value;
@@ -1038,8 +1059,7 @@ export class Table extends AggregateRoot<TableId> {
       return err(domainError.conflict({ message: 'Field names must be unique' }));
     }
 
-    // Create updated field using duplicate with new name
-    const updatedFieldResult = field.duplicate({
+    const updatedFieldResult = field.withName({
       newId: field.id(),
       newName: nextName,
       baseId: this.baseIdValue,

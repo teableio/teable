@@ -98,7 +98,18 @@ describe('OpenAPI ViewController (e2e)', () => {
       type: ViewType.Grid,
     };
 
-    await createView(table.id, viewRo);
+    const createdView = await createView(table.id, viewRo);
+
+    const { dbTableName } = await prismaService.tableMeta.findUniqueOrThrow({
+      where: { id: table.id },
+      select: { dbTableName: true },
+    });
+    const rowOrderColumn = await viewService.existIndex(
+      dbTableName,
+      createdView.id,
+      prismaService.txClient()
+    );
+    expect(rowOrderColumn).toBe(`__row_${createdView.id}`);
 
     const result = await getViews(table.id);
     expect(result).toMatchObject([
