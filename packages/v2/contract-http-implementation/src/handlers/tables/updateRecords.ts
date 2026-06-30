@@ -5,14 +5,20 @@ import {
   mapUpdateRecordsResultToDto,
 } from '@teable/v2-contract-http';
 import { UpdateRecordsCommand } from '@teable/v2-core';
-import type { ICommandBus, IExecutionContext, UpdateRecordsResult } from '@teable/v2-core';
+import type {
+  ICommandBus,
+  IExecutionContext,
+  IUpdateRecordsCommandOptions,
+  UpdateRecordsResult,
+} from '@teable/v2-core';
 
 export const executeUpdateRecordsEndpoint = async (
   context: IExecutionContext,
   rawBody: unknown,
-  commandBus: ICommandBus
+  commandBus: ICommandBus,
+  options?: IUpdateRecordsCommandOptions
 ): Promise<IUpdateRecordsEndpointResult> => {
-  const commandResult = UpdateRecordsCommand.create(rawBody);
+  const commandResult = UpdateRecordsCommand.create(rawBody, options);
   if (commandResult.isErr()) {
     const error = commandResult.error;
     return {

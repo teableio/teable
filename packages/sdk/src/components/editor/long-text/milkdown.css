@@ -1,8 +1,20 @@
 /* Milkdown editor styles */
 .milkdown-editor-wrap .ProseMirror {
   @apply p-2 outline-none min-h-[4rem];
+  position: relative;
   overflow-wrap: break-word;
   word-break: break-word;
+}
+
+.milkdown-editor-wrap .ProseMirror[data-placeholder]:has(> p:first-child:last-child:empty)::before,
+.milkdown-editor-wrap
+  .ProseMirror[data-placeholder]:has(
+    > p:first-child:last-child > br.ProseMirror-trailingBreak:only-child
+  )::before {
+  content: attr(data-placeholder);
+  position: absolute;
+  color: hsl(var(--muted-foreground));
+  pointer-events: none;
 }
 
 .milkdown-editor-wrap .ProseMirror.milkdown-readonly {
@@ -375,7 +387,7 @@
 /* Milkdown floating toolbar */
 .milkdown-floating-toolbar {
   position: absolute;
-  left: -34px;
+  left: -42px;
   top: 0;
   z-index: 1;
   pointer-events: auto;
@@ -585,8 +597,8 @@
 }
 
 .milkdown-selection-btn svg {
-  width: 15px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
   pointer-events: none;
 }
 

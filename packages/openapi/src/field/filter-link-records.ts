@@ -19,7 +19,7 @@ export const GetFieldFilterLinkRecordsRoute: RouteConfig = registerRoute({
   request: {
     params: z.object({
       tableId: z.string(),
-      viewId: z.string(),
+      fieldId: z.string(),
     }),
   },
   responses: {

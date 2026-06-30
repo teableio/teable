@@ -255,6 +255,36 @@ describe('RecordWritePluginRunner', () => {
     expect(calls).toEqual(['create-only']);
   });
 
+  it('skips plugins listed in runner options', async () => {
+    const calls: string[] = [];
+    const plugin = (name: string): IRecordWritePlugin => ({
+      name,
+      supports: () => {
+        calls.push(`${name}:supports`);
+        return true;
+      },
+      guard: () => {
+        calls.push(`${name}:guard`);
+        return ok(undefined);
+      },
+    });
+    const runner = new RecordWritePluginRunner(
+      [plugin('kept'), plugin('skipped')],
+      new FakeLogger(),
+      tableMapper
+    );
+
+    const execution = (
+      await runner.prepare(createContext(), {
+        runnerOptions: { skipPluginNames: new Set(['skipped']) },
+      })
+    )._unsafeUnwrap();
+    const result = await execution.guard();
+
+    expect(result.isOk()).toBe(true);
+    expect(calls).toEqual(['kept:supports', 'kept:guard']);
+  });
+
   it('keeps prepared state private to the owning plugin', async () => {
     const seenStates: Array<{ plugin: string; state: unknown }> = [];
     const runner = new RecordWritePluginRunner(

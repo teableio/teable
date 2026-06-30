@@ -237,6 +237,8 @@ describe('TableEventGeneratingSpecVisitor', () => {
     expect(events).toHaveLength(2);
     expect(events[0]).toBeInstanceOf(ViewColumnMetaUpdated);
     expect(events[1]).toBeInstanceOf(ViewColumnMetaUpdated);
+    expect((events[0] as ViewColumnMetaUpdated).fieldInColumnMeta).toBe(true);
+    expect((events[1] as ViewColumnMetaUpdated).fieldInColumnMeta).toBe(false);
   });
 
   it('generates FieldUpdated event with formatting property for UpdateNumberFormattingSpec', () => {

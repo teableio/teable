@@ -5,6 +5,7 @@ import type { Response } from 'express';
 import { LoggerModule } from '../../logger/logger.module';
 import { ShareDbModule } from '../../share-db/share-db.module';
 import { AttachmentsStorageModule } from '../attachments/attachments-storage.module';
+import { CalculationModule } from '../calculation/calculation.module';
 import { NotificationModule } from '../notification/notification.module';
 import { RecordModule } from '../record/record.module';
 import { UndoRedoStackService } from '../undo-redo/stack/undo-redo-stack.service';
@@ -102,6 +103,7 @@ const toErrorMessage = (body: unknown): string => {
     }),
     LoggerModule.register(),
     AttachmentsStorageModule,
+    CalculationModule,
     ShareDbModule,
     NotificationModule,
     RecordModule,

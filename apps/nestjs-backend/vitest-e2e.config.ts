@@ -19,6 +19,9 @@ const testFiles = ['**/test/**/*.{e2e-test,e2e-spec}.{js,ts}'];
 
 export default defineConfig({
   resolve: {
+    alias: {
+      buffer: 'node:buffer',
+    },
     conditions: ['@teable/source'],
   },
   ssr: {
