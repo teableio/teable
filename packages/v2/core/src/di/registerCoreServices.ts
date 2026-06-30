@@ -49,7 +49,11 @@ import { UndoRedoStackService } from '../application/services/UndoRedoStackServi
 import { UserValueResolverService } from '../application/services/UserValueResolverService';
 import { ViewOperationPluginRunner } from '../application/services/ViewOperationPluginRunner';
 import { PasteStreamApplicationService } from '../commands/PasteHandler';
+import { RestoreFieldStreamApplicationService } from '../commands/RestoreFieldStreamHandler';
 import { NoopAttachmentUrlSignerService } from '../ports/defaults/NoopAttachmentUrlSignerService';
+import { NoopComputedFieldBackfillService } from '../ports/defaults/NoopComputedFieldBackfillService';
+import { NoopFieldDeleteSnapshotSink } from '../ports/defaults/NoopFieldDeleteSnapshotSink';
+import { NoopFieldTrashRepository } from '../ports/defaults/NoopFieldTrashRepository';
 import { NoopRecordOrderCalculator } from '../ports/defaults/NoopRecordOrderCalculator';
 import { NoopUndoRedoStore } from '../ports/defaults/NoopUndoRedoStore';
 import type { IFieldOperationPlugin } from '../ports/FieldOperationPlugin';
@@ -175,6 +179,13 @@ export const registerV2CoreServices = (
     );
   }
 
+  if (!container.isRegistered(v2CoreTokens.fieldDeleteSnapshotSink)) {
+    container.registerInstance(
+      v2CoreTokens.fieldDeleteSnapshotSink,
+      new NoopFieldDeleteSnapshotSink()
+    );
+  }
+
   // FieldUpdateSideEffectService - cascading field updates for dependent fields
   if (!container.isRegistered(v2CoreTokens.fieldUpdateSideEffectService)) {
     container.register(v2CoreTokens.fieldUpdateSideEffectService, FieldUpdateSideEffectService, {
@@ -255,6 +266,30 @@ export const registerV2CoreServices = (
     container.register(v2CoreTokens.pasteStreamApplicationService, PasteStreamApplicationService, {
       lifecycle,
     });
+  }
+
+  if (!container.isRegistered(v2CoreTokens.restoreFieldStreamApplicationService)) {
+    container.register(
+      v2CoreTokens.restoreFieldStreamApplicationService,
+      RestoreFieldStreamApplicationService,
+      { lifecycle }
+    );
+  }
+
+  if (!container.isRegistered(v2CoreTokens.fieldTrashRepository)) {
+    container.register(v2CoreTokens.fieldTrashRepository, NoopFieldTrashRepository, {
+      lifecycle,
+    });
+  }
+
+  if (!container.isRegistered(v2CoreTokens.computedFieldBackfillService)) {
+    container.register(
+      v2CoreTokens.computedFieldBackfillService,
+      NoopComputedFieldBackfillService,
+      {
+        lifecycle,
+      }
+    );
   }
 
   // AttachmentValueResolverService - resolve attachment values

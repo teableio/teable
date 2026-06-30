@@ -16,7 +16,11 @@ import type {
 } from '../ComputedUpdatePlanner';
 import { splitSeedGroupsForPlan } from '../ComputedUpdatePlanner';
 import { createComputedUpdateRun, toRunLogContext } from '../ComputedUpdateRun';
-import type { IUpdateStrategy, UpdateStrategyMode } from './IUpdateStrategy';
+import type {
+  IUpdateStrategy,
+  UpdateStrategyExecuteOptions,
+  UpdateStrategyMode,
+} from './IUpdateStrategy';
 
 /**
  * Synchronous strategy: execute computed updates in the current transaction.
@@ -34,7 +38,8 @@ export class SyncInTransactionStrategy implements IUpdateStrategy {
   async execute(
     updater: ComputedFieldUpdater,
     plan: ComputedUpdatePlan,
-    context: IExecutionContext
+    context: IExecutionContext,
+    _options?: UpdateStrategyExecuteOptions
   ): Promise<Result<ComputedUpdateResult | undefined, DomainError>> {
     if (
       plan.steps.length === 0 ||

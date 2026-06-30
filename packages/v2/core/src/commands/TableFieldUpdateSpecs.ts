@@ -121,6 +121,7 @@ import { TableUpdateFieldAiConfigSpec } from '../domain/table/specs/TableUpdateF
 import { TableUpdateFieldConstraintsSpec } from '../domain/table/specs/TableUpdateFieldConstraintsSpec';
 import { TableUpdateFieldDbFieldNameSpec } from '../domain/table/specs/TableUpdateFieldDbFieldNameSpec';
 import { TableUpdateFieldDescriptionSpec } from '../domain/table/specs/TableUpdateFieldDescriptionSpec';
+import { TableUpdateFieldHasErrorSpec } from '../domain/table/specs/TableUpdateFieldHasErrorSpec';
 import { TableUpdateFieldNameSpec } from '../domain/table/specs/TableUpdateFieldNameSpec';
 import { TableUpdateFieldTypeSpec } from '../domain/table/specs/TableUpdateFieldTypeSpec';
 import type { Table } from '../domain/table/Table';
@@ -190,11 +191,14 @@ const parseRequiredFormulaShowAs = (raw: unknown): Result<FormulaShowAs, DomainE
 
 const sequence = <T>(
   values: ReadonlyArray<Result<T, DomainError>>
-): Result<ReadonlyArray<T>, DomainError> =>
-  values.reduce<Result<ReadonlyArray<T>, DomainError>>(
-    (acc, next) => acc.andThen((arr) => next.map((v) => [...arr, v])),
-    ok([])
-  );
+): Result<ReadonlyArray<T>, DomainError> => {
+  const result: T[] = [];
+  for (const value of values) {
+    if (value.isErr()) return err<ReadonlyArray<T>, DomainError>(value.error);
+    result.push(value.value);
+  }
+  return ok(result);
+};
 
 const parseTrackedFieldIds = (
   raw: unknown
@@ -219,6 +223,8 @@ const fieldIdArrayEquals = (a: ReadonlyArray<FieldId>, b: ReadonlyArray<FieldId>
   if (a.length !== b.length) return false;
   return a.every((item, index) => item.equals(b[index]));
 };
+
+type FieldUpdateMode = 'partial' | 'full';
 
 const parseSelectOptionWithFallback = (
   choice: unknown,
@@ -2228,6 +2234,11 @@ class UpdateFormulaFieldSpec implements IUpdateTableFieldSpec {
             this.expressionValue
           )
         );
+        if (currentField.hasError().isError()) {
+          specs.push(
+            TableUpdateFieldHasErrorSpec.clearError(currentField.id(), currentField.hasError())
+          );
+        }
       }
     }
 
@@ -2443,10 +2454,10 @@ class UpdateLinkFieldSpec implements IUpdateTableFieldSpec {
     options?: {
       foreignTables?: ReadonlyArray<Table>;
       hostTable?: Table;
-      replaceOptions?: boolean;
+      updateMode?: FieldUpdateMode;
     }
   ): Result<UpdateLinkFieldSpec, DomainError> {
-    const replaceOptions = options?.replaceOptions === true;
+    const isFullUpdate = options?.updateMode === 'full';
     const parseConfigPatch = (): Result<
       Readonly<Record<string, unknown>> | undefined,
       DomainError
@@ -2456,7 +2467,7 @@ class UpdateLinkFieldSpec implements IUpdateTableFieldSpec {
         return err(domainError.validation({ message: 'Invalid LinkFieldConfig' }));
       }
       const patch = { ...(input.options as Record<string, unknown>) };
-      if (replaceOptions) {
+      if (isFullUpdate) {
         const clearableKeys = ['filterByViewId', 'visibleFieldIds', 'filter'] as const;
         for (const key of clearableKeys) {
           if (!Object.prototype.hasOwnProperty.call(input.options, key)) {
@@ -2658,7 +2669,17 @@ class UpdateLinkFieldSpec implements IUpdateTableFieldSpec {
         const withDerivedDbConfigResult = this.deriveNextDbConfig(currentField, effectiveConfig);
         if (withDerivedDbConfigResult.isErr()) return err(withDerivedDbConfigResult.error);
         effectiveConfig = withDerivedDbConfigResult.value;
+      } else if (currentConfig.hasDbConfig() && !effectiveConfig.hasDbConfig()) {
+        const withCurrentDbConfigResult = effectiveConfig.withDbConfig({
+          fkHostTableName: currentConfig.fkHostTableName(),
+          selfKeyName: currentConfig.selfKeyName(),
+          foreignKeyName: currentConfig.foreignKeyName(),
+        });
+        if (withCurrentDbConfigResult.isErr()) return err(withCurrentDbConfigResult.error);
+        effectiveConfig = withCurrentDbConfigResult.value;
       }
+
+      const isConfigChanging = !currentConfig.equals(effectiveConfig);
 
       if (isForeignTableChanging) {
         const nextFieldResult = LinkField.create({
@@ -2678,7 +2699,7 @@ class UpdateLinkFieldSpec implements IUpdateTableFieldSpec {
 
         // Changing foreign table requires physical schema migration, not metadata-only update.
         specs.push(TableUpdateFieldTypeSpec.create(currentField, nextField));
-      } else {
+      } else if (isConfigChanging) {
         specs.push(UpdateLinkConfigSpec.create(currentField.id(), currentConfig, effectiveConfig));
       }
 
@@ -2687,6 +2708,7 @@ class UpdateLinkFieldSpec implements IUpdateTableFieldSpec {
       // For isOneWayChanging without storage or relationship change, we only need
       // the spec when the junction table name changes (junction-based storage).
       const needsRelationshipSpec =
+        isConfigChanging &&
         !isForeignTableChanging &&
         (relationshipChanging ||
           isStorageTypeChanging ||
@@ -2773,15 +2795,15 @@ class UpdateLookupFieldSpec implements IUpdateTableFieldSpec {
     },
     context?: {
       foreignTables?: ReadonlyArray<Table>;
-      replaceOptions?: boolean;
+      updateMode?: FieldUpdateMode;
     }
   ): Result<UpdateLookupFieldSpec, DomainError> {
-    const replaceOptions = context?.replaceOptions === true;
+    const isFullUpdate = context?.updateMode === 'full';
     const shouldClearShowAs =
       input.options !== undefined &&
       ((Object.prototype.hasOwnProperty.call(input.options, 'showAs') &&
         input.options.showAs === null) ||
-        (replaceOptions && !Object.prototype.hasOwnProperty.call(input.options, 'showAs')));
+        (isFullUpdate && !Object.prototype.hasOwnProperty.call(input.options, 'showAs')));
     return optional(input.name, FieldName.create).andThen((name) => {
       const optionsPatch = input.options
         ? {
@@ -2794,13 +2816,13 @@ class UpdateLookupFieldSpec implements IUpdateTableFieldSpec {
             ...(Object.prototype.hasOwnProperty.call(input.options, 'lookupFieldId')
               ? { lookupFieldId: input.options.lookupFieldId }
               : {}),
-            ...(Object.prototype.hasOwnProperty.call(input.options, 'filter') || replaceOptions
+            ...(Object.prototype.hasOwnProperty.call(input.options, 'filter') || isFullUpdate
               ? { filter: input.options.filter }
               : {}),
-            ...(Object.prototype.hasOwnProperty.call(input.options, 'sort') || replaceOptions
+            ...(Object.prototype.hasOwnProperty.call(input.options, 'sort') || isFullUpdate
               ? { sort: input.options.sort }
               : {}),
-            ...(Object.prototype.hasOwnProperty.call(input.options, 'limit') || replaceOptions
+            ...(Object.prototype.hasOwnProperty.call(input.options, 'limit') || isFullUpdate
               ? { limit: input.options.limit }
               : {}),
           }
@@ -3227,7 +3249,7 @@ export const parseUpdateFieldSpec = (
     max?: unknown;
     cellValueType?: string;
     isMultipleCellValue?: boolean;
-    replaceOptions?: boolean;
+    updateMode?: FieldUpdateMode;
   },
   options?: {
     hostTable?: Table;
@@ -3316,13 +3338,13 @@ export const parseUpdateFieldSpec = (
       UpdateLinkFieldSpec.create(input as Parameters<typeof UpdateLinkFieldSpec.create>[0], {
         foreignTables: options?.foreignTables,
         hostTable: options?.hostTable,
-        replaceOptions: input.replaceOptions === true,
+        updateMode: input.updateMode,
       })
     )
     .with('lookup', () =>
       UpdateLookupFieldSpec.create(input as Parameters<typeof UpdateLookupFieldSpec.create>[0], {
         foreignTables: options?.foreignTables,
-        replaceOptions: input.replaceOptions === true,
+        updateMode: input.updateMode,
       })
     )
     .with('conditionalLookup', () =>
@@ -3365,7 +3387,7 @@ export const buildUpdateFieldSpecs = (
     cellValueType?: string;
     isMultipleCellValue?: boolean;
     aiConfig?: unknown;
-    replaceOptions?: boolean;
+    updateMode?: FieldUpdateMode;
   },
   options?: {
     hostTable?: Table;

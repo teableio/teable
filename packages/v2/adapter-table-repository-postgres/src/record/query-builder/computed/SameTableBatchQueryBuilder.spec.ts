@@ -402,6 +402,60 @@ const createDuplicateFormulaChainTable = () => {
   return { table, sameAId, sameBId, chainId };
 };
 
+const createEscapedIdentifierChainTable = () => {
+  const baseId = BaseId.create(`bse${'q'.repeat(16)}`)._unsafeUnwrap();
+  const tableId = TableId.create(`tbl${'q'.repeat(16)}`)._unsafeUnwrap();
+  const tableName = TableName.create('EscapedIdentifierTable')._unsafeUnwrap();
+
+  const sourceId = createFieldId(`fld${'u'.repeat(16)}`);
+  const firstFormulaId = createFieldId(`fld${'v'.repeat(16)}`);
+  const secondFormulaId = createFieldId(`fld${'w'.repeat(16)}`);
+
+  const sourceResult = createNumberField({
+    id: sourceId,
+    name: createFieldName('Source'),
+  }).andThen((field) =>
+    DbFieldName.rehydrate('from"amount').andThen((dbName) =>
+      field.setDbFieldName(dbName).map(() => field)
+    )
+  );
+
+  const firstFormulaResult = createFormulaField({
+    id: firstFormulaId,
+    name: createFieldName('FirstFormula'),
+    expression: FormulaExpression.create(`{${sourceId.toString()}} * 2`)._unsafeUnwrap(),
+  }).andThen((field) =>
+    DbFieldName.rehydrate('select"discount').andThen((dbName) =>
+      field.setDbFieldName(dbName).map(() => field)
+    )
+  );
+
+  const secondFormulaResult = createFormulaField({
+    id: secondFormulaId,
+    name: createFieldName('SecondFormula'),
+    expression: FormulaExpression.create(`{${firstFormulaId.toString()}} + 1`)._unsafeUnwrap(),
+  }).andThen((field) =>
+    DbFieldName.rehydrate('total"from').andThen((dbName) =>
+      field.setDbFieldName(dbName).map(() => field)
+    )
+  );
+
+  const table = Table.builder()
+    .withId(tableId)
+    .withName(tableName)
+    .withBaseId(baseId)
+    .addFieldFromResult(sourceResult)
+    .addFieldFromResult(firstFormulaResult)
+    .addFieldFromResult(secondFormulaResult)
+    .view()
+    .defaultGrid()
+    .done()
+    .build()
+    ._unsafeUnwrap();
+
+  return { table, firstFormulaId, secondFormulaId };
+};
+
 describe('SameTableBatchQueryBuilder', () => {
   describe('build()', () => {
     it('returns error for empty field levels', () => {
@@ -504,11 +558,41 @@ describe('SameTableBatchQueryBuilder', () => {
 
       expect(sqlText).toContain('"level_0"."PlusOne"');
       expect(sqlText).toContain(
-        'FROM "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" AS u JOIN "level_1"'
+        'FROM "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" AS "u" JOIN "level_1"'
       );
       expect(sqlText).not.toContain(
         'FROM "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" AS u, "level_0", "level_1"'
       );
+    });
+
+    it('escapes DB field names in CTE field references', () => {
+      const db = createMockKysely();
+      const builder = new SameTableBatchQueryBuilder(db, typeValidationStrategy);
+      const { table, firstFormulaId, secondFormulaId } = createEscapedIdentifierChainTable();
+
+      const result = builder.build({
+        table,
+        fieldLevels: [
+          { level: 0, fieldIds: [firstFormulaId] },
+          { level: 1, fieldIds: [secondFormulaId] },
+        ],
+      });
+
+      expect(result.isOk()).toBe(true);
+      const updateBuilder = new UpdateFromSelectBuilder(db);
+      const compiled = updateBuilder.build({
+        table,
+        fieldIds: [firstFormulaId, secondFormulaId],
+        selectQuery: result._unsafeUnwrap().selectQuery,
+      });
+      expect(compiled.isOk()).toBe(true);
+      const sqlText = compiled._unsafeUnwrap().sql;
+
+      expect(sqlText).toContain('"t"."from""amount"');
+      expect(sqlText).toContain('"level_0"."select""discount"');
+      expect(sqlText).toContain('"level_1"."select""discount" as "select""discount"');
+      expect(sqlText).not.toContain('"t"."from"amount"');
+      expect(sqlText).not.toContain('"level_0"."select"discount"');
     });
 
     it('applies recordIds filter in first-level CTE when recordIds are provided', () => {
@@ -644,7 +728,7 @@ describe('SameTableBatchQueryBuilder', () => {
       expect(sqlText).toContain('"__cse"."__cse_0" as "SameA"');
       expect(sqlText).toContain('"__cse"."__cse_0" as "SameB"');
       expect((sqlText.match(/as "__cse_0"/g) ?? []).length).toBe(1);
-      expect(sqlText).toContain('JOIN "level_1" ON u."__id" = "level_1"."__id"');
+      expect(sqlText).toContain('JOIN "level_1" ON "u"."__id" = "level_1"."__id"');
       expect(sqlText).not.toContain(
         'FROM "bseaaaaaaaaaaaaaaaa"."tbldddddddddddddddd" AS u, "level_0", "level_1"'
       );

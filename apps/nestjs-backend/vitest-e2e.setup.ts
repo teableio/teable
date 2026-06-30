@@ -1,8 +1,14 @@
 import path from 'path';
+import { Buffer as NodeBuffer } from 'node:buffer';
+import { createRequire } from 'node:module';
 import type { INestApplication } from '@nestjs/common';
 import { DriverClient, parseDsn } from '@teable/core';
 import dotenv from 'dotenv-flow';
 import { buildSync } from 'esbuild';
+
+const require = createRequire(import.meta.url);
+const bufferModule = require('buffer') as { Buffer: typeof NodeBuffer; SlowBuffer?: unknown };
+bufferModule.SlowBuffer ??= bufferModule.Buffer ?? NodeBuffer;
 
 // Handle ConditionalModule timeout errors that occur sporadically in CI
 // These errors are thrown from setTimeout callbacks and cannot be caught normally

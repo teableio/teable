@@ -13,13 +13,16 @@ import type {
 import * as bcrypt from 'bcrypt';
 import { pick } from 'lodash';
 import { ClsService } from 'nestjs-cls';
+import { PerformanceCacheService } from '../../performance-cache';
+import { generateAccessTokenCacheKey } from '../../performance-cache/generate-keys';
 import type { IClsStore } from '../../types/cls';
 
 @Injectable()
 export class OAuthService {
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    private readonly performanceCacheService: PerformanceCacheService
   ) {}
 
   private convertToVo<T extends { scopes?: string | null; redirectUris?: string | null }>(ro: T) {
@@ -162,9 +165,33 @@ export class OAuthService {
     }
   };
 
+  private async deleteAccessTokens(
+    tx: Prisma.TransactionClient,
+    where: Prisma.AccessTokenWhereInput
+  ) {
+    const accessTokens = await tx.accessToken.findMany({
+      where,
+      select: { id: true },
+    });
+    await tx.accessToken.deleteMany({ where });
+    return accessTokens.map(({ id }) => id);
+  }
+
+  private async invalidateAccessTokenCache(accessTokenIds: string[]) {
+    await Promise.all(
+      [...new Set(accessTokenIds)].map((id) =>
+        this.performanceCacheService.del(generateAccessTokenCacheKey(id))
+      )
+    );
+  }
+
   async deleteOAuth(clientId: string): Promise<void> {
     await this.validateOwnership(clientId);
-    await this.prismaService.$tx(async (prisma) => {
+    const accessTokenIds = await this.prismaService.$tx(async (prisma) => {
+      const accessTokens = await prisma.accessToken.findMany({
+        where: { clientId },
+        select: { id: true },
+      });
       await prisma.oAuthApp.delete({
         where: {
           clientId,
@@ -175,7 +202,9 @@ export class OAuthService {
           clientId,
         },
       });
+      return accessTokens.map(({ id }) => id);
     });
+    await this.invalidateAccessTokenCache(accessTokenIds);
   }
 
   async getOAuthList(): Promise<OAuthGetListVo> {
@@ -238,7 +267,7 @@ export class OAuthService {
 
   async revokeAccess(clientId: string) {
     await this.validateOwnership(clientId);
-    await this.prismaService.$tx(async (prisma) => {
+    const accessTokenIds = await this.prismaService.$tx(async (prisma) => {
       await prisma.oAuthAppAuthorized.deleteMany({
         where: { clientId },
       });
@@ -247,16 +276,14 @@ export class OAuthService {
           clientId,
         },
       });
-      // delete access token
-      await prisma.accessToken.deleteMany({
-        where: { clientId },
-      });
+      return await this.deleteAccessTokens(prisma, { clientId });
     });
+    await this.invalidateAccessTokenCache(accessTokenIds);
   }
 
   async revokeToken(clientId: string) {
     const userId = this.cls.get('user.id');
-    await this.prismaService.$tx(async (prisma) => {
+    const accessTokenIds = await this.prismaService.$tx(async (prisma) => {
       await prisma.oAuthAppAuthorized.delete({
         // eslint-disable-next-line @typescript-eslint/naming-convention
         where: { clientId_userId: { clientId, userId } },
@@ -269,10 +296,9 @@ export class OAuthService {
         },
       });
 
-      await prisma.accessToken.deleteMany({
-        where: { clientId, userId },
-      });
+      return await this.deleteAccessTokens(prisma, { clientId, userId });
     });
+    await this.invalidateAccessTokenCache(accessTokenIds);
   }
 
   async getAuthorizedList(): Promise<AuthorizedVo[]> {

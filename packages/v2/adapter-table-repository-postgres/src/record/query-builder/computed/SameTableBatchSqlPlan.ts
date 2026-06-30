@@ -13,6 +13,8 @@ type CteLevelSqlPlanParams = {
 };
 
 const normalizeExpressionKey = (sqlText: string): string => sqlText.replace(/\s+/g, ' ').trim();
+const quoteIdentifier = (value: string): string => `"${value.replaceAll('"', '""')}"`;
+const quoteRef = (...parts: string[]): string => parts.map(quoteIdentifier).join('.');
 
 export class FormulaFieldSqlFragment {
   readonly fieldId: string;
@@ -43,11 +45,11 @@ export class FormulaCseBinding {
   ) {}
 
   selectItemSql(): string {
-    return `(${this.expressionSql}) as "${this.alias}"`;
+    return `(${this.expressionSql}) as ${quoteIdentifier(this.alias)}`;
   }
 
   referenceSql(cseAlias = '__cse'): string {
-    return `"${cseAlias}"."${this.alias}"`;
+    return quoteRef(cseAlias, this.alias);
   }
 }
 
@@ -112,7 +114,7 @@ export class CteLevelSqlPlan {
           ? this.cseBindingsByKey.get(fragment.normalizedKey)
           : undefined;
         const valueSql = binding ? binding.referenceSql() : `(${fragment.expressionSql})`;
-        return `${valueSql} as "${fragment.columnAlias}"`;
+        return `${valueSql} as ${quoteIdentifier(fragment.columnAlias)}`;
       })
       .join(', ');
   }
@@ -126,6 +128,6 @@ export class CteLevelSqlPlan {
   buildCteSql(fromClause: string): string {
     const selectColumns = this.buildSelectColumnsSql();
     const cseJoin = this.buildCseJoinSql();
-    return `"${this.name}" AS (SELECT "t"."__id", ${selectColumns} ${fromClause}${cseJoin})`;
+    return `${quoteIdentifier(this.name)} AS (SELECT ${quoteRef('t', '__id')}, ${selectColumns} ${fromClause}${cseJoin})`;
   }
 }

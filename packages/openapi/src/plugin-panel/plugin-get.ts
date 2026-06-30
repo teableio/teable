@@ -10,7 +10,7 @@ export const PLUGIN_PANEL_PLUGIN_GET =
 export const pluginPanelPluginGetRoSchema = z.object({
   tableId: z.string(),
   pluginPanelId: z.string(),
-  pluginId: z.string(),
+  pluginInstallId: z.string(),
 });
 
 export const pluginPanelPluginGetVoSchema = z.object({

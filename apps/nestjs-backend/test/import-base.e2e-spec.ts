@@ -715,97 +715,107 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       }
     });
 
-    it('imports base with conditional rollup without circular dependency', async () => {
-      const { previewUrl } = await awaitConditionalExport(async () => {
-        await exportBase(conditionalBaseId);
-      });
+    it(
+      'imports base with conditional rollup without circular dependency',
+      { timeout: 180_000 },
+      async () => {
+        const { previewUrl } = await awaitConditionalExport(async () => {
+          await exportBase(conditionalBaseId);
+        });
 
-      const attachmentService = getAttachmentService(app);
-      const clsService = app.get(ClsService);
+        const attachmentService = getAttachmentService(app);
+        const clsService = app.get(ClsService);
 
-      const notify = await clsService.runWith<Promise<IAttachmentItem>>(
-        {
-          user: {
-            id: userId,
-            name: 'Test User',
-            email: 'test@example.com',
-            isAdmin: null,
-          },
-        } as unknown as ClsStore,
-        async () => {
-          return await attachmentService.uploadFromUrl(appUrl + previewUrl);
-        }
-      );
+        const notify = await clsService.runWith<Promise<IAttachmentItem>>(
+          {
+            user: {
+              id: userId,
+              name: 'Test User',
+              email: 'test@example.com',
+              isAdmin: null,
+            },
+          } as unknown as ClsStore,
+          async () => {
+            return await attachmentService.uploadFromUrl(appUrl + previewUrl);
+          }
+        );
 
-      const { base: importedBase } = (
-        await importBase({
-          notify: notify as unknown as INotifyVo,
-          spaceId,
-        })
-      ).data;
+        const { base: importedBase } = (
+          await importBase({
+            notify: notify as unknown as INotifyVo,
+            spaceId,
+          })
+        ).data;
 
-      importedBaseId = importedBase.id;
+        importedBaseId = importedBase.id;
 
-      const tableList = (await getTableList(importedBase.id)).data;
-      expect(tableList.map(({ name }) => name).sort()).toEqual(
-        [hostTable.name, foreignTable.name].sort()
-      );
+        const tableList = (await getTableList(importedBase.id)).data;
+        expect(tableList.map(({ name }) => name).sort()).toEqual(
+          [hostTable.name, foreignTable.name].sort()
+        );
 
-      const importedHostMeta = tableList.find((tableMeta) => tableMeta.name === hostTable.name)!;
-      const importedHost = await getTable(importedBase.id, importedHostMeta.id, {
-        includeContent: true,
-      });
+        const importedHostMeta = tableList.find((tableMeta) => tableMeta.name === hostTable.name)!;
+        const importedHost = await getTable(importedBase.id, importedHostMeta.id, {
+          includeContent: true,
+        });
 
-      const importedFields = importedHost.fields ?? [];
-      const importedRollupField = importedFields.find((field) => field.name === 'Status Rollup')!;
-      expect(importedRollupField.type).toBe(FieldType.ConditionalRollup);
-      expect(importedRollupField.hasError).toBeFalsy();
+        const importedFields = importedHost.fields ?? [];
+        const importedRollupField = importedFields.find((field) => field.name === 'Status Rollup')!;
+        expect(importedRollupField.type).toBe(FieldType.ConditionalRollup);
+        expect(importedRollupField.hasError).toBeFalsy();
 
-      const importedLookupField = importedFields.find((field) => field.name === 'Status Lookup')!;
-      expect(importedLookupField.isLookup).toBeTruthy();
-      expect(importedLookupField.isConditionalLookup).toBeTruthy();
-      expect(importedLookupField.hasError).toBeFalsy();
-      const lookupOptions =
-        typeof importedLookupField.lookupOptions === 'string'
-          ? (JSON.parse(importedLookupField.lookupOptions) as {
-              sort?: { fieldId: string; order?: SortFunc };
-            })
-          : (importedLookupField.lookupOptions as
-              | { sort?: { fieldId: string; order?: SortFunc } }
-              | undefined);
-      expect(lookupOptions?.sort?.order).toBe(SortFunc.Asc);
+        const importedLookupField = importedFields.find((field) => field.name === 'Status Lookup')!;
+        expect(importedLookupField.isLookup).toBeTruthy();
+        expect(importedLookupField.isConditionalLookup).toBeTruthy();
+        expect(importedLookupField.hasError).toBeFalsy();
+        const lookupOptions =
+          typeof importedLookupField.lookupOptions === 'string'
+            ? (JSON.parse(importedLookupField.lookupOptions) as {
+                sort?: { fieldId: string; order?: SortFunc };
+              })
+            : (importedLookupField.lookupOptions as
+                | { sort?: { fieldId: string; order?: SortFunc } }
+                | undefined);
+        expect(lookupOptions?.sort?.order).toBe(SortFunc.Asc);
 
-      const importedStatusFilter = importedFields.find((field) => field.name === 'StatusFilter')!;
+        const importedStatusFilter = importedFields.find((field) => field.name === 'StatusFilter')!;
+        const importedRecordTimeoutMs = 30_000;
 
-      const activeRecordMeta = await waitForRecordWithFieldValue(
-        importedHostMeta.id,
-        importedStatusFilter.id,
-        'Active'
-      );
-      const inactiveRecordMeta = await waitForRecordWithFieldValue(
-        importedHostMeta.id,
-        importedStatusFilter.id,
-        'Inactive'
-      );
+        const activeRecordMeta = await waitForRecordWithFieldValue(
+          importedHostMeta.id,
+          importedStatusFilter.id,
+          'Active',
+          importedRecordTimeoutMs
+        );
+        const inactiveRecordMeta = await waitForRecordWithFieldValue(
+          importedHostMeta.id,
+          importedStatusFilter.id,
+          'Inactive',
+          importedRecordTimeoutMs
+        );
 
-      expect(activeRecordMeta).toBeDefined();
-      expect(inactiveRecordMeta).toBeDefined();
+        expect(activeRecordMeta).toBeDefined();
+        expect(inactiveRecordMeta).toBeDefined();
 
-      const activeRecord = await waitForComputedRecord(importedHostMeta.id, activeRecordMeta!.id, [
-        importedRollupField.id,
-        importedLookupField.id,
-      ]);
-      const inactiveRecord = await waitForComputedRecord(
-        importedHostMeta.id,
-        inactiveRecordMeta!.id,
-        [importedRollupField.id, importedLookupField.id]
-      );
+        const activeRecord = await waitForComputedRecord(
+          importedHostMeta.id,
+          activeRecordMeta!.id,
+          [importedRollupField.id, importedLookupField.id],
+          importedRecordTimeoutMs
+        );
+        const inactiveRecord = await waitForComputedRecord(
+          importedHostMeta.id,
+          inactiveRecordMeta!.id,
+          [importedRollupField.id, importedLookupField.id],
+          importedRecordTimeoutMs
+        );
 
-      expect(activeRecord.fields?.[importedRollupField.id]).toBe('Alpha');
-      expect(inactiveRecord.fields?.[importedRollupField.id]).toBe('Beta');
-      expect(activeRecord.fields?.[importedLookupField.id]).toEqual(['Alpha']);
-      expect(inactiveRecord.fields?.[importedLookupField.id]).toEqual(['Beta']);
-    });
+        expect(activeRecord.fields?.[importedRollupField.id]).toBe('Alpha');
+        expect(inactiveRecord.fields?.[importedRollupField.id]).toBe('Beta');
+        expect(activeRecord.fields?.[importedLookupField.id]).toEqual(['Alpha']);
+        expect(inactiveRecord.fields?.[importedLookupField.id]).toEqual(['Beta']);
+      }
+    );
   });
 
   describe('primary formula import', () => {

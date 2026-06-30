@@ -26,8 +26,8 @@ import type { IClsStore } from '../../types/cls';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
-import { Audit } from '../audit/audit.decorator';
 import { AuditScope } from '../audit/audit-scope';
+import { Audit } from '../audit/audit.decorator';
 import { UserModel } from '../model/user';
 import { SettingService } from '../setting/setting.service';
 
@@ -334,12 +334,37 @@ export class UserService {
   }
 
   async updateNotifyMeta(id: string, notifyMetaRo: IUserNotifyMeta) {
-    await this.prismaService.txClient().user.update({
-      data: {
-        notifyMeta: JSON.stringify(notifyMetaRo),
-      },
-      where: { id, deletedTime: null },
+    await this.prismaService.$tx(async () => {
+      const [user] = await this.prismaService.txClient().$queryRaw<
+        Array<{ notifyMeta: string | null }>
+      >`
+        SELECT "notify_meta" AS "notifyMeta"
+        FROM "users"
+        WHERE "id" = ${id}
+          AND "deleted_time" IS NULL
+        FOR UPDATE
+      `;
+      const prevNotifyMeta = this.parseNotifyMeta(user?.notifyMeta);
+
+      await this.prismaService.txClient().user.update({
+        data: {
+          notifyMeta: JSON.stringify({ ...prevNotifyMeta, ...notifyMetaRo }),
+        },
+        where: { id, deletedTime: null },
+      });
     });
+  }
+
+  private parseNotifyMeta(notifyMeta?: string | null): IUserNotifyMeta {
+    if (!notifyMeta) {
+      return {};
+    }
+
+    try {
+      return JSON.parse(notifyMeta) as IUserNotifyMeta;
+    } catch {
+      return {};
+    }
   }
 
   async updateLang(id: string, lang: string) {

@@ -45,10 +45,14 @@ export function validateFormSubmission(
   const columnMetaResult = formView.columnMeta();
   if (columnMetaResult.isErr()) return err(columnMetaResult.error);
   const columnMeta = columnMetaResult.value.toDto();
+  const fieldById = new Map(this.getFields().map((field) => [field.id().toString(), field]));
 
   const missingRequiredFieldIds: string[] = [];
   for (const visibleFieldId of visibleFieldIds) {
     const fieldId = visibleFieldId.toString();
+    const field = fieldById.get(fieldId);
+    if (field?.computed().toBoolean()) continue;
+
     const requiredByForm = columnMeta[fieldId]?.required === true;
     if (!requiredByForm) continue;
 
