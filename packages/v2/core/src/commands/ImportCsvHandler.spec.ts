@@ -8,6 +8,7 @@ import { ActorId } from '../domain/shared/ActorId';
 import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
+import { isRecordsBatchCreatedEvent } from '../domain/table/events/RecordsBatchCreated';
 import type { RecordId } from '../domain/table/records/RecordId';
 import type { RecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
@@ -288,6 +289,74 @@ describe('ImportCsvHandler', () => {
   it('imports csv data and creates table/records', async () => {
     const parser = new FakeCsvParser(
       ok({
+        headers: ['Name', 'Age', 'Note'],
+        rows: [
+          { Name: 'Alice', Age: '30', Note: 'hello' },
+          { Name: 'Bob', Age: '40', Note: '' },
+        ],
+      })
+    );
+    const tableRepository = new FakeTableRepository();
+    const tableSchemaRepository = new FakeTableSchemaRepository();
+    const tableRecordRepository = new FakeTableRecordRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+
+    const handler = new ImportCsvHandler(
+      parser,
+      tableRepository,
+      tableSchemaRepository,
+      tableRecordRepository,
+      eventBus,
+      unitOfWork,
+      undefined,
+      createTableLimitPluginRunner(tableRepository)
+    );
+
+    const command = ImportCsvCommand.createFromString({
+      baseId,
+      csvData: 'Name,Age,Note\nAlice,30,hello\nBob,40,',
+      tableName: 'People',
+      batchSize: 2,
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    expect(result.isOk()).toBe(true);
+
+    const value = result._unsafeUnwrap();
+    expect(value.totalImported).toBe(2);
+    expect(value.table.name().toString()).toBe('People');
+    expect(value.table.getFields()).toHaveLength(3);
+    expect(value.table.getFields().map((field) => field.type().toString())).toEqual([
+      'singleLineText',
+      'number',
+      'singleLineText',
+    ]);
+    expect(value.table.primaryField()._unsafeUnwrap().name().toString()).toBe('Name');
+    expect(tableRecordRepository.inserted).toHaveLength(2);
+    const noteFieldId = value.table.getFields()[2].id().toString();
+    const insertedFieldValues = tableRecordRepository.inserted.map(
+      (record) =>
+        new Map(
+          record
+            .fields()
+            .entries()
+            .map((entry) => [entry.fieldId.toString(), entry.value])
+        )
+    );
+    expect(insertedFieldValues[0].get(noteFieldId)?.toValue()).toBe('hello');
+    expect(insertedFieldValues[1].has(noteFieldId)).toBe(false);
+    expect(eventBus.published.some(isRecordsBatchCreatedEvent)).toBe(true);
+    expect(eventBus.published.length).toBeGreaterThan(0);
+    expect(tableRepository.provisionStateChanges.map(({ state }) => state)).toEqual([
+      'pending',
+      'ready',
+    ]);
+  });
+
+  it('creates table schema only when importData is false', async () => {
+    const parser = new FakeCsvParser(
+      ok({
         headers: ['Name', 'Age'],
         rows: [
           { Name: 'Alice', Age: '30' },
@@ -315,24 +384,96 @@ describe('ImportCsvHandler', () => {
     const command = ImportCsvCommand.createFromString({
       baseId,
       csvData: 'Name,Age\nAlice,30\nBob,40',
-      tableName: 'People',
-      batchSize: 2,
+      tableName: 'People Schema Only',
+      importData: false,
+      maxRowCount: 1,
     })._unsafeUnwrap();
 
     const result = await handler.handle(createContext(), command);
     expect(result.isOk()).toBe(true);
 
     const value = result._unsafeUnwrap();
-    expect(value.totalImported).toBe(2);
-    expect(value.table.name().toString()).toBe('People');
-    expect(value.table.getFields()).toHaveLength(2);
-    expect(value.table.primaryField()._unsafeUnwrap().name().toString()).toBe('Name');
-    expect(tableRecordRepository.inserted).toHaveLength(2);
-    expect(eventBus.published.length).toBeGreaterThan(0);
+    expect(value.totalImported).toBe(0);
+    expect(value.table.name().toString()).toBe('People Schema Only');
+    expect(value.table.getFields().map((field) => field.type().toString())).toEqual([
+      'singleLineText',
+      'number',
+    ]);
+    expect(tableSchemaRepository.inserted).toHaveLength(1);
+    expect(tableRecordRepository.inserted).toHaveLength(0);
+    expect(eventBus.published.some(isRecordsBatchCreatedEvent)).toBe(false);
     expect(tableRepository.provisionStateChanges.map(({ state }) => state)).toEqual([
       'pending',
       'ready',
     ]);
+  });
+
+  it('uses provided columns for field names and source column mapping', async () => {
+    const parser = new FakeCsvParser(
+      ok({
+        headers: ['registration_date', 'total_registered_users', 'active_d1_users'],
+        rows: [
+          {
+            registration_date: '2024-01-01',
+            total_registered_users: '100',
+            active_d1_users: '75',
+          },
+        ],
+      })
+    );
+    const tableRepository = new FakeTableRepository();
+    const tableRecordRepository = new FakeTableRecordRepository();
+    const handler = new ImportCsvHandler(
+      parser,
+      tableRepository,
+      new FakeTableSchemaRepository(),
+      tableRecordRepository,
+      new FakeEventBus(),
+      new FakeUnitOfWork(),
+      undefined,
+      createTableLimitPluginRunner(tableRepository)
+    );
+
+    const command = ImportCsvCommand.createFromString({
+      baseId,
+      csvData: 'registration_date,total_registered_users,active_d1_users\n2024-01-01,100,75',
+      tableName: 'Custom Mapping',
+      columns: [
+        { name: '总注册用户', sourceColumnIndex: 1, type: 'number' },
+        { name: '次日活跃用户', sourceColumnIndex: 2, type: 'number' },
+        { name: '注册日期', sourceColumnIndex: 0, type: 'date' },
+      ],
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    expect(result.isOk()).toBe(true);
+
+    const table = result._unsafeUnwrap().table;
+    expect(table.getFields().map((field) => field.name().toString())).toEqual([
+      '总注册用户',
+      '次日活跃用户',
+      '注册日期',
+    ]);
+    expect(table.getFields().map((field) => field.type().toString())).toEqual([
+      'number',
+      'number',
+      'date',
+    ]);
+
+    const insertedRecord = tableRecordRepository.inserted[0];
+    const fieldsByName = new Map(
+      table.getFields().map((field) => [field.name().toString(), field.id().toString()])
+    );
+    const valuesByFieldId = new Map(
+      insertedRecord
+        .fields()
+        .entries()
+        .map((entry) => [entry.fieldId.toString(), entry.value.toValue()])
+    );
+
+    expect(valuesByFieldId.get(fieldsByName.get('总注册用户')!)).toBe(100);
+    expect(valuesByFieldId.get(fieldsByName.get('次日活跃用户')!)).toBe(75);
+    expect(valuesByFieldId.get(fieldsByName.get('注册日期')!)).toBeDefined();
   });
 
   it('returns error when csv has no headers', async () => {

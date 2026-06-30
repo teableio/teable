@@ -206,7 +206,10 @@ class V2RecordUpdatedActionTriggerProjection implements IEventHandler<RecordUpda
     _context: IExecutionContext,
     event: RecordUpdated
   ): Promise<Result<void, DomainError>> {
-    emitActionTrigger(this.shareDbService, event.tableId.toString(), [{ actionKey: 'setRecord' }]);
+    const fieldIds = event.changes.map((c) => c.fieldId);
+    emitActionTrigger(this.shareDbService, event.tableId.toString(), [
+      { actionKey: 'setRecord', payload: { fieldIds } },
+    ]);
     return ok(undefined);
   }
 }
@@ -247,7 +250,9 @@ class V2RecordsBatchUpdatedActionTriggerProjection implements IEventHandler<Reco
       return ok(undefined);
     }
 
-    emitActionTrigger(this.shareDbService, event.tableId.toString(), [{ actionKey: 'setRecord' }]);
+    emitActionTrigger(this.shareDbService, event.tableId.toString(), [
+      { actionKey: 'setRecord', payload: { fieldIds: collectChangedFieldIds(event.updates) } },
+    ]);
     return ok(undefined);
   }
 }
@@ -263,7 +268,12 @@ class V2RecordReorderedActionTriggerProjection implements IEventHandler<RecordRe
     _context: IExecutionContext,
     event: RecordReordered
   ): Promise<Result<void, DomainError>> {
-    emitActionTrigger(this.shareDbService, event.tableId.toString(), [{ actionKey: 'setRecord' }]);
+    // reorder changes row order only — the explicit empty fieldIds tells
+    // field-aware listeners (row count, aggregations) that no cell value
+    // changed, so they can skip refreshing
+    emitActionTrigger(this.shareDbService, event.tableId.toString(), [
+      { actionKey: 'setRecord', payload: { fieldIds: [] } },
+    ]);
     return ok(undefined);
   }
 }

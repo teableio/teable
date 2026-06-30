@@ -377,6 +377,48 @@ const createSnapshotRowProvider = (
   };
 };
 
+const createNormalIncomingLinkFieldRowProvider = (params: {
+  baseId: string;
+  targetTableId: string;
+  sourceTableId: string;
+  fieldId: string;
+  options: Record<string, unknown>;
+}): RowProvider => {
+  return (compiledQuery) => {
+    if (
+      !compiledQuery.sql.includes('from "field"') ||
+      !compiledQuery.sql.includes('inner join "table_meta"')
+    ) {
+      return [];
+    }
+
+    if (
+      compiledQuery.parameters[0] !== params.baseId ||
+      compiledQuery.parameters[1] !== 'link' ||
+      !compiledQuery.parameters.includes(params.targetTableId)
+    ) {
+      return [];
+    }
+
+    // Normal link fields are persisted with is_lookup=false in production data.
+    // A SQL predicate of `is_lookup IS NULL` therefore misses them.
+    if (
+      compiledQuery.sql.includes('"field"."is_lookup" is null') &&
+      !compiledQuery.sql.includes('"field"."is_lookup" =')
+    ) {
+      return [];
+    }
+
+    return [
+      {
+        field_id: params.fieldId,
+        source_table_id: params.sourceTableId,
+        options: JSON.stringify(params.options),
+      },
+    ];
+  };
+};
+
 // Fixed IDs for stable snapshots
 const BASE_ID = `bse${'a'.repeat(16)}`;
 const TABLE_ID = `tbl${'b'.repeat(16)}`;
@@ -481,9 +523,10 @@ describe('PostgresTableRecordRepository.deleteMany', () => {
           "parameters": [
             "bseaaaaaaaaaaaaaaaa",
             "link",
+            false,
             "tblbbbbbbbbbbbbbbbb",
           ],
-          "sql": "select "field"."id" as "field_id", "field"."table_id" as "source_table_id", "field"."options" as "options" from "field" inner join "table_meta" on "table_meta"."id" = "field"."table_id" where "table_meta"."base_id" = $1 and "field"."type" = $2 and "field"."deleted_time" is null and "field"."is_lookup" is null and (field.options::json->>'foreignTableId')::text = $3",
+          "sql": "select "field"."id" as "field_id", "field"."table_id" as "source_table_id", "field"."options" as "options" from "field" inner join "table_meta" on "table_meta"."id" = "field"."table_id" where "table_meta"."base_id" = $1 and "field"."type" = $2 and "field"."deleted_time" is null and ("field"."is_lookup" is null or "field"."is_lookup" = $3) and (field.options::json->>'foreignTableId')::text = $4",
         },
         {
           "parameters": [
@@ -634,9 +677,10 @@ describe('PostgresTableRecordRepository.deleteMany', () => {
           "parameters": [
             "bseaaaaaaaaaaaaaaaa",
             "link",
+            false,
             "tblbbbbbbbbbbbbbbbb",
           ],
-          "sql": "select "field"."id" as "field_id", "field"."table_id" as "source_table_id", "field"."options" as "options" from "field" inner join "table_meta" on "table_meta"."id" = "field"."table_id" where "table_meta"."base_id" = $1 and "field"."type" = $2 and "field"."deleted_time" is null and "field"."is_lookup" is null and (field.options::json->>'foreignTableId')::text = $3",
+          "sql": "select "field"."id" as "field_id", "field"."table_id" as "source_table_id", "field"."options" as "options" from "field" inner join "table_meta" on "table_meta"."id" = "field"."table_id" where "table_meta"."base_id" = $1 and "field"."type" = $2 and "field"."deleted_time" is null and ("field"."is_lookup" is null or "field"."is_lookup" = $3) and (field.options::json->>'foreignTableId')::text = $4",
         },
         {
           "parameters": [
@@ -678,6 +722,85 @@ describe('PostgresTableRecordRepository.deleteMany', () => {
         },
       ]
     `);
+    vi.useRealTimers();
+  });
+
+  it('clears incoming junction links for normal link fields stored with is_lookup false', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'));
+
+    const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+    const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+    const sourceTableId = TableId.create(FOREIGN_TABLE_ID)._unsafeUnwrap();
+    const nameFieldId = FieldId.create(NAME_FIELD_ID)._unsafeUnwrap();
+    const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('DeleteTargetTable')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(nameFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    const deleteSpec = TableRecord.specs('or').recordId(recordId).build()._unsafeUnwrap();
+
+    const tableName = `"${BASE_ID}"."${TABLE_ID}"`;
+    const junctionTableName = `"${BASE_ID}"."junction_${LINK_FIELD_ID}"`;
+    const foreignKeyName = `__fk_${LINK_FIELD_ID}`;
+    const selfKeyName = `__fk_${SYMMETRIC_FIELD_ID}`;
+    const rowProvider = composeRowProviders(
+      createRecordIdRowProvider(tableName, [recordId.toString()]),
+      createNormalIncomingLinkFieldRowProvider({
+        baseId: BASE_ID,
+        targetTableId: TABLE_ID,
+        sourceTableId: sourceTableId.toString(),
+        fieldId: LINK_FIELD_ID,
+        options: {
+          relationship: 'oneMany',
+          isOneWay: true,
+          foreignTableId: TABLE_ID,
+          lookupFieldId: LOOKUP_FIELD_ID,
+          fkHostTableName: `${BASE_ID}.junction_${LINK_FIELD_ID}`,
+          selfKeyName,
+          foreignKeyName,
+        },
+      }),
+      createUndoLogRowProvider([
+        {
+          record_id: recordId.toString(),
+          old_row: {
+            __id: recordId.toString(),
+          },
+        },
+      ])
+    );
+
+    const { db, driver } = createRecordingDb(rowProvider);
+    const repo = createRepository(db, table);
+
+    const result = await repo.deleteMany({ actorId }, table, deleteSpec);
+    expect(result.isOk()).toBe(true);
+
+    const snapshotSql = toSnapshot(driver.queries).map((query) => query.sql);
+    const incomingCleanupIndex = snapshotSql.findIndex((sqlText) =>
+      sqlText.includes(`delete from ${junctionTableName} where "${foreignKeyName}" in`)
+    );
+    const targetDeleteIndex = snapshotSql.findIndex((sqlText) =>
+      sqlText.includes(`delete from ${tableName}`)
+    );
+
+    expect(incomingCleanupIndex).toBeGreaterThan(-1);
+    expect(targetDeleteIndex).toBeGreaterThan(-1);
+    expect(incomingCleanupIndex).toBeLessThan(targetDeleteIndex);
+
     vi.useRealTimers();
   });
 
@@ -957,9 +1080,10 @@ describe('PostgresTableRecordRepository.deleteMany', () => {
           "parameters": [
             "bseaaaaaaaaaaaaaaaa",
             "link",
+            false,
             "tblbbbbbbbbbbbbbbbb",
           ],
-          "sql": "select "field"."id" as "field_id", "field"."table_id" as "source_table_id", "field"."options" as "options" from "field" inner join "table_meta" on "table_meta"."id" = "field"."table_id" where "table_meta"."base_id" = $1 and "field"."type" = $2 and "field"."deleted_time" is null and "field"."is_lookup" is null and (field.options::json->>'foreignTableId')::text = $3",
+          "sql": "select "field"."id" as "field_id", "field"."table_id" as "source_table_id", "field"."options" as "options" from "field" inner join "table_meta" on "table_meta"."id" = "field"."table_id" where "table_meta"."base_id" = $1 and "field"."type" = $2 and "field"."deleted_time" is null and ("field"."is_lookup" is null or "field"."is_lookup" = $3) and (field.options::json->>'foreignTableId')::text = $4",
         },
         {
           "parameters": [

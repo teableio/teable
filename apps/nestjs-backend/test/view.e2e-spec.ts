@@ -48,6 +48,7 @@ import {
   createView,
   permanentDeleteTable,
   createTable,
+  deleteField,
   getViews,
   getView,
   getTable,
@@ -98,7 +99,18 @@ describe('OpenAPI ViewController (e2e)', () => {
       type: ViewType.Grid,
     };
 
-    await createView(table.id, viewRo);
+    const createdView = await createView(table.id, viewRo);
+
+    const { dbTableName } = await prismaService.tableMeta.findUniqueOrThrow({
+      where: { id: table.id },
+      select: { dbTableName: true },
+    });
+    const rowOrderColumn = await viewService.existIndex(
+      dbTableName,
+      createdView.id,
+      prismaService.txClient()
+    );
+    expect(rowOrderColumn).toBe(`__row_${createdView.id}`);
 
     const result = await getViews(table.id);
     expect(result).toMatchObject([
@@ -230,6 +242,47 @@ describe('OpenAPI ViewController (e2e)', () => {
     const view = await getView(table.id, randomViewId!);
     const columnMetaFieldIds = Object.keys(view.columnMeta).sort();
     expect(columnMetaFieldIds).toEqual(assertFieldIds);
+  });
+
+  it('should ignore stale column meta for deleted fields when reading views', async () => {
+    const staleField = await createField(table.id, {
+      name: 'deleted column meta field',
+      type: FieldType.SingleLineText,
+    });
+    const view = await createView(table.id, {
+      name: 'view with stale column meta',
+      type: ViewType.Grid,
+    });
+
+    await deleteField(table.id, staleField.id);
+    const activeFields = await getFields(table.id);
+    const activeColumnMeta = activeFields.reduce<Record<string, IColumn>>((acc, field, index) => {
+      acc[field.id] = { order: index };
+      return acc;
+    }, {});
+
+    await prismaService.txClient().view.update({
+      where: { id: view.id },
+      data: {
+        columnMeta: JSON.stringify({
+          ...activeColumnMeta,
+          [staleField.id]: { order: activeFields.length + 1, visible: true },
+        }),
+      },
+    });
+
+    const activeFieldIds = activeFields.map((field) => field.id).sort();
+    const viewAfter = await getView(table.id, view.id);
+    const viewsAfter = await getViews(table.id);
+    const viewFromList = viewsAfter.find(({ id }) => id === view.id);
+    const [viewSnapshot] = await viewService.getSnapshotBulk(table.id, [view.id]);
+
+    expect(viewAfter.columnMeta?.[staleField.id]).toBeUndefined();
+    expect(Object.keys(viewAfter.columnMeta ?? {}).sort()).toEqual(activeFieldIds);
+    expect(viewFromList?.columnMeta?.[staleField.id]).toBeUndefined();
+    expect(Object.keys(viewFromList?.columnMeta ?? {}).sort()).toEqual(activeFieldIds);
+    expect(viewSnapshot.data.columnMeta?.[staleField.id]).toBeUndefined();
+    expect(Object.keys(viewSnapshot.data.columnMeta ?? {}).sort()).toEqual(activeFieldIds);
   });
 
   it('fields in new view should sort by created time and primary field is always first', async () => {

@@ -28,7 +28,6 @@ class PersistedAsGeneratedColumnVisitor extends AbstractFieldVisitor<boolean> {
     return ok(false);
   }
   visitFormulaField(field: FormulaField): Result<boolean, DomainError> {
-    // Only FormulaField has domain meta for this flag.
     return field.isPersistedAsGeneratedColumn();
   }
   visitRollupField(): Result<boolean, DomainError> {
