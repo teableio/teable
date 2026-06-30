@@ -119,7 +119,7 @@ export const TableInfo: React.FC<ITableInfoProps> = (props: ITableInfoProps) => 
               setIsEditing(false);
             }}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') {
+              if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
                 if (e.currentTarget.value && e.currentTarget.value !== table?.name) {
                   table?.updateName(e.currentTarget.value);
                 }
