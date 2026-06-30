@@ -1557,6 +1557,9 @@ export class ComputedFieldUpdater {
           tableIds.set(edge.fromTableId.toString(), edge.fromTableId);
           tableIds.set(edge.toTableId.toString(), edge.toTableId);
         }
+        for (const tableId of plan.seedAllTableIds ?? []) {
+          tableIds.set(tableId.toString(), tableId);
+        }
 
         if (tableIds.size === 0) return ok([]);
 
@@ -2230,6 +2233,24 @@ const buildGatedAllTargetSelect = (
     .distinct() as unknown as DirtySelectQuery;
 };
 
+const filterReferencesHostTableField = (value: unknown, hostTableId: string): boolean => {
+  if (Array.isArray(value)) {
+    return value.some((item) => filterReferencesHostTableField(item, hostTableId));
+  }
+
+  if (value == null || typeof value !== 'object') {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+  if (record.type === 'field') {
+    const tableId = record.tableId;
+    return typeof tableId !== 'string' || tableId === hostTableId;
+  }
+
+  return Object.values(record).some((item) => filterReferencesHostTableField(item, hostTableId));
+};
+
 /**
  * Build a SELECT query for dirty record propagation (without INSERT wrapper).
  * This allows combining multiple SELECT queries with UNION ALL.
@@ -2340,6 +2361,10 @@ const buildPropagationSelect = (
 
       const sourceDbName = yield* sourceTable.dbTableName().andThen((name) => name.value());
       const targetDbName = yield* targetTable.dbTableName().andThen((name) => name.value());
+      const usesHostFieldReference = filterReferencesHostTableField(
+        edge.filterCondition.filterDto,
+        edge.toTableId.toString()
+      );
 
       const currentMatchQuery = db
         .selectFrom(`${DIRTY_TABLE} as d`)
@@ -2350,6 +2375,19 @@ const buildPropagationSelect = (
         .limit(1);
 
       let matchCondition = sql<SqlBool>`exists (${currentMatchQuery})`;
+
+      let select: DirtySelectQuery | null = usesHostFieldReference
+        ? (db
+            .selectFrom(`${DIRTY_TABLE} as d`)
+            .innerJoin(`${sourceDbName} as s`, 's.__id', `d.${DIRTY_RECORD_ID_COL}`)
+            .innerJoin(`${targetDbName} as t`, (join) => join.on(filterWhere))
+            .select([
+              sql.lit(edge.toTableId.toString()).as(DIRTY_TABLE_ID_COL),
+              sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
+            ])
+            .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
+            .distinct() as unknown as DirtySelectQuery)
+        : null;
 
       if (edge.filterCondition.includeBeforeImage) {
         const beforeImageVisitor = new TableRecordConditionWhereVisitor({
@@ -2367,7 +2405,7 @@ const buildPropagationSelect = (
         const beforeFilterWhere = beforeWhereResult.value as unknown as Expression<SqlBool>;
         const sourceTableTypeLiteral = toQualifiedIdentifierLiteral(sourceDbName);
 
-        const beforeImageMatchQuery = db
+        const beforeImageBaseQuery = db
           .selectFrom(`${DIRTY_TABLE} as d`)
           .innerJoin(`${BEFORE_IMAGE_TABLE} as bi`, (join) =>
             join
@@ -2376,28 +2414,46 @@ const buildPropagationSelect = (
           )
           .leftJoin(`${sourceDbName} as s_current`, 's_current.__id', `d.${DIRTY_RECORD_ID_COL}`)
           .innerJoinLateral(
-            sql<{ one: number }>`(
-              select 1 as one
+            sql<Record<string, unknown>>`(
+              select *
               -- Reconstruct the pre-change source row by starting from the current row
               -- (or an empty JSON object for DELETE) and overlaying the captured old column values.
               from jsonb_populate_record(
                 null::${sql.raw(sourceTableTypeLiteral)},
                 coalesce(to_jsonb(${sql.raw(quoteIdentifier('s_current'))}), '{}'::jsonb)
                   || ${sql.ref(`bi.${BEFORE_IMAGE_SNAPSHOT_COL}`)}
-              ) as s_before
-              where ${beforeFilterWhere}
-              limit 1
-            )`.as('sb'),
+              )
+            )`.as('s_before'),
             (join) => join.onTrue()
-          )
-          .select(sql.lit(1).as('one'))
-          .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
-          .limit(1);
+          );
 
-        matchCondition = sql<SqlBool>`(${matchCondition}) or exists (${beforeImageMatchQuery})`;
+        if (usesHostFieldReference) {
+          const beforeImageMatchSelect = beforeImageBaseQuery
+            .innerJoin(`${targetDbName} as t`, (join) => join.on(beforeFilterWhere))
+            .select([
+              sql.lit(edge.toTableId.toString()).as(DIRTY_TABLE_ID_COL),
+              sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
+            ])
+            .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
+            .distinct() as unknown as DirtySelectQuery;
+
+          select = (select as DirtySelectQuery).unionAll(beforeImageMatchSelect) as DirtySelectQuery;
+        } else {
+          const beforeImageMatchQuery = beforeImageBaseQuery
+            .select(sql.lit(1).as('one'))
+            .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
+            .where(beforeFilterWhere)
+            .limit(1);
+
+          matchCondition = sql<SqlBool>`(${matchCondition}) or exists (${beforeImageMatchQuery})`;
+        }
       }
 
-      const select = db
+      if (select) {
+        return ok({ query: select as unknown as DirtySelectQuery });
+      }
+
+      const targetDrivenSelect = db
         .selectFrom(`${targetDbName} as t`)
         .select([
           sql.lit(edge.toTableId.toString()).as(DIRTY_TABLE_ID_COL),
@@ -2406,7 +2462,7 @@ const buildPropagationSelect = (
         .where(matchCondition)
         .distinct();
 
-      return ok({ query: select as unknown as DirtySelectQuery });
+      return ok({ query: targetDrivenSelect as unknown as DirtySelectQuery });
     }
 
     if (!edge.linkFieldId) return err(domainError.validation({ message: 'Missing linkFieldId' }));

@@ -2,7 +2,28 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
 import { CellValueType, DbFieldType, getDefaultFormatting, type IFieldVo } from '@teable/core';
+import { v2CoreTokens } from '@teable/v2-core';
 import { describe, expect, it, vi } from 'vitest';
+
+const {
+  executeDeleteFieldEndpoint,
+  executeDuplicateFieldEndpoint,
+  executeUpdateFieldEndpoint,
+  executeUpdateRecordEndpoint,
+} = vi.hoisted(() => ({
+  executeDeleteFieldEndpoint: vi.fn(),
+  executeDuplicateFieldEndpoint: vi.fn(),
+  executeUpdateFieldEndpoint: vi.fn(),
+  executeUpdateRecordEndpoint: vi.fn(),
+}));
+
+vi.mock('@teable/v2-contract-http-implementation/handlers', () => ({
+  executeDeleteFieldEndpoint,
+  executeDuplicateFieldEndpoint,
+  executeUpdateFieldEndpoint,
+  executeUpdateRecordEndpoint,
+}));
+
 import { FieldOpenApiV2Service } from './field-open-api-v2.service';
 
 type ITestFieldOpenApiV2Service = {
@@ -76,9 +97,193 @@ const createService = () =>
     {} as never,
     {} as never,
     {} as never,
-    {} as never,
     {} as never
   ) as unknown as ITestFieldOpenApiV2Service;
+
+const createV2ContainerService = (commandBus: unknown, tableQueryService: unknown) => {
+  const tracer = {
+    startSpan: vi.fn(() => ({
+      setAttribute: vi.fn(),
+      setAttributes: vi.fn(),
+      recordError: vi.fn(),
+      end: vi.fn(),
+    })),
+    withSpan: vi.fn(async (_span, callback: () => Promise<unknown>) => callback()),
+    getActiveSpan: vi.fn(),
+  };
+  const container = {
+    resolve: vi.fn((token: { description?: string }) => {
+      if (token.description === 'v2.core.tracer') {
+        return tracer;
+      }
+      if (token.description === 'v2.core.commandBus') {
+        return commandBus;
+      }
+      if (token.description === 'v2.core.tableQueryService') {
+        return tableQueryService;
+      }
+      return undefined;
+    }),
+  };
+
+  return {
+    getContainerForTable: vi.fn().mockResolvedValue(container),
+    getContainer: vi.fn().mockResolvedValue(container),
+  };
+};
+
+const createFieldSupplementService = () => ({
+  assertSameSpaceLinkTarget: vi.fn(),
+});
+
+describe('FieldOpenApiV2Service deleteField', () => {
+  it('delegates delete state handling to the v2 delete endpoint', async () => {
+    const tableId = `tbl${'a'.repeat(16)}`;
+    const fieldId = `fld${'b'.repeat(16)}`;
+    const baseId = `bse${'d'.repeat(16)}`;
+    const context: Record<string, unknown> = {};
+    executeDeleteFieldEndpoint.mockResolvedValue({
+      status: 200,
+      body: { ok: true },
+    });
+    const commandBus = {
+      execute: vi.fn().mockResolvedValue({ isErr: () => false }),
+    };
+    const tableQueryService = {
+      getById: vi.fn().mockResolvedValue({
+        isErr: () => false,
+        value: {
+          baseId: () => ({ toString: () => baseId }),
+        },
+      }),
+    };
+    const container = {
+      resolve: vi.fn((token: symbol) => {
+        if (token === v2CoreTokens.commandBus) return commandBus;
+        if (token === v2CoreTokens.tableQueryService) return tableQueryService;
+        throw new Error(`Unexpected token ${String(token)}`);
+      }),
+    };
+    const dataLoaderService = {
+      field: {
+        invalidateTables: vi.fn(),
+      },
+    };
+    const service = new FieldOpenApiV2Service(
+      {
+        getContainerForTable: vi.fn().mockResolvedValue(container),
+      } as never,
+      {
+        createContext: vi.fn().mockResolvedValue(context),
+      } as never,
+      dataLoaderService as never,
+      {} as never,
+      {
+        get: vi.fn((key: string) => (key === 'user.id' ? `usr${'f'.repeat(16)}` : undefined)),
+      } as never,
+      {} as never,
+      {} as never
+    );
+
+    await service.deleteField(tableId, fieldId);
+
+    expect(executeDeleteFieldEndpoint).toHaveBeenCalledWith(
+      context,
+      {
+        baseId,
+        tableId,
+        fieldId,
+      },
+      commandBus
+    );
+    expect(dataLoaderService.field.invalidateTables).toHaveBeenCalledWith([tableId]);
+  });
+});
+
+describe('FieldOpenApiV2Service updateField', () => {
+  it('invalidates foreign table field cache for partial link field updates', async () => {
+    const tableId = `tbl${'a'.repeat(16)}`;
+    const foreignTableId = `tbl${'b'.repeat(16)}`;
+    const fieldId = `fld${'c'.repeat(16)}`;
+    const context: Record<string, unknown> = {};
+    const fieldDto = {
+      id: fieldId,
+      type: 'link',
+      name: 'Linked table',
+      options: {
+        relationship: 'manyMany',
+        foreignTableId,
+        lookupFieldId: `fld${'d'.repeat(16)}`,
+        symmetricFieldId: `fld${'e'.repeat(16)}`,
+      },
+    };
+    executeUpdateFieldEndpoint.mockResolvedValue({
+      status: 200,
+      body: { ok: true },
+    });
+    const commandBus = {};
+    const tableQueryService = {
+      getById: vi.fn().mockResolvedValue({
+        isErr: () => false,
+        value: {},
+      }),
+    };
+    const tableMapper = {
+      toDTO: vi.fn().mockReturnValue({
+        isErr: () => false,
+        value: {
+          fields: [fieldDto],
+        },
+      }),
+    };
+    const container = {
+      resolve: vi.fn((token: symbol) => {
+        if (token === v2CoreTokens.commandBus) return commandBus;
+        if (token === v2CoreTokens.tableQueryService) return tableQueryService;
+        if (token === v2CoreTokens.tableMapper) return tableMapper;
+        throw new Error(`Unexpected token ${String(token)}`);
+      }),
+    };
+    const dataLoaderService = {
+      field: {
+        invalidateTables: vi.fn(),
+      },
+    };
+    const service = new FieldOpenApiV2Service(
+      {
+        getContainerForTable: vi.fn().mockResolvedValue(container),
+      } as never,
+      {
+        createContext: vi.fn().mockResolvedValue(context),
+      } as never,
+      dataLoaderService as never,
+      {} as never,
+      {
+        get: vi.fn((key: string) => (key === 'user.id' ? `usr${'f'.repeat(16)}` : undefined)),
+      } as never,
+      {} as never,
+      {} as never
+    );
+
+    await service.updateField(tableId, fieldId, { name: 'Renamed linked table' });
+
+    expect(executeUpdateFieldEndpoint).toHaveBeenCalledWith(
+      context,
+      {
+        tableId,
+        fieldId,
+        field: {
+          name: 'Renamed linked table',
+        },
+      },
+      commandBus
+    );
+    expect(dataLoaderService.field.invalidateTables).toHaveBeenCalledWith([
+      tableId,
+      foreignTableId,
+    ]);
+  });
+});
 
 describe('FieldOpenApiV2Service mapConvertFieldToV2', () => {
   it('maps lookup convert options with filter/sort/limit', () => {
@@ -1033,8 +1238,7 @@ describe('FieldOpenApiV2Service normalizeFieldVo', () => {
       {} as never,
       {} as never,
       {} as never,
-      {} as never,
-      {} as never,
+      createFieldSupplementService() as never,
       {} as never
     ) as unknown as ITestFieldOpenApiV2Service;
 
@@ -1424,17 +1628,12 @@ describe('FieldOpenApiV2Service createField', () => {
       }),
     };
     const service = new FieldOpenApiV2Service(
-      {
-        getContainer: async () => ({
-          resolve: vi.fn().mockReturnValueOnce(commandBus).mockReturnValueOnce(tableQueryService),
-        }),
-      } as never,
+      createV2ContainerService(commandBus, tableQueryService) as never,
       { createContext: async () => ({ requestId: 'reqTestId' }) } as never,
       { field: { invalidateTables: vi.fn() } } as never,
       {} as never,
       {} as never,
-      {} as never,
-      {} as never,
+      createFieldSupplementService() as never,
       {} as never
     ) as unknown as ITestFieldOpenApiV2Service;
 
@@ -1494,17 +1693,12 @@ describe('FieldOpenApiV2Service createField', () => {
       }),
     };
     const service = new FieldOpenApiV2Service(
-      {
-        getContainer: async () => ({
-          resolve: vi.fn().mockReturnValueOnce(commandBus).mockReturnValueOnce(tableQueryService),
-        }),
-      } as never,
+      createV2ContainerService(commandBus, tableQueryService) as never,
       { createContext: async () => ({ requestId: 'reqTestId' }) } as never,
       { field: { invalidateTables: vi.fn() } } as never,
       {} as never,
       {} as never,
-      {} as never,
-      {} as never,
+      createFieldSupplementService() as never,
       {} as never
     ) as unknown as ITestFieldOpenApiV2Service;
 
@@ -1581,17 +1775,12 @@ describe('FieldOpenApiV2Service createFields', () => {
       }),
     };
     const service = new FieldOpenApiV2Service(
-      {
-        getContainer: async () => ({
-          resolve: vi.fn().mockReturnValueOnce(commandBus).mockReturnValueOnce(tableQueryService),
-        }),
-      } as never,
+      createV2ContainerService(commandBus, tableQueryService) as never,
       { createContext: async () => ({ requestId: 'reqTestId' }) } as never,
       { field: { invalidateTables: vi.fn() } } as never,
       {} as never,
       {} as never,
-      {} as never,
-      {} as never,
+      createFieldSupplementService() as never,
       {} as never
     ) as unknown as ITestFieldOpenApiV2Service;
 

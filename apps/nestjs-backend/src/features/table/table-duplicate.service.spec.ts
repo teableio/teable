@@ -2,7 +2,99 @@ import { CellValueType, DbFieldType, FieldType, Relationship } from '@teable/cor
 import Knex from 'knex';
 import type { Knex as KnexType } from 'knex';
 import { vi } from 'vitest';
+import { DuplicateTableQueryPostgres } from '../../db-provider/duplicate-table/duplicate-query.postgres';
 import { TableDuplicateService } from './table-duplicate.service';
+
+describe('TableDuplicateService.duplicateTableData', () => {
+  it('skips target-only columns when copying rows', async () => {
+    const dataKnex = Knex({ client: 'pg' });
+    const executedSql: string[] = [];
+    const sourceColumnSql = 'source-column-info';
+    const targetColumnSql = 'target-column-info';
+    const dataPrisma = {
+      $queryRawUnsafe: vi.fn(async <T = unknown>(sql: string): Promise<T> => {
+        if (sql === sourceColumnSql) {
+          return [
+            { name: '__id' },
+            { name: '__version' },
+            { name: '__auto_number' },
+            { name: 'Name' },
+            { name: 'Visible_Fields' },
+          ] as T;
+        }
+        if (sql === targetColumnSql) {
+          return [
+            { name: '__id' },
+            { name: '__version' },
+            { name: '__auto_number' },
+            { name: 'Name' },
+            { name: 'Visible_Fields' },
+            { name: 'AJ_Story_Fields' },
+          ] as T;
+        }
+        if (sql.includes('count(*)')) {
+          return [{ count: 1 }] as T;
+        }
+        return [] as T;
+      }),
+      $executeRawUnsafe: vi.fn(async (sql: string) => {
+        executedSql.push(sql);
+        return 1;
+      }),
+    };
+    const fieldFindMany = vi.fn().mockResolvedValue([]);
+    const service = Object.create(TableDuplicateService.prototype) as TableDuplicateService;
+
+    (
+      service as unknown as {
+        prismaService: {
+          txClient: () => {
+            tableMeta: { findFirst: () => Promise<{ id: string }> };
+            field: { findMany: typeof fieldFindMany };
+          };
+        };
+        dbProvider: {
+          columnInfo: (tableName: string) => string;
+          duplicateTableQuery: (queryBuilder: KnexType.QueryBuilder) => DuplicateTableQueryPostgres;
+        };
+        dataKnex: KnexType;
+      }
+    ).prismaService = {
+      txClient: () => ({
+        tableMeta: { findFirst: async () => ({ id: 'tblTarget' }) },
+        field: { findMany: fieldFindMany },
+      }),
+    };
+    (
+      service as unknown as {
+        dbProvider: {
+          columnInfo: (tableName: string) => string;
+          duplicateTableQuery: (queryBuilder: KnexType.QueryBuilder) => DuplicateTableQueryPostgres;
+        };
+      }
+    ).dbProvider = {
+      columnInfo: (tableName: string) =>
+        tableName === 'bseSource.SourceTable' ? sourceColumnSql : targetColumnSql,
+      duplicateTableQuery: (queryBuilder) => new DuplicateTableQueryPostgres(queryBuilder),
+    };
+    (service as unknown as { dataKnex: KnexType }).dataKnex = dataKnex;
+
+    await service.duplicateTableData(
+      'bseSource.SourceTable',
+      'bseTarget.TargetTable',
+      {},
+      {},
+      [],
+      dataPrisma
+    );
+
+    expect(executedSql).toHaveLength(1);
+    expect(executedSql[0]).toContain('"Name", "Visible_Fields"');
+    expect(executedSql[0]).not.toContain('AJ_Story_Fields');
+
+    await dataKnex.destroy();
+  });
+});
 
 describe('TableDuplicateService.duplicateLinkJunction', () => {
   const createLinkFieldRaw = ({

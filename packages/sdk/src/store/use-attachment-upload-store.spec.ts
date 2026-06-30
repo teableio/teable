@@ -346,4 +346,47 @@ describe('useCellAttachmentUploadStore promoted key cleanup', () => {
       vi.useRealTimers();
     }
   });
+
+  it('removePendingCellTasks drops completed pending tasks when the cell is cleared', () => {
+    // Unique ids avoid the module-level promotedKeyMap left over by earlier promote tests.
+    const clearRecordId = 'rec_clear';
+    const pendingKey = buildCellKey(tableId, clearRecordId, fieldId);
+    const store = useCellAttachmentUploadStore.getState();
+
+    store.startPendingUpload(tableId, clearRecordId, fieldId, [createFile('cleared.txt')], 'base');
+    const taskId = useCellAttachmentUploadStore.getState().cellUploads[pendingKey].tasks[0].id;
+    const manager = useCellAttachmentUploadStore.getState().cellUploads[pendingKey]
+      .manager as unknown as HoistedMockAttachmentManager;
+    manager.triggerSuccess(taskId, createNotifyVo('token_cleared'));
+
+    store.removePendingCellTasks(tableId, clearRecordId, fieldId);
+
+    expect(useCellAttachmentUploadStore.getState().cellUploads[pendingKey]).toBeUndefined();
+    expect(store.getCompletedPendingAttachments(tableId, clearRecordId)).toEqual({});
+    expect(store.consumePendingForCreate(tableId, clearRecordId).completedByField).toEqual({});
+  });
+
+  it('removePendingCellTasks keeps tasks whose attachment id survives', () => {
+    const keepRecordId = 'rec_keep';
+    const pendingKey = buildCellKey(tableId, keepRecordId, fieldId);
+    const store = useCellAttachmentUploadStore.getState();
+
+    store.startPendingUpload(
+      tableId,
+      keepRecordId,
+      fieldId,
+      [createFile('keep.txt'), createFile('drop.txt')],
+      'base'
+    );
+    const tasks = useCellAttachmentUploadStore.getState().cellUploads[pendingKey].tasks;
+    const manager = useCellAttachmentUploadStore.getState().cellUploads[pendingKey]
+      .manager as unknown as HoistedMockAttachmentManager;
+    manager.triggerSuccess(tasks[0].id, createNotifyVo('token_keep'));
+    manager.triggerSuccess(tasks[1].id, createNotifyVo('token_drop'));
+
+    store.removePendingCellTasks(tableId, keepRecordId, fieldId, new Set([tasks[0].id]));
+
+    const remaining = useCellAttachmentUploadStore.getState().cellUploads[pendingKey].tasks;
+    expect(remaining.map((task) => task.id)).toEqual([tasks[0].id]);
+  });
 });

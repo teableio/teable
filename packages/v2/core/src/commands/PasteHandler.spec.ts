@@ -15,6 +15,7 @@ import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import { FieldOptionsAdded } from '../domain/table/events/FieldOptionsAdded';
+import { isRecordsBatchCreatedEvent } from '../domain/table/events/RecordsBatchCreated';
 import { isRecordsBatchUpdatedEvent } from '../domain/table/events/RecordsBatchUpdated';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
@@ -46,6 +47,7 @@ import type {
   InsertManyStreamBatchInput,
   InsertManyStreamOptions,
   UpdateManyStreamBatchInput,
+  UpdateManyStreamOptions,
   UpdateManyStreamResult,
 } from '../ports/TableRecordRepository';
 import { isInsertManyStreamBatch, isUpdateManyStreamBatch } from '../ports/TableRecordRepository';
@@ -392,6 +394,8 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   updateCalls = 0;
   insertStreamContexts: IExecutionContext[] = [];
   updateStreamContexts: IExecutionContext[] = [];
+  insertStreamOptions: InsertManyStreamOptions[] = [];
+  updateStreamOptions: UpdateManyStreamOptions[] = [];
   onInsertManyStream?: (table: Table) => void;
   onUpdateManyStream?: (table: Table) => void;
   onUpdatedRecord?: (record: TableRecord) => void;
@@ -424,6 +428,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   ): Promise<Result<{ totalInserted: number }, DomainError>> {
     this.insertCalls += 1;
     this.insertStreamContexts.push(context);
+    this.insertStreamOptions.push(options ?? {});
     this.onInsertManyStream?.(table);
     let totalInserted = 0;
     let batchIndex = 0;
@@ -473,13 +478,15 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     table: Table,
     batches:
       | Iterable<Result<UpdateManyStreamBatchInput, DomainError>>
-      | AsyncIterable<Result<UpdateManyStreamBatchInput, DomainError>>
+      | AsyncIterable<Result<UpdateManyStreamBatchInput, DomainError>>,
+    options?: UpdateManyStreamOptions
   ): Promise<Result<UpdateManyStreamResult, DomainError>> {
     this.updateCalls += 1;
     this.updateStreamContexts.push(context);
+    this.updateStreamOptions.push(options ?? {});
     this.onUpdateManyStream?.(table);
     let totalUpdated = 0;
-    const updatedRecords: NonNullable<UpdateManyStreamResult['updatedRecords']> = [];
+    const updatedRecords: Array<NonNullable<UpdateManyStreamResult['updatedRecords']>[number]> = [];
     const normalizeBatch = (
       batch: UpdateManyStreamBatchInput
     ): ReadonlyArray<RecordUpdateResult> =>
@@ -865,7 +872,7 @@ describe('PasteHandler', () => {
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
         eventBus,
-        undoRedoService as unknown as UndoRedoService,
+        undoRedoService as unknown as UndoRedoStackService,
         unitOfWork
       );
 
@@ -925,7 +932,7 @@ describe('PasteHandler', () => {
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
         eventBus,
-        undoRedoService as unknown as UndoRedoService,
+        undoRedoService as unknown as UndoRedoStackService,
         unitOfWork
       );
 
@@ -2411,7 +2418,7 @@ describe('PasteHandler', () => {
     const result = await handler.handle({ ...createContext(), requestId: 'req-paste' }, command);
     result._unsafeUnwrap();
 
-    expect(recordRepository.updateStreamContexts[0]?.batchMutation).toEqual({
+    expect(recordRepository.updateStreamOptions[0]?.orchestration).toEqual({
       operationId: 'req-paste',
       groupId: 'req-paste',
       totalRecordCount: 2,
@@ -2419,7 +2426,7 @@ describe('PasteHandler', () => {
       chunkIndex: 0,
       scope: 'operation',
     });
-    expect(recordRepository.insertStreamContexts[0]?.batchMutation).toEqual({
+    expect(recordRepository.insertStreamOptions[0]?.orchestration).toEqual({
       operationId: 'req-paste',
       groupId: 'req-paste',
       totalRecordCount: 2,
@@ -2437,6 +2444,12 @@ describe('PasteHandler', () => {
       chunkIndex: 0,
       scope: 'operation',
     });
+    expect(batchUpdatedEvent?.source).toBe('user');
+    expect(batchUpdatedEvent?.auditSource).toBe('paste');
+
+    const batchCreatedEvent = eventBus.published.find(isRecordsBatchCreatedEvent);
+    expect(batchCreatedEvent?.source).toEqual({ type: 'user' });
+    expect(batchCreatedEvent?.auditSource).toBe('paste');
   });
 
   describe('PasteStreamApplicationService', () => {
@@ -2567,30 +2580,27 @@ describe('PasteHandler', () => {
         chunkIndex: 0,
         scope: 'chunk',
       });
+      expect(batchUpdatedEvents[0]?.source).toBe('user');
+      expect(batchUpdatedEvents[0]?.auditSource).toBe('paste');
 
-      const batchCreatedEvents = eventBus.published.filter(
-        (event) => event.constructor.name === 'RecordsBatchCreated'
-      ) as Array<{
-        orchestration?: {
-          groupId?: string;
-          chunkIndex?: number;
-          totalChunkCount?: number;
-          scope?: string;
-        };
-      }>;
+      const batchCreatedEvents = eventBus.published.filter(isRecordsBatchCreatedEvent);
       expect(batchCreatedEvents).toHaveLength(2);
       expect(batchCreatedEvents[0]?.orchestration).toMatchObject({
         chunkIndex: 1,
         totalChunkCount: 3,
         scope: 'chunk',
       });
+      expect(batchCreatedEvents[0]?.source).toEqual({ type: 'user' });
+      expect(batchCreatedEvents[0]?.auditSource).toBe('paste');
       expect(batchCreatedEvents[1]?.orchestration).toMatchObject({
         chunkIndex: 2,
         totalChunkCount: 3,
         scope: 'chunk',
       });
+      expect(batchCreatedEvents[1]?.source).toEqual({ type: 'user' });
+      expect(batchCreatedEvents[1]?.auditSource).toBe('paste');
 
-      expect(recordRepository.updateStreamContexts[0]?.batchMutation).toEqual({
+      expect(recordRepository.updateStreamOptions[0]?.orchestration).toEqual({
         operationId: expect.any(String),
         groupId: expect.any(String),
         totalRecordCount: 3,
@@ -2598,7 +2608,7 @@ describe('PasteHandler', () => {
         chunkIndex: 0,
         scope: 'chunk',
       });
-      expect(recordRepository.insertStreamContexts[0]?.batchMutation).toEqual({
+      expect(recordRepository.insertStreamOptions[0]?.orchestration).toEqual({
         operationId: expect.any(String),
         groupId: expect.any(String),
         totalRecordCount: 3,
@@ -2606,7 +2616,7 @@ describe('PasteHandler', () => {
         chunkIndex: 1,
         scope: 'chunk',
       });
-      expect(recordRepository.insertStreamContexts[1]?.batchMutation).toEqual({
+      expect(recordRepository.insertStreamOptions[1]?.orchestration).toEqual({
         operationId: expect.any(String),
         groupId: expect.any(String),
         totalRecordCount: 3,

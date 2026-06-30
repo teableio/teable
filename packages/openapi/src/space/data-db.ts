@@ -8,6 +8,10 @@ export const GET_SPACE_DATA_DB = '/space/{spaceId}/data-db';
 export const UPDATE_SPACE_DATA_DB = '/space/{spaceId}/data-db';
 export const RETEST_SPACE_DATA_DB = '/space/{spaceId}/data-db/retest';
 export const RETRY_SPACE_DATA_DB_MIGRATION = '/space/{spaceId}/data-db/retry';
+export const GET_SPACE_DATA_DB_MIGRATION = '/space/{spaceId}/data-db/migration/{jobId}';
+export const CANCEL_SPACE_DATA_DB_MIGRATION = '/space/{spaceId}/data-db/migration/{jobId}/cancel';
+export const ROLLBACK_SPACE_DATA_DB_MIGRATION =
+  '/space/{spaceId}/data-db/migration/{jobId}/rollback';
 const refreshedDataDbSummaryDescription = 'Returns the refreshed data database binding summary.';
 
 export const dataDbModeSchema = z.enum(['default', 'byodb']);
@@ -29,6 +33,19 @@ export const dataDbBindingStateSchema = z.enum([
   'migrating',
   'error',
   'disabled',
+]);
+export const dataDbMigrationJobStateSchema = z.enum([
+  'pending',
+  'waiting_worker',
+  'preflight',
+  'freezing_writes',
+  'copying',
+  'validating',
+  'switching',
+  'succeeded',
+  'failed',
+  'canceled',
+  'rolled_back',
 ]);
 
 export const dataDbCapabilitiesSchema = z.object({
@@ -53,8 +70,11 @@ export const dataDbPreflightErrorSchema = z.object({
 
 export const dataDbPreflightRoSchema = z.object({
   url: z.string().min(1),
+  spaceId: z.string().optional(),
   targetMode: dataDbTargetModeSchema.optional().default('initialize-empty'),
   internalSchema: dataDbInternalSchemaSchema,
+  confirmLargeMigration: z.boolean().optional(),
+  switchOnCompletion: z.boolean().optional(),
 });
 
 export type IDataDbPreflightRo = z.infer<typeof dataDbPreflightRoSchema>;
@@ -77,6 +97,56 @@ export const dataDbPreflightVoSchema = z.object({
 
 export type IDataDbPreflightVo = z.infer<typeof dataDbPreflightVoSchema>;
 
+export const dataDbMigrationSummarySchema = z.object({
+  jobId: z.string(),
+  state: dataDbMigrationJobStateSchema,
+  targetInternalSchema: z.string(),
+  switchOnCompletion: z.boolean().optional(),
+  lastError: z.string().nullable().optional(),
+});
+
+export const dataDbRelatedSpaceSchema = z.object({
+  spaceId: z.string(),
+  name: z.string(),
+  isPrimary: z.boolean(),
+  baseIds: z.array(z.string()),
+  tableIds: z.array(z.string()),
+  dataDbMode: dataDbModeSchema,
+  dataDbState: dataDbBindingStateSchema.optional(),
+  dataDbConnectionId: z.string().nullable().optional(),
+  dataDbUrlFingerprint: z.string().nullable().optional(),
+  dataDbDatabaseFingerprint: z.string().nullable().optional(),
+  dataDbDisplayHost: z.string().nullable().optional(),
+  dataDbDisplayDatabase: z.string().nullable().optional(),
+  dataDbInternalSchema: z.string().nullable().optional(),
+});
+
+export const dataDbRelatedSpaceLinkSchema = z.object({
+  fromSpaceId: z.string(),
+  fromTableId: z.string(),
+  fromFieldId: z.string(),
+  toSpaceId: z.string(),
+  toTableId: z.string(),
+});
+
+export const dataDbRelatedSpacesSchema = z.object({
+  primarySpaceId: z.string(),
+  hasCrossSpaceLinks: z.boolean(),
+  spaces: z.array(dataDbRelatedSpaceSchema),
+  links: z.array(dataDbRelatedSpaceLinkSchema),
+});
+
+const dataDbConnectionMetadataSchema = z.object({
+  provider: z.literal('postgres'),
+  displayHost: z.string().optional(),
+  displayDatabase: z.string().optional(),
+  internalSchema: z.string().optional(),
+  schemaVersion: z.string().nullable().optional(),
+  lastValidatedAt: z.string().optional(),
+  lastError: z.string().optional(),
+  capabilities: dataDbCapabilitiesSchema.optional(),
+});
+
 export const dataDbConnectionSummaryVoSchema = z.object({
   mode: dataDbModeSchema,
   state: dataDbBindingStateSchema,
@@ -88,9 +158,32 @@ export const dataDbConnectionSummaryVoSchema = z.object({
   lastValidatedAt: z.string().optional(),
   lastError: z.string().optional(),
   capabilities: dataDbCapabilitiesSchema.optional(),
+  migration: dataDbMigrationSummarySchema.optional(),
+  relatedSpaces: dataDbRelatedSpacesSchema.optional(),
 });
 
 export type IDataDbConnectionSummaryVo = z.infer<typeof dataDbConnectionSummaryVoSchema>;
+
+export const dataDbMigrationJobStatusVoSchema = z.object({
+  jobId: z.string(),
+  spaceId: z.string(),
+  targetMode: z.literal('migrate-space'),
+  switchOnCompletion: z.boolean().optional(),
+  state: dataDbMigrationJobStateSchema,
+  targetInternalSchema: z.string(),
+  targetConnection: dataDbConnectionMetadataSchema.nullable().optional(),
+  relatedSpaces: dataDbRelatedSpacesSchema.optional(),
+  inventory: z.unknown().optional(),
+  copyStats: z.unknown().nullable().optional(),
+  validationStats: z.unknown().nullable().optional(),
+  lastError: z.string().nullable().optional(),
+  startedAt: z.string().nullable().optional(),
+  completedAt: z.string().nullable().optional(),
+  createdTime: z.string(),
+  lastModifiedTime: z.string().nullable().optional(),
+});
+
+export type IDataDbMigrationJobStatusVo = z.infer<typeof dataDbMigrationJobStatusVoSchema>;
 
 export const SpaceDataDbPreflightRoute: RouteConfig = registerRoute({
   method: 'post',
@@ -214,6 +307,76 @@ export const RetrySpaceDataDbMigrationRoute: RouteConfig = registerRoute({
   tags: ['space'],
 });
 
+export const GetSpaceDataDbMigrationRoute: RouteConfig = registerRoute({
+  method: 'get',
+  path: GET_SPACE_DATA_DB_MIGRATION,
+  description: 'Get detailed status for a space data database migration job',
+  request: {
+    params: z.object({
+      spaceId: z.string(),
+      jobId: z.string(),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'Returns the migration job status without connection secrets.',
+      content: {
+        'application/json': {
+          schema: dataDbMigrationJobStatusVoSchema,
+        },
+      },
+    },
+  },
+  tags: ['space'],
+});
+
+export const CancelSpaceDataDbMigrationRoute: RouteConfig = registerRoute({
+  method: 'post',
+  path: CANCEL_SPACE_DATA_DB_MIGRATION,
+  description: 'Cancel a pre-copy space data database migration job',
+  request: {
+    params: z.object({
+      spaceId: z.string(),
+      jobId: z.string(),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'Returns the canceled migration job status without connection secrets.',
+      content: {
+        'application/json': {
+          schema: dataDbMigrationJobStatusVoSchema,
+        },
+      },
+    },
+  },
+  tags: ['space'],
+});
+
+export const RollbackSpaceDataDbMigrationRoute: RouteConfig = registerRoute({
+  method: 'post',
+  path: ROLLBACK_SPACE_DATA_DB_MIGRATION,
+  description:
+    'Rollback a completed space data database migration when no post-switch writes exist',
+  request: {
+    params: z.object({
+      spaceId: z.string(),
+      jobId: z.string(),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'Returns the rolled back migration job status without connection secrets.',
+      content: {
+        'application/json': {
+          schema: dataDbMigrationJobStatusVoSchema,
+        },
+      },
+    },
+  },
+  tags: ['space'],
+});
+
 export const preflightSpaceDataDb = async (data: IDataDbPreflightRo) => {
   return axios.post<IDataDbPreflightVo>(SPACE_DATA_DB_PREFLIGHT, data);
 };
@@ -236,5 +399,23 @@ export const retestSpaceDataDb = async (spaceId: string) => {
 export const retrySpaceDataDbMigration = async (spaceId: string) => {
   return axios.post<IDataDbConnectionSummaryVo>(
     urlBuilder(RETRY_SPACE_DATA_DB_MIGRATION, { spaceId })
+  );
+};
+
+export const getSpaceDataDbMigration = async (spaceId: string, jobId: string) => {
+  return axios.get<IDataDbMigrationJobStatusVo>(
+    urlBuilder(GET_SPACE_DATA_DB_MIGRATION, { spaceId, jobId })
+  );
+};
+
+export const cancelSpaceDataDbMigration = async (spaceId: string, jobId: string) => {
+  return axios.post<IDataDbMigrationJobStatusVo>(
+    urlBuilder(CANCEL_SPACE_DATA_DB_MIGRATION, { spaceId, jobId })
+  );
+};
+
+export const rollbackSpaceDataDbMigration = async (spaceId: string, jobId: string) => {
+  return axios.post<IDataDbMigrationJobStatusVo>(
+    urlBuilder(ROLLBACK_SPACE_DATA_DB_MIGRATION, { spaceId, jobId })
   );
 };

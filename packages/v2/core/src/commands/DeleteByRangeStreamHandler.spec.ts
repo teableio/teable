@@ -478,6 +478,14 @@ describe('DeleteByRangeStreamHandler', () => {
     expect(queryRepository.findCalls.some((call) => call.spec instanceof RecordByIdsSpec)).toBe(
       false
     );
+    const chunkLoadCalls = queryRepository.findCalls.filter(
+      (call) => call.options?.pagination && call.options.includeTotal === false
+    );
+    expect(
+      chunkLoadCalls.map((call) =>
+        call.options?.projectionFieldIds?.map((fieldId) => fieldId.toString())
+      )
+    ).toEqual([[], []]);
     expect(eventBus.publishManyCalls).toHaveLength(2);
     expect(undoRedoService.recordEntryCalls).toHaveLength(2);
     expect(
@@ -622,7 +630,11 @@ describe('DeleteByRangeStreamHandler', () => {
 
     expect(tracer.spans.map((span) => span.name)).toEqual(
       expect.arrayContaining([
+        'teable.DeleteByRangeApplicationService.prepareDeleteStreamPlan',
+        'teable.DeleteByRangeApplicationService.prepareDeleteStreamPlugins',
         'teable.DeleteByRangeApplicationService.loadDeleteChunk',
+        'teable.DeleteByRangeApplicationService.prepareDeleteChunkPlugins',
+        'teable.DeleteByRangeApplicationService.validateDeleteChunkPluginScope',
         'teable.DeleteByRangeApplicationService.deleteChunk',
         'teable.DeleteByRangeApplicationService.publishDeleteChunkEvents',
         'teable.DeleteByRangeApplicationService.recordDeleteChunkUndoRedo',
@@ -630,7 +642,7 @@ describe('DeleteByRangeStreamHandler', () => {
     );
   });
 
-  it('scales the default delete chunk size for large selections when batchSize is omitted', async () => {
+  it('uses the maximum default delete chunk size for large selections when batchSize is omitted', async () => {
     const { table, tableId, viewId } = buildTable();
     const tableRepository = new FakeTableRepository();
     tableRepository.tables.push(table);
@@ -668,12 +680,59 @@ describe('DeleteByRangeStreamHandler', () => {
       totalCount: 5_000,
       deletedCount: 5_000,
     });
-    expect(recordRepository.deleteRecordIdsByBatch).toHaveLength(20);
+    expect(recordRepository.deleteRecordIdsByBatch).toHaveLength(5);
     expect(
       new Set(recordRepository.deleteRecordIdsByBatch.map((recordIds) => recordIds.length))
-    ).toEqual(new Set([250]));
-    expect(eventBus.publishManyCalls).toHaveLength(20);
-    expect(undoRedoService.recordEntryCalls).toHaveLength(20);
+    ).toEqual(new Set([1_000]));
+    expect(eventBus.publishManyCalls).toHaveLength(5);
+    expect(undoRedoService.recordEntryCalls).toHaveLength(5);
+  });
+
+  it('keeps medium delete streams in a single default chunk', async () => {
+    const { table, tableId, viewId } = buildTable();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const queryRepository = new FakeTableRecordQueryRepository();
+    queryRepository.records = Array.from({ length: 1_000 }, (_, index) =>
+      buildRecordReadModel(index)
+    );
+    queryRepository.total = queryRepository.records.length;
+    const recordRepository = new FakeTableRecordRepository(queryRepository);
+    const eventBus = new FakeEventBus();
+    const undoRedoService = new FakeUndoRedoService();
+
+    const { handler } = createHandler({
+      tableRepository,
+      queryRepository,
+      recordRepository,
+      eventBus,
+      undoRedoService,
+    });
+    const command = DeleteByRangeStreamCommand.create({
+      tableId: tableId.toString(),
+      viewId,
+      ranges: [[0, 999]],
+      type: 'rows',
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    const events = [];
+    for await (const event of result._unsafeUnwrap()) {
+      events.push(event);
+    }
+
+    expect(events.at(-1)).toMatchObject({
+      id: 'done',
+      totalCount: 1_000,
+      deletedCount: 1_000,
+    });
+    expect(recordRepository.deleteRecordIdsByBatch).toHaveLength(1);
+    expect(recordRepository.deleteRecordIdsByBatch[0]).toHaveLength(1_000);
+    const chunkReadCall = queryRepository.findCalls.at(-1);
+    expect(chunkReadCall?.options?.projectionFieldIds).toEqual([]);
+    expect(chunkReadCall?.options?.includeTotal).toBe(false);
+    expect(eventBus.publishManyCalls).toHaveLength(1);
+    expect(undoRedoService.recordEntryCalls).toHaveLength(1);
   });
 
   it('continues deleting later chunks after a chunk fails and emits error details', async () => {

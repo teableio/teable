@@ -5,6 +5,7 @@ import { Resizable } from 're-resizable';
 import type { FC, PropsWithChildren, ReactNode } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
+import { preventContextMenuUnlessText } from '../../utils/prevent-context-menu';
 import {
   MAX_SIDE_BAR_WIDTH,
   MIN_SIDE_BAR_WIDTH,
@@ -70,7 +71,7 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
       <div
         className="h-full shrink-0 border-r"
         style={{ width: `var(--sidebar-width` }}
-        onContextMenu={(e) => e.preventDefault()}
+        onContextMenu={preventContextMenuUnlessText}
       >
         <div className={sidebarClassName}>{sidebarContent}</div>
       </div>
@@ -95,7 +96,8 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
       <HoverWrapper size={width}>
         <HoverWrapper.Trigger>
           <Button
-            className="fixed left-0 top-7 z-40 rounded-none rounded-r-full p-1"
+            className="fixed left-0 z-40 rounded-none rounded-r-full p-1"
+            style={{ top: 'calc(var(--teable-top-banner-height) + 1.75rem)' }}
             variant="outline"
             size="xs"
             onClick={toggleSidebar}
@@ -105,7 +107,7 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
           </Button>
         </HoverWrapper.Trigger>
         <HoverWrapper.content>
-          <div className={sidebarClassName} onContextMenu={(e) => e.preventDefault()}>
+          <div className={sidebarClassName} onContextMenu={preventContextMenuUnlessText}>
             <SidebarHeader headerLeft={headerLeft} headerRight={headerRight} />
             {children}
           </div>
@@ -145,7 +147,7 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
         ),
       }}
     >
-      <div className={sidebarClassName} onContextMenu={(e) => e.preventDefault()}>
+      <div className={sidebarClassName} onContextMenu={preventContextMenuUnlessText}>
         {sidebarContent}
       </div>
     </Resizable>

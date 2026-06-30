@@ -22,7 +22,8 @@ export const getUserIntegrationItemVoSchema = z.object({
   connectedTime: z.string().optional(),
   lastModifiedTime: z.string().optional(),
   hasSecret: z.boolean(),
-  metadata: userIntegrationMetadataSchema,
+  // Absent when the integration's provider is not registered in this build.
+  metadata: userIntegrationMetadataSchema.optional(),
 });
 
 export type IUserIntegrationItemVo = z.infer<typeof getUserIntegrationItemVoSchema>;

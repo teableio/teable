@@ -77,6 +77,9 @@ export const CollaboratorTable = (props: ICollaboratorTableProps) => {
               <TableHead className="w-[156px] px-4 font-normal">
                 {t('invite.table.joinAt')}
               </TableHead>
+              <TableHead className="w-[156px] px-4 font-normal">
+                {t('invite.table.lastLogin')}
+              </TableHead>
               <TableHead className="w-[100px] px-4 font-normal">{t('actions.title')}</TableHead>
             </TableRow>
           </TableHeader>
@@ -85,7 +88,10 @@ export const CollaboratorTable = (props: ICollaboratorTableProps) => {
               const isUser = item.type === PrincipalType.User;
               const { canUpdateRole, canDelete, showDelete } = getPermissions(item);
               return (
-                <TableRow className="h-14" key={isUser ? item.userId : item.departmentId}>
+                <TableRow
+                  className="h-14"
+                  key={`${isUser ? item.userId : item.departmentId}-${item.base?.id ?? ''}`}
+                >
                   <TableCell className="px-4">
                     <Collaborator
                       className="items-center"
@@ -117,6 +123,13 @@ export const CollaboratorTable = (props: ICollaboratorTableProps) => {
                   <TableCell className="px-4">
                     <span className="text-sm text-muted-foreground">
                       {new Date(item.createdTime).toLocaleDateString()}
+                    </span>
+                  </TableCell>
+                  <TableCell className="px-4">
+                    <span className="text-sm text-muted-foreground">
+                      {item.type === PrincipalType.User && item.lastSignTime
+                        ? new Date(item.lastSignTime).toLocaleDateString()
+                        : '-'}
                     </span>
                   </TableCell>
                   <TableCell className="px-4">

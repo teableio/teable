@@ -37,6 +37,24 @@ export type TableCreationServiceInput = {
    * Used for determining table insertion order.
    */
   referencesByTable: ReadonlyArray<ReadonlyArray<LinkForeignTableReference>>;
+
+  /**
+   * Adapter-level schema creation options. Keep this narrow: callers should only
+   * opt in when the newly-created physical tables are known to have no rows.
+   */
+  schemaOptions?: {
+    optimizeForEmptyTables?: boolean;
+    skipUndoCaptureSetup?: boolean;
+  };
+
+  /**
+   * Application-level side effect options. Duplicate/import callers that already
+   * provide complete copied field structures can opt out of redundant field
+   * creation side effects.
+   */
+  sideEffectOptions?: {
+    skipFieldCreationSideEffects?: boolean;
+  };
 };
 
 export type TableCreationServiceResult = {
@@ -206,6 +224,8 @@ export class TableCreationService {
       // Create physical table structures
       yield* await service.tableSchemaRepository.insertMany(context, persistedTables, {
         knownTables: [...externalTables, ...persistedTables],
+        optimizeForEmptyTables: input.schemaOptions?.optimizeForEmptyTables,
+        skipUndoCaptureSetup: input.schemaOptions?.skipUndoCaptureSetup,
       });
 
       // Build initial table state
@@ -229,6 +249,14 @@ export class TableCreationService {
 
       for (const table of orderedPersistedTables) {
         tableState.set(table.id().toString(), table);
+      }
+
+      if (input.sideEffectOptions?.skipFieldCreationSideEffects) {
+        return ok({
+          persistedTables: orderedPersistedTables,
+          tableState,
+          sideEffectEvents: [],
+        });
       }
 
       // Process field creation side effects

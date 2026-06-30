@@ -101,6 +101,8 @@ const oldValueAliasForColumn = (column: string): string => `__old_${column.repla
 
 const quoteIdentifier = (value: string): string => `"${value.replaceAll('"', '""')}"`;
 
+const quoteRef = (...parts: string[]): string => parts.map(quoteIdentifier).join('.');
+
 const quoteQualifiedTableName = (value: string): string =>
   value.split('.').map(quoteIdentifier).join('.');
 
@@ -212,19 +214,21 @@ export class UpdateFromSelectBuilder {
         // Use double quotes to preserve case-sensitivity in PostgreSQL
         // Return __version - 1 as __old_version (the version BEFORE this computed update)
         const oldVersionExpression = incrementVersion
-          ? `"${tableAlias}"."__version" - 1`
-          : `"${tableAlias}"."__version"`;
+          ? `${quoteRef(tableAlias, '__version')} - 1`
+          : quoteRef(tableAlias, '__version');
         const oldTableAlias = '__old';
         const returningColumns = [
-          `"${tableAlias}"."__id"`,
+          quoteRef(tableAlias, '__id'),
           `${oldVersionExpression} as "__old_version"`,
         ];
         const oldColumnAliases = new Map<string, string>();
         for (const [column] of columnMapping) {
           const oldAlias = oldValueAliasForColumn(column);
           oldColumnAliases.set(column, oldAlias);
-          returningColumns.push(`"${oldTableAlias}"."${column}" as "${oldAlias}"`);
-          returningColumns.push(`"${tableAlias}"."${column}"`);
+          returningColumns.push(
+            `${quoteRef(oldTableAlias, column)} as ${quoteIdentifier(oldAlias)}`
+          );
+          returningColumns.push(quoteRef(tableAlias, column));
         }
 
         // Use raw SQL for RETURNING since Kysely's typing doesn't support it well for updates
@@ -241,7 +245,7 @@ export class UpdateFromSelectBuilder {
           compiled.sql.slice(0, whereIndex) +
           `, ${quoteQualifiedTableName(tableName)} as "${oldTableAlias}"` +
           compiled.sql.slice(whereIndex, whereIndex + ' where '.length) +
-          `"${oldTableAlias}"."__id" = "${selectAlias}"."__id" and ` +
+          `${quoteRef(oldTableAlias, '__id')} = ${quoteRef(selectAlias, '__id')} and ` +
           compiled.sql.slice(whereIndex + ' where '.length);
         const returningClause = ` RETURNING ${returningColumns.join(', ')}`;
         const sqlWithReturning = sqlWithOldTable + returningClause;
@@ -671,7 +675,7 @@ class UpdateAssignmentPlan {
     tableAlias: string,
     projectionAlias: string
   ): Expression<SqlBool> {
-    const target = sql`"${sql.raw(tableAlias)}"."${sql.raw(this.column)}"`;
+    const target = sql.raw(quoteRef(tableAlias, this.column));
     const projected = this.buildProjectedRef(eb, projectionAlias);
 
     if (isTemporalDbFieldType(this.normalizedDbType)) {
@@ -729,7 +733,7 @@ class UpdateAssignmentProjectionPlan {
       const values: Record<string, unknown> = {};
       if (options?.incrementVersion ?? true) {
         // Increment __version for computed updates (like V1 does)
-        values['__version'] = sql`"${sql.raw(tableAlias)}"."__version" + 1`;
+        values['__version'] = sql.raw(`${quoteRef(tableAlias, '__version')} + 1`);
       }
 
       for (const plan of this.assignmentPlans) {
