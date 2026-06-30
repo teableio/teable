@@ -11,6 +11,7 @@ import interactionPlugin from '@fullcalendar/interaction';
 import FullCalendar from '@fullcalendar/react';
 import { FieldKeyType } from '@teable/core';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Loader2 } from '@teable/icons';
+import { useTheme } from '@teable/next-themes';
 import { updateRecord } from '@teable/openapi';
 import { AppContext, CalendarDailyCollectionContext } from '@teable/sdk/context';
 import { useTableId, useRecordOperations } from '@teable/sdk/hooks';
@@ -76,6 +77,7 @@ export const Calendar = (props: ICalendarProps) => {
   } = useCalendar();
   const tableId = useTableId();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const { resolvedTheme } = useTheme();
   const { lang = 'en' } = useContext(AppContext);
   const calendarDailyCollection = useContext(CalendarDailyCollectionContext);
   const { openEventMenu } = useEventMenuStore();
@@ -229,7 +231,8 @@ export const Calendar = (props: ICalendarProps) => {
         const { color: textColor, backgroundColor } = getColorByConfig(
           r as unknown as Record,
           colorConfig,
-          colorField
+          colorField,
+          resolvedTheme
         );
         const endDate = end ? addDays(new Date(end as string), 1).toISOString() : undefined;
 
@@ -252,7 +255,16 @@ export const Calendar = (props: ICalendarProps) => {
         };
       })
       .filter(Boolean) as EventInput[];
-  }, [records, colorConfig, titleField, colorField, startDateField, endDateField, t]);
+  }, [
+    records,
+    colorConfig,
+    titleField,
+    colorField,
+    startDateField,
+    endDateField,
+    t,
+    resolvedTheme,
+  ]);
 
   useEffect(() => {
     if (!countMap) return;

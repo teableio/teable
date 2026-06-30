@@ -1,8 +1,14 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Param, Post } from '@nestjs/common';
 import { HttpErrorCode } from '@teable/core';
-import { ITestMailTransportConfigRo, testMailTransportConfigRoSchema } from '@teable/openapi';
+import type { ISendEmailRo, ISendEmailVo } from '@teable/openapi';
+import {
+  ITestMailTransportConfigRo,
+  sendEmailRoSchema,
+  testMailTransportConfigRoSchema,
+} from '@teable/openapi';
 import { CustomHttpException } from '../../../custom.exception';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
+import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { MailSenderOpenApiService } from './mail-sender-open-api.service';
 
 @Controller('api/mail-sender')
@@ -30,5 +36,15 @@ export class MailSenderOpenApiController {
         }
       );
     }
+  }
+
+  @Post(':baseId/send')
+  @Permissions('base|update')
+  async sendEmail(
+    @Param('baseId') baseId: string,
+    @Body(new ZodValidationPipe(sendEmailRoSchema))
+    sendEmailRo: ISendEmailRo
+  ): Promise<ISendEmailVo> {
+    return this.mailSenderOpenApiService.sendEmail(baseId, sendEmailRo);
   }
 }

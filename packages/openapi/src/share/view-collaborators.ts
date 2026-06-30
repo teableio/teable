@@ -19,7 +19,10 @@ export const shareViewCollaboratorsVoSchema = z.array(
   z.object({
     userId: z.string(),
     userName: z.string(),
-    email: z.string(),
+    // Email is intentionally omitted for share (anonymous) responses to avoid
+    // leaking the member directory. Selection is by userId and display is by
+    // name/avatar, so email plays no role in the picker.
+    email: z.string().optional(),
     avatar: z.string().nullable().optional(),
   })
 );

@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import type {
   IOtOperation,
   IViewRo,
@@ -20,6 +20,7 @@ import type {
 import {
   ViewType,
   IManualSortRo,
+  RecordOpBuilder,
   ViewOpBuilder,
   generateShareId,
   VIEW_JSON_KEYS,
@@ -33,19 +34,19 @@ import {
   HttpErrorCode,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { PluginPosition, PluginStatus } from '@teable/openapi';
+import { PluginPosition, PluginStatus, IViewShareMetaRo } from '@teable/openapi';
 import type {
   IViewPluginUpdateStorageRo,
   IGetViewFilterLinkRecordsVo,
   IUpdateOrderRo,
   IUpdateRecordOrdersRo,
   IViewInstallPluginRo,
-  IViewShareMetaRo,
 } from '@teable/openapi';
 import { Knex } from 'knex';
 import { keyBy, pick } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import type { EditOp } from 'sharedb';
 import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
 import { CustomHttpException } from '../../../custom.exception';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
@@ -54,14 +55,19 @@ import { EventEmitterService } from '../../../event-emitter/event-emitter.servic
 import { Events } from '../../../event-emitter/events';
 import { DatabaseRouter } from '../../../global/database-router.service';
 import { DATA_KNEX } from '../../../global/knex/knex.module';
+import { ShareDbService } from '../../../share-db/share-db.service';
 import type { IClsStore } from '../../../types/cls';
 import { Timing } from '../../../utils/timing';
 import { updateMultipleOrders, updateOrder } from '../../../utils/update-order';
+import { AuditScope } from '../../audit/audit-scope';
+import { Audit } from '../../audit/audit.decorator';
 import { FieldViewSyncService } from '../../field/field-calculate/field-view-sync.service';
 import { FieldService } from '../../field/field.service';
 import type { IFieldInstance } from '../../field/model/factory';
 import { createFieldInstanceByRaw, createFieldInstanceByVo } from '../../field/model/factory';
 import { RecordService } from '../../record/record.service';
+import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migration-guard.service';
+import { ROW_ORDER_FIELD_PREFIX } from '../constant';
 import { createViewInstanceByRaw } from '../model/factory';
 import { ViewService } from '../view.service';
 
@@ -77,13 +83,45 @@ export class ViewOpenApiService {
     private readonly fieldService: FieldService,
     private readonly fieldViewSyncService: FieldViewSyncService,
     private readonly eventEmitterService: EventEmitterService,
+    private readonly shareDbService: ShareDbService,
     private readonly cls: ClsService<IClsStore>,
+    private readonly audit: AuditScope,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel(DATA_KNEX) private readonly knex: Knex,
-    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
+    @Optional()
+    private readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService
   ) {}
 
-  async createView(tableId: string, viewRo: IViewRo) {
+  private async assertTableWritable(tableId: string) {
+    await this.spaceDataDbMigrationGuard?.assertTableWritable(tableId);
+  }
+
+  private async assertViewWritable(viewId: string) {
+    const view = await this.prismaService.view.findUnique({
+      where: { id: viewId },
+      select: { tableId: true },
+    });
+    if (view) {
+      await this.assertTableWritable(view.tableId);
+    }
+  }
+
+  private async ensureGridViewRowOrderColumn(tableId: string, view: IViewVo) {
+    if (view.type !== ViewType.Grid) {
+      return;
+    }
+
+    const { dbTableName } = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
+      where: { id: tableId },
+      select: { dbTableName: true },
+    });
+
+    await this.viewService.getOrCreateViewIndexFieldForTable(tableId, dbTableName, view.id);
+  }
+
+  async createView(tableId: string, viewRo: IViewRo, options: { ensureRowOrder?: boolean } = {}) {
+    await this.assertTableWritable(tableId);
     if (viewRo.type === ViewType.Plugin) {
       const res = await this.pluginInstall(tableId, {
         name: viewRo.name,
@@ -94,12 +132,19 @@ export class ViewOpenApiService {
       });
       return this.viewService.getViewById(res.viewId);
     }
-    return await this.prismaService.$tx(async () => {
+    const view = await this.prismaService.$tx(async () => {
       return this.createViewInner(tableId, viewRo);
     });
+
+    if (options.ensureRowOrder !== false) {
+      await this.ensureGridViewRowOrderColumn(tableId, view);
+    }
+
+    return view;
   }
 
   async deleteView(tableId: string, viewId: string, windowId?: string) {
+    await this.assertTableWritable(tableId);
     const result = await this.prismaService.$tx(async () => {
       await this.fieldViewSyncService.deleteLinkOptionsDependenciesByViewId(tableId, viewId);
       return await this.deleteViewInner(tableId, viewId);
@@ -194,6 +239,7 @@ export class ViewOpenApiService {
     columnMetaRo: IColumnMetaRo,
     windowId?: string
   ) {
+    await this.assertTableWritable(tableId);
     const view = await this.prismaService.view
       .findFirstOrThrow({
         where: { tableId, id: viewId },
@@ -289,6 +335,21 @@ export class ViewOpenApiService {
     }
   }
 
+  @Audit({
+    action: Events.SHARED_VIEW_UPDATE,
+    resourceId: (_tableId: string, viewId: string) => viewId,
+    params: (tableId: string, viewId: string, viewShareMetaRo: IViewShareMetaRo) => ({
+      tableId,
+      viewId,
+      // Mirror base-share masking: never log the plaintext share password — record only whether
+      // one was set. (IViewShareMetaRo.password is optional and was previously stored verbatim.)
+      shareMeta: {
+        ...viewShareMetaRo,
+        password: viewShareMetaRo.password !== undefined ? '[set]' : undefined,
+      },
+    }),
+    emit: true,
+  })
   async updateShareMeta(tableId: string, viewId: string, viewShareMetaRo: IViewShareMetaRo) {
     return this.setViewProperty(tableId, viewId, 'shareMeta', viewShareMetaRo);
   }
@@ -394,6 +455,7 @@ export class ViewOpenApiService {
     newValue: unknown,
     windowId?: string
   ) {
+    await this.assertTableWritable(tableId);
     const curView = await this.prismaService.view
       .findFirstOrThrow({
         select: { [key]: true },
@@ -451,6 +513,7 @@ export class ViewOpenApiService {
   }
 
   async updateViewByOps(tableId: string, viewId: string, ops: IOtOperation[]) {
+    await this.assertTableWritable(tableId);
     return await this.prismaService.$tx(async () => {
       return await this.viewService.updateViewByOps(tableId, viewId, ops);
     });
@@ -462,6 +525,7 @@ export class ViewOpenApiService {
     viewOptions: IViewOptions,
     windowId?: string
   ) {
+    await this.assertTableWritable(tableId);
     const curView = await this.prismaService.view
       .findFirstOrThrow({
         select: { options: true, type: true },
@@ -521,6 +585,7 @@ export class ViewOpenApiService {
    * shuffle view order
    */
   async shuffle(tableId: string) {
+    await this.assertTableWritable(tableId);
     const views = await this.prismaService.view.findMany({
       where: { tableId, deletedTime: null },
       select: { id: true, order: true },
@@ -551,6 +616,7 @@ export class ViewOpenApiService {
     orderRo: IUpdateOrderRo,
     windowId?: string
   ) {
+    await this.assertTableWritable(tableId);
     const { anchorId, position } = orderRo;
 
     const view = await this.prismaService.view
@@ -736,12 +802,41 @@ export class ViewOpenApiService {
       order?: Record<string, number>;
     }[]
   ) {
+    await this.assertTableWritable(tableId);
     await this.recordService.updateRecordIndexes(tableId, recordsWithOrder);
-    const ops = ViewOpBuilder.editor.setViewProperty.build({
-      key: 'lastModifiedTime',
-      newValue: new Date().toISOString(),
+    await this.publishRowOrderChange(tableId, viewId);
+  }
+
+  /**
+   * Manual reorder only rewrites the hidden __row_<viewId> column, so no
+   * record op exists to wake record query subscriptions. Publish a synthetic
+   * op carrying the row order pseudo column so the adapter's skipPoll can
+   * scope polling to subscriptions on this view. The op intentionally has no
+   * doc id (d): QueryEmitter then only triggers polling and never relays the
+   * op to doc subscribers, which would choke on its fake version.
+   */
+  private async publishRowOrderChange(tableId: string, viewId: string) {
+    // The doc-ids query cache key includes table lastModifiedTime (previously
+    // bumped as a side effect of the view lastModifiedTime op). Bump it before
+    // publishing so the poll triggered by this op misses the stale cache.
+    await this.prismaService.tableMeta.update({
+      where: { id: tableId },
+      data: { lastModifiedTime: new Date().toISOString() },
     });
-    await this.viewService.updateViewByOps(tableId, viewId, [ops]);
+    const rawOp = {
+      src: generateOperationId(),
+      seq: 1,
+      v: 0,
+      m: { ts: Date.now() },
+      op: [
+        RecordOpBuilder.editor.setRecord.build({
+          fieldId: `${ROW_ORDER_FIELD_PREFIX}_${viewId}`,
+          newCellValue: null,
+          oldCellValue: null,
+        }),
+      ],
+    } as EditOp;
+    this.shareDbService.publishRecordChannel(tableId, rawOp);
   }
 
   async updateRecordOrders(
@@ -750,6 +845,7 @@ export class ViewOpenApiService {
     orderRo: IUpdateRecordOrdersRo,
     windowId?: string
   ) {
+    await this.assertTableWritable(table.id);
     const recordIds = orderRo.recordIds;
     const dbTableName = table.dbTableName;
     const orderIndexesBefore = windowId
@@ -781,11 +877,7 @@ export class ViewOpenApiService {
             await prisma.$executeRawUnsafe(updateRecordSql);
           }
         });
-        const ops = ViewOpBuilder.editor.setViewProperty.build({
-          key: 'lastModifiedTime',
-          newValue: new Date().toISOString(),
-        });
-        await this.viewService.updateViewByOps(table.id, viewId, [ops]);
+        await this.publishRowOrderChange(table.id, viewId);
       },
     });
 
@@ -803,6 +895,12 @@ export class ViewOpenApiService {
     }
   }
 
+  @Audit({
+    action: Events.SHARED_VIEW_REFRESH,
+    resourceId: (_tableId: string, viewId: string) => viewId,
+    params: (tableId: string, viewId: string) => ({ tableId, viewId }),
+    emit: (result: { shareId: string }) => ({ shareId: result.shareId }),
+  })
   async refreshShareId(tableId: string, viewId: string) {
     const view = await this.prismaService.view.findUnique({
       where: { id: viewId, tableId, deletedTime: null },
@@ -841,6 +939,12 @@ export class ViewOpenApiService {
     return { shareId: newShareId };
   }
 
+  @Audit({
+    action: Events.SHARED_VIEW_CREATE,
+    resourceId: (_tableId: string, viewId: string) => viewId,
+    params: (tableId: string, viewId: string) => ({ tableId, viewId, enabled: true }),
+    emit: (result: { shareId: string }) => ({ shareId: result.shareId }),
+  })
   async enableShare(tableId: string, viewId: string) {
     const view = await this.prismaService.view.findUnique({
       where: { id: viewId, tableId, deletedTime: null },
@@ -894,6 +998,12 @@ export class ViewOpenApiService {
     return { shareId: newShareId };
   }
 
+  @Audit({
+    action: Events.SHARED_VIEW_DELETE,
+    resourceId: (_tableId: string, viewId: string) => viewId,
+    params: (tableId: string, viewId: string) => ({ tableId, viewId, enabled: false }),
+    emit: true,
+  })
   async disableShare(tableId: string, viewId: string) {
     const view = await this.prismaService.view.findUnique({
       where: { id: viewId, tableId, deletedTime: null },
@@ -1064,6 +1174,7 @@ export class ViewOpenApiService {
       enableShare?: boolean;
     }
   ) {
+    await this.assertTableWritable(tableId);
     const userId = this.cls.get('user.id');
     const { name, pluginId, shareId, shareMeta, enableShare } = ro;
     const plugin = await this.prismaService.txClient().plugin.findUnique({
@@ -1143,6 +1254,7 @@ export class ViewOpenApiService {
   }
 
   async updatePluginStorage(viewId: string, storage: IViewPluginUpdateStorageRo['storage']) {
+    await this.assertViewWritable(viewId);
     const pluginInstall = await this.prismaService.pluginInstall.findFirst({
       where: { positionId: viewId, position: PluginPosition.View },
       select: { id: true },
@@ -1203,6 +1315,7 @@ export class ViewOpenApiService {
   }
 
   async duplicateView(tableId: string, viewId: string) {
+    await this.assertTableWritable(tableId);
     const view = await this.viewService.getViewById(viewId);
     const { options: optionsRaw } = await this.prismaService.txClient().view.findUniqueOrThrow({
       where: { id: viewId, deletedTime: null },

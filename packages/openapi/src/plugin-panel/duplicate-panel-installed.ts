@@ -21,8 +21,9 @@ export const duplicatePluginPanelInstalledPluginRoute: RouteConfig = registerRou
   summary: 'Duplicate a dashboard installed plugin',
   request: {
     params: z.object({
-      baseId: z.string(),
-      id: z.string(),
+      tableId: z.string(),
+      pluginPanelId: z.string(),
+      installedId: z.string(),
     }),
   },
   responses: {
