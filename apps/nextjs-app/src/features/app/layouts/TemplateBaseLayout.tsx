@@ -18,6 +18,7 @@ import { useBaseResource } from '../hooks/useBaseResource';
 import { useEnv } from '../hooks/useEnv';
 import { useSdkLocale } from '../hooks/useSdkLocale';
 import { initAxios } from '../utils/init-axios';
+import { preventContextMenuUnlessText } from '../utils/prevent-context-menu';
 
 export const TemplateBaseLayout = ({
   children,
@@ -84,7 +85,7 @@ export const TemplateBaseLayout = ({
                   <div
                     id="portal"
                     className="relative flex h-screen w-full items-start"
-                    onContextMenu={(e) => e.preventDefault()}
+                    onContextMenu={preventContextMenuUnlessText}
                   >
                     <div className="flex h-screen w-full">
                       <Sidebar headerLeft={<BaseSidebarHeaderLeft />}>

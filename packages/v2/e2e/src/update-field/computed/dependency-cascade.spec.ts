@@ -267,7 +267,6 @@ describe('update-field: computed dependency cascades', () => {
 
     const hostMatchFieldId = createFieldId();
     const conditionalLookupFieldId = createFieldId();
-    const formulaFieldId = createFieldId();
     const host = await ctx.createTable({
       baseId: ctx.baseId,
       name: createName('dep-cascade-cond-lookup-formula-host'),
@@ -296,16 +295,23 @@ describe('update-field: computed dependency cascades', () => {
             },
           },
         },
-        {
-          type: 'formula',
-          id: formulaFieldId,
-          name: 'FormulaOverConditionalLookup',
-          options: { expression: `{${conditionalLookupFieldId}}` },
-        },
       ],
       records: [{ fields: { Name: 'H1', [hostMatchFieldId]: 1 } }],
     });
 
+    await ctx.drainOutbox();
+
+    const formulaFieldId = createFieldId();
+    await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: host.id,
+      field: {
+        type: 'formula',
+        id: formulaFieldId,
+        name: 'FormulaOverConditionalLookup',
+        options: { expression: `{${conditionalLookupFieldId}}` },
+      },
+    });
     await ctx.drainOutbox();
 
     return {

@@ -14,6 +14,7 @@ import type {
   IRecordWritePlugin,
   RecordWritePluginContext,
   RecordWritePluginEnforce,
+  RecordWritePluginRunnerOptions,
   RecordWriteScopedFieldIdsResolver,
   RecordWritePluginScope,
 } from '../../ports/RecordWritePlugin';
@@ -461,10 +462,11 @@ export class RecordWritePluginRunner {
     context: RecordWritePluginContext,
     options?: {
       previousExecution?: RecordWritePluginExecution;
+      runnerOptions?: RecordWritePluginRunnerOptions;
     }
   ): Promise<Result<RecordWritePluginExecution, DomainError>> {
     const preparedPlugins: PreparedPluginEntry[] = [];
-    const matchedPluginsResult = this.resolvePlugins(context);
+    const matchedPluginsResult = this.resolvePlugins(context, options?.runnerOptions);
     if (matchedPluginsResult.isErr()) {
       return err(matchedPluginsResult.error);
     }
@@ -576,11 +578,16 @@ export class RecordWritePluginRunner {
   }
 
   private resolvePlugins(
-    context: RecordWritePluginContext
+    context: RecordWritePluginContext,
+    options?: RecordWritePluginRunnerOptions
   ): Result<ReadonlyArray<IRecordWritePlugin>, DomainError> {
     const matchedPlugins: IRecordWritePlugin[] = [];
 
     for (const plugin of this.plugins) {
+      if (options?.skipPluginNames?.has(plugin.name)) {
+        continue;
+      }
+
       try {
         if (this.supportsWithSpan(plugin, context)) {
           matchedPlugins.push(plugin);

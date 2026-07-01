@@ -53,6 +53,7 @@ export class SelectOptionsMetaRule implements ISchemaRule {
   readonly description: string;
   readonly dependencies: ReadonlyArray<string>;
   readonly required = true;
+  readonly validationScope = 'meta';
 
   constructor(
     private readonly field: SelectField,
@@ -188,6 +189,12 @@ export class SelectOptionsMetaRule implements ISchemaRule {
   up(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const rule = this;
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
+      if (ctx.optimizeForEmptyTables) {
+        // Duplicate/import already persisted field.options from the field aggregate, and there
+        // are no rows yet whose stored select values need repair.
+        return ok([]);
+      }
+
       const fieldId = rule.field.id().toString();
       const columnName = yield* resolveColumnName(ctx.field);
       const patch = JSON.stringify({ choices: rule.expectedChoices() });
