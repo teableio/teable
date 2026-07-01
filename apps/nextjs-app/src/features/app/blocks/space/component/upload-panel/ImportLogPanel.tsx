@@ -92,20 +92,24 @@ const TableProgressCard = ({ progress, t }: { progress: ITableImportProgress; t:
   const progressPercent = getProgressPercent(progress);
 
   return (
-    <div className="rounded border bg-muted/20 p-2">
-      <div className="mb-1 flex items-center justify-between gap-3 text-xs">
+    <div className="rounded-lg border bg-muted/30 p-2.5">
+      <div className="mb-1.5 flex items-center justify-between gap-3 text-xs">
         <span className="truncate font-medium">{progress.tableName}</span>
-        <span className="shrink-0 text-muted-foreground">
+        <span className="shrink-0 tabular-nums text-muted-foreground">
           {getProgressCountText(progress, t)}
           {getProgressBatchText(progress, t)}
         </span>
       </div>
-      <div className="h-1 overflow-hidden rounded bg-muted">
+      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
         <div
-          className={cn('h-full bg-primary transition-all', {
-            'w-full': progress.status === 'done' && !hasTotal,
-            'w-2/3 animate-pulse': progress.status === 'running' && !hasTotal,
-          })}
+          className={cn(
+            'h-full rounded-full transition-all',
+            progress.status === 'done' ? 'bg-emerald-500' : 'bg-primary',
+            {
+              'w-full': progress.status === 'done' && !hasTotal,
+              'w-2/3 animate-pulse': progress.status === 'running' && !hasTotal,
+            }
+          )}
           style={hasTotal ? { width: `${progressPercent}%` } : undefined}
         />
       </div>
@@ -128,7 +132,7 @@ export const ImportLogPanel = ({ logs, tableProgresses, isImporting }: IImportLo
 
   return (
     <div className="absolute inset-0 flex flex-col overflow-hidden rounded-md border bg-background">
-      <div className="flex-1 overflow-y-auto p-3 font-mono text-xs leading-6">
+      <div className="flex-1 space-y-0.5 overflow-y-auto p-3 text-xs leading-5">
         {normalLogs.map((log, i) => (
           <div key={log.timestamp + i} className="flex items-start gap-2">
             {log.type === 'warning' ? (
@@ -153,7 +157,7 @@ export const ImportLogPanel = ({ logs, tableProgresses, isImporting }: IImportLo
           </div>
         ))}
         {tableProgresses.length > 0 && (
-          <div className="mt-3 space-y-2 font-sans">
+          <div className="mt-3 space-y-2 border-t pt-3">
             {tableProgresses.map((progress) => (
               <TableProgressCard key={progress.tableId} progress={progress} t={tAny} />
             ))}

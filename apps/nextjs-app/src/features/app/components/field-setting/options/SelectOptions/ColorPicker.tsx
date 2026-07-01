@@ -1,23 +1,33 @@
 import type { Colors } from '@teable/core';
 import { COLOR_PALETTE, ColorUtils } from '@teable/core';
+import { useTheme } from '@teable/next-themes';
+import { getSelectColorPairs } from '@teable/sdk';
 import { Button, cn } from '@teable/ui-lib/shadcn';
 
 export const ColorPicker = ({
   color,
   onSelect,
   className,
+  themeAwareSelectColor,
 }: {
   color: Colors;
   onSelect: (color: Colors) => void;
   className?: string;
+  themeAwareSelectColor?: boolean;
 }) => {
+  const { resolvedTheme } = useTheme();
+  const getBackgroundColor = (color: Colors) =>
+    themeAwareSelectColor
+      ? getSelectColorPairs(color, resolvedTheme).backgroundColor
+      : ColorUtils.getHexForColor(color);
+
   return (
-    <div className={cn('flex w-64 flex-wrap p-2', className)}>
+    <div className={cn('flex w-fit flex-col px-1', className)}>
       {COLOR_PALETTE.map((group, index) => {
         return (
           <div key={index}>
             {group.map((c) => {
-              const bg = ColorUtils.getHexForColor(c);
+              const bg = getBackgroundColor(c);
 
               return (
                 <Button

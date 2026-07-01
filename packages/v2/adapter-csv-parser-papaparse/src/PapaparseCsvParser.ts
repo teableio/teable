@@ -63,19 +63,19 @@ export class PapaparseCsvParser implements ICsvParser {
         );
       }
 
-      // 提取 headers
+      const rows = hasHeader
+        ? parseResult.data
+        : this.mapRowsToGeneratedHeaders(parseResult.data as unknown as string[][]);
       const headers: string[] = hasHeader
         ? parseResult.meta.fields ?? []
-        : parseResult.data[0]
-          ? Object.keys(parseResult.data[0]).map((_, i) => `Column_${i + 1}`)
+        : rows[0]
+          ? Object.keys(rows[0])
           : [];
 
       // 创建行的 Iterable
-      const rows = this.createRowsIterable(parseResult.data);
-
       return ok({
         headers,
-        rows,
+        rows: this.createRowsIterable(rows),
       });
     } catch (error) {
       return err(
@@ -203,7 +203,8 @@ export class PapaparseCsvParser implements ICsvParser {
       const lines = buffer.split(/\r?\n/);
       if (lines.length > 1 || done) {
         // 有完整的第一行了
-        const parseResult = Papa.parse<Record<string, string>>(buffer, {
+        const completeData = done ? buffer : lines.slice(0, -1).join('\n');
+        const parseResult = Papa.parse<Record<string, string>>(completeData, {
           delimiter: options.delimiter || undefined,
           header: options.hasHeader,
           skipEmptyLines: options.skipEmptyLines ? 'greedy' : false,
@@ -214,11 +215,15 @@ export class PapaparseCsvParser implements ICsvParser {
         if (parseResult.meta.fields) {
           headers = parseResult.meta.fields;
         } else if (parseResult.data.length > 0) {
-          headers = Object.keys(parseResult.data[0]).map((_, i) => `Column_${i + 1}`);
+          headers = (parseResult.data[0] as unknown as string[]).map((_, i) => `Column_${i + 1}`);
         }
 
         // 保存已解析的行
-        pendingRows.push(...parseResult.data);
+        pendingRows.push(
+          ...(options.hasHeader
+            ? parseResult.data
+            : this.mapRowsToHeaders(parseResult.data as unknown as string[][], headers))
+        );
         headersDetermined = true;
 
         // 保留未完成的最后一行
@@ -231,6 +236,7 @@ export class PapaparseCsvParser implements ICsvParser {
     }
 
     // 创建异步迭代器
+    const parseRowsWithKnownHeaders = this.parseRowsWithKnownHeaders.bind(this);
     const rowsAsync: AsyncIterable<Record<string, string>> = {
       [Symbol.asyncIterator]: () => {
         let pendingIndex = 0;
@@ -251,15 +257,9 @@ export class PapaparseCsvParser implements ICsvParser {
                 readerDone = true;
                 // 处理剩余的 buffer
                 if (currentBuffer.trim()) {
-                  const parseResult = Papa.parse<Record<string, string>>(currentBuffer, {
-                    delimiter: options.delimiter || undefined,
-                    header: options.hasHeader,
-                    skipEmptyLines: options.skipEmptyLines ? 'greedy' : false,
-                    transformHeader: (header) => header.trim(),
-                    transform: (value) => value.trim(),
-                  });
-                  if (parseResult.data.length > 0) {
-                    pendingRows.push(...parseResult.data);
+                  const rows = parseRowsWithKnownHeaders(currentBuffer, headers, options);
+                  if (rows.length > 0) {
+                    pendingRows.push(...rows);
                     if (pendingIndex < pendingRows.length) {
                       return { value: pendingRows[pendingIndex++], done: false };
                     }
@@ -277,16 +277,10 @@ export class PapaparseCsvParser implements ICsvParser {
                 const completeData = lines.slice(0, -1).join('\n');
                 currentBuffer = lines[lines.length - 1];
 
-                const parseResult = Papa.parse<Record<string, string>>(completeData, {
-                  delimiter: options.delimiter || undefined,
-                  header: options.hasHeader,
-                  skipEmptyLines: options.skipEmptyLines ? 'greedy' : false,
-                  transformHeader: (header) => header.trim(),
-                  transform: (value) => value.trim(),
-                });
+                const rows = parseRowsWithKnownHeaders(completeData, headers, options);
 
-                if (parseResult.data.length > 0) {
-                  pendingRows.push(...parseResult.data);
+                if (rows.length > 0) {
+                  pendingRows.push(...rows);
                   if (pendingIndex < pendingRows.length) {
                     return { value: pendingRows[pendingIndex++], done: false };
                   }
@@ -301,6 +295,37 @@ export class PapaparseCsvParser implements ICsvParser {
     };
 
     return { headers, rowsAsync };
+  }
+
+  private parseRowsWithKnownHeaders(
+    csvData: string,
+    headers: ReadonlyArray<string>,
+    options: { delimiter?: string; skipEmptyLines: boolean }
+  ): Record<string, string>[] {
+    const parseResult = Papa.parse<string[]>(csvData, {
+      delimiter: options.delimiter || undefined,
+      header: false,
+      skipEmptyLines: options.skipEmptyLines ? 'greedy' : false,
+      transform: (value) => value.trim(),
+    });
+
+    return parseResult.data.map((row) =>
+      Object.fromEntries(headers.map((header, index) => [header, row[index] ?? '']))
+    );
+  }
+
+  private mapRowsToGeneratedHeaders(rows: string[][]): Record<string, string>[] {
+    const headers = rows[0]?.map((_, index) => `Column_${index + 1}`) ?? [];
+    return this.mapRowsToHeaders(rows, headers);
+  }
+
+  private mapRowsToHeaders(
+    rows: string[][],
+    headers: ReadonlyArray<string>
+  ): Record<string, string>[] {
+    return rows.map((row) =>
+      Object.fromEntries(headers.map((header, index) => [header, row[index] ?? '']))
+    );
   }
 
   /**

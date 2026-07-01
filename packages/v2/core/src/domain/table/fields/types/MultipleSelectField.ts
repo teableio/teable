@@ -1,5 +1,6 @@
 import type { Result } from 'neverthrow';
 
+import type { IDomainContext } from '../../../shared/DomainContext';
 import type { DomainError } from '../../../shared/DomainError';
 import { Field } from '../Field';
 import type { FieldDuplicateParams } from '../Field';
@@ -10,7 +11,7 @@ import type { IFieldVisitor } from '../visitors/IFieldVisitor';
 import { SelectAutoNewOptions } from './SelectAutoNewOptions';
 import type { SelectDefaultValue } from './SelectDefaultValue';
 import type { SelectOption } from './SelectOption';
-import { validateSelectOptions } from './SelectOptions';
+import { validateSelectOptions, type SelectOptionsValidationContext } from './SelectOptions';
 
 export class MultipleSelectField extends Field {
   private constructor(
@@ -29,8 +30,17 @@ export class MultipleSelectField extends Field {
     options: ReadonlyArray<SelectOption>;
     defaultValue?: SelectDefaultValue;
     preventAutoNewOptions?: SelectAutoNewOptions;
+    domainContext?: IDomainContext;
   }): Result<MultipleSelectField, DomainError> {
-    return validateSelectOptions(params.options, params.defaultValue, 'multiple').map(
+    const validationContext: SelectOptionsValidationContext = {
+      domainContext: params.domainContext,
+    };
+    return validateSelectOptions(
+      params.options,
+      params.defaultValue,
+      'multiple',
+      validationContext
+    ).map(
       (options) =>
         new MultipleSelectField(
           params.id,
