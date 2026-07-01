@@ -10,26 +10,48 @@ describe('ImportCsvCommand', () => {
       baseId,
       csvData: 'Name,Age\nAlice,30',
       tableName: 'People',
+      columns: [
+        { name: 'Display Name', sourceColumnIndex: 0, type: 'singleLineText' },
+        { name: 'Years', sourceColumnIndex: 1, type: 'number' },
+      ],
     });
 
     expect(result.isOk()).toBe(true);
     const command = result._unsafeUnwrap();
     expect(command.csvSource.type).toBe('string');
     expect(command.tableName?.toString()).toBe('People');
+    expect(command.importData).toBe(true);
     expect(command.batchSize).toBe(500);
+    expect(command.columns).toEqual([
+      { name: 'Display Name', sourceColumnIndex: 0, type: 'singleLineText' },
+      { name: 'Years', sourceColumnIndex: 1, type: 'number' },
+    ]);
   });
 
   it('creates from csvUrl input', () => {
     const result = ImportCsvCommand.create({
       baseId,
       csvUrl: 'https://example.com/data.csv',
+      importData: false,
       batchSize: 1000,
     });
 
     expect(result.isOk()).toBe(true);
     const command = result._unsafeUnwrap();
     expect(command.csvSource.type).toBe('url');
+    expect(command.importData).toBe(false);
     expect(command.batchSize).toBe(1000);
+  });
+
+  it('preserves the no-header import option', () => {
+    const result = ImportCsvCommand.create({
+      baseId,
+      csvData: '数据首列A,12\n数据首列B,15',
+      useFirstRowAsHeader: false,
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().useFirstRowAsHeader).toBe(false);
   });
 
   it('validates batch size range', () => {
@@ -57,11 +79,13 @@ describe('ImportCsvCommand', () => {
       baseId,
       csvData: new Uint8Array([65, 44, 66]),
       tableName: 'Buffer Table',
+      importData: false,
     });
 
     expect(bufferResult.isOk()).toBe(true);
     expect(bufferResult._unsafeUnwrap().csvSource.type).toBe('buffer');
     expect(bufferResult._unsafeUnwrap().tableName?.toString()).toBe('Buffer Table');
+    expect(bufferResult._unsafeUnwrap().importData).toBe(false);
     expect(bufferResult._unsafeUnwrap().batchSize).toBe(500);
 
     const streamResult = ImportCsvCommand.createFromStream({

@@ -5,6 +5,10 @@ import { err, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { buildUserAvatarUrl } from '../../../shared/userAvatarUrl';
+import {
+  buildAttachmentTableBatchReplaceQueries,
+  type AttachmentTableReplaceInput,
+} from '../../attachments/attachmentTableMutations';
 import type { UpdateImpactHint } from '../../computed';
 import { isPersistedAsGeneratedColumn } from '../../computed/isPersistedAsGeneratedColumn';
 import { createEmptyCollectedLinkChanges, type CollectedLinkChanges } from '../../visitors';
@@ -188,6 +192,7 @@ export class BatchRecordUpdateBuilder {
       // Step 1: Process each record's mutation
       const recordMutations: RecordMutationData[] = [];
       const allAdditionalStatements: CompiledSqlStatement[] = [];
+      const attachmentTableReplacements: AttachmentTableReplaceInput[] = [];
       const allChangedFieldIds = new Set<string>();
       const allLinkedRecordLocks: LinkedRecordLockInfo[] = [];
       const allLinkChanges = createEmptyCollectedLinkChanges();
@@ -218,6 +223,7 @@ export class BatchRecordUpdateBuilder {
           actorEmail: context.actorEmail,
           fillLinkTitles: context.fillLinkTitles,
           fillLinkTitleForeignTables: context.fillLinkTitleForeignTables,
+          deferAttachmentTableReplace: true,
         });
 
         // Accept the mutation spec
@@ -256,6 +262,7 @@ export class BatchRecordUpdateBuilder {
             compiled: stmt,
           });
         }
+        attachmentTableReplacements.push(...mutateVisitor.getAttachmentTableReplacements());
 
         // Collect changed field IDs
         for (const fieldId of changedFieldIds) {
@@ -268,6 +275,7 @@ export class BatchRecordUpdateBuilder {
           tableName,
           recordId: recordIdStr,
           mutateSpec: update.mutateSpec,
+          assumeEmptyLinkState: context.assumeEmptyLinkState,
         });
         if (linkChangesResult.isErr()) {
           return err(linkChangesResult.error);
@@ -282,6 +290,16 @@ export class BatchRecordUpdateBuilder {
           setClauses: Object.fromEntries(recordSetClauses),
           additionalStatements: [],
           changedFieldIds,
+        });
+      }
+
+      for (const stmt of buildAttachmentTableBatchReplaceQueries(
+        builder.db,
+        attachmentTableReplacements
+      )) {
+        allAdditionalStatements.push({
+          description: 'Batch attachment table replace',
+          compiled: stmt,
         });
       }
 
