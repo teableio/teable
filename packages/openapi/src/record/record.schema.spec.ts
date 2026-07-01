@@ -41,6 +41,14 @@ describe('recordsRoSchema', () => {
     expect(result.success).toBe(true);
   });
 
+  it('parses includeQueryExtra from query string boolean values', () => {
+    const disabled = getRecordsRoSchema.parse({ ...validData, includeQueryExtra: 'false' });
+    const enabled = getRecordsRoSchema.parse({ ...validData, includeQueryExtra: 'true' });
+
+    expect(disabled.includeQueryExtra).toBe(false);
+    expect(enabled.includeQueryExtra).toBe(true);
+  });
+
   it('fails for valid projection', () => {
     const data = { ...validData, projection: ['field1', 'field2'] };
     const result = getRecordsRoSchema.safeParse(data);

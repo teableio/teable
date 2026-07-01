@@ -1,4 +1,4 @@
-import { Button, cn, DialogFooter, DialogHeader, DialogTitle, Separator } from '@teable/ui-lib';
+import { Button, cn, DialogFooter, DialogHeader, DialogTitle } from '@teable/ui-lib';
 import type { ReactNode } from 'react';
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
 import { useTranslation } from '../../context/app/i18n';
@@ -109,7 +109,6 @@ export const MemberContent = forwardRef<IMemberContentRef, IMemberContentProps>(
             </div>
           </div>
         </div>
-        <Separator className="my-4" />
         <DialogFooter>
           <Button variant="outline" onClick={onCancel}>
             {t('common.cancel')}

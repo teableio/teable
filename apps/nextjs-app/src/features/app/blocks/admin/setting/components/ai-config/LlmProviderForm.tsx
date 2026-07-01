@@ -395,6 +395,134 @@ const parseGatewayRatio = (value: string): number | undefined => {
   return ratio;
 };
 
+const getLLMProviderDefaultValues = (
+  value: LLMProvider | undefined,
+  isAutoProviderName: boolean
+): LLMProvider => {
+  if (value) {
+    // Editing an existing provider: if it has no display name yet (legacy), pre-fill the
+    // field with its current `name` so it's not blank.
+    return { ...value, displayName: value.displayName || value.name };
+  }
+
+  return {
+    // New provider: instance providers are normalized to 'teable' server-side; default to
+    // it so in-session modelKeys (type@model@teable) match what gets saved. BYOK keeps an
+    // auto-generated name.
+    name: isAutoProviderName ? generateByokProviderName() : 'teable',
+    displayName: '',
+    type: LLMProviderType.OPENAI,
+    apiKey: '',
+    baseUrl: '',
+    models: '',
+    modelConfigs: {},
+  };
+};
+
+// Chip-based editor for the provider's model list. Stores the value as the same
+// comma-separated string the rest of the form expects; the UI just renders it as removable
+// chips plus a custom-name "add" input and a clear-all action.
+function ModelListEditor({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  const { t } = useTranslation();
+  const [customInput, setCustomInput] = useState('');
+  const models = useMemo(
+    () =>
+      value
+        .split(',')
+        .map((m) => m.trim())
+        .filter(Boolean),
+    [value]
+  );
+
+  const commit = (next: string[]) => {
+    const seen = new Set<string>();
+    const deduped: string[] = [];
+    for (const raw of next) {
+      const name = raw.trim();
+      if (name && !seen.has(name)) {
+        seen.add(name);
+        deduped.push(name);
+      }
+    }
+    onChange(deduped.join(','));
+  };
+
+  const addCustom = () => {
+    const name = customInput.trim();
+    if (!name) return;
+    commit([...models, name]);
+    setCustomInput('');
+  };
+
+  return (
+    <div className="space-y-2">
+      {models.length > 0 && (
+        <div className="grid gap-2 rounded-md border bg-muted/20 p-2 sm:grid-cols-2">
+          {models.map((model) => (
+            <div
+              key={model}
+              className="flex items-center justify-between gap-2 rounded-md border bg-background px-3 py-1.5 text-sm"
+            >
+              <span className="truncate">{model}</span>
+              <button
+                type="button"
+                aria-label={`remove ${model}`}
+                className="shrink-0 text-muted-foreground hover:text-foreground"
+                onClick={() => commit(models.filter((m) => m !== model))}
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-muted-foreground">
+          {t('admin.setting.ai.modelsSelectedCount', { count: models.length })}
+        </span>
+        {models.length > 0 && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-auto py-0.5 text-destructive hover:text-destructive"
+            onClick={() => onChange('')}
+          >
+            {t('admin.setting.ai.clearAllModels')}
+          </Button>
+        )}
+      </div>
+
+      <div className="flex items-center gap-2">
+        <Input
+          value={customInput}
+          autoComplete="off"
+          placeholder={placeholder || t('admin.setting.ai.customModelPlaceholder')}
+          onChange={(e) => setCustomInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              addCustom();
+            }
+          }}
+        />
+        <Button type="button" variant="outline" onClick={addCustom} disabled={!customInput.trim()}>
+          {t('admin.setting.ai.addModelFill')}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 const ModelRatesConfig = ({ models, modelConfigs = {}, onChange }: ModelRatesConfigProps) => {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
@@ -458,43 +586,11 @@ const ModelRatesConfig = ({ models, modelConfigs = {}, onChange }: ModelRatesCon
     setModelPricing(model, scalePricing(referencePricing, ratio));
   };
 
-  const applyAllMatchedPricing = () => {
-    const nextConfigs = { ...modelConfigs };
-    let count = 0;
-    for (const model of modelList) {
-      const referencePricing = getGatewayReferencePricing(model, gatewayModels);
-      if (!referencePricing) continue;
-      const currentPricing = nextConfigs[model]?.pricing;
-      const ratio =
-        parseGatewayRatio(gatewayRatioInputs[model] ?? '') ??
-        inferGatewayRatio(currentPricing, referencePricing);
-      if (ratio === undefined) continue;
-      const pricing = scalePricing(referencePricing, ratio);
-      if (!pricing) continue;
-      nextConfigs[model] = {
-        ...nextConfigs[model],
-        pricing,
-      };
-      count++;
-    }
-    onChange(nextConfigs);
-    if (count > 0) {
-      toast.success(t('admin.setting.ai.pricingAppliedCount', { count }));
-    }
-  };
-
+  // Per-model ratio edits apply immediately (see applyPricingRatio); the dialog's bottom
+  // "Update" button persists everything, so no separate bulk "Apply" action is needed.
   const matchedPricingCount = modelList.filter((model) =>
     Boolean(getGatewayReferencePricing(model, gatewayModels))
   ).length;
-  const applicablePricingCount = modelList.filter((model) => {
-    const referencePricing = getGatewayReferencePricing(model, gatewayModels);
-    if (!referencePricing) return false;
-    const currentPricing = modelConfigs[model]?.pricing;
-    return (
-      parseGatewayRatio(gatewayRatioInputs[model] ?? '') !== undefined ||
-      inferGatewayRatio(currentPricing, referencePricing) !== undefined
-    );
-  }).length;
 
   if (modelList.length === 0) return null;
 
@@ -539,15 +635,6 @@ const ModelRatesConfig = ({ models, modelConfigs = {}, onChange }: ModelRatesCon
                 {isLoadingPricing
                   ? t('admin.setting.ai.batchTesting')
                   : t('admin.setting.ai.fetchPricing')}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={applyAllMatchedPricing}
-                disabled={applicablePricingCount === 0}
-              >
-                {t('admin.setting.ai.applyPricing', { count: applicablePricingCount })}
               </Button>
             </div>
           </div>
@@ -715,14 +802,7 @@ export const LLMProviderForm = ({
 
   const form = useForm<LLMProvider>({
     resolver: zodResolver(llmProviderSchema),
-    defaultValues: value || {
-      name: isAutoProviderName ? generateByokProviderName() : '',
-      type: LLMProviderType.OPENAI,
-      apiKey: '',
-      baseUrl: '',
-      models: '',
-      modelConfigs: {},
-    },
+    defaultValues: getLLMProviderDefaultValues(value, isAutoProviderName),
   });
 
   // Clear test result when form values change
@@ -960,6 +1040,15 @@ export const LLMProviderForm = ({
   }, []);
 
   const mode = onChange ? t('actions.update') : t('actions.add');
+  // The display name and the pricing of existing models don't affect whether a model works, so
+  // they can be saved without a test. Anything that changes how/which models are called — base
+  // URL, API key, provider type, or the model list — must pass a test first. (Reading these
+  // formState fields during render subscribes the component to them.)
+  const { isDirty, dirtyFields } = form.formState;
+  const connectivityDirty = Boolean(
+    dirtyFields.baseUrl || dirtyFields.apiKey || dirtyFields.type || dirtyFields.models
+  );
+  const canSaveWithoutTest = Boolean(value) && isDirty && !connectivityDirty;
   const type = form.watch('type');
   const currentProvider = LLM_PROVIDERS.find(
     (provider) => provider.value === type
@@ -976,13 +1065,30 @@ export const LLMProviderForm = ({
       <FormField
         name="name"
         render={({ field }) => (
+          // Internal identifier (normalized to 'teable' server-side). Kept registered so its
+          // value stays in form state for in-session modelKeys, but hidden from the UI.
+          <FormItem className="hidden">
+            <FormControl>
+              <Input {...field} readOnly autoComplete="off" />
+            </FormControl>
+          </FormItem>
+        )}
+      />
+      <FormField
+        name="displayName"
+        render={({ field }) => (
           <FormItem className={isAutoProviderName ? 'hidden' : undefined}>
             <div>
               <FormLabel>{t('admin.setting.ai.name')}</FormLabel>
               <FormDescription>{t('admin.setting.ai.nameDescription')}</FormDescription>
             </div>
             <FormControl>
-              <Input {...field} autoComplete="off" placeholder="openai/claude/gemini..." />
+              <Input
+                {...field}
+                value={field.value ?? ''}
+                autoComplete="off"
+                placeholder="OpenAI / Company Gateway ..."
+              />
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -1066,7 +1172,11 @@ export const LLMProviderForm = ({
                   <FormDescription>{t('admin.setting.ai.modelsDescription')}</FormDescription>
                 </div>
                 <FormControl>
-                  <Input {...field} placeholder={currentProvider.modelsPlaceholder} />
+                  <ModelListEditor
+                    value={field.value ?? ''}
+                    onChange={field.onChange}
+                    placeholder={currentProvider.modelsPlaceholder}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -1078,7 +1188,7 @@ export const LLMProviderForm = ({
             <ModelRatesConfig
               models={form.watch('models') || ''}
               modelConfigs={form.watch('modelConfigs')}
-              onChange={(configs) => form.setValue('modelConfigs', configs)}
+              onChange={(configs) => form.setValue('modelConfigs', configs, { shouldDirty: true })}
             />
           )}
 
@@ -1166,7 +1276,10 @@ export const LLMProviderForm = ({
                     onClick={handleFullTest}
                     disabled={isTestLoading}
                     type="button"
-                    variant={testPassed ? 'outline' : 'default'}
+                    // Outline when the Update button is also shown, so Test (secondary) and
+                    // Update (filled primary) are easy to tell apart; filled only when Test is
+                    // the sole required action.
+                    variant={testPassed || canSaveWithoutTest ? 'outline' : 'default'}
                   >
                     {testPassed ? (
                       <>
@@ -1180,7 +1293,7 @@ export const LLMProviderForm = ({
                 )}
               </>
             )}
-            {testPassed && (
+            {(testPassed || canSaveWithoutTest) && (
               <Button className="flex-1" onClick={handleSubmit}>
                 {mode}
               </Button>

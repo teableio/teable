@@ -1,5 +1,12 @@
 import { resolvePostgresDbOrTx } from '@teable/v2-adapter-db-postgres-shared';
-import { domainError, FieldId, TableId, v2CoreTokens } from '@teable/v2-core';
+import {
+  createTeableSpanAttributes,
+  domainError,
+  FieldId,
+  TableId,
+  TeableSpanAttributes,
+  v2CoreTokens,
+} from '@teable/v2-core';
 import type { BaseId, IExecutionContext, DomainError, ILogger } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import {
@@ -22,7 +29,89 @@ import type { Result } from 'neverthrow';
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
 import { isComputedFieldType } from './ComputedUpdatePlanner';
 
-const ACTIVE_TABLE_PROVISION_STATES = ['ready', 'pending'] as const;
+export type TableProvisionStateForDependencyGraph = 'ready' | 'pending' | 'deleting';
+
+export type TableProvisionStatesForDependencyGraph = readonly [
+  TableProvisionStateForDependencyGraph,
+  ...TableProvisionStateForDependencyGraph[],
+];
+
+const DEFAULT_TABLE_PROVISION_STATES: TableProvisionStatesForDependencyGraph = ['ready', 'pending'];
+
+const COMPUTED_TARGET_FIELD_TYPES = [
+  'formula',
+  'link',
+  'lookup',
+  'rollup',
+  'conditionalLookup',
+  'conditionalRollup',
+] as const;
+
+const SYSTEM_COMPUTED_FIELD_TYPES = [
+  'createdTime',
+  'lastModifiedTime',
+  'createdBy',
+  'lastModifiedBy',
+  'autoNumber',
+] as const;
+
+const tableProvisionPredicate = (
+  alias: string,
+  tableProvisionStates: TableProvisionStatesForDependencyGraph,
+  scopedPendingTableIds: ReadonlyArray<TableId> = []
+) => {
+  const provisionStateRef = sql.ref(`${alias}.provision_state`);
+  const stateSql = sql.join(
+    tableProvisionStates.map((state) => sql`${state}`),
+    sql`, `
+  );
+  const pendingIds = scopedPendingTableIds.map((tableId) => tableId.toString());
+  if (pendingIds.length === 0) {
+    return sql<boolean>`${provisionStateRef} IN (${stateSql})`;
+  }
+
+  return sql<boolean>`(
+    ${provisionStateRef} IN (${stateSql})
+    OR (
+      ${sql.ref(`${alias}.id`)} IN (${sql.join(
+        pendingIds.map((tableId) => sql`${tableId}`),
+        sql`, `
+      )})
+      AND ${provisionStateRef} = 'pending'
+    )
+  )`;
+};
+
+const withGraphTraceSpan = async <T>(
+  executionContext: IExecutionContext | undefined,
+  operation: string,
+  extraAttributes: Record<string, string | number | boolean>,
+  work: () => Promise<T>
+): Promise<T> => {
+  const tracer = executionContext?.tracer;
+  const span = tracer?.startSpan(
+    `teable.FieldDependencyGraph.${operation}`,
+    createTeableSpanAttributes('repository', `FieldDependencyGraph.${operation}`, {
+      [TeableSpanAttributes.HANDLER]: 'FieldDependencyGraph',
+      ...extraAttributes,
+    })
+  );
+
+  if (!span || !tracer) {
+    return work();
+  }
+
+  return tracer.withSpan(span, async () => {
+    try {
+      return await work();
+    } catch (error) {
+      span.recordError(describeError(error));
+      throw error;
+    } finally {
+      span.end();
+    }
+  });
+};
 
 // Re-export shared types
 export type { FieldDependencyEdgeKind, FieldDependencyEdgeSemantic };
@@ -77,6 +166,8 @@ export type CrossBaseFieldMeta = {
 
 export type FieldDependencyGraphLoadOptions = {
   requiredFieldIds?: ReadonlyArray<FieldId>;
+  tableProvisionStates?: TableProvisionStatesForDependencyGraph;
+  scopedPendingTableIds?: ReadonlyArray<TableId>;
 };
 
 /**
@@ -109,14 +200,82 @@ export class FieldDependencyGraph {
   ): Promise<Result<FieldDependencyGraphData, DomainError>> {
     const db = resolvePostgresDbOrTx(this.metaDb, executionContext, 'meta');
     const seedFieldIds = options.requiredFieldIds ?? [];
+    const tableProvisionStates = options.tableProvisionStates ?? DEFAULT_TABLE_PROVISION_STATES;
+    const scopedPendingTableIds = options.scopedPendingTableIds ?? [];
 
     // Use incremental mode when seed field IDs are provided
     if (seedFieldIds.length > 0) {
-      return this.loadIncremental(db, baseId, seedFieldIds);
+      return this.loadIncremental(
+        db,
+        baseId,
+        seedFieldIds,
+        tableProvisionStates,
+        scopedPendingTableIds
+      );
     }
 
     // Full mode: load all computed fields for the entire base
     return this.loadFull(db, baseId, options);
+  }
+
+  async hasComputedTargets(
+    baseId: BaseId,
+    executionContext?: IExecutionContext,
+    options: Pick<
+      FieldDependencyGraphLoadOptions,
+      'tableProvisionStates' | 'scopedPendingTableIds'
+    > = {}
+  ): Promise<Result<boolean, DomainError>> {
+    const db = resolvePostgresDbOrTx(this.metaDb, executionContext, 'meta');
+    const tableProvisionStates = options.tableProvisionStates ?? DEFAULT_TABLE_PROVISION_STATES;
+
+    return withGraphTraceSpan(
+      executionContext,
+      'hasComputedTargets',
+      {
+        'teable.base_id': baseId.toString(),
+      },
+      async () => {
+        try {
+          const row = await db
+            .selectFrom('field as f')
+            .innerJoin('table_meta as t', 't.id', 'f.table_id')
+            .select(sql<number>`1`.as('exists'))
+            .where('t.base_id', '=', baseId.toString())
+            .where('f.deleted_time', 'is', null)
+            .where('t.deleted_time', 'is', null)
+            .where(
+              tableProvisionPredicate('t', tableProvisionStates, options.scopedPendingTableIds)
+            )
+            .where((eb) =>
+              eb.or([
+                eb('f.is_lookup', '=', true),
+                eb('f.is_conditional_lookup', '=', true),
+                eb('f.type', 'in', [...COMPUTED_TARGET_FIELD_TYPES]),
+                sql<boolean>`(
+                  f.is_computed = true
+                  AND f.type NOT IN (${sql.join(
+                    SYSTEM_COMPUTED_FIELD_TYPES.map((type) => sql`${type}`),
+                    sql`, `
+                  )})
+                )`,
+              ])
+            )
+            .limit(1)
+            .executeTakeFirst();
+
+          return ok(Boolean(row));
+        } catch (error) {
+          return err(
+            domainError.infrastructure({
+              message: `Failed to check computed targets for base ${baseId.toString()}: ${describeError(
+                error
+              )}`,
+            })
+          );
+        }
+      }
+    );
   }
 
   /**
@@ -130,10 +289,14 @@ export class FieldDependencyGraph {
   ): Promise<Result<FieldDependencyGraphData, DomainError>> {
     return safeTry<FieldDependencyGraphData, DomainError>(
       async function* (this: FieldDependencyGraph) {
+        const tableProvisionStates = options.tableProvisionStates ?? DEFAULT_TABLE_PROVISION_STATES;
+        const scopedPendingTableIds = options.scopedPendingTableIds ?? [];
         const fields = yield* await this.loadFields(db, baseId, options);
         const { edges: referenceEdges, crossBaseFields } = yield* await this.loadReferenceEdges(
           db,
-          baseId
+          baseId,
+          tableProvisionStates,
+          scopedPendingTableIds
         );
 
         const fieldsById = new Map(fields.map((field) => [field.id.toString(), field]));
@@ -155,7 +318,13 @@ export class FieldDependencyGraph {
           }
         }
 
-        yield* await this.hydrateFilterFieldMeta(db, fieldsById, fields);
+        yield* await this.hydrateFilterFieldMeta(
+          db,
+          fieldsById,
+          fields,
+          tableProvisionStates,
+          scopedPendingTableIds
+        );
 
         const derivedEdges: FieldDependencyEdge[] = [];
         for (const field of fields) {
@@ -322,7 +491,9 @@ export class FieldDependencyGraph {
   private async hydrateFilterFieldMeta(
     db: Kysely<V1TeableDatabase> | Transaction<V1TeableDatabase>,
     fieldsById: Map<string, FieldMeta>,
-    fields: ReadonlyArray<FieldMeta>
+    fields: ReadonlyArray<FieldMeta>,
+    tableProvisionStates: TableProvisionStatesForDependencyGraph,
+    scopedPendingTableIds: ReadonlyArray<TableId> = []
   ): Promise<Result<void, DomainError>> {
     const filterFieldIds = new Set<string>();
     for (const field of fields) {
@@ -335,7 +506,12 @@ export class FieldDependencyGraph {
       return ok(undefined);
     }
 
-    const extraFields = await this.loadFieldsByIds(db, missingIds);
+    const extraFields = await this.loadFieldsByIds(
+      db,
+      missingIds,
+      tableProvisionStates,
+      scopedPendingTableIds
+    );
     if (extraFields.isErr()) return err(extraFields.error);
 
     for (const field of extraFields.value) {
@@ -354,6 +530,7 @@ export class FieldDependencyGraph {
     options: FieldDependencyGraphLoadOptions
   ): Promise<Result<ReadonlyArray<FieldMeta>, DomainError>> {
     try {
+      const tableProvisionStates = options.tableProvisionStates ?? DEFAULT_TABLE_PROVISION_STATES;
       const requiredFieldIds = [
         ...new Set(
           (options.requiredFieldIds ?? [])
@@ -415,13 +592,17 @@ export class FieldDependencyGraph {
         .where('t.base_id', '=', baseId.toString())
         .where('f.deleted_time', 'is', null)
         .where('t.deleted_time', 'is', null)
-        .where('t.provision_state', 'in', ACTIVE_TABLE_PROVISION_STATES)
+        .where(tableProvisionPredicate('t', tableProvisionStates, options.scopedPendingTableIds))
         .where(
           sql<boolean>`(
             (f.options::json->>'foreignTableId') IS NULL
             OR (
               option_target.deleted_time IS NULL
-              AND option_target.provision_state IN ('ready', 'pending')
+              AND ${tableProvisionPredicate(
+                'option_target',
+                tableProvisionStates,
+                options.scopedPendingTableIds
+              )}
             )
           )`
         )
@@ -430,7 +611,11 @@ export class FieldDependencyGraph {
             (f.lookup_options::json->>'foreignTableId') IS NULL
             OR (
               lookup_target.deleted_time IS NULL
-              AND lookup_target.provision_state IN ('ready', 'pending')
+              AND ${tableProvisionPredicate(
+                'lookup_target',
+                tableProvisionStates,
+                options.scopedPendingTableIds
+              )}
             )
           )`
         )
@@ -495,12 +680,18 @@ export class FieldDependencyGraph {
         // Normalize the type for graph processing:
         // - lookup fields: use 'lookup' as type (regardless of inner field type)
         // - conditional lookup (v1): use 'conditionalLookup' to avoid linkFieldId requirement
-        // - other fields: use stored type
+        // - formula fields can be stored as their result type with is_computed=true in v1 format
         const normalizedType = isConditionalLookup
           ? 'conditionalLookup'
           : isLookupField
             ? 'lookup'
-            : row.type;
+            : row.is_computed &&
+                row.type !== 'link' &&
+                row.type !== 'rollup' &&
+                row.type !== 'conditionalRollup' &&
+                row.type !== 'conditionalLookup'
+              ? 'formula'
+              : row.type;
 
         fields.push({
           id: fieldId.value,
@@ -525,7 +716,9 @@ export class FieldDependencyGraph {
 
   private async loadReferenceEdges(
     db: Kysely<V1TeableDatabase> | Transaction<V1TeableDatabase>,
-    baseId: BaseId
+    baseId: BaseId,
+    tableProvisionStates: TableProvisionStatesForDependencyGraph,
+    scopedPendingTableIds: ReadonlyArray<TableId> = []
   ): Promise<
     Result<
       {
@@ -558,8 +751,8 @@ export class FieldDependencyGraph {
         .where('f_to.deleted_time', 'is', null)
         .where('t_from.deleted_time', 'is', null)
         .where('t_to.deleted_time', 'is', null)
-        .where('t_from.provision_state', 'in', ACTIVE_TABLE_PROVISION_STATES)
-        .where('t_to.provision_state', 'in', ACTIVE_TABLE_PROVISION_STATES);
+        .where(tableProvisionPredicate('t_from', tableProvisionStates, scopedPendingTableIds))
+        .where(tableProvisionPredicate('t_to', tableProvisionStates, scopedPendingTableIds));
 
       const toBaseQuery = db
         .selectFrom('reference as r')
@@ -573,8 +766,8 @@ export class FieldDependencyGraph {
         .where('f_to.deleted_time', 'is', null)
         .where('t_from.deleted_time', 'is', null)
         .where('t_to.deleted_time', 'is', null)
-        .where('t_from.provision_state', 'in', ACTIVE_TABLE_PROVISION_STATES)
-        .where('t_to.provision_state', 'in', ACTIVE_TABLE_PROVISION_STATES);
+        .where(tableProvisionPredicate('t_from', tableProvisionStates, scopedPendingTableIds))
+        .where(tableProvisionPredicate('t_to', tableProvisionStates, scopedPendingTableIds));
 
       const rows = await fromBaseQuery.union(toBaseQuery).execute();
 
@@ -655,7 +848,9 @@ export class FieldDependencyGraph {
   private async loadIncremental(
     db: Kysely<V1TeableDatabase> | Transaction<V1TeableDatabase>,
     baseId: BaseId,
-    seedFieldIds: ReadonlyArray<FieldId>
+    seedFieldIds: ReadonlyArray<FieldId>,
+    tableProvisionStates: TableProvisionStatesForDependencyGraph,
+    scopedPendingTableIds: ReadonlyArray<TableId> = []
   ): Promise<Result<FieldDependencyGraphData, DomainError>> {
     return safeTry<FieldDependencyGraphData, DomainError>(
       async function* (this: FieldDependencyGraph) {
@@ -667,7 +862,12 @@ export class FieldDependencyGraph {
         // Step 1: Find all affected field IDs using iterative traversal
         // (Recursive CTE with multiple UNION branches is complex in Kysely,
         // so we use application-level iteration with batched queries)
-        const affectedFieldIds = yield* await this.findAffectedFieldIds(db, baseId, seedIds);
+        const affectedFieldIds = yield* await this.findAffectedFieldIds(
+          db,
+          baseId,
+          seedIds,
+          tableProvisionStates
+        );
 
         // Include seed fields in the result
         for (const seedId of seedIds) {
@@ -681,13 +881,20 @@ export class FieldDependencyGraph {
         const affectedFieldIdArray = [...affectedFieldIds];
 
         // Step 2: Load field metadata for affected fields
-        const fields = yield* await this.loadFieldsByIds(db, affectedFieldIdArray);
+        const fields = yield* await this.loadFieldsByIds(
+          db,
+          affectedFieldIdArray,
+          tableProvisionStates,
+          scopedPendingTableIds
+        );
 
         // Step 3: Load reference edges for affected fields
         const { edges: referenceEdges, crossBaseFields } = yield* await this.loadEdgesByFieldIds(
           db,
           affectedFieldIdArray,
-          baseId
+          baseId,
+          tableProvisionStates,
+          scopedPendingTableIds
         );
 
         const fieldsById = new Map(fields.map((field) => [field.id.toString(), field]));
@@ -708,7 +915,13 @@ export class FieldDependencyGraph {
           }
         }
 
-        yield* await this.hydrateFilterFieldMeta(db, fieldsById, fields);
+        yield* await this.hydrateFilterFieldMeta(
+          db,
+          fieldsById,
+          fields,
+          tableProvisionStates,
+          scopedPendingTableIds
+        );
 
         // Step 4: Build derived edges from field metadata
         const derivedEdges: FieldDependencyEdge[] = [];
@@ -862,7 +1075,8 @@ export class FieldDependencyGraph {
   private async findAffectedFieldIds(
     db: Kysely<V1TeableDatabase> | Transaction<V1TeableDatabase>,
     baseId: BaseId,
-    seedIds: string[]
+    seedIds: string[],
+    tableProvisionStates: TableProvisionStatesForDependencyGraph
   ): Promise<Result<Set<string>, DomainError>> {
     const startTime = Date.now();
     let iterationCount = 0;
@@ -905,6 +1119,10 @@ export class FieldDependencyGraph {
         // Build VALUES clause for the batch
         const batchValues = batch.map((id) => sql`(${id})`);
         const batchValuesClause = sql.join(batchValues, sql`, `);
+        const tableProvisionStateSql = sql.join(
+          tableProvisionStates.map((state) => sql`${state}`),
+          sql`, `
+        );
 
         // Single query that finds all dependents from multiple sources
         // Uses UNION to combine results, each source filters by batch IDs
@@ -918,7 +1136,7 @@ export class FieldDependencyGraph {
           WHERE r.from_field_id IN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id))
             AND f.deleted_time IS NULL
             AND t.deleted_time IS NULL
-            AND t.provision_state IN ('ready', 'pending')
+            AND t.provision_state IN (${tableProvisionStateSql})
 
           UNION
 
@@ -928,7 +1146,7 @@ export class FieldDependencyGraph {
           INNER JOIN table_meta t ON t.id = f.table_id
           WHERE f.deleted_time IS NULL
             AND t.deleted_time IS NULL
-            AND t.provision_state IN ('ready', 'pending')
+            AND t.provision_state IN (${tableProvisionStateSql})
             AND (f.type = 'rollup' OR f.is_lookup = true)
             AND f.lookup_linked_field_id IN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id))
 
@@ -940,7 +1158,7 @@ export class FieldDependencyGraph {
           INNER JOIN table_meta t ON t.id = f.table_id
           WHERE f.deleted_time IS NULL
             AND t.deleted_time IS NULL
-            AND t.provision_state IN ('ready', 'pending')
+            AND t.provision_state IN (${tableProvisionStateSql})
             AND f.lookup_linked_field_id IS NULL
             AND f.lookup_options IS NOT NULL
             AND (f.type = 'rollup' OR f.is_lookup = true)
@@ -954,7 +1172,7 @@ export class FieldDependencyGraph {
           INNER JOIN table_meta t ON t.id = f.table_id
           WHERE f.deleted_time IS NULL
             AND t.deleted_time IS NULL
-            AND t.provision_state IN ('ready', 'pending')
+            AND t.provision_state IN (${tableProvisionStateSql})
             AND f.lookup_options IS NOT NULL
             AND (f.type = 'rollup' OR f.is_lookup = true)
             AND (f.lookup_options::jsonb)->>'lookupFieldId' IN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id))
@@ -967,7 +1185,7 @@ export class FieldDependencyGraph {
           INNER JOIN table_meta t ON t.id = f.table_id
           WHERE f.deleted_time IS NULL
             AND t.deleted_time IS NULL
-            AND t.provision_state IN ('ready', 'pending')
+            AND t.provision_state IN (${tableProvisionStateSql})
             AND f.type = 'link'
             AND f.options IS NOT NULL
             AND (f.options::jsonb)->>'lookupFieldId' IN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id))
@@ -980,7 +1198,7 @@ export class FieldDependencyGraph {
           INNER JOIN table_meta t ON t.id = f.table_id
           WHERE f.deleted_time IS NULL
             AND t.deleted_time IS NULL
-            AND t.provision_state IN ('ready', 'pending')
+            AND t.provision_state IN (${tableProvisionStateSql})
             AND f.type IN ('conditionalRollup', 'conditionalLookup')
             AND f.options IS NOT NULL
             AND (f.options::jsonb)->>'lookupFieldId' IN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id))
@@ -993,7 +1211,7 @@ export class FieldDependencyGraph {
           INNER JOIN table_meta t ON t.id = f.table_id
           WHERE f.deleted_time IS NULL
             AND t.deleted_time IS NULL
-            AND t.provision_state IN ('ready', 'pending')
+            AND t.provision_state IN (${tableProvisionStateSql})
             AND f.is_conditional_lookup = true
             AND f.lookup_options IS NOT NULL
             AND (f.lookup_options::jsonb)->>'lookupFieldId' IN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id))
@@ -1009,7 +1227,7 @@ export class FieldDependencyGraph {
           CROSS JOIN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id)) AS batch
           WHERE f.deleted_time IS NULL
             AND t.deleted_time IS NULL
-            AND t.provision_state IN ('ready', 'pending')
+            AND t.provision_state IN (${tableProvisionStateSql})
             AND t.base_id = ${baseId.toString()}
             AND f.type IN ('conditionalRollup', 'conditionalLookup')
             AND f.options IS NOT NULL
@@ -1025,7 +1243,7 @@ export class FieldDependencyGraph {
           CROSS JOIN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id)) AS batch
           WHERE f.deleted_time IS NULL
             AND t.deleted_time IS NULL
-            AND t.provision_state IN ('ready', 'pending')
+            AND t.provision_state IN (${tableProvisionStateSql})
             AND t.base_id = ${baseId.toString()}
             AND f.is_conditional_lookup = true
             AND f.lookup_options IS NOT NULL
@@ -1041,7 +1259,7 @@ export class FieldDependencyGraph {
           CROSS JOIN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id)) AS batch
           WHERE f.deleted_time IS NULL
             AND t.deleted_time IS NULL
-            AND t.provision_state IN ('ready', 'pending')
+            AND t.provision_state IN (${tableProvisionStateSql})
             AND t.base_id = ${baseId.toString()}
             AND (f.type = 'rollup' OR f.is_lookup = true)
             AND f.lookup_options IS NOT NULL
@@ -1056,7 +1274,7 @@ export class FieldDependencyGraph {
           INNER JOIN table_meta t ON t.id = f.table_id
           WHERE f.deleted_time IS NULL
             AND t.deleted_time IS NULL
-            AND t.provision_state IN ('ready', 'pending')
+            AND t.provision_state IN (${tableProvisionStateSql})
             AND f.type = 'link'
             AND f.options IS NOT NULL
             AND (f.options::jsonb)->>'symmetricFieldId' IN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id))
@@ -1096,7 +1314,9 @@ export class FieldDependencyGraph {
    */
   private async loadFieldsByIds(
     db: Kysely<V1TeableDatabase> | Transaction<V1TeableDatabase>,
-    fieldIds: string[]
+    fieldIds: string[],
+    tableProvisionStates: TableProvisionStatesForDependencyGraph,
+    scopedPendingTableIds: ReadonlyArray<TableId> = []
   ): Promise<Result<ReadonlyArray<FieldMeta>, DomainError>> {
     if (fieldIds.length === 0) return ok([]);
 
@@ -1141,13 +1361,17 @@ export class FieldDependencyGraph {
         .where('f.id', 'in', fieldIds)
         .where('f.deleted_time', 'is', null)
         .where('t.deleted_time', 'is', null)
-        .where('t.provision_state', 'in', ACTIVE_TABLE_PROVISION_STATES)
+        .where(tableProvisionPredicate('t', tableProvisionStates, scopedPendingTableIds))
         .where(
           sql<boolean>`(
             (f.options::json->>'foreignTableId') IS NULL
             OR (
               option_target.deleted_time IS NULL
-              AND option_target.provision_state IN ('ready', 'pending')
+              AND ${tableProvisionPredicate(
+                'option_target',
+                tableProvisionStates,
+                scopedPendingTableIds
+              )}
             )
           )`
         )
@@ -1156,7 +1380,11 @@ export class FieldDependencyGraph {
             (f.lookup_options::json->>'foreignTableId') IS NULL
             OR (
               lookup_target.deleted_time IS NULL
-              AND lookup_target.provision_state IN ('ready', 'pending')
+              AND ${tableProvisionPredicate(
+                'lookup_target',
+                tableProvisionStates,
+                scopedPendingTableIds
+              )}
             )
           )`
         )
@@ -1209,7 +1437,13 @@ export class FieldDependencyGraph {
           ? 'conditionalLookup'
           : isLookupField
             ? 'lookup'
-            : row.type;
+            : row.is_computed &&
+                row.type !== 'link' &&
+                row.type !== 'rollup' &&
+                row.type !== 'conditionalRollup' &&
+                row.type !== 'conditionalLookup'
+              ? 'formula'
+              : row.type;
 
         fields.push({
           id: fieldId.value,
@@ -1238,7 +1472,9 @@ export class FieldDependencyGraph {
   private async loadEdgesByFieldIds(
     db: Kysely<V1TeableDatabase> | Transaction<V1TeableDatabase>,
     fieldIds: string[],
-    currentBaseId: BaseId
+    currentBaseId: BaseId,
+    tableProvisionStates: TableProvisionStatesForDependencyGraph,
+    scopedPendingTableIds: ReadonlyArray<TableId> = []
   ): Promise<
     Result<
       {
@@ -1273,8 +1509,8 @@ export class FieldDependencyGraph {
         .where('f_to.deleted_time', 'is', null)
         .where('t_from.deleted_time', 'is', null)
         .where('t_to.deleted_time', 'is', null)
-        .where('t_from.provision_state', 'in', ACTIVE_TABLE_PROVISION_STATES)
-        .where('t_to.provision_state', 'in', ACTIVE_TABLE_PROVISION_STATES);
+        .where(tableProvisionPredicate('t_from', tableProvisionStates, scopedPendingTableIds))
+        .where(tableProvisionPredicate('t_to', tableProvisionStates, scopedPendingTableIds));
 
       const toFieldQuery = db
         .selectFrom('reference as r')
@@ -1288,8 +1524,8 @@ export class FieldDependencyGraph {
         .where('f_to.deleted_time', 'is', null)
         .where('t_from.deleted_time', 'is', null)
         .where('t_to.deleted_time', 'is', null)
-        .where('t_from.provision_state', 'in', ACTIVE_TABLE_PROVISION_STATES)
-        .where('t_to.provision_state', 'in', ACTIVE_TABLE_PROVISION_STATES);
+        .where(tableProvisionPredicate('t_from', tableProvisionStates, scopedPendingTableIds))
+        .where(tableProvisionPredicate('t_to', tableProvisionStates, scopedPendingTableIds));
 
       const rows = await fromFieldQuery.union(toFieldQuery).execute();
 

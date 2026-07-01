@@ -15,24 +15,38 @@ export const ALL_IMAGE_SIZES = [
   '2048x2048',
   // Landscape sizes.
   '1024x768',
+  '1024x672',
   '1152x896',
   '1216x832',
   '1280x1024',
   '1344x768',
   '1365x1024',
+  '1360x2048',
   '1434x1024',
   '1536x640',
   '1536x1024',
+  '1536x2048',
   '1707x1024',
   '1792x1024',
   '1820x1024',
   '2048x1024',
+  '2048x1360',
   '2048x1152',
+  '2048x1536',
+  '2336x3504',
+  '2448x3264',
+  '2880x2880',
+  '3264x2448',
+  '3504x2336',
   '3840x2160',
   // Portrait sizes.
+  '672x1024',
   '768x1344',
+  '768x1024',
   '832x1216',
   '896x1152',
+  '1024x576',
+  '1152x2048',
   '640x1536',
   '1024x1280',
   '1024x1344',
@@ -43,6 +57,7 @@ export const ALL_IMAGE_SIZES = [
   '1024x1792',
   '1024x1820',
   '1024x2048',
+  '576x1024',
   '2160x3840',
 ] as const;
 
@@ -221,13 +236,74 @@ export const OPENAI_GPT_IMAGE_SIZES = [
   '1536x1024',
   '1024x1536',
 ] satisfies IImageSize[];
-export const OPENAI_GPT_IMAGE_2_SIZES = [
-  ...OPENAI_GPT_IMAGE_SIZES,
-  '2048x2048',
-  '2048x1152',
-  '3840x2160',
-  '2160x3840',
-] satisfies IImageSize[];
+export const OPENAI_GPT_IMAGE_2_SIZE_TIERS = ['standard', '2K', '4K'] as const;
+
+export type IOpenAIGptImage2SizeTier = (typeof OPENAI_GPT_IMAGE_2_SIZE_TIERS)[number];
+export type IOpenAIGptImage2AspectRatio = Extract<
+  IAspectRatio,
+  '1:1' | '3:2' | '2:3' | '4:3' | '3:4' | '16:9' | '9:16'
+>;
+
+export interface IOpenAIGptImage2SizePreset {
+  size: IImageSize;
+  ratio: IOpenAIGptImage2AspectRatio;
+  tier: IOpenAIGptImage2SizeTier;
+}
+
+export interface IOpenAIGptImage2SizeMeta {
+  ratio: IOpenAIGptImage2AspectRatio;
+  tier: IOpenAIGptImage2SizeTier;
+}
+
+export const OPENAI_GPT_IMAGE_2_PRESETS = [
+  { size: '1024x1024', ratio: '1:1', tier: 'standard' },
+  { size: '1536x1024', ratio: '3:2', tier: 'standard' },
+  { size: '1024x1536', ratio: '2:3', tier: 'standard' },
+  { size: '1024x768', ratio: '4:3', tier: 'standard' },
+  { size: '768x1024', ratio: '3:4', tier: 'standard' },
+  { size: '1024x672', ratio: '3:2', tier: 'standard' },
+  { size: '672x1024', ratio: '2:3', tier: 'standard' },
+  { size: '1024x576', ratio: '16:9', tier: 'standard' },
+  { size: '576x1024', ratio: '9:16', tier: 'standard' },
+  { size: '2048x1152', ratio: '16:9', tier: '2K' },
+  { size: '1152x2048', ratio: '9:16', tier: '2K' },
+  { size: '2048x2048', ratio: '1:1', tier: '2K' },
+  { size: '2048x1536', ratio: '4:3', tier: '2K' },
+  { size: '1536x2048', ratio: '3:4', tier: '2K' },
+  { size: '2048x1360', ratio: '3:2', tier: '2K' },
+  { size: '1360x2048', ratio: '2:3', tier: '2K' },
+  { size: '2880x2880', ratio: '1:1', tier: '4K' },
+  { size: '3504x2336', ratio: '3:2', tier: '4K' },
+  { size: '2336x3504', ratio: '2:3', tier: '4K' },
+  { size: '3264x2448', ratio: '4:3', tier: '4K' },
+  { size: '2448x3264', ratio: '3:4', tier: '4K' },
+  { size: '3840x2160', ratio: '16:9', tier: '4K' },
+  { size: '2160x3840', ratio: '9:16', tier: '4K' },
+] as const satisfies readonly IOpenAIGptImage2SizePreset[];
+
+export const OPENAI_GPT_IMAGE_2_SIZES = OPENAI_GPT_IMAGE_2_PRESETS.map(
+  ({ size }) => size
+) satisfies IImageSize[];
+
+type IOpenAIGptImage2Size = (typeof OPENAI_GPT_IMAGE_2_SIZES)[number];
+
+export const OPENAI_GPT_IMAGE_2_SIZE_META = OPENAI_GPT_IMAGE_2_PRESETS.reduce<
+  Record<IOpenAIGptImage2Size, IOpenAIGptImage2SizeMeta>
+>(
+  (meta, { size, ratio, tier }) => {
+    meta[size] = { ratio, tier };
+    return meta;
+  },
+  {} as Record<IOpenAIGptImage2Size, IOpenAIGptImage2SizeMeta>
+);
+
+const OPENAI_GPT_IMAGE_2_SIZE_SET = new Set<string>(OPENAI_GPT_IMAGE_2_SIZES);
+
+export const isOpenAIGptImage2Size = (size: string): size is IOpenAIGptImage2Size =>
+  OPENAI_GPT_IMAGE_2_SIZE_SET.has(size);
+
+export const getOpenAIGptImage2SizeMeta = (size?: string): IOpenAIGptImage2SizeMeta | undefined =>
+  size && isOpenAIGptImage2Size(size) ? OPENAI_GPT_IMAGE_2_SIZE_META[size] : undefined;
 export const OPENAI_DALLE3_SIZES = ['1024x1024', '1792x1024', '1024x1792'] satisfies IImageSize[];
 export const OPENAI_DALLE2_SIZES = ['256x256', '512x512', '1024x1024'] satisfies IImageSize[];
 

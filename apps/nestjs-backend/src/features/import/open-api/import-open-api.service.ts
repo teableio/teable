@@ -20,6 +20,7 @@ import { AuditScope } from '../../audit/audit-scope';
 import { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
 import { NotificationService } from '../../notification/notification.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
+import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migration-guard.service';
 import { DEFAULT_VIEWS, DEFAULT_FIELDS } from '../../table/constant';
 import { TableOpenApiService } from '../../table/open-api/table-open-api.service';
 import { ImportMetricsService } from '../metrics/import-metrics.service';
@@ -63,6 +64,8 @@ export class ImportOpenApiService {
     private readonly fieldOpenApiService: FieldOpenApiService,
     private readonly cacheService: CacheService,
     private readonly audit: AuditScope,
+    @Optional()
+    private readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService,
     @Optional() private readonly importMetrics?: ImportMetricsService
   ) {}
 
@@ -113,6 +116,7 @@ export class ImportOpenApiService {
   }
 
   async createTableFromImport(baseId: string, importRo: IImportOptionRo, maxRowCount?: number) {
+    await this.spaceDataDbMigrationGuard?.assertBaseWritable(baseId);
     await this.checkImportConcurrencyLimit();
 
     const userId = this.cls.get('user.id');
@@ -265,6 +269,7 @@ export class ImportOpenApiService {
     maxRowCount?: number,
     projection?: string[]
   ) {
+    await this.spaceDataDbMigrationGuard?.assertTableWritable(tableId);
     await this.checkImportConcurrencyLimit();
 
     const userId = this.cls.get('user.id');

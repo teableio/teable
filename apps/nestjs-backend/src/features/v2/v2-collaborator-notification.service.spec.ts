@@ -19,6 +19,23 @@ import {
   V2RecordUpdatedCollaboratorNotificationProjection,
 } from './v2-collaborator-notification.service';
 
+const createScheduledContext = (actorId = 'usrActor000000001') => {
+  const scheduled: Array<() => Promise<void> | void> = [];
+  const context = {
+    actorId: { toString: () => actorId },
+    scheduleBackgroundTask: vi.fn((task: () => Promise<void> | void) => {
+      scheduled.push(task);
+    }),
+  };
+  return { context, scheduled };
+};
+
+const flushScheduled = async (scheduled: Array<() => Promise<void> | void>) => {
+  while (scheduled.length) {
+    await scheduled.shift()?.();
+  }
+};
+
 const createV2ContainerService = () => {
   const userFieldsQuery = {
     innerJoin: vi.fn().mockReturnThis(),
@@ -79,11 +96,10 @@ describe('V2CollaboratorNotificationDispatcher', () => {
   it('sends collaborator notification for v2 created records with notified user fields', async () => {
     const { dispatcher, notificationService, recordService } = createDispatcher();
     const projection = new V2RecordCreatedCollaboratorNotificationProjection(dispatcher);
+    const { context, scheduled } = createScheduledContext();
 
     const result = await projection.handle(
-      {
-        actorId: { toString: () => 'usrActor000000001' },
-      } as never,
+      context as never,
       {
         tableId: { toString: () => 'tblNotify00000001' },
         recordId: { toString: () => 'recNotify00000001' },
@@ -97,6 +113,11 @@ describe('V2CollaboratorNotificationDispatcher', () => {
     );
 
     expect(result._unsafeUnwrap()).toBeUndefined();
+    expect(recordService.getRecordsHeadWithIds).not.toHaveBeenCalled();
+    expect(notificationService.sendCollaboratorNotify).not.toHaveBeenCalled();
+
+    await flushScheduled(scheduled);
+
     expect(recordService.getRecordsHeadWithIds).toHaveBeenCalledWith('tblNotify00000001', [
       'recNotify00000001',
     ]);
@@ -117,11 +138,10 @@ describe('V2CollaboratorNotificationDispatcher', () => {
   it('sends collaborator notification for v2 updated records with notified user field changes', async () => {
     const { dispatcher, notificationService } = createDispatcher();
     const projection = new V2RecordUpdatedCollaboratorNotificationProjection(dispatcher);
+    const { context, scheduled } = createScheduledContext();
 
     const result = await projection.handle(
-      {
-        actorId: { toString: () => 'usrActor000000001' },
-      } as never,
+      context as never,
       {
         source: 'user',
         tableId: { toString: () => 'tblNotify00000001' },
@@ -142,6 +162,10 @@ describe('V2CollaboratorNotificationDispatcher', () => {
     );
 
     expect(result._unsafeUnwrap()).toBeUndefined();
+    expect(notificationService.sendCollaboratorNotify).not.toHaveBeenCalled();
+
+    await flushScheduled(scheduled);
+
     expect(notificationService.sendCollaboratorNotify).toHaveBeenCalledTimes(1);
     expect(notificationService.sendCollaboratorNotify).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -154,11 +178,10 @@ describe('V2CollaboratorNotificationDispatcher', () => {
   it('ignores non-user v2 update events', async () => {
     const { dispatcher, notificationService } = createDispatcher();
     const projection = new V2RecordUpdatedCollaboratorNotificationProjection(dispatcher);
+    const { context, scheduled } = createScheduledContext();
 
     const result = await projection.handle(
-      {
-        actorId: { toString: () => 'usrActor000000001' },
-      } as never,
+      context as never,
       {
         source: 'computed',
         tableId: { toString: () => 'tblNotify00000001' },
@@ -174,6 +197,7 @@ describe('V2CollaboratorNotificationDispatcher', () => {
     );
 
     expect(result._unsafeUnwrap()).toBeUndefined();
+    expect(scheduled).toHaveLength(0);
     expect(notificationService.sendCollaboratorNotify).not.toHaveBeenCalled();
   });
 });
