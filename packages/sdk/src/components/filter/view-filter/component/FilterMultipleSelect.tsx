@@ -1,7 +1,7 @@
-import { ColorUtils } from '@teable/core';
-import { cn } from '@teable/ui-lib';
+import { useTheme } from '@teable/next-themes';
 import { useMemo } from 'react';
 import type { MultipleSelectField, SingleSelectField } from '../../../../model';
+import { getSelectColorPairs } from '../../../../utils/select-color';
 import type { IColorOption } from './base';
 import { BaseMultipleSelect } from './base';
 import { DefaultErrorLabel } from './DefaultErrorLabel';
@@ -18,6 +18,7 @@ interface IMultipleSelect {
 
 const FilterMultipleSelect = (props: IMultipleSelect) => {
   const { field, value, onSelect, className, popoverClassName, modal } = props;
+  const { resolvedTheme } = useTheme();
   const values = useMemo(() => {
     if (Array.isArray(value) && value.length) {
       return value;
@@ -32,13 +33,14 @@ const FilterMultipleSelect = (props: IMultipleSelect) => {
     }));
   }, [field]);
   const displayRender = (value: IColorOption) => {
+    const { color, backgroundColor } = getSelectColorPairs(value.color, resolvedTheme);
     return (
       <div
         key={value?.value}
         className="flex h-5 max-w-full shrink-0 items-center rounded-full px-2 text-xs font-normal"
         style={{
-          backgroundColor: ColorUtils.getHexForColor(value.color),
-          color: ColorUtils.shouldUseLightTextOnColor(value.color) ? '#ffffff' : '#000000',
+          backgroundColor,
+          color,
         }}
         title={value.label}
       >
@@ -47,13 +49,14 @@ const FilterMultipleSelect = (props: IMultipleSelect) => {
     );
   };
   const optionRender = (value: IColorOption) => {
+    const { color, backgroundColor } = getSelectColorPairs(value.color, resolvedTheme);
     return (
       <div
         key={value?.value}
         className="flex h-5 max-w-full items-center overflow-hidden rounded-full px-2 text-xs font-normal"
         style={{
-          backgroundColor: ColorUtils.getHexForColor(value.color),
-          color: ColorUtils.shouldUseLightTextOnColor(value.color) ? '#ffffff' : '#000000',
+          backgroundColor,
+          color,
         }}
         title={value.label}
       >
@@ -72,7 +75,6 @@ const FilterMultipleSelect = (props: IMultipleSelect) => {
       className={className}
       popoverClassName={popoverClassName}
       defaultLabel={<DefaultErrorLabel />}
-      placeholderClassName="text-xs"
       modal={modal}
     />
   );

@@ -9,6 +9,7 @@
   --focus-border: hsl(var(--primary)) !important;
   --separator-border: hsl(var(--border)) !important;
   --fc-border-color: hsl(var(--border));
+  --teable-top-banner-height: 0px;
 }
 
 svg.icon {
@@ -22,6 +23,20 @@ svg.icon {
 html,
 body {
   overflow: hidden;
+}
+
+body[data-teable-top-banner='visible'] #portal {
+  margin-top: var(--teable-top-banner-height);
+}
+
+body[data-teable-top-banner='visible'] #portal.h-screen,
+body[data-teable-top-banner='visible'] #portal .h-screen {
+  height: calc(100vh - var(--teable-top-banner-height));
+}
+
+body[data-teable-top-banner='visible'] #portal.min-h-screen,
+body[data-teable-top-banner='visible'] #portal .min-h-screen {
+  min-height: calc(100vh - var(--teable-top-banner-height));
 }
 
 .select-field-type [cmdk-list] {

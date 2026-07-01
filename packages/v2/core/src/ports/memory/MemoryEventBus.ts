@@ -5,7 +5,7 @@ import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import type { IEventBus } from '../EventBus';
 import type { EventType, IEventHandler } from '../EventHandler';
-import { getEventHandlerTokens } from '../EventHandler';
+import { createEventDispatchScope, getEventHandlerTokens } from '../EventHandler';
 import type { IExecutionContext } from '../ExecutionContext';
 import type { IClassToken, IHandlerResolver } from '../HandlerResolver';
 
@@ -48,6 +48,7 @@ export class MemoryEventBus implements IEventBus {
     context: IExecutionContext,
     events: ReadonlyArray<IDomainEvent>
   ): Promise<Result<void, DomainError>> {
+    const dispatchScope = createEventDispatchScope();
     for (const event of events) {
       const eventType = (event as { constructor: EventType<IDomainEvent> }).constructor;
       const handlers = getEventHandlerTokens(eventType as EventType<IDomainEvent>);
@@ -56,7 +57,7 @@ export class MemoryEventBus implements IEventBus {
           const handler = this.handlerResolver.resolve(
             handlerToken as IClassToken<IEventHandler<IDomainEvent>>
           );
-          const result = await handler.handle(context, event);
+          const result = await handler.handle(context, event, dispatchScope);
           if (result.isErr()) {
             return err(result.error);
           }

@@ -19,9 +19,9 @@ import {
   useTablePermission,
   useFieldPermission,
   useBaseId,
-  usePersonalView,
   useIsReadOnlyPreview,
   useButtonClickStatus,
+  useDeepCompareMemoize,
 } from '@teable/sdk/hooks';
 import type { KanbanView, IFieldInstance, AttachmentField } from '@teable/sdk/model';
 import { useRouter } from 'next/router';
@@ -39,13 +39,14 @@ const UNCATEGORIZED_STACK_DATA = {
 export const KanbanProvider = ({ children }: { children: ReactNode }) => {
   const tableId = useTableId();
   const view = useView() as KanbanView | undefined;
-  const { personalViewCommonQuery } = usePersonalView();
   const baseId = useBaseId() as string;
   const { shareId } = useContext(ShareViewContext) ?? {};
   const { sort, filter } = view ?? {};
   const permission = useTablePermission();
   const fields = useFields();
+  const readableFields = useFields({ withHidden: true });
   const allFields = useFields({ withHidden: true, withDenied: true });
+  const visibleFieldIds = useDeepCompareMemoize(fields.map(({ id }) => id).sort()) as string[];
   const { stackFieldId, coverFieldId, isCoverFit, isFieldNameHidden, isEmptyStackHidden } =
     view?.options ?? {};
   const fieldPermission = useFieldPermission();
@@ -65,22 +66,34 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
     setExpandRecordId(routerRecordId as string);
   }, [routerRecordId, setExpandRecordId]);
 
+  const coverField = useMemo(() => {
+    if (!coverFieldId) return;
+    return readableFields.find(
+      ({ id, type }) => id === coverFieldId && type === FieldType.Attachment
+    ) as AttachmentField | undefined;
+  }, [coverFieldId, readableFields]);
+
+  const projectionFieldIds = useMemo(() => {
+    if (!coverField) return visibleFieldIds;
+    return Array.from(new Set([...visibleFieldIds, coverField.id]));
+  }, [coverField, visibleFieldIds]);
+
   const recordQuery = useMemo(() => {
-    const { ignoreViewQuery } = personalViewCommonQuery ?? {};
+    // same contract as useRecords: search must only hit the fields this view
+    // displays, so every record query in the kanban view declares it explicitly
     const baseQuery = {
       orderBy: sort?.sortObjs,
       filter: filter,
+      projection: projectionFieldIds,
     };
 
     if (shareId) return baseQuery;
 
-    if (ignoreViewQuery) {
-      return {
-        ...baseQuery,
-        ignoreViewQuery,
-      };
-    }
-  }, [shareId, sort, filter, personalViewCommonQuery]);
+    return {
+      ...baseQuery,
+      ignoreViewQuery: true,
+    };
+  }, [shareId, sort, filter, projectionFieldIds]);
 
   const stackField = useMemo(() => {
     if (!stackFieldId) return;
@@ -226,13 +239,6 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
 
     return stackList;
   }, [groupPoints, isEmptyStackHidden, stackField, userList, stackFieldRecordEditable]);
-
-  const coverField = useMemo(() => {
-    if (!coverFieldId) return;
-    return allFields.find(
-      ({ id, type }) => id === coverFieldId && type === FieldType.Attachment
-    ) as AttachmentField | undefined;
-  }, [coverFieldId, allFields]);
 
   const { primaryField, displayFields } = useMemo(() => {
     let primaryField: IFieldInstance | null = null;

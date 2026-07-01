@@ -32,37 +32,41 @@ export const ConditionItem = <T extends IConditionItemProperty>(props: IConditio
   const itemError = useFilterItemError(path);
 
   return (
-    <div className="flex items-center gap-2 self-center rounded-md">
-      <FieldSelect path={[...path, 'field']} value={value.field} item={value} />
-      <OperatorSelect path={[...path, 'operator']} value={value.operator} item={value} />
-      <FieldValue path={[...path, 'value']} value={value.value} item={value} />
+    <div className="flex items-center gap-2 self-center rounded-md" data-filter-condition-item>
+      <div className="flex items-center gap-2" data-filter-condition-controls>
+        <FieldSelect path={[...path, 'field']} value={value.field} item={value} />
+        <OperatorSelect path={[...path, 'operator']} value={value.operator} item={value} />
+        <FieldValue path={[...path, 'value']} value={value.value} item={value} />
+      </div>
 
-      <Button
-        variant="ghost"
-        size={'icon'}
-        className="size-8 text-muted-foreground"
-        onClick={() => {
-          onDelete(path, index);
-        }}
-      >
-        <Trash className="size-4" />
-      </Button>
-      {itemError && (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="flex size-4 shrink-0 cursor-help items-center">
-                <AlertTriangle className="size-4 text-yellow-500" />
-              </span>
-            </TooltipTrigger>
-            <TooltipPortal>
-              <TooltipContent side="top" className="max-w-xs">
-                {t('filter.invalidConditionTip')}
-              </TooltipContent>
-            </TooltipPortal>
-          </Tooltip>
-        </TooltipProvider>
-      )}
+      <div className="flex items-center gap-2" data-filter-condition-actions>
+        <Button
+          variant="ghost"
+          size={'icon'}
+          className="size-8 text-muted-foreground"
+          onClick={() => {
+            onDelete(path, index);
+          }}
+        >
+          <Trash className="size-4" />
+        </Button>
+        {itemError && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="flex size-4 shrink-0 cursor-help items-center">
+                  <AlertTriangle className="size-4 text-yellow-500" />
+                </span>
+              </TooltipTrigger>
+              <TooltipPortal>
+                <TooltipContent side="top" className="max-w-xs">
+                  {t('filter.invalidConditionTip')}
+                </TooltipContent>
+              </TooltipPortal>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+      </div>
     </div>
   );
 };

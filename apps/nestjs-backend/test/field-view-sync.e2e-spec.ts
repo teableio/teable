@@ -132,6 +132,8 @@ describe('OpenAPI FieldController (e2e)', () => {
       ],
     });
 
+    expect(gridViewAfterDelete?.columnMeta).not.haveOwnProperty(numberField.id);
+
     expect(kanbanViewAfterDelete).toEqual({
       ...kanbanViewAfterDelete,
       filter: {
@@ -146,6 +148,7 @@ describe('OpenAPI FieldController (e2e)', () => {
       ],
     });
 
+    expect(kanbanViewAfterDelete?.columnMeta).not.haveOwnProperty(numberField.id);
     expect(formViewAfterDelete?.columnMeta).not.haveOwnProperty(numberField.id);
   });
 

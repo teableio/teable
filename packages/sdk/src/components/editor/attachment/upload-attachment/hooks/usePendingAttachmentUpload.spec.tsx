@@ -179,6 +179,64 @@ describe('usePendingAttachmentUpload', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it('removes the upload task on delete and does not resurrect the attachment', async () => {
+    const first = createAttachmentItem('first.txt');
+    const second = createAttachmentItem('second.txt');
+    const onChange = vi.fn();
+
+    const { result, rerender } = renderHook(
+      (props: { attachments: IAttachmentItem[] }) =>
+        usePendingAttachmentUpload({
+          tableId,
+          tempRecordId,
+          fieldId,
+          baseId,
+          attachments: props.attachments,
+          onChange,
+        }),
+      {
+        initialProps: { attachments: [] as IAttachmentItem[] },
+      }
+    );
+
+    act(() => {
+      setCellTasks([createCompletedTask(first), createCompletedTask(second)]);
+    });
+
+    await waitFor(() => {
+      expect(onChange).toHaveBeenCalledTimes(1);
+    });
+    expect(onChange.mock.calls[0][0].map((item: IAttachmentItem) => item.id)).toEqual([
+      first.id,
+      second.id,
+    ]);
+
+    // Parent value catches up with the completed uploads.
+    rerender({ attachments: [first, second] });
+    onChange.mockClear();
+
+    // User deletes the first attachment via the editor's onChange.
+    act(() => {
+      result.current.onChange([second]);
+    });
+
+    // Its completed task is dropped from the store so it cannot be re-added.
+    const remaining = useCellAttachmentUploadStore.getState().cellUploads[cellKey]?.tasks ?? [];
+    expect(remaining.map((task) => task.id)).toEqual([second.id]);
+    expect(onChange).toHaveBeenLastCalledWith([second]);
+
+    // Parent value reflects the deletion; the merge effect must not bring it back
+    // (previously the lingering completed task was re-appended to the list end).
+    rerender({ attachments: [second] });
+
+    await waitFor(() => {
+      const calls = onChange.mock.calls.map((call) =>
+        (call[0] ?? []).map((item: IAttachmentItem) => item.id)
+      );
+      expect(calls.every((ids) => !ids.includes(first.id))).toBe(true);
+    });
+  });
+
   it('keeps late-completed task consumable during createRecords flight', async () => {
     const late = createAttachmentItem('late.txt');
     const onChange = vi.fn();
