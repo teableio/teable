@@ -1,4 +1,4 @@
-import { v2DataDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import { v2DataDbTokens, v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import {
   createSchemaRepairer,
   PostgresSchemaIntrospector,
@@ -94,9 +94,11 @@ export const SchemaRepairerLive = Layer.effect(
       const table = await loadTable(tableId);
       const schema = table.baseId().toString();
       const db = container.resolve(v2DataDbTokens.db) as Kysely<V1TeableDatabase>;
+      const metaDb = container.resolve(v2MetaDbTokens.db) as Kysely<V1TeableDatabase>;
       const introspector = new PostgresSchemaIntrospector(db);
       const repairer = createSchemaRepairer({
         db,
+        metaDb,
         introspector,
         schema,
       });

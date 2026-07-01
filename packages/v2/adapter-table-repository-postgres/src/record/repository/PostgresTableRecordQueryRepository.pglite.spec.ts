@@ -404,6 +404,32 @@ describe('PostgresTableRecordQueryRepository projection (pglite)', () => {
     expect(record.fields).not.toHaveProperty(ageFieldId.toString());
   });
 
+  it('keeps an empty projection as id-only instead of falling back to all fields', async () => {
+    const fixture = await setupRepositoryFixture({
+      db,
+      createdSchemas,
+      seed: 'empty-projection',
+      rows: [{ name: 'A', age: 10 }],
+    });
+
+    driver.queries.length = 0;
+    driver.rowSnapshots.length = 0;
+
+    const result = await fixture.repository.find(fixture.context, fixture.table, undefined, {
+      mode: 'stored',
+      includeTotal: false,
+      projectionFieldIds: [],
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
+
+    expect(driver.queries).toHaveLength(1);
+    expect(driver.queries[0].sql).not.toContain('"col_name"');
+    expect(driver.queries[0].sql).not.toContain('"col_age"');
+    expect(result.value.records[0]?.fields).toEqual({});
+  });
+
   it('preserves explicit recordIdsOrder in SQL before pagination', async () => {
     const fixture = await setupRepositoryFixture({
       db,

@@ -1,7 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { UseMutateAsyncFunction } from '@tanstack/react-query';
 import { useMutation } from '@tanstack/react-query';
-import { FieldType, fieldVoSchema, type HttpError } from '@teable/core';
+import { FieldType, fieldVoSchema, parseClipboardText, type HttpError } from '@teable/core';
 import type {
   ICopyVo,
   IClearSelectionStreamDoneEvent,
@@ -13,24 +13,34 @@ import type {
   IDuplicateSelectionStreamDoneEvent,
   IDuplicateSelectionStreamErrorEvent,
   IDuplicateSelectionStreamProgressEvent,
+  IClearByIdRo,
+  IPasteByIdRo,
+  IDeleteByIdRo,
+  ICopyByIdRo,
+  IPasteByIdStreamRo,
   IPasteSelectionStreamDoneEvent,
   IPasteSelectionStreamErrorEvent,
   IPasteSelectionStreamProgressEvent,
   IPasteRo,
   IRangesRo,
+  ISelectionIdsRo,
   ITemporaryPasteRo,
   ITemporaryPasteVo,
 } from '@teable/openapi';
 import {
-  clear,
-  clearSelectionStream,
+  clearById,
+  clearSelectionByIdStream,
   copy,
-  deleteSelection,
-  deleteSelectionStream,
+  copyById,
+  deleteById,
+  deleteSelectionByIdStream,
   duplicateSelectionStream,
   ensureUndoRedoWindowIdHeader,
-  paste,
-  pasteSelectionStream,
+  getIdsFromRanges,
+  IdReturnType,
+  pasteById,
+  pasteSelectionByIdStream,
+  RangeType,
   saveQueryParams,
   temporaryPaste,
 } from '@teable/openapi';
@@ -45,6 +55,7 @@ import {
   usePersonalView,
   getHttpErrorMessage,
   LARGE_QUERY_THRESHOLD,
+  SelectionRegionType,
   useRowCount,
 } from '@teable/sdk';
 import { useConfirm } from '@teable/ui-lib/base';
@@ -74,19 +85,39 @@ import {
   textPasteHandlerWithData,
 } from '../utils/copyAndPaste';
 import { getSyncCopyData } from '../utils/getSyncCopyData';
-import { buildSelectionViewQuery } from '../utils/selectionViewQuery';
+import { buildSelectionViewQuery, getSelectionGroupBy } from '../utils/selectionViewQuery';
 import { useSyncSelectionStore } from './useSelectionStore';
 
 const clearToastId = 'clearToastId';
 const deleteToastId = 'deleteToastId';
+const getPasteContentColumnCount = (content: IPasteByIdRo['content']) => {
+  if (Array.isArray(content)) {
+    return content.reduce((max, row) => Math.max(max, row.length), 0);
+  }
+
+  return content
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .split('\n')
+    .reduce((max, row) => Math.max(max, row.length ? row.split('\t').length : 0), 0);
+};
+
+const getPasteContentRowCount = (content: IPasteByIdRo['content']) => {
+  if (Array.isArray(content)) {
+    return content.length;
+  }
+
+  return parseClipboardText(content).length;
+};
+
 type StreamDialogStatus = 'running' | 'success' | 'partial' | 'error';
 type StreamDialogMode = 'confirm' | 'progress';
 type PendingDeleteSelection = {
-  deleteRo: IRangesRo;
+  deleteRo: IDeleteByIdRo;
   totalCount: number;
 };
 type PendingClearSelection = {
-  clearRo: IRangesRo;
+  clearRo: IClearByIdRo;
   totalCount: number;
 };
 type PendingDuplicateSelection = {
@@ -94,12 +125,37 @@ type PendingDuplicateSelection = {
   totalCount: number;
 };
 type PendingPasteSelection = {
-  pasteRo: IPasteRo;
+  pasteRo: IPasteByIdRo;
   totalCount: number;
 };
 type PasteSelectionRequestOptions = {
   affectedRows: number;
   updateTemporaryData?: (records: ITemporaryPasteVo) => void;
+};
+
+const toSelectionIdsRo = (selectionRo: IClearByIdRo | IDeleteByIdRo): ISelectionIdsRo => {
+  const { selection, ...query } = selectionRo;
+  return {
+    ...query,
+    selection: {
+      ...(selection.recordIds != null ? { recordIds: selection.recordIds } : { allRecords: true }),
+      ...(selection.excludeRecordIds?.length
+        ? { excludedRecordIds: selection.excludeRecordIds }
+        : {}),
+      ...('fieldIds' in selection && selection.fieldIds?.length
+        ? { fieldIds: selection.fieldIds }
+        : {}),
+    },
+  };
+};
+
+const toPasteByIdStreamRo = (pasteRo: IPasteByIdRo): IPasteByIdStreamRo => {
+  const { content, header, ...selectionRo } = pasteRo;
+  return {
+    ...toSelectionIdsRo(selectionRo),
+    content,
+    header,
+  };
 };
 
 export const useSelectionOperation = (props?: {
@@ -266,17 +322,20 @@ export const useSelectionOperation = (props?: {
     ]
   );
 
-  const openDeleteConfirmationDialog = useCallback((deleteRo: IRangesRo, totalCount: number) => {
-    setDeleteProgress(null);
-    setDeleteSummary(null);
-    setDeleteErrors([]);
-    setDeleteProgressStatus(null);
-    setPendingDeleteSelection({ deleteRo, totalCount });
-    setDeleteDialogMode('confirm');
-    setIsDeleteProgressOpen(true);
-  }, []);
+  const openDeleteConfirmationDialog = useCallback(
+    (deleteRo: IDeleteByIdRo, totalCount: number) => {
+      setDeleteProgress(null);
+      setDeleteSummary(null);
+      setDeleteErrors([]);
+      setDeleteProgressStatus(null);
+      setPendingDeleteSelection({ deleteRo, totalCount });
+      setDeleteDialogMode('confirm');
+      setIsDeleteProgressOpen(true);
+    },
+    []
+  );
 
-  const openClearConfirmationDialog = useCallback((clearRo: IRangesRo, totalCount: number) => {
+  const openClearConfirmationDialog = useCallback((clearRo: IClearByIdRo, totalCount: number) => {
     setClearProgress(null);
     setClearSummary(null);
     setClearErrors([]);
@@ -362,7 +421,7 @@ export const useSelectionOperation = (props?: {
     ]
   );
 
-  const openPasteConfirmationDialog = useCallback((pasteRo: IPasteRo, totalCount: number) => {
+  const openPasteConfirmationDialog = useCallback((pasteRo: IPasteByIdRo, totalCount: number) => {
     setPasteProgress(null);
     setPasteSummary(null);
     setPasteErrors([]);
@@ -372,11 +431,15 @@ export const useSelectionOperation = (props?: {
     setIsPasteProgressOpen(true);
   }, []);
 
-  const groupBy = view?.group;
+  const viewGroup = view?.group;
   const visibleFieldIds = useMemo(() => fields.map(({ id }) => id), [fields]);
   const selectionViewQuery = useMemo(
     () => buildSelectionViewQuery({ personalViewCommonQuery, visibleFieldIds }),
     [personalViewCommonQuery, visibleFieldIds]
+  );
+  const groupBy = useMemo(
+    () => getSelectionGroupBy({ selectionViewQuery, viewGroup }),
+    [selectionViewQuery, viewGroup]
   );
 
   const buildSelectionRequest = useCallback(
@@ -406,6 +469,368 @@ export const useSelectionOperation = (props?: {
     [collapsedGroupIds, groupBy, search, selectionViewQuery, viewId]
   );
 
+  const buildSelectionQueryRequest = useCallback(async () => {
+    const params = {
+      ...selectionViewQuery,
+      viewId,
+      groupBy,
+      search,
+    };
+
+    if (collapsedGroupIds && collapsedGroupIds.length > LARGE_QUERY_THRESHOLD) {
+      const { data } = await saveQueryParams({ params: { collapsedGroupIds } });
+      return {
+        ...params,
+        queryId: data.queryId,
+      };
+    }
+
+    return {
+      ...params,
+      collapsedGroupIds,
+    };
+  }, [collapsedGroupIds, groupBy, search, selectionViewQuery, viewId]);
+
+  const getSelectedFieldIds = useCallback(
+    (selection: CombinedSelection) => {
+      const selectFieldIdsByColumnRanges = (ranges: [number, number][]) =>
+        ranges.flatMap(([startCol, endCol]) =>
+          fields.slice(startCol, endCol + 1).map((field) => field.id)
+        );
+
+      if (selection.type === SelectionRegionType.Columns) {
+        return selectFieldIdsByColumnRanges(selection.serialize() as [number, number][]);
+      }
+
+      if (selection.type === SelectionRegionType.Cells) {
+        const [[startCol], [endCol]] = selection.serialize();
+        return fields.slice(startCol, endCol + 1).map((field) => field.id);
+      }
+
+      return fields.map((field) => field.id);
+    },
+    [fields]
+  );
+
+  const getPasteTargetFieldIds = useCallback(
+    (selection: CombinedSelection, content: IPasteByIdRo['content']) => {
+      if (selection.type === SelectionRegionType.Rows) {
+        return fields.map((field) => field.id);
+      }
+
+      const contentColumnCount = getPasteContentColumnCount(content);
+      const getFieldsFromStartColumn = (startCol: number, selectedColumnCount: number) => {
+        const targetColumnCount = Math.max(selectedColumnCount, contentColumnCount);
+        return fields.slice(startCol, startCol + targetColumnCount).map((field) => field.id);
+      };
+
+      if (selection.type === SelectionRegionType.Columns) {
+        const [[startCol, endCol]] = selection.serialize() as [number, number][];
+        return getFieldsFromStartColumn(startCol, endCol - startCol + 1);
+      }
+
+      if (selection.type === SelectionRegionType.Cells) {
+        const [[startCol], [endCol]] = selection.serialize();
+        return getFieldsFromStartColumn(startCol, endCol - startCol + 1);
+      }
+
+      return fields.map((field) => field.id);
+    },
+    [fields]
+  );
+
+  const areAllFieldsSelected = useCallback(
+    (fieldIds: string[]) => {
+      if (!fields.length || fieldIds.length < fields.length) {
+        return false;
+      }
+
+      const selectedFieldIds = new Set(fieldIds);
+      return fields.every((field) => selectedFieldIds.has(field.id));
+    },
+    [fields]
+  );
+
+  const getRecordIdsFromLoadedRows = useCallback(
+    (ranges: [number, number][], recordMap: IRecordIndexMap) => {
+      const recordIds: string[] = [];
+      for (const [startRow, endRow] of ranges) {
+        for (let rowIndex = startRow; rowIndex <= endRow; rowIndex++) {
+          const recordId = recordMap[rowIndex]?.id;
+          if (!recordId && rowCount != null && rowIndex >= rowCount) {
+            continue;
+          }
+          if (!recordId) {
+            return;
+          }
+          recordIds.push(recordId);
+        }
+      }
+      return recordIds;
+    },
+    [rowCount]
+  );
+
+  const getExcludeRecordIdsForAllRowsSelection = useCallback(
+    (ranges: [number, number][], recordMap: IRecordIndexMap) => {
+      if (rowCount == null || rowCount <= 0) {
+        return;
+      }
+
+      let nextSelectedRow = 0;
+      const excludeRecordIds: string[] = [];
+      for (const [startRow, endRow] of ranges) {
+        for (let rowIndex = nextSelectedRow; rowIndex < startRow; rowIndex++) {
+          const recordId = recordMap[rowIndex]?.id;
+          if (!recordId) {
+            return;
+          }
+          excludeRecordIds.push(recordId);
+        }
+        nextSelectedRow = endRow + 1;
+      }
+
+      for (let rowIndex = nextSelectedRow; rowIndex < rowCount; rowIndex++) {
+        const recordId = recordMap[rowIndex]?.id;
+        if (!recordId) {
+          return;
+        }
+        excludeRecordIds.push(recordId);
+      }
+
+      return excludeRecordIds;
+    },
+    [rowCount]
+  );
+
+  const buildSelectionFieldIds = useCallback(
+    (selection: CombinedSelection, fieldIds: string[], includeFieldSelection: boolean) => {
+      if (
+        !includeFieldSelection ||
+        selection.type === SelectionRegionType.Rows ||
+        areAllFieldsSelected(fieldIds)
+      ) {
+        return {};
+      }
+
+      return {
+        fieldIds,
+      };
+    },
+    [areAllFieldsSelected]
+  );
+
+  const getSelectionRowRanges = useCallback(
+    (selection: CombinedSelection, ranges: IRangesRo['ranges']) => {
+      if (selection.type === SelectionRegionType.Rows) {
+        return ranges as [number, number][];
+      }
+
+      return [[ranges[0][1], ranges[1][1]]] as [number, number][];
+    },
+    []
+  );
+
+  const getPasteSelectionRowRanges = useCallback(
+    (selection: CombinedSelection, targetRowCount: number) => {
+      if (selection.type !== SelectionRegionType.Cells) {
+        return;
+      }
+
+      const ranges = selection.serialize();
+      const startRow = ranges[0][1];
+
+      return [[startRow, startRow + Math.max(targetRowCount, 1) - 1]] as [number, number][];
+    },
+    []
+  );
+
+  const buildSelectionRecordIds = useCallback(
+    async (
+      selection: CombinedSelection,
+      ranges: IRangesRo['ranges'],
+      recordMap: IRecordIndexMap,
+      options?: { rowRanges?: [number, number][]; allowQueryScope?: boolean }
+    ) => {
+      const rowRanges = options?.rowRanges ?? getSelectionRowRanges(selection, ranges);
+      const selectedRowCount = rowRanges.reduce(
+        (acc, [startRow, endRow]) => acc + endRow - startRow + 1,
+        0
+      );
+      const allowQueryScope = options?.allowQueryScope ?? true;
+      const isRowsSelectionWithExclusions =
+        allowQueryScope &&
+        rowCount != null &&
+        selectedRowCount < rowCount &&
+        selectedRowCount > rowCount / 2;
+
+      if (isRowsSelectionWithExclusions) {
+        const excludeRecordIds = getExcludeRecordIdsForAllRowsSelection(rowRanges, recordMap);
+        if (excludeRecordIds) {
+          return {
+            excludeRecordIds,
+          };
+        }
+      }
+
+      if (allowQueryScope && rowCount != null && selectedRowCount >= rowCount) {
+        return {};
+      }
+
+      const loadedRecordIds = getRecordIdsFromLoadedRows(rowRanges, recordMap);
+      if (loadedRecordIds) {
+        return {
+          recordIds: loadedRecordIds,
+        };
+      }
+
+      if (!tableId) {
+        throw new Error('Selected record ids are not loaded yet');
+      }
+
+      const type = rangeTypes[selection.type];
+      const rangesRo = await buildSelectionRequest(
+        options?.rowRanges
+          ? {
+              ranges: options.rowRanges,
+              type: RangeType.Rows,
+            }
+          : {
+              ranges,
+              ...(type ? { type } : {}),
+            }
+      );
+      const { data } = await getIdsFromRanges(tableId, {
+        ...rangesRo,
+        returnType: IdReturnType.RecordId,
+      });
+
+      return {
+        recordIds: data.recordIds ?? [],
+      };
+    },
+    [
+      buildSelectionRequest,
+      getExcludeRecordIdsForAllRowsSelection,
+      getRecordIdsFromLoadedRows,
+      getSelectionRowRanges,
+      rowCount,
+      tableId,
+    ]
+  );
+
+  const buildSelectionIdRequest = useCallback(
+    async (
+      selection: CombinedSelection,
+      recordMap: IRecordIndexMap,
+      options?: {
+        fieldIds?: string[];
+        includeFieldSelection?: boolean;
+        rowRanges?: [number, number][];
+        allowQueryScope?: boolean;
+      }
+    ) => {
+      const ranges = selection.serialize();
+      const selectionQueryRequest = await buildSelectionQueryRequest();
+      const fieldIds = options?.fieldIds ?? getSelectedFieldIds(selection);
+      const includeFieldSelection = options?.includeFieldSelection ?? true;
+      const selectionFieldIds = buildSelectionFieldIds(selection, fieldIds, includeFieldSelection);
+
+      if (selection.type === SelectionRegionType.Columns) {
+        return {
+          ...selectionQueryRequest,
+          selection: selectionFieldIds,
+        };
+      }
+
+      const selectionRecordIds = await buildSelectionRecordIds(selection, ranges, recordMap, {
+        rowRanges: options?.rowRanges,
+        allowQueryScope: options?.allowQueryScope,
+      });
+
+      return {
+        ...selectionQueryRequest,
+        selection: {
+          ...selectionRecordIds,
+          ...selectionFieldIds,
+        },
+      };
+    },
+    [
+      buildSelectionFieldIds,
+      buildSelectionQueryRequest,
+      buildSelectionRecordIds,
+      getSelectedFieldIds,
+    ]
+  );
+
+  const buildPasteSelectionIdRequest = useCallback(
+    async (
+      selection: CombinedSelection,
+      recordMap: IRecordIndexMap,
+      content: IPasteByIdRo['content'],
+      fieldIds: string[],
+      affectedRows: number
+    ) => {
+      const rowRanges = getPasteSelectionRowRanges(
+        selection,
+        Math.max(getPasteContentRowCount(content), affectedRows)
+      );
+
+      return buildSelectionIdRequest(selection, recordMap, {
+        fieldIds,
+        rowRanges,
+        allowQueryScope: !rowRanges,
+      });
+    },
+    [buildSelectionIdRequest, getPasteSelectionRowRanges]
+  );
+
+  const buildCopySelectionIdRequest = useCallback(
+    async (selection: CombinedSelection, recordMap: IRecordIndexMap): Promise<ICopyByIdRo> => {
+      try {
+        return (await buildSelectionIdRequest(selection, recordMap, {
+          includeFieldSelection: true,
+        })) as ICopyByIdRo;
+      } catch (error) {
+        if (
+          !(error instanceof Error) ||
+          error.message !== 'Selected record ids are not loaded yet'
+        ) {
+          throw error;
+        }
+        const ranges = selection.serialize();
+        const type = rangeTypes[selection.type];
+        const rangesRo = await buildSelectionRequest({
+          ranges,
+          ...(type ? { type } : {}),
+        });
+        const { data } = await getIdsFromRanges(tableId!, {
+          ...rangesRo,
+          returnType: IdReturnType.RecordId,
+        });
+        const { ranges: _ranges, type: _type, ...selectionQueryRequest } = rangesRo;
+        const fieldIds = getSelectedFieldIds(selection);
+        const selectionFieldIds = buildSelectionFieldIds(selection, fieldIds, true);
+
+        return {
+          ...selectionQueryRequest,
+          selection: {
+            recordIds: data.recordIds ?? [],
+            ...selectionFieldIds,
+          },
+        };
+      }
+    },
+    [
+      buildSelectionFieldIds,
+      buildSelectionIdRequest,
+      buildSelectionRequest,
+      getSelectedFieldIds,
+      tableId,
+    ]
+  );
+
   const { mutateAsync: defaultCopyReq } = useMutation({
     mutationFn: async (copyRo: IRangesRo) => {
       const { collapsedGroupIds: _originalCollapsedGroupIds, ...rest } = copyRo;
@@ -427,16 +852,15 @@ export const useSelectionOperation = (props?: {
     },
   });
 
+  const { mutateAsync: defaultCopyByIdReq } = useMutation({
+    mutationFn: async (copyRo: ICopyByIdRo) => copyById(tableId!, copyRo),
+    meta: {
+      preventGlobalError: true,
+    },
+  });
+
   const { mutateAsync: pasteReq } = useMutation({
-    mutationFn: (pasteRo: IPasteRo) =>
-      paste(tableId!, {
-        ...pasteRo,
-        ...selectionViewQuery,
-        viewId,
-        groupBy,
-        collapsedGroupIds,
-        search,
-      }),
+    mutationFn: (pasteRo: IPasteByIdRo) => pasteById(tableId!, pasteRo),
     meta: {
       preventGlobalError: true,
     },
@@ -448,23 +872,14 @@ export const useSelectionOperation = (props?: {
   });
 
   const { mutateAsync: clearReq } = useMutation({
-    mutationFn: (clearRo: IRangesRo) =>
-      clear(tableId!, {
-        ...clearRo,
-        ...selectionViewQuery,
-        viewId,
-        groupBy,
-        collapsedGroupIds,
-        search,
-      }),
+    mutationFn: (clearRo: IClearByIdRo) => clearById(tableId!, clearRo),
     onError: () => {
       toast.dismiss(clearToastId);
     },
   });
 
   const { mutateAsync: deleteReq } = useMutation({
-    mutationFn: async (deleteRo: IRangesRo) =>
-      deleteSelection(tableId!, await buildSelectionRequest(deleteRo)),
+    mutationFn: async (deleteRo: IDeleteByIdRo) => deleteById(tableId!, deleteRo),
     onError: () => {
       toast.dismiss(deleteToastId);
     },
@@ -491,7 +906,11 @@ export const useSelectionOperation = (props?: {
   }, [t]);
 
   const doCopy = useCallback(
-    async (selection: CombinedSelection, getCopyData?: () => Promise<ICopyVo>) => {
+    async (
+      selection: CombinedSelection,
+      getCopyData?: () => Promise<ICopyVo>,
+      recordMap?: IRecordIndexMap
+    ) => {
       if (!checkCopyAndPasteEnvironment()) return;
       if (!viewId || !tableId) return;
 
@@ -500,10 +919,12 @@ export const useSelectionOperation = (props?: {
       const getCopyDataDefault = async () => {
         const ranges = selection.serialize();
         const type = rangeTypes[selection.type];
-        const { data } = await copyRequest({
-          ranges,
-          ...(type ? { type } : {}),
-        });
+        const { data } = copyReq
+          ? await copyRequest({
+              ranges,
+              ...(type ? { type } : {}),
+            })
+          : await defaultCopyByIdReq(await buildCopySelectionIdRequest(selection, recordMap ?? {}));
         const { content, header } = data;
         return { content, header };
       };
@@ -527,21 +948,34 @@ export const useSelectionOperation = (props?: {
         console.error('Copy error: ', error);
       }
     },
-    [checkCopyAndPasteEnvironment, viewId, tableId, copyRequest, t]
+    [
+      buildCopySelectionIdRequest,
+      checkCopyAndPasteEnvironment,
+      copyReq,
+      copyRequest,
+      defaultCopyByIdReq,
+      tableId,
+      t,
+      viewId,
+    ]
   );
 
   const { confirm } = useConfirm();
 
   const executePasteSelectionRequest = useCallback(
     async (
-      pasteRo: IPasteRo,
+      pasteRo: IPasteByIdRo,
       totalCount: number,
-      updateTemporaryData?: (records: ITemporaryPasteVo) => void
+      updateTemporaryData?: (records: ITemporaryPasteVo) => void,
+      temporaryRanges?: IPasteRo['ranges']
     ) => {
       if (updateTemporaryData) {
         const res = await temporaryPasteReq({
           content: pasteRo.content,
-          ranges: pasteRo.ranges,
+          ranges: temporaryRanges ?? [
+            [0, 0],
+            [0, 0],
+          ],
           header: pasteRo.header,
         });
         updateTemporaryData(res.data);
@@ -580,21 +1014,34 @@ export const useSelectionOperation = (props?: {
         baseId,
         requestPaste: async (content, type, ranges) => {
           const header = [fieldVoSchema.parse(fields.find((f) => f.type === FieldType.Attachment))];
+          const pasteRo = {
+            ...(await buildPasteSelectionIdRequest(
+              selection,
+              recordMap,
+              content,
+              [header[0].id],
+              affectedRows
+            )),
+            content,
+            header,
+          } as IPasteByIdRo;
           await executePasteSelectionRequest(
-            { content, type, ranges, header },
-            Array.isArray(content) ? content.length : affectedRows,
-            updateTemporaryData
+            pasteRo,
+            Math.max(getPasteContentRowCount(content), affectedRows),
+            updateTemporaryData,
+            ranges
           );
         },
       });
     },
-    [baseId, executePasteSelectionRequest, fields, t]
+    [baseId, buildPasteSelectionIdRequest, executePasteSelectionRequest, fields, t]
   );
 
   const handleTextPasteSelection = useCallback(
     async (
       clipboard: { html: string; text: string; hasHtml: boolean },
       selection: CombinedSelection,
+      recordMap: IRecordIndexMap,
       options: PasteSelectionRequestOptions
     ) => {
       const { affectedRows, updateTemporaryData } = options;
@@ -605,15 +1052,28 @@ export const useSelectionOperation = (props?: {
           if (!content) {
             return;
           }
+          const fieldIds = getPasteTargetFieldIds(selection, content);
+          const pasteRo = {
+            ...(await buildPasteSelectionIdRequest(
+              selection,
+              recordMap,
+              content,
+              fieldIds,
+              affectedRows
+            )),
+            content,
+            header,
+          } as IPasteByIdRo;
           await executePasteSelectionRequest(
-            { content, type, ranges, header },
-            Math.max(Array.isArray(content) ? content.length : 0, affectedRows),
-            updateTemporaryData
+            pasteRo,
+            Math.max(getPasteContentRowCount(content), affectedRows),
+            updateTemporaryData,
+            ranges
           );
         }
       );
     },
-    [executePasteSelectionRequest]
+    [buildPasteSelectionIdRequest, executePasteSelectionRequest, getPasteTargetFieldIds]
   );
 
   const confirmPasteSelectionIfNeeded = useCallback(
@@ -656,6 +1116,7 @@ export const useSelectionOperation = (props?: {
       await handleTextPasteSelection(
         { html: params.html, text: params.text, hasHtml: params.hasHtml },
         selection,
+        recordMap,
         options
       );
     },
@@ -738,16 +1199,26 @@ export const useSelectionOperation = (props?: {
   );
 
   const doFill = useCallback(
-    async (args: Pick<IPasteRo, 'content' | 'ranges' | 'header' | 'type'>) => {
+    async (args: Pick<IPasteByIdStreamRo, 'content' | 'header' | 'selection'>) => {
       try {
-        const totalCount = Array.isArray(args.content) ? args.content.length : 0;
-        if (shouldUsePasteSelectionStream(totalCount)) {
-          openPasteConfirmationDialog(args, totalCount);
-          return;
-        }
-
+        if (!tableId || !viewId) return;
         const toastId = toast.loading(t('table:table.actionTips.filling'));
-        await pasteReq(args);
+        await pasteSelectionByIdStream(
+          tableId,
+          {
+            ...args,
+            ...selectionViewQuery,
+            viewId,
+            groupBy,
+            collapsedGroupIds,
+            search,
+          },
+          {
+            headers: {
+              'X-Window-Id': ensureUndoRedoWindowIdHeader(),
+            },
+          }
+        );
         toast.success(t('table:table.actionTips.fillSuccessful'), { id: toastId });
       } catch (e) {
         const error = e as HttpError;
@@ -758,19 +1229,18 @@ export const useSelectionOperation = (props?: {
         console.error('Fill error: ', error);
       }
     },
-    [openPasteConfirmationDialog, pasteReq, t]
+    [collapsedGroupIds, groupBy, search, selectionViewQuery, tableId, t, viewId]
   );
 
   const doClear = useCallback(
-    async (selection: CombinedSelection) => {
+    async (selection: CombinedSelection, recordMap?: IRecordIndexMap) => {
       if (!viewId || !tableId) return;
 
       const effectRows = getEffectRows(selection, rowCount);
       const effectCells = getEffectCellCount(selection, fields, rowCount);
-      const clearRo = {
-        ranges: selection.serialize(),
-        ...(rangeTypes[selection.type] ? { type: rangeTypes[selection.type] } : {}),
-      } satisfies IRangesRo;
+      const clearRo = (await buildSelectionIdRequest(selection, recordMap ?? {}, {
+        includeFieldSelection: true,
+      })) as IClearByIdRo;
 
       if (shouldUseClearSelectionStream(selection, rowCount)) {
         openClearConfirmationDialog(clearRo, effectRows);
@@ -796,11 +1266,21 @@ export const useSelectionOperation = (props?: {
 
       toast.success(t('table:table.actionTips.clearSuccessful'), { id: toastId });
     },
-    [viewId, tableId, rowCount, fields, openClearConfirmationDialog, t, clearReq, confirm]
+    [
+      viewId,
+      tableId,
+      rowCount,
+      fields,
+      buildSelectionIdRequest,
+      openClearConfirmationDialog,
+      t,
+      clearReq,
+      confirm,
+    ]
   );
 
   const runDeleteSelectionStream = useCallback(
-    async (deleteRo: IRangesRo, totalCount: number) => {
+    async (deleteRo: IDeleteByIdRo, totalCount: number) => {
       if (!tableId) {
         return false;
       }
@@ -819,24 +1299,20 @@ export const useSelectionOperation = (props?: {
       });
       setIsDeleteProgressOpen(true);
 
-      const streamResult = await deleteSelectionStream(
-        tableId,
-        await buildSelectionRequest(deleteRo),
-        {
-          headers: {
-            'X-Window-Id': ensureUndoRedoWindowIdHeader(),
-          },
-          onProgress: (progress) => {
-            setDeleteProgress(progress);
-            setDeleteProgressStatus('running');
-            setIsDeleteProgressOpen(true);
-          },
-          onError: (error) => {
-            setDeleteErrors((previous) => [...previous, error]);
-            setIsDeleteProgressOpen(true);
-          },
-        }
-      );
+      const streamResult = await deleteSelectionByIdStream(tableId, toSelectionIdsRo(deleteRo), {
+        headers: {
+          'X-Window-Id': ensureUndoRedoWindowIdHeader(),
+        },
+        onProgress: (progress) => {
+          setDeleteProgress(progress);
+          setDeleteProgressStatus('running');
+          setIsDeleteProgressOpen(true);
+        },
+        onError: (error) => {
+          setDeleteErrors((previous) => [...previous, error]);
+          setIsDeleteProgressOpen(true);
+        },
+      });
 
       setDeleteSummary(streamResult.done);
       setDeleteProgressStatus(streamResult.errors.length ? 'partial' : 'success');
@@ -847,11 +1323,11 @@ export const useSelectionOperation = (props?: {
 
       return false;
     },
-    [buildSelectionRequest, tableId]
+    [tableId]
   );
 
   const runClearSelectionStream = useCallback(
-    async (clearRo: IRangesRo, totalCount: number) => {
+    async (clearRo: IClearByIdRo, totalCount: number) => {
       if (!tableId) {
         return false;
       }
@@ -872,38 +1348,27 @@ export const useSelectionOperation = (props?: {
       });
       setIsClearProgressOpen(true);
 
-      const streamResult = await clearSelectionStream(
-        tableId,
-        {
-          ...clearRo,
-          ...selectionViewQuery,
-          viewId,
-          groupBy,
-          collapsedGroupIds,
-          search,
+      const streamResult = await clearSelectionByIdStream(tableId, toSelectionIdsRo(clearRo), {
+        headers: {
+          'X-Window-Id': ensureUndoRedoWindowIdHeader(),
         },
-        {
-          headers: {
-            'X-Window-Id': ensureUndoRedoWindowIdHeader(),
-          },
-          onProgress: (progress) => {
-            setClearProgress(progress);
-            setClearProgressStatus('running');
-            setIsClearProgressOpen(true);
-          },
-          onError: (error) => {
-            setClearErrors((previous) => [...previous, error]);
-            setIsClearProgressOpen(true);
-          },
-        }
-      );
+        onProgress: (progress) => {
+          setClearProgress(progress);
+          setClearProgressStatus('running');
+          setIsClearProgressOpen(true);
+        },
+        onError: (error) => {
+          setClearErrors((previous) => [...previous, error]);
+          setIsClearProgressOpen(true);
+        },
+      });
 
       setClearSummary(streamResult.done);
       setClearProgressStatus(streamResult.errors.length ? 'partial' : 'success');
 
       return streamResult.errors.length > 0;
     },
-    [collapsedGroupIds, groupBy, search, selectionViewQuery, tableId, viewId]
+    [tableId]
   );
 
   const confirmDeleteSelection = useCallback(async () => {
@@ -1000,7 +1465,7 @@ export const useSelectionOperation = (props?: {
   );
 
   const runPasteSelectionStream = useCallback(
-    async (pasteRo: IPasteRo, totalCount: number) => {
+    async (pasteRo: IPasteByIdRo, totalCount: number) => {
       if (!tableId) {
         return false;
       }
@@ -1021,38 +1486,27 @@ export const useSelectionOperation = (props?: {
       });
       setIsPasteProgressOpen(true);
 
-      const streamResult = await pasteSelectionStream(
-        tableId,
-        {
-          ...pasteRo,
-          ...selectionViewQuery,
-          viewId,
-          groupBy,
-          collapsedGroupIds,
-          search,
+      const streamResult = await pasteSelectionByIdStream(tableId, toPasteByIdStreamRo(pasteRo), {
+        headers: {
+          'X-Window-Id': ensureUndoRedoWindowIdHeader(),
         },
-        {
-          headers: {
-            'X-Window-Id': ensureUndoRedoWindowIdHeader(),
-          },
-          onProgress: (progress) => {
-            setPasteProgress(progress);
-            setPasteProgressStatus('running');
-            setIsPasteProgressOpen(true);
-          },
-          onError: (error) => {
-            setPasteErrors((previous) => [...previous, error]);
-            setIsPasteProgressOpen(true);
-          },
-        }
-      );
+        onProgress: (progress) => {
+          setPasteProgress(progress);
+          setPasteProgressStatus('running');
+          setIsPasteProgressOpen(true);
+        },
+        onError: (error) => {
+          setPasteErrors((previous) => [...previous, error]);
+          setIsPasteProgressOpen(true);
+        },
+      });
 
       setPasteSummary(streamResult.done);
       setPasteProgressStatus(streamResult.errors.length ? 'partial' : 'success');
 
       return streamResult.errors.length > 0;
     },
-    [collapsedGroupIds, groupBy, search, selectionViewQuery, tableId, viewId]
+    [tableId]
   );
 
   const confirmDuplicateSelection = useCallback(async () => {
@@ -1103,16 +1557,12 @@ export const useSelectionOperation = (props?: {
   }, [ensurePasteProgressDialogError, pendingPasteSelection, runPasteSelectionStream, t]);
 
   const doDelete = useCallback(
-    async (selection: CombinedSelection) => {
+    async (selection: CombinedSelection, recordMap?: IRecordIndexMap) => {
       if (!viewId || !tableId) return;
-      const ranges = selection.serialize();
-      const type = rangeTypes[selection.type];
-
       try {
-        const deleteRo = {
-          ranges,
-          ...(type ? { type } : {}),
-        } satisfies IRangesRo;
+        const deleteRo = (await buildSelectionIdRequest(selection, recordMap ?? {}, {
+          includeFieldSelection: false,
+        })) as IDeleteByIdRo;
 
         if (shouldUseDeleteSelectionStream(selection, rowCount)) {
           openDeleteConfirmationDialog(deleteRo, getEffectRows(selection, rowCount));
@@ -1132,7 +1582,7 @@ export const useSelectionOperation = (props?: {
         console.error('Delete error: ', error);
       }
     },
-    [deleteReq, openDeleteConfirmationDialog, rowCount, tableId, t, viewId]
+    [buildSelectionIdRequest, deleteReq, openDeleteConfirmationDialog, rowCount, tableId, t, viewId]
   );
 
   const doDuplicate = useCallback(
@@ -1181,6 +1631,7 @@ export const useSelectionOperation = (props?: {
         | {
             selection: CombinedSelection;
             recordMap: IRecordIndexMap;
+            rowCount: number;
           }
         | { getCopyData: () => ICopyVo }
     ) => {
@@ -1193,9 +1644,8 @@ export const useSelectionOperation = (props?: {
           e.clipboardData.setData(ClipboardTypes.text, content);
           e.clipboardData.setData(ClipboardTypes.html, serializerHtml(content, header));
         } else if ('recordMap' in params && 'selection' in params) {
-          const recordMap = params.recordMap;
-          const selection = params.selection;
-          const res = getSyncCopyData({ recordMap, fields, selection });
+          const { recordMap, selection, rowCount } = params;
+          const res = getSyncCopyData({ recordMap, fields, selection, rowCount });
           e.clipboardData.setData(ClipboardTypes.text, res.content);
           e.clipboardData.setData(
             ClipboardTypes.html,
