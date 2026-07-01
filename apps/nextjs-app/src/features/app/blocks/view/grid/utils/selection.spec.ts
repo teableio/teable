@@ -5,8 +5,10 @@ import { describe, expect, it } from 'vitest';
 import {
   DELETE_SELECTION_STREAM_ROW_THRESHOLD,
   DUPLICATE_SELECTION_STREAM_ROW_THRESHOLD,
+  getEffectCellCount,
   getEffectRows,
   selectionIncludesEditableField,
+  shouldUseClearSelectionStream,
   shouldUseDeleteSelectionStream,
   shouldUseDuplicateSelectionStream,
 } from './selection';
@@ -24,10 +26,67 @@ describe('selection delete stream helpers', () => {
     expect(getEffectRows(selection)).toBe(5);
   });
 
+  it('counts effective rows for upward cell selections', () => {
+    const selection = {
+      type: SelectionRegionType.Cells,
+      ranges: [
+        [0, 4],
+        [0, 0],
+      ],
+      serialize: () => [
+        [0, 0],
+        [0, 4],
+      ],
+    } as unknown as CombinedSelection;
+
+    expect(getEffectRows(selection)).toBe(5);
+  });
+
+  it('counts effective cells for upward cell selections and excludes computed fields', () => {
+    const selection = {
+      type: SelectionRegionType.Cells,
+      ranges: [
+        [2, 4],
+        [0, 0],
+      ],
+      serialize: () => [
+        [0, 0],
+        [2, 4],
+      ],
+    } as unknown as CombinedSelection;
+    const fields = [
+      { isComputed: false },
+      { isComputed: true },
+      { isComputed: false },
+    ] as unknown as Parameters<typeof getEffectCellCount>[1];
+
+    expect(getEffectCellCount(selection, fields, 10)).toBe(10);
+  });
+
+  it('enables stream clear for large upward cell selections', () => {
+    const selection = {
+      type: SelectionRegionType.Cells,
+      ranges: [
+        [0, DELETE_SELECTION_STREAM_ROW_THRESHOLD],
+        [0, 0],
+      ],
+      serialize: () => [
+        [0, 0],
+        [0, DELETE_SELECTION_STREAM_ROW_THRESHOLD],
+      ],
+    } as unknown as CombinedSelection;
+
+    expect(shouldUseClearSelectionStream(selection)).toBe(true);
+  });
+
   it('enables stream delete only when the selection exceeds the threshold', () => {
     const belowThreshold = {
       type: SelectionRegionType.Cells,
       ranges: [
+        [0, 0],
+        [0, DELETE_SELECTION_STREAM_ROW_THRESHOLD - 1],
+      ],
+      serialize: () => [
         [0, 0],
         [0, DELETE_SELECTION_STREAM_ROW_THRESHOLD - 1],
       ],

@@ -5,16 +5,17 @@ import { BaseId } from '../../domain/base/BaseId';
 import { ActorId } from '../../domain/shared/ActorId';
 import { domainError } from '../../domain/shared/DomainError';
 import { AndSpec } from '../../domain/shared/specification/AndSpec';
-import { OrSpec } from '../../domain/shared/specification/OrSpec';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
+import { OrSpec } from '../../domain/shared/specification/OrSpec';
 import { FieldId } from '../../domain/table/fields/FieldId';
 import { FieldName } from '../../domain/table/fields/FieldName';
+import { FormulaExpression } from '../../domain/table/fields/types/FormulaExpression';
 import { RecordId } from '../../domain/table/records/RecordId';
 import type { ITableRecordConditionSpecVisitor } from '../../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import { SetLinkValueByTitleSpec } from '../../domain/table/records/specs/values/SetLinkValueByTitleSpec';
 import { SetLinkValueSpec } from '../../domain/table/records/specs/values/SetLinkValueSpec';
-import { CellValue } from '../../domain/table/records/values/CellValue';
 import type { TableRecord } from '../../domain/table/records/TableRecord';
+import { CellValue } from '../../domain/table/records/values/CellValue';
 import { Table } from '../../domain/table/Table';
 import { TableId } from '../../domain/table/TableId';
 import { TableName } from '../../domain/table/TableName';
@@ -49,6 +50,24 @@ const buildNumberTable = (baseSeed: string, tableSeed: string) => {
 
   const builder = Table.builder().withId(tableId).withBaseId(baseId).withName(tableName);
   builder.field().number().withName(fieldName).primary().done();
+  builder.view().defaultGrid().done();
+  return builder.build()._unsafeUnwrap();
+};
+
+const buildFormulaTextTable = (baseSeed: string, tableSeed: string) => {
+  const baseId = BaseId.create(`bse${baseSeed.repeat(16)}`)._unsafeUnwrap();
+  const tableId = TableId.create(`tbl${tableSeed.repeat(16)}`)._unsafeUnwrap();
+  const tableName = TableName.create(`Table ${tableSeed}`)._unsafeUnwrap();
+  const fieldName = FieldName.create('Title')._unsafeUnwrap();
+
+  const builder = Table.builder().withId(tableId).withBaseId(baseId).withName(tableName);
+  builder
+    .field()
+    .formula()
+    .withName(fieldName)
+    .withExpression(FormulaExpression.create("'Alpha'")._unsafeUnwrap())
+    .primary()
+    .done();
   builder.view().defaultGrid().done();
   return builder.build()._unsafeUnwrap();
 };
@@ -187,8 +206,36 @@ describe('LinkTitleResolverService', () => {
     ]);
 
     expect(result._unsafeUnwrapErr().message).toBe(
-      'Primary field must be a single line text field for title resolution'
+      'Primary field must resolve to a single string value for title resolution'
     );
+  });
+
+  it('resolves titles when the primary field is a string formula', async () => {
+    const table = buildFormulaTextTable('a', 'z');
+    const recordId = RecordId.create(`rec${'z'.repeat(16)}`)._unsafeUnwrap();
+    const records: TableRecordReadModel[] = [
+      {
+        id: recordId.toString(),
+        fields: {
+          [table.primaryFieldId().toString()]: 'Alpha',
+        },
+        version: 1,
+      },
+    ];
+
+    const service = new LinkTitleResolverService(
+      new FakeTableRepository(table),
+      new FakeRecordQueryRepository(records)
+    );
+
+    const fieldId = FieldId.create(`fld${'z'.repeat(16)}`)._unsafeUnwrap();
+    const result = await service.resolve(createContext(), [
+      { fieldId, foreignTableId: table.id(), titles: ['Alpha'] },
+    ]);
+
+    expect(result._unsafeUnwrap()[0]?.resolvedIds).toEqual([
+      { id: recordId.toString(), title: 'Alpha' },
+    ]);
   });
 
   it('replaces title specs with link id specs', async () => {

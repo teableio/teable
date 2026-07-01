@@ -19,11 +19,16 @@ import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import dayjs from 'dayjs';
 import { useTranslation } from 'next-i18next';
 import type { TFunction } from 'next-i18next';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { downloadUrlWithFileName } from '@/features/app/utils/download-url';
+import { ImportantNotificationPopup } from './ImportantNotificationPopup';
 import { LinkNotification } from './notification-component';
 import { NotificationIcon } from './NotificationIcon';
 import { NotificationList } from './NotificationList';
+
+const isCriticalAdminNotice = (n: INotification) =>
+  n.notifyType === NotificationTypeEnum.AdminNotice &&
+  n.severity === NotificationSeverityEnum.Critical;
 
 const SHOWN_NOTIFICATIONS_LIMIT = 100;
 const TOAST_AUTO_CLOSE_DURATION = 1000 * 3;
@@ -139,7 +144,7 @@ const showExportBaseToast = (
 
 const showGeneralNotificationToast = (notification: INotification, toastId: string) => {
   toast.info(
-    <div className="flex items-center">
+    <div className="flex w-full min-w-0 items-start">
       <NotificationIcon notifyIcon={notification.notifyIcon} notifyType={notification.notifyType} />
       <LinkNotification data={notification} notifyStatus={NotificationStatesEnum.Unread} />
     </div>,
@@ -178,6 +183,38 @@ export const NotificationsManage: React.FC = () => {
     undefined
   );
 
+  const [importantNotifications, setImportantNotifications] = useState<INotification[]>([]);
+
+  const { data: criticalAdminNotices } = useQuery({
+    queryKey: ReactQueryKeys.notifyCriticalAdmin(),
+    queryFn: () =>
+      getNotificationList({
+        notifyStates: NotificationStatesEnum.Unread,
+        severity: NotificationSeverityEnum.Critical,
+        notifyType: NotificationTypeEnum.AdminNotice,
+      }).then(({ data }) => data.notifications),
+  });
+
+  useEffect(() => {
+    if (!criticalAdminNotices?.length) return;
+    const fresh = criticalAdminNotices.filter((n) => !shownNotificationIds.has(n.id));
+    if (!fresh.length) return;
+    fresh.forEach((n) => shownNotificationIds.add(n.id));
+    setImportantNotifications((prev) => {
+      const existingIds = new Set(prev.map((p) => p.id));
+      return [...prev, ...fresh.filter((n) => !existingIds.has(n.id))];
+    });
+  }, [criticalAdminNotices]);
+
+  const handleAcknowledgeImportant = useCallback(
+    (id: string) => {
+      setImportantNotifications((prev) => prev.filter((n) => n.id !== id));
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.notifyList() });
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.notifyUnreadCount() });
+    },
+    [queryClient]
+  );
+
   const { data: queryUnreadCount = 0 } = useQuery({
     queryKey: ReactQueryKeys.notifyUnreadCount(),
     queryFn: () => getNotificationUnreadCount().then(({ data }) => data.unreadCount),
@@ -203,6 +240,14 @@ export const NotificationsManage: React.FC = () => {
       shownNotificationIds.clear();
     }
     shownNotificationIds.add(notificationId);
+
+    if (isCriticalAdminNotice(notification.notification)) {
+      setImportantNotifications((prev) => {
+        if (prev.some((n) => n.id === notificationId)) return prev;
+        return [...prev, notification.notification];
+      });
+      return;
+    }
 
     showNotificationToast(
       notification.notification,
@@ -233,6 +278,7 @@ export const NotificationsManage: React.FC = () => {
   const { mutateAsync: markAllAsReadMutator } = useMutation({
     mutationFn: notificationReadAll,
     onSuccess: () => {
+      setImportantNotifications([]);
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.notifyList() });
       refresh();
     },
@@ -276,138 +322,144 @@ export const NotificationsManage: React.FC = () => {
   };
 
   return (
-    <Popover onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="ghost"
-          size={'xs'}
-          className="relative "
-          onClick={() => {
-            setNotifyStatus(NotificationStatesEnum.Unread);
-            refresh();
-          }}
-        >
-          <Bell className="size-5 shrink-0" />
-          {unreadCount > 0 ? (
-            <span className="absolute right-2.5 top-1 inline-flex -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-full bg-red-400 p-1 text-[8px] leading-none text-white">
-              {unreadCount}
-            </span>
-          ) : (
-            ''
-          )}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent side="left" align="end" className="min-w-[500px] p-0">
-        <div className="w-full">
-          <div className="flex items-center justify-between border-b border-border-high p-4">
-            <div className="text-base font-semibold">{t('notification.title')}</div>
-            {renderNewButton()}
-            <div>
-              <Button
-                variant="ghost"
-                size="xs"
-                className={cn('ml-2', {
-                  'bg-accent': notifyStatus === NotificationStatesEnum.Unread,
-                })}
-                onClick={() => setNotifyStatus(NotificationStatesEnum.Unread)}
-              >
-                {t('notification.unread')}
-              </Button>
-              <Button
-                variant="ghost"
-                size="xs"
-                className={cn('ml-2', {
-                  'bg-accent': notifyStatus === NotificationStatesEnum.Read,
-                })}
-                onClick={() => setNotifyStatus(NotificationStatesEnum.Read)}
-              >
-                {t('notification.read')}
-              </Button>
-            </div>
-          </div>
-          <div className="flex gap-1.5 px-4 py-2.5">
-            <Button
-              variant="ghost"
-              size="xs"
-              className={cn(
-                'h-7 gap-1.5 rounded px-2.5 text-xs font-medium text-muted-foreground hover:bg-muted/70 hover:text-foreground',
-                selectedSeverity === undefined &&
-                  'bg-foreground/10 text-foreground hover:bg-foreground/10'
-              )}
-              onClick={() => handleSeverityClick(undefined)}
-            >
-              {t('notification.sections.all')}
-              <span
-                className={cn(
-                  'min-w-6 rounded-full px-2 py-0.5 text-center text-xs font-medium leading-none text-muted-foreground',
-                  selectedSeverity === undefined ? 'bg-background/80' : 'bg-muted/70'
-                )}
-              >
-                {notifySummary
-                  ? notifySummary.critical + notifySummary.warning + notifySummary.info
-                  : 0}
+    <>
+      <Popover onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="ghost"
+            size={'xs'}
+            className="relative "
+            onClick={() => {
+              setNotifyStatus(NotificationStatesEnum.Unread);
+              refresh();
+            }}
+          >
+            <Bell className="size-5 shrink-0" />
+            {unreadCount > 0 ? (
+              <span className="absolute right-2.5 top-1 inline-flex -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-full bg-red-400 p-1 text-[8px] leading-none text-white">
+                {unreadCount}
               </span>
-            </Button>
-            {NOTIFICATION_SEVERITIES.map((severity) => {
-              const isSelected = selectedSeverity === severity;
-
-              return (
+            ) : (
+              ''
+            )}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent side="left" align="end" className="min-w-[500px] p-0">
+          <div className="w-full">
+            <div className="flex items-center justify-between border-b border-border-high p-4">
+              <div className="text-base font-semibold">{t('notification.title')}</div>
+              {renderNewButton()}
+              <div>
                 <Button
-                  key={severity}
                   variant="ghost"
                   size="xs"
-                  className={cn(
-                    'h-7 gap-1.5 rounded px-2.5 text-xs font-medium text-muted-foreground hover:bg-muted/70 hover:text-foreground',
-                    isSelected && 'bg-foreground/10 text-foreground hover:bg-foreground/10'
-                  )}
-                  onClick={() => handleSeverityClick(severity)}
+                  className={cn('ml-2', {
+                    'bg-accent': notifyStatus === NotificationStatesEnum.Unread,
+                  })}
+                  onClick={() => setNotifyStatus(NotificationStatesEnum.Unread)}
                 >
-                  {getSeverityLabel(severity)}
-                  <span
-                    className={cn(
-                      'min-w-6 rounded-full px-2 py-0.5 text-center text-xs font-medium leading-none text-muted-foreground',
-                      isSelected ? 'bg-background/80' : 'bg-muted/70'
-                    )}
-                  >
-                    {notifySummary?.[severity] ?? 0}
-                  </span>
+                  {t('notification.unread')}
                 </Button>
-              );
-            })}
-          </div>
-          <NotificationList
-            className="relative max-h-[78vh] overflow-auto"
-            notifyStatus={notifyStatus}
-            data={notifyPage?.pages}
-            hasNextPage={hasNextPage}
-            isFetchingNextPage={isFetchingNextPage}
-            onShowMoreClick={() => fetchNextPage()}
-            emptyMessage={
-              selectedSeverity
-                ? t('notification.noSeverity', { severity: getSeverityLabel(selectedSeverity) })
-                : undefined
-            }
-          />
-          {notifyStatus === NotificationStatesEnum.Unread ? (
-            <div className="my-1.5 flex justify-end">
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  className={cn('ml-2', {
+                    'bg-accent': notifyStatus === NotificationStatesEnum.Read,
+                  })}
+                  onClick={() => setNotifyStatus(NotificationStatesEnum.Read)}
+                >
+                  {t('notification.read')}
+                </Button>
+              </div>
+            </div>
+            <div className="flex gap-1.5 px-4 py-2.5">
               <Button
                 variant="ghost"
                 size="xs"
-                className="mr-2"
-                disabled={unreadCount < 1}
-                onClick={() => {
-                  markAllAsReadMutator();
-                }}
+                className={cn(
+                  'h-7 gap-1.5 rounded px-2.5 text-xs font-medium text-muted-foreground hover:bg-muted/70 hover:text-foreground',
+                  selectedSeverity === undefined &&
+                    'bg-foreground/10 text-foreground hover:bg-foreground/10'
+                )}
+                onClick={() => handleSeverityClick(undefined)}
               >
-                <Read />
-                {t('notification.markAllAsRead')}
+                {t('notification.sections.all')}
+                <span
+                  className={cn(
+                    'min-w-6 rounded-full px-2 py-0.5 text-center text-xs font-medium leading-none text-muted-foreground',
+                    selectedSeverity === undefined ? 'bg-background/80' : 'bg-muted/70'
+                  )}
+                >
+                  {notifySummary
+                    ? notifySummary.critical + notifySummary.warning + notifySummary.info
+                    : 0}
+                </span>
               </Button>
+              {NOTIFICATION_SEVERITIES.map((severity) => {
+                const isSelected = selectedSeverity === severity;
+
+                return (
+                  <Button
+                    key={severity}
+                    variant="ghost"
+                    size="xs"
+                    className={cn(
+                      'h-7 gap-1.5 rounded px-2.5 text-xs font-medium text-muted-foreground hover:bg-muted/70 hover:text-foreground',
+                      isSelected && 'bg-foreground/10 text-foreground hover:bg-foreground/10'
+                    )}
+                    onClick={() => handleSeverityClick(severity)}
+                  >
+                    {getSeverityLabel(severity)}
+                    <span
+                      className={cn(
+                        'min-w-6 rounded-full px-2 py-0.5 text-center text-xs font-medium leading-none text-muted-foreground',
+                        isSelected ? 'bg-background/80' : 'bg-muted/70'
+                      )}
+                    >
+                      {notifySummary?.[severity] ?? 0}
+                    </span>
+                  </Button>
+                );
+              })}
             </div>
-          ) : (
-            ''
-          )}
-        </div>
-      </PopoverContent>
-    </Popover>
+            <NotificationList
+              className="relative max-h-[78vh] overflow-auto"
+              notifyStatus={notifyStatus}
+              data={notifyPage?.pages}
+              hasNextPage={hasNextPage}
+              isFetchingNextPage={isFetchingNextPage}
+              onShowMoreClick={() => fetchNextPage()}
+              emptyMessage={
+                selectedSeverity
+                  ? t('notification.noSeverity', { severity: getSeverityLabel(selectedSeverity) })
+                  : undefined
+              }
+            />
+            {notifyStatus === NotificationStatesEnum.Unread ? (
+              <div className="my-1.5 flex justify-end">
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  className="mr-2"
+                  disabled={unreadCount < 1}
+                  onClick={() => {
+                    markAllAsReadMutator();
+                  }}
+                >
+                  <Read />
+                  {t('notification.markAllAsRead')}
+                </Button>
+              </div>
+            ) : (
+              ''
+            )}
+          </div>
+        </PopoverContent>
+      </Popover>
+      <ImportantNotificationPopup
+        notifications={importantNotifications}
+        onAcknowledge={handleAcknowledgeImportant}
+      />
+    </>
   );
 };

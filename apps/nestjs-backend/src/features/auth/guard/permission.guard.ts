@@ -8,7 +8,7 @@ import { CustomHttpException } from '../../../custom.exception';
 import type { IClsStore } from '../../../types/cls';
 import { AllowAnonymousType, IS_ALLOW_ANONYMOUS } from '../decorators/allow-anonymous.decorator';
 import { IS_DISABLED_PERMISSION } from '../decorators/disabled-permission.decorator';
-import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
+import { ANY_PERMISSIONS_KEY, PERMISSIONS_KEY } from '../decorators/permissions.decorator';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import type { IResourceMeta } from '../decorators/resource_meta.decorator';
 import { RESOURCE_META } from '../decorators/resource_meta.decorator';
@@ -323,6 +323,10 @@ export class PermissionGuard {
       context.getHandler(),
       context.getClass(),
     ]);
+    const anyPermissions = this.reflector.getAllAndOverride<Action[][] | undefined>(
+      ANY_PERMISSIONS_KEY,
+      [context.getHandler(), context.getClass()]
+    );
     const resourceId = this.getResourceId(context) || this.defaultResourceId(context);
     const accessTokenId = this.cls.get('accessTokenId');
     if (accessTokenId && !permissions?.length) {
@@ -337,6 +341,24 @@ export class PermissionGuard {
     if (!permissions?.length) {
       return true;
     }
+    if (anyPermissions?.length) {
+      try {
+        return await this.checkPermissions(resourceId, permissions);
+      } catch (error) {
+        for (const permissionGroup of anyPermissions) {
+          try {
+            return await this.checkPermissions(resourceId, permissionGroup);
+          } catch {
+            // Try the next alternative and preserve the primary error if all alternatives fail.
+          }
+        }
+        throw error;
+      }
+    }
+    return await this.checkPermissions(resourceId, permissions);
+  }
+
+  private async checkPermissions(resourceId: string | undefined, permissions: Action[]) {
     // instance permission check
     if (permissions?.includes('instance|update')) {
       return this.instancePermissionChecker('instance|update');

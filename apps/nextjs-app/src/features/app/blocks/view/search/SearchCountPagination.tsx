@@ -13,8 +13,16 @@ import {
 } from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib/base';
 import { Button } from '@teable/ui-lib/shadcn';
-import { isEmpty, pick } from 'lodash';
-import { useEffect, useState, forwardRef, useImperativeHandle, useCallback, useMemo } from 'react';
+import { isEmpty, pick, throttle } from 'lodash';
+import {
+  useEffect,
+  useState,
+  forwardRef,
+  useImperativeHandle,
+  useCallback,
+  useMemo,
+  useRef,
+} from 'react';
 import { useGridSearchStore } from '../grid/useGridSearchStore';
 import type { ISearchButtonProps } from './SearchButton';
 
@@ -52,6 +60,9 @@ export const SearchCountPagination = forwardRef<
   const { gridRef, setSearchCursor, recordMap } = useGridSearchStore();
   const { personalViewCommonQuery } = usePersonalView();
   const [isEnd, setIsEnd] = useState(false);
+  // hit to re-focus after a record-change refetch, so the cursor stays on the
+  // same cell instead of resetting to the first hit
+  const pendingAnchorRef = useRef<{ recordId: string; fieldId: string } | null>(null);
 
   const searchViewCondition = useMemo(() => {
     return view ? pick(view, ['sort', 'filter', 'group', 'columnMeta']) : {};
@@ -114,12 +125,6 @@ export const SearchCountPagination = forwardRef<
     const nextCursor =
       result.data?.length ?? 0 >= PaginationBuffer ? skipLength + PaginationBuffer : null;
 
-    const dataLength = Object.values(allSearchResults).length;
-
-    if (currentIndex === dataLength && dataLength !== 0 && result?.data?.length !== 0) {
-      setCurrentIndex(currentIndex + PageDirection.Next);
-    }
-
     return {
       data: result.data || [],
       nextCursor,
@@ -155,6 +160,10 @@ export const SearchCountPagination = forwardRef<
     return finalResult;
   }, [data?.pages]);
 
+  // mirror of the focused hit so the debounced refetch reads the latest value
+  const currentHitRef = useRef<NonNullable<ISearchIndexVo>[number] | undefined>(undefined);
+  currentHitRef.current = allSearchResults[currentIndex];
+
   const switchIndex = (direction: PageDirection) => {
     const newIndex = currentIndex + direction;
     if (isFetching || isLoading) {
@@ -168,7 +177,12 @@ export const SearchCountPagination = forwardRef<
       return;
     }
     if (newIndex > Object.values(allSearchResults)?.length && !isEnd) {
-      fetchNextPage();
+      fetchNextPage().then((result) => {
+        const total = result.data?.pages.flatMap((page) => page.data).length ?? 0;
+        if (newIndex <= total) {
+          setCurrentIndex(newIndex);
+        }
+      });
       return;
     }
     if (newIndex > Object.values(allSearchResults)?.length && isEnd) {
@@ -179,9 +193,22 @@ export const SearchCountPagination = forwardRef<
   };
 
   useEffect(() => {
-    if (allSearchResults?.[currentIndex]) {
-      const index = allSearchResults?.[currentIndex];
-      index && setIndexSelection(index.index, index.fieldId);
+    const anchor = pendingAnchorRef.current;
+    if (anchor) {
+      pendingAnchorRef.current = null;
+      const anchorEntry = Object.entries(allSearchResults).find(
+        ([, hit]) => hit.recordId === anchor.recordId && hit.fieldId === anchor.fieldId
+      );
+      const anchorIndex = anchorEntry ? Number(anchorEntry[0]) : 1;
+      if (anchorIndex !== currentIndex) {
+        setCurrentIndex(anchorIndex);
+        return;
+      }
+    }
+
+    const currentHit = allSearchResults?.[currentIndex];
+    if (currentHit) {
+      setIndexSelection(currentHit.index, currentHit.fieldId);
     } else {
       setSearchCursor(null);
     }
@@ -194,19 +221,33 @@ export const SearchCountPagination = forwardRef<
     }
   }, [setSearchCursor, value]);
 
+  // any record change can alter the hit list; the server list is the single
+  // source of truth, so just refetch (throttled) and let the anchor keep the
+  // focused cell stable across the reload
+  const throttledRefetch = useMemo(
+    () =>
+      throttle(() => {
+        const currentHit = currentHitRef.current;
+        pendingAnchorRef.current = currentHit ? pick(currentHit, ['recordId', 'fieldId']) : null;
+        refetch();
+      }, 1000),
+    [refetch]
+  );
+
+  useEffect(() => () => throttledRefetch.cancel(), [throttledRefetch]);
+
   useTableListener(tableId, ['setRecord', 'addRecord', 'deleteRecord'], () => {
     if (!value || isEmpty(allSearchResults) || !recordMap || isLoading || isFetching) {
       return;
     }
 
     if (allSearchResults?.[currentIndex]) {
-      const index = allSearchResults?.[currentIndex];
-      const { fieldId, index: recordIndex } = index;
-      const displayValue = recordMap?.[recordIndex + 1]?.getCellValueAsString(fieldId);
-      const reg = new RegExp(value, 'gi');
-      if (!reg.test(displayValue)) {
-        setCurrentIndex(1);
-        refetch();
+      const { fieldId, index: recordIndex } = allSearchResults[currentIndex];
+      const field = fields.find(({ id }) => id === fieldId);
+      const cellValue = recordMap?.[recordIndex - 1]?.getCellValue(fieldId);
+      // same substring semantics as server-side searching and grid highlighting
+      if (field && !field.matchSearch(cellValue, value)) {
+        throttledRefetch();
       }
     }
   });
