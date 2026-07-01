@@ -16,6 +16,10 @@
  * | OTEL_SERVICE_NAME                  | Service name for tracing       | teable           | teable       |
  * | OTEL_EXPORT_RATIO                  | Export ratio (0.0-1.0)         | 1.0 (100%)       | 0.1 (10%)    |
  * | OTEL_EXPORT_LATENCY_THRESHOLD_MS   | Slow request threshold (ms)    | 1500             | 1500         |
+ * | OTEL_BSP_MAX_QUEUE_SIZE            | Trace BSP max queue size       | 2048             | 2048         |
+ * | OTEL_BSP_MAX_EXPORT_BATCH_SIZE     | Trace BSP max export batch     | 512              | 512          |
+ * | OTEL_BSP_SCHEDULE_DELAY            | Trace BSP delay (ms)           | 5000             | 5000         |
+ * | OTEL_BSP_EXPORT_TIMEOUT            | Trace BSP export timeout (ms)  | 30000            | 30000        |
  * | OTEL_METRIC_EXPORT_INTERVAL_MS     | Metrics export interval (ms)   | 10000            | 60000        |
  * | BACKEND_SENTRY_DSN                 | Sentry DSN for error tracking  | (disabled)       | (disabled)   |
  * | BUILD_VERSION                      | Build version for resource     | (none)           | (none)       |
@@ -42,7 +46,11 @@ import { PinoInstrumentation } from '@opentelemetry/instrumentation-pino';
 import { RuntimeNodeInstrumentation } from '@opentelemetry/instrumentation-runtime-node';
 import { resourceFromAttributes } from '@opentelemetry/resources';
 import * as opentelemetry from '@opentelemetry/sdk-node';
-import { BatchSpanProcessor, NoopSpanProcessor } from '@opentelemetry/sdk-trace-base';
+import {
+  BatchSpanProcessor,
+  NoopSpanProcessor,
+  SimpleSpanProcessor,
+} from '@opentelemetry/sdk-trace-base';
 import type { SpanProcessor } from '@opentelemetry/sdk-trace-base';
 import {
   ATTR_HTTP_RESPONSE_STATUS_CODE,
@@ -65,7 +73,8 @@ const nativeRequire: NodeRequire =
   typeof __non_webpack_require__ !== 'undefined' ? __non_webpack_require__ : require;
 
 const { BatchLogRecordProcessor } = opentelemetry.logs;
-const { PeriodicExportingMetricReader, AggregationType } = opentelemetry.metrics;
+const { PeriodicExportingMetricReader, AggregationType, createAllowListAttributesProcessor } =
+  opentelemetry.metrics;
 const { AlwaysOnSampler } = opentelemetry.node;
 
 const otelLogger = new Logger('OpenTelemetry');
@@ -83,6 +92,10 @@ const ENV_DEFAULTS = {
     OTEL_SERVICE_NAME: 'teable',
     OTEL_EXPORT_RATIO: '1.0',
     OTEL_EXPORT_LATENCY_THRESHOLD_MS: '1500',
+    OTEL_BSP_MAX_QUEUE_SIZE: '2048',
+    OTEL_BSP_MAX_EXPORT_BATCH_SIZE: '512',
+    OTEL_BSP_SCHEDULE_DELAY: '5000',
+    OTEL_BSP_EXPORT_TIMEOUT: '30000',
     OTEL_METRIC_EXPORT_INTERVAL_MS: '10000',
   },
   production: {
@@ -92,6 +105,10 @@ const ENV_DEFAULTS = {
     OTEL_SERVICE_NAME: 'teable',
     OTEL_EXPORT_RATIO: '0.1',
     OTEL_EXPORT_LATENCY_THRESHOLD_MS: '1500',
+    OTEL_BSP_MAX_QUEUE_SIZE: '2048',
+    OTEL_BSP_MAX_EXPORT_BATCH_SIZE: '512',
+    OTEL_BSP_SCHEDULE_DELAY: '5000',
+    OTEL_BSP_EXPORT_TIMEOUT: '30000',
     OTEL_METRIC_EXPORT_INTERVAL_MS: '60000',
   },
 } as const;
@@ -130,6 +147,11 @@ const parseNumber = (value: string | undefined, defaultValue: number): number =>
   return Number.isFinite(parsed) ? parsed : defaultValue;
 };
 
+const parseIntegerConfig = (key: EnvConfigKey, defaultValue: number, minValue: number): number => {
+  const parsed = Math.floor(parseNumber(getConfig(key), defaultValue));
+  return Math.max(minValue, parsed);
+};
+
 // Configuration
 const headers = parseHeaders(process.env.OTEL_EXPORTER_OTLP_HEADERS);
 const traceEndpoint = getConfig('OTEL_EXPORTER_OTLP_ENDPOINT');
@@ -141,11 +163,17 @@ const latencyThresholdMs = Math.max(
   0,
   parseNumber(getConfig('OTEL_EXPORT_LATENCY_THRESHOLD_MS'), 1500)
 );
+const traceBatchMaxQueueSize = parseIntegerConfig('OTEL_BSP_MAX_QUEUE_SIZE', 2048, 1);
+const traceBatchMaxExportBatchSize = Math.min(
+  traceBatchMaxQueueSize,
+  parseIntegerConfig('OTEL_BSP_MAX_EXPORT_BATCH_SIZE', 512, 1)
+);
+const traceBatchScheduledDelayMillis = parseIntegerConfig('OTEL_BSP_SCHEDULE_DELAY', 5000, 0);
+const traceBatchExportTimeoutMillis = parseIntegerConfig('OTEL_BSP_EXPORT_TIMEOUT', 30000, 1);
 const metricExportIntervalMs = Math.max(
   1000,
   parseNumber(getConfig('OTEL_METRIC_EXPORT_INTERVAL_MS'), 60000)
 );
-
 // Exporters
 const createExporterOptions = (url?: string) => ({
   url,
@@ -164,7 +192,9 @@ const metricsExporter = metricsEndpoint
 
 // Strip high-cardinality resource attributes from metrics only.
 // Traces and logs keep these for debugging; metrics drop them to prevent
-// cardinality explosion in ephemeral containers (each restart = new host.name + pid).
+// cardinality explosion (each restart = new host.name + pid; each deploy =
+// new service.version build tag, so the unique metric series count would grow
+// unbounded over time as releases accumulate).
 if (metricsExporter) {
   const dropFromMetricResource = new Set([
     'host.name',
@@ -178,6 +208,7 @@ if (metricsExporter) {
     'process.executable.path',
     'process.owner',
     'service.instance.id',
+    'service.version',
   ]);
   const origExport = metricsExporter.export.bind(metricsExporter);
   metricsExporter.export = (metrics, cb) => {
@@ -200,9 +231,31 @@ const getTraceDecision = (traceId: string): boolean => {
   return hash % 10000 < exportRatio * 10000;
 };
 
-const shouldExportSpan = (span: opentelemetry.tracing.ReadableSpan): boolean => {
-  if (exportRatio >= 1.0) return true;
+// Prisma emits ~11 spans per query (operation, client:middleware/serialize,
+// engine:query/connection/db_query/serialize/...). Keep only the spine
+// (operation -> engine:query -> db_query) and drop the rest. The full spine is kept
+// so the surviving db_query is never orphaned (which renders as a "Missing Span").
+const PRISMA_SPINE_SPANS = new Set([
+  'prisma:client:operation',
+  'prisma:engine:query',
+  'prisma:engine:db_query',
+]);
 
+const isDroppedPrismaSpan = (span: opentelemetry.tracing.ReadableSpan): boolean =>
+  span.name.startsWith('prisma:') && !PRISMA_SPINE_SPANS.has(span.name);
+
+const isPriorityTraceSpan = (span: opentelemetry.tracing.ReadableSpan): boolean => {
+  const attributes = span.attributes;
+  return (
+    span.kind === SpanKind.SERVER ||
+    typeof attributes['teable.route.full'] === 'string' ||
+    typeof attributes['http.route'] === 'string' ||
+    (typeof attributes['nest.controller'] === 'string' &&
+      typeof attributes['nest.handler'] === 'string')
+  );
+};
+
+const shouldExportSpan = (span: opentelemetry.tracing.ReadableSpan): boolean => {
   // Always export errors
   if (span.status.code === SpanStatusCode.ERROR) return true;
 
@@ -214,26 +267,44 @@ const shouldExportSpan = (span: opentelemetry.tracing.ReadableSpan): boolean => 
   const durationMs = span.duration[0] * 1000 + span.duration[1] / 1_000_000;
   if (durationMs > latencyThresholdMs) return true;
 
+  if (isDroppedPrismaSpan(span)) return false;
+
+  if (exportRatio >= 1.0) return true;
+
   // Consistent export decision based on traceId - all spans in same trace have same fate
   return getTraceDecision(span.spanContext().traceId);
 };
 
-const createSmartBatchProcessor = (exporter: OTLPTraceExporter): SpanProcessor => {
-  const batchProcessor = new BatchSpanProcessor(exporter, {
-    maxQueueSize: 2048,
-    maxExportBatchSize: 512,
-    scheduledDelayMillis: 5000,
-    exportTimeoutMillis: 30000,
+const createSmartSpanProcessor = (
+  batchExporter: OTLPTraceExporter,
+  priorityExporter: OTLPTraceExporter
+): SpanProcessor => {
+  const batchProcessor = new BatchSpanProcessor(batchExporter, {
+    maxQueueSize: traceBatchMaxQueueSize,
+    maxExportBatchSize: traceBatchMaxExportBatchSize,
+    scheduledDelayMillis: traceBatchScheduledDelayMillis,
+    exportTimeoutMillis: traceBatchExportTimeoutMillis,
   });
-  if (exportRatio >= 1.0) return batchProcessor;
+  const priorityProcessor = new SimpleSpanProcessor(priorityExporter);
 
   return {
-    onStart: batchProcessor.onStart.bind(batchProcessor),
+    onStart: (span, parentContext) => {
+      priorityProcessor.onStart(span, parentContext);
+      batchProcessor.onStart(span, parentContext);
+    },
     onEnd: (span: opentelemetry.tracing.ReadableSpan) => {
+      if (isPriorityTraceSpan(span)) {
+        priorityProcessor.onEnd(span);
+        return;
+      }
       if (shouldExportSpan(span)) batchProcessor.onEnd(span);
     },
-    shutdown: batchProcessor.shutdown.bind(batchProcessor),
-    forceFlush: batchProcessor.forceFlush.bind(batchProcessor),
+    shutdown: () =>
+      Promise.all([priorityProcessor.shutdown(), batchProcessor.shutdown()]).then(() => undefined),
+    forceFlush: () =>
+      Promise.all([priorityProcessor.forceFlush(), batchProcessor.forceFlush()]).then(
+        () => undefined
+      ),
   };
 };
 
@@ -289,7 +360,14 @@ const teableDbSpanAttributeProcessor: SpanProcessor = {
 // even when no exporter is configured (needed for trace ID in logs)
 const spanProcessors = [
   ...(hasSentry ? [new SentrySpanProcessor()] : []),
-  ...(traceExporter ? [createSmartBatchProcessor(traceExporter)] : [new NoopSpanProcessor()]),
+  ...(traceExporter
+    ? [
+        createSmartSpanProcessor(
+          traceExporter,
+          new OTLPTraceExporter(createExporterOptions(traceEndpoint))
+        ),
+      ]
+    : [new NoopSpanProcessor()]),
   httpClientActiveRequestsProcessor,
   teableDbSpanAttributeProcessor,
 ];
@@ -318,9 +396,9 @@ const ignorePaths = [
 // ─────────────────────────────────────────────────────────────────────────────
 const drop = { type: AggregationType.DROP } as const;
 const buckets = (boundaries: number[]) =>
-  ({ type: AggregationType.EXPLICIT_BUCKET_HISTOGRAM, boundaries }) as const;
+  ({ type: AggregationType.EXPLICIT_BUCKET_HISTOGRAM, options: { boundaries } }) as const;
 
-const metricViews = [
+const metricViews: opentelemetry.metrics.ViewOptions[] = [
   // Drop inbound HTTP metrics — 200+ routes cause cardinality explosion;
   // traces already provide per-request latency/status via SigNoz APM.
   { instrumentName: 'http.server.duration', aggregation: drop },
@@ -329,19 +407,22 @@ const metricViews = [
 
   // Outbound HTTP — keep but drop server.address to cap cardinality
   // (50+ webhook hosts and growing). Only method + status remain.
+  // Boundaries are in seconds (instrumentation-http records seconds).
   {
     instrumentName: 'http.client.request.duration',
     aggregation: buckets([0.05, 0.25, 1, 5, 30]),
-    attributeKeys: ['http.request.method', 'http.response.status_code'],
+    attributesProcessors: [
+      createAllowListAttributesProcessor(['http.request.method', 'http.response.status_code']),
+    ],
   },
 
-  // Reduce high-cardinality auto-instrumented histograms from 14 → 5 buckets
-  // 1ms=cached, 5ms=indexed, 25ms=scan, 100ms=slow, 1s=very-slow
-  // Keep only operation name + system; drop db.namespace, server.address/port, etc.
+  // Reduce high-cardinality auto-instrumented histograms from 16 → 6 series per label set.
+  // Boundaries are in seconds: 1ms=cached, 5ms=indexed, 25ms=scan, 100ms=slow, 1s=very-slow.
+  // Keep only operation name + system; drop db.namespace, server.address/port, error.type.
   {
     instrumentName: 'db.client.operation.duration',
     aggregation: buckets([0.001, 0.005, 0.025, 0.1, 1]),
-    attributeKeys: ['db.operation.name', 'db.system'],
+    attributesProcessors: [createAllowListAttributesProcessor(['db.operation.name', 'db.system'])],
   },
 ];
 
@@ -391,6 +472,8 @@ otelLogger.log(
   `Initialized: service=${serviceName}, env=${isDevelopment ? 'dev' : 'prod'}, ` +
     `exportRatio=${exportRatio * 100}%, latencyThreshold=${latencyThresholdMs}ms, ` +
     `exporters=[traces:${!!traceEndpoint}, logs:${!!logEndpoint}, metrics:${!!metricsEndpoint}], ` +
+    `traceBatch=[queue:${traceBatchMaxQueueSize}, batch:${traceBatchMaxExportBatchSize}, ` +
+    `delay:${traceBatchScheduledDelayMillis}ms, timeout:${traceBatchExportTimeoutMillis}ms], ` +
     `metricsInterval=${metricExportIntervalMs}ms, ` +
     `sentry=${hasSentry}`
 );

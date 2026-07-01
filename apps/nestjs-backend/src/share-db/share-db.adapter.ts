@@ -36,6 +36,7 @@ import {
   type IEditOp,
   type IShareDbReadonlyAdapterService,
 } from './interface';
+import { shouldSkipQueryPoll } from './query-poll-skip';
 import { FieldReadonlyServiceAdapter } from './readonly/field-readonly.service';
 import { RecordReadonlyServiceAdapter } from './readonly/record-readonly.service';
 import { TableReadonlyServiceAdapter } from './readonly/table-readonly.service';
@@ -52,6 +53,11 @@ type IProjection = { [fieldNameOrId: string]: boolean };
 @Injectable()
 export class ShareDbAdapter extends ShareDb.DB {
   private logger = new Logger(ShareDbAdapter.name);
+
+  // Read by sharedb QueryEmitter (lib/query-emitter.js): ops arriving while a
+  // poll is in flight or within this window are coalesced into a single
+  // trailing poll, instead of one poll per op.
+  pollDebounce = Number(process.env.SHAREDB_QUERY_POLL_DEBOUNCE_MS ?? 200);
 
   closed: boolean;
 
@@ -82,6 +88,20 @@ export class ShareDbAdapter extends ShareDb.DB {
     throw new Error(`QueryType: ${type} has no readonly adapter service implementation`);
   }
 
+  // Translate the query's field-id projection (string[]) into the snapshot
+  // projection shape ({ [fieldId]: true }). Returns undefined when the query
+  // carries no projection, leaving the ShareDB native projection in place.
+  private queryProjection(query: unknown): IProjection | undefined {
+    const projection = (query as { projection?: string[] } | undefined)?.projection;
+    if (!Array.isArray(projection) || projection.length === 0) {
+      return undefined;
+    }
+    return projection.reduce<IProjection>((acc, fieldId) => {
+      acc[fieldId] = true;
+      return acc;
+    }, {});
+  }
+
   query = async (
     collection: string,
     query: unknown,
@@ -101,7 +121,12 @@ export class ShareDbAdapter extends ShareDb.DB {
       this.getSnapshotBulk(
         collection,
         results as string[],
-        projection,
+        // ShareDB's native projection arg is only populated for registered
+        // projection collections (we register none), so it is always empty.
+        // The field selection the client cares about rides inside the query
+        // (e.g. a view's visible field ids) — forward it so the bulk snapshot
+        // only carries those fields.
+        this.queryProjection(query) ?? projection,
         options,
         (error, snapshots) => {
           if (error) {
@@ -163,19 +188,25 @@ export class ShareDbAdapter extends ShareDb.DB {
   }
 
   // Return true to avoid polling if there is no possibility that an op could
-  // affect a query's results
+  // affect a query's results; the decision logic lives in query-poll-skip/
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
   skipPoll(
-    _collection: string,
+    collection: string,
     _id: string,
     op: CreateOp | DeleteOp | EditOp,
-    _query: unknown
+    query: unknown
   ): boolean {
-    // ShareDB is in charge of doing the validation of ops, so at this point we
-    // should be able to assume that the op is structured validly
-    if (op.create || op.del) return false;
-    return !op.op;
+    // decision counts are observed via otel metrics inside query-poll-skip;
+    // per-event logging is debug-only — this fires hundreds of thousands of
+    // times a day in production
+    const isShouldSkipQueryPoll = shouldSkipQueryPoll(collection, _id, op, query);
+    if (isShouldSkipQueryPoll) {
+      this.logger.debug(
+        `skipping poll for op on ${collection} ${_id} because modified fields do not affect the query`
+      );
+    }
+    return isShouldSkipQueryPoll;
   }
 
   close(callback: () => void) {
@@ -223,7 +254,6 @@ export class ShareDbAdapter extends ShareDb.DB {
   ) {
     try {
       const [docType, collectionId] = collection.split('_');
-
       let authHeaders;
       try {
         authHeaders = this.getAuthHeaders(options);

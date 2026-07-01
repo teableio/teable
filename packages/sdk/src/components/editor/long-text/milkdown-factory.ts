@@ -31,6 +31,7 @@ const nonInclusiveLinkSchema = linkSchema.extendSchema((prev) => (ctx) => ({
 export interface IMilkdownEditorOptions {
   value: string;
   readonly?: boolean;
+  placeholder?: string;
   /** Use fixed positioning for selection toolbar (needed in grid overlay) */
   useFixedSelectionToolbar?: boolean;
   /** Ref to receive latest markdown value on each update */
@@ -44,7 +45,14 @@ export interface IMilkdownEditorOptions {
  * Centralizes all milkdown initialization so swapping the editor only requires changing this file.
  */
 export const createMilkdownEditor = (root: HTMLElement, options: IMilkdownEditorOptions) => {
-  const { value, readonly, useFixedSelectionToolbar, latestValueRef, onMarkdownUpdated } = options;
+  const {
+    value,
+    readonly,
+    placeholder,
+    useFixedSelectionToolbar,
+    latestValueRef,
+    onMarkdownUpdated,
+  } = options;
 
   const editor = Editor.make().config((ctx) => {
     ctx.set(rootCtx, root);
@@ -56,6 +64,9 @@ export const createMilkdownEditor = (root: HTMLElement, options: IMilkdownEditor
         attributes: { class: 'milkdown-readonly' },
       });
     } else {
+      ctx.set(editorViewOptionsCtx, {
+        attributes: placeholder ? { 'data-placeholder': placeholder } : {},
+      });
       ctx
         .get(listenerCtx)
         .markdownUpdated((_ctx, markdown) => {
