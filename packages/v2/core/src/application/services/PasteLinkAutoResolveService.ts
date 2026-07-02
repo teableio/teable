@@ -2,9 +2,6 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import { LinkTitleResolverService } from './LinkTitleResolverService';
-import { RecordBatchCreationService } from './RecordBatchCreationService';
-import { TableQueryService } from './TableQueryService';
 import type { DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import type { FieldId } from '../../domain/table/fields/FieldId';
@@ -17,6 +14,9 @@ import type { TableId } from '../../domain/table/TableId';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import { v2CoreTokens } from '../../ports/tokens';
 import type { UndoRedoCommandLeafData } from '../../ports/UndoRedoStore';
+import { LinkTitleResolverService } from './LinkTitleResolverService';
+import { RecordBatchCreationService } from './RecordBatchCreationService';
+import { TableQueryService } from './TableQueryService';
 
 export interface ResolvedLinkValue {
   readonly id: string;
@@ -88,12 +88,7 @@ export class PasteLinkAutoResolveService {
           foreignTableCache,
           entry.linkField.foreignTableId()
         );
-        yield* service.validateAutoCreateEligibility(
-          input.table,
-          entry.linkField,
-          foreignTable,
-          entry.titles
-        );
+        yield* entry.linkField.validateTitleResolutionTarget(input.table, foreignTable);
       }
 
       const resolveResults = yield* await service.linkTitleResolverService.resolve(
@@ -150,6 +145,12 @@ export class PasteLinkAutoResolveService {
           firstEntry.linkField.foreignTableId()
         );
         const createdTitles = [...group.missingTitles];
+        yield* service.validateAutoCreateEligibility(
+          input.table,
+          firstEntry.linkField,
+          foreignTable,
+          createdTitles
+        );
         const creationResult = yield* await service.recordBatchCreationService.create(context, {
           table: foreignTable,
           recordsFieldValues: createdTitles.map(

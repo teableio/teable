@@ -1,5 +1,6 @@
-import { forwardRef, useImperativeHandle, useRef } from 'react';
+import { forwardRef, useContext, useImperativeHandle, useRef } from 'react';
 import { usePendingUploadContext } from '../../../../context/pending-upload';
+import { ShareViewContext } from '../../../../context/table/ShareViewContext';
 import { useBaseId } from '../../../../hooks';
 import {
   useLocalAttachmentUpload,
@@ -91,12 +92,14 @@ const PendingUploadAttachment = forwardRef<IUploadAttachmentRef, IPendingUploadA
   (props, ref) => {
     const { pendingCtx, fieldId, ...localProps } = props;
     const baseId = useBaseId();
+    const { shareId } = useContext(ShareViewContext);
 
-    const { uploadingFiles, onUpload, onCancelUpload } = usePendingAttachmentUpload({
+    const { uploadingFiles, onUpload, onCancelUpload, onChange } = usePendingAttachmentUpload({
       tableId: pendingCtx.tableId,
       tempRecordId: pendingCtx.tempRecordId,
       fieldId: fieldId ?? '',
       baseId,
+      shareId,
       attachments: localProps.attachments,
       onChange: localProps.onChange,
     });
@@ -117,6 +120,7 @@ const PendingUploadAttachment = forwardRef<IUploadAttachmentRef, IPendingUploadA
       <UploadAttachmentView
         ref={viewRef}
         {...localProps}
+        onChange={onChange}
         uploadingFiles={uploadingFiles}
         onUpload={onUpload}
         onCancelUpload={onCancelUpload}
@@ -131,6 +135,7 @@ const CellUploadAttachment = forwardRef<IUploadAttachmentRef, UploadAttachmentCe
   (props, ref) => {
     const { attachments, onChange } = props;
     const baseId = useBaseId();
+    const { shareId } = useContext(ShareViewContext);
 
     const localUpload = useLocalAttachmentUpload({
       attachments,
@@ -145,6 +150,7 @@ const CellUploadAttachment = forwardRef<IUploadAttachmentRef, UploadAttachmentCe
       fieldId: props.fieldId,
       attachments,
       baseId,
+      shareId,
       enabled: true,
     });
 

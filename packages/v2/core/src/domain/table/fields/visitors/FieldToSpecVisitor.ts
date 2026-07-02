@@ -36,6 +36,7 @@ import type { LinkField } from '../types/LinkField';
 import type { LongTextField } from '../types/LongTextField';
 import type { MultipleSelectField } from '../types/MultipleSelectField';
 import type { NumberField } from '../types/NumberField';
+import { NumberFormattingType } from '../types/NumberFormatting';
 import type { RatingField } from '../types/RatingField';
 import type { RollupField } from '../types/RollupField';
 import type { SingleLineTextField } from '../types/SingleLineTextField';
@@ -114,7 +115,7 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
     }
 
     if (this.typecast) {
-      const parsed = parseFloat(String(this.value));
+      const parsed = this.parseNumberValue(this.value, field);
       const finalValue = isNaN(parsed) ? null : parsed;
       return ok(new SetNumberValueSpec(field.id(), CellValue.fromValidated(finalValue)));
     }
@@ -131,6 +132,20 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
         },
       })
     );
+  }
+
+  private parseNumberValue(value: unknown, field: NumberField): number {
+    const raw = String(value);
+    const isPercent =
+      field.formatting().type() === NumberFormattingType.Percent || raw.includes('%');
+    const numberReg = /[^\d.+-]/g;
+    const symbolReg = /([+\-.])+/g;
+    const parsed = parseFloat(raw.replace(numberReg, '').replace(symbolReg, '$1'));
+
+    if (Number.isNaN(parsed)) {
+      return NaN;
+    }
+    return isPercent ? parsed / 100 : parsed;
   }
 
   visitRatingField(field: RatingField): Result<ICellValueSpec, DomainError> {

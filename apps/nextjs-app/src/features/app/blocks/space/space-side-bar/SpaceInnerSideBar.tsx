@@ -14,8 +14,13 @@ import {
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
+import { useState } from 'react';
 import { ChangelogNotification } from '@/components/changelog';
 import { SpaceInnerTrashModal } from '@/features/app/blocks/trash/SpaceInnerTrashModal';
+import {
+  CreateBaseDialog,
+  useCreateBaseChooserEnabled,
+} from '@/features/app/components/space/create-base';
 import { TemplateModal } from '@/features/app/components/space/template';
 import { TemplateContext } from '@/features/app/components/space/template/context';
 import { spaceConfig } from '@/features/i18n/space.config';
@@ -50,8 +55,15 @@ export const SpaceInnerSideBar = (props: {
     },
   });
 
+  const chooserEnabled = useCreateBaseChooserEnabled();
+  const [createBaseOpen, setCreateBaseOpen] = useState(false);
+
   const handleCreateBase = () => {
     if (!spaceId) return;
+    if (chooserEnabled) {
+      setCreateBaseOpen(true);
+      return;
+    }
     const name = getUniqName(t('common:noun.base'), bases?.map((base) => base.name) || []);
     createBaseMutator({ spaceId, name });
   };
@@ -135,6 +147,13 @@ export const SpaceInnerSideBar = (props: {
       </div>
       {renderWinFreeCredit && renderWinFreeCredit(spaceId)}
       <ChangelogNotification />
+      {spaceId && (
+        <CreateBaseDialog
+          spaceId={spaceId}
+          open={createBaseOpen}
+          onOpenChange={setCreateBaseOpen}
+        />
+      )}
     </>
   );
 };

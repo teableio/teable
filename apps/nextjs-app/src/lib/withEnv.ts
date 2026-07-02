@@ -49,6 +49,8 @@ export default function withEnv<P extends { [key: string]: any }>(
         gaId: process.env.GA_ID,
         googleAdsConversionId: process.env.GOOGLE_ADS_CONVERSION_ID,
         marketingGaId: process.env.MARKETING_GA_ID,
+        posthogKey: process.env.POSTHOG_KEY,
+        posthogHost: process.env.POSTHOG_HOST,
         sentryDsn: process.env.SENTRY_DSN,
         socialAuthProviders: process.env.SOCIAL_AUTH_PROVIDERS?.split(','),
         storage: omitBy(storage, isUndefined),

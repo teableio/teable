@@ -241,9 +241,11 @@ export const CommandExplainLive = Layer.effect(
             try: async () => {
               const result = await explainService.explain(context, commandResult.value, {
                 analyze: input.analyze,
-                includeSql: true,
+                includeSql: input.includeSql ?? true,
                 includeGraph: false,
                 includeLocks: true,
+                sqlExplainMode: input.sqlExplainMode ?? 'json',
+                statementTimeoutMs: input.statementTimeoutMs ?? 0,
               });
               if (result.isErr()) throw result.error;
               return result.value;

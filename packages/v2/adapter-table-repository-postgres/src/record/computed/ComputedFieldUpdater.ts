@@ -986,11 +986,46 @@ export class ComputedFieldUpdater {
           }
 
           let queryPlans: ComputedUpdateQueryPlan[] | undefined;
+          const shouldChunkFields =
+            collectChanges && !collapsedBatch && fieldIds.length > COMPUTED_UPDATE_FIELD_CHUNK_SIZE;
 
-          // If this step represents a collapsed same-table formula chain, execute using a CTE chain
-          // so later formulas read the computed values of earlier formulas (and avoid volatile
-          // re-evaluation caused by formula expansion).
-          if (collapsedBatch && fieldIds.length > 1) {
+          const formulaOnlyFieldLevelsResult = safeTry<SameTableFieldLevel[], DomainError>(
+            function* () {
+              if (fieldIds.length === 0) return ok([]);
+
+              if (collapsedBatch && !collapsedBatch.tableId.equals(step.tableId)) {
+                return err(domainError.validation({ message: 'Collapsed batch table mismatch' }));
+              }
+
+              const allowedFieldIds = new Set(fieldIds.map((id) => id.toString()));
+              const sourceSteps = collapsedBatch
+                ? [...collapsedBatch.steps].sort((a, b) => a.level - b.level)
+                : [step];
+              const fieldLevels: SameTableFieldLevel[] = [];
+
+              for (const sourceStep of sourceSteps) {
+                const levelFieldIds: FieldId[] = [];
+                for (const fieldId of sourceStep.fieldIds) {
+                  if (!allowedFieldIds.has(fieldId.toString())) continue;
+                  const field = yield* table.getField((f) => f.id().equals(fieldId));
+                  if (!field.type().equals(FieldType.formula())) {
+                    return ok([]);
+                  }
+                  levelFieldIds.push(fieldId);
+                }
+                if (levelFieldIds.length > 0) {
+                  fieldLevels.push({ level: sourceStep.level, fieldIds: levelFieldIds });
+                }
+              }
+
+              return ok(fieldLevels);
+            }
+          );
+          if (formulaOnlyFieldLevelsResult.isErr()) return err(formulaOnlyFieldLevelsResult.error);
+
+          // Formula-only same-table steps use a CTE chain so formula dependencies are computed
+          // once and later formulas read CTE columns instead of recursively inlining expressions.
+          if (formulaOnlyFieldLevelsResult.value.length > 0 && !shouldChunkFields) {
             const hasJsonTargets = await this.hasJsonTargetColumns(db, tableName, table, fieldIds);
             if (hasJsonTargets) {
               stepSpan?.setAttribute('step.sameTableCollapsedSkipped', true);
@@ -998,79 +1033,35 @@ export class ComputedFieldUpdater {
             }
 
             if (!hasJsonTargets) {
-              const fieldLevelsResult = safeTry<SameTableFieldLevel[], DomainError>(function* () {
-                if (!collapsedBatch.tableId.equals(step.tableId)) {
-                  return err(domainError.validation({ message: 'Collapsed batch table mismatch' }));
-                }
+              const batchBuilder = new SameTableBatchQueryBuilder(db, this.typeValidationStrategy);
+              const chunkedRecordIds =
+                dirtyCount > SAME_TABLE_BATCH_CHUNK_TRIGGER
+                  ? await this.getDirtyRecordIdChunks(db, step.tableId)
+                  : [];
+              const effectiveChunks = chunkedRecordIds.length > 1 ? chunkedRecordIds : [undefined];
 
-                const allowedFieldIds = new Set(fieldIds.map((id) => id.toString()));
-                const orderedBatchSteps = [...collapsedBatch.steps].sort(
-                  (a, b) => a.level - b.level
-                );
-                const fieldLevels: SameTableFieldLevel[] = [];
+              stepSpan?.setAttribute('step.sameTableChunkCount', effectiveChunks.length);
+              stepSpan?.setAttribute('step.sameTableChunked', effectiveChunks.length > 1);
 
-                for (const batchStep of orderedBatchSteps) {
-                  const levelFieldIds: FieldId[] = [];
-                  for (const fieldId of batchStep.fieldIds) {
-                    if (!allowedFieldIds.has(fieldId.toString())) continue;
-                    const field = yield* table.getField((f) => f.id().equals(fieldId));
-                    if (!field.type().equals(FieldType.formula())) {
-                      return err(
-                        domainError.validation({
-                          message: 'Same-table batch optimization only supports formula fields',
-                        })
-                      );
-                    }
-                    levelFieldIds.push(fieldId);
-                  }
-                  if (levelFieldIds.length > 0) {
-                    fieldLevels.push({ level: batchStep.level, fieldIds: levelFieldIds });
-                  }
-                }
-
-                return ok(fieldLevels);
-              });
-
-              if (fieldLevelsResult.isErr()) return err(fieldLevelsResult.error);
-
-              // If the batch no longer spans multiple effective levels after filtering, fall back.
-              if (fieldLevelsResult.value.length > 1) {
-                const batchBuilder = new SameTableBatchQueryBuilder(
-                  db,
-                  this.typeValidationStrategy
-                );
-                const chunkedRecordIds =
-                  dirtyCount > SAME_TABLE_BATCH_CHUNK_TRIGGER
-                    ? await this.getDirtyRecordIdChunks(db, step.tableId)
-                    : [];
-                const effectiveChunks =
-                  chunkedRecordIds.length > 1 ? chunkedRecordIds : [undefined];
-
-                stepSpan?.setAttribute('step.sameTableChunkCount', effectiveChunks.length);
-                stepSpan?.setAttribute('step.sameTableChunked', effectiveChunks.length > 1);
-
-                const batchQueryPlans: ComputedUpdateQueryPlan[] = [];
-                for (const recordIds of effectiveChunks) {
-                  const batchResult = yield* batchBuilder.build({
-                    table,
-                    fieldLevels: fieldLevelsResult.value,
-                    ...(recordIds ? { recordIds } : {}),
-                    dirtyFilter: {
-                      tableId: step.tableId.toString(),
-                      dirtyTableName: DIRTY_TABLE,
-                      tableIdColumn: DIRTY_TABLE_ID_COL,
-                      recordIdColumn: DIRTY_RECORD_ID_COL,
-                    },
-                  });
-                  batchQueryPlans.push({ selectQuery: batchResult.selectQuery, fieldIds });
-                }
-                queryPlans = batchQueryPlans;
+              const batchQueryPlans: ComputedUpdateQueryPlan[] = [];
+              for (const recordIds of effectiveChunks) {
+                const batchResult = yield* batchBuilder.build({
+                  table,
+                  fieldLevels: formulaOnlyFieldLevelsResult.value,
+                  ...(recordIds ? { recordIds } : {}),
+                  dirtyFilter: {
+                    tableId: step.tableId.toString(),
+                    dirtyTableName: DIRTY_TABLE,
+                    tableIdColumn: DIRTY_TABLE_ID_COL,
+                    recordIdColumn: DIRTY_RECORD_ID_COL,
+                  },
+                });
+                batchQueryPlans.push({ selectQuery: batchResult.selectQuery, fieldIds });
               }
+              queryPlans = batchQueryPlans;
             }
           }
 
-          const shouldChunkFields =
-            collectChanges && !collapsedBatch && fieldIds.length > COMPUTED_UPDATE_FIELD_CHUNK_SIZE;
           const fieldChunks = shouldChunkFields
             ? chunkArray(fieldIds, COMPUTED_UPDATE_FIELD_CHUNK_SIZE)
             : [fieldIds];
@@ -1556,6 +1547,9 @@ export class ComputedFieldUpdater {
         for (const edge of plan.edges) {
           tableIds.set(edge.fromTableId.toString(), edge.fromTableId);
           tableIds.set(edge.toTableId.toString(), edge.toTableId);
+        }
+        for (const tableId of plan.seedAllTableIds ?? []) {
+          tableIds.set(tableId.toString(), tableId);
         }
 
         if (tableIds.size === 0) return ok([]);
@@ -2230,6 +2224,24 @@ const buildGatedAllTargetSelect = (
     .distinct() as unknown as DirtySelectQuery;
 };
 
+const filterReferencesHostTableField = (value: unknown, hostTableId: string): boolean => {
+  if (Array.isArray(value)) {
+    return value.some((item) => filterReferencesHostTableField(item, hostTableId));
+  }
+
+  if (value == null || typeof value !== 'object') {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+  if (record.type === 'field') {
+    const tableId = record.tableId;
+    return typeof tableId !== 'string' || tableId === hostTableId;
+  }
+
+  return Object.values(record).some((item) => filterReferencesHostTableField(item, hostTableId));
+};
+
 /**
  * Build a SELECT query for dirty record propagation (without INSERT wrapper).
  * This allows combining multiple SELECT queries with UNION ALL.
@@ -2340,6 +2352,10 @@ const buildPropagationSelect = (
 
       const sourceDbName = yield* sourceTable.dbTableName().andThen((name) => name.value());
       const targetDbName = yield* targetTable.dbTableName().andThen((name) => name.value());
+      const usesHostFieldReference = filterReferencesHostTableField(
+        edge.filterCondition.filterDto,
+        edge.toTableId.toString()
+      );
 
       const currentMatchQuery = db
         .selectFrom(`${DIRTY_TABLE} as d`)
@@ -2350,6 +2366,19 @@ const buildPropagationSelect = (
         .limit(1);
 
       let matchCondition = sql<SqlBool>`exists (${currentMatchQuery})`;
+
+      let select: DirtySelectQuery | null = usesHostFieldReference
+        ? (db
+            .selectFrom(`${DIRTY_TABLE} as d`)
+            .innerJoin(`${sourceDbName} as s`, 's.__id', `d.${DIRTY_RECORD_ID_COL}`)
+            .innerJoin(`${targetDbName} as t`, (join) => join.on(filterWhere))
+            .select([
+              sql.lit(edge.toTableId.toString()).as(DIRTY_TABLE_ID_COL),
+              sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
+            ])
+            .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
+            .distinct() as unknown as DirtySelectQuery)
+        : null;
 
       if (edge.filterCondition.includeBeforeImage) {
         const beforeImageVisitor = new TableRecordConditionWhereVisitor({
@@ -2367,7 +2396,7 @@ const buildPropagationSelect = (
         const beforeFilterWhere = beforeWhereResult.value as unknown as Expression<SqlBool>;
         const sourceTableTypeLiteral = toQualifiedIdentifierLiteral(sourceDbName);
 
-        const beforeImageMatchQuery = db
+        const beforeImageBaseQuery = db
           .selectFrom(`${DIRTY_TABLE} as d`)
           .innerJoin(`${BEFORE_IMAGE_TABLE} as bi`, (join) =>
             join
@@ -2376,28 +2405,48 @@ const buildPropagationSelect = (
           )
           .leftJoin(`${sourceDbName} as s_current`, 's_current.__id', `d.${DIRTY_RECORD_ID_COL}`)
           .innerJoinLateral(
-            sql<{ one: number }>`(
-              select 1 as one
+            sql<Record<string, unknown>>`(
+              select *
               -- Reconstruct the pre-change source row by starting from the current row
               -- (or an empty JSON object for DELETE) and overlaying the captured old column values.
               from jsonb_populate_record(
                 null::${sql.raw(sourceTableTypeLiteral)},
                 coalesce(to_jsonb(${sql.raw(quoteIdentifier('s_current'))}), '{}'::jsonb)
                   || ${sql.ref(`bi.${BEFORE_IMAGE_SNAPSHOT_COL}`)}
-              ) as s_before
-              where ${beforeFilterWhere}
-              limit 1
-            )`.as('sb'),
+              )
+            )`.as('s_before'),
             (join) => join.onTrue()
-          )
-          .select(sql.lit(1).as('one'))
-          .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
-          .limit(1);
+          );
 
-        matchCondition = sql<SqlBool>`(${matchCondition}) or exists (${beforeImageMatchQuery})`;
+        if (usesHostFieldReference) {
+          const beforeImageMatchSelect = beforeImageBaseQuery
+            .innerJoin(`${targetDbName} as t`, (join) => join.on(beforeFilterWhere))
+            .select([
+              sql.lit(edge.toTableId.toString()).as(DIRTY_TABLE_ID_COL),
+              sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
+            ])
+            .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
+            .distinct() as unknown as DirtySelectQuery;
+
+          select = (select as DirtySelectQuery).unionAll(
+            beforeImageMatchSelect
+          ) as DirtySelectQuery;
+        } else {
+          const beforeImageMatchQuery = beforeImageBaseQuery
+            .select(sql.lit(1).as('one'))
+            .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
+            .where(beforeFilterWhere)
+            .limit(1);
+
+          matchCondition = sql<SqlBool>`(${matchCondition}) or exists (${beforeImageMatchQuery})`;
+        }
       }
 
-      const select = db
+      if (select) {
+        return ok({ query: select as unknown as DirtySelectQuery });
+      }
+
+      const targetDrivenSelect = db
         .selectFrom(`${targetDbName} as t`)
         .select([
           sql.lit(edge.toTableId.toString()).as(DIRTY_TABLE_ID_COL),
@@ -2406,7 +2455,7 @@ const buildPropagationSelect = (
         .where(matchCondition)
         .distinct();
 
-      return ok({ query: select as unknown as DirtySelectQuery });
+      return ok({ query: targetDrivenSelect as unknown as DirtySelectQuery });
     }
 
     if (!edge.linkFieldId) return err(domainError.validation({ message: 'Missing linkFieldId' }));

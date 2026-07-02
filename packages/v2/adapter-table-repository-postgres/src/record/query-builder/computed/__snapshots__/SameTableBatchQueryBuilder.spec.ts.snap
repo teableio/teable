@@ -1,0 +1,10 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`SameTableBatchQueryBuilder > build() > uses scalar lookup columns directly in same-table formula batches 1`] = `
+"update "bseaaaaaaaaaaaaaaaa"."tbltttttttttttttttt" as "u" set "__version" = "u"."__version" + 1, "LookupAmountDoubled" = "c"."__set_LookupAmountDoubled" from (select "c_src"."__id" as "__id", CASE
+    WHEN ("c_src"."LookupAmountDoubled") IS NULL THEN NULL
+    WHEN BTRIM(("c_src"."LookupAmountDoubled")::text) ~ '^[+-]?([0-9]+([.][0-9]+)?|[.][0-9]+)([eE][+-]?[0-9]+)?$'
+      THEN BTRIM(("c_src"."LookupAmountDoubled")::text)::double precision
+    ELSE NULL
+  END as "__set_LookupAmountDoubled" from (WITH "level_0" AS (SELECT "t"."__id", (NULLIF(BTRIM((ROUND(((COALESCE(("t"."LookupAmount")::double precision, 0) * COALESCE((2)::double precision, 0)))::double precision::numeric, (2)::double precision::integer))::text), '')::double precision) as "LookupAmountDoubled" FROM "bseaaaaaaaaaaaaaaaa"."tbltttttttttttttttt" AS "t") SELECT "u"."__id", "level_0"."LookupAmountDoubled" as "LookupAmountDoubled" FROM "bseaaaaaaaaaaaaaaaa"."tbltttttttttttttttt" AS "u" JOIN "level_0" ON "u"."__id" = "level_0"."__id") as "c_src") as "c" where "u"."__id" = "c"."__id" and ("u"."LookupAmountDoubled" IS DISTINCT FROM "c"."__set_LookupAmountDoubled")"
+`;

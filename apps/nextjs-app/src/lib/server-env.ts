@@ -13,6 +13,8 @@ export interface IServerEnv {
   gaId?: string;
   googleAdsConversionId?: string;
   marketingGaId?: string;
+  posthogKey?: string;
+  posthogHost?: string;
   umamiUrl?: string;
   sentryDsn?: string;
   socialAuthProviders?: string[];
