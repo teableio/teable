@@ -28,6 +28,7 @@ import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { Trans, useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
 import { useFilteredRoleStatic as useFilteredBaseRoleStatic } from '../../collaborator-manage/base/useFilteredRoleStatic';
+import { OverflowText } from '../../collaborator-manage/components/Collaborator';
 import { useFilteredRoleStatic } from '../../collaborator-manage/space/useFilteredRoleStatic';
 import { CollaboratorsDialog } from '../share/CollaboratorsDialog';
 import { CollaboratorButton } from '../share/common/CollaboratorButton';
@@ -373,8 +374,11 @@ export const InviteSpaceContent = (props: IInviteSpaceContentProps) => {
                     return (
                       item.resourceType === CollaboratorType.Base &&
                       item.base?.name && (
-                        <Badge className="ml-2 text-xs font-normal" variant={'outline'}>
-                          {item.base.name}
+                        <Badge
+                          className="px-2 max-w-24 shrink-0 whitespace-nowrap text-xs font-normal"
+                          variant={'outline'}
+                        >
+                          <OverflowText text={item.base.name} />
                         </Badge>
                       )
                     );

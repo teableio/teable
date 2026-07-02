@@ -23,14 +23,16 @@ import type {
   RecordUpdateDTO,
 } from '../domain/table/events/RecordFieldValuesDTO';
 import { RecordsBatchUpdated } from '../domain/table/events/RecordsBatchUpdated';
-import type { FieldId } from '../domain/table/fields/FieldId';
+import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
 import type { UpdateRecordItem } from '../domain/table/methods/records';
 import { RecordId } from '../domain/table/records/RecordId';
 import type { RecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
+import { RecordByIdsSpec } from '../domain/table/records/specs/RecordByIdsSpec';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { Table } from '../domain/table/Table';
+import type { IBatchMutationOrchestration } from '../ports/BatchMutationOrchestration';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { AsyncIterableQueue } from '../ports/memory/AsyncIterableQueue';
@@ -43,15 +45,15 @@ import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import { createUndoRedoCommand, type UndoRedoCommandLeafData } from '../ports/UndoRedoStore';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
-import { buildSanitizedRecordConditionSpec } from '../queries/RecordFilterMapper';
+import {
+  buildSanitizedRecordConditionSpec,
+  replaceCurrentUserTagInFilter,
+} from '../queries/RecordFilterMapper';
 import { resolveVisibleRowSearch } from '../queries/RecordSearch';
 import { ClearCommand } from './ClearCommand';
 import { ClearStreamCommand } from './ClearStreamCommand';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
-import {
-  buildOperationBatchMutation,
-  withBatchMutation,
-} from './shared/batchMutationOrchestration';
+import { buildOperationBatchMutation } from './shared/batchMutationOrchestration';
 import {
   mergeOrderByWithViewRowTieBreaker,
   resolveGroupByToOrderBy,
@@ -231,7 +233,12 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
 
       // 3. Build filter spec from effective view filter. Search-aware visible rows are handled
       // by the query repository so field-type-specific search semantics stay centralized.
-      const filterSpec = yield* buildSanitizedRecordConditionSpec(table, effectiveFilter);
+      const actorResolvedFilter = replaceCurrentUserTagInFilter(
+        table,
+        effectiveFilter,
+        context.actorId.toString()
+      );
+      const filterSpec = yield* buildSanitizedRecordConditionSpec(table, actorResolvedFilter);
       const visibleRowSearch = resolveVisibleRowSearch(command.search, orderedFieldIds);
 
       // 4. Get total row count for columns/rows type normalization
@@ -327,8 +334,7 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
         return ok({ updatedCount: 0 });
       }
 
-      // 8. Build orderBy from group + sort for correct row mapping
-      // If none provided, fall back to view row order column (__row_{viewId})
+      // 8. Build orderBy from group + sort to match the visible list row order.
       const effectiveGroup = command.ignoreViewQuery
         ? command.groupBy ?? undefined
         : mergedDefaults.group();
@@ -441,20 +447,17 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
       });
       yield* await pluginExecution.guard();
 
-      const batchMutation = buildOperationBatchMutation(context, updateItems.length);
+      const batchMutation = buildOperationBatchMutation(context.requestId, updateItems.length);
 
       // 11. Execute updates within transaction
       const updateResult = yield* await handler.unitOfWork.withTransaction(
         context,
         async (txContext) => {
-          const txContextWithBatchMutation = withBatchMutation(txContext, batchMutation);
-          const beforePersistResult = await pluginExecution.beforePersist(
-            txContextWithBatchMutation
-          );
+          const beforePersistResult = await pluginExecution.beforePersist(txContext);
           if (beforePersistResult.isErr()) {
             return err(beforePersistResult.error);
           }
-          return handler.executeUpdates(txContextWithBatchMutation, table, updateItems);
+          return handler.executeUpdates(txContext, table, updateItems, batchMutation);
         }
       );
       const persistedEventData = reconcilePersistedUpdateEvents(eventData, updateResult);
@@ -501,7 +504,8 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
   protected async executeUpdates(
     context: ExecutionContextPort.IExecutionContext,
     table: Table,
-    updateItems: ReadonlyArray<UpdateRecordItem>
+    updateItems: ReadonlyArray<UpdateRecordItem>,
+    orchestration?: IBatchMutationOrchestration
   ): Promise<Result<TableRecordRepositoryPort.UpdateManyStreamResult, DomainError>> {
     const handler = this;
 
@@ -526,7 +530,8 @@ export class ClearHandler implements ICommandHandler<ClearCommand, ClearResult> 
         const updateResult = yield* await handler.tableRecordRepository.updateManyStream(
           context,
           table,
-          syncBatchesGenerator()
+          syncBatchesGenerator(),
+          orchestration ? { orchestration } : undefined
         );
 
         return ok(updateResult);
@@ -785,17 +790,15 @@ export class ClearStreamApplicationService extends ClearHandler {
           const persistResult = await this.unitOfWork.withTransaction(
             context,
             async (txContext) => {
-              const txContextWithBatchMutation = withBatchMutation(txContext, batchMutation);
-              const beforePersistResult = await chunkPluginExecution.beforePersist(
-                txContextWithBatchMutation
-              );
+              const beforePersistResult = await chunkPluginExecution.beforePersist(txContext);
               if (beforePersistResult.isErr()) {
                 return err(beforePersistResult.error);
               }
               return this.executeUpdates(
-                txContextWithBatchMutation,
+                txContext,
                 plan.table,
-                chunkBuild.updateItems
+                chunkBuild.updateItems,
+                batchMutation
               );
             }
           );
@@ -956,11 +959,63 @@ export class ClearStreamApplicationService extends ClearHandler {
       ? command.groupBy ?? undefined
       : mergedDefaults.group();
 
-    const filterSpecResult = await buildSanitizedRecordConditionSpec(table, effectiveFilter);
+    const actorResolvedFilter = replaceCurrentUserTagInFilter(
+      table,
+      effectiveFilter,
+      context.actorId.toString()
+    );
+    const filterSpecResult = await buildSanitizedRecordConditionSpec(table, actorResolvedFilter);
     if (filterSpecResult.isErr()) {
       return err(filterSpecResult.error);
     }
     const filterSpec = filterSpecResult.value;
+
+    if (command.targetRecordIds || command.targetFieldIds || command.excludedTargetRecordIds) {
+      const excludedTargetRecordIdsResult = this.parseClearTargetRecordIdSet(
+        command.excludedTargetRecordIds
+      );
+      if (excludedTargetRecordIdsResult.isErr()) {
+        return err(excludedTargetRecordIdsResult.error);
+      }
+      const excludedTargetRecordIds = excludedTargetRecordIdsResult.value;
+      const explicitTargetFieldIdsResult = this.parseClearTargetFieldIds(command.targetFieldIds);
+      if (explicitTargetFieldIdsResult.isErr()) {
+        return err(explicitTargetFieldIdsResult.error);
+      }
+      const targetFieldIds = (
+        explicitTargetFieldIdsResult.value ?? orderedFieldIdsResult.value
+      ).filter((fieldId) => {
+        const fieldResult = table.getField((field) => field.id().equals(fieldId));
+        return fieldResult.isOk() && !fieldResult.value.computed().toBoolean();
+      });
+
+      const targetRecordsResult = command.targetRecordIds?.length
+        ? await this.queryClearTargetRecordsByIds(context, table, command.targetRecordIds)
+        : await this.queryClearTargetRecords(
+            context,
+            table,
+            filterSpec,
+            [],
+            resolveVisibleRowSearch(command.search, orderedFieldIdsResult.value),
+            0,
+            Number.MAX_SAFE_INTEGER
+          );
+      if (targetRecordsResult.isErr()) {
+        return err(targetRecordsResult.error);
+      }
+
+      const targetRecords = targetRecordsResult.value.filter(
+        (record) => !excludedTargetRecordIds.has(record.id)
+      );
+      const batchSize = resolveSelectionStreamBatchSize(targetRecords.length, command.batchSize);
+
+      return ok({
+        table,
+        targetFieldIds,
+        totalCount: targetRecords.length,
+        chunkPlans: this.buildClearStreamChunkPlans(targetRecords, batchSize),
+      });
+    }
 
     let totalRows = 0;
     if (command.rangeType === 'columns' || command.rangeType === 'rows') {
@@ -1037,6 +1092,67 @@ export class ClearStreamApplicationService extends ClearHandler {
       totalCount: targetRecords.length,
       chunkPlans,
     });
+  }
+
+  private parseClearTargetFieldIds(
+    fieldIds: ReadonlyArray<string> | undefined
+  ): Result<ReadonlyArray<FieldId> | undefined, DomainError> {
+    if (!fieldIds) {
+      return ok(undefined);
+    }
+    const parsed: FieldId[] = [];
+    for (const rawId of fieldIds) {
+      const fieldIdResult = FieldId.create(rawId);
+      if (fieldIdResult.isErr()) {
+        return err(fieldIdResult.error);
+      }
+      parsed.push(fieldIdResult.value);
+    }
+    return ok(parsed);
+  }
+
+  private parseClearTargetRecordIdSet(
+    recordIds: ReadonlyArray<string> | undefined
+  ): Result<ReadonlySet<string>, DomainError> {
+    const parsed = new Set<string>();
+    for (const rawId of recordIds ?? []) {
+      const recordIdResult = RecordId.create(rawId);
+      if (recordIdResult.isErr()) {
+        return err(recordIdResult.error);
+      }
+      parsed.add(recordIdResult.value.toString());
+    }
+    return ok(parsed);
+  }
+
+  private async queryClearTargetRecordsByIds(
+    context: ExecutionContextPort.IExecutionContext,
+    table: Table,
+    recordIds: ReadonlyArray<string>
+  ): Promise<Result<ReadonlyArray<TableRecordReadModel>, DomainError>> {
+    const parsedRecordIds: RecordId[] = [];
+    for (const rawId of recordIds) {
+      const recordIdResult = RecordId.create(rawId);
+      if (recordIdResult.isErr()) {
+        return err(recordIdResult.error);
+      }
+      parsedRecordIds.push(recordIdResult.value);
+    }
+
+    if (!parsedRecordIds.length) {
+      return ok([]);
+    }
+
+    const recordsResult = await this.tableRecordQueryRepository.find(
+      context,
+      table,
+      RecordByIdsSpec.create(parsedRecordIds),
+      { mode: 'stored', recordIdsOrder: parsedRecordIds, includeTotal: false }
+    );
+    if (recordsResult.isErr()) {
+      return err(recordsResult.error);
+    }
+    return ok(recordsResult.value.records);
   }
 
   private buildClearStreamChunkPlans(

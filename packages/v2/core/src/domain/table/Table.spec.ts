@@ -21,6 +21,8 @@ import { CheckboxField } from './fields/types/CheckboxField';
 import { FieldNotNull } from './fields/types/FieldNotNull';
 import { FieldUnique } from './fields/types/FieldUnique';
 import { FormulaExpression } from './fields/types/FormulaExpression';
+import { LinkField } from './fields/types/LinkField';
+import { LinkFieldConfig } from './fields/types/LinkFieldConfig';
 import { LongTextField } from './fields/types/LongTextField';
 import { NumberDefaultValue } from './fields/types/NumberDefaultValue';
 import { SingleLineTextField } from './fields/types/SingleLineTextField';
@@ -165,6 +167,60 @@ describe('Table', () => {
     const events = table.pullDomainEvents();
     expect(events.length).toBe(1);
     expect(events[0]).toBeInstanceOf(TableRestored);
+  });
+
+  it('renames link fields without changing their relationship config', () => {
+    const baseId = createBaseId('l')._unsafeUnwrap();
+    const tableId = createTableId('l')._unsafeUnwrap();
+    const foreignTableId = createTableId('m')._unsafeUnwrap();
+    const primaryFieldId = createFieldId('l')._unsafeUnwrap();
+    const linkFieldId = createFieldId('m')._unsafeUnwrap();
+    const lookupFieldId = createFieldId('n')._unsafeUnwrap();
+    const symmetricFieldId = createFieldId('o')._unsafeUnwrap();
+    const nextName = FieldName.create('Renamed link')._unsafeUnwrap();
+    const linkConfig = LinkFieldConfig.create({
+      relationship: 'manyMany',
+      foreignTableId: foreignTableId.toString(),
+      lookupFieldId: lookupFieldId.toString(),
+      isOneWay: false,
+      symmetricFieldId: symmetricFieldId.toString(),
+      fkHostTableName: `${baseId.toString()}.junction_${linkFieldId.toString()}_${symmetricFieldId.toString()}`,
+      selfKeyName: '__fk_self',
+      foreignKeyName: '__fk_foreign',
+    })._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(TableName.create('Host')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(primaryFieldId)
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .link()
+      .withId(linkFieldId)
+      .withName(FieldName.create('Link')._unsafeUnwrap())
+      .withConfig(linkConfig)
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    const updatedTable = table.updateFieldName(linkFieldId, nextName)._unsafeUnwrap();
+    const renamedField = updatedTable
+      .getField((field) => field.id().equals(linkFieldId))
+      ._unsafeUnwrap();
+
+    expect(renamedField.name().equals(nextName)).toBe(true);
+    expect(renamedField).toBeInstanceOf(LinkField);
+    const renamedLinkField = renamedField as LinkField;
+    expect(renamedLinkField.isOneWay()).toBe(false);
+    expect(renamedLinkField.symmetricFieldId()?.equals(symmetricFieldId)).toBe(true);
+    expect(renamedLinkField.config().equals(linkConfig)).toBe(true);
   });
 
   it('rehydrates without emitting events', () => {
@@ -2104,11 +2160,17 @@ describe('Table.createRecordsStream', () => {
       (field) => field.id === duplicatedLookupFieldId
     );
     expect(duplicatedLookupField?.isLookup).toBe(true);
+    // lookupOptions carries the parent (duplicated) link's stable physical join metadata.
+    const duplicatedSelfLinkOptions =
+      duplicatedSelfLinkField?.type === 'link' ? duplicatedSelfLinkField.options : undefined;
     expect(duplicatedLookupField?.lookupOptions).toEqual({
       linkFieldId: duplicatedSelfLinkFieldId,
       foreignTableId: duplicatedTableId.toString(),
       lookupFieldId: duplicatedPrimaryFieldId,
       relationship: 'manyMany',
+      fkHostTableName: duplicatedSelfLinkOptions?.fkHostTableName,
+      selfKeyName: duplicatedSelfLinkOptions?.selfKeyName,
+      foreignKeyName: duplicatedSelfLinkOptions?.foreignKeyName,
     });
 
     const duplicatedButtonField = duplicatedDto.fields.find(

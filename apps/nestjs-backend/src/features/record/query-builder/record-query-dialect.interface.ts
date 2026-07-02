@@ -139,24 +139,16 @@ export interface IRecordQueryDialectProvider {
   jsonTitleFromExpr(selectionSql: string): string;
 
   /**
-   * Subquery snippet to select user name by id.
-   * @example
-   * ```ts
-   * dialect.selectUserNameById('"t"."__created_by"')
-   * // PG:     (SELECT u.name FROM users u WHERE u.id = "t"."__created_by")
-   * ```
+   * Extract a display title from a stored user JSON snapshot.
+   * Falls back to the system user id when the snapshot is missing or still scalar.
    */
-  selectUserNameById(idRef: string): string;
+  userTitleFromSnapshot(snapshotRef: string, idFallbackRef?: string): string;
 
   /**
-   * Build a JSON object for system user fields: { id, title, email }.
-   * @example
-   * ```ts
-   * dialect.buildUserJsonObjectById('"t"."__created_by"')
-   * // PG:     (SELECT jsonb_build_object('id', u.id, 'title', u.name, 'email', u.email) FROM users u WHERE u.id = "t"."__created_by")
-   * ```
+   * Build a user JSON object from a stored user JSON snapshot.
+   * Falls back to a minimal { id, title } object from the system user id when missing.
    */
-  buildUserJsonObjectById(idRef: string): string;
+  buildUserJsonObjectFromSnapshot(snapshotRef: string, idFallbackRef?: string): string;
 
   // Lookup CTE helpers
 

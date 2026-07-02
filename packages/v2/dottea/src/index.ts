@@ -8,7 +8,7 @@ import {
   type IDotTeaParser,
   type NormalizedDotTeaStructure,
 } from '@teable/v2-core';
-import { normalizeField } from './normalizer';
+import { normalizeFields } from './normalizer';
 import { injectable } from '@teable/v2-di';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
@@ -130,18 +130,12 @@ export class DotTeaParser implements IDotTeaParser {
     );
 
     // Normalize all tables and their fields using table-local field IDs so
-    // legacy formulas that reference deleted fields can be downgraded safely.
+    // legacy formulas and relation dependencies can be downgraded safely.
     const normalizedTables = structure.tables.map((table) => {
-      const tableFieldTypesById = new Map(
-        table.fields.filter((field) => field.id).map((field) => [field.id!, field.type] as const)
-      );
-
       return {
         ...(table.id ? { id: table.id } : {}),
         name: table.name,
-        fields: table.fields.map((field) =>
-          normalizeField(field, tableFieldTypesById, { availableTableIds, fieldIdsByTableId })
-        ),
+        fields: normalizeFields(table.fields, { availableTableIds, fieldIdsByTableId }),
         views: table.views
           ?.filter((view) => (view.type ? allowedViewTypes.has(view.type) : true))
           .map((view) => ({

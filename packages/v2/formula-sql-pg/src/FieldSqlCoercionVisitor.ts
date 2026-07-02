@@ -131,20 +131,40 @@ class FieldStorageKindVisitor extends AbstractFieldVisitor<SqlStorageKind> {
     return this.ok('json');
   }
 
-  visitLookupField(_field: LookupField) {
-    return this.ok('array');
+  visitLookupField(field: LookupField) {
+    return this.lookupStorageKind(field);
   }
 
   visitConditionalRollupField(_field: ConditionalRollupField) {
     return this.ok('scalar');
   }
 
-  visitConditionalLookupField(_field: ConditionalLookupField) {
-    return this.ok('array');
+  visitConditionalLookupField(field: ConditionalLookupField) {
+    return this.lookupStorageKind(field);
   }
 
   private ok(kind: SqlStorageKind) {
     return ok(kind);
+  }
+
+  private lookupStorageKind(field: LookupField | ConditionalLookupField) {
+    return field.isMultipleCellValue().map((multiplicity) => {
+      if (multiplicity.isMultiple()) return 'array' as const;
+      const innerField = field.innerField();
+      if (innerField.isErr()) return 'scalar' as const;
+      return this.isJsonFieldType(innerField.value) ? ('json' as const) : ('scalar' as const);
+    });
+  }
+
+  private isJsonFieldType(field: Field): boolean {
+    const type = field.type().toString();
+    return (
+      type === 'user' ||
+      type === 'attachment' ||
+      type === 'button' ||
+      type === 'link' ||
+      type === 'multipleSelect'
+    );
   }
 }
 
