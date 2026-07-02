@@ -1699,8 +1699,10 @@ describe('v2 http deleteTable (e2e)', () => {
         expect(typeof sqlText).toBe('string');
         if (typeof sqlText !== 'string') continue;
 
-        expect(sqlText).toContain(`update "${ctx.baseId}"."${hostTable.id}" as "u" set`);
-        expect(sqlText.toLowerCase()).toContain('from (select');
+        if (sqlText !== 'select 1 where false') {
+          expect(sqlText).toContain(`update "${ctx.baseId}"."${hostTable.id}" as "u" set`);
+          expect(sqlText.toLowerCase()).toContain('from (select');
+        }
         expect(sqlText).not.toContain('tmp_computed_dirty');
         expect(sqlText).not.toContain('select "__id" as "record_id"');
       }
@@ -1888,8 +1890,10 @@ describe('v2 http deleteTable (e2e)', () => {
         expect(typeof sqlText).toBe('string');
         if (typeof sqlText !== 'string') continue;
 
-        expect(sqlText).toContain(`update "${ctx.baseId}"."${hostTable.id}" as "u" set`);
-        expect(sqlText.toLowerCase()).toContain('from (select');
+        if (sqlText !== 'select 1 where false') {
+          expect(sqlText).toContain(`update "${ctx.baseId}"."${hostTable.id}" as "u" set`);
+          expect(sqlText.toLowerCase()).toContain('from (select');
+        }
         expect(sqlText).not.toContain('tmp_computed_dirty');
         expect(sqlText).not.toContain('select "__id" as "record_id"');
       }

@@ -1361,7 +1361,11 @@ export class FormulaSqlPgExpressionBuilder {
   }
 
   private isNullSqlLiteral(valueSql: string): boolean {
-    return valueSql.trim().toUpperCase() === 'NULL';
+    let normalized = valueSql.trim();
+    while (normalized.startsWith('(') && normalized.endsWith(')')) {
+      normalized = normalized.slice(1, -1).trim();
+    }
+    return /^NULL(?:::[a-zA-Z0-9_ ]+)?$/i.test(normalized);
   }
 
   protected buildLooseDatetimeComparison(left: SqlExpr, right: SqlExpr, operator: string): string {
@@ -1384,6 +1388,14 @@ export class FormulaSqlPgExpressionBuilder {
     castableSql: string;
     invalidSql: string;
   } {
+    if (this.isNullSqlLiteral(valueSql)) {
+      return {
+        valueSql: 'NULL::double precision',
+        castableSql: 'FALSE',
+        invalidSql: 'FALSE',
+      };
+    }
+
     // Extract numeric prefix from text (matches v1 VALUE() function behavior).
     // Examples: "42" → 42, "10天" → 10, "3.14pi" → 3.14, "-5meters" → -5
     // Intentionally disallow scientific notation (e.g. "3.7e+35") so that SUM/AVERAGE over

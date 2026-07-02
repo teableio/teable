@@ -24,6 +24,9 @@ import type { RecordFilter } from '../queries/RecordFilterDto';
 
 export const pasteStreamCommandInputSchema = pasteCommandInputSchema.extend({
   batchSize: z.number().int().min(1).max(MAX_SELECTION_STREAM_BATCH_SIZE).optional(),
+  targetRecordIds: z.array(z.string()).optional(),
+  excludedTargetRecordIds: z.array(z.string()).optional(),
+  targetFieldIds: z.array(z.string()).optional(),
 });
 
 export type IPasteStreamCommandInput = z.input<typeof pasteStreamCommandInputSchema>;
@@ -44,6 +47,9 @@ export class PasteStreamCommand {
     readonly sort: ReadonlyArray<PasteSort> | undefined,
     readonly groupBy: ReadonlyArray<PasteGroup> | undefined,
     readonly ignoreViewQuery: boolean,
+    readonly targetRecordIds?: ReadonlyArray<string>,
+    readonly excludedTargetRecordIds?: ReadonlyArray<string>,
+    readonly targetFieldIds?: ReadonlyArray<string>,
     readonly batchSize?: number
   ) {}
 
@@ -94,6 +100,9 @@ export class PasteStreamCommand {
           parsed.data.sort,
           parsed.data.groupBy,
           parsed.data.ignoreViewQuery ?? false,
+          parsed.data.targetRecordIds,
+          parsed.data.excludedTargetRecordIds,
+          parsed.data.targetFieldIds,
           parsed.data.batchSize
         );
       })

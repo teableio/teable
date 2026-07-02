@@ -13,7 +13,12 @@ import type {
   SchemaOperationType,
 } from './SchemaOperationRepository';
 
-export type TableQueryState = 'active' | 'activeWithPending' | 'deleted' | 'all';
+export type TableQueryState =
+  | 'active'
+  | 'activeWithPending'
+  | 'activeAnyProvision'
+  | 'deleted'
+  | 'all';
 
 export type TableFindOptions = IFindOptions<TableSortKey> & {
   state?: TableQueryState;
@@ -72,6 +77,11 @@ export interface ITableRepository {
     spec: ISpecification<Table, ITableSpecVisitor>,
     options?: TableFindOptions
   ): Promise<Result<ReadonlyArray<Table>, DomainError>>;
+  count?(
+    context: IExecutionContext,
+    spec: ISpecification<Table, ITableSpecVisitor>,
+    options?: Pick<TableFindOptions, 'state'>
+  ): Promise<Result<number, DomainError>>;
   // table identifies the row, mutateSpec drives update values via visitors.
   updateOne(
     context: IExecutionContext,

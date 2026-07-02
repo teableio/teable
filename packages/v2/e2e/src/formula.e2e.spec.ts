@@ -16763,7 +16763,7 @@ describe('v2 http formula (e2e)', () => {
     /**
      * Scenario: Formula directly references createdBy field
      * Formula: {createdByField}
-     * Expect: returns the name string of the creator (via subquery from users table)
+     * Expect: returns the name string from the stored creator snapshot
      */
     it('should extract name from createdBy field - {createdByField}', async () => {
       const createTableResponse = await fetch(`${ctx.baseUrl}/tables/create`, {
@@ -16865,7 +16865,7 @@ describe('v2 http formula (e2e)', () => {
     /**
      * Scenario: Formula directly references lastModifiedBy field
      * Formula: {lastModifiedByField}
-     * Expect: returns the name string of the last modifier (via subquery from users table)
+     * Expect: returns the name string from the stored last modifier snapshot
      */
     it('should extract name from lastModifiedBy field - {lastModifiedByField}', async () => {
       const createTableResponse = await fetch(`${ctx.baseUrl}/tables/create`, {

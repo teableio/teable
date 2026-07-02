@@ -1165,6 +1165,13 @@ describe('OpenAPI OAuthController (e2e)', () => {
     });
 
     it('/api/oauth/client/:clientId/revoke-token (POST)', async () => {
+      const userRes = await anonymousAxios.get(`/auth/user`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+      expect(userRes.status).toBe(200);
+
       const revokeRes = await axios.post<void>(
         urlBuilder(REVOKE_TOKEN, { clientId: oauth.clientId })
       );

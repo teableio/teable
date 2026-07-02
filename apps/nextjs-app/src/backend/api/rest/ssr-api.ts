@@ -42,6 +42,8 @@ import {
   IS_TEMPLATE_HEADER,
   X_CANARY_HEADER,
   BASE_SHARE_ID_HEADER,
+  CREATE_SOURCE_HEADER,
+  CREATE_SOURCE_AUTO,
   ACCEPT_INVITATION_LINK,
   CREATE_BASE,
   GET_BASE,
@@ -358,8 +360,17 @@ export class SsrApi {
       .then(({ data }) => data);
   }
 
+  /**
+   * Only used by the empty-space auto-create redirect (see pages/space/[spaceId].tsx),
+   * hence the `auto` source header: analytics must not count these as user-initiated
+   * base creations. If you reuse this for a user-triggered flow, make the header a param.
+   */
   async createBase(createBaseRo: ICreateBaseRo) {
-    return this.axios.post<ICreateBaseVo>(CREATE_BASE, createBaseRo).then(({ data }) => data);
+    return this.axios
+      .post<ICreateBaseVo>(CREATE_BASE, createBaseRo, {
+        headers: { [CREATE_SOURCE_HEADER]: CREATE_SOURCE_AUTO },
+      })
+      .then(({ data }) => data);
   }
 
   async getTemplatePermalink(identifier: string) {

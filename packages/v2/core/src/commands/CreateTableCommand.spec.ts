@@ -27,6 +27,8 @@ const createContextWithSelectOptionLimit = (maxChoicesPerField: number): IExecut
     },
   },
 });
+const createSelectOptions = (count: number) =>
+  Array.from({ length: count }, (_, index) => `Option ${index + 1}`);
 
 const buildFromCommand = (command: CreateTableCommand) => {
   return buildTable(command);
@@ -145,6 +147,36 @@ describe('CreateTableCommand', () => {
 
     expect(result.isErr()).toBe(true);
     expect(result._unsafeUnwrapErr().code).toBe('validation.field.select_options_limit');
+  });
+
+  it('builds select fields above the default option limit when runtime table limits allow it', () => {
+    const baseId = createBaseId('n')._unsafeUnwrap();
+    const options = createSelectOptions(1001);
+
+    const result = CreateTableCommand.create(
+      {
+        baseId: baseId.toString(),
+        name: 'Runtime Select Limit',
+        fields: [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          {
+            type: 'singleSelect',
+            name: 'Status',
+            options,
+          },
+          {
+            type: 'multipleSelect',
+            name: 'Tags',
+            options,
+          },
+        ],
+      },
+      { executionContext: createContextWithSelectOptionLimit(1001) }
+    );
+
+    expect(result.isOk()).toBe(true);
+    const tableResult = result.andThen((command) => buildTable(command));
+    expect(tableResult.isOk()).toBe(true);
   });
 
   it('creates command with all field types and view types', () => {

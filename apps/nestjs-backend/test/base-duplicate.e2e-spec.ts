@@ -35,6 +35,7 @@ import {
   getPluginPanel,
   getPluginPanelPlugin,
   getTableList,
+  getUserLastVisitListBase,
   getViewList,
   installPlugin,
   installPluginPanel,
@@ -226,6 +227,24 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
     expect(getResult.data[0].name).toBe(table1.name);
     expect(getResult.data[0].id).not.toBe(table1.id);
     await deleteBase(dupResult.data.id);
+  });
+
+  it('seeds last-visit so a freshly duplicated base tops the recent list', async () => {
+    const dupResult = await duplicateBase({
+      fromBaseId: base.id,
+      spaceId,
+      name: 'last-visit seed copy',
+    });
+    expect(dupResult.status).toBe(201);
+    duplicateBaseId = dupResult.data.id;
+
+    // The recent-bases query INNER JOINs user_last_visit, so without the seed the
+    // new base is absent entirely (not merely sorted last) — looking like a failed copy.
+    const listRes = await getUserLastVisitListBase();
+    const listedIds = listRes.data.list.map((item) => item.resource.id);
+    expect(listedIds).toContain(duplicateBaseId);
+    // Seeded with lastVisitTime = now, so it sorts to the front.
+    expect(listRes.data.list[0].resource.id).toBe(duplicateBaseId);
   });
 
   it('duplicate with records', async () => {
@@ -910,6 +929,157 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
       expect(recordsAfterCreate.records[recordsAfterCreate.records.length - 1].autoNumber).toEqual(
         recordsAfterCreate.records.length
       );
+    });
+
+    it('duplicates bidirectional link records through v2 stream copy', async () => {
+      const sourceTable = await createTable(base.id, { name: 'V2 Source', records: [] });
+      const linkedTable = await createTable(base.id, { name: 'V2 Linked', records: [] });
+      const linkField = (
+        await createField(sourceTable.id, {
+          name: 'Links',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyMany,
+            foreignTableId: linkedTable.id,
+          },
+        })
+      ).data;
+      const symmetricField = (
+        await getField(
+          linkedTable.id,
+          (linkField.options as ILinkFieldOptions).symmetricFieldId as string
+        )
+      ).data;
+      const linkedRecords = await createRecords(linkedTable.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [{ fields: {} }, { fields: {} }],
+      });
+      await createRecords(sourceTable.id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: [
+          { fields: { [linkField.name]: [{ id: linkedRecords.records[0].id }] } },
+          { fields: { [linkField.name]: [{ id: linkedRecords.records[1].id }] } },
+        ],
+      });
+
+      const dupResult = await duplicateBase({
+        fromBaseId: base.id,
+        spaceId,
+        name: 'v2 stream link copy',
+        withRecords: true,
+      });
+      duplicateBaseId = dupResult.data.id;
+
+      const duplicatedTables = await getTableList(duplicateBaseId).then((res) => res.data);
+      const duplicatedSourceTable = duplicatedTables.find(({ name }) => name === sourceTable.name)!;
+      const duplicatedLinkedTable = duplicatedTables.find(({ name }) => name === linkedTable.name)!;
+      const duplicatedSourceRecords = await getRecords(duplicatedSourceTable.id);
+      const duplicatedLinkedRecords = await getRecords(duplicatedLinkedTable.id);
+
+      expect(duplicatedSourceRecords.records[0].fields[linkField.name]).toMatchObject([
+        { id: duplicatedLinkedRecords.records[0].id },
+      ]);
+      expect(duplicatedSourceRecords.records[1].fields[linkField.name]).toMatchObject([
+        { id: duplicatedLinkedRecords.records[1].id },
+      ]);
+      expect(duplicatedLinkedRecords.records[0].fields[symmetricField.name]).toMatchObject([
+        { id: duplicatedSourceRecords.records[0].id },
+      ]);
+      expect(duplicatedLinkedRecords.records[1].fields[symmetricField.name]).toMatchObject([
+        { id: duplicatedSourceRecords.records[1].id },
+      ]);
+    });
+
+    it('downgrades cross-space cross-base link records through v2 stream copy', async () => {
+      const externalBase = (await createBase({ spaceId, name: 'V2 External Base' })).data;
+      const destSpace = (await createSpace({ name: 'v2 duplicate dest space' })).data;
+
+      try {
+        const externalTable = await createTable(externalBase.id, {
+          name: 'V2 Vendors',
+          records: [],
+        });
+        const externalPrimaryField = externalTable.fields.find(({ isPrimary }) => isPrimary)!;
+        const vendorRecord = (
+          await createRecords(externalTable.id, {
+            fieldKeyType: FieldKeyType.Id,
+            records: [{ fields: { [externalPrimaryField.id]: 'Vendor A' } }],
+          })
+        ).records[0];
+
+        const sourceTable = await createTable(base.id, { name: 'V2 Orders', records: [] });
+        const sourcePrimaryField = sourceTable.fields.find(({ isPrimary }) => isPrimary)!;
+        const vendorLinkField = (
+          await createField(sourceTable.id, {
+            name: 'Vendor',
+            type: FieldType.Link,
+            options: {
+              baseId: externalBase.id,
+              relationship: Relationship.ManyMany,
+              foreignTableId: externalTable.id,
+            },
+          })
+        ).data;
+        const vendorLookupField = (
+          await createField(sourceTable.id, {
+            name: 'Vendor Name',
+            type: FieldType.SingleLineText,
+            isLookup: true,
+            lookupOptions: {
+              foreignTableId: externalTable.id,
+              linkFieldId: vendorLinkField.id,
+              lookupFieldId: externalPrimaryField.id,
+            },
+          })
+        ).data;
+
+        await createRecords(sourceTable.id, {
+          fieldKeyType: FieldKeyType.Id,
+          records: [
+            {
+              fields: {
+                [sourcePrimaryField.id]: 'Order 1',
+                [vendorLinkField.id]: [{ id: vendorRecord.id }],
+              },
+            },
+          ],
+        });
+
+        const dupResult = await duplicateBase({
+          fromBaseId: base.id,
+          spaceId: destSpace.id,
+          name: 'v2 cross base link downgrade',
+          withRecords: true,
+        });
+        duplicateBaseId = dupResult.data.id;
+
+        const duplicatedTables = await getTableList(duplicateBaseId).then((res) => res.data);
+        const duplicatedSourceTable = duplicatedTables.find(
+          ({ name }) => name === sourceTable.name
+        )!;
+        const duplicatedFields = (await getFields(duplicatedSourceTable.id)).data;
+        const duplicatedVendorLinkField = duplicatedFields.find(
+          ({ name }) => name === vendorLinkField.name
+        )!;
+        const duplicatedVendorLookupField = duplicatedFields.find(
+          ({ name }) => name === vendorLookupField.name
+        )!;
+        expect(duplicatedVendorLinkField.type).toBe(FieldType.SingleLineText);
+        expect(duplicatedVendorLookupField.type).toBe(FieldType.SingleLineText);
+        expect(duplicatedVendorLookupField.isLookup).toBeFalsy();
+
+        const duplicatedRecords = await getRecords(duplicatedSourceTable.id);
+        const duplicatedRow = duplicatedRecords.records[0];
+        expect(duplicatedRow.fields[duplicatedVendorLinkField.name]).toBe('Vendor A');
+        expect(duplicatedRow.fields[duplicatedVendorLookupField.name]).toContain('Vendor A');
+      } finally {
+        await permanentDeleteBase(externalBase.id);
+        if (duplicateBaseId) {
+          await permanentDeleteBase(duplicateBaseId);
+          duplicateBaseId = undefined;
+        }
+        await permanentDeleteSpace(destSpace.id);
+      }
     });
 
     it('duplicates formula, link, lookup, rollup, bidirectional link, and ai field config through v2', async () => {
