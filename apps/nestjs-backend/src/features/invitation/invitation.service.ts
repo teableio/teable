@@ -81,7 +81,26 @@ export class InvitationService {
   @Audit({
     action: Events.INVITATION_EMAIL_SEND,
     resourceId: (input: { resourceId: string }) => input.resourceId,
-    params: (input: { resourceType: CollaboratorType }) => ({ resourceType: input.resourceType }),
+    // Capture the inviter's user.id at decorator-resolve time (before the method
+    // runs). Inviting a brand-new email path runs `userService.createUser`, which
+    // mutates CLS user.id via runWith(cls.get(), ...) — that bleeds into the
+    // outer scope, and by the time the audit listener reads cls.get('user.id')
+    // it would see the invitee's id instead of the inviter's. Resolving userId
+    // up front pins the row to the inviter.
+    userId: (_input, ctx) => ctx.cls.get('user.id'),
+    params: (input: {
+      resourceId: string;
+      resourceType: CollaboratorType;
+      role: IRole;
+      emails: string[];
+    }) => ({
+      resourceType: input.resourceType,
+      role: input.role,
+      emails: input.emails,
+      ...(input.resourceType === CollaboratorType.Base
+        ? { baseId: input.resourceId }
+        : { spaceId: input.resourceId }),
+    }),
     emit: (_result: unknown, input: { emails: string[] }) => ({ emailCount: input.emails.length }),
   })
   private async emailInvitation({
@@ -246,8 +265,14 @@ export class InvitationService {
   @Audit({
     action: Events.INVITATION_LINK_CREATE,
     resourceId: (input: { resourceId: string }) => input.resourceId,
-    params: (input: { resourceType: CollaboratorType }) => ({ resourceType: input.resourceType }),
-    emit: true,
+    params: (input: { resourceId: string; resourceType: CollaboratorType; role: IRole }) => ({
+      resourceType: input.resourceType,
+      role: input.role,
+      ...(input.resourceType === CollaboratorType.Base
+        ? { baseId: input.resourceId }
+        : { spaceId: input.resourceId }),
+    }),
+    emit: (result: ItemSpaceInvitationLinkVo) => ({ invitationId: result.invitationId }),
   })
   async generateInvitationLink({
     role,

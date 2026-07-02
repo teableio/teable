@@ -15,61 +15,51 @@ import {
   type IApiResponseDto,
 } from '../shared/http';
 
-// Input schemas for explain endpoints
-export const explainCreateFieldInputSchema = createFieldInputSchema.extend({
+const sqlExplainModeSchema = z.enum(['json', 'text', 'dump']);
+
+const explainOptionsSchema = {
   analyze: z.boolean().optional().default(false),
   includeSql: z.boolean().optional().default(true),
   includeGraph: z.boolean().optional().default(false),
   includeLocks: z.boolean().optional().default(true),
+  sqlExplainMode: sqlExplainModeSchema.optional().default('json'),
+  statementTimeoutMs: z.number().int().nonnegative().optional().default(0),
+};
+
+// Input schemas for explain endpoints
+export const explainCreateFieldInputSchema = createFieldInputSchema.extend({
+  ...explainOptionsSchema,
 });
 
 export const explainUpdateFieldInputSchema = updateFieldInputSchema.extend({
-  analyze: z.boolean().optional().default(false),
-  includeSql: z.boolean().optional().default(true),
-  includeGraph: z.boolean().optional().default(false),
-  includeLocks: z.boolean().optional().default(true),
+  ...explainOptionsSchema,
 });
 
 export const explainDeleteFieldInputSchema = deleteFieldInputSchema.extend({
-  analyze: z.boolean().optional().default(false),
-  includeSql: z.boolean().optional().default(true),
-  includeGraph: z.boolean().optional().default(false),
-  includeLocks: z.boolean().optional().default(true),
+  ...explainOptionsSchema,
 });
 
 export const explainDeleteTableInputSchema = deleteTableInputSchema.extend({
-  analyze: z.boolean().optional().default(false),
-  includeSql: z.boolean().optional().default(true),
-  includeGraph: z.boolean().optional().default(false),
-  includeLocks: z.boolean().optional().default(true),
+  ...explainOptionsSchema,
 });
 
 export const explainCreateRecordInputSchema = z.object({
   tableId: z.string(),
   fields: z.record(z.string(), z.unknown()),
-  analyze: z.boolean().optional().default(false),
-  includeSql: z.boolean().optional().default(true),
-  includeGraph: z.boolean().optional().default(false),
-  includeLocks: z.boolean().optional().default(true),
+  ...explainOptionsSchema,
 });
 
 export const explainUpdateRecordInputSchema = z.object({
   tableId: z.string(),
   recordId: z.string(),
   fields: z.record(z.string(), z.unknown()),
-  analyze: z.boolean().optional().default(false),
-  includeSql: z.boolean().optional().default(true),
-  includeGraph: z.boolean().optional().default(false),
-  includeLocks: z.boolean().optional().default(true),
+  ...explainOptionsSchema,
 });
 
 export const explainDeleteRecordsInputSchema = z.object({
   tableId: z.string(),
   recordIds: z.array(z.string()),
-  analyze: z.boolean().optional().default(false),
-  includeSql: z.boolean().optional().default(true),
-  includeGraph: z.boolean().optional().default(false),
-  includeLocks: z.boolean().optional().default(true),
+  ...explainOptionsSchema,
 });
 
 export type IExplainCreateFieldInput = z.infer<typeof explainCreateFieldInputSchema>;
@@ -150,6 +140,12 @@ const explainAnalyzeOutputSchema = z.object({
   estimatedRows: z.number().optional(),
 });
 
+const explainTextOutputSchema = z.object({
+  format: z.literal('text'),
+  analyze: z.boolean(),
+  lines: z.array(z.string()),
+});
+
 const computedUpdateSeedFieldSchema = z.object({
   fieldId: z.string(),
   fieldName: z.string(),
@@ -197,12 +193,24 @@ const computedUpdateReasonSchema = z.object({
   notes: z.array(z.string()),
 });
 
+const sqlDiagnosticsInfoSchema = z.object({
+  sqlLength: z.number(),
+  parameterCount: z.number(),
+  lateralJoinCount: z.number(),
+  regexpReplaceCount: z.number(),
+  pgInputIsValidCount: z.number(),
+  stringAggCount: z.number(),
+  jsonbAggCount: z.number(),
+});
+
 const sqlExplainInfoSchema = z.object({
   stepDescription: z.string(),
   sql: z.string(),
   parameters: z.array(z.unknown()),
+  sqlDiagnostics: sqlDiagnosticsInfoSchema.optional(),
   explainAnalyze: explainAnalyzeOutputSchema.nullable(),
   explainOnly: explainOutputSchema.nullable(),
+  explainText: explainTextOutputSchema.nullable().optional(),
   explainError: z.string().nullable().optional(),
   computedReason: computedUpdateReasonSchema.optional(),
 });

@@ -100,6 +100,10 @@ declare module './RestoreRecordsStreamCommand' {
   interface RestoreRecordsStreamCommand extends IPublicCommand {}
 }
 
+declare module './RestoreFieldStreamCommand' {
+  interface RestoreFieldStreamCommand extends IPublicCommand {}
+}
+
 declare module './RestoreTableCommand' {
   interface RestoreTableCommand extends IPublicCommand {}
 }

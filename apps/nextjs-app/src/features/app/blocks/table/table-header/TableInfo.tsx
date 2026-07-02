@@ -1,13 +1,6 @@
 import { Table2 } from '@teable/icons';
 import { BaseNodeResourceType, type IBaseNodeTableResourceMeta } from '@teable/openapi';
-import {
-  useBaseId,
-  useConnection,
-  useIsHydrated,
-  useLanDayjs,
-  useTable,
-  useTablePermission,
-} from '@teable/sdk/hooks';
+import { useBaseId, useConnection, useTable, useTablePermission } from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib/base';
 import { cn, Input, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn';
 import { AppWindowMacIcon, ShieldCheck } from 'lucide-react';
@@ -16,6 +9,7 @@ import { useTranslation } from 'next-i18next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
 import { EmojiPicker } from '@/features/app/components/emoji/EmojiPicker';
+import { ResourceDescription } from '@/features/app/components/ResourceDescription';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useBaseNodeContext } from '../../base/base-node/hooks/useBaseNodeContext';
 import { useImportStatus } from '../hooks/use-import-status';
@@ -48,10 +42,9 @@ export const TableInfo: React.FC<ITableInfoProps> = (props: ITableInfoProps) => 
   const table = useTable();
   const baseId = useBaseId() as string;
   const router = useRouter();
-  const dayjs = useLanDayjs();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
-  const isHydrated = useIsHydrated();
   const { treeItems } = useBaseNodeContext();
+  const canUpdateTable = permission['table|update'];
 
   const { loading: isImporting } = useImportStatus(table?.id as string);
 
@@ -85,13 +78,13 @@ export const TableInfo: React.FC<ITableInfoProps> = (props: ITableInfoProps) => 
 
   return (
     <div
-      className={cn('flex justify-center items-center relative overflow-hidden gap-2', className)}
+      className={cn('relative flex items-center justify-center gap-2 overflow-hidden', className)}
     >
       {connected && !isImporting ? (
         <EmojiPicker
           className="flex size-5 cursor-pointer items-center justify-center hover:bg-muted-foreground/60"
           onChange={(icon: string) => table?.updateIcon(icon)}
-          disabled={!permission['table|update']}
+          disabled={!canUpdateTable}
         >
           {icon}
         </EmojiPicker>
@@ -100,8 +93,8 @@ export const TableInfo: React.FC<ITableInfoProps> = (props: ITableInfoProps) => 
       )}
       <div
         className={cn(
-          'relative flex h-8 shrink-0 grow-0 flex-col items-start justify-center gap-1',
-          { 'min-w-16': isEditing }
+          'relative flex h-8 max-w-[120px] shrink-0 grow-0 flex-col items-start justify-center gap-1 @xl/view-header:max-w-[240px]',
+          isEditing ? 'min-w-[120px]' : 'min-w-20'
         )}
       >
         {isEditing ? (
@@ -131,11 +124,11 @@ export const TableInfo: React.FC<ITableInfoProps> = (props: ITableInfoProps) => 
             }}
           />
         ) : (
-          <div className="flex items-center gap-1.5">
+          <div className="flex w-full items-center gap-1.5">
             <div
-              className="text-sm leading-none"
+              className="min-w-0 truncate text-sm leading-none"
               onDoubleClick={() => {
-                permission['table|update'] && setIsEditing(true);
+                canUpdateTable && setIsEditing(true);
               }}
             >
               {table?.name}
@@ -176,9 +169,14 @@ export const TableInfo: React.FC<ITableInfoProps> = (props: ITableInfoProps) => 
             )}
           </div>
         )}
-        <div className="hidden text-[11px] leading-3 text-muted-foreground @xl/view-header:block">
-          {t('table:lastModify')} {isHydrated ? dayjs(table?.lastModifiedTime).fromNow() : ''}
-        </div>
+        <ResourceDescription
+          canUpdate={canUpdateTable}
+          description={table?.description}
+          errorLogName="table"
+          onSave={async (description) => {
+            await table?.updateDescription(description);
+          }}
+        />
       </div>
     </div>
   );

@@ -18,6 +18,7 @@ export { IMAGE_MODEL_CONFIGS } from './image-model-catalog';
 export {
   DEFAULT_ASPECT_RATIO_CANDIDATES,
   DEFAULT_IMAGE_SIZE_CANDIDATES,
+  getOpenAIGptImage2SizeMeta,
   aspectRatioToSize,
   aspectRatioSchema,
   getDefaultImageDimension,
@@ -33,6 +34,7 @@ export type {
   IImageAspectRatioRange,
   IImageSize,
   IImageSizeRange,
+  IOpenAIGptImage2SizeTier,
 } from './image-model-dimensions';
 export type { IImageModelConfig } from './image-model-types';
 
