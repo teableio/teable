@@ -9,7 +9,8 @@
   "action": {
     "createBase": "Crear una base",
     "createSpace": "Crear un espacio",
-    "invite": "Invitar"
+    "invite": "Invitar",
+    "startFromScratch": "Empezar desde cero"
   },
   "allSpaces": "Todos los espacios",
   "emptySpaceTitle": "No hay bases en este espacio",
@@ -139,7 +140,7 @@
   },
   "baseList": {
     "allBases": "Todas las bases",
-    "owner": "Propietario",
+    "creator": "Creador",
     "createdTime": "Creado",
     "lastOpened": "Abierto por última vez",
     "enter": "Entrar",
@@ -207,5 +208,67 @@
       "redeploy": "Redesplegar",
       "unnamedApp": "Aplicación sin nombre"
     }
+  },
+  "airtableImport": {
+    "title": "Importar desde Airtable",
+    "close": "Cerrar",
+    "pickBase": "Elige la base a importar",
+    "noBases": "No se encontraron bases accesibles para este token.",
+    "optionRecords": "Importar registros",
+    "optionAttachments": "Descargar e importar adjuntos",
+    "import": "Iniciar importación",
+    "done": "Importación completada",
+    "failed": "Error en la importación",
+    "openBase": "Abrir base",
+    "issuesSummary": "Se ajustaron {{count}} elementos durante la importación:",
+    "issuesMore": "+{{count}} más",
+    "issue": {
+      "fieldDegraded": "{{tableName}} / {{fieldName}}: {{fromType}} → {{toType}}",
+      "fieldSkipped": "{{tableName}} / {{fieldName}} ({{fromType}}) omitido: {{reason}}",
+      "viewSkipped": "{{tableName}} / vista \"{{viewName}}\" ({{fromType}}) omitida",
+      "valuesDropped": "{{tableName}} / {{fieldName}}: {{count}} valores descartados ({{reason}})",
+      "viewConfigDegraded": "{{tableName}} / vista \"{{viewName}}\": {{reason}}"
+    },
+    "phase": {
+      "fetchingSchema": "Leyendo la estructura de la base de Airtable",
+      "creatingBase": "Creando base: {{detail}}",
+      "creatingTable": "Creando tabla: {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "creatingLinks": "Creando campos de vínculo",
+      "fillingLinks": "{{tableName}} (vínculos)",
+      "done": "Importación completada",
+      "applyingViewConfig": "Importando la configuración de las vistas"
+    },
+    "searchBases": "Buscar bases",
+    "noSearchResults": "Ninguna base coincide con la búsqueda.",
+    "detecting": "Comprobando la conexión con Airtable…",
+    "connectWithAirtable": "Conectar cuenta de Airtable",
+    "waitingOAuth": "Completa la autorización en la ventana emergente…",
+    "connectedAs": "Conectado: {{account}}",
+    "permission": {
+      "create": "Creador",
+      "edit": "Editor",
+      "comment": "Comentarista",
+      "read": "Solo lectura"
+    },
+    "integrationRequired": "La integración con Airtable no está configurada en esta instancia. Pide a un administrador que la configure.",
+    "optionViewConfig": "Importar filtros, ordenaciones y agrupaciones de las vistas",
+    "viewConfig": {
+      "help": "La API de Airtable no expone la configuración de las vistas, por lo que se necesita un enlace compartido de solo lectura.",
+      "helpStep1": "En Airtable, abre el menú \"Share\" de la base",
+      "helpStep2": "Elige \"Share to web\" y activa el acceso completo a la base",
+      "helpStep3": "Copia el enlace de solo lectura y pégalo en el campo de arriba",
+      "linkPlaceholder": "Pega aquí el enlace compartido",
+      "mismatch": "Este enlace compartido apunta a una base distinta de la seleccionada.",
+      "disableReminder": "Listo: ya puedes desactivar el enlace compartido en Airtable."
+    }
+  },
+  "createBaseDialog": {
+    "title": "¿Cómo quieres empezar?"
+  },
+  "importBaseDialog": {
+    "title": "Importar base",
+    "fromFile": "Importar desde archivo",
+    "fromFileDesc": "Sube un archivo de base de datos .tea",
+    "fromAirtableDesc": "Conecta tu cuenta de Airtable"
   }
 }

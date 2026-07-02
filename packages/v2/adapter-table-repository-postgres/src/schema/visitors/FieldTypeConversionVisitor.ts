@@ -4,6 +4,7 @@ import {
   DateTimeFormatting,
   DEFAULT_TABLE_DATA_SAFETY_LIMITS,
   NumberFormatting,
+  SelectOptionId,
   domainError,
 } from '@teable/v2-core';
 import {
@@ -41,6 +42,7 @@ import type { Result } from 'neverthrow';
 
 import { resolveUserAvatarUrlPrefix } from '../../shared/userAvatarUrl';
 import type { TableSchemaStatementBuilder } from '../rules/core';
+import type { TableIdentifier } from '../rules/helpers';
 import { PostgresTableSchemaFieldCreateVisitor } from './PostgresTableSchemaFieldCreateVisitor';
 import { PostgresTableSchemaFieldDeleteVisitor } from './PostgresTableSchemaFieldDeleteVisitor';
 
@@ -52,6 +54,8 @@ export type FieldConversionParams = {
   dbFieldName: string;
   /** Field ID for updating field metadata (e.g., auto-generating select options) */
   fieldId?: string;
+  tableLocationsById?: ReadonlyMap<string, TableIdentifier>;
+  fieldsById?: ReadonlyMap<string, FieldConversionFieldMetadata>;
 };
 
 const createCompiledStatementBuilder = (
@@ -74,6 +78,409 @@ const SELECT_CHOICE_NAME_MAX_LENGTH =
 
 const selectChoiceNameLengthError = `Select choice name exceeds ${SELECT_CHOICE_NAME_MAX_LENGTH} characters`;
 
+type SelectChoiceDto = {
+  id: string;
+  name: string;
+  color: string;
+};
+
+type FieldConversionFieldMetadata = {
+  dbFieldName: string;
+  tableId?: string;
+  options?: unknown;
+};
+
+type LinkMappingMetadata = {
+  lookupColumnName: string | null;
+  foreignTable: TableIdentifier | null;
+  symmetricColumnName?: string | null;
+};
+
+type TextUserMapping = {
+  lookupValue: string;
+  id: string;
+  title: string;
+  email: string | null;
+};
+
+type TableSchemaStatementExecuteContext = Parameters<
+  NonNullable<TableSchemaStatementBuilder['execute']>
+>[0];
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const tryParseJson = (value: string): unknown => {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return undefined;
+  }
+};
+
+const normalizeChoice = (value: unknown): SelectChoiceDto | undefined => {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const { id, name, color } = value;
+  if (typeof id !== 'string' || typeof name !== 'string' || typeof color !== 'string') {
+    return undefined;
+  }
+
+  return { id, name, color };
+};
+
+const normalizeChoices = (options: unknown): SelectChoiceDto[] => {
+  const rawOptions = typeof options === 'string' ? tryParseJson(options) : options;
+  if (!isRecord(rawOptions) || !Array.isArray(rawOptions.choices)) {
+    return [];
+  }
+
+  return rawOptions.choices
+    .map(normalizeChoice)
+    .filter((choice): choice is SelectChoiceDto => Boolean(choice));
+};
+
+const buildMergedOptions = (
+  currentOptions: unknown,
+  generatedChoices: ReadonlyArray<SelectChoiceDto>
+): Record<string, unknown> => {
+  const parsedOptions =
+    typeof currentOptions === 'string' ? tryParseJson(currentOptions) : currentOptions;
+  const baseOptions = isRecord(parsedOptions) ? parsedOptions : {};
+  return {
+    ...baseOptions,
+    choices: [...normalizeChoices(parsedOptions), ...generatedChoices],
+  };
+};
+
+const sqlNullableLiteral = (value: string | null | undefined): string =>
+  value == null ? 'NULL' : quoteLiteral(value);
+
+const parseTableIdentifier = (dbTableName: string): TableIdentifier => {
+  const [schema, ...rest] = dbTableName.split('.');
+  if (rest.length === 0) {
+    return { schema: null, tableName: schema ?? dbTableName };
+  }
+
+  return { schema: schema ?? null, tableName: rest.join('.') };
+};
+
+const buildTableIdentifierDeclarations = (table: TableIdentifier | null): string => {
+  const schema = table?.schema ?? (table ? 'public' : null);
+  return [
+    `  foreign_schema text := ${sqlNullableLiteral(schema)};`,
+    `  foreign_name text := ${sqlNullableLiteral(table?.tableName)};`,
+  ].join('\n');
+};
+
+const createCustomDataStatementBuilder = (
+  db: Kysely<V1TeableDatabase>,
+  previewSql: string,
+  resolveSql: (ctx: TableSchemaStatementExecuteContext) => Promise<string | null>
+): TableSchemaStatementBuilder => ({
+  scope: 'data',
+  compile: () => sql.raw(previewSql).compile(db),
+  execute: async (ctx) => {
+    const sqlText = await resolveSql(ctx);
+    if (!sqlText) {
+      return;
+    }
+    await sql.raw(sqlText).execute(ctx.dataDb);
+  },
+});
+
+const normalizeFieldOptions = (options: unknown): Record<string, unknown> => {
+  const parsed = typeof options === 'string' ? tryParseJson(options) : options;
+  return isRecord(parsed) ? parsed : {};
+};
+
+const getKnownFieldMetadata = (
+  params: FieldConversionParams,
+  fieldId: string
+): FieldConversionFieldMetadata | undefined => params.fieldsById?.get(fieldId);
+
+const getKnownFieldDbName = (params: FieldConversionParams, fieldId: string): string | null =>
+  getKnownFieldMetadata(params, fieldId)?.dbFieldName ?? null;
+
+const getKnownTableIdentifier = (
+  params: FieldConversionParams,
+  tableId: string
+): TableIdentifier | null => params.tableLocationsById?.get(tableId) ?? null;
+
+const getPreviewFieldDbName = (params: FieldConversionParams, fieldId: string): string =>
+  getKnownFieldDbName(params, fieldId) ?? fieldId;
+
+const getPreviewTableIdentifier = (
+  params: FieldConversionParams,
+  tableId: string
+): TableIdentifier =>
+  getKnownTableIdentifier(params, tableId) ?? { schema: params.schema, tableName: tableId };
+
+const getKnownSymmetricFieldDbName = (
+  params: FieldConversionParams,
+  foreignTableId: string,
+  currentFieldId: string,
+  explicitSymmetricFieldId?: string
+): string | null => {
+  if (explicitSymmetricFieldId) {
+    const explicitField = getKnownFieldMetadata(params, explicitSymmetricFieldId);
+    if (explicitField?.dbFieldName) {
+      return explicitField.dbFieldName;
+    }
+  }
+
+  for (const [fieldId, field] of params.fieldsById ??
+    new Map<string, FieldConversionFieldMetadata>()) {
+    if (explicitSymmetricFieldId && fieldId === explicitSymmetricFieldId) {
+      return field.dbFieldName;
+    }
+    if (field.tableId !== foreignTableId) {
+      continue;
+    }
+    const options = normalizeFieldOptions(field.options);
+    if (options.symmetricFieldId === currentFieldId) {
+      return field.dbFieldName;
+    }
+  }
+
+  return null;
+};
+
+const getPreviewSymmetricFieldDbName = (
+  params: FieldConversionParams,
+  foreignTableId: string,
+  currentFieldId: string,
+  explicitSymmetricFieldId?: string
+): string | null =>
+  getKnownSymmetricFieldDbName(params, foreignTableId, currentFieldId, explicitSymmetricFieldId) ??
+  explicitSymmetricFieldId ??
+  null;
+
+const getPreviewLinkMappingMetadata = (
+  params: FieldConversionParams,
+  linkField: LinkField,
+  options?: { includeSymmetric?: boolean }
+): LinkMappingMetadata => {
+  const foreignTableId = linkField.foreignTableId().toString();
+  const currentFieldId = linkField.id().toString();
+  return {
+    lookupColumnName: getPreviewFieldDbName(params, linkField.lookupFieldId().toString()),
+    foreignTable: getPreviewTableIdentifier(params, foreignTableId),
+    ...(options?.includeSymmetric
+      ? {
+          symmetricColumnName: getPreviewSymmetricFieldDbName(
+            params,
+            foreignTableId,
+            currentFieldId,
+            linkField.symmetricFieldId()?.toString()
+          ),
+        }
+      : {}),
+  };
+};
+
+const fetchFieldDbName = async (
+  ctx: TableSchemaStatementExecuteContext,
+  fieldId: string
+): Promise<string | null> => {
+  const rows = await sql<{ db_field_name: string | null }>`
+    SELECT db_field_name
+    FROM field
+    WHERE id = ${fieldId} AND deleted_time IS NULL
+    LIMIT 1
+  `.execute(ctx.metaDb);
+
+  return rows.rows[0]?.db_field_name ?? null;
+};
+
+const fetchTableIdentifier = async (
+  ctx: TableSchemaStatementExecuteContext,
+  tableId: string
+): Promise<TableIdentifier | null> => {
+  const rows = await sql<{ db_table_name: string | null }>`
+    SELECT db_table_name
+    FROM table_meta
+    WHERE id = ${tableId} AND deleted_time IS NULL
+    LIMIT 1
+  `.execute(ctx.metaDb);
+  const dbTableName = rows.rows[0]?.db_table_name;
+  return dbTableName ? parseTableIdentifier(dbTableName) : null;
+};
+
+const fetchSymmetricFieldDbName = async (
+  ctx: TableSchemaStatementExecuteContext,
+  foreignTableId: string,
+  currentFieldId: string,
+  explicitSymmetricFieldId?: string
+): Promise<string | null> => {
+  const explicitClause = explicitSymmetricFieldId
+    ? ` OR id = ${quoteLiteral(explicitSymmetricFieldId)}`
+    : '';
+  const rows = await sql<{ db_field_name: string | null }>`
+    SELECT db_field_name
+    FROM field
+    WHERE table_id = ${foreignTableId}
+      AND type = 'link'
+      AND deleted_time IS NULL
+      AND (
+        options::jsonb->>'symmetricFieldId' = ${currentFieldId}
+        ${sql.raw(explicitClause)}
+      )
+    ORDER BY id
+    LIMIT 1
+  `.execute(ctx.metaDb);
+
+  return rows.rows[0]?.db_field_name ?? null;
+};
+
+const fetchLinkMappingMetadata = async (
+  ctx: TableSchemaStatementExecuteContext,
+  linkField: LinkField,
+  options?: { includeSymmetric?: boolean }
+): Promise<LinkMappingMetadata> => {
+  const foreignTableId = linkField.foreignTableId().toString();
+  const currentFieldId = linkField.id().toString();
+  const [lookupColumnName, foreignTable, symmetricColumnName] = await Promise.all([
+    fetchFieldDbName(ctx, linkField.lookupFieldId().toString()),
+    fetchTableIdentifier(ctx, foreignTableId),
+    options?.includeSymmetric
+      ? fetchSymmetricFieldDbName(
+          ctx,
+          foreignTableId,
+          currentFieldId,
+          linkField.symmetricFieldId()?.toString()
+        )
+      : Promise.resolve(undefined),
+  ]);
+
+  return {
+    lookupColumnName,
+    foreignTable,
+    ...(options?.includeSymmetric ? { symmetricColumnName } : {}),
+  };
+};
+
+const buildTextUserPartsSql = (fullTableName: string, col: string): string => `
+  SELECT DISTINCT parts.uid
+  FROM ${fullTableName} AS t
+  CROSS JOIN LATERAL regexp_split_to_table(t.${col}, ${quoteLiteral(',')})
+    WITH ORDINALITY AS raw_parts(part, part_idx)
+  CROSS JOIN LATERAL (SELECT trim(raw_parts.part) AS uid) AS parts
+  WHERE t.${col} IS NOT NULL AND parts.uid <> ''`;
+
+const fetchTextUserMappings = async (
+  ctx: TableSchemaStatementExecuteContext,
+  fullTableName: string,
+  col: string
+): Promise<ReadonlyArray<TextUserMapping>> => {
+  const identifierRows = await sql<{ uid: string }>`
+    ${sql.raw(buildTextUserPartsSql(fullTableName, col))}
+  `.execute(ctx.dataDb);
+  const identifiers = [
+    ...new Set(identifierRows.rows.map((row) => row.uid).filter((uid) => uid.length > 0)),
+  ];
+  if (identifiers.length === 0) {
+    return [];
+  }
+
+  const identifierValues = identifiers
+    .map((identifier) => `(${quoteLiteral(identifier)})`)
+    .join(', ');
+  const userRows = await sql<{ id: string; name: string | null; email: string | null }>`
+    WITH input(uid) AS (VALUES ${sql.raw(identifierValues)})
+    SELECT DISTINCT users.id, users.name, users.email
+    FROM users
+    JOIN input ON users.id = input.uid OR users.email = input.uid OR users.name = input.uid
+    ORDER BY users.id
+  `.execute(ctx.metaDb);
+
+  const byId = new Map<string, Omit<TextUserMapping, 'lookupValue'>>();
+  const byEmail = new Map<string, Omit<TextUserMapping, 'lookupValue'>>();
+  const byName = new Map<string, Omit<TextUserMapping, 'lookupValue'>>();
+
+  for (const row of userRows.rows) {
+    const user = {
+      id: row.id,
+      title: row.name ?? row.id,
+      email: row.email ?? null,
+    };
+    if (!byId.has(row.id)) {
+      byId.set(row.id, user);
+    }
+    if (row.email && !byEmail.has(row.email)) {
+      byEmail.set(row.email, user);
+    }
+    if (row.name && !byName.has(row.name)) {
+      byName.set(row.name, user);
+    }
+  }
+
+  return identifiers
+    .map((identifier) => {
+      const user = byId.get(identifier) ?? byEmail.get(identifier) ?? byName.get(identifier);
+      return user ? { lookupValue: identifier, ...user } : null;
+    })
+    .filter((mapping): mapping is TextUserMapping => Boolean(mapping));
+};
+
+const buildTextToUserTransformSql = (
+  fullTableName: string,
+  col: string,
+  isMultiple: boolean,
+  mappings: ReadonlyArray<TextUserMapping>
+): string | null => {
+  if (mappings.length === 0) {
+    return null;
+  }
+
+  const avatarPrefix = resolveUserAvatarUrlPrefix();
+  const mappingValues = mappings
+    .map(
+      (mapping) =>
+        `(${quoteLiteral(mapping.lookupValue)}, ${quoteLiteral(mapping.id)}, ${quoteLiteral(
+          mapping.title
+        )}, ${sqlNullableLiteral(mapping.email)})`
+    )
+    .join(', ');
+  const userJsonBuild = (alias: string) =>
+    `jsonb_build_object('id', ${alias}.id, 'title', ${alias}.title, 'email', ${alias}.email, 'avatarUrl', ${quoteLiteral(
+      avatarPrefix
+    )} || ${alias}.id)`;
+  const aggregationSql = isMultiple
+    ? `SELECT rid, jsonb_agg(${userJsonBuild('matched_users')} ORDER BY part_idx)::text AS user_json
+       FROM matched_users
+       GROUP BY rid`
+    : `SELECT DISTINCT ON (rid) rid, ${userJsonBuild('matched_users')}::text AS user_json
+       FROM matched_users
+       ORDER BY rid, part_idx`;
+
+  return `WITH user_mapping(uid, id, title, email) AS (
+      VALUES ${mappingValues}
+    ),
+    text_parts AS (
+      SELECT t.__id AS rid, parts.uid, raw_parts.part_idx::integer AS part_idx
+      FROM ${fullTableName} AS t
+      CROSS JOIN LATERAL regexp_split_to_table(t.${col}, ${quoteLiteral(',')})
+        WITH ORDINALITY AS raw_parts(part, part_idx)
+      CROSS JOIN LATERAL (SELECT trim(raw_parts.part) AS uid) AS parts
+      WHERE t.${col} IS NOT NULL AND parts.uid <> ''
+    ),
+    matched_users AS (
+      SELECT p.rid, p.part_idx, u.id, u.title, u.email
+      FROM text_parts AS p
+      JOIN user_mapping AS u ON u.uid = p.uid
+    ),
+    aggregated AS (
+      ${aggregationSql}
+    )
+    UPDATE ${fullTableName} AS t
+    SET ${col} = aggregated.user_json
+    FROM aggregated
+    WHERE t.__id = aggregated.rid`;
+};
+
 const buildSelectOptionsFromValuesStatement = (
   params: FieldConversionParams,
   distinctValuesSql: string
@@ -83,69 +490,66 @@ const buildSelectOptionsFromValuesStatement = (
   }
 
   const colors = SELECT_OPTION_COLORS;
-  const mergeSql = `
+  const previewSql = `
 WITH distinct_values AS (
   ${distinctValuesSql}
-),
-existing_choices AS (
-  SELECT jsonb_array_elements(COALESCE(options::jsonb->'choices', '[]'::jsonb)) AS choice
-  FROM field
-  WHERE id = ${quoteLiteral(params.fieldId)}
-),
-existing_names AS (
-  SELECT choice->>'name' AS name FROM existing_choices
 ),
 oversized_values AS (
   SELECT name FROM distinct_values
   WHERE char_length(name) > ${SELECT_CHOICE_NAME_MAX_LENGTH}
-),
-oversized_guard AS (
-  SELECT CASE
-    WHEN EXISTS (SELECT 1 FROM oversized_values)
-    -- Keep the invalid cast runtime-bound; Postgres folds constant casts before CASE short-circuits.
-    THEN CAST(
-      ${quoteLiteral(selectChoiceNameLengthError)}
-      || COALESCE((SELECT '' FROM oversized_values LIMIT 1), '')
-      AS integer
-    )
-    ELSE 1
-  END AS ok
-),
-new_values AS (
-  SELECT name, ROW_NUMBER() OVER () AS rn
-  FROM distinct_values
-  CROSS JOIN oversized_guard
-  WHERE name NOT IN (SELECT name FROM existing_names WHERE name IS NOT NULL)
-    AND oversized_guard.ok = 1
-),
-new_choices AS (
-  SELECT jsonb_agg(
-    jsonb_build_object(
-      'id', 'cho' || substr(md5(random()::text || clock_timestamp()::text), 1, 16),
-      'name', name,
-      'color', (ARRAY[${colors.map((color) => quoteLiteral(color)).join(', ')}])[(rn % ${colors.length}) + 1]
-    )
-  ) AS choices
-  FROM new_values
-),
-merged_choices AS (
-  SELECT COALESCE(
-    (SELECT jsonb_agg(choice) FROM existing_choices),
-    '[]'::jsonb
-  ) || COALESCE(
-    (SELECT choices FROM new_choices),
-    '[]'::jsonb
-  ) AS choices
 )
-UPDATE field
-SET options = jsonb_set(
-  COALESCE(options::jsonb, '{}'::jsonb),
-  '{choices}',
-  (SELECT choices FROM merged_choices)
-)
-WHERE id = ${quoteLiteral(params.fieldId)};`;
+SELECT name FROM distinct_values
+WHERE name IS NOT NULL AND name <> ''
+  AND NOT EXISTS (SELECT 1 FROM oversized_values);`;
 
-  return createCompiledStatementBuilder(params.db, mergeSql);
+  return {
+    scope: 'meta',
+    compile: () => sql.raw(previewSql).compile(params.db),
+    execute: async ({ dataDb, metaDb }) => {
+      const distinctRows = await sql<{ name: string | null }>`
+        WITH distinct_values AS (${sql.raw(distinctValuesSql)})
+        SELECT DISTINCT name
+        FROM distinct_values
+        WHERE name IS NOT NULL AND name <> ''
+      `.execute(dataDb);
+
+      const distinctNames = distinctRows.rows
+        .map((row) => row.name)
+        .filter((name): name is string => Boolean(name));
+      const oversizedName = distinctNames.find(
+        (name) => name.length > SELECT_CHOICE_NAME_MAX_LENGTH
+      );
+      if (oversizedName) {
+        throw new Error(`${selectChoiceNameLengthError}${oversizedName}`);
+      }
+
+      const currentRows = await sql<{ options: unknown }>`
+        SELECT options
+        FROM field
+        WHERE id = ${params.fieldId}
+        LIMIT 1
+      `.execute(metaDb);
+      const currentOptions = currentRows.rows[0]?.options;
+      const existingNames = new Set(normalizeChoices(currentOptions).map((choice) => choice.name));
+      const newNames = distinctNames.filter((name) => !existingNames.has(name));
+      if (!newNames.length) {
+        return;
+      }
+
+      const generatedChoices = newNames.map((name, index) => ({
+        id: SelectOptionId.generate()._unsafeUnwrap().toString(),
+        name,
+        color: colors[index % colors.length],
+      }));
+      const mergedOptions = buildMergedOptions(currentOptions, generatedChoices);
+
+      await sql`
+        UPDATE field
+        SET options = ${JSON.stringify(mergedOptions)}
+        WHERE id = ${params.fieldId}
+      `.execute(metaDb);
+    },
+  };
 };
 
 const buildScalarToLinkMigrationStatements = (
@@ -186,8 +590,7 @@ const buildScalarToLinkMigrationStatements = (
     let sourceFkColumnName: string | null = null;
     let sourceOrderColumnName: string | null = null;
     let symmetricDeclareSql = '';
-    let symmetricResolveSql = '';
-    let symmetricBackfillSql = '';
+    let buildSymmetricBackfillSql: (metadata: LinkMappingMetadata) => string = () => '';
 
     if (relationship === 'manyOne' || relationship === 'oneOne') {
       const fkColumnName = yield* newLinkField.foreignKeyNameString();
@@ -279,25 +682,8 @@ const buildScalarToLinkMigrationStatements = (
           domainError.unexpected({ message: 'Missing source FK column for link mapping' })
         );
       }
-      const foreignTableId = newLinkField.foreignTableId().toString();
-      const currentFieldId = newLinkField.id().toString();
-      const explicitSymmetricFieldId = newLinkField.symmetricFieldId()?.toString();
-      const explicitSymmetricClause = explicitSymmetricFieldId
-        ? ` OR id = ${quoteLiteral(explicitSymmetricFieldId)}`
-        : '';
 
       symmetricDeclareSql = '  symmetric_col text;';
-      symmetricResolveSql = `
-  SELECT db_field_name INTO symmetric_col
-  FROM field
-  WHERE table_id = ${quoteLiteral(foreignTableId)}
-    AND type = 'link'
-    AND deleted_time IS NULL
-    AND (
-      options::jsonb->>'symmetricFieldId' = ${quoteLiteral(currentFieldId)}${explicitSymmetricClause}
-    )
-      ORDER BY id
-      LIMIT 1;`;
 
       const sourceQualifiedName = `${quoteIdent(sourceSchema)}.${quoteIdent(sourceTableName)}`;
       const sourceFkIdent = quoteIdent(sourceFkColumnName);
@@ -306,7 +692,8 @@ const buildScalarToLinkMigrationStatements = (
         : '"__id" ASC';
 
       if (relationship === 'manyOne') {
-        symmetricBackfillSql = `
+        buildSymmetricBackfillSql = (metadata) => `
+  symmetric_col := ${sqlNullableLiteral(metadata.symmetricColumnName)};
   IF symmetric_col IS NOT NULL THEN
     EXECUTE format(
       'UPDATE %I.%I AS f
@@ -325,7 +712,8 @@ const buildScalarToLinkMigrationStatements = (
     );
   END IF;`;
       } else {
-        symmetricBackfillSql = `
+        buildSymmetricBackfillSql = (metadata) => `
+  symmetric_col := ${sqlNullableLiteral(metadata.symmetricColumnName)};
   IF symmetric_col IS NOT NULL THEN
     EXECUTE format(
       'UPDATE %I.%I AS f
@@ -346,27 +734,10 @@ const buildScalarToLinkMigrationStatements = (
   END IF;`;
       }
     } else if (!isOneWay && relationship === 'oneMany') {
-      const foreignTableId = newLinkField.foreignTableId().toString();
-      const currentFieldId = newLinkField.id().toString();
-      const explicitSymmetricFieldId = newLinkField.symmetricFieldId()?.toString();
-      const explicitSymmetricClause = explicitSymmetricFieldId
-        ? ` OR id = ${quoteLiteral(explicitSymmetricFieldId)}`
-        : '';
-
       symmetricDeclareSql = '  symmetric_col text;';
-      symmetricResolveSql = `
-  SELECT db_field_name INTO symmetric_col
-  FROM field
-  WHERE table_id = ${quoteLiteral(foreignTableId)}
-    AND type = 'link'
-    AND deleted_time IS NULL
-    AND (
-      options::jsonb->>'symmetricFieldId' = ${quoteLiteral(currentFieldId)}${explicitSymmetricClause}
-    )
-  ORDER BY id
-  LIMIT 1;`;
 
-      symmetricBackfillSql = `
+      buildSymmetricBackfillSql = (metadata) => `
+  symmetric_col := ${sqlNullableLiteral(metadata.symmetricColumnName)};
   IF symmetric_col IS NOT NULL THEN
     EXECUTE format(
       'WITH candidates AS (
@@ -403,37 +774,21 @@ const buildScalarToLinkMigrationStatements = (
   END IF;`;
     }
 
-    const mapFkSql = `
+    const includeSymmetric = symmetricDeclareSql.length > 0;
+    const buildMapFkSql = (metadata: LinkMappingMetadata): string | null => {
+      if (!metadata.lookupColumnName || !metadata.foreignTable) {
+        return null;
+      }
+
+      return `
 DO $v2_link_map$
 DECLARE
-  lookup_col text;
-  foreign_tbl text;
-  foreign_schema text;
-  foreign_name text;
+  lookup_col text := ${quoteLiteral(metadata.lookupColumnName)};
+${buildTableIdentifierDeclarations(metadata.foreignTable)}
 ${symmetricDeclareSql}
 BEGIN
-  SELECT db_field_name INTO lookup_col
-  FROM field
-  WHERE id = ${quoteLiteral(newLinkField.lookupFieldId().toString())} AND deleted_time IS NULL
-  LIMIT 1;
-
-  SELECT db_table_name INTO foreign_tbl
-  FROM table_meta
-  WHERE id = ${quoteLiteral(newLinkField.foreignTableId().toString())} AND deleted_time IS NULL
-  LIMIT 1;
-
-  IF lookup_col IS NULL OR foreign_tbl IS NULL THEN
+  IF lookup_col IS NULL OR foreign_schema IS NULL OR foreign_name IS NULL THEN
     RETURN;
-  END IF;
-
-${symmetricResolveSql}
-
-  IF strpos(foreign_tbl, '.') > 0 THEN
-    foreign_schema := split_part(foreign_tbl, '.', 1);
-    foreign_name := split_part(foreign_tbl, '.', 2);
-  ELSE
-    foreign_schema := 'public';
-    foreign_name := foreign_tbl;
   END IF;
 
   ${ensureForeignFkSql}
@@ -463,16 +818,28 @@ ${symmetricResolveSql}
     ${quoteLiteral(tmpColumnName)}${applyFormatArgs.length > 0 ? `, ${applyFormatArgs.join(', ')}` : ''}
   );
 
-${symmetricBackfillSql}
+${buildSymmetricBackfillSql(metadata)}
 END
 $v2_link_map$;`;
+    };
+    const previewMetadata = getPreviewLinkMappingMetadata(params, newLinkField, {
+      includeSymmetric,
+    });
+    const previewMapFkSql =
+      buildMapFkSql(previewMetadata) ?? `DO $v2_link_map$ BEGIN RETURN; END $v2_link_map$;`;
     const dropTmpSql = `ALTER TABLE ${quoteIdent(sourceSchema)}.${quoteIdent(sourceTableName)} DROP COLUMN IF EXISTS ${quoteIdent(tmpColumnName)}`;
 
     return ok([
       createCompiledStatementBuilder(params.db, renameSql),
       ...dropStatements,
       ...createStatements,
-      createCompiledStatementBuilder(params.db, mapFkSql),
+      createCustomDataStatementBuilder(params.db, previewMapFkSql, async (ctx) =>
+        buildMapFkSql(
+          await fetchLinkMappingMetadata(ctx, newLinkField, {
+            includeSymmetric,
+          })
+        )
+      ),
       createCompiledStatementBuilder(params.db, dropTmpSql),
     ]);
   });
@@ -897,34 +1264,19 @@ const buildLinkToTextMigrationStatements = (
     const createStatements = yield* newField.accept(createVisitor);
 
     const renameSql = `ALTER TABLE ${quoteIdent(sourceSchema)}.${quoteIdent(sourceTableName)} RENAME COLUMN ${quoteIdent(dbFieldName)} TO ${quoteIdent(tmpColumnName)}`;
-    const mapTextSql = `
+    const buildMapTextSql = (metadata: LinkMappingMetadata): string | null => {
+      if (!metadata.lookupColumnName || !metadata.foreignTable) {
+        return null;
+      }
+
+      return `
 DO $v2_link_to_text$
 DECLARE
-  lookup_col text;
-  foreign_tbl text;
-  foreign_schema text;
-  foreign_name text;
+  lookup_col text := ${quoteLiteral(metadata.lookupColumnName)};
+${buildTableIdentifierDeclarations(metadata.foreignTable)}
 BEGIN
-  SELECT db_field_name INTO lookup_col
-  FROM field
-  WHERE id = ${quoteLiteral(oldField.lookupFieldId().toString())} AND deleted_time IS NULL
-  LIMIT 1;
-
-  SELECT db_table_name INTO foreign_tbl
-  FROM table_meta
-  WHERE id = ${quoteLiteral(oldField.foreignTableId().toString())} AND deleted_time IS NULL
-  LIMIT 1;
-
-  IF lookup_col IS NULL OR foreign_tbl IS NULL THEN
+  IF lookup_col IS NULL OR foreign_schema IS NULL OR foreign_name IS NULL THEN
     RETURN;
-  END IF;
-
-  IF strpos(foreign_tbl, '.') > 0 THEN
-    foreign_schema := split_part(foreign_tbl, '.', 1);
-    foreign_name := split_part(foreign_tbl, '.', 2);
-  ELSE
-    foreign_schema := 'public';
-    foreign_name := foreign_tbl;
   END IF;
 
   EXECUTE format(
@@ -970,13 +1322,19 @@ BEGIN
   );
 END
 $v2_link_to_text$;`;
+    };
+    const previewMapTextSql =
+      buildMapTextSql(getPreviewLinkMappingMetadata(params, oldField)) ??
+      `DO $v2_link_to_text$ BEGIN RETURN; END $v2_link_to_text$;`;
     const dropTmpSql = `ALTER TABLE ${quoteIdent(sourceSchema)}.${quoteIdent(sourceTableName)} DROP COLUMN IF EXISTS ${quoteIdent(tmpColumnName)}`;
 
     return ok([
       createCompiledStatementBuilder(params.db, renameSql),
       ...dropStatements,
       ...createStatements,
-      createCompiledStatementBuilder(params.db, mapTextSql),
+      createCustomDataStatementBuilder(params.db, previewMapTextSql, async (ctx) =>
+        buildMapTextSql(await fetchLinkMappingMetadata(ctx, oldField))
+      ),
       createCompiledStatementBuilder(params.db, dropTmpSql),
     ]);
   });
@@ -1012,34 +1370,19 @@ const buildLinkToSelectMigrationStatements = (
     const createStatements = yield* newField.accept(createVisitor);
 
     const renameSql = `ALTER TABLE ${quoteIdent(sourceSchema)}.${quoteIdent(sourceTableName)} RENAME COLUMN ${quoteIdent(dbFieldName)} TO ${quoteIdent(tmpColumnName)}`;
-    const mapSelectSql = `
+    const buildMapSelectSql = (metadata: LinkMappingMetadata): string | null => {
+      if (!metadata.lookupColumnName || !metadata.foreignTable) {
+        return null;
+      }
+
+      return `
 DO $v2_link_to_select$
 DECLARE
-  lookup_col text;
-  foreign_tbl text;
-  foreign_schema text;
-  foreign_name text;
+  lookup_col text := ${quoteLiteral(metadata.lookupColumnName)};
+${buildTableIdentifierDeclarations(metadata.foreignTable)}
 BEGIN
-  SELECT db_field_name INTO lookup_col
-  FROM field
-  WHERE id = ${quoteLiteral(oldField.lookupFieldId().toString())} AND deleted_time IS NULL
-  LIMIT 1;
-
-  SELECT db_table_name INTO foreign_tbl
-  FROM table_meta
-  WHERE id = ${quoteLiteral(oldField.foreignTableId().toString())} AND deleted_time IS NULL
-  LIMIT 1;
-
-  IF lookup_col IS NULL OR foreign_tbl IS NULL THEN
+  IF lookup_col IS NULL OR foreign_schema IS NULL OR foreign_name IS NULL THEN
     RETURN;
-  END IF;
-
-  IF strpos(foreign_tbl, '.') > 0 THEN
-    foreign_schema := split_part(foreign_tbl, '.', 1);
-    foreign_name := split_part(foreign_tbl, '.', 2);
-  ELSE
-    foreign_schema := 'public';
-    foreign_name := foreign_tbl;
   END IF;
 
   EXECUTE format(
@@ -1085,6 +1428,10 @@ BEGIN
   );
 END
 $v2_link_to_select$;`;
+    };
+    const previewMapSelectSql =
+      buildMapSelectSql(getPreviewLinkMappingMetadata(params, oldField)) ??
+      `DO $v2_link_to_select$ BEGIN RETURN; END $v2_link_to_select$;`;
 
     const singleSelectOptions = buildSelectOptionsFromValuesStatement(
       params,
@@ -1110,7 +1457,9 @@ $v2_link_to_select$;`;
       createCompiledStatementBuilder(params.db, renameSql),
       ...dropStatements,
       ...createStatements,
-      createCompiledStatementBuilder(params.db, mapSelectSql),
+      createCustomDataStatementBuilder(params.db, previewMapSelectSql, async (ctx) =>
+        buildMapSelectSql(await fetchLinkMappingMetadata(ctx, oldField))
+      ),
       ...(isMultipleSelect
         ? multipleSelectOptions
           ? [multipleSelectOptions]
@@ -1253,34 +1602,19 @@ const buildLinkToLinkForeignTableMigrationStatements = (
       }
     }
 
-    const mapSql = `
+    const buildMapSql = (metadata: LinkMappingMetadata): string | null => {
+      if (!metadata.lookupColumnName || !metadata.foreignTable) {
+        return null;
+      }
+
+      return `
 DO $v2_link_remap$
 DECLARE
-  lookup_col text;
-  foreign_tbl text;
-  foreign_schema text;
-  foreign_name text;
+  lookup_col text := ${quoteLiteral(metadata.lookupColumnName)};
+${buildTableIdentifierDeclarations(metadata.foreignTable)}
 BEGIN
-  SELECT db_field_name INTO lookup_col
-  FROM field
-  WHERE id = ${quoteLiteral(newLinkField.lookupFieldId().toString())} AND deleted_time IS NULL
-  LIMIT 1;
-
-  SELECT db_table_name INTO foreign_tbl
-  FROM table_meta
-  WHERE id = ${quoteLiteral(newLinkField.foreignTableId().toString())} AND deleted_time IS NULL
-  LIMIT 1;
-
-  IF lookup_col IS NULL OR foreign_tbl IS NULL THEN
+  IF lookup_col IS NULL OR foreign_schema IS NULL OR foreign_name IS NULL THEN
     RETURN;
-  END IF;
-
-  IF strpos(foreign_tbl, '.') > 0 THEN
-    foreign_schema := split_part(foreign_tbl, '.', 1);
-    foreign_name := split_part(foreign_tbl, '.', 2);
-  ELSE
-    foreign_schema := 'public';
-    foreign_name := foreign_tbl;
   END IF;
 
   ${ensureForeignFkSql}
@@ -1319,6 +1653,10 @@ BEGIN
   );
 END
 $v2_link_remap$;`;
+    };
+    const previewMapSql =
+      buildMapSql(getPreviewLinkMappingMetadata(params, newLinkField)) ??
+      `DO $v2_link_remap$ BEGIN RETURN; END $v2_link_remap$;`;
 
     const dropTmpSql = `ALTER TABLE ${quoteIdent(sourceSchema)}.${quoteIdent(sourceTableName)} DROP COLUMN IF EXISTS ${quoteIdent(tmpColumnName)}`;
 
@@ -1326,7 +1664,9 @@ $v2_link_remap$;`;
       createCompiledStatementBuilder(params.db, renameSql),
       ...dropStatements,
       ...createStatements,
-      createCompiledStatementBuilder(params.db, mapSql),
+      createCustomDataStatementBuilder(params.db, previewMapSql, async (ctx) =>
+        buildMapSql(await fetchLinkMappingMetadata(ctx, newLinkField))
+      ),
       createCompiledStatementBuilder(params.db, dropTmpSql),
     ]);
   });
@@ -1445,92 +1785,19 @@ export abstract class BaseFieldConversionVisitor extends AbstractFieldVisitor<
    * 4. Update the field table's options column
    */
   protected generateSelectOptionsFromValues(): TableSchemaStatementBuilder | null {
-    const { db, fieldId, dbFieldName } = this.params;
+    const { fieldId, dbFieldName } = this.params;
     if (!fieldId) {
       return null;
     }
 
     const fullTableName = this.fullTableName;
-    const colors = SELECT_OPTION_COLORS;
-
-    // This SQL:
-    // 1. Gets distinct non-null, non-empty values from the column (cast to text)
-    // 2. Filters out values that already exist in options.choices
-    // 3. Generates new choice objects with random IDs and colors
-    // 4. Merges new choices with existing choices
-    // 5. Updates the field table
-    return {
-      scope: 'data',
-      compile: () =>
-        sql`
-          WITH distinct_values AS (
-            SELECT DISTINCT ${sql.raw(`"${dbFieldName}"::text`)} AS name
-            FROM ${sql.raw(fullTableName)}
-            WHERE ${sql.raw(`"${dbFieldName}"`)} IS NOT NULL
-              AND ${sql.raw(`"${dbFieldName}"::text`)} <> ''
-          ),
-          existing_choices AS (
-            SELECT jsonb_array_elements(COALESCE(options::jsonb->'choices', '[]'::jsonb)) AS choice
-            FROM field
-            WHERE id = ${sql.val(fieldId)}
-          ),
-          existing_names AS (
-            SELECT choice->>'name' AS name FROM existing_choices
-          ),
-          oversized_values AS (
-            SELECT name FROM distinct_values
-            WHERE char_length(name) > ${sql.val(SELECT_CHOICE_NAME_MAX_LENGTH)}
-          ),
-          oversized_guard AS (
-            SELECT CASE
-              WHEN EXISTS (SELECT 1 FROM oversized_values)
-              -- Keep the invalid cast runtime-bound; Postgres folds constant casts before CASE short-circuits.
-              THEN CAST(
-                ${sql.val(selectChoiceNameLengthError)}
-                || COALESCE((SELECT '' FROM oversized_values LIMIT 1), '')
-                AS integer
-              )
-              ELSE 1
-            END AS ok
-          ),
-          new_values AS (
-            SELECT name, ROW_NUMBER() OVER () AS rn
-            FROM distinct_values
-            CROSS JOIN oversized_guard
-            WHERE name NOT IN (SELECT name FROM existing_names WHERE name IS NOT NULL)
-              AND oversized_guard.ok = 1
-          ),
-          new_choices AS (
-            SELECT jsonb_agg(
-              jsonb_build_object(
-                'id', 'cho' || substr(md5(random()::text || clock_timestamp()::text), 1, 16),
-                'name', name,
-                'color', (ARRAY[${sql.join(
-                  colors.map((c) => sql.val(c)),
-                  sql`, `
-                )}])[(rn % ${sql.val(colors.length)}) + 1]
-              )
-            ) AS choices
-            FROM new_values
-          ),
-          merged_choices AS (
-            SELECT COALESCE(
-              (SELECT jsonb_agg(choice) FROM existing_choices),
-              '[]'::jsonb
-            ) || COALESCE(
-              (SELECT choices FROM new_choices),
-              '[]'::jsonb
-            ) AS choices
-          )
-          UPDATE field
-          SET options = jsonb_set(
-            COALESCE(options::jsonb, '{}'::jsonb),
-            '{choices}',
-            (SELECT choices FROM merged_choices)
-          )
-          WHERE id = ${sql.val(fieldId)}
-        `.compile(db),
-    };
+    return buildSelectOptionsFromValuesStatement(
+      this.params,
+      `SELECT DISTINCT ${quoteIdent(dbFieldName)}::text AS name
+       FROM ${fullTableName}
+       WHERE ${quoteIdent(dbFieldName)} IS NOT NULL
+         AND ${quoteIdent(dbFieldName)}::text <> ''`
+    );
   }
 
   /**
@@ -1828,7 +2095,7 @@ class TextFieldConversionVisitor extends BaseFieldConversionVisitor {
     // Text → MultipleSelect: CSV-aware split into array (V1 parity)
     // Respects double-quoted fields so commas inside "..." are preserved.
     // Auto-generate options from distinct split values
-    const { db, dbFieldName, fieldId } = this.params;
+    const { db, dbFieldName } = this.params;
     const col = `"${dbFieldName}"`;
     const fullTableName = this.fullTableName;
     const statements: TableSchemaStatementBuilder[] = [];
@@ -1836,63 +2103,15 @@ class TextFieldConversionVisitor extends BaseFieldConversionVisitor {
     // E-string \\n/\\r → PG \n/\r → literal newline/CR in regex
     const csvFieldRegex = `E' *(?:"([^"]*)"|([^,\\n\\r]+))'`;
 
-    // Generate options from distinct split values (not whole cell values)
-    if (fieldId) {
-      const colors = SELECT_OPTION_COLORS;
-      statements.push({
-        scope: 'data',
-        compile: () =>
-          sql`
-            WITH distinct_values AS (
-              SELECT DISTINCT COALESCE(trim(m[1]), trim(m[2])) AS name
-              FROM ${sql.raw(fullTableName)}, regexp_matches(${sql.raw(col)}, ${sql.raw(csvFieldRegex)}, 'g') AS m
-              WHERE ${sql.raw(col)} IS NOT NULL
-                AND COALESCE(trim(m[1]), trim(m[2])) <> ''
-            ),
-            existing_choices AS (
-              SELECT jsonb_array_elements(COALESCE(options::jsonb->'choices', '[]'::jsonb)) AS choice
-              FROM field
-              WHERE id = ${sql.val(fieldId)}
-            ),
-            existing_names AS (
-              SELECT choice->>'name' AS name FROM existing_choices
-            ),
-            new_values AS (
-              SELECT name, ROW_NUMBER() OVER () AS rn
-              FROM distinct_values
-              WHERE name NOT IN (SELECT name FROM existing_names WHERE name IS NOT NULL)
-            ),
-            new_choices AS (
-              SELECT jsonb_agg(
-                jsonb_build_object(
-                  'id', 'cho' || substr(md5(random()::text || clock_timestamp()::text), 1, 16),
-                  'name', name,
-                  'color', (ARRAY[${sql.join(
-                    colors.map((c) => sql.val(c)),
-                    sql`, `
-                  )}])[(rn % ${sql.val(colors.length)}) + 1]
-                )
-              ) AS choices
-              FROM new_values
-            ),
-            merged_choices AS (
-              SELECT COALESCE(
-                (SELECT jsonb_agg(choice) FROM existing_choices),
-                '[]'::jsonb
-              ) || COALESCE(
-                (SELECT choices FROM new_choices),
-                '[]'::jsonb
-              ) AS choices
-            )
-            UPDATE field
-            SET options = jsonb_set(
-              COALESCE(options::jsonb, '{}'::jsonb),
-              '{choices}',
-              (SELECT choices FROM merged_choices)
-            )
-            WHERE id = ${sql.val(fieldId)}
-          `.compile(db),
-      });
+    const optionsStatement = buildSelectOptionsFromValuesStatement(
+      this.params,
+      `SELECT DISTINCT COALESCE(trim(m[1]), trim(m[2])) AS name
+       FROM ${fullTableName}, regexp_matches(${col}, ${csvFieldRegex}, 'g') AS m
+       WHERE ${col} IS NOT NULL
+         AND COALESCE(trim(m[1]), trim(m[2])) <> ''`
+    );
+    if (optionsStatement) {
+      statements.push(optionsStatement);
     }
 
     // CSV-aware split: aggregate quoted/unquoted fields into jsonb array
@@ -1921,89 +2140,41 @@ class TextFieldConversionVisitor extends BaseFieldConversionVisitor {
   visitUserField(
     field: UserField
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    // Text → User: split comma-separated text, match each part against base collaborators
-    // by id, name, or email (matching V1 convert2User behavior).
-    // PostgreSQL doesn't allow subqueries in ALTER USING, so we use two steps:
-    // 1. UPDATE to transform text values to JSONB user objects (stored as text temporarily)
-    // 2. ALTER to change column type from text to jsonb
-    const { db, dbFieldName, tableId } = this.params;
+    // Text -> User: resolve text parts through the meta DB at execution time, then write only
+    // the resolved snapshots back to the data DB. This keeps data SQL free of meta-table joins
+    // for BYODB while preserving the old "unmatched text becomes NULL" conversion behavior.
+    const { db, dbFieldName } = this.params;
     const fullTableName = this.fullTableName;
     const col = `"${dbFieldName}"`;
     const isMultiple = field.multiplicity().toBoolean();
-
-    const avatarPrefix = resolveUserAvatarUrlPrefix();
-    const userJsonBuild = `jsonb_build_object('id', cu.uid, 'title', cu.uname, 'email', cu.uemail, 'avatarUrl', ${quoteLiteral(
-      avatarPrefix
-    )} || cu.uid)`;
-
-    // Single UPDATE that resolves all text values to user JSON (or NULL for no match).
-    // Uses a CTE to find base collaborators and match comma-separated parts.
-    // Wrapped in a DO block that checks for collaborator table existence,
-    // since in pglite/v2-only environments these v1 schema tables don't exist.
-    const matchCte = `WITH base_info AS (
-        SELECT base_id FROM table_meta WHERE id = ${quoteLiteral(tableId)} AND deleted_time IS NULL LIMIT 1
-      ),
-      space_info AS (
-        SELECT space_id FROM base WHERE id = (SELECT base_id FROM base_info) AND deleted_time IS NULL LIMIT 1
-      ),
-      collab_users AS (
-        SELECT DISTINCT u.id AS uid, u.name AS uname, u.email AS uemail
-        FROM collaborator c
-        JOIN users u ON c.principal_id = u.id
-        WHERE c.resource_id IN (
-          (SELECT base_id FROM base_info),
-          (SELECT space_id FROM space_info)
-        )
-      ),
-      matched_users AS (
-        SELECT DISTINCT ON (t.__id, cu.uid)
-          t.__id AS rid, cu.uid, cu.uname, cu.uemail, parts.part_idx
-        FROM ${fullTableName} t
-        CROSS JOIN LATERAL (
-          SELECT trim(part) AS val, row_number() OVER () AS part_idx
-          FROM regexp_split_to_table(t.${col}, ${quoteLiteral(',')}) AS part
-        ) parts
-        JOIN collab_users cu ON (
-          parts.val = cu.uid OR parts.val = cu.uname OR parts.val = cu.uemail
-        )
-        WHERE t.${col} IS NOT NULL
-        ORDER BY t.__id, cu.uid, parts.part_idx
-      ),
-      aggregated AS (
-        SELECT m.rid, ${
-          isMultiple
-            ? `jsonb_agg(${userJsonBuild.replace(/cu\./g, 'm.')} ORDER BY m.part_idx)::text AS user_json`
-            : `(SELECT jsonb_build_object(${quoteLiteral('id')}, m2.uid, ${quoteLiteral('title')}, m2.uname, ${quoteLiteral('email')}, m2.uemail, ${quoteLiteral('avatarUrl')}, ${quoteLiteral(avatarPrefix)} || m2.uid)::text FROM matched_users m2 WHERE m2.rid = m.rid ORDER BY m2.part_idx LIMIT 1) AS user_json`
-        }
-        FROM matched_users m
-        GROUP BY m.rid
-      )
-      UPDATE ${fullTableName} AS t
-      SET ${col} = agg.user_json
-      FROM aggregated agg
-      WHERE t.__id = agg.rid`;
-
-    const updateSql = `
-DO $v2_user_conv$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_tables WHERE tablename = 'collaborator') THEN
-    RETURN;
-  END IF;
-  EXECUTE $v2_inner$${matchCte}$v2_inner$;
-END
-$v2_user_conv$;`;
-
-    // Null out any remaining text values that weren't matched (no collaborator found)
     const cleanupSql = `UPDATE ${fullTableName} SET ${col} = NULL WHERE ${col} IS NOT NULL AND left(${col}, 1) NOT IN ('{', '[')`;
+    const previewSql =
+      buildTextToUserTransformSql(fullTableName, col, isMultiple, [
+        {
+          lookupValue: '__preview_user__',
+          id: '__preview_user__',
+          title: '__preview_user__',
+          email: null,
+        },
+      ]) ?? cleanupSql;
 
     return ok([
       {
         scope: 'data',
-        compile: () => sql.raw(updateSql).compile(db),
-      },
-      {
-        scope: 'data',
-        compile: () => sql.raw(cleanupSql).compile(db),
+        compile: () => sql.raw(previewSql).compile(db),
+        execute: async (ctx) => {
+          const mappings = await fetchTextUserMappings(ctx, fullTableName, col);
+          const transformSql = buildTextToUserTransformSql(
+            fullTableName,
+            col,
+            isMultiple,
+            mappings
+          );
+          if (transformSql) {
+            await sql.raw(transformSql).execute(ctx.dataDb);
+          }
+          await sql.raw(cleanupSql).execute(ctx.dataDb);
+        },
       },
       {
         scope: 'data',
@@ -2558,66 +2729,18 @@ class MultipleSelectFieldConversionVisitor extends BaseFieldConversionVisitor {
     _field: SingleSelectField
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     // MultipleSelect → SingleSelect: take first item
-    const { db, dbFieldName, fieldId } = this.params;
+    const { dbFieldName } = this.params;
     const col = `"${dbFieldName}"`;
     const statements: TableSchemaStatementBuilder[] = [];
 
-    if (fieldId) {
-      const colors = SELECT_OPTION_COLORS;
-      statements.push({
-        scope: 'data',
-        compile: () =>
-          sql`
-            WITH distinct_values AS (
-              SELECT DISTINCT value::text AS name
-              FROM ${sql.raw(this.fullTableName)}, jsonb_array_elements_text(${sql.raw(col)})
-              WHERE ${sql.raw(col)} IS NOT NULL
-            ),
-            existing_choices AS (
-              SELECT jsonb_array_elements(COALESCE(options::jsonb->'choices', '[]'::jsonb)) AS choice
-              FROM field
-              WHERE id = ${sql.val(fieldId)}
-            ),
-            existing_names AS (
-              SELECT choice->>'name' AS name FROM existing_choices
-            ),
-            new_values AS (
-              SELECT name, ROW_NUMBER() OVER () AS rn
-              FROM distinct_values
-              WHERE name NOT IN (SELECT name FROM existing_names WHERE name IS NOT NULL)
-                AND name IS NOT NULL AND name <> ''
-            ),
-            new_choices AS (
-              SELECT jsonb_agg(
-                jsonb_build_object(
-                  'id', 'cho' || substr(md5(random()::text || clock_timestamp()::text), 1, 16),
-                  'name', name,
-                  'color', (ARRAY[${sql.join(
-                    colors.map((c) => sql.val(c)),
-                    sql`, `
-                  )}])[(rn % ${sql.val(colors.length)}) + 1]
-                )
-              ) AS choices
-              FROM new_values
-            ),
-            merged_choices AS (
-              SELECT COALESCE(
-                (SELECT jsonb_agg(choice) FROM existing_choices),
-                '[]'::jsonb
-              ) || COALESCE(
-                (SELECT choices FROM new_choices),
-                '[]'::jsonb
-              ) AS choices
-            )
-            UPDATE field
-            SET options = jsonb_set(
-              COALESCE(options::jsonb, '{}'::jsonb),
-              '{choices}',
-              (SELECT choices FROM merged_choices)
-            )
-            WHERE id = ${sql.val(fieldId)}
-          `.compile(db),
-      });
+    const optionsStatement = buildSelectOptionsFromValuesStatement(
+      this.params,
+      `SELECT DISTINCT value::text AS name
+       FROM ${this.fullTableName}, jsonb_array_elements_text(${col}) AS value
+       WHERE ${col} IS NOT NULL`
+    );
+    if (optionsStatement) {
+      statements.push(optionsStatement);
     }
 
     statements.push(
@@ -2903,63 +3026,14 @@ class UserFieldConversionVisitor extends BaseFieldConversionVisitor {
 
     // Generate options from distinct values in the array
     // Note: For multipleSelect, we need to unnest the arrays to get distinct values
-    const { fieldId } = this.params;
-    if (fieldId) {
-      const colors = SELECT_OPTION_COLORS;
-      statements.push({
-        scope: 'data',
-        compile: () =>
-          sql`
-            WITH distinct_values AS (
-              SELECT DISTINCT value::text AS name
-              FROM ${sql.raw(fullTableName)}, jsonb_array_elements_text("${sql.raw(dbFieldName)}")
-              WHERE "${sql.raw(dbFieldName)}" IS NOT NULL
-            ),
-            existing_choices AS (
-              SELECT jsonb_array_elements(COALESCE(options::jsonb->'choices', '[]'::jsonb)) AS choice
-              FROM field
-              WHERE id = ${sql.val(fieldId)}
-            ),
-            existing_names AS (
-              SELECT choice->>'name' AS name FROM existing_choices
-            ),
-            new_values AS (
-              SELECT name, ROW_NUMBER() OVER () AS rn
-              FROM distinct_values
-              WHERE name NOT IN (SELECT name FROM existing_names WHERE name IS NOT NULL)
-                AND name IS NOT NULL AND name <> ''
-            ),
-            new_choices AS (
-              SELECT jsonb_agg(
-                jsonb_build_object(
-                  'id', 'cho' || substr(md5(random()::text || clock_timestamp()::text), 1, 16),
-                  'name', name,
-                  'color', (ARRAY[${sql.join(
-                    colors.map((c) => sql.val(c)),
-                    sql`, `
-                  )}])[(rn % ${sql.val(colors.length)}) + 1]
-                )
-              ) AS choices
-              FROM new_values
-            ),
-            merged_choices AS (
-              SELECT COALESCE(
-                (SELECT jsonb_agg(choice) FROM existing_choices),
-                '[]'::jsonb
-              ) || COALESCE(
-                (SELECT choices FROM new_choices),
-                '[]'::jsonb
-              ) AS choices
-            )
-            UPDATE field
-            SET options = jsonb_set(
-              COALESCE(options::jsonb, '{}'::jsonb),
-              '{choices}',
-              (SELECT choices FROM merged_choices)
-            )
-            WHERE id = ${sql.val(fieldId)}
-          `.compile(db),
-      });
+    const optionsStatement = buildSelectOptionsFromValuesStatement(
+      this.params,
+      `SELECT DISTINCT value::text AS name
+       FROM ${fullTableName}, jsonb_array_elements_text("${dbFieldName}") AS value
+       WHERE "${dbFieldName}" IS NOT NULL`
+    );
+    if (optionsStatement) {
+      statements.push(optionsStatement);
     }
 
     return ok(statements);

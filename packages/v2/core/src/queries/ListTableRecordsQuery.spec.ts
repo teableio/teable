@@ -59,6 +59,8 @@ describe('ListTableRecordsQuery', () => {
       tableId,
       filterLinkCellCandidate: JSON.stringify([`fld${'a'.repeat(16)}`, `rec${'b'.repeat(16)}`]),
       selectedRecordIds: JSON.stringify([`rec${'c'.repeat(16)}`]),
+      projection: JSON.stringify([]),
+      includeTotal: false,
       viewId: `viw${'d'.repeat(16)}`,
       ignoreViewQuery: true,
     });
@@ -67,6 +69,8 @@ describe('ListTableRecordsQuery', () => {
     const query = result._unsafeUnwrap();
     expect(query.filterLinkCellCandidate).toEqual([`fld${'a'.repeat(16)}`, `rec${'b'.repeat(16)}`]);
     expect(query.selectedRecordIds).toEqual([`rec${'c'.repeat(16)}`]);
+    expect(query.projection).toEqual([]);
+    expect(query.includeTotal).toBe(false);
     expect(query.viewId).toBe(`viw${'d'.repeat(16)}`);
     expect(query.ignoreViewQuery).toBe(true);
   });

@@ -53,6 +53,7 @@ import type {
 } from '../ports/TableRecordRepository';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
+import type { ISpan, ITracer, SpanAttributes } from '../ports/Tracer';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import {
   createRecordWritePluginRunner,
@@ -66,6 +67,56 @@ const createContext = (): IExecutionContext => {
   const actorId = ActorId.create('system')._unsafeUnwrap();
   return { actorId, windowId: 'test-window' };
 };
+
+class FakeSpan implements ISpan {
+  ended = false;
+  readonly errors: string[] = [];
+
+  constructor(
+    readonly name: string,
+    readonly attributes: Record<string, string | number | boolean> = {}
+  ) {}
+
+  setAttribute(key: string, value: string | number | boolean): void {
+    this.attributes[key] = value;
+  }
+
+  setAttributes(attributes: SpanAttributes): void {
+    Object.assign(this.attributes, attributes);
+  }
+
+  recordError(message: string): void {
+    this.errors.push(message);
+  }
+
+  end(): void {
+    this.ended = true;
+  }
+}
+
+class FakeTracer implements ITracer {
+  readonly spans: FakeSpan[] = [];
+  private readonly activeSpans: FakeSpan[] = [];
+
+  startSpan(name: string, attributes?: SpanAttributes): ISpan {
+    const span = new FakeSpan(name, attributes ? { ...attributes } : {});
+    this.spans.push(span);
+    return span;
+  }
+
+  async withSpan<T>(span: ISpan, callback: () => Promise<T>): Promise<T> {
+    this.activeSpans.push(span as FakeSpan);
+    try {
+      return await callback();
+    } finally {
+      this.activeSpans.pop();
+    }
+  }
+
+  getActiveSpan(): ISpan | undefined {
+    return this.activeSpans[this.activeSpans.length - 1];
+  }
+}
 
 const createTableUpdateFlow = (
   tableRepository: FakeTableRepository,
@@ -420,13 +471,16 @@ class FakeRecordOrderCalculator implements IRecordOrderCalculator {
 
 class FakeEventBus implements IEventBus {
   published: IDomainEvent[] = [];
+  calls?: string[];
 
   async publish(_: IExecutionContext, event: IDomainEvent) {
+    this.calls?.push('publish');
     this.published.push(event);
     return ok(undefined);
   }
 
   async publishMany(_: IExecutionContext, events: ReadonlyArray<IDomainEvent>) {
+    this.calls?.push('publishMany');
     this.published.push(...events);
     return ok(undefined);
   }
@@ -448,13 +502,16 @@ class FakeUnitOfWork implements IUnitOfWork {
 
 class FakeUndoRedoService {
   entries: unknown[] = [];
+  calls?: string[];
 
   async recordEntry(_context: IExecutionContext, _tableId: TableId, entry: unknown) {
+    this.calls?.push('undoRedo.append');
     this.entries.push(entry);
     return ok(undefined);
   }
 
   async appendEntry(_context: IExecutionContext, _tableId: TableId, entry: unknown) {
+    this.calls?.push('undoRedo.append');
     this.entries.push(entry);
     return ok(undefined);
   }
@@ -857,6 +914,113 @@ describe('UpdateRecordsHandler', () => {
     ]);
   });
 
+  it('traces explicit bulk-update preparation phases', async () => {
+    const { table, tableId, textFieldId, numberFieldId } = buildTable();
+    const recordIdA = `rec${'m'.repeat(16)}`;
+    const recordIdB = `rec${'n'.repeat(16)}`;
+    const tracer = new FakeTracer();
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const recordRepository = new FakeTableRecordRepository();
+    const queryRepository = new FakeTableRecordQueryRepository();
+    queryRepository.records = [
+      {
+        id: recordIdA,
+        version: 2,
+        fields: {
+          [numberFieldId.toString()]: 1,
+          [textFieldId.toString()]: 'before-a',
+        },
+      },
+      {
+        id: recordIdB,
+        version: 5,
+        fields: {
+          [numberFieldId.toString()]: 2,
+          [textFieldId.toString()]: 'before-b',
+        },
+      },
+    ];
+
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const undoRedoService = new FakeUndoRedoService();
+    const handler = createHandler(
+      tableRepository,
+      recordRepository,
+      eventBus,
+      unitOfWork,
+      undoRedoService,
+      {
+        queryRepository,
+      }
+    );
+
+    const result = await handler.handle(
+      { ...createContext(), tracer },
+      UpdateRecordsCommand.create({
+        tableId: tableId.toString(),
+        fieldKeyType: 'id',
+        records: [
+          {
+            id: recordIdA,
+            fields: { [numberFieldId.toString()]: 99 },
+          },
+          {
+            id: recordIdB,
+            fields: { [textFieldId.toString()]: 'after-b' },
+          },
+        ],
+      })._unsafeUnwrap()
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(tracer.spans.map((span) => span.name)).toEqual(
+      expect.arrayContaining([
+        'teable.RecordBulkUpdateService.resolveExplicitUpdates',
+        'teable.RecordBulkUpdateService.pluginPrepare',
+        'teable.RecordBulkUpdateService.loadExplicitCurrentRecords',
+        'teable.RecordBulkUpdateService.prepareTableForWrite',
+        'teable.RecordBulkUpdateService.createUpdateRecordsStream',
+        'teable.RecordBulkUpdateService.generateUpdateBatch',
+        'teable.RecordBulkUpdateService.generateUpdateBatch.updateRecord',
+        'teable.RecordBulkUpdateService.generateUpdateBatch.updateRecord.resolveFieldKeys',
+        'teable.RecordBulkUpdateService.generateUpdateBatch.updateRecord.configureMutationSpec',
+        'teable.RecordBulkUpdateService.generateUpdateBatch.updateRecord.buildMutationSpec',
+        'teable.RecordBulkUpdateService.generateUpdateBatch.updateRecord.mutateRecord',
+        'teable.RecordBulkUpdateService.generateUpdateBatch.yieldFinalBatch',
+        'teable.RecordBulkUpdateService.resolveUpdateBatch',
+        'teable.RecordBulkUpdateService.materializeResolvedBatch',
+        'teable.RecordBulkUpdateService.updateManyStream',
+        'teable.RecordBulkUpdateService.buildPersistedEventData',
+        'teable.RecordBulkUpdateService.materializeResultRecords',
+      ])
+    );
+    const updateManyStreamSpan = tracer.spans.find(
+      (span) => span.name === 'teable.RecordBulkUpdateService.updateManyStream'
+    );
+    expect(updateManyStreamSpan?.attributes).toMatchObject({
+      'record.update.batchCount': 1,
+      'record.update.maxBatchSize': 2,
+      'record.update.authorizedRecordCount': 2,
+    });
+    const generateBatchSpan = tracer.spans.find(
+      (span) => span.name === 'teable.RecordBulkUpdateService.generateUpdateBatch'
+    );
+    expect(generateBatchSpan?.attributes).toMatchObject({
+      'record.update.generateBatchTotalRecords': 2,
+      'record.update.generateBatchTotalFieldAssignments': 2,
+      'record.update.generateBatchMaxFieldsPerRecord': 1,
+    });
+    expect(
+      Object.keys(generateBatchSpan?.attributes ?? {}).some((key) =>
+        key.startsWith('record.update.generateBatch.record.resolveFieldKeys.ms')
+      )
+    ).toBe(true);
+    expect(tracer.spans.every((span) => span.ended)).toBe(true);
+  });
+
   it('uses repository-returned versions for explicit bulk-update events', async () => {
     const { table, tableId, numberFieldId } = buildTable();
     const recordId = `rec${'w'.repeat(16)}`;
@@ -904,6 +1068,55 @@ describe('UpdateRecordsHandler', () => {
       oldVersion: 3,
       newVersion: 17,
     });
+  });
+
+  it('records explicit bulk-update undo entry before publishing asynchronous events', async () => {
+    const { table, tableId, numberFieldId } = buildTable();
+    const recordId = `rec${'o'.repeat(16)}`;
+    const calls: string[] = [];
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const recordRepository = new FakeTableRecordRepository();
+    const queryRepository = new FakeTableRecordQueryRepository();
+    queryRepository.records = [
+      {
+        id: recordId,
+        version: 3,
+        fields: { [numberFieldId.toString()]: 1 },
+      },
+    ];
+
+    const eventBus = new FakeEventBus();
+    eventBus.calls = calls;
+    const unitOfWork = new FakeUnitOfWork();
+    const undoRedoService = new FakeUndoRedoService();
+    undoRedoService.calls = calls;
+    const handler = createHandler(
+      tableRepository,
+      recordRepository,
+      eventBus,
+      unitOfWork,
+      undoRedoService,
+      {
+        queryRepository,
+      }
+    );
+
+    const result = await handler.handle(
+      createContext(),
+      UpdateRecordsCommand.create({
+        tableId: tableId.toString(),
+        fieldKeyType: 'id',
+        records: [{ id: recordId, fields: { [numberFieldId.toString()]: 99 } }],
+      })._unsafeUnwrap()
+    );
+
+    result._unsafeUnwrap();
+
+    expect(calls).toEqual(['undoRedo.append', 'publishMany']);
+    expect(eventBus.published.some(isRecordsBatchUpdatedEvent)).toBe(true);
+    expect(undoRedoService.entries).toHaveLength(1);
   });
 
   it('does not publish explicit update events for rows skipped by storage as no-ops', async () => {
@@ -1286,7 +1499,18 @@ describe('UpdateRecordsHandler', () => {
                 : changedFields
             ),
           decorateChangedFieldsByRecord: async (_table, changedFieldsByRecord) =>
-            ok(changedFieldsByRecord),
+            ok(
+              changedFieldsByRecord
+                ? new Map(
+                    [...changedFieldsByRecord.entries()].map(([recordId, changedFields]) => [
+                      recordId,
+                      changedFields.has(attachmentFieldId.toString())
+                        ? new Map([[attachmentFieldId.toString(), [decoratedAttachment]]])
+                        : changedFields,
+                    ])
+                  )
+                : changedFieldsByRecord
+            ),
         },
       }
     );

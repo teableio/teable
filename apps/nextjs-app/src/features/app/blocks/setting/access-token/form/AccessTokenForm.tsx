@@ -143,7 +143,7 @@ export const AccessTokenForm = <T extends IFormType>(props: IAccessTokenForm<T>)
   };
 
   return (
-    <div className="w-full max-w-5xl space-y-3 pb-10 pl-1">
+    <div className="w-full max-w-5xl space-y-3 pb-2">
       {type === 'new' && (
         <>
           <p>{t('token:new.title')}</p>
