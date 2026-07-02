@@ -12,6 +12,26 @@ const fieldsOption = Options.text('fields').pipe(
   Options.withDescription('JSON object of field values to update')
 );
 
+const noSqlOption = Options.boolean('no-sql').pipe(
+  Options.withDefault(false),
+  Options.withDescription('Skip generated SQL and SQL EXPLAIN; only show command impact summary')
+);
+
+const dumpSqlOption = Options.boolean('dump-sql').pipe(
+  Options.withDefault(false),
+  Options.withDescription('Include generated SQL without running PostgreSQL EXPLAIN')
+);
+
+const formatOption = Options.choice('format', ['json', 'text']).pipe(
+  Options.withDefault('json' as const),
+  Options.withDescription('SQL EXPLAIN output format')
+);
+
+const statementTimeoutMsOption = Options.integer('statement-timeout-ms').pipe(
+  Options.withDefault(0),
+  Options.withDescription('PostgreSQL statement_timeout for SQL EXPLAIN calls, in milliseconds')
+);
+
 const parseFields = (json: string): Effect.Effect<Record<string, unknown>, ValidationError> =>
   Effect.try({
     try: () => JSON.parse(json) as Record<string, unknown>,
@@ -24,17 +44,35 @@ const handler = (args: {
   readonly recordId: string;
   readonly fields: string;
   readonly analyze: boolean;
+  readonly noSql: boolean;
+  readonly dumpSql: boolean;
+  readonly format: 'json' | 'text';
+  readonly statementTimeoutMs: number;
 }) =>
   Effect.gen(function* () {
     const commandExplain = yield* CommandExplain;
     const output = yield* Output;
 
+    if (args.noSql && args.dumpSql) {
+      return yield* Effect.fail(
+        new ValidationError({
+          message: '--no-sql and --dump-sql cannot be used together',
+          field: 'no-sql',
+        })
+      );
+    }
+
     const fields = yield* parseFields(args.fields);
+    const includeSql = !args.noSql;
+    const sqlExplainMode = args.dumpSql ? 'dump' : args.format;
     const input = {
       tableId: args.tableId,
       recordId: args.recordId,
       fields,
       analyze: args.analyze,
+      includeSql,
+      sqlExplainMode,
+      statementTimeoutMs: args.statementTimeoutMs,
     };
 
     const result = yield* commandExplain
@@ -43,6 +81,9 @@ const handler = (args: {
         recordId: args.recordId,
         fields,
         analyze: args.analyze,
+        includeSql,
+        sqlExplainMode,
+        statementTimeoutMs: args.statementTimeoutMs,
       })
       .pipe(
         Effect.catchAll((error) =>
@@ -64,6 +105,10 @@ export const explainUpdate = Command.make(
     recordId: recordIdOption,
     fields: fieldsOption,
     analyze: analyzeOption,
+    noSql: noSqlOption,
+    dumpSql: dumpSqlOption,
+    format: formatOption,
+    statementTimeoutMs: statementTimeoutMsOption,
   },
   handler
 ).pipe(Command.withDescription('Explain UpdateRecord command execution plan'));

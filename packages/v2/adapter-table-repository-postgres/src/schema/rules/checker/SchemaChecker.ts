@@ -1,6 +1,8 @@
 import type { Table } from '@teable/v2-core';
 
+import type { ISchemaRule } from '../core';
 import { getRuleRepairHint } from '../core/RuleRepairMetadata';
+import type { SchemaRuleContext } from '../context/SchemaRuleContext';
 import {
   createSchemaRulePlanner,
   getSchemaRulePlanningStageDescription,
@@ -15,10 +17,20 @@ import {
   warnResult,
 } from './SchemaCheckResult';
 
+const yieldToEventLoop = () => new Promise<void>((resolve) => setImmediate(resolve));
+
 /**
  * Parameters for creating a SchemaChecker.
  */
 export interface SchemaCheckerParams extends SchemaRulePlannerParams {}
+
+const getRuleValidationCtx = (ctx: SchemaRuleContext, rule: ISchemaRule): SchemaRuleContext =>
+  rule.validationScope === 'meta'
+    ? {
+        ...ctx,
+        db: ctx.metaDb,
+      }
+    : ctx;
 
 /**
  * Checks the schema of a table field by field, rule by rule.
@@ -27,6 +39,10 @@ export interface SchemaCheckerParams extends SchemaRulePlannerParams {}
 export class SchemaChecker {
   constructor(private readonly params: SchemaCheckerParams) {}
 
+  private async checkRuleValidity(ctx: SchemaRuleContext, rule: ISchemaRule) {
+    return rule.isValid(getRuleValidationCtx(ctx, rule));
+  }
+
   /**
    * Check all fields in a table.
    * Yields check results one by one for each rule.
@@ -34,6 +50,7 @@ export class SchemaChecker {
   async *checkTable(table: Table): AsyncGenerator<SchemaCheckResult, void, unknown> {
     const planner = createSchemaRulePlanner(this.params);
     for (const planEntry of planner.planTable(table)) {
+      await yieldToEventLoop();
       if (planEntry.type === 'error') {
         yield errorResult(
           pendingResult(
@@ -89,7 +106,7 @@ export class SchemaChecker {
         yield runningResult(pending);
 
         try {
-          const validationResult = await rule.isValid(ctx);
+          const validationResult = await this.checkRuleValidity(ctx, rule);
 
           if (validationResult.isErr()) {
             yield errorResult(pending, validationResult.error.message);
@@ -109,7 +126,8 @@ export class SchemaChecker {
               extra: validation.extra,
               extraItems: validation.extraItems,
             };
-            const repairResult = getRuleRepairHint(rule, ctx, validation, {
+            const validationCtx = getRuleValidationCtx(ctx, rule);
+            const repairResult = getRuleRepairHint(rule, validationCtx, validation, {
               skipStatementCheck: true,
             });
             const repair = repairResult.isOk() ? repairResult.value : undefined;
@@ -135,6 +153,7 @@ export class SchemaChecker {
           );
           validatedRules.set(rule.id, false);
         }
+        await yieldToEventLoop();
       }
     }
   }
@@ -149,6 +168,7 @@ export class SchemaChecker {
   ): AsyncGenerator<SchemaCheckResult, void, unknown> {
     const planner = createSchemaRulePlanner(this.params);
     for (const planEntry of planner.planTable(table, { fieldId })) {
+      await yieldToEventLoop();
       if (planEntry.type === 'error') {
         yield errorResult(
           pendingResult(
@@ -198,7 +218,7 @@ export class SchemaChecker {
         yield runningResult(pending);
 
         try {
-          const validationResult = await rule.isValid(ctx);
+          const validationResult = await this.checkRuleValidity(ctx, rule);
 
           if (validationResult.isErr()) {
             yield errorResult(pending, validationResult.error.message);
@@ -218,7 +238,8 @@ export class SchemaChecker {
               extra: validation.extra,
               extraItems: validation.extraItems,
             };
-            const repairResult = getRuleRepairHint(rule, ctx, validation, {
+            const validationCtx = getRuleValidationCtx(ctx, rule);
+            const repairResult = getRuleRepairHint(rule, validationCtx, validation, {
               skipStatementCheck: true,
             });
             const repair = repairResult.isOk() ? repairResult.value : undefined;
@@ -252,6 +273,7 @@ export class SchemaChecker {
           );
           validatedRules.set(rule.id, false);
         }
+        await yieldToEventLoop();
       }
     }
   }

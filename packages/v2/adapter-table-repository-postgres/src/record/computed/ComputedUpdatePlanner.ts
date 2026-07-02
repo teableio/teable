@@ -1,4 +1,10 @@
-import { domainError, FieldId, TableId } from '@teable/v2-core';
+import {
+  createTeableSpanAttributes,
+  domainError,
+  FieldId,
+  TableId,
+  TeableSpanAttributes,
+} from '@teable/v2-core';
 import type {
   BaseId,
   ConditionalLookupField,
@@ -15,7 +21,12 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
-import type { FieldDependencyEdge, FieldDependencyGraph, FieldMeta } from './FieldDependencyGraph';
+import type {
+  FieldDependencyEdge,
+  FieldDependencyGraph,
+  FieldMeta,
+  TableProvisionStatesForDependencyGraph,
+} from './FieldDependencyGraph';
 
 export type UpdateContext = {
   table: Table;
@@ -24,6 +35,17 @@ export type UpdateContext = {
   changeType: 'insert' | 'update' | 'delete';
   impact?: UpdateImpactHint;
   cyclePolicy?: ComputedUpdateCyclePolicy;
+};
+
+export type ComputedUpdatePlannerOptions = {
+  tableProvisionStates?: TableProvisionStatesForDependencyGraph;
+  scopedPendingTableIds?: ReadonlyArray<TableId>;
+  /**
+   * Schema-update cascades may seed a computed field because they first try to
+   * self-backfill it. Keep those fields in the plan so the cascade can still
+   * backfill them later when the early self-backfill path skipped them.
+   */
+  includeComputedSeedFields?: boolean;
 };
 
 export type ComputedSeedGroup = {
@@ -181,6 +203,54 @@ export type ComputedUpdatePlan = {
   seedAllTableIds?: ReadonlyArray<TableId>;
 };
 
+const emptyComputedUpdatePlan = (
+  context: PlanStageContext,
+  beforeImageRecords: ReadonlyArray<ComputedBeforeImageRecord>
+): ComputedUpdatePlan => ({
+  baseId: context.baseId,
+  seedTableId: context.seedTableId,
+  seedRecordIds: context.seedRecordIds,
+  extraSeedRecords: context.extraSeedRecords,
+  beforeImageRecords,
+  steps: [],
+  edges: [],
+  estimatedComplexity: 0,
+  changeType: context.changeType,
+  cyclePolicy: context.cyclePolicy,
+  sameTableBatches: [],
+});
+
+const withPlannerTraceSpan = async <T>(
+  executionContext: IExecutionContext | undefined,
+  operation: string,
+  extraAttributes: Record<string, string | number | boolean>,
+  work: () => T | PromiseLike<T>
+): Promise<T> => {
+  const tracer = executionContext?.tracer;
+  const span = tracer?.startSpan(
+    `teable.ComputedUpdatePlanner.${operation}`,
+    createTeableSpanAttributes('service', `ComputedUpdatePlanner.${operation}`, {
+      [TeableSpanAttributes.HANDLER]: 'ComputedUpdatePlanner',
+      ...extraAttributes,
+    })
+  );
+
+  if (!span || !tracer) {
+    return await work();
+  }
+
+  return tracer.withSpan(span, async () => {
+    try {
+      return await work();
+    } catch (error) {
+      span.recordError(error instanceof Error ? error.message : String(error));
+      throw error;
+    } finally {
+      span.end();
+    }
+  });
+};
+
 type UpdateImpact = {
   includesLinkRelation: boolean;
   includesValueChange: boolean;
@@ -213,7 +283,8 @@ export class ComputedUpdatePlanner {
 
   async plan(
     context: UpdateContext,
-    executionContext?: IExecutionContext
+    executionContext?: IExecutionContext,
+    options: ComputedUpdatePlannerOptions = {}
   ): Promise<Result<ComputedUpdatePlan, DomainError>> {
     return this.planStage(
       {
@@ -228,7 +299,8 @@ export class ComputedUpdatePlanner {
         table: context.table,
         cyclePolicy: context.cyclePolicy,
       },
-      executionContext
+      executionContext,
+      options
     );
   }
 
@@ -237,7 +309,8 @@ export class ComputedUpdatePlanner {
       PlanStageContext,
       'baseId' | 'seedTableId' | 'changedFieldIds' | 'changeType' | 'impact'
     >,
-    executionContext?: IExecutionContext
+    executionContext?: IExecutionContext,
+    options: ComputedUpdatePlannerOptions = {}
   ): Promise<Result<ComputedBeforeImageRequirements, DomainError>> {
     return safeTry<ComputedBeforeImageRequirements, DomainError>(
       async function* (this: ComputedUpdatePlanner) {
@@ -255,6 +328,8 @@ export class ComputedUpdatePlanner {
 
         const graphData = yield* await this.graph.load(context.baseId, executionContext, {
           requiredFieldIds: impactSeedFieldIds,
+          tableProvisionStates: options.tableProvisionStates ?? ['ready'],
+          scopedPendingTableIds: options.scopedPendingTableIds,
         });
         const { fieldsById, edges } = graphData;
 
@@ -281,570 +356,650 @@ export class ComputedUpdatePlanner {
 
   async planStage(
     context: PlanStageContext,
-    executionContext?: IExecutionContext
+    executionContext?: IExecutionContext,
+    options: ComputedUpdatePlannerOptions = {}
   ): Promise<Result<ComputedUpdatePlan, DomainError>> {
-    return safeTry<ComputedUpdatePlan, DomainError>(
-      async function* (this: ComputedUpdatePlanner) {
-        const beforeImageRecords = context.beforeImageRecords ?? [];
+    return withPlannerTraceSpan(
+      executionContext,
+      'planStage',
+      {
+        'teable.base_id': context.baseId.toString(),
+        [TeableSpanAttributes.TABLE_ID]: context.seedTableId.toString(),
+        'teable.computed.change_type': context.changeType,
+        'teable.computed.seed_record_count': context.seedRecordIds.length,
+        'teable.computed.changed_field_count': context.changedFieldIds.length,
+      },
+      () =>
+        safeTry<ComputedUpdatePlan, DomainError>(
+          async function* (this: ComputedUpdatePlanner) {
+            const beforeImageRecords = context.beforeImageRecords ?? [];
 
-        // For INSERT, we need initial values for all stored computed fields, including those
-        // that depend on "unprovided" (implicitly null) inputs, or have no dependencies at all.
-        // Seed planning with all table fields so the incremental graph can include every computed field.
-        const impactSeedFieldIds = collectImpactSeedFieldIds(
-          context.changedFieldIds,
-          context.impact
-        );
-        const planningSeedFieldIds =
-          context.changeType === 'insert' && context.table
-            ? context.table.getFields().map((field) => field.id())
-            : impactSeedFieldIds;
+            // For INSERT, we need initial values for all stored computed fields, including those
+            // that depend on "unprovided" (implicitly null) inputs, or have no dependencies at all.
+            // Seed planning with all table fields so the incremental graph can include every computed field.
+            const impactSeedFieldIds = collectImpactSeedFieldIds(
+              context.changedFieldIds,
+              context.impact
+            );
+            const planningSeedFieldIds =
+              context.changeType === 'insert' && context.table
+                ? context.table.getFields().map((field) => field.id())
+                : impactSeedFieldIds;
 
-        const graphData = yield* await this.graph.load(context.baseId, executionContext, {
-          requiredFieldIds: planningSeedFieldIds,
-        });
-        const { fieldsById, edges } = graphData;
-
-        const impactResult = resolveUpdateImpact(fieldsById, {
-          changedFieldIds:
-            context.changeType === 'insert' && context.table
-              ? planningSeedFieldIds
-              : impactSeedFieldIds,
-          changeType: context.changeType,
-          impact: context.impact,
-        });
-        if (impactResult.isErr()) return err(impactResult.error);
-        const impact = impactResult.value;
-
-        const valueSeedFieldIds = new Map<string, FieldId>();
-        for (const fieldId of impact.valueSeedFieldIds) {
-          valueSeedFieldIds.set(fieldId.toString(), fieldId);
-        }
-
-        // For DELETE operations, collect source fields that are depended on by
-        // conditionalLookup/conditionalRollup fields in other tables.
-        // These fields need to be seeds so the conditional fields get recalculated.
-        if (context.changeType === 'delete') {
-          for (const edge of edges) {
-            // Only cross_record edges from the seed table
-            if (edge.kind !== 'cross_record') continue;
-            if (!edge.fromTableId.equals(context.seedTableId)) continue;
-
-            // Only conditional field semantics (no linkFieldId)
-            if (
-              edge.semantic !== 'conditional_rollup_source' &&
-              edge.semantic !== 'conditional_lookup_source'
-            ) {
-              continue;
+            const hasComputedTargets = yield* await this.hasComputedTargets(
+              context,
+              executionContext,
+              options
+            );
+            if (!hasComputedTargets) {
+              return ok(emptyComputedUpdatePlan(context, beforeImageRecords));
             }
 
-            // Add the source field as a value seed
-            const fromFieldIdStr = edge.fromFieldId.toString();
-            if (!valueSeedFieldIds.has(fromFieldIdStr)) {
-              valueSeedFieldIds.set(fromFieldIdStr, edge.fromFieldId);
+            const graphData = yield* await this.graph.load(context.baseId, executionContext, {
+              requiredFieldIds: planningSeedFieldIds,
+              tableProvisionStates: options.tableProvisionStates ?? ['ready'],
+              scopedPendingTableIds: options.scopedPendingTableIds,
+            });
+            const { fieldsById, edges } = graphData;
+
+            const impactResult = resolveUpdateImpact(fieldsById, {
+              changedFieldIds:
+                context.changeType === 'insert' && context.table
+                  ? planningSeedFieldIds
+                  : impactSeedFieldIds,
+              changeType: context.changeType,
+              impact: context.impact,
+            });
+            if (impactResult.isErr()) return err(impactResult.error);
+            const impact = impactResult.value;
+
+            const valueSeedFieldIds = new Map<string, FieldId>();
+            for (const fieldId of impact.valueSeedFieldIds) {
+              valueSeedFieldIds.set(fieldId.toString(), fieldId);
             }
-          }
-        }
 
-        const linkSeedFieldIds = new Map<string, FieldId>();
-        for (const fieldId of impact.linkSeedFieldIds) {
-          linkSeedFieldIds.set(fieldId.toString(), fieldId);
-        }
+            // For DELETE operations, collect source fields that are depended on by
+            // conditionalLookup/conditionalRollup fields in other tables.
+            // These fields need to be seeds so the conditional fields get recalculated.
+            if (context.changeType === 'delete') {
+              for (const edge of edges) {
+                // Only cross_record edges from the seed table
+                if (edge.kind !== 'cross_record') continue;
+                if (!edge.fromTableId.equals(context.seedTableId)) continue;
 
-        // Link relation changes should also refresh symmetric link fields and their dependents.
-        const symmetricLinkEdges: Array<{
-          fromFieldId: FieldId;
-          toFieldId: FieldId;
-          fromTableId: TableId;
-          toTableId: TableId;
-        }> = [];
+                // Only conditional field semantics (no linkFieldId)
+                if (
+                  edge.semantic !== 'conditional_rollup_source' &&
+                  edge.semantic !== 'conditional_lookup_source'
+                ) {
+                  continue;
+                }
 
-        if (impact.includesLinkRelation) {
-          for (const linkFieldId of impact.linkSeedFieldIds) {
-            const meta = fieldsById.get(linkFieldId.toString());
-            if (!meta || meta.type !== 'link') continue;
+                // Add the source field as a value seed
+                const fromFieldIdStr = edge.fromFieldId.toString();
+                if (!valueSeedFieldIds.has(fromFieldIdStr)) {
+                  valueSeedFieldIds.set(fromFieldIdStr, edge.fromFieldId);
+                }
+              }
+            }
 
-            const symmetricFieldId = meta.options?.symmetricFieldId;
-            const foreignTableId = meta.options?.foreignTableId;
-            if (!symmetricFieldId || !foreignTableId) continue;
+            const linkSeedFieldIds = new Map<string, FieldId>();
+            for (const fieldId of impact.linkSeedFieldIds) {
+              linkSeedFieldIds.set(fieldId.toString(), fieldId);
+            }
 
-            const symmetricFieldResult = FieldId.create(symmetricFieldId);
-            if (symmetricFieldResult.isErr()) return err(symmetricFieldResult.error);
-            const foreignTableResult = TableId.create(foreignTableId);
-            if (foreignTableResult.isErr()) return err(foreignTableResult.error);
+            // Link relation changes should also refresh symmetric link fields and their dependents.
+            const symmetricLinkEdges: Array<{
+              fromFieldId: FieldId;
+              toFieldId: FieldId;
+              fromTableId: TableId;
+              toTableId: TableId;
+            }> = [];
 
-            const symmetricKey = symmetricFieldResult.value.toString();
+            if (impact.includesLinkRelation) {
+              for (const linkFieldId of impact.linkSeedFieldIds) {
+                const meta = fieldsById.get(linkFieldId.toString());
+                if (!meta || meta.type !== 'link') continue;
 
-            // For cross-base links, the symmetric field is in a different base
-            // and won't be loaded in fieldsById (which only loads current base fields).
-            // Create a FieldMeta for it so it can be included in update steps.
-            if (!fieldsById.has(symmetricKey)) {
-              // Build symmetric field's options by mirroring the original link field
-              const symmetricOptions = {
-                foreignTableId: meta.tableId.toString(),
-                lookupFieldId: meta.options?.lookupFieldId ?? '',
-                symmetricFieldId: meta.id.toString(),
-                // Keep the same junction table info (symmetric link uses the same junction)
-                fkHostTableName: meta.options?.fkHostTableName,
-                // Reverse the relationship
-                relationship: reverseRelationship(meta.options?.relationship),
+                const symmetricFieldId = meta.options?.symmetricFieldId;
+                const foreignTableId = meta.options?.foreignTableId;
+                if (!symmetricFieldId || !foreignTableId) continue;
+
+                const symmetricFieldResult = FieldId.create(symmetricFieldId);
+                if (symmetricFieldResult.isErr()) return err(symmetricFieldResult.error);
+                const foreignTableResult = TableId.create(foreignTableId);
+                if (foreignTableResult.isErr()) return err(foreignTableResult.error);
+
+                const symmetricKey = symmetricFieldResult.value.toString();
+
+                // For cross-base links, the symmetric field is in a different base
+                // and won't be loaded in fieldsById (which only loads current base fields).
+                // Create a FieldMeta for it so it can be included in update steps.
+                if (!fieldsById.has(symmetricKey)) {
+                  // Build symmetric field's options by mirroring the original link field
+                  const symmetricOptions = {
+                    foreignTableId: meta.tableId.toString(),
+                    lookupFieldId: meta.options?.lookupFieldId ?? '',
+                    symmetricFieldId: meta.id.toString(),
+                    // Keep the same junction table info (symmetric link uses the same junction)
+                    fkHostTableName: meta.options?.fkHostTableName,
+                    // Reverse the relationship
+                    relationship: reverseRelationship(meta.options?.relationship),
+                  };
+
+                  fieldsById.set(symmetricKey, {
+                    id: symmetricFieldResult.value,
+                    tableId: foreignTableResult.value,
+                    type: 'link',
+                    isComputed: true,
+                    options: symmetricOptions,
+                    lookupOptions: null,
+                    conditionalOptions: null,
+                  });
+                }
+
+                symmetricLinkEdges.push({
+                  fromFieldId: meta.id,
+                  toFieldId: symmetricFieldResult.value,
+                  fromTableId: meta.tableId,
+                  toTableId: foreignTableResult.value,
+                });
+              }
+            }
+
+            const affectedFieldIds = new Set<string>();
+
+            // For INSERT, include seeds as fallback (even if reference graph is incomplete).
+            // For UPDATE/DELETE and follow-up stages, exclude seeds that aren't also dependents.
+            const includeSeedsAlways = context.changeType === 'insert';
+
+            if (impact.includesValueChange && valueSeedFieldIds.size > 0) {
+              const valueEdges = edges.filter(isEdgeRelevantForValue);
+              for (const fieldId of collectDirectAffectedFieldIds(
+                valueEdges,
+                [...valueSeedFieldIds.values()],
+                includeSeedsAlways
+              )) {
+                affectedFieldIds.add(fieldId);
+              }
+            }
+            if (impact.includesLinkRelation && linkSeedFieldIds.size > 0) {
+              const linkEdges = edges.filter(isEdgeRelevantForLink);
+              const linkRelationSeedIds: FieldId[] = [];
+              for (const fieldId of linkSeedFieldIds.values()) {
+                affectedFieldIds.add(fieldId.toString());
+                linkRelationSeedIds.push(fieldId);
+              }
+
+              const linkRelationValueSeeds: FieldId[] = [...linkRelationSeedIds];
+              for (const fieldId of collectDirectAffectedFieldIds(
+                linkEdges,
+                linkRelationSeedIds,
+                includeSeedsAlways
+              )) {
+                affectedFieldIds.add(fieldId);
+                const meta = fieldsById.get(fieldId);
+                if (meta) {
+                  linkRelationValueSeeds.push(meta.id);
+                }
+              }
+
+              // Add symmetric link fields and traverse from them to find dependent lookups
+              const symmetricFieldIds: FieldId[] = [];
+              for (const edge of symmetricLinkEdges) {
+                affectedFieldIds.add(edge.toFieldId.toString());
+                symmetricFieldIds.push(edge.toFieldId);
+                linkRelationValueSeeds.push(edge.toFieldId);
+              }
+
+              // Traverse from symmetric link fields to find lookups that depend on them
+              // e.g., when setting Parent.Children link, Child.Parent (symmetric) gets updated,
+              // and Child.ParentName (lookup via Child.Parent) should also be updated
+              if (symmetricFieldIds.length > 0) {
+                for (const fieldId of collectDirectAffectedFieldIds(
+                  linkEdges,
+                  symmetricFieldIds,
+                  includeSeedsAlways
+                )) {
+                  affectedFieldIds.add(fieldId);
+                  const meta = fieldsById.get(fieldId);
+                  if (meta) {
+                    linkRelationValueSeeds.push(meta.id);
+                  }
+                }
+              }
+
+              // Link relation changes can cascade into value-dependent fields (formula/lookup/rollup/etc).
+              const valueEdges = edges.filter(isEdgeRelevantForValue);
+              for (const fieldId of collectDirectAffectedFieldIds(
+                valueEdges,
+                linkRelationValueSeeds,
+                includeSeedsAlways
+              )) {
+                affectedFieldIds.add(fieldId);
+              }
+            }
+
+            // INSERT: conditional fields (conditionalRollup/conditionalLookup) depend only on
+            // foreign-table changes and can be "invisible" to same-record dependency scanning.
+            // Ensure they're computed for newly inserted records so stored reads are correct.
+            if (context.changeType === 'insert' && context.table) {
+              for (const field of context.table.getFields()) {
+                const fieldType = field.type().toString();
+                if (fieldType !== 'conditionalRollup' && fieldType !== 'conditionalLookup')
+                  continue;
+
+                const fieldId = field.id().toString();
+                if (!fieldsById.has(fieldId)) {
+                  const conditionalOptions = (() => {
+                    if (fieldType === 'conditionalRollup') {
+                      const config = (field as ConditionalRollupField).configDto();
+                      const filter = config.condition?.filter ?? null;
+                      return {
+                        foreignTableId: config.foreignTableId,
+                        lookupFieldId: config.lookupFieldId,
+                        conditionFieldIds: extractConditionFieldIds(filter),
+                        filterDto: filter,
+                      };
+                    }
+
+                    const config = (field as ConditionalLookupField).conditionalLookupOptionsDto();
+                    const filter = config.condition?.filter ?? null;
+                    return {
+                      foreignTableId: config.foreignTableId,
+                      lookupFieldId: config.lookupFieldId,
+                      conditionFieldIds: extractConditionFieldIds(filter),
+                      filterDto: filter,
+                    };
+                  })();
+
+                  fieldsById.set(fieldId, {
+                    id: field.id(),
+                    tableId: context.seedTableId,
+                    type: fieldType,
+                    isComputed: field.computed().toBoolean(),
+                    options: null,
+                    lookupOptions: null,
+                    conditionalOptions,
+                  });
+                }
+
+                affectedFieldIds.add(fieldId);
+              }
+            }
+
+            // Include context-free formulas (no field dependencies) so stored reads stay consistent.
+            if (context.changeType !== 'delete' && context.table) {
+              for (const field of context.table.getFields()) {
+                if (field.type().toString() !== 'formula') continue;
+                const formulaField = field as FormulaField;
+                if (formulaField.dependencies().length > 0) continue;
+                const refsResult = formulaField.expression().getReferencedFieldIds();
+                if (refsResult.isOk() && refsResult.value.length > 0) continue;
+                if (refsResult.isErr()) continue;
+                const fieldId = field.id().toString();
+                // Add to affectedFieldIds AND ensure fieldsById has metadata for this field
+                // (for UPDATE operations, the formula may not have been loaded since it wasn't in changedFieldIds)
+                if (!fieldsById.has(fieldId)) {
+                  fieldsById.set(fieldId, {
+                    id: field.id(),
+                    tableId: context.seedTableId,
+                    type: 'formula',
+                    isComputed: true,
+                    options: null,
+                    lookupOptions: null,
+                    conditionalOptions: null,
+                  });
+                }
+                affectedFieldIds.add(fieldId);
+              }
+            }
+
+            // Fallback for incomplete dependency graph: schema conversions may temporarily
+            // leave reference rows unavailable. Walk same-table formula expressions so
+            // formula chains still cascade in dependency order.
+            const fallbackFormulaEdges: FieldDependencyEdge[] = [];
+            if (context.changeType !== 'delete' && context.table) {
+              const reachableFieldIdSet = new Set<string>([
+                ...valueSeedFieldIds.keys(),
+                ...linkSeedFieldIds.keys(),
+              ]);
+              let changed = true;
+
+              while (changed) {
+                changed = false;
+                for (const field of context.table.getFields()) {
+                  if (field.type().toString() !== 'formula') continue;
+                  const fieldId = field.id().toString();
+                  if (reachableFieldIdSet.has(fieldId)) continue;
+
+                  const formulaField = field as FormulaField;
+                  const refsResult = formulaField.expression().getReferencedFieldIds();
+                  if (refsResult.isErr() || refsResult.value.length === 0) continue;
+                  const reachableReferenceIds = refsResult.value.filter((id) =>
+                    reachableFieldIdSet.has(id.toString())
+                  );
+                  if (reachableReferenceIds.length === 0) continue;
+
+                  if (!fieldsById.has(fieldId)) {
+                    fieldsById.set(fieldId, {
+                      id: field.id(),
+                      tableId: context.seedTableId,
+                      type: 'formula',
+                      isComputed: true,
+                      options: null,
+                      lookupOptions: null,
+                      conditionalOptions: null,
+                    });
+                  }
+                  for (const referenceId of reachableReferenceIds) {
+                    fallbackFormulaEdges.push({
+                      fromFieldId: referenceId,
+                      toFieldId: field.id(),
+                      fromTableId: context.seedTableId,
+                      toTableId: context.seedTableId,
+                      kind: 'same_record',
+                      semantic: 'formula_ref',
+                    });
+                  }
+                  affectedFieldIds.add(fieldId);
+                  reachableFieldIdSet.add(fieldId);
+                  changed = true;
+                }
+              }
+            }
+
+            const includeValueEdges = impact.includesValueChange || impact.includesLinkRelation;
+            const graphEdges =
+              fallbackFormulaEdges.length > 0 ? [...edges, ...fallbackFormulaEdges] : edges;
+            let relevantEdges = graphEdges.filter(
+              (edge) =>
+                (includeValueEdges && isEdgeRelevantForValue(edge)) ||
+                (impact.includesLinkRelation && isEdgeRelevantForLink(edge))
+            );
+            let computedFieldIds = filterComputedFields(fieldsById, affectedFieldIds);
+            if (options.includeComputedSeedFields) {
+              for (const fieldId of impactSeedFieldIds) {
+                const fieldKey = fieldId.toString();
+                const meta = fieldsById.get(fieldKey);
+                if (meta && isComputedFieldType(meta.type)) {
+                  computedFieldIds.add(fieldKey);
+                }
+              }
+            }
+            let cycleInfo: ComputedUpdateCycleInfo | undefined;
+
+            // For INSERT operations, filter out oneMany link fields in the seed table
+            // that were NOT explicitly set. These fields have their FK in the foreign table
+            // (not the current table), so a newly inserted record cannot have any FK pointing
+            // to it yet. This avoids unnecessary null → null computed updates.
+            // However, if the user explicitly sets the oneMany link value, we need to compute it.
+            if (context.changeType === 'insert') {
+              const explicitlyChangedFieldIds = new Set(
+                context.changedFieldIds.map((id) => id.toString())
+              );
+              computedFieldIds = filterOneManyLinksOnInsert(
+                fieldsById,
+                computedFieldIds,
+                context.seedTableId,
+                explicitlyChangedFieldIds
+              );
+            }
+
+            if (computedFieldIds.size === 0) {
+              return ok(emptyComputedUpdatePlan(context, beforeImageRecords));
+            }
+
+            let { ordered, levels } = topoSort(relevantEdges, computedFieldIds);
+            if (ordered.length !== computedFieldIds.size) {
+              // Find which fields couldn't be sorted (potential cycle participants)
+              const orderedSet = new Set(ordered);
+              const unsortedFieldIds = [...computedFieldIds].filter((id) => !orderedSet.has(id));
+
+              // Build adjacency list for unsorted fields to find cycles
+              const unsortedSet = new Set(unsortedFieldIds);
+              const adjacency = new Map<string, string[]>();
+              for (const id of unsortedFieldIds) {
+                adjacency.set(id, []);
+              }
+              for (const edge of relevantEdges) {
+                const from = edge.fromFieldId.toString();
+                const to = edge.toFieldId.toString();
+                if (unsortedSet.has(from) && unsortedSet.has(to)) {
+                  adjacency.get(from)!.push(to);
+                }
+              }
+
+              // Find one cycle using DFS
+              const findCycle = (): string[] | null => {
+                const visited = new Set<string>();
+                const inStack = new Set<string>();
+                const parent = new Map<string, string>();
+
+                const dfs = (node: string): string | null => {
+                  visited.add(node);
+                  inStack.add(node);
+                  for (const neighbor of adjacency.get(node) ?? []) {
+                    if (!visited.has(neighbor)) {
+                      parent.set(neighbor, node);
+                      const cycleEnd = dfs(neighbor);
+                      if (cycleEnd) return cycleEnd;
+                    } else if (inStack.has(neighbor)) {
+                      // Found cycle, return the node where cycle starts
+                      parent.set(neighbor, node);
+                      return neighbor;
+                    }
+                  }
+                  inStack.delete(node);
+                  return null;
+                };
+
+                for (const node of unsortedFieldIds) {
+                  if (!visited.has(node)) {
+                    const cycleEnd = dfs(node);
+                    if (cycleEnd) {
+                      // Reconstruct cycle path
+                      const cycle: string[] = [cycleEnd];
+                      let current = parent.get(cycleEnd);
+                      while (current && current !== cycleEnd) {
+                        cycle.push(current);
+                        current = parent.get(current);
+                      }
+                      cycle.push(cycleEnd);
+                      return cycle.reverse();
+                    }
+                  }
+                }
+                return null;
               };
 
-              fieldsById.set(symmetricKey, {
-                id: symmetricFieldResult.value,
-                tableId: foreignTableResult.value,
-                type: 'link',
-                isComputed: true,
-                options: symmetricOptions,
-                lookupOptions: null,
-                conditionalOptions: null,
+              const cycle = findCycle();
+              const cycleInfoText = cycle
+                ? cycle
+                    .map((id) => {
+                      const meta = fieldsById.get(id);
+                      return meta ? `${id}(${meta.type})` : id;
+                    })
+                    .join(' -> ')
+                : 'No direct cycle found (may be disconnected components)';
+
+              // Sample some unsorted fields with details
+              const sampleFields = unsortedFieldIds.slice(0, 5).map((id) => {
+                const meta = fieldsById.get(id);
+                if (!meta) return `${id}(not found)`;
+                const symId = meta.options?.symmetricFieldId;
+                return `${id}(${meta.type}${symId ? `, sym=${symId}` : ''})`;
               });
-            }
 
-            symmetricLinkEdges.push({
-              fromFieldId: meta.id,
-              toFieldId: symmetricFieldResult.value,
-              fromTableId: meta.tableId,
-              toTableId: foreignTableResult.value,
-            });
-          }
-        }
-
-        const affectedFieldIds = new Set<string>();
-
-        // For INSERT, include seeds as fallback (even if reference graph is incomplete).
-        // For UPDATE/DELETE and follow-up stages, exclude seeds that aren't also dependents.
-        const includeSeedsAlways = context.changeType === 'insert';
-
-        if (impact.includesValueChange && valueSeedFieldIds.size > 0) {
-          const valueEdges = edges.filter(isEdgeRelevantForValue);
-          for (const fieldId of collectDirectAffectedFieldIds(
-            valueEdges,
-            [...valueSeedFieldIds.values()],
-            includeSeedsAlways
-          )) {
-            affectedFieldIds.add(fieldId);
-          }
-        }
-        if (impact.includesLinkRelation && linkSeedFieldIds.size > 0) {
-          const linkEdges = edges.filter(isEdgeRelevantForLink);
-          const linkRelationSeedIds: FieldId[] = [];
-          for (const fieldId of linkSeedFieldIds.values()) {
-            affectedFieldIds.add(fieldId.toString());
-            linkRelationSeedIds.push(fieldId);
-          }
-
-          const linkRelationValueSeeds: FieldId[] = [...linkRelationSeedIds];
-          for (const fieldId of collectDirectAffectedFieldIds(
-            linkEdges,
-            linkRelationSeedIds,
-            includeSeedsAlways
-          )) {
-            affectedFieldIds.add(fieldId);
-            const meta = fieldsById.get(fieldId);
-            if (meta) {
-              linkRelationValueSeeds.push(meta.id);
-            }
-          }
-
-          // Add symmetric link fields and traverse from them to find dependent lookups
-          const symmetricFieldIds: FieldId[] = [];
-          for (const edge of symmetricLinkEdges) {
-            affectedFieldIds.add(edge.toFieldId.toString());
-            symmetricFieldIds.push(edge.toFieldId);
-            linkRelationValueSeeds.push(edge.toFieldId);
-          }
-
-          // Traverse from symmetric link fields to find lookups that depend on them
-          // e.g., when setting Parent.Children link, Child.Parent (symmetric) gets updated,
-          // and Child.ParentName (lookup via Child.Parent) should also be updated
-          if (symmetricFieldIds.length > 0) {
-            for (const fieldId of collectDirectAffectedFieldIds(
-              linkEdges,
-              symmetricFieldIds,
-              includeSeedsAlways
-            )) {
-              affectedFieldIds.add(fieldId);
-              const meta = fieldsById.get(fieldId);
-              if (meta) {
-                linkRelationValueSeeds.push(meta.id);
+              const cycleFieldIds = findCycleParticipantFieldIds(relevantEdges, computedFieldIds);
+              const skippedFieldIdSet =
+                cycleFieldIds.size > 0 ? cycleFieldIds : new Set(unsortedFieldIds);
+              const skippedFieldIds = [...skippedFieldIdSet];
+              const message = `Computed field dependency cycle detected. Total unsorted: ${unsortedFieldIds.length}. Skipped cycle fields: ${skippedFieldIds.length}. Cycle: [${cycleInfoText}]. Sample fields: [${sampleFields.join(', ')}]`;
+              const allowSkip = context.cyclePolicy === 'skip';
+              if (!allowSkip) {
+                return err(
+                  domainError.conflict({
+                    message,
+                  })
+                );
               }
-            }
-          }
 
-          // Link relation changes can cascade into value-dependent fields (formula/lookup/rollup/etc).
-          const valueEdges = edges.filter(isEdgeRelevantForValue);
-          for (const fieldId of collectDirectAffectedFieldIds(
-            valueEdges,
-            linkRelationValueSeeds,
-            includeSeedsAlways
-          )) {
-            affectedFieldIds.add(fieldId);
-          }
-        }
-
-        // INSERT: conditional fields (conditionalRollup/conditionalLookup) depend only on
-        // foreign-table changes and can be "invisible" to same-record dependency scanning.
-        // Ensure they're computed for newly inserted records so stored reads are correct.
-        if (context.changeType === 'insert' && context.table) {
-          for (const field of context.table.getFields()) {
-            const fieldType = field.type().toString();
-            if (fieldType !== 'conditionalRollup' && fieldType !== 'conditionalLookup') continue;
-
-            const fieldId = field.id().toString();
-            if (!fieldsById.has(fieldId)) {
-              const conditionalOptions = (() => {
-                if (fieldType === 'conditionalRollup') {
-                  const config = (field as ConditionalRollupField).configDto();
-                  const filter = config.condition?.filter ?? null;
-                  return {
-                    foreignTableId: config.foreignTableId,
-                    lookupFieldId: config.lookupFieldId,
-                    conditionFieldIds: extractConditionFieldIds(filter),
-                    filterDto: filter,
-                  };
-                }
-
-                const config = (field as ConditionalLookupField).conditionalLookupOptionsDto();
-                const filter = config.condition?.filter ?? null;
-                return {
-                  foreignTableId: config.foreignTableId,
-                  lookupFieldId: config.lookupFieldId,
-                  conditionFieldIds: extractConditionFieldIds(filter),
-                  filterDto: filter,
-                };
-              })();
-
-              fieldsById.set(fieldId, {
-                id: field.id(),
-                tableId: context.seedTableId,
-                type: fieldType,
-                isComputed: field.computed().toBoolean(),
-                options: null,
-                lookupOptions: null,
-                conditionalOptions,
-              });
-            }
-
-            affectedFieldIds.add(fieldId);
-          }
-        }
-
-        // Include context-free formulas (no field dependencies) so stored reads stay consistent.
-        if (context.changeType !== 'delete' && context.table) {
-          for (const field of context.table.getFields()) {
-            if (field.type().toString() !== 'formula') continue;
-            const formulaField = field as FormulaField;
-            if (formulaField.dependencies().length > 0) continue;
-            const refsResult = formulaField.expression().getReferencedFieldIds();
-            if (refsResult.isOk() && refsResult.value.length > 0) continue;
-            if (refsResult.isErr()) continue;
-            const fieldId = field.id().toString();
-            // Add to affectedFieldIds AND ensure fieldsById has metadata for this field
-            // (for UPDATE operations, the formula may not have been loaded since it wasn't in changedFieldIds)
-            if (!fieldsById.has(fieldId)) {
-              fieldsById.set(fieldId, {
-                id: field.id(),
-                tableId: context.seedTableId,
-                type: 'formula',
-                isComputed: true,
-                options: null,
-                lookupOptions: null,
-                conditionalOptions: null,
-              });
-            }
-            affectedFieldIds.add(fieldId);
-          }
-        }
-
-        // Fallback for incomplete dependency graph: if a formula expression directly
-        // references any seed field from this mutation, force it into affected set.
-        if (context.changeType !== 'delete' && context.table) {
-          const seedFieldIdSet = new Set<string>([
-            ...valueSeedFieldIds.keys(),
-            ...linkSeedFieldIds.keys(),
-          ]);
-          for (const field of context.table.getFields()) {
-            if (field.type().toString() !== 'formula') continue;
-            const formulaField = field as FormulaField;
-            const refsResult = formulaField.expression().getReferencedFieldIds();
-            if (refsResult.isErr() || refsResult.value.length === 0) continue;
-            const referencesSeedField = refsResult.value.some((id) =>
-              seedFieldIdSet.has(id.toString())
-            );
-            if (!referencesSeedField) continue;
-
-            const fieldId = field.id().toString();
-            if (!fieldsById.has(fieldId)) {
-              fieldsById.set(fieldId, {
-                id: field.id(),
-                tableId: context.seedTableId,
-                type: 'formula',
-                isComputed: true,
-                options: null,
-                lookupOptions: null,
-                conditionalOptions: null,
-              });
-            }
-            affectedFieldIds.add(fieldId);
-          }
-        }
-
-        const includeValueEdges = impact.includesValueChange || impact.includesLinkRelation;
-        let relevantEdges = edges.filter(
-          (edge) =>
-            (includeValueEdges && isEdgeRelevantForValue(edge)) ||
-            (impact.includesLinkRelation && isEdgeRelevantForLink(edge))
-        );
-        let computedFieldIds = filterComputedFields(fieldsById, affectedFieldIds);
-        let cycleInfo: ComputedUpdateCycleInfo | undefined;
-
-        // For INSERT operations, filter out oneMany link fields in the seed table
-        // that were NOT explicitly set. These fields have their FK in the foreign table
-        // (not the current table), so a newly inserted record cannot have any FK pointing
-        // to it yet. This avoids unnecessary null → null computed updates.
-        // However, if the user explicitly sets the oneMany link value, we need to compute it.
-        if (context.changeType === 'insert') {
-          const explicitlyChangedFieldIds = new Set(
-            context.changedFieldIds.map((id) => id.toString())
-          );
-          computedFieldIds = filterOneManyLinksOnInsert(
-            fieldsById,
-            computedFieldIds,
-            context.seedTableId,
-            explicitlyChangedFieldIds
-          );
-        }
-
-        if (computedFieldIds.size === 0) {
-          return ok({
-            baseId: context.baseId,
-            seedTableId: context.seedTableId,
-            seedRecordIds: context.seedRecordIds,
-            extraSeedRecords: context.extraSeedRecords,
-            beforeImageRecords,
-            steps: [],
-            edges: [],
-            estimatedComplexity: 0,
-            changeType: context.changeType,
-            cyclePolicy: context.cyclePolicy,
-            sameTableBatches: [],
-          });
-        }
-
-        let { ordered, levels } = topoSort(relevantEdges, computedFieldIds);
-        if (ordered.length !== computedFieldIds.size) {
-          // Find which fields couldn't be sorted (potential cycle participants)
-          const orderedSet = new Set(ordered);
-          const unsortedFieldIds = [...computedFieldIds].filter((id) => !orderedSet.has(id));
-
-          // Build adjacency list for unsorted fields to find cycles
-          const unsortedSet = new Set(unsortedFieldIds);
-          const adjacency = new Map<string, string[]>();
-          for (const id of unsortedFieldIds) {
-            adjacency.set(id, []);
-          }
-          for (const edge of relevantEdges) {
-            const from = edge.fromFieldId.toString();
-            const to = edge.toFieldId.toString();
-            if (unsortedSet.has(from) && unsortedSet.has(to)) {
-              adjacency.get(from)!.push(to);
-            }
-          }
-
-          // Find one cycle using DFS
-          const findCycle = (): string[] | null => {
-            const visited = new Set<string>();
-            const inStack = new Set<string>();
-            const parent = new Map<string, string>();
-
-            const dfs = (node: string): string | null => {
-              visited.add(node);
-              inStack.add(node);
-              for (const neighbor of adjacency.get(node) ?? []) {
-                if (!visited.has(neighbor)) {
-                  parent.set(neighbor, node);
-                  const cycleEnd = dfs(neighbor);
-                  if (cycleEnd) return cycleEnd;
-                } else if (inStack.has(neighbor)) {
-                  // Found cycle, return the node where cycle starts
-                  parent.set(neighbor, node);
-                  return neighbor;
-                }
-              }
-              inStack.delete(node);
-              return null;
-            };
-
-            for (const node of unsortedFieldIds) {
-              if (!visited.has(node)) {
-                const cycleEnd = dfs(node);
-                if (cycleEnd) {
-                  // Reconstruct cycle path
-                  const cycle: string[] = [cycleEnd];
-                  let current = parent.get(cycleEnd);
-                  while (current && current !== cycleEnd) {
-                    cycle.push(current);
-                    current = parent.get(current);
-                  }
-                  cycle.push(cycleEnd);
-                  return cycle.reverse();
-                }
-              }
-            }
-            return null;
-          };
-
-          const cycle = findCycle();
-          const cycleInfoText = cycle
-            ? cycle
-                .map((id) => {
-                  const meta = fieldsById.get(id);
-                  return meta ? `${id}(${meta.type})` : id;
-                })
-                .join(' -> ')
-            : 'No direct cycle found (may be disconnected components)';
-
-          // Sample some unsorted fields with details
-          const sampleFields = unsortedFieldIds.slice(0, 5).map((id) => {
-            const meta = fieldsById.get(id);
-            if (!meta) return `${id}(not found)`;
-            const symId = meta.options?.symmetricFieldId;
-            return `${id}(${meta.type}${symId ? `, sym=${symId}` : ''})`;
-          });
-
-          const cycleFieldIds = findCycleParticipantFieldIds(relevantEdges, computedFieldIds);
-          const skippedFieldIdSet =
-            cycleFieldIds.size > 0 ? cycleFieldIds : new Set(unsortedFieldIds);
-          const skippedFieldIds = [...skippedFieldIdSet];
-          const message = `Computed field dependency cycle detected. Total unsorted: ${unsortedFieldIds.length}. Skipped cycle fields: ${skippedFieldIds.length}. Cycle: [${cycleInfoText}]. Sample fields: [${sampleFields.join(', ')}]`;
-          const allowSkip = context.cyclePolicy === 'skip';
-          if (!allowSkip) {
-            return err(
-              domainError.conflict({
+              computedFieldIds = new Set(
+                [...computedFieldIds].filter((id) => !skippedFieldIdSet.has(id))
+              );
+              relevantEdges = relevantEdges.filter(
+                (edge) =>
+                  computedFieldIds.has(edge.fromFieldId.toString()) &&
+                  computedFieldIds.has(edge.toFieldId.toString())
+              );
+              ({ ordered, levels } = topoSort(relevantEdges, computedFieldIds));
+              cycleInfo = {
+                mode: 'skip',
+                unsortedFieldIds,
+                cycle: cycle ?? null,
+                sampleFields,
                 message,
-              })
+              };
+
+              if (computedFieldIds.size === 0) {
+                return ok({
+                  baseId: context.baseId,
+                  seedTableId: context.seedTableId,
+                  seedRecordIds: context.seedRecordIds,
+                  extraSeedRecords: context.extraSeedRecords,
+                  beforeImageRecords,
+                  steps: [],
+                  edges: [],
+                  estimatedComplexity: 0,
+                  changeType: context.changeType,
+                  cyclePolicy: context.cyclePolicy,
+                  sameTableBatches: [],
+                  cycleInfo,
+                });
+              }
+            }
+
+            const propagationEdges = yield* buildPropagationEdges(
+              relevantEdges,
+              fieldsById,
+              computedFieldIds,
+              levels,
+              symmetricLinkEdges,
+              context.seedTableId,
+              new Set(
+                context.extraSeedRecords
+                  .filter((group) => group.recordIds.length > 0)
+                  .map((group) => group.tableId.toString())
+              ),
+              impactSeedFieldIds,
+              context.changeType,
+              countSeedRecords(context.seedRecordIds, context.extraSeedRecords) > 0,
+              beforeImageRecords
             );
-          }
 
-          computedFieldIds = new Set(
-            [...computedFieldIds].filter((id) => !skippedFieldIdSet.has(id))
-          );
-          relevantEdges = relevantEdges.filter(
-            (edge) =>
-              computedFieldIds.has(edge.fromFieldId.toString()) &&
-              computedFieldIds.has(edge.toFieldId.toString())
-          );
-          ({ ordered, levels } = topoSort(relevantEdges, computedFieldIds));
-          cycleInfo = {
-            mode: 'skip',
-            unsortedFieldIds,
-            cycle: cycle ?? null,
-            sampleFields,
-            message,
-          };
+            const steps = yield* buildSteps(ordered, levels, fieldsById);
 
-          if (computedFieldIds.size === 0) {
+            // For delete operations, seed-table updates are usually unnecessary because
+            // the deleted rows are gone. Keep those steps only when propagation must
+            // refresh surviving records in the same table without traversing from the
+            // deleted rows, such as same-table conditionalLookup / conditionalRollup.
+            const keepSeedTableStepsOnDelete =
+              context.changeType === 'delete' &&
+              propagationEdges.some(
+                (edge) =>
+                  edge.toTableId.equals(context.seedTableId) &&
+                  edge.propagationMode === 'allTargetRecords'
+              );
+
+            const filteredSteps =
+              context.changeType === 'delete'
+                ? !keepSeedTableStepsOnDelete
+                  ? steps.filter((step) => !step.tableId.equals(context.seedTableId))
+                  : (() => {
+                      const seedFieldIdsToKeep = collectDeleteSeedTableRetainedFieldIds(
+                        propagationEdges,
+                        relevantEdges,
+                        context.seedTableId
+                      );
+                      return steps.flatMap((step) => {
+                        if (!step.tableId.equals(context.seedTableId)) {
+                          return [step];
+                        }
+
+                        const retainedFieldIds = step.fieldIds.filter((fieldId) =>
+                          seedFieldIdsToKeep.has(fieldId.toString())
+                        );
+                        if (retainedFieldIds.length === 0) {
+                          return [];
+                        }
+
+                        return [{ ...step, fieldIds: retainedFieldIds }];
+                      });
+                    })()
+                : steps;
+
+            // Build same-table batches for CTE optimization
+            const sameTableBatches = buildSameTableBatches(filteredSteps, relevantEdges);
+
+            const seedRecordCount = countSeedRecords(
+              context.seedRecordIds,
+              context.extraSeedRecords
+            );
+            const estimatedComplexity =
+              filteredSteps.length + propagationEdges.length + seedRecordCount;
+
             return ok({
               baseId: context.baseId,
               seedTableId: context.seedTableId,
               seedRecordIds: context.seedRecordIds,
               extraSeedRecords: context.extraSeedRecords,
               beforeImageRecords,
-              steps: [],
-              edges: [],
-              estimatedComplexity: 0,
+              steps: filteredSteps,
+              edges: propagationEdges,
+              estimatedComplexity,
               changeType: context.changeType,
               cyclePolicy: context.cyclePolicy,
-              sameTableBatches: [],
+              sameTableBatches,
               cycleInfo,
             });
-          }
-        }
-
-        const propagationEdges = yield* buildPropagationEdges(
-          relevantEdges,
-          fieldsById,
-          computedFieldIds,
-          levels,
-          symmetricLinkEdges,
-          context.seedTableId,
-          new Set(
-            context.extraSeedRecords
-              .filter((group) => group.recordIds.length > 0)
-              .map((group) => group.tableId.toString())
-          ),
-          impactSeedFieldIds,
-          context.changeType,
-          countSeedRecords(context.seedRecordIds, context.extraSeedRecords) > 0,
-          beforeImageRecords
-        );
-
-        const steps = yield* buildSteps(ordered, levels, fieldsById);
-
-        // For delete operations, seed-table updates are usually unnecessary because
-        // the deleted rows are gone. Keep those steps only when propagation must
-        // refresh surviving records in the same table without traversing from the
-        // deleted rows, such as same-table conditionalLookup / conditionalRollup.
-        const keepSeedTableStepsOnDelete =
-          context.changeType === 'delete' &&
-          propagationEdges.some(
-            (edge) =>
-              edge.toTableId.equals(context.seedTableId) &&
-              edge.propagationMode === 'allTargetRecords'
-          );
-
-        const filteredSteps =
-          context.changeType === 'delete'
-            ? !keepSeedTableStepsOnDelete
-              ? steps.filter((step) => !step.tableId.equals(context.seedTableId))
-              : (() => {
-                  const seedFieldIdsToKeep = collectDeleteSeedTableRetainedFieldIds(
-                    propagationEdges,
-                    relevantEdges,
-                    context.seedTableId
-                  );
-                  return steps.flatMap((step) => {
-                    if (!step.tableId.equals(context.seedTableId)) {
-                      return [step];
-                    }
-
-                    const retainedFieldIds = step.fieldIds.filter((fieldId) =>
-                      seedFieldIdsToKeep.has(fieldId.toString())
-                    );
-                    if (retainedFieldIds.length === 0) {
-                      return [];
-                    }
-
-                    return [{ ...step, fieldIds: retainedFieldIds }];
-                  });
-                })()
-            : steps;
-
-        // Build same-table batches for CTE optimization
-        const sameTableBatches = buildSameTableBatches(filteredSteps, relevantEdges);
-
-        const seedRecordCount = countSeedRecords(context.seedRecordIds, context.extraSeedRecords);
-        const estimatedComplexity =
-          filteredSteps.length + propagationEdges.length + seedRecordCount;
-
-        return ok({
-          baseId: context.baseId,
-          seedTableId: context.seedTableId,
-          seedRecordIds: context.seedRecordIds,
-          extraSeedRecords: context.extraSeedRecords,
-          beforeImageRecords,
-          steps: filteredSteps,
-          edges: propagationEdges,
-          estimatedComplexity,
-          changeType: context.changeType,
-          cyclePolicy: context.cyclePolicy,
-          sameTableBatches,
-          cycleInfo,
-        });
-      }.bind(this)
+          }.bind(this)
+        )
     );
   }
+
+  private async hasComputedTargets(
+    context: Pick<PlanStageContext, 'baseId' | 'table'>,
+    executionContext: IExecutionContext | undefined,
+    options: ComputedUpdatePlannerOptions
+  ): Promise<Result<boolean, DomainError>> {
+    if (context.table && tableHasComputedTargetFields(context.table)) {
+      return ok(true);
+    }
+
+    const graph = this.graph as FieldDependencyGraph & {
+      hasComputedTargets?: FieldDependencyGraph['hasComputedTargets'];
+    };
+    if (typeof graph.hasComputedTargets !== 'function') {
+      return ok(true);
+    }
+
+    return graph.hasComputedTargets(context.baseId, executionContext, {
+      tableProvisionStates: options.tableProvisionStates ?? ['ready'],
+      scopedPendingTableIds: options.scopedPendingTableIds,
+    });
+  }
 }
+
+const tableHasComputedTargetFields = (table: Table): boolean =>
+  table.getFields().some((field) => {
+    const fieldType = field.type().toString();
+    if (isComputedFieldType(fieldType)) {
+      return true;
+    }
+
+    return field.computed().toBoolean() && !systemComputedFieldTypes.has(fieldType);
+  });
 
 const collectImpactSeedFieldIds = (
   changedFieldIds: ReadonlyArray<FieldId>,
@@ -889,7 +1044,11 @@ const resolveUpdateImpact = (
 
   for (const fieldId of context.changedFieldIds) {
     const meta = fieldsById.get(fieldId.toString());
-    if (!meta) continue;
+    if (!meta) {
+      includesValueChange = true;
+      valueSeedFieldIds.push(fieldId);
+      continue;
+    }
     if (meta.type === 'link') {
       // Note: oneMany link fields are NOT filtered here. They are filtered later in
       // filterOneManyLinksOnInsert which has access to explicitly changed field IDs
@@ -1193,6 +1352,14 @@ export const computedFieldTypes = new Set([
 ]);
 
 export const isComputedFieldType = (type: string): boolean => computedFieldTypes.has(type);
+
+const systemComputedFieldTypes = new Set([
+  'createdTime',
+  'lastModifiedTime',
+  'createdBy',
+  'lastModifiedBy',
+  'autoNumber',
+]);
 
 const countSeedRecords = (
   seedRecordIds: ReadonlyArray<RecordId>,

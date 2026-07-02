@@ -1,5 +1,5 @@
 import type { IDateFieldOptions, ILinkCellValue, IOperator, IUserCellValue } from '@teable/core';
-import { exactDate, FieldType, is, isEmpty, isExactly } from '@teable/core';
+import { exactDateTime, FieldType, is, isEmpty, isExactly } from '@teable/core';
 import type { IFieldInstance } from '@teable/sdk/model';
 import { UNCATEGORIZED_STACK_ID } from '../constant';
 import type { IStackData } from '../type';
@@ -24,7 +24,7 @@ export const getFilterValue = (stackField: IFieldInstance, stackData: unknown) =
       Intl.DateTimeFormat().resolvedOptions().timeZone;
     return {
       exactDate: stackData,
-      mode: exactDate.value,
+      mode: exactDateTime.value,
       timeZone,
     };
   }
