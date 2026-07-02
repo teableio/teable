@@ -52,6 +52,18 @@ const migrations: IDataDbMigration[] = [
 const checksumSql = (sql: string) => createHash('sha256').update(sql).digest('hex');
 
 describe('DataDbMigrationService', () => {
+  it('includes attachment support tables in the default data DB migrations', async () => {
+    const client = new FakeMigrationClient();
+    const service = new DataDbMigrationService(undefined, () => client);
+
+    await service.migrate('postgresql://teable:secret@example.com:5432/data', 'teable_test');
+
+    const executedSql = client.calls.map((call) => call.sql).join('\n');
+    expect(executedSql).toContain('CREATE TABLE IF NOT EXISTS "attachments"');
+    expect(executedSql).toContain('CREATE TABLE IF NOT EXISTS "attachments_table"');
+    expect(executedSql).toContain('CREATE INDEX IF NOT EXISTS "attachments_table_attachment_id_idx"');
+  });
+
   it('creates the internal schema, locks, runs pending migrations, and records them', async () => {
     const client = new FakeMigrationClient();
     const service = new DataDbMigrationService(migrations, () => client);

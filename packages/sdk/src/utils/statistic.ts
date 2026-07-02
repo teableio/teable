@@ -1,5 +1,24 @@
+import type { IGridColumnMeta } from '@teable/core';
 import { CellValueType, StatisticsFunc } from '@teable/core';
 import type { IFieldInstance } from '../model';
+
+// Group a view's column statistic funcs into the aggregation query's field-map
+// shape ({ [func]: fieldIds }). When visibleFieldIds is given, hidden columns
+// are dropped: share views must not request aggregates for fields the visitor
+// cannot see, and personal views project only their visible fields.
+export const buildStatisticFieldMap = (
+  columnMeta: IGridColumnMeta | undefined,
+  visibleFieldIds?: string[]
+): Record<StatisticsFunc, string[]> => {
+  const fieldMap = {} as Record<StatisticsFunc, string[]>;
+  if (!columnMeta) return fieldMap;
+  const visibleSet = visibleFieldIds ? new Set(visibleFieldIds) : undefined;
+  for (const [fieldId, { statisticFunc }] of Object.entries(columnMeta)) {
+    if (!statisticFunc || (visibleSet && !visibleSet.has(fieldId))) continue;
+    (fieldMap[statisticFunc] ??= []).push(fieldId);
+  }
+  return fieldMap;
+};
 
 export const percentFormatting = (value: number) => {
   if (value % 1 === 0) {

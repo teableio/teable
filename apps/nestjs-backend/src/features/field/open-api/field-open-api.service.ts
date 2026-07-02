@@ -1,13 +1,18 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 /* eslint-disable @typescript-eslint/naming-convention */
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
 import {
   CellValueType,
   ColorConfigType,
   FieldKeyType,
   FieldOpBuilder,
   FieldType,
-  HttpErrorCode,
   ViewType,
   generateFieldId,
   generateOperationId,
@@ -55,13 +60,13 @@ import { groupBy, isEqual, omit, pick } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { ThresholdConfig, IThresholdConfig } from '../../../configs/threshold.config';
-import { CustomHttpException } from '../../../custom.exception';
 import { FieldReferenceCompatibilityException } from '../../../db-provider/filter-query/cell-value-filter.abstract';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import { Events } from '../../../event-emitter/events';
 import { IDataDbRoutingOptions } from '../../../global/data-db-client-manager.service';
 import { DatabaseRouter } from '../../../global/database-router.service';
 import type { IClsStore } from '../../../types/cls';
+import { majorFieldKeysChanged } from '../../../utils/major-field-keys-changed';
 import { Timing } from '../../../utils/timing';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import type { IOpsMap } from '../../calculation/utils/compose-maps';
@@ -70,6 +75,7 @@ import { ComputedOrchestratorService } from '../../record/computed/services/comp
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { InjectRecordQueryBuilder, IRecordQueryBuilder } from '../../record/query-builder';
 import { RecordService } from '../../record/record.service';
+import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migration-guard.service';
 import { TableIndexService } from '../../table/table-index.service';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
 import { ViewService } from '../../view/view.service';
@@ -114,6 +120,7 @@ export type ILegacyDeleteFieldsPayloadSnapshot = {
 
 type CreateFieldsOptions = {
   restoreViewOrder?: boolean;
+  skipComputedEvaluation?: boolean;
 };
 
 @Injectable()
@@ -140,8 +147,14 @@ export class FieldOpenApiService {
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     @InjectRecordQueryBuilder() private readonly recordQueryBuilder: IRecordQueryBuilder,
-    private readonly computedOrchestrator: ComputedOrchestratorService
+    private readonly computedOrchestrator: ComputedOrchestratorService,
+    @Optional()
+    private readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService
   ) {}
+
+  private async assertTableWritable(tableId: string) {
+    await this.spaceDataDbMigrationGuard?.assertTableWritable(tableId);
+  }
 
   async planField(tableId: string, fieldId: string) {
     return await this.graphService.planField(tableId, fieldId);
@@ -1161,6 +1174,7 @@ export class FieldOpenApiService {
     options: CreateFieldsOptions = {}
   ) {
     if (!fields.length) return;
+    await this.assertTableWritable(tableId);
 
     const orderedFields = this.sortCreateFieldsByDependencies(tableId, fields);
 
@@ -1242,9 +1256,7 @@ export class FieldOpenApiService {
               }
             }
 
-            const skipComputation = this.cls.get('skipFieldComputation');
-
-            if (!skipComputation) {
+            if (!options.skipComputedEvaluation) {
               // Ensure dependent formula generated columns are recreated BEFORE
               // evaluating and returning values in the computed pipeline.
               // This avoids UPDATE ... RETURNING selecting non-existent generated columns
@@ -1270,7 +1282,8 @@ export class FieldOpenApiService {
                 await this.fieldService.resolvePending(tid, list);
               }
             }
-          }
+          },
+          { skipComputedEvaluation: options.skipComputedEvaluation }
         );
 
         return created;
@@ -1288,16 +1301,18 @@ export class FieldOpenApiService {
   async createFieldsByRo(
     tableId: string,
     fieldRos: IFieldRo[],
-    routingOptions?: IDataDbRoutingOptions
+    routingOptions?: IDataDbRoutingOptions,
+    options: Pick<CreateFieldsOptions, 'skipComputedEvaluation'> = {}
   ): Promise<IFieldVo[]> {
     if (!fieldRos.length) return [];
+    await this.assertTableWritable(tableId);
     const fieldVos = await this.fieldSupplementService.prepareCreateFields(
       tableId,
       fieldRos,
       undefined,
       routingOptions
     );
-    await this.createFields(tableId, fieldVos, routingOptions);
+    await this.createFields(tableId, fieldVos, routingOptions, options);
     return fieldVos;
   }
 
@@ -1367,8 +1382,10 @@ export class FieldOpenApiService {
     tableId: string,
     fieldRo: IFieldRo,
     windowId?: string,
-    routingOptions?: IDataDbRoutingOptions
+    routingOptions?: IDataDbRoutingOptions,
+    options: Pick<CreateFieldsOptions, 'skipComputedEvaluation'> = {}
   ) {
+    await this.assertTableWritable(tableId);
     const fieldVo = await this.fieldSupplementService.prepareCreateField(
       tableId,
       fieldRo,
@@ -1406,7 +1423,8 @@ export class FieldOpenApiService {
                 await this.fieldService.resolvePending(tid, [field.id]);
               }
             }
-          }
+          },
+          { skipComputedEvaluation: options.skipComputedEvaluation }
         );
         return created;
       },
@@ -1444,6 +1462,7 @@ export class FieldOpenApiService {
 
   @Timing()
   async deleteFields(tableId: string, fieldIds: string[], windowId?: string) {
+    await this.assertTableWritable(tableId);
     const { fields, fieldVos, columnsMeta, referenceMap, records } = await this.prismaService.$tx(
       async () => {
         const fieldRaws = await this.prismaService.txClient().field.findMany({
@@ -1563,6 +1582,7 @@ export class FieldOpenApiService {
   }
 
   async updateField(tableId: string, fieldId: string, updateFieldRo: IUpdateFieldRo) {
+    await this.assertTableWritable(tableId);
     const ops: IOtOperation[] = [];
     if (updateFieldRo.name) {
       const op = await this.updateUniqProperty(tableId, fieldId, 'name', updateFieldRo.name);
@@ -1791,6 +1811,7 @@ export class FieldOpenApiService {
     updateFieldRo: IConvertFieldRo,
     windowId?: string
   ): Promise<IFieldVo> {
+    await this.assertTableWritable(tableId);
     const { oldFieldVo, newFieldVo, modifiedOps, references, supplementChange } =
       await this.prismaService.$tx(
         async () => {
@@ -1816,9 +1837,15 @@ export class FieldOpenApiService {
           );
 
           const shouldRecomputeSelf = this.fieldConvertingService.needCalculate(newField, oldField);
-          const filteredDependentFieldIds = shouldRecomputeSelf
-            ? dependentFieldIds
-            : dependentFieldIds.filter((id) => id !== newField.id);
+          const shouldRecomputeDependents =
+            shouldRecomputeSelf ||
+            majorFieldKeysChanged(oldField, newField) ||
+            Boolean(analysisResult.supplementChange);
+          const filteredDependentFieldIds = shouldRecomputeDependents
+            ? shouldRecomputeSelf
+              ? dependentFieldIds
+              : dependentFieldIds.filter((id) => id !== newField.id)
+            : [];
 
           const { compatibilityIssue } = await this.performConvertField({
             tableId,
@@ -1963,6 +1990,7 @@ export class FieldOpenApiService {
     tableId: string,
     fieldId: string
   ): Promise<{ field: IFieldVo; oldLinkOptions: ILinkFieldOptions }> {
+    await this.assertTableWritable(tableId);
     return this.prismaService.$tx(
       async () => {
         // Pass `options: {}` explicitly so stageAnalysis assigns the empty

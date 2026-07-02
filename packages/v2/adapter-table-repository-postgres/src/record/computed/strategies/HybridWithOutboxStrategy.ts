@@ -3,6 +3,7 @@ import type {
   FieldId,
   TableId,
   DomainError,
+  IBatchMutationOrchestration,
   IExecutionContext,
   IHasher,
   ILogger,
@@ -21,6 +22,7 @@ import type { Result } from 'neverthrow';
 
 import { v2RecordRepositoryPostgresTokens } from '../../di/tokens';
 import { buildBeforeImageRecordsFromStepChanges } from '../ComputedBeforeImageFromChanges';
+import { isComputedUpdateLockUnavailable } from '../ComputedUpdateLock';
 import type {
   ComputedFieldUpdater,
   ComputedUpdateResult,
@@ -42,7 +44,11 @@ import {
 import { buildOutboxTaskInput } from '../outbox/ComputedUpdateOutboxPayload';
 import type { IComputedUpdateOutbox } from '../outbox/IComputedUpdateOutbox';
 import type { ComputedUpdateWorker } from '../worker/ComputedUpdateWorker';
-import type { IUpdateStrategy, UpdateStrategyMode } from './IUpdateStrategy';
+import type {
+  IUpdateStrategy,
+  UpdateStrategyExecuteOptions,
+  UpdateStrategyMode,
+} from './IUpdateStrategy';
 
 /**
  * Dispatch mode for async computed updates:
@@ -163,7 +169,8 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
   async execute(
     updater: ComputedFieldUpdater,
     plan: ComputedUpdatePlan,
-    context: IExecutionContext
+    context: IExecutionContext,
+    options?: UpdateStrategyExecuteOptions
   ): Promise<Result<ComputedUpdateResult | undefined, DomainError>> {
     if (
       plan.steps.length === 0 ||
@@ -211,10 +218,46 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
       });
       const lockResult = await updater.acquireLocks(currentPlan, context, {
         logContext: toRunLogContext(run),
+        wait: false,
       });
-      if (lockResult.isErr()) return err(lockResult.error);
 
       const runLogger = this.logger.child(toRunLogContext(run));
+      if (lockResult.isErr()) {
+        if (!isComputedUpdateLockUnavailable(lockResult.error)) return err(lockResult.error);
+
+        const task = buildOutboxTaskInput({
+          plan: currentPlan,
+          dirtyStats: prepared.value.dirtyStats,
+          syncMaxLevel: -1,
+          hasher: this.hasher,
+          runId,
+          originRunIds: [...originRunIds],
+          runTotalSteps: totalSteps,
+          runCompletedStepsBefore: completedSteps,
+          affectedFieldIds: collectStepFieldIds(currentPlan).map((id) => id.toString()),
+          affectedTableIds: collectStepTableIds(currentPlan).map((id) => id.toString()),
+          orchestration: options?.orchestration,
+        });
+        const enqueueResult = await this.outbox.enqueueOrMerge(task, context);
+        if (enqueueResult.isErr()) {
+          runLogger.warn('computed:outbox:enqueue_failed', {
+            error: enqueueResult.error.message,
+            planHash: task.planHash,
+            reason: 'lock_unavailable',
+          });
+          return err(enqueueResult.error);
+        }
+
+        runLogger.info('computed:run:queued', {
+          taskId: enqueueResult.value.taskId,
+          pendingSteps: currentPlan.steps.length,
+          asyncStepCount: currentPlan.steps.length,
+          reason: 'lock_unavailable',
+        });
+
+        this.scheduleDispatch(context);
+        return ok({ changesByStep: allSyncChangesByStep });
+      }
 
       runLogger.info('computed:run:start', {
         baseId: currentPlan.baseId.toString(),
@@ -288,7 +331,7 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
       const events = buildComputedUpdateEvents(
         syncResult.value.changesByStep,
         currentPlan.baseId,
-        context.batchMutation
+        options?.orchestration
       );
       if (events.length > 0) {
         const publish = async () => {
@@ -350,7 +393,7 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
           runCompletedStepsBefore: completedSteps,
           affectedFieldIds: stageFieldIds.map((id) => id.toString()),
           affectedTableIds: stageTableIds.map((id) => id.toString()),
-          orchestration: context.batchMutation,
+          orchestration: options?.orchestration,
         });
 
         const enqueueResult = await this.outbox.enqueueOrMerge(task, context);
@@ -634,7 +677,7 @@ const splitStepsByPolicy = (
 const buildComputedUpdateEvents = (
   changesByStep: ReadonlyArray<StepChangeData>,
   baseId: BaseId,
-  orchestration?: IExecutionContext['batchMutation']
+  orchestration?: IBatchMutationOrchestration
 ): RecordsBatchUpdated[] => {
   if (changesByStep.length === 0) return [];
 

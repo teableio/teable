@@ -760,6 +760,80 @@ describe('useInstances hook', () => {
     expect(docs[0].data.fields.fldSchemaRefresh05).toEqual('进行中');
   });
 
+  it('refreshes projected record fields in place on legacy v1 setField presence with type changes', async () => {
+    const presenceController = createMockPresence();
+    const docs = [
+      createMockDoc({
+        data: { id: 'rec1', fields: { fldSchemaRefresh12: 'ready' } },
+        collection: 'rec_tblSchemaRefresh12',
+        id: 'rec1',
+      }),
+    ];
+    const createSubscribeQuery = vi.fn((collection: string, queryParams: unknown) => {
+      return {
+        collection,
+        query: queryParams,
+        results: docs,
+        ready: true,
+        sent: true,
+        ...mockQueryMethods,
+      } as unknown as Query<any>;
+    });
+    const connection = {
+      createSubscribeQuery,
+      getPresence: vi.fn(() => presenceController.presence),
+    } as any;
+
+    vi.mocked(getRecords).mockResolvedValue({
+      data: {
+        records: [{ id: 'rec1', fields: { fldSchemaRefresh12: 'ready' } }],
+      },
+    } as any);
+
+    renderHook(
+      () =>
+        useInstances({
+          ...mockProps,
+          collection: 'rec_tblSchemaRefresh12',
+          queryParams: {},
+        }),
+      {
+        wrapper: createUseInstancesWrap({ ...mockAppContext, connection }),
+      }
+    );
+
+    expect(createSubscribeQuery).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      presenceController.emitReceive([
+        {
+          actionKey: 'setField',
+          payload: {
+            tableId: 'tblSchemaRefresh12',
+            field: {
+              id: 'fldSchemaRefresh12',
+              type: {
+                oldValue: 'formula',
+                newValue: 'singleLineText',
+              },
+            },
+          },
+        },
+      ]);
+      await Promise.resolve();
+    });
+
+    expect(createSubscribeQuery).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(getRecords)).toHaveBeenCalledWith(
+      'tblSchemaRefresh12',
+      expect.objectContaining({
+        fieldKeyType: FieldKeyType.Id,
+        projection: ['fldSchemaRefresh12'],
+      })
+    );
+    expect(docs[0].data.fields.fldSchemaRefresh12).toEqual('ready');
+  });
+
   it('notifies tracked record docs through op batch during projected refresh', async () => {
     const presenceController = createMockPresence();
     const trackedDoc = createTrackedDoc({
@@ -1171,7 +1245,10 @@ describe('useInstances hook', () => {
     expect(createSubscribeQuery).toHaveBeenCalledTimes(1);
   });
 
-  it('recreates record queries with grouping when bare setRecord presence arrives', async () => {
+  // op-carrying mutations are propagated by the server-side query poll and
+  // doc op pushes; resubscribing here would re-query records on every cell
+  // edit for any filtered/sorted/grouped subscription
+  it('does not recreate record queries when a bare setRecord presence arrives', async () => {
     const { connection, createSubscribeQuery, presenceController, collection } =
       createMockConnection({
         collection: 'rec_tblSchemaRefresh12',
@@ -1201,11 +1278,15 @@ describe('useInstances hook', () => {
         {
           actionKey: 'setRecord',
         },
+        {
+          actionKey: 'setRecord',
+          payload: { fieldIds: ['fldAnything000001'] },
+        },
       ]);
       await Promise.resolve();
     });
 
-    expect(createSubscribeQuery).toHaveBeenCalledTimes(2);
+    expect(createSubscribeQuery).toHaveBeenCalledTimes(1);
   });
 
   it('removes projected record instances when deleteRecord presence carries record ids', () => {

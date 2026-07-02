@@ -36,8 +36,8 @@ export const updateFieldInputSchema = z.object({
     isMultipleCellValue: z.boolean().optional(),
     // v1-compatible sidecar metadata persisted in field.ai_config
     aiConfig: z.unknown().nullable().optional(),
-    // Convert flow can request replacement semantics for option patches
-    replaceOptions: z.boolean().optional(),
+    // updateField defaults to partial PATCH semantics; convert/replay can request full replacement.
+    updateMode: z.enum(['partial', 'full']).optional(),
   }),
 });
 

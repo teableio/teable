@@ -11,11 +11,6 @@ on:
         description: 'Final English release note in Markdown'
         required: true
         type: string
-      media_sources:
-        description: 'JSON map from original media URL to downloadable source metadata'
-        required: false
-        default: '{}'
-        type: string
       publish_latest:
         description: 'Whether GitHub should mark this release as latest'
         required: false
@@ -36,12 +31,6 @@ jobs:
           ref: develop
           fetch-depth: 0
 
-      - name: Install FFmpeg when videos are present
-        if: contains(inputs.release_note, '.mp4') || contains(inputs.release_note, '.webm') || contains(inputs.release_note, '.mov') || contains(inputs.release_note, '.m4v') || contains(inputs.release_note, '.ogg')
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
-
       - name: Build release body
         env:
           RELEASE_NOTE: ${{ inputs.release_note }}
@@ -49,7 +38,6 @@ jobs:
           printf '%s\n' "$RELEASE_NOTE" > release-body.md
 
       - name: Create or update GitHub release
-        id: release
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_ID: ${{ inputs.release_id }}
@@ -73,7 +61,7 @@ jobs:
           }
 
           upsert_release() {
-            local release_body release_payload response_file release_api_id release_url
+            local release_body release_payload response_file release_api_id
             response_file="$(mktemp)"
             release_body="$(cat release-body.md)"
             release_payload="$(jq -nc \
@@ -103,200 +91,13 @@ jobs:
                 --input - <<<"${release_payload}" >"${response_file}"
             fi
 
-            release_api_id="$(jq -r '.id' "${response_file}")"
             release_url="$(jq -r '.html_url // empty' "${response_file}")"
-            if [ -z "${release_url}" ] || [ -z "${release_api_id}" ]; then
-              echo "Missing release id/html_url in GitHub release response" >&2
+            if [ -z "${release_url}" ]; then
+              echo "Missing html_url in GitHub release response" >&2
               cat "${response_file}" >&2
               return 1
             fi
-
-            echo "release_api_id=${release_api_id}" >> "${GITHUB_OUTPUT}"
-            echo "release_url=${release_url}" >> "${GITHUB_OUTPUT}"
           }
 
           ensure_tag
           upsert_release
-
-      - name: Render media links and upload GIF previews
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_ID: ${{ inputs.release_id }}
-          RELEASE_API_ID: ${{ steps.release.outputs.release_api_id }}
-          MEDIA_SOURCES: ${{ inputs.media_sources }}
-        run: |
-          node <<'NODE'
-          const { execFileSync } = require('node:child_process');
-          const crypto = require('node:crypto');
-          const fs = require('node:fs/promises');
-          const path = require('node:path');
-          const os = require('node:os');
-
-          const repo = process.env.GITHUB_REPOSITORY;
-          const token = process.env.GH_TOKEN;
-          const releaseApiId = process.env.RELEASE_API_ID;
-          const mediaSources = (() => {
-            try { return JSON.parse(process.env.MEDIA_SOURCES || '{}') || {}; }
-            catch { return {}; }
-          })();
-
-          function getMediaType(url) {
-            const cleanUrl = String(url).split(/[?#]/)[0].toLowerCase();
-            if (/^https:\/\/github\.com\/user-attachments\/assets\//.test(cleanUrl)) return 'githubAttachment';
-            if (/^https:\/\/github\.com\/[^/]+\/[^/]+\/assets\/[^/]+\/[^/?#]+/.test(cleanUrl)) return 'githubAttachment';
-            if (/\.(png|jpe?g|gif|webp|avif|svg)$/.test(cleanUrl)) return 'image';
-            if (/\.(mp4|webm|ogg|mov|m4v)$/.test(cleanUrl)) return 'video';
-            return null;
-          }
-
-          function safeAlt(label, fallback) {
-            const value = String(label || fallback || 'Media').trim();
-            return value.replace(/[\]\n\r]/g, '').replace(/^https?:\/\//i, '') || fallback || 'Media';
-          }
-
-          function sanitizeAssetName(name, fallbackUrl) {
-            const fallbackName = (() => {
-              try {
-                const pathname = new URL(fallbackUrl).pathname;
-                return decodeURIComponent(pathname.split('/').filter(Boolean).pop() || 'video.mp4');
-              } catch {
-                return 'video.mp4';
-              }
-            })();
-            const rawName = String(name || fallbackName || 'video.mp4').trim();
-            const ext = path.extname(rawName);
-            const base = path.basename(rawName, ext) || crypto.createHash('sha1').update(fallbackUrl).digest('hex').slice(0, 10);
-            const safeBase = base
-              .replace(/[\\/:*?"<>|#%{}]/g, '-')
-              .replace(/\s+/g, '-')
-              .replace(/-+/g, '-')
-              .replace(/^-|-$/g, '') || 'video';
-            return `${safeBase}-preview.gif`;
-          }
-
-          function markdownImage(url, label) {
-            return `![${safeAlt(label, 'Media')}](${url})`;
-          }
-
-          async function githubJson(method, apiPath, body) {
-            const options = {
-              method,
-              headers: {
-                Accept: 'application/vnd.github+json',
-                Authorization: `Bearer ${token}`,
-                'X-GitHub-Api-Version': '2022-11-28',
-              },
-            };
-            if (body !== undefined) {
-              options.headers['Content-Type'] = 'application/json';
-              options.body = JSON.stringify(body);
-            }
-            const response = await fetch(`https://api.github.com${apiPath}`, options);
-            if (!response.ok) throw new Error(`${method} ${apiPath} failed: HTTP ${response.status}: ${await response.text()}`);
-            if (response.status === 204) return null;
-            return response.json();
-          }
-
-          async function uploadGifAsset(filePath, assetName) {
-            const assets = await githubJson('GET', `/repos/${repo}/releases/${releaseApiId}/assets?per_page=100`);
-            const existing = assets.find((asset) => asset.name === assetName);
-            if (existing) await githubJson('DELETE', `/repos/${repo}/releases/assets/${existing.id}`);
-
-            const buffer = await fs.readFile(filePath);
-            const response = await fetch(`https://uploads.github.com/repos/${repo}/releases/${releaseApiId}/assets?name=${encodeURIComponent(assetName)}`, {
-              method: 'POST',
-              headers: {
-                Accept: 'application/vnd.github+json',
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'image/gif',
-                'Content-Length': String(buffer.byteLength),
-                'X-GitHub-Api-Version': '2022-11-28',
-              },
-              body: buffer,
-            });
-            if (!response.ok) throw new Error(`Upload ${assetName} failed: HTTP ${response.status}: ${await response.text()}`);
-            const asset = await response.json();
-            return asset.browser_download_url;
-          }
-
-          async function renderVideo(url, label) {
-            const source = mediaSources[url] || { url, name: label };
-            const downloadUrl = source.url || url;
-            const assetName = sanitizeAssetName(source.name || label, url);
-            const workDir = await fs.mkdtemp(path.join(os.tmpdir(), 'release-video-'));
-            const inputPath = path.join(workDir, 'input-video');
-            const outputPath = path.join(workDir, assetName);
-
-            const response = await fetch(downloadUrl);
-            if (!response.ok) throw new Error(`Download video failed for ${url}: HTTP ${response.status}`);
-            await fs.writeFile(inputPath, Buffer.from(await response.arrayBuffer()));
-
-            execFileSync('ffmpeg', [
-              '-y',
-              '-i', inputPath,
-              '-t', '6',
-              '-vf', 'fps=12,scale=1280:-1:flags=lanczos,format=rgb24,split[s0][s1];[s0]palettegen=max_colors=256:stats_mode=full[p];[s1][p]paletteuse=dither=sierra2_4a',
-              outputPath,
-            ], { stdio: 'inherit' });
-
-            const gifUrl = await uploadGifAsset(outputPath, assetName);
-            return `\n\n<img src="${gifUrl}" alt="video preview" width="720">\n\n`;
-          }
-
-          async function renderUrl(url, label) {
-            const type = getMediaType(url);
-            if (type === 'image') return markdownImage(url, label);
-            if (type === 'githubAttachment') return `\n\n${url}\n\n`;
-            if (type === 'video') return renderVideo(url, label);
-            return null;
-          }
-
-          async function renderMarkdown(markdown) {
-            let rendered = String(markdown || '');
-            const markdownLinkPattern = /(!?)\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g;
-            const linkMatches = [...rendered.matchAll(markdownLinkPattern)];
-            for (const match of linkMatches) {
-              const [fullMatch, bang, label, url] = match;
-              if (bang) continue;
-              const replacement = await renderUrl(url, label);
-              if (replacement) rendered = rendered.replace(fullMatch, replacement);
-            }
-
-            const bareUrlPattern = /(^|[\s>])(https?:\/\/[^\s<>)]+)/g;
-            const bareMatches = [...rendered.matchAll(bareUrlPattern)];
-            for (const match of bareMatches) {
-              const [fullMatch, prefix, url] = match;
-              const offset = match.index;
-              if (prefix === '(' || rendered[offset - 1] === '(' || rendered[offset - 1] === '"') continue;
-              const beforeUrl = rendered.slice(0, offset + prefix.length);
-              const lastOpenParen = beforeUrl.lastIndexOf('(');
-              const lastCloseParen = beforeUrl.lastIndexOf(')');
-              if (lastOpenParen > lastCloseParen && /\[[^\]]*\]$/.test(beforeUrl.slice(0, lastOpenParen))) continue;
-              const replacement = await renderUrl(url);
-              if (replacement) rendered = rendered.replace(fullMatch, `${prefix}${replacement}`);
-            }
-
-            return rendered.replace(/\n{3,}/g, '\n\n').trim();
-          }
-
-          (async () => {
-            const raw = await fs.readFile('release-body.md', 'utf8');
-            const rendered = await renderMarkdown(raw);
-            await fs.writeFile('release-body.md', `${rendered}\n`);
-          })().catch((error) => {
-            console.error(error);
-            process.exit(1);
-          });
-          NODE
-
-      - name: Update GitHub release body with media previews
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_API_ID: ${{ steps.release.outputs.release_api_id }}
-        run: |
-          set -euo pipefail
-          release_body="$(cat release-body.md)"
-          jq -nc --arg body "${release_body}" '{ body: $body }' |
-            gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_API_ID}" \
-              --method PATCH \
-              --input -

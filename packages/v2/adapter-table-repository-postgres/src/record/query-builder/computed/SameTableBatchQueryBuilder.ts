@@ -1,10 +1,12 @@
 import { CellValueType, domainError, FieldType, FieldValueTypeVisitor } from '@teable/v2-core';
 import type {
   ConditionalLookupField,
+  CreatedByField,
   DomainError,
   Field,
   FieldId,
   FormulaField,
+  LastModifiedByField,
   LookupField,
   Table,
 } from '@teable/v2-core';
@@ -16,6 +18,7 @@ import {
   normalizeToJsonArrayWithStrategy,
   type IPgTypeValidationStrategy,
   type SqlExpr,
+  type SqlStorageKind,
   type SqlValueType,
 } from '@teable/v2-formula-sql-pg';
 import { sql, type Kysely, type RawBuilder } from 'kysely';
@@ -24,7 +27,12 @@ import { err, ok, safeTry } from 'neverthrow';
 
 import { FieldOutputColumnVisitor } from '../FieldOutputColumnVisitor';
 import type { DynamicDB, QB } from '../ITableRecordQueryBuilder';
-import { CteLevelSqlPlan, FormulaFieldSqlFragment } from './SameTableBatchSqlPlan';
+import { buildUserTitleFromSnapshotSql } from '../userSnapshotSql';
+import {
+  CteLevelSqlPlan,
+  FormulaFieldSqlFragment,
+  errorColumnAlias,
+} from './SameTableBatchSqlPlan';
 
 /**
  * A level of same-table fields to compute.
@@ -88,16 +96,27 @@ export class SameTableBatchQueryBuilder {
         const dbTableNameVO = yield* config.table.dbTableName();
         const tableName = yield* dbTableNameVO.value();
 
-        // Collect all field metadata we need
+        // Collect all field metadata we need. Formula dependencies are expanded into
+        // earlier CTE levels so target formulas can reference computed columns instead
+        // of recursively inlining the same formula expressions.
         const fieldsByLevel = yield* this.collectFieldsByLevel(config.table, config.fieldLevels);
+        const expandedFieldsByLevel = yield* this.expandFormulaDependencyLevels(
+          config.table,
+          fieldsByLevel
+        );
 
         // Build the CTE chain
-        const cteChain = yield* this.buildCteChain(config.table, fieldsByLevel);
+        const cteChain = yield* this.buildCteChain(config.table, expandedFieldsByLevel);
 
         // Build the final UPDATE statement
+        const targetColumnNames = yield* this.collectTargetColumnNames(
+          config.table,
+          config.fieldLevels
+        );
         const updateQuery = yield* this.buildUpdateQuery(
           tableName,
           cteChain,
+          targetColumnNames,
           config.recordIds ?? [],
           config.dirtyFilter
         );
@@ -136,6 +155,141 @@ export class SameTableBatchQueryBuilder {
   }
 
   /**
+   * Expand requested target formulas with their same-table formula dependencies.
+   *
+   * The UPDATE caller still decides which fields are written. Extra dependency
+   * columns are only projected inside the CTE chain so later formulas can reuse
+   * them by column reference rather than recursively expanding their SQL.
+   */
+  private expandFormulaDependencyLevels(
+    table: Table,
+    fieldsByLevel: Map<number, Field[]>
+  ): Result<Map<number, Field[]>, DomainError> {
+    return safeTry<Map<number, Field[]>, DomainError>(function* () {
+      const formulaFieldsById = new Map<string, FormulaField>();
+      for (const field of table.getFields()) {
+        if (field.type().equals(FieldType.formula())) {
+          formulaFieldsById.set(field.id().toString(), field as FormulaField);
+        }
+      }
+
+      if (formulaFieldsById.size === 0) {
+        return ok(fieldsByLevel);
+      }
+
+      const explicitFormulaFieldIds = new Set<string>();
+      for (const fields of fieldsByLevel.values()) {
+        for (const field of fields) {
+          if (field.type().equals(FieldType.formula())) {
+            explicitFormulaFieldIds.add(field.id().toString());
+          }
+        }
+      }
+
+      const depthByFieldId = new Map<string, number>();
+      const visiting = new Set<string>();
+
+      const resolveDepth = (field: FormulaField): Result<number, DomainError> => {
+        const fieldId = field.id().toString();
+        const cached = depthByFieldId.get(fieldId);
+        if (cached != null) {
+          return ok(cached);
+        }
+
+        if (visiting.has(fieldId)) {
+          return err(
+            domainError.invariant({
+              message: `Same-table formula dependency cycle detected at ${fieldId}`,
+            })
+          );
+        }
+
+        return safeTry<number, DomainError>(function* () {
+          visiting.add(fieldId);
+
+          let maxDependencyDepth = -1;
+          const referencedFieldIds = yield* field.expression().getReferencedFieldIds();
+          const shouldPreserveDependencyErrorState = formulaReferencesErrorState(field);
+          for (const referencedFieldId of referencedFieldIds) {
+            const referencedFieldIdString = referencedFieldId.toString();
+            if (
+              !explicitFormulaFieldIds.has(referencedFieldIdString) &&
+              !shouldPreserveDependencyErrorState
+            ) {
+              continue;
+            }
+
+            const dependency = formulaFieldsById.get(referencedFieldIdString);
+            if (!dependency) continue;
+
+            const usesStoredFormulaResult = dependency
+              .expression()
+              .hasLastModifiedTimeParams()
+              .unwrapOr(false);
+            if (usesStoredFormulaResult) continue;
+
+            const dependencyDepth = yield* resolveDepth(dependency);
+            if (dependencyDepth > maxDependencyDepth) {
+              maxDependencyDepth = dependencyDepth;
+            }
+          }
+
+          visiting.delete(fieldId);
+
+          const depth = maxDependencyDepth + 1;
+          depthByFieldId.set(fieldId, depth);
+          return ok(depth);
+        });
+      };
+
+      const explicitNonFormulaFieldsByLevel = new Map<number, Field[]>();
+      for (const [level, fields] of fieldsByLevel.entries()) {
+        for (const field of fields) {
+          if (field.type().equals(FieldType.formula())) {
+            yield* resolveDepth(field as FormulaField);
+            continue;
+          }
+
+          const levelFields = explicitNonFormulaFieldsByLevel.get(level) ?? [];
+          levelFields.push(field);
+          explicitNonFormulaFieldsByLevel.set(level, levelFields);
+        }
+      }
+
+      if (depthByFieldId.size === 0) {
+        return ok(fieldsByLevel);
+      }
+
+      const expanded = new Map<number, Field[]>();
+      const addField = (level: number, field: Field) => {
+        const fields = expanded.get(level) ?? [];
+        if (!fields.some((candidate) => candidate.id().equals(field.id()))) {
+          fields.push(field);
+        }
+        expanded.set(level, fields);
+      };
+
+      for (const [fieldId, depth] of [...depthByFieldId.entries()].sort(
+        ([leftId, leftDepth], [rightId, rightDepth]) =>
+          leftDepth === rightDepth ? leftId.localeCompare(rightId) : leftDepth - rightDepth
+      )) {
+        const field = formulaFieldsById.get(fieldId);
+        if (field) {
+          addField(depth, field);
+        }
+      }
+
+      for (const [level, fields] of explicitNonFormulaFieldsByLevel.entries()) {
+        for (const field of fields) {
+          addField(level, field);
+        }
+      }
+
+      return ok(expanded);
+    });
+  }
+
+  /**
    * Build the CTE chain where each level can reference computed values from previous levels.
    */
   private buildCteChain(
@@ -148,7 +302,10 @@ export class SameTableBatchQueryBuilder {
         const levels = [...fieldsByLevel.keys()].sort((a, b) => a - b);
 
         // Track which columns are available from previous CTEs
-        const previousCteColumns = new Map<string, { cteName: string; columnName: string }>();
+        const previousCteColumns = new Map<
+          string,
+          { cteName: string; columnName: string; errorColumnName?: string }
+        >();
 
         for (const level of levels) {
           const fields = fieldsByLevel.get(level) ?? [];
@@ -164,14 +321,23 @@ export class SameTableBatchQueryBuilder {
               FormulaFieldSqlFragment.create({
                 fieldId,
                 columnAlias: cteColumn.columnName,
-                expressionSql: `"${cteColumn.cteName}"."${cteColumn.columnName}"`,
+                expressionSql: quoteRef(cteColumn.cteName, cteColumn.columnName),
+                ...(cteColumn.errorColumnName
+                  ? {
+                      errorConditionSql: quoteRef(cteColumn.cteName, cteColumn.errorColumnName),
+                    }
+                  : {}),
                 cseEligible: false,
               })
             );
           }
 
           const computedFragments: FormulaFieldSqlFragment[] = [];
-          const computedColumns: Array<{ fieldId: string; columnName: string }> = [];
+          const computedColumns: Array<{
+            fieldId: string;
+            columnName: string;
+            errorColumnName?: string;
+          }> = [];
 
           // Build select expressions for each field in this level
           for (const field of fields) {
@@ -182,11 +348,16 @@ export class SameTableBatchQueryBuilder {
               FormulaFieldSqlFragment.create({
                 fieldId: field.id().toString(),
                 columnAlias: columnName,
-                expressionSql: expr.compile(this.db).sql,
+                expressionSql: expr.value.compile(this.db).sql,
+                ...(expr.errorConditionSql ? { errorConditionSql: expr.errorConditionSql } : {}),
                 cseEligible: field.type().equals(FieldType.formula()),
               })
             );
-            computedColumns.push({ fieldId: field.id().toString(), columnName });
+            computedColumns.push({
+              fieldId: field.id().toString(),
+              columnName,
+              ...(expr.errorConditionSql ? { errorColumnName: errorColumnAlias(columnName) } : {}),
+            });
           }
 
           ctes.push(
@@ -200,10 +371,18 @@ export class SameTableBatchQueryBuilder {
 
           // Every previously computed column is now available through this CTE via carry-forward.
           for (const [fieldId, column] of [...previousCteColumns.entries()]) {
-            previousCteColumns.set(fieldId, { cteName, columnName: column.columnName });
+            previousCteColumns.set(fieldId, {
+              cteName,
+              columnName: column.columnName,
+              ...(column.errorColumnName ? { errorColumnName: column.errorColumnName } : {}),
+            });
           }
           for (const column of computedColumns) {
-            previousCteColumns.set(column.fieldId, { cteName, columnName: column.columnName });
+            previousCteColumns.set(column.fieldId, {
+              cteName,
+              columnName: column.columnName,
+              ...(column.errorColumnName ? { errorColumnName: column.errorColumnName } : {}),
+            });
           }
         }
 
@@ -221,12 +400,17 @@ export class SameTableBatchQueryBuilder {
   private buildFieldExpression(
     table: Table,
     field: Field,
-    previousCteColumns: Map<string, { cteName: string; columnName: string }>
-  ): Result<RawBuilder<unknown>, DomainError> {
+    previousCteColumns: Map<
+      string,
+      { cteName: string; columnName: string; errorColumnName?: string }
+    >
+  ): Result<{ value: RawBuilder<unknown>; errorConditionSql?: string }, DomainError> {
     // Only formula fields can have same-table dependencies
     if (!field.type().equals(FieldType.formula())) {
       // For non-formula computed fields (link/lookup/rollup), we just copy from main table
-      return this.getColumnName(field).map((colName) => sql`${sql.ref(`${T}.${colName}`)}`);
+      return this.getColumnName(field).map((colName) => ({
+        value: sql`${sql.ref(`${T}.${colName}`)}`,
+      }));
     }
 
     const formulaField = field as FormulaField;
@@ -238,7 +422,7 @@ export class SameTableBatchQueryBuilder {
       table,
       tableAlias: T,
       resolveFieldSql: (refField: Field) =>
-        this.resolveFieldSqlWithCte(table, refField, previousCteColumns),
+        this.resolveFieldSqlWithCte(refField, previousCteColumns),
       skipFormulaExpansion: true,
       typeValidationStrategy: this.typeValidationStrategy,
       timeZone: formulaField.timeZone()?.toString(),
@@ -246,13 +430,16 @@ export class SameTableBatchQueryBuilder {
 
     const translated = translator.translateExpression(formulaField.expression().toString());
     if (translated.isErr()) {
-      return ok(sql.raw('NULL'));
+      return ok({ value: sql.raw('NULL') });
     }
 
     const expr = translated.value;
     const valueSql = this.normalizeFormulaValueSql(formulaField, expr);
     const typedSql = guardValueSql(valueSql, expr.errorConditionSql);
-    return ok(sql.raw(typedSql));
+    return ok({
+      value: sql.raw(typedSql),
+      ...(expr.errorConditionSql ? { errorConditionSql: expr.errorConditionSql } : {}),
+    });
   }
 
   private normalizeFormulaValueSql(formulaField: FormulaField, expr: SqlExpr): string {
@@ -306,38 +493,26 @@ export class SameTableBatchQueryBuilder {
    * Resolve a field reference to SQL, checking if it should come from a previous CTE.
    */
   private resolveFieldSqlWithCte(
-    table: Table,
     field: Field,
-    previousCteColumns: Map<string, { cteName: string; columnName: string }>,
-    formulaMetadataStack = new Set<string>()
+    previousCteColumns: Map<
+      string,
+      { cteName: string; columnName: string; errorColumnName?: string }
+    >
   ): Result<SqlExpr, DomainError> {
     const fieldIdStr = field.id().toString();
     const cteInfo = previousCteColumns.get(fieldIdStr);
 
     if (cteInfo) {
       // This field was computed in a previous CTE - reference that value
-      const ref = `"${cteInfo.cteName}"."${cteInfo.columnName}"`;
+      const ref = quoteRef(cteInfo.cteName, cteInfo.columnName);
       const typing = this.resolveFieldTyping(field);
-      if (field.type().equals(FieldType.formula()) && !formulaMetadataStack.has(fieldIdStr)) {
-        const nextStack = new Set(formulaMetadataStack);
-        nextStack.add(fieldIdStr);
-        const metadataResult = this.resolveFormulaMetadataWithCte(
-          table,
-          field as FormulaField,
-          previousCteColumns,
-          nextStack
+      if (field.type().equals(FieldType.formula())) {
+        const errorConditionSql = cteInfo.errorColumnName
+          ? quoteRef(cteInfo.cteName, cteInfo.errorColumnName)
+          : `(${ref})::text LIKE '#ERROR:%'`;
+        return ok(
+          makeExpr(ref, typing.valueType, typing.isArray, errorConditionSql, `${ref}::text`)
         );
-        if (metadataResult.isOk()) {
-          return ok(
-            makeExpr(
-              ref,
-              typing.valueType,
-              typing.isArray,
-              metadataResult.value.errorConditionSql,
-              metadataResult.value.errorMessageSql
-            )
-          );
-        }
       }
 
       return ok(makeExpr(ref, typing.valueType, typing.isArray));
@@ -345,70 +520,68 @@ export class SameTableBatchQueryBuilder {
 
     // Field is from the main table
     return this.getColumnName(field).map((colName) => {
-      const ref = `"${T}"."${colName}"`;
+      const ref = quoteRef(T, colName);
+
+      if (field.type().equals(FieldType.createdBy())) {
+        return makeExpr(
+          buildUserTitleFromSnapshotSql(ref, quoteRef(T, '__created_by')),
+          'string',
+          false,
+          undefined,
+          undefined,
+          field as CreatedByField
+        );
+      }
+
+      if (field.type().equals(FieldType.lastModifiedBy())) {
+        const lastModifiedByField = field as LastModifiedByField;
+        return makeExpr(
+          buildUserTitleFromSnapshotSql(
+            ref,
+            lastModifiedByField.isTrackAll() ? quoteRef(T, '__last_modified_by') : undefined
+          ),
+          'string',
+          false,
+          undefined,
+          undefined,
+          lastModifiedByField
+        );
+      }
 
       // Handle lookup and conditionalLookup fields using their real multiplicity.
       // Scalar lookups are stored as scalar DB columns and must not be forced
       // through array/json coercion paths.
       if (field.type().equals(FieldType.lookup())) {
         const lookupField = field as LookupField;
-        const typing = this.resolveFieldTyping(field);
-        const innerFieldResult = lookupField.innerField();
-        const valueType = innerFieldResult.isOk()
-          ? this.mapFieldTypeToValueType(innerFieldResult.value.type())
-          : typing.valueType;
+        const typing = this.resolveLookupTyping(lookupField);
         return makeExpr(
           ref,
-          valueType,
+          typing.valueType,
           typing.isArray,
           undefined,
           undefined,
           lookupField,
-          typing.isArray ? 'array' : 'scalar'
+          typing.storageKind
         );
       }
 
       if (field.type().equals(FieldType.conditionalLookup())) {
         const conditionalLookupField = field as ConditionalLookupField;
-        const typing = this.resolveFieldTyping(field);
-        const innerFieldResult = conditionalLookupField.innerField();
-        const valueType = innerFieldResult.isOk()
-          ? this.mapFieldTypeToValueType(innerFieldResult.value.type())
-          : typing.valueType;
+        const typing = this.resolveLookupTyping(conditionalLookupField);
         return makeExpr(
           ref,
-          valueType,
+          typing.valueType,
           typing.isArray,
           undefined,
           undefined,
           conditionalLookupField,
-          typing.isArray ? 'array' : 'scalar'
+          typing.storageKind
         );
       }
 
       const typing = this.resolveFieldTyping(field);
       return makeExpr(ref, typing.valueType, typing.isArray);
     });
-  }
-
-  private resolveFormulaMetadataWithCte(
-    table: Table,
-    formulaField: FormulaField,
-    previousCteColumns: Map<string, { cteName: string; columnName: string }>,
-    formulaMetadataStack: Set<string>
-  ): Result<SqlExpr, DomainError> {
-    const translator = new FormulaSqlPgTranslator({
-      table,
-      tableAlias: T,
-      resolveFieldSql: (refField: Field) =>
-        this.resolveFieldSqlWithCte(table, refField, previousCteColumns, formulaMetadataStack),
-      // Keep formula references bound to CTE columns; we only need error metadata here.
-      skipFormulaExpansion: true,
-      typeValidationStrategy: this.typeValidationStrategy,
-      timeZone: formulaField.timeZone()?.toString(),
-    });
-
-    return translator.translateExpression(formulaField.expression().toString());
   }
 
   /**
@@ -433,6 +606,45 @@ export class SameTableBatchQueryBuilder {
       return 'datetime';
     }
     return 'string';
+  }
+
+  private resolveLookupTyping(field: LookupField | ConditionalLookupField): {
+    valueType: SqlValueType;
+    isArray: boolean;
+    storageKind: SqlStorageKind;
+  } {
+    const isArray = field
+      .isMultipleCellValue()
+      .map((multiplicity) => multiplicity.isMultiple())
+      .unwrapOr(false);
+    const innerFieldResult = field.innerField();
+    const innerFieldType = innerFieldResult.isOk() ? innerFieldResult.value.type() : undefined;
+    const valueType = innerFieldType ? this.mapFieldTypeToValueType(innerFieldType) : 'unknown';
+    return {
+      valueType,
+      isArray,
+      storageKind: this.resolveLookupStorageKind(innerFieldType, isArray),
+    };
+  }
+
+  private resolveLookupStorageKind(
+    innerFieldType: FieldType | undefined,
+    isArray: boolean
+  ): SqlStorageKind {
+    if (isArray) return 'array';
+    if (innerFieldType && this.isJsonStorageFieldType(innerFieldType)) return 'json';
+    return 'scalar';
+  }
+
+  private isJsonStorageFieldType(fieldType: FieldType): boolean {
+    const typeString = fieldType.toString();
+    return (
+      typeString === 'user' ||
+      typeString === 'attachment' ||
+      typeString === 'button' ||
+      typeString === 'link' ||
+      typeString === 'multipleSelect'
+    );
   }
 
   private resolveFieldTyping(field: Field): { valueType: SqlValueType; isArray: boolean } {
@@ -473,6 +685,7 @@ export class SameTableBatchQueryBuilder {
   private buildUpdateQuery(
     tableName: string,
     cteChain: CteChain,
+    targetColumnNames: ReadonlySet<string>,
     recordIds: ReadonlyArray<string>,
     dirtyFilter?: SameTableBatchConfig['dirtyFilter']
   ): Result<UpdateQueryResult, DomainError> {
@@ -488,6 +701,7 @@ export class SameTableBatchQueryBuilder {
     const fieldMappings: FieldMapping[] = [];
     for (const cte of ctes) {
       for (const fragment of cte.fragments) {
+        if (!targetColumnNames.has(fragment.columnAlias)) continue;
         if (mappedColumnSet.has(fragment.columnAlias)) continue;
         mappedColumnSet.add(fragment.columnAlias);
         fieldMappings.push({
@@ -503,7 +717,7 @@ export class SameTableBatchQueryBuilder {
       let fromClause: string;
       if (cte.previousCteName) {
         // Join with main table and previous CTE
-        fromClause = `FROM ${qualifiedTableName} AS "${T}" JOIN "${cte.previousCteName}" ON "${T}"."__id" = "${cte.previousCteName}"."__id"`;
+        fromClause = `FROM ${qualifiedTableName} AS ${quoteIdentifier(T)} JOIN ${quoteIdentifier(cte.previousCteName)} ON ${quoteRef(T, '__id')} = ${quoteRef(cte.previousCteName, '__id')}`;
       } else {
         // First level - select from main table with optional dirty filter + explicit record slicing.
         const dirtyJoin = (() => {
@@ -513,17 +727,19 @@ export class SameTableBatchQueryBuilder {
           const recordIdColumn = dirtyFilter.recordIdColumn ?? 'record_id';
           // Note: tableId is a trusted internal ID, embedded as a SQL literal.
           const tableIdLiteral = escapeSqlLiteral(dirtyFilter.tableId);
-          return ` INNER JOIN "${dirtyTableName}" AS "__dirty" ON "${T}"."__id" = "__dirty"."${recordIdColumn}" AND "__dirty"."${tableIdColumn}" = '${tableIdLiteral}'`;
+          return ` INNER JOIN ${quoteIdentifier(dirtyTableName)} AS "__dirty" ON ${quoteRef(T, '__id')} = ${quoteRef('__dirty', recordIdColumn)} AND ${quoteRef('__dirty', tableIdColumn)} = '${tableIdLiteral}'`;
         })();
 
         const recordIdsJoin =
           recordIds.length > 0
             ? ` INNER JOIN (VALUES ${recordIds
                 .map((recordId) => `('${escapeSqlLiteral(recordId)}')`)
-                .join(', ')}) AS "__record_ids"("__id") ON "${T}"."__id" = "__record_ids"."__id"`
+                .join(
+                  ', '
+                )}) AS "__record_ids"("__id") ON ${quoteRef(T, '__id')} = ${quoteRef('__record_ids', '__id')}`
             : '';
 
-        fromClause = `FROM ${qualifiedTableName} AS "${T}"${dirtyJoin}${recordIdsJoin}`;
+        fromClause = `FROM ${qualifiedTableName} AS ${quoteIdentifier(T)}${dirtyJoin}${recordIdsJoin}`;
       }
 
       const cteDef = cte.buildCteSql(fromClause);
@@ -532,16 +748,16 @@ export class SameTableBatchQueryBuilder {
 
     // Build final SELECT from the last CTE only (earlier levels are carried forward).
     const cteNames = ctes.map((c) => c.name);
-    const finalSelectCols = ['u."__id"'];
+    const finalSelectCols = [quoteRef('u', '__id')];
     for (const mapping of fieldMappings) {
       finalSelectCols.push(
-        `"${mapping.cteName}"."${mapping.columnName}" as "${mapping.columnName}"`
+        `${quoteRef(mapping.cteName, mapping.columnName)} as ${quoteIdentifier(mapping.columnName)}`
       );
     }
 
     const cteClause = `WITH ${cteDefinitions.join(', ')}`;
     const selectClause = `SELECT ${finalSelectCols.join(', ')}`;
-    const fromClause = `FROM ${qualifiedTableName} AS u JOIN "${lastCte.name}" ON u."__id" = "${lastCte.name}"."__id"`;
+    const fromClause = `FROM ${qualifiedTableName} AS ${quoteIdentifier('u')} JOIN ${quoteIdentifier(lastCte.name)} ON ${quoteRef('u', '__id')} = ${quoteRef(lastCte.name, '__id')}`;
     const fullSql = `${cteClause} ${selectClause} ${fromClause}`;
     // Wrap WITH query as a derived table source; callers use selectQuery.as(...)
     // and PostgreSQL requires WITH to be inside parentheses in that position.
@@ -557,19 +773,46 @@ export class SameTableBatchQueryBuilder {
   private getColumnName(field: Field): Result<string, DomainError> {
     return this.columnVisitor.getColumnAlias(field);
   }
+
+  private collectTargetColumnNames(
+    table: Table,
+    fieldLevels: ReadonlyArray<SameTableFieldLevel>
+  ): Result<ReadonlySet<string>, DomainError> {
+    return safeTry<ReadonlySet<string>, DomainError>(
+      function* (this: SameTableBatchQueryBuilder) {
+        const columnNames = new Set<string>();
+
+        for (const level of fieldLevels) {
+          for (const fieldId of level.fieldIds) {
+            const field = yield* table.getField((f) => f.id().equals(fieldId));
+            const columnName = yield* this.getColumnName(field);
+            columnNames.add(columnName);
+          }
+        }
+
+        return ok(columnNames);
+      }.bind(this)
+    );
+  }
 }
 
 const escapeSqlLiteral = (value: string): string => value.replaceAll("'", "''");
 const quoteIdentifier = (value: string): string => `"${value.replaceAll('"', '""')}"`;
+const quoteRef = (...parts: string[]): string => parts.map(quoteIdentifier).join('.');
 const quoteQualifiedTableName = (tableName: string): string =>
   tableName
     .split('.')
     .map((part) => quoteIdentifier(part))
     .join('.');
+const formulaReferencesErrorState = (field: FormulaField): boolean =>
+  /\bIS_ERROR\s*\(/i.test(field.expression().toString());
 
 type CteChain = {
   ctes: CteLevelSqlPlan[];
-  previousCteColumns: Map<string, { cteName: string; columnName: string }>;
+  previousCteColumns: Map<
+    string,
+    { cteName: string; columnName: string; errorColumnName?: string }
+  >;
 };
 
 type FieldMapping = {

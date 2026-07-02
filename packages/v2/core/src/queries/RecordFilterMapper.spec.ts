@@ -10,7 +10,11 @@ import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import type { RecordFilter } from './RecordFilterDto';
-import { buildRecordConditionSpec, sanitizeRecordFilter } from './RecordFilterMapper';
+import {
+  buildRecordConditionSpec,
+  replaceCurrentUserTagInFilter,
+  sanitizeRecordFilter,
+} from './RecordFilterMapper';
 
 const baseId = (seed: string) => BaseId.create(`bse${seed.repeat(16)}`)._unsafeUnwrap();
 const recordId = (seed: string) => RecordId.create(`rec${seed.repeat(16)}`)._unsafeUnwrap();
@@ -32,6 +36,9 @@ const buildTable = () => {
     .withName(FieldName.create('Status')._unsafeUnwrap())
     .withOptions([selectOption('Open')])
     .done();
+  builder.field().user().withName(FieldName.create('Owner')._unsafeUnwrap()).done();
+  builder.field().createdBy().withName(FieldName.create('Creator')._unsafeUnwrap()).done();
+  builder.field().lastModifiedBy().withName(FieldName.create('Modifier')._unsafeUnwrap()).done();
   builder.view().defaultGrid().done();
 
   return builder.build()._unsafeUnwrap();
@@ -248,6 +255,46 @@ describe('RecordFilterMapper', () => {
           operator: 'is',
           value: null,
         },
+      ],
+    });
+  });
+
+  it('replaces current-user tag only for user-like filter fields', () => {
+    const table = buildTable();
+    const ownerField = table
+      .getField((field) => field.name().toString() === 'Owner')
+      ._unsafeUnwrap();
+    const creatorField = table
+      .getField((field) => field.name().toString() === 'Creator')
+      ._unsafeUnwrap();
+    const modifierField = table
+      .getField((field) => field.name().toString() === 'Modifier')
+      ._unsafeUnwrap();
+    const titleField = table
+      .getField((field) => field.name().toString() === 'Title')
+      ._unsafeUnwrap();
+
+    const filter: RecordFilter = {
+      conjunction: 'and',
+      items: [
+        { fieldId: ownerField.id().toString(), operator: 'is', value: 'Me' },
+        { fieldId: creatorField.id().toString(), operator: 'isAnyOf', value: ['Me', 'usrOther'] },
+        { fieldId: modifierField.id().toString(), operator: 'isNot', value: 'Me' },
+        { fieldId: titleField.id().toString(), operator: 'is', value: 'Me' },
+      ],
+    };
+
+    expect(replaceCurrentUserTagInFilter(table, filter, 'usrCurrent')).toEqual({
+      conjunction: 'and',
+      items: [
+        { fieldId: ownerField.id().toString(), operator: 'is', value: 'usrCurrent' },
+        {
+          fieldId: creatorField.id().toString(),
+          operator: 'isAnyOf',
+          value: ['usrCurrent', 'usrOther'],
+        },
+        { fieldId: modifierField.id().toString(), operator: 'isNot', value: 'usrCurrent' },
+        { fieldId: titleField.id().toString(), operator: 'is', value: 'Me' },
       ],
     });
   });
