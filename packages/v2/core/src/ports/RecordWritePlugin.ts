@@ -51,6 +51,10 @@ export type RecordWriteFieldValues = ReadonlyMap<string, unknown>;
 export type RecordWritePluginExecutionMode = 'direct' | 'stream';
 export type RecordWritePluginExecutionScope = 'operation' | 'chunk';
 
+export interface RecordWritePluginRunnerOptions {
+  readonly skipPluginNames?: ReadonlySet<string>;
+}
+
 export interface RecordWritePluginOrchestration {
   /**
    * High-level transport/execution mode. `stream` means the public API is

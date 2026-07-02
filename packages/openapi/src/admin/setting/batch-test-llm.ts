@@ -11,7 +11,9 @@ import { LLMProviderType, llmProviderSchema } from './update';
  */
 export const batchTestLLMRoSchema = z
   .object({
-    providers: z.array(llmProviderSchema.omit({ modelConfigs: true }).required()).optional(),
+    providers: z
+      .array(llmProviderSchema.omit({ modelConfigs: true, displayName: true }).required())
+      .optional(),
   })
   .optional();
 

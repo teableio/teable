@@ -5,11 +5,13 @@ import {
   FieldId,
   FieldUpdated,
   RecordId,
+  RecordReordered,
   RecordsBatchCreated,
   RecordsBatchUpdated,
   RecordsDeleted,
   TableActionTriggerRequested,
   TableId,
+  ViewId,
   type IExecutionContext,
   type IEventHandler,
 } from '@teable/v2-core';
@@ -574,6 +576,61 @@ describe('V2ActionTriggerService', () => {
         },
       },
     ]);
+  });
+
+  it('emits setRecord with explicit empty fieldIds for record reorders', async () => {
+    let submitted: IPresencePayload | undefined;
+
+    const shareDbService = {
+      connect: () => ({
+        getPresence: () => ({
+          create: () => ({
+            submit: (data: IPresencePayload, cb?: (error?: unknown) => void) => {
+              submitted = data;
+              cb?.();
+            },
+          }),
+        }),
+      }),
+    } as unknown as ShareDbService;
+
+    const registered: Array<{ instance: unknown }> = [];
+    const container = {
+      registerInstance: (_token: unknown, instance: unknown) => {
+        registered.push({ instance });
+        return container;
+      },
+    } as unknown as DependencyContainer;
+
+    const service = new V2ActionTriggerService(shareDbService);
+    service.registerProjections(container);
+
+    const projection = registered.find(
+      (item) =>
+        (item.instance as { constructor?: { name?: string } }).constructor?.name ===
+        'V2RecordReorderedActionTriggerProjection'
+    )?.instance as IEventHandler<RecordReordered> | undefined;
+
+    expect(projection).toBeDefined();
+
+    const { baseId, tableId } = createIds();
+    const recordId = RecordId.create(`rec${'d'.repeat(16)}`)._unsafeUnwrap();
+    const event = RecordReordered.create({
+      baseId,
+      tableId,
+      viewId: ViewId.create(`viw${'e'.repeat(16)}`)._unsafeUnwrap(),
+      recordIds: [recordId],
+      ordersByRecordId: { [recordId.toString()]: 3.375 },
+      previousOrdersByRecordId: { [recordId.toString()]: 3 },
+    });
+
+    const result = await projection?.handle({} as IExecutionContext, event);
+    expect(result?.isOk()).toBe(true);
+    await waitForPresenceFlush();
+
+    // empty fieldIds means "no cell value changed": field-aware listeners
+    // (row count, aggregations) must be able to skip refreshing on reorders
+    expect(submitted).toEqual([{ actionKey: 'setRecord', payload: { fieldIds: [] } }]);
   });
 
   it('emits setRecord presence payload with fieldIds for large batch updates', async () => {

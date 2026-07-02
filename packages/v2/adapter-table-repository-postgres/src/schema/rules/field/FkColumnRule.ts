@@ -66,6 +66,19 @@ export class FkColumnRule implements ISchemaRule {
     return this.targetTable ?? { schema: ctx.schema, tableName: ctx.tableName };
   }
 
+  createTableColumnForTarget(
+    targetTable: TableIdentifier
+  ): { columnName: string; dataType: 'text' } | undefined {
+    const target = this.targetTable ?? targetTable;
+    if ((target.schema ?? null) !== (targetTable.schema ?? null)) {
+      return undefined;
+    }
+    if (target.tableName !== targetTable.tableName) {
+      return undefined;
+    }
+    return { columnName: this.columnName, dataType: 'text' };
+  }
+
   async isValid(ctx: SchemaRuleContext): Promise<Result<SchemaRuleValidationResult, DomainError>> {
     const columnName = this.columnName;
     const target = this.getTargetTable(ctx);
@@ -119,7 +132,7 @@ export class FkColumnRule implements ISchemaRule {
       const isCurrentContextTarget =
         (target.schema ?? null) === (ctx.schema ?? null) && target.tableName === ctx.tableName;
 
-      if (ctx.field) {
+      if (!ctx.optimizeForEmptyTables && ctx.field) {
         const linkValueColumnName = yield* resolveColumnName(ctx.field);
         if (linkValueColumnName !== columnName) {
           if (isCurrentContextTarget) {
