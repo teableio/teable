@@ -87,6 +87,9 @@ const tableProvisionStateToOperationStatus = (
   return 'pending';
 };
 
+const shouldFilterDeletedChildren = (state: core.TableQueryState): boolean =>
+  state === 'active' || state === 'activeWithPending' || state === 'activeAnyProvision';
+
 const jsonbValue = (value: unknown): ReturnType<typeof sql> => {
   if (value === undefined) {
     return sql`NULL`;
@@ -656,7 +659,7 @@ export class PostgresTableRepository implements core.ITableRepository {
                 .orderBy('is_primary')
                 .orderBy('order')
                 .orderBy('created_time');
-              if (effectiveState === 'active' || effectiveState === 'activeWithPending') {
+              if (shouldFilterDeletedChildren(effectiveState)) {
                 query = query.where('deleted_time', 'is', null);
               } else if (effectiveState === 'deleted') {
                 query = query.where('deleted_time', 'is not', null);
@@ -675,7 +678,7 @@ export class PostgresTableRepository implements core.ITableRepository {
                 .select(['id', 'name', 'type', 'options', 'column_meta', 'sort', 'filter', 'group'])
                 .where(sql<boolean>`${sql.ref('view.table_id')} = ${sql.ref('table_meta.id')}`)
                 .orderBy('order');
-              if (effectiveState === 'active' || effectiveState === 'activeWithPending') {
+              if (shouldFilterDeletedChildren(effectiveState)) {
                 query = query.where('deleted_time', 'is', null);
               } else if (effectiveState === 'deleted') {
                 query = query.where('deleted_time', 'is not', null);
@@ -770,7 +773,7 @@ export class PostgresTableRepository implements core.ITableRepository {
                 .orderBy('is_primary')
                 .orderBy('order')
                 .orderBy('created_time');
-              if (effectiveState === 'active' || effectiveState === 'activeWithPending') {
+              if (shouldFilterDeletedChildren(effectiveState)) {
                 query = query.where('deleted_time', 'is', null);
               } else if (effectiveState === 'deleted') {
                 query = query.where('deleted_time', 'is not', null);
@@ -789,7 +792,7 @@ export class PostgresTableRepository implements core.ITableRepository {
                 .select(['id', 'name', 'type', 'options', 'column_meta', 'sort', 'filter', 'group'])
                 .where(sql<boolean>`${sql.ref('view.table_id')} = ${sql.ref('table_meta.id')}`)
                 .orderBy('order');
-              if (effectiveState === 'active' || effectiveState === 'activeWithPending') {
+              if (shouldFilterDeletedChildren(effectiveState)) {
                 query = query.where('deleted_time', 'is', null);
               } else if (effectiveState === 'deleted') {
                 query = query.where('deleted_time', 'is not', null);
@@ -837,6 +840,63 @@ export class PostgresTableRepository implements core.ITableRepository {
     } catch (error) {
       return err(
         domainError.unexpected({ message: `Failed to load tables: ${describeError(error)}` })
+      );
+    }
+  }
+
+  @core.TraceSpan()
+  async count(
+    context: core.IExecutionContext,
+    spec: core.ISpecification<core.Table, core.ITableSpecVisitor>,
+    options?: Pick<core.TableFindOptions, 'state'>
+  ): Promise<Result<number, DomainError>> {
+    const visitor = new TableWhereVisitor(options?.state);
+    const acceptResult = spec.accept(visitor);
+    if (acceptResult.isErr()) return err(acceptResult.error);
+
+    const whereResult = visitor.where();
+    if (whereResult.isErr()) return err(whereResult.error);
+    const whereFactory = whereResult.value;
+    const specInfo = visitor.describe();
+
+    const activeSpan = context.tracer?.getActiveSpan?.();
+    if (activeSpan) {
+      const attributes: Record<string, core.SpanAttributeValue> = {
+        'teable.table_spec': specInfo.specName ?? spec.constructor?.name ?? 'unknown',
+      };
+      if (specInfo.tableId) {
+        attributes[core.TeableSpanAttributes.TABLE_ID] = specInfo.tableId;
+      }
+      if (specInfo.incomingReferenceToTableId) {
+        attributes['teable.incoming_reference_to_table_id'] = specInfo.incomingReferenceToTableId;
+      }
+      if (specInfo.baseId) {
+        attributes['teable.base_id'] = specInfo.baseId;
+      }
+      if (specInfo.tableIds?.length) {
+        attributes['teable.table_ids'] = specInfo.tableIds.join(',');
+      }
+      if (specInfo.tableName) {
+        attributes['teable.table_name'] = specInfo.tableName;
+      }
+      if (specInfo.nameLike) {
+        attributes['teable.table_name_like'] = specInfo.nameLike;
+      }
+      activeSpan.setAttributes(attributes);
+    }
+
+    try {
+      const db = resolvePostgresDbOrTx(this.db, context, 'meta');
+      const row = await db
+        .selectFrom('table_meta')
+        .select(db.fn.count('id').as('count'))
+        .where((eb) => whereFactory(eb))
+        .executeTakeFirst();
+
+      return ok(Number(row?.count ?? 0));
+    } catch (error) {
+      return err(
+        domainError.unexpected({ message: `Failed to count tables: ${describeError(error)}` })
       );
     }
   }

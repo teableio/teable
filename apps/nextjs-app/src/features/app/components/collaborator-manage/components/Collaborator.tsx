@@ -6,10 +6,12 @@ import {
   cn,
   Tooltip,
   TooltipContent,
+  TooltipPortal,
   TooltipProvider,
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { UserAvatar } from '../../user/UserAvatar';
 
 interface ICollaboratorProps {
@@ -33,6 +35,67 @@ export interface IDepartmentCollaborator {
 }
 
 export type ICollaborator = IUserCollaborator | IDepartmentCollaborator;
+
+export const OverflowText = (props: { text: string; className?: string }) => {
+  const { text, className } = props;
+  const elementRef = useRef<HTMLSpanElement | null>(null);
+  const observerRef = useRef<ResizeObserver | null>(null);
+  const [isOverflow, setIsOverflow] = useState(false);
+
+  const checkOverflow = useCallback((element: HTMLSpanElement) => {
+    setIsOverflow(element.scrollWidth > element.clientWidth);
+  }, []);
+
+  const setContentRef = useCallback(
+    (element: HTMLSpanElement | null) => {
+      observerRef.current?.disconnect();
+      elementRef.current = element;
+
+      if (!element) {
+        observerRef.current = null;
+        return;
+      }
+
+      checkOverflow(element);
+
+      const observer = new ResizeObserver(() => checkOverflow(element));
+      observer.observe(element);
+      observerRef.current = observer;
+    },
+    [checkOverflow]
+  );
+
+  useEffect(() => {
+    if (elementRef.current) {
+      checkOverflow(elementRef.current);
+    }
+  }, [checkOverflow, text]);
+
+  useEffect(() => () => observerRef.current?.disconnect(), []);
+
+  const content = (
+    <span ref={setContentRef} className={cn('min-w-0 truncate', className)}>
+      {text}
+    </span>
+  );
+
+  if (!isOverflow) {
+    return content;
+  }
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>{content}</TooltipTrigger>
+        <TooltipPortal>
+          <TooltipContent className="max-w-60 break-all">
+            <p>{text}</p>
+          </TooltipContent>
+        </TooltipPortal>
+      </Tooltip>
+    </TooltipProvider>
+  );
+};
 
 const BillableBadge = (props: { role?: IRole }) => {
   const { role } = props;
@@ -67,7 +130,7 @@ export const Collaborator = (props: ICollaboratorProps) => {
   const { item, className, tips } = props;
 
   return (
-    <div className={cn('flex flex-1 items-center', className)}>
+    <div className={cn('flex min-w-0 flex-1 items-center', className)}>
       {item.type === PrincipalType.User && (
         <UserAvatar className="border" user={{ name: item.name, avatar: item.avatar }} />
       )}
@@ -76,10 +139,10 @@ export const Collaborator = (props: ICollaboratorProps) => {
           <Building2 className="size-4" />
         </div>
       )}
-      <div className="ml-3 flex flex-1 flex-col space-y-1 overflow-hidden">
-        <div className="text-sm font-medium">
-          <div className="flex items-center gap-2">
-            <span className="truncate">{item.name}</span>
+      <div className="ml-3 flex min-w-0 flex-1 flex-col space-y-1 overflow-hidden">
+        <div className="min-w-0 text-sm font-medium">
+          <div className="flex min-w-0 items-center gap-2">
+            <OverflowText text={item.name} />
             {item.type === PrincipalType.User && item.billable && (
               <BillableBadge role={item.role} />
             )}
@@ -87,7 +150,7 @@ export const Collaborator = (props: ICollaboratorProps) => {
           </div>
         </div>
         {item.type === PrincipalType.User && (
-          <p className="text-xs leading-none text-muted-foreground">{item.email}</p>
+          <OverflowText text={item.email} className="text-xs leading-none text-muted-foreground" />
         )}
       </div>
     </div>

@@ -1,6 +1,7 @@
 export * from './NoopAttachmentUrlSignerService';
 export * from './NoopCsvParser';
 export * from './NoopEventBus';
+export * from './NoopFieldDeleteSnapshotSink';
 export * from './NoopHasher';
 export * from './NoopLogger';
 export * from './NoopRealtimeEngine';
