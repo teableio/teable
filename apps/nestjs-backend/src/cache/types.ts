@@ -34,9 +34,11 @@ export interface ICacheStore {
   [key: `waitlist:invite-code:${string}`]: number;
   [key: `send-mail-rate-limit:${string}`]: boolean;
   [key: `oauth:token-rate:${string}:${string}`]: number;
-  [key: `automation:email:rate:${string}:${number}`]: number;
+  [key: `email:send:rate:${string}:${number}`]: number;
   [key: `automation:email-att:${string}`]: string[];
   [key: `automation:fail-notify-count:${string}`]: number;
+  // Watchdog round-robin scan cursor per status (staleAt stored as ISO string).
+  [key: `automation:orphan-cursor:${string}`]: { staleAt: string; key: string };
   // Distributed lock keys
   [key: `lock:${string}`]: string;
   [key: `import:result:manifest:${string}`]: {
