@@ -30,6 +30,7 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
     className,
     popoverClassName,
     placeholderClassName,
+    placeholder = t('common.selectPlaceHolder'),
     disabled = false,
     optionRender,
     notFoundText = t('common.noRecords'),
@@ -39,6 +40,7 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
   } = props;
   const [open, setOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
+  const popoverContentRef = useRef<HTMLDivElement>(null);
   const [searchValue, setSearchValue] = useState('');
   const [isComposing, setIsComposing] = useState(false);
 
@@ -58,7 +60,7 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
     } else {
       newCellValue = [...values, name];
     }
-    onSelect?.(newCellValue);
+    onSelect?.(newCellValue ?? []);
   };
 
   const selectedValues = useMemo<O[]>(() => {
@@ -93,6 +95,17 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
     }
   }, [searchValue, isComposing, onSearch, setApplySearchDebounced]);
 
+  useEffect(() => {
+    const popoverContent = popoverContentRef.current;
+    if (!open || !popoverContent) {
+      return;
+    }
+
+    const handleWheel = (event: WheelEvent) => scrollListByWheel(event, listRef.current);
+    popoverContent.addEventListener('wheel', handleWheel, { passive: false, capture: true });
+    return () => popoverContent.removeEventListener('wheel', handleWheel, true);
+  }, [open]);
+
   return (
     <Popover open={open} onOpenChange={setOpen} modal={modal}>
       <PopoverTrigger asChild>
@@ -116,9 +129,9 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
               )
             ) : (
               <span
-                className={cn('text-xs font-normal text-muted-foreground', placeholderClassName)}
+                className={cn('text-sm font-normal text-muted-foreground', placeholderClassName)}
               >
-                {t('common.selectPlaceHolder')}
+                {placeholder}
               </span>
             )}
           </div>
@@ -130,11 +143,7 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
           />
         </Button>
       </PopoverTrigger>
-      <PopoverContent
-        align="start"
-        className={cn('p-1', popoverClassName)}
-        onWheelCapture={(event) => scrollListByWheel(event, listRef.current)}
-      >
+      <PopoverContent ref={popoverContentRef} align="start" className={cn('p-1', popoverClassName)}>
         <Command
           className="rounded-sm"
           filter={onSearch ? undefined : commandFilter}

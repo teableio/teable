@@ -104,8 +104,12 @@ export class FormulaSqlPgTranslator {
   }
 
   renderSql(expr: SqlExpr): string {
-    if (!expr.errorConditionSql) return expr.valueSql;
+    const renderedValueSql = expr.displayValueSql ?? expr.valueSql;
+    if (!expr.errorConditionSql) return renderedValueSql;
     const errorMessage = expr.errorMessageSql ?? buildErrorLiteral('INTERNAL', 'unknown_error');
+    if (expr.displayValueSql) {
+      return `CASE WHEN ${expr.errorConditionSql} THEN ${errorMessage} ELSE ${renderedValueSql} END`;
+    }
     if (expr.isArray) {
       return `CASE WHEN ${expr.errorConditionSql} THEN jsonb_build_array(${errorMessage}) ELSE ${expr.valueSql} END`;
     }
@@ -223,22 +227,26 @@ export class FormulaSqlPgTranslator {
     // Get innerField's metadata to proxy its type information
     const innerFieldMetadata = buildFieldSqlMetadata(innerField);
 
+    const isMultiple = lookupField
+      .isMultipleCellValue()
+      .map((multiplicity) => multiplicity.isMultiple())
+      .unwrapOr(true);
+
     // Create a proxy expression that:
-    // 1. Uses lookup field's raw SQL (JSON array) - extraction happens later
-    // 2. Uses innerField's type metadata - so type coercion uses innerField's logic
-    // 3. Marks as array so extractArrayScalarText will be called
-    // 4. The extractArrayScalarText will detect this is a lookup field and use
-    //    innerField's type-specific extraction logic
+    // 1. Uses lookup field's raw SQL column.
+    // 2. Uses innerField's type metadata so type coercion follows the looked-up value.
+    // 3. Only marks true multi-value lookups as arrays. Scalar lookups are stored as scalar
+    //    DB columns in v1-compatible bases and must not go through JSON array normalization.
     return innerFieldMetadata
       .map((metadata) =>
         makeExpr(
           lookupSql.valueSql,
           metadata.valueType,
-          true, // Lookup fields are arrays
+          isMultiple,
           lookupSql.errorConditionSql,
           lookupSql.errorMessageSql,
           lookupField, // Keep reference to lookup field for context
-          'array' // Storage kind is array (stored as JSON)
+          isMultiple ? 'array' : (lookupSql.storageKind ?? metadata.storageKind)
         )
       )
       .orElse(() =>
@@ -246,11 +254,11 @@ export class FormulaSqlPgTranslator {
           makeExpr(
             lookupSql.valueSql,
             'string', // Fallback to string if metadata unavailable
-            true,
+            isMultiple,
             lookupSql.errorConditionSql,
             lookupSql.errorMessageSql,
             lookupField,
-            'array'
+            isMultiple ? 'array' : 'scalar'
           )
         )
       );

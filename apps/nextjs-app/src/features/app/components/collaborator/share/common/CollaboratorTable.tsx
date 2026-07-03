@@ -67,17 +67,20 @@ export const CollaboratorTable = (props: ICollaboratorTableProps) => {
   return (
     <div className={cn('flex min-h-0 flex-1 flex-col gap-4', className)}>
       <div className="flex-1 overflow-y-auto rounded-md border">
-        <Table>
+        <Table className="table-fixed">
           <TableHeader className="sticky top-0 z-10 bg-background">
             <TableRow>
               <TableHead className="px-4 font-normal">{t('invite.table.collaborator')}</TableHead>
-              <TableHead className="px-4 font-normal">
+              <TableHead className="w-[160px] px-4 font-normal">
                 {t('invite.table.accessPermission')}
               </TableHead>
-              <TableHead className="w-[156px] px-4 font-normal">
+              <TableHead className="w-[120px] px-4 font-normal">
                 {t('invite.table.joinAt')}
               </TableHead>
-              <TableHead className="w-[100px] px-4 font-normal">{t('actions.title')}</TableHead>
+              <TableHead className="w-[120px] px-4 font-normal">
+                {t('invite.table.lastLogin')}
+              </TableHead>
+              <TableHead className="w-[88px] px-4 font-normal">{t('actions.title')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -85,8 +88,11 @@ export const CollaboratorTable = (props: ICollaboratorTableProps) => {
               const isUser = item.type === PrincipalType.User;
               const { canUpdateRole, canDelete, showDelete } = getPermissions(item);
               return (
-                <TableRow className="h-14" key={isUser ? item.userId : item.departmentId}>
-                  <TableCell className="px-4">
+                <TableRow
+                  className="h-14"
+                  key={`${isUser ? item.userId : item.departmentId}-${item.base?.id ?? ''}`}
+                >
+                  <TableCell className="min-w-0 px-4">
                     <Collaborator
                       className="items-center"
                       item={
@@ -117,6 +123,13 @@ export const CollaboratorTable = (props: ICollaboratorTableProps) => {
                   <TableCell className="px-4">
                     <span className="text-sm text-muted-foreground">
                       {new Date(item.createdTime).toLocaleDateString()}
+                    </span>
+                  </TableCell>
+                  <TableCell className="px-4">
+                    <span className="text-sm text-muted-foreground">
+                      {item.type === PrincipalType.User && item.lastSignTime
+                        ? new Date(item.lastSignTime).toLocaleDateString()
+                        : '-'}
                     </span>
                   </TableCell>
                   <TableCell className="px-4">

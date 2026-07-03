@@ -25,6 +25,7 @@ import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { FieldOperationKind, FieldOperationTargetKind } from '../ports/FieldOperationPlugin';
 import * as TableRepositoryPort from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
+import { TeableSpanAttributes, createTeableSpanAttributes, type ISpan } from '../ports/Tracer';
 import { TraceSpan } from '../ports/TraceSpan';
 import { createUndoRedoCommand } from '../ports/UndoRedoStore';
 import type { ResolvedTableFieldInput } from '../schemas/field';
@@ -42,6 +43,42 @@ export class CreateFieldResult {
     return new CreateFieldResult(table, [...events]);
   }
 }
+
+const withCreateFieldSpan = async <T>(
+  context: ExecutionContextPort.IExecutionContext,
+  operation: string,
+  callback: () => T | Promise<T>,
+  extra: Record<string, string | number | boolean> = {}
+): Promise<T> => {
+  const tracer = context.tracer;
+  let span: ISpan | undefined;
+  try {
+    span = tracer?.startSpan(
+      `teable.CreateFieldHandler.${operation}`,
+      createTeableSpanAttributes('handler', `CreateFieldHandler.${operation}`, {
+        [TeableSpanAttributes.HANDLER]: 'CreateFieldHandler',
+        ...extra,
+      })
+    );
+  } catch {
+    span = undefined;
+  }
+
+  if (!span || !tracer) {
+    return await callback();
+  }
+
+  return tracer.withSpan(span, async () => {
+    try {
+      return await callback();
+    } catch (error) {
+      span.recordError(error instanceof Error ? error.message : String(error));
+      throw error;
+    } finally {
+      span.end();
+    }
+  });
+};
 
 @CommandHandler(CreateFieldCommand)
 @injectable()
@@ -70,40 +107,84 @@ export class CreateFieldHandler implements ICommandHandler<CreateFieldCommand, C
   ): Promise<Result<CreateFieldResult, DomainError>> {
     const handler = this;
     return safeTry<CreateFieldResult, DomainError>(async function* () {
-      const foreignTableReferences = yield* command.foreignTableReferences();
-      const foreignTables = yield* await handler.foreignTableLoaderService.load(context, {
-        // Foreign references may point to tables in other bases (e.g. cross-base lookup).
-        references: foreignTableReferences,
-      });
+      const spanAttrs = {
+        [TeableSpanAttributes.TABLE_ID]: command.tableId.toString(),
+      };
+      const foreignTableReferences = yield* await withCreateFieldSpan(
+        context,
+        'resolveForeignTableReferences',
+        async () => command.foreignTableReferences(),
+        spanAttrs
+      );
+      const foreignTables = yield* await withCreateFieldSpan(
+        context,
+        'loadForeignTables',
+        () =>
+          handler.foreignTableLoaderService.load(context, {
+            // Foreign references may point to tables in other bases (e.g. cross-base lookup).
+            references: foreignTableReferences,
+          }),
+        spanAttrs
+      );
       const tableSpec = yield* TableAggregate.specs(command.baseId).byId(command.tableId).build();
-      const table = yield* await handler.tableRepository.findOne(context, tableSpec);
+      const preloadedTable = command.preloadedTable;
+      let table =
+        preloadedTable?.baseId().toString() === command.baseId.toString() &&
+        preloadedTable.id().toString() === command.tableId.toString()
+          ? preloadedTable
+          : undefined;
+      if (!table) {
+        table = yield* await handler.tableRepository.findOne(context, tableSpec);
+      }
       const domainContext = ExecutionContextPort.getDomainContext(context);
       const existingNames = table.getFields().map((field) => field.name().toString());
-      const resolvedField = yield* resolveTableFieldInputName(command.field, existingNames, {
-        t: context.$t,
-        hostTable: table,
-        foreignTables,
-      });
-      const normalizedField = handler.populateLinkLookupFieldId(resolvedField, foreignTables);
-      const field = yield* parseTableFieldSpec(normalizedField, {
-        isPrimary: false,
-        executionContext: context,
-      })
-        .andThen((spec) => spec.createField({ baseId: command.baseId, tableId: command.tableId }))
-        .andThen((field) => {
-          if (!normalizedField.dbFieldName) {
-            return ok(field);
-          }
+      const resolvedField = yield* await withCreateFieldSpan(
+        context,
+        'resolveTableFieldInputName',
+        async () =>
+          resolveTableFieldInputName(command.field, existingNames, {
+            t: context.$t,
+            hostTable: table,
+            foreignTables,
+          }),
+        spanAttrs
+      );
+      const normalizedField = await withCreateFieldSpan(
+        context,
+        'populateLinkLookupFieldId',
+        async () => handler.populateLinkLookupFieldId(resolvedField, foreignTables),
+        spanAttrs
+      );
+      const field = yield* await withCreateFieldSpan(
+        context,
+        'parseTableFieldSpec',
+        async () =>
+          parseTableFieldSpec(normalizedField, {
+            isPrimary: false,
+            executionContext: context,
+          })
+            .andThen((spec) =>
+              spec.createField({ baseId: command.baseId, tableId: command.tableId })
+            )
+            .andThen((field) => {
+              if (!normalizedField.dbFieldName) {
+                return ok(field);
+              }
 
-          return DbFieldName.rehydrate(normalizedField.dbFieldName)
-            .andThen((dbFieldName) => field.setDbFieldName(dbFieldName))
-            .map(() => field);
-        });
-      const plannedSideEffects = yield* collectFieldCreationAddSideEffects(
-        table,
-        [field],
-        foreignTables,
-        domainContext
+              return DbFieldName.rehydrate(normalizedField.dbFieldName)
+                .andThen((dbFieldName) => field.setDbFieldName(dbFieldName))
+                .map(() => field);
+            }),
+        spanAttrs
+      );
+      const plannedSideEffects = yield* await withCreateFieldSpan(
+        context,
+        'collectFieldCreationAddSideEffects',
+        () => collectFieldCreationAddSideEffects(table, [field], foreignTables, domainContext),
+        {
+          ...spanAttrs,
+          [TeableSpanAttributes.FIELD_ID]: field.id().toString(),
+        }
       );
       const basePluginContext = {
         kind: FieldOperationKind.create,
@@ -224,25 +305,43 @@ export class CreateFieldHandler implements ICommandHandler<CreateFieldCommand, C
       }
 
       if (handler.shouldCaptureUndoRedo(context)) {
-        const snapshot = yield* await handler.fieldUndoRedoSnapshotService.capture(
+        const snapshot = yield* await withCreateFieldSpan(
           context,
-          updateResult.table,
-          createdField.id()
-        );
-        yield* await handler.undoRedoStackService.appendEntry(
-          toUndoRedoStackAppendContext(context),
-          updateResult.table.id(),
+          'captureUndoRedoSnapshot',
+          () =>
+            handler.fieldUndoRedoSnapshotService.capture(
+              context,
+              updateResult.table,
+              createdField.id()
+            ),
           {
-            undoCommand: createUndoRedoCommand('DeleteField', {
-              baseId: command.baseId.toString(),
-              tableId: command.tableId.toString(),
-              fieldId: createdField.id().toString(),
-            }),
-            redoCommand: createUndoRedoCommand('ApplyFieldSnapshot', {
-              baseId: command.baseId.toString(),
-              tableId: command.tableId.toString(),
-              snapshot,
-            }),
+            ...spanAttrs,
+            [TeableSpanAttributes.FIELD_ID]: createdField.id().toString(),
+          }
+        );
+        yield* await withCreateFieldSpan(
+          context,
+          'appendUndoRedoEntry',
+          () =>
+            handler.undoRedoStackService.appendEntry(
+              toUndoRedoStackAppendContext(context),
+              updateResult.table.id(),
+              {
+                undoCommand: createUndoRedoCommand('DeleteField', {
+                  baseId: command.baseId.toString(),
+                  tableId: command.tableId.toString(),
+                  fieldId: createdField.id().toString(),
+                }),
+                redoCommand: createUndoRedoCommand('ApplyFieldSnapshot', {
+                  baseId: command.baseId.toString(),
+                  tableId: command.tableId.toString(),
+                  snapshot,
+                }),
+              }
+            ),
+          {
+            ...spanAttrs,
+            [TeableSpanAttributes.FIELD_ID]: createdField.id().toString(),
           }
         );
       }

@@ -3,12 +3,10 @@ import { OnEvent } from '@nestjs/event-emitter';
 import type { ITableActionKey, IGridColumn, IViewActionKey } from '@teable/core';
 import { getActionTriggerChannel, OpName } from '@teable/core';
 import { isEmpty } from 'lodash';
-import { ClsService } from 'nestjs-cls';
 import { match } from 'ts-pattern';
-import { getV2CreateTableLegacyEventsFlag } from '../../features/v2/v2-create-table-compat.constants';
 import { ShareDbService } from '../../share-db/share-db.service';
-import type { IClsStore } from '../../types/cls';
 import type {
+  IChangeRecord,
   RecordCreateEvent,
   RecordDeleteEvent,
   RecordUpdateEvent,
@@ -18,6 +16,26 @@ import type {
   FieldDeleteEvent,
 } from '../events';
 import { Events } from '../events';
+
+const collectChangedRecordFieldIds = (record: IChangeRecord | IChangeRecord[]): string[] => {
+  const records = Array.isArray(record) ? record : [record];
+  const fieldIds = new Set<string>();
+  for (const changeRecord of records) {
+    for (const fieldId of Object.keys(changeRecord?.fields ?? {})) {
+      fieldIds.add(fieldId);
+    }
+  }
+  return [...fieldIds];
+};
+
+const schemaRefreshFieldProperties = new Set(['type', 'options', 'dbFieldType']);
+
+const hasSchemaRefreshFieldChange = (field: FieldUpdateEvent['payload']['field']): boolean => {
+  const fields = Array.isArray(field) ? field : [field];
+  return fields.some((changeField) =>
+    Object.keys(changeField).some((key) => schemaRefreshFieldProperties.has(key))
+  );
+};
 
 type IViewEvent = ViewUpdateEvent;
 type IRecordEvent = RecordCreateEvent | RecordDeleteEvent | RecordUpdateEvent;
@@ -37,10 +55,7 @@ export interface IActionTriggerData {
 export class ActionTriggerListener {
   private readonly logger = new Logger(ActionTriggerListener.name);
 
-  constructor(
-    private readonly shareDbService: ShareDbService,
-    private readonly cls: ClsService<IClsStore>
-  ) {}
+  constructor(private readonly shareDbService: ShareDbService) {}
 
   @OnEvent(Events.TABLE_VIEW_UPDATE, { async: true })
   @OnEvent(Events.TABLE_FIELD_UPDATE, { async: true })
@@ -48,13 +63,6 @@ export class ActionTriggerListener {
   @OnEvent(Events.TABLE_FIELD_DELETE, { async: true })
   @OnEvent('table.record.*', { async: true })
   private async listener(listenerEvent: IListenerEvent): Promise<void> {
-    if (
-      getV2CreateTableLegacyEventsFlag(this.cls) &&
-      (this.isTableFieldCreateEvent(listenerEvent) || this.isTableRecordEvent(listenerEvent))
-    ) {
-      return;
-    }
-
     // Handling table view update events
     if (this.isTableViewUpdateEvent(listenerEvent)) {
       await this.handleTableViewUpdate(listenerEvent as ViewUpdateEvent);
@@ -141,17 +149,21 @@ export class ActionTriggerListener {
     const { tableId } = event.payload;
 
     const buffer = match(event)
-      .returnType<ITableActionKey[]>()
-      .with({ name: Events.TABLE_RECORD_CREATE }, () => ['addRecord'])
-      .with({ name: Events.TABLE_RECORD_UPDATE }, () => ['setRecord'])
-      .with({ name: Events.TABLE_RECORD_DELETE }, () => ['deleteRecord'])
+      .returnType<IActionTriggerData[]>()
+      .with({ name: Events.TABLE_RECORD_CREATE }, () => [{ actionKey: 'addRecord' as const }])
+      .with({ name: Events.TABLE_RECORD_UPDATE }, (updateEvent) => [
+        {
+          actionKey: 'setRecord' as const,
+          // changed cell field ids, letting field-aware listeners skip
+          // refreshes for irrelevant edits (same contract as the v2 emitter)
+          payload: { fieldIds: collectChangedRecordFieldIds(updateEvent.payload.record) },
+        },
+      ])
+      .with({ name: Events.TABLE_RECORD_DELETE }, () => [{ actionKey: 'deleteRecord' as const }])
       .otherwise(() => []);
 
     if (!isEmpty(buffer)) {
-      this.emitActionTrigger(
-        tableId,
-        buffer.map((actionKey) => ({ actionKey }))
-      );
+      this.emitActionTrigger(tableId, buffer);
     }
   }
 
@@ -178,9 +190,11 @@ export class ActionTriggerListener {
   }
 
   private isValidFieldUpdateOperation(event: FieldUpdateEvent): boolean | undefined {
-    const propertyKeys = ['options', 'dbFieldType'];
     const { propertyKey } = event.context.opMeta || {};
-    return propertyKeys.includes(propertyKey as string);
+    return (
+      schemaRefreshFieldProperties.has(propertyKey as string) ||
+      hasSchemaRefreshFieldChange(event.payload.field)
+    );
   }
 
   private isTableRecordEvent(event: IListenerEvent): boolean {

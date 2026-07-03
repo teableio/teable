@@ -1,12 +1,15 @@
 import {
   BaseId,
   DbFieldName,
+  createCreatedByField,
   createFormulaField,
+  createLastModifiedByField,
   createNumberField,
   FieldId,
   FieldName,
   FormulaExpression,
   LinkFieldConfig,
+  LookupOptions,
   Table,
   TableId,
   TableName,
@@ -87,6 +90,104 @@ const createSingleFormulaTable = () => {
     ._unsafeUnwrap();
 
   return { table, numberFieldId, formulaFieldId, dbTableName };
+};
+
+const createScalarLookupFormulaTable = () => {
+  const baseId = BaseId.create(`bse${'a'.repeat(16)}`)._unsafeUnwrap();
+  const sourceTableId = TableId.create(`tbl${'s'.repeat(16)}`)._unsafeUnwrap();
+  const targetTableId = TableId.create(`tbl${'t'.repeat(16)}`)._unsafeUnwrap();
+  const sourcePrimaryFieldId = createFieldId(`fld${'p'.repeat(16)}`);
+  const sourceAmountFieldId = createFieldId(`fld${'a'.repeat(16)}`);
+  const linkFieldId = createFieldId(`fld${'l'.repeat(16)}`);
+  const symmetricFieldId = createFieldId(`fld${'m'.repeat(16)}`);
+  const lookupFieldId = createFieldId(`fld${'u'.repeat(16)}`);
+  const formulaFieldId = createFieldId(`fld${'f'.repeat(16)}`);
+
+  const sourceBuilder = Table.builder()
+    .withId(sourceTableId)
+    .withBaseId(baseId)
+    .withName(TableName.create('SourceTable')._unsafeUnwrap());
+  sourceBuilder
+    .field()
+    .singleLineText()
+    .withId(sourcePrimaryFieldId)
+    .withName(createFieldName('SourceName'))
+    .primary()
+    .done();
+  sourceBuilder
+    .addFieldFromResult(
+      createNumberField({
+        id: sourceAmountFieldId,
+        name: createFieldName('SourceAmount'),
+      }).andThen((field) =>
+        DbFieldName.rehydrate('SourceAmount').andThen((dbName) =>
+          field.setDbFieldName(dbName).map(() => field)
+        )
+      )
+    )
+    .view()
+    .defaultGrid()
+    .done();
+  const sourceTable = sourceBuilder.build()._unsafeUnwrap();
+
+  const linkConfig = LinkFieldConfig.create({
+    relationship: 'manyOne',
+    foreignTableId: sourceTableId.toString(),
+    lookupFieldId: sourcePrimaryFieldId.toString(),
+    symmetricFieldId: symmetricFieldId.toString(),
+  })._unsafeUnwrap();
+  const lookupOptions = LookupOptions.create({
+    linkFieldId: linkFieldId.toString(),
+    foreignTableId: sourceTableId.toString(),
+    lookupFieldId: sourceAmountFieldId.toString(),
+  })._unsafeUnwrap();
+
+  const targetBuilder = Table.builder()
+    .withId(targetTableId)
+    .withBaseId(baseId)
+    .withName(TableName.create('TargetTable')._unsafeUnwrap());
+  targetBuilder.field().singleLineText().withName(createFieldName('Name')).primary().done();
+  targetBuilder
+    .field()
+    .link()
+    .withId(linkFieldId)
+    .withName(createFieldName('SourceLink'))
+    .withConfig(linkConfig)
+    .done();
+  targetBuilder
+    .field()
+    .lookup()
+    .withId(lookupFieldId)
+    .withName(createFieldName('LookupAmount'))
+    .withLookupOptions(lookupOptions)
+    .withInnerField(
+      sourceTable.getField((field) => field.id().equals(sourceAmountFieldId))._unsafeUnwrap()
+    )
+    .withIsMultipleCellValue(false)
+    .done();
+  targetBuilder.addFieldFromResult(
+    createFormulaField({
+      id: formulaFieldId,
+      name: createFieldName('LookupAmountDoubled'),
+      expression: FormulaExpression.create(
+        `ROUND({${lookupFieldId.toString()}} * 2, 2)`
+      )._unsafeUnwrap(),
+    }).andThen((field) =>
+      DbFieldName.rehydrate('LookupAmountDoubled').andThen((dbName) =>
+        field.setDbFieldName(dbName).map(() => field)
+      )
+    )
+  );
+  targetBuilder.view().defaultGrid().done();
+
+  const table = targetBuilder.build({ foreignTables: [sourceTable] })._unsafeUnwrap();
+  table
+    .getField((field) => field.id().equals(lookupFieldId))
+    ._unsafeUnwrap()
+    .setDbFieldName(DbFieldName.rehydrate('LookupAmount')._unsafeUnwrap())
+    ._unsafeUnwrap();
+
+  return { table, formulaFieldId };
 };
 
 // Create a table with parallel formulas at the same level
@@ -335,6 +436,71 @@ const createIsErrorFormulaChainTable = () => {
   return { table, alwaysErrorId, isErrorAlwaysErrorId };
 };
 
+const createUserSnapshotFormulaTable = () => {
+  const baseId = BaseId.create(`bse${'a'.repeat(16)}`)._unsafeUnwrap();
+  const tableId = TableId.create(`tbl${'u'.repeat(16)}`)._unsafeUnwrap();
+  const tableName = TableName.create('UserSnapshotFormulaTable')._unsafeUnwrap();
+
+  const createdById = createFieldId(`fld${'u'.repeat(16)}`);
+  const lastModifiedById = createFieldId(`fld${'v'.repeat(16)}`);
+  const createdByFormulaId = createFieldId(`fld${'w'.repeat(16)}`);
+  const lastModifiedByFormulaId = createFieldId(`fld${'x'.repeat(16)}`);
+
+  const createdByResult = createCreatedByField({
+    id: createdById,
+    name: createFieldName('CreatedBy'),
+  }).andThen((field) =>
+    DbFieldName.rehydrate('CreatedBy').andThen((dbName) =>
+      field.setDbFieldName(dbName).map(() => field)
+    )
+  );
+
+  const lastModifiedByResult = createLastModifiedByField({
+    id: lastModifiedById,
+    name: createFieldName('LastModifiedBy'),
+  }).andThen((field) =>
+    DbFieldName.rehydrate('LastModifiedBy').andThen((dbName) =>
+      field.setDbFieldName(dbName).map(() => field)
+    )
+  );
+
+  const createdByFormulaResult = createFormulaField({
+    id: createdByFormulaId,
+    name: createFieldName('CreatedByName'),
+    expression: FormulaExpression.create(`{${createdById.toString()}}`)._unsafeUnwrap(),
+  }).andThen((field) =>
+    DbFieldName.rehydrate('CreatedByName').andThen((dbName) =>
+      field.setDbFieldName(dbName).map(() => field)
+    )
+  );
+
+  const lastModifiedByFormulaResult = createFormulaField({
+    id: lastModifiedByFormulaId,
+    name: createFieldName('LastModifiedByName'),
+    expression: FormulaExpression.create(`{${lastModifiedById.toString()}}`)._unsafeUnwrap(),
+  }).andThen((field) =>
+    DbFieldName.rehydrate('LastModifiedByName').andThen((dbName) =>
+      field.setDbFieldName(dbName).map(() => field)
+    )
+  );
+
+  const table = Table.builder()
+    .withId(tableId)
+    .withName(tableName)
+    .withBaseId(baseId)
+    .addFieldFromResult(createdByResult)
+    .addFieldFromResult(lastModifiedByResult)
+    .addFieldFromResult(createdByFormulaResult)
+    .addFieldFromResult(lastModifiedByFormulaResult)
+    .view()
+    .defaultGrid()
+    .done()
+    .build()
+    ._unsafeUnwrap();
+
+  return { table, createdByFormulaId, lastModifiedByFormulaId };
+};
+
 // Create a table with two identical formulas in one level and a dependent formula in next level.
 const createDuplicateFormulaChainTable = () => {
   const baseId = BaseId.create(`bse${'a'.repeat(16)}`)._unsafeUnwrap();
@@ -400,6 +566,60 @@ const createDuplicateFormulaChainTable = () => {
     ._unsafeUnwrap();
 
   return { table, sameAId, sameBId, chainId };
+};
+
+const createEscapedIdentifierChainTable = () => {
+  const baseId = BaseId.create(`bse${'q'.repeat(16)}`)._unsafeUnwrap();
+  const tableId = TableId.create(`tbl${'q'.repeat(16)}`)._unsafeUnwrap();
+  const tableName = TableName.create('EscapedIdentifierTable')._unsafeUnwrap();
+
+  const sourceId = createFieldId(`fld${'u'.repeat(16)}`);
+  const firstFormulaId = createFieldId(`fld${'v'.repeat(16)}`);
+  const secondFormulaId = createFieldId(`fld${'w'.repeat(16)}`);
+
+  const sourceResult = createNumberField({
+    id: sourceId,
+    name: createFieldName('Source'),
+  }).andThen((field) =>
+    DbFieldName.rehydrate('from"amount').andThen((dbName) =>
+      field.setDbFieldName(dbName).map(() => field)
+    )
+  );
+
+  const firstFormulaResult = createFormulaField({
+    id: firstFormulaId,
+    name: createFieldName('FirstFormula'),
+    expression: FormulaExpression.create(`{${sourceId.toString()}} * 2`)._unsafeUnwrap(),
+  }).andThen((field) =>
+    DbFieldName.rehydrate('select"discount').andThen((dbName) =>
+      field.setDbFieldName(dbName).map(() => field)
+    )
+  );
+
+  const secondFormulaResult = createFormulaField({
+    id: secondFormulaId,
+    name: createFieldName('SecondFormula'),
+    expression: FormulaExpression.create(`{${firstFormulaId.toString()}} + 1`)._unsafeUnwrap(),
+  }).andThen((field) =>
+    DbFieldName.rehydrate('total"from').andThen((dbName) =>
+      field.setDbFieldName(dbName).map(() => field)
+    )
+  );
+
+  const table = Table.builder()
+    .withId(tableId)
+    .withName(tableName)
+    .withBaseId(baseId)
+    .addFieldFromResult(sourceResult)
+    .addFieldFromResult(firstFormulaResult)
+    .addFieldFromResult(secondFormulaResult)
+    .view()
+    .defaultGrid()
+    .done()
+    .build()
+    ._unsafeUnwrap();
+
+  return { table, firstFormulaId, secondFormulaId };
 };
 
 describe('SameTableBatchQueryBuilder', () => {
@@ -504,11 +724,113 @@ describe('SameTableBatchQueryBuilder', () => {
 
       expect(sqlText).toContain('"level_0"."PlusOne"');
       expect(sqlText).toContain(
-        'FROM "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" AS u JOIN "level_1"'
+        'FROM "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" AS "u" JOIN "level_1"'
       );
       expect(sqlText).not.toContain(
         'FROM "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" AS u, "level_0", "level_1"'
       );
+    });
+
+    it('builds returning updates from a same-table CTE chain', () => {
+      const db = createMockKysely();
+      const builder = new SameTableBatchQueryBuilder(db, typeValidationStrategy);
+      const { table, plusOneId, plusOneDoubleId } = createChainedFormulaTable();
+
+      const result = builder.build({
+        table,
+        fieldLevels: [
+          { level: 0, fieldIds: [plusOneId] },
+          { level: 1, fieldIds: [plusOneDoubleId] },
+        ],
+        dirtyFilter: {
+          tableId: table.id().toString(),
+          dirtyTableName: 'tmp_computed_dirty',
+          tableIdColumn: 'table_id',
+          recordIdColumn: 'record_id',
+        },
+      });
+
+      expect(result.isOk()).toBe(true);
+      const updateBuilder = new UpdateFromSelectBuilder(db);
+      const compiled = updateBuilder.buildWithReturning({
+        table,
+        fieldIds: [plusOneId, plusOneDoubleId],
+        selectQuery: result._unsafeUnwrap().selectQuery,
+      });
+      expect(compiled.isOk()).toBe(true);
+      const sqlText = compiled._unsafeUnwrap().compiled.sql;
+
+      const sourceAliasIndex = sqlText.lastIndexOf(') as "c"');
+      const oldTableIndex = sqlText.indexOf(
+        ', "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" as "__old" where "__old"."__id" = "c"."__id"'
+      );
+
+      expect(sqlText).toContain('WITH "level_0" AS');
+      expect(sqlText).toContain('INNER JOIN "tmp_computed_dirty" AS "__dirty"');
+      expect(sqlText).toContain('RETURNING "u"."__id", "u"."__version" - 1 as "__old_version"');
+      expect(sqlText).toContain('"__old"."PlusOne" as "__old_PlusOne"');
+      expect(sqlText).toContain('"__old"."PlusOneDouble" as "__old_PlusOneDouble"');
+      expect(sourceAliasIndex).toBeGreaterThan(-1);
+      expect(oldTableIndex).toBeGreaterThan(sourceAliasIndex);
+    });
+
+    it('escapes DB field names in CTE field references', () => {
+      const db = createMockKysely();
+      const builder = new SameTableBatchQueryBuilder(db, typeValidationStrategy);
+      const { table, firstFormulaId, secondFormulaId } = createEscapedIdentifierChainTable();
+
+      const result = builder.build({
+        table,
+        fieldLevels: [
+          { level: 0, fieldIds: [firstFormulaId] },
+          { level: 1, fieldIds: [secondFormulaId] },
+        ],
+      });
+
+      expect(result.isOk()).toBe(true);
+      const updateBuilder = new UpdateFromSelectBuilder(db);
+      const compiled = updateBuilder.build({
+        table,
+        fieldIds: [firstFormulaId, secondFormulaId],
+        selectQuery: result._unsafeUnwrap().selectQuery,
+      });
+      expect(compiled.isOk()).toBe(true);
+      const sqlText = compiled._unsafeUnwrap().sql;
+
+      expect(sqlText).toContain('"t"."from""amount"');
+      expect(sqlText).toContain('"level_0"."select""discount"');
+      expect(sqlText).toContain('"level_1"."select""discount" as "select""discount"');
+      expect(sqlText).not.toContain('"t"."from"amount"');
+      expect(sqlText).not.toContain('"level_0"."select"discount"');
+    });
+
+    it('uses stored columns for same-table formula dependencies that are not update targets', () => {
+      const db = createMockKysely();
+      const builder = new SameTableBatchQueryBuilder(db, typeValidationStrategy);
+      const { table, plusOneDoubleId } = createChainedFormulaTable();
+
+      const result = builder.build({
+        table,
+        fieldLevels: [{ level: 0, fieldIds: [plusOneDoubleId] }],
+      });
+
+      expect(result.isOk()).toBe(true);
+      const { selectQuery, fieldMappings } = result._unsafeUnwrap();
+      expect(fieldMappings).toEqual([{ columnName: 'PlusOneDouble', cteName: 'level_0' }]);
+
+      const updateBuilder = new UpdateFromSelectBuilder(db);
+      const compiled = updateBuilder.build({
+        table,
+        fieldIds: [plusOneDoubleId],
+        selectQuery,
+      });
+      expect(compiled.isOk()).toBe(true);
+      const sqlText = compiled._unsafeUnwrap().sql;
+
+      expect(sqlText).toContain('"t"."PlusOne"');
+      expect(sqlText).toContain('set "__version" = "u"."__version" + 1');
+      expect(sqlText).toContain('"PlusOneDouble" = "c"."__set_PlusOneDouble"');
+      expect(sqlText).not.toContain('"PlusOne" = "c"."__set_PlusOne"');
     });
 
     it('applies recordIds filter in first-level CTE when recordIds are provided', () => {
@@ -542,28 +864,59 @@ describe('SameTableBatchQueryBuilder', () => {
     it('keeps formula error metadata when referencing previous CTE formula in IS_ERROR', () => {
       const db = createMockKysely();
       const builder = new SameTableBatchQueryBuilder(db, typeValidationStrategy);
-      const { table, alwaysErrorId, isErrorAlwaysErrorId } = createIsErrorFormulaChainTable();
+      const { table, isErrorAlwaysErrorId } = createIsErrorFormulaChainTable();
 
       const result = builder.build({
         table,
-        fieldLevels: [
-          { level: 0, fieldIds: [alwaysErrorId] },
-          { level: 1, fieldIds: [isErrorAlwaysErrorId] },
-        ],
+        fieldLevels: [{ level: 0, fieldIds: [isErrorAlwaysErrorId] }],
+      });
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap().fieldMappings).toEqual([
+        { columnName: 'IsErrorAlwaysError', cteName: 'level_1' },
+      ]);
+      const updateBuilder = new UpdateFromSelectBuilder(db);
+      const compiled = updateBuilder.build({
+        table,
+        fieldIds: [isErrorAlwaysErrorId],
+        selectQuery: result._unsafeUnwrap().selectQuery,
+      });
+      expect(compiled.isOk()).toBe(true);
+
+      const sqlText = compiled._unsafeUnwrap().sql;
+      expect(sqlText).toContain(`(TRUE) as "__err_AlwaysError"`);
+      expect(sqlText).toContain(`"level_0"."__err_AlwaysError" OR`);
+      expect(sqlText).toContain(`"level_0"."AlwaysError" LIKE '#ERROR:%'`);
+      expect(sqlText).toContain('"IsErrorAlwaysError" = "c"."__set_IsErrorAlwaysError"');
+      expect(sqlText).not.toContain('"AlwaysError" = "c"."__set_AlwaysError"');
+    });
+
+    it('extracts user snapshot titles when formulas reference createdBy and lastModifiedBy fields', () => {
+      const db = createMockKysely();
+      const builder = new SameTableBatchQueryBuilder(db, typeValidationStrategy);
+      const { table, createdByFormulaId, lastModifiedByFormulaId } =
+        createUserSnapshotFormulaTable();
+
+      const result = builder.build({
+        table,
+        fieldLevels: [{ level: 0, fieldIds: [createdByFormulaId, lastModifiedByFormulaId] }],
       });
 
       expect(result.isOk()).toBe(true);
       const updateBuilder = new UpdateFromSelectBuilder(db);
       const compiled = updateBuilder.build({
         table,
-        fieldIds: [alwaysErrorId, isErrorAlwaysErrorId],
+        fieldIds: [createdByFormulaId, lastModifiedByFormulaId],
         selectQuery: result._unsafeUnwrap().selectQuery,
       });
       expect(compiled.isOk()).toBe(true);
 
       const sqlText = compiled._unsafeUnwrap().sql;
-      expect(sqlText).toContain(`"level_0"."AlwaysError" LIKE '#ERROR:%'`);
-      expect(sqlText).toContain('TRUE OR');
+      expect(sqlText).toContain(`"t"."__created_by"`);
+      expect(sqlText).toContain(`"t"."__last_modified_by"`);
+      expect(sqlText).toContain(`WHEN "t"."CreatedBy" IS NULL THEN NULL::jsonb`);
+      expect(sqlText).toContain(`WHEN "t"."LastModifiedBy" IS NULL THEN NULL::jsonb`);
+      expect(sqlText).toContain(`END)->>'title'`);
     });
 
     it('extracts link title when a same-table formula directly references a link field', () => {
@@ -588,6 +941,33 @@ describe('SameTableBatchQueryBuilder', () => {
       const sqlText = compiled._unsafeUnwrap().sql;
       expect(sqlText).toContain(`COALESCE(("t"."Link")::jsonb->>'title'`);
       expect(sqlText).not.toContain(`"t"."Link" as "LinkTitleFormula"`);
+    });
+
+    it('uses scalar lookup columns directly in same-table formula batches', () => {
+      const db = createMockKysely();
+      const builder = new SameTableBatchQueryBuilder(db, typeValidationStrategy);
+      const { table, formulaFieldId } = createScalarLookupFormulaTable();
+
+      const result = builder.build({
+        table,
+        fieldLevels: [{ level: 0, fieldIds: [formulaFieldId] }],
+      });
+
+      expect(result.isOk()).toBe(true);
+      const updateBuilder = new UpdateFromSelectBuilder(db);
+      const compiled = updateBuilder.build({
+        table,
+        fieldIds: [formulaFieldId],
+        selectQuery: result._unsafeUnwrap().selectQuery,
+      });
+      expect(compiled.isOk()).toBe(true);
+
+      const sqlText = compiled._unsafeUnwrap().sql;
+      expect(sqlText).toMatchSnapshot();
+      expect(sqlText).toContain(`"t"."LookupAmount"`);
+      expect(sqlText).not.toContain('pg_input_is_valid');
+      expect(sqlText).not.toContain('jsonb_build_array');
+      expect(sqlText).not.toContain('jsonb_typeof');
     });
   });
 
@@ -644,7 +1024,7 @@ describe('SameTableBatchQueryBuilder', () => {
       expect(sqlText).toContain('"__cse"."__cse_0" as "SameA"');
       expect(sqlText).toContain('"__cse"."__cse_0" as "SameB"');
       expect((sqlText.match(/as "__cse_0"/g) ?? []).length).toBe(1);
-      expect(sqlText).toContain('JOIN "level_1" ON u."__id" = "level_1"."__id"');
+      expect(sqlText).toContain('JOIN "level_1" ON "u"."__id" = "level_1"."__id"');
       expect(sqlText).not.toContain(
         'FROM "bseaaaaaaaaaaaaaaaa"."tbldddddddddddddddd" AS u, "level_0", "level_1"'
       );

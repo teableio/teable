@@ -1,10 +1,14 @@
-import type { DomainError, IExecutionContext } from '@teable/v2-core';
+import type { DomainError, IBatchMutationOrchestration, IExecutionContext } from '@teable/v2-core';
 import type { Result } from 'neverthrow';
 
 import type { ComputedFieldUpdater, ComputedUpdateResult } from '../ComputedFieldUpdater';
 import type { ComputedUpdatePlan } from '../ComputedUpdatePlanner';
 
 export type UpdateStrategyMode = 'sync' | 'hybrid' | 'async';
+
+export type UpdateStrategyExecuteOptions = {
+  readonly orchestration?: IBatchMutationOrchestration | undefined;
+};
 
 /**
  * Strategy interface for executing computed update plans.
@@ -20,7 +24,8 @@ export interface IUpdateStrategy {
   execute(
     updater: ComputedFieldUpdater,
     plan: ComputedUpdatePlan,
-    context: IExecutionContext
+    context: IExecutionContext,
+    options?: UpdateStrategyExecuteOptions
   ): Promise<Result<ComputedUpdateResult | undefined, DomainError>>;
 
   /**
