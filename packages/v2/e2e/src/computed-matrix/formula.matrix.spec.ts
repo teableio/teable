@@ -286,12 +286,14 @@ describe('formula field matrix (e2e)', () => {
       expect(afterRecords[0].fields[f2FieldId]).toBe(30);
       expect(afterRecords[0].fields[f3FieldId]).toBe(40);
 
-      // Verify steps - should be batched into 1 step (CTE optimization)
+      // Verify steps
       const plan = ctx.getLastComputedPlan() as {
         steps: Array<{ tableId: string; fieldIds: string[]; level: number }>;
       };
-      expect(plan.steps.length).toBe(1);
-      expect(plan.steps[0].fieldIds).toEqual([f1FieldId, f2FieldId, f3FieldId]);
+      expect(plan.steps.length).toBe(3);
+      expect(plan.steps[0].fieldIds).toEqual([f1FieldId]);
+      expect(plan.steps[1].fieldIds).toEqual([f2FieldId]);
+      expect(plan.steps[2].fieldIds).toEqual([f3FieldId]);
 
       // Snapshot
       const nameMaps: ComputedPlanSnapshotOptions = buildNameMaps(
@@ -305,8 +307,10 @@ describe('formula field matrix (e2e)', () => {
         ]
       );
       expect(printComputedSteps(plan as ComputedPlanLogEntry, nameMaps)).toMatchInlineSnapshot(`
-        "[Computed Steps: 1]
-          L0: FormulaSnapshot_number_d3 -> [F1, F2, F3]"
+        "[Computed Steps: 3]
+          L0: FormulaSnapshot_number_d3 -> [F1]
+          L1: FormulaSnapshot_number_d3 -> [F2]
+          L2: FormulaSnapshot_number_d3 -> [F3]"
       `);
     });
 

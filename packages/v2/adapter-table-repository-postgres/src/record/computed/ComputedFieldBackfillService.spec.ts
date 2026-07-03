@@ -1,7 +1,13 @@
 import {
   BaseId,
+  CellValueMultiplicity,
+  CellValueType,
   FieldId,
+  FieldName,
+  FormulaExpression,
+  FormulaMeta,
   TableId,
+  createFormulaField,
   domainError,
   type Field,
   type IExecutionContext,
@@ -134,6 +140,35 @@ const createService = () =>
   );
 
 describe('ComputedFieldBackfillService collectBackfillFields', () => {
+  it('backfills formula fields even when legacy meta says generated column', async () => {
+    const service = createService();
+    const table = createTestTable();
+    const field = createFormulaField({
+      id: FieldId.create(FIELD_ID)._unsafeUnwrap(),
+      name: FieldName.create('Formula')._unsafeUnwrap(),
+      expression: FormulaExpression.create('1 + 1')._unsafeUnwrap(),
+      meta: FormulaMeta.rehydrate({ persistedAsGeneratedColumn: true })._unsafeUnwrap(),
+      resultType: {
+        cellValueType: CellValueType.number(),
+        isMultipleCellValue: CellValueMultiplicity.single(),
+      },
+    })._unsafeUnwrap();
+    const executeSyncMany = vi.spyOn(service, 'executeSyncMany');
+
+    executeSyncMany.mockResolvedValueOnce(ok({ fields: [field] }));
+
+    const result = await service.backfillMany({} as IExecutionContext, {
+      table,
+      fields: [field],
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(executeSyncMany).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ fields: [field] })
+    );
+  });
+
   it('uses oneMany foreign-table fallback when self key is absent on fkHost', async () => {
     const service = createService();
     const table = createTestTable();
@@ -345,6 +380,40 @@ describe('ComputedFieldBackfillService collectBackfillFields', () => {
       })
     );
     expect((service as any).outbox.enqueueFieldBackfill).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns original sync failure when outbox fallback also fails', async () => {
+    const service = createService();
+    const table = createTestTable();
+    const field = createComputedField();
+    const syncFailure = domainError.infrastructure({ message: 'operator does not exist' });
+    const outboxFailure = domainError.infrastructure({
+      message: 'Outbox transaction failed: current transaction is aborted',
+    });
+    const executeSyncMany = vi.spyOn(service, 'executeSyncMany');
+
+    executeSyncMany.mockResolvedValueOnce(err(syncFailure));
+    (service as any).outbox.enqueueFieldBackfill.mockResolvedValueOnce(err(outboxFailure));
+
+    const result = await service.backfillMany({} as IExecutionContext, {
+      table,
+      fields: [field],
+    });
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error).toBe(syncFailure);
+      expect(result.error.message).toBe('operator does not exist');
+    }
+    expect((service as any).logger.warn).toHaveBeenCalledWith(
+      'computed:backfillMany:enqueue_fallback_failed',
+      expect.objectContaining({
+        tableId: HOST_TABLE_ID,
+        fieldIds: [FIELD_ID],
+        error: 'operator does not exist',
+        fallbackError: 'Outbox transaction failed: current transaction is aborted',
+      })
+    );
   });
 
   it('enqueues multi-field transaction backfills instead of building one wide sync query', async () => {

@@ -34,9 +34,13 @@ export const HoverWrapper = (props: IHoverWrapperProps) => {
       {
         <div
           className={cn(
-            'fixed flex h-full top-0 transition-[z-index] will-change-auto',
+            'fixed left-0 flex transition-[z-index] will-change-auto',
             hover ? 'z-30 w-full' : 'w-auto z-0'
           )}
+          style={{
+            top: 'var(--teable-top-banner-height)',
+            height: 'calc(100vh - var(--teable-top-banner-height))',
+          }}
         >
           <div
             className={cn(

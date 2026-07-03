@@ -10,7 +10,7 @@ import Head from 'next/head';
 import { appWithTranslation } from 'next-i18next';
 import { useEffect } from 'react';
 import { Guide } from '@/components/Guide';
-import { GoogleAnalytics, MicrosoftClarity, Umami } from '@/components/Metrics';
+import { GoogleAnalytics, MicrosoftClarity, PostHog, Umami } from '@/components/Metrics';
 import RouterProgressBar from '@/components/RouterProgress';
 import { SideBarScript } from '@/features/app/components/sidebar/SideBarScript';
 import { HttpErrorPage } from '@/features/system/pages';
@@ -77,6 +77,7 @@ const MyApp = (appProps: AppPropsWithLayout) => {
         <MicrosoftClarity clarityId={env.microsoftClarityId} user={user} />
         <Umami umamiWebSiteId={env.umamiWebSiteId} umamiUrl={env.umamiUrl} user={user} />
         <GoogleAnalytics gaId={env.gaId} user={user} />
+        <PostHog posthogKey={env.posthogKey} posthogHost={env.posthogHost} user={user} />
         <SideBarScript />
         <script
           dangerouslySetInnerHTML={{

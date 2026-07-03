@@ -18,8 +18,14 @@ export abstract class AbstractAggregationFunction implements IAggregationFunctio
     const selection = context?.selectionMap.get(id);
     if (selection) {
       this.tableColumnRef = selection as string;
-    } else {
+    } else if (dbFieldName.startsWith('"')) {
       this.tableColumnRef = dbFieldName;
+    } else {
+      const columnRef = this.knex.ref(dbFieldName);
+      const tableAlias = this.tableAlias;
+      this.tableColumnRef = (
+        tableAlias ? columnRef.withSchema(tableAlias) : columnRef
+      ).toQuery();
     }
   }
 

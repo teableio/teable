@@ -253,4 +253,85 @@ describe('AttachmentValueDecoratorService', () => {
       expect.objectContaining({ token: 'tok-1', presignedUrl: 'https://cdn/u' }),
     ]);
   });
+
+  it('batches per-record attachment signing and preview invalidation', async () => {
+    const { table, attachmentFieldId, textFieldId } = buildTable();
+    const signer = buildSigner({
+      'tok-1': { presignedUrl: 'https://cdn/one' },
+      'tok-2': { presignedUrl: 'https://cdn/two' },
+    });
+    const service = new AttachmentValueDecoratorService(signer);
+
+    const perRecord = new Map<string, ReadonlyMap<string, unknown>>([
+      [
+        'rec1',
+        new Map<string, unknown>([
+          [
+            attachmentFieldId,
+            [
+              {
+                id: 'att-1',
+                name: 'renamed.txt',
+                path: 'table/tok-1',
+                token: 'tok-1',
+                mimetype: 'text/plain',
+              },
+            ],
+          ],
+          [textFieldId, 'kept'],
+        ]),
+      ],
+      [
+        'rec2',
+        new Map<string, unknown>([
+          [
+            attachmentFieldId,
+            [
+              {
+                id: 'att-2',
+                name: 'second.txt',
+                path: 'table/tok-2',
+                token: 'tok-2',
+                mimetype: 'text/plain',
+              },
+            ],
+          ],
+        ]),
+      ],
+    ]);
+    const previous = new Map<string, Record<string, unknown>>([
+      [
+        'rec1',
+        {
+          [attachmentFieldId]: [
+            {
+              id: 'att-1',
+              name: 'original.txt',
+              path: 'table/tok-1',
+              token: 'tok-1',
+              mimetype: 'text/plain',
+            },
+          ],
+        },
+      ],
+    ]);
+
+    const result = await service.decorateChangedFieldsByRecord(table, perRecord, previous);
+    const decorated = result._unsafeUnwrap();
+
+    expect(decorated?.get('rec1')?.get(textFieldId)).toBe('kept');
+    expect(decorated?.get('rec1')?.get(attachmentFieldId)).toEqual([
+      expect.objectContaining({ token: 'tok-1', presignedUrl: 'https://cdn/one' }),
+    ]);
+    expect(decorated?.get('rec2')?.get(attachmentFieldId)).toEqual([
+      expect.objectContaining({ token: 'tok-2', presignedUrl: 'https://cdn/two' }),
+    ]);
+    expect(signer.signItems).toHaveBeenCalledTimes(1);
+    expect(signer.signItems).toHaveBeenCalledWith([
+      expect.objectContaining({ token: 'tok-1' }),
+      expect.objectContaining({ token: 'tok-2' }),
+    ]);
+    expect(signer.invalidatePreview).toHaveBeenCalledTimes(1);
+    expect(signer.invalidatePreview).toHaveBeenCalledWith(['tok-1']);
+  });
 });

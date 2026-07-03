@@ -72,7 +72,7 @@ describe('orderBy helpers', () => {
     `);
   });
 
-  it('merges group + sort and appends auto number as the stable tie-breaker', () => {
+  it('merges group + sort and appends view row order + auto number as tie-breakers', () => {
     const groupBy = resolveGroupByToOrderBy([{ fieldId: fieldA, order: 'asc' }])._unsafeUnwrap();
     const sortBy = resolveOrderBy([{ fieldId: fieldB, order: 'desc' }])._unsafeUnwrap();
     const merged = mergeOrderBy(groupBy, sortBy, viewId);
@@ -89,6 +89,11 @@ describe('orderBy helpers', () => {
           "type": "field",
         },
         {
+          "column": "__row_viw0000000000000001",
+          "direction": "asc",
+          "type": "column",
+        },
+        {
           "column": "__auto_number",
           "direction": "asc",
           "type": "column",
@@ -97,12 +102,17 @@ describe('orderBy helpers', () => {
     `);
   });
 
-  it('uses view row order only when no field/group sort is active', () => {
+  it('uses view row order + auto number for pure manual ordering', () => {
     const merged = mergeOrderBy(undefined, undefined, viewId);
     expect(serializeOrderBy(merged)).toMatchInlineSnapshot(`
       [
         {
           "column": "__row_viw0000000000000001",
+          "direction": "asc",
+          "type": "column",
+        },
+        {
+          "column": "__auto_number",
           "direction": "asc",
           "type": "column",
         },
@@ -129,12 +139,14 @@ describe('orderBy helpers', () => {
     `);
   });
 
-  it('deduplicates repeated fields and keeps auto number as the fallback when sorting exists', () => {
+  it('deduplicates repeated fields and tie-breaker columns', () => {
     const groupBy = resolveGroupByToOrderBy([{ fieldId: fieldA, order: 'asc' }])._unsafeUnwrap();
+    // The signature only accepts field sorts; smuggle a column item past the
+    // type system to exercise tie-breaker dedup at runtime.
     const sortBy = [
       ...resolveOrderBy([{ fieldId: fieldA, order: 'asc' }])._unsafeUnwrap()!,
       { column: `__row_${viewId}`, direction: 'asc' } as const,
-    ];
+    ] as unknown as Parameters<typeof mergeOrderBy>[1];
     const merged = mergeOrderBy(groupBy, sortBy, viewId);
     expect(serializeOrderBy(merged)).toMatchInlineSnapshot(`
       [
@@ -157,7 +169,7 @@ describe('orderBy helpers', () => {
     `);
   });
 
-  it('keeps view row order ahead of auto number for range-command tie breaking', () => {
+  it('uses the list-query tie breaker for range-command row offsets', () => {
     const sortBy = resolveOrderBy([{ fieldId: fieldB, order: 'desc' }])._unsafeUnwrap();
     const merged = mergeOrderByWithViewRowTieBreaker(undefined, sortBy, viewId);
     expect(serializeOrderBy(merged)).toMatchInlineSnapshot(`

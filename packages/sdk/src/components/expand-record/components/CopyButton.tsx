@@ -10,10 +10,11 @@ interface ICopyButtonProps extends ButtonProps {
   iconClassName?: string;
 }
 export const CopyButton = (props: ICopyButtonProps) => {
-  const { text, className, iconClassName, ...rest } = props;
+  const { text, className, iconClassName, onClick, ...rest } = props;
   const [isCopied, setIsCopied] = useState<boolean>(false);
 
-  const onCopy = () => {
+  const onCopy: NonNullable<ButtonProps['onClick']> = (e) => {
+    onClick?.(e);
     syncCopy(text);
     setIsCopied(true);
     setTimeout(() => {
@@ -22,9 +23,11 @@ export const CopyButton = (props: ICopyButtonProps) => {
   };
 
   return (
-    <Button {...rest} onClick={onCopy} className={className}>
+    <Button size="icon-xs" {...rest} onClick={onCopy} className={className}>
       {isCopied ? (
-        <Check className={cn('text-teal-500 animate-in duration-500', iconClassName)} />
+        <Check
+          className={cn('text-teal-600 dark:text-teal-500 animate-in duration-500', iconClassName)}
+        />
       ) : (
         <Copy className={iconClassName} />
       )}

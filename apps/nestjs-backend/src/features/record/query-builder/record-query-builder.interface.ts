@@ -50,6 +50,12 @@ export interface ICreateRecordQueryBuilderOptions {
    */
   preferRawFieldReferences?: boolean;
   /**
+   * When true, lookup-like computed fields use their persisted DB columns
+   * instead of expanding link/conditional CTEs. Intended for read paths where
+   * persisted computed values are the query source of truth.
+   */
+  preferStoredLookupFields?: boolean;
+  /**
    * Optional list of record IDs to restrict the query to before generating CTEs.
    * Useful when the caller intends to apply a final WHERE IN "__id" (...) filter anyway.
    */
@@ -90,6 +96,11 @@ export interface ICreateRecordAggregateBuilderOptions {
   currentUserId?: string;
   /** Optional projection to minimize CTE/select */
   projection?: string[];
+  /**
+   * When true, lookup-like computed fields use their persisted DB columns
+   * instead of expanding link/conditional CTEs.
+   */
+  preferStoredLookupFields?: boolean;
   useQueryModel?: boolean;
   /**
    * Optional list of record IDs to restrict the query to before generating CTEs.
