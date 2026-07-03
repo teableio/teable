@@ -403,6 +403,9 @@
         "medium": "Medio",
         "high": "Alto"
       },
+      "tip": {
+        "gptImageResolution": "A causa del limite sul numero totale di pixel, in modalità 4K alcuni rapporti useranno la dimensione di output conforme più grande disponibile."
+      },
       "autoFill": {
         "title": "Aggiorna Automaticamente",
         "tip": "Dopo averlo abilitato, il campo corrente verrà aggiornato sincronizzando il contenuto con le modifiche della configurazione AI"
@@ -696,6 +699,7 @@
     "menu": {
       "addFromOtherSource": "Aggiungi da altre fonti",
       "excelFile": "Microsoft Excel",
+      "airtable": "Airtable",
       "csvFile": "File Csv",
       "importCsvData": "Importa dati CSV",
       "importExcelData": "Importa dati Microsoft Excel",
@@ -850,6 +854,7 @@
     "noPermission": "Non hai il permesso di accedere al database",
     "connectionCountTip": "Il numero massimo di connessioni al database è <b>{{max}}</b> e le connessioni attuali sono <b>{{current}}</b>",
     "createFailed": "Assicurati che la variabile d'ambiente PUBLIC_DATABASE_PROXY sia impostata correttamente",
+    "readonlyUnavailable": "Readonly database sharing is unavailable for this data database. Grant the Teable database user permission to create roles and grants, or use a target database that supports readonly roles.",
     "helpLink": "https://help.teable.ai/en/deploy/database-connection"
   },
   "view": {
@@ -978,6 +983,20 @@
     "more": "Esplora di più..."
   },
   "aiChat": {
+    "integrationConnect": {
+      "title": "Collega {{provider}}",
+      "reconnectTitle": "Ricollega {{provider}}",
+      "defaultReason": "L'agente deve accedere al tuo account {{provider}} per continuare.",
+      "connect": "Collega",
+      "connecting": "Connessione in corso…",
+      "giveUp": "Rinuncia",
+      "failed": "Connessione non riuscita",
+      "status": {
+        "connected": "Collegato",
+        "cancelled": "Saltato",
+        "failed": "Non riuscito"
+      }
+    },
     "agent": {
       "askUserQuestion": {
         "otherPlaceholder": "Oppure digita la tua risposta…"
@@ -1012,6 +1031,11 @@
     "action": {
       "locateResource": "Localizza"
     },
+    "showUI": {
+      "skip": "Salta",
+      "next": "Successivo",
+      "submit": "Invia"
+    },
     "newChat": "Nuovo Chat",
     "expand": "Espandi",
     "history": "Cronologia",
@@ -1034,7 +1058,8 @@
       "selectionRow": "Row {{row}}",
       "selectionRows": "Righe {{start}}-{{end}}",
       "selectionColumn": "Col {{col}}",
-      "selectionColumns": "Col {{start}}-{{end}}"
+      "selectionColumns": "Col {{start}}-{{end}}",
+      "selectionColumnsNamed": "{{names}} +{{count}}"
     },
     "mention": {
       "tables": "Tabelle",
@@ -1042,9 +1067,19 @@
       "workflows": "Automazioni",
       "folders": "Cartelle"
     },
-    "inputPlaceholder": "Digita @ per aggiungere un nodo",
+    "slashCommand": {
+      "skills": "Skills",
+      "searchEmpty": "No results found"
+    },
+    "inputPlaceholder": "@ aggiunge nodi, / esegue skill",
     "inputPlaceholderFiles": "Incolla o trascina file qui",
     "thought": "Pensando",
+    "stage": {
+      "initializing": "Inizializzazione",
+      "working": "In lavorazione",
+      "committing": "Commit in corso",
+      "recovering": "Ripristino"
+    },
     "meta": {
       "input": "Input",
       "output": "Output",
@@ -1052,7 +1087,9 @@
     },
     "attachment": {
       "pastedTextFileName": "Testo incollato",
-      "imageNotSupported": "L'immagine non è supportata"
+      "imageNotSupported": "L'immagine non è supportata",
+      "tooManyFiles": "Puoi allegare al massimo {{count}} file per messaggio",
+      "storageFull": "L'archiviazione della sandbox è piena. Elimina alcuni file e riprova."
     },
     "suggestions": {
       "title": "Come posso aiutarti?",
@@ -1106,6 +1143,19 @@
       "noPrefixOptionDesc": "Mantieni il nome file originale",
       "groupByRow": "Archivia in cartelle",
       "groupByRowTip": "Quando una riga ha più allegati, verranno inseriti nella stessa cartella; le righe con un solo allegato non creeranno una cartella."
+    }
+  },
+  "baseNode": {
+    "info": {
+      "menu": "Info nodo",
+      "createdBy": "Creato da",
+      "createdTime": "Ora di creazione",
+      "lastModifiedBy": "Modificato da",
+      "lastModifiedTime": "Ora di modifica",
+      "folderId": "ID cartella",
+      "tableId": "ID tabella",
+      "automationId": "ID automazione",
+      "appId": "ID app"
     }
   }
 }

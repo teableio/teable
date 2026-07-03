@@ -117,13 +117,15 @@ module.exports = {
         format: ['camelCase'],
         leadingUnderscore: 'allow',
       },
-      // require all global constants to be camelCase or UPPER_CASE
-      // all other variables and functions still need to be camelCase
+      // allow all top-level (module-scoped) constants to be camelCase or UPPER_CASE,
+      // regardless of whether they are exported.
+      // const declared inside components/functions is not `global`, so it is
+      // unaffected and still has to be camelCase.
       {
         selector: 'variable',
-        modifiers: ['exported', 'global', 'const'],
-        types: ['boolean', 'string', 'number', 'array'],
-        format: ['UPPER_CASE'],
+        modifiers: ['global', 'const'],
+        format: ['UPPER_CASE', 'camelCase', 'PascalCase'],
+        leadingUnderscore: 'allow',
       },
       {
         selector: ['function'],
@@ -162,10 +164,16 @@ module.exports = {
         leadingUnderscore: 'allowSingleOrDouble',
         trailingUnderscore: 'allowSingleOrDouble',
       },
+      // interfaces must be PascalCase with an `I` prefix (e.g. IUser)
       {
-        selector: ['typeAlias', 'interface'],
+        selector: 'interface',
         format: ['PascalCase'],
         prefix: ['I'],
+      },
+      // type aliases only need to be PascalCase, no `I` prefix (e.g. Box)
+      {
+        selector: 'typeAlias',
+        format: ['PascalCase'],
       },
       {
         selector: ['typeProperty'],

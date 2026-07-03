@@ -6,7 +6,14 @@ import type {
 } from '@teable/core';
 import { FieldAIActionType, FieldType } from '@teable/core';
 import { ImageGeneration, Pencil } from '@teable/icons';
-import { getAIConfig } from '@teable/openapi';
+import {
+  getAIConfig,
+  getImageModelConfigByModelKey,
+  isPromptControlledImageGenerationModel,
+  supportsImageAspectRatioSelection,
+  supportsImageSizeSelection,
+} from '@teable/openapi';
+import type { IImageModelConfig } from '@teable/openapi';
 import { useBaseId } from '@teable/sdk/hooks';
 import { Selector } from '@teable/ui-lib/base';
 import { Textarea } from '@teable/ui-lib/shadcn';
@@ -32,6 +39,44 @@ type IAttachmentAiConfigPatch = Partial<
   Omit<IAttachmentFieldGenerateImageAIConfig, 'type'> &
     Omit<IAttachmentFieldCustomizeAIConfig, 'type'>
 >;
+
+export const sanitizeAttachmentAiConfigForModel = (
+  baseConfig: Record<string, unknown>,
+  patch: IAttachmentAiConfigPatch,
+  nextModelConfig?: IImageModelConfig
+) => {
+  const nextAiConfig = { ...baseConfig } as Record<string, unknown>;
+
+  Object.entries(patch).forEach(([key, value]) => {
+    if (value === undefined) {
+      delete nextAiConfig[key];
+      return;
+    }
+    nextAiConfig[key] = value;
+  });
+
+  if (!nextModelConfig) {
+    return nextAiConfig as IAttachmentFieldAIConfig;
+  }
+
+  const nextIsPromptControlledModel = isPromptControlledImageGenerationModel(nextModelConfig);
+
+  if (!supportsImageSizeSelection(nextModelConfig)) {
+    delete nextAiConfig.size;
+  }
+
+  if (!supportsImageAspectRatioSelection(nextModelConfig)) {
+    delete nextAiConfig.aspectRatio;
+  }
+
+  if (nextIsPromptControlledModel) {
+    delete nextAiConfig.size;
+  } else {
+    delete nextAiConfig.resolution;
+  }
+
+  return nextAiConfig as IAttachmentFieldAIConfig;
+};
 
 export const AttachmentFieldAiConfig = (props: IAttachmentFieldAiConfigProps) => {
   const { field, onChange } = props;
@@ -66,6 +111,7 @@ export const AttachmentFieldAiConfig = (props: IAttachmentFieldAiConfigProps) =>
 
   const {
     supportsSize,
+    imageModelConfig,
     supportsQuality,
     supportsCount,
     supportsAspectRatio,
@@ -81,6 +127,7 @@ export const AttachmentFieldAiConfig = (props: IAttachmentFieldAiConfigProps) =>
     currentResolution,
     maxCount,
     maxImagesPerCall,
+    imageModelId,
     getSettingsUpdates,
   } = useImageModelUiState(modelKey, gatewayModels ?? [], generateImageAiConfig);
 
@@ -106,11 +153,29 @@ export const AttachmentFieldAiConfig = (props: IAttachmentFieldAiConfigProps) =>
     [onChange]
   );
 
+  const sanitizeAdvancedImageConfigPatch = useCallback(
+    (baseConfig: Record<string, unknown>, patch: IAttachmentAiConfigPatch) => {
+      const nextModelKey =
+        (patch.modelKey as string | undefined) ?? (baseConfig.modelKey as string | undefined);
+      const nextModelConfig = nextModelKey
+        ? getImageModelConfigByModelKey(nextModelKey, gatewayModels ?? [])?.config
+        : undefined;
+
+      return sanitizeAttachmentAiConfigForModel(baseConfig, patch, nextModelConfig);
+    },
+    [gatewayModels]
+  );
+
   const patchAiConfig = useCallback(
     (patch: IAttachmentAiConfigPatch) => {
-      onChange?.({ aiConfig: { ...(aiConfig ?? {}), ...patch } as IAttachmentFieldAIConfig });
+      onChange?.({
+        aiConfig: sanitizeAdvancedImageConfigPatch(
+          { ...(aiConfig ?? {}) } as Record<string, unknown>,
+          patch
+        ),
+      });
     },
-    [aiConfig, onChange]
+    [aiConfig, onChange, sanitizeAdvancedImageConfigPatch]
   );
 
   // Reset advanced settings to new model's defaults when model changes
@@ -136,10 +201,13 @@ export const AttachmentFieldAiConfig = (props: IAttachmentFieldAiConfigProps) =>
 
     if (Object.keys(updates).length > 0) {
       currentOnChange?.({
-        aiConfig: { ...currentAiConfig, ...updates } as IAttachmentFieldAIConfig,
+        aiConfig: sanitizeAdvancedImageConfigPatch(
+          { ...(currentAiConfig ?? {}) } as Record<string, unknown>,
+          updates
+        ),
       });
     }
-  }, [getSettingsUpdates, modelKey, type]);
+  }, [getSettingsUpdates, modelKey, sanitizeAdvancedImageConfigPatch, type]);
 
   return (
     <Fragment>
@@ -240,7 +308,9 @@ export const AttachmentFieldAiConfig = (props: IAttachmentFieldAiConfigProps) =>
             <AdvancedImageSettings
               open={advancedOpen}
               onOpenChange={setAdvancedOpen}
+              imageModelId={imageModelId}
               supportsSize={supportsSize}
+              supportsAutoSize={imageModelConfig?.supportsAutoSize}
               supportsQuality={supportsQuality}
               supportsAspectRatio={supportsAspectRatio}
               supportsResolution={supportsResolution}

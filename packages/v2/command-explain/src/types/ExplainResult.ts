@@ -247,6 +247,15 @@ export type ExplainAnalyzeOutput = {
 };
 
 /**
+ * PostgreSQL text EXPLAIN output.
+ */
+export type ExplainTextOutput = {
+  readonly format: 'text';
+  readonly analyze: boolean;
+  readonly lines: ReadonlyArray<string>;
+};
+
+/**
  * Seed field that triggered computed updates.
  */
 export type ComputedUpdateSeedField = {
@@ -296,14 +305,29 @@ export type ComputedUpdateReason = {
 };
 
 /**
+ * Lightweight SQL shape metrics that are safe to show even when the SQL body is huge.
+ */
+export type SqlDiagnosticsInfo = {
+  readonly sqlLength: number;
+  readonly parameterCount: number;
+  readonly lateralJoinCount: number;
+  readonly regexpReplaceCount: number;
+  readonly pgInputIsValidCount: number;
+  readonly stringAggCount: number;
+  readonly jsonbAggCount: number;
+};
+
+/**
  * SQL explain information for a single step.
  */
 export type SqlExplainInfo = {
   readonly stepDescription: string;
   readonly sql: string;
   readonly parameters: ReadonlyArray<unknown>;
+  readonly sqlDiagnostics?: SqlDiagnosticsInfo;
   readonly explainAnalyze: ExplainAnalyzeOutput | null;
   readonly explainOnly: ExplainOutput | null;
+  readonly explainText?: ExplainTextOutput | null;
   readonly explainError?: string | null;
   readonly computedReason?: ComputedUpdateReason;
 };

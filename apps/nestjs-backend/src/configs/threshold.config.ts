@@ -20,6 +20,9 @@ export const thresholdConfig = registerAs('threshold', () => ({
   bigTransactionTimeout: Number(
     process.env.BIG_TRANSACTION_TIMEOUT ?? 10 * 60 * 1000 /* 10 mins */
   ),
+  // DB statement_timeout (ms) for the search query, so a slow / full-scan search is canceled
+  // and its connection released instead of being held for minutes. Tune via SEARCH_TIMEOUT.
+  searchTimeout: Number(process.env.SEARCH_TIMEOUT ?? 15_000 /* 15s */),
   automationGap: Number(process.env.AUTOMATION_GAP ?? 200),
   maxAttachmentUploadSize: Number(process.env.MAX_ATTACHMENT_UPLOAD_SIZE ?? Infinity),
   maxOpenapiAttachmentUploadSize: Number(

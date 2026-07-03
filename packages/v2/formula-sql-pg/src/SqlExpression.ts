@@ -5,6 +5,7 @@ export type SqlStorageKind = 'scalar' | 'json' | 'array';
 
 export type SqlExpr = {
   valueSql: string;
+  displayValueSql?: string;
   valueType: SqlValueType;
   isArray: boolean;
   storageKind?: SqlStorageKind;

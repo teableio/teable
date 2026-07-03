@@ -54,7 +54,7 @@ export const CollaboratorAvatars: React.FC<CollaboratorAvatarsProps> = ({
 
             return (
               <div
-                key={getUserId(collaborator)}
+                key={`${getUserId(collaborator)}-${collaborator.base?.id ?? ''}`}
                 className="relative"
                 style={{ zIndex: displayedCollaborators.length - index }}
               >

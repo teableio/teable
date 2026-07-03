@@ -161,9 +161,13 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
     () => initValue ?? defaultConfig
   );
   const dateMap = useDateI18nMap();
+  const fieldTimeZone =
+    field.options.formatting.timeZone ??
+    (Intl.DateTimeFormat().resolvedOptions().timeZone as ITimeZoneString);
 
   const previousInitRef = useRef<IDateFilter | null>(initValue ?? null);
   const previousOperatorRef = useRef<string>(operator);
+  const preservedModeOnClearRef = useRef<IDateFilter['mode'] | null>(null);
   const onModeChangeRef = useRef(onModeChange);
   const onSelectRef = useRef(onSelect);
 
@@ -214,75 +218,99 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
       return;
     }
 
-    // When initValue becomes null, reset to default config
-    setInnerValue(defaultConfig);
-    onModeChangeRef.current?.(defaultConfig.mode);
-  }, [defaultConfig, initValue, operator]);
-
-  const mergedOnSelect = useCallback((val: string | null) => {
-    if (val === null) {
-      setInnerValue(null);
-      onModeChangeRef.current?.(null);
+    if (preservedModeOnClearRef.current) {
+      const mode = preservedModeOnClearRef.current;
+      preservedModeOnClearRef.current = null;
+      setInnerValue({
+        mode,
+        timeZone: fieldTimeZone,
+      });
+      onModeChangeRef.current?.(mode);
       return;
     }
 
-    setInnerValue((currentValue) => {
-      if (val === currentValue?.mode) {
-        return currentValue;
+    // When initValue becomes null, reset to default config
+    setInnerValue(defaultConfig);
+    onModeChangeRef.current?.(defaultConfig.mode);
+  }, [defaultConfig, fieldTimeZone, initValue, operator]);
+
+  const mergedOnSelect = useCallback(
+    (val: string | null) => {
+      if (val === null) {
+        setInnerValue(null);
+        onModeChangeRef.current?.(null);
+        return;
       }
 
-      const mergedValue = {
-        mode: val as IDateFilter['mode'],
-        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      };
-
-      onModeChangeRef.current?.(val as IDateFilter['mode']);
-
-      if (INPUTOPTIONS.includes(val)) {
-        if (currentValue?.numberOfDays) {
-          onSelectRef.current({ ...mergedValue, numberOfDays: currentValue.numberOfDays });
+      setInnerValue((currentValue) => {
+        if (val === currentValue?.mode) {
+          return currentValue;
         }
+
+        const mergedValue = {
+          mode: val as IDateFilter['mode'],
+          timeZone: fieldTimeZone,
+        };
+
+        onModeChangeRef.current?.(val as IDateFilter['mode']);
+
+        if (INPUTOPTIONS.includes(val)) {
+          if (currentValue?.numberOfDays) {
+            onSelectRef.current({ ...mergedValue, numberOfDays: currentValue.numberOfDays });
+          }
+          return mergedValue as IDateFilter;
+        }
+
+        if (DATEPICKEROPTIONS.includes(val)) {
+          if (currentValue?.exactDate) {
+            onSelectRef.current({ ...mergedValue, exactDate: currentValue.exactDate });
+          }
+          return mergedValue as IDateFilter;
+        }
+
+        if (DATERANGEOPTIONS.includes(val)) {
+          if (currentValue?.exactDate && currentValue?.exactDateEnd) {
+            onSelectRef.current({
+              ...mergedValue,
+              exactDate: currentValue.exactDate,
+              exactDateEnd: currentValue.exactDateEnd,
+            });
+          }
+          return mergedValue as IDateFilter;
+        }
+
+        onSelectRef.current(mergedValue as IDateFilter);
         return mergedValue as IDateFilter;
-      }
+      });
+    },
+    [fieldTimeZone]
+  );
 
-      if (DATEPICKEROPTIONS.includes(val)) {
-        if (currentValue?.exactDate) {
-          onSelectRef.current({ ...mergedValue, exactDate: currentValue.exactDate });
-        }
-        return mergedValue as IDateFilter;
-      }
-
-      if (DATERANGEOPTIONS.includes(val)) {
-        if (currentValue?.exactDate && currentValue?.exactDateEnd) {
-          onSelectRef.current({
-            ...mergedValue,
-            exactDate: currentValue.exactDate,
-            exactDateEnd: currentValue.exactDateEnd,
-          });
-        }
-        return mergedValue as IDateFilter;
-      }
-
-      onSelectRef.current(mergedValue as IDateFilter);
-      return mergedValue as IDateFilter;
-    });
-  }, []);
-
-  const datePickerSelect = useCallback((val: string | null | undefined, mode?: ISubOperator) => {
-    const mergedValue = val
-      ? {
-          mode: mode || exactDate.value,
-          exactDate: val,
-          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone as ITimeZoneString,
-        }
-      : null;
-    onModeChangeRef.current?.(mergedValue?.mode ?? null);
-    onSelectRef.current?.(mergedValue);
-  }, []);
+  const datePickerSelect = useCallback(
+    (val: string | null | undefined, mode?: ISubOperator) => {
+      const mergedValue = val
+        ? {
+            mode: mode || exactDate.value,
+            exactDate: val,
+            timeZone: fieldTimeZone,
+          }
+        : null;
+      onModeChangeRef.current?.(mergedValue?.mode ?? null);
+      onSelectRef.current?.(mergedValue);
+    },
+    [fieldTimeZone]
+  );
 
   const dateRangeSelect = useCallback(
     (val: { exactDate?: string; exactDateEnd?: string; timeZone: ITimeZoneString } | null) => {
-      if (!val || !val.exactDate || !val.exactDateEnd) {
+      if (val === null) {
+        preservedModeOnClearRef.current = dateRange.value;
+        onModeChangeRef.current?.(dateRange.value);
+        onSelectRef.current?.(null);
+        return;
+      }
+
+      if (!val.exactDate || !val.exactDateEnd) {
         // Don't clear the filter when partially selected
         return;
       }

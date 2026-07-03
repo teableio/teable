@@ -39,8 +39,6 @@ export enum LLMProviderType {
   OPENAI_COMPATIBLE = 'openaiCompatible',
   // Vercel AI Gateway - unified model access via modelId
   AI_GATEWAY = 'aiGateway',
-  // Claude Code
-  CLAUDE_CODE = 'claudeCode',
 }
 
 // Model-specific configuration - unified structure for all model types
@@ -84,6 +82,10 @@ export type IModelConfig = z.infer<typeof modelConfigSchema>;
 export const llmProviderSchema = z.object({
   type: z.enum(LLMProviderType),
   name: z.string(),
+  // Admin-facing label to tell providers apart in the UI. The real `name` is normalized to
+  // the instance constant ('teable') for billing/instance detection, so this is the field
+  // admins can freely set. Optional; the UI falls back to `name` when unset.
+  displayName: z.string().optional(),
   apiKey: z.string().optional(),
   baseUrl: z.string().url().optional(),
   models: z.string().default(''),
@@ -281,11 +283,13 @@ export const v2FeatureSchema = z.enum([
   'deleteRecord',
   'duplicateRecord',
   'duplicateTable',
+  'duplicateView',
   'duplicateBase',
   'exportBase',
   'reorderRecords',
   'paste',
   'clear',
+  'importCsv',
   'importRecords',
   'importBase',
   'createField',
