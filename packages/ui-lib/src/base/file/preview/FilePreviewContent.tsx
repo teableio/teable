@@ -13,7 +13,7 @@ export const FilePreviewContent = (props: { container?: HTMLElement | null }) =>
   const { files, currentFile, openPreview, closePreview, onPrev, onNext } =
     useContext(FilePreviewContext);
   const isMobile = useIsMobile();
-  const { name, fileId, src } = currentFile || {};
+  const { name, fileId, src, downloadUrl } = currentFile || {};
   const open = Boolean(fileId);
 
   const hiddenLeft = useMemo(() => {
@@ -30,9 +30,10 @@ export const FilePreviewContent = (props: { container?: HTMLElement | null }) =>
   };
 
   const onDownload = () => {
-    if (!name || !src) return;
+    const href = downloadUrl || src;
+    if (!name || !href) return;
     const downloadLink = document.createElement('a');
-    downloadLink.href = src || '';
+    downloadLink.href = href;
     downloadLink.target = isMobile ? '_self' : '_blank';
     downloadLink.download = name;
     downloadLink.click();

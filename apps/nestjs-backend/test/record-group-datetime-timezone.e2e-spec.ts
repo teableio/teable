@@ -153,7 +153,7 @@ describe('OpenAPI Record-Group-DateTime-TimeZone (e2e)', async () => {
               fieldId: dateField!.id,
               operator: 'is',
               value: {
-                mode: 'exactDate',
+                mode: 'exactDateTime',
                 exactDate: groupHeaders![0].value,
                 timeZone: 'UTC',
               },
@@ -171,7 +171,7 @@ describe('OpenAPI Record-Group-DateTime-TimeZone (e2e)', async () => {
               fieldId: dateField!.id,
               operator: 'is',
               value: {
-                mode: 'exactDate',
+                mode: 'exactDateTime',
                 exactDate: groupHeaders![1].value,
                 timeZone: 'UTC',
               },

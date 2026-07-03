@@ -160,6 +160,7 @@ export const recordConditionDateModeSchema = z.enum([
   'daysAgo',
   'daysFromNow',
   'exactDate',
+  'exactDateTime',
   'exactFormatDate',
   'pastWeek',
   'pastMonth',

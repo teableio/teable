@@ -1,33 +1,16 @@
 import { NotificationTypeEnum } from '@teable/core';
-import type { ILocalization, NotificationStatesEnum } from '@teable/core';
+import type { NotificationStatesEnum } from '@teable/core';
 import { type INotificationVo } from '@teable/openapi';
-import { getLocalizationMessage } from '@teable/sdk/context';
 import type { ILocaleFunction } from '@teable/sdk/context/app/i18n';
 import Link from 'next/link';
 import { useTranslation } from 'next-i18next';
+import { getShowMessage } from './get-show-message';
 
 interface LinkNotificationProps {
   data: INotificationVo['notifications'][number];
   notifyStatus: NotificationStatesEnum;
   disableLink?: boolean;
 }
-
-const getShowMessage = (data: INotificationVo['notifications'][number], t: ILocaleFunction) => {
-  const { message, messageI18n } = data;
-  try {
-    if (!messageI18n) {
-      return message;
-    }
-    const parsedMessage = JSON.parse(messageI18n);
-    const { i18nKey = '', context = {} } = parsedMessage as ILocalization;
-    if (!i18nKey) {
-      return message;
-    }
-    return getLocalizationMessage({ i18nKey, context: { spaceName: '', ...context } }, t, 'common');
-  } catch (error) {
-    return message;
-  }
-};
 
 export const LinkNotification = (props: LinkNotificationProps) => {
   const {
@@ -59,7 +42,7 @@ export const LinkNotification = (props: LinkNotificationProps) => {
       <>
         {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
         <div
-          className="max-h-20 overflow-auto break-words"
+          className="max-h-20 min-w-0 max-w-full flex-1 overflow-auto break-words [overflow-wrap:anywhere]"
           dangerouslySetInnerHTML={{ __html: message }}
           onClick={handleContentClick}
         />
@@ -70,10 +53,10 @@ export const LinkNotification = (props: LinkNotificationProps) => {
   }
 
   return (
-    <Link href={url}>
+    <Link href={url} className="min-w-0 max-w-full flex-1">
       {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div
-        className="max-h-20 overflow-auto break-words"
+        className="max-h-20 min-w-0 max-w-full overflow-auto break-words [overflow-wrap:anywhere]"
         dangerouslySetInnerHTML={{ __html: message }}
         onClick={handleContentClick}
       />

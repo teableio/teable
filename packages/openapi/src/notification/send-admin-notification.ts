@@ -8,7 +8,7 @@ export const adminSendNotificationRoSchema = z.object({
   message: z.string().min(1).max(5000),
   severity: z.enum(NotificationSeverityEnum).optional().default(NotificationSeverityEnum.Info),
   userIds: z.array(z.string()).max(500).optional(),
-  emails: z.array(z.string().email()).max(500).optional(),
+  emails: z.array(z.email()).max(500).optional(),
 });
 
 export type IAdminSendNotificationRo = z.infer<typeof adminSendNotificationRoSchema>;

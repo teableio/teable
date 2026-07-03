@@ -9,7 +9,8 @@
   "action": {
     "createBase": "Base erstellen",
     "createSpace": "Eine Base erstellen",
-    "invite": "Einladen"
+    "invite": "Einladen",
+    "startFromScratch": "Von Grund auf neu beginnen"
   },
   "allSpaces": "Alle Spaces",
   "emptySpaceTitle": "Keine Bases in diesem Space",
@@ -139,7 +140,7 @@
   },
   "baseList": {
     "allBases": "Alle Bases",
-    "owner": "Eigentümer",
+    "creator": "Ersteller",
     "createdTime": "Erstellt",
     "lastOpened": "Zuletzt geöffnet",
     "enter": "Eintreten",
@@ -209,5 +210,67 @@
       "redeploy": "Erneut bereitstellen",
       "unnamedApp": "Unbenannte App"
     }
+  },
+  "airtableImport": {
+    "title": "Aus Airtable importieren",
+    "close": "Schließen",
+    "pickBase": "Base zum Importieren auswählen",
+    "noBases": "Für diesen Token wurden keine zugänglichen Bases gefunden.",
+    "optionRecords": "Datensätze importieren",
+    "optionAttachments": "Anhänge herunterladen und importieren",
+    "import": "Import starten",
+    "done": "Import abgeschlossen",
+    "failed": "Import fehlgeschlagen",
+    "openBase": "Base öffnen",
+    "issuesSummary": "{{count}} Elemente wurden beim Import angepasst:",
+    "issuesMore": "+{{count}} weitere",
+    "issue": {
+      "fieldDegraded": "{{tableName}} / {{fieldName}}: {{fromType}} → {{toType}}",
+      "fieldSkipped": "{{tableName}} / {{fieldName}} ({{fromType}}) übersprungen: {{reason}}",
+      "viewSkipped": "{{tableName}} / Ansicht \"{{viewName}}\" ({{fromType}}) übersprungen",
+      "valuesDropped": "{{tableName}} / {{fieldName}}: {{count}} Werte verworfen ({{reason}})",
+      "viewConfigDegraded": "{{tableName}} / Ansicht \"{{viewName}}\": {{reason}}"
+    },
+    "phase": {
+      "fetchingSchema": "Airtable-Base-Struktur wird gelesen",
+      "creatingBase": "Base wird erstellt: {{detail}}",
+      "creatingTable": "Tabelle wird erstellt: {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "creatingLinks": "Verknüpfungsfelder werden erstellt",
+      "fillingLinks": "{{tableName}} (Verknüpfungen)",
+      "done": "Import abgeschlossen",
+      "applyingViewConfig": "Ansichtskonfiguration wird importiert"
+    },
+    "searchBases": "Bases durchsuchen",
+    "noSearchResults": "Keine Bases entsprechen der Suche.",
+    "detecting": "Airtable-Verbindung wird geprüft…",
+    "connectWithAirtable": "Airtable-Konto verbinden",
+    "waitingOAuth": "Autorisierung im Popup abschließen…",
+    "connectedAs": "Verbunden: {{account}}",
+    "permission": {
+      "create": "Ersteller",
+      "edit": "Bearbeiter",
+      "comment": "Kommentator",
+      "read": "Nur Lesen"
+    },
+    "integrationRequired": "Die Airtable-Integration ist auf dieser Instanz nicht konfiguriert. Bitte einen Administrator um Einrichtung.",
+    "optionViewConfig": "Ansichtsfilter, Sortierungen und Gruppierungen importieren",
+    "viewConfig": {
+      "help": "Die Airtable-API stellt keine Ansichtskonfiguration bereit, daher ist ein schreibgeschützter Freigabelink erforderlich.",
+      "helpStep1": "Öffnen Sie in Airtable das „Share“-Menü der Base",
+      "helpStep2": "Wählen Sie „Share to web“ und aktivieren Sie den vollständigen Base-Zugriff",
+      "helpStep3": "Kopieren Sie den schreibgeschützten Link und fügen Sie ihn oben ein",
+      "linkPlaceholder": "Freigabelink hier einfügen",
+      "mismatch": "Dieser Freigabelink verweist auf eine andere Base als die ausgewählte.",
+      "disableReminder": "Fertig – Sie können den Freigabelink in Airtable jetzt deaktivieren."
+    }
+  },
+  "createBaseDialog": {
+    "title": "Wie möchtest du beginnen?"
+  },
+  "importBaseDialog": {
+    "title": "Base importieren",
+    "fromFile": "Aus Datei importieren",
+    "fromFileDesc": "Eine .tea-Datenbankdatei hochladen",
+    "fromAirtableDesc": "Airtable-Konto verbinden"
   }
 }

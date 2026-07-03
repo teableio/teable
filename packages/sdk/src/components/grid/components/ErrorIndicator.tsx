@@ -9,10 +9,11 @@ export interface IErrorIndicatorProps {
   cellErrors: ICellError[];
   coordInstance: CoordinateManager;
   scrollState: IScrollState;
+  real2RowIndex: (index: number) => number;
 }
 
 export const ErrorIndicator = (props: IErrorIndicatorProps) => {
-  const { cellErrors, coordInstance, scrollState } = props;
+  const { cellErrors, coordInstance, scrollState, real2RowIndex } = props;
   const { t } = useTranslation();
 
   if (!cellErrors.length) return null;
@@ -25,7 +26,10 @@ export const ErrorIndicator = (props: IErrorIndicatorProps) => {
     <TooltipProvider delayDuration={100}>
       <div className="pointer-events-none absolute left-0 top-0">
         {cellErrors.map(({ cellItem, errorMsg, onRetry, onDismiss }) => {
-          const [columnIndex, rowIndex] = cellItem;
+          const [columnIndex, realRowIndex] = cellItem;
+          if (realRowIndex >= coordInstance.pureRowCount) return null;
+          const rowIndex = real2RowIndex(realRowIndex);
+          if (rowIndex == null) return null;
           const rowHeight = coordInstance.getRowHeight(rowIndex);
           const rowOffset = coordInstance.getRowOffset(rowIndex);
           const columnWidth = coordInstance.getColumnWidth(columnIndex);
@@ -41,7 +45,7 @@ export const ErrorIndicator = (props: IErrorIndicatorProps) => {
 
           if (!isColumnVisible || !isRowVisible) return null;
 
-          const key = `error-${columnIndex}-${rowIndex}`;
+          const key = `error-${columnIndex}-${realRowIndex}`;
 
           return (
             <div

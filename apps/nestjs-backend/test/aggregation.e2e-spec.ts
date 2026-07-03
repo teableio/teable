@@ -1466,6 +1466,48 @@ describe('OpenAPI AggregationController (e2e)', () => {
     });
   });
 
+  describe('row count with search projection', () => {
+    let table: ITableFullVo;
+
+    beforeAll(async () => {
+      table = await createTable(baseId, {
+        name: 'agg_row_count_projection',
+        fields: [
+          { name: 'Title', type: FieldType.SingleLineText },
+          { name: 'Note', type: FieldType.SingleLineText },
+        ],
+        records: [
+          { fields: { Title: 'apple', Note: 'banana' } },
+          { fields: { Title: 'banana', Note: 'cherry' } },
+        ],
+      });
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, table.id);
+    });
+
+    it('should exclude search hits on fields outside the projection', async () => {
+      const viewId = table.views[0].id;
+      const search: [string, string?, boolean?] = ['banana', '', true];
+
+      const { rowCount: withoutProjection } = (await getRowCount(table.id, { viewId, search }))
+        .data;
+      expect(withoutProjection).toEqual(2);
+
+      // simulate a personal view that hides the Note field: only Title is searched
+      const { rowCount } = (
+        await getRowCount(table.id, {
+          viewId,
+          ignoreViewQuery: true,
+          search,
+          projection: [table.fields[0].id],
+        })
+      ).data;
+      expect(rowCount).toEqual(1);
+    });
+  });
+
   describe('attachment total size aggregation with groupBy', () => {
     let tableId: string;
     let groupFieldId: string;
@@ -1475,6 +1517,28 @@ describe('OpenAPI AggregationController (e2e)', () => {
     let recordB1Id: string;
     let file10Path: string;
     let file20Path: string;
+    const uploadAttachmentWithRetry = async (recordId: string, filePath: string) => {
+      const retryable404 = (error: unknown) => {
+        const err = error as { status?: number; code?: string; message?: string };
+        return err.status === 404 || err.code === 'not_found' || err.message === 'Table not found';
+      };
+
+      for (let attempt = 0; attempt < 5; attempt++) {
+        try {
+          return await uploadAttachment(
+            tableId,
+            recordId,
+            attachmentFieldId,
+            fs.createReadStream(filePath)
+          );
+        } catch (error) {
+          if (attempt === 4 || !retryable404(error)) {
+            throw error;
+          }
+          await sleep(500);
+        }
+      }
+    };
 
     beforeAll(async () => {
       file10Path = path.join(StorageAdapter.TEMPORARY_DIR, 'agg-10b.bin');
@@ -1517,24 +1581,9 @@ describe('OpenAPI AggregationController (e2e)', () => {
       recordA2Id = created.records[1].id;
       recordB1Id = created.records[2].id;
 
-      await uploadAttachment(
-        tableId,
-        recordA1Id,
-        attachmentFieldId,
-        fs.createReadStream(file10Path)
-      );
-      await uploadAttachment(
-        tableId,
-        recordA2Id,
-        attachmentFieldId,
-        fs.createReadStream(file20Path)
-      );
-      await uploadAttachment(
-        tableId,
-        recordB1Id,
-        attachmentFieldId,
-        fs.createReadStream(file20Path)
-      );
+      await uploadAttachmentWithRetry(recordA1Id, file10Path);
+      await uploadAttachmentWithRetry(recordA2Id, file20Path);
+      await uploadAttachmentWithRetry(recordB1Id, file20Path);
     });
 
     afterAll(async () => {
