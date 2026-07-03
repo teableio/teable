@@ -58,6 +58,7 @@ class FakeTableRepository implements ITableRepository {
   deleteModes: Array<'soft' | 'permanent'> = [];
   deletedTableIds = new Set<string>();
   provisionStateChanges: Array<{ tableId: string; state: TableProvisionState }> = [];
+  findStates: Array<TableFindOptions['state'] | undefined> = [];
   failDelete: DomainError | undefined;
 
   async insert(_: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
@@ -78,6 +79,7 @@ class FakeTableRepository implements ITableRepository {
     spec: ISpecification<Table, ITableSpecVisitor>,
     options?: Pick<TableFindOptions, 'state'>
   ): Promise<Result<Table, DomainError>> {
+    this.findStates.push(options?.state);
     const state = options?.state ?? 'active';
     const found = this.tables.find((table) => {
       const isDeleted = this.deletedTableIds.has(table.id().toString());
@@ -304,6 +306,31 @@ describe('DeleteTableHandler', () => {
       'meta',
       'meta',
     ]);
+  });
+
+  it('loads active tables in any provisioning state so failed provisioning can be deleted', async () => {
+    const table = buildTable('e');
+    const repo = new FakeTableRepository();
+    repo.tables.push(table);
+    const handler = new DeleteTableHandler(
+      repo,
+      new FakeTableSchemaRepository(),
+      new FakeTableDeletionSideEffectService() as never,
+      new FakeEventBus(),
+      new FakeLogger(),
+      new FakeUnitOfWork()
+    );
+
+    const command = DeleteTableCommand.create({
+      baseId: table.baseId().toString(),
+      tableId: table.id().toString(),
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    result._unsafeUnwrap();
+
+    expect(repo.findStates[0]).toBe('activeAnyProvision');
+    expect(repo.deleteModes).toEqual(['soft']);
   });
 
   it('publishes permanent-delete side-effect post-persist events without returning them in the response payload', async () => {

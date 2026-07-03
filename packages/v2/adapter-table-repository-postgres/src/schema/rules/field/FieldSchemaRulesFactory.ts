@@ -59,6 +59,8 @@ export interface FieldSchemaRulesContext {
   tableId: string;
   /** Known logical table ID to physical table location mapping for batch schema creation. */
   tableLocationsById?: ReadonlyMap<string, TableIdentifier>;
+  /** Whether the target physical tables are newly-created and empty. */
+  optimizeForEmptyTables?: boolean;
 }
 
 /**

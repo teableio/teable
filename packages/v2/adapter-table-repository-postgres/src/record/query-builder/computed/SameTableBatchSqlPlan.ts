@@ -2,6 +2,7 @@ type FormulaFieldSqlFragmentParams = {
   fieldId: string;
   columnAlias: string;
   expressionSql: string;
+  errorConditionSql?: string;
   cseEligible: boolean;
 };
 
@@ -13,11 +14,15 @@ type CteLevelSqlPlanParams = {
 };
 
 const normalizeExpressionKey = (sqlText: string): string => sqlText.replace(/\s+/g, ' ').trim();
+const quoteIdentifier = (value: string): string => `"${value.replaceAll('"', '""')}"`;
+const quoteRef = (...parts: string[]): string => parts.map(quoteIdentifier).join('.');
+export const errorColumnAlias = (columnAlias: string): string => `__err_${columnAlias}`;
 
 export class FormulaFieldSqlFragment {
   readonly fieldId: string;
   readonly columnAlias: string;
   readonly expressionSql: string;
+  readonly errorConditionSql?: string;
   readonly normalizedKey: string;
   readonly cseEligible: boolean;
 
@@ -25,6 +30,7 @@ export class FormulaFieldSqlFragment {
     this.fieldId = params.fieldId;
     this.columnAlias = params.columnAlias;
     this.expressionSql = params.expressionSql;
+    this.errorConditionSql = params.errorConditionSql;
     this.normalizedKey = normalizeExpressionKey(params.expressionSql);
     this.cseEligible = params.cseEligible;
   }
@@ -43,11 +49,11 @@ export class FormulaCseBinding {
   ) {}
 
   selectItemSql(): string {
-    return `(${this.expressionSql}) as "${this.alias}"`;
+    return `(${this.expressionSql}) as ${quoteIdentifier(this.alias)}`;
   }
 
   referenceSql(cseAlias = '__cse'): string {
-    return `"${cseAlias}"."${this.alias}"`;
+    return quoteRef(cseAlias, this.alias);
   }
 }
 
@@ -107,12 +113,18 @@ export class CteLevelSqlPlan {
 
   buildSelectColumnsSql(): string {
     return this.fragments
-      .map((fragment) => {
+      .flatMap((fragment) => {
         const binding = fragment.cseEligible
           ? this.cseBindingsByKey.get(fragment.normalizedKey)
           : undefined;
         const valueSql = binding ? binding.referenceSql() : `(${fragment.expressionSql})`;
-        return `${valueSql} as "${fragment.columnAlias}"`;
+        const columns = [`${valueSql} as ${quoteIdentifier(fragment.columnAlias)}`];
+        if (fragment.errorConditionSql) {
+          columns.push(
+            `(${fragment.errorConditionSql}) as ${quoteIdentifier(errorColumnAlias(fragment.columnAlias))}`
+          );
+        }
+        return columns;
       })
       .join(', ');
   }
@@ -126,6 +138,6 @@ export class CteLevelSqlPlan {
   buildCteSql(fromClause: string): string {
     const selectColumns = this.buildSelectColumnsSql();
     const cseJoin = this.buildCseJoinSql();
-    return `"${this.name}" AS (SELECT "t"."__id", ${selectColumns} ${fromClause}${cseJoin})`;
+    return `${quoteIdentifier(this.name)} AS (SELECT ${quoteRef('t', '__id')}, ${selectColumns} ${fromClause}${cseJoin})`;
   }
 }

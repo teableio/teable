@@ -9,7 +9,7 @@ import Link from 'next/link';
 import React, { useEffect, useRef, useState } from 'react';
 import { useClickAway, useMount } from 'react-use';
 import { SpaceOperation } from '@/features/app/blocks/space/space-side-bar/SpaceOperation';
-import { UploadPanelDialog } from '../component/upload-panel';
+import { ImportBaseDialog } from '../component/upload-panel';
 import { ItemButton } from './ItemButton';
 import { StarButton } from './StarButton';
 interface IProps {
@@ -103,7 +103,7 @@ export const SpaceItem: React.FC<IProps> = ({ space, isActive }) => {
           }}
         />
       )}
-      <UploadPanelDialog spaceId={id} open={importBaseOpen} onOpenChange={setImportBaseOpen} />
+      <ImportBaseDialog spaceId={id} open={importBaseOpen} onOpenChange={setImportBaseOpen} />
     </div>
   );
 };

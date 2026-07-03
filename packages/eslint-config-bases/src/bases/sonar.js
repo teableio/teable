@@ -20,6 +20,7 @@ module.exports = {
       excludedFiles: sonarPatterns.excludedFiles,
       extends: ['plugin:sonarjs/recommended'],
       rules: {
+        'sonarjs/no-duplicate-string': 'off',
         'sonarjs/no-nested-template-literals': 'off',
         'sonarjs/prefer-single-boolean-return': 'off',
       },

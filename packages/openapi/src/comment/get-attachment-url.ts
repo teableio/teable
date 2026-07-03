@@ -13,6 +13,7 @@ export const GetCommentAttachmentUrlRoute: RouteConfig = registerRoute({
     params: z.object({
       tableId: z.string(),
       recordId: z.string(),
+      path: z.string(),
     }),
   },
   responses: {

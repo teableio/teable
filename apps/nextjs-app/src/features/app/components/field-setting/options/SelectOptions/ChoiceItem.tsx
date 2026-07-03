@@ -1,5 +1,6 @@
 import type { ISelectFieldChoice } from '@teable/core';
-import { ColorUtils } from '@teable/core';
+import { useTheme } from '@teable/next-themes';
+import { getSelectColorPairs } from '@teable/sdk';
 import { Popover, PopoverTrigger, Button, PopoverContent, Input } from '@teable/ui-lib/shadcn';
 import { useState, useEffect, useRef } from 'react';
 import { ColorPicker } from './ColorPicker';
@@ -15,7 +16,8 @@ interface IOptionItemProps {
 export const ChoiceItem = (props: IOptionItemProps) => {
   const { choice, readonly, onChange, onKeyDown, onInputRef } = props;
   const { color, name } = choice;
-  const bgColor = ColorUtils.getHexForColor(color);
+  const { resolvedTheme } = useTheme();
+  const bgColor = getSelectColorPairs(color, resolvedTheme).backgroundColor;
 
   return (
     <li className="flex grow items-center">
@@ -34,8 +36,12 @@ export const ChoiceItem = (props: IOptionItemProps) => {
               <div style={{ backgroundColor: bgColor }} className="size-3 rounded-full" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-auto p-2">
-            <ColorPicker color={color} onSelect={(color) => onChange?.('color', color)} />
+          <PopoverContent className="w-auto bg-background p-2">
+            <ColorPicker
+              themeAwareSelectColor
+              color={color}
+              onSelect={(color) => onChange?.('color', color)}
+            />
           </PopoverContent>
         </Popover>
       )}

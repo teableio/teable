@@ -140,7 +140,7 @@ const BasePickerSection: React.FC<{
   }
 
   return (
-    <Popover open={basePickerOpen} onOpenChange={setBasePickerOpen}>
+    <Popover open={basePickerOpen} onOpenChange={setBasePickerOpen} modal>
       <PopoverTrigger asChild>
         <Button
           type="button"
