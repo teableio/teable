@@ -5,6 +5,7 @@ import { DriverClient, HttpErrorCode, parseDsn } from '@teable/core';
 import { Prisma, PrismaService, getDatabaseUrl } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
+import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { CustomHttpException } from '../../custom.exception';
 import { DatabaseRouter } from '../../global/database-router.service';
 import { DATA_KNEX } from '../../global/knex';
@@ -21,7 +22,8 @@ export class BaseSqlExecutorService {
     private readonly prismaService: PrismaService,
     private readonly databaseRouter: DatabaseRouter,
     private readonly configService: ConfigService,
-    @InjectModel(DATA_KNEX) private readonly knex: Knex
+    @InjectModel(DATA_KNEX) private readonly knex: Knex,
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {
     this.dsn = parseDsn(this.getDatabaseUrl());
     this.driver = this.dsn.driver as DriverClient;
@@ -120,9 +122,13 @@ export class BaseSqlExecutorService {
     return Boolean(roleExists[0].count);
   }
 
-  private async roleCheckAndCreate(baseId: string) {
+  private async roleCheckAndCreate(baseId: string): Promise<boolean> {
     if (this.driver !== DriverClient.Pg) {
-      return;
+      return false;
+    }
+    const resolvedDataDb = await this.databaseRouter.getDataDatabaseForBase(baseId);
+    if (!resolvedDataDb.isMetaFallback) {
+      return false;
     }
     const roleName = this.getReadOnlyRoleName(baseId);
     if (!(await this.roleExits(roleName, baseId))) {
@@ -137,30 +143,35 @@ export class BaseSqlExecutorService {
           this.logger.warn(
             `read only role ${roleName} already exists (concurrent creation), skipping`
           );
-          return;
+          return true;
         }
         throw error;
       }
     }
+    return true;
   }
 
-  private async setRole(
+  private async setLocalRole(
     prisma: { $executeRawUnsafe(query: string): Promise<unknown> },
     baseId: string
   ) {
     const roleName = this.getReadOnlyRoleName(baseId);
-    await prisma.$executeRawUnsafe(this.knex.raw(`SET ROLE ??`, [roleName]).toQuery());
+    await prisma.$executeRawUnsafe(this.knex.raw(`SET LOCAL ROLE ??`, [roleName]).toQuery());
   }
 
-  private async resetRole(prisma: { $executeRawUnsafe(query: string): Promise<unknown> }) {
-    await prisma.$executeRawUnsafe(this.knex.raw(`RESET ROLE`).toQuery());
+  private async setTransactionReadOnly(prisma: {
+    $executeRawUnsafe(query: string): Promise<unknown>;
+  }) {
+    await prisma.$executeRawUnsafe('SET TRANSACTION READ ONLY');
   }
 
-  private async readonlyExecuteSql(baseId: string, sql: string) {
-    return this.databaseRouter.dataPrismaTransactionForBase(baseId, async (prisma) => {
-      await prisma.$executeRawUnsafe('SET TRANSACTION READ ONLY');
-      return await prisma.$queryRawUnsafe(sql);
-    });
+  private async setLocalStatementTimeout(prisma: {
+    $executeRawUnsafe(query: string): Promise<unknown>;
+  }) {
+    const timeoutMs = this.thresholdConfig.searchTimeout;
+    await prisma.$executeRawUnsafe(
+      this.knex.raw(`SET LOCAL statement_timeout = ?`, [timeoutMs]).toQuery()
+    );
   }
 
   /**
@@ -181,9 +192,12 @@ export class BaseSqlExecutorService {
     }
     let tableNames = projectionTableDbNames;
     if (!projectionTableDbNames.length) {
+      // Exclude archived tables: their physical tables remain until permanent
+      // deletion, and reading them would bypass the table|trash_read permission.
       const tables = await this.prismaService.tableMeta.findMany({
         where: {
           baseId,
+          deletedTime: null,
         },
         select: {
           dbTableName: true,
@@ -197,23 +211,7 @@ export class BaseSqlExecutorService {
       database: this.driver,
     });
     // 3. read only role check table access, only pg and pg version > 14 support
-    try {
-      await this.readonlyExecuteSql(baseId, sql);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-      throw new CustomHttpException(
-        `read only check failed: ${error?.meta?.message || error?.message}`,
-        HttpErrorCode.VALIDATION_ERROR,
-        {
-          localization: {
-            i18nKey: 'httpErrors.baseSqlExecutor.readOnlyCheckFailed',
-            context: {
-              message: error?.meta?.message || error?.message,
-            },
-          },
-        }
-      );
-    }
+    // TODO: need read only db connection for better security
   }
 
   async executeQuerySql<T = unknown>(
@@ -225,10 +223,14 @@ export class BaseSqlExecutorService {
     }
   ) {
     await this.safeCheckSql(baseId, sql, opts);
-    await this.roleCheckAndCreate(baseId);
+    const shouldSetLocalRole = await this.roleCheckAndCreate(baseId);
     return this.databaseRouter.dataPrismaTransactionForBase(baseId, async (prisma) => {
       try {
-        await this.setRole(prisma, baseId);
+        await this.setLocalStatementTimeout(prisma);
+        await this.setTransactionReadOnly(prisma);
+        if (shouldSetLocalRole) {
+          await this.setLocalRole(prisma, baseId);
+        }
         return await prisma.$queryRawUnsafe<T>(sql);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (error: any) {
@@ -244,10 +246,6 @@ export class BaseSqlExecutorService {
             },
           }
         );
-      } finally {
-        await this.resetRole(prisma).catch((error) => {
-          console.log('resetRole error', error);
-        });
       }
     });
   }

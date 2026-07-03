@@ -73,7 +73,9 @@ export class DeleteTableHandler implements ICommandHandler<DeleteTableCommand, D
     const eventBus = this.eventBus;
     const result = await safeTry<DeleteTableResult, DomainError>(async function* () {
       const specResult = yield* TableAggregate.specs(command.baseId).byId(command.tableId).build();
-      const activeTableResult = await tableRepository.findOne(context, specResult);
+      const activeTableResult = await tableRepository.findOne(context, specResult, {
+        state: 'activeAnyProvision',
+      });
       let tableResult = activeTableResult;
       let shouldRunSideEffects = command.mode === 'permanent' && activeTableResult.isOk();
 

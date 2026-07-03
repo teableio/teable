@@ -135,7 +135,7 @@ const ICONS: Record<string, LucideIcon> = {
 function createSvgIcon(id: string): string {
   const Icon = ICONS[id];
   if (!Icon) return '';
-  return renderToStaticMarkup(createElement(Icon, { size: 16, strokeWidth: 1.75 }));
+  return renderToStaticMarkup(createElement(Icon, { size: 16, strokeWidth: 2.25 }));
 }
 
 function buildToolbarItems(schema: Schema): ToolbarItem[] {
@@ -285,6 +285,8 @@ function buildToolbarItems(schema: Schema): ToolbarItem[] {
 
 export const floatingToolbarPluginKey = new PluginKey('milkdown-floating-toolbar');
 
+const TOOLBAR_GAP = 34;
+
 export function createFloatingToolbarPlugin(): Plugin {
   let tooltip: HTMLDivElement | null = null;
   let panel: HTMLDivElement | null = null;
@@ -412,16 +414,20 @@ export function createFloatingToolbarPlugin(): Plugin {
     if (!tooltip || !mountEl) return;
     const cursorRect = view.coordsAtPos(view.state.selection.from);
     const mountRect = mountEl.getBoundingClientRect();
+    const proseMirrorRect = view.dom.getBoundingClientRect();
     const editorRect = scrollWrapEl?.getBoundingClientRect() ?? view.dom.getBoundingClientRect();
     const toolbarHeight = tooltip.offsetHeight || 30;
 
     // All coordinates relative to mountEl
+    const left = proseMirrorRect.left - mountRect.left - TOOLBAR_GAP;
     const minTop = editorRect.top - mountRect.top;
     const maxTop = Math.max(minTop, editorRect.bottom - mountRect.top - toolbarHeight);
-    const desiredTop = cursorRect.top - mountRect.top;
+    const lineHeight = Math.max(0, cursorRect.bottom - cursorRect.top);
+    const desiredTop = cursorRect.top - mountRect.top + lineHeight / 2 - toolbarHeight / 2;
     const top = Math.max(minTop, Math.min(maxTop, desiredTop));
 
-    tooltip.style.top = `${top}px`;
+    tooltip.style.left = `${Math.round(left)}px`;
+    tooltip.style.top = `${Math.round(top)}px`;
   }
 
   function isMultiLineSelection(view: EditorView): boolean {

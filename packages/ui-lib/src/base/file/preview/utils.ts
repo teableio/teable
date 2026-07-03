@@ -32,6 +32,8 @@ export const isTextLike = (mimetype: string) => {
   return mimetype.startsWith('text/') || textLikeApplicationMimes.has(mimetype);
 };
 
+export const isHtml = (mimetype: string) => mimetype.startsWith('text/html');
+
 export const isPdf = (mimetype: string) => {
   return mimetype.startsWith('application/pdf') || mimetype.startsWith('application/x-pdf');
 };

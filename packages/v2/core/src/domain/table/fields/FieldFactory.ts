@@ -2,6 +2,7 @@ import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { BaseId } from '../../base/BaseId';
+import type { IDomainContext } from '../../shared/DomainContext';
 import type { DomainError } from '../../shared/DomainError';
 import type { DbTableName } from '../DbTableName';
 import type { TableId } from '../TableId';
@@ -193,6 +194,7 @@ export const createSelectField = (params: {
   options: ReadonlyArray<SelectOption>;
   defaultValue?: SelectDefaultValue;
   preventAutoNewOptions?: SelectAutoNewOptions;
+  domainContext?: IDomainContext;
   notNull?: FieldNotNull;
   unique?: FieldUnique;
 }): Result<Field, DomainError> =>
@@ -206,6 +208,7 @@ export const createMultipleSelectField = (params: {
   options: ReadonlyArray<SelectOption>;
   defaultValue?: SelectDefaultValue;
   preventAutoNewOptions?: SelectAutoNewOptions;
+  domainContext?: IDomainContext;
   notNull?: FieldNotNull;
   unique?: FieldUnique;
 }): Result<Field, DomainError> =>

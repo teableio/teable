@@ -38,8 +38,11 @@ import { sql } from 'kysely';
 import { err, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import { resolveUserAvatarUrlPrefix } from '../../shared/userAvatarUrl';
-import { buildAttachmentTableReplaceQueries } from '../attachments/attachmentTableMutations';
+import { buildUserAvatarUrl } from '../../shared/userAvatarUrl';
+import {
+  buildAttachmentTableReplaceQueries,
+  type AttachmentTableReplaceInput,
+} from '../attachments/attachmentTableMutations';
 import { buildFilledLinkValueExpression } from '../buildFilledLinkValueExpression';
 import { isPersistedAsGeneratedColumn } from '../computed/isPersistedAsGeneratedColumn';
 import { normalizeStoredLinkItems } from '../normalizeLinkItems';
@@ -76,6 +79,7 @@ export interface CellValueMutateContext {
   actorEmail?: string;
   fillLinkTitles?: boolean;
   fillLinkTitleForeignTables?: ReadonlyMap<string, Table>;
+  deferAttachmentTableReplace?: boolean;
 }
 
 /**
@@ -97,6 +101,7 @@ export interface CellValueMutateContext {
 export class CellValueMutateVisitor implements ICellValueSpecVisitor {
   private readonly setClauses: Record<string, unknown> = {};
   private readonly additionalStatements: CompiledQuery[] = [];
+  private readonly attachmentTableReplacements: AttachmentTableReplaceInput[] = [];
   private readonly changedFieldIds: FieldId[] = [];
 
   private constructor(
@@ -248,6 +253,10 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
     };
   }
 
+  getAttachmentTableReplacements(): AttachmentTableReplaceInput[] {
+    return [...this.attachmentTableReplacements];
+  }
+
   // --- Helper methods ---
 
   private getFieldAndDbName(
@@ -317,30 +326,13 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
     return ok(validTracked);
   }
 
-  /**
-   * Build the value for LastModifiedBy field using COALESCE subquery.
-   * Fetches user info from users table, with fallback to just the actor ID.
-   */
-  private buildLastModifiedByValue(): ReturnType<typeof sql> {
-    const avatarPrefix = resolveUserAvatarUrlPrefix();
-    return sql`COALESCE(
-      (
-        SELECT jsonb_build_object(
-          'id', u.id,
-          'title', u.name,
-          'email', u.email,
-          'avatarUrl', ${avatarPrefix} || u.id
-        )
-        FROM public.users u
-        WHERE u.id = ${this.ctx.actorId}::text
-      ),
-      jsonb_build_object(
-        'id', ${this.ctx.actorId}::text,
-        'title', ${this.ctx.actorId}::text,
-        'email', NULL::text,
-        'avatarUrl', ${avatarPrefix}::text || ${this.ctx.actorId}::text
-      )
-    )`;
+  private buildLastModifiedByValue(): string {
+    return JSON.stringify({
+      id: this.ctx.actorId,
+      title: this.ctx.actorName ?? this.ctx.actorId,
+      email: this.ctx.actorEmail ?? null,
+      avatarUrl: buildUserAvatarUrl(this.ctx.actorId),
+    });
   }
 
   private addSimpleValue(fieldId: FieldId, rawValue: unknown): Result<void, DomainError> {
@@ -510,15 +502,19 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
       return addResult;
     }
 
-    this.additionalStatements.push(
-      ...buildAttachmentTableReplaceQueries(this.db, {
-        actorId: this.ctx.actorId,
-        tableId: this.table.id().toString(),
-        recordId: this.ctx.recordId,
-        fieldId: spec.fieldId.toString(),
-        value: spec.value.toValue(),
-      })
-    );
+    const replacement = {
+      actorId: this.ctx.actorId,
+      tableId: this.table.id().toString(),
+      recordId: this.ctx.recordId,
+      fieldId: spec.fieldId.toString(),
+      value: spec.value.toValue(),
+    };
+
+    if (this.ctx.deferAttachmentTableReplace) {
+      this.attachmentTableReplacements.push(replacement);
+    } else {
+      this.additionalStatements.push(...buildAttachmentTableReplaceQueries(this.db, replacement));
+    }
 
     return ok(undefined);
   }
