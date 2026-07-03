@@ -9,6 +9,7 @@ import {
   UpdateRecordCommand,
   v2CoreTokens,
   type Table,
+  FieldType,
   FieldId,
   TableId,
 } from '@teable/v2-core';
@@ -21,12 +22,15 @@ import {
   type ComputedUpdatePlan,
   type FieldDependencyGraphData,
   ComputedTableRecordQueryBuilder,
+  SameTableBatchQueryBuilder,
   UpdateFromSelectBuilder,
   RecordUpdateBuilder,
   type RecordUpdateSqlResult,
   type UpdateImpactHint,
   type DynamicDB,
+  type QB,
   type ComputedUpdateLockConfig,
+  type SameTableFieldLevel,
   defaultComputedUpdateLockConfig,
 } from '@teable/v2-adapter-table-repository-postgres';
 import { formulaSqlPgTokens, type IPgTypeValidationStrategy } from '@teable/v2-formula-sql-pg';
@@ -44,6 +48,8 @@ import type {
   SqlExplainInfo,
   ExplainAnalyzeOutput,
   ExplainOutput,
+  ExplainTextOutput,
+  SqlDiagnosticsInfo,
 } from '../types';
 import { DEFAULT_EXPLAIN_OPTIONS } from '../types';
 import { v2CommandExplainTokens } from '../di/tokens';
@@ -216,6 +222,10 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
       // 8. Generate real SQL and run EXPLAIN
       const sqlExplainStartTime = Date.now();
       const sqlExplains: SqlExplainInfo[] = [];
+      const sqlExplainMode = mergedOptions.sqlExplainMode;
+      const sqlExplainFormat = sqlExplainMode === 'text' ? 'text' : 'json';
+      const dumpSqlOnly = sqlExplainMode === 'dump';
+      const statementTimeoutMs = mergedOptions.statementTimeoutMs;
 
       if (mergedOptions.includeSql) {
         if (recordUpdateResult.isErr()) {
@@ -243,7 +253,12 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
         } else {
           const { mainUpdate, additionalStatements } = updateSqlResult;
 
-          if (mergedOptions.analyze && additionalStatements.length > 0) {
+          if (
+            !dumpSqlOnly &&
+            sqlExplainFormat === 'json' &&
+            mergedOptions.analyze &&
+            additionalStatements.length > 0
+          ) {
             // When analyzing, link-field statements often depend on each other (DELETE then INSERTs).
             // Run them all within a single transaction (rollback once) so EXPLAIN ANALYZE reflects
             // the real execution order and doesn't hit unique constraint errors from existing rows.
@@ -276,6 +291,7 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
                     stepDescription: meta.description,
                     sql: meta.sql,
                     parameters: meta.parameters,
+                    sqlDiagnostics: analyzer.buildSqlDiagnostics(meta.sql, meta.parameters),
                     explainAnalyze: null,
                     explainOnly: null,
                     explainError: result.error,
@@ -298,6 +314,7 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
                   stepDescription: meta.description,
                   sql: meta.sql,
                   parameters: meta.parameters,
+                  sqlDiagnostics: analyzer.buildSqlDiagnostics(meta.sql, meta.parameters),
                   explainAnalyze,
                   explainOnly,
                   explainError: analyzeError,
@@ -309,6 +326,7 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
                   stepDescription: meta.description,
                   sql: meta.sql,
                   parameters: meta.parameters,
+                  sqlDiagnostics: analyzer.buildSqlDiagnostics(meta.sql, meta.parameters),
                   explainAnalyze: null,
                   explainOnly: null,
                   explainError: batchResult.error.message,
@@ -319,17 +337,25 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
             // Run EXPLAIN on main UPDATE
             let mainExplainAnalyze: ExplainAnalyzeOutput | null = null;
             let mainExplainOnly: ExplainOutput | null = null;
+            let mainExplainText: ExplainTextOutput | null = null;
             let mainExplainError: string | null = null;
 
-            if (mergedOptions.analyze) {
+            if (dumpSqlOnly) {
+              // SQL dump mode intentionally skips EXPLAIN execution.
+            } else if (mergedOptions.analyze) {
               const analyzeResult = await analyzer.sqlExplainRunner.explain(
                 analyzer.db,
                 mainUpdate.compiled.sql,
                 mainUpdate.compiled.parameters as unknown[],
-                true
+                true,
+                undefined,
+                sqlExplainFormat,
+                statementTimeoutMs
               );
               if (analyzeResult.isOk()) {
-                mainExplainAnalyze = analyzeResult.value as ExplainAnalyzeOutput;
+                const output = analyzer.splitExplainOutput(analyzeResult.value, true);
+                mainExplainAnalyze = output.explainAnalyze;
+                mainExplainText = output.explainText;
               } else {
                 mainExplainError = analyzeResult.error.message;
               }
@@ -338,10 +364,15 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
                 analyzer.db,
                 mainUpdate.compiled.sql,
                 mainUpdate.compiled.parameters as unknown[],
-                false
+                false,
+                undefined,
+                sqlExplainFormat,
+                statementTimeoutMs
               );
               if (explainResult.isOk()) {
-                mainExplainOnly = explainResult.value as ExplainOutput;
+                const output = analyzer.splitExplainOutput(explainResult.value, false);
+                mainExplainOnly = output.explainOnly;
+                mainExplainText = output.explainText;
               } else {
                 mainExplainError = explainResult.error.message;
               }
@@ -351,8 +382,13 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
               stepDescription: mainUpdate.description,
               sql: mainUpdate.compiled.sql,
               parameters: mainUpdate.compiled.parameters as unknown[],
+              sqlDiagnostics: analyzer.buildSqlDiagnostics(
+                mainUpdate.compiled.sql,
+                mainUpdate.compiled.parameters as unknown[]
+              ),
               explainAnalyze: mainExplainAnalyze,
               explainOnly: mainExplainOnly,
+              explainText: mainExplainText,
               explainError: mainExplainError,
             });
 
@@ -360,17 +396,25 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
             for (const stmt of additionalStatements) {
               let additionalExplainAnalyze: ExplainAnalyzeOutput | null = null;
               let additionalExplainOnly: ExplainOutput | null = null;
+              let additionalExplainText: ExplainTextOutput | null = null;
               let additionalExplainError: string | null = null;
 
-              if (mergedOptions.analyze) {
+              if (dumpSqlOnly) {
+                // SQL dump mode intentionally skips EXPLAIN execution.
+              } else if (mergedOptions.analyze) {
                 const analyzeResult = await analyzer.sqlExplainRunner.explain(
                   analyzer.db,
                   stmt.compiled.sql,
                   stmt.compiled.parameters as unknown[],
-                  true
+                  true,
+                  undefined,
+                  sqlExplainFormat,
+                  statementTimeoutMs
                 );
                 if (analyzeResult.isOk()) {
-                  additionalExplainAnalyze = analyzeResult.value as ExplainAnalyzeOutput;
+                  const output = analyzer.splitExplainOutput(analyzeResult.value, true);
+                  additionalExplainAnalyze = output.explainAnalyze;
+                  additionalExplainText = output.explainText;
                 } else {
                   additionalExplainError = analyzeResult.error.message;
                 }
@@ -379,10 +423,15 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
                   analyzer.db,
                   stmt.compiled.sql,
                   stmt.compiled.parameters as unknown[],
-                  false
+                  false,
+                  undefined,
+                  sqlExplainFormat,
+                  statementTimeoutMs
                 );
                 if (explainResult.isOk()) {
-                  additionalExplainOnly = explainResult.value as ExplainOutput;
+                  const output = analyzer.splitExplainOutput(explainResult.value, false);
+                  additionalExplainOnly = output.explainOnly;
+                  additionalExplainText = output.explainText;
                 } else {
                   additionalExplainError = explainResult.error.message;
                 }
@@ -392,8 +441,13 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
                 stepDescription: stmt.description,
                 sql: stmt.compiled.sql,
                 parameters: stmt.compiled.parameters as unknown[],
+                sqlDiagnostics: analyzer.buildSqlDiagnostics(
+                  stmt.compiled.sql,
+                  stmt.compiled.parameters as unknown[]
+                ),
                 explainAnalyze: additionalExplainAnalyze,
                 explainOnly: additionalExplainOnly,
+                explainText: additionalExplainText,
                 explainError: additionalExplainError,
               });
             }
@@ -436,36 +490,92 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
               ? batchTableNameResult.value.value().unwrapOr(batch.tableId.toString())
               : batch.tableId.toString();
 
-            // Build SELECT query using ComputedTableRecordQueryBuilder
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const selectBuilder = new ComputedTableRecordQueryBuilder(analyzer.db as any, {
-              typeValidationStrategy: analyzer.typeValidationStrategy,
-            });
-            selectBuilder
-              .from(batchTable)
-              .select(batchFieldIds)
-              .withDirtyFilter({ tableId: batch.tableId.toString() });
+            const formulaOnlyFieldLevelsResult = safeTry<SameTableFieldLevel[], DomainError>(
+              function* () {
+                const fieldLevels: SameTableFieldLevel[] = [];
 
-            // Prepare foreign tables for link/lookup/rollup
-            const prepareResult = await selectBuilder.prepare({
-              context,
-              tableRepository: analyzer.tableRepository,
-            });
-            if (prepareResult.isErr()) {
-              // Skip this batch if prepare fails
+                for (const step of [...batch.steps].sort((a, b) => a.level - b.level)) {
+                  const levelFieldIds: FieldId[] = [];
+                  for (const fieldId of step.fieldIds) {
+                    const field = yield* batchTable.getField((f) => f.id().equals(fieldId));
+                    if (!field.type().equals(FieldType.formula())) {
+                      return ok([]);
+                    }
+                    levelFieldIds.push(fieldId);
+                  }
+                  if (levelFieldIds.length > 0) {
+                    fieldLevels.push({ level: step.level, fieldIds: levelFieldIds });
+                  }
+                }
+
+                return ok(fieldLevels);
+              }
+            );
+
+            if (formulaOnlyFieldLevelsResult.isErr()) {
               sqlExplains.push({
-                stepDescription: `Update batch ${i + 1}: ${batchTableName} (prepare failed)`,
-                sql: `-- Failed to prepare: ${prepareResult.error.message}`,
+                stepDescription: `Update batch ${i + 1}: ${batchTableName} (field inspection failed)`,
+                sql: `-- Failed to inspect fields: ${formulaOnlyFieldLevelsResult.error.message}`,
                 parameters: [],
                 explainAnalyze: null,
                 explainOnly: null,
-                explainError: prepareResult.error.message,
+                explainError: formulaOnlyFieldLevelsResult.error.message,
                 computedReason,
               });
               continue;
             }
 
-            const selectQueryResult = selectBuilder.build();
+            let selectQueryResult: Result<QB, DomainError>;
+            if (formulaOnlyFieldLevelsResult.value.length > 0) {
+              const batchBuilder = new SameTableBatchQueryBuilder(
+                analyzer.db as unknown as Kysely<DynamicDB>,
+                analyzer.typeValidationStrategy
+              );
+              selectQueryResult = batchBuilder
+                .build({
+                  table: batchTable,
+                  fieldLevels: formulaOnlyFieldLevelsResult.value,
+                  dirtyFilter: {
+                    tableId: batch.tableId.toString(),
+                    dirtyTableName: 'tmp_computed_dirty',
+                    tableIdColumn: 'table_id',
+                    recordIdColumn: 'record_id',
+                  },
+                })
+                .map((result) => result.selectQuery);
+            } else {
+              // Build SELECT query using ComputedTableRecordQueryBuilder
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const selectBuilder = new ComputedTableRecordQueryBuilder(analyzer.db as any, {
+                typeValidationStrategy: analyzer.typeValidationStrategy,
+              });
+              selectBuilder
+                .from(batchTable)
+                .select(batchFieldIds)
+                .withDirtyFilter({ tableId: batch.tableId.toString() });
+
+              // Prepare foreign tables for link/lookup/rollup
+              const prepareResult = await selectBuilder.prepare({
+                context,
+                tableRepository: analyzer.tableRepository,
+              });
+              if (prepareResult.isErr()) {
+                // Skip this batch if prepare fails
+                sqlExplains.push({
+                  stepDescription: `Update batch ${i + 1}: ${batchTableName} (prepare failed)`,
+                  sql: `-- Failed to prepare: ${prepareResult.error.message}`,
+                  parameters: [],
+                  explainAnalyze: null,
+                  explainOnly: null,
+                  explainError: prepareResult.error.message,
+                  computedReason,
+                });
+                continue;
+              }
+
+              selectQueryResult = selectBuilder.build();
+            }
+
             if (selectQueryResult.isErr()) {
               sqlExplains.push({
                 stepDescription: `Update batch ${i + 1}: ${batchTableName} (build failed)`,
@@ -522,17 +632,24 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
             // Run EXPLAIN on the compiled SQL
             let explainAnalyze: ExplainAnalyzeOutput | null = null;
             let explainOnly: ExplainOutput | null = null;
+            let explainText: ExplainTextOutput | null = null;
             let explainError: string | null = null;
 
-            if (mergedOptions.analyze) {
+            if (dumpSqlOnly) {
+              // SQL dump mode intentionally skips EXPLAIN execution.
+            } else if (mergedOptions.analyze) {
               const analyzeResult = await analyzer.sqlExplainRunner.explainCompiled(
                 analyzer.db,
                 compiled,
                 true,
-                setupStatements
+                setupStatements,
+                sqlExplainFormat,
+                statementTimeoutMs
               );
               if (analyzeResult.isOk()) {
-                explainAnalyze = analyzeResult.value as ExplainAnalyzeOutput;
+                const output = analyzer.splitExplainOutput(analyzeResult.value, true);
+                explainAnalyze = output.explainAnalyze;
+                explainText = output.explainText;
               } else {
                 explainError = analyzeResult.error.message;
               }
@@ -541,10 +658,14 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
                 analyzer.db,
                 compiled,
                 false,
-                setupStatements
+                setupStatements,
+                sqlExplainFormat,
+                statementTimeoutMs
               );
               if (explainResult.isOk()) {
-                explainOnly = explainResult.value as ExplainOutput;
+                const output = analyzer.splitExplainOutput(explainResult.value, false);
+                explainOnly = output.explainOnly;
+                explainText = output.explainText;
               } else {
                 explainError = explainResult.error.message;
               }
@@ -554,8 +675,13 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
               stepDescription,
               sql: compiled.sql,
               parameters: compiled.parameters as unknown[],
+              sqlDiagnostics: analyzer.buildSqlDiagnostics(
+                compiled.sql,
+                compiled.parameters as unknown[]
+              ),
               explainAnalyze,
               explainOnly,
+              explainText,
               explainError,
               computedReason,
             });
@@ -586,6 +712,47 @@ export class UpdateRecordAnalyzer implements ICommandAnalyzer<UpdateRecordComman
         },
       });
     });
+  }
+
+  private splitExplainOutput(
+    output: ExplainAnalyzeOutput | ExplainOutput | ExplainTextOutput,
+    analyze: boolean
+  ): {
+    explainAnalyze: ExplainAnalyzeOutput | null;
+    explainOnly: ExplainOutput | null;
+    explainText: ExplainTextOutput | null;
+  } {
+    if ('format' in output && output.format === 'text') {
+      return { explainAnalyze: null, explainOnly: null, explainText: output };
+    }
+
+    if (analyze) {
+      return {
+        explainAnalyze: output as ExplainAnalyzeOutput,
+        explainOnly: null,
+        explainText: null,
+      };
+    }
+
+    return {
+      explainAnalyze: null,
+      explainOnly: output as ExplainOutput,
+      explainText: null,
+    };
+  }
+
+  private buildSqlDiagnostics(sql: string, parameters: ReadonlyArray<unknown>): SqlDiagnosticsInfo {
+    const count = (pattern: RegExp) => sql.match(pattern)?.length ?? 0;
+
+    return {
+      sqlLength: sql.length,
+      parameterCount: parameters.length,
+      lateralJoinCount: count(/\blateral\b/gi),
+      regexpReplaceCount: count(/\bregexp_replace\b/gi),
+      pgInputIsValidCount: count(/\bpg_input_is_valid\b/gi),
+      stringAggCount: count(/\bstring_agg\b/gi),
+      jsonbAggCount: count(/\bjsonb_agg\b/gi),
+    };
   }
 
   /**

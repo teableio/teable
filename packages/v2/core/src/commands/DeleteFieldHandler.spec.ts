@@ -24,11 +24,13 @@ import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
+import type { FieldDeleteSnapshotSinkInput } from '../ports/FieldDeleteSnapshotSink';
 import { FieldOperationKind } from '../ports/FieldOperationPlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
+import { flattenUndoRedoCommands } from '../ports/UndoRedoStore';
 import { DeleteFieldCommand } from './DeleteFieldCommand';
 import { DeleteFieldHandler } from './DeleteFieldHandler';
 import {
@@ -44,6 +46,21 @@ const createContext = (): IExecutionContext => {
 };
 
 const noopUndoRedoService = createNoopUndoRedoStackService();
+
+class FakeFieldDeleteSnapshotSink {
+  calls: FieldDeleteSnapshotSinkInput[] = [];
+  completions = 0;
+
+  async prepare(_: IExecutionContext, input: FieldDeleteSnapshotSinkInput) {
+    this.calls.push(input);
+    return ok({
+      complete: () => {
+        this.completions += 1;
+        return Promise.resolve(ok(undefined));
+      },
+    });
+  }
+}
 
 class FakeFieldUndoRedoSnapshotService {
   captured: Array<{ tableId: TableId; fieldId: FieldId; includeRecords?: boolean }> = [];
@@ -262,6 +279,7 @@ describe('DeleteFieldHandler', () => {
 
     const foreignTableLoader = new FakeForeignTableLoaderService();
     const fieldUndoRedoSnapshotService = new FakeFieldUndoRedoSnapshotService();
+    const fieldDeleteSnapshotSink = new FakeFieldDeleteSnapshotSink();
 
     const handler = new DeleteFieldHandler(
       tableRepository,
@@ -270,7 +288,8 @@ describe('DeleteFieldHandler', () => {
       foreignTableLoader as unknown as ForeignTableLoaderService,
       createFieldOperationPluginRunner(),
       noopUndoRedoService,
-      fieldUndoRedoSnapshotService as unknown as FieldUndoRedoSnapshotService
+      fieldUndoRedoSnapshotService as unknown as FieldUndoRedoSnapshotService,
+      fieldDeleteSnapshotSink
     );
 
     const commandResult = DeleteFieldCommand.create({
@@ -289,6 +308,12 @@ describe('DeleteFieldHandler', () => {
     expect(unitOfWork.transactions.length).toBe(2);
     expect(foreignTableLoader.lastBaseId).toBeUndefined();
     expect(fieldUndoRedoSnapshotService.captured).toHaveLength(1);
+    expect(fieldDeleteSnapshotSink.calls).toHaveLength(1);
+    expect(fieldDeleteSnapshotSink.calls[0]?.fieldIds).toEqual([secondaryFieldId.toString()]);
+    expect(fieldDeleteSnapshotSink.calls[0]?.snapshots[0]?.snapshot.field.id).toBe(
+      secondaryFieldId.toString()
+    );
+    expect(fieldDeleteSnapshotSink.completions).toBe(1);
   });
 
   it('returns not found when field is missing', async () => {
@@ -308,7 +333,8 @@ describe('DeleteFieldHandler', () => {
       new FakeForeignTableLoaderService() as unknown as ForeignTableLoaderService,
       createFieldOperationPluginRunner(),
       noopUndoRedoService,
-      new FakeFieldUndoRedoSnapshotService() as unknown as FieldUndoRedoSnapshotService
+      new FakeFieldUndoRedoSnapshotService() as unknown as FieldUndoRedoSnapshotService,
+      new FakeFieldDeleteSnapshotSink()
     );
 
     const commandResult = DeleteFieldCommand.create({
@@ -319,6 +345,84 @@ describe('DeleteFieldHandler', () => {
 
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
     expect(result._unsafeUnwrapErr().message).toBe('Field not found');
+  });
+
+  it('skips the target undo snapshot when the caller already captured it', async () => {
+    const { table, baseId, tableId, secondaryFieldId } = buildTable();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+
+    const snapshotService = new FakeFieldUndoRedoSnapshotService();
+    const fieldDeleteSnapshotSink = new FakeFieldDeleteSnapshotSink();
+    const handler = new DeleteFieldHandler(
+      tableRepository,
+      new TableUpdateFlow(
+        tableRepository,
+        new FakeTableSchemaRepository(),
+        new FakeEventBus(),
+        new FakeUnitOfWork()
+      ),
+      new FakeFieldDeletionSideEffectService() as unknown as FieldDeletionSideEffectService,
+      new FakeForeignTableLoaderService() as unknown as ForeignTableLoaderService,
+      createFieldOperationPluginRunner(),
+      noopUndoRedoService,
+      snapshotService as unknown as FieldUndoRedoSnapshotService,
+      fieldDeleteSnapshotSink
+    );
+
+    const command = DeleteFieldCommand.create(
+      {
+        baseId: baseId.toString(),
+        tableId: tableId.toString(),
+        fieldId: secondaryFieldId.toString(),
+      },
+      { skipUndoRedo: true, skipTargetSnapshot: true }
+    )._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result.isOk()).toBe(true);
+    expect(snapshotService.captured).toHaveLength(0);
+    expect(fieldDeleteSnapshotSink.calls).toHaveLength(0);
+    expect(fieldDeleteSnapshotSink.completions).toBe(0);
+    expect(flattenUndoRedoCommands(result._unsafeUnwrap().undoCommand)).toEqual([]);
+  });
+
+  it('does not prepare delete snapshots during undo/redo replay', async () => {
+    const { table, baseId, tableId, secondaryFieldId } = buildTable();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const fieldDeleteSnapshotSink = new FakeFieldDeleteSnapshotSink();
+
+    const handler = new DeleteFieldHandler(
+      tableRepository,
+      new TableUpdateFlow(
+        tableRepository,
+        new FakeTableSchemaRepository(),
+        new FakeEventBus(),
+        new FakeUnitOfWork()
+      ),
+      new FakeFieldDeletionSideEffectService() as unknown as FieldDeletionSideEffectService,
+      new FakeForeignTableLoaderService() as unknown as ForeignTableLoaderService,
+      createFieldOperationPluginRunner(),
+      noopUndoRedoService,
+      new FakeFieldUndoRedoSnapshotService() as unknown as FieldUndoRedoSnapshotService,
+      fieldDeleteSnapshotSink
+    );
+
+    const commandResult = DeleteFieldCommand.create({
+      baseId: baseId.toString(),
+      tableId: tableId.toString(),
+      fieldId: secondaryFieldId.toString(),
+    });
+
+    const result = await handler.handle(
+      { ...createContext(), undoRedo: { mode: 'redo' } },
+      commandResult._unsafeUnwrap()
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(fieldDeleteSnapshotSink.calls).toHaveLength(0);
   });
 
   it('captures related undo snapshots from explicit field deletion reactions', async () => {
@@ -398,7 +502,8 @@ describe('DeleteFieldHandler', () => {
       new FakeForeignTableLoaderService() as unknown as ForeignTableLoaderService,
       createFieldOperationPluginRunner(),
       noopUndoRedoService,
-      snapshotService as unknown as FieldUndoRedoSnapshotService
+      snapshotService as unknown as FieldUndoRedoSnapshotService,
+      new FakeFieldDeleteSnapshotSink()
     );
 
     const command = DeleteFieldCommand.create({
@@ -453,7 +558,8 @@ describe('DeleteFieldHandler', () => {
       foreignTableLoader as unknown as ForeignTableLoaderService,
       createFieldOperationPluginRunner([plugin]),
       noopUndoRedoService,
-      fieldUndoRedoSnapshotService as unknown as FieldUndoRedoSnapshotService
+      fieldUndoRedoSnapshotService as unknown as FieldUndoRedoSnapshotService,
+      new FakeFieldDeleteSnapshotSink()
     );
 
     const command = DeleteFieldCommand.create({

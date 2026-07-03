@@ -14,6 +14,26 @@ import {
 } from '@teable/v2-core';
 import type { IExecutionContext } from '@teable/v2-core';
 
+type SqlExplainMode = 'json' | 'text' | 'dump';
+
+interface IExplainEndpointOptions {
+  analyze?: boolean;
+  includeSql?: boolean;
+  includeGraph?: boolean;
+  includeLocks?: boolean;
+  sqlExplainMode?: SqlExplainMode;
+  statementTimeoutMs?: number;
+}
+
+const buildExplainOptions = (input: IExplainEndpointOptions) => ({
+  analyze: input.analyze ?? false,
+  includeSql: input.includeSql ?? true,
+  includeGraph: input.includeGraph ?? false,
+  includeLocks: input.includeLocks ?? true,
+  sqlExplainMode: input.sqlExplainMode ?? 'json',
+  statementTimeoutMs: input.statementTimeoutMs ?? 0,
+});
+
 export interface IExplainCreateFieldInput {
   baseId: string;
   tableId: string;
@@ -26,6 +46,8 @@ export interface IExplainCreateFieldInput {
   includeSql?: boolean;
   includeGraph?: boolean;
   includeLocks?: boolean;
+  sqlExplainMode?: SqlExplainMode;
+  statementTimeoutMs?: number;
 }
 
 export interface IExplainUpdateFieldInput {
@@ -36,6 +58,8 @@ export interface IExplainUpdateFieldInput {
   includeSql?: boolean;
   includeGraph?: boolean;
   includeLocks?: boolean;
+  sqlExplainMode?: SqlExplainMode;
+  statementTimeoutMs?: number;
 }
 
 export interface IExplainDeleteFieldInput {
@@ -46,6 +70,8 @@ export interface IExplainDeleteFieldInput {
   includeSql?: boolean;
   includeGraph?: boolean;
   includeLocks?: boolean;
+  sqlExplainMode?: SqlExplainMode;
+  statementTimeoutMs?: number;
 }
 
 export interface IExplainCreateRecordInput {
@@ -55,6 +81,8 @@ export interface IExplainCreateRecordInput {
   includeSql?: boolean;
   includeGraph?: boolean;
   includeLocks?: boolean;
+  sqlExplainMode?: SqlExplainMode;
+  statementTimeoutMs?: number;
 }
 
 export interface IExplainUpdateRecordInput {
@@ -65,6 +93,8 @@ export interface IExplainUpdateRecordInput {
   includeSql?: boolean;
   includeGraph?: boolean;
   includeLocks?: boolean;
+  sqlExplainMode?: SqlExplainMode;
+  statementTimeoutMs?: number;
 }
 
 export interface IExplainDeleteRecordsInput {
@@ -74,6 +104,8 @@ export interface IExplainDeleteRecordsInput {
   includeSql?: boolean;
   includeGraph?: boolean;
   includeLocks?: boolean;
+  sqlExplainMode?: SqlExplainMode;
+  statementTimeoutMs?: number;
 }
 
 export interface IExplainDeleteTableInput {
@@ -83,6 +115,8 @@ export interface IExplainDeleteTableInput {
   includeSql?: boolean;
   includeGraph?: boolean;
   includeLocks?: boolean;
+  sqlExplainMode?: SqlExplainMode;
+  statementTimeoutMs?: number;
 }
 
 export const executeExplainCreateFieldEndpoint = async (
@@ -99,12 +133,11 @@ export const executeExplainCreateFieldEndpoint = async (
     };
   }
 
-  const result = await explainService.explain(context, commandResult.value, {
-    analyze: input.analyze ?? false,
-    includeSql: input.includeSql ?? true,
-    includeGraph: input.includeGraph ?? false,
-    includeLocks: input.includeLocks ?? true,
-  });
+  const result = await explainService.explain(
+    context,
+    commandResult.value,
+    buildExplainOptions(input)
+  );
 
   if (result.isErr()) {
     const error = result.error;
@@ -137,12 +170,11 @@ export const executeExplainUpdateFieldEndpoint = async (
     };
   }
 
-  const result = await explainService.explain(context, commandResult.value, {
-    analyze: input.analyze ?? false,
-    includeSql: input.includeSql ?? true,
-    includeGraph: input.includeGraph ?? false,
-    includeLocks: input.includeLocks ?? true,
-  });
+  const result = await explainService.explain(
+    context,
+    commandResult.value,
+    buildExplainOptions(input)
+  );
 
   if (result.isErr()) {
     const error = result.error;
@@ -175,12 +207,11 @@ export const executeExplainDeleteFieldEndpoint = async (
     };
   }
 
-  const result = await explainService.explain(context, commandResult.value, {
-    analyze: input.analyze ?? false,
-    includeSql: input.includeSql ?? true,
-    includeGraph: input.includeGraph ?? false,
-    includeLocks: input.includeLocks ?? true,
-  });
+  const result = await explainService.explain(
+    context,
+    commandResult.value,
+    buildExplainOptions(input)
+  );
 
   if (result.isErr()) {
     const error = result.error;
@@ -213,12 +244,11 @@ export const executeExplainDeleteTableEndpoint = async (
     };
   }
 
-  const result = await explainService.explain(context, commandResult.value, {
-    analyze: input.analyze ?? false,
-    includeSql: input.includeSql ?? true,
-    includeGraph: input.includeGraph ?? false,
-    includeLocks: input.includeLocks ?? true,
-  });
+  const result = await explainService.explain(
+    context,
+    commandResult.value,
+    buildExplainOptions(input)
+  );
 
   if (result.isErr()) {
     const error = result.error;
@@ -271,12 +301,11 @@ export const executeExplainCreateRecordEndpoint = async (
     };
   }
 
-  const result = await explainService.explain(context, commandResult.value, {
-    analyze: input.analyze ?? false,
-    includeSql: input.includeSql ?? true,
-    includeGraph: input.includeGraph ?? false,
-    includeLocks: input.includeLocks ?? true,
-  });
+  const result = await explainService.explain(
+    context,
+    commandResult.value,
+    buildExplainOptions(input)
+  );
 
   if (result.isErr()) {
     const error = result.error;
@@ -314,12 +343,11 @@ export const executeExplainUpdateRecordEndpoint = async (
     };
   }
 
-  const result = await explainService.explain(context, commandResult.value, {
-    analyze: input.analyze ?? false,
-    includeSql: input.includeSql ?? true,
-    includeGraph: input.includeGraph ?? false,
-    includeLocks: input.includeLocks ?? true,
-  });
+  const result = await explainService.explain(
+    context,
+    commandResult.value,
+    buildExplainOptions(input)
+  );
 
   if (result.isErr()) {
     const error = result.error;
@@ -374,12 +402,11 @@ export const executeExplainDeleteRecordsEndpoint = async (
     };
   }
 
-  const result = await explainService.explain(context, commandResult.value, {
-    analyze: input.analyze ?? false,
-    includeSql: input.includeSql ?? true,
-    includeGraph: input.includeGraph ?? false,
-    includeLocks: input.includeLocks ?? true,
-  });
+  const result = await explainService.explain(
+    context,
+    commandResult.value,
+    buildExplainOptions(input)
+  );
 
   if (result.isErr()) {
     const error = result.error;

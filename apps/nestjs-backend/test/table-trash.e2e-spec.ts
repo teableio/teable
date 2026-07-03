@@ -1,10 +1,18 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { faker } from '@faker-js/faker';
 import type { INestApplication } from '@nestjs/common';
-import { FieldKeyType, FieldType, ViewType, generateRecordTrashId } from '@teable/core';
+import type { ILinkFieldOptions } from '@teable/core';
+import {
+  FieldKeyType,
+  FieldType,
+  Relationship,
+  ViewType,
+  generateRecordTrashId,
+} from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { ITableTrashItemVo } from '@teable/openapi';
 import {
+  axios,
   RangeType,
   SettingKey,
   createRecords,
@@ -16,7 +24,9 @@ import {
   resetTrashItems,
   ResourceType,
   restoreTrash,
+  updateRecords,
   updateSetting,
+  urlBuilder,
 } from '@teable/openapi';
 import { vi } from 'vitest';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
@@ -69,6 +79,60 @@ const tableVo = {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+type IRestoreTrashStreamEvent =
+  | {
+      id: 'progress';
+      phase: 'preparing' | 'restoring';
+      batchIndex: number;
+      totalCount: number;
+      processedCount: number;
+      updatedCount: number;
+    }
+  | {
+      id: 'done';
+      totalCount: number;
+      updatedCount: number;
+    }
+  | {
+      id: 'error';
+      phase: 'preparing' | 'restoring' | 'finalizing';
+      batchIndex: number;
+      totalCount: number;
+      processedCount: number;
+      updatedCount: number;
+      message: string;
+      code?: string;
+    };
+
+const readRestoreTrashStream = async (response: Response) => {
+  expect(response.ok).toBe(true);
+  expect(response.headers.get('content-type')).toContain('text/event-stream');
+
+  const reader = response.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  const events: IRestoreTrashStreamEvent[] = [];
+
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (!line.startsWith('data:')) continue;
+      const jsonStr = line.slice(5).trim();
+      if (!jsonStr || jsonStr === '[DONE]') continue;
+      events.push(JSON.parse(jsonStr) as IRestoreTrashStreamEvent);
+    }
+  }
+
+  return events;
+};
+
 const waitForTableTrashItems = async (tableId: string, expectedCount = 1, maxRetries = 100) => {
   for (let i = 0; i < maxRetries; i++) {
     const result = await getTrashItems({ resourceId: tableId, resourceType: ResourceType.Table });
@@ -87,6 +151,7 @@ describe('Trash (e2e)', () => {
   let prisma: PrismaService;
   let eventEmitterService: EventEmitterService;
   let recordOpenApiService: RecordOpenApiService;
+  let cookie: string;
 
   const baseId = globalThis.testConfig.baseId;
 
@@ -99,6 +164,7 @@ describe('Trash (e2e)', () => {
     const appCtx = await initApp();
 
     app = appCtx.app;
+    cookie = appCtx.cookie;
     prisma = app.get(PrismaService);
     eventEmitterService = app.get(EventEmitterService);
     recordOpenApiService = app.get(RecordOpenApiService);
@@ -499,6 +565,8 @@ describe('Trash (e2e)', () => {
 
         const restored = await restoreTrash(recordTrashItem!.id, tableId);
         expect(restored.status).toEqual(201);
+        expect(restored.headers['x-teable-v2']).toBe('true');
+        expect(restored.headers['x-teable-v2-feature']).toBe('createRecord');
         expect(legacyRestoreSpy).not.toHaveBeenCalled();
 
         const recordsAfterRestore = await getRecords(tableId, {
@@ -523,6 +591,150 @@ describe('Trash (e2e)', () => {
           },
         });
         legacyRestoreSpy.mockRestore();
+      }
+    });
+
+    it('should restore V2 field trash values from a sparse snapshot', async () => {
+      await updateSetting({
+        [SettingKey.CANARY_CONFIG]: {
+          enabled: true,
+          spaceIds: [globalThis.testConfig.spaceId],
+        },
+      });
+
+      try {
+        const field = await createField(tableId, {
+          name: `restore-v2-sparse-${Date.now()}`,
+          type: FieldType.SingleLineText,
+        });
+        const created = await createRecords(tableId, {
+          fieldKeyType: FieldKeyType.Id,
+          records: Array.from({ length: 501 }, (_, index) => ({
+            fields: {
+              [field.id]: `restore-value-${index}`,
+            },
+          })),
+        });
+        expect(created.headers['x-teable-v2']).toBe('true');
+        const recordIds = created.data.records.map((record) => record.id);
+
+        const deleteRes = await deleteFields(tableId, [field.id]);
+        expect(deleteRes.headers['x-teable-v2']).toBe('true');
+
+        const itemsRes = await waitForTableTrashItems(tableId, 1);
+        const fieldTrashItem = itemsRes.data.trashItems.find(
+          (t) => (t as ITableTrashItemVo).resourceType === ResourceType.Field
+        ) as ITableTrashItemVo | undefined;
+
+        expect(fieldTrashItem).toBeTruthy();
+
+        const restored = await restoreTrash(fieldTrashItem!.id, tableId);
+        expect(restored.status).toEqual(201);
+        expect(restored.headers['x-teable-v2']).toBe('true');
+        expect(restored.headers['x-teable-v2-feature']).toBe('createField');
+
+        const recordsAfterRestore = await getRecords(tableId, {
+          fieldKeyType: FieldKeyType.Id,
+        });
+        const restoredRecord = recordsAfterRestore.records.find(
+          (record) => record.id === recordIds[0]
+        );
+        expect(restoredRecord?.fields[field.id]).toBe('restore-value-0');
+      } finally {
+        await updateSetting({
+          [SettingKey.CANARY_CONFIG]: {
+            enabled: false,
+            spaceIds: [],
+          },
+        });
+      }
+    });
+
+    it('should stream V2 field trash restore progress while restoring record values', async () => {
+      await updateSetting({
+        [SettingKey.CANARY_CONFIG]: {
+          enabled: true,
+          spaceIds: [globalThis.testConfig.spaceId],
+        },
+      });
+
+      const legacyRecordUpdateSpy = vi.spyOn(recordOpenApiService, 'updateRecords');
+      try {
+        const field = await createField(tableId, {
+          name: `restore-v2-stream-${Date.now()}`,
+          type: FieldType.SingleLineText,
+        });
+        const recordsBeforeUpdate = await getRecords(tableId, {
+          fieldKeyType: FieldKeyType.Id,
+        });
+        const recordIds = recordsBeforeUpdate.records.slice(0, 3).map((record) => record.id);
+        await updateRecords(tableId, {
+          fieldKeyType: FieldKeyType.Id,
+          records: recordIds.map((recordId, index) => ({
+            id: recordId,
+            fields: {
+              [field.id]: `stream-restore-value-${index}`,
+            },
+          })),
+        });
+
+        const deleteRes = await deleteFields(tableId, [field.id]);
+        expect(deleteRes.headers['x-teable-v2']).toBe('true');
+
+        const itemsRes = await waitForTableTrashItems(tableId, 1);
+        const fieldTrashItem = itemsRes.data.trashItems.find(
+          (item) => (item as ITableTrashItemVo).resourceType === ResourceType.Field
+        ) as ITableTrashItemVo | undefined;
+        expect(fieldTrashItem).toBeTruthy();
+
+        const response = await fetch(
+          axios.getUri({
+            baseURL: axios.defaults.baseURL,
+            url: urlBuilder('/trash/restore-field/{trashId}/stream', {
+              trashId: fieldTrashItem!.id,
+            }),
+            params: { tableId },
+          }),
+          {
+            method: 'POST',
+            headers: {
+              Accept: 'text/event-stream',
+              Cookie: cookie,
+            },
+          }
+        );
+
+        const events = await readRestoreTrashStream(response);
+        const progressEvents = events.filter((event) => event.id === 'progress');
+        const doneEvent = events.find((event) => event.id === 'done');
+
+        expect(progressEvents.some((event) => event.updatedCount > 0)).toBe(true);
+        expect(doneEvent).toMatchObject({
+          id: 'done',
+          updatedCount: 3,
+        });
+        expect(doneEvent).not.toHaveProperty('resourceType');
+        expect(response.headers.get('x-teable-v2')).toBe('true');
+        expect(response.headers.get('x-teable-v2-feature')).toBe('createField');
+        expect(legacyRecordUpdateSpy).not.toHaveBeenCalled();
+
+        const recordsAfterRestore = await getRecords(tableId, {
+          fieldKeyType: FieldKeyType.Id,
+        });
+        for (const [index, recordId] of recordIds.entries()) {
+          const restoredRecord = recordsAfterRestore.records.find(
+            (record) => record.id === recordId
+          );
+          expect(restoredRecord?.fields[field.id]).toBe(`stream-restore-value-${index}`);
+        }
+      } finally {
+        await updateSetting({
+          [SettingKey.CANARY_CONFIG]: {
+            enabled: false,
+            spaceIds: [],
+          },
+        });
+        legacyRecordUpdateSpy.mockRestore();
       }
     });
 
@@ -563,6 +775,93 @@ describe('Trash (e2e)', () => {
 
       const afterFields = await getFields(tableId);
       expect(afterFields.find((f) => f.id === field.id)).toBeTruthy();
+    });
+
+    it('should restore a two-way link field together with its deleted symmetric field', async () => {
+      await updateSetting({
+        [SettingKey.CANARY_CONFIG]: {
+          enabled: true,
+          spaceIds: [globalThis.testConfig.spaceId],
+        },
+      });
+
+      const foreignTable = await createTable(baseId, {
+        name: `restore-link-target-${Date.now()}`,
+        fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+        records: [{ fields: { Name: 'target' } }],
+      });
+
+      try {
+        const linkField = await createField(tableId, {
+          name: 'restore link',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyMany,
+            foreignTableId: foreignTable.id,
+          },
+        });
+        const symmetricFieldId = (linkField.options as ILinkFieldOptions).symmetricFieldId;
+        expect(symmetricFieldId).toBeTruthy();
+
+        const sourceRecord = (await getRecords(tableId, { fieldKeyType: FieldKeyType.Id }))
+          .records[0];
+        const targetRecord = (await getRecords(foreignTable.id, { fieldKeyType: FieldKeyType.Id }))
+          .records[0];
+
+        await updateRecords(tableId, {
+          fieldKeyType: FieldKeyType.Id,
+          records: [
+            {
+              id: sourceRecord.id,
+              fields: {
+                [linkField.id]: [{ id: targetRecord.id }],
+              },
+            },
+          ],
+        });
+
+        const deleteRes = await deleteFields(tableId, [linkField.id]);
+        expect(deleteRes.headers['x-teable-v2']).toBe('true');
+
+        const deletedMain = await prisma.field.findUnique({ where: { id: linkField.id } });
+        const deletedSymmetric = await prisma.field.findUnique({
+          where: { id: symmetricFieldId! },
+        });
+        expect(deletedMain?.deletedTime).toBeTruthy();
+        expect(deletedSymmetric?.deletedTime).toBeTruthy();
+
+        const itemsRes = await waitForTableTrashItems(tableId, 1);
+        const fieldTrashItem = itemsRes.data.trashItems.find(
+          (t) => (t as ITableTrashItemVo).resourceType === ResourceType.Field
+        ) as ITableTrashItemVo | undefined;
+
+        expect(fieldTrashItem).toBeTruthy();
+
+        const restored = await restoreTrash(fieldTrashItem!.id, tableId);
+        expect(restored.status).toEqual(201);
+        expect(restored.headers['x-teable-v2']).toBe('true');
+        expect(restored.headers['x-teable-v2-feature']).toBe('createField');
+
+        const afterSourceFields = await getFields(tableId);
+        const afterTargetFields = await getFields(foreignTable.id);
+        expect(afterSourceFields.find((f) => f.id === linkField.id)).toBeTruthy();
+        expect(afterTargetFields.find((f) => f.id === symmetricFieldId)).toBeTruthy();
+
+        const sourceAfterRestore = (
+          await getRecords(tableId, { fieldKeyType: FieldKeyType.Id })
+        ).records.find((record) => record.id === sourceRecord.id);
+        expect(sourceAfterRestore?.fields[linkField.id]).toEqual([
+          expect.objectContaining({ id: targetRecord.id }),
+        ]);
+      } finally {
+        await updateSetting({
+          [SettingKey.CANARY_CONFIG]: {
+            enabled: false,
+            spaceIds: [],
+          },
+        });
+        await permanentDeleteTable(baseId, foreignTable.id);
+      }
     });
 
     it('should restore fields successfully', async () => {

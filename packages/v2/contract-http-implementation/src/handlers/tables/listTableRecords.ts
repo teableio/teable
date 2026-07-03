@@ -5,14 +5,24 @@ import {
   mapListTableRecordsResultToDto,
 } from '@teable/v2-contract-http';
 import { ListTableRecordsQuery } from '@teable/v2-core';
-import type { IExecutionContext, IQueryBus, ListTableRecordsResult } from '@teable/v2-core';
+import type {
+  IExecutionContext,
+  IQueryBus,
+  IRecordReadQuerySource,
+  ListTableRecordsResult,
+} from '@teable/v2-core';
+
+export interface IListTableRecordsEndpointOptions {
+  readonly recordReadQuerySource?: IRecordReadQuerySource;
+}
 
 export const executeListTableRecordsEndpoint = async (
   context: IExecutionContext,
   rawInput: unknown,
-  queryBus: IQueryBus
+  queryBus: IQueryBus,
+  options?: IListTableRecordsEndpointOptions
 ): Promise<IListTableRecordsEndpointResult> => {
-  const queryResult = ListTableRecordsQuery.create(rawInput);
+  const queryResult = ListTableRecordsQuery.create(rawInput, options);
   if (queryResult.isErr()) {
     const error = queryResult.error;
     return {

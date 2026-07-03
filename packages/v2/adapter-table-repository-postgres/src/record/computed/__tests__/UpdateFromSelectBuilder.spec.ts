@@ -1,6 +1,7 @@
 import {
   BaseId,
   DbFieldName,
+  FieldHasError,
   FieldId,
   FieldName,
   FormulaExpression,
@@ -71,6 +72,15 @@ const createFormulaTable = () => {
     ._unsafeUnwrap();
 
   return { table, formulaFieldId: table.getFields()[1].id() };
+};
+
+const createErroredFormulaTable = () => {
+  const result = createFormulaTable();
+  result.table
+    .getField((field) => field.id().equals(result.formulaFieldId))
+    ._unsafeUnwrap()
+    .setHasError(FieldHasError.error());
+  return result;
 };
 
 const createCreatedTimeTable = () => {
@@ -183,6 +193,29 @@ describe('UpdateFromSelectBuilder', () => {
     expect(updateResult.value.sql).toContain('"__version" = "u"."__version" + 1');
   });
 
+  it('builds a no-op query when all requested fields are skipped', () => {
+    const db = createTestDb();
+    const { table, formulaFieldId } = createErroredFormulaTable();
+
+    const selectBuilder = new ComputedTableRecordQueryBuilder(db, { typeValidationStrategy })
+      .from(table)
+      .select([formulaFieldId]);
+    const selectResult = selectBuilder.build();
+    expect(selectResult.isOk()).toBe(true);
+    if (selectResult.isErr()) return;
+
+    const builder = new UpdateFromSelectBuilder(db);
+    const updateResult = builder.build({
+      table,
+      fieldIds: [formulaFieldId],
+      selectQuery: selectResult.value,
+    });
+
+    expect(updateResult.isOk()).toBe(true);
+    if (updateResult.isErr()) return;
+    expect(updateResult.value.sql).toBe('select 1 where false');
+  });
+
   it('can omit __version increment for externally versioned field chunks', () => {
     const db = createTestDb();
     const { table, formulaFieldId } = createFormulaTable();
@@ -207,6 +240,34 @@ describe('UpdateFromSelectBuilder', () => {
 
     expect(updateResult.value.compiled.sql).not.toContain('"__version" =');
     expect(updateResult.value.compiled.sql).toContain('"u"."__version" as "__old_version"');
+  });
+
+  it('builds a no-op returning query when all requested returned fields are skipped', () => {
+    const db = createTestDb();
+    const { table, formulaFieldId } = createErroredFormulaTable();
+
+    const selectBuilder = new ComputedTableRecordQueryBuilder(db, { typeValidationStrategy })
+      .from(table)
+      .select([formulaFieldId]);
+    const selectResult = selectBuilder.build();
+    expect(selectResult.isOk()).toBe(true);
+    if (selectResult.isErr()) return;
+
+    const builder = new UpdateFromSelectBuilder(db);
+    const updateResult = builder.buildWithReturning({
+      table,
+      fieldIds: [formulaFieldId],
+      selectQuery: selectResult.value,
+      incrementVersion: false,
+    });
+
+    expect(updateResult.isOk()).toBe(true);
+    if (updateResult.isErr()) return;
+    expect(updateResult.value.compiled.sql).toBe(
+      'select null::text as "__id", null::integer as "__old_version" where false'
+    );
+    expect(updateResult.value.columnToFieldId.size).toBe(0);
+    expect(updateResult.value.oldColumnAliases.size).toBe(0);
   });
 
   it('builds UPDATE FROM SELECT with dirtyFilter using INNER JOIN for better query planning', () => {

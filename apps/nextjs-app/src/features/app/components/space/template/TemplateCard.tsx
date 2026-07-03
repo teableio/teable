@@ -8,6 +8,8 @@ interface ITemplateCardProps extends Pick<ITemplateBaseProps, 'onClickTemplateCa
   template: ITemplateVo;
   size: 'xs' | 'sm' | 'md' | 'lg';
   className?: string;
+  /** PostHog autocapture marker (autocapture is allowlisted to `[data-attr]` elements). */
+  dataAttr?: string;
 }
 
 const AspectRatioMap = {
@@ -22,6 +24,7 @@ export const TemplateCard = ({
   onClickTemplateCardHandler,
   size = 'sm',
   className,
+  dataAttr,
 }: ITemplateCardProps) => {
   const { name, description, cover, visitCount, id: templateId } = template;
   const { presignedUrl } = cover ?? {};
@@ -35,6 +38,7 @@ export const TemplateCard = ({
       className={cn('relative flex w-full shrink-0 cursor-pointer flex-col', className)}
       role="button"
       tabIndex={0}
+      data-attr={dataAttr}
       onClick={(e) => {
         e.stopPropagation();
         onClickTemplateCardHandler?.(templateId);
