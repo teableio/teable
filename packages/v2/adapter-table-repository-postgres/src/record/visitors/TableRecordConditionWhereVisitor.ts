@@ -52,10 +52,18 @@ const resolveLookupInnerField = (field: core.Field): core.Field | undefined => {
   return undefined;
 };
 
-const fieldIsLookupWithUserOrLinkInner = (field: core.Field): boolean => {
+const resolveEffectiveLookupField = (field: core.Field): core.Field => {
   const innerField = resolveLookupInnerField(field);
-  return innerField ? fieldIsUserOrLink(innerField) : false;
+  return innerField ? resolveEffectiveLookupField(innerField) : field;
 };
+
+const fieldIsLookupWithUserOrLinkInner = (field: core.Field): boolean => {
+  const effectiveField = resolveEffectiveLookupField(field);
+  return effectiveField !== field && fieldIsUserOrLink(effectiveField);
+};
+
+const fieldHasLinkDisplayValue = (field: core.Field): boolean =>
+  fieldIsLink(resolveEffectiveLookupField(field));
 
 const isArrayLikeOutputField = (field: core.Field, isMultiple: boolean): boolean => {
   // Query model currently forces lookup/conditionalLookup output to arrays for v1 parity.
@@ -444,7 +452,7 @@ const classifyFieldReferenceComparison = (
       if (rightIsUserOrLinkLike) {
         return ok({ kind: 'userOrLinkIds' });
       }
-      if (fieldIsLink(field)) {
+      if (fieldHasLinkDisplayValue(field)) {
         return ok({ kind: 'linkTitle' });
       }
       return ok(hasHostTableAlias ? { kind: 'incompatible' } : { kind: 'generic' });
@@ -496,8 +504,6 @@ const resolveDateRange = (
       return ok(numberOfDays);
     };
 
-    const hasTimeFormatting = formatting != null && formatting.time() !== core.TimeFormatting.None;
-
     const computeDateRangeForFixedDays = (
       method: 'date' | 'tomorrow' | 'yesterday'
     ): [Dayjs, Dayjs] => {
@@ -518,10 +524,14 @@ const resolveDateRange = (
     const determineExactDateRange = (): Result<[Dayjs, Dayjs], DomainError> => {
       return requireExactDate().map((raw) => {
         const parsed = dateUtil.date(raw);
-        if (hasTimeFormatting) {
-          return [parsed, parsed];
-        }
         return [parsed.startOf('day'), parsed.endOf('day')];
+      });
+    };
+
+    const determineExactDateTimeRange = (): Result<[Dayjs, Dayjs], DomainError> => {
+      return requireExactDate().map((raw) => {
+        const parsed = dateUtil.date(raw);
+        return [parsed, parsed];
       });
     };
 
@@ -596,6 +606,7 @@ const resolveDateRange = (
         .with('daysAgo', () => calculateDateRangeForOffsetDays(true))
         .with('daysFromNow', () => calculateDateRangeForOffsetDays(false))
         .with('exactDate', () => determineExactDateRange())
+        .with('exactDateTime', () => determineExactDateTimeRange())
         .with('exactFormatDate', () => determineExactFormatDateRange())
         .with('currentWeek', () => ok(generateRelativeDateFromCurrentDateRange('current', 'week')))
         .with('currentMonth', () =>

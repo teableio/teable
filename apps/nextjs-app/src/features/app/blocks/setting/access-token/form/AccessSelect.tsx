@@ -17,7 +17,7 @@ import {
   PopoverTrigger,
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
 import { AccessList } from './AccessList';
 
@@ -38,6 +38,8 @@ export const AccessSelect = (props: IFormAccess) => {
   const [bases, setBases] = useState<string[]>(value?.baseIds || []);
   const [spaces, setSpaces] = useState<string[]>(value?.spaceIds || []);
   const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const popoverContainer = triggerRef.current?.closest<HTMLElement>('[role="dialog"]');
 
   const { data: spaceList, isLoading: spaceListLoading } = useQuery({
     queryKey: ReactQueryKeys.spaceList(),
@@ -133,12 +135,18 @@ export const AccessSelect = (props: IFormAccess) => {
         )}
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
-            <Button size={'sm'} variant="outline" role="combobox" aria-expanded={open}>
+            <Button
+              ref={triggerRef}
+              size={'sm'}
+              variant="outline"
+              role="combobox"
+              aria-expanded={open}
+            >
               <Plus className="size-4 shrink-0" />
               {t('accessSelect.button')}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-96 p-0">
+          <PopoverContent container={popoverContainer} className="max-h-[400px] w-96 p-0">
             <Command>
               <CommandInput placeholder={t('accessSelect.inputPlaceholder')} className="h-9" />
               <CommandEmpty>{t('accessSelect.empty')}</CommandEmpty>

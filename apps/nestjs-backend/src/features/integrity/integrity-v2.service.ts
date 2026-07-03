@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import * as Sentry from '@sentry/nestjs';
 import type {
   IV2BaseSchemaIntegrityRepairRo,
@@ -11,7 +11,7 @@ import type {
   IV2SchemaIntegrityRepairCapability,
   IV2SchemaIntegrityRepairRo,
 } from '@teable/openapi';
-import { v2DataDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import { v2DataDbTokens, v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import {
   checkTableMetaWithTables,
   createMetaRepairer,
@@ -41,7 +41,10 @@ import {
   type IExecutionContext,
   type ITracer,
   type ITableRepository,
+  type TableQueryState,
 } from '@teable/v2-core';
+import { sql } from 'kysely';
+import { ok } from 'neverthrow';
 import { V2ContainerService } from '../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../v2/v2-execution-context.factory';
 
@@ -58,6 +61,13 @@ type IReferencedForeignTables = {
   >;
   unknownBase: Set<string>;
 };
+type IBaseTargetPreflightIssue = IV2SchemaIntegrityCheckResult;
+type IBaseTablePreflightRow = {
+  tableId: string;
+  tableName: string;
+  activeFieldCount: string | number | bigint;
+  primaryFieldCount: string | number | bigint;
+};
 
 const schemaIntegrityRepairFeatureTag = 'schema-integrity-repair';
 const teableBaseIdAttribute = 'teable.base_id';
@@ -67,9 +77,15 @@ const integrityFailureKindAttribute = 'teable.integrity.failure_kind';
 const integrityRuleIdAttribute = 'teable.integrity.rule_id';
 const integrityOutcomeAttribute = 'teable.integrity.outcome';
 const integrityRequiredAttribute = 'teable.integrity.required';
+// Physical schema integrity should not validate deleted tables or fields. The repository
+// hydrates only fields/views with deleted_time IS NULL for activeWithPending.
+const schemaIntegrityTableState: TableQueryState = 'activeWithPending';
+const slowIntegrityTableCheckMs = 10_000;
 
 @Injectable()
 export class IntegrityV2Service {
+  private readonly logger = new Logger(IntegrityV2Service.name);
+
   constructor(
     private readonly v2ContainerService: V2ContainerService,
     private readonly v2ContextFactory: V2ExecutionContextFactory
@@ -79,11 +95,12 @@ export class IntegrityV2Service {
     tableId: string,
     statuses?: IV2SchemaIntegrityFilterStatus[]
   ): Promise<AsyncGenerator<IV2SchemaIntegrityCheckResult, void, unknown>> {
-    const { table, tables, db, schema } = await this.resolveSchemaTarget(tableId, {
+    const { table, tables, db, metaDb, schema } = await this.resolveSchemaTarget(tableId, {
       includeBaseTables: true,
     });
     const checker = createSchemaChecker({
       db,
+      metaDb,
       introspector: new PostgresSchemaIntrospector(db),
       schema,
     });
@@ -95,16 +112,17 @@ export class IntegrityV2Service {
     tableId: string,
     repairRo: IV2SchemaIntegrityRepairRo
   ): Promise<AsyncGenerator<IV2SchemaIntegrityRepairResult, void, unknown>> {
-    const { table, tables, db, schema, context } = await this.resolveSchemaTarget(tableId, {
+    const { table, tables, db, metaDb, schema, context } = await this.resolveSchemaTarget(tableId, {
       includeBaseTables: true,
     });
 
     const repairer = createSchemaRepairer({
       db,
+      metaDb,
       introspector: new PostgresSchemaIntrospector(db),
       schema,
     });
-    const metaRepairer = createMetaRepairer({ db });
+    const metaRepairer = createMetaRepairer({ db: metaDb });
 
     if (repairRo.fieldId && isMetaRuleId(repairRo.ruleId)) {
       return this.decorateRepairStream(
@@ -186,27 +204,36 @@ export class IntegrityV2Service {
     baseId: string,
     statuses?: IV2SchemaIntegrityFilterStatus[]
   ): Promise<AsyncGenerator<IV2SchemaIntegrityCheckResult, void, unknown>> {
-    const { tables, metaTables, db, schema } = await this.resolveBaseTarget(baseId);
+    const startedAt = Date.now();
+    this.logger.log(`Schema integrity base check target resolving started baseId=${baseId}`);
+    const { tables, metaTables, db, metaDb, schema, preflightIssues } =
+      await this.resolveBaseTarget(baseId);
+    this.logger.log(
+      `Schema integrity base check target resolving completed baseId=${baseId} tableCount=${tables.length} metaTableCount=${metaTables.length} elapsedMs=${Date.now() - startedAt}`
+    );
     const checker = createSchemaChecker({
       db,
+      metaDb,
       introspector: new PostgresSchemaIntrospector(db),
       schema,
     });
 
-    return this.streamBaseChecks(tables, metaTables, checker, statuses);
+    return this.streamBaseChecks(tables, metaTables, checker, statuses, preflightIssues);
   }
 
   async createBaseRepairStream(
     baseId: string,
     repairRo: IV2BaseSchemaIntegrityRepairRo
   ): Promise<AsyncGenerator<IV2SchemaIntegrityRepairResult, void, unknown>> {
-    const { tables, metaTables, db, schema, context } = await this.resolveBaseTarget(baseId);
+    const { tables, metaTables, db, metaDb, schema, context } =
+      await this.resolveBaseTarget(baseId);
     const repairer = createSchemaRepairer({
       db,
+      metaDb,
       introspector: new PostgresSchemaIntrospector(db),
       schema,
     });
-    const metaRepairer = createMetaRepairer({ db });
+    const metaRepairer = createMetaRepairer({ db: metaDb });
 
     return this.streamBaseRepairs(tables, metaTables, repairer, metaRepairer, repairRo, {
       tracer: context.tracer,
@@ -232,7 +259,7 @@ export class IntegrityV2Service {
     const tableResult = await tableRepository.findOne(
       context,
       TableByIdSpec.create(parsedTableId.value),
-      { state: 'all' }
+      { state: schemaIntegrityTableState }
     );
 
     if (tableResult.isErr()) {
@@ -240,6 +267,7 @@ export class IntegrityV2Service {
     }
 
     const db = container.resolve<ISchemaIntegrityDb>(v2DataDbTokens.db);
+    const metaDb = container.resolve<ISchemaIntegrityDb>(v2MetaDbTokens.db);
     const table = tableResult.value;
     let tables: ReadonlyArray<Table> = [table];
 
@@ -247,7 +275,7 @@ export class IntegrityV2Service {
       const tablesResult = await tableRepository.find(
         context,
         TableByBaseIdSpec.create(table.baseId()),
-        { state: 'all' }
+        { state: schemaIntegrityTableState }
       );
 
       if (tablesResult.isErr()) {
@@ -261,6 +289,7 @@ export class IntegrityV2Service {
       table,
       tables,
       db,
+      metaDb,
       schema: table.baseId().toString(),
       context,
     };
@@ -286,17 +315,30 @@ export class IntegrityV2Service {
       throw new HttpException('Base not found', HttpStatus.NOT_FOUND);
     }
 
-    const tablesResult = await tableRepository.find(
-      context,
-      TableByBaseIdSpec.create(parsedBaseId.value),
-      { state: 'all' }
-    );
+    const db = container.resolve<ISchemaIntegrityDb>(v2DataDbTokens.db);
+    const metaDb = container.resolve<ISchemaIntegrityDb>(v2MetaDbTokens.db);
+    const preflight = await this.inspectBaseTablesBeforeHydration(metaDb, parsedBaseId.value);
+    const tableSpec = (() => {
+      if (!preflight.tableIds.length) {
+        return undefined;
+      }
+      const tableSpecResult = Table.specs(parsedBaseId.value).byIds(preflight.tableIds).build();
+      if (tableSpecResult.isErr()) {
+        throw new HttpException(tableSpecResult.error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+      return tableSpecResult.value;
+    })();
+
+    const tablesResult = tableSpec
+      ? await tableRepository.find(context, tableSpec, {
+          state: schemaIntegrityTableState,
+        })
+      : ok([]);
 
     if (tablesResult.isErr()) {
       throw new HttpException(tablesResult.error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
-    const db = container.resolve<ISchemaIntegrityDb>(v2DataDbTokens.db);
     const metaTables = await this.loadReferencedForeignTables(
       tablesResult.value,
       tableRepository,
@@ -310,8 +352,106 @@ export class IntegrityV2Service {
       tables,
       metaTables,
       db,
+      metaDb,
       schema: parsedBaseId.value.toString(),
       context,
+      preflightIssues: preflight.issues,
+    };
+  }
+
+  private async inspectBaseTablesBeforeHydration(metaDb: ISchemaIntegrityDb, baseId: BaseId) {
+    const rows = await metaDb
+      .selectFrom('table_meta as t')
+      .leftJoin('field as f', (join) =>
+        join.onRef('f.table_id', '=', 't.id').on('f.deleted_time', 'is', null)
+      )
+      .select([
+        't.id as tableId',
+        't.name as tableName',
+        sql<number>`count(${sql.ref('f.id')})`.as('activeFieldCount'),
+        sql<number>`count(${sql.ref('f.id')}) filter (where ${sql.ref('f.is_primary')} = true)`.as(
+          'primaryFieldCount'
+        ),
+      ])
+      .where('t.base_id', '=', baseId.toString())
+      .where('t.deleted_time', 'is', null)
+      .groupBy(['t.id', 't.name'])
+      .execute();
+
+    const tableIds: TableId[] = [];
+    const issues: IBaseTargetPreflightIssue[] = [];
+    for (const row of rows as IBaseTablePreflightRow[]) {
+      const activeFieldCount = Number(row.activeFieldCount);
+      const primaryFieldCount = Number(row.primaryFieldCount);
+      if (activeFieldCount > 0) {
+        const tableId = TableId.create(row.tableId);
+        if (tableId.isOk()) {
+          tableIds.push(tableId.value);
+        }
+      }
+
+      if (activeFieldCount === 0 || primaryFieldCount === 0) {
+        issues.push(
+          this.createBaseTableHydrationIssue(baseId.toString(), {
+            tableId: row.tableId,
+            tableName: row.tableName,
+            activeFieldCount,
+            primaryFieldCount,
+          })
+        );
+      }
+    }
+    return { tableIds, issues };
+  }
+
+  private createBaseTableHydrationIssue(
+    baseId: string,
+    table: {
+      tableId: string;
+      tableName: string;
+      activeFieldCount: number;
+      primaryFieldCount: number;
+    }
+  ): IBaseTargetPreflightIssue {
+    const ruleId =
+      table.activeFieldCount === 0 ? 'table_empty_active_fields' : 'table_missing_primary_field';
+    const message =
+      table.activeFieldCount === 0
+        ? `Table "${table.tableName}" has no active fields, so V2 cannot hydrate it for schema checks.`
+        : `Table "${table.tableName}" has no active primary field, which can break V2 schema checks and repair planning.`;
+
+    return {
+      id: `${table.tableId}:${ruleId}`,
+      baseId,
+      tableId: table.tableId,
+      tableName: table.tableName,
+      fieldId: table.tableId,
+      fieldName: 'System Columns',
+      ruleId,
+      ruleDescription: 'Table must have active fields and an active primary field',
+      status: 'error',
+      message,
+      details: {
+        missing: [message],
+        missingItems: [
+          {
+            code: ruleId,
+            message: { fallback: message },
+          },
+        ],
+      },
+      repair: {
+        available: false,
+        mode: 'manual',
+        reason: {
+          fallback:
+            'Automatic repair is unavailable in V2 schema repair because this table metadata needs a primary field decision.',
+        },
+      },
+      required: true,
+      timestamp: Date.now(),
+      dependencies: [],
+      depth: 0,
     };
   }
 
@@ -478,7 +618,9 @@ export class IntegrityV2Service {
       throw new HttpException(specResult.error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
-    const tablesResult = await tableRepository.find(context, specResult.value, { state: 'all' });
+    const tablesResult = await tableRepository.find(context, specResult.value, {
+      state: schemaIntegrityTableState,
+    });
     if (tablesResult.isErr()) {
       throw new HttpException(tablesResult.error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
@@ -494,23 +636,63 @@ export class IntegrityV2Service {
     checker: ReturnType<typeof createSchemaChecker>,
     statuses?: IV2SchemaIntegrityFilterStatus[]
   ): AsyncGenerator<IV2SchemaIntegrityCheckResult, void, unknown> {
+    const baseId = table.baseId().toString();
+    const tableId = table.id().toString();
+    const tableName = table.name().toString();
+    const schemaStartedAt = Date.now();
+    this.logger.log(
+      `Schema integrity table schema check started baseId=${baseId} tableId=${tableId} tableName=${tableName}`
+    );
     yield* this.decorateCheckStream(table, checker.checkTable(table), statuses);
+    const schemaElapsedMs = Date.now() - schemaStartedAt;
+    this.logIntegrityPhaseCompleted('schema', baseId, tableId, tableName, schemaElapsedMs);
+
+    const metaStartedAt = Date.now();
+    this.logger.log(
+      `Schema integrity table meta check started baseId=${baseId} tableId=${tableId} tableName=${tableName}`
+    );
     yield* this.decorateMetaCheckStream(
       table,
       checkTableMetaWithTables(table, table.baseId(), allTables),
       statuses
     );
+    const metaElapsedMs = Date.now() - metaStartedAt;
+    this.logIntegrityPhaseCompleted('meta', baseId, tableId, tableName, metaElapsedMs);
   }
 
   private async *streamBaseChecks(
     tables: ReadonlyArray<Table>,
     metaTables: ReadonlyArray<Table>,
     checker: ReturnType<typeof createSchemaChecker>,
-    statuses?: IV2SchemaIntegrityFilterStatus[]
+    statuses?: IV2SchemaIntegrityFilterStatus[],
+    preflightIssues: ReadonlyArray<IBaseTargetPreflightIssue> = []
   ): AsyncGenerator<IV2SchemaIntegrityCheckResult, void, unknown> {
-    for (const table of tables) {
-      yield* this.streamTableChecks(table, metaTables, checker, statuses);
+    const statusFilter = this.createStatusFilterSet(statuses);
+    const baseId = tables[0]?.baseId().toString() ?? preflightIssues[0]?.baseId ?? 'unknown';
+    const startedAt = Date.now();
+    this.logger.log(
+      `Schema integrity base check stream started baseId=${baseId} tableCount=${tables.length} metaTableCount=${metaTables.length}`
+    );
+    for (const issue of preflightIssues) {
+      if (this.shouldIncludeResult(issue.status, statusFilter)) {
+        yield issue;
+      }
     }
+
+    let checkedTables = 0;
+    for (const table of tables) {
+      const tableStartedAt = Date.now();
+      this.logger.log(
+        `Schema integrity base check table started baseId=${baseId} tableId=${table.id().toString()} tableName=${table.name().toString()} index=${checkedTables + 1}/${tables.length}`
+      );
+      yield* this.streamTableChecks(table, metaTables, checker, statuses);
+      checkedTables += 1;
+      const tableElapsedMs = Date.now() - tableStartedAt;
+      this.logIntegrityTableCompleted(baseId, table, checkedTables, tables.length, tableElapsedMs);
+    }
+    this.logger.log(
+      `Schema integrity base check stream completed baseId=${baseId} tableCount=${tables.length} elapsedMs=${Date.now() - startedAt}`
+    );
   }
 
   private async *streamBaseRepairs(
@@ -787,6 +969,36 @@ export class IntegrityV2Service {
 
   private createScopedResultId(table: Table, id: string): string {
     return `${table.id().toString()}:${id}`;
+  }
+
+  private logIntegrityPhaseCompleted(
+    phase: 'schema' | 'meta',
+    baseId: string,
+    tableId: string,
+    tableName: string,
+    elapsedMs: number
+  ) {
+    const message = `Schema integrity table ${phase} check completed baseId=${baseId} tableId=${tableId} tableName=${tableName} elapsedMs=${elapsedMs}`;
+    if (elapsedMs >= slowIntegrityTableCheckMs) {
+      this.logger.warn(message);
+      return;
+    }
+    this.logger.log(message);
+  }
+
+  private logIntegrityTableCompleted(
+    baseId: string,
+    table: Table,
+    checkedTables: number,
+    tableCount: number,
+    elapsedMs: number
+  ) {
+    const message = `Schema integrity base check table completed baseId=${baseId} tableId=${table.id().toString()} tableName=${table.name().toString()} index=${checkedTables}/${tableCount} elapsedMs=${elapsedMs}`;
+    if (elapsedMs >= slowIntegrityTableCheckMs) {
+      this.logger.warn(message);
+      return;
+    }
+    this.logger.log(message);
   }
 
   private toMutableDetails(details?: SchemaRepairResult['details']) {

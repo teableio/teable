@@ -394,6 +394,9 @@
         "medium": "Moyenne",
         "high": "Élevée"
       },
+      "tip": {
+        "gptImageResolution": "En raison de la limite du nombre total de pixels, le mode 4K utilise pour certains formats la plus grande taille de sortie conforme disponible."
+      },
       "autoFill": {
         "title": "Mise à jour automatique",
         "tip": "Après activation, le champ actuel sera mis à jour de manière synchrone avec les modifications du contenu de la configuration AI"
@@ -687,6 +690,7 @@
     "menu": {
       "addFromOtherSource": "Ajouter depuis d'autres sources",
       "excelFile": "Microsoft Excel",
+      "airtable": "Airtable",
       "csvFile": "Fichier CSV",
       "importCsvData": "Importer des données CSV",
       "importExcelData": "Importer des données Microsoft Excel",
@@ -838,6 +842,7 @@
     "noPermission": "Vous n'avez pas la permission d'accéder à la base de données",
     "connectionCountTip": "Le nombre maximum de connexions à la base de données est <b>{{max}}</b> et les connexions actuelles sont <b>{{current}}</b>",
     "createFailed": "Veuillez vérifier que la variable d'environnement PUBLIC_DATABASE_PROXY est correctement configurée",
+    "readonlyUnavailable": "Readonly database sharing is unavailable for this data database. Grant the Teable database user permission to create roles and grants, or use a target database that supports readonly roles.",
     "helpLink": "https://help.teable.ai/en/deploy/database-connection"
   },
   "view": {
@@ -953,6 +958,20 @@
     "shareNodeTab": "Partager le nœud"
   },
   "aiChat": {
+    "integrationConnect": {
+      "title": "Connecter {{provider}}",
+      "reconnectTitle": "Reconnecter {{provider}}",
+      "defaultReason": "L'agent a besoin d'accéder à votre compte {{provider}} pour continuer.",
+      "connect": "Connecter",
+      "connecting": "Connexion…",
+      "giveUp": "Abandonner",
+      "failed": "Échec de la connexion",
+      "status": {
+        "connected": "Connecté",
+        "cancelled": "Ignoré",
+        "failed": "Échec"
+      }
+    },
     "agent": {
       "askUserQuestion": {
         "otherPlaceholder": "Ou saisissez votre réponse…"
@@ -987,6 +1006,11 @@
     "action": {
       "locateResource": "Localiser"
     },
+    "showUI": {
+      "skip": "Passer",
+      "next": "Suivant",
+      "submit": "Soumettre"
+    },
     "newChat": "Nouveau Chat",
     "expand": "Développer",
     "history": "Historique",
@@ -1009,7 +1033,8 @@
       "selectionRow": "Row {{row}}",
       "selectionRows": "Lignes {{start}}-{{end}}",
       "selectionColumn": "Col {{col}}",
-      "selectionColumns": "Col {{start}}-{{end}}"
+      "selectionColumns": "Col {{start}}-{{end}}",
+      "selectionColumnsNamed": "{{names}} +{{count}}"
     },
     "mention": {
       "tables": "Tables",
@@ -1017,9 +1042,19 @@
       "workflows": "Automatisations",
       "folders": "Dossiers"
     },
-    "inputPlaceholder": "Tapez @ pour ajouter un nœud",
+    "slashCommand": {
+      "skills": "Skills",
+      "searchEmpty": "No results found"
+    },
+    "inputPlaceholder": "@ ajoute des nœuds, / exécute des skills",
     "inputPlaceholderFiles": "Collez ou déposez des fichiers ici",
     "thought": "En train de penser",
+    "stage": {
+      "initializing": "Initialisation",
+      "working": "En cours",
+      "committing": "Validation",
+      "recovering": "Reconnexion"
+    },
     "meta": {
       "input": "Entrée",
       "output": "Sortie",
@@ -1027,7 +1062,9 @@
     },
     "attachment": {
       "pastedTextFileName": "Texte collé",
-      "imageNotSupported": "L'image n'est pas prise en charge"
+      "imageNotSupported": "L'image n'est pas prise en charge",
+      "tooManyFiles": "Vous pouvez joindre au maximum {{count}} fichiers par message",
+      "storageFull": "Le stockage du bac à sable est plein. Supprimez quelques fichiers et réessayez."
     },
     "suggestions": {
       "title": "Comment puis-je vous aider ?",
@@ -1081,6 +1118,19 @@
       "noPrefixOptionDesc": "Conserver le nom de fichier original",
       "groupByRow": "Archiver dans des dossiers",
       "groupByRowTip": "Lorsqu'une ligne contient plusieurs pièces jointes, elles seront placées dans le même dossier ; les lignes avec une seule pièce jointe ne créeront pas de dossier."
+    }
+  },
+  "baseNode": {
+    "info": {
+      "menu": "Infos du noeud",
+      "createdBy": "Créé par",
+      "createdTime": "Heure de création",
+      "lastModifiedBy": "Modifié par",
+      "lastModifiedTime": "Heure de modification",
+      "folderId": "ID de dossier",
+      "tableId": "ID de table",
+      "automationId": "ID d'automatisation",
+      "appId": "ID d'application"
     }
   }
 }

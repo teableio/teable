@@ -3,14 +3,15 @@ import type {
   ISingleSelectCellValue,
   IMultipleSelectCellValue,
 } from '@teable/core';
-import { FieldType, ColorUtils } from '@teable/core';
+import { FieldType } from '@teable/core';
+import { useTheme } from '@teable/next-themes';
 import { temporaryPaste } from '@teable/openapi';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
-import colors from 'tailwindcss/colors';
 import { useTranslation } from '../../../context/app/i18n';
 import { useTableId, useTablePermission } from '../../../hooks';
 import type { MultipleSelectField, SingleSelectField } from '../../../model';
+import { getSelectColorPairs } from '../../../utils/select-color';
 import { SelectEditorMain } from '../../editor';
 import type { IEditorRef } from '../../editor/type';
 import type { IEditorProps } from '../../grid/components';
@@ -23,6 +24,7 @@ const GridSelectEditorBase: ForwardRefRenderFunction<
 > = (props, ref) => {
   const { field, record, rect, style, isEditing, initialSearch, setEditing } = props;
   const { t } = useTranslation();
+  const { resolvedTheme } = useTheme();
   const tableId = useTableId();
   const permission = useTablePermission();
   // Creating a new option modifies the field's schema (choices list), so it
@@ -64,12 +66,12 @@ const GridSelectEditorBase: ForwardRefRenderFunction<
     return choices.map(({ name, color }) => ({
       label: name,
       value: name,
-      color:
-        displayChoiceMap[name]?.color ??
-        (ColorUtils.shouldUseLightTextOnColor(color) ? colors.white : colors.black),
-      backgroundColor: displayChoiceMap[name]?.backgroundColor ?? ColorUtils.getHexForColor(color),
+      sourceColor: color,
+      ...(resolvedTheme === 'dark'
+        ? getSelectColorPairs(color, resolvedTheme)
+        : displayChoiceMap[name] ?? getSelectColorPairs(color, resolvedTheme)),
     }));
-  }, [options, displayChoiceMap]);
+  }, [options, displayChoiceMap, resolvedTheme]);
 
   const onChange = (value?: string[] | string) => {
     record.updateCell(fieldId, isMultiple && value?.length === 0 ? null : value, { t });

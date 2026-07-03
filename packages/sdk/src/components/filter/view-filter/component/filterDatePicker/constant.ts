@@ -4,6 +4,7 @@ import {
   daysAgo,
   daysFromNow,
   exactDate,
+  exactDateTime,
   exactFormatDate,
   lastYear,
   nextNumberOfDays,
@@ -23,7 +24,7 @@ const INPUTOPTIONS: string[] = [
   nextNumberOfDays.value,
 ];
 
-const DATEPICKEROPTIONS: string[] = [exactDate.value, exactFormatDate.value];
+const DATEPICKEROPTIONS: string[] = [exactDate.value, exactDateTime.value, exactFormatDate.value];
 
 const DATERANGEOPTIONS: string[] = [dateRange.value];
 
@@ -35,6 +36,7 @@ const HIDDEN_DATE_MODES: string[] = [
   oneWeekFromNow.value,
   oneMonthAgo.value,
   oneMonthFromNow.value,
+  exactDateTime.value,
   exactFormatDate.value,
 ];
 

@@ -6,7 +6,12 @@ import type { Kysely, CompiledQuery } from 'kysely';
 import { sql } from 'kysely';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 
-import type { ExplainAnalyzeOutput, ExplainOutput, ExplainJsonOutput } from '../types';
+import type {
+  ExplainAnalyzeOutput,
+  ExplainOutput,
+  ExplainJsonOutput,
+  ExplainTextOutput,
+} from '../types';
 
 /**
  * Error class used to signal intentional rollback after EXPLAIN ANALYZE.
@@ -85,18 +90,37 @@ export class SqlExplainRunner {
     sqlStatement: string,
     parameters: ReadonlyArray<unknown>,
     analyze: boolean,
-    setupStatements?: ReadonlyArray<SetupStatement>
-  ): Promise<Result<ExplainAnalyzeOutput | ExplainOutput, DomainError>> {
+    setupStatements?: ReadonlyArray<SetupStatement>,
+    mode: 'json' | 'text' = 'json',
+    statementTimeoutMs = 0
+  ): Promise<Result<ExplainAnalyzeOutput | ExplainOutput | ExplainTextOutput, DomainError>> {
     try {
+      if (mode === 'text') {
+        return await this.runExplainText(
+          db,
+          sqlStatement,
+          parameters,
+          analyze,
+          setupStatements,
+          statementTimeoutMs
+        );
+      }
       if (analyze) {
         return await this.runExplainAnalyzeInTransaction(
           db,
           sqlStatement,
           parameters,
-          setupStatements
+          setupStatements,
+          statementTimeoutMs
         );
       }
-      return await this.runExplainOnly(db, sqlStatement, parameters, setupStatements);
+      return await this.runExplainOnly(
+        db,
+        sqlStatement,
+        parameters,
+        setupStatements,
+        statementTimeoutMs
+      );
     } catch (error) {
       return err(
         domainError.infrastructure({
@@ -113,14 +137,18 @@ export class SqlExplainRunner {
     db: Kysely<V1TeableDatabase>,
     compiled: CompiledQuery,
     analyze: boolean,
-    setupStatements?: ReadonlyArray<SetupStatement>
-  ): Promise<Result<ExplainAnalyzeOutput | ExplainOutput, DomainError>> {
+    setupStatements?: ReadonlyArray<SetupStatement>,
+    mode: 'json' | 'text' = 'json',
+    statementTimeoutMs = 0
+  ): Promise<Result<ExplainAnalyzeOutput | ExplainOutput | ExplainTextOutput, DomainError>> {
     return this.explain(
       db,
       compiled.sql,
       compiled.parameters as unknown[],
       analyze,
-      setupStatements
+      setupStatements,
+      mode,
+      statementTimeoutMs
     );
   }
 
@@ -434,10 +462,13 @@ export class SqlExplainRunner {
     db: Kysely<V1TeableDatabase>,
     sqlStatement: string,
     parameters: ReadonlyArray<unknown>,
-    setupStatements?: ReadonlyArray<SetupStatement>
+    setupStatements?: ReadonlyArray<SetupStatement>,
+    statementTimeoutMs = 0
   ): Promise<Result<ExplainAnalyzeOutput, DomainError>> {
     try {
       await db.transaction().execute(async (trx) => {
+        await this.setLocalStatementTimeout(trx, statementTimeoutMs);
+
         // Run setup statements first (e.g., create tmp_computed_dirty table)
         if (setupStatements && setupStatements.length > 0) {
           for (const setup of setupStatements) {
@@ -489,18 +520,23 @@ export class SqlExplainRunner {
     db: Kysely<V1TeableDatabase>,
     sqlStatement: string,
     parameters: ReadonlyArray<unknown>,
-    setupStatements?: ReadonlyArray<SetupStatement>
+    setupStatements?: ReadonlyArray<SetupStatement>,
+    statementTimeoutMs = 0
   ): Promise<Result<ExplainOutput, DomainError>> {
     // If we have setup statements, we need to run in a transaction
-    if (setupStatements && setupStatements.length > 0) {
+    if ((setupStatements && setupStatements.length > 0) || statementTimeoutMs > 0) {
       try {
         return await db.transaction().execute(async (trx) => {
+          await this.setLocalStatementTimeout(trx, statementTimeoutMs);
+
           // Run setup statements
-          for (const setup of setupStatements) {
-            try {
-              await sql.raw(setup.sql).execute(trx);
-            } catch (setupError) {
-              console.warn(`Setup statement failed: ${setup.description}`, setupError);
+          if (setupStatements && setupStatements.length > 0) {
+            for (const setup of setupStatements) {
+              try {
+                await sql.raw(setup.sql).execute(trx);
+              } catch (setupError) {
+                console.warn(`Setup statement failed: ${setup.description}`, setupError);
+              }
             }
           }
 
@@ -547,6 +583,70 @@ export class SqlExplainRunner {
     }
   }
 
+  private async runExplainText(
+    db: Kysely<V1TeableDatabase>,
+    sqlStatement: string,
+    parameters: ReadonlyArray<unknown>,
+    analyze: boolean,
+    setupStatements?: ReadonlyArray<SetupStatement>,
+    statementTimeoutMs = 0
+  ): Promise<Result<ExplainTextOutput, DomainError>> {
+    const runExplain = async (runner: Kysely<V1TeableDatabase>): Promise<ExplainTextOutput> => {
+      const explainPrefix = analyze
+        ? 'EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT)'
+        : 'EXPLAIN (FORMAT TEXT)';
+      const rows = await this.executeExplainQuery(
+        runner,
+        `${explainPrefix} ${sqlStatement}`,
+        parameters
+      );
+      return {
+        format: 'text',
+        analyze,
+        lines: rows.map((row) => String(row['QUERY PLAN'])),
+      };
+    };
+
+    try {
+      if (analyze || (setupStatements && setupStatements.length > 0) || statementTimeoutMs > 0) {
+        return await db.transaction().execute(async (trx) => {
+          await this.setLocalStatementTimeout(trx, statementTimeoutMs);
+
+          if (setupStatements && setupStatements.length > 0) {
+            for (const setup of setupStatements) {
+              try {
+                await sql.raw(setup.sql).execute(trx);
+              } catch (setupError) {
+                console.warn(`Setup statement failed: ${setup.description}`, setupError);
+              }
+            }
+          }
+
+          const output = await runExplain(trx);
+
+          if (analyze) {
+            throw new RollbackSignal([{ 'QUERY PLAN': output }]);
+          }
+
+          return ok(output);
+        });
+      }
+
+      return ok(await runExplain(db));
+    } catch (error) {
+      if (error instanceof RollbackSignal) {
+        const output = (error.rows[0] as { 'QUERY PLAN': ExplainTextOutput })['QUERY PLAN'];
+        return ok(output);
+      }
+
+      return err(
+        domainError.infrastructure({
+          message: `EXPLAIN failed: ${error instanceof Error ? error.message : String(error)}`,
+        })
+      );
+    }
+  }
+
   private async executeExplainQuery(
     db: Kysely<V1TeableDatabase>,
     explainSql: string,
@@ -576,6 +676,18 @@ export class SqlExplainRunner {
     };
 
     await db.executeQuery(finalQuery);
+  }
+
+  private async setLocalStatementTimeout(
+    db: Kysely<V1TeableDatabase>,
+    statementTimeoutMs: number
+  ): Promise<void> {
+    if (statementTimeoutMs <= 0) {
+      return;
+    }
+
+    const timeoutMs = Math.max(1, Math.floor(statementTimeoutMs));
+    await sql.raw(`SET LOCAL statement_timeout = ${timeoutMs}`).execute(db);
   }
 
   private parseExplainAnalyzeJson(
