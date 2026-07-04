@@ -115,6 +115,7 @@ class TrackingFieldUndoRedoSnapshotService {
 
 class InMemoryTableRepository implements ITableRepository {
   tables: Table[] = [];
+  findOneCount = 0;
 
   async insert(_context: IExecutionContext, table: Table) {
     this.tables.push(table);
@@ -130,6 +131,7 @@ class InMemoryTableRepository implements ITableRepository {
     _context: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>
   ): Promise<Result<Table, DomainError>> {
+    this.findOneCount += 1;
     const match = this.tables.find((table) => spec.isSatisfiedBy(table));
     if (!match) return err(domainError.notFound({ message: 'Not found' }));
     return ok(match);
@@ -249,6 +251,116 @@ const addTextFields = (table: Table, count: number, prefix: string): Table => {
 };
 
 describe('CreateFieldHandler', () => {
+  it('reuses a preloaded table from the command option', async () => {
+    const baseId = `bse${'p'.repeat(16)}`;
+    const tableId = `tbl${'q'.repeat(16)}`;
+    const primaryFieldId = `fld${'r'.repeat(16)}`;
+    const table = buildTable({
+      baseId,
+      tableId,
+      tableName: 'Preloaded Host',
+      primaryFieldId,
+    });
+    const tableRepository = new InMemoryTableRepository();
+    tableRepository.tables.push(table);
+    const schemaRepository = new FakeTableSchemaRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const tableUpdateFlow = new TableUpdateFlow(
+      tableRepository,
+      schemaRepository,
+      eventBus,
+      unitOfWork
+    );
+    const handler = new CreateFieldHandler(
+      tableRepository,
+      tableUpdateFlow,
+      new FieldCreationSideEffectService(tableUpdateFlow),
+      new ForeignTableLoaderService(tableRepository),
+      createFieldOperationPluginRunner([new TableFieldLimitFieldOperationPlugin()]),
+      noopUndoRedoService,
+      noopFieldUndoRedoSnapshotService
+    );
+    const context = createContext();
+
+    const command = CreateFieldCommand.create(
+      {
+        baseId,
+        tableId,
+        field: {
+          id: `fld${'s'.repeat(16)}`,
+          type: 'singleLineText',
+          name: 'Created From Preload',
+        },
+      },
+      { preloadedTable: table }
+    )._unsafeUnwrap();
+
+    const result = await handler.handle(context, command);
+    result._unsafeUnwrap();
+
+    expect(tableRepository.findOneCount).toBe(0);
+    expect(tableRepository.tables[0]?.getFields()).toHaveLength(2);
+  });
+
+  it('ignores a preloaded table option for a different table', async () => {
+    const baseId = `bse${'p'.repeat(16)}`;
+    const tableId = `tbl${'q'.repeat(16)}`;
+    const primaryFieldId = `fld${'r'.repeat(16)}`;
+    const table = buildTable({
+      baseId,
+      tableId,
+      tableName: 'Target Host',
+      primaryFieldId,
+    });
+    const otherTable = buildTable({
+      baseId: `bse${'x'.repeat(16)}`,
+      tableId: `tbl${'y'.repeat(16)}`,
+      tableName: 'Other Host',
+      primaryFieldId: `fld${'z'.repeat(16)}`,
+    });
+    const tableRepository = new InMemoryTableRepository();
+    tableRepository.tables.push(table);
+    const schemaRepository = new FakeTableSchemaRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const tableUpdateFlow = new TableUpdateFlow(
+      tableRepository,
+      schemaRepository,
+      eventBus,
+      unitOfWork
+    );
+    const handler = new CreateFieldHandler(
+      tableRepository,
+      tableUpdateFlow,
+      new FieldCreationSideEffectService(tableUpdateFlow),
+      new ForeignTableLoaderService(tableRepository),
+      createFieldOperationPluginRunner([new TableFieldLimitFieldOperationPlugin()]),
+      noopUndoRedoService,
+      noopFieldUndoRedoSnapshotService
+    );
+    const context = createContext();
+
+    const command = CreateFieldCommand.create(
+      {
+        baseId,
+        tableId,
+        field: {
+          id: `fld${'s'.repeat(16)}`,
+          type: 'singleLineText',
+          name: 'Created From Repository',
+        },
+      },
+      { preloadedTable: otherTable }
+    )._unsafeUnwrap();
+
+    const result = await handler.handle(context, command);
+    result._unsafeUnwrap();
+
+    expect(tableRepository.findOneCount).toBe(1);
+    expect(tableRepository.tables[0]?.getFields()).toHaveLength(2);
+  });
+
   it('publishes view column meta events when create field changes grid visibility metadata', async () => {
     const baseId = `bse${'r'.repeat(16)}`;
     const tableId = `tbl${'s'.repeat(16)}`;

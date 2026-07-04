@@ -113,6 +113,9 @@ const DuplicateBase = ({ base }: { base: IGetBaseVo }) => {
       queryClient.invalidateQueries({
         queryKey: ReactQueryKeys.baseAll(),
       });
+      queryClient.invalidateQueries({
+        queryKey: ReactQueryKeys.recentlyBase(),
+      });
       setSuccessDuplicate(true);
       setNewBaseId(data.id);
       setDuplicateProgress((progress) =>

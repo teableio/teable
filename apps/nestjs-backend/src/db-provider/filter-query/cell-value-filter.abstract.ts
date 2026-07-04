@@ -393,9 +393,6 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
       formatting: { timeZone, date: dateFormat, time: timeFormat },
     } = dateFieldOptions;
 
-    // Check if the field has time format configured (not None)
-    const hasTimeFormat = timeFormat && timeFormat !== TimeFormatting.None;
-
     const dateUtil = new DateUtil(timeZone);
 
     // Helper function to calculate date range for fixed days like today, tomorrow, etc.
@@ -431,11 +428,16 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
       }
 
       const parsedDate = dateUtil.date(exactDate);
-      if (hasTimeFormat) {
-        return [parsedDate, parsedDate];
+      return [parsedDate.startOf('day'), parsedDate.endOf('day')];
+    };
+
+    const determineDateRangeForExactDateTime = (): [Dayjs, Dayjs] => {
+      if (!exactDate) {
+        throw new BadRequestException('Exact date must be entered');
       }
 
-      return [parsedDate.startOf('day'), parsedDate.endOf('day')];
+      const parsedDate = dateUtil.date(exactDate);
+      return [parsedDate, parsedDate];
     };
 
     // Helper function to determine date range for a given exact formatted date.
@@ -525,7 +527,7 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
         throw new BadRequestException('Start date cannot be after end date');
       }
 
-      // If field has time format, use exact time from frontend; otherwise use start/end of day
+      const hasTimeFormat = timeFormat && timeFormat !== TimeFormatting.None;
       if (hasTimeFormat) {
         return [startDate, endDate];
       }
@@ -544,6 +546,7 @@ export abstract class AbstractCellValueFilter implements ICellValueFilterInterfa
       daysAgo: () => calculateDateRangeForOffsetDays(true),
       daysFromNow: () => calculateDateRangeForOffsetDays(false),
       exactDate: () => determineDateRangeForExactDate(),
+      exactDateTime: () => determineDateRangeForExactDateTime(),
       exactFormatDate: () => determineDateRangeForExactFormatDate(),
       dateRange: () => determineDateRangeForDateRange(),
       currentWeek: () => generateRelativeDateFromCurrentDateRange('current', 'week'),

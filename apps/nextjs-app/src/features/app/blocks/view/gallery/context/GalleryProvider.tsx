@@ -6,8 +6,8 @@ import {
   useView,
   useFields,
   useTablePermission,
-  usePersonalView,
   useButtonClickStatus,
+  useDeepCompareMemoize,
 } from '@teable/sdk/hooks';
 import type { AttachmentField, GalleryView, IFieldInstance } from '@teable/sdk/model';
 import { useRouter } from 'next/router';
@@ -17,12 +17,12 @@ import { GalleryContext } from './GalleryContext';
 export const GalleryProvider = ({ children }: { children: ReactNode }) => {
   const tableId = useTableId();
   const view = useView() as GalleryView | undefined;
-  const { personalViewCommonQuery } = usePersonalView();
   const { shareId } = useContext(ShareViewContext) ?? {};
   const { sort, filter } = view ?? {};
   const permission = useTablePermission();
   const fields = useFields();
-  const allFields = useFields({ withHidden: true, withDenied: true });
+  const readableFields = useFields({ withHidden: true });
+  const visibleFieldIds = useDeepCompareMemoize(fields.map(({ id }) => id).sort()) as string[];
   const { coverFieldId, isCoverFit, isFieldNameHidden } = view?.options ?? {};
   const [expandRecordId, setExpandRecordId] = useState<string>();
   const buttonClickStatusHook = useButtonClickStatus(tableId!, shareId);
@@ -39,22 +39,34 @@ export const GalleryProvider = ({ children }: { children: ReactNode }) => {
     setExpandRecordId(routerRecordId as string);
   }, [routerRecordId, setExpandRecordId]);
 
+  const coverField = useMemo(() => {
+    if (!coverFieldId) return;
+    return readableFields.find(
+      ({ id, type }) => id === coverFieldId && type === FieldType.Attachment
+    ) as AttachmentField | undefined;
+  }, [coverFieldId, readableFields]);
+
+  const projectionFieldIds = useMemo(() => {
+    if (!coverField) return visibleFieldIds;
+    return Array.from(new Set([...visibleFieldIds, coverField.id]));
+  }, [coverField, visibleFieldIds]);
+
   const recordQuery = useMemo(() => {
-    const { ignoreViewQuery } = personalViewCommonQuery ?? {};
+    // same contract as useRecords: search must only hit the fields this view
+    // displays, so every record query in the gallery view declares it explicitly
     const baseQuery = {
       orderBy: sort?.sortObjs,
       filter: filter,
+      projection: projectionFieldIds,
     };
 
     if (shareId) return baseQuery;
 
-    if (ignoreViewQuery) {
-      return {
-        ...baseQuery,
-        ignoreViewQuery,
-      };
-    }
-  }, [shareId, sort, filter, personalViewCommonQuery]);
+    return {
+      ...baseQuery,
+      ignoreViewQuery: true,
+    };
+  }, [shareId, sort, filter, projectionFieldIds]);
 
   const galleryPermission = useMemo(() => {
     return {
@@ -65,13 +77,6 @@ export const GalleryProvider = ({ children }: { children: ReactNode }) => {
       cardCommentCreatable: Boolean(permission['record|comment']),
     };
   }, [permission]);
-
-  const coverField = useMemo(() => {
-    if (!coverFieldId) return;
-    return allFields.find(
-      ({ id, type }) => id === coverFieldId && type === FieldType.Attachment
-    ) as AttachmentField | undefined;
-  }, [coverFieldId, allFields]);
 
   const { primaryField, displayFields } = useMemo(() => {
     let primaryField: IFieldInstance | null = null;

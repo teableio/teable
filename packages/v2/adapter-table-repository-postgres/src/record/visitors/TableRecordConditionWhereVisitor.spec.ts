@@ -10,6 +10,8 @@ import {
   IncomingLinkCandidateSpec,
   IncomingLinkSelectedSpec,
   LinkFieldConfig,
+  LookupField,
+  LookupOptions,
   RecordByIdSpec,
   RecordByIdsSpec,
   RecordId,
@@ -332,6 +334,28 @@ const createLinkTitleReferenceFields = () => {
   return { linkField, tagNameField };
 };
 
+const createLookupLinkTitleReferenceFields = () => {
+  const { linkField, tagNameField } = createLinkTitleReferenceFields();
+  const lookupOptions = LookupOptions.create({
+    linkFieldId: linkField.id().toString(),
+    lookupFieldId: linkField.id().toString(),
+    foreignTableId: `tbl${'f'.repeat(16)}`,
+  })._unsafeUnwrap();
+  const lookupField = LookupField.create({
+    id: FieldId.create(`fld${'p'.repeat(16)}`)._unsafeUnwrap(),
+    name: FieldName.create('Lookup Tags')._unsafeUnwrap(),
+    innerField: linkField,
+    lookupOptions,
+    isMultipleCellValue: true,
+  })._unsafeUnwrap();
+
+  lookupField
+    .setDbFieldName(DbFieldName.rehydrate('col_lookup_tags')._unsafeUnwrap())
+    ._unsafeUnwrap();
+
+  return { lookupField, tagNameField };
+};
+
 // ============================================================================
 // Tests
 // ============================================================================
@@ -539,6 +563,29 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
       expect(parameters).toEqual([]);
     });
 
+    test('lookup of link title comparison to host text stays on the title-matching path', () => {
+      const { lookupField, tagNameField } = createLookupLinkTitleReferenceFields();
+      const value = RecordConditionFieldReferenceValue.create(tagNameField)._unsafeUnwrap();
+      const spec = lookupField.spec().create({ operator: 'is', value });
+      expect(spec.isOk()).toBe(true);
+      if (spec.isErr()) return;
+
+      const visitor = new TableRecordConditionWhereVisitor({
+        tableAlias: 'f',
+        hostTableAlias: 't',
+      });
+      const visitResult = spec.value.accept(visitor);
+      expect(visitResult.isOk()).toBe(true);
+      const where = visitor.where();
+      expect(where.isOk()).toBe(true);
+      if (where.isErr()) return;
+
+      const { sql, parameters } = compileWhere(db, where.value);
+      expect(sql).toContain(`__link->>'title' = ("t"."col_tag_name")::text`);
+      expect(sql).not.toBe('1 = 0');
+      expect(parameters).toEqual([]);
+    });
+
     test('date isBefore with field reference uses host table alias', () => {
       const value = RecordConditionFieldReferenceValue.create(cutoffDateField)._unsafeUnwrap();
       const spec = dueDateField.spec().create({ operator: 'isBefore', value });
@@ -583,9 +630,24 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
       expect(parameters).toEqual(['utc', 'Asia/Shanghai']);
     });
 
-    test('datetime exactDate preserves the exact timestamp when the field includes time', () => {
+    test('datetime exactDate expands to the whole day when the field includes time', () => {
       const value = RecordConditionDateValue.create({
         mode: 'exactDate',
+        exactDate: '2025-12-15T11:00:00.000Z',
+        timeZone: 'utc',
+      })._unsafeUnwrap();
+      const spec = dueAtField.spec().create({ operator: 'is', value });
+      expect(spec.isOk()).toBe(true);
+      if (spec.isErr()) return;
+
+      const { sql, parameters } = buildWhereFor(db, spec.value);
+      expect(sql).toContain('"t"."col_due_at" between $1 and $2');
+      expect(parameters).toEqual(['2025-12-15T00:00:00.000Z', '2025-12-15T23:59:59.999Z']);
+    });
+
+    test('datetime exactDateTime preserves the exact timestamp when the field includes time', () => {
+      const value = RecordConditionDateValue.create({
+        mode: 'exactDateTime',
         exactDate: '2025-12-15T11:00:00.000Z',
         timeZone: 'utc',
       })._unsafeUnwrap();

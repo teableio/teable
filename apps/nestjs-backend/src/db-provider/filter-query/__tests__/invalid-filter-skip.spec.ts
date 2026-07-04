@@ -65,11 +65,15 @@ function createTextField(id: string, dbFieldName: string, name?: string): Single
   });
 }
 
-function createDateField(id: string, dbFieldName: string): DateFieldCore {
+function createDateField(
+  id: string,
+  dbFieldName: string,
+  time: TimeFormatting = TimeFormatting.None
+): DateFieldCore {
   const options = DateFieldCore.defaultOptions();
   options.formatting = {
     date: DateFormattingPreset.ISO,
-    time: TimeFormatting.None,
+    time,
     timeZone: 'UTC',
   };
   return assignBaseField(new DateFieldCore(), {
@@ -249,6 +253,76 @@ describe('filter-query invalid filter skip', () => {
 
     expect(() => filterQuery.appendQueryBuilder()).not.toThrow();
     expect(() => qb.toQuery()).not.toThrow();
+  });
+
+  it('expands exactDate to a whole day for time-enabled date fields', () => {
+    const dateField = createDateField(
+      'fld_date_time_day',
+      'date_time_day_col',
+      TimeFormatting.HH_MM
+    );
+    const filter = {
+      conjunction: 'and',
+      filterSet: [
+        {
+          fieldId: dateField.id,
+          operator: 'is',
+          value: {
+            mode: 'exactDate',
+            exactDate: '2026-07-02T00:00:00.000Z',
+            timeZone: 'UTC',
+          },
+        },
+      ],
+    } as unknown as IFilter;
+
+    const qb = knexBuilder(mainTableAlias);
+    const filterQuery = new FilterQueryPostgres(
+      qb,
+      { [dateField.id]: dateField },
+      filter,
+      undefined,
+      dbProviderStub
+    );
+
+    filterQuery.appendQueryBuilder();
+
+    expect(qb.toSQL().bindings).toEqual(['2026-07-02T00:00:00.000Z', '2026-07-02T23:59:59.999Z']);
+  });
+
+  it('preserves exact timestamp matching for exactDateTime', () => {
+    const dateField = createDateField(
+      'fld_date_time_exact',
+      'date_time_exact_col',
+      TimeFormatting.HH_MM
+    );
+    const filter = {
+      conjunction: 'and',
+      filterSet: [
+        {
+          fieldId: dateField.id,
+          operator: 'is',
+          value: {
+            mode: 'exactDateTime',
+            exactDate: '2026-07-02T12:55:00.000Z',
+            timeZone: 'UTC',
+          },
+        },
+      ],
+    } as unknown as IFilter;
+
+    const qb = knexBuilder(mainTableAlias);
+    const filterQuery = new FilterQueryPostgres(
+      qb,
+      { [dateField.id]: dateField },
+      filter,
+      undefined,
+      dbProviderStub
+    );
+
+    filterQuery.appendQueryBuilder();
+
+    expect(qb.toSQL().bindings).toEqual(['2026-07-02T12:55:00.000Z', '2026-07-02T12:55:00.000Z']);
   });
 
   it('rethrows non-user compiler errors instead of swallowing them', () => {

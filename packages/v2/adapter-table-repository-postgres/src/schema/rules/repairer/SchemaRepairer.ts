@@ -1,7 +1,14 @@
+import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Table } from '@teable/v2-core';
+import type { Kysely, Transaction } from 'kysely';
 
 import { executeTableSchemaStatements } from '../../../shared/db';
-import type { SchemaRuleManualRepairValues, TableSchemaStatementBuilder } from '../core';
+import type {
+  ISchemaRule,
+  SchemaRuleManualRepairValues,
+  TableSchemaStatementBuilder,
+} from '../core';
+import type { SchemaRuleContext } from '../context/SchemaRuleContext';
 import { getRuleRepairHint } from '../core/RuleRepairMetadata';
 import {
   createSchemaRulePlanner,
@@ -28,17 +35,57 @@ export interface SchemaRepairOptions {
 }
 
 const compileRepairStatements = (
-  db: SchemaRepairerParams['db'],
+  dataDb: SchemaRepairerParams['db'],
+  metaDb: SchemaRepairerParams['db'],
   statements: ReadonlyArray<TableSchemaStatementBuilder>
 ): ReadonlyArray<SchemaRepairSqlStatement> =>
   statements.map((statement) => {
-    const compiled = statement.compile(db);
+    const compiled = statement.compile(statement.scope === 'meta' ? metaDb : dataDb);
 
     return {
       sql: compiled.sql,
       parameters: compiled.parameters ?? [],
     };
   });
+
+const getRuleValidationCtx = (ctx: SchemaRuleContext, rule: ISchemaRule): SchemaRuleContext =>
+  rule.validationScope === 'meta'
+    ? {
+        ...ctx,
+        db: ctx.metaDb,
+      }
+    : ctx;
+
+const executeScopedRepairStatements = async (
+  dataDb: Kysely<V1TeableDatabase> | Transaction<V1TeableDatabase>,
+  metaDb: Kysely<V1TeableDatabase> | Transaction<V1TeableDatabase>,
+  statements: ReadonlyArray<TableSchemaStatementBuilder>
+): Promise<void> => {
+  let currentScope: 'data' | 'meta' | undefined;
+  let batch: TableSchemaStatementBuilder[] = [];
+
+  const flush = async () => {
+    if (!currentScope || batch.length === 0) {
+      return;
+    }
+    const targetDb = currentScope === 'meta' ? metaDb : dataDb;
+    await executeTableSchemaStatements(targetDb, batch, {
+      dataDb: dataDb as Kysely<unknown> | Transaction<unknown>,
+      metaDb: metaDb as Kysely<unknown> | Transaction<unknown>,
+    });
+    batch = [];
+  };
+
+  for (const statement of statements) {
+    if (currentScope && currentScope !== statement.scope) {
+      await flush();
+    }
+    currentScope = statement.scope;
+    batch.push(statement);
+  }
+
+  await flush();
+};
 
 export class SchemaRepairer {
   constructor(private readonly params: SchemaRepairerParams) {}
@@ -136,7 +183,8 @@ export class SchemaRepairer {
             continue;
           }
 
-          const validationResult = await rule.isValid(ctx);
+          const validationCtx = getRuleValidationCtx(ctx, rule);
+          const validationResult = await rule.isValid(validationCtx);
           if (validationResult.isErr()) {
             yield errorResult(pending, validationResult.error.message);
             repairedRules.set(rule.id, false);
@@ -156,7 +204,7 @@ export class SchemaRepairer {
             extra: validation.extra,
             extraItems: validation.extraItems,
           };
-          const repairResult = getRuleRepairHint(rule, ctx, validation);
+          const repairResult = getRuleRepairHint(rule, validationCtx, validation);
           const repair = repairResult.isOk() ? repairResult.value : undefined;
           const shouldUseManualRepair =
             rule.repairMode === 'manual' ||
@@ -181,9 +229,13 @@ export class SchemaRepairer {
               continue;
             }
 
-            const manualRepairResult = await rule.manualRepair(ctx, options.manualRepairValues, {
-              dryRun: options.dryRun,
-            });
+            const manualRepairResult = await rule.manualRepair(
+              validationCtx,
+              options.manualRepairValues,
+              {
+                dryRun: options.dryRun,
+              }
+            );
 
             if (manualRepairResult.isErr()) {
               yield {
@@ -203,7 +255,7 @@ export class SchemaRepairer {
               continue;
             }
 
-            const revalidationResult = await rule.isValid(ctx);
+            const revalidationResult = await rule.isValid(validationCtx);
             if (revalidationResult.isErr()) {
               yield {
                 ...errorResult(pending, revalidationResult.error.message, details),
@@ -244,7 +296,7 @@ export class SchemaRepairer {
             continue;
           }
 
-          const statementsResult = rule.up(ctx);
+          const statementsResult = rule.up(validationCtx);
           if (statementsResult.isErr()) {
             yield {
               ...errorResult(pending, statementsResult.error.message, details),
@@ -265,7 +317,7 @@ export class SchemaRepairer {
           }
 
           if (options?.dryRun) {
-            const compiledStatements = compileRepairStatements(ctx.db, statements);
+            const compiledStatements = compileRepairStatements(ctx.db, ctx.metaDb, statements);
             yield {
               ...successResult(
                 pending,
@@ -283,9 +335,9 @@ export class SchemaRepairer {
             continue;
           }
 
-          await executeTableSchemaStatements(ctx.db, statements);
+          await executeScopedRepairStatements(ctx.db, ctx.metaDb, statements);
 
-          const revalidationResult = await rule.isValid(ctx);
+          const revalidationResult = await rule.isValid(validationCtx);
           if (revalidationResult.isErr()) {
             yield {
               ...errorResult(pending, revalidationResult.error.message, {

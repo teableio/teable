@@ -5,6 +5,7 @@ import { domainError, type DomainError } from '../../shared/DomainError';
 import { AndSpec } from '../../shared/specification/AndSpec';
 import type { Field } from '../fields/Field';
 import { FieldToSpecVisitor } from '../fields/visitors/FieldToSpecVisitor';
+import type { FieldCellValueSchema } from '../fields/visitors/FieldCellValueSchemaVisitor';
 import type { ICellValueSpec, ICellValueSpecVisitor } from './specs/values/ICellValueSpecVisitor';
 import { SetFieldValueSpecFactory } from './specs/values/SetFieldValueSpecFactory';
 import type { TableRecord } from './TableRecord';
@@ -98,6 +99,19 @@ export class RecordMutationSpecBuilder {
         (error) => this.errors.push(error)
       );
     }
+    return this;
+  }
+
+  setWithSchema(field: Field, value: unknown, schema: FieldCellValueSchema | undefined): this {
+    if (this.typecastMode || !schema) {
+      return this.set(field, value);
+    }
+
+    const result = SetFieldValueSpecFactory.create(field, value, schema);
+    result.match(
+      (spec) => this.specs.push(spec),
+      (error) => this.errors.push(error)
+    );
     return this;
   }
 

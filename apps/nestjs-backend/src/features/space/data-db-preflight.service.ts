@@ -14,6 +14,8 @@ import type {
 import type { Knex } from 'knex';
 import createKnex from 'knex';
 import { resolveDataDbInternalSchema } from './data-db-internal-schema';
+import { activeSpaceDataDbMigrationStates } from './space-data-db-migration.constants';
+import { resolveSpaceDataDbRelatedSpaces } from './space-data-db-related-spaces';
 
 type IPreflightCapabilities = IDataDbPreflightVo['capabilities'];
 type IPreflightClassification = IDataDbPreflightVo['classification'];
@@ -36,6 +38,8 @@ const DATA_PLANE_TABLES = [
   'table_trash',
   'record_trash',
   '__undo_log',
+  'attachments',
+  'attachments_table',
 ];
 
 const DATA_SCHEMA_MIGRATION_TABLE = '__teable_data_schema_migrations';
@@ -70,11 +74,44 @@ const IPV6_NETWORK_UNREACHABLE_ERROR: IPreflightError = {
     'Use an IPv4-reachable database endpoint or connection pooler, or enable IPv6 outbound networking for this Teable deployment.',
 };
 
+const READ_ONLY_DATABASE_ERROR: IPreflightError = {
+  code: 'READ_ONLY_DATABASE',
+  message: 'The target PostgreSQL connection is read-only and cannot be used for BYODB.',
+  remediation:
+    'Use a writable primary database connection. For Supabase, prefer the direct database endpoint or a writable session pooler instead of a read-only replica endpoint.',
+};
+
 const normalizeRawRows = <T>(result: { rows?: T[] } | T[]): T[] => {
   if (Array.isArray(result)) {
     return result;
   }
   return result.rows ?? [];
+};
+
+type IActiveMigrationSummary = {
+  id: string;
+  state: string;
+  targetInternalSchema: string;
+  switchOnCompletion?: boolean | null;
+  lastError: string | null;
+  inventory: unknown;
+  targetConnection: {
+    provider: 'postgres';
+    displayHost: string | null;
+    displayDatabase: string | null;
+    internalSchema: string;
+    schemaVersion: string | null;
+    lastValidatedAt: Date | null;
+    lastError: string | null;
+    capabilities: unknown;
+  } | null;
+};
+
+type IDataDbSummaryPrisma = PrismaService & {
+  spaceDataDbMigrationJob?: {
+    findFirst(args: unknown): Promise<IActiveMigrationSummary | null>;
+    findMany(args: unknown): Promise<IActiveMigrationSummary[]>;
+  };
 };
 
 export const maskDatabaseUrl = (url: string): string => {
@@ -267,6 +304,14 @@ export class DataDbPreflightService {
 
   async getSummary(spaceId: string): Promise<IDataDbConnectionSummaryVo> {
     if (this.prismaService) {
+      const migrationSummary = await this.getActiveMigrationSummary(spaceId);
+      if (migrationSummary) {
+        // The active-migration branch answers from the job inventory snapshot, so
+        // polling clients skip the cross-space link scan entirely.
+        return migrationSummary;
+      }
+      const relatedSpaces = await resolveSpaceDataDbRelatedSpaces(this.prismaService, spaceId);
+
       const binding = await this.prismaService.spaceDataDbBinding.findUnique({
         where: { spaceId },
         include: { dataDbConnection: true },
@@ -285,13 +330,139 @@ export class DataDbPreflightService {
           capabilities: binding.dataDbConnection.capabilities as
             | IDataDbConnectionSummaryVo['capabilities']
             | undefined,
+          relatedSpaces,
         };
       }
+      return {
+        mode: 'default',
+        state: 'ready',
+        relatedSpaces,
+      };
     }
     return {
       mode: 'default',
       state: 'ready',
     };
+  }
+
+  private async getActiveMigrationSummary(
+    spaceId: string
+  ): Promise<IDataDbConnectionSummaryVo | null> {
+    const migrationClient = (this.prismaService as IDataDbSummaryPrisma | undefined)
+      ?.spaceDataDbMigrationJob;
+    if (!migrationClient) {
+      return null;
+    }
+
+    const job = await migrationClient
+      .findFirst({
+        where: {
+          spaceId,
+          state: { in: [...activeSpaceDataDbMigrationStates] },
+        },
+        include: { targetConnection: true },
+        orderBy: { createdTime: 'desc' },
+      })
+      .catch((error) => {
+        if (this.isMissingMigrationJobTableError(error)) {
+          return null;
+        }
+        throw error;
+      });
+    const resolvedJob =
+      job ??
+      (await migrationClient
+        .findMany({
+          where: {
+            state: { in: [...activeSpaceDataDbMigrationStates] },
+          },
+          include: { targetConnection: true },
+          orderBy: { createdTime: 'desc' },
+        })
+        .then((jobs) =>
+          jobs.find((candidate) =>
+            this.migrationInventoryContainsSpace(candidate.inventory, spaceId)
+          )
+        )
+        .catch((error) => {
+          if (this.isMissingMigrationJobTableError(error)) {
+            return null;
+          }
+          throw error;
+        }));
+    if (!resolvedJob) return null;
+
+    const connection = resolvedJob.targetConnection;
+    const inventory =
+      resolvedJob.inventory && typeof resolvedJob.inventory === 'object'
+        ? (resolvedJob.inventory as { relatedSpaces?: IDataDbConnectionSummaryVo['relatedSpaces'] })
+        : {};
+    const migration = {
+      jobId: resolvedJob.id,
+      state: resolvedJob.state as NonNullable<IDataDbConnectionSummaryVo['migration']>['state'],
+      targetInternalSchema: resolvedJob.targetInternalSchema,
+      switchOnCompletion: resolvedJob.switchOnCompletion === true,
+      lastError: resolvedJob.lastError,
+    };
+
+    if (resolvedJob.switchOnCompletion !== true) {
+      return {
+        mode: 'default',
+        state: 'ready',
+        migration,
+        relatedSpaces: inventory.relatedSpaces,
+      };
+    }
+
+    return {
+      mode: 'byodb',
+      state: 'migrating',
+      provider: connection?.provider ?? 'postgres',
+      displayHost: connection?.displayHost ?? undefined,
+      displayDatabase: connection?.displayDatabase ?? undefined,
+      internalSchema: connection?.internalSchema ?? resolvedJob.targetInternalSchema,
+      schemaVersion: connection?.schemaVersion ?? null,
+      lastValidatedAt: connection?.lastValidatedAt?.toISOString(),
+      lastError: resolvedJob.lastError ?? connection?.lastError ?? undefined,
+      capabilities: connection?.capabilities as
+        | IDataDbConnectionSummaryVo['capabilities']
+        | undefined,
+      migration,
+      relatedSpaces: inventory.relatedSpaces,
+    };
+  }
+
+  private migrationInventoryContainsSpace(inventory: unknown, spaceId: string) {
+    if (!inventory || typeof inventory !== 'object') {
+      return false;
+    }
+    const candidate = inventory as { spaceIds?: unknown; relatedSpaces?: { spaces?: unknown } };
+    return (
+      (Array.isArray(candidate.spaceIds) && candidate.spaceIds.includes(spaceId)) ||
+      (Array.isArray(candidate.relatedSpaces?.spaces) &&
+        candidate.relatedSpaces.spaces.some(
+          (space) =>
+            space &&
+            typeof space === 'object' &&
+            (space as { spaceId?: unknown }).spaceId === spaceId
+        ))
+    );
+  }
+
+  private isMissingMigrationJobTableError(error: unknown) {
+    const code =
+      typeof error === 'object' && error !== null && 'code' in error
+        ? String((error as { code?: unknown }).code)
+        : '';
+    const message = error instanceof Error ? error.message : String(error);
+    return (
+      message.includes('space_data_db_migration_job') &&
+      (code === 'P2021' ||
+        code === 'P2022' ||
+        code === '42P01' ||
+        message.includes('does not exist') ||
+        message.includes('relation'))
+    );
   }
 
   private buildResult({
@@ -430,6 +601,12 @@ export class DataDbPreflightService {
   ): Promise<IPreflightCapabilities> {
     const capabilities = { ...DEFAULT_CAPABILITIES };
 
+    const readOnlyError = await this.checkReadOnlyTransaction(client);
+    if (readOnlyError) {
+      errors.push(readOnlyError);
+      return capabilities;
+    }
+
     try {
       const rows = normalizeRawRows<{ can_create: boolean }>(
         await client.raw(
@@ -448,7 +625,15 @@ export class DataDbPreflightService {
     try {
       await client.raw(`CREATE SCHEMA "${schemaName}"`);
       capabilities.createSchema = true;
-      await client.raw(`CREATE TABLE "${schemaName}"."check_table" ("id" text PRIMARY KEY)`);
+      await client.raw(`CREATE TABLE "${schemaName}"."check_parent" ("id" text PRIMARY KEY)`);
+      await client.raw(
+        `CREATE TABLE "${schemaName}"."check_table" ("id" text PRIMARY KEY, "parent_id" text)`
+      );
+      await client.raw(`
+        ALTER TABLE "${schemaName}"."check_table"
+        ADD CONSTRAINT "check_table_parent_id_fkey"
+        FOREIGN KEY ("parent_id") REFERENCES "${schemaName}"."check_parent" ("id")
+      `);
       capabilities.createTable = true;
       await client.raw(`CREATE INDEX "check_table_id_idx" ON "${schemaName}"."check_table" ("id")`);
       await client.raw(`
@@ -470,12 +655,16 @@ export class DataDbPreflightService {
       `);
       capabilities.createTrigger = true;
     } catch (error) {
-      errors.push({
-        code: 'DDL_PRIVILEGE_CHECK_FAILED',
-        message: this.sanitizeErrorMessage(error, ''),
-        remediation:
-          'Grant CREATE privileges required for schemas, tables, functions, and triggers.',
-      });
+      errors.push(
+        this.isReadOnlyTransactionError(error)
+          ? READ_ONLY_DATABASE_ERROR
+          : {
+              code: 'DDL_PRIVILEGE_CHECK_FAILED',
+              message: this.sanitizeErrorMessage(error, ''),
+              remediation:
+                'Grant CREATE privileges required for schemas, tables, functions, triggers, and foreign key constraints.',
+            }
+      );
     } finally {
       await client.raw(`DROP SCHEMA IF EXISTS "${schemaName}" CASCADE`).catch(() => undefined);
     }
@@ -499,6 +688,36 @@ export class DataDbPreflightService {
     }
 
     return capabilities;
+  }
+
+  private async checkReadOnlyTransaction(
+    client: IDataDbPreflightClient
+  ): Promise<IPreflightError | null> {
+    try {
+      const rows = normalizeRawRows<{ transaction_read_only: string }>(
+        await client.raw('SHOW transaction_read_only')
+      );
+      return this.isTruthyPostgresSetting(rows[0]?.transaction_read_only)
+        ? READ_ONLY_DATABASE_ERROR
+        : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private isTruthyPostgresSetting(value: unknown) {
+    return ['on', 'true', '1', 'yes'].includes(String(value ?? '').toLowerCase());
+  }
+
+  private isReadOnlyTransactionError(error: unknown) {
+    const code =
+      error && typeof error === 'object' ? String((error as { code?: unknown }).code ?? '') : '';
+    const message = error instanceof Error ? error.message : String(error);
+    return (
+      code === '25006' ||
+      /read-only transaction/i.test(message) ||
+      /cannot execute .+ in a read-only transaction/i.test(message)
+    );
   }
 
   private async classifyTarget(

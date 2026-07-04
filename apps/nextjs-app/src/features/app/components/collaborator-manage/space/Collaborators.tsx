@@ -24,6 +24,7 @@ import type { FC, PropsWithChildren } from 'react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { CollaboratorTable } from '../../collaborator/share/common/CollaboratorTable';
 import { useFilteredRoleStatic as useFilteredBaseRoleStatic } from '../base/useFilteredRoleStatic';
+import { OverflowText } from '../components/Collaborator';
 import { useFilteredRoleStatic } from './useFilteredRoleStatic';
 
 interface ICollaborators {
@@ -225,8 +226,11 @@ export const Collaborators: FC<PropsWithChildren<ICollaborators>> = (props) => {
       if (!item.base) return null;
       return (
         <div className="inline-flex items-center gap-2">
-          <Badge className="text-muted-foreground" variant="outline">
-            {item.base.name}
+          <Badge
+            className="max-w-24 px-2 shrink-0 whitespace-nowrap text-muted-foreground"
+            variant="outline"
+          >
+            <OverflowText text={item.base.name} />
           </Badge>
           <Button
             className="h-auto p-0.5"
