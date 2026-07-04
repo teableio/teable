@@ -17,6 +17,8 @@ const metaRelations = [
   'schema_operation',
   'data_db_connection',
   'space_data_db_binding',
+  'users',
+  'collaborator',
 ] as const;
 
 const dataRelations = [

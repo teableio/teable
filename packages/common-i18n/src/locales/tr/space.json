@@ -9,7 +9,8 @@
   "action": {
     "createBase": "Veritabanı oluştur",
     "createSpace": "Alan oluştur",
-    "invite": "Davet et"
+    "invite": "Davet et",
+    "startFromScratch": "Sıfırdan başla"
   },
   "allSpaces": "Tüm alanlar",
   "emptySpaceTitle": "Bu alanda base yok",
@@ -139,7 +140,7 @@
   },
   "baseList": {
     "allBases": "Tüm üsler",
-    "owner": "Sahibi",
+    "creator": "Oluşturan",
     "createdTime": "Oluşturulma",
     "lastOpened": "Son açılan",
     "enter": "Giriş",
@@ -207,5 +208,67 @@
       "redeploy": "Yeniden Dağıt",
       "unnamedApp": "Adsız Uygulama"
     }
+  },
+  "airtableImport": {
+    "title": "Airtable'dan içe aktar",
+    "close": "Kapat",
+    "pickBase": "İçe aktarılacak base'i seçin",
+    "noBases": "Bu belirteç için erişilebilir base bulunamadı.",
+    "optionRecords": "Kayıtları içe aktar",
+    "optionAttachments": "Ekleri indirip içe aktar",
+    "import": "İçe aktarmayı başlat",
+    "done": "İçe aktarma tamamlandı",
+    "failed": "İçe aktarma başarısız",
+    "openBase": "Base'i aç",
+    "issuesSummary": "İçe aktarma sırasında {{count}} öğe uyarlandı:",
+    "issuesMore": "+{{count}} öğe daha",
+    "issue": {
+      "fieldDegraded": "{{tableName}} / {{fieldName}}: {{fromType}} → {{toType}}",
+      "fieldSkipped": "{{tableName}} / {{fieldName}} ({{fromType}}) atlandı: {{reason}}",
+      "viewSkipped": "{{tableName}} / \"{{viewName}}\" görünümü ({{fromType}}) atlandı",
+      "valuesDropped": "{{tableName}} / {{fieldName}}: {{count}} değer atıldı ({{reason}})",
+      "viewConfigDegraded": "{{tableName}} / görünüm \"{{viewName}}\": {{reason}}"
+    },
+    "phase": {
+      "fetchingSchema": "Airtable base yapısı okunuyor",
+      "creatingBase": "Base oluşturuluyor: {{detail}}",
+      "creatingTable": "Tablo oluşturuluyor: {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "creatingLinks": "Bağlantı alanları oluşturuluyor",
+      "fillingLinks": "{{tableName}} (bağlantılar)",
+      "done": "İçe aktarma tamamlandı",
+      "applyingViewConfig": "Görünüm yapılandırması içe aktarılıyor"
+    },
+    "searchBases": "Base ara",
+    "noSearchResults": "Aramanızla eşleşen base yok.",
+    "detecting": "Airtable bağlantısı denetleniyor…",
+    "connectWithAirtable": "Airtable hesabını bağla",
+    "waitingOAuth": "Yetkilendirmeyi açılır pencerede tamamlayın…",
+    "connectedAs": "Bağlandı: {{account}}",
+    "permission": {
+      "create": "Oluşturucu",
+      "edit": "Düzenleyen",
+      "comment": "Yorumcu",
+      "read": "Salt okunur"
+    },
+    "integrationRequired": "Bu örnekte Airtable entegrasyonu yapılandırılmamış. Kurulum için bir yöneticiye başvurun.",
+    "optionViewConfig": "Görünüm filtrelerini, sıralamaları ve gruplamaları içe aktar",
+    "viewConfig": {
+      "help": "Airtable API’si görünüm ayarlarını sağlamaz; bu nedenle salt okunur bir paylaşım bağlantısı gerekir.",
+      "helpStep1": "Airtable’da tabanın \"Share\" menüsünü açın",
+      "helpStep2": "\"Share to web\" seçeneğini seçin ve tam taban erişimini açın",
+      "helpStep3": "Salt okunur bağlantıyı kopyalayıp yukarıdaki alana yapıştırın",
+      "linkPlaceholder": "Paylaşım bağlantısını buraya yapıştırın",
+      "mismatch": "Bu paylaşım bağlantısı seçili olandan farklı bir tabana işaret ediyor.",
+      "disableReminder": "Tamamlandı — artık Airtable’daki paylaşım bağlantısını kapatabilirsiniz."
+    }
+  },
+  "createBaseDialog": {
+    "title": "Nasıl başlamak istersiniz?"
+  },
+  "importBaseDialog": {
+    "title": "Veritabanını içe aktar",
+    "fromFile": "Dosyadan içe aktar",
+    "fromFileDesc": ".tea veritabanı dosyası yükleyin",
+    "fromAirtableDesc": "Airtable hesabınızı bağlayın"
   }
 }

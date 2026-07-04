@@ -130,6 +130,33 @@ describe('update-field: checkbox property updates', () => {
     await ctx.deleteField({ tableId, fieldId });
     await ctx.deleteRecords(tableId, [r1.id]);
   });
+
+  test('should create field with cleared defaultValue', async () => {
+    // Setup: UI sends null after enabling then clearing the checkbox default value.
+    const fieldId = createFieldId();
+
+    // Action: Create checkbox field with cleared default value.
+    const updatedTable = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId,
+      field: {
+        type: 'checkbox',
+        id: fieldId,
+        name: 'Cleared Default',
+        options: { defaultValue: null },
+      },
+    } as unknown as Parameters<typeof ctx.createField>[0]);
+
+    // Assert: Field is created without a persisted default.
+    const updatedField = updatedTable.fields.find((f) => f.id === fieldId);
+    expect(updatedField?.type).toBe('checkbox');
+    expect(
+      (updatedField?.options as CheckboxFieldOptions | undefined)?.defaultValue
+    ).toBeUndefined();
+
+    // Cleanup
+    await ctx.deleteField({ tableId, fieldId });
+  });
 });
 
 describe('update-field: checkbox conversions', () => {

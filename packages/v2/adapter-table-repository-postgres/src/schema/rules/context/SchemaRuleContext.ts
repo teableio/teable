@@ -14,6 +14,9 @@ export interface SchemaRuleContext {
   /** Kysely database instance for generating SQL statements */
   readonly db: Kysely<V1TeableDatabase>;
 
+  /** Kysely database instance for metadata tables such as field/reference */
+  readonly metaDb: Kysely<V1TeableDatabase>;
+
   /** Introspector for querying current database schema state */
   readonly introspector: SchemaIntrospector;
 
@@ -39,6 +42,13 @@ export interface SchemaRuleContext {
    * Defaults to 'update' when not specified.
    */
   readonly mode?: 'delete' | 'update';
+
+  /**
+   * True when applying schema rules to brand-new empty physical tables.
+   * Rules may skip repair/backfill statements for existing rows while keeping
+   * structural DDL and metadata writes intact.
+   */
+  readonly optimizeForEmptyTables?: boolean;
 }
 
 /**
@@ -46,6 +56,7 @@ export interface SchemaRuleContext {
  */
 export const createSchemaRuleContext = (params: {
   db: Kysely<V1TeableDatabase>;
+  metaDb?: Kysely<V1TeableDatabase>;
   introspector: SchemaIntrospector;
   schema: string | null;
   tableName: string;
@@ -53,8 +64,10 @@ export const createSchemaRuleContext = (params: {
   field?: Field;
   table?: Table;
   mode?: 'delete' | 'update';
+  optimizeForEmptyTables?: boolean;
 }): SchemaRuleContext => ({
   db: params.db,
+  metaDb: params.metaDb ?? params.db,
   introspector: params.introspector,
   schema: params.schema,
   tableName: params.tableName,
@@ -62,4 +75,5 @@ export const createSchemaRuleContext = (params: {
   field: params.field,
   table: params.table,
   mode: params.mode,
+  optimizeForEmptyTables: params.optimizeForEmptyTables,
 });

@@ -1,5 +1,5 @@
 import type { Readable } from 'stream';
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   DbFieldType,
@@ -76,6 +76,7 @@ import { InjectStorageAdapter } from '../attachments/plugins/storage';
 import { AuditScope } from '../audit/audit-scope';
 import { Audit } from '../audit/audit.decorator';
 import { FieldDuplicateService } from '../field/field-duplicate/field-duplicate.service';
+import { SpaceDataDbMigrationGuardService } from '../space/space-data-db-migration-guard.service';
 import { TableService } from '../table/table.service';
 import { V2ContainerService } from '../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../v2/v2-execution-context.factory';
@@ -112,6 +113,7 @@ type IDataPrismaScopedClient = IDataPrismaExecutor & {
 
 const tableDataImportBatchSize = 100;
 const linkFieldImportBatchSize = 25;
+const attachmentsDirPrefix = 'attachments/';
 
 const stringifyErrorDetails = (details: unknown): string | undefined => {
   if (details === undefined || details === null) {
@@ -181,8 +183,19 @@ export class BaseImportService {
     private readonly v2ContainerService: V2ContainerService,
     private readonly v2ContextFactory: V2ExecutionContextFactory,
     private readonly dataDbClientManager: DataDbClientManager,
-    private readonly audit: AuditScope
+    private readonly audit: AuditScope,
+    @Optional()
+    @Inject(SpaceDataDbMigrationGuardService)
+    private readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService
   ) {}
+
+  private async assertSpaceWritable(spaceId: string) {
+    await this.spaceDataDbMigrationGuard?.assertSpaceWritable(spaceId);
+  }
+
+  private async assertBaseWritable(baseId: string) {
+    await this.spaceDataDbMigrationGuard?.assertBaseWritable(baseId);
+  }
 
   private async getMaxOrder(spaceId: string) {
     const spaceAggregate = await this.prismaService.txClient().base.aggregate({
@@ -198,6 +211,7 @@ export class BaseImportService {
     icon?: string,
     routingOptions?: IDataDbRoutingOptions
   ) {
+    await this.assertSpaceWritable(spaceId);
     const userId = this.cls.get('user.id');
     const order = (await this.getMaxOrder(spaceId)) + 1;
 
@@ -259,7 +273,9 @@ export class BaseImportService {
     updateExistingBase: boolean = true
   ): Promise<ICreateBaseVo> {
     const userId = this.cls.get('user.id');
+    await this.assertSpaceWritable(spaceId);
     if (baseId) {
+      await this.assertBaseWritable(baseId);
       const existingResult = await sql<{
         id: string;
         name: string;
@@ -351,8 +367,10 @@ export class BaseImportService {
   })
   async importBase(importBaseRo: ImportBaseRo, onProgress?: BaseImportProgressCallback) {
     const {
+      spaceId,
       notify: { path },
     } = importBaseRo;
+    await this.assertSpaceWritable(spaceId);
     const logId = this.audit.current()!.operationId;
 
     onProgress?.('parsing_structure');
@@ -418,6 +436,7 @@ export class BaseImportService {
       spaceId,
       notify: { path },
     } = importBaseRo;
+    await this.assertSpaceWritable(spaceId);
 
     onProgress?.('importing_v2');
     onProgress?.('parsing_structure');
@@ -473,7 +492,7 @@ export class BaseImportService {
     const { tableIdMap, fieldIdMap, viewIdMap } = result.value;
 
     onProgress?.('structure_created', base.id);
-    await this.restoreBaseExtrasV2(
+    const { appIdMap, workflowIdMap } = await this.restoreBaseExtrasV2(
       db,
       base.id,
       structure,
@@ -512,6 +531,15 @@ export class BaseImportService {
       tableIdMap,
       fieldIdMap,
       viewIdMap,
+      appIdMap,
+      workflowIdMap,
+      // Source->new base id, so EE import can rewrite base-id references baked into app
+      // build artifacts (matches the v1 import/duplicate idMap; v2 dropped it).
+      baseIdMap: { [structure.id]: base.id },
+    } as IImportBaseVo & {
+      appIdMap: Record<string, string>;
+      workflowIdMap: Record<string, string>;
+      baseIdMap: Record<string, string>;
     };
   }
 
@@ -525,8 +553,7 @@ export class BaseImportService {
       viewIdMap: Record<string, string>;
     },
     duplicateMode: BaseDuplicateMode = BaseDuplicateMode.Normal,
-    onProgress?: BaseImportProgressCallback,
-    options?: { restoreEeResources?: boolean }
+    onProgress?: BaseImportProgressCallback
   ): Promise<{ appIdMap: Record<string, string>; workflowIdMap: Record<string, string> }> {
     const { tableIdMap, fieldIdMap, viewIdMap } = idMaps;
     let dashboardIdMap: Record<string, string> = {};
@@ -545,20 +572,17 @@ export class BaseImportService {
       ));
     }
 
-    // Restore edition-specific resources (apps / workflows / authority matrix) and collect their
-    // id maps so the matching base_node rows can be remapped below. Community has none, so the
-    // hook is a no-op; the EE subclass overrides it. Gated to the duplicate/copy path
-    // (restoreEeResources) so the .tea import path keeps its current behavior untouched.
-    const { workflowIdMap = {}, appIdMap = {} } = options?.restoreEeResources
-      ? await this.restoreExtraBaseResourcesV2(
-          db,
-          baseId,
-          structure,
-          { tableIdMap, fieldIdMap, viewIdMap },
-          duplicateMode,
-          onProgress
-        )
-      : {};
+    // Restore edition-specific resources (apps / workflows / authority matrix) through the v2
+    // extension hook and collect their id maps so matching base_node rows can be remapped below.
+    // Community has none, so the hook is a no-op; EE overrides it for imported and duplicated bases.
+    const { workflowIdMap = {}, appIdMap = {} } = await this.restoreExtraBaseResourcesV2(
+      db,
+      baseId,
+      structure,
+      { tableIdMap, fieldIdMap, viewIdMap },
+      duplicateMode,
+      onProgress
+    );
 
     const hasFolders = Array.isArray(structure.folders) && structure.folders.length > 0;
     const hasNodes = Array.isArray(structure.nodes) && structure.nodes.length > 0;
@@ -589,10 +613,10 @@ export class BaseImportService {
   }
 
   /**
-   * Hook for edition-specific (EE) base resources restored during a v2 duplicate/copy:
-   * apps, workflows, and the authority matrix. Community has none, so this is a no-op.
-   * The EE subclass overrides it to create those rows and returns their id maps so the
-   * caller can remap the corresponding base_node entries.
+   * Hook for edition-specific base resources restored during v2 `.tea` import and v2 duplicate/copy:
+   * apps, workflows, and the authority matrix. Community has none, so this is a no-op. The EE
+   * subclass overrides it to create those rows and returns their id maps so the caller can remap the
+   * corresponding base_node entries.
    */
   protected async restoreExtraBaseResourcesV2(
     _db: Kysely<unknown>,
@@ -1085,35 +1109,92 @@ export class BaseImportService {
     }
   }
 
+  /**
+   * Stream the uploaded .tea straight from storage and hand only the entries selected by
+   * `match` to `consume`, one at a time.
+   *
+   * Uses the event-based `unzipper.Parse()` (NOT `{ forceStream: true }`) and, crucially,
+   * decides skip-vs-consume and calls `entry.autodrain()` for skipped entries
+   * SYNCHRONOUSLY inside the 'entry' event. That matters: unzipper begins inflating an
+   * entry (`zlib.createInflateRaw`) the moment it is emitted unless `autodrain()` is
+   * called before the next tick — a late/deferred autodrain still decompresses the entry.
+   * With `{ forceStream: true }` + `for await`, `autodrain()` always runs a tick too late,
+   * so a single entry whose deflate stream doesn't decode cleanly (e.g. an odd app-version
+   * zip, a truncated upload, or a data-descriptor boundary false-match) throws
+   * "unexpected end of file (Z_BUF_ERROR)" even though we only meant to skip it. Draining
+   * inline routes skipped entries through a PassThrough (no inflate), so they can never
+   * fail — the same approach the v1 CSV/junction importers use.
+   *
+   * Memory stays bounded to a single in-flight entry: the parser back-pressures on the
+   * current entry instead of buffering the archive (no temp file, no full-file buffer).
+   * `consume` may `await` before reading the entry; the parser simply waits.
+   */
+  private async forEachDotTeaEntry(
+    path: string,
+    match: (entryPath: string, entry: unzipper.Entry) => boolean,
+    consume: (entry: unzipper.Entry) => Promise<void>
+  ): Promise<void> {
+    const zipStream = await this.storageAdapter.downloadFile(
+      StorageAdapter.getBucket(UploadType.Import),
+      path
+    );
+    const parser = unzipper.Parse();
+
+    await new Promise<void>((resolve, reject) => {
+      let settled = false;
+      let chain: Promise<void> = Promise.resolve();
+
+      const fail = (error: unknown) => {
+        if (settled) return;
+        settled = true;
+        zipStream.destroy();
+        reject(error instanceof Error ? error : new Error(String(error)));
+      };
+
+      parser.on('entry', (entry: unzipper.Entry) => {
+        // Synchronous skip: drain (PassThrough, no inflate) entries we don't need.
+        if (settled || !match(entry.path, entry)) {
+          entry.autodrain();
+          return;
+        }
+        // Matched entries are consumed sequentially; the parser back-pressures until done.
+        chain = chain.then(() => consume(entry)).catch(fail);
+      });
+      parser.on('error', fail);
+      zipStream.on('error', fail);
+      parser.on('close', () => {
+        chain
+          .then(() => {
+            if (!settled) {
+              settled = true;
+              resolve();
+            }
+          })
+          .catch(fail);
+      });
+
+      zipStream.pipe(parser);
+    });
+  }
+
   private async importAttachmentsV2(db: Kysely<unknown>, path: string) {
     await this.importAttachmentFilesV2(db, path);
     await this.importAttachmentMetadataV2(db, path);
   }
 
   private async importAttachmentFilesV2(db: Kysely<unknown>, path: string) {
-    const zipStream = await this.storageAdapter.downloadFile(
-      StorageAdapter.getBucket(UploadType.Import),
-      path
-    );
-    const parser = unzipper.Parse({ forceStream: true });
-    zipStream.pipe(parser);
     const bucket = StorageAdapter.getBucket(UploadType.Table);
 
-    try {
-      for await (const entry of parser as AsyncIterable<unzipper.Entry>) {
+    await this.forEachDotTeaEntry(
+      path,
+      (entryPath, entry) =>
+        entryPath.startsWith(attachmentsDirPrefix) &&
+        entry.type !== 'Directory' &&
+        (entryPath.split('.').pop() ?? '') !== 'csv',
+      async (entry) => {
         const filePath = entry.path;
         const fileSuffix = filePath.split('.').pop() ?? '';
-
-        if (
-          !filePath.startsWith('attachments/') ||
-          entry.type === 'Directory' ||
-          fileSuffix === 'csv'
-        ) {
-          entry.autodrain();
-          continue;
-        }
-
-        const token = filePath.replace('attachments/', '').split('.')[0];
+        const token = filePath.replace(attachmentsDirPrefix, '').split('.')[0];
         const isThumbnail = token.includes('thumbnail__');
         const finalPath = isThumbnail
           ? `table/${token.split('__')[1].split('.')[0]}`
@@ -1128,7 +1209,7 @@ export class BaseImportService {
 
         if (existing.rows[0]) {
           entry.autodrain();
-          continue;
+          return;
         }
 
         await this.storageAdapter.uploadFileStream(bucket, finalPath, entry, {
@@ -1136,32 +1217,19 @@ export class BaseImportService {
           'Content-Type': this.getAttachmentMimeType(fileSuffix),
         });
       }
-    } finally {
-      zipStream.destroy();
-    }
+    );
   }
 
   private async importAttachmentMetadataV2(db: Kysely<unknown>, path: string) {
-    const zipStream = await this.storageAdapter.downloadFile(
-      StorageAdapter.getBucket(UploadType.Import),
-      path
-    );
-    const parser = unzipper.Parse({ forceStream: true });
-    zipStream.pipe(parser);
     const userId = this.cls.get('user.id');
 
-    try {
-      for await (const entry of parser as AsyncIterable<unzipper.Entry>) {
-        const filePath = entry.path;
-        if (
-          !filePath.startsWith('attachments/') ||
-          entry.type === 'Directory' ||
-          !filePath.endsWith('.csv')
-        ) {
-          entry.autodrain();
-          continue;
-        }
-
+    await this.forEachDotTeaEntry(
+      path,
+      (entryPath, entry) =>
+        entryPath.startsWith(attachmentsDirPrefix) &&
+        entry.type !== 'Directory' &&
+        entryPath.endsWith('.csv'),
+      async (entry) => {
         const csvStream = entry.pipe(
           csvParser.default({
             mapHeaders: ({ header }) => header.replace(/^\uFEFF/, ''),
@@ -1216,9 +1284,7 @@ export class BaseImportService {
           `.execute(db);
         }
       }
-    } finally {
-      zipStream.destroy();
-    }
+    );
   }
 
   private getAttachmentMimeType(extension: string): string {
@@ -1263,6 +1329,23 @@ export class BaseImportService {
     return extensionToMimeType[ext] || 'application/octet-stream';
   }
 
+  /** A `tables/<id>.csv` entry (excluding junction tables) whose table exists in the structure. */
+  private isImportableTableCsv(
+    entryPath: string,
+    entry: unzipper.Entry,
+    tablesById: Map<string, IBaseJson['tables'][number]>
+  ): boolean {
+    if (
+      !entryPath.startsWith('tables/') ||
+      entry.type === 'Directory' ||
+      !entryPath.endsWith('.csv') ||
+      entryPath.includes('junction_')
+    ) {
+      return false;
+    }
+    return tablesById.has(entryPath.replace('tables/', '').replace(/\.csv$/, ''));
+  }
+
   private async importTableDataV2(
     path: string,
     baseId: string,
@@ -1274,49 +1357,29 @@ export class BaseImportService {
     context: IExecutionContext,
     onProgress?: BaseImportProgressCallback
   ) {
-    const dotTeaDataStream = await this.storageAdapter.downloadFile(
-      StorageAdapter.getBucket(UploadType.Import),
-      path
-    );
-    const parser = unzipper.Parse({ forceStream: true });
-    dotTeaDataStream.pipe(parser);
-
     const tablesById = new Map(structure.tables.map((table) => [table.id, table]));
     let importedTables = 0;
 
-    for await (const entry of parser as AsyncIterable<unzipper.Entry>) {
-      const filePath = entry.path;
-      const isTableCsv =
-        filePath.startsWith('tables/') &&
-        entry.type !== 'Directory' &&
-        filePath.endsWith('.csv') &&
-        !filePath.includes('junction_');
-
-      if (!isTableCsv) {
-        entry.autodrain();
-        continue;
+    await this.forEachDotTeaEntry(
+      path,
+      (entryPath, entry) => this.isImportableTableCsv(entryPath, entry, tablesById),
+      async (entry) => {
+        const tableId = entry.path.replace('tables/', '').replace(/\.csv$/, '');
+        const table = tablesById.get(tableId)!;
+        importedTables++;
+        await this.importTableDataEntryV2(
+          entry,
+          table,
+          baseId,
+          tableIdMap[table.id] ?? table.id,
+          viewIdMap,
+          commandBus,
+          queryBus,
+          context,
+          onProgress
+        );
       }
-
-      const tableId = filePath.replace('tables/', '').replace(/\.csv$/, '');
-      const table = tablesById.get(tableId);
-      if (!table) {
-        entry.autodrain();
-        continue;
-      }
-
-      importedTables++;
-      await this.importTableDataEntryV2(
-        entry,
-        table,
-        baseId,
-        tableIdMap[table.id] ?? table.id,
-        viewIdMap,
-        commandBus,
-        queryBus,
-        context,
-        onProgress
-      );
-    }
+    );
 
     if (importedTables === 0) {
       onProgress?.('table_data_empty');
@@ -1476,13 +1539,6 @@ export class BaseImportService {
       return;
     }
 
-    const dotTeaDataStream = await this.storageAdapter.downloadFile(
-      StorageAdapter.getBucket(UploadType.Import),
-      path
-    );
-    const parser = unzipper.Parse({ forceStream: true });
-    dotTeaDataStream.pipe(parser);
-
     const tablesById = new Map(structure.tables.map((table) => [table.id, table]));
     let processedRows = 0;
     let currentBatch = 0;
@@ -1513,37 +1569,24 @@ export class BaseImportService {
       });
     };
 
-    for await (const entry of parser as AsyncIterable<unzipper.Entry>) {
-      const filePath = entry.path;
-      const isTableCsv =
-        filePath.startsWith('tables/') &&
-        entry.type !== 'Directory' &&
-        filePath.endsWith('.csv') &&
-        !filePath.includes('junction_');
-
-      if (!isTableCsv) {
-        entry.autodrain();
-        continue;
+    await this.forEachDotTeaEntry(
+      path,
+      (entryPath, entry) => this.isImportableTableCsv(entryPath, entry, tablesById),
+      async (entry) => {
+        const tableId = entry.path.replace('tables/', '').replace(/\.csv$/, '');
+        const table = tablesById.get(tableId)!;
+        await this.importTableLinkFieldEntryV2(
+          entry,
+          baseId,
+          tableIdMap[table.id] ?? table.id,
+          queryBus,
+          tableRecordRepository,
+          unitOfWork,
+          context,
+          onLinkBatchUpdated
+        );
       }
-
-      const tableId = filePath.replace('tables/', '').replace(/\.csv$/, '');
-      const table = tablesById.get(tableId);
-      if (!table) {
-        entry.autodrain();
-        continue;
-      }
-
-      await this.importTableLinkFieldEntryV2(
-        entry,
-        baseId,
-        tableIdMap[table.id] ?? table.id,
-        queryBus,
-        tableRecordRepository,
-        unitOfWork,
-        context,
-        onLinkBatchUpdated
-      );
-    }
+    );
 
     if (processedRows > 0) {
       onProgress?.({
@@ -1563,55 +1606,35 @@ export class BaseImportService {
     queryBus: IQueryBus,
     context: IExecutionContext
   ) {
-    const dotTeaDataStream = await this.storageAdapter.downloadFile(
-      StorageAdapter.getBucket(UploadType.Import),
-      path
-    );
-    const parser = unzipper.Parse({ forceStream: true });
-    dotTeaDataStream.pipe(parser);
-
     const tablesById = new Map(structure.tables.map((table) => [table.id, table]));
     let totalRows = 0;
 
-    for await (const entry of parser as AsyncIterable<unzipper.Entry>) {
-      const filePath = entry.path;
-      const isTableCsv =
-        filePath.startsWith('tables/') &&
-        entry.type !== 'Directory' &&
-        filePath.endsWith('.csv') &&
-        !filePath.includes('junction_');
+    await this.forEachDotTeaEntry(
+      path,
+      (entryPath, entry) => this.isImportableTableCsv(entryPath, entry, tablesById),
+      async (entry) => {
+        const tableId = entry.path.replace('tables/', '').replace(/\.csv$/, '');
+        const table = tablesById.get(tableId)!;
+        const config = await this.buildTableDataImportConfig(
+          baseId,
+          tableIdMap[table.id] ?? table.id,
+          queryBus,
+          context
+        );
+        const hasLinkFields = [...config.fieldsByDbFieldName.values()].some(
+          (field) => field.type === FieldType.Link && !this.isRestoreComputedField(field)
+        );
 
-      if (!isTableCsv) {
-        entry.autodrain();
-        continue;
+        if (!hasLinkFields) {
+          entry.autodrain();
+          return;
+        }
+
+        for await (const _record of this.createTableLinkFieldUpdateStream(entry, config)) {
+          totalRows += 1;
+        }
       }
-
-      const tableId = filePath.replace('tables/', '').replace(/\.csv$/, '');
-      const table = tablesById.get(tableId);
-      if (!table) {
-        entry.autodrain();
-        continue;
-      }
-
-      const config = await this.buildTableDataImportConfig(
-        baseId,
-        tableIdMap[table.id] ?? table.id,
-        queryBus,
-        context
-      );
-      const hasLinkFields = [...config.fieldsByDbFieldName.values()].some(
-        (field) => field.type === FieldType.Link && !this.isRestoreComputedField(field)
-      );
-
-      if (!hasLinkFields) {
-        entry.autodrain();
-        continue;
-      }
-
-      for await (const _record of this.createTableLinkFieldUpdateStream(entry, config)) {
-        totalRows += 1;
-      }
-    }
+    );
 
     return totalRows;
   }
@@ -2153,26 +2176,19 @@ export class BaseImportService {
       ? tables.map(({ dbTableName: _, ...rest }) => rest)
       : tables;
 
-    // Skip computed field evaluation during structure creation — tables have no records yet,
-    // and calculations will run when data is actually imported/copied.
-    this.cls.set('skipFieldComputation', true);
-
     let tableIdMap: Record<string, string>;
     let fieldIdMap: Record<string, string>;
     let viewIdMap: Record<string, string>;
     let fkMap: Record<string, string>;
 
-    try {
-      // create table
-      ({ tableIdMap, fieldIdMap, viewIdMap, fkMap } = await this.createTables(
-        newBase.id,
-        effectiveTables as IBaseJson['tables'],
-        onProgress,
-        routingOptions
-      ));
-    } finally {
-      this.cls.set('skipFieldComputation', false);
-    }
+    // create table
+    ({ tableIdMap, fieldIdMap, viewIdMap, fkMap } = await this.createTables(
+      newBase.id,
+      effectiveTables as IBaseJson['tables'],
+      onProgress,
+      routingOptions,
+      { skipComputedEvaluation: true }
+    ));
 
     this.logger.log(`base-duplicate-service: Duplicate base tables successfully`);
 
@@ -2235,7 +2251,8 @@ export class BaseImportService {
     baseId: string,
     tables: IBaseJson['tables'],
     onProgress?: BaseImportProgressCallback,
-    routingOptions?: IDataDbRoutingOptions
+    routingOptions?: IDataDbRoutingOptions,
+    options: { skipComputedEvaluation?: boolean } = {}
   ) {
     const tableIdMap: Record<string, string> = {};
     // Build a name lookup: oldTableId → tableName
@@ -2260,11 +2277,14 @@ export class BaseImportService {
       tableIdMap,
       tableNameMap,
       onProgress,
-      routingOptions
+      routingOptions,
+      options
     );
     this.logger.log(`base-duplicate-service: Duplicate table fields successfully`);
 
-    const viewIdMap = await this.createViews(tables, tableIdMap, fieldIdMap, onProgress);
+    const viewIdMap = await this.createViews(tables, tableIdMap, fieldIdMap, onProgress, {
+      ensureRowOrder: routingOptions?.useTransaction !== true,
+    });
     this.logger.log(`base-duplicate-service: Duplicate table views successfully`);
 
     await this.fieldDuplicateService.repairFieldOptions(tables, tableIdMap, fieldIdMap, viewIdMap);
@@ -2277,7 +2297,8 @@ export class BaseImportService {
     tableIdMap: Record<string, string>,
     tableNameMap?: Record<string, string>,
     onProgress?: BaseImportProgressCallback,
-    routingOptions?: IDataDbRoutingOptions
+    routingOptions?: IDataDbRoutingOptions,
+    options: { skipComputedEvaluation?: boolean } = {}
   ) {
     const fieldMap: Record<string, string> = {};
     const fkMap: Record<string, string> = {};
@@ -2350,16 +2371,27 @@ export class BaseImportService {
     };
 
     emitFieldProgress('creating_common_fields', commonFields);
-    await this.fieldDuplicateService.createCommonFields(commonFields, fieldMap, routingOptions);
+    await this.fieldDuplicateService.createCommonFields(
+      commonFields,
+      fieldMap,
+      routingOptions,
+      options
+    );
 
     emitFieldProgress('creating_button_fields', buttonFields);
-    await this.fieldDuplicateService.createButtonFields(buttonFields, fieldMap, routingOptions);
+    await this.fieldDuplicateService.createButtonFields(
+      buttonFields,
+      fieldMap,
+      routingOptions,
+      options
+    );
 
     emitFieldProgress('creating_formula_fields', primaryFormulaFields);
     await this.fieldDuplicateService.createTmpPrimaryFormulaFields(
       primaryFormulaFields,
       fieldMap,
-      routingOptions
+      routingOptions,
+      options
     );
 
     // main fix formula dbField type
@@ -2372,7 +2404,8 @@ export class BaseImportService {
     await this.fieldDuplicateService.bootstrapPrimaryDependencyFields(
       primaryDependencyFields,
       fieldMap,
-      routingOptions
+      routingOptions,
+      options
     );
 
     emitFieldProgress('creating_link_fields', linkFields);
@@ -2381,7 +2414,8 @@ export class BaseImportService {
       tableIdMap,
       fieldMap,
       fkMap,
-      routingOptions
+      routingOptions,
+      options
     );
 
     emitFieldProgress('creating_lookup_fields', dependencyFields);
@@ -2390,7 +2424,8 @@ export class BaseImportService {
       tableIdMap,
       fieldMap,
       'base',
-      routingOptions
+      routingOptions,
+      options
     );
 
     // fix formula expression' field map
@@ -2411,7 +2446,8 @@ export class BaseImportService {
     tables: IBaseJson['tables'],
     tableIdMap: Record<string, string>,
     fieldMap: Record<string, string>,
-    onProgress?: BaseImportProgressCallback
+    onProgress?: BaseImportProgressCallback,
+    options: { ensureRowOrder?: boolean } = {}
   ) {
     const viewMap: Record<string, string> = {};
     for (const table of tables) {
@@ -2446,14 +2482,18 @@ export class BaseImportService {
           const newValue = keyString ? JSON.parse(keyString) : null;
           obj[key] = newValue;
         }
-        const newViewVo = await this.viewOpenApiService.createView(tableIdMap[tableId], {
-          name,
-          type,
-          description,
-          enableShare,
-          isLocked,
-          ...obj,
-        });
+        const newViewVo = await this.viewOpenApiService.createView(
+          tableIdMap[tableId],
+          {
+            name,
+            type,
+            description,
+            enableShare,
+            isLocked,
+            ...obj,
+          },
+          { ensureRowOrder: options.ensureRowOrder }
+        );
 
         viewMap[viewId] = newViewVo.id;
 

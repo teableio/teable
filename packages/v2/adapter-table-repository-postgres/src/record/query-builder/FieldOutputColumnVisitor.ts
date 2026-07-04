@@ -54,7 +54,7 @@ export class FieldOutputColumnVisitor implements IFieldVisitor<FieldOutputColumn
     return safeTry<ReadonlyArray<FieldOutputColumn>, DomainError>(
       function* (this: FieldOutputColumnVisitor) {
         const projectionFieldIdSet =
-          projection && projection.length
+          projection !== undefined
             ? new Set(projection.map((fieldId) => fieldId.toString()))
             : undefined;
 
