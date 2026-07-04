@@ -30,9 +30,11 @@ import {
   convertField,
   deleteField,
   permanentDeleteTable,
+  getField,
   getFields,
   getRecord,
   initApp,
+  updateField,
   updateRecordByApi,
   createRecords,
   getRecords,
@@ -140,6 +142,42 @@ describe('OpenAPI FieldController (e2e)', () => {
       const field = await createField(table1.id, fieldRo, 201);
       expect(field).toBeDefined();
       expect(field.type).toBe(FieldType.Date);
+    });
+
+    it('preserves symmetric link field when PATCH only renames a v2 link field', async () => {
+      await withForceV2All(async () => {
+        const linkedTable = await createTable(baseId, { name: 'patch-rename-linked' });
+        try {
+          const linkField = await createField(table1.id, {
+            name: 'Linked table',
+            type: FieldType.Link,
+            options: {
+              foreignTableId: linkedTable.id,
+              relationship: Relationship.ManyMany,
+              isOneWay: false,
+            } as ILinkFieldOptionsRo,
+          });
+          const symmetricFieldId = (linkField.options as ILinkFieldOptions).symmetricFieldId;
+          expect(symmetricFieldId).toBeDefined();
+          const symmetricFieldBeforeUpdate = await getField(linkedTable.id, symmetricFieldId!);
+          expect(symmetricFieldBeforeUpdate.id).toBe(symmetricFieldId);
+
+          await updateField(table1.id, linkField.id, {
+            name: 'Renamed linked table',
+          });
+          const updatedField = await getField(table1.id, linkField.id);
+
+          expect(updatedField.name).toBe('Renamed linked table');
+          const symmetricField = await getField(linkedTable.id, symmetricFieldId!);
+          expect(symmetricField.id).toBe(symmetricFieldId);
+          expect(symmetricField.type).toBe(FieldType.Link);
+          expect((updatedField.options as ILinkFieldOptions).symmetricFieldId).toBe(
+            symmetricFieldId
+          );
+        } finally {
+          await permanentDeleteTable(baseId, linkedTable.id);
+        }
+      });
     });
   });
 

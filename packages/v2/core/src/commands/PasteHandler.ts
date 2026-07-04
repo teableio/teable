@@ -43,11 +43,17 @@ import type {
 import { RecordsBatchCreated } from '../domain/table/events/RecordsBatchCreated';
 import { RecordsBatchUpdated } from '../domain/table/events/RecordsBatchUpdated';
 import type { Field } from '../domain/table/fields/Field';
-import type { FieldId } from '../domain/table/fields/FieldId';
+import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldType } from '../domain/table/fields/FieldType';
 import { DateTimeFormatting } from '../domain/table/fields/types/DateTimeFormatting';
 import type { LinkField } from '../domain/table/fields/types/LinkField';
+import type { MultipleSelectField } from '../domain/table/fields/types/MultipleSelectField';
 import { NumberFormatting } from '../domain/table/fields/types/NumberFormatting';
+import type { SingleSelectField } from '../domain/table/fields/types/SingleSelectField';
+import {
+  normalizeCellDisplayValue,
+  normalizeCellDisplayValues,
+} from '../domain/table/fields/visitors/normalizeCellDisplayValue';
 import type { RecordWriteSideEffect } from '../domain/table/fields/visitors/RecordWriteSideEffectVisitor';
 import type { UpdateRecordItem } from '../domain/table/methods/records';
 import { calculateBatchSize } from '../domain/table/methods/records/calculateBatchSize';
@@ -60,6 +66,7 @@ import { type TableRecord } from '../domain/table/records/TableRecord';
 import type { Table } from '../domain/table/Table';
 import type { TableId } from '../domain/table/TableId';
 import type { ViewId } from '../domain/table/views/ViewId';
+import type { IBatchMutationOrchestration } from '../ports/BatchMutationOrchestration';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { AsyncIterableQueue } from '../ports/memory/AsyncIterableQueue';
@@ -79,6 +86,7 @@ import type { RecordFilter } from '../queries/RecordFilterDto';
 import {
   buildRecordConditionSpec,
   buildSanitizedRecordConditionSpec,
+  replaceCurrentUserTagInFilter,
 } from '../queries/RecordFilterMapper';
 import type { RecordSearch } from '../queries/RecordSearch';
 import { resolveVisibleRowSearch } from '../queries/RecordSearch';
@@ -93,10 +101,7 @@ import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { PasteCommand } from './PasteCommand';
 import type { PasteGroup, PasteSort, SourceFieldMeta } from './PasteCommand';
 import type { NormalizedRanges, RangeType } from './RangeUtils';
-import {
-  buildOperationBatchMutation,
-  withBatchMutation,
-} from './shared/batchMutationOrchestration';
+import { buildOperationBatchMutation } from './shared/batchMutationOrchestration';
 import {
   mergeOrderByWithViewRowTieBreaker,
   resolveGroupByToOrderBy,
@@ -174,6 +179,7 @@ type PendingUpdateEvent = {
   recordId: string;
   oldVersion: number;
   oldValues: Map<string, unknown>;
+  newValues: ReadonlyMap<string, unknown>;
 };
 
 type PendingCreatedRecord = {
@@ -205,6 +211,9 @@ type PasteStreamCommandLike = {
   readonly sort: ReadonlyArray<PasteSort> | undefined;
   readonly groupBy: ReadonlyArray<PasteGroup> | undefined;
   readonly ignoreViewQuery: boolean;
+  readonly targetRecordIds?: ReadonlyArray<string>;
+  readonly excludedTargetRecordIds?: ReadonlyArray<string>;
+  readonly targetFieldIds?: ReadonlyArray<string>;
   readonly batchSize?: number;
   normalizeRanges(totalRows: number, totalCols: number): NormalizedRanges;
 };
@@ -353,7 +362,15 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
 
       // 3. Build filter spec from effective view filter. Search-aware visible rows are handled
       // by the query repository so field-type-specific search semantics stay centralized.
-      const filterSpec = yield* buildSanitizedRecordConditionSpec(persistedTable, effectiveFilter);
+      const actorResolvedFilter = replaceCurrentUserTagInFilter(
+        persistedTable,
+        effectiveFilter,
+        context.actorId.toString()
+      );
+      const filterSpec = yield* buildSanitizedRecordConditionSpec(
+        persistedTable,
+        actorResolvedFilter
+      );
       const visibleRowSearch = resolveVisibleRowSearch(command.search, orderedFieldIds);
 
       // 4. Get total row count for columns/rows type normalization
@@ -421,8 +438,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         return ok({ updatedCount: 0, createdCount: 0, createdRecordIds: [] });
       }
 
-      // 10. Build orderBy from group + sort for correct row mapping
-      // If none provided, fall back to view row order column (__row_{viewId})
+      // 10. Build orderBy from group + sort to match the visible list row order.
       const effectiveGroup = command.ignoreViewQuery
         ? command.groupBy ?? undefined
         : mergedDefaults.group();
@@ -518,7 +534,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         return ok({ updatedCount: 0, createdCount: 0, createdRecordIds: [] });
       }
       const batchMutation = buildOperationBatchMutation(
-        context,
+        context.requestId,
         executableUpdateOperations.length + executableCreateOperations.length
       );
 
@@ -534,9 +550,8 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       };
 
       yield* await handler.unitOfWork.withTransaction(context, async (txContext) => {
-        const txContextWithBatchMutation = withBatchMutation(txContext, batchMutation);
         return handler.executePasteStream(
-          txContextWithBatchMutation,
+          txContext,
           tableForPaste,
           executableUpdateOperations,
           executableCreateOperations,
@@ -545,6 +560,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
           editableColumns,
           scopedCreateColumns,
           eventData,
+          batchMutation,
           plannedColumnExpansion
         );
       });
@@ -560,6 +576,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
             updates: eventData.updates,
             source: 'user',
             orchestration: batchMutation,
+            auditSource: 'paste',
           })
         );
       }
@@ -571,6 +588,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
             baseId: persistedTable.baseId(),
             records: eventData.createdRecords,
             orchestration: batchMutation,
+            auditSource: 'paste',
           })
         );
       }
@@ -1156,6 +1174,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
     updateColumns: ReadonlyArray<EditableColumn>,
     createColumns: ReadonlyArray<EditableColumn>,
     eventData: CollectedEventData,
+    orchestration: IBatchMutationOrchestration,
     plannedColumnExpansion?: PlannedColumnExpansion
   ): Promise<Result<void, DomainError>> {
     const handler = this;
@@ -1225,7 +1244,8 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
               updateColumns,
               batchSize,
               eventData
-            )
+            ),
+            { orchestration }
           );
           if (updateResult.isErr()) {
             return err(updateResult.error);
@@ -1257,6 +1277,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
               eventData
             ),
             {
+              orchestration,
               onBatchInserted: (progress) => {
                 const records = createdRecordBatches[progress.batchIndex] ?? [];
                 for (const record of records) {
@@ -1378,9 +1399,11 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         }
 
         const oldValues = new Map<string, unknown>();
-        const fieldValues = this.buildEditableFieldValues(
-          op.rowData,
+        const fieldValues = this.buildUpdateFieldValues(
+          batchTable,
           batchEditableColumns,
+          typecast,
+          op.rowData,
           (fieldId, rawValue) => {
             oldValues.set(fieldId, op.existingRecord.fields[fieldId]);
             return this.hydrateLinkValue(
@@ -1390,13 +1413,21 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
             );
           }
         );
+        if (fieldValues.size === 0) {
+          continue;
+        }
 
         updateItems.push({ recordId: recordId.value, fieldValues });
         pendingUpdateEvents.push({
           recordId: op.existingRecord.id,
           oldVersion: op.existingRecord.version,
           oldValues,
+          newValues: fieldValues,
         });
+      }
+
+      if (updateItems.length === 0) {
+        continue;
       }
 
       let resolvedUpdateIndex = 0;
@@ -1430,10 +1461,12 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
           }
 
           const changes: RecordFieldChangeDTO[] = [];
-          for (const column of batchEditableColumns) {
-            const fieldId = column.fieldId;
-            const fieldIdStr = fieldId.toString();
-            const newValue = updateResult.record.fields().get(fieldId)?.toValue() ?? null;
+          for (const [fieldIdStr, submittedNewValue] of pending.newValues.entries()) {
+            const resolvedEntry = updateResult.record
+              .fields()
+              .entries()
+              .find((entry) => entry.fieldId.toString() === fieldIdStr);
+            const newValue = resolvedEntry ? resolvedEntry.value.toValue() : submittedNewValue;
             const oldValue = pending.oldValues.get(fieldIdStr);
             if (areRecordFieldValuesEqual(oldValue, newValue)) {
               continue;
@@ -1805,6 +1838,68 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       fieldValues.set(fieldId, transform ? transform(fieldId, rawValue) : rawValue);
     }
     return fieldValues;
+  }
+
+  protected buildUpdateFieldValues(
+    table: Table,
+    editableColumns: ReadonlyArray<EditableColumn>,
+    typecast: boolean,
+    rowData: ReadonlyArray<unknown>,
+    transform?: (fieldId: string, rawValue: unknown) => unknown
+  ): Map<string, unknown> {
+    const fieldValues = new Map<string, unknown>();
+    for (const column of editableColumns) {
+      const fieldId = column.fieldId.toString();
+      const rawValue = rowData[column.columnIndex] ?? null;
+      if (this.shouldSkipPreventedSelectUpdate(table, column, rawValue, typecast)) {
+        continue;
+      }
+      fieldValues.set(fieldId, transform ? transform(fieldId, rawValue) : rawValue);
+    }
+    return fieldValues;
+  }
+
+  protected shouldSkipPreventedSelectUpdate(
+    table: Table,
+    column: EditableColumn,
+    rawValue: unknown,
+    typecast: boolean
+  ): boolean {
+    if (!typecast || rawValue == null) {
+      return false;
+    }
+
+    const fieldResult = table.getField((field) => field.id().equals(column.fieldId));
+    if (fieldResult.isErr()) {
+      return false;
+    }
+
+    const field = fieldResult.value;
+    const fieldType = field.type();
+    const isSingleSelect = fieldType.equals(FieldType.singleSelect());
+    const isMultipleSelect = fieldType.equals(FieldType.multipleSelect());
+    if (!isSingleSelect && !isMultipleSelect) {
+      return false;
+    }
+
+    const selectField = field as SingleSelectField | MultipleSelectField;
+    if (!selectField.preventAutoNewOptions().toBoolean()) {
+      return false;
+    }
+
+    const validValues = new Set(
+      selectField
+        .selectOptions()
+        .flatMap((option) => [option.id().toString(), option.name().toString()])
+    );
+
+    if (isSingleSelect) {
+      const candidate = normalizeCellDisplayValue(rawValue);
+      return candidate != null && !validValues.has(candidate);
+    }
+
+    const candidates = normalizeCellDisplayValues(rawValue);
+    return candidates.length > 0 && candidates.some((candidate) => !validValues.has(candidate));
   }
 
   protected async resolvePasteLinkAutoCreate(
@@ -2464,19 +2559,35 @@ export class PasteStreamApplicationService extends PasteHandler {
       ? command.sort ?? undefined
       : mergedDefaults.sort();
 
+    const actorResolvedFilter = replaceCurrentUserTagInFilter(
+      persistedTable,
+      effectiveFilter,
+      context.actorId.toString()
+    );
     const filterSpecResult = await buildSanitizedRecordConditionSpec(
       persistedTable,
-      effectiveFilter
+      actorResolvedFilter
     );
     if (filterSpecResult.isErr()) {
       return err(filterSpecResult.error);
     }
     const filterSpec = filterSpecResult.value;
+    const excludedTargetRecordIdsResult = this.parseTargetRecordIdSet(
+      command.excludedTargetRecordIds
+    );
+    if (excludedTargetRecordIdsResult.isErr()) {
+      return err(excludedTargetRecordIdsResult.error);
+    }
+    const excludedTargetRecordIds = excludedTargetRecordIdsResult.value;
 
     const visibleRowSearch = resolveVisibleRowSearch(command.search, orderedFieldIds.value);
 
+    const shouldCountTargetRows =
+      command.rangeType === 'columns' ||
+      command.rangeType === 'rows' ||
+      command.targetRecordIds !== undefined;
     let totalRows = 0;
-    if (command.rangeType === 'columns' || command.rangeType === 'rows') {
+    if (shouldCountTargetRows) {
       const limitResult = PageLimit.create(1);
       if (limitResult.isOk()) {
         const pagination = OffsetPagination.create(limitResult.value, PageOffset.zero());
@@ -2494,10 +2605,28 @@ export class PasteStreamApplicationService extends PasteHandler {
     }
 
     const normalizedRanges = command.normalizeRanges(totalRows, orderedFieldIds.value.length);
-    const [[startCol, startRow], [endCol, endRow]] = normalizedRanges;
-    const targetRangeCols = endCol - startCol + 1;
-    const targetRangeRows = endRow - startRow + 1;
-    const expandedContent = expandPasteContent(command.content, targetRangeRows, targetRangeCols);
+    const [[rangeStartCol, startRow], [endCol, endRow]] = normalizedRanges;
+    const explicitTargetFieldIdsResult = this.parseTargetFieldIds(command.targetFieldIds);
+    if (explicitTargetFieldIdsResult.isErr()) {
+      return err(explicitTargetFieldIdsResult.error);
+    }
+    const explicitTargetFieldIds = explicitTargetFieldIdsResult.value;
+    const targetRangeCols = explicitTargetFieldIds?.length ?? endCol - rangeStartCol + 1;
+    const targetRangeRows =
+      command.targetRecordIds !== undefined
+        ? command.targetRecordIds.length
+          ? Math.max(command.content.length, command.targetRecordIds.length)
+          : totalRows
+        : endRow - startRow + 1;
+    const effectiveTargetRangeRows =
+      command.targetRecordIds !== undefined && !command.targetRecordIds.length
+        ? Math.max(0, targetRangeRows - excludedTargetRecordIds.size)
+        : targetRangeRows;
+    const expandedContent = expandPasteContent(
+      command.content,
+      effectiveTargetRangeRows,
+      targetRangeCols
+    );
 
     if (expandedContent.length === 0 || expandedContent[0]?.length === 0) {
       return ok({
@@ -2513,7 +2642,17 @@ export class PasteStreamApplicationService extends PasteHandler {
     }
 
     const expandedColCount = expandedContent[0]!.length;
-    const numColsToExpand = Math.max(0, startCol + expandedColCount - orderedFieldIds.value.length);
+    let targetFieldIds = explicitTargetFieldIds;
+    const selectedTargetFieldIds = targetFieldIds;
+    const startCol = selectedTargetFieldIds?.length
+      ? Math.max(
+          orderedFieldIds.value.findIndex((fieldId) => fieldId.equals(selectedTargetFieldIds[0]!)),
+          0
+        )
+      : rangeStartCol;
+    const numColsToExpand = selectedTargetFieldIds
+      ? Math.max(0, expandedColCount - selectedTargetFieldIds.length)
+      : Math.max(0, startCol + expandedColCount - orderedFieldIds.value.length);
     let plannedColumnExpansion: PlannedColumnExpansion | undefined;
     if (numColsToExpand > 0) {
       const expandResult = await this.planColumnExpansion(context, persistedTable, {
@@ -2527,10 +2666,14 @@ export class PasteStreamApplicationService extends PasteHandler {
       tableForPaste = expandResult.value.table;
       if (plannedColumnExpansion.newFieldIds.length > 0) {
         orderedFieldIds = ok([...orderedFieldIds.value, ...plannedColumnExpansion.newFieldIds]);
+        if (targetFieldIds) {
+          targetFieldIds = [...targetFieldIds, ...plannedColumnExpansion.newFieldIds];
+        }
       }
     }
 
-    const targetFieldIds = orderedFieldIds.value.slice(startCol, startCol + expandedColCount);
+    targetFieldIds =
+      targetFieldIds ?? orderedFieldIds.value.slice(startCol, startCol + expandedColCount);
     const editableColumns: EditableColumn[] = [];
     targetFieldIds.forEach((fieldId, columnIndex) => {
       const fieldResult = tableForPaste.getField((f) => f.id().equals(fieldId));
@@ -2570,20 +2713,31 @@ export class PasteStreamApplicationService extends PasteHandler {
       updateFilterSpec = updateFilterSpecResult.value;
     }
 
-    const existingRecordsStream = this.tableRecordQueryRepository.findStream(
-      context,
-      persistedTable,
-      filterSpec,
-      {
-        mode: 'stored',
-        pagination: {
-          offset: startRow,
-          limit: expandedContent.length,
-        },
-        orderBy,
-        search: visibleRowSearch,
-      }
-    );
+    const rawExistingRecordsStream =
+      command.targetRecordIds !== undefined
+        ? command.targetRecordIds.length
+          ? this.findTargetRecordsByIdsStream(context, persistedTable, command.targetRecordIds)
+          : this.tableRecordQueryRepository.findStream(context, persistedTable, filterSpec, {
+              mode: 'stored',
+              pagination: {
+                offset: 0,
+                limit: expandedContent.length,
+              },
+              orderBy,
+              search: visibleRowSearch,
+            })
+        : this.tableRecordQueryRepository.findStream(context, persistedTable, filterSpec, {
+            mode: 'stored',
+            pagination: {
+              offset: startRow,
+              limit: expandedContent.length,
+            },
+            orderBy,
+            search: visibleRowSearch,
+          });
+    const existingRecordsStream = excludedTargetRecordIds.size
+      ? this.filterExcludedTargetRecords(rawExistingRecordsStream, excludedTargetRecordIds)
+      : rawExistingRecordsStream;
 
     const operationsStream = this.generatePasteOperations(
       existingRecordsStream,
@@ -2612,6 +2766,88 @@ export class PasteStreamApplicationService extends PasteHandler {
       totalChunkCount: Math.max(1, Math.ceil(expandedContent.length / batchSize)),
       batchSize,
     });
+  }
+
+  private parseTargetFieldIds(
+    fieldIds: ReadonlyArray<string> | undefined
+  ): Result<ReadonlyArray<FieldId> | undefined, DomainError> {
+    if (!fieldIds) {
+      return ok(undefined);
+    }
+    const parsed: FieldId[] = [];
+    for (const rawId of fieldIds) {
+      const fieldIdResult = FieldId.create(rawId);
+      if (fieldIdResult.isErr()) {
+        return err(fieldIdResult.error);
+      }
+      parsed.push(fieldIdResult.value);
+    }
+    return ok(parsed);
+  }
+
+  private parseTargetRecordIdSet(
+    recordIds: ReadonlyArray<string> | undefined
+  ): Result<ReadonlySet<string>, DomainError> {
+    const parsed = new Set<string>();
+    for (const rawId of recordIds ?? []) {
+      const recordIdResult = RecordId.create(rawId);
+      if (recordIdResult.isErr()) {
+        return err(recordIdResult.error);
+      }
+      parsed.add(recordIdResult.value.toString());
+    }
+    return ok(parsed);
+  }
+
+  private async *filterExcludedTargetRecords(
+    records: AsyncIterable<Result<TableRecordReadModel, DomainError>>,
+    excludedRecordIds: ReadonlySet<string>
+  ): AsyncIterable<Result<TableRecordReadModel, DomainError>> {
+    for await (const recordResult of records) {
+      if (recordResult.isErr()) {
+        yield recordResult;
+        continue;
+      }
+      if (excludedRecordIds.has(recordResult.value.id)) {
+        continue;
+      }
+      yield recordResult;
+    }
+  }
+
+  private async *findTargetRecordsByIdsStream(
+    context: ExecutionContextPort.IExecutionContext,
+    table: Table,
+    recordIds: ReadonlyArray<string>
+  ): AsyncIterable<Result<TableRecordReadModel, DomainError>> {
+    const parsedRecordIds: RecordId[] = [];
+    for (const rawId of recordIds) {
+      const recordIdResult = RecordId.create(rawId);
+      if (recordIdResult.isErr()) {
+        yield err(recordIdResult.error);
+        return;
+      }
+      parsedRecordIds.push(recordIdResult.value);
+    }
+
+    if (!parsedRecordIds.length) {
+      return;
+    }
+
+    const recordsResult = await this.tableRecordQueryRepository.find(
+      context,
+      table,
+      RecordByIdsSpec.create(parsedRecordIds),
+      { mode: 'stored', recordIdsOrder: parsedRecordIds, includeTotal: false }
+    );
+    if (recordsResult.isErr()) {
+      yield err(recordsResult.error);
+      return;
+    }
+
+    for (const record of recordsResult.value.records) {
+      yield ok(record);
+    }
   }
 
   private buildOperationPastePluginPayload(
@@ -2662,7 +2898,7 @@ export class PasteStreamApplicationService extends PasteHandler {
       operations: ReadonlyArray<PasteOperation>;
       typecast: boolean;
       pluginExecution: RecordWritePluginExecution;
-      batchMutation: ExecutionContextPort.IExecutionContextBatchMutation;
+      batchMutation: IBatchMutationOrchestration;
       plannedColumnExpansion?: PlannedColumnExpansion;
     }
   ): Promise<Result<PasteChunkPersistResult, DomainError>> {
@@ -2678,19 +2914,14 @@ export class PasteStreamApplicationService extends PasteHandler {
 
     let nextTable = params.table;
     const persistResult = await this.unitOfWork.withTransaction(context, async (txContext) => {
-      const txContextWithBatchMutation = withBatchMutation(txContext, params.batchMutation);
-      const beforePersistResult = await params.pluginExecution.beforePersist(
-        txContextWithBatchMutation
-      );
+      const beforePersistResult = await params.pluginExecution.beforePersist(txContext);
       if (beforePersistResult.isErr()) {
         return err(beforePersistResult.error);
       }
 
       let tableForChunk = params.table;
       if (params.plannedColumnExpansion) {
-        const columnExpansionResult = await params.plannedColumnExpansion.apply(
-          txContextWithBatchMutation
-        );
+        const columnExpansionResult = await params.plannedColumnExpansion.apply(txContext);
         if (columnExpansionResult.isErr()) {
           return err(columnExpansionResult.error);
         }
@@ -2701,7 +2932,7 @@ export class PasteStreamApplicationService extends PasteHandler {
         );
         const fieldExpansionUndoRedoPlan =
           await this.recordWriteUndoRedoPlanService.captureCreatedFields(
-            txContextWithBatchMutation,
+            txContext,
             tableForChunk,
             params.plannedColumnExpansion.newFieldIds
           );
@@ -2728,16 +2959,17 @@ export class PasteStreamApplicationService extends PasteHandler {
 
       if (hasUpdates) {
         const updateResult = await this.tableRecordRepository.updateManyStream(
-          txContextWithBatchMutation,
+          txContext,
           streamState.tableForMutations,
           this.createResolvedUpdateBatchStream(
-            txContextWithBatchMutation,
+            txContext,
             streamState,
             params.typecast,
             params.editableColumns,
             params.operations.length,
             chunkEventData
-          )
+          ),
+          { orchestration: params.batchMutation }
         );
         if (updateResult.isErr()) {
           return err(updateResult.error);
@@ -2749,10 +2981,10 @@ export class PasteStreamApplicationService extends PasteHandler {
       if (hasCreates) {
         const createdRecordBatches: PendingCreatedRecord[][] = [];
         const createResult = await this.tableRecordRepository.insertManyStream(
-          txContextWithBatchMutation,
+          txContext,
           streamState.tableForMutations,
           this.createRecordBatchStream(
-            txContextWithBatchMutation,
+            txContext,
             streamState,
             params.typecast,
             params.editableColumns,
@@ -2761,6 +2993,7 @@ export class PasteStreamApplicationService extends PasteHandler {
             chunkEventData
           ),
           {
+            orchestration: params.batchMutation,
             onBatchInserted: (progress) => {
               const records = createdRecordBatches[progress.batchIndex] ?? [];
               for (const record of records) {
@@ -2781,7 +3014,7 @@ export class PasteStreamApplicationService extends PasteHandler {
       if (streamState.accumulatedSideEffects.length > 0) {
         const sideEffectUndoRedoPlan =
           await this.recordWriteUndoRedoPlanService.captureSelectOptionSideEffects(
-            txContextWithBatchMutation,
+            txContext,
             tableForChunk,
             streamState.tableForMutations,
             streamState.accumulatedSideEffects
@@ -2829,6 +3062,7 @@ export class PasteStreamApplicationService extends PasteHandler {
           baseId: table.baseId(),
           updates: eventData.updates,
           source: 'user',
+          auditSource: 'paste',
           orchestration: {
             operationId: orchestration.operationId,
             groupId: orchestration.operationId,
@@ -2847,6 +3081,7 @@ export class PasteStreamApplicationService extends PasteHandler {
           tableId: table.id(),
           baseId: table.baseId(),
           records: eventData.createdRecords,
+          auditSource: 'paste',
           orchestration: {
             operationId: orchestration.operationId,
             groupId: orchestration.operationId,

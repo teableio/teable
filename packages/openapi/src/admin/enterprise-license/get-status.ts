@@ -5,6 +5,8 @@ import { z } from '../../zod';
 
 export const enterpriseLicenseStatusVoSchema = z.object({
   expiredTime: z.string().optional().nullable(),
+  autoFetchEnabled: z.boolean().optional(),
+  autoFetchFailed: z.boolean().optional(),
 });
 
 export type IEnterpriseLicenseStatusVo = z.infer<typeof enterpriseLicenseStatusVoSchema>;

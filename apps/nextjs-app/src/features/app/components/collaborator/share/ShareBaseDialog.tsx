@@ -33,7 +33,12 @@ export const ShareBaseDialog = (props: IShareBaseDialogProps) => {
           {children ? (
             children
           ) : (
-            <Button variant="ghost" size="xs" className="w-full justify-start text-sm font-normal">
+            <Button
+              variant="ghost"
+              size="xs"
+              data-attr="base-sidebar-invite"
+              className="w-full justify-start text-sm font-normal"
+            >
               <UserPlus className="size-4 shrink-0" />
               <p className="truncate">{t('action.invite')}</p>
             </Button>

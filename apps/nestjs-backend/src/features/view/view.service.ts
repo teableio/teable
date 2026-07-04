@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import type {
   ISnapshotBase,
   IViewRo,
@@ -32,7 +32,7 @@ import {
   CellValueType,
   HttpErrorCode,
 } from '@teable/core';
-import type { Prisma } from '@teable/db-main-prisma';
+import type { Prisma, View } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { isEmpty, isNull, isString, merge, snakeCase, uniq } from 'lodash';
@@ -50,6 +50,7 @@ import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
 import { convertViewVoAttachmentUrl } from '../../utils/convert-view-vo-attachment-url';
 import { BatchService } from '../calculation/batch.service';
+import { SpaceDataDbMigrationGuardService } from '../space/space-data-db-migration-guard.service';
 import { ROW_ORDER_FIELD_PREFIX } from './constant';
 import { createViewInstanceByRaw, createViewVoByRaw } from './model/factory';
 import { adjustFrozenField } from './utils/derive-frozen-fields';
@@ -67,8 +68,14 @@ export class ViewService implements IReadonlyAdapterService {
     @InjectModel(CUSTOM_KNEX) private readonly knex: Knex,
     @InjectModel(DATA_KNEX) private readonly dataKnex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
-    private readonly viewDataSafetyLimitService: ViewDataSafetyLimitService
+    private readonly viewDataSafetyLimitService: ViewDataSafetyLimitService,
+    @Optional()
+    private readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService
   ) {}
+
+  private async assertTableWritable(tableId: string) {
+    await this.spaceDataDbMigrationGuard?.assertTableWritable(tableId);
+  }
 
   getRowIndexFieldName(viewId: string) {
     return `${ROW_ORDER_FIELD_PREFIX}_${viewId}`;
@@ -253,6 +260,7 @@ export class ViewService implements IReadonlyAdapterService {
   }
 
   async restoreView(tableId: string, viewId: string) {
+    await this.assertTableWritable(tableId);
     await this.prismaService.$tx(async () => {
       await this.prismaService.txClient().view.update({
         where: { id: viewId },
@@ -270,6 +278,7 @@ export class ViewService implements IReadonlyAdapterService {
 
   async createDbView(tableId: string, viewRo: IViewRo) {
     const userId = this.cls.get('user.id');
+    await this.assertTableWritable(tableId);
     await this.viewDataSafetyLimitService.ensureCanCreateView(tableId);
     const createViewRo = await this.viewDataCompensation(tableId, viewRo);
 
@@ -300,9 +309,13 @@ export class ViewService implements IReadonlyAdapterService {
     const viewId = generateViewId();
     const prisma = this.prismaService.txClient();
 
+    const activeFieldIds = await this.getActiveFieldIdSet(tableId);
     const orderColumnMeta = await this.generateViewOrderColumnMeta(tableId);
 
-    const mergedColumnMeta = merge(orderColumnMeta, columnMeta);
+    const mergedColumnMeta = this.filterColumnMetaByFieldIds(
+      merge(orderColumnMeta, columnMeta),
+      activeFieldIds
+    );
 
     const data: Prisma.ViewCreateInput = {
       id: viewId,
@@ -335,8 +348,10 @@ export class ViewService implements IReadonlyAdapterService {
     const viewRaw = await this.prismaService.txClient().view.findUniqueOrThrow({
       where: { id: viewId, deletedTime: null },
     });
+    const activeFieldIds = await this.getActiveFieldIdSet(viewRaw.tableId);
+    const sanitizedViewRaw = this.sanitizeViewRawColumnMeta(viewRaw, activeFieldIds);
 
-    return convertViewVoAttachmentUrl(createViewInstanceByRaw(viewRaw) as IViewVo);
+    return convertViewVoAttachmentUrl(createViewInstanceByRaw(sanitizedViewRaw) as IViewVo);
   }
 
   async getViews(tableId: string, ids?: string[]): Promise<IViewVo[]> {
@@ -349,7 +364,13 @@ export class ViewService implements IReadonlyAdapterService {
       orderBy: { order: 'asc' },
     });
 
-    return viewRaws.map((viewRaw) => convertViewVoAttachmentUrl(createViewVoByRaw(viewRaw)));
+    const activeFieldIds = await this.getActiveFieldIdSet(tableId);
+
+    return viewRaws.map((viewRaw) =>
+      convertViewVoAttachmentUrl(
+        createViewVoByRaw(this.sanitizeViewRawColumnMeta(viewRaw, activeFieldIds))
+      )
+    );
   }
 
   async createView(tableId: string, viewRo: IViewRo): Promise<IViewVo> {
@@ -359,10 +380,14 @@ export class ViewService implements IReadonlyAdapterService {
       { docId: viewRaw.id, version: 0, data: viewRaw },
     ]);
 
-    return convertViewVoAttachmentUrl(createViewVoByRaw(viewRaw));
+    const activeFieldIds = await this.getActiveFieldIdSet(tableId);
+    return convertViewVoAttachmentUrl(
+      createViewVoByRaw(this.sanitizeViewRawColumnMeta(viewRaw, activeFieldIds))
+    );
   }
 
   async deleteView(tableId: string, viewId: string) {
+    await this.assertTableWritable(tableId);
     // Use SELECT FOR UPDATE to lock all views in the table to prevent concurrent deletion
     // This ensures that when checking if this is the last view, no other transaction
     // can delete views simultaneously
@@ -408,6 +433,7 @@ export class ViewService implements IReadonlyAdapterService {
   }
 
   async updateViewSort(tableId: string, viewId: string, sort: ISort) {
+    await this.assertTableWritable(tableId);
     this.viewDataSafetyLimitService.ensureSort(sort);
     const viewRaw = await this.prismaService
       .txClient()
@@ -465,6 +491,7 @@ export class ViewService implements IReadonlyAdapterService {
   }
 
   async batchUpdateViewByOps(tableId: string, opsMap: { [viewId: string]: IOtOperation[] }) {
+    await this.assertTableWritable(tableId);
     const { updateViewMap, updateViewKeySet } = this.getBatchUpdateViewContext(opsMap);
     if (updateViewKeySet.size === 0) {
       return;
@@ -568,6 +595,7 @@ export class ViewService implements IReadonlyAdapterService {
   }
 
   async del(_version: number, _tableId: string, viewId: string) {
+    await this.assertTableWritable(_tableId);
     await this.prismaService.txClient().view.update({
       where: { id: viewId },
       data: {
@@ -792,16 +820,58 @@ export class ViewService implements IReadonlyAdapterService {
       );
     }
 
+    const activeFieldIds = await this.getActiveFieldIdSet(tableId);
+
     return views
       .map((view) => {
+        const sanitizedView = this.sanitizeViewRawColumnMeta(view, activeFieldIds);
         return {
           id: view.id,
           v: view.version,
           type: 'json0',
-          data: convertViewVoAttachmentUrl(createViewVoByRaw(view)),
+          data: convertViewVoAttachmentUrl(createViewVoByRaw(sanitizedView)),
         };
       })
       .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
+  }
+
+  private async getActiveFieldIdSet(tableId: string) {
+    const fields = await this.prismaService.txClient().field.findMany({
+      where: { tableId, deletedTime: null },
+      select: { id: true },
+    });
+
+    return new Set(fields.map(({ id }) => id));
+  }
+
+  private filterColumnMetaByFieldIds(
+    columnMeta: IColumnMeta | null | undefined,
+    fieldIds: Set<string>
+  ) {
+    if (!columnMeta) {
+      return columnMeta;
+    }
+
+    return Object.entries(columnMeta).reduce<IColumnMeta>((acc, [fieldId, meta]) => {
+      if (fieldIds.has(fieldId)) {
+        acc[fieldId] = meta;
+      }
+      return acc;
+    }, {});
+  }
+
+  private sanitizeViewRawColumnMeta<T extends View>(viewRaw: T, fieldIds: Set<string>): T {
+    const columnMeta = JSON.parse(viewRaw.columnMeta as string) as IColumnMeta | null | undefined;
+    const filteredColumnMeta = this.filterColumnMetaByFieldIds(columnMeta, fieldIds);
+
+    if (Object.keys(filteredColumnMeta ?? {}).length === Object.keys(columnMeta ?? {}).length) {
+      return viewRaw;
+    }
+
+    return {
+      ...viewRaw,
+      columnMeta: JSON.stringify(filteredColumnMeta ?? {}),
+    };
   }
 
   async getDocIdsByQuery(tableId: string, query?: { includeIds: string[] }) {

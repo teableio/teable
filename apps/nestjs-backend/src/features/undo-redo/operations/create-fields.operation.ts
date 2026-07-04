@@ -1,7 +1,7 @@
-import { FieldKeyType } from '@teable/core';
 import type { IColumnMeta, IFieldVo } from '@teable/core';
 import type { ICreateFieldsOperation } from '../../../cache/types';
 import { OperationName } from '../../../cache/types';
+import { restoreFieldRecordValues } from '../../field/restore-field-record-values';
 import type { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
 import type { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 
@@ -55,12 +55,7 @@ export class CreateFieldsOperation {
 
     await this.fieldOpenApiService.createFields(tableId, fields);
 
-    if (records) {
-      await this.recordOpenApiService.updateRecords(tableId, {
-        fieldKeyType: FieldKeyType.Id,
-        records: records,
-      });
-    }
+    await restoreFieldRecordValues(tableId, records, this.recordOpenApiService);
 
     return operation;
   }

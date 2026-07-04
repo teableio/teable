@@ -22,7 +22,8 @@ const dateValueSchema = z
     timeZone: z.string(),
   })
   .superRefine((val, ctx) => {
-    const requiresExact = val.mode === 'exactDate' || val.mode === 'exactFormatDate';
+    const requiresExact =
+      val.mode === 'exactDate' || val.mode === 'exactDateTime' || val.mode === 'exactFormatDate';
     const requiresDays =
       val.mode === 'daysAgo' ||
       val.mode === 'daysFromNow' ||

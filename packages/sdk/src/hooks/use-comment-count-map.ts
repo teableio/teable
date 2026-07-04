@@ -20,7 +20,7 @@ export const useCommentCountMap = (query?: IGetRecordsRo) => {
 
   const view = useView();
 
-  const { searchQuery } = useSearch();
+  const { filteringSearchQuery } = useSearch();
 
   const { connection } = useConnection();
   // Comments are intentionally hidden from share-view viewers (they would
@@ -32,14 +32,14 @@ export const useCommentCountMap = (query?: IGetRecordsRo) => {
   const queryParams = useMemo<IGetRecordsRo>(() => {
     return {
       viewId,
-      search: searchQuery,
+      search: filteringSearchQuery,
       type: IdPrefix.Record,
       ...query,
       groupBy: query?.groupBy,
       filter: view?.filter,
       orderBy: view?.sort?.sortObjs,
     } as IGetRecordsRo;
-  }, [query, searchQuery, viewId, view]);
+  }, [query, filteringSearchQuery, viewId, view]);
 
   const { data } = useQuery({
     queryKey: ReactQueryKeys.commentCount(tableId!, queryParams),

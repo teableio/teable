@@ -4,11 +4,13 @@ import type { Result } from 'neverthrow';
 
 import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import { AndSpec } from '../../domain/shared/specification/AndSpec';
-import { OrSpec } from '../../domain/shared/specification/OrSpec';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
+import { OrSpec } from '../../domain/shared/specification/OrSpec';
 import type { Field } from '../../domain/table/fields/Field';
 import type { FieldId } from '../../domain/table/fields/FieldId';
-import { FieldType } from '../../domain/table/fields/FieldType';
+import { CellValueMultiplicity } from '../../domain/table/fields/types/CellValueMultiplicity';
+import { CellValueType } from '../../domain/table/fields/types/CellValueType';
+import { FieldValueTypeVisitor } from '../../domain/table/fields/visitors/FieldValueTypeVisitor';
 import type { ITableRecordConditionSpecVisitor } from '../../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import { RecordConditionLiteralValue } from '../../domain/table/records/specs/RecordConditionValues';
 import type { ClearFieldValueSpec } from '../../domain/table/records/specs/values/ClearFieldValueSpec';
@@ -266,10 +268,24 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
       }
       const primaryField = primaryFieldResult.value;
 
-      if (!primaryField.type().equals(FieldType.singleLineText())) {
+      const valueTypeResult = primaryField.accept(new FieldValueTypeVisitor());
+      if (valueTypeResult.isErr()) {
+        return err(valueTypeResult.error);
+      }
+
+      if (
+        !valueTypeResult.value.cellValueType.equals(CellValueType.string()) ||
+        !valueTypeResult.value.isMultipleCellValue.equals(CellValueMultiplicity.single())
+      ) {
         return err(
           domainError.validation({
-            message: 'Primary field must be a single line text field for title resolution',
+            message: 'Primary field must resolve to a single string value for title resolution',
+            details: {
+              primaryFieldId: primaryField.id().toString(),
+              primaryFieldType: primaryField.type().toString(),
+              cellValueType: valueTypeResult.value.cellValueType.toString(),
+              isMultipleCellValue: valueTypeResult.value.isMultipleCellValue.toBoolean(),
+            },
           })
         );
       }

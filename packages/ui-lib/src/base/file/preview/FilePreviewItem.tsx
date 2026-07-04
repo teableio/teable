@@ -8,10 +8,11 @@ interface IFilePreviewItem extends IFileItem {
   className?: string;
   style?: CSSProperties;
   children: React.ReactNode;
+  onBeforeOpen?: () => void;
 }
 
 export const FilePreviewItem = (props: IFilePreviewItem) => {
-  const { children, className, style, ...fileItem } = props;
+  const { children, className, style, onBeforeOpen, ...fileItem } = props;
   const { openPreview, mergeFiles, onDelete } = useContext(FilePreviewContext);
 
   const fileIdRef = useRef<number>(genFileId());
@@ -41,6 +42,7 @@ export const FilePreviewItem = (props: IFilePreviewItem) => {
       tabIndex={0}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
+          onBeforeOpen?.();
           openPreview(fileIdRef.current);
           e.stopPropagation();
           e.preventDefault();
@@ -48,6 +50,7 @@ export const FilePreviewItem = (props: IFilePreviewItem) => {
       }}
       onClick={(e) => {
         e.stopPropagation();
+        onBeforeOpen?.();
         openPreview(fileIdRef.current);
       }}
     >

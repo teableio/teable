@@ -6,8 +6,10 @@ import type { IDataDbPreflightClient } from './data-db-preflight.service';
 import {
   DataDbPreflightService,
   fingerprintDatabaseUrl,
+  fingerprintDataDbConnection,
   maskDatabaseUrl,
 } from './data-db-preflight.service';
+import { encryptDataDbUrl } from './data-db-url-secret';
 
 type IFakeDbState = {
   schemas?: string[];
@@ -15,9 +17,17 @@ type IFakeDbState = {
   functions?: string[];
   databases?: string[];
   failCreateSchema?: boolean;
+  failCreateTable?: boolean;
+  failCreateIndex?: boolean;
+  failCreateFunction?: boolean;
+  failCreateTrigger?: boolean;
+  failAlterTableReadOnly?: boolean;
   failConnect?: boolean;
   failMessage?: string;
   failCode?: string;
+  transactionReadOnly?: boolean;
+  canCreateRole?: boolean;
+  canGrantPrivileges?: boolean;
 };
 
 class FakePreflightClient implements IDataDbPreflightClient {
@@ -32,14 +42,36 @@ class FakePreflightClient implements IDataDbPreflightClient {
     if (sql.includes('CREATE SCHEMA') && this.state.failCreateSchema) {
       throw new Error('permission denied for database');
     }
+    if (sql.includes('CREATE TABLE') && this.state.failCreateTable) {
+      throw new Error('permission denied for table');
+    }
+    if (sql.includes('ALTER TABLE') && this.state.failAlterTableReadOnly) {
+      const error = new Error('cannot execute ALTER TABLE in a read-only transaction');
+      Object.assign(error, { code: '25006' });
+      throw error;
+    }
+    if (sql.includes('CREATE INDEX') && this.state.failCreateIndex) {
+      throw new Error('permission denied for index');
+    }
+    if (sql.includes('CREATE OR REPLACE FUNCTION') && this.state.failCreateFunction) {
+      throw new Error('permission denied for function');
+    }
+    if (sql.includes('CREATE TRIGGER') && this.state.failCreateTrigger) {
+      throw new Error('permission denied for trigger');
+    }
     if (sql.includes('SHOW server_version')) {
       return { rows: [{ server_version: '14.12' }] as T[] };
     }
+    if (sql.includes('SHOW transaction_read_only')) {
+      return {
+        rows: [{ transaction_read_only: this.state.transactionReadOnly ? 'on' : 'off' }] as T[],
+      };
+    }
     if (sql.includes('has_database_privilege')) {
-      return { rows: [{ can_create: true }] as T[] };
+      return { rows: [{ can_create: this.state.canGrantPrivileges ?? true }] as T[] };
     }
     if (sql.includes('pg_roles')) {
-      return { rows: [{ can_create_role: false }] as T[] };
+      return { rows: [{ can_create_role: this.state.canCreateRole ?? false }] as T[] };
     }
     if (sql.includes('pg_stat_activity')) {
       return { rows: [{ count: '0' }] as T[] };
@@ -83,11 +115,35 @@ const BASELINE_TABLES = [
   'table_trash',
   'record_trash',
   '__undo_log',
+  'attachments',
+  'attachments_table',
 ];
 const DATA_SCHEMA_MIGRATION_TABLE = '__teable_data_schema_migrations';
 
 const createService = (state: IFakeDbState) =>
   new DataDbPreflightService(undefined, () => new FakePreflightClient(state));
+
+const defaultRelatedSpacesPrisma = () => ({
+  $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+  field: {
+    findMany: vi.fn().mockResolvedValue([]),
+  },
+  tableMeta: {
+    findMany: vi.fn().mockResolvedValue([]),
+  },
+  space: {
+    findMany: vi.fn().mockResolvedValue([
+      {
+        id: 'spcxxx',
+        name: 'Space',
+        baseGroup: [],
+      },
+    ]),
+  },
+  spaceDataDbBinding: {
+    findMany: vi.fn().mockResolvedValue([]),
+  },
+});
 
 describe('database URL helpers', () => {
   it('masks database URL passwords', () => {
@@ -241,6 +297,145 @@ describe('DataDbPreflightService', () => {
     expect(result.errors.map((error) => error.code)).toContain('DDL_PRIVILEGE_CHECK_FAILED');
   });
 
+  it('reports read-only target connections as a business preflight error', async () => {
+    const result = await createService({
+      schemas: ['public'],
+      transactionReadOnly: true,
+    }).preflight({
+      url: DATA_URL,
+      targetMode: 'initialize-empty',
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.capabilities.createSchema).toBe(false);
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({
+        code: 'READ_ONLY_DATABASE',
+        remediation: expect.stringContaining('writable primary database connection'),
+      })
+    );
+  });
+
+  it('maps read-only ALTER TABLE failures to the read-only database error', async () => {
+    const result = await createService({
+      schemas: ['public'],
+      failAlterTableReadOnly: true,
+    }).preflight({
+      url: DATA_URL,
+      targetMode: 'initialize-empty',
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.capabilities).toMatchObject({
+      createSchema: true,
+      createTable: false,
+      createFunction: false,
+      createTrigger: false,
+    });
+    expect(result.errors.map((error) => error.code)).toContain('READ_ONLY_DATABASE');
+    expect(result.errors.map((error) => error.code)).not.toContain('DDL_PRIVILEGE_CHECK_FAILED');
+  });
+
+  it('reports missing table or index privileges with partial DDL capabilities', async () => {
+    const missingTable = await createService({
+      schemas: ['public'],
+      failCreateTable: true,
+    }).preflight({
+      url: DATA_URL,
+      targetMode: 'initialize-empty',
+    });
+
+    expect(missingTable.ok).toBe(false);
+    expect(missingTable.capabilities).toMatchObject({
+      createSchema: true,
+      createTable: false,
+      createFunction: false,
+      createTrigger: false,
+    });
+    expect(missingTable.errors.map((error) => error.code)).toContain('DDL_PRIVILEGE_CHECK_FAILED');
+
+    const missingIndex = await createService({
+      schemas: ['public'],
+      failCreateIndex: true,
+    }).preflight({
+      url: DATA_URL,
+      targetMode: 'initialize-empty',
+    });
+
+    expect(missingIndex.ok).toBe(false);
+    expect(missingIndex.capabilities).toMatchObject({
+      createSchema: true,
+      createTable: true,
+      createFunction: false,
+      createTrigger: false,
+    });
+    expect(missingIndex.errors.map((error) => error.code)).toContain('DDL_PRIVILEGE_CHECK_FAILED');
+  });
+
+  it('reports missing function or trigger privileges with partial DDL capabilities', async () => {
+    const missingFunction = await createService({
+      schemas: ['public'],
+      failCreateFunction: true,
+    }).preflight({
+      url: DATA_URL,
+      targetMode: 'initialize-empty',
+    });
+
+    expect(missingFunction.ok).toBe(false);
+    expect(missingFunction.capabilities).toMatchObject({
+      createSchema: true,
+      createTable: true,
+      createFunction: false,
+      createTrigger: false,
+    });
+    expect(missingFunction.errors.map((error) => error.code)).toContain(
+      'DDL_PRIVILEGE_CHECK_FAILED'
+    );
+
+    const missingTrigger = await createService({
+      schemas: ['public'],
+      failCreateTrigger: true,
+    }).preflight({
+      url: DATA_URL,
+      targetMode: 'initialize-empty',
+    });
+
+    expect(missingTrigger.ok).toBe(false);
+    expect(missingTrigger.capabilities).toMatchObject({
+      createSchema: true,
+      createTable: true,
+      createFunction: true,
+      createTrigger: false,
+    });
+    expect(missingTrigger.errors.map((error) => error.code)).toContain(
+      'DDL_PRIVILEGE_CHECK_FAILED'
+    );
+  });
+
+  it('reports readonly sharing capability separately from core BYODB usability', async () => {
+    const result = await createService({
+      schemas: ['public'],
+      tables: [],
+      canCreateRole: false,
+      canGrantPrivileges: false,
+    }).preflight({
+      url: DATA_URL,
+      targetMode: 'initialize-empty',
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.classification).toBe('empty');
+    expect(result.capabilities).toMatchObject({
+      createSchema: true,
+      createTable: true,
+      createFunction: true,
+      createTrigger: true,
+      createRole: false,
+      grantPrivileges: false,
+      inspectActivity: true,
+    });
+  });
+
   it('does not leak passwords in connection errors', async () => {
     const result = await createService({
       failConnect: true,
@@ -335,20 +530,172 @@ describe('DataDbPreflightService', () => {
 
   it('returns default summary when a space has no explicit binding', async () => {
     const service = new DataDbPreflightService({
+      ...defaultRelatedSpacesPrisma(),
       spaceDataDbBinding: {
+        ...defaultRelatedSpacesPrisma().spaceDataDbBinding,
         findUnique: vi.fn().mockResolvedValue(null),
+      },
+      spaceDataDbMigrationJob: {
+        findFirst: vi.fn().mockResolvedValue(null),
+        findMany: vi.fn().mockResolvedValue([]),
       },
     } as never);
 
-    await expect(service.getSummary('spcxxx')).resolves.toEqual({
+    await expect(service.getSummary('spcxxx')).resolves.toMatchObject({
       mode: 'default',
       state: 'ready',
+      relatedSpaces: expect.objectContaining({
+        primarySpaceId: 'spcxxx',
+        hasCrossSpaceLinks: false,
+      }),
     });
+  });
+
+  it('returns default summary when the migration job table is not available yet', async () => {
+    const service = new DataDbPreflightService({
+      ...defaultRelatedSpacesPrisma(),
+      spaceDataDbBinding: {
+        ...defaultRelatedSpacesPrisma().spaceDataDbBinding,
+        findUnique: vi.fn().mockResolvedValue(null),
+      },
+      spaceDataDbMigrationJob: {
+        findFirst: vi
+          .fn()
+          .mockRejectedValue(
+            Object.assign(
+              new Error('The table `public.space_data_db_migration_job` does not exist'),
+              { code: 'P2021' }
+            )
+          ),
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+    } as never);
+
+    await expect(service.getSummary('spcxxx')).resolves.toMatchObject({
+      mode: 'default',
+      state: 'ready',
+      relatedSpaces: expect.objectContaining({
+        primarySpaceId: 'spcxxx',
+        hasCrossSpaceLinks: false,
+      }),
+    });
+  });
+
+  it('returns migrating BYODB summary when a default space has an active switch migration job', async () => {
+    const service = new DataDbPreflightService({
+      ...defaultRelatedSpacesPrisma(),
+      spaceDataDbBinding: {
+        ...defaultRelatedSpacesPrisma().spaceDataDbBinding,
+        findUnique: vi.fn().mockResolvedValue(null),
+      },
+      spaceDataDbMigrationJob: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: 'sdmjxxx',
+          state: 'copying',
+          switchOnCompletion: true,
+          targetInternalSchema: internalSchema,
+          lastError: null,
+          targetConnection: {
+            provider: 'postgres',
+            displayHost: 'example.com:5432',
+            displayDatabase: 'teable_data',
+            internalSchema,
+            schemaVersion: '20260421000000_init_data_db_baseline',
+            lastValidatedAt: new Date('2026-05-06T00:00:00.000Z'),
+            lastError: null,
+            encryptedUrl: 'encrypted-secret',
+            capabilities: {
+              createSchema: true,
+              createTable: true,
+              createFunction: true,
+              createTrigger: true,
+              createRole: false,
+              grantPrivileges: true,
+              inspectActivity: true,
+            },
+          },
+        }),
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+    } as never);
+
+    const summary = await service.getSummary('spcxxx');
+
+    expect(summary).toMatchObject({
+      mode: 'byodb',
+      state: 'migrating',
+      provider: 'postgres',
+      displayHost: 'example.com:5432',
+      displayDatabase: 'teable_data',
+      internalSchema,
+      migration: {
+        jobId: 'sdmjxxx',
+        state: 'copying',
+        targetInternalSchema: internalSchema,
+      },
+    });
+    expect(JSON.stringify(summary)).not.toContain('encrypted-secret');
+  });
+
+  it('keeps a default-space summary while a test-only migration job is active', async () => {
+    const service = new DataDbPreflightService({
+      ...defaultRelatedSpacesPrisma(),
+      spaceDataDbBinding: {
+        ...defaultRelatedSpacesPrisma().spaceDataDbBinding,
+        findUnique: vi.fn().mockResolvedValue(null),
+      },
+      spaceDataDbMigrationJob: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: 'sdmjxxx',
+          state: 'waiting_worker',
+          switchOnCompletion: false,
+          targetInternalSchema: internalSchema,
+          lastError: null,
+          targetConnection: {
+            provider: 'postgres',
+            displayHost: 'example.com:5432',
+            displayDatabase: 'teable_data',
+            internalSchema,
+            schemaVersion: '20260421000000_init_data_db_baseline',
+            lastValidatedAt: new Date('2026-05-06T00:00:00.000Z'),
+            lastError: null,
+            encryptedUrl: 'encrypted-secret',
+            capabilities: {
+              createSchema: true,
+              createTable: true,
+              createFunction: true,
+              createTrigger: true,
+              createRole: false,
+              grantPrivileges: true,
+              inspectActivity: true,
+            },
+          },
+        }),
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+    } as never);
+
+    const summary = await service.getSummary('spcxxx');
+
+    expect(summary).toMatchObject({
+      mode: 'default',
+      state: 'ready',
+      migration: {
+        jobId: 'sdmjxxx',
+        state: 'waiting_worker',
+        targetInternalSchema: internalSchema,
+        switchOnCompletion: false,
+      },
+    });
+    expect(summary.displayHost).toBeUndefined();
+    expect(JSON.stringify(summary)).not.toContain('encrypted-secret');
   });
 
   it('returns a BYODB summary without encrypted URL material', async () => {
     const service = new DataDbPreflightService({
+      ...defaultRelatedSpacesPrisma(),
       spaceDataDbBinding: {
+        ...defaultRelatedSpacesPrisma().spaceDataDbBinding,
         findUnique: vi.fn().mockResolvedValue({
           mode: 'byodb',
           state: 'ready',
@@ -373,6 +720,10 @@ describe('DataDbPreflightService', () => {
           },
         }),
       },
+      spaceDataDbMigrationJob: {
+        findFirst: vi.fn().mockResolvedValue(null),
+        findMany: vi.fn().mockResolvedValue([]),
+      },
     } as never);
 
     const summary = await service.getSummary('spcxxx');
@@ -388,5 +739,45 @@ describe('DataDbPreflightService', () => {
       lastValidatedAt: '2026-05-06T00:00:00.000Z',
     });
     expect(JSON.stringify(summary)).not.toContain('encrypted-secret');
+  });
+
+  it('includes physical database fingerprints for related BYODB spaces', async () => {
+    const service = new DataDbPreflightService({
+      ...defaultRelatedSpacesPrisma(),
+      spaceDataDbBinding: {
+        findUnique: vi.fn().mockResolvedValue(null),
+        findMany: vi.fn().mockResolvedValue([
+          {
+            spaceId: 'spcxxx',
+            mode: 'byodb',
+            state: 'ready',
+            dataDbConnection: {
+              id: 'dcnxxx',
+              encryptedUrl: encryptDataDbUrl(DATA_URL),
+              urlFingerprint: fingerprintDataDbConnection(DATA_URL, internalSchema),
+              displayHost: 'example.com:5432',
+              displayDatabase: 'teable_data',
+              internalSchema,
+            },
+          },
+        ]),
+      },
+      spaceDataDbMigrationJob: {
+        findFirst: vi.fn().mockResolvedValue(null),
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+    } as never);
+
+    await expect(service.getSummary('spcxxx')).resolves.toMatchObject({
+      relatedSpaces: {
+        spaces: [
+          expect.objectContaining({
+            spaceId: 'spcxxx',
+            dataDbUrlFingerprint: fingerprintDataDbConnection(DATA_URL, internalSchema),
+            dataDbDatabaseFingerprint: fingerprintDatabaseUrl(DATA_URL),
+          }),
+        ],
+      },
+    });
   });
 });
