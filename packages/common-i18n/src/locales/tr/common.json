@@ -69,6 +69,7 @@
     "import": "İçe Aktar",
     "getMore": "Daha fazla al",
     "copySuccess": "Kopyalama başarılı",
+    "openLink": "Bağlantıyı aç",
     "share": "Paylaş"
   },
   "quickAction": {
@@ -451,6 +452,12 @@
       "desc_other": "Bu veritabanı {{count}} işbirlikçi ile paylaşılıyor.",
       "baseTitle": "Veritabanı işbirlikçileri",
       "collaboratorSearchPlaceholder": "İsim veya e-posta ile veritabanı işbirlikçisi bul"
+    },
+    "table": {
+      "collaborator": "İşbirlikçi",
+      "accessPermission": "Erişim izni",
+      "joinAt": "Katılma tarihi",
+      "lastLogin": "Son giriş"
     }
   },
   "help": {
@@ -471,6 +478,9 @@
     "billable": "Faturalandırılabilir",
     "billableByAuthorityMatrix": "Yetki matrisi tarafından oluşturulan faturalandırma",
     "licenseExpiredGracePeriod": "Kendi sunucunuzda barındırma lisansınızın süresi doldu ve {{expiredTime}} tarihinde ücretsiz plana düşürülecek. Premium özelliklere erişimi korumak için lütfen lisansınızı hemen güncelleyin.",
+    "licenseAutoFetchFailed": "Lisansın otomatik yenilenmesi başarısız oldu. Sürüm düşürülmeden önce {{days}} gün ek süre kaldı.",
+    "licenseAutoFetchRetryFailed": "Otomatik yenileme yine başarısız oldu. Lütfen Teable sunucusuyla bağlantıyı kontrol edin veya lisansı manuel olarak güncelleyin.",
+    "licenseExpiredGracePeriodDays": "Lisansın süresi doldu. Sürüm düşürülmeden önce {{days}} gün ek süre kaldı.",
     "spaceSubscriptionModal": {
       "title": "Alan abonelik planını yükselt",
       "description": "Yalnızca sahibi olduğunuz çalışma alanlarını yükseltebilirsiniz"
@@ -492,6 +502,9 @@
       "description": "Mevcut örneğinizin ayarlarını değiştirin",
       "allowSignUp": "Yeni hesap oluşturmaya izin ver",
       "allowSignUpDescription": "Bu seçeneği devre dışı bırakmak yeni kullanıcı kayıtlarını yasaklar ve kayıt düğmesi artık giriş sayfasında görünmez.",
+      "bannedEmailDomains": "Yasaklı e-posta alan adları",
+      "bannedEmailDomainsDescription": "Bu alan adlarına ait e-posta adresleri kaydolamaz ve bunlarla ilgili davet e-postaları gönderilmez. Bir alan adı yazın ve eklemek için Enter'a basın.",
+      "bannedEmailDomainsInvalid": "Geçerli bir alan adı girin, örn. example.com",
       "allowSpaceInvitation": "Alan davetleri göndermeye izin ver",
       "allowSpaceInvitationDescription": "Bu seçeneği devre dışı bırakmak, yöneticiler dışındaki kullanıcıların başkalarını alanlara davet etmesini engeller. Etkinleştirildiğinde, e-posta ile davet edilen yeni kullanıcılar e-postadaki davet bağlantısına tıklayarak kaydı tamamlayabilir, ancak paylaşılan davet bağlantıları çalışmaz.",
       "allowSpaceCreation": "Herkesin yeni alan oluşturmasına izin ver",
@@ -678,6 +691,10 @@
     "exportBase": {
       "successText": "Dışa aktarma verileri hazır",
       "failedText": "Dışa aktarma başarısız oldu, lütfen tekrar deneyin"
+    },
+    "importantNotice": {
+      "title": "Important Notice",
+      "acknowledge": "I Understand"
     }
   },
   "role": {
@@ -755,6 +772,7 @@
     "unsubscribeTime": "Abonelikten çıkma zamanı",
     "source": "Kaynak",
     "sourceAutomationDeleted": "Otomasyon veya düğüm silindi",
+    "sourceApiSend": "API ile e-posta gönderimi",
     "processing": "İşleniyor...",
     "unsubscribeH1": "Abonelikten çıkışı onaylıyor musunuz?",
     "unsubscribeH2": "Gelecekteki Teable promosyonları ve ürün güncellemelerinden aboneliğinizi iptal etmek üzeresiniz. Abonelikten çıkmak istediğinizden emin misiniz?",
@@ -1149,10 +1167,102 @@
       "unknown": "{{fieldHint}}{{message}}"
     }
   },
+  "skills": {
+    "title": "Beceriler",
+    "tabs": {
+      "mySkills": "Becerilerim"
+    },
+    "actions": {
+      "import": "Beceri İçe Aktar",
+      "sync": "Senkronize Et",
+      "delete": "Sil",
+      "enable": "Etkinleştir",
+      "disable": "Devre Dışı Bırak",
+      "edit": "Düzenle",
+      "tryInChat": "Sohbette dene",
+      "replace": "Değiştir",
+      "download": "İndir",
+      "uninstall": "Kaldır",
+      "copyToBase": "Base'e kopyala",
+      "copyToPersonal": "Kişisele kopyala",
+      "copyToApp": "Uygulamaya kopyala"
+    },
+    "import": {
+      "title": "Beceri İçe Aktar",
+      "description": "GitHub deposundan veya ZIP dosyasından bir beceri içe aktarın",
+      "githubTab": "GitHub URL",
+      "fileTab": "ZIP Dosyası",
+      "githubTitle": "GitHub'dan beceri içe aktar",
+      "githubPlaceholder": "https://github.com/owner/repo/tree/main/skills/my-skill",
+      "fileHint": "SKILL.md içeren bir ZIP dosyası yükleyin",
+      "or": "veya",
+      "selectFile": "Dosya seç",
+      "replaceWarning": "Bu kapsamda aynı ada sahip bir beceri zaten varsa, içe aktarma onu değiştirir.",
+      "importing": "İçe aktarılıyor...",
+      "submit": "İçe Aktar",
+      "success": "Beceri başarıyla içe aktarıldı",
+      "error": "Beceri içe aktarılamadı"
+    },
+    "detail": {
+      "slug": "Slug",
+      "type": "Tür",
+      "description": "Açıklama",
+      "source": "Kaynak",
+      "skillLabel": "Beceri",
+      "syncStatus": "Senkronizasyon Durumu",
+      "preview": "SKILL.md Önizleme"
+    },
+    "scope": {
+      "label": "Kapsam",
+      "system": "Sistem",
+      "base": "Geçerli veritabanı",
+      "user": "Kişisel",
+      "userDescription": "Yalnızca size açık",
+      "baseDescription": "Bu Base'deki işbirlikçilerle paylaşılır",
+      "app": "App",
+      "appDescription": "Yalnızca bu uygulamada kullanılabilir",
+      "cuppyclaw": "Bot",
+      "cuppyclawDescription": "Yalnızca bu bot için kullanılabilir"
+    },
+    "source": {
+      "github": "GitHub",
+      "file": "Dosya Yükleme",
+      "manual": "Manuel"
+    },
+    "status": {
+      "enabled": "Etkin",
+      "disabled": "Devre Dışı",
+      "synced": "Senkronize Edildi",
+      "failed": "Senkronizasyon Başarısız"
+    },
+    "empty": {
+      "mySkills": "Henüz kişisel beceri yok. Başlamak için bir tane içe aktarın."
+    },
+    "confirm": {
+      "deleteTitle": "Beceriyi Sil",
+      "deleteDescription": "Bu beceriyi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz."
+    },
+    "toast": {
+      "syncing": "Beceri senkronize ediliyor...",
+      "syncSuccess": "Beceri başarıyla senkronize edildi",
+      "syncError": "Beceri senkronize edilemedi",
+      "deleting": "Beceri siliniyor...",
+      "deleteSuccess": "Beceri başarıyla silindi",
+      "deleteError": "Beceri silinemedi",
+      "updateSuccess": "Beceri başarıyla güncellendi"
+    }
+  },
   "changelog": {
-    "newUpdate": "19 MAYIS GUNCELLEMESI",
-    "title": "Teable Credits 10 kat daha verimli!",
-    "url": "https://help.teable.ai/en/changelog#may-19-2026",
-    "id": "changelog-2026-05-19-teable-credits-up-10x"
+    "newUpdate": "24 HAZIRAN GUNCELLEMESI",
+    "title": "Agent Computer daha güçlü",
+    "url": "https://help.teable.ai/en/changelog#jun-24-2026",
+    "id": "changelog-2026-06-24-agent-computer-supercharged"
+  },
+  "resourceDescription": {
+    "addDescription": "Açıklama ekle",
+    "nodeDescription": "Düğüm açıklaması",
+    "descriptionSaving": "Kaydediliyor...",
+    "descriptionSaveFailed": "Açıklama kaydedilemedi, lütfen tekrar deneyin",
+    "descriptionPlaceholder": "Bu düğüm için bir açıklama ekleyin"
   }
 }

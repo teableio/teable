@@ -1,4 +1,5 @@
 export * from './key.enum';
+export * from './banned-email-domains';
 export * from './gateway-model';
 export * from './model-ability';
 export * from './pricing';

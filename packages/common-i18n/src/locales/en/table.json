@@ -463,6 +463,9 @@
         "attachmentNotSupported": "💡 This model does not support attachment input. Only Gemini models support image-to-image generation.",
         "singleImageOnly": "This model can only generate one image at a time"
       },
+      "tip": {
+        "gptImageResolution": "4K is still limited by the total pixel cap, so some aspect ratios use the largest compliant size instead of a full 3840px edge."
+      },
       "auto": "Auto",
       "resolution": {
         "1K": "1K (Standard)",
@@ -634,6 +637,29 @@
           "preparing": "Preparing",
           "guarding": "Checking",
           "processing": "Clearing",
+          "publishing": "Publishing",
+          "finalizing": "Finalizing"
+        }
+      },
+      "restoreFieldStream": {
+        "confirmTitle": "Restore fields",
+        "confirmDescription": "This action will restore deleted fields and their record values.",
+        "preparing": "Preparing field restore",
+        "restoring": "Restoring fields...",
+        "restoringRecords": "Restoring record values",
+        "restoreFailed": "Restore failed",
+        "descriptionWithIssues": "Some restore chunks failed. Review the details below.",
+        "completedWithIssues": "Restore completed with issues",
+        "issuesBadge": "{{count}} issues",
+        "chunkFailureTitle": "Chunk failure details",
+        "chunkFailureSummary": "{{count}} chunk(s) reported an error while the stream kept running.",
+        "chunkLabel": "Chunk {{index}}",
+        "rowsLabel": "{{count}} rows",
+        "partialFailureDescription": "Restored values in {{completedCount}} of {{totalCount}} records. Review chunk details in the dialog.",
+        "phaseLabel": {
+          "preparing": "Preparing",
+          "guarding": "Checking",
+          "processing": "Restoring",
           "publishing": "Publishing",
           "finalizing": "Finalizing"
         }
@@ -949,6 +975,7 @@
     "menu": {
       "addFromOtherSource": "Add from other sources",
       "excelFile": "Microsoft Excel",
+      "airtable": "Airtable",
       "csvFile": "CSV file",
       "importCsvData": "Import CSV data",
       "importExcelData": "Import Microsoft Excel data",
@@ -1134,6 +1161,7 @@
     "noPermission": "You don't have permission to access the database",
     "connectionCountTip": "The maximum number of database connections is <b>{{max}}</b> and the current connections is <b>{{current}}</b>",
     "createFailed": "Please ensure that the PUBLIC_DATABASE_PROXY environment variable is set correctly",
+    "readonlyUnavailable": "Readonly database sharing is unavailable for this data database. Grant the Teable database user permission to create roles and grants, or use a target database that supports readonly roles.",
     "helpLink": "https://help.teable.ai/en/deploy/database-connection"
   },
   "view": {
@@ -1286,6 +1314,20 @@
     "shareNodeTab": "Share node"
   },
   "aiChat": {
+    "integrationConnect": {
+      "title": "Connect {{provider}}",
+      "reconnectTitle": "Reconnect {{provider}}",
+      "defaultReason": "The agent needs access to your {{provider}} account to continue.",
+      "connect": "Connect",
+      "connecting": "Connecting…",
+      "giveUp": "Give up",
+      "failed": "Connection failed",
+      "status": {
+        "connected": "Connected",
+        "cancelled": "Skipped",
+        "failed": "Failed"
+      }
+    },
     "agent": {
       "askUserQuestion": {
         "otherPlaceholder": "Or type your answer…",
@@ -1315,7 +1357,8 @@
       },
       "contextCompaction": {
         "auto": "Context was automatically compacted",
-        "manual": "Context was compacted"
+        "manual": "Context was compacted",
+        "compacting": "Compacting context…"
       },
       "taskProgress": {
         "title": "Task Progress"
@@ -1408,7 +1451,8 @@
       "selectionRow": "Row {{row}}",
       "selectionRows": "Row {{start}}-{{end}}",
       "selectionColumn": "Col {{col}}",
-      "selectionColumns": "Col {{start}}-{{end}}"
+      "selectionColumns": "Col {{start}}-{{end}}",
+      "selectionColumnsNamed": "{{names}} +{{count}}"
     },
     "mention": {
       "tables": "Tables",
@@ -1417,9 +1461,19 @@
       "folders": "Folders",
       "envs": "Secrets"
     },
-    "inputPlaceholder": "Type @ to add node",
+    "slashCommand": {
+      "skills": "Skills",
+      "searchEmpty": "No results found"
+    },
+    "inputPlaceholder": "@ Adds Nodes, / Runs Skills",
     "inputPlaceholderFiles": "Paste or drop files here",
     "thought": "Thinking",
+    "stage": {
+      "initializing": "Preparing",
+      "working": "Working",
+      "committing": "Committing",
+      "recovering": "Recovering"
+    },
     "meta": {
       "input": "Input",
       "output": "Output",
@@ -1427,7 +1481,9 @@
     },
     "attachment": {
       "pastedTextFileName": "Pasted text",
-      "imageNotSupported": "Image is not supported"
+      "imageNotSupported": "Image is not supported",
+      "tooManyFiles": "You can attach at most {{count}} files per message",
+      "storageFull": "Sandbox storage is full. Delete some files and try again."
     },
     "suggestions": {
       "title": "How can I help?",
@@ -1456,7 +1512,9 @@
     "queue": {
       "nQueued": "{{count}} Queued",
       "edit": "Edit",
-      "forceSend": "Stop & send now",
+      "steerNow": "Steer conversation without interrupting",
+      "steerFailed": "Couldn't steer conversation. Message kept in queue.",
+      "conversationInputMarker": "Steered conversation",
       "removeFromQueue": "Remove"
     },
     "partTool": {
@@ -1465,15 +1523,26 @@
       "write": "Create file",
       "edit": "Edit file",
       "glob": "Find files",
+      "find": "Find files",
       "grep": "Search in files",
+      "ls": "List directory",
       "webSearch": "Search web",
       "skill": "Loading skill",
       "foundFiles": "Found {{count}} files",
+      "listedEntries": "{{count}} entries",
       "moreTools": "+{{count}} more tools",
       "moreItems": "+{{count}} more",
       "fallbackName": "Tool",
       "questionCount_one": "{{count}} question",
-      "questionCount_other": "{{count}} questions"
+      "questionCount_other": "{{count}} questions",
+      "presentFiles": "Presented files",
+      "download": "Download",
+      "installSkill": "Install",
+      "installSkillTitle": "Install skill",
+      "installSkillDescription": "Choose where to install this skill",
+      "skillInstalled": "Installed",
+      "installSkillFailed": "Failed to install skill",
+      "installSkillReplaceWarning": "If a skill with the same name already exists in this scope, it will be replaced."
     },
     "retry": {
       "interrupted": "Response interrupted",
@@ -1497,22 +1566,19 @@
       "accept": "Finish voice input",
       "cancel": "Discard voice input",
       "permissionTip": "Allow microphone access.",
-      "connecting": "Connecting...",
-      "reconnecting": "Reconnecting...",
+      "recording": "Recording...",
+      "transcribing": "Transcribing...",
       "listening": "Listening. Start speaking.",
       "preview": "Listening: {{text}}",
       "error": {
         "microphoneDenied": "Microphone access is blocked.",
         "microphoneUnavailable": "No microphone found.",
-        "unsupportedBrowser": "WebRTC is not supported.",
-        "sessionFailed": "Voice setup failed.",
-        "connectionFailed": "Voice connection failed.",
-        "localConnectionFailed": "Voice setup failed. Refresh and try again.",
-        "disconnected": "Voice disconnected.",
+        "unsupportedBrowser": "Audio recording is not supported.",
+        "recordingFailed": "Recording failed.",
         "missingServerKey": "Voice input is not configured.",
         "unauthenticated": "Sign in again.",
         "rateLimited": "Too many tries. Wait a moment.",
-        "upstreamAuthFailed": "Realtime API key is invalid.",
+        "upstreamAuthFailed": "Transcription API key is invalid.",
         "upstreamBadRequest": "Voice endpoint is invalid.",
         "upstreamUnavailable": "Voice is unavailable."
       }
@@ -1526,5 +1592,18 @@
     "statusCompleted": "Completed",
     "statusCancel": "Cancel upload",
     "statusRetry": "Retry upload"
+  },
+  "baseNode": {
+    "info": {
+      "menu": "Node info",
+      "createdBy": "Created by",
+      "createdTime": "Created time",
+      "lastModifiedBy": "Modified by",
+      "lastModifiedTime": "Modified time",
+      "folderId": "Folder ID",
+      "tableId": "Table ID",
+      "automationId": "Automation ID",
+      "appId": "App ID"
+    }
   }
 }

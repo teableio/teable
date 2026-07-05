@@ -244,7 +244,11 @@ const isSchemaRefreshFieldPayload = (field: unknown): boolean => {
   }
 
   // Legacy V1 payloads do not expose updatedProperties; fall back to changed shape keys.
-  return actionField.options !== undefined || actionField.dbFieldType !== undefined;
+  return (
+    actionField.type !== undefined ||
+    actionField.options !== undefined ||
+    actionField.dbFieldType !== undefined
+  );
 };
 
 const isSchemaRefreshAction = (tableId: string, batch: unknown): boolean => {
@@ -395,52 +399,6 @@ const shouldRefreshAfterProjectedMutation = (
   return false;
 };
 
-const hasQueryItems = (value: unknown): boolean => Array.isArray(value) && value.length > 0;
-const querySensitiveRecordMutationActions = new Set(['setRecord', 'addRecord', 'deleteRecord']);
-
-const isQuerySensitiveToRecordMutation = (collection: string, queryParams: unknown): boolean => {
-  if (!isRecordCollection(collection) || !(queryParams instanceof Object)) {
-    return false;
-  }
-
-  const query = queryParams as Pick<
-    IGetRecordsRo,
-    'filter' | 'orderBy' | 'groupBy' | 'search' | 'collapsedGroupIds'
-  >;
-
-  return Boolean(
-    query.filter ||
-      hasQueryItems(query.orderBy) ||
-      hasQueryItems(query.groupBy) ||
-      hasQueryItems(query.search) ||
-      hasQueryItems(query.collapsedGroupIds)
-  );
-};
-
-const hasRecordMutationAction = (
-  tableId: string,
-  batch: unknown,
-  actionKeys: ReadonlySet<string>
-): boolean => {
-  if (!Array.isArray(batch)) {
-    return false;
-  }
-
-  return batch.some((item) => {
-    if (!(item instanceof Object)) {
-      return false;
-    }
-
-    const action = item as ActionTrigger;
-    if (!action.actionKey || !actionKeys.has(action.actionKey)) {
-      return false;
-    }
-
-    const payloadTableId = action.payload?.tableId;
-    return payloadTableId == null || payloadTableId === tableId;
-  });
-};
-
 /**
  * Manage instances of a collection, auto subscribe the update and change event, auto create instance,
  * keep every instance the latest data
@@ -470,10 +428,6 @@ export function useInstances<T, R extends { id: string }>({
   const preQueryRef = useRef<Query<T>>();
   const lastConnectionRef = useRef<typeof connection>();
   const projectedRefreshSeqRef = useRef(0);
-  const shouldRefreshQueryAfterRecordMutation = isQuerySensitiveToRecordMutation(
-    collection,
-    queryParams
-  );
 
   const refreshProjectedRecordFields = useCallback(
     async (fieldIds: string[]) => {
@@ -610,18 +564,9 @@ export function useInstances<T, R extends { id: string }>({
         return;
       }
 
-      if (
-        shouldRefreshQueryAfterRecordMutation &&
-        hasRecordMutationAction(
-          schemaRefreshCollectionTableId,
-          batch,
-          querySensitiveRecordMutationActions
-        )
-      ) {
-        setSchemaRefreshToken((current) => current + 1);
-        return;
-      }
-
+      // mutations that carry ops need no resubscribe here: membership and
+      // order are maintained by the server-side query poll, doc data by the
+      // op pushes; only skipRealtime mutations (handled above) bypass those
       if (!isSchemaRefreshAction(schemaRefreshCollectionTableId, batch)) {
         return;
       }
@@ -654,7 +599,6 @@ export function useInstances<T, R extends { id: string }>({
     refreshProjectedRecordFields,
     removeProjectedRecordsByIds,
     schemaRefreshCollectionTableId,
-    shouldRefreshQueryAfterRecordMutation,
   ]);
 
   const handleReady = useCallback((query: Query<T>) => {

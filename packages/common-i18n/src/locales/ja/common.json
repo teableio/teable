@@ -69,6 +69,7 @@
     "import": "インポート",
     "getMore": "もっと取得",
     "copySuccess": "コピー成功",
+    "openLink": "リンクを開く",
     "share": "共有"
   },
   "quickAction": {
@@ -484,7 +485,14 @@
     },
     "addOrgCollaborator": {
       "title": "組織の共同作業者を追加",
+      "button": "組織から追加",
       "placeholder": "組織のメンバーまたは部門を選択"
+    },
+    "table": {
+      "collaborator": "コラボレーター",
+      "accessPermission": "アクセス権限",
+      "joinAt": "参加日",
+      "lastLogin": "最終ログイン"
     }
   },
   "help": {
@@ -509,6 +517,9 @@
     "billable": "課金対象",
     "billableByAuthorityMatrix": "権限マトリックスによって生成された課金",
     "licenseExpiredGracePeriod": "セルフホスト版ライセンスの有効期限が切れました。{{expiredTime}}に無料プランへダウングレードされ、プレミアム機能が利用できなくなります。完全な機能を維持するため、速やかにライセンスを更新してください。",
+    "licenseAutoFetchFailed": "ライセンスの自動更新に失敗しました。ダウングレードまでの猶予期間は残り {{days}} 日です。",
+    "licenseAutoFetchRetryFailed": "自動更新が再び失敗しました。Teable サーバーへの接続を確認するか、ライセンスを手動で更新してください。",
+    "licenseExpiredGracePeriodDays": "ライセンスの有効期限が切れています。ダウングレードまでの猶予期間は残り {{days}} 日です。",
     "spaceSubscriptionModal": {
       "title": "スペースの契約プランをアップグレード",
       "description": "自分が所有者であるワークスペースのみアップグレードできます"
@@ -531,6 +542,9 @@
       "description": "現在のインスタンスの設定を変更する",
       "allowSignUp": "新しいアカウントの作成を許可する",
       "allowSignUpDescription": "このオプションを無効にすると、新規ユーザーの登録が禁止され、ログインページに登録ボタンが表示されなくなります。",
+      "bannedEmailDomains": "登録禁止のメールドメイン",
+      "bannedEmailDomainsDescription": "これらのドメインのメールアドレスは登録できず、関連する招待メールも送信されません。ドメインを入力して Enter キーで追加します。",
+      "bannedEmailDomainsInvalid": "有効なドメインを入力してください（例: example.com）",
       "allowSpaceInvitation": "スペースへの招待の送信を許可する",
       "allowSpaceInvitationDescription": "このオプションを無効にすると、管理者以外のユーザーは他のユーザーをスペースに招待できなくなります。有効にすると、メールで招待された新規ユーザーはメール内の招待リンクをクリックして登録を完了できますが、共有された招待リンクは機能しません。",
       "allowSpaceCreation": "誰でも新しいスペースを作成できるようにする",
@@ -721,6 +735,10 @@
     "exportBase": {
       "successText": "エクスポートデータの準備ができました",
       "failedText": "エクスポートに失敗しました。再試行してください"
+    },
+    "importantNotice": {
+      "title": "Important Notice",
+      "acknowledge": "I Understand"
     }
   },
   "role": {
@@ -798,6 +816,7 @@
     "unsubscribeTime": "購読解除時刻",
     "source": "ソース",
     "sourceAutomationDeleted": "自動化またはノードが削除されました",
+    "sourceApiSend": "API メール送信",
     "processing": "処理中...",
     "unsubscribeH1": "登録解除を確認しますか？",
     "unsubscribeH2": "今後のTeable のプロモーションや製品アップデート情報の配信を解除しようとしています。登録解除してもよろしいですか？",
@@ -1161,10 +1180,102 @@
       "unknown": "{{fieldHint}}{{message}}"
     }
   },
+  "skills": {
+    "title": "スキル",
+    "tabs": {
+      "mySkills": "マイスキル"
+    },
+    "actions": {
+      "import": "スキルをインポート",
+      "sync": "同期",
+      "delete": "削除",
+      "enable": "有効化",
+      "disable": "無効化",
+      "edit": "編集",
+      "tryInChat": "チャットで試す",
+      "replace": "置き換え",
+      "download": "ダウンロード",
+      "uninstall": "アンインストール",
+      "copyToBase": "Base にコピー",
+      "copyToPersonal": "個人にコピー",
+      "copyToApp": "アプリにコピー"
+    },
+    "import": {
+      "title": "スキルをインポート",
+      "description": "GitHub リポジトリまたは ZIP ファイルからスキルをインポートします",
+      "githubTab": "GitHub URL",
+      "fileTab": "ZIPファイル",
+      "githubTitle": "GitHub からスキルをインポート",
+      "githubPlaceholder": "https://github.com/owner/repo/tree/main/skills/my-skill",
+      "fileHint": "SKILL.mdを含むZIPファイルをアップロード",
+      "or": "または",
+      "selectFile": "ファイルを選択",
+      "replaceWarning": "このスコープに同名のスキルが既に存在する場合、インポートすると置き換えられます。",
+      "importing": "インポート中...",
+      "submit": "インポート",
+      "success": "スキルのインポートに成功しました",
+      "error": "スキルのインポートに失敗しました"
+    },
+    "detail": {
+      "slug": "スラッグ",
+      "type": "タイプ",
+      "description": "説明",
+      "source": "ソース",
+      "skillLabel": "スキル",
+      "syncStatus": "同期状態",
+      "preview": "SKILL.mdプレビュー"
+    },
+    "scope": {
+      "label": "スコープ",
+      "system": "システム",
+      "base": "現在のベース",
+      "user": "個人",
+      "userDescription": "自分のみ利用可能",
+      "baseDescription": "この Base の共同作業者と共有",
+      "app": "App",
+      "appDescription": "このアプリでのみ利用可能",
+      "cuppyclaw": "ボット",
+      "cuppyclawDescription": "このボットでのみ利用可能"
+    },
+    "source": {
+      "github": "GitHub",
+      "file": "ファイルアップロード",
+      "manual": "手動"
+    },
+    "status": {
+      "enabled": "有効",
+      "disabled": "無効",
+      "synced": "同期済み",
+      "failed": "同期失敗"
+    },
+    "empty": {
+      "mySkills": "個人スキルはまだありません。インポートして始めましょう。"
+    },
+    "confirm": {
+      "deleteTitle": "スキルを削除",
+      "deleteDescription": "このスキルを削除してもよろしいですか？この操作は元に戻せません。"
+    },
+    "toast": {
+      "syncing": "スキルを同期中...",
+      "syncSuccess": "スキルの同期に成功しました",
+      "syncError": "スキルの同期に失敗しました",
+      "deleting": "スキルを削除中...",
+      "deleteSuccess": "スキルを削除しました",
+      "deleteError": "スキルの削除に失敗しました",
+      "updateSuccess": "スキルを更新しました"
+    }
+  },
   "changelog": {
-    "newUpdate": "5月19日アップデート",
-    "title": "Teable Credits が10倍に!",
-    "url": "https://help.teable.ai/en/changelog#may-19-2026",
-    "id": "changelog-2026-05-19-teable-credits-up-10x"
+    "newUpdate": "6月24日アップデート",
+    "title": "Agent Computer が大幅強化",
+    "url": "https://help.teable.ai/en/changelog#jun-24-2026",
+    "id": "changelog-2026-06-24-agent-computer-supercharged"
+  },
+  "resourceDescription": {
+    "addDescription": "説明を追加",
+    "nodeDescription": "ノードの説明",
+    "descriptionSaving": "保存中...",
+    "descriptionSaveFailed": "説明の保存に失敗しました。もう一度お試しください",
+    "descriptionPlaceholder": "このノードの説明を追加"
   }
 }

@@ -137,6 +137,32 @@ describe('Auth Controller (e2e)', () => {
     });
   });
 
+  describe('sign up with banned email domain', () => {
+    beforeEach(() => {
+      vi.spyOn(settingService, 'getSetting').mockImplementation(async () => {
+        return {
+          ...originalGetSetting,
+          bannedEmailDomains: ['test-auth.com'],
+        };
+      });
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('api/auth/signup - banned email domain', async () => {
+      const error = await getError(() =>
+        signup({
+          email: authTestEmail,
+          password: '12345678a',
+        })
+      );
+      expect(error?.status).toBe(400);
+      expect(error?.code).toBe(HttpErrorCode.VALIDATION_ERROR);
+    });
+  });
+
   describe('sign up with email verification', () => {
     beforeEach(async () => {
       vi.spyOn(settingService, 'getSetting').mockImplementation(async () => {

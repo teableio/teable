@@ -24,8 +24,9 @@ import { snakeCase } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { fromZodError } from 'zod-validation-error';
 import { CustomHttpException } from '../../custom.exception';
-import type { IRawOp, IRawOpMap } from '../../share-db/interface';
+import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
+import { BatchService } from '../calculation/batch.service';
 import { V2ContainerService } from './v2-container.service';
 import { V2ExecutionContextFactory } from './v2-execution-context.factory';
 
@@ -54,6 +55,7 @@ export class V2ViewCompatService {
   constructor(
     private readonly v2ContainerService: V2ContainerService,
     private readonly cls: ClsService<IClsStore>,
+    private readonly batchService: BatchService,
     private readonly v2ContextFactory: V2ExecutionContextFactory
   ) {}
 
@@ -113,29 +115,8 @@ export class V2ViewCompatService {
   private saveRawOps(
     tableId: string,
     dataList: { docId: string; version: number; data?: unknown }[]
-  ): IRawOpMap {
-    const collection = `${IdPrefix.View}_${tableId}`;
-    const rawOpMap: IRawOpMap = { [collection]: {} };
-    const baseRaw = {
-      src: this.cls.getId() || 'unknown',
-      seq: 1,
-      m: {
-        ts: Date.now(),
-      },
-    };
-
-    dataList.forEach(({ docId, version, data }) => {
-      rawOpMap[collection][docId] = {
-        ...baseRaw,
-        op: data as IOtOperation[],
-        v: version,
-      } as IRawOp;
-    });
-
-    const prevMap = this.cls.get('tx.rawOpMaps') || [];
-    prevMap.push(rawOpMap);
-    this.cls.set('tx.rawOpMaps', prevMap);
-    return rawOpMap;
+  ) {
+    return this.batchService.saveRawOps(tableId, RawOpType.Edit, IdPrefix.View, dataList);
   }
 
   private async ensureViewOperation(

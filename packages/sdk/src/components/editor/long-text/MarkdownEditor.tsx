@@ -11,6 +11,8 @@ interface IMarkdownEditorInnerProps {
   value: string;
   className?: string;
   hideExpand?: boolean;
+  hideMarkdownBadge?: boolean;
+  placeholder?: string;
   gridMode?: boolean;
   onChange?: (value: string | null) => void;
   onValueChange?: (value: string) => void;
@@ -21,6 +23,8 @@ const MarkdownEditorInner = ({
   value,
   className,
   hideExpand,
+  hideMarkdownBadge,
+  placeholder,
   gridMode,
   onChange,
   onValueChange,
@@ -56,11 +60,12 @@ const MarkdownEditorInner = ({
     (root) =>
       createMilkdownEditor(root, {
         value: stableValue,
+        placeholder,
         latestValueRef,
         useFixedSelectionToolbar: gridMode,
         onMarkdownUpdated: handleMarkdownUpdated,
       }),
-    [stableValue]
+    [stableValue, placeholder]
   );
 
   const [loading, getEditor] = useInstance();
@@ -102,7 +107,7 @@ const MarkdownEditorInner = ({
           <ExpandMarkdownEditor value={value} onChange={onChange} />
         </div>
       )}
-      {hideExpand && !gridMode && (
+      {hideExpand && !hideMarkdownBadge && !gridMode && (
         <span
           className="absolute bottom-1.5 right-2 select-none rounded-sm bg-foreground/80 px-1 py-px text-[9px] font-semibold tracking-wide text-background backdrop-blur-sm"
           title="Markdown enabled"
@@ -116,6 +121,8 @@ const MarkdownEditorInner = ({
 
 type IMarkdownLongTextEditor = ICellEditor<string | null> & {
   hideExpand?: boolean;
+  hideMarkdownBadge?: boolean;
+  placeholder?: string;
   gridMode?: boolean;
   onValueChange?: (value: string) => void;
   onEditorReady?: (getEditor: () => Editor) => void;
@@ -127,6 +134,8 @@ export const MarkdownLongTextEditor = ({
   className,
   readonly,
   hideExpand,
+  hideMarkdownBadge,
+  placeholder,
   gridMode,
   onValueChange,
   onEditorReady,
@@ -143,6 +152,8 @@ export const MarkdownLongTextEditor = ({
         value={normalized}
         className={className}
         hideExpand={hideExpand}
+        hideMarkdownBadge={hideMarkdownBadge}
+        placeholder={placeholder}
         gridMode={gridMode}
         onChange={onChange}
         onValueChange={onValueChange}

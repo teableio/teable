@@ -1176,6 +1176,61 @@ describe('OpenAPI formula (e2e)', () => {
       expect(updatedRecord.data.fields[dateBranchField.name]).toBe(false);
       expect(updatedRecord.data.fields[complexBooleanField.name]).toBe(false);
     });
+
+    // T5496: IS_AFTER / IS_BEFORE / IS_SAME return booleans, but when nested inside
+    // AND/OR they were treated as "non-null => true" because they were missing from
+    // BOOLEAN_FUNCTIONS. This uses date comparisons as the *deciding* operand so a
+    // false comparison must drive the AND/OR result to false.
+    it('should preserve boolean semantics for date comparisons nested in AND/OR (T5496)', async () => {
+      const eventDateField = await createField(table1Id, {
+        name: 'event-date',
+        type: FieldType.Date,
+      } as IFieldRo);
+
+      const { records } = await createRecords(table1Id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: [
+          {
+            fields: {
+              [eventDateField.name]: '2024-03-01T00:00:00.000Z',
+            },
+          },
+        ],
+      });
+      const recordId = records[0].id;
+
+      // IS_AFTER(Mar 1, Jun 1) = false, IS_BEFORE(Mar 1, Dec 1) = true => AND must be false.
+      const andFalseField = await createField(table1Id, {
+        name: 'and-date-false',
+        type: FieldType.Formula,
+        options: {
+          expression: `AND(IS_AFTER({${eventDateField.id}}, '2024-06-01'), IS_BEFORE({${eventDateField.id}}, '2024-12-01'))`,
+        },
+      });
+
+      // IS_AFTER(Mar 1, Jun 1) = false, IS_SAME(Mar 1, Jun 1, day) = false => OR must be false.
+      const orFalseField = await createField(table1Id, {
+        name: 'or-date-false',
+        type: FieldType.Formula,
+        options: {
+          expression: `OR(IS_AFTER({${eventDateField.id}}, '2024-06-01'), IS_SAME({${eventDateField.id}}, '2024-06-01', 'day'))`,
+        },
+      });
+
+      // IS_AFTER(Mar 1, Jan 1) = true, IS_BEFORE(Mar 1, Dec 1) = true => AND must stay true.
+      const andTrueField = await createField(table1Id, {
+        name: 'and-date-true',
+        type: FieldType.Formula,
+        options: {
+          expression: `AND(IS_AFTER({${eventDateField.id}}, '2024-01-01'), IS_BEFORE({${eventDateField.id}}, '2024-12-01'))`,
+        },
+      });
+
+      const record = await getRecord(table1Id, recordId);
+      expect(record.data.fields[andFalseField.name]).toBe(false);
+      expect(record.data.fields[orFalseField.name]).toBe(false);
+      expect(record.data.fields[andTrueField.name]).toBe(true);
+    });
   });
 
   describe('LAST_MODIFIED_TIME field parameter', () => {

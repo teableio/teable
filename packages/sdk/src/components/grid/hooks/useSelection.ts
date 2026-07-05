@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react';
-import { useUnmount, useUpdateEffect } from 'react-use';
+import { useEffect, useRef, useState } from 'react';
+import { useUpdateEffect } from 'react-use';
 import type { IGridProps } from '../Grid';
 import type { ICellItem, ILinearRow, IMouseState, IPosition, IRange } from '../interface';
 import { RegionType, SelectionRegionType, SelectableType, RowControlType } from '../interface';
@@ -36,9 +36,27 @@ export const useSelection = (props: IUseSelectionProps) => {
   const [isSelecting, setSelecting] = useState(false);
   const [selection, setSelection] = useState(() => new CombinedSelection());
   const { pureRowCount } = coordInstance;
-  onSelectionChangedRef.current = onSelectionChanged;
-  onRowControlClickRef.current = onRowControlClick;
-  onRowRangeSelectedRef.current = onRowRangeSelected;
+
+  useEffect(() => {
+    onSelectionChangedRef.current = onSelectionChanged;
+    return () => {
+      onSelectionChangedRef.current = undefined;
+    };
+  }, [onSelectionChanged]);
+
+  useEffect(() => {
+    onRowControlClickRef.current = onRowControlClick;
+    return () => {
+      onRowControlClickRef.current = undefined;
+    };
+  }, [onRowControlClick]);
+
+  useEffect(() => {
+    onRowRangeSelectedRef.current = onRowRangeSelected;
+    return () => {
+      onRowRangeSelectedRef.current = undefined;
+    };
+  }, [onRowRangeSelected]);
 
   const onSelectionStart = (
     event: React.MouseEvent<HTMLDivElement, MouseEvent>,
@@ -81,8 +99,15 @@ export const useSelection = (props: IUseSelectionProps) => {
     const { rowIndex, columnIndex } = mouseState;
 
     if (!isSelecting) return;
-    const { realIndex } = getLinearRow(rowIndex);
-    const newRange = [columnIndex, realIndex] as IRange;
+    // Dragging above/left of the grid makes getPosition return -Infinity for the
+    // row/column index. Left unguarded it poisons the selection range and feeds
+    // -Infinity offsets into coordinate/canvas math, freezing the browser. Snap
+    // only the non-finite case back to 0; the finite sentinels (-1 header, -2
+    // append column) flow through unchanged so existing behavior is untouched.
+    const safeRowIndex = Number.isFinite(rowIndex) ? rowIndex : 0;
+    const safeColumnIndex = Number.isFinite(columnIndex) ? columnIndex : 0;
+    const { realIndex } = getLinearRow(safeRowIndex);
+    const newRange = [safeColumnIndex, realIndex] as IRange;
     if (isCellSelection && !selection.equals([ranges[0], newRange])) {
       setSelection(selection.merge(newRange));
     }
@@ -280,10 +305,6 @@ export const useSelection = (props: IUseSelectionProps) => {
   useUpdateEffect(() => {
     onSelectionChangedRef.current?.(selection);
   }, [selection]);
-
-  useUnmount(() => {
-    onSelectionChangedRef.current = undefined;
-  });
 
   return {
     selection,
