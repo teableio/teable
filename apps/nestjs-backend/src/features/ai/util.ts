@@ -104,6 +104,9 @@ export const modelProviders = {
   [LLMProviderType.OLLAMA]: createOllama,
   [LLMProviderType.AMAZONBEDROCK]: createAmazonBedrock,
   [LLMProviderType.OPENROUTER]: createOpenRouter,
+  // OrcaRouter is an OpenAI-compatible meta-router; reuse the compatible wrapper
+  // (no dedicated SDK/dependency needed), same as the generic OpenAI-compatible type.
+  [LLMProviderType.ORCAROUTER]: createOpenAICompatibleWrapper,
   [LLMProviderType.OPENAI_COMPATIBLE]: createOpenAICompatibleWrapper,
   // AI_GATEWAY is handled separately in ai.service.ts using createGateway from 'ai'
 } as const;
@@ -130,6 +133,7 @@ export const getAdaptedProviderOptions = (
     }
     case LLMProviderType.OLLAMA:
       return { name, baseURL: originalBaseURL };
+    case LLMProviderType.ORCAROUTER:
     case LLMProviderType.OPENAI_COMPATIBLE:
       return { ...originalOptions, includeUsage: true };
     case LLMProviderType.AI_GATEWAY:

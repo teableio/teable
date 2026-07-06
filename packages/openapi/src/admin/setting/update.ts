@@ -37,6 +37,7 @@ export enum LLMProviderType {
   OLLAMA = 'ollama',
   AMAZONBEDROCK = 'amazonBedrock',
   OPENROUTER = 'openRouter',
+  ORCAROUTER = 'orcarouter',
   OPENAI_COMPATIBLE = 'openaiCompatible',
   // Vercel AI Gateway - unified model access via modelId
   AI_GATEWAY = 'aiGateway',
