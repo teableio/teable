@@ -30,6 +30,8 @@ const mocks = vi.hoisted(() => ({
   createV2NodePgContainer: vi.fn(),
   registerV2ShareDbRealtime: vi.fn(),
   registerV2ImportServices: vi.fn(),
+  startTableQueryOpsAnalyzerIfEnabled: vi.fn(),
+  startTableQueryOpsTaskWorkerIfEnabled: vi.fn(),
 }));
 
 vi.mock('@teable/v2-container-node', () => ({
@@ -45,6 +47,11 @@ vi.mock('@teable/v2-adapter-realtime-sharedb', () => ({
 
 vi.mock('@teable/v2-import', () => ({
   registerV2ImportServices: mocks.registerV2ImportServices,
+}));
+
+vi.mock('@teable/v2-table-query-ops', () => ({
+  startTableQueryOpsAnalyzerIfEnabled: mocks.startTableQueryOpsAnalyzerIfEnabled,
+  startTableQueryOpsTaskWorkerIfEnabled: mocks.startTableQueryOpsTaskWorkerIfEnabled,
 }));
 
 vi.mock('@teable/v2-adapter-undo-redo-keyv', () => ({
@@ -332,6 +339,48 @@ describe('V2ContainerService', () => {
     expect(mocks.createV2NodePgContainer).toHaveBeenCalledWith(
       expect.objectContaining({
         tableMaxRowLimit: 8,
+      })
+    );
+  });
+
+  it('registers table query ops when the feature flag is enabled', async () => {
+    const container = createContainerMock();
+    mocks.createV2NodePgContainer.mockResolvedValue(container);
+    const { service, configService } = createService();
+
+    configService.get.mockImplementation((key: string) => {
+      if (key === 'V2_TABLE_QUERY_OPS_ENABLED') return 'true';
+      return undefined;
+    });
+
+    await service.getContainer();
+
+    expect(mocks.createV2NodePgContainer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tableQueryOps: expect.objectContaining({
+          ensureSchema: true,
+        }),
+      })
+    );
+  });
+
+  it('enables table query ops by default in preview runtime', async () => {
+    const container = createContainerMock();
+    mocks.createV2NodePgContainer.mockResolvedValue(container);
+    const { service, configService } = createService();
+
+    configService.get.mockImplementation((key: string) => {
+      if (key === 'PREVIEW_TAG') return 'alpha-pr-2270';
+      return undefined;
+    });
+
+    await service.getContainer();
+
+    expect(mocks.createV2NodePgContainer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tableQueryOps: expect.objectContaining({
+          ensureSchema: true,
+        }),
       })
     );
   });

@@ -1,6 +1,7 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { notifyVoSchema } from '../attachment';
 import { axios } from '../axios';
+import { CREATE_SOURCE_HEADER, CREATE_SOURCE_IMPORT } from '../types';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 import { createBaseVoSchema } from './create';
@@ -98,13 +99,18 @@ export const ImportBaseStreamRoute: RouteConfig = registerRoute({
  * Import a base (standard JSON response).
  */
 export const importBase = async (importBaseRo: ImportBaseRo) => {
-  return await axios.post<IImportBaseVo>(urlBuilder(IMPORT_BASE), importBaseRo);
+  // Source header is intrinsic to this endpoint: analytics segments base
+  // creations into manual / template / import / auto.
+  return await axios.post<IImportBaseVo>(urlBuilder(IMPORT_BASE), importBaseRo, {
+    headers: { [CREATE_SOURCE_HEADER]: CREATE_SOURCE_IMPORT },
+  });
 };
 
 const buildSSERequestHeaders = (): Record<string, string> => {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     Accept: 'text/event-stream',
+    [CREATE_SOURCE_HEADER]: CREATE_SOURCE_IMPORT,
   };
   for (const name of ['Authorization', 'Cookie']) {
     const value = axios.defaults.headers.common?.[name];

@@ -260,7 +260,7 @@ describe('v2 http date time parsing (e2e)', () => {
         fieldId: dateFieldId,
         operator: 'is',
         value: {
-          mode: 'exactDate',
+          mode: 'exactDateTime',
           exactDate: firstTimestamp,
           timeZone: 'utc',
         },
@@ -277,7 +277,7 @@ describe('v2 http date time parsing (e2e)', () => {
         fieldId: dateFieldId,
         operator: 'is',
         value: {
-          mode: 'exactDate',
+          mode: 'exactDateTime',
           exactDate: secondTimestamp,
           timeZone: 'utc',
         },

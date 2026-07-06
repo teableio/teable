@@ -1,26 +1,47 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import type { IDomainContext } from '../../../shared/DomainContext';
 import { domainError, type DomainError } from '../../../shared/DomainError';
 import type { SelectDefaultValue } from './SelectDefaultValue';
+import {
+  ensureSelectFieldOptionCountWithinLimit,
+  ensureSelectFieldOptionNameWithinLimit,
+} from './SelectFieldOptionWriteConfig';
 import type { SelectOption } from './SelectOption';
 
-const isUniqueByStringValue = (values: ReadonlyArray<{ toString(): string }>): boolean => {
-  const seen = new Set<string>();
-  for (const value of values) {
-    const key = value.toString();
-    if (seen.has(key)) return false;
-    seen.add(key);
-  }
-  return true;
+export type SelectOptionsValidationContext = {
+  domainContext?: IDomainContext;
 };
 
 export const validateSelectOptions = (
   options: ReadonlyArray<SelectOption>,
   defaultValue?: SelectDefaultValue,
-  mode: 'single' | 'multiple' = 'single'
+  mode: 'single' | 'multiple' = 'single',
+  context?: SelectOptionsValidationContext
 ): Result<ReadonlyArray<SelectOption>, DomainError> => {
-  if (!isUniqueByStringValue(options.map((option) => option.name())))
+  const domainContext = context?.domainContext;
+  if (domainContext) {
+    const countResult = ensureSelectFieldOptionCountWithinLimit(options.length, domainContext);
+    if (countResult.isErr()) return err(countResult.error);
+  }
+
+  const names = new Set<string>();
+  let hasDuplicateName = false;
+  for (const option of options) {
+    const name = option.name().toString();
+    if (domainContext) {
+      const nameLimitResult = ensureSelectFieldOptionNameWithinLimit(name.length, domainContext);
+      if (nameLimitResult.isErr()) return err(nameLimitResult.error);
+    }
+    if (names.has(name)) {
+      hasDuplicateName = true;
+    } else {
+      names.add(name);
+    }
+  }
+
+  if (hasDuplicateName)
     return err(domainError.conflict({ message: 'SelectField options must be unique' }));
 
   if (defaultValue) {
@@ -29,7 +50,6 @@ export const validateSelectOptions = (
         domainError.validation({ message: 'SelectField defaultValue must be a single option' })
       );
 
-    const names = new Set(options.map((option) => option.name().toString()));
     const defaults = defaultValue.toDto();
     const values = Array.isArray(defaults) ? defaults : [defaults];
     for (const value of values) {

@@ -3,6 +3,7 @@ import type { CommandExplain } from '../services/CommandExplain';
 import type { ComputedTaskControl } from '../services/ComputedTaskControl';
 import type { ComputedTaskInspector } from '../services/ComputedTaskInspector';
 import type { DatabaseConfig } from '../services/Database';
+import type { DataDbMigrationInspector } from '../services/DataDbMigrationInspector';
 import type { DebugData } from '../services/DebugData';
 import type { DotTeaImporter } from '../services/DotTeaImporter';
 import type { MockRecords } from '../services/MockRecords';
@@ -12,10 +13,12 @@ import type { SchemaChecker } from '../services/SchemaChecker';
 import type { SchemaOperationControl } from '../services/SchemaOperationControl';
 import type { SchemaRepairer } from '../services/SchemaRepairer';
 import type { TableCreator } from '../services/TableCreator';
+import type { TableQueryOps } from '../services/TableQueryOps';
 import { CommandExplainLive } from './CommandExplainLive';
 import { ComputedTaskControlLive } from './ComputedTaskControlLive';
 import { ComputedTaskInspectorLive } from './ComputedTaskInspectorLive';
 import { DatabaseLive, DatabaseConfigFromOption } from './DatabaseLive';
+import { DataDbMigrationInspectorLive } from './DataDbMigrationInspectorLive';
 import { DebugDataLive } from './DebugDataLive';
 import { DotTeaImporterLive } from './DotTeaImporterLive';
 import { MockRecordsLive } from './MockRecordsLive';
@@ -25,6 +28,7 @@ import { SchemaCheckerLive } from './SchemaCheckerLive';
 import { SchemaOperationControlLive } from './SchemaOperationControlLive';
 import { SchemaRepairerLive } from './SchemaRepairerLive';
 import { TableCreatorLive } from './TableCreatorLive';
+import { TableQueryOpsLive } from './TableQueryOpsLive';
 
 /**
  * Create the Database layer with optional connection string override
@@ -68,11 +72,13 @@ export const FullLayer = (connectionString?: string) => {
     CommandExplainLive.pipe(Layer.provide(dbLayer)),
     ComputedTaskControlLive.pipe(Layer.provide(dbLayer)),
     ComputedTaskInspectorLive.pipe(Layer.provide(dbLayer)),
+    DataDbMigrationInspectorLive.pipe(Layer.provide(dbLayer)),
     MockRecordsLive.pipe(Layer.provide(dbLayer)),
     SchemaCheckerLive.pipe(Layer.provide(dbLayer)),
     SchemaOperationControlLive.pipe(Layer.provide(dbLayer)),
     SchemaRepairerLive.pipe(Layer.provide(dbLayer)),
     TableCreatorLive.pipe(Layer.provide(dbLayer)),
+    TableQueryOpsLive.pipe(Layer.provide(dbLayer)),
     DotTeaImporterLive.pipe(Layer.provide(dbLayer)),
     RecordMutationLive.pipe(Layer.provide(dbLayer))
   );
@@ -87,11 +93,13 @@ export type AppLayerType = Layer.Layer<
     CommandExplain['Type'] &
     ComputedTaskControl['Type'] &
     ComputedTaskInspector['Type'] &
+    DataDbMigrationInspector['Type'] &
     MockRecords['Type'] &
     SchemaChecker['Type'] &
     SchemaOperationControl['Type'] &
     SchemaRepairer['Type'] &
     TableCreator['Type'] &
+    TableQueryOps['Type'] &
     DotTeaImporter['Type'] &
     RecordMutation['Type'] &
     DatabaseConfig['Type'],

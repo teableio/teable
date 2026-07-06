@@ -401,6 +401,9 @@
         "medium": "Orta",
         "high": "Yüksek"
       },
+      "tip": {
+        "gptImageResolution": "Toplam piksel sınırı nedeniyle 4K modunda bazı en-boy oranları için üretilebilen en büyük uyumlu çıktı boyutu kullanılır."
+      },
       "autoFill": {
         "title": "Otomatik Güncelle",
         "tip": "Etkinleştirdiğinizde, mevcut alan, AI yapılandırmasının içerik değişiklikleriyle senkronize olarak güncellenecektir"
@@ -684,6 +687,7 @@
     "menu": {
       "addFromOtherSource": "Diğer kaynaklardan ekle",
       "excelFile": "Microsoft Excel",
+      "airtable": "Airtable",
       "csvFile": "Csv dosyası",
       "importCsvData": "CSV verilerini içe aktar",
       "importExcelData": "Microsoft Excel verilerini içe aktar",
@@ -837,6 +841,8 @@
     "description": "Veritabanına doğrudan veritabanı bağlantısı üzerinden erişebilirsiniz, mevcut veritabanı altındaki tüm tablolar dahil",
     "noPermission": "Veritabanına erişim izniniz yok",
     "connectionCountTip": "Maksimum veritabanı bağlantısı sayısı <b>{{max}}</b> ve mevcut bağlantı sayısı <b>{{current}}</b>",
+    "createFailed": "Please ensure that the PUBLIC_DATABASE_PROXY environment variable is set correctly",
+    "readonlyUnavailable": "Readonly database sharing is unavailable for this data database. Grant the Teable database user permission to create roles and grants, or use a target database that supports readonly roles.",
     "helpLink": "https://help.teable.ai/en/deploy/database-connection"
   },
   "view": {
@@ -982,6 +988,20 @@
     "shareNodeTab": "Düğümü paylaş"
   },
   "aiChat": {
+    "integrationConnect": {
+      "title": "{{provider}} hesabını bağla",
+      "reconnectTitle": "{{provider}} hesabını yeniden bağla",
+      "defaultReason": "Devam etmek için ajanın {{provider}} hesabınıza erişmesi gerekiyor.",
+      "connect": "Bağlan",
+      "connecting": "Bağlanıyor…",
+      "giveUp": "Vazgeç",
+      "failed": "Bağlantı başarısız",
+      "status": {
+        "connected": "Bağlandı",
+        "cancelled": "Atlandı",
+        "failed": "Başarısız"
+      }
+    },
     "agent": {
       "askUserQuestion": {
         "otherPlaceholder": "Veya yanıtınızı yazın…"
@@ -991,17 +1011,41 @@
         "copyToInput": "Girişe kopyala"
       }
     },
+    "showUI": {
+      "skip": "Atla",
+      "next": "Sonraki",
+      "submit": "Gönder"
+    },
     "mention": {
       "tables": "Tablolar",
       "apps": "Uygulamalar",
       "workflows": "Otomasyonlar",
       "folders": "Klasörler"
     },
-    "inputPlaceholder": "Düğüm eklemek için @ yazın",
+    "slashCommand": {
+      "skills": "Skills",
+      "searchEmpty": "No results found"
+    },
+    "inputPlaceholder": "@ düğüm ekler, / beceri çalıştırır",
     "inputPlaceholderFiles": "Dosyaları buraya yapıştırın veya bırakın",
     "attachment": {
       "pastedTextFileName": "Yapıştırılan metin",
-      "imageNotSupported": "Görsel desteklenmiyor"
+      "imageNotSupported": "Görsel desteklenmiyor",
+      "tooManyFiles": "Mesaj başına en fazla {{count}} dosya ekleyebilirsiniz",
+      "storageFull": "Sandbox depolama alanı dolu. Bazı dosyaları silip tekrar deneyin."
+    }
+  },
+  "baseNode": {
+    "info": {
+      "menu": "Düğüm bilgisi",
+      "createdBy": "Oluşturan",
+      "createdTime": "Oluşturulma zamanı",
+      "lastModifiedBy": "Değiştiren",
+      "lastModifiedTime": "Değiştirilme zamanı",
+      "folderId": "Klasör ID",
+      "tableId": "Tablo ID",
+      "automationId": "Otomasyon ID",
+      "appId": "Uygulama ID"
     }
   }
 }

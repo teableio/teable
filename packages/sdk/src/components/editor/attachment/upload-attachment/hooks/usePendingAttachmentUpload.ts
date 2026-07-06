@@ -12,6 +12,7 @@ interface UsePendingAttachmentUploadParams {
   tempRecordId: string;
   fieldId: string;
   baseId?: string;
+  shareId?: string;
   attachments: IAttachmentCellValue;
   onChange?: (attachment: IAttachmentCellValue | null) => void;
 }
@@ -20,15 +21,17 @@ interface UsePendingAttachmentUploadReturn {
   uploadingFiles: IUploadingFile[];
   onUpload: (files: File[]) => void;
   onCancelUpload: (id: string) => void;
+  onChange: (attachment: IAttachmentCellValue | null) => void;
 }
 
 export const usePendingAttachmentUpload = (
   params: UsePendingAttachmentUploadParams
 ): UsePendingAttachmentUploadReturn => {
-  const { tableId, tempRecordId, fieldId, baseId, attachments, onChange } = params;
+  const { tableId, tempRecordId, fieldId, baseId, shareId, attachments, onChange } = params;
 
   const startPendingUpload = useCellAttachmentUploadStore((state) => state.startPendingUpload);
   const cancelCellTask = useCellAttachmentUploadStore((state) => state.cancelTask);
+  const removeCellTask = useCellAttachmentUploadStore((state) => state.removeTask);
 
   const cellKey = useMemo(
     () => buildCellKey(tableId, tempRecordId, fieldId),
@@ -98,9 +101,9 @@ export const usePendingAttachmentUpload = (
   const onUpload = useCallback(
     (files: File[]) => {
       if (files.length === 0) return;
-      startPendingUpload(tableId, tempRecordId, fieldId, files, baseId);
+      startPendingUpload(tableId, tempRecordId, fieldId, files, baseId, shareId);
     },
-    [baseId, fieldId, startPendingUpload, tableId, tempRecordId]
+    [baseId, shareId, fieldId, startPendingUpload, tableId, tempRecordId]
   );
 
   const onCancelUpload = useCallback(
@@ -110,5 +113,24 @@ export const usePendingAttachmentUpload = (
     [cancelCellTask, cellKey]
   );
 
-  return { uploadingFiles, onUpload, onCancelUpload };
+  // User-driven change handler for the editor. When the user removes an attachment,
+  // drop its completed upload task from the store. Its completed task lingers there
+  // by design (so late-completing uploads survive the createRecords flight); without
+  // this cleanup the completion-merge effect above re-appends the removed item, and
+  // the create-time merge (consumePendingForCreate) re-persists it into the new record.
+  // Reorder/rename keep the id set intact, so only genuine deletions trigger removal.
+  const handleChange = useCallback(
+    (next: IAttachmentCellValue | null) => {
+      const nextIds = new Set((next || []).map((item) => item.id));
+      (attachments || []).forEach((item) => {
+        if (!nextIds.has(item.id)) {
+          removeCellTask(cellKey, item.id);
+        }
+      });
+      onChange?.(next);
+    },
+    [attachments, cellKey, onChange, removeCellTask]
+  );
+
+  return { uploadingFiles, onUpload, onCancelUpload, onChange: handleChange };
 };

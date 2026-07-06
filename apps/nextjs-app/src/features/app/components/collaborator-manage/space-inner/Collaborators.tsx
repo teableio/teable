@@ -45,7 +45,7 @@ export const Collaborators: React.FC<SpaceInnerCollaboratorProps> = (props) => {
           const isBase = Boolean(item.base);
           return (
             <li
-              key={item.type === PrincipalType.User ? item.userId : item.departmentId}
+              key={`${item.type === PrincipalType.User ? item.userId : item.departmentId}-${item.base?.id ?? ''}`}
               className="flex items-center space-x-3"
             >
               {item.type === PrincipalType.User ? (

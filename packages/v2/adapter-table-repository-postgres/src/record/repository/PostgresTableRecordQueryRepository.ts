@@ -6,6 +6,7 @@ import {
   type DomainError,
   FieldType,
   type IExecutionContext,
+  type IRecordReadQuerySource,
   type ITableRecordQueryRepository,
   RecordByIdSpec,
   type ITableRecordQueryOptions,
@@ -51,20 +52,21 @@ const RECORD_VERSION_COLUMN = '__version';
 const TABLE_ALIAS = 't';
 const ORDER_COLUMN_CACHE_TTL_MS = 5_000;
 const LEGACY_AVATAR_PREFIX = '/api/attachments/read/public/avatar/';
+const TABLE_QUERY_SQL_DIAGNOSTICS_CONTEXT_KEY = Symbol.for('teable.v2.tableOps.sqlDiagnostics');
 
 type OrderColumnExistsCacheEntry = {
   exists: boolean;
   cachedAt: number;
 };
 
-type IRecordReadQuerySource = {
-  tableName: string;
-  cteName: string;
-  cteSql: string;
-};
-
-type IExecutionContextWithRecordReadQuerySource = IExecutionContext & {
-  recordReadQuerySource?: IRecordReadQuerySource;
+type IExecutionContextWithTableQuerySqlDiagnostics = IExecutionContext & {
+  [TABLE_QUERY_SQL_DIAGNOSTICS_CONTEXT_KEY]?: {
+    readonly record?: (input: {
+      readonly source: string;
+      readonly sql: string;
+      readonly parameters?: ReadonlyArray<unknown>;
+    }) => void;
+  };
 };
 
 @injectable()
@@ -95,14 +97,14 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
     const executeFind = async (): Promise<Result<ITableRecordQueryResult, DomainError>> => {
       return await safeTry<ITableRecordQueryResult, DomainError>(
         async function* (this: PostgresTableRecordQueryRepository) {
-          const readQuerySource = this.getRecordReadQuerySource(context);
+          const readQuerySource = this.getRecordReadQuerySource(options);
           // Create query builder via manager (it handles prepare)
           const queryBuilder = yield* await this.queryBuilderManager.createBuilder(context, table, {
             mode: resolveQueryMode(table, options?.mode),
             sourceTableName: readQuerySource?.tableName,
           });
 
-          if (options?.projectionFieldIds?.length) {
+          if (options?.projectionFieldIds !== undefined) {
             queryBuilder.select(options.projectionFieldIds);
           }
 
@@ -213,6 +215,7 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
           this.logger.debug(`find:mode:${queryBuilder.mode}:sql\n${compiled.sql}`, {
             parameters: compiled.parameters,
           });
+          this.recordSqlDiagnostic(context, 'record_find', compiled);
 
           // Collect field column mappings (respect projection when provided)
           const fieldColumns = yield* new FieldOutputColumnVisitor().collect(
@@ -225,23 +228,27 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
             const rowsPromise = dynamicDb
               .executeQuery<Record<string, unknown>>(compiled)
               .then((result) => result.rows);
-            const countPromise = shouldQueryTotal
-              ? dynamicDb
-                  .executeQuery<{ count: string }>(
-                    this.withRecordReadQuerySource(
-                      dynamicDb
-                        .selectFrom(`${sourceTableName} as ${TABLE_ALIAS}`)
-                        .select(sql<string>`count(*)`.as('count'))
-                        .$if(whereClause.value !== null, (qb) =>
-                          qb.where(whereClause.value as Expression<SqlBool>)
-                        )
-                        .$if(searchWhereClause.value !== null, (qb) =>
-                          qb.where(searchWhereClause.value as Expression<SqlBool>)
-                        )
-                        .compile(),
-                      readQuerySource
+            const countCompiled = shouldQueryTotal
+              ? this.withRecordReadQuerySource(
+                  dynamicDb
+                    .selectFrom(`${sourceTableName} as ${TABLE_ALIAS}`)
+                    .select(sql<string>`count(*)`.as('count'))
+                    .$if(whereClause.value !== null, (qb) =>
+                      qb.where(whereClause.value as Expression<SqlBool>)
                     )
-                  )
+                    .$if(searchWhereClause.value !== null, (qb) =>
+                      qb.where(searchWhereClause.value as Expression<SqlBool>)
+                    )
+                    .compile(),
+                  readQuerySource
+                )
+              : undefined;
+            if (countCompiled) {
+              this.recordSqlDiagnostic(context, 'record_count', countCompiled);
+            }
+            const countPromise = countCompiled
+              ? dynamicDb
+                  .executeQuery<{ count: string }>(countCompiled)
                   .then((result) => result.rows[0] ?? { count: '0' })
               : Promise.resolve<{ count: string }>({ count: '0' });
 
@@ -274,14 +281,14 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
     context: IExecutionContext,
     table: Table,
     recordId: RecordId,
-    options?: Pick<ITableRecordQueryOptions, 'mode' | 'includeOrders'>
+    options?: Pick<ITableRecordQueryOptions, 'mode' | 'includeOrders' | 'recordReadQuerySource'>
   ): Promise<Result<TableRecordReadModel, DomainError>> {
     const span = context.tracer?.startSpan('teable.repository.record.findOne');
 
     const executeFindOne = async (): Promise<Result<TableRecordReadModel, DomainError>> => {
       return await safeTry<TableRecordReadModel, DomainError>(
         async function* (this: PostgresTableRecordQueryRepository) {
-          const readQuerySource = this.getRecordReadQuerySource(context);
+          const readQuerySource = this.getRecordReadQuerySource(options);
           // Create query builder via manager
           const queryBuilder = yield* await this.queryBuilderManager.createBuilder(context, table, {
             mode: resolveQueryMode(table, options?.mode),
@@ -465,6 +472,7 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
       includeTotal: false,
       projectionFieldIds: options?.projectionFieldIds,
       search: options?.search,
+      recordReadQuerySource: options?.recordReadQuerySource,
     });
 
     if (result.isErr()) {
@@ -486,7 +494,7 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
       async function* (this: PostgresTableRecordQueryRepository) {
         const queryBuilder = yield* await this.queryBuilderManager.createBuilder(context, table, {
           mode: resolveQueryMode(table, options?.mode),
-          sourceTableName: this.getRecordReadQuerySource(context)?.tableName,
+          sourceTableName: this.getRecordReadQuerySource(options)?.tableName,
         });
 
         if (!isCursorOrderBySupported(options?.orderBy)) {
@@ -497,7 +505,7 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
           );
         }
 
-        if (options?.projectionFieldIds?.length) {
+        if (options?.projectionFieldIds !== undefined) {
           queryBuilder.select(options.projectionFieldIds);
         }
 
@@ -533,11 +541,12 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
 
         const compiled = this.withRecordReadQuerySource(
           builtQuery.compile(),
-          this.getRecordReadQuerySource(context)
+          this.getRecordReadQuerySource(options)
         );
         this.logger.debug(`findStream:mode:${queryBuilder.mode}:cursor:sql\n${compiled.sql}`, {
           parameters: compiled.parameters,
         });
+        this.recordSqlDiagnostic(context, 'record_stream_cursor', compiled);
 
         const fieldColumns = yield* new FieldOutputColumnVisitor().collect(
           table,
@@ -597,8 +606,10 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
     return exists;
   }
 
-  private getRecordReadQuerySource(context: IExecutionContext): IRecordReadQuerySource | undefined {
-    const source = (context as IExecutionContextWithRecordReadQuerySource).recordReadQuerySource;
+  private getRecordReadQuerySource(
+    options: { readonly recordReadQuerySource?: IRecordReadQuerySource } | undefined
+  ): IRecordReadQuerySource | undefined {
+    const source = options?.recordReadQuerySource;
     if (!source) {
       return undefined;
     }
@@ -610,6 +621,28 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
       return undefined;
     }
     return source;
+  }
+
+  private recordSqlDiagnostic(
+    context: IExecutionContext,
+    source: string,
+    compiled: CompiledQuery<unknown>
+  ): void {
+    const collector = (context as IExecutionContextWithTableQuerySqlDiagnostics)[
+      TABLE_QUERY_SQL_DIAGNOSTICS_CONTEXT_KEY
+    ];
+    if (!collector?.record) {
+      return;
+    }
+    try {
+      collector.record({
+        source,
+        sql: compiled.sql,
+        parameters: compiled.parameters,
+      });
+    } catch {
+      // Best-effort diagnostics must never affect user-facing queries.
+    }
   }
 
   private withRecordReadQuerySource<O>(

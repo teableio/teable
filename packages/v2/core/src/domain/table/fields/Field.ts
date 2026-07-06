@@ -231,6 +231,10 @@ export abstract class Field extends Entity<FieldId> {
    */
   abstract duplicate(params: FieldDuplicateParams): Result<Field, DomainError>;
 
+  withName(params: FieldDuplicateParams): Result<Field, DomainError> {
+    return this.duplicate(params);
+  }
+
   isMultipleCellValue(): Result<CellValueMultiplicity, DomainError> {
     return this.accept(new FieldValueTypeVisitor()).map(
       (valueType) => valueType.isMultipleCellValue

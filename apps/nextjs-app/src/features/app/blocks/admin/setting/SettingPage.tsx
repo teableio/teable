@@ -18,6 +18,7 @@ import { useEnv } from '@/features/app/hooks/useEnv';
 import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import { useIsEE } from '@/features/app/hooks/useIsEE';
 import { CopyInstance } from './components';
+import { BannedEmailDomains } from './components/BannedEmailDomains';
 import { Branding } from './components/Branding';
 import { CanarySettings } from './components/canary';
 import type { IList } from './components/ConfigurationList';
@@ -165,6 +166,7 @@ export const SettingPage = (props: ISettingPageProps) => {
   const {
     instanceId,
     disallowSignUp,
+    bannedEmailDomains,
     disallowSpaceCreation,
     disallowSpaceInvitation,
     enableEmailVerification,
@@ -200,6 +202,13 @@ export const SettingPage = (props: ISettingPageProps) => {
                   disabled={isUpdatingSetting}
                 />
               </div>
+              {isCloud && (
+                <BannedEmailDomains
+                  bannedEmailDomains={bannedEmailDomains}
+                  onChange={(domains) => void onValueChange('bannedEmailDomains', domains)}
+                  disabled={isUpdatingSetting}
+                />
+              )}
               <div className="flex items-center justify-between space-x-2 rounded-lg border bg-card p-4 shadow-sm">
                 <div className="space-y-1">
                   <Label htmlFor="allow-space-invitation">

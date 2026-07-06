@@ -15,6 +15,11 @@ export const connectionOption = Options.text('connection').pipe(
  */
 export const tableIdOption = Options.text('table-id').pipe(Options.withDescription('Table ID'));
 
+export const tableIdOptionalOption = Options.text('table-id').pipe(
+  Options.withDescription('Table ID'),
+  Options.optional
+);
+
 /**
  * Field ID option
  */

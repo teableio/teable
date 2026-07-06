@@ -11,4 +11,13 @@ export * from './errors';
 export * from './utils';
 
 // Commands
-export { root, computed, explain, mock, schemaOperation, underlying, relations } from './commands';
+export {
+  root,
+  computed,
+  explain,
+  mock,
+  schemaOperation,
+  tableQueryOps,
+  underlying,
+  relations,
+} from './commands';

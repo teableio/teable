@@ -17,6 +17,7 @@ import type {
   IViewRo,
   IConditionalRollupFieldOptions,
   IFilter,
+  IUpdateFieldRo,
 } from '@teable/core';
 import { FieldKeyType, FieldType } from '@teable/core';
 import type {
@@ -41,6 +42,7 @@ import {
   getRecords as apiGetRecords,
   createRecords as apiCreateRecords,
   createField as apiCreateField,
+  updateField as apiUpdateField,
   deleteField as apiDeleteField,
   convertField as apiConvertField,
   duplicateRecord as apiDuplicateRecord,
@@ -465,6 +467,25 @@ export async function createField(
   try {
     const normalizedField = ensureConditionalRollupOptions(fieldRo);
     const res = await apiCreateField(tableId, normalizedField);
+
+    expect(res.status).toEqual(expectStatus);
+    return res.data;
+  } catch (e: unknown) {
+    if ((e as HttpError).status !== expectStatus) {
+      throw e;
+    }
+    return {} as IFieldVo;
+  }
+}
+
+export async function updateField(
+  tableId: string,
+  fieldId: string,
+  fieldRo: IUpdateFieldRo,
+  expectStatus = 200
+): Promise<IFieldVo> {
+  try {
+    const res = await apiUpdateField(tableId, fieldId, fieldRo);
 
     expect(res.status).toEqual(expectStatus);
     return res.data;

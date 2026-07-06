@@ -3,10 +3,13 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { FieldKeyResolverService } from '../application/services/FieldKeyResolverService';
-import { mergeOrderBy, resolveOrderBy as resolveQueryOrderBy } from '../commands/shared/orderBy';
+import {
+  mergeOrderBy,
+  resolveGroupByToOrderBy,
+  resolveOrderBy as resolveQueryOrderBy,
+} from '../commands/shared/orderBy';
 import { domainError, isNotFoundError, type DomainError } from '../domain/shared/DomainError';
 import { type ISpecification } from '../domain/shared/specification/ISpecification';
-import { FieldType } from '../domain/table/fields/FieldType';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
 import { FieldCondition } from '../domain/table/fields/types/FieldCondition';
@@ -37,12 +40,13 @@ import {
   type RecordFilter,
   type RecordFilterCondition,
   type RecordFilterNode,
-  type RecordFilterValue,
 } from './RecordFilterDto';
-import { buildRecordConditionSpec, sanitizeRecordFilter } from './RecordFilterMapper';
+import {
+  buildRecordConditionSpec,
+  replaceCurrentUserTagInFilter,
+  sanitizeRecordFilter,
+} from './RecordFilterMapper';
 import { RecordSearch, resolveVisibleRowSearch } from './RecordSearch';
-
-const currentUserFilterValue = 'Me';
 
 export class ListTableRecordsResult {
   private constructor(
@@ -158,71 +162,8 @@ function resolveFilterNodeFieldKeys(
   return ok(node);
 }
 
-function isUserLikeFieldType(type: FieldType): boolean {
-  return (
-    type.equals(FieldType.user()) ||
-    type.equals(FieldType.createdBy()) ||
-    type.equals(FieldType.lastModifiedBy())
-  );
-}
-
-function replaceCurrentUserTagInFilter(
-  table: Table,
-  filter: RecordFilter | null | undefined,
-  actorId: string
-): RecordFilter | null | undefined {
-  if (!filter) {
-    return filter;
-  }
-
-  const replaceNode = (node: RecordFilterNode): RecordFilterNode => {
-    if (isRecordFilterNot(node)) {
-      return { not: replaceNode(node.not) };
-    }
-
-    if (isRecordFilterGroup(node)) {
-      return {
-        ...node,
-        items: node.items.map((item) => replaceNode(item)),
-      };
-    }
-
-    if (!isRecordFilterCondition(node)) {
-      return node;
-    }
-
-    const fieldResult = table.getField((field) => field.id().toString() === node.fieldId);
-    if (fieldResult.isErr() || !isUserLikeFieldType(fieldResult.value.type())) {
-      return node;
-    }
-
-    const replaceValue = (value: RecordFilterValue): RecordFilterValue => {
-      if (Array.isArray(value)) {
-        return value.map((item) => (item === currentUserFilterValue ? actorId : item));
-      }
-      return value === currentUserFilterValue ? actorId : value;
-    };
-
-    return {
-      ...node,
-      value: replaceValue(node.value),
-    };
-  };
-
-  return replaceNode(filter);
-}
-
-type IRecordReadQuerySource = {
-  enabledFieldIds?: ReadonlyArray<string>;
-};
-
-type IExecutionContextWithRecordReadQuerySource = IExecutionContext & {
-  recordReadQuerySource?: IRecordReadQuerySource;
-};
-
-const getEnabledFieldIdSet = (context: IExecutionContext): ReadonlySet<string> | undefined => {
-  const enabledFieldIds = (context as IExecutionContextWithRecordReadQuerySource)
-    .recordReadQuerySource?.enabledFieldIds;
+const getEnabledFieldIdSet = (query: ListTableRecordsQuery): ReadonlySet<string> | undefined => {
+  const enabledFieldIds = query.recordReadQuerySource?.enabledFieldIds;
   return enabledFieldIds ? new Set(enabledFieldIds) : undefined;
 };
 
@@ -367,6 +308,40 @@ const filterFieldIdsByEnabledFieldIds = (
   return fieldIds.filter((fieldId) => enabledFieldIds.has(fieldId.toString()));
 };
 
+const resolveProjectionFieldIds = (
+  table: Table,
+  projection: ReadonlyArray<string> | undefined,
+  fieldKeyType: FieldKeyType,
+  enabledFieldIds?: ReadonlySet<string>
+): Result<ReadonlyArray<FieldId> | undefined, DomainError> => {
+  if (projection === undefined) {
+    return ok(undefined);
+  }
+
+  const fieldIds: FieldId[] = [];
+  const seen = new Set<string>();
+  for (const fieldKey of projection) {
+    const resolvedFieldId = FieldKeyResolverService.resolveFieldKey(table, fieldKey, fieldKeyType);
+    if (resolvedFieldId.isErr()) {
+      return err(resolvedFieldId.error);
+    }
+    if (enabledFieldIds && !enabledFieldIds.has(resolvedFieldId.value)) {
+      continue;
+    }
+    if (seen.has(resolvedFieldId.value)) {
+      continue;
+    }
+    const fieldId = FieldId.create(resolvedFieldId.value);
+    if (fieldId.isErr()) {
+      return err(fieldId.error);
+    }
+    seen.add(resolvedFieldId.value);
+    fieldIds.push(fieldId.value);
+  }
+
+  return ok(fieldIds);
+};
+
 @QueryHandler(ListTableRecordsQuery)
 @injectable()
 export class ListTableRecordsHandler
@@ -410,7 +385,7 @@ export class ListTableRecordsHandler
           loadTableSpan?.end();
 
           // 2. Resolve effective filter/sort/search inputs with view defaults and permission-aware fields.
-          const enabledFieldIds = getEnabledFieldIdSet(context);
+          const enabledFieldIds = getEnabledFieldIdSet(query);
           const resolvedFilter = query.filter
             ? yield* resolveFilterFieldKeys(table, query.filter, query.fieldKeyType)
             : undefined;
@@ -465,8 +440,11 @@ export class ListTableRecordsHandler
             effectiveQueryDefaults?.manualSort(),
             resolvedSort
           );
+          const effectiveGroup = query.groupBy?.length
+            ? undefined
+            : effectiveQueryDefaults?.group();
           const orderBy = mergeOrderBy(
-            undefined,
+            yield* resolveGroupByToOrderBy(effectiveGroup),
             yield* resolveQueryOrderBy(effectiveSort),
             query.viewId
           );
@@ -476,6 +454,12 @@ export class ListTableRecordsHandler
             query,
             effectiveFilter,
             linkCandidatePlan
+          );
+          const projectionFieldIds = yield* resolveProjectionFieldIds(
+            table,
+            query.projection,
+            query.fieldKeyType,
+            enabledFieldIds
           );
 
           // 3. Resolve visible-row search through the repository
@@ -507,6 +491,9 @@ export class ListTableRecordsHandler
               // !!!IMPORTANT: List table records are always using stored values
               // never change this to 'computed'
               mode: 'stored',
+              projectionFieldIds,
+              includeTotal: query.includeTotal,
+              recordReadQuerySource: query.recordReadQuerySource,
             }
           );
           queryRecordsSpan?.end();
