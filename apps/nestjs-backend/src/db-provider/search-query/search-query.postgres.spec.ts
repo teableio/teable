@@ -22,6 +22,17 @@ const buildDateField = (): IFieldInstance =>
     },
   }) as IFieldInstance;
 
+const buildMultipleSelectField = (): IFieldInstance =>
+  ({
+    id: 'fldMultiSelect0001',
+    dbFieldName: 'Tags',
+    cellValueType: CellValueType.String,
+    isMultipleCellValue: true,
+    isStructuredCellValue: false,
+    type: FieldType.MultipleSelect,
+    options: {},
+  }) as IFieldInstance;
+
 describe('SearchQueryPostgres', () => {
   const db = knex({ client: 'pg' });
 
@@ -51,5 +62,20 @@ describe('SearchQueryPostgres', () => {
 
     const compiled = builder.getQuery()?.toSQL();
     expect(compiled?.sql).toBe('FALSE');
+  });
+
+  it('matches multipleSelect as a text cast so the gin_trgm index can be used', () => {
+    const field = buildMultipleSelectField();
+    const builder = new SearchQueryPostgres(
+      db.queryBuilder(),
+      field,
+      ['Beta', 'fldMultiSelect0001'],
+      []
+    );
+
+    const compiled = builder.getQuery()?.toSQL();
+    expect(compiled?.sql).toContain('("Tags")::text ILIKE');
+    expect(compiled?.sql).not.toContain('jsonb_array_elements');
+    expect(compiled?.bindings).toEqual(['%Beta%']);
   });
 });

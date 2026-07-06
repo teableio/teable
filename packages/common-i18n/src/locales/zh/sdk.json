@@ -7,6 +7,7 @@
     "untitled": "无标题",
     "cancel": "取消",
     "confirm": "确认",
+    "clear": "清除",
     "back": "返回",
     "done": "完成",
     "create": "创建",
@@ -250,6 +251,7 @@
         "daysAgo": "几天前",
         "daysFromNow": "几天后",
         "exactDate": "具体日期",
+        "exactDateTime": "精确时间",
         "exactFormatDate": "具体日期（格式化）",
         "dateRange": "日期范围",
         "currentWeek": "本周",
@@ -312,10 +314,17 @@
     "recordHistory": {
       "hiddenRecordHistory": "隐藏记录历史",
       "showRecordHistory": "显示记录历史",
-      "createdTime": "操作时间",
-      "createdBy": "操作人",
+      "createdTime": "修改时间",
+      "createdBy": "修改人",
       "before": "变更前",
       "after": "变更后",
+      "buttonClicked": "点击了按钮",
+      "filterField": "字段",
+      "filterCreatedBy": "修改人",
+      "filterTime": "时间范围",
+      "allFields": "全部字段",
+      "allUsers": "全部修改人",
+      "clearFilter": "清除筛选",
       "viewRecord": "查看记录"
     },
     "showHiddenFields": "显示 {{count}} 个隐藏字段",
@@ -957,6 +966,11 @@
       "nameMaxLength": "名称过长，最多允许 {{max}} 个字符。",
       "descriptionMaxLength": "描述过长，最多允许 {{max}} 个字符。"
     },
+    "validation": {
+      "field": {
+        "unique": "字段必须为唯一值"
+      }
+    },
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" 中的 \"{{fieldName}}\" 字段不允许空值，请填写完整再提交",
       "fieldValueDuplicate": "\"{{tableName}}\" 中的 \"{{fieldName}}\" 字段不允许重复值，请填写唯一值再提交",
@@ -1344,6 +1358,43 @@
       "unsupportedActionType": "不支持的AI操作类型",
       "geminiImageNotSupportedViaGateway": "AI Gateway 不支持 Gemini 图像生成。请改为配置直连 Google 服务商。"
     },
+    "skill": {
+      "notFound": "技能未找到",
+      "onlyGithubCanSync": "仅 GitHub 来源的技能支持同步",
+      "syncFailed": "同步失败：{{errorCode}}",
+      "skillMdNotFoundAtSource": "在源位置未找到 SKILL.md",
+      "slugChangedUpstream": "技能标识已在上游从\"{{oldSlug}}\"变更为\"{{newSlug}}\"。请删除后重新导入以采用新标识。",
+      "skillMdNotFoundAtPath": "在 {{path}}/SKILL.md 处未找到 SKILL.md",
+      "invalidSkillFile": "无效的技能文件，应为 .skill 或 .zip 压缩包",
+      "tooManyResourceFiles": "技能包含过多文件（最多 {{max}} 个）",
+      "noSkillMdInPackage": "技能包中未找到 SKILL.md",
+      "multipleSkillMdInPackage": "在同一层级发现 {{count}} 个 SKILL.md 文件。技能包应仅包含一个技能。",
+      "invalidResourcePaths": "无效的资源路径：{{paths}}",
+      "nameFieldRequired": "SKILL.md 的 frontmatter 中必须包含\"name\"字段",
+      "invalidSlugFormat": "技能标识必须为小写字母、数字和连字符的组合",
+      "filesExceedSizeLimit": "文件超过 {{maxSizeKB}}KB 大小限制：{{files}}",
+      "binaryFilesNotAllowed": "不允许上传二进制文件：{{files}}",
+      "totalSizeExceedsLimit": "资源文件总大小超过 {{maxSizeMB}}MB 限制",
+      "invalidGithubUrl": "无效的 GitHub URL。期望格式：https://github.com/owner/repo/tree/<branch>/path/to/skill",
+      "directoryTooDeep": "技能目录超过最大深度 {{maxDepth}} 层。嵌套目录：{{dirs}}",
+      "importFailed": "导入失败：{{errorCode}}",
+      "alreadyInScope": "技能已在目标作用域中"
+    },
+    "sandbox": {
+      "fileNotFound": "在沙盒中未找到文件",
+      "onlyRegularFiles": "只能下载常规文件",
+      "fileTooLarge": "文件过大，无法下载（最大 {{max}} 字节）",
+      "cannotDeleteRoot": "无法删除 uploads/outputs 根目录",
+      "deleteFailed": "删除文件失败",
+      "uploadFailed": "上传文件到沙盒失败",
+      "fileEndpointUnavailable": "沙盒未提供可访问的文件端点",
+      "invalidPath": "无效的文件路径：必须位于沙盒的 uploads 或 outputs 目录内",
+      "tooManyDownloads": "下载请求过于频繁",
+      "dailyLimitExceeded": "已超出每日下载大小限制",
+      "storageFull": "沙盒存储空间已满",
+      "tooManyFiles": "每条消息最多允许 {{max}} 个文件",
+      "noActiveSandbox": "未找到处于活动状态的沙盒"
+    },
     "role": {
       "notFound": "角色不存在"
     },
@@ -1424,6 +1475,7 @@
     },
     "user": {
       "disallowSignUp": "管理员已禁止当前实例的用户注册",
+      "emailDomainBanned": "该邮箱域名因违规行为已被封禁",
       "waitlistInviteCodeRequired": "已启用等待列表，需要邀请码",
       "waitlistInviteCodeInvalid": "已启用等待列表，邀请码无效",
       "systemUser": "用户是系统用户",

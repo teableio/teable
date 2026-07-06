@@ -9,9 +9,15 @@ export enum GridSelectionType {
   Cells = 'cells',
 }
 
+export interface IGridSelectionCacheColumns {
+  columnStart: number;
+  columnEnd: number;
+  names?: string[];
+}
+
 interface IGridSelectionCacheData {
   rows?: [number, number][];
-  columns?: { columnStart: number; columnEnd: number };
+  columns?: IGridSelectionCacheColumns;
   timestamp: number;
   addToChat?: boolean;
 }
@@ -80,10 +86,11 @@ export function cacheColumnSelectionForChat(
   queryClient: QueryClient,
   baseId: string,
   columnStart: number,
-  columnEnd: number
+  columnEnd: number,
+  names?: string[]
 ) {
   setGridSelectionCache(queryClient, baseId, {
-    columns: { columnStart, columnEnd },
+    columns: { columnStart, columnEnd, names },
     addToChat: true,
   });
 }

@@ -15,6 +15,9 @@ const queueOptions: NestWorkerOptions = {
   },
 };
 
+const isTestOrCI = process.env.CI || process.env.NODE_ENV === 'test' || process.env.VITEST;
+const CONDITIONAL_MODULE_TIMEOUT = isTestOrCI ? 60000 : 5000;
+
 @Module({
   imports: [ConfigModule],
 })
@@ -26,11 +29,13 @@ export class EventJobModule {
           name,
           ...queueOptions,
         }),
-        (env) => Boolean(env.BACKEND_CACHE_REDIS_URI)
+        (env) => Boolean(env.BACKEND_CACHE_REDIS_URI),
+        { timeout: CONDITIONAL_MODULE_TIMEOUT }
       ),
       ConditionalModule.registerWhen(
         FallbackQueueModule.registerQueue(name),
-        (env) => !env.BACKEND_CACHE_REDIS_URI
+        (env) => !env.BACKEND_CACHE_REDIS_URI,
+        { timeout: CONDITIONAL_MODULE_TIMEOUT }
       ),
     ]);
 

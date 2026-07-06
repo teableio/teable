@@ -1,0 +1,420 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Table Query Ops advisor integration > 'equality filter recommends and benefi…' > equality filter recommends and benefits from a btree index 1`] = `
+{
+  "indexInspection": {
+    "abnormalIndexes": [],
+    "missingIndexCandidates": [
+      {
+        "accessPath": "single_field",
+        "fieldDbName": "fld_status",
+        "fieldId": "fldTqOpsEq000000001",
+        "fields": [
+          {
+            "direction": undefined,
+            "fieldDbName": "fld_status",
+            "fieldId": "fldTqOpsEq000000001",
+            "role": "filter",
+          },
+        ],
+        "kind": "btree",
+        "reason": "Filter predicate can use btree index",
+      },
+    ],
+    "state": "missing",
+    "usefulIndexes": [],
+  },
+  "planEvidence": {
+    "candidateCount": 1,
+    "hasBaselineCost": true,
+    "status": "validated",
+  },
+  "recommendation": {
+    "reasonCodes": [
+      "critical_latency",
+      "large_table",
+      "missing_useful_index",
+    ],
+    "remediationCandidates": [
+      {
+        "accessPath": "single_field",
+        "executableInPhase1": true,
+        "fieldDbName": "fld_status",
+        "fieldId": "fldTqOpsEq000000001",
+        "fields": [
+          {
+            "direction": undefined,
+            "fieldDbName": "fld_status",
+            "fieldId": "fldTqOpsEq000000001",
+            "role": "filter",
+          },
+        ],
+        "indexKind": "btree",
+        "kind": "create_filter_index",
+        "reason": "Filter predicate can use btree index",
+      },
+    ],
+    "riskLevel": "high",
+    "riskScore": 65,
+    "status": "open",
+  },
+  "shape": {
+    "executionShape": {
+      "dbDurationMs": 11500,
+      "durationMs": 12000,
+      "resultCountBucket": "small",
+      "timedOut": false,
+    },
+    "queryKind": "filter",
+    "whereShape": {
+      "andDepth": 1,
+      "conditionCount": 1,
+      "fields": [
+        {
+          "fieldId": "fldTqOpsEq000000001",
+          "fieldType": "singleSelect",
+          "operatorFamily": "equality",
+        },
+      ],
+      "orDepth": 0,
+    },
+  },
+}
+`;
+
+exports[`Table Query Ops advisor integration > 'range filter recommends and benefits …' > range filter recommends and benefits from a btree index 1`] = `
+{
+  "indexInspection": {
+    "abnormalIndexes": [],
+    "missingIndexCandidates": [
+      {
+        "accessPath": "single_field",
+        "fieldDbName": "fld_score",
+        "fieldId": "fldTqOpsRange000001",
+        "fields": [
+          {
+            "direction": undefined,
+            "fieldDbName": "fld_score",
+            "fieldId": "fldTqOpsRange000001",
+            "role": "filter",
+          },
+        ],
+        "kind": "btree",
+        "reason": "Filter predicate can use btree index",
+      },
+    ],
+    "state": "missing",
+    "usefulIndexes": [],
+  },
+  "planEvidence": {
+    "candidateCount": 1,
+    "hasBaselineCost": true,
+    "status": "validated",
+  },
+  "recommendation": {
+    "reasonCodes": [
+      "critical_latency",
+      "large_table",
+      "missing_useful_index",
+    ],
+    "remediationCandidates": [
+      {
+        "accessPath": "single_field",
+        "executableInPhase1": true,
+        "fieldDbName": "fld_score",
+        "fieldId": "fldTqOpsRange000001",
+        "fields": [
+          {
+            "direction": undefined,
+            "fieldDbName": "fld_score",
+            "fieldId": "fldTqOpsRange000001",
+            "role": "filter",
+          },
+        ],
+        "indexKind": "btree",
+        "kind": "create_filter_index",
+        "reason": "Filter predicate can use btree index",
+      },
+    ],
+    "riskLevel": "high",
+    "riskScore": 65,
+    "status": "open",
+  },
+  "shape": {
+    "executionShape": {
+      "dbDurationMs": 11500,
+      "durationMs": 12000,
+      "resultCountBucket": "small",
+      "timedOut": false,
+    },
+    "queryKind": "filter",
+    "whereShape": {
+      "andDepth": 1,
+      "conditionCount": 1,
+      "fields": [
+        {
+          "fieldId": "fldTqOpsRange000001",
+          "fieldType": "number",
+          "operatorFamily": "range",
+        },
+      ],
+      "orDepth": 0,
+    },
+  },
+}
+`;
+
+exports[`Table Query Ops advisor integration > 'sort query recommends and benefits fr…' > sort query recommends and benefits from a btree index 1`] = `
+{
+  "indexInspection": {
+    "abnormalIndexes": [],
+    "missingIndexCandidates": [
+      {
+        "accessPath": "single_field",
+        "fieldDbName": "fld_rank",
+        "fieldId": "fldTqOpsSort0000001",
+        "fields": [
+          {
+            "direction": "desc",
+            "fieldDbName": "fld_rank",
+            "fieldId": "fldTqOpsSort0000001",
+            "role": "sort",
+          },
+        ],
+        "kind": "btree",
+        "reason": "Sort or group field can use btree index",
+      },
+    ],
+    "state": "missing",
+    "usefulIndexes": [],
+  },
+  "planEvidence": {
+    "candidateCount": 1,
+    "hasBaselineCost": true,
+    "status": "validated",
+  },
+  "recommendation": {
+    "reasonCodes": [
+      "critical_latency",
+      "large_table",
+      "expensive_sort",
+      "missing_useful_index",
+    ],
+    "remediationCandidates": [
+      {
+        "accessPath": "single_field",
+        "executableInPhase1": true,
+        "fieldDbName": "fld_rank",
+        "fieldId": "fldTqOpsSort0000001",
+        "fields": [
+          {
+            "direction": "desc",
+            "fieldDbName": "fld_rank",
+            "fieldId": "fldTqOpsSort0000001",
+            "role": "sort",
+          },
+        ],
+        "indexKind": "btree",
+        "kind": "create_sort_index",
+        "reason": "Sort or group field can use btree index",
+      },
+    ],
+    "riskLevel": "high",
+    "riskScore": 75,
+    "status": "open",
+  },
+  "shape": {
+    "executionShape": {
+      "dbDurationMs": 11500,
+      "durationMs": 12000,
+      "resultCountBucket": "small",
+      "timedOut": false,
+    },
+    "orderShape": {
+      "fields": [
+        {
+          "direction": "desc",
+          "fieldId": "fldTqOpsSort0000001",
+          "source": "sort",
+        },
+      ],
+    },
+    "queryKind": "sort",
+  },
+}
+`;
+
+exports[`Table Query Ops advisor integration > 'text contains filter recommends and b…' > text contains filter recommends and benefits from a trigram index 1`] = `
+{
+  "indexInspection": {
+    "abnormalIndexes": [],
+    "missingIndexCandidates": [
+      {
+        "accessPath": "single_field",
+        "fieldDbName": "fld_text",
+        "fieldId": "fldTqOpsText0000001",
+        "fields": [
+          {
+            "direction": undefined,
+            "fieldDbName": "fld_text",
+            "fieldId": "fldTqOpsText0000001",
+            "role": "search",
+          },
+        ],
+        "kind": "gin_trgm",
+        "reason": "Text contains filter can use trigram index",
+      },
+    ],
+    "state": "missing",
+    "usefulIndexes": [],
+  },
+  "planEvidence": {
+    "candidateCount": 1,
+    "hasBaselineCost": true,
+    "status": "validated",
+  },
+  "recommendation": {
+    "reasonCodes": [
+      "critical_latency",
+      "large_table",
+      "missing_useful_index",
+    ],
+    "remediationCandidates": [
+      {
+        "accessPath": "single_field",
+        "executableInPhase1": true,
+        "fieldDbName": "fld_text",
+        "fieldId": "fldTqOpsText0000001",
+        "fields": [
+          {
+            "direction": undefined,
+            "fieldDbName": "fld_text",
+            "fieldId": "fldTqOpsText0000001",
+            "role": "search",
+          },
+        ],
+        "indexKind": "gin_trgm",
+        "kind": "create_search_index",
+        "reason": "Text contains filter can use trigram index",
+      },
+    ],
+    "riskLevel": "high",
+    "riskScore": 65,
+    "status": "open",
+  },
+  "shape": {
+    "executionShape": {
+      "dbDurationMs": 11500,
+      "durationMs": 12000,
+      "resultCountBucket": "small",
+      "timedOut": false,
+    },
+    "queryKind": "filter",
+    "whereShape": {
+      "andDepth": 1,
+      "conditionCount": 1,
+      "fields": [
+        {
+          "fieldId": "fldTqOpsText0000001",
+          "fieldType": "singleLineText",
+          "operatorFamily": "text_contains",
+        },
+      ],
+      "orDepth": 0,
+    },
+  },
+}
+`;
+
+exports[`Table Query Ops advisor integration > filter plus sort recommends and benefits from one composite btree index 1`] = `
+{
+  "indexInspection": {
+    "abnormalIndexes": [],
+    "missingIndexCandidates": [
+      {
+        "accessPath": "composite",
+        "fieldDbName": "fld_status",
+        "fieldId": "fldTqOpsStatus00001",
+        "fields": [
+          {
+            "direction": undefined,
+            "fieldDbName": "fld_status",
+            "fieldId": "fldTqOpsStatus00001",
+            "role": "filter",
+          },
+          {
+            "direction": "desc",
+            "fieldDbName": "fld_rank",
+            "fieldId": "fldTqOpsRank0000001",
+            "role": "sort",
+          },
+        ],
+        "kind": "btree",
+        "reason": "Table query shape can use one composite btree index for filter and sort/group access",
+      },
+    ],
+    "state": "missing",
+    "usefulIndexes": [],
+  },
+  "planEvidence": {
+    "candidateCount": 1,
+    "hasBaselineCost": true,
+    "status": "validated",
+  },
+  "remediationCandidates": [
+    {
+      "accessPath": "composite",
+      "executableInPhase1": true,
+      "fieldDbName": "fld_status",
+      "fieldId": "fldTqOpsStatus00001",
+      "fields": [
+        {
+          "direction": undefined,
+          "fieldDbName": "fld_status",
+          "fieldId": "fldTqOpsStatus00001",
+          "role": "filter",
+        },
+        {
+          "direction": "desc",
+          "fieldDbName": "fld_rank",
+          "fieldId": "fldTqOpsRank0000001",
+          "role": "sort",
+        },
+      ],
+      "indexKind": "btree",
+      "kind": "create_filter_index",
+      "reason": "Table query shape can use one composite btree index for filter and sort/group access",
+    },
+  ],
+  "shape": {
+    "executionShape": {
+      "dbDurationMs": 11500,
+      "durationMs": 12000,
+      "resultCountBucket": "small",
+      "timedOut": false,
+    },
+    "orderShape": {
+      "fields": [
+        {
+          "direction": "desc",
+          "fieldId": "fldTqOpsRank0000001",
+          "source": "sort",
+        },
+      ],
+    },
+    "queryKind": "filter",
+    "whereShape": {
+      "andDepth": 1,
+      "conditionCount": 1,
+      "fields": [
+        {
+          "fieldId": "fldTqOpsStatus00001",
+          "fieldType": "singleSelect",
+          "operatorFamily": "equality",
+        },
+      ],
+      "orDepth": 0,
+    },
+  },
+}
+`;

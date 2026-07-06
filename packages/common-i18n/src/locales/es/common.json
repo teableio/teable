@@ -69,6 +69,7 @@
     "expand": "Expandir",
     "getMore": "Obtener más",
     "copySuccess": "Copia exitosa",
+    "openLink": "Abrir enlace",
     "share": "Compartir"
   },
   "quickAction": {
@@ -480,7 +481,14 @@
     },
     "addOrgCollaborator": {
       "title": "Agregar colaborador de organización",
+      "button": "Agregar desde la organización",
       "placeholder": "Seleccionar miembro o departamento de la organización"
+    },
+    "table": {
+      "collaborator": "Colaborador",
+      "accessPermission": "Permiso de acceso",
+      "joinAt": "Fecha de ingreso",
+      "lastLogin": "Último inicio de sesión"
     }
   },
   "help": {
@@ -505,6 +513,9 @@
     "billable": "Facturable",
     "billableByAuthorityMatrix": "Facturación generada por la matriz de permisos",
     "licenseExpiredGracePeriod": "Su licencia autohospedada ha caducado y se degradará al plan gratuito el {{expiredTime}}. Actualice su licencia de inmediato para mantener el acceso a las funciones premium.",
+    "licenseAutoFetchFailed": "Error en la renovación automática de la licencia. Quedan {{days}} día(s) del período de gracia antes de la degradación.",
+    "licenseAutoFetchRetryFailed": "La renovación automática sigue fallando. Comprueba la conexión con el servidor de Teable o actualiza la licencia manualmente.",
+    "licenseExpiredGracePeriodDays": "La licencia ha caducado. Quedan {{days}} día(s) del período de gracia antes de la degradación.",
     "spaceSubscriptionModal": {
       "title": "Plan de suscripción de actualización de Space",
       "description": "Solo puede actualizar los espacios de trabajo donde es un propietario"
@@ -527,6 +538,9 @@
       "description": "Cambie la configuración de su instancia actual",
       "allowSignUp": "Permitir crear nuevas cuentas",
       "allowSignUpDescription": "Deshabilitar esta opción prohibirá los registros de nuevos usuarios, y el botón de registro ya no aparecerá en la página de inicio de sesión.",
+      "bannedEmailDomains": "Dominios de correo bloqueados",
+      "bannedEmailDomainsDescription": "Las direcciones de correo de estos dominios no podrán registrarse y no se enviarán correos de invitación relacionados con ellas. Escriba un dominio y pulse Intro para añadirlo.",
+      "bannedEmailDomainsInvalid": "Introduzca un dominio válido, p. ej. example.com",
       "allowSpaceInvitation": "Permitir envío de invitaciones de espacio",
       "allowSpaceInvitationDescription": "Deshabilitar esta opción evitará que los usuarios que no sean administradores inviten a otros a unirse a espacios. Cuando está habilitado, los nuevos usuarios invitados por correo electrónico pueden completar el registro haciendo clic en el enlace de invitación en el correo, pero los enlaces de invitación compartidos no funcionarán.",
       "allowSpaceCreation": "Permitir que todos creen nuevos espacios",
@@ -717,6 +731,10 @@
     "exportBase": {
       "successText": "Los datos de exportación están listos",
       "failedText": "La exportación falló, por favor reinténtelo"
+    },
+    "importantNotice": {
+      "title": "Important Notice",
+      "acknowledge": "I Understand"
     }
   },
   "role": {
@@ -794,6 +812,7 @@
     "unsubscribeTime": "Fecha de cancelación de suscripción",
     "source": "Fuente",
     "sourceAutomationDeleted": "Automatización o nodo eliminado",
+    "sourceApiSend": "Envío de correo por API",
     "processing": "Procesando...",
     "unsubscribeH1": "¿Confirmar cancelación de suscripción?",
     "unsubscribeH2": "Estás a punto de cancelar la suscripción a futuras promociones y actualizaciones de productos de Teable. ¿Estás seguro de que deseas cancelar la suscripción?",
@@ -1157,10 +1176,102 @@
       "unknown": "{{fieldHint}}{{message}}"
     }
   },
+  "skills": {
+    "title": "Habilidades",
+    "tabs": {
+      "mySkills": "Mis habilidades"
+    },
+    "actions": {
+      "import": "Importar habilidad",
+      "sync": "Sincronizar",
+      "delete": "Eliminar",
+      "enable": "Activar",
+      "disable": "Desactivar",
+      "edit": "Editar",
+      "tryInChat": "Probar en el chat",
+      "replace": "Reemplazar",
+      "download": "Descargar",
+      "uninstall": "Desinstalar",
+      "copyToBase": "Copiar a Base",
+      "copyToPersonal": "Copiar a personal",
+      "copyToApp": "Copiar a la aplicación"
+    },
+    "import": {
+      "title": "Importar habilidad",
+      "description": "Importe una habilidad desde un repositorio de GitHub o un archivo ZIP",
+      "githubTab": "URL de GitHub",
+      "fileTab": "Archivo ZIP",
+      "githubTitle": "Importar una habilidad desde GitHub",
+      "githubPlaceholder": "https://github.com/owner/repo/tree/main/skills/my-skill",
+      "fileHint": "Suba un archivo ZIP que contenga SKILL.md",
+      "or": "o",
+      "selectFile": "Seleccionar archivo",
+      "replaceWarning": "Si ya existe una habilidad con el mismo nombre en este ámbito, se reemplazará al importar.",
+      "importing": "Importando...",
+      "submit": "Importar",
+      "success": "Habilidad importada correctamente",
+      "error": "Error al importar la habilidad"
+    },
+    "detail": {
+      "slug": "Slug",
+      "type": "Tipo",
+      "description": "Descripción",
+      "source": "Origen",
+      "skillLabel": "Habilidad",
+      "syncStatus": "Estado de sincronización",
+      "preview": "Vista previa de SKILL.md"
+    },
+    "scope": {
+      "label": "Ámbito",
+      "system": "Sistema",
+      "base": "Base actual",
+      "user": "Personal",
+      "userDescription": "Solo disponible para ti",
+      "baseDescription": "Compartida con los colaboradores de esta base",
+      "app": "App",
+      "appDescription": "Solo disponible para esta aplicación",
+      "cuppyclaw": "Bot",
+      "cuppyclawDescription": "Solo disponible para este bot"
+    },
+    "source": {
+      "github": "GitHub",
+      "file": "Carga de archivo",
+      "manual": "Manual"
+    },
+    "status": {
+      "enabled": "Activado",
+      "disabled": "Desactivado",
+      "synced": "Sincronizado",
+      "failed": "Sincronización fallida"
+    },
+    "empty": {
+      "mySkills": "Aún no tiene habilidades personales. Importe una para comenzar."
+    },
+    "confirm": {
+      "deleteTitle": "Eliminar habilidad",
+      "deleteDescription": "¿Está seguro de que desea eliminar esta habilidad? Esta acción no se puede deshacer."
+    },
+    "toast": {
+      "syncing": "Sincronizando habilidad...",
+      "syncSuccess": "Habilidad sincronizada correctamente",
+      "syncError": "Error al sincronizar la habilidad",
+      "deleting": "Eliminando habilidad...",
+      "deleteSuccess": "Habilidad eliminada correctamente",
+      "deleteError": "Error al eliminar la habilidad",
+      "updateSuccess": "Habilidad actualizada correctamente"
+    }
+  },
   "changelog": {
-    "newUpdate": "ACTUALIZACION DEL 19 DE MAYO",
-    "title": "Los Credits de Teable rinden 10x mas!",
-    "url": "https://help.teable.ai/en/changelog#may-19-2026",
-    "id": "changelog-2026-05-19-teable-credits-up-10x"
+    "newUpdate": "ACTUALIZACION DEL 24 DE JUNIO",
+    "title": "Agent Computer, potenciado",
+    "url": "https://help.teable.ai/en/changelog#jun-24-2026",
+    "id": "changelog-2026-06-24-agent-computer-supercharged"
+  },
+  "resourceDescription": {
+    "addDescription": "Agregar descripción",
+    "nodeDescription": "Descripción del nodo",
+    "descriptionSaving": "Guardando...",
+    "descriptionSaveFailed": "No se pudo guardar la descripción, inténtalo de nuevo",
+    "descriptionPlaceholder": "Agrega una descripción para este nodo"
   }
 }

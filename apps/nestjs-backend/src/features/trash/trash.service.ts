@@ -1,23 +1,32 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import type { FieldType, IFieldVo } from '@teable/core';
 import { FieldKeyType, HttpErrorCode, IdPrefix, Role } from '@teable/core';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import { PrismaService, type Prisma } from '@teable/db-main-prisma';
 import type {
+  IRestoreFieldTrashStreamEvent,
   IResetTrashItemsRo,
   IResourceMapVo,
   ITrashItemsRo,
   ITrashItemVo,
   ITrashRo,
   ITrashVo,
+  V2Feature,
 } from '@teable/openapi';
-import { CollaboratorType, TableTrashType, TrashType } from '@teable/openapi';
-import { RestoreRecordsCommand, TableId, v2CoreTokens } from '@teable/v2-core';
+import { CollaboratorType, ResourceType, TableTrashType, TrashType } from '@teable/openapi';
+import {
+  RestoreFieldStreamCommand,
+  RestoreRecordsCommand,
+  RestoreRecordsStreamCommand,
+  TableId,
+  v2CoreTokens,
+} from '@teable/v2-core';
 import type {
   ICommandBus,
+  RestoreFieldStreamResult,
   RestoreRecordInput,
   RestoreRecordsResult,
+  RestoreRecordsStreamResult,
   Table,
   TableQueryService,
 } from '@teable/v2-core';
@@ -37,9 +46,13 @@ import type { IClsStore } from '../../types/cls';
 import { PermissionService } from '../auth/permission.service';
 import { BaseService } from '../base/base.service';
 import { CanaryService, type IV2Decision } from '../canary/canary.service';
+import { FieldOpenApiV2Service } from '../field/open-api/field-open-api-v2.service';
 import { FieldOpenApiService } from '../field/open-api/field-open-api.service';
+import { restoreFieldRecordValues } from '../field/restore-field-record-values';
+import { RecordOpenApiV2Service } from '../record/open-api/record-open-api-v2.service';
 import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
 import { RecordService } from '../record/record.service';
+import { SpaceDataDbMigrationGuardService } from '../space/space-data-db-migration-guard.service';
 import { SpaceService } from '../space/space.service';
 import { TableOpenApiV2Service } from '../table/open-api/table-open-api-v2.service';
 import { TableOpenApiService } from '../table/open-api/table-open-api.service';
@@ -52,15 +65,106 @@ import { resolveV2TrashRecordDisplayName } from './v2-trash-record-name';
 
 type IRecordTrashSnapshot = IDeleteRecordsPayload['records'][number];
 
+type IRestoreProgressInput = {
+  phase: 'preparing' | 'restoring';
+  batchIndex: number;
+  totalCount?: number;
+  processedCount?: number;
+  restoredCount?: number;
+  updatedCount?: number;
+};
+
+type IRestoreDoneInput = {
+  totalCount?: number;
+  restoredCount?: number;
+  updatedCount?: number;
+};
+
+type IRestoreErrorInput = {
+  phase: 'preparing' | 'restoring' | 'finalizing';
+  message: string;
+  batchIndex?: number;
+  totalCount?: number;
+  processedCount?: number;
+  restoredCount?: number;
+  updatedCount?: number;
+  code?: string;
+};
+
+type IRestoreTrashStreamEvent =
+  | (IRestoreProgressInput & {
+      id: 'progress';
+      resourceType: ResourceType;
+      totalCount: number;
+      processedCount: number;
+      restoredCount: number;
+      updatedCount: number;
+    })
+  | {
+      id: 'done';
+      resourceType: ResourceType;
+      totalCount: number;
+      restoredCount: number;
+      updatedCount: number;
+    }
+  | (IRestoreErrorInput & {
+      id: 'error';
+      resourceType: ResourceType;
+      batchIndex: number;
+      totalCount: number;
+      processedCount: number;
+      restoredCount: number;
+      updatedCount: number;
+    });
+
+type ITableTrashDelegate = {
+  findMany<TArgs>(args: TArgs): Promise<
+    Array<{
+      id: string;
+      tableId: string;
+      resourceType: string;
+      snapshot: string;
+      createdBy: string;
+      createdTime: Date;
+    }>
+  >;
+  findUniqueOrThrow<TArgs>(args: TArgs): Promise<{
+    tableId: string;
+    resourceType: string;
+    snapshot: string;
+    createdTime: Date;
+  }>;
+  delete<TArgs>(args: TArgs): Promise<unknown>;
+  deleteMany<TArgs>(args: TArgs): Promise<unknown>;
+};
+
+type IRecordTrashDelegate = {
+  findMany<TArgs>(args: TArgs): Promise<
+    Array<{
+      id: string;
+      recordId: string;
+      snapshot: string;
+      createdTime: Date;
+    }>
+  >;
+  deleteMany<TArgs>(args: TArgs): Promise<unknown>;
+};
+
 type ITrashDataPrisma = {
-  tableTrash: DataPrismaService['tableTrash'];
-  recordTrash: DataPrismaService['recordTrash'];
+  tableTrash: ITableTrashDelegate;
+  recordTrash: IRecordTrashDelegate;
 };
 
 type IScopedTrashDataPrisma = ITrashDataPrisma & {
   txClient?: () => ITrashDataPrisma;
-  $tx?: DataPrismaService['$tx'];
-  $transaction?: DataPrismaService['$transaction'];
+  $tx?: <T>(
+    fn: (prisma: ITrashDataPrisma) => Promise<T>,
+    options?: { timeout?: number }
+  ) => Promise<T>;
+  $transaction?: <T>(
+    fn: (prisma: ITrashDataPrisma) => Promise<T>,
+    options?: { timeout?: number }
+  ) => Promise<T>;
 };
 
 @Injectable()
@@ -76,7 +180,9 @@ export class TrashService {
     protected readonly tableOpenApiService: TableOpenApiService,
     protected readonly tableOpenApiV2Service: TableOpenApiV2Service,
     protected readonly fieldOpenApiService: FieldOpenApiService,
+    protected readonly fieldOpenApiV2Service: FieldOpenApiV2Service,
     protected readonly recordOpenApiService: RecordOpenApiService,
+    protected readonly recordOpenApiV2Service: RecordOpenApiV2Service,
     protected readonly recordService: RecordService,
     protected readonly viewService: ViewService,
     protected readonly v2ContainerService: V2ContainerService,
@@ -84,8 +190,39 @@ export class TrashService {
     protected readonly canaryService: CanaryService,
     protected readonly dataDbClientManager: DataDbClientManager,
     @ThresholdConfig() protected readonly thresholdConfig: IThresholdConfig,
-    @InjectModel(META_KNEX) protected readonly knex: Knex
+    @InjectModel(META_KNEX) protected readonly knex: Knex,
+    @Optional()
+    protected readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService
   ) {}
+
+  private async assertSpaceWritable(spaceId: string) {
+    await this.spaceDataDbMigrationGuard?.assertSpaceWritable(spaceId);
+  }
+
+  private async assertBaseWritable(baseId: string) {
+    await this.spaceDataDbMigrationGuard?.assertBaseWritable(baseId);
+  }
+
+  private async assertTableWritable(tableId: string) {
+    await this.spaceDataDbMigrationGuard?.assertTableWritable(tableId);
+  }
+
+  private async assertTrashResourceWritable(
+    resourceType: TrashType,
+    resourceId: string,
+    parentId?: string | null
+  ) {
+    switch (resourceType) {
+      case TrashType.Space:
+        return await this.assertSpaceWritable(resourceId);
+      case TrashType.Base:
+        return await this.assertBaseWritable(resourceId);
+      case TrashType.Table:
+        return parentId
+          ? await this.assertBaseWritable(parentId)
+          : await this.assertTableWritable(resourceId);
+    }
+  }
 
   private getTrashDataPrismaExecutor(prisma: IScopedTrashDataPrisma): ITrashDataPrisma {
     return prisma.txClient?.() ?? prisma;
@@ -760,6 +897,87 @@ export class TrashService {
     };
   }
 
+  async getRestoreTableResourceV2Decision(
+    trashId: string,
+    routedTableId?: string
+  ): Promise<
+    | (IV2Decision & {
+        tableId: string;
+        resourceType: TableTrashType;
+        feature: V2Feature;
+      })
+    | undefined
+  > {
+    if (!trashId.startsWith(IdPrefix.Operation) || !routedTableId) {
+      return undefined;
+    }
+
+    const lookupDataPrisma = this.getTrashDataPrismaExecutor(
+      await this.trashDataPrismaForTable(routedTableId)
+    );
+    const tableTrash = await lookupDataPrisma.tableTrash
+      .findUniqueOrThrow({
+        where: { id: trashId },
+        select: {
+          tableId: true,
+          resourceType: true,
+        },
+      })
+      .catch(() => undefined);
+
+    if (!tableTrash) {
+      return undefined;
+    }
+
+    const feature = this.getRestoreTableResourceV2Feature(
+      tableTrash.resourceType as TableTrashType
+    );
+    if (!feature) {
+      return undefined;
+    }
+
+    const table = await this.prismaService.txClient().tableMeta.findFirst({
+      where: { id: tableTrash.tableId, deletedTime: null },
+      select: {
+        base: {
+          select: {
+            spaceId: true,
+            v2Enabled: true,
+          },
+        },
+      },
+    });
+
+    if (!table?.base?.spaceId) {
+      return {
+        useV2: false,
+        reason: 'disabled',
+        tableId: tableTrash.tableId,
+        resourceType: tableTrash.resourceType as TableTrashType,
+        feature,
+      };
+    }
+
+    const decision = await this.canaryService.shouldUseV2ForBaseWithReason(table.base, feature);
+    return {
+      ...decision,
+      tableId: tableTrash.tableId,
+      resourceType: tableTrash.resourceType as TableTrashType,
+      feature,
+    };
+  }
+
+  private getRestoreTableResourceV2Feature(resourceType: TableTrashType): V2Feature | undefined {
+    switch (resourceType) {
+      case TableTrashType.Field:
+        return 'createField';
+      case TableTrashType.Record:
+        return 'createRecord';
+      default:
+        return undefined;
+    }
+  }
+
   async restoreTrashV2(trashId: string) {
     const decision = await this.getRestoreTableV2Decision(trashId);
     if (!decision) {
@@ -770,6 +988,7 @@ export class TrashService {
       });
     }
 
+    await this.assertBaseWritable(decision.baseId);
     await this.assertParentNotTrashed(decision.baseId);
     await this.restoreTableV2(decision.baseId, decision.tableId);
   }
@@ -781,8 +1000,334 @@ export class TrashService {
     this.performanceCacheService.del(generateBaseNodeListCacheKey(baseId));
   }
 
+  async restoreTableResourceV2(trashId: string, routedTableId?: string) {
+    const decision = await this.getRestoreTableResourceV2Decision(trashId, routedTableId);
+    if (!decision?.useV2) {
+      return await this.restoreTableResource(trashId, routedTableId);
+    }
+
+    switch (decision.resourceType) {
+      case TableTrashType.Field:
+        return await this.restoreFieldTableResourceV2(trashId, routedTableId);
+      case TableTrashType.Record:
+        for await (const event of await this.restoreRecordTableResourceV2Stream(
+          trashId,
+          routedTableId
+        )) {
+          if (event.id === 'error') {
+            throw new CustomHttpException(event.message, HttpErrorCode.INTERNAL_SERVER_ERROR);
+          }
+        }
+        return;
+      default:
+        throw new CustomHttpException(
+          `Invalid resource type ${decision.resourceType}`,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.trash.invalidResourceType',
+            },
+          }
+        );
+    }
+  }
+
+  private async restoreFieldTableResourceV2(trashId: string, routedTableId?: string) {
+    for await (const event of this.restoreFieldTableResourceV2Stream(trashId, routedTableId)) {
+      if (event.id === 'error') {
+        throw new CustomHttpException(event.message, HttpErrorCode.INTERNAL_SERVER_ERROR);
+      }
+    }
+  }
+
+  async *restoreFieldTableResourceV2Stream(
+    trashId: string,
+    routedTableId?: string
+  ): AsyncGenerator<IRestoreFieldTrashStreamEvent> {
+    if (!routedTableId) {
+      yield {
+        id: 'error',
+        phase: 'preparing',
+        batchIndex: -1,
+        totalCount: 0,
+        processedCount: 0,
+        updatedCount: 0,
+        message: `Table id is required to restore table trash ${trashId}`,
+      };
+      return;
+    }
+
+    const container = await this.v2ContainerService.getContainerForTable(routedTableId);
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const context = await this.v2ExecutionContextFactory.createContext(container);
+    const commandResult = RestoreFieldStreamCommand.create({
+      tableId: routedTableId,
+      trashId,
+    });
+    if (commandResult.isErr()) {
+      yield {
+        id: 'error',
+        phase: 'preparing',
+        batchIndex: -1,
+        totalCount: 0,
+        processedCount: 0,
+        updatedCount: 0,
+        message: commandResult.error.message,
+        code: commandResult.error.code,
+      };
+      return;
+    }
+
+    const result = await commandBus.execute<RestoreFieldStreamCommand, RestoreFieldStreamResult>(
+      context,
+      commandResult.value
+    );
+    if (result.isErr()) {
+      yield {
+        id: 'error',
+        phase: 'restoring',
+        batchIndex: -1,
+        totalCount: 0,
+        processedCount: 0,
+        updatedCount: 0,
+        message: result.error.message,
+        code: result.error.code,
+      };
+      return;
+    }
+
+    for await (const event of result.value) {
+      yield event;
+    }
+  }
+
+  private async *restoreRecordTableResourceV2Stream(
+    trashId: string,
+    routedTableId?: string
+  ): AsyncGenerator<IRestoreTrashStreamEvent> {
+    const accessTokenId = this.cls.get('accessTokenId');
+    if (!routedTableId) {
+      yield this.createRestoreErrorEvent(ResourceType.Record, {
+        phase: 'preparing',
+        message: `Table id is required to restore table trash ${trashId}`,
+      });
+      return;
+    }
+
+    await this.assertTableWritable(routedTableId);
+    const lookupDataPrisma = this.getTrashDataPrismaExecutor(
+      await this.trashDataPrismaForTable(routedTableId)
+    );
+    const {
+      tableId,
+      resourceType,
+      snapshot: originSnapshot,
+      createdTime,
+    } = await lookupDataPrisma.tableTrash
+      .findUniqueOrThrow({
+        where: { id: trashId },
+        select: {
+          tableId: true,
+          resourceType: true,
+          snapshot: true,
+          createdTime: true,
+        },
+      })
+      .catch(() => {
+        throw new CustomHttpException(
+          `The table trash ${trashId} not found`,
+          HttpErrorCode.NOT_FOUND,
+          {
+            localization: {
+              i18nKey: 'httpErrors.trash.tableNotFound',
+            },
+          }
+        );
+      });
+    if (tableId !== routedTableId) {
+      await this.assertTableWritable(tableId);
+    }
+
+    if (resourceType !== TableTrashType.Record) {
+      yield this.createRestoreErrorEvent(ResourceType.Record, {
+        phase: 'preparing',
+        message: `Invalid resource type ${resourceType}`,
+      });
+      return;
+    }
+
+    await this.permissionService.validPermissions(
+      tableId,
+      ['table|trash_update'],
+      accessTokenId,
+      true
+    );
+
+    const recordIds = JSON.parse(originSnapshot) as string[];
+    const recordTrashRows = await lookupDataPrisma.recordTrash.findMany({
+      where: { tableId, recordId: { in: recordIds } },
+      select: {
+        id: true,
+        recordId: true,
+        snapshot: true,
+        createdTime: true,
+      },
+      orderBy: [{ recordId: 'asc' }, { createdTime: 'desc' }, { id: 'desc' }],
+    });
+    const latestSnapshotsByRecordId = recordTrashRows.reduce<
+      Map<string, (typeof recordTrashRows)[number]>
+    >((acc, row) => {
+      if (row.createdTime <= createdTime && !acc.has(row.recordId)) {
+        acc.set(row.recordId, row);
+      }
+      return acc;
+    }, new Map<string, (typeof recordTrashRows)[number]>());
+    const matchedRecordTrashRows = recordIds
+      .map((recordId) => latestSnapshotsByRecordId.get(recordId))
+      .filter((row): row is (typeof recordTrashRows)[number] => row != null);
+    const records = matchedRecordTrashRows.map(({ snapshot }) =>
+      this.toV2RestoreRecord(JSON.parse(snapshot))
+    );
+
+    yield this.createRestoreProgressEvent(ResourceType.Record, {
+      phase: 'preparing',
+      batchIndex: -1,
+      totalCount: records.length,
+    });
+
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const context = await this.v2ExecutionContextFactory.createContext(container);
+    const commandResult = RestoreRecordsStreamCommand.create({
+      tableId,
+      records: this.createRestoreRecordInputStream(records),
+    });
+    if (commandResult.isErr()) {
+      yield this.createRestoreErrorEvent(ResourceType.Record, {
+        phase: 'preparing',
+        message: commandResult.error.message,
+        code: commandResult.error.code,
+      });
+      return;
+    }
+
+    const result = await commandBus.execute<RestoreRecordsStreamCommand, RestoreRecordsStreamResult>(
+      context,
+      commandResult.value
+    );
+    if (result.isErr()) {
+      yield this.createRestoreErrorEvent(ResourceType.Record, {
+        phase: 'restoring',
+        message: result.error.message,
+        code: result.error.code,
+      });
+      return;
+    }
+
+    let restoredCount = 0;
+    for await (const event of result.value) {
+      if (event.id === 'progress') {
+        restoredCount = event.totalInserted;
+        yield this.createRestoreProgressEvent(ResourceType.Record, {
+          phase: 'restoring',
+          batchIndex: event.batchIndex,
+          totalCount: records.length,
+          processedCount: event.totalInserted,
+          restoredCount: event.totalInserted,
+        });
+      }
+      if (event.id === 'error') {
+        yield this.createRestoreErrorEvent(ResourceType.Record, {
+          phase: event.phase,
+          batchIndex: event.batchIndex,
+          totalCount: records.length,
+          processedCount: event.totalInserted,
+          restoredCount: event.totalInserted,
+          message: event.message,
+          code: event.code,
+        });
+        return;
+      }
+      if (event.id === 'done') {
+        restoredCount = event.restoredCount;
+      }
+    }
+
+    await this.trashDataPrismaTransactionForTable(tableId, async (prisma) => {
+      await prisma.recordTrash.deleteMany({
+        where: { id: { in: matchedRecordTrashRows.map(({ id }) => id) } },
+      });
+      await prisma.tableTrash.delete({
+        where: { id: trashId },
+      });
+    });
+
+    yield this.createRestoreDoneEvent(ResourceType.Record, {
+      totalCount: records.length,
+      restoredCount,
+    });
+  }
+
+  private createRestoreRecordInputStream(
+    records: ReadonlyArray<RestoreRecordInput>
+  ): AsyncIterable<RestoreRecordInput> {
+    return (async function* () {
+      for (const record of records) {
+        yield record;
+      }
+    })();
+  }
+
+  private createRestoreProgressEvent(
+    resourceType: ResourceType,
+    event: IRestoreProgressInput
+  ): IRestoreTrashStreamEvent {
+    return {
+      id: 'progress',
+      phase: event.phase,
+      resourceType,
+      batchIndex: event.batchIndex,
+      totalCount: event.totalCount ?? 0,
+      processedCount: event.processedCount ?? 0,
+      restoredCount: event.restoredCount ?? 0,
+      updatedCount: event.updatedCount ?? 0,
+    };
+  }
+
+  private createRestoreDoneEvent(
+    resourceType: ResourceType,
+    event: IRestoreDoneInput = {}
+  ): IRestoreTrashStreamEvent {
+    return {
+      id: 'done',
+      resourceType,
+      totalCount: event.totalCount ?? 0,
+      restoredCount: event.restoredCount ?? 0,
+      updatedCount: event.updatedCount ?? 0,
+    };
+  }
+
+  private createRestoreErrorEvent(
+    resourceType: ResourceType,
+    event: IRestoreErrorInput
+  ): IRestoreTrashStreamEvent {
+    return {
+      id: 'error',
+      phase: event.phase,
+      resourceType,
+      batchIndex: event.batchIndex ?? -1,
+      totalCount: event.totalCount ?? 0,
+      processedCount: event.processedCount ?? 0,
+      restoredCount: event.restoredCount ?? 0,
+      updatedCount: event.updatedCount ?? 0,
+      message: event.message,
+      ...(event.code ? { code: event.code } : {}),
+    };
+  }
+
   async restoreResource(trash: { resourceType: TrashType; resourceId: string }) {
     const { resourceType, resourceId } = trash;
+    await this.assertTrashResourceWritable(resourceType, resourceId);
     switch (resourceType) {
       case TrashType.Space:
         return this.restoreSpace(resourceId);
@@ -816,6 +1361,7 @@ export class TrashService {
         }
       );
     }
+    await this.assertTableWritable(routedTableId);
     const lookupDataPrisma = this.getTrashDataPrismaExecutor(
       await this.trashDataPrismaForTable(routedTableId)
     );
@@ -846,6 +1392,9 @@ export class TrashService {
           }
         );
       });
+    if (tableId !== routedTableId) {
+      await this.assertTableWritable(tableId);
+    }
     const dataPrisma = routedTableId
       ? lookupDataPrisma
       : this.getTrashDataPrismaExecutor(await this.trashDataPrismaForTable(tableId));
@@ -874,12 +1423,7 @@ export class TrashService {
           );
           const existingIdSet = new Set(existingSnapshots.map((s) => s.data.id));
           const filteredRecords = records.filter((r) => existingIdSet.has(r.id));
-          if (filteredRecords.length) {
-            await this.recordOpenApiService.updateRecords(tableId, {
-              fieldKeyType: FieldKeyType.Id,
-              records: filteredRecords,
-            });
-          }
+          await restoreFieldRecordValues(tableId, filteredRecords, this.recordOpenApiService);
         }
         break;
       }
@@ -923,6 +1467,14 @@ export class TrashService {
 
         if (await this.shouldRestoreRecordsWithV2(tableId)) {
           await this.restoreRecordsV2(tableId, records);
+          await this.trashDataPrismaTransactionForTable(tableId, async (prisma) => {
+            await prisma.recordTrash.deleteMany({
+              where: { id: { in: matchedRecordTrashRows.map(({ id }) => id) } },
+            });
+            await prisma.tableTrash.delete({
+              where: { id: trashId },
+            });
+          });
           return;
         }
 
@@ -991,9 +1543,9 @@ export class TrashService {
       return;
     }
 
-    const container = await this.v2ContainerService.getContainer();
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
-    const context = await this.v2ExecutionContextFactory.createContext();
+    const context = await this.v2ExecutionContextFactory.createContext(container);
 
     const commandResult = RestoreRecordsCommand.create({
       tableId,
@@ -1053,6 +1605,11 @@ export class TrashService {
         });
 
       await this.assertParentNotTrashed(trash.parentId);
+      await this.assertTrashResourceWritable(
+        trash.resourceType as TrashType,
+        trash.resourceId,
+        trash.parentId
+      );
 
       await this.restoreResource({
         resourceType: trash.resourceType as TrashType,
@@ -1106,6 +1663,8 @@ export class TrashService {
         }
       );
     }
+
+    await this.assertTrashResourceWritable(resourceType, resourceId);
 
     if (resourceType === TrashType.Base) {
       await this.resetBaseTrashResource(resetTrashItemsRo);
@@ -1219,6 +1778,7 @@ export class TrashService {
     ignorePermissionCheck = false
   ): Promise<void> {
     const { resourceType, resourceId, parentId } = trash;
+    await this.assertTrashResourceWritable(resourceType, resourceId, parentId);
 
     switch (resourceType) {
       case TrashType.Space:

@@ -384,7 +384,14 @@ export class ViewOpenApiController {
 
   @Permissions('view|create')
   @Post('/:viewId/duplicate')
+  @UseV2Feature('duplicateView')
+  @UseGuards(V2FeatureGuard)
+  @UseInterceptors(V2IndicatorInterceptor)
   async duplicateView(@Param('tableId') tableId: string, @Param('viewId') viewId: string) {
+    if (this.cls.get('useV2')) {
+      return this.viewOpenApiV2Service.duplicateView(tableId, viewId);
+    }
+
     return this.viewOpenApiService.duplicateView(tableId, viewId);
   }
 }

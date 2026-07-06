@@ -23,6 +23,24 @@ const singleLineTextInfoCache: LRUCache<string, { text: string; width: number }>
 
 const multiLineTextInfoCache: LRUCache<string, ITextInfo[]> = new LRUCache({ max: 1000 });
 
+const createFallbackSegmenter = () => ({
+  segment: (text: string) => ({
+    [Symbol.iterator]: function* () {
+      for (let i = 0; i < text.length; i++) {
+        yield { segment: text[i], index: i, input: text };
+      }
+    },
+  }),
+});
+
+const hasSegmenter = typeof Intl !== 'undefined' && typeof Intl.Segmenter === 'function';
+const wordSegmenter = hasSegmenter
+  ? new Intl.Segmenter(undefined, { granularity: 'word' })
+  : createFallbackSegmenter();
+const graphemeSegmenter = hasSegmenter
+  ? new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+  : createFallbackSegmenter();
+
 // eslint-disable-next-line sonarjs/cognitive-complexity
 export const drawMultiLineText = (ctx: CanvasRenderingContext2D, props: IMultiLineTextProps) => {
   const {
@@ -53,47 +71,105 @@ export const drawMultiLineText = (ctx: CanvasRenderingContext2D, props: IMultiLi
   if (cachedLines) {
     lines = cachedLines;
   } else {
-    for (let i = 0; i < text.length; i++) {
-      const char = text[i];
+    let consumed = 0;
 
-      if (char === '\n') {
-        if (lines.length + 1 === maxLines && i < text.length - 1) {
-          lines.push({ text: currentLine + ellipsis, width: currentLineWidth + ellipsisWidth });
-          currentLine = '';
-          currentLineWidth = 0;
-          break;
+    // eslint-disable-next-line sonarjs/cognitive-complexity
+    const addEllipsisLine = (overflowSeg?: string) => {
+      const budget = maxWidth - ellipsisWidth;
+      if (currentLineWidth > budget) {
+        let newLine = '';
+        let newWidth = 0;
+        for (const { segment: word } of wordSegmenter.segment(currentLine)) {
+          const w = ctx.measureText(word).width;
+          if (newWidth + w > budget) {
+            for (const { segment: grapheme } of graphemeSegmenter.segment(word)) {
+              const gw = ctx.measureText(grapheme).width;
+              if (newWidth + gw > budget) break;
+              newLine += grapheme;
+              newWidth += gw;
+            }
+            break;
+          }
+          newLine += word;
+          newWidth += w;
         }
-        lines.push({ text: currentLine, width: currentLineWidth });
-        currentLine = '';
-        currentLineWidth = 0;
+        currentLine = newLine;
+        currentLineWidth = newWidth;
+      } else if (overflowSeg) {
+        for (const { segment: grapheme } of graphemeSegmenter.segment(overflowSeg)) {
+          const gw = ctx.measureText(grapheme).width;
+          if (currentLineWidth + gw > budget) break;
+          currentLine += grapheme;
+          currentLineWidth += gw;
+        }
+      }
+      lines.push({ text: currentLine + ellipsis, width: currentLineWidth + ellipsisWidth });
+      currentLine = '';
+      currentLineWidth = 0;
+    };
+
+    const addSegment = (seg: string, segWidth: number) => {
+      if (currentLineWidth + segWidth <= maxWidth) {
+        currentLine += seg;
+        currentLineWidth += segWidth;
+        return;
+      }
+      if (segWidth <= maxWidth) {
+        if (lines.length < maxLines - 1) {
+          lines.push({ text: currentLine, width: currentLineWidth });
+          currentLine = seg;
+          currentLineWidth = segWidth;
+        } else {
+          addEllipsisLine(seg);
+        }
+        return;
+      }
+      for (const { segment: grapheme } of graphemeSegmenter.segment(seg)) {
+        if (lines.length >= maxLines) break;
+        const gWidth = ctx.measureText(grapheme).width;
+        if (currentLineWidth + gWidth > maxWidth) {
+          if (lines.length < maxLines - 1) {
+            lines.push({ text: currentLine, width: currentLineWidth });
+            currentLine = grapheme;
+            currentLineWidth = gWidth;
+          } else {
+            addEllipsisLine();
+          }
+        } else {
+          currentLine += grapheme;
+          currentLineWidth += gWidth;
+        }
+      }
+    };
+
+    for (const { segment } of wordSegmenter.segment(text)) {
+      if (lines.length >= maxLines) break;
+
+      if (segment.indexOf('\n') !== -1) {
+        const parts = segment.split('\n');
+        for (let p = 0; p < parts.length; p++) {
+          if (lines.length >= maxLines) break;
+          if (p > 0) {
+            consumed++;
+            if (lines.length + 1 === maxLines && consumed < text.length) {
+              addEllipsisLine();
+              break;
+            }
+            lines.push({ text: currentLine, width: currentLineWidth });
+            currentLine = '';
+            currentLineWidth = 0;
+          }
+          const part = parts[p];
+          if (part.length > 0) {
+            consumed += part.length;
+            addSegment(part, ctx.measureText(part).width);
+          }
+        }
         continue;
       }
 
-      const charWidth = ctx.measureText(char).width;
-
-      if (currentLineWidth + charWidth > maxWidth) {
-        if (lines.length < maxLines - 1) {
-          lines.push({ text: currentLine, width: currentLineWidth });
-          currentLine = char;
-          currentLineWidth = charWidth;
-        } else {
-          if (currentLineWidth + ellipsisWidth > maxWidth) {
-            let tempLine = currentLine;
-            let tempLineWidth = currentLineWidth;
-            while (tempLineWidth + ellipsisWidth > maxWidth) {
-              tempLine = tempLine.substring(0, tempLine.length - 1);
-              tempLineWidth -= ctx.measureText(tempLine[tempLine.length - 1]).width;
-            }
-            currentLine = tempLine;
-            currentLineWidth = tempLineWidth;
-          }
-          lines.push({ text: currentLine + ellipsis, width: currentLineWidth + ellipsisWidth });
-          break;
-        }
-      } else {
-        currentLine += char;
-        currentLineWidth += charWidth;
-      }
+      consumed += segment.length;
+      addSegment(segment, ctx.measureText(segment).width);
     }
 
     if (lines.length < maxLines && currentLine !== '') {
@@ -156,22 +232,30 @@ export const drawSingleLineText = (ctx: CanvasRenderingContext2D, props: ISingle
     const ellipsis = '...';
     const ellipsisWidth = ctx.measureText(ellipsis).width;
 
-    for (let i = 0; i < text.length; i++) {
-      const char = text[i];
-      const charWidth = ctx.measureText(char).width;
+    let needsEllipsis = false;
 
-      if (width + charWidth > maxWidth) break;
-
-      displayText += char;
-      width += charWidth;
+    for (const { segment } of wordSegmenter.segment(text)) {
+      const segWidth = ctx.measureText(segment).width;
+      if (width + segWidth > maxWidth) {
+        needsEllipsis = true;
+        const budget = maxWidth - ellipsisWidth;
+        for (const { segment: grapheme } of graphemeSegmenter.segment(segment)) {
+          const gWidth = ctx.measureText(grapheme).width;
+          if (width + gWidth > budget) break;
+          displayText += grapheme;
+          width += gWidth;
+        }
+        break;
+      }
+      displayText += segment;
+      width += segWidth;
     }
 
-    const isDisplayEllipsis = displayText.length < text.length;
-    if (isDisplayEllipsis) {
-      while (width + ellipsisWidth > maxWidth && displayText.length > 0) {
-        displayText = displayText.slice(0, -1);
-        width -= ctx.measureText(displayText[displayText.length - 1]).width;
-      }
+    if (!needsEllipsis && displayText.length < text.length) {
+      needsEllipsis = true;
+    }
+
+    if (needsEllipsis) {
       displayText = ctx.direction === 'rtl' ? ellipsis + displayText : displayText + ellipsis;
       width = Math.min(width + ellipsisWidth, maxWidth);
     } else {

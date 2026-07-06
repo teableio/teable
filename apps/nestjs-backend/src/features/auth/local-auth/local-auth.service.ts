@@ -300,6 +300,12 @@ export class LocalAuthService {
   }
 
   async sendSignupVerificationCode(email: string) {
+    // Reject banned domains before any mail goes out — otherwise the
+    // verification-code mail itself becomes a spam channel and the user only
+    // learns about the ban after entering the code.
+    const { bannedEmailDomains } = await this.settingService.getSetting();
+    this.userService.throwIfEmailDomainBanned(email, bannedEmailDomains);
+
     return await this.mailSenderService.checkSendMailRateLimit(
       {
         email,

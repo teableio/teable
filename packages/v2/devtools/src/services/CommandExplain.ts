@@ -46,6 +46,9 @@ export interface ExplainUpdateInput {
   readonly recordId: string;
   readonly fields: Record<string, unknown>;
   readonly analyze: boolean;
+  readonly includeSql?: boolean;
+  readonly sqlExplainMode?: 'json' | 'text' | 'dump';
+  readonly statementTimeoutMs?: number;
 }
 
 export interface ExplainDeleteInput {
