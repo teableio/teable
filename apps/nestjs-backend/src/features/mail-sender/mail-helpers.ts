@@ -6,6 +6,14 @@ import { createTransport } from 'nodemailer';
 
 export type ISendMailOptions = NestjsSendMailOptions & { senderName?: string };
 
+/** Truncate a user-provided name for a mail subject; maxLength <= 0 (or NaN) disables. */
+export const truncateMailName = (value: string, maxLength: number): string => {
+  if (!(maxLength > 0) || value.length <= maxLength) {
+    return value;
+  }
+  return `${value.slice(0, maxLength)}…`;
+};
+
 export const helpers = (config: ConfigService) => {
   const publicOrigin = config.get<string>('PUBLIC_ORIGIN');
   return {

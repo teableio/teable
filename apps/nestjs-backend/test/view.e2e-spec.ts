@@ -38,6 +38,7 @@ import {
   deleteView,
 } from '@teable/openapi';
 import { sample } from 'lodash';
+import { X_TEABLE_V2_HEADER } from '../src/features/canary/interceptors/v2-indicator.interceptor';
 import { ViewService } from '../src/features/view/view.service';
 import { x_20 } from './data-helpers/20x';
 import { VIEW_DEFAULT_SHARE_META } from './data-helpers/caces/view-default-share-meta';
@@ -48,6 +49,7 @@ import {
   createView,
   permanentDeleteTable,
   createTable,
+  deleteField,
   getViews,
   getView,
   getTable,
@@ -59,6 +61,7 @@ const defaultViews = [
     type: ViewType.Grid,
   },
 ];
+const isForceV2 = process.env.FORCE_V2_ALL === 'true';
 
 describe('OpenAPI ViewController (e2e)', () => {
   let app: INestApplication;
@@ -98,7 +101,18 @@ describe('OpenAPI ViewController (e2e)', () => {
       type: ViewType.Grid,
     };
 
-    await createView(table.id, viewRo);
+    const createdView = await createView(table.id, viewRo);
+
+    const { dbTableName } = await prismaService.tableMeta.findUniqueOrThrow({
+      where: { id: table.id },
+      select: { dbTableName: true },
+    });
+    const rowOrderColumn = await viewService.existIndex(
+      dbTableName,
+      createdView.id,
+      prismaService.txClient()
+    );
+    expect(rowOrderColumn).toBe(`__row_${createdView.id}`);
 
     const result = await getViews(table.id);
     expect(result).toMatchObject([
@@ -230,6 +244,47 @@ describe('OpenAPI ViewController (e2e)', () => {
     const view = await getView(table.id, randomViewId!);
     const columnMetaFieldIds = Object.keys(view.columnMeta).sort();
     expect(columnMetaFieldIds).toEqual(assertFieldIds);
+  });
+
+  it('should ignore stale column meta for deleted fields when reading views', async () => {
+    const staleField = await createField(table.id, {
+      name: 'deleted column meta field',
+      type: FieldType.SingleLineText,
+    });
+    const view = await createView(table.id, {
+      name: 'view with stale column meta',
+      type: ViewType.Grid,
+    });
+
+    await deleteField(table.id, staleField.id);
+    const activeFields = await getFields(table.id);
+    const activeColumnMeta = activeFields.reduce<Record<string, IColumn>>((acc, field, index) => {
+      acc[field.id] = { order: index };
+      return acc;
+    }, {});
+
+    await prismaService.txClient().view.update({
+      where: { id: view.id },
+      data: {
+        columnMeta: JSON.stringify({
+          ...activeColumnMeta,
+          [staleField.id]: { order: activeFields.length + 1, visible: true },
+        }),
+      },
+    });
+
+    const activeFieldIds = activeFields.map((field) => field.id).sort();
+    const viewAfter = await getView(table.id, view.id);
+    const viewsAfter = await getViews(table.id);
+    const viewFromList = viewsAfter.find(({ id }) => id === view.id);
+    const [viewSnapshot] = await viewService.getSnapshotBulk(table.id, [view.id]);
+
+    expect(viewAfter.columnMeta?.[staleField.id]).toBeUndefined();
+    expect(Object.keys(viewAfter.columnMeta ?? {}).sort()).toEqual(activeFieldIds);
+    expect(viewFromList?.columnMeta?.[staleField.id]).toBeUndefined();
+    expect(Object.keys(viewFromList?.columnMeta ?? {}).sort()).toEqual(activeFieldIds);
+    expect(viewSnapshot.data.columnMeta?.[staleField.id]).toBeUndefined();
+    expect(Object.keys(viewSnapshot.data.columnMeta ?? {}).sort()).toEqual(activeFieldIds);
   });
 
   it('fields in new view should sort by created time and primary field is always first', async () => {
@@ -574,7 +629,18 @@ describe('OpenAPI ViewController (e2e)', () => {
         },
       });
 
-      const duplicatedView = (await duplicateView(table.id, view.id)).data;
+      const duplicatedViewResponse = await duplicateView(table.id, view.id);
+      const duplicatedView = duplicatedViewResponse.data;
+      const { dbTableName } = await prismaService.tableMeta.findUniqueOrThrow({
+        where: { id: table.id },
+        select: { dbTableName: true },
+      });
+      const duplicatedRowOrderColumn = await viewService.existIndex(
+        dbTableName,
+        duplicatedView.id,
+        prismaService.txClient()
+      );
+
       expect(duplicatedView.name).toEqual('grid_view 2');
       expect(duplicatedView.type).toEqual(ViewType.Grid);
       expect(duplicatedView.filter).toEqual(view.filter);
@@ -583,6 +649,13 @@ describe('OpenAPI ViewController (e2e)', () => {
       expect(duplicatedView.options).toEqual(view.options);
       expect(duplicatedView.columnMeta).toEqual(view.columnMeta);
       expect(duplicatedView.isLocked).toBeTruthy();
+      const duplicatedViaV2 = duplicatedViewResponse.headers[X_TEABLE_V2_HEADER] === 'true';
+      if (isForceV2) {
+        expect(duplicatedViewResponse.headers[X_TEABLE_V2_HEADER]).toBe('true');
+      }
+      if (duplicatedViaV2) {
+        expect(duplicatedRowOrderColumn).toBeUndefined();
+      }
     });
 
     it('should duplicate form view', async () => {

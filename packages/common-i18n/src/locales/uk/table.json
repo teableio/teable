@@ -403,6 +403,9 @@
         "medium": "Середня",
         "high": "Висока"
       },
+      "tip": {
+        "gptImageResolution": "Через обмеження загальної кількості пікселів режим 4K для деяких співвідношень сторін використовує найбільший допустимий розмір."
+      },
       "autoFill": {
         "title": "Автооновлення",
         "tip": "Після увімкнення поточне поле буде оновлюватися синхронно зі змінами вмісту конфігурації AI"
@@ -696,6 +699,7 @@
     "menu": {
       "addFromOtherSource": "Додати з інших джерел",
       "excelFile": "Microsoft Excel",
+      "airtable": "Airtable",
       "csvFile": "CSV-файл",
       "importCsvData": "Імпортувати дані CSV",
       "importExcelData": "Імпортувати дані Microsoft Excel",
@@ -850,6 +854,7 @@
     "noPermission": "У вас немає дозволів на доступ до бази даних",
     "connectionCountTip": "Максимальна кількість підключень до бази даних - <b>{{max}}</b>, поточна кількість підключень - <b>{{current}}</b>",
     "createFailed": "Пожалуйста, переконайтеся, що змінне середовище PUBLIC_DATABASE_PROXY встановлено правильно",
+    "readonlyUnavailable": "Readonly database sharing is unavailable for this data database. Grant the Teable database user permission to create roles and grants, or use a target database that supports readonly roles.",
     "helpLink": "https://help.teable.ai/en/deploy/database-connection"
   },
   "view": {
@@ -972,6 +977,20 @@
     "shareNodeTab": "Поділитися вузлом"
   },
   "aiChat": {
+    "integrationConnect": {
+      "title": "Підключити {{provider}}",
+      "reconnectTitle": "Повторно підключити {{provider}}",
+      "defaultReason": "Агенту потрібен доступ до вашого облікового запису {{provider}}, щоб продовжити.",
+      "connect": "Підключити",
+      "connecting": "Підключення…",
+      "giveUp": "Відмовитися",
+      "failed": "Не вдалося підключитися",
+      "status": {
+        "connected": "Підключено",
+        "cancelled": "Пропущено",
+        "failed": "Помилка"
+      }
+    },
     "agent": {
       "askUserQuestion": {
         "otherPlaceholder": "Або введіть відповідь…"
@@ -1006,6 +1025,11 @@
     "action": {
       "locateResource": "Знайти"
     },
+    "showUI": {
+      "skip": "Пропустити",
+      "next": "Наступний",
+      "submit": "Надіслати"
+    },
     "newChat": "Новий чат",
     "expand": "Розгорнути",
     "history": "Історія",
@@ -1028,7 +1052,8 @@
       "selectionRow": "Row {{row}}",
       "selectionRows": "Рядки {{start}}-{{end}}",
       "selectionColumn": "Col {{col}}",
-      "selectionColumns": "Col {{start}}-{{end}}"
+      "selectionColumns": "Col {{start}}-{{end}}",
+      "selectionColumnsNamed": "{{names}} +{{count}}"
     },
     "mention": {
       "tables": "Таблиці",
@@ -1036,9 +1061,19 @@
       "workflows": "Автоматизації",
       "folders": "Папки"
     },
-    "inputPlaceholder": "Введіть @, щоб додати вузол",
+    "slashCommand": {
+      "skills": "Skills",
+      "searchEmpty": "No results found"
+    },
+    "inputPlaceholder": "@ додає вузли, / запускає навички",
     "inputPlaceholderFiles": "Вставте або перетягніть файли сюди",
     "thought": "Міркування",
+    "stage": {
+      "initializing": "Ініціалізація",
+      "working": "Працює",
+      "committing": "Фіксація",
+      "recovering": "Відновлення"
+    },
     "meta": {
       "input": "Вхід",
       "output": "Вихід",
@@ -1046,7 +1081,9 @@
     },
     "attachment": {
       "pastedTextFileName": "Вставлений текст",
-      "imageNotSupported": "Зображення не підтримується"
+      "imageNotSupported": "Зображення не підтримується",
+      "tooManyFiles": "Ви можете прикріпити не більше {{count}} файлів до одного повідомлення",
+      "storageFull": "Сховище пісочниці заповнене. Видаліть кілька файлів і повторіть спробу."
     },
     "suggestions": {
       "title": "Як я можу допомогти?",
@@ -1100,6 +1137,19 @@
       "noPrefixOptionDesc": "Зберегти оригінальну назву файлу",
       "groupByRow": "Архівувати в папки",
       "groupByRowTip": "Коли рядок має кілька вкладень, вони будуть розміщені в одній папці; рядки з одним вкладенням не створюють папку."
+    }
+  },
+  "baseNode": {
+    "info": {
+      "menu": "Інформація про вузол",
+      "createdBy": "Створив",
+      "createdTime": "Час створення",
+      "lastModifiedBy": "Змінив",
+      "lastModifiedTime": "Час зміни",
+      "folderId": "ID папки",
+      "tableId": "ID таблиці",
+      "automationId": "ID автоматизації",
+      "appId": "ID додатка"
     }
   }
 }

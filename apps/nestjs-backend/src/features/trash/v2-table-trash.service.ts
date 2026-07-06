@@ -8,11 +8,16 @@ import {
   RecordsDeleted,
   TableRestored,
   TableTrashed,
+  domainError,
+  err,
   ok,
   type DomainError,
   type IEventHandler,
   type IExecutionContext,
+  type IFieldTrashRepository,
   type Result,
+  type FieldTrashSnapshot,
+  v2CoreTokens,
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
@@ -57,6 +62,80 @@ type ITableTrashDataDb = V1TeableDatabase & {
   };
 };
 /* eslint-enable @typescript-eslint/naming-convention */
+
+export class V2FieldTrashRepository implements IFieldTrashRepository {
+  constructor(private readonly db: Kysely<ITableTrashDataDb>) {}
+
+  async getFieldTrash(
+    _context: IExecutionContext,
+    tableId: string,
+    trashId: string
+  ): Promise<Result<FieldTrashSnapshot, DomainError>> {
+    const row = await this.db
+      .selectFrom('table_trash')
+      .where('id', '=', trashId)
+      .where('table_id', '=', tableId)
+      .select(['id', 'table_id', 'resource_type', 'snapshot'])
+      .executeTakeFirst();
+
+    if (!row) {
+      return err(
+        domainError.notFound({
+          message: `The table trash ${trashId} not found`,
+          code: 'restore_field_stream.trash_not_found',
+        })
+      );
+    }
+
+    if (row.resource_type !== ResourceType.Field) {
+      return err(
+        domainError.validation({
+          message: `Invalid resource type ${row.resource_type}`,
+          code: 'restore_field_stream.invalid_resource_type',
+        })
+      );
+    }
+
+    try {
+      const snapshot = JSON.parse(row.snapshot) as Partial<FieldTrashSnapshot>;
+      if (!Array.isArray(snapshot.fields)) {
+        return err(
+          domainError.validation({
+            message: 'Invalid field trash snapshot',
+            code: 'restore_field_stream.invalid_snapshot',
+          })
+        );
+      }
+
+      return ok({
+        trashId: row.id,
+        tableId: row.table_id,
+        fields: snapshot.fields,
+        records: Array.isArray(snapshot.records) ? snapshot.records : [],
+      });
+    } catch (error) {
+      return err(
+        domainError.fromUnknown(error, {
+          code: 'restore_field_stream.invalid_snapshot_json',
+        })
+      );
+    }
+  }
+
+  async deleteFieldTrash(
+    _context: IExecutionContext,
+    tableId: string,
+    trashId: string
+  ): Promise<Result<void, DomainError>> {
+    await this.db
+      .deleteFrom('table_trash')
+      .where('id', '=', trashId)
+      .where('table_id', '=', tableId)
+      .execute();
+
+    return ok(undefined);
+  }
+}
 
 @ProjectionHandler(RecordsDeleted)
 export class V2RecordsDeletedTableTrashProjection implements IEventHandler<RecordsDeleted> {
@@ -296,6 +375,10 @@ export class V2TableTrashService implements IV2ProjectionRegistrar {
 
   registerProjections(container: DependencyContainer): void {
     this.logger.log('Registering V2 trash projections');
+    container.registerInstance(
+      v2CoreTokens.fieldTrashRepository,
+      new V2FieldTrashRepository(container.resolve<Kysely<ITableTrashDataDb>>(v2DataDbTokens.db))
+    );
 
     container.registerInstance(
       V2RecordsDeletedTableTrashProjection,

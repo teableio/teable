@@ -747,7 +747,15 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     if (textExpr.isArray) {
       return this.vectorizeUnaryNumericArray(textExpr, (valueSql: string) => valueSql, 'value');
     }
-    return this.coerceToNumber(textExpr, 'value');
+    const numeric = this.coerceToNumber(textExpr, 'value');
+    return makeExpr(
+      `COALESCE(${numeric.valueSql}, 0)`,
+      'number',
+      false,
+      numeric.errorConditionSql,
+      numeric.errorMessageSql,
+      numeric.field
+    );
   }
 
   private concatenate(params: SqlExpr[]): SqlExpr {

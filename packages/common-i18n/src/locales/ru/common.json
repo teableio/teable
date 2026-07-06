@@ -69,6 +69,7 @@
     "import": "Импорт",
     "getMore": "Получить больше",
     "copySuccess": "Копирование успешно",
+    "openLink": "Открыть ссылку",
     "share": "Поделиться"
   },
   "quickAction": {
@@ -451,6 +452,12 @@
       "desc_other": "Эта база поделена с {{count}} сотрудниками.",
       "baseTitle": "Сотрудники базы",
       "collaboratorSearchPlaceholder": "Найдите сотрудника базы по имени или электронной почте"
+    },
+    "table": {
+      "collaborator": "Сотрудник",
+      "accessPermission": "Права доступа",
+      "joinAt": "Дата присоединения",
+      "lastLogin": "Последний вход"
     }
   },
   "help": {
@@ -475,6 +482,9 @@
     "billable": "Платный",
     "billableByAuthorityMatrix": "Биллинг, созданный матрицей полномочий",
     "licenseExpiredGracePeriod": "Срок действия вашей лицензии для самостоятельного размещения истек и будет понижена до бесплатного плана {{expiredTime}}. Пожалуйста, обновите лицензию, чтобы сохранить доступ к премиум-функциям.",
+    "licenseAutoFetchFailed": "Не удалось автоматически продлить лицензию. До понижения осталось {{days}} дн. льготного периода.",
+    "licenseAutoFetchRetryFailed": "Автопродление снова не удалось. Проверьте подключение к серверу Teable или обновите лицензию вручную.",
+    "licenseExpiredGracePeriodDays": "Срок действия лицензии истёк. До понижения осталось {{days}} дн. льготного периода.",
     "spaceSubscriptionModal": {
       "title": "Обновить тарифный план пространства",
       "description": "Вы можете обновить только те пространства, где вы являетесь владельцем"
@@ -497,6 +507,9 @@
       "description": "Измените настройки для текущего экземпляра",
       "allowSignUp": "Разрешить создание новых аккаунтов",
       "allowSignUpDescription": "Отключение этой опции запретит регистрацию новых пользователей, и кнопка регистрации больше не будет отображаться на странице входа.",
+      "bannedEmailDomains": "Запрещённые почтовые домены",
+      "bannedEmailDomainsDescription": "Адреса электронной почты этих доменов не могут зарегистрироваться, и связанные с ними письма-приглашения не будут отправляться. Введите домен и нажмите Enter, чтобы добавить его.",
+      "bannedEmailDomainsInvalid": "Введите корректный домен, например example.com",
       "allowSpaceInvitation": "Разрешить приглашения в пространство",
       "allowSpaceInvitationDescription": "Отключение этой опции запретит пользователям, кроме администраторов, приглашать других в пространство. При включении новые пользователи, приглашённые по электронной почте, могут завершить регистрацию, нажав на ссылку-приглашение в письме, но общие ссылки-приглашения не будут работать.",
       "allowSpaceCreation": "Разрешить всем создавать новые пространства",
@@ -687,6 +700,10 @@
     "exportBase": {
       "successText": "Данные экспорта готовы",
       "failedText": "Экспорт не удался, попробуйте снова"
+    },
+    "importantNotice": {
+      "title": "Important Notice",
+      "acknowledge": "I Understand"
     }
   },
   "role": {
@@ -754,6 +771,7 @@
     "unsubscribeTime": "Время отписки",
     "source": "Источник",
     "sourceAutomationDeleted": "Автоматизация или узел удалены",
+    "sourceApiSend": "Отправка письма через API",
     "processing": "Обработка...",
     "unsubscribeH1": "Подтвердить отписку?",
     "unsubscribeH2": "Вы собираетесь отписаться от будущих рекламных акций и обновлений продуктов Teable. Вы уверены, что хотите отписаться?",
@@ -1117,10 +1135,102 @@
       "unknown": "{{fieldHint}}{{message}}"
     }
   },
+  "skills": {
+    "title": "Навыки",
+    "tabs": {
+      "mySkills": "Мои навыки"
+    },
+    "actions": {
+      "import": "Импортировать навык",
+      "sync": "Синхронизировать",
+      "delete": "Удалить",
+      "enable": "Включить",
+      "disable": "Отключить",
+      "edit": "Редактировать",
+      "tryInChat": "Попробовать в чате",
+      "replace": "Заменить",
+      "download": "Скачать",
+      "uninstall": "Удалить",
+      "copyToBase": "Копировать в Base",
+      "copyToPersonal": "Копировать в личные",
+      "copyToApp": "Копировать в приложение"
+    },
+    "import": {
+      "title": "Импортировать навык",
+      "description": "Импортируйте навык из репозитория GitHub или ZIP-файла",
+      "githubTab": "URL GitHub",
+      "fileTab": "ZIP-файл",
+      "githubTitle": "Импортировать навык из GitHub",
+      "githubPlaceholder": "https://github.com/owner/repo/tree/main/skills/my-skill",
+      "fileHint": "Загрузите ZIP-файл, содержащий SKILL.md",
+      "or": "или",
+      "selectFile": "Выбрать файл",
+      "replaceWarning": "Если в этой области уже существует навык с таким же именем, при импорте он будет заменён.",
+      "importing": "Импорт...",
+      "submit": "Импортировать",
+      "success": "Навык успешно импортирован",
+      "error": "Не удалось импортировать навык"
+    },
+    "detail": {
+      "slug": "Slug",
+      "type": "Тип",
+      "description": "Описание",
+      "source": "Источник",
+      "skillLabel": "Навык",
+      "syncStatus": "Статус синхронизации",
+      "preview": "Предпросмотр SKILL.md"
+    },
+    "scope": {
+      "label": "Область действия",
+      "system": "Система",
+      "base": "Текущая база",
+      "user": "Личный",
+      "userDescription": "Доступно только вам",
+      "baseDescription": "Доступно сотрудникам этой базы",
+      "app": "App",
+      "appDescription": "Доступно только для этого приложения",
+      "cuppyclaw": "Бот",
+      "cuppyclawDescription": "Доступно только для этого бота"
+    },
+    "source": {
+      "github": "GitHub",
+      "file": "Загрузка файла",
+      "manual": "Вручную"
+    },
+    "status": {
+      "enabled": "Включён",
+      "disabled": "Отключён",
+      "synced": "Синхронизирован",
+      "failed": "Ошибка синхронизации"
+    },
+    "empty": {
+      "mySkills": "Персональных навыков пока нет. Импортируйте один, чтобы начать."
+    },
+    "confirm": {
+      "deleteTitle": "Удалить навык",
+      "deleteDescription": "Вы уверены, что хотите удалить этот навык? Это действие нельзя отменить."
+    },
+    "toast": {
+      "syncing": "Синхронизация навыка...",
+      "syncSuccess": "Навык успешно синхронизирован",
+      "syncError": "Не удалось синхронизировать навык",
+      "deleting": "Удаление навыка...",
+      "deleteSuccess": "Навык успешно удалён",
+      "deleteError": "Не удалось удалить навык",
+      "updateSuccess": "Навык успешно обновлён"
+    }
+  },
   "changelog": {
-    "newUpdate": "ОБНОВЛЕНИЕ ОТ 19 МАЯ",
-    "title": "Credits Teable стали эффективнее в 10 раз!",
-    "url": "https://help.teable.ai/en/changelog#may-19-2026",
-    "id": "changelog-2026-05-19-teable-credits-up-10x"
+    "newUpdate": "ОБНОВЛЕНИЕ ОТ 24 ИЮНЯ",
+    "title": "Agent Computer стал мощнее",
+    "url": "https://help.teable.ai/en/changelog#jun-24-2026",
+    "id": "changelog-2026-06-24-agent-computer-supercharged"
+  },
+  "resourceDescription": {
+    "addDescription": "Добавить описание",
+    "nodeDescription": "Описание узла",
+    "descriptionSaving": "Сохранение...",
+    "descriptionSaveFailed": "Не удалось сохранить описание, повторите попытку",
+    "descriptionPlaceholder": "Добавьте описание для этого узла"
   }
 }

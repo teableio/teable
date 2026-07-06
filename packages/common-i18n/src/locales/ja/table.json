@@ -394,6 +394,9 @@
         "medium": "中",
         "high": "高"
       },
+      "tip": {
+        "gptImageResolution": "総画素数の上限があるため、4K モードでは一部のアスペクト比で生成可能な最大の準拠サイズが使用されます。"
+      },
       "autoFill": {
         "title": "自動更新",
         "tip": "有効にすると、現在のフィールドは AI 構成の内容の変更と同期して更新されます"
@@ -687,6 +690,7 @@
     "menu": {
       "addFromOtherSource": "他のソースから追加",
       "excelFile": "Microsoft Excelル",
+      "airtable": "Airtable",
       "csvFile": "CSVファイル",
       "importCsvData": "CSVデータをインポート",
       "importExcelData": "Microsoft Excelデータをインポート",
@@ -837,6 +841,7 @@
     "noPermission": "データベースにアクセスする権限がありません",
     "connectionCountTip": "データベース接続の最大数は <b>{{max}}</b> で、現在の接続数は <b>{{current}}</b> です",
     "createFailed": "PUBLIC_DATABASE_PROXY 環境変数が正しく設定されていることを確認してください",
+    "readonlyUnavailable": "Readonly database sharing is unavailable for this data database. Grant the Teable database user permission to create roles and grants, or use a target database that supports readonly roles.",
     "helpLink": "https://help.teable.ai/en/deploy/database-connection"
   },
   "view": {
@@ -952,6 +957,20 @@
     "shareNodeTab": "ノードを共有"
   },
   "aiChat": {
+    "integrationConnect": {
+      "title": "{{provider}} に接続",
+      "reconnectTitle": "{{provider}} に再接続",
+      "defaultReason": "続行するには、エージェントが {{provider}} アカウントにアクセスする必要があります。",
+      "connect": "接続",
+      "connecting": "接続中…",
+      "giveUp": "中止",
+      "failed": "接続に失敗しました",
+      "status": {
+        "connected": "接続済み",
+        "cancelled": "スキップ済み",
+        "failed": "失敗"
+      }
+    },
     "agent": {
       "askUserQuestion": {
         "otherPlaceholder": "または回答を入力…"
@@ -986,6 +1005,11 @@
     "action": {
       "locateResource": "検索"
     },
+    "showUI": {
+      "skip": "スキップ",
+      "next": "次へ",
+      "submit": "送信"
+    },
     "newChat": "新しいチャット",
     "expand": "展開",
     "history": "履歴",
@@ -1008,7 +1032,8 @@
       "selectionRow": "Row {{row}}",
       "selectionRows": "行 {{start}}-{{end}}",
       "selectionColumn": "Col {{col}}",
-      "selectionColumns": "Col {{start}}-{{end}}"
+      "selectionColumns": "Col {{start}}-{{end}}",
+      "selectionColumnsNamed": "{{names}} +{{count}}"
     },
     "mention": {
       "tables": "テーブル",
@@ -1016,9 +1041,19 @@
       "workflows": "自動化",
       "folders": "フォルダ"
     },
-    "inputPlaceholder": "@ でノードを追加",
+    "slashCommand": {
+      "skills": "Skills",
+      "searchEmpty": "No results found"
+    },
+    "inputPlaceholder": "@ でノードを追加、/ でスキルを実行",
     "inputPlaceholderFiles": "ファイルを貼り付けまたはドロップ",
     "thought": "思考中",
+    "stage": {
+      "initializing": "初期化中",
+      "working": "作業中",
+      "committing": "コミット中",
+      "recovering": "復旧中"
+    },
     "meta": {
       "input": "入力",
       "output": "出力",
@@ -1026,7 +1061,9 @@
     },
     "attachment": {
       "pastedTextFileName": "貼り付けテキスト",
-      "imageNotSupported": "画像はサポートされていません"
+      "imageNotSupported": "画像はサポートされていません",
+      "tooManyFiles": "1つのメッセージに添付できるファイルは最大{{count}}個です",
+      "storageFull": "サンドボックスのストレージがいっぱいです。ファイルを削除してから再試行してください。"
     },
     "suggestions": {
       "title": "何をお手伝いしましょうか？",
@@ -1080,6 +1117,19 @@
       "noPrefixOptionDesc": "元のファイル名を保持",
       "groupByRow": "フォルダにアーカイブ",
       "groupByRowTip": "行に複数の添付ファイルがある場合、同じフォルダに配置されます。添付ファイルが1つだけの行はフォルダを作成しません。"
+    }
+  },
+  "baseNode": {
+    "info": {
+      "menu": "ノード情報",
+      "createdBy": "作成者",
+      "createdTime": "作成日時",
+      "lastModifiedBy": "更新者",
+      "lastModifiedTime": "更新日時",
+      "folderId": "フォルダ ID",
+      "tableId": "テーブル ID",
+      "automationId": "オートメーション ID",
+      "appId": "アプリ ID"
     }
   }
 }

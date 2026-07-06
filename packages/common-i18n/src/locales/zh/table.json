@@ -464,6 +464,9 @@
         "attachmentNotSupported": "💡 当前模型不支持传入附件，仅 Gemini 模型支持图生图",
         "singleImageOnly": "该模型每次只能生成一张图片"
       },
+      "tip": {
+        "gptImageResolution": "受总像素上限限制，4K 模式会使用当前可生成的最大合规尺寸"
+      },
       "auto": "自动",
       "resolution": {
         "1K": "1K (标准)",
@@ -635,6 +638,29 @@
           "preparing": "准备中",
           "guarding": "检查中",
           "processing": "清除中",
+          "publishing": "发布中",
+          "finalizing": "收尾中"
+        }
+      },
+      "restoreFieldStream": {
+        "confirmTitle": "恢复字段",
+        "confirmDescription": "此操作将恢复已删除字段及其记录值。",
+        "preparing": "正在准备字段恢复",
+        "restoring": "正在恢复字段...",
+        "restoringRecords": "正在恢复记录值",
+        "restoreFailed": "恢复失败",
+        "descriptionWithIssues": "部分恢复分片失败，请查看下方详情。",
+        "completedWithIssues": "恢复已完成，但存在问题",
+        "issuesBadge": "{{count}} 个问题",
+        "chunkFailureTitle": "分片失败详情",
+        "chunkFailureSummary": "共有 {{count}} 个分片报错，但流式恢复仍继续执行。",
+        "chunkLabel": "分片 {{index}}",
+        "rowsLabel": "{{count}} 行",
+        "partialFailureDescription": "已恢复 {{totalCount}} 条记录中的 {{completedCount}} 条，请在弹窗中查看分片详情。",
+        "phaseLabel": {
+          "preparing": "准备中",
+          "guarding": "检查中",
+          "processing": "恢复中",
           "publishing": "发布中",
           "finalizing": "收尾中"
         }
@@ -950,6 +976,7 @@
     "menu": {
       "addFromOtherSource": "从第三方资源导入",
       "excelFile": "Microsoft Excel",
+      "airtable": "Airtable",
       "csvFile": "CSV 文件",
       "importCsvData": "导入 CSV 数据",
       "importExcelData": "导入 Microsoft Excel 数据",
@@ -1136,6 +1163,7 @@
     "noPermission": "你没有权限访问数据库连接",
     "connectionCountTip": "最大数据库连接数为 <b>{{max}}</b> 当前已建立的连接数为 <b>{{current}}</b>",
     "createFailed": "请确保环境变量 PUBLIC_DATABASE_PROXY 设置正确",
+    "readonlyUnavailable": "当前数据数据库不支持创建只读分享连接。请为 Teable 数据库用户授予创建角色和授权的权限，或更换支持只读角色的数据库。",
     "helpLink": "https://help.teable.cn/zh/deploy/database-connection"
   },
   "view": {
@@ -1288,6 +1316,20 @@
     "shareNodeTab": "分享节点"
   },
   "aiChat": {
+    "integrationConnect": {
+      "title": "连接 {{provider}}",
+      "reconnectTitle": "重新连接 {{provider}}",
+      "defaultReason": "智能体需要访问你的 {{provider}} 账户才能继续。",
+      "connect": "连接",
+      "connecting": "连接中…",
+      "giveUp": "放弃",
+      "failed": "连接失败",
+      "status": {
+        "connected": "已连接",
+        "cancelled": "已跳过",
+        "failed": "失败"
+      }
+    },
     "agent": {
       "askUserQuestion": {
         "otherPlaceholder": "或输入自定义回答…",
@@ -1317,7 +1359,8 @@
       },
       "contextCompaction": {
         "auto": "上下文已自动压缩",
-        "manual": "上下文已压缩"
+        "manual": "上下文已压缩",
+        "compacting": "正在压缩上下文…"
       },
       "taskProgress": {
         "title": "任务进度"
@@ -1410,7 +1453,8 @@
       "selectionRow": "行 {{row}}",
       "selectionRows": "行 {{start}}-{{end}}",
       "selectionColumn": "列 {{col}}",
-      "selectionColumns": "列 {{start}}-{{end}}"
+      "selectionColumns": "列 {{start}}-{{end}}",
+      "selectionColumnsNamed": "{{names}} +{{count}}"
     },
     "mention": {
       "tables": "数据表",
@@ -1419,9 +1463,19 @@
       "folders": "文件夹",
       "envs": "密钥"
     },
-    "inputPlaceholder": "输入 @ 添加节点",
+    "slashCommand": {
+      "skills": "技能",
+      "searchEmpty": "未找到结果"
+    },
+    "inputPlaceholder": "@添加节点，/使用 skill",
     "inputPlaceholderFiles": "粘贴或拖入文件",
-    "thought": "深度思考",
+    "thought": "思考中",
+    "stage": {
+      "initializing": "准备中",
+      "working": "工作中",
+      "committing": "提交中",
+      "recovering": "恢复中"
+    },
     "meta": {
       "input": "输入",
       "output": "输出",
@@ -1429,7 +1483,9 @@
     },
     "attachment": {
       "pastedTextFileName": "粘贴文本",
-      "imageNotSupported": "不支持图片"
+      "imageNotSupported": "不支持图片",
+      "tooManyFiles": "每条消息最多添加 {{count}} 个文件",
+      "storageFull": "沙箱存储空间已满，请删除部分文件后重试。"
     },
     "suggestions": {
       "title": "有什么可以帮您？",
@@ -1458,7 +1514,9 @@
     "queue": {
       "nQueued": "{{count}} 条排队中",
       "edit": "编辑",
-      "forceSend": "中断并立即发送",
+      "steerNow": "引导对话，不中断模型运行",
+      "steerFailed": "引导对话失败，消息已保留在队列中",
+      "conversationInputMarker": "已引导对话",
       "removeFromQueue": "移除"
     },
     "partTool": {
@@ -1467,14 +1525,25 @@
       "write": "创建文件",
       "edit": "编辑文件",
       "glob": "查找文件",
+      "find": "查找文件",
       "grep": "搜索文件内容",
+      "ls": "列出目录",
       "webSearch": "搜索网页",
       "skill": "加载技能",
       "foundFiles": "找到 {{count}} 个文件",
+      "listedEntries": "{{count}} 个条目",
       "moreTools": "还有 {{count}} 个工具",
       "moreItems": "还有 {{count}} 个",
       "fallbackName": "工具",
-      "questionCount_other": "{{count}} 个问题"
+      "questionCount_other": "{{count}} 个问题",
+      "presentFiles": "已生成文件",
+      "download": "下载",
+      "installSkill": "安装",
+      "installSkillTitle": "安装技能",
+      "installSkillDescription": "选择技能的安装位置",
+      "skillInstalled": "已安装",
+      "installSkillFailed": "安装技能失败",
+      "installSkillReplaceWarning": "若该作用域已存在同名技能，安装后将替换它。"
     },
     "retry": {
       "interrupted": "响应已中断",
@@ -1498,22 +1567,19 @@
       "accept": "结束语音输入",
       "cancel": "丢弃本次语音输入",
       "permissionTip": "允许使用麦克风。",
-      "connecting": "连接中...",
-      "reconnecting": "重连中...",
+      "recording": "录音中...",
+      "transcribing": "识别中...",
       "listening": "正在听，请开始说话",
       "preview": "正在听：{{text}}",
       "error": {
         "microphoneDenied": "麦克风权限已关闭。",
         "microphoneUnavailable": "没有可用麦克风。",
-        "unsupportedBrowser": "当前浏览器不支持 WebRTC。",
-        "sessionFailed": "语音初始化失败。",
-        "connectionFailed": "语音连接失败。",
-        "localConnectionFailed": "语音初始化失败，请刷新重试。",
-        "disconnected": "语音已断开。",
+        "unsupportedBrowser": "当前浏览器不支持录音。",
+        "recordingFailed": "录音失败。",
         "missingServerKey": "语音输入未配置。",
         "unauthenticated": "请重新登录。",
         "rateLimited": "尝试太频繁，稍后再试。",
-        "upstreamAuthFailed": "Realtime API Key 无效。",
+        "upstreamAuthFailed": "转写 API Key 无效。",
         "upstreamBadRequest": "语音 endpoint 无效。",
         "upstreamUnavailable": "语音服务不可用。"
       }
@@ -1527,5 +1593,18 @@
     "statusCompleted": "完成",
     "statusCancel": "取消上传",
     "statusRetry": "重试上传"
+  },
+  "baseNode": {
+    "info": {
+      "menu": "节点信息",
+      "createdBy": "创建人",
+      "createdTime": "创建时间",
+      "lastModifiedBy": "修改人",
+      "lastModifiedTime": "修改时间",
+      "folderId": "文件夹 ID",
+      "tableId": "表格 ID",
+      "automationId": "自动化 ID",
+      "appId": "应用 ID"
+    }
   }
 }

@@ -125,7 +125,7 @@ export const LLMProviderManage = ({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="font-medium">
-                    {provider.name} - {provider.type}
+                    {provider.displayName || provider.name} - {provider.type}
                   </span>
                   {models.length > 0 && (
                     <TooltipProvider>
