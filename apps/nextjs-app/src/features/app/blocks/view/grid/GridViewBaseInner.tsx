@@ -66,6 +66,7 @@ import {
 import { GRID_DEFAULT } from '@teable/sdk/components/grid/configs';
 import { useScrollFrameRate } from '@teable/sdk/components/grid/hooks';
 import { ReactQueryKeys } from '@teable/sdk/config';
+import { ShareViewContext } from '@teable/sdk/context';
 import {
   useBaseId,
   useFields,
@@ -82,6 +83,7 @@ import {
   useViewId,
   useRecordOperations,
   useButtonClickStatus,
+  useSearch,
   useTableListener,
 } from '@teable/sdk/hooks';
 import {
@@ -167,6 +169,12 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const allFields = useFields({ withHidden: true });
   const taskStatusCollection = useContext(TaskStatusCollectionContext);
   const { shareId } = useShareContext();
+  // Attachment uploads must carry the share-VIEW id (sent as the Tea-Share-Id
+  // header → share-view auth). ShareContext.shareId is also set under a base
+  // share, where it's the BASE-share id — sending that as Tea-Share-Id would
+  // misroute the request to share-view auth and break base-share uploads. The
+  // share-view id lives only in ShareViewContext (empty outside a share view).
+  const { shareId: shareViewId } = useContext(ShareViewContext);
   const buttonClickStatusHook = useButtonClickStatus(tableId, shareId);
   const { setGridRef, searchCursor, highlightedFieldId, setRecordMap, setFields } =
     useGridSearchStore();
@@ -195,6 +203,13 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const sort = view?.sort;
   const group = view?.group;
   const isAutoSort = sort && !sort?.manualSort;
+  // Fields whose edit re-positions the row: auto-sort + group fields.
+  const moveTriggerFieldIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (isAutoSort) sort?.sortObjs?.forEach((sortObj) => ids.add(sortObj.fieldId));
+    group?.forEach((groupObj) => ids.add(groupObj.fieldId));
+    return ids;
+  }, [isAutoSort, sort, group]);
   const { frozenFieldId, frozenColumnCount: frozenColumnCountOption } = (view?.options ??
     {}) as IGridViewOptions;
   const frozenColumnCount = useMemo(() => {
@@ -246,6 +261,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     generateLocalId(tableId, activeViewId),
     personalViewCommonQuery
   );
+  const { filteringSearchQuery } = useSearch();
 
   useEffect(() => {
     if (!baseId || !activeViewId) return;
@@ -254,7 +270,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     queryClient.setQueryData(queryKey, {
       tableId,
       viewId: activeViewId,
-      query: viewQuery,
+      query: { ...viewQuery, search: filteringSearchQuery },
     });
 
     return () => {
@@ -263,7 +279,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         queryClient.removeQueries({ queryKey, exact: true });
       }
     };
-  }, [queryClient, baseId, tableId, activeViewId, viewQuery]);
+  }, [queryClient, baseId, tableId, activeViewId, viewQuery, filteringSearchQuery]);
 
   const {
     onVisibleRegionChanged,
@@ -385,9 +401,9 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       const [columnIndex, rowIndex] = cell;
       const record = recordMap[rowIndex];
       const field = fields[columnIndex];
-      startUpload(tableId, record.id, field.id, Array.from(files), baseId);
+      startUpload(tableId, record.id, field.id, Array.from(files), baseId, shareViewId);
     },
-    [baseId, fields, recordMap, startUpload, tableId]
+    [baseId, shareViewId, fields, recordMap, startUpload, tableId]
   );
 
   const startPendingUpload = useCellAttachmentUploadStore((s) => s.startPendingUpload);
@@ -400,9 +416,9 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       const files = Array.from(fileList);
       if (!files.length) return;
 
-      startPendingUpload(tableId, tempRecordId, field.id, files, baseId);
+      startPendingUpload(tableId, tempRecordId, field.id, files, baseId, shareViewId);
     },
-    [tableId, tempRecordId, fields, baseId, startPendingUpload]
+    [tableId, tempRecordId, fields, baseId, shareViewId, startPendingUpload]
   );
 
   const completedPendingByField = useCellAttachmentUploadStore((s) =>
@@ -436,6 +452,24 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const consumePendingForCreate = useCellAttachmentUploadStore((s) => s.consumePendingForCreate);
   const promoteToCell = useCellAttachmentUploadStore((s) => s.promoteToCell);
   const cancelPendingUploads = useCellAttachmentUploadStore((s) => s.cancelPendingUploads);
+  const removePendingCellTasks = useCellAttachmentUploadStore((s) => s.removePendingCellTasks);
+
+  // Clearing/overwriting an attachment cell outside the editor (Delete key, paste)
+  // bypasses the editor onChange, so drop the matching pending upload tasks here.
+  // Otherwise the completed-pending sync effect re-injects them and the create-time
+  // merge re-persists the removed attachments into the new record.
+  const reconcilePendingAttachmentCell = useCallback(
+    (fieldId: string, nextValue: unknown) => {
+      if (!tableId) return;
+      const field = fields.find((f) => f.id === fieldId);
+      if (field?.type !== FieldType.Attachment) return;
+      const keepIds = new Set(
+        ((nextValue as IAttachmentItem[] | null | undefined) ?? []).map((item) => item.id)
+      );
+      removePendingCellTasks(tableId, tempRecordId, fieldId, keepIds);
+    },
+    [fields, removePendingCellTasks, tableId, tempRecordId]
+  );
 
   const { mutate: mutateCreateRecord, isPending: isCreatingRecord } = useMutation({
     mutationFn: async (records: ICreateRecordsRo['records']) => {
@@ -511,10 +545,11 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     }
 
     const recordIds = Object.entries(recordMap)
+      .filter(([index]) => Number(index) < realRowCount)
       .sort(([a], [b]) => Number(a) - Number(b))
       .map(([, record]) => record.id);
     expandRecordRef.current?.updateRecordIds?.(recordIds);
-  }, [recordMap, expandedRecordId]);
+  }, [recordMap, expandedRecordId, realRowCount]);
 
   // The recordId on the route changes, and the activeCell needs to change with it
   useEffect(() => {
@@ -611,10 +646,9 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       const isMultipleSelected =
         (isRowSelection && ranges.length > 1) || Math.abs(rowEnd - rowStart) > 0;
 
-      const addToChat =
-        !isSingleCell && baseId
-          ? () => cacheSelectionForChat(queryClient, baseId, selection, true)
-          : undefined;
+      const addToChat = baseId
+        ? () => cacheSelectionForChat(queryClient, baseId, selection, true)
+        : undefined;
 
       if (isMultipleSelected || isMultiCellSelection) {
         openRecordMenu({
@@ -638,7 +672,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
               if (!confirmed) return;
             }
 
-            deleteRecords(selection);
+            deleteRecords(selection, recordMap);
             gridRef.current?.setSelection(emptySelection);
           },
           duplicateRecord: async () => {
@@ -683,7 +717,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
             });
           },
           deleteRecords: async () => {
-            deleteRecords(selection);
+            deleteRecords(selection, recordMap);
             gridRef.current?.setSelection(emptySelection);
           },
           copyRecordUrl: async () => {
@@ -719,7 +753,8 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
             queryClient,
             baseId,
             Math.min(start, end),
-            Math.max(start, end)
+            Math.max(start, end),
+            selectColumns.map((column) => column.name)
           );
         },
       });
@@ -747,7 +782,9 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         onAutoFill,
         addToChat: () => {
           if (!baseId) return;
-          cacheColumnSelectionForChat(queryClient, baseId, colIndex, colIndex);
+          cacheColumnSelectionForChat(queryClient, baseId, colIndex, colIndex, [
+            columns[colIndex].name,
+          ]);
         },
       });
     },
@@ -912,7 +949,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   }, [isTouchDevice, permission]);
 
   const onDelete = (selection: CombinedSelection) => {
-    clear(selection);
+    clear(selection, recordMap);
   };
 
   const selectionIncludesCrossBaseField = useCallback(
@@ -963,7 +1000,12 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       if (!confirmed) return;
 
       await copy(selection, async () => {
-        const { content, headers } = getSyncCopyData({ recordMap, fields, selection });
+        const { content, headers } = getSyncCopyData({
+          recordMap,
+          fields,
+          selection,
+          rowCount: realRowCount,
+        });
         return { content, header: downgradeCrossBaseHeaders(headers, baseId).headers };
       });
       return;
@@ -975,10 +1017,10 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
 
     if (isSelectionLoaded({ selection, recordMap, rowCount: realRowCount })) {
       // sync copy
-      syncCopy(e, { selection, recordMap });
+      syncCopy(e, { selection, recordMap, rowCount: realRowCount });
       return;
     }
-    copy(selection);
+    copy(selection, undefined, recordMap);
   };
 
   const onCopyForSingleRow = async (
@@ -1025,6 +1067,9 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         setNewRecords(records);
         return;
       }
+      Object.entries(records[0].fields).forEach(([fieldId, value]) =>
+        reconcilePendingAttachmentCell(fieldId, value)
+      );
       setPrefillingFieldValueMap({ ...prefillingFieldValueMap, ...records[0].fields });
     });
   };
@@ -1060,6 +1105,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       const fieldId = columns[col]?.id;
       if (!fieldId) continue;
       updated[fieldId] = null;
+      reconcilePendingAttachmentCell(fieldId, null);
     }
     setPrefillingFieldValueMap(updated);
   };
@@ -1142,6 +1188,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       recordMap,
       fields,
       selection: selectionForCopy,
+      rowCount: realRowCount,
     });
 
     const fillPayload = buildFillSelectionPaste({
@@ -1152,7 +1199,33 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       fields: fields.slice(startCol, endCol + 1),
     });
 
-    if (fillPayload) fill(fillPayload);
+    if (fillPayload) {
+      const [[targetStartCol, targetStartRow], [targetEndCol, targetEndRow]] = fillPayload.ranges;
+      const targetRecordIds: string[] = [];
+      for (let rowIndex = targetStartRow; rowIndex <= targetEndRow; rowIndex += 1) {
+        const recordId = recordMap[rowIndex]?.id;
+        if (recordId) {
+          targetRecordIds.push(recordId);
+          continue;
+        }
+        if (rowIndex < realRowCount) {
+          toast.error(t('table:table.actionTips.fillFailed'));
+          return;
+        }
+      }
+      const targetFieldIds = fields
+        .slice(targetStartCol, targetEndCol + 1)
+        .map((field) => field.id);
+
+      fill({
+        content: fillPayload.content,
+        header: fillPayload.header,
+        selection: {
+          recordIds: targetRecordIds,
+          fieldIds: targetFieldIds,
+        },
+      });
+    }
   };
 
   const componentId = useMemo(() => uniqueId('grid-view-'), []);
@@ -1542,6 +1615,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         theme={theme}
         style={{ pointerEvents: inPrefilling || inPresorting ? 'none' : 'auto' }}
         draggable={draggable}
+        disableEnterMoveDown={activeCell != null && moveTriggerFieldIds.has(activeCell.fieldId)}
         isTouchDevice={isTouchDevice}
         rowCount={realRowCount}
         rowHeight={rowHeight}

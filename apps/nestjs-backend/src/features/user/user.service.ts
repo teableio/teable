@@ -1,6 +1,6 @@
 import https from 'https';
 import { join } from 'path';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   generateAccountId,
   generateSpaceId,
@@ -11,7 +11,7 @@ import {
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
-import { CollaboratorType, PrincipalType, UploadType } from '@teable/openapi';
+import { CollaboratorType, isEmailDomainBanned, PrincipalType, UploadType } from '@teable/openapi';
 import type { IUserInfoVo, ICreateSpaceRo, IUserNotifyMeta } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import { I18nContext } from 'nestjs-i18n';
@@ -26,13 +26,15 @@ import type { IClsStore } from '../../types/cls';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
-import { Audit } from '../audit/audit.decorator';
 import { AuditScope } from '../audit/audit-scope';
+import { Audit } from '../audit/audit.decorator';
 import { UserModel } from '../model/user';
 import { SettingService } from '../setting/setting.service';
 
 @Injectable()
 export class UserService {
+  private readonly logger = new Logger(UserService.name);
+
   constructor(
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
@@ -128,11 +130,27 @@ export class UserService {
         }
       );
     }
+    this.throwIfEmailDomainBanned(user.email, setting.bannedEmailDomains);
     if (setting.enableWaitlist) {
       await this.checkWaitlistInviteCode(inviteCode);
     }
 
     return await this.createUser(user, account, defaultSpaceName, autoSpaceCreation);
+  }
+
+  throwIfEmailDomainBanned(email: string, bannedEmailDomains?: string[] | null) {
+    if (isEmailDomainBanned(email, bannedEmailDomains)) {
+      this.logger.log(`[banned-domain] rejected email=${email}`);
+      throw new CustomHttpException(
+        'This email domain has been banned due to policy violations',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.user.emailDomainBanned',
+          },
+        }
+      );
+    }
   }
 
   async checkWaitlistInviteCode(inviteCode?: string) {
@@ -334,12 +352,37 @@ export class UserService {
   }
 
   async updateNotifyMeta(id: string, notifyMetaRo: IUserNotifyMeta) {
-    await this.prismaService.txClient().user.update({
-      data: {
-        notifyMeta: JSON.stringify(notifyMetaRo),
-      },
-      where: { id, deletedTime: null },
+    await this.prismaService.$tx(async () => {
+      const [user] = await this.prismaService.txClient().$queryRaw<
+        Array<{ notifyMeta: string | null }>
+      >`
+        SELECT "notify_meta" AS "notifyMeta"
+        FROM "users"
+        WHERE "id" = ${id}
+          AND "deleted_time" IS NULL
+        FOR UPDATE
+      `;
+      const prevNotifyMeta = this.parseNotifyMeta(user?.notifyMeta);
+
+      await this.prismaService.txClient().user.update({
+        data: {
+          notifyMeta: JSON.stringify({ ...prevNotifyMeta, ...notifyMetaRo }),
+        },
+        where: { id, deletedTime: null },
+      });
     });
+  }
+
+  private parseNotifyMeta(notifyMeta?: string | null): IUserNotifyMeta {
+    if (!notifyMeta) {
+      return {};
+    }
+
+    try {
+      return JSON.parse(notifyMeta) as IUserNotifyMeta;
+    } catch {
+      return {};
+    }
   }
 
   async updateLang(id: string, lang: string) {

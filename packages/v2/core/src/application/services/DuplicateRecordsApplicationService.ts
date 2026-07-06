@@ -48,7 +48,10 @@ import type { SpanAttributes } from '../../ports/Tracer';
 import * as UnitOfWorkPort from '../../ports/UnitOfWork';
 import type { RecordSortValue } from '../../queries/ListTableRecordsQuery';
 import type { RecordFilter } from '../../queries/RecordFilterDto';
-import { buildSanitizedRecordConditionSpec } from '../../queries/RecordFilterMapper';
+import {
+  buildSanitizedRecordConditionSpec,
+  replaceCurrentUserTagInFilter,
+} from '../../queries/RecordFilterMapper';
 import {
   resolveVisibleRowSearch,
   type RecordQuerySearch,
@@ -318,7 +321,12 @@ export class DuplicateRecordsApplicationService {
       ? command.groupBy ?? undefined
       : mergedDefaults.group();
 
-    const filterSpecResult = await buildSanitizedRecordConditionSpec(table, effectiveFilter);
+    const actorResolvedFilter = replaceCurrentUserTagInFilter(
+      table,
+      effectiveFilter,
+      context.actorId.toString()
+    );
+    const filterSpecResult = await buildSanitizedRecordConditionSpec(table, actorResolvedFilter);
     if (filterSpecResult.isErr()) {
       return err(filterSpecResult.error);
     }
@@ -723,33 +731,28 @@ export class DuplicateRecordsApplicationService {
       return err(createResult.error);
     }
 
+    const batchMutation = orchestration
+      ? {
+          operationId: orchestration.operationId,
+          groupId: orchestration.operationId,
+          totalRecordCount: orchestration.totalRecordCount,
+          totalChunkCount: orchestration.totalChunkCount,
+          chunkIndex: orchestration.chunkIndex,
+          scope: 'chunk' as const,
+        }
+      : buildOperationBatchMutation(context.requestId, chunk.sourceRecords.length);
+
     const transactionResult = await this.runInSpan(
       context,
       'teable.DuplicateRecordsApplicationService.persistDuplicateChunkMutation',
       traceAttributes,
       () =>
         this.unitOfWork.withTransaction(context, async (transactionContext) => {
-          const transactionContextWithBatchMutation = orchestration
-            ? {
-                ...transactionContext,
-                batchMutation: {
-                  operationId: orchestration.operationId,
-                  groupId: orchestration.operationId,
-                  totalRecordCount: orchestration.totalRecordCount,
-                  totalChunkCount: orchestration.totalChunkCount,
-                  chunkIndex: orchestration.chunkIndex,
-                  scope: 'chunk' as const,
-                },
-              }
-            : {
-                ...transactionContext,
-                batchMutation: buildOperationBatchMutation(context, chunk.sourceRecords.length),
-              };
           let tableEvents: ReadonlyArray<IDomainEvent> = [];
           const updateResult = sideEffectResult.value.updateResult;
           if (updateResult) {
             const tableFlowResult = await this.tableUpdateFlow.execute(
-              transactionContextWithBatchMutation,
+              transactionContext,
               { table },
               () => ok(updateResult),
               { publishEvents: false }
@@ -761,19 +764,20 @@ export class DuplicateRecordsApplicationService {
           }
 
           if (pluginExecution) {
-            const beforePersistResult = await pluginExecution.beforePersist(
-              transactionContextWithBatchMutation
-            );
+            const beforePersistResult = await pluginExecution.beforePersist(transactionContext);
             if (beforePersistResult.isErr()) {
               return err(beforePersistResult.error);
             }
           }
 
           const insertResult = await this.tableRecordRepository.insertMany(
-            transactionContextWithBatchMutation,
+            transactionContext,
             tableForCreate,
             createResult.value.records,
-            order ? { order } : undefined
+            {
+              orchestration: batchMutation,
+              ...(order ? { order } : {}),
+            }
           );
           if (insertResult.isErr()) {
             return err(insertResult.error);
@@ -797,14 +801,19 @@ export class DuplicateRecordsApplicationService {
       traceAttributes,
       async () => [
         ...persisted.tableEvents,
-        ...this.aggregateCreatedEvents(table, persisted.mutationResult, persisted.records, {
-          operationId: orchestration?.operationId,
-          groupId: orchestration?.operationId,
-          totalRecordCount: orchestration?.totalRecordCount ?? persisted.records.length,
-          totalChunkCount: orchestration?.totalChunkCount ?? 1,
-          chunkIndex: orchestration?.chunkIndex ?? 0,
-          scope: 'chunk',
-        }),
+        ...this.aggregateCreatedEvents(
+          table,
+          persisted.mutationResult,
+          persisted.records,
+          orchestration
+            ? batchMutation
+            : {
+                totalRecordCount: persisted.records.length,
+                totalChunkCount: 1,
+                chunkIndex: 0,
+                scope: 'chunk',
+              }
+        ),
       ]
     );
     const storedSnapshotsResult = await this.buildStoredSnapshots(

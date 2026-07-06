@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "@teable/v2-table-query-ops",
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": false,
+    "target": "esnext",
+    "lib": ["esnext"],
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "isolatedModules": false,
+    "noEmit": false,
+    "incremental": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationDir": "dist",
+    "composite": true,
+    "outDir": "./dist",
+    "rootDir": "../../",
+    "paths": {
+      "@teable/v2-core": ["../core/src"],
+      "@teable/v2-di": ["../di/src"],
+      "@teable/core": ["../../core/src"],
+      "@teable/formula": ["../../formula/src"],
+      "@teable/i18n-keys": ["../../i18n-keys/src"]
+    },
+    "types": ["vitest/globals", "node"]
+  },
+  "include": [
+    "src",
+    "../core/src",
+    "../di/src",
+    "../../core/src",
+    "../../formula/src",
+    "../../i18n-keys/src"
+  ],
+  "exclude": [
+    "**/node_modules",
+    "**/.*/",
+    "./dist",
+    "./coverage",
+    "../core/src/**/*.spec.ts",
+    "../../formula/src/**/*.spec.ts"
+  ]
+}

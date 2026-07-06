@@ -403,6 +403,9 @@
         "medium": "Mittel",
         "high": "Hoch"
       },
+      "tip": {
+        "gptImageResolution": "Durch die Begrenzung der Gesamtpixelzahl verwendet der 4K-Modus bei manchen Seitenverhältnissen die größte noch zulässige Ausgabegröße."
+      },
       "autoFill": {
         "title": "Automatisch aktualisieren",
         "tip": "Nachdem Sie diese Option aktiviert haben, wird das aktuelle Feld synchron mit den Inhaltsänderungen der AI-Konfiguration aktualisiert"
@@ -696,6 +699,7 @@
     "menu": {
       "addFromOtherSource": "Aus anderen Quellen hinzufügen",
       "excelFile": "Microsoft Excel",
+      "airtable": "Airtable",
       "csvFile": "CSV Datei",
       "importCsvData": "CSV-Daten importieren",
       "importExcelData": "Microsoft Excel-Daten importieren",
@@ -850,6 +854,7 @@
     "noPermission": "Sie haben keine Berechtigung zum Zugriff auf die Datenbank",
     "connectionCountTip": "Die maximale Anzahl von Datenbankverbindungen beträgt <b>{{max}}</b> und die aktuellen Verbindungen sind <b>{{current}}</b>",
     "createFailed": "Bitte stellen Sie sicher, dass die Umgebungsvariable PUBLIC_DATABASE_PROXY korrekt gesetzt ist",
+    "readonlyUnavailable": "Readonly database sharing is unavailable for this data database. Grant the Teable database user permission to create roles and grants, or use a target database that supports readonly roles.",
     "helpLink": "https://help.teable.ai/en/deploy/database-connection"
   },
   "view": {
@@ -974,6 +979,20 @@
     "shareNodeTab": "Knoten teilen"
   },
   "aiChat": {
+    "integrationConnect": {
+      "title": "{{provider}} verbinden",
+      "reconnectTitle": "{{provider}} erneut verbinden",
+      "defaultReason": "Der Agent benötigt Zugriff auf Ihr {{provider}}-Konto, um fortzufahren.",
+      "connect": "Verbinden",
+      "connecting": "Verbindung wird hergestellt…",
+      "giveUp": "Aufgeben",
+      "failed": "Verbindung fehlgeschlagen",
+      "status": {
+        "connected": "Verbunden",
+        "cancelled": "Übersprungen",
+        "failed": "Fehlgeschlagen"
+      }
+    },
     "agent": {
       "askUserQuestion": {
         "otherPlaceholder": "Oder Antwort eingeben…"
@@ -1008,6 +1027,11 @@
     "action": {
       "locateResource": "Suchen"
     },
+    "showUI": {
+      "skip": "Überspringen",
+      "next": "Nächste",
+      "submit": "Abschicken"
+    },
     "newChat": "Neue Chat",
     "expand": "Erweitern",
     "history": "Verlauf",
@@ -1030,7 +1054,8 @@
       "selectionRow": "Row {{row}}",
       "selectionRows": "Zeilen {{start}}-{{end}}",
       "selectionColumn": "Col {{col}}",
-      "selectionColumns": "Col {{start}}-{{end}}"
+      "selectionColumns": "Col {{start}}-{{end}}",
+      "selectionColumnsNamed": "{{names}} +{{count}}"
     },
     "mention": {
       "tables": "Tabellen",
@@ -1038,9 +1063,19 @@
       "workflows": "Automatisierungen",
       "folders": "Ordner"
     },
-    "inputPlaceholder": "@ tippen, um Knoten hinzuzufügen",
+    "slashCommand": {
+      "skills": "Skills",
+      "searchEmpty": "No results found"
+    },
+    "inputPlaceholder": "@ fügt Knoten hinzu, / führt Skills aus",
     "inputPlaceholderFiles": "Dateien hier einfügen oder ablegen",
     "thought": "Denken",
+    "stage": {
+      "initializing": "Initialisieren",
+      "working": "In Arbeit",
+      "committing": "Commit läuft",
+      "recovering": "Wiederherstellung"
+    },
     "meta": {
       "input": "Eingabe",
       "output": "Ausgabe",
@@ -1048,7 +1083,9 @@
     },
     "attachment": {
       "pastedTextFileName": "Eingefügter Text",
-      "imageNotSupported": "Bild wird nicht unterstützt"
+      "imageNotSupported": "Bild wird nicht unterstützt",
+      "tooManyFiles": "Sie können pro Nachricht höchstens {{count}} Dateien anhängen",
+      "storageFull": "Der Sandbox-Speicher ist voll. Löschen Sie einige Dateien und versuchen Sie es erneut."
     },
     "suggestions": {
       "title": "Wie kann ich helfen?",
@@ -1102,6 +1139,19 @@
       "noPrefixOptionDesc": "Originaldateiname beibehalten",
       "groupByRow": "In Ordner archivieren",
       "groupByRowTip": "Wenn eine Zeile mehrere Anhänge hat, werden sie im selben Ordner abgelegt; Zeilen mit nur einem Anhang erstellen keinen Ordner."
+    }
+  },
+  "baseNode": {
+    "info": {
+      "menu": "Knoteninfo",
+      "createdBy": "Erstellt von",
+      "createdTime": "Erstellungszeit",
+      "lastModifiedBy": "Geändert von",
+      "lastModifiedTime": "Änderungszeit",
+      "folderId": "Ordner-ID",
+      "tableId": "Tabellen-ID",
+      "automationId": "Automatisierungs-ID",
+      "appId": "App-ID"
     }
   }
 }

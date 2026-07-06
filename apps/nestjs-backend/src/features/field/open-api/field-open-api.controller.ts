@@ -165,7 +165,6 @@ export class FieldOpenApiController {
   ) {
     if (this.cls.get('useV2')) {
       return await this.fieldOpenApiV2Service.convertField(tableId, fieldId, updateFieldRo, {
-        emitOperation: Boolean(windowId),
         suppressWindowId: !windowId,
       });
     }

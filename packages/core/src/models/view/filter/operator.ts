@@ -46,6 +46,7 @@ export const oneMonthFromNow = z.literal('oneMonthFromNow');
 export const daysAgo = z.literal('daysAgo');
 export const daysFromNow = z.literal('daysFromNow');
 export const exactDate = z.literal('exactDate');
+export const exactDateTime = z.literal('exactDateTime');
 export const exactFormatDate = z.literal('exactFormatDate');
 export const dateRange = z.literal('dateRange');
 
@@ -106,6 +107,7 @@ export const subOperators = z.union([
   daysAgo,
   daysFromNow,
   exactDate,
+  exactDateTime,
   exactFormatDate,
   dateRange,
   // date sub operation by isWithin
@@ -278,6 +280,7 @@ export const dateTimeFieldSubOperators = z.union([
   daysAgo,
   daysFromNow,
   exactDate,
+  exactDateTime,
   exactFormatDate,
   dateRange,
 ]);
@@ -302,6 +305,7 @@ export const dateTimeFieldValidSubOperators = [
   daysAgo.value,
   daysFromNow.value,
   exactDate.value,
+  exactDateTime.value,
   exactFormatDate.value,
   dateRange.value,
 ];
@@ -326,6 +330,7 @@ export const dateTimeFieldSubOperatorsByIsWithin = z.union([
   daysAgo,
   daysFromNow,
   exactDate,
+  exactDateTime,
   exactFormatDate,
   pastWeek,
   pastMonth,
@@ -359,6 +364,7 @@ export const dateTimeFieldValidSubOperatorsByIsWithin = [
   daysAgo.value,
   daysFromNow.value,
   exactDate.value,
+  exactDateTime.value,
   exactFormatDate.value,
   pastWeek.value,
   pastMonth.value,

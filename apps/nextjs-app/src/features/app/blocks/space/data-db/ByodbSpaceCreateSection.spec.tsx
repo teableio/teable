@@ -64,6 +64,41 @@ describe('ByodbSpaceCreateSection', () => {
     expect(screen.queryByText(/secret/)).not.toBeInTheDocument();
   });
 
+  it('does not require create role capability for BYODB setup', () => {
+    const result: IDataDbPreflightVo = {
+      ok: true,
+      provider: 'postgres',
+      maskedUrl: 'postgresql://user:***@db.example.com/teable_byodb',
+      urlFingerprint: 'fingerprint',
+      displayHost: 'db.example.com',
+      displayDatabase: 'teable_byodb',
+      serverVersion: '16.3',
+      classification: 'empty',
+      capabilities: {
+        createSchema: true,
+        createTable: true,
+        createFunction: true,
+        createTrigger: true,
+        createRole: false,
+        grantPrivileges: true,
+        inspectActivity: true,
+      },
+      errors: [],
+    };
+
+    render(
+      <ByodbSpaceCreateSection
+        {...defaultProps}
+        mode="byodb"
+        url="postgresql://user:***@db.example.com/teable_byodb"
+        preflightResult={result}
+        testedUrl="postgresql://user:***@db.example.com/teable_byodb"
+      />
+    );
+
+    expect(screen.queryByText(/dataDb.create.missingCapabilities/)).not.toBeInTheDocument();
+  });
+
   it('lets users choose a database when preflight returns candidates', async () => {
     const onUrlChange = vi.fn();
     const result: IDataDbPreflightVo = {

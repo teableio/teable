@@ -137,6 +137,59 @@ describe('Auth Controller (e2e)', () => {
     });
   });
 
+  describe('sign up with banned email domain', () => {
+    beforeEach(() => {
+      vi.spyOn(settingService, 'getSetting').mockImplementation(async () => {
+        return {
+          ...originalGetSetting,
+          bannedEmailDomains: ['test-auth.com'],
+        };
+      });
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('api/auth/signup - banned email domain', async () => {
+      const error = await getError(() =>
+        signup({
+          email: authTestEmail,
+          password: '12345678a',
+        })
+      );
+      expect(error?.status).toBe(400);
+      expect(error?.code).toBe(HttpErrorCode.VALIDATION_ERROR);
+    });
+
+    it('api/auth/send-signup-verification-code - banned email domain', async () => {
+      const error = await getError(() => sendSignupVerificationCode(authTestEmail));
+      expect(error?.status).toBe(400);
+      expect(error?.code).toBe(HttpErrorCode.VALIDATION_ERROR);
+    });
+
+    it('api/auth/signup - banned email domain rejected before email verification', async () => {
+      vi.spyOn(settingService, 'getSetting').mockImplementation(async () => {
+        return {
+          ...originalGetSetting,
+          bannedEmailDomains: ['test-auth.com'],
+          enableEmailVerification: true,
+        };
+      });
+
+      // banned check must fire before the 422 verification-required flow
+      // (which would have mailed a verification code to the banned domain)
+      const error = await getError(() =>
+        signup({
+          email: authTestEmail,
+          password: '12345678a',
+        })
+      );
+      expect(error?.status).toBe(400);
+      expect(error?.code).toBe(HttpErrorCode.VALIDATION_ERROR);
+    });
+  });
+
   describe('sign up with email verification', () => {
     beforeEach(async () => {
       vi.spyOn(settingService, 'getSetting').mockImplementation(async () => {

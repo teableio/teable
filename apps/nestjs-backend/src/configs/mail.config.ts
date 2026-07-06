@@ -23,6 +23,16 @@ export const mailConfig = registerAs('mail', () => {
       pass: authPass,
     },
     isConfigured,
+    invite: {
+      // Max lengths for the inviter name and space/base name in the invite
+      // mail subject; unset (or <= 0) disables truncation. Subject lines are a
+      // spam vector — overlong names smuggle arbitrary text into inbox lists.
+      userNameMaxLength: parseInt(process.env.BACKEND_MAIL_INVITE_USER_NAME_MAX_LENGTH ?? '0', 10),
+      spaceNameMaxLength: parseInt(
+        process.env.BACKEND_MAIL_INVITE_SPACE_NAME_MAX_LENGTH ?? '0',
+        10
+      ),
+    },
     connectionTimeout: parseInt(process.env.BACKEND_MAIL_CONNECTION_TIMEOUT ?? '10000', 10),
     greetingTimeout: parseInt(process.env.BACKEND_MAIL_GREETING_TIMEOUT ?? '10000', 10),
     dnsTimeout: parseInt(process.env.BACKEND_MAIL_DNS_TIMEOUT ?? '5000', 10),

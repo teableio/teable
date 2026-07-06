@@ -186,62 +186,81 @@ describe('ComputedTableRecordQueryBuilder', () => {
 
       expect(sql).toMatchInlineSnapshot(
         `
-        "select "t"."__id" as "__id", "t"."__version" as "__version", "t"."col_single_line_text" as "col_single_line_text", "t"."col_long_text" as "col_long_text", "t"."col_number" as "col_number", "t"."col_rating" as "col_rating", "t"."col_single_select" as "col_single_select", "t"."col_multiple_select" as "col_multiple_select", "t"."col_checkbox" as "col_checkbox", "t"."col_attachment" as "col_attachment", "t"."col_date" as "col_date", "t"."__created_time" as "col_created_time", "t"."__last_modified_time" as "col_last_modified_time", 
-                case
-                  when "t"."col_user" is null then null
-                  when jsonb_typeof(to_jsonb("t"."col_user")) = 'array' then (
-                select coalesce(
-                  jsonb_agg(coalesce((
-                select jsonb_build_object(
-                  'id', u.id,
-                  'title', u.name,
-                  'email', u.email,
-                  'avatarUrl', $1 || u.id
-                )
-                from public.users u
-                where u.id = coalesce(elem ->> 'id', elem #>> '{}')
-              ), elem)),
-                  '[]'::jsonb
-                )
-                from jsonb_array_elements((CASE
-                WHEN "t"."col_user" IS NULL THEN '[]'::jsonb
-                WHEN jsonb_typeof(to_jsonb("t"."col_user")) = 'array' THEN to_jsonb("t"."col_user")
-                ELSE '[]'::jsonb
-              END)) as elem
+        "select "t"."__id" as "__id", "t"."__version" as "__version", "t"."col_single_line_text" as "col_single_line_text", "t"."col_long_text" as "col_long_text", "t"."col_number" as "col_number", "t"."col_rating" as "col_rating", "t"."col_single_select" as "col_single_select", "t"."col_multiple_select" as "col_multiple_select", "t"."col_checkbox" as "col_checkbox", "t"."col_attachment" as "col_attachment", "t"."col_date" as "col_date", "t"."__created_time" as "col_created_time", "t"."__last_modified_time" as "col_last_modified_time", "t"."col_user" as "col_user", jsonb_strip_nulls(
+            CASE
+              WHEN (CASE
+            WHEN "t"."col_created_by" IS NULL THEN NULL::jsonb
+            WHEN jsonb_typeof(to_jsonb("t"."col_created_by")) = 'object' THEN to_jsonb("t"."col_created_by")
+            ELSE jsonb_build_object('id', to_jsonb("t"."col_created_by") #>> '{}', 'title', to_jsonb("t"."col_created_by") #>> '{}')
+          END) IS NULL AND "t"."__created_by" IS NULL THEN NULL::jsonb
+              ELSE COALESCE(
+                (CASE
+            WHEN "t"."col_created_by" IS NULL THEN NULL::jsonb
+            WHEN jsonb_typeof(to_jsonb("t"."col_created_by")) = 'object' THEN to_jsonb("t"."col_created_by")
+            ELSE jsonb_build_object('id', to_jsonb("t"."col_created_by") #>> '{}', 'title', to_jsonb("t"."col_created_by") #>> '{}')
+          END),
+                jsonb_build_object('id', "t"."__created_by", 'title', "t"."__created_by")
+              ) || jsonb_build_object(
+                'id', COALESCE((CASE
+            WHEN "t"."col_created_by" IS NULL THEN NULL::jsonb
+            WHEN jsonb_typeof(to_jsonb("t"."col_created_by")) = 'object' THEN to_jsonb("t"."col_created_by")
+            ELSE jsonb_build_object('id', to_jsonb("t"."col_created_by") #>> '{}', 'title', to_jsonb("t"."col_created_by") #>> '{}')
+          END)->>'id', "t"."__created_by"),
+                'title', COALESCE((CASE
+            WHEN "t"."col_created_by" IS NULL THEN NULL::jsonb
+            WHEN jsonb_typeof(to_jsonb("t"."col_created_by")) = 'object' THEN to_jsonb("t"."col_created_by")
+            ELSE jsonb_build_object('id', to_jsonb("t"."col_created_by") #>> '{}', 'title', to_jsonb("t"."col_created_by") #>> '{}')
+          END)->>'title', (CASE
+            WHEN "t"."col_created_by" IS NULL THEN NULL::jsonb
+            WHEN jsonb_typeof(to_jsonb("t"."col_created_by")) = 'object' THEN to_jsonb("t"."col_created_by")
+            ELSE jsonb_build_object('id', to_jsonb("t"."col_created_by") #>> '{}', 'title', to_jsonb("t"."col_created_by") #>> '{}')
+          END)->>'name', (CASE
+            WHEN "t"."col_created_by" IS NULL THEN NULL::jsonb
+            WHEN jsonb_typeof(to_jsonb("t"."col_created_by")) = 'object' THEN to_jsonb("t"."col_created_by")
+            ELSE jsonb_build_object('id', to_jsonb("t"."col_created_by") #>> '{}', 'title', to_jsonb("t"."col_created_by") #>> '{}')
+          END)->>'id', "t"."__created_by")
               )
-                  else coalesce((
-                select jsonb_build_object(
-                  'id', u.id,
-                  'title', u.name,
-                  'email', u.email,
-                  'avatarUrl', $2 || u.id
-                )
-                from public.users u
-                where u.id = coalesce(to_jsonb("t"."col_user") ->> 'id', to_jsonb("t"."col_user") #>> '{}')
-              ), to_jsonb("t"."col_user"))
-                end
-               as "col_user", (
-                select jsonb_build_object(
-                  'id', u.id,
-                  'title', u.name,
-                  'email', u.email,
-                  'avatarUrl', $3 || u.id
-                )
-                from public.users u
-                where u.id = "t"."__created_by"
-              ) as "col_created_by", (
-                select jsonb_build_object(
-                  'id', u.id,
-                  'title', u.name,
-                  'email', u.email,
-                  'avatarUrl', $4 || u.id
-                )
-                from public.users u
-                where u.id = "t"."__last_modified_by"
-              ) as "col_last_modified_by", "t"."__auto_number" as "col_auto_number", "t"."col_button" as "col_button" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t""
+            END
+          ) as "col_created_by", jsonb_strip_nulls(
+            CASE
+              WHEN (CASE
+            WHEN "t"."col_last_modified_by" IS NULL THEN NULL::jsonb
+            WHEN jsonb_typeof(to_jsonb("t"."col_last_modified_by")) = 'object' THEN to_jsonb("t"."col_last_modified_by")
+            ELSE jsonb_build_object('id', to_jsonb("t"."col_last_modified_by") #>> '{}', 'title', to_jsonb("t"."col_last_modified_by") #>> '{}')
+          END) IS NULL AND "t"."__last_modified_by" IS NULL THEN NULL::jsonb
+              ELSE COALESCE(
+                (CASE
+            WHEN "t"."col_last_modified_by" IS NULL THEN NULL::jsonb
+            WHEN jsonb_typeof(to_jsonb("t"."col_last_modified_by")) = 'object' THEN to_jsonb("t"."col_last_modified_by")
+            ELSE jsonb_build_object('id', to_jsonb("t"."col_last_modified_by") #>> '{}', 'title', to_jsonb("t"."col_last_modified_by") #>> '{}')
+          END),
+                jsonb_build_object('id', "t"."__last_modified_by", 'title', "t"."__last_modified_by")
+              ) || jsonb_build_object(
+                'id', COALESCE((CASE
+            WHEN "t"."col_last_modified_by" IS NULL THEN NULL::jsonb
+            WHEN jsonb_typeof(to_jsonb("t"."col_last_modified_by")) = 'object' THEN to_jsonb("t"."col_last_modified_by")
+            ELSE jsonb_build_object('id', to_jsonb("t"."col_last_modified_by") #>> '{}', 'title', to_jsonb("t"."col_last_modified_by") #>> '{}')
+          END)->>'id', "t"."__last_modified_by"),
+                'title', COALESCE((CASE
+            WHEN "t"."col_last_modified_by" IS NULL THEN NULL::jsonb
+            WHEN jsonb_typeof(to_jsonb("t"."col_last_modified_by")) = 'object' THEN to_jsonb("t"."col_last_modified_by")
+            ELSE jsonb_build_object('id', to_jsonb("t"."col_last_modified_by") #>> '{}', 'title', to_jsonb("t"."col_last_modified_by") #>> '{}')
+          END)->>'title', (CASE
+            WHEN "t"."col_last_modified_by" IS NULL THEN NULL::jsonb
+            WHEN jsonb_typeof(to_jsonb("t"."col_last_modified_by")) = 'object' THEN to_jsonb("t"."col_last_modified_by")
+            ELSE jsonb_build_object('id', to_jsonb("t"."col_last_modified_by") #>> '{}', 'title', to_jsonb("t"."col_last_modified_by") #>> '{}')
+          END)->>'name', (CASE
+            WHEN "t"."col_last_modified_by" IS NULL THEN NULL::jsonb
+            WHEN jsonb_typeof(to_jsonb("t"."col_last_modified_by")) = 'object' THEN to_jsonb("t"."col_last_modified_by")
+            ELSE jsonb_build_object('id', to_jsonb("t"."col_last_modified_by") #>> '{}', 'title', to_jsonb("t"."col_last_modified_by") #>> '{}')
+          END)->>'id', "t"."__last_modified_by")
+              )
+            END
+          ) as "col_last_modified_by", "t"."__auto_number" as "col_auto_number", "t"."col_button" as "col_button" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t""
       `
       );
-      expect(parameters).toEqual(Array(4).fill('/api/attachments/read/public/avatar/'));
+      expect(sql).not.toContain('public.users');
+      expect(parameters).toEqual([]);
     });
 
     test('applies limit and offset', () => {
@@ -251,12 +270,8 @@ describe('ComputedTableRecordQueryBuilder', () => {
       const qb = new ComputedTableRecordQueryBuilder(db, { typeValidationStrategy });
       const { sql, parameters } = compileQuery(db, qb.from(table).limit(10).offset(20));
 
-      expect(sql).toContain('limit $5 offset $6');
-      expect(parameters).toEqual([
-        ...Array(4).fill('/api/attachments/read/public/avatar/'),
-        10,
-        20,
-      ]);
+      expect(sql).toContain('limit $1 offset $2');
+      expect(parameters).toEqual([10, 20]);
     });
 
     test('orders createdTime by formatted day when time formatting omits time', () => {
@@ -1415,6 +1430,109 @@ describe('ComputedTableRecordQueryBuilder', () => {
       );
     });
 
+    test('coerces single-value number lookup json scalar before boolean formula comparison', () => {
+      const db = createTestDb();
+      const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+      const mainTableId = TableId.create(MAIN_TABLE_ID)._unsafeUnwrap();
+      const foreignTableId = TableId.create(FOREIGN_TABLE_ID)._unsafeUnwrap();
+      const linkFieldId = FieldId.create(LINK_FIELD_ID)._unsafeUnwrap();
+      const lookupFieldId = FieldId.create(`fld${'r'.repeat(16)}`)._unsafeUnwrap();
+      const formulaFieldId = FieldId.create(`fld${'q'.repeat(16)}`)._unsafeUnwrap();
+      const amountFieldId = FieldId.create(LOOKUP_TARGET_FIELD_ID)._unsafeUnwrap();
+
+      const foreignBuilder = Table.builder()
+        .withId(foreignTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('ForeignTable')._unsafeUnwrap());
+      foreignBuilder
+        .field()
+        .number()
+        .withId(amountFieldId)
+        .withName(FieldName.create('Rate')._unsafeUnwrap())
+        .done();
+      foreignBuilder.view().defaultGrid().done();
+      const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+      foreignTable
+        .getFields()[0]
+        .setDbFieldName(DbFieldName.rehydrate('col_rate')._unsafeUnwrap())
+        ._unsafeUnwrap();
+
+      const linkConfig = LinkFieldConfig.create({
+        relationship: 'manyOne',
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: amountFieldId.toString(),
+        symmetricFieldId: SYMMETRIC_FIELD_ID,
+      })._unsafeUnwrap();
+      const lookupOptions = LookupOptions.create({
+        linkFieldId: linkFieldId.toString(),
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: amountFieldId.toString(),
+      })._unsafeUnwrap();
+      const innerField = createNumberField({
+        id: amountFieldId,
+        name: FieldName.create('Rate')._unsafeUnwrap(),
+      })._unsafeUnwrap();
+
+      const mainBuilder = Table.builder()
+        .withId(mainTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('MainTable')._unsafeUnwrap());
+      mainBuilder
+        .field()
+        .link()
+        .withId(linkFieldId)
+        .withName(FieldName.create('Coach')._unsafeUnwrap())
+        .withConfig(linkConfig)
+        .done();
+      mainBuilder
+        .field()
+        .lookup()
+        .withId(lookupFieldId)
+        .withName(FieldName.create('CoachRate')._unsafeUnwrap())
+        .withLookupOptions(lookupOptions)
+        .withInnerField(innerField)
+        .withIsMultipleCellValue(false)
+        .done();
+      mainBuilder
+        .field()
+        .formula()
+        .withId(formulaFieldId)
+        .withName(FieldName.create('HasRate')._unsafeUnwrap())
+        .withExpression(
+          FormulaExpression.create(`IF({${lookupFieldId.toString()}}, 1, 0)`)._unsafeUnwrap()
+        )
+        .done();
+      mainBuilder.view().defaultGrid().done();
+
+      const mainTable = mainBuilder.build({ foreignTables: [foreignTable] })._unsafeUnwrap();
+      mainTable
+        .getFields()[0]
+        .setDbFieldName(DbFieldName.rehydrate('col_link')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      mainTable
+        .getFields()[1]
+        .setDbFieldName(DbFieldName.rehydrate('col_lookup_rate')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      mainTable
+        .getFields()[2]
+        .setDbFieldName(DbFieldName.rehydrate('col_has_rate')._unsafeUnwrap())
+        ._unsafeUnwrap();
+
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy })
+          .from(mainTable)
+          .select([formulaFieldId])
+      );
+
+      expect(sql).toContain('jsonb_agg(to_jsonb("f"."col_rate"))');
+      expect(sql).toContain(`"lat_${linkFieldId.toString()}_0"."col_lookup_rate"`);
+      expect(sql).toContain('to_jsonb');
+      expect(sql).toContain(`#>> '{}'`);
+      expect(sql).not.toContain(`"lat_${linkFieldId.toString()}_0"."col_lookup_rate" <> 0`);
+    });
+
     test('projection with only lookup field (no link field) generates correct lateral join', () => {
       const db = createTestDb();
       const { mainTable, foreignTable, foreignTableId } = createLookupTable();
@@ -2474,11 +2592,32 @@ describe('ComputedTableRecordQueryBuilder', () => {
       expect(sql).toContain('jsonb_exists_any');
       expect(sql).toContain('to_jsonb("f"."col_owner")');
       expect(sql).toContain('to_jsonb("h"."col_assignees")');
-      expect(parameters).toEqual([
-        '/api/attachments/read/public/avatar/',
-        '/api/attachments/read/public/avatar/',
-        5000,
-      ]);
+      expect(parameters).toEqual([5000]);
+    });
+
+    test('scopes field-reference conditional lookup aggregate to dirty host rows', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId } = createConditionalLookupTable('is');
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+
+      const { sql, parameters } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy })
+          .from(mainTable)
+          .withDirtyFilter({ tableId: mainTable.id().toString() })
+      );
+
+      const hostDirtyJoin =
+        'from (select "h".* from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "h" inner join "tmp_computed_dirty" as "__cond_dirty"';
+      const foreignJoin = 'as "h" inner join "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f"';
+
+      expect(sql).toContain('left join (select');
+      expect(sql).toContain('row_number() over');
+      expect(sql).toContain(hostDirtyJoin);
+      expect(sql).toContain(foreignJoin);
+      expect(sql.indexOf(hostDirtyJoin)).toBeLessThan(sql.indexOf(foreignJoin));
+      expect(sql).toContain('"__cond_dirty"."record_id" and "__cond_dirty"."table_id" = $2');
+      expect(parameters).toEqual([mainTable.id().toString(), mainTable.id().toString(), 5000]);
     });
 
     test('conditional lookup snapshot with single user isNot multi user field reference filter', () => {
@@ -2498,11 +2637,7 @@ describe('ComputedTableRecordQueryBuilder', () => {
       expect(sql).toContain('jsonb_array_elements_text');
       expect(sql).toContain('to_jsonb("f"."col_owner")');
       expect(sql).toContain('to_jsonb("t"."col_assignees")');
-      expect(parameters).toEqual([
-        '/api/attachments/read/public/avatar/',
-        '/api/attachments/read/public/avatar/',
-        5000,
-      ]);
+      expect(parameters).toEqual([5000]);
     });
 
     test('executes field-reference conditional lookup with set-based pglite query', async () => {

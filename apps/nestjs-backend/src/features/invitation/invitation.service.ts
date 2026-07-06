@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { IBaseRole, IRole } from '@teable/core';
@@ -7,9 +7,11 @@ import { generateInvitationId, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import {
   CollaboratorType,
+  isEmailDomainBanned,
   MailTransporterType,
   MailType,
   PrincipalType,
+  SettingKey,
   type AcceptInvitationLinkRo,
   type EmailInvitationVo,
   type EmailSpaceInvitationRo,
@@ -23,8 +25,8 @@ import { CustomHttpException } from '../../custom.exception';
 import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
 import { generateInvitationCode } from '../../utils/code-generate';
-import { Audit } from '../audit/audit.decorator';
 import { AuditScope } from '../audit/audit-scope';
+import { Audit } from '../audit/audit.decorator';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { MailSenderService } from '../mail-sender/mail-sender.service';
 import { SettingOpenApiService } from '../setting/open-api/setting-open-api.service';
@@ -32,6 +34,8 @@ import { UserService } from '../user/user.service';
 
 @Injectable()
 export class InvitationService {
+  private readonly logger = new Logger(InvitationService.name);
+
   constructor(
     private readonly prismaService: PrismaService,
     private readonly settingOpenApiService: SettingOpenApiService,
@@ -81,7 +85,26 @@ export class InvitationService {
   @Audit({
     action: Events.INVITATION_EMAIL_SEND,
     resourceId: (input: { resourceId: string }) => input.resourceId,
-    params: (input: { resourceType: CollaboratorType }) => ({ resourceType: input.resourceType }),
+    // Capture the inviter's user.id at decorator-resolve time (before the method
+    // runs). Inviting a brand-new email path runs `userService.createUser`, which
+    // mutates CLS user.id via runWith(cls.get(), ...) — that bleeds into the
+    // outer scope, and by the time the audit listener reads cls.get('user.id')
+    // it would see the invitee's id instead of the inviter's. Resolving userId
+    // up front pins the row to the inviter.
+    userId: (_input, ctx) => ctx.cls.get('user.id'),
+    params: (input: {
+      resourceId: string;
+      resourceType: CollaboratorType;
+      role: IRole;
+      emails: string[];
+    }) => ({
+      resourceType: input.resourceType,
+      role: input.role,
+      emails: input.emails,
+      ...(input.resourceType === CollaboratorType.Base
+        ? { baseId: input.resourceId }
+        : { spaceId: input.resourceId }),
+    }),
     emit: (_result: unknown, input: { emails: string[] }) => ({ emailCount: input.emails.length }),
   })
   private async emailInvitation({
@@ -109,7 +132,17 @@ export class InvitationService {
       resourceId,
       resourceType,
     });
-    const invitationEmails = emails.map((email) => email.toLowerCase());
+    const { bannedEmailDomains } = await this.settingOpenApiService.getSetting([
+      SettingKey.BANNED_EMAIL_DOMAINS,
+    ]);
+    // Inviting a banned-domain email would auto-create its account below,
+    // bypassing the sign-up ban — so drop those addresses entirely.
+    const invitationEmails = emails
+      .map((email) => email.toLowerCase())
+      .filter((email) => !isEmailDomainBanned(email, bannedEmailDomains));
+    // A banned-domain inviter keeps a working UI, but none of their invitation
+    // emails are delivered (anti-spam shadow behavior).
+    const skipSendMail = isEmailDomainBanned(user.email, bannedEmailDomains);
     const sendUsers = await this.prismaService.user.findMany({
       select: { id: true, name: true, email: true },
       where: { email: { in: invitationEmails } },
@@ -170,24 +203,31 @@ export class InvitationService {
           },
         });
 
-        // get email info
-        const inviteEmailOptions = await this.mailSenderService.inviteEmailOptions({
-          name: user.name,
-          email: user.email,
-          resourceName,
-          resourceType,
-          inviteUrl: this.generateInviteUrl(id, invitationCode),
-        });
-        this.mailSenderService.sendMail(
-          {
-            to: sendUser.email,
-            ...inviteEmailOptions,
-          },
-          {
-            type: MailType.Invite,
-            transporterName: MailTransporterType.Notify,
-          }
-        );
+        if (!skipSendMail) {
+          // get email info
+          const inviteEmailOptions = await this.mailSenderService.inviteEmailOptions({
+            name: user.name,
+            email: user.email,
+            resourceName,
+            resourceType,
+            inviteUrl: this.generateInviteUrl(id, invitationCode),
+          });
+          this.mailSenderService.sendMail(
+            {
+              to: sendUser.email,
+              ...inviteEmailOptions,
+            },
+            {
+              type: MailType.Invite,
+              transporterName: MailTransporterType.Notify,
+            }
+          );
+          // one line per recipient — SigNoz alerts count these to detect
+          // mass-invitation abuse (see '[invite-mail]' log-based alert rules)
+          this.logger.log(
+            `[invite-mail] sent to=${sendUser.email} inviter=${user.email} resource=${resourceType}:${resourceId}`
+          );
+        }
         result[sendUser.email] = { invitationId: id };
       }
 
@@ -246,8 +286,14 @@ export class InvitationService {
   @Audit({
     action: Events.INVITATION_LINK_CREATE,
     resourceId: (input: { resourceId: string }) => input.resourceId,
-    params: (input: { resourceType: CollaboratorType }) => ({ resourceType: input.resourceType }),
-    emit: true,
+    params: (input: { resourceId: string; resourceType: CollaboratorType; role: IRole }) => ({
+      resourceType: input.resourceType,
+      role: input.role,
+      ...(input.resourceType === CollaboratorType.Base
+        ? { baseId: input.resourceId }
+        : { spaceId: input.resourceId }),
+    }),
+    emit: (result: ItemSpaceInvitationLinkVo) => ({ invitationId: result.invitationId }),
   })
   async generateInvitationLink({
     role,

@@ -75,7 +75,7 @@ export const selectOptionsSchema = z.object({
 });
 
 export const checkboxOptionsSchema = z.object({
-  defaultValue: z.boolean().optional(),
+  defaultValue: z.boolean().nullable().optional(),
 });
 
 export const dateOptionsSchema = z.object({

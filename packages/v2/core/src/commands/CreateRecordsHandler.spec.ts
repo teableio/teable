@@ -37,6 +37,7 @@ import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
   BatchRecordMutationResult,
   ITableRecordRepository,
+  InsertOptions,
   RecordMutationResult,
   RecordStoredSnapshot,
 } from '../ports/TableRecordRepository';
@@ -192,6 +193,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   records: TableRecord[] = [];
   lastContext: IExecutionContext | undefined;
   lastTable: Table | undefined;
+  lastInsertManyOptions: InsertOptions | undefined;
   failInsert: DomainError | undefined;
   failInsertMany: DomainError | undefined;
   omitRecordSnapshot = false;
@@ -212,10 +214,12 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   async insertMany(
     context: IExecutionContext,
     table: Table,
-    records: ReadonlyArray<TableRecord>
+    records: ReadonlyArray<TableRecord>,
+    options?: InsertOptions
   ): Promise<Result<BatchRecordMutationResult, DomainError>> {
     this.lastContext = context;
     this.lastTable = table;
+    this.lastInsertManyOptions = options;
     if (this.failInsertMany) return err(this.failInsertMany);
     this.records.push(...records);
     return ok(
@@ -807,7 +811,7 @@ describe('CreateRecordsHandler', () => {
       chunkIndex: 0,
       scope: 'operation',
     });
-    expect(recordRepository.lastContext?.batchMutation).toEqual({
+    expect(recordRepository.lastInsertManyOptions?.orchestration).toEqual({
       operationId: 'req-123',
       groupId: 'req-123',
       totalRecordCount: 2,

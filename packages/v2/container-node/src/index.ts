@@ -14,6 +14,7 @@ import {
   SpaceCreditTableRowLimitPolicy,
   registerV2PostgresStateAdapter,
 } from '@teable/v2-adapter-repository-postgres';
+import { registerV2TableOpsPostgresAdapter } from '@teable/v2-adapter-table-query-ops-postgres';
 import {
   createTypeValidationStrategy,
   registerV2TableRepositoryPostgresAdapter,
@@ -42,6 +43,11 @@ import {
 import type { DependencyContainer } from '@teable/v2-di';
 import { Lifecycle, container } from '@teable/v2-di';
 import { DotTeaParser } from '@teable/v2-dottea';
+import {
+  decorateV2TableRecordQueryRepositoryWithTableOps,
+  registerV2TableOps,
+  type RegisterV2TableOpsOptions,
+} from '@teable/v2-table-query-ops';
 
 import { resolveTableDataSafetyLimitsFromEnv } from './tableDataSafetyLimits';
 
@@ -69,6 +75,9 @@ export interface IV2NodePgContainerOptions {
   commandBusMiddlewares?: ReadonlyArray<ICommandBusMiddleware>;
   queryBusMiddlewares?: ReadonlyArray<IQueryBusMiddleware>;
   computedUpdate?: IV2TableRepositoryPostgresConfig['computedUpdate'];
+  tableQueryOps?: RegisterV2TableOpsOptions & {
+    ensureSchema?: boolean;
+  };
 }
 
 const createEventHandlerLogger = (
@@ -216,6 +225,16 @@ export const registerV2NodePgDependencies = async (
 
   // Register command explain module
   registerCommandExplainModule(c);
+
+  if (options.tableQueryOps) {
+    registerV2TableOps(c, options.tableQueryOps);
+    await registerV2TableOpsPostgresAdapter(c, {
+      metaDb,
+      dataDb,
+      ensureSchema: options.tableQueryOps.ensureSchema ?? options.ensureSchema,
+    });
+    decorateV2TableRecordQueryRepositoryWithTableOps(c);
+  }
 
   startComputedUpdatePollingIfEnabled(c);
 
