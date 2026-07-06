@@ -51,6 +51,7 @@ export class V2ExecutionContextFactory {
 
     // Get windowId from CLS for undo/redo tracking
     const windowId = this.cls.get('windowId');
+    const scheduleBackgroundTask = this.cls.get('scheduleV2BackgroundTask');
     const t: NonNullable<IExecutionContext['$t']> = (key, options) =>
       this.i18n.t(`table.${key}` as never, {
         args: options,
@@ -62,6 +63,7 @@ export class V2ExecutionContextFactory {
       tracer,
       requestId,
       windowId,
+      scheduleBackgroundTask,
       config: {
         ...(tableLimits ? { tableLimits } : {}),
       },

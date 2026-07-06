@@ -16,10 +16,10 @@ import type {
 // =============================================================================
 
 const SIMPLE_SCENARIO_STEPS: Record<string, number> = {
-  // Same-table formulas use CTE batching
+  // Same-table formulas are evaluated by dependency level for inline updates.
   formula_d1: 1,
-  formula_d2: 1,
-  formula_d3: 1,
+  formula_d2: 2,
+  formula_d3: 3,
   // Single-level lookup/rollup
   lookup_oneWay: 1,
   rollup_oneWay: 1,

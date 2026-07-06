@@ -99,7 +99,7 @@ export const getEffectCellCount = (
   }
 
   if (selection.type === SelectionRegionType.Cells) {
-    const [startRange, endRange] = selection.ranges;
+    const [startRange, endRange] = selection.serialize();
     const [startCol, startRow] = startRange;
     const [endCol, endRow] = endRange;
     const selectionRows = endRow - startRow + 1;
@@ -129,7 +129,7 @@ export const getEffectRows = (selection: CombinedSelection, rowCount?: number | 
   }
 
   if (type === SelectionRegionType.Cells) {
-    const [startRange, endRange] = selection.ranges;
+    const [startRange, endRange] = selection.serialize();
     const [, startRow] = startRange;
     const [, endRow] = endRange;
     return endRow - startRow + 1;

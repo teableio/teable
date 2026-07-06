@@ -10,6 +10,7 @@ export const settingVoSchema = z.object({
   brandName: z.string().nullable().optional(),
   brandLogo: z.string().nullable().optional(),
   disallowSignUp: z.boolean().nullable().optional(),
+  bannedEmailDomains: z.array(z.string()).nullable().optional(),
   disallowSpaceCreation: z.boolean().nullable().optional(),
   disallowSpaceInvitation: z.boolean().nullable().optional(),
   disallowDashboard: z.boolean().nullable().optional(),

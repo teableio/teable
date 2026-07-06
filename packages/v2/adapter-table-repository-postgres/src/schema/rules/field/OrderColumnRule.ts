@@ -56,6 +56,18 @@ export class OrderColumnRule implements ISchemaRule {
     return new OrderColumnRule(field, columnName, targetTable, parent);
   }
 
+  createTableColumnForTarget(
+    targetTable: TableIdentifier
+  ): { columnName: string; dataType: 'double precision' } | undefined {
+    if ((this.targetTable.schema ?? null) !== (targetTable.schema ?? null)) {
+      return undefined;
+    }
+    if (this.targetTable.tableName !== targetTable.tableName) {
+      return undefined;
+    }
+    return { columnName: this.columnName, dataType: 'double precision' };
+  }
+
   async isValid(ctx: SchemaRuleContext): Promise<Result<SchemaRuleValidationResult, DomainError>> {
     const columnName = this.columnName;
     const targetTable = this.targetTable;

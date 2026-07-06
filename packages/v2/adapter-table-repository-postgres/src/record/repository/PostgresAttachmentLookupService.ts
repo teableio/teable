@@ -50,8 +50,12 @@ type AttachmentLookupByAttachmentIdRow = {
 
 @injectable()
 export class PostgresAttachmentLookupService implements IAttachmentLookupService {
+  // Attachment metadata (`attachments` / `attachments_table`) lives in the meta
+  // database, not the data-plane database. In BYODB spaces the data db is the
+  // customer-owned database and has no attachment tables, so this lookup must run
+  // against the meta db to avoid spurious "Attachment(<token>) not found" errors.
   constructor(
-    @inject(v2RecordRepositoryPostgresTokens.db)
+    @inject(v2RecordRepositoryPostgresTokens.metaDb)
     private readonly db: Kysely<V1TeableDatabase>
   ) {}
 

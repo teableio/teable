@@ -335,7 +335,10 @@ export const ShareBaseContent = ({
                   renderTips={(item) => {
                     return (
                       item.resourceType === CollaboratorType.Space && (
-                        <Badge className="ml-2 text-xs font-normal" variant={'outline'}>
+                        <Badge
+                          className="shrink-0 whitespace-nowrap text-xs px-2 font-normal"
+                          variant={'outline'}
+                        >
                           {t('noun.space')}
                         </Badge>
                       )

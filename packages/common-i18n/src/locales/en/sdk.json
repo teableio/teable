@@ -7,6 +7,7 @@
     "untitled": "Untitled",
     "cancel": "Cancel",
     "confirm": "Confirm",
+    "clear": "Clear",
     "back": "Back",
     "done": "Done",
     "create": "Create",
@@ -233,6 +234,7 @@
         "daysAgo": "days ago",
         "daysFromNow": "days from now",
         "exactDate": "exact date",
+        "exactDateTime": "exact timestamp",
         "exactFormatDate": "exact date (formatted)",
         "dateRange": "custom range",
         "currentWeek": "current week",
@@ -295,10 +297,17 @@
     "recordHistory": {
       "hiddenRecordHistory": "Hide record history",
       "showRecordHistory": "Show record history",
-      "createdTime": "Created time",
-      "createdBy": "Created by",
+      "createdTime": "Modified time",
+      "createdBy": "Modified by",
       "before": "Before",
       "after": "After",
+      "buttonClicked": "Clicked button",
+      "filterField": "Field",
+      "filterCreatedBy": "Modified by",
+      "filterTime": "Time range",
+      "allFields": "All fields",
+      "allUsers": "All users",
+      "clearFilter": "Clear filters",
       "viewRecord": "View record"
     },
     "showHiddenFields": "Show {{count}} hidden fields",
@@ -965,6 +974,11 @@
       "nameMaxLength": "Name is too long. Maximum is {{max}} characters.",
       "descriptionMaxLength": "Description is too long. Maximum is {{max}} characters."
     },
+    "validation": {
+      "field": {
+        "unique": "Field must have a unique value"
+      }
+    },
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" field \"{{fieldName}}\" does not allow empty values, please fill in completely before submitting.",
       "fieldValueDuplicate": "\"{{tableName}}\" field \"{{fieldName}}\" does not allow duplicate values, please fill in a unique value before submitting.",
@@ -1352,6 +1366,43 @@
       "unsupportedActionType": "Unsupported AI action type",
       "geminiImageNotSupportedViaGateway": "Gemini image generation is not supported through AI Gateway. Please configure a direct Google provider instead."
     },
+    "skill": {
+      "notFound": "Skill not found",
+      "onlyGithubCanSync": "Only GitHub-sourced skills can be synced",
+      "syncFailed": "Sync failed: {{errorCode}}",
+      "skillMdNotFoundAtSource": "SKILL.md not found at source location",
+      "slugChangedUpstream": "Skill slug changed upstream from \"{{oldSlug}}\" to \"{{newSlug}}\". Delete and re-import to adopt the new slug.",
+      "skillMdNotFoundAtPath": "SKILL.md not found at {{path}}/SKILL.md",
+      "invalidSkillFile": "Invalid skill file. Expected a .skill or .zip archive",
+      "tooManyResourceFiles": "Skill contains too many files (max {{max}})",
+      "noSkillMdInPackage": "No SKILL.md found in the skill package",
+      "multipleSkillMdInPackage": "Found {{count}} SKILL.md files at the same depth. The package should contain exactly one skill.",
+      "invalidResourcePaths": "Invalid resource paths: {{paths}}",
+      "nameFieldRequired": "SKILL.md must contain a \"name\" field in frontmatter",
+      "invalidSlugFormat": "Skill slug must be lowercase alphanumeric with hyphens",
+      "filesExceedSizeLimit": "Files exceed {{maxSizeKB}}KB limit: {{files}}",
+      "binaryFilesNotAllowed": "Binary files are not allowed: {{files}}",
+      "totalSizeExceedsLimit": "Total resource size exceeds {{maxSizeMB}}MB limit",
+      "invalidGithubUrl": "Invalid GitHub URL. Expected: https://github.com/owner/repo/tree/<branch>/path/to/skill",
+      "directoryTooDeep": "Skill directory exceeds maximum depth of {{maxDepth}} levels. Nested directories: {{dirs}}",
+      "importFailed": "Import failed: {{errorCode}}",
+      "alreadyInScope": "Skill is already in the target scope"
+    },
+    "sandbox": {
+      "fileNotFound": "File not found in sandbox",
+      "onlyRegularFiles": "Only regular files can be downloaded",
+      "fileTooLarge": "File is too large to download (max {{max}} bytes)",
+      "cannotDeleteRoot": "Cannot delete the root uploads/outputs folder",
+      "deleteFailed": "Failed to delete files",
+      "uploadFailed": "Failed to upload file to sandbox",
+      "fileEndpointUnavailable": "Sandbox does not expose a reachable file endpoint",
+      "invalidPath": "Invalid file path: must be within the sandbox uploads or outputs directory",
+      "tooManyDownloads": "Too many download requests",
+      "dailyLimitExceeded": "Daily download size limit exceeded",
+      "storageFull": "Sandbox storage is full",
+      "tooManyFiles": "At most {{max}} files are allowed per message",
+      "noActiveSandbox": "No active sandbox found"
+    },
     "role": {
       "notFound": "Role not found"
     },
@@ -1432,6 +1483,7 @@
     },
     "user": {
       "disallowSignUp": "The current instance disallows sign up by the administrator",
+      "emailDomainBanned": "This email domain has been banned due to policy violations",
       "waitlistInviteCodeRequired": "Waitlist is enabled, invite code is required",
       "waitlistInviteCodeInvalid": "Waitlist is enabled, invite code is invalid",
       "systemUser": "User is a system user",
