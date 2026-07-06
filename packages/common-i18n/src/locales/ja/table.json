@@ -824,6 +824,7 @@
     "insertFieldLeft": "左に挿入",
     "insertFieldRight": "右に挿入",
     "freezeUpField": "このフィールドまでフリーズ",
+    "freezeFieldWindowTooNarrow": "現在のウィンドウ幅が狭すぎるため、この範囲まで固定できません",
     "hideField": "フィールドを非表示",
     "deleteField": "フィールドを削除",
     "deleteAllSelectedFields": "選択したすべてのフィールドを削除",

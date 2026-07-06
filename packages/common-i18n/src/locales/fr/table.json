@@ -825,6 +825,7 @@
     "insertFieldLeft": "Insérer à gauche",
     "insertFieldRight": "Insérer à droite",
     "freezeUpField": "Geler jusqu'à ce champ",
+    "freezeFieldWindowTooNarrow": "Impossible de figer cette zone car la fenêtre actuelle est trop étroite",
     "hideField": "Masquer le champ",
     "deleteField": "Supprimer le champ",
     "deleteAllSelectedFields": "Supprimer tous les champs sélectionnés",

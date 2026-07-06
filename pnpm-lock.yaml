@@ -5069,10 +5069,6 @@ packages:
     resolution: {integrity: sha512-K4Du3BFa3gvyhzgPcntrkDgZzQaq6uozzcpGbOO1OEJaI+EJdqWIMTLgFgQf6lrfiDFo5FU+BxKepI9RmZqahA==}
     engines: {node: '>=6.9.0'}
 
-  '@babel/helper-string-parser@7.25.9':
-    resolution: {integrity: sha512-4A/SCr/2KLd5jrtOMFzaKjVtAei3+2r/NChoBNoZ3EyP/+GlhoaEGoWOZUmFmoITP7zOJyHIMm+DYRd8o3PvHA==}
-    engines: {node: '>=6.9.0'}
-
   '@babel/helper-string-parser@7.27.1':
     resolution: {integrity: sha512-qMlSxKbpRlAridDExk92nSobyDdpPijUq2DW6oDnUqd0iOGxmQjyqhMIihI9+zv4LPyZdRje2cavWPbCbWm3eA==}
     engines: {node: '>=6.9.0'}
@@ -7708,19 +7704,11 @@ packages:
   '@jridgewell/gen-mapping@0.3.13':
     resolution: {integrity: sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA==}
 
-  '@jridgewell/gen-mapping@0.3.8':
-    resolution: {integrity: sha512-imAbBGkb+ebQyxKgzv5Hu2nmROxoDOXHh80evxdoXNOrvAnVx7zimzc1Oo5h9RlfV4vPXaE2iM5pOFbvOCClWA==}
-    engines: {node: '>=6.0.0'}
-
   '@jridgewell/remapping@2.3.5':
     resolution: {integrity: sha512-LI9u/+laYG4Ds1TDKSJW2YPrIlcVYOwi2fUC6xB43lueCjgxV4lffOCZCtYFiH6TNOX+tQKXx97T4IKHbhyHEQ==}
 
   '@jridgewell/resolve-uri@3.1.2':
     resolution: {integrity: sha512-bRISgCIjP20/tbWSPWMEi54QVPRZExkuD9lJL+UIxUKtwVJA8wW1Trb1jMs1RFXo1CBTNZ/5hpC9QvmKWdopKw==}
-    engines: {node: '>=6.0.0'}
-
-  '@jridgewell/set-array@1.2.1':
-    resolution: {integrity: sha512-R8gLRTZeyp03ymzP/6Lil/28tGeGEzhx1q2k703KGWRAI1VdvPIXdG70VJc2pAMw3NA6JKL5hhFu1sJX0Mnn/A==}
     engines: {node: '>=6.0.0'}
 
   '@jridgewell/source-map@0.3.6':
@@ -7731,9 +7719,6 @@ packages:
 
   '@jridgewell/sourcemap-codec@1.5.5':
     resolution: {integrity: sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og==}
-
-  '@jridgewell/trace-mapping@0.3.25':
-    resolution: {integrity: sha512-vNk6aEwybGtawWmy/PzwnGDOjCkLWSD2wqvjGGAgOAwCGWySYXfYoxt00IJkTF+8Lb57DwOb3Aa0o9CApepiYQ==}
 
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
@@ -20173,10 +20158,6 @@ packages:
     resolution: {integrity: sha512-Wglpdk03BSfXkHoQa3b/oulrotAkwrlLDRSOb9D0bN86FdRyE9lppSp33aHNPgBa0JKCoB+drFLZkQoRRYae5A==}
     engines: {node: ^10 || ^12 || >=14}
 
-  postcss@8.5.6:
-    resolution: {integrity: sha512-3Ybi1tAuwAP9s0r1UQ2J4n5Y0G05bJkpUIO0/bI9MhwmD70S5aTWbXGBwxHrelT+XM1k6dM0pk+SwNkpTRN7Pg==}
-    engines: {node: ^10 || ^12 || >=14}
-
   postcss@8.5.8:
     resolution: {integrity: sha512-OW/rX8O/jXnm82Ey1k44pObPtdblfiuWnrd8X7GJ7emImCOstunGbXUpp7HdBrFQX6rJzn3sPT397Wp5aCwCHg==}
     engines: {node: ^10 || ^12 || >=14}
@@ -24682,10 +24663,10 @@ snapshots:
 
   '@babel/generator@7.26.3':
     dependencies:
-      '@babel/parser': 7.26.3
-      '@babel/types': 7.26.3
-      '@jridgewell/gen-mapping': 0.3.8
-      '@jridgewell/trace-mapping': 0.3.25
+      '@babel/parser': 7.29.0
+      '@babel/types': 7.29.0
+      '@jridgewell/gen-mapping': 0.3.13
+      '@jridgewell/trace-mapping': 0.3.31
       jsesc: 3.1.0
 
   '@babel/generator@7.29.1':
@@ -24812,7 +24793,7 @@ snapshots:
   '@babel/helper-module-imports@7.25.9':
     dependencies:
       '@babel/traverse': 7.26.4
-      '@babel/types': 7.26.3
+      '@babel/types': 7.29.0
     transitivePeerDependencies:
       - supports-color
 
@@ -24827,7 +24808,7 @@ snapshots:
     dependencies:
       '@babel/core': 7.26.0
       '@babel/helper-module-imports': 7.25.9
-      '@babel/helper-validator-identifier': 7.25.9
+      '@babel/helper-validator-identifier': 7.28.5
       '@babel/traverse': 7.26.4
     transitivePeerDependencies:
       - supports-color
@@ -24836,7 +24817,7 @@ snapshots:
     dependencies:
       '@babel/core': 7.29.0
       '@babel/helper-module-imports': 7.25.9
-      '@babel/helper-validator-identifier': 7.25.9
+      '@babel/helper-validator-identifier': 7.28.5
       '@babel/traverse': 7.26.4
     transitivePeerDependencies:
       - supports-color
@@ -24898,8 +24879,6 @@ snapshots:
       '@babel/types': 7.29.0
     transitivePeerDependencies:
       - supports-color
-
-  '@babel/helper-string-parser@7.25.9': {}
 
   '@babel/helper-string-parser@7.27.1': {}
 
@@ -26196,10 +26175,10 @@ snapshots:
   '@babel/traverse@7.26.4':
     dependencies:
       '@babel/code-frame': 7.26.2
-      '@babel/generator': 7.26.3
-      '@babel/parser': 7.26.3
+      '@babel/generator': 7.29.1
+      '@babel/parser': 7.29.0
       '@babel/template': 7.25.9
-      '@babel/types': 7.26.3
+      '@babel/types': 7.29.0
       debug: 4.4.3
       globals: 11.12.0
     transitivePeerDependencies:
@@ -26219,8 +26198,8 @@ snapshots:
 
   '@babel/types@7.26.3':
     dependencies:
-      '@babel/helper-string-parser': 7.25.9
-      '@babel/helper-validator-identifier': 7.25.9
+      '@babel/helper-string-parser': 7.27.1
+      '@babel/helper-validator-identifier': 7.28.5
 
   '@babel/types@7.29.0':
     dependencies:
@@ -27909,20 +27888,12 @@ snapshots:
       '@jridgewell/sourcemap-codec': 1.5.5
       '@jridgewell/trace-mapping': 0.3.31
 
-  '@jridgewell/gen-mapping@0.3.8':
-    dependencies:
-      '@jridgewell/set-array': 1.2.1
-      '@jridgewell/sourcemap-codec': 1.5.0
-      '@jridgewell/trace-mapping': 0.3.25
-
   '@jridgewell/remapping@2.3.5':
     dependencies:
       '@jridgewell/gen-mapping': 0.3.13
       '@jridgewell/trace-mapping': 0.3.31
 
   '@jridgewell/resolve-uri@3.1.2': {}
-
-  '@jridgewell/set-array@1.2.1': {}
 
   '@jridgewell/source-map@0.3.6':
     dependencies:
@@ -27932,11 +27903,6 @@ snapshots:
   '@jridgewell/sourcemap-codec@1.5.0': {}
 
   '@jridgewell/sourcemap-codec@1.5.5': {}
-
-  '@jridgewell/trace-mapping@0.3.25':
-    dependencies:
-      '@jridgewell/resolve-uri': 3.1.2
-      '@jridgewell/sourcemap-codec': 1.5.0
 
   '@jridgewell/trace-mapping@0.3.31':
     dependencies:
@@ -33237,7 +33203,7 @@ snapshots:
 
   '@types/acorn@4.0.6':
     dependencies:
-      '@types/estree': 1.0.6
+      '@types/estree': 1.0.8
 
   '@types/archiver@6.0.3':
     dependencies:
@@ -33476,7 +33442,7 @@ snapshots:
 
   '@types/estree-jsx@1.0.5':
     dependencies:
-      '@types/estree': 1.0.6
+      '@types/estree': 1.0.8
 
   '@types/estree@0.0.39': {}
 
@@ -34905,7 +34871,7 @@ snapshots:
       '@vue/shared': 3.5.13
       estree-walker: 2.0.2
       magic-string: 0.30.21
-      postcss: 8.5.6
+      postcss: 8.5.8
       source-map-js: 1.2.1
     optional: true
 
@@ -35207,10 +35173,6 @@ snapshots:
   acorn-import-assertions@1.9.0(acorn@8.14.0):
     dependencies:
       acorn: 8.14.0
-
-  acorn-import-assertions@1.9.0(acorn@8.15.0):
-    dependencies:
-      acorn: 8.15.0
 
   acorn-import-attributes@1.9.5(acorn@8.14.0):
     dependencies:
@@ -41748,7 +41710,7 @@ snapshots:
 
   micromark-factory-mdx-expression@2.0.2:
     dependencies:
-      '@types/estree': 1.0.6
+      '@types/estree': 1.0.8
       devlop: 1.1.0
       micromark-factory-space: 2.0.1
       micromark-util-character: 2.1.1
@@ -41813,7 +41775,7 @@ snapshots:
   micromark-util-events-to-acorn@2.0.2:
     dependencies:
       '@types/acorn': 4.0.6
-      '@types/estree': 1.0.6
+      '@types/estree': 1.0.8
       '@types/unist': 3.0.3
       devlop: 1.1.0
       estree-util-visit: 2.0.0
@@ -44073,13 +44035,6 @@ snapshots:
       nanoid: 3.3.7
       picocolors: 1.0.0
       source-map-js: 1.2.1
-
-  postcss@8.5.6:
-    dependencies:
-      nanoid: 3.3.11
-      picocolors: 1.1.1
-      source-map-js: 1.2.1
-    optional: true
 
   postcss@8.5.8:
     dependencies:
@@ -48234,8 +48189,8 @@ snapshots:
       '@webassemblyjs/ast': 1.14.1
       '@webassemblyjs/wasm-edit': 1.14.1
       '@webassemblyjs/wasm-parser': 1.14.1
-      acorn: 8.15.0
-      acorn-import-assertions: 1.9.0(acorn@8.15.0)
+      acorn: 8.14.0
+      acorn-import-assertions: 1.9.0(acorn@8.14.0)
       browserslist: 4.24.3
       chrome-trace-event: 1.0.4
       enhanced-resolve: 5.17.1

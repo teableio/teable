@@ -828,6 +828,7 @@
     "insertFieldLeft": "Insertar a la izquierda",
     "insertFieldRight": "Insertar a la derecha",
     "freezeUpField": "Congelarse a este campo",
+    "freezeFieldWindowTooNarrow": "No se puede congelar hasta esta área porque la ventana actual es demasiado estrecha",
     "hideField": "Esconder el campo",
     "deleteField": "Eliminar campo",
     "deleteAllSelectedFields": "Eliminar todos los campos seleccionados",

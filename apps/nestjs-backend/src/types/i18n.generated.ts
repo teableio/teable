@@ -5218,6 +5218,7 @@ export type I18nTranslations = {
             "insertFieldLeft": string;
             "insertFieldRight": string;
             "freezeUpField": string;
+            "freezeFieldWindowTooNarrow": string;
             "hideField": string;
             "deleteField": string;
             "deleteAllSelectedFields": string;
