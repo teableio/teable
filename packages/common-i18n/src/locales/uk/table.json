@@ -835,6 +835,7 @@
     "insertFieldLeft": "Вставити ліворуч",
     "insertFieldRight": "Вставити праворуч",
     "freezeUpField": "Закріпити до цього поля",
+    "freezeFieldWindowTooNarrow": "Неможливо закріпити до цієї області, оскільки поточне вікно занадто вузьке",
     "hideField": "Приховати поле",
     "deleteField": "Видалити поле",
     "deleteAllSelectedFields": "Видалити всі вибрані поля",

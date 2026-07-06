@@ -834,6 +834,7 @@
     "insertFieldLeft": "Inserisci a sinistra",
     "insertFieldRight": "Inserisci a destra",
     "freezeUpField": "Blocca fino a questo campo",
+    "freezeFieldWindowTooNarrow": "Impossibile bloccare quest'area perché la finestra corrente è troppo stretta",
     "hideField": "Nascondi campo",
     "deleteField": "Elimina campo",
     "deleteAllSelectedFields": "Elimina tutti i campi selezionati",

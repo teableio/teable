@@ -2289,7 +2289,7 @@ describe('SpaceDataDbMigrationService', () => {
     );
   });
 
-  it('pre-creates legacy public auto-number sequences from schema-less regclass defaults', async () => {
+  it('pre-creates legacy public auto-number sequences from dependency metadata', async () => {
     prismaService.spaceDataDbMigrationJob.findUnique.mockResolvedValue({
       id: 'sdmjxxx',
       spaceId: 'spcxxx',
@@ -2322,13 +2322,14 @@ describe('SpaceDataDbMigrationService', () => {
       },
     });
     sourceClient.raw.mockImplementation((sql: string) => {
-      if (sql.includes('information_schema.columns')) {
+      if (sql.includes('pg_attrdef')) {
         return {
           rows: [
             {
               tableSchema: 'bsexxx',
               tableName: 'sheet1',
-              columnDefault: `nextval('"bsexxx_sheet1_seq"'::regclass)`,
+              sequenceSchema: 'public',
+              sequenceName: 'bsexxx_sheet1_seq',
             },
           ],
         };
@@ -4388,19 +4389,28 @@ describe('SpaceDataDbMigrationService', () => {
         physicalSchemas: [],
       },
     });
-    prismaService.schemaOperation.count.mockResolvedValueOnce(1).mockResolvedValueOnce(0);
-    prismaService.schemaOperation.findMany.mockResolvedValueOnce([
-      {
-        id: 'sgoxxx',
-        status: 'running',
-        phase: 'alter_table',
-        baseId: 'bsexxx',
-        tableId: 'tblxxx',
-        lockedAt: new Date('2026-05-06T00:00:00.000Z'),
-        lockedBy: 'worker-1',
-        lastModifiedTime: new Date('2026-05-06T00:00:00.000Z'),
-      },
-    ]);
+    prismaService.schemaOperation.count
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(0);
+    prismaService.schemaOperation.findMany
+      .mockResolvedValueOnce([
+        {
+          id: 'sgoxxx',
+          status: 'running',
+          phase: 'alter_table',
+          baseId: 'bsexxx',
+          tableId: 'tblxxx',
+          lockedAt: new Date('2026-05-06T00:00:00.000Z'),
+          lockedBy: 'worker-1',
+          createdTime: new Date('2026-05-06T00:00:00.000Z'),
+          lastModifiedTime: new Date('2026-05-06T00:00:00.000Z'),
+        },
+      ])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
     const service = createService();
 
     await expect(
@@ -4414,7 +4424,11 @@ describe('SpaceDataDbMigrationService', () => {
 
     expect(prismaService.schemaOperation.count).toHaveBeenCalledWith({
       where: expect.objectContaining({
-        status: { in: ['pending', 'running', 'error'] },
+        AND: expect.arrayContaining([
+          expect.objectContaining({
+            status: { in: ['pending', 'running', 'error'] },
+          }),
+        ]),
       }),
     });
     expect(prismaService.spaceDataDbMigrationJob.update).toHaveBeenLastCalledWith(
@@ -4424,6 +4438,65 @@ describe('SpaceDataDbMigrationService', () => {
           copyStats: expect.objectContaining({
             phase: 'schema_operations_drained',
             schemaOperations: expect.objectContaining({ openCount: 0 }),
+          }),
+        }),
+      })
+    );
+  });
+
+  it('ignores stale non-terminal schema operations while draining before copy', async () => {
+    prismaService.spaceDataDbMigrationJob.findUnique.mockResolvedValue({
+      id: 'sdmjxxx',
+      spaceId: 'spcxxx',
+      targetInternalSchema: internalSchema,
+      createdBy: 'usrxxx',
+      targetConnection: {
+        encryptedUrl: encryptDataDbUrl(dataUrl),
+      },
+      inventory: {
+        baseIds: ['bsexxx'],
+        tableIds: ['tblxxx'],
+        dbTableNames: ['bsexxx.sheet1'],
+        physicalSchemas: [],
+      },
+    });
+    prismaService.schemaOperation.count.mockResolvedValueOnce(0).mockResolvedValueOnce(1);
+    prismaService.schemaOperation.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([
+      {
+        id: 'sgostale',
+        status: 'error',
+        phase: 'table.delete',
+        baseId: 'bsexxx',
+        tableId: 'tblxxx',
+        lockedAt: null,
+        lockedBy: null,
+        createdTime: new Date('2026-05-01T00:00:00.000Z'),
+        lastModifiedTime: new Date('2026-05-01T00:00:00.000Z'),
+      },
+    ]);
+    const service = createService();
+
+    await expect(
+      service.waitForSchemaOperationsForJob('sdmjxxx', {
+        timeoutMs: 0,
+        pollMs: 1,
+      })
+    ).resolves.toMatchObject({
+      openCount: 0,
+      staleIgnoredCount: 1,
+      staleIgnoredSample: [expect.objectContaining({ id: 'sgostale', status: 'error' })],
+    });
+
+    expect(prismaService.spaceDataDbMigrationJob.update).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        where: { id: 'sdmjxxx' },
+        data: expect.objectContaining({
+          copyStats: expect.objectContaining({
+            phase: 'schema_operations_drained',
+            schemaOperations: expect.objectContaining({
+              openCount: 0,
+              staleIgnoredCount: 1,
+            }),
           }),
         }),
       })
@@ -4446,7 +4519,7 @@ describe('SpaceDataDbMigrationService', () => {
         physicalSchemas: [],
       },
     });
-    prismaService.schemaOperation.count.mockResolvedValue(2);
+    prismaService.schemaOperation.count.mockResolvedValueOnce(2).mockResolvedValueOnce(0);
     prismaService.schemaOperation.findMany.mockResolvedValue([
       {
         id: 'sgoxxx',
@@ -4456,6 +4529,7 @@ describe('SpaceDataDbMigrationService', () => {
         tableId: 'tblxxx',
         lockedAt: new Date('2026-05-06T00:00:00.000Z'),
         lockedBy: 'worker-1',
+        createdTime: new Date('2026-05-06T00:00:00.000Z'),
         lastModifiedTime: new Date('2026-05-06T00:00:00.000Z'),
       },
     ]);
@@ -4510,10 +4584,12 @@ describe('SpaceDataDbMigrationService', () => {
         {
           id: 'bsexxx',
           provisionState: 'pending',
+          createdTime: new Date('2026-05-06T00:00:00.000Z'),
           lastModifiedTime: new Date('2026-05-06T00:00:00.000Z'),
         },
       ])
-      .mockResolvedValueOnce([]);
+      .mockResolvedValueOnce([])
+      .mockResolvedValue([]);
     const importJob = {
       id: 'import-table-csv-chunk:tblxxx:abc123',
       data: {
@@ -4539,7 +4615,11 @@ describe('SpaceDataDbMigrationService', () => {
 
     expect(prismaService.base.count).toHaveBeenCalledWith({
       where: expect.objectContaining({
-        provisionState: { in: ['pending', 'deleting', 'error'] },
+        AND: expect.arrayContaining([
+          expect.objectContaining({
+            provisionState: { in: ['pending', 'deleting', 'error'] },
+          }),
+        ]),
       }),
     });
     expect(tableImportCsvChunkQueue.getJobs).toHaveBeenCalledWith(
@@ -4555,6 +4635,62 @@ describe('SpaceDataDbMigrationService', () => {
           copyStats: expect.objectContaining({
             phase: 'background_writers_drained',
             backgroundWriters: expect.objectContaining({ openCount: 0 }),
+          }),
+        }),
+      })
+    );
+  });
+
+  it('ignores stale non-terminal provisioning resources while draining background writers', async () => {
+    prismaService.spaceDataDbMigrationJob.findUnique.mockResolvedValue({
+      id: 'sdmjxxx',
+      spaceId: 'spcxxx',
+      targetInternalSchema: internalSchema,
+      createdBy: 'usrxxx',
+      targetConnection: {
+        encryptedUrl: encryptDataDbUrl(dataUrl),
+      },
+      inventory: {
+        baseIds: ['bsestale'],
+        tableIds: ['tblxxx'],
+        dbTableNames: ['bsestale.sheet1'],
+        physicalSchemas: [],
+      },
+    });
+    prismaService.tableMeta.findMany.mockResolvedValue([]);
+    prismaService.base.count.mockResolvedValueOnce(0).mockResolvedValueOnce(1);
+    prismaService.base.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([
+      {
+        id: 'bsestale',
+        provisionState: 'error',
+        createdTime: new Date('2026-05-01T00:00:00.000Z'),
+        lastModifiedTime: new Date('2026-05-01T00:00:00.000Z'),
+      },
+    ]);
+    const service = createService();
+
+    await expect(
+      service.waitForBackgroundWritersForJob('sdmjxxx', {
+        timeoutMs: 0,
+        pollMs: 1,
+      })
+    ).resolves.toMatchObject({
+      openCount: 0,
+      provisionResourceCount: 0,
+      staleIgnoredCount: 1,
+      staleIgnoredSample: [expect.objectContaining({ id: 'bsestale', state: 'error' })],
+    });
+
+    expect(prismaService.spaceDataDbMigrationJob.update).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        where: { id: 'sdmjxxx' },
+        data: expect.objectContaining({
+          copyStats: expect.objectContaining({
+            phase: 'background_writers_drained',
+            backgroundWriters: expect.objectContaining({
+              openCount: 0,
+              staleIgnoredCount: 1,
+            }),
           }),
         }),
       })
@@ -4593,22 +4729,34 @@ describe('SpaceDataDbMigrationService', () => {
 
     expect(prismaService.base.count).toHaveBeenCalledWith({
       where: expect.objectContaining({
-        deletedTime: null,
-        provisionState: { in: ['pending', 'deleting', 'error'] },
-        OR: expect.arrayContaining([{ spaceId: 'spcxxx' }, { id: { in: ['bseactive'] } }]),
+        AND: expect.arrayContaining([
+          expect.objectContaining({
+            deletedTime: null,
+            provisionState: { in: ['pending', 'deleting', 'error'] },
+            OR: expect.arrayContaining([{ spaceId: 'spcxxx' }, { id: { in: ['bseactive'] } }]),
+          }),
+        ]),
       }),
     });
     expect(prismaService.tableMeta.count).toHaveBeenCalledWith({
       where: expect.objectContaining({
-        deletedTime: null,
-        provisionState: { in: ['pending', 'deleting', 'error'] },
+        AND: expect.arrayContaining([
+          expect.objectContaining({
+            deletedTime: null,
+            provisionState: { in: ['pending', 'deleting', 'error'] },
+          }),
+        ]),
       }),
     });
     expect(prismaService.field.count).toHaveBeenCalledWith({
       where: expect.objectContaining({
-        deletedTime: null,
-        tableId: { in: ['tblactive'] },
-        provisionState: { in: ['pending', 'deleting', 'error'] },
+        AND: expect.arrayContaining([
+          expect.objectContaining({
+            deletedTime: null,
+            tableId: { in: ['tblactive'] },
+            provisionState: { in: ['pending', 'deleting', 'error'] },
+          }),
+        ]),
       }),
     });
   });

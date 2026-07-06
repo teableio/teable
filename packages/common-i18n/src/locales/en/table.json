@@ -1140,6 +1140,7 @@
     "insertFieldLeft": "Insert left",
     "insertFieldRight": "Insert right",
     "freezeUpField": "Freeze up to this field",
+    "freezeFieldWindowTooNarrow": "Cannot freeze to this area because the current window is too narrow",
     "hideField": "Hide field",
     "deleteField": "Delete field",
     "deleteAllSelectedFields": "Delete all selected fields",
