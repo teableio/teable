@@ -1,5 +1,6 @@
 import { generatePrefixedId } from '@teable/v2-core';
 import type { CompiledQuery, Kysely } from 'kysely';
+import { sql } from 'kysely';
 
 import type { DynamicDB } from '../query-builder';
 
@@ -10,6 +11,14 @@ type AttachmentItemLike = {
   id?: string;
   token?: string;
   name?: string;
+};
+
+export type AttachmentTableReplaceInput = {
+  actorId: string;
+  tableId: string;
+  recordId: string;
+  fieldId: string;
+  value: unknown;
 };
 
 const normalizeAttachmentItems = (value: unknown): AttachmentItemLike[] => {
@@ -55,13 +64,7 @@ const toAttachmentTableRows = (params: {
 
 export const buildAttachmentTableInsertQuery = (
   db: Kysely<DynamicDB>,
-  params: {
-    actorId: string;
-    tableId: string;
-    recordId: string;
-    fieldId: string;
-    value: unknown;
-  }
+  params: AttachmentTableReplaceInput
 ): CompiledQuery | undefined => {
   const rows = toAttachmentTableRows(params);
   if (rows.length === 0) {
@@ -73,13 +76,7 @@ export const buildAttachmentTableInsertQuery = (
 
 export const buildAttachmentTableReplaceQueries = (
   db: Kysely<DynamicDB>,
-  params: {
-    actorId: string;
-    tableId: string;
-    recordId: string;
-    fieldId: string;
-    value: unknown;
-  }
+  params: AttachmentTableReplaceInput
 ): CompiledQuery[] => {
   const deleteQuery = db
     .deleteFrom('attachments_table')
@@ -91,4 +88,37 @@ export const buildAttachmentTableReplaceQueries = (
   const insertQuery = buildAttachmentTableInsertQuery(db, params);
 
   return insertQuery ? [deleteQuery, insertQuery] : [deleteQuery];
+};
+
+export const buildAttachmentTableBatchReplaceQueries = (
+  db: Kysely<DynamicDB>,
+  replacements: ReadonlyArray<AttachmentTableReplaceInput>
+): CompiledQuery[] => {
+  if (replacements.length === 0) {
+    return [];
+  }
+
+  const uniqueDeleteTargets = new Map<string, AttachmentTableReplaceInput>();
+  const rows = [];
+  for (const replacement of replacements) {
+    uniqueDeleteTargets.set(
+      `${replacement.tableId}:${replacement.recordId}:${replacement.fieldId}`,
+      replacement
+    );
+    rows.push(...toAttachmentTableRows(replacement));
+  }
+
+  const tuples = [...uniqueDeleteTargets.values()].map(
+    (target) => sql`(${target.tableId}, ${target.recordId}, ${target.fieldId})`
+  );
+  const deleteQuery = sql`
+    delete from attachments_table
+    where (table_id, record_id, field_id) in (${sql.join(tuples)})
+  `.compile(db);
+
+  if (rows.length === 0) {
+    return [deleteQuery];
+  }
+
+  return [deleteQuery, db.insertInto('attachments_table').values(rows).compile()];
 };

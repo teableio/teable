@@ -1,7 +1,7 @@
-import { FieldKeyType } from '@teable/core';
 import type { DataPrismaService } from '@teable/db-data-prisma';
 import type { IDeleteFieldsOperation } from '../../../cache/types';
 import { OperationName } from '../../../cache/types';
+import { restoreFieldRecordValues } from '../../field/restore-field-record-values';
 import type { DataDbClientManager } from '../../../global/data-db-client-manager.service';
 import type { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
 import type { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
@@ -57,12 +57,7 @@ export class DeleteFieldsOperation {
       restoreViewOrder: true,
     });
 
-    if (records) {
-      await this.recordOpenApiService.updateRecords(tableId, {
-        fieldKeyType: FieldKeyType.Id,
-        records,
-      });
-    }
+    await restoreFieldRecordValues(tableId, records, this.recordOpenApiService);
 
     if (operationId) {
       await dataPrisma.tableTrash.delete({

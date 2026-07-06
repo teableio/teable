@@ -36,10 +36,12 @@ export const getSelectionRecords = async (
     take: number;
     projection: string[];
   }) => {
+    const effectiveGroupBy = personalViewCommonQuery ? personalViewCommonQuery.groupBy : groupBy;
+
     return getRecords(tableId, {
       ...personalViewCommonQuery,
       viewId,
-      groupBy,
+      groupBy: effectiveGroupBy,
       search,
       collapsedGroupIds,
       projection,

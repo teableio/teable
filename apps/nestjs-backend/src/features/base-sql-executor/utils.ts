@@ -2,6 +2,9 @@ import { DriverClient, HttpErrorCode } from '@teable/core';
 import type { AST } from 'node-sql-parser';
 import { Parser } from 'node-sql-parser';
 import { CustomHttpException } from '../../custom.exception';
+import { allowedFunctions } from './allowed-functions';
+
+const whiteListCheckErrorKey = 'httpErrors.baseSqlExecutor.whiteListCheckError';
 
 export const validateRoleOperations = (sql: string) => {
   const removeQuotedContent = (sql: string) => {
@@ -11,7 +14,11 @@ export const validateRoleOperations = (sql: string) => {
   const normalizedSql = sql.toLowerCase().replace(/\s+/g, ' ');
   const sqlWithoutQuotes = removeQuotedContent(normalizedSql);
 
-  const roleOperationPatterns = [/set\s+role/, /reset\s+role/, /set\s+session/];
+  const roleOperationPatterns = [
+    /set\s+(?:local\s+|session\s+)?role/,
+    /reset\s+role/,
+    /set\s+session/,
+  ];
 
   for (const pattern of roleOperationPatterns) {
     if (pattern.test(sqlWithoutQuotes)) {
@@ -33,6 +40,79 @@ export const validateRoleOperations = (sql: string) => {
 
 const databaseTypeMap = {
   [DriverClient.Pg]: 'postgresql',
+};
+
+const getFunctionName = (node: unknown): string | null => {
+  const functionNode = node as {
+    type?: unknown;
+    name?: { name?: Array<{ value?: unknown }> };
+  };
+  if (functionNode.type !== 'function') {
+    return null;
+  }
+
+  const nameParts = functionNode.name?.name;
+  const lastNamePart = nameParts?.[nameParts.length - 1]?.value;
+  return typeof lastNamePart === 'string' ? lastNamePart.toLowerCase() : null;
+};
+
+const findUnallowedFunctionInArray = (values: unknown[]): string | null => {
+  for (const value of values) {
+    const unallowed = findUnallowedFunction(value);
+    if (unallowed) {
+      return unallowed;
+    }
+  }
+
+  return null;
+};
+
+const findUnallowedFunctionInValue = (value: unknown): string | null => {
+  if (Array.isArray(value)) {
+    return findUnallowedFunctionInArray(value);
+  }
+
+  return findUnallowedFunction(value);
+};
+
+function findUnallowedFunction(node: unknown): string | null {
+  if (!node || typeof node !== 'object') {
+    return null;
+  }
+
+  const functionName = getFunctionName(node);
+  if (functionName && !allowedFunctions.has(functionName)) {
+    return functionName;
+  }
+
+  for (const value of Object.values(node)) {
+    const unallowed = findUnallowedFunctionInValue(value);
+    if (unallowed) {
+      return unallowed;
+    }
+  }
+
+  return null;
+}
+
+const validateFunctionCalls = (ast: AST | AST[]) => {
+  const unallowed = findUnallowedFunction(ast);
+  if (!unallowed) {
+    return;
+  }
+
+  throw new CustomHttpException(
+    `not allowed to execute sql with function ${unallowed}`,
+    HttpErrorCode.VALIDATION_ERROR,
+    {
+      localization: {
+        i18nKey: whiteListCheckErrorKey,
+        context: {
+          function: unallowed,
+        },
+      },
+    }
+  );
 };
 
 const collectWithNames = (ast?: AST) => {
@@ -79,12 +159,30 @@ export const checkTableAccess = (
       );
     }
   })();
+  validateFunctionCalls(ast);
   const withNames = Array.isArray(ast) ? ast.flatMap(collectWithNames) : collectWithNames(ast);
   const allowedTables = new Set([...withNames, ...tableNames]);
   const whiteColumnList = Array.from(allowedTables).map((table) => {
     const [schema, tableName] = table.includes('.') ? table.split('.') : [null, table];
     return `select::${schema}::${tableName}`;
   });
+
+  // node-sql-parser skips whiteListCheck entirely when the whitelist is empty,
+  // which would allow querying any table (e.g. after all tables are archived).
+  if (!whiteColumnList.length) {
+    throw new CustomHttpException(
+      'An error occurred while checking table access: no accessible tables',
+      HttpErrorCode.VALIDATION_ERROR,
+      {
+        localization: {
+          i18nKey: whiteListCheckErrorKey,
+          context: {
+            message: 'no accessible tables',
+          },
+        },
+      }
+    );
+  }
 
   let whiteListError: Error | undefined;
   try {
@@ -95,6 +193,18 @@ export const checkTableAccess = (
   }
 
   const sqlTableList = parser.tableList(sql, opt);
+
+  if (!sqlTableList.length) {
+    throw new CustomHttpException(
+      'SQL syntax error or no table accessed, please check your query',
+      HttpErrorCode.VALIDATION_ERROR,
+      {
+        localization: {
+          i18nKey: 'httpErrors.baseSqlExecutor.sqlSyntaxError',
+        },
+      }
+    );
+  }
   const invalidTableNames = sqlTableList
     .filter((t: string) => !whiteColumnList.includes(t))
     .map((t: string) => t.split('::').pop()!);
@@ -111,7 +221,7 @@ export const checkTableAccess = (
     HttpErrorCode.VALIDATION_ERROR,
     {
       localization: {
-        i18nKey: 'httpErrors.baseSqlExecutor.whiteListCheckError',
+        i18nKey: whiteListCheckErrorKey,
         context: {
           message,
         },

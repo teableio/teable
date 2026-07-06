@@ -3,6 +3,7 @@ export enum SettingKey {
   BRAND_NAME = 'brandName',
   BRAND_LOGO = 'brandLogo',
   DISALLOW_SIGN_UP = 'disallowSignUp',
+  BANNED_EMAIL_DOMAINS = 'bannedEmailDomains',
   DISALLOW_SPACE_CREATION = 'disallowSpaceCreation',
   DISALLOW_SPACE_INVITATION = 'disallowSpaceInvitation',
   DISALLOW_DASHBOARD = 'disallowDashboard',
