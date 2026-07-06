@@ -21,6 +21,10 @@ export const envValidationSchema = Joi.object({
 
   PUBLIC_ORIGIN: Joi.string().uri().required(),
 
+  // Express `trust proxy`: 'true' | 'false' | hop count | IP/CIDR/preset list.
+  // Unset = trust private-network proxies (see parseTrustProxy in bootstrap.config).
+  BACKEND_TRUST_PROXY: Joi.string().optional(),
+
   // cache
   BACKEND_CACHE_PROVIDER: Joi.string().valid('memory', 'sqlite', 'redis').default('sqlite'),
   // cache-sqlite
