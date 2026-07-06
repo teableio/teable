@@ -1582,8 +1582,43 @@ describe('Schema Rules Unit Tests with PGlite', () => {
 
       for (const stmt of rule.up(ctx)._unsafeUnwrap()) {
         const compiled = stmt.compile(db);
-        expect(compiled.sql).not.toContain('table_meta');
         await db.executeQuery(compiled);
+      }
+
+      expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(true);
+    });
+
+    it('should repair FK constraint when logical target table resolves to a physical table', async () => {
+      const targetTableMetaId = createValidTableId('logical_fk_target');
+      const targetPhysicalTableName = 'students_physical';
+
+      await createTestTable(targetPhysicalTableName);
+      await createTestTable(SOURCE_TABLE, ['fk_col TEXT']);
+      await sql`
+        INSERT INTO table_meta (id, db_table_name, deleted_time)
+        VALUES (${targetTableMetaId}, ${`${TEST_SCHEMA}.${targetPhysicalTableName}`}, NULL)
+      `.execute(db);
+
+      const fieldResult = createRealField('fkmeta02', 'Link', 'fk_col');
+      const field = fieldResult._unsafeUnwrap();
+
+      const fkColumnRule = FkColumnRule.forField(field, 'fk_col', targetTableMetaId);
+      const rule = ForeignKeyRule.forField(
+        field,
+        'fk_col',
+        { schema: TEST_SCHEMA, tableName: targetTableMetaId },
+        fkColumnRule,
+        'Students',
+        'CASCADE',
+        undefined,
+        targetTableMetaId
+      );
+      const ctx = createContext(SOURCE_TABLE, field);
+
+      expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(false);
+
+      for (const stmt of rule.up(ctx)._unsafeUnwrap()) {
+        await db.executeQuery(stmt.compile(db));
       }
 
       expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(true);
@@ -2495,7 +2530,7 @@ describe('Schema Rules Unit Tests with PGlite', () => {
 
       for (const stmt of rule.up(ctx)._unsafeUnwrap()) {
         const compiled = stmt.compile(db);
-        expect(compiled.sql).not.toContain('table_meta');
+        expect(compiled.sql).toContain('table_meta');
         await db.executeQuery(compiled);
       }
 

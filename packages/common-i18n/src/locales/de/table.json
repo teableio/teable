@@ -834,6 +834,7 @@
     "insertFieldLeft": "Links einfügen",
     "insertFieldRight": "Rechts einfügen",
     "freezeUpField": "Bis zu diesem Feld einfrieren",
+    "freezeFieldWindowTooNarrow": "Kann diesen Bereich nicht einfrieren, da das aktuelle Fenster zu schmal ist",
     "hideField": "Feld verstecken",
     "deleteField": "Feld löschen",
     "deleteAllSelectedFields": "Alle ausgewählten Felder löschen",
