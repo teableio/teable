@@ -46,6 +46,7 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
   } = props;
   const [open, setOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
+  const popoverContentRef = useRef<HTMLDivElement>(null);
 
   const label = useMemo(() => {
     return options.find((option) => option.value === value)?.label || defaultLabel;
@@ -82,6 +83,17 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
       setApplySearchDebounced?.(searchValue);
     }
   }, [searchValue, isComposing, onSearch, setApplySearchDebounced]);
+
+  useEffect(() => {
+    const popoverContent = popoverContentRef.current;
+    if (!open || !popoverContent) {
+      return;
+    }
+
+    const handleWheel = (event: WheelEvent) => scrollListByWheel(event, listRef.current);
+    popoverContent.addEventListener('wheel', handleWheel, { passive: false, capture: true });
+    return () => popoverContent.removeEventListener('wheel', handleWheel, true);
+  }, [open]);
 
   const renderOptions = () =>
     options?.map((option) => (
@@ -141,11 +153,7 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
           />
         </Button>
       </PopoverTrigger>
-      <PopoverContent
-        align="start"
-        className={cn('p-1', popoverClassName)}
-        onWheelCapture={(event) => scrollListByWheel(event, listRef.current)}
-      >
+      <PopoverContent ref={popoverContentRef} align="start" className={cn('p-1', popoverClassName)}>
         <Command filter={onSearch ? undefined : commandFilter} shouldFilter={!onSearch}>
           {search ? (
             <CommandInput

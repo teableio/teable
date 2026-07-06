@@ -21,7 +21,7 @@ import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
 import type { I18nTranslations } from '../../types/i18n.generated';
 import { SettingOpenApiService } from '../setting/open-api/setting-open-api.service';
-import { buildEmailFrom, type ISendMailOptions } from './mail-helpers';
+import { buildEmailFrom, truncateMailName, type ISendMailOptions } from './mail-helpers';
 
 @Injectable()
 export class MailSenderService {
@@ -264,10 +264,17 @@ export class MailSenderService {
     const { name, email, inviteUrl, resourceName, resourceType } = info;
     const { brandName, brandLogo } = await this.settingOpenApiService.getServerBrand();
     const resourceAlias = resourceType === CollaboratorType.Space ? 'Space' : 'Base';
+    const { userNameMaxLength, spaceNameMaxLength } = this.mailConfig.invite;
 
     return {
       subject: this.i18n.t('common.email.templates.invite.subject', {
-        args: { name, email, resourceAlias, resourceName, brandName },
+        args: {
+          name: truncateMailName(name, userNameMaxLength),
+          email,
+          resourceAlias,
+          resourceName: truncateMailName(resourceName, spaceNameMaxLength),
+          brandName,
+        },
       }),
       template: 'normal',
       context: {

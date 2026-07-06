@@ -1,5 +1,6 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
+import { CREATE_SOURCE_HEADER, CREATE_SOURCE_TEMPLATE } from '../types';
 import { registerRoute } from '../utils';
 import { z } from '../zod';
 import { createBaseVoSchema } from './create';
@@ -49,5 +50,9 @@ export const CreateBaseFromTemplateRoute: RouteConfig = registerRoute({
 });
 
 export const createBaseFromTemplate = async (createBaseRo: ICreateBaseFromTemplateRo) => {
-  return axios.post<ICreateBaseFromTemplateVo>(CREATE_BASE_FROM_TEMPLATE, createBaseRo);
+  // Source header is intrinsic to this endpoint: analytics segments base
+  // creations into manual / template / import / auto.
+  return axios.post<ICreateBaseFromTemplateVo>(CREATE_BASE_FROM_TEMPLATE, createBaseRo, {
+    headers: { [CREATE_SOURCE_HEADER]: CREATE_SOURCE_TEMPLATE },
+  });
 };

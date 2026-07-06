@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/nestjs';
+import { v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import {
   createMetaRepairer,
   type MetaValidationIssue,
@@ -14,8 +15,10 @@ import {
   Table,
   TableId,
   TableName,
+  v2CoreTokens,
   type ITracer,
 } from '@teable/v2-core';
+import { ok } from 'neverthrow';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 import { IntegrityV2Service } from './integrity-v2.service';
@@ -33,6 +36,30 @@ const repairStreamCrashedMessage = 'repair stream crashed';
 const createBaseId = (seed: string) => BaseId.create(`bse${seed.repeat(16)}`)._unsafeUnwrap();
 const createTableId = (seed: string) => TableId.create(`tbl${seed.repeat(16)}`)._unsafeUnwrap();
 const createFieldId = (seed: string) => FieldId.create(`fld${seed.repeat(16)}`)._unsafeUnwrap();
+const createBaseTablePreflightRow = (
+  tableId: string,
+  tableName: string,
+  activeFieldCount: number,
+  primaryFieldCount: number
+) => ({
+  tableId,
+  tableName,
+  activeFieldCount,
+  primaryFieldCount,
+});
+const createMetaDb = (rows: ReadonlyArray<ReturnType<typeof createBaseTablePreflightRow>>) => {
+  const query = {
+    leftJoin: vi.fn(() => query),
+    select: vi.fn(() => query),
+    where: vi.fn(() => query),
+    groupBy: vi.fn(() => query),
+    execute: vi.fn().mockResolvedValue(rows),
+  };
+  return {
+    selectFrom: vi.fn(() => query),
+    query,
+  };
+};
 const createThrowingRepairStream = (message: string): AsyncGenerator<SchemaRepairResult> =>
   ({
     async next() {
@@ -115,11 +142,14 @@ vi.mock('@sentry/nestjs', () => ({
   captureException: vi.fn(),
 }));
 
-const createTable = (fields: unknown[] = []): Table =>
+const createTable = (
+  fields: unknown[] = [],
+  options?: { tableId?: string; tableName?: string; baseId?: string }
+): Table =>
   ({
-    id: () => ({ toString: () => 'tblIntegrity000001' }),
-    name: () => ({ toString: () => 'Tasks' }),
-    baseId: () => ({ toString: () => 'baseIntegrity0001' }),
+    id: () => ({ toString: () => options?.tableId ?? 'tblIntegrity000001' }),
+    name: () => ({ toString: () => options?.tableName ?? 'Tasks' }),
+    baseId: () => ({ toString: () => options?.baseId ?? 'baseIntegrity0001' }),
     getFields: () => fields,
   }) as unknown as Table;
 
@@ -378,7 +408,7 @@ describe('IntegrityV2Service repair telemetry', () => {
     );
 
     expect(tableRepository.find).toHaveBeenCalledTimes(1);
-    expect(tableRepository.find.mock.calls[0]?.[2]).toEqual({ state: 'all' });
+    expect(tableRepository.find.mock.calls[0]?.[2]).toEqual({ state: 'activeWithPending' });
     expect(tableRepository.find.mock.calls[0]?.[1]).toMatchObject({
       left: {
         baseIdValue: foreignBaseId,
@@ -391,6 +421,187 @@ describe('IntegrityV2Service repair telemetry', () => {
     expect(repairedContextResults).toEqual([]);
     expect(fakeDb.execute).not.toHaveBeenCalled();
     expect(lookupField.hasError().isError()).toBe(false);
+  });
+
+  it('loads active schema state for integrity table targets', async () => {
+    const tableId = createTableId('i').toString();
+    const table = createTable();
+    const tableRepository = {
+      findOne: vi.fn().mockResolvedValue(ok(table)),
+      find: vi.fn().mockResolvedValue(ok([table])),
+    };
+    const db = {};
+    const container = {
+      resolve: vi.fn((token) => {
+        if (token === v2CoreTokens.tableRepository) {
+          return tableRepository;
+        }
+        return db;
+      }),
+    };
+    const service = new IntegrityV2Service(
+      { getContainerForTable: vi.fn().mockResolvedValue(container) } as never,
+      { createContext: vi.fn().mockResolvedValue({}) } as never
+    );
+
+    await service['resolveSchemaTarget'](tableId, { includeBaseTables: true });
+
+    expect(tableRepository.findOne).toHaveBeenCalledWith(expect.anything(), expect.anything(), {
+      state: 'activeWithPending',
+    });
+    expect(tableRepository.find).toHaveBeenCalledWith(expect.anything(), expect.anything(), {
+      state: 'activeWithPending',
+    });
+  });
+
+  it('loads active schema state for integrity base targets', async () => {
+    const baseId = createBaseId('i').toString();
+    const table = createTable();
+    const tableRepository = {
+      find: vi.fn().mockResolvedValue(ok([table])),
+    };
+    const baseRepository = {
+      findOne: vi.fn().mockResolvedValue(ok({})),
+    };
+    const metaDb = createMetaDb([
+      createBaseTablePreflightRow(table.id().toString(), table.name().toString(), 1, 1),
+    ]);
+    const db = {};
+    const container = {
+      resolve: vi.fn((token) => {
+        if (token === v2CoreTokens.tableRepository) {
+          return tableRepository;
+        }
+        if (token === v2CoreTokens.baseRepository) {
+          return baseRepository;
+        }
+        if (token === v2MetaDbTokens.db) {
+          return metaDb;
+        }
+        return db;
+      }),
+    };
+    const service = new IntegrityV2Service(
+      { getContainerForBase: vi.fn().mockResolvedValue(container) } as never,
+      { createContext: vi.fn().mockResolvedValue({}) } as never
+    );
+
+    await service['resolveBaseTarget'](baseId);
+
+    expect(tableRepository.find).toHaveBeenCalledWith(expect.anything(), expect.anything(), {
+      state: 'activeWithPending',
+    });
+  });
+
+  it('reports active tables that cannot hydrate before base schema checks', async () => {
+    const baseId = createBaseId('j').toString();
+    const table = createTable();
+    const emptyTableId = createTableId('e').toString();
+    const tableRepository = {
+      find: vi.fn().mockResolvedValue(ok([table])),
+    };
+    const baseRepository = {
+      findOne: vi.fn().mockResolvedValue(ok({})),
+    };
+    const metaDb = createMetaDb([
+      createBaseTablePreflightRow(table.id().toString(), table.name().toString(), 1, 1),
+      createBaseTablePreflightRow(emptyTableId, 'Empty Table', 0, 0),
+    ]);
+    const db = {};
+    const container = {
+      resolve: vi.fn((token) => {
+        if (token === v2CoreTokens.tableRepository) {
+          return tableRepository;
+        }
+        if (token === v2CoreTokens.baseRepository) {
+          return baseRepository;
+        }
+        if (token === v2MetaDbTokens.db) {
+          return metaDb;
+        }
+        return db;
+      }),
+    };
+    const service = new IntegrityV2Service(
+      { getContainerForBase: vi.fn().mockResolvedValue(container) } as never,
+      { createContext: vi.fn().mockResolvedValue({}) } as never
+    );
+
+    const target = await service['resolveBaseTarget'](baseId);
+
+    expect(target.tables).toEqual([table]);
+    expect(target.preflightIssues).toHaveLength(1);
+    expect(target.preflightIssues[0]).toMatchObject({
+      baseId,
+      tableId: emptyTableId,
+      tableName: 'Empty Table',
+      fieldId: emptyTableId,
+      fieldName: 'System Columns',
+      ruleId: 'table_empty_active_fields',
+      status: 'error',
+      repair: {
+        available: false,
+        mode: 'manual',
+      },
+    });
+    expect(tableRepository.find).toHaveBeenCalledWith(expect.anything(), expect.anything(), {
+      state: 'activeWithPending',
+    });
+  });
+
+  it('reports active tables without a primary field while still hydrating them', async () => {
+    const baseId = createBaseId('k').toString();
+    const missingPrimaryTableId = createTableId('m').toString();
+    const table = createTable([], { tableId: missingPrimaryTableId, tableName: 'Needs Primary' });
+    const tableRepository = {
+      find: vi.fn().mockResolvedValue(ok([table])),
+    };
+    const baseRepository = {
+      findOne: vi.fn().mockResolvedValue(ok({})),
+    };
+    const metaDb = createMetaDb([
+      createBaseTablePreflightRow(missingPrimaryTableId, 'Needs Primary', 2, 0),
+    ]);
+    const db = {};
+    const container = {
+      resolve: vi.fn((token) => {
+        if (token === v2CoreTokens.tableRepository) {
+          return tableRepository;
+        }
+        if (token === v2CoreTokens.baseRepository) {
+          return baseRepository;
+        }
+        if (token === v2MetaDbTokens.db) {
+          return metaDb;
+        }
+        return db;
+      }),
+    };
+    const service = new IntegrityV2Service(
+      { getContainerForBase: vi.fn().mockResolvedValue(container) } as never,
+      { createContext: vi.fn().mockResolvedValue({}) } as never
+    );
+
+    const target = await service['resolveBaseTarget'](baseId);
+
+    expect(target.tables).toEqual([table]);
+    expect(target.preflightIssues).toHaveLength(1);
+    expect(target.preflightIssues[0]).toMatchObject({
+      baseId,
+      tableId: missingPrimaryTableId,
+      tableName: 'Needs Primary',
+      fieldId: missingPrimaryTableId,
+      fieldName: 'System Columns',
+      ruleId: 'table_missing_primary_field',
+      status: 'error',
+      repair: {
+        available: false,
+        mode: 'manual',
+      },
+    });
+    expect(tableRepository.find).toHaveBeenCalledWith(expect.anything(), expect.anything(), {
+      state: 'activeWithPending',
+    });
   });
 
   it('marks metadata reference check results as auto repairable', async () => {

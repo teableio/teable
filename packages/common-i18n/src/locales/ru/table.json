@@ -394,6 +394,9 @@
         "medium": "Среднее",
         "high": "Высокое"
       },
+      "tip": {
+        "gptImageResolution": "Из-за ограничения на общее число пикселей режим 4K для некоторых соотношений сторон использует максимально допустимый размер."
+      },
       "autoFill": {
         "title": "Автоматическое обновление",
         "tip": "После включения текущее поле будет синхронно обновляться с изменениями содержимого конфигурации AI"
@@ -687,6 +690,7 @@
     "menu": {
       "addFromOtherSource": "Добавить из других источников",
       "excelFile": "Microsoft Excel",
+      "airtable": "Airtable",
       "csvFile": "Csv файл",
       "importCsvData": "Импортировать данные CSV",
       "importExcelData": "Импортировать данные Microsoft Excel",
@@ -838,6 +842,7 @@
     "noPermission": "У вас нет разрешения на доступ к базе данных",
     "connectionCountTip": "Максимальное количество подключений к базе данных - <b>{{max}}</b>, текущее количество подключений - <b>{{current}}</b>",
     "createFailed": "Пожалуйста, убедитесь, что переменная окружения PUBLIC_DATABASE_PROXY установлена правильно",
+    "readonlyUnavailable": "Readonly database sharing is unavailable for this data database. Grant the Teable database user permission to create roles and grants, or use a target database that supports readonly roles.",
     "helpLink": "https://help.teable.ai/en/deploy/database-connection"
   },
   "view": {
@@ -953,6 +958,20 @@
     "shareNodeTab": "Поделиться узлом"
   },
   "aiChat": {
+    "integrationConnect": {
+      "title": "Подключить {{provider}}",
+      "reconnectTitle": "Переподключить {{provider}}",
+      "defaultReason": "Агенту нужен доступ к вашей учётной записи {{provider}}, чтобы продолжить.",
+      "connect": "Подключить",
+      "connecting": "Подключение…",
+      "giveUp": "Отказаться",
+      "failed": "Не удалось подключиться",
+      "status": {
+        "connected": "Подключено",
+        "cancelled": "Пропущено",
+        "failed": "Ошибка"
+      }
+    },
     "agent": {
       "askUserQuestion": {
         "otherPlaceholder": "Или введите ответ…"
@@ -987,6 +1006,11 @@
     "action": {
       "locateResource": "Найти"
     },
+    "showUI": {
+      "skip": "Пропустить",
+      "next": "Далее",
+      "submit": "Отправить"
+    },
     "newChat": "Новый чат",
     "expand": "Развернуть",
     "history": "История",
@@ -1009,7 +1033,8 @@
       "selectionRow": "Row {{row}}",
       "selectionRows": "Строки {{start}}-{{end}}",
       "selectionColumn": "Col {{col}}",
-      "selectionColumns": "Col {{start}}-{{end}}"
+      "selectionColumns": "Col {{start}}-{{end}}",
+      "selectionColumnsNamed": "{{names}} +{{count}}"
     },
     "mention": {
       "tables": "Таблицы",
@@ -1017,9 +1042,19 @@
       "workflows": "Автоматизации",
       "folders": "Папки"
     },
-    "inputPlaceholder": "Введите @, чтобы добавить узел",
+    "slashCommand": {
+      "skills": "Skills",
+      "searchEmpty": "No results found"
+    },
+    "inputPlaceholder": "@ добавляет узлы, / запускает навыки",
     "inputPlaceholderFiles": "Вставьте или перетащите файлы сюда",
     "thought": "Мысли",
+    "stage": {
+      "initializing": "Инициализация",
+      "working": "Работает",
+      "committing": "Фиксация",
+      "recovering": "Восстановление"
+    },
     "meta": {
       "input": "Ввод",
       "output": "Вывод",
@@ -1027,7 +1062,9 @@
     },
     "attachment": {
       "pastedTextFileName": "Вставленный текст",
-      "imageNotSupported": "Изображение не поддерживается"
+      "imageNotSupported": "Изображение не поддерживается",
+      "tooManyFiles": "Вы можете прикрепить не более {{count}} файлов к одному сообщению",
+      "storageFull": "Хранилище песочницы заполнено. Удалите несколько файлов и повторите попытку."
     },
     "suggestions": {
       "title": "Чем могу помочь?",
@@ -1081,6 +1118,19 @@
       "noPrefixOptionDesc": "Сохранить исходное имя файла",
       "groupByRow": "Архивировать в папки",
       "groupByRowTip": "Когда в строке несколько вложений, они будут помещены в одну папку; строки с одним вложением не создадут папку."
+    }
+  },
+  "baseNode": {
+    "info": {
+      "menu": "Информация об узле",
+      "createdBy": "Создал",
+      "createdTime": "Время создания",
+      "lastModifiedBy": "Изменил",
+      "lastModifiedTime": "Время изменения",
+      "folderId": "ID папки",
+      "tableId": "ID таблицы",
+      "automationId": "ID автоматизации",
+      "appId": "ID приложения"
     }
   }
 }

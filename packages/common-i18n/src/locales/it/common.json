@@ -69,6 +69,7 @@
     "expand": "Espandi",
     "getMore": "Ottieni di più",
     "copySuccess": "Copia riuscita",
+    "openLink": "Apri link",
     "share": "Condividi"
   },
   "quickAction": {
@@ -482,7 +483,14 @@
     },
     "addOrgCollaborator": {
       "title": "Aggiungi collaboratore dell'organizzazione",
+      "button": "Aggiungi dall'organizzazione",
       "placeholder": "Seleziona membro dell'organizzazione o dipartimento"
+    },
+    "table": {
+      "collaborator": "Collaboratore",
+      "accessPermission": "Permesso di accesso",
+      "joinAt": "Data di adesione",
+      "lastLogin": "Ultimo accesso"
     }
   },
   "help": {
@@ -507,6 +515,9 @@
     "billable": "Fatturabile",
     "billableByAuthorityMatrix": "Fatturazione generata dalla matrice dei permessi",
     "licenseExpiredGracePeriod": "La tua licenza self-hosted è scaduta e verrà declassata al piano gratuito il {{expiredTime}}. Aggiorna la tua licenza tempestivamente per mantenere l'accesso alle funzionalità premium.",
+    "licenseAutoFetchFailed": "Rinnovo automatico della licenza non riuscito. Restano {{days}} giorno/i del periodo di tolleranza prima del downgrade.",
+    "licenseAutoFetchRetryFailed": "Il rinnovo automatico non è ancora riuscito. Verifica la connessione al server Teable o aggiorna la licenza manualmente.",
+    "licenseExpiredGracePeriodDays": "La licenza è scaduta. Restano {{days}} giorno/i del periodo di tolleranza prima del downgrade.",
     "spaceSubscriptionModal": {
       "title": "Aggiorna il piano di abbonamento dello spazio",
       "description": "Puoi aggiornare solo gli spazi di lavoro di cui sei proprietario"
@@ -529,6 +540,9 @@
       "description": "Modifica le impostazioni per la tua istanza corrente",
       "allowSignUp": "Consenti la creazione di nuovi account",
       "allowSignUpDescription": "Disabilitando questa opzione si proibiranno le nuove registrazioni degli utenti e il pulsante di registrazione non apparirà più nella pagina di accesso.",
+      "bannedEmailDomains": "Domini email vietati",
+      "bannedEmailDomainsDescription": "Gli indirizzi email di questi domini non possono registrarsi e le relative email di invito non verranno inviate. Digita un dominio e premi Invio per aggiungerlo.",
+      "bannedEmailDomainsInvalid": "Inserisci un dominio valido, ad es. example.com",
       "allowSpaceInvitation": "Consenti l'invio di inviti per lo spazio",
       "allowSpaceInvitationDescription": "Disabilitando questa opzione si impedirà agli utenti diversi dagli amministratori di invitare altri a unirsi agli spazi. Quando abilitata, i nuovi utenti invitati via email possono completare la registrazione cliccando sul link di invito nell'email, ma i link di invito condivisi non funzioneranno.",
       "allowSpaceCreation": "Consenti a tutti di creare nuovi spazi",
@@ -621,7 +635,7 @@
         "defaultModel": "{{name}} (Predefinito)",
         "moreModels": "Altri modelli",
         "agentModelWarningTitle": "Scegli i modelli con attenzione",
-        "agentModelWarningDescription": "I modelli consigliati sopra sono ottimizzati per attività agentiche come l’uso di strumenti e il ragionamento multi-step. Altri modelli potrebbero avere capacità limitate e produrre risultati imprevisti.",
+        "agentModelWarningDescription": "I modelli consigliati sopra sono ottimizzati per attività agentiche come l'uso di strumenti e il ragionamento multi-step. Altri modelli potrebbero avere capacità limitate e produrre risultati imprevisti.",
         "agentModelWarningConfirm": "Ho capito",
         "recommendedModelNudge": {
           "title": "Prova {{model}}",
@@ -719,6 +733,10 @@
     "exportBase": {
       "successText": "I dati di esportazione sono pronti",
       "failedText": "Esportazione fallita, riprova"
+    },
+    "importantNotice": {
+      "title": "Important Notice",
+      "acknowledge": "I Understand"
     }
   },
   "role": {
@@ -796,6 +814,7 @@
     "unsubscribeTime": "Ora di annullamento iscrizione",
     "source": "Fonte",
     "sourceAutomationDeleted": "Automazione o nodo eliminato",
+    "sourceApiSend": "Invio email tramite API",
     "processing": "Elaborazione in corso...",
     "unsubscribeH1": "Confermare la cancellazione dell'iscrizione?",
     "unsubscribeH2": "Stai per annullare l'iscrizione alle future promozioni e aggiornamenti dei prodotti Teable. Sei sicuro di voler annullare l'iscrizione?",
@@ -1159,10 +1178,102 @@
       "unknown": "{{fieldHint}}{{message}}"
     }
   },
+  "skills": {
+    "title": "Competenze",
+    "tabs": {
+      "mySkills": "Le mie competenze"
+    },
+    "actions": {
+      "import": "Importa competenza",
+      "sync": "Sincronizza",
+      "delete": "Elimina",
+      "enable": "Attiva",
+      "disable": "Disattiva",
+      "edit": "Modifica",
+      "tryInChat": "Prova nella chat",
+      "replace": "Sostituisci",
+      "download": "Scarica",
+      "uninstall": "Disinstalla",
+      "copyToBase": "Copia in Base",
+      "copyToPersonal": "Copia in personale",
+      "copyToApp": "Copia nell'app"
+    },
+    "import": {
+      "title": "Importa competenza",
+      "description": "Importa una competenza da un repository GitHub o da un file ZIP",
+      "githubTab": "URL GitHub",
+      "fileTab": "File ZIP",
+      "githubTitle": "Importa una competenza da GitHub",
+      "githubPlaceholder": "https://github.com/owner/repo/tree/main/skills/my-skill",
+      "fileHint": "Carica un file ZIP contenente SKILL.md",
+      "or": "o",
+      "selectFile": "Scegli file",
+      "replaceWarning": "Se in questo ambito esiste già una competenza con lo stesso nome, l'importazione la sostituirà.",
+      "importing": "Importazione...",
+      "submit": "Importa",
+      "success": "Competenza importata con successo",
+      "error": "Importazione della competenza non riuscita"
+    },
+    "detail": {
+      "slug": "Slug",
+      "type": "Tipo",
+      "description": "Descrizione",
+      "source": "Origine",
+      "skillLabel": "Competenza",
+      "syncStatus": "Stato sincronizzazione",
+      "preview": "Anteprima SKILL.md"
+    },
+    "scope": {
+      "label": "Ambito",
+      "system": "Sistema",
+      "base": "Base attuale",
+      "user": "Personale",
+      "userDescription": "Disponibile solo per te",
+      "baseDescription": "Condivisa con i collaboratori di questa base",
+      "app": "App",
+      "appDescription": "Disponibile solo per questa app",
+      "cuppyclaw": "Bot",
+      "cuppyclawDescription": "Disponibile solo per questo bot"
+    },
+    "source": {
+      "github": "GitHub",
+      "file": "Caricamento file",
+      "manual": "Manuale"
+    },
+    "status": {
+      "enabled": "Attivato",
+      "disabled": "Disattivato",
+      "synced": "Sincronizzato",
+      "failed": "Sincronizzazione non riuscita"
+    },
+    "empty": {
+      "mySkills": "Nessuna competenza personale. Importane una per iniziare."
+    },
+    "confirm": {
+      "deleteTitle": "Elimina competenza",
+      "deleteDescription": "Sei sicuro di voler eliminare questa competenza? Questa azione non può essere annullata."
+    },
+    "toast": {
+      "syncing": "Sincronizzazione della competenza...",
+      "syncSuccess": "Competenza sincronizzata con successo",
+      "syncError": "Sincronizzazione della competenza non riuscita",
+      "deleting": "Eliminazione della competenza...",
+      "deleteSuccess": "Competenza eliminata con successo",
+      "deleteError": "Eliminazione della competenza non riuscita",
+      "updateSuccess": "Competenza aggiornata con successo"
+    }
+  },
   "changelog": {
-    "newUpdate": "AGGIORNAMENTO DEL 19 MAGGIO",
-    "title": "I Credits Teable rendono 10x di piu!",
-    "url": "https://help.teable.ai/en/changelog#may-19-2026",
-    "id": "changelog-2026-05-19-teable-credits-up-10x"
+    "newUpdate": "AGGIORNAMENTO DEL 24 GIUGNO",
+    "title": "Agent Computer, potenziato",
+    "url": "https://help.teable.ai/en/changelog#jun-24-2026",
+    "id": "changelog-2026-06-24-agent-computer-supercharged"
+  },
+  "resourceDescription": {
+    "addDescription": "Aggiungi descrizione",
+    "nodeDescription": "Descrizione nodo",
+    "descriptionSaving": "Salvataggio...",
+    "descriptionSaveFailed": "Impossibile salvare la descrizione, riprova",
+    "descriptionPlaceholder": "Aggiungi una descrizione per questo nodo"
   }
 }

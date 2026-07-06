@@ -38,6 +38,7 @@ import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
 import { FieldOutputColumnVisitor } from '../FieldOutputColumnVisitor';
+import { buildUserTitleFromSnapshotSql } from '../userSnapshotSql';
 import type { ILateralContext, LinkOrderBy } from './ComputedFieldSelectExpressionVisitor';
 
 /**
@@ -52,6 +53,8 @@ export interface IFieldReferenceSqlVisitorConfig {
   lateral: ILateralContext;
   /** Foreign table IDs that are missing (e.g., deleted) and should be skipped */
   missingForeignTableIds?: ReadonlySet<string>;
+  /** How formula references should treat lookup fields already marked hasError. */
+  erroredLookupReferenceMode?: 'stored' | 'error';
 }
 
 /**
@@ -59,12 +62,12 @@ export interface IFieldReferenceSqlVisitorConfig {
  *
  * This visitor handles the transformation of field references (e.g., {fieldName})
  * into appropriate SQL expressions. For fields that store JSON (like link, user, button)
- * or user IDs (like createdBy, lastModifiedBy), it extracts the display value directly.
+ * or user snapshots (like createdBy, lastModifiedBy), it extracts the display value directly.
  *
  * Key behaviors:
  * - Link fields: Extract 'title' from JSON via lateral join
  * - User fields: Extract 'name' or 'title' from JSON
- * - CreatedBy/LastModifiedBy: Lookup user name from public.users table
+ * - CreatedBy/LastModifiedBy: Extract title/name from stored data-table snapshots
  * - Button fields: Extract 'title' from JSON
  * - Attachment fields: Extract 'name' from JSON
  * - Lookup/Rollup fields: Set up lateral joins and return appropriate expressions
@@ -75,12 +78,14 @@ export class FieldReferenceSqlVisitor implements IFieldVisitor<SqlExpr> {
   private readonly tableAlias: string;
   private readonly lateral: ILateralContext;
   private readonly missingForeignTableIds: ReadonlySet<string>;
+  private readonly erroredLookupReferenceMode: 'stored' | 'error';
 
   constructor(config: IFieldReferenceSqlVisitorConfig) {
     this.table = config.table;
     this.tableAlias = config.tableAlias;
     this.lateral = config.lateral;
     this.missingForeignTableIds = config.missingForeignTableIds ?? new Set();
+    this.erroredLookupReferenceMode = config.erroredLookupReferenceMode ?? 'stored';
   }
 
   private isMissingForeignTableId(tableId: string): boolean {
@@ -188,24 +193,16 @@ export class FieldReferenceSqlVisitor implements IFieldVisitor<SqlExpr> {
     return 'string';
   }
 
-  private isJsonFieldType(fieldType: FieldType): boolean {
-    const typeStr = fieldType.toString();
-    return (
-      typeStr === 'user' ||
-      typeStr === 'attachment' ||
-      typeStr === 'button' ||
-      typeStr === 'link' ||
-      typeStr === 'multipleSelect'
-    );
-  }
-
   private resolveLookupStorageKind(
     fieldType: FieldType | undefined,
     isMultiValue: boolean
   ): SqlStorageKind | undefined {
     if (isMultiValue) return 'array';
     if (!fieldType) return undefined;
-    return this.isJsonFieldType(fieldType) ? 'json' : undefined;
+    // Lookup lateral projections are JSONB aggregates. Single-value lookups use
+    // `jsonb_agg(...)->0`, so formula coercion must treat the result as a JSON
+    // scalar even when the looked-up inner field is a number/text/date.
+    return 'json';
   }
 
   private getLinkOrderBy(field: LinkField): Result<LinkOrderBy | undefined, DomainError> {
@@ -346,25 +343,29 @@ export class FieldReferenceSqlVisitor implements IFieldVisitor<SqlExpr> {
   // ============================================================
 
   /**
-   * CreatedBy field stores user ID (string).
-   * Look up user name from public.users table for formula references.
-   * Falls back to user ID if user not found.
+   * CreatedBy stores a user snapshot JSON in the field column and the raw user id in __created_by.
+   * Formula references must not query meta-plane users from the data DB.
    */
-  visitCreatedByField(_field: CreatedByField): Result<SqlExpr, DomainError> {
-    const colRef = this.qualify(this.tableAlias, '__created_by');
-    const userNameSubquery = `COALESCE((SELECT u.name FROM public.users u WHERE u.id = ${colRef}), ${colRef})`;
-    return ok(makeExpr(userNameSubquery, 'string', false));
+  visitCreatedByField(field: CreatedByField): Result<SqlExpr, DomainError> {
+    return this.getColAlias(field).map((colAlias) => {
+      const snapshotRef = this.qualify(this.tableAlias, colAlias);
+      const idRef = this.qualify(this.tableAlias, '__created_by');
+      return makeExpr(buildUserTitleFromSnapshotSql(snapshotRef, idRef), 'string', false);
+    });
   }
 
   /**
-   * LastModifiedBy field stores user ID (string).
-   * Look up user name from public.users table for formula references.
-   * Falls back to user ID if user not found.
+   * LastModifiedBy stores a snapshot in its field column. Track-all fields can fall back to the
+   * raw __last_modified_by system id; tracked-subset fields should only use their stored value.
    */
-  visitLastModifiedByField(_field: LastModifiedByField): Result<SqlExpr, DomainError> {
-    const colRef = this.qualify(this.tableAlias, '__last_modified_by');
-    const userNameSubquery = `COALESCE((SELECT u.name FROM public.users u WHERE u.id = ${colRef}), ${colRef})`;
-    return ok(makeExpr(userNameSubquery, 'string', false));
+  visitLastModifiedByField(field: LastModifiedByField): Result<SqlExpr, DomainError> {
+    return this.getColAlias(field).map((colAlias) => {
+      const snapshotRef = this.qualify(this.tableAlias, colAlias);
+      const idRef = field.isTrackAll()
+        ? this.qualify(this.tableAlias, '__last_modified_by')
+        : undefined;
+      return makeExpr(buildUserTitleFromSnapshotSql(snapshotRef, idRef), 'string', false);
+    });
   }
 
   // ============================================================
@@ -414,6 +415,9 @@ export class FieldReferenceSqlVisitor implements IFieldVisitor<SqlExpr> {
       // errored but the local link dependency still resolves. This preserves existing values
       // for stale error flags while truly broken lookups still return an error above.
       if (field.hasError().isError()) {
+        if (this.erroredLookupReferenceMode === 'error') {
+          return this.erroredFieldExpr(field, exprOptions);
+        }
         return ok(
           makeExpr(
             this.qualify(this.tableAlias, colAlias),

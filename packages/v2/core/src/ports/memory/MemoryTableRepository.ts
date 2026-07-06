@@ -66,6 +66,13 @@ export class MemoryTableRepository implements ITableRepository {
     return ok(paginated);
   }
 
+  async count(
+    _: IExecutionContext,
+    spec: ISpecification<Table, ITableSpecVisitor>
+  ): Promise<Result<number, DomainError>> {
+    return ok(this.savedTables.filter((t) => spec.isSatisfiedBy(t)).length);
+  }
+
   async updateOne(
     _: IExecutionContext,
     table: Table,

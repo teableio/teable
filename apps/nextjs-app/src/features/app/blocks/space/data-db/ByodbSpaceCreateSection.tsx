@@ -22,7 +22,6 @@ const requiredCapabilityKeys: Array<keyof IDataDbPreflightVo['capabilities']> = 
   'createTable',
   'createFunction',
   'createTrigger',
-  'createRole',
   'grantPrivileges',
 ];
 

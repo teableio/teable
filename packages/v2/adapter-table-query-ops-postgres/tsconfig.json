@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "@teable/v2-adapter-table-query-ops-postgres",
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "target": "esnext",
+    "lib": ["esnext"],
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "isolatedModules": false,
+    "noEmit": false,
+    "incremental": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationDir": "dist",
+    "composite": true,
+    "outDir": "./dist",
+    "rootDir": "../../",
+    "paths": {
+      "@teable/v2-adapter-db-postgres-pg": ["../adapter-db-postgres-pg/src"],
+      "@teable/v2-adapter-db-postgres-shared": ["../adapter-db-postgres-shared/src"],
+      "@teable/v2-core": ["../core/src"],
+      "@teable/v2-di": ["../di/src"],
+      "@teable/v2-table-query-ops": ["../table-query-ops/src"],
+      "@teable/core": ["../../core/src"],
+      "@teable/formula": ["../../formula/src"],
+      "@teable/i18n-keys": ["../../i18n-keys/src"]
+    },
+    "types": ["vitest/globals", "node"]
+  },
+  "include": [
+    "src",
+    "../adapter-db-postgres-pg/src",
+    "../adapter-db-postgres-shared/src",
+    "../core/src",
+    "../di/src",
+    "../table-query-ops/src",
+    "../../core/src",
+    "../../formula/src",
+    "../../i18n-keys/src"
+  ],
+  "exclude": [
+    "**/node_modules",
+    "**/.*/",
+    "./dist",
+    "./coverage",
+    "../adapter-db-postgres-pg/src/**/*.spec.ts",
+    "../core/src/**/*.spec.ts",
+    "../table-query-ops/src/**/*.spec.ts",
+    "../../formula/src/**/*.spec.ts"
+  ]
+}

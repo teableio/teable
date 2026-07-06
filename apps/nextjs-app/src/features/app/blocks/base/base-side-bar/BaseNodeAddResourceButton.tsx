@@ -1,8 +1,8 @@
 import { getUniqName, ViewType } from '@teable/core';
-import { FileCsv, FileExcel, Slack, Table2 } from '@teable/icons';
+import { Airtable, FileCsv, FileExcel, Slack, Table2 } from '@teable/icons';
 import type { ICreateBaseNodeRo } from '@teable/openapi';
-import { BaseNodeResourceType, SUPPORTEDTYPE } from '@teable/openapi';
-import { useTables } from '@teable/sdk';
+import { BaseNodeResourceType, SUPPORTEDTYPE, UserIntegrationProvider } from '@teable/openapi';
+import { useBase, useTables } from '@teable/sdk';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,7 +14,9 @@ import {
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
+import { usePublicSettingQuery } from '@/features/app/hooks/useSetting';
 import { TableImport } from '../../import-table';
+import { AirtableImportDialog } from '../../space/component/airtable-import';
 import { useDefaultFields } from '../../table-list/useAddTable';
 import { BaseNodeResourceIconMap, ROOT_ID } from '../base-node/hooks';
 
@@ -50,12 +52,19 @@ export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps)
 
   const fieldRos = useDefaultFields();
   const tables = useTables();
+  const base = useBase();
+  const { data: publicSetting } = usePublicSettingQuery();
+  const airtableImportEnabled = !!publicSetting?.availableIntegrationProviders?.includes(
+    UserIntegrationProvider.Airtable
+  );
+  const [airtableOpen, setAirtableOpen] = useState(false);
 
   const AddTableMenuItems = () => {
     if (!canCreateTable) return null;
     return (
       <>
         <DropdownMenuItem
+          data-attr="base-create-menu-new-table"
           onClick={() => {
             createNode({
               resourceType: BaseNodeResourceType.Table,
@@ -127,6 +136,7 @@ export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps)
       return (
         <DropdownMenuItem
           key={resourceType}
+          data-attr={`base-create-menu-new-${resourceType}`}
           className="flex cursor-pointer items-center"
           onClick={() => {
             createNode({
@@ -155,13 +165,18 @@ export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps)
         <DropdownMenuLabel className="px-4 text-xs font-normal text-muted-foreground">
           {t('table:import.menu.addFromOtherSource')}
         </DropdownMenuLabel>
-        <DropdownMenuItem className="cursor-pointer" onClick={() => importFile(SUPPORTEDTYPE.CSV)}>
+        <DropdownMenuItem
+          data-attr="base-create-menu-import-csv"
+          className="cursor-pointer"
+          onClick={() => importFile(SUPPORTEDTYPE.CSV)}
+        >
           <Button variant="ghost" size="xs" className="h-4">
             <FileCsv className="size-4" />
             {t('table:import.menu.csvFile')}
           </Button>
         </DropdownMenuItem>
         <DropdownMenuItem
+          data-attr="base-create-menu-import-excel"
           className="cursor-pointer"
           onClick={() => importFile(SUPPORTEDTYPE.EXCEL)}
         >
@@ -170,6 +185,18 @@ export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps)
             {t('table:import.menu.excelFile')}
           </Button>
         </DropdownMenuItem>
+        {airtableImportEnabled && (
+          <DropdownMenuItem
+            data-attr="base-create-menu-import-airtable"
+            className="cursor-pointer"
+            onClick={() => setAirtableOpen(true)}
+          >
+            <Button variant="ghost" size="xs" className="h-4">
+              <Airtable className="size-4" />
+              {t('table:import.menu.airtable')}
+            </Button>
+          </DropdownMenuItem>
+        )}
       </>
     );
   };
@@ -190,6 +217,15 @@ export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps)
           fileType={fileType}
           open={tableImportdialogVisible}
           onOpenChange={(open) => setTableImportdialogVisible(open)}
+        />
+      )}
+
+      {airtableOpen && (
+        <AirtableImportDialog
+          spaceId={base.spaceId}
+          baseId={base.id}
+          open={airtableOpen}
+          onOpenChange={setAirtableOpen}
         />
       )}
     </div>

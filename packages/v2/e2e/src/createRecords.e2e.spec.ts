@@ -663,6 +663,80 @@ describe('v2 http createRecords (e2e)', () => {
       expect(result.rows[0].version).toBe(1);
       expect(result.rows[0].created_by).toBe(ctx.testUser.id);
     });
+
+    it('creates records when a dependent pending table has missing physical storage', async () => {
+      const pendingTable = await createTable({
+        baseId: ctx.baseId,
+        name: 'Pending Table Outside Create Scope',
+        fields: [{ type: 'singleLineText', name: 'Pending Title', isPrimary: true }],
+        views: [{ type: 'grid' }],
+      });
+      const tableWithLink = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: pendingTable.id,
+        field: {
+          type: 'link',
+          name: 'Ready Table Link',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId: tableId,
+            lookupFieldId: textFieldId,
+            isOneWay: true,
+          },
+        },
+      });
+      const linkField = tableWithLink.fields.find((field) => field.name === 'Ready Table Link');
+      if (!linkField) {
+        throw new Error('Missing link field on pending table');
+      }
+      await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: pendingTable.id,
+        field: {
+          type: 'lookup',
+          name: 'Ready Table Value',
+          options: {
+            foreignTableId: tableId,
+            lookupFieldId: numberFieldId,
+            linkFieldId: linkField.id,
+          },
+        },
+      });
+      const pendingTableMeta = await ctx.testContainer.metaDb
+        .selectFrom('table_meta')
+        .select('db_table_name')
+        .where('id', '=', pendingTable.id)
+        .executeTakeFirst();
+      const pendingDbTableName = pendingTableMeta?.db_table_name;
+      if (!pendingDbTableName) {
+        throw new Error('Missing pending table db name');
+      }
+
+      try {
+        await sql`
+          UPDATE "table_meta"
+          SET "provision_state" = 'pending'
+          WHERE "id" = ${pendingTable.id}
+        `.execute(ctx.testContainer.metaDb);
+        await sql`
+          DROP TABLE ${sql.table(pendingDbTableName)}
+        `.execute(ctx.testContainer.db);
+
+        const records = await createRecords(tableId, [
+          { fields: { [textFieldId]: 'Ready table record', [numberFieldId]: 444 } },
+        ]);
+
+        expect(records).toHaveLength(1);
+        expect(records[0].fields[textFieldId]).toBe('Ready table record');
+      } finally {
+        await sql`
+          UPDATE "table_meta"
+          SET "provision_state" = 'error',
+              "deleted_time" = COALESCE("deleted_time", now())
+          WHERE "id" = ${pendingTable.id}
+        `.execute(ctx.testContainer.metaDb);
+      }
+    });
   });
 
   describe('error handling', () => {

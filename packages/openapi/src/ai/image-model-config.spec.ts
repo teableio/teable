@@ -12,6 +12,12 @@ import {
   supportsKnownImageInputForImageModel,
   supportsImageSizeSelection,
 } from './image-model-config';
+import {
+  getOpenAIGptImage2SizeMeta,
+  OPENAI_GPT_IMAGE_2_PRESETS,
+  OPENAI_GPT_IMAGE_2_SIZE_META,
+  OPENAI_GPT_IMAGE_2_SIZES,
+} from './image-model-dimensions';
 
 const GPT_IMAGE_2_MODEL_ID = 'openai/gpt-image-2';
 const GPT_IMAGE_2_MODEL = 'gpt-image-2';
@@ -49,11 +55,29 @@ describe('getImageModelConfigByGatewayId', () => {
       SIZE_1024,
       '1536x1024',
       '1024x1536',
-      '2048x2048',
+      '1024x768',
+      '768x1024',
+      '1024x672',
+      '672x1024',
+      '1024x576',
+      '576x1024',
       '2048x1152',
+      '1152x2048',
+      '2048x2048',
+      '2048x1536',
+      '1536x2048',
+      '2048x1360',
+      '1360x2048',
+      '2880x2880',
+      '3504x2336',
+      '2336x3504',
+      '3264x2448',
+      '2448x3264',
       '3840x2160',
       '2160x3840',
     ]);
+    expect(getImageModelConfigByGatewayId(GPT_IMAGE_2_MODEL_ID)?.defaultSize).toBeUndefined();
+    expect(getImageModelConfigByGatewayId(GPT_IMAGE_2_MODEL_ID)?.supportsAutoSize).toBe(true);
     expect(getImageModelConfigByGatewayId('openai/gpt-image-1.5')?.provider).toBe('openai');
     expect(getImageModelConfigByGatewayId('openai/gpt-image-1.5')?.supportedSizes).toEqual([
       SIZE_1024,
@@ -148,6 +172,26 @@ describe('getImageModelConfigByGatewayId', () => {
   });
 });
 
+describe('OPENAI_GPT_IMAGE_2_PRESETS', () => {
+  it('derives supported sizes and size metadata from one preset table', () => {
+    expect(OPENAI_GPT_IMAGE_2_SIZES).toEqual(OPENAI_GPT_IMAGE_2_PRESETS.map(({ size }) => size));
+
+    for (const preset of OPENAI_GPT_IMAGE_2_PRESETS) {
+      expect(OPENAI_GPT_IMAGE_2_SIZE_META[preset.size]).toEqual({
+        ratio: preset.ratio,
+        tier: preset.tier,
+      });
+      expect(getOpenAIGptImage2SizeMeta(preset.size)).toEqual({
+        ratio: preset.ratio,
+        tier: preset.tier,
+      });
+    }
+
+    expect(getOpenAIGptImage2SizeMeta()).toBeUndefined();
+    expect(getOpenAIGptImage2SizeMeta('1792x1024')).toBeUndefined();
+  });
+});
+
 describe('getImageModelConfigByModelKey', () => {
   it('parses model keys consistently for gateway and direct providers', () => {
     expect(getImageModelIdFromModelKey(GPT_IMAGE_2_MODEL_KEY)).toBe(GPT_IMAGE_2_MODEL_ID);
@@ -162,8 +206,24 @@ describe('getImageModelConfigByModelKey', () => {
       SIZE_1024,
       '1536x1024',
       '1024x1536',
-      '2048x2048',
+      '1024x768',
+      '768x1024',
+      '1024x672',
+      '672x1024',
+      '1024x576',
+      '576x1024',
       '2048x1152',
+      '1152x2048',
+      '2048x2048',
+      '2048x1536',
+      '1536x2048',
+      '2048x1360',
+      '1360x2048',
+      '2880x2880',
+      '3504x2336',
+      '2336x3504',
+      '3264x2448',
+      '2448x3264',
       '3840x2160',
       '2160x3840',
     ]);
