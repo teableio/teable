@@ -6,8 +6,10 @@ import { dataDbInternalSchemaSchema, dataDbTargetModeSchema } from './data-db';
 
 export const CREATE_SPACE = '/space';
 
+export const SPACE_NAME_MAX_LENGTH = 100;
+
 export const createSpaceRoSchema = z.object({
-  name: z.string().optional(),
+  name: z.string().min(1).max(SPACE_NAME_MAX_LENGTH).optional(),
   dataDb: z
     .object({
       mode: z.enum(['default', 'byodb']),

@@ -1050,9 +1050,10 @@ export const LLMProviderForm = ({
   );
   const canSaveWithoutTest = Boolean(value) && isDirty && !connectivityDirty;
   const type = form.watch('type');
-  const currentProvider = LLM_PROVIDERS.find(
-    (provider) => provider.value === type
-  ) as (typeof LLM_PROVIDERS)[number] & { apiKeyPlaceholder?: string };
+  const currentProvider = LLM_PROVIDERS.find((provider) => provider.value === type);
+  const providerOptions = LLM_PROVIDERS.filter(
+    (provider) => !provider.hideInProviderSelect || provider.value === type
+  );
 
   // Calculate test statistics
   const successCount = modelTestStatuses.filter((s) => s.status === 'success').length;
@@ -1110,8 +1111,8 @@ export const LLMProviderForm = ({
                   <SelectValue placeholder={t('admin.setting.ai.providerType')} />
                 </SelectTrigger>
                 <SelectContent>
-                  {LLM_PROVIDERS.map(({ value, label, Icon }) => (
-                    <SelectItem key={value} value={value}>
+                  {providerOptions.map(({ value, label, Icon, hideInProviderSelect }) => (
+                    <SelectItem key={value} value={value} disabled={hideInProviderSelect}>
                       <div className="flex flex-row items-center text-[13px]">
                         <Icon className="size-5 shrink-0 pr-1" />
                         {label}
