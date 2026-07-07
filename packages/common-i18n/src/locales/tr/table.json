@@ -822,6 +822,7 @@
     "insertFieldLeft": "Sola ekle",
     "insertFieldRight": "Sağa ekle",
     "freezeUpField": "Bu alana kadar dondur",
+    "freezeFieldWindowTooNarrow": "Geçerli pencere çok dar olduğu için bu alana kadar dondurulamıyor",
     "hideField": "Alanı gizle",
     "deleteField": "Alanı sil",
     "deleteAllSelectedFields": "Seçili tüm alanları sil",

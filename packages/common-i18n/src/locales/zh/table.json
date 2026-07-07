@@ -1142,6 +1142,7 @@
     "insertFieldLeft": "在左侧插入字段",
     "insertFieldRight": "在右侧插入字段",
     "freezeUpField": "冻结至此字段",
+    "freezeFieldWindowTooNarrow": "无法冻结至此区域，当前窗口尺寸不足",
     "hideField": "隐藏字段",
     "deleteField": "删除字段",
     "deleteAllSelectedFields": "删除所有选定的字段",

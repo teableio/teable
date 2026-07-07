@@ -825,6 +825,7 @@
     "insertFieldLeft": "Вставить слева",
     "insertFieldRight": "Вставить справа",
     "freezeUpField": "Закрепить до этого поля",
+    "freezeFieldWindowTooNarrow": "Невозможно закрепить до этой области, так как текущее окно слишком узкое",
     "hideField": "Скрыть поле",
     "deleteField": "Удалить поле",
     "deleteAllSelectedFields": "Удалить все выбранные поля",
