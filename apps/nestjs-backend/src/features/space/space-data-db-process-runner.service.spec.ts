@@ -768,6 +768,39 @@ describe('SpaceDataDbProcessRunnerService', () => {
     await expect(promise).rejects.toBeInstanceOf(SpaceDataDbProcessPipelineError);
   });
 
+  it('keeps target stderr when target stdin reports EPIPE before pg_restore exits', async () => {
+    const sourceProcess = new FakeProcess();
+    const targetProcess = new FakeProcess();
+    spawnProcess = vi.fn().mockReturnValueOnce(sourceProcess).mockReturnValueOnce(targetProcess);
+    const service = new SpaceDataDbProcessRunnerService(spawnProcess);
+
+    const promise = service.runPipeline({
+      source: { command: pgDumpCommand, args: [pgCustomFormatArg, secretUrl] },
+      target: { command: pgRestoreCommand, args: ['--dbname', secretUrl] },
+      label: 'base-schemas',
+    });
+
+    targetProcess.stdin.emit('error', new Error('write EPIPE'));
+    sourceProcess.emit('close', null, 'SIGTERM');
+    targetProcess.stderr.write(
+      'pg_restore: error: could not execute query: ERROR: relation "public.seq" does not exist'
+    );
+    targetProcess.emit('close', 1, null);
+
+    await expect(promise).rejects.toMatchObject({
+      message: expect.stringContaining('Target process exited with code 1'),
+      result: expect.objectContaining({
+        source: expect.objectContaining({
+          signal: 'SIGTERM',
+        }),
+        target: expect.objectContaining({
+          stderr: expect.stringContaining('relation "public.seq" does not exist'),
+        }),
+      }),
+    });
+    await expect(promise).rejects.toBeInstanceOf(SpaceDataDbProcessPipelineError);
+  });
+
   it('kills both COPY processes when cancellation is requested', async () => {
     const sourceProcess = new FakeProcess();
     const targetProcess = new FakeProcess();

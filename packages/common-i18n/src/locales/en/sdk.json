@@ -1,6 +1,5 @@
 {
   "common": {
-    "comingSoon": "Coming soon",
     "empty": "Empty",
     "noRecords": "No records available",
     "unnamedRecord": "Unnamed record",
@@ -67,7 +66,6 @@
       "uploadDragDefault": "Paste or drag and drop to upload here",
       "upload": "Upload file",
       "downloadAll": "Download all",
-      "downloading": "Downloading...",
       "downloadSuccess": "Download completed",
       "downloadFailed": "Download failed",
       "downloadCancelled": "Download cancelled",
@@ -106,7 +104,6 @@
     "link": {
       "placeholder": "Select records to link",
       "searchPlaceholder": "Search records",
-      "allFields": "All Fields",
       "globalSearch": "Global search",
       "fieldSearch": "Search field",
       "maxFieldTips": "Exceeded the maximum {{count}} number of fields, extra fields will be ignored",
@@ -114,14 +111,11 @@
       "selectRecord": "Select record",
       "all": "All",
       "selected": "Selected",
-      "expandRecordError": "No permission to view this record.",
       "alreadyOpen": "This record is already open.",
       "linkedTo": "Linked to",
-      "goToForeignTable": "Go to foreign table",
       "foreignTableIdRequired": "Foreign table is required",
       "linkFieldIdRequired": "Link field is required",
       "selectTooManyRecords": "The selected records should not exceed {{maxCount}}",
-      "relationshipRequired": "Relationship is required",
       "rangeSelectFailed": "Failed to select records in range"
     },
     "user": {
@@ -135,12 +129,10 @@
     "lookup": {
       "lookupFieldIdRequired": "Lookup field is required",
       "lookupOptionsNotAllowed": "Lookup options are not allowed when isLookup attribute is true or field type is rollup.",
-      "lookupOptionsRequired": "Lookup options are required",
-      "refineOptionsError": "Parse lookup options error {{message}}"
+      "lookupOptionsRequired": "Lookup options are required"
     },
     "rollup": {
-      "expressionRequired": "Expression is required",
-      "unsupportedTip": "Rollup only support link and rollup field"
+      "expressionRequired": "Expression is required"
     },
     "conditionalRollup": {
       "filterRequired": "Filter must contain at least one condition"
@@ -168,11 +160,8 @@
     "addConditionGroup": "Add condition group",
     "nestedLimitTip": "Filter conditions can only be nested {{depth}} levels deep",
     "linkInputPlaceholder": "Enter a value",
-    "groupDescription": "Any of the following are true…",
     "currentUser": "Me (current user)",
-    "tips": {
-      "scope": "In this view, show records"
-    },
+    "tips": {},
     "invalidateSelected": "Invalid value",
     "invalidateSelectedTips": "The selected value has been deleted, please select again",
     "invalidConditionTip": "This filter condition is invalid and will be ignored. Please adjust the value.",
@@ -271,15 +260,10 @@
     "title": "Field name",
     "displayLines": "{{count}} lines"
   },
-  "share": {
-    "title": "Share"
-  },
-  "extensions": {
-    "title": "Extensions"
-  },
+  "share": {},
+  "extensions": {},
   "hidden": {
     "label": "Hidden fields",
-    "configLabel_one": "{{count}} hidden field",
     "configLabel_other": "{{count}} hidden fields",
     "configLabel_other_visible": "{{count}} visible fields",
     "showAll": "Show all",
@@ -302,8 +286,6 @@
       "before": "Before",
       "after": "After",
       "buttonClicked": "Clicked button",
-      "filterField": "Field",
-      "filterCreatedBy": "Modified by",
       "filterTime": "Time range",
       "allFields": "All fields",
       "allUsers": "All users",
@@ -409,7 +391,6 @@
       "baseUpdate": "Update base",
       "baseInviteEmail": "Invite via email in base",
       "baseInviteLink": "Invite via link in base",
-      "baseTableImport": "Import data into base",
       "baseAuthorityMatrixConfig": "Configure authority matrix",
       "baseDbConnect": "Connect to database",
       "tableCreate": "Create table",
@@ -444,7 +425,6 @@
       "appDelete": "Delete app",
       "appRead": "Read app",
       "appUpdate": "Update app",
-      "userProfileRead": "Read current user profile",
       "userEmailRead": "Read current user email",
       "userIntegrations": "Manage user integrations",
       "recordHistoryRead": "Read record history",
@@ -890,7 +870,6 @@
     "placeholder": "Leave a comment...",
     "emptyComment": "Start a conversation",
     "deletedComment": "Deleted comment",
-    "imageSizeLimit": "Image size could not be greater than {{size}}",
     "tip": {
       "editing": "Editing...",
       "edited": "(Edited)",
@@ -909,8 +888,6 @@
     },
     "floatToolbar": {
       "editLink": "Edit link",
-      "caption": "Caption",
-      "delete": "Delete",
       "linkText": "Link text",
       "enterUrl": "Enter URL"
     }
@@ -920,7 +897,6 @@
     "memberSelectorSearchPlaceholder": "Search members...",
     "departmentSelectorSearchPlaceholder": "Search departments...",
     "selected": "Selected",
-    "noSelected": "No selected",
     "empty": "No members",
     "emptyDepartment": "No departments"
   },
