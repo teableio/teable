@@ -405,7 +405,9 @@ export const analyzeFormulaIndexability = (
       Boolean(predicatePushdown?.supported) && referencedFields.value.length === 1;
     const expressionIndexSkippedReasons = uniqueStrings([
       ...(expressionIndexability.supported ? [] : expressionIndexability.skippedReasons),
-      ...(referencedFields.value.length === 0 ? ['formula_expression_has_no_referenced_field'] : []),
+      ...(referencedFields.value.length === 0
+        ? ['formula_expression_has_no_referenced_field']
+        : []),
     ]);
     const expressionIndexable =
       stable && referencedFields.value.length > 0 && expressionIndexSkippedReasons.length === 0;
