@@ -26,7 +26,6 @@
     "duplicateBase": "Dupliquer la base",
     "missTargetTip": "Veuillez sélectionner un espace pour dupliquer la base.",
     "copying": "Duplication de la base, cela peut prendre un certain temps...",
-    "copyingTemplate": "Création de la base à partir d'un modèle, cela peut prendre un certain temps...",
     "howToCreate": "Comment souhaitez-vous commencer ?",
     "fromScratch": "À partir de zéro",
     "fromTemplate": "À partir d'un modèle",
@@ -38,7 +37,6 @@
     "general": "Général",
     "collaborators": "Collaborateurs",
     "generalDescription": "Modifiez ici les paramètres de votre espace actuel",
-    "collaboratorDescription": "Gérez les collaborateurs de votre espace et définissez leurs permissions d'accès",
     "spaceName": "Nom de l'espace",
     "spaceId": "ID de l'espace"
   },
@@ -53,8 +51,6 @@
   },
   "tip": {
     "delete": "Êtes-vous sûr de vouloir supprimer <0/> ?",
-    "title": "Conseils",
-    "exportTips1": "Exporter la base actuelle en fichier .tea, ce qui peut prendre un certain temps. Vous pouvez vérifier les résultats d'exportation dans le centre de notifications.",
     "exportTips2": "Vous pouvez importer le fichier .tea dans espace -> plus -> importer",
     "exportTips3": "Les champs de relation inter-base seront convertis en texte sur une seule ligne.",
     "exportIncludeDataLabel": "Inclure les enregistrements",
@@ -72,31 +68,21 @@
   "deleteSpaceModal": {
     "title": "Supprimer l'espace",
     "blockedTitle": "Impossible de supprimer cet espace",
-    "blockedDesc": "Cet espace a un abonnement actif. Veuillez annuler l'abonnement avant de supprimer l'espace.",
-    "permanentDeleteWarning": "Cette action supprimera définitivement toutes les ressources et données de l'espace actuel. Veuillez procéder avec prudence !",
-    "confirmInputLabel": "Veuillez taper DELETE pour confirmer la suppression"
+    "blockedDesc": "Cet espace a un abonnement actif. Veuillez annuler l'abonnement avant de supprimer l'espace."
   },
   "sharedBase": {
     "title": "Partagé avec moi",
     "description": "Toutes les bases auxquelles j'ai été invité à rejoindre",
     "empty": "Aucune base partagée avec moi pour le moment"
   },
-  "integration": {
-    "title": "Intégrations",
-    "description": "Gérer les intégrations de votre espace",
-    "addIntegration": "Ajouter une intégration",
-    "ai": "IA"
-  },
+  "integration": {},
   "aiSetting": {
     "title": "Paramètres IA",
     "description": "Gérer les paramètres IA de votre espace",
-    "enableTips": "Activez l'IA pour utiliser les fonctionnalités IA dans votre espace au lieu d'utiliser l'IA système",
-    "enable": "Initialiser les paramètres IA",
-    "enableSwitchTips": "Veuillez configurer le modèle de code avant d'activer"
+    "enable": "Initialiser les paramètres IA"
   },
   "import": {
     "importing": "Importation en cours",
-    "importWayTip": "Cliquez ou glissez-déposez le fichier dans cette zone pour télécharger",
     "baseImportTips": "Cliquez ou glissez-déposez le fichier .tea dans cette zone pour télécharger",
     "confirm": "Confirmer et continuer",
     "phase": {
@@ -155,12 +141,10 @@
       "title": "Titre",
       "description": "Description",
       "security": "Sécurité",
-      "includeNodes": "Inclure les nœuds",
       "advanced": "Avancé",
       "publishNode": "Publier les nœuds",
       "includeData": "Inclure les données",
       "defaultActiveNode": "Nœud actif par défaut",
-      "select": "veuillez sélectionner",
       "descriptionPlaceholder": "Décrivez brièvement votre idée...",
       "titlePlaceholder": "Nommez votre travail..."
     },
@@ -173,7 +157,6 @@
     "unPublishSuccess": "Base dépubliée avec succès !",
     "unPublishConfirmTitle": "Confirmer la dépublication",
     "unPublishConfirmDescription": "Êtes-vous sûr de vouloir dépublier cette base ? Elle ne sera plus visible dans le centre de modèles.",
-    "usageCount": "Nombre d'utilisations : ",
     "uploadCover": "Cliquez pour télécharger l'image de couverture",
     "changeCover": "Cliquez pour changer la couverture",
     "uploading": "Téléchargement de l'image...",
@@ -235,7 +218,6 @@
       "creatingTable": "Création de la table : {{tableName}} ({{tableIndex}}/{{totalTables}})",
       "creatingLinks": "Création des champs de lien",
       "fillingLinks": "{{tableName}} (liens)",
-      "done": "Import terminé",
       "applyingViewConfig": "Importation de la configuration des vues"
     },
     "searchBases": "Rechercher des bases",

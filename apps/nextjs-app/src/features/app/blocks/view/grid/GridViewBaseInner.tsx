@@ -741,10 +741,13 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       const selectFields = fields.filter((field) => indexedColumns[field.id]);
       const onAutoFill = (fieldId: string) => handleAutoFillClick(fieldId);
       const onSelectionClear = () => gridRef.current?.setSelection(emptySelection);
+      const freezeColumnState = gridRef.current?.getFreezeColumnState();
       openHeaderMenu({
         position,
         fields: selectFields,
         aiEnable: fieldAIEnable,
+        freezeColumnIndex: start === end ? start : undefined,
+        maxFreezeColumnCount: freezeColumnState?.maxFreezeColumnCount,
         onSelectionClear,
         onAutoFill,
         addToChat: () => {
@@ -775,10 +778,13 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       const { x, height } = bounds;
       const selectedFields = fields.filter((field) => field.id === fieldId);
       const onAutoFill = (fieldId: string) => handleAutoFillClick(fieldId);
+      const freezeColumnState = gridRef.current?.getFreezeColumnState();
       openHeaderMenu({
         fields: selectedFields,
         position: { x, y: height },
         aiEnable: fieldAIEnable,
+        freezeColumnIndex: colIndex,
+        maxFreezeColumnCount: freezeColumnState?.maxFreezeColumnCount,
         onAutoFill,
         addToChat: () => {
           if (!baseId) return;
@@ -811,7 +817,13 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       const fieldId = columns[colIndex].id;
       const { x, height } = bounds;
       const selectedFields = fields.filter((field) => field.id === fieldId);
-      openHeaderMenu({ fields: selectedFields, position: { x, y: height } });
+      const freezeColumnState = gridRef.current?.getFreezeColumnState();
+      openHeaderMenu({
+        fields: selectedFields,
+        position: { x, y: height },
+        freezeColumnIndex: colIndex,
+        maxFreezeColumnCount: freezeColumnState?.maxFreezeColumnCount,
+      });
     },
     [isTouchDevice, columns, fields, openHeaderMenu]
   );
@@ -827,12 +839,17 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
 
   const onColumnFreeze = useCallback(
     (count: number) => {
+      if (count <= 0) return;
       const anchorId = columns[Math.max(0, count - 1)]?.id;
       if (!view || !anchorId) return;
       view.updateOption({ frozenFieldId: anchorId });
     },
     [view, columns]
   );
+
+  const onColumnFreezeFailed = useCallback(() => {
+    toast.warning(t('table:menu.freezeFieldWindowTooNarrow'));
+  }, [t]);
 
   const filterCreateFieldValues = useCallback(
     (
@@ -1645,6 +1662,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         onCellDblClick={onCellDblClick}
         onColumnAppend={getAuthorizedFunction(onColumnAppend, 'field|create')}
         onColumnFreeze={getAuthorizedFunction(onColumnFreeze, 'view|update')}
+        onColumnFreezeFailed={getAuthorizedFunction(onColumnFreezeFailed, 'view|update')}
         onColumnResize={getAuthorizedFunction(onColumnResize, 'view|update')}
         onColumnOrdered={getAuthorizedFunction(onColumnOrdered, 'view|update')}
         onContextMenu={onContextMenu}

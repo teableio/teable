@@ -402,36 +402,48 @@ type IMigrationProgressStats = {
   etaMs: number | null;
 };
 
+type ISchemaOperationDrainSample = {
+  id: string;
+  status: string;
+  phase: string;
+  baseId: string | null;
+  tableId: string | null;
+  lockedAt: string | null;
+  lockedBy: string | null;
+  createdTime?: string | null;
+  lastModifiedTime: string | null;
+};
+
 type ISchemaOperationDrainStats = {
   openCount: number;
-  sample: {
-    id: string;
-    status: string;
-    phase: string;
-    baseId: string | null;
-    tableId: string | null;
-    lockedAt: string | null;
-    lockedBy: string | null;
-    lastModifiedTime: string | null;
-  }[];
+  sample: ISchemaOperationDrainSample[];
+  staleIgnoredCount?: number;
+  staleIgnoredSample?: ISchemaOperationDrainSample[];
+  staleBefore?: string;
   checkedAt: string;
+};
+
+type IBackgroundWriterDrainSample = {
+  kind: 'provision_resource' | 'queue_job';
+  resourceType?: 'base' | 'table' | 'field';
+  queueName?: string;
+  id: string;
+  state: string;
+  baseId: string | null;
+  tableId: string | null;
+  createdTime?: string | null;
+  lastModifiedTime?: string | null;
+  timestamp?: string | null;
 };
 
 type IBackgroundWriterDrainStats = {
   openCount: number;
   provisionResourceCount: number;
   queueJobCount: number;
-  sample: {
-    kind: 'provision_resource' | 'queue_job';
-    resourceType?: 'base' | 'table' | 'field';
-    queueName?: string;
-    id: string;
-    state: string;
-    baseId: string | null;
-    tableId: string | null;
-    lastModifiedTime?: string | null;
-    timestamp?: string | null;
-  }[];
+  sample: IBackgroundWriterDrainSample[];
+  staleIgnoredCount?: number;
+  staleIgnoredSample?: IBackgroundWriterDrainSample[];
+  staleBefore?: string;
   checkedAt: string;
 };
 
@@ -616,6 +628,7 @@ const defaultBackgroundWriterDrainPollMs = 5 * 1000;
 const defaultBackgroundWriterDrainProbeTimeoutMs = 30 * 1000;
 const defaultBackgroundWriterQueueScanBatchSize = 100;
 const defaultBackgroundWriterQueueScanLimit = 1000;
+const defaultDrainStaleNonTerminalMs = 7 * 24 * 60 * 60 * 1000;
 const defaultTempDiskMultiplier = 2;
 const defaultTempDiskMinFreeBytes = 512 * 1024 * 1024;
 const defaultTargetDiskMultiplier = 2;
@@ -785,36 +798,6 @@ const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number, message: s
 const quoteIdent = (identifier: string) => `"${identifier.replace(/"/g, '""')}"`;
 
 const qualify = (schema: string, table: string) => `${quoteIdent(schema)}.${quoteIdent(table)}`;
-
-const unquotePostgresIdent = (identifier: string) => {
-  if (!identifier.startsWith('"') || !identifier.endsWith('"')) {
-    return identifier;
-  }
-  return identifier.slice(1, -1).replace(/""/g, '"');
-};
-
-const parsePublicRegclassSequenceName = (columnDefault: string | null | undefined) => {
-  const match = columnDefault?.match(/^nextval\('((?:''|[^'])+)'::regclass\)$/i);
-  if (!match) {
-    return null;
-  }
-
-  const regclassName = match[1].replace(/''/g, "'");
-  if (/^"([^"]|"")+"$/.test(regclassName)) {
-    return unquotePostgresIdent(regclassName);
-  }
-
-  const publicPrefix = regclassName.startsWith('"public".')
-    ? '"public".'
-    : regclassName.toLowerCase().startsWith('public.')
-      ? regclassName.slice(0, 'public.'.length)
-      : null;
-  if (!publicPrefix) {
-    return null;
-  }
-
-  return unquotePostgresIdent(regclassName.slice(publicPrefix.length));
-};
 
 const shellQuote = (value: string) => `'${value.replace(/'/g, `'\\''`)}'`;
 
@@ -1643,17 +1626,36 @@ export class SpaceDataDbMigrationService {
     const rows = normalizeRawRows<{
       tableSchema: string;
       tableName: string;
-      columnDefault: string | null;
+      sequenceSchema: string;
+      sequenceName: string;
     }>(
       await sourceClient.raw(
         `
-          SELECT table_schema AS "tableSchema",
-                 table_name AS "tableName",
-                 column_default AS "columnDefault"
-          FROM information_schema.columns
-          WHERE table_schema = ANY(?::text[])
-            AND column_name = '__auto_number'
-            AND column_default IS NOT NULL
+          SELECT table_ns.nspname AS "tableSchema",
+                 table_class.relname AS "tableName",
+                 sequence_ns.nspname AS "sequenceSchema",
+                 sequence_class.relname AS "sequenceName"
+          FROM pg_attrdef AS attr_def
+          INNER JOIN pg_attribute AS attr
+            ON attr.attrelid = attr_def.adrelid
+           AND attr.attnum = attr_def.adnum
+           AND NOT attr.attisdropped
+          INNER JOIN pg_class AS table_class
+            ON table_class.oid = attr_def.adrelid
+          INNER JOIN pg_namespace AS table_ns
+            ON table_ns.oid = table_class.relnamespace
+          INNER JOIN pg_depend AS dependency
+            ON dependency.classid = 'pg_attrdef'::regclass
+           AND dependency.objid = attr_def.oid
+           AND dependency.refclassid = 'pg_class'::regclass
+          INNER JOIN pg_class AS sequence_class
+            ON sequence_class.oid = dependency.refobjid
+           AND sequence_class.relkind = 'S'
+          INNER JOIN pg_namespace AS sequence_ns
+            ON sequence_ns.oid = sequence_class.relnamespace
+          WHERE table_ns.nspname = ANY(?::text[])
+            AND attr.attname = '__auto_number'
+            AND sequence_ns.nspname = 'public'
         `,
         [schemaNames]
       )
@@ -1662,15 +1664,15 @@ export class SpaceDataDbMigrationService {
     const seen = new Set<string>();
     const sequences: ILegacyPublicAutoNumberSequence[] = [];
     for (const row of rows) {
-      const sequenceName = parsePublicRegclassSequenceName(row.columnDefault);
-      if (!sequenceName || seen.has(sequenceName)) {
+      const sequenceKey = `${row.sequenceSchema}.${row.sequenceName}`;
+      if (seen.has(sequenceKey)) {
         continue;
       }
-      seen.add(sequenceName);
+      seen.add(sequenceKey);
       sequences.push({
         tableSchema: row.tableSchema,
         tableName: row.tableName,
-        sequenceName,
+        sequenceName: row.sequenceName,
       });
     }
     return sequences;
@@ -2342,13 +2344,18 @@ export class SpaceDataDbMigrationService {
 
   async waitForSchemaOperationsForJob(
     jobId: string,
-    options: { timeoutMs?: number; pollMs?: number } = {}
+    options: { timeoutMs?: number; pollMs?: number; staleNonTerminalMs?: number } = {}
   ): Promise<ISchemaOperationDrainStats> {
     const timeoutMs = Math.max(
       0,
       Math.floor(options.timeoutMs ?? defaultSchemaOperationDrainTimeoutMs)
     );
     const pollMs = Math.max(1, Math.floor(options.pollMs ?? defaultSchemaOperationDrainPollMs));
+    const staleNonTerminalMs = optionOrPositiveIntEnv(
+      options.staleNonTerminalMs,
+      'SPACE_DATA_DB_MIGRATION_DRAIN_STALE_NON_TERMINAL_MS',
+      defaultDrainStaleNonTerminalMs
+    );
     const startedAt = Date.now();
     const job = await this.getMigrationJob(jobId);
     const inventory = this.normalizeInventory(job.inventory, job.spaceId);
@@ -2374,7 +2381,10 @@ export class SpaceDataDbMigrationService {
     try {
       for (;;) {
         await this.assertMigrationNotCanceled(jobId, job.spaceId);
-        const stats = await this.inspectSchemaOperationDrain(inventory);
+        const stats = await this.inspectSchemaOperationDrain(
+          inventory,
+          new Date(Date.now() - staleNonTerminalMs)
+        );
         if (stats.openCount === 0) {
           await this.updateSchemaOperationDrainStats(
             job,
@@ -2450,6 +2460,7 @@ export class SpaceDataDbMigrationService {
       probeTimeoutMs?: number;
       queueScanBatchSize?: number;
       queueScanLimit?: number;
+      staleNonTerminalMs?: number;
     } = {}
   ): Promise<IBackgroundWriterDrainStats> {
     const timeoutMs = Math.max(
@@ -2468,6 +2479,11 @@ export class SpaceDataDbMigrationService {
     const queueScanLimit = Math.max(
       1,
       Math.floor(options.queueScanLimit ?? defaultBackgroundWriterQueueScanLimit)
+    );
+    const staleNonTerminalMs = optionOrPositiveIntEnv(
+      options.staleNonTerminalMs,
+      'SPACE_DATA_DB_MIGRATION_DRAIN_STALE_NON_TERMINAL_MS',
+      defaultDrainStaleNonTerminalMs
     );
     const startedAt = Date.now();
     const job = await this.getMigrationJob(jobId);
@@ -2490,6 +2506,7 @@ export class SpaceDataDbMigrationService {
           probeTimeoutMs,
           queueScanBatchSize,
           queueScanLimit,
+          staleBefore: new Date(Date.now() - staleNonTerminalMs),
         });
         if (stats.openCount === 0) {
           await this.updateBackgroundWriterDrainStats(
@@ -6442,13 +6459,20 @@ export class SpaceDataDbMigrationService {
   }
 
   private async inspectSchemaOperationDrain(
-    inventory: ISpaceDataDbInventory
+    inventory: ISpaceDataDbInventory,
+    staleBefore: Date
   ): Promise<ISchemaOperationDrainStats> {
     const where = this.buildSchemaOperationWhere(inventory);
-    const [openCount, sample] = await Promise.all([
-      this.prismaService.schemaOperation.count({ where }),
+    const activeWhere = this.buildActiveNonTerminalWhere(where, staleBefore, [
+      { lockedAt: { gte: staleBefore } },
+    ]);
+    const staleWhere = this.buildStaleNonTerminalWhere(where, staleBefore, [
+      { OR: [{ lockedAt: null }, { lockedAt: { lt: staleBefore } }] },
+    ]);
+    const [openCount, sample, staleIgnoredCount, staleIgnoredSample] = await Promise.all([
+      this.prismaService.schemaOperation.count({ where: activeWhere }),
       this.prismaService.schemaOperation.findMany({
-        where,
+        where: activeWhere,
         select: {
           id: true,
           status: true,
@@ -6457,6 +6481,24 @@ export class SpaceDataDbMigrationService {
           tableId: true,
           lockedAt: true,
           lockedBy: true,
+          createdTime: true,
+          lastModifiedTime: true,
+        },
+        orderBy: [{ lastModifiedTime: 'desc' }, { createdTime: 'desc' }],
+        take: 10,
+      }),
+      this.prismaService.schemaOperation.count({ where: staleWhere }),
+      this.prismaService.schemaOperation.findMany({
+        where: staleWhere,
+        select: {
+          id: true,
+          status: true,
+          phase: true,
+          baseId: true,
+          tableId: true,
+          lockedAt: true,
+          lockedBy: true,
+          createdTime: true,
           lastModifiedTime: true,
         },
         orderBy: [{ lastModifiedTime: 'desc' }, { createdTime: 'desc' }],
@@ -6464,7 +6506,11 @@ export class SpaceDataDbMigrationService {
       }),
     ]);
 
-    return this.buildSchemaOperationDrainStats(openCount, sample);
+    return this.buildSchemaOperationDrainStats(openCount, sample, {
+      staleBefore,
+      staleIgnoredCount,
+      staleIgnoredSample,
+    });
   }
 
   private buildSchemaOperationWhere(
@@ -6488,6 +6534,44 @@ export class SpaceDataDbMigrationService {
     };
   }
 
+  private buildActiveNonTerminalWhere<T extends object>(
+    where: T,
+    staleBefore: Date,
+    extraActiveFilters: object[] = []
+  ): T {
+    return {
+      AND: [
+        where,
+        {
+          OR: [
+            { lastModifiedTime: { gte: staleBefore } },
+            { lastModifiedTime: null, createdTime: { gte: staleBefore } },
+            ...extraActiveFilters,
+          ],
+        },
+      ],
+    } as T;
+  }
+
+  private buildStaleNonTerminalWhere<T extends object>(
+    where: T,
+    staleBefore: Date,
+    extraStaleFilters: object[] = []
+  ): T {
+    return {
+      AND: [
+        where,
+        {
+          OR: [
+            { lastModifiedTime: { lt: staleBefore } },
+            { lastModifiedTime: null, createdTime: { lt: staleBefore } },
+          ],
+        },
+        ...extraStaleFilters,
+      ],
+    } as T;
+  }
+
   private buildSchemaOperationDrainStats(
     openCount: number,
     sample: {
@@ -6498,8 +6582,24 @@ export class SpaceDataDbMigrationService {
       tableId: string | null;
       lockedAt: Date | string | null;
       lockedBy: string | null;
+      createdTime?: Date | string | null;
       lastModifiedTime: Date | string | null;
-    }[]
+    }[],
+    stale?: {
+      staleBefore: Date;
+      staleIgnoredCount: number;
+      staleIgnoredSample: {
+        id: string;
+        status: string;
+        phase: string;
+        baseId: string | null;
+        tableId: string | null;
+        lockedAt: Date | string | null;
+        lockedBy: string | null;
+        createdTime?: Date | string | null;
+        lastModifiedTime: Date | string | null;
+      }[];
+    }
   ): ISchemaOperationDrainStats {
     return {
       openCount,
@@ -6511,8 +6611,26 @@ export class SpaceDataDbMigrationService {
         tableId: operation.tableId,
         lockedAt: this.toNullableIso(operation.lockedAt),
         lockedBy: operation.lockedBy,
+        createdTime: this.toNullableIso(operation.createdTime ?? null),
         lastModifiedTime: this.toNullableIso(operation.lastModifiedTime),
       })),
+      ...(stale?.staleIgnoredCount
+        ? {
+            staleIgnoredCount: stale.staleIgnoredCount,
+            staleIgnoredSample: stale.staleIgnoredSample.map((operation) => ({
+              id: operation.id,
+              status: operation.status,
+              phase: operation.phase,
+              baseId: operation.baseId,
+              tableId: operation.tableId,
+              lockedAt: this.toNullableIso(operation.lockedAt),
+              lockedBy: operation.lockedBy,
+              createdTime: this.toNullableIso(operation.createdTime ?? null),
+              lastModifiedTime: this.toNullableIso(operation.lastModifiedTime),
+            })),
+            staleBefore: stale.staleBefore.toISOString(),
+          }
+        : {}),
       checkedAt: new Date().toISOString(),
     };
   }
@@ -6543,11 +6661,12 @@ export class SpaceDataDbMigrationService {
       probeTimeoutMs: number;
       queueScanBatchSize: number;
       queueScanLimit: number;
+      staleBefore: Date;
     }
   ): Promise<IBackgroundWriterDrainStats> {
     const [provisionResources, queueJobs] = await Promise.all([
       withTimeout(
-        this.inspectProvisionResourceDrain(spaceId, inventory),
+        this.inspectProvisionResourceDrain(spaceId, inventory, options.staleBefore),
         options.probeTimeoutMs,
         `Timed out inspecting provisioning resources after ${options.probeTimeoutMs}ms`
       ),
@@ -6562,86 +6681,209 @@ export class SpaceDataDbMigrationService {
 
   private async inspectProvisionResourceDrain(
     spaceId: string,
-    inventory: ISpaceDataDbInventory
-  ): Promise<{ openCount: number; sample: IBackgroundWriterDrainStats['sample'] }> {
+    inventory: ISpaceDataDbInventory,
+    staleBefore: Date
+  ): Promise<{
+    openCount: number;
+    sample: IBackgroundWriterDrainSample[];
+    staleIgnoredCount: number;
+    staleIgnoredSample: IBackgroundWriterDrainSample[];
+    staleBefore: string;
+  }> {
     const baseWhere = this.buildProvisionBaseWhere(spaceId, inventory);
     const tableWhere = this.buildProvisionTableWhere(inventory);
     const fieldWhere = this.buildProvisionFieldWhere(inventory);
-    const [baseCount, tableCount, fieldCount, baseSample, tableSample, fieldSample] =
-      await Promise.all([
-        this.prismaService.base.count({ where: baseWhere }),
-        tableWhere ? this.prismaService.tableMeta.count({ where: tableWhere }) : Promise.resolve(0),
-        fieldWhere ? this.prismaService.field.count({ where: fieldWhere }) : Promise.resolve(0),
-        this.prismaService.base.findMany({
-          where: baseWhere,
-          select: {
-            id: true,
-            provisionState: true,
-            lastModifiedTime: true,
-          },
-          orderBy: [{ lastModifiedTime: 'desc' }, { createdTime: 'desc' }],
-          take: 10,
-        }),
-        tableWhere
-          ? this.prismaService.tableMeta.findMany({
-              where: tableWhere,
-              select: {
-                id: true,
-                baseId: true,
-                provisionState: true,
-                lastModifiedTime: true,
-              },
-              orderBy: [{ lastModifiedTime: 'desc' }, { createdTime: 'desc' }],
-              take: 10,
-            })
-          : Promise.resolve([]),
-        fieldWhere
-          ? this.prismaService.field.findMany({
-              where: fieldWhere,
-              select: {
-                id: true,
-                tableId: true,
-                provisionState: true,
-                lastModifiedTime: true,
-              },
-              orderBy: [{ lastModifiedTime: 'desc' }, { createdTime: 'desc' }],
-              take: 10,
-            })
-          : Promise.resolve([]),
-      ]);
+    const activeBaseWhere = this.buildActiveNonTerminalWhere(baseWhere, staleBefore);
+    const activeTableWhere = tableWhere
+      ? this.buildActiveNonTerminalWhere(tableWhere, staleBefore)
+      : null;
+    const activeFieldWhere = fieldWhere
+      ? this.buildActiveNonTerminalWhere(fieldWhere, staleBefore)
+      : null;
+    const staleBaseWhere = this.buildStaleNonTerminalWhere(baseWhere, staleBefore);
+    const staleTableWhere = tableWhere
+      ? this.buildStaleNonTerminalWhere(tableWhere, staleBefore)
+      : null;
+    const staleFieldWhere = fieldWhere
+      ? this.buildStaleNonTerminalWhere(fieldWhere, staleBefore)
+      : null;
+    const [
+      baseCount,
+      tableCount,
+      fieldCount,
+      baseSample,
+      tableSample,
+      fieldSample,
+      staleBaseCount,
+      staleTableCount,
+      staleFieldCount,
+      staleBaseSample,
+      staleTableSample,
+      staleFieldSample,
+    ] = await Promise.all([
+      this.prismaService.base.count({ where: activeBaseWhere }),
+      activeTableWhere
+        ? this.prismaService.tableMeta.count({ where: activeTableWhere })
+        : Promise.resolve(0),
+      activeFieldWhere
+        ? this.prismaService.field.count({ where: activeFieldWhere })
+        : Promise.resolve(0),
+      this.prismaService.base.findMany({
+        where: activeBaseWhere,
+        select: {
+          id: true,
+          provisionState: true,
+          createdTime: true,
+          lastModifiedTime: true,
+        },
+        orderBy: [{ lastModifiedTime: 'desc' }, { createdTime: 'desc' }],
+        take: 10,
+      }),
+      activeTableWhere
+        ? this.prismaService.tableMeta.findMany({
+            where: activeTableWhere,
+            select: {
+              id: true,
+              baseId: true,
+              provisionState: true,
+              createdTime: true,
+              lastModifiedTime: true,
+            },
+            orderBy: [{ lastModifiedTime: 'desc' }, { createdTime: 'desc' }],
+            take: 10,
+          })
+        : Promise.resolve([]),
+      activeFieldWhere
+        ? this.prismaService.field.findMany({
+            where: activeFieldWhere,
+            select: {
+              id: true,
+              tableId: true,
+              provisionState: true,
+              createdTime: true,
+              lastModifiedTime: true,
+            },
+            orderBy: [{ lastModifiedTime: 'desc' }, { createdTime: 'desc' }],
+            take: 10,
+          })
+        : Promise.resolve([]),
+      this.prismaService.base.count({ where: staleBaseWhere }),
+      staleTableWhere
+        ? this.prismaService.tableMeta.count({ where: staleTableWhere })
+        : Promise.resolve(0),
+      staleFieldWhere
+        ? this.prismaService.field.count({ where: staleFieldWhere })
+        : Promise.resolve(0),
+      this.prismaService.base.findMany({
+        where: staleBaseWhere,
+        select: {
+          id: true,
+          provisionState: true,
+          createdTime: true,
+          lastModifiedTime: true,
+        },
+        orderBy: [{ lastModifiedTime: 'desc' }, { createdTime: 'desc' }],
+        take: 10,
+      }),
+      staleTableWhere
+        ? this.prismaService.tableMeta.findMany({
+            where: staleTableWhere,
+            select: {
+              id: true,
+              baseId: true,
+              provisionState: true,
+              createdTime: true,
+              lastModifiedTime: true,
+            },
+            orderBy: [{ lastModifiedTime: 'desc' }, { createdTime: 'desc' }],
+            take: 10,
+          })
+        : Promise.resolve([]),
+      staleFieldWhere
+        ? this.prismaService.field.findMany({
+            where: staleFieldWhere,
+            select: {
+              id: true,
+              tableId: true,
+              provisionState: true,
+              createdTime: true,
+              lastModifiedTime: true,
+            },
+            orderBy: [{ lastModifiedTime: 'desc' }, { createdTime: 'desc' }],
+            take: 10,
+          })
+        : Promise.resolve([]),
+    ]);
 
+    const activeSample = this.buildProvisionDrainSamples(baseSample, tableSample, fieldSample);
+    const staleIgnoredSample = this.buildProvisionDrainSamples(
+      staleBaseSample,
+      staleTableSample,
+      staleFieldSample
+    );
     return {
       openCount: baseCount + tableCount + fieldCount,
-      sample: [
-        ...baseSample.map((resource) => ({
-          kind: 'provision_resource' as const,
-          resourceType: 'base' as const,
-          id: resource.id,
-          state: resource.provisionState,
-          baseId: resource.id,
-          tableId: null,
-          lastModifiedTime: this.toNullableIso(resource.lastModifiedTime),
-        })),
-        ...tableSample.map((resource) => ({
-          kind: 'provision_resource' as const,
-          resourceType: 'table' as const,
-          id: resource.id,
-          state: resource.provisionState,
-          baseId: resource.baseId,
-          tableId: resource.id,
-          lastModifiedTime: this.toNullableIso(resource.lastModifiedTime),
-        })),
-        ...fieldSample.map((resource) => ({
-          kind: 'provision_resource' as const,
-          resourceType: 'field' as const,
-          id: resource.id,
-          state: resource.provisionState,
-          baseId: null,
-          tableId: resource.tableId,
-          lastModifiedTime: this.toNullableIso(resource.lastModifiedTime),
-        })),
-      ],
+      sample: activeSample,
+      staleIgnoredCount: staleBaseCount + staleTableCount + staleFieldCount,
+      staleIgnoredSample,
+      staleBefore: staleBefore.toISOString(),
     };
+  }
+
+  private buildProvisionDrainSamples(
+    baseSample: {
+      id: string;
+      provisionState: string;
+      createdTime: Date | string | null;
+      lastModifiedTime: Date | string | null;
+    }[],
+    tableSample: {
+      id: string;
+      baseId: string;
+      provisionState: string;
+      createdTime: Date | string | null;
+      lastModifiedTime: Date | string | null;
+    }[],
+    fieldSample: {
+      id: string;
+      tableId: string;
+      provisionState: string;
+      createdTime: Date | string | null;
+      lastModifiedTime: Date | string | null;
+    }[]
+  ): IBackgroundWriterDrainSample[] {
+    return [
+      ...baseSample.map((resource) => ({
+        kind: 'provision_resource' as const,
+        resourceType: 'base' as const,
+        id: resource.id,
+        state: resource.provisionState,
+        baseId: resource.id,
+        tableId: null,
+        createdTime: this.toNullableIso(resource.createdTime),
+        lastModifiedTime: this.toNullableIso(resource.lastModifiedTime),
+      })),
+      ...tableSample.map((resource) => ({
+        kind: 'provision_resource' as const,
+        resourceType: 'table' as const,
+        id: resource.id,
+        state: resource.provisionState,
+        baseId: resource.baseId,
+        tableId: resource.id,
+        createdTime: this.toNullableIso(resource.createdTime),
+        lastModifiedTime: this.toNullableIso(resource.lastModifiedTime),
+      })),
+      ...fieldSample.map((resource) => ({
+        kind: 'provision_resource' as const,
+        resourceType: 'field' as const,
+        id: resource.id,
+        state: resource.provisionState,
+        baseId: null,
+        tableId: resource.tableId,
+        createdTime: this.toNullableIso(resource.createdTime),
+        lastModifiedTime: this.toNullableIso(resource.lastModifiedTime),
+      })),
+    ];
   }
 
   private buildProvisionBaseWhere(
@@ -6838,14 +7080,27 @@ export class SpaceDataDbMigrationService {
   }
 
   private buildBackgroundWriterDrainStats(
-    provisionResources: { openCount: number; sample: IBackgroundWriterDrainStats['sample'] },
-    queueJobs: { openCount: number; sample: IBackgroundWriterDrainStats['sample'] }
+    provisionResources: {
+      openCount: number;
+      sample: IBackgroundWriterDrainSample[];
+      staleIgnoredCount?: number;
+      staleIgnoredSample?: IBackgroundWriterDrainSample[];
+      staleBefore?: string;
+    },
+    queueJobs: { openCount: number; sample: IBackgroundWriterDrainSample[] }
   ): IBackgroundWriterDrainStats {
     return {
       openCount: provisionResources.openCount + queueJobs.openCount,
       provisionResourceCount: provisionResources.openCount,
       queueJobCount: queueJobs.openCount,
       sample: [...provisionResources.sample, ...queueJobs.sample].slice(0, 10),
+      ...(provisionResources.staleIgnoredCount
+        ? {
+            staleIgnoredCount: provisionResources.staleIgnoredCount,
+            staleIgnoredSample: provisionResources.staleIgnoredSample?.slice(0, 10) ?? [],
+            staleBefore: provisionResources.staleBefore,
+          }
+        : {}),
       checkedAt: new Date().toISOString(),
     };
   }
