@@ -246,7 +246,7 @@ export class FormulaSqlPgTranslator {
           lookupSql.errorConditionSql,
           lookupSql.errorMessageSql,
           lookupField, // Keep reference to lookup field for context
-          isMultiple ? 'array' : (lookupSql.storageKind ?? metadata.storageKind)
+          isMultiple ? 'array' : lookupSql.storageKind ?? metadata.storageKind
         )
       )
       .orElse(() =>

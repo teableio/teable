@@ -26,7 +26,6 @@
     "duplicateBase": "Dupliziere Base",
     "missTargetTip": "Bitte wählen Sie ein Feld, um die Base zu duplizieren.",
     "copying": "Duplizieren der Base, das kann eine Weile dauern...",
-    "copyingTemplate": "Base aus Vorlage erstellen, das kann eine Weile dauern...",
     "howToCreate": "Wie wollen Sie beginnen?",
     "fromScratch": "Von Grund auf neu",
     "fromTemplate": "Aus Vorlage",
@@ -38,7 +37,6 @@
     "general": "Allgemein",
     "collaborators": "Kollaborateure",
     "generalDescription": "Ändern Sie hier die Einstellungen für Ihren aktuellen Space",
-    "collaboratorDescription": "Verwalten Sie die Mitarbeiter Ihres Space und legen Sie deren Zugriffsrechte fest.",
     "spaceName": "Space Name",
     "spaceId": "Space ID"
   },
@@ -53,8 +51,6 @@
   },
   "tip": {
     "delete": "Sind Sie sicher, dass Sie <0/> löschen wollen?",
-    "title": "Tipps",
-    "exportTips1": "Exportieren Sie die aktuelle Base als .tea-Datei, was einige Zeit dauern kann. Sie können die Exportergebnisse im Benachrichtigungszentrum überprüfen.",
     "exportTips2": "Sie können die .tea-Datei in Space -> mehr -> Import importieren",
     "exportTips3": "Base-übergreifende Beziehungsfelder werden in einzeiligen Text umgewandelt.",
     "exportIncludeDataLabel": "Datensätze einschließen",
@@ -72,31 +68,21 @@
   "deleteSpaceModal": {
     "title": "Space löschen",
     "blockedTitle": "Dieser Space kann nicht gelöscht werden",
-    "blockedDesc": "Dieser Space hat ein aktives Abonnement. Bitte kündigen Sie das Abonnement, bevor Sie den Space löschen.",
-    "permanentDeleteWarning": "Diese Aktion wird dauerhaft alle Ressourcen und Daten im aktuellen Space löschen. Bitte gehen Sie mit Vorsicht vor!",
-    "confirmInputLabel": "Bitte geben Sie DELETE ein, um das Löschen zu bestätigen"
+    "blockedDesc": "Dieser Space hat ein aktives Abonnement. Bitte kündigen Sie das Abonnement, bevor Sie den Space löschen."
   },
   "sharedBase": {
     "title": "Geteilte Bases",
     "description": "Alle Bases, zu denen ich eingeladen wurde",
     "empty": "Noch keine geteilten Bases"
   },
-  "integration": {
-    "title": "Integrationen",
-    "description": "Verwalten Sie die Integrationen Ihres Spaces",
-    "addIntegration": "Integration hinzufügen",
-    "ai": "AI"
-  },
+  "integration": {},
   "aiSetting": {
     "title": "KI-Einstellungen",
     "description": "Verwalten Sie die KI-Einstellungen Ihres Space",
-    "enableTips": "Aktivieren Sie die KI, um KI-Funktionen in Ihrem Space zu nutzen, anstatt die System-KI zu verwenden",
-    "enable": "KI-Einstellungen initialisieren",
-    "enableSwitchTips": "Bitte konfigurieren Sie das große Programmiermodell vor der Aktivierung"
+    "enable": "KI-Einstellungen initialisieren"
   },
   "import": {
     "importing": "Importieren",
-    "importWayTip": "Klicken oder ziehen Sie die Datei in diesen Bereich zum Hochladen",
     "baseImportTips": "Klicken oder ziehen Sie die .tea-Datei in diesen Bereich zum Hochladen",
     "confirm": "Bestätigen und fortfahren",
     "phase": {
@@ -155,12 +141,10 @@
       "title": "Titel",
       "description": "Beschreibung",
       "security": "Sicherheit",
-      "includeNodes": "Knoten einschließen",
       "advanced": "Erweitert",
       "publishNode": "Knoten veröffentlichen",
       "includeData": "Daten einschließen",
       "defaultActiveNode": "Standardmäßig aktiver Knoten",
-      "select": "bitte auswählen",
       "descriptionPlaceholder": "Beschreibung",
       "titlePlaceholder": "Titel",
       "toBeFilledTitle": "Benennen Sie Ihre Arbeit",
@@ -175,7 +159,6 @@
     "unPublishSuccess": "Veröffentlichung der Base erfolgreich aufgehoben!",
     "unPublishConfirmTitle": "Veröffentlichung aufheben bestätigen",
     "unPublishConfirmDescription": "Sind Sie sicher, dass Sie die Veröffentlichung dieser Base aufheben möchten? Sie wird nicht mehr im Vorlagenzentrum sichtbar sein.",
-    "usageCount": "Nutzungsanzahl: ",
     "uploadCover": "Klicken, um Titelbild hochzuladen",
     "changeCover": "Klicken, um Titelbild zu ändern",
     "uploading": "Bild wird hochgeladen...",
@@ -237,7 +220,6 @@
       "creatingTable": "Tabelle wird erstellt: {{tableName}} ({{tableIndex}}/{{totalTables}})",
       "creatingLinks": "Verknüpfungsfelder werden erstellt",
       "fillingLinks": "{{tableName}} (Verknüpfungen)",
-      "done": "Import abgeschlossen",
       "applyingViewConfig": "Ansichtskonfiguration wird importiert"
     },
     "searchBases": "Bases durchsuchen",
