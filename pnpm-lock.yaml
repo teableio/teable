@@ -24812,7 +24812,7 @@ snapshots:
   '@babel/helper-module-imports@7.25.9':
     dependencies:
       '@babel/traverse': 7.26.4
-      '@babel/types': 7.26.3
+      '@babel/types': 7.29.0
     transitivePeerDependencies:
       - supports-color
 

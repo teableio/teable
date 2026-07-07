@@ -201,6 +201,8 @@ type IValidationMismatch = {
   reason: string;
   sourceCount?: number;
   targetCount?: number;
+  sourceContentHash?: string | null;
+  targetContentHash?: string | null;
   sourceKind?: string;
   targetKind?: string | null;
   sourceColumns?: IBaseRelationColumnSignature[];
@@ -228,6 +230,24 @@ type IRowCountValidation = {
   object: string;
   sourceCount: number;
   targetCount: number;
+  sourceContentHash?: string | null;
+  targetContentHash?: string | null;
+};
+
+type IRelationScopedRow<T> = T & { schemaName: string; relationName: string };
+
+type IRelationSignatureMaps = {
+  columns: Map<string, IBaseRelationColumnSignature[]>;
+  indexes: Map<string, IBaseRelationIndexSignature[]>;
+  constraints: Map<string, IBaseRelationConstraintSignature[]>;
+  triggers: Map<string, IBaseRelationTriggerSignature[]>;
+};
+
+type IBaseRelationRowValidationPlan = {
+  key: string;
+  sourceRelation: ISpaceDataDbPhysicalRelation;
+  targetRelation: ISpaceDataDbPhysicalRelation;
+  contentHashColumns?: IBaseRelationColumnSignature[];
 };
 
 type IValidationStats = {
@@ -402,36 +422,48 @@ type IMigrationProgressStats = {
   etaMs: number | null;
 };
 
+type ISchemaOperationDrainSample = {
+  id: string;
+  status: string;
+  phase: string;
+  baseId: string | null;
+  tableId: string | null;
+  lockedAt: string | null;
+  lockedBy: string | null;
+  createdTime?: string | null;
+  lastModifiedTime: string | null;
+};
+
 type ISchemaOperationDrainStats = {
   openCount: number;
-  sample: {
-    id: string;
-    status: string;
-    phase: string;
-    baseId: string | null;
-    tableId: string | null;
-    lockedAt: string | null;
-    lockedBy: string | null;
-    lastModifiedTime: string | null;
-  }[];
+  sample: ISchemaOperationDrainSample[];
+  staleIgnoredCount?: number;
+  staleIgnoredSample?: ISchemaOperationDrainSample[];
+  staleBefore?: string;
   checkedAt: string;
+};
+
+type IBackgroundWriterDrainSample = {
+  kind: 'provision_resource' | 'queue_job';
+  resourceType?: 'base' | 'table' | 'field';
+  queueName?: string;
+  id: string;
+  state: string;
+  baseId: string | null;
+  tableId: string | null;
+  createdTime?: string | null;
+  lastModifiedTime?: string | null;
+  timestamp?: string | null;
 };
 
 type IBackgroundWriterDrainStats = {
   openCount: number;
   provisionResourceCount: number;
   queueJobCount: number;
-  sample: {
-    kind: 'provision_resource' | 'queue_job';
-    resourceType?: 'base' | 'table' | 'field';
-    queueName?: string;
-    id: string;
-    state: string;
-    baseId: string | null;
-    tableId: string | null;
-    lastModifiedTime?: string | null;
-    timestamp?: string | null;
-  }[];
+  sample: IBackgroundWriterDrainSample[];
+  staleIgnoredCount?: number;
+  staleIgnoredSample?: IBackgroundWriterDrainSample[];
+  staleBefore?: string;
   checkedAt: string;
 };
 
@@ -616,6 +648,7 @@ const defaultBackgroundWriterDrainPollMs = 5 * 1000;
 const defaultBackgroundWriterDrainProbeTimeoutMs = 30 * 1000;
 const defaultBackgroundWriterQueueScanBatchSize = 100;
 const defaultBackgroundWriterQueueScanLimit = 1000;
+const defaultDrainStaleNonTerminalMs = 7 * 24 * 60 * 60 * 1000;
 const defaultTempDiskMultiplier = 2;
 const defaultTempDiskMinFreeBytes = 512 * 1024 * 1024;
 const defaultTargetDiskMultiplier = 2;
@@ -626,6 +659,7 @@ const defaultPostgresToolCheckTimeoutMs = 5_000;
 const defaultCopyProgressPollMs = 5_000;
 const defaultCopyProgressPollTimeoutMs = 30_000;
 const defaultStaleActiveJobTimeoutMs = 5 * 60 * 1000;
+const defaultValidationConcurrency = 8;
 const openSchemaOperationStatuses = ['pending', 'running', 'error'] as const;
 const openProvisionStates = [
   ProvisionState.pending,
@@ -692,6 +726,11 @@ const readNonNegativeIntEnv = (key: string, fallback: number) => {
   return Number.isFinite(value) && value >= 0 ? Math.floor(value) : fallback;
 };
 
+const readDisabledFlagEnv = (key: string) => {
+  const value = process.env[key]?.trim().toLowerCase();
+  return value === '0' || value === 'false' || value === 'off';
+};
+
 const readBaseSchemaCopyStrategyEnv = (
   key: string,
   fallback: ISpaceDataDbBaseSchemaCopyStrategy
@@ -718,6 +757,40 @@ const optionOrPositiveNumberEnv = (
   key: string,
   fallback: number
 ) => optionValue ?? readPositiveNumberEnv(key, fallback);
+
+const mapWithConcurrency = async <T, R>(
+  items: readonly T[],
+  concurrency: number,
+  fn: (item: T, index: number) => Promise<R>
+): Promise<R[]> => {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  const workers = Array.from(
+    { length: Math.max(1, Math.min(Math.floor(concurrency), items.length)) },
+    async () => {
+      for (let index = next++; index < items.length; index = next++) {
+        results[index] = await fn(items[index], index);
+      }
+    }
+  );
+  await Promise.all(workers);
+  return results;
+};
+
+const groupRelationSignatureRows = <T>(rows: IRelationScopedRow<T>[]): Map<string, T[]> => {
+  const map = new Map<string, T[]>();
+  for (const row of rows) {
+    const { schemaName, relationName, ...signature } = row;
+    const key = `${schemaName}.${relationName}`;
+    const list = map.get(key);
+    if (list) {
+      list.push(signature as T);
+    } else {
+      map.set(key, [signature as T]);
+    }
+  }
+  return map;
+};
 
 const normalizeRawRows = <T>(result: { rows?: T[] } | T[]): T[] => {
   if (Array.isArray(result)) {
@@ -785,36 +858,6 @@ const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number, message: s
 const quoteIdent = (identifier: string) => `"${identifier.replace(/"/g, '""')}"`;
 
 const qualify = (schema: string, table: string) => `${quoteIdent(schema)}.${quoteIdent(table)}`;
-
-const unquotePostgresIdent = (identifier: string) => {
-  if (!identifier.startsWith('"') || !identifier.endsWith('"')) {
-    return identifier;
-  }
-  return identifier.slice(1, -1).replace(/""/g, '"');
-};
-
-const parsePublicRegclassSequenceName = (columnDefault: string | null | undefined) => {
-  const match = columnDefault?.match(/^nextval\('((?:''|[^'])+)'::regclass\)$/i);
-  if (!match) {
-    return null;
-  }
-
-  const regclassName = match[1].replace(/''/g, "'");
-  if (/^"([^"]|"")+"$/.test(regclassName)) {
-    return unquotePostgresIdent(regclassName);
-  }
-
-  const publicPrefix = regclassName.startsWith('"public".')
-    ? '"public".'
-    : regclassName.toLowerCase().startsWith('public.')
-      ? regclassName.slice(0, 'public.'.length)
-      : null;
-  if (!publicPrefix) {
-    return null;
-  }
-
-  return unquotePostgresIdent(regclassName.slice(publicPrefix.length));
-};
 
 const shellQuote = (value: string) => `'${value.replace(/'/g, `'\\''`)}'`;
 
@@ -1643,17 +1686,36 @@ export class SpaceDataDbMigrationService {
     const rows = normalizeRawRows<{
       tableSchema: string;
       tableName: string;
-      columnDefault: string | null;
+      sequenceSchema: string;
+      sequenceName: string;
     }>(
       await sourceClient.raw(
         `
-          SELECT table_schema AS "tableSchema",
-                 table_name AS "tableName",
-                 column_default AS "columnDefault"
-          FROM information_schema.columns
-          WHERE table_schema = ANY(?::text[])
-            AND column_name = '__auto_number'
-            AND column_default IS NOT NULL
+          SELECT table_ns.nspname AS "tableSchema",
+                 table_class.relname AS "tableName",
+                 sequence_ns.nspname AS "sequenceSchema",
+                 sequence_class.relname AS "sequenceName"
+          FROM pg_attrdef AS attr_def
+          INNER JOIN pg_attribute AS attr
+            ON attr.attrelid = attr_def.adrelid
+           AND attr.attnum = attr_def.adnum
+           AND NOT attr.attisdropped
+          INNER JOIN pg_class AS table_class
+            ON table_class.oid = attr_def.adrelid
+          INNER JOIN pg_namespace AS table_ns
+            ON table_ns.oid = table_class.relnamespace
+          INNER JOIN pg_depend AS dependency
+            ON dependency.classid = 'pg_attrdef'::regclass
+           AND dependency.objid = attr_def.oid
+           AND dependency.refclassid = 'pg_class'::regclass
+          INNER JOIN pg_class AS sequence_class
+            ON sequence_class.oid = dependency.refobjid
+           AND sequence_class.relkind = 'S'
+          INNER JOIN pg_namespace AS sequence_ns
+            ON sequence_ns.oid = sequence_class.relnamespace
+          WHERE table_ns.nspname = ANY(?::text[])
+            AND attr.attname = '__auto_number'
+            AND sequence_ns.nspname = 'public'
         `,
         [schemaNames]
       )
@@ -1662,15 +1724,15 @@ export class SpaceDataDbMigrationService {
     const seen = new Set<string>();
     const sequences: ILegacyPublicAutoNumberSequence[] = [];
     for (const row of rows) {
-      const sequenceName = parsePublicRegclassSequenceName(row.columnDefault);
-      if (!sequenceName || seen.has(sequenceName)) {
+      const sequenceKey = `${row.sequenceSchema}.${row.sequenceName}`;
+      if (seen.has(sequenceKey)) {
         continue;
       }
-      seen.add(sequenceName);
+      seen.add(sequenceKey);
       sequences.push({
         tableSchema: row.tableSchema,
         tableName: row.tableName,
-        sequenceName,
+        sequenceName: row.sequenceName,
       });
     }
     return sequences;
@@ -2342,13 +2404,18 @@ export class SpaceDataDbMigrationService {
 
   async waitForSchemaOperationsForJob(
     jobId: string,
-    options: { timeoutMs?: number; pollMs?: number } = {}
+    options: { timeoutMs?: number; pollMs?: number; staleNonTerminalMs?: number } = {}
   ): Promise<ISchemaOperationDrainStats> {
     const timeoutMs = Math.max(
       0,
       Math.floor(options.timeoutMs ?? defaultSchemaOperationDrainTimeoutMs)
     );
     const pollMs = Math.max(1, Math.floor(options.pollMs ?? defaultSchemaOperationDrainPollMs));
+    const staleNonTerminalMs = optionOrPositiveIntEnv(
+      options.staleNonTerminalMs,
+      'SPACE_DATA_DB_MIGRATION_DRAIN_STALE_NON_TERMINAL_MS',
+      defaultDrainStaleNonTerminalMs
+    );
     const startedAt = Date.now();
     const job = await this.getMigrationJob(jobId);
     const inventory = this.normalizeInventory(job.inventory, job.spaceId);
@@ -2374,7 +2441,10 @@ export class SpaceDataDbMigrationService {
     try {
       for (;;) {
         await this.assertMigrationNotCanceled(jobId, job.spaceId);
-        const stats = await this.inspectSchemaOperationDrain(inventory);
+        const stats = await this.inspectSchemaOperationDrain(
+          inventory,
+          new Date(Date.now() - staleNonTerminalMs)
+        );
         if (stats.openCount === 0) {
           await this.updateSchemaOperationDrainStats(
             job,
@@ -2450,6 +2520,7 @@ export class SpaceDataDbMigrationService {
       probeTimeoutMs?: number;
       queueScanBatchSize?: number;
       queueScanLimit?: number;
+      staleNonTerminalMs?: number;
     } = {}
   ): Promise<IBackgroundWriterDrainStats> {
     const timeoutMs = Math.max(
@@ -2468,6 +2539,11 @@ export class SpaceDataDbMigrationService {
     const queueScanLimit = Math.max(
       1,
       Math.floor(options.queueScanLimit ?? defaultBackgroundWriterQueueScanLimit)
+    );
+    const staleNonTerminalMs = optionOrPositiveIntEnv(
+      options.staleNonTerminalMs,
+      'SPACE_DATA_DB_MIGRATION_DRAIN_STALE_NON_TERMINAL_MS',
+      defaultDrainStaleNonTerminalMs
     );
     const startedAt = Date.now();
     const job = await this.getMigrationJob(jobId);
@@ -2490,6 +2566,7 @@ export class SpaceDataDbMigrationService {
           probeTimeoutMs,
           queueScanBatchSize,
           queueScanLimit,
+          staleBefore: new Date(Date.now() - staleNonTerminalMs),
         });
         if (stats.openCount === 0) {
           await this.updateBackgroundWriterDrainStats(
@@ -5779,56 +5856,56 @@ export class SpaceDataDbMigrationService {
       return { validatedRows: [], mismatches: [] };
     }
 
-    const sourceRelations = await this.inspectPhysicalSchemasWithClient(sourceClient, baseIds);
-    const targetRelations = await this.inspectPhysicalSchemasWithClient(targetClient, baseIds);
+    const [sourceRelations, targetRelations] = await Promise.all([
+      this.inspectPhysicalSchemasWithClient(sourceClient, baseIds),
+      this.inspectPhysicalSchemasWithClient(targetClient, baseIds),
+    ]);
     const sourceMap = this.relationMap(sourceRelations);
     const targetMap = this.relationMap(targetRelations);
+    // 签名批量取回：每侧 4 条 catalog 查询覆盖全部 relation，替代逐表往返
+    // （大空间数千次串行 catalog 查询是校验耗时的主因）。
+    const [sourceSignatures, targetSignatures] = await Promise.all([
+      this.inspectRelationSignatures(sourceClient, baseIds),
+      this.inspectRelationSignatures(targetClient, baseIds),
+    ]);
     const mismatches: IValidationMismatch[] = [];
     const validatedRows: IRowCountValidation[] = [];
+    const contentHashEnabled = !readDisabledFlagEnv('BYODB_SPACE_DATA_DB_VALIDATION_CONTENT_HASH');
+    const rowValidationPlans: IBaseRelationRowValidationPlan[] = [];
 
     for (const [key, sourceRelation] of sourceMap) {
-      const relationMismatch = this.buildBaseRelationMismatch(
+      const evaluated = this.evaluateBaseRelationPair({
         key,
         sourceRelation,
-        targetMap.get(key)
-      );
-      if (relationMismatch) {
-        mismatches.push(relationMismatch);
-        continue;
+        targetRelation: targetMap.get(key),
+        sourceSignatures,
+        targetSignatures,
+        contentHashEnabled,
+      });
+      mismatches.push(...evaluated.mismatches);
+      if (evaluated.rowValidationPlan) {
+        rowValidationPlans.push(evaluated.rowValidationPlan);
       }
-      const targetRelation = targetMap.get(key)!;
-      const columnMismatch = await this.buildColumnSignatureMismatch(
+    }
+
+    const concurrency = readPositiveIntEnv(
+      'BYODB_SPACE_DATA_DB_VALIDATION_CONCURRENCY',
+      defaultValidationConcurrency
+    );
+    const rowValidations = await mapWithConcurrency(rowValidationPlans, concurrency, (plan) =>
+      this.buildBaseRelationRowValidation(
         sourceClient,
         targetClient,
-        key,
-        sourceRelation,
-        targetRelation
-      );
-      if (columnMismatch) {
-        mismatches.push(columnMismatch);
-      }
-      mismatches.push(
-        ...(await this.buildRelationDependencySignatureMismatches(
-          sourceClient,
-          targetClient,
-          key,
-          sourceRelation,
-          targetRelation,
-          baseIds
-        ))
-      );
-      const rowValidation = await this.buildBaseRelationRowValidation(
-        sourceClient,
-        targetClient,
-        key,
-        sourceRelation,
-        targetRelation
-      );
-      if (rowValidation) {
-        validatedRows.push(rowValidation.validatedRow);
-        if (rowValidation.mismatch) {
-          mismatches.push(rowValidation.mismatch);
-        }
+        plan.key,
+        plan.sourceRelation,
+        plan.targetRelation,
+        { contentHashColumns: plan.contentHashColumns }
+      )
+    );
+    for (const rowValidation of rowValidations) {
+      validatedRows.push(rowValidation.validatedRow);
+      if (rowValidation.mismatch) {
+        mismatches.push(rowValidation.mismatch);
       }
     }
 
@@ -5843,6 +5920,59 @@ export class SpaceDataDbMigrationService {
     }
 
     return { validatedRows, mismatches };
+  }
+
+  private evaluateBaseRelationPair(input: {
+    key: string;
+    sourceRelation: ISpaceDataDbPhysicalRelation;
+    targetRelation: ISpaceDataDbPhysicalRelation | undefined;
+    sourceSignatures: IRelationSignatureMaps;
+    targetSignatures: IRelationSignatureMaps;
+    contentHashEnabled: boolean;
+  }): { mismatches: IValidationMismatch[]; rowValidationPlan?: IBaseRelationRowValidationPlan } {
+    const { key, sourceRelation, targetRelation, sourceSignatures, targetSignatures } = input;
+    const relationMismatch = this.buildBaseRelationMismatch(key, sourceRelation, targetRelation);
+    if (relationMismatch || !targetRelation) {
+      return { mismatches: relationMismatch ? [relationMismatch] : [] };
+    }
+
+    const mismatches: IValidationMismatch[] = [];
+    const columnMismatch = this.buildColumnSignatureMismatch(
+      key,
+      sourceRelation,
+      sourceSignatures,
+      targetSignatures
+    );
+    if (columnMismatch) {
+      mismatches.push(columnMismatch);
+    }
+    mismatches.push(
+      ...this.buildRelationDependencySignatureMismatches(
+        key,
+        sourceRelation,
+        sourceSignatures,
+        targetSignatures
+      )
+    );
+    if (!relationKindsWithRows.has(sourceRelation.relationKind)) {
+      return { mismatches };
+    }
+
+    const sourceColumns = sourceSignatures.columns.get(key);
+    return {
+      mismatches,
+      rowValidationPlan: {
+        key,
+        sourceRelation,
+        targetRelation,
+        // 列签名一致才做内容哈希：哈希表达式按源列清单展开，
+        // 列不一致时目标侧查询会直接报列不存在。
+        contentHashColumns:
+          input.contentHashEnabled && !columnMismatch && sourceColumns?.length
+            ? sourceColumns
+            : undefined,
+      },
+    };
   }
 
   private buildBaseRelationMismatch(
@@ -5869,29 +5999,18 @@ export class SpaceDataDbMigrationService {
     return null;
   }
 
-  private async buildColumnSignatureMismatch(
-    sourceClient: IDataDbPreflightClient,
-    targetClient: IDataDbPreflightClient,
+  private buildColumnSignatureMismatch(
     key: string,
     sourceRelation: ISpaceDataDbPhysicalRelation,
-    targetRelation: ISpaceDataDbPhysicalRelation
-  ): Promise<IValidationMismatch | null> {
+    sourceSignatures: IRelationSignatureMaps,
+    targetSignatures: IRelationSignatureMaps
+  ): IValidationMismatch | null {
     if (!relationKindsWithColumns.has(sourceRelation.relationKind)) {
       return null;
     }
 
-    const [sourceColumns, targetColumns] = await Promise.all([
-      this.inspectRelationColumnSignature(
-        sourceClient,
-        sourceRelation.schemaName,
-        sourceRelation.relationName
-      ),
-      this.inspectRelationColumnSignature(
-        targetClient,
-        targetRelation.schemaName,
-        targetRelation.relationName
-      ),
-    ]);
+    const sourceColumns = sourceSignatures.columns.get(key) ?? [];
+    const targetColumns = targetSignatures.columns.get(key) ?? [];
     return this.isColumnSignatureEqual(sourceColumns, targetColumns)
       ? null
       : {
@@ -5907,56 +6026,56 @@ export class SpaceDataDbMigrationService {
     targetClient: IDataDbPreflightClient,
     key: string,
     sourceRelation: ISpaceDataDbPhysicalRelation,
-    targetRelation: ISpaceDataDbPhysicalRelation
-  ): Promise<{ validatedRow: IRowCountValidation; mismatch: IValidationMismatch | null } | null> {
-    if (!relationKindsWithRows.has(sourceRelation.relationKind)) {
-      return null;
-    }
-
-    const [sourceCount, targetCount] = await Promise.all([
-      this.countRows(sourceClient, sourceRelation.schemaName, sourceRelation.relationName),
-      this.countRows(targetClient, targetRelation.schemaName, targetRelation.relationName),
+    targetRelation: ISpaceDataDbPhysicalRelation,
+    options: { contentHashColumns?: IBaseRelationColumnSignature[] } = {}
+  ): Promise<{ validatedRow: IRowCountValidation; mismatch: IValidationMismatch | null }> {
+    const hashColumns = options.contentHashColumns;
+    const [source, target] = await Promise.all([
+      this.countAndHashRows(
+        sourceClient,
+        sourceRelation.schemaName,
+        sourceRelation.relationName,
+        hashColumns
+      ),
+      this.countAndHashRows(
+        targetClient,
+        targetRelation.schemaName,
+        targetRelation.relationName,
+        hashColumns
+      ),
     ]);
-    const validatedRow = {
+    const validatedRow: IRowCountValidation = {
       object: `base:${key}`,
-      sourceCount,
-      targetCount,
+      sourceCount: source.count,
+      targetCount: target.count,
+      ...(hashColumns?.length
+        ? { sourceContentHash: source.contentHash, targetContentHash: target.contentHash }
+        : {}),
     };
-    return {
-      validatedRow,
-      mismatch:
-        sourceCount === targetCount
-          ? null
-          : {
-              ...validatedRow,
-              reason: 'row_count_mismatch',
-            },
-    };
+    if (source.count !== target.count) {
+      return { validatedRow, mismatch: { ...validatedRow, reason: 'row_count_mismatch' } };
+    }
+    if (
+      source.contentHash != null &&
+      target.contentHash != null &&
+      source.contentHash !== target.contentHash
+    ) {
+      return { validatedRow, mismatch: { ...validatedRow, reason: 'content_hash_mismatch' } };
+    }
+    return { validatedRow, mismatch: null };
   }
 
-  private async buildRelationDependencySignatureMismatches(
-    sourceClient: IDataDbPreflightClient,
-    targetClient: IDataDbPreflightClient,
+  private buildRelationDependencySignatureMismatches(
     key: string,
     sourceRelation: ISpaceDataDbPhysicalRelation,
-    targetRelation: ISpaceDataDbPhysicalRelation,
-    baseIds: string[]
-  ): Promise<IValidationMismatch[]> {
+    sourceSignatures: IRelationSignatureMaps,
+    targetSignatures: IRelationSignatureMaps
+  ): IValidationMismatch[] {
     const mismatches: IValidationMismatch[] = [];
 
     if (relationKindsWithIndexSignatures.has(sourceRelation.relationKind)) {
-      const [sourceIndexes, targetIndexes] = await Promise.all([
-        this.inspectRelationIndexSignature(
-          sourceClient,
-          sourceRelation.schemaName,
-          sourceRelation.relationName
-        ),
-        this.inspectRelationIndexSignature(
-          targetClient,
-          targetRelation.schemaName,
-          targetRelation.relationName
-        ),
-      ]);
+      const sourceIndexes = sourceSignatures.indexes.get(key) ?? [];
+      const targetIndexes = targetSignatures.indexes.get(key) ?? [];
       if (JSON.stringify(sourceIndexes) !== JSON.stringify(targetIndexes)) {
         mismatches.push({
           object: `base:${key}`,
@@ -5968,31 +6087,10 @@ export class SpaceDataDbMigrationService {
     }
 
     if (relationKindsWithTableDependencySignatures.has(sourceRelation.relationKind)) {
-      const [sourceConstraints, targetConstraints, sourceTriggers, targetTriggers] =
-        await Promise.all([
-          this.inspectRelationConstraintSignature(
-            sourceClient,
-            sourceRelation.schemaName,
-            sourceRelation.relationName,
-            baseIds
-          ),
-          this.inspectRelationConstraintSignature(
-            targetClient,
-            targetRelation.schemaName,
-            targetRelation.relationName,
-            baseIds
-          ),
-          this.inspectRelationTriggerSignature(
-            sourceClient,
-            sourceRelation.schemaName,
-            sourceRelation.relationName
-          ),
-          this.inspectRelationTriggerSignature(
-            targetClient,
-            targetRelation.schemaName,
-            targetRelation.relationName
-          ),
-        ]);
+      const sourceConstraints = sourceSignatures.constraints.get(key) ?? [];
+      const targetConstraints = targetSignatures.constraints.get(key) ?? [];
+      const sourceTriggers = sourceSignatures.triggers.get(key) ?? [];
+      const targetTriggers = targetSignatures.triggers.get(key) ?? [];
       if (JSON.stringify(sourceConstraints) !== JSON.stringify(targetConstraints)) {
         mismatches.push({
           object: `base:${key}`,
@@ -6028,10 +6126,8 @@ export class SpaceDataDbMigrationService {
       input.spaceId
     );
     const relatedPlanByTable = new Map(relatedCountPlans.map((plan) => [plan.table, plan]));
-    const validatedRows: IRowCountValidation[] = [];
-    const mismatches: IValidationMismatch[] = [];
-
-    for (const plan of countPlans) {
+    // 共享表在源侧是大表上的过滤扫描，控制并发避免压垮源库。
+    const results = await mapWithConcurrency(countPlans, 4, async (plan) => {
       const relatedPlan = relatedPlanByTable.get(plan.table) ?? plan;
       const [sourceCount, targetCount] = await Promise.all([
         this.countRows(
@@ -6054,7 +6150,7 @@ export class SpaceDataDbMigrationService {
         sourceCount,
         targetCount,
       };
-      validatedRows.push(rowValidation);
+      const mismatches: IValidationMismatch[] = [];
       if (sourceCount !== targetCount) {
         mismatches.push({
           ...rowValidation,
@@ -6076,9 +6172,13 @@ export class SpaceDataDbMigrationService {
           targetCount: outOfScopeTargetCount,
         });
       }
-    }
+      return { rowValidation, mismatches };
+    });
 
-    return { validatedRows, mismatches };
+    return {
+      validatedRows: results.map((result) => result.rowValidation),
+      mismatches: results.flatMap((result) => result.mismatches),
+    };
   }
 
   private buildSharedTableCountPlans(inventory: ISpaceDataDbInventory, spaceId: string) {
@@ -6247,15 +6347,17 @@ export class SpaceDataDbMigrationService {
     return `${relation.schemaName}.${relation.relationName}`;
   }
 
-  private async inspectRelationColumnSignature(
+  // 签名内省按 schema 批量取回（每侧共 4 条查询），避免大空间数千次逐表 catalog 往返。
+  private async inspectRelationSignatures(
     client: IDataDbPreflightClient,
-    schema: string,
-    relation: string
-  ): Promise<IBaseRelationColumnSignature[]> {
-    return normalizeRawRows<IBaseRelationColumnSignature>(
-      await client.raw(
+    schemas: string[]
+  ): Promise<IRelationSignatureMaps> {
+    const [columnRows, indexRows, constraintRows, triggerRows] = await Promise.all([
+      client.raw<IRelationScopedRow<IBaseRelationColumnSignature>>(
         `
           SELECT
+            n.nspname AS "schemaName",
+            c.relname AS "relationName",
             a.attnum::integer AS "ordinalPosition",
             a.attname AS "columnName",
             format_type(a.atttypid, a.atttypmod) AS "formattedType",
@@ -6270,15 +6372,80 @@ export class SpaceDataDbMigrationService {
           LEFT JOIN pg_attrdef ad ON ad.adrelid = a.attrelid AND ad.adnum = a.attnum
           LEFT JOIN pg_collation coll ON coll.oid = a.attcollation
             AND a.attcollation <> 0
-          WHERE n.nspname = ?
-            AND c.relname = ?
+          WHERE n.nspname = ANY(?::text[])
+            AND c.relkind IN ('r', 'p', 'f', 'v', 'm')
             AND a.attnum > 0
             AND NOT a.attisdropped
-          ORDER BY a.attnum ASC
+          ORDER BY n.nspname ASC, c.relname ASC, a.attnum ASC
         `,
-        [schema, relation]
-      )
-    );
+        [schemas]
+      ),
+      client.raw<IRelationScopedRow<IBaseRelationIndexSignature>>(
+        `
+          SELECT
+            n.nspname AS "schemaName",
+            c.relname AS "relationName",
+            ic.relname AS "indexName",
+            i.indisprimary AS "isPrimary",
+            i.indisunique AS "isUnique",
+            i.indisvalid AS "isValid",
+            pg_get_indexdef(i.indexrelid) AS "definition"
+          FROM pg_index i
+          JOIN pg_class c ON c.oid = i.indrelid
+          JOIN pg_namespace n ON n.oid = c.relnamespace
+          JOIN pg_class ic ON ic.oid = i.indexrelid
+          WHERE n.nspname = ANY(?::text[])
+          ORDER BY n.nspname ASC, c.relname ASC, i.indisprimary DESC, ic.relname ASC
+        `,
+        [schemas]
+      ),
+      client.raw<IRelationScopedRow<IBaseRelationConstraintSignature>>(
+        `
+          SELECT
+            n.nspname AS "schemaName",
+            c.relname AS "relationName",
+            con.conname AS "constraintName",
+            con.contype AS "constraintType",
+            pg_get_constraintdef(con.oid, true) AS "definition"
+          FROM pg_constraint con
+          JOIN pg_class c ON c.oid = con.conrelid
+          JOIN pg_namespace n ON n.oid = c.relnamespace
+          LEFT JOIN pg_class referenced_rel ON referenced_rel.oid = con.confrelid
+          LEFT JOIN pg_namespace referenced_ns ON referenced_ns.oid = referenced_rel.relnamespace
+          WHERE n.nspname = ANY(?::text[])
+            AND (con.contype <> 'f' OR referenced_ns.nspname = ANY(?::text[]))
+            -- PG18+ materializes NOT NULL as pg_constraint rows (contype 'n'); older
+            -- majors don't, so cross-version source/target comparison would always
+            -- mismatch. NOT NULL-ness is already covered by the column signatures.
+            AND con.contype <> 'n'
+          ORDER BY n.nspname ASC, c.relname ASC, con.contype ASC, con.conname ASC
+        `,
+        [schemas, schemas]
+      ),
+      client.raw<IRelationScopedRow<IBaseRelationTriggerSignature>>(
+        `
+          SELECT
+            n.nspname AS "schemaName",
+            c.relname AS "relationName",
+            tg.tgname AS "triggerName",
+            tg.tgenabled AS "enabled",
+            pg_get_triggerdef(tg.oid, true) AS "definition"
+          FROM pg_trigger tg
+          JOIN pg_class c ON c.oid = tg.tgrelid
+          JOIN pg_namespace n ON n.oid = c.relnamespace
+          WHERE n.nspname = ANY(?::text[])
+            AND NOT tg.tgisinternal
+          ORDER BY n.nspname ASC, c.relname ASC, tg.tgname ASC
+        `,
+        [schemas]
+      ),
+    ]);
+    return {
+      columns: groupRelationSignatureRows(normalizeRawRows(columnRows)),
+      indexes: groupRelationSignatureRows(normalizeRawRows(indexRows)),
+      constraints: groupRelationSignatureRows(normalizeRawRows(constraintRows)),
+      triggers: groupRelationSignatureRows(normalizeRawRows(triggerRows)),
+    };
   }
 
   private isColumnSignatureEqual(
@@ -6295,89 +6462,49 @@ export class SpaceDataDbMigrationService {
     return columns.map(({ ordinalPosition: _ordinalPosition, ...column }) => column);
   }
 
-  private async inspectRelationIndexSignature(
+  private async countAndHashRows(
     client: IDataDbPreflightClient,
     schema: string,
-    relation: string
-  ): Promise<IBaseRelationIndexSignature[]> {
-    return normalizeRawRows<IBaseRelationIndexSignature>(
-      await client.raw(
-        `
-          SELECT
-            ic.relname AS "indexName",
-            i.indisprimary AS "isPrimary",
-            i.indisunique AS "isUnique",
-            i.indisvalid AS "isValid",
-            pg_get_indexdef(i.indexrelid) AS "definition"
-          FROM pg_index i
-          JOIN pg_class c ON c.oid = i.indrelid
-          JOIN pg_namespace n ON n.oid = c.relnamespace
-          JOIN pg_class ic ON ic.oid = i.indexrelid
-          WHERE n.nspname = ?
-            AND c.relname = ?
-          ORDER BY i.indisprimary DESC, ic.relname ASC
-        `,
-        [schema, relation]
-      )
-    );
-  }
-
-  private async inspectRelationConstraintSignature(
-    client: IDataDbPreflightClient,
-    schema: string,
-    relation: string,
-    includedForeignKeySchemas?: string[]
-  ): Promise<IBaseRelationConstraintSignature[]> {
-    const scopedForeignKeySql = includedForeignKeySchemas?.length
-      ? "AND (con.contype <> 'f' OR referenced_ns.nspname = ANY(?::text[]))"
+    table: string,
+    hashColumns?: IBaseRelationColumnSignature[]
+  ): Promise<{ count: number; contentHash: string | null }> {
+    const hashSelect = hashColumns?.length
+      ? `, COALESCE(SUM(('x' || substr(md5(${this.contentHashRowExpression(
+          hashColumns
+        )}), 1, 16))::bit(64)::bigint), 0)::text AS "contentHash"`
       : '';
-    return normalizeRawRows<IBaseRelationConstraintSignature>(
-      await client.raw(
-        `
-          SELECT
-            con.conname AS "constraintName",
-            con.contype AS "constraintType",
-            pg_get_constraintdef(con.oid, true) AS "definition"
-          FROM pg_constraint con
-          JOIN pg_class c ON c.oid = con.conrelid
-          JOIN pg_namespace n ON n.oid = c.relnamespace
-          LEFT JOIN pg_class referenced_rel ON referenced_rel.oid = con.confrelid
-          LEFT JOIN pg_namespace referenced_ns ON referenced_ns.oid = referenced_rel.relnamespace
-          WHERE n.nspname = ?
-            AND c.relname = ?
-            ${scopedForeignKeySql}
-          ORDER BY con.contype ASC, con.conname ASC
-        `,
-        includedForeignKeySchemas?.length
-          ? [schema, relation, includedForeignKeySchemas]
-          : [schema, relation]
-      )
+    const rows = normalizeRawRows<{ count: string | number | bigint; contentHash?: string | null }>(
+      await client.raw(`SELECT COUNT(*) AS "count"${hashSelect} FROM ${qualify(schema, table)}`)
     );
+    return {
+      count: Number(rows[0]?.count ?? 0),
+      contentHash: rows[0]?.contentHash ?? null,
+    };
   }
 
-  private async inspectRelationTriggerSignature(
-    client: IDataDbPreflightClient,
-    schema: string,
-    relation: string
-  ): Promise<IBaseRelationTriggerSignature[]> {
-    return normalizeRawRows<IBaseRelationTriggerSignature>(
-      await client.raw(
-        `
-          SELECT
-            tg.tgname AS "triggerName",
-            tg.tgenabled AS "enabled",
-            pg_get_triggerdef(tg.oid, true) AS "definition"
-          FROM pg_trigger tg
-          JOIN pg_class c ON c.oid = tg.tgrelid
-          JOIN pg_namespace n ON n.oid = c.relnamespace
-          WHERE n.nspname = ?
-            AND c.relname = ?
-            AND NOT tg.tgisinternal
-          ORDER BY tg.tgname ASC
-        `,
-        [schema, relation]
-      )
-    );
+  // 行内容指纹：sum(每行 64 位哈希) 与行序无关（多重集哈希；不用 xor，成对重复行会互相抵消）。
+  // 时间类列的 ::text 渲染依赖会话 GUC（TimeZone/DateStyle），改用 extract(epoch ...) 消除两侧差异；
+  // 数组类型套不了 epoch，退回 ::text（teable 物理列不使用时间数组）。
+  // 每列用 N/V<length>:<value> 编码，避免分隔符或 NULL 哨兵与真实数据混淆。
+  // 用 || 操作符拼接而非 concat_ws：宽表列数会撞上函数 100 参数上限（FUNC_MAX_ARGS）。
+  private contentHashRowExpression(columns: IBaseRelationColumnSignature[]) {
+    const parts = columns.map((column) => {
+      const ident = quoteIdent(column.columnName);
+      const type = column.formattedType;
+      const timeBased =
+        !type.endsWith('[]') &&
+        (type.startsWith('timestamp') ||
+          type.startsWith('time') ||
+          type.startsWith('interval') ||
+          type === 'date');
+      const rendered = timeBased ? `extract(epoch from ${ident})::text` : `${ident}::text`;
+      return [
+        `(CASE WHEN ${rendered} IS NULL`,
+        "THEN 'N'",
+        `ELSE 'V' || length(${rendered})::text || ':' || ${rendered} END)`,
+      ].join(' ');
+    });
+    return parts.join(' || ');
   }
 
   private async countRows(
@@ -6442,13 +6569,20 @@ export class SpaceDataDbMigrationService {
   }
 
   private async inspectSchemaOperationDrain(
-    inventory: ISpaceDataDbInventory
+    inventory: ISpaceDataDbInventory,
+    staleBefore: Date
   ): Promise<ISchemaOperationDrainStats> {
     const where = this.buildSchemaOperationWhere(inventory);
-    const [openCount, sample] = await Promise.all([
-      this.prismaService.schemaOperation.count({ where }),
+    const activeWhere = this.buildActiveNonTerminalWhere(where, staleBefore, [
+      { lockedAt: { gte: staleBefore } },
+    ]);
+    const staleWhere = this.buildStaleNonTerminalWhere(where, staleBefore, [
+      { OR: [{ lockedAt: null }, { lockedAt: { lt: staleBefore } }] },
+    ]);
+    const [openCount, sample, staleIgnoredCount, staleIgnoredSample] = await Promise.all([
+      this.prismaService.schemaOperation.count({ where: activeWhere }),
       this.prismaService.schemaOperation.findMany({
-        where,
+        where: activeWhere,
         select: {
           id: true,
           status: true,
@@ -6457,6 +6591,24 @@ export class SpaceDataDbMigrationService {
           tableId: true,
           lockedAt: true,
           lockedBy: true,
+          createdTime: true,
+          lastModifiedTime: true,
+        },
+        orderBy: [{ lastModifiedTime: 'desc' }, { createdTime: 'desc' }],
+        take: 10,
+      }),
+      this.prismaService.schemaOperation.count({ where: staleWhere }),
+      this.prismaService.schemaOperation.findMany({
+        where: staleWhere,
+        select: {
+          id: true,
+          status: true,
+          phase: true,
+          baseId: true,
+          tableId: true,
+          lockedAt: true,
+          lockedBy: true,
+          createdTime: true,
           lastModifiedTime: true,
         },
         orderBy: [{ lastModifiedTime: 'desc' }, { createdTime: 'desc' }],
@@ -6464,7 +6616,11 @@ export class SpaceDataDbMigrationService {
       }),
     ]);
 
-    return this.buildSchemaOperationDrainStats(openCount, sample);
+    return this.buildSchemaOperationDrainStats(openCount, sample, {
+      staleBefore,
+      staleIgnoredCount,
+      staleIgnoredSample,
+    });
   }
 
   private buildSchemaOperationWhere(
@@ -6488,6 +6644,44 @@ export class SpaceDataDbMigrationService {
     };
   }
 
+  private buildActiveNonTerminalWhere<T extends object>(
+    where: T,
+    staleBefore: Date,
+    extraActiveFilters: object[] = []
+  ): T {
+    return {
+      AND: [
+        where,
+        {
+          OR: [
+            { lastModifiedTime: { gte: staleBefore } },
+            { lastModifiedTime: null, createdTime: { gte: staleBefore } },
+            ...extraActiveFilters,
+          ],
+        },
+      ],
+    } as T;
+  }
+
+  private buildStaleNonTerminalWhere<T extends object>(
+    where: T,
+    staleBefore: Date,
+    extraStaleFilters: object[] = []
+  ): T {
+    return {
+      AND: [
+        where,
+        {
+          OR: [
+            { lastModifiedTime: { lt: staleBefore } },
+            { lastModifiedTime: null, createdTime: { lt: staleBefore } },
+          ],
+        },
+        ...extraStaleFilters,
+      ],
+    } as T;
+  }
+
   private buildSchemaOperationDrainStats(
     openCount: number,
     sample: {
@@ -6498,8 +6692,24 @@ export class SpaceDataDbMigrationService {
       tableId: string | null;
       lockedAt: Date | string | null;
       lockedBy: string | null;
+      createdTime?: Date | string | null;
       lastModifiedTime: Date | string | null;
-    }[]
+    }[],
+    stale?: {
+      staleBefore: Date;
+      staleIgnoredCount: number;
+      staleIgnoredSample: {
+        id: string;
+        status: string;
+        phase: string;
+        baseId: string | null;
+        tableId: string | null;
+        lockedAt: Date | string | null;
+        lockedBy: string | null;
+        createdTime?: Date | string | null;
+        lastModifiedTime: Date | string | null;
+      }[];
+    }
   ): ISchemaOperationDrainStats {
     return {
       openCount,
@@ -6511,8 +6721,26 @@ export class SpaceDataDbMigrationService {
         tableId: operation.tableId,
         lockedAt: this.toNullableIso(operation.lockedAt),
         lockedBy: operation.lockedBy,
+        createdTime: this.toNullableIso(operation.createdTime ?? null),
         lastModifiedTime: this.toNullableIso(operation.lastModifiedTime),
       })),
+      ...(stale?.staleIgnoredCount
+        ? {
+            staleIgnoredCount: stale.staleIgnoredCount,
+            staleIgnoredSample: stale.staleIgnoredSample.map((operation) => ({
+              id: operation.id,
+              status: operation.status,
+              phase: operation.phase,
+              baseId: operation.baseId,
+              tableId: operation.tableId,
+              lockedAt: this.toNullableIso(operation.lockedAt),
+              lockedBy: operation.lockedBy,
+              createdTime: this.toNullableIso(operation.createdTime ?? null),
+              lastModifiedTime: this.toNullableIso(operation.lastModifiedTime),
+            })),
+            staleBefore: stale.staleBefore.toISOString(),
+          }
+        : {}),
       checkedAt: new Date().toISOString(),
     };
   }
@@ -6543,11 +6771,12 @@ export class SpaceDataDbMigrationService {
       probeTimeoutMs: number;
       queueScanBatchSize: number;
       queueScanLimit: number;
+      staleBefore: Date;
     }
   ): Promise<IBackgroundWriterDrainStats> {
     const [provisionResources, queueJobs] = await Promise.all([
       withTimeout(
-        this.inspectProvisionResourceDrain(spaceId, inventory),
+        this.inspectProvisionResourceDrain(spaceId, inventory, options.staleBefore),
         options.probeTimeoutMs,
         `Timed out inspecting provisioning resources after ${options.probeTimeoutMs}ms`
       ),
@@ -6562,86 +6791,209 @@ export class SpaceDataDbMigrationService {
 
   private async inspectProvisionResourceDrain(
     spaceId: string,
-    inventory: ISpaceDataDbInventory
-  ): Promise<{ openCount: number; sample: IBackgroundWriterDrainStats['sample'] }> {
+    inventory: ISpaceDataDbInventory,
+    staleBefore: Date
+  ): Promise<{
+    openCount: number;
+    sample: IBackgroundWriterDrainSample[];
+    staleIgnoredCount: number;
+    staleIgnoredSample: IBackgroundWriterDrainSample[];
+    staleBefore: string;
+  }> {
     const baseWhere = this.buildProvisionBaseWhere(spaceId, inventory);
     const tableWhere = this.buildProvisionTableWhere(inventory);
     const fieldWhere = this.buildProvisionFieldWhere(inventory);
-    const [baseCount, tableCount, fieldCount, baseSample, tableSample, fieldSample] =
-      await Promise.all([
-        this.prismaService.base.count({ where: baseWhere }),
-        tableWhere ? this.prismaService.tableMeta.count({ where: tableWhere }) : Promise.resolve(0),
-        fieldWhere ? this.prismaService.field.count({ where: fieldWhere }) : Promise.resolve(0),
-        this.prismaService.base.findMany({
-          where: baseWhere,
-          select: {
-            id: true,
-            provisionState: true,
-            lastModifiedTime: true,
-          },
-          orderBy: [{ lastModifiedTime: 'desc' }, { createdTime: 'desc' }],
-          take: 10,
-        }),
-        tableWhere
-          ? this.prismaService.tableMeta.findMany({
-              where: tableWhere,
-              select: {
-                id: true,
-                baseId: true,
-                provisionState: true,
-                lastModifiedTime: true,
-              },
-              orderBy: [{ lastModifiedTime: 'desc' }, { createdTime: 'desc' }],
-              take: 10,
-            })
-          : Promise.resolve([]),
-        fieldWhere
-          ? this.prismaService.field.findMany({
-              where: fieldWhere,
-              select: {
-                id: true,
-                tableId: true,
-                provisionState: true,
-                lastModifiedTime: true,
-              },
-              orderBy: [{ lastModifiedTime: 'desc' }, { createdTime: 'desc' }],
-              take: 10,
-            })
-          : Promise.resolve([]),
-      ]);
+    const activeBaseWhere = this.buildActiveNonTerminalWhere(baseWhere, staleBefore);
+    const activeTableWhere = tableWhere
+      ? this.buildActiveNonTerminalWhere(tableWhere, staleBefore)
+      : null;
+    const activeFieldWhere = fieldWhere
+      ? this.buildActiveNonTerminalWhere(fieldWhere, staleBefore)
+      : null;
+    const staleBaseWhere = this.buildStaleNonTerminalWhere(baseWhere, staleBefore);
+    const staleTableWhere = tableWhere
+      ? this.buildStaleNonTerminalWhere(tableWhere, staleBefore)
+      : null;
+    const staleFieldWhere = fieldWhere
+      ? this.buildStaleNonTerminalWhere(fieldWhere, staleBefore)
+      : null;
+    const [
+      baseCount,
+      tableCount,
+      fieldCount,
+      baseSample,
+      tableSample,
+      fieldSample,
+      staleBaseCount,
+      staleTableCount,
+      staleFieldCount,
+      staleBaseSample,
+      staleTableSample,
+      staleFieldSample,
+    ] = await Promise.all([
+      this.prismaService.base.count({ where: activeBaseWhere }),
+      activeTableWhere
+        ? this.prismaService.tableMeta.count({ where: activeTableWhere })
+        : Promise.resolve(0),
+      activeFieldWhere
+        ? this.prismaService.field.count({ where: activeFieldWhere })
+        : Promise.resolve(0),
+      this.prismaService.base.findMany({
+        where: activeBaseWhere,
+        select: {
+          id: true,
+          provisionState: true,
+          createdTime: true,
+          lastModifiedTime: true,
+        },
+        orderBy: [{ lastModifiedTime: 'desc' }, { createdTime: 'desc' }],
+        take: 10,
+      }),
+      activeTableWhere
+        ? this.prismaService.tableMeta.findMany({
+            where: activeTableWhere,
+            select: {
+              id: true,
+              baseId: true,
+              provisionState: true,
+              createdTime: true,
+              lastModifiedTime: true,
+            },
+            orderBy: [{ lastModifiedTime: 'desc' }, { createdTime: 'desc' }],
+            take: 10,
+          })
+        : Promise.resolve([]),
+      activeFieldWhere
+        ? this.prismaService.field.findMany({
+            where: activeFieldWhere,
+            select: {
+              id: true,
+              tableId: true,
+              provisionState: true,
+              createdTime: true,
+              lastModifiedTime: true,
+            },
+            orderBy: [{ lastModifiedTime: 'desc' }, { createdTime: 'desc' }],
+            take: 10,
+          })
+        : Promise.resolve([]),
+      this.prismaService.base.count({ where: staleBaseWhere }),
+      staleTableWhere
+        ? this.prismaService.tableMeta.count({ where: staleTableWhere })
+        : Promise.resolve(0),
+      staleFieldWhere
+        ? this.prismaService.field.count({ where: staleFieldWhere })
+        : Promise.resolve(0),
+      this.prismaService.base.findMany({
+        where: staleBaseWhere,
+        select: {
+          id: true,
+          provisionState: true,
+          createdTime: true,
+          lastModifiedTime: true,
+        },
+        orderBy: [{ lastModifiedTime: 'desc' }, { createdTime: 'desc' }],
+        take: 10,
+      }),
+      staleTableWhere
+        ? this.prismaService.tableMeta.findMany({
+            where: staleTableWhere,
+            select: {
+              id: true,
+              baseId: true,
+              provisionState: true,
+              createdTime: true,
+              lastModifiedTime: true,
+            },
+            orderBy: [{ lastModifiedTime: 'desc' }, { createdTime: 'desc' }],
+            take: 10,
+          })
+        : Promise.resolve([]),
+      staleFieldWhere
+        ? this.prismaService.field.findMany({
+            where: staleFieldWhere,
+            select: {
+              id: true,
+              tableId: true,
+              provisionState: true,
+              createdTime: true,
+              lastModifiedTime: true,
+            },
+            orderBy: [{ lastModifiedTime: 'desc' }, { createdTime: 'desc' }],
+            take: 10,
+          })
+        : Promise.resolve([]),
+    ]);
 
+    const activeSample = this.buildProvisionDrainSamples(baseSample, tableSample, fieldSample);
+    const staleIgnoredSample = this.buildProvisionDrainSamples(
+      staleBaseSample,
+      staleTableSample,
+      staleFieldSample
+    );
     return {
       openCount: baseCount + tableCount + fieldCount,
-      sample: [
-        ...baseSample.map((resource) => ({
-          kind: 'provision_resource' as const,
-          resourceType: 'base' as const,
-          id: resource.id,
-          state: resource.provisionState,
-          baseId: resource.id,
-          tableId: null,
-          lastModifiedTime: this.toNullableIso(resource.lastModifiedTime),
-        })),
-        ...tableSample.map((resource) => ({
-          kind: 'provision_resource' as const,
-          resourceType: 'table' as const,
-          id: resource.id,
-          state: resource.provisionState,
-          baseId: resource.baseId,
-          tableId: resource.id,
-          lastModifiedTime: this.toNullableIso(resource.lastModifiedTime),
-        })),
-        ...fieldSample.map((resource) => ({
-          kind: 'provision_resource' as const,
-          resourceType: 'field' as const,
-          id: resource.id,
-          state: resource.provisionState,
-          baseId: null,
-          tableId: resource.tableId,
-          lastModifiedTime: this.toNullableIso(resource.lastModifiedTime),
-        })),
-      ],
+      sample: activeSample,
+      staleIgnoredCount: staleBaseCount + staleTableCount + staleFieldCount,
+      staleIgnoredSample,
+      staleBefore: staleBefore.toISOString(),
     };
+  }
+
+  private buildProvisionDrainSamples(
+    baseSample: {
+      id: string;
+      provisionState: string;
+      createdTime: Date | string | null;
+      lastModifiedTime: Date | string | null;
+    }[],
+    tableSample: {
+      id: string;
+      baseId: string;
+      provisionState: string;
+      createdTime: Date | string | null;
+      lastModifiedTime: Date | string | null;
+    }[],
+    fieldSample: {
+      id: string;
+      tableId: string;
+      provisionState: string;
+      createdTime: Date | string | null;
+      lastModifiedTime: Date | string | null;
+    }[]
+  ): IBackgroundWriterDrainSample[] {
+    return [
+      ...baseSample.map((resource) => ({
+        kind: 'provision_resource' as const,
+        resourceType: 'base' as const,
+        id: resource.id,
+        state: resource.provisionState,
+        baseId: resource.id,
+        tableId: null,
+        createdTime: this.toNullableIso(resource.createdTime),
+        lastModifiedTime: this.toNullableIso(resource.lastModifiedTime),
+      })),
+      ...tableSample.map((resource) => ({
+        kind: 'provision_resource' as const,
+        resourceType: 'table' as const,
+        id: resource.id,
+        state: resource.provisionState,
+        baseId: resource.baseId,
+        tableId: resource.id,
+        createdTime: this.toNullableIso(resource.createdTime),
+        lastModifiedTime: this.toNullableIso(resource.lastModifiedTime),
+      })),
+      ...fieldSample.map((resource) => ({
+        kind: 'provision_resource' as const,
+        resourceType: 'field' as const,
+        id: resource.id,
+        state: resource.provisionState,
+        baseId: null,
+        tableId: resource.tableId,
+        createdTime: this.toNullableIso(resource.createdTime),
+        lastModifiedTime: this.toNullableIso(resource.lastModifiedTime),
+      })),
+    ];
   }
 
   private buildProvisionBaseWhere(
@@ -6838,14 +7190,27 @@ export class SpaceDataDbMigrationService {
   }
 
   private buildBackgroundWriterDrainStats(
-    provisionResources: { openCount: number; sample: IBackgroundWriterDrainStats['sample'] },
-    queueJobs: { openCount: number; sample: IBackgroundWriterDrainStats['sample'] }
+    provisionResources: {
+      openCount: number;
+      sample: IBackgroundWriterDrainSample[];
+      staleIgnoredCount?: number;
+      staleIgnoredSample?: IBackgroundWriterDrainSample[];
+      staleBefore?: string;
+    },
+    queueJobs: { openCount: number; sample: IBackgroundWriterDrainSample[] }
   ): IBackgroundWriterDrainStats {
     return {
       openCount: provisionResources.openCount + queueJobs.openCount,
       provisionResourceCount: provisionResources.openCount,
       queueJobCount: queueJobs.openCount,
       sample: [...provisionResources.sample, ...queueJobs.sample].slice(0, 10),
+      ...(provisionResources.staleIgnoredCount
+        ? {
+            staleIgnoredCount: provisionResources.staleIgnoredCount,
+            staleIgnoredSample: provisionResources.staleIgnoredSample?.slice(0, 10) ?? [],
+            staleBefore: provisionResources.staleBefore,
+          }
+        : {}),
       checkedAt: new Date().toISOString(),
     };
   }
