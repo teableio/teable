@@ -1,7 +1,13 @@
 /* eslint-disable jsx-a11y/no-autofocus */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { hasPermission } from '@teable/core';
-import { deleteSpace, getSpaceById, permanentDeleteSpace, updateSpace } from '@teable/openapi';
+import {
+  deleteSpace,
+  getSpaceById,
+  permanentDeleteSpace,
+  SPACE_NAME_MAX_LENGTH,
+  updateSpace,
+} from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { Button, Input } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
@@ -94,6 +100,7 @@ export const GeneralPage = ({ spaceId: spaceIdProp }: { spaceId?: string } = {})
                 {isEditing ? (
                   <Input
                     defaultValue={space.name}
+                    maxLength={SPACE_NAME_MAX_LENGTH}
                     onBlur={onBlur}
                     onKeyDown={onKeydown}
                     autoFocus

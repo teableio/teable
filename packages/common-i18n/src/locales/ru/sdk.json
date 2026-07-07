@@ -1,6 +1,5 @@
 {
   "common": {
-    "comingSoon": "Скоро будет",
     "empty": "Пусто",
     "noRecords": "Нет доступных записей",
     "unnamedRecord": "Безымянная запись",
@@ -90,7 +89,6 @@
     "link": {
       "placeholder": "Выберите записи для ссылки",
       "searchPlaceholder": "Поиск записей",
-      "allFields": "Все поля",
       "globalSearch": "Глобальный поиск",
       "fieldSearch": "Поиск по полю",
       "maxFieldTips": "Превышено максимальное количество {{count}} полей, лишние поля будут проигнорированы",
@@ -98,14 +96,11 @@
       "selectRecord": "Выбрать запись",
       "all": "Все",
       "selected": "Выбрано",
-      "expandRecordError": "Нет доступа для просмотра этой записи.",
       "alreadyOpen": "Эта запись уже открыта.",
       "linkedTo": "Связано с",
-      "goToForeignTable": "Перейти к связанной таблице",
       "foreignTableIdRequired": "Внешняя таблица обязательна",
       "linkFieldIdRequired": "Поле связи обязательно",
       "selectTooManyRecords": "Выбранные записи не должны превышать {{maxCount}}",
-      "relationshipRequired": "Отношение обязательно",
       "rangeSelectFailed": "Не удалось выбрать записи в диапазоне"
     },
     "user": {
@@ -119,12 +114,10 @@
     "lookup": {
       "lookupFieldIdRequired": "Поле поиска обязательно",
       "lookupOptionsNotAllowed": "Опции поиска не разрешены, когда атрибут isLookup истинный или тип поля rollup.",
-      "lookupOptionsRequired": "Опции поиска обязательны",
-      "refineOptionsError": "Ошибка парсинга опций поиска {{message}}"
+      "lookupOptionsRequired": "Опции поиска обязательны"
     },
     "rollup": {
-      "expressionRequired": "Выражение обязательно",
-      "unsupportedTip": "Rollup поддерживает только поля связи и rollup"
+      "expressionRequired": "Выражение обязательно"
     },
     "conditionalRollup": {
       "filterRequired": "Фильтр должен содержать как минимум одно условие"
@@ -152,11 +145,8 @@
     "addConditionGroup": "Добавить группу условий",
     "nestedLimitTip": "Условия фильтра могут быть вложены не более чем на {{depth}} уровней",
     "linkInputPlaceholder": "Введите значение",
-    "groupDescription": "Любое из следующих условий верно…",
     "currentUser": "Я (текущий пользователь)",
-    "tips": {
-      "scope": "В этом виде показывать записи"
-    },
+    "tips": {},
     "invalidateSelected": "Неверное значение",
     "invalidateSelectedTips": "Выбранное значение было удалено, выберите другое",
     "invalidConditionTip": "Это условие фильтра недопустимо и будет проигнорировано. Измените значение.",
@@ -254,15 +244,10 @@
     "title": "имени поля",
     "displayLines": "{{count}} строк"
   },
-  "share": {
-    "title": "Поделиться"
-  },
-  "extensions": {
-    "title": "Расширения"
-  },
+  "share": {},
+  "extensions": {},
   "hidden": {
     "label": "Скрытые поля",
-    "configLabel_one": "{{count}} скрытое поле",
     "configLabel_other": "{{count}} скрытых поля",
     "configLabel_other_visible": "{{count}} видимых поля",
     "showAll": "Показать все",
@@ -285,8 +270,6 @@
       "before": "До",
       "after": "После",
       "buttonClicked": "Кнопка нажата",
-      "filterField": "Поле",
-      "filterCreatedBy": "Изменено",
       "filterTime": "Диапазон времени",
       "allFields": "Все поля",
       "allUsers": "Все пользователи",
@@ -392,7 +375,6 @@
       "baseUpdate": "Обновить базу",
       "baseInviteEmail": "Пригласить по электронной почте в базу",
       "baseInviteLink": "Пригласить по ссылке в базу",
-      "baseTableImport": "Импортировать данные в базу",
       "baseAuthorityMatrixConfig": "Настроить матрицу полномочий",
       "baseDbConnect": "Подключение к базе данных",
       "tableCreate": "Создать таблицу",
@@ -427,7 +409,6 @@
       "appDelete": "Удалить приложение",
       "appRead": "Читать приложение",
       "appUpdate": "Обновить приложение",
-      "userProfileRead": "Читать профиль пользователя",
       "userEmailRead": "Читать электронную почту пользователя",
       "userIntegrations": "Manage user integrations",
       "recordHistoryRead": "Читать историю записей",
@@ -865,7 +846,6 @@
     "placeholder": "Оставьте комментарий...",
     "emptyComment": "Начните разговор",
     "deletedComment": "Удаленный комментарий",
-    "imageSizeLimit": "Размер изображения не может превышать {{size}}",
     "tip": {
       "editing": "Редактирование...",
       "edited": "(Редактировано)",
@@ -884,8 +864,6 @@
     },
     "floatToolbar": {
       "editLink": "Редактировать ссылку",
-      "caption": "Подпись",
-      "delete": "Удалить",
       "linkText": "Текст ссылки",
       "enterUrl": "Введите URL"
     }
@@ -895,7 +873,6 @@
     "memberSelectorSearchPlaceholder": "Search members...",
     "departmentSelectorSearchPlaceholder": "Search departments...",
     "selected": "Selected",
-    "noSelected": "No selected",
     "empty": "No members",
     "emptyDepartment": "No departments"
   },
