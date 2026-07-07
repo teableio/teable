@@ -6345,6 +6345,10 @@ export class SpaceDataDbMigrationService {
           LEFT JOIN pg_namespace referenced_ns ON referenced_ns.oid = referenced_rel.relnamespace
           WHERE n.nspname = ?
             AND c.relname = ?
+            -- PG18+ materializes NOT NULL as pg_constraint rows (contype 'n'); older
+            -- majors don't, so comparing source/target across versions would always
+            -- mismatch. NOT NULL-ness is already covered by the column signatures.
+            AND con.contype <> 'n'
             ${scopedForeignKeySql}
           ORDER BY con.contype ASC, con.conname ASC
         `,
