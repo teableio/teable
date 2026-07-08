@@ -1,6 +1,5 @@
 {
   "common": {
-    "comingSoon": "近日公開",
     "empty": "空白",
     "noRecords": "記録がありません",
     "unnamedRecord": "無名のレコード",
@@ -90,7 +89,6 @@
     "link": {
       "placeholder": "リンクするレコードを選択",
       "searchPlaceholder": "レコードの検索",
-      "allFields": "すべてのフィールド",
       "globalSearch": "グローバル検索",
       "fieldSearch": "フィールド検索",
       "maxFieldTips": "最大{{count}}フィールドを超えました。余分なフィールドは無視されます",
@@ -98,14 +96,11 @@
       "selectRecord": "レコードを選択",
       "all": "すべて",
       "selected": "選択済",
-      "expandRecordError": "このレコードを表示する権限がありません。",
       "alreadyOpen": "このレコードはすでに開いています。",
       "linkedTo": "リンク先",
-      "goToForeignTable": "関連テーブルに移動",
       "foreignTableIdRequired": "関連テーブルは必須です",
       "linkFieldIdRequired": "リンクフィールドは必須です",
       "selectTooManyRecords": "選択されたレコードは{{maxCount}}を超えてはいけません",
-      "relationshipRequired": "リレーションシップは必須です",
       "rangeSelectFailed": "範囲内のレコードの選択に失敗しました"
     },
     "user": {
@@ -119,12 +114,10 @@
     "lookup": {
       "lookupFieldIdRequired": "ルックアップフィールドは必須です",
       "lookupOptionsNotAllowed": "isLookup属性がtrueまたはフィールドタイプがrollupの場合、ルックアップオプションは許可されません。",
-      "lookupOptionsRequired": "ルックアップオプションが必要です",
-      "refineOptionsError": "ルックアップオプションの解析エラー {{message}}"
+      "lookupOptionsRequired": "ルックアップオプションが必要です"
     },
     "rollup": {
-      "expressionRequired": "式は必須です",
-      "unsupportedTip": "ロールアップはリンクフィールドとロールアップフィールドのみサポートします"
+      "expressionRequired": "式は必須です"
     },
     "conditionalRollup": {
       "filterRequired": "フィルターには少なくとも1つの条件が必要です"
@@ -152,11 +145,8 @@
     "addConditionGroup": "条件グループを追加",
     "nestedLimitTip": "フィルタ条件は{{depth}}レベルまでネストできます",
     "linkInputPlaceholder": "値を入力してください",
-    "groupDescription": "以下のいずれかに当てはまります…",
     "currentUser": "自分 (現在のユーザー)",
-    "tips": {
-      "scope": "このビューでは、レコードを表示します"
-    },
+    "tips": {},
     "invalidateSelected": "無効な値",
     "invalidateSelectedTips": "選択した値は削除されました。もう一度選択してください",
     "invalidConditionTip": "このフィルター条件は無効なため無視されます。値を調整してください。",
@@ -254,15 +244,10 @@
     "title": "フィールド名",
     "displayLines": "{{count}} 行"
   },
-  "share": {
-    "title": "共有"
-  },
-  "extensions": {
-    "title": "拡張機能"
-  },
+  "share": {},
+  "extensions": {},
   "hidden": {
     "label": "隠しフィールド",
-    "configLabel_one": "{{count}}個の隠しフィールド",
     "configLabel_other": "{{count}}個の隠しフィールド",
     "configLabel_other_visible": "{{count}}表示フィールド",
     "showAll": "すべて表示",
@@ -285,8 +270,6 @@
       "before": "以前",
       "after": "以後",
       "buttonClicked": "ボタンをクリックしました",
-      "filterField": "フィールド",
-      "filterCreatedBy": "変更者",
       "filterTime": "時間範囲",
       "allFields": "すべてのフィールド",
       "allUsers": "すべてのユーザー",
@@ -392,7 +375,6 @@
       "baseUpdate": "ベースの更新",
       "baseInviteEmail": "ベースにメールで招待",
       "baseInviteLink": "ベースにリンクで招待",
-      "baseTableImport": "ベースにデータをインポート",
       "baseAuthorityMatrixConfig": "権限マトリックスを構成する",
       "baseDbConnect": "データベースに接続",
       "tableCreate": "テーブルの作成",
@@ -427,7 +409,6 @@
       "appDelete": "アプリを削除",
       "appRead": "アプリを読み取り",
       "appUpdate": "アプリを更新",
-      "userProfileRead": "ユーザーのプロフィールの読み取り",
       "userEmailRead": "ユーザーメールの読み取り",
       "userIntegrations": "ユーザー統合の管理",
       "recordHistoryRead": "レコード履歴の読み取り",
@@ -865,7 +846,6 @@
     "placeholder": "コメントを残す...",
     "emptyComment": "会話を始める",
     "deletedComment": "削除されたコメント",
-    "imageSizeLimit": "画像サイズは{{size}}を超えることはできません",
     "tip": {
       "editing": "編集中...",
       "edited": "(編集済み)",
@@ -884,8 +864,6 @@
     },
     "floatToolbar": {
       "editLink": "リンクを編集",
-      "caption": "キャプション",
-      "delete": "削除",
       "linkText": "リンクテキスト",
       "enterUrl": "URLを入力"
     }
@@ -895,7 +873,6 @@
     "memberSelectorSearchPlaceholder": "Search members...",
     "departmentSelectorSearchPlaceholder": "Search departments...",
     "selected": "Selected",
-    "noSelected": "No selected",
     "empty": "No members",
     "emptyDepartment": "No departments"
   },
