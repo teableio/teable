@@ -349,6 +349,142 @@ describe('HybridWithOutboxStrategy', () => {
     expect(enqueueOrMerge).toHaveBeenCalledTimes(1);
   });
 
+  it('enqueues seed-table steps when seedTableOnly dirty count exceeds sync threshold', async () => {
+    const plan: ComputedUpdatePlan = {
+      ...createPlan(),
+      steps: [
+        {
+          tableId: TableId.create(SEED_TABLE_ID)._unsafeUnwrap(),
+          fieldIds: [FieldId.create(FIELD_ID_A)._unsafeUnwrap()],
+          level: 0,
+        },
+        {
+          tableId: TableId.create(SEED_TABLE_ID)._unsafeUnwrap(),
+          fieldIds: [FieldId.create(FIELD_ID_B)._unsafeUnwrap()],
+          level: 1,
+        },
+        {
+          tableId: TableId.create(SEED_TABLE_ID)._unsafeUnwrap(),
+          fieldIds: [FieldId.create(FIELD_ID_C)._unsafeUnwrap()],
+          level: 2,
+        },
+      ],
+    };
+    const { updater, prepareDirtyState, executePreparedSteps, collectDirtySeedGroups } =
+      createUpdaterStub();
+    const { outbox, enqueueOrMerge } = createOutboxStub();
+    const { worker } = createWorkerStub();
+    const { planner } = createPlannerStub();
+
+    const seedTable = createMockTable(SEED_TABLE_ID, [FIELD_ID_A, FIELD_ID_B, FIELD_ID_C]);
+    const tableById = new Map([[SEED_TABLE_ID, seedTable]]);
+
+    prepareDirtyState.mockResolvedValue(
+      ok(createPreparedState([{ tableId: SEED_TABLE_ID, recordCount: 3000 }], tableById))
+    );
+    executePreparedSteps.mockResolvedValue(ok({ traceInfos: [], changesByStep: [] }));
+    collectDirtySeedGroups.mockResolvedValue(ok({ groups: [], seedAllTableIds: [] }));
+    enqueueOrMerge.mockResolvedValue(ok({ taskId: 'task-1', merged: false }));
+
+    const strategy = new HybridWithOutboxStrategy(
+      outbox,
+      worker,
+      {
+        syncPolicy: 'seedTableOnly',
+        syncMaxDirtyPerTable: 2000,
+        syncMaxTotalDirty: 5000,
+        syncMaxLevelHardCap: 1,
+        dispatchMode: 'external',
+        dispatchWorkerLimit: 50,
+        dispatchWorkerId: 'computed-inline',
+        dispatchDelayMs: 0,
+      },
+      createLogger(),
+      testHasher,
+      planner,
+      createEventBusStub()
+    );
+    const actorId = ActorId.create('usr_test')._unsafeUnwrap();
+
+    const result = await strategy.execute(updater, plan, { actorId });
+    expect(result.isOk()).toBe(true);
+
+    expect(executePreparedSteps).not.toHaveBeenCalled();
+    expect(collectDirtySeedGroups).not.toHaveBeenCalled();
+    expect(enqueueOrMerge).toHaveBeenCalledTimes(1);
+    const outboxTask = enqueueOrMerge.mock.calls[0][0];
+    expect(outboxTask.steps).toHaveLength(3);
+    expect(outboxTask.syncMaxLevel).toBe(-1);
+  });
+
+  it('syncs seed-table formula chains when seedTableOnly dirty count stays below thresholds', async () => {
+    const plan: ComputedUpdatePlan = {
+      ...createPlan(),
+      steps: [
+        {
+          tableId: TableId.create(SEED_TABLE_ID)._unsafeUnwrap(),
+          fieldIds: [FieldId.create(FIELD_ID_A)._unsafeUnwrap()],
+          level: 0,
+        },
+        {
+          tableId: TableId.create(SEED_TABLE_ID)._unsafeUnwrap(),
+          fieldIds: [FieldId.create(FIELD_ID_B)._unsafeUnwrap()],
+          level: 1,
+        },
+        {
+          tableId: TableId.create(SEED_TABLE_ID)._unsafeUnwrap(),
+          fieldIds: [FieldId.create(FIELD_ID_C)._unsafeUnwrap()],
+          level: 2,
+        },
+      ],
+    };
+    const { updater, prepareDirtyState, executePreparedSteps, collectDirtySeedGroups } =
+      createUpdaterStub();
+    const { outbox, enqueueOrMerge } = createOutboxStub();
+    const { worker } = createWorkerStub();
+    const { planner, planStage } = createPlannerStub();
+
+    const seedTable = createMockTable(SEED_TABLE_ID, [FIELD_ID_A, FIELD_ID_B, FIELD_ID_C]);
+    const tableById = new Map([[SEED_TABLE_ID, seedTable]]);
+
+    prepareDirtyState.mockResolvedValue(
+      ok(createPreparedState([{ tableId: SEED_TABLE_ID, recordCount: 1 }], tableById))
+    );
+    executePreparedSteps.mockResolvedValue(ok({ traceInfos: [], changesByStep: [] }));
+    collectDirtySeedGroups.mockResolvedValue(ok({ groups: [], seedAllTableIds: [] }));
+    planStage.mockResolvedValue(ok({ ...plan, steps: [], edges: [] }));
+    enqueueOrMerge.mockResolvedValue(ok({ taskId: 'task-1', merged: false }));
+
+    const strategy = new HybridWithOutboxStrategy(
+      outbox,
+      worker,
+      {
+        syncPolicy: 'seedTableOnly',
+        syncMaxDirtyPerTable: 2000,
+        syncMaxTotalDirty: 5000,
+        syncMaxLevelHardCap: 1,
+        dispatchMode: 'external',
+        dispatchWorkerLimit: 50,
+        dispatchWorkerId: 'computed-inline',
+        dispatchDelayMs: 0,
+      },
+      createLogger(),
+      testHasher,
+      planner,
+      createEventBusStub()
+    );
+    const actorId = ActorId.create('usr_test')._unsafeUnwrap();
+
+    const result = await strategy.execute(updater, plan, { actorId });
+    expect(result.isOk()).toBe(true);
+
+    expect(executePreparedSteps).toHaveBeenCalledTimes(1);
+    const steps = executePreparedSteps.mock.calls[0][3] as UpdateStep[];
+    expect(steps).toHaveLength(3);
+    expect(steps.map((step) => step.level)).toEqual([0, 1, 2]);
+    expect(enqueueOrMerge).not.toHaveBeenCalled();
+  });
+
   it('syncs seed-table conditional lookup steps and enqueues other tables with seedTableOnly policy', async () => {
     const plan = createPlan();
     const { updater, prepareDirtyState, executePreparedSteps, collectDirtySeedGroups } =

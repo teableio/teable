@@ -597,6 +597,8 @@ export class SpaceDataDbProcessRunnerService {
       let stdioFallbackTimer: NodeJS.Timeout | undefined;
       let successfulTargetFallbackTimer: NodeJS.Timeout | undefined;
       let sourceInputFallbackTimer: NodeJS.Timeout | undefined;
+      let targetCopyFailureTimer: NodeJS.Timeout | undefined;
+      let targetCopyFailurePending = false;
       let progressPollCleanup: (() => void) | undefined;
       const timers: { processStatePollTimer?: NodeJS.Timeout } = {};
       let sourceClosed = false;
@@ -629,6 +631,9 @@ export class SpaceDataDbProcessRunnerService {
         }
         if (sourceInputFallbackTimer) {
           clearTimeout(sourceInputFallbackTimer);
+        }
+        if (targetCopyFailureTimer) {
+          clearTimeout(targetCopyFailureTimer);
         }
         if (timers.processStatePollTimer) {
           clearInterval(timers.processStatePollTimer);
@@ -918,6 +923,24 @@ export class SpaceDataDbProcessRunnerService {
           Math.max(1, options.exitFallbackMs ?? defaultExitFallbackMs)
         );
       };
+      const scheduleTargetCopyFailure = (message: string) => {
+        if (settled || targetCopyFailureTimer) {
+          return;
+        }
+        targetCopyFailurePending = true;
+        sourceState.signal = sourceState.signal ?? 'SIGTERM';
+        sourceChild.kill('SIGTERM');
+        targetCopyFailureTimer = setTimeout(
+          () => {
+            targetCopyFailureTimer = undefined;
+            if (settled) {
+              return;
+            }
+            rejectPipeline(message, false, false);
+          },
+          Math.max(1, Math.min(options.exitFallbackMs ?? defaultExitFallbackMs, 1000))
+        );
+      };
       const syncProcessExitStatus = () => {
         const syncOne = (child: IProcessLike, state: IProcessState, setExited: () => void) => {
           if (state.exitCode !== null || state.signal !== null) {
@@ -1061,10 +1084,8 @@ export class SpaceDataDbProcessRunnerService {
       });
       targetChild.stdin.on('error', (error) => {
         targetState.stderr = appendBounded(targetState.stderr, error.message, stderrLimit);
-        rejectPipeline(
-          `Target COPY stream failed: ${plan.target.command} ${targetState.args.join(' ')}`,
-          true,
-          false
+        scheduleTargetCopyFailure(
+          `Target COPY stream failed: ${plan.target.command} ${targetState.args.join(' ')}`
         );
       });
 
@@ -1108,6 +1129,9 @@ export class SpaceDataDbProcessRunnerService {
         sourceState.exitCode = exitCode;
         sourceState.signal = signal;
         completeProcessState(sourceState);
+        if (targetCopyFailurePending && !targetClosed) {
+          return;
+        }
         if (exitCode !== 0) {
           rejectPipeline(
             `Source process exited with code ${exitCode}: ${plan.source.command} ${sourceState.args.join(' ')}`,
