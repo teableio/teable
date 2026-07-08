@@ -3,7 +3,6 @@
 import {
   DateTimeFormatting,
   FieldType,
-  TimeFormatting,
   type ConditionalLookupField,
   type LookupField,
   type Field,
@@ -465,9 +464,8 @@ export class FormulaSqlPgExpressionBuilder {
 
   protected coerceDatetimeToStringForConcat(expr: SqlExpr): SqlExpr {
     const formatting = this.resolveDateTimeFormatting(expr.field);
-    const hasTime = formatting ? formatting.time() !== TimeFormatting.None : false;
     const timeZone = this.formulaTimeZone();
-    const formattedSql = hasTime
+    const formattedSql = formatting
       ? formatFieldValueAsStringSql(expr.field, expr.valueSql, 'datetime', timeZone)
       : undefined;
     const fallbackSql = formattedSql ?? this.formatDatetimeForConcat(expr.valueSql, timeZone);
