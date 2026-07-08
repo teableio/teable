@@ -253,10 +253,9 @@ export class MinioStorage implements StorageAdapter {
       writeStream.removeAllListeners();
       writeStream.destroy();
     }
-    const metaReader = sharp(sourceFilePath, { failOn: 'none', unlimited: true }).resize(
-      width,
-      height
-    );
+    const metaReader = sharp(sourceFilePath, { failOn: 'none', unlimited: true })
+      .rotate()
+      .resize(width, height);
     await metaReader.toFile(resizedImagePath);
     // delete source file
     fse.removeSync(sourceFilePath);

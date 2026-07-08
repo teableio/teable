@@ -365,7 +365,7 @@ export class LocalStorage implements StorageAdapter {
         },
       });
     }
-    const resizedImage = image.resize(width, height);
+    const resizedImage = image.rotate().resize(width, height);
     await resizedImage.toFile(resizedImagePath);
     return newPath;
   }
