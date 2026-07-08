@@ -127,7 +127,7 @@ export class AttachmentsStorageService {
   ) {
     const mimetype = ATTACHMENT_THUMBNAIL_DEFAULT_MIMETYPE;
     const { smThumbnailPath, lgThumbnailPath } = generateTableThumbnailPath(path);
-    const image = sharp(imageBuffer, { failOn: 'none', unlimited: true });
+    const image = sharp(imageBuffer, { failOn: 'none', unlimited: true }).rotate();
     let cutSmThumbnailPath: string | undefined;
     let cutLgThumbnailPath: string | undefined;
 

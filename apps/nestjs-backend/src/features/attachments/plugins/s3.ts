@@ -456,10 +456,9 @@ export class S3Storage implements StorageAdapter {
       writeStream.on('error', reject);
       (stream as Readable).on('error', reject);
     });
-    const metaReader = sharp(sourceFilePath, { failOn: 'none', unlimited: true }).resize(
-      width,
-      height
-    );
+    const metaReader = sharp(sourceFilePath, { failOn: 'none', unlimited: true })
+      .rotate()
+      .resize(width, height);
     await metaReader.toFile(resizedImagePath);
     fse.removeSync(sourceFilePath);
     const upload = await this.uploadFileWidthPath(bucket, newPath, resizedImagePath, {
