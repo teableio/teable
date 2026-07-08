@@ -1,7 +1,9 @@
 import { Airtable, FileText } from '@teable/icons';
+import { UserIntegrationProvider } from '@teable/openapi';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import React from 'react';
+import { usePublicSettingQuery } from '@/features/app/hooks/useSetting';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { AirtableImportDialog } from '../airtable-import';
 import { UploadPanelDialog } from './UploadPanelDialog';
@@ -24,6 +26,14 @@ export const ImportBaseDialog = (props: IImportBaseDialogProps) => {
   const { spaceId, open, onOpenChange } = props;
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
   const [source, setSource] = React.useState<IImportSource | null>(null);
+  const { data: publicSetting } = usePublicSettingQuery();
+  // Airtable import needs the instance-level OAuth app (AIRTABLE_CLIENT_ID); without it
+  // the card would only lead to a broken connect flow, so the file importer is the sole
+  // source and the chooser step is skipped entirely.
+  const airtableImportEnabled = !!publicSetting?.availableIntegrationProviders?.includes(
+    UserIntegrationProvider.Airtable
+  );
+  const effectiveSource = source ?? (airtableImportEnabled ? null : 'file');
 
   // Reset the picked source once the whole flow is closed so reopening always
   // starts back at the chooser.
@@ -35,7 +45,7 @@ export const ImportBaseDialog = (props: IImportBaseDialogProps) => {
 
   return (
     <>
-      <Dialog open={open && source === null} onOpenChange={(next) => !next && closeAll()}>
+      <Dialog open={open && effectiveSource === null} onOpenChange={(next) => !next && closeAll()}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle>{t('space:importBaseDialog.title')}</DialogTitle>
@@ -77,12 +87,12 @@ export const ImportBaseDialog = (props: IImportBaseDialogProps) => {
 
       <UploadPanelDialog
         spaceId={spaceId}
-        open={open && source === 'file'}
+        open={open && effectiveSource === 'file'}
         onOpenChange={(next) => !next && closeAll()}
       />
       <AirtableImportDialog
         spaceId={spaceId}
-        open={open && source === 'airtable'}
+        open={open && effectiveSource === 'airtable'}
         onOpenChange={(next) => !next && closeAll()}
       />
     </>

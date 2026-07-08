@@ -1,4 +1,11 @@
-import { CellValueType, DbFieldType, FieldKeyType, FieldType, SortFunc } from '@teable/core';
+import {
+  CellValueType,
+  DbFieldType,
+  FieldKeyType,
+  FieldType,
+  SortFunc,
+  TimeFormatting,
+} from '@teable/core';
 import {
   CreateRecordResult,
   CreateRecordsResult,
@@ -39,6 +46,7 @@ describe('RecordOpenApiV2Service', () => {
   const cacheSetDetail = vi.fn();
   const getDataDatabaseForTable = vi.fn();
   const dataPrismaForTable = vi.fn();
+  const assertTableRecordWritable = vi.fn();
 
   let service: RecordOpenApiV2Service;
 
@@ -132,6 +140,7 @@ describe('RecordOpenApiV2Service', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    assertTableRecordWritable.mockResolvedValue(undefined);
 
     resolve.mockImplementation((token) => {
       if (token === v2CoreTokens.queryBus) {
@@ -201,7 +210,8 @@ describe('RecordOpenApiV2Service', () => {
         current: vi.fn().mockReturnValue(undefined),
         emitAtomic: vi.fn().mockResolvedValue(undefined),
         withOperation: vi.fn().mockImplementation((_operation, fn: () => Promise<unknown>) => fn()),
-      } as never
+      } as never,
+      { assertTableRecordWritable } as never
     );
   });
 
@@ -353,6 +363,63 @@ describe('RecordOpenApiV2Service', () => {
       { id: 'rec1111111111111111', fields: {} },
       { id: 'rec2222222222222222', fields: {} },
     ]);
+  });
+
+  it('normalizes legacy ISO date filters for v2 date comparisons', async () => {
+    const tableId = `tbl${'c'.repeat(16)}`;
+    const dateFieldId = `fld${'d'.repeat(16)}`;
+    const exactDate = '2026-06-02T00:00:00.000Z';
+
+    getFieldInstances.mockResolvedValueOnce([
+      createFieldInstanceByVo({
+        id: dateFieldId,
+        dbFieldName: 'created_date',
+        name: 'Created Date',
+        type: FieldType.Date,
+        cellValueType: CellValueType.DateTime,
+        dbFieldType: DbFieldType.DateTime,
+        options: {
+          formatting: {
+            date: 'YYYY-MM-DD',
+            time: TimeFormatting.None,
+            timeZone: 'Asia/Shanghai',
+          },
+        },
+      }),
+    ]);
+
+    await service.getRecords(tableId, {
+      fieldKeyType: FieldKeyType.Id,
+      skip: 0,
+      take: 2,
+      filter: {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: dateFieldId,
+            operator: 'isOnOrAfter',
+            value: exactDate,
+          },
+        ],
+      } as never,
+    });
+
+    const query = execute.mock.calls[0]?.[1];
+    expect(query).toBeInstanceOf(ListTableRecordsQuery);
+    expect((query as ListTableRecordsQuery).filter).toEqual({
+      conjunction: 'and',
+      items: [
+        {
+          fieldId: dateFieldId,
+          operator: 'isOnOrAfter',
+          value: {
+            mode: 'exactDate',
+            exactDate,
+            timeZone: 'Asia/Shanghai',
+          },
+        },
+      ],
+    });
   });
 
   it('loads grouped query extra by default for grouped record reads', async () => {
@@ -720,6 +787,21 @@ describe('RecordOpenApiV2Service', () => {
     expect(cacheDel).toHaveBeenCalledWith(
       `operations:engine:usr${'h'.repeat(16)}:tbl${'c'.repeat(16)}:win${'i'.repeat(16)}`
     );
+  });
+
+  it('checks the record-level migration guard before v2 mutations', async () => {
+    const error = new Error('space data database migration is switching');
+    assertTableRecordWritable.mockRejectedValueOnce(error);
+
+    await expect(
+      service.updateRecords(`tbl${'c'.repeat(16)}`, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [{ id: 'rec1111111111111111', fields: { [statusFieldId]: 'Done' } }],
+      })
+    ).rejects.toBe(error);
+
+    expect(assertTableRecordWritable).toHaveBeenCalledWith(`tbl${'c'.repeat(16)}`);
+    expect(commandExecute).not.toHaveBeenCalled();
   });
 
   it('returns the v2 updateRecord payload directly without reloading legacy snapshots', async () => {

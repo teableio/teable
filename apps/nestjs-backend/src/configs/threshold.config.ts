@@ -66,6 +66,7 @@ export const thresholdConfig = registerAs('threshold', () => ({
     maxEmailsPerPoll: Number(process.env.AUTOMATION_MAX_EMAILS_PER_POLL ?? 100),
     maxEmailDedupWindowSize: Number(process.env.AUTOMATION_MAX_EMAIL_DEDUP_WINDOW_SIZE ?? 500),
     httpRequestTimeout: Number(process.env.AUTOMATION_HTTP_REQUEST_TIMEOUT ?? 300_000), // 5 mins
+    watchdogDisabled: process.env.AUTOMATION_WATCHDOG_DISABLED === 'true',
   },
 }));
 

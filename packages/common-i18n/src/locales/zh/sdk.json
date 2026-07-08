@@ -1,6 +1,5 @@
 {
   "common": {
-    "comingSoon": "即将推出",
     "empty": "空",
     "noRecords": "没有可用记录",
     "unnamedRecord": "未命名记录",
@@ -84,7 +83,6 @@
       "uploadDragDefault": "粘贴或拖放文件到此处上传",
       "upload": "上传文件",
       "downloadAll": "下载全部",
-      "downloading": "下载中...",
       "downloadSuccess": "下载完成",
       "downloadFailed": "下载失败",
       "downloadCancelled": "下载已取消",
@@ -123,7 +121,6 @@
     "link": {
       "placeholder": "选择要链接的记录",
       "searchPlaceholder": "搜索记录",
-      "allFields": "所有字段",
       "globalSearch": "全局搜索",
       "fieldSearch": "字段搜索",
       "maxFieldTips": "最多支持 {{count}} 个字段，多余字段将被忽略",
@@ -131,14 +128,11 @@
       "selectRecord": "选择记录",
       "all": "全部",
       "selected": "已选择",
-      "expandRecordError": "无权查看此记录",
       "alreadyOpen": "此记录已被打开",
       "linkedTo": "跳转至",
-      "goToForeignTable": "跳转至关联表",
       "foreignTableIdRequired": "关联表不能为空",
       "linkFieldIdRequired": "关联字段不能为空",
       "selectTooManyRecords": "选择的记录不应超过 {{maxCount}}",
-      "relationshipRequired": "关系不能为空",
       "rangeSelectFailed": "范围选择记录失败"
     },
     "user": {
@@ -152,12 +146,10 @@
     "lookup": {
       "lookupFieldIdRequired": "必须选择查找字段",
       "lookupOptionsNotAllowed": "非从关联的表中查找或者汇总时，不能配置查找选项",
-      "lookupOptionsRequired": "必须配置查找选项",
-      "refineOptionsError": "解析查找选项配置错误 {{message}}"
+      "lookupOptionsRequired": "必须配置查找选项"
     },
     "rollup": {
-      "expressionRequired": "公式不能为空",
-      "unsupportedTip": "汇总只支持关联和汇总字段"
+      "expressionRequired": "公式不能为空"
     },
     "conditionalRollup": {
       "filterRequired": "筛选条件至少需要包含一个条件"
@@ -185,11 +177,8 @@
     "addConditionGroup": "添加条件组",
     "nestedLimitTip": "条件组最多支持{{depth}}层嵌套",
     "linkInputPlaceholder": "输入值",
-    "groupDescription": "以下任一条件为真…",
     "currentUser": "我（当前用户）",
-    "tips": {
-      "scope": "仅作用于当前视图的记录"
-    },
+    "tips": {},
     "invalidateSelected": "已删除选项",
     "invalidateSelectedTips": "该选项已被删除，请重新选择",
     "invalidConditionTip": "此筛选条件无效，将被忽略。请调整后重试。",
@@ -288,15 +277,10 @@
     "title": "字段名行数",
     "displayLines": "{{count}} 行"
   },
-  "share": {
-    "title": "分享"
-  },
-  "extensions": {
-    "title": "插件"
-  },
+  "share": {},
+  "extensions": {},
   "hidden": {
     "label": "字段配置",
-    "configLabel_one": "字段配置({{count}} 隐藏)",
     "configLabel_other": "字段配置({{count}} 隐藏)",
     "configLabel_other_visible": "字段配置({{count}} 显示)",
     "showAll": "显示全部",
@@ -319,8 +303,6 @@
       "before": "变更前",
       "after": "变更后",
       "buttonClicked": "点击了按钮",
-      "filterField": "字段",
-      "filterCreatedBy": "修改人",
       "filterTime": "时间范围",
       "allFields": "全部字段",
       "allUsers": "全部修改人",
@@ -426,7 +408,6 @@
       "baseUpdate": "更新数据库",
       "baseInviteEmail": "通过电子邮件邀请进入数据库",
       "baseInviteLink": "通过链接邀请进入数据库",
-      "baseTableImport": "导入到数据库",
       "baseAuthorityMatrixConfig": "配置权限矩阵",
       "baseDbConnect": "连接数据库",
       "tableCreate": "创建表格",
@@ -461,7 +442,6 @@
       "appDelete": "删除应用",
       "appRead": "查看应用",
       "appUpdate": "更新应用",
-      "userProfileRead": "查看当前用户",
       "userEmailRead": "查看当前用户电子邮件",
       "userIntegrations": "管理用户集成",
       "recordHistoryRead": "查看记录历史",
@@ -882,7 +862,6 @@
     "placeholder": "添加评论...",
     "emptyComment": "开始一段新评论...",
     "deletedComment": "该评论已删除",
-    "imageSizeLimit": "文件大小不能超过{{size}}",
     "tip": {
       "editing": "正在编辑...",
       "edited": "(已编辑)",
@@ -901,8 +880,6 @@
     },
     "floatToolbar": {
       "editLink": "编辑",
-      "caption": "设置标题",
-      "delete": "删除",
       "linkText": "链接标题",
       "enterUrl": "输入链接"
     }
@@ -912,7 +889,6 @@
     "memberSelectorSearchPlaceholder": "搜索成员...",
     "departmentSelectorSearchPlaceholder": "搜索部门...",
     "selected": "已选择",
-    "noSelected": "未选择",
     "empty": "暂无成员",
     "emptyDepartment": "暂无部门"
   },
