@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
-import { describe, expect, it, vi } from 'vitest';
 import type { ClsService } from 'nestjs-cls';
+import { describe, expect, it, vi } from 'vitest';
 import type { IClsStore } from '../types/cls';
 import { RequestInfoMiddleware } from './request-info.middleware';
 
@@ -13,6 +13,50 @@ const createRequest = (overrides: Partial<Request> = {}): Request =>
   }) as Request;
 
 describe('RequestInfoMiddleware', () => {
+  it('persists only IP-shaped req.ip into origin, falling back to the socket address', () => {
+    const clsValues = new Map<string, unknown>();
+    const cls = {
+      get: vi.fn(),
+      set: vi.fn((key: string, value: unknown) => {
+        clsValues.set(key, value);
+      }),
+    } as unknown as ClsService<IClsStore>;
+    const res = {
+      once: vi.fn(),
+      writableEnded: false,
+      destroyed: false,
+    } as unknown as Response;
+    const middleware = new RequestInfoMiddleware(cls);
+    const originIp = () => (clsValues.get('origin') as IClsStore['origin']).ip;
+
+    middleware.use(createRequest({ ip: '203.0.113.7' }), res, vi.fn());
+    expect(originIp()).toBe('203.0.113.7');
+
+    middleware.use(createRequest({ ip: '::ffff:203.0.113.7' }), res, vi.fn());
+    expect(originIp()).toBe('::ffff:203.0.113.7');
+
+    middleware.use(createRequest({ ip: '2001:db8::1' }), res, vi.fn());
+    expect(originIp()).toBe('2001:db8::1');
+
+    // Proxy-appended client ports (e.g. ALB client-port preservation) are trimmed.
+    middleware.use(createRequest({ ip: '203.0.113.7:8080' }), res, vi.fn());
+    expect(originIp()).toBe('203.0.113.7');
+
+    middleware.use(createRequest({ ip: '[2001:db8::1]:8080' }), res, vi.fn());
+    expect(originIp()).toBe('2001:db8::1');
+
+    // Forged X-Forwarded-For from a trusted (private) peer: not IP-shaped -> socket wins.
+    middleware.use(
+      createRequest({
+        ip: '<img src=x onerror=alert(1)>',
+        socket: { remoteAddress: '10.0.0.5' } as Request['socket'],
+      }),
+      res,
+      vi.fn()
+    );
+    expect(originIp()).toBe('10.0.0.5');
+  });
+
   it('runs v2 background tasks only after the HTTP response finishes', () => {
     const globalWithTimeout = globalThis as {
       setTimeout: typeof setTimeout;
