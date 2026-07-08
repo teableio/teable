@@ -516,6 +516,11 @@ export class LinkIntegrityService {
       fieldRaw.tableId,
       [linkField]
     );
+    const foreignDbTableName = tableNameMap.get(options.foreignTableId);
+
+    if (!foreignDbTableName) {
+      return;
+    }
 
     const queries = this.dbProvider.createColumnSchema(
       tableMeta.dbTableName,
@@ -532,11 +537,6 @@ export class LinkIntegrityService {
       this.dbProvider.checkTableExist(options.fkHostTableName)
     );
     const hostAlreadyExists = hostExistsResult[0]?.exists;
-    const foreignDbTableName = tableNameMap.get(options.foreignTableId);
-
-    if (!foreignDbTableName) {
-      return;
-    }
 
     const orderColumnName = linkField.getOrderColumnName();
 
