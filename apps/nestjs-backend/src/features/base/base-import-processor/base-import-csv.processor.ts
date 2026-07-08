@@ -162,7 +162,7 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
                 [
                   FieldType.Formula,
                   FieldType.Rollup,
-                  // FieldType.ConditionalRollup,
+                  FieldType.ConditionalRollup,
                   FieldType.CreatedTime,
                   FieldType.LastModifiedTime,
                   FieldType.CreatedBy,

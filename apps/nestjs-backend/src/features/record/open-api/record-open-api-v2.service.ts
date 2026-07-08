@@ -120,6 +120,21 @@ const v1SymbolOperatorMap: Record<string, string> = {
   'IS NOT NULL': 'isNotEmpty',
   'IS WITH IN': 'isWithIn',
 };
+const dateComparisonOperators: ReadonlySet<RecordFilterOperator> = new Set([
+  'is',
+  'isNot',
+  'isBefore',
+  'isAfter',
+  'isOnOrBefore',
+  'isOnOrAfter',
+]);
+const dateFilterFieldTypes: ReadonlySet<FieldType> = new Set([
+  FieldType.Date,
+  FieldType.CreatedTime,
+  FieldType.LastModifiedTime,
+]);
+
+type FilterFieldMeta = Pick<IFieldInstance, 'type' | 'cellValueType' | 'options'>;
 
 @Injectable()
 export class RecordOpenApiV2Service {
@@ -2240,6 +2255,7 @@ export class RecordOpenApiV2Service {
         {
           type: field.type,
           cellValueType: field.cellValueType,
+          options: field.options,
         },
       ])
     );
@@ -2316,6 +2332,8 @@ export class RecordOpenApiV2Service {
         }
       }
 
+      value = this.normalizeLegacyDateComparisonValue(fieldMeta, operator, value);
+
       if (operatorsExpectingArray.has(operator)) {
         if (!Array.isArray(value) && !this.isRecordFilterFieldReferenceValue(value)) {
           value = [value] as RecordFilterValue;
@@ -2331,6 +2349,39 @@ export class RecordOpenApiV2Service {
 
     const normalized = normalizeNode(mapped);
     return normalized ?? undefined;
+  }
+
+  private normalizeLegacyDateComparisonValue(
+    fieldMeta: FilterFieldMeta | undefined,
+    operator: RecordFilterOperator,
+    value: RecordFilterValue
+  ): RecordFilterValue {
+    if (
+      !fieldMeta ||
+      !dateComparisonOperators.has(operator) ||
+      !this.isDateFilterField(fieldMeta)
+    ) {
+      return value;
+    }
+    if (this.isRecordFilterFieldReferenceValue(value) || Array.isArray(value)) {
+      return value;
+    }
+    if (typeof value !== 'string' || !Number.isFinite(Date.parse(value))) {
+      return value;
+    }
+
+    return {
+      mode: 'exactDate',
+      exactDate: value,
+      timeZone: this.extractDatetimeFormatting(fieldMeta.options)?.timeZone ?? 'utc',
+    } as RecordFilterDateValue;
+  }
+
+  private isDateFilterField(fieldMeta: FilterFieldMeta): boolean {
+    return (
+      dateFilterFieldTypes.has(fieldMeta.type as FieldType) ||
+      fieldMeta.cellValueType === CellValueType.DateTime
+    );
   }
 
   private mapV1FilterToV2(filter: unknown): RecordFilter | undefined | null {

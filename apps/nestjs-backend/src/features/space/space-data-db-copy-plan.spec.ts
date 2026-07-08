@@ -95,16 +95,7 @@ describe('space data DB copy plan', () => {
     });
     expect(plan.restore).toEqual({
       command: 'pg_restore',
-      args: [
-        noOwnerArg,
-        noAclArg,
-        exitOnErrorArg,
-        jobsArg,
-        '4',
-        '--dbname',
-        targetUrl,
-        dumpFile,
-      ],
+      args: [noOwnerArg, noAclArg, exitOnErrorArg, jobsArg, '4', '--dbname', targetUrl, dumpFile],
     });
   });
 

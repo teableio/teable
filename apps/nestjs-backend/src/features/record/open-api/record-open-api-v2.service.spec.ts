@@ -1,4 +1,11 @@
-import { CellValueType, DbFieldType, FieldKeyType, FieldType, SortFunc } from '@teable/core';
+import {
+  CellValueType,
+  DbFieldType,
+  FieldKeyType,
+  FieldType,
+  SortFunc,
+  TimeFormatting,
+} from '@teable/core';
 import {
   CreateRecordResult,
   CreateRecordsResult,
@@ -353,6 +360,63 @@ describe('RecordOpenApiV2Service', () => {
       { id: 'rec1111111111111111', fields: {} },
       { id: 'rec2222222222222222', fields: {} },
     ]);
+  });
+
+  it('normalizes legacy ISO date filters for v2 date comparisons', async () => {
+    const tableId = `tbl${'c'.repeat(16)}`;
+    const dateFieldId = `fld${'d'.repeat(16)}`;
+    const exactDate = '2026-06-02T00:00:00.000Z';
+
+    getFieldInstances.mockResolvedValueOnce([
+      createFieldInstanceByVo({
+        id: dateFieldId,
+        dbFieldName: 'created_date',
+        name: 'Created Date',
+        type: FieldType.Date,
+        cellValueType: CellValueType.DateTime,
+        dbFieldType: DbFieldType.DateTime,
+        options: {
+          formatting: {
+            date: 'YYYY-MM-DD',
+            time: TimeFormatting.None,
+            timeZone: 'Asia/Shanghai',
+          },
+        },
+      }),
+    ]);
+
+    await service.getRecords(tableId, {
+      fieldKeyType: FieldKeyType.Id,
+      skip: 0,
+      take: 2,
+      filter: {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: dateFieldId,
+            operator: 'isOnOrAfter',
+            value: exactDate,
+          },
+        ],
+      } as never,
+    });
+
+    const query = execute.mock.calls[0]?.[1];
+    expect(query).toBeInstanceOf(ListTableRecordsQuery);
+    expect((query as ListTableRecordsQuery).filter).toEqual({
+      conjunction: 'and',
+      items: [
+        {
+          fieldId: dateFieldId,
+          operator: 'isOnOrAfter',
+          value: {
+            mode: 'exactDate',
+            exactDate,
+            timeZone: 'Asia/Shanghai',
+          },
+        },
+      ],
+    });
   });
 
   it('loads grouped query extra by default for grouped record reads', async () => {
