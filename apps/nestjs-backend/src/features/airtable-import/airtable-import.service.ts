@@ -715,7 +715,8 @@ export class AirtableImportService {
       if (!Array.isArray(choices)) continue;
       const byId = new Map<string, string>();
       for (const choice of choices) {
-        if (choice?.id && typeof choice.name === 'string') byId.set(choice.id, choice.name);
+        // Trimmed to match the created Teable option names (see mapSelectChoices).
+        if (choice?.id && typeof choice.name === 'string') byId.set(choice.id, choice.name.trim());
       }
       map.set(field.id, byId);
     }
