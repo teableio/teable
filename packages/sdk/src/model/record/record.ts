@@ -110,11 +110,36 @@ export class Record extends RecordCore {
     this.fields[fieldId] = cellValue;
   }
 
+  private isResolvedLinkCellValue(cellValue: unknown) {
+    if (cellValue == null) {
+      return false;
+    }
+
+    const values = Array.isArray(cellValue) ? cellValue : [cellValue];
+    if (!values.length) {
+      return false;
+    }
+
+    return values.every(
+      (value) =>
+        value != null &&
+        typeof value === 'object' &&
+        typeof (value as { title?: unknown }).title === 'string'
+    );
+  }
+
   private updateComputedField = async (fieldIds: string[], record: IRecord) => {
     const changeCellFieldIds = fieldIds.filter((fieldId) => {
       // Skip if the new value is undefined - computed field hasn't been updated yet (V2 async)
       // This prevents clearing computed fields that will be updated via ShareDB op
       if (record.fields[fieldId] === undefined) {
+        return false;
+      }
+      // V2 update responses can include stored link values without titles.
+      if (
+        this.fieldMap[fieldId]?.type === FieldType.Link &&
+        !this.isResolvedLinkCellValue(record.fields[fieldId])
+      ) {
         return false;
       }
       return !isEqual(this.fields[fieldId], record.fields[fieldId]);

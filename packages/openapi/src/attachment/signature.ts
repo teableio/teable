@@ -18,6 +18,7 @@ export enum UploadType {
   App = 12,
   ChatFile = 13,
   Automation = 14,
+  RecordHistory = 15,
 }
 
 export const signatureRoSchema = z.object({

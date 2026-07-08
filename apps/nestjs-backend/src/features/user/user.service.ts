@@ -29,6 +29,8 @@ import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { AuditScope } from '../audit/audit-scope';
 import { Audit } from '../audit/audit.decorator';
 import { UserModel } from '../model/user';
+import type { IRiskCheckType } from '../risk-control/risk-control.service';
+import { RiskControlService } from '../risk-control/risk-control.service';
 import { SettingService } from '../setting/setting.service';
 
 @Injectable()
@@ -42,6 +44,7 @@ export class UserService {
     private readonly settingService: SettingService,
     private readonly cacheService: CacheService,
     private readonly userModel: UserModel,
+    private readonly riskControlService: RiskControlService,
     @BaseConfig() private readonly baseConfig: IBaseConfig,
     @InjectStorageAdapter() readonly storageAdapter: StorageAdapter,
     private readonly audit: AuditScope
@@ -111,6 +114,11 @@ export class UserService {
     return space;
   }
 
+  /**
+   * NOTE: callers run this inside a Prisma transaction, so it must not await
+   * external I/O — run the (remote) risk control check before the transaction
+   * via `throwIfEmailDeniedByRiskControl` instead.
+   */
   async createUserWithSettingCheck(
     user: Omit<Prisma.UserCreateInput, 'name'> & { name?: string },
     account?: Omit<Prisma.AccountUncheckedCreateInput, 'userId'>,
@@ -141,6 +149,21 @@ export class UserService {
   throwIfEmailDomainBanned(email: string, bannedEmailDomains?: string[] | null) {
     if (isEmailDomainBanned(email, bannedEmailDomains)) {
       this.logger.log(`[banned-domain] rejected email=${email}`);
+      throw new CustomHttpException(
+        'This email domain has been banned due to policy violations',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.user.emailDomainBanned',
+          },
+        }
+      );
+    }
+  }
+
+  /** Same rejection as the local banned list, but backed by the external risk service. */
+  async throwIfEmailDeniedByRiskControl(type: IRiskCheckType, email: string) {
+    if (await this.riskControlService.isEmailDenied(type, email)) {
       throw new CustomHttpException(
         'This email domain has been banned due to policy violations',
         HttpErrorCode.VALIDATION_ERROR,
@@ -512,6 +535,9 @@ export class UserService {
     onCreateNewUser?: () => void
   ) {
     let isNewUser = false;
+    // Risk control first, before the transaction — a slow risk service must
+    // never hold a database connection.
+    await this.throwIfEmailDeniedByRiskControl('signup', user.email);
     const res = await this.prismaService.$tx(async () => {
       const { email, name, provider, providerId, type, avatarUrl } = user;
       // account exist check

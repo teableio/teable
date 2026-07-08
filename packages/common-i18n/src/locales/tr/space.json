@@ -26,7 +26,6 @@
     "duplicateBase": "Veritabanını çoğalt",
     "missTargetTip": "Lütfen veritabanını çoğaltmak için bir alan seçin.",
     "copying": "Veritabanı çoğaltılıyor, bu biraz zaman alabilir...",
-    "copyingTemplate": "Şablondan veritabanı oluşturuluyor, bu biraz zaman alabilir...",
     "howToCreate": "Nasıl başlamak istersiniz?",
     "fromScratch": "Sıfırdan",
     "fromTemplate": "Şablondan",
@@ -38,7 +37,6 @@
     "general": "Genel",
     "collaborators": "İşbirlikçiler",
     "generalDescription": "Mevcut alanınızın ayarlarını buradan değiştirin",
-    "collaboratorDescription": "Alanınızın işbirlikçilerini yönetin ve erişim izinlerini ayarlayın",
     "spaceName": "Alan Adı",
     "spaceId": "Alan Kimliği"
   },
@@ -53,8 +51,6 @@
   },
   "tip": {
     "delete": "<0/> silmek istediğinizden emin misiniz?",
-    "title": "İpuçları",
-    "exportTips1": "Mevcut veritabanını .tea dosyası olarak dışa aktarın, bu biraz zaman alabilir. Dışa aktarma sonuçlarını bildirim merkezinde kontrol edebilirsiniz.",
     "exportTips2": "Alan -> daha fazla -> içe aktar yolundan .tea dosyasını içe aktarabilirsiniz",
     "exportTips3": "Veritabanları arası ilişki alanları tek satır metne dönüştürülecektir.",
     "exportIncludeDataLabel": "Kayıtları dahil et",
@@ -72,31 +68,21 @@
   "deleteSpaceModal": {
     "title": "Alanı Sil",
     "blockedTitle": "Bu alan silinemiyor",
-    "blockedDesc": "Bu alanın aktif bir aboneliği var. Lütfen alanı silmeden önce aboneliği iptal edin.",
-    "permanentDeleteWarning": "Bu işlem mevcut alan altındaki tüm kaynakları ve verileri kalıcı olarak silecektir. Lütfen dikkatli ilerleyin!",
-    "confirmInputLabel": "Silme işlemini onaylamak için lütfen DELETE yazın"
+    "blockedDesc": "Bu alanın aktif bir aboneliği var. Lütfen alanı silmeden önce aboneliği iptal edin."
   },
   "sharedBase": {
     "title": "Paylaşılan veritabanları",
     "description": "Katılmaya davet edildiğim tüm veritabanları",
     "empty": "Henüz paylaşılan veritabanı yok"
   },
-  "integration": {
-    "title": "Integrasyonlar",
-    "description": "Yerleştirilen integreasyonları burada görünecek",
-    "addIntegration": "Integrasyon ekle",
-    "ai": "AI"
-  },
+  "integration": {},
   "aiSetting": {
     "title": "AI ayarları",
     "description": "Alanınızın AI ayarlarını yönetin",
-    "enableTips": "Sistem AI'ını kullanmak yerine alanınızda AI özelliklerini kullanmak için AI'yı etkinleştirin",
-    "enable": "AI ayarlarını başlat",
-    "enableSwitchTips": "Etkinleştirmeden önce lütfen büyük kodlama modelini yapılandırın"
+    "enable": "AI ayarlarını başlat"
   },
   "import": {
     "importing": "İçe aktarılıyor",
-    "importWayTip": "Yüklemek için dosyayı bu alana tıklayın veya sürükleyip bırakın",
     "baseImportTips": "Yüklemek için .tea dosyasını bu alana tıklayın veya sürükleyip bırakın",
     "confirm": "Onayla ve devam et",
     "phase": {
@@ -155,12 +141,10 @@
       "title": "Başlık",
       "description": "Açıklama",
       "security": "Güvenlik",
-      "includeNodes": "Düğümleri dahil et",
       "advanced": "Gelişmiş",
       "publishNode": "Düğümleri yayınla",
       "includeData": "Verileri dahil et",
       "defaultActiveNode": "Varsayılan aktif düğüm",
-      "select": "lütfen seçin",
       "descriptionPlaceholder": "Fikrinizi kısaca açıklayın...",
       "titlePlaceholder": "Çalışmanıza bir ad verin..."
     },
@@ -173,7 +157,6 @@
     "unPublishSuccess": "Üs başarıyla yayından kaldırıldı!",
     "unPublishConfirmTitle": "Yayından kaldırmayı onayla",
     "unPublishConfirmDescription": "Bu üssü yayından kaldırmak istediğinizden emin misiniz? Artık şablon merkezinde görünmeyecek.",
-    "usageCount": "Kullanım sayısı: ",
     "uploadCover": "Kapak resmi yüklemek için tıklayın",
     "changeCover": "Kapağı değiştirmek için tıklayın",
     "uploading": "Resim yükleniyor...",
@@ -235,7 +218,6 @@
       "creatingTable": "Tablo oluşturuluyor: {{tableName}} ({{tableIndex}}/{{totalTables}})",
       "creatingLinks": "Bağlantı alanları oluşturuluyor",
       "fillingLinks": "{{tableName}} (bağlantılar)",
-      "done": "İçe aktarma tamamlandı",
       "applyingViewConfig": "Görünüm yapılandırması içe aktarılıyor"
     },
     "searchBases": "Base ara",
