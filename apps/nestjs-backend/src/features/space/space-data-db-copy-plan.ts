@@ -82,6 +82,18 @@ const textArray = (values: string[]) =>
 const textArrayPredicate = (column: string, values: string[]) =>
   `${quoteIdent(column)} = ANY(${textArray(values)})`;
 
+const withExportedSnapshot = (copySql: string, snapshotId?: string) =>
+  snapshotId
+    ? [
+        'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY',
+        `SET TRANSACTION SNAPSHOT ${literal(snapshotId)}`,
+        copySql,
+        'COMMIT',
+      ]
+        .map((statement) => `${statement};`)
+        .join('\n')
+    : copySql;
+
 const decodePostgresToolUserInfoComponent = (value: string) => {
   try {
     return decodeURIComponent(value);
@@ -154,6 +166,7 @@ export const buildBaseSchemaRestorePlan = (input: {
 
 const psqlArgs = (url: string, command: string) => [
   '--no-psqlrc',
+  '--quiet',
   '--set',
   'ON_ERROR_STOP=1',
   '--command',
@@ -191,6 +204,7 @@ export const buildBaseSchemaDumpRestorePlan = (input: {
   schemaNames: string[];
   workDir: string;
   jobs?: number;
+  snapshotId?: string;
 }): ISpaceDataDbDumpRestorePlan => {
   const schemaNames = [...input.schemaNames].sort();
   if (!schemaNames.length) {
@@ -206,7 +220,16 @@ export const buildBaseSchemaDumpRestorePlan = (input: {
     dumpFile,
     dump: {
       command: 'pg_dump',
-      args: ['--format=custom', noOwnerArg, noAclArg, '--file', dumpFile, ...schemaArgs, sourceUrl],
+      args: [
+        '--format=custom',
+        noOwnerArg,
+        noAclArg,
+        ...(input.snapshotId ? ['--snapshot', input.snapshotId] : []),
+        '--file',
+        dumpFile,
+        ...schemaArgs,
+        sourceUrl,
+      ],
     },
     restore: buildBaseSchemaRestorePlan({
       targetUrl,
@@ -220,6 +243,7 @@ export const buildBaseSchemaDumpStreamRestorePlan = (input: {
   sourceUrl: string;
   targetUrl: string;
   schemaNames: string[];
+  snapshotId?: string;
 }): ISpaceDataDbDumpStreamRestorePlan => {
   const schemaNames = [...input.schemaNames].sort();
   if (!schemaNames.length) {
@@ -235,7 +259,14 @@ export const buildBaseSchemaDumpStreamRestorePlan = (input: {
     schemaNames,
     source: {
       command: 'pg_dump',
-      args: ['--format=custom', noOwnerArg, noAclArg, ...schemaArgs, sourceUrl],
+      args: [
+        '--format=custom',
+        noOwnerArg,
+        noAclArg,
+        ...(input.snapshotId ? ['--snapshot', input.snapshotId] : []),
+        ...schemaArgs,
+        sourceUrl,
+      ],
     },
     target: {
       command: 'pg_restore',
@@ -329,16 +360,18 @@ export const buildSharedTablePsqlCopyPlan = (input: {
   table: string;
   columns: string[];
   whereSql: string;
+  snapshotId?: string;
 }): ISharedTablePsqlCopyPlan => {
   const plan = buildSharedTableCopyPlan(input);
+  const sourceSql = withExportedSnapshot(plan.sourceSql, input.snapshotId);
   return {
     table: input.table,
     label: `shared-table:${input.table}`,
-    sourceSql: plan.sourceSql,
+    sourceSql,
     targetSql: plan.targetSql,
     source: {
       command: 'psql',
-      args: psqlArgs(input.sourceUrl, plan.sourceSql),
+      args: psqlArgs(input.sourceUrl, sourceSql),
     },
     target: {
       command: 'psql',
@@ -498,21 +531,6 @@ const buildMigrationSharedTableDefinitions = (input: {
       whereSql: tablePredicate,
     },
     {
-      table: 'computed_update_outbox',
-      columns: computedOutboxColumns,
-      whereSql: basePredicate,
-    },
-    {
-      table: 'computed_update_dead_letter',
-      columns: [...computedOutboxColumns, 'trace_data', 'failed_at'],
-      whereSql: basePredicate,
-    },
-    {
-      table: 'computed_update_outbox_seed',
-      columns: ['id', 'task_id', 'table_id', 'record_id'],
-      whereSql: outboxSeedPredicate,
-    },
-    {
       table: 'computed_update_pause_scope',
       columns: [
         'id',
@@ -526,6 +544,21 @@ const buildMigrationSharedTableDefinitions = (input: {
         'updated_by',
       ],
       whereSql: pauseScopePredicate,
+    },
+    {
+      table: 'computed_update_outbox',
+      columns: computedOutboxColumns,
+      whereSql: basePredicate,
+    },
+    {
+      table: 'computed_update_dead_letter',
+      columns: [...computedOutboxColumns, 'trace_data', 'failed_at'],
+      whereSql: basePredicate,
+    },
+    {
+      table: 'computed_update_outbox_seed',
+      columns: ['id', 'task_id', 'table_id', 'record_id'],
+      whereSql: outboxSeedPredicate,
     },
     {
       table: '__undo_log',
@@ -554,6 +587,7 @@ export const buildMigrationSharedTablePsqlCopyPlans = (input: {
   baseIds: string[];
   tableIds: string[];
   sharedTableIds?: string[];
+  snapshotId?: string;
 }): ISharedTablePsqlCopyPlan[] => {
   const shared = buildMigrationSharedTableDefinitions(input);
 
@@ -566,6 +600,7 @@ export const buildMigrationSharedTablePsqlCopyPlans = (input: {
       table: item.table,
       columns: item.columns,
       whereSql: item.whereSql,
+      snapshotId: input.snapshotId,
     })
   );
 };

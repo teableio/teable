@@ -118,6 +118,60 @@ describe('Record delete link cleanup (e2e)', () => {
     }
   });
 
+  it('deletes records when an errored link field points to a missing foreign table', async () => {
+    let hostTable: ITableFullVo | null = null;
+    let foreignTable: ITableFullVo | null = null;
+
+    try {
+      foreignTable = await createTable(baseId, {
+        name: 'Delete Missing Link Foreign',
+        fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+      });
+
+      hostTable = await createTable(baseId, {
+        name: 'Delete Missing Link Host',
+        fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+      });
+
+      const linkField = await createField(hostTable.id, {
+        name: 'Broken Links',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: foreignTable.id,
+        },
+      } as IFieldRo);
+
+      const { records: hostRecords } = await createRecords(hostTable.id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: [{ fields: { Name: 'Host' } }],
+      });
+      const hostRecord = hostRecords[0];
+      const linkOptions = linkField.options as ILinkFieldOptions;
+
+      await prisma.field.update({
+        where: { id: linkField.id },
+        data: {
+          hasError: true,
+          options: JSON.stringify({
+            ...linkOptions,
+            foreignTableId: 'tblMissingForeignTable',
+            fkHostTableName: `${linkOptions.fkHostTableName}_missing`,
+          }),
+        },
+      });
+
+      await expect(deleteRecords(hostTable.id, [hostRecord.id])).resolves.toBeDefined();
+    } finally {
+      if (hostTable) {
+        await permanentDeleteTable(baseId, hostTable.id);
+      }
+      if (foreignTable) {
+        await permanentDeleteTable(baseId, foreignTable.id);
+      }
+    }
+  });
+
   it('deletes foreign record when junction has data but symmetric link column is null (ManyMany)', async () => {
     // This test simulates the user's scenario:
     // - Table A has a ManyMany link to Table B

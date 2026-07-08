@@ -32,7 +32,7 @@ describe('RecordModifyService write freeze', () => {
     getTableDomainById: vi.fn(),
   };
   const migrationGuard = {
-    assertTableWritable: vi.fn(),
+    assertTableRecordWritable: vi.fn(),
   };
 
   const service = () =>
@@ -47,7 +47,7 @@ describe('RecordModifyService write freeze', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    migrationGuard.assertTableWritable.mockRejectedValue(freezeError);
+    migrationGuard.assertTableRecordWritable.mockRejectedValue(freezeError);
   });
 
   it('rejects record create before any table metadata or write work when the space is migrating', async () => {
@@ -55,7 +55,7 @@ describe('RecordModifyService write freeze', () => {
       freezeError
     );
 
-    expect(migrationGuard.assertTableWritable).toHaveBeenCalledWith('tblxxx');
+    expect(migrationGuard.assertTableRecordWritable).toHaveBeenCalledWith('tblxxx');
     expect(createService.multipleCreateRecords).not.toHaveBeenCalled();
     expect(tableDomainQueryService.getTableDomainById).not.toHaveBeenCalled();
   });
@@ -71,21 +71,21 @@ describe('RecordModifyService write freeze', () => {
       })
     ).rejects.toBe(freezeError);
 
-    expect(migrationGuard.assertTableWritable).toHaveBeenCalledTimes(3);
+    expect(migrationGuard.assertTableRecordWritable).toHaveBeenCalledTimes(3);
     expect(updateService.updateRecords).not.toHaveBeenCalled();
     expect(deleteService.deleteRecords).not.toHaveBeenCalled();
     expect(duplicateService.duplicateRecord).not.toHaveBeenCalled();
   });
 
   it('allows non-migrating tables to continue through the normal write path', async () => {
-    migrationGuard.assertTableWritable.mockResolvedValue(undefined);
+    migrationGuard.assertTableRecordWritable.mockResolvedValue(undefined);
     createService.multipleCreateRecords.mockResolvedValue({ records: [] });
 
     await expect(service().multipleCreateRecords('tblother', { records: [] })).resolves.toEqual({
       records: [],
     });
 
-    expect(migrationGuard.assertTableWritable).toHaveBeenCalledWith('tblother');
+    expect(migrationGuard.assertTableRecordWritable).toHaveBeenCalledWith('tblother');
     expect(createService.multipleCreateRecords).toHaveBeenCalled();
   });
 });

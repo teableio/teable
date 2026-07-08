@@ -3,12 +3,7 @@ import type { Option } from 'effect';
 import { Effect } from 'effect';
 import { Output } from '../../services/Output';
 import { TableQueryOps } from '../../services/TableQueryOps';
-import {
-  connectionOption,
-  limitOption,
-  optionToUndefined,
-  tableIdOption,
-} from '../shared';
+import { connectionOption, limitOption, optionToUndefined, tableIdOption } from '../shared';
 
 const noEnsureSchemaOption = Options.boolean('no-ensure-schema').pipe(
   Options.withDefault(false),
