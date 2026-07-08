@@ -189,6 +189,164 @@ describe('v2 http createField (e2e)', () => {
     expect(JSON.parse(row?.ai_config ?? 'null')).toEqual(aiConfig);
   });
 
+  it('backfills existing records when creating required singleSelect with defaultValue', async () => {
+    const primaryFieldId = createFieldId();
+    const selectFieldId = createFieldId();
+    const table = await createTable({
+      baseId: ctx.baseId,
+      name: 'Required Select Backfill',
+      fields: [{ type: 'singleLineText', id: primaryFieldId, name: 'Name', isPrimary: true }],
+      views: [{ type: 'grid' }],
+    });
+
+    try {
+      await ctx.createRecords(table.id, [
+        { fields: { [primaryFieldId]: 'Existing A' } },
+        { fields: { [primaryFieldId]: 'Existing B' } },
+      ]);
+
+      const response = await fetch(`${ctx.baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: ctx.baseId,
+          tableId: table.id,
+          field: {
+            type: 'singleSelect',
+            id: selectFieldId,
+            name: '单选',
+            dbFieldName: 'Dan_Xuan',
+            notNull: true,
+            unique: false,
+            options: {
+              choices: [
+                { id: 'choTodo', name: '待开始', color: 'orangeDark1' },
+                { id: 'choDoing', name: '进行中', color: 'cyanBright' },
+                { id: 'choDone', name: '已完成', color: 'teal' },
+              ],
+              defaultValue: '待开始',
+              preventAutoNewOptions: true,
+            },
+          },
+        }),
+      });
+
+      const rawBody = await response.json();
+      if (response.status !== 200) {
+        throw new Error(`CreateField failed: ${JSON.stringify(rawBody)}`);
+      }
+
+      const parsed = createFieldOkResponseSchema.safeParse(rawBody);
+      expect(parsed.success).toBe(true);
+      if (!parsed.success || !parsed.data.ok) return;
+
+      const created = parsed.data.data.table.fields.find((field) => field.id === selectFieldId);
+      expect(created?.notNull).toBe(true);
+      expect(created?.options).toMatchObject({ defaultValue: '待开始' });
+
+      const records = await ctx.listRecords(table.id);
+      expect(records).toHaveLength(2);
+      expect(records.every((record) => record.fields[selectFieldId] === '待开始')).toBe(true);
+    } finally {
+      await ctx.deleteTable(table.id).catch(() => undefined);
+    }
+  });
+
+  it('creates required singleSelect with defaultValue on an empty table', async () => {
+    const primaryFieldId = createFieldId();
+    const selectFieldId = createFieldId();
+    const table = await createTable({
+      baseId: ctx.baseId,
+      name: 'Empty Required Select Default',
+      fields: [{ type: 'singleLineText', id: primaryFieldId, name: 'Name', isPrimary: true }],
+      views: [{ type: 'grid' }],
+    });
+
+    try {
+      const response = await fetch(`${ctx.baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: ctx.baseId,
+          tableId: table.id,
+          field: {
+            type: 'singleSelect',
+            id: selectFieldId,
+            name: 'Status',
+            notNull: true,
+            options: {
+              choices: [
+                { id: 'choTodo', name: 'Todo', color: 'blue' },
+                { id: 'choDone', name: 'Done', color: 'green' },
+              ],
+              defaultValue: 'Todo',
+            },
+          },
+        }),
+      });
+
+      const rawBody = await response.json();
+      if (response.status !== 200) {
+        throw new Error(`CreateField failed: ${JSON.stringify(rawBody)}`);
+      }
+
+      const parsed = createFieldOkResponseSchema.safeParse(rawBody);
+      expect(parsed.success).toBe(true);
+      if (!parsed.success || !parsed.data.ok) return;
+
+      const created = parsed.data.data.table.fields.find((field) => field.id === selectFieldId);
+      expect(created?.notNull).toBe(true);
+      expect(created?.options).toMatchObject({ defaultValue: 'Todo' });
+    } finally {
+      await ctx.deleteTable(table.id).catch(() => undefined);
+    }
+  });
+
+  it('rejects creating required singleSelect on existing records without defaultValue', async () => {
+    const primaryFieldId = createFieldId();
+    const selectFieldId = createFieldId();
+    const table = await createTable({
+      baseId: ctx.baseId,
+      name: 'Required Select No Default',
+      fields: [{ type: 'singleLineText', id: primaryFieldId, name: 'Name', isPrimary: true }],
+      views: [{ type: 'grid' }],
+    });
+
+    try {
+      await ctx.createRecord(table.id, { [primaryFieldId]: 'Existing' });
+
+      const response = await fetch(`${ctx.baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: ctx.baseId,
+          tableId: table.id,
+          field: {
+            type: 'singleSelect',
+            id: selectFieldId,
+            name: 'Status',
+            notNull: true,
+            options: {
+              choices: [
+                { id: 'choTodo', name: 'Todo', color: 'blue' },
+                { id: 'choDone', name: 'Done', color: 'green' },
+              ],
+            },
+          },
+        }),
+      });
+
+      const rawBody = await response.json();
+      expect(response.status).toBe(400);
+      const parsed = createFieldErrorResponseSchema.safeParse(rawBody);
+      expect(parsed.success).toBe(true);
+      if (!parsed.success || parsed.data.ok) return;
+      expect(parsed.data.error.code).toBe('validation.field.not_null');
+    } finally {
+      await ctx.deleteTable(table.id).catch(() => undefined);
+    }
+  });
+
   it('keeps hidden grid view visibility stable when another view adds a field', async () => {
     const titleFieldId = createFieldId();
     const notesFieldId = createFieldId();

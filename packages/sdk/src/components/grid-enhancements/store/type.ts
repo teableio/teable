@@ -6,6 +6,8 @@ export interface IHeaderMenu {
   fields: IFieldInstance[];
   position: IPosition;
   aiEnable?: boolean;
+  freezeColumnIndex?: number;
+  maxFreezeColumnCount?: number;
   onAutoFill?: (fieldId: string) => void;
   onSelectionClear?: () => void;
   addToChat?: () => void;

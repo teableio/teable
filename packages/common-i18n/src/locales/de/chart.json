@@ -28,12 +28,10 @@
     },
     "combo": {
       "xAxis": {
-        "label": "X-Achse",
-        "placeholder": "X-Achse auswählen"
+        "label": "X-Achse"
       },
       "yAxis": {
         "label": "Y-Achse",
-        "placeholder": "Y-Achse auswählen",
         "position": "Y-Achse Position"
       },
       "xDisplay": {
@@ -46,7 +44,6 @@
       "addYAxis": "Weitere Serie hinzufügen",
       "stack": "Stapeln",
       "position": {
-        "label": "Position",
         "auto": "Automatisch",
         "left": "Links",
         "right": "Rechts"

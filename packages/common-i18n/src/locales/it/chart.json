@@ -28,12 +28,10 @@
     },
     "combo": {
       "xAxis": {
-        "label": "Asse X",
-        "placeholder": "Seleziona asse X"
+        "label": "Asse X"
       },
       "yAxis": {
         "label": "Asse Y",
-        "placeholder": "Seleziona asse Y",
         "position": "Posizione asse Y"
       },
       "xDisplay": {
@@ -46,7 +44,6 @@
       "addYAxis": "Aggiungi un'altra serie",
       "stack": "Sovrapponi",
       "position": {
-        "label": "Posizione",
         "auto": "Automatico",
         "left": "Sinistra",
         "right": "Destra"

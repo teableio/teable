@@ -86,6 +86,7 @@ describe('v2 http formula DATETIME_FORMAT (e2e)', () => {
         name: 'formatted_24h',
         options: {
           expression: `DATETIME_FORMAT({${dateFieldId}}, 'YYYY-MM-DD HH:mm:ss')`,
+          timeZone: 'utc',
         },
       },
     });
@@ -130,6 +131,7 @@ describe('v2 http formula DATETIME_FORMAT (e2e)', () => {
         name: 'handover_year',
         options: {
           expression: `LEFT(DATETIME_FORMAT({${dateFieldId}}), 4)`,
+          timeZone: 'utc',
         },
       },
     });
@@ -149,6 +151,56 @@ describe('v2 http formula DATETIME_FORMAT (e2e)', () => {
     const records = await ctx.listRecords(table.id);
     expect(records).toHaveLength(1);
     expect(records[0].fields[formulaFieldId]).toBe('2024');
+  });
+
+  it('formats date-only fields without time when concatenated as text', async () => {
+    const table = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: uniqueName('formula-date-only-concat'),
+      fields: [
+        { type: 'singleLineText', name: 'Title', isPrimary: true },
+        {
+          type: 'date',
+          name: 'event_date',
+          options: {
+            formatting: {
+              date: 'YYYY-MM-DD',
+              time: 'None',
+              timeZone: 'Asia/Shanghai',
+            },
+          },
+        },
+      ],
+      views: [{ type: 'grid' }],
+    });
+
+    const titleFieldId = table.fields.find((field) => field.name === 'Title')?.id ?? '';
+    const dateFieldId = table.fields.find((field) => field.name === 'event_date')?.id ?? '';
+    const updatedTable = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: table.id,
+      field: {
+        type: 'formula',
+        name: 'date_label',
+        options: {
+          expression: `{${titleFieldId}}&{${dateFieldId}}`,
+          timeZone: 'Asia/Shanghai',
+        },
+      },
+    });
+    const formulaFieldId =
+      updatedTable.fields.find((field) => field.name === 'date_label')?.id ?? '';
+
+    await ctx.createRecord(table.id, {
+      [titleFieldId]: 'Project Alpha - Base Data',
+      [dateFieldId]: '2026-07-02T07:29:23.000Z',
+    });
+
+    await ctx.drainOutbox();
+
+    const records = await ctx.listRecords(table.id);
+    expect(records).toHaveLength(1);
+    expect(records[0].fields[formulaFieldId]).toBe('Project Alpha - Base Data2026-07-02');
   });
 
   it('keeps hh with A as a 12-hour clock while mm stays minutes', async () => {
@@ -174,6 +226,7 @@ describe('v2 http formula DATETIME_FORMAT (e2e)', () => {
         name: 'formatted_12h',
         options: {
           expression: `DATETIME_FORMAT({${dateFieldId}}, 'YYYY-MM-DD hh:mm A')`,
+          timeZone: 'utc',
         },
       },
     });
@@ -218,6 +271,7 @@ describe('v2 http formula DATETIME_FORMAT (e2e)', () => {
         name: 'formatted_names',
         options: {
           expression: `DATETIME_FORMAT({${dateFieldId}}, 'YY-Month-Day')`,
+          timeZone: 'utc',
         },
       },
     });
@@ -311,6 +365,7 @@ describe('v2 http formula DATETIME_FORMAT (e2e)', () => {
         name: 'formatted_invalid',
         options: {
           expression: `DATETIME_FORMAT({${textFieldId}}, 'YYYY-MM-DD HH:mm')`,
+          timeZone: 'utc',
         },
       },
     });
