@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getUniqName, hasPermission } from '@teable/core';
 import { Plus, Database, Component } from '@teable/icons';
-import { createSpace, createBase, getSpaceList } from '@teable/openapi';
+import { createSpace, createBase, getSpaceList, SPACE_NAME_MAX_LENGTH } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { Spin, ConfirmDialog } from '@teable/ui-lib/base';
 import {
@@ -199,6 +199,7 @@ export const SpaceList: FC = () => {
                 t('noun.space'),
                 spaceList?.length ? spaceList?.map((space) => space?.name) : []
               )}
+              maxLength={SPACE_NAME_MAX_LENGTH}
               value={spaceName}
               onChange={(e) => setSpaceName(e.target.value)}
               onKeyDown={(e) => {

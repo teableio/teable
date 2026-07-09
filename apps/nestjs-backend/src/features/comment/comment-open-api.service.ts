@@ -174,12 +174,43 @@ export class CommentOpenApiService {
     });
   }
 
-  async getCommentDetail(commentId: string): Promise<ICommentVo | null> {
-    const rawComment = await this.prismaService.comment.findFirst({
-      where: {
-        id: commentId,
-        deletedTime: null,
+  private getCommentScopeWhere(tableId: string, recordId: string, commentId: string) {
+    return {
+      id: commentId,
+      tableId,
+      recordId,
+      deletedTime: null,
+    };
+  }
+
+  private throwCommentNotFound(): never {
+    throw new CustomHttpException('Comment not found', HttpErrorCode.NOT_FOUND);
+  }
+
+  private async validateQuoteId(tableId: string, recordId: string, quoteId?: string | null) {
+    if (!quoteId) {
+      return;
+    }
+
+    const quoteComment = await this.prismaService.comment.findFirst({
+      where: this.getCommentScopeWhere(tableId, recordId, quoteId),
+      select: {
+        id: true,
       },
+    });
+
+    if (!quoteComment) {
+      this.throwCommentNotFound();
+    }
+  }
+
+  async getCommentDetail(
+    tableId: string,
+    recordId: string,
+    commentId: string
+  ): Promise<ICommentVo | null> {
+    const rawComment = await this.prismaService.comment.findFirst({
+      where: this.getCommentScopeWhere(tableId, recordId, commentId),
       select: {
         id: true,
         content: true,
@@ -353,6 +384,8 @@ export class CommentOpenApiService {
   }
 
   async createComment(tableId: string, recordId: string, createCommentRo: ICreateCommentRo) {
+    await this.validateQuoteId(tableId, recordId, createCommentRo.quoteId);
+
     const id = generateCommentId();
     const content = await this.filterCommentContent(createCommentRo.content);
     const result = await this.prismaService.comment.create({
@@ -387,9 +420,9 @@ export class CommentOpenApiService {
     commentId: string,
     updateCommentRo: IUpdateCommentRo
   ) {
-    const result = await this.prismaService.comment.update({
+    const updateResult = await this.prismaService.comment.updateMany({
       where: {
-        id: commentId,
+        ...this.getCommentScopeWhere(tableId, recordId, commentId),
         createdBy: this.cls.get('user.id'),
       },
       data: {
@@ -397,6 +430,23 @@ export class CommentOpenApiService {
         lastModifiedTime: new Date().toISOString(),
       },
     });
+
+    if (!updateResult.count) {
+      this.throwCommentNotFound();
+    }
+
+    const result = await this.prismaService.comment.findFirst({
+      where: this.getCommentScopeWhere(tableId, recordId, commentId),
+      select: {
+        id: true,
+        quoteId: true,
+        content: true,
+      },
+    });
+
+    if (!result) {
+      this.throwCommentNotFound();
+    }
 
     this.sendCommentPatch(tableId, recordId, CommentPatchType.UpdateComment, result);
     await this.sendCommentNotify(tableId, recordId, commentId, {
@@ -406,15 +456,19 @@ export class CommentOpenApiService {
   }
 
   async deleteComment(tableId: string, recordId: string, commentId: string) {
-    await this.prismaService.comment.update({
+    const result = await this.prismaService.comment.updateMany({
       where: {
-        id: commentId,
+        ...this.getCommentScopeWhere(tableId, recordId, commentId),
         createdBy: this.cls.get('user.id'),
       },
       data: {
         deletedTime: new Date().toISOString(),
       },
     });
+
+    if (!result.count) {
+      this.throwCommentNotFound();
+    }
 
     this.sendCommentPatch(tableId, recordId, CommentPatchType.DeleteComment, { id: commentId });
     this.sendTableCommentPatch(tableId, recordId, CommentPatchType.DeleteComment);
@@ -426,11 +480,15 @@ export class CommentOpenApiService {
     commentId: string,
     reactionRo: { reaction: string }
   ) {
-    const commentRaw = await this.getCommentReactionById(commentId);
+    const commentRaw = await this.getCommentReactionById(tableId, recordId, commentId);
+    if (!commentRaw) {
+      this.throwCommentNotFound();
+    }
+
     const { reaction } = reactionRo;
     let data: ICommentReaction = [];
 
-    if (commentRaw && commentRaw.reaction) {
+    if (commentRaw.reaction) {
       const emojis = JSON.parse(commentRaw.reaction) as NonNullable<ICommentReaction>;
       const index = emojis.findIndex((item) => item.reaction === reaction);
       if (index > -1) {
@@ -447,17 +505,19 @@ export class CommentOpenApiService {
       }
     }
 
-    const result = await this.prismaService.comment.update({
-      where: {
-        id: commentId,
-      },
+    const result = await this.prismaService.comment.updateMany({
+      where: this.getCommentScopeWhere(tableId, recordId, commentId),
       data: {
         reaction: data.length ? JSON.stringify(data) : null,
-        lastModifiedTime: commentRaw?.lastModifiedTime,
+        lastModifiedTime: commentRaw.lastModifiedTime,
       },
     });
 
-    this.sendCommentPatch(tableId, recordId, CommentPatchType.DeleteReaction, result);
+    if (!result.count) {
+      this.throwCommentNotFound();
+    }
+
+    this.sendCommentPatch(tableId, recordId, CommentPatchType.DeleteReaction, { id: commentId });
   }
 
   async createCommentReaction(
@@ -466,11 +526,15 @@ export class CommentOpenApiService {
     commentId: string,
     reactionRo: { reaction: string }
   ) {
-    const commentRaw = await this.getCommentReactionById(commentId);
+    const commentRaw = await this.getCommentReactionById(tableId, recordId, commentId);
+    if (!commentRaw) {
+      this.throwCommentNotFound();
+    }
+
     const { reaction } = reactionRo;
     let data: ICommentVo['reaction'];
 
-    if (commentRaw && commentRaw.reaction) {
+    if (commentRaw.reaction) {
       const emojis = JSON.parse(commentRaw.reaction) as NonNullable<ICommentVo['reaction']>;
       const index = emojis.findIndex((item) => item.reaction === reaction);
       if (index > -1) {
@@ -494,20 +558,24 @@ export class CommentOpenApiService {
       ];
     }
 
-    const result = await this.prismaService.comment.update({
-      where: {
-        id: commentId,
-      },
+    const result = await this.prismaService.comment.updateMany({
+      where: this.getCommentScopeWhere(tableId, recordId, commentId),
       data: {
         reaction: JSON.stringify(data),
-        lastModifiedTime: commentRaw?.lastModifiedTime,
+        lastModifiedTime: commentRaw.lastModifiedTime,
       },
     });
 
-    await this.sendCommentPatch(tableId, recordId, CommentPatchType.CreateReaction, result);
+    if (!result.count) {
+      this.throwCommentNotFound();
+    }
+
+    await this.sendCommentPatch(tableId, recordId, CommentPatchType.CreateReaction, {
+      id: commentId,
+    });
     await this.sendCommentNotify(tableId, recordId, commentId, {
-      quoteId: result.quoteId,
-      content: result.content,
+      quoteId: commentRaw.quoteId,
+      content: commentRaw.content,
     });
   }
 
@@ -588,14 +656,14 @@ export class CommentOpenApiService {
     };
   }
 
-  private async getCommentReactionById(commentId: string) {
+  private async getCommentReactionById(tableId: string, recordId: string, commentId: string) {
     return await this.prismaService.comment.findFirst({
-      where: {
-        id: commentId,
-      },
+      where: this.getCommentScopeWhere(tableId, recordId, commentId),
       select: {
         reaction: true,
         lastModifiedTime: true,
+        quoteId: true,
+        content: true,
       },
     });
   }
@@ -612,10 +680,8 @@ export class CommentOpenApiService {
 
     if (quoteId) {
       const { createdBy: quoteCommentCreator } =
-        (await this.prismaService.comment.findUnique({
-          where: {
-            id: quoteId,
-          },
+        (await this.prismaService.comment.findFirst({
+          where: this.getCommentScopeWhere(tableId, recordId, quoteId),
           select: {
             createdBy: true,
           },
@@ -739,7 +805,7 @@ export class CommentOpenApiService {
         CommentPatchType.DeleteReaction,
       ].includes(type)
     ) {
-      finalData = await this.getCommentDetail(commentId);
+      finalData = await this.getCommentDetail(tableId, recordId, commentId);
     }
 
     if (type === CommentPatchType.DeleteComment) {
