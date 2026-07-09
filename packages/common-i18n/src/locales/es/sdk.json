@@ -1,6 +1,5 @@
 {
   "common": {
-    "comingSoon": "Próximamente",
     "empty": "Vacío",
     "noRecords": "No hay registros disponibles",
     "unnamedRecord": "Registro sin nombre",
@@ -90,7 +89,6 @@
     "link": {
       "placeholder": "Seleccionar registros para vincular",
       "searchPlaceholder": "Registros de búsqueda",
-      "allFields": "Todos los campos",
       "globalSearch": "Búsqueda global",
       "fieldSearch": "Buscar campo",
       "maxFieldTips": "Se ha excedido el número máximo de {{count}} campos, los campos adicionales serán ignorados",
@@ -98,14 +96,11 @@
       "selectRecord": "Seleccionar registro",
       "all": "Todos",
       "selected": "Seleccionado",
-      "expandRecordError": "No hay permiso para ver este registro.",
       "alreadyOpen": "Este registro ya está abierto.",
       "linkedTo": "Vinculado a",
-      "goToForeignTable": "Ir a la mesa extranjera",
       "foreignTableIdRequired": "La tabla externa es obligatoria",
       "linkFieldIdRequired": "El campo de enlace es obligatorio",
       "selectTooManyRecords": "Los registros seleccionados no deben exceder {{maxCount}}",
-      "relationshipRequired": "La relación es obligatoria",
       "rangeSelectFailed": "Error al seleccionar registros en el rango"
     },
     "user": {
@@ -119,12 +114,10 @@
     "lookup": {
       "lookupFieldIdRequired": "El campo de búsqueda es obligatorio",
       "lookupOptionsNotAllowed": "Las opciones de búsqueda no están permitidas cuando el atributo isLookup es verdadero o el tipo de campo es rollup.",
-      "lookupOptionsRequired": "Las opciones de búsqueda son obligatorias",
-      "refineOptionsError": "Error al analizar las opciones de búsqueda {{message}}"
+      "lookupOptionsRequired": "Las opciones de búsqueda son obligatorias"
     },
     "rollup": {
-      "expressionRequired": "La expresión es obligatoria",
-      "unsupportedTip": "El rollup solo admite campos de enlace y rollup"
+      "expressionRequired": "La expresión es obligatoria"
     },
     "conditionalRollup": {
       "filterRequired": "El filtro debe contener al menos una condición"
@@ -152,11 +145,8 @@
     "addConditionGroup": "Agregar grupo de condición",
     "nestedLimitTip": "Filter conditions can only be nested {{depth}} levels deep",
     "linkInputPlaceholder": "Ingrese un valor",
-    "groupDescription": "Cualquiera de los siguientes es cierto ...",
     "currentUser": "Yo (usuario actual)",
-    "tips": {
-      "scope": "Desde este punto de vista, Show Records"
-    },
+    "tips": {},
     "invalidateSelected": "Valor no válido",
     "invalidateSelectedTips": "Se ha eliminado el valor seleccionado, seleccione nuevamente",
     "invalidConditionTip": "Esta condición de filtro no es válida y se ignorará. Ajuste el valor.",
@@ -254,15 +244,10 @@
     "title": "de nombre de campo",
     "displayLines": "{{count}} líneas"
   },
-  "share": {
-    "title": "compartir"
-  },
-  "extensions": {
-    "title": "extensiones"
-  },
+  "share": {},
+  "extensions": {},
   "hidden": {
     "label": "Campos ocultos",
-    "configLabel_one": "{{count}} hidden field",
     "configLabel_other": "{{count}} hidden fields",
     "configLabel_other_visible": "{{count}} visible fields",
     "showAll": "Mostrar todo",
@@ -285,8 +270,6 @@
       "before": "Antes",
       "after": "Después",
       "buttonClicked": "Botón pulsado",
-      "filterField": "Campo",
-      "filterCreatedBy": "Modificado por",
       "filterTime": "Rango de tiempo",
       "allFields": "Todos los campos",
       "allUsers": "Todos los usuarios",
@@ -392,7 +375,6 @@
       "baseUpdate": "Base de actualización",
       "baseInviteEmail": "Invitar por correo electrónico en la base",
       "baseInviteLink": "Invitar a través de un enlace en la base",
-      "baseTableImport": "Importar datos a la base",
       "baseAuthorityMatrixConfig": "Configurar la matriz de autoridad",
       "baseDbConnect": "Conectarse a la base de datos",
       "tableCreate": "Crear mesa",
@@ -427,7 +409,6 @@
       "appDelete": "Eliminar aplicación",
       "appRead": "Leer aplicación",
       "appUpdate": "Actualizar aplicación",
-      "userProfileRead": "Lea el perfil de usuario actual",
       "userEmailRead": "Lea el correo electrónico actual del usuario",
       "userIntegrations": "Manage user integrations",
       "recordHistoryRead": "Leer Historia de registro",
@@ -865,7 +846,6 @@
     "placeholder": "Deja un comentario ...",
     "emptyComment": "Comience una conversación",
     "deletedComment": "Comentario eliminado",
-    "imageSizeLimit": "Image size could not be greater than {{size}}",
     "tip": {
       "editing": "Editando...",
       "edited": "(Editado)",
@@ -884,8 +864,6 @@
     },
     "floatToolbar": {
       "editLink": "Enlace de edición",
-      "caption": "Subtítulo",
-      "delete": "Borrar",
       "linkText": "Texto de enlace",
       "enterUrl": "Ingrese URL"
     }
@@ -895,7 +873,6 @@
     "memberSelectorSearchPlaceholder": "Miembros de búsqueda ...",
     "departmentSelectorSearchPlaceholder": "Departamentos de búsqueda ...",
     "selected": "Seleccionado",
-    "noSelected": "No seleccionado",
     "empty": "No hay miembros",
     "emptyDepartment": "No hay departamentos"
   },

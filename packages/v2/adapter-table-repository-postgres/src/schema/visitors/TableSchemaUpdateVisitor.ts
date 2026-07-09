@@ -118,6 +118,21 @@ type SelectOptionRecordUpdateRow = {
 const toRecordVersionNumber = (value: number | string | bigint): number =>
   typeof value === 'bigint' ? Number(value) : Number(value);
 
+const formulaStorageTypeChanged = (
+  previousField: FormulaField,
+  nextField: FormulaField
+): boolean => {
+  const visitor = new FieldValueTypeVisitor();
+  const previousType = previousField.accept(visitor);
+  const nextType = nextField.accept(visitor);
+  if (previousType.isErr() || nextType.isErr()) return true;
+
+  return (
+    !previousType.value.cellValueType.equals(nextType.value.cellValueType) ||
+    !previousType.value.isMultipleCellValue.equals(nextType.value.isMultipleCellValue)
+  );
+};
+
 export class TableSchemaUpdateVisitor
   extends AbstractSpecFilterVisitor<ReadonlyArray<TableSchemaStatementBuilder>>
   implements ITableSpecVisitor<ReadonlyArray<TableSchemaStatementBuilder>>
@@ -459,6 +474,9 @@ export class TableSchemaUpdateVisitor
     if (previousFieldResult.isErr()) return err(previousFieldResult.error);
     const nextFieldResult = this.buildFormulaFieldWithExpression(field, spec.nextExpression());
     if (nextFieldResult.isErr()) return err(nextFieldResult.error);
+    spec.markDbStorageTypeChanged(
+      formulaStorageTypeChanged(previousFieldResult.value, nextFieldResult.value)
+    );
 
     const dbFieldNameResult = this.resolveDbFieldNameText(field);
     if (dbFieldNameResult.isErr()) return err(dbFieldNameResult.error);

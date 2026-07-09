@@ -82,6 +82,54 @@ describe('SpaceDataDbMigrationGuardService', () => {
     await expect(service.assertSpaceWritable('spcxxx')).resolves.toBeUndefined();
   });
 
+  it('allows record writes during the online copy phase while schema writes stay blocked', async () => {
+    prismaService.spaceDataDbMigrationJob.findFirst.mockImplementation(async (args) => {
+      const states = args?.where?.state?.in ?? [];
+      if (states.includes('copying')) {
+        return {
+          id: 'sdmjcopy',
+          state: 'copying',
+        };
+      }
+      return null;
+    });
+    const service = new SpaceDataDbMigrationGuardService(prismaService as never);
+
+    await expect(service.assertSpaceSchemaWritable('spcxxx')).rejects.toMatchObject({
+      code: HttpErrorCode.CONFLICT,
+      data: expect.objectContaining({
+        errorCode: 'SPACE_DATA_DB_MIGRATING',
+        migrationState: 'copying',
+      }),
+    });
+    await expect(service.assertSpaceRecordWritable('spcxxx')).resolves.toBeUndefined();
+  });
+
+  it('blocks record writes during freezing even for test-only initial gates', async () => {
+    prismaService.spaceDataDbMigrationJob.findFirst.mockImplementation(async (args) => {
+      expect(args).toMatchObject({
+        where: {
+          spaceId: 'spcxxx',
+          state: { in: ['freezing_writes', 'switching'] },
+        },
+      });
+      expect(args.where).not.toHaveProperty('switchOnCompletion');
+      return {
+        id: 'sdmjtest',
+        state: 'freezing_writes',
+      };
+    });
+    const service = new SpaceDataDbMigrationGuardService(prismaService as never);
+
+    await expect(service.assertSpaceRecordWritable('spcxxx')).rejects.toMatchObject({
+      code: HttpErrorCode.CONFLICT,
+      data: expect.objectContaining({
+        errorCode: 'SPACE_DATA_DB_MIGRATING',
+        migrationJobId: 'sdmjtest',
+      }),
+    });
+  });
+
   it('allows writes when the migration job table has not been migrated yet', async () => {
     prismaService.spaceDataDbMigrationJob.findFirst.mockRejectedValue(
       Object.assign(new Error('The table `public.space_data_db_migration_job` does not exist'), {

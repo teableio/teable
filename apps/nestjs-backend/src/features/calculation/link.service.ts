@@ -82,6 +82,10 @@ export class LinkService {
     );
   }
 
+  private isErroredLinkField(field: Field | IFieldInstance): boolean {
+    return Boolean((field as { hasError?: boolean | null }).hasError);
+  }
+
   private validateLinkCell(cell: ILinkCellContext) {
     if (!Array.isArray(cell.newValue)) {
       return cell;
@@ -1700,10 +1704,14 @@ export class LinkService {
     const fieldMapByTableId = await this.getRelatedFieldMap(fieldIds);
     const fieldMap = fieldMapByTableId[tableId];
     const linkContexts = linkLikeContexts.filter((ctx) => {
-      if (!fieldMap[ctx.fieldId]) {
+      const field = fieldMap[ctx.fieldId];
+      if (!field) {
         return false;
       }
-      if (fieldMap[ctx.fieldId].type !== FieldType.Link || fieldMap[ctx.fieldId].isLookup) {
+      if (this.isErroredLinkField(field)) {
+        return false;
+      }
+      if (field.type !== FieldType.Link || field.isLookup) {
         return false;
       }
       return true;
@@ -1746,10 +1754,14 @@ export class LinkService {
       this.buildFieldMapFromTables(fieldIds, tables) ?? (await this.getRelatedFieldMap(fieldIds));
     const fieldMap = fieldMapByTableId[tableId];
     const linkContexts = linkLikeContexts.filter((ctx) => {
-      if (!fieldMap[ctx.fieldId]) {
+      const field = fieldMap[ctx.fieldId];
+      if (!field) {
         return false;
       }
-      if (fieldMap[ctx.fieldId].type !== FieldType.Link || fieldMap[ctx.fieldId].isLookup) {
+      if (this.isErroredLinkField(field)) {
+        return false;
+      }
+      if (field.type !== FieldType.Link || field.isLookup) {
         return false;
       }
       return true;
@@ -1963,10 +1975,13 @@ export class LinkService {
           },
         })
       : [];
+    const activeRelatedFieldsByReference = relatedFieldsByReference.filter(
+      (field) => !this.isErroredLinkField(field)
+    );
 
     // Fallback: reference graph might be missing for legacy data, so look for link fields whose
     // options still point to this table as their foreign target.
-    const knownFieldIds = new Set(relatedFieldsByReference.map((field) => field.id));
+    const knownFieldIds = new Set(activeRelatedFieldsByReference.map((field) => field.id));
 
     const foreignTableSql = this.dbProvider.optionsQuery(FieldType.Link, 'foreignTableId', tableId);
     const relatedFieldsByForeignTable = await this.prismaService
@@ -1974,9 +1989,12 @@ export class LinkService {
       .$queryRawUnsafe<Field[]>(foreignTableSql);
 
     const merged = new Map<string, Field>();
-    relatedFieldsByReference.forEach((field) => merged.set(field.id, field));
+    activeRelatedFieldsByReference.forEach((field) => merged.set(field.id, field));
     relatedFieldsByForeignTable
-      .filter((field) => !knownFieldIds.has(field.id))
+      .filter(
+        (field) =>
+          !knownFieldIds.has(field.id) && !field.deletedTime && !this.isErroredLinkField(field)
+      )
       .forEach((field) => merged.set(field.id, field));
 
     return Array.from(merged.values());
@@ -1999,7 +2017,7 @@ export class LinkService {
     return await this.getContextByDelete(
       tableId,
       relatedLinkFieldRaws,
-      currentTableLinkFields,
+      currentTableLinkFields.filter((field) => !this.isErroredLinkField(field)),
       records
     );
   }
