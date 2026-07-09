@@ -66,6 +66,7 @@ import type { TreeItemData } from '../base-node/hooks';
 import { findAdjacentNonFolderNode, getNodeUrl, useBaseNodeCrud } from '../base-node/hooks';
 import { useBaseNodeContext } from '../base-node/hooks/useBaseNodeContext';
 import { BaseNodeInfoDialog } from './BaseNodeInfoDialog';
+import { getTableOperationMenuPermission } from './BaseNodeMore.utils';
 import { NodeShareDialog } from './NodeShareDialog';
 
 const useNode = (resourceId: string) => {
@@ -487,33 +488,33 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
   const [nodeInfoDialogOpen, setNodeInfoDialogOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const table = useMemo(() => tables.find((t) => t.id === resourceId), [tables, resourceId]);
+  const tableName = table?.name ?? node?.resourceMeta?.name ?? resourceId;
   const { trigger } = useDownload({ downloadUrl: `/api/export/${resourceId}`, key: 'table' });
 
   const defaultTableName = useMemo(
     () =>
       getUniqName(
-        `${table?.name} ${t('space:baseModal.copy')}`,
+        `${tableName} ${t('space:baseModal.copy')}`,
         tables.map((t) => t.name)
       ),
-    [t, table?.name, tables]
+    [t, tableName, tables]
   );
 
   const [duplicateOption, setDuplicateOption] = useState({
     includeRecords: true,
   });
 
-  const menuPermission = useMemo(() => {
-    return {
-      deleteTable: table?.permission?.['table|delete'],
-      updateTable: table?.permission?.['table|update'],
-      duplicateTable: table?.permission?.['table|read'] && basePermission?.['table|create'],
-      exportTable: table?.permission?.['table|export'],
-      importTable: table?.permission?.['table|import'],
-      tableRecordHistory: canTableRecordHistoryRead,
-      tableTrash: canTableTrashRead,
-      shareTable: basePermission?.['base|update'],
-    };
-  }, [basePermission, table?.permission, canTableRecordHistoryRead, canTableTrashRead]);
+  const menuPermission = useMemo(
+    () =>
+      getTableOperationMenuPermission({
+        table,
+        nodeExists: Boolean(node),
+        basePermission,
+        canTableRecordHistoryRead,
+        canTableTrashRead,
+      }),
+    [basePermission, canTableRecordHistoryRead, canTableTrashRead, node, table]
+  );
   const shareNodeId = menuPermission.shareTable && node ? node.id : undefined;
 
   const deleteTable = async (permanent: boolean) => {
@@ -575,7 +576,7 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
     );
   };
 
-  if (!table) {
+  if (!table && !node) {
     return null;
   }
 
@@ -599,7 +600,7 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
         <ConfirmDialog
           open={deleteConfirm}
           onOpenChange={setDeleteConfirm}
-          title={t('table:table.deleteConfirm', { tableName: table?.name })}
+          title={t('table:table.deleteConfirm', { tableName })}
           content={
             <>
               <div className="space-y-2 text-sm">
@@ -772,11 +773,13 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
             />
           </>
         )}
-        <ListMenuItem
-          icon={<Code2 className="size-4" />}
-          label="API"
-          onClick={() => setApiDialogOpen(true)}
-        />
+        {menuPermission.apiTable && (
+          <ListMenuItem
+            icon={<Code2 className="size-4" />}
+            label="API"
+            onClick={() => setApiDialogOpen(true)}
+          />
+        )}
         {menuPermission.tableRecordHistory && (
           <Sheet modal={true}>
             <SheetTrigger asChild>
@@ -919,10 +922,12 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
             </DropdownMenuSub>
           )}
 
-          <DropdownMenuItem onClick={() => setApiDialogOpen(true)}>
-            <Code2 className="mr-2 size-4" />
-            API
-          </DropdownMenuItem>
+          {menuPermission.apiTable && (
+            <DropdownMenuItem onClick={() => setApiDialogOpen(true)}>
+              <Code2 className="mr-2 size-4" />
+              API
+            </DropdownMenuItem>
+          )}
 
           {(menuPermission.tableRecordHistory || menuPermission.tableTrash) && (
             <DropdownMenuSub>

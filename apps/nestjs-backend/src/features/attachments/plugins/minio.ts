@@ -10,7 +10,13 @@ import { IStorageConfig, StorageConfig } from '../../../configs/storage';
 import { CustomHttpException } from '../../../custom.exception';
 import { second } from '../../../utils/second';
 import StorageAdapter from './adapter';
-import type { IPresignParams, IPresignRes, IRespHeaders } from './types';
+import type {
+  IListObjectsOptions,
+  IListObjectsResult,
+  IPresignParams,
+  IPresignRes,
+  IRespHeaders,
+} from './types';
 
 @Injectable()
 export class MinioStorage implements StorageAdapter {
@@ -275,6 +281,30 @@ export class MinioStorage implements StorageAdapter {
 
   async deleteFile(bucket: string, path: string): Promise<void> {
     await this.minioClientPrivateNetwork.removeObject(bucket, path);
+  }
+
+  async listObjects(
+    bucket: string,
+    prefix: string,
+    options?: IListObjectsOptions
+  ): Promise<IListObjectsResult> {
+    const objects: IListObjectsResult['objects'] = [];
+    const prefixes = new Set<string>();
+    // minio: recursive=false groups keys at '/' into prefix entries, matching S3 delimiter='/'
+    const recursive = !options?.delimiter;
+    const stream = this.minioClientPrivateNetwork.listObjects(bucket, prefix, recursive);
+    await new Promise<void>((resolve, reject) => {
+      stream.on('data', (obj) => {
+        if (obj.name) {
+          objects.push({ key: obj.name, size: obj.size ?? 0, etag: obj.etag ?? undefined });
+        } else if (obj.prefix) {
+          prefixes.add(obj.prefix);
+        }
+      });
+      stream.on('end', () => resolve());
+      stream.on('error', reject);
+    });
+    return { objects, prefixes: [...prefixes] };
   }
 
   async deleteDir(bucket: string, path: string, throwError: boolean = true): Promise<void> {

@@ -962,7 +962,16 @@ describeByodbStorage('BYODB space storage placement (e2e)', () => {
 
         const workerResult = await migrationWorkerService.runOnce();
         expect(workerResult?.jobId).toBe(jobId);
-        expect(workerResult?.status).toBe('succeeded');
+        if (workerResult?.status !== 'succeeded') {
+          const failedStatus = await migrationService.getMigrationJobStatus(space.id, jobId);
+          throw new Error(
+            `Migration worker failed: ${workerResult?.error}; status=${JSON.stringify({
+              lastError: failedStatus.lastError,
+              copyStats: failedStatus.copyStats,
+              validationStats: failedStatus.validationStats,
+            })}`
+          );
+        }
 
         const status = await waitForMigrationSucceeded(
           space.id,

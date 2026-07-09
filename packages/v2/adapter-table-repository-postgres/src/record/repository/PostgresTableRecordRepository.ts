@@ -1224,10 +1224,34 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
   }
 
   /**
-   * Default batch size for insertMany to stay under PostgreSQL's ~65535 parameter limit.
-   * With ~10 columns per record (user fields + system columns), 500 records = ~5000 params.
+   * Default row cap for insertMany. Wide tables can use many bind parameters per
+   * row, so the effective batch size is reduced dynamically before execution.
    */
   private static readonly INSERT_BATCH_SIZE = 500;
+  // Keep well below PostgreSQL's 65,535 bind-parameter ceiling to avoid
+  // protocol overflow and leave room for driver/dialect quirks on wide tables.
+  private static readonly POSTGRES_BIND_PARAMETER_SAFE_LIMIT = 30_000;
+
+  private static resolveInsertBatchSize(values: ReadonlyArray<Record<string, unknown>>): number {
+    const columnNames = new Set<string>();
+    for (const value of values) {
+      for (const columnName of Object.keys(value)) {
+        columnNames.add(columnName);
+      }
+    }
+
+    if (columnNames.size === 0) {
+      return PostgresTableRecordRepository.INSERT_BATCH_SIZE;
+    }
+
+    const bindLimitedBatchSize = Math.floor(
+      PostgresTableRecordRepository.POSTGRES_BIND_PARAMETER_SAFE_LIMIT / columnNames.size
+    );
+    return Math.max(
+      1,
+      Math.min(PostgresTableRecordRepository.INSERT_BATCH_SIZE, bindLimitedBatchSize)
+    );
+  }
 
   async insertMany(
     context: core.IExecutionContext,
@@ -1473,8 +1497,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             );
           }
 
-          // Execute batch inserts to stay under PG parameter limit
-          const batchSize = PostgresTableRecordRepository.INSERT_BATCH_SIZE;
+          // Execute batch inserts to stay under PG parameter limit.
+          const batchSize = PostgresTableRecordRepository.resolveInsertBatchSize(allValues);
           const requestedChangedFieldIds = [...requestedChangedFieldIdsByRecord.values()].flatMap(
             (fieldIds) => [...fieldIds]
           );

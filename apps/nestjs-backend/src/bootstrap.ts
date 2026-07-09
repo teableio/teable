@@ -34,6 +34,12 @@ export async function setUpAppMiddleware(app: INestApplication, configService: C
   const apiDocConfig = configService.get<IApiDocConfig>('apiDoc');
   const securityWebConfig = configService.get<ISecurityWebConfig>('security.web');
   const baseConfig = configService.get<IBaseConfig>('base');
+
+  // req.ip must resolve the real client IP from X-Forwarded-For (audit logs,
+  // per-IP rate limiting); see parseTrustProxy for the BACKEND_TRUST_PROXY contract.
+  if (securityWebConfig) {
+    app.getHttpAdapter().getInstance().set('trust proxy', securityWebConfig.trustProxy);
+  }
   if (!apiDocConfig?.disabled) {
     await setupSwagger(app, baseConfig?.publicOrigin ?? '', apiDocConfig?.enabledSnippet ?? false);
   }

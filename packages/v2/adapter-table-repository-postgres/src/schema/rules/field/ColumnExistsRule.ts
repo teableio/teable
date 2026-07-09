@@ -24,6 +24,7 @@ import {
   type TableIdentifier,
 } from '../helpers/StatementBuilders';
 import { ColumnUniqueConstraintRule } from './ColumnUniqueConstraintRule';
+import { DefaultValueBackfillRule } from './DefaultValueBackfillRule';
 import { NotNullConstraintRule } from './NotNullConstraintRule';
 
 /**
@@ -79,6 +80,13 @@ export class ColumnExistsRule implements ISchemaRule {
   }
 
   /**
+   * Create a default-value backfill rule that depends on this column rule.
+   */
+  createDefaultValueBackfillRule(): DefaultValueBackfillRule {
+    return new DefaultValueBackfillRule(this.field, this);
+  }
+
+  /**
    * Create a UNIQUE constraint rule that depends on this column rule.
    */
   createUniqueRule(): ColumnUniqueConstraintRule {
@@ -93,7 +101,8 @@ export class ColumnExistsRule implements ISchemaRule {
     const rules: ISchemaRule[] = [columnRule];
 
     if (columnRule.shouldHaveNotNull()) {
-      rules.push(columnRule.createNotNullRule());
+      const backfillRule = columnRule.createDefaultValueBackfillRule();
+      rules.push(backfillRule, new NotNullConstraintRule(field, backfillRule));
     }
 
     if (columnRule.shouldHaveUnique()) {

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { MulterModule } from '@nestjs/platform-express';
 import multer from 'multer';
 import { StorageModule } from '../attachments/plugins/storage.module';
+import { RiskControlModule } from '../risk-control/risk-control.module';
 import { SettingModule } from '../setting/setting.module';
 import { LastVisitModule } from './last-visit/last-visit.module';
 import { TrackingModule } from './tracking/tracking.module';
@@ -16,6 +17,7 @@ import { UserService } from './user.service';
     }),
     StorageModule,
     SettingModule,
+    RiskControlModule,
     LastVisitModule,
     TrackingModule,
   ],
