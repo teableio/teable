@@ -49,6 +49,7 @@ import type {
   AnyOutboxItem,
   FieldBackfillOutboxItem,
   SeedOutboxItem,
+  MarkFailedOptions,
 } from './IComputedUpdateOutbox';
 
 const OUTBOX_TABLE = 'computed_update_outbox';
@@ -898,13 +899,30 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
   async markFailed(
     task: AnyOutboxItem,
     error: string,
-    context?: IExecutionContext
+    context?: IExecutionContext,
+    options: MarkFailedOptions = {}
   ): Promise<Result<boolean, DomainError>> {
+    const failureSpanAttributes: Record<string, string | boolean> = {};
+    if (options.failureKind) failureSpanAttributes['outbox.failure.kind'] = options.failureKind;
+    if (options.failureReason) {
+      failureSpanAttributes['outbox.failure.reason'] = options.failureReason;
+    }
+    if (options.retryable !== undefined) {
+      failureSpanAttributes['outbox.failure.retryable'] = options.retryable;
+    }
+    if (options.directDeadLetter !== undefined) {
+      failureSpanAttributes['outbox.deadLetter.direct'] = options.directDeadLetter;
+    }
+
     const span = context?.tracer?.startSpan('teable.outbox.markFailed', {
       'outbox.taskId': task.id,
       'outbox.attempts': task.attempts,
       'outbox.maxAttempts': task.maxAttempts,
+      ...failureSpanAttributes,
     });
+    span?.recordError(error);
+
+    const failureLogFields = buildFailureLogFields(task, options);
 
     const executeMarkFailed = async (): Promise<Result<boolean, DomainError>> => {
       const now = new Date();
@@ -953,7 +971,14 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             await trx.deleteFrom(OUTBOX_TABLE).where('id', '=', task.id).execute();
             await trx.deleteFrom(OUTBOX_SEED_TABLE).where('task_id', '=', task.id).execute();
 
-            this.logger.warn('computed:outbox:dead_letter', { taskId: task.id, error });
+            span?.setAttribute('outbox.deadLetter', true);
+            this.logger.warn('computed:outbox:dead_letter', {
+              taskId: task.id,
+              error,
+              attempts: nextAttempts,
+              maxAttempts: task.maxAttempts,
+              ...failureLogFields,
+            });
             return ok(true);
           }
 
@@ -977,10 +1002,12 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             .where('id', '=', task.id)
             .execute();
 
+          span?.setAttribute('outbox.retryScheduled', true);
           this.logger.warn('computed:outbox:retry_scheduled', {
             taskId: task.id,
             attempts: nextAttempts,
             nextRunAt,
+            ...failureLogFields,
           });
 
           return ok(true);
@@ -2170,6 +2197,22 @@ const buildSeedGroupsFromSeedPayload = (
 const isSeedItem = (task: AnyOutboxItem): task is SeedOutboxItem => {
   return (task as SeedOutboxItem).taskType === 'seed';
 };
+
+const buildFailureLogFields = (
+  task: AnyOutboxItem,
+  options: MarkFailedOptions
+): Record<string, unknown> => ({
+  baseId: task.baseId,
+  seedTableId: 'seedTableId' in task ? task.seedTableId : null,
+  tableId: 'tableId' in task ? task.tableId : null,
+  taskType: isFieldBackfillItem(task) ? 'field-backfill' : isSeedItem(task) ? 'seed' : 'computed',
+  ...(options.failureKind ? { failureKind: options.failureKind } : {}),
+  ...(options.failureReason ? { failureReason: options.failureReason } : {}),
+  ...(options.retryable !== undefined ? { retryable: options.retryable } : {}),
+  ...(options.directDeadLetter !== undefined
+    ? { directDeadLetter: options.directDeadLetter }
+    : {}),
+});
 
 /**
  * Build dead letter table values based on task type.
