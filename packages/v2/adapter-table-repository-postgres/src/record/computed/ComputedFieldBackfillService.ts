@@ -65,9 +65,9 @@ const hasUnitOfWorkTransaction = (context: IExecutionContext): boolean => {
 export type FieldBackfillConfig = {
   /**
    * Strategy for backfill execution.
-   * - 'sync': Execute immediately in current transaction (default)
+   * - 'sync': Execute immediately in current transaction
    * - 'async': Enqueue to outbox for background processing
-   * - 'hybrid': Sync for small tables, async for large tables
+   * - 'hybrid': Sync for small tables, async for large tables (default)
    */
   mode: 'sync' | 'async' | 'hybrid';
 
@@ -81,7 +81,7 @@ export type FieldBackfillConfig = {
 };
 
 export const defaultFieldBackfillConfig: FieldBackfillConfig = {
-  mode: 'sync',
+  mode: 'hybrid',
   hybridThreshold: 10000,
 };
 
@@ -100,7 +100,7 @@ export const defaultFieldBackfillConfig: FieldBackfillConfig = {
  *
  * @example
  * ```typescript
- * // Sync mode (default)
+ * // Sync mode (explicit)
  * const result = await backfillService.backfill(context, {
  *   table,
  *   field: newFormulaField,
@@ -852,21 +852,61 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
       return true;
     }
 
-    // Hybrid mode: check table row count
+    const rowCountEstimate = await this.estimateTableRowCount(context, table);
+    if (rowCountEstimate !== undefined) {
+      return rowCountEstimate > this.config.hybridThreshold;
+    }
+
+    const fallbackToAsync = hasUnitOfWorkTransaction(context);
+    this.logger.warn('computed:backfill:row_count_estimate_unavailable', {
+      tableId: table.id().toString(),
+      mode: this.config.mode,
+      fallback: fallbackToAsync ? 'async' : 'sync',
+      inTransaction: fallbackToAsync,
+    });
+    return fallbackToAsync;
+  }
+
+  private async estimateTableRowCount(
+    context: IExecutionContext,
+    table: Table
+  ): Promise<number | undefined> {
+    const locationResult = table
+      .dbTableName()
+      .andThen((dbTableName) => dbTableName.split({ defaultSchema: 'public' }));
+    if (locationResult.isErr()) {
+      this.logger.warn('computed:backfill:row_count_estimate_table_name_failed', {
+        tableId: table.id().toString(),
+        error: locationResult.error.message,
+      });
+      return undefined;
+    }
+
     const db = this.resolveDb(context);
-    const tableName = table.dbTableName().toString();
+    const { schema, tableName } = locationResult.value;
 
     try {
-      const result = await db
-        .selectFrom(tableName as keyof DynamicDB)
-        .select((eb) => eb.fn.countAll<number>().as('count'))
-        .executeTakeFirst();
+      const result = await sql<{ estimated_row_count: number | string | null }>`
+        SELECT GREATEST(c.reltuples, COALESCE(s.n_live_tup, 0), 0)::float8 AS estimated_row_count
+        FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        LEFT JOIN pg_stat_all_tables s ON s.relid = c.oid
+        WHERE n.nspname = ${schema ?? 'public'}
+          AND c.relname = ${tableName}
+        LIMIT 1
+      `.execute(db);
 
-      const rowCount = Number(result?.count ?? 0);
-      return rowCount > this.config.hybridThreshold;
-    } catch {
-      // If count fails, default to sync
-      return false;
+      const rawEstimate = result.rows[0]?.estimated_row_count;
+      const estimate = rawEstimate == null ? undefined : Number(rawEstimate);
+      return estimate !== undefined && Number.isFinite(estimate) ? Math.ceil(estimate) : undefined;
+    } catch (error) {
+      this.logger.warn('computed:backfill:row_count_estimate_failed', {
+        tableId: table.id().toString(),
+        tableSchema: schema ?? 'public',
+        tableName,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return undefined;
     }
   }
 

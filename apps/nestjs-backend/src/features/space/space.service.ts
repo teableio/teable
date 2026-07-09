@@ -1,4 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
+import { join } from 'path';
 import { Injectable, Optional } from '@nestjs/common';
 import type { IRole } from '@teable/core';
 import {
@@ -21,7 +22,13 @@ import type {
   IUpdateIntegrationRo,
   IUpdateSpaceRo,
 } from '@teable/openapi';
-import { ResourceType, CollaboratorType, PrincipalType, IntegrationType } from '@teable/openapi';
+import {
+  ResourceType,
+  CollaboratorType,
+  PrincipalType,
+  IntegrationType,
+  UploadType,
+} from '@teable/openapi';
 import { Knex } from 'knex';
 import { keyBy, map, uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
@@ -33,6 +40,9 @@ import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { PerformanceCache, PerformanceCacheService } from '../../performance-cache';
 import { generateIntegrationCacheKey } from '../../performance-cache/generate-keys';
 import type { IClsStore } from '../../types/cls';
+import { AVATAR_OUTPUT_MIMETYPE, AVATAR_SIZE, cropSquareAvatarImage } from '../../utils/avatar';
+import StorageAdapter from '../attachments/plugins/adapter';
+import { InjectStorageAdapter } from '../attachments/plugins/storage';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { PermissionService } from '../auth/permission.service';
 import { BaseService } from '../base/base.service';
@@ -58,6 +68,7 @@ export class SpaceService {
     @ThresholdConfig() protected readonly thresholdConfig: IThresholdConfig,
     @InjectModel('CUSTOM_KNEX') protected readonly knex: Knex,
     @InjectDbProvider() protected readonly dbProvider: IDbProvider,
+    @InjectStorageAdapter() protected readonly storageAdapter: StorageAdapter,
     @Optional()
     protected readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService
   ) {}
@@ -107,6 +118,7 @@ export class SpaceService {
       select: {
         id: true,
         name: true,
+        avatar: true,
       },
       where: {
         id: spaceId,
@@ -134,11 +146,12 @@ export class SpaceService {
     }
     return {
       ...space,
+      avatar: space.avatar ? getPublicFullStorageUrl(space.avatar) : null,
       role,
     };
   }
 
-  async filterSpaceListWithAccessToken(spaceList: { id: string; name: string }[]) {
+  async filterSpaceListWithAccessToken<T extends { id: string; name: string }>(spaceList: T[]) {
     const accessTokenId = this.cls.get('accessTokenId');
     if (!accessTokenId) {
       return spaceList;
@@ -173,7 +186,7 @@ export class SpaceService {
         deletedTime: null,
         isTemplate: null,
       },
-      select: { id: true, name: true },
+      select: { id: true, name: true, avatar: true },
       orderBy: { createdTime: 'asc' },
     });
     const roleMap = collaboratorSpaceList.reduce(
@@ -191,6 +204,7 @@ export class SpaceService {
     const filteredSpaceList = await this.filterSpaceListWithAccessToken(spaceList);
     return filteredSpaceList.map((space) => ({
       ...space,
+      avatar: space.avatar ? getPublicFullStorageUrl(space.avatar) : null,
       role: roleMap[space.id].roleName as IRole,
     }));
   }
@@ -263,6 +277,67 @@ export class SpaceService {
         id: spaceId,
         deletedTime: null,
       },
+    });
+  }
+
+  async updateSpaceAvatar(
+    spaceId: string,
+    avatarFile: { path: string; mimetype: string; size: number }
+  ) {
+    await this.assertSpaceWritable(spaceId);
+    const userId = this.cls.get('user.id');
+
+    const space = await this.prismaService.space.findFirst({
+      select: { id: true },
+      where: { id: spaceId, deletedTime: null },
+    });
+    if (!space) {
+      throw new CustomHttpException('Space not found', HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.space.notFound',
+        },
+      });
+    }
+
+    const storagePath = join(StorageAdapter.getDir(UploadType.SpaceAvatar), spaceId);
+    const bucket = StorageAdapter.getBucket(UploadType.SpaceAvatar);
+
+    // Crop the image to a square before uploading
+    const croppedImageBuffer = await cropSquareAvatarImage(avatarFile.path, AVATAR_SIZE);
+
+    // Upload the cropped image buffer directly
+    const { hash } = await this.storageAdapter.uploadFile(bucket, storagePath, croppedImageBuffer, {
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      'Content-Type': AVATAR_OUTPUT_MIMETYPE,
+    });
+
+    const attachmentInput = {
+      hash,
+      size: croppedImageBuffer.length,
+      mimetype: AVATAR_OUTPUT_MIMETYPE,
+      token: spaceId,
+      path: storagePath,
+    };
+    await this.prismaService.txClient().attachments.upsert({
+      create: {
+        ...attachmentInput,
+        createdBy: userId,
+      },
+      update: attachmentInput,
+      where: {
+        token: spaceId,
+        deletedTime: null,
+      },
+    });
+
+    // Append a version query so re-uploads bust the browser cache. The storage
+    // path itself is stable (one file per space), only the URL string varies.
+    await this.prismaService.txClient().space.update({
+      data: {
+        avatar: `${storagePath}?v=${Date.now()}`,
+        lastModifiedBy: userId,
+      },
+      where: { id: spaceId, deletedTime: null },
     });
   }
 

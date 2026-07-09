@@ -163,6 +163,7 @@ describe('FieldValueChangeCollectorVisitor coverage', () => {
 
     visitor.visitUpdateFormulaExpression({
       fieldId: () => formulaFieldId,
+      hasDbStorageTypeChange: () => true,
     } as never);
     visitor.visitUpdateRollupExpression({
       fieldId: () => rollupFieldId,

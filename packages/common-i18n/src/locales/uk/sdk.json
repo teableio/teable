@@ -1,6 +1,5 @@
 {
   "common": {
-    "comingSoon": "Незабаром",
     "empty": "Порожній",
     "noRecords": "Немає записів",
     "unnamedRecord": "Запис без назви",
@@ -90,7 +89,6 @@
     "link": {
       "placeholder": "Виберіть записи для зв'язування",
       "searchPlaceholder": "Пошук записів",
-      "allFields": "Усі поля",
       "globalSearch": "Глобальний пошук",
       "fieldSearch": "Пошук по полю",
       "maxFieldTips": "Перевищено максимальну кількість {{count}} полів, зайві поля будуть проігноровані",
@@ -98,14 +96,11 @@
       "selectRecord": "Виберіть запис",
       "all": "Усі",
       "selected": "Вибрано",
-      "expandRecordError": "Немає дозволу на перегляд цього запису.",
       "alreadyOpen": "Цей запис уже відкрито.",
       "linkedTo": "Пов'язано з",
-      "goToForeignTable": "Перейти до іноземної таблиці",
       "foreignTableIdRequired": "Зовнішня таблиця обов'язкова",
       "linkFieldIdRequired": "Поле зв'язку обов'язкове",
       "selectTooManyRecords": "Вибрані записи не повинні перевищувати {{maxCount}}",
-      "relationshipRequired": "Відношення обов'язкове",
       "rangeSelectFailed": "Не вдалося вибрати записи в діапазоні"
     },
     "user": {
@@ -119,12 +114,10 @@
     "lookup": {
       "lookupFieldIdRequired": "Поле пошуку обов'язкове",
       "lookupOptionsNotAllowed": "Опції пошуку не дозволені, коли атрибут isLookup істинний або тип поля rollup.",
-      "lookupOptionsRequired": "Опції пошуку обов'язкові",
-      "refineOptionsError": "Помилка парсингу опцій пошуку {{message}}"
+      "lookupOptionsRequired": "Опції пошуку обов'язкові"
     },
     "rollup": {
-      "expressionRequired": "Вираз обов'язковий",
-      "unsupportedTip": "Rollup підтримує лише поля зв'язку та rollup"
+      "expressionRequired": "Вираз обов'язковий"
     },
     "conditionalRollup": {
       "filterRequired": "Фільтр має містити щонайменше одну умову"
@@ -152,11 +145,8 @@
     "addConditionGroup": "Додати групу умов",
     "nestedLimitTip": "Умови фільтрації можуть бути вкладені лише на {{depth}} рівнів",
     "linkInputPlaceholder": "Введіть значення",
-    "groupDescription": "Будь-що з наведеного нижче вірно...",
     "currentUser": "Я (поточний користувач)",
-    "tips": {
-      "scope": "У цьому поданні відобразити записи"
-    },
+    "tips": {},
     "invalidateSelected": "Недійсне значення",
     "invalidateSelectedTips": "Вибране значення видалено, виберіть ще раз",
     "invalidConditionTip": "Ця умова фільтра недійсна і буде проігнорована. Змініть значення.",
@@ -254,15 +244,10 @@
     "title": "имени поля",
     "displayLines": "{{count}} строк"
   },
-  "share": {
-    "title": "поділитися"
-  },
-  "extensions": {
-    "title": "Розширення"
-  },
+  "share": {},
+  "extensions": {},
   "hidden": {
     "label": "Приховані поля",
-    "configLabel_one": "{{count}} приховане поле",
     "configLabel_other": "{{count}} прихованих поля",
     "configLabel_other_visible": "{{count}} видимих ​​полів",
     "showAll": "Показати все",
@@ -285,8 +270,6 @@
       "before": "До",
       "after": "Після",
       "buttonClicked": "Натиснуто кнопку",
-      "filterField": "Поле",
-      "filterCreatedBy": "Змінено",
       "filterTime": "Діапазон часу",
       "allFields": "Усі поля",
       "allUsers": "Усі користувачі",
@@ -392,7 +375,6 @@
       "baseUpdate": "Оновити базу",
       "baseInviteEmail": "Запросити електронною поштою в базі",
       "baseInviteLink": "Запросити за посиланням у базі",
-      "baseTableImport": "Імпортувати дані в базу",
       "baseAuthorityMatrixConfig": "Налаштувати матрицю повноважень",
       "baseDbConnect": "Підключитися до бази даних",
       "tableCreate": "Створити таблицю",
@@ -427,7 +409,6 @@
       "appDelete": "Видалити додаток",
       "appRead": "Читати додаток",
       "appUpdate": "Оновити додаток",
-      "userProfileRead": "Читати поточний профіль користувача",
       "userEmailRead": "Прочитати електронну адресу поточного користувача",
       "userIntegrations": "Manage user integrations",
       "recordHistoryRead": "Читати історію записів",
@@ -865,7 +846,6 @@
     "placeholder": "Залишіть коментар...",
     "emptyComment": "Почніть розмову",
     "deletedComment": "Віддалений коментар",
-    "imageSizeLimit": "Розмір зображення не може перевищувати {{size}}",
     "tip": {
       "editing": "Редагування...",
       "edited": "(Редаговано)",
@@ -884,8 +864,6 @@
     },
     "floatToolbar": {
       "editLink": "Редагувати посилання",
-      "caption": "Підпис",
-      "delete": "Видалити",
       "linkText": "Текст посилання",
       "enterUrl": "Введіть URL"
     }
@@ -895,7 +873,6 @@
     "memberSelectorSearchPlaceholder": "Пошук учасників...",
     "departmentSelectorSearchPlaceholder": "Шукати відділи...",
     "selected": "Вибрано",
-    "noSelected": "Не вибрано",
     "empty": "Немає учасників",
     "emptyDepartment": "Немає відділів"
   },

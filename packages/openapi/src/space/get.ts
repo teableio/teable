@@ -10,6 +10,7 @@ export const GET_SPACE = '/space/{spaceId}';
 export const getSpaceVoSchema = z.object({
   id: z.string(),
   name: z.string(),
+  avatar: z.string().nullable().optional(),
   role: roleSchema,
   organization: z
     .object({

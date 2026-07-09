@@ -13,8 +13,7 @@
     "filterLinkSelectPlaceholder": "Select..."
   },
   "view": {
-    "signInToEdit": "<a>Sign in</a> to edit",
-    "login": "Sign in"
+    "signInToEdit": "<a>Sign in</a> to edit"
   },
   "openOnNewPage": "Open on new page",
   "errorTips": "Sharing source has enabled a Authority matrix, viewing is not allowed"

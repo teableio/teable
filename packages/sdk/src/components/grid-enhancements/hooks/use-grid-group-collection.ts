@@ -63,7 +63,7 @@ const useGenerateGroupCellFn = () => {
 
         const validateCellValue =
           field.cellValueType === CellValueType.DateTime
-            ? validateDateFieldValueLoose(_cellValue)
+            ? validateDateFieldValueLoose(_cellValue, field.isMultipleCellValue)
             : field.validateCellValue(_cellValue);
         const cellValue = (
           validateCellValue.success ? validateCellValue.data : undefined

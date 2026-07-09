@@ -776,6 +776,9 @@ export class BaseService {
             spaceId,
             withRecords,
             baseId,
+            // Adapt date-related field time zones in the template to the user's
+            // environment instead of keeping the template author's time zone.
+            timeZone: createBaseFromTemplateRo.timeZone,
           },
           false,
           BaseDuplicateMode.ApplyTemplate
@@ -838,13 +841,15 @@ export class BaseService {
       await this.permissionService.validPermissions(baseId, ['base|delete'], accessTokenId, true);
     }
 
-    return await this.prismaService.$tx(
+    let purgedTableIds: string[] = [];
+    const result = await this.prismaService.$tx(
       async (prisma) => {
         const tables = await prisma.tableMeta.findMany({
           where: { baseId },
           select: { id: true },
         });
         const tableIds = tables.map(({ id }) => id);
+        purgedTableIds = tableIds;
 
         await this.dropBase(baseId, tableIds);
         await this.tableOpenApiService.cleanReferenceFieldIds(tableIds);
@@ -857,6 +862,9 @@ export class BaseService {
         timeout: this.thresholdConfig.bigTransactionTimeout,
       }
     );
+    // irreversible S3 cleanup only after the purge transaction has committed
+    await this.tableOpenApiService.cleanupColdHistoryPrefixes(purgedTableIds);
+    return result;
   }
 
   private async permanentEmptyBaseRelatedData(
@@ -867,6 +875,7 @@ export class BaseService {
       syncButtonField?: boolean;
     } = {}
   ) {
+    let purgedTableIds: string[] = [];
     const remove = async () => {
       const prisma = this.prismaService.txClient();
       const tables = await prisma.tableMeta.findMany({
@@ -874,6 +883,7 @@ export class BaseService {
         select: { id: true },
       });
       const tableIds = tables.map(({ id }) => id);
+      purgedTableIds = tableIds;
 
       await this.dropBaseTable(tableIds);
       await this.tableOpenApiService.cleanReferenceFieldIds(tableIds);
@@ -885,12 +895,19 @@ export class BaseService {
     };
 
     if (options.transaction === 'current') {
+      // the caller owns the ambient transaction, so there is no post-commit
+      // point in this scope — deleting the cold prefixes here would be
+      // irreversible while the transaction can still roll back. Skip the S3
+      // cleanup entirely: an orphaned prefix is a harmless leak reconciled
+      // by ops tooling, the opposite failure loses customer history
       return await remove();
     }
 
-    return await this.prismaService.$tx(remove, {
+    const result = await this.prismaService.$tx(remove, {
       timeout: this.thresholdConfig.bigTransactionTimeout,
     });
+    await this.tableOpenApiService.cleanupColdHistoryPrefixes(purgedTableIds);
+    return result;
   }
 
   private async cleanBaseRelatedDataWithoutBase(baseId: string) {

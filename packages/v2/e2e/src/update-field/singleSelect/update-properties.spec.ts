@@ -471,6 +471,39 @@ describe('update-field: singleSelect property updates', () => {
     await ctx.deleteField({ tableId, fieldId });
   });
 
+  test('should clear defaultValue T6107', async () => {
+    const fieldId = createFieldId();
+    const optionA = { id: 'choA', name: 'A', color: 'blueBright' };
+    const optionB = { id: 'choB', name: 'B', color: 'greenBright' };
+    await ctx.createField({
+      baseId: ctx.baseId,
+      tableId,
+      field: {
+        type: 'singleSelect',
+        id: fieldId,
+        name: 'Clear Default',
+        options: { choices: [optionA, optionB], defaultValue: 'A' },
+      },
+    });
+
+    const updatedTable = await ctx.updateField({
+      baseId: ctx.baseId,
+      tableId,
+      fieldId,
+      field: { options: { defaultValue: null } },
+    });
+
+    const updatedField = updatedTable.fields.find((f) => f.id === fieldId);
+    expect(getSelectOptions(updatedField).defaultValue).toBeUndefined();
+
+    // After clear, new records must not receive option "A".
+    const rec = await ctx.createRecord(tableId, {});
+    expect(rec.fields[fieldId] == null).toBe(true);
+
+    await ctx.deleteField({ tableId, fieldId });
+    await ctx.deleteRecords(tableId, [rec.id]);
+  });
+
   test('should reject defaultValue not in options', async () => {
     // Setup: Create singleSelect with options: ["A", "B"]
     const fieldId = createFieldId();

@@ -7,7 +7,7 @@ import type {
   IButtonFieldOptions,
   IMakeOptional,
 } from '@teable/core';
-import { FieldKeyType, FieldType, HttpErrorCode, ViewType } from '@teable/core';
+import { CellValueType, FieldKeyType, FieldType, HttpErrorCode, ViewType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { CreateRecordAction, ICreateRecordsRo, IUpdateRecordsRo } from '@teable/openapi';
 import type {
@@ -35,6 +35,7 @@ import { AuditScope } from '../../audit/audit-scope';
 import { Audit } from '../../audit/audit.decorator';
 import { FieldService } from '../../field/field.service';
 import { createFieldInstanceByRaw } from '../../field/model/factory';
+import { RecordHistoryColdReadService } from '../../record-history-cold/record-history-cold-read.service';
 import { TableDomainQueryService } from '../../table-domain';
 import { RecordModifyService } from '../record-modify/record-modify.service';
 import { RecordModifySharedService } from '../record-modify/record-modify.shared.service';
@@ -71,7 +72,8 @@ export class RecordOpenApiService {
     private readonly cls: ClsService<IClsStore>,
     private readonly eventEmitterService: EventEmitterService,
     private readonly dataDbClientManager: DataDbClientManager,
-    private readonly audit: AuditScope
+    private readonly audit: AuditScope,
+    private readonly recordHistoryColdReadService: RecordHistoryColdReadService
   ) {}
 
   @retryOnDeadlock()
@@ -204,48 +206,21 @@ export class RecordOpenApiService {
     const allowedFieldIds = getAllowedRecordHistoryFieldIds(fieldIds, projectionIds);
     const shouldFilterByField = Boolean(fieldIds?.length || projectionIds?.length);
 
-    const dateFilter: { [key: string]: Date } = {};
-    if (startDate) {
-      dateFilter['gte'] = new Date(startDate);
-    }
-    if (endDate) {
-      dateFilter['lte'] = new Date(endDate);
-    }
-
-    const dataPrisma = await this.dataDbClientManager.dataPrismaForTable(tableId);
-    const list = await dataPrisma.recordHistory.findMany({
-      where: {
-        tableId,
-        ...(recordId ? { recordId } : {}),
-        ...(Object.keys(dateFilter).length > 0 ? { createdTime: dateFilter } : {}),
-        ...(shouldFilterByField ? { fieldId: { in: allowedFieldIds ?? [] } } : {}),
-        ...(createdByIds?.length ? { createdBy: { in: createdByIds } } : {}),
-      },
-      select: {
-        id: true,
-        recordId: true,
-        fieldId: true,
-        before: true,
-        after: true,
-        createdTime: true,
-        createdBy: true,
-      },
-      take: limit + 1,
-      cursor: cursor ? { id: cursor } : undefined,
-      orderBy: {
-        createdTime: 'desc',
-      },
+    const { list, nextCursor } = await this.collectRecordHistoryRows({
+      tableId,
+      recordId,
+      startDate,
+      endDate,
+      allowedFieldIds,
+      shouldFilterByField,
+      createdByIds,
+      cursor,
+      limit,
     });
-
-    let nextCursor: typeof cursor | undefined = undefined;
-
-    if (list.length > limit) {
-      const nextItem = list.pop();
-      nextCursor = nextItem?.id;
-    }
 
     const createdBySet: Set<string> = new Set();
     const historyList: IRecordHistoryItemVo[] = [];
+    const syntheticMetaCache = new Map<string, IRecordHistoryItemVo['before']['meta']>();
 
     for (const item of list) {
       const { id, recordId, fieldId, before, after, createdTime, createdBy } = item;
@@ -253,18 +228,32 @@ export class RecordOpenApiService {
       createdBySet.add(createdBy);
       const beforeObj = JSON.parse(before as string);
       const afterObj = JSON.parse(after as string);
+      // rows written by the raw-SQL import path carry {data} without meta,
+      // but the response schema (and the client renderer) require it —
+      // synthesize it from the field as it exists today
+      if (!beforeObj.meta || !afterObj.meta) {
+        const synthetic = await this.syntheticHistoryFieldMeta(fieldId, syntheticMetaCache);
+        beforeObj.meta = beforeObj.meta ?? synthetic;
+        afterObj.meta = afterObj.meta ?? synthetic;
+      }
       const { meta: beforeMeta, data: beforeData } = beforeObj as IRecordHistoryItemVo['before'];
       const { meta: afterMeta, data: afterData } = afterObj as IRecordHistoryItemVo['after'];
-      const { type: beforeType } = beforeMeta;
-      const { type: afterType } = afterMeta;
+      const beforeType = beforeMeta?.type;
+      const afterType = afterMeta?.type;
+      // a value the cold flush replaced with a "too large, truncated" marker
+      // carries a plain string `data` regardless of the field's real type;
+      // never run type-specific processing (e.g. attachment presigning) on it —
+      // that would normalize the string as an attachment and fail the response
+      const beforeTruncated = (beforeObj as { coldTruncated?: boolean }).coldTruncated === true;
+      const afterTruncated = (afterObj as { coldTruncated?: boolean }).coldTruncated === true;
 
-      if (beforeType === FieldType.Attachment) {
+      if (beforeType === FieldType.Attachment && !beforeTruncated) {
         beforeObj.data = await this.recordService.getAttachmentPresignedCellValue(
           beforeData as IAttachmentCellValue
         );
       }
 
-      if (afterType === FieldType.Attachment) {
+      if (afterType === FieldType.Attachment && !afterTruncated) {
         afterObj.data = await this.recordService.getAttachmentPresignedCellValue(
           afterData as IAttachmentCellValue
         );
@@ -309,6 +298,96 @@ export class RecordOpenApiService {
       userMap: keyBy(handledUserList, 'id'),
       nextCursor,
     };
+  }
+
+  /**
+   * field meta for history rows that were written without one (raw-SQL
+   * import): use the field as it exists now (even soft-deleted), and fall
+   * back to a plain-text placeholder when the field row is gone entirely —
+   * a degraded label beats hiding the entry or crashing the renderer
+   */
+  private async syntheticHistoryFieldMeta(
+    fieldId: string,
+    cache: Map<string, IRecordHistoryItemVo['before']['meta']>
+  ): Promise<IRecordHistoryItemVo['before']['meta']> {
+    const cached = cache.get(fieldId);
+    if (cached) return cached;
+    const field = await this.prismaService.field.findFirst({
+      where: { id: fieldId },
+      select: { name: true, type: true, cellValueType: true, isLookup: true, options: true },
+    });
+    const meta: IRecordHistoryItemVo['before']['meta'] = field
+      ? {
+          name: field.name,
+          type: field.type as IRecordHistoryItemVo['before']['meta']['type'],
+          cellValueType: field.cellValueType as CellValueType,
+          ...(field.isLookup ? { isLookup: field.isLookup } : {}),
+          options: field.options ? JSON.parse(field.options) : undefined,
+        }
+      : {
+          name: fieldId,
+          type: FieldType.SingleLineText,
+          cellValueType: CellValueType.String,
+          options: undefined,
+        };
+    cache.set(fieldId, meta);
+    return meta;
+  }
+
+  private async collectRecordHistoryRows(input: {
+    tableId: string;
+    recordId: string | undefined;
+    startDate?: string;
+    endDate?: string;
+    allowedFieldIds?: string[];
+    shouldFilterByField: boolean;
+    createdByIds?: string[];
+    cursor?: string | null;
+    limit: number;
+  }): Promise<{
+    list: {
+      id: string;
+      recordId: string;
+      fieldId: string;
+      before: string;
+      after: string;
+      createdTime: Date;
+      createdBy: string;
+    }[];
+    nextCursor: string | undefined;
+  }> {
+    const {
+      tableId,
+      recordId,
+      startDate,
+      endDate,
+      allowedFieldIds,
+      shouldFilterByField,
+      createdByIds,
+      cursor,
+      limit,
+    } = input;
+
+    // ALWAYS the merged read (PG write buffer + S3 cold parts): reading is
+    // not part of the migration process, it is how migrated data stays
+    // visible. The kill switch stops flushing/compaction/deletion only —
+    // a switched-off process (e.g. a staging environment sharing the
+    // production database) must still serve history that another
+    // environment's flusher has already moved to cold storage. On a
+    // never-migrated instance this costs at most an empty prefix LIST on
+    // pages the buffer cannot fill.
+    const merged = await this.recordHistoryColdReadService.collectHistoryRows({
+      tableId,
+      recordId,
+      startDate,
+      endDate,
+      allowedFieldIds,
+      shouldFilterByField,
+      createdByIds,
+      cursor,
+      limit,
+    });
+    return { list: merged.rows, nextCursor: merged.nextCursor };
   }
 
   private async getValidateAttachmentRecord(tableId: string, recordId: string, fieldId: string) {
