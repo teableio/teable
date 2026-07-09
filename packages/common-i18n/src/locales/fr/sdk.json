@@ -1,6 +1,5 @@
 {
   "common": {
-    "comingSoon": "Bientôt disponible",
     "empty": "Vide",
     "noRecords": "Aucun enregistrement disponible",
     "unnamedRecord": "Enregistrement sans nom",
@@ -90,7 +89,6 @@
     "link": {
       "placeholder": "Sélectionner des enregistrements à lier",
       "searchPlaceholder": "Rechercher des enregistrements",
-      "allFields": "Tous les champs",
       "globalSearch": "Recherche globale",
       "fieldSearch": "Recherche par champ",
       "maxFieldTips": "Le nombre maximum de {{count}} champs a été dépassé, les champs supplémentaires seront ignorés",
@@ -98,14 +96,11 @@
       "selectRecord": "Sélectionner un enregistrement",
       "all": "Tous",
       "selected": "Sélectionné",
-      "expandRecordError": "Aucun droit pour voir cet enregistrement.",
       "alreadyOpen": "Cet enregistrement est déjà ouvert.",
       "linkedTo": "Lié à",
-      "goToForeignTable": "Accéder à la table liée",
       "foreignTableIdRequired": "La table externe est requise",
       "linkFieldIdRequired": "Le champ de lien est requis",
       "selectTooManyRecords": "Les enregistrements sélectionnés ne doivent pas dépasser {{maxCount}}",
-      "relationshipRequired": "La relation est requise",
       "rangeSelectFailed": "Échec de la sélection des enregistrements dans la plage"
     },
     "user": {
@@ -119,12 +114,10 @@
     "lookup": {
       "lookupFieldIdRequired": "Le champ de recherche est requis",
       "lookupOptionsNotAllowed": "Les options de recherche ne sont pas autorisées lorsque l'attribut isLookup est vrai ou que le type de champ est rollup.",
-      "lookupOptionsRequired": "Les options de recherche sont requises",
-      "refineOptionsError": "Erreur lors de l'analyse des options de recherche {{message}}"
+      "lookupOptionsRequired": "Les options de recherche sont requises"
     },
     "rollup": {
-      "expressionRequired": "L'expression est requise",
-      "unsupportedTip": "Le rollup ne prend en charge que les champs de lien et de rollup"
+      "expressionRequired": "L'expression est requise"
     },
     "conditionalRollup": {
       "filterRequired": "Le filtre doit contenir au moins une condition"
@@ -152,11 +145,8 @@
     "addConditionGroup": "Ajouter un groupe de conditions",
     "nestedLimitTip": "Les conditions de filtrage ne peuvent être imbriquées que jusqu'à 3 niveaux",
     "linkInputPlaceholder": "Entrez une valeur",
-    "groupDescription": "L'un des éléments suivants est vrai…",
     "currentUser": "Moi (utilisateur actuel)",
-    "tips": {
-      "scope": "Dans cette vue, afficher les enregistrements"
-    },
+    "tips": {},
     "invalidateSelected": "Invalid value",
     "invalidateSelectedTips": "The selected value has been deleted, please select again",
     "invalidConditionTip": "Cette condition de filtre est invalide et sera ignorée. Veuillez ajuster la valeur.",
@@ -254,15 +244,10 @@
     "title": "du nom de champ",
     "displayLines": "{{count}} lignes"
   },
-  "share": {
-    "title": "partager"
-  },
-  "extensions": {
-    "title": "extensions"
-  },
+  "share": {},
+  "extensions": {},
   "hidden": {
     "label": "Champs cachés",
-    "configLabel_one": "{{count}} champ caché",
     "configLabel_other": "{{count}} champs cachés",
     "configLabel_other_visible": "{{count}} champs visibles",
     "showAll": "Tout afficher",
@@ -285,8 +270,6 @@
       "before": "Avant",
       "after": "Après",
       "buttonClicked": "Bouton cliqué",
-      "filterField": "Champ",
-      "filterCreatedBy": "Modifié par",
       "filterTime": "Plage horaire",
       "allFields": "Tous les champs",
       "allUsers": "Tous les utilisateurs",
@@ -392,7 +375,6 @@
       "baseUpdate": "Mettre à jour une base",
       "baseInviteEmail": "Inviter par email dans la base",
       "baseInviteLink": "Inviter par lien dans la base",
-      "baseTableImport": "Importer des données dans la base",
       "baseAuthorityMatrixConfig": "Configurer la matrice d'autorité",
       "baseDbConnect": "Se connecter à la base de données",
       "tableCreate": "Créer une table",
@@ -427,7 +409,6 @@
       "appDelete": "Supprimer une application",
       "appRead": "Lire une application",
       "appUpdate": "Mettre à jour une application",
-      "userProfileRead": "Lire le profil de l'utilisateur",
       "userEmailRead": "Lire l'email de l'utilisateur",
       "userIntegrations": "Manage user integrations",
       "recordHistoryRead": "Lire l'historique des enregistrements",
@@ -865,7 +846,6 @@
     "placeholder": "Laissez un commentaire...",
     "emptyComment": "Démarrer une conversation",
     "deletedComment": "Commentaire supprimé",
-    "imageSizeLimit": "La taille de l'image ne peut pas dépasser {{size}}",
     "tip": {
       "editing": "Modification en cours...",
       "edited": "(Modifié)",
@@ -884,8 +864,6 @@
     },
     "floatToolbar": {
       "editLink": "Modifier le lien",
-      "caption": "Légende",
-      "delete": "Supprimer",
       "linkText": "Texte du lien",
       "enterUrl": "Entrez l'URL"
     }
@@ -895,7 +873,6 @@
     "memberSelectorSearchPlaceholder": "Search members...",
     "departmentSelectorSearchPlaceholder": "Search departments...",
     "selected": "Selected",
-    "noSelected": "No selected",
     "empty": "No members",
     "emptyDepartment": "No departments"
   },

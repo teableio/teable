@@ -117,6 +117,13 @@ export type ReleaseForRetryParams = {
   now?: Date;
 };
 
+export type MarkFailedOptions = {
+  failureKind?: string;
+  failureReason?: string;
+  retryable?: boolean;
+  directDeadLetter?: boolean;
+};
+
 /**
  * Outbox item for field backfill tasks.
  */
@@ -221,6 +228,7 @@ export interface IComputedUpdateOutbox {
   markFailed(
     task: AnyOutboxItem,
     error: string,
-    context?: IExecutionContext
+    context?: IExecutionContext,
+    options?: MarkFailedOptions
   ): Promise<Result<boolean, DomainError>>;
 }

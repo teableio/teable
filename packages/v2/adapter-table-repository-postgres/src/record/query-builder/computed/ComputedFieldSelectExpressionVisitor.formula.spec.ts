@@ -45,6 +45,19 @@ const unwrapFormulaArrayToScalar = (valueSql: string, valueType: SqlValueType) =
   return visitor.unwrapFormulaArrayToScalar(valueSql, valueType);
 };
 
+const unwrapFormulaJsonScalar = (valueSql: string, valueType: SqlValueType) => {
+  const visitor = new ComputedFieldSelectExpressionVisitor(
+    createTestTable(),
+    't',
+    lateralStub,
+    new Pg16TypeValidationStrategy()
+  ) as unknown as {
+    unwrapFormulaJsonScalar: (input: string, type: SqlValueType) => string;
+  };
+
+  return visitor.unwrapFormulaJsonScalar(valueSql, valueType);
+};
+
 describe('ComputedFieldSelectExpressionVisitor formula unwrap safety', () => {
   it('normalizes NULL arrays before extracting scalar text', () => {
     const sql = unwrapFormulaArrayToScalar('NULL', 'string');
@@ -61,5 +74,21 @@ describe('ComputedFieldSelectExpressionVisitor formula unwrap safety', () => {
     expect(sql).not.toContain('NULL ->> 0');
     expect(sql).toContain('SELECT CASE');
     expect(sql).toContain('NULL::jsonb');
+  });
+
+  it('extracts json scalar text before casting formula datetime references', () => {
+    const sql = unwrapFormulaJsonScalar('"l"."lookup_date"', 'datetime');
+
+    expect(sql).toContain('#>>');
+    expect(sql).toContain('::timestamptz');
+    expect(sql).not.toContain('"l"."lookup_date"::timestamptz');
+  });
+
+  it('extracts json scalar text before casting formula numeric references', () => {
+    const sql = unwrapFormulaJsonScalar('"l"."lookup_number"', 'number');
+
+    expect(sql).toContain('#>>');
+    expect(sql).toContain('::double precision');
+    expect(sql).not.toContain('"l"."lookup_number"::double precision');
   });
 });
