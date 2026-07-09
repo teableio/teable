@@ -18,6 +18,7 @@ const darkTheme = {
   cellLineColorActived: colors.zinc[400],
   cellTextColor: colors.zinc[200],
   cellOptionBg: colors.zinc[700],
+  cellOptionBgHighlight: colors.zinc[600],
   cellOptionTextColor: colors.zinc[200],
 
   // Group Header

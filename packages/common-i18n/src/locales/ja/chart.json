@@ -28,12 +28,10 @@
     },
     "combo": {
       "xAxis": {
-        "label": "X軸",
-        "placeholder": "X軸を選択"
+        "label": "X軸"
       },
       "yAxis": {
         "label": "Y軸",
-        "placeholder": "Y軸を選択",
         "position": "Y軸の位置"
       },
       "xDisplay": {
@@ -46,7 +44,6 @@
       "addYAxis": "別の系列を追加",
       "stack": "スタック",
       "position": {
-        "label": "位置",
         "auto": "自動",
         "left": "左",
         "right": "右"
