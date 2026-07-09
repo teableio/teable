@@ -383,14 +383,12 @@ export class IntegrityV2Service {
     for (const row of rows as IBaseTablePreflightRow[]) {
       const activeFieldCount = Number(row.activeFieldCount);
       const primaryFieldCount = Number(row.primaryFieldCount);
-      if (activeFieldCount > 0) {
-        const tableId = TableId.create(row.tableId);
-        if (tableId.isOk()) {
-          tableIds.push(tableId.value);
-        }
+      const tableId = TableId.create(row.tableId);
+      if (tableId.isOk()) {
+        tableIds.push(tableId.value);
       }
 
-      if (activeFieldCount === 0 || primaryFieldCount === 0) {
+      if (activeFieldCount > 0 && primaryFieldCount === 0) {
         issues.push(
           this.createBaseTableHydrationIssue(baseId.toString(), {
             tableId: row.tableId,

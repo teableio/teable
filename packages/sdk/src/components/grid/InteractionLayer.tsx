@@ -154,6 +154,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     onCellDblClick,
     onSelectionChanged,
     onColumnFreeze,
+    onColumnFreezeFailed,
     onColumnAppend,
     onColumnResize,
     onColumnOrdered,
@@ -740,10 +741,16 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       }
       setCursor('default');
     });
-    onColumnFreezeEnd((columnCount: number) => {
-      onColumnFreeze?.(columnCount);
-      setMouseState(DEFAULT_MOUSE_STATE);
-    });
+    onColumnFreezeEnd(
+      (columnCount: number) => {
+        onColumnFreeze?.(columnCount);
+        setMouseState(DEFAULT_MOUSE_STATE);
+      },
+      () => {
+        onColumnFreezeFailed?.();
+        setMouseState(DEFAULT_MOUSE_STATE);
+      }
+    );
     onSelectionEnd();
     onColumnResizeEnd();
   };

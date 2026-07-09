@@ -39,6 +39,7 @@ import { PluginChartModule } from './features/plugin/official/chart/plugin-chart
 import { PluginModule } from './features/plugin/plugin.module';
 import { PluginContextMenuModule } from './features/plugin-context-menu/plugin-context-menu.module';
 import { PluginPanelModule } from './features/plugin-panel/plugin-panel.module';
+import { RecordHistoryColdModule } from './features/record-history-cold/record-history-cold.module';
 import { SelectionModule } from './features/selection/selection.module';
 import { AdminOpenApiModule } from './features/setting/open-api/admin-open-api.module';
 import { SettingOpenApiModule } from './features/setting/open-api/setting-open-api.module';
@@ -103,6 +104,10 @@ export const appModules = {
     AiModule,
     PluginModule,
     PluginPanelModule,
+    // the ONLY mount of the cold queue CONSUMER: feature modules import
+    // RecordHistoryColdCoreModule (services only), so auxiliary entrypoints
+    // composing them never become competing cold-queue workers
+    RecordHistoryColdModule,
     PluginContextMenuModule,
     PluginChartModule,
     ObservabilityModule,

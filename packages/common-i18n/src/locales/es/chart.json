@@ -28,12 +28,10 @@
     },
     "combo": {
       "xAxis": {
-        "label": "Eje X",
-        "placeholder": "Seleccionar eje X"
+        "label": "Eje X"
       },
       "yAxis": {
         "label": "Eje Y",
-        "placeholder": "Seleccionar eje Y",
         "position": "Posición del eje Y"
       },
       "xDisplay": {
@@ -46,7 +44,6 @@
       "addYAxis": "Añadir otra serie",
       "stack": "Apilar",
       "position": {
-        "label": "Posición",
         "auto": "Automático",
         "left": "Izquierda",
         "right": "Derecha"

@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import { pipeline } from 'stream/promises';
 import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import type { IAttachmentCellValue, ILinkFieldOptions } from '@teable/core';
@@ -132,6 +133,7 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
     let totalRecordsCount = 0;
 
     await new Promise<void>((resolve, reject) => {
+      const entryImports: Promise<void>[] = [];
       parser.on('entry', (entry) => {
         const filePath = entry.path;
         const isTable = filePath.startsWith('tables/') && entry.type !== 'Directory';
@@ -162,7 +164,7 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
                 [
                   FieldType.Formula,
                   FieldType.Rollup,
-                  // FieldType.ConditionalRollup,
+                  FieldType.ConditionalRollup,
                   FieldType.CreatedTime,
                   FieldType.LastModifiedTime,
                   FieldType.CreatedBy,
@@ -216,47 +218,52 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
             );
           });
 
-          entry
-            .pipe(
-              csvParser.default({
-                // strict: true,
-                mapValues: ({ value }) => {
-                  return value;
-                },
-                mapHeaders: ({ header }) => {
-                  if (header.startsWith('__row_') && viewIdMap[header.slice(6)]) {
-                    return `__row_${viewIdMap[header.slice(6)]}`;
-                  }
+          const entryImport = pipeline(
+            entry,
+            csvParser.default({
+              // strict: true,
+              mapValues: ({ value }) => {
+                return value;
+              },
+              mapHeaders: ({ header }) => {
+                if (header.startsWith('__row_') && viewIdMap[header.slice(6)]) {
+                  return `__row_${viewIdMap[header.slice(6)]}`;
+                }
 
-                  // special case for cross base link fields, there is no map causing the old error link config
-                  if (header.startsWith('__fk_')) {
-                    return fieldIdMap[header.slice(5)]
-                      ? `__fk_${fieldIdMap[header.slice(5)]}`
-                      : fkMap[header] || header;
-                  }
+                // special case for cross base link fields, there is no map causing the old error link config
+                if (header.startsWith('__fk_')) {
+                  return fieldIdMap[header.slice(5)]
+                    ? `__fk_${fieldIdMap[header.slice(5)]}`
+                    : fkMap[header] || header;
+                }
 
-                  return header;
-                },
-              })
-            )
-            .pipe(batchProcessor)
-            .on('error', (error: Error) => {
-              this.logger.error(`import csv import error: ${error.message}`, error.stack);
-              reject(error);
-            })
-            .on('end', () => {
-              this.logger.log(
-                `csv ${tableId} finished, total records so far: ${totalRecordsCount}`
-              );
-            });
+                return header;
+              },
+            }),
+            batchProcessor
+          ).then(() => {
+            this.logger.log(`csv ${tableId} finished, total records so far: ${totalRecordsCount}`);
+          });
+
+          void entryImport.catch((error: Error) => {
+            this.logger.error(`import csv import error: ${error.message}`, error.stack);
+            reject(error);
+          });
+          entryImports.push(entryImport);
         } else {
           entry.autodrain();
         }
       });
 
       parser.on('close', () => {
-        this.logger.log(`import csv parser completed, total records: ${totalRecordsCount}`);
-        resolve();
+        Promise.all(entryImports)
+          .then(() => {
+            this.logger.log(`import csv parser completed, total records: ${totalRecordsCount}`);
+            resolve();
+          })
+          .catch((error) => {
+            reject(error);
+          });
       });
 
       parser.on('error', (error) => {
