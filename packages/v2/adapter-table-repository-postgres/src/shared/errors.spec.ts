@@ -1,7 +1,8 @@
-import type { Field } from '@teable/v2-core';
+import type { Field, IExecutionContext } from '@teable/v2-core';
 import { ok } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 import {
+  createSchemaNotNullViolationError,
   describeError,
   extractNotNullColumn,
   extractUniqueColumn,
@@ -199,6 +200,55 @@ describe('PostgreSQL error utilities', () => {
         constraint: '__fk_fld123',
       };
       expect(isLinkUniqueViolation(pgError)).toBe(false);
+    });
+  });
+
+  describe('createSchemaNotNullViolationError', () => {
+    const fields = [
+      stubField('fldDef456', 'Required Field', 'fld_required'),
+      stubField('fldGhi789', 'Optional Field', 'fld_optional'),
+    ];
+
+    it('returns a semantic required-field message with field details', () => {
+      const result = createSchemaNotNullViolationError(
+        { code: PG_NOT_NULL_VIOLATION, column: 'fld_required' },
+        fields
+      );
+
+      expect(result.tags).toContain('validation');
+      expect(result.code).toBe('validation.field.not_null');
+      expect(result.message).toBe(
+        'Cannot mark field "Required Field" as required because existing records contain empty values.'
+      );
+      expect(result.details).toEqual({
+        fieldId: 'fldDef456',
+        fieldName: 'Required Field',
+      });
+    });
+
+    it('uses the execution-context translator when field name is known', () => {
+      const t: NonNullable<IExecutionContext['$t']> = (key, options) =>
+        `${key}:${String(options?.fieldName)}`;
+      const result = createSchemaNotNullViolationError(
+        { code: PG_NOT_NULL_VIOLATION, column: 'fld_required' },
+        fields,
+        t
+      );
+
+      expect(result.message).toBe('validation.field.requiredExistingValues:Required Field');
+    });
+
+    it('falls back to a generic semantic message when the column cannot be resolved', () => {
+      const result = createSchemaNotNullViolationError(
+        { code: PG_NOT_NULL_VIOLATION, column: 'fld_missing' },
+        fields
+      );
+
+      expect(result.code).toBe('validation.field.not_null');
+      expect(result.message).toBe(
+        'Cannot mark this field as required because existing records contain empty values.'
+      );
+      expect(result.details).toBeUndefined();
     });
   });
 

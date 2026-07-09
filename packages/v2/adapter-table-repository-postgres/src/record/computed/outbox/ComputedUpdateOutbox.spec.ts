@@ -264,6 +264,54 @@ describe('ComputedUpdateOutbox', () => {
       expect(seedDeleted).toBe(true);
     });
 
+    it('logs dead letter classification fields for alerting', async () => {
+      const mockDb = {
+        transaction: () => ({
+          execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
+        }),
+        insertInto: vi.fn().mockReturnValue({
+          values: vi.fn().mockReturnValue({
+            execute: vi.fn().mockResolvedValue([]),
+          }),
+        }),
+        deleteFrom: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            execute: vi.fn().mockResolvedValue([]),
+          }),
+        }),
+      } as unknown as MockDb;
+
+      const logger = createLogger();
+      const outbox = new ComputedUpdateOutbox(mockDb, defaultComputedUpdateOutboxConfig, logger);
+
+      const task = createMockTask({ attempts: 7, maxAttempts: 8 });
+      await outbox.markFailed(
+        task,
+        'cannot cast type jsonb to timestamp with time zone',
+        undefined,
+        {
+          failureKind: 'computed_code_bug',
+          failureReason: 'postgres_sql_generation_error',
+          retryable: false,
+          directDeadLetter: true,
+        }
+      );
+
+      expect(logger.warn).toHaveBeenCalledWith(
+        'computed:outbox:dead_letter',
+        expect.objectContaining({
+          taskId: task.id,
+          baseId: task.baseId,
+          seedTableId: task.seedTableId,
+          taskType: 'computed',
+          failureKind: 'computed_code_bug',
+          failureReason: 'postgres_sql_generation_error',
+          retryable: false,
+          directDeadLetter: true,
+        })
+      );
+    });
+
     it('logs retry scheduled event', async () => {
       const mockDb = {
         transaction: () => ({

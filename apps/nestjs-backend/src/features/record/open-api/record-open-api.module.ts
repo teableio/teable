@@ -7,7 +7,9 @@ import { CanaryModule } from '../../canary/canary.module';
 import { CollaboratorModule } from '../../collaborator/collaborator.module';
 import { FieldCalculateModule } from '../../field/field-calculate/field-calculate.module';
 import { FieldModule } from '../../field/field.module';
+import { RecordHistoryColdCoreModule } from '../../record-history-cold/record-history-cold.module';
 import { SelectionModule } from '../../selection/selection.module';
+import { SpaceDataDbMigrationGuardModule } from '../../space/space-data-db-migration-guard.module';
 import { TableModule } from '../../table/table.module';
 import { TableDomainQueryModule } from '../../table-domain';
 import { V2Module } from '../../v2/v2.module';
@@ -34,8 +36,10 @@ import { RecordOpenApiService } from './record-open-api.service';
     ViewOpenApiModule,
     TableModule,
     TableDomainQueryModule,
+    RecordHistoryColdCoreModule,
     V2Module,
     CanaryModule,
+    SpaceDataDbMigrationGuardModule,
     forwardRef(() => SelectionModule),
   ],
   controllers: [RecordOpenApiController],

@@ -28,12 +28,10 @@
     },
     "combo": {
       "xAxis": {
-        "label": "Ось X",
-        "placeholder": "Выберите ось X"
+        "label": "Ось X"
       },
       "yAxis": {
         "label": "Ось Y",
-        "placeholder": "Выберите ось Y",
         "position": "Положение оси Y"
       },
       "xDisplay": {
@@ -46,7 +44,6 @@
       "addYAxis": "Добавить другую серию",
       "stack": "Наложение",
       "position": {
-        "label": "Положение",
         "auto": "Автоматически",
         "left": "Слева",
         "right": "Справа"

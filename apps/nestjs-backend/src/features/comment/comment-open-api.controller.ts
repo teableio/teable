@@ -103,8 +103,12 @@ export class CommentOpenApiController {
   // eslint-disable-next-line sonarjs/no-duplicate-string
   @Get('/:recordId/:commentId')
   @Permissions('record|read')
-  async getCommentDetail(@Param('commentId') commentId: string): Promise<ICommentVo | null> {
-    return this.commentOpenApiService.getCommentDetail(commentId);
+  async getCommentDetail(
+    @Param('tableId') tableId: string,
+    @Param('recordId') recordId: string,
+    @Param('commentId') commentId: string
+  ): Promise<ICommentVo | null> {
+    return this.commentOpenApiService.getCommentDetail(tableId, recordId, commentId);
   }
 
   @Patch('/:recordId/:commentId')
