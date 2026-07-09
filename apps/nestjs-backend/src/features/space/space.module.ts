@@ -14,7 +14,7 @@ import { DataDbBaselineService } from './data-db-baseline.service';
 import { DataDbBindingService } from './data-db-binding.service';
 import { DataDbPreflightService } from './data-db-preflight.service';
 import { SpaceDataDbCopyService } from './space-data-db-copy.service';
-import { SpaceDataDbMigrationGuardService } from './space-data-db-migration-guard.service';
+import { SpaceDataDbMigrationGuardModule } from './space-data-db-migration-guard.module';
 import { SpaceDataDbMigrationWorkerService } from './space-data-db-migration-worker.service';
 import { SpaceDataDbMigrationService } from './space-data-db-migration.service';
 import { SpaceDataDbProcessRunnerService } from './space-data-db-process-runner.service';
@@ -33,7 +33,6 @@ import { TemplateSpaceInitService } from './template-space-init/template-space.i
     SpaceDataDbCopyService,
     SpaceDataDbMigrationService,
     SpaceDataDbMigrationWorkerService,
-    SpaceDataDbMigrationGuardService,
     SpaceDataDbProcessRunnerService,
   ],
   exports: [
@@ -45,7 +44,7 @@ import { TemplateSpaceInitService } from './template-space-init/template-space.i
     SpaceDataDbCopyService,
     SpaceDataDbMigrationService,
     SpaceDataDbMigrationWorkerService,
-    SpaceDataDbMigrationGuardService,
+    SpaceDataDbMigrationGuardModule,
     SpaceDataDbProcessRunnerService,
   ],
   imports: [
@@ -55,6 +54,7 @@ import { TemplateSpaceInitService } from './template-space-init/template-space.i
     InvitationModule,
     BaseModule,
     PermissionModule,
+    SpaceDataDbMigrationGuardModule,
     EventJobModule.registerQueue(BASE_IMPORT_CSV_QUEUE),
     EventJobModule.registerQueue(BASE_IMPORT_JUNCTION_CSV_QUEUE),
     EventJobModule.registerQueue(TABLE_IMPORT_CSV_CHUNK_QUEUE),

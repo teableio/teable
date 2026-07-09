@@ -310,6 +310,31 @@ describe('FieldValueChangeCollectorVisitor', () => {
       expect(visitor.selfBackfillFields().map((id) => id.toString())).toEqual([fieldId.toString()]);
       expect(visitor.valueChangedFields().map((id) => id.toString())).toEqual([fieldId.toString()]);
     });
+
+    it('should conservatively detect storage type changes until schema visitor marks otherwise', () => {
+      const fieldId = mkFieldId('fmlB');
+      const prev = FormulaExpression.create('1 + 1')._unsafeUnwrap();
+      const next = FormulaExpression.create('2 + 2')._unsafeUnwrap();
+      const spec = UpdateFormulaExpressionSpec.create(fieldId, prev, next);
+
+      const visitor = new FieldValueChangeCollectorVisitor();
+      spec.accept(visitor);
+
+      expect(visitor.hasDbStorageTypeChange()).toBe(true);
+    });
+
+    it('should not detect storage type changes when formula expressions keep the same storage type', () => {
+      const fieldId = mkFieldId('fmlC');
+      const prev = FormulaExpression.create('CONCATENATE("A", "-", "B")')._unsafeUnwrap();
+      const next = FormulaExpression.create('CONCATENATE("A", "--", "B")')._unsafeUnwrap();
+      const spec = UpdateFormulaExpressionSpec.create(fieldId, prev, next);
+      spec.markDbStorageTypeChanged(false);
+
+      const visitor = new FieldValueChangeCollectorVisitor();
+      spec.accept(visitor);
+
+      expect(visitor.hasDbStorageTypeChange()).toBe(false);
+    });
   });
 
   // ============ Link Update specs ============

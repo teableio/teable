@@ -242,13 +242,26 @@ const mapRatingColor = (color: string | undefined) => {
 
 const mapSelectChoices = (options: IAirtableFieldOptions | undefined) => {
   const choices = options?.choices ?? [];
-  return choices.map((choice, index) => ({
+  // Airtable identifies choices by id and allows duplicate names (including
+  // names differing only by surrounding whitespace). Teable trims option
+  // names and requires them to be unique, so duplicates are merged into the
+  // first occurrence — record cells only carry the name, so they cannot
+  // reference a specific duplicate anyway.
+  const seenNames = new Set<string>();
+  const mapped: Array<{ name: string; color: Colors }> = [];
+  choices.forEach((choice, index) => {
     // Airtable allows blank option names; Teable requires at least one char.
-    name: choice.name?.trim() ? choice.name : `(blank ${index + 1})`,
-    color: (teableColorValues.has(choice.color ?? '')
-      ? choice.color
-      : defaultChoiceColors[index % defaultChoiceColors.length]) as Colors,
-  }));
+    const name = choice.name?.trim() || `(blank ${index + 1})`;
+    if (seenNames.has(name)) return;
+    seenNames.add(name);
+    mapped.push({
+      name,
+      color: (teableColorValues.has(choice.color ?? '')
+        ? choice.color
+        : defaultChoiceColors[index % defaultChoiceColors.length]) as Colors,
+    });
+  });
+  return mapped;
 };
 
 const truncateDescription = (description: string) =>

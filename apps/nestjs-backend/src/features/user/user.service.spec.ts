@@ -30,6 +30,7 @@ describe('UserService', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
       {} as never
     );
 

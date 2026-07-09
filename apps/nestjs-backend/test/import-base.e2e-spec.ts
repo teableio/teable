@@ -300,7 +300,7 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
     });
     it('should export table and import the table', async () => {
       const { previewUrl: url } = await awaitWithEvent(async () => {
-        await exportBase(sourceBaseId);
+        await exportBase(sourceBaseId, { includeData: false });
       });
       const previewUrl = appUrl + url;
 
@@ -566,7 +566,7 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
 
     it('converts errored lookup and rollup fields to text on import', async () => {
       const { previewUrl } = await awaitErroredExport(async () => {
-        await exportBase(erroredBaseId);
+        await exportBase(erroredBaseId, { includeData: false });
       });
 
       const attachmentService = getAttachmentService(app);
