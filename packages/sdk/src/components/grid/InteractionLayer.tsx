@@ -63,6 +63,8 @@ import type { IRegionData } from './utils';
 import { BLANK_REGION_DATA, flatRanges, getRegionData, inRange } from './utils';
 
 const { columnAppendBtnWidth, columnHeadHeight } = GRID_DEFAULT;
+const QUICK_DOUBLE_CLICK_INTERVAL_MS = 200;
+const ACTIVE_CELL_HOVER_DELAY_MS = 200;
 
 export interface IInteractionLayerProps
   extends Omit<
@@ -154,6 +156,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     onCellDblClick,
     onSelectionChanged,
     onColumnFreeze,
+    onColumnFreezeFailed,
     onColumnAppend,
     onColumnResize,
     onColumnOrdered,
@@ -209,6 +212,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   const previousHoveredRegionRef = useRef<IRegionData>(BLANK_REGION_DATA);
   const isFillingRef = useRef(false);
   const fillSelectionRef = useRef<CombinedSelection | null>(null);
+  const lastClickTimestampRef = useRef<number | null>(null);
+  const delayedHoverTimerRef = useRef<number | null>(null);
 
   const mousePosition = useMouse(stageRef);
   const [cellScrollTop, setCellScrollTop] = useState(0);
@@ -422,12 +427,63 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     }
   };
 
+  const clearDelayedHoverTimer = () => {
+    if (delayedHoverTimerRef.current == null) return;
+    window.clearTimeout(delayedHoverTimerRef.current);
+    delayedHoverTimerRef.current = null;
+  };
+
+  const isCellRegionType = (type: RegionType) =>
+    type === RegionType.Cell || type === RegionType.ActiveCell;
+
+  const runCellRendererClick = (mouseState: IMouseState, rowIndex: number) => {
+    const { rowIndex: hoverRowIndex, columnIndex } = mouseState;
+    const cell = getCellContent([columnIndex, rowIndex]) as IInnerCell;
+    const cellRenderer = getCellRenderer(cell.type);
+    const onCellClick = cellRenderer.onClick;
+    const effectiveHoverCellPosition = getHoverCellPosition(mouseState);
+
+    if (!onCellClick || !effectiveHoverCellPosition) return false;
+
+    const isActive =
+      isEqual(prevActiveCellRef.current, activeCell) &&
+      isEqual(activeCell, [columnIndex, rowIndex]);
+    const cellClickProps = {
+      width: coordInstance.getColumnWidth(columnIndex),
+      height: coordInstance.getRowHeight(hoverRowIndex),
+      theme,
+      hoverCellPosition: effectiveHoverCellPosition,
+      activeCellBound,
+      isActive,
+    };
+
+    setHoverCellPosition(effectiveHoverCellPosition);
+    onCellClick(cell as never, cellClickProps, (cellRegion: ICellRegionWithData) => {
+      const { type, data } = cellRegion;
+
+      if (type === CellRegionType.Update) {
+        return onCellEdited?.([columnIndex, rowIndex], {
+          ...cell,
+          data,
+        } as IInnerCell);
+      }
+
+      if (type === CellRegionType.ToggleEditing) {
+        return setEditing(true);
+      }
+    });
+
+    return true;
+  };
+
   // eslint-disable-next-line sonarjs/cognitive-complexity
   const onClick = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
     const mouseState = getMouseState();
     onSelectionClick(event, mouseState);
     const { type, rowIndex: hoverRowIndex, columnIndex } = mouseState;
-    if (regionType !== type) return;
+    const isSameRegion =
+      regionType === type || (isCellRegionType(regionType) && isCellRegionType(type));
+    if (!isSameRegion) return;
 
     const { realIndex: rowIndex } = getLinearRow(hoverRowIndex);
 
@@ -471,40 +527,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       }
       case RegionType.Cell:
       case RegionType.ActiveCell: {
-        const cell = getCellContent([columnIndex, rowIndex]) as IInnerCell;
-        const cellRenderer = getCellRenderer(cell.type);
-        const onCellClick = cellRenderer.onClick;
-        const isActive =
-          isEqual(prevActiveCellRef.current, activeCell) &&
-          isEqual(activeCell, [columnIndex, rowIndex]);
-
-        if (onCellClick && hoverCellPosition) {
-          onCellClick(
-            cell as never,
-            {
-              width: coordInstance.getColumnWidth(columnIndex),
-              height: coordInstance.getRowHeight(hoverRowIndex),
-              theme,
-              hoverCellPosition,
-              activeCellBound,
-              isActive,
-            },
-            (cellRegion: ICellRegionWithData) => {
-              const { type, data } = cellRegion;
-
-              if (type === CellRegionType.Update) {
-                return onCellEdited?.([columnIndex, rowIndex], {
-                  ...cell,
-                  data,
-                } as IInnerCell);
-              }
-
-              if (type === CellRegionType.ToggleEditing) {
-                return setEditing(true);
-              }
-            }
-          );
-        }
+        runCellRendererClick(mouseState, rowIndex);
         return;
       }
       case RegionType.RowGroupControl: {
@@ -534,10 +557,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     const mouseState = getMouseState();
     const { type, rowIndex, columnIndex } = mouseState;
     const { realIndex } = getLinearRow(rowIndex);
-    if (
-      [RegionType.Cell, RegionType.ActiveCell].includes(type) &&
-      isEqual(selectionRanges[0], [columnIndex, realIndex])
-    ) {
+    if (isCellRegionType(type) && isEqual(selectionRanges[0], [columnIndex, realIndex])) {
       const cell = getCellContent([columnIndex, realIndex]) as IInnerCell;
       if (cell.readonly) return onCellDblClick?.([columnIndex, realIndex]);
       editorContainerRef.current?.focus?.();
@@ -558,13 +578,19 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
 
   const onSmartClick = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
     const eventDetail = event.detail;
+    const clickInterval = event.timeStamp - (lastClickTimestampRef.current ?? 0);
+    lastClickTimestampRef.current = event.timeStamp;
 
     if (eventDetail === 1) {
       onClick(event);
     }
 
     if (eventDetail === 2) {
-      onDblClick();
+      if (clickInterval <= QUICK_DOUBLE_CLICK_INTERVAL_MS) {
+        return onDblClick();
+      }
+
+      return onClick(event);
     }
   };
 
@@ -609,7 +635,10 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     isColumnResizable && onColumnResizeStart(mouseState);
   };
 
-  const onCellPosition = (mouseState: IMouseState) => {
+  const onCellPosition = (
+    mouseState: IMouseState,
+    effectiveHoverCellPosition = hoverCellPosition
+  ) => {
     const { columnIndex, rowIndex, type } = mouseState;
     const { realIndex } = getLinearRow(rowIndex);
     const cell = getCellContent([columnIndex, realIndex]);
@@ -617,14 +646,17 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     const { needsHover, needsHoverPosition, needsHoverWhenActive, needsHoverPositionWhenActive } =
       cellRenderer;
     const isActive = type === RegionType.ActiveCell;
-    if ((needsHoverPosition || (needsHoverPositionWhenActive && isActive)) && hoverCellPosition) {
+    if (
+      (needsHoverPosition || (needsHoverPositionWhenActive && isActive)) &&
+      effectiveHoverCellPosition
+    ) {
       const region = cellRenderer.checkRegion?.(cell as never, {
         width: coordInstance.getColumnWidth(columnIndex),
         height: coordInstance.getRowHeight(rowIndex),
         theme,
         isActive,
         activeCellBound,
-        hoverCellPosition,
+        hoverCellPosition: effectiveHoverCellPosition,
       }) ?? { type: CellRegionType.Blank };
       const { type } = region;
 
@@ -657,13 +689,21 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     }
   };
 
-  const onMouseMove = () => {
+  const syncHoverState = () => {
     const mouseState = getMouseState();
     const hoverCellPosition = getHoverCellPosition(mouseState);
-    setHoverCellPosition(() => hoverCellPosition);
-    setMouseState(() => mouseState);
+
+    setHoverCellPosition(hoverCellPosition);
+    setMouseState(mouseState);
     setCursorStyle(mouseState.type);
-    onCellPosition(mouseState);
+    onCellPosition(mouseState, hoverCellPosition);
+
+    return { mouseState, hoverCellPosition };
+  };
+
+  const onMouseMove = () => {
+    clearDelayedHoverTimer();
+    const { mouseState } = syncHoverState();
     if (isFillingRef.current) onAutoScroll(mouseState);
     if (isSelecting) onAutoScroll(mouseState);
     if (isDragging) onAutoScroll(mouseState, dragType);
@@ -680,6 +720,19 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     }
     previousHoveredRegionRef.current = { ...hoveredRegionRef.current };
   };
+
+  useEffect(() => {
+    if (!activeCell || isEditing || isInteracting) return;
+
+    clearDelayedHoverTimer();
+    delayedHoverTimerRef.current = window.setTimeout(() => {
+      delayedHoverTimerRef.current = null;
+      syncHoverState();
+    }, ACTIVE_CELL_HOVER_DELAY_MS);
+
+    return clearDelayedHoverTimer;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCell, activeCellBound, isEditing, isInteracting]);
 
   const onMouseUp = () => {
     const mouseState = getMouseState();
@@ -740,18 +793,26 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       }
       setCursor('default');
     });
-    onColumnFreezeEnd((columnCount: number) => {
-      onColumnFreeze?.(columnCount);
-      setMouseState(DEFAULT_MOUSE_STATE);
-    });
+    onColumnFreezeEnd(
+      (columnCount: number) => {
+        onColumnFreeze?.(columnCount);
+        setMouseState(DEFAULT_MOUSE_STATE);
+      },
+      () => {
+        onColumnFreezeFailed?.();
+        setMouseState(DEFAULT_MOUSE_STATE);
+      }
+    );
     onSelectionEnd();
     onColumnResizeEnd();
   };
 
   const onMouseLeave = () => {
+    clearDelayedHoverTimer();
     if (isInteracting) return;
     const { type, ...rest } = BLANK_REGION_DATA;
     onItemHovered?.(type, rest, [-Infinity, -Infinity]);
+    setHoverCellPosition(null);
     setMouseState(DEFAULT_MOUSE_STATE);
     setHoveredColumnResizeIndex(-1);
   };
@@ -778,8 +839,10 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   };
 
   const resetState = () => {
+    clearDelayedHoverTimer();
     setActiveCell(null);
     setDragState(DEFAULT_DRAG_STATE);
+    setHoverCellPosition(null);
     setMouseState(DEFAULT_MOUSE_STATE);
     setSelection(selection.reset());
     setHoveredColumnResizeIndex(-1);

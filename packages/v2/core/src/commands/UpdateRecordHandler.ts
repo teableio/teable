@@ -25,6 +25,7 @@ import type { RecordFieldChangeDTO } from '../domain/table/events/RecordFieldVal
 import { RecordReordered } from '../domain/table/events/RecordReordered';
 import { RecordUpdated } from '../domain/table/events/RecordUpdated';
 import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
+import { FieldType } from '../domain/table/fields/FieldType';
 import type { FieldKeyMapping } from '../domain/table/records/RecordCreateResult';
 import { RecordUpdateResult as SingleRecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
 import { SetRowOrderValueSpec } from '../domain/table/records/specs/values/SetRowOrderValueSpec';
@@ -80,6 +81,24 @@ const areFieldValuesEqual = (left: unknown, right: unknown): boolean => {
   } catch {
     return false;
   }
+};
+
+const isResolvedLinkCellValue = (cellValue: unknown): boolean => {
+  if (cellValue == null) {
+    return false;
+  }
+
+  const values = Array.isArray(cellValue) ? cellValue : [cellValue];
+  if (!values.length) {
+    return false;
+  }
+
+  return values.every(
+    (value) =>
+      value != null &&
+      typeof value === 'object' &&
+      typeof (value as { title?: unknown }).title === 'string'
+  );
 };
 
 export class UpdateRecordResult {
@@ -508,10 +527,42 @@ export class UpdateRecordHandler
           ...(updatedFieldValues ? Object.fromEntries(updatedFieldValues) : {}),
         },
       });
+      const responseFields = Object.fromEntries(
+        mergedRecord
+          .fields()
+          .entries()
+          .map((entry) => [entry.fieldId.toString(), entry.value.toValue()])
+      );
+      const changedResponseFieldIds = new Set([
+        ...recordUpdateResult.fieldKeyMapping.keys(),
+        ...(updatedFieldValues?.keys() ?? []),
+        ...(mutationResult.mutation.changedFields?.keys() ?? []),
+        ...(mutationResult.mutation.computedChanges?.keys() ?? []),
+      ]);
+      for (const field of tableForUpdate.getFields()) {
+        if (!field.type().equals(FieldType.link())) {
+          continue;
+        }
+
+        const fieldId = field.id().toString();
+        if (
+          changedResponseFieldIds.has(fieldId) ||
+          isResolvedLinkCellValue(responseFields[fieldId])
+        ) {
+          continue;
+        }
+
+        delete responseFields[fieldId];
+      }
+      const responseRecord = yield* TableRecord.fromRawFieldValues({
+        id: command.recordId.toString(),
+        tableId: table.id(),
+        fields: responseFields,
+      });
 
       return ok(
         UpdateRecordResult.create(
-          mergedRecord,
+          responseRecord,
           events,
           extendedFieldKeyMapping,
           mutationResult.mutation.computedChanges
