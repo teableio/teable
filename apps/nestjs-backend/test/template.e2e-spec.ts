@@ -2,9 +2,12 @@
 import type { INestApplication } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { ITableFullVo } from '@teable/openapi';
+import type { IDateFieldOptions } from '@teable/core';
+import { DateFormattingPreset, FieldType, TimeFormatting } from '@teable/core';
 import {
   createBase,
   createBaseFromTemplate,
+  createField,
   createSpace,
   createTable,
   createTemplate,
@@ -957,6 +960,69 @@ describe('Template Open API Controller (e2e)', () => {
       const applyBaseInfo = (await getBaseById(applyBase.data.id)).data;
       expect(applyBaseInfo.icon).toBe('🚀');
       expect(applyBaseInfo.name).toBe('test Template');
+    });
+
+    it('should adapt date field time zone to the provided time zone', async () => {
+      const templateTimeZone = 'America/New_York';
+      const userTimeZone = 'Asia/Shanghai';
+
+      await createField(table1.id, {
+        name: 'Due Date',
+        type: FieldType.Date,
+        options: {
+          formatting: {
+            date: DateFormattingPreset.ISO,
+            time: TimeFormatting.None,
+            timeZone: templateTimeZone,
+          },
+        },
+      });
+      // regenerate the snapshot so it contains the date field
+      await createTemplateSnapshot(templateId);
+
+      const createBaseRes = (
+        await createBaseFromTemplate({
+          spaceId,
+          templateId,
+          withRecords: true,
+          timeZone: userTimeZone,
+        })
+      ).data;
+
+      const tables = (await getTableList(createBaseRes.id)).data;
+      const table1Fields = (await getFields(tables[0].id)).data;
+      const dateField = table1Fields.find(({ name }) => name === 'Due Date');
+      expect((dateField?.options as IDateFieldOptions).formatting.timeZone).toBe(userTimeZone);
+    });
+
+    it('should keep the template time zone when no time zone is provided', async () => {
+      const templateTimeZone = 'America/New_York';
+
+      await createField(table1.id, {
+        name: 'Due Date',
+        type: FieldType.Date,
+        options: {
+          formatting: {
+            date: DateFormattingPreset.ISO,
+            time: TimeFormatting.None,
+            timeZone: templateTimeZone,
+          },
+        },
+      });
+      await createTemplateSnapshot(templateId);
+
+      const createBaseRes = (
+        await createBaseFromTemplate({
+          spaceId,
+          templateId,
+          withRecords: true,
+        })
+      ).data;
+
+      const tables = (await getTableList(createBaseRes.id)).data;
+      const table1Fields = (await getFields(tables[0].id)).data;
+      const dateField = table1Fields.find(({ name }) => name === 'Due Date');
+      expect((dateField?.options as IDateFieldOptions).formatting.timeZone).toBe(templateTimeZone);
     });
   });
 

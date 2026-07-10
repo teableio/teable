@@ -329,7 +329,7 @@ describe('FieldDeletionSideEffectVisitor', () => {
     expect(result._unsafeUnwrap()).toHaveLength(1);
   });
 
-  it('returns error when foreign table is missing', () => {
+  it('skips two-way links when foreign table is missing (T4927)', () => {
     const baseIdResult = createBaseId('q');
     const hostTableIdResult = createTableId('r');
     const foreignTableIdResult = createTableId('s');
@@ -373,7 +373,8 @@ describe('FieldDeletionSideEffectVisitor', () => {
     });
     linkFieldResult._unsafeUnwrap();
 
-    // Pass empty foreignTables so the foreign table lookup fails
+    // Empty foreignTables simulates soft/permanent delete of the linked table.
+    // Side effects should be skipped so the host link field remains deletable.
     const sideEffectsResult = FieldDeletionSideEffectVisitor.collect(
       [linkFieldResult._unsafeUnwrap()],
       {
@@ -382,6 +383,7 @@ describe('FieldDeletionSideEffectVisitor', () => {
       }
     );
 
-    expect(sideEffectsResult.isErr()).toBe(true);
+    expect(sideEffectsResult.isOk()).toBe(true);
+    expect(sideEffectsResult._unsafeUnwrap()).toHaveLength(0);
   });
 });

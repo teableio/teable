@@ -30,6 +30,8 @@ import type { Result } from 'neverthrow';
 
 import { v2RecordRepositoryPostgresTokens } from '../../di/tokens';
 import { buildBeforeImageRecordsFromStepChanges } from '../ComputedBeforeImageFromChanges';
+import type { ComputedTaskFailureClassification } from '../ComputedTaskFailureClassifier';
+import { classifyComputedTaskFailure } from '../ComputedTaskFailureClassifier';
 import type { ComputedFieldBackfillService } from '../ComputedFieldBackfillService';
 import type { ComputedFieldUpdater, StepChangeData } from '../ComputedFieldUpdater';
 import { isComputedUpdateLockUnavailable } from '../ComputedUpdateLock';
@@ -73,7 +75,6 @@ const MAX_STAGE_DEPTH = 50;
 const maxComputedEventLogItems = 10;
 const maxComputedEventLogFieldIds = 20;
 const maxComputedEventLogRecordIds = 10;
-const POSTGRES_STATEMENT_TIMEOUT_CODE = '57014';
 
 type SeedRecordChunk = {
   seedRecordIds: string[];
@@ -244,15 +245,6 @@ const chunkOrchestration = (
     chunkIndex,
     scope: 'chunk',
   };
-};
-
-const isComputedTaskStatementTimeout = (error: DomainError): boolean => {
-  const message = error.message.toLowerCase();
-  return (
-    message.includes(POSTGRES_STATEMENT_TIMEOUT_CODE) ||
-    message.includes('statement timeout') ||
-    message.includes('canceling statement due to statement timeout')
-  );
 };
 
 export type ComputedUpdateWorkerParams = {
@@ -649,7 +641,10 @@ export class ComputedUpdateWorker {
       | 'plan_next_stage'
       | 'enqueue_next_stage'
       | 'mark_done' = 'deserialize_plan';
-    const logTaskFailure = (error: unknown) => {
+    const logTaskFailure = (
+      error: unknown,
+      failure?: ComputedTaskFailureClassification
+    ) => {
       this.logger.error('computed:outbox:task_failed', {
         taskId: computedTask.id,
         phase: failurePhase,
@@ -659,6 +654,7 @@ export class ComputedUpdateWorker {
         seedRecordCount: computedTask.seedRecordIds.length,
         extraSeedGroupCount: computedTask.extraSeedRecords.length,
         affectedFieldCount: computedTask.affectedFieldIds.length,
+        ...failure,
         ...toErrorLogFields(error),
         ...runLogContext,
       });
@@ -813,9 +809,11 @@ export class ComputedUpdateWorker {
         await this.releaseTaskForRetry(computedTask, executeResult.error.message, context);
         return ok(false);
       }
-      logTaskFailure(executeResult.error);
+      const failure = classifyComputedTaskFailure(executeResult.error);
+      logTaskFailure(executeResult.error, failure);
       await this.handleTaskFailure(computedTask, executeResult.error.message, context, {
-        forceDeadLetter: isComputedTaskStatementTimeout(executeResult.error),
+        forceDeadLetter: !failure.retryable,
+        failure,
       });
       return err(executeResult.error);
     }
@@ -865,15 +863,22 @@ export class ComputedUpdateWorker {
     task: AnyOutboxItem,
     message: string,
     context?: IExecutionContext,
-    options: { forceDeadLetter?: boolean } = {}
+    options: {
+      forceDeadLetter?: boolean;
+      failure?: ComputedTaskFailureClassification;
+    } = {}
   ): Promise<boolean> {
-    const failedTask = options.forceDeadLetter
+    const forceDeadLetter = options.forceDeadLetter ?? options.failure?.retryable === false;
+    const failedTask = forceDeadLetter
       ? {
           ...task,
           attempts: Math.max(task.attempts, task.maxAttempts - 1),
         }
       : task;
-    const result = await this.outbox.markFailed(failedTask, message, context);
+    const result = await this.outbox.markFailed(failedTask, message, context, {
+      ...options.failure,
+      directDeadLetter: forceDeadLetter || undefined,
+    });
     if (result.isErr()) {
       this.logger.warn('computed:outbox:markFailed_failed', {
         taskId: task.id,
@@ -1140,13 +1145,16 @@ export class ComputedUpdateWorker {
     );
 
     if (executeResult.isErr()) {
+      const failure = classifyComputedTaskFailure(executeResult.error);
       this.logger.error('computed:worker:field_backfill_failed', {
         taskId: task.id,
         error: executeResult.error.message,
+        ...failure,
         ...runLogContext,
       });
       await this.handleTaskFailure(task, executeResult.error.message, context, {
-        forceDeadLetter: isComputedTaskStatementTimeout(executeResult.error),
+        forceDeadLetter: !failure.retryable,
+        failure,
       });
       return err(executeResult.error);
     }
@@ -1194,7 +1202,8 @@ export class ComputedUpdateWorker {
       error: unknown,
       logType:
         | 'computed:worker:seed_failed'
-        | 'computed:worker:seed_plan_failed' = 'computed:worker:seed_failed'
+        | 'computed:worker:seed_plan_failed' = 'computed:worker:seed_failed',
+      failure?: ComputedTaskFailureClassification
     ) => {
       this.logger.error(logType, {
         taskId: task.id,
@@ -1202,6 +1211,7 @@ export class ComputedUpdateWorker {
         seedTableId: task.seedTableId,
         seedRecordCount: task.seedRecordIds.length,
         changedFieldCount: task.changedFieldIds.length,
+        ...failure,
         ...toErrorLogFields(error),
         ...runLogContext,
       });
@@ -1400,9 +1410,11 @@ export class ComputedUpdateWorker {
         await this.releaseTaskForRetry(task, executeResult.error.message, context);
         return ok(false);
       }
-      logSeedFailure(executeResult.error);
+      const failure = classifyComputedTaskFailure(executeResult.error);
+      logSeedFailure(executeResult.error, 'computed:worker:seed_failed', failure);
       await this.handleTaskFailure(task, executeResult.error.message, context, {
-        forceDeadLetter: isComputedTaskStatementTimeout(executeResult.error),
+        forceDeadLetter: !failure.retryable,
+        failure,
       });
       return err(executeResult.error);
     }
