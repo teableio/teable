@@ -178,7 +178,11 @@ export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
             size="sm"
             className="h-10 max-w-full justify-start overflow-hidden p-2 text-base"
           >
-            <SpaceAvatar name={currentSpace?.name ?? ''} className="size-8 shrink-0" />
+            <SpaceAvatar
+              name={currentSpace?.name ?? ''}
+              avatar={currentSpace?.avatar}
+              className="size-8 shrink-0"
+            />
             <p className="min-w-0 truncate text-left font-semibold">{currentSpace?.name}</p>
             <ChevronDown className="size-4 shrink-0" />
           </Button>
@@ -233,7 +237,7 @@ export const SpaceSwitcher = (props: ISpaceSwitcherProps) => {
                         className={cn('group flex items-center gap-2 rounded-md h-10')}
                       >
                         <div className="flex min-w-0 grow items-center gap-2">
-                          <SpaceAvatar name={space.name} className="size-6" />
+                          <SpaceAvatar name={space.name} avatar={space.avatar} className="size-6" />
                           <span className="truncate text-sm">{space.name}</span>
                           <StarButton
                             id={space.id}

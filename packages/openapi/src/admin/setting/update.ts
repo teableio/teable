@@ -261,6 +261,8 @@ export const appConfigSchema = z.object({
   // Proxy URL for Vercel API (Cloudflare Workers reverse proxy)
   vercelBaseUrl: z.url().optional(),
   appAuth: appAuthConfigSchema.optional(),
+  // Instance-wide "Made with Teable" badge kill switch; absent = enabled
+  badgeEnabled: z.boolean().optional(),
 });
 
 export type IAppConfig = z.infer<typeof appConfigSchema>;

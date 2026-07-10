@@ -1415,6 +1415,53 @@ describe('Schema Rules Unit Tests with PGlite', () => {
       expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(true);
     });
 
+    it('should replace an existing non-unique index with a unique index in up()', async () => {
+      await createTestTable(TABLE_NAME, ['email_col TEXT']);
+      await sql
+        .raw(`CREATE INDEX index_email_col ON ${TEST_SCHEMA}.${TABLE_NAME}(email_col)`)
+        .execute(db);
+
+      const fieldResult = createRealField('uidx004', 'Email', 'email_col');
+      const field = fieldResult._unsafeUnwrap();
+
+      const fkColumnRule = FkColumnRule.forField(field, 'email_col', 'other_table');
+      const rule = UniqueIndexRule.forFkColumn(field, 'email_col', fkColumnRule);
+      const ctx = createContext(TABLE_NAME, field);
+
+      expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(false);
+
+      for (const stmt of rule.up(ctx)._unsafeUnwrap()) {
+        await db.executeQuery(stmt.compile(db));
+      }
+
+      expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(true);
+    });
+
+    it('should require manual repair when duplicate values exist behind a non-unique index', async () => {
+      await createTestTable(TABLE_NAME, ['email_col TEXT']);
+      await sql`
+        INSERT INTO ${sql.ref(TEST_SCHEMA)}.${sql.ref(TABLE_NAME)} ("__id", "email_col")
+        VALUES ('rec001', 'target'), ('rec002', 'target'), ('rec003', 'other')
+      `.execute(db);
+      await sql
+        .raw(`CREATE INDEX index_email_col ON ${TEST_SCHEMA}.${TABLE_NAME}(email_col)`)
+        .execute(db);
+
+      const fieldResult = createRealField('uidx005', 'Email', 'email_col');
+      const field = fieldResult._unsafeUnwrap();
+
+      const fkColumnRule = FkColumnRule.forField(field, 'email_col', 'other_table');
+      const rule = UniqueIndexRule.forFkColumn(field, 'email_col', fkColumnRule);
+      const ctx = createContext(TABLE_NAME, field);
+
+      const validation = (await rule.isValid(ctx))._unsafeUnwrap();
+      const repairHint = rule.getRepairHint(ctx, validation)._unsafeUnwrap();
+
+      expect(validation.valid).toBe(false);
+      expect(validation.missingItems?.[0]?.code).toBe('unique_index_duplicate_values');
+      expect(repairHint?.mode).toBe('manual');
+    });
+
     it('should require manual repair when duplicate values block a unique index', async () => {
       await createTestTable(TABLE_NAME, ['email_col TEXT']);
       await sql`
@@ -1582,8 +1629,43 @@ describe('Schema Rules Unit Tests with PGlite', () => {
 
       for (const stmt of rule.up(ctx)._unsafeUnwrap()) {
         const compiled = stmt.compile(db);
-        expect(compiled.sql).not.toContain('table_meta');
         await db.executeQuery(compiled);
+      }
+
+      expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(true);
+    });
+
+    it('should repair FK constraint when logical target table resolves to a physical table', async () => {
+      const targetTableMetaId = createValidTableId('logical_fk_target');
+      const targetPhysicalTableName = 'students_physical';
+
+      await createTestTable(targetPhysicalTableName);
+      await createTestTable(SOURCE_TABLE, ['fk_col TEXT']);
+      await sql`
+        INSERT INTO table_meta (id, db_table_name, deleted_time)
+        VALUES (${targetTableMetaId}, ${`${TEST_SCHEMA}.${targetPhysicalTableName}`}, NULL)
+      `.execute(db);
+
+      const fieldResult = createRealField('fkmeta02', 'Link', 'fk_col');
+      const field = fieldResult._unsafeUnwrap();
+
+      const fkColumnRule = FkColumnRule.forField(field, 'fk_col', targetTableMetaId);
+      const rule = ForeignKeyRule.forField(
+        field,
+        'fk_col',
+        { schema: TEST_SCHEMA, tableName: targetTableMetaId },
+        fkColumnRule,
+        'Students',
+        'CASCADE',
+        undefined,
+        targetTableMetaId
+      );
+      const ctx = createContext(SOURCE_TABLE, field);
+
+      expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(false);
+
+      for (const stmt of rule.up(ctx)._unsafeUnwrap()) {
+        await db.executeQuery(stmt.compile(db));
       }
 
       expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(true);
@@ -2019,6 +2101,29 @@ describe('Schema Rules Unit Tests with PGlite', () => {
       expect((await rule.isValid(ctx))._unsafeUnwrap().valid).toBe(true);
 
       await sql`DROP SCHEMA IF EXISTS ${sql.id(missingSchema)} CASCADE`.execute(db);
+    });
+
+    it('should not auto repair a missing junction table when the foreign table is missing', async () => {
+      await createTestTable(SOURCE_TABLE);
+
+      const fieldResult = createRealField('jcttargetmissing', 'Link', 'link_col');
+      const field = fieldResult._unsafeUnwrap();
+
+      const missingTargetTable = 'deleted_foreign_table';
+      const linkField = createMockLinkField('jcttargetmissing', 'Link');
+      const rule = new JunctionTableExistsRule(linkField, {
+        ...createJunctionConfig(),
+        foreignTable: { schema: TEST_SCHEMA, tableName: missingTargetTable },
+        foreignTableMetaId: createValidTableId('missing_target_meta'),
+      });
+      const ctx = createContext(SOURCE_TABLE, field);
+
+      const validation = (await rule.isValid(ctx))._unsafeUnwrap();
+      const repairHint = rule.getRepairHint(ctx, validation)._unsafeUnwrap();
+
+      expect(validation.valid).toBe(false);
+      expect(validation.missingItems?.[0]?.code).toBe('junction_table_foreign_target_missing');
+      expect(repairHint?.available).toBe(false);
     });
 
     it('should create junction table with up() and validate it exists', async () => {
@@ -2495,7 +2600,7 @@ describe('Schema Rules Unit Tests with PGlite', () => {
 
       for (const stmt of rule.up(ctx)._unsafeUnwrap()) {
         const compiled = stmt.compile(db);
-        expect(compiled.sql).not.toContain('table_meta');
+        expect(compiled.sql).toContain('table_meta');
         await db.executeQuery(compiled);
       }
 
@@ -5572,6 +5677,40 @@ describe('Schema Rules Unit Tests with PGlite', () => {
         const field = createRealLinkField({
           id: 'uidxrl01',
           name: 'Unique Index Rule',
+          dbFieldName: 'link_value',
+          relationship: 'oneOne',
+          foreignTableId: targetTableName,
+          fkHostTableName: sourceTableName,
+          selfKeyName: '__id',
+          foreignKeyName: fkColumnName,
+          hasOrderColumn: false,
+        })._unsafeUnwrap();
+        const table = createTableAggregate(sourceTableName, field);
+
+        await expectRuleRepairLifecycle({
+          table,
+          fieldId: field.id().toString(),
+          ruleId: `unique_index:${field.id().toString()}:${fkColumnName}`,
+          expectedStatus: 'warn',
+        });
+      });
+
+      it('should repair an existing non-unique index rule through repairRule', async () => {
+        const sourceTableName = createValidTableId('src_non_unique_index_rule');
+        const targetTableName = createValidTableId('tgt_non_unique_index_rule');
+        const fkColumnName = '__fk_non_unique_index_rule';
+
+        await createTestTable(targetTableName);
+        await createTestTable(sourceTableName, ['link_value JSONB', `"${fkColumnName}" TEXT`]);
+        await sql
+          .raw(
+            `CREATE INDEX index_${fkColumnName} ON ${TEST_SCHEMA}.${sourceTableName}("${fkColumnName}")`
+          )
+          .execute(db);
+
+        const field = createRealLinkField({
+          id: 'nuidx01',
+          name: 'Non Unique Index Rule',
           dbFieldName: 'link_value',
           relationship: 'oneOne',
           foreignTableId: targetTableName,

@@ -22,6 +22,7 @@ import { temporaryPaste } from '@teable/openapi';
 import { useCallback, useEffect, useRef } from 'react';
 import { useTableId, useTablePermission } from '../../hooks';
 import type { ButtonField } from '../../model/field/button.field';
+import { ensureSelectChoice } from '../../utils';
 import { transformSelectOptions } from '../cell-value';
 import {
   AttachmentEditor,
@@ -81,8 +82,13 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
           [0, 0],
         ],
       });
+
+      // temporaryPaste typecast creates the choice server-side, but the response
+      // does not include updated field options. Append locally so the immediate
+      // updateCell/render path can validate the new name before ShareDB catches up.
+      ensureSelectChoice(options as ISelectFieldOptions, name);
     },
-    [tableId, fieldId]
+    [tableId, fieldId, options]
   );
 
   switch (type) {

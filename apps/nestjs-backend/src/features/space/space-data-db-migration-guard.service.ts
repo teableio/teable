@@ -7,6 +7,8 @@ import {
   spaceDataDbMigratingErrorCode,
 } from './space-data-db-migration.constants';
 
+const recordWriteBlockingStates = ['freezing_writes', 'switching'] as const;
+
 type IMigrationJobClient = {
   spaceDataDbMigrationJob: {
     findFirst(args: unknown): Promise<{ id: string; state: string } | null>;
@@ -25,8 +27,10 @@ type IMigrationJobReader = Pick<IMigrationJobClient, 'spaceDataDbMigrationJob'>;
 export class SpaceDataDbMigrationGuardService {
   constructor(private readonly prismaService: PrismaService) {}
 
-  async assertSpaceWritable(spaceId: string): Promise<void> {
-    const activeJob = await this.findActiveMigrationForSpace(spaceId);
+  async assertSpaceSchemaWritable(spaceId: string): Promise<void> {
+    const activeJob = await this.findActiveMigrationForSpace(spaceId, [
+      ...activeSpaceDataDbMigrationStates,
+    ]);
 
     if (!activeJob) {
       return;
@@ -44,13 +48,52 @@ export class SpaceDataDbMigrationGuardService {
     );
   }
 
-  private async findActiveMigrationForSpace(spaceId: string) {
+  async assertSpaceRecordWritable(spaceId: string): Promise<void> {
+    const activeJob = await this.findActiveMigrationForSpace(
+      spaceId,
+      [...recordWriteBlockingStates],
+      {
+        switchOnCompletionOnly: false,
+      }
+    );
+
+    if (!activeJob) {
+      return;
+    }
+
+    throw new CustomHttpException(
+      'Space data database migration is switching data database',
+      HttpErrorCode.CONFLICT,
+      {
+        errorCode: spaceDataDbMigratingErrorCode,
+        migrationJobId: activeJob.id,
+        migrationState: activeJob.state,
+        spaceId,
+      }
+    );
+  }
+
+  async assertSpaceWritable(spaceId: string): Promise<void> {
+    await this.assertSpaceSchemaWritable(spaceId);
+  }
+
+  private async findActiveMigrationForSpace(
+    spaceId: string,
+    states: readonly string[],
+    options: { switchOnCompletionOnly?: boolean } = { switchOnCompletionOnly: true }
+  ) {
+    const switchOnCompletionFilter =
+      options.switchOnCompletionOnly === false
+        ? {}
+        : {
+            switchOnCompletion: true,
+          };
     try {
       const directJob = await this.migrationJobClient.spaceDataDbMigrationJob.findFirst({
         where: {
           spaceId,
-          switchOnCompletion: true,
-          state: { in: [...activeSpaceDataDbMigrationStates] },
+          ...switchOnCompletionFilter,
+          state: { in: [...states] },
         },
         select: { id: true, state: true },
       });
@@ -60,8 +103,8 @@ export class SpaceDataDbMigrationGuardService {
 
       const activeJobs = await this.migrationJobClient.spaceDataDbMigrationJob.findMany({
         where: {
-          switchOnCompletion: true,
-          state: { in: [...activeSpaceDataDbMigrationStates] },
+          ...switchOnCompletionFilter,
+          state: { in: [...states] },
         },
         select: { id: true, state: true, spaceId: true, inventory: true },
       });
@@ -108,6 +151,10 @@ export class SpaceDataDbMigrationGuardService {
   }
 
   async assertBaseWritable(baseId: string): Promise<void> {
+    await this.assertBaseSchemaWritable(baseId);
+  }
+
+  async assertBaseSchemaWritable(baseId: string): Promise<void> {
     const base = await this.prismaClient.base.findUnique({
       where: { id: baseId },
       select: { spaceId: true },
@@ -115,10 +162,25 @@ export class SpaceDataDbMigrationGuardService {
     if (!base) {
       throw new CustomHttpException(`Base ${baseId} not found`, HttpErrorCode.NOT_FOUND);
     }
-    await this.assertSpaceWritable(base.spaceId);
+    await this.assertSpaceSchemaWritable(base.spaceId);
+  }
+
+  async assertBaseRecordWritable(baseId: string): Promise<void> {
+    const base = await this.prismaClient.base.findUnique({
+      where: { id: baseId },
+      select: { spaceId: true },
+    });
+    if (!base) {
+      throw new CustomHttpException(`Base ${baseId} not found`, HttpErrorCode.NOT_FOUND);
+    }
+    await this.assertSpaceRecordWritable(base.spaceId);
   }
 
   async assertTableWritable(tableId: string): Promise<void> {
+    await this.assertTableSchemaWritable(tableId);
+  }
+
+  async assertTableSchemaWritable(tableId: string): Promise<void> {
     const table = await this.prismaClient.tableMeta.findUnique({
       where: { id: tableId },
       select: { base: { select: { spaceId: true } } },
@@ -126,7 +188,18 @@ export class SpaceDataDbMigrationGuardService {
     if (!table) {
       throw new CustomHttpException(`Table ${tableId} not found`, HttpErrorCode.NOT_FOUND);
     }
-    await this.assertSpaceWritable(table.base.spaceId);
+    await this.assertSpaceSchemaWritable(table.base.spaceId);
+  }
+
+  async assertTableRecordWritable(tableId: string): Promise<void> {
+    const table = await this.prismaClient.tableMeta.findUnique({
+      where: { id: tableId },
+      select: { base: { select: { spaceId: true } } },
+    });
+    if (!table) {
+      throw new CustomHttpException(`Table ${tableId} not found`, HttpErrorCode.NOT_FOUND);
+    }
+    await this.assertSpaceRecordWritable(table.base.spaceId);
   }
 
   private get prismaClient(): IMigrationJobClient {

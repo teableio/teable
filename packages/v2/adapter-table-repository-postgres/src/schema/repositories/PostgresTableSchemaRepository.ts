@@ -50,7 +50,11 @@ import {
   executeTableSchemaStatements,
   resolvePostgresDbOrTx,
 } from '../../shared/db';
-import { isNotNullViolation, isUniqueViolation } from '../../shared/errors';
+import {
+  createSchemaNotNullViolationError,
+  isNotNullViolation,
+  isUniqueViolation,
+} from '../../shared/errors';
 import { toQualifiedIdentifierLiteral } from '../../shared/sqlIdentifiers';
 import {
   ensureUndoCaptureInfrastructure,
@@ -753,12 +757,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
           }
 
           if (isNotNullViolation(error)) {
-            return err(
-              domainError.validation({
-                message: 'Cannot complete update: null value violates not-null constraint',
-                code: 'validation.field.not_null',
-              })
-            );
+            return err(createSchemaNotNullViolationError(error, table.getFields(), context.$t));
           }
 
           return err(

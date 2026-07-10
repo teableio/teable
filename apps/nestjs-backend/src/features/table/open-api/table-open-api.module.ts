@@ -9,6 +9,7 @@ import { FieldOpenApiModule } from '../../field/open-api/field-open-api.module';
 import { GraphModule } from '../../graph/graph.module';
 import { RecordOpenApiModule } from '../../record/open-api/record-open-api.module';
 import { RecordModule } from '../../record/record.module';
+import { RecordHistoryColdCoreModule } from '../../record-history-cold/record-history-cold.module';
 import { V2Module } from '../../v2/v2.module';
 import { ViewOpenApiModule } from '../../view/open-api/view-open-api.module';
 import { ViewModule } from '../../view/view.module';
@@ -30,6 +31,7 @@ import { V2TableMutationCacheInvalidatorService } from './v2-table-mutation-cach
     FieldOpenApiModule,
     FieldDuplicateModule,
     TableModule,
+    RecordHistoryColdCoreModule,
     ShareDbModule,
     CalculationModule,
     GraphModule,

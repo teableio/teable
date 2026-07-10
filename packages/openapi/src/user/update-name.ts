@@ -5,8 +5,10 @@ import { z } from '../zod';
 
 export const UPDATE_USER_NAME = '/user/name';
 
+export const USER_NAME_MAX_LENGTH = 100;
+
 export const updateUserNameRoSchema = z.object({
-  name: z.string(),
+  name: z.string().min(1).max(USER_NAME_MAX_LENGTH),
 });
 
 export type IUpdateUserNameRo = z.infer<typeof updateUserNameRoSchema>;

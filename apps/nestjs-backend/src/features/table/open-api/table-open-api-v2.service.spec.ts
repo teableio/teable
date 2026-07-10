@@ -93,7 +93,10 @@ describe('TableOpenApiV2Service.createTable', () => {
         emitAtomic: vi.fn().mockResolvedValue(undefined),
         // Pass-through: invoke fn directly so decorated methods execute their body.
         withOperation: vi.fn().mockImplementation((_operation, fn: () => Promise<unknown>) => fn()),
-      } as never
+      } as never,
+      {} as never,
+      { dataPrismaForBase: vi.fn() } as never,
+      { deleteTablePrefix: vi.fn().mockResolvedValue(undefined) } as never
     );
 
   it('fills missing legacy link lookupFieldId and prefixes legacy dbTableName before calling v2', async () => {
@@ -321,7 +324,10 @@ describe('TableOpenApiV2Service.duplicateTable', () => {
         emitAtomic: vi.fn().mockResolvedValue(undefined),
         // Pass-through: invoke fn directly so decorated methods execute their body.
         withOperation: vi.fn().mockImplementation((_operation, fn: () => Promise<unknown>) => fn()),
-      } as never
+      } as never,
+      {} as never,
+      { dataPrismaForBase: vi.fn() } as never,
+      { deleteTablePrefix: vi.fn().mockResolvedValue(undefined) } as never
     );
 
   it('rebuilds the legacy duplicate-table response from the duplicated v2 table', async () => {
