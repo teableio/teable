@@ -24,7 +24,7 @@ const exitOnErrorArg = '--exit-on-error';
 const jobsArg = '--jobs';
 const pgcopydbWorkDirectory = '/tmp/sdmjxxx/pgcopydb-base-schemas';
 const pgcopydbFilterFile = '/tmp/sdmjxxx/pgcopydb-base-schemas.filter.ini';
-const psqlCommandArgs = ['--no-psqlrc', '--set', 'ON_ERROR_STOP=1', '--command'];
+const psqlCommandArgs = ['--no-psqlrc', '--quiet', '--set', 'ON_ERROR_STOP=1', '--command'];
 const fdwSourceUrl =
   'postgresql://source_user:source_secret@source.example:15432/teable_source?sslmode=require';
 
@@ -95,16 +95,7 @@ describe('space data DB copy plan', () => {
     });
     expect(plan.restore).toEqual({
       command: 'pg_restore',
-      args: [
-        noOwnerArg,
-        noAclArg,
-        exitOnErrorArg,
-        jobsArg,
-        '4',
-        '--dbname',
-        targetUrl,
-        dumpFile,
-      ],
+      args: [noOwnerArg, noAclArg, exitOnErrorArg, jobsArg, '4', '--dbname', targetUrl, dumpFile],
     });
   });
 
@@ -147,6 +138,27 @@ describe('space data DB copy plan', () => {
         args: [noOwnerArg, noAclArg, exitOnErrorArg, '--dbname', targetUrl],
       },
     });
+  });
+
+  it('passes exported PostgreSQL snapshots to pg_dump base schema plans', () => {
+    const dumpRestorePlan = buildBaseSchemaDumpRestorePlan({
+      sourceUrl,
+      targetUrl,
+      schemaNames: ['bsexxx'],
+      workDir,
+      snapshotId: '00000003-0000001A-1',
+    });
+    const streamPlan = buildBaseSchemaDumpStreamRestorePlan({
+      sourceUrl,
+      targetUrl,
+      schemaNames: ['bsexxx'],
+      snapshotId: '00000003-0000001A-1',
+    });
+
+    expect(dumpRestorePlan.dump.args).toContain('--snapshot');
+    expect(dumpRestorePlan.dump.args).toContain('00000003-0000001A-1');
+    expect(streamPlan.source.args).toContain('--snapshot');
+    expect(streamPlan.source.args).toContain('00000003-0000001A-1');
   });
 
   it('adds a pg_restore use-list file when base schema restore needs filtered TOC entries', () => {
@@ -331,6 +343,30 @@ describe('space data DB copy plan', () => {
     });
   });
 
+  it('wraps source shared-table COPY in the exported PostgreSQL snapshot transaction', () => {
+    const plan = buildSharedTablePsqlCopyPlan({
+      sourceUrl,
+      targetUrl,
+      sourceSchema: 'public',
+      targetSchema: 'teable_meta_target',
+      table: 'record_history',
+      columns: ['id', 'table_id', 'record_id'],
+      whereSql: `"table_id" = ANY(ARRAY['tblxxx']::text[])`,
+      snapshotId: '00000003-0000001A-1',
+    });
+
+    expect(plan.sourceSql).toContain('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;');
+    expect(plan.sourceSql).toContain("SET TRANSACTION SNAPSHOT '00000003-0000001A-1';");
+    expect(plan.sourceSql).toContain(
+      `COPY (SELECT "id", "table_id", "record_id" FROM "public"."record_history" WHERE "table_id" = ANY(ARRAY['tblxxx']::text[])) TO STDOUT;`
+    );
+    expect(plan.sourceSql).toContain('COMMIT;');
+    expect(plan.targetSql).toBe(
+      'COPY "teable_meta_target"."record_history" ("id", "table_id", "record_id") FROM STDIN'
+    );
+    expect(plan.target.args).toEqual([...psqlCommandArgs, plan.targetSql, targetUrl]);
+  });
+
   it('uses PostgreSQL-tool-compatible URLs for psql shared-table copy commands', () => {
     const plan = buildSharedTablePsqlCopyPlan({
       sourceUrl: 'postgresql://source.example/teable?schema=public',
@@ -415,18 +451,18 @@ describe('space data DB copy plan', () => {
       'record_history',
       'table_trash',
       'record_trash',
+      'computed_update_pause_scope',
       'computed_update_outbox',
       'computed_update_dead_letter',
       'computed_update_outbox_seed',
-      'computed_update_pause_scope',
       '__undo_log',
     ]);
     expect(plans[0].sourceSql).toContain(`"table_id" = ANY(ARRAY['tblxxx', 'tblyyy']::text[])`);
-    expect(plans[3].sourceSql).toContain(`"base_id" = ANY(ARRAY['bsexxx', 'bseyyy']::text[])`);
-    expect(plans[5].sourceSql).toContain(
+    expect(plans[3].sourceSql).toContain(`"scope_id" = ANY(ARRAY['spc''x']::text[])`);
+    expect(plans[4].sourceSql).toContain(`"base_id" = ANY(ARRAY['bsexxx', 'bseyyy']::text[])`);
+    expect(plans[6].sourceSql).toContain(
       'FROM "public"."computed_update_outbox" WHERE "base_id" = ANY'
     );
-    expect(plans[6].sourceSql).toContain(`"scope_id" = ANY(ARRAY['spc''x']::text[])`);
     expect(plans[7].sourceSql).toContain(
       `split_part("table_name", '.', 1) = ANY(ARRAY['bsexxx', 'bseyyy']::text[])`
     );
@@ -480,15 +516,15 @@ describe('space data DB copy plan', () => {
       'record_history',
       'table_trash',
       'record_trash',
+      'computed_update_pause_scope',
       'computed_update_outbox',
       'computed_update_dead_letter',
       'computed_update_outbox_seed',
-      'computed_update_pause_scope',
       '__undo_log',
     ]);
     expect(plans[0].sql).toContain('FROM "sdmjxxx_fdw_0"."record_history"');
-    expect(plans[5].sql).toContain('FROM "sdmjxxx_fdw_5"."computed_update_outbox"');
-    expect(plans[6].sql).toContain(`"scope_id" = ANY(ARRAY['spc''x']::text[])`);
+    expect(plans[3].sql).toContain(`"scope_id" = ANY(ARRAY['spc''x']::text[])`);
+    expect(plans[6].sql).toContain('FROM "sdmjxxx_fdw_6"."computed_update_outbox"');
     expect(plans.every((plan) => plan.target.args.includes(targetUrl))).toBe(true);
   });
 

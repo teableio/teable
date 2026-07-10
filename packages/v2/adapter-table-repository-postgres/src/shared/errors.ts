@@ -146,6 +146,33 @@ const findFieldByColumn = (
   });
 };
 
+export const createSchemaNotNullViolationError = (
+  error: unknown,
+  fields: ReadonlyArray<Field> | undefined,
+  t?: IExecutionContext['$t']
+): DomainError => {
+  const column = extractNotNullColumn(error);
+  const field = findFieldByColumn(column, fields);
+  const fieldId = field?.id().toString();
+  const fieldName = field?.name().toString();
+  const fallback = fieldName
+    ? `Cannot mark field "${fieldName}" as required because existing records contain empty values.`
+    : 'Cannot mark this field as required because existing records contain empty values.';
+
+  return domainError.validation({
+    message: fieldName
+      ? i18nOrFallback(
+          t,
+          tableI18nKeys.validation.field.requiredExistingValues,
+          fallback,
+          { fieldName }
+        )
+      : fallback,
+    code: 'validation.field.not_null',
+    ...(field && { details: { fieldId, fieldName } }),
+  });
+};
+
 /**
  * Wrap database errors into appropriate domain errors.
  * Converts PostgreSQL constraint violations into validation errors.

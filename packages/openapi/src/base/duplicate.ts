@@ -1,4 +1,5 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
+import { timeZoneStringSchema } from '@teable/core';
 import { axios } from '../axios';
 import { registerRoute } from '../utils';
 import { z } from '../zod';
@@ -54,6 +55,10 @@ export const duplicateBaseRoSchema = z.object({
   shareId: z.string().optional().meta({
     description:
       'The share ID when duplicating from a shared base. If provided, will use share permissions instead of base|update permission.',
+  }),
+  timeZone: timeZoneStringSchema.optional().meta({
+    description:
+      'The IANA time zone to adapt date-related field options (and date filters) to during duplication. Mainly used when applying a template so dates follow the current user environment.',
   }),
 });
 

@@ -1221,10 +1221,10 @@
     }
   },
   "changelog": {
-    "newUpdate": "ОБНОВЛЕНИЕ ОТ 24 ИЮНЯ",
-    "title": "Agent Computer стал мощнее",
-    "url": "https://help.teable.ai/en/changelog#jun-24-2026",
-    "id": "changelog-2026-06-24-agent-computer-supercharged"
+    "newUpdate": "ОБНОВЛЕНИЕ ОТ 8 ИЮЛЯ",
+    "title": "Skills теперь доступны",
+    "url": "https://help.teable.ai/en/changelog#jul-8-2026",
+    "id": "changelog-2026-07-08-skills-are-now-available"
   },
   "resourceDescription": {
     "addDescription": "Добавить описание",

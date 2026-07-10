@@ -479,17 +479,17 @@ export function useInstances<T, R extends { id: string }>({
             const currentValue = docFields[fieldId];
             const nextValue = nextFields[fieldId];
 
-            if (isEqual(currentValue, nextValue)) {
+            // getRecords omits null/empty fields. During temporaryPaste +
+            // updateCell races, setField presence can refresh before the new
+            // select value is persisted; treat missing keys as "unchanged"
+            // so optimistic local values are not wiped.
+            if (nextValue === undefined || isEqual(currentValue, nextValue)) {
               return;
             }
 
             changed = true;
             doc.data.fields ??= {};
-            if (nextValue === undefined) {
-              delete doc.data.fields[fieldId];
-            } else {
-              doc.data.fields[fieldId] = nextValue;
-            }
+            doc.data.fields[fieldId] = nextValue;
           });
 
           if (changed) {

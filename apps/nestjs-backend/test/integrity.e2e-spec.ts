@@ -522,6 +522,60 @@ describe('OpenAPI integrity (e2e)', () => {
       expect(integrityAfterFix.data.hasIssues).toEqual(false);
     });
 
+    it('should skip junction table repair when the foreign table metadata is missing', async () => {
+      const linkFieldRo: IFieldRo = {
+        name: 'broken many many link',
+        type: FieldType.Link,
+        options: {
+          baseId: baseId2,
+          relationship: Relationship.ManyMany,
+          foreignTableId: base2table2.id,
+        },
+      };
+
+      const linkField = await createField(base2table1.id, linkFieldRo);
+      const options = linkField.options as ILinkFieldOptions;
+
+      await prisma.field.update({
+        where: { id: linkField.id },
+        data: {
+          hasError: true,
+          options: JSON.stringify({
+            ...options,
+            foreignTableId: 'tblMissingForeignTable',
+            fkHostTableName: `${options.fkHostTableName}_missing`,
+          }),
+        },
+      });
+
+      const integrity = await checkBaseIntegrity(baseId2, base2table1.id);
+      const issues = integrity.data.linkFieldIssues.flatMap((item) => item.issues);
+      expect(
+        issues.some(
+          (issue) =>
+            issue.type === IntegrityIssueType.ForeignTableNotFound && issue.fieldId === linkField.id
+        )
+      ).toEqual(true);
+      expect(
+        issues.some(
+          (issue) =>
+            issue.type === IntegrityIssueType.ForeignKeyHostTableNotFound &&
+            issue.fieldId === linkField.id
+        )
+      ).toEqual(true);
+
+      await expect(fixBaseIntegrity(baseId2, base2table1.id)).resolves.toBeDefined();
+
+      const integrityAfterFix = await checkBaseIntegrity(baseId2, base2table1.id);
+      const issuesAfterFix = integrityAfterFix.data.linkFieldIssues.flatMap((item) => item.issues);
+      expect(
+        issuesAfterFix.some(
+          (issue) =>
+            issue.type === IntegrityIssueType.ForeignTableNotFound && issue.fieldId === linkField.id
+        )
+      ).toEqual(true);
+    });
+
     it('should restore missing foreign key columns for ManyOne link host', async () => {
       const linkFieldRo: IFieldRo = {
         name: 'many one link (drop column)',
