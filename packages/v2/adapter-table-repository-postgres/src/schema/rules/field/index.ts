@@ -1,5 +1,6 @@
 export { ColumnExistsRule } from './ColumnExistsRule';
 export { ColumnUniqueConstraintRule } from './ColumnUniqueConstraintRule';
+export { DefaultValueBackfillRule } from './DefaultValueBackfillRule';
 export { FieldMetaRule } from './FieldMetaRule';
 export { NotNullConstraintRule } from './NotNullConstraintRule';
 export {

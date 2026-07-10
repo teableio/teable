@@ -3,6 +3,7 @@ export * from './delete';
 export * from './get-list';
 export * from './get';
 export * from './update';
+export * from './update-avatar';
 export * from './invitation-create-link';
 export * from './invitation-delete-link';
 export * from './invitation-get-link-list';
