@@ -95,19 +95,38 @@ export class Record extends RecordCore {
     return Record.isHidden(this.permissions, fieldId);
   }
 
-  private onCommitLocal(fieldId: string, cellValue: unknown, undo?: boolean) {
+  private onCommitLocal(fieldId: string, cellValue: unknown, _undo?: boolean) {
     const oldCellValue = this.fields[fieldId];
     const operation = RecordOpBuilder.editor.setRecord.build({
       fieldId,
       newCellValue: cellValue,
       oldCellValue,
     });
+    // Local-only optimistic write. Do not bump doc.version: the server will
+    // publish the real record op at the correct version (e.g. v2-projection).
+    // A fake version++ can make that op look stale/duplicate and leave the
+    // cell blank until a full refresh.
     this.doc.data.fields[fieldId] = cellValue;
     this.doc.emit('op batch', [operation], false);
-    if (this.doc.version) {
-      undo ? this.doc.version-- : this.doc.version++;
-    }
     this.fields[fieldId] = cellValue;
+  }
+
+  private isResolvedLinkCellValue(cellValue: unknown) {
+    if (cellValue == null) {
+      return false;
+    }
+
+    const values = Array.isArray(cellValue) ? cellValue : [cellValue];
+    if (!values.length) {
+      return false;
+    }
+
+    return values.every(
+      (value) =>
+        value != null &&
+        typeof value === 'object' &&
+        typeof (value as { title?: unknown }).title === 'string'
+    );
   }
 
   private updateComputedField = async (fieldIds: string[], record: IRecord) => {
@@ -115,6 +134,13 @@ export class Record extends RecordCore {
       // Skip if the new value is undefined - computed field hasn't been updated yet (V2 async)
       // This prevents clearing computed fields that will be updated via ShareDB op
       if (record.fields[fieldId] === undefined) {
+        return false;
+      }
+      // V2 update responses can include stored link values without titles.
+      if (
+        this.fieldMap[fieldId]?.type === FieldType.Link &&
+        !this.isResolvedLinkCellValue(record.fields[fieldId])
+      ) {
         return false;
       }
       return !isEqual(this.fields[fieldId], record.fields[fieldId]);

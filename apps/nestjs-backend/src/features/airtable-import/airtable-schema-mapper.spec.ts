@@ -203,6 +203,41 @@ describe('buildAirtableImportPlan', () => {
     expect(choices[2].name.length).toBeGreaterThan(0);
   });
 
+  it('merges select choices whose names collide after trimming', () => {
+    // Airtable identifies choices by id and allows duplicate names (or names
+    // differing only by whitespace); Teable rejects duplicate option names.
+    const [table] = buildAirtableImportPlan([
+      {
+        id: 'tblDup',
+        name: 'Dup',
+        primaryFieldId: 'fldTitle',
+        fields: [
+          { id: 'fldTitle', name: 'Title', type: 'singleLineText' },
+          {
+            id: 'fldStatus',
+            name: 'Status',
+            type: 'singleSelect',
+            options: {
+              choices: [
+                { id: 'selA', name: 'High', color: 'redBright' },
+                { id: 'selB', name: 'High ' },
+                { id: 'selC', name: ' High' },
+                { id: 'selD', name: 'Low' },
+              ],
+            },
+          },
+        ],
+        views: [],
+      },
+    ]).tables;
+
+    const status = table.fields.find((field) => field.airtableFieldId === 'fldStatus');
+    const choices = (status?.ro.options as { choices: Array<{ name: string; color: string }> })
+      .choices;
+    expect(choices.map((choice) => choice.name)).toEqual(['High', 'Low']);
+    expect(choices[0].color).toBe('redBright');
+  });
+
   it('owns a one-to-many link on the single-link side, independent of table order', () => {
     // Projects.Tasks is multi and Tasks.Project is single; the single side must
     // own the link so the relationship resolves to ManyOne (not ManyMany) no

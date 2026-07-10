@@ -37,7 +37,6 @@ interface IAddModelDialogProps {
   onSelectModel: (modelId: string) => void;
   onRetry: () => void;
   // Pricing props
-  showPricing: boolean;
   pricingExpanded: boolean;
   onPricingExpandedChange: (expanded: boolean) => void;
   onPricingChange: (
@@ -68,7 +67,6 @@ export function AddModelDialog({
   availableModelsCount,
   onSelectModel,
   onRetry,
-  showPricing,
   pricingExpanded,
   onPricingExpandedChange,
   onPricingChange,
@@ -122,16 +120,14 @@ export function AddModelDialog({
 
           {/* Note: isImageModel is auto-detected from API type and tags */}
 
-          {/* Pricing Section - USD per token (only show in Cloud) */}
-          {showPricing && (
-            <PricingSection
-              expanded={pricingExpanded}
-              onExpandedChange={onPricingExpandedChange}
-              pricing={newModel.pricing}
-              modelType={newModel.modelType}
-              onPricingChange={onPricingChange}
-            />
-          )}
+          {/* Pricing Section - USD per token */}
+          <PricingSection
+            expanded={pricingExpanded}
+            onExpandedChange={onPricingExpandedChange}
+            pricing={newModel.pricing}
+            modelType={newModel.modelType}
+            onPricingChange={onPricingChange}
+          />
         </div>
 
         {/* Test Result */}

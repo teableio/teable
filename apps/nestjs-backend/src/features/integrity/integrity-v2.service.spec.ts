@@ -493,12 +493,16 @@ describe('IntegrityV2Service repair telemetry', () => {
     });
   });
 
-  it('reports active tables that cannot hydrate before base schema checks', async () => {
+  it('hydrates active tables with no fields as empty tables', async () => {
     const baseId = createBaseId('j').toString();
     const table = createTable();
     const emptyTableId = createTableId('e').toString();
+    const emptyTable = createTable([], {
+      tableId: emptyTableId,
+      tableName: 'Empty Table',
+    });
     const tableRepository = {
-      find: vi.fn().mockResolvedValue(ok([table])),
+      find: vi.fn().mockResolvedValue(ok([table, emptyTable])),
     };
     const baseRepository = {
       findOne: vi.fn().mockResolvedValue(ok({})),
@@ -529,21 +533,8 @@ describe('IntegrityV2Service repair telemetry', () => {
 
     const target = await service['resolveBaseTarget'](baseId);
 
-    expect(target.tables).toEqual([table]);
-    expect(target.preflightIssues).toHaveLength(1);
-    expect(target.preflightIssues[0]).toMatchObject({
-      baseId,
-      tableId: emptyTableId,
-      tableName: 'Empty Table',
-      fieldId: emptyTableId,
-      fieldName: 'System Columns',
-      ruleId: 'table_empty_active_fields',
-      status: 'error',
-      repair: {
-        available: false,
-        mode: 'manual',
-      },
-    });
+    expect(target.tables).toEqual([emptyTable, table]);
+    expect(target.preflightIssues).toEqual([]);
     expect(tableRepository.find).toHaveBeenCalledWith(expect.anything(), expect.anything(), {
       state: 'activeWithPending',
     });
