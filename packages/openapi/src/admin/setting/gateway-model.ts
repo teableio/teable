@@ -1,5 +1,8 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
+import { axios } from '../../axios';
+import { registerRoute, urlBuilder } from '../../utils';
 import { modelAbilitySchema } from './model-ability';
 import {
   legacyRatesSchema,
@@ -41,6 +44,7 @@ export const GatewayModelProviderValues = [
   'deepseek',
   'google',
   'inception',
+  'interfaze',
   'kwaipilot',
   'meituan',
   'meta',
@@ -54,7 +58,9 @@ export const GatewayModelProviderValues = [
   'prime-intellect',
   'prodia',
   'recraft',
+  'sakana',
   'stealth',
+  'stepfun',
   'vercel',
   'voyage',
   'xai',
@@ -113,6 +119,8 @@ export const gatewayModelSchema = z.object({
       zh: z.string().optional(),
     })
     .optional(),
+  // Promoted in the chat model nudge (at most one model)
+  recommended: z.boolean().optional(),
 });
 
 export type IGatewayModel = z.infer<typeof gatewayModelSchema>;
@@ -164,3 +172,34 @@ export function convertGatewayApiModel(raw: IGatewayApiModelRaw): IGatewayApiMod
     pricing: normalizeGatewayPricing(raw.pricing),
   };
 }
+
+export const getGatewayModelsVoSchema = z.object({
+  configured: z.boolean(),
+  models: z.array(gatewayApiModelSchema),
+});
+
+export type IGetGatewayModelsVo = z.infer<typeof getGatewayModelsVoSchema>;
+
+export const GET_AI_PROXY_GATEWAY_MODELS = '/v1/ai-proxy/gateway-models';
+
+export const GetAiProxyGatewayModelsRoute: RouteConfig = registerRoute({
+  method: 'get',
+  path: GET_AI_PROXY_GATEWAY_MODELS,
+  description:
+    'Get AI Gateway models supported by the agent runtime (enterprise/cloud editions only)',
+  responses: {
+    200: {
+      description: 'Supported gateway models; configured=false when no gateway key is set.',
+      content: {
+        'application/json': {
+          schema: getGatewayModelsVoSchema,
+        },
+      },
+    },
+  },
+  tags: ['admin'],
+});
+
+export const getAiProxyGatewayModels = async () => {
+  return axios.get<IGetGatewayModelsVo>(urlBuilder(GET_AI_PROXY_GATEWAY_MODELS));
+};

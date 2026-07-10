@@ -59,6 +59,7 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
         templateId,
         withRecords: true,
         baseId: routerBaseId,
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       }),
     onSuccess: (res) => {
       const { id: baseId, defaultUrl } = res.data;

@@ -739,6 +739,7 @@
         "addCustomModel": "Add custom model",
         "isOpenRouter": "OpenRouter",
         "modelRates": "Model Pricing",
+        "modelSettings": "Model Settings",
         "model": "Model",
         "inputRate": "Input USD/token",
         "outputRate": "Output USD/token",
@@ -766,11 +767,7 @@
         "imageGenerationModel": "Image Generation Model",
         "markedAsImageModel": "Marked as image generation model. Will test text-to-image and image-to-image capabilities.",
         "markedAsTextModel": "Marked as text model. Will test vision (image input) capability.",
-        "fetchPricing": "Fetch Pricing",
-        "fetchPricingTip": "Fetch model pricing from the AI Gateway model catalog",
         "fetchPricingError": "Failed to fetch pricing",
-        "pricingPreview": "AI Gateway Reference",
-        "pricingPreviewDesc": "Found pricing for {{matched}} of {{total}} models",
         "openRouterId": "Gateway model ID",
         "notFound": "Not found",
         "applyPricing": "Apply ({{count}})",
@@ -785,6 +782,13 @@
         "gatewayRatioTip": "Multiplier relative to AI Gateway Reference. 0.1 means 10% of the reference price.",
         "generatedPricing": "Generated pricing",
         "generatedPricingTip": "Generated custom provider input/output price saved to modelConfigs[model].pricing",
+        "rateExplanationManual": "No auto-matched reference? Pick a reference model manually in the model's edit dialog.",
+        "referenceModelLabel": "Reference model",
+        "contextWindowCap": "Context",
+        "contextWindowCapTip": "Max input tokens the model accepts; drives context compaction. Leave empty to use registry/default limits.",
+        "maxOutputTokensCap": "Max output",
+        "maxOutputTokensCapTip": "Max tokens the model may generate per response. Leave empty to use registry/default limits.",
+        "rateExplanationCaps": "Context / max-output default to the reference model and stay editable; empty values fall back to registry or defaults.",
         "relativeRatioTip": "Cost level relative to Claude Opus 4.6 = 1x, using the existing weighted algorithm",
         "hint": {
           "title": "Suggestions",
@@ -800,6 +804,7 @@
           "checkConfiguration": "Please check your configuration. Ensure the Base URL, API key, and model name are all correct"
         },
         "recommended": "Recommended",
+        "enabled": "Enabled",
         "gatewayModels": "AI Gateway Models",
         "gatewayModelsDescription": "Configure recommended models via Vercel AI Gateway for optimal AI SDK support",
         "gatewayDescription": "Use AI Gateway for best compatibility and reliability. Configure API key in the App section below.",
@@ -812,7 +817,6 @@
         "modelIdHint": "The model identifier used by AI Gateway (e.g., anthropic/claude-sonnet-4)",
         "searchModelPlaceholder": "Type to search models...",
         "noMatchingModels": "No matching models found",
-        "useCustomId": "Use custom ID: {{id}}",
         "typeToSearch": "Type keywords to search available models",
         "modelNotFound": "This model ID was not found in available list, please verify spelling",
         "testModel": "Test Model",
@@ -1615,10 +1619,10 @@
     }
   },
   "changelog": {
-    "newUpdate": "JUN 24 UPDATE",
-    "title": "Agent Computer, Supercharged",
-    "url": "https://help.teable.ai/en/changelog#jun-24-2026",
-    "id": "changelog-2026-06-24-agent-computer-supercharged"
+    "newUpdate": "JUL 8 UPDATE",
+    "title": "Skills Are Now Available",
+    "url": "https://help.teable.ai/en/changelog#jul-8-2026",
+    "id": "changelog-2026-07-08-skills-are-now-available"
   },
   "resourceDescription": {
     "addDescription": "Add description",

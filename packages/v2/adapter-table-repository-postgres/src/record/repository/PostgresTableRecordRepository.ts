@@ -433,6 +433,72 @@ async function checkOrderColumnExists(
   return result.rows.length > 0;
 }
 
+/**
+ * Collect db field names for system audit fields that may still be physical
+ * GENERATED ALWAYS columns on legacy tables (meta can drift).
+ */
+function collectUserAuditFieldColumnNames(table: core.Table): string[] {
+  const names: string[] = [];
+  for (const field of table.getFields()) {
+    const type = field.type().toString();
+    if (type !== 'createdBy' && type !== 'lastModifiedBy') {
+      continue;
+    }
+    const dbFieldNameResult = field.dbFieldName().andThen((name) => name.value());
+    if (dbFieldNameResult.isOk() && dbFieldNameResult.value) {
+      names.push(dbFieldNameResult.value);
+    }
+  }
+  return names;
+}
+
+/**
+ * PostgreSQL rejects INSERT of non-DEFAULT values into GENERATED ALWAYS columns.
+ * Strip those columns from insert value maps when the physical column is generated
+ * (handles meta.persistedAsGeneratedColumn drift on legacy CreatedBy columns).
+ */
+async function stripPhysicallyGeneratedColumnsFromInsertValues(
+  db: Kysely<DynamicDB>,
+  tableName: string,
+  candidateColumnNames: ReadonlyArray<string>,
+  valuesList: Array<Record<string, unknown>>
+): Promise<void> {
+  if (!candidateColumnNames.length || !valuesList.length) {
+    return;
+  }
+
+  const presentColumns = candidateColumnNames.filter((name) =>
+    valuesList.some((values) => Object.prototype.hasOwnProperty.call(values, name))
+  );
+  if (!presentColumns.length) {
+    return;
+  }
+
+  const { schemaName, plainTableName } = splitSchemaQualifiedTableName(tableName);
+  try {
+    const result = await sql<{ column_name: string }>`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema = ${schemaName ?? 'public'}
+      AND table_name = ${plainTableName}
+      AND column_name IN (${sql.join(presentColumns.map((name) => sql`${name}`))})
+      AND is_generated IS DISTINCT FROM 'NEVER'
+    `.execute(db);
+
+    if (!result.rows.length) {
+      return;
+    }
+
+    for (const row of result.rows) {
+      for (const values of valuesList) {
+        delete values[row.column_name];
+      }
+    }
+  } catch {
+    // Best-effort safety net; insert will surface the original error if this fails.
+  }
+}
+
 async function ensureViewOrderColumnsExist(
   db: Kysely<DynamicDB>,
   tableName: string,
@@ -1145,6 +1211,15 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
 
         this.logger.debug(`insert:table=${tableName}`, { values: valuesWithViewOrder });
 
+        // Legacy CreatedBy/LastModifiedBy columns may still be GENERATED ALWAYS even when
+        // field meta says otherwise — strip them so PostgreSQL accepts the INSERT (T6146).
+        await stripPhysicallyGeneratedColumnsFromInsertValues(
+          db,
+          tableName,
+          collectUserAuditFieldColumnNames(table),
+          [valuesWithViewOrder]
+        );
+
         let snapshotCaptureSession: IPostgresRecordMutationSnapshotCaptureSession | undefined;
         try {
           snapshotCaptureSession = yield* await this.recordMutationSnapshotCapture.begin(
@@ -1224,10 +1299,34 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
   }
 
   /**
-   * Default batch size for insertMany to stay under PostgreSQL's ~65535 parameter limit.
-   * With ~10 columns per record (user fields + system columns), 500 records = ~5000 params.
+   * Default row cap for insertMany. Wide tables can use many bind parameters per
+   * row, so the effective batch size is reduced dynamically before execution.
    */
   private static readonly INSERT_BATCH_SIZE = 500;
+  // Keep well below PostgreSQL's 65,535 bind-parameter ceiling to avoid
+  // protocol overflow and leave room for driver/dialect quirks on wide tables.
+  private static readonly POSTGRES_BIND_PARAMETER_SAFE_LIMIT = 30_000;
+
+  private static resolveInsertBatchSize(values: ReadonlyArray<Record<string, unknown>>): number {
+    const columnNames = new Set<string>();
+    for (const value of values) {
+      for (const columnName of Object.keys(value)) {
+        columnNames.add(columnName);
+      }
+    }
+
+    if (columnNames.size === 0) {
+      return PostgresTableRecordRepository.INSERT_BATCH_SIZE;
+    }
+
+    const bindLimitedBatchSize = Math.floor(
+      PostgresTableRecordRepository.POSTGRES_BIND_PARAMETER_SAFE_LIMIT / columnNames.size
+    );
+    return Math.max(
+      1,
+      Math.min(PostgresTableRecordRepository.INSERT_BATCH_SIZE, bindLimitedBatchSize)
+    );
+  }
 
   async insertMany(
     context: core.IExecutionContext,
@@ -1463,6 +1562,15 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
 
         this.logger.debug(`insertMany:table=${tableName}`, { count: records.length });
 
+        // Legacy CreatedBy/LastModifiedBy columns may still be GENERATED ALWAYS even when
+        // field meta says otherwise — strip them so PostgreSQL accepts the INSERT (T6146).
+        await stripPhysicallyGeneratedColumnsFromInsertValues(
+          db,
+          tableName,
+          collectUserAuditFieldColumnNames(table),
+          allValues
+        );
+
         let snapshotCaptureSession: IPostgresRecordMutationSnapshotCaptureSession | undefined;
         try {
           if (shouldCaptureSnapshot) {
@@ -1473,8 +1581,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             );
           }
 
-          // Execute batch inserts to stay under PG parameter limit
-          const batchSize = PostgresTableRecordRepository.INSERT_BATCH_SIZE;
+          // Execute batch inserts to stay under PG parameter limit.
+          const batchSize = PostgresTableRecordRepository.resolveInsertBatchSize(allValues);
           const requestedChangedFieldIds = [...requestedChangedFieldIdsByRecord.values()].flatMap(
             (fieldIds) => [...fieldIds]
           );

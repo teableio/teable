@@ -270,6 +270,47 @@ describe('update-field: date property updates', () => {
     await ctx.deleteField({ tableId, fieldId });
     await ctx.deleteRecords(tableId, [rec.id]);
   });
+
+  test('should clear defaultValue auto-fill T6107', async () => {
+    const fieldId = await createDateField(
+      'Clear Now Default',
+      {
+        date: 'YYYY-MM-DD',
+        time: 'HH:mm',
+        timeZone: 'utc',
+      },
+      'now'
+    );
+
+    const updatedTable = await ctx.updateField({
+      tableId,
+      fieldId,
+      field: {
+        options: {
+          formatting: {
+            date: 'YYYY-MM-DD',
+            time: 'HH:mm',
+            timeZone: 'utc',
+          },
+          defaultValue: null,
+        },
+      },
+    });
+
+    const field = updatedTable.fields.find((f) => f.id === fieldId);
+    expect((field?.options as { defaultValue?: string } | undefined)?.defaultValue).toBeUndefined();
+
+    // After clear, new records must not auto-fill "now".
+    const rec = await ctx.createRecord(tableId, {
+      [primaryFieldId]: 'No date default after clear',
+    });
+    const records = await ctx.listRecords(tableId);
+    const value = records.find((r) => r.id === rec.id)?.fields[fieldId];
+    expect(value == null).toBe(true);
+
+    await ctx.deleteField({ tableId, fieldId });
+    await ctx.deleteRecords(tableId, [rec.id]);
+  });
 });
 
 describe('update-field: date conversions', () => {

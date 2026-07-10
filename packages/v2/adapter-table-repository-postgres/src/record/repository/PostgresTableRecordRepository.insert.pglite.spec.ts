@@ -4,6 +4,7 @@ import {
   ActorId,
   BaseId,
   DbFieldName,
+  FieldId,
   type IHasher,
   type ILogger,
   type IRecordOrderCalculator,
@@ -35,6 +36,7 @@ import { PostgresTableRecordRepository } from './PostgresTableRecordRepository';
 const sanitizeIdSeed = (seed: string): string => seed.replace(/[^0-9a-z]/gi, '0');
 const createId = (prefix: string, seed: string): string =>
   `${prefix}${sanitizeIdSeed(seed).padEnd(16, '0').slice(0, 16)}`;
+const POSTGRES_BIND_PARAMETER_LIMIT = 65_535;
 
 const createLogger = (): ILogger => {
   const logger: ILogger = {
@@ -204,14 +206,93 @@ const createTableWithStorage = async (
   };
 };
 
+const createWideTableWithStorage = async (
+  db: Kysely<V1TeableDatabase>,
+  seed: string,
+  fieldCount: number
+): Promise<{
+  table: Table;
+  schemaName: string;
+  tableName: string;
+  fieldIds: string[];
+}> => {
+  const baseId = BaseId.create(createId('bse', seed))._unsafeUnwrap();
+  const tableId = TableId.create(createId('tbl', seed))._unsafeUnwrap();
+
+  const builder = Table.builder()
+    .withBaseId(baseId)
+    .withId(tableId)
+    .withName(TableName.create(`Wide Insert-${seed}`)._unsafeUnwrap());
+
+  for (let i = 0; i < fieldCount; i++) {
+    const fieldBuilder = builder
+      .field()
+      .singleLineText()
+      .withId(FieldId.create(`fld${String(i).padStart(16, '0')}`)._unsafeUnwrap())
+      .withName(FieldName.create(`Column ${i}`)._unsafeUnwrap());
+    if (i === 0) {
+      fieldBuilder.primary();
+    }
+    fieldBuilder.done();
+  }
+  builder.view().grid().withName(ViewName.create('Grid')._unsafeUnwrap()).done();
+
+  const table = builder.build()._unsafeUnwrap();
+  const fields = table.getFields();
+  for (let i = 0; i < fields.length; i++) {
+    fields[i]!
+      .setDbFieldName(DbFieldName.rehydrate(`col_${i}`)._unsafeUnwrap())
+      ._unsafeUnwrap();
+  }
+
+  const schemaName = baseId.toString();
+  const tableName = tableId.toString();
+  const fullTableName = `${schemaName}.${tableName}`;
+  const viewOrderColumn = table.views()[0]!.id().toRowOrderColumnName();
+  const fieldColumnDefinitions = sql.join(
+    fields.map((_, i) => sql`${sql.id(`col_${i}`)} text`),
+    sql`, `
+  );
+
+  await sql`CREATE SCHEMA ${sql.id(schemaName)}`.execute(db);
+  await sql`
+    CREATE TABLE ${sql.table(fullTableName)} (
+      __id text PRIMARY KEY,
+      __created_time timestamptz NOT NULL,
+      __created_by text NOT NULL,
+      __last_modified_time timestamptz NOT NULL,
+      __last_modified_by text NOT NULL,
+      __version integer NOT NULL,
+      __auto_number serial NOT NULL,
+      ${sql.id(viewOrderColumn)} double precision,
+      ${fieldColumnDefinitions}
+    )
+  `.execute(db);
+
+  await sql`
+    INSERT INTO table_meta (id, last_modified_time, last_modified_by)
+    VALUES (${table.id().toString()}, NOW(), 'seed')
+    ON CONFLICT (id) DO NOTHING
+  `.execute(db);
+
+  return {
+    table,
+    schemaName,
+    tableName,
+    fieldIds: fields.map((field) => field.id().toString()),
+  };
+};
+
 describe('PostgresTableRecordRepository.insert (pglite)', () => {
   let db: Kysely<V1TeableDatabase>;
+  let pglite: Awaited<ReturnType<typeof createPGliteDb>>['pglite'];
   let destroyDb: (() => Promise<void>) | undefined;
   const createdSchemas: string[] = [];
 
   beforeAll(async () => {
     const pgliteDb = await createPGliteDb();
     db = pgliteDb.db;
+    pglite = pgliteDb.pglite;
     destroyDb = async () => {
       await pgliteDb.db.destroy();
     };
@@ -439,6 +520,83 @@ describe('PostgresTableRecordRepository.insert (pglite)', () => {
       AND tablename = ${tableName}
     `.execute(db);
     expect(Number(statsAfter.rows[0]?.count ?? '0')).toBeGreaterThan(0);
+  });
+
+  it('splits wide insertMany batches under the PostgreSQL bind parameter limit', async () => {
+    const fieldCount = 172;
+    const recordCount = 500;
+    const { table, schemaName, tableName, fieldIds } = await createWideTableWithStorage(
+      db,
+      'wide-bind-limit',
+      fieldCount
+    );
+    createdSchemas.push(schemaName);
+
+    const repository = createRepository(db as unknown as Kysely<DynamicDB>, table);
+    const actorId = ActorId.create('tester')._unsafeUnwrap();
+    const actorContext = {
+      actorId,
+      actorName: 'Tester',
+      actorEmail: 'tester@example.com',
+    };
+    const records = Array.from({ length: recordCount }, (_, recordIndex) => {
+      const values = new Map(
+        fieldIds.map((fieldId, fieldIndex) => [fieldId, `r${recordIndex}-c${fieldIndex}`])
+      );
+      return table.createRecord(values)._unsafeUnwrap().record;
+    });
+
+    const client = pglite as unknown as {
+      query: (query: string, params?: unknown[], options?: unknown) => Promise<unknown>;
+    };
+    const originalQuery = client.query.bind(client);
+    const mainInsertParameterCounts: number[] = [];
+    client.query = async (query, params, options) => {
+      const parameterCount = params?.length ?? 0;
+      const isMainTableInsert =
+        query.startsWith('insert into') && query.includes(`"${schemaName}"."${tableName}"`);
+      if (isMainTableInsert) {
+        mainInsertParameterCounts.push(parameterCount);
+      }
+      if (parameterCount > POSTGRES_BIND_PARAMETER_LIMIT) {
+        throw new Error(`PostgreSQL bind parameter limit exceeded in test: ${parameterCount}`);
+      }
+      return originalQuery(query, params, options);
+    };
+
+    try {
+      const result = await db
+        .transaction()
+        .execute(async (trx) =>
+          repository.insertMany(
+            { ...actorContext, transaction: new PostgresUnitOfWorkTransaction(trx as never) },
+            table,
+            records,
+            { skipSnapshotCapture: true, skipChangedFields: true, skipComputedUpdates: true }
+          )
+        );
+      const resultErrorMessage = result.isErr()
+        ? [
+            result._unsafeUnwrapErr().message,
+            `main insert parameter counts: ${mainInsertParameterCounts.join(', ')}`,
+          ].join('; ')
+        : undefined;
+      expect(result.isOk(), resultErrorMessage).toBe(true);
+    } finally {
+      client.query = originalQuery;
+    }
+
+    expect(mainInsertParameterCounts.length).toBeGreaterThan(1);
+    expect(Math.max(...mainInsertParameterCounts)).toBeLessThanOrEqual(
+      POSTGRES_BIND_PARAMETER_LIMIT
+    );
+
+    const fullTableName = `${schemaName}.${tableName}`;
+    const rows = await sql<{ count: string }>`
+      SELECT COUNT(*)::text AS count
+      FROM ${sql.table(fullTableName)}
+    `.execute(db);
+    expect(Number(rows.rows[0]?.count ?? '0')).toBe(recordCount);
   });
 
   it('inserts a record even when no explicit field values changed', async () => {
