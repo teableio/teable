@@ -45,6 +45,7 @@ export enum UsageFeatureLimit {
   APIRateLimit = 'apiRateLimit',
   ChatAIEnable = 'chatAIEnable',
   AppEnable = 'appEnable',
+  AppHideBadgeEnable = 'appHideBadgeEnable',
   CustomDomainEnable = 'customDomainEnable',
   MaxNumSystemSendEmail = 'maxNumSystemSendEmail',
 }
@@ -72,6 +73,7 @@ export const usageFeatureLimitSchema = z.object({
   [UsageFeatureLimit.APIRateLimit]: z.number(),
   [UsageFeatureLimit.ChatAIEnable]: z.boolean(),
   [UsageFeatureLimit.AppEnable]: z.boolean(),
+  [UsageFeatureLimit.AppHideBadgeEnable]: z.boolean(),
   [UsageFeatureLimit.CustomDomainEnable]: z.boolean(),
   [UsageFeatureLimit.MaxNumSystemSendEmail]: z.number(),
 });

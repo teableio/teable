@@ -3,7 +3,7 @@ import { DEFAULT_FREEZE_COLUMN_STATE } from '../configs';
 import { RegionType } from '../interface';
 import type { IScrollState, IColumnFreezeState, IMouseState } from '../interface';
 import type { CoordinateManager } from '../managers';
-import { inRange } from '../utils';
+import { canFreezeColumnCount, inRange } from '../utils';
 
 export const useColumnFreeze = (coordInstance: CoordinateManager, scrollState: IScrollState) => {
   const [columnFreezeState, setColumnFreezeState] = useState<IColumnFreezeState>(
@@ -44,11 +44,28 @@ export const useColumnFreeze = (coordInstance: CoordinateManager, scrollState: I
     });
   };
 
-  const onColumnFreezeEnd = (callbackFn?: (columnCount: number) => void) => {
+  const onColumnFreezeEnd = (
+    callbackFn?: (columnCount: number) => void,
+    onFreezeFailed?: () => void
+  ) => {
     const { targetIndex, isFreezing } = columnFreezeState;
     if (!isFreezing) return;
     setColumnFreezeState(() => DEFAULT_FREEZE_COLUMN_STATE);
-    callbackFn?.(Math.max(targetIndex + 1, 0));
+    const columnCount = Math.max(targetIndex + 1, 0);
+
+    if (
+      !canFreezeColumnCount(columnCount, {
+        containerWidth: coordInstance.containerWidth,
+        columnInitSize: coordInstance.columnInitSize,
+        columnCount: coordInstance.columnCount,
+        getColumnWidth: (index) => coordInstance.getColumnWidth(index),
+      })
+    ) {
+      onFreezeFailed?.();
+      return;
+    }
+
+    callbackFn?.(columnCount);
   };
 
   return {

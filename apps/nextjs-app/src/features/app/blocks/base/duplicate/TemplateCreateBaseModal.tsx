@@ -82,6 +82,7 @@ const TemplateBase = ({
       templateId,
       spaceId: targetSpaceId,
       withRecords,
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     });
   };
 

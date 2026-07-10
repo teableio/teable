@@ -157,6 +157,38 @@ describe('update-field: checkbox property updates', () => {
     // Cleanup
     await ctx.deleteField({ tableId, fieldId });
   });
+
+  test('should clear defaultValue on update T6107', async () => {
+    const fieldId = createFieldId();
+    await ctx.createField({
+      baseId: ctx.baseId,
+      tableId,
+      field: {
+        type: 'checkbox',
+        id: fieldId,
+        name: 'Clear Default Update',
+        options: { defaultValue: true },
+      },
+    });
+
+    const updatedTable = await ctx.updateField({
+      tableId,
+      fieldId,
+      field: { options: { defaultValue: null } },
+    });
+
+    const updatedField = updatedTable.fields.find((f) => f.id === fieldId);
+    expect(
+      (updatedField?.options as CheckboxFieldOptions | undefined)?.defaultValue
+    ).toBeUndefined();
+
+    // After clear, new records must not receive true by default.
+    const r1 = await ctx.createRecord(tableId, {});
+    expect(r1.fields[fieldId] == null || r1.fields[fieldId] === false).toBe(true);
+
+    await ctx.deleteField({ tableId, fieldId });
+    await ctx.deleteRecords(tableId, [r1.id]);
+  });
 });
 
 describe('update-field: checkbox conversions', () => {
