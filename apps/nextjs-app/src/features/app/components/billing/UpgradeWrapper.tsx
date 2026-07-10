@@ -14,6 +14,7 @@ import { useAppSumoTierConfig, useBillingLevelConfig } from '../../hooks/useBill
 import { useIsCloud } from '../../hooks/useIsCloud';
 import { useIsCommunity } from '../../hooks/useIsCommunity';
 import { useIsEE } from '../../hooks/useIsEE';
+import { PRICING_URL } from './constant';
 
 interface IUpgradeWrapperRenderProps {
   badge: ReactElement | null;
@@ -148,7 +149,7 @@ export const UpgradeWrapper: React.FC<IUpgradeWrapperProps> = ({
 
       openModal(UsageLimitModalType.Upgrade);
     } else {
-      window.open('https://teable.ai/pricing', '_blank');
+      window.open(PRICING_URL, '_blank');
     }
   }, [isCloud, isAppSumo, spaceId, isSpaceOwner, t, openModal, onUpgradeClick]);
 

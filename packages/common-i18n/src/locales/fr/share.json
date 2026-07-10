@@ -9,8 +9,7 @@
     "filterLinkSelectPlaceholder": "Sélectionner..."
   },
   "view": {
-    "signInToEdit": "<a>Connectez-vous</a> pour modifier",
-    "login": "Se connecter"
+    "signInToEdit": "<a>Connectez-vous</a> pour modifier"
   },
   "openOnNewPage": "Ouvrir sur une nouvelle page",
   "errorTips": "La source de partage a activé une matrice d'autorité, la visualisation n'est pas autorisée"
