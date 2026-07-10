@@ -130,44 +130,15 @@ export class UniqueIndexRule implements ISchemaRule {
       const indexResult = await ctx.introspector.getIndex(targetTable.schema, indexName);
       const index = yield* indexResult;
 
-      if (!index) {
+      if (!index || !index.isUnique) {
         const duplicateSummary = yield* await self.countDuplicateValues(ctx, targetTable);
 
         if (duplicateSummary.duplicateRows > 0) {
-          const fieldName = self.field.name().toString();
-
-          return ok({
-            valid: false,
-            missing: [
-              `unique index ${indexName} cannot be created because ${duplicateSummary.duplicateRows} duplicate linked values exist`,
-            ],
-            missingItems: [
-              {
-                code: 'unique_index_duplicate_values',
-                message: {
-                  key: 'table:table.integrity.v2.detail.uniqueIndexDuplicateValues',
-                  values: {
-                    fieldName,
-                    duplicateGroups: duplicateSummary.duplicateGroups,
-                    duplicateRows: duplicateSummary.duplicateRows,
-                  },
-                  fallback: `Field "${fieldName}" has duplicate linked values, so the one-to-one unique index cannot be created.`,
-                },
-                description: {
-                  key: 'table:table.integrity.v2.detail.uniqueIndexDuplicateValuesDescription',
-                  values: {
-                    fieldName,
-                    duplicateGroups: duplicateSummary.duplicateGroups,
-                    duplicateRows: duplicateSummary.duplicateRows,
-                  },
-                  fallback:
-                    'Resolve duplicate linked values first, then rerun repair to create the unique index.',
-                },
-              },
-            ],
-          });
+          return ok(self.createDuplicateValuesValidation(indexName, duplicateSummary));
         }
+      }
 
+      if (!index) {
         return ok({
           valid: false,
           missing: [`unique index ${indexName}`],
@@ -238,7 +209,10 @@ export class UniqueIndexRule implements ISchemaRule {
 
   up(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const table = this.getTargetTable(ctx);
-    return ok([createUniqueIndexStatement(table, this.indexName, this.columnName)]);
+    return ok([
+      dropIndexStatement(table, this.indexName),
+      createUniqueIndexStatement(table, this.indexName, this.columnName),
+    ]);
   }
 
   down(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
@@ -345,6 +319,44 @@ export class UniqueIndexRule implements ISchemaRule {
         })
       );
     }
+  }
+
+  private createDuplicateValuesValidation(
+    indexName: string,
+    duplicateSummary: { duplicateGroups: number; duplicateRows: number }
+  ): SchemaRuleValidationResult {
+    const fieldName = this.field.name().toString();
+
+    return {
+      valid: false,
+      missing: [
+        `unique index ${indexName} cannot be created because ${duplicateSummary.duplicateRows} duplicate linked values exist`,
+      ],
+      missingItems: [
+        {
+          code: 'unique_index_duplicate_values',
+          message: {
+            key: 'table:table.integrity.v2.detail.uniqueIndexDuplicateValues',
+            values: {
+              fieldName,
+              duplicateGroups: duplicateSummary.duplicateGroups,
+              duplicateRows: duplicateSummary.duplicateRows,
+            },
+            fallback: `Field "${fieldName}" has duplicate linked values, so the one-to-one unique index cannot be created.`,
+          },
+          description: {
+            key: 'table:table.integrity.v2.detail.uniqueIndexDuplicateValuesDescription',
+            values: {
+              fieldName,
+              duplicateGroups: duplicateSummary.duplicateGroups,
+              duplicateRows: duplicateSummary.duplicateRows,
+            },
+            fallback:
+              'Resolve duplicate linked values first, then rerun repair to create the unique index.',
+          },
+        },
+      ],
+    };
   }
 
   private async clearDuplicateValues(

@@ -1,5 +1,17 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Body, Controller, Param, Patch, Post, Get, Delete, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Param,
+  Patch,
+  Post,
+  Get,
+  Delete,
+  Query,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { HttpErrorCode, Role } from '@teable/core';
 import type {
   ICreateSpaceVo,
@@ -52,6 +64,7 @@ import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
 import { EmitControllerEvent } from '../../event-emitter/decorators/emit-controller-event.decorator';
 import { Events } from '../../event-emitter/events';
+import { avatarUploadInterceptorOptions } from '../../utils/avatar';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { CollaboratorService } from '../collaborator/collaborator.service';
@@ -115,6 +128,16 @@ export class SpaceController {
     updateSpaceRo: IUpdateSpaceRo
   ): Promise<IUpdateSpaceVo> {
     return await this.spaceService.updateSpace(spaceId, updateSpaceRo);
+  }
+
+  @Permissions('space|update')
+  @UseInterceptors(FileInterceptor('file', avatarUploadInterceptorOptions))
+  @Patch(':spaceId/avatar')
+  async updateSpaceAvatar(
+    @Param('spaceId') spaceId: string,
+    @UploadedFile() file: Express.Multer.File
+  ): Promise<void> {
+    return await this.spaceService.updateSpaceAvatar(spaceId, file);
   }
 
   @Permissions('space|read')

@@ -11,7 +11,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRe
 import { useTranslation } from '../../../context/app/i18n';
 import { useTableId, useTablePermission } from '../../../hooks';
 import type { MultipleSelectField, SingleSelectField } from '../../../model';
-import { getSelectColorPairs } from '../../../utils/select-color';
+import { ensureSelectChoice, getSelectColorPairs } from '../../../utils';
 import { SelectEditorMain } from '../../editor';
 import type { IEditorRef } from '../../editor/type';
 import type { IEditorProps } from '../../grid/components';
@@ -90,8 +90,13 @@ const GridSelectEditorBase: ForwardRefRenderFunction<
           [0, 0],
         ],
       });
+
+      // temporaryPaste typecast creates the choice server-side, but the response
+      // does not include updated field options. Append locally so the immediate
+      // updateCell/render path can validate the new name before ShareDB catches up.
+      ensureSelectChoice(options as ISelectFieldOptions, name);
     },
-    [tableId, fieldId]
+    [tableId, fieldId, options]
   );
 
   return (
