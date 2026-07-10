@@ -23,7 +23,16 @@ type IPreflightError = IDataDbPreflightVo['errors'][number];
 
 export interface IDataDbPreflightClient {
   raw<T = unknown>(sql: string, bindings?: unknown[]): Promise<{ rows?: T[] } | T[]>;
+  beginTransaction?(config: {
+    isolationLevel: 'repeatable read';
+    readOnly: boolean;
+  }): Promise<IDataDbPreflightTransaction>;
   destroy(): Promise<void>;
+}
+
+export interface IDataDbPreflightTransaction {
+  raw<T = unknown>(sql: string, bindings?: unknown[]): Promise<{ rows?: T[] } | T[]>;
+  rollback(): Promise<void>;
 }
 
 export type IDataDbPreflightClientFactory = (url: string) => IDataDbPreflightClient;
@@ -167,13 +176,29 @@ export const dataDbKnexClientFactory: IDataDbPreflightClientFactory = (url) => {
   const client: Knex = createKnex({
     client: 'pg',
     connection: url,
-    pool: { min: 0, max: 1 },
-    acquireConnectionTimeout: 5000,
+    // min:0 惰性建连，单查询的 preflight 场景不受影响；上限 16 支撑迁移校验的
+    // 表级并发（行数+内容哈希按表并行），acquire 超时同步放宽避免排队误报。
+    pool: { min: 0, max: 16 },
+    acquireConnectionTimeout: 60000,
   });
   return {
     raw: async <T>(sql: string, bindings?: unknown[]) => {
       const result = bindings ? await client.raw(sql, bindings as never[]) : await client.raw(sql);
       return result as { rows?: T[] };
+    },
+    beginTransaction: async (config) => {
+      const transaction = await client.transaction(config);
+      return {
+        raw: async <T>(sql: string, bindings?: unknown[]) => {
+          const result = bindings
+            ? await transaction.raw(sql, bindings as never[])
+            : await transaction.raw(sql);
+          return result as { rows?: T[] };
+        },
+        rollback: async () => {
+          await transaction.rollback();
+        },
+      };
     },
     destroy: async () => client.destroy(),
   };

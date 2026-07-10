@@ -125,7 +125,8 @@ describe('TableOpenApiService.prepareFields', () => {
       {} as never,
       {} as never,
       {} as never,
-      {} as never
+      {} as never,
+      { deleteTablePrefix: async () => undefined } as never
     );
 
     const fields = await (
@@ -176,7 +177,8 @@ describe('TableOpenApiService.createTable', () => {
       cls as never,
       {} as never,
       {} as never,
-      {} as never
+      {} as never,
+      { deleteTablePrefix: async () => undefined } as never
     );
 
     await (
@@ -284,7 +286,8 @@ describe('TableOpenApiService.createTable', () => {
       {} as never,
       {} as never,
       { invalidateDroppedTable } as never,
-      {} as never
+      {} as never,
+      { deleteTablePrefix: async () => undefined } as never
     );
 
     await expect(
@@ -343,7 +346,8 @@ describe('TableOpenApiService.cleanTablesRelatedData', () => {
       {} as never,
       {} as never,
       {} as never,
-      {} as never
+      {} as never,
+      { deleteTablePrefix: async () => undefined } as never
     );
 
     await service.cleanTablesRelatedData('bseTest', ['tblA', 'tblB']);
@@ -415,7 +419,8 @@ describe('TableOpenApiService.cleanTablesRelatedData', () => {
       {} as never,
       {} as never,
       {} as never,
-      {} as never
+      {} as never,
+      { deleteTablePrefix: async () => undefined } as never
     );
 
     await service.cleanTablesRelatedData('bseTest', ['tblA'], { useTransaction: true });
@@ -484,7 +489,8 @@ describe('TableOpenApiService.dropTables', () => {
       {} as never,
       {} as never,
       tableMutationCacheInvalidator as never,
-      {} as never
+      {} as never,
+      { deleteTablePrefix: async () => undefined } as never
     );
 
     await service.dropTables(['tblA']);
@@ -543,7 +549,8 @@ describe('TableOpenApiService.sqlQuery', () => {
       {} as never,
       {} as never,
       {} as never,
-      {} as never
+      {} as never,
+      { deleteTablePrefix: async () => undefined } as never
     );
 
     await service.sqlQuery('tblOrders', 'viwGrid', `select * from ${ordersTable}`);
@@ -625,7 +632,8 @@ describe('TableOpenApiService.updateDbTableName', () => {
       {} as never,
       {} as never,
       {} as never,
-      {} as never
+      {} as never,
+      { deleteTablePrefix: async () => undefined } as never
     );
 
     await service.updateDbTableName('bseTest', 'tblOrders', 'orders_renamed');
@@ -699,7 +707,8 @@ describe('TableOpenApiService.updateDbTableName', () => {
       {} as never,
       {} as never,
       {} as never,
-      {} as never
+      {} as never,
+      { deleteTablePrefix: async () => undefined } as never
     );
 
     await expect(

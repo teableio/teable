@@ -105,6 +105,30 @@ describe('ForeignTableLoaderService', () => {
     });
   });
 
+  it('skips missing foreign tables when allowMissing is true', async () => {
+    const table = buildTable('n', 'o');
+    const repo = new MemoryTableRepository();
+    const context = createContext();
+    await repo.insert(context, table);
+
+    const missingId = TableId.create(`tbl${'p'.repeat(16)}`)._unsafeUnwrap();
+    const references: LinkForeignTableReference[] = [
+      { foreignTableId: table.id() },
+      { foreignTableId: missingId },
+    ];
+
+    const service = new ForeignTableLoaderService(repo);
+    const result = await service.load(context, {
+      baseId: table.baseId(),
+      references,
+      allowMissing: true,
+    });
+
+    const loaded = result._unsafeUnwrap();
+    expect(loaded).toHaveLength(1);
+    expect(loaded[0]?.id().toString()).toBe(table.id().toString());
+  });
+
   it('loads link-title fill foreign tables directly from mutate specs', async () => {
     const table = buildTable('f', 'g');
     const repo = new MemoryTableRepository();

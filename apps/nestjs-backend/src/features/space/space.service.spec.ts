@@ -73,6 +73,7 @@ describe('SpaceService', () => {
         {} as never,
         {} as never,
         {} as never,
+        {} as never,
         {} as never
       );
 

@@ -356,6 +356,28 @@ const createLookupLinkTitleReferenceFields = () => {
   return { lookupField, tagNameField };
 };
 
+const createScalarNumberLookupReferenceFields = () => {
+  const { scoreField } = createTestTable();
+  const lookupOptions = LookupOptions.create({
+    linkFieldId: `fld${'k'.repeat(16)}`,
+    lookupFieldId: scoreField.id().toString(),
+    foreignTableId: `tbl${'f'.repeat(16)}`,
+  })._unsafeUnwrap();
+  const lookupField = LookupField.create({
+    id: FieldId.create(`fld${'p'.repeat(16)}`)._unsafeUnwrap(),
+    name: FieldName.create('Lookup Score')._unsafeUnwrap(),
+    innerField: scoreField,
+    lookupOptions,
+    isMultipleCellValue: false,
+  })._unsafeUnwrap();
+
+  lookupField
+    .setDbFieldName(DbFieldName.rehydrate('col_lookup_score')._unsafeUnwrap())
+    ._unsafeUnwrap();
+
+  return { lookupField, scoreField };
+};
+
 // ============================================================================
 // Tests
 // ============================================================================
@@ -503,6 +525,29 @@ describe('TableRecordConditionWhereVisitor NULL handling', () => {
   });
 
   describe('date field reference comparisons', () => {
+    test('scalar number lookup is scalar number field reference uses direct equality', () => {
+      const { lookupField, scoreField } = createScalarNumberLookupReferenceFields();
+      const value = RecordConditionFieldReferenceValue.create(scoreField)._unsafeUnwrap();
+      const spec = lookupField.spec().create({ operator: 'is', value });
+      expect(spec.isOk()).toBe(true);
+      if (spec.isErr()) return;
+
+      const visitor = new TableRecordConditionWhereVisitor({
+        tableAlias: 'f',
+        hostTableAlias: 'h',
+      });
+      const visitResult = spec.value.accept(visitor);
+      expect(visitResult.isOk()).toBe(true);
+      const where = visitor.where();
+      expect(where.isOk()).toBe(true);
+      if (where.isErr()) return;
+
+      const { sql, parameters } = compileWhere(db, where.value);
+      expect(sql).toBe('"f"."col_lookup_score" = "h"."col_score"');
+      expect(sql).not.toContain('jsonb_array_elements_text');
+      expect(parameters).toEqual([]);
+    });
+
     test('incompatible cross-table field reference comparison short-circuits to false', () => {
       const value = RecordConditionFieldReferenceValue.create(nameField)._unsafeUnwrap();
       const spec = NumberConditionSpec.create(scoreField, 'is', value);

@@ -341,15 +341,22 @@ export class RecordModifySharedService {
     );
   }
 
-  async fillUserInfo(
-    records: { id: string; fields: { [fieldNameOrId: string]: unknown } }[],
+  async fillUserInfo<T extends { fields: { [fieldNameOrId: string]: unknown } }>(
+    records: T[],
     userFields: readonly FieldCore[],
-    fieldKeyType: FieldKeyType
-  ) {
+    fieldKeyType: FieldKeyType,
+    shouldFill?: (params: {
+      record: T;
+      field: FieldCore;
+      recordIndex: number;
+      key: string;
+    }) => boolean
+  ): Promise<T[]> {
     const userIds = new Set<string>();
-    records.forEach((record) => {
+    records.forEach((record, recordIndex) => {
       userFields.forEach((field) => {
         const key = field[fieldKeyType];
+        if (shouldFill && !shouldFill({ record, field, recordIndex, key })) return;
         const v = record.fields[key] as unknown;
         if (v) {
           if (Array.isArray(v)) (v as { id: string }[]).forEach((i) => userIds.add(i.id));
@@ -358,10 +365,11 @@ export class RecordModifySharedService {
       });
     });
     const info = await this.getUserInfoFromDatabase(Array.from(userIds));
-    return records.map((record) => {
+    return records.map((record, recordIndex) => {
       const fields: Record<string, unknown> = { ...record.fields };
       userFields.forEach((field) => {
         const key = field[fieldKeyType];
+        if (shouldFill && !shouldFill({ record, field, recordIndex, key })) return;
         const v = fields[key] as unknown;
         if (v) {
           fields[key] = Array.isArray(v)
@@ -447,26 +455,42 @@ export class RecordModifySharedService {
   }
 
   @Timing()
-  async appendDefaultValue(
-    records: { id: string; fields: { [fieldNameOrId: string]: unknown } }[],
+  async appendDefaultValue<T extends { fields: { [fieldNameOrId: string]: unknown } }>(
+    records: T[],
     fieldKeyType: FieldKeyType,
-    fieldList: readonly FieldCore[]
+    fieldList: readonly FieldCore[],
+    appendOptions: { onlyMissingFields?: boolean; fillUserInfo?: boolean | 'defaulted' } = {}
   ) {
-    const processed = records.map((record) => {
+    const hasOwn = Object.prototype.hasOwnProperty;
+    const defaultedUserCells = new Set<string>();
+    const processed = records.map((record, recordIndex) => {
       const fields: Record<string, unknown> = { ...record.fields };
       for (const f of fieldList) {
-        const { type, options, isComputed } = f;
-        if (options == null || isComputed) continue;
-        if (!('defaultValue' in options)) continue;
-        const dv = options.defaultValue;
+        const { type, options: fieldOptions, isComputed } = f;
+        if (fieldOptions == null || isComputed) continue;
+        if (!('defaultValue' in fieldOptions)) continue;
+        const dv = fieldOptions.defaultValue;
         if (dv == null) continue;
         const key = f[fieldKeyType];
-        if (fields[key] != null) continue;
-        fields[key] = this.getDefaultValue(type as FieldType, options, dv);
+        const hasValue = appendOptions.onlyMissingFields
+          ? hasOwn.call(fields, key)
+          : fields[key] != null;
+        if (hasValue) continue;
+        fields[key] = this.getDefaultValue(type as FieldType, fieldOptions, dv);
+        if (appendOptions.fillUserInfo === 'defaulted' && type === FieldType.User) {
+          defaultedUserCells.add(`${recordIndex}:${key}`);
+        }
       }
       return { ...record, fields };
     });
+    if (appendOptions.fillUserInfo === false) return processed;
     const userFields = fieldList.filter((f) => f.type === FieldType.User);
+    if (appendOptions.fillUserInfo === 'defaulted') {
+      if (!defaultedUserCells.size) return processed;
+      return this.fillUserInfo(processed, userFields, fieldKeyType, ({ recordIndex, key }) =>
+        defaultedUserCells.has(`${recordIndex}:${key}`)
+      );
+    }
     if (userFields.length) return this.fillUserInfo(processed, userFields, fieldKeyType);
     return processed;
   }
