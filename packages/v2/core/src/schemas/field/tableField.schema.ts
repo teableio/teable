@@ -21,18 +21,19 @@ import {
 // Field options schemas
 export const singleLineTextOptionsSchema = z.object({
   showAs: singleLineTextShowAsSchema.optional(),
-  defaultValue: z.string().optional(),
+  // null explicitly clears the default value (undefined is stripped during JSON serialization)
+  defaultValue: z.string().nullable().optional(),
 });
 
 export const longTextOptionsSchema = z.object({
   showAs: longTextShowAsSchema.optional(),
-  defaultValue: z.string().optional(),
+  defaultValue: z.string().nullable().optional(),
 });
 
 export const numberOptionsSchema = z.object({
   formatting: numberFormattingSchema.optional(),
   showAs: numberShowAsSchema.optional(),
-  defaultValue: z.number().optional(),
+  defaultValue: z.number().nullable().optional(),
 });
 
 export const ratingOptionsSchema = z.object({
@@ -70,7 +71,10 @@ const normalizedSelectChoicesSchema = z.preprocess((value) => {
 
 export const selectOptionsSchema = z.object({
   choices: normalizedSelectChoicesSchema.optional(),
-  defaultValue: z.union([z.string(), z.array(z.string())]).optional(),
+  defaultValue: z
+    .union([z.string(), z.array(z.string())])
+    .nullable()
+    .optional(),
   preventAutoNewOptions: z.boolean().optional(),
 });
 
@@ -80,7 +84,7 @@ export const checkboxOptionsSchema = z.object({
 
 export const dateOptionsSchema = z.object({
   formatting: dateFormattingSchema.optional(),
-  defaultValue: z.enum(['now']).optional(),
+  defaultValue: z.enum(['now']).nullable().optional(),
 });
 
 export const createdTimeOptionsSchema = z.object({
@@ -103,7 +107,10 @@ export const autoNumberOptionsSchema = z.object({});
 export const userOptionsSchema = z.object({
   isMultiple: z.boolean().optional(),
   shouldNotify: z.boolean().optional(),
-  defaultValue: z.union([z.string(), z.array(z.string())]).optional(),
+  defaultValue: z
+    .union([z.string(), z.array(z.string())])
+    .nullable()
+    .optional(),
 });
 
 export const buttonWorkflowSchema = z.object({

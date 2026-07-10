@@ -94,7 +94,7 @@ export const gridTheme: IGridTheme = {
   cellTextColor: colors.zinc[900],
   cellTextColorHighlight: colors.violet[500],
   cellOptionBg: colors.gray[300],
-  cellOptionBgHighlight: colors.zinc[200],
+  cellOptionBgHighlight: '#B0B7C1',
   cellOptionTextColor: colors.black,
 
   // Group Header

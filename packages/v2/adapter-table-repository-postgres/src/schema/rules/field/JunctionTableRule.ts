@@ -61,6 +61,65 @@ export interface JunctionTableConfig {
   withIndexes?: boolean;
 }
 
+const resolveTableIdentifierByMetaId = async (params: {
+  ctx: SchemaRuleContext;
+  targetTableMetaId?: string;
+  fallbackTable: TableIdentifier;
+  errorContext: string;
+}): Promise<Result<TableIdentifier | undefined, DomainError>> => {
+  const { ctx, targetTableMetaId, fallbackTable, errorContext } = params;
+  if (!targetTableMetaId) {
+    return ok(fallbackTable);
+  }
+
+  const metaIntrospector = new PostgresSchemaIntrospector(ctx.metaDb);
+  const tableMetaExists = await metaIntrospector.tableExists('public', 'table_meta');
+  if (tableMetaExists.isErr()) {
+    return err(tableMetaExists.error);
+  }
+  if (!tableMetaExists.value) {
+    return ok(undefined);
+  }
+
+  try {
+    const result = await sql<{ db_table_name: string | null }>`
+      SELECT db_table_name
+      FROM table_meta
+      WHERE id = ${targetTableMetaId}
+        AND deleted_time IS NULL
+      LIMIT 1
+    `.execute(ctx.metaDb);
+
+    const dbTableName = result.rows[0]?.db_table_name;
+    if (!dbTableName) {
+      return ok(undefined);
+    }
+
+    const [schema, ...rest] = dbTableName.split('.');
+    if (rest.length === 0) {
+      return ok({
+        schema: 'public',
+        tableName: schema ?? dbTableName,
+      });
+    }
+
+    return ok({
+      schema: schema ?? 'public',
+      tableName: rest.join('.'),
+    });
+  } catch (error) {
+    return err(
+      domainError.infrastructure({
+        message: `Failed to resolve ${errorContext}: ${error instanceof Error ? error.message : String(error)}`,
+        code: 'schema.introspection_failed',
+        details: {
+          targetTableMetaId,
+        },
+      })
+    );
+  }
+};
+
 /**
  * Schema rule for creating/dropping the junction table with columns only.
  * This is the base rule that other junction table rules depend on.
@@ -136,6 +195,17 @@ export class JunctionTableExistsRule implements ISchemaRule {
           : 'one-to-one';
 
     return `Junction table "${this.config.junctionTable.tableName}" for ${relationshipDesc} link "${fieldName}" (${source} ↔ ${foreign})`;
+  }
+
+  private async resolveForeignTable(
+    ctx: SchemaRuleContext
+  ): Promise<Result<TableIdentifier | undefined, DomainError>> {
+    return resolveTableIdentifierByMetaId({
+      ctx,
+      targetTableMetaId: this.config.foreignTableMetaId,
+      fallbackTable: this.config.foreignTable,
+      errorContext: 'junction foreign target table',
+    });
   }
 
   /**
@@ -286,6 +356,45 @@ export class JunctionTableExistsRule implements ISchemaRule {
 
       if (!tableExists) {
         missing.push(`junction table "${schemaName}"."${junctionTable.tableName}"`);
+        const resolvedForeignTableResult = await self.resolveForeignTable(ctx);
+        const resolvedForeignTable = yield* resolvedForeignTableResult;
+        const foreignTable = resolvedForeignTable ?? config.foreignTable;
+        const foreignTableExistsResult = await ctx.introspector.tableExists(
+          foreignTable.schema,
+          foreignTable.tableName
+        );
+        const foreignTableExists = yield* foreignTableExistsResult;
+
+        if (!foreignTableExists) {
+          const targetTableName = foreignTable.tableName;
+          missing.push(`target table "${targetTableName}" does not exist`);
+          return ok({
+            valid: false,
+            missing,
+            missingItems: [
+              {
+                code: 'junction_table_foreign_target_missing',
+                message: {
+                  key: 'table:table.integrity.v2.detail.junctionTableForeignTargetMissing',
+                  values: {
+                    fieldName: self.field.name().toString(),
+                    targetTableName,
+                  },
+                  fallback: `The linked table for the junction of "${self.field.name().toString()}" cannot be found.`,
+                },
+                description: {
+                  key: 'table:table.integrity.v2.detail.junctionTableForeignTargetMissingDescription',
+                  values: {
+                    fieldName: self.field.name().toString(),
+                    targetTableName,
+                  },
+                  fallback: `Automatic repair cannot recreate the junction table for "${self.field.name().toString()}" because the target table "${targetTableName}" does not exist.`,
+                },
+              },
+            ],
+          });
+        }
+
         return ok({ valid: false, missing });
       }
 
@@ -343,6 +452,32 @@ export class JunctionTableExistsRule implements ISchemaRule {
         manualRepairSchema: manualRepairSchemaResult.isOk()
           ? manualRepairSchemaResult.value
           : undefined,
+      });
+    }
+
+    const foreignTargetMissing = validation.missingItems?.some(
+      (item) => item.code === 'junction_table_foreign_target_missing'
+    );
+
+    if (foreignTargetMissing) {
+      const fieldName = this.field.name().toString();
+      return ok({
+        available: false,
+        mode: 'auto',
+        reason: {
+          key: 'table:table.integrity.v2.repairMeta.reason.junctionTableForeignTargetMissing',
+          values: {
+            fieldName,
+          },
+          fallback: `Automatic repair is unavailable because the junction target table for "${fieldName}" is missing.`,
+        },
+        description: {
+          key: 'table:table.integrity.v2.repairMeta.description.junctionTableForeignTargetMissing',
+          values: {
+            fieldName,
+          },
+          fallback: `Restore the target table, or update/remove the link configuration for "${fieldName}", then run the check again.`,
+        },
       });
     }
 
@@ -711,56 +846,12 @@ export class JunctionTableForeignKeyRule implements ISchemaRule {
   private async resolveTargetTable(
     ctx: SchemaRuleContext
   ): Promise<Result<TableIdentifier | undefined, DomainError>> {
-    if (!this.targetTableMetaId) {
-      return ok(this.targetTable);
-    }
-
-    const metaIntrospector = new PostgresSchemaIntrospector(ctx.metaDb);
-    const tableMetaExists = await metaIntrospector.tableExists('public', 'table_meta');
-    if (tableMetaExists.isErr()) {
-      return err(tableMetaExists.error);
-    }
-    if (!tableMetaExists.value) {
-      return ok(undefined);
-    }
-
-    try {
-      const result = await sql<{ db_table_name: string | null }>`
-        SELECT db_table_name
-        FROM table_meta
-        WHERE id = ${this.targetTableMetaId}
-          AND deleted_time IS NULL
-        LIMIT 1
-      `.execute(ctx.metaDb);
-
-      const dbTableName = result.rows[0]?.db_table_name;
-      if (!dbTableName) {
-        return ok(undefined);
-      }
-
-      const [schema, ...rest] = dbTableName.split('.');
-      if (rest.length === 0) {
-        return ok({
-          schema: 'public',
-          tableName: schema ?? dbTableName,
-        });
-      }
-
-      return ok({
-        schema: schema ?? 'public',
-        tableName: rest.join('.'),
-      });
-    } catch (error) {
-      return err(
-        domainError.infrastructure({
-          message: `Failed to resolve junction foreign key target table: ${error instanceof Error ? error.message : String(error)}`,
-          code: 'schema.introspection_failed',
-          details: {
-            targetTableMetaId: this.targetTableMetaId,
-          },
-        })
-      );
-    }
+    return resolveTableIdentifierByMetaId({
+      ctx,
+      targetTableMetaId: this.targetTableMetaId,
+      fallbackTable: this.targetTable,
+      errorContext: 'junction foreign key target table',
+    });
   }
 
   async isValid(ctx: SchemaRuleContext): Promise<Result<SchemaRuleValidationResult, DomainError>> {

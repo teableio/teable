@@ -350,7 +350,18 @@ export class FieldReferenceSqlVisitor implements IFieldVisitor<SqlExpr> {
     return this.getColAlias(field).map((colAlias) => {
       const snapshotRef = this.qualify(this.tableAlias, colAlias);
       const idRef = this.qualify(this.tableAlias, '__created_by');
-      return makeExpr(buildUserTitleFromSnapshotSql(snapshotRef, idRef), 'string', false);
+      // storageKind must stay 'scalar': the SQL is already a string title. Marking it 'json'
+      // causes FormulaSqlPgTranslator/ComputedFieldSelectExpressionVisitor to re-cast the
+      // title with ::jsonb and fail with "invalid input syntax for type json".
+      return makeExpr(
+        buildUserTitleFromSnapshotSql(snapshotRef, idRef),
+        'string',
+        false,
+        undefined,
+        undefined,
+        field,
+        'scalar'
+      );
     });
   }
 
@@ -364,7 +375,15 @@ export class FieldReferenceSqlVisitor implements IFieldVisitor<SqlExpr> {
       const idRef = field.isTrackAll()
         ? this.qualify(this.tableAlias, '__last_modified_by')
         : undefined;
-      return makeExpr(buildUserTitleFromSnapshotSql(snapshotRef, idRef), 'string', false);
+      return makeExpr(
+        buildUserTitleFromSnapshotSql(snapshotRef, idRef),
+        'string',
+        false,
+        undefined,
+        undefined,
+        field,
+        'scalar'
+      );
     });
   }
 

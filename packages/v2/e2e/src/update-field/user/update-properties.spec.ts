@@ -270,6 +270,37 @@ describe('update-field: user property updates', () => {
     await ctx.deleteField({ tableId, fieldId });
   });
 
+  test('should clear defaultValue T6107', async () => {
+    const fieldId = await createUserField('Clear Default User', {
+      isMultiple: false,
+      shouldNotify: false,
+      defaultValue: 'me',
+    });
+
+    const updatedTable = await ctx.updateField({
+      tableId,
+      fieldId,
+      field: {
+        type: 'user',
+        options: { isMultiple: false, shouldNotify: false, defaultValue: null },
+      },
+    });
+
+    const updatedField = updatedTable.fields.find((f) => f.id === fieldId);
+    expect(updatedField).toBeDefined();
+    expect(isUserField(updatedField!)).toBe(true);
+    if (isUserField(updatedField!)) {
+      expect(updatedField.options?.defaultValue).toBeUndefined();
+    }
+
+    // After clear, new records must not receive the current user as default.
+    const rec = await ctx.createRecord(tableId, {});
+    expect(rec.fields[fieldId] == null).toBe(true);
+
+    await ctx.deleteField({ tableId, fieldId });
+    await ctx.deleteRecords(tableId, [rec.id]);
+  });
+
   test('should set defaultValue to specific users', async () => {
     const fieldId = await createUserField('Default Specific Users', {
       isMultiple: true,

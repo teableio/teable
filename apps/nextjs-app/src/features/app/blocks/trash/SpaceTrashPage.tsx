@@ -100,10 +100,11 @@ export const SpaceTrashPage = () => {
           if (!resourceInfo) return null;
 
           const { name } = resourceInfo;
+          const avatar = 'avatar' in resourceInfo ? resourceInfo.avatar : undefined;
 
           return (
             <div className="flex min-w-0 items-center gap-2">
-              <SpaceAvatar name={name} className="size-6" />
+              <SpaceAvatar name={name} avatar={avatar} className="size-6" />
               <span className="truncate text-sm ">{name}</span>
             </div>
           );

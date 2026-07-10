@@ -1,3 +1,4 @@
+import { isIP } from 'node:net';
 import type { NestMiddleware } from '@nestjs/common';
 import { Injectable, Logger } from '@nestjs/common';
 import { X_CANARY_HEADER } from '@teable/openapi';
@@ -6,6 +7,18 @@ import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../types/cls';
 
 const automationRobotUserId = 'automationRobot';
+
+// Trusted proxies may append the client PORT to X-Forwarded-For entries (e.g. AWS ALB
+// with client-port preservation emits `12.34.56.78:8080` / `[2001:db8::1]:8080`, and
+// Express returns the first untrusted token verbatim). Reduce those two forms to their
+// host part so the isIP guard below accepts them; anything else — including bare IPv6,
+// which contains colons but never brackets — passes through unchanged.
+const stripPort = (value: string): string => {
+  const bracketedV6 = /^\[([^\]]+)\](?::\d+)?$/.exec(value);
+  if (bracketedV6) return bracketedV6[1];
+  const v4WithPort = /^(\d{1,3}(?:\.\d{1,3}){3}):\d+$/.exec(value);
+  return v4WithPort ? v4WithPort[1] : value;
+};
 const fallbackScheduleV2BackgroundTask: NonNullable<IClsStore['scheduleV2BackgroundTask']> = (
   task
 ) => {
@@ -82,8 +95,15 @@ export class RequestInfoMiddleware implements NestMiddleware {
           ? 'ai'
           : undefined;
 
+    // With `trust proxy`, req.ip is the first untrusted X-Forwarded-For entry returned
+    // verbatim — a caller reaching us through a trusted (private) peer can make it an
+    // arbitrary string. Persist only IP-shaped values (after trimming a proxy-appended
+    // client port); anything else falls back to the unforgeable socket address.
+    const forwardedIp = stripPort(req.ip || '');
+    const ip = isIP(forwardedIp) ? forwardedIp : req.socket.remoteAddress || '';
+
     this.cls.set('origin', {
-      ip: req.ip || req.socket.remoteAddress || '',
+      ip,
       byApi,
       userAgent,
       referer,

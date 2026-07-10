@@ -390,7 +390,7 @@ export class IntegrityV2Service {
         }
       }
 
-      if (activeFieldCount === 0 || primaryFieldCount === 0) {
+      if (activeFieldCount > 0 && primaryFieldCount === 0) {
         issues.push(
           this.createBaseTableHydrationIssue(baseId.toString(), {
             tableId: row.tableId,
