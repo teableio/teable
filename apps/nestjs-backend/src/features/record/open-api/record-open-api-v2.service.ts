@@ -92,9 +92,11 @@ import { FieldService } from '../../field/field.service';
 import type { IFieldInstance } from '../../field/model/factory';
 import { createFieldInstanceByVo } from '../../field/model/factory';
 import { TableService } from '../../table/table.service';
+import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migration-guard.service';
 import { buildUndoRedoEnginePreferenceKey } from '../../undo-redo/open-api/undo-redo-engine-preference';
 import { V2ContainerService } from '../../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
+import { convertLinkPasteCellValue } from '../paste-link-cell-value';
 import { RecordPermissionService } from '../record-permission.service';
 import { RecordService } from '../record.service';
 
@@ -120,6 +122,21 @@ const v1SymbolOperatorMap: Record<string, string> = {
   'IS NOT NULL': 'isNotEmpty',
   'IS WITH IN': 'isWithIn',
 };
+const dateComparisonOperators: ReadonlySet<RecordFilterOperator> = new Set([
+  'is',
+  'isNot',
+  'isBefore',
+  'isAfter',
+  'isOnOrBefore',
+  'isOnOrAfter',
+]);
+const dateFilterFieldTypes: ReadonlySet<FieldType> = new Set([
+  FieldType.Date,
+  FieldType.CreatedTime,
+  FieldType.LastModifiedTime,
+]);
+
+type FilterFieldMeta = Pick<IFieldInstance, 'type' | 'cellValueType' | 'options'>;
 
 @Injectable()
 export class RecordOpenApiV2Service {
@@ -135,8 +152,13 @@ export class RecordOpenApiV2Service {
     private readonly aggregationService: AggregationService,
     private readonly dataDbClientManager: DataDbClientManager,
     private readonly audit: AuditScope,
+    private readonly spaceDataDbMigrationGuard: SpaceDataDbMigrationGuardService,
     @Optional() private readonly attachmentsService?: AttachmentsService
   ) {}
+
+  private async assertTableRecordWritable(tableId: string): Promise<void> {
+    await this.spaceDataDbMigrationGuard.assertTableRecordWritable(tableId);
+  }
 
   private throwV2Error(
     error: {
@@ -806,6 +828,7 @@ export class RecordOpenApiV2Service {
     recordId: string,
     updateRecordRo: IUpdateRecordRo
   ): Promise<IRecord> {
+    await this.assertTableRecordWritable(tableId);
     const order = updateRecordRo.order;
     const hasOrder = Boolean(order);
     const fields = updateRecordRo.record.fields ?? {};
@@ -860,6 +883,7 @@ export class RecordOpenApiV2Service {
       recordWritePluginRunnerOptions?: RecordWritePluginRunnerOptions;
     }
   ): Promise<IRecord[]> {
+    await this.assertTableRecordWritable(tableId);
     const rawRecords = updateRecordsRo.records ?? [];
     const records = this.mergeDuplicateRecordUpdates(rawRecords);
     const recordIds = records.map((record) => record.id);
@@ -961,6 +985,7 @@ export class RecordOpenApiV2Service {
     file?: Express.Multer.File,
     fileUrl?: string
   ) {
+    await this.assertTableRecordWritable(tableId);
     if (!file && !fileUrl) {
       throw new CustomHttpException('No file or URL provided', HttpErrorCode.VALIDATION_ERROR, {
         localization: {
@@ -995,6 +1020,7 @@ export class RecordOpenApiV2Service {
     attachments: IAttachmentItem[],
     anchorId?: string
   ) {
+    await this.assertTableRecordWritable(tableId);
     if (!attachments.length) {
       throw new CustomHttpException('No attachments provided', HttpErrorCode.VALIDATION_ERROR);
     }
@@ -1022,6 +1048,7 @@ export class RecordOpenApiV2Service {
     createRecordsRo: ICreateRecordsRo,
     _isAiInternal?: string
   ): Promise<ICreateRecordsVo> {
+    await this.assertTableRecordWritable(tableId);
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext(container);
@@ -1056,6 +1083,7 @@ export class RecordOpenApiV2Service {
   }
 
   async formSubmit(tableId: string, formSubmitRo: IFormSubmitRo): Promise<IRecord> {
+    await this.assertTableRecordWritable(tableId);
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext(container);
@@ -1093,6 +1121,7 @@ export class RecordOpenApiV2Service {
       allowRecordExpansion?: boolean;
     }
   ): Promise<IPasteVo> {
+    await this.assertTableRecordWritable(tableId);
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext(container);
@@ -1162,6 +1191,7 @@ export class RecordOpenApiV2Service {
       allowRecordExpansion?: boolean;
     }
   ): Promise<AsyncIterable<IPasteSelectionStreamEvent>> {
+    await this.assertTableRecordWritable(tableId);
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext(container);
@@ -1199,6 +1229,7 @@ export class RecordOpenApiV2Service {
       allowRecordExpansion?: boolean;
     }
   ): Promise<AsyncIterable<IPasteSelectionStreamEvent>> {
+    await this.assertTableRecordWritable(tableId);
     const fieldIds = this.resolveSelectedFieldIds(pasteRo.selection);
     const recordIds = this.resolveSelectedRecordIds(pasteRo.selection);
     const syntheticPasteRo: IPasteRo = {
@@ -1529,12 +1560,7 @@ export class RecordOpenApiV2Service {
           ? this.getFirstCopiedDateValue(sourceField, cellValue)
           : sourceField.cellValue2String(cellValue);
       case FieldType.Link:
-        return sourceField.type === FieldType.Link
-          ? [cellValue as { id: string }]
-              .flat()
-              .map((value) => (typeof value === 'string' ? value : value.id))
-              .join(',')
-          : sourceField.cellValue2String(cellValue);
+        return convertLinkPasteCellValue(targetField, sourceField, cellValue);
       default:
         return sourceField.cellValue2String(cellValue) ?? null;
     }
@@ -1617,6 +1643,7 @@ export class RecordOpenApiV2Service {
   }
 
   async clear(tableId: string, rangesRo: IRangesRo): Promise<null> {
+    await this.assertTableRecordWritable(tableId);
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext(container);
@@ -1660,6 +1687,7 @@ export class RecordOpenApiV2Service {
     tableId: string,
     rangesRo: IRangesRo
   ): Promise<AsyncIterable<IClearSelectionStreamEvent>> {
+    await this.assertTableRecordWritable(tableId);
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext(container);
@@ -1708,6 +1736,7 @@ export class RecordOpenApiV2Service {
     tableId: string,
     selectionRo: ISelectionIdsRo
   ): Promise<AsyncIterable<IClearSelectionStreamEvent>> {
+    await this.assertTableRecordWritable(tableId);
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext(container);
@@ -1842,6 +1871,7 @@ export class RecordOpenApiV2Service {
     rangesRo: IRangesRo,
     _windowId?: string
   ): Promise<{ ids: string[] }> {
+    await this.assertTableRecordWritable(tableId);
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext(container);
@@ -1889,6 +1919,7 @@ export class RecordOpenApiV2Service {
     tableId: string,
     rangesRo: IRangesRo
   ): Promise<AsyncIterable<IDeleteSelectionStreamEvent>> {
+    await this.assertTableRecordWritable(tableId);
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext(container);
@@ -1938,6 +1969,7 @@ export class RecordOpenApiV2Service {
     tableId: string,
     selectionRo: ISelectionIdsRo
   ): Promise<AsyncIterable<IDeleteSelectionStreamEvent>> {
+    await this.assertTableRecordWritable(tableId);
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext(container);
@@ -1990,6 +2022,7 @@ export class RecordOpenApiV2Service {
     tableId: string,
     rangesRo: IRangesRo
   ): Promise<AsyncIterable<IDuplicateSelectionStreamEvent>> {
+    await this.assertTableRecordWritable(tableId);
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext(container);
@@ -2040,6 +2073,7 @@ export class RecordOpenApiV2Service {
     recordIds: string[],
     _windowId?: string
   ): Promise<IRecordsVo> {
+    await this.assertTableRecordWritable(tableId);
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
@@ -2075,6 +2109,7 @@ export class RecordOpenApiV2Service {
     recordIds: string[],
     _windowId?: string
   ): Promise<void> {
+    await this.assertTableRecordWritable(tableId);
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext(container);
@@ -2240,6 +2275,7 @@ export class RecordOpenApiV2Service {
         {
           type: field.type,
           cellValueType: field.cellValueType,
+          options: field.options,
         },
       ])
     );
@@ -2316,6 +2352,8 @@ export class RecordOpenApiV2Service {
         }
       }
 
+      value = this.normalizeLegacyDateComparisonValue(fieldMeta, operator, value);
+
       if (operatorsExpectingArray.has(operator)) {
         if (!Array.isArray(value) && !this.isRecordFilterFieldReferenceValue(value)) {
           value = [value] as RecordFilterValue;
@@ -2331,6 +2369,39 @@ export class RecordOpenApiV2Service {
 
     const normalized = normalizeNode(mapped);
     return normalized ?? undefined;
+  }
+
+  private normalizeLegacyDateComparisonValue(
+    fieldMeta: FilterFieldMeta | undefined,
+    operator: RecordFilterOperator,
+    value: RecordFilterValue
+  ): RecordFilterValue {
+    if (
+      !fieldMeta ||
+      !dateComparisonOperators.has(operator) ||
+      !this.isDateFilterField(fieldMeta)
+    ) {
+      return value;
+    }
+    if (this.isRecordFilterFieldReferenceValue(value) || Array.isArray(value)) {
+      return value;
+    }
+    if (typeof value !== 'string' || !Number.isFinite(Date.parse(value))) {
+      return value;
+    }
+
+    return {
+      mode: 'exactDate',
+      exactDate: value,
+      timeZone: this.extractDatetimeFormatting(fieldMeta.options)?.timeZone ?? 'utc',
+    } as RecordFilterDateValue;
+  }
+
+  private isDateFilterField(fieldMeta: FilterFieldMeta): boolean {
+    return (
+      dateFilterFieldTypes.has(fieldMeta.type as FieldType) ||
+      fieldMeta.cellValueType === CellValueType.DateTime
+    );
   }
 
   private mapV1FilterToV2(filter: unknown): RecordFilter | undefined | null {
@@ -2612,6 +2683,7 @@ export class RecordOpenApiV2Service {
     recordId: string,
     order?: IRecordInsertOrderRo
   ): Promise<IRecord> {
+    await this.assertTableRecordWritable(tableId);
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext(container);

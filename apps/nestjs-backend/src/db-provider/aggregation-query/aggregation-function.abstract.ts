@@ -23,9 +23,7 @@ export abstract class AbstractAggregationFunction implements IAggregationFunctio
     } else {
       const columnRef = this.knex.ref(dbFieldName);
       const tableAlias = this.tableAlias;
-      this.tableColumnRef = (
-        tableAlias ? columnRef.withSchema(tableAlias) : columnRef
-      ).toQuery();
+      this.tableColumnRef = (tableAlias ? columnRef.withSchema(tableAlias) : columnRef).toQuery();
     }
   }
 

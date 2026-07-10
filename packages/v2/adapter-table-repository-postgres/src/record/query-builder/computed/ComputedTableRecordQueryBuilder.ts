@@ -189,6 +189,10 @@ const filterItems = (filter: FieldConditionDTO['filter']): IFilterItemDTO[] => {
   );
 };
 
+/**
+ * Join-key group for residual field-ref rollups that still share a correlated lateral.
+ * Rejects explicit limit so order+limit stay on the generic lateral path when residuals exist.
+ */
 const conditionalRollupFieldReferenceGroup = (
   columnType: LateralColumnType
 ): ConditionalFieldReferenceGroup | null => {
@@ -222,6 +226,51 @@ const conditionalRollupFieldReferenceGroup = (
   }
 
   return null;
+};
+
+/**
+ * Pure field-reference equality rollup eligible for a set-based host join.
+ * Single `is` filter against a host field; optional limit uses window ranking.
+ * Residual/complex filters keep the correlated lateral path.
+ */
+const conditionalRollupSetBasedFieldReferenceGroup = (
+  columnType: LateralColumnType
+): ConditionalFieldReferenceGroup | null => {
+  if (
+    columnType.type !== 'conditionalRollup' ||
+    !isOrderInsensitiveRollupExpression(columnType.expression) ||
+    columnType.condition.hasSort() ||
+    !columnType.condition.hasFilter()
+  ) {
+    return null;
+  }
+
+  const filter = columnType.condition.toDto().filter;
+  if (!filter || filter.conjunction !== 'and') {
+    return null;
+  }
+
+  const items = filterItems(filter);
+  if (items.length !== 1) {
+    return null;
+  }
+
+  const [item] = items;
+  if (item.operator !== 'is') {
+    return null;
+  }
+
+  const hostFieldId = referencedHostFieldId(item);
+  if (!hostFieldId) {
+    return null;
+  }
+
+  return {
+    foreignFieldId: item.fieldId,
+    hostFieldId,
+    filterItem: item,
+    limit: columnType.condition.limit(),
+  };
 };
 
 const conditionalLookupFieldReferenceGroup = (
@@ -282,6 +331,34 @@ const sharedConditionalFieldReferenceGroup = (
     if (
       shared.foreignFieldId !== group.foreignFieldId ||
       shared.hostFieldId !== group.hostFieldId
+    ) {
+      return null;
+    }
+  }
+
+  return shared;
+};
+
+const sharedConditionalRollupSetBasedFieldReferenceGroup = (
+  columns: Array<{ columnType: LateralColumnType }>
+): ConditionalFieldReferenceGroup | null => {
+  let shared: ConditionalFieldReferenceGroup | null = null;
+
+  for (const column of columns) {
+    const group = conditionalRollupSetBasedFieldReferenceGroup(column.columnType);
+    if (!group) {
+      return null;
+    }
+
+    if (!shared) {
+      shared = group;
+      continue;
+    }
+
+    if (
+      shared.foreignFieldId !== group.foreignFieldId ||
+      shared.hostFieldId !== group.hostFieldId ||
+      shared.limit !== group.limit
     ) {
       return null;
     }
@@ -729,6 +806,18 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
       }
 
       const condition = columnType.condition;
+      const setBasedRollupGroup = conditionalRollupSetBasedFieldReferenceGroup(columnType);
+      if (setBasedRollupGroup) {
+        return [
+          columnType.type,
+          'field-ref-set',
+          foreignTableId,
+          setBasedRollupGroup.foreignFieldId,
+          setBasedRollupGroup.hostFieldId,
+          setBasedRollupGroup.limit ?? 'none',
+        ].join('|');
+      }
+
       const fieldRefGroup = conditionalRollupFieldReferenceGroup(columnType);
       if (fieldRefGroup) {
         return [
@@ -925,7 +1014,9 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
    * use a condition filter to select which foreign records to aggregate.
    *
    * The generated SQL structure for each conditional field:
-   * - conditionalRollup: LATERAL (SELECT AGG(col) FROM foreign_table WHERE <condition>)
+   * - conditionalRollup: set-based host join for pure field-reference equality
+   *   (optional limit via window ranking); uncorrelated join for simple source-only
+   *   filters; otherwise LATERAL (SELECT AGG(col) FROM foreign_table WHERE <condition>)
    * - conditionalLookup: set-based host aggregate for simple field-reference equality,
    *   otherwise LATERAL (SELECT jsonb_agg(col) FROM foreign_table WHERE <condition>)
    */
@@ -966,6 +1057,24 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           const foreignTableName = yield* foreignDbTableName.value();
 
           const firstColumnType = lateral.columns[0]?.columnType;
+          const sharedRollupSetBasedGroup = sharedConditionalRollupSetBasedFieldReferenceGroup(
+            lateral.columns
+          );
+          if (sharedRollupSetBasedGroup) {
+            const query = yield* this.buildConditionalRollupFieldReferenceAggregate(
+              foreignTable,
+              foreignTableName,
+              sharedRollupSetBasedGroup,
+              lateral.alias,
+              lateral.columns
+            );
+            subqueries.push({
+              query,
+              joinMode: 'hostLeft',
+            });
+            continue;
+          }
+
           const sharedLookupFieldRefGroup = sharedConditionalLookupFieldReferenceGroup(
             lateral.columns
           );
@@ -1248,6 +1357,128 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             .select([sql`${sql.ref(`${rankedAlias}.__host_id`)}`.as('__host_id'), ...selectExprs])
             .where(sql<SqlBool>`${sql.ref(`${rankedAlias}.__rn`)} <= ${limitValue}`)
             .groupBy(sql.ref(`${rankedAlias}.__host_id`))
+            .as(alias)
+        );
+      }.bind(this)
+    );
+  }
+
+  /**
+   * Set-based materialization for order-insensitive conditional rollups whose only
+   * filter is field-reference equality (optionally with limit).
+   *
+   * Host drives a single join against the foreign table (plus window ranking when a
+   * limit is set), instead of a correlated LATERAL per host row.
+   */
+  private buildConditionalRollupFieldReferenceAggregate(
+    foreignTable: Table,
+    foreignTableName: string,
+    group: ConditionalFieldReferenceGroup,
+    alias: string,
+    columns: Array<{ outputAlias: string; columnType: LateralColumnType }>
+  ): Result<AliasedExpression<Record<string, unknown>, string>, DomainError> {
+    const hostTable = this.table;
+    if (!hostTable) {
+      return err(domainError.validation({ message: 'Call from() first' }));
+    }
+
+    return safeTry<AliasedExpression<Record<string, unknown>, string>, DomainError>(
+      function* (this: ComputedTableRecordQueryBuilder) {
+        const hostDbTableName = yield* hostTable.dbTableName();
+        const hostTableName = yield* hostDbTableName.value();
+        const whereClause = yield* this.buildFieldReferenceConditionWhere(foreignTable, group, H);
+        if (whereClause === null) {
+          return err(
+            domainError.invariant({
+              message: 'Conditional rollup field-reference set-based path requires a filter',
+            })
+          );
+        }
+
+        const dirtyConfig = this.dirtyFilterConfig;
+        const hostSource = dirtyConfig
+          ? this.db
+              .selectFrom(`${hostTableName} as ${H}`)
+              .innerJoin(
+                `${dirtyConfig.dirtyTableName ?? 'tmp_computed_dirty'} as __cond_dirty`,
+                (join) =>
+                  join
+                    .onRef(
+                      `${H}.__id`,
+                      '=',
+                      `__cond_dirty.${dirtyConfig.recordIdColumn ?? 'record_id'}`
+                    )
+                    .on(
+                      `__cond_dirty.${dirtyConfig.tableIdColumn ?? 'table_id'}`,
+                      '=',
+                      dirtyConfig.tableId
+                    )
+              )
+              .selectAll(H)
+              .as(H)
+          : (`${hostTableName} as ${H}` as const);
+
+        const limitValue = group.limit;
+        const orderBy = DEFAULT_CONDITIONAL_ORDER_BY;
+
+        if (limitValue !== undefined) {
+          const rankedAlias = `${alias}_src`;
+          const rankedQuery = this.db
+            .selectFrom(hostSource)
+            .innerJoin(`${foreignTableName} as ${F}`, (join) => join.on(whereClause))
+            .select([
+              sql`${sql.ref(`${H}.__id`)}`.as('__host_id'),
+              sql`row_number() over (partition by ${sql.ref(`${H}.__id`)} order by ${sql.ref(`${F}.${orderBy.column}`)} ${sql.raw(orderBy.direction)})`.as(
+                '__rn'
+              ),
+            ])
+            .selectAll(F);
+
+          const selectExprs: AliasedRawBuilder<unknown, string>[] = [];
+          for (const col of columns) {
+            selectExprs.push(
+              yield* this.buildConditionalSelectExpr(
+                foreignTable,
+                col.columnType,
+                col.outputAlias,
+                {
+                  tableAlias: rankedAlias,
+                  orderBy,
+                }
+              )
+            );
+          }
+
+          // Drive from host so hosts with zero matches still emit a row (COUNT/SUM → 0).
+          return ok(
+            this.db
+              .selectFrom(hostSource)
+              .leftJoin(rankedQuery.as(rankedAlias), (join) =>
+                join
+                  .onRef(`${H}.__id`, '=', `${rankedAlias}.__host_id`)
+                  .on(sql<SqlBool>`${sql.ref(`${rankedAlias}.__rn`)} <= ${limitValue}`)
+              )
+              .select([sql`${sql.ref(`${H}.__id`)}`.as('__host_id'), ...selectExprs])
+              .groupBy(sql.ref(`${H}.__id`))
+              .as(alias)
+          );
+        }
+
+        const selectExprs: AliasedRawBuilder<unknown, string>[] = [];
+        for (const col of columns) {
+          selectExprs.push(
+            yield* this.buildConditionalSelectExpr(foreignTable, col.columnType, col.outputAlias, {
+              tableAlias: F,
+            })
+          );
+        }
+
+        return ok(
+          this.db
+            .selectFrom(hostSource)
+            .leftJoin(`${foreignTableName} as ${F}`, (join) => join.on(whereClause))
+            .select([sql`${sql.ref(`${H}.__id`)}`.as('__host_id'), ...selectExprs])
+            .groupBy(sql.ref(`${H}.__id`))
             .as(alias)
         );
       }.bind(this)

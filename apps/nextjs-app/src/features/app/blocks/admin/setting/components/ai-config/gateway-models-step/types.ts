@@ -1,10 +1,4 @@
-import type {
-  IGatewayModel,
-  IModelPricing,
-  GatewayModelType,
-  GatewayModelTag,
-  GatewayModelProvider,
-} from '@teable/openapi';
+import type { IGatewayModel, IGatewayApiModel } from '@teable/openapi';
 
 // Recommended model IDs - all details fetched from API
 export const RECOMMENDED_MODEL_IDS = [
@@ -17,19 +11,7 @@ export const RECOMMENDED_MODEL_IDS = [
 ];
 
 // API response model structure from backend (camelCase, converted from Vercel AI Gateway snake_case)
-export interface IGatewayModelAPI {
-  id: string;
-  object?: string;
-  created?: number;
-  ownedBy?: GatewayModelProvider;
-  name?: string;
-  description?: string;
-  contextWindow?: number;
-  maxTokens?: number;
-  type?: GatewayModelType;
-  tags?: GatewayModelTag[];
-  pricing?: IModelPricing;
-}
+export type IGatewayModelAPI = IGatewayApiModel;
 
 export interface IGatewayModelsStepProps {
   gatewayModels: IGatewayModel[];
@@ -37,8 +19,6 @@ export interface IGatewayModelsStepProps {
   disabled?: boolean;
   apiKey?: string;
   baseUrl?: string;
-  /** Whether to show pricing-related UI. Defaults to true (Cloud). */
-  showPricing?: boolean;
 }
 
 export interface ITestState {
