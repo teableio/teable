@@ -1,6 +1,5 @@
 {
   "common": {
-    "comingSoon": "Çok Yakında",
     "empty": "Boş",
     "noRecords": "Kayıt bulunamadı",
     "unnamedRecord": "İsimsiz kayıt",
@@ -90,7 +89,6 @@
     "link": {
       "placeholder": "Bağlanacak kayıtları seçin",
       "searchPlaceholder": "Kayıtlarda ara",
-      "allFields": "Tüm alanlar",
       "globalSearch": "Global arama",
       "fieldSearch": "Alan araması",
       "maxFieldTips": "Maksimum {{count}} alan sayısı aşıldı, fazla alanlar göz ardı edilecek",
@@ -98,14 +96,11 @@
       "selectRecord": "Kayıt Seç",
       "all": "Tümü",
       "selected": "Seçilmiş",
-      "expandRecordError": "Bu kaydı görüntüleme izniniz yok.",
       "alreadyOpen": "Bu kayıt zaten açık.",
       "linkedTo": "Bağlantılı",
-      "goToForeignTable": "Yabancı tabloya git",
       "foreignTableIdRequired": "Yabancı tablo gereklidir",
       "linkFieldIdRequired": "Bağlantı alanı gereklidir",
       "selectTooManyRecords": "Seçilen kayıtlar {{maxCount}} değerini aşmamalıdır",
-      "relationshipRequired": "İlişki gereklidir",
       "rangeSelectFailed": "Aralıktaki kayıtları seçme başarısız oldu"
     },
     "user": {
@@ -119,12 +114,10 @@
     "lookup": {
       "lookupFieldIdRequired": "Arama alanı gereklidir",
       "lookupOptionsNotAllowed": "isLookup özniteliği doğru olduğunda veya alan türü rollup olduğunda arama seçenekleri izin verilmez.",
-      "lookupOptionsRequired": "Arama seçenekleri gereklidir",
-      "refineOptionsError": "Arama seçenekleri ayrıştırma hatası {{message}}"
+      "lookupOptionsRequired": "Arama seçenekleri gereklidir"
     },
     "rollup": {
-      "expressionRequired": "İfade gereklidir",
-      "unsupportedTip": "Rollup yalnızca bağlantı ve rollup alanlarını destekler"
+      "expressionRequired": "İfade gereklidir"
     },
     "conditionalRollup": {
       "filterRequired": "Filtre en az bir koşul içermelidir"
@@ -152,11 +145,8 @@
     "addConditionGroup": "Koşul grubu ekle",
     "nestedLimitTip": "Filtre koşulları yalnızca {{depth}} seviye derinliğinde iç içe geçebilir",
     "linkInputPlaceholder": "Bir değer girin",
-    "groupDescription": "Aşağıdakilerden herhangi biri doğru...",
     "currentUser": "Ben (mevcut kullanıcı)",
-    "tips": {
-      "scope": "Bu görünümde, kayıtları göster"
-    },
+    "tips": {},
     "invalidateSelected": "Geçersiz değer",
     "invalidateSelectedTips": "Seçilen değer silindi, lütfen tekrar seçin",
     "invalidConditionTip": "Bu filtre koşulu geçersiz ve yok sayılacak. Lütfen değeri ayarlayın.",
@@ -254,15 +244,10 @@
     "title": "Alan adı",
     "displayLines": "{{count}} satır"
   },
-  "share": {
-    "title": "paylaş"
-  },
-  "extensions": {
-    "title": "uzantılar"
-  },
+  "share": {},
+  "extensions": {},
   "hidden": {
     "label": "Gizli Alanlar",
-    "configLabel_one": "{{count}} gizli alan",
     "configLabel_other": "{{count}} gizli alan",
     "configLabel_other_visible": "{{count}} görünür alan",
     "showAll": "Tümünü Göster",
@@ -285,8 +270,6 @@
       "before": "Önce",
       "after": "Sonra",
       "buttonClicked": "Düğmeye tıklandı",
-      "filterField": "Alan",
-      "filterCreatedBy": "Değiştiren",
       "filterTime": "Zaman aralığı",
       "allFields": "Tüm alanlar",
       "allUsers": "Tüm kullanıcılar",
@@ -392,7 +375,6 @@
       "baseUpdate": "Veritabanı güncelle",
       "baseInviteEmail": "Veritabanında e-posta ile davet et",
       "baseInviteLink": "Veritabanında bağlantı ile davet et",
-      "baseTableImport": "Veritabanına veri aktar",
       "baseAuthorityMatrixConfig": "Yetki matrisini yapılandır",
       "baseDbConnect": "Veritabanına bağlan",
       "tableCreate": "Tablo oluştur",
@@ -427,7 +409,6 @@
       "appDelete": "Uygulama sil",
       "appRead": "Uygulama oku",
       "appUpdate": "Uygulama güncelle",
-      "userProfileRead": "Read current user profile",
       "userEmailRead": "Kullanıcı e-postası oku",
       "userIntegrations": "Manage user integrations",
       "recordHistoryRead": "Kayıt geçmişi oku",
@@ -865,7 +846,6 @@
     "placeholder": "Bir yorum bırakın...",
     "emptyComment": "Bir konuşma başlatın",
     "deletedComment": "Silinmiş Yorum",
-    "imageSizeLimit": "Görsel boyutu {{size}}'den büyük olamaz",
     "tip": {
       "editing": "Düzenleme...",
       "edited": "(Düzenlendi)",
@@ -884,8 +864,6 @@
     },
     "floatToolbar": {
       "editLink": "Bağlantıyı Düzenle",
-      "caption": "Başlık",
-      "delete": "Sil",
       "linkText": "Bağlantı Metni",
       "enterUrl": "URL Girin"
     }
@@ -895,7 +873,6 @@
     "memberSelectorSearchPlaceholder": "Search members...",
     "departmentSelectorSearchPlaceholder": "Search departments...",
     "selected": "Selected",
-    "noSelected": "No selected",
     "empty": "No members",
     "emptyDepartment": "No departments"
   },

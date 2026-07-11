@@ -22,9 +22,25 @@ import { buildFieldSqlMetadata } from './FieldSqlCoercionVisitor';
 import { FormulaSqlPgVisitor } from './FormulaSqlPgVisitor';
 import { buildErrorLiteral } from './PgSqlHelpers';
 import type { IPgTypeValidationStrategy } from './PgTypeValidationStrategy';
-import { makeExpr, type SqlExpr } from './SqlExpression';
+import { makeExpr, type SqlExpr, type SqlStorageKind } from './SqlExpression';
 
 export type FieldSqlResolver = (field: Field) => Result<SqlExpr, DomainError>;
+
+/**
+ * Prefer the storage kind produced by resolveFieldSql when it already coerced a
+ * JSON snapshot field (createdBy / lastModifiedBy) into a string scalar title.
+ * Overwriting with metadata.storageKind 'json' causes downstream `::jsonb` casts
+ * on title text and fails with "invalid input syntax for type json".
+ */
+const resolveFieldStorageKind = (
+  expr: SqlExpr,
+  metadataStorageKind: SqlStorageKind | undefined
+): SqlStorageKind | undefined => {
+  if (expr.storageKind === 'scalar' && expr.valueType === 'string' && !expr.isArray) {
+    return 'scalar';
+  }
+  return metadataStorageKind ?? expr.storageKind;
+};
 
 export type FormulaSqlPgTranslatorOptions = {
   table: Table;
@@ -149,12 +165,14 @@ export class FormulaSqlPgTranslator {
         .map((metadata) =>
           makeExpr(
             expr.valueSql,
-            metadata.valueType,
+            // Prefer the resolved expression type when resolveFieldSql already coerced
+            // JSON snapshots (createdBy/lastModifiedBy titles) into string scalars.
+            expr.valueType === 'string' && !expr.isArray ? 'string' : metadata.valueType,
             metadata.isArray,
             expr.errorConditionSql,
             expr.errorMessageSql,
             field,
-            metadata.storageKind
+            resolveFieldStorageKind(expr, metadata.storageKind)
           )
         )
         .orElse(() =>
@@ -246,7 +264,7 @@ export class FormulaSqlPgTranslator {
           lookupSql.errorConditionSql,
           lookupSql.errorMessageSql,
           lookupField, // Keep reference to lookup field for context
-          isMultiple ? 'array' : (lookupSql.storageKind ?? metadata.storageKind)
+          isMultiple ? 'array' : lookupSql.storageKind ?? metadata.storageKind
         )
       )
       .orElse(() =>

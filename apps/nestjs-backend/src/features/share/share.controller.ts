@@ -10,6 +10,7 @@ import {
   Request,
   Res,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { IGetFieldsQuery, getFieldsQuerySchema } from '@teable/core';
 import {
@@ -57,6 +58,9 @@ import { Response } from 'express';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { AllowAnonymous } from '../auth/decorators/allow-anonymous.decorator';
 import { Public } from '../auth/decorators/public.decorator';
+import { UseV2Feature } from '../canary/decorators/use-v2-feature.decorator';
+import { V2FeatureGuard } from '../canary/guards/v2-feature.guard';
+import { V2IndicatorInterceptor } from '../canary/interceptors/v2-indicator.interceptor';
 import { TqlPipe } from '../record/open-api/tql.pipe';
 import { ShareAuthGuard } from './guard/auth.guard';
 import { ShareLinkView } from './guard/link-view.decorator';
@@ -137,7 +141,9 @@ export class ShareController {
   }
 
   @ShareSubmit()
-  @UseGuards(ShareAuthGuard)
+  @UseV2Feature('formSubmit')
+  @UseGuards(ShareAuthGuard, V2FeatureGuard)
+  @UseInterceptors(V2IndicatorInterceptor)
   @Post('/:shareId/view/form-submit')
   async submitRecord(
     @Request() req: any,

@@ -11,8 +11,7 @@
       "description": "您的 OAuth 应用的名称。"
     },
     "description": {
-      "label": "描述",
-      "description": "您的 OAuth 应用的简短描述。"
+      "label": "描述"
     },
     "homePageUrl": {
       "label": "主页 URL",
@@ -31,10 +30,6 @@
       "label": "回调 URL",
       "description": "用户授权您的集成后要重定向的完整 URL。",
       "add": "添加回调 URL"
-    },
-    "scopes": {
-      "label": "权限范围",
-      "description": "您的 OAuth 应用所需的权限。"
     },
     "secret": {
       "label": "客户端密钥",

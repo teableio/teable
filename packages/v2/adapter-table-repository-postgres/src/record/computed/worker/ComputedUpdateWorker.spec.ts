@@ -22,6 +22,7 @@ import {
 } from '../outbox/IComputedUpdateOutbox';
 import {
   ComputedUpdateWorker,
+  resolveEffectiveMaxSeedRecordsPerTask,
   splitComputedTaskForSeedRecordLimit,
   splitSeedTaskForSeedRecordLimit,
 } from './ComputedUpdateWorker';
@@ -175,6 +176,96 @@ describe('ComputedUpdateWorker', () => {
         )
       ).toEqual([]);
     });
+
+    it('fanout-splits linkTraversal plans with large dirtyStats and few seeds', () => {
+      const seedRecordIds = Array.from(
+        { length: 12 },
+        (_, index) => `rec${index.toString().padStart(16, '0')}`
+      );
+      const task = createMockTask({
+        seedRecordIds,
+        edges: [
+          {
+            fromFieldId: FIELD_ID,
+            toFieldId: FIELD_ID,
+            fromTableId: TABLE_ID,
+            toTableId: TABLE_ID,
+            linkFieldId: FIELD_ID,
+            propagationMode: 'linkTraversal',
+            order: 0,
+          },
+        ],
+        dirtyStats: [{ tableId: TABLE_ID, recordCount: 3000 }],
+      });
+
+      const maxSeeds = resolveEffectiveMaxSeedRecordsPerTask(
+        task,
+        defaultComputedUpdateOutboxConfig
+      );
+      expect(maxSeeds).toBe(defaultComputedUpdateOutboxConfig.fanoutSeedSplitMaxSeeds);
+
+      const chunks = splitComputedTaskForSeedRecordLimit(task, maxSeeds);
+      expect(chunks.length).toBeGreaterThan(1);
+      expect(chunks.every((chunk) => chunk.seedRecordIds.length <= maxSeeds)).toBe(true);
+    });
+
+    it('does not fanout-split when plan has allTargetRecords edges', () => {
+      const seedRecordIds = Array.from(
+        { length: 12 },
+        (_, index) => `rec${index.toString().padStart(16, '0')}`
+      );
+      const task = createMockTask({
+        seedRecordIds,
+        edges: [
+          {
+            fromFieldId: FIELD_ID,
+            toFieldId: FIELD_ID,
+            fromTableId: TABLE_ID,
+            toTableId: TABLE_ID,
+            propagationMode: 'allTargetRecords',
+            order: 0,
+          },
+        ],
+        dirtyStats: [{ tableId: TABLE_ID, recordCount: 3000 }],
+      });
+
+      const maxSeeds = resolveEffectiveMaxSeedRecordsPerTask(
+        task,
+        defaultComputedUpdateOutboxConfig
+      );
+      expect(maxSeeds).toBe(defaultComputedUpdateOutboxConfig.maxSeedRecordsPerTask);
+      expect(splitComputedTaskForSeedRecordLimit(task, maxSeeds)).toEqual([]);
+    });
+
+    it('does not fanout-split when seed set would create too many chunks', () => {
+      // 240 seeds / fanoutSeedSplitMaxSeeds(5) would be 48 children (> MAX_FANOUT_CHUNKS=16)
+      const seedRecordIds = Array.from(
+        { length: 240 },
+        (_, index) => `rec${index.toString().padStart(16, '0')}`
+      );
+      const task = createMockTask({
+        seedRecordIds,
+        edges: [
+          {
+            fromFieldId: FIELD_ID,
+            toFieldId: FIELD_ID,
+            fromTableId: TABLE_ID,
+            toTableId: TABLE_ID,
+            linkFieldId: FIELD_ID,
+            propagationMode: 'linkTraversal',
+            order: 0,
+          },
+        ],
+        dirtyStats: [{ tableId: TABLE_ID, recordCount: 5000 }],
+      });
+
+      const maxSeeds = resolveEffectiveMaxSeedRecordsPerTask(
+        task,
+        defaultComputedUpdateOutboxConfig
+      );
+      expect(maxSeeds).toBe(defaultComputedUpdateOutboxConfig.maxSeedRecordsPerTask);
+      expect(splitComputedTaskForSeedRecordLimit(task, maxSeeds)).toEqual([]);
+    });
   });
 
   describe('runOnce', () => {
@@ -249,7 +340,16 @@ describe('ComputedUpdateWorker', () => {
 
       await worker.runOnce({ workerId: 'worker-1', limit: 10 });
 
-      expect(markFailed).toHaveBeenCalledWith(task, expect.any(String), expect.anything());
+      expect(markFailed).toHaveBeenCalledWith(
+        task,
+        expect.any(String),
+        expect.anything(),
+        expect.objectContaining({
+          failureKind: 'transient',
+          failureReason: 'unknown',
+          retryable: true,
+        })
+      );
     });
 
     it('forces statement-timeout failures into dead letter', async () => {
@@ -299,7 +399,71 @@ describe('ComputedUpdateWorker', () => {
           maxAttempts: task.maxAttempts,
         }),
         expect.stringContaining('statement timeout'),
-        expect.anything()
+        expect.anything(),
+        expect.objectContaining({
+          failureKind: 'statement_timeout',
+          failureReason: 'statement_timeout',
+          retryable: false,
+          directDeadLetter: true,
+        })
+      );
+    });
+
+    it('forces deterministic postgres sql generation failures into dead letter', async () => {
+      const task = createMockTask({ attempts: 1, maxAttempts: 8 });
+      const markFailed = vi.fn().mockResolvedValue(ok(true));
+
+      const outbox = createOutboxStub({
+        claimBatch: vi.fn().mockResolvedValue(ok([task])),
+        markFailed,
+      });
+
+      const updater = createUpdaterStub({
+        execute: vi.fn().mockResolvedValue(
+          err(
+            domainError.infrastructure({
+              message:
+                'Unexpected unit of work error: error: cannot cast type jsonb to timestamp with time zone',
+            })
+          )
+        ),
+        collectDirtySeedGroups: vi.fn().mockResolvedValue(ok({ groups: [], seedAllTableIds: [] })),
+      });
+
+      const planner = {
+        planStage: vi.fn().mockResolvedValue(ok({ steps: [], edges: [] })),
+      } as unknown as ComputedUpdatePlanner;
+
+      const logger = createLogger();
+      const worker = new ComputedUpdateWorker(
+        outbox,
+        defaultComputedUpdateOutboxConfig,
+        updater,
+        planner,
+        createUnitOfWork(),
+        logger,
+        createHasher(),
+        createTableRepository(),
+        createBackfillService(),
+        createEventBus()
+      );
+
+      await worker.runOnce({ workerId: 'worker-1', limit: 10 });
+
+      expect(markFailed).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: task.id,
+          attempts: task.maxAttempts - 1,
+          maxAttempts: task.maxAttempts,
+        }),
+        expect.stringContaining('cannot cast type jsonb to timestamp with time zone'),
+        expect.anything(),
+        expect.objectContaining({
+          failureKind: 'computed_code_bug',
+          failureReason: 'postgres_sql_generation_error',
+          retryable: false,
+          directDeadLetter: true,
+        })
       );
     });
 
