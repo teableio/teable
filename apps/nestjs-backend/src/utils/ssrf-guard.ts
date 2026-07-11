@@ -28,3 +28,22 @@ export function getSsrfSafeAgents(): {
   }
   return SAFE_AGENTS;
 }
+
+/**
+ * Returns an SSRF-safe agent selector for use with node-fetch:
+ *   `fetch(url, { agent: getSsrfSafeFetchAgent() })`
+ * node-fetch's `agent` option accepts a `(parsedUrl) => Agent` factory (unlike
+ * axios' `httpAgent`/`httpsAgent`), so we pick the http or https request-filtering
+ * agent per URL. This also blocks redirect-based bypasses
+ * (e.g. http://evil.com -> https://169.254.169.254). Returns undefined when SSRF
+ * protection is disabled via env var, so node-fetch uses its default agents.
+ */
+export function getSsrfSafeFetchAgent():
+  | ((parsedUrl: URL) => RequestFilteringHttpAgent | RequestFilteringHttpsAgent)
+  | undefined {
+  if (isSsrfProtectionDisabled()) {
+    return undefined;
+  }
+  return (parsedUrl: URL) =>
+    parsedUrl.protocol === 'https:' ? globalHttpsAgent : globalHttpAgent;
+}

@@ -14,6 +14,7 @@ import { z } from 'zod';
 import type { ZodType } from 'zod';
 import { CustomHttpException } from '../../../custom.exception';
 import { exceptionParse } from '../../../utils/exception-parse';
+import { getSsrfSafeFetchAgent } from '../../../utils/ssrf-guard';
 import { toLineDelimitedStream } from './delimiter-stream';
 
 export const DEFAULT_IMPORT_CPU_USAGE = 0.5;
@@ -242,7 +243,12 @@ export abstract class Importer {
       url = `http://localhost:${process.env.PORT}${url}`;
     }
 
-    const { body: stream, headers } = await fetch(url);
+    // Guard against SSRF: route the fetch through the request-filtering agent so
+    // attacker-supplied import URLs cannot reach private/link-local hosts (incl. via
+    // redirects). Mirrors the protection already applied on the attachments path.
+    const { body: stream, headers } = await fetch(url, {
+      agent: getSsrfSafeFetchAgent(),
+    });
 
     const supportType = importTypeMap[type].accept.split(',');
 
