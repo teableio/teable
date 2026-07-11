@@ -435,9 +435,11 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
   visitUpdateFormulaExpression(spec: UpdateFormulaExpressionSpec): Result<void, DomainError> {
     this.addSelfBackfill(spec.fieldId());
     this.addValueChanged(spec.fieldId());
-    // Formula expression changes may alter the result DB type (e.g. number -> text).
-    // Skip DISTINCT filtering during backfill to avoid cross-type comparison errors.
-    this.dbStorageTypeChanged = true;
+    if (spec.hasDbStorageTypeChange()) {
+      // Formula expression changes may alter the result DB type (e.g. number -> text).
+      // Skip DISTINCT filtering during backfill to avoid cross-type comparison errors.
+      this.dbStorageTypeChanged = true;
+    }
     return ok(undefined);
   }
 

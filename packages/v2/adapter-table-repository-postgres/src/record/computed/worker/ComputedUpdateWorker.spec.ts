@@ -249,7 +249,16 @@ describe('ComputedUpdateWorker', () => {
 
       await worker.runOnce({ workerId: 'worker-1', limit: 10 });
 
-      expect(markFailed).toHaveBeenCalledWith(task, expect.any(String), expect.anything());
+      expect(markFailed).toHaveBeenCalledWith(
+        task,
+        expect.any(String),
+        expect.anything(),
+        expect.objectContaining({
+          failureKind: 'transient',
+          failureReason: 'unknown',
+          retryable: true,
+        })
+      );
     });
 
     it('forces statement-timeout failures into dead letter', async () => {
@@ -299,7 +308,71 @@ describe('ComputedUpdateWorker', () => {
           maxAttempts: task.maxAttempts,
         }),
         expect.stringContaining('statement timeout'),
-        expect.anything()
+        expect.anything(),
+        expect.objectContaining({
+          failureKind: 'statement_timeout',
+          failureReason: 'statement_timeout',
+          retryable: false,
+          directDeadLetter: true,
+        })
+      );
+    });
+
+    it('forces deterministic postgres sql generation failures into dead letter', async () => {
+      const task = createMockTask({ attempts: 1, maxAttempts: 8 });
+      const markFailed = vi.fn().mockResolvedValue(ok(true));
+
+      const outbox = createOutboxStub({
+        claimBatch: vi.fn().mockResolvedValue(ok([task])),
+        markFailed,
+      });
+
+      const updater = createUpdaterStub({
+        execute: vi.fn().mockResolvedValue(
+          err(
+            domainError.infrastructure({
+              message:
+                'Unexpected unit of work error: error: cannot cast type jsonb to timestamp with time zone',
+            })
+          )
+        ),
+        collectDirtySeedGroups: vi.fn().mockResolvedValue(ok({ groups: [], seedAllTableIds: [] })),
+      });
+
+      const planner = {
+        planStage: vi.fn().mockResolvedValue(ok({ steps: [], edges: [] })),
+      } as unknown as ComputedUpdatePlanner;
+
+      const logger = createLogger();
+      const worker = new ComputedUpdateWorker(
+        outbox,
+        defaultComputedUpdateOutboxConfig,
+        updater,
+        planner,
+        createUnitOfWork(),
+        logger,
+        createHasher(),
+        createTableRepository(),
+        createBackfillService(),
+        createEventBus()
+      );
+
+      await worker.runOnce({ workerId: 'worker-1', limit: 10 });
+
+      expect(markFailed).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: task.id,
+          attempts: task.maxAttempts - 1,
+          maxAttempts: task.maxAttempts,
+        }),
+        expect.stringContaining('cannot cast type jsonb to timestamp with time zone'),
+        expect.anything(),
+        expect.objectContaining({
+          failureKind: 'computed_code_bug',
+          failureReason: 'postgres_sql_generation_error',
+          retryable: false,
+          directDeadLetter: true,
+        })
       );
     });
 

@@ -1,4 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
+import fs from 'fs';
+import path from 'path';
 import type { INestApplication } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { getPluginEmail, IdPrefix, Role } from '@teable/core';
@@ -22,6 +24,7 @@ import {
   getSpaceVoSchema,
   listSpaceInvitationLink as apiListSpaceInvitationLink,
   updateSpace as apiUpdateSpace,
+  updateSpaceAvatar as apiUpdateSpaceAvatar,
   updateSpaceInvitationLink as apiUpdateSpaceInvitationLink,
   CREATE_SPACE,
   EMAIL_SPACE_INVITATION,
@@ -566,6 +569,35 @@ describe('OpenAPI SpaceController (e2e)', () => {
       const integrations = (await getIntegrationList(spaceId)).data;
 
       expect(integrations.length).toBe(0);
+    });
+  });
+
+  describe('space avatar', () => {
+    const imagePath = path.join(__dirname, '../static/test/test-image.png');
+
+    it('/api/space/:spaceId/avatar (PATCH)', async () => {
+      const formData = new FormData();
+      formData.append(
+        'file',
+        new Blob([fs.readFileSync(imagePath)], { type: 'image/png' }),
+        'test-image.png'
+      );
+      const res = await apiUpdateSpaceAvatar(spaceId, formData);
+      expect(res.status).toEqual(200);
+
+      const space = (await apiGetSpaceById(spaceId)).data;
+      expect(space.avatar).toContain(`space-avatar/${spaceId}`);
+
+      const spaceList = (await apiGetSpaceList()).data;
+      const listedSpace = spaceList.find(({ id }) => id === spaceId);
+      expect(listedSpace?.avatar).toContain(`space-avatar/${spaceId}`);
+    });
+
+    it('/api/space/:spaceId/avatar (PATCH) - non-image file', async () => {
+      const formData = new FormData();
+      formData.append('file', new Blob(['not an image'], { type: 'text/plain' }), 'test.txt');
+      const error = await getError(() => apiUpdateSpaceAvatar(spaceId, formData));
+      expect(error?.status).toEqual(400);
     });
   });
 });

@@ -146,6 +146,8 @@ export const generateGatewayModelKeyList = (gatewayModels: IGatewayModel[] | und
       maxTokens: model.maxTokens,
       description: model.description,
       i18nDescription: model.i18nDescription,
+      recommended: model.recommended,
+      recommendedDescription: model.recommendedDescription,
     }));
 };
 

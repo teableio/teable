@@ -8,7 +8,6 @@ import {
   LLMProviderType,
   SettingKey,
   Task,
-  convertGatewayApiModel,
   normalizeGatewayPricing,
   supportsImageInputForImageGeneration,
 } from '@teable/openapi';
@@ -17,19 +16,18 @@ import type {
   IAiGenerateRo,
   IChatModelAbility,
   IGatewayApiModel,
-  IGatewayApiModelRaw,
   IGetAIConfig,
   GatewayModelTag,
   LLMProvider,
 } from '@teable/openapi';
 import type { ImageModel, LanguageModel } from 'ai';
 import { createGateway, generateText, streamText } from 'ai';
-import axios from 'axios';
 import type { Response } from 'express';
 import { BaseConfig, IBaseConfig } from '../../configs/base.config';
 import { CustomHttpException } from '../../custom.exception';
 import { PerformanceCacheService } from '../../performance-cache';
 import { SettingService } from '../setting/setting.service';
+import { AiGatewayModelsService } from './ai-gateway-models.service';
 import { getAdaptedProviderOptions, getTaskModelKey, modelProviders } from './util';
 
 // Fixed name for instance-level provider config in modelKey.
@@ -39,14 +37,6 @@ import { getAdaptedProviderOptions, getTaskModelKey, modelProviders } from './ut
 export const INSTANCE_PROVIDER_NAME = 'teable';
 
 export type ILanguageModelV2 = Exclude<LanguageModel, string>;
-
-// In-memory cache for Gateway models (TTL: 10 minutes)
-const gatewayModelsCacheTtl = 10 * 60 * 1000;
-
-interface IGatewayModelsCache {
-  data: IGatewayApiModel[];
-  expiresAt: number;
-}
 
 export interface IResolvedModelMapping {
   requestedModelKey: string;
@@ -58,14 +48,12 @@ export interface IResolvedModelMapping {
 export class AiService {
   private readonly logger = new Logger(AiService.name);
 
-  // In-memory cache for Gateway models API - faster than Redis for static data
-  private gatewayModelsCache: IGatewayModelsCache | null = null;
-
   constructor(
     private readonly settingService: SettingService,
     private readonly prismaService: PrismaService,
     @BaseConfig() private readonly baseConfig: IBaseConfig,
-    private readonly performanceCacheService: PerformanceCacheService
+    private readonly performanceCacheService: PerformanceCacheService,
+    private readonly aiGatewayModelsService: AiGatewayModelsService
   ) {}
 
   public parseModelKey(modelKey: string) {
@@ -794,10 +782,9 @@ export class AiService {
 
   /**
    * Get a specific model from Gateway API
-   * Uses Redis cached data if available
    */
   private async getGatewayApiModel(modelId: string): Promise<IGatewayApiModel | undefined> {
-    const models = await this.fetchGatewayModelsFromApi();
+    const models = await this.aiGatewayModelsService.getGatewayModels();
     const normalize = (s: string) =>
       s.split('/').pop()!.replaceAll('.', '').replaceAll('-', '').toLowerCase();
     const stripDateSuffix = (s: string) => s.replace(/\d{8,}$/, '');
@@ -807,47 +794,6 @@ export class AiService {
       if (a === b) return true;
       return stripDateSuffix(a) === stripDateSuffix(b);
     });
-  }
-
-  /**
-   * Fetch all models from AI Gateway API with in-memory caching
-   * This method is also used by setting-open-api.service.ts
-   * Cache TTL: 10 minutes (static data, doesn't change frequently)
-   */
-  async fetchGatewayModelsFromApi(): Promise<IGatewayApiModel[]> {
-    // Check in-memory cache first
-    if (this.gatewayModelsCache && Date.now() < this.gatewayModelsCache.expiresAt) {
-      return this.gatewayModelsCache.data;
-    }
-
-    try {
-      const response = await axios.get<{ data: IGatewayApiModelRaw[] }>(
-        'https://ai-gateway.vercel.sh/v1/models',
-        { timeout: 10000 }
-      );
-
-      // Convert snake_case API response to camelCase
-      const models = (response.data?.data || []).map(convertGatewayApiModel);
-
-      // Update in-memory cache
-      this.gatewayModelsCache = {
-        data: models,
-        expiresAt: Date.now() + gatewayModelsCacheTtl,
-      };
-
-      return models;
-    } catch (error) {
-      // If fetch fails but we have stale cache, return it
-      if (this.gatewayModelsCache) {
-        this.logger.warn(
-          `[fetchGatewayModelsFromApi] Failed to refresh, using stale cache: ${error}`
-        );
-        return this.gatewayModelsCache.data;
-      }
-
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to fetch AI Gateway models: ${errorMessage}`);
-    }
   }
 
   /**
