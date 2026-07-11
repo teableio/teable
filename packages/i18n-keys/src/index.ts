@@ -7,6 +7,7 @@ export const tableI18nKeys = {
     },
     field: {
       maxColumnLimit: 'validation.field.maxColumnLimit',
+      requiredExistingValues: 'validation.field.requiredExistingValues',
     },
   },
   field: {
@@ -84,6 +85,7 @@ export type TableI18nKey =
   | 'validation.link.one_many_duplicate'
   | 'validation.link.one_one_duplicate'
   | 'validation.field.maxColumnLimit'
+  | 'validation.field.requiredExistingValues'
   | 'field.default.singleLineText.title'
   | 'field.default.longText.title'
   | 'field.default.number.title'

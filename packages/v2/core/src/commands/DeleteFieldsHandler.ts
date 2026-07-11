@@ -173,8 +173,11 @@ export class DeleteFieldsHandler
 
       const referenceVisitor = new LinkForeignTableReferenceVisitor();
       const foreignRefs = yield* referenceVisitor.collect(targetFields);
+      // Allow missing foreign tables so orphan link fields remain deletable after
+      // the foreign table is soft-deleted (trash) or permanently removed (T4927).
       const foreignTables = yield* await handler.foreignTableLoaderService.load(context, {
         references: foreignRefs,
+        allowMissing: true,
       });
 
       const pluginContexts: IFieldOperationDeleteContext[] = targetFields.map((targetField) => ({

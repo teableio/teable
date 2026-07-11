@@ -37,6 +37,10 @@ import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
+import {
+  buildPhysicalTableDuplicatePlan,
+  canUsePhysicalTableDuplicate,
+} from './buildPhysicalTableDuplicatePlan';
 import { DuplicateTableCommand } from './DuplicateTableCommand';
 
 export class DuplicateTableResult {
@@ -121,10 +125,16 @@ export class DuplicateTableHandler
       });
       yield* await tablePluginExecution.guard();
 
+      // Prefer server-side INSERT…SELECT when the table has no link fields
+      // (junction/FK host remaps need the row-hydration path).
+      const usePhysicalRowCopy =
+        command.includeRecords && canUsePhysicalTableDuplicate(sourceTable);
+
       let records: ReadonlyArray<TableRecord> = [];
       let restoreRecordsById: ReadonlyMap<string, RecordRestoreSystemValues> | undefined;
+      let physicalRecordIds: ReadonlyArray<string> = [];
 
-      if (command.includeRecords) {
+      if (command.includeRecords && !usePhysicalRowCopy) {
         const prepared = yield* await handler.prepareDuplicatedRecords(
           context,
           sourceTable,
@@ -163,6 +173,21 @@ export class DuplicateTableHandler
               dataTransactionContext,
               persistedTable
             );
+
+            if (usePhysicalRowCopy) {
+              const plan = yield* buildPhysicalTableDuplicatePlan({
+                sourceTable,
+                targetTable: persistedTable,
+                fieldIdMap: duplicated.fieldIdMap,
+                viewIdMap: duplicated.viewIdMap,
+              });
+              const physical = yield* await handler.tableRecordRepository.duplicatePhysicalRows(
+                dataTransactionContext,
+                plan
+              );
+              physicalRecordIds = physical.recordIds;
+              return ok(undefined);
+            }
 
             if (records.length > 0) {
               const pluginExecution = yield* await handler.recordWritePluginRunner.prepare({
@@ -216,11 +241,17 @@ export class DuplicateTableHandler
         { type: 'table.duplicate' }
       );
 
-      const events = aggregateDuplicateTableEvents(
-        [...duplicated.table.pullDomainEvents(), ...persistedTable.pullDomainEvents()],
-        persistedTable,
-        restoreRecordsById
-      );
+      const events = usePhysicalRowCopy
+        ? aggregatePhysicalDuplicateTableEvents(
+            [...duplicated.table.pullDomainEvents(), ...persistedTable.pullDomainEvents()],
+            persistedTable,
+            physicalRecordIds
+          )
+        : aggregateDuplicateTableEvents(
+            [...duplicated.table.pullDomainEvents(), ...persistedTable.pullDomainEvents()],
+            persistedTable,
+            restoreRecordsById
+          );
 
       yield* await handler.eventBus.publishMany(context, events);
 
@@ -383,6 +414,39 @@ const aggregateDuplicateTableEvents = (
   }
 
   return aggregatedEvents;
+};
+
+/**
+ * Bulk path never hydrates domain records, so emit a synthetic batch event from
+ * returned physical ids (field payloads intentionally empty — same as V1 audit).
+ */
+const aggregatePhysicalDuplicateTableEvents = (
+  rawEvents: ReadonlyArray<IDomainEvent>,
+  table: Table,
+  recordIds: ReadonlyArray<string>
+): ReadonlyArray<IDomainEvent> => {
+  if (recordIds.length === 0) {
+    return [...rawEvents];
+  }
+
+  const batchEvent = RecordsBatchCreated.create({
+    tableId: table.id(),
+    baseId: table.baseId(),
+    records: recordIds.map((recordId) => ({
+      recordId,
+      // Bulk path does not hydrate domain field values; keep DTO shape (array).
+      fields: [],
+    })),
+    source: { type: 'tableDuplicate' },
+    orchestration: {
+      totalRecordCount: recordIds.length,
+      totalChunkCount: 1,
+      chunkIndex: 0,
+      scope: 'operation',
+    },
+  });
+
+  return [...rawEvents, batchEvent];
 };
 
 const buildDuplicatedRecordFieldValues = (params: {

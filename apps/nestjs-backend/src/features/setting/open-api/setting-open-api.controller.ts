@@ -175,14 +175,4 @@ export class SettingOpenApiController {
       },
     };
   }
-
-  /**
-   * Get available models from AI Gateway
-   * Returns configured=false if gateway is not set up
-   */
-  @Public()
-  @Get('gateway-models')
-  async getGatewayModels() {
-    return await this.settingOpenApiService.getGatewayModels();
-  }
 }
