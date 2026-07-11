@@ -51,6 +51,10 @@ export const modelConfigSchema = z.object({
   // === Pricing in USD (new format - preferred) ===
   pricing: pricingSchema.optional(),
 
+  // === Gateway model id used as the pricing/caps reference ===
+  // Unset means auto-match by model id against the gateway catalog.
+  referenceModel: z.string().optional(),
+
   // === Legacy rates in credits per 1M tokens (deprecated, for backward compat) ===
   // @deprecated Use pricing instead. Will be auto-converted to pricing when reading.
   inputRate: z.number().min(0).optional(),
@@ -261,6 +265,8 @@ export const appConfigSchema = z.object({
   // Proxy URL for Vercel API (Cloudflare Workers reverse proxy)
   vercelBaseUrl: z.url().optional(),
   appAuth: appAuthConfigSchema.optional(),
+  // Instance-wide "Made with Teable" badge kill switch; absent = enabled
+  badgeEnabled: z.boolean().optional(),
 });
 
 export type IAppConfig = z.infer<typeof appConfigSchema>;

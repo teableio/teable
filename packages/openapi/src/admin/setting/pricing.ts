@@ -186,6 +186,81 @@ export function pricingToCreditsFromUsage(
   return Math.ceil(credits * 100) / 100;
 }
 
+/**
+ * Drop empty/undefined entries from a pricing object.
+ * Returns undefined when nothing remains.
+ */
+export function compactPricing(pricing: IModelPricing | undefined): IModelPricing | undefined {
+  if (!pricing) return undefined;
+  const next = Object.fromEntries(
+    Object.entries(pricing).filter(([, value]) => value !== undefined && value !== '')
+  ) as IModelPricing;
+  return Object.keys(next).length > 0 ? next : undefined;
+}
+
+/**
+ * Format a number as a plain decimal string, free of exponential notation and
+ * float-multiplication noise (e.g. 5e-8 -> "0.00000005", 5.0000000001e-7 ->
+ * "0.0000005"). Returns undefined for non-finite input; 0 formats as "0".
+ * Precision is capped at 12 decimals — well beyond realistic USD/token prices.
+ */
+export function formatDecimalString(value: number): string | undefined {
+  if (!Number.isFinite(value)) return undefined;
+  return value.toFixed(12).replace(/0+$/, '').replace(/\.$/, '');
+}
+
+export function scalePrice(price: string | undefined, ratio: number): string | undefined {
+  if (!price) return undefined;
+  const value = parseFloat(price);
+  if (Number.isNaN(value)) return undefined;
+  return formatDecimalString(value * ratio);
+}
+
+/**
+ * Scale every rate in a pricing object by a ratio (e.g. derive custom-model
+ * pricing from an AI Gateway reference price).
+ */
+export function scalePricing(
+  pricing: IModelPricing | undefined,
+  ratio: number
+): IModelPricing | undefined {
+  if (!pricing || Number.isNaN(ratio)) return undefined;
+  return compactPricing({
+    input: scalePrice(pricing.input, ratio),
+    output: scalePrice(pricing.output, ratio),
+    inputCacheRead: scalePrice(pricing.inputCacheRead, ratio),
+    inputCacheWrite: scalePrice(pricing.inputCacheWrite, ratio),
+    reasoning: scalePrice(pricing.reasoning, ratio),
+    image: scalePrice(pricing.image, ratio),
+    webSearch: scalePrice(pricing.webSearch, ratio),
+    inputTiers: pricing.inputTiers?.map((tier) => ({
+      ...tier,
+      cost: scalePrice(tier.cost, ratio) ?? tier.cost,
+    })),
+    outputTiers: pricing.outputTiers?.map((tier) => ({
+      ...tier,
+      cost: scalePrice(tier.cost, ratio) ?? tier.cost,
+    })),
+    inputCacheReadTiers: pricing.inputCacheReadTiers?.map((tier) => ({
+      ...tier,
+      cost: scalePrice(tier.cost, ratio) ?? tier.cost,
+    })),
+    inputCacheWriteTiers: pricing.inputCacheWriteTiers?.map((tier) => ({
+      ...tier,
+      cost: scalePrice(tier.cost, ratio) ?? tier.cost,
+    })),
+  });
+}
+
+// Raw tier as the gateway may return it: `min` can be absent (first tier implicitly starts at 0)
+export const rawPricingTierSchema = z.object({
+  cost: z.string(),
+  min: z.number().optional(),
+  max: z.number().optional(),
+});
+
+export type IRawPricingTier = z.infer<typeof rawPricingTierSchema>;
+
 /* eslint-disable @typescript-eslint/naming-convention */
 // Raw pricing schema matching Vercel AI Gateway API response (snake_case)
 // @see https://ai-gateway.vercel.sh/v1/models
@@ -200,10 +275,10 @@ export const rawPricingSchema = z.object({
   web_search: z.string().optional(),
 
   // Tiered pricing (overrides flat rate when present)
-  input_tiers: z.array(pricingTierSchema).optional(),
-  output_tiers: z.array(pricingTierSchema).optional(),
-  input_cache_read_tiers: z.array(pricingTierSchema).optional(),
-  input_cache_write_tiers: z.array(pricingTierSchema).optional(),
+  input_tiers: z.array(rawPricingTierSchema).optional(),
+  output_tiers: z.array(rawPricingTierSchema).optional(),
+  input_cache_read_tiers: z.array(rawPricingTierSchema).optional(),
+  input_cache_write_tiers: z.array(rawPricingTierSchema).optional(),
 });
 /* eslint-enable @typescript-eslint/naming-convention */
 
@@ -248,7 +323,16 @@ export function normalizeGatewayPricing(
 
   for (const [snake, camel] of PRICING_TIER_FIELDS) {
     const val = r[snake] ?? (snake !== camel ? r[camel] : undefined);
-    if (Array.isArray(val)) pricing[camel] = val;
+    if (Array.isArray(val)) {
+      // The gateway may omit `min` (first tier implicitly starts at 0); the
+      // canonical pricingTierSchema requires it, so fill it in here
+      pricing[camel] = (val as IRawPricingTier[]).map(
+        (tier, i, arr): IPricingTier => ({
+          ...tier,
+          min: tier.min ?? (i === 0 ? 0 : arr[i - 1].max ?? 0),
+        })
+      );
+    }
   }
 
   return Object.keys(pricing).length > 0 ? (pricing as IModelPricing) : undefined;

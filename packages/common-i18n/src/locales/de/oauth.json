@@ -10,8 +10,7 @@
       "description": "Der Name Ihrer OAuth App."
     },
     "description": {
-      "label": "Beschreibung",
-      "description": "Eine kurze Beschreibung Ihrer OAuth App."
+      "label": "Beschreibung"
     },
     "homePageUrl": {
       "label": "Homepage URL",
@@ -30,10 +29,6 @@
       "label": "Callback URL",
       "description": "Die vollständige URL, zu der umgeleitet werden soll, nachdem ein Benutzer Ihre Integration autorisiert hat.",
       "add": "Callback URL hinzufügen"
-    },
-    "scopes": {
-      "label": "Geltungsbereiche",
-      "description": "Die Berechtigungen, die Ihre OAuth-App benötigt."
     },
     "secret": {
       "label": "Client Secrets",

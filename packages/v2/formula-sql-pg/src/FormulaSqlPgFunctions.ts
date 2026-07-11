@@ -777,6 +777,16 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
     );
   }
 
+  /**
+   * POSITION() requires text arguments. coerceToString usually produces text, but
+   * some field snapshots still surface jsonb columns with valueType=string (e.g.
+   * multi-select / link cells). Always cast to text so generated SQL never becomes
+   * `position(jsonb, unknown)` which hard-fails the whole computed task.
+   */
+  private asTextSql(valueSql: string): string {
+    return `((${valueSql})::text)`;
+  }
+
   private find(params: SqlExpr[]): SqlExpr {
     const searchText = params[0];
     const withinText = params[1];
@@ -792,9 +802,11 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       start ? [search, within, start] : [search, within],
       buildErrorLiteral('TYPE', 'cannot_cast_to_text')
     );
+    const searchSql = this.asTextSql(search.valueSql);
+    const withinSql = this.asTextSql(within.valueSql);
     const valueSql = start
-      ? `POSITION(${search.valueSql} IN SUBSTRING(${within.valueSql} FROM ${start.valueSql}::integer)) + ${start.valueSql}::integer - 1`
-      : `POSITION(${search.valueSql} IN ${within.valueSql})`;
+      ? `POSITION(${searchSql} IN SUBSTRING(${withinSql} FROM ${start.valueSql}::integer)) + ${start.valueSql}::integer - 1`
+      : `POSITION(${searchSql} IN ${withinSql})`;
     return makeExpr(
       guardValueSql(valueSql, errorCondition),
       'number',
@@ -819,9 +831,11 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       start ? [search, within, start] : [search, within],
       buildErrorLiteral('TYPE', 'cannot_cast_to_text')
     );
+    const searchSql = this.asTextSql(search.valueSql);
+    const withinSql = this.asTextSql(within.valueSql);
     const valueSql = start
-      ? `POSITION(UPPER(${search.valueSql}) IN UPPER(SUBSTRING(${within.valueSql} FROM ${start.valueSql}::integer))) + ${start.valueSql}::integer - 1`
-      : `POSITION(UPPER(${search.valueSql}) IN UPPER(${within.valueSql}))`;
+      ? `POSITION(UPPER(${searchSql}) IN UPPER(SUBSTRING(${withinSql} FROM ${start.valueSql}::integer))) + ${start.valueSql}::integer - 1`
+      : `POSITION(UPPER(${searchSql}) IN UPPER(${withinSql}))`;
     return makeExpr(
       guardValueSql(valueSql, errorCondition),
       'number',
@@ -982,9 +996,11 @@ export class FormulaSqlPgFunctions extends FormulaSqlPgExpressionBuilder {
       ifNotFound ? [text, delimiter, ifNotFound] : [text, delimiter],
       buildErrorLiteral('TYPE', 'cannot_cast_to_text')
     );
-    const positionSql = `POSITION(${delimiter.valueSql} IN ${text.valueSql})`;
+    const textSql = this.asTextSql(text.valueSql);
+    const delimiterSql = this.asTextSql(delimiter.valueSql);
+    const positionSql = `POSITION(${delimiterSql} IN ${textSql})`;
     const fallbackSql = ifNotFound?.valueSql ?? 'NULL';
-    const valueSql = `(CASE WHEN ${positionSql} = 0 THEN ${fallbackSql} ELSE LEFT(${text.valueSql}, ${positionSql} - 1) END)`;
+    const valueSql = `(CASE WHEN ${positionSql} = 0 THEN ${fallbackSql} ELSE LEFT(${textSql}, ${positionSql} - 1) END)`;
     return makeExpr(
       guardValueSql(valueSql, errorCondition),
       'string',

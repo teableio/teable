@@ -13,6 +13,8 @@ import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import { isRecordCreatedEvent } from '../domain/table/events/RecordCreated';
 import { isRecordsBatchCreatedEvent } from '../domain/table/events/RecordsBatchCreated';
+import { DbTableName } from '../domain/table/DbTableName';
+import { DbFieldName } from '../domain/table/fields/DbFieldName';
 import { FieldId } from '../domain/table/fields/FieldId';
 import type { RecordId } from '../domain/table/records/RecordId';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
@@ -178,6 +180,19 @@ class FakeTableRepository implements ITableRepository {
 
   async insert(_context: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
     const persisted = table.clone(tableMapper)._unsafeUnwrap();
+    // Mirror PostgresTableRepository: assign schema-qualified db table name on insert.
+    if (persisted.dbTableName().isErr()) {
+      const dbTableName = DbTableName.rehydrate(
+        `${persisted.baseId().toString()}.${persisted.id().toString()}`
+      )._unsafeUnwrap();
+      persisted.setDbTableName(dbTableName)._unsafeUnwrap();
+    }
+    // Ensure field db names exist for physical plan mapping.
+    for (const field of persisted.getFields()) {
+      if (field.dbFieldName().isErr()) {
+        field.setDbFieldName(DbFieldName.rehydrate(field.id().toString())._unsafeUnwrap());
+      }
+    }
     this.tables.push(persisted);
     this.insertedTables.push(persisted);
     return ok(persisted);
@@ -191,6 +206,13 @@ class FakeTableRepository implements ITableRepository {
     this.tables.push(...persisted);
     this.insertedTables.push(...persisted);
     return ok(persisted);
+  }
+
+  async duplicatePhysicalRows(
+    _context: any,
+    _plan: any
+  ): Promise<Result<{ rowCount: number; recordIds: string[] }, DomainError>> {
+    return ok({ rowCount: 0, recordIds: [] });
   }
 
   async findOne(
@@ -319,6 +341,8 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   insertedRecords: TableRecord[] = [];
   lastOptions: InsertOptions | undefined;
   lastTable: Table | undefined;
+  physicalPlans: unknown[] = [];
+  physicalRecordIds: string[] = [];
 
   async insert(
     _context: IExecutionContext,
@@ -343,6 +367,19 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     this.insertedRecords = [...records];
     this.lastOptions = options;
     return ok({});
+  }
+
+  async duplicatePhysicalRows(
+    _context: IExecutionContext,
+    plan: import('../ports/TableRecordRepository').PhysicalTableDuplicatePlan
+  ): Promise<
+    Result<import('../ports/TableRecordRepository').PhysicalTableDuplicateResult, DomainError>
+  > {
+    this.physicalPlans.push(plan);
+    return ok({
+      rowCount: this.physicalRecordIds.length,
+      recordIds: [...this.physicalRecordIds],
+    });
   }
 
   async insertManyStream(
@@ -603,5 +640,166 @@ describe('DuplicateTableHandler', () => {
     });
 
     expect(tableRecordRepository.lastTable?.id().equals(duplicated.table.id())).toBe(true);
+    // Self-link forces hydrate path even though external links could be physical.
+    expect(tableRecordRepository.physicalPlans).toHaveLength(0);
+  });
+
+  it('uses physical INSERT…SELECT for external-link tables without self-links', async () => {
+    const externalOnlyDto: ITablePersistenceDTO = {
+      id: sourceTableId,
+      baseId: sourceBaseId,
+      name: 'External Host',
+      dbTableName: `${sourceBaseId}.${sourceTableId}`,
+      primaryFieldId,
+      fields: [
+        {
+          id: primaryFieldId,
+          name: 'Name',
+          type: 'singleLineText',
+          dbFieldName: 'Name',
+        },
+        {
+          id: externalLinkFieldId,
+          name: 'Vendor',
+          type: 'link',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId: externalTableId,
+            lookupFieldId: externalLookupFieldId,
+            isOneWay: true,
+            fkHostTableName: `${sourceBaseId}.${sourceTableId}`,
+            selfKeyName: '__id',
+            foreignKeyName: `__fk_${externalLinkFieldId}`,
+          },
+        },
+      ],
+      views: [
+        {
+          id: defaultViewId,
+          type: 'grid',
+          name: 'Grid',
+          columnMeta: { [primaryFieldId]: { order: 0 } },
+        },
+      ],
+    };
+    const sourceTable = tableMapper.toDomain(externalOnlyDto)._unsafeUnwrap();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(sourceTable);
+    const tableQueryService = new TableQueryService(tableRepository);
+    const tableSchemaRepository = new FakeTableSchemaRepository();
+    const tableRecordQueryRepository = new FakeTableRecordQueryRepository();
+    const tableRecordRepository = new FakeTableRecordRepository();
+    tableRecordRepository.physicalRecordIds = [sourceRecordIdA];
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+
+    const handler = new DuplicateTableHandler(
+      tableQueryService,
+      tableMapper,
+      tableRepository,
+      tableSchemaRepository,
+      tableRecordQueryRepository,
+      tableRecordRepository,
+      eventBus,
+      unitOfWork,
+      undefined,
+      createTableLimitPluginRunner(tableRepository)
+    );
+
+    const command = DuplicateTableCommand.create({
+      baseId: sourceBaseId,
+      tableId: sourceTableId,
+      name: 'External Host Copy',
+      includeRecords: true,
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    expect(result.isOk()).toBe(true);
+    expect(tableRecordRepository.insertedRecords).toHaveLength(0);
+    expect(tableRecordRepository.physicalPlans).toHaveLength(1);
+    const plan = tableRecordRepository.physicalPlans[0] as {
+      columns: Array<{ targetColumn: string; sourceSql: string }>;
+      junctionCopies: unknown[];
+    };
+    expect(plan.columns).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          sourceSql: `"__fk_${externalLinkFieldId}"`,
+        }),
+      ])
+    );
+    expect(tableRecordQueryRepository.records).toHaveLength(0);
+  });
+
+  it('uses physical INSERT…SELECT for tables without link fields', async () => {
+    const plainDto: ITablePersistenceDTO = {
+      id: sourceTableId,
+      baseId: sourceBaseId,
+      name: 'Plain Source',
+      dbTableName: `${sourceBaseId}.${sourceTableId}`,
+      primaryFieldId,
+      fields: [
+        {
+          id: primaryFieldId,
+          name: 'Name',
+          type: 'singleLineText',
+          dbFieldName: 'Name',
+        },
+      ],
+      views: [
+        {
+          id: defaultViewId,
+          type: 'grid',
+          name: 'Grid',
+          columnMeta: {
+            [primaryFieldId]: { order: 0 },
+          },
+        },
+      ],
+    };
+    const sourceTable = tableMapper.toDomain(plainDto)._unsafeUnwrap();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(sourceTable);
+    const tableQueryService = new TableQueryService(tableRepository);
+    const tableSchemaRepository = new FakeTableSchemaRepository();
+    const tableRecordQueryRepository = new FakeTableRecordQueryRepository();
+    const tableRecordRepository = new FakeTableRecordRepository();
+    tableRecordRepository.physicalRecordIds = [sourceRecordIdA, sourceRecordIdB];
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+
+    const handler = new DuplicateTableHandler(
+      tableQueryService,
+      tableMapper,
+      tableRepository,
+      tableSchemaRepository,
+      tableRecordQueryRepository,
+      tableRecordRepository,
+      eventBus,
+      unitOfWork,
+      undefined,
+      createTableLimitPluginRunner(tableRepository)
+    );
+
+    const command = DuplicateTableCommand.create({
+      baseId: sourceBaseId,
+      tableId: sourceTableId,
+      name: 'Plain Copy',
+      includeRecords: true,
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    expect(result.isOk()).toBe(true);
+    expect(tableRecordRepository.insertedRecords).toHaveLength(0);
+    expect(tableRecordRepository.physicalPlans).toHaveLength(1);
+    expect(tableRecordQueryRepository.records).toHaveLength(0);
+
+    const batchCreatedEvent = eventBus.published.find(isRecordsBatchCreatedEvent);
+    expect(batchCreatedEvent?.records).toHaveLength(2);
+    expect(batchCreatedEvent?.source).toEqual({ type: 'tableDuplicate' });
+    expect(batchCreatedEvent?.records.map((record) => record.recordId)).toEqual([
+      sourceRecordIdA,
+      sourceRecordIdB,
+    ]);
   });
 });

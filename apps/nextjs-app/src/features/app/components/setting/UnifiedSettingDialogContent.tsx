@@ -191,7 +191,11 @@ export const UnifiedSettingDialogContent = ({
         entity:
           resolvedSpaceId && space ? (
             <div className="flex items-center justify-center gap-2 px-1 sm:justify-start">
-              <SpaceAvatar name={space.name} className="size-8 rounded-sm border" />
+              <SpaceAvatar
+                name={space.name}
+                avatar={space.avatar}
+                className="size-8 rounded-sm border"
+              />
               <span className="hidden truncate text-sm font-medium text-foreground sm:block">
                 {space.name}
               </span>

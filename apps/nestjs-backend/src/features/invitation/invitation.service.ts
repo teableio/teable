@@ -29,6 +29,7 @@ import { AuditScope } from '../audit/audit-scope';
 import { Audit } from '../audit/audit.decorator';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { MailSenderService } from '../mail-sender/mail-sender.service';
+import { RiskControlService } from '../risk-control/risk-control.service';
 import { SettingOpenApiService } from '../setting/open-api/setting-open-api.service';
 import { UserService } from '../user/user.service';
 
@@ -44,6 +45,7 @@ export class InvitationService {
     private readonly mailSenderService: MailSenderService,
     private readonly collaboratorService: CollaboratorService,
     private readonly userService: UserService,
+    private readonly riskControlService: RiskControlService,
     private readonly eventEmitter: EventEmitter2,
     private readonly audit: AuditScope
   ) {}
@@ -137,12 +139,32 @@ export class InvitationService {
     ]);
     // Inviting a banned-domain email would auto-create its account below,
     // bypassing the sign-up ban — so drop those addresses entirely.
-    const invitationEmails = emails
-      .map((email) => email.toLowerCase())
-      .filter((email) => !isEmailDomainBanned(email, bannedEmailDomains));
+    const lowercasedEmails = emails.map((email) => email.toLowerCase());
+    const riskDeniedEmails = await this.riskControlService.filterDeniedEmails(
+      'invitation',
+      lowercasedEmails
+    );
+    const invitationEmails = lowercasedEmails.filter(
+      (email) => !isEmailDomainBanned(email, bannedEmailDomains) && !riskDeniedEmails.has(email)
+    );
+    // Keep an abuse trail: which invitees were dropped and who tried to invite
+    // them (see the '[invite-mail]' / '[banned-domain]' log-based alert rules)
+    const droppedEmails = lowercasedEmails.filter((email) => !invitationEmails.includes(email));
+    if (droppedEmails.length) {
+      this.logger.log(
+        `[banned-domain] dropped invitees=${droppedEmails.join(',')} inviter=${user.email} resource=${resourceType}:${resourceId}`
+      );
+    }
     // A banned-domain inviter keeps a working UI, but none of their invitation
     // emails are delivered (anti-spam shadow behavior).
-    const skipSendMail = isEmailDomainBanned(user.email, bannedEmailDomains);
+    const skipSendMail =
+      isEmailDomainBanned(user.email, bannedEmailDomains) ||
+      (await this.riskControlService.isEmailDenied('invitation', user.email));
+    if (skipSendMail) {
+      this.logger.log(
+        `[banned-domain] shadow-banned inviter=${user.email} emails=${invitationEmails.join(',')} resource=${resourceType}:${resourceId}`
+      );
+    }
     const sendUsers = await this.prismaService.user.findMany({
       select: { id: true, name: true, email: true },
       where: { email: { in: invitationEmails } },

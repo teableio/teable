@@ -18,6 +18,7 @@ enum ProvisionState {
 model Space {
   id               String    @id @default(cuid())
   name             String
+  avatar           String?
   credit           Int?
   deletedTime      DateTime? @map("deleted_time")
   createdTime      DateTime  @default(now()) @map("created_time")
@@ -107,6 +108,7 @@ model SpaceDataDbBinding {
   createdBy          String                  @map("created_by")
   createdTime        DateTime                @default(now()) @map("created_time")
   lastModifiedTime   DateTime?               @updatedAt @map("last_modified_time")
+  lastHistoryFlushedAt DateTime?             @map("last_history_flushed_at")
   space              Space                   @relation(fields: [spaceId], references: [id], onDelete: Cascade)
   dataDbConnection   DataDbConnection?       @relation(fields: [dataDbConnectionId], references: [id])
 
