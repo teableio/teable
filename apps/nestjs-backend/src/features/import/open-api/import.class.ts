@@ -239,15 +239,27 @@ export abstract class Importer {
   async getFile() {
     const { url: _url, type } = this.config;
     let url = _url.trim();
+    // Externally-supplied absolute URLs are subject to SSRF filtering; only a relative
+    // reference rewritten to a genuine loopback host (the default local-storage
+    // attachment path, e.g. "/api/attachments/read/...") is trusted as first-party.
+    let isFirstPartyLocal = false;
     if (!z.string().url().safeParse(url).success) {
       url = `http://localhost:${process.env.PORT}${url}`;
+      try {
+        isFirstPartyLocal = new URL(url).hostname === 'localhost';
+      } catch {
+        isFirstPartyLocal = false;
+      }
     }
 
-    // Guard against SSRF: route the fetch through the request-filtering agent so
-    // attacker-supplied import URLs cannot reach private/link-local hosts (incl. via
-    // redirects). Mirrors the protection already applied on the attachments path.
+    // Guard against SSRF: attacker-supplied import URLs are routed through the
+    // request-filtering agent so they cannot reach private/link-local hosts (incl. via
+    // redirects), mirroring the attachments path. The trusted first-party loopback
+    // fetch bypasses the filter so default local-storage imports keep working; a
+    // crafted value such as "@169.254.169.254" resolves to a non-localhost host and
+    // stays filtered.
     const { body: stream, headers } = await fetch(url, {
-      agent: getSsrfSafeFetchAgent(),
+      agent: isFirstPartyLocal ? undefined : getSsrfSafeFetchAgent(),
     });
 
     const supportType = importTypeMap[type].accept.split(',');
