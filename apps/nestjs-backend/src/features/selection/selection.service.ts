@@ -67,6 +67,7 @@ import { FieldSupplementService } from '../field/field-calculate/field-supplemen
 import { FieldService } from '../field/field.service';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByVo } from '../field/model/factory';
+import { convertLinkPasteCellValue } from '../record/paste-link-cell-value';
 import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
 import { RecordService } from '../record/record.service';
 import { IUpdateRecordsInternalRo } from '../record/type';
@@ -995,14 +996,7 @@ export class SelectionService {
                 : sourceField.cellValue2String(cellValue);
             break;
           case FieldType.Link: {
-            recordField[field.id] = cellValue
-              ? sourceField.type === FieldType.Link
-                ? [cellValue as { id: string }]
-                    .flat()
-                    .map((v) => (typeof v === 'string' ? v : v.id))
-                    .join(',')
-                : sourceField.cellValue2String(cellValue)
-              : null;
+            recordField[field.id] = convertLinkPasteCellValue(field, sourceField, cellValue);
             break;
           }
           default:

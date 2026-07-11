@@ -1450,10 +1450,10 @@ exports[`text functions > 'Find' with 'attachment' 1`] = `
     },
   },
   "result": "1",
-  "sql": "POSITION('1' IN SUBSTRING((
+  "sql": "POSITION((('1')::text) IN SUBSTRING((((
       SELECT string_agg(COALESCE(elem->>'title', elem->>'name', elem #>> '{}'), ', ' ORDER BY ord)
       FROM jsonb_array_elements(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
-    ) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
+    ))::text) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -1472,7 +1472,7 @@ exports[`text functions > 'Find' with 'autoNumber' 1`] = `
     },
   },
   "result": "1",
-  "sql": "POSITION('1' IN SUBSTRING(("t"."AutoNumber")::text FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
+  "sql": "POSITION((('1')::text) IN SUBSTRING(((("t"."AutoNumber")::text)::text) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -1491,7 +1491,7 @@ exports[`text functions > 'Find' with 'button' 1`] = `
     },
   },
   "result": null,
-  "sql": "POSITION('1' IN SUBSTRING(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
+  "sql": "POSITION((('1')::text) IN SUBSTRING(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -1510,7 +1510,7 @@ exports[`text functions > 'Find' with 'checkbox' 1`] = `
     },
   },
   "result": "0",
-  "sql": "POSITION('1' IN SUBSTRING(("t"."Checkbox")::text FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
+  "sql": "POSITION((('1')::text) IN SUBSTRING(((("t"."Checkbox")::text)::text) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -1539,7 +1539,7 @@ exports[`text functions > 'Find' with 'conditionalLookup' 1`] = `
     },
   },
   "result": null,
-  "sql": "POSITION('1' IN SUBSTRING((
+  "sql": "POSITION((('1')::text) IN SUBSTRING((((
       SELECT string_agg(trim(to_char((elem #>> '{}')::numeric, '999999990D00')), ', ' ORDER BY ord)
       FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
@@ -1558,7 +1558,7 @@ exports[`text functions > 'Find' with 'conditionalLookup' 1`] = `
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
-    ) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
+    ))::text) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -1580,7 +1580,7 @@ exports[`text functions > 'Find' with 'conditionalRollup' 1`] = `
     },
   },
   "result": null,
-  "sql": "POSITION('1' IN SUBSTRING(trim(to_char(("t"."ConditionalRollupType")::numeric, '999999990D00')) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
+  "sql": "POSITION((('1')::text) IN SUBSTRING(((trim(to_char(("t"."ConditionalRollupType")::numeric, '999999990D00')))::text) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -1599,11 +1599,11 @@ exports[`text functions > 'Find' with 'createdBy' 1`] = `
     },
   },
   "result": "0",
-  "sql": "POSITION('1' IN SUBSTRING((CASE
+  "sql": "POSITION((('1')::text) IN SUBSTRING((((CASE
     WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
     WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
     ELSE to_jsonb("t"."CreatedBy") #>> '{}'
-  END) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
+  END))::text) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -1626,7 +1626,7 @@ exports[`text functions > 'Find' with 'createdTime' 1`] = `
     },
   },
   "result": "0",
-  "sql": "POSITION('1' IN SUBSTRING(TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
+  "sql": "POSITION((('1')::text) IN SUBSTRING(((TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -1649,7 +1649,7 @@ exports[`text functions > 'Find' with 'date' 1`] = `
     },
   },
   "result": "0",
-  "sql": "POSITION('1' IN SUBSTRING(TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
+  "sql": "POSITION((('1')::text) IN SUBSTRING(((TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -1671,7 +1671,7 @@ exports[`text functions > 'Find' with 'formula' 1`] = `
     },
   },
   "result": "1",
-  "sql": "POSITION('1' IN SUBSTRING(trim(to_char((10)::numeric, '999999990D00')) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
+  "sql": "POSITION((('1')::text) IN SUBSTRING(((trim(to_char((10)::numeric, '999999990D00')))::text) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -1690,11 +1690,11 @@ exports[`text functions > 'Find' with 'lastModifiedBy' 1`] = `
     },
   },
   "result": "0",
-  "sql": "POSITION('1' IN SUBSTRING((CASE
+  "sql": "POSITION((('1')::text) IN SUBSTRING((((CASE
     WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
     WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
     ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
-  END) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
+  END))::text) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -1717,7 +1717,7 @@ exports[`text functions > 'Find' with 'lastModifiedTime' 1`] = `
     },
   },
   "result": "0",
-  "sql": "POSITION('1' IN SUBSTRING(TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
+  "sql": "POSITION((('1')::text) IN SUBSTRING(((TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -1736,7 +1736,7 @@ exports[`text functions > 'Find' with 'link' 1`] = `
     },
   },
   "result": "1",
-  "sql": "POSITION('1' IN SUBSTRING(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
+  "sql": "POSITION((('1')::text) IN SUBSTRING(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))::text) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -1755,7 +1755,7 @@ exports[`text functions > 'Find' with 'longText' 1`] = `
     },
   },
   "result": "1",
-  "sql": "POSITION('1' IN SUBSTRING("t"."LongText" FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
+  "sql": "POSITION((('1')::text) IN SUBSTRING((("t"."LongText")::text) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -1781,7 +1781,7 @@ exports[`text functions > 'Find' with 'lookup' 1`] = `
     },
   },
   "result": null,
-  "sql": "POSITION('1' IN SUBSTRING((
+  "sql": "POSITION((('1')::text) IN SUBSTRING((((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
@@ -1800,7 +1800,7 @@ exports[`text functions > 'Find' with 'lookup' 1`] = `
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
-    ) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
+    ))::text) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -1819,10 +1819,10 @@ exports[`text functions > 'Find' with 'multipleSelect' 1`] = `
     },
   },
   "result": "1",
-  "sql": "POSITION('1' IN SUBSTRING((
+  "sql": "POSITION((('1')::text) IN SUBSTRING((((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
-    ) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
+    ))::text) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -1844,7 +1844,7 @@ exports[`text functions > 'Find' with 'number' 1`] = `
     },
   },
   "result": "1",
-  "sql": "POSITION('1' IN SUBSTRING(trim(to_char(("t"."Number")::numeric, '999999990D00')) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
+  "sql": "POSITION((('1')::text) IN SUBSTRING(((trim(to_char(("t"."Number")::numeric, '999999990D00')))::text) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -1863,7 +1863,7 @@ exports[`text functions > 'Find' with 'rating' 1`] = `
     },
   },
   "result": "0",
-  "sql": "POSITION('1' IN SUBSTRING(("t"."Rating")::text FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
+  "sql": "POSITION((('1')::text) IN SUBSTRING(((("t"."Rating")::text)::text) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -1885,7 +1885,7 @@ exports[`text functions > 'Find' with 'rollup' 1`] = `
     },
   },
   "result": null,
-  "sql": "POSITION('1' IN SUBSTRING(trim(to_char(("t"."RollupType")::numeric, '999999990D00')) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
+  "sql": "POSITION((('1')::text) IN SUBSTRING(((trim(to_char(("t"."RollupType")::numeric, '999999990D00')))::text) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -1904,7 +1904,7 @@ exports[`text functions > 'Find' with 'singleLineText' 1`] = `
     },
   },
   "result": "1",
-  "sql": "POSITION('1' IN SUBSTRING("t"."SingleLineText" FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
+  "sql": "POSITION((('1')::text) IN SUBSTRING((("t"."SingleLineText")::text) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -1923,7 +1923,7 @@ exports[`text functions > 'Find' with 'singleSelect' 1`] = `
     },
   },
   "result": "1",
-  "sql": "POSITION('1' IN SUBSTRING("t"."SingleSelect" FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
+  "sql": "POSITION((('1')::text) IN SUBSTRING((("t"."SingleSelect")::text) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -1942,10 +1942,10 @@ exports[`text functions > 'Find' with 'user' 1`] = `
     },
   },
   "result": null,
-  "sql": "POSITION('1' IN SUBSTRING((
+  "sql": "POSITION((('1')::text) IN SUBSTRING((((
       SELECT string_agg(COALESCE(elem->>'title', elem->>'name', elem #>> '{}'), ', ' ORDER BY ord)
       FROM jsonb_array_elements(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
-    ) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
+    ))::text) FROM (1)::double precision::integer)) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -1963,7 +1963,7 @@ exports[`text functions > 'FindNoStart' uses optional parameter 1`] = `
     },
   },
   "result": "1",
-  "sql": "POSITION('1' IN "t"."SingleLineText")",
+  "sql": "POSITION((('1')::text) IN (("t"."SingleLineText")::text))",
 }
 `;
 
@@ -6094,10 +6094,10 @@ exports[`text functions > 'Search' with 'attachment' 1`] = `
     },
   },
   "result": "1",
-  "sql": "POSITION(UPPER('1') IN UPPER(SUBSTRING((
+  "sql": "POSITION(UPPER((('1')::text)) IN UPPER(SUBSTRING((((
       SELECT string_agg(COALESCE(elem->>'title', elem->>'name', elem #>> '{}'), ', ' ORDER BY ord)
       FROM jsonb_array_elements(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
-    ) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
+    ))::text) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -6116,7 +6116,7 @@ exports[`text functions > 'Search' with 'autoNumber' 1`] = `
     },
   },
   "result": "1",
-  "sql": "POSITION(UPPER('1') IN UPPER(SUBSTRING(("t"."AutoNumber")::text FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
+  "sql": "POSITION(UPPER((('1')::text)) IN UPPER(SUBSTRING(((("t"."AutoNumber")::text)::text) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -6135,7 +6135,7 @@ exports[`text functions > 'Search' with 'button' 1`] = `
     },
   },
   "result": null,
-  "sql": "POSITION(UPPER('1') IN UPPER(SUBSTRING(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}') FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
+  "sql": "POSITION(UPPER((('1')::text)) IN UPPER(SUBSTRING(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -6154,7 +6154,7 @@ exports[`text functions > 'Search' with 'checkbox' 1`] = `
     },
   },
   "result": "0",
-  "sql": "POSITION(UPPER('1') IN UPPER(SUBSTRING(("t"."Checkbox")::text FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
+  "sql": "POSITION(UPPER((('1')::text)) IN UPPER(SUBSTRING(((("t"."Checkbox")::text)::text) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -6183,7 +6183,7 @@ exports[`text functions > 'Search' with 'conditionalLookup' 1`] = `
     },
   },
   "result": null,
-  "sql": "POSITION(UPPER('1') IN UPPER(SUBSTRING((
+  "sql": "POSITION(UPPER((('1')::text)) IN UPPER(SUBSTRING((((
       SELECT string_agg(trim(to_char((elem #>> '{}')::numeric, '999999990D00')), ', ' ORDER BY ord)
       FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
@@ -6202,7 +6202,7 @@ exports[`text functions > 'Search' with 'conditionalLookup' 1`] = `
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
-    ) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
+    ))::text) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -6224,7 +6224,7 @@ exports[`text functions > 'Search' with 'conditionalRollup' 1`] = `
     },
   },
   "result": null,
-  "sql": "POSITION(UPPER('1') IN UPPER(SUBSTRING(trim(to_char(("t"."ConditionalRollupType")::numeric, '999999990D00')) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
+  "sql": "POSITION(UPPER((('1')::text)) IN UPPER(SUBSTRING(((trim(to_char(("t"."ConditionalRollupType")::numeric, '999999990D00')))::text) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -6243,11 +6243,11 @@ exports[`text functions > 'Search' with 'createdBy' 1`] = `
     },
   },
   "result": "0",
-  "sql": "POSITION(UPPER('1') IN UPPER(SUBSTRING((CASE
+  "sql": "POSITION(UPPER((('1')::text)) IN UPPER(SUBSTRING((((CASE
     WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
     WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
     ELSE to_jsonb("t"."CreatedBy") #>> '{}'
-  END) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
+  END))::text) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -6270,7 +6270,7 @@ exports[`text functions > 'Search' with 'createdTime' 1`] = `
     },
   },
   "result": "0",
-  "sql": "POSITION(UPPER('1') IN UPPER(SUBSTRING(TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
+  "sql": "POSITION(UPPER((('1')::text)) IN UPPER(SUBSTRING(((TO_CHAR(("t"."CreatedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -6293,7 +6293,7 @@ exports[`text functions > 'Search' with 'date' 1`] = `
     },
   },
   "result": "0",
-  "sql": "POSITION(UPPER('1') IN UPPER(SUBSTRING(TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
+  "sql": "POSITION(UPPER((('1')::text)) IN UPPER(SUBSTRING(((TO_CHAR(("t"."Date")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -6315,7 +6315,7 @@ exports[`text functions > 'Search' with 'formula' 1`] = `
     },
   },
   "result": "1",
-  "sql": "POSITION(UPPER('1') IN UPPER(SUBSTRING(trim(to_char((10)::numeric, '999999990D00')) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
+  "sql": "POSITION(UPPER((('1')::text)) IN UPPER(SUBSTRING(((trim(to_char((10)::numeric, '999999990D00')))::text) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -6334,11 +6334,11 @@ exports[`text functions > 'Search' with 'lastModifiedBy' 1`] = `
     },
   },
   "result": "0",
-  "sql": "POSITION(UPPER('1') IN UPPER(SUBSTRING((CASE
+  "sql": "POSITION(UPPER((('1')::text)) IN UPPER(SUBSTRING((((CASE
     WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
     WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
     ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
-  END) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
+  END))::text) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -6361,7 +6361,7 @@ exports[`text functions > 'Search' with 'lastModifiedTime' 1`] = `
     },
   },
   "result": "0",
-  "sql": "POSITION(UPPER('1') IN UPPER(SUBSTRING(TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI') FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
+  "sql": "POSITION(UPPER((('1')::text)) IN UPPER(SUBSTRING(((TO_CHAR(("t"."LastModifiedTime")::timestamptz AT TIME ZONE 'UTC', 'YYYY/MM/DD HH24:MI'))::text) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -6380,7 +6380,7 @@ exports[`text functions > 'Search' with 'link' 1`] = `
     },
   },
   "result": "1",
-  "sql": "POSITION(UPPER('1') IN UPPER(SUBSTRING(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}') FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
+  "sql": "POSITION(UPPER((('1')::text)) IN UPPER(SUBSTRING(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))::text) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -6399,7 +6399,7 @@ exports[`text functions > 'Search' with 'longText' 1`] = `
     },
   },
   "result": "1",
-  "sql": "POSITION(UPPER('1') IN UPPER(SUBSTRING("t"."LongText" FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
+  "sql": "POSITION(UPPER((('1')::text)) IN UPPER(SUBSTRING((("t"."LongText")::text) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -6425,7 +6425,7 @@ exports[`text functions > 'Search' with 'lookup' 1`] = `
     },
   },
   "result": null,
-  "sql": "POSITION(UPPER('1') IN UPPER(SUBSTRING((
+  "sql": "POSITION(UPPER((('1')::text)) IN UPPER(SUBSTRING((((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
@@ -6444,7 +6444,7 @@ exports[`text functions > 'Search' with 'lookup' 1`] = `
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
-    ) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
+    ))::text) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -6463,10 +6463,10 @@ exports[`text functions > 'Search' with 'multipleSelect' 1`] = `
     },
   },
   "result": "1",
-  "sql": "POSITION(UPPER('1') IN UPPER(SUBSTRING((
+  "sql": "POSITION(UPPER((('1')::text)) IN UPPER(SUBSTRING((((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
-    ) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
+    ))::text) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -6488,7 +6488,7 @@ exports[`text functions > 'Search' with 'number' 1`] = `
     },
   },
   "result": "1",
-  "sql": "POSITION(UPPER('1') IN UPPER(SUBSTRING(trim(to_char(("t"."Number")::numeric, '999999990D00')) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
+  "sql": "POSITION(UPPER((('1')::text)) IN UPPER(SUBSTRING(((trim(to_char(("t"."Number")::numeric, '999999990D00')))::text) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -6507,7 +6507,7 @@ exports[`text functions > 'Search' with 'rating' 1`] = `
     },
   },
   "result": "0",
-  "sql": "POSITION(UPPER('1') IN UPPER(SUBSTRING(("t"."Rating")::text FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
+  "sql": "POSITION(UPPER((('1')::text)) IN UPPER(SUBSTRING(((("t"."Rating")::text)::text) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -6529,7 +6529,7 @@ exports[`text functions > 'Search' with 'rollup' 1`] = `
     },
   },
   "result": null,
-  "sql": "POSITION(UPPER('1') IN UPPER(SUBSTRING(trim(to_char(("t"."RollupType")::numeric, '999999990D00')) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
+  "sql": "POSITION(UPPER((('1')::text)) IN UPPER(SUBSTRING(((trim(to_char(("t"."RollupType")::numeric, '999999990D00')))::text) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -6548,7 +6548,7 @@ exports[`text functions > 'Search' with 'singleLineText' 1`] = `
     },
   },
   "result": "1",
-  "sql": "POSITION(UPPER('1') IN UPPER(SUBSTRING("t"."SingleLineText" FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
+  "sql": "POSITION(UPPER((('1')::text)) IN UPPER(SUBSTRING((("t"."SingleLineText")::text) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -6567,7 +6567,7 @@ exports[`text functions > 'Search' with 'singleSelect' 1`] = `
     },
   },
   "result": "1",
-  "sql": "POSITION(UPPER('1') IN UPPER(SUBSTRING("t"."SingleSelect" FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
+  "sql": "POSITION(UPPER((('1')::text)) IN UPPER(SUBSTRING((("t"."SingleSelect")::text) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -6586,10 +6586,10 @@ exports[`text functions > 'Search' with 'user' 1`] = `
     },
   },
   "result": null,
-  "sql": "POSITION(UPPER('1') IN UPPER(SUBSTRING((
+  "sql": "POSITION(UPPER((('1')::text)) IN UPPER(SUBSTRING((((
       SELECT string_agg(COALESCE(elem->>'title', elem->>'name', elem #>> '{}'), ', ' ORDER BY ord)
       FROM jsonb_array_elements(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
-    ) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
+    ))::text) FROM (1)::double precision::integer))) + (1)::double precision::integer - 1",
 }
 `;
 
@@ -6607,7 +6607,7 @@ exports[`text functions > 'SearchNoStart' uses optional parameter 1`] = `
     },
   },
   "result": "1",
-  "sql": "POSITION(UPPER('1') IN UPPER("t"."SingleLineText"))",
+  "sql": "POSITION(UPPER((('1')::text)) IN UPPER((("t"."SingleLineText")::text)))",
 }
 `;
 
@@ -7654,16 +7654,16 @@ exports[`text functions > 'TextBefore' with 'attachment' 1`] = `
     },
   },
   "result": "",
-  "sql": "(CASE WHEN POSITION('1' IN (
+  "sql": "(CASE WHEN POSITION((('1')::text) IN (((
       SELECT string_agg(COALESCE(elem->>'title', elem->>'name', elem #>> '{}'), ', ' ORDER BY ord)
       FROM jsonb_array_elements(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
-    )) = 0 THEN NULL ELSE LEFT((
+    ))::text)) = 0 THEN NULL ELSE LEFT((((
       SELECT string_agg(COALESCE(elem->>'title', elem->>'name', elem #>> '{}'), ', ' ORDER BY ord)
       FROM jsonb_array_elements(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
-    ), POSITION('1' IN (
+    ))::text), POSITION((('1')::text) IN (((
       SELECT string_agg(COALESCE(elem->>'title', elem->>'name', elem #>> '{}'), ', ' ORDER BY ord)
       FROM jsonb_array_elements(COALESCE(NULLIF(("t"."Attachment")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
-    )) - 1) END)",
+    ))::text)) - 1) END)",
 }
 `;
 
@@ -7682,7 +7682,7 @@ exports[`text functions > 'TextBefore' with 'autoNumber' 1`] = `
     },
   },
   "result": "",
-  "sql": "(CASE WHEN POSITION('1' IN ("t"."AutoNumber")::text) = 0 THEN NULL ELSE LEFT(("t"."AutoNumber")::text, POSITION('1' IN ("t"."AutoNumber")::text) - 1) END)",
+  "sql": "(CASE WHEN POSITION((('1')::text) IN ((("t"."AutoNumber")::text)::text)) = 0 THEN NULL ELSE LEFT(((("t"."AutoNumber")::text)::text), POSITION((('1')::text) IN ((("t"."AutoNumber")::text)::text)) - 1) END)",
 }
 `;
 
@@ -7701,7 +7701,7 @@ exports[`text functions > 'TextBefore' with 'button' 1`] = `
     },
   },
   "result": null,
-  "sql": "(CASE WHEN POSITION('1' IN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')) = 0 THEN NULL ELSE LEFT(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'), POSITION('1' IN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')) - 1) END)",
+  "sql": "(CASE WHEN POSITION((('1')::text) IN ((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text)) = 0 THEN NULL ELSE LEFT(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text), POSITION((('1')::text) IN ((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text)) - 1) END)",
 }
 `;
 
@@ -7720,7 +7720,7 @@ exports[`text functions > 'TextBefore' with 'checkbox' 1`] = `
     },
   },
   "result": null,
-  "sql": "(CASE WHEN POSITION('1' IN ("t"."Checkbox")::text) = 0 THEN NULL ELSE LEFT(("t"."Checkbox")::text, POSITION('1' IN ("t"."Checkbox")::text) - 1) END)",
+  "sql": "(CASE WHEN POSITION((('1')::text) IN ((("t"."Checkbox")::text)::text)) = 0 THEN NULL ELSE LEFT(((("t"."Checkbox")::text)::text), POSITION((('1')::text) IN ((("t"."Checkbox")::text)::text)) - 1) END)",
 }
 `;
 
@@ -7749,7 +7749,7 @@ exports[`text functions > 'TextBefore' with 'conditionalLookup' 1`] = `
     },
   },
   "result": null,
-  "sql": "(CASE WHEN POSITION('1' IN (
+  "sql": "(CASE WHEN POSITION((('1')::text) IN (((
       SELECT string_agg(trim(to_char((elem #>> '{}')::numeric, '999999990D00')), ', ' ORDER BY ord)
       FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
@@ -7768,7 +7768,7 @@ exports[`text functions > 'TextBefore' with 'conditionalLookup' 1`] = `
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
-    )) = 0 THEN NULL ELSE LEFT((
+    ))::text)) = 0 THEN NULL ELSE LEFT((((
       SELECT string_agg(trim(to_char((elem #>> '{}')::numeric, '999999990D00')), ', ' ORDER BY ord)
       FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
@@ -7787,7 +7787,7 @@ exports[`text functions > 'TextBefore' with 'conditionalLookup' 1`] = `
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
-    ), POSITION('1' IN (
+    ))::text), POSITION((('1')::text) IN (((
       SELECT string_agg(trim(to_char((elem #>> '{}')::numeric, '999999990D00')), ', ' ORDER BY ord)
       FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
@@ -7806,7 +7806,7 @@ exports[`text functions > 'TextBefore' with 'conditionalLookup' 1`] = `
       END
     ELSE to_jsonb((("t"."ConditionalLookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
-    )) - 1) END)",
+    ))::text)) - 1) END)",
 }
 `;
 
@@ -7828,7 +7828,7 @@ exports[`text functions > 'TextBefore' with 'conditionalRollup' 1`] = `
     },
   },
   "result": null,
-  "sql": "(CASE WHEN POSITION('1' IN ("t"."ConditionalRollupType")::text) = 0 THEN NULL ELSE LEFT(("t"."ConditionalRollupType")::text, POSITION('1' IN ("t"."ConditionalRollupType")::text) - 1) END)",
+  "sql": "(CASE WHEN POSITION((('1')::text) IN ((("t"."ConditionalRollupType")::text)::text)) = 0 THEN NULL ELSE LEFT(((("t"."ConditionalRollupType")::text)::text), POSITION((('1')::text) IN ((("t"."ConditionalRollupType")::text)::text)) - 1) END)",
 }
 `;
 
@@ -7847,19 +7847,19 @@ exports[`text functions > 'TextBefore' with 'createdBy' 1`] = `
     },
   },
   "result": null,
-  "sql": "(CASE WHEN POSITION('1' IN (CASE
+  "sql": "(CASE WHEN POSITION((('1')::text) IN (((CASE
     WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
     WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
     ELSE to_jsonb("t"."CreatedBy") #>> '{}'
-  END)) = 0 THEN NULL ELSE LEFT((CASE
+  END))::text)) = 0 THEN NULL ELSE LEFT((((CASE
     WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
     WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
     ELSE to_jsonb("t"."CreatedBy") #>> '{}'
-  END), POSITION('1' IN (CASE
+  END))::text), POSITION((('1')::text) IN (((CASE
     WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'object' THEN COALESCE(to_jsonb("t"."CreatedBy")->>'title', to_jsonb("t"."CreatedBy")->>'name', to_jsonb("t"."CreatedBy") #>> '{}')
     WHEN jsonb_typeof(to_jsonb("t"."CreatedBy")) = 'array' THEN NULL
     ELSE to_jsonb("t"."CreatedBy") #>> '{}'
-  END)) - 1) END)",
+  END))::text)) - 1) END)",
 }
 `;
 
@@ -7882,7 +7882,7 @@ exports[`text functions > 'TextBefore' with 'createdTime' 1`] = `
     },
   },
   "result": "0000-0",
-  "sql": "(CASE WHEN POSITION('1' IN ("t"."CreatedTime")::text) = 0 THEN NULL ELSE LEFT(("t"."CreatedTime")::text, POSITION('1' IN ("t"."CreatedTime")::text) - 1) END)",
+  "sql": "(CASE WHEN POSITION((('1')::text) IN ((("t"."CreatedTime")::text)::text)) = 0 THEN NULL ELSE LEFT(((("t"."CreatedTime")::text)::text), POSITION((('1')::text) IN ((("t"."CreatedTime")::text)::text)) - 1) END)",
 }
 `;
 
@@ -7905,7 +7905,7 @@ exports[`text functions > 'TextBefore' with 'date' 1`] = `
     },
   },
   "result": null,
-  "sql": "(CASE WHEN POSITION('1' IN ("t"."Date")::text) = 0 THEN NULL ELSE LEFT(("t"."Date")::text, POSITION('1' IN ("t"."Date")::text) - 1) END)",
+  "sql": "(CASE WHEN POSITION((('1')::text) IN ((("t"."Date")::text)::text)) = 0 THEN NULL ELSE LEFT(((("t"."Date")::text)::text), POSITION((('1')::text) IN ((("t"."Date")::text)::text)) - 1) END)",
 }
 `;
 
@@ -7927,7 +7927,7 @@ exports[`text functions > 'TextBefore' with 'formula' 1`] = `
     },
   },
   "result": "",
-  "sql": "(CASE WHEN POSITION('1' IN (10)::text) = 0 THEN NULL ELSE LEFT((10)::text, POSITION('1' IN (10)::text) - 1) END)",
+  "sql": "(CASE WHEN POSITION((('1')::text) IN (((10)::text)::text)) = 0 THEN NULL ELSE LEFT((((10)::text)::text), POSITION((('1')::text) IN (((10)::text)::text)) - 1) END)",
 }
 `;
 
@@ -7946,19 +7946,19 @@ exports[`text functions > 'TextBefore' with 'lastModifiedBy' 1`] = `
     },
   },
   "result": null,
-  "sql": "(CASE WHEN POSITION('1' IN (CASE
+  "sql": "(CASE WHEN POSITION((('1')::text) IN (((CASE
     WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
     WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
     ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
-  END)) = 0 THEN NULL ELSE LEFT((CASE
+  END))::text)) = 0 THEN NULL ELSE LEFT((((CASE
     WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
     WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
     ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
-  END), POSITION('1' IN (CASE
+  END))::text), POSITION((('1')::text) IN (((CASE
     WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'object' THEN COALESCE(to_jsonb("t"."LastModifiedBy")->>'title', to_jsonb("t"."LastModifiedBy")->>'name', to_jsonb("t"."LastModifiedBy") #>> '{}')
     WHEN jsonb_typeof(to_jsonb("t"."LastModifiedBy")) = 'array' THEN NULL
     ELSE to_jsonb("t"."LastModifiedBy") #>> '{}'
-  END)) - 1) END)",
+  END))::text)) - 1) END)",
 }
 `;
 
@@ -7981,7 +7981,7 @@ exports[`text functions > 'TextBefore' with 'lastModifiedTime' 1`] = `
     },
   },
   "result": "0000-0",
-  "sql": "(CASE WHEN POSITION('1' IN ("t"."LastModifiedTime")::text) = 0 THEN NULL ELSE LEFT(("t"."LastModifiedTime")::text, POSITION('1' IN ("t"."LastModifiedTime")::text) - 1) END)",
+  "sql": "(CASE WHEN POSITION((('1')::text) IN ((("t"."LastModifiedTime")::text)::text)) = 0 THEN NULL ELSE LEFT(((("t"."LastModifiedTime")::text)::text), POSITION((('1')::text) IN ((("t"."LastModifiedTime")::text)::text)) - 1) END)",
 }
 `;
 
@@ -8000,7 +8000,7 @@ exports[`text functions > 'TextBefore' with 'link' 1`] = `
     },
   },
   "result": "",
-  "sql": "(CASE WHEN POSITION('1' IN COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')) = 0 THEN NULL ELSE LEFT(COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'), POSITION('1' IN COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}')) - 1) END)",
+  "sql": "(CASE WHEN POSITION((('1')::text) IN ((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))::text)) = 0 THEN NULL ELSE LEFT(((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))::text), POSITION((('1')::text) IN ((COALESCE(("t"."LinkType")::jsonb->>'title', ("t"."LinkType")::jsonb->>'name', ("t"."LinkType")::jsonb #>> '{}'))::text)) - 1) END)",
 }
 `;
 
@@ -8019,7 +8019,7 @@ exports[`text functions > 'TextBefore' with 'longText' 1`] = `
     },
   },
   "result": "",
-  "sql": "(CASE WHEN POSITION('1' IN "t"."LongText") = 0 THEN NULL ELSE LEFT("t"."LongText", POSITION('1' IN "t"."LongText") - 1) END)",
+  "sql": "(CASE WHEN POSITION((('1')::text) IN (("t"."LongText")::text)) = 0 THEN NULL ELSE LEFT((("t"."LongText")::text), POSITION((('1')::text) IN (("t"."LongText")::text)) - 1) END)",
 }
 `;
 
@@ -8045,7 +8045,7 @@ exports[`text functions > 'TextBefore' with 'lookup' 1`] = `
     },
   },
   "result": null,
-  "sql": "(CASE WHEN POSITION('1' IN (
+  "sql": "(CASE WHEN POSITION((('1')::text) IN (((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
@@ -8064,7 +8064,7 @@ exports[`text functions > 'TextBefore' with 'lookup' 1`] = `
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
-    )) = 0 THEN NULL ELSE LEFT((
+    ))::text)) = 0 THEN NULL ELSE LEFT((((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
@@ -8083,7 +8083,7 @@ exports[`text functions > 'TextBefore' with 'lookup' 1`] = `
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
-    ), POSITION('1' IN (
+    ))::text), POSITION((('1')::text) IN (((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements((SELECT CASE
         WHEN _lkp.v IS NULL THEN '[]'::jsonb
@@ -8102,7 +8102,7 @@ exports[`text functions > 'TextBefore' with 'lookup' 1`] = `
       END
     ELSE to_jsonb((("t"."LookupType")))
   END) AS v) AS _lkp)) WITH ORDINALITY AS _jae(elem, ord)
-    )) - 1) END)",
+    ))::text)) - 1) END)",
 }
 `;
 
@@ -8121,16 +8121,16 @@ exports[`text functions > 'TextBefore' with 'multipleSelect' 1`] = `
     },
   },
   "result": "",
-  "sql": "(CASE WHEN POSITION('1' IN (
+  "sql": "(CASE WHEN POSITION((('1')::text) IN (((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
-    )) = 0 THEN NULL ELSE LEFT((
+    ))::text)) = 0 THEN NULL ELSE LEFT((((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
-    ), POSITION('1' IN (
+    ))::text), POSITION((('1')::text) IN (((
       SELECT string_agg(elem #>> '{}', ', ' ORDER BY ord)
       FROM jsonb_array_elements(COALESCE(NULLIF(("t"."MultipleSelect")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
-    )) - 1) END)",
+    ))::text)) - 1) END)",
 }
 `;
 
@@ -8152,7 +8152,7 @@ exports[`text functions > 'TextBefore' with 'number' 1`] = `
     },
   },
   "result": "",
-  "sql": "(CASE WHEN POSITION('1' IN ("t"."Number")::text) = 0 THEN NULL ELSE LEFT(("t"."Number")::text, POSITION('1' IN ("t"."Number")::text) - 1) END)",
+  "sql": "(CASE WHEN POSITION((('1')::text) IN ((("t"."Number")::text)::text)) = 0 THEN NULL ELSE LEFT(((("t"."Number")::text)::text), POSITION((('1')::text) IN ((("t"."Number")::text)::text)) - 1) END)",
 }
 `;
 
@@ -8171,7 +8171,7 @@ exports[`text functions > 'TextBefore' with 'rating' 1`] = `
     },
   },
   "result": null,
-  "sql": "(CASE WHEN POSITION('1' IN ("t"."Rating")::text) = 0 THEN NULL ELSE LEFT(("t"."Rating")::text, POSITION('1' IN ("t"."Rating")::text) - 1) END)",
+  "sql": "(CASE WHEN POSITION((('1')::text) IN ((("t"."Rating")::text)::text)) = 0 THEN NULL ELSE LEFT(((("t"."Rating")::text)::text), POSITION((('1')::text) IN ((("t"."Rating")::text)::text)) - 1) END)",
 }
 `;
 
@@ -8193,7 +8193,7 @@ exports[`text functions > 'TextBefore' with 'rollup' 1`] = `
     },
   },
   "result": null,
-  "sql": "(CASE WHEN POSITION('1' IN ("t"."RollupType")::text) = 0 THEN NULL ELSE LEFT(("t"."RollupType")::text, POSITION('1' IN ("t"."RollupType")::text) - 1) END)",
+  "sql": "(CASE WHEN POSITION((('1')::text) IN ((("t"."RollupType")::text)::text)) = 0 THEN NULL ELSE LEFT(((("t"."RollupType")::text)::text), POSITION((('1')::text) IN ((("t"."RollupType")::text)::text)) - 1) END)",
 }
 `;
 
@@ -8212,7 +8212,7 @@ exports[`text functions > 'TextBefore' with 'singleLineText' 1`] = `
     },
   },
   "result": "",
-  "sql": "(CASE WHEN POSITION('1' IN "t"."SingleLineText") = 0 THEN NULL ELSE LEFT("t"."SingleLineText", POSITION('1' IN "t"."SingleLineText") - 1) END)",
+  "sql": "(CASE WHEN POSITION((('1')::text) IN (("t"."SingleLineText")::text)) = 0 THEN NULL ELSE LEFT((("t"."SingleLineText")::text), POSITION((('1')::text) IN (("t"."SingleLineText")::text)) - 1) END)",
 }
 `;
 
@@ -8231,7 +8231,7 @@ exports[`text functions > 'TextBefore' with 'singleSelect' 1`] = `
     },
   },
   "result": "",
-  "sql": "(CASE WHEN POSITION('1' IN "t"."SingleSelect") = 0 THEN NULL ELSE LEFT("t"."SingleSelect", POSITION('1' IN "t"."SingleSelect") - 1) END)",
+  "sql": "(CASE WHEN POSITION((('1')::text) IN (("t"."SingleSelect")::text)) = 0 THEN NULL ELSE LEFT((("t"."SingleSelect")::text), POSITION((('1')::text) IN (("t"."SingleSelect")::text)) - 1) END)",
 }
 `;
 
@@ -8250,16 +8250,16 @@ exports[`text functions > 'TextBefore' with 'user' 1`] = `
     },
   },
   "result": null,
-  "sql": "(CASE WHEN POSITION('1' IN (
+  "sql": "(CASE WHEN POSITION((('1')::text) IN (((
       SELECT string_agg(COALESCE(elem->>'title', elem->>'name', elem #>> '{}'), ', ' ORDER BY ord)
       FROM jsonb_array_elements(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
-    )) = 0 THEN NULL ELSE LEFT((
+    ))::text)) = 0 THEN NULL ELSE LEFT((((
       SELECT string_agg(COALESCE(elem->>'title', elem->>'name', elem #>> '{}'), ', ' ORDER BY ord)
       FROM jsonb_array_elements(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
-    ), POSITION('1' IN (
+    ))::text), POSITION((('1')::text) IN (((
       SELECT string_agg(COALESCE(elem->>'title', elem->>'name', elem #>> '{}'), ', ' ORDER BY ord)
       FROM jsonb_array_elements(COALESCE(NULLIF(("t"."User")::jsonb, 'null'::jsonb), '[]'::jsonb)) WITH ORDINALITY AS _jae(elem, ord)
-    )) - 1) END)",
+    ))::text)) - 1) END)",
 }
 `;
 

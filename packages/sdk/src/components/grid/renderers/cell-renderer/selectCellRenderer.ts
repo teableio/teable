@@ -48,14 +48,26 @@ const drawLabel = (
     maxTextWidth: number;
     textColor: string;
     bgColor: string;
+    hovered?: boolean;
     editable?: boolean;
     theme: IGridTheme;
     spriteManager: SpriteManager;
   }
 ) => {
-  const { x, y, width, text, maxTextWidth, textColor, bgColor, editable, theme, spriteManager } =
-    props;
-  const { fontSizeXS, iconSizeSM } = theme;
+  const {
+    x,
+    y,
+    width,
+    text,
+    maxTextWidth,
+    textColor,
+    bgColor,
+    hovered,
+    editable,
+    theme,
+    spriteManager,
+  } = props;
+  const { fontSizeXS, iconSizeSM, cellOptionBgHighlight } = theme;
 
   drawRect(ctx, {
     x,
@@ -63,7 +75,7 @@ const drawLabel = (
     width,
     height: iconSizeSM,
     radius: OPTION_RADIUS,
-    fill: bgColor,
+    fill: hovered ? cellOptionBgHighlight : bgColor,
   });
   drawSingleLineText(ctx, {
     text,
@@ -155,7 +167,7 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
         x,
         y: y + 2,
         width: displayWidth + OPTION_PADDING_HORIZONTAL + 2,
-        height: lineHeight,
+        height: iconSizeSM,
       });
 
       if (!readonly) {
@@ -183,7 +195,7 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
     };
   },
   draw: (cell: ISelectCell, props: ICellRenderProps) => {
-    const { ctx, rect, theme, isActive, spriteManager } = props;
+    const { ctx, rect, theme, isActive, hoverCellPosition, spriteManager } = props;
     const { displayData, choiceMap, readonly, showAddButton } = cell;
     const { x: _x, y: _y, width, height } = rect;
     const clipEnable = !isActive && displayData.length;
@@ -211,6 +223,9 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
     const firstRowMaxTextWidth = maxTextWidth - addBtnOffset;
     const totalOptionPadding = OPTION_PADDING_HORIZONTAL * 2 + deleteBtnWidth;
     const rightEdgeOfDrawArea = baseX + drawArea.width;
+    const [hoverX, hoverY] = hoverCellPosition ?? [-1, -1];
+    const hoverPoint: [number, number] = [_x + hoverX, _y + hoverY];
+    const canPreview = editable && Boolean(cell.onPreview) && hoverCellPosition != null;
 
     let row = 1;
     let x = firstRowX;
@@ -270,6 +285,10 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
       const actualMaxTextWidth = row === 1 ? firstRowMaxTextWidth : maxTextWidth;
       const actualMaxOptionWidth = row === 1 ? drawArea.width - addBtnOffset : drawArea.width;
       const actualOptionWidth = Math.min(displayWidth + totalOptionPadding, actualMaxOptionWidth);
+      const previewHitWidth = displayWidth + OPTION_PADDING_HORIZONTAL + 2;
+      const hovered =
+        canPreview &&
+        isPointInsideRectangle(hoverPoint, [x, y + 2], [x + previewHitWidth, y + 2 + iconSizeSM]);
 
       drawLabel(ctx, {
         x,
@@ -279,6 +298,7 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
         maxTextWidth: actualMaxTextWidth,
         textColor,
         bgColor,
+        hovered,
         editable,
         theme,
         spriteManager,
