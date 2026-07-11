@@ -28,14 +28,13 @@ import { PrismaService, ProvisionState } from '@teable/db-main-prisma';
 import type {
   ICreateRecordsRo,
   ICreateTableRo,
-  ICreateTableWithDefault,
   IDuplicateTableRo,
   ITableFullVo,
   ITablePermissionVo,
   ITableVo,
   IUpdateOrderRo,
 } from '@teable/openapi';
-import { CreateRecordAction, ResourceType } from '@teable/openapi';
+import { CreateRecordAction, ResourceType, ICreateTableWithDefault } from '@teable/openapi';
 import { nanoid } from 'nanoid';
 import { ClsService } from 'nestjs-cls';
 import { ThresholdConfig, IThresholdConfig } from '../../../configs/threshold.config';
@@ -60,6 +59,7 @@ import { createFieldInstanceByVo } from '../../field/model/factory';
 import { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { RecordService } from '../../record/record.service';
+import { RecordHistoryColdStorageService } from '../../record-history-cold/record-history-cold-storage.service';
 import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migration-guard.service';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
 import { TableDuplicateService } from '../table-duplicate.service';
@@ -89,6 +89,7 @@ export class TableOpenApiService {
     private readonly eventEmitterService: EventEmitterService,
     private readonly tableMutationCacheInvalidator: TableMutationCacheInvalidator,
     private readonly audit: AuditScope,
+    private readonly recordHistoryColdStorage: RecordHistoryColdStorageService,
     @Optional()
     @Inject(SpaceDataDbMigrationGuardService)
     private readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService
@@ -454,7 +455,7 @@ export class TableOpenApiService {
       console.log('Permanent delete tables error:', e);
     }
 
-    return await this.prismaService.$tx(
+    const result = await this.prismaService.$tx(
       async () => {
         await this.dropTables(tableIds);
         await this.cleanTaskRelatedData(tableIds);
@@ -464,6 +465,25 @@ export class TableOpenApiService {
         timeout: this.thresholdConfig.bigTransactionTimeout,
       }
     );
+    await this.cleanupColdHistoryPrefixes(tableIds);
+    return result;
+  }
+
+  /**
+   * Best-effort removal of the tables' cold-history prefixes on the private
+   * bucket. The delete is irreversible, so it must only run AFTER the DB purge
+   * transaction has committed — never inside it (a rollback would restore the
+   * table without its cold history). An S3 miss never fails the purge;
+   * leftover prefixes are reconciled by ops tooling against table existence.
+   */
+  async cleanupColdHistoryPrefixes(tableIds: string[]) {
+    for (const tableId of tableIds) {
+      await this.recordHistoryColdStorage
+        .deleteTablePrefix(tableId)
+        .catch((error) =>
+          this.logger.warn(`failed to delete cold history prefix for ${tableId}: ${error}`)
+        );
+    }
   }
 
   async dropTables(tableIds: string[]) {

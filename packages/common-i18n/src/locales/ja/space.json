@@ -26,7 +26,6 @@
     "duplicateBase": "ベースを複製",
     "missTargetTip": "ベースを複製するスペースを選択してください。",
     "copying": "ベースを複製しています。時間がかかる場合があります...",
-    "copyingTemplate": "テンプレートからベースを作成しています。時間がかかる場合があります...",
     "howToCreate": "どのように始めますか？",
     "fromScratch": "最初から",
     "fromTemplate": "テンプレートから",
@@ -38,7 +37,6 @@
     "general": "全般",
     "collaborators": "共同作業者",
     "generalDescription": "現在のスペースの設定をここで変更",
-    "collaboratorDescription": "スペースの共同作業者を管理し、アクセス権限を設定します",
     "spaceName": "スペース名",
     "spaceId": "スペースID"
   },
@@ -53,8 +51,6 @@
   },
   "tip": {
     "delete": "<0/> を削除してもよろしいですか?",
-    "title": "ヒント",
-    "exportTips1": "現在のベースを.teaファイルとしてエクスポートします。これには時間がかかる場合があります。エクスポート結果は通知センターで確認できます。",
     "exportTips2": "スペース -> その他 -> インポートから.teaファイルをインポートできます",
     "exportTips3": "ベース間の関連フィールドは単一行テキストに変換されます。",
     "exportIncludeDataLabel": "レコードを含める",
@@ -72,31 +68,21 @@
   "deleteSpaceModal": {
     "title": "スペースを削除",
     "blockedTitle": "このスペースを削除できません",
-    "blockedDesc": "このスペースにはアクティブなサブスクリプションがあります。スペースを削除する前にサブスクリプションをキャンセルしてください。",
-    "permanentDeleteWarning": "この操作により、現在のスペース内のすべてのリソースとデータが永久に削除されます。慎重に進めてください！",
-    "confirmInputLabel": "削除を確認するには DELETE と入力してください"
+    "blockedDesc": "このスペースにはアクティブなサブスクリプションがあります。スペースを削除する前にサブスクリプションをキャンセルしてください。"
   },
   "sharedBase": {
     "title": "共有ベース",
     "description": "参加を招待されたすべてのベース",
     "empty": "共有ベースはまだありません"
   },
-  "integration": {
-    "title": "インテグレーション",
-    "description": "空間のインテグレーションを管理",
-    "addIntegration": "インテグレーションを追加",
-    "ai": "AI"
-  },
+  "integration": {},
   "aiSetting": {
     "title": "AI設定",
     "description": "スペースのAI設定を管理します",
-    "enableTips": "システムAIの代わりに、スペース内でAI機能を使用するためにAIを有効にします",
-    "enable": "AI設定を初期化",
-    "enableSwitchTips": "有効にする前に、大規模コーディングモデルを設定してください"
+    "enable": "AI設定を初期化"
   },
   "import": {
     "importing": "インポート中",
-    "importWayTip": "クリックするか、ファイルをこの領域にドラッグ＆ドロップしてアップロードします",
     "baseImportTips": "クリックするか、.teaファイルをこの領域にドラッグ＆ドロップしてアップロードします",
     "confirm": "確認して続行",
     "phase": {
@@ -155,12 +141,10 @@
       "title": "タイトル",
       "description": "説明",
       "security": "セキュリティ",
-      "includeNodes": "ノードを含める",
       "advanced": "詳細設定",
       "publishNode": "ノードを公開",
       "includeData": "データを含める",
       "defaultActiveNode": "デフォルトのアクティブノード",
-      "select": "選択してください",
       "descriptionPlaceholder": "アイデアを簡単に説明してください...",
       "titlePlaceholder": "作品に名前を付ける..."
     },
@@ -173,7 +157,6 @@
     "unPublishSuccess": "Baseの公開を停止しました！",
     "unPublishConfirmTitle": "公開停止の確認",
     "unPublishConfirmDescription": "本当にこのBaseの公開を停止しますか？テンプレートセンターに表示されなくなります。",
-    "usageCount": "使用回数: ",
     "uploadCover": "クリックしてカバー画像をアップロード",
     "changeCover": "クリックしてカバーを変更",
     "uploading": "画像をアップロード中...",
@@ -235,7 +218,6 @@
       "creatingTable": "テーブルを作成中：{{tableName}}（{{tableIndex}}/{{totalTables}}）",
       "creatingLinks": "リンクフィールドを作成中",
       "fillingLinks": "{{tableName}}（リンク）",
-      "done": "インポート完了",
       "applyingViewConfig": "ビュー設定をインポート中"
     },
     "searchBases": "ベースを検索",

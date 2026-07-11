@@ -247,7 +247,14 @@ export class RecordInsertBuilder {
 
           // CreatedBy and LastModifiedBy fields store user snapshot JSON.
           // Build it once from execution context to avoid per-row user subqueries in batch INSERT.
+          // Skip when the field is persisted as a GENERATED ALWAYS column — PostgreSQL rejects
+          // explicit values for those columns (legacy tables may still use generated storage).
           if (isCreatedBy || isLastModifiedBy) {
+            const persistedAsGenerated = yield* isPersistedAsGeneratedColumn(field);
+            if (persistedAsGenerated) {
+              continue;
+            }
+
             const dbFieldNameResult = field.dbFieldName();
             if (dbFieldNameResult.isErr()) {
               continue;

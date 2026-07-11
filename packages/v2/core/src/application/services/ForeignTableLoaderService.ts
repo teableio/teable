@@ -33,6 +33,12 @@ import { v2CoreTokens } from '../../ports/tokens';
 export type ForeignTableLoaderInput = {
   baseId?: BaseId;
   references: ReadonlyArray<LinkForeignTableReference>;
+  /**
+   * When true, missing foreign tables are skipped instead of failing.
+   * Used by delete-field flows so orphan link/lookup fields remain deletable
+   * after their foreign table was soft-deleted or permanently removed.
+   */
+  allowMissing?: boolean;
 };
 
 export interface IForeignTableLoaderService {
@@ -199,7 +205,7 @@ export class ForeignTableLoaderService implements IForeignTableLoaderService {
         );
       }
 
-      if (missingForeignTableIds.length > 0)
+      if (missingForeignTableIds.length > 0 && !input.allowMissing)
         return err(
           domainError.notFound({
             message: `Foreign tables not found: ${missingForeignTableIds.join(', ')}`,

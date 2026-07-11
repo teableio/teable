@@ -253,3 +253,4 @@ export { default as MousePointerClick } from './components/MousePointerClick';
 export { default as InIcon } from './components/InIcon';
 export { default as Discord } from './components/Discord';
 export { default as Twitter } from './components/Twitter';
+export { default as BadgeStar } from './components/BadgeStar';

@@ -47,6 +47,7 @@ import { CollaboratorService } from '../collaborator/collaborator.service';
 import { FieldService } from '../field/field.service';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByVo } from '../field/model/factory';
+import { RecordOpenApiV2Service } from '../record/open-api/record-open-api-v2.service';
 import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
 import { RecordService } from '../record/record.service';
 import { SelectionService } from '../selection/selection.service';
@@ -68,6 +69,7 @@ export class ShareService {
     private readonly recordService: RecordService,
     @InjectAggregationService() private readonly aggregationService: IAggregationService,
     private readonly recordOpenApiService: RecordOpenApiService,
+    private readonly recordOpenApiV2Service: RecordOpenApiV2Service,
     private readonly selectionService: SelectionService,
     private readonly collaboratorService: CollaboratorService,
     private readonly shareSocketService: ShareSocketService,
@@ -305,11 +307,21 @@ export class ShareService {
       });
     }
 
-    return this.recordOpenApiService.formSubmit(
-      tableId,
-      { viewId: view.id, fields, typecast },
-      { includeHiddenField: view.shareMeta?.includeHiddenField }
-    );
+    const formSubmitRo = { viewId: view.id, fields, typecast };
+    const includeHiddenField = Boolean(view.shareMeta?.includeHiddenField);
+
+    // V2 form validation rejects hidden fields. Until SubmitRecord supports
+    // share includeHiddenField, keep the V1 path so existing share semantics hold.
+    if (this.cls.get('useV2') && includeHiddenField) {
+      this.cls.set('useV2', false);
+      this.cls.set('v2Reason', 'unsupported_feature');
+    }
+
+    if (this.cls.get('useV2')) {
+      return this.recordOpenApiV2Service.formSubmit(tableId, formSubmitRo);
+    }
+
+    return this.recordOpenApiService.formSubmit(tableId, formSubmitRo, { includeHiddenField });
   }
 
   async copy(shareInfo: IShareViewInfo, shareViewCopyRo: IRangesRo) {

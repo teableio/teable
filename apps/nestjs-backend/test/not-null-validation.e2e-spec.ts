@@ -119,4 +119,77 @@ describe('Not null validation (e2e)', () => {
       expect(records[0].fields[fieldIds.text]).toBe('hello');
     });
   });
+
+  describe('apply defaults before not-null validation', () => {
+    let table: ITableFullVo;
+    let nameFieldId: string;
+    let statusFieldId: string;
+
+    beforeEach(async () => {
+      table = await createTable(baseId, {
+        name: `not-null-default-${Date.now()}`,
+        fields: [{ name: 'Topic', type: FieldType.SingleLineText }],
+        records: [],
+      });
+
+      nameFieldId = table.fields.find((field) => field.name === 'Topic')!.id;
+
+      const status = await createField(table.id, {
+        name: 'Status',
+        type: FieldType.SingleSelect,
+        options: {
+          choices: [{ id: 'optIdea', name: 'Idea' }],
+          defaultValue: 'Idea',
+        } as ISelectFieldOptions,
+      });
+
+      const requiredStatus = await convertField(table.id, status.id, {
+        ...status,
+        notNull: true,
+        options: status.options as ISelectFieldOptions,
+      });
+      statusFieldId = requiredStatus.id;
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, table.id);
+    });
+
+    it('should use a required single select default when the field is omitted', async () => {
+      const created = await createRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {
+              [nameFieldId]: 'created-with-default',
+            },
+          },
+        ],
+      });
+
+      expect(created.records).toHaveLength(1);
+      expect(created.records[0].fields[statusFieldId]).toBe('Idea');
+
+      const persisted = await getRecords(table.id, { fieldKeyType: FieldKeyType.Id });
+      expect(persisted.records[0].fields[statusFieldId]).toBe('Idea');
+    });
+
+    it('should still reject explicit null for a required single select default field', async () => {
+      await createRecords(
+        table.id,
+        {
+          fieldKeyType: FieldKeyType.Id,
+          records: [
+            {
+              fields: {
+                [nameFieldId]: 'created-with-null',
+                [statusFieldId]: null,
+              },
+            },
+          ],
+        },
+        400
+      );
+    });
+  });
 });
