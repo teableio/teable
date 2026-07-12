@@ -7,7 +7,7 @@ import { AnchorContext } from '../context/anchor/AnchorContext';
 import { useUndoRedo } from './use-undo-redo';
 
 const { mockRedoStream, mockToast, mockUndoStream } = vi.hoisted(() => {
-  const toast = vi.fn(() => 'toast-id') as unknown as {
+  const toast = vi.fn(() => 'toast-id') as unknown as ReturnType<typeof vi.fn> & {
     (message: string, options?: object): string;
     loading: ReturnType<typeof vi.fn>;
     success: ReturnType<typeof vi.fn>;

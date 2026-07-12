@@ -50,6 +50,7 @@ export const resourceMapVoSchema = z.record(
     z.object({
       id: z.string().startsWith(IdPrefix.Space),
       name: z.string(),
+      avatar: z.string().nullable().optional(),
     }),
     z.object({
       id: z.string().startsWith(IdPrefix.Base),

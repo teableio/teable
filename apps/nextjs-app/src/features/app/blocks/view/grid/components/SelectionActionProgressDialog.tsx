@@ -480,6 +480,41 @@ const getProgressIndicatorClassName = (status: SelectionActionDialogStatus) => {
   return 'bg-foreground transition-[transform] duration-500 ease-out';
 };
 
+const getDisplayedProgressState = ({
+  mode,
+  resolvedStatus,
+  isPreparing,
+  totalCount,
+  completedCount,
+  interpolatedCompletedCount,
+}: {
+  mode: SelectionActionDialogMode;
+  resolvedStatus: SelectionActionDialogStatus;
+  isPreparing: boolean;
+  totalCount: number;
+  completedCount: number;
+  interpolatedCompletedCount: number;
+}) => {
+  const displayedCompletedCount =
+    mode === 'progress' && resolvedStatus === 'running' && !isPreparing
+      ? interpolatedCompletedCount
+      : completedCount;
+  const percent =
+    totalCount > 0
+      ? Math.min(100, Math.round((displayedCompletedCount / totalCount) * 100))
+      : resolvedStatus === 'success'
+        ? 100
+        : 0;
+  const displayPercent =
+    mode === 'progress' && resolvedStatus === 'running' && isPreparing
+      ? 0
+      : resolvedStatus === 'running'
+        ? Math.max(percent, totalCount > 0 ? 2 : 0)
+        : percent;
+
+  return { displayedCompletedCount, percent, displayPercent };
+};
+
 const getStatusAccentClassName = (status: SelectionActionDialogStatus) => {
   if (status === 'success') {
     return 'text-emerald-600 dark:text-emerald-500';
@@ -735,22 +770,14 @@ export const SelectionActionProgressDialog = ({
     isPreparing,
     exactCompletedCount: completedCount,
   });
-  const displayedCompletedCount =
-    mode === 'progress' && resolvedStatus === 'running' && !isPreparing
-      ? interpolatedCompletedCount
-      : completedCount;
-  const percent =
-    totalCount > 0
-      ? Math.min(100, Math.round((displayedCompletedCount / totalCount) * 100))
-      : resolvedStatus === 'success'
-        ? 100
-        : 0;
-  const displayPercent =
-    mode === 'progress' && resolvedStatus === 'running' && isPreparing
-      ? 0
-      : resolvedStatus === 'running'
-        ? Math.max(percent, totalCount > 0 ? 2 : 0)
-        : percent;
+  const { displayedCompletedCount, percent, displayPercent } = getDisplayedProgressState({
+    mode,
+    resolvedStatus,
+    isPreparing,
+    totalCount,
+    completedCount,
+    interpolatedCompletedCount,
+  });
   const elapsedTimeLabel = useAdaptiveElapsedTimeLabel({
     open,
     mode,

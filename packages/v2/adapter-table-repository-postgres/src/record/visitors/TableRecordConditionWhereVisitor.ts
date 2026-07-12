@@ -771,6 +771,14 @@ const buildIsCondition = (
         );
       }
 
+      if (
+        referenceRoute.kind === 'generic' &&
+        !isMultipleRaw &&
+        !(yield* fieldIsMultiple(referenceField))
+      ) {
+        return ok(sql`${columnRef} = ${rightColumnRef}`);
+      }
+
       const arrayLikeMatch = yield* buildArrayLikeFieldReferenceIsCondition(
         field,
         columnRef,

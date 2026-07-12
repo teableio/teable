@@ -25,8 +25,8 @@ const createLocalPresence = () => ({
 });
 
 describe('V2TableBaseNodeProjection', () => {
-  const baseId = 'bseaaaaaaaaaaaaaaaa';
-  const tableId = 'tblaaaaaaaaaaaaaaaa';
+  const baseId = `bse${'a'.repeat(16)}`;
+  const tableId = `tbl${'a'.repeat(16)}`;
 
   const createEvent = (
     factory: typeof TableCreated | typeof TableTrashed | typeof TableDeleted | typeof TableRestored
@@ -61,10 +61,12 @@ describe('V2TableBaseNodeProjection', () => {
         }),
       }),
     };
+    const cls = { get: vi.fn().mockReturnValue(false) };
 
     const projection = new V2TableBaseNodeProjection(
       performanceCacheService as never,
-      shareDbService as never
+      shareDbService as never,
+      cls as never
     );
 
     const result = await projection.handle({} as never, buildEvent());
@@ -84,10 +86,12 @@ describe('V2TableBaseNodeProjection', () => {
       shareDbAdapter: { closed: true },
       connect: vi.fn(),
     };
+    const cls = { get: vi.fn().mockReturnValue(false) };
 
     const projection = new V2TableBaseNodeProjection(
       performanceCacheService as never,
-      shareDbService as never
+      shareDbService as never,
+      cls as never
     );
 
     const result = await projection.handle({} as never, createEvent(TableTrashed));

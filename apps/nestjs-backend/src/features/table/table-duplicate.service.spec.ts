@@ -78,6 +78,19 @@ describe('TableDuplicateService.duplicateTableData', () => {
       duplicateTableQuery: (queryBuilder) => new DuplicateTableQueryPostgres(queryBuilder),
     };
     (service as unknown as { dataKnex: KnexType }).dataKnex = dataKnex;
+    (
+      service as unknown as {
+        audit: { emitAtomic: ReturnType<typeof vi.fn> };
+        cls: Record<string, never>;
+      }
+    ).audit = {
+      emitAtomic: vi.fn().mockResolvedValue(undefined),
+    };
+    (
+      service as unknown as {
+        cls: Record<string, never>;
+      }
+    ).cls = {};
 
     await service.duplicateTableData(
       'bseSource.SourceTable',

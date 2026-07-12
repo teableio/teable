@@ -1259,10 +1259,10 @@
     }
   },
   "changelog": {
-    "newUpdate": "UPDATE VOM 24. JUNI",
-    "title": "Agent Computer, deutlich leistungsfähiger",
-    "url": "https://help.teable.ai/en/changelog#jun-24-2026",
-    "id": "changelog-2026-06-24-agent-computer-supercharged"
+    "newUpdate": "UPDATE VOM 10. JULI",
+    "title": "GPT-5.6 ist jetzt in Teable verfügbar",
+    "url": "https://help.teable.ai/en/changelog#jul-10-2026",
+    "id": "changelog-2026-07-10-gpt-5-6-is-now-in-teable"
   },
   "resourceDescription": {
     "addDescription": "Beschreibung hinzufügen",

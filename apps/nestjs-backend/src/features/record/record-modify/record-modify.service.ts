@@ -1,4 +1,4 @@
-import { Injectable, Optional } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { FieldKeyType } from '@teable/core';
 import type { IMakeOptional } from '@teable/core';
 import type {
@@ -24,12 +24,11 @@ export class RecordModifyService {
     private readonly deleteService: RecordDeleteService,
     private readonly duplicateService: RecordDuplicateService,
     private readonly tableDomainQueryService: TableDomainQueryService,
-    @Optional()
-    private readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService
+    private readonly spaceDataDbMigrationGuard: SpaceDataDbMigrationGuardService
   ) {}
 
   private async assertTableWritable(tableId: string) {
-    await this.spaceDataDbMigrationGuard?.assertTableWritable(tableId);
+    await this.spaceDataDbMigrationGuard.assertTableRecordWritable(tableId);
   }
 
   async updateRecords(

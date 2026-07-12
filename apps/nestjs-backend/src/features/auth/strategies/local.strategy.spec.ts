@@ -101,7 +101,7 @@ describe('LocalStrategy', () => {
       response: 'Your account has been locked out, please try again after 10 minutes',
     });
     expect(cacheService.set).toHaveBeenCalledWith(`signin:lockout:${testEmail}`, true, 10);
-    expect(cacheService.del).toHaveBeenCalledWith(`signin:attempts:${testEmail}`);
+    expect(cacheService.expire).toHaveBeenCalledWith(`signin:attempts:${testEmail}`, 1);
   });
 
   it('should handle first failed attempt', async () => {

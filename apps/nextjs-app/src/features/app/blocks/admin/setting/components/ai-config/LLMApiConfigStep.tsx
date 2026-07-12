@@ -57,9 +57,6 @@ interface ILLMApiConfigStepProps {
   isSaving?: boolean;
   isDirty?: boolean;
   onResetGateway?: () => void;
-
-  /** Whether to show pricing-related UI. Defaults to true (Cloud). */
-  showPricing?: boolean;
 }
 
 // eslint-disable-next-line sonarjs/cognitive-complexity
@@ -86,7 +83,6 @@ export function LLMApiConfigStep({
   isSaving,
   isDirty,
   onResetGateway,
-  showPricing = true,
 }: ILLMApiConfigStepProps) {
   const { t } = useTranslation('common');
   const { publicOrigin } = useEnv();
@@ -505,7 +501,6 @@ export function LLMApiConfigStep({
             }
             testingProviders={testingProviders}
             testingModels={testingModels}
-            hideModelRates={!showPricing}
             onSaveTestResult={onSaveTestResult}
           />
 

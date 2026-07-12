@@ -38,6 +38,17 @@ export type ComputedUpdateOutboxConfig = {
    */
   maxSeedRecordsPerTask: number;
   /**
+   * When a claimed task's dirtyStats total is at least this many rows and the plan has
+   * no allTargetRecords edges, split more aggressively using fanoutSeedSplitMaxSeeds.
+   * 0 disables fanout-aware splitting.
+   */
+  fanoutDirtyRecordsThreshold: number;
+  /**
+   * Seed-record cap used when fanoutDirtyRecordsThreshold is exceeded (linkTraversal-only).
+   * Must be <= maxSeedRecordsPerTask. Ignored when fanout threshold is 0.
+   */
+  fanoutSeedSplitMaxSeeds: number;
+  /**
    * Maximum active processing tasks for the same base before pending claims are deferred.
    * Stale processing rows can still be reclaimed after the lease window.
    */
@@ -63,6 +74,10 @@ export const defaultComputedUpdateOutboxConfig: ComputedUpdateOutboxConfig = {
   heartbeatIntervalMs: 30 * 1000,
   reclaimBatchSize: 50,
   maxSeedRecordsPerTask: 5000,
+  // Large dirty fan-out with few seeds (e.g. hub order updates) still fits under
+  // maxSeedRecordsPerTask; lower the cap so linkTraversal-only work can parallelize.
+  fanoutDirtyRecordsThreshold: 2000,
+  fanoutSeedSplitMaxSeeds: 5,
   maxConcurrentProcessingPerBase: 2,
   maxConcurrentProcessingPerSeedTable: 2,
   taskStatementTimeoutMs: 60 * 1000,
@@ -82,6 +97,8 @@ export const normalizeComputedUpdateOutboxConfig = (
     ),
     reclaimBatchSize: Math.max(1, Math.trunc(config.reclaimBatchSize)),
     maxSeedRecordsPerTask: Math.max(1, Math.trunc(config.maxSeedRecordsPerTask)),
+    fanoutDirtyRecordsThreshold: Math.max(0, Math.trunc(config.fanoutDirtyRecordsThreshold)),
+    fanoutSeedSplitMaxSeeds: Math.max(1, Math.trunc(config.fanoutSeedSplitMaxSeeds)),
     maxConcurrentProcessingPerBase: Math.max(1, Math.trunc(config.maxConcurrentProcessingPerBase)),
     maxConcurrentProcessingPerSeedTable: Math.max(
       1,
@@ -115,6 +132,13 @@ export type ReleaseForRetryParams = {
   reason: string;
   retryDelayMs?: number;
   now?: Date;
+};
+
+export type MarkFailedOptions = {
+  failureKind?: string;
+  failureReason?: string;
+  retryable?: boolean;
+  directDeadLetter?: boolean;
 };
 
 /**
@@ -221,6 +245,7 @@ export interface IComputedUpdateOutbox {
   markFailed(
     task: AnyOutboxItem,
     error: string,
-    context?: IExecutionContext
+    context?: IExecutionContext,
+    options?: MarkFailedOptions
   ): Promise<Result<boolean, DomainError>>;
 }
