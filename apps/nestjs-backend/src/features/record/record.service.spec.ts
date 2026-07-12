@@ -45,11 +45,13 @@ describe('RecordService', () => {
 
     service.dataLoaderService = {
       field: {
-        load: vi.fn().mockResolvedValue([
-          createTextField('fldReadable'),
-          createTextField('fldBroken', { hasError: true }),
-          createTextField('fldPending', { isPending: true }),
-        ]),
+        load: vi
+          .fn()
+          .mockResolvedValue([
+            createTextField('fldReadable'),
+            createTextField('fldBroken', { hasError: true }),
+            createTextField('fldPending', { isPending: true }),
+          ]),
       },
     };
 
@@ -293,6 +295,7 @@ describe('RecordService', () => {
       creditCheck: ReturnType<typeof vi.fn>;
       getFieldsByProjection: ReturnType<typeof vi.fn>;
       getWritableCreatedTimeFieldNames: ReturnType<typeof vi.fn>;
+      getWritableCreatedByFieldNames: ReturnType<typeof vi.fn>;
       cls: { get: ReturnType<typeof vi.fn> };
       dbProvider: { batchInsertSql: ReturnType<typeof vi.fn> };
       databaseRouter: {
@@ -319,6 +322,7 @@ describe('RecordService', () => {
       },
     ]);
     service.getWritableCreatedTimeFieldNames = vi.fn().mockResolvedValue(new Set());
+    service.getWritableCreatedByFieldNames = vi.fn().mockResolvedValue(new Set());
     service.dbProvider = {
       batchInsertSql: vi.fn().mockReturnValue('insert into "bse_data"."tbl_imported" values (...)'),
     };

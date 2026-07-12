@@ -1,6 +1,5 @@
 {
   "common": {
-    "comingSoon": "Demnächst verfügbar",
     "empty": "Leer",
     "noRecords": "Keine Datensätze verfügbar",
     "unnamedRecord": "Unbenannter Datensatz",
@@ -90,7 +89,6 @@
     "link": {
       "placeholder": "Zu verknüpfende Datensätze auswählen",
       "searchPlaceholder": "Datensätze durchsuchen",
-      "allFields": "Alle Felder",
       "globalSearch": "Globale Suche",
       "fieldSearch": "Feldsuche",
       "maxFieldTips": "Die maximale Anzahl von {{count}} Feldern wurde überschritten, zusätzliche Felder werden ignoriert",
@@ -98,14 +96,11 @@
       "selectRecord": "Datensatz auswählen",
       "all": "Alle",
       "selected": "Ausgewählt",
-      "expandRecordError": "Keine Erlaubnis, diesen Datensatz einzusehen.",
       "alreadyOpen": "Dieser Datensatz ist bereits geöffnet.",
       "linkedTo": "Verknüpft mit",
-      "goToForeignTable": "Gehe zu fremder Tabelle",
       "foreignTableIdRequired": "Fremdtabelle ist erforderlich",
       "linkFieldIdRequired": "Verknüpfungsfeld ist erforderlich",
       "selectTooManyRecords": "Die ausgewählten Datensätze sollten {{maxCount}} nicht überschreiten",
-      "relationshipRequired": "Beziehung ist erforderlich",
       "rangeSelectFailed": "Auswahl von Datensätzen im Bereich fehlgeschlagen"
     },
     "user": {
@@ -119,12 +114,10 @@
     "lookup": {
       "lookupFieldIdRequired": "Lookup-Feld ist erforderlich",
       "lookupOptionsNotAllowed": "Lookup-Optionen sind nicht erlaubt, wenn das isLookup-Attribut wahr ist oder der Feldtyp Rollup ist.",
-      "lookupOptionsRequired": "Lookup-Optionen sind erforderlich",
-      "refineOptionsError": "Fehler beim Parsen der Lookup-Optionen {{message}}"
+      "lookupOptionsRequired": "Lookup-Optionen sind erforderlich"
     },
     "rollup": {
-      "expressionRequired": "Ausdruck ist erforderlich",
-      "unsupportedTip": "Rollup unterstützt nur Verknüpfungs- und Rollup-Felder"
+      "expressionRequired": "Ausdruck ist erforderlich"
     },
     "conditionalRollup": {
       "filterRequired": "Der Filter muss mindestens eine Bedingung enthalten"
@@ -152,11 +145,8 @@
     "addConditionGroup": "Bedingungsgruppe hinzufügen",
     "nestedLimitTip": "Filterbedingungen können nur {{depth}} Ebenen tief verschachtelt werden",
     "linkInputPlaceholder": "Wert eingeben",
-    "groupDescription": "Jede der folgenden Aussagen ist wahr...",
     "currentUser": "Ich (aktueller Benutzer)",
-    "tips": {
-      "scope": "In dieser Ansicht, Datensätze anzeigen"
-    },
+    "tips": {},
     "invalidateSelected": "Unzulässiger Wert",
     "invalidateSelectedTips": "Der ausgewählte Wert wurde gelöscht, bitte wählen Sie erneut",
     "invalidConditionTip": "Diese Filterbedingung ist ungültig und wird ignoriert. Bitte passen Sie den Wert an.",
@@ -254,15 +244,10 @@
     "title": "Feldname",
     "displayLines": "{{count}} Zeilen"
   },
-  "share": {
-    "title": "teilen"
-  },
-  "extensions": {
-    "title": "Erweiterungen"
-  },
+  "share": {},
+  "extensions": {},
   "hidden": {
     "label": "Versteckte Felder",
-    "configLabel_one": "{{count}} verstecktes Felde",
     "configLabel_other": "{{count}} versteckte Felder",
     "configLabel_other_visible": "{{count}} sichtbare Felder",
     "showAll": "Alle zeigen",
@@ -285,8 +270,6 @@
       "before": "Vor",
       "after": "Nach",
       "buttonClicked": "Schaltfläche angeklickt",
-      "filterField": "Feld",
-      "filterCreatedBy": "Geändert von",
       "filterTime": "Zeitraum",
       "allFields": "Alle Felder",
       "allUsers": "Alle Benutzer",
@@ -392,7 +375,6 @@
       "baseUpdate": "Base aktualisieren",
       "baseInviteEmail": "per E-Mail in die Base einladen",
       "baseInviteLink": "per Link in die Base einladen",
-      "baseTableImport": "Daten in Base importieren",
       "baseAuthorityMatrixConfig": "Authority Matrix konfigurieren",
       "baseDbConnect": "Zu Datenbank verbinden",
       "tableCreate": "Tabelle erstellen",
@@ -427,7 +409,6 @@
       "appDelete": "App löschen",
       "appRead": "App lesen",
       "appUpdate": "App aktualisieren",
-      "userProfileRead": "Aktuelles Benutzerprofil lesen",
       "userEmailRead": "Aktuelles Benutzer E-Mail lesen",
       "userIntegrations": "Manage user integrations",
       "recordHistoryRead": "Datensatzhistorie lesen",
@@ -865,7 +846,6 @@
     "placeholder": "Einen Kommentar hinterlassen...",
     "emptyComment": "Starte eine Konversation",
     "deletedComment": "Kommentar gelöscht",
-    "imageSizeLimit": "Die Bildgröße darf nicht größer sein als {{size}}",
     "tip": {
       "editing": "Bearbeiten...",
       "edited": "(Bearbeitet)",
@@ -884,8 +864,6 @@
     },
     "floatToolbar": {
       "editLink": "Link bearbeiten",
-      "caption": "Überschrift",
-      "delete": "Löschen",
       "linkText": "Link Text",
       "enterUrl": "URL eingeben"
     }
@@ -895,7 +873,6 @@
     "memberSelectorSearchPlaceholder": "Mitglieder durchsuchen...",
     "departmentSelectorSearchPlaceholder": "Abteilungen durchsuchen...",
     "selected": "Ausgewählt",
-    "noSelected": "Unausgewählt",
     "empty": "Keine Mitglieder",
     "emptyDepartment": "Keine Abteilungen"
   },

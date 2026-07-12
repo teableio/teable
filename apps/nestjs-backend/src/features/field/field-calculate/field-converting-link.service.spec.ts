@@ -21,7 +21,7 @@ describe('FieldConvertingLinkService', () => {
 
   it('creates link storage objects in the data database', async () => {
     const metaExecuteRawUnsafe = vi.fn();
-    const dataExecuteRawUnsafe = vi.fn().mockResolvedValue(undefined);
+    const executeDataPrismaForTable = vi.fn().mockResolvedValue(undefined);
     const prismaService = {
       txClient: () => ({
         $executeRawUnsafe: metaExecuteRawUnsafe,
@@ -33,10 +33,8 @@ describe('FieldConvertingLinkService', () => {
         },
       }),
     };
-    const dataPrismaService = {
-      txClient: () => ({
-        $executeRawUnsafe: dataExecuteRawUnsafe,
-      }),
+    const databaseRouter = {
+      executeDataPrismaForTable,
     };
     const dbProvider = {
       createColumnSchema: vi.fn().mockReturnValue(['create link storage']),
@@ -46,7 +44,7 @@ describe('FieldConvertingLinkService', () => {
     };
     const service = new FieldConvertingLinkService(
       prismaService as never,
-      dataPrismaService as never,
+      databaseRouter as never,
       {} as never,
       {} as never,
       {} as never,
@@ -63,7 +61,9 @@ describe('FieldConvertingLinkService', () => {
       options: { foreignTableId: 'tblB' },
     });
 
-    expect(dataExecuteRawUnsafe).toHaveBeenCalledWith('create link storage');
+    expect(executeDataPrismaForTable).toHaveBeenCalledWith('tblA', 'create link storage', {
+      useTransaction: true,
+    });
     expect(metaExecuteRawUnsafe).not.toHaveBeenCalled();
   });
 });

@@ -432,6 +432,51 @@ export interface UpdateOptions {
   fillLinkTitleForeignTables?: ReadonlyMap<string, Table>;
 }
 
+/**
+ * Column mapping for server-side table row duplication (`INSERT … SELECT`).
+ * `sourceSql` is a SQL expression (quoted column or constant like `1`).
+ */
+export type PhysicalTableDuplicateColumn = {
+  readonly targetColumn: string;
+  readonly sourceSql: string;
+};
+
+/**
+ * Junction (or multi-host) table copy: `INSERT INTO target (self, foreign)
+ * SELECT self, foreign FROM source`. Used for manyMany / one-way oneMany links.
+ */
+export type PhysicalJunctionCopy = {
+  readonly sourceJunctionTable: string;
+  readonly targetJunctionTable: string;
+  readonly sourceSelfKey: string;
+  readonly sourceForeignKey: string;
+  readonly targetSelfKey: string;
+  readonly targetForeignKey: string;
+};
+
+/**
+ * Plan for copying rows between two physical tables in the same database
+ * without hydrating domain records.
+ */
+export type PhysicalTableDuplicatePlan = {
+  readonly sourceTableName: string;
+  readonly targetTableName: string;
+  readonly columns: ReadonlyArray<PhysicalTableDuplicateColumn>;
+  /**
+   * Target view-order columns (`__row_{viewId}`) that must exist before copy.
+   */
+  readonly ensureTargetOrderColumns: ReadonlyArray<string>;
+  /**
+   * Optional junction/host-table copies for external link storage (T6156).
+   */
+  readonly junctionCopies: ReadonlyArray<PhysicalJunctionCopy>;
+};
+
+export type PhysicalTableDuplicateResult = {
+  readonly rowCount: number;
+  readonly recordIds: ReadonlyArray<string>;
+};
+
 export interface ITableRecordRepository {
   insert(
     context: IExecutionContext,
@@ -445,6 +490,20 @@ export interface ITableRecordRepository {
     records: ReadonlyArray<TableRecord>,
     options?: InsertOptions
   ): Promise<Result<BatchRecordMutationResult, DomainError>>;
+
+  /**
+   * Copy rows from a source physical table into a target table via a single
+   * server-side `INSERT … SELECT` (no per-row domain hydration).
+   *
+   * Used by table duplicate for bulk data clone when the plan is fully
+   * expressible in SQL (column remap, constants). Callers are responsible for
+   * building a safe plan (excluding computed/button columns, remapping view
+   * order columns, etc.).
+   */
+  duplicatePhysicalRows(
+    context: IExecutionContext,
+    plan: PhysicalTableDuplicatePlan
+  ): Promise<Result<PhysicalTableDuplicateResult, DomainError>>;
 
   /**
    * Insert records from a streaming/batched source.

@@ -162,6 +162,10 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
     const legacyMaxFreeRowLimit = resolvePositiveInteger(
       this.configService.get('MAX_FREE_ROW_LIMIT')
     );
+    const computedUpdate: IV2NodePgContainerOptions['computedUpdate'] =
+      computedUpdateMode === 'sync'
+        ? { mode: 'sync', fieldBackfillConfig: { mode: 'sync' } }
+        : undefined;
 
     this.logger.log('Initializing V2 container');
 
@@ -172,7 +176,7 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
       tracer,
       commandBusMiddlewares,
       queryBusMiddlewares,
-      computedUpdate: computedUpdateMode === 'sync' ? { mode: 'sync' } : undefined,
+      computedUpdate,
       tableQueryOps,
       ...(tableMaxRowLimit
         ? { tableMaxRowLimit }

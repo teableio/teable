@@ -22,6 +22,9 @@ describe('LinkFieldIntegrityService', () => {
     const dataPrismaService = {
       $queryRawUnsafe: dataQueryRawUnsafe,
     };
+    const databaseRouter = {
+      dataPrismaExecutorForTable: vi.fn().mockResolvedValue(dataPrismaService),
+    };
     const checkLinks = vi.fn().mockReturnValue('select inconsistent links');
     const dbProvider = {
       checkColumnExist: vi.fn().mockResolvedValue(true),
@@ -31,7 +34,7 @@ describe('LinkFieldIntegrityService', () => {
     };
     const service = new LinkFieldIntegrityService(
       prismaService as never,
-      dataPrismaService as never,
+      databaseRouter as never,
       dbProvider as never
     );
 
@@ -50,6 +53,7 @@ describe('LinkFieldIntegrityService', () => {
       },
     } as never);
 
+    expect(databaseRouter.dataPrismaExecutorForTable).toHaveBeenCalledWith('tblOrders');
     expect(dbProvider.checkColumnExist).toHaveBeenCalledWith(
       ordersTable,
       customerField,
@@ -65,6 +69,9 @@ describe('LinkFieldIntegrityService', () => {
     const dataPrismaService = {
       $executeRawUnsafe: dataExecuteRawUnsafe,
     };
+    const databaseRouter = {
+      dataPrismaExecutorForTable: vi.fn().mockResolvedValue(dataPrismaService),
+    };
     const fixLinks = vi.fn().mockReturnValue('update inconsistent links');
     const dbProvider = {
       checkColumnExist: vi.fn().mockResolvedValue(true),
@@ -74,7 +81,7 @@ describe('LinkFieldIntegrityService', () => {
     };
     const service = new LinkFieldIntegrityService(
       {} as never,
-      dataPrismaService as never,
+      databaseRouter as never,
       dbProvider as never
     );
 
@@ -90,6 +97,7 @@ describe('LinkFieldIntegrityService', () => {
           foreignKeyName: string;
           linkDbFieldName: string;
           isMultiValue: boolean;
+          routingTableId: string;
         }) => Promise<number>;
       }
     ).fixLinks({
@@ -102,8 +110,10 @@ describe('LinkFieldIntegrityService', () => {
       foreignKeyName: '__fk_foreign',
       linkDbFieldName: customerField,
       isMultiValue: true,
+      routingTableId: 'tblOrders',
     });
 
+    expect(databaseRouter.dataPrismaExecutorForTable).toHaveBeenCalledWith('tblOrders');
     expect(dbProvider.checkColumnExist).toHaveBeenCalledWith(
       ordersTable,
       customerField,

@@ -43,6 +43,7 @@ import type { IPerformanceCacheStore } from '../../performance-cache';
 import { PerformanceCacheService } from '../../performance-cache';
 import { generateBaseNodeListCacheKey } from '../../performance-cache/generate-keys';
 import type { IClsStore } from '../../types/cls';
+import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { PermissionService } from '../auth/permission.service';
 import { BaseService } from '../base/base.service';
 import { CanaryService, type IV2Decision } from '../canary/canary.service';
@@ -294,7 +295,7 @@ export class TrashService {
     });
     const spaces = await this.prismaService.space.findMany({
       where: { id: { in: Array.from(spaceIds) } },
-      select: { id: true, name: true },
+      select: { id: true, name: true, avatar: true },
     });
 
     return {
@@ -347,9 +348,11 @@ export class TrashService {
         deletedTime: deletedTime.toISOString(),
         deletedBy,
       });
+      const { name, avatar } = spaceIdMap[resourceId];
       resourceMap[resourceId] = {
         id: resourceId,
-        name: spaceIdMap[resourceId].name,
+        name,
+        avatar: avatar ? getPublicFullStorageUrl(avatar) : null,
       };
       deletedBySet.add(deletedBy);
     });
@@ -1211,10 +1214,10 @@ export class TrashService {
       return;
     }
 
-    const result = await commandBus.execute<RestoreRecordsStreamCommand, RestoreRecordsStreamResult>(
-      context,
-      commandResult.value
-    );
+    const result = await commandBus.execute<
+      RestoreRecordsStreamCommand,
+      RestoreRecordsStreamResult
+    >(context, commandResult.value);
     if (result.isErr()) {
       yield this.createRestoreErrorEvent(ResourceType.Record, {
         phase: 'restoring',

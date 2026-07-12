@@ -3,7 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { CustomHttpException } from '../../../custom.exception';
 import { RecordModifySharedService } from './record-modify.shared.service';
 
-vi.mock('@teable/db-main-prisma', () => ({
+vi.mock('@teable/db-main-prisma', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@teable/db-main-prisma')>()),
   PrismaService: class PrismaService {},
   PrismaModule: class PrismaModule {},
 }));

@@ -39,6 +39,8 @@ describe('BaseService write freeze', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
+      {} as never,
       migrationGuard as never
     );
 

@@ -456,7 +456,8 @@ describe('IntegrityV2Service repair telemetry', () => {
 
   it('loads active schema state for integrity base targets', async () => {
     const baseId = createBaseId('i').toString();
-    const table = createTable();
+    const tableId = createTableId('i').toString();
+    const table = createTable([], { tableId });
     const tableRepository = {
       find: vi.fn().mockResolvedValue(ok([table])),
     };
@@ -464,48 +465,7 @@ describe('IntegrityV2Service repair telemetry', () => {
       findOne: vi.fn().mockResolvedValue(ok({})),
     };
     const metaDb = createMetaDb([
-      createBaseTablePreflightRow(table.id().toString(), table.name().toString(), 1, 1),
-    ]);
-    const db = {};
-    const container = {
-      resolve: vi.fn((token) => {
-        if (token === v2CoreTokens.tableRepository) {
-          return tableRepository;
-        }
-        if (token === v2CoreTokens.baseRepository) {
-          return baseRepository;
-        }
-        if (token === v2MetaDbTokens.db) {
-          return metaDb;
-        }
-        return db;
-      }),
-    };
-    const service = new IntegrityV2Service(
-      { getContainerForBase: vi.fn().mockResolvedValue(container) } as never,
-      { createContext: vi.fn().mockResolvedValue({}) } as never
-    );
-
-    await service['resolveBaseTarget'](baseId);
-
-    expect(tableRepository.find).toHaveBeenCalledWith(expect.anything(), expect.anything(), {
-      state: 'activeWithPending',
-    });
-  });
-
-  it('reports active tables that cannot hydrate before base schema checks', async () => {
-    const baseId = createBaseId('j').toString();
-    const table = createTable();
-    const emptyTableId = createTableId('e').toString();
-    const tableRepository = {
-      find: vi.fn().mockResolvedValue(ok([table])),
-    };
-    const baseRepository = {
-      findOne: vi.fn().mockResolvedValue(ok({})),
-    };
-    const metaDb = createMetaDb([
-      createBaseTablePreflightRow(table.id().toString(), table.name().toString(), 1, 1),
-      createBaseTablePreflightRow(emptyTableId, 'Empty Table', 0, 0),
+      createBaseTablePreflightRow(tableId, table.name().toString(), 1, 1),
     ]);
     const db = {};
     const container = {
@@ -530,20 +490,56 @@ describe('IntegrityV2Service repair telemetry', () => {
     const target = await service['resolveBaseTarget'](baseId);
 
     expect(target.tables).toEqual([table]);
-    expect(target.preflightIssues).toHaveLength(1);
-    expect(target.preflightIssues[0]).toMatchObject({
-      baseId,
-      tableId: emptyTableId,
-      tableName: 'Empty Table',
-      fieldId: emptyTableId,
-      fieldName: 'System Columns',
-      ruleId: 'table_empty_active_fields',
-      status: 'error',
-      repair: {
-        available: false,
-        mode: 'manual',
-      },
-    });
+    expect(target.preflightIssues).toEqual([]);
+  });
+
+  it('keeps active tables with no fields out of V2 hydration', async () => {
+    const baseId = createBaseId('j').toString();
+    const tableId = createTableId('j').toString();
+    const table = createTable([], { tableId });
+    const emptyTableId = createTableId('e').toString();
+    const tableRepository = {
+      find: vi.fn().mockResolvedValue(ok([table])),
+    };
+    const baseRepository = {
+      findOne: vi.fn().mockResolvedValue(ok({})),
+    };
+    const metaDb = createMetaDb([
+      createBaseTablePreflightRow(tableId, table.name().toString(), 1, 1),
+      createBaseTablePreflightRow(emptyTableId, 'Empty Table', 0, 0),
+    ]);
+    const db = {};
+    const container = {
+      resolve: vi.fn((token) => {
+        if (token === v2CoreTokens.tableRepository) {
+          return tableRepository;
+        }
+        if (token === v2CoreTokens.baseRepository) {
+          return baseRepository;
+        }
+        if (token === v2MetaDbTokens.db) {
+          return metaDb;
+        }
+        return db;
+      }),
+    };
+    const service = new IntegrityV2Service(
+      { getContainerForBase: vi.fn().mockResolvedValue(container) } as never,
+      { createContext: vi.fn().mockResolvedValue({}) } as never
+    );
+
+    const preflight = await service['inspectBaseTablesBeforeHydration'](
+      metaDb,
+      BaseId.create(baseId)._unsafeUnwrap()
+    );
+    const target = await service['resolveBaseTarget'](baseId);
+
+    expect(target.tables).toEqual([table]);
+    expect(target.preflightIssues).toEqual([]);
+    expect(preflight.tableIds.map((tableId) => tableId.toString())).toEqual([
+      table.id().toString(),
+    ]);
+    expect(preflight.issues).toEqual([]);
     expect(tableRepository.find).toHaveBeenCalledWith(expect.anything(), expect.anything(), {
       state: 'activeWithPending',
     });
