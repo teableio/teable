@@ -631,6 +631,9 @@ describe('duplicateTable (e2e)', () => {
         throw new Error('Missing duplicated self-link records');
       }
 
+      // Physical bulk preserves __id; self-link endpoints stay valid without remapping.
+      expect(duplicatedAlpha.id).toBe(alpha.id);
+      expect(duplicatedBeta.id).toBe(beta.id);
       expect(duplicatedAlpha.fields[duplicatedSelfLinkFieldId]).toEqual(
         expect.arrayContaining([expect.objectContaining({ id: duplicatedBeta.id })])
       );
@@ -883,6 +886,280 @@ describe('duplicateTable (e2e)', () => {
     }
   });
 
+  it('bulk path preserves source record ids and multi-field values without links', async () => {
+    // Tables without link fields use INSERT…SELECT and keep source __id (V1 semantics).
+    // Perf lab 10k cases exercise this path; this e2e locks the correctness contract.
+    const cleanupTableIds: string[] = [];
+
+    const nameFieldId = createFieldId();
+    const amountFieldId = createFieldId();
+    const notesFieldId = createFieldId();
+    const doneFieldId = createFieldId();
+    const formulaFieldId = createFieldId();
+
+    try {
+      const source = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: nextName('v2-duplicate-bulk-values'),
+        fields: [
+          { id: nameFieldId, name: 'Name', type: 'singleLineText', isPrimary: true },
+          {
+            id: amountFieldId,
+            name: 'Amount',
+            type: 'number',
+            options: { formatting: { type: 'decimal', precision: 1 } },
+          },
+          { id: notesFieldId, name: 'Notes', type: 'longText' },
+          { id: doneFieldId, name: 'Done', type: 'checkbox' },
+          {
+            id: formulaFieldId,
+            name: 'AmountPlusOne',
+            type: 'formula',
+            options: {
+              expression: `{${amountFieldId}} + 1`,
+              timeZone: 'Asia/Shanghai',
+            },
+          },
+        ],
+        records: [
+          {
+            fields: {
+              [nameFieldId]: 'Alpha',
+              [amountFieldId]: 10,
+              [notesFieldId]: 'first',
+              [doneFieldId]: true,
+            },
+          },
+          {
+            fields: {
+              [nameFieldId]: 'Beta',
+              [amountFieldId]: 20,
+              [notesFieldId]: 'second',
+            },
+          },
+        ],
+      });
+      cleanupTableIds.push(source.id);
+      await ctx.drainOutbox();
+
+      const sourceRecords = await ctx.listRecords(source.id, { limit: 100 });
+      const sourceByName = new Map(
+        sourceRecords.map((record) => [record.fields[nameFieldId], record] as const)
+      );
+      const sourceAlpha = sourceByName.get('Alpha');
+      const sourceBeta = sourceByName.get('Beta');
+      if (!sourceAlpha || !sourceBeta) {
+        throw new Error('Missing source bulk-path records');
+      }
+
+      const duplicated = await ctx.duplicateTable({
+        baseId: ctx.baseId,
+        tableId: source.id,
+        name: nextName('v2-duplicate-bulk-values-copy'),
+        includeRecords: true,
+      });
+      cleanupTableIds.push(duplicated.table.id);
+      await ctx.drainOutbox();
+
+      const duplicatedRecords = await ctx.listRecords(duplicated.table.id, { limit: 100 });
+      expect(duplicatedRecords).toHaveLength(2);
+
+      // Physical bulk path preserves __id; hydrate path would mint new ids.
+      const duplicatedIds = new Set(duplicatedRecords.map((record) => record.id));
+      expect(duplicatedIds.has(sourceAlpha.id)).toBe(true);
+      expect(duplicatedIds.has(sourceBeta.id)).toBe(true);
+
+      const nameMapId = duplicated.fieldIdMap[nameFieldId];
+      const amountMapId = duplicated.fieldIdMap[amountFieldId];
+      const notesMapId = duplicated.fieldIdMap[notesFieldId];
+      const doneMapId = duplicated.fieldIdMap[doneFieldId];
+      const formulaMapId = duplicated.fieldIdMap[formulaFieldId];
+      const byName = new Map(
+        duplicatedRecords.map((record) => [record.fields[nameMapId], record] as const)
+      );
+
+      expect(byName.get('Alpha')?.fields[amountMapId]).toBe(10);
+      expect(byName.get('Alpha')?.fields[notesMapId]).toBe('first');
+      expect(byName.get('Alpha')?.fields[doneMapId]).toBe(true);
+      expect(byName.get('Alpha')?.fields[formulaMapId]).toBe(11);
+
+      expect(byName.get('Beta')?.fields[amountMapId]).toBe(20);
+      expect(byName.get('Beta')?.fields[notesMapId]).toBe('second');
+      expect(byName.get('Beta')?.fields[formulaMapId]).toBe(21);
+    } finally {
+      for (const tableId of cleanupTableIds.reverse()) {
+        try {
+          await ctx.deleteTable(tableId);
+        } catch {
+          // best-effort cleanup for shared e2e context
+        }
+      }
+    }
+  });
+
+  it('duplicates same-base cross-table link and lookup values with records', async () => {
+    // External links use the physical bulk path (T6156): preserve __id and
+    // bulk-copy junction/host FK storage. Lookup values must still resolve.
+    const cleanupTableIds: string[] = [];
+
+    const vendorNameFieldId = createFieldId();
+    const hostNameFieldId = createFieldId();
+    const vendorLinkFieldId = createFieldId();
+    const vendorNameLookupFieldId = createFieldId();
+
+    try {
+      const vendors = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: nextName('v2-duplicate-xtable-vendors'),
+        fields: [{ id: vendorNameFieldId, name: 'Name', type: 'singleLineText', isPrimary: true }],
+        records: [
+          { fields: { [vendorNameFieldId]: 'Acme' } },
+          { fields: { [vendorNameFieldId]: 'Globex' } },
+        ],
+      });
+      cleanupTableIds.push(vendors.id);
+
+      const vendorRecords = await ctx.listRecords(vendors.id, { limit: 100 });
+      const acme = vendorRecords.find((record) => record.fields[vendorNameFieldId] === 'Acme');
+      const globex = vendorRecords.find((record) => record.fields[vendorNameFieldId] === 'Globex');
+      if (!acme || !globex) {
+        throw new Error('Missing vendor seed records');
+      }
+
+      const host = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: nextName('v2-duplicate-xtable-host'),
+        fields: [{ id: hostNameFieldId, name: 'Name', type: 'singleLineText', isPrimary: true }],
+      });
+      cleanupTableIds.push(host.id);
+
+      await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: host.id,
+        field: {
+          id: vendorLinkFieldId,
+          name: 'Vendor',
+          type: 'link',
+          options: {
+            relationship: 'manyMany',
+            foreignTableId: vendors.id,
+            lookupFieldId: vendorNameFieldId,
+            isOneWay: true,
+          },
+        },
+      });
+
+      await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: host.id,
+        field: {
+          id: vendorNameLookupFieldId,
+          name: 'Vendor Name',
+          type: 'lookup',
+          options: {
+            linkFieldId: vendorLinkFieldId,
+            foreignTableId: vendors.id,
+            lookupFieldId: vendorNameFieldId,
+          },
+        },
+      });
+
+      await ctx.createRecord(host.id, {
+        [hostNameFieldId]: 'Order-1',
+        [vendorLinkFieldId]: [{ id: acme.id }, { id: globex.id }],
+      });
+      await ctx.createRecord(host.id, {
+        [hostNameFieldId]: 'Order-2',
+        [vendorLinkFieldId]: [{ id: acme.id }],
+      });
+      await ctx.drainOutbox();
+
+      const sourceHostRecords = await ctx.listRecords(host.id, { limit: 100 });
+      const sourceOrder1 = sourceHostRecords.find(
+        (record) => record.fields[hostNameFieldId] === 'Order-1'
+      );
+      if (!sourceOrder1) {
+        throw new Error('Missing source host records');
+      }
+
+      const duplicated = await ctx.duplicateTable({
+        baseId: ctx.baseId,
+        tableId: host.id,
+        name: nextName('v2-duplicate-xtable-host-copy'),
+        includeRecords: true,
+      });
+      cleanupTableIds.push(duplicated.table.id);
+      await ctx.drainOutbox();
+
+      const duplicatedLinkFieldId = duplicated.fieldIdMap[vendorLinkFieldId];
+      const duplicatedLookupFieldId = duplicated.fieldIdMap[vendorNameLookupFieldId];
+      const duplicatedNameFieldId = duplicated.fieldIdMap[hostNameFieldId];
+
+      const duplicatedLinkField = duplicated.table.fields.find(
+        (field) => field.id === duplicatedLinkFieldId
+      );
+      expect(duplicatedLinkField?.type).toBe('link');
+      if (!duplicatedLinkField || duplicatedLinkField.type !== 'link') {
+        throw new Error('Missing duplicated vendor link field');
+      }
+      expect(duplicatedLinkField.options.foreignTableId).toBe(vendors.id);
+
+      const duplicatedRecords = await ctx.listRecords(duplicated.table.id, { limit: 100 });
+      expect(duplicatedRecords).toHaveLength(2);
+
+      // Physical bulk path preserves host __id (T6156 external-link eligibility).
+      const duplicatedIds = new Set(duplicatedRecords.map((record) => record.id));
+      expect(duplicatedIds.has(sourceOrder1.id)).toBe(true);
+
+      const byName = new Map(
+        duplicatedRecords.map((record) => [record.fields[duplicatedNameFieldId], record] as const)
+      );
+      const order1 = byName.get('Order-1');
+      const order2 = byName.get('Order-2');
+      if (!order1 || !order2) {
+        throw new Error('Missing duplicated host records');
+      }
+      expect(order1.id).toBe(sourceOrder1.id);
+
+      // External foreign ids must be preserved (foreign table is not duplicated).
+      expect(order1.fields[duplicatedLinkFieldId]).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: acme.id }),
+          expect.objectContaining({ id: globex.id }),
+        ])
+      );
+      expect(order2.fields[duplicatedLinkFieldId]).toEqual([
+        expect.objectContaining({ id: acme.id }),
+      ]);
+
+      const order1Lookup = order1.fields[duplicatedLookupFieldId];
+      const order2Lookup = order2.fields[duplicatedLookupFieldId];
+      const normalizeTitles = (value: unknown): string[] => {
+        if (Array.isArray(value)) {
+          return value.map((entry) => String(entry));
+        }
+        if (value == null) {
+          return [];
+        }
+        return [String(value)];
+      };
+      expect(normalizeTitles(order1Lookup).sort()).toEqual(['Acme', 'Globex']);
+      expect(normalizeTitles(order2Lookup)).toEqual(['Acme']);
+
+      // Foreign table remains untouched.
+      const vendorsAfter = await ctx.listRecords(vendors.id, { limit: 100 });
+      expect(vendorsAfter.map((record) => record.id).sort()).toEqual([acme.id, globex.id].sort());
+    } finally {
+      for (const tableId of cleanupTableIds.reverse()) {
+        try {
+          await ctx.deleteTable(tableId);
+        } catch {
+          // best-effort cleanup for shared e2e context
+        }
+      }
+    }
+  });
+
   it('duplicates formula fields with working computed values on duplicated records', async () => {
     const cleanupTableIds: string[] = [];
 
@@ -969,7 +1246,7 @@ describe('duplicateTable (e2e)', () => {
     }
   });
 
-  it('duplicates cross-base link fields as one-way links', async () => {
+  it('duplicates cross-base link fields as one-way links and preserves foreign record refs', async () => {
     const cleanupDefaultBaseTableIds: string[] = [];
     const cleanupForeignTables: Array<{ baseId: string; tableId: string }> = [];
 
@@ -986,6 +1263,15 @@ describe('duplicateTable (e2e)', () => {
         fields: [{ id: foreignNameFieldId, name: 'Name', type: 'singleLineText', isPrimary: true }],
       });
       cleanupForeignTables.push({ baseId: foreignBaseId, tableId: foreignTable.id });
+
+      const remoteA = await ctx.createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Remote-A',
+      });
+      const remoteB = await ctx.createRecord(foreignTable.id, {
+        [foreignNameFieldId]: 'Remote-B',
+      });
+      const remoteAId = remoteA.id;
+      const remoteBId = remoteB.id;
 
       const hostTable = await ctx.createTable({
         baseId: ctx.baseId,
@@ -1011,6 +1297,16 @@ describe('duplicateTable (e2e)', () => {
         },
       });
 
+      await ctx.createRecord(hostTable.id, {
+        [hostNameFieldId]: 'Host-1',
+        [crossBaseLinkFieldId]: { id: remoteAId },
+      });
+      await ctx.createRecord(hostTable.id, {
+        [hostNameFieldId]: 'Host-2',
+        [crossBaseLinkFieldId]: { id: remoteBId },
+      });
+      await ctx.drainOutbox();
+
       const duplicated = await ctx.duplicateTable({
         baseId: ctx.baseId,
         tableId: hostTable.id,
@@ -1018,6 +1314,7 @@ describe('duplicateTable (e2e)', () => {
         includeRecords: true,
       });
       cleanupDefaultBaseTableIds.push(duplicated.table.id);
+      await ctx.drainOutbox();
 
       const duplicatedLinkField = duplicated.table.fields.find(
         (field) => field.id === duplicated.fieldIdMap[crossBaseLinkFieldId]
@@ -1028,7 +1325,23 @@ describe('duplicateTable (e2e)', () => {
       }
       expect(duplicatedLinkField.options.baseId).toBe(foreignBaseId);
       expect(duplicatedLinkField.options.foreignTableId).toBe(foreignTable.id);
+      // Cross-base two-way becomes one-way on the duplicated host table.
       expect(duplicatedLinkField.options.isOneWay).toBe(true);
+
+      const duplicatedLinkFieldId = duplicated.fieldIdMap[crossBaseLinkFieldId];
+      const duplicatedNameFieldId = duplicated.fieldIdMap[hostNameFieldId];
+      const duplicatedRecords = await ctx.listRecords(duplicated.table.id, { limit: 100 });
+      expect(duplicatedRecords).toHaveLength(2);
+      const byName = new Map(
+        duplicatedRecords.map((record) => [record.fields[duplicatedNameFieldId], record] as const)
+      );
+
+      expect(byName.get('Host-1')?.fields[duplicatedLinkFieldId]).toEqual(
+        expect.objectContaining({ id: remoteAId })
+      );
+      expect(byName.get('Host-2')?.fields[duplicatedLinkFieldId]).toEqual(
+        expect.objectContaining({ id: remoteBId })
+      );
     } finally {
       for (const tableId of cleanupDefaultBaseTableIds.reverse()) {
         try {
@@ -1040,6 +1353,533 @@ describe('duplicateTable (e2e)', () => {
       for (const target of cleanupForeignTables.reverse()) {
         try {
           await deleteTableWithBaseId(ctx, target.baseId, target.tableId);
+        } catch {
+          // best-effort cleanup for shared e2e context
+        }
+      }
+    }
+  });
+
+  it('two-way manyOne cross-table duplicate becomes one-way and leaves foreign symmetric intact', async () => {
+    // External two-way links are rewritten to one-way on the duplicated table.
+    // Foreign-side symmetric must keep pointing only at the original host records.
+    const cleanupTableIds: string[] = [];
+
+    const foreignNameFieldId = createFieldId();
+    const hostNameFieldId = createFieldId();
+    const hostLinkFieldId = createFieldId();
+
+    try {
+      const foreign = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: nextName('v2-duplicate-twoway-foreign'),
+        fields: [{ id: foreignNameFieldId, name: 'Name', type: 'singleLineText', isPrimary: true }],
+      });
+      cleanupTableIds.push(foreign.id);
+
+      const host = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: nextName('v2-duplicate-twoway-host'),
+        fields: [{ id: hostNameFieldId, name: 'Name', type: 'singleLineText', isPrimary: true }],
+      });
+      cleanupTableIds.push(host.id);
+
+      await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: host.id,
+        field: {
+          id: hostLinkFieldId,
+          name: 'Partner',
+          type: 'link',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId: foreign.id,
+            lookupFieldId: foreignNameFieldId,
+            isOneWay: false,
+          },
+        },
+      });
+
+      const hostAfterLink = await ctx.getTableById(host.id);
+      const hostLinkField = hostAfterLink.fields.find((field) => field.id === hostLinkFieldId);
+      if (!hostLinkField || hostLinkField.type !== 'link') {
+        throw new Error('Missing host two-way link field');
+      }
+      const symmetricFieldId = hostLinkField.options.symmetricFieldId;
+      if (!symmetricFieldId) {
+        throw new Error('Missing foreign symmetric field id');
+      }
+
+      const foreignF1 = await ctx.createRecord(foreign.id, { [foreignNameFieldId]: 'F1' });
+      const foreignF2 = await ctx.createRecord(foreign.id, { [foreignNameFieldId]: 'F2' });
+      const hostH1 = await ctx.createRecord(host.id, {
+        [hostNameFieldId]: 'H1',
+        [hostLinkFieldId]: { id: foreignF1.id },
+      });
+      const hostH2 = await ctx.createRecord(host.id, {
+        [hostNameFieldId]: 'H2',
+        [hostLinkFieldId]: { id: foreignF2.id },
+      });
+      await ctx.drainOutbox();
+
+      // Precondition: foreign symmetric points at original host records.
+      const foreignBefore = await ctx.listRecords(foreign.id, { limit: 100 });
+      const f1Before = foreignBefore.find((record) => record.id === foreignF1.id);
+      const f2Before = foreignBefore.find((record) => record.id === foreignF2.id);
+      expect(f1Before?.fields[symmetricFieldId]).toEqual(
+        expect.arrayContaining([expect.objectContaining({ id: hostH1.id })])
+      );
+      expect(f2Before?.fields[symmetricFieldId]).toEqual(
+        expect.arrayContaining([expect.objectContaining({ id: hostH2.id })])
+      );
+
+      const duplicated = await ctx.duplicateTable({
+        baseId: ctx.baseId,
+        tableId: host.id,
+        name: nextName('v2-duplicate-twoway-host-copy'),
+        includeRecords: true,
+      });
+      cleanupTableIds.push(duplicated.table.id);
+      await ctx.drainOutbox();
+
+      const duplicatedLinkFieldId = duplicated.fieldIdMap[hostLinkFieldId];
+      const duplicatedLinkField = duplicated.table.fields.find(
+        (field) => field.id === duplicatedLinkFieldId
+      );
+      expect(duplicatedLinkField?.type).toBe('link');
+      if (!duplicatedLinkField || duplicatedLinkField.type !== 'link') {
+        throw new Error('Missing duplicated two-way→one-way link');
+      }
+      expect(duplicatedLinkField.options.foreignTableId).toBe(foreign.id);
+      expect(duplicatedLinkField.options.isOneWay).toBe(true);
+      expect(duplicatedLinkField.options.symmetricFieldId).toBeUndefined();
+
+      const duplicatedNameFieldId = duplicated.fieldIdMap[hostNameFieldId];
+      const duplicatedRecords = await ctx.listRecords(duplicated.table.id, { limit: 100 });
+      expect(duplicatedRecords).toHaveLength(2);
+      const byName = new Map(
+        duplicatedRecords.map((record) => [record.fields[duplicatedNameFieldId], record] as const)
+      );
+      expect(byName.get('H1')?.fields[duplicatedLinkFieldId]).toEqual(
+        expect.objectContaining({ id: foreignF1.id })
+      );
+      expect(byName.get('H2')?.fields[duplicatedLinkFieldId]).toEqual(
+        expect.objectContaining({ id: foreignF2.id })
+      );
+
+      // Foreign symmetric must not pick up duplicated host ids.
+      const foreignAfter = await ctx.listRecords(foreign.id, { limit: 100 });
+      const f1After = foreignAfter.find((record) => record.id === foreignF1.id);
+      const f2After = foreignAfter.find((record) => record.id === foreignF2.id);
+      const f1Symmetric = f1After?.fields[symmetricFieldId];
+      const f2Symmetric = f2After?.fields[symmetricFieldId];
+      const collectIds = (value: unknown): string[] => {
+        if (Array.isArray(value)) {
+          return value
+            .map((entry) =>
+              entry && typeof entry === 'object' && 'id' in entry
+                ? String((entry as { id: unknown }).id)
+                : undefined
+            )
+            .filter((id): id is string => Boolean(id));
+        }
+        if (value && typeof value === 'object' && 'id' in value) {
+          return [String((value as { id: unknown }).id)];
+        }
+        return [];
+      };
+      // Symmetric still only references the original host records. Physical bulk
+      // preserves host __id, so duplicated row ids equal source host ids — that is
+      // expected and does not mean the foreign table gained new reverse links.
+      expect(collectIds(f1Symmetric).sort()).toEqual([hostH1.id].sort());
+      expect(collectIds(f2Symmetric).sort()).toEqual([hostH2.id].sort());
+      expect(byName.get('H1')?.id).toBe(hostH1.id);
+      expect(byName.get('H2')?.id).toBe(hostH2.id);
+    } finally {
+      for (const tableId of cleanupTableIds.reverse()) {
+        try {
+          await ctx.deleteTable(tableId);
+        } catch {
+          // best-effort cleanup for shared e2e context
+        }
+      }
+    }
+  });
+
+  it.each([
+    {
+      relationship: 'manyOne' as const,
+      cell: (foreignId: string) => ({ id: foreignId }),
+      expectCell: (foreignId: string) => expect.objectContaining({ id: foreignId }),
+    },
+    {
+      relationship: 'oneOne' as const,
+      cell: (foreignId: string) => ({ id: foreignId }),
+      expectCell: (foreignId: string) => expect.objectContaining({ id: foreignId }),
+    },
+    {
+      relationship: 'oneMany' as const,
+      cell: (foreignId: string) => [{ id: foreignId }],
+      expectCell: (foreignId: string) => [expect.objectContaining({ id: foreignId })],
+    },
+  ])(
+    'duplicates one-way $relationship cross-table link record values',
+    async ({ relationship, cell, expectCell }) => {
+      const cleanupTableIds: string[] = [];
+      const foreignNameFieldId = createFieldId();
+      const hostNameFieldId = createFieldId();
+      const linkFieldId = createFieldId();
+
+      try {
+        const foreign = await ctx.createTable({
+          baseId: ctx.baseId,
+          name: nextName(`v2-duplicate-rel-${relationship}-foreign`),
+          fields: [
+            { id: foreignNameFieldId, name: 'Name', type: 'singleLineText', isPrimary: true },
+          ],
+        });
+        cleanupTableIds.push(foreign.id);
+        const foreignRecord = await ctx.createRecord(foreign.id, {
+          [foreignNameFieldId]: 'Target',
+        });
+
+        const host = await ctx.createTable({
+          baseId: ctx.baseId,
+          name: nextName(`v2-duplicate-rel-${relationship}-host`),
+          fields: [{ id: hostNameFieldId, name: 'Name', type: 'singleLineText', isPrimary: true }],
+        });
+        cleanupTableIds.push(host.id);
+
+        await ctx.createField({
+          baseId: ctx.baseId,
+          tableId: host.id,
+          field: {
+            id: linkFieldId,
+            name: 'Link',
+            type: 'link',
+            options: {
+              relationship,
+              foreignTableId: foreign.id,
+              lookupFieldId: foreignNameFieldId,
+              isOneWay: true,
+            },
+          },
+        });
+
+        await ctx.createRecord(host.id, {
+          [hostNameFieldId]: 'Host',
+          [linkFieldId]: cell(foreignRecord.id),
+        });
+        await ctx.drainOutbox();
+
+        const duplicated = await ctx.duplicateTable({
+          baseId: ctx.baseId,
+          tableId: host.id,
+          name: nextName(`v2-duplicate-rel-${relationship}-copy`),
+          includeRecords: true,
+        });
+        cleanupTableIds.push(duplicated.table.id);
+        await ctx.drainOutbox();
+
+        const duplicatedLinkFieldId = duplicated.fieldIdMap[linkFieldId];
+        const duplicatedNameFieldId = duplicated.fieldIdMap[hostNameFieldId];
+        const duplicatedLinkField = duplicated.table.fields.find(
+          (field) => field.id === duplicatedLinkFieldId
+        );
+        expect(duplicatedLinkField?.type).toBe('link');
+        if (!duplicatedLinkField || duplicatedLinkField.type !== 'link') {
+          throw new Error(`Missing duplicated ${relationship} link field`);
+        }
+        expect(duplicatedLinkField.options.relationship).toBe(relationship);
+        expect(duplicatedLinkField.options.foreignTableId).toBe(foreign.id);
+        expect(duplicatedLinkField.options.isOneWay).toBe(true);
+
+        const duplicatedRecords = await ctx.listRecords(duplicated.table.id, { limit: 100 });
+        expect(duplicatedRecords).toHaveLength(1);
+        expect(duplicatedRecords[0]?.fields[duplicatedNameFieldId]).toBe('Host');
+        expect(duplicatedRecords[0]?.fields[duplicatedLinkFieldId]).toEqual(
+          expectCell(foreignRecord.id)
+        );
+      } finally {
+        for (const tableId of cleanupTableIds.reverse()) {
+          try {
+            await ctx.deleteTable(tableId);
+          } catch {
+            // best-effort cleanup for shared e2e context
+          }
+        }
+      }
+    }
+  );
+
+  it('duplicates rollup values with link-based records', async () => {
+    const cleanupTableIds: string[] = [];
+
+    const foreignNameFieldId = createFieldId();
+    const foreignAmountFieldId = createFieldId();
+    const hostNameFieldId = createFieldId();
+    const linkFieldId = createFieldId();
+    const rollupFieldId = createFieldId();
+
+    try {
+      const foreign = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: nextName('v2-duplicate-rollup-foreign'),
+        fields: [
+          { id: foreignNameFieldId, name: 'Name', type: 'singleLineText', isPrimary: true },
+          {
+            id: foreignAmountFieldId,
+            name: 'Amount',
+            type: 'number',
+            options: { formatting: { type: 'decimal', precision: 1 } },
+          },
+        ],
+      });
+      cleanupTableIds.push(foreign.id);
+
+      const itemA = await ctx.createRecord(foreign.id, {
+        [foreignNameFieldId]: 'A',
+        [foreignAmountFieldId]: 3,
+      });
+      const itemB = await ctx.createRecord(foreign.id, {
+        [foreignNameFieldId]: 'B',
+        [foreignAmountFieldId]: 7,
+      });
+
+      const host = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: nextName('v2-duplicate-rollup-host'),
+        fields: [{ id: hostNameFieldId, name: 'Name', type: 'singleLineText', isPrimary: true }],
+      });
+      cleanupTableIds.push(host.id);
+
+      await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: host.id,
+        field: {
+          id: linkFieldId,
+          name: 'Items',
+          type: 'link',
+          options: {
+            relationship: 'manyMany',
+            foreignTableId: foreign.id,
+            lookupFieldId: foreignNameFieldId,
+            isOneWay: true,
+          },
+        },
+      });
+
+      await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: host.id,
+        field: {
+          id: rollupFieldId,
+          name: 'Total',
+          type: 'rollup',
+          options: { expression: 'sum({values})' },
+          config: {
+            linkFieldId,
+            foreignTableId: foreign.id,
+            lookupFieldId: foreignAmountFieldId,
+          },
+        },
+      });
+
+      await ctx.createRecord(host.id, {
+        [hostNameFieldId]: 'Order',
+        [linkFieldId]: [{ id: itemA.id }, { id: itemB.id }],
+      });
+      await ctx.drainOutbox();
+
+      const sourceRecords = await ctx.listRecords(host.id, { limit: 100 });
+      expect(sourceRecords[0]?.fields[rollupFieldId]).toBe(10);
+
+      const duplicated = await ctx.duplicateTable({
+        baseId: ctx.baseId,
+        tableId: host.id,
+        name: nextName('v2-duplicate-rollup-host-copy'),
+        includeRecords: true,
+      });
+      cleanupTableIds.push(duplicated.table.id);
+      await ctx.drainOutbox();
+
+      const duplicatedLinkFieldId = duplicated.fieldIdMap[linkFieldId];
+      const duplicatedRollupFieldId = duplicated.fieldIdMap[rollupFieldId];
+      const duplicatedNameFieldId = duplicated.fieldIdMap[hostNameFieldId];
+
+      const duplicatedRollupField = duplicated.table.fields.find(
+        (field) => field.id === duplicatedRollupFieldId
+      );
+      expect(duplicatedRollupField?.type).toBe('rollup');
+      expect(duplicatedRollupField).toMatchObject({
+        type: 'rollup',
+        options: expect.objectContaining({ expression: 'sum({values})' }),
+      });
+      // Rollup config must point at remapped link field and original foreign table/field.
+      expect(
+        (duplicatedRollupField as { lookupOptions?: Record<string, unknown> } | undefined)
+          ?.lookupOptions ??
+          (duplicatedRollupField as { config?: Record<string, unknown> } | undefined)?.config
+      ).toEqual(
+        expect.objectContaining({
+          linkFieldId: duplicatedLinkFieldId,
+          foreignTableId: foreign.id,
+          lookupFieldId: foreignAmountFieldId,
+        })
+      );
+
+      const duplicatedRecords = await ctx.listRecords(duplicated.table.id, { limit: 100 });
+      expect(duplicatedRecords).toHaveLength(1);
+      expect(duplicatedRecords[0]?.fields[duplicatedNameFieldId]).toBe('Order');
+      expect(duplicatedRecords[0]?.fields[duplicatedLinkFieldId]).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: itemA.id }),
+          expect.objectContaining({ id: itemB.id }),
+        ])
+      );
+      expect(duplicatedRecords[0]?.fields[duplicatedRollupFieldId]).toBe(10);
+    } finally {
+      for (const tableId of cleanupTableIds.reverse()) {
+        try {
+          await ctx.deleteTable(tableId);
+        } catch {
+          // best-effort cleanup for shared e2e context
+        }
+      }
+    }
+  });
+
+  it('duplicates conditional lookup values without link fields (bulk path)', async () => {
+    // No link field → INSERT…SELECT bulk path, but still remaps conditional field refs.
+    const cleanupTableIds: string[] = [];
+
+    const foreignTitleFieldId = createFieldId();
+    const foreignStatusFieldId = createFieldId();
+    const hostFilterFieldId = createFieldId();
+    const conditionalLookupFieldId = createFieldId();
+
+    try {
+      const foreign = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: nextName('v2-duplicate-cond-foreign'),
+        fields: [
+          { id: foreignTitleFieldId, name: 'Title', type: 'singleLineText', isPrimary: true },
+          { id: foreignStatusFieldId, name: 'Status', type: 'singleLineText' },
+        ],
+        records: [
+          { fields: { [foreignTitleFieldId]: 'Alpha', [foreignStatusFieldId]: 'Active' } },
+          { fields: { [foreignTitleFieldId]: 'Beta', [foreignStatusFieldId]: 'Active' } },
+          { fields: { [foreignTitleFieldId]: 'Gamma', [foreignStatusFieldId]: 'Closed' } },
+        ],
+      });
+      cleanupTableIds.push(foreign.id);
+
+      const host = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: nextName('v2-duplicate-cond-host'),
+        fields: [
+          { id: hostFilterFieldId, name: 'StatusFilter', type: 'singleLineText', isPrimary: true },
+        ],
+        records: [
+          { fields: { [hostFilterFieldId]: 'Active' } },
+          { fields: { [hostFilterFieldId]: 'Closed' } },
+        ],
+      });
+      cleanupTableIds.push(host.id);
+
+      await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: host.id,
+        field: {
+          id: conditionalLookupFieldId,
+          name: 'Matching Titles',
+          type: 'conditionalLookup',
+          options: {
+            foreignTableId: foreign.id,
+            lookupFieldId: foreignTitleFieldId,
+            condition: {
+              filter: {
+                conjunction: 'and',
+                filterSet: [
+                  {
+                    fieldId: foreignStatusFieldId,
+                    operator: 'is',
+                    value: hostFilterFieldId,
+                    isSymbol: true,
+                  },
+                ],
+              },
+            },
+          },
+        },
+      });
+      await ctx.drainOutbox();
+
+      const sourceRecords = await ctx.listRecords(host.id, { limit: 100 });
+      const sourceActive = sourceRecords.find(
+        (record) => record.fields[hostFilterFieldId] === 'Active'
+      );
+      const sourceClosed = sourceRecords.find(
+        (record) => record.fields[hostFilterFieldId] === 'Closed'
+      );
+      expect(sourceActive?.fields[conditionalLookupFieldId]).toEqual(['Alpha', 'Beta']);
+      expect(sourceClosed?.fields[conditionalLookupFieldId]).toEqual(['Gamma']);
+      if (!sourceActive || !sourceClosed) {
+        throw new Error('Missing conditional lookup source records');
+      }
+
+      const duplicated = await ctx.duplicateTable({
+        baseId: ctx.baseId,
+        tableId: host.id,
+        name: nextName('v2-duplicate-cond-host-copy'),
+        includeRecords: true,
+      });
+      cleanupTableIds.push(duplicated.table.id);
+      await ctx.drainOutbox();
+
+      // Bulk path: same record ids as source.
+      const duplicatedRecords = await ctx.listRecords(duplicated.table.id, { limit: 100 });
+      expect(duplicatedRecords.map((record) => record.id).sort()).toEqual(
+        [sourceActive.id, sourceClosed.id].sort()
+      );
+
+      const duplicatedFilterFieldId = duplicated.fieldIdMap[hostFilterFieldId];
+      const duplicatedLookupFieldId = duplicated.fieldIdMap[conditionalLookupFieldId];
+      const duplicatedLookupField = duplicated.table.fields.find(
+        (field) => field.id === duplicatedLookupFieldId
+      ) as
+        | {
+            type?: string;
+            isLookup?: boolean;
+            conditionalLookupOptions?: {
+              foreignTableId?: string;
+              lookupFieldId?: string;
+              condition?: unknown;
+            };
+          }
+        | undefined;
+      // Conditional lookup is exposed as the lookup target cell type + flags, not type='conditionalLookup'.
+      expect(duplicatedLookupField?.isLookup).toBe(true);
+      expect(duplicatedLookupField?.conditionalLookupOptions).toEqual(
+        expect.objectContaining({
+          foreignTableId: foreign.id,
+          lookupFieldId: foreignTitleFieldId,
+        })
+      );
+      // Host field reference inside condition must remap to the duplicated filter field.
+      const conditionJson = JSON.stringify(duplicatedLookupField?.conditionalLookupOptions ?? {});
+      expect(conditionJson).toContain(duplicatedFilterFieldId);
+      expect(conditionJson).not.toContain(hostFilterFieldId);
+
+      const byFilter = new Map(
+        duplicatedRecords.map((record) => [record.fields[duplicatedFilterFieldId], record] as const)
+      );
+      expect(byFilter.get('Active')?.fields[duplicatedLookupFieldId]).toEqual(['Alpha', 'Beta']);
+      expect(byFilter.get('Closed')?.fields[duplicatedLookupFieldId]).toEqual(['Gamma']);
+    } finally {
+      for (const tableId of cleanupTableIds.reverse()) {
+        try {
+          await ctx.deleteTable(tableId);
         } catch {
           // best-effort cleanup for shared e2e context
         }

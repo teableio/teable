@@ -1,5 +1,5 @@
-export * from './ShareDbPublisher';
 /// <reference path="./websocket-json-stream.d.ts" />
+export * from './ShareDbPublisher';
 export * from './ShareDbBackendPublisher';
 export * from './ShareDbPubSubPublisher';
 export * from './ShareDbRealtimeEngine';

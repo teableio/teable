@@ -36,6 +36,10 @@ vi.mock('../../canary/interceptors/v2-indicator.interceptor', () => ({
 
 vi.mock('@teable/db-main-prisma', () => ({
   PrismaService: class PrismaService {},
+  MetaPrismaService: class MetaPrismaService {},
+  DataPrismaService: class DataPrismaService {},
+  PrismaModule: class PrismaModule {},
+  getDatabaseUrl: () => '',
 }));
 
 let tableControllerClass: new (...args: unknown[]) => {
@@ -73,6 +77,7 @@ describe('TableController.archiveTable', () => {
       {} as never,
       {} as never,
       tableOpenApiV2Service as never,
+      {} as never,
       cls as never
     );
 

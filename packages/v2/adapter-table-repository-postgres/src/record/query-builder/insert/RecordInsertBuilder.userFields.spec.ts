@@ -4,12 +4,18 @@
  * These fields should be populated during INSERT using context user snapshot JSON.
  * The system columns (__created_by, __last_modified_by) store user IDs.
  * The user-facing columns (col_created_by, col_last_modified_by) store full user objects as JSONB.
+ *
+ * When meta.persistedAsGeneratedColumn is true (or the physical column is GENERATED),
+ * the builder must omit those columns so PostgreSQL accepts the INSERT (T6146).
  */
 import {
   BaseId,
+  createCreatedByField,
+  createLastModifiedByField,
   DbFieldName,
   FieldId,
   FieldName,
+  GeneratedColumnMeta,
   Table,
   TableId,
   TableName,
@@ -212,5 +218,64 @@ describe('RecordInsertBuilder with CreatedBy/LastModifiedBy fields', () => {
     });
     expect(values['col_created_by']).toBe(expectedUserSnapshot);
     expect(values['col_last_modified_by']).toBe(expectedUserSnapshot);
+  });
+
+  it('should omit CreatedBy/LastModifiedBy columns when persisted as generated (T6146)', () => {
+    const db = createTestDb();
+    let table = createTableWithUserFields();
+    const generatedMeta = GeneratedColumnMeta.rehydrate({
+      persistedAsGeneratedColumn: true,
+    })._unsafeUnwrap();
+
+    const createdByField = createCreatedByField({
+      id: FieldId.create(CREATED_BY_FIELD_ID)._unsafeUnwrap(),
+      name: FieldName.create('CreatedBy')._unsafeUnwrap(),
+      meta: generatedMeta,
+    })._unsafeUnwrap();
+    createdByField
+      .setDbFieldName(DbFieldName.rehydrate('col_created_by')._unsafeUnwrap())
+      ._unsafeUnwrap();
+
+    const lastModifiedByField = createLastModifiedByField({
+      id: FieldId.create(LAST_MODIFIED_BY_FIELD_ID)._unsafeUnwrap(),
+      name: FieldName.create('LastModifiedBy')._unsafeUnwrap(),
+      meta: generatedMeta,
+    })._unsafeUnwrap();
+    lastModifiedByField
+      .setDbFieldName(DbFieldName.rehydrate('col_last_modified_by')._unsafeUnwrap())
+      ._unsafeUnwrap();
+
+    table = table
+      .replaceField(FieldId.create(CREATED_BY_FIELD_ID)._unsafeUnwrap(), createdByField)
+      ._unsafeUnwrap();
+    table = table
+      .replaceField(FieldId.create(LAST_MODIFIED_BY_FIELD_ID)._unsafeUnwrap(), lastModifiedByField)
+      ._unsafeUnwrap();
+
+    const builder = new RecordInsertBuilder(db);
+    const result = builder.buildInsertData({
+      table,
+      fieldValues: new Map([[TEXT_FIELD_ID, 'Test Value']]),
+      context: {
+        recordId: RECORD_ID,
+        actorId: ACTOR_ID,
+        now: '2025-01-01T00:00:00.000Z',
+      },
+    });
+
+    expect(result.isOk()).toBe(true);
+    const { values, userFieldColumns } = result._unsafeUnwrap();
+
+    // System columns still set
+    expect(values['__created_by']).toBe(ACTOR_ID);
+    expect(values['__last_modified_by']).toBe(ACTOR_ID);
+
+    // User-facing generated columns must not be present in INSERT values
+    expect(values).not.toHaveProperty('col_created_by');
+    expect(values).not.toHaveProperty('col_last_modified_by');
+    expect(userFieldColumns).toHaveLength(0);
+
+    // Non-system fields still populated
+    expect(values['col_name']).toBe('Test Value');
   });
 });

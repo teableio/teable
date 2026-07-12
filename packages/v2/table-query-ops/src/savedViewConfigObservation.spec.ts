@@ -137,7 +137,7 @@ describe('buildSavedViewConfigObservation', () => {
         referencedFieldIds: [titleFieldId],
         functionNames: ['SEARCH'],
         sourceKind: 'formula_source',
-        candidateIndexes: ['gin_trgm'],
+        candidateIndexes: ['gin_trgm', 'btree'],
       },
     });
     expect(JSON.stringify(observation!.shape().snapshot())).not.toContain('needle');

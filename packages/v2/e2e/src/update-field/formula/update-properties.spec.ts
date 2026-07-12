@@ -302,6 +302,88 @@ describe('update-field: formula property updates', () => {
     }
   });
 
+  test('should keep distinct filtering when text formula expression keeps storage type', async () => {
+    let tableId: string | undefined;
+    try {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: 'v2-formula-update-text-distinct-filter',
+        fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+      });
+      tableId = table.id;
+      const primaryFieldId = table.fields.find((f) => f.isPrimary)?.id;
+      if (!primaryFieldId) throw new Error('Primary field not found');
+
+      const withCode = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId,
+        field: { type: 'singleLineText', name: 'Code' },
+      });
+      const codeField = withCode.fields.find((f) => f.name === 'Code');
+      if (!codeField) throw new Error('Code field not found');
+
+      const withFormula = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId,
+        field: {
+          type: 'formula',
+          name: 'Plan Key',
+          options: { expression: `CONCATENATE({${primaryFieldId}}, "-", {${codeField.id}})` },
+        },
+      });
+      const formulaField = withFormula.fields.find((f) => f.name === 'Plan Key');
+      if (!formulaField) throw new Error('Formula field not found');
+
+      await ctx.createRecords(tableId, [
+        { fields: { [primaryFieldId]: 'PLTFL26042108', [codeField.id]: 'AVP1' } },
+        { fields: { [primaryFieldId]: 'static' } },
+      ]);
+      await ctx.drainOutbox();
+      ctx.testContainer.clearLogs();
+
+      await ctx.updateField({
+        tableId,
+        fieldId: formulaField.id,
+        field: {
+          type: 'formula',
+          options: { expression: `CONCATENATE({${primaryFieldId}}, "--", {${codeField.id}})` },
+        },
+      });
+      await ctx.drainOutbox();
+
+      const records = await ctx.listRecords(tableId);
+      const values = records.map((r) => r.fields[formulaField.id]).sort();
+      expect(values).toEqual(['PLTFL26042108--AVP1', 'static--']);
+
+      const updateSqlLogs = ctx.testContainer.spyLogger.getEntriesByMessage(
+        'computed:backfillMany:sql'
+      );
+      const formulaBackfillStarts = ctx.testContainer.spyLogger
+        .getEntriesByMessage('computed:backfillMany:start')
+        .filter((entry) => {
+          const context = entry.context;
+          if (!isObjectRecord(context) || context['tableId'] !== tableId) {
+            return false;
+          }
+
+          const fieldIds = context['fieldIds'];
+          return Array.isArray(fieldIds) && fieldIds.includes(formulaField.id);
+        });
+      expect(formulaBackfillStarts).toHaveLength(1);
+
+      const formulaBackfillContext = updateSqlLogs
+        .map((entry) => (isObjectRecord(entry.context) ? entry.context : undefined))
+        .find((context): context is Record<string, unknown> => context?.['tableId'] === tableId);
+      const formulaBackfillSql = formulaBackfillContext?.['sql'];
+      expect(typeof formulaBackfillSql).toBe('string');
+      if (typeof formulaBackfillSql === 'string') {
+        expect(formulaBackfillSql.toLowerCase()).toContain('is distinct from');
+      }
+    } finally {
+      if (tableId) await ctx.deleteTable(tableId).catch(() => undefined);
+    }
+  });
+
   test('should not publish upstream source field updates when formula expression changes', async () => {
     let tableId: string | undefined;
     try {

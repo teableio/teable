@@ -1247,8 +1247,12 @@ describe('ComputedFieldUpdater', () => {
     expect(propagationQuery?.sql).toContain('as "s_before"');
     expect(propagationQuery?.sql).toContain(`coalesce(to_jsonb("s_current"), '{}'::jsonb)`);
     expect(propagationQuery?.sql).toContain('from "tmp_computed_dirty" as "d"');
-    expect(propagationQuery?.sql).toContain('inner join "bseaaaaaaaaaaaaaaaa"."tbl0000000000000000" as "s"');
-    expect(propagationQuery?.sql).toContain('inner join "bseaaaaaaaaaaaaaaaa"."tbl9999999999999999" as "t"');
+    expect(propagationQuery?.sql).toContain(
+      'inner join "bseaaaaaaaaaaaaaaaa"."tbl0000000000000000" as "s"'
+    );
+    expect(propagationQuery?.sql).toContain(
+      'inner join "bseaaaaaaaaaaaaaaaa"."tbl9999999999999999" as "t"'
+    );
     expect(propagationQuery?.sql).toContain('union all');
     expect(propagationQuery?.sql).not.toContain('exists (');
   });
@@ -1502,6 +1506,87 @@ describe('ComputedFieldUpdater', () => {
         'AS "__record_ids"("__id") ON "t"."__id" = "__record_ids"."__id"'
       );
       expect(query.sql).not.toContain('from "level_0", "level_1"');
+    }
+  });
+
+  it('chunks lateral lookup updates when dirty records exceed threshold', async () => {
+    const {
+      baseId,
+      sourceTable,
+      middleTable,
+      middleLinkFieldId,
+      middleLookupFieldId,
+      sourceNameFieldId,
+    } = createLookupRollupCascadeTables();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+    const seedRecordIds = createSequentialRecordIds(1001);
+
+    const plan: ComputedUpdatePlan = {
+      baseId,
+      seedTableId: sourceTable.id(),
+      seedRecordIds,
+      extraSeedRecords: [],
+      steps: [
+        {
+          tableId: middleTable.id(),
+          fieldIds: [middleLookupFieldId],
+          level: 0,
+        },
+      ],
+      edges: [
+        {
+          fromFieldId: sourceNameFieldId,
+          toFieldId: middleLookupFieldId,
+          fromTableId: sourceTable.id(),
+          toTableId: middleTable.id(),
+          linkFieldId: middleLinkFieldId,
+          order: 0,
+        },
+      ],
+      estimatedComplexity: 1,
+      changeType: 'update',
+      sameTableBatches: [],
+    };
+
+    const { db, driver } = createRecordingDb();
+    const tableRepository = createTableRepository([sourceTable, middleTable]);
+    const logger = createLogger();
+    const typeValidationStrategy = createTypeValidationStrategy();
+    const updater = new ComputedFieldUpdater(
+      tableRepository,
+      logger,
+      db as unknown as Kysely<V1TeableDatabase>,
+      undefined,
+      typeValidationStrategy
+    );
+    const updaterInternal = updater as unknown as {
+      getDirtyCountForTable: () => Promise<number>;
+      getDirtyRecordIdChunks: () => Promise<ReadonlyArray<ReadonlyArray<string>>>;
+    };
+    updaterInternal.getDirtyCountForTable = async () => 1001;
+    updaterInternal.getDirtyRecordIdChunks = async () => [
+      Array.from({ length: 500 }, (_, i) => `rec${i.toString().padStart(16, '0')}`),
+      Array.from({ length: 500 }, (_, i) => `rec${(i + 500).toString().padStart(16, '0')}`),
+      Array.from({ length: 1 }, (_, i) => `rec${(i + 1000).toString().padStart(16, '0')}`),
+    ];
+
+    const context: IExecutionContext = { actorId };
+    const result = await updater.execute(plan, context);
+    expect(result.isOk()).toBe(true);
+
+    const updateQueries = driver.queries.filter(
+      (query) => query.sql.startsWith('update ') && query.sql.includes(' as "u"')
+    );
+
+    // Three dirty-id chunks → three lateral UPDATE…FROM statements.
+    expect(updateQueries.length).toBeGreaterThanOrEqual(3);
+    const lateralUpdates = updateQueries.filter((query) =>
+      query.sql.includes('inner join lateral')
+    );
+    expect(lateralUpdates).toHaveLength(3);
+    for (const query of lateralUpdates) {
+      expect(query.sql).toContain('inner join "tmp_computed_dirty" as "__dirty"');
+      expect(query.sql).toMatch(/"__dirty"\."record_id" in \(/i);
     }
   });
 });

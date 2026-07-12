@@ -9,6 +9,7 @@ import {
   DbFieldName,
   FieldId,
   FieldName,
+  FormulaExpression,
   Table,
   TableId,
   TableName,
@@ -32,6 +33,8 @@ const TABLE_ID = `tbl${'b'.repeat(16)}`;
 const TEXT_FIELD_ID = `fld${'c'.repeat(16)}`;
 const CREATED_BY_FIELD_ID = `fld${'d'.repeat(16)}`;
 const LAST_MODIFIED_BY_FIELD_ID = `fld${'e'.repeat(16)}`;
+const CREATED_BY_FORMULA_FIELD_ID = `fld${'f'.repeat(16)}`;
+const LAST_MODIFIED_BY_FORMULA_FIELD_ID = `fld${'g'.repeat(16)}`;
 
 const typeValidationStrategy = new Pg16TypeValidationStrategy();
 
@@ -53,12 +56,16 @@ const compileQuery = (db: Kysely<DynamicDB>, builder: ComputedTableRecordQueryBu
   return { sql: compiled.sql, parameters: compiled.parameters };
 };
 
-const createTableWithUserFields = () => {
+const createTableWithUserFields = (options: { includeFormulaFields?: boolean } = {}) => {
   const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
   const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
   const textFieldId = FieldId.create(TEXT_FIELD_ID)._unsafeUnwrap();
   const createdByFieldId = FieldId.create(CREATED_BY_FIELD_ID)._unsafeUnwrap();
   const lastModifiedByFieldId = FieldId.create(LAST_MODIFIED_BY_FIELD_ID)._unsafeUnwrap();
+  const createdByFormulaFieldId = FieldId.create(CREATED_BY_FORMULA_FIELD_ID)._unsafeUnwrap();
+  const lastModifiedByFormulaFieldId = FieldId.create(
+    LAST_MODIFIED_BY_FORMULA_FIELD_ID
+  )._unsafeUnwrap();
 
   const builder = Table.builder()
     .withId(tableId)
@@ -90,17 +97,47 @@ const createTableWithUserFields = () => {
     .withName(FieldName.create('LastModifiedBy')._unsafeUnwrap())
     .done();
 
+  if (options.includeFormulaFields) {
+    builder
+      .field()
+      .formula()
+      .withId(createdByFormulaFieldId)
+      .withName(FieldName.create('CreatedByName')._unsafeUnwrap())
+      .withExpression(FormulaExpression.create(`{${createdByFieldId.toString()}}`)._unsafeUnwrap())
+      .done();
+
+    builder
+      .field()
+      .formula()
+      .withId(lastModifiedByFormulaFieldId)
+      .withName(FieldName.create('LastModifiedByName')._unsafeUnwrap())
+      .withExpression(
+        FormulaExpression.create(`{${lastModifiedByFieldId.toString()}}`)._unsafeUnwrap()
+      )
+      .done();
+  }
+
   builder.view().defaultGrid().done();
 
   const table = builder.build()._unsafeUnwrap();
 
   // Set db field names
-  const fields = table.getFields();
-  fields[0].setDbFieldName(DbFieldName.rehydrate('col_name')._unsafeUnwrap())._unsafeUnwrap();
-  fields[1].setDbFieldName(DbFieldName.rehydrate('col_created_by')._unsafeUnwrap())._unsafeUnwrap();
-  fields[2]
-    .setDbFieldName(DbFieldName.rehydrate('col_last_modified_by')._unsafeUnwrap())
-    ._unsafeUnwrap();
+  const setDbFieldName = (fieldId: FieldId, dbFieldName: string) => {
+    table
+      .getField((field) => field.id().equals(fieldId))
+      ._unsafeUnwrap()
+      .setDbFieldName(DbFieldName.rehydrate(dbFieldName)._unsafeUnwrap())
+      ._unsafeUnwrap();
+  };
+
+  setDbFieldName(textFieldId, 'col_name');
+  setDbFieldName(createdByFieldId, 'col_created_by');
+  setDbFieldName(lastModifiedByFieldId, 'col_last_modified_by');
+
+  if (options.includeFormulaFields) {
+    setDbFieldName(createdByFormulaFieldId, 'col_created_by_name');
+    setDbFieldName(lastModifiedByFormulaFieldId, 'col_last_modified_by_name');
+  }
 
   return table;
 };
@@ -180,5 +217,26 @@ describe('ComputedTableRecordQueryBuilder with CreatedBy/LastModifiedBy fields',
     expect(sql).toContain('COALESCE(u.name, u.id)');
     expect(sql).toContain("'/api/attachments/read/public/avatar/'");
     expect(parameters).toEqual([]);
+  });
+
+  it('should treat formula references to system user snapshots as scalar titles', () => {
+    const db = createTestDb();
+    const table = createTableWithUserFields({ includeFormulaFields: true });
+    const createdByFormulaFieldId = FieldId.create(CREATED_BY_FORMULA_FIELD_ID)._unsafeUnwrap();
+    const lastModifiedByFormulaFieldId = FieldId.create(
+      LAST_MODIFIED_BY_FORMULA_FIELD_ID
+    )._unsafeUnwrap();
+
+    const qb = new ComputedTableRecordQueryBuilder(db, { typeValidationStrategy });
+    const { sql } = compileQuery(
+      db,
+      qb.from(table).select([createdByFormulaFieldId, lastModifiedByFormulaFieldId])
+    );
+
+    expect(sql).toContain('as "col_created_by_name"');
+    expect(sql).toContain('as "col_last_modified_by_name"');
+    expect(sql).toContain('"t"."__created_by"');
+    expect(sql).toContain('"t"."__last_modified_by"');
+    expect(sql).not.toContain('jsonb_typeof((COALESCE(');
   });
 });

@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { axios } from '../axios';
 import { duplicateSelectionStream } from './duplicate-stream';
+import { RangeType } from './range';
 
 const createSSEStreamResponse = (chunks: string[]) => {
   const encoder = new TextEncoder();
@@ -49,7 +50,7 @@ describe('duplicateSelectionStream', () => {
       'tbl0000000000000000',
       {
         ranges: [[0, 2]],
-        type: 'rows',
+        type: RangeType.Rows,
       },
       { onProgress }
     );
@@ -83,7 +84,7 @@ describe('duplicateSelectionStream', () => {
       'tbl0000000000000000',
       {
         ranges: [[0, 0]],
-        type: 'rows',
+        type: RangeType.Rows,
       },
       {
         onError,
@@ -117,7 +118,7 @@ describe('duplicateSelectionStream', () => {
     await expect(
       duplicateSelectionStream('tbl0000000000000000', {
         ranges: [[0, 0]],
-        type: 'rows',
+        type: RangeType.Rows,
       })
     ).rejects.toThrow('duplicate failed');
   });
@@ -138,7 +139,7 @@ describe('duplicateSelectionStream', () => {
 
     await duplicateSelectionStream('tbl0000000000000000', {
       ranges: [[0, 0]],
-      type: 'rows',
+      type: RangeType.Rows,
     });
 
     expect(fetchMock).toHaveBeenCalledWith(

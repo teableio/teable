@@ -55,7 +55,12 @@ export const TemplateSelectSpaceDialog = React.forwardRef<
 
   const { mutateAsync: applyTemplateMutator } = useMutation({
     mutationFn: ({ spaceId, templateId }: { spaceId: string; templateId: string }) =>
-      createBaseFromTemplate({ spaceId, templateId, withRecords: true }),
+      createBaseFromTemplate({
+        spaceId,
+        templateId,
+        withRecords: true,
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      }),
     onSuccess: ({ data }) => {
       setOpen(false);
       const { id: baseId, defaultUrl } = data;
@@ -181,7 +186,7 @@ export const TemplateSelectSpaceDialog = React.forwardRef<
               {spaceList?.map((space) => (
                 <SelectItem key={space.id} value={space.id} className="py-1">
                   <span className="flex w-[400px] items-center gap-2 overflow-x-hidden">
-                    <SpaceAvatar name={space.name} className="size-6" />
+                    <SpaceAvatar name={space.name} avatar={space.avatar} className="size-6" />
                     <span className="truncate">{space.name}</span>
                   </span>
                 </SelectItem>

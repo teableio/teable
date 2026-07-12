@@ -430,6 +430,8 @@ export class ComputedFieldSelectExpressionVisitor
             : extractJsonScalarText(`(${expr.valueSql})::jsonb`);
       } else if (expr.isArray && !formulaIsMultiple) {
         finalValueSql = this.unwrapFormulaArrayToScalar(expr.valueSql, expr.valueType);
+      } else if (expr.storageKind === 'json' && !formulaIsMultiple) {
+        finalValueSql = this.unwrapFormulaJsonScalar(expr.valueSql, expr.valueType);
       } else {
         finalValueSql = expr.valueSql;
       }
@@ -474,6 +476,22 @@ export class ComputedFieldSelectExpressionVisitor
       case 'string':
       default:
         return firstElemText;
+    }
+  }
+
+  private unwrapFormulaJsonScalar(valueSql: string, valueType: SqlValueType): string {
+    const scalarText = extractJsonScalarText(`(${valueSql})::jsonb`);
+
+    switch (valueType) {
+      case 'number':
+        return `NULLIF(${scalarText}, '')::double precision`;
+      case 'boolean':
+        return `(${scalarText})::boolean`;
+      case 'datetime':
+        return `(${scalarText})::timestamptz`;
+      case 'string':
+      default:
+        return scalarText;
     }
   }
 
