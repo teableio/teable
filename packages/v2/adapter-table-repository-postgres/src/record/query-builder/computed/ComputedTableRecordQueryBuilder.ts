@@ -838,14 +838,10 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
       dirtyTableName = 'tmp_computed_dirty',
       tableIdColumn = 'table_id',
       recordIdColumn = 'record_id',
-      recordIds,
     } = this.dirtyFilterConfig;
 
     const DIRTY_ALIAS = '__dirty';
-    const recordIdSlice =
-      recordIds && recordIds.length > 0
-        ? [...new Set(recordIds.filter((id) => id.length > 0))]
-        : [];
+    const recordIdPredicate = this.buildDirtyRecordIdSlicePredicate(DIRTY_ALIAS, recordIdColumn);
 
     return (qb) => {
       let next = qb.innerJoin(`${dirtyTableName} as ${DIRTY_ALIAS}`, (join) =>
@@ -855,12 +851,54 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
       ) as QB;
 
       // Slice large dirty sets into smaller UPDATE statements (same TX).
-      if (recordIdSlice.length > 0) {
-        next = next.where(`${DIRTY_ALIAS}.${recordIdColumn}`, 'in', recordIdSlice) as QB;
+      if (recordIdPredicate) {
+        next = next.where(recordIdPredicate) as QB;
       }
 
       return next;
     };
+  }
+
+  private dirtyRecordIdSlice(): ReadonlyArray<string> {
+    const recordIds = this.dirtyFilterConfig?.recordIds;
+    return recordIds?.length ? [...new Set(recordIds.filter((id) => id.length > 0))] : [];
+  }
+
+  private buildDirtyRecordIdSlicePredicate(
+    alias: string,
+    recordIdColumn: string
+  ): Expression<SqlBool> | null {
+    const recordIds = this.dirtyRecordIdSlice();
+    if (recordIds.length === 0) return null;
+
+    return sql<SqlBool>`${sql.ref(`${alias}.${recordIdColumn}`)} = ANY(${recordIds}::text[])`;
+  }
+
+  private buildConditionalHostSource(hostTableName: string) {
+    const dirtyConfig = this.dirtyFilterConfig;
+    if (!dirtyConfig) return `${hostTableName} as ${H}` as const;
+
+    const {
+      dirtyTableName = 'tmp_computed_dirty',
+      tableIdColumn = 'table_id',
+      recordIdColumn = 'record_id',
+    } = dirtyConfig;
+    const recordIdPredicate = this.buildDirtyRecordIdSlicePredicate('__cond_dirty', recordIdColumn);
+
+    let query = this.db
+      .selectFrom(`${hostTableName} as ${H}`)
+      .innerJoin(`${dirtyTableName} as __cond_dirty`, (join) =>
+        join
+          .onRef(`${H}.__id`, '=', `__cond_dirty.${recordIdColumn}`)
+          .on(`__cond_dirty.${tableIdColumn}`, '=', dirtyConfig.tableId)
+      )
+      .selectAll(H);
+
+    if (recordIdPredicate) {
+      query = query.where(recordIdPredicate);
+    }
+
+    return query.as(H);
   }
 
   private createLateralContext() {
@@ -899,7 +937,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
 
     const conditionKey = (columnType: LateralColumnType): string => {
       if (
-        columnType.type !== 'lookup' ||
+        (columnType.type !== 'lookup' && columnType.type !== 'rollup') ||
         !columnType.condition ||
         !columnType.condition.hasFilter()
       ) {
@@ -974,7 +1012,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             foreignTableId,
             columns: [],
             condition:
-              columnType.type === 'lookup' && columnType.condition?.hasFilter()
+              (columnType.type === 'lookup' || columnType.type === 'rollup') &&
+              columnType.condition?.hasFilter()
                 ? columnType.condition
                 : undefined,
           });
@@ -1434,44 +1473,18 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
         const rankedAlias = `${alias}_src`;
         const limitValue = group.limit ?? CONDITIONAL_QUERY_DEFAULT_LIMIT;
         const orderBy = yield* this.resolveSetBasedOrderBy(foreignTable, group);
-        const dirtyConfig = this.dirtyFilterConfig;
+        const hostSource = this.buildConditionalHostSource(hostTableName);
         const rankedColumns = [
           sql`${sql.ref(`${H}.__id`)}`.as('__host_id'),
           sql`row_number() over (partition by ${sql.ref(`${H}.__id`)} order by ${sql.ref(`${F}.${orderBy.column}`)} ${sql.raw(orderBy.direction)})`.as(
             '__rn'
           ),
         ];
-        const rankedQuery = dirtyConfig
-          ? this.db
-              .selectFrom(
-                this.db
-                  .selectFrom(`${hostTableName} as ${H}`)
-                  .innerJoin(
-                    `${dirtyConfig.dirtyTableName ?? 'tmp_computed_dirty'} as __cond_dirty`,
-                    (join) =>
-                      join
-                        .onRef(
-                          `${H}.__id`,
-                          '=',
-                          `__cond_dirty.${dirtyConfig.recordIdColumn ?? 'record_id'}`
-                        )
-                        .on(
-                          `__cond_dirty.${dirtyConfig.tableIdColumn ?? 'table_id'}`,
-                          '=',
-                          dirtyConfig.tableId
-                        )
-                  )
-                  .selectAll(H)
-                  .as(H)
-              )
-              .innerJoin(`${foreignTableName} as ${F}`, (join) => join.on(whereClause))
-              .select(rankedColumns)
-              .selectAll(F)
-          : this.db
-              .selectFrom(`${hostTableName} as ${H}`)
-              .innerJoin(`${foreignTableName} as ${F}`, (join) => join.on(whereClause))
-              .select(rankedColumns)
-              .selectAll(F);
+        const rankedQuery = this.db
+          .selectFrom(hostSource)
+          .innerJoin(`${foreignTableName} as ${F}`, (join) => join.on(whereClause))
+          .select(rankedColumns)
+          .selectAll(F);
 
         const selectExprs: AliasedRawBuilder<unknown, string>[] = [];
         for (const col of columns) {
@@ -1527,28 +1540,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           );
         }
 
-        const dirtyConfig = this.dirtyFilterConfig;
-        const hostSource = dirtyConfig
-          ? this.db
-              .selectFrom(`${hostTableName} as ${H}`)
-              .innerJoin(
-                `${dirtyConfig.dirtyTableName ?? 'tmp_computed_dirty'} as __cond_dirty`,
-                (join) =>
-                  join
-                    .onRef(
-                      `${H}.__id`,
-                      '=',
-                      `__cond_dirty.${dirtyConfig.recordIdColumn ?? 'record_id'}`
-                    )
-                    .on(
-                      `__cond_dirty.${dirtyConfig.tableIdColumn ?? 'table_id'}`,
-                      '=',
-                      dirtyConfig.tableId
-                    )
-              )
-              .selectAll(H)
-              .as(H)
-          : (`${hostTableName} as ${H}` as const);
+        const hostSource = this.buildConditionalHostSource(hostTableName);
 
         const orderBy = yield* this.resolveSetBasedOrderBy(foreignTable, group);
         // Rank whenever limit is set, or the expression is order-sensitive (array_join…).

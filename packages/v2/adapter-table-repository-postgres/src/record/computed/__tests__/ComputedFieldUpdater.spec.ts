@@ -1584,9 +1584,13 @@ describe('ComputedFieldUpdater', () => {
       query.sql.includes('inner join lateral')
     );
     expect(lateralUpdates).toHaveLength(3);
-    for (const query of lateralUpdates) {
+    const expectedChunkSizes = [500, 500, 1];
+    for (const [index, query] of lateralUpdates.entries()) {
       expect(query.sql).toContain('inner join "tmp_computed_dirty" as "__dirty"');
-      expect(query.sql).toMatch(/"__dirty"\."record_id" in \(/i);
+      expect(query.sql).toMatch(/"__dirty"\."record_id" = any\(\$\d+::text\[\]\)/i);
+      const recordIdParameters = query.parameters.filter(Array.isArray);
+      expect(recordIdParameters).toHaveLength(1);
+      expect(recordIdParameters[0]).toHaveLength(expectedChunkSizes[index]);
     }
   });
 });
