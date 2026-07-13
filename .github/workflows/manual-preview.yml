@@ -110,21 +110,21 @@ jobs:
           sed -i "s#__DISPLAY_NAME__#${{ env.DISPLAY_NAME }}#g" deploy.yaml
 
       - name: Apply deploy job
-        uses: actions-hub/kubectl@master
+        uses: actions-hub/kubectl@0456ef3aefab85c135a0e285bc3b5c600372eea2 # master
         env:
           KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
         with:
           args: apply -f deploy.yaml
 
       - name: Rollout status
-        uses: actions-hub/kubectl@master
+        uses: actions-hub/kubectl@0456ef3aefab85c135a0e285bc3b5c600372eea2 # master
         env:
           KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
         with:
           args: rollout status deployment/teable-${{ env.INSTANCE_NAME }} --timeout=300s
 
       - name: Wait for application health check
-        uses: actions-hub/kubectl@master
+        uses: actions-hub/kubectl@0456ef3aefab85c135a0e285bc3b5c600372eea2 # master
         env:
           KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
         with:
