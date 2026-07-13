@@ -1253,10 +1253,10 @@
     }
   },
   "changelog": {
-    "newUpdate": "24 HAZIRAN GUNCELLEMESI",
-    "title": "Agent Computer daha güçlü",
-    "url": "https://help.teable.ai/en/changelog#jun-24-2026",
-    "id": "changelog-2026-06-24-agent-computer-supercharged"
+    "newUpdate": "10 TEMMUZ GUNCELLEMESI",
+    "title": "GPT-5.6 artik Teable'da",
+    "url": "https://help.teable.ai/en/changelog#jul-10-2026",
+    "id": "changelog-2026-07-10-gpt-5-6-is-now-in-teable"
   },
   "resourceDescription": {
     "addDescription": "Açıklama ekle",

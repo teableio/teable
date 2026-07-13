@@ -149,15 +149,15 @@ function BaseMultipleSelect<V extends string, O extends IOption<V> = IOption<V>>
           filter={onSearch ? undefined : commandFilter}
           shouldFilter={!onSearch}
         >
+          <CommandInput
+            placeholder={t('common.search.placeholder')}
+            className="placeholder:text-[13px]"
+            onCompositionStart={() => setIsComposing(true)}
+            onCompositionEnd={() => setIsComposing(false)}
+            onValueChange={(value) => setSearchValue(value)}
+          />
+          <CommandEmpty>{notFoundText}</CommandEmpty>
           <CommandList ref={listRef} className="mt-1">
-            <CommandInput
-              placeholder={t('common.search.placeholder')}
-              className="placeholder:text-[13px]"
-              onCompositionStart={() => setIsComposing(true)}
-              onCompositionEnd={() => setIsComposing(false)}
-              onValueChange={(value) => setSearchValue(value)}
-            />
-            <CommandEmpty>{notFoundText}</CommandEmpty>
             <CommandGroup aria-valuetext="name">
               {options.map((option) => (
                 <CommandItem

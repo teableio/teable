@@ -410,6 +410,39 @@ describe('update-field: number property updates', () => {
     await ctx.deleteField({ tableId, fieldId });
   });
 
+  test('should clear defaultValue T6107', async () => {
+    const fieldId = createFieldId();
+    await ctx.createField({
+      baseId: ctx.baseId,
+      tableId,
+      field: {
+        type: 'number',
+        id: fieldId,
+        name: 'Clear Default',
+        options: { defaultValue: 42 },
+      },
+    });
+
+    const updatedTable = await ctx.updateField({
+      tableId,
+      fieldId,
+      field: { options: { defaultValue: null } },
+    });
+
+    const field = updatedTable.fields.find((f) => f.id === fieldId);
+    expect(isNumberField(field!)).toBe(true);
+    if (isNumberField(field!)) {
+      expect(field.options?.defaultValue).toBeUndefined();
+    }
+
+    // After clear, new records must not receive the previous default.
+    const rec = await ctx.createRecord(tableId, {});
+    expect(rec.fields[fieldId] == null).toBe(true);
+
+    await ctx.deleteField({ tableId, fieldId });
+    await ctx.deleteRecords(tableId, [rec.id]);
+  });
+
   // ============ Combined updates ============
 
   test('should update formatting and showAs together', async () => {

@@ -122,6 +122,13 @@ class FakeTableRepository implements ITableRepository {
     return ok([...tables]);
   }
 
+  async duplicatePhysicalRows(
+    _context: any,
+    _plan: any
+  ): Promise<Result<{ rowCount: number; recordIds: string[] }, DomainError>> {
+    return ok({ rowCount: 0, recordIds: [] });
+  }
+
   async findOne(): Promise<Result<Table, DomainError>> {
     const table = this.tables[Math.min(this.readIndex, this.tables.length - 1)];
     this.readIndex += 1;

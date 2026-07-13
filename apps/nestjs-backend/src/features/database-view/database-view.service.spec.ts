@@ -4,9 +4,12 @@ import { DatabaseViewService } from './database-view.service';
 describe('DatabaseViewService', () => {
   it('creates materialized views in the data database and stores the view name in metadata', async () => {
     const dataExecuteRawUnsafe = vi.fn().mockResolvedValue(undefined);
-    const dataPrisma = {
-      $tx: vi.fn(async (fn: (prisma: { $executeRawUnsafe: typeof dataExecuteRawUnsafe }) => void) =>
-        fn({ $executeRawUnsafe: dataExecuteRawUnsafe })
+    const databaseRouter = {
+      dataPrismaTransactionForTable: vi.fn(
+        async (
+          _tableId: string,
+          fn: (tx: { $executeRawUnsafe: typeof dataExecuteRawUnsafe }) => void
+        ) => fn({ $executeRawUnsafe: dataExecuteRawUnsafe })
       ),
     };
     const metaPrisma = {
@@ -27,7 +30,7 @@ describe('DatabaseViewService', () => {
       dbProvider as never,
       recordQueryBuilderService as never,
       metaPrisma as never,
-      dataPrisma as never,
+      databaseRouter as never,
       {} as never
     );
 
@@ -45,9 +48,12 @@ describe('DatabaseViewService', () => {
 
   it('drops views from the data database and clears metadata separately', async () => {
     const dataExecuteRawUnsafe = vi.fn().mockResolvedValue(undefined);
-    const dataPrisma = {
-      $tx: vi.fn(async (fn: (prisma: { $executeRawUnsafe: typeof dataExecuteRawUnsafe }) => void) =>
-        fn({ $executeRawUnsafe: dataExecuteRawUnsafe })
+    const databaseRouter = {
+      dataPrismaTransactionForTable: vi.fn(
+        async (
+          _tableId: string,
+          fn: (tx: { $executeRawUnsafe: typeof dataExecuteRawUnsafe }) => void
+        ) => fn({ $executeRawUnsafe: dataExecuteRawUnsafe })
       ),
     };
     const metaPrisma = {
@@ -63,7 +69,7 @@ describe('DatabaseViewService', () => {
       dbProvider as never,
       {} as never,
       metaPrisma as never,
-      dataPrisma as never,
+      databaseRouter as never,
       {} as never
     );
 

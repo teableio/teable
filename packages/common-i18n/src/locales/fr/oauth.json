@@ -10,8 +10,7 @@
       "description": "Le nom de votre application OAuth."
     },
     "description": {
-      "label": "Description",
-      "description": "Une brève description de votre application OAuth."
+      "label": "Description"
     },
     "homePageUrl": {
       "label": "URL de la page d'accueil",
@@ -30,10 +29,6 @@
       "label": "URL de rappel",
       "description": "L'URL complète à laquelle rediriger après qu'un utilisateur a autorisé votre intégration.",
       "add": "Ajouter une URL de rappel"
-    },
-    "scopes": {
-      "label": "Périmètres",
-      "description": "Les autorisations dont votre application OAuth a besoin."
     },
     "secret": {
       "label": "Secrets du client",

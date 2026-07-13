@@ -35,7 +35,6 @@ interface IQuickAddButtonsProps {
   findApiModel: (modelId: string) => IGatewayModelAPI | undefined;
   onQuickAdd: (modelId: string) => void;
   onOpenDialog: () => void;
-  showPricing: boolean;
   t: TFunction;
 }
 
@@ -45,7 +44,6 @@ export function QuickAddButtons({
   findApiModel,
   onQuickAdd,
   onOpenDialog,
-  showPricing,
   t,
 }: IQuickAddButtonsProps) {
   return (
@@ -79,7 +77,7 @@ export function QuickAddButtons({
                   <TooltipContent>
                     <div className="text-xs">
                       <div>{modelId}</div>
-                      {showPricing && pricing && (
+                      {pricing && (
                         <div className="text-muted-foreground">
                           {detectIsImageModel(modelId, apiModel)
                             ? formatPriceToCredits(pricing)

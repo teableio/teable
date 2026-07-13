@@ -403,6 +403,7 @@ export interface IDateRangePickerProps {
   options?: IDateFieldOptions;
   className?: string;
   placeholder?: string;
+  modal?: boolean;
 }
 
 export function DateRangePicker({
@@ -411,6 +412,7 @@ export function DateRangePicker({
   options,
   className,
   placeholder,
+  modal,
 }: IDateRangePickerProps) {
   const { t } = useTranslation();
   const { lang = 'en' } = useContext(AppContext);
@@ -637,7 +639,7 @@ export function DateRangePicker({
   const inputDisplayValue = displayValue || placeholder || t('editor.date.rangePlaceholder');
 
   return (
-    <Popover open={open} onOpenChange={handleOpenChange}>
+    <Popover open={open} onOpenChange={handleOpenChange} modal={modal}>
       <PopoverAnchor asChild>
         <div
           className={cn(

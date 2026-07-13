@@ -192,6 +192,7 @@ export class SpaceDataDbCopyService {
     workDir: string;
     jobs?: number;
     strategy?: ISpaceDataDbBaseSchemaCopyStrategy;
+    snapshotId?: string;
     excludedForeignKeys?: ISpaceDataDbExcludedForeignKey[];
     processOptions?: ISpaceDataDbProcessRunOptions;
     hooks?: ISpaceDataDbBaseSchemaCopyHooks;
@@ -203,6 +204,11 @@ export class SpaceDataDbCopyService {
         ? 'pg_dump_restore'
         : requestedStrategy;
     if (strategy === 'pgcopydb') {
+      if (input.snapshotId) {
+        throw new Error(
+          'pgcopydb base schema copy does not support exported PostgreSQL snapshots; use pg_dump_stream_restore or pg_dump_restore'
+        );
+      }
       if (excludedForeignKeys.length) {
         throw new Error(
           'pgcopydb base schema copy does not support filtering out-of-space foreign keys; use pg_dump_restore for this migration'

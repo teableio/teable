@@ -172,23 +172,25 @@ export class RecordService {
     );
   }
 
-  private async getWritableCreatedTimeFieldNames(
+  private async getWritableGeneratedAwareFieldNames(
     tableId: string,
     dbTableName: string,
-    fields: readonly FieldCore[]
+    fields: readonly FieldCore[],
+    fieldType: FieldType.CreatedTime | FieldType.CreatedBy
   ): Promise<Set<string>> {
-    const createdTimeFields = fields.filter(
-      (field) => field.type === FieldType.CreatedTime && !field.isLookup
-    );
-    if (!createdTimeFields.length) {
+    const candidateFields = fields.filter((field) => field.type === fieldType && !field.isLookup);
+    if (!candidateFields.length) {
       return new Set<string>();
     }
 
     const fallbackWritableFieldNames = new Set(
-      createdTimeFields
-        .filter(
-          (field) => (field as IGeneratedColumnMeta).meta?.persistedAsGeneratedColumn !== true
-        )
+      candidateFields
+        .filter((field) => {
+          if (fieldType === FieldType.CreatedBy) {
+            return (field as CreatedByFieldCore).shouldPersistAuditValue?.() !== false;
+          }
+          return (field as IGeneratedColumnMeta).meta?.persistedAsGeneratedColumn !== true;
+        })
         .map((field) => field.dbFieldName)
     );
 
@@ -205,7 +207,7 @@ export class RecordService {
       })
       .whereIn(
         'column_name',
-        createdTimeFields.map((field) => field.dbFieldName)
+        candidateFields.map((field) => field.dbFieldName)
       )
       .toSQL()
       .toNative();
@@ -218,7 +220,7 @@ export class RecordService {
     const columnStateMap = new Map(rows.map((row) => [row.column_name, row.is_generated]));
 
     return new Set(
-      createdTimeFields
+      candidateFields
         .filter((field) => {
           const isGenerated = columnStateMap.get(field.dbFieldName);
           if (isGenerated == null) {
@@ -227,6 +229,32 @@ export class RecordService {
           return isGenerated === 'NEVER';
         })
         .map((field) => field.dbFieldName)
+    );
+  }
+
+  private async getWritableCreatedTimeFieldNames(
+    tableId: string,
+    dbTableName: string,
+    fields: readonly FieldCore[]
+  ): Promise<Set<string>> {
+    return this.getWritableGeneratedAwareFieldNames(
+      tableId,
+      dbTableName,
+      fields,
+      FieldType.CreatedTime
+    );
+  }
+
+  private async getWritableCreatedByFieldNames(
+    tableId: string,
+    dbTableName: string,
+    fields: readonly FieldCore[]
+  ): Promise<Set<string>> {
+    return this.getWritableGeneratedAwareFieldNames(
+      tableId,
+      dbTableName,
+      fields,
+      FieldType.CreatedBy
     );
   }
 
@@ -1379,6 +1407,11 @@ export class RecordService {
       dbTableName,
       fields
     );
+    const writableCreatedByFieldNames = await this.getWritableCreatedByFieldNames(
+      table.id,
+      dbTableName,
+      fields
+    );
     const auditUserValue =
       user &&
       UserFieldDto.fullAvatarUrl({
@@ -1387,7 +1420,10 @@ export class RecordService {
         email: user.email,
       });
     const createdByFields = fields.filter(
-      (f) => f.type === FieldType.CreatedBy && f.shouldPersistAuditValue?.()
+      (f) =>
+        f.type === FieldType.CreatedBy &&
+        f.shouldPersistAuditValue?.() &&
+        writableCreatedByFieldNames.has(f.dbFieldName)
     ) as IFieldInstance[];
     const fieldInstanceMap = fields.reduce(
       (map, curField) => {
@@ -1553,6 +1589,11 @@ export class RecordService {
       dbTableName,
       fields
     );
+    const writableCreatedByFieldNames = await this.getWritableCreatedByFieldNames(
+      table.id,
+      dbTableName,
+      fields
+    );
 
     const views = await this.prismaService.txClient().view.findMany({
       where: { tableId: table.id, deletedTime: null },
@@ -1575,7 +1616,10 @@ export class RecordService {
         email: user.email,
       });
     const createdByFields = fields.filter(
-      (f) => f.type === FieldType.CreatedBy && (f as CreatedByFieldCore).shouldPersistAuditValue?.()
+      (f) =>
+        f.type === FieldType.CreatedBy &&
+        (f as CreatedByFieldCore).shouldPersistAuditValue?.() &&
+        writableCreatedByFieldNames.has(f.dbFieldName)
     );
     const cloneAuditUserValue = () => (auditUserValue ? { ...auditUserValue } : null);
     const sanitizeAuditUserValue = () => {

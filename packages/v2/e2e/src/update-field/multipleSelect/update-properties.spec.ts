@@ -248,6 +248,39 @@ describe('update-field: multipleSelect property updates', () => {
     await ctx.deleteField({ tableId, fieldId });
   });
 
+  test('should clear defaultValue T6107', async () => {
+    const fieldId = createFieldId();
+    const optionA = { id: 'choA', name: 'A', color: Colors.BlueBright };
+    const optionB = { id: 'choB', name: 'B', color: Colors.GreenBright };
+    await ctx.createField({
+      baseId: ctx.baseId,
+      tableId,
+      field: {
+        type: 'multipleSelect',
+        id: fieldId,
+        name: 'Clear Default Tags',
+        options: { choices: [optionA, optionB], defaultValue: ['A', 'B'] },
+      },
+    });
+
+    await ctx.updateField({
+      tableId,
+      fieldId,
+      field: { options: { defaultValue: null } },
+    });
+
+    const updatedField = (await ctx.getTableById(tableId)).fields.find((f) => f.id === fieldId);
+    expect(getSelectOptions(updatedField).defaultValue).toBeUndefined();
+
+    // After clear, new records must not receive the previous default choices.
+    const rec = await ctx.createRecord(tableId, {});
+    const value = rec.fields[fieldId];
+    expect(value == null || (Array.isArray(value) && value.length === 0)).toBe(true);
+
+    await ctx.deleteField({ tableId, fieldId });
+    await ctx.deleteRecords(tableId, [rec.id]);
+  });
+
   test('should validate all defaultValue items exist in options', async () => {
     const fieldId = createFieldId();
     const optionA = { id: 'choA', name: 'A', color: Colors.BlueBright };
