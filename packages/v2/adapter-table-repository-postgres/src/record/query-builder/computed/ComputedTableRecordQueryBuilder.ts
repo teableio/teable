@@ -899,7 +899,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
 
     const conditionKey = (columnType: LateralColumnType): string => {
       if (
-        columnType.type !== 'lookup' ||
+        (columnType.type !== 'lookup' && columnType.type !== 'rollup') ||
         !columnType.condition ||
         !columnType.condition.hasFilter()
       ) {
@@ -974,7 +974,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             foreignTableId,
             columns: [],
             condition:
-              columnType.type === 'lookup' && columnType.condition?.hasFilter()
+              (columnType.type === 'lookup' || columnType.type === 'rollup') &&
+              columnType.condition?.hasFilter()
                 ? columnType.condition
                 : undefined,
           });
