@@ -641,19 +641,16 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       (event: string | IBaseImportProgress) => progressEvents.push(event)
     );
 
-    expect(internals.duplicateTableData).not.toHaveBeenCalled();
+    // Same-DB + withRecords uses bulk SQL even when a progress callback is provided
+    // (stream API still gets coarse progress around bulk copy).
+    expect(internals.duplicateTableData).toHaveBeenCalled();
+    expect(internals.duplicateLinkJunction).toHaveBeenCalled();
     expect((commandBus.execute.mock.calls[0]?.[1] as { withRecords: boolean }).withRecords).toBe(
-      true
+      false
     );
     expect(progressEvents).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ phase: 'table_data_start', processedRows: 0, totalRows: 12 }),
-        expect.objectContaining({
-          phase: 'table_data_progress',
-          processedRows: 5,
-          batchProcessedRows: 5,
-          totalRows: 12,
-        }),
+        expect.objectContaining({ phase: 'table_data_start', processedRows: 0 }),
         expect.objectContaining({ phase: 'table_data_done', processedRows: 12, totalRows: 12 }),
         expect.objectContaining({ phase: 'attachments_copying', processedRows: 12, totalRows: 12 }),
         expect.objectContaining({ phase: 'duplicate_done', processedRows: 12, totalRows: 12 }),

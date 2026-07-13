@@ -32,9 +32,15 @@ export class RecordCreateService {
   ): Promise<ICreateRecordsVo> {
     const { fieldKeyType = FieldKeyType.Name, records, typecast, order } = createRecordsRo;
     const table = await this.tableDomainQueryService.getTableDomainById(tableId);
+    const recordsWithDefaults = await this.shared.appendDefaultValue(
+      records,
+      fieldKeyType,
+      table.fieldList,
+      { onlyMissingFields: true, fillUserInfo: 'defaulted' }
+    );
     const typecastRecords = await this.shared.validateFieldsAndTypecast<
       IMakeOptional<IRecordInnerRo, 'id'>
-    >(table, records, fieldKeyType, typecast, ignoreMissingFields);
+    >(table, recordsWithDefaults, fieldKeyType, typecast, ignoreMissingFields);
     const preparedRecords = await this.shared.appendRecordOrderIndexes(
       table,
       typecastRecords,
@@ -68,8 +74,13 @@ export class RecordCreateService {
     }
     const records = recordsRo.map((r) => ({ ...r, id: r.id || generateRecordId() }));
     const fields = table.fieldList;
-    await this.recordService.batchCreateRecords(table, records, fieldKeyType, fields);
-    const recordsWithDefaults = await this.shared.appendDefaultValue(records, fieldKeyType, fields);
+    const recordsWithDefaults = await this.shared.appendDefaultValue(
+      records,
+      fieldKeyType,
+      fields,
+      { onlyMissingFields: true }
+    );
+    await this.recordService.batchCreateRecords(table, recordsWithDefaults, fieldKeyType, fields);
     const contextReadyRecords = await this.shared.ensureReferencedBaseFieldsForNewRecords(
       recordsWithDefaults,
       fieldKeyType,

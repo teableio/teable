@@ -133,20 +133,56 @@ export const createForeignKeyConstraintStatement = (
   targetTable: TableIdentifier,
   targetColumn: string,
   onDelete: 'CASCADE' | 'SET NULL' | 'RESTRICT' = 'CASCADE',
-  _targetTableMetaId?: string
+  targetTableMetaId?: string
 ): TableSchemaStatementBuilder => {
   const sourceSchema = sourceTable.schema ?? 'public';
   const targetSchema = targetTable.schema ?? 'public';
+  const resolveTargetFromMeta = targetTableMetaId
+    ? `
+        IF EXISTS (
+          SELECT 1
+          FROM information_schema.tables
+          WHERE table_schema = 'public'
+            AND table_name = 'table_meta'
+        ) THEN
+          SELECT db_table_name
+          INTO resolved_target_db_table_name
+          FROM public.table_meta
+          WHERE id = ${quoteLiteral(targetTableMetaId)}
+            AND deleted_time IS NULL
+          LIMIT 1;
+
+          IF resolved_target_db_table_name IS NOT NULL AND resolved_target_db_table_name <> '' THEN
+            IF position('.' IN resolved_target_db_table_name) > 0 THEN
+              resolved_target_schema := split_part(resolved_target_db_table_name, '.', 1);
+              resolved_target_table := substring(
+                resolved_target_db_table_name
+                FROM position('.' IN resolved_target_db_table_name) + 1
+              );
+            ELSE
+              resolved_target_schema := 'public';
+              resolved_target_table := resolved_target_db_table_name;
+            END IF;
+          END IF;
+        END IF;
+      `
+    : '';
 
   return dataStatement(
     sql.raw(
       compressSql(`
       DO $$
+      DECLARE
+        resolved_target_schema TEXT := ${quoteLiteral(targetSchema)};
+        resolved_target_table TEXT := ${quoteLiteral(targetTable.tableName)};
+        resolved_target_db_table_name TEXT;
       BEGIN
+        ${resolveTargetFromMeta}
+
         IF EXISTS (
           SELECT 1 FROM information_schema.tables 
-          WHERE table_schema = ${quoteLiteral(targetSchema)}
-          AND table_name = ${quoteLiteral(targetTable.tableName)}
+          WHERE table_schema = resolved_target_schema
+          AND table_name = resolved_target_table
         ) THEN
           BEGIN
             EXECUTE format(
@@ -155,8 +191,8 @@ export const createForeignKeyConstraintStatement = (
               ${quoteLiteral(sourceTable.tableName)},
               ${quoteLiteral(constraintName)},
               ${quoteLiteral(columnName)},
-              ${quoteLiteral(targetSchema)},
-              ${quoteLiteral(targetTable.tableName)},
+              resolved_target_schema,
+              resolved_target_table,
               ${quoteLiteral(targetColumn)}
             );
           EXCEPTION WHEN duplicate_object THEN

@@ -917,6 +917,7 @@ describe('SameTableBatchQueryBuilder', () => {
       expect(sqlText).toContain(`WHEN "t"."CreatedBy" IS NULL THEN NULL::jsonb`);
       expect(sqlText).toContain(`WHEN "t"."LastModifiedBy" IS NULL THEN NULL::jsonb`);
       expect(sqlText).toContain(`END)->>'title'`);
+      expect(sqlText).not.toContain('jsonb_typeof((COALESCE(');
     });
 
     it('extracts link title when a same-table formula directly references a link field', () => {

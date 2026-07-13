@@ -28,12 +28,10 @@
     },
     "combo": {
       "xAxis": {
-        "label": "Вісь X",
-        "placeholder": "Оберіть вісь X"
+        "label": "Вісь X"
       },
       "yAxis": {
         "label": "Вісь Y",
-        "placeholder": "Оберіть вісь Y",
         "position": "Позиція осі Y"
       },
       "xDisplay": {
@@ -46,7 +44,6 @@
       "addYAxis": "Додати іншу серію",
       "stack": "Накладення",
       "position": {
-        "label": "Позиція",
         "auto": "Автоматично",
         "left": "Ліворуч",
         "right": "Праворуч"

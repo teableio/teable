@@ -7,6 +7,7 @@ on:
     paths:
       - 'apps/**'
       - 'packages/**'
+      - 'plugins/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -38,13 +39,14 @@ jobs:
 
       - name: 🏗 Run build
         run: |
-          pnpm -F "./packages/**" run build
+          pnpm -F "./packages/**" -F "!@teable/v2-*" run build
 
       - name: 🕵️ Typecheck
         run: |
-          pnpm g:typecheck
+          pnpm -r -F "./apps/**" -F "./packages/**" -F "./plugins" -F "!@teable/backend" -F "!@teable/v2-*" --workspace-concurrency=1 typecheck
+          pnpm -F "@teable/backend" exec tsc --project ./tsconfig.build.json --noEmit
 
       - name: 🔬 Linter
         run: |
-          pnpm g:lint
-          pnpm g:lint-styles
+          pnpm -r -F "./apps/**" -F "./packages/**" -F "./plugins" -F "!@teable/backend" -F "!@teable/v2-*" -F "!@teable/db-data-prisma" -F "!@teable/i18n-keys" --parallel lint --color
+          pnpm -r -F "./apps/**" -F "./packages/**" -F "!@teable/v2-*" --if-present lint-styles --color

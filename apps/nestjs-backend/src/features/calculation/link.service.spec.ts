@@ -24,14 +24,14 @@ describe('LinkService', () => {
 
   it('reads link junction rows from the data database', async () => {
     const metaQueryRawUnsafe = vi.fn();
-    const dataQueryRawUnsafe = vi.fn().mockResolvedValue([]);
+    const queryDataPrismaForTable = vi.fn().mockResolvedValue([]);
     const knex = createKnex({ client: 'pg' });
     const service = new LinkService(
       {
         txClient: () => ({ $queryRawUnsafe: metaQueryRawUnsafe }),
       } as never,
       {
-        txClient: () => ({ $queryRawUnsafe: dataQueryRawUnsafe }),
+        queryDataPrismaForTable,
       } as never,
       {} as never,
       {} as never,
@@ -43,9 +43,13 @@ describe('LinkService', () => {
       fkHostTableName: 'bseTest.link_junction',
       selfKeyName: 'self_id',
       foreignKeyName: 'foreign_id',
+      foreignTableId: 'tblForeign',
     } as never);
 
-    expect(dataQueryRawUnsafe).toHaveBeenCalledTimes(1);
+    expect(queryDataPrismaForTable).toHaveBeenCalledTimes(1);
+    expect(queryDataPrismaForTable).toHaveBeenCalledWith('tblForeign', expect.any(String), {
+      useTransaction: true,
+    });
     expect(metaQueryRawUnsafe).not.toHaveBeenCalled();
     await knex.destroy();
   });

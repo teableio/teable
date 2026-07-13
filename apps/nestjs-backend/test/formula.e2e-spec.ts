@@ -2052,7 +2052,8 @@ describe('OpenAPI formula (e2e)', () => {
 
       const recordAfterFormula = await getRecord(table1Id, recordId);
       const formulaValue = recordAfterFormula.data.fields[formulaField.name];
-      expect(formulaValue).toBe('2025-10-24 00:00-hello');
+      // v2 concat respects date-only display formatting (T5584); v1 keeps the legacy time suffix
+      expect(formulaValue).toBe(useV2BatchCreate ? '2025-10-24-hello' : '2025-10-24 00:00-hello');
     });
 
     it('should keep concatenated formula after updating referenced text field', async () => {
@@ -2098,7 +2099,7 @@ describe('OpenAPI formula (e2e)', () => {
 
       const recordAfterFormula = await getRecord(table1Id, recordId);
       const formulaValue = recordAfterFormula.data.fields[formulaField.name];
-      expect(formulaValue).toBe('2025-10-24 00:00-world');
+      expect(formulaValue).toBe(useV2BatchCreate ? '2025-10-24-world' : '2025-10-24 00:00-world');
     });
 
     it('should flatten multi-value lookup single-select when concatenated', async () => {
@@ -3969,7 +3970,8 @@ describe('OpenAPI formula (e2e)', () => {
 
       const recordAfterFormula = await getRecord(table1Id, recordId);
       const formulaValue = recordAfterFormula.data.fields[formulaField.name];
-      expect(formulaValue).toBe('2025-10-26 00:00-hello');
+      // v2 concat respects date-only display formatting (T5584); v1 keeps the legacy time suffix
+      expect(formulaValue).toBe(useV2BatchCreate ? '2025-10-26-hello' : '2025-10-26 00:00-hello');
     });
   });
 

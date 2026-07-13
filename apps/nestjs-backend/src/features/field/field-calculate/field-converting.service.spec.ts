@@ -110,6 +110,7 @@ describe('FieldConvertingService', () => {
       visibleFieldIds: null,
       sort: null,
       limit: null,
+      defaultValue: null,
     });
 
     expect(

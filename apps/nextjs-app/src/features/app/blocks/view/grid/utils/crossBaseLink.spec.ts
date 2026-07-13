@@ -25,7 +25,7 @@ describe('downgradeCrossBaseHeaders', () => {
         id: 'fldLink',
         name: 'Linked',
         type: FieldType.Link,
-        options: { baseId: foreignBaseId, foreignTableId: 'tblOther' },
+        options: { baseId: foreignBaseId, foreignTableId: 'tblOther' } as IFieldVo['options'],
       }),
     ];
 

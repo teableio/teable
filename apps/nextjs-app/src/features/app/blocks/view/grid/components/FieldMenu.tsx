@@ -45,11 +45,16 @@ import {
   Sheet,
   SheetContent,
   SheetHeader,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { CopyPlus, Trash } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
+import type { ReactNode } from 'react';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { useClickAway } from 'react-use';
 import { useColumnDownloadDialogStore } from '@/features/app/components/download-attachments';
@@ -80,6 +85,49 @@ enum MenuItemType {
 }
 
 const iconClassName = 'mr-2 h-4 w-4';
+const disabledTooltipMaxWidth = 300;
+
+interface IFieldMenuItem extends Omit<IMenuItemProps<MenuItemType>, 'onClick'> {
+  disabledTooltip?: string;
+  onClick: () => void | Promise<void>;
+}
+
+const DisabledTooltipMenuItem = ({
+  children,
+  content,
+}: {
+  children: ReactNode;
+  content: string;
+}) => {
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const [side, setSide] = useState<'left' | 'right'>('right');
+
+  const updateSide = () => {
+    const triggerRect = triggerRef.current?.getBoundingClientRect();
+    if (!triggerRect) return;
+    const leftSpace = triggerRect.left;
+    const rightSpace = window.innerWidth - triggerRect.right;
+    setSide(rightSpace >= disabledTooltipMaxWidth || rightSpace >= leftSpace ? 'right' : 'left');
+  };
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div ref={triggerRef} onMouseEnter={updateSide} onFocus={updateSide}>
+            {children}
+          </div>
+        </TooltipTrigger>
+        <TooltipContent
+          side={side}
+          className="max-w-[300px] whitespace-normal break-words text-left"
+        >
+          {content}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+};
 
 // eslint-disable-next-line sonarjs/cognitive-complexity
 export const FieldMenu = () => {
@@ -150,6 +198,11 @@ export const FieldMenu = () => {
   }
 
   const fieldIds = fields.map((f) => f.id);
+  const { freezeColumnIndex, maxFreezeColumnCount } = headerMenu ?? {};
+  const canFreezeToMenuField =
+    freezeColumnIndex == null ||
+    maxFreezeColumnCount == null ||
+    freezeColumnIndex + 1 <= maxFreezeColumnCount;
 
   const visible = Boolean(headerMenu);
   const position = headerMenu?.position;
@@ -216,7 +269,7 @@ export const FieldMenu = () => {
     });
   };
 
-  const menuGroups: IMenuItemProps<MenuItemType>[][] = [
+  const rawMenuGroups: IFieldMenuItem[][] = [
     [
       {
         type: MenuItemType.Edit,
@@ -429,7 +482,10 @@ export const FieldMenu = () => {
         name: t('table:menu.freezeUpField'),
         icon: <FreezeColumn className={iconClassName} />,
         hidden: fieldIds.length !== 1 || !isViewConfigurable,
-        disabled: isViewLocked,
+        disabled: isViewLocked || !canFreezeToMenuField,
+        disabledTooltip: !canFreezeToMenuField
+          ? t('table:menu.freezeFieldWindowTooNarrow')
+          : undefined,
         onClick: async () => await freezeField(),
       },
     ],
@@ -473,7 +529,9 @@ export const FieldMenu = () => {
         },
       },
     ],
-  ]
+  ];
+
+  const menuGroups = rawMenuGroups
     .map((items) => items.filter(({ hidden }) => !hidden))
     .filter((items) => items.length);
 
@@ -535,32 +593,49 @@ export const FieldMenu = () => {
                   return (
                     <Fragment key={index}>
                       <CommandGroup aria-valuetext="name">
-                        {items.map(({ type, name, icon, disabled, className, onClick }) => (
-                          <CommandItem
-                            className={cn('px-4 py-2', className, {
-                              'cursor-not-allowed': disabled,
-                              'opacity-50': disabled,
-                            })}
-                            key={type}
-                            value={name}
-                            onSelect={async () => {
-                              if (disabled) {
-                                return;
-                              }
-                              await onClick();
-                              // Don't auto-close for actions that own their own
-                              // follow-up dialog; those handle closing the menu
-                              // after the dialog resolves.
-                              if (type !== MenuItemType.Delete && type !== MenuItemType.Duplicate) {
-                                onSelectionClear?.();
-                                closeHeaderMenu();
-                              }
-                            }}
-                          >
-                            {icon}
-                            {name}
-                          </CommandItem>
-                        ))}
+                        {items.map(
+                          ({ type, name, icon, disabled, disabledTooltip, className, onClick }) => {
+                            const item = (
+                              <CommandItem
+                                className={cn('px-4 py-2', className, {
+                                  'cursor-not-allowed': disabled,
+                                  'opacity-50': disabled,
+                                })}
+                                key={type}
+                                value={name}
+                                onSelect={async () => {
+                                  if (disabled) {
+                                    return;
+                                  }
+                                  await onClick();
+                                  // Don't auto-close for actions that own their own
+                                  // follow-up dialog; those handle closing the menu
+                                  // after the dialog resolves.
+                                  if (
+                                    type !== MenuItemType.Delete &&
+                                    type !== MenuItemType.Duplicate
+                                  ) {
+                                    onSelectionClear?.();
+                                    closeHeaderMenu();
+                                  }
+                                }}
+                              >
+                                {icon}
+                                {name}
+                              </CommandItem>
+                            );
+
+                            if (!disabledTooltip) {
+                              return item;
+                            }
+
+                            return (
+                              <DisabledTooltipMenuItem key={type} content={disabledTooltip}>
+                                {item}
+                              </DisabledTooltipMenuItem>
+                            );
+                          }
+                        )}
                       </CommandGroup>
                       {nextItems.length > 0 && <CommandSeparator />}
                     </Fragment>

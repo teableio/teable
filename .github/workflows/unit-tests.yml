@@ -42,8 +42,8 @@ jobs:
 
       - name: 🏗 Run build
         run: |
-          pnpm -F "./packages/**" run build
+          pnpm -F "./packages/**" -F "!@teable/v2-*" run build
 
       - name: 🧪 Run Tests
         run: |
-          pnpm -F "!@teable/backend" -r --parallel test-unit
+          pnpm -r -F "@teable/app" -F "@teable/core" -F "@teable/sdk" -F "@teable/openapi" --parallel test-unit

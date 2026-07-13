@@ -1,5 +1,6 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
+import { SPACE_NAME_MAX_LENGTH } from '../space/create';
 import { registerRoute } from '../utils';
 import { z } from '../zod';
 import { signinSchema } from './signin';
@@ -17,7 +18,7 @@ export const refMetaSchema = z.object({
 export type IRefMeta = z.infer<typeof refMetaSchema>;
 
 export const signupSchema = signinSchema.extend({
-  defaultSpaceName: z.string().optional(),
+  defaultSpaceName: z.string().min(1).max(SPACE_NAME_MAX_LENGTH).optional(),
   refMeta: refMetaSchema.optional(),
   password: signupPasswordSchema,
   verification: z

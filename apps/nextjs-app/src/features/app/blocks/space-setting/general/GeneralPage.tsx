@@ -1,7 +1,15 @@
 /* eslint-disable jsx-a11y/no-autofocus */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { hasPermission } from '@teable/core';
-import { deleteSpace, getSpaceById, permanentDeleteSpace, updateSpace } from '@teable/openapi';
+import { Edit } from '@teable/icons';
+import {
+  deleteSpace,
+  getSpaceById,
+  permanentDeleteSpace,
+  updateSpace,
+  updateSpaceAvatar,
+  SPACE_NAME_MAX_LENGTH,
+} from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { Button, Input } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
@@ -9,6 +17,7 @@ import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
 import { CopyButton } from '@/features/app/components/CopyButton';
 import { DeleteSpaceConfirm } from '@/features/app/components/space/DeleteSpaceConfirm';
+import { SpaceAvatar } from '@/features/app/components/space/SpaceAvatar';
 import { SpaceSettingContainer } from '@/features/app/components/SpaceSettingContainer';
 import { spaceConfig } from '@/features/i18n/space.config';
 
@@ -33,6 +42,26 @@ export const GeneralPage = ({ spaceId: spaceIdProp }: { spaceId?: string } = {})
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.space(spaceId) });
     },
   });
+
+  const { mutate: updateSpaceAvatarMutator } = useMutation({
+    mutationFn: (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      return updateSpaceAvatar(spaceId, formData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.space(spaceId) });
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.spaceList() });
+    },
+  });
+
+  const uploadAvatar = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      return;
+    }
+    updateSpaceAvatarMutator(file);
+  };
 
   const { mutate: deleteSpaceMutator } = useMutation({
     mutationFn: deleteSpace,
@@ -84,8 +113,26 @@ export const GeneralPage = ({ spaceId: spaceIdProp }: { spaceId?: string } = {})
           <div className="flex h-full flex-col justify-between">
             <div className="flex flex-col gap-y-4">
               {/* Avatar */}
-              <div className="flex size-14 items-center justify-center rounded-md border text-2xl font-medium">
-                {space.name.charAt(0).toUpperCase()}
+              <div className="group relative size-14">
+                <SpaceAvatar
+                  name={space.name}
+                  avatar={space.avatar}
+                  className="size-14 rounded-md text-2xl"
+                />
+                {hasPermission(space.role, 'space|update') && (
+                  <div
+                    className="absolute inset-0 flex items-center justify-center rounded-md bg-black/60 opacity-0 group-hover:opacity-100"
+                    title={t('common:settings.account.updatePhoto')}
+                  >
+                    <Edit className="size-5 text-white" />
+                    <input
+                      type="file"
+                      className="absolute inset-0 size-full cursor-pointer opacity-0"
+                      accept="image/*"
+                      onChange={uploadAvatar}
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Space name */}
@@ -94,6 +141,7 @@ export const GeneralPage = ({ spaceId: spaceIdProp }: { spaceId?: string } = {})
                 {isEditing ? (
                   <Input
                     defaultValue={space.name}
+                    maxLength={SPACE_NAME_MAX_LENGTH}
                     onBlur={onBlur}
                     onKeyDown={onKeydown}
                     autoFocus
