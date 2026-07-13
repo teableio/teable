@@ -604,6 +604,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
   private readonly forceLookupArrayOutput: boolean;
   private userSnapshotActorFallback?: UserSnapshotActorFallback;
   private readonly resolveSystemUserSnapshotsFromUsers: boolean;
+  private unchunkedDirtySetHostKeyColumns: ReadonlyArray<string> = [];
 
   readonly mode: QueryMode = 'computed';
 
@@ -662,6 +663,14 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
   withDirtyFilter(config: IDirtyFilterConfig): this {
     this.dirtyFilterConfig = config;
     return this;
+  }
+
+  canExecuteUnchunkedDirtySet(): boolean {
+    return this.unchunkedDirtySetHostKeyColumns.length > 0;
+  }
+
+  unchunkedHostKeyColumns(): ReadonlyArray<string> {
+    return this.unchunkedDirtySetHostKeyColumns;
   }
 
   /**
@@ -738,6 +747,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     const table = this.table;
     const foreignTables = this.foreignTables;
     const projection = this.projection;
+    this.unchunkedDirtySetHostKeyColumns = [];
     const { laterals, conditionalLaterals, ctx: lateralCtx } = this.createLateralContext();
 
     return safeTry<QB, DomainError>(
@@ -751,6 +761,9 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           foreignTables,
           conditionalLaterals
         );
+        if (laterals.size > 0) {
+          this.unchunkedDirtySetHostKeyColumns = [];
+        }
 
         // Always include __id column for record identification
         const idColumn = sql`${sql.ref(`${T}.__id`)}`.as('__id');
@@ -838,14 +851,10 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
       dirtyTableName = 'tmp_computed_dirty',
       tableIdColumn = 'table_id',
       recordIdColumn = 'record_id',
-      recordIds,
     } = this.dirtyFilterConfig;
 
     const DIRTY_ALIAS = '__dirty';
-    const recordIdSlice =
-      recordIds && recordIds.length > 0
-        ? [...new Set(recordIds.filter((id) => id.length > 0))]
-        : [];
+    const recordIdPredicate = this.buildDirtyRecordIdSlicePredicate(DIRTY_ALIAS, recordIdColumn);
 
     return (qb) => {
       let next = qb.innerJoin(`${dirtyTableName} as ${DIRTY_ALIAS}`, (join) =>
@@ -855,12 +864,90 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
       ) as QB;
 
       // Slice large dirty sets into smaller UPDATE statements (same TX).
-      if (recordIdSlice.length > 0) {
-        next = next.where(`${DIRTY_ALIAS}.${recordIdColumn}`, 'in', recordIdSlice) as QB;
+      if (recordIdPredicate) {
+        next = next.where(recordIdPredicate) as QB;
       }
 
       return next;
     };
+  }
+
+  private dirtyRecordIdSlice(): ReadonlyArray<string> {
+    const recordIds = this.dirtyFilterConfig?.recordIds;
+    return recordIds?.length ? [...new Set(recordIds.filter((id) => id.length > 0))] : [];
+  }
+
+  private buildDirtyRecordIdSlicePredicate(
+    alias: string,
+    recordIdColumn: string
+  ): Expression<SqlBool> | null {
+    const recordIds = this.dirtyRecordIdSlice();
+    if (recordIds.length === 0) return null;
+
+    return sql<SqlBool>`${sql.ref(`${alias}.${recordIdColumn}`)} = ANY(${recordIds}::text[])`;
+  }
+
+  private buildConditionalHostSource(hostTableName: string) {
+    const dirtyConfig = this.dirtyFilterConfig;
+    if (!dirtyConfig) return `${hostTableName} as ${H}` as const;
+
+    const {
+      dirtyTableName = 'tmp_computed_dirty',
+      tableIdColumn = 'table_id',
+      recordIdColumn = 'record_id',
+    } = dirtyConfig;
+    const recordIdPredicate = this.buildDirtyRecordIdSlicePredicate('__cond_dirty', recordIdColumn);
+
+    let query = this.db
+      .selectFrom(`${hostTableName} as ${H}`)
+      .innerJoin(`${dirtyTableName} as __cond_dirty`, (join) =>
+        join
+          .onRef(`${H}.__id`, '=', `__cond_dirty.${recordIdColumn}`)
+          .on(`__cond_dirty.${tableIdColumn}`, '=', dirtyConfig.tableId)
+      )
+      .selectAll(H);
+
+    if (recordIdPredicate) {
+      query = query.where(recordIdPredicate);
+    }
+
+    return query.as(H);
+  }
+
+  private buildConditionalHostKeySource(hostTableName: string, hostKeyColumn: string) {
+    const dirtyConfig = this.dirtyFilterConfig;
+    const hostKeySelection = sql`${sql.ref(`${H}.${hostKeyColumn}`)}`.as(hostKeyColumn);
+
+    if (!dirtyConfig) {
+      return this.db
+        .selectFrom(`${hostTableName} as ${H}`)
+        .select(hostKeySelection)
+        .distinct()
+        .as(H);
+    }
+
+    const {
+      dirtyTableName = 'tmp_computed_dirty',
+      tableIdColumn = 'table_id',
+      recordIdColumn = 'record_id',
+    } = dirtyConfig;
+    const recordIdPredicate = this.buildDirtyRecordIdSlicePredicate('__cond_dirty', recordIdColumn);
+
+    let query = this.db
+      .selectFrom(`${hostTableName} as ${H}`)
+      .innerJoin(`${dirtyTableName} as __cond_dirty`, (join) =>
+        join
+          .onRef(`${H}.__id`, '=', `__cond_dirty.${recordIdColumn}`)
+          .on(`__cond_dirty.${tableIdColumn}`, '=', dirtyConfig.tableId)
+      )
+      .select(hostKeySelection)
+      .distinct();
+
+    if (recordIdPredicate) {
+      query = query.where(recordIdPredicate);
+    }
+
+    return query.as(H);
   }
 
   private createLateralContext() {
@@ -899,7 +986,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
 
     const conditionKey = (columnType: LateralColumnType): string => {
       if (
-        columnType.type !== 'lookup' ||
+        (columnType.type !== 'lookup' && columnType.type !== 'rollup') ||
         !columnType.condition ||
         !columnType.condition.hasFilter()
       ) {
@@ -974,7 +1061,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             foreignTableId,
             columns: [],
             condition:
-              columnType.type === 'lookup' && columnType.condition?.hasFilter()
+              (columnType.type === 'lookup' || columnType.type === 'rollup') &&
+              columnType.condition?.hasFilter()
                 ? columnType.condition
                 : undefined,
           });
@@ -1132,6 +1220,41 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
    * - conditionalLookup: set-based host aggregate for field-reference equality
    *   (+ residual constants, optional sort/limit); otherwise LATERAL jsonb_agg
    */
+  private resolveScalarConditionalHostKeyColumn(
+    foreignTable: Table,
+    group: ConditionalFieldReferenceGroup
+  ): Result<string | null, DomainError> {
+    const hostTable = this.table;
+    if (!hostTable) {
+      return err(domainError.validation({ message: 'Call from() first' }));
+    }
+
+    return safeTry<string | null, DomainError>(function* () {
+      const hostFieldId = yield* FieldId.create(group.hostFieldId);
+      const foreignFieldId = yield* FieldId.create(group.foreignFieldId);
+      const hostField = yield* hostTable.getField((field) => field.id().equals(hostFieldId));
+      const foreignField = yield* foreignTable.getField((field) =>
+        field.id().equals(foreignFieldId)
+      );
+
+      // Text equality is stable under DISTINCT/GROUP BY and covers the high-fanout
+      // conditional-group path. Multi-value/user/link semantics keep the host-id path.
+      if (
+        !hostField.type().equals(FieldType.singleLineText()) ||
+        !foreignField.type().equals(FieldType.singleLineText())
+      ) {
+        return ok(null);
+      }
+
+      const dbFieldName = yield* hostField.dbFieldName();
+      return ok(yield* dbFieldName.value());
+    });
+  }
+
+  private nullSafeTextKeyEquality(left: string, right: string): Expression<SqlBool> {
+    return sql<SqlBool>`(${sql.ref(left)} is null) = (${sql.ref(right)} is null) and coalesce(${sql.ref(left)}, ''::text) = coalesce(${sql.ref(right)}, ''::text)`;
+  }
+
   private buildConditionalJoins(
     foreignTables: ReadonlyMap<string, Table>,
     conditionalLaterals: Map<
@@ -1152,7 +1275,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
       function* (this: ComputedTableRecordQueryBuilder) {
         const subqueries: Array<{
           query: AliasedExpression<Record<string, unknown>, string>;
-          joinMode: 'lateral' | 'inner' | 'hostLeft';
+          joinMode: 'lateral' | 'inner' | 'hostLeft' | 'hostKey';
+          hostKeyColumn?: string;
         }> = [];
 
         for (const [, lateral] of conditionalLaterals) {
@@ -1173,16 +1297,22 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             lateral.columns
           );
           if (sharedRollupSetBasedGroup) {
+            const hostKeyColumn = yield* this.resolveScalarConditionalHostKeyColumn(
+              foreignTable,
+              sharedRollupSetBasedGroup
+            );
             const query = yield* this.buildConditionalRollupFieldReferenceAggregate(
               foreignTable,
               foreignTableName,
               sharedRollupSetBasedGroup,
               lateral.alias,
-              lateral.columns
+              lateral.columns,
+              hostKeyColumn ?? undefined
             );
             subqueries.push({
               query,
-              joinMode: 'hostLeft',
+              joinMode: hostKeyColumn ? 'hostKey' : 'hostLeft',
+              ...(hostKeyColumn ? { hostKeyColumn } : {}),
             });
             continue;
           }
@@ -1191,16 +1321,22 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             lateral.columns
           );
           if (sharedLookupFieldRefGroup) {
+            const hostKeyColumn = yield* this.resolveScalarConditionalHostKeyColumn(
+              foreignTable,
+              sharedLookupFieldRefGroup
+            );
             const query = yield* this.buildConditionalLookupFieldReferenceAggregate(
               foreignTable,
               foreignTableName,
               sharedLookupFieldRefGroup,
               lateral.alias,
-              lateral.columns
+              lateral.columns,
+              hostKeyColumn ?? undefined
             );
             subqueries.push({
               query,
-              joinMode: 'hostLeft',
+              joinMode: hostKeyColumn ? 'hostKey' : 'hostLeft',
+              ...(hostKeyColumn ? { hostKeyColumn } : {}),
             });
             continue;
           }
@@ -1304,6 +1440,17 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           });
         }
 
+        this.unchunkedDirtySetHostKeyColumns =
+          subqueries.length > 0 && subqueries.every((subquery) => subquery.joinMode === 'hostKey')
+            ? [
+                ...new Set(
+                  subqueries.flatMap((subquery) =>
+                    subquery.hostKeyColumn ? [subquery.hostKeyColumn] : []
+                  )
+                ),
+              ]
+            : [];
+
         return ok(
           (qb: QB) =>
             subqueries.reduce((q, subquery) => {
@@ -1313,6 +1460,16 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
               if (subquery.joinMode === 'hostLeft') {
                 return q.leftJoin(subquery.query, (j) =>
                   j.onRef(`${subquery.query.alias}.__host_id`, '=', `${T}.__id`)
+                ) as QB;
+              }
+              if (subquery.joinMode === 'hostKey' && subquery.hostKeyColumn) {
+                return q.leftJoin(subquery.query, (j) =>
+                  j.on(
+                    this.nullSafeTextKeyEquality(
+                      `${subquery.query.alias}.__host_key`,
+                      `${T}.${subquery.hostKeyColumn}`
+                    )
+                  )
                 ) as QB;
               }
               return q.innerJoin(subquery.query, (j) => j.onTrue()) as QB;
@@ -1411,7 +1568,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     foreignTableName: string,
     group: ConditionalFieldReferenceGroup,
     alias: string,
-    columns: Array<{ outputAlias: string; columnType: LateralColumnType }>
+    columns: Array<{ outputAlias: string; columnType: LateralColumnType }>,
+    hostKeyColumn?: string
   ): Result<AliasedExpression<Record<string, unknown>, string>, DomainError> {
     const hostTable = this.table;
     if (!hostTable) {
@@ -1434,44 +1592,22 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
         const rankedAlias = `${alias}_src`;
         const limitValue = group.limit ?? CONDITIONAL_QUERY_DEFAULT_LIMIT;
         const orderBy = yield* this.resolveSetBasedOrderBy(foreignTable, group);
-        const dirtyConfig = this.dirtyFilterConfig;
+        const hostSource = hostKeyColumn
+          ? this.buildConditionalHostKeySource(hostTableName, hostKeyColumn)
+          : this.buildConditionalHostSource(hostTableName);
+        const hostIdentity = hostKeyColumn ? `${H}.${hostKeyColumn}` : `${H}.__id`;
+        const hostIdentityAlias = hostKeyColumn ? '__host_key' : '__host_id';
         const rankedColumns = [
-          sql`${sql.ref(`${H}.__id`)}`.as('__host_id'),
-          sql`row_number() over (partition by ${sql.ref(`${H}.__id`)} order by ${sql.ref(`${F}.${orderBy.column}`)} ${sql.raw(orderBy.direction)})`.as(
+          sql`${sql.ref(hostIdentity)}`.as(hostIdentityAlias),
+          sql`row_number() over (partition by ${sql.ref(hostIdentity)} order by ${sql.ref(`${F}.${orderBy.column}`)} ${sql.raw(orderBy.direction)})`.as(
             '__rn'
           ),
         ];
-        const rankedQuery = dirtyConfig
-          ? this.db
-              .selectFrom(
-                this.db
-                  .selectFrom(`${hostTableName} as ${H}`)
-                  .innerJoin(
-                    `${dirtyConfig.dirtyTableName ?? 'tmp_computed_dirty'} as __cond_dirty`,
-                    (join) =>
-                      join
-                        .onRef(
-                          `${H}.__id`,
-                          '=',
-                          `__cond_dirty.${dirtyConfig.recordIdColumn ?? 'record_id'}`
-                        )
-                        .on(
-                          `__cond_dirty.${dirtyConfig.tableIdColumn ?? 'table_id'}`,
-                          '=',
-                          dirtyConfig.tableId
-                        )
-                  )
-                  .selectAll(H)
-                  .as(H)
-              )
-              .innerJoin(`${foreignTableName} as ${F}`, (join) => join.on(whereClause))
-              .select(rankedColumns)
-              .selectAll(F)
-          : this.db
-              .selectFrom(`${hostTableName} as ${H}`)
-              .innerJoin(`${foreignTableName} as ${F}`, (join) => join.on(whereClause))
-              .select(rankedColumns)
-              .selectAll(F);
+        const rankedQuery = this.db
+          .selectFrom(hostSource)
+          .innerJoin(`${foreignTableName} as ${F}`, (join) => join.on(whereClause))
+          .select(rankedColumns)
+          .selectAll(F);
 
         const selectExprs: AliasedRawBuilder<unknown, string>[] = [];
         for (const col of columns) {
@@ -1486,9 +1622,12 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
         return ok(
           this.db
             .selectFrom(rankedQuery.as(rankedAlias))
-            .select([sql`${sql.ref(`${rankedAlias}.__host_id`)}`.as('__host_id'), ...selectExprs])
+            .select([
+              sql`${sql.ref(`${rankedAlias}.${hostIdentityAlias}`)}`.as(hostIdentityAlias),
+              ...selectExprs,
+            ])
             .where(sql<SqlBool>`${sql.ref(`${rankedAlias}.__rn`)} <= ${limitValue}`)
-            .groupBy(sql.ref(`${rankedAlias}.__host_id`))
+            .groupBy(sql.ref(`${rankedAlias}.${hostIdentityAlias}`))
             .as(alias)
         );
       }.bind(this)
@@ -1507,7 +1646,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     foreignTableName: string,
     group: ConditionalFieldReferenceGroup,
     alias: string,
-    columns: Array<{ outputAlias: string; columnType: LateralColumnType }>
+    columns: Array<{ outputAlias: string; columnType: LateralColumnType }>,
+    hostKeyColumn?: string
   ): Result<AliasedExpression<Record<string, unknown>, string>, DomainError> {
     const hostTable = this.table;
     if (!hostTable) {
@@ -1527,28 +1667,12 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           );
         }
 
-        const dirtyConfig = this.dirtyFilterConfig;
-        const hostSource = dirtyConfig
-          ? this.db
-              .selectFrom(`${hostTableName} as ${H}`)
-              .innerJoin(
-                `${dirtyConfig.dirtyTableName ?? 'tmp_computed_dirty'} as __cond_dirty`,
-                (join) =>
-                  join
-                    .onRef(
-                      `${H}.__id`,
-                      '=',
-                      `__cond_dirty.${dirtyConfig.recordIdColumn ?? 'record_id'}`
-                    )
-                    .on(
-                      `__cond_dirty.${dirtyConfig.tableIdColumn ?? 'table_id'}`,
-                      '=',
-                      dirtyConfig.tableId
-                    )
-              )
-              .selectAll(H)
-              .as(H)
-          : (`${hostTableName} as ${H}` as const);
+        const buildHostSource = () =>
+          hostKeyColumn
+            ? this.buildConditionalHostKeySource(hostTableName, hostKeyColumn)
+            : this.buildConditionalHostSource(hostTableName);
+        const hostIdentity = hostKeyColumn ? `${H}.${hostKeyColumn}` : `${H}.__id`;
+        const hostIdentityAlias = hostKeyColumn ? '__host_key' : '__host_id';
 
         const orderBy = yield* this.resolveSetBasedOrderBy(foreignTable, group);
         // Rank whenever limit is set, or the expression is order-sensitive (array_join…).
@@ -1560,11 +1684,11 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
         if (needsRanking && limitValue !== undefined) {
           const rankedAlias = `${alias}_src`;
           const rankedQuery = this.db
-            .selectFrom(hostSource)
+            .selectFrom(buildHostSource())
             .innerJoin(`${foreignTableName} as ${F}`, (join) => join.on(whereClause))
             .select([
-              sql`${sql.ref(`${H}.__id`)}`.as('__host_id'),
-              sql`row_number() over (partition by ${sql.ref(`${H}.__id`)} order by ${sql.ref(`${F}.${orderBy.column}`)} ${sql.raw(orderBy.direction)})`.as(
+              sql`${sql.ref(hostIdentity)}`.as(hostIdentityAlias),
+              sql`row_number() over (partition by ${sql.ref(hostIdentity)} order by ${sql.ref(`${F}.${orderBy.column}`)} ${sql.raw(orderBy.direction)})`.as(
                 '__rn'
               ),
             ])
@@ -1588,14 +1712,19 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           // Drive from host so hosts with zero matches still emit a row (COUNT/SUM → 0).
           return ok(
             this.db
-              .selectFrom(hostSource)
+              .selectFrom(buildHostSource())
               .leftJoin(rankedQuery.as(rankedAlias), (join) =>
                 join
-                  .onRef(`${H}.__id`, '=', `${rankedAlias}.__host_id`)
+                  .on(
+                    this.nullSafeTextKeyEquality(
+                      hostIdentity,
+                      `${rankedAlias}.${hostIdentityAlias}`
+                    )
+                  )
                   .on(sql<SqlBool>`${sql.ref(`${rankedAlias}.__rn`)} <= ${limitValue}`)
               )
-              .select([sql`${sql.ref(`${H}.__id`)}`.as('__host_id'), ...selectExprs])
-              .groupBy(sql.ref(`${H}.__id`))
+              .select([sql`${sql.ref(hostIdentity)}`.as(hostIdentityAlias), ...selectExprs])
+              .groupBy(sql.ref(hostIdentity))
               .as(alias)
           );
         }
@@ -1611,10 +1740,10 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
 
         return ok(
           this.db
-            .selectFrom(hostSource)
+            .selectFrom(buildHostSource())
             .leftJoin(`${foreignTableName} as ${F}`, (join) => join.on(whereClause))
-            .select([sql`${sql.ref(`${H}.__id`)}`.as('__host_id'), ...selectExprs])
-            .groupBy(sql.ref(`${H}.__id`))
+            .select([sql`${sql.ref(hostIdentity)}`.as(hostIdentityAlias), ...selectExprs])
+            .groupBy(sql.ref(hostIdentity))
             .as(alias)
         );
       }.bind(this)
