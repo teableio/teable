@@ -2,10 +2,10 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
+import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import type { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
 import type { RecordWriteUndoRedoPlanService } from '../application/services/RecordWriteUndoRedoPlanService';
-import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableQueryService } from '../application/services/TableQueryService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import type {
@@ -47,7 +47,10 @@ import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/Executi
 import type { IRecordOrderCalculator } from '../ports/RecordOrderCalculator';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
-import type { ITableRecordQueryRepository } from '../ports/TableRecordQueryRepository';
+import type {
+  ITableRecordQueryOptions,
+  ITableRecordQueryRepository,
+} from '../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import type {
   ITableRecordRepository,
@@ -211,6 +214,13 @@ class FakeTableRepository implements ITableRepository {
     return ok([...tables]);
   }
 
+  async duplicatePhysicalRows(
+    _context: any,
+    _plan: any
+  ): Promise<Result<{ rowCount: number; recordIds: string[] }, DomainError>> {
+    return ok({ rowCount: 0, recordIds: [] });
+  }
+
   async findOne(
     _: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>
@@ -371,9 +381,13 @@ class FakeTableRecordRepository implements ITableRecordRepository {
 
 class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
   record: TableRecordReadModel | undefined;
+  records: TableRecordReadModel[] = [];
   failFindOne: DomainError | undefined;
   findCalls = 0;
   findOneCalls = 0;
+  findOneOptions: Array<
+    Pick<ITableRecordQueryOptions, 'mode' | 'includeOrders' | 'recordReadQuerySource'> | undefined
+  > = [];
 
   async find(
     _: IExecutionContext,
@@ -387,12 +401,15 @@ class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
   async findOne(
     _: IExecutionContext,
     __: Table,
-    ___: RecordId
+    ___: RecordId,
+    options?: Pick<ITableRecordQueryOptions, 'mode' | 'includeOrders' | 'recordReadQuerySource'>
   ): Promise<Result<TableRecordReadModel, DomainError>> {
     this.findOneCalls += 1;
+    this.findOneOptions.push(options);
     if (this.failFindOne) return err(this.failFindOne);
-    if (!this.record) return err(domainError.notFound({ message: 'Record not found' }));
-    return ok(this.record);
+    const record = this.records.shift() ?? this.record;
+    if (!record) return err(domainError.notFound({ message: 'Record not found' }));
+    return ok(record);
   }
 
   async *findStream(): AsyncIterable<Result<TableRecordReadModel, DomainError>> {
@@ -544,6 +561,69 @@ describe('UpdateRecordHandler', () => {
     expect(recordRepository.lastContext?.transaction?.kind).toBe('unitOfWorkTransaction');
     expect(eventBus.published.some(isRecordUpdatedEvent)).toBe(true);
     expect(unitOfWork.transactions.length).toBe(1);
+  });
+
+  it('omits unresolved unchanged link values from the update response', async () => {
+    const { table, tableId, textFieldId, linkFieldId } = buildTableWithLink();
+    const targetRecordId = `rec${'r'.repeat(16)}`;
+    const recordResult = table
+      .createRecord(
+        new Map([
+          [textFieldId.toString(), 'Old Title'],
+          [linkFieldId.toString(), null],
+        ])
+      )
+      ._unsafeUnwrap();
+
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const tableQueryService = new TableQueryService(tableRepository);
+
+    const recordRepository = new FakeTableRecordRepository();
+    const recordQueryRepository = new FakeTableRecordQueryRepository();
+    recordQueryRepository.record = {
+      id: recordResult.record.id().toString(),
+      fields: {
+        [textFieldId.toString()]: 'Old Title',
+        [linkFieldId.toString()]: { id: targetRecordId },
+      },
+      version: 1,
+    };
+
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+
+    const handler = new UpdateRecordHandler(
+      tableQueryService,
+      recordRepository,
+      recordQueryRepository,
+      new FakeRecordOrderCalculator(),
+      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      noopRecordChangedValueDecoratorService,
+      createRecordWritePluginRunner(),
+      new RecordWriteSideEffectService(),
+      noopRecordWriteUndoRedoPlanService,
+      createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+      eventBus,
+      new FakeUndoRedoService() as unknown as UndoRedoStackService,
+      unitOfWork
+    );
+
+    const command = UpdateRecordCommand.create({
+      tableId: tableId.toString(),
+      recordId: recordResult.record.id().toString(),
+      fields: { [textFieldId.toString()]: 'New Title' },
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    const payload = result._unsafeUnwrap();
+
+    expect(payload.record.fields().get(textFieldId)?.toValue()).toBe('New Title');
+    expect(payload.record.fields().get(linkFieldId)).toBeUndefined();
+    expect(recordQueryRepository.findOneCalls).toBe(1);
+    expect(recordQueryRepository.findOneOptions).toMatchObject([
+      { mode: 'stored', includeOrders: true },
+    ]);
   });
 
   it('preserves persisted link titles when a typecast update only provides ids', async () => {

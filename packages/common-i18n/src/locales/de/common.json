@@ -261,7 +261,39 @@
       "interactionMode": "Interaktionsmodus",
       "mouseMode": "Cursor-Modus",
       "touchMode": "Touch-Modus",
-      "systemMode": "Systemeinstellung folgen"
+      "systemMode": "Systemeinstellung folgen",
+      "teableSkill": "Teable-Fähigkeit"
+    },
+    "teableSkill": {
+      "intro": "Lass deinen AI Agent eine Verbindung zu deiner Base herstellen, um Daten abzufragen, Tabellen, Felder und Ansichten zu verwalten, Datensätze zu importieren oder zu aktualisieren sowie Automationen und Apps zu erstellen.",
+      "worksWith": "Funktioniert mit allen gängigen Agents",
+      "more": "+ mehr",
+      "copy": "Kopieren",
+      "installPromptLabel": "Skill-Installationsprompt",
+      "installCommandLabel": "Skill-Installationsbefehl",
+      "installPrompt": "Bitte lies https://github.com/teableio/agent-skills und hilf mir anhand des Leitfadens, den Teable agent skill zu installieren und die Teable CLI-Authentifizierung abzuschließen.",
+      "step1Title": "Skill installieren",
+      "step1Description": "Kopiere diesen Prompt in deinen AI Agent. Er installiert das Teable skill set und öffnet den Browser, um die Teable CLI-Authentifizierung abzuschließen.",
+      "step3Title": "Teable-Fähigkeit ausprobieren",
+      "step3Description": "Nach der Installation des Skills kannst du diese Prompts ausprobieren.",
+      "tryPrompts": {
+        "schema": {
+          "prompt": "Erstelle eine einfache CRM-Tabelle in dieser Base.",
+          "note": "Einfache Starter-Prompts"
+        },
+        "template": {
+          "prompt": "Lade alle Rechnungen in diesem lokalen Ordner in <Belegtabelle> {Tabellen-URL einfügen} hoch und extrahiere wichtige Felder.",
+          "note": "Lokale Dateien → Teable"
+        },
+        "validate": {
+          "prompt": "Importiere neue GitHub issues in <Bug Tracker> {Tabellen-URL einfügen}.",
+          "note": "Plattformübergreifende Daten → Teable"
+        },
+        "trace": {
+          "prompt": "Prüfe <Aufgabentabelle> {Tabellen-URL einfügen} und markiere überfällige Aufgaben.",
+          "note": "Teable-Daten bereinigen oder organisieren"
+        }
+      }
     },
     "nav": {
       "settings": "Einstellungen",
@@ -1259,10 +1291,10 @@
     }
   },
   "changelog": {
-    "newUpdate": "UPDATE VOM 24. JUNI",
-    "title": "Agent Computer, deutlich leistungsfähiger",
-    "url": "https://help.teable.ai/en/changelog#jun-24-2026",
-    "id": "changelog-2026-06-24-agent-computer-supercharged"
+    "newUpdate": "UPDATE VOM 10. JULI",
+    "title": "GPT-5.6 ist jetzt in Teable verfügbar",
+    "url": "https://help.teable.ai/en/changelog#jul-10-2026",
+    "id": "changelog-2026-07-10-gpt-5-6-is-now-in-teable"
   },
   "resourceDescription": {
     "addDescription": "Beschreibung hinzufügen",

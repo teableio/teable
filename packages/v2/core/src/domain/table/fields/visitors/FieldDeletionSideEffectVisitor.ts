@@ -1,13 +1,12 @@
-import { err, ok } from 'neverthrow';
+import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import { domainError, type DomainError } from '../../../shared/DomainError';
+import type { DomainError } from '../../../shared/DomainError';
 import type { ISpecification } from '../../../shared/specification/ISpecification';
 import { ForeignTable } from '../../ForeignTable';
 import type { ITableSpecVisitor } from '../../specs/ITableSpecVisitor';
 import { TableRemoveFieldSpec } from '../../specs/TableRemoveFieldSpec';
 import type { Table } from '../../Table';
-import type { TableId } from '../../TableId';
 import type { Field } from '../Field';
 import type { AttachmentField } from '../types/AttachmentField';
 import type { AutoNumberField } from '../types/AutoNumberField';
@@ -148,9 +147,10 @@ export class FieldDeletionSideEffectVisitor implements IFieldVisitor<FieldDeleti
   visitLinkField(field: LinkField): Result<FieldDeletionSideEffects, DomainError> {
     if (field.isOneWay()) return ok([]);
 
-    const foreignTableResult = this.foreignTable(field.foreignTableId());
-    if (foreignTableResult.isErr()) return err(foreignTableResult.error);
-    const foreignTable = foreignTableResult.value;
+    // Foreign table may already be soft-deleted or permanently removed (T4927).
+    // Skip symmetric-field cleanup so the host link field can still be deleted.
+    const foreignTable = this.foreignTablesById.get(field.foreignTableId().toString());
+    if (!foreignTable) return ok([]);
 
     return field.symmetricField(ForeignTable.from(foreignTable)).map((symmetricField) => {
       if (!symmetricField) return [];
@@ -181,11 +181,5 @@ export class FieldDeletionSideEffectVisitor implements IFieldVisitor<FieldDeleti
   ): Result<FieldDeletionSideEffects, DomainError> {
     // Conditional lookup fields don't have deletion side effects
     return ok([]);
-  }
-
-  private foreignTable(tableId: TableId): Result<Table, DomainError> {
-    const table = this.foreignTablesById.get(tableId.toString());
-    if (!table) return err(domainError.invariant({ message: 'Foreign table not loaded' }));
-    return ok(table);
   }
 }

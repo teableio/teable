@@ -28,12 +28,10 @@
     },
     "combo": {
       "xAxis": {
-        "label": "X轴",
-        "placeholder": "选择X轴"
+        "label": "X轴"
       },
       "yAxis": {
         "label": "Y轴",
-        "placeholder": "选择Y轴",
         "position": "Y轴位置"
       },
       "xDisplay": {
@@ -46,7 +44,6 @@
       "addYAxis": "添加另一个系列",
       "stack": "堆叠",
       "position": {
-        "label": "位置",
         "auto": "自动",
         "left": "左侧",
         "right": "右侧"

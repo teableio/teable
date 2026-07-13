@@ -575,6 +575,7 @@ class UpdateNumberFieldSpec implements IUpdateTableFieldSpec {
     private readonly formattingValue: NumberFormatting | undefined,
     private readonly showAsValue: NumberShowAs | undefined,
     private readonly defaultValueValue: NumberDefaultValue | undefined,
+    private readonly shouldClearDefaultValue: boolean,
     private readonly notNullValue: FieldNotNull | undefined,
     private readonly uniqueValue: FieldUnique | undefined
   ) {}
@@ -589,14 +590,28 @@ class UpdateNumberFieldSpec implements IUpdateTableFieldSpec {
     notNull?: unknown;
     unique?: unknown;
   }): Result<UpdateNumberFieldSpec, DomainError> {
+    const hasDefaultValue = input.options !== undefined && 'defaultValue' in input.options;
+
     return optional(input.name, FieldName.create).andThen((name) =>
       optional(input.options?.formatting, NumberFormatting.create).andThen((formatting) =>
         optional(input.options?.showAs, NumberShowAs.create).andThen((showAs) =>
-          optional(input.options?.defaultValue, NumberDefaultValue.create).andThen((defaultValue) =>
+          clearable(
+            input.options?.defaultValue,
+            hasDefaultValue,
+            NumberDefaultValue.create
+          ).andThen((defaultValueResult) =>
             optional(input.notNull, FieldNotNull.create).andThen((notNull) =>
               optional(input.unique, FieldUnique.create).map(
                 (unique) =>
-                  new UpdateNumberFieldSpec(name, formatting, showAs, defaultValue, notNull, unique)
+                  new UpdateNumberFieldSpec(
+                    name,
+                    formatting,
+                    showAs,
+                    defaultValueResult.value,
+                    defaultValueResult.shouldClear,
+                    notNull,
+                    unique
+                  )
               )
             )
           )
@@ -651,6 +666,13 @@ class UpdateNumberFieldSpec implements IUpdateTableFieldSpec {
             currentDefault,
             this.defaultValueValue
           )
+        );
+      }
+    } else if (this.shouldClearDefaultValue) {
+      const currentDefault = currentField.defaultValue();
+      if (currentDefault !== undefined) {
+        specs.push(
+          UpdateNumberDefaultValueSpec.create(currentField.id(), currentDefault, undefined)
         );
       }
     }
@@ -781,6 +803,7 @@ class UpdateDateFieldSpec implements IUpdateTableFieldSpec {
     private readonly nameValue: FieldName | undefined,
     private readonly formattingValue: DateTimeFormatting | undefined,
     private readonly defaultValueValue: DateDefaultValue | undefined,
+    private readonly shouldClearDefaultValue: boolean,
     private readonly notNullValue: FieldNotNull | undefined,
     private readonly uniqueValue: FieldUnique | undefined
   ) {}
@@ -794,14 +817,25 @@ class UpdateDateFieldSpec implements IUpdateTableFieldSpec {
     notNull?: unknown;
     unique?: unknown;
   }): Result<UpdateDateFieldSpec, DomainError> {
+    const hasDefaultValue = input.options !== undefined && 'defaultValue' in input.options;
+
     return optional(input.name, FieldName.create).andThen((name) =>
       optional(input.options?.formatting, DateTimeFormatting.create).andThen((formatting) =>
-        optional(input.options?.defaultValue, DateDefaultValue.create).andThen((defaultValue) =>
-          optional(input.notNull, FieldNotNull.create).andThen((notNull) =>
-            optional(input.unique, FieldUnique.create).map(
-              (unique) => new UpdateDateFieldSpec(name, formatting, defaultValue, notNull, unique)
+        clearable(input.options?.defaultValue, hasDefaultValue, DateDefaultValue.create).andThen(
+          (defaultValueResult) =>
+            optional(input.notNull, FieldNotNull.create).andThen((notNull) =>
+              optional(input.unique, FieldUnique.create).map(
+                (unique) =>
+                  new UpdateDateFieldSpec(
+                    name,
+                    formatting,
+                    defaultValueResult.value,
+                    defaultValueResult.shouldClear,
+                    notNull,
+                    unique
+                  )
+              )
             )
-          )
         )
       )
     );
@@ -846,6 +880,11 @@ class UpdateDateFieldSpec implements IUpdateTableFieldSpec {
           )
         );
       }
+    } else if (this.shouldClearDefaultValue) {
+      const currentDefault = currentField.defaultValue();
+      if (currentDefault !== undefined) {
+        specs.push(UpdateDateDefaultValueSpec.create(currentField.id(), currentDefault, undefined));
+      }
     }
 
     const constraintsSpec = buildConstraintsSpec(currentField, this.notNullValue, this.uniqueValue);
@@ -873,6 +912,7 @@ class UpdateCheckboxFieldSpec implements IUpdateTableFieldSpec {
   private constructor(
     private readonly nameValue: FieldName | undefined,
     private readonly defaultValueValue: CheckboxDefaultValue | undefined,
+    private readonly shouldClearDefaultValue: boolean,
     private readonly notNullValue: FieldNotNull | undefined,
     private readonly uniqueValue: FieldUnique | undefined
   ) {}
@@ -885,13 +925,23 @@ class UpdateCheckboxFieldSpec implements IUpdateTableFieldSpec {
     notNull?: unknown;
     unique?: unknown;
   }): Result<UpdateCheckboxFieldSpec, DomainError> {
+    const hasDefaultValue = input.options !== undefined && 'defaultValue' in input.options;
+
     return optional(input.name, FieldName.create).andThen((name) =>
-      optional(input.options?.defaultValue, CheckboxDefaultValue.create).andThen((defaultValue) =>
-        optional(input.notNull, FieldNotNull.create).andThen((notNull) =>
-          optional(input.unique, FieldUnique.create).map(
-            (unique) => new UpdateCheckboxFieldSpec(name, defaultValue, notNull, unique)
+      clearable(input.options?.defaultValue, hasDefaultValue, CheckboxDefaultValue.create).andThen(
+        (defaultValueResult) =>
+          optional(input.notNull, FieldNotNull.create).andThen((notNull) =>
+            optional(input.unique, FieldUnique.create).map(
+              (unique) =>
+                new UpdateCheckboxFieldSpec(
+                  name,
+                  defaultValueResult.value,
+                  defaultValueResult.shouldClear,
+                  notNull,
+                  unique
+                )
+            )
           )
-        )
       )
     );
   }
@@ -920,6 +970,13 @@ class UpdateCheckboxFieldSpec implements IUpdateTableFieldSpec {
             currentDefault,
             this.defaultValueValue
           )
+        );
+      }
+    } else if (this.shouldClearDefaultValue) {
+      const currentDefault = currentField.defaultValue();
+      if (currentDefault !== undefined) {
+        specs.push(
+          UpdateCheckboxDefaultValueSpec.create(currentField.id(), currentDefault, undefined)
         );
       }
     }
@@ -1895,6 +1952,7 @@ class UpdateSingleSelectFieldSpec implements IUpdateTableFieldSpec {
     private readonly nameValue: FieldName | undefined,
     private readonly optionsValue: ReadonlyArray<SelectOption> | undefined,
     private readonly defaultValueValue: SelectDefaultValue | undefined,
+    private readonly shouldClearDefaultValue: boolean,
     private readonly preventAutoNewOptionsValue: SelectAutoNewOptions | undefined,
     private readonly notNullValue: FieldNotNull | undefined,
     private readonly uniqueValue: FieldUnique | undefined,
@@ -1916,6 +1974,8 @@ class UpdateSingleSelectFieldSpec implements IUpdateTableFieldSpec {
       executionContext?: IExecutionContext;
     }
   ): Result<UpdateSingleSelectFieldSpec, DomainError> {
+    const hasDefaultValue = input.options !== undefined && 'defaultValue' in input.options;
+
     return optional(input.name, FieldName.create).andThen((name) => {
       const parseOptions = (): Result<ReadonlyArray<SelectOption> | undefined, DomainError> => {
         if (!input.options?.choices) return ok(undefined);
@@ -1927,24 +1987,26 @@ class UpdateSingleSelectFieldSpec implements IUpdateTableFieldSpec {
       };
 
       return parseOptions().andThen((selectOptions) =>
-        optional(input.options?.defaultValue, SelectDefaultValue.create).andThen((defaultValue) =>
-          optional(input.options?.preventAutoNewOptions, SelectAutoNewOptions.create).andThen(
-            (preventAutoNewOptions) =>
-              optional(input.notNull, FieldNotNull.create).andThen((notNull) =>
-                optional(input.unique, FieldUnique.create).map(
-                  (unique) =>
-                    new UpdateSingleSelectFieldSpec(
-                      name,
-                      selectOptions,
-                      defaultValue,
-                      preventAutoNewOptions,
-                      notNull,
-                      unique,
-                      getDomainContext(options?.executionContext)
-                    )
+        clearable(input.options?.defaultValue, hasDefaultValue, SelectDefaultValue.create).andThen(
+          (defaultValueResult) =>
+            optional(input.options?.preventAutoNewOptions, SelectAutoNewOptions.create).andThen(
+              (preventAutoNewOptions) =>
+                optional(input.notNull, FieldNotNull.create).andThen((notNull) =>
+                  optional(input.unique, FieldUnique.create).map(
+                    (unique) =>
+                      new UpdateSingleSelectFieldSpec(
+                        name,
+                        selectOptions,
+                        defaultValueResult.value,
+                        defaultValueResult.shouldClear,
+                        preventAutoNewOptions,
+                        notNull,
+                        unique,
+                        getDomainContext(options?.executionContext)
+                      )
+                  )
                 )
-              )
-          )
+            )
         )
       );
     });
@@ -1993,6 +2055,13 @@ class UpdateSingleSelectFieldSpec implements IUpdateTableFieldSpec {
           )
         );
       }
+    } else if (this.shouldClearDefaultValue) {
+      const currentDefault = currentField.defaultValue();
+      if (currentDefault !== undefined) {
+        specs.push(
+          UpdateSingleSelectDefaultValueSpec.create(currentField.id(), currentDefault, undefined)
+        );
+      }
     }
 
     if (this.preventAutoNewOptionsValue !== undefined) {
@@ -2034,6 +2103,7 @@ class UpdateMultipleSelectFieldSpec implements IUpdateTableFieldSpec {
     private readonly nameValue: FieldName | undefined,
     private readonly optionsValue: ReadonlyArray<SelectOption> | undefined,
     private readonly defaultValueValue: SelectDefaultValue | undefined,
+    private readonly shouldClearDefaultValue: boolean,
     private readonly preventAutoNewOptionsValue: SelectAutoNewOptions | undefined,
     private readonly notNullValue: FieldNotNull | undefined,
     private readonly uniqueValue: FieldUnique | undefined,
@@ -2055,6 +2125,8 @@ class UpdateMultipleSelectFieldSpec implements IUpdateTableFieldSpec {
       executionContext?: IExecutionContext;
     }
   ): Result<UpdateMultipleSelectFieldSpec, DomainError> {
+    const hasDefaultValue = input.options !== undefined && 'defaultValue' in input.options;
+
     return optional(input.name, FieldName.create).andThen((name) => {
       const parseOptions = (): Result<ReadonlyArray<SelectOption> | undefined, DomainError> => {
         if (!input.options?.choices) return ok(undefined);
@@ -2066,24 +2138,26 @@ class UpdateMultipleSelectFieldSpec implements IUpdateTableFieldSpec {
       };
 
       return parseOptions().andThen((selectOptions) =>
-        optional(input.options?.defaultValue, SelectDefaultValue.create).andThen((defaultValue) =>
-          optional(input.options?.preventAutoNewOptions, SelectAutoNewOptions.create).andThen(
-            (preventAutoNewOptions) =>
-              optional(input.notNull, FieldNotNull.create).andThen((notNull) =>
-                optional(input.unique, FieldUnique.create).map(
-                  (unique) =>
-                    new UpdateMultipleSelectFieldSpec(
-                      name,
-                      selectOptions,
-                      defaultValue,
-                      preventAutoNewOptions,
-                      notNull,
-                      unique,
-                      getDomainContext(options?.executionContext)
-                    )
+        clearable(input.options?.defaultValue, hasDefaultValue, SelectDefaultValue.create).andThen(
+          (defaultValueResult) =>
+            optional(input.options?.preventAutoNewOptions, SelectAutoNewOptions.create).andThen(
+              (preventAutoNewOptions) =>
+                optional(input.notNull, FieldNotNull.create).andThen((notNull) =>
+                  optional(input.unique, FieldUnique.create).map(
+                    (unique) =>
+                      new UpdateMultipleSelectFieldSpec(
+                        name,
+                        selectOptions,
+                        defaultValueResult.value,
+                        defaultValueResult.shouldClear,
+                        preventAutoNewOptions,
+                        notNull,
+                        unique,
+                        getDomainContext(options?.executionContext)
+                      )
+                  )
                 )
-              )
-          )
+            )
         )
       );
     });
@@ -2130,6 +2204,13 @@ class UpdateMultipleSelectFieldSpec implements IUpdateTableFieldSpec {
             currentDefault,
             this.defaultValueValue
           )
+        );
+      }
+    } else if (this.shouldClearDefaultValue) {
+      const currentDefault = currentField.defaultValue();
+      if (currentDefault !== undefined) {
+        specs.push(
+          UpdateMultipleSelectDefaultValueSpec.create(currentField.id(), currentDefault, undefined)
         );
       }
     }
@@ -2937,6 +3018,7 @@ class UpdateUserFieldSpec implements IUpdateTableFieldSpec {
     private readonly multiplicityValue: UserMultiplicity | undefined,
     private readonly notificationValue: UserNotification | undefined,
     private readonly defaultValueValue: UserDefaultValue | undefined,
+    private readonly shouldClearDefaultValue: boolean,
     private readonly notNullValue: FieldNotNull | undefined,
     private readonly uniqueValue: FieldUnique | undefined
   ) {}
@@ -2951,23 +3033,27 @@ class UpdateUserFieldSpec implements IUpdateTableFieldSpec {
     notNull?: unknown;
     unique?: unknown;
   }): Result<UpdateUserFieldSpec, DomainError> {
+    const hasDefaultValue = input.options !== undefined && 'defaultValue' in input.options;
+
     return optional(input.name, FieldName.create).andThen((name) =>
       optional(input.options?.isMultiple, UserMultiplicity.create).andThen((multiplicity) =>
         optional(input.options?.shouldNotify, UserNotification.create).andThen((notification) =>
-          optional(input.options?.defaultValue, UserDefaultValue.create).andThen((defaultValue) =>
-            optional(input.notNull, FieldNotNull.create).andThen((notNull) =>
-              optional(input.unique, FieldUnique.create).map(
-                (unique) =>
-                  new UpdateUserFieldSpec(
-                    name,
-                    multiplicity,
-                    notification,
-                    defaultValue,
-                    notNull,
-                    unique
-                  )
+          clearable(input.options?.defaultValue, hasDefaultValue, UserDefaultValue.create).andThen(
+            (defaultValueResult) =>
+              optional(input.notNull, FieldNotNull.create).andThen((notNull) =>
+                optional(input.unique, FieldUnique.create).map(
+                  (unique) =>
+                    new UpdateUserFieldSpec(
+                      name,
+                      multiplicity,
+                      notification,
+                      defaultValueResult.value,
+                      defaultValueResult.shouldClear,
+                      notNull,
+                      unique
+                    )
+                )
               )
-            )
           )
         )
       )
@@ -3030,6 +3116,11 @@ class UpdateUserFieldSpec implements IUpdateTableFieldSpec {
             this.defaultValueValue
           )
         );
+      }
+    } else if (this.shouldClearDefaultValue) {
+      const currentDefault = currentField.defaultValue();
+      if (currentDefault !== undefined) {
+        specs.push(UpdateUserDefaultValueSpec.create(currentField.id(), currentDefault, undefined));
       }
     }
 

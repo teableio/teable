@@ -20,6 +20,8 @@ import type {
   InsertManyStreamOptions,
   InsertManyStreamResult,
   InsertOptions,
+  PhysicalTableDuplicatePlan,
+  PhysicalTableDuplicateResult,
   RecordMutationResult,
   UpdateManyResult,
   UpdateManyStreamBatchInput,
@@ -45,6 +47,13 @@ export class NoopTableRecordRepository implements ITableRecordRepository {
     ____?: InsertOptions
   ): Promise<Result<BatchRecordMutationResult, DomainError>> {
     return ok({});
+  }
+
+  async duplicatePhysicalRows(
+    _context: IExecutionContext,
+    _plan: PhysicalTableDuplicatePlan
+  ): Promise<Result<PhysicalTableDuplicateResult, DomainError>> {
+    return ok({ rowCount: 0, recordIds: [] });
   }
 
   async insertManyStream(

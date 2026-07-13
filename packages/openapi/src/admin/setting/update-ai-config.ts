@@ -106,11 +106,16 @@ const appConfigAppAuthPatchSchema = z.object({
   appAuth: appAuthConfigSchema.nullable().optional(),
 });
 
+const appConfigBrandingPatchSchema = z.object({
+  badgeEnabled: z.boolean(),
+});
+
 export const updateAppConfigRoSchema = z.discriminatedUnion('section', [
   z.object({ section: z.literal('engine'), patch: appConfigEnginePatchSchema }),
   z.object({ section: z.literal('customDomain'), patch: appConfigCustomDomainPatchSchema }),
   z.object({ section: z.literal('apiProxy'), patch: appConfigApiProxyPatchSchema }),
   z.object({ section: z.literal('appAuth'), patch: appConfigAppAuthPatchSchema }),
+  z.object({ section: z.literal('branding'), patch: appConfigBrandingPatchSchema }),
 ]);
 
 export type IUpdateAppConfigRo = z.infer<typeof updateAppConfigRoSchema>;

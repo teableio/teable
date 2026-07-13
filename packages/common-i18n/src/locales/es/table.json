@@ -4,12 +4,9 @@
     "duplicateFieldDescription": "Las referencias entre espacios no son compatibles. El duplicado se convertirá en un campo de texto de una sola línea.",
     "duplicateTableTitle": "Aviso",
     "duplicateTableDescription": "Las referencias entre espacios no son compatibles. El duplicado se convertirá en un campo de texto de una sola línea.",
-    "duplicateBaseTitle": "Aviso",
-    "duplicateBaseDescription": "Las referencias entre espacios no son compatibles. El duplicado se convertirá en un campo de texto de una sola línea.",
     "convertAndDuplicate": "Convertir y duplicar"
   },
   "toolbar": {
-    "comingSoon": "Próximamente",
     "viewFilterInShare": "Esta vista se está utilizando en un enlace compartido. Las modificaciones a la configuración de la vista también cambiarán el enlace compartido.",
     "createFieldButtonText": "Crear un nuevo campo <0/>",
     "others": {
@@ -17,8 +14,6 @@
         "label": "Compartir",
         "statusLabel": "Compartir vista en la web",
         "noPermission": "Sin permiso para compartir vista",
-        "shareLink": "Enlace para compartir",
-        "copied": "Copiado",
         "genLink": "Generar nuevo enlace",
         "allowCopy": "Permitir a los visualizadores copiar datos de esta vista",
         "allowEdit": "Permitir que los usuarios con sesión iniciada editen los datos visibles",
@@ -36,19 +31,38 @@
         "save": "Guardar",
         "requireLogin": "Requerir inicio de sesión"
       },
-      "extensions": {
-        "label": "Extensiones",
-        "graph": "Gráfico"
-      },
       "api": {
-        "label": "API",
-        "restfulApi": "API RESTful",
-        "databaseConnection": "Conexión a Base de Datos"
+        "title": "Acceso API",
+        "aiContext": "Conexión AI",
+        "advanced": "Avanzado",
+        "recommended": "Recomendado",
+        "apiDocGroupTitle": "Contexto API",
+        "apiDocGroupDescription": "Copia el documento de abajo en AI. Obtendrá la estructura actual de la tabla, los campos y ejemplos de API, y podrá leer, crear, actualizar o eliminar registros según tu solicitud.",
+        "generatingToken": "Generando...",
+        "generateToken": "Generar token",
+        "confirmTitle": "Crear token API",
+        "confirmDescription": "Esto creará un nuevo token API con los siguientes permisos para esta base:",
+        "scopeTableRead": "Leer información de tabla",
+        "scopeFieldRead": "Leer campos",
+        "scopeRead": "Leer registros",
+        "scopeCreate": "Crear registros",
+        "scopeUpdate": "Actualizar registros",
+        "scopeDelete": "Eliminar registros",
+        "confirmExpiry": "El token será válido durante 1 año.",
+        "confirmButton": "Confirmar creación",
+        "tokenInfo": "El token expira: {{expiry}}",
+        "copied": "¡Copiado!",
+        "copyAIDoc": "Copiar documento",
+        "aiDocPreview": "Vista previa del contexto",
+        "manageToken": "Gestionar token",
+        "openInNewTab": "Abrir en nueva pestaña",
+        "queryBuilderTitle": "Constructor de consultas API",
+        "queryBuilderDesc": "Configura visualmente filtros, ordenación y otros parámetros para generar código de solicitud API listo para ejecutar.",
+        "viewApiDocs": "Ver documentación API completa"
       },
       "personalView": {
         "personal": "Personal",
         "tip": "Una vez habilitado, la configuración de la vista solo se aplicará a ti",
-        "collaborative": "Colaborativo",
         "dialog": {
           "title": "Salir del modo personal",
           "description": "La configuración de la vista personal se restaurará al estado de colaboración en tiempo real. También puedes guardar los ajustes de la vista personal y sincronizarlos con todos.",
@@ -72,12 +86,11 @@
       "one_one_duplicate": "No se puede vincular el registro: el registro de destino ya está vinculado por otro registro en una relación de uno a uno."
     },
     "field": {
-      "maxColumnLimit": "La tabla \"{{tableName}}\" puede tener como máximo {{maxFieldCount}} campos."
+      "maxColumnLimit": "La tabla \"{{tableName}}\" puede tener como máximo {{maxFieldCount}} campos.",
+      "requiredExistingValues": "No se puede marcar el campo \"{{fieldName}}\" como obligatorio porque hay registros existentes con valores vacíos."
     }
   },
   "field": {
-    "fieldManagement": "Gestión de Campos",
-    "fieldManagementDesc": "Propiedades detalladas para todos los campos de la tabla actual",
     "advancedProps": "Propiedades avanzadas",
     "hide": "ocultar",
     "default": {
@@ -158,7 +171,6 @@
       "button": {
         "title": "Botón",
         "label": "Texto del botón",
-        "color": "Color del botón",
         "limitCount": "Limitar contador de clics",
         "resetCount": "Permitir restablecer contador de clics",
         "maxCount": "Máximo de clics",
@@ -233,7 +245,6 @@
       "areYouSurePerformIt": "¿Estás seguro de que quieres realizarlo?",
       "addDescription": "Agregar descripción",
       "dbFieldName": "Nombre de campo de DB",
-      "description": "Descripción",
       "descriptionPlaceholder": "Describe este campo (opcional)",
       "type": "Tipo",
       "showAs": "Exhibir",
@@ -297,11 +308,7 @@
         "title": "Eliminar campo",
         "simpleConfirm": "¿Está seguro de que desea eliminar el campo <b>{{fieldName}}</b>?",
         "withDependencies": "Eliminar el campo <b>{{fieldName}}</b> afectará a los siguientes campos:",
-        "affectedFields": "Campos afectados:",
-        "fieldsToDelete": "Campos a eliminar ({{count}})",
-        "unviewedHint": "{{count}} campo(s) no revisado(s)",
         "deleteCount": "Eliminar {{count}} campos",
-        "noAffectedFields": "Este campo no está referenciado por otros campos.",
         "riskIdentified": "Riesgo identificado({{count}})",
         "noDependencies": "Sin dependencias({{count}})",
         "safeToDelete": "Seguro para eliminar",
@@ -315,8 +322,6 @@
       "conditionalLookup": {
         "sortLimitToggleLabel": "Sort linked records and limit the number of matches",
         "sortLabel": "Sort results",
-        "orderPlaceholder": "Select an order",
-        "clearSort": "Clear sort",
         "limitLabel": "Maximum records to include",
         "limitPlaceholder": "Leave blank to include all matches",
         "limitHint": "We only keep up to {{limit}} matching records.",
@@ -335,12 +340,10 @@
       "user": "Agregue un usuario a un registro.",
       "date": "Ingrese una fecha (por ejemplo, 11/12/2023) o elija una de un calendario.",
       "number": "Ingrese un número, o prefiera cada nueva celda con un valor predeterminado.",
-      "duration": "Ingrese una duración del tiempo en horas, minutos o segundos (por ejemplo, 1:23).",
       "rating": "Agregue una calificación en una escala predefinida.",
       "formula": "Calcule los valores basados ​​en los campos.",
       "rollup": "Resumir los datos de los registros vinculados.",
       "conditionalLookup": "Muestra valores vinculados que cumplen sus filtros.",
-      "count": "Cuente el número de registros vinculados.",
       "createdTime": "Vea la fecha y hora en que se creó cada registro.",
       "lastModifiedTime": "Vea la fecha y hora de la edición más reciente a algunos o todos los campos en un registro.",
       "createdBy": "Vea qué usuario creó el registro.",
@@ -387,7 +390,6 @@
         "improveText": "Formal, amigable, humorístico...",
         "attachPromptForTag": "No permitido superar tres etiquetas",
         "attachPromptForClassify": "Clasificar “En curso” como “Sin riesgo”",
-        "attachPrompt": "Por favor, ingrese requisitos adicionales",
         "prompt": "Por favor, ingrese un prompt personalizado",
         "type": "Seleccione una acción de IA",
         "targetLanguage": "Inglés, chino, francés...",
@@ -416,18 +418,13 @@
         "title": "¿Generar toda la columna?",
         "description": "Generar toda la columna actualizará {{rowCount}} filas. Esta operación puede consumir muchos recursos de IA.",
         "saveConfigOnly": "Solo guardar configuración",
-        "generate": "Generar",
         "generateFailed": "La generación ha fallado"
-      },
-      "action": {
-        "addAttachment": "Agregar adjunto"
       }
     }
   },
   "table": {
     "newTableLabel": "Nueva tabla",
     "rename": "Renombrar",
-    "design": "Diseñar",
     "tableRecordHistory": "Historial de registros de tabla",
     "dbTableName": "Nombre de la tabla en la base de datos física",
     "schemaName": "Nombre del esquema en la base de datos física",
@@ -435,11 +432,9 @@
     "typeOfDatabase": "Tipo de base de datos",
     "descriptionForTable": "Descripción para esta tabla",
     "loginUserTable": "Inicio de sesión",
-    "loginUserTableClickTips": "Abrir aplicación relacionada",
     "linkedApps": "Aplicaciones vinculadas",
     "nameForTable": "Nombre para esta tabla",
     "deleteTip1": "Se eliminarán los campos de enlace vinculados con esta tabla en otras tablas.",
-    "deleteTip2": "Esta tabla se puede restaurar desde la basura después de la eliminación.",
     "operator": {
       "createBlank": "Nueva tabla"
     },
@@ -457,7 +452,6 @@
       "fillFailed": "Llenado falló",
       "clearing": "Claro...",
       "clearSuccessful": "Claro exitoso",
-      "deleteFieldConfirmTitle": "Eliminar los siguientes campos",
       "deleting": "Eliminar ...",
       "deleteSuccessful": "Eliminar exitoso",
       "deleteStream": {
@@ -470,7 +464,6 @@
         "chunkFailureSummary": "{{count}} chunk(s) reported an error while the stream kept running.",
         "chunkLabel": "Chunk {{index}}",
         "rowsLabel": "{{count}} rows",
-        "partialFailureDescription": "Deleted {{deletedCount}} of {{totalCount}} records. Review chunk details in the dialog.",
         "phaseLabel": {
           "preparing": "Preparing",
           "guarding": "Checking",
@@ -489,7 +482,6 @@
       "crossBaseCopyLoadFirst": "Desplázate para cargar todas las filas seleccionadas antes de copiar campos entre bases."
     },
     "graph": {
-      "tableLabel": "Etiqueta de mesa",
       "effectCells": "Puede afectar las células",
       "estimatedTime": "Tiempo estimado",
       "linkFieldCount": "Afecta el número de campos vinculados"
@@ -572,11 +564,6 @@
           "fieldMeta": "Field metadata",
           "symmetricField": "Symmetric field relationship",
           "systemColumn": "System column \"{{columnName}}\"",
-          "systemColumnTyped": "System column \"{{columnName}}\" ({{dataType}})",
-          "systemNotNull": "NOT NULL on system column \"{{columnName}}\"",
-          "systemUnique": "UNIQUE index on system column \"{{columnName}}\"",
-          "systemPrimaryKey": "PRIMARY KEY on system column \"{{columnName}}\"",
-          "systemDefault": "Default expression on system column \"{{columnName}}\"",
           "connection": "Connection",
           "completion": "Completion",
           "unexpected": "Unexpected error"
@@ -652,7 +639,6 @@
               "resolutionDescription": "Choose which field should keep the two-way link behavior.",
               "option": {
                 "keepCurrent": "Keep the current field as the two-way link",
-                "keepDuplicate": "Keep the duplicate field as the two-way link",
                 "convertDuplicate": "Convert the duplicate field to a one-way link"
               }
             }
@@ -699,7 +685,6 @@
       "importCsvData": "Importar datos CSV",
       "importExcelData": "Importar datos de Microsoft Excel",
       "cancel": "Cancelar",
-      "leave": "Dejar",
       "downAsCsv": "Descargar csv",
       "importData": "Importar datos",
       "duplicate": "Duplicar",
@@ -711,7 +696,6 @@
     },
     "tips": {
       "importWayTip": "Haga clic o arrastre el archivo a esta área para cargar",
-      "leaveTip": "Sus datos aún se importarán.",
       "fileExceedSizeTip": "Este tipo de archivo de tipo excede el límite de",
       "analyzing": "analización",
       "importing": "Importador",
@@ -741,11 +725,6 @@
       "option": {
         "doNotImport": "No importe"
       }
-    }
-  },
-  "export": {
-    "menu": {
-      "exportCsv": "Descargar CSV"
     }
   },
   "grid": {
@@ -821,13 +800,13 @@
   "menu": {
     "insertRecordAbove": "Insertar <input /> registro arriba",
     "insertRecordBelow": "Insertar <input /> registro a continuación",
-    "copyCells": "Copiar celdas",
     "deleteRecord": "Eliminar registro",
     "deleteAllSelectedRecords": "Eliminar todos los registros seleccionados",
     "editField": "Campo de edición",
     "insertFieldLeft": "Insertar a la izquierda",
     "insertFieldRight": "Insertar a la derecha",
     "freezeUpField": "Congelarse a este campo",
+    "freezeFieldWindowTooNarrow": "No se puede congelar hasta esta área porque la ventana actual es demasiado estrecha",
     "hideField": "Esconder el campo",
     "deleteField": "Eliminar campo",
     "deleteAllSelectedFields": "Eliminar todos los campos seleccionados",
@@ -847,8 +826,7 @@
     "description": "Puede acceder a la base de datos directamente a través de la conexión de la base de datos, incluidas todas las tablas bajo la base actual",
     "noPermission": "No tiene permiso para acceder a la base de datos",
     "createFailed": "Asegúrese de que la variable de entorno public_database_proxy esté configurada correctamente",
-    "readonlyUnavailable": "Readonly database sharing is unavailable for this data database. Grant the Teable database user permission to create roles and grants, or use a target database that supports readonly roles.",
-    "helpLink": "https://help.table.io/en/deploy/database-connection"
+    "readonlyUnavailable": "Readonly database sharing is unavailable for this data database. Grant the Teable database user permission to create roles and grants, or use a target database that supports readonly roles."
   },
   "view": {
     "addRecord": "Agregar registro",
@@ -892,30 +870,18 @@
     "deletedResource": "Recurso"
   },
   "baseShare": {
-    "title": "Compartir Base",
     "shareTitle": "Compartir",
     "shareToWeb": "Compartir en la web",
-    "description": "Compartir \"{{baseName}}\" con otros",
-    "nodeShareDescription": "Compartir \"{{nodeName}}\" y su contenido",
-    "shareLinks": "Enlaces de compartición",
-    "newLink": "Nuevo enlace",
-    "noShareLinks": "Aún no hay enlaces de compartición",
-    "createFirstLink": "Crear enlace de compartición",
-    "editSettings": "Editar configuración",
     "refreshLink": "Regenerar enlace",
-    "deleteLink": "Eliminar enlace",
     "deleteConfirmTitle": "Eliminar enlace de compartición",
     "deleteConfirmDescription": "Esta acción no se puede deshacer. Las personas con este enlace ya no podrán acceder a la base compartida.",
     "createSuccess": "Enlace de compartición creado",
     "createFailed": "Error al crear enlace de compartición",
-    "updateSuccess": "Configuración de compartición actualizada",
     "updateFailed": "Error al actualizar configuración de compartición",
     "deleteSuccess": "Enlace de compartición eliminado",
     "deleteFailed": "Error al eliminar enlace de compartición",
     "refreshSuccess": "Enlace de compartición regenerado",
     "refreshFailed": "Error al regenerar enlace de compartición",
-    "copied": "Enlace copiado al portapapeles",
-    "shareLink": "Enlace de compartición",
     "linkHolderLabel": "La persona que obtuvo el enlace",
     "linkHolderCanView": "Puede ver",
     "linkHolderCanViewDesc": "Anyone with the link can view the data",
@@ -932,27 +898,9 @@
     "linkHolderCanCopyAndSave": "Puede guardar como copia",
     "linkHolderCanCopyAndSaveDesc": "Anyone with the link can save a copy to their space",
     "editRequiresLogin": "Users must log in to edit records",
-    "passwordProtection": "Protección con contraseña",
     "enterPassword": "Introducir contraseña",
-    "selectNodes": "Seleccionar tablas",
-    "shareEntireBase": "Compartir toda la base",
-    "shareSelectedNodes": "Compartir nodos seleccionados",
-    "shareEntireBaseDescription": "Las nuevas tablas y carpetas añadidas a esta base se compartirán automáticamente",
-    "noNodesSelectedWarning": "Por favor seleccione al menos un nodo para compartir",
-    "allowSave": "Permitir guardar en espacio",
-    "allowSaveDescription": "Permitir a los espectadores guardar una copia de esta base en su propio espacio",
-    "allowCopy": "Permitir copiar datos",
     "allowCopyData": "Permitir a los espectadores copiar datos",
-    "allowDuplicate": "Permitir a los espectadores duplicar",
-    "allowCopyDescription": "Permitir a los espectadores copiar datos de tabla de esta base compartida",
-    "selectedNodes": "{{count}} tablas seleccionadas",
-    "allNodes": "Todas las tablas",
     "sharedNode": "Nodo compartido",
-    "sharedNodeDescription": "Este enlace de compartición es para un nodo específico y sus descendientes",
-    "publicShareTitle": "Compartición pública por enlace",
-    "publicShareCount": "{{count}} enlace(s) de compartición pública",
-    "noPublicShare": "Sin enlaces de compartición pública",
-    "security": "Seguridad",
     "restrictByPassword": "Restringir con contraseña",
     "advanced": "Avanzado",
     "embedConfig": "Configuración de incrustación",
@@ -964,12 +912,7 @@
     "openLink": "Abrir enlace",
     "appPublished": "Aplicación publicada",
     "shareTableTab": "Compartir tabla",
-    "shareViewTab": "Compartir vista",
-    "shareNodeTab": "Compartir nodo"
-  },
-  "plugin": {
-    "recent": "Frases",
-    "more": "Explorar más ..."
+    "shareViewTab": "Compartir vista"
   },
   "aiChat": {
     "integrationConnect": {
@@ -1040,10 +983,7 @@
       "other": "Otro"
     },
     "context": {
-      "button": "Agregar nodo",
-      "search": "Agregar tablas",
       "searchEmpty": "No se encontró contexto coincidente",
-      "emptyContext": "No hay contexto para agregar",
       "selectionRow": "Row {{row}}",
       "selectionRows": "Filas {{start}}-{{end}}",
       "selectionColumn": "Col {{col}}",
@@ -1071,8 +1011,7 @@
     },
     "meta": {
       "input": "Entrada",
-      "output": "Salida",
-      "taskCompleted": "Tarea completada"
+      "output": "Salida"
     },
     "attachment": {
       "pastedTextFileName": "Texto pegado",
@@ -1108,17 +1047,11 @@
   "download": {
     "allAttachments": {
       "title": "Descargar todos los archivos adjuntos",
-      "loading": "Cargando vista previa...",
       "rowsWithAttachments": "Filas con adjuntos",
       "totalAttachments": "Adjuntos",
       "totalSize": "Tamaño total",
-      "confirmTitle": "Descargar {{count}} archivos",
-      "confirmDescription": "Tamaño total: {{size}}. Los archivos se comprimirán en un archivo ZIP.",
-      "confirm": "Descargar",
       "cancel": "Cancelar",
       "downloading": "Descargando...",
-      "downloadingFile": "Descargando: {{fileName}}",
-      "progress": "{{downloaded}} / {{total}}",
       "completed": "Descarga completada",
       "cancelled": "Descarga cancelada",
       "noAttachments": "No hay archivos adjuntos para descargar",

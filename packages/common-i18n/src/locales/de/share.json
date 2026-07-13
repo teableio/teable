@@ -9,8 +9,7 @@
     "filterLinkSelectPlaceholder": "Auswählen..."
   },
   "view": {
-    "signInToEdit": "<a>Anmelden</a> zum Bearbeiten",
-    "login": "Anmelden"
+    "signInToEdit": "<a>Anmelden</a> zum Bearbeiten"
   },
   "openOnNewPage": "Auf neuer Seite öffnen",
   "errorTips": "Die Freigabequelle hat eine Authority Matrix aktiviert, die Anzeige ist nicht erlaubt"

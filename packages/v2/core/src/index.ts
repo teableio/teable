@@ -130,6 +130,7 @@ export * from './commands/DuplicateBaseCommand';
 export * from './commands/DuplicateBaseHandler';
 export * from './commands/DuplicateTableCommand';
 export * from './commands/DuplicateTableHandler';
+export * from './commands/buildPhysicalTableDuplicatePlan';
 export * from './commands/DuplicateFieldCommand';
 export * from './commands/DuplicateFieldHandler';
 export * from './commands/PasteCommand';

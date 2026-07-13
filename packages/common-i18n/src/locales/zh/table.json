@@ -4,12 +4,9 @@
     "duplicateFieldDescription": "不支持跨空间引用，复制后将转换成单行文本字段。",
     "duplicateTableTitle": "温馨提示",
     "duplicateTableDescription": "不支持跨空间引用，复制后将转换成单行文本字段。",
-    "duplicateBaseTitle": "温馨提示",
-    "duplicateBaseDescription": "不支持跨空间引用，复制后将转换成单行文本字段。",
     "convertAndDuplicate": "转换并复制"
   },
   "toolbar": {
-    "comingSoon": "即将推出",
     "viewFilterInShare": "此视图正在被用于视图分享链接。修改视图配置也会改变视图分享链接。",
     "createFieldButtonText": "创建一个<0/>类型的字段",
     "others": {
@@ -17,8 +14,6 @@
         "label": "分享",
         "statusLabel": "公开分享视图到网络",
         "noPermission": "无权限分享视图",
-        "shareLink": "分享链接",
-        "copied": "已复制",
         "genLink": "生成新链接",
         "allowCopy": "允许拷贝视图数据",
         "allowEdit": "允许登录用户编辑视图内可见数据",
@@ -31,32 +26,21 @@
         "embedPreview": "预览",
         "copyCode": "复制代码",
         "hideToolbar": "隐藏工具栏",
-        "theme": "主题",
-        "themeSystem": "跟随系统",
-        "themeLight": "浅色",
-        "themeDark": "深色",
         "URLSetting": "链接参数设置",
         "URLSettingDescription": "通过链接参数来控制显示样式，调整以下设置不会影响已分享出去的链接，您需要复制带上新参数的链接以使其生效",
         "cancel": "取消",
         "save": "保存",
         "requireLogin": "需要登录提交"
       },
-      "extensions": {
-        "label": "插件",
-        "graph": "关系图"
-      },
       "api": {
-        "label": "API 接口",
-        "restfulApi": "Restful API",
-        "databaseConnection": "数据库连接",
         "title": "API 访问",
-        "aiContext": "复制给 AI",
+        "aiContext": "AI 连接",
         "advanced": "高级",
+        "recommended": "推荐",
+        "apiDocGroupTitle": "API 上下文",
+        "apiDocGroupDescription": "复制下方文档给 AI，它会获得当前表结构、字段和 API 示例，用于按你的要求读取、创建、更新或删除记录。",
         "generatingToken": "生成中...",
-        "aiContextTitle": "AI 友好的 API 文档",
-        "aiContextDescriptionNoToken": "将此文档复制给你的 AI 助手（ChatGPT、Claude 等）。点击「生成 API Token」创建一个自动填入文档的 Token。",
-        "aiContextDescriptionWithToken": "将此文档复制给你的 AI 助手（ChatGPT、Claude 等）。已生成权限受限的 API Token 并填入文档中。",
-        "generateToken": "生成 Token",
+        "generateToken": "生成令牌",
         "confirmTitle": "创建 API Token",
         "confirmDescription": "这将为此数据库创建一个具有以下权限的新 API Token：",
         "scopeTableRead": "读取表信息",
@@ -68,15 +52,11 @@
         "confirmExpiry": "Token 有效期为 1 年。",
         "confirmButton": "确认创建",
         "tokenInfo": "Token 过期时间：{{expiry}}",
-        "tokenCreatedSuccess": "Token 创建成功！点击复制即可使用。",
         "copied": "已复制！",
-        "copy": "复制",
-        "copyAIDoc": "复制 AI 文档",
-        "aiDocPreview": "AI 文档预览",
-        "manageToken": "管理 Token",
+        "copyAIDoc": "复制文档",
+        "aiDocPreview": "上下文预览",
+        "manageToken": "管理令牌",
         "openInNewTab": "在新标签页打开",
-        "advancedDesc": "打开高级 API 查询构建器，获取更多自定义选项。",
-        "openAdvanced": "打开查询构建器",
         "queryBuilderTitle": "API 查询构建器",
         "queryBuilderDesc": "可视化配置筛选、排序等参数，生成可直接运行的 API 请求代码。",
         "viewApiDocs": "查看完整 API 文档"
@@ -84,7 +64,6 @@
       "personalView": {
         "personal": "个人",
         "tip": "启用后，视图配置仅对你本人生效",
-        "collaborative": "协同",
         "dialog": {
           "title": "退出个人模式",
           "description": "个人视图配置将恢复为实时协作状态，您也可以保存个人视图设置并同步给所有人。",
@@ -108,12 +87,11 @@
       "one_one_duplicate": "无法建立关联：目标记录已在一对一关系中被其他记录关联。"
     },
     "field": {
-      "maxColumnLimit": "表“{{tableName}}”最多只能有 {{maxFieldCount}} 个字段。"
+      "maxColumnLimit": "表“{{tableName}}”最多只能有 {{maxFieldCount}} 个字段。",
+      "requiredExistingValues": "字段“{{fieldName}}”中已有记录为空，无法设置为必填。"
     }
   },
   "field": {
-    "fieldManagement": "字段管理",
-    "fieldManagementDesc": "当前表格所有字段的详细信息",
     "advancedProps": "高级属性",
     "hide": "隐藏",
     "default": {
@@ -194,7 +172,6 @@
       "button": {
         "title": "按钮",
         "label": "按钮文字",
-        "color": "按钮颜色",
         "limitCount": "限制点击次数",
         "resetCount": "允许重置点击计数",
         "maxCount": "最大点击计数",
@@ -253,8 +230,7 @@
         }
       },
       "conditionalRollup": {
-        "title": "{{lookupFieldName}} 条件汇总",
-        "description": "通过筛选条件聚合其他表的数据。"
+        "title": "{{lookupFieldName}} 条件汇总"
       }
     },
     "editor": {
@@ -271,7 +247,6 @@
       "areYouSurePerformIt": "确定要执行此操作吗？",
       "addDescription": "添加描述",
       "dbFieldName": "物理字段名",
-      "description": "描述",
       "descriptionPlaceholder": "描述这个字段（可选）",
       "type": "字段类型",
       "showAs": "显示样式",
@@ -321,18 +296,10 @@
       "lastModifiedAll": "所有可编辑字段",
       "lastModifiedSpecific": "指定字段",
       "lastModifiedSelect": "选择追踪字段",
-      "lastModifiedSelectAll": "追踪全部字段",
       "noEditableFields": "暂无可编辑字段",
-      "conditionalRollup": {
-        "fieldMapping": "字段映射",
-        "selectBaseField": "选择当前表字段",
-        "noMappings": "尚未配置字段映射"
-      },
       "conditionalLookup": {
         "sortLimitToggleLabel": "对引用字段进行排序和限制引用数量",
         "sortLabel": "排序结果",
-        "orderPlaceholder": "选择排序方式",
-        "clearSort": "清除排序",
         "limitLabel": "显示的最大记录数",
         "limitPlaceholder": "留空表示显示全部匹配项",
         "limitHint": "最多仅会保存 {{limit}} 条匹配记录。",
@@ -359,11 +326,7 @@
         "title": "删除字段",
         "simpleConfirm": "确定要删除字段 <b>{{fieldName}}</b> 吗？",
         "withDependencies": "删除字段 <b>{{fieldName}}</b> 将会影响以下字段：",
-        "affectedFields": "受影响的字段：",
-        "fieldsToDelete": "待删除字段 ({{count}})",
-        "unviewedHint": "还有 {{count}} 个字段未查看",
         "deleteCount": "删除 {{count}} 个字段",
-        "noAffectedFields": "此字段没有被其他字段引用。",
         "riskIdentified": "有风险({{count}})",
         "noDependencies": "无依赖({{count}})",
         "safeToDelete": "可安全删除",
@@ -387,13 +350,11 @@
       "user": "向记录中添加用户。",
       "date": "输入日期（例如 2023/11/12）或从日历中选择。",
       "number": "输入数字，或为每个新单元格预填充一个默认值。",
-      "duration": "以小时、分钟或秒为单位输入时间长度（例如 1:23）。",
       "rating": "在预定分值上添加评分。",
       "formula": "基于字段进行动态公式计算。",
       "rollup": "汇总来自关联记录的数据。",
       "conditionalRollup": "通过条件筛选汇总来自其他表的数据。",
       "conditionalLookup": "通过筛选条件显示关联记录中的字段值。",
-      "count": "计算关联记录的数量。",
       "createdTime": "查看每条记录创建的日期和时间。",
       "lastModifiedTime": "查看每条记录的最近编辑日期和时间。",
       "createdBy": "查看创建记录的用户。",
@@ -443,7 +404,6 @@
         "improveText": "语气正式，友好，幽默...",
         "attachPromptForTag": "不允许超过三个标签",
         "attachPromptForClassify": "将\"正在进行中\"的分类为\"无风险\"",
-        "attachPrompt": "请输入附加要求",
         "prompt": "输入 / 选择引用的字段",
         "type": "选择 AI 动作",
         "targetLanguage": "英文，中文，法语...",
@@ -484,7 +444,6 @@
       "autoFillConfirm": {
         "title": "应用 AI 字段配置",
         "description": "将对当前视图的 {{count}} 行执行生成，任务将在后台运行。",
-        "generateMode": "生成方式",
         "emptyOnlyMode": "仅填充空单元格",
         "emptyOnlyModeDesc": "只对空值生成，不会覆盖已有内容",
         "allMode": "整列生成",
@@ -492,36 +451,28 @@
         "saveOnlyMode": "仅保存配置",
         "saveOnlyModeDesc": "只保存字段配置，不写入任何单元格",
         "saveConfigOnly": "仅保存配置",
-        "generate": "生成",
         "fillEmptyCells": "填充空单元格",
         "generateAll": "生成整列",
         "recommended": "推荐",
         "generateFailed": "生成失败",
-        "taskLimited": "由于行数限制，仅处理了前 {{processedCount}} 行（共 {{rowCount}} 行匹配）",
         "limitWarning": "由于每次任务最多处理 1,000 行，仅会处理前 1,000 行。你可以再次运行任务来处理剩余的行。"
-      },
-      "action": {
-        "addAttachment": "添加附件"
       }
     }
   },
   "table": {
     "newTableLabel": "表格",
     "rename": "重命名",
-    "design": "设计",
     "tableRecordHistory": "表格记录历史",
     "deleteConfirm": "你确定要删除 \"{{tableName}}\" 表吗？",
     "dbTableName": "物理数据库中的表名",
     "schemaName": "物理数据库中的模式(Schema)名",
     "baseInfo": "数据库信息",
     "loginUserTable": "应用登录",
-    "loginUserTableClickTips": "打开关联应用",
     "linkedApps": "关联的应用",
     "typeOfDatabase": "数据库类型",
     "descriptionForTable": "表的描述",
     "nameForTable": "表的名称",
     "deleteTip1": "其他表中关联了此表的关联字段将会被删除。",
-    "deleteTip2": "此表被删除后可在回收站中进行恢复。",
     "loginDeleteWarning": "此表被以下应用作为用户表使用，删除后应用的登录功能将失效。",
     "operator": {
       "createBlank": "新表格"
@@ -550,14 +501,9 @@
       "duplicateRecordsConfirmDescription": "此操作将复制 {{recordCount}} 条记录。确定要继续吗？",
       "pasteConfirmTitle": "执行粘贴",
       "pasteConfirmDescription": "您粘贴的数据将影响 {{recordCount}} 条记录。确定要继续吗？",
-      "expandCommonDescription": " 为了将粘贴的数据插入到表格中，我们需要额外添加",
-      "expandColDescription": " {{count}} 个字段",
-      "expandRowDescription": " {{count}} 条记录",
       "paste": "粘贴",
       "deleteRecord": "删除",
       "clear": "清除",
-      "conjunction": "和",
-      "deleteFieldConfirmTitle": "您将要删除以下字段",
       "deleting": "正在删除...",
       "duplicating": "正在复制...",
       "deleteFailed": "删除失败",
@@ -575,7 +521,6 @@
         "chunkFailureSummary": "共有 {{count}} 个分片报错，但流式删除仍继续执行。",
         "chunkLabel": "分片 {{index}}",
         "rowsLabel": "{{count}} 行",
-        "partialFailureDescription": "已删除 {{totalCount}} 条记录中的 {{deletedCount}} 条，请在弹窗中查看分片详情。",
         "phaseLabel": {
           "preparing": "准备中",
           "guarding": "检查中",
@@ -594,7 +539,6 @@
         "chunkFailureSummary": "共有 {{count}} 个分片报错，但流式复制仍继续执行。",
         "chunkLabel": "分片 {{index}}",
         "rowsLabel": "{{count}} 行",
-        "partialFailureDescription": "已复制 {{totalCount}} 条记录中的 {{duplicatedCount}} 条，请在弹窗中查看分片详情。",
         "phaseLabel": {
           "preparing": "准备中",
           "guarding": "检查中",
@@ -613,7 +557,6 @@
         "chunkFailureSummary": "共有 {{count}} 个分片报错，但流式粘贴仍继续执行。",
         "chunkLabel": "分片 {{index}}",
         "rowsLabel": "{{count}} 行",
-        "partialFailureDescription": "已处理 {{totalCount}} 条记录中的 {{processedCount}} 条，请在弹窗中查看分片详情。",
         "phaseLabel": {
           "preparing": "准备中",
           "guarding": "检查中",
@@ -633,7 +576,6 @@
         "chunkFailureSummary": "共有 {{count}} 个分片报错，但流式清除仍继续执行。",
         "chunkLabel": "分片 {{index}}",
         "rowsLabel": "{{count}} 行",
-        "partialFailureDescription": "已清除 {{totalCount}} 条记录中的 {{clearedCount}} 条，请在弹窗中查看分片详情。",
         "phaseLabel": {
           "preparing": "准备中",
           "guarding": "检查中",
@@ -656,7 +598,6 @@
         "chunkFailureSummary": "共有 {{count}} 个分片报错，但流式恢复仍继续执行。",
         "chunkLabel": "分片 {{index}}",
         "rowsLabel": "{{count}} 行",
-        "partialFailureDescription": "已恢复 {{totalCount}} 条记录中的 {{completedCount}} 条，请在弹窗中查看分片详情。",
         "phaseLabel": {
           "preparing": "准备中",
           "guarding": "检查中",
@@ -676,7 +617,6 @@
       "crossBaseCopyLoadFirst": "请滚动加载所有选中的行后再复制跨 base 字段。"
     },
     "graph": {
-      "tableLabel": "表格名称",
       "effectCells": "影响单元格数",
       "estimatedTime": "预计完成",
       "linkFieldCount": "影响关联字段的个数"
@@ -708,8 +648,6 @@
         "manualRepairDialogReason": "为什么需要手动修复",
         "manualRepairDialogHint": "当前弹窗先承载规则要求的修复说明和配置项，后续可以在这个契约上继续补真正的执行动作。",
         "manualRepairDialogClose": "关闭",
-        "manualRepairPreview": "手动修复配置",
-        "manualRepairPreviewTip": "当前仅展示规则要求用户提供的修复选项，尚未真正提交执行。",
         "repairPreviewTitle": "确认修复内容",
         "repairPreviewDescription": "下面是 dry-run 返回的修复说明和将要执行的 SQL。确认后才会真正执行修复。",
         "repairPreviewTooltip": "点击查看 dry-run 修复计划，弹窗会显示实际返回的 SQL；如果没有 SQL，也会明确提示。",
@@ -779,11 +717,6 @@
           "fieldMeta": "字段元数据",
           "symmetricField": "对称字段关系",
           "systemColumn": "系统列 \"{{columnName}}\"",
-          "systemColumnTyped": "系统列 \"{{columnName}}\" ({{dataType}})",
-          "systemNotNull": "系统列 \"{{columnName}}\" 的 NOT NULL 约束",
-          "systemUnique": "系统列 \"{{columnName}}\" 的唯一索引",
-          "systemPrimaryKey": "系统列 \"{{columnName}}\" 的主键约束",
-          "systemDefault": "系统列 \"{{columnName}}\" 的默认表达式",
           "connection": "连接",
           "completion": "完成",
           "unexpected": "异常错误"
@@ -853,7 +786,6 @@
               "resolutionDescription": "选择哪个字段应该保留双向关联行为。",
               "option": {
                 "keepCurrent": "保留当前字段为双向关联",
-                "keepDuplicate": "保留冲突字段为双向关联",
                 "convertDuplicate": "将冲突字段改为单向关联"
               }
             },
@@ -981,7 +913,6 @@
       "importCsvData": "导入 CSV 数据",
       "importExcelData": "导入 Microsoft Excel 数据",
       "cancel": "取消",
-      "leave": "取消",
       "downAsCsv": "下载 CSV",
       "importData": "导入数据",
       "duplicate": "复制",
@@ -993,7 +924,6 @@
     },
     "tips": {
       "importWayTip": "点击或者拖拽到此区域上传",
-      "leaveTip": "你的数据仍然会被导入",
       "fileExceedSizeTip": "该类型文件限制文件大小为",
       "analyzing": "分析中",
       "importing": "导入中",
@@ -1025,25 +955,14 @@
       }
     }
   },
-  "export": {
-    "menu": {
-      "exportCsv": "下载 Csv文件"
-    }
-  },
   "download": {
     "allAttachments": {
       "title": "下载所有附件",
-      "loading": "正在加载预览...",
       "rowsWithAttachments": "含附件行",
       "totalAttachments": "附件数",
       "totalSize": "总大小",
-      "confirmTitle": "下载 {{count}} 个文件",
-      "confirmDescription": "总大小：{{size}}。文件将压缩成一个 zip 文件。",
-      "confirm": "下载",
       "cancel": "取消",
       "downloading": "下载中...",
-      "downloadingFile": "正在下载：{{fileName}}",
-      "progress": "{{downloaded}} / {{total}}",
       "completed": "下载完成",
       "cancelled": "下载已取消",
       "noAttachments": "没有可下载的附件",
@@ -1133,7 +1052,6 @@
   "menu": {
     "insertRecordAbove": "在上方插入 <input /> 记录",
     "insertRecordBelow": "在下方插入 <input /> 记录",
-    "copyCells": "复制单元格",
     "deleteRecord": "删除记录",
     "deleteAllSelectedRecords": "删除所有选定的记录",
     "duplicateRecords": "复制所选记录",
@@ -1142,6 +1060,7 @@
     "insertFieldLeft": "在左侧插入字段",
     "insertFieldRight": "在右侧插入字段",
     "freezeUpField": "冻结至此字段",
+    "freezeFieldWindowTooNarrow": "无法冻结至此区域，当前窗口尺寸不足",
     "hideField": "隐藏字段",
     "deleteField": "删除字段",
     "deleteAllSelectedFields": "删除所有选定的字段",
@@ -1163,8 +1082,7 @@
     "noPermission": "你没有权限访问数据库连接",
     "connectionCountTip": "最大数据库连接数为 <b>{{max}}</b> 当前已建立的连接数为 <b>{{current}}</b>",
     "createFailed": "请确保环境变量 PUBLIC_DATABASE_PROXY 设置正确",
-    "readonlyUnavailable": "当前数据数据库不支持创建只读分享连接。请为 Teable 数据库用户授予创建角色和授权的权限，或更换支持只读角色的数据库。",
-    "helpLink": "https://help.teable.cn/zh/deploy/database-connection"
+    "readonlyUnavailable": "当前数据数据库不支持创建只读分享连接。请为 Teable 数据库用户授予创建角色和授权的权限，或更换支持只读角色的数据库。"
   },
   "view": {
     "addRecord": "添加记录",
@@ -1211,10 +1129,6 @@
     "resourceType": "类型",
     "deletedResource": "资源"
   },
-  "plugin": {
-    "recent": "最近使用",
-    "more": "探索更多..."
-  },
   "pluginPanel": {
     "empty": {
       "description": "没有插件面板"
@@ -1240,30 +1154,18 @@
     }
   },
   "baseShare": {
-    "title": "分享 Base",
     "shareTitle": "分享",
     "shareToWeb": "公开分享到网络",
-    "description": "分享「{{baseName}}」给其他人",
-    "nodeShareDescription": "分享「{{nodeName}}」及其内容",
-    "shareLinks": "分享链接",
-    "newLink": "新建链接",
-    "noShareLinks": "暂无分享链接",
-    "createFirstLink": "创建分享链接",
-    "editSettings": "编辑设置",
     "refreshLink": "重新生成链接",
-    "deleteLink": "删除链接",
     "deleteConfirmTitle": "删除分享链接",
     "deleteConfirmDescription": "此操作不可撤销，所有持有该链接的用户将无法继续访问。",
     "createSuccess": "分享链接已创建",
     "createFailed": "创建分享链接失败",
-    "updateSuccess": "分享设置已更新",
     "updateFailed": "更新分享设置失败",
     "deleteSuccess": "分享链接已删除",
     "deleteFailed": "删除分享链接失败",
     "refreshSuccess": "分享链接已重新生成",
     "refreshFailed": "重新生成分享链接失败",
-    "copied": "链接已复制到剪贴板",
-    "shareLink": "分享链接",
     "linkHolderLabel": "获得链接的人",
     "linkHolderCanView": "可查看",
     "linkHolderCanViewDesc": "获得链接的人可以查看数据",
@@ -1280,27 +1182,9 @@
     "linkHolderCanCopyAndSave": "可另存为副本",
     "linkHolderCanCopyAndSaveDesc": "获得链接的人可以将数据保存到自己的空间",
     "editRequiresLogin": "用户必须登录才能编辑记录",
-    "passwordProtection": "密码保护",
     "enterPassword": "输入密码",
-    "selectNodes": "选择数据表",
-    "shareEntireBase": "分享整个 Base",
-    "shareSelectedNodes": "分享选定的节点",
-    "shareEntireBaseDescription": "新增的数据表和文件夹会自动被分享",
-    "noNodesSelectedWarning": "请至少选择一个节点进行分享",
-    "allowSave": "允许保存到空间",
-    "allowSaveDescription": "允许查看者将此 Base 的副本保存到他们自己的空间",
-    "allowCopy": "允许复制数据",
     "allowCopyData": "允许查看者复制数据",
-    "allowDuplicate": "允许查看者另存为副本",
-    "allowCopyDescription": "允许查看者复制此分享 Base 中的表格数据",
-    "selectedNodes": "已选择 {{count}} 个数据表",
-    "allNodes": "所有数据表",
     "sharedNode": "已分享节点",
-    "sharedNodeDescription": "此分享链接仅包含特定节点及其子节点",
-    "publicShareTitle": "公开分享链接",
-    "publicShareCount": "{{count}} 个公开分享链接",
-    "noPublicShare": "暂无公开分享链接",
-    "security": "安全设置",
     "restrictByPassword": "需要密码访问",
     "advanced": "高级选项",
     "embedConfig": "嵌入配置",
@@ -1312,8 +1196,7 @@
     "openLink": "打开链接",
     "appPublished": "应用已发布",
     "shareTableTab": "分享表",
-    "shareViewTab": "分享视图",
-    "shareNodeTab": "分享节点"
+    "shareViewTab": "分享视图"
   },
   "aiChat": {
     "integrationConnect": {
@@ -1339,7 +1222,6 @@
         "nextQuestion": "下一个问题"
       },
       "completion": {
-        "completed": "已完成",
         "noDetails": "暂无详情",
         "model": "模型",
         "contextWindow": "上下文窗口",
@@ -1353,7 +1235,6 @@
         "commentTitle": "怎么回复会更好？（可选）",
         "commentPlaceholder": "比如理解偏了、信息不准、用错了工具……",
         "saveFailed": "保存反馈失败",
-        "copied": "已复制",
         "copy": "复制",
         "copyToInput": "复制到输入框"
       },
@@ -1446,10 +1327,7 @@
       "other": "更早"
     },
     "context": {
-      "button": "添加节点",
-      "search": "添加表格",
       "searchEmpty": "暂无匹配的上下文",
-      "emptyContext": "暂无可添加的上下文",
       "selectionRow": "行 {{row}}",
       "selectionRows": "行 {{start}}-{{end}}",
       "selectionColumn": "列 {{col}}",
@@ -1478,8 +1356,7 @@
     },
     "meta": {
       "input": "输入",
-      "output": "输出",
-      "taskCompleted": "任务完成"
+      "output": "输出"
     },
     "attachment": {
       "pastedTextFileName": "粘贴文本",
@@ -1552,9 +1429,6 @@
       "pausedHidden": "已暂停重试，请切回此标签页以重新连接。",
       "maxAttemptsReached": "自动重试未成功，请手动刷新页面。"
     },
-    "guide": {
-      "goToScenario": "跳转到场景 {{index}}"
-    },
     "initChatFailed": "初始化对话失败",
     "app": {
       "loadingChatHistory": "加载对话历史...",
@@ -1569,8 +1443,6 @@
       "permissionTip": "允许使用麦克风。",
       "recording": "录音中...",
       "transcribing": "识别中...",
-      "listening": "正在听，请开始说话",
-      "preview": "正在听：{{text}}",
       "error": {
         "microphoneDenied": "麦克风权限已关闭。",
         "microphoneUnavailable": "没有可用麦克风。",

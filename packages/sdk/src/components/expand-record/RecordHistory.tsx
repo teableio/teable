@@ -309,6 +309,7 @@ const RecordHistoryFilterBar = (props: IRecordHistoryFilterBarProps) => {
           placeholderClassName="text-xs"
           placeholder={t('expandRecord.recordHistory.allFields')}
           notFoundText={t('common.noRecords')}
+          modal
         />
         <BaseMultipleSelect
           value={createdByIds}
@@ -322,6 +323,7 @@ const RecordHistoryFilterBar = (props: IRecordHistoryFilterBarProps) => {
           placeholderClassName="text-xs"
           placeholder={t('expandRecord.recordHistory.allUsers')}
           notFoundText={t('common.noRecords')}
+          modal
         />
         <DateRangePicker
           value={dateRange}
@@ -335,6 +337,7 @@ const RecordHistoryFilterBar = (props: IRecordHistoryFilterBarProps) => {
             },
           }}
           className="h-8 w-52 text-xs"
+          modal
         />
       </div>
       {hasFilter && (

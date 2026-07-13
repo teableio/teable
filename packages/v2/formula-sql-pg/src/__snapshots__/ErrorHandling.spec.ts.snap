@@ -134,7 +134,7 @@ exports[`error handling > 'FindTypeError': 'Find with non-convertible type' 1`] 
     },
   },
   "result": null,
-  "sql": "POSITION('x' IN COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))",
+  "sql": "POSITION((('x')::text) IN ((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text))",
 }
 `;
 
@@ -464,7 +464,7 @@ exports[`error handling > 'SearchTypeError': 'Search with non-convertible type' 
     },
   },
   "result": null,
-  "sql": "POSITION(UPPER('x') IN UPPER(COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}')))",
+  "sql": "POSITION(UPPER((('x')::text)) IN UPPER(((COALESCE(("t"."Button")::jsonb->>'title', ("t"."Button")::jsonb->>'name', ("t"."Button")::jsonb #>> '{}'))::text)))",
 }
 `;
 

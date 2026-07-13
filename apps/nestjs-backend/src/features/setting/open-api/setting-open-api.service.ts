@@ -21,9 +21,6 @@ import type {
   ITestApiKeyRo,
   ITestApiKeyVo,
   ITestPublicAccessVo,
-  GatewayModelType,
-  GatewayModelTag,
-  GatewayModelProvider,
   IImageSize,
   IAIConfig,
   IAppConfig,
@@ -1459,46 +1456,6 @@ export class SettingOpenApiService {
       }
 
       return { success: false, error: { code: 'unknown', message: detailedMessage } };
-    }
-  }
-
-  /**
-   * Get available models from AI Gateway
-   * Returns empty array if gateway is not configured
-   * Uses Redis cache with 1 hour TTL from SettingService
-   */
-  async getGatewayModels(): Promise<{
-    configured: boolean;
-    models: Array<{
-      id: string;
-      name?: string;
-      description?: string;
-      type?: GatewayModelType;
-      tags?: GatewayModelTag[];
-      contextWindow?: number;
-      maxTokens?: number;
-      created?: number;
-      ownedBy?: GatewayModelProvider;
-      pricing?: Record<string, unknown>;
-    }>;
-  }> {
-    // Check if gateway is configured
-    const { aiConfig } = await this.settingService.getSetting();
-    if (!aiConfig?.aiGatewayApiKey) {
-      return { configured: false, models: [] };
-    }
-
-    try {
-      const models = await this.settingService.getGatewayModels();
-      this.logger.log(`Fetched ${models.length} gateway models`);
-      return { configured: true, models };
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      const errorStack = error instanceof Error ? error.stack : '';
-      this.logger.error(`Failed to fetch gateway models: ${errorMessage}`, errorStack);
-      // Return configured=true but empty models on error
-      // so frontend knows gateway is configured but had a fetch error
-      return { configured: true, models: [] };
     }
   }
 }

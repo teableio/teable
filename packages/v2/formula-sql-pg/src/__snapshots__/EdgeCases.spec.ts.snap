@@ -48,7 +48,7 @@ exports[`edge cases > 'FindEmptyString': 'Find with empty search string' 1`] = `
     },
   },
   "result": "1",
-  "sql": "POSITION('' IN "t"."SingleLineText")",
+  "sql": "POSITION((('')::text) IN (("t"."SingleLineText")::text))",
 }
 `;
 

@@ -12,6 +12,7 @@ import { MarkdownPreview } from '@teable/sdk';
 import { StandaloneViewProvider } from '@teable/sdk/context';
 import {
   Button,
+  Badge,
   Tabs,
   TabsContent,
   TabsList,
@@ -32,6 +33,7 @@ import {
 import Link from 'next/link';
 import { useTranslation } from 'next-i18next';
 import { useState, useMemo, useEffect, useCallback } from 'react';
+import type { ReactNode } from 'react';
 import { FilterBuilder } from '@/features/app/blocks/setting/query-builder/FilterBuilder';
 import { PreviewScript } from '@/features/app/blocks/setting/query-builder/PreviewScript';
 import { PreviewTable } from '@/features/app/blocks/setting/query-builder/PreviewTable';
@@ -39,6 +41,10 @@ import { SearchBuilder } from '@/features/app/blocks/setting/query-builder/Searc
 import { OrderByBuilder } from '@/features/app/blocks/setting/query-builder/SortBuilder';
 import { ViewBuilder } from '@/features/app/blocks/setting/query-builder/ViewBuilder';
 import { CopyButton } from '@/features/app/components/CopyButton';
+import {
+  PersonalSettingTab,
+  useSettingStore,
+} from '@/features/app/components/setting/useSettingStore';
 import { useBaseResource } from '@/features/app/hooks/useBaseResource';
 import type { IBaseResourceTable } from '@/features/app/hooks/useBaseResource';
 import { tableConfig } from '@/features/i18n/table.config';
@@ -106,6 +112,7 @@ const getFieldTypeDescription = (type: FieldType, options?: unknown): string => 
 };
 
 const TOKEN_PLACEHOLDER = '<YOUR_API_TOKEN>';
+const SKILL_INSTALL_COMMAND = 'npx skills add https://github.com/teableio/agent-skills';
 
 const generateAIContext = (
   tableName: string,
@@ -268,6 +275,102 @@ ${fieldDescriptions}
 `;
 };
 
+const SkillCopyCard = ({
+  text,
+  label,
+  title,
+  children,
+}: {
+  text: string;
+  label: string;
+  title: ReactNode;
+  children: ReactNode;
+}) => {
+  return (
+    <div className="min-w-0 max-w-full overflow-hidden rounded-md border bg-muted px-4 pb-4 pt-3">
+      <div className="mb-1 flex items-center justify-between gap-4">
+        <div className="min-w-0 flex-1 text-[13px] font-medium text-muted-foreground">{title}</div>
+        <CopyButton text={text} label={label} variant="outline" size="xs" iconClassName="size-4" />
+      </div>
+      <div className="min-w-0">{children}</div>
+    </div>
+  );
+};
+
+const AgentSkillSection = ({ onOpenDetails }: { onOpenDetails?: () => void }) => {
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const copy = {
+    title: t('common:settings.setting.teableSkill'),
+    recommended: t('table:toolbar.others.api.recommended', { defaultValue: '推荐' }),
+    intro: t('common:settings.teableSkill.intro'),
+    details: t('common:actions.viewDetails'),
+    copy: t('common:settings.teableSkill.copy'),
+    installPromptLabel: t('common:settings.teableSkill.installPromptLabel'),
+    installCommandLabel: t('common:settings.teableSkill.installCommandLabel', {
+      defaultValue: 'Skill 安装指令',
+    }),
+    installPrompt: t('common:settings.teableSkill.installPrompt'),
+  };
+
+  return (
+    <section className="flex min-w-0 flex-col gap-1">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-2">
+          <h3 className="truncate font-semibold">{copy.title}</h3>
+          <Badge
+            variant="secondary"
+            className="shrink-0 bg-blue-100 px-2 text-xs font-medium text-blue-600"
+          >
+            {copy.recommended}
+          </Badge>
+        </div>
+        {onOpenDetails && (
+          <Button variant="outline" size="sm" onClick={onOpenDetails} className="shrink-0">
+            {copy.details}
+          </Button>
+        )}
+      </div>
+
+      <div className="flex min-w-0 flex-col gap-3">
+        <div className="min-w-0">
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">{copy.intro}</p>
+        </div>
+
+        <div className="grid min-w-0 max-w-full gap-3 overflow-hidden md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <SkillCopyCard
+            text={copy.installPrompt}
+            label={copy.copy}
+            title={
+              <div className="flex items-center gap-2">
+                <MagicAi className="size-4" />
+                <span>{copy.installPromptLabel}</span>
+              </div>
+            }
+          >
+            <code className="block whitespace-pre-wrap break-words text-sm leading-6">
+              {copy.installPrompt}
+            </code>
+          </SkillCopyCard>
+          <SkillCopyCard
+            text={SKILL_INSTALL_COMMAND}
+            label={copy.copy}
+            title={
+              <div className="flex items-center gap-2">
+                <Code2 className="size-4" />
+                <span>{copy.installCommandLabel}</span>
+              </div>
+            }
+          >
+            <code className="block max-w-full whitespace-pre-wrap break-all text-sm leading-6">
+              {SKILL_INSTALL_COMMAND}
+            </code>
+          </SkillCopyCard>
+        </div>
+      </div>
+    </section>
+  );
+};
+
 // Token Section Component
 const TokenSection = ({
   generatedToken,
@@ -279,25 +382,16 @@ const TokenSection = ({
   onGenerateToken: () => void;
 }) => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const personalAccessToken = t('setting:personalAccessToken');
   return (
-    <div className="rounded-lg border bg-muted/30 p-4">
+    <div className="rounded-lg border bg-muted p-4">
       <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Key className="size-5 text-muted-foreground" />
-          <span className="font-medium">Token</span>
+        <div className="flex items-center gap-2">
+          <Key className="size-4 text-muted-foreground" />
+          <span className="text-sm font-medium">{personalAccessToken}</span>
         </div>
         <div className="flex items-center gap-2">
-          {generatedToken ? (
-            <>
-              <Input className="w-64 font-mono text-xs" readOnly value={generatedToken.token} />
-              <CopyButton
-                variant="outline"
-                size="sm"
-                text={generatedToken.token}
-                iconClassName="size-4"
-              />
-            </>
-          ) : (
+          {!generatedToken && (
             <Button
               variant="outline"
               size="sm"
@@ -327,11 +421,27 @@ const TokenSection = ({
         </div>
       </div>
       {generatedToken && (
-        <p className="mt-2 text-xs text-muted-foreground">
-          {t('table:toolbar.others.api.tokenInfo', {
-            expiry: new Date(generatedToken.expiredTime).toLocaleDateString(),
-          })}
-        </p>
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex min-w-0 items-center gap-2">
+            <Input
+              className="text-xxs min-w-0 flex-1 font-mono"
+              readOnly
+              value={generatedToken.token}
+            />
+            <CopyButton
+              variant="outline"
+              size="sm"
+              className="w-8 p-2"
+              text={generatedToken.token}
+              iconClassName="size-4"
+            />
+          </div>
+          <p className="text-xs text-muted-foreground sm:shrink-0">
+            {t('table:toolbar.others.api.tokenInfo', {
+              expiry: new Date(generatedToken.expiredTime).toLocaleDateString(),
+            })}
+          </p>
+        </div>
       )}
     </div>
   );
@@ -371,7 +481,7 @@ const AdvancedQueryPanel = ({
     <StandaloneViewProvider baseId={baseId} tableId={tableId} viewId={viewId}>
       <div className="space-y-4">
         {/* Introduction */}
-        <div className="rounded-lg border bg-muted/30 p-4">
+        <div className="rounded-lg border bg-muted p-4">
           <div className="flex items-center justify-between gap-4">
             <div>
               <h3 className="font-medium">{t('table:toolbar.others.api.queryBuilderTitle')}</h3>
@@ -478,9 +588,10 @@ export interface APIDialogContentProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export const APIDialogContent = ({ onOpenChange: _onOpenChange }: APIDialogContentProps) => {
+export const APIDialogContent = ({ onOpenChange }: APIDialogContentProps) => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { baseId, tableId, viewId } = useBaseResource() as IBaseResourceTable;
+  const openSetting = useSettingStore((state) => state.setOpen);
   const [copied, setCopied] = useState(false);
   const [currentUrl, setCurrentUrl] = useState('');
   const [generatedToken, setGeneratedToken] = useState<CreateAccessTokenVo | null>(null);
@@ -566,6 +677,13 @@ export const APIDialogContent = ({ onOpenChange: _onOpenChange }: APIDialogConte
     setTimeout(() => setCopied(false), 2000);
   }, [aiContext]);
 
+  const handleOpenSkillDetails = useCallback(() => {
+    onOpenChange(false);
+    window.requestAnimationFrame(() => {
+      openSetting(true, PersonalSettingTab.TeableSkill);
+    });
+  }, [onOpenChange, openSetting]);
+
   const isLoading = createTokenMutation.isPending;
   const isDataLoading = !tableInfo || !fieldsData;
 
@@ -582,44 +700,69 @@ export const APIDialogContent = ({ onOpenChange: _onOpenChange }: APIDialogConte
         </TabsTrigger>
       </TabsList>
 
-      <TabsContent value="ai-context" className="mt-0 flex min-h-0 flex-1 flex-col">
+      <TabsContent
+        value="ai-context"
+        className="mt-0 flex min-h-0 flex-1 flex-col focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:[box-shadow:none]"
+      >
         {isDataLoading ? (
           <div className="flex h-64 items-center justify-center">
             <Loader2 className="size-8 animate-spin text-muted-foreground" />
             <span className="ml-2 text-muted-foreground">{t('common:actions.loading')}</span>
           </div>
         ) : (
-          <div className="flex min-h-0 flex-1 flex-col gap-4">
-            {/* Token Section */}
-            <TokenSection
-              generatedToken={generatedToken}
-              isLoading={isLoading}
-              onGenerateToken={() => setShowTokenConfirm(true)}
-            />
+          <div className="min-h-0 w-full max-w-full flex-1 overflow-y-auto overflow-x-hidden pr-3">
+            <div className="flex w-full min-w-0 max-w-full flex-col gap-10 overflow-x-hidden">
+              <AgentSkillSection onOpenDetails={handleOpenSkillDetails} />
 
-            {/* AI Document Preview */}
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-              <div className="mb-2 flex shrink-0 items-center justify-between">
-                <span className="text-sm font-medium">
-                  {t('table:toolbar.others.api.aiDocPreview')}
-                </span>
-                <Button onClick={handleCopy} size="sm" className="gap-2">
-                  {copied ? (
-                    <>
-                      <Check className="size-4" />
-                      {t('table:toolbar.others.api.copied')}
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="size-4" />
-                      {t('table:toolbar.others.api.copyAIDoc')}
-                    </>
-                  )}
-                </Button>
-              </div>
-              <ScrollArea className="h-[400px] rounded-lg border bg-muted/20 p-4">
-                <MarkdownPreview>{aiContext}</MarkdownPreview>
-              </ScrollArea>
+              <section className="flex min-w-0 flex-col gap-3">
+                <div className="flex flex-col gap-1">
+                  <h3 className="font-semibold">
+                    {t('table:toolbar.others.api.apiDocGroupTitle', {
+                      defaultValue: t('table:toolbar.others.api.aiDocPreview'),
+                    })}
+                  </h3>
+                  <p className="text-sm leading-6 text-muted-foreground">
+                    {t('table:toolbar.others.api.apiDocGroupDescription', {
+                      defaultValue:
+                        '复制下方文档给 AI，它会获得当前表结构、字段和 API 示例，用于按你的要求读取、创建、更新或删除记录。',
+                    })}
+                  </p>
+                </div>
+
+                <div className="flex min-w-0 flex-col gap-4">
+                  {/* Token Section */}
+                  <TokenSection
+                    generatedToken={generatedToken}
+                    isLoading={isLoading}
+                    onGenerateToken={() => setShowTokenConfirm(true)}
+                  />
+
+                  {/* AI Document Preview */}
+                  <div className="flex min-w-0 flex-col overflow-hidden">
+                    <div className="mb-2 flex shrink-0 items-center justify-between">
+                      <span className="text-sm font-medium">
+                        {t('table:toolbar.others.api.aiDocPreview')}
+                      </span>
+                      <Button onClick={handleCopy} variant="outline" size="sm" className="gap-2">
+                        {copied ? (
+                          <>
+                            <Check className="size-4" />
+                            {t('table:toolbar.others.api.copied')}
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="size-4" />
+                            {t('table:toolbar.others.api.copyAIDoc')}
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    <ScrollArea className="h-[400px] rounded-lg border bg-muted/20 p-4">
+                      <MarkdownPreview>{aiContext}</MarkdownPreview>
+                    </ScrollArea>
+                  </div>
+                </div>
+              </section>
             </div>
           </div>
         )}
