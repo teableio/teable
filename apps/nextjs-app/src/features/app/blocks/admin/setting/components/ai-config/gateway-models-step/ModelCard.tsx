@@ -5,7 +5,9 @@ import { CSS } from '@dnd-kit/utilities';
 import { DraggableHandle, Trash2, Image as ImageIcon } from '@teable/icons';
 import type { IGatewayModel, IModelAbility, GatewayModelProvider } from '@teable/openapi';
 import { Button, Switch, Badge, Input, cn } from '@teable/ui-lib/shadcn';
+import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
+import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import {
   calculateMultiplier,
   formatMultiplier,
@@ -25,21 +27,34 @@ function getProviderFromModelId(modelId: string): GatewayModelProvider | undefin
 
 interface IModelCardProps {
   model: IGatewayModel;
-  showPricing: boolean;
   onToggleEnabled: (modelId: string, enabled: boolean) => void;
+  onToggleRecommended: (modelId: string, recommended: boolean) => void;
   onRemove: (modelId: string) => void;
   onUpdateI18nDescription: (modelId: string, i18nDescription: { en?: string; zh?: string }) => void;
+  onUpdateRecommendedDescription: (
+    modelId: string,
+    recommendedDescription: { en?: string; zh?: string }
+  ) => void;
 }
 
 export function ModelCard({
   model,
-  showPricing,
   onToggleEnabled,
+  onToggleRecommended,
   onRemove,
   onUpdateI18nDescription,
+  onUpdateRecommendedDescription,
 }: IModelCardProps) {
+  const { t } = useTranslation('common');
+  const isCloud = useIsCloud();
   const [descEn, setDescEn] = useState(model.i18nDescription?.en ?? '');
   const [descZh, setDescZh] = useState(model.i18nDescription?.zh ?? '');
+  const [recommendedDescEn, setRecommendedDescEn] = useState(
+    model.recommendedDescription?.en ?? ''
+  );
+  const [recommendedDescZh, setRecommendedDescZh] = useState(
+    model.recommendedDescription?.zh ?? ''
+  );
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: model.id,
@@ -79,28 +94,26 @@ export function ModelCard({
         <div className="flex items-center gap-2">
           {ProviderIcon && <ProviderIcon className="size-4 shrink-0" />}
           <span className="font-medium">{model.label}</span>
-          {/* Show pricing (only in Cloud) */}
-          {showPricing &&
-            (() => {
-              const isImage =
-                model.modelType === 'image' ||
-                model.isImageModel ||
-                model.tags?.includes('image-generation');
-              const label = isImage
-                ? formatPriceToCredits(model.pricing) || undefined
-                : formatMultiplier(calculateMultiplier(model.pricing));
-              return label ? (
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    'px-2 text-[11px]',
-                    model.enabled ? 'text-foreground' : 'text-muted-foreground'
-                  )}
-                >
-                  {label}
-                </Badge>
-              ) : null;
-            })()}
+          {(() => {
+            const isImage =
+              model.modelType === 'image' ||
+              model.isImageModel ||
+              model.tags?.includes('image-generation');
+            const label = isImage
+              ? formatPriceToCredits(model.pricing) || undefined
+              : formatMultiplier(calculateMultiplier(model.pricing));
+            return label ? (
+              <Badge
+                variant="outline"
+                className={cn(
+                  'px-2 text-[11px]',
+                  model.enabled ? 'text-foreground' : 'text-muted-foreground'
+                )}
+              >
+                {label}
+              </Badge>
+            ) : null;
+          })()}
           {/* Show Image badge based on modelType or isImageModel flag */}
           {(model.modelType === 'image' ||
             model.isImageModel ||
@@ -137,6 +150,35 @@ export function ModelCard({
           />
         </div>
 
+        {isCloud && model.recommended && (
+          <div className="flex gap-2">
+            <Input
+              className="h-7 text-xs"
+              placeholder="EN recommended description"
+              value={recommendedDescEn}
+              onChange={(e) => setRecommendedDescEn(e.target.value)}
+              onBlur={() =>
+                onUpdateRecommendedDescription(model.id, {
+                  en: recommendedDescEn,
+                  zh: recommendedDescZh,
+                })
+              }
+            />
+            <Input
+              className="h-7 text-xs"
+              placeholder="ZH 推荐描述"
+              value={recommendedDescZh}
+              onChange={(e) => setRecommendedDescZh(e.target.value)}
+              onBlur={() =>
+                onUpdateRecommendedDescription(model.id, {
+                  en: recommendedDescEn,
+                  zh: recommendedDescZh,
+                })
+              }
+            />
+          </div>
+        )}
+
         {model.capabilities && (
           <div className="flex gap-1">
             {Object.entries(model.capabilities)
@@ -157,11 +199,26 @@ export function ModelCard({
         )}
       </div>
 
-      <div className="flex items-center gap-2">
-        <Switch
-          checked={model.enabled}
-          onCheckedChange={(checked) => onToggleEnabled(model.id, checked)}
-        />
+      <div className="flex items-center gap-3">
+        {isCloud && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">
+              {t('admin.setting.ai.recommended')}
+            </span>
+            <Switch
+              checked={!!model.recommended}
+              onCheckedChange={(checked) => onToggleRecommended(model.id, checked)}
+            />
+          </div>
+        )}
+
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-muted-foreground">{t('admin.setting.ai.enabled')}</span>
+          <Switch
+            checked={model.enabled}
+            onCheckedChange={(checked) => onToggleEnabled(model.id, checked)}
+          />
+        </div>
 
         <Button
           size="sm"

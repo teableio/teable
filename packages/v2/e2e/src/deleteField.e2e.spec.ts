@@ -1572,5 +1572,97 @@ describe('v2 http deleteField (e2e)', () => {
         await safeDeleteTable(tableId);
       }
     });
+
+    /**
+     * T4927: After table A links to table B and B is deleted (soft-delete to trash),
+     * the remaining link field on A must still be deletable.
+     */
+    it('T4927: deletes orphan link field after foreign table is soft-deleted', async () => {
+      let hostTableId: string | undefined;
+      let foreignTableId: string | undefined;
+
+      try {
+        const host = await createTable('T4927 Host A');
+        const foreign = await createTable('T4927 Foreign B');
+        hostTableId = host.tableId;
+        foreignTableId = foreign.tableId;
+
+        const linkFieldId = createFieldId();
+        const hostWithLink = await ctx.createField({
+          baseId: ctx.baseId,
+          tableId: host.tableId,
+          field: {
+            type: 'link',
+            id: linkFieldId,
+            name: 'Link to B',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: foreign.tableId,
+              lookupFieldId: foreign.primaryFieldId,
+              isOneWay: false,
+            },
+          },
+        });
+
+        const linkField = hostWithLink.fields.find((field) => field.id === linkFieldId);
+        expect(linkField?.type).toBe('link');
+        if (!linkField || linkField.type !== 'link') return;
+        expect(linkField.options.symmetricFieldId).toBeTruthy();
+
+        // Soft-delete foreign table B (moves to trash; link on A remains).
+        await ctx.deleteTable(foreign.tableId, { mode: 'soft' });
+        foreignTableId = undefined;
+
+        // Orphan link field on A must still delete successfully.
+        await ctx.deleteField({ tableId: host.tableId, fieldId: linkFieldId });
+
+        const hostAfter = await ctx.getTableById(host.tableId);
+        expect(hostAfter.fields.some((field) => field.id === linkFieldId)).toBe(false);
+        expect(hostAfter.fields.some((field) => field.id === host.primaryFieldId)).toBe(true);
+      } finally {
+        await safeDeleteTable(hostTableId);
+        await safeDeleteTable(foreignTableId);
+      }
+    });
+
+    it('T4927: deletes orphan one-way link field after foreign table is soft-deleted', async () => {
+      let hostTableId: string | undefined;
+      let foreignTableId: string | undefined;
+
+      try {
+        const host = await createTable('T4927 Host OneWay A');
+        const foreign = await createTable('T4927 Foreign OneWay B');
+        hostTableId = host.tableId;
+        foreignTableId = foreign.tableId;
+
+        const linkFieldId = createFieldId();
+        await ctx.createField({
+          baseId: ctx.baseId,
+          tableId: host.tableId,
+          field: {
+            type: 'link',
+            id: linkFieldId,
+            name: 'One-way Link to B',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: foreign.tableId,
+              lookupFieldId: foreign.primaryFieldId,
+              isOneWay: true,
+            },
+          },
+        });
+
+        await ctx.deleteTable(foreign.tableId, { mode: 'soft' });
+        foreignTableId = undefined;
+
+        await ctx.deleteField({ tableId: host.tableId, fieldId: linkFieldId });
+
+        const hostAfter = await ctx.getTableById(host.tableId);
+        expect(hostAfter.fields.some((field) => field.id === linkFieldId)).toBe(false);
+      } finally {
+        await safeDeleteTable(hostTableId);
+        await safeDeleteTable(foreignTableId);
+      }
+    });
   });
 });

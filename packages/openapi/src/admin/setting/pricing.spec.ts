@@ -6,6 +6,8 @@ import {
   pricingToCredits,
   pricingToCreditsFromUsage,
   normalizeGatewayPricing,
+  formatDecimalString,
+  scalePrice,
   USD_PER_CREDIT,
 } from './pricing';
 
@@ -14,6 +16,41 @@ describe('pricing', () => {
     it('should be $0.01 (100 credits = $1)', () => {
       expect(USD_PER_CREDIT).toBe(0.01);
       expect(1 / USD_PER_CREDIT).toBe(100);
+    });
+  });
+
+  describe('formatDecimalString', () => {
+    it('renders tiny values as plain decimals, never exponential', () => {
+      expect(formatDecimalString(5e-8)).toBe('0.00000005');
+      expect(formatDecimalString(1.2e-7)).toBe('0.00000012');
+    });
+
+    it('strips float-multiplication noise', () => {
+      expect(formatDecimalString(5.000000000000001e-7)).toBe('0.0000005');
+      expect(formatDecimalString(0.0000010000000000000002)).toBe('0.000001');
+    });
+
+    it('formats zero as "0" and rejects non-finite input', () => {
+      expect(formatDecimalString(0)).toBe('0');
+      expect(formatDecimalString(NaN)).toBeUndefined();
+      expect(formatDecimalString(Infinity)).toBeUndefined();
+    });
+  });
+
+  describe('scalePrice', () => {
+    it('scales without exponential notation or float noise', () => {
+      // 0.000005 * 0.1 would stringify to "5.000000000000001e-7" via String()
+      expect(scalePrice('0.000005', 0.1)).toBe('0.0000005');
+      expect(scalePrice('0.00000005', 1)).toBe('0.00000005');
+    });
+
+    it('keeps a scaled-to-zero price as "0" (not undefined)', () => {
+      expect(scalePrice('0.000005', 0)).toBe('0');
+    });
+
+    it('returns undefined for missing or non-numeric prices', () => {
+      expect(scalePrice(undefined, 0.5)).toBeUndefined();
+      expect(scalePrice('abc', 0.5)).toBeUndefined();
     });
   });
 
@@ -294,6 +331,35 @@ describe('pricing', () => {
       expect(result?.outputTiers).toHaveLength(2);
       expect(result?.inputCacheReadTiers).toHaveLength(2);
       expect(result?.inputCacheRead).toBe('0.0000005');
+    });
+
+    it('should fill missing min in tiers (gateway gpt-5.6-luna shape)', () => {
+      // The real gateway response for openai/gpt-5.6-luna omits `min` on the
+      // first input_cache_read tier — first tier implicitly starts at 0
+      const result = normalizeGatewayPricing({
+        input: '0.0000006',
+        input_cache_read_tiers: [{ cost: '0.0000001', max: 272000 }],
+      });
+      expect(result?.inputCacheReadTiers).toEqual([{ cost: '0.0000001', min: 0, max: 272000 }]);
+    });
+
+    it('should default a later min-less tier to the previous tier max', () => {
+      const result = normalizeGatewayPricing({
+        input_tiers: [{ cost: '0.000001', max: 128000 }, { cost: '0.000002' }],
+      });
+      expect(result?.inputTiers).toEqual([
+        { cost: '0.000001', min: 0, max: 128000 },
+        { cost: '0.000002', min: 128000 },
+      ]);
+    });
+
+    it('should pass through tiers that already have min unchanged', () => {
+      const tiers = [
+        { cost: '0.000005', min: 0, max: 200001 },
+        { cost: '0.00001', min: 200001 },
+      ];
+      const result = normalizeGatewayPricing({ input_tiers: tiers });
+      expect(result?.inputTiers).toEqual(tiers);
     });
 
     it('should stringify non-string price values', () => {

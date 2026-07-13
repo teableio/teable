@@ -1,6 +1,5 @@
 {
   "common": {
-    "comingSoon": "Prossimamente",
     "empty": "Vuoto",
     "noRecords": "Nessun record disponibile",
     "unnamedRecord": "Record senza nome",
@@ -90,7 +89,6 @@
     "link": {
       "placeholder": "Seleziona record da collegare",
       "searchPlaceholder": "Cerca record",
-      "allFields": "Tutti i campi",
       "globalSearch": "Ricerca globale",
       "fieldSearch": "Ricerca per campo",
       "maxFieldTips": "Superato il numero massimo di {{count}} campi, i campi extra verranno ignorati",
@@ -98,14 +96,11 @@
       "selectRecord": "Seleziona Record",
       "all": "Tutti",
       "selected": "Selezionato",
-      "expandRecordError": "Nessun permesso per visualizzare questo record.",
       "alreadyOpen": "Questo record è già aperto.",
       "linkedTo": "Collegato a",
-      "goToForeignTable": "Vai alla tabella esterna",
       "foreignTableIdRequired": "La tabella esterna è obbligatoria",
       "linkFieldIdRequired": "Il campo di collegamento è obbligatorio",
       "selectTooManyRecords": "I record selezionati non devono superare {{maxCount}}",
-      "relationshipRequired": "La relazione è obbligatoria",
       "rangeSelectFailed": "Impossibile selezionare i record nell'intervallo"
     },
     "user": {
@@ -119,12 +114,10 @@
     "lookup": {
       "lookupFieldIdRequired": "Il campo di ricerca è obbligatorio",
       "lookupOptionsNotAllowed": "Le opzioni di ricerca non sono consentite quando l'attributo isLookup è vero o il tipo di campo è rollup.",
-      "lookupOptionsRequired": "Le opzioni di ricerca sono richieste",
-      "refineOptionsError": "Errore nell'analisi delle opzioni di ricerca {{message}}"
+      "lookupOptionsRequired": "Le opzioni di ricerca sono richieste"
     },
     "rollup": {
-      "expressionRequired": "L'espressione è obbligatoria",
-      "unsupportedTip": "Il rollup supporta solo i campi di collegamento e rollup"
+      "expressionRequired": "L'espressione è obbligatoria"
     },
     "conditionalRollup": {
       "filterRequired": "Il filtro deve contenere almeno una condizione"
@@ -152,11 +145,8 @@
     "addConditionGroup": "Aggiungi gruppo di condizioni",
     "nestedLimitTip": "Le condizioni del filtro possono essere annidate solo fino a {{depth}} livelli di profondità",
     "linkInputPlaceholder": "Inserisci un valore",
-    "groupDescription": "Qualsiasi delle seguenti è vera…",
     "currentUser": "Io (utente corrente)",
-    "tips": {
-      "scope": "In questa vista, mostra i record"
-    },
+    "tips": {},
     "invalidateSelected": "Valore non valido",
     "invalidateSelectedTips": "Il valore selezionato è stato eliminato, per favore seleziona di nuovo",
     "invalidConditionTip": "Questa condizione di filtro non è valida e verrà ignorata. Regola il valore.",
@@ -254,15 +244,10 @@
     "title": "del nome del campo",
     "displayLines": "{{count}} linee"
   },
-  "share": {
-    "title": "condividi"
-  },
-  "extensions": {
-    "title": "estensioni"
-  },
+  "share": {},
+  "extensions": {},
   "hidden": {
     "label": "Campi nascosti",
-    "configLabel_one": "{{count}} campo nascosto",
     "configLabel_other": "{{count}} campi nascosti",
     "configLabel_other_visible": "{{count}} campi visibili",
     "showAll": "Mostra tutto",
@@ -285,8 +270,6 @@
       "before": "Prima",
       "after": "Dopo",
       "buttonClicked": "Pulsante cliccato",
-      "filterField": "Campo",
-      "filterCreatedBy": "Modificato da",
       "filterTime": "Intervallo di tempo",
       "allFields": "Tutti i campi",
       "allUsers": "Tutti gli utenti",
@@ -392,7 +375,6 @@
       "baseUpdate": "Aggiorna base",
       "baseInviteEmail": "Invita via email nella base",
       "baseInviteLink": "Invita tramite link nella base",
-      "baseTableImport": "Importa dati nella base",
       "baseAuthorityMatrixConfig": "Configura matrice di autorità",
       "baseDbConnect": "Connetti al database",
       "tableCreate": "Crea tabella",
@@ -427,7 +409,6 @@
       "appDelete": "Elimina app",
       "appRead": "Leggi app",
       "appUpdate": "Aggiorna app",
-      "userProfileRead": "Leggi profilo utente corrente",
       "userEmailRead": "Leggi email utente corrente",
       "userIntegrations": "Manage user integrations",
       "recordHistoryRead": "Leggi cronologia record",
@@ -865,7 +846,6 @@
     "placeholder": "Leave a comment...",
     "emptyComment": "Start a conversation",
     "deletedComment": "Deleted Comment",
-    "imageSizeLimit": "Image size could not be greater than {{size}}",
     "tip": {
       "editing": "Modifica...",
       "edited": "(Editato)",
@@ -884,8 +864,6 @@
     },
     "floatToolbar": {
       "editLink": "Edit Link",
-      "caption": "Caption",
-      "delete": "Delete",
       "linkText": "Link Text",
       "enterUrl": "Enter URL"
     }
@@ -895,7 +873,6 @@
     "memberSelectorSearchPlaceholder": "Search members...",
     "departmentSelectorSearchPlaceholder": "Search departments...",
     "selected": "Selected",
-    "noSelected": "No selected",
     "empty": "No members",
     "emptyDepartment": "No departments"
   },

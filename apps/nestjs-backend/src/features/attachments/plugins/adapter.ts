@@ -5,7 +5,13 @@ import { HttpErrorCode } from '@teable/core';
 import { UploadType } from '@teable/openapi';
 import { storageConfig } from '../../../configs/storage';
 import { CustomHttpException } from '../../../custom.exception';
-import type { IObjectMeta, IPresignParams, IPresignRes } from './types';
+import type {
+  IListObjectsOptions,
+  IListObjectsResult,
+  IObjectMeta,
+  IPresignParams,
+  IPresignRes,
+} from './types';
 
 export default abstract class StorageAdapter {
   static readonly TEMPORARY_DIR = resolve(process.cwd(), '.temporary');
@@ -19,6 +25,7 @@ export default abstract class StorageAdapter {
       case UploadType.App:
       case UploadType.ChatFile:
       case UploadType.Automation:
+      case UploadType.RecordHistory:
         return storageConfig().privateBucket;
       case UploadType.Avatar:
       case UploadType.OAuth:
@@ -27,6 +34,7 @@ export default abstract class StorageAdapter {
       case UploadType.Logo:
       case UploadType.Template:
       case UploadType.ChatDataVisualizationCode:
+      case UploadType.SpaceAvatar:
         return storageConfig().publicBucket;
       default:
         throw new CustomHttpException('Invalid upload type', HttpErrorCode.VALIDATION_ERROR, {
@@ -67,6 +75,10 @@ export default abstract class StorageAdapter {
         return 'chat-file';
       case UploadType.Automation:
         return 'automation';
+      case UploadType.RecordHistory:
+        return 'record-history';
+      case UploadType.SpaceAvatar:
+        return 'space-avatar';
       default:
         throw new CustomHttpException('Invalid upload type', HttpErrorCode.VALIDATION_ERROR, {
           localization: {
@@ -167,6 +179,18 @@ export default abstract class StorageAdapter {
   ): Promise<string>;
 
   abstract downloadFile(bucket: string, path: string): Promise<ReadableStream>;
+
+  /**
+   * list objects under a prefix (paginated internally; returns the full result)
+   * @param bucket bucket name
+   * @param prefix key prefix, e.g. `record-history/v1/tblxxx/`
+   * @param options delimiter groups keys into `prefixes` like S3 common prefixes
+   */
+  abstract listObjects(
+    bucket: string,
+    prefix: string,
+    options?: IListObjectsOptions
+  ): Promise<IListObjectsResult>;
 
   abstract deleteDir(bucket: string, path: string, throwError?: boolean): Promise<void>;
 

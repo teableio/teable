@@ -362,7 +362,7 @@ export const ShareSelectSpaceDialog = React.forwardRef<IShareSelectSpaceDialogRe
                     {creatableSpaces?.map((space) => (
                       <SelectItem key={space.id} value={space.id} className="py-1">
                         <span className="flex w-[380px] items-center gap-2 overflow-x-hidden">
-                          <SpaceAvatar name={space.name} className="size-6" />
+                          <SpaceAvatar name={space.name} avatar={space.avatar} className="size-6" />
                           <span className="truncate">{space.name}</span>
                         </span>
                       </SelectItem>

@@ -31,11 +31,13 @@ interface IModelSearchPopoverProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selectedModelId: string;
-  isModelIdValid: boolean;
+  /** Marks the trigger with a warning border when false. Defaults to valid. */
+  isModelIdValid?: boolean;
   isLoadingModels: boolean;
   modelsLoadError: string | null;
   filteredModels: IGatewayModelAPI[];
-  gatewayModels: IGatewayModel[];
+  /** Already-configured models, shown as disabled "Added" entries. */
+  gatewayModels?: IGatewayModel[];
   searchQuery: string;
   onSearchQueryChange: (query: string) => void;
   onSelectModel: (modelId: string) => void;
@@ -47,11 +49,11 @@ export function ModelSearchPopover({
   open,
   onOpenChange,
   selectedModelId,
-  isModelIdValid,
+  isModelIdValid = true,
   isLoadingModels,
   modelsLoadError,
   filteredModels,
-  gatewayModels,
+  gatewayModels = [],
   searchQuery,
   onSearchQueryChange,
   onSelectModel,
@@ -109,16 +111,9 @@ export function ModelSearchPopover({
               </div>
             ) : filteredModels.length === 0 ? (
               <CommandEmpty>
-                {searchQuery ? (
-                  <div className="space-y-2">
-                    <p>{t('admin.setting.ai.noMatchingModels')}</p>
-                    <Button size="sm" variant="outline" onClick={() => onSelectModel(searchQuery)}>
-                      {t('admin.setting.ai.useCustomId', { id: searchQuery })}
-                    </Button>
-                  </div>
-                ) : (
-                  t('admin.setting.ai.typeToSearch')
-                )}
+                {searchQuery
+                  ? t('admin.setting.ai.noMatchingModels')
+                  : t('admin.setting.ai.typeToSearch')}
               </CommandEmpty>
             ) : (
               <CommandGroup>

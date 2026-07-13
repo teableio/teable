@@ -8,6 +8,7 @@ import {
 } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
+import type { ReactNode } from 'react';
 import type { AppSumoTier } from '../../hooks/useBillingLevelConfig';
 import { useAppSumoTierConfig, useBillingLevelConfig } from '../../hooks/useBillingLevelConfig';
 import { Level } from './Level';
@@ -24,10 +25,21 @@ interface ILevelWithUpgradeProps {
   };
   appSumoTier?: AppSumoTier;
   onUpgradeClick?: () => void;
+  // Extra badges rendered right after the plan level badge (e.g. dedicated data badge)
+  children?: ReactNode;
 }
 
 export const LevelWithUpgrade = (props: ILevelWithUpgradeProps) => {
-  const { level, spaceId, withUpgrade, status, organization, appSumoTier, onUpgradeClick } = props;
+  const {
+    level,
+    spaceId,
+    withUpgrade,
+    status,
+    organization,
+    appSumoTier,
+    onUpgradeClick,
+    children,
+  } = props;
   const isEnterprise = level === BillingProductLevel.Enterprise;
   const isAppSumo = appSumoTier != null;
   const { t } = useTranslation('common');
@@ -63,6 +75,7 @@ export const LevelWithUpgrade = (props: ILevelWithUpgradeProps) => {
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
+      {children}
       {status === SubscriptionStatus.Active && organization?.name && (
         <span className="text-xs text-muted-foreground">{organization.name}</span>
       )}

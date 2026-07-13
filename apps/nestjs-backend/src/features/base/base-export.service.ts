@@ -10,7 +10,6 @@ import type {
   IConditionalLookupOptions,
 } from '@teable/core';
 import { FieldType, getRandomString, ViewType, isLinkLookupOptions } from '@teable/core';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import type { Field, View, TableMeta, Base } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { PluginPosition, UploadType } from '@teable/openapi';

@@ -27,8 +27,8 @@ import dayjs from 'dayjs';
 import { useTranslation } from 'next-i18next';
 import { Fragment, useCallback, useMemo, useRef, useState } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
-import { RestoreFieldTrashProgressDialog } from './RestoreFieldTrashProgressDialog';
 import type { SelectionActionDialogStatus } from '../../view/grid/components/SelectionActionProgressDialog';
+import { RestoreFieldTrashProgressDialog } from './RestoreFieldTrashProgressDialog';
 
 interface ITableTrashProps {
   tableId: string;
@@ -52,8 +52,9 @@ export const TableTrash = (props: ITableTrashProps) => {
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
   const [restoreProgress, setRestoreProgress] =
     useState<IRestoreFieldTrashStreamProgressEvent | null>(null);
-  const [restoreSummary, setRestoreSummary] =
-    useState<IRestoreFieldTrashStreamDoneEvent | null>(null);
+  const [restoreSummary, setRestoreSummary] = useState<IRestoreFieldTrashStreamDoneEvent | null>(
+    null
+  );
   const [restoreErrors, setRestoreErrors] = useState<IRestoreFieldTrashStreamErrorEvent[]>([]);
   const [restoreStatus, setRestoreStatus] = useState<SelectionActionDialogStatus | null>(null);
   const [restoringTrashId, setRestoringTrashId] = useState<string | null>(null);
@@ -125,9 +126,8 @@ export const TableTrash = (props: ITableTrashProps) => {
       } catch (error) {
         if (!restoreErrorsRef.current.length) {
           const message = error instanceof Error ? error.message : String(error);
-          const latestProgress = restoreProgressRef.current as
-            | IRestoreFieldTrashStreamProgressEvent
-            | null;
+          const latestProgress =
+            restoreProgressRef.current as IRestoreFieldTrashStreamProgressEvent | null;
           const streamError: IRestoreFieldTrashStreamErrorEvent = {
             id: 'error',
             phase: 'restoring',

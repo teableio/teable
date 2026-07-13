@@ -1,4 +1,4 @@
-import { Code2, Key, Link } from '@teable/icons';
+import { Code2, Key, Link, Toolbox } from '@teable/icons';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
@@ -41,6 +41,12 @@ export const useSettingRoute = (): ISidebarContentRoute[] => {
         route: '/setting/oauth-app',
         pathTo: '/setting/oauth-app',
       },
+      {
+        Icon: Toolbox,
+        label: t('common:settings.setting.teableSkill'),
+        route: '/setting/teable-skill',
+        pathTo: '/setting/teable-skill',
+      },
       // {
       //   Icon: Code,
       //   label: t('setting:plugins'),
@@ -48,5 +54,5 @@ export const useSettingRoute = (): ISidebarContentRoute[] => {
       //   pathTo: '/setting/plugin',
       // },
     ];
-  }, [t]);
+  }, [isDeveloperToolQueryBuilder, t]);
 };

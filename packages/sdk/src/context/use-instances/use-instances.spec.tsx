@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { FieldKeyType } from '@teable/core';
+import type { IRecord } from '@teable/core';
 import { getRecords } from '@teable/openapi';
 import { act, renderHook } from '@testing-library/react';
 import type { Connection, Query } from 'sharedb/lib/client';
@@ -758,6 +759,85 @@ describe('useInstances hook', () => {
 
     expect(createSubscribeQuery).toHaveBeenCalledTimes(1);
     expect(docs[0].data.fields.fldSchemaRefresh05).toEqual('进行中');
+  });
+
+  it('T6007 preserves optimistic select values when projected setField refresh omits the field', async () => {
+    const presenceController = createMockPresence();
+    const docs = [
+      createMockDoc({
+        data: { id: 'rec1', fields: { fldSchemaRefreshT6007: '5555' } },
+        collection: 'rec_tblSchemaRefreshT6007',
+        id: 'rec1',
+      }),
+    ];
+    const createSubscribeQuery = vi.fn((collection: string, queryParams: unknown) => {
+      return {
+        collection,
+        query: queryParams,
+        results: docs,
+        ready: true,
+        sent: true,
+        ...mockQueryMethods,
+      } as unknown as Query<IRecord>;
+    });
+    const connection = {
+      createSubscribeQuery,
+      getPresence: vi.fn(() => presenceController.presence),
+    } as unknown as Connection;
+
+    // getRecords omits null/empty projected fields entirely.
+    vi.mocked(getRecords).mockResolvedValue({
+      data: {
+        records: [{ id: 'rec1', fields: {} }],
+      },
+    } as never);
+
+    renderHook(
+      () =>
+        useInstances({
+          ...mockProps,
+          collection: 'rec_tblSchemaRefreshT6007',
+          queryParams: {},
+        }),
+      {
+        wrapper: createUseInstancesWrap({ ...mockAppContext, connection }),
+      }
+    );
+
+    await act(async () => {
+      presenceController.emitReceive([
+        {
+          actionKey: 'setField',
+          payload: {
+            tableId: 'tblSchemaRefreshT6007',
+            field: {
+              id: 'fldSchemaRefreshT6007',
+              options: {
+                oldValue: { choices: [{ name: '4444', id: 'cho4444', color: 'blueLight1' }] },
+                newValue: {
+                  choices: [
+                    { name: '4444', id: 'cho4444', color: 'blueLight1' },
+                    { name: '5555', id: 'cho5555', color: 'tealBright' },
+                  ],
+                },
+              },
+            },
+          },
+        },
+      ]);
+      await Promise.resolve();
+    });
+
+    expect(createSubscribeQuery).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(getRecords)).toHaveBeenCalledWith(
+      'tblSchemaRefreshT6007',
+      expect.objectContaining({
+        fieldKeyType: FieldKeyType.Id,
+        projection: ['fldSchemaRefreshT6007'],
+      })
+    );
+    // Must keep the optimistic local value instead of treating omission as clear.
+    expect(docs[0].data.fields.fldSchemaRefreshT6007).toBe('5555');
   });
 
   it('refreshes projected record fields in place on legacy v1 setField presence with type changes', async () => {

@@ -11,6 +11,18 @@ import type {
 } from '../events';
 import { Events } from '../events';
 
+type EnterpriseTrashResourceDelegate = {
+  findUnique(args: {
+    where: { id: string };
+    select: { id: true; baseId: true; deletedTime: true };
+  }): Promise<{ id: string; baseId: string; deletedTime: Date | null } | null>;
+};
+
+type EnterprisePrismaService = PrismaService & {
+  readonly app: EnterpriseTrashResourceDelegate;
+  readonly workflow: EnterpriseTrashResourceDelegate;
+};
+
 @Injectable()
 export class TrashListener {
   constructor(private readonly prismaService: PrismaService) {}
@@ -75,7 +87,7 @@ export class TrashListener {
       case Events.APP_DELETE: {
         resourceId = payload.appId;
         resourceType = ResourceType.App;
-        const app = await this.prismaService.app.findUnique({
+        const app = await (this.prismaService as EnterprisePrismaService).app.findUnique({
           where: { id: resourceId },
           select: { id: true, baseId: true, deletedTime: true },
         });
@@ -86,7 +98,7 @@ export class TrashListener {
       case Events.WORKFLOW_DELETE: {
         resourceId = payload.workflowId;
         resourceType = ResourceType.Workflow;
-        const workflow = await this.prismaService.workflow.findUnique({
+        const workflow = await (this.prismaService as EnterprisePrismaService).workflow.findUnique({
           where: { id: resourceId },
           select: { id: true, baseId: true, deletedTime: true },
         });
