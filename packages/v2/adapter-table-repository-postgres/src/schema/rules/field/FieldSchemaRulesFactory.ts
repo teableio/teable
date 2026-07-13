@@ -151,10 +151,21 @@ export class FieldSchemaRulesVisitor extends AbstractFieldVisitor<ReadonlyArray<
   visitRollupField(field: RollupField): Result<ReadonlyArray<ISchemaRule>, DomainError> {
     const linkFieldId = field.linkFieldId().toString();
     const lookupFieldId = field.lookupFieldId().toString();
+    const condition = field.config().condition();
+    const conditionFieldIds = condition?.referencedFieldIds().map((id) => id.toString()) ?? [];
+    const sortFieldId = condition?.sort()?.fieldId().toString();
+    const allFromFieldIds = Array.from(
+      new Set([
+        linkFieldId,
+        lookupFieldId,
+        ...conditionFieldIds,
+        ...(sortFieldId ? [sortFieldId] : []),
+      ])
+    );
 
     return ok([
       ...ColumnExistsRule.createRulesFromField(field),
-      ReferenceRule.multiple(field, [linkFieldId, lookupFieldId], { fieldType: 'rollup' }),
+      ReferenceRule.multiple(field, allFromFieldIds, { fieldType: 'rollup' }),
     ]);
   }
 

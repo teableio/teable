@@ -79,6 +79,7 @@ export type LateralColumnType =
       foreignFieldId: FieldId;
       expression: RollupFunction;
       orderBy?: LinkOrderBy;
+      condition?: FieldCondition;
     }
   | {
       type: 'conditionalLookup';
@@ -600,6 +601,7 @@ export class ComputedFieldSelectExpressionVisitor
       }
       const orderByResult = this.getLinkOrderBy(linkField);
       if (orderByResult.isErr()) return err(orderByResult.error);
+      const condition = field.config().condition();
       const lateralAlias = this.lateral.addColumn(
         field.linkFieldId(),
         field.foreignTableId().toString(),
@@ -609,6 +611,7 @@ export class ComputedFieldSelectExpressionVisitor
           foreignFieldId: field.lookupFieldId(),
           expression,
           orderBy: orderByResult.value,
+          condition,
         }
       );
       return ok(sql`${sql.ref(`${lateralAlias}.${colAlias}`)}`.as(colAlias));

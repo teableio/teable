@@ -237,6 +237,97 @@ describe('OpenAPI Rollup field (e2e)', () => {
     return getFieldByName(table.fields, rollupFieldRo.name!);
   }
 
+  it('should persist and apply rollup filter via convertField (T6179)', async () => {
+    const statusField = getFieldByType(table2.fields, FieldType.SingleSelect);
+    const numberField = getFieldByType(table2.fields, FieldType.Number);
+    const linkField = getFieldByType(table1.fields, FieldType.Link) as LinkFieldCore;
+
+    const rollupField = await createField(table1.id, {
+      name: 'rollup with filter T6179',
+      type: FieldType.Rollup,
+      options: {
+        expression: 'sum({values})',
+        formatting: {
+          type: NumberFormattingType.Decimal,
+          precision: 0,
+        },
+      },
+      lookupOptions: {
+        foreignTableId: table2.id,
+        linkFieldId: linkField.id,
+        lookupFieldId: numberField.id,
+      } as ILookupOptionsRo,
+    });
+
+    const filter: IFilter = {
+      conjunction: 'and',
+      filterSet: [
+        {
+          fieldId: statusField.id,
+          operator: 'is',
+          value: 'todo',
+        },
+      ],
+    };
+
+    const converted = await convertField(table1.id, rollupField.id, {
+      type: FieldType.Rollup,
+      options: {
+        expression: 'sum({values})',
+        formatting: {
+          type: NumberFormattingType.Decimal,
+          precision: 0,
+        },
+      },
+      lookupOptions: {
+        foreignTableId: table2.id,
+        linkFieldId: linkField.id,
+        lookupFieldId: numberField.id,
+        filter,
+      } as ILookupOptionsRo,
+    });
+
+    expect((converted.lookupOptions as ILookupOptionsRo | undefined)?.filter).toEqual(filter);
+
+    const reloaded = await getField(table1.id, rollupField.id);
+    expect((reloaded.lookupOptions as ILookupOptionsRo | undefined)?.filter).toEqual(filter);
+
+    // Seed linked records: one matching filter (todo=10), one not matching (doing=20)
+    await updateRecordField(table2.id, table2.records[0].id, numberField.id, 10);
+    await updateRecordField(table2.id, table2.records[0].id, statusField.id, 'todo');
+    await updateRecordField(table2.id, table2.records[1].id, numberField.id, 20);
+    await updateRecordField(table2.id, table2.records[1].id, statusField.id, 'doing');
+    await updateRecordField(table1.id, table1.records[0].id, linkField.id, [
+      { id: table2.records[0].id },
+      { id: table2.records[1].id },
+    ]);
+
+    const hostRecord = await getRecord(table1.id, table1.records[0].id);
+    expect(hostRecord.fields[rollupField.id]).toEqual(10);
+
+    // Clear filter via explicit null and ensure full sum returns
+    const cleared = await convertField(table1.id, rollupField.id, {
+      type: FieldType.Rollup,
+      options: {
+        expression: 'sum({values})',
+        formatting: {
+          type: NumberFormattingType.Decimal,
+          precision: 0,
+        },
+      },
+      lookupOptions: {
+        foreignTableId: table2.id,
+        linkFieldId: linkField.id,
+        lookupFieldId: numberField.id,
+        filter: null,
+      } as ILookupOptionsRo,
+    });
+    expect((cleared.lookupOptions as ILookupOptionsRo | undefined)?.filter).toBeFalsy();
+
+    const hostAfterClear = await getRecord(table1.id, table1.records[0].id);
+    expect(hostAfterClear.fields[rollupField.id]).toEqual(30);
+  });
+
   it('should update rollupField by remove a linkRecord from cell', async () => {
     const lookedUpToField = getFieldByType(table2.fields, FieldType.Number);
     const rollupFieldVo = await rollupFrom(table1, lookedUpToField.id, 'countall({values})');
