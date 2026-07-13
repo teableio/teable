@@ -14,15 +14,19 @@ describe('assertPathWithinStorage', () => {
   });
 
   it('should throw for empty path', () => {
-    expect(() => assertPathWithinStorage('', STORAGE_DIR)).toThrow('Invalid path');
+    expect(() => assertPathWithinStorage('', STORAGE_DIR)).toThrow('Could not find attachment');
   });
 
   it('should throw for path traversal with ..', () => {
-    expect(() => assertPathWithinStorage('../etc/passwd', STORAGE_DIR)).toThrow('Invalid path');
+    expect(() => assertPathWithinStorage('../etc/passwd', STORAGE_DIR)).toThrow(
+      'Could not find attachment'
+    );
   });
 
   it('should throw for absolute path', () => {
-    expect(() => assertPathWithinStorage('/etc/passwd', STORAGE_DIR)).toThrow('Invalid path');
+    expect(() => assertPathWithinStorage('/etc/passwd', STORAGE_DIR)).toThrow(
+      'Could not find attachment'
+    );
   });
 });
 
@@ -32,15 +36,17 @@ describe('validateReadPath', () => {
   });
 
   it('should throw for empty path', () => {
-    expect(() => validateReadPath('', STORAGE_DIR)).toThrow('Invalid path');
+    expect(() => validateReadPath('', STORAGE_DIR)).toThrow('Could not find attachment');
   });
 
   it('should throw for path traversal', () => {
-    expect(() => validateReadPath('../../etc/passwd', STORAGE_DIR)).toThrow('Invalid path');
+    expect(() => validateReadPath('../../etc/passwd', STORAGE_DIR)).toThrow(
+      'Could not find attachment'
+    );
   });
 
   it('should throw for absolute path', () => {
-    expect(() => validateReadPath('/etc/passwd', STORAGE_DIR)).toThrow('Invalid path');
+    expect(() => validateReadPath('/etc/passwd', STORAGE_DIR)).toThrow('Could not find attachment');
   });
 });
 

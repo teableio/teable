@@ -51,6 +51,10 @@ export const modelConfigSchema = z.object({
   // === Pricing in USD (new format - preferred) ===
   pricing: pricingSchema.optional(),
 
+  // === Gateway model id used as the pricing/caps reference ===
+  // Unset means auto-match by model id against the gateway catalog.
+  referenceModel: z.string().optional(),
+
   // === Legacy rates in credits per 1M tokens (deprecated, for backward compat) ===
   // @deprecated Use pricing instead. Will be auto-converted to pricing when reading.
   inputRate: z.number().min(0).optional(),
@@ -82,14 +86,23 @@ export type IModelConfig = z.infer<typeof modelConfigSchema>;
 
 export const llmProviderSchema = z.object({
   type: z.enum(LLMProviderType),
-  name: z.string(),
+  // '@' is reserved for model keys.
+  name: z.string().refine((name) => !name.includes('@'), {
+    message: `Provider name cannot contain '@' (reserved model key delimiter)`,
+  }),
   // Admin-facing label to tell providers apart in the UI. The real `name` is normalized to
   // the instance constant ('teable') for billing/instance detection, so this is the field
   // admins can freely set. Optional; the UI falls back to `name` when unset.
   displayName: z.string().optional(),
   apiKey: z.string().optional(),
-  baseUrl: z.string().url().optional(),
-  models: z.string().default(''),
+  baseUrl: z.url().optional(),
+  // Comma-separated model IDs.
+  models: z
+    .string()
+    .default('')
+    .refine((models) => !models.includes('@'), {
+      message: `Model ids cannot contain '@' (reserved model key delimiter)`,
+    }),
   isInstance: z.boolean().optional(),
   // Model-specific configurations keyed by model name
   modelConfigs: z.record(z.string(), modelConfigSchema).optional(),
@@ -97,10 +110,26 @@ export const llmProviderSchema = z.object({
 
 export type LLMProvider = z.infer<typeof llmProviderSchema>;
 
+// A full model key is `type@model@name`. An id containing '@' would add extra
+// segments that parseModelKey (a plain split('@')) silently truncates, sending
+// requests to the wrong model — so reject malformed keys at save time.
+// Empty segments (e.g. 'openai@@teable') are equally malformed: parseModelKey
+// would return an empty type/model/name.
+export const modelKeySchema = z.string().refine(
+  (key) => {
+    if (!key) return true;
+    const parts = key.split('@');
+    return parts.length === 3 && parts.every((part) => part.length > 0);
+  },
+  {
+    message: `Model key must be 'type@model@name'`,
+  }
+);
+
 export const chatModelSchema = z.object({
-  lg: z.string().optional(),
-  md: z.string().optional(),
-  sm: z.string().optional(),
+  lg: modelKeySchema.optional(),
+  md: modelKeySchema.optional(),
+  sm: modelKeySchema.optional(),
   ability: chatModelAbilitySchema.optional(),
 });
 
@@ -171,8 +200,8 @@ export const vertexByokCredentialSchema = z.object({
 export type IVertexByokCredential = z.infer<typeof vertexByokCredentialSchema>;
 
 export const aiModelMappingSchema = z.object({
-  sourceModelKey: z.string(),
-  targetModelKey: z.string(),
+  sourceModelKey: modelKeySchema,
+  targetModelKey: modelKeySchema,
   enabled: z.boolean().optional(),
   createdTime: z.string().optional(),
   lastModifiedTime: z.string().optional(),
@@ -196,8 +225,8 @@ export type IRealtimeTranscriptionConfig = z.infer<typeof realtimeTranscriptionC
 
 export const aiConfigSchema = z.object({
   llmProviders: z.array(llmProviderSchema).default([]),
-  embeddingModel: z.string().optional(),
-  translationModel: z.string().optional(),
+  embeddingModel: modelKeySchema.optional(),
+  translationModel: modelKeySchema.optional(),
   chatModel: chatModelSchema.nullable().optional(),
   // AI Gateway models (admin-maintained, recommended for Cloud)
   gatewayModels: z.array(gatewayModelSchema).optional(),
@@ -261,6 +290,8 @@ export const appConfigSchema = z.object({
   // Proxy URL for Vercel API (Cloudflare Workers reverse proxy)
   vercelBaseUrl: z.url().optional(),
   appAuth: appAuthConfigSchema.optional(),
+  // Instance-wide "Made with Teable" badge kill switch; absent = enabled
+  badgeEnabled: z.boolean().optional(),
 });
 
 export type IAppConfig = z.infer<typeof appConfigSchema>;

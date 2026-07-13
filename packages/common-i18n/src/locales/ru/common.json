@@ -334,7 +334,39 @@
       "interactionMode": "Режим взаимодействия",
       "mouseMode": "Режим курсора",
       "touchMode": "Сенсорный режим",
-      "systemMode": "Следовать системе"
+      "systemMode": "Следовать системе",
+      "teableSkill": "Навык Teable"
+    },
+    "teableSkill": {
+      "intro": "Позвольте AI Agent подключиться к вашей Base, чтобы запрашивать данные, управлять таблицами, полями и представлениями, импортировать или обновлять записи, а также создавать автоматизации и приложения.",
+      "worksWith": "Подходит для всех основных агентов",
+      "more": "+ еще",
+      "copy": "Копировать",
+      "installPromptLabel": "Промпт установки skill",
+      "installCommandLabel": "Команда установки skill",
+      "installPrompt": "Пожалуйста, прочитай https://github.com/teableio/agent-skills, следуй руководству, помоги мне установить Teable agent skill и завершить аутентификацию Teable CLI.",
+      "step1Title": "Установить Skill",
+      "step1Description": "Скопируйте этот промпт в AI Agent. Он установит Teable skill set и откроет браузер для завершения аутентификации Teable CLI.",
+      "step3Title": "Попробуйте навык Teable",
+      "step3Description": "После установки навыка попробуйте эти промпты.",
+      "tryPrompts": {
+        "schema": {
+          "prompt": "Создай простую CRM-таблицу в этой base.",
+          "note": "Простые стартовые промпты"
+        },
+        "template": {
+          "prompt": "Загрузи все счета из этой локальной папки в <Таблица квитанций> {вставьте URL таблицы} и извлеки ключевые поля.",
+          "note": "Локальные файлы → Teable"
+        },
+        "validate": {
+          "prompt": "Импортируй новые GitHub issues в <Bug Tracker> {вставьте URL таблицы}.",
+          "note": "Кросс-платформенные данные → Teable"
+        },
+        "trace": {
+          "prompt": "Проверь <Таблица задач> {вставьте URL таблицы} и отметь просроченные задачи.",
+          "note": "Очистить или организовать данные Teable"
+        }
+      }
     },
     "nav": {
       "settings": "Настройки",
@@ -1221,10 +1253,10 @@
     }
   },
   "changelog": {
-    "newUpdate": "ОБНОВЛЕНИЕ ОТ 24 ИЮНЯ",
-    "title": "Agent Computer стал мощнее",
-    "url": "https://help.teable.ai/en/changelog#jun-24-2026",
-    "id": "changelog-2026-06-24-agent-computer-supercharged"
+    "newUpdate": "ОБНОВЛЕНИЕ ОТ 10 ИЮЛЯ",
+    "title": "GPT-5.6 теперь доступен в Teable",
+    "url": "https://help.teable.ai/en/changelog#jul-10-2026",
+    "id": "changelog-2026-07-10-gpt-5-6-is-now-in-teable"
   },
   "resourceDescription": {
     "addDescription": "Добавить описание",

@@ -334,7 +334,39 @@
       "interactionMode": "インタラクションモード",
       "mouseMode": "カーソルモード",
       "touchMode": "タッチモード",
-      "systemMode": "システム設定に従う"
+      "systemMode": "システム設定に従う",
+      "teableSkill": "Teable スキル"
+    },
+    "teableSkill": {
+      "intro": "AI Agent を Base に接続し、データの検索、テーブル・フィールド・ビューの管理、レコードのインポートや更新、自動化やアプリの作成を支援します。",
+      "worksWith": "主要なすべての Agent に対応",
+      "more": "+ さらに表示",
+      "copy": "コピー",
+      "installPromptLabel": "Skill インストールプロンプト",
+      "installCommandLabel": "Skill インストールコマンド",
+      "installPrompt": "https://github.com/teableio/agent-skills を読み、ガイドに従って Teable agent skill のインストールと Teable CLI 認証の完了を手伝ってください。",
+      "step1Title": "Skill をインストール",
+      "step1Description": "このプロンプトを AI Agent にコピーしてください。Teable skill set をインストールし、ブラウザを開いて Teable CLI 認証を完了します。",
+      "step3Title": "Teable スキルを試す",
+      "step3Description": "スキルのインストール後、以下のプロンプトを試してください。",
+      "tryPrompts": {
+        "schema": {
+          "prompt": "この base にシンプルな CRM テーブルを作成してください。",
+          "note": "シンプルなスタータープロンプト"
+        },
+        "template": {
+          "prompt": "このローカルフォルダ内のすべての請求書を <領収書テーブル> {テーブル URL を貼り付け} にアップロードし、主要フィールドを抽出してください。",
+          "note": "ローカルファイル → Teable"
+        },
+        "validate": {
+          "prompt": "新しい GitHub issues を <Bug Tracker> {テーブル URL を貼り付け} にインポートしてください。",
+          "note": "クロスプラットフォームデータ → Teable"
+        },
+        "trace": {
+          "prompt": "<タスクテーブル> {テーブル URL を貼り付け} を確認し、期限切れタスクをマークしてください。",
+          "note": "Teable データを整理またはクリーンアップ"
+        }
+      }
     },
     "nav": {
       "settings": "設定",
@@ -1266,10 +1298,10 @@
     }
   },
   "changelog": {
-    "newUpdate": "6月24日アップデート",
-    "title": "Agent Computer が大幅強化",
-    "url": "https://help.teable.ai/en/changelog#jun-24-2026",
-    "id": "changelog-2026-06-24-agent-computer-supercharged"
+    "newUpdate": "7月10日アップデート",
+    "title": "GPT-5.6 が Teable に登場",
+    "url": "https://help.teable.ai/en/changelog#jul-10-2026",
+    "id": "changelog-2026-07-10-gpt-5-6-is-now-in-teable"
   },
   "resourceDescription": {
     "addDescription": "説明を追加",

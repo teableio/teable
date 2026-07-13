@@ -4,20 +4,15 @@
     "duplicateFieldDescription": "Перекрёстные ссылки между пространствами не поддерживаются. Копия будет преобразована в однострочное текстовое поле.",
     "duplicateTableTitle": "Уведомление",
     "duplicateTableDescription": "Перекрёстные ссылки между пространствами не поддерживаются. Копия будет преобразована в однострочное текстовое поле.",
-    "duplicateBaseTitle": "Уведомление",
-    "duplicateBaseDescription": "Перекрёстные ссылки между пространствами не поддерживаются. Копия будет преобразована в однострочное текстовое поле.",
     "convertAndDuplicate": "Преобразовать и дублировать"
   },
   "toolbar": {
-    "comingSoon": "Скоро",
     "viewFilterInShare": "Этот вид используется в ссылке для общего доступа. Изменения в настройках вида также изменят ссылку для общего доступа.",
     "createFieldButtonText": "Создать новое поле <0/>",
     "others": {
       "share": {
         "label": "Поделиться",
         "statusLabel": "Поделиться видом в интернете",
-        "shareLink": "Ссылка для общего доступа",
-        "copied": "Скопировано",
         "genLink": "Создать новую ссылку",
         "allowCopy": "Разрешить зрителям копировать данные из этого вида",
         "allowEdit": "Разрешить авторизованным пользователям редактировать видимые данные",
@@ -34,19 +29,38 @@
         "cancel": "Отмена",
         "save": "Сохранить"
       },
-      "extensions": {
-        "label": "Расширения",
-        "graph": "График"
-      },
       "api": {
-        "label": "API",
-        "restfulApi": "Restful API",
-        "databaseConnection": "Подключение к базе данных"
+        "title": "Доступ к API",
+        "aiContext": "Подключение AI",
+        "advanced": "Расширенно",
+        "recommended": "Рекомендуется",
+        "apiDocGroupTitle": "Контекст API",
+        "apiDocGroupDescription": "Скопируйте документ ниже в AI. Он получит текущую структуру таблицы, поля и примеры API и сможет читать, создавать, обновлять или удалять записи по вашему запросу.",
+        "generatingToken": "Генерация...",
+        "generateToken": "Создать токен",
+        "confirmTitle": "Создать API-токен",
+        "confirmDescription": "Будет создан новый API-токен со следующими разрешениями для этой базы:",
+        "scopeTableRead": "Читать информацию о таблице",
+        "scopeFieldRead": "Читать поля",
+        "scopeRead": "Читать записи",
+        "scopeCreate": "Создавать записи",
+        "scopeUpdate": "Обновлять записи",
+        "scopeDelete": "Удалять записи",
+        "confirmExpiry": "Токен будет действителен 1 год.",
+        "confirmButton": "Подтвердить создание",
+        "tokenInfo": "Срок действия токена: {{expiry}}",
+        "copied": "Скопировано!",
+        "copyAIDoc": "Скопировать документ",
+        "aiDocPreview": "Предпросмотр контекста",
+        "manageToken": "Управлять токеном",
+        "openInNewTab": "Открыть в новой вкладке",
+        "queryBuilderTitle": "Конструктор API-запросов",
+        "queryBuilderDesc": "Визуально настройте фильтры, сортировку и другие параметры, чтобы создать готовый к запуску код API-запроса.",
+        "viewApiDocs": "Посмотреть полную документацию API"
       },
       "personalView": {
         "personal": "Личное",
         "tip": "После включения настройка вида будет применяться только к вам",
-        "collaborative": "Коллаборативное",
         "dialog": {
           "title": "Выйти из личного режима",
           "description": "Настройка личного отображения будет восстановлена до состояния совместной работы в реальном времени. Вы также можете сохранить настройки личного отображения и синхронизировать их для всех.",
@@ -70,12 +84,11 @@
       "one_one_duplicate": "Невозможно связать запись: целевая запись уже связана другой записью в отношении один-к-одному."
     },
     "field": {
-      "maxColumnLimit": "Таблица \"{{tableName}}\" может содержать не более {{maxFieldCount}} полей."
+      "maxColumnLimit": "Таблица \"{{tableName}}\" может содержать не более {{maxFieldCount}} полей.",
+      "requiredExistingValues": "Нельзя сделать поле \"{{fieldName}}\" обязательным, поскольку существующие записи содержат пустые значения."
     }
   },
   "field": {
-    "fieldManagement": "Управление полями",
-    "fieldManagementDesc": "Детальные свойства всех полей текущей таблицы",
     "advancedProps": "Расширенные свойства",
     "hide": "скрыть",
     "default": {
@@ -156,7 +169,6 @@
       "button": {
         "title": "Кнопка",
         "label": "Текст кнопки",
-        "color": "Цвет кнопки",
         "limitCount": "Ограничить количество кликов",
         "resetCount": "Разрешить сброс счетчика кликов",
         "maxCount": "Максимальное количество кликов",
@@ -229,7 +241,6 @@
       "areYouSurePerformIt": "Вы уверены, что хотите выполнить это?",
       "addDescription": "Добавить описание",
       "dbFieldName": "Физическое имя поля",
-      "description": "Описание",
       "descriptionPlaceholder": "Опишите это поле (необязательно)",
       "type": "Тип",
       "showAs": "Отображать как",
@@ -290,11 +301,7 @@
         "title": "Удалить поле",
         "simpleConfirm": "Вы уверены, что хотите удалить поле <b>{{fieldName}}</b>?",
         "withDependencies": "Удаление поля <b>{{fieldName}}</b> повлияет на следующие поля:",
-        "affectedFields": "Затронутые поля:",
-        "fieldsToDelete": "Поля для удаления ({{count}})",
-        "unviewedHint": "{{count}} поле(й) не просмотрено",
         "deleteCount": "Удалить {{count}} полей",
-        "noAffectedFields": "Это поле не используется другими полями.",
         "riskIdentified": "Риск обнаружен({{count}})",
         "noDependencies": "Нет зависимостей({{count}})",
         "safeToDelete": "Безопасно удалить",
@@ -308,8 +315,6 @@
       "conditionalLookup": {
         "sortLimitToggleLabel": "Sort linked records and limit the number of matches",
         "sortLabel": "Sort results",
-        "orderPlaceholder": "Select an order",
-        "clearSort": "Clear sort",
         "limitLabel": "Maximum records to include",
         "limitPlaceholder": "Leave blank to include all matches",
         "limitHint": "We only keep up to {{limit}} matching records.",
@@ -328,12 +333,10 @@
       "user": "Добавьте пользователя к записи.",
       "date": "Введите дату (например, 12.11.2023) или выберите из календаря.",
       "number": "Введите число или предварительно заполните каждую новую ячейку значением по умолчанию.",
-      "duration": "Введите продолжительность времени в часах, минутах или секундах (например, 1:23).",
       "rating": "Добавьте оценку по предопределенной шкале.",
       "formula": "Вычислите значения на основе полей.",
       "rollup": "Суммируйте данные из связанных записей.",
       "conditionalLookup": "Показывает связанные значения, соответствующие заданным фильтрам.",
-      "count": "Подсчитайте количество связанных записей.",
       "createdTime": "Посмотрите дату и время создания каждой записи.",
       "lastModifiedTime": "Посмотрите дату и время последнего редактирования некоторых или всех полей в записи.",
       "createdBy": "Посмотрите, какой пользователь создал запись.",
@@ -380,7 +383,6 @@
         "improveText": "Формальный, дружелюбный, юмористический...",
         "attachPromptForTag": "Не разрешено превышать три тега",
         "attachPromptForClassify": "Классифицировать “В процессе” как “Без риска”",
-        "attachPrompt": "Пожалуйста, введите дополнительные требования",
         "prompt": "Пожалуйста, введите пользовательскую подсказку",
         "type": "Выберите действие AI",
         "targetLanguage": "Английский, китайский, французский...",
@@ -409,18 +411,13 @@
         "title": "Сгенерировать весь столбец?",
         "description": "Генерация всего столбца обновит {{rowCount}} строк. Эта операция может потреблять большое количество ресурсов ИИ.",
         "saveConfigOnly": "Сохранить только конфигурацию",
-        "generate": "Сгенерировать",
         "generateFailed": "Не удалось выполнить генерацию"
-      },
-      "action": {
-        "addAttachment": "Добавить вложение"
       }
     }
   },
   "table": {
     "newTableLabel": "Новая таблица",
     "rename": "Переименовать",
-    "design": "Дизайн",
     "tableRecordHistory": "История записей таблицы",
     "deleteConfirm": "Вы уверены, что хотите удалить \"{{tableName}}\"?",
     "dbTableName": "Имя таблицы в физической базе данных",
@@ -429,11 +426,9 @@
     "typeOfDatabase": "Тип базы данных",
     "descriptionForTable": "Описание этой таблицы",
     "loginUserTable": "Вход в приложение",
-    "loginUserTableClickTips": "Открыть связанное приложение",
     "linkedApps": "Связанные приложения",
     "nameForTable": "Название этой таблицы",
     "deleteTip1": "Связанные поля в других таблицах, связанные с этой таблицей, будут удалены.",
-    "deleteTip2": "Эту таблицу можно восстановить из корзины после удаления.",
     "operator": {
       "createBlank": "Новая таблица"
     },
@@ -451,7 +446,6 @@
       "fillFailed": "Заполнение не удалось",
       "clearing": "Очистка...",
       "clearSuccessful": "Очистка успешна",
-      "deleteFieldConfirmTitle": "Вы собираетесь удалить следующие поля",
       "deleting": "Удаление...",
       "deleteSuccessful": "Удаление успешно",
       "deleteStream": {
@@ -464,7 +458,6 @@
         "chunkFailureSummary": "{{count}} chunk(s) reported an error while the stream kept running.",
         "chunkLabel": "Chunk {{index}}",
         "rowsLabel": "{{count}} rows",
-        "partialFailureDescription": "Deleted {{deletedCount}} of {{totalCount}} records. Review chunk details in the dialog.",
         "phaseLabel": {
           "preparing": "Preparing",
           "guarding": "Checking",
@@ -483,7 +476,6 @@
       "crossBaseCopyLoadFirst": "Прокрутите, чтобы загрузить все выбранные строки, прежде чем копировать поля между базами."
     },
     "graph": {
-      "tableLabel": "Метка таблицы",
       "effectCells": "Может повлиять на ячейки",
       "estimatedTime": "Расчетное время",
       "linkFieldCount": "Влияет на количество связанных полей"
@@ -566,11 +558,6 @@
           "fieldMeta": "Field metadata",
           "symmetricField": "Symmetric field relationship",
           "systemColumn": "System column \"{{columnName}}\"",
-          "systemColumnTyped": "System column \"{{columnName}}\" ({{dataType}})",
-          "systemNotNull": "NOT NULL on system column \"{{columnName}}\"",
-          "systemUnique": "UNIQUE index on system column \"{{columnName}}\"",
-          "systemPrimaryKey": "PRIMARY KEY on system column \"{{columnName}}\"",
-          "systemDefault": "Default expression on system column \"{{columnName}}\"",
           "connection": "Connection",
           "completion": "Completion",
           "unexpected": "Unexpected error"
@@ -646,7 +633,6 @@
               "resolutionDescription": "Choose which field should keep the two-way link behavior.",
               "option": {
                 "keepCurrent": "Keep the current field as the two-way link",
-                "keepDuplicate": "Keep the duplicate field as the two-way link",
                 "convertDuplicate": "Convert the duplicate field to a one-way link"
               }
             }
@@ -695,7 +681,6 @@
       "importCsvData": "Импортировать данные CSV",
       "importExcelData": "Импортировать данные Microsoft Excel",
       "cancel": "Отмена",
-      "leave": "Выйти",
       "downAsCsv": "Скачать csv",
       "importData": "Импортировать данные",
       "duplicate": "Дублировать",
@@ -707,7 +692,6 @@
     },
     "tips": {
       "importWayTip": "Нажмите или перетащите файл в эту область для загрузки",
-      "leaveTip": "Ваши данные все равно будут импортированы.",
       "fileExceedSizeTip": "Размер файла этого типа превышает лимит в",
       "analyzing": "анализ",
       "importing": "Импорт",
@@ -737,11 +721,6 @@
       "option": {
         "doNotImport": "Не импортировать"
       }
-    }
-  },
-  "export": {
-    "menu": {
-      "exportCsv": "Скачать Csv"
     }
   },
   "grid": {
@@ -818,13 +797,13 @@
   "menu": {
     "insertRecordAbove": "Вставить запись выше",
     "insertRecordBelow": "Вставить запись ниже",
-    "copyCells": "Копировать ячейки",
     "deleteRecord": "Удалить запись",
     "deleteAllSelectedRecords": "Удалить все выбранные записи",
     "editField": "Редактировать поле",
     "insertFieldLeft": "Вставить слева",
     "insertFieldRight": "Вставить справа",
     "freezeUpField": "Закрепить до этого поля",
+    "freezeFieldWindowTooNarrow": "Невозможно закрепить до этой области, так как текущее окно слишком узкое",
     "hideField": "Скрыть поле",
     "deleteField": "Удалить поле",
     "deleteAllSelectedFields": "Удалить все выбранные поля",
@@ -842,8 +821,7 @@
     "noPermission": "У вас нет разрешения на доступ к базе данных",
     "connectionCountTip": "Максимальное количество подключений к базе данных - <b>{{max}}</b>, текущее количество подключений - <b>{{current}}</b>",
     "createFailed": "Пожалуйста, убедитесь, что переменная окружения PUBLIC_DATABASE_PROXY установлена правильно",
-    "readonlyUnavailable": "Readonly database sharing is unavailable for this data database. Grant the Teable database user permission to create roles and grants, or use a target database that supports readonly roles.",
-    "helpLink": "https://help.teable.ai/en/deploy/database-connection"
+    "readonlyUnavailable": "Readonly database sharing is unavailable for this data database. Grant the Teable database user permission to create roles and grants, or use a target database that supports readonly roles."
   },
   "view": {
     "addRecord": "Добавить запись",
@@ -882,30 +860,18 @@
     "deletedResource": "Ресурс"
   },
   "baseShare": {
-    "title": "Поделиться базой",
     "shareTitle": "Поделиться",
     "shareToWeb": "Поделиться в Интернете",
-    "description": "Поделиться «{{baseName}}» с другими",
-    "nodeShareDescription": "Поделиться «{{nodeName}}» и его содержимым",
-    "shareLinks": "Ссылки для общего доступа",
-    "newLink": "Новая ссылка",
-    "noShareLinks": "Ссылок для общего доступа пока нет",
-    "createFirstLink": "Создать ссылку для общего доступа",
-    "editSettings": "Изменить настройки",
     "refreshLink": "Обновить ссылку",
-    "deleteLink": "Удалить ссылку",
     "deleteConfirmTitle": "Удалить ссылку для общего доступа",
     "deleteConfirmDescription": "Это действие нельзя отменить. Люди с этой ссылкой больше не смогут получить доступ к общей базе.",
     "createSuccess": "Ссылка для общего доступа создана",
     "createFailed": "Не удалось создать ссылку для общего доступа",
-    "updateSuccess": "Настройки общего доступа обновлены",
     "updateFailed": "Не удалось обновить настройки общего доступа",
     "deleteSuccess": "Ссылка для общего доступа удалена",
     "deleteFailed": "Не удалось удалить ссылку для общего доступа",
     "refreshSuccess": "Ссылка для общего доступа обновлена",
     "refreshFailed": "Не удалось обновить ссылку для общего доступа",
-    "copied": "Ссылка скопирована в буфер обмена",
-    "shareLink": "Ссылка для общего доступа",
     "linkHolderLabel": "Человек, получивший ссылку",
     "linkHolderCanView": "Может просматривать",
     "linkHolderCanViewDesc": "Anyone with the link can view the data",
@@ -922,27 +888,9 @@
     "linkHolderCanCopyAndSave": "Может сохранить как копию",
     "linkHolderCanCopyAndSaveDesc": "Anyone with the link can save a copy to their space",
     "editRequiresLogin": "Users must log in to edit records",
-    "passwordProtection": "Защита паролем",
     "enterPassword": "Введите пароль",
-    "selectNodes": "Выбрать таблицы",
-    "shareEntireBase": "Поделиться всей базой",
-    "shareSelectedNodes": "Поделиться выбранными узлами",
-    "shareEntireBaseDescription": "Новые таблицы и папки, добавленные в эту базу, будут автоматически доступны",
-    "noNodesSelectedWarning": "Пожалуйста, выберите хотя бы один узел для общего доступа",
-    "allowSave": "Разрешить сохранение в пространстве",
-    "allowSaveDescription": "Разрешить зрителям сохранять копию этой базы в своем пространстве",
-    "allowCopy": "Разрешить копирование данных",
     "allowCopyData": "Разрешить зрителям копировать данные",
-    "allowDuplicate": "Разрешить зрителям дублировать",
-    "allowCopyDescription": "Разрешить зрителям копировать данные таблицы из этой общей базы",
-    "selectedNodes": "Выбрано {{count}} таблиц",
-    "allNodes": "Все таблицы",
     "sharedNode": "Общий узел",
-    "sharedNodeDescription": "Эта ссылка для общего доступа предназначена для конкретного узла и его потомков",
-    "publicShareTitle": "Публичный доступ по ссылке",
-    "publicShareCount": "{{count}} публичных ссылок для общего доступа",
-    "noPublicShare": "Нет публичных ссылок для общего доступа",
-    "security": "Безопасность",
     "restrictByPassword": "Ограничить паролем",
     "advanced": "Дополнительно",
     "embedConfig": "Настройка встраивания",
@@ -954,8 +902,7 @@
     "openLink": "Открыть ссылку",
     "appPublished": "Приложение опубликовано",
     "shareTableTab": "Поделиться таблицей",
-    "shareViewTab": "Поделиться представлением",
-    "shareNodeTab": "Поделиться узлом"
+    "shareViewTab": "Поделиться представлением"
   },
   "aiChat": {
     "integrationConnect": {
@@ -1026,10 +973,7 @@
       "other": "Другое"
     },
     "context": {
-      "button": "Добавить узел",
-      "search": "Добавить таблицы",
       "searchEmpty": "Не найден соответствующий контекст",
-      "emptyContext": "Нет контекста для добавления",
       "selectionRow": "Row {{row}}",
       "selectionRows": "Строки {{start}}-{{end}}",
       "selectionColumn": "Col {{col}}",
@@ -1057,8 +1001,7 @@
     },
     "meta": {
       "input": "Ввод",
-      "output": "Вывод",
-      "taskCompleted": "Задача выполнена"
+      "output": "Вывод"
     },
     "attachment": {
       "pastedTextFileName": "Вставленный текст",
@@ -1094,17 +1037,11 @@
   "download": {
     "allAttachments": {
       "title": "Скачать все вложения",
-      "loading": "Загрузка предпросмотра...",
       "rowsWithAttachments": "Строки с влож.",
       "totalAttachments": "Вложения",
       "totalSize": "Общий размер",
-      "confirmTitle": "Скачать {{count}} файлов",
-      "confirmDescription": "Общий размер: {{size}}. Файлы будут сжаты в ZIP-архив.",
-      "confirm": "Скачать",
       "cancel": "Отмена",
       "downloading": "Загрузка...",
-      "downloadingFile": "Загрузка: {{fileName}}",
-      "progress": "{{downloaded}} / {{total}}",
       "completed": "Загрузка завершена",
       "cancelled": "Загрузка отменена",
       "noAttachments": "Нет вложений для скачивания",

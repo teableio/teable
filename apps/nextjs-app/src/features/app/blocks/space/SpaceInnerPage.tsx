@@ -151,10 +151,12 @@ export const SpaceInnerPage: React.FC = () => {
           organization={space.organization}
           onUpgradeClick={handleOpenUpgrade}
           appSumoTier={subscriptionSummary?.appSumoTier}
-        />
+        >
+          <DataDbBadge dataDb={space.dataDb} />
+        </LevelWithUpgrade>
       );
     }
-    return null;
+    return <DataDbBadge dataDb={space?.dataDb} />;
   };
 
   const renderOrganization = () => {
@@ -214,7 +216,6 @@ export const SpaceInnerPage: React.FC = () => {
               </div>
               {renderSubscription()}
               {renderOrganization()}
-              <DataDbBadge dataDb={space.dataDb} />
             </div>
           ) : (
             <div className="flex min-w-0 items-center gap-2">
@@ -230,7 +231,6 @@ export const SpaceInnerPage: React.FC = () => {
               <StarButton className="opacity-100" id={space.id} type={PinType.Space} />
               {renderSubscription()}
               {renderOrganization()}
-              <DataDbBadge dataDb={space.dataDb} />
             </div>
           )}
 

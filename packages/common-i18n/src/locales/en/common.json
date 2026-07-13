@@ -338,7 +338,39 @@
       "mouseMode": "Cursor mode",
       "touchMode": "Touch mode",
       "systemMode": "Follow system",
-      "buySelfHostedLicense": "Buy self-hosted license"
+      "buySelfHostedLicense": "Buy self-hosted license",
+      "teableSkill": "Teable skill"
+    },
+    "teableSkill": {
+      "intro": "Let your AI Agent connect to your Base to query data, manage tables, fields, and views, import or update records, and create automations and apps.",
+      "worksWith": "Works with all mainstream agents",
+      "more": "+ more",
+      "copy": "Copy",
+      "installPromptLabel": "Skill install prompt",
+      "installCommandLabel": "Skill install command",
+      "installPrompt": "Please read https://github.com/teableio/agent-skills, follow the guide to help me install the Teable agent skill, and complete Teable CLI authentication.",
+      "step1Title": "Install Skill",
+      "step1Description": "Copy this prompt into your AI Agent. It will install the Teable skill set and open the browser to complete Teable CLI authentication.",
+      "step3Title": "Try using Teable skill",
+      "step3Description": "After the skill is installed, try these prompts.",
+      "tryPrompts": {
+        "schema": {
+          "prompt": "Create a simple CRM table in this base.",
+          "note": "Simple Starter Prompts"
+        },
+        "template": {
+          "prompt": "Upload all invoices in this local folder to <Receipt Table> {paste table URL} and extract key fields.",
+          "note": "Local Files → Teable"
+        },
+        "validate": {
+          "prompt": "Import new GitHub issues into <Bug Tracker> {paste table URL}.",
+          "note": "Cross-Platform Data → Teable"
+        },
+        "trace": {
+          "prompt": "Check <Task Table> {paste table URL} and mark overdue tasks.",
+          "note": "Clean Or Organize Teable Data"
+        }
+      }
     },
     "nav": {
       "settings": "Settings",
@@ -606,6 +638,7 @@
         "clearAllModels": "Clear all models",
         "customModelPlaceholder": "Enter a custom model name",
         "addModelFill": "Add",
+        "modelIdReservedAt": "Model IDs cannot contain '@'",
         "baseUrlRequired": "Base URL is required",
         "fetchModelListError": "Failed to fetch model list",
         "provider": "LLM provider",
@@ -739,6 +772,7 @@
         "addCustomModel": "Add custom model",
         "isOpenRouter": "OpenRouter",
         "modelRates": "Model Pricing",
+        "modelSettings": "Model Settings",
         "model": "Model",
         "inputRate": "Input USD/token",
         "outputRate": "Output USD/token",
@@ -766,11 +800,7 @@
         "imageGenerationModel": "Image Generation Model",
         "markedAsImageModel": "Marked as image generation model. Will test text-to-image and image-to-image capabilities.",
         "markedAsTextModel": "Marked as text model. Will test vision (image input) capability.",
-        "fetchPricing": "Fetch Pricing",
-        "fetchPricingTip": "Fetch model pricing from the AI Gateway model catalog",
         "fetchPricingError": "Failed to fetch pricing",
-        "pricingPreview": "AI Gateway Reference",
-        "pricingPreviewDesc": "Found pricing for {{matched}} of {{total}} models",
         "openRouterId": "Gateway model ID",
         "notFound": "Not found",
         "applyPricing": "Apply ({{count}})",
@@ -785,6 +815,13 @@
         "gatewayRatioTip": "Multiplier relative to AI Gateway Reference. 0.1 means 10% of the reference price.",
         "generatedPricing": "Generated pricing",
         "generatedPricingTip": "Generated custom provider input/output price saved to modelConfigs[model].pricing",
+        "rateExplanationManual": "No auto-matched reference? Pick a reference model manually in the model's edit dialog.",
+        "referenceModelLabel": "Reference model",
+        "contextWindowCap": "Context",
+        "contextWindowCapTip": "Max input tokens the model accepts; drives context compaction. Leave empty to use registry/default limits.",
+        "maxOutputTokensCap": "Max output",
+        "maxOutputTokensCapTip": "Max tokens the model may generate per response. Leave empty to use registry/default limits.",
+        "rateExplanationCaps": "Context / max-output default to the reference model and stay editable; empty values fall back to registry or defaults.",
         "relativeRatioTip": "Cost level relative to Claude Opus 4.6 = 1x, using the existing weighted algorithm",
         "hint": {
           "title": "Suggestions",
@@ -800,6 +837,7 @@
           "checkConfiguration": "Please check your configuration. Ensure the Base URL, API key, and model name are all correct"
         },
         "recommended": "Recommended",
+        "enabled": "Enabled",
         "gatewayModels": "AI Gateway Models",
         "gatewayModelsDescription": "Configure recommended models via Vercel AI Gateway for optimal AI SDK support",
         "gatewayDescription": "Use AI Gateway for best compatibility and reliability. Configure API key in the App section below.",
@@ -812,7 +850,6 @@
         "modelIdHint": "The model identifier used by AI Gateway (e.g., anthropic/claude-sonnet-4)",
         "searchModelPlaceholder": "Type to search models...",
         "noMatchingModels": "No matching models found",
-        "useCustomId": "Use custom ID: {{id}}",
         "typeToSearch": "Type keywords to search available models",
         "modelNotFound": "This model ID was not found in available list, please verify spelling",
         "testModel": "Test Model",
@@ -1615,10 +1652,10 @@
     }
   },
   "changelog": {
-    "newUpdate": "JUN 24 UPDATE",
-    "title": "Agent Computer, Supercharged",
-    "url": "https://help.teable.ai/en/changelog#jun-24-2026",
-    "id": "changelog-2026-06-24-agent-computer-supercharged"
+    "newUpdate": "JUL 10 UPDATE",
+    "title": "GPT-5.6 Is Now in Teable",
+    "url": "https://help.teable.ai/en/changelog#jul-10-2026",
+    "id": "changelog-2026-07-10-gpt-5-6-is-now-in-teable"
   },
   "resourceDescription": {
     "addDescription": "Add description",

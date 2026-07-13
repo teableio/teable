@@ -342,7 +342,39 @@
       "mouseMode": "光标模式",
       "touchMode": "触控模式",
       "systemMode": "跟随系统",
-      "buySelfHostedLicense": "购买私有化部署许可证"
+      "buySelfHostedLicense": "购买私有化部署许可证",
+      "teableSkill": "Teable 技能"
+    },
+    "teableSkill": {
+      "intro": "让 AI Agent 连接你的 Base，帮你查询数据、管理表格/字段/视图、导入或更新记录，创建自动化和应用。",
+      "worksWith": "适用于所有主流 Agent",
+      "more": "+ 更多",
+      "copy": "复制",
+      "installPromptLabel": "Skill 安装提示词",
+      "installCommandLabel": "Skill 安装指令",
+      "installPrompt": "请阅读 https://github.com/teableio/agent-skills，根据指南帮我安装 Teable agent skill 并完成 Teable CLI 认证",
+      "step1Title": "安装 Skill",
+      "step1Description": "复制这段提示词发给你的 AI Agent。它会安装 Teable skill set，并打开浏览器完成 Teable CLI 认证。",
+      "step3Title": "试试看使用 Teable 技能",
+      "step3Description": "成功安装技能后可以尝试以下提示词。",
+      "tryPrompts": {
+        "schema": {
+          "prompt": "在当前 base 中创建一个简单的 CRM 表。",
+          "note": "简单入门提示词"
+        },
+        "template": {
+          "prompt": "将这个本地文件夹中的所有发票上传到 <收据表> {粘贴表格 URL}，并提取关键字段。",
+          "note": "本地文件 → Teable"
+        },
+        "validate": {
+          "prompt": "将新的 GitHub issues 导入到 <Bug 追踪表> {粘贴表格 URL}。",
+          "note": "跨平台数据 → Teable"
+        },
+        "trace": {
+          "prompt": "检查 <任务表> {粘贴表格 URL} 并标记逾期任务。",
+          "note": "清理或整理 Teable 数据"
+        }
+      }
     },
     "nav": {
       "settings": "设置",
@@ -603,6 +635,7 @@
         "clearAllModels": "清除所有模型",
         "customModelPlaceholder": "输入自定义模型名称",
         "addModelFill": "填入",
+        "modelIdReservedAt": "模型 ID 不能包含 '@'",
         "baseUrlRequired": "基础 URL 是必需的",
         "fetchModelListError": "无法获取模型列表",
         "provider": "模型提供商",
@@ -736,6 +769,7 @@
         "addCustomModel": "添加自定义模型",
         "isOpenRouter": "OpenRouter",
         "modelRates": "模型定价",
+        "modelSettings": "模型配置",
         "model": "模型",
         "inputRate": "输入 USD/token",
         "outputRate": "输出 USD/token",
@@ -763,11 +797,7 @@
         "imageGenerationModel": "生图模型",
         "markedAsImageModel": "已标记为生图模型，将测试文生图和图生图能力",
         "markedAsTextModel": "已标记为文本模型，将测试图片输入（视觉）能力",
-        "fetchPricing": "获取定价",
-        "fetchPricingTip": "从 AI Gateway 模型目录获取模型定价",
         "fetchPricingError": "获取定价失败",
-        "pricingPreview": "AI Gateway 参考价",
-        "pricingPreviewDesc": "已匹配 {{total}} 个模型中的 {{matched}} 个",
         "openRouterId": "Gateway 模型 ID",
         "notFound": "未找到",
         "applyPricing": "应用 ({{count}})",
@@ -782,6 +812,13 @@
         "gatewayRatioTip": "相对 AI Gateway 参考价的倍率。0.1 表示参考价的 10%。",
         "generatedPricing": "生成定价",
         "generatedPricingTip": "自动生成并保存到 modelConfigs[model].pricing 的 custom provider 输入/输出价格",
+        "rateExplanationManual": "未自动匹配到参考价时，可在模型编辑弹窗中手动选择参考模型。",
+        "referenceModelLabel": "参考模型",
+        "contextWindowCap": "上下文窗口",
+        "contextWindowCapTip": "模型可接受的最大输入 Token 数，用于上下文压缩。留空使用注册表或默认值。",
+        "maxOutputTokensCap": "最大输出",
+        "maxOutputTokensCapTip": "模型单次响应可生成的最大 Token 数。留空使用注册表或默认值。",
+        "rateExplanationCaps": "上下文/最大输出默认取自参考模型，可编辑，留空回退到注册表或默认值。",
         "relativeRatioTip": "按现有算法计算的成本等级，以 Claude Opus 4.6 = 1x 为基准",
         "hint": {
           "title": "建议",
@@ -797,6 +834,7 @@
           "checkConfiguration": "请检查您的配置，确保 Base URL、API Key 和模型名称都正确"
         },
         "recommended": "推荐",
+        "enabled": "启用",
         "gatewayModels": "AI Gateway 模型",
         "gatewayModelsDescription": "通过 Vercel AI Gateway 配置推荐模型，获得最佳 AI SDK 支持",
         "gatewayDescription": "使用 AI Gateway 获得最佳兼容性和可靠性。请在下方 App 配置区域配置 API 密钥。",
@@ -809,7 +847,6 @@
         "modelIdHint": "AI Gateway 使用的模型标识符（例如：anthropic/claude-sonnet-4）",
         "searchModelPlaceholder": "输入模型名称搜索...",
         "noMatchingModels": "未找到匹配的模型",
-        "useCustomId": "使用自定义 ID: {{id}}",
         "typeToSearch": "输入关键词搜索可用模型",
         "modelNotFound": "此模型 ID 在可用列表中未找到，请确认拼写正确",
         "testModel": "测试模型",
@@ -1612,10 +1649,10 @@
     }
   },
   "changelog": {
-    "newUpdate": "6 月 24 日更新",
-    "title": "Agent Computer 全面升级",
-    "url": "https://help.teable.ai/en/changelog#jun-24-2026",
-    "id": "changelog-2026-06-24-agent-computer-supercharged"
+    "newUpdate": "7 月 10 日更新",
+    "title": "GPT-5.6 已上线 Teable",
+    "url": "https://help.teable.ai/en/changelog#jul-10-2026",
+    "id": "changelog-2026-07-10-gpt-5-6-is-now-in-teable"
   },
   "resourceDescription": {
     "addDescription": "添加描述",

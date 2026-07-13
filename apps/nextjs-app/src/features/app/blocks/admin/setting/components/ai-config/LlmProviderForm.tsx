@@ -1,11 +1,22 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AlertCircle, Check, Loader2, Plus, X, Eye, Image, HelpCircle } from '@teable/icons';
+import {
+  AlertCircle,
+  Check,
+  Loader2,
+  Pencil,
+  Plus,
+  X,
+  Eye,
+  Image,
+  HelpCircle,
+} from '@teable/icons';
 import {
   getImageModelTagsFromAbility,
   llmProviderSchema,
   LLMProviderType,
   chatModelAbilityType,
+  scalePricing,
 } from '@teable/openapi';
 import type {
   ITestLLMVo,
@@ -46,12 +57,13 @@ import { useTranslation } from 'next-i18next';
 import type { PropsWithChildren } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import { calculateMultiplier, formatMultiplier } from './ai-model-select/utils';
 import { LLM_PROVIDERS } from './constant';
+import { ModelSearchPopover } from './gateway-models-step/ModelSearchPopover';
 import type { IGatewayModelAPI } from './gateway-models-step/types';
 import { formatUsdPriceShort } from './gateway-models-step/utils';
 import { testImageModelCapability, TEXT_MODEL_TIMEOUT_MS, withTimeout } from './model-test-utils';
+import { useGatewayModelsQuery } from './useGatewayModelsQuery';
 import { generateByokProviderName } from './utils';
 
 const CUSTOM_MODEL_DOC_URL = 'https://help.teable.ai/en/basic/ai/custom-model';
@@ -173,7 +185,7 @@ interface LLMProviderFormProps {
   onAdd?: (data: LLMProvider) => void;
   /** Test function - accepts full ITestLLMRo for capability testing */
   onTest?: (data: ITestLLMRo) => Promise<ITestLLMVo>;
-  /** Hide model rates config (for space-level settings where billing doesn't apply) */
+  /** Hide pricing fields (space-level settings where billing doesn't apply); token caps stay editable */
   hideModelRates?: boolean;
   /** Callback to save model test results */
   onSaveTestResult?: (
@@ -204,7 +216,7 @@ export const UpdateLLMProviderForm = ({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[720px]">
+      <DialogContent className="flex max-h-[90vh] flex-col sm:max-w-[720px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {t('admin.setting.ai.updateLLMProvider')}
@@ -213,14 +225,16 @@ export const UpdateLLMProviderForm = ({
             </a>
           </DialogTitle>
         </DialogHeader>
-        <LLMProviderForm
-          value={value}
-          onChange={handleChange}
-          onTest={onTest}
-          hideModelRates={hideModelRates}
-          onSaveTestResult={onSaveTestResult}
-          providerNameMode={providerNameMode}
-        />
+        <div className="-mx-6 grid min-h-0 gap-4 overflow-y-auto px-6">
+          <LLMProviderForm
+            value={value}
+            onChange={handleChange}
+            onTest={onTest}
+            hideModelRates={hideModelRates}
+            onSaveTestResult={onSaveTestResult}
+            providerNameMode={providerNameMode}
+          />
+        </div>
       </DialogContent>
     </Dialog>
   );
@@ -250,7 +264,7 @@ export const NewLLMProviderForm = ({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[720px]">
+      <DialogContent className="flex max-h-[90vh] flex-col sm:max-w-[720px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {t('admin.setting.ai.addProvider')}
@@ -260,13 +274,15 @@ export const NewLLMProviderForm = ({
           </DialogTitle>
           <DialogDescription>{t('admin.setting.ai.addProviderDescription')}</DialogDescription>
         </DialogHeader>
-        <LLMProviderForm
-          onAdd={handleAdd}
-          onTest={onTest}
-          hideModelRates={hideModelRates}
-          onSaveTestResult={onSaveTestResult}
-          providerNameMode={providerNameMode}
-        />
+        <div className="-mx-6 grid min-h-0 gap-4 overflow-y-auto px-6">
+          <LLMProviderForm
+            onAdd={handleAdd}
+            onTest={onTest}
+            hideModelRates={hideModelRates}
+            onSaveTestResult={onSaveTestResult}
+            providerNameMode={providerNameMode}
+          />
+        </div>
       </DialogContent>
     </Dialog>
   );
@@ -277,29 +293,23 @@ interface ModelRatesConfigProps {
   models: string;
   modelConfigs: Record<string, IModelConfig> | undefined;
   onChange: (configs: Record<string, IModelConfig>) => void;
+  // Hides pricing in space-level settings (billing doesn't apply to BYOK there);
+  // token caps stay visible everywhere.
+  hideModelRates?: boolean;
 }
 
-const compactPricing = (pricing: IModelPricing | undefined): IModelPricing | undefined => {
-  if (!pricing) return undefined;
-  const next = Object.fromEntries(
-    Object.entries(pricing).filter(([, value]) => value !== undefined && value !== '')
-  ) as IModelPricing;
-  return Object.keys(next).length > 0 ? next : undefined;
-};
-
-const getGatewayReferencePricing = (
+const getGatewayReferenceModel = (
   model: string,
   gatewayModels: IGatewayModelAPI[]
-): IModelPricing | undefined => {
+): IGatewayModelAPI | undefined => {
   const normalizedModel = model.toLowerCase();
   const direct = gatewayModels.find((item) => item.id.toLowerCase() === normalizedModel);
-  if (direct?.pricing) return direct.pricing;
+  if (direct) return direct;
 
-  const suffixMatch = gatewayModels.find((item) => {
+  return gatewayModels.find((item) => {
     const id = item.id.toLowerCase();
     return id.endsWith(`/${normalizedModel}`) || normalizedModel.endsWith(`/${id}`);
   });
-  return suffixMatch?.pricing;
 };
 
 const getPricingSummary = (pricing: IModelPricing | undefined): string => {
@@ -310,45 +320,6 @@ const getPricingSummary = (pricing: IModelPricing | undefined): string => {
   if (pricing.image) return `$${pricing.image}`;
   if (pricing.webSearch) return `$${pricing.webSearch}/1K`;
   return '-';
-};
-
-const scalePrice = (price: string | undefined, ratio: number): string | undefined => {
-  if (!price) return undefined;
-  const value = parseFloat(price);
-  if (Number.isNaN(value)) return undefined;
-  return String(value * ratio);
-};
-
-const scalePricing = (
-  pricing: IModelPricing | undefined,
-  ratio: number
-): IModelPricing | undefined => {
-  if (!pricing || Number.isNaN(ratio)) return undefined;
-  return compactPricing({
-    input: scalePrice(pricing.input, ratio),
-    output: scalePrice(pricing.output, ratio),
-    inputCacheRead: scalePrice(pricing.inputCacheRead, ratio),
-    inputCacheWrite: scalePrice(pricing.inputCacheWrite, ratio),
-    reasoning: scalePrice(pricing.reasoning, ratio),
-    image: scalePrice(pricing.image, ratio),
-    webSearch: scalePrice(pricing.webSearch, ratio),
-    inputTiers: pricing.inputTiers?.map((tier) => ({
-      ...tier,
-      cost: scalePrice(tier.cost, ratio) ?? tier.cost,
-    })),
-    outputTiers: pricing.outputTiers?.map((tier) => ({
-      ...tier,
-      cost: scalePrice(tier.cost, ratio) ?? tier.cost,
-    })),
-    inputCacheReadTiers: pricing.inputCacheReadTiers?.map((tier) => ({
-      ...tier,
-      cost: scalePrice(tier.cost, ratio) ?? tier.cost,
-    })),
-    inputCacheWriteTiers: pricing.inputCacheWriteTiers?.map((tier) => ({
-      ...tier,
-      cost: scalePrice(tier.cost, ratio) ?? tier.cost,
-    })),
-  });
 };
 
 const inferGatewayRatio = (
@@ -389,9 +360,10 @@ const formatGatewayRatio = (ratio: number | undefined): string => {
   return ratio.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
 };
 
+// Ratios must be positive — 0 would zero out pricing and make the model unbillable.
 const parseGatewayRatio = (value: string): number | undefined => {
   const ratio = parseFloat(value);
-  if (Number.isNaN(ratio) || ratio < 0) return undefined;
+  if (Number.isNaN(ratio) || ratio <= 0) return undefined;
   return ratio;
 };
 
@@ -400,15 +372,10 @@ const getLLMProviderDefaultValues = (
   isAutoProviderName: boolean
 ): LLMProvider => {
   if (value) {
-    // Editing an existing provider: if it has no display name yet (legacy), pre-fill the
-    // field with its current `name` so it's not blank.
     return { ...value, displayName: value.displayName || value.name };
   }
 
   return {
-    // New provider: instance providers are normalized to 'teable' server-side; default to
-    // it so in-session modelKeys (type@model@teable) match what gets saved. BYOK keeps an
-    // auto-generated name.
     name: isAutoProviderName ? generateByokProviderName() : 'teable',
     displayName: '',
     type: LLMProviderType.OPENAI,
@@ -419,9 +386,6 @@ const getLLMProviderDefaultValues = (
   };
 };
 
-// Chip-based editor for the provider's model list. Stores the value as the same
-// comma-separated string the rest of the form expects; the UI just renders it as removable
-// chips plus a custom-name "add" input and a clear-all action.
 function ModelListEditor({
   value,
   onChange,
@@ -433,6 +397,8 @@ function ModelListEditor({
 }) {
   const { t } = useTranslation();
   const [customInput, setCustomInput] = useState('');
+  // '@' is reserved for model keys.
+  const hasReservedAt = customInput.includes('@');
   const models = useMemo(
     () =>
       value
@@ -457,7 +423,7 @@ function ModelListEditor({
 
   const addCustom = () => {
     const name = customInput.trim();
-    if (!name) return;
+    if (!name || name.includes('@')) return;
     commit([...models, name]);
     setCustomInput('');
   };
@@ -515,22 +481,31 @@ function ModelListEditor({
             }
           }}
         />
-        <Button type="button" variant="outline" onClick={addCustom} disabled={!customInput.trim()}>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={addCustom}
+          disabled={!customInput.trim() || hasReservedAt}
+        >
           {t('admin.setting.ai.addModelFill')}
         </Button>
       </div>
+      {hasReservedAt && (
+        <p className="text-xs text-amber-600">{t('admin.setting.ai.modelIdReservedAt')}</p>
+      )}
     </div>
   );
 }
 
-const ModelRatesConfig = ({ models, modelConfigs = {}, onChange }: ModelRatesConfigProps) => {
+const ModelRatesConfig = ({
+  models,
+  modelConfigs = {},
+  onChange,
+  hideModelRates,
+}: ModelRatesConfigProps) => {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [gatewayModels, setGatewayModels] = useState<IGatewayModelAPI[]>([]);
-  const [isLoadingPricing, setIsLoadingPricing] = useState(false);
-  const [pricingError, setPricingError] = useState<string | null>(null);
-  const [gatewayRatioInputs, setGatewayRatioInputs] = useState<Record<string, string>>({});
+  const [editingModel, setEditingModel] = useState<string | null>(null);
 
   const modelList = useMemo(() => {
     return models
@@ -539,60 +514,78 @@ const ModelRatesConfig = ({ models, modelConfigs = {}, onChange }: ModelRatesCon
       .filter(Boolean);
   }, [models]);
 
-  const fetchGatewayPricing = useCallback(async () => {
-    setIsLoadingPricing(true);
-    setPricingError(null);
-    try {
-      const response = await fetch('/api/admin/setting/gateway-models');
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      const data = (await response.json()) as { models?: IGatewayModelAPI[] };
-      setGatewayModels(data.models ?? []);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      setPricingError(message);
-    } finally {
-      setIsLoadingPricing(false);
-    }
-  }, []);
+  const {
+    models: gatewayModels,
+    isFetching: isLoadingPricing,
+    errorMessage: pricingError,
+    refetch: fetchGatewayPricing,
+  } = useGatewayModelsQuery();
 
+  // Effective reference: the admin-picked gateway model wins; fall back to auto-match.
+  const resolveReferenceModel = useCallback(
+    (model: string): IGatewayModelAPI | undefined => {
+      const explicit = modelConfigs[model]?.referenceModel;
+      const explicitMatch = explicit
+        ? gatewayModels.find((item) => item.id === explicit)
+        : undefined;
+      return explicitMatch ?? getGatewayReferenceModel(model, gatewayModels);
+    },
+    [modelConfigs, gatewayModels]
+  );
+
+  // Materialize reference pricing (×1) plus caps/tags into models that have none, so
+  // custom model names stay billable without the admin opening each per-model editor
+  // and the backend model-caps resolution (which only reads modelConfigs[model]) sees
+  // the same caps the editor displays. The reference match itself stays dynamic. This
+  // also runs in space-level settings (hideModelRates): the stored pricing is inert
+  // for BYOK.
   useEffect(() => {
-    if (expanded && gatewayModels.length === 0 && !isLoadingPricing) {
-      fetchGatewayPricing();
-    }
-  }, [expanded, fetchGatewayPricing, gatewayModels.length, isLoadingPricing]);
-
-  const setModelPricing = (model: string, pricing: IModelPricing | undefined) => {
-    const currentConfig = modelConfigs[model] || {};
-    onChange({
-      ...modelConfigs,
-      [model]: {
-        ...currentConfig,
+    if (gatewayModels.length === 0) return;
+    const filled: Record<string, IModelConfig> = {};
+    for (const model of modelList) {
+      const config = modelConfigs[model];
+      if (config?.pricing) continue;
+      const reference = resolveReferenceModel(model);
+      if (!reference?.pricing) continue;
+      const pricing = scalePricing(reference.pricing, 1);
+      if (!pricing) continue;
+      filled[model] = {
+        ...config,
         pricing,
-      },
-    });
-  };
+        contextWindow: config?.contextWindow ?? reference.contextWindow,
+        maxTokens: config?.maxTokens ?? reference.maxTokens,
+        tags: config?.tags ?? reference.tags,
+      };
+    }
+    if (Object.keys(filled).length > 0) {
+      onChange({ ...modelConfigs, ...filled });
+    }
+  }, [gatewayModels, modelList, modelConfigs, resolveReferenceModel, onChange]);
 
-  const applyPricingRatio = (
-    model: string,
-    referencePricing: IModelPricing | undefined,
-    value: string
-  ) => {
-    setGatewayRatioInputs((prev) => ({ ...prev, [model]: value }));
-    if (!referencePricing) return;
-    const ratio = parseGatewayRatio(value);
-    if (ratio === undefined) return;
-    setModelPricing(model, scalePricing(referencePricing, ratio));
-  };
-
-  // Per-model ratio edits apply immediately (see applyPricingRatio); the dialog's bottom
-  // "Update" button persists everything, so no separate bulk "Apply" action is needed.
-  const matchedPricingCount = modelList.filter((model) =>
-    Boolean(getGatewayReferencePricing(model, gatewayModels))
-  ).length;
+  // Auto-expand when a model shows up that neither auto-matches a gateway reference
+  // nor has a saved config, so the admin is guided to configure it instead of
+  // discovering blank pricing/caps later. Each model is evaluated once (tracked in a
+  // ref) so a manual collapse isn't fought on re-renders; only runs once the gateway
+  // list is loaded — before that (or on community edition) every model looks unmatched.
+  const evaluatedModelsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (gatewayModels.length === 0) return;
+    const newModels = modelList.filter((model) => !evaluatedModelsRef.current.has(model));
+    newModels.forEach((model) => evaluatedModelsRef.current.add(model));
+    const needsSetup = (model: string) => {
+      const config = modelConfigs[model];
+      const configured =
+        config?.pricing || config?.contextWindow != null || config?.maxTokens != null;
+      return !configured && !resolveReferenceModel(model);
+    };
+    if (newModels.some(needsSetup)) setExpanded(true);
+  }, [gatewayModels, modelList, modelConfigs, resolveReferenceModel]);
 
   if (modelList.length === 0) return null;
+
+  const gridColsClass = hideModelRates
+    ? 'grid-cols-[minmax(120px,1fr),90px,90px,32px]'
+    : 'grid-cols-[minmax(120px,1fr),190px,56px,90px,90px,32px]';
 
   return (
     <div className="space-y-2">
@@ -602,182 +595,398 @@ const ModelRatesConfig = ({ models, modelConfigs = {}, onChange }: ModelRatesCon
         className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
         {expanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
-        {t('admin.setting.ai.modelRates')} ({modelList.length})
+        {t('admin.setting.ai.modelSettings')} ({modelList.length})
       </button>
 
       {expanded && (
         <div className="space-y-3 rounded-md border bg-muted/20 p-3">
-          <div className="rounded bg-blue-50 p-2 text-xs text-blue-800 dark:bg-blue-950 dark:text-blue-200">
-            <div className="font-medium">{t('admin.setting.ai.rateExplanationTitle')}</div>
-            <div className="mt-1 space-y-0.5 text-[11px] opacity-90">
-              <div>• {t('admin.setting.ai.rateExplanationFormula')}</div>
-              <div>• {t('admin.setting.ai.rateExplanationExample')}</div>
+          {!hideModelRates ? (
+            <div className="rounded bg-blue-50 p-2 text-xs text-blue-800 dark:bg-blue-950 dark:text-blue-200">
+              <div className="font-medium">{t('admin.setting.ai.rateExplanationTitle')}</div>
+              <div className="mt-1 space-y-0.5 text-[11px] opacity-90">
+                <div>• {t('admin.setting.ai.rateExplanationFormula')}</div>
+                <div>• {t('admin.setting.ai.rateExplanationExample')}</div>
+                <div>• {t('admin.setting.ai.rateExplanationManual')}</div>
+                <div>• {t('admin.setting.ai.rateExplanationCaps')}</div>
+              </div>
             </div>
-          </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              {t('admin.setting.ai.rateExplanationCaps')}
+            </p>
+          )}
 
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>
-                {t('admin.setting.ai.pricingPreviewDesc', {
-                  matched: matchedPricingCount,
-                  total: modelList.length,
-                })}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={fetchGatewayPricing}
-                disabled={isLoadingPricing}
-              >
-                {isLoadingPricing
-                  ? t('admin.setting.ai.batchTesting')
-                  : t('admin.setting.ai.fetchPricing')}
-              </Button>
-            </div>
-          </div>
-          {pricingError && (
+          {!hideModelRates && pricingError && (
             <div className="text-xs text-destructive">
               {t('admin.setting.ai.fetchPricingError')}: {pricingError}
             </div>
           )}
 
           <div className="overflow-x-auto">
-            <div className="min-w-[660px] space-y-2">
-              <div className="grid grid-cols-[minmax(120px,1fr),140px,88px,150px,64px] gap-2 text-xs font-medium text-muted-foreground">
+            <div className={cn('space-y-2', !hideModelRates && 'min-w-[620px]')}>
+              <div
+                className={cn(
+                  'grid gap-2 text-xs font-medium text-muted-foreground',
+                  gridColsClass
+                )}
+              >
                 <div>{t('admin.setting.ai.model')}</div>
-                <div title={t('admin.setting.ai.referencePricingTip')}>
-                  {t('admin.setting.ai.pricingPreview')}
+                {!hideModelRates && (
+                  <>
+                    <div title={t('admin.setting.ai.generatedPricingTip')}>
+                      {t('admin.setting.ai.generatedPricing')}
+                    </div>
+                    <div title={t('admin.setting.ai.relativeRatioTip')}>
+                      {t('admin.setting.ai.relativeRatio')}
+                    </div>
+                  </>
+                )}
+                <div title={t('admin.setting.ai.contextWindowCapTip')}>
+                  {t('admin.setting.ai.contextWindowCap')}
                 </div>
-                <div title={t('admin.setting.ai.gatewayRatioTip')}>
-                  {t('admin.setting.ai.gatewayRatio')}
+                <div title={t('admin.setting.ai.maxOutputTokensCapTip')}>
+                  {t('admin.setting.ai.maxOutputTokensCap')}
                 </div>
-                <div title={t('admin.setting.ai.generatedPricingTip')}>
-                  {t('admin.setting.ai.generatedPricing')}
-                </div>
-                <div title={t('admin.setting.ai.relativeRatioTip')}>
-                  {t('admin.setting.ai.relativeRatio')}
-                </div>
+                <div />
               </div>
               {modelList.map((model) => {
                 const config = modelConfigs[model] || {};
-                const referencePricing = getGatewayReferencePricing(model, gatewayModels);
                 const currentPricing = config.pricing;
                 const multiplier = formatMultiplier(calculateMultiplier(currentPricing));
-                const referenceMultiplier = formatMultiplier(calculateMultiplier(referencePricing));
-                const ratioValue =
-                  gatewayRatioInputs[model] ??
-                  formatGatewayRatio(inferGatewayRatio(currentPricing, referencePricing));
                 return (
-                  <div
-                    key={model}
-                    className="grid grid-cols-[minmax(120px,1fr),140px,88px,150px,64px] items-center gap-2"
-                  >
+                  <div key={model} className={cn('grid items-center gap-2', gridColsClass)}>
                     <div className="truncate text-sm" title={model}>
                       {model}
                     </div>
-                    <div
-                      className="truncate text-xs text-muted-foreground"
-                      title={referencePricing ? getPricingSummary(referencePricing) : undefined}
-                    >
-                      {referencePricing
-                        ? `${getPricingSummary(referencePricing)}${referenceMultiplier ? ` · ${referenceMultiplier}` : ''}`
-                        : t('admin.setting.ai.notFound')}
+                    {!hideModelRates && (
+                      <>
+                        <div
+                          className="truncate text-xs tabular-nums text-muted-foreground"
+                          title={getPricingSummary(currentPricing)}
+                        >
+                          {getPricingSummary(currentPricing)}
+                        </div>
+                        <div className="text-xs font-medium tabular-nums">{multiplier ?? '-'}</div>
+                      </>
+                    )}
+                    <div className="truncate text-xs tabular-nums text-muted-foreground">
+                      {config.contextWindow ?? '-'}
                     </div>
-                    <Input
-                      type="text"
-                      value={ratioValue}
-                      onChange={(e) => applyPricingRatio(model, referencePricing, e.target.value)}
-                      placeholder="0.1"
+                    <div className="truncate text-xs tabular-nums text-muted-foreground">
+                      {config.maxTokens ?? '-'}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
                       size="sm"
-                    />
-                    <div
-                      className="truncate text-xs text-muted-foreground"
-                      title={getPricingSummary(currentPricing)}
+                      className="size-7 p-0"
+                      aria-label={t('actions.edit')}
+                      onClick={() => setEditingModel(model)}
                     >
-                      {getPricingSummary(currentPricing)}
-                    </div>
-                    <div className="text-xs font-medium tabular-nums">{multiplier ?? '-'}</div>
+                      <Pencil className="size-3.5" />
+                    </Button>
                   </div>
                 );
               })}
             </div>
           </div>
 
-          {/* Advanced rates toggle */}
-          <button
-            type="button"
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-          >
-            {showAdvanced ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
-            {t('admin.setting.ai.advancedRates')}
-          </button>
-
-          {/* Advanced rates (cache, reasoning, image) */}
-          {showAdvanced && (
-            <div className="space-y-2 rounded border bg-background/50 p-2">
-              <div className="overflow-x-auto">
-                <div className="min-w-[520px] space-y-2">
-                  <div className="grid grid-cols-[minmax(100px,1fr),70px,70px,70px,70px,70px] gap-1 text-[10px] font-medium text-muted-foreground">
-                    <div>{t('admin.setting.ai.model')}</div>
-                    <div title={t('admin.setting.ai.cacheReadRateTip')}>
-                      {t('admin.setting.ai.cacheRead')}
-                    </div>
-                    <div title={t('admin.setting.ai.cacheWriteRateTip')}>
-                      {t('admin.setting.ai.cacheWrite')}
-                    </div>
-                    <div title={t('admin.setting.ai.reasoningRateTip')}>
-                      {t('admin.setting.ai.reasoning')}
-                    </div>
-                    <div title={t('admin.setting.ai.imageRateTip')}>
-                      {t('admin.setting.ai.perImage')}
-                    </div>
-                    <div>{t('admin.setting.ai.webSearch')}</div>
-                  </div>
-                  {modelList.map((model) => {
-                    const config = modelConfigs[model] || {};
-                    const currentPricing = config.pricing;
-                    return (
-                      <div
-                        key={`adv-${model}`}
-                        className="grid grid-cols-[minmax(100px,1fr),70px,70px,70px,70px,70px] items-center gap-1"
-                      >
-                        <div className="truncate text-xs" title={model}>
-                          {model}
-                        </div>
-                        <div className="truncate text-xs tabular-nums text-muted-foreground">
-                          {currentPricing?.inputCacheRead ?? '-'}
-                        </div>
-                        <div className="truncate text-xs tabular-nums text-muted-foreground">
-                          {currentPricing?.inputCacheWrite ?? '-'}
-                        </div>
-                        <div className="truncate text-xs tabular-nums text-muted-foreground">
-                          {currentPricing?.reasoning ?? '-'}
-                        </div>
-                        <div className="truncate text-xs tabular-nums text-muted-foreground">
-                          {currentPricing?.image ?? '-'}
-                        </div>
-                        <div className="truncate text-xs tabular-nums text-muted-foreground">
-                          {currentPricing?.webSearch ?? '-'}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-              <p className="text-[10px] text-muted-foreground">
-                {t('admin.setting.ai.advancedRatesDescription')}
-              </p>
-            </div>
+          {!hideModelRates && (
+            <p className="text-xs text-muted-foreground">
+              {t('admin.setting.ai.ratesDescription')}
+            </p>
           )}
-
-          <p className="text-xs text-muted-foreground">{t('admin.setting.ai.ratesDescription')}</p>
         </div>
       )}
+
+      {/* Per-model editor: reference model, derived pricing, and token caps live together.
+          Keyed and mounted per open so draft input state can't leak between models. */}
+      {editingModel && (
+        <ModelEditorDialog
+          key={editingModel}
+          model={editingModel}
+          config={modelConfigs[editingModel] || {}}
+          referenceModel={resolveReferenceModel(editingModel)}
+          gatewayModels={gatewayModels}
+          isLoadingModels={isLoadingPricing}
+          modelsError={pricingError}
+          onRetry={() => fetchGatewayPricing()}
+          hideModelRates={hideModelRates}
+          onConfigChange={(config) => onChange({ ...modelConfigs, [editingModel]: config })}
+          onClose={() => setEditingModel(null)}
+        />
+      )}
     </div>
+  );
+};
+
+interface IModelEditorDialogProps {
+  model: string;
+  config: IModelConfig;
+  /** Effective reference resolved by the parent (explicit pick or auto-match). */
+  referenceModel: IGatewayModelAPI | undefined;
+  gatewayModels: IGatewayModelAPI[];
+  isLoadingModels: boolean;
+  modelsError: string | null;
+  onRetry: () => void;
+  hideModelRates?: boolean;
+  onConfigChange: (config: IModelConfig) => void;
+  onClose: () => void;
+}
+
+const ModelEditorDialog = ({
+  model,
+  config,
+  referenceModel,
+  gatewayModels,
+  isLoadingModels,
+  modelsError,
+  onRetry,
+  hideModelRates,
+  onConfigChange,
+  onClose,
+}: IModelEditorDialogProps) => {
+  const { t } = useTranslation();
+  const [referencePickerOpen, setReferencePickerOpen] = useState(false);
+  const [referenceSearchQuery, setReferenceSearchQuery] = useState('');
+  // Draft input strings; null falls back to the persisted config value.
+  const [ratioInput, setRatioInput] = useState<string | null>(null);
+  const [capsInput, setCapsInput] = useState<{ contextWindow?: string; maxTokens?: string }>({});
+
+  const filteredReferenceModels = useMemo(() => {
+    const query = referenceSearchQuery.trim().toLowerCase();
+    if (!query) return gatewayModels.slice(0, 50);
+    return gatewayModels
+      .filter(
+        (item) => item.id.toLowerCase().includes(query) || item.name?.toLowerCase().includes(query)
+      )
+      .slice(0, 50);
+  }, [gatewayModels, referenceSearchQuery]);
+
+  const referencePricing = referenceModel?.pricing;
+  const currentPricing = config.pricing;
+  const referenceMultiplier = formatMultiplier(calculateMultiplier(referencePricing));
+  const ratioValue =
+    ratioInput ?? formatGatewayRatio(inferGatewayRatio(currentPricing, referencePricing));
+
+  const applyPricingRatio = (value: string) => {
+    setRatioInput(value);
+    if (!referencePricing) return;
+    const ratio = parseGatewayRatio(value);
+    if (ratio === undefined) return;
+    onConfigChange({ ...config, pricing: scalePricing(referencePricing, ratio) });
+  };
+
+  const applyReferenceModel = (reference: IGatewayModelAPI, ratio: number) => {
+    onConfigChange({
+      ...config,
+      referenceModel: reference.id,
+      pricing: reference.pricing ? scalePricing(reference.pricing, ratio) : config.pricing,
+      contextWindow: reference.contextWindow ?? config.contextWindow,
+      maxTokens: reference.maxTokens ?? config.maxTokens,
+      tags: reference.tags ?? config.tags,
+    });
+    // Drop the string drafts so the copied reference caps become visible.
+    setCapsInput({});
+  };
+
+  const applyCap = (field: 'contextWindow' | 'maxTokens', value: string) => {
+    setCapsInput((prev) => ({ ...prev, [field]: value }));
+    const trimmed = value.trim();
+    if (!trimmed) {
+      onConfigChange({ ...config, [field]: undefined });
+      return;
+    }
+    const num = parseInt(trimmed, 10);
+    if (Number.isNaN(num) || num <= 0) return;
+    onConfigChange({ ...config, [field]: num });
+  };
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-[480px]">
+        <DialogHeader>
+          <DialogTitle className="break-all text-base">{model}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-1">
+            <div
+              className="text-xs font-medium text-muted-foreground"
+              title={t('admin.setting.ai.referencePricingTip')}
+            >
+              {t('admin.setting.ai.referenceModelLabel')}
+            </div>
+            <ModelSearchPopover
+              open={referencePickerOpen}
+              onOpenChange={setReferencePickerOpen}
+              selectedModelId={referenceModel?.id ?? ''}
+              isLoadingModels={isLoadingModels}
+              modelsLoadError={modelsError}
+              filteredModels={filteredReferenceModels}
+              searchQuery={referenceSearchQuery}
+              onSearchQueryChange={setReferenceSearchQuery}
+              onSelectModel={(modelId) => {
+                const reference = gatewayModels.find((item) => item.id === modelId);
+                if (reference) {
+                  // Empty/invalid ratio defaults to ×1 so picking a reference
+                  // always copies its pricing (an unbillable model 403s later).
+                  applyReferenceModel(reference, parseGatewayRatio(ratioValue) ?? 1);
+                }
+                setReferencePickerOpen(false);
+              }}
+              onRetry={onRetry}
+              t={t}
+            />
+            {!hideModelRates && (
+              <div className="text-xs tabular-nums text-muted-foreground">
+                {referencePricing
+                  ? `${getPricingSummary(referencePricing)}${referenceMultiplier ? ` · ${referenceMultiplier}` : ''}`
+                  : t('admin.setting.ai.notFound')}
+              </div>
+            )}
+          </div>
+          {!hideModelRates && (
+            <>
+              {referencePricing && (
+                <div className="space-y-1">
+                  <div
+                    className="text-xs font-medium text-muted-foreground"
+                    title={t('admin.setting.ai.gatewayRatioTip')}
+                  >
+                    {t('admin.setting.ai.gatewayRatio')}
+                  </div>
+                  <Input
+                    type="text"
+                    value={ratioValue}
+                    onChange={(e) => applyPricingRatio(e.target.value)}
+                    placeholder="1"
+                    size="sm"
+                  />
+                </div>
+              )}
+              <div className="space-y-1">
+                {/* Pricing is always derived from reference × ratio; shown read-only. */}
+                <div
+                  className="text-xs font-medium text-muted-foreground"
+                  title={t('admin.setting.ai.generatedPricingTip')}
+                >
+                  {t('admin.setting.ai.generatedPricing')}
+                </div>
+                <div className="text-sm tabular-nums">{getPricingSummary(currentPricing)}</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-xs font-medium text-muted-foreground">
+                  {t('admin.setting.ai.advancedRates')}
+                </div>
+                <div className="grid grid-cols-5 gap-2">
+                  <div>
+                    <div
+                      className="text-[10px] text-muted-foreground"
+                      title={t('admin.setting.ai.cacheReadRateTip')}
+                    >
+                      {t('admin.setting.ai.cacheRead')}
+                    </div>
+                    <div className="truncate text-xs tabular-nums">
+                      {currentPricing?.inputCacheRead ?? '-'}
+                    </div>
+                  </div>
+                  <div>
+                    <div
+                      className="text-[10px] text-muted-foreground"
+                      title={t('admin.setting.ai.cacheWriteRateTip')}
+                    >
+                      {t('admin.setting.ai.cacheWrite')}
+                    </div>
+                    <div className="truncate text-xs tabular-nums">
+                      {currentPricing?.inputCacheWrite ?? '-'}
+                    </div>
+                  </div>
+                  <div>
+                    <div
+                      className="text-[10px] text-muted-foreground"
+                      title={t('admin.setting.ai.reasoningRateTip')}
+                    >
+                      {t('admin.setting.ai.reasoning')}
+                    </div>
+                    <div className="truncate text-xs tabular-nums">
+                      {currentPricing?.reasoning ?? '-'}
+                    </div>
+                  </div>
+                  <div>
+                    <div
+                      className="text-[10px] text-muted-foreground"
+                      title={t('admin.setting.ai.imageRateTip')}
+                    >
+                      {t('admin.setting.ai.perImage')}
+                    </div>
+                    <div className="truncate text-xs tabular-nums">
+                      {currentPricing?.image ?? '-'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-muted-foreground">
+                      {t('admin.setting.ai.webSearch')}
+                    </div>
+                    <div className="truncate text-xs tabular-nums">
+                      {currentPricing?.webSearch ?? '-'}
+                    </div>
+                  </div>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  {t('admin.setting.ai.advancedRatesDescription')}
+                </p>
+              </div>
+            </>
+          )}
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <div
+                className="text-xs font-medium text-muted-foreground"
+                title={t('admin.setting.ai.contextWindowCapTip')}
+              >
+                {t('admin.setting.ai.contextWindowCap')}
+              </div>
+              <Input
+                type="text"
+                inputMode="numeric"
+                value={
+                  capsInput.contextWindow ??
+                  (config.contextWindow != null ? String(config.contextWindow) : '')
+                }
+                onChange={(e) => applyCap('contextWindow', e.target.value)}
+                placeholder={
+                  referenceModel?.contextWindow ? String(referenceModel.contextWindow) : '128000'
+                }
+                size="sm"
+              />
+            </div>
+            <div className="space-y-1">
+              <div
+                className="text-xs font-medium text-muted-foreground"
+                title={t('admin.setting.ai.maxOutputTokensCapTip')}
+              >
+                {t('admin.setting.ai.maxOutputTokensCap')}
+              </div>
+              <Input
+                type="text"
+                inputMode="numeric"
+                value={
+                  capsInput.maxTokens ?? (config.maxTokens != null ? String(config.maxTokens) : '')
+                }
+                onChange={(e) => applyCap('maxTokens', e.target.value)}
+                placeholder={referenceModel?.maxTokens ? String(referenceModel.maxTokens) : '8192'}
+                size="sm"
+              />
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 
@@ -791,12 +1000,11 @@ export const LLMProviderForm = ({
   providerNameMode = 'manual',
 }: LLMProviderFormProps) => {
   const { t } = useTranslation();
-  const isCloud = useIsCloud();
   const [isTestLoading, setIsTestLoading] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
-  const [testPassed, setTestPassed] = useState(false);
+  // Progress and pass/fail are derived from modelTestStatuses at render, so
+  // they can never drift out of sync with the per-model pills.
   const [modelTestStatuses, setModelTestStatuses] = useState<IModelTestStatus[]>([]);
-  const [testProgress, setTestProgress] = useState({ current: 0, total: 0 });
   const abortRef = useRef(false);
   const isAutoProviderName = providerNameMode === 'auto';
 
@@ -812,9 +1020,7 @@ export const LLMProviderForm = ({
   const formType = form.watch('type');
   useEffect(() => {
     setTestResult(null);
-    setTestPassed(false);
     setModelTestStatuses([]);
-    setTestProgress({ current: 0, total: 0 });
   }, [baseUrl, apiKey, models, formType]);
 
   function onSubmit(data: LLMProvider) {
@@ -930,8 +1136,6 @@ export const LLMProviderForm = ({
     // Initialize test state
     abortRef.current = false;
     setIsTestLoading(true);
-    setTestPassed(false);
-    setTestProgress({ current: 0, total: modelList.length });
 
     // Initialize all models as pending
     const initialStatuses: IModelTestStatus[] = modelList.map((model) => ({
@@ -942,7 +1146,6 @@ export const LLMProviderForm = ({
     setModelTestStatuses(initialStatuses);
 
     const provider = formData as Required<LLMProvider>;
-    let completedCount = 0;
     let successCount = 0;
     let nextIndex = 0;
     const errors: string[] = [];
@@ -967,7 +1170,6 @@ export const LLMProviderForm = ({
         : await testTextModel(model, provider);
 
       updateModelStatus(model, result);
-      completedCount++;
       if (result.status === 'failed' && result.error) {
         errors.push(result.error);
       }
@@ -990,7 +1192,6 @@ export const LLMProviderForm = ({
         const modelKey = `${provider.type}@${model}@${provider.name}`;
         onSaveTestResult?.(modelKey, result.ability, result.imageAbility);
       }
-      setTestProgress({ current: completedCount, total: modelList.length });
 
       // Start next test if there are more
       if (!abortRef.current && nextIndex < modelList.length) {
@@ -1010,7 +1211,6 @@ export const LLMProviderForm = ({
 
     // Check results
     if (successCount > 0) {
-      setTestPassed(true);
       toast.success(
         t('admin.setting.ai.testCompleteWithCount', {
           success: successCount,
@@ -1039,6 +1239,14 @@ export const LLMProviderForm = ({
     setIsTestLoading(false);
   }, []);
 
+  // Stable reference: this is a dependency of ModelRatesConfig's pricing
+  // materialization effect, which would otherwise re-run on every keystroke.
+  const handleModelConfigsChange = useCallback(
+    (configs: Record<string, IModelConfig>) =>
+      form.setValue('modelConfigs', configs, { shouldDirty: true }),
+    [form]
+  );
+
   const mode = onChange ? t('actions.update') : t('actions.add');
   // The display name and the pricing of existing models don't affect whether a model works, so
   // they can be saved without a test. Anything that changes how/which models are called — base
@@ -1050,15 +1258,18 @@ export const LLMProviderForm = ({
   );
   const canSaveWithoutTest = Boolean(value) && isDirty && !connectivityDirty;
   const type = form.watch('type');
-  const currentProvider = LLM_PROVIDERS.find(
-    (provider) => provider.value === type
-  ) as (typeof LLM_PROVIDERS)[number] & { apiKeyPlaceholder?: string };
+  const currentProvider = LLM_PROVIDERS.find((provider) => provider.value === type);
+  const providerOptions = LLM_PROVIDERS.filter(
+    (provider) => !provider.hideInProviderSelect || provider.value === type
+  );
 
-  // Calculate test statistics
+  // Calculate test statistics (all derived from the per-model statuses)
   const successCount = modelTestStatuses.filter((s) => s.status === 'success').length;
   const failedCount = modelTestStatuses.filter((s) => s.status === 'failed').length;
+  const totalCount = modelTestStatuses.length;
   const progressPercent =
-    testProgress.total > 0 ? Math.round((testProgress.current / testProgress.total) * 100) : 0;
+    totalCount > 0 ? Math.round(((successCount + failedCount) / totalCount) * 100) : 0;
+  const testPassed = !isTestLoading && successCount > 0;
 
   return (
     <Form {...form}>
@@ -1110,8 +1321,8 @@ export const LLMProviderForm = ({
                   <SelectValue placeholder={t('admin.setting.ai.providerType')} />
                 </SelectTrigger>
                 <SelectContent>
-                  {LLM_PROVIDERS.map(({ value, label, Icon }) => (
-                    <SelectItem key={value} value={value}>
+                  {providerOptions.map(({ value, label, Icon, hideInProviderSelect }) => (
+                    <SelectItem key={value} value={value} disabled={hideInProviderSelect}>
                       <div className="flex flex-row items-center text-[13px]">
                         <Icon className="size-5 shrink-0 pr-1" />
                         {label}
@@ -1183,14 +1394,14 @@ export const LLMProviderForm = ({
             )}
           />
 
-          {/* Model Rates Configuration (Cloud only - for billing, hidden in space settings) */}
-          {isCloud && !hideModelRates && (
-            <ModelRatesConfig
-              models={form.watch('models') || ''}
-              modelConfigs={form.watch('modelConfigs')}
-              onChange={(configs) => form.setValue('modelConfigs', configs, { shouldDirty: true })}
-            />
-          )}
+          {/* Pricing shows on every edition; space-level settings (hideModelRates) only
+              expose the per-model token caps since billing doesn't apply to BYOK. */}
+          <ModelRatesConfig
+            models={form.watch('models') || ''}
+            modelConfigs={form.watch('modelConfigs')}
+            onChange={handleModelConfigsChange}
+            hideModelRates={hideModelRates}
+          />
 
           {/* Test Error Display */}
           {testResult && !testResult.success && (
@@ -1219,17 +1430,15 @@ export const LLMProviderForm = ({
           {modelTestStatuses.length > 0 && (
             <div className="space-y-3 rounded-md border bg-muted p-3">
               {/* Progress bar */}
-              {testProgress.total > 0 && (
-                <div className="flex items-center gap-3">
-                  <Progress value={progressPercent} className="h-1.5 flex-1" />
-                  <div className="flex items-center gap-2 whitespace-nowrap text-xs text-muted-foreground">
-                    {isTestLoading && <Loader2 className="size-3 animate-spin" />}
-                    <span>{progressPercent}%</span>
-                    <span className="text-green-600 dark:text-green-400">{successCount} ✓</span>
-                    <span className="text-red-600 dark:text-red-400">{failedCount} ✗</span>
-                  </div>
+              <div className="flex items-center gap-3">
+                <Progress value={progressPercent} className="h-1.5 flex-1" />
+                <div className="flex items-center gap-2 whitespace-nowrap text-xs text-muted-foreground">
+                  {isTestLoading && <Loader2 className="size-3 animate-spin" />}
+                  <span>{progressPercent}%</span>
+                  <span className="text-green-600 dark:text-green-400">{successCount} ✓</span>
+                  <span className="text-red-600 dark:text-red-400">{failedCount} ✗</span>
                 </div>
-              )}
+              </div>
               {/* Model test results */}
               <div className="flex flex-wrap gap-2">
                 {modelTestStatuses.map((status) => (

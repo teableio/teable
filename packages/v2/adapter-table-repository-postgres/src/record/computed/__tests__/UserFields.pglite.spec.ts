@@ -19,6 +19,7 @@ import {
   PostgresAdapter,
   PostgresIntrospector,
   PostgresQueryCompiler,
+  sql,
 } from 'kysely';
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 
@@ -197,6 +198,68 @@ describe('UserFields PGlite E2E integration', () => {
     // System columns should still contain just the user ID
     expect(afterInsert!.__created_by).toBe(USER_ID);
     expect(afterInsert!.__last_modified_by).toBe(USER_ID);
+  });
+
+  it('should insert when CreatedBy is a GENERATED ALWAYS column (T6146 legacy)', async () => {
+    const legacyTable = `${TEST_SCHEMA}.legacy_created_by`;
+    const recordId = `rec${'h'.repeat(16)}`;
+    const now = new Date().toISOString();
+
+    await db.schema
+      .createTable(legacyTable)
+      .addColumn('__id', 'varchar', (col) => col.primaryKey())
+      .addColumn('__created_time', 'timestamp')
+      .addColumn('__created_by', 'varchar')
+      .addColumn('__last_modified_time', 'timestamp')
+      .addColumn('__last_modified_by', 'varchar')
+      .addColumn('__version', 'integer', (col) => col.defaultTo(1))
+      .addColumn('col_name', 'varchar')
+      .execute();
+
+    // Simulate legacy storage: CreatedBy is GENERATED ALWAYS from __created_by
+    await sql
+      .raw(
+        `ALTER TABLE ${legacyTable} ADD COLUMN col_created_by text GENERATED ALWAYS AS (__created_by) STORED`
+      )
+      .execute(db);
+
+    // Writing an explicit value must fail (reproduces production error)
+    await expect(
+      db
+        .insertInto(legacyTable as any)
+        .values({
+          __id: recordId,
+          __created_time: now,
+          __created_by: USER_ID,
+          __version: 1,
+          col_name: 'legacy-row',
+          col_created_by: JSON.stringify({ id: USER_ID, title: USER_NAME }),
+        } as any)
+        .execute()
+    ).rejects.toThrow(/non-DEFAULT value|generated/i);
+
+    // Omitting the generated column (as fixed insert path does) must succeed
+    await db
+      .insertInto(legacyTable as any)
+      .values({
+        __id: recordId,
+        __created_time: now,
+        __created_by: USER_ID,
+        __version: 1,
+        col_name: 'legacy-row',
+      } as any)
+      .execute();
+
+    const row = await db
+      .selectFrom(legacyTable as any)
+      .select(['col_created_by', '__created_by', 'col_name'])
+      .where('__id', '=', recordId)
+      .executeTakeFirst();
+
+    expect(row?.col_name).toBe('legacy-row');
+    expect(row?.__created_by).toBe(USER_ID);
+    // Generated column mirrors system __created_by
+    expect(row?.col_created_by).toBe(USER_ID);
   });
 
   it('should persist fallback snapshots when user identity is unresolved', async () => {

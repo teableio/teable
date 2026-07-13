@@ -1070,20 +1070,38 @@ export class ComputedFieldUpdater {
           stepSpan?.setAttribute('step.fieldChunked', shouldChunkFields ? 1 : 0);
 
           if (!queryPlans) {
+            // Lateral/lookup/mixed steps previously ran one UPDATE over the entire dirty set.
+            // Mirror the formula CTE path: when dirty fan-out is large, slice record ids so
+            // each statement stays under statement_timeout without changing lock/TX scope.
+            const chunkedRecordIds =
+              dirtyCount > SAME_TABLE_BATCH_CHUNK_TRIGGER
+                ? await this.getDirtyRecordIdChunks(db, step.tableId)
+                : [];
+            const recordIdChunks: ReadonlyArray<ReadonlyArray<string> | undefined> =
+              chunkedRecordIds.length > 1 ? chunkedRecordIds : [undefined];
+
+            stepSpan?.setAttribute('step.lateralChunkCount', recordIdChunks.length);
+            stepSpan?.setAttribute('step.lateralChunked', recordIdChunks.length > 1 ? 1 : 0);
+
             queryPlans = [];
-            for (const fieldChunk of fieldChunks) {
-              const builder = new ComputedTableRecordQueryBuilder(db, {
-                typeValidationStrategy: this.typeValidationStrategy,
-                forceLookupArrayOutput: true,
-              })
-                .from(table)
-                .select(fieldChunk)
-                .withDirtyFilter({ tableId: step.tableId.toString() });
-              yield* await builder.prepare({
-                context,
-                tableRepository: this.tableRepository,
-              });
-              queryPlans.push({ selectQuery: yield* builder.build(), fieldIds: fieldChunk });
+            for (const recordIds of recordIdChunks) {
+              for (const fieldChunk of fieldChunks) {
+                const builder = new ComputedTableRecordQueryBuilder(db, {
+                  typeValidationStrategy: this.typeValidationStrategy,
+                  forceLookupArrayOutput: true,
+                })
+                  .from(table)
+                  .select(fieldChunk)
+                  .withDirtyFilter({
+                    tableId: step.tableId.toString(),
+                    ...(recordIds ? { recordIds } : {}),
+                  });
+                yield* await builder.prepare({
+                  context,
+                  tableRepository: this.tableRepository,
+                });
+                queryPlans.push({ selectQuery: yield* builder.build(), fieldIds: fieldChunk });
+              }
             }
           }
 

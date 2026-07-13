@@ -4,20 +4,15 @@
     "duplicateFieldDescription": "クロススペース参照はサポートされていません。複製は単一行テキストフィールドに変換されます。",
     "duplicateTableTitle": "ご注意",
     "duplicateTableDescription": "クロススペース参照はサポートされていません。複製は単一行テキストフィールドに変換されます。",
-    "duplicateBaseTitle": "ご注意",
-    "duplicateBaseDescription": "クロススペース参照はサポートされていません。複製は単一行テキストフィールドに変換されます。",
     "convertAndDuplicate": "変換して複製"
   },
   "toolbar": {
-    "comingSoon": "近日公開",
     "viewFilterInShare": "このビューはビュー共有リンクで使用されています。ビュー構成を変更するとビュー共有リンクも変更されます。",
     "createFieldButtonText": "新しい<0/>フィールドを作成する",
     "others": {
       "share": {
         "label": "共有",
         "statusLabel": "ビューをウェブに共有",
-        "shareLink": "共有リンク",
-        "copied": "コピーしました",
         "genLink": "新しいリンクを生成する",
         "allowCopy": "閲覧者がこのビューからデータをコピーできるようにする",
         "allowEdit": "サインインしたユーザーが表示中のデータを編集できるようにする",
@@ -34,19 +29,38 @@
         "cancel": "キャンセル",
         "save": "保存"
       },
-      "extensions": {
-        "label": "拡張機能",
-        "graph": "グラフ"
-      },
       "api": {
-        "label": "API",
-        "restfulApi": "Restful API",
-        "databaseConnection": "データベース接続"
+        "title": "API アクセス",
+        "aiContext": "AI 接続",
+        "advanced": "詳細",
+        "recommended": "おすすめ",
+        "apiDocGroupTitle": "API コンテキスト",
+        "apiDocGroupDescription": "下のドキュメントを AI にコピーすると、現在のテーブル構造、フィールド、API 例を理解し、依頼に応じてレコードの読み取り、作成、更新、削除を行えます。",
+        "generatingToken": "生成中...",
+        "generateToken": "トークンを生成",
+        "confirmTitle": "API トークンを作成",
+        "confirmDescription": "このベース用に次の権限を持つ新しい API トークンを作成します：",
+        "scopeTableRead": "テーブル情報を読み取り",
+        "scopeFieldRead": "フィールドを読み取り",
+        "scopeRead": "レコードを読み取り",
+        "scopeCreate": "レコードを作成",
+        "scopeUpdate": "レコードを更新",
+        "scopeDelete": "レコードを削除",
+        "confirmExpiry": "トークンの有効期限は 1 年です。",
+        "confirmButton": "作成を確認",
+        "tokenInfo": "トークン有効期限：{{expiry}}",
+        "copied": "コピーしました！",
+        "copyAIDoc": "ドキュメントをコピー",
+        "aiDocPreview": "コンテキストプレビュー",
+        "manageToken": "トークンを管理",
+        "openInNewTab": "新しいタブで開く",
+        "queryBuilderTitle": "API クエリビルダー",
+        "queryBuilderDesc": "フィルターや並び替えなどのパラメーターを視覚的に設定し、すぐに実行できる API リクエストコードを生成します。",
+        "viewApiDocs": "完全な API ドキュメントを表示"
       },
       "personalView": {
         "personal": "個人",
         "tip": "有効化すると、表示設定は自分にのみ適用されます",
-        "collaborative": "協同",
         "dialog": {
           "title": "パーソナルモードを終了",
           "description": "パーソナルビューの構成はリアルタイム共同作業の状態に復元されます。パーソナルビューの設定を保存し、全員に同期することもできます。",
@@ -70,12 +84,11 @@
       "one_one_duplicate": "関連付けできません：対象レコードは一対一の関係ですでに別のレコードに関連付けられています。"
     },
     "field": {
-      "maxColumnLimit": "テーブル「{{tableName}}」には最大 {{maxFieldCount}} 個のフィールドしか作成できません。"
+      "maxColumnLimit": "テーブル「{{tableName}}」には最大 {{maxFieldCount}} 個のフィールドしか作成できません。",
+      "requiredExistingValues": "既存のレコードに空の値があるため、フィールド「{{fieldName}}」を必須にできません。"
     }
   },
   "field": {
-    "fieldManagement": "フィールド管理",
-    "fieldManagementDesc": "現在のテーブルのすべてのフィールドの詳細なプロパティ",
     "advancedProps": "高度なプロパティ",
     "hide": "非表示",
     "default": {
@@ -156,7 +169,6 @@
       "button": {
         "title": "ボタン",
         "label": "ボタンラベル",
-        "color": "ボタンカラー",
         "limitCount": "クリック数制限",
         "resetCount": "クリック数のリセットを許可",
         "maxCount": "最大クリック数",
@@ -229,7 +241,6 @@
       "areYouSurePerformIt": "本当に実行しますか？",
       "addDescription": "説明を追加",
       "dbFieldName": "物理フィールド名",
-      "description": "説明",
       "descriptionPlaceholder": "このフィールドについて説明してください（オプション）",
       "type": "タイプ",
       "showAs": "表示形式",
@@ -290,11 +301,7 @@
         "title": "フィールドを削除",
         "simpleConfirm": "フィールド <b>{{fieldName}}</b> を削除してもよろしいですか？",
         "withDependencies": "フィールド <b>{{fieldName}}</b> を削除すると、以下のフィールドに影響します：",
-        "affectedFields": "影響を受けるフィールド：",
-        "fieldsToDelete": "削除するフィールド ({{count}})",
-        "unviewedHint": "{{count}} 個のフィールドが未確認",
         "deleteCount": "{{count}} 個のフィールドを削除",
-        "noAffectedFields": "このフィールドは他のフィールドから参照されていません。",
         "riskIdentified": "リスクあり({{count}})",
         "noDependencies": "依存関係なし({{count}})",
         "safeToDelete": "安全に削除可能",
@@ -308,8 +315,6 @@
       "conditionalLookup": {
         "sortLimitToggleLabel": "Sort linked records and limit the number of matches",
         "sortLabel": "Sort results",
-        "orderPlaceholder": "Select an order",
-        "clearSort": "Clear sort",
         "limitLabel": "Maximum records to include",
         "limitPlaceholder": "Leave blank to include all matches",
         "limitHint": "We only keep up to {{limit}} matching records.",
@@ -328,12 +333,10 @@
       "user": "レコードにユーザーを追加します。",
       "date": "日付（例：2023/11/12）を入力するか、カレンダーから選択します。",
       "number": "数値を入力するか、新しいセルごとにデフォルト値を事前に入力します。",
-      "duration": "時間、分、秒単位で時間の長さを入力します（例: 1:23）。",
       "rating": "事前に定義された尺度で評価を追加します。",
       "formula": "フィールドに基づいて値を計算します。",
       "rollup": "リンクされたレコードからデータを要約します。",
       "conditionalLookup": "設定したフィルターに一致する関連値を表示します。",
-      "count": "リンクされたレコードの数をカウントします。",
       "createdTime": "各レコードが作成された日時を確認します。",
       "lastModifiedTime": "レコード内の一部またはすべてのフィールドに対する最新の編集の日時を表示します。",
       "createdBy": "レコードを作成したユーザーを確認します。",
@@ -380,7 +383,6 @@
         "improveText": "正式、親切、ユーモアがある...",
         "attachPromptForTag": "3つ以内のタグを許可しない",
         "attachPromptForClassify": "「進行中」を「リスクなし」と分類",
-        "attachPrompt": "追加の要件を入力してください",
         "prompt": "カスタマイズされたプロンプトを入力してください",
         "type": "AI アクションを選択",
         "targetLanguage": "英語、中国語、フランス語...",
@@ -409,18 +411,13 @@
         "title": "列全体を生成しますか？",
         "description": "列全体を生成すると {{rowCount}} 行が更新されます。この操作は大量の AI リソースを消費する可能性があります。",
         "saveConfigOnly": "設定のみ保存",
-        "generate": "生成する",
         "generateFailed": "生成に失敗しました"
-      },
-      "action": {
-        "addAttachment": "添付ファイルを追加"
       }
     }
   },
   "table": {
     "newTableLabel": "新しいテーブル",
     "rename": "名前を変更",
-    "design": "デザイン",
     "tableRecordHistory": "テーブルレコード履歴",
     "deleteConfirm": "本当に \"{{tableName}}\" を削除してもよろしいですか?",
     "dbTableName": "物理データベース内のテーブル名",
@@ -429,11 +426,9 @@
     "typeOfDatabase": "データベースの種類",
     "descriptionForTable": "このテーブルの説明",
     "loginUserTable": "アプリログイン",
-    "loginUserTableClickTips": "関連アプリを開く",
     "linkedApps": "関連アプリ",
     "nameForTable": "このテーブルの名前",
     "deleteTip1": "この表にリンクされている他の表のリンクフィールドは削除されます",
-    "deleteTip2": "このテーブルは削除後、ごみ箱から復元できます",
     "operator": {
       "createBlank": "新しいテーブル"
     },
@@ -451,7 +446,6 @@
       "fillFailed": "入力失敗",
       "clearing": "クリア...",
       "clearSuccessful": "クリア成功",
-      "deleteFieldConfirmTitle": "以下のフィールドを削除します",
       "deleting": "削除中...",
       "deleteSuccessful": "削除成功",
       "deleteStream": {
@@ -464,7 +458,6 @@
         "chunkFailureSummary": "{{count}} chunk(s) reported an error while the stream kept running.",
         "chunkLabel": "Chunk {{index}}",
         "rowsLabel": "{{count}} rows",
-        "partialFailureDescription": "Deleted {{deletedCount}} of {{totalCount}} records. Review chunk details in the dialog.",
         "phaseLabel": {
           "preparing": "Preparing",
           "guarding": "Checking",
@@ -483,7 +476,6 @@
       "crossBaseCopyLoadFirst": "ベース間のフィールドをコピーする前に、選択したすべての行を読み込むためにスクロールしてください。"
     },
     "graph": {
-      "tableLabel": "テーブルラベル",
       "effectCells": "セルに影響を与える可能性があります",
       "estimatedTime": "推定所要時間",
       "linkFieldCount": "影響するリンクフィールドの数"
@@ -566,11 +558,6 @@
           "fieldMeta": "Field metadata",
           "symmetricField": "Symmetric field relationship",
           "systemColumn": "System column \"{{columnName}}\"",
-          "systemColumnTyped": "System column \"{{columnName}}\" ({{dataType}})",
-          "systemNotNull": "NOT NULL on system column \"{{columnName}}\"",
-          "systemUnique": "UNIQUE index on system column \"{{columnName}}\"",
-          "systemPrimaryKey": "PRIMARY KEY on system column \"{{columnName}}\"",
-          "systemDefault": "Default expression on system column \"{{columnName}}\"",
           "connection": "Connection",
           "completion": "Completion",
           "unexpected": "Unexpected error"
@@ -646,7 +633,6 @@
               "resolutionDescription": "Choose which field should keep the two-way link behavior.",
               "option": {
                 "keepCurrent": "Keep the current field as the two-way link",
-                "keepDuplicate": "Keep the duplicate field as the two-way link",
                 "convertDuplicate": "Convert the duplicate field to a one-way link"
               }
             }
@@ -695,7 +681,6 @@
       "importCsvData": "CSVデータをインポート",
       "importExcelData": "Microsoft Excelデータをインポート",
       "cancel": "キャンセル",
-      "leave": "離れる",
       "downAsCsv": "csvをダウンロード",
       "importData": "データをインポート",
       "duplicate": "複製",
@@ -707,7 +692,6 @@
     },
     "tips": {
       "importWayTip": "クリックまたはこの領域にドラッグしてファイルをアップロードします",
-      "leaveTip": "データは引き続きインポートされます。",
       "fileExceedSizeTip": "このタイプのファイルサイズは制限を超えています",
       "analyzing": "分析",
       "notSupportFieldType": "フィールドタイプはサポートされていません",
@@ -736,11 +720,6 @@
       "option": {
         "doNotImport": "インポートしない"
       }
-    }
-  },
-  "export": {
-    "menu": {
-      "exportCsv": "CSVをダウンロード"
     }
   },
   "grid": {
@@ -817,13 +796,13 @@
   "menu": {
     "insertRecordAbove": "レコードを上に挿入",
     "insertRecordBelow": "レコードを下に挿入",
-    "copyCells": "セルのコピー",
     "deleteRecord": "レコードを削除",
     "deleteAllSelectedRecords": "選択したすべてのレコードを削除",
     "editField": "フィールドを編集",
     "insertFieldLeft": "左に挿入",
     "insertFieldRight": "右に挿入",
     "freezeUpField": "このフィールドまでフリーズ",
+    "freezeFieldWindowTooNarrow": "現在のウィンドウ幅が狭すぎるため、この範囲まで固定できません",
     "hideField": "フィールドを非表示",
     "deleteField": "フィールドを削除",
     "deleteAllSelectedFields": "選択したすべてのフィールドを削除",
@@ -841,8 +820,7 @@
     "noPermission": "データベースにアクセスする権限がありません",
     "connectionCountTip": "データベース接続の最大数は <b>{{max}}</b> で、現在の接続数は <b>{{current}}</b> です",
     "createFailed": "PUBLIC_DATABASE_PROXY 環境変数が正しく設定されていることを確認してください",
-    "readonlyUnavailable": "Readonly database sharing is unavailable for this data database. Grant the Teable database user permission to create roles and grants, or use a target database that supports readonly roles.",
-    "helpLink": "https://help.teable.ai/en/deploy/database-connection"
+    "readonlyUnavailable": "Readonly database sharing is unavailable for this data database. Grant the Teable database user permission to create roles and grants, or use a target database that supports readonly roles."
   },
   "view": {
     "addRecord": "レコードを追加",
@@ -881,30 +859,18 @@
     "deletedResource": "リソース"
   },
   "baseShare": {
-    "title": "ベースを共有",
     "shareTitle": "共有",
     "shareToWeb": "ウェブに共有",
-    "description": "「{{baseName}}」を他の人と共有",
-    "nodeShareDescription": "「{{nodeName}}」とその内容を共有",
-    "shareLinks": "共有リンク",
-    "newLink": "新しいリンク",
-    "noShareLinks": "共有リンクはまだありません",
-    "createFirstLink": "共有リンクを作成",
-    "editSettings": "設定を編集",
     "refreshLink": "リンクを再生成",
-    "deleteLink": "リンクを削除",
     "deleteConfirmTitle": "共有リンクを削除",
     "deleteConfirmDescription": "この操作は元に戻せません。このリンクを持つ人は共有ベースにアクセスできなくなります。",
     "createSuccess": "共有リンクが作成されました",
     "createFailed": "共有リンクの作成に失敗しました",
-    "updateSuccess": "共有設定が更新されました",
     "updateFailed": "共有設定の更新に失敗しました",
     "deleteSuccess": "共有リンクが削除されました",
     "deleteFailed": "共有リンクの削除に失敗しました",
     "refreshSuccess": "共有リンクが再生成されました",
     "refreshFailed": "共有リンクの再生成に失敗しました",
-    "copied": "リンクがクリップボードにコピーされました",
-    "shareLink": "共有リンク",
     "linkHolderLabel": "リンクを取得した人",
     "linkHolderCanView": "閲覧可能",
     "linkHolderCanViewDesc": "Anyone with the link can view the data",
@@ -921,27 +887,9 @@
     "linkHolderCanCopyAndSave": "コピーとして保存可能",
     "linkHolderCanCopyAndSaveDesc": "Anyone with the link can save a copy to their space",
     "editRequiresLogin": "Users must log in to edit records",
-    "passwordProtection": "パスワード保護",
     "enterPassword": "パスワードを入力",
-    "selectNodes": "テーブルを選択",
-    "shareEntireBase": "ベース全体を共有",
-    "shareSelectedNodes": "選択したノードを共有",
-    "shareEntireBaseDescription": "このベースに追加された新しいテーブルとフォルダは自動的に共有されます",
-    "noNodesSelectedWarning": "共有するノードを少なくとも1つ選択してください",
-    "allowSave": "スペースに保存を許可",
-    "allowSaveDescription": "閲覧者がこのベースのコピーを自分のスペースに保存することを許可",
-    "allowCopy": "データのコピーを許可",
     "allowCopyData": "閲覧者がデータをコピーすることを許可",
-    "allowDuplicate": "閲覧者に複製を許可",
-    "allowCopyDescription": "閲覧者がこの共有ベースからテーブルデータをコピーすることを許可",
-    "selectedNodes": "{{count}}個のテーブルが選択されました",
-    "allNodes": "すべてのテーブル",
     "sharedNode": "共有ノード",
-    "sharedNodeDescription": "この共有リンクは特定のノードとその子孫用です",
-    "publicShareTitle": "リンクによる公開共有",
-    "publicShareCount": "{{count}}個の公開共有リンク",
-    "noPublicShare": "公開共有リンクはありません",
-    "security": "セキュリティ",
     "restrictByPassword": "パスワードで制限",
     "advanced": "詳細設定",
     "embedConfig": "埋め込み設定",
@@ -953,8 +901,7 @@
     "openLink": "リンクを開く",
     "appPublished": "アプリが公開されました",
     "shareTableTab": "テーブルを共有",
-    "shareViewTab": "ビューを共有",
-    "shareNodeTab": "ノードを共有"
+    "shareViewTab": "ビューを共有"
   },
   "aiChat": {
     "integrationConnect": {
@@ -1025,10 +972,7 @@
       "other": "その他"
     },
     "context": {
-      "button": "ノードを追加",
-      "search": "テーブルを追加",
       "searchEmpty": "一致するコンテキストが見つかりません",
-      "emptyContext": "追加するコンテキストがありません",
       "selectionRow": "Row {{row}}",
       "selectionRows": "行 {{start}}-{{end}}",
       "selectionColumn": "Col {{col}}",
@@ -1056,8 +1000,7 @@
     },
     "meta": {
       "input": "入力",
-      "output": "出力",
-      "taskCompleted": "タスク完了"
+      "output": "出力"
     },
     "attachment": {
       "pastedTextFileName": "貼り付けテキスト",
@@ -1093,17 +1036,11 @@
   "download": {
     "allAttachments": {
       "title": "すべての添付ファイルをダウンロード",
-      "loading": "プレビューを読み込み中...",
       "rowsWithAttachments": "添付行",
       "totalAttachments": "添付数",
       "totalSize": "合計サイズ",
-      "confirmTitle": "{{count}} ファイルをダウンロード",
-      "confirmDescription": "合計サイズ: {{size}}。ファイルはZIPファイルに圧縮されます。",
-      "confirm": "ダウンロード",
       "cancel": "キャンセル",
       "downloading": "ダウンロード中...",
-      "downloadingFile": "ダウンロード中: {{fileName}}",
-      "progress": "{{downloaded}} / {{total}}",
       "completed": "ダウンロード完了",
       "cancelled": "ダウンロードがキャンセルされました",
       "noAttachments": "ダウンロードする添付ファイルがありません",

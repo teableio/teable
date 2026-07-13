@@ -26,7 +26,6 @@
     "duplicateBase": "复制",
     "missTargetTip": "请选择要复制到的空间",
     "copying": "复制中，请稍作等待...",
-    "copyingTemplate": "从模板创建中，请稍作等待...",
     "howToCreate": "如何创建一个数据库?",
     "fromScratch": "空白数据库",
     "fromTemplate": "从模板创建",
@@ -39,7 +38,6 @@
     "general": "概览",
     "collaborators": "协作者",
     "generalDescription": "您可以在此处更改当前空间的设置",
-    "collaboratorDescription": "您可以在此处管理空间的协作者并设置他们的权限",
     "spaceName": "空间名称",
     "spaceId": "空间 ID",
     "importBase": "导入"
@@ -57,8 +55,6 @@
   },
   "tip": {
     "delete": "确定要删除 \"<0/>\" 空间吗？",
-    "title": "提示",
-    "exportTips1": "将当前数据库导出成 .tea 文件，这可能需要一定的时间，你可以在通知中心查看导出结果。",
     "exportTips2": "你可以在空间 -> 更多 -> 导入，导入 .tea 文件",
     "exportTips3": "跨数据库关联字段将会被转换成单行文本。",
     "exportIncludeDataLabel": "包含记录",
@@ -76,31 +72,21 @@
   "deleteSpaceModal": {
     "title": "删除空间",
     "blockedTitle": "无法删除该空间",
-    "blockedDesc": "该空间存在订阅，请先取消订阅后再删除空间。",
-    "permanentDeleteWarning": "此操作将会永久删除当前空间下的所有资源和数据，请谨慎操作！",
-    "confirmInputLabel": "请输入 DELETE 以确认删除操作"
+    "blockedDesc": "该空间存在订阅，请先取消订阅后再删除空间。"
   },
   "sharedBase": {
     "title": "分享给我的",
     "description": "所有邀请我加入的数据库",
     "empty": "暂无分享给我的数据库"
   },
-  "integration": {
-    "title": "集成",
-    "description": "管理空间集成",
-    "addIntegration": "添加集成",
-    "ai": "AI"
-  },
+  "integration": {},
   "aiSetting": {
     "title": "AI 配置",
     "description": "管理空间 AI 配置",
-    "enableTips": "启用空间 AI 配置后, 将会优先使用空间 AI 配置",
-    "enable": "初始化 AI 配置",
-    "enableSwitchTips": "开启前，请配置好高级对话模型"
+    "enable": "初始化 AI 配置"
   },
   "import": {
     "importing": "导入中",
-    "importWayTip": "点击或拖拽文件到此区域上传",
     "baseImportTips": "点击或者拖拽 .tea 文件到此区域上传",
     "confirm": "确认并继续",
     "phase": {
@@ -145,8 +131,6 @@
       "tableDataBatch": "第 {{batch}} 批",
       "tableDataBatchRows": "本批 {{count}} 行",
       "tableDataEmpty": "没有需要导入的表数据",
-      "computedBackfill": "正在计算公式和引用字段：{{tableName}}（{{tableIndex}}/{{totalTables}}）",
-      "computedBackfillFailed": "公式或引用字段计算失败：{{tableName}}（{{detail}}），导入已完成",
       "done": "导入完成",
       "clickToView": "点击查看"
     }
@@ -196,8 +180,7 @@
     "noTables": "暂无表",
     "empty": "暂无数据库",
     "recent": "最近访问",
-    "manual": "手动排序",
-    "noBasesFound": "未找到数据库"
+    "manual": "手动排序"
   },
   "publishBase": {
     "title": "发布到模版中心",
@@ -207,12 +190,10 @@
       "title": "作品名称",
       "description": "描述",
       "security": "安全",
-      "includeNodes": "包含节点",
       "advanced": "高级",
       "publishNode": "发布节点",
       "includeData": "包含数据",
       "defaultActiveNode": "默认展示节点",
-      "select": "请选择",
       "descriptionPlaceholder": "简要描述你的想法...",
       "titlePlaceholder": "为你的作品命名..."
     },
@@ -225,7 +206,6 @@
     "unPublishSuccess": "取消发布成功！",
     "unPublishConfirmTitle": "确认取消发布",
     "unPublishConfirmDescription": "确定要取消发布此数据库吗？取消发布后，该数据库将不再在模版中心显示。",
-    "usageCount": "使用次数：",
     "uploadCover": "点击上传封面图片",
     "changeCover": "点击更换封面",
     "uploading": "图片上传中...",
@@ -265,7 +245,6 @@
     "create": {
       "title": "数据数据库",
       "description": "选择此空间的数据库结构和记录存储位置。",
-      "defaultOption": "使用 Teable 默认数据库",
       "defaultHint": "适用于大多数空间。",
       "byodbOption": "使用我的 PostgreSQL 数据库",
       "byodbHint": "在客户自管数据库中使用 Teable 内部 Schema 初始化此空间。",
@@ -320,6 +299,10 @@
       "internalSchema": "内部 Schema",
       "version": "版本",
       "classification": "分类"
+    },
+    "badge": {
+      "label": "独享",
+      "tooltip": "该空间由单独的后台数据库承载，与其他空间相互隔离"
     }
   },
   "airtableImport": {
@@ -348,7 +331,6 @@
       "creatingTable": "正在创建表：{{tableName}}（{{tableIndex}}/{{totalTables}}）",
       "creatingLinks": "正在创建关联字段",
       "fillingLinks": "{{tableName}}（关联）",
-      "done": "导入完成",
       "applyingViewConfig": "导入视图配置"
     },
     "searchBases": "搜索 base",

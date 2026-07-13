@@ -515,7 +515,7 @@ describe('DateTime', () => {
     const startDate = new Date('2022-08-01T16:30:00.000Z').toISOString();
     const endDate = new Date('2023-09-08T19:20:00.000Z').toISOString();
 
-    it('should return the difference in day between two dates by default', () => {
+    it('should return the difference in seconds between two dates by default', () => {
       expect(
         datetimeDiffFunc.eval(
           [
@@ -528,7 +528,7 @@ describe('DateTime', () => {
             timeZone: 'America/Los_Angeles',
           }
         )
-      ).toBe(-403);
+      ).toBe(-34829400);
 
       expect(
         datetimeDiffFunc.eval(
@@ -550,7 +550,7 @@ describe('DateTime', () => {
             timeZone: 'America/Los_Angeles',
           }
         )
-      ).toBe(1);
+      ).toBe(86400);
     });
 
     it('should return the difference in years between two dates', () => {

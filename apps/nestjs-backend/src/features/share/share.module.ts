@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { DbProvider } from '../../db-provider/db.provider';
 import { AggregationModule } from '../aggregation/aggregation.module';
 import { AuthModule } from '../auth/auth.module';
+import { CanaryModule } from '../canary/canary.module';
 import { CollaboratorModule } from '../collaborator/collaborator.module';
 import { FieldModule } from '../field/field.module';
 import { RecordOpenApiModule } from '../record/open-api/record-open-api.module';
@@ -24,6 +25,7 @@ import { ShareService } from './share.service';
     ShareAuthModule,
     CollaboratorModule,
     ViewModule,
+    CanaryModule,
   ],
   providers: [ShareService, DbProvider, ShareSocketService],
   controllers: [ShareController],

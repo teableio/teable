@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { axios } from '../axios';
 import { deleteSelectionStream } from './delete-stream';
+import { RangeType } from './range';
 
 const createSSEStreamResponse = (chunks: string[]) => {
   const encoder = new TextEncoder();
@@ -49,7 +50,7 @@ describe('deleteSelectionStream', () => {
       'tbl0000000000000000',
       {
         ranges: [[0, 2]],
-        type: 'rows',
+        type: RangeType.Rows,
       },
       { onProgress }
     );
@@ -84,7 +85,7 @@ describe('deleteSelectionStream', () => {
       'tbl0000000000000000',
       {
         ranges: [[0, 0]],
-        type: 'rows',
+        type: RangeType.Rows,
       },
       {
         onError,
@@ -123,7 +124,7 @@ describe('deleteSelectionStream', () => {
       'tbl0000000000000000',
       {
         ranges: [[0, 1]],
-        type: 'rows',
+        type: RangeType.Rows,
       },
       { onProgress }
     );
@@ -153,7 +154,7 @@ describe('deleteSelectionStream', () => {
     await expect(
       deleteSelectionStream('tbl0000000000000000', {
         ranges: [[0, 0]],
-        type: 'rows',
+        type: RangeType.Rows,
       })
     ).rejects.toThrow('delete failed');
   });
@@ -174,7 +175,7 @@ describe('deleteSelectionStream', () => {
 
     await deleteSelectionStream('tbl0000000000000000', {
       ranges: [[0, 0]],
-      type: 'rows',
+      type: RangeType.Rows,
     });
 
     expect(fetchMock).toHaveBeenCalledWith(

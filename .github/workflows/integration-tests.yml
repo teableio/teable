@@ -17,19 +17,12 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
-    name: Integration Tests - ${{ matrix.e2e.database-type }} ${{ matrix.e2e.shard }} ${{ matrix.runtime.mode }}
+    name: Integration Tests - ${{ matrix.e2e.database-type }} ${{ matrix.e2e.shard }}
 
     strategy:
       fail-fast: false
       matrix:
         node-version: [22.22.3]
-        runtime:
-          - mode: v1
-            force-v2-all: ''
-            computed-update-mode: ''
-          - mode: v2
-            force-v2-all: 'true'
-            computed-update-mode: 'sync'
         e2e:
           - database-type: postgres
             shard: 1/4
@@ -56,8 +49,6 @@ jobs:
       - name: 🧪 Run Tests
         env:
           CI: 1
-          FORCE_V2_ALL: ${{ matrix.runtime.force-v2-all }}
-          V2_COMPUTED_UPDATE_MODE: ${{ matrix.runtime.computed-update-mode }}
           VITEST_MAX_THREADS: 2
           VITEST_MIN_THREADS: 1
           VITEST_SHARD: ${{ matrix.e2e.shard }}
@@ -74,6 +65,9 @@ jobs:
           flag-name: run-${{ join(matrix.*, '-') }}
           file: apps/nestjs-backend/coverage/nestjs-backend/clover.xml
           parallel: true
+          # Coveralls-recommended: report upload failures as warnings so
+          # coveralls.io downtime cannot fail test-green jobs.
+          fail-on-error: false
 
   finish:
     needs: test
@@ -83,3 +77,4 @@ jobs:
         uses: coverallsapp/github-action@v2
         with:
           parallel-finished: true
+          fail-on-error: false

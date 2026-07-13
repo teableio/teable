@@ -123,6 +123,9 @@ const createContainerMock = (): DependencyContainer => {
       if (token === v2CoreTokens.attachmentValueDecoratorService) {
         return {};
       }
+      if (token === v2CoreTokens.tracer) {
+        return {};
+      }
       if (token === v2RecordRepositoryPostgresTokens.computedUpdatePollingConfig) {
         return { enabled: true };
       }
@@ -238,6 +241,7 @@ const createTestingModule = async (providers: InstanceWrapper[] = []) => {
 describe('V2ContainerService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.unstubAllEnvs();
   });
 
   it('discovers projection registrars and initializes the shared container during bootstrap', async () => {
@@ -294,6 +298,34 @@ describe('V2ContainerService', () => {
       expect.objectContaining({
         metaConnectionString: 'postgres://meta-db',
         dataConnectionString: 'postgres://meta-db',
+      })
+    );
+  });
+
+  it('relies on the postgres adapter field-backfill default unless sync is forced', async () => {
+    const container = createContainerMock();
+    mocks.createV2NodePgContainer.mockResolvedValue(container);
+    const { service } = createService();
+
+    await service.getContainer();
+
+    expect(mocks.createV2NodePgContainer.mock.calls[0]?.[0].computedUpdate).toBeUndefined();
+  });
+
+  it('keeps field backfill synchronous when computed updates are forced synchronous', async () => {
+    vi.stubEnv('V2_COMPUTED_UPDATE_MODE', 'sync');
+    const container = createContainerMock();
+    mocks.createV2NodePgContainer.mockResolvedValue(container);
+    const { service } = createService();
+
+    await service.getContainer();
+
+    expect(mocks.createV2NodePgContainer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        computedUpdate: {
+          mode: 'sync',
+          fieldBackfillConfig: { mode: 'sync' },
+        },
       })
     );
   });
@@ -478,6 +510,9 @@ describe('V2ContainerService', () => {
           return {};
         }
         if (token === v2CoreTokens.attachmentValueDecoratorService) {
+          return {};
+        }
+        if (token === v2CoreTokens.tracer) {
           return {};
         }
         if (token === v2CoreTokens.undoRedoStore) {
