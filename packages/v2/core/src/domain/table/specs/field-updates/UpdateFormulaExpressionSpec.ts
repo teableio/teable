@@ -17,6 +17,8 @@ import type { ITableSpecVisitor } from '../ITableSpecVisitor';
 export class UpdateFormulaExpressionSpec<
   V extends ITableSpecVisitor = ITableSpecVisitor,
 > extends MutateOnlySpec<Table, V> {
+  private dbStorageTypeChangedValue = true;
+
   private constructor(
     private readonly fieldIdValue: FieldId,
     private readonly previousExpressionValue: FormulaExpression,
@@ -43,6 +45,14 @@ export class UpdateFormulaExpressionSpec<
 
   nextExpression(): FormulaExpression {
     return this.nextExpressionValue;
+  }
+
+  markDbStorageTypeChanged(changed: boolean): void {
+    this.dbStorageTypeChangedValue = changed;
+  }
+
+  hasDbStorageTypeChange(): boolean {
+    return this.dbStorageTypeChangedValue;
   }
 
   mutate(t: Table): Result<Table, DomainError> {

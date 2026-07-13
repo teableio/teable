@@ -433,6 +433,87 @@ async function checkOrderColumnExists(
   return result.rows.length > 0;
 }
 
+/**
+ * Collect db field names for system audit fields that may still be physical
+ * GENERATED ALWAYS columns on legacy tables (meta can drift).
+ */
+function collectUserAuditFieldColumnNames(table: core.Table): string[] {
+  const names: string[] = [];
+  for (const field of table.getFields()) {
+    const type = field.type().toString();
+    if (type !== 'createdBy' && type !== 'lastModifiedBy') {
+      continue;
+    }
+    const dbFieldNameResult = field.dbFieldName().andThen((name) => name.value());
+    if (dbFieldNameResult.isOk() && dbFieldNameResult.value) {
+      names.push(dbFieldNameResult.value);
+    }
+  }
+  return names;
+}
+
+/**
+ * PostgreSQL rejects INSERT of non-DEFAULT values into GENERATED ALWAYS columns.
+ * Strip those columns from insert value maps when the physical column is generated
+ * (handles meta.persistedAsGeneratedColumn drift on legacy CreatedBy columns).
+ */
+async function stripPhysicallyGeneratedColumnsFromInsertValues(
+  db: Kysely<DynamicDB>,
+  tableName: string,
+  candidateColumnNames: ReadonlyArray<string>,
+  valuesList: Array<Record<string, unknown>>
+): Promise<void> {
+  if (!candidateColumnNames.length || !valuesList.length) {
+    return;
+  }
+
+  const presentColumns = candidateColumnNames.filter((name) =>
+    valuesList.some((values) => Object.prototype.hasOwnProperty.call(values, name))
+  );
+  if (!presentColumns.length) {
+    return;
+  }
+
+  const { schemaName, plainTableName } = splitSchemaQualifiedTableName(tableName);
+  try {
+    const result = await sql<{ column_name: string }>`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema = ${schemaName ?? 'public'}
+      AND table_name = ${plainTableName}
+      AND column_name IN (${sql.join(presentColumns.map((name) => sql`${name}`))})
+      AND is_generated IS DISTINCT FROM 'NEVER'
+    `.execute(db);
+
+    if (!result.rows.length) {
+      return;
+    }
+
+    for (const row of result.rows) {
+      for (const values of valuesList) {
+        delete values[row.column_name];
+      }
+    }
+  } catch {
+    // Best-effort safety net; insert will surface the original error if this fails.
+  }
+}
+
+async function listPhysicalColumnNames(
+  db: Kysely<DynamicDB>,
+  tableName: string
+): Promise<string[]> {
+  const { schemaName, plainTableName } = splitSchemaQualifiedTableName(tableName);
+  const schema = schemaName ?? 'public';
+  const result = await sql<{ column_name: string }>`
+    SELECT column_name
+    FROM information_schema.columns
+    WHERE table_schema = ${schema}
+      AND table_name = ${plainTableName}
+  `.execute(db);
+  return result.rows.map((row) => row.column_name);
+}
+
 async function ensureViewOrderColumnsExist(
   db: Kysely<DynamicDB>,
   tableName: string,
@@ -1145,6 +1226,15 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
 
         this.logger.debug(`insert:table=${tableName}`, { values: valuesWithViewOrder });
 
+        // Legacy CreatedBy/LastModifiedBy columns may still be GENERATED ALWAYS even when
+        // field meta says otherwise — strip them so PostgreSQL accepts the INSERT (T6146).
+        await stripPhysicallyGeneratedColumnsFromInsertValues(
+          db,
+          tableName,
+          collectUserAuditFieldColumnNames(table),
+          [valuesWithViewOrder]
+        );
+
         let snapshotCaptureSession: IPostgresRecordMutationSnapshotCaptureSession | undefined;
         try {
           snapshotCaptureSession = yield* await this.recordMutationSnapshotCapture.begin(
@@ -1224,10 +1314,34 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
   }
 
   /**
-   * Default batch size for insertMany to stay under PostgreSQL's ~65535 parameter limit.
-   * With ~10 columns per record (user fields + system columns), 500 records = ~5000 params.
+   * Default row cap for insertMany. Wide tables can use many bind parameters per
+   * row, so the effective batch size is reduced dynamically before execution.
    */
   private static readonly INSERT_BATCH_SIZE = 500;
+  // Keep well below PostgreSQL's 65,535 bind-parameter ceiling to avoid
+  // protocol overflow and leave room for driver/dialect quirks on wide tables.
+  private static readonly POSTGRES_BIND_PARAMETER_SAFE_LIMIT = 30_000;
+
+  private static resolveInsertBatchSize(values: ReadonlyArray<Record<string, unknown>>): number {
+    const columnNames = new Set<string>();
+    for (const value of values) {
+      for (const columnName of Object.keys(value)) {
+        columnNames.add(columnName);
+      }
+    }
+
+    if (columnNames.size === 0) {
+      return PostgresTableRecordRepository.INSERT_BATCH_SIZE;
+    }
+
+    const bindLimitedBatchSize = Math.floor(
+      PostgresTableRecordRepository.POSTGRES_BIND_PARAMETER_SAFE_LIMIT / columnNames.size
+    );
+    return Math.max(
+      1,
+      Math.min(PostgresTableRecordRepository.INSERT_BATCH_SIZE, bindLimitedBatchSize)
+    );
+  }
 
   async insertMany(
     context: core.IExecutionContext,
@@ -1463,6 +1577,15 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
 
         this.logger.debug(`insertMany:table=${tableName}`, { count: records.length });
 
+        // Legacy CreatedBy/LastModifiedBy columns may still be GENERATED ALWAYS even when
+        // field meta says otherwise — strip them so PostgreSQL accepts the INSERT (T6146).
+        await stripPhysicallyGeneratedColumnsFromInsertValues(
+          db,
+          tableName,
+          collectUserAuditFieldColumnNames(table),
+          allValues
+        );
+
         let snapshotCaptureSession: IPostgresRecordMutationSnapshotCaptureSession | undefined;
         try {
           if (shouldCaptureSnapshot) {
@@ -1473,8 +1596,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             );
           }
 
-          // Execute batch inserts to stay under PG parameter limit
-          const batchSize = PostgresTableRecordRepository.INSERT_BATCH_SIZE;
+          // Execute batch inserts to stay under PG parameter limit.
+          const batchSize = PostgresTableRecordRepository.resolveInsertBatchSize(allValues);
           const requestedChangedFieldIds = [...requestedChangedFieldIdsByRecord.values()].flatMap(
             (fieldIds) => [...fieldIds]
           );
@@ -1594,6 +1717,112 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             wrapDatabaseError(error, 'insert', { tableName, fields: table.getFields() }, context.$t)
           );
         }
+      }.bind(this)
+    );
+  }
+
+  /**
+   * Server-side row clone: `INSERT INTO target (…) SELECT … FROM source RETURNING __id`,
+   * then optional junction `INSERT…SELECT` for external link storage (T6153 / T6156).
+   */
+  async duplicatePhysicalRows(
+    context: core.IExecutionContext,
+    plan: core.PhysicalTableDuplicatePlan
+  ): Promise<Result<core.PhysicalTableDuplicateResult, DomainError>> {
+    return safeTry<core.PhysicalTableDuplicateResult, DomainError>(
+      async function* (this: PostgresTableRecordRepository) {
+        if (plan.columns.length === 0) {
+          return ok({ rowCount: 0, recordIds: [] });
+        }
+
+        const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
+
+        if (plan.ensureTargetOrderColumns.length > 0) {
+          await ensureViewOrderColumnsExist(
+            db,
+            plan.targetTableName,
+            plan.ensureTargetOrderColumns
+          );
+        }
+
+        const sourceColumns = await listPhysicalColumnNames(db, plan.sourceTableName);
+        const sourceColumnSet = new Set(sourceColumns);
+
+        const activeColumns = plan.columns.filter((column) => {
+          // Constants like `1` are not source column references.
+          const sourceColumnMatch = column.sourceSql.match(/^"((?:[^"]|"")*)"$/);
+          if (!sourceColumnMatch) {
+            return true;
+          }
+          const sourceColumn = sourceColumnMatch[1]!.replace(/""/g, '"');
+          return sourceColumnSet.has(sourceColumn);
+        });
+
+        if (activeColumns.length === 0) {
+          return ok({ rowCount: 0, recordIds: [] });
+        }
+
+        const targetCols = activeColumns
+          .map((column) => toQualifiedIdentifierLiteral(column.targetColumn))
+          .join(', ');
+        const sourceExprs = activeColumns.map((column) => column.sourceSql).join(', ');
+        const targetRef = toSqlTableRef(plan.targetTableName);
+        const sourceRef = toSqlTableRef(plan.sourceTableName);
+
+        const result = await sql<{ __id: string }>`
+          INSERT INTO ${targetRef} (${sql.raw(targetCols)})
+          SELECT ${sql.raw(sourceExprs)}
+          FROM ${sourceRef}
+          ORDER BY ${sql.id('__auto_number')}
+          RETURNING ${sql.id('__id')}
+        `.execute(db);
+
+        const junctionCopies = plan.junctionCopies ?? [];
+        for (const junction of junctionCopies) {
+          const targetJunctionRef = toSqlTableRef(junction.targetJunctionTable);
+          const sourceJunctionRef = toSqlTableRef(junction.sourceJunctionTable);
+          const targetSelf = toQualifiedIdentifierLiteral(junction.targetSelfKey);
+          const targetForeign = toQualifiedIdentifierLiteral(junction.targetForeignKey);
+          const sourceSelf = toQualifiedIdentifierLiteral(junction.sourceSelfKey);
+          const sourceForeign = toQualifiedIdentifierLiteral(junction.sourceForeignKey);
+
+          // Prefer copying __order when both junction tables have it — link reads
+          // may ignore rows with null order for multi-value relationships.
+          const sourceJunctionColumns = await listPhysicalColumnNames(
+            db,
+            junction.sourceJunctionTable
+          );
+          const targetJunctionColumns = await listPhysicalColumnNames(
+            db,
+            junction.targetJunctionTable
+          );
+          const copyOrder =
+            sourceJunctionColumns.includes('__order') && targetJunctionColumns.includes('__order');
+
+          if (copyOrder) {
+            await sql`
+              INSERT INTO ${targetJunctionRef} (
+                ${sql.raw(targetSelf)},
+                ${sql.raw(targetForeign)},
+                ${sql.raw(toQualifiedIdentifierLiteral('__order'))}
+              )
+              SELECT
+                ${sql.raw(sourceSelf)},
+                ${sql.raw(sourceForeign)},
+                ${sql.raw(toQualifiedIdentifierLiteral('__order'))}
+              FROM ${sourceJunctionRef}
+            `.execute(db);
+          } else {
+            await sql`
+              INSERT INTO ${targetJunctionRef} (${sql.raw(targetSelf)}, ${sql.raw(targetForeign)})
+              SELECT ${sql.raw(sourceSelf)}, ${sql.raw(sourceForeign)}
+              FROM ${sourceJunctionRef}
+            `.execute(db);
+          }
+        }
+
+        const recordIds = result.rows.map((row) => row.__id);
+        return ok({ rowCount: recordIds.length, recordIds });
       }.bind(this)
     );
   }

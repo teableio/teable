@@ -1,6 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { IPickerModel } from '../GatewayModelPickerDialog';
+import { useGatewayModelsQuery } from '../useGatewayModelsQuery';
 import { parseModelKey, isGatewayModelKey } from '../utils';
 import type { IGatewayModelAPI, IModelOption } from './types';
 
@@ -37,22 +37,7 @@ export function useGatewayModels({
     data,
     isLoading: isLoadingGateway,
     refetch: fetchGatewayModels,
-  } = useQuery({
-    queryKey: ['admin', 'gateway-models'],
-    queryFn: async () => {
-      try {
-        const response = await fetch('/api/admin/setting/gateway-models');
-        if (!response.ok) {
-          throw new Error(`Failed to fetch models: ${response.status}`);
-        }
-        return response.json();
-      } catch (error) {
-        console.error('Failed to fetch gateway models:', error);
-        throw error;
-      }
-    },
-    enabled: needGroup && gatewayConfigured === null,
-  });
+  } = useGatewayModelsQuery({ enabled: needGroup && gatewayConfigured === null });
 
   useEffect(() => {
     if (data) {

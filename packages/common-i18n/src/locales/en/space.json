@@ -26,7 +26,6 @@
     "duplicateBase": "Duplicate base",
     "missTargetTip": "Please select a space to duplicate the base.",
     "copying": "Duplicating base, it may take a while...",
-    "copyingTemplate": "Creating base from template, it may take a while...",
     "howToCreate": "How do you want to start?",
     "fromScratch": "From scratch",
     "fromTemplate": "From template",
@@ -39,7 +38,6 @@
     "general": "General",
     "collaborators": "Collaborators",
     "generalDescription": "Change the settings for your current space here",
-    "collaboratorDescription": "Manage collaborators of your space and set their access permission",
     "spaceName": "Space name",
     "spaceId": "Space ID",
     "importBase": "Import"
@@ -57,8 +55,6 @@
   },
   "tip": {
     "delete": "Are you sure you want to delete <0/>?",
-    "title": "Tips",
-    "exportTips1": "Export the current base as a .tea file, which may take some time. You can check the export results in the notification center.",
     "exportTips2": "You can import the .tea file in space -> more -> import",
     "exportTips3": "Cross-base relation fields will be converted to single line text.",
     "exportIncludeDataLabel": "Include records",
@@ -76,31 +72,21 @@
   "deleteSpaceModal": {
     "title": "Delete space",
     "blockedTitle": "Cannot delete this space",
-    "blockedDesc": "This space has an active subscription. Please cancel the subscription before deleting the space.",
-    "permanentDeleteWarning": "This action will permanently delete all resources and data under the current space. Please proceed with caution!",
-    "confirmInputLabel": "Please type DELETE to confirm the deletion"
+    "blockedDesc": "This space has an active subscription. Please cancel the subscription before deleting the space."
   },
   "sharedBase": {
     "title": "Shared with me",
     "description": "All the bases that invited me to join",
     "empty": "No bases shared with me yet"
   },
-  "integration": {
-    "title": "Integrations",
-    "description": "Manage integrations of your space",
-    "addIntegration": "Add integration",
-    "ai": "AI"
-  },
+  "integration": {},
   "aiSetting": {
     "title": "AI settings",
     "description": "Manage AI settings of your space",
-    "enableTips": "Enable AI to use AI features in your space instead of using the system AI",
-    "enable": "Initialize AI settings",
-    "enableSwitchTips": "Please configure the large coding model before enabling"
+    "enable": "Initialize AI settings"
   },
   "import": {
     "importing": "Importing",
-    "importWayTip": "Click or drag and drop the file to upload in this area",
     "baseImportTips": "Click or drag and drop .tea file to upload in this area",
     "confirm": "Confirm and continue",
     "phase": {
@@ -145,8 +131,6 @@
       "tableDataBatch": "batch {{batch}}",
       "tableDataBatchRows": "{{count}} rows in this batch",
       "tableDataEmpty": "No table data to import",
-      "computedBackfill": "Computing formula and lookup fields: {{tableName}} ({{tableIndex}}/{{totalTables}})",
-      "computedBackfillFailed": "Formula or lookup field computation failed: {{tableName}} ({{detail}}). Import completed",
       "done": "Import completed",
       "clickToView": "Click to view"
     }
@@ -196,8 +180,7 @@
     "noTables": "No tables",
     "empty": "No bases yet",
     "recent": "Recent",
-    "manual": "Manual order",
-    "noBasesFound": "No bases found"
+    "manual": "Manual order"
   },
   "publishBase": {
     "title": "Publish to Template Center",
@@ -207,12 +190,10 @@
       "title": "Work title",
       "description": "Description",
       "security": "Security",
-      "includeNodes": "Include nodes",
       "advanced": "Advanced",
       "publishNode": "Publish nodes",
       "includeData": "Include data",
       "defaultActiveNode": "Default active node",
-      "select": "please select",
       "descriptionPlaceholder": "Briefly describe your idea...",
       "titlePlaceholder": "Name your work..."
     },
@@ -225,7 +206,6 @@
     "unPublishSuccess": "Base unpublished successfully!",
     "unPublishConfirmTitle": "Confirm unpublish",
     "unPublishConfirmDescription": "Are you sure you want to unpublish this base? It will no longer be visible in the Template Center.",
-    "usageCount": "Usage count: ",
     "uploadCover": "Click to upload cover image",
     "changeCover": "Click to change cover",
     "uploading": "Uploading image...",
@@ -265,7 +245,6 @@
     "create": {
       "title": "Data database",
       "description": "Choose where this space stores base schemas and records.",
-      "defaultOption": "Use Teable default database",
       "defaultHint": "Recommended for most spaces.",
       "byodbOption": "Use my PostgreSQL database",
       "byodbHint": "Initialize this space in a Teable internal schema inside your customer-managed database.",
@@ -320,6 +299,10 @@
       "internalSchema": "Internal schema",
       "version": "Version",
       "classification": "Classification"
+    },
+    "badge": {
+      "label": "Dedicated",
+      "tooltip": "This space is hosted on a dedicated database, isolated from other spaces"
     }
   },
   "airtableImport": {
@@ -348,7 +331,6 @@
       "creatingTable": "Creating table: {{tableName}} ({{tableIndex}}/{{totalTables}})",
       "creatingLinks": "Creating link fields",
       "fillingLinks": "{{tableName}} (links)",
-      "done": "Import completed",
       "applyingViewConfig": "Importing view configuration"
     },
     "searchBases": "Search bases",

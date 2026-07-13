@@ -114,12 +114,14 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
                 withUpgrade={space.role === Role.Owner}
                 organization={space?.organization}
                 appSumoTier={subscription?.appSumoTier}
-              />
+              >
+                <DataDbBadge dataDb={space.dataDb} />
+              </LevelWithUpgrade>
             )}
             {!isCloud && space?.organization && (
               <div className="text-sm text-gray-500">{space.organization.name}</div>
             )}
-            <DataDbBadge dataDb={space.dataDb} />
+            {!isCloud && <DataDbBadge dataDb={space.dataDb} />}
           </div>
           <SpaceActionBar
             buttonSize="xs"

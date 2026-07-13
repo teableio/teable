@@ -263,7 +263,39 @@
       "interactionMode": "Mode d'interaction",
       "mouseMode": "Mode souris",
       "touchMode": "Mode tactile",
-      "systemMode": "Suivre le système"
+      "systemMode": "Suivre le système",
+      "teableSkill": "Compétence Teable"
+    },
+    "teableSkill": {
+      "intro": "Permettez à votre AI Agent de se connecter à votre Base pour interroger les données, gérer les tables, champs et vues, importer ou mettre à jour des enregistrements, et créer des automatisations et des apps.",
+      "worksWith": "Compatible avec tous les agents principaux",
+      "more": "+ plus",
+      "copy": "Copier",
+      "installPromptLabel": "Prompt d’installation du skill",
+      "installCommandLabel": "Commande d’installation du skill",
+      "installPrompt": "Lis https://github.com/teableio/agent-skills, suis le guide pour m’aider à installer le Teable agent skill et termine l’authentification Teable CLI.",
+      "step1Title": "Installer le Skill",
+      "step1Description": "Copiez ce prompt dans votre AI Agent. Il installera le Teable skill set et ouvrira le navigateur pour terminer l’authentification Teable CLI.",
+      "step3Title": "Essayer la compétence Teable",
+      "step3Description": "Une fois la compétence installée, essayez ces prompts.",
+      "tryPrompts": {
+        "schema": {
+          "prompt": "Crée une table CRM simple dans cette base.",
+          "note": "Prompts simples pour démarrer"
+        },
+        "template": {
+          "prompt": "Téléverse toutes les factures de ce dossier local vers <Table des reçus> {coller l’URL de la table} et extrais les champs clés.",
+          "note": "Fichiers locaux → Teable"
+        },
+        "validate": {
+          "prompt": "Importe les nouveaux issues GitHub dans <Suivi des bugs> {coller l’URL de la table}.",
+          "note": "Données multiplateformes → Teable"
+        },
+        "trace": {
+          "prompt": "Vérifie <Table des tâches> {coller l’URL de la table} et marque les tâches en retard.",
+          "note": "Nettoyer ou organiser les données Teable"
+        }
+      }
     },
     "nav": {
       "settings": "Paramètres",
@@ -1264,10 +1296,10 @@
     }
   },
   "changelog": {
-    "newUpdate": "MISE A JOUR DU 24 JUIN",
-    "title": "Agent Computer, encore plus puissant",
-    "url": "https://help.teable.ai/en/changelog#jun-24-2026",
-    "id": "changelog-2026-06-24-agent-computer-supercharged"
+    "newUpdate": "MISE A JOUR DU 10 JUILLET",
+    "title": "GPT-5.6 est maintenant disponible dans Teable",
+    "url": "https://help.teable.ai/en/changelog#jul-10-2026",
+    "id": "changelog-2026-07-10-gpt-5-6-is-now-in-teable"
   },
   "resourceDescription": {
     "addDescription": "Ajouter une description",

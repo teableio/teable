@@ -21,7 +21,10 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { v2RecordRepositoryPostgresTokens } from '../../di/tokens';
-import { buildBeforeImageRecordsFromStepChanges } from '../ComputedBeforeImageFromChanges';
+import {
+  buildBeforeImageRecordsFromStepChanges,
+  mergeBeforeImageRecords,
+} from '../ComputedBeforeImageFromChanges';
 import { isComputedUpdateLockUnavailable } from '../ComputedUpdateLock';
 import type {
   ComputedFieldUpdater,
@@ -555,13 +558,19 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
     });
     if (beforeImageResult.isErr()) return err(beforeImageResult.error);
 
+    // Carry original mutation before-image (filter fields) into follow-up stages.
+    const beforeImageRecords = mergeBeforeImageRecords(
+      plan.beforeImageRecords ?? [],
+      beforeImageResult.value
+    );
+
     return this.planner.planStage(
       {
         baseId: plan.baseId,
         seedTableId: seedSplit.seedTableId,
         seedRecordIds: seedSplit.seedRecordIds,
         extraSeedRecords: seedSplit.extraSeedRecords,
-        beforeImageRecords: beforeImageResult.value,
+        beforeImageRecords,
         changedFieldIds: seedFieldIds,
         changeType:
           plan.changeType === 'insert' || plan.changeType === 'delete' ? 'update' : plan.changeType,
@@ -617,10 +626,38 @@ const splitStepsByPolicy = (
   }
 
   if (config.syncPolicy === 'seedTableOnly') {
-    const syncSteps = plan.steps.filter((step) => step.tableId.toString() === seedTableId);
+    const seedSteps = plan.steps.filter((step) => step.tableId.toString() === seedTableId);
+    const dirtyCountByTable = new Map(
+      prepared.dirtyStats.map((stat) => [stat.tableId, stat.recordCount])
+    );
+    const seedLevels = [...new Set(seedSteps.map((step) => step.level))].sort((a, b) => a - b);
+
+    let syncMaxLevel = -1;
+    let cumulativeDirty = 0;
+
+    for (const level of seedLevels) {
+      const levelSteps = seedSteps.filter((step) => step.level === level);
+      const tableIds = new Set(levelSteps.map((step) => step.tableId.toString()));
+      let levelTotal = 0;
+      let levelMax = 0;
+
+      for (const tableId of tableIds) {
+        const count = dirtyCountByTable.get(tableId) ?? 0;
+        levelTotal += count;
+        levelMax = Math.max(levelMax, count);
+      }
+
+      cumulativeDirty += levelTotal;
+
+      if (levelMax > config.syncMaxDirtyPerTable) break;
+      if (cumulativeDirty > config.syncMaxTotalDirty) break;
+
+      syncMaxLevel = level;
+    }
+
+    const syncSteps = seedSteps.filter((step) => step.level <= syncMaxLevel);
     const syncStepKeys = new Set(syncSteps.map(syncStepKey));
     const asyncSteps = plan.steps.filter((step) => !syncStepKeys.has(syncStepKey(step)));
-    const syncMaxLevel = syncSteps.reduce((acc, step) => Math.max(acc, step.level), -1);
     return { syncSteps, asyncSteps, syncMaxLevel };
   }
 

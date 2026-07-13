@@ -5,6 +5,7 @@ import {
   CollaboratorType,
   getBaseList,
   getSharedBase,
+  getSpaceById,
   type IBaseV2StatusVo,
   updateBase,
 } from '@teable/openapi';
@@ -34,6 +35,7 @@ import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useRef, useState } from 'react';
 import { TeableLogo } from '@/components/TeableLogo';
+import { DataDbBadge } from '@/features/app/blocks/space/DataDbBadge';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
 import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import { tableConfig } from '@/features/i18n/table.config';
@@ -93,6 +95,12 @@ const BaseDropdownMenu = ({
     enabled: open && collaboratorType === CollaboratorType.Base,
   });
 
+  const { data: space } = useQuery({
+    queryKey: ReactQueryKeys.space(spaceId),
+    queryFn: ({ queryKey }) => getSpaceById(queryKey[1]).then((res) => res.data),
+    enabled: open && isSpaceCollaborator,
+  });
+
   const bases = spaceBases || sharedBases;
 
   return (
@@ -108,21 +116,27 @@ const BaseDropdownMenu = ({
           sideOffset={4}
           onClick={(e) => e.stopPropagation()}
         >
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="absolute right-3 top-2.5 z-10 inline-flex h-5 items-center">
-                  <Badge
-                    variant="secondary"
-                    className="h-5 rounded-sm bg-surface px-1.5 text-[10px] font-semibold uppercase leading-none text-muted-foreground"
-                  >
-                    {versionLabel}
-                  </Badge>
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>{versionTitle}</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <span className="absolute right-3 top-2.5 z-10 inline-flex h-5 items-center gap-1">
+            <DataDbBadge
+              dataDb={space?.dataDb}
+              className="h-5 rounded-sm px-1.5 text-[10px] leading-none"
+            />
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex h-5 items-center">
+                    <Badge
+                      variant="secondary"
+                      className="h-5 rounded-sm bg-surface px-1.5 text-[10px] font-semibold uppercase leading-none text-muted-foreground"
+                    >
+                      {versionLabel}
+                    </Badge>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>{versionTitle}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </span>
           <DropdownMenuItem onClick={backSpace}>
             <div className="flex w-full cursor-pointer items-center gap-2 pr-10">
               <ArrowLeft className="size-4" />

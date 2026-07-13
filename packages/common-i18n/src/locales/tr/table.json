@@ -4,12 +4,9 @@
     "duplicateFieldDescription": "Alanlar arası referanslar desteklenmiyor. Kopya tek satırlı bir metin alanına dönüştürülecek.",
     "duplicateTableTitle": "Bildirim",
     "duplicateTableDescription": "Alanlar arası referanslar desteklenmiyor. Kopya tek satırlı bir metin alanına dönüştürülecek.",
-    "duplicateBaseTitle": "Bildirim",
-    "duplicateBaseDescription": "Alanlar arası referanslar desteklenmiyor. Kopya tek satırlı bir metin alanına dönüştürülecek.",
     "convertAndDuplicate": "Dönüştür ve kopyala"
   },
   "toolbar": {
-    "comingSoon": "Çok yakında",
     "viewFilterInShare": "Bu görünüm bir görünüm paylaşım bağlantısında kullanılıyor. Görünüm yapılandırmasındaki değişiklikler görünüm paylaşım bağlantısını da değiştirecektir.",
     "createFieldButtonText": "Yeni bir <0/> alanı oluştur",
     "others": {
@@ -17,8 +14,6 @@
         "label": "Paylaş",
         "statusLabel": "Görünümü web'de paylaş",
         "noPermission": "Görünümü paylaşma izni yok",
-        "shareLink": "Paylaşım Bağlantısı",
-        "copied": "Kopyalandı",
         "genLink": "Yeni bağlantı oluştur",
         "allowCopy": "İzleyicilerin bu görünümden veri kopyalamasına izin ver",
         "allowEdit": "Oturum açmış kullanıcıların görünür verileri düzenlemesine izin ver",
@@ -36,19 +31,38 @@
         "save": "Kaydet",
         "requireLogin": "Giriş yapılmasını gerektir"
       },
-      "extensions": {
-        "label": "Uzantılar",
-        "graph": "Grafik"
-      },
       "api": {
-        "label": "API",
-        "restfulApi": "Restful API",
-        "databaseConnection": "Veritabanı Bağlantısı"
+        "title": "API erişimi",
+        "aiContext": "AI bağlantısı",
+        "advanced": "Gelişmiş",
+        "recommended": "Önerilen",
+        "apiDocGroupTitle": "API bağlamı",
+        "apiDocGroupDescription": "Aşağıdaki belgeyi AI'ya kopyalayın. AI mevcut tablo şemasını, alanları ve API örneklerini anlayarak isteğinize göre kayıtları okuyabilir, oluşturabilir, güncelleyebilir veya silebilir.",
+        "generatingToken": "Oluşturuluyor...",
+        "generateToken": "Token oluştur",
+        "confirmTitle": "API token oluştur",
+        "confirmDescription": "Bu base için aşağıdaki izinlere sahip yeni bir API token oluşturur:",
+        "scopeTableRead": "Tablo bilgilerini oku",
+        "scopeFieldRead": "Alanları oku",
+        "scopeRead": "Kayıtları oku",
+        "scopeCreate": "Kayıt oluştur",
+        "scopeUpdate": "Kayıtları güncelle",
+        "scopeDelete": "Kayıtları sil",
+        "confirmExpiry": "Token 1 yıl geçerli olacaktır.",
+        "confirmButton": "Oluşturmayı onayla",
+        "tokenInfo": "Token süresi: {{expiry}}",
+        "copied": "Kopyalandı!",
+        "copyAIDoc": "Belgeyi kopyala",
+        "aiDocPreview": "Bağlam önizlemesi",
+        "manageToken": "Token yönet",
+        "openInNewTab": "Yeni sekmede aç",
+        "queryBuilderTitle": "API sorgu oluşturucu",
+        "queryBuilderDesc": "Filtreleri, sıralamayı ve diğer parametreleri görsel olarak yapılandırarak çalıştırılabilir API istek kodu üretin.",
+        "viewApiDocs": "Tam API belgelerini görüntüle"
       },
       "personalView": {
         "personal": "Kişisel",
         "tip": "Etkinleştirildiğinde, görünüm ayarları yalnızca size uygulanacaktır",
-        "collaborative": "İş Birlikçi",
         "dialog": {
           "title": "Kişisel moddan çık",
           "description": "Kişisel görünüm yapılandırması, gerçek zamanlı iş birliği durumuna geri yüklenecek. Ayrıca kişisel görünüm ayarlarını kaydedip herkese senkronize edebilirsiniz.",
@@ -72,12 +86,11 @@
       "one_one_duplicate": "Kayıt bağlanamıyor: hedef kayıt bire-bir ilişkide zaten başka bir kayıt tarafından bağlanmış."
     },
     "field": {
-      "maxColumnLimit": "\"{{tableName}}\" tablosunda en fazla {{maxFieldCount}} alan olabilir."
+      "maxColumnLimit": "\"{{tableName}}\" tablosunda en fazla {{maxFieldCount}} alan olabilir.",
+      "requiredExistingValues": "\"{{fieldName}}\" alanı zorunlu olarak işaretlenemez çünkü mevcut kayıtlarda boş değerler var."
     }
   },
   "field": {
-    "fieldManagement": "Alan Yönetimi",
-    "fieldManagementDesc": "Mevcut tablonun tüm alanları için detaylı özellikler",
     "advancedProps": "Gelişmiş özellikler",
     "hide": "gizle",
     "default": {
@@ -158,7 +171,6 @@
       "button": {
         "title": "Düğme",
         "label": "Düğme metni",
-        "color": "Düğme rengi",
         "limitCount": "Tıklama sayısını sınırla",
         "resetCount": "Tıklama sayısını sıfırlamaya izin ver",
         "maxCount": "Maksimum tıklama sayısı",
@@ -232,7 +244,6 @@
       "confirmFieldChange": "Confirm Field Change",
       "areYouSurePerformIt": "Bunu gerçekleştirmek istediğinizden emin misiniz?",
       "addDescription": "Açıklama Ekle",
-      "description": "Açıklama",
       "descriptionPlaceholder": "Bu alanı açıklayın (isteğe bağlı)",
       "type": "Tür",
       "showAs": "Gösterim Şekli",
@@ -297,11 +308,7 @@
         "title": "Alanı Sil",
         "simpleConfirm": "<b>{{fieldName}}</b> alanını silmek istediğinizden emin misiniz?",
         "withDependencies": "<b>{{fieldName}}</b> alanını silmek aşağıdaki alanları etkileyecektir:",
-        "affectedFields": "Etkilenen alanlar:",
-        "fieldsToDelete": "Silinecek alanlar ({{count}})",
-        "unviewedHint": "{{count}} alan incelenmedi",
         "deleteCount": "{{count}} alanı sil",
-        "noAffectedFields": "Bu alan diğer alanlar tarafından referans alınmıyor.",
         "riskIdentified": "Risk tespit edildi({{count}})",
         "noDependencies": "Bağımlılık yok({{count}})",
         "safeToDelete": "Güvenle silinebilir",
@@ -315,8 +322,6 @@
       "conditionalLookup": {
         "sortLimitToggleLabel": "Sort linked records and limit the number of matches",
         "sortLabel": "Sort results",
-        "orderPlaceholder": "Select an order",
-        "clearSort": "Clear sort",
         "limitLabel": "Maximum records to include",
         "limitPlaceholder": "Leave blank to include all matches",
         "limitHint": "We only keep up to {{limit}} matching records.",
@@ -335,12 +340,10 @@
       "user": "Bir kayda kullanıcı ekleyin.",
       "date": "Bir tarih girin (örn. 11/12/2023) veya takvimden seçin.",
       "number": "Bir sayı girin veya her yeni hücreyi varsayılan bir değerle doldurun.",
-      "duration": "Saat, dakika veya saniye cinsinden bir süre girin (örn. 1:23).",
       "rating": "Önceden tanımlanmış bir ölçekte değerlendirme ekleyin.",
       "formula": "Alanlara dayalı değerler hesaplayın.",
       "rollup": "Bağlantılı kayıtlardan veri özetleyin.",
       "conditionalLookup": "Tanımladığınız filtreleri karşılayan bağlı değerleri gösterir.",
-      "count": "Bağlantılı kayıtların sayısını sayın.",
       "createdTime": "Her kaydın oluşturulduğu tarih ve saati görün.",
       "lastModifiedTime": "Bir kayıttaki bazı veya tüm alanlarda yapılan en son düzenlemenin tarih ve saatini görün.",
       "createdBy": "Kaydı hangi kullanıcının oluşturduğunu görün.",
@@ -387,7 +390,6 @@
         "improveText": "Resmi, arkadaşça, komik...",
         "attachPromptForTag": "Üç etiketden fazla izin verilmiyor",
         "attachPromptForClassify": "“Devam Ediyor” olarak “Risk Yok” olarak sınıflandır",
-        "attachPrompt": "Ek gereksinimleri girin",
         "prompt": "Özel Prompt",
         "type": "AI Eylemi Seçin",
         "targetLanguage": "İngilizce, Çince, Fransızca...",
@@ -416,18 +418,13 @@
         "title": "Tüm sütunu oluşturulsun mu?",
         "description": "Tüm sütunu oluşturmak {{rowCount}} satırı güncelleyecektir. Bu işlem çok sayıda yapay zeka kaynağı tüketebilir.",
         "saveConfigOnly": "Yalnızca yapılandırmayı kaydet",
-        "generate": "Oluştur",
         "generateFailed": "Oluşturma başarısız oldu"
-      },
-      "action": {
-        "addAttachment": "Ek alan ekle"
       }
     }
   },
   "table": {
     "newTableLabel": "Yeni tablo",
     "rename": "Yeniden adlandır",
-    "design": "Tasarım",
     "tableRecordHistory": "Tablo kayıt geçmişi",
     "deleteConfirm": "\"{{tableName}}\" tablosunu silmek istediğinizden emin misiniz?",
     "dbTableName": "Fiziksel veritabanındaki tablo adı",
@@ -437,11 +434,9 @@
     "typeOfDatabase": "Veritabanı türü",
     "descriptionForTable": "Bu tablo için açıklama",
     "loginUserTable": "Uygulama girişi",
-    "loginUserTableClickTips": "İlgili uygulamayı aç",
     "linkedApps": "Bağlı uygulamalar",
     "nameForTable": "Bu tablo için ad",
     "deleteTip1": "Diğer tablolardaki bu tabloyla bağlantılı bağlantı alanları silinecek.",
-    "deleteTip2": "Bu tablo silindikten sonra çöp kutusundan geri yüklenebilir.",
     "operator": {
       "createBlank": "Yeni tablo"
     },
@@ -459,7 +454,6 @@
       "fillFailed": "Doldurma başarısız",
       "clearing": "Temizleniyor...",
       "clearSuccessful": "Temizleme başarılı",
-      "deleteFieldConfirmTitle": "Aşağıdaki alanları silmek üzeresiniz",
       "deleting": "Siliniyor...",
       "deleteSuccessful": "Silme başarılı",
       "deleteStream": {
@@ -472,7 +466,6 @@
         "chunkFailureSummary": "{{count}} chunk(s) reported an error while the stream kept running.",
         "chunkLabel": "Chunk {{index}}",
         "rowsLabel": "{{count}} rows",
-        "partialFailureDescription": "Deleted {{deletedCount}} of {{totalCount}} records. Review chunk details in the dialog.",
         "phaseLabel": {
           "preparing": "Preparing",
           "guarding": "Checking",
@@ -491,7 +484,6 @@
       "crossBaseCopyLoadFirst": "Tabanlar arası alanları kopyalamadan önce seçili tüm satırları yüklemek için lütfen kaydırın."
     },
     "graph": {
-      "tableLabel": "Tablo etiketi",
       "effectCells": "Etkilenebilecek hücreler",
       "estimatedTime": "Tahmini süre",
       "linkFieldCount": "Etkilenebilecek bağlantılı alan sayısı"
@@ -574,11 +566,6 @@
           "fieldMeta": "Field metadata",
           "symmetricField": "Symmetric field relationship",
           "systemColumn": "System column \"{{columnName}}\"",
-          "systemColumnTyped": "System column \"{{columnName}}\" ({{dataType}})",
-          "systemNotNull": "NOT NULL on system column \"{{columnName}}\"",
-          "systemUnique": "UNIQUE index on system column \"{{columnName}}\"",
-          "systemPrimaryKey": "PRIMARY KEY on system column \"{{columnName}}\"",
-          "systemDefault": "Default expression on system column \"{{columnName}}\"",
           "connection": "Connection",
           "completion": "Completion",
           "unexpected": "Unexpected error"
@@ -654,7 +641,6 @@
               "resolutionDescription": "Choose which field should keep the two-way link behavior.",
               "option": {
                 "keepCurrent": "Keep the current field as the two-way link",
-                "keepDuplicate": "Keep the duplicate field as the two-way link",
                 "convertDuplicate": "Convert the duplicate field to a one-way link"
               }
             }
@@ -692,7 +678,6 @@
       "importCsvData": "CSV verilerini içe aktar",
       "importExcelData": "Microsoft Excel verilerini içe aktar",
       "cancel": "İptal",
-      "leave": "Ayrıl",
       "downAsCsv": "csv İndir",
       "importData": "Veri İçe Aktar",
       "duplicate": "Çoğalt",
@@ -704,7 +689,6 @@
     },
     "tips": {
       "importWayTip": "Yüklemek için dosyayı bu alana tıklayın veya sürükleyin",
-      "leaveTip": "Verileriniz yine de içe aktarılacak.",
       "fileExceedSizeTip": "Bu tür dosya boyutu şu sınırı aşıyor:",
       "analyzing": "analiz ediliyor",
       "importing": "İçe aktarılıyor",
@@ -734,11 +718,6 @@
       "option": {
         "doNotImport": "İçe aktarma"
       }
-    }
-  },
-  "export": {
-    "menu": {
-      "exportCsv": "Csv İndir"
     }
   },
   "grid": {
@@ -815,13 +794,13 @@
   "menu": {
     "insertRecordAbove": "Üste <input /> kayıt ekle",
     "insertRecordBelow": "Alta <input /> kayıt ekle",
-    "copyCells": "Hücreleri kopyala",
     "deleteRecord": "Kaydı sil",
     "deleteAllSelectedRecords": "Seçili tüm kayıtları sil",
     "editField": "Alanı düzenle",
     "insertFieldLeft": "Sola ekle",
     "insertFieldRight": "Sağa ekle",
     "freezeUpField": "Bu alana kadar dondur",
+    "freezeFieldWindowTooNarrow": "Geçerli pencere çok dar olduğu için bu alana kadar dondurulamıyor",
     "hideField": "Alanı gizle",
     "deleteField": "Alanı sil",
     "deleteAllSelectedFields": "Seçili tüm alanları sil",
@@ -842,8 +821,7 @@
     "noPermission": "Veritabanına erişim izniniz yok",
     "connectionCountTip": "Maksimum veritabanı bağlantısı sayısı <b>{{max}}</b> ve mevcut bağlantı sayısı <b>{{current}}</b>",
     "createFailed": "Please ensure that the PUBLIC_DATABASE_PROXY environment variable is set correctly",
-    "readonlyUnavailable": "Readonly database sharing is unavailable for this data database. Grant the Teable database user permission to create roles and grants, or use a target database that supports readonly roles.",
-    "helpLink": "https://help.teable.ai/en/deploy/database-connection"
+    "readonlyUnavailable": "Readonly database sharing is unavailable for this data database. Grant the Teable database user permission to create roles and grants, or use a target database that supports readonly roles."
   },
   "view": {
     "addRecord": "Kayıt ekle",
@@ -885,17 +863,11 @@
   "download": {
     "allAttachments": {
       "title": "Tüm ekleri indir",
-      "loading": "Önizleme yükleniyor...",
       "rowsWithAttachments": "Ekli satırlar",
       "totalAttachments": "Ekler",
       "totalSize": "Toplam boyut",
-      "confirmTitle": "{{count}} dosya indir",
-      "confirmDescription": "Toplam boyut: {{size}}. Dosyalar ZIP dosyasına sıkıştırılacak.",
-      "confirm": "İndir",
       "cancel": "İptal",
       "downloading": "İndiriliyor...",
-      "downloadingFile": "İndiriliyor: {{fileName}}",
-      "progress": "{{downloaded}} / {{total}}",
       "completed": "İndirme tamamlandı",
       "cancelled": "İndirme iptal edildi",
       "noAttachments": "İndirilecek ek yok",
@@ -912,30 +884,18 @@
     }
   },
   "baseShare": {
-    "title": "Tabanı Paylaş",
     "shareTitle": "Paylaş",
     "shareToWeb": "Web'de paylaş",
-    "description": "\"{{baseName}}\" başkalarıyla paylaş",
-    "nodeShareDescription": "\"{{nodeName}}\" ve içeriğini paylaş",
-    "shareLinks": "Paylaşım bağlantıları",
-    "newLink": "Yeni bağlantı",
-    "noShareLinks": "Henüz paylaşım bağlantısı yok",
-    "createFirstLink": "Paylaşım bağlantısı oluştur",
-    "editSettings": "Ayarları düzenle",
     "refreshLink": "Bağlantıyı yenile",
-    "deleteLink": "Bağlantıyı sil",
     "deleteConfirmTitle": "Paylaşım bağlantısını sil",
     "deleteConfirmDescription": "Bu işlem geri alınamaz. Bu bağlantıya sahip kişiler artık paylaşılan tabana erişemeyecek.",
     "createSuccess": "Paylaşım bağlantısı oluşturuldu",
     "createFailed": "Paylaşım bağlantısı oluşturulamadı",
-    "updateSuccess": "Paylaşım ayarları güncellendi",
     "updateFailed": "Paylaşım ayarları güncellenemedi",
     "deleteSuccess": "Paylaşım bağlantısı silindi",
     "deleteFailed": "Paylaşım bağlantısı silinemedi",
     "refreshSuccess": "Paylaşım bağlantısı yenilendi",
     "refreshFailed": "Paylaşım bağlantısı yenilenemedi",
-    "copied": "Bağlantı panoya kopyalandı",
-    "shareLink": "Paylaşım bağlantısı",
     "linkHolderLabel": "Bağlantıyı alan kişi",
     "linkHolderCanView": "Görüntüleyebilir",
     "linkHolderCanViewDesc": "Anyone with the link can view the data",
@@ -952,27 +912,9 @@
     "linkHolderCanCopyAndSave": "Kopya olarak kaydedebilir",
     "linkHolderCanCopyAndSaveDesc": "Anyone with the link can save a copy to their space",
     "editRequiresLogin": "Users must log in to edit records",
-    "passwordProtection": "Şifre koruması",
     "enterPassword": "Şifre girin",
-    "selectNodes": "Tabloları seç",
-    "shareEntireBase": "Tüm tabanı paylaş",
-    "shareSelectedNodes": "Seçili düğümleri paylaş",
-    "shareEntireBaseDescription": "Bu tabana eklenen yeni tablolar ve klasörler otomatik olarak paylaşılacak",
-    "noNodesSelectedWarning": "Lütfen paylaşmak için en az bir düğüm seçin",
-    "allowSave": "Alana kaydetmeye izin ver",
-    "allowSaveDescription": "İzleyicilerin bu tabanın bir kopyasını kendi alanlarına kaydetmesine izin ver",
-    "allowCopy": "Veri kopyalamaya izin ver",
     "allowCopyData": "İzleyicilerin veri kopyalamasına izin ver",
-    "allowDuplicate": "İzleyicilerin çoğaltmasına izin ver",
-    "allowCopyDescription": "İzleyicilerin bu paylaşılan tabandan tablo verilerini kopyalamasına izin ver",
-    "selectedNodes": "{{count}} tablo seçildi",
-    "allNodes": "Tüm tablolar",
     "sharedNode": "Paylaşılan düğüm",
-    "sharedNodeDescription": "Bu paylaşım bağlantısı belirli bir düğüm ve alt öğeleri içindir",
-    "publicShareTitle": "Bağlantıyla herkese açık paylaşım",
-    "publicShareCount": "{{count}} herkese açık paylaşım bağlantısı",
-    "noPublicShare": "Herkese açık paylaşım bağlantısı yok",
-    "security": "Güvenlik",
     "restrictByPassword": "Şifre ile kısıtla",
     "advanced": "Gelişmiş",
     "embedConfig": "Yerleştirme yapılandırması",
@@ -984,8 +926,7 @@
     "openLink": "Bağlantıyı aç",
     "appPublished": "Uygulama yayınlandı",
     "shareTableTab": "Tabloyu paylaş",
-    "shareViewTab": "Görünümü paylaş",
-    "shareNodeTab": "Düğümü paylaş"
+    "shareViewTab": "Görünümü paylaş"
   },
   "aiChat": {
     "integrationConnect": {

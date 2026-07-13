@@ -334,7 +334,39 @@
       "interactionMode": "Etkileşim Modu",
       "mouseMode": "İmleç Modu",
       "touchMode": "Dokunmatik Mod",
-      "systemMode": "Sistemi Takip Et"
+      "systemMode": "Sistemi Takip Et",
+      "teableSkill": "Teable becerisi"
+    },
+    "teableSkill": {
+      "intro": "AI Agent modelinizin Base’inize bağlanarak verileri sorgulamasına, tabloları, alanları ve görünümleri yönetmesine, kayıtları içe aktarmasına veya güncellemesine, otomasyonlar ve uygulamalar oluşturmasına yardımcı olun.",
+      "worksWith": "Tüm yaygın agent modelleriyle çalışır",
+      "more": "+ daha fazla",
+      "copy": "Kopyala",
+      "installPromptLabel": "Skill kurulum promptu",
+      "installCommandLabel": "Skill kurulum komutu",
+      "installPrompt": "Lütfen https://github.com/teableio/agent-skills adresini oku, rehbere göre Teable agent skill kurmama yardımcı ol ve Teable CLI kimlik doğrulamasını tamamla.",
+      "step1Title": "Skill kur",
+      "step1Description": "Bu promptu AI Agent modelinize kopyalayın. Teable skill set’i kurar ve Teable CLI kimlik doğrulamasını tamamlamak için tarayıcıyı açar.",
+      "step3Title": "Teable becerisini deneyin",
+      "step3Description": "Beceri kurulduktan sonra bu promptları deneyin.",
+      "tryPrompts": {
+        "schema": {
+          "prompt": "Bu base içinde basit bir CRM tablosu oluştur.",
+          "note": "Basit başlangıç promptları"
+        },
+        "template": {
+          "prompt": "Bu yerel klasördeki tüm faturaları <Makbuz Tablosu> {tablo URL'sini yapıştır} içine yükle ve önemli alanları çıkar.",
+          "note": "Yerel dosyalar → Teable"
+        },
+        "validate": {
+          "prompt": "Yeni GitHub issues kayıtlarını <Bug Tracker> {tablo URL'sini yapıştır} içine aktar.",
+          "note": "Çapraz platform verileri → Teable"
+        },
+        "trace": {
+          "prompt": "<Görev Tablosu> {tablo URL'sini yapıştır} öğesini kontrol et ve süresi geçmiş görevleri işaretle.",
+          "note": "Teable verilerini temizle veya düzenle"
+        }
+      }
     },
     "nav": {
       "settings": "Ayarlar",
@@ -1253,10 +1285,10 @@
     }
   },
   "changelog": {
-    "newUpdate": "24 HAZIRAN GUNCELLEMESI",
-    "title": "Agent Computer daha güçlü",
-    "url": "https://help.teable.ai/en/changelog#jun-24-2026",
-    "id": "changelog-2026-06-24-agent-computer-supercharged"
+    "newUpdate": "10 TEMMUZ GUNCELLEMESI",
+    "title": "GPT-5.6 artik Teable'da",
+    "url": "https://help.teable.ai/en/changelog#jul-10-2026",
+    "id": "changelog-2026-07-10-gpt-5-6-is-now-in-teable"
   },
   "resourceDescription": {
     "addDescription": "Açıklama ekle",

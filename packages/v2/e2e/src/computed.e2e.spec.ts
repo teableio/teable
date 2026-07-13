@@ -9752,9 +9752,11 @@ describe('v2 computed field updates (e2e)', () => {
 
     /**
      * Scenario: ConditionalLookup/conditionalRollup performance with large datasets.
+     * Covered by dedicated suite: computed-large-scale-timeout.e2e.spec.ts
+     * (hub/pending link+lookup+FIND over 2k+ rows under statement_timeout budget).
      */
     test.todo(
-      'Conditional fields performance: Need to verify performance with large foreign tables (1000+ records) and complex conditions'
+      'Conditional fields performance: Need to verify performance with large foreign tables (1000+ records) and complex conditions — see computed-large-scale-timeout.e2e.spec.ts for large link/lookup/FIND cascade coverage'
     );
 
     /**
@@ -10837,15 +10839,198 @@ describe('v2 computed field updates (e2e)', () => {
     );
 
     /**
-     * Scenario: Multi-value date/datetime lookup used inside date functions with timeZone.
-     * v1 reference: computed-orchestrator.e2e-spec.ts (timezone cast regressions, datetime + blank guard regressions)
+     * Scenario: Single-value date lookups used directly by date formulas.
      *
-     * NOTE: Implement after v2 "update columns" is implemented, since these issues are tied to
-     * Postgres casts/column types when persisting computed results.
+     * Production regression:
+     * invoices.status/completed_date/created_date
+     *   -> summary.status lookup + summary.completed_date lookup
+     *   -> summary.paid_date formula ({completed_date lookup})
+     *
+     * The lookup select path emits JSONB scalars for single-value lookups. Formula persistence
+     * must unwrap those scalars before casting to timestamptz; otherwise the whole computed batch
+     * can fail with `cannot cast type jsonb to timestamp with time zone`, leaving sibling lookup
+     * fields such as status stale.
      */
-    test.todo(
-      'Date/datetime lookup + timeZone formula persistence: Implement after update-columns to guard against timestamptz/jsonb cast regressions'
-    );
+    it('updates sibling status lookup when single-value date lookup formulas are persisted', async () => {
+      const invoiceIdFieldId = createFieldId();
+      const invoiceNumberFieldId = createFieldId();
+      const invoiceStatusFieldId = createFieldId();
+      const invoiceCompletedDateFieldId = createFieldId();
+      const invoiceCreatedDateFieldId = createFieldId();
+
+      const invoiceTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: 'InvoiceStatusDateLookup_Source',
+        fields: [
+          { type: 'number', id: invoiceIdFieldId, name: 'id', isPrimary: true },
+          { type: 'singleLineText', id: invoiceNumberFieldId, name: 'number' },
+          {
+            type: 'singleSelect',
+            id: invoiceStatusFieldId,
+            name: 'status',
+            options: ['Pending payment', 'Paid'],
+          },
+          {
+            type: 'date',
+            id: invoiceCompletedDateFieldId,
+            name: 'completed_date',
+            options: {
+              formatting: { date: 'YYYY-MM-DD', time: 'HH:mm', timeZone: 'utc' },
+            },
+          },
+          {
+            type: 'date',
+            id: invoiceCreatedDateFieldId,
+            name: 'created_date',
+            options: {
+              formatting: { date: 'YYYY-MM-DD', time: 'HH:mm', timeZone: 'utc' },
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const statusField = invoiceTable.fields.find((field) => field.id === invoiceStatusFieldId);
+      const statusChoices =
+        (statusField?.options as { choices?: Array<{ id: string; name: string }> })?.choices ?? [];
+      const pendingOption = statusChoices.find((choice) => choice.name === 'Pending payment');
+      const paidOption = statusChoices.find((choice) => choice.name === 'Paid');
+      if (!pendingOption?.id || !paidOption?.id) {
+        throw new Error('Missing invoice status options');
+      }
+
+      const invoiceRecord = await ctx.createRecord(invoiceTable.id, {
+        [invoiceIdFieldId]: 67931160,
+        [invoiceNumberFieldId]: 'INV-67931160',
+        [invoiceStatusFieldId]: pendingOption.id,
+        [invoiceCompletedDateFieldId]: '2026-07-05T08:30:00.000Z',
+        [invoiceCreatedDateFieldId]: '2026-07-05T07:15:00.000Z',
+      });
+
+      const summaryIdFieldId = createFieldId();
+      const invoiceLinkFieldId = createFieldId();
+      const numberLookupFieldId = createFieldId();
+      const statusLookupFieldId = createFieldId();
+      const completedDateLookupFieldId = createFieldId();
+      const createdDateLookupFieldId = createFieldId();
+      const paidDateFormulaFieldId = createFieldId();
+      const createdDateFormulaFieldId = createFieldId();
+
+      const summaryTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: 'InvoiceStatusDateLookup_Summary',
+        fields: [
+          { type: 'number', id: summaryIdFieldId, name: 'id', isPrimary: true },
+          {
+            type: 'link',
+            id: invoiceLinkFieldId,
+            name: 'invoices',
+            options: {
+              relationship: 'oneOne',
+              foreignTableId: invoiceTable.id,
+              lookupFieldId: invoiceIdFieldId,
+              isOneWay: true,
+            },
+          },
+          {
+            type: 'lookup',
+            id: numberLookupFieldId,
+            name: 'number',
+            options: {
+              foreignTableId: invoiceTable.id,
+              linkFieldId: invoiceLinkFieldId,
+              lookupFieldId: invoiceNumberFieldId,
+            },
+          },
+          {
+            type: 'lookup',
+            id: statusLookupFieldId,
+            name: 'status',
+            options: {
+              foreignTableId: invoiceTable.id,
+              linkFieldId: invoiceLinkFieldId,
+              lookupFieldId: invoiceStatusFieldId,
+            },
+          },
+          {
+            type: 'lookup',
+            id: completedDateLookupFieldId,
+            name: 'completed_date',
+            options: {
+              foreignTableId: invoiceTable.id,
+              linkFieldId: invoiceLinkFieldId,
+              lookupFieldId: invoiceCompletedDateFieldId,
+            },
+          },
+          {
+            type: 'lookup',
+            id: createdDateLookupFieldId,
+            name: 'created_date',
+            options: {
+              foreignTableId: invoiceTable.id,
+              linkFieldId: invoiceLinkFieldId,
+              lookupFieldId: invoiceCreatedDateFieldId,
+            },
+          },
+          {
+            type: 'formula',
+            id: paidDateFormulaFieldId,
+            name: 'paid_date',
+            options: {
+              expression: `{${completedDateLookupFieldId}}`,
+              timeZone: 'Asia/Shanghai',
+              formatting: { date: 'YYYY-MM-DD', time: 'None', timeZone: 'Asia/Shanghai' },
+            },
+          },
+          {
+            type: 'formula',
+            id: createdDateFormulaFieldId,
+            name: 'invoice_created_date',
+            options: {
+              expression: `{${createdDateLookupFieldId}}`,
+              timeZone: 'Asia/Shanghai',
+              formatting: { date: 'YYYY-MM-DD', time: 'None', timeZone: 'Asia/Shanghai' },
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const summaryRecord = await ctx.createRecord(summaryTable.id, {
+        [summaryIdFieldId]: 67931160,
+        [invoiceLinkFieldId]: { id: invoiceRecord.id },
+      });
+
+      await drainOutbox();
+
+      const beforeRecords = await listRecordsWithoutDrain(summaryTable.id);
+      const beforeSummary = beforeRecords.find((record) => record.id === summaryRecord.id);
+      expect(formatCellValueForExpect(beforeSummary?.fields[numberLookupFieldId])).toContain(
+        'INV-67931160'
+      );
+      expect(formatCellValueForExpect(beforeSummary?.fields[statusLookupFieldId])).toContain(
+        'Pending payment'
+      );
+      expect(String(beforeSummary?.fields[paidDateFormulaFieldId])).toContain('2026-07-05');
+      expect(String(beforeSummary?.fields[createdDateFormulaFieldId])).toContain('2026-07-05');
+
+      ctx.testContainer.clearLogs();
+      await ctx.updateRecord(invoiceTable.id, invoiceRecord.id, {
+        [invoiceStatusFieldId]: paidOption.id,
+        [invoiceCompletedDateFieldId]: '2026-07-08T08:35:27.000Z',
+      });
+      await drainOutbox();
+
+      const afterRecords = await listRecordsWithoutDrain(summaryTable.id);
+      const afterSummary = afterRecords.find((record) => record.id === summaryRecord.id);
+      expect(formatCellValueForExpect(afterSummary?.fields[numberLookupFieldId])).toContain(
+        'INV-67931160'
+      );
+      expect(formatCellValueForExpect(afterSummary?.fields[statusLookupFieldId])).toContain('Paid');
+      expect(String(afterSummary?.fields[completedDateLookupFieldId])).toContain('2026-07-08');
+      expect(String(afterSummary?.fields[paidDateFormulaFieldId])).toContain('2026-07-08');
+      expect(String(afterSummary?.fields[createdDateFormulaFieldId])).toContain('2026-07-05');
+    });
 
     /**
      * Scenario: Divide/modulo by zero does not crash computed persistence.
