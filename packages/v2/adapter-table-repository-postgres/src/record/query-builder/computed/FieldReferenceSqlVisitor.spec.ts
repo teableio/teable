@@ -479,6 +479,7 @@ describe('FieldReferenceSqlVisitor', () => {
       expect(expr.valueSql).not.toContain('public.users');
       expect(expr.valueType).toBe('string');
       expect(expr.isArray).toBe(false);
+      expect(expr.storageKind).toBe('scalar');
     });
 
     it('should generate snapshot-only SQL for LastModifiedBy field', () => {
@@ -495,6 +496,7 @@ describe('FieldReferenceSqlVisitor', () => {
       expect(expr.valueSql).not.toContain('public.users');
       expect(expr.valueType).toBe('string');
       expect(expr.isArray).toBe(false);
+      expect(expr.storageKind).toBe('scalar');
     });
   });
 

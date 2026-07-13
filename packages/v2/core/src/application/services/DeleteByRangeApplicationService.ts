@@ -121,6 +121,8 @@ type PreparedDeleteChunk = {
   readonly recordIds: ReadonlyArray<RecordId>;
   readonly deletedRecordIds: ReadonlyArray<string>;
   readonly recordSnapshots: ReadonlyArray<IDeletedRecordSnapshot>;
+  /** Loaded rows that remain in the table and must advance later chunk offsets. */
+  readonly skippedRowCount: number;
 };
 
 type DeleteByRangeStreamExecutionResult = {
@@ -1162,7 +1164,7 @@ export class DeleteByRangeApplicationService {
 
       const chunk = chunkResult.value;
       if (!chunk.recordIds.length) {
-        failedRowCountInRange += plannedChunk.rowCount;
+        failedRowCountInRange += chunk.skippedRowCount;
         continue;
       }
 
@@ -1196,7 +1198,7 @@ export class DeleteByRangeApplicationService {
           )
       );
       if (pluginExecutionResult.isErr()) {
-        failedRowCountInRange += chunk.recordIds.length;
+        failedRowCountInRange += chunk.recordIds.length + chunk.skippedRowCount;
         queue.push(
           this.createErrorEvent(pluginExecutionResult.error, {
             phase: 'guarding',
@@ -1223,7 +1225,7 @@ export class DeleteByRangeApplicationService {
         () => this.validateDeletePluginScope(context, plan.table, chunk.recordIds, pluginExecution)
       );
       if (scopeValidationResult.isErr()) {
-        failedRowCountInRange += chunk.recordIds.length;
+        failedRowCountInRange += chunk.recordIds.length + chunk.skippedRowCount;
         queue.push(
           this.createErrorEvent(scopeValidationResult.error, {
             phase: 'guarding',
@@ -1254,7 +1256,7 @@ export class DeleteByRangeApplicationService {
           )
       );
       if (deleteResult.isErr()) {
-        failedRowCountInRange += chunk.recordIds.length;
+        failedRowCountInRange += chunk.recordIds.length + chunk.skippedRowCount;
         queue.push(
           this.createErrorEvent(deleteResult.error, {
             phase: 'deleting',
@@ -1273,7 +1275,7 @@ export class DeleteByRangeApplicationService {
         deleteResult.value
       );
       if (persistedRecordSnapshotsResult.isErr()) {
-        failedRowCountInRange += chunk.recordIds.length;
+        failedRowCountInRange += chunk.recordIds.length + chunk.skippedRowCount;
         queue.push(
           this.createErrorEvent(persistedRecordSnapshotsResult.error, {
             phase: 'deleting',
@@ -1290,6 +1292,7 @@ export class DeleteByRangeApplicationService {
 
       deletedRecordIds.push(...persistedDeletedRecordIds);
       deletedCount += persistedDeletedRecordIds.length;
+      failedRowCountInRange += chunk.skippedRowCount;
 
       queue.push(
         this.createProgressEvent(
@@ -1508,6 +1511,7 @@ export class DeleteByRangeApplicationService {
       recordIds,
       deletedRecordIds,
       recordSnapshots,
+      skippedRowCount: records.length - recordIds.length,
     };
   }
 

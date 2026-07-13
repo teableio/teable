@@ -28,12 +28,10 @@
     },
     "combo": {
       "xAxis": {
-        "label": "X Ekseni",
-        "placeholder": "X Ekseni Seçin"
+        "label": "X Ekseni"
       },
       "yAxis": {
         "label": "Y Ekseni",
-        "placeholder": "Y Ekseni Seçin",
         "position": "Y ekseni konumu"
       },
       "xDisplay": {
@@ -46,7 +44,6 @@
       "addYAxis": "Başka bir seri ekle",
       "stack": "Yığın",
       "position": {
-        "label": "Konum",
         "auto": "Otomatik",
         "left": "Sol",
         "right": "Sağ"

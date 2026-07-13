@@ -2191,7 +2191,11 @@ describe('ComputedTableRecordQueryBuilder', () => {
 
     const createConditionalRollupTable = (
       condition: unknown,
-      options?: { includeSecondRollup?: boolean; secondCondition?: unknown }
+      options?: {
+        includeSecondRollup?: boolean;
+        secondCondition?: unknown;
+        expression?: string;
+      }
     ) => {
       const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
       const mainTableId = TableId.create(MAIN_TABLE_ID)._unsafeUnwrap();
@@ -2257,7 +2261,9 @@ describe('ComputedTableRecordQueryBuilder', () => {
         lookupFieldId: foreignValuesFieldId.toString(),
         condition: options?.secondCondition ?? condition,
       })._unsafeUnwrap();
-      const rollupExpr = RollupExpression.create('sum({values})')._unsafeUnwrap();
+      const rollupExpr = RollupExpression.create(
+        options?.expression ?? 'sum({values})'
+      )._unsafeUnwrap();
 
       const mainBuilder = Table.builder()
         .withId(mainTableId)
@@ -2339,7 +2345,7 @@ describe('ComputedTableRecordQueryBuilder', () => {
       );
     });
 
-    test('conditional rollups with the same field-reference key share one lateral scan', () => {
+    test('conditional rollups with residual field-ref filters use set-based host joins', () => {
       const db = createTestDb();
       const { mainTable, foreignTable, foreignTableId } = createConditionalRollupTable(
         {
@@ -2384,25 +2390,95 @@ describe('ComputedTableRecordQueryBuilder', () => {
       );
 
       const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
-      const { sql } = compileQuery(
+      const { sql, parameters } = compileQuery(
         db,
         new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy }).from(
           mainTable
         )
       );
 
-      const lateralCount = (sql.match(/inner join lateral/g) || []).length;
-      expect(lateralCount).toBe(1);
-      expect(sql).toContain('"cond_fldcccccccccccccccc"."col_conditional_rollup"');
-      expect(sql).toContain('"cond_fldcccccccccccccccc"."col_conditional_rollup_copy"');
-      expect(sql).toContain('from "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f"');
-      expect(sql).toContain('where "f"."col_category" = "t"."col_category_ref"');
-      expect(sql).toContain(
-        'SUM("f"."col_number") FILTER (WHERE ("f"."col_category" = "t"."col_category_ref") and ("f"."col_status" = $1))'
+      // Different residual predicates become independent set-based host joins.
+      expect(sql).not.toContain('inner join lateral');
+      expect((sql.match(/left join \(select/g) || []).length).toBe(2);
+      expect(sql).toContain('"f"."col_category" = "h"."col_category_ref"');
+      expect(sql).toContain('"f"."col_status" = $');
+      expect(parameters).toEqual(expect.arrayContaining(['active', 'inactive']));
+      expect(sql).toContain('group by "h"."__id"');
+    });
+
+    test('conditional rollup with residual filter and limit uses ranked set-based join', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId } = createConditionalRollupTable(
+        {
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: FOREIGN_FILTER_FIELD_ID,
+                operator: 'is',
+                value: HOST_FILTER_FIELD_ID,
+                isSymbol: true,
+              },
+              {
+                fieldId: FOREIGN_STATUS_FIELD_ID,
+                operator: 'is',
+                value: 'active',
+              },
+            ],
+          },
+          limit: 10,
+        },
+        { expression: 'max({values})' }
       );
-      expect(sql).toContain(
-        'SUM("f"."col_number") FILTER (WHERE ("f"."col_category" = "t"."col_category_ref") and ("f"."col_status" = $2))'
+
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const { sql, parameters } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy }).from(
+          mainTable
+        )
       );
+
+      expect(sql).not.toContain('inner join lateral');
+      expect(sql).toContain('row_number() over');
+      expect(sql).toContain('"f"."col_status" = $');
+      expect(sql).toContain('partition by "h"."__id"');
+      expect(parameters).toEqual(expect.arrayContaining(['active', 10]));
+    });
+
+    test('order-sensitive array_join field-ref rollup uses ranked set-based join', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId } = createConditionalRollupTable(
+        {
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: FOREIGN_FILTER_FIELD_ID,
+                operator: 'is',
+                value: HOST_FILTER_FIELD_ID,
+                isSymbol: true,
+              },
+            ],
+          },
+          limit: 1,
+        },
+        { expression: 'array_join({values})' }
+      );
+
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const { sql, parameters } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy }).from(
+          mainTable
+        )
+      );
+
+      expect(sql).not.toContain('inner join lateral');
+      expect(sql).toContain('row_number() over');
+      expect(sql.toLowerCase()).toContain('string_agg');
+      expect(sql).toContain('partition by "h"."__id"');
+      expect(parameters).toEqual([1]);
     });
 
     test('conditional rollup falls back to lateral for complex source-only filter', () => {
@@ -2443,7 +2519,7 @@ describe('ComputedTableRecordQueryBuilder', () => {
       expect(sql).toContain('"f"."col_category" = $2');
     });
 
-    test('conditional rollup snapshot with field reference filter', () => {
+    test('conditional rollup uses set-based host join for pure field reference filter', () => {
       const db = createTestDb();
       const { mainTable, foreignTable, foreignTableId } = createConditionalRollupTable({
         filter: {
@@ -2467,10 +2543,82 @@ describe('ComputedTableRecordQueryBuilder', () => {
         )
       );
 
-      expect(sql).toContain('inner join lateral');
+      expect(sql).not.toContain('inner join lateral');
+      expect(sql).toContain('left join (select');
+      expect(sql).toContain('on "cond_fldcccccccccccccccc"."__host_id" = "t"."__id"');
+      expect(sql).toContain('left join "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f"');
+      expect(sql).toContain('"f"."col_category" = "h"."col_category_ref"');
+      expect(sql).toContain('group by "h"."__id"');
       expect(sql).toMatchInlineSnapshot(
-        `"select "t"."__id" as "__id", "t"."__version" as "__version", "t"."col_category_ref" as "col_category_ref", "cond_fldcccccccccccccccc"."col_conditional_rollup" as "col_conditional_rollup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select CAST(COALESCE(SUM("f"."col_number") FILTER (WHERE "f"."col_category" = "t"."col_category_ref"), 0) AS DOUBLE PRECISION) as "col_conditional_rollup" from "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" where "f"."col_category" = "t"."col_category_ref") as "cond_fldcccccccccccccccc" on true"`
+        `"select "t"."__id" as "__id", "t"."__version" as "__version", "t"."col_category_ref" as "col_category_ref", "cond_fldcccccccccccccccc"."col_conditional_rollup" as "col_conditional_rollup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" left join (select "h"."__id" as "__host_id", CAST(COALESCE(SUM("f"."col_number"), 0) AS DOUBLE PRECISION) as "col_conditional_rollup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "h" left join "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" on "f"."col_category" = "h"."col_category_ref" group by "h"."__id") as "cond_fldcccccccccccccccc" on "cond_fldcccccccccccccccc"."__host_id" = "t"."__id""`
       );
+    });
+
+    test('conditional rollup uses window ranking for field-reference filter with limit', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId } = createConditionalRollupTable(
+        {
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: FOREIGN_FILTER_FIELD_ID,
+                operator: 'is',
+                value: HOST_FILTER_FIELD_ID,
+                isSymbol: true,
+              },
+            ],
+          },
+          limit: 10,
+        },
+        { expression: 'countall({values})' }
+      );
+
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const { sql, parameters } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy }).from(
+          mainTable
+        )
+      );
+
+      expect(sql).not.toContain('inner join lateral');
+      expect(sql).toContain('left join (select');
+      expect(sql).toContain('row_number() over');
+      expect(sql).toContain('partition by "h"."__id"');
+      expect(sql).toContain('group by "h"."__id"');
+      expect(sql).toContain('on "cond_fldcccccccccccccccc"."__host_id" = "t"."__id"');
+      expect(parameters).toEqual([10]);
+    });
+
+    test('scopes set-based field-reference conditional rollup to dirty host rows', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId } = createConditionalRollupTable({
+        filter: {
+          conjunction: 'and',
+          filterSet: [
+            {
+              fieldId: FOREIGN_FILTER_FIELD_ID,
+              operator: 'is',
+              value: HOST_FILTER_FIELD_ID,
+              isSymbol: true,
+            },
+          ],
+        },
+      });
+
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const { sql, parameters } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy })
+          .from(mainTable)
+          .withDirtyFilter({ tableId: mainTable.id().toString() })
+      );
+
+      expect(sql).not.toContain('inner join lateral');
+      expect(sql).toContain('tmp_computed_dirty');
+      expect(sql).toContain('"__cond_dirty"."record_id"');
+      expect(parameters).toContain(mainTable.id().toString());
     });
   });
 

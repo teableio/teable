@@ -107,8 +107,18 @@ type SimpleConditionalRollupFilter = {
 type ConditionalFieldReferenceGroup = {
   foreignFieldId: string;
   hostFieldId: string;
+  /** Field-reference equality item (`foreign.field is {host.field}`). */
   filterItem: IFilterItemDTO;
+  /** Source-only residual filters AND-ed with the field-ref equality. */
+  residualFilterItems: IFilterItemDTO[];
   limit?: number;
+  /** Optional foreign-table sort for ranking / order-sensitive aggregates. */
+  sort?: { fieldId: string; order: 'asc' | 'desc' };
+  /**
+   * When true, unlimited paths may skip window ranking.
+   * Order-sensitive rollups (array_join, etc.) always rank.
+   */
+  orderInsensitive: boolean;
 };
 
 type ResolvedOrderBy = {
@@ -189,6 +199,128 @@ const filterItems = (filter: FieldConditionDTO['filter']): IFilterItemDTO[] => {
   );
 };
 
+const residualFilterItemFingerprint = (item: IFilterItemDTO): string =>
+  JSON.stringify({
+    fieldId: item.fieldId,
+    operator: item.operator,
+    value: item.value,
+    isSymbol: item.isSymbol ?? false,
+  });
+
+const sameResidualFilterItems = (
+  left: ReadonlyArray<IFilterItemDTO>,
+  right: ReadonlyArray<IFilterItemDTO>
+): boolean => {
+  if (left.length !== right.length) {
+    return false;
+  }
+  const leftKeys = left.map(residualFilterItemFingerprint).sort();
+  const rightKeys = right.map(residualFilterItemFingerprint).sort();
+  return leftKeys.every((key, index) => key === rightKeys[index]);
+};
+
+const sameConditionalFieldReferenceGroup = (
+  left: ConditionalFieldReferenceGroup,
+  right: ConditionalFieldReferenceGroup
+): boolean =>
+  left.foreignFieldId === right.foreignFieldId &&
+  left.hostFieldId === right.hostFieldId &&
+  left.limit === right.limit &&
+  left.orderInsensitive === right.orderInsensitive &&
+  left.sort?.fieldId === right.sort?.fieldId &&
+  left.sort?.order === right.sort?.order &&
+  sameResidualFilterItems(left.residualFilterItems, right.residualFilterItems);
+
+const isResidualConstantFilterItem = (item: IFilterItemDTO): boolean => {
+  if (referencedHostFieldId(item) !== null) {
+    return false;
+  }
+  if (!SIMPLE_CONDITIONAL_ROLLUP_OPERATORS.has(item.operator)) {
+    return false;
+  }
+  if (item.operator === 'is') {
+    return item.value == null || isSimpleConditionalRollupScalar(item.value);
+  }
+  if (item.operator === 'isAnyOf') {
+    return (
+      Array.isArray(item.value) &&
+      item.value.every((entry) => isSimpleConditionalRollupScalar(entry))
+    );
+  }
+  return false;
+};
+
+/**
+ * Split an AND filter into one field-reference equality key plus residual
+ * source-only constant predicates. Nested filter sets are rejected.
+ */
+const splitFieldReferenceAndResiduals = (
+  filter: FieldConditionDTO['filter']
+): {
+  fieldRefItem: IFilterItemDTO;
+  hostFieldId: string;
+  residualFilterItems: IFilterItemDTO[];
+} | null => {
+  if (!filter || filter.conjunction !== 'and') {
+    return null;
+  }
+
+  const items = filterItems(filter);
+  if (items.length === 0) {
+    return null;
+  }
+
+  let fieldRefItem: IFilterItemDTO | null = null;
+  let hostFieldId: string | null = null;
+  const residualFilterItems: IFilterItemDTO[] = [];
+
+  for (const item of items) {
+    if (item.operator === 'is') {
+      const referenced = referencedHostFieldId(item);
+      if (referenced) {
+        if (fieldRefItem) {
+          return null;
+        }
+        fieldRefItem = item;
+        hostFieldId = referenced;
+        continue;
+      }
+    }
+
+    if (!isResidualConstantFilterItem(item)) {
+      return null;
+    }
+    residualFilterItems.push(item);
+  }
+
+  if (!fieldRefItem || !hostFieldId) {
+    return null;
+  }
+
+  return { fieldRefItem, hostFieldId, residualFilterItems };
+};
+
+const conditionSortDto = (
+  condition: FieldCondition
+): { fieldId: string; order: 'asc' | 'desc' } | undefined => {
+  if (!condition.hasSort()) {
+    return undefined;
+  }
+  const sort = condition.sort();
+  if (!sort) {
+    return undefined;
+  }
+  return {
+    fieldId: sort.fieldId().toString(),
+    order: sort.order(),
+  };
+};
+
+/**
+ * Join-key group for residual field-ref rollups that still share a correlated lateral
+ * when different residual predicates project multiple aggregates from one scan.
+ * Rejects explicit limit so order+limit stay on the generic lateral path.
+ */
 const conditionalRollupFieldReferenceGroup = (
   columnType: LateralColumnType
 ): ConditionalFieldReferenceGroup | null => {
@@ -201,65 +333,83 @@ const conditionalRollupFieldReferenceGroup = (
     return null;
   }
 
-  const filter = columnType.condition.toDto().filter;
-  if (!filter || filter.conjunction !== 'and') {
+  const split = splitFieldReferenceAndResiduals(columnType.condition.toDto().filter);
+  if (!split) {
     return null;
   }
 
-  for (const item of filterItems(filter)) {
-    if (item.operator !== 'is') {
-      continue;
-    }
-
-    const hostFieldId = referencedHostFieldId(item);
-    if (hostFieldId) {
-      return {
-        foreignFieldId: item.fieldId,
-        hostFieldId,
-        filterItem: item,
-      };
-    }
-  }
-
-  return null;
+  // Lateral sharing key only needs the field-ref pair; residual FILTER(...) is per column.
+  return {
+    foreignFieldId: split.fieldRefItem.fieldId,
+    hostFieldId: split.hostFieldId,
+    filterItem: split.fieldRefItem,
+    residualFilterItems: [],
+    orderInsensitive: true,
+  };
 };
 
-const conditionalLookupFieldReferenceGroup = (
+/**
+ * Field-reference rollup eligible for a set-based host join:
+ * - one field-ref equality (+ optional residual constant filters)
+ * - order-insensitive aggs (sum/max/...) with optional limit
+ * - order-sensitive aggs (array_join/...) with ranking + limit
+ */
+const conditionalRollupSetBasedFieldReferenceGroup = (
   columnType: LateralColumnType
 ): ConditionalFieldReferenceGroup | null => {
-  if (
-    columnType.type !== 'conditionalLookup' ||
-    columnType.condition.hasSort() ||
-    !columnType.condition.hasFilter()
-  ) {
+  if (columnType.type !== 'conditionalRollup' || !columnType.condition.hasFilter()) {
     return null;
   }
 
-  const filter = columnType.condition.toDto().filter;
-  if (!filter || filter.conjunction !== 'and') {
+  const orderInsensitive = isOrderInsensitiveRollupExpression(columnType.expression);
+  // Order-sensitive rollups may carry a condition sort; order-insensitive paths reject it
+  // so residual max/sum keep deterministic default ranking only when limited.
+  if (!orderInsensitive && columnType.condition.hasSort()) {
+    // Still OK — use the condition sort for ranking.
+  } else if (orderInsensitive && columnType.condition.hasSort()) {
     return null;
   }
 
-  const items = filterItems(filter);
-  if (items.length !== 1) {
-    return null;
-  }
-
-  const [item] = items;
-  if (item.operator !== 'is') {
-    return null;
-  }
-
-  const hostFieldId = referencedHostFieldId(item);
-  if (!hostFieldId) {
+  const split = splitFieldReferenceAndResiduals(columnType.condition.toDto().filter);
+  if (!split) {
     return null;
   }
 
   return {
-    foreignFieldId: item.fieldId,
-    hostFieldId,
-    filterItem: item,
+    foreignFieldId: split.fieldRefItem.fieldId,
+    hostFieldId: split.hostFieldId,
+    filterItem: split.fieldRefItem,
+    residualFilterItems: split.residualFilterItems,
     limit: columnType.condition.limit(),
+    sort: conditionSortDto(columnType.condition),
+    orderInsensitive,
+  };
+};
+
+/**
+ * Field-reference lookup eligible for set-based host join:
+ * one field-ref equality, optional residual constants, optional sort, optional limit.
+ */
+const conditionalLookupFieldReferenceGroup = (
+  columnType: LateralColumnType
+): ConditionalFieldReferenceGroup | null => {
+  if (columnType.type !== 'conditionalLookup' || !columnType.condition.hasFilter()) {
+    return null;
+  }
+
+  const split = splitFieldReferenceAndResiduals(columnType.condition.toDto().filter);
+  if (!split) {
+    return null;
+  }
+
+  return {
+    foreignFieldId: split.fieldRefItem.fieldId,
+    hostFieldId: split.hostFieldId,
+    filterItem: split.fieldRefItem,
+    residualFilterItems: split.residualFilterItems,
+    limit: columnType.condition.limit(),
+    sort: conditionSortDto(columnType.condition),
+    orderInsensitive: false,
   };
 };
 
@@ -290,6 +440,30 @@ const sharedConditionalFieldReferenceGroup = (
   return shared;
 };
 
+const sharedConditionalRollupSetBasedFieldReferenceGroup = (
+  columns: Array<{ columnType: LateralColumnType }>
+): ConditionalFieldReferenceGroup | null => {
+  let shared: ConditionalFieldReferenceGroup | null = null;
+
+  for (const column of columns) {
+    const group = conditionalRollupSetBasedFieldReferenceGroup(column.columnType);
+    if (!group) {
+      return null;
+    }
+
+    if (!shared) {
+      shared = group;
+      continue;
+    }
+
+    if (!sameConditionalFieldReferenceGroup(shared, group)) {
+      return null;
+    }
+  }
+
+  return shared;
+};
+
 const sharedConditionalLookupFieldReferenceGroup = (
   columns: Array<{ columnType: LateralColumnType }>
 ): ConditionalFieldReferenceGroup | null => {
@@ -306,11 +480,7 @@ const sharedConditionalLookupFieldReferenceGroup = (
       continue;
     }
 
-    if (
-      shared.foreignFieldId !== group.foreignFieldId ||
-      shared.hostFieldId !== group.hostFieldId ||
-      shared.limit !== group.limit
-    ) {
+    if (!sameConditionalFieldReferenceGroup(shared, group)) {
       return null;
     }
   }
@@ -393,6 +563,12 @@ export interface IDirtyFilterConfig {
   tableIdColumn?: string;
   /** Column name for record ID in dirty table (default: 'record_id') */
   recordIdColumn?: string;
+  /**
+   * Optional explicit dirty-record slice for large fan-out steps.
+   * When set, further restricts the dirty join to this id subset so each
+   * UPDATE…FROM statement stays under statement_timeout.
+   */
+  recordIds?: ReadonlyArray<string>;
 }
 
 export interface IComputedQueryBuilderOptions {
@@ -662,16 +838,29 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
       dirtyTableName = 'tmp_computed_dirty',
       tableIdColumn = 'table_id',
       recordIdColumn = 'record_id',
+      recordIds,
     } = this.dirtyFilterConfig;
 
     const DIRTY_ALIAS = '__dirty';
+    const recordIdSlice =
+      recordIds && recordIds.length > 0
+        ? [...new Set(recordIds.filter((id) => id.length > 0))]
+        : [];
 
-    return (qb) =>
-      qb.innerJoin(`${dirtyTableName} as ${DIRTY_ALIAS}`, (join) =>
+    return (qb) => {
+      let next = qb.innerJoin(`${dirtyTableName} as ${DIRTY_ALIAS}`, (join) =>
         join
           .onRef(`${T}.__id`, '=', `${DIRTY_ALIAS}.${recordIdColumn}`)
           .on(`${DIRTY_ALIAS}.${tableIdColumn}`, '=', tableId)
       ) as QB;
+
+      // Slice large dirty sets into smaller UPDATE statements (same TX).
+      if (recordIdSlice.length > 0) {
+        next = next.where(`${DIRTY_ALIAS}.${recordIdColumn}`, 'in', recordIdSlice) as QB;
+      }
+
+      return next;
+    };
   }
 
   private createLateralContext() {
@@ -729,6 +918,25 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
       }
 
       const condition = columnType.condition;
+      const setBasedKey = (group: ConditionalFieldReferenceGroup): string =>
+        [
+          columnType.type,
+          'field-ref-set',
+          foreignTableId,
+          group.foreignFieldId,
+          group.hostFieldId,
+          group.limit ?? 'none',
+          group.orderInsensitive ? 'orderless' : 'ordered',
+          group.sort ? `${group.sort.fieldId}:${group.sort.order}` : 'nosort',
+          group.residualFilterItems.map(residualFilterItemFingerprint).sort().join('&') ||
+            'noresidual',
+        ].join('|');
+
+      const setBasedRollupGroup = conditionalRollupSetBasedFieldReferenceGroup(columnType);
+      if (setBasedRollupGroup) {
+        return setBasedKey(setBasedRollupGroup);
+      }
+
       const fieldRefGroup = conditionalRollupFieldReferenceGroup(columnType);
       if (fieldRefGroup) {
         return [
@@ -742,14 +950,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
 
       const lookupFieldRefGroup = conditionalLookupFieldReferenceGroup(columnType);
       if (lookupFieldRefGroup) {
-        return [
-          columnType.type,
-          'field-ref-group',
-          foreignTableId,
-          lookupFieldRefGroup.foreignFieldId,
-          lookupFieldRefGroup.hostFieldId,
-          lookupFieldRefGroup.limit ?? 'default',
-        ].join('|');
+        return setBasedKey(lookupFieldRefGroup);
       }
 
       const orderMode =
@@ -925,9 +1126,11 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
    * use a condition filter to select which foreign records to aggregate.
    *
    * The generated SQL structure for each conditional field:
-   * - conditionalRollup: LATERAL (SELECT AGG(col) FROM foreign_table WHERE <condition>)
-   * - conditionalLookup: set-based host aggregate for simple field-reference equality,
-   *   otherwise LATERAL (SELECT jsonb_agg(col) FROM foreign_table WHERE <condition>)
+   * - conditionalRollup: set-based host join for field-reference equality (+ residual
+   *   constants, optional limit / order-sensitive ranking); uncorrelated join for
+   *   simple source-only filters; otherwise LATERAL aggregation
+   * - conditionalLookup: set-based host aggregate for field-reference equality
+   *   (+ residual constants, optional sort/limit); otherwise LATERAL jsonb_agg
    */
   private buildConditionalJoins(
     foreignTables: ReadonlyMap<string, Table>,
@@ -966,6 +1169,24 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           const foreignTableName = yield* foreignDbTableName.value();
 
           const firstColumnType = lateral.columns[0]?.columnType;
+          const sharedRollupSetBasedGroup = sharedConditionalRollupSetBasedFieldReferenceGroup(
+            lateral.columns
+          );
+          if (sharedRollupSetBasedGroup) {
+            const query = yield* this.buildConditionalRollupFieldReferenceAggregate(
+              foreignTable,
+              foreignTableName,
+              sharedRollupSetBasedGroup,
+              lateral.alias,
+              lateral.columns
+            );
+            subqueries.push({
+              query,
+              joinMode: 'hostLeft',
+            });
+            continue;
+          }
+
           const sharedLookupFieldRefGroup = sharedConditionalLookupFieldReferenceGroup(
             lateral.columns
           );
@@ -1158,11 +1379,31 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     return FieldCondition.create({
       filter: {
         conjunction: 'and',
-        filterSet: [group.filterItem],
+        filterSet: [group.filterItem, ...group.residualFilterItems],
       },
     }).andThen((condition) =>
       this.buildFilterConditionWhere(foreignTable, condition, hostTableAlias)
     );
+  }
+
+  private resolveSetBasedOrderBy(
+    foreignTable: Table,
+    group: ConditionalFieldReferenceGroup
+  ): Result<{ column: string; direction: 'asc' | 'desc' }, DomainError> {
+    if (!group.sort) {
+      return ok(DEFAULT_CONDITIONAL_ORDER_BY);
+    }
+
+    return safeTry<{ column: string; direction: 'asc' | 'desc' }, DomainError>(function* () {
+      const sortFieldId = FieldId.create(group.sort!.fieldId);
+      if (sortFieldId.isErr()) {
+        return err(sortFieldId.error);
+      }
+      const field = yield* foreignTable.getField((f) => f.id().equals(sortFieldId.value));
+      const dbFieldName = yield* field.dbFieldName();
+      const column = yield* dbFieldName.value();
+      return ok({ column, direction: group.sort!.order });
+    });
   }
 
   private buildConditionalLookupFieldReferenceAggregate(
@@ -1192,7 +1433,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
 
         const rankedAlias = `${alias}_src`;
         const limitValue = group.limit ?? CONDITIONAL_QUERY_DEFAULT_LIMIT;
-        const orderBy = DEFAULT_CONDITIONAL_ORDER_BY;
+        const orderBy = yield* this.resolveSetBasedOrderBy(foreignTable, group);
         const dirtyConfig = this.dirtyFilterConfig;
         const rankedColumns = [
           sql`${sql.ref(`${H}.__id`)}`.as('__host_id'),
@@ -1248,6 +1489,132 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             .select([sql`${sql.ref(`${rankedAlias}.__host_id`)}`.as('__host_id'), ...selectExprs])
             .where(sql<SqlBool>`${sql.ref(`${rankedAlias}.__rn`)} <= ${limitValue}`)
             .groupBy(sql.ref(`${rankedAlias}.__host_id`))
+            .as(alias)
+        );
+      }.bind(this)
+    );
+  }
+
+  /**
+   * Set-based materialization for field-reference conditional rollups
+   * (optional residual constants, optional limit, order-sensitive or not).
+   *
+   * Host drives a single join against the foreign table (plus window ranking when a
+   * limit is set or the expression is order-sensitive), instead of a correlated LATERAL.
+   */
+  private buildConditionalRollupFieldReferenceAggregate(
+    foreignTable: Table,
+    foreignTableName: string,
+    group: ConditionalFieldReferenceGroup,
+    alias: string,
+    columns: Array<{ outputAlias: string; columnType: LateralColumnType }>
+  ): Result<AliasedExpression<Record<string, unknown>, string>, DomainError> {
+    const hostTable = this.table;
+    if (!hostTable) {
+      return err(domainError.validation({ message: 'Call from() first' }));
+    }
+
+    return safeTry<AliasedExpression<Record<string, unknown>, string>, DomainError>(
+      function* (this: ComputedTableRecordQueryBuilder) {
+        const hostDbTableName = yield* hostTable.dbTableName();
+        const hostTableName = yield* hostDbTableName.value();
+        const whereClause = yield* this.buildFieldReferenceConditionWhere(foreignTable, group, H);
+        if (whereClause === null) {
+          return err(
+            domainError.invariant({
+              message: 'Conditional rollup field-reference set-based path requires a filter',
+            })
+          );
+        }
+
+        const dirtyConfig = this.dirtyFilterConfig;
+        const hostSource = dirtyConfig
+          ? this.db
+              .selectFrom(`${hostTableName} as ${H}`)
+              .innerJoin(
+                `${dirtyConfig.dirtyTableName ?? 'tmp_computed_dirty'} as __cond_dirty`,
+                (join) =>
+                  join
+                    .onRef(
+                      `${H}.__id`,
+                      '=',
+                      `__cond_dirty.${dirtyConfig.recordIdColumn ?? 'record_id'}`
+                    )
+                    .on(
+                      `__cond_dirty.${dirtyConfig.tableIdColumn ?? 'table_id'}`,
+                      '=',
+                      dirtyConfig.tableId
+                    )
+              )
+              .selectAll(H)
+              .as(H)
+          : (`${hostTableName} as ${H}` as const);
+
+        const orderBy = yield* this.resolveSetBasedOrderBy(foreignTable, group);
+        // Rank whenever limit is set, or the expression is order-sensitive (array_join…).
+        const needsRanking = !group.orderInsensitive || group.limit !== undefined;
+        const limitValue = needsRanking
+          ? group.limit ?? CONDITIONAL_QUERY_DEFAULT_LIMIT
+          : undefined;
+
+        if (needsRanking && limitValue !== undefined) {
+          const rankedAlias = `${alias}_src`;
+          const rankedQuery = this.db
+            .selectFrom(hostSource)
+            .innerJoin(`${foreignTableName} as ${F}`, (join) => join.on(whereClause))
+            .select([
+              sql`${sql.ref(`${H}.__id`)}`.as('__host_id'),
+              sql`row_number() over (partition by ${sql.ref(`${H}.__id`)} order by ${sql.ref(`${F}.${orderBy.column}`)} ${sql.raw(orderBy.direction)})`.as(
+                '__rn'
+              ),
+            ])
+            .selectAll(F);
+
+          const selectExprs: AliasedRawBuilder<unknown, string>[] = [];
+          for (const col of columns) {
+            selectExprs.push(
+              yield* this.buildConditionalSelectExpr(
+                foreignTable,
+                col.columnType,
+                col.outputAlias,
+                {
+                  tableAlias: rankedAlias,
+                  orderBy,
+                }
+              )
+            );
+          }
+
+          // Drive from host so hosts with zero matches still emit a row (COUNT/SUM → 0).
+          return ok(
+            this.db
+              .selectFrom(hostSource)
+              .leftJoin(rankedQuery.as(rankedAlias), (join) =>
+                join
+                  .onRef(`${H}.__id`, '=', `${rankedAlias}.__host_id`)
+                  .on(sql<SqlBool>`${sql.ref(`${rankedAlias}.__rn`)} <= ${limitValue}`)
+              )
+              .select([sql`${sql.ref(`${H}.__id`)}`.as('__host_id'), ...selectExprs])
+              .groupBy(sql.ref(`${H}.__id`))
+              .as(alias)
+          );
+        }
+
+        const selectExprs: AliasedRawBuilder<unknown, string>[] = [];
+        for (const col of columns) {
+          selectExprs.push(
+            yield* this.buildConditionalSelectExpr(foreignTable, col.columnType, col.outputAlias, {
+              tableAlias: F,
+            })
+          );
+        }
+
+        return ok(
+          this.db
+            .selectFrom(hostSource)
+            .leftJoin(`${foreignTableName} as ${F}`, (join) => join.on(whereClause))
+            .select([sql`${sql.ref(`${H}.__id`)}`.as('__host_id'), ...selectExprs])
+            .groupBy(sql.ref(`${H}.__id`))
             .as(alias)
         );
       }.bind(this)

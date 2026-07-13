@@ -103,6 +103,13 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     return this.insertManyResult;
   }
 
+  async duplicatePhysicalRows(
+    _context: any,
+    _plan: any
+  ): Promise<Result<{ rowCount: number; recordIds: string[] }, DomainError>> {
+    return ok({ rowCount: 0, recordIds: [] });
+  }
+
   async insertManyStream() {
     return ok({ totalInserted: 0 });
   }

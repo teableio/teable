@@ -7,7 +7,7 @@ import { DndKitContext, Droppable, arrayMove } from '@teable/ui-lib/base/dnd-kit
 import { Label } from '@teable/ui-lib/shadcn';
 import Fuse from 'fuse.js';
 import { useTranslation } from 'next-i18next';
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { AddModelDialog } from './gateway-models-step/AddModelDialog';
 import { ModelCard } from './gateway-models-step/ModelCard';
 import { QuickAddButtons } from './gateway-models-step/QuickAddButtons';
@@ -23,13 +23,13 @@ import {
   detectIsImageModel,
   detectCapabilitiesFromTags,
 } from './gateway-models-step/utils';
+import { useGatewayModelsQuery } from './useGatewayModelsQuery';
 
 export function GatewayModelsStep({
   gatewayModels,
   onChange,
   disabled,
   apiKey,
-  showPricing = true,
 }: IGatewayModelsStepProps) {
   const { t } = useTranslation('common');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -45,44 +45,15 @@ export function GatewayModelsStep({
   const [testState, setTestState] = useState<ITestState>({ testing: false });
 
   // Model search state
-  const [availableModels, setAvailableModels] = useState<IGatewayModelAPI[]>([]);
-  const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [modelSearchOpen, setModelSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [modelsLoadError, setModelsLoadError] = useState<string | null>(null);
 
-  // Fetch available models from backend API (cached)
-  const fetchModels = useCallback(async () => {
-    if (!apiKey) return;
-
-    setIsLoadingModels(true);
-    setModelsLoadError(null);
-
-    try {
-      // Use backend API which has in-memory caching
-      const response = await fetch('/api/admin/setting/gateway-models');
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch models: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const models: IGatewayModelAPI[] = data.models || [];
-      setAvailableModels(models);
-    } catch (error) {
-      console.error('Failed to fetch gateway models:', error);
-      setModelsLoadError(error instanceof Error ? error.message : 'Failed to fetch models');
-    } finally {
-      setIsLoadingModels(false);
-    }
-  }, [apiKey]);
-
-  // Load models on component mount (for quick add buttons) and when dialog opens
-  useEffect(() => {
-    if (apiKey && availableModels.length === 0) {
-      fetchModels();
-    }
-  }, [apiKey, availableModels.length, fetchModels]);
+  const {
+    models: availableModels,
+    isFetching: isLoadingModels,
+    errorMessage: modelsLoadError,
+    refetch: fetchModels,
+  } = useGatewayModelsQuery({ enabled: Boolean(apiKey) });
 
   // Sort models by created timestamp (newest first)
   const sortedModels = useMemo(() => {
@@ -239,9 +210,29 @@ export function GatewayModelsStep({
     [gatewayModels, onChange]
   );
 
+  // Single-select: enabling one clears the others
+  const handleToggleRecommended = useCallback(
+    (modelId: string, recommended: boolean) => {
+      onChange(
+        gatewayModels.map((m) => {
+          if (m.id === modelId) return { ...m, recommended };
+          return recommended && m.recommended ? { ...m, recommended: false } : m;
+        })
+      );
+    },
+    [gatewayModels, onChange]
+  );
+
   const handleUpdateI18nDescription = useCallback(
     (modelId: string, i18nDescription: { en?: string; zh?: string }) => {
       onChange(gatewayModels.map((m) => (m.id === modelId ? { ...m, i18nDescription } : m)));
+    },
+    [gatewayModels, onChange]
+  );
+
+  const handleUpdateRecommendedDescription = useCallback(
+    (modelId: string, recommendedDescription: { en?: string; zh?: string }) => {
+      onChange(gatewayModels.map((m) => (m.id === modelId ? { ...m, recommendedDescription } : m)));
     },
     [gatewayModels, onChange]
   );
@@ -303,7 +294,6 @@ export function GatewayModelsStep({
         findApiModel={findApiModel}
         onQuickAdd={handleQuickAdd}
         onOpenDialog={() => setIsAddDialogOpen(true)}
-        showPricing={showPricing}
         t={t}
       />
 
@@ -324,10 +314,11 @@ export function GatewayModelsStep({
                   <ModelCard
                     key={model.id}
                     model={model}
-                    showPricing={showPricing}
                     onToggleEnabled={handleToggleEnabled}
+                    onToggleRecommended={handleToggleRecommended}
                     onRemove={handleRemoveModel}
                     onUpdateI18nDescription={handleUpdateI18nDescription}
+                    onUpdateRecommendedDescription={handleUpdateRecommendedDescription}
                   />
                 ))}
               </div>
@@ -359,8 +350,7 @@ export function GatewayModelsStep({
         gatewayModels={gatewayModels}
         availableModelsCount={availableModels.length}
         onSelectModel={handleSelectModel}
-        onRetry={fetchModels}
-        showPricing={showPricing}
+        onRetry={() => fetchModels()}
         pricingExpanded={pricingExpanded}
         onPricingExpandedChange={setPricingExpanded}
         onPricingChange={updatePricing}
