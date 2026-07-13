@@ -1,6 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
 import https from 'https';
+import { pipeline } from 'node:stream/promises';
 import { join, resolve } from 'path';
 import type { Readable } from 'stream';
 import {
@@ -22,9 +23,17 @@ import ms from 'ms';
 import sharp from 'sharp';
 import { IStorageConfig, StorageConfig } from '../../../configs/storage';
 import { CustomHttpException } from '../../../custom.exception';
+import { normalizeImageDimensions } from '../../../utils/image-orientation';
 import { second } from '../../../utils/second';
 import StorageAdapter from './adapter';
-import type { IPresignParams, IPresignRes, IObjectMeta, IRespHeaders } from './types';
+import type {
+  IPresignParams,
+  IPresignRes,
+  IObjectMeta,
+  IRespHeaders,
+  IListObjectsOptions,
+  IListObjectsResult,
+} from './types';
 
 @Injectable()
 export class S3Storage implements StorageAdapter {
@@ -267,14 +276,13 @@ export class S3Storage implements StorageAdapter {
     }
     try {
       const sharpReader = stream.pipe(metaReader);
-      const { width, height } = await sharpReader.metadata();
+      const metadata = await sharpReader.metadata();
       return {
         hash,
         url,
         size,
         mimetype,
-        width,
-        height,
+        ...normalizeImageDimensions(metadata),
       };
     } catch (error) {
       throw new CustomHttpException(
@@ -423,7 +431,7 @@ export class S3Storage implements StorageAdapter {
     const newPath = _newPath || `${path}_${width ?? 0}_${height ?? 0}`;
     const resizedImagePath = resolve(
       StorageAdapter.TEMPORARY_DIR,
-      encodeURIComponent(join(bucket, newPath))
+      `${encodeURIComponent(join(bucket, newPath))}_${getRandomString(8)}`
     );
     if (await this.fileExists(bucket, newPath)) {
       return newPath;
@@ -448,26 +456,24 @@ export class S3Storage implements StorageAdapter {
         },
       });
     }
-    const sourceFilePath = resolve(StorageAdapter.TEMPORARY_DIR, encodeURIComponent(path));
-    await new Promise((resolve, reject) => {
-      const writeStream = fse.createWriteStream(sourceFilePath);
-      (stream as Readable).pipe(writeStream);
-      writeStream.on('finish', () => resolve(null));
-      writeStream.on('error', reject);
-      (stream as Readable).on('error', reject);
-    });
-    const metaReader = sharp(sourceFilePath, { failOn: 'none', unlimited: true }).resize(
-      width,
-      height
+    const sourceFilePath = resolve(
+      StorageAdapter.TEMPORARY_DIR,
+      `${encodeURIComponent(path)}_${getRandomString(8)}`
     );
-    await metaReader.toFile(resizedImagePath);
-    fse.removeSync(sourceFilePath);
-    const upload = await this.uploadFileWidthPath(bucket, newPath, resizedImagePath, {
-      'Content-Type': mimetype,
-    });
-    // delete resized image
-    fse.removeSync(resizedImagePath);
-    return upload.path;
+    try {
+      await pipeline(stream as Readable, fse.createWriteStream(sourceFilePath));
+      const metaReader = sharp(sourceFilePath, { failOn: 'none', unlimited: true })
+        .rotate()
+        .resize(width, height);
+      await metaReader.toFile(resizedImagePath);
+      const upload = await this.uploadFileWidthPath(bucket, newPath, resizedImagePath, {
+        'Content-Type': mimetype,
+      });
+      return upload.path;
+    } finally {
+      fse.removeSync(sourceFilePath);
+      fse.removeSync(resizedImagePath);
+    }
   }
 
   async downloadFile(bucket: string, path: string): Promise<Readable> {
@@ -488,27 +494,75 @@ export class S3Storage implements StorageAdapter {
     );
   }
 
+  private collectListedPage(
+    page: {
+      Contents?: { Key?: string; Size?: number; ETag?: string }[];
+      CommonPrefixes?: { Prefix?: string }[];
+    },
+    objects: IListObjectsResult['objects'],
+    prefixes: Set<string>
+  ) {
+    for (const obj of page.Contents ?? []) {
+      if (obj.Key) {
+        objects.push({ key: obj.Key, size: obj.Size ?? 0, etag: obj.ETag?.replace(/"/g, '') });
+      }
+    }
+    for (const common of page.CommonPrefixes ?? []) {
+      if (common.Prefix) {
+        prefixes.add(common.Prefix);
+      }
+    }
+  }
+
+  async listObjects(
+    bucket: string,
+    prefix: string,
+    options?: IListObjectsOptions
+  ): Promise<IListObjectsResult> {
+    const objects: IListObjectsResult['objects'] = [];
+    const prefixes = new Set<string>();
+    let continuationToken: string | undefined;
+    do {
+      const page = await this.s3ClientPrivateNetwork.send(
+        new ListObjectsV2Command({
+          Bucket: bucket,
+          Prefix: prefix,
+          Delimiter: options?.delimiter,
+          ContinuationToken: continuationToken,
+        })
+      );
+      this.collectListedPage(page, objects, prefixes);
+      continuationToken = page.IsTruncated ? page.NextContinuationToken : undefined;
+    } while (continuationToken);
+    return { objects, prefixes: [...prefixes] };
+  }
+
   async deleteDir(bucket: string, path: string, throwError: boolean = true) {
     const prefix = path.endsWith('/') ? path : `${path}/`;
 
-    const { Contents } = await this.s3ClientPrivateNetwork.send(
-      new ListObjectsV2Command({
-        Bucket: bucket,
-        Prefix: prefix,
-      })
-    );
-
-    if (!Contents || Contents.length === 0) return;
-
     try {
-      await this.s3ClientPrivateNetwork.send(
-        new DeleteObjectsCommand({
-          Bucket: bucket,
-          Delete: {
-            Objects: Contents.map((obj) => ({ Key: obj.Key! })),
-          },
-        })
-      );
+      // paginate: ListObjectsV2 and DeleteObjects both cap at 1000 keys per call
+      for (;;) {
+        const { Contents } = await this.s3ClientPrivateNetwork.send(
+          new ListObjectsV2Command({
+            Bucket: bucket,
+            Prefix: prefix,
+          })
+        );
+
+        if (!Contents || Contents.length === 0) return;
+
+        await this.s3ClientPrivateNetwork.send(
+          new DeleteObjectsCommand({
+            Bucket: bucket,
+            Delete: {
+              Objects: Contents.map((obj) => ({ Key: obj.Key! })),
+            },
+          })
+        );
+
+        if (Contents.length < 1000) return;
+      }
     } catch (error) {
       if (!throwError) {
         return;

@@ -10,8 +10,7 @@
       "description": "OAuth Uygulamanızın adı."
     },
     "description": {
-      "label": "Açıklama",
-      "description": "OAuth Uygulamanızın kısa bir açıklaması."
+      "label": "Açıklama"
     },
     "homePageUrl": {
       "label": "Ana Sayfa URL'si",
@@ -30,10 +29,6 @@
       "label": "Geri Dönüş URL'si",
       "description": "Bir kullanıcı entegrasyonunuzu yetkilendirdikten sonra yönlendirilecek tam URL.",
       "add": "Geri Dönüş URL'si Ekle"
-    },
-    "scopes": {
-      "label": "İzinler",
-      "description": "OAuth Uygulamanızın ihtiyaç duyduğu izinler."
     },
     "secret": {
       "label": "İstemci gizli anahtarları",

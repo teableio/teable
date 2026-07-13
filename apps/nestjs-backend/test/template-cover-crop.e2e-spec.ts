@@ -1,5 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import fs from 'fs';
+import { pipeline } from 'node:stream/promises';
 import path from 'path';
 import type { INestApplication } from '@nestjs/common';
 import { generateAttachmentId, getRandomString } from '@teable/core';
@@ -15,6 +16,7 @@ import {
   UploadType,
 } from '@teable/openapi';
 import type { ITemplateCoverRo } from '@teable/openapi';
+import sharp from 'sharp';
 import { ATTACHMENT_LG_THUMBNAIL_HEIGHT } from '../src/features/attachments/constant';
 import StorageAdapter from '../src/features/attachments/plugins/adapter';
 import { deleteSpace, initApp } from './utils/init-app';
@@ -371,6 +373,87 @@ describe('Template Cover Crop (e2e)', () => {
       // Thumbnail paths should be different from the first publish
       expect(secondSavedCover.thumbnailPath?.lg).not.toBe(firstThumbnailPaths?.lg);
       expect(secondSavedCover.thumbnailPath?.sm).not.toBe(firstThumbnailPaths?.sm);
+    });
+
+    it('should honor EXIF orientation for cover dimensions and thumbnails', async () => {
+      // Physical landscape 1600x800 JPEG with EXIF orientation 6 (90° CW rotation):
+      // it displays as portrait 800x1600
+      const physicalWidth = 1600;
+      const physicalHeight = 800;
+      const imagePath = path.join(
+        StorageAdapter.TEMPORARY_DIR,
+        `template-cover-exif-${getRandomString(8)}.jpg`
+      );
+      await sharp({
+        create: {
+          width: physicalWidth,
+          height: physicalHeight,
+          channels: 3,
+          background: { r: 74, g: 144, b: 217 },
+        },
+      })
+        .jpeg()
+        .withMetadata({ orientation: 6 })
+        .toFile(imagePath);
+
+      let notifyData;
+      try {
+        const stats = fs.statSync(imagePath);
+        const signatureResult = await getSignature({
+          type: UploadType.Template,
+          contentType: 'image/jpeg',
+          contentLength: stats.size,
+        });
+        const { token, requestHeaders } = signatureResult.data;
+        await uploadFile(token, fs.createReadStream(imagePath), requestHeaders);
+        notifyData = (await notify(token, undefined, 'cover-exif.jpg')).data;
+      } finally {
+        if (fs.existsSync(imagePath)) {
+          fs.unlinkSync(imagePath);
+        }
+      }
+
+      // Upload metadata must record display-oriented dimensions (swapped for orientation 6)
+      expect(notifyData.width).toBe(physicalHeight);
+      expect(notifyData.height).toBe(physicalWidth);
+
+      const cover: ITemplateCoverRo = {
+        id: generateAttachmentId(),
+        name: 'cover-exif.jpg',
+        token: notifyData.token,
+        size: notifyData.size,
+        url: notifyData.url,
+        path: notifyData.path,
+        mimetype: notifyData.mimetype,
+        width: notifyData.width,
+        height: notifyData.height,
+      };
+
+      const result = await publishBase(baseId, {
+        title: 'Test Template with EXIF-rotated Cover',
+        description: 'Testing EXIF orientation handling in cover thumbnails',
+        cover,
+      });
+      expect(result.status).toBe(201);
+
+      const template = await prismaService.txClient().template.findFirst({
+        where: { baseId },
+        select: { cover: true },
+      });
+      const savedCover = JSON.parse(template!.cover as string) as ITemplateCoverRo;
+      expect(savedCover.thumbnailPath?.lg).toBeDefined();
+      expect(savedCover.thumbnailPath?.sm).toBeDefined();
+
+      const storage = app.get<StorageAdapter>(Symbol.for('ObjectStorage'));
+      const bucket = StorageAdapter.getBucket(UploadType.Template);
+      for (const thumbnailPath of [savedCover.thumbnailPath!.lg!, savedCover.thumbnailPath!.sm!]) {
+        const stream = await storage.downloadFile(bucket, thumbnailPath);
+        const metaReader = sharp();
+        const metadata = metaReader.metadata();
+        await pipeline(stream, metaReader);
+        const thumbnailMeta = await metadata;
+        expect(thumbnailMeta.width!).toBeLessThan(thumbnailMeta.height!);
+      }
     });
 
     it('should publish without cover successfully', async () => {

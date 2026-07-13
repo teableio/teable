@@ -4,12 +4,9 @@
     "duplicateFieldDescription": "Cross-space references are not supported. The duplicate will be converted to a single line text field.",
     "duplicateTableTitle": "Notice",
     "duplicateTableDescription": "Cross-space references are not supported. The duplicate will be converted to a single line text field.",
-    "duplicateBaseTitle": "Notice",
-    "duplicateBaseDescription": "Cross-space references are not supported. The duplicate will be converted to a single line text field.",
     "convertAndDuplicate": "Convert & duplicate"
   },
   "toolbar": {
-    "comingSoon": "Coming soon",
     "viewFilterInShare": "This view is being used in a view share link. Modifications to the view configuration will also change the view share link.",
     "createFieldButtonText": "Create a new <0/> field",
     "others": {
@@ -17,8 +14,6 @@
         "label": "Share",
         "statusLabel": "Share view to web",
         "noPermission": "No permission to share view",
-        "shareLink": "Share link",
-        "copied": "Copied",
         "genLink": "Generate new link",
         "allowCopy": "Allow viewers to copy data out of this view",
         "allowEdit": "Allow signed-in viewers to edit visible data",
@@ -33,30 +28,19 @@
         "hideToolbar": "Hide toolbar",
         "URLSetting": "URL parameters config",
         "URLSettingDescription": "Adjusting the following settings will not affect the embed code. You need to copy the code with new parameters to make it take effect",
-        "theme": "Theme",
-        "themeSystem": "System",
-        "themeLight": "Light",
-        "themeDark": "Dark",
         "cancel": "Cancel",
         "save": "Save",
         "requireLogin": "Require login submit"
       },
-      "extensions": {
-        "label": "Extensions",
-        "graph": "Graph"
-      },
       "api": {
-        "label": "API",
-        "restfulApi": "Restful API",
-        "databaseConnection": "Database connection",
         "title": "API Access",
-        "aiContext": "Copy to AI",
+        "aiContext": "AI Connect",
         "advanced": "Advanced",
+        "recommended": "Recommended",
+        "apiDocGroupTitle": "API context",
+        "apiDocGroupDescription": "Copy the document below to AI so it can understand the current table schema, fields, and API examples, then read, create, update, or delete records as requested.",
         "generatingToken": "Generating...",
-        "aiContextTitle": "AI-Friendly API Documentation",
-        "aiContextDescriptionNoToken": "Copy this documentation to your AI assistant (ChatGPT, Claude, etc.). Click 'Generate Token' to create an API token that will be automatically filled in.",
-        "aiContextDescriptionWithToken": "Copy this documentation to your AI assistant (ChatGPT, Claude, etc.). A permission-restricted API token has been generated and filled in.",
-        "generateToken": "Generate Token",
+        "generateToken": "Generate token",
         "confirmTitle": "Create API Token",
         "confirmDescription": "This will create a new API token with the following permissions for this base:",
         "scopeTableRead": "Read table info",
@@ -68,22 +52,17 @@
         "confirmExpiry": "The token will be valid for 1 year.",
         "confirmButton": "Confirm & Create",
         "tokenInfo": "Token expires: {{expiry}}",
-        "tokenCreatedSuccess": "Token created successfully! Click copy to use it with your AI assistant.",
         "copied": "Copied!",
-        "copy": "Copy",
-        "copyAIDoc": "Copy AI Doc",
-        "aiDocPreview": "AI Doc Preview",
-        "manageToken": "Manage Token",
+        "copyAIDoc": "Copy doc",
+        "aiDocPreview": "Context preview",
+        "manageToken": "Manage token",
         "openInNewTab": "Open in New Tab",
-        "advancedDesc": "Open the advanced API query builder for more customization options.",
-        "openAdvanced": "Open Query Builder",
         "queryBuilderTitle": "API Query Builder",
         "queryBuilderDesc": "Visually configure filters, sorting, and other parameters to generate ready-to-run API request code.",
         "viewApiDocs": "View Full API Docs"
       },
       "personalView": {
         "personal": "Personal",
-        "collaborative": "Collaborative",
         "tip": "After enabling, the view settings will only take effect for you personally",
         "dialog": {
           "title": "Exit personal mode",
@@ -108,12 +87,11 @@
       "one_one_duplicate": "Cannot link record(s): the target record is already linked by another record in a one-to-one relationship."
     },
     "field": {
-      "maxColumnLimit": "Table \"{{tableName}}\" can have at most {{maxFieldCount}} fields."
+      "maxColumnLimit": "Table \"{{tableName}}\" can have at most {{maxFieldCount}} fields.",
+      "requiredExistingValues": "Cannot mark field \"{{fieldName}}\" as required because existing records contain empty values."
     }
   },
   "field": {
-    "fieldManagement": "Field management",
-    "fieldManagementDesc": "Detailed properties for all fields of the current table",
     "advancedProps": "Advanced properties",
     "hide": "hide",
     "default": {
@@ -194,7 +172,6 @@
       "button": {
         "title": "Button",
         "label": "Button label",
-        "color": "Button color",
         "limitCount": "Limit clicks",
         "resetCount": "Allow reset",
         "maxCount": "Max clicks",
@@ -253,8 +230,7 @@
         }
       },
       "conditionalRollup": {
-        "title": "{{lookupFieldName}} conditional rollup",
-        "description": "Aggregate values from another table using filters."
+        "title": "{{lookupFieldName}} conditional rollup"
       }
     },
     "editor": {
@@ -271,7 +247,6 @@
       "areYouSurePerformIt": "Are you sure you want to perform it?",
       "addDescription": "Add description",
       "dbFieldName": "DB field name",
-      "description": "Description",
       "descriptionPlaceholder": "Describe this field (optional)",
       "type": "Type",
       "showAs": "Show as",
@@ -321,18 +296,10 @@
       "lastModifiedAll": "All editable fields",
       "lastModifiedSpecific": "Specific fields",
       "lastModifiedSelect": "Tracked fields",
-      "lastModifiedSelectAll": "Track all fields",
       "noEditableFields": "No editable fields available",
-      "conditionalRollup": {
-        "fieldMapping": "Add field mapping",
-        "selectBaseField": "Select base field",
-        "noMappings": "No field mappings configured yet."
-      },
       "conditionalLookup": {
         "sortLimitToggleLabel": "Sort linked records and limit the number of matches",
         "sortLabel": "Sort results",
-        "orderPlaceholder": "Select an order",
-        "clearSort": "Clear sort",
         "limitLabel": "Maximum records to include",
         "limitPlaceholder": "Leave blank to include all matches",
         "limitHint": "We only keep up to {{limit}} matching records.",
@@ -359,11 +326,7 @@
         "title": "Delete field",
         "simpleConfirm": "Are you sure you want to delete the field <b>{{fieldName}}</b>?",
         "withDependencies": "Deleting the field <b>{{fieldName}}</b> will affect the following fields:",
-        "affectedFields": "Affected fields:",
-        "fieldsToDelete": "Fields to delete ({{count}})",
-        "unviewedHint": "{{count}} field(s) not reviewed",
         "deleteCount": "Delete {{count}} fields",
-        "noAffectedFields": "This field is not referenced by other fields.",
         "riskIdentified": "Risk identified({{count}})",
         "noDependencies": "Not referenced({{count}})",
         "safeToDelete": "Safe to delete",
@@ -386,13 +349,11 @@
       "user": "Add an user to a record.",
       "date": "Enter a date (e.g. 11/12/2023) or choose one from a calendar.",
       "number": "Enter a number, or prefill each new cell with a default value.",
-      "duration": "Enter a duration of time in hours, minutes or seconds (e.g. 1:23).",
       "rating": "Add a rating on a predefined scale.",
       "formula": "Compute values based on fields.",
       "rollup": "Summarize data from linked records.",
       "conditionalRollup": "Summarize values from a linked table with conditional filters.",
       "conditionalLookup": "Show linked values that meet your filter conditions.",
-      "count": "Count the number of linked records.",
       "createdTime": "See the date and time each record was created.",
       "lastModifiedTime": "See the date and time of the most recent edit to some or all fields in a record.",
       "createdBy": "See which user created the record.",
@@ -442,7 +403,6 @@
         "improveText": "Formal, friendly, humorous...",
         "attachPromptForTag": "Not allowed to exceed three tags",
         "attachPromptForClassify": "Classify \"In Progress\" as \"No Risk\"",
-        "attachPrompt": "Please enter additional requirements",
         "prompt": "Enter / select the referenced field",
         "type": "Select AI action",
         "targetLanguage": "English, Chinese, French...",
@@ -483,7 +443,6 @@
       "autoFillConfirm": {
         "title": "Apply AI Field Configuration",
         "description": "Will generate for {{count}} rows in the current view. Task will run in the background.",
-        "generateMode": "Generation mode",
         "emptyOnlyMode": "Fill empty cells only",
         "emptyOnlyModeDesc": "Only generate for empty cells, existing content will not be overwritten",
         "allMode": "Generate entire column",
@@ -491,36 +450,28 @@
         "saveOnlyMode": "Save configuration only",
         "saveOnlyModeDesc": "Only save field configuration, no cells will be written",
         "saveConfigOnly": "Save configuration only",
-        "generate": "Generate",
         "fillEmptyCells": "Fill empty cells",
         "generateAll": "Generate all",
         "recommended": "Recommended",
         "generateFailed": "Generate failed",
-        "taskLimited": "Due to row limit, only the first {{processedCount}} rows were processed ({{rowCount}} rows matched)",
         "limitWarning": "Due to the 1,000 row limit per task, only the first 1,000 rows will be processed. You can run the task again to process remaining rows."
-      },
-      "action": {
-        "addAttachment": "Add attachment"
       }
     }
   },
   "table": {
     "newTableLabel": "New table",
     "rename": "Rename",
-    "design": "Design",
     "tableRecordHistory": "Table record history",
     "deleteConfirm": "Are you sure you want to delete \"{{tableName}}\" ?",
     "dbTableName": "Table name in physical database",
     "schemaName": "Schema name in physical database",
     "baseInfo": "Base info",
     "loginUserTable": "App Login",
-    "loginUserTableClickTips": "Open related app",
     "linkedApps": "Linked apps",
     "typeOfDatabase": "Type of database",
     "descriptionForTable": "Description for this table",
     "nameForTable": "Name for this table",
     "deleteTip1": "Link fields linked with this table in other tables will be deleted.",
-    "deleteTip2": "This table can be restored from the trash after deletion.",
     "loginDeleteWarning": "This table is used as a user table by the following apps. Deleting it will break their login functionality.",
     "operator": {
       "createBlank": "New table"
@@ -549,14 +500,9 @@
       "duplicateRecordsConfirmDescription": "This action will duplicate {{recordCount}} records. Are you sure you want to continue?",
       "pasteConfirmTitle": "Perform paste",
       "pasteConfirmDescription": "You are about to perform a paste that overwrites {{recordCount}} records. Are you sure you want to continue?",
-      "expandCommonDescription": "To fit your pasted data into the table, we need to add",
-      "expandColDescription": "{{count}} fields",
-      "expandRowDescription": "{{count}} records",
       "paste": "Paste",
       "deleteRecord": "Delete",
       "clear": "Clear",
-      "conjunction": "and",
-      "deleteFieldConfirmTitle": "You will delete the following fields",
       "deleting": "Deleting...",
       "duplicating": "Duplicating...",
       "deleteFailed": "Delete failed",
@@ -574,7 +520,6 @@
         "chunkFailureSummary": "{{count}} chunk(s) reported an error while the stream kept running.",
         "chunkLabel": "Chunk {{index}}",
         "rowsLabel": "{{count}} rows",
-        "partialFailureDescription": "Deleted {{deletedCount}} of {{totalCount}} records. Review chunk details in the dialog.",
         "phaseLabel": {
           "preparing": "Preparing",
           "guarding": "Checking",
@@ -593,7 +538,6 @@
         "chunkFailureSummary": "{{count}} chunk(s) reported an error while the stream kept running.",
         "chunkLabel": "Chunk {{index}}",
         "rowsLabel": "{{count}} rows",
-        "partialFailureDescription": "Duplicated {{duplicatedCount}} of {{totalCount}} records. Review chunk details in the dialog.",
         "phaseLabel": {
           "preparing": "Preparing",
           "guarding": "Checking",
@@ -612,7 +556,6 @@
         "chunkFailureSummary": "{{count}} chunk(s) reported an error while the stream kept running.",
         "chunkLabel": "Chunk {{index}}",
         "rowsLabel": "{{count}} rows",
-        "partialFailureDescription": "Processed {{processedCount}} of {{totalCount}} records. Review chunk details in the dialog.",
         "phaseLabel": {
           "preparing": "Preparing",
           "guarding": "Checking",
@@ -632,7 +575,6 @@
         "chunkFailureSummary": "{{count}} chunk(s) reported an error while the stream kept running.",
         "chunkLabel": "Chunk {{index}}",
         "rowsLabel": "{{count}} rows",
-        "partialFailureDescription": "Cleared {{clearedCount}} of {{totalCount}} records. Review chunk details in the dialog.",
         "phaseLabel": {
           "preparing": "Preparing",
           "guarding": "Checking",
@@ -655,7 +597,6 @@
         "chunkFailureSummary": "{{count}} chunk(s) reported an error while the stream kept running.",
         "chunkLabel": "Chunk {{index}}",
         "rowsLabel": "{{count}} rows",
-        "partialFailureDescription": "Restored values in {{completedCount}} of {{totalCount}} records. Review chunk details in the dialog.",
         "phaseLabel": {
           "preparing": "Preparing",
           "guarding": "Checking",
@@ -675,7 +616,6 @@
       "crossBaseCopyLoadFirst": "Please scroll to load all selected rows before copying cross-base fields."
     },
     "graph": {
-      "tableLabel": "Table label",
       "effectCells": "May effect cells",
       "estimatedTime": "Estimated time",
       "linkFieldCount": "Affects the number of linked fields"
@@ -707,8 +647,6 @@
         "manualRepairDialogReason": "Why manual repair is needed",
         "manualRepairDialogHint": "This dialog currently guides the user through the repair choices required by the rule. Execution can be added on top of this contract later.",
         "manualRepairDialogClose": "Close",
-        "manualRepairPreview": "Manual repair setup",
-        "manualRepairPreviewTip": "Manual repair is not submitted yet. This preview shows the options the rule asks the user to choose from.",
         "repairPreviewTitle": "Confirm repair details",
         "repairPreviewDescription": "These details come from the repair dry run. The repair will only execute after you confirm.",
         "repairPreviewTooltip": "Open the dry-run repair plan. The dialog will show the returned SQL, or clearly say when no SQL is available.",
@@ -778,11 +716,6 @@
           "fieldMeta": "Field metadata",
           "symmetricField": "Symmetric field relationship",
           "systemColumn": "System column \"{{columnName}}\"",
-          "systemColumnTyped": "System column \"{{columnName}}\" ({{dataType}})",
-          "systemNotNull": "NOT NULL on system column \"{{columnName}}\"",
-          "systemUnique": "UNIQUE index on system column \"{{columnName}}\"",
-          "systemPrimaryKey": "PRIMARY KEY on system column \"{{columnName}}\"",
-          "systemDefault": "Default expression on system column \"{{columnName}}\"",
           "connection": "Connection",
           "completion": "Completion",
           "unexpected": "Unexpected error"
@@ -852,7 +785,6 @@
               "resolutionDescription": "Choose which field should keep the two-way link behavior.",
               "option": {
                 "keepCurrent": "Keep the current field as the two-way link",
-                "keepDuplicate": "Keep the duplicate field as the two-way link",
                 "convertDuplicate": "Convert the duplicate field to a one-way link"
               }
             },
@@ -980,7 +912,6 @@
       "importCsvData": "Import CSV data",
       "importExcelData": "Import Microsoft Excel data",
       "cancel": "Cancel",
-      "leave": "Leave",
       "downAsCsv": "Download CSV",
       "importData": "Import data",
       "duplicate": "Duplicate",
@@ -991,7 +922,6 @@
     },
     "tips": {
       "importWayTip": "Click or drag file to this area to upload",
-      "leaveTip": "Your data will still be imported.",
       "fileExceedSizeTip": "This type file size exceeds the limit of",
       "analyzing": "analyzing",
       "importing": "Importing",
@@ -1023,25 +953,14 @@
       }
     }
   },
-  "export": {
-    "menu": {
-      "exportCsv": "Download Csv"
-    }
-  },
   "download": {
     "allAttachments": {
       "title": "Download All Attachments",
-      "loading": "Loading preview...",
       "rowsWithAttachments": "Attachment rows",
       "totalAttachments": "Attachments",
       "totalSize": "Total size",
-      "confirmTitle": "Download {{count}} files",
-      "confirmDescription": "Total size: {{size}}. The files will be compressed into a zip file.",
-      "confirm": "Download",
       "cancel": "Cancel",
       "downloading": "Downloading...",
-      "downloadingFile": "Downloading: {{fileName}}",
-      "progress": "{{downloaded}} / {{total}}",
       "completed": "Download completed",
       "cancelled": "Download cancelled",
       "noAttachments": "No attachments to download",
@@ -1131,7 +1050,6 @@
   "menu": {
     "insertRecordAbove": "Insert <input /> record above",
     "insertRecordBelow": "Insert <input /> record below",
-    "copyCells": "Copy cells",
     "deleteRecord": "Delete record",
     "deleteAllSelectedRecords": "Delete all selected records",
     "duplicateRecords": "Duplicate selected records",
@@ -1140,6 +1058,7 @@
     "insertFieldLeft": "Insert left",
     "insertFieldRight": "Insert right",
     "freezeUpField": "Freeze up to this field",
+    "freezeFieldWindowTooNarrow": "Cannot freeze to this area because the current window is too narrow",
     "hideField": "Hide field",
     "deleteField": "Delete field",
     "deleteAllSelectedFields": "Delete all selected fields",
@@ -1161,8 +1080,7 @@
     "noPermission": "You don't have permission to access the database",
     "connectionCountTip": "The maximum number of database connections is <b>{{max}}</b> and the current connections is <b>{{current}}</b>",
     "createFailed": "Please ensure that the PUBLIC_DATABASE_PROXY environment variable is set correctly",
-    "readonlyUnavailable": "Readonly database sharing is unavailable for this data database. Grant the Teable database user permission to create roles and grants, or use a target database that supports readonly roles.",
-    "helpLink": "https://help.teable.ai/en/deploy/database-connection"
+    "readonlyUnavailable": "Readonly database sharing is unavailable for this data database. Grant the Teable database user permission to create roles and grants, or use a target database that supports readonly roles."
   },
   "view": {
     "addRecord": "Add record",
@@ -1209,10 +1127,6 @@
     "resourceType": "Type",
     "deletedResource": "Resource"
   },
-  "plugin": {
-    "recent": "Recents",
-    "more": "Explore more..."
-  },
   "pluginPanel": {
     "empty": {
       "description": "No plugin panels have been added yet."
@@ -1238,30 +1152,18 @@
     }
   },
   "baseShare": {
-    "title": "Share Base",
     "shareTitle": "Share",
     "shareToWeb": "Share to web",
-    "description": "Share \"{{baseName}}\" with others",
-    "nodeShareDescription": "Share \"{{nodeName}}\" and its contents",
-    "shareLinks": "Share Links",
-    "newLink": "New Link",
-    "noShareLinks": "No share links yet",
-    "createFirstLink": "Create share link",
-    "editSettings": "Edit Settings",
     "refreshLink": "Regenerate Link",
-    "deleteLink": "Delete Link",
     "deleteConfirmTitle": "Delete Share Link",
     "deleteConfirmDescription": "This action cannot be undone. People with this link will no longer be able to access the shared base.",
     "createSuccess": "Share link created",
     "createFailed": "Failed to create share link",
-    "updateSuccess": "Share settings updated",
     "updateFailed": "Failed to update share settings",
     "deleteSuccess": "Share link deleted",
     "deleteFailed": "Failed to delete share link",
     "refreshSuccess": "Share link regenerated",
     "refreshFailed": "Failed to regenerate share link",
-    "copied": "Link copied to clipboard",
-    "shareLink": "Share link",
     "linkHolderLabel": "The person who obtained the link",
     "linkHolderCanView": "Can view",
     "linkHolderCanViewDesc": "Anyone with the link can view the data",
@@ -1278,27 +1180,9 @@
     "linkHolderCanCopyAndSave": "Can save as copy",
     "linkHolderCanCopyAndSaveDesc": "Anyone with the link can save a copy to their space",
     "editRequiresLogin": "Users must log in to edit records",
-    "passwordProtection": "Password Protection",
     "enterPassword": "Enter password",
-    "selectNodes": "Select Tables",
-    "shareEntireBase": "Share entire base",
-    "shareSelectedNodes": "Share selected nodes",
-    "shareEntireBaseDescription": "New tables and folders added to this base will be automatically shared",
-    "noNodesSelectedWarning": "Please select at least one node to share",
-    "allowSave": "Allow Save to Space",
-    "allowSaveDescription": "Allow viewers to save a copy of this base to their own space",
-    "allowCopy": "Allow Copy Data",
     "allowCopyData": "Allow viewers to copy data",
-    "allowDuplicate": "Allow viewers to duplicate",
-    "allowCopyDescription": "Allow viewers to copy table data from this shared base",
-    "selectedNodes": "{{count}} tables selected",
-    "allNodes": "All tables",
     "sharedNode": "Shared node",
-    "sharedNodeDescription": "This share link is for a specific node and its descendants",
-    "publicShareTitle": "Public share by link",
-    "publicShareCount": "{{count}} public share link(s)",
-    "noPublicShare": "No public share links",
-    "security": "Security",
     "restrictByPassword": "Restrict by password",
     "advanced": "Advanced",
     "embedConfig": "Embed config",
@@ -1310,8 +1194,7 @@
     "openLink": "Open link",
     "appPublished": "App published",
     "shareTableTab": "Share table",
-    "shareViewTab": "Share view",
-    "shareNodeTab": "Share node"
+    "shareViewTab": "Share view"
   },
   "aiChat": {
     "integrationConnect": {
@@ -1337,7 +1220,6 @@
         "nextQuestion": "Next question"
       },
       "completion": {
-        "completed": "Completed",
         "noDetails": "No details available",
         "model": "Model",
         "contextWindow": "Context Window",
@@ -1351,7 +1233,6 @@
         "commentTitle": "How could this response be better? (optional)",
         "commentPlaceholder": "e.g. missed the point, inaccurate, wrong tool…",
         "saveFailed": "Failed to save feedback",
-        "copied": "Copied",
         "copy": "Copy",
         "copyToInput": "Copy to input"
       },
@@ -1444,10 +1325,7 @@
       "other": "Other"
     },
     "context": {
-      "button": "Add node",
-      "search": "Add tables",
       "searchEmpty": "No matching context found",
-      "emptyContext": "No context to add",
       "selectionRow": "Row {{row}}",
       "selectionRows": "Row {{start}}-{{end}}",
       "selectionColumn": "Col {{col}}",
@@ -1476,8 +1354,7 @@
     },
     "meta": {
       "input": "Input",
-      "output": "Output",
-      "taskCompleted": "Task completed"
+      "output": "Output"
     },
     "attachment": {
       "pastedTextFileName": "Pasted text",
@@ -1551,9 +1428,6 @@
       "pausedHidden": "Retry paused — open this tab to reconnect.",
       "maxAttemptsReached": "Couldn't reconnect automatically. Please refresh the page manually."
     },
-    "guide": {
-      "goToScenario": "Go to scenario {{index}}"
-    },
     "initChatFailed": "Failed to initialize chat",
     "app": {
       "loadingChatHistory": "Loading chat history...",
@@ -1568,8 +1442,6 @@
       "permissionTip": "Allow microphone access.",
       "recording": "Recording...",
       "transcribing": "Transcribing...",
-      "listening": "Listening. Start speaking.",
-      "preview": "Listening: {{text}}",
       "error": {
         "microphoneDenied": "Microphone access is blocked.",
         "microphoneUnavailable": "No microphone found.",

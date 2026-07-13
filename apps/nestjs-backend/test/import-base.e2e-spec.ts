@@ -300,7 +300,7 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
     });
     it('should export table and import the table', async () => {
       const { previewUrl: url } = await awaitWithEvent(async () => {
-        await exportBase(sourceBaseId);
+        await exportBase(sourceBaseId, { includeData: false });
       });
       const previewUrl = appUrl + url;
 
@@ -566,7 +566,7 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
 
     it('converts errored lookup and rollup fields to text on import', async () => {
       const { previewUrl } = await awaitErroredExport(async () => {
-        await exportBase(erroredBaseId);
+        await exportBase(erroredBaseId, { includeData: false });
       });
 
       const attachmentService = getAttachmentService(app);
@@ -995,6 +995,22 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       return { progressEvents, result: doneEvent!.data };
     };
 
+    const permanentDeleteCanaryBase = async (baseId: string) => {
+      const prisma = app.get(PrismaService);
+      const deadline = Date.now() + 15_000;
+
+      while (Date.now() < deadline) {
+        const activeTaskCount = await prisma.computedUpdateOutbox.count({ where: { baseId } });
+        if (activeTaskCount === 0) {
+          await permanentDeleteBase(baseId);
+          return;
+        }
+        await sleep(100);
+      }
+
+      throw new Error(`Timed out waiting for computed tasks to drain for base ${baseId}`);
+    };
+
     afterEach(async () => {
       await updateSetting({
         [SettingKey.CANARY_CONFIG]: {
@@ -1004,15 +1020,15 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       });
 
       if (importedCanaryStreamBaseId) {
-        await permanentDeleteBase(importedCanaryStreamBaseId);
+        await permanentDeleteCanaryBase(importedCanaryStreamBaseId);
         importedCanaryStreamBaseId = undefined;
       }
       if (importedCanaryBaseId) {
-        await permanentDeleteBase(importedCanaryBaseId);
+        await permanentDeleteCanaryBase(importedCanaryBaseId);
         importedCanaryBaseId = undefined;
       }
       if (canarySourceBaseId) {
-        await permanentDeleteBase(canarySourceBaseId);
+        await permanentDeleteCanaryBase(canarySourceBaseId);
         canarySourceBaseId = undefined;
       }
       if (canarySpaceId) {

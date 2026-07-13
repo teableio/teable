@@ -1,5 +1,6 @@
 import type {
   IModelDefinationMap,
+  IGatewayApiModel,
   GatewayModelType,
   GatewayModelTag,
   GatewayModelProvider,
@@ -7,18 +8,7 @@ import type {
 import type { ReactNode } from 'react';
 
 // API response model structure from backend (camelCase)
-export interface IGatewayModelAPI {
-  id: string;
-  created?: number;
-  ownedBy?: GatewayModelProvider;
-  name?: string;
-  description?: string;
-  contextWindow?: number;
-  maxTokens?: number;
-  type?: GatewayModelType;
-  tags?: GatewayModelTag[];
-  pricing?: Record<string, string>; // Pricing from Vercel AI Gateway (input, output, image, etc.)
-}
+export type IGatewayModelAPI = IGatewayApiModel;
 
 export interface IModelOption {
   isInstance?: boolean;
@@ -40,6 +30,8 @@ export interface IModelOption {
   maxTokens?: number; // Maximum output tokens
   description?: string; // Model description
   i18nDescription?: { en?: string; zh?: string }; // Admin-curated i18n description
+  recommended?: boolean; // Admin-marked recommended model
+  recommendedDescription?: { en?: string; zh?: string }; // Admin-curated nudge copy
 }
 
 export interface IAIModelSelectProps {

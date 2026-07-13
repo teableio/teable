@@ -122,6 +122,13 @@ class FakeTableRepository implements ITableRepository {
     return ok([...tables]);
   }
 
+  async duplicatePhysicalRows(
+    _context: any,
+    _plan: any
+  ): Promise<Result<{ rowCount: number; recordIds: string[] }, DomainError>> {
+    return ok({ rowCount: 0, recordIds: [] });
+  }
+
   async findOne(
     _: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>
@@ -733,6 +740,53 @@ describe('DeleteByRangeStreamHandler', () => {
     expect(chunkReadCall?.options?.includeTotal).toBe(false);
     expect(eventBus.publishManyCalls).toHaveLength(1);
     expect(undoRedoService.recordEntryCalls).toHaveLength(1);
+  });
+
+  it('deletes all scoped records except excluded ids across chunks', async () => {
+    const { table, tableId, viewId } = buildTable();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const queryRepository = new FakeTableRecordQueryRepository();
+    queryRepository.records = [
+      buildRecordReadModel(0),
+      buildRecordReadModel(1),
+      buildRecordReadModel(2),
+    ];
+    queryRepository.total = queryRepository.records.length;
+    const [firstRecord, excludedRecord, lastRecord] = queryRepository.records;
+    const recordRepository = new FakeTableRecordRepository(queryRepository);
+
+    const { handler } = createHandler({
+      tableRepository,
+      queryRepository,
+      recordRepository,
+    });
+    const command = DeleteByRangeStreamCommand.create({
+      tableId: tableId.toString(),
+      viewId,
+      ranges: [[0, 0]],
+      type: 'rows',
+      targetRecordIds: [],
+      excludedTargetRecordIds: [excludedRecord!.id],
+      batchSize: 2,
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    const events = [];
+    for await (const event of result._unsafeUnwrap()) {
+      events.push(event);
+    }
+
+    expect(events.at(-1)).toMatchObject({
+      id: 'done',
+      totalCount: 2,
+      deletedCount: 2,
+      data: {
+        deletedRecordIds: [firstRecord!.id, lastRecord!.id],
+      },
+    });
+    expect(recordRepository.deleteRecordIdsByBatch).toEqual([[firstRecord!.id], [lastRecord!.id]]);
+    expect(queryRepository.records.map((record) => record.id)).toEqual([excludedRecord!.id]);
   });
 
   it('continues deleting later chunks after a chunk fails and emits error details', async () => {

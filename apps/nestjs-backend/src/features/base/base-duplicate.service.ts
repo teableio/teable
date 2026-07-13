@@ -46,7 +46,7 @@ import {
   collectCrossSpaceAffectedFieldIds,
   extractForeignTableId,
 } from './cross-space-detection.util';
-import { mergeLinkFieldTableMaps } from './utils';
+import { adaptStructureTimeZone, mergeLinkFieldTableMaps } from './utils';
 import type { ILinkFieldTableInfo, ILinkFieldTableMap } from './utils';
 
 type DuplicatedBase = Awaited<ReturnType<BaseImportService['createBaseStructure']>>['base'];
@@ -150,7 +150,7 @@ export class BaseDuplicateService {
     allowCrossBase: boolean = true,
     duplicateMode: BaseDuplicateMode = BaseDuplicateMode.Normal
   ) {
-    const { fromBaseId, spaceId, withRecords, name, baseId, nodes } = duplicateBaseRo;
+    const { fromBaseId, spaceId, withRecords, name, baseId, nodes, timeZone } = duplicateBaseRo;
     const userId = this.cls.get('user.id');
     const prisma = this.prismaService.txClient();
 
@@ -167,7 +167,8 @@ export class BaseDuplicateService {
         allowCrossBase,
         baseId,
         nodes,
-        duplicateMode
+        duplicateMode,
+        timeZone
       );
 
       ({ base } = duplicated);
@@ -265,7 +266,7 @@ export class BaseDuplicateService {
     duplicateMode: BaseDuplicateMode = BaseDuplicateMode.Normal,
     onProgress?: BaseImportProgressCallback
   ) {
-    const { fromBaseId, spaceId, withRecords, name, baseId, nodes } = duplicateBaseRo;
+    const { fromBaseId, spaceId, withRecords, name, baseId, nodes, timeZone } = duplicateBaseRo;
     const userId = this.cls.get('user.id');
     const prisma = this.prismaService.txClient();
     const skipParentNodes = duplicateMode === BaseDuplicateMode.CopyShareBase;
@@ -273,14 +274,16 @@ export class BaseDuplicateService {
 
     try {
       onProgress?.({ phase: 'structure_creating' });
-      const { structure, sourceDbTableNameByTableId } = await this.buildDuplicateStructureConfig(
-        fromBaseId,
-        name,
-        allowCrossBase,
-        nodes,
-        duplicateMode,
-        spaceId
-      );
+      const { structure: rawStructure, sourceDbTableNameByTableId } =
+        await this.buildDuplicateStructureConfig(
+          fromBaseId,
+          name,
+          allowCrossBase,
+          nodes,
+          duplicateMode,
+          spaceId
+        );
+      const structure = timeZone ? adaptStructureTimeZone(rawStructure, timeZone) : rawStructure;
 
       const sourceTableIdMap = Object.fromEntries(
         structure.tables.flatMap((table) => (table.id ? ([[table.id, table.id]] as const) : []))
@@ -316,10 +319,10 @@ export class BaseDuplicateService {
         baseId,
         duplicateMode !== BaseDuplicateMode.CopyShareBase
       );
+      // Same-DB bulk SQL (INSERT…SELECT + junction) for records whenever possible,
+      // including stream/progress mode. Row-stream hydrate remains for cross-DB only.
       const useBulkRecordCopy =
-        Boolean(withRecords) &&
-        !onProgress &&
-        (await this.isSameDataDatabaseForRecordCopy(fromBaseId, base.id));
+        Boolean(withRecords) && (await this.isSameDataDatabaseForRecordCopy(fromBaseId, base.id));
       if (withRecords) {
         await prisma.base.update({
           where: { id: base.id },
@@ -341,6 +344,7 @@ export class BaseDuplicateService {
       const commandResult = DuplicateBaseCommand.createFromSource({
         baseId: base.id,
         source,
+        // Structure always via command; row copy uses bulk SQL when same-DB.
         withRecords: Boolean(withRecords) && !useBulkRecordCopy,
         batchSize: v2DuplicateCopyBatchSize,
       });
@@ -386,6 +390,10 @@ export class BaseDuplicateService {
       );
       if (withRecords) {
         if (useBulkRecordCopy) {
+          onProgress?.({
+            phase: 'table_data_start',
+            processedRows: 0,
+          });
           recordsLength = await this.duplicateTableData(
             base.id,
             tableIdMap,
@@ -407,6 +415,11 @@ export class BaseDuplicateService {
             disconnectedLinkFieldIds
           );
           await this.persistedComputedBackfillService.recomputeForTables(Object.values(tableIdMap));
+          onProgress?.({
+            phase: 'table_data_done',
+            processedRows: recordsLength,
+            totalRows: recordsLength,
+          });
         }
         onProgress?.({
           phase: 'attachments_copying',
@@ -747,7 +760,8 @@ export class BaseDuplicateService {
     allowCrossBase?: boolean,
     baseId?: string,
     nodes?: string[],
-    duplicateMode: BaseDuplicateMode = BaseDuplicateMode.Normal
+    duplicateMode: BaseDuplicateMode = BaseDuplicateMode.Normal,
+    timeZone?: string
   ) {
     const prisma = this.prismaService.txClient();
     const baseRaw = await prisma.base.findUniqueOrThrow({
@@ -805,7 +819,7 @@ export class BaseDuplicateService {
       },
     });
 
-    const structure = await this.baseExportService.generateBaseStructConfig({
+    const rawStructure = await this.baseExportService.generateBaseStructConfig({
       baseRaw,
       tableRaws,
       fieldRaws,
@@ -820,6 +834,8 @@ export class BaseDuplicateService {
       rootNodeIds,
       destSpaceId: spaceId,
     });
+
+    const structure = timeZone ? adaptStructureTimeZone(rawStructure, timeZone) : rawStructure;
 
     this.logger.log(`base-duplicate-service: Start to getting base structure config successfully`);
 

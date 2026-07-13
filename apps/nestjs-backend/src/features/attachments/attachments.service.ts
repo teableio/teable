@@ -5,7 +5,7 @@ import { tmpdir } from 'os';
 import { join, resolve } from 'path';
 import { Readable } from 'stream';
 import { pipeline } from 'stream/promises';
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { HttpErrorCode, type IAttachmentItem } from '@teable/core';
 import { generateAttachmentId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -130,6 +130,12 @@ export class AttachmentsService {
 
   async signature(signatureRo: SignatureRo & { internal?: boolean }): Promise<SignatureVo> {
     const { type, ...presignedParams } = signatureRo;
+    // cold record-history parts are written exclusively by the backend flusher
+    // (never presigned); a client-signed upload under this prefix could forge
+    // or corrupt cold history parts and _stats.json
+    if (type === UploadType.RecordHistory) {
+      throw new BadRequestException('this upload type cannot be signed');
+    }
     const contentLength = signatureRo.contentLength;
     const MAX_FILE_SIZE = this.thresholdConfig.maxAttachmentUploadSize;
     if (contentLength > MAX_FILE_SIZE) {

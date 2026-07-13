@@ -35,9 +35,7 @@ const toSummary = (
       }
     : null;
 
-const toErrors = (
-  errors: IRestoreFieldTrashStreamErrorEvent[]
-): ISelectionActionDialogError[] =>
+const toErrors = (errors: IRestoreFieldTrashStreamErrorEvent[]): ISelectionActionDialogError[] =>
   errors.map((error) => ({
     phase: error.phase === 'restoring' ? 'processing' : error.phase,
     batchIndex: error.batchIndex,

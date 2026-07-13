@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Inject, Injectable, Optional } from '@nestjs/common';
+import { HttpException, HttpStatus, Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { CellFormat, FieldKeyType, FieldType } from '@teable/core';
 import type { IFieldRo, IFieldVo, ILinkFieldOptionsRo, IRecord } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -23,10 +23,12 @@ import { ClsService } from 'nestjs-cls';
 import { CustomHttpException, getDefaultCodeByStatus } from '../../../custom.exception';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
+import { DatabaseRouter } from '../../../global/database-router.service';
 import type { IClsStore } from '../../../types/cls';
 import { AuditScope } from '../../audit/audit-scope';
 import { Audit } from '../../audit/audit.decorator';
 import { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
+import { RecordHistoryColdStorageService } from '../../record-history-cold/record-history-cold-storage.service';
 import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migration-guard.service';
 import { V2ContainerService } from '../../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
@@ -50,10 +52,40 @@ export class TableOpenApiV2Service {
     private readonly tableDuplicateLegacyService: TableDuplicateService,
     private readonly audit: AuditScope,
     private readonly cls: ClsService<IClsStore>,
+    private readonly databaseRouter: DatabaseRouter,
+    private readonly recordHistoryColdStorage: RecordHistoryColdStorageService,
     @Optional()
     @Inject(SpaceDataDbMigrationGuardService)
     private readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService
   ) {}
+
+  private readonly logger = new Logger(TableOpenApiV2Service.name);
+
+  /**
+   * the v2 permanent-delete flow drops the physical table via the command
+   * bus but leaves record_history buffer rows and the cold prefix behind
+   * (the v1 cleanTablesRelatedData hook never runs on this path) — clean
+   * both here, best-effort: leftovers are safe (discovery skips orphan
+   * buffer rows; a stray prefix only costs storage until the reaper).
+   */
+  private async cleanupRecordHistoryAfterPermanentDelete(
+    baseId: string,
+    tableId: string
+  ): Promise<void> {
+    try {
+      const routed = await this.databaseRouter.dataPrismaForBase(baseId);
+      const dataPrisma =
+        'txClient' in routed && typeof routed.txClient === 'function' ? routed.txClient() : routed;
+      await dataPrisma.recordHistory.deleteMany({ where: { tableId } });
+    } catch (error) {
+      this.logger.warn(`failed to clean record_history buffer for ${tableId}: ${error}`);
+    }
+    await this.recordHistoryColdStorage
+      .deleteTablePrefix(tableId)
+      .catch((error) =>
+        this.logger.warn(`failed to delete cold history prefix for ${tableId}: ${error}`)
+      );
+  }
 
   private async assertBaseWritable(baseId: string) {
     await this.spaceDataDbMigrationGuard?.assertBaseWritable(baseId);
@@ -152,6 +184,9 @@ export class TableOpenApiV2Service {
     );
 
     if (result.status === 200 && result.body.ok) {
+      if (mode === 'permanent') {
+        await this.cleanupRecordHistoryAfterPermanentDelete(baseId, tableId);
+      }
       return;
     }
 

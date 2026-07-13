@@ -10,6 +10,7 @@ export enum PersonalSettingTab {
   EnvVariable = 'env-variable',
   License = 'license',
   LicensePlan = 'license-plan',
+  TeableSkill = 'teable-skill',
 }
 
 export type SettingDialogTab = string;
