@@ -495,7 +495,8 @@ export class FieldUpdateSideEffectService {
     }
 
     if (field instanceof RollupField) {
-      return field.linkFieldId().equals(updatedFieldId);
+      if (field.linkFieldId().equals(updatedFieldId)) return true;
+      return Boolean(field.config().condition()?.referencesField(updatedFieldId));
     }
 
     if (field instanceof ConditionalLookupField) {

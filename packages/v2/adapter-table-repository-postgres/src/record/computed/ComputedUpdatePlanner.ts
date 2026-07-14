@@ -1137,12 +1137,14 @@ const collectConditionalBeforeImageRequirements = (params: {
 
     const filterFieldIds = conditionalOptions.conditionFieldIds ?? [];
     const filterFieldsChanged = filterFieldIds.some((id) => changedFieldIdSet.has(id));
-    const filterFieldsInSource = filterFieldIds.every((id) => {
+    const filterFieldsInConditionalTables = filterFieldIds.every((id) => {
       const fieldMeta = params.fieldsById.get(id);
-      return fieldMeta?.tableId.equals(edge.fromTableId) ?? false;
+      return (
+        fieldMeta?.tableId.equals(edge.fromTableId) || fieldMeta?.tableId.equals(edge.toTableId)
+      );
     });
     const requiresOldMatchTracking =
-      filterFieldsChanged || params.changeType === 'delete' || !filterFieldsInSource;
+      filterFieldsChanged || params.changeType === 'delete' || !filterFieldsInConditionalTables;
 
     if (!requiresOldMatchTracking) {
       continue;
@@ -1598,7 +1600,6 @@ const resolveConditionalAllTargetRecordsReason = (params: {
   filterFieldsChanged: boolean;
   filterDto: unknown;
   changeType: 'insert' | 'update' | 'delete';
-  filterFieldsInSource: boolean;
 }): AllTargetRecordsReason => {
   if (params.filterFieldsChanged) {
     return 'conditional_filter_field_changed';
@@ -1712,9 +1713,12 @@ const buildPropagationEdges = (
       const filterFieldIds = new Set(conditionalOptions?.conditionFieldIds ?? []);
       const filterDto = conditionalOptions?.filterDto;
       const sourceTableId = edge.fromTableId.toString();
-      const filterFieldsInSource = [...filterFieldIds].every((id) => {
+      const filterFieldsInConditionalTables = [...filterFieldIds].every((id) => {
         const fieldMeta = fieldsById.get(id);
-        return fieldMeta?.tableId.toString() === sourceTableId;
+        return (
+          fieldMeta?.tableId.toString() === sourceTableId ||
+          fieldMeta?.tableId.equals(edge.toTableId)
+        );
       });
 
       // Check if any filter field was changed
@@ -1723,7 +1727,7 @@ const buildPropagationEdges = (
         beforeImageRecords.length > 0 && edge.fromTableId.equals(seedTableId);
       const requiresOldMatchTracking =
         changeType === 'delete' ||
-        !filterFieldsInSource ||
+        !filterFieldsInConditionalTables ||
         (changeType === 'update' && filterFieldsChanged);
       const isSameTableDelete =
         changeType === 'delete' &&
@@ -1782,7 +1786,6 @@ const buildPropagationEdges = (
               filterFieldsChanged,
               filterDto,
               changeType,
-              filterFieldsInSource,
             }),
           ],
           order: levels.get(toId) ?? 0,
