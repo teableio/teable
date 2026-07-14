@@ -913,6 +913,110 @@ describe('record-history cold storage', () => {
     });
   });
 
+  describe('orphan buffer cleanup', () => {
+    const makeFlusher = (opts: {
+      bufferedTables: string[];
+      liveTables: { id: string; binding?: { mode: string; state: string } | null }[];
+      bindings?: unknown[];
+      deleteCount?: number;
+      deleteThrows?: boolean;
+    }) => {
+      const executed: { sql: string; params: unknown[] }[] = [];
+      const prismaService = {
+        tableMeta: {
+          findMany: async ({ where }: any) => {
+            const ids: string[] = where.id.in;
+            return opts.liveTables
+              .filter((table) => ids.includes(table.id))
+              .map((table) => ({
+                id: table.id,
+                base: { space: { dataDbBinding: table.binding ?? null } },
+              }));
+          },
+        },
+        spaceDataDbBinding: { findMany: async () => opts.bindings ?? [] },
+      };
+      const metaFallbackDataPrismaService = {
+        $queryRawUnsafe: async () => opts.bufferedTables.map((tableId) => ({ tableId })),
+        $executeRawUnsafe: async (sql: string, ...params: unknown[]) => {
+          executed.push({ sql, params });
+          if (opts.deleteThrows) throw new Error('lock timeout');
+          return opts.deleteCount ?? 0;
+        },
+      };
+      const service = new RecordHistoryFlusherService(
+        prismaService as any,
+        metaFallbackDataPrismaService as any,
+        {} as any,
+        {} as any,
+        {} as any
+      );
+      return { service, executed };
+    };
+
+    it('sweeps orphan rows (no table_meta), sparing live and byodb-routed tables', async () => {
+      const { service, executed } = makeFlusher({
+        bufferedTables: ['tblLive', 'tblOrphan', 'tblByodb'],
+        liveTables: [
+          { id: 'tblLive', binding: null },
+          { id: 'tblByodb', binding: { mode: 'byodb', state: 'ready' } },
+        ],
+        deleteCount: 12451,
+      });
+      const cutoff = new Date('2026-07-08T00:00:00.000Z');
+      const orphanCleanup = { enabled: true, deletedRows: 0 };
+
+      const groups = await (service as any).discoverGroups(
+        { mode: 'incremental' },
+        cutoff,
+        orphanCleanup
+      );
+
+      // only the live shared table is flushed; the byodb-routed one is served
+      // elsewhere and the orphan appears in no group
+      expect(groups).toEqual([{ kind: 'shared', tableIds: ['tblLive'] }]);
+      // exactly one delete, scoped to the orphan id and bounded by the cutoff
+      expect(executed).toHaveLength(1);
+      expect(executed[0].sql).toContain('DELETE FROM "record_history"');
+      expect(executed[0].params[0]).toEqual(['tblOrphan']);
+      expect(executed[0].params[1]).toBe(cutoff);
+      expect(orphanCleanup.deletedRows).toBe(12451);
+    });
+
+    it('never deletes when the cleanup gate is off (read-only environment)', async () => {
+      const { service, executed } = makeFlusher({
+        bufferedTables: ['tblOrphan'],
+        liveTables: [],
+      });
+      const orphanCleanup = { enabled: false, deletedRows: 0 };
+
+      await (service as any).discoverGroups({ mode: 'incremental' }, new Date(), orphanCleanup);
+
+      expect(executed).toHaveLength(0);
+      expect(orphanCleanup.deletedRows).toBe(0);
+    });
+
+    it('isolates a failed orphan delete so live-table flushing still proceeds', async () => {
+      const { service, executed } = makeFlusher({
+        bufferedTables: ['tblLive', 'tblOrphan'],
+        liveTables: [{ id: 'tblLive', binding: null }],
+        deleteThrows: true,
+      });
+      const orphanCleanup = { enabled: true, deletedRows: 0 };
+
+      // a locked/timed-out orphan delete must not abort discovery
+      const groups = await (service as any).discoverGroups(
+        { mode: 'incremental' },
+        new Date('2026-07-08T00:00:00.000Z'),
+        orphanCleanup
+      );
+
+      expect(executed).toHaveLength(1);
+      expect(groups).toEqual([{ kind: 'shared', tableIds: ['tblLive'] }]);
+      expect(orphanCleanup.deletedRows).toBe(0);
+    });
+  });
+
   describe('compactor', () => {
     it('force-repairs month parts written under a mismatched collation order', async () => {
       const tableId = 'tblRepair';
@@ -1080,6 +1184,7 @@ describe('record-history cold storage', () => {
           totalParts: 0,
           totalCompressedBytes: 0,
           totalTruncatedValues: 0,
+          orphanRowsDeleted: 0,
           durationMs: 1,
           leftoverTables: 0,
           budgetExhausted: false,

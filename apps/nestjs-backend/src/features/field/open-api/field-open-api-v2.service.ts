@@ -311,6 +311,10 @@ export class FieldOpenApiV2Service {
         if (config.linkFieldId != null) lookupOptions.linkFieldId = config.linkFieldId;
         if (config.lookupFieldId != null) lookupOptions.lookupFieldId = config.lookupFieldId;
         if (config.foreignTableId != null) lookupOptions.foreignTableId = config.foreignTableId;
+        // Linked rollup filter/sort/limit live on config in v2; map back to v1 lookupOptions.
+        if (config.filter !== undefined) lookupOptions.filter = config.filter;
+        if (config.sort !== undefined) lookupOptions.sort = config.sort;
+        if (config.limit !== undefined) lookupOptions.limit = config.limit;
 
         raw.lookupOptions = lookupOptions;
         delete raw.config;
@@ -1063,6 +1067,9 @@ export class FieldOpenApiV2Service {
       const linkFieldId = opts.linkFieldId ?? lookupOpts?.linkFieldId;
       const lookupFieldId = opts.lookupFieldId ?? lookupOpts?.lookupFieldId;
       const foreignTableId = opts.foreignTableId ?? lookupOpts?.foreignTableId;
+      const filter = lookupOpts?.filter ?? opts.filter;
+      const sort = lookupOpts?.sort ?? opts.sort;
+      const limit = lookupOpts?.limit ?? opts.limit;
       const shouldIncludeConfig =
         linkFieldId != null && lookupFieldId != null && foreignTableId != null;
       return this.normalizeLegacyTimeZone({
@@ -1081,6 +1088,9 @@ export class FieldOpenApiV2Service {
                 linkFieldId,
                 lookupFieldId,
                 foreignTableId,
+                ...(filter !== undefined ? { filter } : {}),
+                ...(sort !== undefined ? { sort } : {}),
+                ...(limit !== undefined ? { limit } : {}),
               },
             }
           : {}),
@@ -2060,6 +2070,12 @@ export class FieldOpenApiV2Service {
         ro.lookupOptions && typeof ro.lookupOptions === 'object' && !Array.isArray(ro.lookupOptions)
           ? (ro.lookupOptions as Record<string, unknown>)
           : undefined;
+      const currentLookupOpts =
+        currentField?.lookupOptions &&
+        typeof currentField.lookupOptions === 'object' &&
+        !Array.isArray(currentField.lookupOptions)
+          ? (currentField.lookupOptions as Record<string, unknown>)
+          : undefined;
       const currentOpts =
         currentField?.options &&
         typeof currentField.options === 'object' &&
@@ -2081,6 +2097,43 @@ export class FieldOpenApiV2Service {
             : undefined;
       const shouldIncludeConfig =
         linkFieldId != null && lookupFieldId != null && foreignTableId != null;
+      // Filter/sort/limit for linked rollups live on lookupOptions (v1) / config (v2).
+      // When lookupOptions is present, omit-means-clear (same as regular lookup).
+      // When lookupOptions is absent, preserve current filter/sort/limit so expression-only
+      // converts do not wipe More options filters.
+      const hasFilterPatch =
+        (lookupOpts != null && Object.prototype.hasOwnProperty.call(lookupOpts, 'filter')) ||
+        Object.prototype.hasOwnProperty.call(opts, 'filter');
+      const hasSortPatch =
+        (lookupOpts != null && Object.prototype.hasOwnProperty.call(lookupOpts, 'sort')) ||
+        Object.prototype.hasOwnProperty.call(opts, 'sort');
+      const hasLimitPatch =
+        (lookupOpts != null && Object.prototype.hasOwnProperty.call(lookupOpts, 'limit')) ||
+        Object.prototype.hasOwnProperty.call(opts, 'limit');
+      const shouldClearFilter =
+        lookupOpts != null && !hasFilterPatch && currentLookupOpts?.filter !== undefined;
+      const shouldClearSort =
+        lookupOpts != null && !hasSortPatch && currentLookupOpts?.sort !== undefined;
+      const shouldClearLimit =
+        lookupOpts != null && !hasLimitPatch && currentLookupOpts?.limit !== undefined;
+      const filter = hasFilterPatch
+        ? lookupOpts?.filter ?? opts.filter
+        : shouldClearFilter
+          ? null
+          : currentLookupOpts?.filter;
+      const sort = hasSortPatch
+        ? lookupOpts?.sort ?? opts.sort
+        : shouldClearSort
+          ? null
+          : currentLookupOpts?.sort;
+      const limit = hasLimitPatch
+        ? lookupOpts?.limit ?? opts.limit
+        : shouldClearLimit
+          ? null
+          : currentLookupOpts?.limit;
+      const includeFilter = hasFilterPatch || shouldClearFilter || filter !== undefined;
+      const includeSort = hasSortPatch || shouldClearSort || sort !== undefined;
+      const includeLimit = hasLimitPatch || shouldClearLimit || limit !== undefined;
       return {
         ...base,
         type: 'rollup',
@@ -2097,6 +2150,9 @@ export class FieldOpenApiV2Service {
                 linkFieldId,
                 lookupFieldId,
                 foreignTableId,
+                ...(includeFilter ? { filter } : {}),
+                ...(includeSort ? { sort } : {}),
+                ...(includeLimit ? { limit } : {}),
               },
             }
           : {}),

@@ -245,8 +245,9 @@ export class ComputedUpdatePollingService {
           });
         }
 
-        // If we processed a full batch, poll again immediately
-        if (processed >= this.config.batchSize) {
+        // A processed task can enqueue the next computed stage. Keep draining until an
+        // empty poll proves the queue is idle instead of adding one interval per stage.
+        if (processed > 0) {
           this.logger.debug('computed:polling:continue_immediately', {
             workerId: this.config.workerId,
             batchSize: this.config.batchSize,
