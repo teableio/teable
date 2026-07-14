@@ -652,13 +652,18 @@
       }
     },
     "index": {
-      "repair": "reparar",
-      "repairTip": "Anomalías de índice detectados, lo que puede causar la degradación del rendimiento de la búsqueda. ",
-      "enableIndexTip": "Estás creando un índice. ",
-      "globalSearchTip_infinity": "Busque todos los campos, excepto la fecha, la casilla de verificación y los campos de botón",
-      "globalSearchTip_limited": "Busque todos los campos, excepto la fecha, la casilla de verificación y los campos de botón, máximo {{count}} campos",
+      "description": "Los índices pueden mejorar significativamente el rendimiento de búsqueda, especialmente cuando hay muchos datos (más de {{rowCount}} filas). La desventaja es que las operaciones de escritura son ligeramente más lentas. Si buscas con frecuencia o tienes muchos datos, recomendamos activar los índices",
+      "repair": "Actualizar índice",
+      "repairTip": "Se detectaron anomalías en el índice, lo que puede degradar el rendimiento de búsqueda. Se recomienda hacer clic en el botón Actualizar índice para actualizar el índice",
+      "enableIndexTip": "Estás creando un índice. El tiempo necesario depende del tamaño de la tabla. Durante este proceso, el rendimiento de lectura y escritura de la tabla puede verse afectado. Ten paciencia",
+      "fieldSearchTip_limited": "Cuando está desactivado, la búsqueda difusa se realiza en todos los campos. No se admiten campos de fecha, casilla de verificación ni botón. Se admiten hasta {{count}} campos",
+      "fieldSearchTip_infinity": "Cuando está desactivado, la búsqueda difusa se realiza en todos los campos. No se admiten campos de fecha, casilla de verificación ni botón",
+      "globalSearchFieldTip": "El modo de búsqueda global está activo. La búsqueda difusa se realiza en todos los campos. No se admiten campos de fecha, casilla de verificación ni botón",
+      "hideNotMatchRowTip": "Cuando está desactivado, mostrar todas las filas",
+      "autoIndexTip": "Tu tabla ha superado {{rowCount}} filas. Recomendamos activar los índices para mejorar el rendimiento de búsqueda. Activar índices puede reducir ligeramente la velocidad de escritura. Durante la creación del índice, el rendimiento de lectura/escritura de la tabla puede verse afectado. Ten paciencia",
       "enableIndex": "permitir",
-      "keepAsIs": "guarda"
+      "keepAsIs": "guarda",
+      "ignoreIndexError": "ignorar temporalmente"
     }
   },
   "import": {

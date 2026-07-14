@@ -19,11 +19,11 @@ describe('ComputedUpdatePollingService', () => {
     vi.useRealTimers();
   });
 
-  it('auto-starts and drains backlog when polling is enabled', async () => {
+  it('auto-starts and drains non-empty backlog immediately', async () => {
     vi.useFakeTimers();
 
     const worker = {
-      runOnce: vi.fn().mockResolvedValue(ok(1)),
+      runOnce: vi.fn().mockResolvedValueOnce(ok(1)).mockResolvedValue(ok(0)),
     };
     const logger = createLogger();
 
@@ -46,9 +46,14 @@ describe('ComputedUpdatePollingService', () => {
       workerId: 'poll-test',
       limit: 10,
     });
+    expect(worker.runOnce).toHaveBeenCalledTimes(2);
     expect(logger.info).toHaveBeenCalledWith(
       'computed:polling:started',
       expect.objectContaining({ workerId: 'poll-test' })
+    );
+    expect(logger.debug).toHaveBeenCalledWith(
+      'computed:polling:continue_immediately',
+      expect.objectContaining({ workerId: 'poll-test', processed: 1 })
     );
   });
 

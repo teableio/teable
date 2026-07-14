@@ -293,6 +293,9 @@ const rollupConfigSchema = z.object({
   linkFieldId: z.string(),
   foreignTableId: z.string(),
   lookupFieldId: z.string(),
+  filter: fieldConditionSchema.shape.filter,
+  sort: fieldConditionSchema.shape.sort,
+  limit: fieldConditionSchema.shape.limit,
 });
 
 const linkRelationshipSchema = z.enum(['oneOne', 'manyMany', 'oneMany', 'manyOne']);
