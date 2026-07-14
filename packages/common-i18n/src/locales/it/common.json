@@ -344,7 +344,7 @@
       "installCommandLabel": "Comando di installazione skill",
       "installPrompt": "Leggi https://github.com/teableio/agent-skills, segui la guida per aiutarmi a installare il Teable agent skill e completa l’autenticazione Teable CLI.",
       "step1Title": "Installa Skill",
-      "step1Description": "Copia questo prompt nel tuo AI Agent. Installerà il Teable skill set e aprirà il browser per completare l’autenticazione Teable CLI.",
+      "step1Description": "Copia questo prompt nel tuo AI Agent. Installerà la skill Teable e aprirà il browser per completare l’autenticazione Teable CLI.",
       "step3Title": "Prova la competenza Teable",
       "step3Description": "Dopo aver installato lo skill, prova questi prompt.",
       "tryPrompts": {
@@ -965,44 +965,44 @@
           "credit": {
             "warning80": {
               "title": "Spazio {{spaceName}} crediti IA 80 % utilizzati",
-              "message": "Il tuo spazio ha utilizzato l'80 % dei crediti IA. Considera l'upgrade o l'acquisto di crediti aggiuntivi."
+              "message": "Lo spazio {{spaceName}} ha utilizzato l'80 % dei crediti IA. Considera l'upgrade o l'acquisto di crediti aggiuntivi."
             },
             "warning90": {
               "title": "Spazio {{spaceName}} crediti IA 90 % utilizzati",
-              "message": "Il tuo spazio ha utilizzato il 90 % dei crediti IA. Aggiorna presto per evitare interruzioni."
+              "message": "Lo spazio {{spaceName}} ha utilizzato il 90 % dei crediti IA. Aggiorna presto per evitare interruzioni."
             },
             "anomaly": {
               "dailySpike": {
                 "title": "Spazio {{spaceName}}: picco insolito di crediti IA rilevato",
-                "message": "L'utilizzo di crediti IA di oggi ({{todayValue}}) è {{multiplier}}x la media giornaliera recente ({{ewma}}). Questo potrebbe indicare un'attività imprevista. Si prega di verificare l'utilizzo. Principali contributori: {{topContributors}}"
+                "message": "Spazio {{spaceName}}: l'utilizzo di crediti IA di oggi ({{todayValue}}) è {{multiplier}}x la media giornaliera recente ({{ewma}}). Questo potrebbe indicare un'attività imprevista. Si prega di verificare l'utilizzo. Principali contributori: {{topContributors}}"
               },
               "burst": {
                 "title": "Spazio {{spaceName}}: burst di crediti IA rilevato",
-                "message": "{{recentValue}} crediti IA consumati negli ultimi {{windowMinutes}} minuti, pari a {{multiplier}}x il P95 orario storico ({{hourlyP95}}). Questo potrebbe indicare un'attività imprevista. Principali contributori: {{topContributors}}"
+                "message": "Spazio {{spaceName}}: {{recentValue}} crediti IA consumati negli ultimi {{windowMinutes}} minuti, pari a {{multiplier}}x il P95 orario storico ({{hourlyP95}}). Questo potrebbe indicare un'attività imprevista. Principali contributori: {{topContributors}}"
               }
             }
           },
           "automationRun": {
             "warning80": {
               "title": "Spazio {{spaceName}} esecuzioni automazione 80 % della quota utilizzata",
-              "message": "Il tuo spazio ha utilizzato {{usedRuns}} di {{totalLimit}} esecuzioni di automazione (80 %). Considera l'upgrade del tuo piano."
+              "message": "Lo spazio {{spaceName}} ha utilizzato {{usedRuns}} di {{totalLimit}} esecuzioni di automazione (80 %). Considera l'upgrade del tuo piano."
             },
             "warning90": {
               "title": "Spazio {{spaceName}} esecuzioni automazione 90 % della quota utilizzata",
-              "message": "Il tuo spazio ha utilizzato {{usedRuns}} di {{totalLimit}} esecuzioni di automazione (90 %). Aggiorna presto per evitare interruzioni."
+              "message": "Lo spazio {{spaceName}} ha utilizzato {{usedRuns}} di {{totalLimit}} esecuzioni di automazione (90 %). Aggiorna presto per evitare interruzioni."
             },
             "gracePeriod": {
               "title": "Spazio {{spaceName}} esecuzioni automazione superate - periodo di grazia attivo",
-              "message": "La quota di esecuzioni di automazione è stata superata. Le automazioni smetteranno di funzionare e verranno disattivate tra {{remainingHours}} ore. Aggiorna il tuo piano."
+              "message": "Lo spazio {{spaceName}} ha superato la quota di esecuzioni di automazione. Le automazioni smetteranno di funzionare e verranno disattivate tra {{remainingHours}} ore. Aggiorna il tuo piano."
             },
             "anomaly": {
               "dailySpike": {
                 "title": "Spazio {{spaceName}}: picco insolito di esecuzioni automazione",
-                "message": "Le esecuzioni automazione di oggi ({{todayValue}}) sono {{multiplier}}x la media giornaliera recente ({{ewma}}). Questo potrebbe indicare un'automazione fuori controllo. Si prega di verificare i flussi di lavoro. Principali contributori: {{topContributors}}"
+                "message": "Spazio {{spaceName}}: le esecuzioni automazione di oggi ({{todayValue}}) sono {{multiplier}}x la media giornaliera recente ({{ewma}}). Questo potrebbe indicare un'automazione fuori controllo. Si prega di verificare i flussi di lavoro. Principali contributori: {{topContributors}}"
               },
               "burst": {
                 "title": "Spazio {{spaceName}}: burst di esecuzioni automazione rilevato",
-                "message": "{{recentValue}} esecuzioni automazione rilevate negli ultimi {{windowMinutes}} minuti, pari a {{multiplier}}x il P95 orario storico ({{hourlyP95}}). Questo potrebbe indicare un loop o una configurazione errata. Principali contributori: {{topContributors}}"
+                "message": "Spazio {{spaceName}}: {{recentValue}} esecuzioni automazione rilevate negli ultimi {{windowMinutes}} minuti, pari a {{multiplier}}x il P95 orario storico ({{hourlyP95}}). Questo potrebbe indicare un loop o una configurazione errata. Principali contributori: {{topContributors}}"
               }
             }
           }

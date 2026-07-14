@@ -275,7 +275,7 @@
       "installCommandLabel": "Commande d’installation du skill",
       "installPrompt": "Lis https://github.com/teableio/agent-skills, suis le guide pour m’aider à installer le Teable agent skill et termine l’authentification Teable CLI.",
       "step1Title": "Installer le Skill",
-      "step1Description": "Copiez ce prompt dans votre AI Agent. Il installera le Teable skill set et ouvrira le navigateur pour terminer l’authentification Teable CLI.",
+      "step1Description": "Copiez ce prompt dans votre AI Agent. Il installera le skill Teable et ouvrira le navigateur pour terminer l’authentification Teable CLI.",
       "step3Title": "Essayer la compétence Teable",
       "step3Description": "Une fois la compétence installée, essayez ces prompts.",
       "tryPrompts": {
@@ -965,44 +965,44 @@
           "credit": {
             "warning80": {
               "title": "Espace {{spaceName}} crédits IA 80 % utilisés",
-              "message": "Votre espace a utilisé 80 % des crédits IA. Envisagez de mettre à niveau ou d'acheter des crédits supplémentaires."
+              "message": "L'espace {{spaceName}} a utilisé 80 % des crédits IA. Envisagez de mettre à niveau ou d'acheter des crédits supplémentaires."
             },
             "warning90": {
               "title": "Espace {{spaceName}} crédits IA 90 % utilisés",
-              "message": "Votre espace a utilisé 90 % des crédits IA. Mettez à niveau bientôt pour éviter les interruptions."
+              "message": "L'espace {{spaceName}} a utilisé 90 % des crédits IA. Mettez à niveau bientôt pour éviter les interruptions."
             },
             "anomaly": {
               "dailySpike": {
                 "title": "Espace {{spaceName}} : pic inhabituel de crédits IA détecté",
-                "message": "L'utilisation de crédits IA aujourd'hui ({{todayValue}}) est {{multiplier}}x la moyenne quotidienne récente ({{ewma}}). Cela peut indiquer une activité inattendue. Veuillez vérifier votre utilisation. Principaux contributeurs : {{topContributors}}"
+                "message": "Espace {{spaceName}} : l'utilisation de crédits IA aujourd'hui ({{todayValue}}) est {{multiplier}}x la moyenne quotidienne récente ({{ewma}}). Cela peut indiquer une activité inattendue. Veuillez vérifier votre utilisation. Principaux contributeurs : {{topContributors}}"
               },
               "burst": {
                 "title": "Espace {{spaceName}} : rafale de crédits IA détectée",
-                "message": "{{recentValue}} crédits IA consommés au cours des {{windowMinutes}} dernières minutes, soit {{multiplier}}x le P95 horaire historique ({{hourlyP95}}). Cela peut indiquer une activité inattendue. Principaux contributeurs : {{topContributors}}"
+                "message": "Espace {{spaceName}} : {{recentValue}} crédits IA consommés au cours des {{windowMinutes}} dernières minutes, soit {{multiplier}}x le P95 horaire historique ({{hourlyP95}}). Cela peut indiquer une activité inattendue. Principaux contributeurs : {{topContributors}}"
               }
             }
           },
           "automationRun": {
             "warning80": {
               "title": "Espace {{spaceName}} exécutions d'automatisation 80 % du quota utilisé",
-              "message": "Votre espace a utilisé {{usedRuns}} sur {{totalLimit}} exécutions d'automatisation (80 %). Envisagez de mettre à niveau votre plan."
+              "message": "L'espace {{spaceName}} a utilisé {{usedRuns}} sur {{totalLimit}} exécutions d'automatisation (80 %). Envisagez de mettre à niveau votre plan."
             },
             "warning90": {
               "title": "Espace {{spaceName}} exécutions d'automatisation 90 % du quota utilisé",
-              "message": "Votre espace a utilisé {{usedRuns}} sur {{totalLimit}} exécutions d'automatisation (90 %). Mettez à niveau bientôt pour éviter les interruptions."
+              "message": "L'espace {{spaceName}} a utilisé {{usedRuns}} sur {{totalLimit}} exécutions d'automatisation (90 %). Mettez à niveau bientôt pour éviter les interruptions."
             },
             "gracePeriod": {
               "title": "Espace {{spaceName}} exécutions d'automatisation dépassées - période de grâce active",
-              "message": "Votre quota d'exécutions d'automatisation a été dépassé. Les automatisations cesseront de fonctionner et seront désactivées dans {{remainingHours}} heures. Veuillez mettre à niveau votre plan."
+              "message": "L'espace {{spaceName}} a dépassé son quota d'exécutions d'automatisation. Les automatisations cesseront de fonctionner et seront désactivées dans {{remainingHours}} heures. Veuillez mettre à niveau votre plan."
             },
             "anomaly": {
               "dailySpike": {
                 "title": "Espace {{spaceName}} : pic inhabituel d'exécutions d'automatisation",
-                "message": "Les exécutions d'automatisation aujourd'hui ({{todayValue}}) sont {{multiplier}}x la moyenne quotidienne récente ({{ewma}}). Cela peut indiquer une automatisation incontrôlée. Veuillez vérifier vos workflows. Principaux contributeurs : {{topContributors}}"
+                "message": "Espace {{spaceName}} : les exécutions d'automatisation aujourd'hui ({{todayValue}}) sont {{multiplier}}x la moyenne quotidienne récente ({{ewma}}). Cela peut indiquer une automatisation incontrôlée. Veuillez vérifier vos workflows. Principaux contributeurs : {{topContributors}}"
               },
               "burst": {
                 "title": "Espace {{spaceName}} : rafale d'exécutions d'automatisation détectée",
-                "message": "{{recentValue}} exécutions d'automatisation détectées au cours des {{windowMinutes}} dernières minutes, soit {{multiplier}}x le P95 horaire historique ({{hourlyP95}}). Cela peut indiquer une boucle ou une mauvaise configuration. Principaux contributeurs : {{topContributors}}"
+                "message": "Espace {{spaceName}} : {{recentValue}} exécutions d'automatisation détectées au cours des {{windowMinutes}} dernières minutes, soit {{multiplier}}x le P95 horaire historique ({{hourlyP95}}). Cela peut indiquer une boucle ou une mauvaise configuration. Principaux contributeurs : {{topContributors}}"
               }
             }
           }

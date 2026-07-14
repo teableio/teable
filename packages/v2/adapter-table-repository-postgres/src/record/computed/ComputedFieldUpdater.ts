@@ -73,6 +73,8 @@ const BEFORE_IMAGE_SNAPSHOT_COL = 'field_values';
 const SAME_TABLE_BATCH_CHUNK_TRIGGER = 1000;
 const SAME_TABLE_BATCH_CHUNK_SIZE = 500;
 const COMPUTED_UPDATE_FIELD_CHUNK_SIZE = 16;
+const DISTINCT_HOST_KEY_UNCHUNK_MAX_DIRTY_RECORDS = 50_000;
+const DISTINCT_HOST_KEY_UNCHUNK_MAX_KEYS = 5_000;
 
 const quoteIdentifier = (value: string): string => `"${value.replaceAll('"', '""')}"`;
 
@@ -1070,21 +1072,23 @@ export class ComputedFieldUpdater {
           stepSpan?.setAttribute('step.fieldChunked', shouldChunkFields ? 1 : 0);
 
           if (!queryPlans) {
-            // Lateral/lookup/mixed steps previously ran one UPDATE over the entire dirty set.
-            // Mirror the formula CTE path: when dirty fan-out is large, slice record ids so
-            // each statement stays under statement_timeout without changing lock/TX scope.
-            const chunkedRecordIds =
-              dirtyCount > SAME_TABLE_BATCH_CHUNK_TRIGGER
-                ? await this.getDirtyRecordIdChunks(db, step.tableId)
-                : [];
-            const recordIdChunks: ReadonlyArray<ReadonlyArray<string> | undefined> =
-              chunkedRecordIds.length > 1 ? chunkedRecordIds : [undefined];
+            const canProbeDistinctHostKeyAggregation =
+              dirtyCount > SAME_TABLE_BATCH_CHUNK_TRIGGER &&
+              dirtyCount <= DISTINCT_HOST_KEY_UNCHUNK_MAX_DIRTY_RECORDS &&
+              fieldIds.every((fieldId) => {
+                const fieldResult = table.getField((field) => field.id().equals(fieldId));
+                return (
+                  fieldResult.isOk() &&
+                  (fieldResult.value.type().equals(FieldType.conditionalLookup()) ||
+                    fieldResult.value.type().equals(FieldType.conditionalRollup()))
+                );
+              });
 
-            stepSpan?.setAttribute('step.lateralChunkCount', recordIdChunks.length);
-            stepSpan?.setAttribute('step.lateralChunked', recordIdChunks.length > 1 ? 1 : 0);
+            if (canProbeDistinctHostKeyAggregation) {
+              const unchunkedPlans: ComputedUpdateQueryPlan[] = [];
+              const hostKeyColumns = new Set<string>();
+              let canExecuteUnchunked = true;
 
-            queryPlans = [];
-            for (const recordIds of recordIdChunks) {
               for (const fieldChunk of fieldChunks) {
                 const builder = new ComputedTableRecordQueryBuilder(db, {
                   typeValidationStrategy: this.typeValidationStrategy,
@@ -1092,15 +1096,71 @@ export class ComputedFieldUpdater {
                 })
                   .from(table)
                   .select(fieldChunk)
-                  .withDirtyFilter({
-                    tableId: step.tableId.toString(),
-                    ...(recordIds ? { recordIds } : {}),
-                  });
+                  .withDirtyFilter({ tableId: step.tableId.toString() });
                 yield* await builder.prepare({
                   context,
                   tableRepository: this.tableRepository,
                 });
-                queryPlans.push({ selectQuery: yield* builder.build(), fieldIds: fieldChunk });
+                const selectQuery = yield* builder.build();
+                canExecuteUnchunked = canExecuteUnchunked && builder.canExecuteUnchunkedDirtySet();
+                for (const column of builder.unchunkedHostKeyColumns()) {
+                  hostKeyColumns.add(column);
+                }
+                unchunkedPlans.push({ selectQuery, fieldIds: fieldChunk });
+              }
+
+              if (canExecuteUnchunked) {
+                canExecuteUnchunked = yield* await this.hasBoundedDistinctHostKeys(
+                  db,
+                  tableName,
+                  step.tableId.toString(),
+                  [...hostKeyColumns]
+                );
+              }
+
+              if (canExecuteUnchunked) {
+                queryPlans = unchunkedPlans;
+              }
+            }
+
+            // Lateral/lookup/mixed steps previously ran one UPDATE over the entire dirty set.
+            // Mirror the formula CTE path: when dirty fan-out is large, slice record ids so
+            // each statement stays under statement_timeout without changing lock/TX scope.
+            const chunkedRecordIds = queryPlans
+              ? []
+              : dirtyCount > SAME_TABLE_BATCH_CHUNK_TRIGGER
+                ? await this.getDirtyRecordIdChunks(db, step.tableId)
+                : [];
+            const recordIdChunks: ReadonlyArray<ReadonlyArray<string> | undefined> = queryPlans
+              ? [undefined]
+              : chunkedRecordIds.length > 1
+                ? chunkedRecordIds
+                : [undefined];
+
+            stepSpan?.setAttribute('step.lateralChunkCount', recordIdChunks.length);
+            stepSpan?.setAttribute('step.lateralChunked', recordIdChunks.length > 1 ? 1 : 0);
+            stepSpan?.setAttribute('step.distinctHostKeyUnchunked', queryPlans ? 1 : 0);
+
+            if (!queryPlans) {
+              queryPlans = [];
+              for (const recordIds of recordIdChunks) {
+                for (const fieldChunk of fieldChunks) {
+                  const builder = new ComputedTableRecordQueryBuilder(db, {
+                    typeValidationStrategy: this.typeValidationStrategy,
+                    forceLookupArrayOutput: true,
+                  })
+                    .from(table)
+                    .select(fieldChunk)
+                    .withDirtyFilter({
+                      tableId: step.tableId.toString(),
+                      ...(recordIds ? { recordIds } : {}),
+                    });
+                  yield* await builder.prepare({
+                    context,
+                    tableRepository: this.tableRepository,
+                  });
+                  queryPlans.push({ selectQuery: yield* builder.build(), fieldIds: fieldChunk });
+                }
               }
             }
           }
@@ -1441,6 +1501,46 @@ export class ComputedFieldUpdater {
       return result ? Number(result.count) : 0;
     } catch {
       return 0;
+    }
+  }
+
+  private async hasBoundedDistinctHostKeys(
+    db: Kysely<DynamicDB>,
+    tableName: string,
+    tableId: string,
+    columns: ReadonlyArray<string>
+  ): Promise<Result<boolean, DomainError>> {
+    if (columns.length === 0) return ok(false);
+
+    try {
+      for (const column of columns) {
+        const hostKeyRef = sql.raw(`${quoteIdentifier('h')}.${quoteIdentifier(column)}`);
+        const query = sql`
+          select count(*)::integer as "count"
+          from (
+            select distinct ${hostKeyRef} as "__key"
+            from ${sql.raw(toQualifiedIdentifierLiteral(tableName))} as "h"
+            inner join ${sql.table(DIRTY_TABLE)} as "d"
+              on "d".${sql.raw(quoteIdentifier(DIRTY_RECORD_ID_COL))} = "h"."__id"
+            where "d".${sql.raw(quoteIdentifier(DIRTY_TABLE_ID_COL))} = ${tableId}
+            limit ${DISTINCT_HOST_KEY_UNCHUNK_MAX_KEYS + 1}
+          ) as "__keys"
+        `.compile(db);
+        const result = await db.executeQuery(query);
+        const count = Number(
+          (result.rows[0] as { count?: number | string } | undefined)?.count ?? 0
+        );
+        if (count > DISTINCT_HOST_KEY_UNCHUNK_MAX_KEYS) {
+          return ok(false);
+        }
+      }
+      return ok(true);
+    } catch (error) {
+      return err(
+        domainError.infrastructure({
+          message: `Failed to inspect conditional host-key cardinality: ${describeError(error)}`,
+        })
+      );
     }
   }
 
@@ -2242,24 +2342,6 @@ const buildGatedAllTargetSelect = (
     .distinct() as unknown as DirtySelectQuery;
 };
 
-const filterReferencesHostTableField = (value: unknown, hostTableId: string): boolean => {
-  if (Array.isArray(value)) {
-    return value.some((item) => filterReferencesHostTableField(item, hostTableId));
-  }
-
-  if (value == null || typeof value !== 'object') {
-    return false;
-  }
-
-  const record = value as Record<string, unknown>;
-  if (record.type === 'field') {
-    const tableId = record.tableId;
-    return typeof tableId !== 'string' || tableId === hostTableId;
-  }
-
-  return Object.values(record).some((item) => filterReferencesHostTableField(item, hostTableId));
-};
-
 /**
  * Build a SELECT query for dirty record propagation (without INSERT wrapper).
  * This allows combining multiple SELECT queries with UNION ALL.
@@ -2370,10 +2452,6 @@ const buildPropagationSelect = (
 
       const sourceDbName = yield* sourceTable.dbTableName().andThen((name) => name.value());
       const targetDbName = yield* targetTable.dbTableName().andThen((name) => name.value());
-      const usesHostFieldReference = filterReferencesHostTableField(
-        edge.filterCondition.filterDto,
-        edge.toTableId.toString()
-      );
 
       const currentMatchQuery = db
         .selectFrom(`${DIRTY_TABLE} as d`)
@@ -2384,19 +2462,6 @@ const buildPropagationSelect = (
         .limit(1);
 
       let matchCondition = sql<SqlBool>`exists (${currentMatchQuery})`;
-
-      let select: DirtySelectQuery | null = usesHostFieldReference
-        ? (db
-            .selectFrom(`${DIRTY_TABLE} as d`)
-            .innerJoin(`${sourceDbName} as s`, 's.__id', `d.${DIRTY_RECORD_ID_COL}`)
-            .innerJoin(`${targetDbName} as t`, (join) => join.on(filterWhere))
-            .select([
-              sql.lit(edge.toTableId.toString()).as(DIRTY_TABLE_ID_COL),
-              sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
-            ])
-            .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
-            .distinct() as unknown as DirtySelectQuery)
-        : null;
 
       if (edge.filterCondition.includeBeforeImage) {
         const beforeImageVisitor = new TableRecordConditionWhereVisitor({
@@ -2436,32 +2501,13 @@ const buildPropagationSelect = (
             (join) => join.onTrue()
           );
 
-        if (usesHostFieldReference) {
-          const beforeImageMatchSelect = beforeImageBaseQuery
-            .innerJoin(`${targetDbName} as t`, (join) => join.on(beforeFilterWhere))
-            .select([
-              sql.lit(edge.toTableId.toString()).as(DIRTY_TABLE_ID_COL),
-              sql.ref('t.__id').as(DIRTY_RECORD_ID_COL),
-            ])
-            .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
-            .distinct() as unknown as DirtySelectQuery;
+        const beforeImageMatchQuery = beforeImageBaseQuery
+          .select(sql.lit(1).as('one'))
+          .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
+          .where(beforeFilterWhere)
+          .limit(1);
 
-          select = (select as DirtySelectQuery).unionAll(
-            beforeImageMatchSelect
-          ) as DirtySelectQuery;
-        } else {
-          const beforeImageMatchQuery = beforeImageBaseQuery
-            .select(sql.lit(1).as('one'))
-            .where(`d.${DIRTY_TABLE_ID_COL}`, '=', edge.fromTableId.toString())
-            .where(beforeFilterWhere)
-            .limit(1);
-
-          matchCondition = sql<SqlBool>`(${matchCondition}) or exists (${beforeImageMatchQuery})`;
-        }
-      }
-
-      if (select) {
-        return ok({ query: select as unknown as DirtySelectQuery });
+        matchCondition = sql<SqlBool>`(${matchCondition}) or exists (${beforeImageMatchQuery})`;
       }
 
       const targetDrivenSelect = db

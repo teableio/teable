@@ -273,7 +273,7 @@
       "installCommandLabel": "Comando de instalación del skill",
       "installPrompt": "Lee https://github.com/teableio/agent-skills, sigue la guía para ayudarme a instalar el Teable agent skill y completa la autenticación de Teable CLI.",
       "step1Title": "Instalar Skill",
-      "step1Description": "Copia este prompt en tu AI Agent. Instalará el Teable skill set y abrirá el navegador para completar la autenticación de Teable CLI.",
+      "step1Description": "Copia este prompt en tu AI Agent. Instalará el skill de Teable y abrirá el navegador para completar la autenticación de Teable CLI.",
       "step3Title": "Prueba la habilidad de Teable",
       "step3Description": "Después de instalar la habilidad, prueba estos prompts.",
       "tryPrompts": {
@@ -963,44 +963,44 @@
           "credit": {
             "warning80": {
               "title": "Espacio {{spaceName}} créditos de IA 80 % usados",
-              "message": "Tu espacio ha usado el 80 % de los créditos de IA. Considera actualizar o comprar más créditos."
+              "message": "El espacio {{spaceName}} ha usado el 80 % de los créditos de IA. Considera actualizar o comprar más créditos."
             },
             "warning90": {
               "title": "Espacio {{spaceName}} créditos de IA 90 % usados",
-              "message": "Tu espacio ha usado el 90 % de los créditos de IA. Actualiza pronto para evitar interrupciones."
+              "message": "El espacio {{spaceName}} ha usado el 90 % de los créditos de IA. Actualiza pronto para evitar interrupciones."
             },
             "anomaly": {
               "dailySpike": {
                 "title": "Espacio {{spaceName}}: pico inusual de créditos de IA detectado",
-                "message": "El uso de créditos de IA de hoy ({{todayValue}}) es {{multiplier}}x el promedio diario reciente ({{ewma}}). Esto puede indicar actividad inesperada. Por favor revise su uso. Principales contribuyentes: {{topContributors}}"
+                "message": "Espacio {{spaceName}}: el uso de créditos de IA de hoy ({{todayValue}}) es {{multiplier}}x el promedio diario reciente ({{ewma}}). Esto puede indicar actividad inesperada. Por favor revise su uso. Principales contribuyentes: {{topContributors}}"
               },
               "burst": {
                 "title": "Espacio {{spaceName}}: ráfaga de créditos de IA detectada",
-                "message": "{{recentValue}} créditos de IA consumidos en los últimos {{windowMinutes}} minutos, lo que es {{multiplier}}x el P95 histórico por hora ({{hourlyP95}}). Esto puede indicar actividad inesperada. Principales contribuyentes: {{topContributors}}"
+                "message": "Espacio {{spaceName}}: {{recentValue}} créditos de IA consumidos en los últimos {{windowMinutes}} minutos, lo que es {{multiplier}}x el P95 histórico por hora ({{hourlyP95}}). Esto puede indicar actividad inesperada. Principales contribuyentes: {{topContributors}}"
               }
             }
           },
           "automationRun": {
             "warning80": {
               "title": "Espacio {{spaceName}} ejecuciones de automatización 80 % de la cuota usada",
-              "message": "Tu espacio ha usado {{usedRuns}} de {{totalLimit}} ejecuciones de automatización (80 %). Considera actualizar tu plan."
+              "message": "El espacio {{spaceName}} ha usado {{usedRuns}} de {{totalLimit}} ejecuciones de automatización (80 %). Considera actualizar tu plan."
             },
             "warning90": {
               "title": "Espacio {{spaceName}} ejecuciones de automatización 90 % de la cuota usada",
-              "message": "Tu espacio ha usado {{usedRuns}} de {{totalLimit}} ejecuciones de automatización (90 %). Actualiza pronto para evitar interrupciones."
+              "message": "El espacio {{spaceName}} ha usado {{usedRuns}} de {{totalLimit}} ejecuciones de automatización (90 %). Actualiza pronto para evitar interrupciones."
             },
             "gracePeriod": {
               "title": "Espacio {{spaceName}} ejecuciones de automatización excedidas - período de gracia activo",
-              "message": "Se ha excedido la cuota de ejecuciones de automatización. Las automatizaciones dejarán de ejecutarse y se cerrarán en {{remainingHours}} horas. Por favor, actualiza tu plan."
+              "message": "El espacio {{spaceName}} ha excedido la cuota de ejecuciones de automatización. Las automatizaciones dejarán de ejecutarse y se cerrarán en {{remainingHours}} horas. Por favor, actualiza tu plan."
             },
             "anomaly": {
               "dailySpike": {
                 "title": "Espacio {{spaceName}}: pico inusual de ejecuciones de automatización",
-                "message": "Las ejecuciones de automatización de hoy ({{todayValue}}) son {{multiplier}}x el promedio diario reciente ({{ewma}}). Esto puede indicar una automatización descontrolada. Por favor revise sus flujos de trabajo. Principales contribuyentes: {{topContributors}}"
+                "message": "Espacio {{spaceName}}: las ejecuciones de automatización de hoy ({{todayValue}}) son {{multiplier}}x el promedio diario reciente ({{ewma}}). Esto puede indicar una automatización descontrolada. Por favor revise sus flujos de trabajo. Principales contribuyentes: {{topContributors}}"
               },
               "burst": {
                 "title": "Espacio {{spaceName}}: ráfaga de ejecuciones de automatización detectada",
-                "message": "{{recentValue}} ejecuciones de automatización detectadas en los últimos {{windowMinutes}} minutos, lo que es {{multiplier}}x el P95 histórico por hora ({{hourlyP95}}). Esto puede indicar un bucle o una mala configuración. Principales contribuyentes: {{topContributors}}"
+                "message": "Espacio {{spaceName}}: {{recentValue}} ejecuciones de automatización detectadas en los últimos {{windowMinutes}} minutos, lo que es {{multiplier}}x el P95 histórico por hora ({{hourlyP95}}). Esto puede indicar un bucle o una mala configuración. Principales contribuyentes: {{topContributors}}"
               }
             }
           }

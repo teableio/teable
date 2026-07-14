@@ -17,6 +17,7 @@ import {
   DELETE_RECORD_URL,
   deleteBaseShare,
   deleteSpace,
+  EXPORT_BASE,
   GET_BASE_NODE_LIST,
   GET_BASE_NODE_TREE,
   GET_BASE_SHARE,
@@ -1632,6 +1633,46 @@ describe('BaseShareController (e2e)', () => {
         expect(error?.status).toEqual(403);
       } finally {
         await deleteSpace(space.data.id);
+      }
+    });
+
+    it('should reject cross-base access via whole-base share header', async () => {
+      const share = await createBaseShare(baseId, {});
+      createdShareIds.push(share.data.shareId);
+      const shareId = share.data.shareId;
+      await updateBaseShare(baseId, shareId, { allowEdit: true });
+
+      const attacker = await createNewUserAxios({
+        email: 'whole-base-share-attacker@test.com',
+        password: 'TestPassword123!',
+      });
+
+      const ownBaseRes = await attacker.get(urlBuilder(GET_BASE_NODE_LIST, { baseId }), {
+        headers: { [BASE_SHARE_ID_HEADER]: shareId },
+      });
+      expect(ownBaseRes.status).toEqual(200);
+
+      const victimBase = await createBase({
+        name: 'whole-base-share-victim',
+        spaceId: globalThis.testConfig.spaceId,
+      }).then((res) => res.data);
+
+      try {
+        const exportError = await getError(() =>
+          attacker.get(urlBuilder(EXPORT_BASE, { baseId: victimBase.id }), {
+            headers: { [BASE_SHARE_ID_HEADER]: shareId },
+          })
+        );
+        expect(exportError?.status).toEqual(403);
+
+        const listError = await getError(() =>
+          attacker.get(urlBuilder(GET_BASE_NODE_LIST, { baseId: victimBase.id }), {
+            headers: { [BASE_SHARE_ID_HEADER]: shareId },
+          })
+        );
+        expect(listError?.status).toEqual(403);
+      } finally {
+        await permanentDeleteBase(victimBase.id);
       }
     });
   });

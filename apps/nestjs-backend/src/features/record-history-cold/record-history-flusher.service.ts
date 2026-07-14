@@ -53,6 +53,8 @@ export interface IColdFlushRunResult {
   totalParts: number;
   totalCompressedBytes: number;
   totalTruncatedValues: number;
+  /** buffer rows of hard-deleted tables swept from the buffer this run */
+  orphanRowsDeleted: number;
   durationMs: number;
   /** tables discovered but deferred to the next run by the row budget */
   leftoverTables: number;
@@ -64,6 +66,12 @@ interface IDiscoveredGroup {
   spaceId?: string;
   bindingId?: string;
   tableIds: string[];
+}
+
+/** mutable accumulator threaded through discovery to tally orphan deletions */
+interface IOrphanCleanup {
+  enabled: boolean;
+  deletedRows: number;
 }
 
 interface ITouchedBucket {
@@ -143,9 +151,14 @@ export class RecordHistoryFlusherService {
     // multiply by the concurrency again
     const sortBudget = new SortMemoryBudget(config.sortMemoryBudgetBytes);
 
+    // orphan buffer rows (history of hard-deleted tables) are swept during
+    // discovery, on whichever db holds them, under the same delete gate as a
+    // normal flush. A manual tableIds run targets specific live tables and skips
+    // discovery, so it does not sweep.
+    const orphanCleanup: IOrphanCleanup = { enabled: deleteEnabled, deletedRows: 0 };
     const groups = options.tableIds?.length
       ? [{ kind: 'shared' as const, tableIds: options.tableIds }]
-      : await this.discoverGroups(options, cutoff);
+      : await this.discoverGroups(options, cutoff, orphanCleanup);
 
     const results: ITableFlushResult[] = [];
     const budget = { flushedRows: 0, maxRows };
@@ -201,6 +214,7 @@ export class RecordHistoryFlusherService {
       totalParts: results.reduce((sum, item) => sum + item.parts, 0),
       totalCompressedBytes: results.reduce((sum, item) => sum + item.compressedBytes, 0),
       totalTruncatedValues: results.reduce((sum, item) => sum + item.truncatedValues, 0),
+      orphanRowsDeleted: orphanCleanup.deletedRows,
       durationMs: Date.now() - startedAt.getTime(),
       leftoverTables,
       budgetExhausted: leftoverTables > 0,
@@ -299,17 +313,25 @@ export class RecordHistoryFlusherService {
    */
   private async discoverGroups(
     options: IColdFlushOptions,
-    cutoff: Date
+    cutoff: Date,
+    orphanCleanup: IOrphanCleanup
   ): Promise<IDiscoveredGroup[]> {
     const groups: IDiscoveredGroup[] = [];
 
     const sharedTables = await this.listBufferedTables(this.metaFallbackDataPrismaService);
-    const knownShared = await this.filterKnownTables(sharedTables, {
+    const shared = await this.filterKnownTables(sharedTables, {
       excludeByodbBound: true,
       ...(options.spaceIds?.length ? { spaceIds: options.spaceIds } : undefined),
     });
-    if (knownShared.length) {
-      groups.push({ kind: 'shared', tableIds: knownShared });
+    if (shared.keep.length) {
+      groups.push({ kind: 'shared', tableIds: shared.keep });
+    }
+    if (orphanCleanup.enabled && shared.orphans.length) {
+      orphanCleanup.deletedRows += await this.deleteOrphanBufferRows(
+        this.metaFallbackDataPrismaService,
+        shared.orphans,
+        cutoff
+      );
     }
 
     const bindings = await this.prismaService.spaceDataDbBinding.findMany({
@@ -322,7 +344,7 @@ export class RecordHistoryFlusherService {
     });
 
     for (const binding of bindings) {
-      const group = await this.discoverBindingGroup(binding, options, cutoff);
+      const group = await this.discoverBindingGroup(binding, options, cutoff, orphanCleanup);
       if (group) groups.push(group);
     }
 
@@ -332,7 +354,8 @@ export class RecordHistoryFlusherService {
   private async discoverBindingGroup(
     binding: { id: string; spaceId: string; lastHistoryFlushedAt: Date | null },
     options: IColdFlushOptions,
-    cutoff: Date
+    cutoff: Date,
+    orphanCleanup: IOrphanCleanup
   ): Promise<IDiscoveredGroup | undefined> {
     if (!options.ignoreBookmarks) {
       const rows = await this.prismaService.$queryRaw<
@@ -351,13 +374,23 @@ export class RecordHistoryFlusherService {
     try {
       const client = await this.dataDbClientManager.dataPrismaForSpace(binding.spaceId);
       const tableIds = await this.listBufferedTables(client);
-      const known = await this.filterKnownTables(tableIds);
-      if (known.length) {
+      const filtered = await this.filterKnownTables(tableIds);
+      // the tenant db is already awake here, so cleaning its own orphans (rows
+      // of tables deleted inside this tenant) costs nothing extra and never
+      // wakes an idle db on its own
+      if (orphanCleanup.enabled && filtered.orphans.length) {
+        orphanCleanup.deletedRows += await this.deleteOrphanBufferRows(
+          client,
+          filtered.orphans,
+          cutoff
+        );
+      }
+      if (filtered.keep.length) {
         return {
           kind: 'byodb',
           spaceId: binding.spaceId,
           bindingId: binding.id,
-          tableIds: known,
+          tableIds: filtered.keep,
         };
       }
       // nothing buffered: still advance the bookmark (to the cutoff, matching
@@ -398,8 +431,8 @@ export class RecordHistoryFlusherService {
   private async filterKnownTables(
     tableIds: string[],
     options?: { excludeByodbBound?: boolean; spaceIds?: string[] }
-  ): Promise<string[]> {
-    if (!tableIds.length) return [];
+  ): Promise<{ keep: string[]; orphans: string[] }> {
+    if (!tableIds.length) return { keep: [], orphans: [] };
     const known = await this.prismaService.tableMeta.findMany({
       where: {
         id: { in: tableIds },
@@ -423,13 +456,32 @@ export class RecordHistoryFlusherService {
         })
         .map((table) => table.id)
     );
-    const dropped = tableIds.filter((id) => !keepSet.has(id));
-    if (dropped.length) {
+    // An orphan is a buffered table_id with NO table_meta row anywhere: the
+    // table was hard-deleted, so its history is unreachable by every reader
+    // (getRecordHistory needs a live table) AND by normal flushing (discovery
+    // is table_meta-driven), leaving it stranded in the buffer forever. This is
+    // DISTINCT from a byodb-routed table, which keeps its table_meta and is
+    // merely served from another db — those are never orphaned or deleted here.
+    // A space-scoped run filters `known`, so re-check existence unfiltered to
+    // avoid misclassifying an other-space table as an orphan.
+    const existingIds = options?.spaceIds?.length
+      ? new Set(
+          (
+            await this.prismaService.tableMeta.findMany({
+              where: { id: { in: tableIds } },
+              select: { id: true },
+            })
+          ).map((table) => table.id)
+        )
+      : new Set(known.map((table) => table.id));
+    const orphans = tableIds.filter((id) => !existingIds.has(id));
+    const servedElsewhere = tableIds.filter((id) => existingIds.has(id) && !keepSet.has(id));
+    if (servedElsewhere.length) {
       this.logger.warn(
-        `cold flush skipping ${dropped.length} buffered table(s) (no table_meta or byodb-routed): ${dropped.slice(0, 5).join(',')}`
+        `cold flush skipping ${servedElsewhere.length} buffered table(s) served elsewhere (byodb/out-of-scope): ${servedElsewhere.slice(0, 5).join(',')}`
       );
     }
-    return tableIds.filter((id) => keepSet.has(id));
+    return { keep: tableIds.filter((id) => keepSet.has(id)), orphans };
   }
 
   /**
@@ -1011,12 +1063,65 @@ export class RecordHistoryFlusherService {
     );
   }
 
+  /**
+   * Delete buffered history of hard-deleted tables (no table_meta row) from the
+   * db that holds it. Unlike a live table these rows can never be tiered: normal
+   * flushing discovers work through table_meta, so it can neither upload nor
+   * delete them, and they pile up in the buffer forever (the 2026-06-30 cn
+   * leak). Dropping them loses nothing readable — getRecordHistory needs a live
+   * table — so there is no cold part to write first.
+   *
+   * The delete runs on the SAME client that listed the rows (a deleted table
+   * has no metadata to route through dataPrismaForTable), addressing
+   * record_history unqualified exactly like listBufferedTables so it lands on
+   * that client's search_path. Bounded by the flush cutoff so a table only
+   * momentarily missing from table_meta (mid-create/restore) keeps its recent
+   * rows; callers gate this on deleteEnabled, so a read-only environment
+   * sharing the db never mutates it.
+   */
+  private async deleteOrphanBufferRows(
+    client: unknown,
+    orphanTableIds: string[],
+    cutoff: Date
+  ): Promise<number> {
+    if (!orphanTableIds.length) return 0;
+    try {
+      const prisma = this.unwrapClient(client);
+      const deleted = Number(
+        await prisma.$executeRawUnsafe(
+          `DELETE FROM "record_history" WHERE "table_id" = ANY($1::text[]) AND "created_time" < $2`,
+          orphanTableIds,
+          cutoff
+        )
+      );
+      if (deleted > 0) {
+        this.logger.log(
+          `cold flush deleted ${deleted} orphan buffer row(s) from ${orphanTableIds.length} deleted table(s): ${orphanTableIds.slice(0, 5).join(',')}`
+        );
+      }
+      return deleted;
+    } catch (error) {
+      // orphan cleanup runs in discovery, before any live table is flushed, so
+      // an unbounded delete that hits a lock or the statement/transaction
+      // timeout on a large deleted-table backlog must NOT escape and abort the
+      // whole run — a per-table flush failure is merely deferred to a result,
+      // and one stuck orphan set must not stall otherwise-healthy tables. Log
+      // and move on; the orphans stay put and are retried next run.
+      this.logger.warn(
+        `cold flush orphan cleanup failed for ${orphanTableIds.length} table(s) (${orphanTableIds.slice(0, 5).join(',')}): ${error instanceof Error ? error.message : String(error)}`
+      );
+      return 0;
+    }
+  }
+
   private unwrapClient(client: unknown): {
     $queryRawUnsafe: (query: string, ...values: unknown[]) => Promise<unknown>;
+    $executeRawUnsafe: (query: string, ...values: unknown[]) => Promise<number>;
   } {
     const candidate = client as {
       txClient?: () => unknown;
       $queryRawUnsafe?: (query: string, ...values: unknown[]) => Promise<unknown>;
+      $executeRawUnsafe?: (query: string, ...values: unknown[]) => Promise<number>;
     };
     if (typeof candidate.txClient === 'function') {
       return candidate.txClient() as ReturnType<RecordHistoryFlusherService['unwrapClient']>;
