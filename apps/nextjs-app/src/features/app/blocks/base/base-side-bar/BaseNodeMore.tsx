@@ -1,5 +1,6 @@
 /* eslint-disable sonarjs/no-identical-functions */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import type { IHttpError } from '@teable/core';
 import { getUniqName } from '@teable/core';
 import { FileCsv, FileExcel, History, Code2, Download, Share2 } from '@teable/icons';
 import type {
@@ -8,6 +9,7 @@ import type {
   IDuplicateBaseNodeRo,
 } from '@teable/openapi';
 import { BaseNodeResourceType, duplicateTableCheck, SUPPORTEDTYPE } from '@teable/openapi';
+import { UsageLimitModalType, useUsageLimitModalStore } from '@teable/sdk/components/billing/store';
 import { RecordHistory } from '@teable/sdk/components/expand-record/RecordHistory';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBaseId, useBasePermission, useTables } from '@teable/sdk/hooks';
@@ -551,13 +553,28 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
     setDuplicateSetting(true);
   };
 
-  const { mutateAsync: duplicateTableFn, isPending: isLoading } = useMutation({
+  const { mutateAsync: duplicateTableFn, isPending: isLoading } = useMutation<
+    void,
+    IHttpError,
+    IDuplicateBaseNodeRo | undefined
+  >({
     mutationFn: async (ro?: IDuplicateBaseNodeRo) => onDuplicate?.(ro),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ReactQueryKeys.tableList(baseId as string),
       });
       setDuplicateSetting(false);
+    },
+    onError: (error) => {
+      // Over-limit duplication is billing feedback, not a cross-space warning.
+      if (error.status === 402) {
+        useUsageLimitModalStore.setState({
+          modalType: UsageLimitModalType.Upgrade,
+          modalOpen: true,
+        });
+        return;
+      }
+      toast.error(error.message);
     },
     // Cross-space affected-fields are surfaced inline; bypass the global toast.
     meta: { preventGlobalError: true },

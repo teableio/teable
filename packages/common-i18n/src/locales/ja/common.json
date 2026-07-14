@@ -346,7 +346,7 @@
       "installCommandLabel": "Skill インストールコマンド",
       "installPrompt": "https://github.com/teableio/agent-skills を読み、ガイドに従って Teable agent skill のインストールと Teable CLI 認証の完了を手伝ってください。",
       "step1Title": "Skill をインストール",
-      "step1Description": "このプロンプトを AI Agent にコピーしてください。Teable skill set をインストールし、ブラウザを開いて Teable CLI 認証を完了します。",
+      "step1Description": "このプロンプトを AI Agent にコピーしてください。Teable skill をインストールし、ブラウザを開いて Teable CLI 認証を完了します。",
       "step3Title": "Teable スキルを試す",
       "step3Description": "スキルのインストール後、以下のプロンプトを試してください。",
       "tryPrompts": {
@@ -967,44 +967,44 @@
           "credit": {
             "warning80": {
               "title": "スペース {{spaceName}} AIクレジット 80% 使用済み",
-              "message": "スペースのAIクレジットの80%を使用しました。アップグレードまたは追加クレジットの購入をご検討ください。"
+              "message": "スペース{{spaceName}}のAIクレジットの80%を使用しました。アップグレードまたは追加クレジットの購入をご検討ください。"
             },
             "warning90": {
               "title": "スペース {{spaceName}} AIクレジット 90% 使用済み",
-              "message": "スペースのAIクレジットの90%を使用しました。中断を避けるため、早めにアップグレードしてください。"
+              "message": "スペース{{spaceName}}のAIクレジットの90%を使用しました。中断を避けるため、早めにアップグレードしてください。"
             },
             "anomaly": {
               "dailySpike": {
                 "title": "スペース{{spaceName}}で異常なAIクレジットの急増を検出",
-                "message": "本日のAIクレジット使用量（{{todayValue}}）は、最近の日次平均（{{ewma}}）の{{multiplier}}倍です。予期しないアクティビティの可能性があります。使用状況をご確認ください。上位貢献者：{{topContributors}}"
+                "message": "スペース{{spaceName}}の本日のAIクレジット使用量（{{todayValue}}）は、最近の日次平均（{{ewma}}）の{{multiplier}}倍です。予期しないアクティビティの可能性があります。使用状況をご確認ください。上位貢献者：{{topContributors}}"
               },
               "burst": {
                 "title": "スペース{{spaceName}}でAIクレジットのバーストを検出",
-                "message": "過去{{windowMinutes}}分間に{{recentValue}}のAIクレジットが消費されました。これは過去の1時間あたりP95（{{hourlyP95}}）の{{multiplier}}倍です。予期しないアクティビティの可能性があります。上位貢献者：{{topContributors}}"
+                "message": "スペース{{spaceName}}では、過去{{windowMinutes}}分間に{{recentValue}}のAIクレジットが消費されました。これは過去の1時間あたりP95（{{hourlyP95}}）の{{multiplier}}倍です。予期しないアクティビティの可能性があります。上位貢献者：{{topContributors}}"
               }
             }
           },
           "automationRun": {
             "warning80": {
               "title": "スペース {{spaceName}} 自動化実行回数 80% 使用済み",
-              "message": "スペースの自動化実行回数が {{usedRuns}}/{{totalLimit}} 回（80%）に達しました。プランのアップグレードをご検討ください。"
+              "message": "スペース{{spaceName}}の自動化実行回数が {{usedRuns}}/{{totalLimit}} 回（80%）に達しました。プランのアップグレードをご検討ください。"
             },
             "warning90": {
               "title": "スペース {{spaceName}} 自動化実行回数 90% 使用済み",
-              "message": "スペースの自動化実行回数が {{usedRuns}}/{{totalLimit}} 回（90%）に達しました。中断を避けるため、早めにアップグレードしてください。"
+              "message": "スペース{{spaceName}}の自動化実行回数が {{usedRuns}}/{{totalLimit}} 回（90%）に達しました。中断を避けるため、早めにアップグレードしてください。"
             },
             "gracePeriod": {
               "title": "スペース {{spaceName}} 自動化実行回数超過 - 猶予期間中",
-              "message": "自動化実行回数の上限を超えました。自動化は {{remainingHours}} 時間後に停止します。プランをアップグレードしてください。"
+              "message": "スペース{{spaceName}}の自動化実行回数の上限を超えました。自動化は {{remainingHours}} 時間後に停止します。プランをアップグレードしてください。"
             },
             "anomaly": {
               "dailySpike": {
                 "title": "スペース{{spaceName}}で異常な自動化実行の急増",
-                "message": "本日の自動化実行（{{todayValue}}）は、最近の日次平均（{{ewma}}）の{{multiplier}}倍です。自動化の暴走の可能性があります。ワークフローをご確認ください。上位貢献者：{{topContributors}}"
+                "message": "スペース{{spaceName}}の本日の自動化実行（{{todayValue}}）は、最近の日次平均（{{ewma}}）の{{multiplier}}倍です。自動化の暴走の可能性があります。ワークフローをご確認ください。上位貢献者：{{topContributors}}"
               },
               "burst": {
                 "title": "スペース{{spaceName}}で自動化実行のバーストを検出",
-                "message": "過去{{windowMinutes}}分間に{{recentValue}}の自動化実行が検出されました。これは過去の1時間あたりP95（{{hourlyP95}}）の{{multiplier}}倍です。ループまたは設定ミスの可能性があります。上位貢献者：{{topContributors}}"
+                "message": "スペース{{spaceName}}では、過去{{windowMinutes}}分間に{{recentValue}}の自動化実行が検出されました。これは過去の1時間あたりP95（{{hourlyP95}}）の{{multiplier}}倍です。ループまたは設定ミスの可能性があります。上位貢献者：{{topContributors}}"
               }
             }
           }

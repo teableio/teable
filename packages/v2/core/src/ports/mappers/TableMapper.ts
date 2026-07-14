@@ -148,12 +148,6 @@ export type IRollupFieldOptionsDTO = {
   showAs?: IFormulaFieldShowAsDTO;
 };
 
-export type IRollupFieldConfigDTO = {
-  linkFieldId: string;
-  foreignTableId: string;
-  lookupFieldId: string;
-};
-
 export type IFilterItemDTO = {
   fieldId: string;
   operator: string;
@@ -172,6 +166,15 @@ export type IFieldConditionDTO = {
     fieldId: string;
     order: 'asc' | 'desc';
   };
+  limit?: number;
+};
+
+export type IRollupFieldConfigDTO = {
+  linkFieldId: string;
+  foreignTableId: string;
+  lookupFieldId: string;
+  filter?: IFieldConditionDTO['filter'];
+  sort?: IFieldConditionDTO['sort'];
   limit?: number;
 };
 

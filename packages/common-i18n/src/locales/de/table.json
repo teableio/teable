@@ -655,15 +655,18 @@
       }
     },
     "index": {
-      "description": "Indizes können die Suchleistung erheblich verbessern, insbesondere bei großen Datenmengen (über {{rowCount}} Zeilen). Der Nachteil sind etwas langsamere Schreibvorgänge. Wenn Sie häufig Suchen durchführen oder große Datenmengen haben, sollten Sie die Indizierung aktivieren.",
-      "repair": "Reparieren",
-      "repairTip": "Es wurden Indexanomalien entdeckt, die zu einer Verschlechterung der Suchleistung führen können. Es wird empfohlen, auf die Reparieren-Schaltfläche zu klicken, um den Index zu reparieren.",
-      "enableIndexTip": "Sie erstellen einen Index. Die benötigte Zeit hängt von der Größe der Tabelle ab. Während dieses Vorgangs kann die Lese- und Schreibleistung der Tabelle beeinträchtigt werden. Bitte haben Sie Geduld.",
-      "globalSearchTip_limited": "Alle Felder durchsuchen außer Datum Feld, Checkbox Feld und Button Feld, maximal {{count}} Felder",
-      "globalSearchTip_infinity": "Alle Felder durchsuchen außer Datum Feld, Checkbox Feld und Button Feld",
-      "autoIndexTip": "Ihre Tabelle hat {{rowCount}} Zeilen überschritten. Wir empfehlen, die Indizierung zu aktivieren, um die Suchleistung zu verbessern. Bitte beachten Sie, dass die Indizierung die Schreibgeschwindigkeit leicht verringern kann. Während der Indexerstellung kann die Lese-/Schreibleistung der Tabelle vorübergehend beeinträchtigt sein. Bitte haben Sie etwas Geduld.",
+      "description": "Indizes können die Suchleistung erheblich verbessern, insbesondere bei großen Datenmengen (über {{rowCount}} Zeilen). Der Nachteil sind etwas langsamere Schreibvorgänge. Wenn Sie häufig suchen oder große Datenmengen haben, empfehlen wir, Indizes zu aktivieren",
+      "repair": "Index aktualisieren",
+      "repairTip": "Indexanomalien wurden erkannt und können die Suchleistung beeinträchtigen. Es wird empfohlen, auf die Schaltfläche Index aktualisieren zu klicken, um den Index zu aktualisieren",
+      "enableIndexTip": "Sie erstellen einen Index. Die benötigte Zeit hängt von der Tabellengröße ab. Währenddessen kann die Lese- und Schreibleistung der Tabelle beeinträchtigt werden. Bitte haben Sie Geduld",
+      "fieldSearchTip_limited": "Wenn deaktiviert, wird eine unscharfe Suche über alle Felder ausgeführt. Datums-, Kontrollkästchen- und Schaltflächenfelder werden nicht unterstützt. Bis zu {{count}} Felder werden unterstützt",
+      "fieldSearchTip_infinity": "Wenn deaktiviert, wird eine unscharfe Suche über alle Felder ausgeführt. Datums-, Kontrollkästchen- und Schaltflächenfelder werden nicht unterstützt",
+      "globalSearchFieldTip": "Der globale Suchmodus ist aktiv. Die unscharfe Suche wird über alle Felder ausgeführt. Datums-, Kontrollkästchen- und Schaltflächenfelder werden nicht unterstützt",
+      "hideNotMatchRowTip": "Wenn deaktiviert, alle Zeilen anzeigen",
+      "autoIndexTip": "Ihre Tabelle hat {{rowCount}} Zeilen überschritten. Wir empfehlen, Indizes zu aktivieren, um die Suchleistung zu verbessern. Das Aktivieren von Indizes kann die Schreibgeschwindigkeit leicht verringern. Während der Indexerstellung kann die Lese-/Schreibleistung der Tabelle beeinträchtigt werden. Bitte haben Sie Geduld",
       "enableIndex": "aktivieren",
-      "keepAsIs": "beibehalten"
+      "keepAsIs": "beibehalten",
+      "ignoreIndexError": "vorübergehend ignorieren"
     }
   },
   "import": {

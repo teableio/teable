@@ -58,11 +58,7 @@ import {
   ATTR_SERVICE_VERSION,
 } from '@opentelemetry/semantic-conventions';
 import { PrismaInstrumentation } from '@prisma/instrumentation';
-import {
-  SentryPropagator,
-  SentrySpanProcessor,
-  wrapContextManagerClass,
-} from '@sentry/opentelemetry';
+import { wrapContextManagerClass } from '@sentry/opentelemetry';
 import { setTeableDbSpanAttributes, setTeableDbSpanAttributesFromSpan } from './tracing-db-context';
 
 // Use webpack's special require that bypasses bundling, falling back to standard require
@@ -221,15 +217,17 @@ if (metricsExporter) {
 
 // Smart export: deterministic decision based on traceId hash
 // No cache needed - hash function is pure and fast
-const getTraceDecision = (traceId: string): boolean => {
+const hashTraceId = (traceId: string): number => {
   // FNV-1a hash for better distribution
   let hash = 2166136261;
   for (let i = 0; i < traceId.length; i++) {
     hash ^= traceId.charCodeAt(i);
     hash = (hash * 16777619) >>> 0;
   }
-  return hash % 10000 < exportRatio * 10000;
+  return hash % 10000;
 };
+
+const getTraceDecision = (traceId: string): boolean => hashTraceId(traceId) < exportRatio * 10000;
 
 // Prisma emits ~11 spans per query (operation, client:middleware/serialize,
 // engine:query/connection/db_query/serialize/...). Keep only the spine
@@ -358,8 +356,9 @@ const teableDbSpanAttributeProcessor: SpanProcessor = {
 
 // Span processors - NoopSpanProcessor ensures trace context is always generated
 // even when no exporter is configured (needed for trace ID in logs)
+// Sentry is error-only: no SentrySpanProcessor/SentryPropagator — their
+// per-span bookkeeping is CPU-heavy under load, and SigNoz owns tracing.
 const spanProcessors = [
-  ...(hasSentry ? [new SentrySpanProcessor()] : []),
   ...(traceExporter
     ? [
         createSmartSpanProcessor(
@@ -372,8 +371,9 @@ const spanProcessors = [
   teableDbSpanAttributeProcessor,
 ];
 
-// When Sentry is enabled, use SentryPropagator and SentryContextManager to ensure
-// Sentry spans are properly correlated with OTEL traces and async context is preserved.
+// Keep SentryContextManager even in error-only mode: it forks Sentry scopes per
+// OTEL context so concurrent requests don't leak breadcrumbs/tags into each
+// other's error reports.
 const SentryContextManager = hasSentry
   ? wrapContextManagerClass(AsyncLocalStorageContextManager)
   : undefined;
@@ -431,7 +431,7 @@ const otelSDK = new opentelemetry.NodeSDK({
   logRecordProcessors: logExporter ? [new BatchLogRecordProcessor(logExporter)] : [],
   sampler: new AlwaysOnSampler(),
   contextManager: SentryContextManager ? new SentryContextManager() : undefined,
-  textMapPropagator: hasSentry ? new SentryPropagator() : undefined,
+  textMapPropagator: undefined,
   views: metricViews,
   metricReader: metricsExporter
     ? new PeriodicExportingMetricReader({
@@ -475,7 +475,7 @@ otelLogger.log(
     `traceBatch=[queue:${traceBatchMaxQueueSize}, batch:${traceBatchMaxExportBatchSize}, ` +
     `delay:${traceBatchScheduledDelayMillis}ms, timeout:${traceBatchExportTimeoutMillis}ms], ` +
     `metricsInterval=${metricExportIntervalMs}ms, ` +
-    `sentry=${hasSentry}`
+    `sentry=${hasSentry}${hasSentry ? ' (errors only)' : ''}`
 );
 
 export default otelSDK;

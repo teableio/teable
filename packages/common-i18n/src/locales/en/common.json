@@ -350,7 +350,7 @@
       "installCommandLabel": "Skill install command",
       "installPrompt": "Please read https://github.com/teableio/agent-skills, follow the guide to help me install the Teable agent skill, and complete Teable CLI authentication.",
       "step1Title": "Install Skill",
-      "step1Description": "Copy this prompt into your AI Agent. It will install the Teable skill set and open the browser to complete Teable CLI authentication.",
+      "step1Description": "Copy this prompt into your AI Agent. It will install the Teable skill and open the browser to complete Teable CLI authentication.",
       "step3Title": "Try using Teable skill",
       "step3Description": "After the skill is installed, try these prompts.",
       "tryPrompts": {
@@ -1296,44 +1296,44 @@
           "credit": {
             "warning80": {
               "title": "Space {{spaceName}} AI credits 80% used",
-              "message": "Your space has used 80% of AI credits. Consider upgrading or purchasing more credits."
+              "message": "Space {{spaceName}} has used 80% of AI credits. Consider upgrading or purchasing more credits."
             },
             "warning90": {
               "title": "Space {{spaceName}} AI credits 90% used",
-              "message": "Your space has used 90% of AI credits. Upgrade soon to avoid interruption."
+              "message": "Space {{spaceName}} has used 90% of AI credits. Upgrade soon to avoid interruption."
             },
             "anomaly": {
               "dailySpike": {
                 "title": "Space {{spaceName}} unusual AI credit spike detected",
-                "message": "Today's AI credit usage ({{todayValue}}) is {{multiplier}}x the recent daily average ({{ewma}}). This may indicate unexpected activity. Please review your usage. Top contributors: {{topContributors}}"
+                "message": "Space {{spaceName}}: today's AI credit usage ({{todayValue}}) is {{multiplier}}x the recent daily average ({{ewma}}). This may indicate unexpected activity. Please review your usage. Top contributors: {{topContributors}}"
               },
               "burst": {
                 "title": "Space {{spaceName}} AI credit burst detected",
-                "message": "{{recentValue}} AI credits consumed in the last {{windowMinutes}} minutes, which is {{multiplier}}x the historical hourly P95 ({{hourlyP95}}). This may indicate unexpected activity. Top contributors: {{topContributors}}"
+                "message": "Space {{spaceName}} consumed {{recentValue}} AI credits in the last {{windowMinutes}} minutes, which is {{multiplier}}x the historical hourly P95 ({{hourlyP95}}). This may indicate unexpected activity. Top contributors: {{topContributors}}"
               }
             }
           },
           "automationRun": {
             "warning80": {
               "title": "Space {{spaceName}} automation runs 80% quota used",
-              "message": "Your space has used {{usedRuns}} of {{totalLimit}} automation runs (80%). Consider upgrading your plan."
+              "message": "Space {{spaceName}} has used {{usedRuns}} of {{totalLimit}} automation runs (80%). Consider upgrading your plan."
             },
             "warning90": {
               "title": "Space {{spaceName}} automation runs 90% quota used",
-              "message": "Your space has used {{usedRuns}} of {{totalLimit}} automation runs (90%). Upgrade soon to avoid interruption."
+              "message": "Space {{spaceName}} has used {{usedRuns}} of {{totalLimit}} automation runs (90%). Upgrade soon to avoid interruption."
             },
             "gracePeriod": {
               "title": "Space {{spaceName}} automation runs exceeded - grace period active",
-              "message": "Your automation run quota has been exceeded. Automations will stop running and shut down after {{remainingHours}} more hours. Please upgrade your plan."
+              "message": "Space {{spaceName}} has exceeded its automation run quota. Automations will stop running and shut down after {{remainingHours}} more hours. Please upgrade your plan."
             },
             "anomaly": {
               "dailySpike": {
                 "title": "Space {{spaceName}} unusual automation run spike",
-                "message": "Today's automation runs ({{todayValue}}) are {{multiplier}}x the recent daily average ({{ewma}}). This may indicate a runaway automation. Please review your workflows. Top contributors: {{topContributors}}"
+                "message": "Space {{spaceName}}: today's automation runs ({{todayValue}}) are {{multiplier}}x the recent daily average ({{ewma}}). This may indicate a runaway automation. Please review your workflows. Top contributors: {{topContributors}}"
               },
               "burst": {
                 "title": "Space {{spaceName}} automation run burst detected",
-                "message": "{{recentValue}} automation runs detected in the last {{windowMinutes}} minutes, which is {{multiplier}}x the historical hourly P95 ({{hourlyP95}}). This may indicate a loop or misconfiguration. Top contributors: {{topContributors}}"
+                "message": "Space {{spaceName}} detected {{recentValue}} automation runs in the last {{windowMinutes}} minutes, which is {{multiplier}}x the historical hourly P95 ({{hourlyP95}}). This may indicate a loop or misconfiguration. Top contributors: {{topContributors}}"
               }
             }
           }

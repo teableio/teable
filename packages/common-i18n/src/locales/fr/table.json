@@ -646,15 +646,18 @@
       }
     },
     "index": {
-      "description": "Les index peuvent améliorer considérablement les performances de recherche, en particulier lors du traitement de grandes quantités de données (plus de {{rowCount}} lignes). L'inconvénient est que les opérations d'écriture sont légèrement plus lentes. Si vous effectuez fréquemment des recherches ou avez de grands ensembles de données, il est recommandé d'activer l'indexation.",
-      "repair": "réparer",
-      "repairTip": "Des anomalies d'index ont été détectées, ce qui peut entraîner une dégradation des performances de recherche. Il est recommandé de cliquer sur le bouton réparer pour corriger l'index",
-      "enableIndexTip": "Vous créez un index. Le temps nécessaire dépend de la taille de la table. Pendant ce processus, les performances de lecture et d'écriture de la table peuvent être affectées. Veuillez patienter.",
-      "globalSearchTip_infinity": "Rechercher dans tous les champs sauf les champs de date, de case à cocher et de bouton",
-      "globalSearchTip_limited": "Rechercher dans tous les champs sauf les champs de date, de case à cocher et de bouton, maximum {{count}} champs",
-      "autoIndexTip": "Votre table a dépassé {{rowCount}} lignes. Nous vous recommandons d'activer l'indexation pour améliorer les performances de recherche. Veuillez noter que l'indexation peut légèrement réduire la vitesse d'écriture. Pendant la création de l'index, les performances de lecture/écriture de la table peuvent être temporairement affectées. Veuillez patienter.",
+      "description": "Les index peuvent améliorer considérablement les performances de recherche, en particulier lorsque le volume de données est important (plus de {{rowCount}} lignes). L'inconvénient est que les opérations d'écriture sont légèrement plus lentes. Si vous effectuez souvent des recherches ou si le volume de données est important, nous recommandons d'activer les index",
+      "repair": "Mettre à jour l'index",
+      "repairTip": "Des anomalies d'index ont été détectées, ce qui peut dégrader les performances de recherche. Il est recommandé de cliquer sur le bouton Mettre à jour l'index pour mettre à jour l'index",
+      "enableIndexTip": "Vous créez un index. Le temps nécessaire dépend de la taille de la table. Pendant ce processus, les performances de lecture et d'écriture de la table peuvent être affectées. Veuillez patienter",
+      "fieldSearchTip_limited": "Lorsque cette option est désactivée, la recherche approximative s'effectue sur tous les champs. Les champs date, case à cocher et bouton ne sont pas pris en charge. Jusqu'à {{count}} champs sont pris en charge",
+      "fieldSearchTip_infinity": "Lorsque cette option est désactivée, la recherche approximative s'effectue sur tous les champs. Les champs date, case à cocher et bouton ne sont pas pris en charge",
+      "globalSearchFieldTip": "Le mode de recherche globale est actif. La recherche approximative s'effectue sur tous les champs. Les champs date, case à cocher et bouton ne sont pas pris en charge",
+      "hideNotMatchRowTip": "Lorsque cette option est désactivée, afficher toutes les lignes",
+      "autoIndexTip": "Votre table dépasse {{rowCount}} lignes. Nous recommandons d'activer les index pour améliorer les performances de recherche. L'activation des index peut légèrement réduire la vitesse d'écriture. Pendant la création de l'index, les performances de lecture/écriture de la table peuvent être affectées. Veuillez patienter",
       "enableIndex": "activer",
-      "keepAsIs": "laisser tel quel"
+      "keepAsIs": "laisser tel quel",
+      "ignoreIndexError": "ignorer temporairement"
     }
   },
   "import": {

@@ -4949,8 +4949,10 @@ export type I18nTranslations = {
                 "repair": string;
                 "repairTip": string;
                 "enableIndexTip": string;
-                "globalSearchTip_limited": string;
-                "globalSearchTip_infinity": string;
+                "fieldSearchTip_limited": string;
+                "fieldSearchTip_infinity": string;
+                "globalSearchFieldTip": string;
+                "hideNotMatchRowTip": string;
                 "autoIndexTip": string;
                 "enableIndex": string;
                 "keepAsIs": string;

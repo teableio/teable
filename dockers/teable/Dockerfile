@@ -125,39 +125,39 @@ WORKDIR /app
 
 RUN set -ex; \
         addgroup --system --gid 1001 nodejs; \
-        adduser --system --uid 1001 nodejs; \
+        adduser --system --uid 1001 --ingroup nodejs nodejs; \
 # Set the correct permission for local cache
         mkdir .assets; \
         mkdir .temporary; \
         chown -R nodejs:nodejs /app
 
-COPY --from=post-builder --chown=nodejs:nodejs /app/apps/nextjs-app/next.config.js \
+COPY --from=post-builder --chown=1001:1001 /app/apps/nextjs-app/next.config.js \
         /app/apps/nextjs-app/next-i18next.config.js \
         /app/apps/nextjs-app/package.json \
         /app/apps/nextjs-app/.env \
         ./apps/nextjs-app/
 
-COPY --from=post-builder --link --chown=nodejs:nodejs /app/apps/nextjs-app/.next ./apps/nextjs-app/.next
-COPY --from=post-builder --link --chown=nodejs:nodejs /app/apps/nextjs-app/node_modules ./apps/nextjs-app/node_modules
-COPY --from=post-builder --link --chown=nodejs:nodejs /app/apps/nextjs-app/public ./apps/nextjs-app/public
+COPY --from=post-builder --link --chown=1001:1001 /app/apps/nextjs-app/.next ./apps/nextjs-app/.next
+COPY --from=post-builder --link --chown=1001:1001 /app/apps/nextjs-app/node_modules ./apps/nextjs-app/node_modules
+COPY --from=post-builder --link --chown=1001:1001 /app/apps/nextjs-app/public ./apps/nextjs-app/public
 
-COPY --from=post-builder --link --chown=nodejs:nodejs /app/apps/nestjs-backend/dist ./apps/nestjs-backend/dist
-COPY --from=post-builder --link --chown=nodejs:nodejs /app/apps/nestjs-backend/node_modules ./apps/nestjs-backend/node_modules
-COPY --from=post-builder --link --chown=nodejs:nodejs /app/apps/nestjs-backend/package.json ./apps/nestjs-backend/
+COPY --from=post-builder --link --chown=1001:1001 /app/apps/nestjs-backend/dist ./apps/nestjs-backend/dist
+COPY --from=post-builder --link --chown=1001:1001 /app/apps/nestjs-backend/node_modules ./apps/nestjs-backend/node_modules
+COPY --from=post-builder --link --chown=1001:1001 /app/apps/nestjs-backend/package.json ./apps/nestjs-backend/
 
 # mv it is necessary
-COPY --from=builder --link --chown=nodejs:nodejs /app/packages/common-i18n/ ./packages/common-i18n/
+COPY --from=builder --link --chown=1001:1001 /app/packages/common-i18n/ ./packages/common-i18n/
 
-COPY --from=post-builder --link --chown=nodejs:nodejs /app/packages ./packages
-COPY --from=post-builder --link --chown=nodejs:nodejs /app/node_modules ./node_modules
-COPY --from=post-builder --link --chown=nodejs:nodejs /app/package.json ./package.json
+COPY --from=post-builder --link --chown=1001:1001 /app/packages ./packages
+COPY --from=post-builder --link --chown=1001:1001 /app/node_modules ./node_modules
+COPY --from=post-builder --link --chown=1001:1001 /app/package.json ./package.json
 
-COPY --from=post-builder --link --chown=nodejs:nodejs /app/plugins/.next/standalone/plugins ./plugins
-COPY --from=post-builder --link --chown=nodejs:nodejs /app/apps/nestjs-backend/static ./static
+COPY --from=post-builder --link --chown=1001:1001 /app/plugins/.next/standalone/plugins ./plugins
+COPY --from=post-builder --link --chown=1001:1001 /app/apps/nestjs-backend/static ./static
 
-COPY --chown=nodejs:nodejs scripts/start.sh ./scripts/start.sh
-COPY --chown=nodejs:nodejs scripts/db-migrate.mjs ./scripts/db-migrate.mjs
-COPY --chown=nodejs:nodejs scripts/wait-for ./scripts/wait-for
+COPY --chown=1001:1001 scripts/start.sh ./scripts/start.sh
+COPY --chown=1001:1001 scripts/db-migrate.mjs ./scripts/db-migrate.mjs
+COPY --chown=1001:1001 scripts/wait-for ./scripts/wait-for
 
 ENV BUILD_VERSION=$BUILD_VERSION
 

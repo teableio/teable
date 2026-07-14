@@ -1,5 +1,5 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import { timeZoneStringSchema } from '@teable/core';
+import { HttpError, timeZoneStringSchema } from '@teable/core';
 import { axios } from '../axios';
 import { registerRoute } from '../utils';
 import { z } from '../zod';
@@ -239,7 +239,13 @@ export const duplicateBaseStream = async (
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Duplicate base failed: ${response.status} ${errorText}`);
+    let errorBody: string | { message?: string };
+    try {
+      errorBody = JSON.parse(errorText);
+    } catch {
+      errorBody = errorText || `Duplicate base failed: ${response.status}`;
+    }
+    throw new HttpError(errorBody, response.status);
   }
 
   const reader = response.body?.getReader();

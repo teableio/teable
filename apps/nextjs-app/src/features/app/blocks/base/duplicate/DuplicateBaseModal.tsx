@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { IHttpError } from '@teable/core';
 import { hasPermission } from '@teable/core';
 import { Check, Database } from '@teable/icons';
 import {
@@ -11,6 +12,7 @@ import {
   type IDuplicateBaseRo,
   type IGetBaseVo,
 } from '@teable/openapi';
+import { UsageLimitModalType, useUsageLimitModalStore } from '@teable/sdk/components/billing/store';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { Spin } from '@teable/ui-lib/base';
 import {
@@ -100,7 +102,7 @@ const DuplicateBase = ({ base }: { base: IGetBaseVo }) => {
 
   const { mutateAsync: duplicateBaseMutator, isPending: isLoading } = useMutation<
     DuplicateBaseMutationResult,
-    Error,
+    IHttpError,
     DuplicateBaseMutationParams
   >({
     mutationFn: ({ useStream, onProgress, ...params }) =>
@@ -129,6 +131,14 @@ const DuplicateBase = ({ base }: { base: IGetBaseVo }) => {
       );
     },
     onError: (error) => {
+      setDuplicateProgress(null);
+      if (error.status === 402) {
+        useUsageLimitModalStore.setState({
+          modalType: UsageLimitModalType.Upgrade,
+          modalOpen: true,
+        });
+        return;
+      }
       toast.error(error.message);
     },
     // Suppress the global validation toast — we render the affected fields inline.
