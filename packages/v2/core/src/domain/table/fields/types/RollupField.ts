@@ -405,7 +405,15 @@ export class RollupField
       }
     }
 
-    return this.ensureDependencies([linkFieldId]);
+    // Include host fields referenced by filter values (field-reference filters).
+    const hostFieldIds = new Set(
+      context.hostTable.getFields().map((field) => field.id().toString())
+    );
+    const conditionFieldIds = this.configValue
+      .condition()
+      ?.referencedFieldIds()
+      .filter((fieldId) => !fieldId.equals(linkFieldId) && hostFieldIds.has(fieldId.toString()));
+    return this.ensureDependencies([linkFieldId, ...(conditionFieldIds ?? [])]);
   }
 
   private ensureDependencies(nextDependencies: ReadonlyArray<FieldId>): Result<void, DomainError> {

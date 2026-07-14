@@ -5,6 +5,7 @@ import {
   FormulaExpression,
   FieldId,
   FieldName,
+  ConditionalLookupOptions,
   LinkFieldConfig,
   LookupOptions,
   RecordId,
@@ -37,6 +38,7 @@ import {
 import { err } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
+import { createPGliteDb } from '../../../schema/visitors/__tests__/helpers/createPGliteDb';
 import type { DynamicDB } from '../../query-builder';
 import { ComputedFieldUpdater } from '../ComputedFieldUpdater';
 import { COMPUTED_UPDATE_LOCK_UNAVAILABLE_CODE } from '../ComputedUpdateLock';
@@ -649,6 +651,101 @@ const createConditionalPropagationTables = () => {
   return { baseId, sourceTable, targetTable, statusFieldId, targetFieldId };
 };
 
+const createConditionalGroupLookupTables = () => {
+  const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+  const sourceTableId = TableId.create(CONDITIONAL_SOURCE_TABLE_ID)._unsafeUnwrap();
+  const hostTableId = TableId.create(CONDITIONAL_TARGET_TABLE_ID)._unsafeUnwrap();
+  const sourceValueFieldId = FieldId.create(CONDITIONAL_NAME_FIELD_ID)._unsafeUnwrap();
+  const sourceGroupFieldId = FieldId.create(CONDITIONAL_STATUS_FIELD_ID)._unsafeUnwrap();
+  const hostGroupFieldId = FieldId.create(CONDITIONAL_TARGET_FIELD_ID)._unsafeUnwrap();
+  const conditionalLookupFieldId = FieldId.create(`fld${'4'.repeat(16)}`)._unsafeUnwrap();
+
+  const sourceBuilder = Table.builder()
+    .withId(sourceTableId)
+    .withBaseId(baseId)
+    .withName(TableName.create('ConditionalGroupSource')._unsafeUnwrap());
+  sourceBuilder
+    .field()
+    .singleLineText()
+    .withId(sourceValueFieldId)
+    .withName(FieldName.create('Value')._unsafeUnwrap())
+    .primary()
+    .done();
+  sourceBuilder
+    .field()
+    .singleLineText()
+    .withId(sourceGroupFieldId)
+    .withName(FieldName.create('Group')._unsafeUnwrap())
+    .done();
+  sourceBuilder.view().defaultGrid().done();
+  const sourceTable = sourceBuilder.build()._unsafeUnwrap();
+  sourceTable
+    .getField((field) => field.id().equals(sourceValueFieldId))
+    ._unsafeUnwrap()
+    .setDbFieldName(DbFieldName.rehydrate('col_value')._unsafeUnwrap())
+    ._unsafeUnwrap();
+  sourceTable
+    .getField((field) => field.id().equals(sourceGroupFieldId))
+    ._unsafeUnwrap()
+    .setDbFieldName(DbFieldName.rehydrate('col_group')._unsafeUnwrap())
+    ._unsafeUnwrap();
+
+  const conditionalLookupOptions = ConditionalLookupOptions.create({
+    foreignTableId: sourceTableId.toString(),
+    lookupFieldId: sourceValueFieldId.toString(),
+    condition: {
+      filter: {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: sourceGroupFieldId.toString(),
+            operator: 'is',
+            value: hostGroupFieldId.toString(),
+            isSymbol: true,
+          },
+        ],
+      },
+      limit: 100,
+    },
+  })._unsafeUnwrap();
+
+  const hostBuilder = Table.builder()
+    .withId(hostTableId)
+    .withBaseId(baseId)
+    .withName(TableName.create('ConditionalGroupHost')._unsafeUnwrap());
+  hostBuilder
+    .field()
+    .singleLineText()
+    .withId(hostGroupFieldId)
+    .withName(FieldName.create('Lookup Group')._unsafeUnwrap())
+    .primary()
+    .done();
+  hostBuilder
+    .field()
+    .conditionalLookup()
+    .withId(conditionalLookupFieldId)
+    .withName(FieldName.create('Group Values')._unsafeUnwrap())
+    .withConditionalLookupOptions(conditionalLookupOptions)
+    .withInnerField(
+      sourceTable.getField((field) => field.id().equals(sourceValueFieldId))._unsafeUnwrap()
+    )
+    .done();
+  hostBuilder.view().defaultGrid().done();
+  const hostTable = hostBuilder.build({ foreignTables: [sourceTable] })._unsafeUnwrap();
+  hostTable
+    .getField((field) => field.id().equals(hostGroupFieldId))
+    ._unsafeUnwrap()
+    .setDbFieldName(DbFieldName.rehydrate('col_lookup_group')._unsafeUnwrap())
+    ._unsafeUnwrap();
+  hostTable
+    .getField((field) => field.id().equals(conditionalLookupFieldId))
+    ._unsafeUnwrap()
+    .setDbFieldName(DbFieldName.rehydrate('col_group_values')._unsafeUnwrap())
+    ._unsafeUnwrap();
+
+  return { baseId, sourceTable, hostTable, conditionalLookupFieldId };
+};
+
 const createSequentialRecordIds = (count: number): RecordId[] =>
   Array.from({ length: count }, (_, index) =>
     RecordId.create(`rec${index.toString().padStart(16, '0')}`)._unsafeUnwrap()
@@ -1251,10 +1348,132 @@ describe('ComputedFieldUpdater', () => {
       'inner join "bseaaaaaaaaaaaaaaaa"."tbl0000000000000000" as "s"'
     );
     expect(propagationQuery?.sql).toContain(
+      'from "bseaaaaaaaaaaaaaaaa"."tbl9999999999999999" as "t"'
+    );
+    expect(propagationQuery?.sql).toContain('where (exists (');
+    expect(propagationQuery?.sql.match(/exists \(/g)).toHaveLength(2);
+    expect(propagationQuery?.sql).not.toContain('union all');
+    expect(propagationQuery?.sql).not.toContain(
       'inner join "bseaaaaaaaaaaaaaaaa"."tbl9999999999999999" as "t"'
     );
-    expect(propagationQuery?.sql).toContain('union all');
-    expect(propagationQuery?.sql).not.toContain('exists (');
+  });
+
+  it('propagates host-field conditional matches from current and before-image rows', async () => {
+    const { baseId, sourceTable, targetTable, statusFieldId, targetFieldId } =
+      createConditionalPropagationTables();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+    const currentOnlyId = RecordId.create(`rec${'1'.repeat(16)}`)._unsafeUnwrap();
+    const beforeOnlyId = RecordId.create(`rec${'2'.repeat(16)}`)._unsafeUnwrap();
+    const bothId = RecordId.create(`rec${'3'.repeat(16)}`)._unsafeUnwrap();
+    const deletedId = RecordId.create(`rec${'4'.repeat(16)}`)._unsafeUnwrap();
+    const data = await createPGliteDb();
+
+    try {
+      await data.db.schema.createSchema(BASE_ID).execute();
+      await data.db.schema
+        .createTable(`${BASE_ID}.${CONDITIONAL_SOURCE_TABLE_ID}`)
+        .addColumn('__id', 'varchar', (column) => column.primaryKey())
+        .addColumn('col_source_name', 'varchar')
+        .addColumn('col_status', 'varchar')
+        .execute();
+      await data.db.schema
+        .createTable(`${BASE_ID}.${CONDITIONAL_TARGET_TABLE_ID}`)
+        .addColumn('__id', 'varchar', (column) => column.primaryKey())
+        .addColumn('col_filtered_value', 'varchar')
+        .execute();
+
+      await data.db
+        .insertInto(`${BASE_ID}.${CONDITIONAL_SOURCE_TABLE_ID}`)
+        .values([
+          { __id: currentOnlyId.toString(), col_status: 'current-only' },
+          { __id: beforeOnlyId.toString(), col_status: 'not-before-only' },
+          { __id: bothId.toString(), col_status: 'both' },
+        ])
+        .execute();
+      await data.db
+        .insertInto(`${BASE_ID}.${CONDITIONAL_TARGET_TABLE_ID}`)
+        .values([
+          { __id: `rec${'a'.repeat(16)}`, col_filtered_value: 'current-only' },
+          { __id: `rec${'b'.repeat(16)}`, col_filtered_value: 'before-only' },
+          { __id: `rec${'c'.repeat(16)}`, col_filtered_value: 'both' },
+          { __id: `rec${'d'.repeat(16)}`, col_filtered_value: 'deleted' },
+          { __id: `rec${'e'.repeat(16)}`, col_filtered_value: 'neither' },
+        ])
+        .execute();
+
+      const plan: ComputedUpdatePlan = {
+        baseId,
+        seedTableId: sourceTable.id(),
+        seedRecordIds: [currentOnlyId, beforeOnlyId, bothId, deletedId],
+        extraSeedRecords: [],
+        beforeImageRecords: [
+          { recordId: currentOnlyId, fieldValuesByDbName: { col_status: 'not-current-only' } },
+          { recordId: beforeOnlyId, fieldValuesByDbName: { col_status: 'before-only' } },
+          { recordId: bothId, fieldValuesByDbName: { col_status: 'both' } },
+          { recordId: deletedId, fieldValuesByDbName: { col_status: 'deleted' } },
+        ],
+        steps: [{ tableId: targetTable.id(), fieldIds: [targetFieldId], level: 0 }],
+        edges: [
+          {
+            fromFieldId: statusFieldId,
+            toFieldId: targetFieldId,
+            fromTableId: sourceTable.id(),
+            toTableId: targetTable.id(),
+            propagationMode: 'conditionalFiltered',
+            filterCondition: {
+              foreignTableId: sourceTable.id(),
+              filterDto: {
+                conjunction: 'and',
+                filterSet: [
+                  {
+                    fieldId: statusFieldId.toString(),
+                    operator: 'is',
+                    value: {
+                      type: 'field',
+                      fieldId: targetFieldId.toString(),
+                      tableId: targetTable.id().toString(),
+                    },
+                  },
+                ],
+              },
+              includeBeforeImage: true,
+            },
+            order: 0,
+          },
+        ],
+        estimatedComplexity: 1,
+        changeType: 'update',
+        sameTableBatches: [],
+      };
+
+      await data.db.transaction().execute(async (trx) => {
+        const updater = new ComputedFieldUpdater(
+          createTableRepository([sourceTable, targetTable]),
+          createLogger(),
+          trx,
+          undefined,
+          createTypeValidationStrategy()
+        );
+        const result = await updater.prepareDirtyState(plan, { actorId });
+        expect(result.isOk()).toBe(true);
+
+        const dirtyTargets = await trx
+          .selectFrom('tmp_computed_dirty')
+          .select('record_id')
+          .where('table_id', '=', targetTable.id().toString())
+          .orderBy('record_id')
+          .execute();
+
+        expect(dirtyTargets.map((row) => row.record_id)).toEqual([
+          `rec${'a'.repeat(16)}`,
+          `rec${'b'.repeat(16)}`,
+          `rec${'c'.repeat(16)}`,
+          `rec${'d'.repeat(16)}`,
+        ]);
+      });
+    } finally {
+      await data.db.destroy();
+    }
   });
 
   it('generates SQL for lookup/rollup cascade updates', async () => {
@@ -1584,9 +1803,98 @@ describe('ComputedFieldUpdater', () => {
       query.sql.includes('inner join lateral')
     );
     expect(lateralUpdates).toHaveLength(3);
-    for (const query of lateralUpdates) {
+    const expectedChunkSizes = [500, 500, 1];
+    for (const [index, query] of lateralUpdates.entries()) {
       expect(query.sql).toContain('inner join "tmp_computed_dirty" as "__dirty"');
-      expect(query.sql).toMatch(/"__dirty"\."record_id" in \(/i);
+      expect(query.sql).toMatch(/"__dirty"\."record_id" = any\(\$\d+::text\[\]\)/i);
+      const recordIdParameters = query.parameters.filter(Array.isArray);
+      expect(recordIdParameters).toHaveLength(1);
+      expect(recordIdParameters[0]).toHaveLength(expectedChunkSizes[index]);
+    }
+  });
+
+  it('executes distinct-host-key conditional aggregates without record-id chunks', async () => {
+    const { baseId, sourceTable, hostTable, conditionalLookupFieldId } =
+      createConditionalGroupLookupTables();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+    const seedRecordIds = createSequentialRecordIds(1001);
+    const plan: ComputedUpdatePlan = {
+      baseId,
+      seedTableId: sourceTable.id(),
+      seedRecordIds,
+      extraSeedRecords: [],
+      steps: [
+        {
+          tableId: hostTable.id(),
+          fieldIds: [conditionalLookupFieldId],
+          level: 0,
+        },
+      ],
+      edges: [],
+      estimatedComplexity: 1,
+      changeType: 'update',
+      sameTableBatches: [],
+    };
+
+    const { db, driver } = createRecordingDb();
+    const updater = new ComputedFieldUpdater(
+      createTableRepository([sourceTable, hostTable]),
+      createLogger(),
+      db as unknown as Kysely<V1TeableDatabase>,
+      undefined,
+      createTypeValidationStrategy()
+    );
+    const updaterInternal = updater as unknown as {
+      getDirtyCountForTable: () => Promise<number>;
+      getDirtyRecordIdChunks: () => Promise<ReadonlyArray<ReadonlyArray<string>>>;
+    };
+    const recordIdChunks = [
+      Array.from({ length: 500 }, (_, index) => `rec${index.toString().padStart(16, '0')}`),
+      Array.from({ length: 500 }, (_, index) => `rec${(index + 500).toString().padStart(16, '0')}`),
+      [`rec${'1000'.padStart(16, '0')}`],
+    ];
+    updaterInternal.getDirtyCountForTable = async () => 1001;
+    updaterInternal.getDirtyRecordIdChunks = async () => recordIdChunks;
+
+    const result = await updater.execute(plan, { actorId });
+    expect(result.isOk()).toBe(true);
+
+    const conditionalUpdates = driver.queries.filter(
+      (query) => query.sql.startsWith('update ') && query.sql.includes('"__host_key"')
+    );
+    expect(conditionalUpdates).toHaveLength(1);
+    expect(conditionalUpdates[0]?.sql).not.toMatch(
+      /"__dirty"\."record_id" = any\(\$\d+::text\[\]\)/i
+    );
+    const cardinalityQuery = driver.queries.find((query) => query.sql.includes('as "__keys"'));
+    expect(cardinalityQuery?.sql).toContain('select distinct "h"."col_lookup_group" as "__key"');
+    expect(cardinalityQuery?.parameters).toEqual([hostTable.id().toString(), 5001]);
+
+    const fallbackDb = createRecordingDb();
+    const fallbackUpdater = new ComputedFieldUpdater(
+      createTableRepository([sourceTable, hostTable]),
+      createLogger(),
+      fallbackDb.db as unknown as Kysely<V1TeableDatabase>,
+      undefined,
+      createTypeValidationStrategy()
+    );
+    const fallbackInternal = fallbackUpdater as unknown as {
+      getDirtyCountForTable: () => Promise<number>;
+      getDirtyRecordIdChunks: () => Promise<ReadonlyArray<ReadonlyArray<string>>>;
+      hasBoundedDistinctHostKeys: () => Promise<unknown>;
+    };
+    fallbackInternal.getDirtyCountForTable = async () => 1001;
+    fallbackInternal.getDirtyRecordIdChunks = async () => recordIdChunks;
+    fallbackInternal.hasBoundedDistinctHostKeys = async () => ok(false);
+
+    const fallbackResult = await fallbackUpdater.execute(plan, { actorId });
+    expect(fallbackResult.isOk()).toBe(true);
+    const fallbackUpdates = fallbackDb.driver.queries.filter(
+      (query) => query.sql.startsWith('update ') && query.sql.includes('"__host_key"')
+    );
+    expect(fallbackUpdates).toHaveLength(3);
+    for (const query of fallbackUpdates) {
+      expect(query.sql).toMatch(/"__dirty"\."record_id" = any\(\$\d+::text\[\]\)/i);
     }
   });
 });
