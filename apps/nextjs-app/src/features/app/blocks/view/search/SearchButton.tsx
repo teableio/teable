@@ -346,7 +346,7 @@ export const SearchButton = (props: ISearchButtonProps) => {
                 )}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="max-w-96 p-1">
+            <PopoverContent className="max-w-96 p-0">
               {fieldId && tableId && (
                 <SearchCommand
                   value={fieldId}

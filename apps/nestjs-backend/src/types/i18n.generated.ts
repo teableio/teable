@@ -3763,6 +3763,15 @@ export type I18nTranslations = {
             "moveBaseSuccessDescription": string;
             "moveBaseCrossSpaceTitle": string;
             "moveBaseCrossSpaceDataLossWarning": string;
+            "moveBaseCrossDataDbTitle": string;
+            "moveBaseCrossDataDbWarning": string;
+            "moveBaseProgressTitle": string;
+            "moveBaseProgressPhase": string;
+            "moveBaseProgressPercent": string;
+            "moveBaseFailedTitle": string;
+            "moveBaseFailedDescription": string;
+            "moveBaseRetry": string;
+            "moveBaseCancel": string;
         };
         "deleteSpaceModal": {
             "title": string;
@@ -4949,8 +4958,10 @@ export type I18nTranslations = {
                 "repair": string;
                 "repairTip": string;
                 "enableIndexTip": string;
-                "globalSearchTip_limited": string;
-                "globalSearchTip_infinity": string;
+                "fieldSearchTip_limited": string;
+                "fieldSearchTip_infinity": string;
+                "globalSearchFieldTip": string;
+                "hideNotMatchRowTip": string;
                 "autoIndexTip": string;
                 "enableIndex": string;
                 "keepAsIs": string;

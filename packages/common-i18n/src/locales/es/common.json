@@ -273,7 +273,7 @@
       "installCommandLabel": "Comando de instalación del skill",
       "installPrompt": "Lee https://github.com/teableio/agent-skills, sigue la guía para ayudarme a instalar el Teable agent skill y completa la autenticación de Teable CLI.",
       "step1Title": "Instalar Skill",
-      "step1Description": "Copia este prompt en tu AI Agent. Instalará el Teable skill set y abrirá el navegador para completar la autenticación de Teable CLI.",
+      "step1Description": "Copia este prompt en tu AI Agent. Instalará el skill de Teable y abrirá el navegador para completar la autenticación de Teable CLI.",
       "step3Title": "Prueba la habilidad de Teable",
       "step3Description": "Después de instalar la habilidad, prueba estos prompts.",
       "tryPrompts": {

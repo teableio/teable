@@ -27,5 +27,7 @@ export * from './import';
 export * from './import-airtable';
 export * from './move';
 export * from './move-check';
+export * from './move-data-db';
+export * from './move-job';
 export * from './erd';
 export * from './cross-space-affected-field';

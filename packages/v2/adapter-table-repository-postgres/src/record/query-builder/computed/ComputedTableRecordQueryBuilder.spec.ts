@@ -2403,7 +2403,7 @@ describe('ComputedTableRecordQueryBuilder', () => {
       expect(sql).toContain('"f"."col_category" = "h"."col_category_ref"');
       expect(sql).toContain('"f"."col_status" = $');
       expect(parameters).toEqual(expect.arrayContaining(['active', 'inactive']));
-      expect(sql).toContain('group by "h"."__id"');
+      expect(sql).toContain('group by "h"."col_category_ref"');
     });
 
     test('conditional rollup with residual filter and limit uses ranked set-based join', () => {
@@ -2442,7 +2442,7 @@ describe('ComputedTableRecordQueryBuilder', () => {
       expect(sql).not.toContain('inner join lateral');
       expect(sql).toContain('row_number() over');
       expect(sql).toContain('"f"."col_status" = $');
-      expect(sql).toContain('partition by "h"."__id"');
+      expect(sql).toContain('partition by "h"."col_category_ref"');
       expect(parameters).toEqual(expect.arrayContaining(['active', 10]));
     });
 
@@ -2477,7 +2477,7 @@ describe('ComputedTableRecordQueryBuilder', () => {
       expect(sql).not.toContain('inner join lateral');
       expect(sql).toContain('row_number() over');
       expect(sql.toLowerCase()).toContain('string_agg');
-      expect(sql).toContain('partition by "h"."__id"');
+      expect(sql).toContain('partition by "h"."col_category_ref"');
       expect(parameters).toEqual([1]);
     });
 
@@ -2545,12 +2545,14 @@ describe('ComputedTableRecordQueryBuilder', () => {
 
       expect(sql).not.toContain('inner join lateral');
       expect(sql).toContain('left join (select');
-      expect(sql).toContain('on "cond_fldcccccccccccccccc"."__host_id" = "t"."__id"');
+      expect(sql).toContain(
+        'coalesce("cond_fldcccccccccccccccc"."__host_key", \'\'::text) = coalesce("t"."col_category_ref", \'\'::text)'
+      );
       expect(sql).toContain('left join "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f"');
       expect(sql).toContain('"f"."col_category" = "h"."col_category_ref"');
-      expect(sql).toContain('group by "h"."__id"');
+      expect(sql).toContain('group by "h"."col_category_ref"');
       expect(sql).toMatchInlineSnapshot(
-        `"select "t"."__id" as "__id", "t"."__version" as "__version", "t"."col_category_ref" as "col_category_ref", "cond_fldcccccccccccccccc"."col_conditional_rollup" as "col_conditional_rollup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" left join (select "h"."__id" as "__host_id", CAST(COALESCE(SUM("f"."col_number"), 0) AS DOUBLE PRECISION) as "col_conditional_rollup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "h" left join "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" on "f"."col_category" = "h"."col_category_ref" group by "h"."__id") as "cond_fldcccccccccccccccc" on "cond_fldcccccccccccccccc"."__host_id" = "t"."__id""`
+        `"select "t"."__id" as "__id", "t"."__version" as "__version", "t"."col_category_ref" as "col_category_ref", "cond_fldcccccccccccccccc"."col_conditional_rollup" as "col_conditional_rollup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" left join (select "h"."col_category_ref" as "__host_key", CAST(COALESCE(SUM("f"."col_number"), 0) AS DOUBLE PRECISION) as "col_conditional_rollup" from (select distinct "h"."col_category_ref" as "col_category_ref" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "h") as "h" left join "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" on "f"."col_category" = "h"."col_category_ref" group by "h"."col_category_ref") as "cond_fldcccccccccccccccc" on ("cond_fldcccccccccccccccc"."__host_key" is null) = ("t"."col_category_ref" is null) and coalesce("cond_fldcccccccccccccccc"."__host_key", ''::text) = coalesce("t"."col_category_ref", ''::text)"`
       );
     });
 
@@ -2585,10 +2587,62 @@ describe('ComputedTableRecordQueryBuilder', () => {
       expect(sql).not.toContain('inner join lateral');
       expect(sql).toContain('left join (select');
       expect(sql).toContain('row_number() over');
-      expect(sql).toContain('partition by "h"."__id"');
-      expect(sql).toContain('group by "h"."__id"');
-      expect(sql).toContain('on "cond_fldcccccccccccccccc"."__host_id" = "t"."__id"');
+      expect(sql).toContain('select distinct "h"."col_category_ref"');
+      expect(sql).toContain('partition by "h"."col_category_ref"');
+      expect(sql).toContain('group by "h"."col_category_ref"');
+      expect(sql).toContain(
+        'coalesce("cond_fldcccccccccccccccc"."__host_key", \'\'::text) = coalesce("t"."col_category_ref", \'\'::text)'
+      );
       expect(parameters).toEqual([10]);
+    });
+
+    test('scopes both ranked conditional rollup host sources to the dirty record slice', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId } = createConditionalRollupTable(
+        {
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: FOREIGN_FILTER_FIELD_ID,
+                operator: 'is',
+                value: HOST_FILTER_FIELD_ID,
+                isSymbol: true,
+              },
+            ],
+          },
+          limit: 10,
+        },
+        { expression: 'countall({values})' }
+      );
+
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const dirtyRecordIds = [`rec${'a'.repeat(16)}`, `rec${'b'.repeat(16)}`];
+      const { sql, parameters } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy })
+          .from(mainTable)
+          .withDirtyFilter({
+            tableId: mainTable.id().toString(),
+            recordIds: dirtyRecordIds,
+          })
+      );
+
+      expect(sql).not.toContain('inner join lateral');
+      expect(sql).toContain('row_number() over');
+      expect(sql.match(/"__dirty"\."record_id" = any\(\$\d+::text\[\]\)/gi) ?? []).toHaveLength(1);
+      expect(
+        sql.match(/"__cond_dirty"\."record_id" = any\(\$\d+::text\[\]\)/gi) ?? []
+      ).toHaveLength(2);
+      expect(parameters).toEqual([
+        mainTable.id().toString(),
+        mainTable.id().toString(),
+        dirtyRecordIds,
+        mainTable.id().toString(),
+        dirtyRecordIds,
+        10,
+        dirtyRecordIds,
+      ]);
     });
 
     test('scopes set-based field-reference conditional rollup to dirty host rows', () => {
@@ -2608,17 +2662,134 @@ describe('ComputedTableRecordQueryBuilder', () => {
       });
 
       const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const dirtyRecordIds = [`rec${'a'.repeat(16)}`, `rec${'b'.repeat(16)}`];
       const { sql, parameters } = compileQuery(
         db,
         new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy })
           .from(mainTable)
-          .withDirtyFilter({ tableId: mainTable.id().toString() })
+          .withDirtyFilter({
+            tableId: mainTable.id().toString(),
+            recordIds: [dirtyRecordIds[0], '', dirtyRecordIds[0], dirtyRecordIds[1]],
+          })
       );
 
       expect(sql).not.toContain('inner join lateral');
+      expect(sql).not.toContain('row_number() over');
       expect(sql).toContain('tmp_computed_dirty');
       expect(sql).toContain('"__cond_dirty"."record_id"');
-      expect(parameters).toContain(mainTable.id().toString());
+      expect(sql).toContain('select distinct "h"."col_category_ref"');
+      expect(sql).toContain('group by "h"."col_category_ref"');
+      expect(sql).toContain(
+        'coalesce("cond_fldcccccccccccccccc"."__host_key", \'\'::text) = coalesce("t"."col_category_ref", \'\'::text)'
+      );
+      expect(sql.match(/"__dirty"\."record_id" = any\(\$\d+::text\[\]\)/gi) ?? []).toHaveLength(1);
+      expect(
+        sql.match(/"__cond_dirty"\."record_id" = any\(\$\d+::text\[\]\)/gi) ?? []
+      ).toHaveLength(1);
+      expect(parameters).toEqual([
+        mainTable.id().toString(),
+        mainTable.id().toString(),
+        dirtyRecordIds,
+        dirtyRecordIds,
+      ]);
+    });
+
+    test('executes scalar field-reference rollup once per dirty host key', async () => {
+      const { pglite, db } = await createPGliteDb();
+      try {
+        const { mainTable, foreignTable, foreignTableId } = createConditionalRollupTable({
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: FOREIGN_FILTER_FIELD_ID,
+                operator: 'is',
+                value: HOST_FILTER_FIELD_ID,
+                isSymbol: true,
+              },
+            ],
+          },
+        });
+        const conditionalRollupFieldId = FieldId.create(
+          CONDITIONAL_ROLLUP_FIELD_ID
+        )._unsafeUnwrap();
+
+        await pglite.query(`create schema "${BASE_ID}"`);
+        await pglite.query(`
+          create table "${BASE_ID}"."${FOREIGN_TABLE_ID}" (
+            "__id" text primary key,
+            "__version" integer not null default 1,
+            "__auto_number" integer not null,
+            "col_number" double precision,
+            "col_category" text,
+            "col_status" text
+          )
+        `);
+        await pglite.query(`
+          create table "${BASE_ID}"."${MAIN_TABLE_ID}" (
+            "__id" text primary key,
+            "__version" integer not null default 1,
+            "__auto_number" integer not null,
+            "col_category_ref" text,
+            "col_conditional_rollup" double precision
+          )
+        `);
+        await pglite.query(`
+          create temporary table "tmp_computed_dirty" (
+            "table_id" text not null,
+            "record_id" text not null,
+            primary key ("table_id", "record_id")
+          )
+        `);
+        await pglite.query(`
+          insert into "${BASE_ID}"."${FOREIGN_TABLE_ID}"
+            ("__id", "__auto_number", "col_number", "col_category")
+          values
+            ('f-1', 1, 10, 'G-1'),
+            ('f-2', 2, 20, 'G-1'),
+            ('f-3', 3, 5, 'G-2')
+        `);
+        await pglite.query(`
+          insert into "${BASE_ID}"."${MAIN_TABLE_ID}"
+            ("__id", "__auto_number", "col_category_ref")
+          values
+            ('h-1', 1, 'G-1'),
+            ('h-2', 2, 'G-1'),
+            ('h-3', 3, 'G-missing'),
+            ('h-4', 4, null)
+        `);
+        await pglite.query(`
+          insert into "tmp_computed_dirty" ("table_id", "record_id")
+          values
+            ('${MAIN_TABLE_ID}', 'h-1'),
+            ('${MAIN_TABLE_ID}', 'h-2'),
+            ('${MAIN_TABLE_ID}', 'h-3'),
+            ('${MAIN_TABLE_ID}', 'h-4')
+        `);
+
+        const dirtyRecordIds = ['h-1', 'h-2', 'h-3', 'h-4'];
+        const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+        const query = new ComputedTableRecordQueryBuilder(db as unknown as Kysely<DynamicDB>, {
+          foreignTables,
+          typeValidationStrategy,
+        })
+          .from(mainTable)
+          .withDirtyFilter({ tableId: mainTable.id().toString(), recordIds: dirtyRecordIds })
+          .select([conditionalRollupFieldId])
+          .orderBy('__auto_number', 'asc')
+          .build()
+          ._unsafeUnwrap();
+
+        const rows = await query.execute();
+        expect(rows).toMatchObject([
+          { col_conditional_rollup: 30 },
+          { col_conditional_rollup: 30 },
+          { col_conditional_rollup: 0 },
+          { col_conditional_rollup: 0 },
+        ]);
+      } finally {
+        await db.destroy();
+      }
     });
   });
 
@@ -2747,12 +2918,16 @@ describe('ComputedTableRecordQueryBuilder', () => {
       const db = createTestDb();
       const { mainTable, foreignTable, foreignTableId } = createConditionalLookupTable('is');
       const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const dirtyRecordIds = [`rec${'a'.repeat(16)}`, `rec${'b'.repeat(16)}`];
 
       const { sql, parameters } = compileQuery(
         db,
         new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy })
           .from(mainTable)
-          .withDirtyFilter({ tableId: mainTable.id().toString() })
+          .withDirtyFilter({
+            tableId: mainTable.id().toString(),
+            recordIds: [dirtyRecordIds[0], '', dirtyRecordIds[0], dirtyRecordIds[1]],
+          })
       );
 
       const hostDirtyJoin =
@@ -2765,7 +2940,15 @@ describe('ComputedTableRecordQueryBuilder', () => {
       expect(sql).toContain(foreignJoin);
       expect(sql.indexOf(hostDirtyJoin)).toBeLessThan(sql.indexOf(foreignJoin));
       expect(sql).toContain('"__cond_dirty"."record_id" and "__cond_dirty"."table_id" = $2');
-      expect(parameters).toEqual([mainTable.id().toString(), mainTable.id().toString(), 5000]);
+      expect(sql).toMatch(/"__dirty"\."record_id" = any\(\$\d+::text\[\]\)/i);
+      expect(sql).toMatch(/"__cond_dirty"\."record_id" = any\(\$\d+::text\[\]\)/i);
+      expect(parameters).toEqual([
+        mainTable.id().toString(),
+        mainTable.id().toString(),
+        dirtyRecordIds,
+        5000,
+        dirtyRecordIds,
+      ]);
     });
 
     test('conditional lookup snapshot with single user isNot multi user field reference filter', () => {
@@ -2902,6 +3085,13 @@ describe('ComputedTableRecordQueryBuilder', () => {
           )
         `);
         await pglite.query(`
+          create temporary table "tmp_computed_dirty" (
+            "table_id" text not null,
+            "record_id" text not null,
+            primary key ("table_id", "record_id")
+          )
+        `);
+        await pglite.query(`
           insert into "${BASE_ID}"."${FOREIGN_TABLE_ID}" ("__id", "__auto_number", "a_key", "a_value")
           select 'a-' || g, g, 'K-' || g, 'A-Value-' || g
           from generate_series(1, 1000) as g
@@ -2911,16 +3101,37 @@ describe('ComputedTableRecordQueryBuilder', () => {
           select 'b-' || g, g, 'K-' || g
           from generate_series(1, 1000) as g
         `);
+        await pglite.query(`
+          insert into "${BASE_ID}"."${MAIN_TABLE_ID}" ("__id", "__auto_number", "lookup_a_key")
+          values
+            ('b-1001', 1001, 'K-1'),
+            ('b-1002', 1002, 'K-missing'),
+            ('b-1003', 1003, null)
+        `);
+        await pglite.query(`
+          insert into "tmp_computed_dirty" ("table_id", "record_id")
+          select '${MAIN_TABLE_ID}', 'b-' || g
+          from generate_series(1, 5) as g
+        `);
+        await pglite.query(`
+          insert into "tmp_computed_dirty" ("table_id", "record_id")
+          values
+            ('${MAIN_TABLE_ID}', 'b-1001'),
+            ('${MAIN_TABLE_ID}', 'b-1002'),
+            ('${MAIN_TABLE_ID}', 'b-1003')
+        `);
 
         const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+        const dirtyRecordIds = ['b-1', 'b-1001', 'b-1002', 'b-1003'];
         const result = new ComputedTableRecordQueryBuilder(db as unknown as Kysely<DynamicDB>, {
           foreignTables,
           typeValidationStrategy,
         })
           .from(mainTable)
+          .withDirtyFilter({ tableId: mainTableId.toString(), recordIds: dirtyRecordIds })
           .select([conditionalLookupFieldId])
           .orderBy('__auto_number', 'asc')
-          .limit(3)
+          .limit(4)
           .build();
         expect(result.isOk()).toBe(true);
         const query = result._unsafeUnwrap();
@@ -2928,12 +3139,28 @@ describe('ComputedTableRecordQueryBuilder', () => {
         expect(compiled.sql).toContain('left join (select');
         expect(compiled.sql).toContain('row_number() over');
         expect(compiled.sql).not.toContain('inner join lateral');
+        expect(compiled.sql).toContain('select distinct "h"."lookup_a_key"');
+        expect(compiled.sql).toContain('partition by "h"."lookup_a_key"');
+        expect(compiled.sql).toContain('group by "cond_fldqqqqqqqqqqqqqqqq_src"."__host_key"');
+        expect(compiled.sql).toContain(
+          'coalesce("cond_fldqqqqqqqqqqqqqqqq"."__host_key", \'\'::text) = coalesce("t"."lookup_a_key", \'\'::text)'
+        );
+        expect(compiled.sql.match(/= ANY\(\$\d+::text\[\]\)/g)).toHaveLength(2);
+        expect(compiled.parameters).toEqual([
+          mainTableId.toString(),
+          mainTableId.toString(),
+          dirtyRecordIds,
+          1,
+          dirtyRecordIds,
+          4,
+        ]);
 
         const rows = await query.execute();
         expect(rows).toMatchObject([
           { matched_a_value: ['A-Value-1'] },
-          { matched_a_value: ['A-Value-2'] },
-          { matched_a_value: ['A-Value-3'] },
+          { matched_a_value: ['A-Value-1'] },
+          { matched_a_value: null },
+          { matched_a_value: null },
         ]);
       } finally {
         await db.destroy();

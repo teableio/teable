@@ -1196,6 +1196,91 @@ describe('ComputedUpdatePlanner', () => {
       });
     });
 
+    it('skips before-image tracking for unchanged source filters that reference host fields', async () => {
+      const hostFilterDto = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: categoryFieldId.toString(),
+            operator: 'is',
+            value: {
+              type: 'field',
+              fieldId: reportNameFieldId.toString(),
+              tableId: reportsTableId.toString(),
+            },
+          },
+        ],
+      };
+      const hostReferencedFields = fields.map((field) =>
+        field.id.equals(conditionalRollupFieldId)
+          ? {
+              ...field,
+              conditionalOptions: {
+                ...field.conditionalOptions!,
+                conditionFieldIds: [categoryFieldId.toString(), reportNameFieldId.toString()],
+                filterDto: hostFilterDto,
+              },
+            }
+          : field
+      );
+      const fieldsById = new Map<string, FieldMeta>(
+        hostReferencedFields.map((field) => [field.id.toString(), field])
+      );
+      const graph = {
+        load: vi
+          .fn()
+          .mockResolvedValue(ok({ fieldsById, edges } satisfies FieldDependencyGraphData)),
+      };
+      const planner = new ComputedUpdatePlanner(graph as never);
+
+      const requirementResult = await planner.resolveBeforeImageRequirements({
+        baseId,
+        seedTableId: productsTableId,
+        changedFieldIds: [priceFieldId],
+        changeType: 'update',
+      });
+      expect(requirementResult.isOk()).toBe(true);
+      expect(requirementResult._unsafeUnwrap()).toEqual({
+        needsBeforeImage: false,
+        requiredFieldIds: [],
+      });
+
+      const planResult = await planner.planStage({
+        baseId,
+        seedTableId: productsTableId,
+        seedRecordIds: [recordId],
+        extraSeedRecords: [],
+        beforeImageRecords: [
+          { recordId, fieldValuesByDbName: { col_category: 'electronics-choice-id' } },
+        ],
+        changedFieldIds: [priceFieldId],
+        changeType: 'update',
+      });
+      expect(planResult.isOk()).toBe(true);
+      const conditionalEdge = planResult
+        ._unsafeUnwrap()
+        .edges.find((edge) => edgeTargetsField(edge, conditionalRollupFieldId));
+      expect(conditionalEdge?.propagationMode).toBe('conditionalFiltered');
+      expect(conditionalEdge?.filterCondition?.includeBeforeImage).toBeUndefined();
+
+      const filterChangePlanResult = await planner.planStage({
+        baseId,
+        seedTableId: productsTableId,
+        seedRecordIds: [recordId],
+        extraSeedRecords: [],
+        beforeImageRecords: [
+          { recordId, fieldValuesByDbName: { col_category: 'electronics-choice-id' } },
+        ],
+        changedFieldIds: [categoryFieldId],
+        changeType: 'update',
+      });
+      expect(filterChangePlanResult.isOk()).toBe(true);
+      const filterChangeEdge = filterChangePlanResult
+        ._unsafeUnwrap()
+        .edges.find((edge) => edgeTargetsField(edge, conditionalRollupFieldId));
+      expect(filterChangeEdge?.filterCondition?.includeBeforeImage).toBe(true);
+    });
+
     it('uses allTargetRecords mode when updating filter field (Category)', async () => {
       const planner = createPlanner();
 

@@ -605,6 +605,11 @@ type ISourceDeltaRow = {
   capturedAt: string | Date;
 };
 
+type IDeltaReplayColumnMetadata = {
+  generatedColumns: Set<string>;
+  jsonColumns: Set<string>;
+};
+
 type IDeltaReplayStats = {
   phase: string;
   lastCapturedSeq: number;
@@ -2497,7 +2502,7 @@ export class SpaceDataDbMigrationService {
     row: ISourceDeltaRow;
     sourceSchema: string;
     targetSchema: string;
-    jsonColumnCache?: Map<string, Set<string>>;
+    columnMetadataCache?: Map<string, IDeltaReplayColumnMetadata>;
   }) {
     const payload = this.deltaRowPayload(input.row);
     if (!payload) {
@@ -2520,21 +2525,23 @@ export class SpaceDataDbMigrationService {
       return true;
     }
 
-    const columns = Object.keys(payload);
-    if (!columns.length) {
-      return false;
-    }
     const targetSchema = this.targetSchemaForDeltaRow(
       input.row,
       input.sourceSchema,
       input.targetSchema
     );
-    const jsonColumns = await this.getDeltaReplayJsonColumns(
+    const columnMetadata = await this.getDeltaReplayColumnMetadata(
       input.targetClient,
       targetSchema,
       input.row.tableName,
-      input.jsonColumnCache
+      input.columnMetadataCache
     );
+    const columns = Object.keys(payload).filter(
+      (column) => !columnMetadata.generatedColumns.has(column)
+    );
+    if (!columns.length) {
+      return false;
+    }
     const updateColumns = columns.filter((column) => column !== pkColumn);
     const insertSql = [
       `INSERT INTO ${qualified} (${columns.map(quoteIdent).join(', ')})`,
@@ -2550,17 +2557,19 @@ export class SpaceDataDbMigrationService {
       insertSql,
       columns.map((column) => {
         const value = payload[column];
-        return jsonColumns.has(column) && value != null ? JSON.stringify(value) : value;
+        return columnMetadata.jsonColumns.has(column) && value != null
+          ? JSON.stringify(value)
+          : value;
       })
     );
     return true;
   }
 
-  private async getDeltaReplayJsonColumns(
+  private async getDeltaReplayColumnMetadata(
     targetClient: IDataDbPreflightClient,
     schemaName: string,
     tableName: string,
-    cache?: Map<string, Set<string>>
+    cache?: Map<string, IDeltaReplayColumnMetadata>
   ) {
     const cacheKey = `${schemaName}.${tableName}`;
     const cached = cache?.get(cacheKey);
@@ -2568,21 +2577,36 @@ export class SpaceDataDbMigrationService {
       return cached;
     }
 
-    const rows = normalizeRawRows<{ columnName: string }>(
+    const rows = normalizeRawRows<{
+      columnName: string;
+      dataType: string;
+      isGenerated: string;
+    }>(
       await targetClient.raw(
         `
-          SELECT "column_name" AS "columnName"
+          SELECT
+            "column_name" AS "columnName",
+            "data_type" AS "dataType",
+            "is_generated" AS "isGenerated"
           FROM information_schema.columns
           WHERE "table_schema" = ?
             AND "table_name" = ?
-            AND "data_type" IN ('json', 'jsonb')
         `,
         [schemaName, tableName]
       )
     );
-    const jsonColumns = new Set(rows.map((row) => row.columnName));
-    cache?.set(cacheKey, jsonColumns);
-    return jsonColumns;
+    const metadata: IDeltaReplayColumnMetadata = {
+      generatedColumns: new Set(
+        rows.filter((row) => row.isGenerated === 'ALWAYS').map((row) => row.columnName)
+      ),
+      jsonColumns: new Set(
+        rows
+          .filter((row) => row.dataType === 'json' || row.dataType === 'jsonb')
+          .map((row) => row.columnName)
+      ),
+    };
+    cache?.set(cacheKey, metadata);
+    return metadata;
   }
 
   private async updateDeltaReplayStats(job: IMigrationJobRecord, stats: IDeltaReplayStats) {
@@ -2671,7 +2695,7 @@ export class SpaceDataDbMigrationService {
     const startedAt = new Date().toISOString();
     const deadline = Date.now() + timeoutMs;
     let rowsApplied = 0;
-    const jsonColumnCache = new Map<string, Set<string>>();
+    const columnMetadataCache = new Map<string, IDeltaReplayColumnMetadata>();
     const existingDeltaStats = this.asRecord(this.asRecord(job.copyStats)?.delta);
     const existingLastReplayedSeq = Number(existingDeltaStats?.lastReplayedSeq ?? 0);
     let lastReplayedSeq = Number.isFinite(existingLastReplayedSeq) ? existingLastReplayedSeq : 0;
@@ -2699,7 +2723,7 @@ export class SpaceDataDbMigrationService {
               row,
               sourceSchema,
               targetSchema: job.targetInternalSchema,
-              jsonColumnCache,
+              columnMetadataCache,
             });
             if (applied) {
               rowsApplied += 1;

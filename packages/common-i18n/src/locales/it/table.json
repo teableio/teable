@@ -655,15 +655,18 @@
       }
     },
     "index": {
-      "description": "Gli indici possono migliorare significativamente le prestazioni di ricerca, specialmente quando si gestiscono grandi quantità di dati (oltre {{rowCount}} righe). Lo svantaggio è una leggera riduzione delle operazioni di scrittura. Se esegui frequentemente ricerche o hai grandi set di dati, si consiglia di abilitare l'indicizzazione.",
-      "repair": "ripara",
-      "repairTip": "Rilevate anomalie nell'indice, che possono causare un degrado delle prestazioni di ricerca. Si consiglia di cliccare sul pulsante di riparazione per correggere l'indice",
-      "enableIndexTip": "Stai creando un indice. Il tempo richiesto dipende dalla dimensione della tabella. Durante questo processo, le prestazioni di lettura e scrittura della tabella potrebbero essere influenzate. Si prega di essere pazienti.",
-      "globalSearchTip_infinity": "Cerca in tutti i campi tranne i campi data, casella di controllo e pulsante",
-      "globalSearchTip_limited": "Cerca in tutti i campi tranne i campi data, casella di controllo e pulsante, massimo {{count}} campi",
-      "autoIndexTip": "La tua tabella ha superato {{rowCount}} righe. Si consiglia di abilitare l'indicizzazione per migliorare le prestazioni di ricerca. Si prega di notare che l'indicizzazione può ridurre leggermente la velocità di scrittura. Durante la creazione dell'indice, le prestazioni di lettura/scrittura della tabella potrebbero essere temporaneamente influenzate. Si prega di essere pazienti.",
+      "description": "Gli indici possono migliorare significativamente le prestazioni di ricerca, soprattutto quando la quantità di dati è elevata (oltre {{rowCount}} righe). Lo svantaggio è che le operazioni di scrittura sono leggermente più lente. Se esegui spesso ricerche o hai molti dati, consigliamo di abilitare gli indici",
+      "repair": "Aggiorna indice",
+      "repairTip": "Sono state rilevate anomalie dell'indice, che potrebbero degradare le prestazioni di ricerca. Si consiglia di fare clic sul pulsante Aggiorna indice per aggiornare l'indice",
+      "enableIndexTip": "Stai creando un indice. Il tempo richiesto dipende dalla dimensione della tabella. Durante questo processo, le prestazioni di lettura e scrittura della tabella potrebbero essere influenzate. Attendi",
+      "fieldSearchTip_limited": "Quando è disattivata, la ricerca fuzzy viene eseguita su tutti i campi. I campi data, casella di controllo e pulsante non sono supportati. Sono supportati fino a {{count}} campi",
+      "fieldSearchTip_infinity": "Quando è disattivata, la ricerca fuzzy viene eseguita su tutti i campi. I campi data, casella di controllo e pulsante non sono supportati",
+      "globalSearchFieldTip": "La modalità di ricerca globale è attiva. La ricerca fuzzy viene eseguita su tutti i campi. I campi data, casella di controllo e pulsante non sono supportati",
+      "hideNotMatchRowTip": "Quando è disattivata, mostra tutte le righe",
+      "autoIndexTip": "La tua tabella ha superato {{rowCount}} righe. Consigliamo di abilitare gli indici per migliorare le prestazioni di ricerca. L'abilitazione degli indici può ridurre leggermente la velocità di scrittura. Durante la creazione dell'indice, le prestazioni di lettura/scrittura della tabella potrebbero essere influenzate. Attendi",
       "enableIndex": "abilita",
-      "keepAsIs": "mantieni così com'è"
+      "keepAsIs": "mantieni così com'è",
+      "ignoreIndexError": "ignora temporaneamente"
     }
   },
   "import": {

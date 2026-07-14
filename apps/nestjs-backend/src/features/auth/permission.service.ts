@@ -622,25 +622,27 @@ export class PermissionService {
       `[BaseShare] Checking permission for resource ${resourceId}, shareId: ${shareId}, baseId: ${baseId}, nodeId: ${nodeId}`
     );
 
-    if (nodeId) {
-      // Node-level share: verify the resource belongs to the shared node subtree
-      const resourceBelongsToShare = await this.checkResourceBelongsToShare(
-        resourceId,
-        baseId,
-        nodeId
-      );
+    // Always verify the requested resource actually belongs to the shared base.
+    // For a node-level share (nodeId set) this additionally restricts access to
+    // the shared node subtree. For a whole-base share (nodeId null) every resource
+    // in the base is reachable, but the base-membership check MUST still run —
+    // otherwise a share created for one base could be replayed with another base's
+    // id to gain cross-base read/write/export access.
+    const resourceBelongsToShare = await this.checkResourceBelongsToShare(
+      resourceId,
+      baseId,
+      nodeId
+    );
 
-      if (!resourceBelongsToShare) {
-        this.logger.warn(
-          `[BaseShare] Resource ${resourceId} is not accessible via share ${shareId}, baseId: ${baseId}, nodeId: ${nodeId}`
-        );
-        throw new CustomHttpException(
-          `Resource ${resourceId} is not accessible via share ${shareId}`,
-          HttpErrorCode.RESTRICTED_RESOURCE
-        );
-      }
+    if (!resourceBelongsToShare) {
+      this.logger.warn(
+        `[BaseShare] Resource ${resourceId} is not accessible via share ${shareId}, baseId: ${baseId}, nodeId: ${nodeId}`
+      );
+      throw new CustomHttpException(
+        `Resource ${resourceId} is not accessible via share ${shareId}`,
+        HttpErrorCode.RESTRICTED_RESOURCE
+      );
     }
-    // When nodeId is null (whole-base share), all resources in the base are accessible
 
     // Set base share in cls for downstream services to use
     this.cls.set('baseShare', { baseId, nodeId });
@@ -662,11 +664,15 @@ export class PermissionService {
   /**
    * Check if a resource belongs to the shared base.
    * Dispatches to specific check methods based on resource type.
+   *
+   * nodeId is the shared node for node-level shares, or null for whole-base
+   * shares. When null, only base membership is enforced (all nodes in the base
+   * are in scope); when set, the resource must also live within the node subtree.
    */
   private async checkResourceBelongsToShare(
     resourceId: string,
     baseId: string,
-    nodeId: string
+    nodeId: string | null
   ): Promise<boolean> {
     const prefix = resourceId.substring(0, 3);
 
@@ -692,7 +698,7 @@ export class PermissionService {
   private async checkTableBelongsToShare(
     tableId: string,
     baseId: string,
-    nodeId: string
+    nodeId: string | null
   ): Promise<boolean> {
     const table = await this.prismaService.tableMeta.findUnique({
       where: { id: tableId, deletedTime: null },
@@ -705,6 +711,11 @@ export class PermissionService {
 
     if (!table || table.baseId !== baseId) {
       return false;
+    }
+
+    // Whole-base share: any table within the shared base is accessible.
+    if (!nodeId) {
+      return true;
     }
 
     const result = await this.isTableAllowedByNodeId(baseId, tableId, nodeId);
@@ -781,7 +792,7 @@ export class PermissionService {
   private async checkViewBelongsToShare(
     viewId: string,
     baseId: string,
-    nodeId: string
+    nodeId: string | null
   ): Promise<boolean> {
     const view = await this.prismaService.view.findUnique({
       where: { id: viewId, deletedTime: null },
@@ -801,7 +812,7 @@ export class PermissionService {
   private async checkFieldBelongsToShare(
     fieldId: string,
     baseId: string,
-    nodeId: string
+    nodeId: string | null
   ): Promise<boolean> {
     const field = await this.prismaService.field.findUnique({
       where: { id: fieldId, deletedTime: null },
@@ -821,7 +832,7 @@ export class PermissionService {
   private async checkAppBelongsToShare(
     appId: string,
     baseId: string,
-    nodeId: string
+    nodeId: string | null
   ): Promise<boolean> {
     const appNode = await this.prismaService.baseNode.findFirst({
       where: {
@@ -835,6 +846,11 @@ export class PermissionService {
 
     if (!appNode) {
       return false;
+    }
+
+    // Whole-base share: any app within the shared base is accessible.
+    if (!nodeId) {
+      return true;
     }
 
     const result = await this.isNodeAllowedByNodeId(baseId, appNode.id, nodeId);
