@@ -462,6 +462,131 @@ describe('FieldOpenApiV2Service mapConvertFieldToV2', () => {
     });
   });
 
+  it('maps rollup convert filter from lookupOptions (T6179)', () => {
+    const service = createService();
+    const filter = {
+      conjunction: 'and',
+      filterSet: [{ fieldId: 'fldStatus000000001', operator: 'is', value: '待开始' }],
+    };
+    const mapped = service.mapConvertFieldToV2({
+      type: 'rollup',
+      options: {
+        expression: 'countall({values})',
+      },
+      lookupOptions: {
+        linkFieldId: 'fldLink000000000001',
+        lookupFieldId: 'fldLookup000000001',
+        foreignTableId: 'tblForeign00000001',
+        filter,
+      },
+    });
+
+    expect(mapped).toEqual({
+      type: 'rollup',
+      options: {
+        expression: 'countall({values})',
+      },
+      config: {
+        linkFieldId: 'fldLink000000000001',
+        lookupFieldId: 'fldLookup000000001',
+        foreignTableId: 'tblForeign00000001',
+        filter,
+      },
+    });
+  });
+
+  it('preserves existing rollup filter when convert omits lookupOptions (T6179)', () => {
+    const service = createService();
+    const filter = {
+      conjunction: 'and',
+      filterSet: [{ fieldId: 'fldStatus000000001', operator: 'is', value: 'Active' }],
+    };
+    const mapped = service.mapConvertFieldToV2(
+      {
+        type: 'rollup',
+        options: {
+          linkFieldId: 'fldLink000000000001',
+          lookupFieldId: 'fldLookup000000001',
+          foreignTableId: 'tblForeign00000001',
+          expression: 'sum({values})',
+        },
+      },
+      {
+        type: 'rollup',
+        options: {
+          expression: 'countall({values})',
+        },
+        lookupOptions: {
+          linkFieldId: 'fldLink000000000001',
+          lookupFieldId: 'fldLookup000000001',
+          foreignTableId: 'tblForeign00000001',
+          filter,
+        },
+      }
+    );
+
+    expect(mapped).toEqual({
+      type: 'rollup',
+      options: {
+        expression: 'sum({values})',
+        showAs: null,
+      },
+      config: {
+        linkFieldId: 'fldLink000000000001',
+        lookupFieldId: 'fldLookup000000001',
+        foreignTableId: 'tblForeign00000001',
+        filter,
+      },
+    });
+  });
+
+  it('clears rollup filter when lookupOptions is present without filter (T6179)', () => {
+    const service = createService();
+    const filter = {
+      conjunction: 'and',
+      filterSet: [{ fieldId: 'fldStatus000000001', operator: 'is', value: 'Active' }],
+    };
+    const mapped = service.mapConvertFieldToV2(
+      {
+        type: 'rollup',
+        options: {
+          expression: 'countall({values})',
+        },
+        lookupOptions: {
+          linkFieldId: 'fldLink000000000001',
+          lookupFieldId: 'fldLookup000000001',
+          foreignTableId: 'tblForeign00000001',
+        },
+      },
+      {
+        type: 'rollup',
+        options: {
+          expression: 'countall({values})',
+        },
+        lookupOptions: {
+          linkFieldId: 'fldLink000000000001',
+          lookupFieldId: 'fldLookup000000001',
+          foreignTableId: 'tblForeign00000001',
+          filter,
+        },
+      }
+    );
+
+    expect(mapped).toEqual({
+      type: 'rollup',
+      options: {
+        expression: 'countall({values})',
+        showAs: null,
+      },
+      config: {
+        linkFieldId: 'fldLink000000000001',
+        lookupFieldId: 'fldLookup000000001',
+        foreignTableId: 'tblForeign00000001',
+        filter: null,
+      },
+    });
+  });
+
   it('maps conditionalRollup convert options with showAs', () => {
     const service = createService();
     const mapped = service.mapConvertFieldToV2({
