@@ -4006,7 +4006,13 @@ describe('SpaceDataDbMigrationService', () => {
   it('serializes JSON scalar values before replaying delta rows', async () => {
     targetClient.raw.mockImplementation(async (sql: string) => {
       if (sql.includes('FROM information_schema.columns')) {
-        return { rows: [{ columnName: 'jsonField' }] };
+        return {
+          rows: [
+            { columnName: '__id', dataType: 'character varying', isGenerated: 'NEVER' },
+            { columnName: 'jsonField', dataType: 'jsonb', isGenerated: 'NEVER' },
+            { columnName: 'textField', dataType: 'text', isGenerated: 'NEVER' },
+          ],
+        };
       }
       return { rows: [] };
     });
@@ -4036,7 +4042,7 @@ describe('SpaceDataDbMigrationService', () => {
         },
         sourceSchema: 'public',
         targetSchema: internalSchema,
-        jsonColumnCache: new Map(),
+        columnMetadataCache: new Map(),
       })
     ).resolves.toBe(true);
 
@@ -4044,6 +4050,63 @@ describe('SpaceDataDbMigrationService', () => {
       expect.stringContaining('INSERT INTO "bsexxx"."sheet1"'),
       ['recxxx', '"plain text"', 'plain text']
     );
+  });
+
+  it('omits generated columns when replaying delta rows', async () => {
+    targetClient.raw.mockImplementation(async (sql: string) => {
+      if (sql.includes('FROM information_schema.columns')) {
+        return {
+          rows: [
+            { columnName: '__id', dataType: 'character varying', isGenerated: 'NEVER' },
+            {
+              columnName: '__created_time',
+              dataType: 'timestamp with time zone',
+              isGenerated: 'NEVER',
+            },
+            {
+              columnName: 'created_time',
+              dataType: 'timestamp without time zone',
+              isGenerated: 'ALWAYS',
+            },
+          ],
+        };
+      }
+      return { rows: [] };
+    });
+    const service = createService();
+    const applyDeltaRowToTarget = (
+      service as unknown as {
+        applyDeltaRowToTarget: (input: unknown) => Promise<boolean>;
+      }
+    ).applyDeltaRowToTarget;
+
+    await expect(
+      applyDeltaRowToTarget.call(service, {
+        targetClient,
+        row: {
+          seq: 1,
+          schemaName: 'bsexxx',
+          tableName: 'sheet1',
+          op: 'INSERT',
+          pk: null,
+          oldRow: null,
+          newRow: {
+            __id: 'recxxx',
+            __created_time: '2026-07-13T00:00:00.000Z',
+            created_time: '2026-07-13T00:00:00.000Z',
+          },
+          capturedAt: '2026-07-13T00:00:01.000Z',
+        },
+        sourceSchema: 'public',
+        targetSchema: internalSchema,
+        columnMetadataCache: new Map(),
+      })
+    ).resolves.toBe(true);
+
+    const [insertSql, values] = targetClient.raw.mock.calls.at(-1) ?? [];
+    expect(insertSql).toContain('INSERT INTO "bsexxx"."sheet1" ("__id", "__created_time")');
+    expect(insertSql).not.toContain('"created_time"');
+    expect(values).toEqual(['recxxx', '2026-07-13T00:00:00.000Z']);
   });
 
   it('fails validation on base table index constraint or trigger signature mismatch', async () => {

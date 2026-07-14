@@ -494,6 +494,7 @@ export class FieldReferenceSqlVisitor implements IFieldVisitor<SqlExpr> {
       if (linkFieldResult.isErr()) return this.erroredFieldExpr(field);
       const orderByResult = this.getLinkOrderBy(linkFieldResult.value);
       if (orderByResult.isErr()) return err(orderByResult.error);
+      const condition = field.config().condition();
       const lateralAlias = this.lateral.addColumn(
         field.linkFieldId(),
         field.foreignTableId().toString(),
@@ -503,6 +504,7 @@ export class FieldReferenceSqlVisitor implements IFieldVisitor<SqlExpr> {
           foreignFieldId: field.lookupFieldId(),
           expression,
           orderBy: orderByResult.value,
+          condition,
         }
       );
       return ok(makeExpr(this.qualify(lateralAlias, colAlias), 'unknown', false));
