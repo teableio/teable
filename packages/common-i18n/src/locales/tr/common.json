@@ -346,7 +346,7 @@
       "installCommandLabel": "Skill kurulum komutu",
       "installPrompt": "Lütfen https://github.com/teableio/agent-skills adresini oku, rehbere göre Teable agent skill kurmama yardımcı ol ve Teable CLI kimlik doğrulamasını tamamla.",
       "step1Title": "Skill kur",
-      "step1Description": "Bu promptu AI Agent modelinize kopyalayın. Teable skill set’i kurar ve Teable CLI kimlik doğrulamasını tamamlamak için tarayıcıyı açar.",
+      "step1Description": "Bu promptu AI Agent modelinize kopyalayın. Teable skill’ini kurar ve Teable CLI kimlik doğrulamasını tamamlamak için tarayıcıyı açar.",
       "step3Title": "Teable becerisini deneyin",
       "step3Description": "Beceri kurulduktan sonra bu promptları deneyin.",
       "tryPrompts": {
@@ -923,44 +923,44 @@
           "credit": {
             "warning80": {
               "title": "Alan {{spaceName}} yapay zeka kredileri %80 kullanıldı",
-              "message": "Alanınız yapay zeka kredilerinin %80'ini kullandı. Yükseltmeyi veya daha fazla kredi satın almayı düşünün."
+              "message": "{{spaceName}} alanı yapay zeka kredilerinin %80'ini kullandı. Yükseltmeyi veya daha fazla kredi satın almayı düşünün."
             },
             "warning90": {
               "title": "Alan {{spaceName}} yapay zeka kredileri %90 kullanıldı",
-              "message": "Alanınız yapay zeka kredilerinin %90'ını kullandı. Kesinti yaşamamak için yakında yükseltin."
+              "message": "{{spaceName}} alanı yapay zeka kredilerinin %90'ını kullandı. Kesinti yaşamamak için yakında yükseltin."
             },
             "anomaly": {
               "dailySpike": {
                 "title": "Alan {{spaceName}}: olağandışı yapay zeka kredisi artışı tespit edildi",
-                "message": "Bugünkü yapay zeka kredisi kullanımı ({{todayValue}}), son günlük ortalamanın ({{ewma}}) {{multiplier}} katıdır. Bu, beklenmeyen bir aktiviteye işaret edebilir. Lütfen kullanımınızı gözden geçirin. En çok katkıda bulunanlar: {{topContributors}}"
+                "message": "Alan {{spaceName}}: bugünkü yapay zeka kredisi kullanımı ({{todayValue}}), son günlük ortalamanın ({{ewma}}) {{multiplier}} katıdır. Bu, beklenmeyen bir aktiviteye işaret edebilir. Lütfen kullanımınızı gözden geçirin. En çok katkıda bulunanlar: {{topContributors}}"
               },
               "burst": {
                 "title": "Alan {{spaceName}}: yapay zeka kredisi patlaması tespit edildi",
-                "message": "Son {{windowMinutes}} dakikada {{recentValue}} yapay zeka kredisi tüketildi, bu tarihsel saatlik P95'in ({{hourlyP95}}) {{multiplier}} katıdır. Bu, beklenmeyen bir aktiviteye işaret edebilir. En çok katkıda bulunanlar: {{topContributors}}"
+                "message": "Alan {{spaceName}}: son {{windowMinutes}} dakikada {{recentValue}} yapay zeka kredisi tüketildi, bu tarihsel saatlik P95'in ({{hourlyP95}}) {{multiplier}} katıdır. Bu, beklenmeyen bir aktiviteye işaret edebilir. En çok katkıda bulunanlar: {{topContributors}}"
               }
             }
           },
           "automationRun": {
             "warning80": {
               "title": "Alan {{spaceName}} otomasyon çalıştırmaları kotanın %80'i kullanıldı",
-              "message": "Alanınız {{usedRuns}}/{{totalLimit}} otomasyon çalıştırmasının %80'ini kullandı. Planınızı yükseltmeyi düşünün."
+              "message": "{{spaceName}} alanı {{usedRuns}}/{{totalLimit}} otomasyon çalıştırmasının %80'ini kullandı. Planınızı yükseltmeyi düşünün."
             },
             "warning90": {
               "title": "Alan {{spaceName}} otomasyon çalıştırmaları kotanın %90'ı kullanıldı",
-              "message": "Alanınız {{usedRuns}}/{{totalLimit}} otomasyon çalıştırmasının %90'ını kullandı. Kesinti yaşamamak için yakında yükseltin."
+              "message": "{{spaceName}} alanı {{usedRuns}}/{{totalLimit}} otomasyon çalıştırmasının %90'ını kullandı. Kesinti yaşamamak için yakında yükseltin."
             },
             "gracePeriod": {
               "title": "Alan {{spaceName}} otomasyon çalıştırmaları aşıldı – ek süre aktif",
-              "message": "Otomasyon çalıştırma kotanız aşıldı. Otomasyonlar {{remainingHours}} saat sonra çalışmayı durduracak ve kapatılacak. Lütfen planınızı yükseltin."
+              "message": "{{spaceName}} alanının otomasyon çalıştırma kotası aşıldı. Otomasyonlar {{remainingHours}} saat sonra çalışmayı durduracak ve kapatılacak. Lütfen planınızı yükseltin."
             },
             "anomaly": {
               "dailySpike": {
                 "title": "Alan {{spaceName}}: olağandışı otomasyon çalıştırma artışı",
-                "message": "Bugünkü otomasyon çalıştırmaları ({{todayValue}}), son günlük ortalamanın ({{ewma}}) {{multiplier}} katıdır. Bu, kontrolden çıkmış bir otomasyona işaret edebilir. Lütfen iş akışlarınızı gözden geçirin. En çok katkıda bulunanlar: {{topContributors}}"
+                "message": "Alan {{spaceName}}: bugünkü otomasyon çalıştırmaları ({{todayValue}}), son günlük ortalamanın ({{ewma}}) {{multiplier}} katıdır. Bu, kontrolden çıkmış bir otomasyona işaret edebilir. Lütfen iş akışlarınızı gözden geçirin. En çok katkıda bulunanlar: {{topContributors}}"
               },
               "burst": {
                 "title": "Alan {{spaceName}}: otomasyon çalıştırma patlaması tespit edildi",
-                "message": "Son {{windowMinutes}} dakikada {{recentValue}} otomasyon çalıştırması tespit edildi, bu tarihsel saatlik P95'in ({{hourlyP95}}) {{multiplier}} katıdır. Bu, bir döngü veya yanlış yapılandırmaya işaret edebilir. En çok katkıda bulunanlar: {{topContributors}}"
+                "message": "Alan {{spaceName}}: son {{windowMinutes}} dakikada {{recentValue}} otomasyon çalıştırması tespit edildi, bu tarihsel saatlik P95'in ({{hourlyP95}}) {{multiplier}} katıdır. Bu, bir döngü veya yanlış yapılandırmaya işaret edebilir. En çok katkıda bulunanlar: {{topContributors}}"
               }
             }
           }

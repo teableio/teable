@@ -354,7 +354,7 @@
       "installCommandLabel": "Skill 安装指令",
       "installPrompt": "请阅读 https://github.com/teableio/agent-skills，根据指南帮我安装 Teable agent skill 并完成 Teable CLI 认证",
       "step1Title": "安装 Skill",
-      "step1Description": "复制这段提示词发给你的 AI Agent。它会安装 Teable skill set，并打开浏览器完成 Teable CLI 认证。",
+      "step1Description": "复制这段提示词发给你的 AI Agent。它会安装 Teable skill，并打开浏览器完成 Teable CLI 认证。",
       "step3Title": "试试看使用 Teable 技能",
       "step3Description": "成功安装技能后可以尝试以下提示词。",
       "tryPrompts": {
@@ -1293,44 +1293,44 @@
           "credit": {
             "warning80": {
               "title": "空间 {{spaceName}} AI 算力已使用 80%",
-              "message": "您的空间已使用 80% 的 AI 算力。请考虑升级或购买更多算力。"
+              "message": "空间 {{spaceName}} 已使用 80% 的 AI 算力。请考虑升级或购买更多算力。"
             },
             "warning90": {
               "title": "空间 {{spaceName}} AI 算力已使用 90%",
-              "message": "您的空间已使用 90% 的 AI 算力。请尽快升级以避免中断。"
+              "message": "空间 {{spaceName}} 已使用 90% 的 AI 算力。请尽快升级以避免中断。"
             },
             "anomaly": {
               "dailySpike": {
                 "title": "空间 {{spaceName}} 检测到 AI 算力异常飙升",
-                "message": "今日 AI 算力消耗（{{todayValue}}）是近期日均值（{{ewma}}）的 {{multiplier}} 倍。这可能表示存在异常活动，请检查您的使用情况。主要来源：{{topContributors}}"
+                "message": "空间 {{spaceName}} 今日 AI 算力消耗（{{todayValue}}）是近期日均值（{{ewma}}）的 {{multiplier}} 倍。这可能表示存在异常活动，请检查您的使用情况。主要来源：{{topContributors}}"
               },
               "burst": {
                 "title": "空间 {{spaceName}} AI 算力突发告警",
-                "message": "在过去 {{windowMinutes}} 分钟内消耗了 {{recentValue}} AI 算力，是历史小时 P95（{{hourlyP95}}）的 {{multiplier}} 倍。这可能表示存在异常活动。主要来源：{{topContributors}}"
+                "message": "空间 {{spaceName}} 在过去 {{windowMinutes}} 分钟内消耗了 {{recentValue}} AI 算力，是历史小时 P95（{{hourlyP95}}）的 {{multiplier}} 倍。这可能表示存在异常活动。主要来源：{{topContributors}}"
               }
             }
           },
           "automationRun": {
             "warning80": {
               "title": "空间 {{spaceName}} 自动化运行次数已使用 80% 配额",
-              "message": "您的空间已使用 {{usedRuns}}/{{totalLimit}} 次自动化运行（80%）。请考虑升级订阅。"
+              "message": "空间 {{spaceName}} 已使用 {{usedRuns}}/{{totalLimit}} 次自动化运行（80%）。请考虑升级订阅。"
             },
             "warning90": {
               "title": "空间 {{spaceName}} 自动化运行次数已使用 90% 配额",
-              "message": "您的空间已使用 {{usedRuns}}/{{totalLimit}} 次自动化运行（90%）。请尽快升级以避免中断。"
+              "message": "空间 {{spaceName}} 已使用 {{usedRuns}}/{{totalLimit}} 次自动化运行（90%）。请尽快升级以避免中断。"
             },
             "gracePeriod": {
               "title": "空间 {{spaceName}} 自动化运行次数已超限 - 宽限期生效中",
-              "message": "您的自动化运行配额已超出。自动化将在接下来的 {{remainingHours}} 小时后停止运行并关闭。请升级订阅。"
+              "message": "空间 {{spaceName}} 的自动化运行配额已超出。自动化将在接下来的 {{remainingHours}} 小时后停止运行并关闭。请升级订阅。"
             },
             "anomaly": {
               "dailySpike": {
                 "title": "空间 {{spaceName}} 自动化运行次数异常飙升",
-                "message": "今日自动化运行次数（{{todayValue}}）是近期日均值（{{ewma}}）的 {{multiplier}} 倍。这可能表示存在失控的自动化流程，请检查您的工作流。主要来源：{{topContributors}}"
+                "message": "空间 {{spaceName}} 今日自动化运行次数（{{todayValue}}）是近期日均值（{{ewma}}）的 {{multiplier}} 倍。这可能表示存在失控的自动化流程，请检查您的工作流。主要来源：{{topContributors}}"
               },
               "burst": {
                 "title": "空间 {{spaceName}} 自动化运行突发告警",
-                "message": "在过去 {{windowMinutes}} 分钟内检测到 {{recentValue}} 次自动化运行，是历史小时 P95（{{hourlyP95}}）的 {{multiplier}} 倍。这可能表示存在循环或配置错误。主要来源：{{topContributors}}"
+                "message": "空间 {{spaceName}} 在过去 {{windowMinutes}} 分钟内检测到 {{recentValue}} 次自动化运行，是历史小时 P95（{{hourlyP95}}）的 {{multiplier}} 倍。这可能表示存在循环或配置错误。主要来源：{{topContributors}}"
               }
             }
           }
