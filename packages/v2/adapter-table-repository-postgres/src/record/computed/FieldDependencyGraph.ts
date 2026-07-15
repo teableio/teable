@@ -1123,166 +1123,262 @@ export class FieldDependencyGraph {
           tableProvisionStates.map((state) => sql`${state}`),
           sql`, `
         );
+        const referenceQueryLimit = MAX_VISITED + batch.length + 1;
 
-        // Single query that finds all dependents from multiple sources
-        // Uses UNION to combine results, each source filters by batch IDs
-        // Each branch is designed to use a specific index
-        const result = await sql<{ field_id: string }>`
-          -- 1. Reference table edges (formula dependencies) - uses index on from_field_id
-          SELECT r.to_field_id AS field_id
-          FROM reference r
-          INNER JOIN field f ON f.id = r.to_field_id
-          INNER JOIN table_meta t ON t.id = f.table_id
-          WHERE r.from_field_id IN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id))
-            AND f.deleted_time IS NULL
-            AND t.deleted_time IS NULL
-            AND t.provision_state IN (${tableProvisionStateSql})
+        // Expand healthy reference edges recursively in one query. Keep legacy metadata lookups
+        // in separate 100-ID batches below: a large recursive closure can otherwise make the
+        // planner abandon expression indexes and scan all link/lookup fields in the database.
+        const referenceResult = await sql<{ field_id: string }>`
+          WITH RECURSIVE
+          batch(id) AS MATERIALIZED (
+            VALUES ${batchValuesClause}
+          ),
+          reference_walk(field_id) AS (
+            SELECT id
+            FROM batch
 
-          UNION
+            UNION
 
-          -- 2. Lookup/rollup dependency on linkFieldId - prefer field_lookup_linked_field_id_idx
-          SELECT f.id AS field_id
-          FROM field f
-          INNER JOIN table_meta t ON t.id = f.table_id
-          WHERE f.deleted_time IS NULL
-            AND t.deleted_time IS NULL
-            AND t.provision_state IN (${tableProvisionStateSql})
-            AND (f.type = 'rollup' OR f.is_lookup = true)
-            AND f.lookup_linked_field_id IN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id))
-
-          UNION
-
-          -- 2b. Fallback for stale rows where JSON has linkFieldId but lookup_linked_field_id is null
-          SELECT f.id AS field_id
-          FROM field f
-          INNER JOIN table_meta t ON t.id = f.table_id
-          WHERE f.deleted_time IS NULL
-            AND t.deleted_time IS NULL
-            AND t.provision_state IN (${tableProvisionStateSql})
-            AND f.lookup_linked_field_id IS NULL
-            AND f.lookup_options IS NOT NULL
-            AND (f.type = 'rollup' OR f.is_lookup = true)
-            AND (f.lookup_options::jsonb)->>'linkFieldId' IN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id))
-
-          UNION
-
-          -- 3. Lookup/rollup dependency on lookupFieldId - uses field_lookup_options_lookup_field_id_idx
-          SELECT f.id AS field_id
-          FROM field f
-          INNER JOIN table_meta t ON t.id = f.table_id
-          WHERE f.deleted_time IS NULL
-            AND t.deleted_time IS NULL
-            AND t.provision_state IN (${tableProvisionStateSql})
-            AND f.lookup_options IS NOT NULL
-            AND (f.type = 'rollup' OR f.is_lookup = true)
-            AND (f.lookup_options::jsonb)->>'lookupFieldId' IN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id))
-
-          UNION
-
-          -- 4. Link field dependency on lookupFieldId (link_title) - uses field_options_lookup_field_id_idx
-          SELECT f.id AS field_id
-          FROM field f
-          INNER JOIN table_meta t ON t.id = f.table_id
-          WHERE f.deleted_time IS NULL
-            AND t.deleted_time IS NULL
-            AND t.provision_state IN (${tableProvisionStateSql})
-            AND f.type = 'link'
-            AND f.options IS NOT NULL
-            AND (f.options::jsonb)->>'lookupFieldId' IN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id))
-
-          UNION
-
-          -- 5. ConditionalRollup/ConditionalLookup dependency on lookupFieldId
-          SELECT f.id AS field_id
-          FROM field f
-          INNER JOIN table_meta t ON t.id = f.table_id
-          WHERE f.deleted_time IS NULL
-            AND t.deleted_time IS NULL
-            AND t.provision_state IN (${tableProvisionStateSql})
-            AND f.type IN ('conditionalRollup', 'conditionalLookup')
-            AND f.options IS NOT NULL
-            AND (f.options::jsonb)->>'lookupFieldId' IN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id))
-
-          UNION
-
-          -- 6. Conditional lookup (v1) dependency on lookupFieldId
-          SELECT f.id AS field_id
-          FROM field f
-          INNER JOIN table_meta t ON t.id = f.table_id
-          WHERE f.deleted_time IS NULL
-            AND t.deleted_time IS NULL
-            AND t.provision_state IN (${tableProvisionStateSql})
-            AND f.is_conditional_lookup = true
-            AND f.lookup_options IS NOT NULL
-            AND (f.lookup_options::jsonb)->>'lookupFieldId' IN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id))
-
-          UNION
-
-          -- 7. ConditionalRollup/ConditionalLookup dependency on condition filter fields
-          -- Filter fields are referenced in options.condition.filter.filterSet[].fieldId
-          -- Using text pattern matching to detect fieldId references in nested filterSet
-          SELECT f.id AS field_id
-          FROM field f
-          INNER JOIN table_meta t ON t.id = f.table_id
-          CROSS JOIN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id)) AS batch
-          WHERE f.deleted_time IS NULL
-            AND t.deleted_time IS NULL
-            AND t.provision_state IN (${tableProvisionStateSql})
-            AND t.base_id = ${baseId.toString()}
-            AND f.type IN ('conditionalRollup', 'conditionalLookup')
-            AND f.options IS NOT NULL
-            AND f.options::text LIKE '%"fieldId":"' || batch.id || '"%'
-
-          UNION
-
-          -- 8. Conditional lookup (v1) dependency on condition filter fields
-          -- Filter fields are in lookup_options.filter.filterSet[].fieldId or lookup_options.condition.filter.filterSet[].fieldId
-          SELECT f.id AS field_id
-          FROM field f
-          INNER JOIN table_meta t ON t.id = f.table_id
-          CROSS JOIN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id)) AS batch
-          WHERE f.deleted_time IS NULL
-            AND t.deleted_time IS NULL
-            AND t.provision_state IN (${tableProvisionStateSql})
-            AND t.base_id = ${baseId.toString()}
-            AND f.is_conditional_lookup = true
-            AND f.lookup_options IS NOT NULL
-            AND f.lookup_options::text LIKE '%"fieldId":"' || batch.id || '"%'
-
-          UNION
-
-          -- 9. Lookup/rollup dependency on filter fields (v1 style with lookup_options.filter)
-          -- Filter fields are in lookup_options.filter.filterSet[].fieldId
-          SELECT f.id AS field_id
-          FROM field f
-          INNER JOIN table_meta t ON t.id = f.table_id
-          CROSS JOIN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id)) AS batch
-          WHERE f.deleted_time IS NULL
-            AND t.deleted_time IS NULL
-            AND t.provision_state IN (${tableProvisionStateSql})
-            AND t.base_id = ${baseId.toString()}
-            AND (f.type = 'rollup' OR f.is_lookup = true)
-            AND f.lookup_options IS NOT NULL
-            AND f.lookup_options::text LIKE '%"fieldId":"' || batch.id || '"%'
-
-          UNION
-
-          -- 10. Symmetric link field - when a link field changes, its symmetric field is also affected
-          -- The symmetric field can have lookups/rollups that depend on it
-          SELECT f.id AS field_id
-          FROM field f
-          INNER JOIN table_meta t ON t.id = f.table_id
-          WHERE f.deleted_time IS NULL
-            AND t.deleted_time IS NULL
-            AND t.provision_state IN (${tableProvisionStateSql})
-            AND f.type = 'link'
-            AND f.options IS NOT NULL
-            AND (f.options::jsonb)->>'symmetricFieldId' IN (SELECT id FROM (VALUES ${batchValuesClause}) AS batch(id))
+            SELECT r.to_field_id
+            FROM reference_walk affected
+            INNER JOIN reference r ON r.from_field_id = affected.field_id
+            INNER JOIN field f ON f.id = r.to_field_id
+            INNER JOIN table_meta t ON t.id = f.table_id
+            WHERE f.deleted_time IS NULL
+              AND t.deleted_time IS NULL
+              AND t.provision_state IN (${tableProvisionStateSql})
+          )
+          SELECT field_id
+          FROM reference_walk
+          -- Keep one sentinel row beyond the global safety budget. Previously visited rows can
+          -- be needed as paths to new descendants, so the limit cannot use only the remaining
+          -- budget without risking an incomplete traversal.
+          LIMIT ${referenceQueryLimit}
         `.execute(db);
 
-        for (const row of result.rows) {
+        const referenceClosureIds = [...new Set(referenceResult.rows.map((row) => row.field_id))];
+        const referenceClosureSet = new Set(referenceClosureIds);
+        const newlyResolvedReferenceIds = referenceClosureIds.filter(
+          (fieldId) => !visited.has(fieldId) && !batchSet.has(fieldId)
+        );
+        const referenceOverflow =
+          referenceClosureIds.length >= referenceQueryLimit ||
+          newlyResolvedReferenceIds.length > MAX_VISITED - visited.size;
+
+        for (const fieldId of newlyResolvedReferenceIds) {
+          visited.add(fieldId);
+        }
+
+        // A target discovered by an earlier legacy branch can still be waiting in the queue when
+        // another seed reaches it through reference. Its descendants are already expanded by this
+        // closure, so remove that stale queue entry instead of querying it again next iteration.
+        let retainedQueueLength = 0;
+        for (const queuedFieldId of queue) {
+          if (!referenceClosureSet.has(queuedFieldId)) {
+            queue[retainedQueueLength] = queuedFieldId;
+            retainedQueueLength++;
+          }
+        }
+        queue.length = retainedQueueLength;
+
+        if (referenceOverflow || visited.size > MAX_VISITED) {
+          this.logger.warn('computed:dependency:max_visited_reached', {
+            iterations: iterationCount,
+            visited: visited.size,
+            queueRemaining: queue.length,
+            seedCount: seedIds.length,
+            elapsedMs: Date.now() - startTime,
+          });
+          break;
+        }
+
+        // Reference metadata is authoritative for new writes, but old rows may only carry JSON
+        // options. Check those fallbacks against every recursively resolved ID in bounded batches.
+        for (let offset = 0; offset < referenceClosureIds.length; offset += 100) {
+          const fallbackBatch = referenceClosureIds.slice(offset, offset + 100);
+          const fallbackBatchValues = fallbackBatch.map((id) => sql`(${id})`);
+          const fallbackBatchValuesClause = sql.join(fallbackBatchValues, sql`, `);
+
+          const fallbackResult = await sql<{ field_id: string }>`
+            WITH batch(id) AS MATERIALIZED (
+              VALUES ${fallbackBatchValuesClause}
+            )
+
+            -- 2. Lookup/rollup dependency on linkFieldId - prefer field_lookup_linked_field_id_idx
+            SELECT f.id AS field_id
+            FROM field f
+            INNER JOIN table_meta t ON t.id = f.table_id
+            WHERE f.deleted_time IS NULL
+              AND t.deleted_time IS NULL
+              AND t.provision_state IN (${tableProvisionStateSql})
+              AND (f.type = 'rollup' OR f.is_lookup = true)
+              AND f.lookup_linked_field_id = ANY(ARRAY(SELECT id FROM batch))
+
+            UNION ALL
+
+            -- 2b. Fallback for stale rows where JSON has linkFieldId but lookup_linked_field_id is null
+            SELECT f.id AS field_id
+            FROM batch affected
+            CROSS JOIN LATERAL (
+              SELECT f.id, f.table_id
+              FROM field f
+              WHERE f.deleted_time IS NULL
+                AND f.lookup_linked_field_id IS NULL
+                AND f.lookup_options IS NOT NULL
+                AND (f.type = 'rollup' OR f.is_lookup = true)
+                AND (f.lookup_options::jsonb)->>'linkFieldId' = affected.id
+              -- Prevent pull-up into a global partial-index scan; retain one expression-index
+              -- probe per batch ID.
+              OFFSET 0
+            ) f
+            INNER JOIN table_meta t ON t.id = f.table_id
+            WHERE t.deleted_time IS NULL
+              AND t.provision_state IN (${tableProvisionStateSql})
+
+            UNION ALL
+
+            -- 3. Lookup/rollup dependency on lookupFieldId - uses field_lookup_options_lookup_field_id_idx
+            SELECT f.id AS field_id
+            FROM batch affected
+            CROSS JOIN LATERAL (
+              SELECT f.id, f.table_id
+              FROM field f
+              WHERE f.deleted_time IS NULL
+                AND f.lookup_options IS NOT NULL
+                AND (f.type = 'rollup' OR f.is_lookup = true)
+                AND (f.lookup_options::jsonb)->>'lookupFieldId' = affected.id
+              OFFSET 0
+            ) f
+            INNER JOIN table_meta t ON t.id = f.table_id
+            WHERE t.deleted_time IS NULL
+              AND t.provision_state IN (${tableProvisionStateSql})
+
+            UNION ALL
+
+            -- 4. Link field dependency on lookupFieldId (link_title) - uses field_options_lookup_field_id_idx
+            SELECT f.id AS field_id
+            FROM field f
+            INNER JOIN table_meta t ON t.id = f.table_id
+            WHERE f.deleted_time IS NULL
+              AND t.deleted_time IS NULL
+              AND t.provision_state IN (${tableProvisionStateSql})
+              AND f.type = 'link'
+              AND f.options IS NOT NULL
+              AND (f.options::jsonb)->>'lookupFieldId' = ANY(ARRAY(SELECT id FROM batch))
+
+            UNION ALL
+
+            -- 5. ConditionalRollup/ConditionalLookup dependency on lookupFieldId
+            SELECT f.id AS field_id
+            FROM field f
+            INNER JOIN table_meta t ON t.id = f.table_id
+            WHERE f.deleted_time IS NULL
+              AND t.deleted_time IS NULL
+              AND t.provision_state IN (${tableProvisionStateSql})
+              AND f.type IN ('conditionalRollup', 'conditionalLookup')
+              AND f.options IS NOT NULL
+              AND (f.options::jsonb)->>'lookupFieldId' = ANY(ARRAY(SELECT id FROM batch))
+
+            UNION ALL
+
+            -- 6. Conditional lookup (v1) dependency on lookupFieldId
+            SELECT f.id AS field_id
+            FROM batch affected
+            CROSS JOIN LATERAL (
+              SELECT f.id, f.table_id
+              FROM field f
+              WHERE f.deleted_time IS NULL
+                AND f.is_conditional_lookup = true
+                AND f.lookup_options IS NOT NULL
+                AND (f.lookup_options::jsonb)->>'lookupFieldId' = affected.id
+              OFFSET 0
+            ) f
+            INNER JOIN table_meta t ON t.id = f.table_id
+            WHERE t.deleted_time IS NULL
+              AND t.provision_state IN (${tableProvisionStateSql})
+
+            UNION ALL
+
+            -- 10. Symmetric link field - when a link field changes, its symmetric field is also affected
+            -- The symmetric field can have lookups/rollups that depend on it
+            SELECT f.id AS field_id
+            FROM field f
+            INNER JOIN table_meta t ON t.id = f.table_id
+            WHERE f.deleted_time IS NULL
+              AND t.deleted_time IS NULL
+              AND t.provision_state IN (${tableProvisionStateSql})
+              AND f.type = 'link'
+              AND f.options IS NOT NULL
+              AND (f.options::jsonb)->>'symmetricFieldId' = ANY(ARRAY(SELECT id FROM batch))
+          `.execute(db);
+
+          // UNION ALL can return duplicates, and a legacy edge can point back into the already
+          // expanded reference closure. The sets preserve the old UNION semantics in memory.
+          for (const row of fallbackResult.rows) {
+            const fieldId = row.field_id;
+            if (!visited.has(fieldId) && !referenceClosureSet.has(fieldId)) {
+              visited.add(fieldId);
+              queue.push(fieldId);
+            }
+          }
+
+          if (visited.size > MAX_VISITED) {
+            break;
+          }
+        }
+
+        if (visited.size > MAX_VISITED) {
+          continue;
+        }
+
+        // Unlike expression-index probes, JSON filter extraction scales with the number of
+        // candidate fields in this base, not the closure size. Run it once for the full closure
+        // so a large reference graph does not repeatedly parse the same legacy JSON.
+        const legacyFilterBatchValues = referenceClosureIds.map((id) => sql`(${id})`);
+        const legacyFilterBatchValuesClause = sql.join(legacyFilterBatchValues, sql`, `);
+        const legacyFilterResult = await sql<{ field_id: string }>`
+          WITH batch(id) AS MATERIALIZED (
+            VALUES ${legacyFilterBatchValuesClause}
+          )
+          SELECT DISTINCT f.id AS field_id
+          FROM field f
+          INNER JOIN table_meta t ON t.id = f.table_id
+          CROSS JOIN LATERAL jsonb_path_query(
+            jsonb_build_array(
+              CASE
+                WHEN f.type IN ('conditionalRollup', 'conditionalLookup')
+                  THEN f.options::jsonb
+                ELSE NULL
+              END,
+              CASE
+                WHEN f.is_conditional_lookup = true OR f.type = 'rollup' OR f.is_lookup = true
+                  THEN f.lookup_options::jsonb
+                ELSE NULL
+              END
+            ),
+            '$.**.fieldId'
+          ) referenced(value)
+          INNER JOIN batch affected ON affected.id = referenced.value #>> '{}'
+          WHERE f.deleted_time IS NULL
+            AND t.deleted_time IS NULL
+            AND t.provision_state IN (${tableProvisionStateSql})
+            AND t.base_id = ${baseId.toString()}
+            AND (
+              (
+                f.type IN ('conditionalRollup', 'conditionalLookup')
+                AND f.options IS NOT NULL
+              )
+              OR
+              (
+                (f.is_conditional_lookup = true OR f.type = 'rollup' OR f.is_lookup = true)
+                AND f.lookup_options IS NOT NULL
+              )
+            )
+        `.execute(db);
+
+        for (const row of legacyFilterResult.rows) {
           const fieldId = row.field_id;
-          if (!visited.has(fieldId) && !batchSet.has(fieldId)) {
+          if (!visited.has(fieldId) && !referenceClosureSet.has(fieldId)) {
             visited.add(fieldId);
             queue.push(fieldId);
           }

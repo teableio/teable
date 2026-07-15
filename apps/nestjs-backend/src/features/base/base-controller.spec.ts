@@ -23,6 +23,7 @@ const createController = (v2Reason: string | undefined) => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
       {} as never
     ),
     baseService,

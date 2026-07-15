@@ -8,6 +8,9 @@ describe('SpaceDataDbMigrationGuardService', () => {
       findFirst: vi.fn(),
       findMany: vi.fn(),
     },
+    baseDataDbMoveJob: {
+      findFirst: vi.fn(),
+    },
     base: {
       findUnique: vi.fn(),
     },
@@ -19,6 +22,7 @@ describe('SpaceDataDbMigrationGuardService', () => {
   beforeEach(() => {
     prismaService.spaceDataDbMigrationJob.findFirst.mockReset();
     prismaService.spaceDataDbMigrationJob.findMany.mockReset().mockResolvedValue([]);
+    prismaService.baseDataDbMoveJob.findFirst.mockReset().mockResolvedValue(null);
     prismaService.base.findUnique.mockReset();
     prismaService.tableMeta.findUnique.mockReset();
   });
@@ -167,7 +171,10 @@ describe('SpaceDataDbMigrationGuardService', () => {
   it('resolves base and table ids to space ids before checking the freeze', async () => {
     prismaService.spaceDataDbMigrationJob.findFirst.mockResolvedValue(null);
     prismaService.base.findUnique.mockResolvedValue({ spaceId: 'spcxxx' });
-    prismaService.tableMeta.findUnique.mockResolvedValue({ base: { spaceId: 'spcxxx' } });
+    prismaService.tableMeta.findUnique.mockResolvedValue({
+      baseId: 'bsexxx',
+      base: { spaceId: 'spcxxx' },
+    });
     const service = new SpaceDataDbMigrationGuardService(prismaService as never);
 
     await service.assertBaseWritable('bsexxx');
@@ -179,8 +186,9 @@ describe('SpaceDataDbMigrationGuardService', () => {
     });
     expect(prismaService.tableMeta.findUnique).toHaveBeenCalledWith({
       where: { id: 'tblxxx' },
-      select: { base: { select: { spaceId: true } } },
+      select: { baseId: true, base: { select: { spaceId: true } } },
     });
+    expect(prismaService.baseDataDbMoveJob.findFirst).toHaveBeenCalled();
     expect(prismaService.spaceDataDbMigrationJob.findFirst).toHaveBeenCalledTimes(2);
   });
 
@@ -190,11 +198,17 @@ describe('SpaceDataDbMigrationGuardService', () => {
         findFirst: vi.fn().mockResolvedValue(null),
         findMany: vi.fn().mockResolvedValue([]),
       },
+      baseDataDbMoveJob: {
+        findFirst: vi.fn().mockResolvedValue(null),
+      },
       base: {
         findUnique: vi.fn().mockResolvedValue({ spaceId: 'spctx' }),
       },
       tableMeta: {
-        findUnique: vi.fn().mockResolvedValue({ base: { spaceId: 'spctx' } }),
+        findUnique: vi.fn().mockResolvedValue({
+          baseId: 'bsetx',
+          base: { spaceId: 'spctx' },
+        }),
       },
     };
     const rootPrisma = {
@@ -202,6 +216,7 @@ describe('SpaceDataDbMigrationGuardService', () => {
       txClient: vi.fn().mockReturnValue(txClient),
     };
     rootPrisma.spaceDataDbMigrationJob.findFirst.mockResolvedValue(null);
+    rootPrisma.baseDataDbMoveJob.findFirst.mockResolvedValue(null);
     const service = new SpaceDataDbMigrationGuardService(rootPrisma as never);
 
     await service.assertBaseWritable('bsetx');
@@ -213,9 +228,10 @@ describe('SpaceDataDbMigrationGuardService', () => {
     });
     expect(txClient.tableMeta.findUnique).toHaveBeenCalledWith({
       where: { id: 'tbltx' },
-      select: { base: { select: { spaceId: true } } },
+      select: { baseId: true, base: { select: { spaceId: true } } },
     });
     expect(rootPrisma.spaceDataDbMigrationJob.findFirst).toHaveBeenCalledTimes(2);
+    expect(rootPrisma.baseDataDbMoveJob.findFirst).toHaveBeenCalled();
     expect(txClient.spaceDataDbMigrationJob.findFirst).not.toHaveBeenCalled();
     expect(prismaService.base.findUnique).not.toHaveBeenCalled();
     expect(prismaService.tableMeta.findUnique).not.toHaveBeenCalled();
@@ -233,11 +249,17 @@ describe('SpaceDataDbMigrationGuardService', () => {
         findFirst: vi.fn().mockRejectedValue(new Error('should not use transaction client')),
         findMany: vi.fn(),
       },
+      baseDataDbMoveJob: {
+        findFirst: vi.fn().mockRejectedValue(new Error('should not use transaction client')),
+      },
       base: {
         findUnique: vi.fn().mockResolvedValue({ spaceId: 'spctx' }),
       },
       tableMeta: {
-        findUnique: vi.fn().mockResolvedValue({ base: { spaceId: 'spctx' } }),
+        findUnique: vi.fn().mockResolvedValue({
+          baseId: 'bsetx',
+          base: { spaceId: 'spctx' },
+        }),
       },
     };
     const rootPrisma = {
@@ -245,15 +267,33 @@ describe('SpaceDataDbMigrationGuardService', () => {
       txClient: vi.fn().mockReturnValue(txClient),
     };
     rootPrisma.spaceDataDbMigrationJob.findFirst.mockRejectedValue(missingTableError);
+    rootPrisma.baseDataDbMoveJob.findFirst.mockResolvedValue(null);
     const service = new SpaceDataDbMigrationGuardService(rootPrisma as never);
 
     await expect(service.assertTableWritable('tbltx')).resolves.toBeUndefined();
 
     expect(txClient.tableMeta.findUnique).toHaveBeenCalledWith({
       where: { id: 'tbltx' },
-      select: { base: { select: { spaceId: true } } },
+      select: { baseId: true, base: { select: { spaceId: true } } },
     });
     expect(rootPrisma.spaceDataDbMigrationJob.findFirst).toHaveBeenCalledTimes(1);
     expect(txClient.spaceDataDbMigrationJob.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('rejects writes when a base data-db move job is active', async () => {
+    prismaService.base.findUnique.mockResolvedValue({ spaceId: 'spcxxx' });
+    prismaService.baseDataDbMoveJob.findFirst.mockResolvedValue({
+      id: 'bdmjxxx',
+      state: 'copying_base_schema',
+    });
+    const service = new SpaceDataDbMigrationGuardService(prismaService as never);
+
+    await expect(service.assertBaseWritable('bsexxx')).rejects.toMatchObject({
+      code: HttpErrorCode.CONFLICT,
+      data: expect.objectContaining({
+        errorCode: 'BASE_DATA_DB_MOVING',
+        moveJobId: 'bdmjxxx',
+      }),
+    });
   });
 });

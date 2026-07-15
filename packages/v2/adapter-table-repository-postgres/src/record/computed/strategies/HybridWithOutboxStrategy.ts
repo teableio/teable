@@ -25,13 +25,13 @@ import {
   buildBeforeImageRecordsFromStepChanges,
   mergeBeforeImageRecords,
 } from '../ComputedBeforeImageFromChanges';
-import { isComputedUpdateLockUnavailable } from '../ComputedUpdateLock';
 import type {
   ComputedFieldUpdater,
   ComputedUpdateResult,
   PreparedDirtyState,
   StepChangeData,
 } from '../ComputedFieldUpdater';
+import { isComputedUpdateLockUnavailable } from '../ComputedUpdateLock';
 import type {
   ComputedSeedGroup,
   ComputedUpdatePlan,
@@ -60,13 +60,11 @@ import type {
  *           Fast but has race condition if delay is too short.
  *           Use `dispatchDelayMs >= 50` to allow transaction commit.
  *
- * - `external`: No inline dispatch - relies on external worker polling.
- *               Most reliable, recommended for production.
- *               Latency depends on worker poll interval.
+ * - `external`: No inline dispatch - relies on an external wake-up worker.
+ *               Recommended when BullMQ owns asynchronous delivery.
  *
- * - `hybrid`: Push with external fallback. Tries inline dispatch
- *             but external worker catches any missed tasks.
- *             Best of both worlds for production with low latency.
+ * - `hybrid`: Push plus external delivery. Tries inline dispatch while
+ *             the external worker handles queued wake-ups.
  */
 export type DispatchMode = 'push' | 'external' | 'hybrid';
 
@@ -106,7 +104,7 @@ export const defaultHybridWithOutboxStrategyConfig: HybridWithOutboxStrategyConf
   syncMaxDirtyPerTable: 2000,
   syncMaxTotalDirty: 5000,
   syncMaxLevelHardCap: 1,
-  // Default to external polling for restart-safe production behavior.
+  // Default to external BullMQ delivery for restart-safe production behavior.
   dispatchMode: 'external',
   dispatchWorkerLimit: 50,
   dispatchWorkerId: 'computed-inline',
@@ -122,7 +120,7 @@ const maxComputedEventLogRecordIds = 10;
  */
 export const productionHybridWithOutboxStrategyConfig: HybridWithOutboxStrategyConfig = {
   ...defaultHybridWithOutboxStrategyConfig,
-  dispatchMode: 'external', // Rely on external worker polling
+  dispatchMode: 'external', // Rely on the external wake-up worker
 };
 
 /**
@@ -470,11 +468,11 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
   }
 
   scheduleDispatch(context: IExecutionContext): void {
-    // 'external' mode: no inline dispatch, rely on external worker polling
+    // 'external' mode: no inline dispatch; BullMQ owns asynchronous delivery.
     if (this.config.dispatchMode === 'external') {
       this.logger.debug('computed:outbox:dispatch_skipped', {
         reason: 'external_mode',
-        message: 'Task enqueued, waiting for external worker to poll',
+        message: 'Task enqueued, waiting for an external wake-up',
       });
       return;
     }

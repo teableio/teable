@@ -246,7 +246,6 @@ describe('computed outbox recovery (e2e)', () => {
     const writer = await createHarness({
       computedUpdate: {
         hybridConfig: { dispatchMode: 'external' },
-        pollingConfig: { enabled: false },
       },
     });
 
@@ -264,10 +263,10 @@ describe('computed outbox recovery (e2e)', () => {
       seedBase: false,
       computedUpdate: {
         hybridConfig: { dispatchMode: 'external' },
-        pollingConfig: { enabled: true, pollIntervalMs: 50, batchSize: 10 },
       },
     });
 
+    await reader.testContainer.processOutbox();
     await waitFor(async () => {
       const records = await listRecordsWithoutDrain(reader, targetTableId);
       expect(getLookupValues(records, lookupFieldId)).toEqual([100]);
@@ -279,7 +278,6 @@ describe('computed outbox recovery (e2e)', () => {
     const writer = await createHarness({
       computedUpdate: {
         hybridConfig: { dispatchMode: 'external' },
-        pollingConfig: { enabled: false },
       },
     });
 
@@ -301,7 +299,6 @@ describe('computed outbox recovery (e2e)', () => {
       seedBase: false,
       computedUpdate: {
         hybridConfig: { dispatchMode: 'external' },
-        pollingConfig: { enabled: true, pollIntervalMs: 50, batchSize: 10 },
         outboxConfig: {
           processingLeaseMs: 5000,
           heartbeatIntervalMs: 1000,
@@ -309,7 +306,7 @@ describe('computed outbox recovery (e2e)', () => {
       },
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(await reader.testContainer.processOutboxOnce()).toBe(0);
 
     const rows = await pendingOutboxStatuses(reader);
     expect(rows).toHaveLength(1);
@@ -323,7 +320,6 @@ describe('computed outbox recovery (e2e)', () => {
     const writer = await createHarness({
       computedUpdate: {
         hybridConfig: { dispatchMode: 'external' },
-        pollingConfig: { enabled: false },
       },
     });
 
@@ -345,7 +341,6 @@ describe('computed outbox recovery (e2e)', () => {
       seedBase: false,
       computedUpdate: {
         hybridConfig: { dispatchMode: 'external' },
-        pollingConfig: { enabled: true, pollIntervalMs: 50, batchSize: 10 },
         outboxConfig: {
           processingLeaseMs: 5000,
           heartbeatIntervalMs: 1000,
@@ -353,6 +348,7 @@ describe('computed outbox recovery (e2e)', () => {
       },
     });
 
+    await reader.testContainer.processOutbox();
     await waitFor(async () => {
       const records = await listRecordsWithoutDrain(reader, targetTableId);
       expect(getLookupValues(records, lookupFieldId)).toEqual([100]);

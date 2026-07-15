@@ -16,6 +16,7 @@ export const envValidationSchema = Joi.object({
   PRISMA_DATABASE_URL: Joi.string(),
   PRISMA_META_DATABASE_URL: Joi.string(),
   DATABASE_URL: Joi.string(),
+  V2_COMPUTED_UPDATE_MODE: Joi.string().valid('sync').optional(),
 
   STORAGE_PREFIX: Joi.string().uri().optional(),
 
@@ -35,12 +36,17 @@ export const envValidationSchema = Joi.object({
       .message('Cache `sqlite` the URI must start with the protocol `sqlite://`'),
   }),
   // cache-redis
-  BACKEND_CACHE_REDIS_URI: Joi.when('BACKEND_CACHE_PROVIDER', {
-    is: 'redis',
-    then: Joi.string()
-      .pattern(/^(redis:\/\/|rediss:\/\/)/)
-      .message('Cache `redis` the URI must start with the protocol `redis://` or `rediss://`'),
-  }),
+  BACKEND_CACHE_REDIS_URI: Joi.string()
+    .pattern(/^(redis:\/\/|rediss:\/\/)/)
+    .message('Cache `redis` the URI must start with the protocol `redis://` or `rediss://`')
+    .required(),
+
+  V2_COMPUTED_OUTBOX_TRIGGER_PRODUCER_ENABLED: Joi.boolean().optional(),
+  V2_COMPUTED_OUTBOX_TRIGGER_CONSUMER_ENABLED: Joi.boolean().optional(),
+  V2_COMPUTED_OUTBOX_TRIGGER_CONCURRENCY: Joi.number().integer().positive().default(8),
+  V2_COMPUTED_OUTBOX_TRIGGER_PUBLISH_TIMEOUT_MS: Joi.number().integer().positive().default(1000),
+  V2_COMPUTED_OUTBOX_MONITOR_CONCURRENCY: Joi.number().integer().positive().default(4),
+  V2_COMPUTED_OUTBOX_MONITOR_INTERVAL_MS: Joi.number().integer().positive().default(30000),
   // github auth
   BACKEND_GITHUB_CLIENT_ID: Joi.when('SOCIAL_AUTH_PROVIDERS', {
     is: Joi.string()
@@ -63,6 +69,17 @@ export const envValidationSchema = Joi.object({
 
   PASSWORD_LOGIN_DISABLED: Joi.string().equal('true').optional(),
 })
+  .custom((env: Record<string, unknown>, helpers) => {
+    if (
+      env.V2_COMPUTED_OUTBOX_TRIGGER_PRODUCER_ENABLED === false &&
+      env.V2_COMPUTED_OUTBOX_TRIGGER_CONSUMER_ENABLED === false
+    ) {
+      return helpers.message({
+        custom: 'BullMQ computed outbox requires a producer or consumer role',
+      });
+    }
+    return env;
+  })
   .or('PRISMA_META_DATABASE_URL', 'PRISMA_DATABASE_URL', 'DATABASE_URL')
   .messages({
     'object.missing':

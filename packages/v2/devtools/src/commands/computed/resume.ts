@@ -105,5 +105,5 @@ export const computedResume = Command.make(
   },
   handler
 ).pipe(
-  Command.withDescription('Resume computed polling claims for a paused space, base, or table scope')
+  Command.withDescription('Resume computed task claims for a paused space, base, or table scope')
 );

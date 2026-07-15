@@ -172,9 +172,7 @@ export const ComputedTaskControlLive = Layer.effect(
             scopeId: input.scopeId,
             resumed,
             notes: resumed
-              ? [
-                  'Paused scope removed. New polling cycles can claim matching computed tasks again.',
-                ]
+              ? ['Paused scope removed. Workers can claim matching computed tasks again.']
               : ['No matching paused scope row existed.'],
           };
         }),
@@ -197,7 +195,7 @@ export const ComputedTaskControlLive = Layer.effect(
             activeOnly,
             scopes: scopes.map(toPauseScopeRow),
             notes: [
-              'Paused scopes prevent polling claimBatch from taking matching computed tasks. Manual task execution can still bypass this if triggered separately.',
+              'Paused scopes prevent workers from claiming matching computed tasks. Manual task execution can still bypass this if triggered separately.',
             ],
           };
         }),

@@ -1,14 +1,14 @@
-import path from 'path';
 import { Buffer as NodeBuffer } from 'node:buffer';
 import { createRequire } from 'node:module';
+import path from 'path';
 import type { INestApplication } from '@nestjs/common';
 import { DriverClient, parseDsn } from '@teable/core';
 import dotenv from 'dotenv-flow';
 import { buildSync } from 'esbuild';
 
 const require = createRequire(import.meta.url);
-const bufferModule = require('buffer') as { Buffer: typeof NodeBuffer; SlowBuffer?: unknown };
-bufferModule.SlowBuffer ??= bufferModule.Buffer ?? NodeBuffer;
+const bufferModule = require('buffer') as Record<string, unknown>;
+bufferModule['SlowBuffer'] ??= bufferModule['Buffer'] ?? NodeBuffer;
 
 // Handle ConditionalModule timeout errors that occur sporadically in CI
 // These errors are thrown from setTimeout callbacks and cannot be caught normally
@@ -85,8 +85,12 @@ function compileWorkerFile() {
 async function setup() {
   dotenv.config({ path: '../nextjs-app' });
 
-  // Use sync mode for v2 computed updates in tests
-  process.env.V2_COMPUTED_UPDATE_MODE = 'sync';
+  // Keep the broad e2e suite deterministic; the dedicated suite verifies BullMQ delivery.
+  if (process.env.V2_COMPUTED_OUTBOX_BULLMQ_E2E === 'true') {
+    delete process.env.V2_COMPUTED_UPDATE_MODE;
+  } else {
+    process.env.V2_COMPUTED_UPDATE_MODE = 'sync';
+  }
 
   if (!process.env.CONDITIONAL_QUERY_MAX_LIMIT) {
     process.env.CONDITIONAL_QUERY_MAX_LIMIT = '7';

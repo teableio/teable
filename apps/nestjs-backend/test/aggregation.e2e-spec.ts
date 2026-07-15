@@ -53,6 +53,8 @@ import {
   getRecord,
 } from './utils/init-app';
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 describe('OpenAPI AggregationController (e2e)', () => {
   let app: INestApplication;
   const baseId = globalThis.testConfig.baseId;

@@ -67,7 +67,16 @@
     "moveBaseSuccessTitle": "Move base success",
     "moveBaseSuccessDescription": "{{baseName}} has been moved to {{spaceName}}",
     "moveBaseCrossSpaceTitle": "Notice",
-    "moveBaseCrossSpaceDataLossWarning": "Cross-space references aren't supported. The related fields will be converted to text fields. This action cannot be undone."
+    "moveBaseCrossSpaceDataLossWarning": "Cross-space references aren't supported. The related fields will be converted to text fields. This action cannot be undone.",
+    "moveBaseCrossDataDbTitle": "Cross data-database move",
+    "moveBaseCrossDataDbWarning": "The source and target spaces use different data databases. This move will copy base data to the target database and may take a while. Writes to this base are paused during the transfer.",
+    "moveBaseProgressTitle": "Moving base…",
+    "moveBaseProgressPhase": "Stage: {{phase}}",
+    "moveBaseProgressPercent": "{{percent}}%",
+    "moveBaseFailedTitle": "Move failed",
+    "moveBaseFailedDescription": "Stage {{phase}}: {{error}}",
+    "moveBaseRetry": "Retry",
+    "moveBaseCancel": "Cancel"
   },
   "deleteSpaceModal": {
     "title": "Delete space",

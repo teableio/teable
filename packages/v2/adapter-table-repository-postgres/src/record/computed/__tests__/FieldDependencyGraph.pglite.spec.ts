@@ -22,15 +22,17 @@ const TEST_SCHEMA = 'test_base';
 // PGlite Kysely dialect implementation
 class PGliteDriver {
   #client: PGlite;
+  #onQuery?: (sql: string) => void;
 
-  constructor(client: PGlite) {
+  constructor(client: PGlite, onQuery?: (sql: string) => void) {
     this.#client = client;
+    this.#onQuery = onQuery;
   }
 
   async init() {}
 
   async acquireConnection() {
-    return new PGliteConnection(this.#client);
+    return new PGliteConnection(this.#client, this.#onQuery);
   }
 
   async beginTransaction(connection: PGliteConnection) {
@@ -52,12 +54,15 @@ class PGliteDriver {
 
 class PGliteConnection {
   #client: PGlite;
+  #onQuery?: (sql: string) => void;
 
-  constructor(client: PGlite) {
+  constructor(client: PGlite, onQuery?: (sql: string) => void) {
     this.#client = client;
+    this.#onQuery = onQuery;
   }
 
   async executeQuery<O>(compiledQuery: CompiledQuery): Promise<QueryResult<O>> {
+    this.#onQuery?.(compiledQuery.sql);
     const result = await this.#client.query<O>(compiledQuery.sql, [...compiledQuery.parameters]);
     return {
       numAffectedRows: result.affectedRows ? BigInt(result.affectedRows) : undefined,
@@ -73,13 +78,15 @@ class PGliteConnection {
 
 class PGliteDialect implements Dialect {
   #client: PGlite;
+  #onQuery?: (sql: string) => void;
 
-  constructor(client: PGlite) {
+  constructor(client: PGlite, onQuery?: (sql: string) => void) {
     this.#client = client;
+    this.#onQuery = onQuery;
   }
 
   createDriver() {
-    return new PGliteDriver(this.#client);
+    return new PGliteDriver(this.#client, this.#onQuery);
   }
 
   createAdapter() {
@@ -98,6 +105,7 @@ class PGliteDialect implements Dialect {
 describe('FieldDependencyGraph PGlite integration', () => {
   let pglite: PGlite;
   let db: Kysely<V1TeableDatabase>;
+  const executedSql: string[] = [];
 
   const baseId = BaseId.create(`bse${'a'.repeat(16)}`)._unsafeUnwrap();
   const productsTableId = TableId.create(`tbl${'b'.repeat(16)}`)._unsafeUnwrap();
@@ -111,6 +119,19 @@ describe('FieldDependencyGraph PGlite integration', () => {
   const reportLookupFieldId = FieldId.create(`fld${'j'.repeat(16)}`)._unsafeUnwrap();
   const reportFallbackLookupFieldId = FieldId.create(`fld${'k'.repeat(16)}`)._unsafeUnwrap();
   const reportFormulaOverLookupFieldId = FieldId.create(`fld${'l'.repeat(16)}`)._unsafeUnwrap();
+  const referenceSeedFieldId = FieldId.create(`fld${'m'.repeat(16)}`)._unsafeUnwrap();
+  const referenceFormulaAFieldId = FieldId.create(`fld${'n'.repeat(16)}`)._unsafeUnwrap();
+  const referenceFormulaBFieldId = FieldId.create(`fld${'o'.repeat(16)}`)._unsafeUnwrap();
+  const referenceFormulaCFieldId = FieldId.create(`fld${'p'.repeat(16)}`)._unsafeUnwrap();
+  const legacyFilteredLookupFieldId = FieldId.create(`fld${'q'.repeat(16)}`)._unsafeUnwrap();
+  const legacyConditionalLookupFieldId = FieldId.create(`fld${'r'.repeat(16)}`)._unsafeUnwrap();
+  const mixedReferenceSeedFieldId = FieldId.create(`fld${'s'.repeat(16)}`)._unsafeUnwrap();
+  const mixedReferenceFormulaFieldId = FieldId.create(`fld${'t'.repeat(16)}`)._unsafeUnwrap();
+  const mixedLegacyLookupFieldId = FieldId.create(`fld${'u'.repeat(16)}`)._unsafeUnwrap();
+  const mixedReferenceTailFieldId = FieldId.create(`fld${'v'.repeat(16)}`)._unsafeUnwrap();
+  const largeReferenceChainFieldIds = Array.from({ length: 102 }, (_, index) =>
+    FieldId.create(`fld${index.toString().padStart(16, '0')}`)._unsafeUnwrap()
+  );
   const logger = {
     debug() {},
     warn() {},
@@ -119,7 +140,7 @@ describe('FieldDependencyGraph PGlite integration', () => {
   beforeAll(async () => {
     pglite = await PGlite.create();
     db = new Kysely<V1TeableDatabase>({
-      dialect: new PGliteDialect(pglite),
+      dialect: new PGliteDialect(pglite, (sql) => executedSql.push(sql)),
     });
 
     // Create schema and tables
@@ -283,15 +304,134 @@ describe('FieldDependencyGraph PGlite integration', () => {
             expression: `{${reportLookupFieldId.toString()}}`,
           }),
         },
+        {
+          id: referenceSeedFieldId.toString(),
+          table_id: reportsTableId.toString(),
+          type: 'number',
+          is_computed: false,
+        },
+        {
+          id: referenceFormulaAFieldId.toString(),
+          table_id: reportsTableId.toString(),
+          type: 'number',
+          is_computed: true,
+          options: JSON.stringify({ expression: `{${referenceSeedFieldId.toString()}}` }),
+        },
+        {
+          id: referenceFormulaBFieldId.toString(),
+          table_id: reportsTableId.toString(),
+          type: 'number',
+          is_computed: true,
+          options: JSON.stringify({ expression: `{${referenceFormulaAFieldId.toString()}}` }),
+        },
+        {
+          id: referenceFormulaCFieldId.toString(),
+          table_id: reportsTableId.toString(),
+          type: 'number',
+          is_computed: true,
+          options: JSON.stringify({ expression: `{${referenceFormulaBFieldId.toString()}}` }),
+        },
+        {
+          id: legacyFilteredLookupFieldId.toString(),
+          table_id: reportsTableId.toString(),
+          type: 'singleLineText',
+          is_computed: true,
+          is_lookup: true,
+          lookup_linked_field_id: reportLinkFieldId.toString(),
+          lookup_options: JSON.stringify({
+            linkFieldId: reportLinkFieldId.toString(),
+            foreignTableId: productsTableId.toString(),
+            lookupFieldId: productNameFieldId.toString(),
+            filter: {
+              conjunction: 'and',
+              filterSet: [{ fieldId: categoryFieldId.toString(), operator: 'isNotEmpty' }],
+            },
+          }),
+        },
+        {
+          id: legacyConditionalLookupFieldId.toString(),
+          table_id: reportsTableId.toString(),
+          type: 'singleLineText',
+          is_computed: true,
+          is_lookup: true,
+          is_conditional_lookup: true,
+          lookup_options: JSON.stringify({
+            foreignTableId: productsTableId.toString(),
+            lookupFieldId: productNameFieldId.toString(),
+            filter: {
+              conjunction: 'and',
+              filterSet: [{ fieldId: categoryFieldId.toString(), operator: 'isNotEmpty' }],
+            },
+          }),
+        },
+        {
+          id: mixedReferenceSeedFieldId.toString(),
+          table_id: reportsTableId.toString(),
+          type: 'number',
+          is_computed: false,
+        },
+        {
+          id: mixedReferenceFormulaFieldId.toString(),
+          table_id: reportsTableId.toString(),
+          type: 'number',
+          is_computed: true,
+          options: JSON.stringify({ expression: `{${mixedReferenceSeedFieldId.toString()}}` }),
+        },
+        {
+          id: mixedLegacyLookupFieldId.toString(),
+          table_id: reportsTableId.toString(),
+          type: 'singleLineText',
+          is_computed: true,
+          is_lookup: true,
+          lookup_linked_field_id: mixedReferenceFormulaFieldId.toString(),
+          lookup_options: JSON.stringify({
+            linkFieldId: mixedReferenceFormulaFieldId.toString(),
+            foreignTableId: reportsTableId.toString(),
+            lookupFieldId: mixedReferenceSeedFieldId.toString(),
+          }),
+        },
+        {
+          id: mixedReferenceTailFieldId.toString(),
+          table_id: reportsTableId.toString(),
+          type: 'number',
+          is_computed: true,
+          options: JSON.stringify({ expression: `{${mixedLegacyLookupFieldId.toString()}}` }),
+        },
       ])
       .execute();
 
     await db
       .insertInto(`${TEST_SCHEMA}.reference` as any)
-      .values({
-        from_field_id: reportLookupFieldId.toString(),
-        to_field_id: reportFormulaOverLookupFieldId.toString(),
-      })
+      .values([
+        {
+          from_field_id: reportLookupFieldId.toString(),
+          to_field_id: reportFormulaOverLookupFieldId.toString(),
+        },
+        {
+          from_field_id: referenceSeedFieldId.toString(),
+          to_field_id: referenceFormulaAFieldId.toString(),
+        },
+        {
+          from_field_id: referenceFormulaAFieldId.toString(),
+          to_field_id: referenceFormulaBFieldId.toString(),
+        },
+        {
+          from_field_id: referenceFormulaBFieldId.toString(),
+          to_field_id: referenceFormulaCFieldId.toString(),
+        },
+        {
+          from_field_id: referenceFormulaCFieldId.toString(),
+          to_field_id: referenceFormulaAFieldId.toString(),
+        },
+        {
+          from_field_id: mixedReferenceSeedFieldId.toString(),
+          to_field_id: mixedReferenceFormulaFieldId.toString(),
+        },
+        {
+          from_field_id: mixedLegacyLookupFieldId.toString(),
+          to_field_id: mixedReferenceTailFieldId.toString(),
+        },
+      ])
       .execute();
   });
 
@@ -407,6 +547,7 @@ describe('FieldDependencyGraph PGlite integration', () => {
     expect(result.value.fieldsById.has(reportLinkFieldId.toString())).toBe(true);
     expect(result.value.fieldsById.has(reportLookupFieldId.toString())).toBe(true);
     expect(result.value.fieldsById.has(reportFallbackLookupFieldId.toString())).toBe(true);
+    expect(result.value.fieldsById.has(reportFormulaOverLookupFieldId.toString())).toBe(true);
     expect(
       result.value.edges.some(
         (edge) =>
@@ -423,6 +564,24 @@ describe('FieldDependencyGraph PGlite integration', () => {
           edge.kind === 'same_record'
       )
     ).toBe(true);
+  });
+
+  it('finds all legacy filter dependents with one base-scoped fallback branch', async () => {
+    await pglite.query(`SET search_path TO ${TEST_SCHEMA}`);
+    const graph = new FieldDependencyGraph(db as any, logger as any);
+
+    const result = await graph.load(baseId, undefined, {
+      requiredFieldIds: [categoryFieldId],
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) {
+      throw result.error;
+    }
+
+    expect(result.value.fieldsById.has(conditionalRollupFieldId.toString())).toBe(true);
+    expect(result.value.fieldsById.has(legacyFilteredLookupFieldId.toString())).toBe(true);
+    expect(result.value.fieldsById.has(legacyConditionalLookupFieldId.toString())).toBe(true);
   });
 
   it('normalizes v1 formula result-type rows so lookup changes reach dependent formulas', async () => {
@@ -448,6 +607,132 @@ describe('FieldDependencyGraph PGlite integration', () => {
           edge.semantic === 'formula_ref'
       )
     ).toBe(true);
+  });
+
+  it('expands a reference chain in one traversal query and shares the batch across fallbacks', async () => {
+    await pglite.query(`SET search_path TO ${TEST_SCHEMA}`);
+    const graph = new FieldDependencyGraph(db as any, logger as any);
+    executedSql.length = 0;
+
+    const result = await graph.load(baseId, undefined, {
+      requiredFieldIds: [referenceSeedFieldId],
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) {
+      throw result.error;
+    }
+
+    expect(result.value.fieldsById.has(referenceFormulaAFieldId.toString())).toBe(true);
+    expect(result.value.fieldsById.has(referenceFormulaBFieldId.toString())).toBe(true);
+    expect(result.value.fieldsById.has(referenceFormulaCFieldId.toString())).toBe(true);
+
+    const traversalQueries = executedSql.filter((statement) =>
+      statement.toLowerCase().includes('reference_walk')
+    );
+    expect(traversalQueries).toHaveLength(1);
+
+    const traversalSql = traversalQueries[0].toLowerCase();
+    expect(traversalSql.match(/\(\s*values/g)).toHaveLength(1);
+    expect(traversalSql).not.toContain('union all');
+
+    const indexedFallbackQueries = executedSql.filter((statement) =>
+      statement.toLowerCase().includes('-- 10. symmetric link field')
+    );
+    expect(indexedFallbackQueries).toHaveLength(1);
+
+    const fallbackSql = indexedFallbackQueries[0].toLowerCase();
+    expect(fallbackSql.match(/\(\s*values/g)).toHaveLength(1);
+    expect(fallbackSql.match(/\bunion all\b/g)).toHaveLength(6);
+    expect(fallbackSql).not.toMatch(/cross join\s*\(\s*select id/);
+    expect(fallbackSql).not.toContain('::text like');
+    expect(fallbackSql).not.toContain('jsonb_path_query');
+
+    const filterFallbackQueries = executedSql.filter((statement) =>
+      statement.toLowerCase().includes('jsonb_path_query')
+    );
+    expect(filterFallbackQueries).toHaveLength(1);
+    expect(filterFallbackQueries[0].toLowerCase().match(/jsonb_path_query/g)).toHaveLength(1);
+  });
+
+  it('continues through a reference-to-legacy-to-reference dependency chain', async () => {
+    await pglite.query(`SET search_path TO ${TEST_SCHEMA}`);
+    const graph = new FieldDependencyGraph(db as any, logger as any);
+    executedSql.length = 0;
+
+    const result = await graph.load(baseId, undefined, {
+      requiredFieldIds: [mixedReferenceSeedFieldId],
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) {
+      throw result.error;
+    }
+
+    expect(result.value.fieldsById.has(mixedReferenceFormulaFieldId.toString())).toBe(true);
+    expect(result.value.fieldsById.has(mixedLegacyLookupFieldId.toString())).toBe(true);
+    expect(result.value.fieldsById.has(mixedReferenceTailFieldId.toString())).toBe(true);
+
+    const traversalQueries = executedSql.filter((statement) =>
+      statement.toLowerCase().includes('reference_walk')
+    );
+    expect(traversalQueries).toHaveLength(2);
+  });
+
+  it('chunks indexed fallbacks but scans legacy filter JSON once for a large closure', async () => {
+    await pglite.query(`SET search_path TO ${TEST_SCHEMA}`);
+    const graph = new FieldDependencyGraph(db as any, logger as any);
+
+    await db
+      .insertInto(`${TEST_SCHEMA}.field` as any)
+      .values(
+        largeReferenceChainFieldIds.map((fieldId, index) => ({
+          id: fieldId.toString(),
+          table_id: reportsTableId.toString(),
+          type: 'number',
+          is_computed: index > 0,
+          options:
+            index > 0
+              ? JSON.stringify({
+                  expression: `{${largeReferenceChainFieldIds[index - 1].toString()}}`,
+                })
+              : null,
+        }))
+      )
+      .execute();
+    await db
+      .insertInto(`${TEST_SCHEMA}.reference` as any)
+      .values(
+        largeReferenceChainFieldIds.slice(1).map((fieldId, index) => ({
+          from_field_id: largeReferenceChainFieldIds[index].toString(),
+          to_field_id: fieldId.toString(),
+        }))
+      )
+      .execute();
+
+    executedSql.length = 0;
+
+    const result = await graph.load(baseId, undefined, {
+      requiredFieldIds: [largeReferenceChainFieldIds[0]],
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) {
+      throw result.error;
+    }
+
+    expect(result.value.fieldsById.has(largeReferenceChainFieldIds.at(-1)!.toString())).toBe(true);
+    expect(
+      executedSql.filter((statement) => statement.toLowerCase().includes('reference_walk'))
+    ).toHaveLength(1);
+    expect(
+      executedSql.filter((statement) =>
+        statement.toLowerCase().includes('-- 10. symmetric link field')
+      )
+    ).toHaveLength(2);
+    expect(
+      executedSql.filter((statement) => statement.toLowerCase().includes('jsonb_path_query'))
+    ).toHaveLength(1);
   });
 
   it('ignores fields that point to non-loadable foreign tables', async () => {
@@ -484,5 +769,327 @@ describe('FieldDependencyGraph PGlite integration', () => {
         .where('id', '=', productsTableId.toString())
         .execute();
     }
+  });
+
+  it('traverses an anonymized production-scale base without unbounded fallback scans', async () => {
+    await pglite.query(`SET search_path TO ${TEST_SCHEMA}`);
+
+    // Sanitized production shape only: no customer names, values, or original IDs.
+    const ajBaseId = BaseId.create(`bse${'z'.repeat(16)}`)._unsafeUnwrap();
+    const ajTableIds = Array.from({ length: 180 }, (_, index) =>
+      TableId.create(`tbl7${index.toString().padStart(15, '0')}`)._unsafeUnwrap()
+    );
+    const ajFieldIds = Array.from({ length: 3677 }, (_, index) =>
+      FieldId.create(`fld8${index.toString().padStart(15, '0')}`)._unsafeUnwrap()
+    );
+    const nonMatchingFieldId = FieldId.create(`fld9${'0'.repeat(15)}`)._unsafeUnwrap();
+    const levelWidths = [1, 89, 90, 16, 1, 5, 3] as const;
+    const levels: FieldId[][] = [];
+    let levelOffset = 0;
+
+    for (const width of levelWidths) {
+      levels.push(ajFieldIds.slice(levelOffset, levelOffset + width));
+      levelOffset += width;
+    }
+
+    const legacyLookupFieldId = ajFieldIds[205];
+    const legacyConditionalFieldId = ajFieldIds[206];
+    const symmetricLinkFieldId = ajFieldIds[207];
+    const lookupTailFieldId = ajFieldIds[208];
+    const conditionalTailFieldId = ajFieldIds[209];
+    const symmetricTailFieldId = ajFieldIds[210];
+    const symmetricClosureFieldId = ajFieldIds[3];
+
+    await db
+      .insertInto(`${TEST_SCHEMA}.table_meta` as any)
+      .values(
+        ajTableIds.map((tableId, index) => ({
+          id: tableId.toString(),
+          base_id: ajBaseId.toString(),
+          name: `Sanitized table ${index + 1}`,
+          provision_state: 'ready',
+        }))
+      )
+      .execute();
+
+    const referenceRows: Array<{ from_field_id: string; to_field_id: string }> = [];
+    const parentByFieldId = new Map<string, FieldId>();
+
+    for (let levelIndex = 1; levelIndex < levels.length; levelIndex++) {
+      const previousLevel = levels[levelIndex - 1];
+      for (const [fieldIndex, fieldId] of levels[levelIndex].entries()) {
+        const parentFieldId = previousLevel[fieldIndex % previousLevel.length];
+        parentByFieldId.set(fieldId.toString(), parentFieldId);
+        referenceRows.push({
+          from_field_id: parentFieldId.toString(),
+          to_field_id: fieldId.toString(),
+        });
+      }
+    }
+
+    const fieldRows: Array<Record<string, unknown>> = [];
+
+    for (const [index, fieldId] of ajFieldIds.slice(0, 205).entries()) {
+      const tableId = ajTableIds[index % ajTableIds.length];
+      const isLinkNode = index >= 3 && index <= 9;
+      const parentFieldId = parentByFieldId.get(fieldId.toString());
+      fieldRows.push({
+        id: fieldId.toString(),
+        table_id: tableId.toString(),
+        type: isLinkNode ? 'link' : 'number',
+        is_computed: index > 0 && !isLinkNode,
+        options: isLinkNode
+          ? JSON.stringify({
+              foreignTableId: ajTableIds[0].toString(),
+              lookupFieldId: ajFieldIds[0].toString(),
+              ...(fieldId.equals(symmetricClosureFieldId)
+                ? { symmetricFieldId: symmetricLinkFieldId.toString() }
+                : {}),
+            })
+          : parentFieldId
+            ? JSON.stringify({ expression: `{${parentFieldId.toString()}}` })
+            : null,
+      });
+    }
+
+    fieldRows.push(
+      {
+        id: legacyLookupFieldId.toString(),
+        table_id: ajTableIds[25].toString(),
+        type: 'singleLineText',
+        is_computed: true,
+        is_lookup: true,
+        lookup_linked_field_id: ajFieldIds[1].toString(),
+        lookup_options: JSON.stringify({
+          linkFieldId: ajFieldIds[1].toString(),
+          foreignTableId: ajTableIds[0].toString(),
+          lookupFieldId: ajFieldIds[0].toString(),
+        }),
+      },
+      {
+        id: legacyConditionalFieldId.toString(),
+        table_id: ajTableIds[50].toString(),
+        type: 'conditionalRollup',
+        is_computed: true,
+        options: JSON.stringify({
+          expression: 'sum({values})',
+          foreignTableId: ajTableIds[0].toString(),
+          lookupFieldId: nonMatchingFieldId.toString(),
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: ajFieldIds[2].toString(), operator: 'isNotEmpty' }],
+          },
+        }),
+      },
+      {
+        id: symmetricLinkFieldId.toString(),
+        table_id: ajTableIds[75].toString(),
+        type: 'link',
+        is_computed: false,
+        options: JSON.stringify({
+          foreignTableId: ajTableIds[3].toString(),
+          lookupFieldId: ajFieldIds[0].toString(),
+          symmetricFieldId: symmetricClosureFieldId.toString(),
+        }),
+      }
+    );
+
+    for (const [tailFieldId, sourceFieldId] of [
+      [lookupTailFieldId, legacyLookupFieldId],
+      [conditionalTailFieldId, legacyConditionalFieldId],
+      [symmetricTailFieldId, symmetricLinkFieldId],
+    ] as const) {
+      fieldRows.push({
+        id: tailFieldId.toString(),
+        table_id: ajTableIds[100].toString(),
+        type: 'number',
+        is_computed: true,
+        options: JSON.stringify({ expression: `{${sourceFieldId.toString()}}` }),
+      });
+      referenceRows.push({
+        from_field_id: sourceFieldId.toString(),
+        to_field_id: tailFieldId.toString(),
+      });
+    }
+
+    let fillerIndex = 211;
+    const addFillerField = (row: Record<string, unknown>) => {
+      const fieldId = ajFieldIds[fillerIndex];
+      fieldRows.push({
+        id: fieldId.toString(),
+        table_id: ajTableIds[fillerIndex % ajTableIds.length].toString(),
+        ...row,
+      });
+      fillerIndex++;
+    };
+
+    // Match the anonymized field-family distribution: 358 link fields total.
+    for (let index = 0; index < 350; index++) {
+      addFillerField({
+        type: 'link',
+        is_computed: false,
+        options: JSON.stringify({
+          foreignTableId: ajTableIds[0].toString(),
+          lookupFieldId: nonMatchingFieldId.toString(),
+          ...(index < 29
+            ? {
+                filter: {
+                  filterSet: [{ fieldId: nonMatchingFieldId.toString(), operator: 'isNotEmpty' }],
+                },
+              }
+            : {}),
+        }),
+      });
+    }
+
+    for (let index = 0; index < 80; index++) {
+      addFillerField({
+        type: 'rollup',
+        is_computed: true,
+        lookup_linked_field_id: nonMatchingFieldId.toString(),
+        lookup_options: JSON.stringify({
+          linkFieldId: nonMatchingFieldId.toString(),
+          foreignTableId: ajTableIds[0].toString(),
+          lookupFieldId: nonMatchingFieldId.toString(),
+        }),
+      });
+    }
+
+    for (let index = 0; index < 126; index++) {
+      addFillerField({
+        type: 'singleLineText',
+        is_computed: true,
+        is_lookup: true,
+        is_conditional_lookup: index < 21,
+        lookup_linked_field_id: nonMatchingFieldId.toString(),
+        lookup_options: JSON.stringify({
+          linkFieldId: nonMatchingFieldId.toString(),
+          foreignTableId: ajTableIds[0].toString(),
+          lookupFieldId: nonMatchingFieldId.toString(),
+          ...(index < 36
+            ? {
+                filter: {
+                  filterSet: [{ fieldId: nonMatchingFieldId.toString(), operator: 'isNotEmpty' }],
+                },
+              }
+            : {}),
+        }),
+      });
+    }
+
+    for (let index = 0; index < 2; index++) {
+      addFillerField({
+        type: 'conditionalRollup',
+        is_computed: true,
+        options: JSON.stringify({
+          expression: 'sum({values})',
+          foreignTableId: ajTableIds[0].toString(),
+          lookupFieldId: nonMatchingFieldId.toString(),
+          filter: { conjunction: 'and', filterSet: [] },
+        }),
+      });
+    }
+
+    while (fillerIndex < ajFieldIds.length) {
+      addFillerField({ type: 'number', is_computed: false });
+    }
+
+    expect(fieldRows).toHaveLength(3677);
+    expect(fieldRows.filter((row) => row.is_computed === true)).toHaveLength(410);
+    expect(fieldRows.filter((row) => row.type === 'link')).toHaveLength(358);
+    expect(fieldRows.filter((row) => row.type === 'rollup')).toHaveLength(80);
+    expect(fieldRows.filter((row) => row.is_lookup === true)).toHaveLength(127);
+    expect(fieldRows.filter((row) => row.is_conditional_lookup === true)).toHaveLength(21);
+    expect(
+      fieldRows.filter(
+        (row) => row.type === 'conditionalRollup' || row.type === 'conditionalLookup'
+      )
+    ).toHaveLength(3);
+    expect(
+      fieldRows.filter(
+        (row) => typeof row.options === 'string' && row.options.includes('"fieldId"')
+      )
+    ).toHaveLength(30);
+    expect(
+      fieldRows.filter(
+        (row) => typeof row.lookup_options === 'string' && row.lookup_options.includes('"fieldId"')
+      )
+    ).toHaveLength(36);
+
+    for (let offset = 0; offset < fieldRows.length; offset += 500) {
+      await db
+        .insertInto(`${TEST_SCHEMA}.field` as any)
+        .values(fieldRows.slice(offset, offset + 500) as any)
+        .execute();
+    }
+
+    expect(levels.map((level) => level.length)).toEqual(levelWidths);
+    expect(referenceRows).toHaveLength(207);
+
+    const backgroundReferenceCount = 1088 - referenceRows.length;
+    const backgroundFieldIds = ajFieldIds.slice(1000);
+    for (let index = 0; index < backgroundReferenceCount; index++) {
+      referenceRows.push({
+        from_field_id: backgroundFieldIds[index].toString(),
+        to_field_id: backgroundFieldIds[index + 1].toString(),
+      });
+    }
+    expect(referenceRows).toHaveLength(1088);
+
+    for (let offset = 0; offset < referenceRows.length; offset += 500) {
+      await db
+        .insertInto(`${TEST_SCHEMA}.reference` as any)
+        .values(referenceRows.slice(offset, offset + 500))
+        .execute();
+    }
+
+    const graph = new FieldDependencyGraph(db as any, logger as any);
+    executedSql.length = 0;
+    const result = await graph.load(ajBaseId, undefined, {
+      requiredFieldIds: [ajFieldIds[0]],
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) {
+      throw result.error;
+    }
+
+    expect(result.value.fieldsById.size).toBe(211);
+    expect(result.value.fieldsById.has(levels[6][2].toString())).toBe(true);
+    expect(result.value.fieldsById.has(legacyLookupFieldId.toString())).toBe(true);
+    expect(result.value.fieldsById.has(legacyConditionalFieldId.toString())).toBe(true);
+    expect(result.value.fieldsById.has(symmetricLinkFieldId.toString())).toBe(true);
+    expect(result.value.fieldsById.has(lookupTailFieldId.toString())).toBe(true);
+    expect(result.value.fieldsById.has(conditionalTailFieldId.toString())).toBe(true);
+    expect(result.value.fieldsById.has(symmetricTailFieldId.toString())).toBe(true);
+    expect(result.value.fieldsById.has(ajFieldIds.at(-1)!.toString())).toBe(false);
+
+    const traversalQueries = executedSql.filter((statement) =>
+      statement.toLowerCase().includes('reference_walk')
+    );
+    const indexedFallbackQueries = executedSql.filter((statement) =>
+      statement.toLowerCase().includes('-- 10. symmetric link field')
+    );
+    const jsonFallbackQueries = executedSql.filter((statement) =>
+      statement.toLowerCase().includes('jsonb_path_query')
+    );
+
+    expect(traversalQueries).toHaveLength(2);
+    expect(indexedFallbackQueries).toHaveLength(4);
+    expect(jsonFallbackQueries).toHaveLength(2);
+    expect(indexedFallbackQueries.every((statement) => /\(\s*values/i.test(statement))).toBe(true);
+    expect(
+      indexedFallbackQueries.every((statement) => statement.toLowerCase().includes('= any(array'))
+    ).toBe(true);
+    expect(
+      indexedFallbackQueries.every((statement) => statement.toLowerCase().includes('offset'))
+    ).toBe(true);
+    expect(
+      jsonFallbackQueries.every(
+        (statement) =>
+          statement.toLowerCase().includes('jsonb_path_query') &&
+          !statement.toLowerCase().includes('::text like')
+      )
+    ).toBe(true);
   });
 });

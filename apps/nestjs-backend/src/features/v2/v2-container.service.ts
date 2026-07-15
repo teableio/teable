@@ -1,5 +1,5 @@
 import type { OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DiscoveryService, Reflector } from '@nestjs/core';
 import type { InstanceWrapper } from '@nestjs/core/injector/instance-wrapper';
@@ -8,7 +8,10 @@ import {
   ShareDbPubSubPublisher,
   registerV2ShareDbRealtime,
 } from '@teable/v2-adapter-realtime-sharedb';
-import { v2RecordRepositoryPostgresTokens } from '@teable/v2-adapter-table-repository-postgres';
+import {
+  IComputedOutboxWakeupPublisher,
+  noopComputedOutboxWakeupPublisher,
+} from '@teable/v2-adapter-table-repository-postgres';
 import { KeyvUndoRedoStore } from '@teable/v2-adapter-undo-redo-keyv';
 import { createV2NodePgContainer, type IV2NodePgContainerOptions } from '@teable/v2-container-node';
 import type {
@@ -29,12 +32,14 @@ import { PinoLogger } from 'nestjs-pino';
 import { CacheService } from '../../cache/cache.service';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { DataDbClientManager } from '../../global/data-db-client-manager.service';
+import type { IComputedOutboxMaintenanceTarget } from '../../global/data-db-client-manager.service';
 import {
   DataDbRuntimeCacheService,
   V2_CONTAINER_CACHE_NAMESPACE,
 } from '../../global/data-db-runtime-cache.service';
 import { ShareDbService } from '../../share-db/share-db.service';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
+import { COMPUTED_OUTBOX_WAKEUP_PUBLISHER } from './computed-outbox-trigger/constants';
 import { V2AttachmentUrlSignerService } from './v2-attachment-url-signer.service';
 import { CommandBusTracingMiddleware } from './v2-command-bus-tracing.middleware';
 import { PinoLoggerAdapter } from './v2-logger.adapter';
@@ -102,7 +107,10 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
     private readonly reflector: Reflector,
     private readonly discoveryService: DiscoveryService,
     private readonly dataDbClientManager: DataDbClientManager,
-    private readonly runtimeCache: DataDbRuntimeCacheService
+    private readonly runtimeCache: DataDbRuntimeCacheService,
+    @Optional()
+    @Inject(COMPUTED_OUTBOX_WAKEUP_PUBLISHER)
+    private readonly computedOutboxWakeupPublisher: IComputedOutboxWakeupPublisher = noopComputedOutboxWakeupPublisher
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -126,6 +134,12 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
   async getContainerForTable(tableId: string): Promise<DependencyContainer> {
     const dataDb = await this.dataDbClientManager.getDataDatabaseForTable(tableId);
     return await this.getContainerForDataDb(dataDb.cacheKey, dataDb.url);
+  }
+
+  async getContainerForMaintenanceTarget(
+    target: IComputedOutboxMaintenanceTarget
+  ): Promise<DependencyContainer> {
+    return this.getContainerForDataDb(target.cacheKey, target.url);
   }
 
   private async getContainerForDataDb(
@@ -164,8 +178,14 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
     );
     const computedUpdate: IV2NodePgContainerOptions['computedUpdate'] =
       computedUpdateMode === 'sync'
-        ? { mode: 'sync', fieldBackfillConfig: { mode: 'sync' } }
-        : undefined;
+        ? {
+            mode: 'sync',
+            fieldBackfillConfig: { mode: 'sync' },
+            wakeupPublisher: this.computedOutboxWakeupPublisher,
+          }
+        : {
+            wakeupPublisher: this.computedOutboxWakeupPublisher,
+          };
 
     this.logger.log('Initializing V2 container');
 
@@ -373,7 +393,6 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
 
   private async destroyContainer(container: DependencyContainer): Promise<void> {
     this.stopTableQueryOpsRunners(container);
-    await this.stopComputedUpdatePolling(container);
     const closers = Array.from(
       new Set([
         container.resolve<{ destroy(): Promise<void> }>(v2MetaDbTokens.db),
@@ -391,27 +410,5 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
       handle.stop();
     }
     this.tableQueryOpsRunnerHandles.delete(container);
-  }
-
-  private async stopComputedUpdatePolling(container: DependencyContainer): Promise<void> {
-    if (!container.isRegistered(v2RecordRepositoryPostgresTokens.computedUpdatePollingConfig)) {
-      return;
-    }
-
-    const pollingConfig = container.resolve<{ enabled?: boolean }>(
-      v2RecordRepositoryPostgresTokens.computedUpdatePollingConfig
-    );
-    if (!pollingConfig.enabled) {
-      return;
-    }
-
-    if (!container.isRegistered(v2RecordRepositoryPostgresTokens.computedUpdatePollingService)) {
-      return;
-    }
-
-    const pollingService = container.resolve<{ stop(): Promise<void> }>(
-      v2RecordRepositoryPostgresTokens.computedUpdatePollingService
-    );
-    await pollingService.stop();
   }
 }

@@ -3,11 +3,13 @@ import {
   FieldId,
   FieldNotNull,
   FieldUnique,
+  LookupOptions,
   RatingMax,
   SelectOption,
   TableUpdateFieldConstraintsSpec,
   TableUpdateFieldDbFieldNameSpec,
   UpdateMultipleSelectOptionsSpec,
+  UpdateLookupOptionsSpec,
   UpdateRatingMaxSpec,
   UpdateSingleSelectOptionsSpec,
   UpdateUserMultiplicitySpec,
@@ -16,13 +18,13 @@ import {
 import { ok } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
-import { TableSchemaUpdateVisitor } from './TableSchemaUpdateVisitor';
 import {
   createBtnField,
   createTestDb,
   createTextField,
   createValidFieldId,
 } from './__tests__/helpers';
+import { TableSchemaUpdateVisitor } from './TableSchemaUpdateVisitor';
 
 const db = createTestDb();
 const SCHEMA = 'bseTableSchemaTest';
@@ -81,7 +83,6 @@ describe('TableSchemaUpdateVisitor coverage', () => {
       'visitUpdateFormulaShowAs',
       'visitUpdateFormulaTimeZone',
       'visitUpdateLinkConfig',
-      'visitUpdateLookupOptions',
       'visitUpdateRollupConfig',
       'visitUpdateRollupExpression',
       'visitUpdateRollupFormatting',
@@ -96,6 +97,18 @@ describe('TableSchemaUpdateVisitor coverage', () => {
         (visitor[method] as (spec: unknown) => ReturnType<typeof visitor.visitTableRename>)({})
       );
     }
+  });
+
+  it('skips lookup column conversion when the lookup target is unchanged', () => {
+    const fieldId = mkFieldId('lookupSame');
+    const lookupOptions = LookupOptions.create({
+      linkFieldId: createValidFieldId('lookupLink'),
+      lookupFieldId: createValidFieldId('lookupTarget'),
+      foreignTableId: `tbl${'a'.repeat(16)}`,
+    })._unsafeUnwrap();
+    const spec = UpdateLookupOptionsSpec.create(fieldId, lookupOptions, lookupOptions);
+
+    expectEmptyStatements(createVisitor().visitUpdateLookupOptions(spec));
   });
 
   it('returns validation errors for unsupported search specs', () => {

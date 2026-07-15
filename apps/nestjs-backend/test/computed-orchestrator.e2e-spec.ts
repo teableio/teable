@@ -1246,14 +1246,27 @@ IF(
       await updateRecordByApi(t2.id, t2.records[0].id, link.id, [{ id: t1.records[0].id }]);
 
       // Replace with [r2] -> lookup [7]
-      const { events } = await runAndCaptureRecordUpdates(async () => {
-        await updateRecordByApi(t2.id, t2.records[0].id, link.id, [{ id: t1.records[1].id }]);
-      });
+      // Link+lookup replace can emit a longer burst of async record.update events
+      // (symmetric counterparts + lookup). Give the capture window more settle time
+      // so CI under load does not observe an empty event stream for the host row.
+      const { events } = await runAndCaptureRecordUpdates(
+        async () => {
+          await updateRecordByApi(t2.id, t2.records[0].id, link.id, [{ id: t1.records[1].id }]);
+        },
+        {
+          timeoutMs: 5000,
+          isComplete: (captured) => {
+            const changes = findLatestRecordChangeMap(captured, t2.id, t2.records[0].id);
+            return Boolean(changes?.[lkp.id]?.newValue);
+          },
+        }
+      );
 
       // Event payload verification only in v1 mode
       if (!isV2Mode) {
         const changes = findLatestRecordChangeMap(events, t2.id, t2.records[0].id);
-        const lkpChange = assertChange(changes[lkp.id]);
+        expect(changes).toBeDefined();
+        const lkpChange = assertChange(changes?.[lkp.id]);
         expectNoOldValue(lkpChange);
         expect(lkpChange.newValue).toEqual([7]);
       }
