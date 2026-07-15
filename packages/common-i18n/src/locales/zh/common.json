@@ -1649,10 +1649,10 @@
     }
   },
   "changelog": {
-    "newUpdate": "7 月 10 日更新",
-    "title": "GPT-5.6 已上线 Teable",
-    "url": "https://help.teable.ai/en/changelog#jul-10-2026",
-    "id": "changelog-2026-07-10-gpt-5-6-is-now-in-teable"
+    "newUpdate": "7 月 15 日更新",
+    "title": "AI 记忆与生成文件下载",
+    "url": "https://help.teable.ai/en/changelog#jul-15-2026",
+    "id": "changelog-2026-07-15-ai-memory-and-file-downloads"
   },
   "resourceDescription": {
     "addDescription": "添加描述",
