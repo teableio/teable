@@ -209,8 +209,8 @@ const useGenerateGroupCellFn = () => {
               type: CellType.Select,
               data,
               displayData: data,
-              choiceSorted: field.options.choices,
-              choiceMap: getDisplayChoiceMap(field.options.choices, resolvedTheme),
+              choiceSorted: field.options?.choices ?? [],
+              choiceMap: getDisplayChoiceMap(field.options?.choices ?? [], resolvedTheme),
               isMultiple,
             };
           }
