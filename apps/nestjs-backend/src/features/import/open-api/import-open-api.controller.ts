@@ -28,11 +28,12 @@ import { PermissionGuard } from '../../auth/guard/permission.guard';
 import { UseV2Feature } from '../../canary/decorators/use-v2-feature.decorator';
 import { V2FeatureGuard } from '../../canary/guards/v2-feature.guard';
 import { V2IndicatorInterceptor } from '../../canary/interceptors/v2-indicator.interceptor';
+import { TableBaseScopeGuard } from '../../table/guard/table-base-scope.guard';
 import { ImportOpenApiV2Service } from './import-open-api-v2.service';
 import { ImportOpenApiService } from './import-open-api.service';
 
 @Controller('api/import')
-@UseGuards(PermissionGuard, V2FeatureGuard)
+@UseGuards(PermissionGuard, V2FeatureGuard, TableBaseScopeGuard)
 @UseInterceptors(V2IndicatorInterceptor)
 export class ImportController {
   constructor(

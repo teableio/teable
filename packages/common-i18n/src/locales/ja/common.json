@@ -1298,10 +1298,10 @@
     }
   },
   "changelog": {
-    "newUpdate": "7月10日アップデート",
-    "title": "GPT-5.6 が Teable に登場",
-    "url": "https://help.teable.ai/en/changelog#jul-10-2026",
-    "id": "changelog-2026-07-10-gpt-5-6-is-now-in-teable"
+    "newUpdate": "7月15日アップデート",
+    "title": "AIメモリとファイルダウンロード",
+    "url": "https://help.teable.ai/en/changelog#jul-15-2026",
+    "id": "changelog-2026-07-15-ai-memory-and-file-downloads"
   },
   "resourceDescription": {
     "addDescription": "説明を追加",

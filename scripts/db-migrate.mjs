@@ -4,6 +4,9 @@ import 'zx/globals'
 const env = $.env;
 const metaDatabaseUrl = env.PRISMA_META_DATABASE_URL ?? env.PRISMA_DATABASE_URL;
 const dataDatabaseUrl = metaDatabaseUrl;
+const appRoot = env.APP_ROOT ?? '/app';
+
+process.env.PRISMA_HIDE_UPDATE_MESSAGE = 'true';
 
 const parseDsn = (dsn, label) => {
   try {
@@ -24,9 +27,11 @@ const parseDsn = (dsn, label) => {
   }
 };
 
-const migrateWorkspace = async ({ label, packageName, schema }) => {
+const migrateWorkspace = async ({ label, workspacePath, schema }) => {
   console.log(`Running ${label} database migration...`);
-  const result = await $({ cwd: '/app' })`pnpm -F ${packageName} prisma-migrate deploy --schema ${schema}`;
+  const result = await $({
+    cwd: `${appRoot}/${workspacePath}`,
+  })`node ./scripts/run-prisma-command.mjs migrate deploy --schema ${schema}`;
   console.log(`${label} database migration completed:`, result);
   return result;
 };
@@ -34,12 +39,12 @@ const migrateWorkspace = async ({ label, packageName, schema }) => {
 const pgMigrate = async () => {
   await migrateWorkspace({
     label: 'meta',
-    packageName: '@teable/db-main-prisma',
+    workspacePath: 'packages/db-main-prisma',
     schema: './prisma/postgres/schema.prisma',
   });
   await migrateWorkspace({
     label: 'data',
-    packageName: '@teable/db-data-prisma',
+    workspacePath: 'packages/db-data-prisma',
     schema: './prisma/schema.prisma',
   });
 };

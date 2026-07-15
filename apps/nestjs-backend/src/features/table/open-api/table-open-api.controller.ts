@@ -48,6 +48,7 @@ import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { UseV2Feature } from '../../canary/decorators/use-v2-feature.decorator';
 import { V2FeatureGuard } from '../../canary/guards/v2-feature.guard';
 import { V2IndicatorInterceptor } from '../../canary/interceptors/v2-indicator.interceptor';
+import { TableBaseScopeGuard } from '../guard/table-base-scope.guard';
 import { TableDuplicateService } from '../table-duplicate.service';
 import { TableIndexService } from '../table-index.service';
 import { TablePermissionService } from '../table-permission.service';
@@ -56,7 +57,7 @@ import { TableOpenApiV2Service } from './table-open-api-v2.service';
 import { TableOpenApiService } from './table-open-api.service';
 import { TablePipe } from './table.pipe';
 
-@UseGuards(V2FeatureGuard)
+@UseGuards(V2FeatureGuard, TableBaseScopeGuard)
 @UseInterceptors(V2IndicatorInterceptor)
 @Controller('api/base/:baseId/table')
 @AllowAnonymous()

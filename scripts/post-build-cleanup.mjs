@@ -5,8 +5,14 @@
  * It removes unnecessary artifacts and clears specific directories.
  */
 
-async function deleteUnnecessaryFiles(dirPath, config) {
-  const { keepDirList, keepFileList, dirsToDeleteEntirely } = config;
+async function deleteUnnecessaryFiles(dirPath, config, parentDirName = null) {
+  const {
+    keepDirList,
+    keepFileList,
+    dirsToDeleteEntirely,
+    skipDeleteSrcIn = [],
+    skipDeleteScriptsIn = [],
+  } = config;
   try {
     const entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
 
@@ -14,12 +20,22 @@ async function deleteUnnecessaryFiles(dirPath, config) {
       const entryPath = path.join(dirPath, entry.name);
 
       if (entry.isDirectory()) {
-        if (dirsToDeleteEntirely.includes(entry.name)) {
+        // Skip deleting src directory for specified packages (keep entire src)
+        const shouldSkipSrcDelete = entry.name === 'src' && skipDeleteSrcIn.includes(parentDirName);
+        const shouldSkipScriptsDelete =
+          entry.name === 'scripts' && skipDeleteScriptsIn.includes(parentDirName);
+
+        if (shouldSkipSrcDelete) {
+          console.log(`Skipping src directory for ${parentDirName}: ${entryPath}`);
+          // Do nothing - keep entire src directory intact
+        } else if (shouldSkipScriptsDelete) {
+          console.log(`Skipping scripts directory for ${parentDirName}: ${entryPath}`);
+        } else if (dirsToDeleteEntirely.includes(entry.name)) {
           console.log(`Deleting entire directory: ${entryPath}`);
           await fs.promises.rm(entryPath, { recursive: true, force: true });
         } else if (!keepDirList.includes(entry.name)) {
           console.log(`Processing directory: ${entryPath}`);
-          await deleteUnnecessaryFiles(entryPath, config);
+          await deleteUnnecessaryFiles(entryPath, config, entry.name);
         }
       } else if (entry.isFile() && !keepFileList.includes(entry.name)) {
         console.log(`Deleting file: ${entryPath}`);
@@ -58,6 +74,10 @@ try {
       'ecosystem.config.js',
     ],
     dirsToDeleteEntirely: ['src'],
+    // Packages that should keep their src directory
+    skipDeleteSrcIn: ['common-i18n'],
+    // Prisma package scripts are needed by image build client generation and runtime migrations.
+    skipDeleteScriptsIn: ['db-main-prisma', 'db-data-prisma'],
   };
 
   await deleteUnnecessaryFiles(packagesPath, config);

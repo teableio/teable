@@ -171,6 +171,7 @@ export const TableInfo: React.FC<ITableInfoProps> = (props: ITableInfoProps) => 
         )}
         <ResourceDescription
           canUpdate={canUpdateTable}
+          resourceId={table?.id}
           description={table?.description}
           errorLogName="table"
           onSave={async (description) => {
