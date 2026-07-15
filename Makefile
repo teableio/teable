@@ -200,6 +200,8 @@ postgres.integration.test: docker.create.network
 	@TEST_PG_CONTAINER_NAME=teable-postgres-$(CI_JOB_ID); \
 	docker rm -fv $$TEST_PG_CONTAINER_NAME | true; \
 	$(DOCKER_COMPOSE_ARGS) $(DOCKER_COMPOSE) $(COMPOSE_FILE_ARGS) run -p 25432:5432 -d -T --no-deps --rm --name $$TEST_PG_CONTAINER_NAME teable-postgres; \
+	make docker.up teable-cache; \
+	make docker.await teable-cache; \
 	chmod +x scripts/wait-for; \
 	scripts/wait-for 127.0.0.1:25432 --timeout=15 -- echo 'pg database started successfully' && \
 		export PRISMA_DATABASE_URL=postgresql://teable:teable@127.0.0.1:25432/e2e_test_teable?schema=public\&statement_cache_size=0\&connection_limit=20 && \
