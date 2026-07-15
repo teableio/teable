@@ -1296,10 +1296,10 @@
     }
   },
   "changelog": {
-    "newUpdate": "MISE A JOUR DU 10 JUILLET",
-    "title": "GPT-5.6 est maintenant disponible dans Teable",
-    "url": "https://help.teable.ai/en/changelog#jul-10-2026",
-    "id": "changelog-2026-07-10-gpt-5-6-is-now-in-teable"
+    "newUpdate": "MISE A JOUR DU 15 JUILLET",
+    "title": "Mémoire IA et téléchargements de fichiers",
+    "url": "https://help.teable.ai/en/changelog#jul-15-2026",
+    "id": "changelog-2026-07-15-ai-memory-and-file-downloads"
   },
   "resourceDescription": {
     "addDescription": "Ajouter une description",

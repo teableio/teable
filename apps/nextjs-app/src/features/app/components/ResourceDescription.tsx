@@ -11,6 +11,7 @@ import {
 import { useTranslation } from 'next-i18next';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useResourceDescriptionAutoOpen } from './useResourceDescriptionAutoOpen';
 
 type DescriptionSaveStatus = 'idle' | 'saving' | 'error';
 
@@ -19,12 +20,14 @@ interface IResourceDescriptionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave?: (description: string | null) => Promise<void>;
+  onDescriptionSaved?: (description: string | null) => void;
   readOnly?: boolean;
   errorLogName?: string;
 }
 
 interface IResourceDescriptionProps {
   canUpdate: boolean;
+  resourceId?: string;
   description?: string | null;
   onSave?: (description: string | null) => Promise<void>;
   fallback?: ReactNode;
@@ -73,6 +76,7 @@ const ResourceDescriptionDialog = ({
   open,
   onOpenChange,
   onSave,
+  onDescriptionSaved,
   readOnly,
   errorLogName = 'resource',
 }: IResourceDescriptionDialogProps) => {
@@ -103,11 +107,12 @@ const ResourceDescriptionDialog = ({
         await onSave(description);
         savedValueRef.current = description;
         setSaveStatus('idle');
+        onDescriptionSaved?.(description);
       } finally {
         isSavingRef.current = false;
       }
     },
-    [onSave, readOnly]
+    [onDescriptionSaved, onSave, readOnly]
   );
 
   const saveCurrentValue = useCallback(async () => {
@@ -268,6 +273,7 @@ const ResourceDescriptionDialog = ({
 
 export const ResourceDescription = ({
   canUpdate,
+  resourceId,
   description,
   onSave,
   fallback,
@@ -278,12 +284,37 @@ export const ResourceDescription = ({
 }: IResourceDescriptionProps) => {
   const { t } = useTranslation('common');
   const [descriptionDialogOpen, setDescriptionDialogOpen] = useState(false);
+  const previousResourceIdRef = useRef(resourceId);
+  const lastAutoOpenKeyRef = useRef<string>();
   const normalizedDescription = normalizeResourceDescription(description);
+  const { autoOpenKey, markDescriptionSeen } = useResourceDescriptionAutoOpen({
+    resourceId,
+    description: normalizedDescription,
+  });
   const descriptionText = getResourceDescriptionText(normalizedDescription);
   const canEditDescription = canUpdate && Boolean(onSave);
   const showAddDescription = !normalizedDescription && canEditDescription;
   const canOpenDescription = Boolean(normalizedDescription) || canEditDescription;
   const showDescription = Boolean(normalizedDescription) || showAddDescription;
+
+  useEffect(() => {
+    if (previousResourceIdRef.current === resourceId) return;
+    previousResourceIdRef.current = resourceId;
+    lastAutoOpenKeyRef.current = undefined;
+    setDescriptionDialogOpen(false);
+  }, [resourceId]);
+
+  useEffect(() => {
+    if (
+      !resourceId ||
+      !autoOpenKey?.startsWith(`${resourceId}:`) ||
+      lastAutoOpenKeyRef.current === autoOpenKey
+    ) {
+      return;
+    }
+    lastAutoOpenKeyRef.current = autoOpenKey;
+    setDescriptionDialogOpen(true);
+  }, [autoOpenKey, resourceId]);
 
   if (!showDescription) {
     return fallback ? (
@@ -324,6 +355,7 @@ export const ResourceDescription = ({
           open={descriptionDialogOpen}
           onOpenChange={setDescriptionDialogOpen}
           onSave={onSave}
+          onDescriptionSaved={markDescriptionSeen}
           readOnly={!canEditDescription}
           errorLogName={errorLogName}
         />
