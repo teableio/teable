@@ -396,23 +396,23 @@ export class OAuthServerService {
   }
 
   private codeExchange: IssueExchangeCodeFunction = async (client, code, redirectUri, done) => {
-    await this.prismaService
+    const completeExchange = await this.prismaService
       .$tx(async () => {
         const codeState = await this.cacheService.get(`oauth:code:${code}`);
         if (!codeState) {
-          return done(new UnauthorizedException('Invalid code'));
+          return () => done(new UnauthorizedException('Invalid code'));
         }
         await this.cacheService.del(`oauth:code:${code}`);
         await this.checkTokenRateLimit(client.clientId, codeState.user.id);
 
         if (codeState.clientId !== client.clientId) {
-          return done(new UnauthorizedException('Invalid client'));
+          return () => done(new UnauthorizedException('Invalid client'));
         }
         if (!redirectUri) {
-          return done(new UnauthorizedException('redirect_uri is required'));
+          return () => done(new UnauthorizedException('redirect_uri is required'));
         }
         if (redirectUri !== codeState.redirectUri) {
-          return done(new UnauthorizedException('Invalid redirectUri'));
+          return () => done(new UnauthorizedException('Invalid redirectUri'));
         }
         const tokenClient = client as ITokenClient;
         this.verifyExchangeClient(tokenClient, codeState);
@@ -440,20 +440,23 @@ export class OAuthServerService {
             expiredTime: this.getRefreshTokenExpireTime(),
           },
         });
-        done(null, accessToken.token, refreshToken, {
-          scopes: codeState.scopes,
-          expires_in: second(this.oauth2Config.accessTokenExpireIn),
-          refresh_expires_in: second(this.oauth2Config.refreshTokenExpireIn),
-        });
+        return () =>
+          done(null, accessToken.token, refreshToken, {
+            scopes: codeState.scopes,
+            expires_in: second(this.oauth2Config.accessTokenExpireIn),
+            refresh_expires_in: second(this.oauth2Config.refreshTokenExpireIn),
+          });
       })
-      .catch((error) => done(error));
+      .catch((error) => () => done(error));
+
+    return completeExchange();
   };
 
   private refreshTokenExchange: (
     client: ITokenClient,
     refreshToken: string,
     issued: ExchangeDoneFunction
-  ) => void = (client, refreshToken: string, done) => {
+  ) => void = (client, refreshToken, done) => {
     return this.prismaService
       .$tx(async () => {
         const decoded = await this.jwtService.verifyAsync<{
@@ -464,17 +467,17 @@ export class OAuthServerService {
         }>(refreshToken);
 
         if (client.clientId !== decoded.clientId) {
-          return done(new UnauthorizedException('Invalid client'));
+          return () => done(new UnauthorizedException('Invalid client'));
         }
         if ((client as ITokenClient & { clientSecret?: string })?.clientSecret !== decoded.secret) {
-          return done(new UnauthorizedException('Invalid secret'));
+          return () => done(new UnauthorizedException('Invalid secret'));
         }
 
         const oldAccessToken = await this.prismaService.txClient().accessToken.findUnique({
           where: { id: decoded.accessTokenId },
         });
         if (!oldAccessToken) {
-          return done(new UnauthorizedException('Invalid access token'));
+          return () => done(new UnauthorizedException('Invalid access token'));
         }
         await this.checkTokenRateLimit(client.clientId, oldAccessToken.userId);
 
@@ -488,7 +491,7 @@ export class OAuthServerService {
           },
         });
         if (!authorized) {
-          return done(new UnauthorizedException('Invalid authorized'));
+          return () => done(new UnauthorizedException('Invalid authorized'));
         }
 
         const scopes = oldAccessToken.scopes ? JSON.parse(oldAccessToken.scopes) : [];
@@ -522,13 +525,15 @@ export class OAuthServerService {
           accessToken.id,
           oauthAppToken.refreshTokenSign
         );
-        done(null, accessToken.token, newRefreshToken, {
-          scopes,
-          expires_in: second(this.oauth2Config.accessTokenExpireIn),
-          refresh_expires_in: second(this.oauth2Config.refreshTokenExpireIn),
-        });
+        return () =>
+          done(null, accessToken.token, newRefreshToken, {
+            scopes,
+            expires_in: second(this.oauth2Config.accessTokenExpireIn),
+            refresh_expires_in: second(this.oauth2Config.refreshTokenExpireIn),
+          });
       })
-      .catch((error) => done(error));
+      .catch((error) => () => done(error))
+      .then((completeExchange) => completeExchange());
   };
 
   async getDecisionInfo(req: Request, transactionId: string) {

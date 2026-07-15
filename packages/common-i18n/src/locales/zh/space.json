@@ -67,7 +67,16 @@
     "moveBaseSuccessTitle": "移动成功",
     "moveBaseSuccessDescription": "{{baseName}}已成功移动到{{spaceName}}",
     "moveBaseCrossSpaceTitle": "温馨提示",
-    "moveBaseCrossSpaceDataLossWarning": "不支持跨空间关联，相关字段会被转化成文本字段。此操作不可撤销。"
+    "moveBaseCrossSpaceDataLossWarning": "不支持跨空间关联，相关字段会被转化成文本字段。此操作不可撤销。",
+    "moveBaseCrossDataDbTitle": "跨数据库移动",
+    "moveBaseCrossDataDbWarning": "源空间与目标空间使用不同的数据数据库。移动将复制 Base 数据到目标库，可能需要一段时间。迁移期间会暂停对该 Base 的写入。",
+    "moveBaseProgressTitle": "正在移动 Base…",
+    "moveBaseProgressPhase": "阶段：{{phase}}",
+    "moveBaseProgressPercent": "{{percent}}%",
+    "moveBaseFailedTitle": "移动失败",
+    "moveBaseFailedDescription": "阶段 {{phase}}：{{error}}",
+    "moveBaseRetry": "重试",
+    "moveBaseCancel": "取消"
   },
   "deleteSpaceModal": {
     "title": "删除空间",

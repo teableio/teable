@@ -52,6 +52,7 @@ import {
 import type {
   CreateBaseInvitationLinkVo,
   EmailInvitationVo,
+  IBaseDataDbMoveJobStatusVo,
   IBaseErdVo,
   ICreateBaseVo,
   IDbConnectionVo,
@@ -60,6 +61,7 @@ import type {
   IDuplicateBaseCheckVo,
   IGetBaseVo,
   IMoveBaseCheckVo,
+  IMoveBaseVo,
   IGetSharedBaseVo,
   IImportBaseVo,
   IListBaseCollaboratorUserVo,
@@ -579,8 +581,8 @@ export class BaseController {
   async moveBase(
     @Param('baseId') baseId: string,
     @Body(new ZodValidationPipe(moveBaseRoSchema)) moveBaseRo: IMoveBaseRo
-  ) {
-    await this.baseService.moveBase(baseId, moveBaseRo);
+  ): Promise<IMoveBaseVo> {
+    return await this.baseService.moveBase(baseId, moveBaseRo);
   }
 
   @Get(':baseId/move-check')
@@ -589,8 +591,34 @@ export class BaseController {
     @Param('baseId') baseId: string,
     @Query('spaceId') spaceId: string
   ): Promise<IMoveBaseCheckVo> {
-    const affectedFields = await this.baseService.previewMoveBaseCrossSpace(baseId, spaceId);
-    return { affectedFields };
+    return await this.baseService.checkMoveBase(baseId, spaceId);
+  }
+
+  @Get(':baseId/move-job/:jobId')
+  @Permissions('space|update')
+  async getBaseDataDbMoveJob(
+    @Param('baseId') baseId: string,
+    @Param('jobId') jobId: string
+  ): Promise<IBaseDataDbMoveJobStatusVo> {
+    return await this.baseService.getBaseDataDbMoveJob(baseId, jobId);
+  }
+
+  @Post(':baseId/move-job/:jobId/cancel')
+  @Permissions('space|update')
+  async cancelBaseDataDbMoveJob(
+    @Param('baseId') baseId: string,
+    @Param('jobId') jobId: string
+  ): Promise<IBaseDataDbMoveJobStatusVo> {
+    return await this.baseService.cancelBaseDataDbMoveJob(baseId, jobId);
+  }
+
+  @Post(':baseId/move-job/:jobId/retry')
+  @Permissions('space|update')
+  async retryBaseDataDbMoveJob(
+    @Param('baseId') baseId: string,
+    @Param('jobId') jobId: string
+  ): Promise<IBaseDataDbMoveJobStatusVo> {
+    return await this.baseService.retryBaseDataDbMoveJob(baseId, jobId);
   }
 
   @Permissions('base|update')
