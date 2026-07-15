@@ -3763,6 +3763,15 @@ export type I18nTranslations = {
             "moveBaseSuccessDescription": string;
             "moveBaseCrossSpaceTitle": string;
             "moveBaseCrossSpaceDataLossWarning": string;
+            "moveBaseCrossDataDbTitle": string;
+            "moveBaseCrossDataDbWarning": string;
+            "moveBaseProgressTitle": string;
+            "moveBaseProgressPhase": string;
+            "moveBaseProgressPercent": string;
+            "moveBaseFailedTitle": string;
+            "moveBaseFailedDescription": string;
+            "moveBaseRetry": string;
+            "moveBaseCancel": string;
         };
         "deleteSpaceModal": {
             "title": string;
