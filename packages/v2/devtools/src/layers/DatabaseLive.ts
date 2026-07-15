@@ -25,7 +25,7 @@ export const DatabasePgLive = Layer.effect(
       try: () =>
         createV2NodePgContainer({
           connectionString: config.connectionString,
-          computedUpdate: { mode: 'sync', pollingConfig: { enabled: false } },
+          computedUpdate: { mode: 'sync' },
         }),
       catch: (error) => new Error(`Failed to create database container: ${error}`),
     });

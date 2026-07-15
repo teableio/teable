@@ -997,6 +997,38 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
 
     const permanentDeleteCanaryBase = async (baseId: string) => {
       const prisma = app.get(PrismaService);
+
+      if (process.env.V2_COMPUTED_UPDATE_MODE === 'sync') {
+        const deadline = Date.now() + 15_000;
+
+        while (Date.now() < deadline) {
+          const deferredTasks = await prisma.computedUpdateOutbox.findMany({
+            where: { baseId },
+            select: { status: true, attempts: true },
+          });
+          const unexpectedTasks = deferredTasks.filter(
+            ({ status, attempts }) =>
+              status !== 'processing' && !(status === 'pending' && attempts === 0)
+          );
+
+          expect(unexpectedTasks).toEqual([]);
+          await prisma.computedUpdateOutbox.deleteMany({
+            where: { baseId, status: 'pending', attempts: 0 },
+          });
+
+          const remainingTaskCount = await prisma.computedUpdateOutbox.count({
+            where: { baseId },
+          });
+          if (remainingTaskCount === 0) {
+            await permanentDeleteBase(baseId);
+            return;
+          }
+          await sleep(100);
+        }
+
+        throw new Error(`Timed out waiting for claimed computed tasks to drain for base ${baseId}`);
+      }
+
       const deadline = Date.now() + 15_000;
 
       while (Date.now() < deadline) {

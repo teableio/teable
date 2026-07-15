@@ -16,6 +16,44 @@ const displayDatabase = 'teable_data';
 const urlFingerprint = 'fp_xxx';
 
 describe('DataDbClientManager', () => {
+  it('includes BYODB base-to-space routing needed to honor space pauses', async () => {
+    vi.stubEnv('PRISMA_DATABASE_URL', 'postgresql://meta.example/teable');
+    const prismaService = withTxClient({
+      dataDbConnection: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: connectionId,
+            encryptedUrl: encryptDataDbUrl(dataUrl),
+            internalSchema,
+            spaceBindings: [{ spaceId: 'spc_a' }, { spaceId: 'spc_b' }],
+          },
+        ]),
+      },
+      base: {
+        findMany: vi.fn().mockResolvedValue([
+          { id: 'bse_a', spaceId: 'spc_a' },
+          { id: 'bse_b', spaceId: 'spc_b' },
+        ]),
+      },
+    });
+    const manager = new DataDbClientManager(
+      prismaService as never,
+      {} as never,
+      {} as never,
+      new DataDbRuntimeCacheService()
+    );
+
+    const targets = await manager.listComputedOutboxMaintenanceTargets();
+
+    expect(targets[1]).toMatchObject({
+      storage: 'byodb',
+      baseSpaceMapping: [
+        { baseId: 'bse_a', spaceId: 'spc_a' },
+        { baseId: 'bse_b', spaceId: 'spc_b' },
+      ],
+    });
+  });
+
   it('falls back to the meta DB clients when a space has no BYODB binding', async () => {
     const prismaService = withTxClient({
       spaceDataDbBinding: {

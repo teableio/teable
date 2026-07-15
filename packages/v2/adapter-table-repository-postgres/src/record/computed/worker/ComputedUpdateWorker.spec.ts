@@ -1194,7 +1194,7 @@ describe('ComputedUpdateWorker', () => {
         expect.objectContaining({
           taskId: task.id,
           workerId: 'manual-worker',
-          allowProcessingTakeover: true,
+          allowProcessingTakeover: false,
         }),
         expect.anything()
       );

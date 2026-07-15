@@ -121,6 +121,16 @@ export type ClaimByIdParams = {
   allowProcessingTakeover?: boolean;
 };
 
+export type OutboxTaskClaimEligibility =
+  | { status: 'terminal' }
+  | { status: 'eligible' }
+  | {
+      status: 'deferred';
+      reason: 'not_due' | 'active_lease' | 'paused' | 'concurrency';
+      /** Null when eligibility depends on an explicit resume or another worker completing. */
+      retryAt: Date | null;
+    };
+
 export type RenewLeaseParams = {
   taskIds: string[];
   leaseOwner: string;
@@ -226,6 +236,11 @@ export interface IComputedUpdateOutbox {
     params: ClaimByIdParams,
     context?: IExecutionContext
   ): Promise<Result<AnyOutboxItem | null, DomainError>>;
+
+  getTaskClaimEligibility(
+    taskId: string,
+    context?: IExecutionContext
+  ): Promise<Result<OutboxTaskClaimEligibility | null, DomainError>>;
 
   renewLease(
     params: RenewLeaseParams,

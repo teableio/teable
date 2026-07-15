@@ -14,11 +14,10 @@ import { SettingModule } from '../setting/setting.module';
 import { DataDbBaselineService } from './data-db-baseline.service';
 import { DataDbBindingService } from './data-db-binding.service';
 import { DataDbPreflightService } from './data-db-preflight.service';
-import { SpaceDataDbCopyService } from './space-data-db-copy.service';
+import { SpaceDataDbCopyModule } from './space-data-db-copy.module';
 import { SpaceDataDbMigrationGuardModule } from './space-data-db-migration-guard.module';
 import { SpaceDataDbMigrationWorkerService } from './space-data-db-migration-worker.service';
 import { SpaceDataDbMigrationService } from './space-data-db-migration.service';
-import { SpaceDataDbProcessRunnerService } from './space-data-db-process-runner.service';
 import { SpaceController } from './space.controller';
 import { SpaceService } from './space.service';
 import { TemplateSpaceInitService } from './template-space-init/template-space.init.service';
@@ -31,10 +30,8 @@ import { TemplateSpaceInitService } from './template-space-init/template-space.i
     DataDbPreflightService,
     DataDbBaselineService,
     DataDbBindingService,
-    SpaceDataDbCopyService,
     SpaceDataDbMigrationService,
     SpaceDataDbMigrationWorkerService,
-    SpaceDataDbProcessRunnerService,
   ],
   exports: [
     SpaceService,
@@ -42,11 +39,10 @@ import { TemplateSpaceInitService } from './template-space-init/template-space.i
     DataDbPreflightService,
     DataDbBaselineService,
     DataDbBindingService,
-    SpaceDataDbCopyService,
+    SpaceDataDbCopyModule,
     SpaceDataDbMigrationService,
     SpaceDataDbMigrationWorkerService,
     SpaceDataDbMigrationGuardModule,
-    SpaceDataDbProcessRunnerService,
   ],
   imports: [
     StorageModule,
@@ -57,6 +53,7 @@ import { TemplateSpaceInitService } from './template-space-init/template-space.i
     BaseModule,
     PermissionModule,
     SpaceDataDbMigrationGuardModule,
+    SpaceDataDbCopyModule,
     EventJobModule.registerQueue(BASE_IMPORT_CSV_QUEUE),
     EventJobModule.registerQueue(BASE_IMPORT_JUNCTION_CSV_QUEUE),
     EventJobModule.registerQueue(TABLE_IMPORT_CSV_CHUNK_QUEUE),
