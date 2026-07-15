@@ -495,6 +495,8 @@ const buildMigrationSharedTableDefinitions = (input: {
   baseIds: string[];
   tableIds: string[];
   sharedTableIds?: string[];
+  /** When false, only base/table pause scopes are copied (base move). Default true. */
+  includeSpacePauseScopes?: boolean;
 }) => {
   const sharedTableIds = input.sharedTableIds?.length ? input.sharedTableIds : input.tableIds;
   const tablePredicate = textArrayPredicate('table_id', sharedTableIds);
@@ -507,11 +509,16 @@ const buildMigrationSharedTableDefinitions = (input: {
       'computed_update_outbox'
     )} WHERE ${basePredicate})`,
   ].join(' AND ');
-  const pauseScopePredicate = [
-    `("scope_type" = 'space' AND "scope_id" = ANY(${textArray(spaceIds)}))`,
+  const pauseScopeParts = [
     `("scope_type" = 'base' AND "scope_id" = ANY(${textArray(input.baseIds)}))`,
     `("scope_type" = 'table' AND "scope_id" = ANY(${textArray(sharedTableIds)}))`,
-  ].join(' OR ');
+  ];
+  if (input.includeSpacePauseScopes !== false) {
+    pauseScopeParts.unshift(
+      `("scope_type" = 'space' AND "scope_id" = ANY(${textArray(spaceIds)}))`
+    );
+  }
+  const pauseScopePredicate = pauseScopeParts.join(' OR ');
   const undoPredicate = `split_part("table_name", '.', 1) = ANY(${textArray(input.baseIds)})`;
 
   return [
@@ -588,6 +595,7 @@ export const buildMigrationSharedTablePsqlCopyPlans = (input: {
   tableIds: string[];
   sharedTableIds?: string[];
   snapshotId?: string;
+  includeSpacePauseScopes?: boolean;
 }): ISharedTablePsqlCopyPlan[] => {
   const shared = buildMigrationSharedTableDefinitions(input);
 
@@ -617,6 +625,7 @@ export const buildMigrationSharedTablePostgresFdwCopyPlans = (input: {
   sharedTableIds?: string[];
   fdwSchemaPrefix: string;
   serverNamePrefix: string;
+  includeSpacePauseScopes?: boolean;
 }): ISharedTablePostgresFdwCopyPlan[] => {
   const shared = buildMigrationSharedTableDefinitions(input);
 

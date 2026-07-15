@@ -55,6 +55,15 @@ const createMockTask = (
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type MockDb = Kysely<any>;
 
+const createMockExecutor = () => {
+  const executor = {
+    transformQuery: vi.fn((node) => node),
+    compileQuery: vi.fn(() => ({ sql: 'select 1', parameters: [] })),
+    withPlugins: vi.fn(() => executor),
+  };
+  return executor;
+};
+
 describe('ComputedUpdateOutbox', () => {
   describe('releaseForRetry', () => {
     it('returns a processing task to pending without incrementing attempts', async () => {
@@ -432,11 +441,12 @@ describe('ComputedUpdateOutbox', () => {
           }),
         }),
       });
-
       const mockDb = {
         transaction: () => ({
           execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
         }),
+        executeQuery: vi.fn().mockResolvedValue({ rows: [] }),
+        getExecutor: vi.fn(() => createMockExecutor()),
         selectFrom: vi
           .fn()
           .mockImplementationOnce(() => createSelectChain([]))
@@ -502,15 +512,24 @@ describe('ComputedUpdateOutbox', () => {
           }),
         }),
       });
+      const activeRowsChain = {
+        where: vi.fn().mockReturnThis(),
+        execute: vi.fn().mockResolvedValue([]),
+      };
 
       const mockDb = {
         transaction: () => ({
           execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
         }),
+        executeQuery: vi.fn().mockResolvedValue({ rows: [] }),
+        getExecutor: vi.fn(() => createMockExecutor()),
         selectFrom: vi
           .fn()
           .mockImplementationOnce(() => createSelectChain([]))
-          .mockImplementationOnce(() => createSelectChain([mockRow])),
+          .mockImplementationOnce(() => createSelectChain([mockRow]))
+          .mockImplementationOnce(() => ({
+            select: vi.fn().mockReturnValue(activeRowsChain),
+          })),
         updateTable: vi.fn().mockReturnValue({
           set: vi.fn().mockImplementation((values) => {
             updateStatus = values.status;

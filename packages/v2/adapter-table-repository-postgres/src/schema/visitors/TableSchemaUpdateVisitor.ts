@@ -4,6 +4,7 @@ import {
   domainError,
   FieldValueTypeVisitor,
   FormulaField,
+  LookupField,
 } from '@teable/v2-core';
 import type {
   TableAddFieldSpec,
@@ -77,7 +78,7 @@ import type {
   RecordUpdateDTO,
 } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import type { Kysely } from 'kysely';
+import type { Kysely, QueryExecutorProvider } from 'kysely';
 import { sql } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
@@ -92,6 +93,7 @@ import {
   type FieldConversionParams,
 } from './FieldTypeConversionVisitor';
 import { FieldValueDuplicateVisitor } from './FieldValueDuplicateVisitor';
+import { resolveColumnType } from './PostgresTableSchemaFieldColumn';
 import { PostgresTableSchemaFieldCreateVisitor } from './PostgresTableSchemaFieldCreateVisitor';
 import { PostgresTableSchemaFieldDeleteVisitor } from './PostgresTableSchemaFieldDeleteVisitor';
 
@@ -493,6 +495,57 @@ export class TableSchemaUpdateVisitor
       previousFieldResult.value,
       nextFieldResult.value
     );
+  }
+
+  private buildLookupConversionStatements(
+    spec: UpdateLookupOptionsSpec
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    if (spec.previousOptions().lookupFieldId().equals(spec.nextOptions().lookupFieldId())) {
+      return ok([]);
+    }
+
+    const fieldResult = this.params.table.getField((field) => field.id().equals(spec.fieldId()));
+    if (fieldResult.isErr()) return err(fieldResult.error);
+    const field = fieldResult.value;
+    if (!(field instanceof LookupField)) return ok([]);
+
+    const columnTypeResult = resolveColumnType(field);
+    if (columnTypeResult.isErr()) return err(columnTypeResult.error);
+    const columnType = String(columnTypeResult.value);
+    const expectedDataType = columnType === 'timestamptz' ? 'timestamp with time zone' : columnType;
+
+    const dbFieldNameResult = this.resolveDbFieldNameText(field);
+    if (dbFieldNameResult.isErr()) return err(dbFieldNameResult.error);
+    const dbFieldName = dbFieldNameResult.value;
+    const { schema, tableName } = this.params;
+    const fullTableName = schema ? `"${schema}"."${tableName}"` : `"${tableName}"`;
+    const compileAlter = (executorProvider: QueryExecutorProvider) =>
+      sql`ALTER TABLE ${sql.raw(fullTableName)} ALTER COLUMN ${sql.ref(dbFieldName)} TYPE ${sql.raw(columnType)} USING NULL::${sql.raw(columnType)}`.compile(
+        executorProvider
+      );
+
+    return ok([
+      {
+        scope: 'data',
+        compile: compileAlter,
+        execute: async ({ scopedDb }) => {
+          const introspector = new PostgresSchemaIntrospector(
+            scopedDb as unknown as Kysely<unknown>
+          );
+          const currentColumnResult = await introspector.getColumn(schema, tableName, dbFieldName);
+          if (currentColumnResult.isErr()) {
+            throw new Error(currentColumnResult.error.message);
+          }
+          const currentColumn = currentColumnResult.value;
+          if (!currentColumn) {
+            throw new Error(`Lookup column not found: ${dbFieldName}`);
+          }
+          if (currentColumn.dataType === expectedDataType) return;
+
+          await scopedDb.executeQuery(compileAlter(scopedDb));
+        },
+      },
+    ]);
   }
 
   visitTableRename(
@@ -2199,10 +2252,11 @@ $v2_link_trim$;`;
   // ============ Lookup Update specs ============
 
   visitUpdateLookupOptions(
-    _spec: UpdateLookupOptionsSpec
+    spec: UpdateLookupOptionsSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const statements: ReadonlyArray<TableSchemaStatementBuilder> = [];
-    return this.addCond(statements).map(() => statements);
+    const statements = this.buildLookupConversionStatements(spec);
+    if (statements.isErr()) return err(statements.error);
+    return this.addCond(statements.value).map(() => statements.value);
   }
 
   // ============ Rollup Update specs ============

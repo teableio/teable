@@ -6,6 +6,7 @@ import {
   domainError,
   type DomainError,
   generatePrefixedId,
+  getUnitOfWorkTransaction,
   type IExecutionContext,
   type ILogger,
   v2CoreTokens,
@@ -22,6 +23,12 @@ import type { DirtyRecordStats } from '../ComputedFieldUpdater';
 import { toErrorLogFields } from '../errorLog';
 import { buildComputedTaskNotPausedCondition } from '../pause/ComputedUpdatePauseRegistry';
 import { COMPUTED_UPDATE_PAUSE_SCOPE_TABLE } from '../pause/IComputedUpdatePauseRegistry';
+import {
+  createComputedOutboxWakeup,
+  noopComputedOutboxWakeupPublisher,
+  type ComputedOutboxWakeupCause,
+  type IComputedOutboxWakeupPublisher,
+} from './ComputedOutboxWakeup';
 import type {
   ComputedRealtimeOrchestrationDto,
   ComputedUpdateOutboxItem,
@@ -40,6 +47,7 @@ import {
   isSeedOutboxItem,
 } from './IComputedUpdateOutbox';
 import type {
+  OutboxTaskClaimEligibility,
   IComputedUpdateOutbox,
   ClaimBatchParams,
   ClaimByIdParams,
@@ -64,6 +72,7 @@ const OUTBOX_SEED_ID_PREFIX = 'cus';
 const OUTBOX_SEED_ID_BODY_LENGTH = 16;
 const OUTBOX_CLAIM_ID_PREFIX = 'cuc';
 const OUTBOX_CLAIM_ID_BODY_LENGTH = 10;
+const OUTBOX_CLAIM_ADVISORY_LOCK_KEY = 'v2:outbox:claim:global';
 
 /** Change type for field backfill tasks (stored in change_type column) */
 const FIELD_BACKFILL_CHANGE_TYPE = 'field-backfill';
@@ -142,6 +151,8 @@ type RunInTransactionOptions = {
   logContext?: Record<string, unknown>;
 };
 
+type OutboxClaimDeferral = Extract<OutboxTaskClaimEligibility, { status: 'deferred' }>;
+
 /**
  * Persist computed update tasks for background processing (outbox pattern).
  *
@@ -165,8 +176,61 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     @inject(v2CoreTokens.logger)
     private readonly logger: ILogger,
     @inject(v2RecordRepositoryPostgresTokens.metaDb)
-    private readonly metaDb: Kysely<V1TeableDatabase> = db
+    private readonly metaDb: Kysely<V1TeableDatabase> = db,
+    @inject(v2RecordRepositoryPostgresTokens.computedOutboxWakeupPublisher)
+    private readonly wakeupPublisher: IComputedOutboxWakeupPublisher = noopComputedOutboxWakeupPublisher
   ) {}
+
+  private async scheduleWakeup(
+    params: {
+      taskId: string;
+      baseId: string;
+      availableAt?: Date;
+      cause: ComputedOutboxWakeupCause;
+    },
+    context?: IExecutionContext
+  ): Promise<void> {
+    const wakeup = createComputedOutboxWakeup(params);
+    const publishSafely = async () => {
+      try {
+        const outcome = await this.wakeupPublisher.publish(wakeup);
+        if (outcome.status === 'disabled') return;
+        this.logger.debug('computed:outbox:wakeup_published', {
+          taskId: wakeup.taskId,
+          baseId: wakeup.baseId,
+          wakeupId: wakeup.wakeupId,
+          availableAt: wakeup.availableAt,
+          cause: wakeup.cause,
+        });
+      } catch (error) {
+        this.wakeupPublisher.recordSkip?.('publish_failed');
+        this.logger.warn('computed:outbox:wakeup_publish_failed', {
+          taskId: wakeup.taskId,
+          baseId: wakeup.baseId,
+          wakeupId: wakeup.wakeupId,
+          cause: wakeup.cause,
+          ...toErrorLogFields(error),
+        });
+      }
+    };
+
+    const transaction = getUnitOfWorkTransaction(context, 'data');
+    if (transaction) {
+      if (transaction.afterCommit) {
+        transaction.afterCommit(publishSafely);
+      } else {
+        this.wakeupPublisher.recordSkip?.('no_after_commit');
+        this.logger.warn('computed:outbox:wakeup_skipped_without_after_commit_hook', {
+          taskId: wakeup.taskId,
+          baseId: wakeup.baseId,
+          wakeupId: wakeup.wakeupId,
+          cause: wakeup.cause,
+        });
+      }
+      return;
+    }
+    await publishSafely();
+  }
 
   async enqueueOrMerge(
     task: ComputedUpdateOutboxTaskInput,
@@ -230,10 +294,23 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     };
 
     try {
+      let result: Result<{ taskId: string; merged: boolean }, DomainError>;
       if (span && context?.tracer) {
-        return await context.tracer.withSpan(span, executeEnqueue);
+        result = await context.tracer.withSpan(span, executeEnqueue);
+      } else {
+        result = await executeEnqueue();
       }
-      return await executeEnqueue();
+      if (result.isOk()) {
+        await this.scheduleWakeup(
+          {
+            taskId: result.value.taskId,
+            baseId: task.baseId,
+            cause: result.value.merged ? 'merged' : 'created',
+          },
+          context
+        );
+      }
+      return result;
     } finally {
       span?.end();
     }
@@ -320,10 +397,23 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     };
 
     try {
+      let result: Result<{ taskId: string; merged: boolean }, DomainError>;
       if (span && context?.tracer) {
-        return await context.tracer.withSpan(span, executeEnqueue);
+        result = await context.tracer.withSpan(span, executeEnqueue);
+      } else {
+        result = await executeEnqueue();
       }
-      return await executeEnqueue();
+      if (result.isOk()) {
+        await this.scheduleWakeup(
+          {
+            taskId: result.value.taskId,
+            baseId: task.baseId,
+            cause: result.value.merged ? 'merged' : 'created',
+          },
+          context
+        );
+      }
+      return result;
     } finally {
       span?.end();
     }
@@ -396,10 +486,23 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     };
 
     try {
+      let result: Result<{ taskId: string; merged: boolean }, DomainError>;
       if (span && context?.tracer) {
-        return await context.tracer.withSpan(span, executeEnqueue);
+        result = await context.tracer.withSpan(span, executeEnqueue);
+      } else {
+        result = await executeEnqueue();
       }
-      return await executeEnqueue();
+      if (result.isOk()) {
+        await this.scheduleWakeup(
+          {
+            taskId: result.value.taskId,
+            baseId: task.baseId,
+            cause: result.value.merged ? 'merged' : 'created',
+          },
+          context
+        );
+      }
+      return result;
     } finally {
       span?.end();
     }
@@ -426,6 +529,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         db,
         context,
         async (trx) => {
+          await acquireOutboxAdvisoryLock(trx, OUTBOX_CLAIM_ADVISORY_LOCK_KEY);
           const staleRows =
             reclaimLimit > 0
               ? await trx
@@ -470,9 +574,10 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
               : [];
 
           const candidateRows = dedupeClaimRowsByScope([...staleRows, ...pendingRows]);
-          const rows = includeSpaceScopeInSql
+          const unpausedRows = includeSpaceScopeInSql
             ? candidateRows
             : await this.filterRowsPausedBySpace(trx, candidateRows, now, context);
+          const rows = await this.filterRowsByConcurrency(trx, unpausedRows, reclaimBefore);
 
           if (rows.length === 0) return ok([]);
 
@@ -583,6 +688,51 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     return rows.filter((row) => !pausedBaseIds.has(String(row.base_id)));
   }
 
+  private async filterRowsByConcurrency(
+    db: Kysely<DynamicDB> | Transaction<DynamicDB>,
+    rows: ReadonlyArray<OutboxRow>,
+    reclaimBefore: Date
+  ): Promise<OutboxRow[]> {
+    if (rows.length === 0) return [];
+
+    const baseIds = [...new Set(rows.map((row) => String(row.base_id)))];
+    const activeRows = (await db
+      .selectFrom(OUTBOX_TABLE)
+      .select(['base_id', 'seed_table_id'])
+      .where('status', '=', 'processing')
+      .where('locked_at', 'is not', null)
+      .where('locked_at', '>', reclaimBefore)
+      .where('base_id', 'in', baseIds)
+      .execute()) as OutboxRow[];
+
+    const activeByBase = new Map<string, number>();
+    const activeBySeed = new Map<string, number>();
+    for (const row of activeRows) {
+      const baseId = String(row.base_id);
+      const seedScope = getClaimLockScope(row);
+      activeByBase.set(baseId, (activeByBase.get(baseId) ?? 0) + 1);
+      activeBySeed.set(seedScope, (activeBySeed.get(seedScope) ?? 0) + 1);
+    }
+
+    const selected: OutboxRow[] = [];
+    for (const row of rows) {
+      const baseId = String(row.base_id);
+      const seedScope = getClaimLockScope(row);
+      const baseCount = activeByBase.get(baseId) ?? 0;
+      const seedCount = activeBySeed.get(seedScope) ?? 0;
+      if (
+        baseCount >= this.config.maxConcurrentProcessingPerBase ||
+        seedCount >= this.config.maxConcurrentProcessingPerSeedTable
+      ) {
+        continue;
+      }
+      selected.push(row);
+      activeByBase.set(baseId, baseCount + 1);
+      activeBySeed.set(seedScope, seedCount + 1);
+    }
+    return selected;
+  }
+
   async claimById(
     params: ClaimByIdParams,
     context?: IExecutionContext
@@ -594,23 +744,55 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
 
     const executeClaim = async (): Promise<Result<AnyOutboxItem | null, DomainError>> => {
       const now = params.now ?? new Date();
+      const reclaimBefore = new Date(now.getTime() - this.config.processingLeaseMs);
       const claimOwner = createClaimOwner(params.workerId);
       const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
-      const retryableStatuses = params.allowProcessingTakeover
-        ? [DEFAULT_STATUS, 'processing']
-        : [DEFAULT_STATUS];
 
       return runInTransaction(
         db,
         context,
         async (trx) => {
-          const row = await trx
-            .selectFrom(OUTBOX_TABLE)
-            .selectAll()
-            .where('id', '=', params.taskId)
-            .where('status', 'in', retryableStatuses)
-            .forUpdate()
-            .executeTakeFirst();
+          let row: OutboxRow | undefined;
+          if (params.allowProcessingTakeover) {
+            row = await trx
+              .selectFrom(`${OUTBOX_TABLE} as o`)
+              .selectAll('o')
+              .where('o.id', '=', params.taskId)
+              .where('o.status', 'in', [DEFAULT_STATUS, 'processing'])
+              .forUpdate()
+              .skipLocked()
+              .executeTakeFirst();
+          } else {
+            const locator = await trx
+              .selectFrom(`${OUTBOX_TABLE} as o`)
+              .select('o.base_id')
+              .where('o.id', '=', params.taskId)
+              .where('o.status', 'in', [DEFAULT_STATUS, 'processing'])
+              .executeTakeFirst();
+            if (!locator) return ok(null);
+
+            // Serialize BullMQ claims within the base, then evaluate the shared policy while
+            // the candidate row remains locked through its status update.
+            await acquireOutboxAdvisoryLock(trx, `v2:outbox:claim:base:${String(locator.base_id)}`);
+            const candidate = await trx
+              .selectFrom(`${OUTBOX_TABLE} as o`)
+              .selectAll('o')
+              .where('o.id', '=', params.taskId)
+              .where('o.status', 'in', [DEFAULT_STATUS, 'processing'])
+              .forUpdate()
+              .skipLocked()
+              .executeTakeFirst();
+            if (candidate) {
+              const deferral = await this.getClaimDeferral(
+                trx,
+                candidate,
+                now,
+                reclaimBefore,
+                context
+              );
+              if (!deferral) row = candidate;
+            }
+          }
 
           if (!row) return ok(null);
 
@@ -623,6 +805,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
               updated_at: now,
             })
             .where('id', '=', params.taskId)
+            .where('status', '=', String(row.status))
             .execute();
 
           const seedMap = await this.loadSeedRecords(trx, [row]);
@@ -661,6 +844,160 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     } finally {
       span?.end();
     }
+  }
+
+  async getTaskClaimEligibility(
+    taskId: string,
+    context?: IExecutionContext
+  ): Promise<Result<OutboxTaskClaimEligibility | null, DomainError>> {
+    try {
+      const now = new Date();
+      const reclaimBefore = new Date(now.getTime() - this.config.processingLeaseMs);
+      const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
+      const row = (await db
+        .selectFrom(OUTBOX_TABLE)
+        .select([
+          'status',
+          'next_run_at',
+          'locked_at',
+          'base_id',
+          'seed_table_id',
+          'affected_table_ids',
+        ])
+        .where('id', '=', taskId)
+        .executeTakeFirst()) as OutboxRow | undefined;
+      if (!row) return ok(null);
+
+      const status = String(row.status);
+      if (status === 'done' || status === 'dead') return ok({ status: 'terminal' });
+      if (status !== DEFAULT_STATUS && status !== 'processing') return ok(null);
+
+      const deferral = await this.getClaimDeferral(db, row, now, reclaimBefore, context);
+      return ok(deferral ?? { status: 'eligible' });
+    } catch (error) {
+      return err(
+        domainError.infrastructure({
+          message: `Failed to inspect outbox task claim eligibility for ${taskId}: ${describeError(error)}`,
+        })
+      );
+    }
+  }
+
+  private async getClaimDeferral(
+    db: Kysely<DynamicDB> | Transaction<DynamicDB>,
+    row: OutboxRow,
+    now: Date,
+    reclaimBefore: Date,
+    context?: IExecutionContext
+  ): Promise<OutboxClaimDeferral | null> {
+    const status = String(row.status);
+    if (status === DEFAULT_STATUS) {
+      const nextRunAt = new Date(row.next_run_at as Date | string);
+      if (nextRunAt.getTime() > now.getTime()) {
+        return { status: 'deferred', reason: 'not_due', retryAt: nextRunAt };
+      }
+    } else if (status === 'processing' && row.locked_at != null) {
+      const lockedAt = new Date(row.locked_at as Date | string);
+      if (lockedAt.getTime() > reclaimBefore.getTime()) {
+        return {
+          status: 'deferred',
+          reason: 'active_lease',
+          retryAt: new Date(lockedAt.getTime() + this.config.processingLeaseMs),
+        };
+      }
+    }
+
+    const pauseRetryAt = await this.getPauseRetryAt(db, row, now, context);
+    if (pauseRetryAt !== undefined) {
+      return { status: 'deferred', reason: 'paused', retryAt: pauseRetryAt };
+    }
+
+    const concurrencyRetryAt = await this.getConcurrencyRetryAt(db, row, reclaimBefore);
+    if (concurrencyRetryAt !== undefined) {
+      return { status: 'deferred', reason: 'concurrency', retryAt: concurrencyRetryAt };
+    }
+
+    return null;
+  }
+
+  private async getPauseRetryAt(
+    db: Kysely<DynamicDB> | Transaction<DynamicDB>,
+    row: OutboxRow,
+    now: Date,
+    context?: IExecutionContext
+  ): Promise<Date | null | undefined> {
+    const activePauses = (await db
+      .selectFrom(COMPUTED_UPDATE_PAUSE_SCOPE_TABLE)
+      .select(['scope_type', 'scope_id', 'resume_at'])
+      .where((eb) => eb.or([eb('resume_at', 'is', null), eb('resume_at', '>', now)]))
+      .execute()) as Array<{
+      scope_type: string;
+      scope_id: string;
+      resume_at: Date | string | null;
+    }>;
+    if (activePauses.length === 0) return undefined;
+
+    const tableIds = new Set<string>([
+      String(row.seed_table_id),
+      ...((row.affected_table_ids as string[] | null) ?? []).map(String),
+    ]);
+    let spaceId: string | null = null;
+    if (activePauses.some((pause) => pause.scope_type === 'space')) {
+      const metaDb = resolvePostgresDbOrTx(
+        this.metaDb,
+        context,
+        'meta'
+      ) as unknown as Kysely<DynamicDB>;
+      const base = (await metaDb
+        .selectFrom('base')
+        .select('space_id')
+        .where('id', '=', String(row.base_id))
+        .executeTakeFirst()) as { space_id: string | null } | undefined;
+      spaceId = base?.space_id == null ? null : String(base.space_id);
+    }
+
+    const matching = activePauses.filter(
+      (pause) =>
+        (pause.scope_type === 'base' && pause.scope_id === String(row.base_id)) ||
+        (pause.scope_type === 'table' && tableIds.has(pause.scope_id)) ||
+        (pause.scope_type === 'space' && spaceId != null && pause.scope_id === spaceId)
+    );
+    if (matching.length === 0) return undefined;
+    if (matching.some((pause) => pause.resume_at == null)) return null;
+    return new Date(
+      Math.max(...matching.map((pause) => new Date(pause.resume_at as Date | string).getTime()))
+    );
+  }
+
+  private async getConcurrencyRetryAt(
+    db: Kysely<DynamicDB> | Transaction<DynamicDB>,
+    row: OutboxRow,
+    reclaimBefore: Date
+  ): Promise<Date | undefined> {
+    const activeRows = (await db
+      .selectFrom(OUTBOX_TABLE)
+      .select(['base_id', 'seed_table_id', 'locked_at'])
+      .where('status', '=', 'processing')
+      .where('locked_at', 'is not', null)
+      .where('locked_at', '>', reclaimBefore)
+      .where('base_id', '=', String(row.base_id))
+      .execute()) as OutboxRow[];
+    const sameSeedRows = activeRows.filter(
+      (active) => String(active.seed_table_id) === String(row.seed_table_id)
+    );
+    const baseBlocked = activeRows.length >= this.config.maxConcurrentProcessingPerBase;
+    const seedBlocked = sameSeedRows.length >= this.config.maxConcurrentProcessingPerSeedTable;
+    if (!baseBlocked && !seedBlocked) return undefined;
+
+    const blockers = [...(baseBlocked ? activeRows : []), ...(seedBlocked ? sameSeedRows : [])];
+    return new Date(
+      Math.max(
+        ...blockers.map(
+          (active) =>
+            new Date(active.locked_at as Date | string).getTime() + this.config.processingLeaseMs
+        )
+      )
+    );
   }
 
   async renewLease(
@@ -779,7 +1116,12 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       'outbox.taskId': params.task.id,
     });
 
-    const executeRelease = async (): Promise<Result<boolean, DomainError>> => {
+    type ReleaseOutcome = {
+      released: boolean;
+      taskId?: string;
+      availableAt?: Date;
+    };
+    const executeRelease = async (): Promise<Result<ReleaseOutcome, DomainError>> => {
       const now = params.now ?? new Date();
       const retryDelayMs = Math.max(
         0,
@@ -795,7 +1137,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         changeType: getOutboxRowChangeType(params.task),
       });
 
-      return runInTransaction(
+      return runInTransaction<ReleaseOutcome>(
         db,
         context,
         async (trx) => {
@@ -816,7 +1158,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                 taskId: params.task.id,
                 leaseOwner,
               });
-              return ok(false);
+              return ok({ released: false });
             }
           }
 
@@ -844,7 +1186,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                 taskId: params.task.id,
                 leaseOwner,
               });
-              return ok(false);
+              return ok({ released: false });
             }
 
             this.logger.debug('computed:outbox:release_retry_merged_pending', {
@@ -854,7 +1196,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
               nextRunAt,
             });
 
-            return ok(true);
+            return ok({ released: true, taskId: mergedTaskId, availableAt: now });
           }
 
           await trx
@@ -876,7 +1218,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             nextRunAt,
           });
 
-          return ok(true);
+          return ok({ released: true, taskId: params.task.id, availableAt: nextRunAt });
         },
         {
           logger: this.logger,
@@ -887,10 +1229,25 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     };
 
     try {
+      let result: Result<ReleaseOutcome, DomainError>;
       if (span && context?.tracer) {
-        return await context.tracer.withSpan(span, executeRelease);
+        result = await context.tracer.withSpan(span, executeRelease);
+      } else {
+        result = await executeRelease();
       }
-      return await executeRelease();
+      if (result.isErr()) return err(result.error);
+      if (result.value.released && result.value.taskId && result.value.availableAt) {
+        await this.scheduleWakeup(
+          {
+            taskId: result.value.taskId,
+            baseId: params.task.baseId,
+            availableAt: result.value.availableAt,
+            cause: 'retry',
+          },
+          context
+        );
+      }
+      return ok(result.value.released);
     } finally {
       span?.end();
     }
@@ -924,13 +1281,14 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
 
     const failureLogFields = buildFailureLogFields(task, options);
 
-    const executeMarkFailed = async (): Promise<Result<boolean, DomainError>> => {
+    type MarkFailedOutcome = { updated: boolean; retryAt?: Date };
+    const executeMarkFailed = async (): Promise<Result<MarkFailedOutcome, DomainError>> => {
       const now = new Date();
       const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
       const nextAttempts = task.attempts + 1;
       const leaseOwner = task.lockedBy ?? null;
 
-      return runInTransaction(
+      return runInTransaction<MarkFailedOutcome>(
         db,
         context,
         async (trx) => {
@@ -949,7 +1307,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                 taskId: task.id,
                 leaseOwner,
               });
-              return ok(false);
+              return ok({ updated: false });
             }
           }
 
@@ -979,7 +1337,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
               maxAttempts: task.maxAttempts,
               ...failureLogFields,
             });
-            return ok(true);
+            return ok({ updated: true });
           }
 
           const delay = Math.min(
@@ -1010,7 +1368,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             ...failureLogFields,
           });
 
-          return ok(true);
+          return ok({ updated: true, retryAt: nextRunAt });
         },
         {
           logger: this.logger,
@@ -1021,10 +1379,25 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     };
 
     try {
+      let result: Result<MarkFailedOutcome, DomainError>;
       if (span && context?.tracer) {
-        return await context.tracer.withSpan(span, executeMarkFailed);
+        result = await context.tracer.withSpan(span, executeMarkFailed);
+      } else {
+        result = await executeMarkFailed();
       }
-      return await executeMarkFailed();
+      if (result.isErr()) return err(result.error);
+      if (result.value.updated && result.value.retryAt) {
+        await this.scheduleWakeup(
+          {
+            taskId: task.id,
+            baseId: task.baseId,
+            availableAt: result.value.retryAt,
+            cause: 'retry',
+          },
+          context
+        );
+      }
+      return ok(result.value.updated);
     } finally {
       span?.end();
     }
@@ -2209,9 +2582,7 @@ const buildFailureLogFields = (
   ...(options.failureKind ? { failureKind: options.failureKind } : {}),
   ...(options.failureReason ? { failureReason: options.failureReason } : {}),
   ...(options.retryable !== undefined ? { retryable: options.retryable } : {}),
-  ...(options.directDeadLetter !== undefined
-    ? { directDeadLetter: options.directDeadLetter }
-    : {}),
+  ...(options.directDeadLetter !== undefined ? { directDeadLetter: options.directDeadLetter } : {}),
 });
 
 /**

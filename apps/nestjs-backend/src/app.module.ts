@@ -2,7 +2,7 @@
 import { BullModule } from '@nestjs/bullmq';
 import type { ModuleMetadata } from '@nestjs/common';
 import { Module } from '@nestjs/common';
-import { ConditionalModule, ConfigService } from '@nestjs/config';
+import { ConfigService } from '@nestjs/config';
 import { SentryModule } from '@sentry/nestjs/setup';
 import Redis from 'ioredis';
 import type { ICacheConfig } from './configs/cache.config';
@@ -49,17 +49,13 @@ import { TemplateOpenApiModule } from './features/template/template-open-api.mod
 import { TrashModule } from './features/trash/trash.module';
 import { UndoRedoModule } from './features/undo-redo/open-api/undo-redo.module';
 import { UserModule } from './features/user/user.module';
+import { ComputedOutboxWakeupConsumerModule } from './features/v2/computed-outbox-trigger/computed-outbox-wakeup-consumer.module';
 import { V2Module } from './features/v2/v2.module';
 import { GlobalModule } from './global/global.module';
 import { InitBootstrapProvider } from './global/init-bootstrap.provider';
 import { LoggerModule } from './logger/logger.module';
 import { ObservabilityModule } from './observability/observability.module';
 import { WsModule } from './ws/ws.module';
-
-// In CI or test environments, use a longer timeout for ConditionalModule
-// to avoid sporadic timeout errors when resources are under pressure
-const isTestOrCI = process.env.CI || process.env.NODE_ENV === 'test' || process.env.VITEST;
-const CONDITIONAL_MODULE_TIMEOUT = isTestOrCI ? 60000 : 5000;
 
 export const appModules = {
   imports: [
@@ -113,6 +109,7 @@ export const appModules = {
     ObservabilityModule,
     BuiltinAssetsInitModule,
     V2Module,
+    ComputedOutboxWakeupConsumerModule.register(),
   ],
   providers: [InitBootstrapProvider],
 };
@@ -122,28 +119,22 @@ export const appModules = {
   imports: [
     GlobalModule,
     ...appModules.imports,
-    ConditionalModule.registerWhen(
-      BullModule.forRootAsync({
-        imports: [ConfigModule],
-        useFactory: async (configService: ConfigService) => {
-          const redisUri = configService.get<ICacheConfig>('cache')?.redis.uri;
-          if (!redisUri) {
-            throw new Error('Redis URI is not defined');
-          }
-          const redis = new Redis(redisUri, { lazyConnect: true, maxRetriesPerRequest: null });
-          await redis.connect();
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: async (configService: ConfigService) => {
+        const redisUri = configService.get<ICacheConfig>('cache')?.redis.uri;
+        if (!redisUri) {
+          throw new Error('Redis URI is not defined');
+        }
+        const redis = new Redis(redisUri, { lazyConnect: true, maxRetriesPerRequest: null });
+        await redis.connect();
 
-          return {
-            connection: redis,
-          };
-        },
-        inject: [ConfigService],
-      }),
-      (env) => {
-        return Boolean(env.BACKEND_CACHE_REDIS_URI);
+        return {
+          connection: redis,
+        };
       },
-      { timeout: CONDITIONAL_MODULE_TIMEOUT }
-    ),
+      inject: [ConfigService],
+    }),
   ],
   controllers: [],
 })

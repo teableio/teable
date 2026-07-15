@@ -16,6 +16,9 @@ export const v2RecordRepositoryPostgresTokens = {
     'v2.adapter.recordRepositoryPostgres.computedUpdateHybridConfig'
   ),
   computedUpdateOutbox: Symbol('v2.adapter.recordRepositoryPostgres.computedUpdateOutbox'),
+  computedOutboxWakeupPublisher: Symbol(
+    'v2.adapter.recordRepositoryPostgres.computedOutboxWakeupPublisher'
+  ),
   computedUpdatePauseRegistry: Symbol(
     'v2.adapter.recordRepositoryPostgres.computedUpdatePauseRegistry'
   ),
@@ -23,12 +26,6 @@ export const v2RecordRepositoryPostgresTokens = {
     'v2.adapter.recordRepositoryPostgres.computedUpdateOutboxConfig'
   ),
   computedUpdateWorker: Symbol('v2.adapter.recordRepositoryPostgres.computedUpdateWorker'),
-  computedUpdatePollingConfig: Symbol(
-    'v2.adapter.recordRepositoryPostgres.computedUpdatePollingConfig'
-  ),
-  computedUpdatePollingService: Symbol(
-    'v2.adapter.recordRepositoryPostgres.computedUpdatePollingService'
-  ),
   computedFieldBackfillService: Symbol(
     'v2.adapter.recordRepositoryPostgres.computedFieldBackfillService'
   ),

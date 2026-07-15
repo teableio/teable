@@ -223,6 +223,16 @@ describe('OAuthServerService', () => {
       const mockRefreshToken = 'refreshToken';
       mockGetRefreshToken.mockResolvedValue(mockRefreshToken);
 
+      let transactionCommitted = false;
+      prismaService.$tx.mockImplementationOnce(async (fn) => {
+        const result = await fn(prismaService);
+        transactionCommitted = true;
+        return result;
+      });
+      mockDone.mockImplementation(() => {
+        expect(transactionCommitted).toBe(true);
+      });
+
       await service['codeExchange'](mockClient, mockCode, mockRedirectUri, mockDone);
       expect(mockDone).toHaveBeenCalledWith(null, mockAccessToken.token, mockRefreshToken, {
         scopes: mockCodeState.scopes,
@@ -379,6 +389,16 @@ describe('OAuthServerService', () => {
         clientId: client.clientId,
         userId: 'userId',
       });
+      let transactionCommitted = false;
+      prismaService.$tx.mockImplementationOnce(async (fn) => {
+        const result = await fn(prismaService);
+        transactionCommitted = true;
+        return result;
+      });
+      mockDone.mockImplementation(() => {
+        expect(transactionCommitted).toBe(true);
+      });
+
       await service['refreshTokenExchange'](client, refreshToken, mockDone);
 
       expect(jwtService.verifyAsync).toHaveBeenCalledWith(refreshToken);

@@ -33,10 +33,10 @@ import {
   buildBeforeImageRecordsFromStepChanges,
   mergeBeforeImageRecords,
 } from '../ComputedBeforeImageFromChanges';
-import type { ComputedTaskFailureClassification } from '../ComputedTaskFailureClassifier';
-import { classifyComputedTaskFailure } from '../ComputedTaskFailureClassifier';
 import type { ComputedFieldBackfillService } from '../ComputedFieldBackfillService';
 import type { ComputedFieldUpdater, StepChangeData } from '../ComputedFieldUpdater';
+import type { ComputedTaskFailureClassification } from '../ComputedTaskFailureClassifier';
+import { classifyComputedTaskFailure } from '../ComputedTaskFailureClassifier';
 import { isComputedUpdateLockUnavailable } from '../ComputedUpdateLock';
 import type {
   ComputedSeedGroup,
@@ -578,7 +578,7 @@ export class ComputedUpdateWorker {
             {
               taskId: params.taskId,
               workerId: params.workerId,
-              allowProcessingTakeover: params.allowProcessingTakeover ?? true,
+              allowProcessingTakeover: params.allowProcessingTakeover ?? false,
             },
             context
           );

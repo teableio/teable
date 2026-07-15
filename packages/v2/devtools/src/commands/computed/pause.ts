@@ -136,6 +136,6 @@ export const computedPause = Command.make(
   handler
 ).pipe(
   Command.withDescription(
-    'Pause computed polling claims for a space, base, or table scope until resumed or until --resume-at'
+    'Pause computed task claims for a space, base, or table scope until resumed or until --resume-at'
   )
 );

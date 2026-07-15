@@ -17,6 +17,10 @@ import { TableDuplicateService } from '../table/table-duplicate.service';
 import { TableModule } from '../table/table.module';
 import { V2Module } from '../v2/v2.module';
 import { ViewOpenApiModule } from '../view/open-api/view-open-api.module';
+import { SpaceDataDbCopyModule } from '../space/space-data-db-copy.module';
+import { SpaceDataDbMigrationGuardModule } from '../space/space-data-db-migration-guard.module';
+import { BaseDataDbMoveService } from './base-data-db-move.service';
+import { BASE_META_MOVE_SERVICE } from './base-meta-move.service';
 import { BaseDuplicateV2Service } from './base-duplicate-v2.service';
 import { BaseDuplicateService } from './base-duplicate.service';
 import { BaseExportV2Service } from './base-export-v2.service';
@@ -52,10 +56,14 @@ import { DbConnectionService } from './db-connection.service';
     BaseImportAttachmentsCsvModule,
     GraphModule,
     V2Module,
+    SpaceDataDbCopyModule,
+    SpaceDataDbMigrationGuardModule,
   ],
   providers: [
     DbProvider,
     BaseService,
+    { provide: BASE_META_MOVE_SERVICE, useExisting: BaseService },
+    BaseDataDbMoveService,
     BaseExportService,
     BaseExportV2Service,
     BaseImportService,
@@ -67,6 +75,7 @@ import { DbConnectionService } from './db-connection.service';
   ],
   exports: [
     BaseService,
+    BaseDataDbMoveService,
     DbConnectionService,
     BaseDuplicateService,
     BaseDuplicateV2Service,

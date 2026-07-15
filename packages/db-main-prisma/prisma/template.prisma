@@ -30,6 +30,8 @@ model Space {
   baseGroup Base[]
   dataDbBinding       SpaceDataDbBinding?
   dataDbMigrationJobs SpaceDataDbMigrationJob[]
+  baseDataDbMoveJobsAsSource BaseDataDbMoveJob[] @relation("BaseDataDbMoveSourceSpace")
+  baseDataDbMoveJobsAsTarget BaseDataDbMoveJob[] @relation("BaseDataDbMoveTargetSpace")
 
   @@map("space")
 }
@@ -145,6 +147,47 @@ model SpaceDataDbMigrationJob {
   @@map("space_data_db_migration_job")
 }
 
+enum BaseDataDbMoveJobState {
+  pending
+  waiting_worker
+  copying_base_schema
+  copying_shared_rows
+  validating
+  switching
+  succeeded
+  failed
+  cancelled
+}
+
+model BaseDataDbMoveJob {
+  id                 String                 @id @default(cuid())
+  baseId             String                 @map("base_id")
+  sourceSpaceId      String                 @map("source_space_id")
+  targetSpaceId      String                 @map("target_space_id")
+  sourceConnectionId String?                @map("source_connection_id")
+  targetConnectionId String?                @map("target_connection_id")
+  state              BaseDataDbMoveJobState @default(pending)
+  inventory          Json?
+  copyStats          Json?                  @map("copy_stats")
+  validationStats    Json?                  @map("validation_stats")
+  lastError          String?                @map("last_error")
+  startedAt          DateTime?              @map("started_at")
+  completedAt        DateTime?              @map("completed_at")
+  createdBy          String                 @map("created_by")
+  createdTime        DateTime               @default(now()) @map("created_time")
+  lastModifiedTime   DateTime?              @updatedAt @map("last_modified_time")
+
+  base        Base  @relation(fields: [baseId], references: [id], onDelete: Cascade)
+  sourceSpace Space @relation("BaseDataDbMoveSourceSpace", fields: [sourceSpaceId], references: [id], onDelete: Cascade)
+  targetSpace Space @relation("BaseDataDbMoveTargetSpace", fields: [targetSpaceId], references: [id], onDelete: Cascade)
+
+  @@index([baseId, state])
+  @@index([state])
+  @@index([sourceSpaceId, state])
+  @@index([targetSpaceId, state])
+  @@map("base_data_db_move_job")
+}
+
 model PinResource {
   id          String   @id @default(cuid())
   type        String   @map("type")
@@ -174,6 +217,7 @@ model Base {
   lastModifiedTime DateTime?   @updatedAt @map("last_modified_time")
   space            Space       @relation(fields: [spaceId], references: [id])
   tables           TableMeta[]
+  dataDbMoveJobs   BaseDataDbMoveJob[]
 
   @@index([order])
   @@index([spaceId])

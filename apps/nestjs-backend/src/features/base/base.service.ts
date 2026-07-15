@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { forwardRef, Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import {
   ActionPrefix,
   actionPrefixMap,
@@ -28,7 +28,9 @@ import type {
   ICreateBaseRo,
   ICrossSpaceAffectedField,
   IGetBasePermissionVo,
+  IMoveBaseCheckVo,
   IMoveBaseRo,
+  IMoveBaseVo,
   IPublishBaseRo,
   IUpdateBaseRo,
   IUpdateOrderRo,
@@ -59,6 +61,7 @@ import { FieldOpenApiService } from '../field/open-api/field-open-api.service';
 import { GraphService } from '../graph/graph.service';
 import { SpaceDataDbMigrationGuardService } from '../space/space-data-db-migration-guard.service';
 import { TableOpenApiService } from '../table/open-api/table-open-api.service';
+import { BaseDataDbMoveService } from './base-data-db-move.service';
 import { BaseDuplicateV2Service } from './base-duplicate-v2.service';
 import { BaseDuplicateService } from './base-duplicate.service';
 import type { BaseImportProgressCallback } from './base-import.service';
@@ -147,7 +150,10 @@ export class BaseService {
     @Inject(EventEmitterService) private readonly eventEmitterService: EventEmitterService,
     @Optional()
     @Inject(SpaceDataDbMigrationGuardService)
-    private readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService
+    private readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService,
+    @Optional()
+    @Inject(forwardRef(() => BaseDataDbMoveService))
+    private readonly baseDataDbMoveService?: BaseDataDbMoveService
   ) {}
 
   private getDataPrismaExecutor(prisma: IDataPrismaScopedClient): IDataPrismaExecutor {
@@ -992,13 +998,34 @@ export class BaseService {
     await this.cleanRelativeNodesData(baseId);
   }
 
-  async moveBase(baseId: string, moveBaseRo: IMoveBaseRo) {
+  async moveBase(baseId: string, moveBaseRo: IMoveBaseRo): Promise<IMoveBaseVo> {
     const { spaceId: targetSpaceId } = moveBaseRo;
     await this.assertBaseWritable(baseId);
     await this.assertSpaceWritable(targetSpaceId);
     // check if has the permission to create base in the target space
     await this.checkBaseCreatePermission(targetSpaceId);
 
+    const dataDbCheck = await this.baseDataDbMoveService?.resolveDataDbCheck(baseId, targetSpaceId);
+    if (dataDbCheck?.requiresPhysicalMove) {
+      if (!this.baseDataDbMoveService) {
+        throw new CustomHttpException(
+          'Cross data-database base move is not available',
+          HttpErrorCode.VALIDATION_ERROR
+        );
+      }
+      return this.baseDataDbMoveService.startPhysicalMove(baseId, targetSpaceId);
+    }
+
+    await this.applyMetaMoveBase(baseId, targetSpaceId);
+    return {};
+  }
+
+  /**
+   * Meta-only ownership transfer + cross-space link conversion.
+   * Safe only when source and target spaces share the same data database,
+   * or after physical base schema/shared rows have already been copied.
+   */
+  async applyMetaMoveBase(baseId: string, targetSpaceId: string) {
     const { affected, levels } = await this.computeMoveBaseCrossSpaceImpact(baseId, targetSpaceId);
     // Deepest-first: dependent lookup/rollup fields convert first via the
     // regular convertField path so their values are snapshotted by
@@ -1091,6 +1118,47 @@ export class BaseService {
     targetSpaceId: string
   ): Promise<ICrossSpaceAffectedField[]> {
     return (await this.computeMoveBaseCrossSpaceImpact(baseId, targetSpaceId)).affected;
+  }
+
+  async checkMoveBase(baseId: string, targetSpaceId: string): Promise<IMoveBaseCheckVo> {
+    const [affectedFields, dataDb] = await Promise.all([
+      this.previewMoveBaseCrossSpace(baseId, targetSpaceId),
+      this.baseDataDbMoveService?.resolveDataDbCheck(baseId, targetSpaceId),
+    ]);
+    return {
+      affectedFields,
+      ...(dataDb ? { dataDb } : {}),
+    };
+  }
+
+  async getBaseDataDbMoveJob(baseId: string, jobId: string) {
+    if (!this.baseDataDbMoveService) {
+      throw new CustomHttpException(
+        'Cross data-database base move is not available',
+        HttpErrorCode.VALIDATION_ERROR
+      );
+    }
+    return this.baseDataDbMoveService.getJobStatus(baseId, jobId);
+  }
+
+  async cancelBaseDataDbMoveJob(baseId: string, jobId: string) {
+    if (!this.baseDataDbMoveService) {
+      throw new CustomHttpException(
+        'Cross data-database base move is not available',
+        HttpErrorCode.VALIDATION_ERROR
+      );
+    }
+    return this.baseDataDbMoveService.cancelJob(baseId, jobId);
+  }
+
+  async retryBaseDataDbMoveJob(baseId: string, jobId: string) {
+    if (!this.baseDataDbMoveService) {
+      throw new CustomHttpException(
+        'Cross data-database base move is not available',
+        HttpErrorCode.VALIDATION_ERROR
+      );
+    }
+    return this.baseDataDbMoveService.retryJob(baseId, jobId);
   }
 
   private async computeMoveBaseCrossSpaceImpact(

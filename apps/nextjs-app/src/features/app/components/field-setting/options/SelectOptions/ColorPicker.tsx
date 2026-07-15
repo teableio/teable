@@ -25,7 +25,7 @@ export const ColorPicker = ({
     <div className={cn('flex w-fit flex-col px-1', className)}>
       {COLOR_PALETTE.map((group, index) => {
         return (
-          <div key={index}>
+          <div key={index} className="flex flex-nowrap">
             {group.map((c) => {
               const bg = getBackgroundColor(c);
 
@@ -33,7 +33,7 @@ export const ColorPicker = ({
                 <Button
                   key={c}
                   variant={'ghost'}
-                  className={cn('p-1 my-1 rounded-full h-auto', {
+                  className={cn('my-1 size-6 shrink-0 rounded-full p-1', {
                     'border-2 p-[2px]': color === c,
                   })}
                   style={{ borderColor: bg }}

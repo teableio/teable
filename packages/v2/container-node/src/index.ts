@@ -18,7 +18,6 @@ import { registerV2TableOpsPostgresAdapter } from '@teable/v2-adapter-table-quer
 import {
   createTypeValidationStrategy,
   registerV2TableRepositoryPostgresAdapter,
-  startComputedUpdatePollingIfEnabled,
   type IV2TableRepositoryPostgresConfig,
 } from '@teable/v2-adapter-table-repository-postgres';
 import { registerCommandExplainModule } from '@teable/v2-command-explain';
@@ -235,8 +234,6 @@ export const registerV2NodePgDependencies = async (
     });
     decorateV2TableRecordQueryRepositoryWithTableOps(c);
   }
-
-  startComputedUpdatePollingIfEnabled(c);
 
   return c;
 };
