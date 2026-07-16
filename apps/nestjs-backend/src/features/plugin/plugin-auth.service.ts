@@ -2,9 +2,13 @@
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { getRandomString, HttpErrorCode } from '@teable/core';
+import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import {
+  PluginPosition,
   PluginStatus,
+  pluginBaseScopesSchema,
+  type PluginBaseAction,
   type IPluginGetTokenRo,
   type IPluginGetTokenVo,
   type IPluginRefreshTokenRo,
@@ -18,11 +22,17 @@ import { second } from '../../utils/second';
 import { AccessTokenService } from '../access-token/access-token.service';
 import { validateSecret } from './utils';
 
-interface IRefreshPayload {
+interface IRefreshTokenInput {
   pluginId: string;
   secret: string;
   accessTokenId: string;
 }
+
+interface IRefreshPayload extends IRefreshTokenInput {
+  authorizationVersion: number;
+}
+
+const authorizationVersion = 1;
 
 @Injectable()
 export class PluginAuthService {
@@ -45,7 +55,7 @@ export class PluginAuthService {
     baseId,
   }: {
     userId: string;
-    scopes: string[];
+    scopes: PluginBaseAction[];
     clientId: string;
     name: string;
     baseId: string;
@@ -61,15 +71,108 @@ export class PluginAuthService {
     });
   }
 
-  private async generateRefreshToken({ pluginId, secret, accessTokenId }: IRefreshPayload) {
+  private async generateRefreshToken({ pluginId, secret, accessTokenId }: IRefreshTokenInput) {
     return this.jwtService.signAsync(
       {
         secret,
         accessTokenId,
         pluginId,
+        authorizationVersion,
       },
       { expiresIn: this.refreshTokenExpireIn }
     );
+  }
+
+  private pluginNotInstalledError() {
+    return new CustomHttpException('Plugin not installed', HttpErrorCode.VALIDATION_ERROR, {
+      localization: {
+        i18nKey: 'httpErrors.pluginInstall.notFound',
+      },
+    });
+  }
+
+  private async hasActivePluginInstall(
+    prisma: Prisma.TransactionClient,
+    pluginId: string,
+    baseId: string
+  ) {
+    const installs = await prisma.pluginInstall.findMany({
+      where: { pluginId, baseId },
+      select: { id: true, position: true, positionId: true },
+    });
+    const positionIds = (position: PluginPosition) => [
+      ...new Set(
+        installs
+          .filter((install) => install.position === position)
+          .map((install) => install.positionId)
+      ),
+    ];
+    const dashboardIds = positionIds(PluginPosition.Dashboard);
+    const viewIds = positionIds(PluginPosition.View);
+    const panelIds = positionIds(PluginPosition.Panel);
+    const contextInstalls = installs.filter(
+      (install) => install.position === PluginPosition.ContextMenu
+    );
+
+    const activeParents = await Promise.all([
+      dashboardIds.length
+        ? prisma.dashboard.findFirst({
+            where: { id: { in: dashboardIds }, baseId },
+            select: { id: true },
+          })
+        : null,
+      viewIds.length
+        ? prisma.view.findFirst({
+            where: {
+              id: { in: viewIds },
+              deletedTime: null,
+              table: { baseId, deletedTime: null },
+            },
+            select: { id: true },
+          })
+        : null,
+      panelIds.length
+        ? prisma.pluginPanel.findFirst({
+            where: { id: { in: panelIds }, table: { baseId, deletedTime: null } },
+            select: { id: true },
+          })
+        : null,
+      contextInstalls.length
+        ? prisma.pluginContextMenu.findFirst({
+            where: {
+              OR: contextInstalls.map(({ id, positionId }) => ({
+                pluginInstallId: id,
+                tableId: positionId,
+              })),
+              table: { baseId, deletedTime: null },
+            },
+            select: { id: true },
+          })
+        : null,
+    ]);
+    return activeParents.some(Boolean);
+  }
+
+  private async assertPluginInstalled(
+    prisma: Prisma.TransactionClient,
+    pluginId: string,
+    baseId: string
+  ) {
+    if (!(await this.hasActivePluginInstall(prisma, pluginId, baseId))) {
+      throw this.pluginNotInstalledError();
+    }
+  }
+
+  private parseRefreshTokenScopes(scopes: string | null): PluginBaseAction[] {
+    try {
+      return pluginBaseScopesSchema.parse(scopes ? JSON.parse(scopes) : []);
+    } catch {
+      throw new CustomHttpException('Invalid refresh token', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.plugin.invalidRefreshToken',
+        },
+      });
+    }
   }
 
   private async validateSecret(secret: string, pluginId: string) {
@@ -117,8 +220,20 @@ export class PluginAuthService {
   }
 
   async token(pluginId: string, ro: IPluginGetTokenRo): Promise<IPluginGetTokenVo> {
-    const { secret, scopes, baseId } = ro;
+    const { secret, scopes, baseId, authCode } = ro;
     const plugin = await this.validateSecret(secret, pluginId);
+    const authCodeKey = `plugin:auth-code:${authCode}` as const;
+    const authCodeState = await this.cacheService.get(authCodeKey);
+    if (!authCodeState) {
+      throw new CustomHttpException('Invalid auth code', HttpErrorCode.VALIDATION_ERROR);
+    }
+    await this.cacheService.del(authCodeKey);
+
+    if (authCodeState.pluginId !== pluginId || authCodeState.baseId !== baseId) {
+      throw new CustomHttpException('Invalid auth code', HttpErrorCode.VALIDATION_ERROR);
+    }
+
+    await this.assertPluginInstalled(this.prismaService.txClient(), pluginId, baseId);
 
     const accessToken = await this.generateAccessToken({
       userId: plugin.pluginUser,
@@ -157,7 +272,8 @@ export class PluginAuthService {
     if (
       payload.pluginId !== pluginId ||
       payload.secret !== secret ||
-      payload.accessTokenId === undefined
+      payload.accessTokenId === undefined ||
+      payload.authorizationVersion !== authorizationVersion
     ) {
       throw new CustomHttpException('Invalid refresh token', HttpErrorCode.VALIDATION_ERROR, {
         localization: {
@@ -178,12 +294,8 @@ export class PluginAuthService {
           });
         });
 
-      await prisma.accessToken.delete({
-        where: { id: payload.accessTokenId, userId: plugin.pluginUser },
-      });
-
       const baseId = oldAccessToken.baseIds ? JSON.parse(oldAccessToken.baseIds)[0] : '';
-      const scopes = oldAccessToken.scopes ? JSON.parse(oldAccessToken.scopes) : [];
+      const scopes = this.parseRefreshTokenScopes(oldAccessToken.scopes);
       if (!baseId) {
         throw new CustomHttpException(
           'Anomalous token with no baseId',
@@ -195,6 +307,12 @@ export class PluginAuthService {
           }
         );
       }
+
+      await this.assertPluginInstalled(prisma, pluginId, baseId);
+
+      await prisma.accessToken.delete({
+        where: { id: payload.accessTokenId, userId: plugin.pluginUser },
+      });
 
       const accessToken = await this.generateAccessToken({
         userId: plugin.pluginUser,
@@ -220,16 +338,7 @@ export class PluginAuthService {
   }
 
   async authCode(pluginId: string, baseId: string) {
-    const count = await this.prismaService.pluginInstall.count({
-      where: { pluginId, baseId },
-    });
-    if (count === 0) {
-      throw new CustomHttpException('Plugin not installed', HttpErrorCode.VALIDATION_ERROR, {
-        localization: {
-          i18nKey: 'httpErrors.pluginInstall.notFound',
-        },
-      });
-    }
+    await this.assertPluginInstalled(this.prismaService.txClient(), pluginId, baseId);
     const authCode = getRandomString(16);
     await this.cacheService.set(`plugin:auth-code:${authCode}`, { baseId, pluginId }, second('5m'));
     return authCode;

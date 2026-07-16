@@ -22,7 +22,7 @@ function FilterSingleSelect(props: ISingleSelect) {
   const { resolvedTheme } = useTheme();
 
   const options = useMemo<IColorOption[]>(() => {
-    return field?.options?.choices.map((choice) => ({
+    return (field?.options?.choices ?? []).map((choice) => ({
       value: choice.name,
       label: choice.name,
       color: choice.color,

@@ -5,6 +5,7 @@ export * from './update';
 export * from './get';
 export * from './get-list';
 export * from './types';
+export * from './scopes';
 export * from './get-center-list';
 export * from './submit';
 export * from './get-token';

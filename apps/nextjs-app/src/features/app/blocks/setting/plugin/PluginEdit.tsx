@@ -137,15 +137,17 @@ export const PluginEdit = (props: { secret?: string }) => {
         <div className="space-y-2">
           <Label>
             {t('plugin:secret')}
-            <Button
-              className="ml-2 h-auto p-1.5"
-              title={t('plugin:regenerateSecret')}
-              size={'xs'}
-              variant={'outline'}
-              onClick={() => regenerateSecret(pluginId)}
-            >
-              <RefreshCcw />
-            </Button>
+            {!initFormValue?.isSystem && (
+              <Button
+                className="ml-2 h-auto p-1.5"
+                title={t('plugin:regenerateSecret')}
+                size={'xs'}
+                variant={'outline'}
+                onClick={() => regenerateSecret(pluginId)}
+              >
+                <RefreshCcw />
+              </Button>
+            )}
           </Label>
           <div className="text-sm font-normal">{initFormValue?.secret}</div>
         </div>
