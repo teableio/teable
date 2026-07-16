@@ -60,7 +60,7 @@ describe('ComputedOutboxRedriveService', () => {
     expect(publish).toHaveBeenCalledTimes(2);
     expect(publish).toHaveBeenCalledWith(
       expect.objectContaining({
-        wakeupId: 'cuwr-cuo-1-1-0-1-0',
+        wakeupId: 'cuwr2-cuo-1-1-0-1-0',
         taskId: 'cuo-1',
         baseId: 'bse-1',
         availableAt,
@@ -82,6 +82,99 @@ describe('ComputedOutboxRedriveService', () => {
 
     expect(service.onApplicationBootstrap()).toBeUndefined();
     await vi.waitFor(() => expect(withComputedOutboxRedriveLease).toHaveBeenCalledTimes(1));
+  });
+
+  it('periodically reconciles parked tasks at a low frequency', async () => {
+    vi.useFakeTimers();
+    try {
+      const withComputedOutboxRedriveLease = vi.fn(async (run: () => Promise<void>) => {
+        await run();
+        return true;
+      });
+      const target = {
+        cacheKey: 'default',
+        url: 'postgres://hidden',
+        isMetaFallback: true,
+        storage: 'default',
+      } as const;
+      const iterateComputedOutboxWakeupCandidates = vi.fn(async function* () {
+        yield* [];
+      });
+      const service = new ComputedOutboxRedriveService(
+        config,
+        {
+          withComputedOutboxRedriveLease,
+          listComputedOutboxMaintenanceTargets: vi.fn().mockResolvedValue([target]),
+          iterateComputedOutboxWakeupCandidates,
+        } as never,
+        {
+          publish: vi.fn(),
+          runAsConsumer: vi.fn(),
+          onDeliveryRecovered: vi.fn(() => vi.fn()),
+        } as never
+      );
+
+      service.onApplicationBootstrap();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(withComputedOutboxRedriveLease).toHaveBeenCalledTimes(1);
+
+      await vi.advanceTimersByTimeAsync(299_998);
+      expect(withComputedOutboxRedriveLease).toHaveBeenCalledTimes(1);
+
+      await vi.advanceTimersByTimeAsync(1);
+      expect(withComputedOutboxRedriveLease).toHaveBeenCalledTimes(2);
+      expect(iterateComputedOutboxWakeupCandidates).toHaveBeenLastCalledWith(
+        target,
+        expect.any(Number),
+        500,
+        { actionableOnly: true }
+      );
+      service.onModuleDestroy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('upgrades an actionable target retry when a full recovery also fails', async () => {
+    vi.useFakeTimers();
+    try {
+      const target = {
+        cacheKey: 'default',
+        url: 'postgres://hidden',
+        isMetaFallback: true,
+        storage: 'default',
+      } as const;
+      let scanCalls = 0;
+      const iterateComputedOutboxWakeupCandidates = vi.fn(async function* () {
+        scanCalls += 1;
+        if (scanCalls <= 2) throw new Error('database unavailable');
+        yield* [];
+      });
+      const service = new ComputedOutboxRedriveService(
+        config,
+        {
+          withComputedOutboxRedriveLease: vi.fn(async (run: () => Promise<void>) => {
+            await run();
+            return true;
+          }),
+          listComputedOutboxMaintenanceTargets: vi.fn().mockResolvedValue([target]),
+          iterateComputedOutboxWakeupCandidates,
+        } as never,
+        { publish: vi.fn(), runAsConsumer: vi.fn() } as never
+      );
+
+      await service.runOnce({ actionableOnly: true });
+      await service.runOnce();
+      await vi.advanceTimersByTimeAsync(1000);
+
+      expect(iterateComputedOutboxWakeupCandidates).toHaveBeenLastCalledWith(
+        target,
+        expect.any(Number)
+      );
+      service.onModuleDestroy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('does not redrive when both BullMQ roles are disabled', async () => {

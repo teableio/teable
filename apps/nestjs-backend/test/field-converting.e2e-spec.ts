@@ -3817,6 +3817,91 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       });
     });
 
+    // T6208: updating lookupOptions (e.g. filter) must not wipe select choices
+    it('should preserve select lookup choices when only lookupOptions filter is updated T6208', async () => {
+      const selectField = await createField(table1.id, {
+        name: 'LanguageSource',
+        type: FieldType.SingleSelect,
+        options: {
+          choices: [
+            { name: 'Arabic', color: Colors.OrangeDark1 },
+            { name: 'English', color: Colors.BlueLight1 },
+          ],
+        },
+      });
+
+      const linkField = await createField(table2.id, {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table1.id,
+        },
+      });
+
+      const lookupField = await createField(table2.id, {
+        name: 'LanguageLookup',
+        type: FieldType.SingleSelect,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table1.id,
+          lookupFieldId: selectField.id,
+          linkFieldId: linkField.id,
+        },
+      });
+
+      expect((lookupField.options as ISelectFieldOptions).choices).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ name: 'Arabic' }),
+          expect.objectContaining({ name: 'English' }),
+        ])
+      );
+
+      // Client often re-saves with only lookupOptions / type, omitting options (or null).
+      const updated = await convertField(table2.id, lookupField.id, {
+        type: FieldType.SingleSelect,
+        isLookup: true,
+        options: null,
+        lookupOptions: {
+          foreignTableId: table1.id,
+          lookupFieldId: selectField.id,
+          linkFieldId: linkField.id,
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: selectField.id, operator: 'is', value: 'Arabic' }],
+          },
+        },
+      });
+
+      expect((updated.options as ISelectFieldOptions).choices).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ name: 'Arabic' }),
+          expect.objectContaining({ name: 'English' }),
+        ])
+      );
+      expect((updated.lookupOptions as ILookupOptionsRo).filter).toBeDefined();
+
+      // Clear filter again still without sending choices — must re-mirror from source.
+      const updatedAgain = await convertField(table2.id, lookupField.id, {
+        type: FieldType.SingleSelect,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table1.id,
+          lookupFieldId: selectField.id,
+          linkFieldId: linkField.id,
+        },
+      });
+
+      expect((updatedAgain.options as ISelectFieldOptions).choices).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ name: 'Arabic' }),
+          expect.objectContaining({ name: 'English' }),
+        ])
+      );
+
+      const persisted = await getField(table2.id, lookupField.id);
+      expect((persisted.options as ISelectFieldOptions).choices?.length).toBeGreaterThanOrEqual(2);
+    });
+
     it('should update lookup when the change lookupField', async () => {
       const textFieldRo: IFieldRo = {
         name: 'text',
