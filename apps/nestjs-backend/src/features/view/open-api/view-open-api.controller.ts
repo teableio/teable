@@ -83,10 +83,10 @@ export class ViewOpenApiController {
   @Permissions('view|read')
   @Get(':viewId')
   async getView(
-    @Param('tableId') _tableId: string,
+    @Param('tableId') tableId: string,
     @Param('viewId') viewId: string
   ): Promise<IViewVo> {
-    return await this.viewService.getViewById(viewId);
+    return await this.viewService.getViewById(tableId, viewId);
   }
 
   @Permissions('view|read')
@@ -375,11 +375,18 @@ export class ViewOpenApiController {
   @Permissions('view|update')
   @Patch(':viewId/plugin/:pluginInstallId')
   async pluginUpdateStorage(
+    @Param('tableId') tableId: string,
     @Param('viewId') viewId: string,
+    @Param('pluginInstallId') pluginInstallId: string,
     @Body(new ZodValidationPipe(viewPluginUpdateStorageRoSchema))
     ro: IViewPluginUpdateStorageRo
   ) {
-    return this.viewOpenApiService.updatePluginStorage(viewId, ro.storage);
+    return this.viewOpenApiService.updatePluginStorage(
+      tableId,
+      viewId,
+      pluginInstallId,
+      ro.storage
+    );
   }
 
   @Permissions('view|create')

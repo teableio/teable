@@ -484,13 +484,21 @@ export class PluginPanelService {
 
     return this.prismaService.$tx(async () => {
       const { name } = duplicatePluginPanelInstalledPluginRo;
-      const installedPlugins = await this.prismaService.txClient().pluginInstall.findFirstOrThrow({
+      const installedPlugins = await this.prismaService.txClient().pluginInstall.findFirst({
         where: {
           baseId,
           id: pluginInstallId,
+          positionId: pluginPanelId,
           position: PluginPosition.Panel,
         },
       });
+      if (!installedPlugins) {
+        throw new CustomHttpException('Plugin install not found', HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.plugin.notFound',
+          },
+        });
+      }
       const names = await this.prismaService.txClient().pluginInstall.findMany({
         where: {
           baseId,

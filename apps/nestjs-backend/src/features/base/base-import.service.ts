@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import type { Readable } from 'stream';
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -15,13 +16,13 @@ import {
   generateShareId,
   generateViewId,
   getUniqName,
+  pluginViewOptionSchema,
   ViewType,
 } from '@teable/core';
 import { PrismaService, ProvisionState } from '@teable/db-main-prisma';
 import type {
   ICreateBaseVo,
   IBaseJson,
-  ImportBaseRo,
   IFieldWithTableIdJson,
   IImportBaseVo,
 } from '@teable/openapi';
@@ -31,6 +32,7 @@ import {
   BaseNodeResourceType,
   BaseDuplicateMode,
   CreateRecordAction,
+  ImportBaseRo,
 } from '@teable/openapi';
 import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import {
@@ -58,9 +60,8 @@ import {
 import type { DependencyContainer } from '@teable/v2-di';
 
 import * as csvParser from 'csv-parser';
-import { Knex } from 'knex';
-import { Kysely, sql } from 'kysely';
-import { InjectModel } from 'nest-knexjs';
+import type { Kysely } from 'kysely';
+import { sql } from 'kysely';
 import { ClsService } from 'nestjs-cls';
 import streamJson from 'stream-json';
 import streamValues from 'stream-json/streamers/StreamValues';
@@ -114,6 +115,24 @@ type IDataPrismaScopedClient = IDataPrismaExecutor & {
 const tableDataImportBatchSize = 100;
 const linkFieldImportBatchSize = 25;
 const attachmentsDirPrefix = 'attachments/';
+
+const remapPluginViewOptions = (
+  options: unknown,
+  maps: Record<string, Record<string, string>>,
+  pluginId: string,
+  pluginInstallId: string
+): string => {
+  const remappedOptions = replaceStringByMap(options, maps, false) as
+    | { pluginLogo?: unknown }
+    | undefined;
+  return JSON.stringify(
+    pluginViewOptionSchema.parse({
+      pluginId,
+      pluginInstallId,
+      pluginLogo: typeof remappedOptions?.pluginLogo === 'string' ? remappedOptions.pluginLogo : '',
+    })
+  );
+};
 
 const stringifyErrorDetails = (details: unknown): string | undefined => {
   if (details === undefined || details === null) {
@@ -1008,105 +1027,160 @@ export class BaseImportService {
     fieldIdMap: Record<string, string>,
     viewIdMap: Record<string, string>
   ) {
-    const userId = this.cls.get('user.id');
-
     for (const pluginView of pluginViews) {
-      const {
-        id,
-        name,
-        description,
-        enableShare,
-        shareMeta,
-        isLocked,
-        tableId,
-        pluginInstall,
-        order,
-      } = pluginView;
-      if (viewIdMap[id]) {
-        continue;
-      }
-
-      const newViewId = generateViewId();
-      const pluginInstallId = generatePluginInstallId();
-      viewIdMap[id] = newViewId;
-      const configProperties = ['columnMeta', 'options', 'sort', 'group', 'filter'] as const;
-      const updateConfig = {} as Record<(typeof configProperties)[number], string | null>;
-      for (const property of configProperties) {
-        updateConfig[property] =
-          replaceStringByMap(pluginView[property], {
-            tableIdMap,
-            fieldIdMap,
-            viewIdMap,
-          }) ?? null;
-      }
-
-      await sql`
-        insert into "view" (
-          "id",
-          "name",
-          "description",
-          "table_id",
-          "type",
-          "sort",
-          "filter",
-          "group",
-          "options",
-          "order",
-          "version",
-          "column_meta",
-          "is_locked",
-          "enable_share",
-          "share_meta",
-          "created_by"
-        )
-        values (
-          ${newViewId},
-          ${name},
-          ${description ?? null},
-          ${tableIdMap[tableId]},
-          ${ViewType.Plugin},
-          ${updateConfig.sort},
-          ${updateConfig.filter},
-          ${updateConfig.group},
-          ${updateConfig.options},
-          ${order},
-          ${1},
-          ${updateConfig.columnMeta ?? JSON.stringify({})},
-          ${isLocked ?? null},
-          ${enableShare ?? null},
-          ${shareMeta ? JSON.stringify(shareMeta) : null},
-          ${userId}
-        )
-      `.execute(db);
-
-      const newStorage = replaceStringByMap(pluginInstall.storage, {
-        tableIdMap,
-        fieldIdMap,
-        viewIdMap,
-      });
-      await sql`
-        insert into "plugin_install" (
-          "id",
-          "created_by",
-          "base_id",
-          "plugin_id",
-          "name",
-          "position_id",
-          "position",
-          "storage"
-        )
-        values (
-          ${pluginInstallId},
-          ${userId},
-          ${baseId},
-          ${pluginInstall.pluginId},
-          ${pluginInstall.name},
-          ${newViewId},
-          ${pluginInstall.position},
-          ${newStorage}
-        )
-      `.execute(db);
+      await this.createPluginViewV2(db, baseId, pluginView, tableIdMap, fieldIdMap, viewIdMap);
     }
+  }
+
+  private mapPluginViewConfig(
+    pluginView: IBaseJson['plugins'][PluginPosition.View][number],
+    tableIdMap: Record<string, string>,
+    fieldIdMap: Record<string, string>,
+    viewIdMap: Record<string, string>,
+    pluginInstallId: string
+  ) {
+    const configMaps = { tableIdMap, fieldIdMap, viewIdMap };
+    return {
+      sort: replaceStringByMap(pluginView.sort, configMaps) ?? null,
+      filter: replaceStringByMap(pluginView.filter, configMaps) ?? null,
+      group: replaceStringByMap(pluginView.group, configMaps) ?? null,
+      columnMeta: replaceStringByMap(pluginView.columnMeta, configMaps) ?? JSON.stringify({}),
+      options: remapPluginViewOptions(
+        pluginView.options,
+        configMaps,
+        pluginView.pluginInstall.pluginId,
+        pluginInstallId
+      ),
+      storage: replaceStringByMap(pluginView.pluginInstall.storage, configMaps),
+    };
+  }
+
+  private async savePluginViewV2(
+    db: Kysely<unknown>,
+    pluginView: IBaseJson['plugins'][PluginPosition.View][number],
+    newViewId: string,
+    newTableId: string,
+    userId: string,
+    config: ReturnType<BaseImportService['mapPluginViewConfig']>,
+    exists: boolean
+  ) {
+    const { name, description, enableShare, shareMeta, isLocked, order } = pluginView;
+    if (exists) {
+      await sql`
+        update "view"
+        set "name" = ${name},
+            "description" = ${description ?? null},
+            "table_id" = ${newTableId},
+            "type" = ${ViewType.Plugin},
+            "sort" = ${config.sort},
+            "filter" = ${config.filter},
+            "group" = ${config.group},
+            "options" = ${config.options},
+            "order" = ${order},
+            "column_meta" = ${config.columnMeta},
+            "is_locked" = ${isLocked ?? null},
+            "enable_share" = ${enableShare ?? null},
+            "share_meta" = ${shareMeta ? JSON.stringify(shareMeta) : null},
+            "last_modified_by" = ${userId},
+            "last_modified_time" = now()
+        where "id" = ${newViewId}
+      `.execute(db);
+      return;
+    }
+
+    await sql`
+      insert into "view" (
+        "id",
+        "name",
+        "description",
+        "table_id",
+        "type",
+        "sort",
+        "filter",
+        "group",
+        "options",
+        "order",
+        "version",
+        "column_meta",
+        "is_locked",
+        "enable_share",
+        "share_meta",
+        "created_by"
+      )
+      values (
+        ${newViewId},
+        ${name},
+        ${description ?? null},
+        ${newTableId},
+        ${ViewType.Plugin},
+        ${config.sort},
+        ${config.filter},
+        ${config.group},
+        ${config.options},
+        ${order},
+        ${1},
+        ${config.columnMeta},
+        ${isLocked ?? null},
+        ${enableShare ?? null},
+        ${shareMeta ? JSON.stringify(shareMeta) : null},
+        ${userId}
+      )
+    `.execute(db);
+  }
+
+  private async createPluginViewV2(
+    db: Kysely<unknown>,
+    baseId: string,
+    pluginView: IBaseJson['plugins'][PluginPosition.View][number],
+    tableIdMap: Record<string, string>,
+    fieldIdMap: Record<string, string>,
+    viewIdMap: Record<string, string>
+  ) {
+    const userId = this.cls.get('user.id');
+    const existingViewId = viewIdMap[pluginView.id];
+    const newViewId = existingViewId ?? generateViewId();
+    const pluginInstallId = generatePluginInstallId();
+    viewIdMap[pluginView.id] = newViewId;
+    const config = this.mapPluginViewConfig(
+      pluginView,
+      tableIdMap,
+      fieldIdMap,
+      viewIdMap,
+      pluginInstallId
+    );
+
+    await this.savePluginViewV2(
+      db,
+      pluginView,
+      newViewId,
+      tableIdMap[pluginView.tableId],
+      userId,
+      config,
+      Boolean(existingViewId)
+    );
+
+    await sql`
+      insert into "plugin_install" (
+        "id",
+        "created_by",
+        "base_id",
+        "plugin_id",
+        "name",
+        "position_id",
+        "position",
+        "storage"
+      )
+      values (
+        ${pluginInstallId},
+        ${userId},
+        ${baseId},
+        ${pluginView.pluginInstall.pluginId},
+        ${pluginView.pluginInstall.name},
+        ${newViewId},
+        ${PluginPosition.View},
+        ${config.storage}
+      )
+    `.execute(db);
   }
 
   /**
@@ -1630,6 +1704,7 @@ export class BaseImportService {
           return;
         }
 
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         for await (const _record of this.createTableLinkFieldUpdateStream(entry, config)) {
           totalRows += 1;
         }
@@ -1699,6 +1774,7 @@ export class BaseImportService {
     }
   }
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   private toRestoreRecordInput(
     row: Record<string, unknown>,
     config: Awaited<ReturnType<BaseImportService['buildTableDataImportConfig']>>,
@@ -1901,6 +1977,7 @@ export class BaseImportService {
     );
   }
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   private normalizeDotTeaCsvValue(
     value: unknown,
     field?: { dbFieldType?: string; isMultipleCellValue?: boolean; notNull?: boolean }
@@ -2176,19 +2253,14 @@ export class BaseImportService {
       ? tables.map(({ dbTableName: _, ...rest }) => rest)
       : tables;
 
-    let tableIdMap: Record<string, string>;
-    let fieldIdMap: Record<string, string>;
-    let viewIdMap: Record<string, string>;
-    let fkMap: Record<string, string>;
-
     // create table
-    ({ tableIdMap, fieldIdMap, viewIdMap, fkMap } = await this.createTables(
+    const { tableIdMap, fieldIdMap, viewIdMap, fkMap } = await this.createTables(
       newBase.id,
       effectiveTables as IBaseJson['tables'],
       onProgress,
       routingOptions,
       { skipComputedEvaluation: true }
-    ));
+    );
 
     this.logger.log(`base-duplicate-service: Duplicate base tables successfully`);
 
@@ -2619,22 +2691,7 @@ export class BaseImportService {
     );
     // Sort nodes by parent-child relationship (topological sort)
     // Ensure parent nodes are created before child nodes
-    const sortedNodes: typeof nodes = [];
-    const nodeMap = new Map(nodes.map((node) => [node.id, node]));
-    const visited = new Set<string>();
-
-    const visit = (node: (typeof nodes)[0]) => {
-      if (visited.has(node.id)) return;
-      if (node.parentId && nodeMap.has(node.parentId)) {
-        visit(nodeMap.get(node.parentId)!);
-      }
-      visited.add(node.id);
-      sortedNodes.push(node);
-    };
-
-    for (const node of nodes) {
-      visit(node);
-    }
+    const sortedNodes = this.sortBaseNodesByParent(nodes);
 
     // Deduplicate nodes by (resourceType, newResourceId) to avoid unique constraint violations
     const createdResourceKeys = new Set<string>();
@@ -2909,7 +2966,7 @@ export class BaseImportService {
       });
 
       // 1. update view options
-      const configProperties = ['columnMeta', 'options', 'sort', 'group', 'filter'] as const;
+      const configProperties = ['columnMeta', 'sort', 'group', 'filter'] as const;
       const updateConfig = {} as Record<(typeof configProperties)[number], string>;
       for (const property of configProperties) {
         const result = replaceStringByMap(pluginView[property], {
@@ -2922,6 +2979,12 @@ export class BaseImportService {
           updateConfig[property] = result;
         }
       }
+      const options = remapPluginViewOptions(
+        pluginView.options,
+        { tableIdMap, fieldIdMap, viewIdMap },
+        pluginInstall.pluginId,
+        pluginInstallId
+      );
       await prisma.view.update({
         where: { id: newViewId },
         data: {
@@ -2930,6 +2993,7 @@ export class BaseImportService {
           enableShare,
           shareMeta: shareMeta ? JSON.stringify(shareMeta) : undefined,
           ...updateConfig,
+          options,
         },
       });
 

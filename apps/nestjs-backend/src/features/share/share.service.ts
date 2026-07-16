@@ -117,7 +117,7 @@ export class ShareService {
       extra = recordsData.extra;
     }
 
-    if (view?.type === ViewType.Plugin) {
+    if (view?.type === ViewType.Plugin && viewId) {
       const pluginInstall = await this.prismaService.pluginInstall.findFirst({
         where: { positionId: viewId, position: PluginPosition.View },
         select: {
@@ -126,9 +126,7 @@ export class ShareService {
           name: true,
           storage: true,
           plugin: {
-            select: {
-              url: true,
-            },
+            select: { url: true },
           },
         },
       });

@@ -38,6 +38,27 @@ const getEventTableId = (event: unknown): string | undefined => {
   return tableId.toString();
 };
 
+const getEventResourceIds = (
+  event: unknown,
+  key: 'fieldIds' | 'viewIds'
+): ReadonlyArray<string> => {
+  if (!isObjectRecord(event)) {
+    return [];
+  }
+
+  const ids = event[key];
+  if (!Array.isArray(ids)) {
+    return [];
+  }
+
+  return ids.flatMap((id) => {
+    if (!isObjectRecord(id) || typeof id.toString !== 'function') {
+      return [];
+    }
+    return [id.toString()];
+  });
+};
+
 let nameCounter = 0;
 const nextName = (prefix: string) => `${prefix}-${nameCounter++}`;
 
@@ -1291,6 +1312,100 @@ describe('v2 http deleteTable (e2e)', () => {
       const records = await ctx.listRecords(table.id, { limit: 10 });
       expect(records).toHaveLength(1);
       expect(records[0]?.fields[primaryFieldId]).toBe('Alpha');
+    } finally {
+      await safeDeleteTable(tableId);
+    }
+  });
+
+  it('does not restore fields and views deleted before the table was soft-deleted', async () => {
+    let tableId: string | undefined;
+
+    try {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: nextName('Restore Table With Historical Trash'),
+        fields: [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'singleLineText', name: 'Archived Field' },
+        ],
+        views: [
+          { type: 'grid', name: 'Active View' },
+          { type: 'grid', name: 'Archived View' },
+        ],
+        records: [{ fields: { Name: 'Alpha', 'Archived Field': 'legacy' } }],
+      });
+      tableId = table.id;
+
+      const primaryFieldId = table.fields.find((field) => field.isPrimary)?.id;
+      const archivedFieldId = table.fields.find((field) => field.name === 'Archived Field')?.id;
+      const activeViewId = table.views.find((view) => view.name === 'Active View')?.id;
+      const archivedViewId = table.views.find((view) => view.name === 'Archived View')?.id;
+      if (!primaryFieldId || !archivedFieldId || !activeViewId || !archivedViewId) {
+        throw new Error('Missing historical trash restore fixture ids');
+      }
+
+      await ctx.deleteField({ tableId: table.id, fieldId: archivedFieldId });
+      const historicalDeletedTime = new Date('2000-01-01T00:00:00.000Z');
+      await ctx.testContainer.db
+        .updateTable('field')
+        .set({
+          deleted_time: historicalDeletedTime,
+          last_modified_time: historicalDeletedTime,
+        })
+        .where('id', '=', archivedFieldId)
+        .where('deleted_time', 'is not', null)
+        .executeTakeFirstOrThrow();
+      await ctx.testContainer.db
+        .updateTable('view')
+        .set({
+          deleted_time: historicalDeletedTime,
+          last_modified_time: historicalDeletedTime,
+        })
+        .where('id', '=', archivedViewId)
+        .where('deleted_time', 'is', null)
+        .executeTakeFirstOrThrow();
+
+      const beforeTableDelete = await ctx.getTableById(table.id);
+      expect(beforeTableDelete.fields.some((field) => field.id === archivedFieldId)).toBe(false);
+      expect(beforeTableDelete.views.some((view) => view.id === archivedViewId)).toBe(false);
+      expect(beforeTableDelete.views.some((view) => view.id === activeViewId)).toBe(true);
+
+      await ctx.deleteTable(table.id, { mode: 'soft' });
+      const beforeRestoreEventCount = ctx.testContainer.eventBus.events().length;
+      const restoreResult = await ctx.restoreTable(table.id);
+      const restoreEvent = ctx.testContainer.eventBus
+        .events()
+        .slice(beforeRestoreEventCount)
+        .find((event) => getDomainEventName(event) === 'TableRestored');
+
+      expect(restoreResult.fields.some((field) => field.id === archivedFieldId)).toBe(false);
+      expect(restoreResult.views.some((view) => view.id === archivedViewId)).toBe(false);
+      expect(restoreResult.views.some((view) => view.id === activeViewId)).toBe(true);
+      expect(restoreEvent).toBeDefined();
+      expect(getEventResourceIds(restoreEvent, 'fieldIds')).toContain(primaryFieldId);
+      expect(getEventResourceIds(restoreEvent, 'fieldIds')).not.toContain(archivedFieldId);
+      expect(getEventResourceIds(restoreEvent, 'viewIds')).toContain(activeViewId);
+      expect(getEventResourceIds(restoreEvent, 'viewIds')).not.toContain(archivedViewId);
+
+      const restored = await ctx.getTableById(table.id);
+      expect(restored.fields.some((field) => field.id === archivedFieldId)).toBe(false);
+      expect(restored.views.some((view) => view.id === archivedViewId)).toBe(false);
+      expect(restored.views.some((view) => view.id === activeViewId)).toBe(true);
+
+      const fieldDeleteStates = await listFieldMetaDeleteStates(ctx, table.id);
+      const viewDeleteStates = await listViewMetaDeleteStates(ctx, table.id);
+      expect(fieldDeleteStates.find((field) => field.id === archivedFieldId)?.deletedTime).toEqual(
+        expect.any(Date)
+      );
+      expect(viewDeleteStates.find((view) => view.id === archivedViewId)?.deletedTime).toEqual(
+        expect.any(Date)
+      );
+      expect(viewDeleteStates.find((view) => view.id === activeViewId)?.deletedTime).toBeNull();
+
+      const records = await ctx.listRecords(table.id, { limit: 10 });
+      expect(records).toHaveLength(1);
+      expect(records[0]?.fields[primaryFieldId]).toBe('Alpha');
+      expect(records[0]?.fields).not.toHaveProperty(archivedFieldId);
     } finally {
       await safeDeleteTable(tableId);
     }

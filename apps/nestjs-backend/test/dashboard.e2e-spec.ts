@@ -284,19 +284,22 @@ describe('DashboardController', () => {
         name: 'dddd',
         pluginId: res.data.id,
       });
-      await prisma.plugin.update({
-        where: { id: res.data.id },
-        data: { createdBy: 'test-user' },
-      });
-      const error = await getError(() =>
-        installPlugin(baseId, dashboardId, {
-          name: 'dddd',
-          pluginId: res.data.id,
-        })
-      );
-      await deletePlugin(res.data.id);
-      expect(error?.status).toBe(404);
-      expect(installRes.data.name).toBe('dddd');
+      try {
+        await prisma.plugin.update({
+          where: { id: res.data.id },
+          data: { createdBy: 'test-user' },
+        });
+        const error = await getError(() =>
+          installPlugin(baseId, dashboardId, {
+            name: 'dddd',
+            pluginId: res.data.id,
+          })
+        );
+        expect(error?.status).toBe(404);
+        expect(installRes.data.name).toBe('dddd');
+      } finally {
+        await prisma.plugin.delete({ where: { id: res.data.id } });
+      }
     });
 
     it('/api/dashboard/:id/plugin/:pluginInstallId/rename (PATCH)', async () => {
@@ -313,6 +316,51 @@ describe('DashboardController', () => {
       );
       expect(renameDashboardVoSchema.safeParse(renameRes.data).success).toBe(true);
       expect(renameRes.data.name).toBe(newName);
+    });
+
+    it('rejects a plugin installation that belongs to another dashboard', async () => {
+      const anotherDashboard = (await createDashboard(baseId, { name: 'another-dashboard' })).data;
+
+      try {
+        const installedPlugin = (
+          await installPlugin(baseId, anotherDashboard.id, {
+            name: 'another-dashboard-plugin',
+            pluginId,
+          })
+        ).data;
+
+        const getErrorResult = await getError(() =>
+          getDashboardInstallPlugin(baseId, dashboardId, installedPlugin.pluginInstallId)
+        );
+        const renameErrorResult = await getError(() =>
+          renamePlugin(baseId, dashboardId, installedPlugin.pluginInstallId, 'unauthorized-name')
+        );
+        const storageErrorResult = await getError(() =>
+          updateDashboardPluginStorage(baseId, dashboardId, installedPlugin.pluginInstallId, {
+            unauthorized: true,
+          })
+        );
+        const duplicateErrorResult = await getError(() =>
+          duplicateDashboardInstalledPlugin(baseId, dashboardId, installedPlugin.pluginInstallId, {
+            name: 'unauthorized-copy',
+          })
+        );
+
+        expect(getErrorResult?.status).toBe(404);
+        expect(renameErrorResult?.status).toBe(404);
+        expect(storageErrorResult?.status).toBe(404);
+        expect(duplicateErrorResult?.status).toBe(404);
+
+        const pluginAfter = await getDashboardInstallPlugin(
+          baseId,
+          anotherDashboard.id,
+          installedPlugin.pluginInstallId
+        );
+        expect(pluginAfter.data.name).toBe('another-dashboard-plugin');
+        expect(pluginAfter.data.storage).toBeUndefined();
+      } finally {
+        await deleteDashboard(baseId, anotherDashboard.id);
+      }
     });
 
     it('/api/dashboard/:id/plugin/:pluginInstallId (DELETE)', async () => {

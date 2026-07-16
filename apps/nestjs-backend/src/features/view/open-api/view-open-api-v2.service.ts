@@ -74,14 +74,14 @@ export class ViewOpenApiV2Service {
   }
 
   async duplicateView(tableId: string, viewId: string): Promise<IViewVo> {
-    const view = await this.viewService.getViewById(viewId);
+    const view = await this.viewService.getViewById(tableId, viewId);
 
     if (view.type === ViewType.Plugin) {
       return this.viewOpenApiService.duplicateView(tableId, viewId);
     }
 
-    const { options: optionsRaw } = await this.prismaService.txClient().view.findUniqueOrThrow({
-      where: { id: viewId, deletedTime: null },
+    const { options: optionsRaw } = await this.prismaService.txClient().view.findFirstOrThrow({
+      where: { id: viewId, tableId, deletedTime: null },
       select: { options: true },
     });
     const options = optionsRaw ? JSON.parse(optionsRaw) : undefined;
