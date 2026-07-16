@@ -33,6 +33,7 @@ export const storageConfig = registerAs('storage', () => ({
     accessKey: process.env.BACKEND_STORAGE_S3_ACCESS_KEY!,
     secretKey: process.env.BACKEND_STORAGE_S3_SECRET_KEY!,
     maxSockets: Number(process.env.BACKEND_STORAGE_S3_MAX_SOCKETS ?? 100),
+    forcePathStyle: process.env.BACKEND_STORAGE_S3_FORCE_PATH_STYLE === 'true',
   },
   uploadMethod: process.env.BACKEND_STORAGE_UPLOAD_METHOD ?? 'put',
   encryption: {
