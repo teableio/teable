@@ -334,6 +334,7 @@ export class DashboardService {
             id: pluginInstallId,
             baseId,
             positionId: dashboardId,
+            position: PluginPosition.Dashboard,
             plugin: {
               OR: [
                 {
@@ -379,12 +380,19 @@ export class DashboardService {
     });
   }
 
-  private async validateAndGetPluginInstall(pluginInstallId: string) {
+  private async validateAndGetPluginInstall(
+    baseId: string,
+    dashboardId: string,
+    pluginInstallId: string
+  ) {
     return this.prismaService
       .txClient()
       .pluginInstall.findFirstOrThrow({
         where: {
           id: pluginInstallId,
+          baseId,
+          positionId: dashboardId,
+          position: PluginPosition.Dashboard,
           plugin: {
             OR: [
               {
@@ -410,11 +418,9 @@ export class DashboardService {
   async renamePlugin(baseId: string, dashboardId: string, pluginInstallId: string, name: string) {
     return this.prismaService.$tx(async () => {
       await this.validateDashboard(baseId, dashboardId);
-      const plugin = await this.validateAndGetPluginInstall(pluginInstallId);
+      const plugin = await this.validateAndGetPluginInstall(baseId, dashboardId, pluginInstallId);
       await this.prismaService.txClient().pluginInstall.update({
-        where: {
-          id: pluginInstallId,
-        },
+        where: { id: pluginInstallId },
         data: {
           name,
         },
@@ -435,11 +441,9 @@ export class DashboardService {
   ) {
     return this.prismaService.$tx(async () => {
       await this.validateDashboard(baseId, dashboardId);
-      await this.validateAndGetPluginInstall(pluginInstallId);
+      await this.validateAndGetPluginInstall(baseId, dashboardId, pluginInstallId);
       const res = await this.prismaService.txClient().pluginInstall.update({
-        where: {
-          id: pluginInstallId,
-        },
+        where: { id: pluginInstallId },
         data: {
           storage: storage ? JSON.stringify(storage) : null,
         },
@@ -459,7 +463,7 @@ export class DashboardService {
     pluginInstallId: string
   ): Promise<IGetDashboardInstallPluginVo> {
     await this.validateDashboard(baseId, dashboardId);
-    const plugin = await this.validateAndGetPluginInstall(pluginInstallId);
+    const plugin = await this.validateAndGetPluginInstall(baseId, dashboardId, pluginInstallId);
     return {
       name: plugin.name,
       baseId: plugin.baseId,
@@ -552,13 +556,12 @@ export class DashboardService {
   ) {
     return this.prismaService.$tx(async () => {
       const { name } = duplicateDashboardInstalledPluginRo;
-      const installedPlugins = await this.prismaService.txClient().pluginInstall.findFirstOrThrow({
-        where: {
-          baseId,
-          id: pluginInstallId,
-          position: PluginPosition.Dashboard,
-        },
-      });
+      await this.validateDashboard(baseId, dashboardId);
+      const installedPlugins = await this.validateAndGetPluginInstall(
+        baseId,
+        dashboardId,
+        pluginInstallId
+      );
       const names = await this.prismaService.txClient().pluginInstall.findMany({
         where: {
           baseId,

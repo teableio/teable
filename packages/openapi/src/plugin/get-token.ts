@@ -2,13 +2,14 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
+import { pluginBaseScopesSchema } from './scopes';
 
 export const PLUGIN_GET_TOKEN = '/plugin/{pluginId}/token';
 
 export const pluginGetTokenRoSchema = z.object({
   baseId: z.string(),
   secret: z.string(),
-  scopes: z.array(z.string()),
+  scopes: pluginBaseScopesSchema,
   authCode: z.string(),
 });
 
@@ -17,7 +18,7 @@ export type IPluginGetTokenRo = z.infer<typeof pluginGetTokenRoSchema>;
 export const pluginGetTokenVoSchema = z.object({
   accessToken: z.string(),
   refreshToken: z.string(),
-  scopes: z.array(z.string()),
+  scopes: pluginBaseScopesSchema,
   expiresIn: z.number(),
   refreshExpiresIn: z.number(),
 });

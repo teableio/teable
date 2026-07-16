@@ -21,6 +21,7 @@ import {
   updatePluginPanelLayout,
   updatePluginPanelStorage,
 } from '@teable/openapi';
+import { getError } from './utils/get-error';
 import { createTable, initApp, permanentDeleteTable } from './utils/init-app';
 
 describe('plugin panel', () => {
@@ -153,6 +154,33 @@ describe('plugin panel', () => {
           ],
         },
       });
+    });
+
+    it('/api/table/:tableId/plugin-panel/:pluginPanelId/plugin/:pluginInstallId/duplicate (POST)', async () => {
+      const otherPluginPanel = await createPluginPanel(tableId, { name: 'other plugin panel' });
+      try {
+        const installedPlugin = (
+          await installPluginPanel(tableId, otherPluginPanel.data.id, {
+            name: 'plugin',
+            pluginId,
+          })
+        ).data;
+
+        const error = await getError(() =>
+          duplicatePluginPanelInstalledPlugin(
+            tableId,
+            pluginPanelId,
+            installedPlugin.pluginInstallId,
+            {
+              name: 'plugin copy',
+            }
+          )
+        );
+
+        expect(error?.status).toBe(404);
+      } finally {
+        await deletePluginPanel(tableId, otherPluginPanel.data.id);
+      }
     });
 
     it('/api/table/:tableId/plugin-panel/:pluginPanelId/plugin/:pluginInstallId/duplicate (POST)', async () => {

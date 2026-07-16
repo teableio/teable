@@ -1,6 +1,11 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, ILinkFieldOptions, ILookupOptionsRo } from '@teable/core';
+import type {
+  IFieldRo,
+  ILinkFieldOptions,
+  ILookupOptionsRo,
+  IPluginViewOptions,
+} from '@teable/core';
 import {
   DriverClient,
   FieldAIActionType,
@@ -36,6 +41,7 @@ import {
   getPluginPanelPlugin,
   getTableList,
   getUserLastVisitListBase,
+  getViewInstallPlugin,
   getViewList,
   installPlugin,
   installPluginPanel,
@@ -1338,7 +1344,20 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
       const duplicatedPluginViews = (await getViewList(duplicatedTable.id)).data.filter(
         ({ type }) => type === ViewType.Plugin
       );
-      expect(duplicatedPluginViews.find(({ name }) => name === sheetView.name)).toBeDefined();
+      const duplicatedSheetView = duplicatedPluginViews.find(
+        ({ name }) => name === sheetView.name
+      )!;
+      const duplicatedViewPlugin = (
+        await getViewInstallPlugin(duplicatedTable.id, duplicatedSheetView.id)
+      ).data;
+      expect(duplicatedViewPlugin).toMatchObject({
+        baseId: duplicateBaseId,
+        pluginId: 'plgsheetform',
+      });
+      expect(duplicatedViewPlugin.pluginInstallId).toBe(
+        (duplicatedSheetView.options as IPluginViewOptions).pluginInstallId
+      );
+      expect(duplicatedViewPlugin.pluginInstallId).not.toBe(sheetView.pluginInstallId);
     });
 
     it('duplicates base to another space through v2', async () => {
@@ -1629,14 +1648,26 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
         name: 'test base copy',
       });
       duplicateBaseId = dupResult.data.id;
-      const views = (await getViewList(tableId)).data;
-
-      const pluginViews = views.filter(({ type }) => type === ViewType.Plugin);
+      const duplicatedTable = (await getTableList(duplicateBaseId)).data.find(
+        ({ name }) => name === pluginTable.name
+      )!;
+      const pluginViews = (await getViewList(duplicatedTable.id)).data.filter(
+        ({ type }) => type === ViewType.Plugin
+      );
 
       expect(pluginViews.length).toBe(2);
 
-      expect(pluginViews.find(({ name }) => name === sheetView1.name)).toBeDefined();
-      expect(pluginViews.find(({ name }) => name === sheetView2.name)).toBeDefined();
+      for (const sourceView of [sheetView1, sheetView2]) {
+        const duplicatedView = pluginViews.find(({ name }) => name === sourceView.name)!;
+        const duplicatedInstall = (
+          await getViewInstallPlugin(duplicatedTable.id, duplicatedView.id)
+        ).data;
+        expect(duplicatedInstall.pluginInstallId).toBe(
+          (duplicatedView.options as IPluginViewOptions).pluginInstallId
+        );
+        expect(duplicatedInstall.pluginInstallId).not.toBe(sourceView.pluginInstallId);
+        expect(duplicatedInstall.baseId).toBe(duplicateBaseId);
+      }
     });
   });
 

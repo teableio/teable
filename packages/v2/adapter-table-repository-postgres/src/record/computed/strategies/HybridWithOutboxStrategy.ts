@@ -524,7 +524,9 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
           continue;
         }
 
-        if (result.value < limit) {
+        // Any progress may have enqueued the next cascade stage; keep draining until
+        // an empty poll proves the queue is idle (T6191 / dual-link propagation).
+        if (result.value <= 0) {
           shouldContinue = false;
         }
       }

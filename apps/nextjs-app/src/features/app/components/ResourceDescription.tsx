@@ -11,7 +11,6 @@ import {
 import { useTranslation } from 'next-i18next';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useResourceDescriptionAutoOpen } from './useResourceDescriptionAutoOpen';
 
 type DescriptionSaveStatus = 'idle' | 'saving' | 'error';
 
@@ -20,14 +19,12 @@ interface IResourceDescriptionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave?: (description: string | null) => Promise<void>;
-  onDescriptionSaved?: (description: string | null) => void;
   readOnly?: boolean;
   errorLogName?: string;
 }
 
 interface IResourceDescriptionProps {
   canUpdate: boolean;
-  resourceId?: string;
   description?: string | null;
   onSave?: (description: string | null) => Promise<void>;
   fallback?: ReactNode;
@@ -76,7 +73,6 @@ const ResourceDescriptionDialog = ({
   open,
   onOpenChange,
   onSave,
-  onDescriptionSaved,
   readOnly,
   errorLogName = 'resource',
 }: IResourceDescriptionDialogProps) => {
@@ -107,12 +103,11 @@ const ResourceDescriptionDialog = ({
         await onSave(description);
         savedValueRef.current = description;
         setSaveStatus('idle');
-        onDescriptionSaved?.(description);
       } finally {
         isSavingRef.current = false;
       }
     },
-    [onDescriptionSaved, onSave, readOnly]
+    [onSave, readOnly]
   );
 
   const saveCurrentValue = useCallback(async () => {
@@ -214,13 +209,13 @@ const ResourceDescriptionDialog = ({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
-        className="flex h-[70vh] max-h-[720px] min-h-[420px] max-w-3xl flex-col overflow-visible"
+        className="flex max-h-[min(80vh,720px)] min-h-[240px] w-[calc(100vw-32px)] max-w-screen-sm flex-col overflow-visible rounded-lg"
         onMouseDown={blurEditorOnDialogBlankClick}
         onInteractOutside={preventIgnoredOutsideEvent}
         onPointerDownOutside={preventIgnoredOutsideEvent}
       >
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex min-w-0 flex-wrap items-center gap-2 pr-6">
             {t('resourceDescription.nodeDescription')}
             <span className="flex h-6 items-center rounded-md border bg-muted px-1.5 text-center text-xs font-medium leading-4 text-muted-foreground">
               Markdown
@@ -228,7 +223,7 @@ const ResourceDescriptionDialog = ({
             {saveStatus !== 'idle' && (
               <span
                 className={cn(
-                  'flex items-center gap-1.5 text-xs font-normal text-muted-foreground',
+                  'flex min-w-0 flex-wrap items-center gap-1.5 text-xs font-normal text-muted-foreground',
                   saveStatus === 'error' && 'text-destructive'
                 )}
               >
@@ -251,11 +246,11 @@ const ResourceDescriptionDialog = ({
             )}
           </DialogTitle>
         </DialogHeader>
-        <div className="min-h-0 flex-1 overflow-visible [&>div]:h-full">
+        <div className="min-h-0 overflow-visible">
           <MarkdownLongTextEditor
             key={editorKey}
             value={value}
-            className="h-full !max-h-none overflow-auto rounded-none border-0 bg-background p-0 text-sm focus-within:border-transparent hover:border-transparent dark:bg-background [&_.ProseMirror.editor]:p-0 [&_.milkdown-readonly-preview]:p-0"
+            className="max-h-[min(calc(80vh-7.5rem),600px)] min-h-32 overflow-auto rounded-none border-0 bg-background p-0 text-sm focus-within:border-transparent hover:border-transparent dark:bg-background [&_.ProseMirror.editor]:p-0 [&_.milkdown-readonly-preview]:p-0"
             hideExpand
             hideMarkdownBadge
             readonly={readOnly}
@@ -273,7 +268,6 @@ const ResourceDescriptionDialog = ({
 
 export const ResourceDescription = ({
   canUpdate,
-  resourceId,
   description,
   onSave,
   fallback,
@@ -284,37 +278,12 @@ export const ResourceDescription = ({
 }: IResourceDescriptionProps) => {
   const { t } = useTranslation('common');
   const [descriptionDialogOpen, setDescriptionDialogOpen] = useState(false);
-  const previousResourceIdRef = useRef(resourceId);
-  const lastAutoOpenKeyRef = useRef<string>();
   const normalizedDescription = normalizeResourceDescription(description);
-  const { autoOpenKey, markDescriptionSeen } = useResourceDescriptionAutoOpen({
-    resourceId,
-    description: normalizedDescription,
-  });
   const descriptionText = getResourceDescriptionText(normalizedDescription);
   const canEditDescription = canUpdate && Boolean(onSave);
   const showAddDescription = !normalizedDescription && canEditDescription;
   const canOpenDescription = Boolean(normalizedDescription) || canEditDescription;
   const showDescription = Boolean(normalizedDescription) || showAddDescription;
-
-  useEffect(() => {
-    if (previousResourceIdRef.current === resourceId) return;
-    previousResourceIdRef.current = resourceId;
-    lastAutoOpenKeyRef.current = undefined;
-    setDescriptionDialogOpen(false);
-  }, [resourceId]);
-
-  useEffect(() => {
-    if (
-      !resourceId ||
-      !autoOpenKey?.startsWith(`${resourceId}:`) ||
-      lastAutoOpenKeyRef.current === autoOpenKey
-    ) {
-      return;
-    }
-    lastAutoOpenKeyRef.current = autoOpenKey;
-    setDescriptionDialogOpen(true);
-  }, [autoOpenKey, resourceId]);
 
   if (!showDescription) {
     return fallback ? (
@@ -355,7 +324,6 @@ export const ResourceDescription = ({
           open={descriptionDialogOpen}
           onOpenChange={setDescriptionDialogOpen}
           onSave={onSave}
-          onDescriptionSaved={markDescriptionSeen}
           readOnly={!canEditDescription}
           errorLogName={errorLogName}
         />

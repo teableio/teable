@@ -738,6 +738,8 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                   data-context-menu={isContextMenuTarget ? '' : undefined}
                   onClickCapture={(e) => handleModifierClick(e, item)}
                   onContextMenu={(e) => {
+                    // React events from portaled dialogs still bubble through the node component tree.
+                    if (!(e.target instanceof Node) || !e.currentTarget.contains(e.target)) return;
                     e.preventDefault();
                     setContextMenu({
                       x: e.clientX,

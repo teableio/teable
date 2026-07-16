@@ -1,7 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { metrics } from '@opentelemetry/api';
 
-export type ComputedOutboxConsumeOutcome = 'processed' | 'noop' | 'deferred' | 'error' | 'invalid';
+export type ComputedOutboxConsumeOutcome =
+  | 'processed'
+  | 'noop'
+  | 'deferred'
+  | 'parked'
+  | 'error'
+  | 'invalid';
 export type ComputedOutboxPublishOutcome = 'accepted' | 'error' | 'timeout';
 export type ComputedOutboxPublishSkipReason = 'no_after_commit' | 'publish_failed';
 
@@ -145,7 +151,7 @@ export class ComputedOutboxTriggerMetrics {
 
   recordExecutionDuration(
     durationMs: number,
-    outcome: 'processed' | 'noop' | 'deferred' | 'error'
+    outcome: 'processed' | 'noop' | 'deferred' | 'parked' | 'error'
   ): void {
     this.executionDuration.record(durationMs, { trigger: 'queue', outcome });
     this.runtimeSnapshot = { ...this.runtimeSnapshot, lastExecutionDurationMs: durationMs };

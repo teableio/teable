@@ -83,19 +83,43 @@ describe('BullMqComputedOutboxWakeupPublisher', () => {
     expect(metrics.recordPublish).toHaveBeenCalledWith('accepted', 'retry');
   });
 
-  it('uses deterministic redrive job ids without retaining failed redrive jobs', async () => {
+  it('does not retain deterministic redrive jobs after completion or failure', async () => {
     const add = vi.fn().mockResolvedValue({ id: 'redrive-job' });
     const publisher = new BullMqComputedOutboxWakeupPublisher(
       queue(add) as never,
       { recordPublish: vi.fn(), recordPublishDuration: vi.fn() } as never
     );
 
-    await publisher.publish({ ...createWakeup(), wakeupId: 'cuwr-task-revision' });
+    await publisher.publish({ ...createWakeup(), wakeupId: 'cuwr2-task-revision' });
 
     expect(add).toHaveBeenCalledWith(
       'computed-outbox-wakeup',
       expect.any(Object),
-      expect.objectContaining({ jobId: 'cuwr-task-revision', removeOnFail: true })
+      expect.objectContaining({
+        jobId: 'cuwr2-task-revision',
+        removeOnComplete: true,
+        removeOnFail: true,
+      })
+    );
+  });
+
+  it('does not retain deterministic deferred jobs after completion or failure', async () => {
+    const add = vi.fn().mockResolvedValue({ id: 'deferred-job' });
+    const publisher = new BullMqComputedOutboxWakeupPublisher(
+      queue(add) as never,
+      { recordPublish: vi.fn(), recordPublishDuration: vi.fn() } as never
+    );
+
+    await publisher.publish({ ...createWakeup(), wakeupId: 'cuwd-task-window' });
+
+    expect(add).toHaveBeenCalledWith(
+      'computed-outbox-wakeup',
+      expect.any(Object),
+      expect.objectContaining({
+        jobId: 'cuwd-task-window',
+        removeOnComplete: true,
+        removeOnFail: true,
+      })
     );
   });
 

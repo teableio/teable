@@ -97,16 +97,6 @@ export class ViewOpenApiService {
     await this.spaceDataDbMigrationGuard?.assertTableWritable(tableId);
   }
 
-  private async assertViewWritable(viewId: string) {
-    const view = await this.prismaService.view.findUnique({
-      where: { id: viewId },
-      select: { tableId: true },
-    });
-    if (view) {
-      await this.assertTableWritable(view.tableId);
-    }
-  }
-
   private async ensureGridViewRowOrderColumn(tableId: string, view: IViewVo) {
     if (view.type !== ViewType.Grid) {
       return;
@@ -130,7 +120,7 @@ export class ViewOpenApiService {
         shareMeta: viewRo.shareMeta,
         enableShare: viewRo.enableShare,
       });
-      return this.viewService.getViewById(res.viewId);
+      return this.viewService.getViewById(tableId, res.viewId);
     }
     const view = await this.prismaService.$tx(async () => {
       return this.createViewInner(tableId, viewRo);
@@ -1089,7 +1079,7 @@ export class ViewOpenApiService {
   }
 
   async getFilterLinkRecords(tableId: string, viewId: string) {
-    const view = await this.viewService.getViewById(viewId);
+    const view = await this.viewService.getViewById(tableId, viewId);
     return this.getFilterLinkRecordsByTable(tableId, view.filter);
   }
 
@@ -1253,15 +1243,40 @@ export class ViewOpenApiService {
     });
   }
 
-  async updatePluginStorage(viewId: string, storage: IViewPluginUpdateStorageRo['storage']) {
-    await this.assertViewWritable(viewId);
+  async updatePluginStorage(
+    tableId: string,
+    viewId: string,
+    pluginInstallId: string,
+    storage: IViewPluginUpdateStorageRo['storage']
+  ) {
+    await this.assertTableWritable(tableId);
+    await this.prismaService.view
+      .findFirstOrThrow({
+        where: { id: viewId, tableId, deletedTime: null },
+        select: { id: true },
+      })
+      .catch(() => {
+        throw new CustomHttpException(
+          `View not found with id: ${viewId} and tableId: ${tableId}`,
+          HttpErrorCode.NOT_FOUND,
+          {
+            localization: {
+              i18nKey: 'httpErrors.view.notFound',
+            },
+          }
+        );
+      });
     const pluginInstall = await this.prismaService.pluginInstall.findFirst({
-      where: { positionId: viewId, position: PluginPosition.View },
+      where: {
+        id: pluginInstallId,
+        positionId: viewId,
+        position: PluginPosition.View,
+      },
       select: { id: true },
     });
     if (!pluginInstall) {
       throw new CustomHttpException(
-        `Plugin install not found with viewId: ${viewId}`,
+        `Plugin install not found with id: ${pluginInstallId}, viewId: ${viewId}, and tableId: ${tableId}`,
         HttpErrorCode.NOT_FOUND,
         {
           localization: {
@@ -1277,10 +1292,23 @@ export class ViewOpenApiService {
   }
 
   async getPluginInstall(tableId: string, viewId: string) {
-    const table = await this.prismaService.tableMeta.findUniqueOrThrow({
-      where: { id: tableId, deletedTime: null },
-      select: { baseId: true },
-    });
+    const view = await this.prismaService.view
+      .findFirstOrThrow({
+        where: { id: viewId, tableId, deletedTime: null },
+        select: { table: { select: { baseId: true } } },
+      })
+      .catch(() => {
+        throw new CustomHttpException(
+          `View not found with id: ${viewId} and tableId: ${tableId}`,
+          HttpErrorCode.NOT_FOUND,
+          {
+            localization: {
+              i18nKey: 'httpErrors.view.notFound',
+            },
+          }
+        );
+      });
+
     const pluginInstall = await this.prismaService.pluginInstall.findFirst({
       where: { positionId: viewId, position: PluginPosition.View },
       select: {
@@ -1309,16 +1337,16 @@ export class ViewOpenApiService {
       pluginId: pluginInstall.pluginId,
       pluginInstallId: pluginInstall.id,
       storage: pluginInstall.storage ? JSON.parse(pluginInstall.storage) : undefined,
-      baseId: table.baseId,
+      baseId: view.table.baseId,
       url: pluginInstall.plugin.url || undefined,
     };
   }
 
   async duplicateView(tableId: string, viewId: string) {
     await this.assertTableWritable(tableId);
-    const view = await this.viewService.getViewById(viewId);
-    const { options: optionsRaw } = await this.prismaService.txClient().view.findUniqueOrThrow({
-      where: { id: viewId, deletedTime: null },
+    const view = await this.viewService.getViewById(tableId, viewId);
+    const { options: optionsRaw } = await this.prismaService.txClient().view.findFirstOrThrow({
+      where: { id: viewId, tableId, deletedTime: null },
       select: { options: true },
     });
     const options = optionsRaw ? JSON.parse(optionsRaw) : undefined;
@@ -1342,16 +1370,26 @@ export class ViewOpenApiService {
       });
 
       if (view.type === ViewType.Plugin) {
-        const originPluginInstallId = (view.options as IPluginViewOptions)?.pluginInstallId;
         const newPluginInstallId = (viewVo.options as IPluginViewOptions)?.pluginInstallId;
-        const { storage: pluginStorage } = await prisma.pluginInstall.findUniqueOrThrow({
-          where: { id: originPluginInstallId },
+        const originPluginInstall = await prisma.pluginInstall.findFirst({
+          where: { positionId: viewId, position: PluginPosition.View },
           select: { storage: true },
         });
+        if (!originPluginInstall) {
+          throw new CustomHttpException(
+            `Plugin install not found with viewId: ${viewId} and tableId: ${tableId}`,
+            HttpErrorCode.NOT_FOUND,
+            {
+              localization: {
+                i18nKey: 'httpErrors.plugin.notFound',
+              },
+            }
+          );
+        }
 
         await prisma.pluginInstall.update({
           where: { id: newPluginInstallId },
-          data: { storage: pluginStorage },
+          data: { storage: originPluginInstall.storage },
         });
       }
 
