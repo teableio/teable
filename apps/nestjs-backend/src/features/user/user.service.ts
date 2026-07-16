@@ -277,6 +277,16 @@ export class UserService {
         avatar: true,
       },
     });
+    // Consumed by the SigNoz spam-name alert pipeline: it filters on `event`
+    // and groups by `userId`/`newName`, so these keys are a downstream
+    // contract. Keep fields as structured attributes — never concatenate
+    // `name` into the message (attacker-controlled input).
+    this.logger.log({
+      event: 'user.name.set',
+      userId: id,
+      newName: name,
+      msg: 'user name set',
+    });
     this.eventEmitterService.emitAsync(Events.USER_RENAME, user);
   }
 

@@ -148,7 +148,7 @@ export class InvitationService {
       (email) => !isEmailDomainBanned(email, bannedEmailDomains) && !riskDeniedEmails.has(email)
     );
     // Keep an abuse trail: which invitees were dropped and who tried to invite
-    // them (see the '[invite-mail]' / '[banned-domain]' log-based alert rules)
+    // them (see the '[banned-domain]' log-based alert rules)
     const droppedEmails = lowercasedEmails.filter((email) => !invitationEmails.includes(email));
     if (droppedEmails.length) {
       this.logger.log(
@@ -245,10 +245,17 @@ export class InvitationService {
             }
           );
           // one line per recipient — SigNoz alerts count these to detect
-          // mass-invitation abuse (see '[invite-mail]' log-based alert rules)
-          this.logger.log(
-            `[invite-mail] sent to=${sendUser.email} inviter=${user.email} resource=${resourceType}:${resourceId}`
-          );
+          // mass-invitation abuse and group by `inviterId` to feed the
+          // suspicious-account pipeline, so field keys are a downstream contract
+          this.logger.log({
+            event: 'invitation.email.sent',
+            inviterId: user.id,
+            inviterEmail: user.email,
+            inviteeEmail: sendUser.email,
+            resourceType,
+            resourceId,
+            msg: 'invitation email sent',
+          });
         }
         result[sendUser.email] = { invitationId: id };
       }

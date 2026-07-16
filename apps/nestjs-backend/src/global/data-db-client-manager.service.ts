@@ -13,6 +13,11 @@ import { DataDbMigrationService } from '../features/space/data-db-migration.serv
 import { decryptDataDbUrl } from '../features/space/data-db-url-secret';
 import type { IClsStore } from '../types/cls';
 import {
+  buildComputedOutboxActivePauseExclusion,
+  buildComputedOutboxWakeupCandidatesQuery,
+  type ComputedOutboxWakeupCandidateQueryOptions,
+} from './computed-outbox-maintenance-query';
+import {
   DATA_DB_KNEX_CACHE_NAMESPACE,
   DATA_DB_PRISMA_CACHE_NAMESPACE,
   DataDbRuntimeCacheService,
@@ -215,7 +220,8 @@ export class DataDbClientManager {
   async *iterateComputedOutboxWakeupCandidates(
     target: IComputedOutboxMaintenanceTarget,
     processingLeaseMs: number,
-    batchSize = 500
+    batchSize = 500,
+    options: ComputedOutboxWakeupCandidateQueryOptions = {}
   ): AsyncGenerator<ReadonlyArray<IComputedOutboxWakeupCandidate>> {
     const client = createKnex({
       client: 'pg',
@@ -231,24 +237,27 @@ export class DataDbClientManager {
 
     try {
       while (true) {
-        let query = client('computed_update_outbox')
-          .select({
-            taskId: 'id',
-            baseId: 'base_id',
-            status: 'status',
-            nextRunAt: 'next_run_at',
-            lockedAt: 'locked_at',
-            attempts: 'attempts',
-            updatedAt: 'updated_at',
-          })
-          .whereIn('status', ['pending', 'processing'])
-          .orderBy('id', 'asc')
-          .limit(normalizedBatchSize);
-        if (afterId) query = query.where('id', '>', afterId);
-
-        const rows = (await query.timeout(COMPUTED_OUTBOX_MAINTENANCE_QUERY_TIMEOUT_MS, {
-          cancel: true,
-        })) as Array<{
+        const candidateQuery = buildComputedOutboxWakeupCandidatesQuery(
+          target,
+          processingLeaseMs,
+          normalizedBatchSize,
+          afterId,
+          options
+        );
+        const result = await client
+          .raw<{
+            rows: Array<{
+              taskId: string;
+              baseId: string;
+              status: 'pending' | 'processing';
+              nextRunAt: Date | string;
+              lockedAt: Date | string | null;
+              attempts: number;
+              updatedAt: Date | string;
+            }>;
+          }>(candidateQuery.sql, candidateQuery.bindings)
+          .timeout(COMPUTED_OUTBOX_MAINTENANCE_QUERY_TIMEOUT_MS, { cancel: true });
+        const rows = result.rows as Array<{
           taskId: string;
           baseId: string;
           status: 'pending' | 'processing';
@@ -337,23 +346,7 @@ export class DataDbClientManager {
       acquireConnectionTimeout: COMPUTED_OUTBOX_MAINTENANCE_CONNECT_TIMEOUT_MS,
       pool: { min: 0, max: 1 },
     });
-    const baseSpaceMapping = target.baseSpaceMapping ?? [];
-    const pauseSpaceJoin =
-      target.storage === 'default'
-        ? 'left join "base" as cb on cb."id" = o.base_id'
-        : `left join jsonb_to_recordset(?::jsonb) as cb(base_id text, space_id text)
-            on cb.base_id = o.base_id`;
-    const pauseSpaceParams =
-      target.storage === 'byodb'
-        ? [
-            JSON.stringify(
-              baseSpaceMapping.map(({ baseId, spaceId }) => ({
-                base_id: baseId,
-                space_id: spaceId,
-              }))
-            ),
-          ]
-        : [];
+    const pauseExclusion = buildComputedOutboxActivePauseExclusion(target);
     try {
       const result = await client
         .raw<{
@@ -361,23 +354,7 @@ export class DataDbClientManager {
         }>(
           `with outbox_state as (
             select o.*,
-              not exists (
-                select 1
-                from computed_update_pause_scope as cps
-                ${pauseSpaceJoin}
-                where (cps.resume_at is null or cps.resume_at > now())
-                  and (
-                    (cps.scope_type = 'base' and cps.scope_id = o.base_id)
-                    or (
-                      cps.scope_type = 'table'
-                      and (
-                        cps.scope_id = o.seed_table_id
-                        or cps.scope_id = any(coalesce(o.affected_table_ids, ARRAY[]::text[]))
-                      )
-                    )
-                    or (cps.scope_type = 'space' and cps.scope_id = cb.space_id)
-                  )
-              ) as actionable
+              ${pauseExclusion.sql} as actionable
             from computed_update_outbox as o
           )
         select
@@ -403,7 +380,7 @@ export class DataDbClientManager {
           ) as oldest_due_age_ms,
           (select count(*) from computed_update_dead_letter) as dead
         from outbox_state`,
-          [...pauseSpaceParams, processingLeaseMs, processingLeaseMs]
+          [...pauseExclusion.bindings, processingLeaseMs, processingLeaseMs]
         )
         .timeout(COMPUTED_OUTBOX_MAINTENANCE_QUERY_TIMEOUT_MS, { cancel: true });
       const row = result.rows[0] ?? {};

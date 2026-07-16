@@ -1,14 +1,14 @@
-import { allActions } from '@teable/core';
 import { axios } from '../axios';
 import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
+import { accessTokenScopesSchema } from './scopes';
 
 export const UPDATE_ACCESS_TOKEN = '/access-token/{id}';
 
 export const updateAccessTokenRoSchema = z.object({
   name: z.string(),
   description: z.string().optional(),
-  scopes: z.array(z.enum(allActions)).min(1),
+  scopes: accessTokenScopesSchema,
   spaceIds: z.array(z.string()).nullable().optional(),
   baseIds: z.array(z.string()).nullable().optional(),
   hasFullAccess: z.boolean().optional(),

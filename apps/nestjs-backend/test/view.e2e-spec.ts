@@ -15,6 +15,7 @@ import {
   Colors,
   FieldKeyType,
   FieldType,
+  generatePluginInstallId,
   generateViewId,
   Relationship,
   RowHeightLevel,
@@ -35,6 +36,8 @@ import {
   updateViewLocked,
   duplicateView,
   installViewPlugin,
+  getViewInstallPlugin,
+  updateViewPluginStorage,
   deleteView,
 } from '@teable/openapi';
 import { sample } from 'lodash';
@@ -92,6 +95,18 @@ describe('OpenAPI ViewController (e2e)', () => {
   it('/api/table/{tableId}/view (GET)', async () => {
     const viewsResult = await getViews(table.id);
     expect(viewsResult).toMatchObject(defaultViews);
+  });
+
+  it('should reject reading a view through another table', async () => {
+    const anotherTable = await createTable(baseId, { name: 'another_table' });
+
+    try {
+      const [anotherView] = await getViews(anotherTable.id);
+
+      await expect(getView(table.id, anotherView.id)).rejects.toThrow();
+    } finally {
+      await permanentDeleteTable(baseId, anotherTable.id);
+    }
   });
 
   it('/api/table/{tableId}/view (POST)', async () => {
@@ -575,6 +590,72 @@ describe('OpenAPI ViewController (e2e)', () => {
     });
   });
 
+  it('should reject reading filter link records through another table', async () => {
+    const anotherTable = await createTable(baseId, { name: 'another_filter_table' });
+
+    try {
+      const [anotherView] = await getViews(anotherTable.id);
+
+      await expect(getViewFilterLinkRecords(table.id, anotherView.id)).rejects.toThrow();
+    } finally {
+      await permanentDeleteTable(baseId, anotherTable.id);
+    }
+  });
+
+  describe('view plugin parent binding', () => {
+    let anotherTable: ITableFullVo;
+
+    beforeEach(async () => {
+      anotherTable = await createTable(baseId, { name: 'another_plugin_table' });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, anotherTable.id);
+    });
+
+    it('should reject reading a plugin installation through another table', async () => {
+      const plugin = (
+        await installViewPlugin(anotherTable.id, {
+          name: 'another_sheet_view',
+          pluginId: 'plgsheetform',
+        })
+      ).data;
+
+      await expect(getViewInstallPlugin(table.id, plugin.viewId)).rejects.toThrow();
+    });
+
+    it('should reject updating storage with a plugin installation from another view', async () => {
+      const ownPlugin = (
+        await installViewPlugin(table.id, {
+          name: 'own_sheet_view',
+          pluginId: 'plgsheetform',
+        })
+      ).data;
+      const anotherPlugin = (
+        await installViewPlugin(anotherTable.id, {
+          name: 'another_sheet_view',
+          pluginId: 'plgsheetform',
+        })
+      ).data;
+
+      await expect(
+        updateViewPluginStorage(table.id, ownPlugin.viewId, anotherPlugin.pluginInstallId, {
+          unauthorized: true,
+        })
+      ).rejects.toThrow();
+      await expect(
+        updateViewPluginStorage(table.id, anotherPlugin.viewId, anotherPlugin.pluginInstallId, {
+          unauthorized: true,
+        })
+      ).rejects.toThrow();
+
+      const pluginAfter = await getViewInstallPlugin(table.id, ownPlugin.viewId);
+      const anotherPluginAfter = await getViewInstallPlugin(anotherTable.id, anotherPlugin.viewId);
+      expect(pluginAfter.data.storage).toBeUndefined();
+      expect(anotherPluginAfter.data.storage).toBeUndefined();
+    });
+  });
+
   describe('/api/table/{tableId}/view/:viewId/duplicate (POST)', () => {
     let table: ITableFullVo;
     beforeEach(async () => {
@@ -587,6 +668,18 @@ describe('OpenAPI ViewController (e2e)', () => {
 
     afterEach(async () => {
       await permanentDeleteTable(baseId, table.id);
+    });
+
+    it('should reject duplicating a view through another table', async () => {
+      const anotherTable = await createTable(baseId, { name: 'another_duplicate_table' });
+
+      try {
+        const [anotherView] = await getViews(anotherTable.id);
+
+        await expect(duplicateView(table.id, anotherView.id)).rejects.toThrow();
+      } finally {
+        await permanentDeleteTable(baseId, anotherTable.id);
+      }
     });
 
     it('should duplicate grid view', async () => {
@@ -820,22 +913,46 @@ describe('OpenAPI ViewController (e2e)', () => {
       });
     });
 
-    it('should duplicate plugin view', async () => {
+    it('should duplicate a plugin view with historical stale install options', async () => {
       const sheetPlugin = (
         await installViewPlugin(table.id, {
           name: 'sheet_view',
           pluginId: 'plgsheetform',
         })
       ).data;
-
+      const storage = { imported: true };
+      await updateViewPluginStorage(
+        table.id,
+        sheetPlugin.viewId,
+        sheetPlugin.pluginInstallId,
+        storage
+      );
       const sheetView = await getView(table.id, sheetPlugin.viewId);
+      await prismaService.view.update({
+        where: { id: sheetView.id },
+        data: {
+          options: JSON.stringify({
+            ...(sheetView.options as IPluginViewOptions),
+            pluginInstallId: generatePluginInstallId(),
+          }),
+        },
+      });
+
+      const resolvedInstall = (await getViewInstallPlugin(table.id, sheetView.id)).data;
+      expect(resolvedInstall.pluginInstallId).toBe(sheetPlugin.pluginInstallId);
 
       const duplicatedView = (await duplicateView(table.id, sheetView.id)).data;
+      const duplicatedInstall = (await getViewInstallPlugin(table.id, duplicatedView.id)).data;
       expect(duplicatedView.name).toEqual('sheet_view 2');
       expect(duplicatedView.type).toEqual(ViewType.Plugin);
       expect(duplicatedView.options).contain({
         pluginLogo: (sheetView.options as IPluginViewOptions).pluginLogo,
       });
+      expect(duplicatedInstall.pluginInstallId).toBe(
+        (duplicatedView.options as IPluginViewOptions).pluginInstallId
+      );
+      expect(duplicatedInstall.pluginInstallId).not.toBe(sheetPlugin.pluginInstallId);
+      expect(duplicatedInstall.storage).toEqual(storage);
     });
   });
 

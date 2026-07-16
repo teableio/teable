@@ -19,6 +19,7 @@ export const getPluginsVoSchema = z.array(
     i18n: pluginI18nSchema,
     status: z.enum(PluginStatus),
     pluginUser: pluginUserSchema,
+    isSystem: z.boolean().optional(),
     createdTime: z.string(),
     lastModifiedTime: z.string(),
   })

@@ -43,6 +43,30 @@ export class PluginService {
     return getPublicFullStorageUrl(logo);
   }
 
+  private pluginNotFoundException() {
+    return new CustomHttpException('Plugin not found', HttpErrorCode.NOT_FOUND, {
+      localization: {
+        i18nKey: 'httpErrors.plugin.notFound',
+      },
+    });
+  }
+
+  /**
+   * Ownership scope for viewing and configuring plugins in the developer center;
+   * instance admins also co-manage the system-seeded official plugins.
+   *
+   * Deliberately NOT used by regenerateSecret/submitPlugin/unpublishPlugin/delete:
+   * official plugins' secret and status are re-asserted from env config on every
+   * boot (OfficialPluginInitService), so mutating them through the API would only
+   * desync the deployed official plugin until the next restart, and deleting one
+   * would cascade-remove all of its installs. Those operations stay
+   * `createdBy: userId`, which excludes 'system' rows even for admins.
+   */
+  private manageablePluginCreatedBy() {
+    const userId = this.cls.get('user.id');
+    return this.cls.get('user.isAdmin') ? { in: ['system', userId] } : userId;
+  }
+
   private convertToVo<
     T extends {
       positions: string;
@@ -189,7 +213,6 @@ export class PluginService {
 
   async updatePlugin(id: string, updatePluginRo: IUpdatePluginRo): Promise<IUpdatePluginVo> {
     const userId = this.cls.get('user.id');
-    const isAdmin = this.cls.get('user.isAdmin');
     const { name, description, detailDesc, helpUrl, i18n, positions, url, config, logo } =
       updatePluginRo;
     const logoPath = logo?.startsWith('http')
@@ -210,12 +233,12 @@ export class PluginService {
             config: true,
             status: true,
             i18n: true,
-            secret: true,
+            maskedSecret: true,
             pluginUser: true,
             createdTime: true,
             lastModifiedTime: true,
           },
-          where: { id, createdBy: isAdmin ? { in: ['system', userId] } : userId },
+          where: { id, createdBy: this.manageablePluginCreatedBy() },
           data: {
             name,
             description,
@@ -230,11 +253,7 @@ export class PluginService {
           },
         })
         .catch(() => {
-          throw new CustomHttpException('Plugin not found', HttpErrorCode.NOT_FOUND, {
-            localization: {
-              i18nKey: 'httpErrors.plugin.notFound',
-            },
-          });
+          throw this.pluginNotFoundException();
         });
 
       if (name && res.pluginUser) {
@@ -244,14 +263,13 @@ export class PluginService {
     });
     const userMap = res.pluginUser ? await this.getUserMap([res.pluginUser]) : {};
     return this.convertToVo({
-      ...res,
+      ...omit(res, 'maskedSecret'),
+      secret: res.maskedSecret,
       pluginUser: res.pluginUser ? userMap[res.pluginUser] : undefined,
     });
   }
 
   async getPlugin(id: string): Promise<IGetPluginVo> {
-    const userId = this.cls.get('user.id');
-    const isAdmin = this.cls.get('user.isAdmin');
     const res = await this.prismaService.plugin
       .findUniqueOrThrow({
         select: {
@@ -268,32 +286,27 @@ export class PluginService {
           i18n: true,
           maskedSecret: true,
           pluginUser: true,
+          createdBy: true,
           createdTime: true,
           lastModifiedTime: true,
         },
-        where: { id, createdBy: isAdmin ? { in: ['system', userId] } : userId },
+        where: { id, createdBy: this.manageablePluginCreatedBy() },
       })
       .catch(() => {
-        throw new CustomHttpException('Plugin not found', HttpErrorCode.NOT_FOUND, {
-          localization: {
-            i18nKey: 'httpErrors.plugin.notFound',
-          },
-        });
+        throw this.pluginNotFoundException();
       });
     const userMap = res.pluginUser ? await this.getUserMap([res.pluginUser]) : {};
     return this.convertToVo({
-      ...omit(res, 'maskedSecret'),
+      ...omit(res, 'maskedSecret', 'createdBy'),
       secret: res.maskedSecret,
+      isSystem: res.createdBy === 'system',
       pluginUser: res.pluginUser ? userMap[res.pluginUser] : undefined,
     });
   }
 
   async getPlugins(): Promise<IGetPluginsVo> {
-    const userId = this.cls.get('user.id');
-    const isAdmin = this.cls.get('user.isAdmin');
-
     const res = await this.prismaService.plugin.findMany({
-      where: { createdBy: isAdmin ? { in: ['system', userId] } : userId },
+      where: { createdBy: this.manageablePluginCreatedBy() },
       select: {
         id: true,
         name: true,
@@ -305,25 +318,29 @@ export class PluginService {
         url: true,
         status: true,
         i18n: true,
-        secret: true,
         pluginUser: true,
+        createdBy: true,
         createdTime: true,
         lastModifiedTime: true,
       },
     });
     const userIds = res.map((r) => r.pluginUser).filter((r) => r !== null) as string[];
     const userMap = await this.getUserMap(userIds);
-    return res.map((r) =>
+    return res.map(({ createdBy, ...r }) =>
       this.convertToVo({
         ...r,
+        isSystem: createdBy === 'system',
         pluginUser: r.pluginUser ? userMap[r.pluginUser] : undefined,
       })
     );
   }
 
   async delete(id: string) {
+    const userId = this.cls.get('user.id');
     await this.prismaService.$tx(async (prisma) => {
-      const res = await prisma.plugin.delete({ where: { id } });
+      const res = await prisma.plugin.delete({ where: { id, createdBy: userId } }).catch(() => {
+        throw this.pluginNotFoundException();
+      });
       if (res.pluginUser) {
         await prisma.user.delete({ where: { id: res.pluginUser } });
       }
@@ -331,18 +348,23 @@ export class PluginService {
   }
 
   async regenerateSecret(id: string): Promise<IPluginRegenerateSecretVo> {
+    const userId = this.cls.get('user.id');
     const { secret, hashedSecret, maskedSecret } = await generateSecret();
-    await this.prismaService.plugin.update({
-      select: {
-        id: true,
-        secret: true,
-      },
-      where: { id },
-      data: {
-        secret: hashedSecret,
-        maskedSecret,
-      },
-    });
+    await this.prismaService.plugin
+      .update({
+        select: {
+          id: true,
+          secret: true,
+        },
+        where: { id, createdBy: userId },
+        data: {
+          secret: hashedSecret,
+          maskedSecret,
+        },
+      })
+      .catch(() => {
+        throw this.pluginNotFoundException();
+      });
     return { secret, id };
   }
 
@@ -417,9 +439,14 @@ export class PluginService {
   }
 
   async unpublishPlugin(id: string) {
-    await this.prismaService.plugin.update({
-      where: { id, status: PluginStatus.Published },
-      data: { status: PluginStatus.Developing },
-    });
+    const userId = this.cls.get('user.id');
+    await this.prismaService.plugin
+      .update({
+        where: { id, createdBy: userId, status: PluginStatus.Published },
+        data: { status: PluginStatus.Developing },
+      })
+      .catch(() => {
+        throw this.pluginNotFoundException();
+      });
   }
 }

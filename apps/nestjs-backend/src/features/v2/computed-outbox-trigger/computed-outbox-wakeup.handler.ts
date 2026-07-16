@@ -4,6 +4,7 @@ import {
   v2RecordRepositoryPostgresTokens,
   type ComputedUpdateWorker,
   type IComputedUpdateOutbox,
+  type OutboxTaskClaimEligibility,
 } from '@teable/v2-adapter-table-repository-postgres';
 
 import { V2ContainerService } from '../v2-container.service';
@@ -13,13 +14,59 @@ import type { ComputedOutboxWakeupWire } from './computed-outbox-wakeup.wire';
 import { COMPUTED_OUTBOX_WAKEUP_PUBLISHER } from './constants';
 
 export type ComputedOutboxWakeupHandlerOutcome = {
-  status: 'processed' | 'noop' | 'deferred';
+  status: 'processed' | 'noop' | 'deferred' | 'parked';
 };
 
 /** Minimum delay for transient claim races and database lock misses. */
 const MIN_DEFER_DELAY_MS = 2_000;
 /** Conservative retry for blockers without a deterministic release time (pause/concurrency). */
 const BLOCKED_DEFER_DELAY_MS = 30_000;
+
+const createDeferredWakeupId = (taskId: string, availableAt: Date, bucketMs?: number): string =>
+  `cuwd-${taskId}-${
+    bucketMs ? Math.floor(availableAt.getTime() / bucketMs) : availableAt.getTime()
+  }`;
+
+const isIndefinitelyPaused = (eligibility: OutboxTaskClaimEligibility): boolean =>
+  eligibility.status === 'deferred' &&
+  eligibility.reason === 'paused' &&
+  eligibility.retryAt === null;
+
+const resolveDeferredWakeup = (
+  taskId: string,
+  currentWakeupId: string,
+  eligibility: Exclude<OutboxTaskClaimEligibility, { status: 'terminal' }>,
+  nowMs: number
+): { wakeupId: string; availableAt: Date } => {
+  const fallbackDelay =
+    eligibility.status === 'deferred' && eligibility.reason === 'concurrency'
+      ? BLOCKED_DEFER_DELAY_MS
+      : MIN_DEFER_DELAY_MS;
+  const retryAt = eligibility.status === 'deferred' ? eligibility.retryAt : null;
+  const finitePauseResumeAt =
+    eligibility.status === 'deferred' && eligibility.reason === 'paused' && retryAt !== null
+      ? retryAt
+      : null;
+  let availableAt =
+    finitePauseResumeAt ??
+    new Date(Math.max(nowMs + fallbackDelay, retryAt?.getTime() ?? Number.NEGATIVE_INFINITY));
+  const baseWakeupId = createDeferredWakeupId(
+    taskId,
+    availableAt,
+    finitePauseResumeAt ? undefined : fallbackDelay
+  );
+  if (currentWakeupId === baseWakeupId || currentWakeupId.startsWith(`${baseWakeupId}-r`)) {
+    availableAt = new Date(Math.max(availableAt.getTime(), nowMs + MIN_DEFER_DELAY_MS));
+    return {
+      availableAt,
+      wakeupId: `${baseWakeupId}-r${Math.floor(availableAt.getTime() / MIN_DEFER_DELAY_MS)}`,
+    };
+  }
+  return {
+    availableAt,
+    wakeupId: baseWakeupId,
+  };
+};
 
 @Injectable()
 export class ComputedOutboxWakeupHandler {
@@ -74,19 +121,28 @@ export class ComputedOutboxWakeupHandler {
         return { status: 'noop' };
       }
 
-      // Pending (concurrency / pause / not-due) or still-actionable processing: re-arm a delayed
-      // wake-up so exclusive BullMQ mode does not permanently drop non-terminal claim misses.
-      const fallbackDelay =
-        eligibility.status === 'deferred' &&
-        (eligibility.reason === 'paused' || eligibility.reason === 'concurrency')
-          ? BLOCKED_DEFER_DELAY_MS
-          : MIN_DEFER_DELAY_MS;
-      const retryAt = eligibility.status === 'deferred' ? eligibility.retryAt : null;
-      const availableAt = new Date(
-        Math.max(Date.now() + fallbackDelay, retryAt?.getTime() ?? Number.NEGATIVE_INFINITY)
+      if (isIndefinitelyPaused(eligibility)) {
+        this.metrics.recordConsume('parked');
+        this.metrics.recordExecutionDuration(performance.now() - startedAt, 'parked');
+        this.logger.debug('computed:outbox:wakeup_parked', {
+          taskId: wakeup.taskId,
+          baseId: wakeup.baseId,
+          reason: 'paused',
+        });
+        return { status: 'parked' };
+      }
+
+      // Finite pauses use the explicit resume time. Other transient misses use a deterministic
+      // time bucket so duplicate locators converge without swallowing the next retry cycle.
+      const { availableAt, wakeupId } = resolveDeferredWakeup(
+        wakeup.taskId,
+        wakeup.wakeupId,
+        eligibility,
+        Date.now()
       );
       await this.wakeupPublisher.publish(
         createComputedOutboxWakeup({
+          wakeupId,
           taskId: wakeup.taskId,
           baseId: wakeup.baseId,
           availableAt,
