@@ -35,9 +35,13 @@ describe('ComputedOutboxWakeupHandler', () => {
       isErr: () => false,
       value: true,
     });
+    const runOnce = vi.fn().mockResolvedValue({
+      isErr: () => false,
+      value: 0,
+    });
     const resolve = vi.fn((token) => {
       if (token === v2RecordRepositoryPostgresTokens.computedUpdateWorker) {
-        return { runTaskById };
+        return { runTaskById, runOnce };
       }
       return undefined;
     });
@@ -59,6 +63,35 @@ describe('ComputedOutboxWakeupHandler', () => {
         allowProcessingTakeover: false,
       })
     );
+    expect(runOnce).toHaveBeenCalledWith(
+      expect.objectContaining({
+        limit: 50,
+      })
+    );
+  });
+
+  it('drains follow-up outbox tasks after a successful targeted process', async () => {
+    const runTaskById = vi.fn().mockResolvedValue({
+      isErr: () => false,
+      value: true,
+    });
+    const runOnce = vi
+      .fn()
+      .mockResolvedValueOnce({ isErr: () => false, value: 3 })
+      .mockResolvedValueOnce({ isErr: () => false, value: 1 })
+      .mockResolvedValueOnce({ isErr: () => false, value: 0 });
+    const handler = new ComputedOutboxWakeupHandler(
+      {
+        getContainerForBase: vi.fn().mockResolvedValue({
+          resolve: () => ({ runTaskById, runOnce }),
+        }),
+      } as never,
+      createMetrics() as never,
+      createPublisher() as never
+    );
+
+    await expect(handler.handle(wakeup)).resolves.toEqual({ status: 'processed' });
+    expect(runOnce).toHaveBeenCalledTimes(3);
   });
 
   it('acknowledges a terminal no-op when the durable task is gone', async () => {
@@ -143,11 +176,12 @@ describe('ComputedOutboxWakeupHandler', () => {
     expect(metrics.recordConsume).toHaveBeenCalledWith('deferred');
   });
 
-  it('backs off indefinitely paused tasks instead of re-publishing every two seconds', async () => {
+  it('parks indefinitely paused tasks without publishing another wakeup', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-01-05T12:00:00Z'));
     try {
       const publish = vi.fn().mockResolvedValue({ status: 'accepted' });
+      const metrics = createMetrics();
       const handler = new ComputedOutboxWakeupHandler(
         {
           getContainerForBase: vi.fn().mockResolvedValue({
@@ -169,14 +203,62 @@ describe('ComputedOutboxWakeupHandler', () => {
             },
           }),
         } as never,
+        metrics as never,
+        createPublisher(publish) as never
+      );
+
+      await expect(handler.handle(wakeup)).resolves.toEqual({ status: 'parked' });
+
+      expect(publish).not.toHaveBeenCalled();
+      expect(metrics.recordConsume).toHaveBeenCalledWith('parked');
+      expect(metrics.recordExecutionDuration).toHaveBeenCalledWith(expect.any(Number), 'parked');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('schedules a finite pause exactly once at its resume time', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-05T12:00:00Z'));
+    try {
+      const publish = vi.fn().mockResolvedValue({ status: 'accepted' });
+      const resumeAt = new Date('2026-01-05T12:05:00Z');
+      const handler = new ComputedOutboxWakeupHandler(
+        {
+          getContainerForBase: vi.fn().mockResolvedValue({
+            resolve: (token: unknown) => {
+              if (token === v2RecordRepositoryPostgresTokens.computedUpdateWorker) {
+                return {
+                  runTaskById: vi.fn().mockResolvedValue({ isErr: () => false, value: false }),
+                };
+              }
+              if (token === v2RecordRepositoryPostgresTokens.computedUpdateOutbox) {
+                return {
+                  getTaskClaimEligibility: vi.fn().mockResolvedValue({
+                    isErr: () => false,
+                    value: { status: 'deferred', reason: 'paused', retryAt: resumeAt },
+                  }),
+                };
+              }
+              return undefined;
+            },
+          }),
+        } as never,
         createMetrics() as never,
         createPublisher(publish) as never
       );
 
       await expect(handler.handle(wakeup)).resolves.toEqual({ status: 'deferred' });
 
-      const published = publish.mock.calls[0][0] as { availableAt: Date };
-      expect(published.availableAt).toEqual(new Date('2026-01-05T12:00:30Z'));
+      expect(publish).toHaveBeenCalledWith(
+        expect.objectContaining({
+          wakeupId: `cuwd-${wakeup.taskId}-${resumeAt.getTime()}`,
+          availableAt: resumeAt,
+        })
+      );
+      const firstWakeup = publish.mock.calls[0][0];
+      await handler.handle({ ...wakeup, wakeupId: firstWakeup.wakeupId });
+      expect(publish.mock.calls[1][0].wakeupId).not.toBe(firstWakeup.wakeupId);
     } finally {
       vi.useRealTimers();
     }
@@ -185,10 +267,11 @@ describe('ComputedOutboxWakeupHandler', () => {
   it('runs worker-created wakeups inside the consumer publish capability', async () => {
     const runAsConsumer = vi.fn(async (operation) => operation());
     const runTaskById = vi.fn().mockResolvedValue({ isErr: () => false, value: true });
+    const runOnce = vi.fn().mockResolvedValue({ isErr: () => false, value: 0 });
     const handler = new ComputedOutboxWakeupHandler(
       {
         getContainerForBase: vi.fn().mockResolvedValue({
-          resolve: () => ({ runTaskById }),
+          resolve: () => ({ runTaskById, runOnce }),
         }),
       } as never,
       createMetrics() as never,
@@ -199,41 +282,55 @@ describe('ComputedOutboxWakeupHandler', () => {
 
     expect(runAsConsumer).toHaveBeenCalledWith(expect.any(Function));
     expect(runTaskById).toHaveBeenCalledOnce();
+    expect(runOnce).toHaveBeenCalledOnce();
   });
 
   it('publishes deferred replay wakeups from a consumer-only role', async () => {
-    const brokerPublish = vi.fn().mockResolvedValue({ status: 'accepted' });
-    const roleAwarePublisher = createRoleAwareWakeupPublisher({ publish: brokerPublish } as never, {
-      producerEnabled: false,
-      consumerEnabled: true,
-    });
-    const handler = new ComputedOutboxWakeupHandler(
-      {
-        getContainerForBase: vi.fn().mockResolvedValue({
-          resolve: (token: unknown) => {
-            if (token === v2RecordRepositoryPostgresTokens.computedUpdateWorker) {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-05T12:00:00Z'));
+    try {
+      const brokerPublish = vi.fn().mockResolvedValue({ status: 'accepted' });
+      const roleAwarePublisher = createRoleAwareWakeupPublisher(
+        { publish: brokerPublish } as never,
+        {
+          producerEnabled: false,
+          consumerEnabled: true,
+        }
+      );
+      const handler = new ComputedOutboxWakeupHandler(
+        {
+          getContainerForBase: vi.fn().mockResolvedValue({
+            resolve: (token: unknown) => {
+              if (token === v2RecordRepositoryPostgresTokens.computedUpdateWorker) {
+                return {
+                  runTaskById: vi.fn().mockResolvedValue({ isErr: () => false, value: false }),
+                };
+              }
               return {
-                runTaskById: vi.fn().mockResolvedValue({ isErr: () => false, value: false }),
+                getTaskClaimEligibility: vi.fn().mockResolvedValue({
+                  isErr: () => false,
+                  value: { status: 'deferred', reason: 'concurrency', retryAt: null },
+                }),
               };
-            }
-            return {
-              getTaskClaimEligibility: vi.fn().mockResolvedValue({
-                isErr: () => false,
-                value: { status: 'deferred', reason: 'concurrency', retryAt: null },
-              }),
-            };
-          },
-        }),
-      } as never,
-      createMetrics() as never,
-      roleAwarePublisher
-    );
+            },
+          }),
+        } as never,
+        createMetrics() as never,
+        roleAwarePublisher
+      );
 
-    await expect(handler.handle(wakeup)).resolves.toEqual({ status: 'deferred' });
+      await expect(handler.handle(wakeup)).resolves.toEqual({ status: 'deferred' });
+      await expect(handler.handle({ ...wakeup, wakeupId: 'cuw-duplicate' })).resolves.toEqual({
+        status: 'deferred',
+      });
 
-    expect(brokerPublish).toHaveBeenCalledWith(
-      expect.objectContaining({ taskId: wakeup.taskId, cause: 'replay' })
-    );
+      expect(brokerPublish).toHaveBeenCalledWith(
+        expect.objectContaining({ taskId: wakeup.taskId, cause: 'replay' })
+      );
+      expect(brokerPublish.mock.calls[0][0].wakeupId).toBe(brokerPublish.mock.calls[1][0].wakeupId);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('rethrows worker errors so BullMQ can retry claim or persistence failures', async () => {

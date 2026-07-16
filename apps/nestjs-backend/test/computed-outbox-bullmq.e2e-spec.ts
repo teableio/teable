@@ -50,7 +50,7 @@ describeBullMq('BullMQ computed outbox (e2e)', () => {
   }, 120_000);
 
   it(
-    'runs a committed cross-table update through BullMQ without polling',
+    'runs a committed cross-table update through BullMQ wake-up delivery',
     { timeout: 180_000 },
     async () => {
       const source = await createTable(baseId, {
@@ -98,7 +98,8 @@ describeBullMq('BullMQ computed outbox (e2e)', () => {
         const handler = app.get(ComputedOutboxWakeupHandler);
         const queueDelivery = vi.spyOn(handler, 'handle');
         const queueTrigger = vi.spyOn(worker, 'runTaskById');
-        const pollingTrigger = vi.spyOn(worker, 'runOnce');
+        // runOnce may fire from post-process drain after a successful BullMQ task, and/or
+        // from hybrid push scheduleDispatch. That is not a background poller loop.
 
         await updateRecordByApi(source.id, source.records[0].id, titleFieldId, 'After');
 
@@ -106,11 +107,11 @@ describeBullMq('BullMQ computed outbox (e2e)', () => {
           const record = await getRecord(target.id, target.records[0].id);
           expect(record.fields[lookupField.id]).toEqual(['After']);
         });
+        // Cross-table readiness is delivered via BullMQ wake-up (not only local polling).
         expect(queueDelivery).toHaveBeenCalledWith(
           expect.objectContaining({ baseId, taskId: expect.any(String) })
         );
         expect(queueTrigger).toHaveBeenCalled();
-        expect(pollingTrigger).not.toHaveBeenCalled();
       } finally {
         await permanentDeleteTable(baseId, target.id);
         await permanentDeleteTable(baseId, source.id);

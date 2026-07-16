@@ -444,13 +444,14 @@ export const useCreateCellValue2GridDisplay = (
           case FieldType.MultipleSelect:
           case FieldType.SingleSelect: {
             const data = cellValue ? (Array.isArray(cellValue) ? cellValue : [cellValue]) : [];
+            const choices = field.options?.choices ?? [];
             return {
               ...baseCellProps,
               type: CellType.Select,
               data,
               displayData: data,
-              choiceSorted: field.options.choices,
-              choiceMap: getDisplayChoiceMap(field.options.choices, resolvedTheme),
+              choiceSorted: choices,
+              choiceMap: getDisplayChoiceMap(choices, resolvedTheme),
               isMultiple,
               editorWidth: 220,
               isEditingOnClick: true,

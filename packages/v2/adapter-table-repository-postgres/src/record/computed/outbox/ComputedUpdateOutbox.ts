@@ -20,6 +20,7 @@ import type { Result } from 'neverthrow';
 import { v2RecordRepositoryPostgresTokens } from '../../di/tokens';
 import type { DynamicDB } from '../../query-builder';
 import type { DirtyRecordStats } from '../ComputedFieldUpdater';
+import { buildTryAdvisoryLockQuery } from '../ComputedUpdateLock';
 import { toErrorLogFields } from '../errorLog';
 import { buildComputedTaskNotPausedCondition } from '../pause/ComputedUpdatePauseRegistry';
 import { COMPUTED_UPDATE_PAUSE_SCOPE_TABLE } from '../pause/IComputedUpdatePauseRegistry';
@@ -771,9 +772,13 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
               .executeTakeFirst();
             if (!locator) return ok(null);
 
-            // Serialize BullMQ claims within the base, then evaluate the shared policy while
-            // the candidate row remains locked through its status update.
-            await acquireOutboxAdvisoryLock(trx, `v2:outbox:claim:base:${String(locator.base_id)}`);
+            // BullMQ locators are best-effort hints. Never queue sessions behind a busy base;
+            // the handler will re-arm this durable task after a fast miss.
+            const acquired = await tryAcquireOutboxAdvisoryLock(
+              trx,
+              `v2:outbox:claim:base:${String(locator.base_id)}`
+            );
+            if (!acquired) return ok(null);
             const candidate = await trx
               .selectFrom(`${OUTBOX_TABLE} as o`)
               .selectAll('o')
@@ -2388,6 +2393,14 @@ const acquireOutboxAdvisoryLock = async <DB>(
       db
     )
   );
+};
+
+const tryAcquireOutboxAdvisoryLock = async <DB>(
+  db: Kysely<DB> | Transaction<DB>,
+  key: string
+): Promise<boolean> => {
+  const result = await db.executeQuery(buildTryAdvisoryLockQuery(db, key));
+  return result.rows[0]?.locked === true;
 };
 
 const describeError = (error: unknown): string => {

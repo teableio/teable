@@ -662,7 +662,9 @@ export class PostgresTableRepository implements core.ITableRepository {
               if (shouldFilterDeletedChildren(effectiveState)) {
                 query = query.where('deleted_time', 'is', null);
               } else if (effectiveState === 'deleted') {
-                query = query.where('deleted_time', 'is not', null);
+                query = query.where(
+                  sql<boolean>`${sql.ref('field.deleted_time')} = ${sql.ref('table_meta.deleted_time')}`
+                );
               }
               return query;
             })()
@@ -681,7 +683,9 @@ export class PostgresTableRepository implements core.ITableRepository {
               if (shouldFilterDeletedChildren(effectiveState)) {
                 query = query.where('deleted_time', 'is', null);
               } else if (effectiveState === 'deleted') {
-                query = query.where('deleted_time', 'is not', null);
+                query = query.where(
+                  sql<boolean>`${sql.ref('view.deleted_time')} = ${sql.ref('table_meta.deleted_time')}`
+                );
               }
               return query;
             })()
@@ -776,7 +780,9 @@ export class PostgresTableRepository implements core.ITableRepository {
               if (shouldFilterDeletedChildren(effectiveState)) {
                 query = query.where('deleted_time', 'is', null);
               } else if (effectiveState === 'deleted') {
-                query = query.where('deleted_time', 'is not', null);
+                query = query.where(
+                  sql<boolean>`${sql.ref('field.deleted_time')} = ${sql.ref('table_meta.deleted_time')}`
+                );
               }
               return query;
             })()
@@ -795,7 +801,9 @@ export class PostgresTableRepository implements core.ITableRepository {
               if (shouldFilterDeletedChildren(effectiveState)) {
                 query = query.where('deleted_time', 'is', null);
               } else if (effectiveState === 'deleted') {
-                query = query.where('deleted_time', 'is not', null);
+                query = query.where(
+                  sql<boolean>`${sql.ref('view.deleted_time')} = ${sql.ref('table_meta.deleted_time')}`
+                );
               }
               return query;
             })()
@@ -1211,47 +1219,48 @@ export class PostgresTableRepository implements core.ITableRepository {
 
     try {
       const db = resolvePostgresDbOrTx(this.db, context, 'meta');
-      const tableUpdate = await db
-        .updateTable('table_meta')
-        .set({
-          deleted_time: null,
-          last_modified_time: now,
-          last_modified_by: actorId,
-        })
-        .where('id', '=', tableId)
-        .where('deleted_time', 'is not', null)
-        .executeTakeFirst();
-
-      const updatedRows = Number(tableUpdate.numUpdatedRows ?? 0);
-      if (updatedRows === 0) return err(domainError.notFound({ message: 'Not found' }));
-
-      await sql`
-        UPDATE "table_meta"
-        SET "provision_state" = ${'ready'}
-        WHERE "id" = ${tableId}
+      // Match the V1 trash contract: a table and the children deleted with it share one timestamp,
+      // which acts as the restore batch marker.
+      const restoreResult = await sql<{ updatedRows: number }>`
+        WITH deleted_table AS MATERIALIZED (
+          SELECT "deleted_time"
+          FROM "table_meta"
+          WHERE "id" = ${tableId} AND "deleted_time" IS NOT NULL
+          FOR UPDATE
+        ), restored_table AS (
+          UPDATE "table_meta"
+          SET
+            "deleted_time" = NULL,
+            "last_modified_time" = ${now},
+            "last_modified_by" = ${actorId},
+            "provision_state" = ${'ready'}
+          WHERE "id" = ${tableId}
+            AND "deleted_time" = (SELECT "deleted_time" FROM deleted_table)
+          RETURNING "id"
+        ), restored_fields AS (
+          UPDATE "field"
+          SET
+            "deleted_time" = NULL,
+            "last_modified_time" = ${now},
+            "last_modified_by" = ${actorId}
+          WHERE "table_id" = ${tableId}
+            AND "deleted_time" = (SELECT "deleted_time" FROM deleted_table)
+          RETURNING "id"
+        ), restored_views AS (
+          UPDATE "view"
+          SET
+            "deleted_time" = NULL,
+            "last_modified_time" = ${now},
+            "last_modified_by" = ${actorId}
+          WHERE "table_id" = ${tableId}
+            AND "deleted_time" = (SELECT "deleted_time" FROM deleted_table)
+          RETURNING "id"
+        )
+        SELECT count(*)::integer AS "updatedRows" FROM restored_table
       `.execute(db);
 
-      await db
-        .updateTable('field')
-        .set({
-          deleted_time: null,
-          last_modified_time: now,
-          last_modified_by: actorId,
-        })
-        .where('table_id', '=', tableId)
-        .where('deleted_time', 'is not', null)
-        .execute();
-
-      await db
-        .updateTable('view')
-        .set({
-          deleted_time: null,
-          last_modified_time: now,
-          last_modified_by: actorId,
-        })
-        .where('table_id', '=', tableId)
-        .where('deleted_time', 'is not', null)
-        .execute();
+      const updatedRows = Number(restoreResult.rows[0]?.updatedRows ?? 0);
+      if (updatedRows === 0) return err(domainError.notFound({ message: 'Not found' }));
 
       return ok(undefined);
     } catch (error) {
