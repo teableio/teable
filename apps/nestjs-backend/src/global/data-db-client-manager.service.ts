@@ -13,6 +13,11 @@ import { DataDbMigrationService } from '../features/space/data-db-migration.serv
 import { decryptDataDbUrl } from '../features/space/data-db-url-secret';
 import type { IClsStore } from '../types/cls';
 import {
+  buildComputedOutboxActivePauseExclusion,
+  buildComputedOutboxWakeupCandidatesQuery,
+  type ComputedOutboxWakeupCandidateQueryOptions,
+} from './computed-outbox-maintenance-query';
+import {
   DATA_DB_KNEX_CACHE_NAMESPACE,
   DATA_DB_PRISMA_CACHE_NAMESPACE,
   DataDbRuntimeCacheService,
@@ -41,6 +46,26 @@ export type IComputedOutboxMaintenanceSnapshot = {
   dead: number;
   oldestDueAgeMs: number;
 };
+
+export type IComputedOutboxMaintenanceAnomaly = {
+  kind: 'dead' | 'stale';
+  taskId: string;
+  baseId: string;
+  seedTableId: string;
+  attempts: number;
+  maxAttempts: number;
+  lastError: string | null;
+  occurredAt: Date;
+};
+
+export type IComputedOutboxMaintenanceAnomalySnapshot = {
+  total: number;
+  items: IComputedOutboxMaintenanceAnomaly[];
+};
+
+export type IComputedOutboxMaintenanceRecovery =
+  | { status: 'recovered'; baseId: string }
+  | { status: 'not_found' | 'conflict' };
 
 export type IComputedOutboxWakeupCandidate = {
   taskId: string;
@@ -215,7 +240,8 @@ export class DataDbClientManager {
   async *iterateComputedOutboxWakeupCandidates(
     target: IComputedOutboxMaintenanceTarget,
     processingLeaseMs: number,
-    batchSize = 500
+    batchSize = 500,
+    options: ComputedOutboxWakeupCandidateQueryOptions = {}
   ): AsyncGenerator<ReadonlyArray<IComputedOutboxWakeupCandidate>> {
     const client = createKnex({
       client: 'pg',
@@ -231,24 +257,27 @@ export class DataDbClientManager {
 
     try {
       while (true) {
-        let query = client('computed_update_outbox')
-          .select({
-            taskId: 'id',
-            baseId: 'base_id',
-            status: 'status',
-            nextRunAt: 'next_run_at',
-            lockedAt: 'locked_at',
-            attempts: 'attempts',
-            updatedAt: 'updated_at',
-          })
-          .whereIn('status', ['pending', 'processing'])
-          .orderBy('id', 'asc')
-          .limit(normalizedBatchSize);
-        if (afterId) query = query.where('id', '>', afterId);
-
-        const rows = (await query.timeout(COMPUTED_OUTBOX_MAINTENANCE_QUERY_TIMEOUT_MS, {
-          cancel: true,
-        })) as Array<{
+        const candidateQuery = buildComputedOutboxWakeupCandidatesQuery(
+          target,
+          processingLeaseMs,
+          normalizedBatchSize,
+          afterId,
+          options
+        );
+        const result = await client
+          .raw<{
+            rows: Array<{
+              taskId: string;
+              baseId: string;
+              status: 'pending' | 'processing';
+              nextRunAt: Date | string;
+              lockedAt: Date | string | null;
+              attempts: number;
+              updatedAt: Date | string;
+            }>;
+          }>(candidateQuery.sql, candidateQuery.bindings)
+          .timeout(COMPUTED_OUTBOX_MAINTENANCE_QUERY_TIMEOUT_MS, { cancel: true });
+        const rows = result.rows as Array<{
           taskId: string;
           baseId: string;
           status: 'pending' | 'processing';
@@ -337,23 +366,7 @@ export class DataDbClientManager {
       acquireConnectionTimeout: COMPUTED_OUTBOX_MAINTENANCE_CONNECT_TIMEOUT_MS,
       pool: { min: 0, max: 1 },
     });
-    const baseSpaceMapping = target.baseSpaceMapping ?? [];
-    const pauseSpaceJoin =
-      target.storage === 'default'
-        ? 'left join "base" as cb on cb."id" = o.base_id'
-        : `left join jsonb_to_recordset(?::jsonb) as cb(base_id text, space_id text)
-            on cb.base_id = o.base_id`;
-    const pauseSpaceParams =
-      target.storage === 'byodb'
-        ? [
-            JSON.stringify(
-              baseSpaceMapping.map(({ baseId, spaceId }) => ({
-                base_id: baseId,
-                space_id: spaceId,
-              }))
-            ),
-          ]
-        : [];
+    const pauseExclusion = buildComputedOutboxActivePauseExclusion(target);
     try {
       const result = await client
         .raw<{
@@ -361,23 +374,7 @@ export class DataDbClientManager {
         }>(
           `with outbox_state as (
             select o.*,
-              not exists (
-                select 1
-                from computed_update_pause_scope as cps
-                ${pauseSpaceJoin}
-                where (cps.resume_at is null or cps.resume_at > now())
-                  and (
-                    (cps.scope_type = 'base' and cps.scope_id = o.base_id)
-                    or (
-                      cps.scope_type = 'table'
-                      and (
-                        cps.scope_id = o.seed_table_id
-                        or cps.scope_id = any(coalesce(o.affected_table_ids, ARRAY[]::text[]))
-                      )
-                    )
-                    or (cps.scope_type = 'space' and cps.scope_id = cb.space_id)
-                  )
-              ) as actionable
+              ${pauseExclusion.sql} as actionable
             from computed_update_outbox as o
           )
         select
@@ -403,7 +400,7 @@ export class DataDbClientManager {
           ) as oldest_due_age_ms,
           (select count(*) from computed_update_dead_letter) as dead
         from outbox_state`,
-          [...pauseSpaceParams, processingLeaseMs, processingLeaseMs]
+          [...pauseExclusion.bindings, processingLeaseMs, processingLeaseMs]
         )
         .timeout(COMPUTED_OUTBOX_MAINTENANCE_QUERY_TIMEOUT_MS, { cancel: true });
       const row = result.rows[0] ?? {};
@@ -415,6 +412,240 @@ export class DataDbClientManager {
         dead: Number(row.dead ?? 0),
         oldestDueAgeMs: Number(row.oldest_due_age_ms ?? 0),
       };
+    } finally {
+      await client.destroy();
+    }
+  }
+
+  async listComputedOutboxMaintenanceAnomalies(
+    target: IComputedOutboxMaintenanceTarget,
+    processingLeaseMs: number,
+    limit: number
+  ): Promise<IComputedOutboxMaintenanceAnomalySnapshot> {
+    const client = createKnex({
+      client: 'pg',
+      connection: {
+        connectionString: target.url,
+        connectionTimeoutMillis: COMPUTED_OUTBOX_MAINTENANCE_CONNECT_TIMEOUT_MS,
+      },
+      acquireConnectionTimeout: COMPUTED_OUTBOX_MAINTENANCE_CONNECT_TIMEOUT_MS,
+      pool: { min: 0, max: 1 },
+    });
+    const normalizedLimit = Math.max(1, Math.min(100, Math.trunc(limit)));
+    const baseSpaceMapping = target.baseSpaceMapping ?? [];
+    const pauseSpaceJoin =
+      target.storage === 'default'
+        ? 'left join "base" as cb on cb."id" = o.base_id'
+        : `left join jsonb_to_recordset(?::jsonb) as cb(base_id text, space_id text)
+            on cb.base_id = o.base_id`;
+    const pauseSpaceParams =
+      target.storage === 'byodb'
+        ? [
+            JSON.stringify(
+              baseSpaceMapping.map(({ baseId, spaceId }) => ({
+                base_id: baseId,
+                space_id: spaceId,
+              }))
+            ),
+          ]
+        : [];
+
+    try {
+      const result = await client
+        .raw<{
+          rows: Array<{
+            kind: 'dead' | 'stale';
+            taskId: string;
+            baseId: string;
+            seedTableId: string;
+            attempts: number | string;
+            maxAttempts: number | string;
+            lastError: string | null;
+            occurredAt: Date | string;
+            total: number | string;
+          }>;
+        }>(
+          `with anomalies as (
+            select
+              'dead'::text as kind,
+              id as "taskId",
+              base_id as "baseId",
+              seed_table_id as "seedTableId",
+              attempts,
+              max_attempts as "maxAttempts",
+              left(last_error, 2000) as "lastError",
+              failed_at as "occurredAt"
+            from computed_update_dead_letter
+            union all
+            select
+              'stale'::text as kind,
+              o.id as "taskId",
+              o.base_id as "baseId",
+              o.seed_table_id as "seedTableId",
+              o.attempts,
+              o.max_attempts as "maxAttempts",
+              left(o.last_error, 2000) as "lastError",
+              coalesce(o.locked_at, o.updated_at) as "occurredAt"
+            from computed_update_outbox as o
+            ${pauseSpaceJoin}
+            where o.status = 'processing'
+              and (o.locked_at is null or o.locked_at <= now() - (? * interval '1 millisecond'))
+              and not exists (
+                select 1
+                from computed_update_pause_scope as cps
+                where (cps.resume_at is null or cps.resume_at > now())
+                  and (
+                    (cps.scope_type = 'base' and cps.scope_id = o.base_id)
+                    or (
+                      cps.scope_type = 'table'
+                      and (
+                        cps.scope_id = o.seed_table_id
+                        or cps.scope_id = any(coalesce(o.affected_table_ids, ARRAY[]::text[]))
+                      )
+                    )
+                    or (cps.scope_type = 'space' and cps.scope_id = cb.space_id)
+                  )
+              )
+          )
+          select *, count(*) over () as total
+          from anomalies
+          order by "occurredAt" desc, "taskId" asc
+          limit ?`,
+          [...pauseSpaceParams, processingLeaseMs, normalizedLimit]
+        )
+        .timeout(COMPUTED_OUTBOX_MAINTENANCE_QUERY_TIMEOUT_MS, { cancel: true });
+
+      return {
+        total: Number(result.rows[0]?.total ?? 0),
+        items: result.rows.map((row) => ({
+          kind: row.kind,
+          taskId: String(row.taskId),
+          baseId: String(row.baseId),
+          seedTableId: String(row.seedTableId),
+          attempts: Number(row.attempts),
+          maxAttempts: Number(row.maxAttempts),
+          lastError: row.lastError,
+          occurredAt: new Date(row.occurredAt),
+        })),
+      };
+    } finally {
+      await client.destroy();
+    }
+  }
+
+  async recoverComputedOutboxMaintenanceAnomaly(
+    target: IComputedOutboxMaintenanceTarget,
+    taskId: string,
+    kind: 'dead' | 'stale',
+    processingLeaseMs: number
+  ): Promise<IComputedOutboxMaintenanceRecovery> {
+    const client = createKnex({
+      client: 'pg',
+      connection: {
+        connectionString: target.url,
+        connectionTimeoutMillis: COMPUTED_OUTBOX_MAINTENANCE_CONNECT_TIMEOUT_MS,
+      },
+      acquireConnectionTimeout: COMPUTED_OUTBOX_MAINTENANCE_CONNECT_TIMEOUT_MS,
+      pool: { min: 0, max: 1 },
+    });
+
+    try {
+      if (kind === 'stale') {
+        const baseSpaceMapping = target.baseSpaceMapping ?? [];
+        const pauseSpaceJoin =
+          target.storage === 'default'
+            ? 'left join "base" as cb on cb."id" = o.base_id'
+            : `left join jsonb_to_recordset(?::jsonb) as cb(base_id text, space_id text)
+                on cb.base_id = o.base_id`;
+        const pauseSpaceParams =
+          target.storage === 'byodb'
+            ? [
+                JSON.stringify(
+                  baseSpaceMapping.map(({ baseId, spaceId }) => ({
+                    base_id: baseId,
+                    space_id: spaceId,
+                  }))
+                ),
+              ]
+            : [];
+        const result = await client
+          .raw<{ rows: Array<{ baseId: string }> }>(
+            `select o.base_id as "baseId"
+             from computed_update_outbox as o
+             ${pauseSpaceJoin}
+             where o.id = ?
+               and o.status = 'processing'
+               and (o.locked_at is null or o.locked_at <= now() - (? * interval '1 millisecond'))
+               and not exists (
+                 select 1
+                 from computed_update_pause_scope as cps
+                 where (cps.resume_at is null or cps.resume_at > now())
+                   and (
+                     (cps.scope_type = 'base' and cps.scope_id = o.base_id)
+                     or (
+                       cps.scope_type = 'table'
+                       and (
+                         cps.scope_id = o.seed_table_id
+                         or cps.scope_id = any(coalesce(o.affected_table_ids, ARRAY[]::text[]))
+                       )
+                     )
+                     or (cps.scope_type = 'space' and cps.scope_id = cb.space_id)
+                   )
+               )
+             limit 1`,
+            [...pauseSpaceParams, taskId, processingLeaseMs]
+          )
+          .timeout(COMPUTED_OUTBOX_MAINTENANCE_QUERY_TIMEOUT_MS, { cancel: true });
+        const row = result.rows[0];
+        return row ? { status: 'recovered', baseId: String(row.baseId) } : { status: 'not_found' };
+      }
+
+      return await client.transaction(async (trx) => {
+        const dead = await trx('computed_update_dead_letter')
+          .select('*')
+          .where({ id: taskId })
+          .forUpdate()
+          .first();
+        if (!dead) return { status: 'not_found' } as const;
+
+        const inserted = await trx('computed_update_outbox')
+          .insert({
+            id: dead.id,
+            base_id: dead.base_id,
+            seed_table_id: dead.seed_table_id,
+            seed_record_ids:
+              dead.seed_record_ids == null ? null : JSON.stringify(dead.seed_record_ids),
+            change_type: dead.change_type,
+            steps: dead.steps == null ? null : JSON.stringify(dead.steps),
+            edges: dead.edges == null ? null : JSON.stringify(dead.edges),
+            status: 'pending',
+            attempts: 0,
+            max_attempts: dead.max_attempts,
+            next_run_at: trx.fn.now(),
+            locked_at: null,
+            locked_by: null,
+            last_error: null,
+            estimated_complexity: dead.estimated_complexity,
+            plan_hash: dead.plan_hash,
+            dirty_stats: dead.dirty_stats == null ? null : JSON.stringify(dead.dirty_stats),
+            run_id: dead.run_id,
+            origin_run_ids: dead.origin_run_ids,
+            run_total_steps: dead.run_total_steps,
+            run_completed_steps_before: dead.run_completed_steps_before,
+            affected_table_ids: dead.affected_table_ids,
+            affected_field_ids: dead.affected_field_ids,
+            sync_max_level: dead.sync_max_level,
+            created_at: dead.created_at,
+            updated_at: trx.fn.now(),
+          })
+          .onConflict()
+          .ignore()
+          .returning('id');
+        if (inserted.length === 0) return { status: 'conflict' } as const;
+
+        await trx('computed_update_dead_letter').where({ id: taskId }).delete();
+        return { status: 'recovered', baseId: String(dead.base_id) } as const;
+      });
     } finally {
       await client.destroy();
     }

@@ -77,7 +77,8 @@ export class BullMqComputedOutboxWakeupPublisher implements IComputedOutboxWakeu
   }
 
   private addWakeup(wakeup: ComputedOutboxWakeup) {
-    const isRedrive = wakeup.wakeupId.startsWith('cuwr-');
+    const isDeterministic =
+      wakeup.wakeupId.startsWith('cuwr2-') || wakeup.wakeupId.startsWith('cuwd-');
     return this.queue.add(
       COMPUTED_OUTBOX_WAKEUP_JOB,
       {
@@ -94,9 +95,11 @@ export class BullMqComputedOutboxWakeupPublisher implements IComputedOutboxWakeu
         delay: Math.max(0, wakeup.availableAt.getTime() - Date.now()),
         attempts: 3,
         backoff: { type: 'exponential', delay: 1000 },
-        removeOnComplete: { count: COMPUTED_OUTBOX_COMPLETED_RETENTION_COUNT },
-        // A deterministic redrive job must be addable again after an execution failure.
-        removeOnFail: isRedrive ? true : { count: 5000 },
+        // Deterministic locators must be addable again after the task advances or resumes.
+        removeOnComplete: isDeterministic
+          ? true
+          : { count: COMPUTED_OUTBOX_COMPLETED_RETENTION_COUNT },
+        removeOnFail: isDeterministic ? true : { count: 5000 },
       }
     );
   }

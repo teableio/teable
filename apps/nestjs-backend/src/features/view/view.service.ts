@@ -344,10 +344,17 @@ export class ViewService implements IReadonlyAdapterService {
     return await prisma.view.create({ data });
   }
 
-  async getViewById(viewId: string): Promise<IViewVo> {
-    const viewRaw = await this.prismaService.txClient().view.findUniqueOrThrow({
-      where: { id: viewId, deletedTime: null },
+  async getViewById(tableId: string, viewId: string): Promise<IViewVo> {
+    const viewRaw = await this.prismaService.txClient().view.findFirst({
+      where: { id: viewId, tableId, deletedTime: null },
     });
+    if (!viewRaw) {
+      throw new CustomHttpException('View not found', HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.view.notFound',
+        },
+      });
+    }
     const activeFieldIds = await this.getActiveFieldIdSet(viewRaw.tableId);
     const sanitizedViewRaw = this.sanitizeViewRawColumnMeta(viewRaw, activeFieldIds);
 

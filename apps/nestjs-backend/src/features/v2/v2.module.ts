@@ -10,6 +10,7 @@ import { NotificationModule } from '../notification/notification.module';
 import { RecordModule } from '../record/record.module';
 import { UndoRedoStackService } from '../undo-redo/stack/undo-redo-stack.service';
 import { ViewModule } from '../view/view.module';
+import { ComputedOutboxAnomalyService } from './computed-outbox-trigger/computed-outbox-anomaly.service';
 import { ComputedOutboxMonitorService } from './computed-outbox-trigger/computed-outbox-monitor.service';
 import { ComputedOutboxRedriveService } from './computed-outbox-trigger/computed-outbox-redrive.service';
 import { ComputedOutboxWakeupProducerModule } from './computed-outbox-trigger/computed-outbox-wakeup-producer.module';
@@ -130,6 +131,7 @@ const toErrorMessage = (body: unknown): string => {
     UndoRedoStackService,
     ComputedOutboxRedriveService,
     ComputedOutboxMonitorService,
+    ComputedOutboxAnomalyService,
   ],
   exports: [
     V2ContainerService,
@@ -137,6 +139,7 @@ const toErrorMessage = (body: unknown): string => {
     V2UserRenamePropagationService,
     ComputedOutboxWakeupProducerModule,
     ComputedOutboxMonitorService,
+    ComputedOutboxAnomalyService,
   ],
 })
 export class V2Module {}

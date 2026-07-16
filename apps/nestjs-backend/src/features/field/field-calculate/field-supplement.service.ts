@@ -715,9 +715,16 @@ export class FieldSupplementService {
     cellValueType: CellValueType,
     isMultipleCellValue?: boolean
   ) {
-    const sourceFormatting = 'formatting' in sourceOptions ? sourceOptions.formatting : undefined;
+    const safeSourceOptions =
+      sourceOptions && typeof sourceOptions === 'object' && !Array.isArray(sourceOptions)
+        ? sourceOptions
+        : {};
+    const safeOptions =
+      options && typeof options === 'object' && !Array.isArray(options) ? options : {};
+    const sourceFormatting =
+      'formatting' in safeSourceOptions ? safeSourceOptions.formatting : undefined;
     const showAsSchema = getShowAsSchema(cellValueType, isMultipleCellValue);
-    let sourceShowAs = 'showAs' in sourceOptions ? sourceOptions.showAs : undefined;
+    let sourceShowAs = 'showAs' in safeSourceOptions ? safeSourceOptions.showAs : undefined;
 
     // if source showAs is invalid, we should ignore it
     if (sourceShowAs && !showAsSchema.safeParse(sourceShowAs).success) {
@@ -725,16 +732,16 @@ export class FieldSupplementService {
     }
 
     const formatting =
-      'formatting' in options
-        ? options.formatting
+      'formatting' in safeOptions
+        ? safeOptions.formatting
         : sourceFormatting
           ? sourceFormatting
           : getDefaultFormatting(cellValueType);
 
-    const showAs = 'showAs' in options ? options.showAs : sourceShowAs;
+    const showAs = 'showAs' in safeOptions ? safeOptions.showAs : sourceShowAs;
 
     return {
-      ...sourceOptions,
+      ...safeSourceOptions,
       formatting,
       showAs,
     };
@@ -769,9 +776,18 @@ export class FieldSupplementService {
 
     const cellValueType = lookupFieldRaw.cellValueType as CellValueType;
 
+    let sourceOptions: IFieldVo['options'] = {};
+    if (lookupFieldRaw.options) {
+      try {
+        sourceOptions = JSON.parse(lookupFieldRaw.options as string) as IFieldVo['options'];
+      } catch {
+        sourceOptions = {};
+      }
+    }
+
     const options = this.prepareFormattingShowAs(
       fieldRo.options,
-      JSON.parse(lookupFieldRaw.options as string),
+      sourceOptions,
       cellValueType,
       isMultipleCellValue
     );
@@ -796,35 +812,26 @@ export class FieldSupplementService {
     const newLookupOptions = fieldRo.lookupOptions as ILookupOptionsRo | undefined;
     const oldLookupOptions = oldFieldVo.lookupOptions as ILookupOptionsVo | undefined;
 
-    if (!newLookupOptions || !isLinkLookupOptions(newLookupOptions)) {
-      return this.prepareLookupField(tableId, fieldRo);
-    }
+    // Always re-prepare from the source field so select/multi-select `choices`
+    // (and other mirrored options) cannot be wiped when the client omits
+    // options / sends null while only updating lookupOptions (T6208).
+    const mergedLookupOptions =
+      newLookupOptions && oldLookupOptions
+        ? { ...oldLookupOptions, ...newLookupOptions }
+        : (newLookupOptions ?? oldLookupOptions);
 
-    if (!oldLookupOptions || !isLinkLookupOptions(oldLookupOptions)) {
-      return this.prepareLookupField(tableId, fieldRo);
-    }
-    if (
-      oldFieldVo.isLookup &&
-      newLookupOptions.lookupFieldId === oldLookupOptions.lookupFieldId &&
-      newLookupOptions.linkFieldId === oldLookupOptions.linkFieldId &&
-      newLookupOptions.foreignTableId === oldLookupOptions.foreignTableId
-    ) {
-      const showAs = (fieldRo.options as Record<string, unknown> | undefined)?.showAs;
-      return {
-        ...oldFieldVo,
-        ...fieldRo,
-        options: {
-          ...oldFieldVo.options,
-          showAs,
-        },
-        lookupOptions: {
-          ...oldLookupOptions,
-          ...newLookupOptions,
-        },
-      };
-    }
-
-    return this.prepareLookupField(tableId, fieldRo);
+    return this.prepareLookupField(tableId, {
+      ...oldFieldVo,
+      ...fieldRo,
+      isLookup: true,
+      type: fieldRo.type ?? oldFieldVo.type,
+      name: fieldRo.name ?? oldFieldVo.name,
+      // Prefer request options when present; otherwise fall back to previous
+      // options so showAs/formatting survive. prepareLookupField still mirrors
+      // source choices via prepareFormattingShowAs.
+      options: fieldRo.options ?? oldFieldVo.options,
+      lookupOptions: mergedLookupOptions as ILookupOptionsRo,
+    });
   }
 
   private async prepareFormulaField(fieldRo: IFieldRo, batchFieldVos?: IFieldVo[]) {
@@ -1724,8 +1731,23 @@ export class FieldSupplementService {
       return mergedField;
     }
 
-    if (fieldRo.isLookup && hasMajorChange) {
-      return this.prepareUpdateLookupField(tableId, fieldRo, oldFieldVo);
+    // Prefer old isLookup only when the payload still describes a lookup
+    // (lookupOptions present, or isLookup explicitly true). Do NOT inherit
+    // isLookup for plain type conversions like moveBase cross-space downgrades
+    // (lookup → singleLineText with no lookupOptions) — that must clear isLookup.
+    // Clients that only send lookupOptions (+ type) still need this path so
+    // select choices are re-mirrored from the source field (T6208).
+    const isLookupField =
+      fieldRo.isLookup === true ||
+      (fieldRo.isLookup !== false &&
+        Boolean(oldFieldVo.isLookup) &&
+        fieldRo.lookupOptions !== undefined);
+    if (isLookupField && hasMajorChange) {
+      return this.prepareUpdateLookupField(
+        tableId,
+        { ...fieldRo, isLookup: true },
+        oldFieldVo
+      );
     }
 
     switch (fieldRo.type) {

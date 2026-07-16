@@ -82,15 +82,17 @@ export const PluginList = () => {
                 >
                   <Settings className="size-4 shrink-0" />
                 </Button>
-                <Button
-                  className="h-5 p-0.5"
-                  variant={'ghost'}
-                  onClick={() => {
-                    deletePluginMutate(plugin.id);
-                  }}
-                >
-                  <Trash2 className="text-destructive" />
-                </Button>
+                {!plugin.isSystem && (
+                  <Button
+                    className="h-5 p-0.5"
+                    variant={'ghost'}
+                    onClick={() => {
+                      deletePluginMutate(plugin.id);
+                    }}
+                  >
+                    <Trash2 className="text-destructive" />
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>

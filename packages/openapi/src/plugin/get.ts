@@ -32,6 +32,7 @@ export const getPluginVoSchema = z.object({
   secret: z.string(),
   status: z.enum(PluginStatus),
   pluginUser: pluginUserSchema,
+  isSystem: z.boolean().optional(),
   createdTime: z.string(),
   lastModifiedTime: z.string(),
 });

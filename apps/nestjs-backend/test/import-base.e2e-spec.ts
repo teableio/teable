@@ -2,7 +2,12 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable sonarjs/cognitive-complexity */
 import type { INestApplication } from '@nestjs/common';
-import type { IAttachmentItem, IConditionalRollupFieldOptions, IFilter } from '@teable/core';
+import type {
+  IAttachmentItem,
+  IConditionalRollupFieldOptions,
+  IFilter,
+  IPluginViewOptions,
+} from '@teable/core';
 import { Colors, FieldKeyType, FieldType, Relationship, SortFunc, ViewType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
@@ -29,6 +34,7 @@ import {
   listPluginPanels,
   getPluginPanel,
   getPluginPanelPlugin,
+  getViewInstallPlugin,
   getViewList,
   createBaseNode,
   getBaseNodeTree,
@@ -41,7 +47,7 @@ import {
   updateSetting,
   SettingKey,
 } from '@teable/openapi';
-import { pick } from 'lodash';
+import { omit, pick } from 'lodash';
 import type { ClsStore } from 'nestjs-cls';
 import { ClsService } from 'nestjs-cls';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
@@ -415,8 +421,37 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       expect(table1Views.length).toBe(table.views.length);
       expect(table2Views.length).toBe(subTable.views.length);
 
-      expect(duplicatedTable1Views).toEqual(sourceTable1Views);
-      expect(duplicatedTable2Views).toEqual(sourceTable2Views);
+      // Import rewrites plugin view options to reference the newly created installs,
+      // so compare views without pluginInstallId and assert the rewritten ids below.
+      const withoutPluginInstallId = <T extends { options?: unknown }>(views: T[]) =>
+        views.map((view) => {
+          const options = view.options as IPluginViewOptions | undefined;
+          return options?.pluginInstallId
+            ? { ...view, options: omit(options, 'pluginInstallId') }
+            : view;
+        });
+
+      expect(withoutPluginInstallId(duplicatedTable1Views)).toEqual(
+        withoutPluginInstallId(sourceTable1Views)
+      );
+      expect(withoutPluginInstallId(duplicatedTable2Views)).toEqual(
+        withoutPluginInstallId(sourceTable2Views)
+      );
+
+      const sourcePluginInstallIds = [...table.views, ...subTable.views]
+        .map((view) => (view.options as IPluginViewOptions | undefined)?.pluginInstallId)
+        .filter(Boolean);
+      for (const importedTable of [table1, table2]) {
+        for (const view of importedTable.views!) {
+          if (view.type !== ViewType.Plugin) {
+            continue;
+          }
+          const optionsInstallId = (view.options as IPluginViewOptions).pluginInstallId;
+          const resolvedInstall = (await getViewInstallPlugin(importedTable.id, view.id)).data;
+          expect(optionsInstallId).toBe(resolvedInstall.pluginInstallId);
+          expect(sourcePluginInstallIds).not.toContain(optionsInstallId);
+        }
+      }
 
       // plugins
       // dashboard
@@ -1483,8 +1518,10 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
         pluginId: 'plgchart',
       });
 
-      await installViewPlugin(mainTable.id, { name: 'sheetView1', pluginId: 'plgsheetform' });
-      await installViewPlugin(mainTable.id, { name: 'sheetView2', pluginId: 'plgsheetform' });
+      const sourcePluginViews = await Promise.all([
+        installViewPlugin(mainTable.id, { name: 'sheetView1', pluginId: 'plgsheetform' }),
+        installViewPlugin(mainTable.id, { name: 'sheetView2', pluginId: 'plgsheetform' }),
+      ]).then((responses) => responses.map(({ data }) => data));
 
       const panel = (await createPluginPanel(mainTable.id, { name: 'panel1' })).data;
       await installPluginPanel(mainTable.id, panel.id, {
@@ -1509,6 +1546,19 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       expect(importedPluginViews.map((view) => view.name).sort()).toEqual(
         ['sheetView1', 'sheetView2'].sort()
       );
+      for (const sourceView of sourcePluginViews) {
+        const importedView = importedPluginViews.find(({ name }) => name === sourceView.name)!;
+        const importedInstall = (await getViewInstallPlugin(importedMainTable.id, importedView.id))
+          .data;
+        expect(importedInstall).toMatchObject({
+          baseId: importedBaseId,
+          pluginId: sourceView.pluginId,
+        });
+        expect(importedInstall.pluginInstallId).toBe(
+          (importedView.options as IPluginViewOptions).pluginInstallId
+        );
+        expect(importedInstall.pluginInstallId).not.toBe(sourceView.pluginInstallId);
+      }
 
       const importedDashboards = (await getDashboardList(importedBaseId)).data;
       expect(importedDashboards.map((item) => item.name)).toEqual(['dashboard']);
