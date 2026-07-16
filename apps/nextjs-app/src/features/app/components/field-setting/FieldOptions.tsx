@@ -29,6 +29,7 @@ import { useFields } from '@teable/sdk/hooks';
 import { useMemo } from 'react';
 import { ButtonOptions } from './options/ButtonOptions';
 import { CheckboxOptions } from './options/CheckboxOptions';
+import { ColorOptions } from './options/ColorOptions';
 import { ConditionalRollupOptions } from './options/ConditionalRollupOptions';
 import { CreatedTimeOptions } from './options/CreatedTimeOptions';
 import { DateOptions } from './options/DateOptions';
@@ -202,6 +203,8 @@ export const FieldOptions: React.FC<IFieldOptionsProps> = ({ field, onChange, on
           onSave={onSave}
         />
       );
+    case FieldType.Color:
+      return <ColorOptions />;
     default:
       return <></>;
   }

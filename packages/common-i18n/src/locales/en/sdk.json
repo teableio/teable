@@ -80,6 +80,9 @@
       "from": "From",
       "to": "To"
     },
+    "color": {
+      "button": "Pick a color"
+    },
     "formula": {
       "title": "Formula editor",
       "guideSyntax": "Syntax",
@@ -337,6 +340,7 @@
       "lookup": "Lookup",
       "conditionalLookup": "Conditional lookup",
       "button": "Button",
+      "color": "Color",
       "createdBy": "Created by",
       "lastModifiedBy": "Last modified by"
     },
@@ -361,6 +365,7 @@
       "lookup": "Display values from linked records.",
       "conditionalLookup": "Show linked values that match filters you define.",
       "button": "Run actions with a clickable button.",
+      "color": "Store a color value as a hex code.",
       "createdBy": "Show who created the record.",
       "lastModifiedBy": "Show who last modified the record."
     },

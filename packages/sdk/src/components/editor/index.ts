@@ -10,3 +10,4 @@ export * from './rating';
 export * from './link';
 export * from './user';
 export * from './button';
+export * from './color';

@@ -345,6 +345,7 @@
       "lookup": "Werte aus verknüpften Datensätzen anzeigen.",
       "conditionalLookup": "Zeigt verknüpfte Werte an, die Ihren Filtern entsprechen.",
       "button": "Aktionen über einen klickbaren Button ausführen.",
+      "color": "Speichert einen Farbwert als Hex-Code.",
       "createdBy": "Anzeigen, wer den Datensatz erstellt hat.",
       "lastModifiedBy": "Anzeigen, wer den Datensatz zuletzt bearbeitet hat."
     },

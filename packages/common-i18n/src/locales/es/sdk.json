@@ -345,6 +345,7 @@
       "lookup": "Muestra valores de registros vinculados.",
       "conditionalLookup": "Muestra valores vinculados que cumplen filtros definidos.",
       "button": "Ejecuta acciones con un botón clicable.",
+      "color": "Almacena un valor de color como código hexadecimal.",
       "createdBy": "Muestra quién creó el registro.",
       "lastModifiedBy": "Muestra quién modificó el registro por última vez."
     },

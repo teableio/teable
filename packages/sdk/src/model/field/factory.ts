@@ -6,6 +6,7 @@ import { AttachmentField } from './attachment.field';
 import { AutoNumberField } from './auto-number.field';
 import { ButtonField } from './button.field';
 import { CheckboxField } from './checkbox.field';
+import { ColorField } from './color.field';
 import { ConditionalRollupField } from './conditional-rollup.field';
 import { CreatedByField } from './created-by.field';
 import { CreatedTimeField } from './created-time.field';
@@ -231,6 +232,8 @@ export function createFieldInstance(field: IFieldVo, doc?: Doc<IFieldVo>) {
         return plainToInstance(LastModifiedByField, normalizedField);
       case FieldType.Button:
         return plainToInstance(ButtonField, normalizedField);
+      case FieldType.Color:
+        return plainToInstance(ColorField, normalizedField);
       default:
         assertNever(normalizedField.type);
     }

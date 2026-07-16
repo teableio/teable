@@ -37,6 +37,7 @@ import {
   LinkEditor,
   UserEditor,
   ButtonEditor,
+  ColorEditor,
 } from '../editor';
 import { isMarkdownShowAs } from '../editor/long-text/utils';
 import type { IEditorRef } from '../editor/type';
@@ -258,6 +259,18 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
           readonly={readonly}
           statusHook={buttonClickStatusHook}
           record={record}
+        />
+      );
+    }
+    case FieldType.Color: {
+      return (
+        <ColorEditor
+          ref={editorRef}
+          className={className}
+          value={cellValue as string}
+          onChange={onChange}
+          readonly={readonly}
+          isCellEditor
         />
       );
     }

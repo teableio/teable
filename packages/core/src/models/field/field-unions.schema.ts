@@ -10,6 +10,7 @@ import {
 } from './derivate/auto-number-option.schema';
 import { buttonFieldOptionsSchema } from './derivate/button-option.schema';
 import { checkboxFieldOptionsSchema } from './derivate/checkbox-option.schema';
+import { colorFieldOptionsSchema } from './derivate/color-option.schema';
 import { conditionalRollupFieldOptionsSchema } from './derivate/conditional-rollup-option.schema';
 import { createdByFieldOptionsSchema } from './derivate/created-by-option.schema';
 import {
@@ -57,6 +58,7 @@ export const unionFieldOptions = z.union([
   createdByFieldOptionsSchema.strict(),
   lastModifiedByFieldOptionsSchema.strict(),
   buttonFieldOptionsSchema.strict(),
+  colorFieldOptionsSchema.strict(),
 ]);
 
 // Common options schema for lookup fields

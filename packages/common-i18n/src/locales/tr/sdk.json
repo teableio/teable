@@ -345,6 +345,7 @@
       "lookup": "Bağlı kayıtlardan değerleri gösterir.",
       "conditionalLookup": "Tanımladığınız filtrelere uyan bağlı değerleri gösterir.",
       "button": "Tıklanabilir bir düğmeyle eylemler çalıştırır.",
+      "color": "Bir renk değerini hex kodu olarak saklar.",
       "createdBy": "Kaydı kimin oluşturduğunu gösterir.",
       "lastModifiedBy": "Kaydı en son kimin değiştirdiğini gösterir."
     },

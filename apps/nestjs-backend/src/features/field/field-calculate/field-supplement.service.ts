@@ -5,6 +5,7 @@ import {
   AutoNumberFieldCore,
   ButtonFieldCore,
   CellValueType,
+  ColorFieldCore,
   CheckboxFieldCore,
   ColorUtils,
   ConditionalRollupFieldCore,
@@ -1614,6 +1615,18 @@ export class FieldSupplementService {
     };
   }
 
+  private prepareColorField(field: IFieldRo) {
+    const { name, options } = field;
+
+    return {
+      ...field,
+      name: name ?? 'Color',
+      options: options ?? ColorFieldCore.defaultOptions(),
+      cellValueType: CellValueType.String,
+      dbFieldType: DbFieldType.Text,
+    };
+  }
+
   private async prepareCreateFieldInner(
     tableId: string,
     fieldRo: IFieldRo,
@@ -1664,6 +1677,8 @@ export class FieldSupplementService {
         return this.prepareCheckboxField(fieldRo);
       case FieldType.Button:
         return this.prepareButtonField(fieldRo);
+      case FieldType.Color:
+        return this.prepareColorField(fieldRo);
       default:
         throw new CustomHttpException(
           `Unsupported field type ${fieldRo.type}`,
@@ -1788,6 +1803,8 @@ export class FieldSupplementService {
         return this.prepareCheckboxField(fieldRo);
       case FieldType.Button:
         return this.prepareButtonField(fieldRo);
+      case FieldType.Color:
+        return this.prepareColorField(fieldRo);
       case FieldType.LastModifiedBy:
         return this.prepareLastModifiedByField(fieldRo);
       case FieldType.CreatedBy:

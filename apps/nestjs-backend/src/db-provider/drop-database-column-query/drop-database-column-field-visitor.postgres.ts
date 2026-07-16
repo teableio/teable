@@ -24,6 +24,7 @@ import type {
   FieldCore,
   ILinkFieldOptions,
   ButtonFieldCore,
+  ColorFieldCore,
 } from '@teable/core';
 import { DropColumnOperationType } from './drop-database-column-field-visitor.interface';
 import type { IDropDatabaseColumnContext } from './drop-database-column-field-visitor.interface';
@@ -212,6 +213,10 @@ export class DropPostgresDatabaseColumnFieldVisitor implements IFieldVisitor<str
   }
 
   visitButtonField(field: ButtonFieldCore): string[] {
+    return this.dropStandardColumn(field);
+  }
+
+  visitColorField(field: ColorFieldCore): string[] {
     return this.dropStandardColumn(field);
   }
 

@@ -168,6 +168,9 @@
       "checkbox": {
         "title": "Hecho"
       },
+      "color": {
+        "title": "Color"
+      },
       "button": {
         "title": "Botón",
         "label": "Texto del botón",
@@ -350,6 +353,7 @@
       "lastModifiedBy": "Vea qué usuario hizo la edición más reciente a algunos o todos los campos en un registro.",
       "autoNumber": "Genere automáticamente números incrementales únicos para cada registro.",
       "button": "Activar una acción personalizada.",
+      "color": "Almacena un valor de color como código hexadecimal.",
       "lookup": "Vea los valores desde un campo en un registro vinculado."
     },
     "fieldName": "Nombre de campo",

@@ -1,6 +1,7 @@
 import { booleanCellRenderer } from './booleanCellRenderer';
 import { buttonCellRenderer } from './buttonCellRenderer';
 import { chartCellRenderer } from './chartCellRenderer';
+import { colorCellRenderer } from './colorCellRenderer';
 import { imageCellRenderer } from './imageCellRenderer';
 import { CellType } from './interface';
 import { linkCellRenderer } from './linkCellRenderer';
@@ -36,6 +37,8 @@ export const getCellRenderer = (cellType: CellType) => {
       return userCellRenderer;
     case CellType.Button:
       return buttonCellRenderer;
+    case CellType.Color:
+      return colorCellRenderer;
     case CellType.Loading:
     default:
       return loadingCellRenderer;

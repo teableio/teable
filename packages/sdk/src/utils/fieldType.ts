@@ -10,6 +10,7 @@ export const FIELD_TYPE_ORDER = [
   FieldType.Date,
   FieldType.Rating,
   FieldType.Checkbox,
+  FieldType.Color,
   FieldType.Attachment,
   FieldType.Formula,
   FieldType.Link,

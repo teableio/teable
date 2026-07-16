@@ -1,11 +1,17 @@
 import type {
   AttachmentFieldCore,
   AutoNumberFieldCore,
+  ButtonFieldCore,
   CheckboxFieldCore,
+  ColorFieldCore,
+  ConditionalRollupFieldCore,
   CreatedByFieldCore,
   CreatedTimeFieldCore,
   DateFieldCore,
+  FieldCore,
   FormulaFieldCore,
+  IFieldVisitor,
+  ILinkFieldOptions,
   LastModifiedByFieldCore,
   LastModifiedTimeFieldCore,
   LinkFieldCore,
@@ -14,14 +20,9 @@ import type {
   NumberFieldCore,
   RatingFieldCore,
   RollupFieldCore,
-  ConditionalRollupFieldCore,
   SingleLineTextFieldCore,
   SingleSelectFieldCore,
   UserFieldCore,
-  IFieldVisitor,
-  FieldCore,
-  ILinkFieldOptions,
-  ButtonFieldCore,
 } from '@teable/core';
 import { DbFieldType, Relationship } from '@teable/core';
 import type { Knex } from 'knex';
@@ -374,6 +375,10 @@ export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<v
   }
 
   visitButtonField(field: ButtonFieldCore): void {
+    this.createStandardColumn(field);
+  }
+
+  visitColorField(field: ColorFieldCore): void {
     this.createStandardColumn(field);
   }
 

@@ -1,5 +1,6 @@
 import type {
   AttachmentField,
+  ColorField,
   DateField,
   LongTextField,
   MultipleSelectField,
@@ -23,7 +24,8 @@ export interface IWrapperEditorProps {
     | UserField
     | CreatedByField
     | LastModifiedByField
-    | NumberField;
+    | NumberField
+    | ColorField;
   record: Record;
   style?: React.CSSProperties;
   onCancel?: () => void;

@@ -20,6 +20,7 @@ export enum FieldType {
   LastModifiedBy = 'lastModifiedBy',
   AutoNumber = 'autoNumber',
   Button = 'button',
+  Color = 'color',
 }
 
 export enum DbFieldType {
@@ -72,6 +73,7 @@ export const PRIMARY_SUPPORTED_TYPES = new Set([
   FieldType.CreatedBy,
   FieldType.LastModifiedBy,
   FieldType.AutoNumber,
+  FieldType.Color,
 ]);
 
 export const IMPORT_SUPPORTED_TYPES = [

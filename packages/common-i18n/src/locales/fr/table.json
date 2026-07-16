@@ -166,6 +166,9 @@
       "checkbox": {
         "title": "Fait"
       },
+      "color": {
+        "title": "Couleur"
+      },
       "button": {
         "title": "Bouton",
         "label": "Texte du bouton",
@@ -343,6 +346,7 @@
       "lastModifiedBy": "Voir quel utilisateur a effectué la dernière modification de certains ou de tous les champs d'un enregistrement.",
       "autoNumber": "Générez automatiquement des numéros incrémentiels uniques pour chaque enregistrement.",
       "button": "Déclencher une action personnalisée.",
+      "color": "Stocke une valeur de couleur sous forme de code hexadécimal.",
       "lookup": "Voir les valeurs d'un champ dans un enregistrement lié."
     },
     "fieldName": "Nom du champ",

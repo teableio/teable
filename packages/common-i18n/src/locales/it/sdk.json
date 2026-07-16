@@ -345,6 +345,7 @@
       "lookup": "Mostra valori provenienti da record collegati.",
       "conditionalLookup": "Mostra valori collegati che soddisfano i filtri definiti.",
       "button": "Esegui azioni con un pulsante cliccabile.",
+      "color": "Memorizza un valore di colore come codice esadecimale.",
       "createdBy": "Mostra chi ha creato il record.",
       "lastModifiedBy": "Mostra chi lo ha modificato per ultimo."
     },
