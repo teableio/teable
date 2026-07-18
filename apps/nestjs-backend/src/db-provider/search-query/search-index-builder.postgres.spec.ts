@@ -45,4 +45,12 @@ describe('FieldFormatter', () => {
     );
     expect(builder.createSingleIndexSql('base_table.records', field)).not.toContain('gin_trgm_ops');
   });
+
+  it('installs pg_trgm in the shared public schema', () => {
+    const builder = new IndexBuilderPostgres();
+
+    expect(builder.getCreateIndexSql('base_table.records', [])).toEqual([
+      'CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;',
+    ]);
+  });
 });

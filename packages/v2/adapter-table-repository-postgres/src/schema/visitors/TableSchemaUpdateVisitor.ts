@@ -380,6 +380,7 @@ export class TableSchemaUpdateVisitor
         };
         const ctx = createSchemaRuleContext({
           db: this.params.db,
+          metaDb: this.params.db.withoutPlugins(),
           introspector: new PostgresSchemaIntrospector(this.params.db),
           schema: rulesContext.schema,
           tableName: rulesContext.tableName,
@@ -927,6 +928,7 @@ export class TableSchemaUpdateVisitor
       );
       const ctx = createSchemaRuleContext({
         db: visitor.params.db,
+        metaDb: visitor.params.db.withoutPlugins(),
         introspector: new PostgresSchemaIntrospector(visitor.params.db),
         schema: visitor.params.schema,
         tableName: visitor.params.tableName,

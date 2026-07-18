@@ -1,4 +1,11 @@
-import { domainError, FieldId, RecordId, RecordsBatchUpdated, TableId } from '@teable/v2-core';
+import {
+  BaseId,
+  domainError,
+  FieldId,
+  RecordId,
+  RecordsBatchUpdated,
+  TableId,
+} from '@teable/v2-core';
 import type {
   IEventBus,
   IHasher,
@@ -393,11 +400,7 @@ describe('ComputedUpdateWorker', () => {
       await worker.runOnce({ workerId: 'worker-1', limit: 10 });
 
       expect(markFailed).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: task.id,
-          attempts: task.maxAttempts - 1,
-          maxAttempts: task.maxAttempts,
-        }),
+        task,
         expect.stringContaining('statement timeout'),
         expect.anything(),
         expect.objectContaining({
@@ -405,6 +408,13 @@ describe('ComputedUpdateWorker', () => {
           failureReason: 'statement_timeout',
           retryable: false,
           directDeadLetter: true,
+          diagnostics: expect.objectContaining({
+            version: 1,
+            failure: expect.objectContaining({
+              directDeadLetter: true,
+              phase: 'execute_plan',
+            }),
+          }),
         })
       );
     });
@@ -451,11 +461,7 @@ describe('ComputedUpdateWorker', () => {
       await worker.runOnce({ workerId: 'worker-1', limit: 10 });
 
       expect(markFailed).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: task.id,
-          attempts: task.maxAttempts - 1,
-          maxAttempts: task.maxAttempts,
-        }),
+        task,
         expect.stringContaining('cannot cast type jsonb to timestamp with time zone'),
         expect.anything(),
         expect.objectContaining({
@@ -463,6 +469,13 @@ describe('ComputedUpdateWorker', () => {
           failureReason: 'postgres_sql_generation_error',
           retryable: false,
           directDeadLetter: true,
+          diagnostics: expect.objectContaining({
+            version: 1,
+            failure: expect.objectContaining({
+              directDeadLetter: true,
+              phase: 'execute_plan',
+            }),
+          }),
         })
       );
     });
@@ -517,11 +530,84 @@ describe('ComputedUpdateWorker', () => {
         {
           task,
           reason: 'Computed update lock unavailable: lock-key',
+          retryDelayMs: defaultComputedUpdateOutboxConfig.lockUnavailableRetryDelayMs,
         },
         expect.anything()
       );
       expect(markFailed).not.toHaveBeenCalled();
       expect(execute).not.toHaveBeenCalled();
+    });
+
+    it('releases seed tasks with the lock contention retry delay', async () => {
+      const task = createMockSeedTask();
+      const releaseForRetry = vi.fn().mockResolvedValue(ok(true));
+      const markFailed = vi.fn().mockResolvedValue(ok(true));
+      const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+      const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+      const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
+      const fieldId = FieldId.create(FIELD_ID)._unsafeUnwrap();
+      const table = {
+        baseId: () => baseId,
+        id: () => tableId,
+      } as unknown as Table;
+      const tableRepository: ITableRepository = {
+        ...createTableRepository(),
+        findOne: vi.fn().mockResolvedValue(ok(table)),
+      };
+      const planner = {
+        planStage: vi.fn().mockResolvedValue(
+          ok({
+            baseId,
+            seedTableId: tableId,
+            seedRecordIds: [recordId],
+            extraSeedRecords: [],
+            steps: [{ level: 0, tableId, fieldIds: [fieldId] }],
+            edges: [],
+            changeType: 'update',
+          })
+        ),
+      } as unknown as ComputedUpdatePlanner;
+      const updater = createUpdaterStub({
+        acquireLocks: vi.fn().mockResolvedValue(
+          err(
+            domainError.infrastructure({
+              code: COMPUTED_UPDATE_LOCK_UNAVAILABLE_CODE,
+              message: 'Computed update lock unavailable: seed-lock-key',
+            })
+          )
+        ),
+      });
+      const outbox = createOutboxStub({
+        claimBatch: vi.fn().mockResolvedValue(ok([task])),
+        releaseForRetry,
+        markFailed,
+      });
+      const worker = new ComputedUpdateWorker(
+        outbox,
+        defaultComputedUpdateOutboxConfig,
+        updater,
+        planner,
+        createUnitOfWork(),
+        createLogger(),
+        createHasher(),
+        tableRepository,
+        createBackfillService(),
+        createEventBus()
+      );
+
+      const result = await worker.runOnce({ workerId: 'worker-1', limit: 10 });
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toBe(0);
+      expect(releaseForRetry).toHaveBeenCalledWith(
+        {
+          task,
+          reason: 'Computed update lock unavailable: seed-lock-key',
+          retryDelayMs: defaultComputedUpdateOutboxConfig.lockUnavailableRetryDelayMs,
+        },
+        expect.anything()
+      );
+      expect(markFailed).not.toHaveBeenCalled();
     });
 
     it('releases seed tasks for retry when the seed table exists but is not active', async () => {

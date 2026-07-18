@@ -55,6 +55,9 @@ export interface IClsStore extends ClsStore {
     // origin describes how the request arrived, not who performed it.
     via?: 'ai' | 'automation' | 'app';
   };
+  // Affiliate token from the first-party teable_affiliate_via cookie (NOT origin.via
+  // above) — see apps/nextjs-app/src/lib/affiliate-cookie.ts for the contract.
+  affiliateVia?: string;
   tx: {
     client?: Prisma.TransactionClient;
     timeStr?: string;

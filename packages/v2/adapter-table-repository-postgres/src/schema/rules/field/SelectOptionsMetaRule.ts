@@ -130,7 +130,7 @@ export class SelectOptionsMetaRule implements ISchemaRule {
 
   async isValid(ctx: SchemaRuleContext): Promise<Result<SchemaRuleValidationResult, DomainError>> {
     const fieldId = this.field.id().toString();
-    const result = await ctx.db
+    const result = await ctx.metaDb
       .selectFrom('field')
       .select('options')
       .where('id', '=', fieldId)
@@ -198,7 +198,7 @@ export class SelectOptionsMetaRule implements ISchemaRule {
       const fieldId = rule.field.id().toString();
       const columnName = yield* resolveColumnName(ctx.field);
       const patch = JSON.stringify({ choices: rule.expectedChoices() });
-      const updateOptions = ctx.db
+      const updateOptions = ctx.metaDb
         .updateTable('field')
         .set({
           options: sql`(coalesce(options::jsonb, '{}'::jsonb) || ${patch}::jsonb)::text`,
@@ -211,7 +211,7 @@ export class SelectOptionsMetaRule implements ISchemaRule {
 
   down(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const fieldId = this.field.id().toString();
-    const updateOptions = ctx.db
+    const updateOptions = ctx.metaDb
       .updateTable('field')
       .set({
         options: sql`(coalesce(options::jsonb, '{}'::jsonb) - 'choices')::text`,

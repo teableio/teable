@@ -1,7 +1,18 @@
 export type ComputedOutboxWakeupCandidateQueryTarget = {
   storage: 'default' | 'byodb';
+  internalSchema?: string;
   baseSpaceMapping?: ReadonlyArray<{ baseId: string; spaceId: string }>;
 };
+
+const quoteIdentifier = (value: string) => `"${value.replaceAll('"', '""')}"`;
+
+export const qualifyComputedOutboxTable = (
+  target: ComputedOutboxWakeupCandidateQueryTarget,
+  table: string
+) =>
+  target.internalSchema
+    ? `${quoteIdentifier(target.internalSchema)}.${quoteIdentifier(table)}`
+    : quoteIdentifier(table);
 
 export type ComputedOutboxWakeupCandidateQueryOptions = {
   /** Limit reconciliation to work that can be claimed now. */
@@ -28,10 +39,11 @@ export const buildComputedOutboxActivePauseExclusion = (
           ),
         ]
       : [];
+  const pauseScopeTable = qualifyComputedOutboxTable(target, 'computed_update_pause_scope');
   return {
     sql: `not exists (
       select 1
-      from computed_update_pause_scope as cps
+      from ${pauseScopeTable} as cps
       ${pauseSpaceJoin}
       where (cps.resume_at is null or cps.resume_at > now())
         and (
@@ -58,6 +70,7 @@ export const buildComputedOutboxWakeupCandidatesQuery = (
   options: ComputedOutboxWakeupCandidateQueryOptions = {}
 ): { sql: string; bindings: unknown[] } => {
   const pauseExclusion = buildComputedOutboxActivePauseExclusion(target);
+  const outboxTable = qualifyComputedOutboxTable(target, 'computed_update_outbox');
   const bindings: unknown[] = [...pauseExclusion.bindings];
   const actionableClause = options.actionableOnly
     ? `and (
@@ -82,7 +95,7 @@ export const buildComputedOutboxWakeupCandidatesQuery = (
         o.locked_at as "lockedAt",
         o.attempts,
         o.updated_at as "updatedAt"
-      from computed_update_outbox as o
+      from ${outboxTable} as o
       where o.status in ('pending', 'processing')
         and ${pauseExclusion.sql}
         ${actionableClause}

@@ -1,5 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
+import http from 'http';
 import https from 'https';
 import { pipeline } from 'node:stream/promises';
 import { join, resolve } from 'path';
@@ -39,19 +40,28 @@ import type {
 export class S3Storage implements StorageAdapter {
   private s3Client: S3Client;
   private s3ClientPrivateNetwork: S3Client;
+  private httpAgent: http.Agent;
   private httpsAgent: https.Agent;
   private s3ClientPreSigner: S3Client;
   private logger = new Logger(S3Storage.name);
 
   constructor(@StorageConfig() readonly config: IStorageConfig) {
-    const { endpoint, region, accessKey, secretKey, maxSockets } = this.config.s3;
+    const { endpoint, region, accessKey, secretKey, maxSockets, internalEndpoint } = this.config.s3;
     this.checkConfig();
+    this.httpAgent = new http.Agent({
+      maxSockets,
+      keepAlive: true,
+    });
     this.httpsAgent = new https.Agent({
       maxSockets,
       keepAlive: true,
     });
+    // Provide agents for both protocols: the internal endpoint may be plain
+    // HTTP, and without an explicit httpAgent the SDK falls back to its own
+    // default agent, escaping the maxSockets limit and the logging below.
     const requestHandler = maxSockets
       ? new NodeHttpHandler({
+          httpAgent: this.httpAgent,
           httpsAgent: this.httpsAgent,
         })
       : undefined;
@@ -64,7 +74,19 @@ export class S3Storage implements StorageAdapter {
         secretAccessKey: secretKey,
       },
     });
-    this.s3ClientPrivateNetwork = this.s3Client;
+    // Reuse the same requestHandler (shared http/https agents) so the
+    // maxSockets limit governs both public and internal endpoint traffic.
+    this.s3ClientPrivateNetwork = internalEndpoint
+      ? new S3Client({
+          region,
+          endpoint: internalEndpoint,
+          requestHandler,
+          credentials: {
+            accessKeyId: accessKey,
+            secretAccessKey: secretKey,
+          },
+        })
+      : this.s3Client;
     fse.ensureDirSync(StorageAdapter.TEMPORARY_DIR);
 
     this.s3ClientPreSigner = this.config.privateBucketEndpoint
@@ -91,34 +113,36 @@ export class S3Storage implements StorageAdapter {
         string,
         { socketsCount: number; freeSocketsCount: number; requestsCount: number }
       > = {};
-      Object.entries(this.httpsAgent.sockets).forEach(([key, sockets]) => {
-        if (sockets) {
-          const currentCountRecord = countRecords[key] ?? {};
-          countRecords[key] = {
-            ...countRecords[key],
-            socketsCount: (currentCountRecord?.socketsCount ?? 0) + sockets.length,
-          };
-        }
-      });
-      Object.entries(this.httpsAgent.freeSockets).forEach(([key, sockets]) => {
-        if (sockets) {
-          const currentCountRecord = countRecords[key] ?? {};
-          countRecords[key] = {
-            ...countRecords[key],
-            freeSocketsCount: (currentCountRecord?.freeSocketsCount ?? 0) + sockets.length,
-          };
-        }
-      });
-      Object.entries(this.httpsAgent.requests).forEach(([key, requests]) => {
-        if (requests) {
-          const currentCountRecord = countRecords[key] ?? {};
-          countRecords[key] = {
-            ...countRecords[key],
-            requestsCount: (currentCountRecord?.requestsCount ?? 0) + requests.length,
-          };
-        }
-      });
-      this.logger.log(`httpsAgent connections: ${JSON.stringify(countRecords, null, 2)}`);
+      for (const agent of [this.httpAgent, this.httpsAgent]) {
+        Object.entries(agent.sockets).forEach(([key, sockets]) => {
+          if (sockets) {
+            const currentCountRecord = countRecords[key] ?? {};
+            countRecords[key] = {
+              ...countRecords[key],
+              socketsCount: (currentCountRecord?.socketsCount ?? 0) + sockets.length,
+            };
+          }
+        });
+        Object.entries(agent.freeSockets).forEach(([key, sockets]) => {
+          if (sockets) {
+            const currentCountRecord = countRecords[key] ?? {};
+            countRecords[key] = {
+              ...countRecords[key],
+              freeSocketsCount: (currentCountRecord?.freeSocketsCount ?? 0) + sockets.length,
+            };
+          }
+        });
+        Object.entries(agent.requests).forEach(([key, requests]) => {
+          if (requests) {
+            const currentCountRecord = countRecords[key] ?? {};
+            countRecords[key] = {
+              ...countRecords[key],
+              requestsCount: (currentCountRecord?.requestsCount ?? 0) + requests.length,
+            };
+          }
+        });
+      }
+      this.logger.log(`S3 agent connections: ${JSON.stringify(countRecords, null, 2)}`);
     }, logS3ConnectionsRate);
   }
 

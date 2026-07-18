@@ -81,7 +81,7 @@ function categoryUsd(
 }
 
 // Convert pricing (USD/token) to credits for billing
-// 100 credits = $1 USD
+// 100 credits = $1 USD. Rounded up to 2 decimals, so non-zero usage bills at least 0.01.
 export function pricingToCredits(
   pricing: IModelPricing | undefined,
   usage: {
@@ -120,7 +120,8 @@ export function pricingToCredits(
     totalUsd += (parseFloat(pricing.webSearch) * usage.webSearches) / 1000;
   }
 
-  return totalUsd / USD_PER_CREDIT;
+  // toFixed(6) strips float noise so ceil never bumps an exact hundredth up a cent.
+  return Math.ceil(Number(((totalUsd / USD_PER_CREDIT) * 100).toFixed(6))) / 100;
 }
 
 /**
@@ -174,16 +175,13 @@ export function pricingToCreditsFromUsage(
   const textOutputTokens =
     outputDetails.textTokens ?? Math.max(0, totalOutputTokens - reasoningTokens);
 
-  const credits = pricingToCredits(pricing, {
+  return pricingToCredits(pricing, {
     inputTokens: noCacheTokens,
     outputTokens: textOutputTokens,
     cacheReadTokens,
     cacheWriteTokens,
     reasoningTokens,
   });
-
-  // Round up to 2 decimal places
-  return Math.ceil(credits * 100) / 100;
 }
 
 /**

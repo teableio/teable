@@ -2,8 +2,10 @@ const ATTRIBUTION_STORAGE_KEY = 'teable_marketing_attribution';
 const ATTRIBUTION_STORAGE_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 const ATTRIBUTION_VALUE_MAX_LENGTH = 500;
 
+// Serves the GA/Ads conversion pipeline only. The affiliate `via` token is
+// deliberately NOT collected here — it rides the teable_affiliate_via cookie
+// (see affiliate-cookie.ts), its single source of truth.
 const MARKETING_ATTRIBUTION_PARAM_KEYS = [
-  'via',
   'ref',
   'utm_source',
   'utm_medium',

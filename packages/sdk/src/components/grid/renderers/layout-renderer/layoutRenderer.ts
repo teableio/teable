@@ -905,6 +905,7 @@ export const drawSearchResult = (
     imageManager,
     spriteManager,
     getCellContent,
+    selection,
   } = props;
 
   if (!result) return;
@@ -912,7 +913,7 @@ export const drawSearchResult = (
   const [searchColumnIndex, searchRowIndex] = result;
 
   const { scrollTop, scrollLeft } = scrollState;
-  const { fontSizeSM, fontFamily, searchTargetIndexBg } = theme;
+  const { fontSizeSM, fontFamily, searchTargetIndexBg, searchTargetIndexSelectedBg } = theme;
   const {
     freezeColumnCount,
     freezeRegionWidth,
@@ -932,6 +933,17 @@ export const drawSearchResult = (
 
   const width = coordInstance.getColumnWidth(searchColumnIndex);
   const height = coordInstance.getRowHeight(activeLinearRowIndex);
+  const { isCellSelected, isRowSelected } = checkIfRowOrCellSelected(
+    selection,
+    searchRowIndex,
+    searchColumnIndex
+  );
+  const isColumnSelected =
+    selection.isColumnSelection && selection.includes([searchColumnIndex, searchColumnIndex]);
+  const fill =
+    isCellSelected || isRowSelected || isColumnSelected
+      ? searchTargetIndexSelectedBg
+      : searchTargetIndexBg;
 
   ctx.save();
   ctx.beginPath();
@@ -950,7 +962,7 @@ export const drawSearchResult = (
     y: y + 1,
     width: width - 1,
     height: height - 1,
-    fill: searchTargetIndexBg,
+    fill,
     radius: 0.5,
   });
 
@@ -2022,13 +2034,27 @@ export const drawStatisticCell = (
     fontSize: fontSizeXS,
   };
 
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, y, width, height);
+  ctx.clip();
+
   if (isHovered || showAlways) {
     !text && drawSingleLineText(ctx, { ...textProp, text: defaultLabel || 'Summary' });
   }
 
   if (text) {
-    drawSingleLineText(ctx, { ...textProp, text });
+    ctx.fillStyle = rowHeaderTextColor;
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(
+      text,
+      x + width - cellHorizontalPadding,
+      y + (textOffsetY ?? 0.5) + fontSizeXS / 2
+    );
   }
+
+  ctx.restore();
 };
 
 export const drawColumnStatisticsRegion = (

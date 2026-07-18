@@ -23,7 +23,7 @@ import { ClsService } from 'nestjs-cls';
 import { PerformanceCacheService } from '../../performance-cache';
 import type { IClsStore } from '../../types/cls';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
-import { SettingModel } from '../model/setting';
+import { parseSettingContent, SettingModel } from '../model/setting';
 
 @Injectable()
 export class SettingService {
@@ -51,11 +51,13 @@ export class SettingService {
       if (!nameSet.has(setting.name)) {
         continue;
       }
-      const value = this.parseSettingContent(setting.content);
+
       if (setting.name === SettingKey.BRAND_LOGO) {
-        res[setting.name] = value ? getPublicFullStorageUrl(value as string) : value;
+        res[setting.name] = setting.content
+          ? getPublicFullStorageUrl(setting.content as string)
+          : setting.content;
       } else {
-        res[setting.name] = value;
+        res[setting.name] = setting.content;
       }
 
       if (setting.name === SettingKey.INSTANCE_ID) {
@@ -119,21 +121,9 @@ export class SettingService {
 
     const res: Record<string, unknown> = {};
     for (const setting of results) {
-      const value = this.parseSettingContent(setting.content);
-      res[setting.name] = value;
+      res[setting.name] = parseSettingContent(setting.content);
     }
 
     return res as ISettingVo;
-  }
-
-  private parseSettingContent(content: string | null): unknown {
-    if (!content) return null;
-
-    try {
-      return JSON.parse(content);
-    } catch (error) {
-      // If parsing fails, return the original content
-      return content;
-    }
   }
 }

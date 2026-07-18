@@ -4,10 +4,11 @@ import { useEnv } from '@/features/app/hooks/useEnv';
 
 interface ICopyInstanceProps {
   instanceId: string;
+  infraVersion?: string;
 }
 
 export const CopyInstance = (props: ICopyInstanceProps) => {
-  const { instanceId } = props;
+  const { instanceId, infraVersion } = props;
   const { t } = useTranslation('common');
   const { buildVersion, gitCommitSha, previewTag } = useEnv();
   const shortGitCommitSha = gitCommitSha?.slice(0, 12);
@@ -24,6 +25,11 @@ export const CopyInstance = (props: ICopyInstanceProps) => {
           <p>
             {t('settings.setting.version')}: {displayBuildVersion}
           </p>
+          {infraVersion && (
+            <p className="mt-1">
+              {t('settings.setting.infraVersion')}: {infraVersion}
+            </p>
+          )}
           {previewTag && (
             <p className="mt-1">
               {`preview: ${previewTag}`}

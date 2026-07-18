@@ -16,6 +16,7 @@ import { FormulaExpression } from '../domain/table/fields/types/FormulaExpressio
 import { FormulaField } from '../domain/table/fields/types/FormulaField';
 import type { LinkField } from '../domain/table/fields/types/LinkField';
 import { LinkFieldConfig } from '../domain/table/fields/types/LinkFieldConfig';
+import { LookupField } from '../domain/table/fields/types/LookupField';
 import { LookupOptions } from '../domain/table/fields/types/LookupOptions';
 import { MultipleSelectField } from '../domain/table/fields/types/MultipleSelectField';
 import { RollupExpression } from '../domain/table/fields/types/RollupExpression';
@@ -23,6 +24,7 @@ import { SelectAutoNewOptions } from '../domain/table/fields/types/SelectAutoNew
 import { SelectDefaultValue } from '../domain/table/fields/types/SelectDefaultValue';
 import { SelectOption } from '../domain/table/fields/types/SelectOption';
 import { SingleLineTextField } from '../domain/table/fields/types/SingleLineTextField';
+import { SingleLineTextShowAs } from '../domain/table/fields/types/SingleLineTextShowAs';
 import { SingleSelectField } from '../domain/table/fields/types/SingleSelectField';
 import { FieldValueTypeVisitor } from '../domain/table/fields/visitors/FieldValueTypeVisitor';
 import { UpdateLinkConfigSpec } from '../domain/table/specs/field-updates/UpdateLinkConfigSpec';
@@ -1060,7 +1062,7 @@ describe('TableFieldUpdateSpecs', () => {
         SingleLineTextField.create({
           id: createFieldId('g'),
           name: FieldName.create('Inner')._unsafeUnwrap(),
-          showAs: { type: 'email' },
+          showAs: SingleLineTextShowAs.create({ type: 'email' })._unsafeUnwrap(),
         })._unsafeUnwrap()
       )
       .withLookupOptions(lookupOptions)
@@ -1098,6 +1100,58 @@ describe('TableFieldUpdateSpecs', () => {
     expect(specsResult.value[0]).toBeInstanceOf(UpdateLookupOptionsSpec);
     const lookupSpec = specsResult.value[0] as UpdateLookupOptionsSpec;
     expect(lookupSpec.previousOptions().equals(lookupSpec.nextOptions())).toBe(true);
+  });
+
+  it('does not rebuild a nested select lookup when a full update only renames it', () => {
+    const sourceTableId = createTableId('n');
+    const middleTableId = createTableId('o');
+    const sourceFieldId = createFieldId('p');
+    const middleLinkId = createFieldId('q');
+    const middleLookupId = createFieldId('r');
+    const hostLinkId = createFieldId('s');
+    const outerLookupId = createFieldId('t');
+    const sourceField = SingleSelectField.create({
+      id: sourceFieldId,
+      name: FieldName.create('Status')._unsafeUnwrap(),
+      options: [createSelectOption('cho_active', 'Active', 'green')],
+    })._unsafeUnwrap();
+    const middleLookupOptions = LookupOptions.create({
+      linkFieldId: middleLinkId.toString(),
+      foreignTableId: sourceTableId.toString(),
+      lookupFieldId: sourceFieldId.toString(),
+    })._unsafeUnwrap();
+    const middleLookup = LookupField.create({
+      id: middleLookupId,
+      name: FieldName.create('Middle Status')._unsafeUnwrap(),
+      innerField: sourceField,
+      lookupOptions: middleLookupOptions,
+      isMultipleCellValue: false,
+    })._unsafeUnwrap();
+    const outerLookupOptions = LookupOptions.create({
+      linkFieldId: hostLinkId.toString(),
+      foreignTableId: middleTableId.toString(),
+      lookupFieldId: middleLookupId.toString(),
+    })._unsafeUnwrap();
+    const currentField = LookupField.create({
+      id: outerLookupId,
+      name: FieldName.create('Nested Status')._unsafeUnwrap(),
+      innerField: middleLookup,
+      lookupOptions: outerLookupOptions,
+      isMultipleCellValue: false,
+    })._unsafeUnwrap();
+
+    const specsResult = buildUpdateFieldSpecs(currentField, {
+      type: 'lookup',
+      name: 'Renamed Nested Status',
+      options: outerLookupOptions.toDto(),
+      updateMode: 'full',
+    });
+
+    expect(specsResult.isOk()).toBe(true);
+    if (specsResult.isErr()) return;
+
+    expect(specsResult.value).toHaveLength(1);
+    expect(specsResult.value[0]).toBeInstanceOf(TableUpdateFieldNameSpec);
   });
 
   it('preserves inner formula result type when conditional lookup updates condition only', () => {

@@ -150,4 +150,38 @@ describe('ensureUndoCaptureInfrastructure', () => {
       await db.destroy();
     }
   });
+
+  it('checks restored triggers through the scoped transaction connection', async () => {
+    const root = createRecordingDb();
+    const scoped = createRecordingDb((compiledQuery) => {
+      if (compiledQuery.sql.includes('FROM pg_trigger AS t')) {
+        return [{ exists: false }];
+      }
+      return [];
+    });
+
+    try {
+      const result = await ensureUndoCaptureInfrastructure(
+        root.db,
+        scoped.db,
+        toQualifiedIdentifierLiteral('bseMigrated', 'tblRecords'),
+        'bseMigrated.tblRecords'
+      );
+
+      expect(result).toBe('ready');
+      expect(
+        scoped.driver.queries.some((query) => query.sql.includes('FROM pg_trigger AS t'))
+      ).toBe(true);
+      expect(
+        scoped.driver.queries.some((query) =>
+          query.sql.includes('CREATE OR REPLACE TRIGGER "__teable_undo_capture"')
+        )
+      ).toBe(true);
+      expect(root.driver.queries.some((query) => query.sql.includes('FROM pg_trigger AS t'))).toBe(
+        false
+      );
+    } finally {
+      await Promise.all([root.db.destroy(), scoped.db.destroy()]);
+    }
+  });
 });

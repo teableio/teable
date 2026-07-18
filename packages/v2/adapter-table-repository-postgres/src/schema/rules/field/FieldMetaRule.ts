@@ -56,7 +56,7 @@ export class FieldMetaRule implements ISchemaRule {
     const expectedMeta = this.meta;
 
     // Query the field table to get current meta value
-    const result = await ctx.db
+    const result = await ctx.metaDb
       .selectFrom('field')
       .select('meta')
       .where('id', '=', fieldId)
@@ -138,7 +138,7 @@ export class FieldMetaRule implements ISchemaRule {
 
     const fieldId = this.field.id().toString();
     const patch = JSON.stringify(this.meta);
-    const updateMeta = ctx.db
+    const updateMeta = ctx.metaDb
       .updateTable('field')
       .set({
         meta: sql`(coalesce(meta::jsonb, '{}'::jsonb) || ${patch}::jsonb)::text`,
@@ -152,7 +152,7 @@ export class FieldMetaRule implements ISchemaRule {
     const fieldId = this.field.id().toString();
     const keys = Object.keys(this.meta);
     const quotedKeys = keys.map((key) => `'${key.replaceAll("'", "''")}'`).join(', ');
-    const updateMeta = ctx.db
+    const updateMeta = ctx.metaDb
       .updateTable('field')
       .set({
         meta:

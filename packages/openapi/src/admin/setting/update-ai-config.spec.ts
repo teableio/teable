@@ -119,9 +119,9 @@ describe('updateAiConfigRoSchema', () => {
 describe('updateAppConfigRoSchema', () => {
   it('accepts a section-scoped app config patch', () => {
     const result = updateAppConfigRoSchema.safeParse({
-      section: 'apiProxy',
+      section: 'customDomain',
       patch: {
-        vercelBaseUrl: 'https://proxy.example.com',
+        customDomain: 'app.example.com',
       },
     });
 

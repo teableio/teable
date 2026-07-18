@@ -122,6 +122,9 @@ export const GoogleAnalytics = ({
       return;
     }
 
+    // localStorage attribution (utm_* / gclid / ga_client_id) exists solely
+    // for the GA/Ads conversion pipeline, so it syncs behind the same gate;
+    // affiliate `via` rides the teable_affiliate_via cookie and never depends on this.
     syncMarketingAttributionFromUrl();
 
     const linker = { domains: GOOGLE_LINKER_DOMAINS };

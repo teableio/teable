@@ -36,11 +36,12 @@ const createPgDb = async <DB>(config: IV2PostgresDbConfig): Promise<Kysely<DB>> 
   const pool = new Pool(poolOptions);
   pool.on('error', handlePgPoolError);
 
-  return new Kysely<DB>({
+  const db = new Kysely<DB>({
     dialect: new PostgresDialect({
       pool,
     }),
   });
+  return config.pg.schema ? db.withSchema(config.pg.schema) : db;
 };
 
 export const createV2PostgresDb = async <DB = unknown>(

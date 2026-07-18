@@ -1,13 +1,12 @@
-import type { IExecutionContext, IUnitOfWorkTransaction } from '@teable/v2-core';
-import { ok } from 'neverthrow';
-import type { Transaction } from 'kysely';
-import { describe, expect, it, vi } from 'vitest';
-
 import {
   getPostgresTransaction,
   PostgresUnitOfWork,
   PostgresUnitOfWorkTransaction,
 } from '@teable/v2-adapter-db-postgres-shared';
+import type { IExecutionContext, IUnitOfWorkTransaction } from '@teable/v2-core';
+import type { Transaction } from 'kysely';
+import { ok } from 'neverthrow';
+import { describe, expect, it, vi } from 'vitest';
 
 const createContext = (transaction?: IUnitOfWorkTransaction): IExecutionContext => ({
   actorId: 'usrTest' as never,
@@ -119,5 +118,36 @@ describe('shared Postgres unit of work helpers', () => {
     expect(observedContext?.transaction).toBe(transaction);
     expect(observedContext?.transactions?.meta).toBe(transaction);
     expect(getPostgresTransaction(observedContext, 'meta')).toBe(db);
+  });
+
+  it('does not reuse a sibling transaction when the same database uses different schemas', async () => {
+    const siblingTransaction = {
+      kind: 'unitOfWorkTransaction',
+      scope: 'data',
+      db: { marker: 'data' },
+    } as unknown as IUnitOfWorkTransaction;
+    const execute = vi.fn().mockRejectedValue(new Error('stop after opening transaction'));
+    const metaDb = {
+      transaction: vi.fn(() => ({ execute })),
+    };
+    const unitOfWork = new PostgresUnitOfWork(
+      metaDb as never,
+      {} as never,
+      { pg: { connectionString: 'postgresql://local/teable' } },
+      { pg: { connectionString: 'postgresql://local/teable', schema: 'teable_data' } }
+    );
+
+    const result = await unitOfWork.withTransaction(
+      {
+        ...createContext(siblingTransaction),
+        transactions: { data: siblingTransaction },
+      },
+      async () => ok('done'),
+      { scope: 'meta' }
+    );
+
+    expect(result.isErr()).toBe(true);
+    expect(metaDb.transaction).toHaveBeenCalledOnce();
+    expect(execute).toHaveBeenCalledOnce();
   });
 });

@@ -131,7 +131,24 @@ export function ModelCard({
           )}
         </div>
 
-        <code className="text-xs text-muted-foreground">{model.id}</code>
+        <div className="flex flex-wrap items-center gap-1">
+          <code className="text-xs text-muted-foreground">{model.id}</code>
+          {model.capabilities &&
+            Object.entries(model.capabilities)
+              .filter(([, v]) => v)
+              .map(([key]) => (
+                <Badge
+                  key={key}
+                  variant="outline"
+                  className={cn(
+                    'h-4 bg-muted px-1 text-[10px] font-normal',
+                    model.enabled ? 'text-foreground' : 'text-muted-foreground'
+                  )}
+                >
+                  {CAPABILITY_LABELS[key as keyof IModelAbility] || key}
+                </Badge>
+              ))}
+        </div>
 
         <div className="flex gap-2">
           <Input
@@ -176,25 +193,6 @@ export function ModelCard({
                 })
               }
             />
-          </div>
-        )}
-
-        {model.capabilities && (
-          <div className="flex gap-1">
-            {Object.entries(model.capabilities)
-              .filter(([, v]) => v)
-              .map(([key]) => (
-                <Badge
-                  key={key}
-                  variant="outline"
-                  className={cn(
-                    'bg-muted text-[11px] font-normal',
-                    model.enabled ? 'text-foreground' : 'text-muted-foreground'
-                  )}
-                >
-                  {CAPABILITY_LABELS[key as keyof IModelAbility] || key}
-                </Badge>
-              ))}
           </div>
         )}
       </div>

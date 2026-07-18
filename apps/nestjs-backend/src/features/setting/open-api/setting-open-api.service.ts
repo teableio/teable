@@ -274,7 +274,10 @@ export class SettingOpenApiService {
             DEFAULT_REALTIME_TRANSCRIPTION_MAX_SESSION_DURATION_SEC,
         },
       },
-      appGenerationEnabled: Boolean(appConfig?.vercelToken),
+      appGenerationEnabled:
+        Boolean(appConfig?.vercelToken) ||
+        (appConfig?.deployProvider === 'docker-runtime' &&
+          Boolean(process.env.TEABLE_INFRA_API_URL && process.env.TEABLE_INFRA_API_KEY)),
       availableIntegrationProviders,
     };
   }

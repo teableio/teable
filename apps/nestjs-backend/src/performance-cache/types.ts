@@ -31,8 +31,8 @@ export interface IPerformanceCacheStore {
   // template cache
   [key: `template:${string}`]: unknown;
 
-  // instance setting cache, format: instance:setting
-  'instance:setting': unknown;
+  // instance setting cache (v2: stores pre-parsed content)
+  'instance:setting:v2': unknown;
 
   // base node list cache, format: base-node-list:base_id
   [key: `base-node-list:${string}`]: unknown;

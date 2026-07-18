@@ -42,8 +42,7 @@ import {
   type FieldSchemaRulesContext,
   type SchemaRuleContext,
 } from '../rules';
-import type { ISchemaRule } from '../rules/core';
-import type { TableSchemaStatementBuilder } from '../rules/core';
+import type { ISchemaRule, TableSchemaStatementBuilder } from '../rules/core';
 import type { TableIdentifier } from '../rules/helpers';
 import { resolveColumnName, resolveColumnType } from './PostgresTableSchemaFieldColumn';
 
@@ -184,6 +183,7 @@ export class PostgresTableSchemaFieldCreateVisitor extends AbstractFieldVisitor<
   private createRuleContext(field: Field): SchemaRuleContext {
     return createSchemaRuleContext({
       db: this.db,
+      metaDb: this.db.withoutPlugins(),
       introspector: new PostgresSchemaIntrospector(this.db),
       schema: this.rulesContext.schema,
       tableName: this.rulesContext.tableName,

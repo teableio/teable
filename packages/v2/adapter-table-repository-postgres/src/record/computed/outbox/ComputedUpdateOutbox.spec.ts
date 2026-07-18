@@ -274,14 +274,15 @@ describe('ComputedUpdateOutbox', () => {
     });
 
     it('logs dead letter classification fields for alerting', async () => {
+      const values = vi.fn().mockReturnValue({
+        execute: vi.fn().mockResolvedValue([]),
+      });
       const mockDb = {
         transaction: () => ({
           execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
         }),
         insertInto: vi.fn().mockReturnValue({
-          values: vi.fn().mockReturnValue({
-            execute: vi.fn().mockResolvedValue([]),
-          }),
+          values,
         }),
         deleteFrom: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
@@ -293,7 +294,17 @@ describe('ComputedUpdateOutbox', () => {
       const logger = createLogger();
       const outbox = new ComputedUpdateOutbox(mockDb, defaultComputedUpdateOutboxConfig, logger);
 
-      const task = createMockTask({ attempts: 7, maxAttempts: 8 });
+      const task = createMockTask({ attempts: 0, maxAttempts: 8 });
+      const diagnostics = {
+        version: 1 as const,
+        failure: {
+          kind: 'computed_code_bug',
+          reason: 'postgres_sql_generation_error',
+          retryable: false,
+          directDeadLetter: true,
+          phase: 'execute_plan',
+        },
+      };
       await outbox.markFailed(
         task,
         'cannot cast type jsonb to timestamp with time zone',
@@ -303,7 +314,16 @@ describe('ComputedUpdateOutbox', () => {
           failureReason: 'postgres_sql_generation_error',
           retryable: false,
           directDeadLetter: true,
+          diagnostics,
         }
+      );
+
+      expect(values).toHaveBeenCalledWith(
+        expect.objectContaining({
+          attempts: 1,
+          max_attempts: 8,
+          trace_data: JSON.stringify(diagnostics),
+        })
       );
 
       expect(logger.warn).toHaveBeenCalledWith(
@@ -317,6 +337,8 @@ describe('ComputedUpdateOutbox', () => {
           failureReason: 'postgres_sql_generation_error',
           retryable: false,
           directDeadLetter: true,
+          attempts: 1,
+          maxAttempts: 8,
         })
       );
     });

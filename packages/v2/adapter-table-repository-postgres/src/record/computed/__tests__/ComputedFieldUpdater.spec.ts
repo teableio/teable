@@ -836,7 +836,7 @@ describe('ComputedFieldUpdater', () => {
     expect(
       driver.queries.some(
         (query) =>
-          query.sql.includes('insert into "tmp_computed_dirty"') &&
+          query.sql.includes('insert into "pg_temp"."tmp_computed_dirty"') &&
           query.sql.includes(`from "${BASE_ID}"."${TABLE_ID}"`)
       )
     ).toBe(true);
@@ -894,11 +894,11 @@ describe('ComputedFieldUpdater', () => {
       [
         {
           "parameters": [],
-          "sql": "drop table if exists "tmp_computed_dirty"",
+          "sql": "drop table if exists "pg_temp"."tmp_computed_dirty"",
         },
         {
           "parameters": [],
-          "sql": "create temporary table "tmp_computed_dirty" (
+          "sql": "create temporary table "pg_temp"."tmp_computed_dirty" (
               table_id text not null,
               record_id text not null,
               primary key (table_id, record_id)
@@ -906,11 +906,11 @@ describe('ComputedFieldUpdater', () => {
         },
         {
           "parameters": [],
-          "sql": "drop table if exists "tmp_computed_before_image"",
+          "sql": "drop table if exists "pg_temp"."tmp_computed_before_image"",
         },
         {
           "parameters": [],
-          "sql": "create temporary table "tmp_computed_before_image" (
+          "sql": "create temporary table "pg_temp"."tmp_computed_before_image" (
               table_id text not null,
               record_id text not null,
               field_values jsonb not null,
@@ -922,23 +922,23 @@ describe('ComputedFieldUpdater', () => {
             "tblcccccccccccccccc",
             "rechhhhhhhhhhhhhhhh",
           ],
-          "sql": "insert into "tmp_computed_dirty" ("table_id", "record_id") values ($1, $2) on conflict ("table_id", "record_id") do nothing",
+          "sql": "insert into "pg_temp"."tmp_computed_dirty" ("table_id", "record_id") values ($1, $2) on conflict ("table_id", "record_id") do nothing",
         },
         {
           "parameters": [
             "tblcccccccccccccccc",
           ],
-          "sql": "insert into "tmp_computed_dirty" ("table_id", "record_id") select distinct 'tblbbbbbbbbbbbbbbbb' as "table_id", "j"."__fk_fldffffffffffffffff" as "record_id" from "bseaaaaaaaaaaaaaaaa"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff" as "j" inner join "tmp_computed_dirty" as "d" on "d"."record_id" = "j"."__fk_fldeeeeeeeeeeeeeeee" where "d"."table_id" = $1 on conflict ("table_id", "record_id") do nothing",
+          "sql": "insert into "pg_temp"."tmp_computed_dirty" ("table_id", "record_id") select distinct 'tblbbbbbbbbbbbbbbbb' as "table_id", "j"."__fk_fldffffffffffffffff" as "record_id" from "bseaaaaaaaaaaaaaaaa"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff" as "j" inner join "pg_temp"."tmp_computed_dirty" as "d" on "d"."record_id" = "j"."__fk_fldeeeeeeeeeeeeeeee" where "d"."table_id" = $1 on conflict ("table_id", "record_id") do nothing",
         },
         {
           "parameters": [],
-          "sql": "select "table_id" as "tableId", count(*) as "recordCount" from "tmp_computed_dirty" group by "table_id"",
+          "sql": "select "table_id" as "tableId", count(*) as "recordCount" from "pg_temp"."tmp_computed_dirty" group by "table_id"",
         },
         {
           "parameters": [
             "tblbbbbbbbbbbbbbbbb",
           ],
-          "sql": "select count(*) as "count" from "tmp_computed_dirty" where "table_id" = $1",
+          "sql": "select count(*) as "count" from "pg_temp"."tmp_computed_dirty" where "table_id" = $1",
         },
         {
           "parameters": [
@@ -947,7 +947,7 @@ describe('ComputedFieldUpdater', () => {
           "sql": "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "u" set "__version" = "u"."__version" + 1, "col_link" = "c"."__set_col_link" from (select "c_src"."__id" as "__id", (CASE
           WHEN "c_src"."col_link" IS NULL THEN NULL::jsonb
           ELSE to_jsonb("c_src"."col_link")
-        END) as "__set_col_link" from (select "t"."__id" as "__id", "t"."__version" as "__version", "lat_fldeeeeeeeeeeeeeeee_0"."col_link" as "col_link" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "t" inner join "tmp_computed_dirty" as "__dirty" on "t"."__id" = "__dirty"."record_id" and "__dirty"."table_id" = $1 inner join lateral (select jsonb_agg(jsonb_strip_nulls(jsonb_build_object('id', "f"."__id", 'title', ("f"."col_name")::text)) ORDER BY (SELECT "j"."__order" FROM "bseaaaaaaaaaaaaaaaa"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff" AS j WHERE "j"."__fk_fldffffffffffffffff" = "t"."__id" AND "j"."__fk_fldeeeeeeeeeeeeeeee" = "f"."__id"), (SELECT "j"."__id" FROM "bseaaaaaaaaaaaaaaaa"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff" AS j WHERE "j"."__fk_fldffffffffffffffff" = "t"."__id" AND "j"."__fk_fldeeeeeeeeeeeeeeee" = "f"."__id")) as "col_link" from "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" as "f" where "f"."__id" IN (SELECT "j"."__fk_fldeeeeeeeeeeeeeeee" FROM "bseaaaaaaaaaaaaaaaa"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff" AS j WHERE "j"."__fk_fldffffffffffffffff" = "t"."__id")) as "lat_fldeeeeeeeeeeeeeeee_0" on true) as "c_src") as "c" where "u"."__id" = "c"."__id" and ("u"."col_link" IS DISTINCT FROM "c"."__set_col_link")",
+        END) as "__set_col_link" from (select "t"."__id" as "__id", "t"."__version" as "__version", "lat_fldeeeeeeeeeeeeeeee_0"."col_link" as "col_link" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "t" inner join "pg_temp"."tmp_computed_dirty" as "__dirty" on "t"."__id" = "__dirty"."record_id" and "__dirty"."table_id" = $1 inner join lateral (select jsonb_agg(jsonb_strip_nulls(jsonb_build_object('id', "f"."__id", 'title', ("f"."col_name")::text)) ORDER BY (SELECT "j"."__order" FROM "bseaaaaaaaaaaaaaaaa"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff" AS j WHERE "j"."__fk_fldffffffffffffffff" = "t"."__id" AND "j"."__fk_fldeeeeeeeeeeeeeeee" = "f"."__id"), (SELECT "j"."__id" FROM "bseaaaaaaaaaaaaaaaa"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff" AS j WHERE "j"."__fk_fldffffffffffffffff" = "t"."__id" AND "j"."__fk_fldeeeeeeeeeeeeeeee" = "f"."__id")) as "col_link" from "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" as "f" where "f"."__id" IN (SELECT "j"."__fk_fldeeeeeeeeeeeeeeee" FROM "bseaaaaaaaaaaaaaaaa"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff" AS j WHERE "j"."__fk_fldffffffffffffffff" = "t"."__id")) as "lat_fldeeeeeeeeeeeeeeee_0" on true) as "c_src") as "c" where "u"."__id" = "c"."__id" and ("u"."col_link" IS DISTINCT FROM "c"."__set_col_link")",
         },
       ]
     `);
@@ -1002,6 +1002,68 @@ describe('ComputedFieldUpdater', () => {
 
     expect(result.isErr()).toBe(true);
     expect(result._unsafeUnwrapErr().code).toBe('validation.limit.computed_cell_value_max_bytes');
+  });
+
+  it('allows oversized junction-backed link projections to stay consistent', async () => {
+    const { baseId, foreignTable, hostTable, linkFieldId } = createLinkTables();
+    const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+    const linkValue = Array.from({ length: 8_000 }, (_, index) => ({
+      id: `rec${index.toString().padStart(16, '0')}`,
+      title: `Synthetic item ${index}`,
+    }));
+    expect(JSON.stringify(linkValue).length).toBeGreaterThan(262_144);
+
+    const plan: ComputedUpdatePlan = {
+      baseId,
+      seedTableId: hostTable.id(),
+      seedRecordIds: [recordId],
+      extraSeedRecords: [],
+      steps: [
+        {
+          tableId: hostTable.id(),
+          fieldIds: [linkFieldId],
+          level: 0,
+        },
+      ],
+      edges: [],
+      estimatedComplexity: 1,
+      changeType: 'update',
+      sameTableBatches: [],
+    };
+
+    const { db } = createRecordingDb([
+      [
+        {
+          __id: RECORD_ID,
+          __old_version: 1,
+          col_link: linkValue,
+        },
+      ],
+    ]);
+    const updater = new ComputedFieldUpdater(
+      createTableRepository([hostTable, foreignTable]),
+      createLogger(),
+      db as unknown as Kysely<V1TeableDatabase>,
+      undefined,
+      createTypeValidationStrategy(),
+      new TableDataSafetyLimitComposer([
+        new StaticTableDataSafetyLimitPlugin({
+          computed: { maxComputedCellValueBytes: 262_144 },
+        }),
+      ])
+    );
+
+    const result = await updater.execute(plan, { actorId }, undefined, { collectChanges: true });
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().changesByStep[0]?.recordChanges[0]?.changes).toEqual([
+      {
+        fieldId: linkFieldId.toString(),
+        oldValue: undefined,
+        newValue: linkValue,
+      },
+    ]);
   });
 
   it('chunks wide same-level computed updates and bumps record versions once', async () => {
@@ -1155,7 +1217,7 @@ describe('ComputedFieldUpdater', () => {
 
     const propagationQuery = driver.queries.find((query) =>
       query.sql.includes(
-        `insert into "tmp_computed_dirty" ("table_id", "record_id") select distinct '${CASCADE_MIDDLE_TABLE_ID}'`
+        `insert into "pg_temp"."tmp_computed_dirty" ("table_id", "record_id") select distinct '${CASCADE_MIDDLE_TABLE_ID}'`
       )
     );
 
@@ -1328,7 +1390,7 @@ describe('ComputedFieldUpdater', () => {
     expect(prepared.isOk()).toBe(true);
 
     const beforeImageSeedQuery = driver.queries.find((query) =>
-      query.sql.includes('insert into "tmp_computed_before_image"')
+      query.sql.includes('insert into "pg_temp"."tmp_computed_before_image"')
     );
     expect(beforeImageSeedQuery?.parameters).toEqual([
       CONDITIONAL_SOURCE_TABLE_ID,
@@ -1339,11 +1401,11 @@ describe('ComputedFieldUpdater', () => {
     const propagationQuery = driver.queries.find((query) =>
       query.sql.includes('jsonb_populate_record')
     );
-    expect(propagationQuery?.sql).toContain('"tmp_computed_before_image"');
+    expect(propagationQuery?.sql).toContain('"pg_temp"."tmp_computed_before_image"');
     expect(propagationQuery?.sql).toContain('jsonb_populate_record');
     expect(propagationQuery?.sql).toContain('as "s_before"');
     expect(propagationQuery?.sql).toContain(`coalesce(to_jsonb("s_current"), '{}'::jsonb)`);
-    expect(propagationQuery?.sql).toContain('from "tmp_computed_dirty" as "d"');
+    expect(propagationQuery?.sql).toContain('from "pg_temp"."tmp_computed_dirty" as "d"');
     expect(propagationQuery?.sql).toContain(
       'inner join "bseaaaaaaaaaaaaaaaa"."tbl0000000000000000" as "s"'
     );
@@ -1561,11 +1623,11 @@ describe('ComputedFieldUpdater', () => {
       [
         {
           "parameters": [],
-          "sql": "drop table if exists "tmp_computed_dirty"",
+          "sql": "drop table if exists "pg_temp"."tmp_computed_dirty"",
         },
         {
           "parameters": [],
-          "sql": "create temporary table "tmp_computed_dirty" (
+          "sql": "create temporary table "pg_temp"."tmp_computed_dirty" (
               table_id text not null,
               record_id text not null,
               primary key (table_id, record_id)
@@ -1573,11 +1635,11 @@ describe('ComputedFieldUpdater', () => {
         },
         {
           "parameters": [],
-          "sql": "drop table if exists "tmp_computed_before_image"",
+          "sql": "drop table if exists "pg_temp"."tmp_computed_before_image"",
         },
         {
           "parameters": [],
-          "sql": "create temporary table "tmp_computed_before_image" (
+          "sql": "create temporary table "pg_temp"."tmp_computed_before_image" (
               table_id text not null,
               record_id text not null,
               field_values jsonb not null,
@@ -1589,24 +1651,24 @@ describe('ComputedFieldUpdater', () => {
             "tblkkkkkkkkkkkkkkkk",
             "recyyyyyyyyyyyyyyyy",
           ],
-          "sql": "insert into "tmp_computed_dirty" ("table_id", "record_id") values ($1, $2) on conflict ("table_id", "record_id") do nothing",
+          "sql": "insert into "pg_temp"."tmp_computed_dirty" ("table_id", "record_id") values ($1, $2) on conflict ("table_id", "record_id") do nothing",
         },
         {
           "parameters": [
             "tblkkkkkkkkkkkkkkkk",
             "tblllllllllllllllll",
           ],
-          "sql": "insert into "tmp_computed_dirty" ("table_id", "record_id") select distinct 'tblllllllllllllllll' as "table_id", "t"."__id" as "record_id" from "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "t" inner join "tmp_computed_dirty" as "d" on "d"."record_id" = "t"."__fk_fldpppppppppppppppp" where "d"."table_id" = $1 union all select distinct 'tblmmmmmmmmmmmmmmmm' as "table_id", "t"."__id" as "record_id" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join "tmp_computed_dirty" as "d" on "d"."record_id" = "t"."__fk_fldtttttttttttttttt" where "d"."table_id" = $2 on conflict ("table_id", "record_id") do nothing",
+          "sql": "insert into "pg_temp"."tmp_computed_dirty" ("table_id", "record_id") select distinct 'tblllllllllllllllll' as "table_id", "t"."__id" as "record_id" from "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "t" inner join "pg_temp"."tmp_computed_dirty" as "d" on "d"."record_id" = "t"."__fk_fldpppppppppppppppp" where "d"."table_id" = $1 union all select distinct 'tblmmmmmmmmmmmmmmmm' as "table_id", "t"."__id" as "record_id" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join "pg_temp"."tmp_computed_dirty" as "d" on "d"."record_id" = "t"."__fk_fldtttttttttttttttt" where "d"."table_id" = $2 on conflict ("table_id", "record_id") do nothing",
         },
         {
           "parameters": [],
-          "sql": "select "table_id" as "tableId", count(*) as "recordCount" from "tmp_computed_dirty" group by "table_id"",
+          "sql": "select "table_id" as "tableId", count(*) as "recordCount" from "pg_temp"."tmp_computed_dirty" group by "table_id"",
         },
         {
           "parameters": [
             "tblllllllllllllllll",
           ],
-          "sql": "select count(*) as "count" from "tmp_computed_dirty" where "table_id" = $1",
+          "sql": "select count(*) as "count" from "pg_temp"."tmp_computed_dirty" where "table_id" = $1",
         },
         {
           "parameters": [
@@ -1620,13 +1682,13 @@ describe('ComputedFieldUpdater', () => {
           WHEN BTRIM(("c_src"."col_rollup_b")::text) ~ '^[+-]?([0-9]+([.][0-9]+)?|[.][0-9]+)([eE][+-]?[0-9]+)?$'
             THEN BTRIM(("c_src"."col_rollup_b")::text)::double precision
           ELSE NULL
-        END as "__set_col_rollup_b" from (select "t"."__id" as "__id", "t"."__version" as "__version", "lat_fldpppppppppppppppp_0"."col_lookup_b" as "col_lookup_b", "lat_fldpppppppppppppppp_0"."col_rollup_b" as "col_rollup_b" from "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "t" inner join "tmp_computed_dirty" as "__dirty" on "t"."__id" = "__dirty"."record_id" and "__dirty"."table_id" = $1 inner join lateral (select jsonb_agg(to_jsonb("f"."col_source_name")) FILTER (WHERE "f"."col_source_name" IS NOT NULL) as "col_lookup_b", CAST(COALESCE(SUM("f"."col_source_score"), 0) AS DOUBLE PRECISION) as "col_rollup_b" from "bseaaaaaaaaaaaaaaaa"."tblkkkkkkkkkkkkkkkk" as "f" where "f"."__id" = "t"."__fk_fldpppppppppppppppp") as "lat_fldpppppppppppppppp_0" on true) as "c_src") as "c" where "u"."__id" = "c"."__id" and ("u"."col_lookup_b" IS DISTINCT FROM "c"."__set_col_lookup_b" OR "u"."col_rollup_b" IS DISTINCT FROM "c"."__set_col_rollup_b")",
+        END as "__set_col_rollup_b" from (select "t"."__id" as "__id", "t"."__version" as "__version", "lat_fldpppppppppppppppp_0"."col_lookup_b" as "col_lookup_b", "lat_fldpppppppppppppppp_0"."col_rollup_b" as "col_rollup_b" from "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "t" inner join "pg_temp"."tmp_computed_dirty" as "__dirty" on "t"."__id" = "__dirty"."record_id" and "__dirty"."table_id" = $1 inner join lateral (select jsonb_agg(to_jsonb("f"."col_source_name")) FILTER (WHERE "f"."col_source_name" IS NOT NULL) as "col_lookup_b", CAST(COALESCE(SUM("f"."col_source_score"), 0) AS DOUBLE PRECISION) as "col_rollup_b" from "bseaaaaaaaaaaaaaaaa"."tblkkkkkkkkkkkkkkkk" as "f" where "f"."__id" = "t"."__fk_fldpppppppppppppppp") as "lat_fldpppppppppppppppp_0" on true) as "c_src") as "c" where "u"."__id" = "c"."__id" and ("u"."col_lookup_b" IS DISTINCT FROM "c"."__set_col_lookup_b" OR "u"."col_rollup_b" IS DISTINCT FROM "c"."__set_col_rollup_b")",
         },
         {
           "parameters": [
             "tblmmmmmmmmmmmmmmmm",
           ],
-          "sql": "select count(*) as "count" from "tmp_computed_dirty" where "table_id" = $1",
+          "sql": "select count(*) as "count" from "pg_temp"."tmp_computed_dirty" where "table_id" = $1",
         },
         {
           "parameters": [
@@ -1635,7 +1697,7 @@ describe('ComputedFieldUpdater', () => {
           "sql": "update "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "u" set "__version" = "u"."__version" + 1, "col_lookup_c" = "c"."__set_col_lookup_c" from (select "c_src"."__id" as "__id", (CASE
           WHEN "c_src"."col_lookup_c" IS NULL THEN NULL::jsonb
           ELSE ("c_src"."col_lookup_c")::jsonb
-        END) as "__set_col_lookup_c" from (select "t"."__id" as "__id", "t"."__version" as "__version", "lat_fldtttttttttttttttt_0"."col_lookup_c" as "col_lookup_c" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join "tmp_computed_dirty" as "__dirty" on "t"."__id" = "__dirty"."record_id" and "__dirty"."table_id" = $1 inner join lateral (select jsonb_agg(to_jsonb("f"."col_rollup_b")) FILTER (WHERE "f"."col_rollup_b" IS NOT NULL) as "col_lookup_c" from "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "f" where "f"."__id" = "t"."__fk_fldtttttttttttttttt") as "lat_fldtttttttttttttttt_0" on true) as "c_src") as "c" where "u"."__id" = "c"."__id" and ("u"."col_lookup_c" IS DISTINCT FROM "c"."__set_col_lookup_c")",
+        END) as "__set_col_lookup_c" from (select "t"."__id" as "__id", "t"."__version" as "__version", "lat_fldtttttttttttttttt_0"."col_lookup_c" as "col_lookup_c" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join "pg_temp"."tmp_computed_dirty" as "__dirty" on "t"."__id" = "__dirty"."record_id" and "__dirty"."table_id" = $1 inner join lateral (select jsonb_agg(to_jsonb("f"."col_rollup_b")) FILTER (WHERE "f"."col_rollup_b" IS NOT NULL) as "col_lookup_c" from "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "f" where "f"."__id" = "t"."__fk_fldtttttttttttttttt") as "lat_fldtttttttttttttttt_0" on true) as "c_src") as "c" where "u"."__id" = "c"."__id" and ("u"."col_lookup_c" IS DISTINCT FROM "c"."__set_col_lookup_c")",
         },
       ]
     `);
@@ -1805,7 +1867,7 @@ describe('ComputedFieldUpdater', () => {
     expect(lateralUpdates).toHaveLength(3);
     const expectedChunkSizes = [500, 500, 1];
     for (const [index, query] of lateralUpdates.entries()) {
-      expect(query.sql).toContain('inner join "tmp_computed_dirty" as "__dirty"');
+      expect(query.sql).toContain('inner join "pg_temp"."tmp_computed_dirty" as "__dirty"');
       expect(query.sql).toMatch(/"__dirty"\."record_id" = any\(\$\d+::text\[\]\)/i);
       const recordIdParameters = query.parameters.filter(Array.isArray);
       expect(recordIdParameters).toHaveLength(1);

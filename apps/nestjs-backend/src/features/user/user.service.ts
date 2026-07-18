@@ -120,6 +120,27 @@ export class UserService {
    * external I/O — run the (remote) risk control check before the transaction
    * via `throwIfEmailDeniedByRiskControl` instead.
    */
+  /**
+   * Merges the affiliate token (teable_affiliate_via cookie via CLS — see
+   * apps/nextjs-app/src/lib/affiliate-cookie.ts) into refMeta. Lives at the
+   * self-signup choke point so password and OAuth/SSO paths store one shape.
+   */
+  private withAffiliateVia(
+    refMeta: Prisma.UserCreateInput['refMeta']
+  ): Prisma.UserCreateInput['refMeta'] {
+    const via = this.cls.get('affiliateVia');
+    if (!via) {
+      return refMeta;
+    }
+    try {
+      const parsed = refMeta ? JSON.parse(refMeta) : {};
+      return JSON.stringify({ ...parsed, attribution: { via } });
+    } catch {
+      // Attribution must never break account creation — keep refMeta as-is.
+      return refMeta;
+    }
+  }
+
   async createUserWithSettingCheck(
     user: Omit<Prisma.UserCreateInput, 'name'> & { name?: string },
     account?: Omit<Prisma.AccountUncheckedCreateInput, 'userId'>,
@@ -127,6 +148,7 @@ export class UserService {
     inviteCode?: string,
     autoSpaceCreation: boolean = true
   ) {
+    user = { ...user, refMeta: this.withAffiliateVia(user.refMeta) };
     const setting = await this.settingService.getSetting();
     if (setting?.disallowSignUp) {
       throw new CustomHttpException(

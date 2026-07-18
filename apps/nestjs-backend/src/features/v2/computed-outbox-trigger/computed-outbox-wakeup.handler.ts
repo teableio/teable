@@ -6,6 +6,7 @@ import {
   type IComputedUpdateOutbox,
   type OutboxTaskClaimEligibility,
 } from '@teable/v2-adapter-table-repository-postgres';
+import { v2CoreTokens, type ITracer } from '@teable/v2-core';
 
 import { V2ContainerService } from '../v2-container.service';
 import { ComputedOutboxTriggerMetrics } from './computed-outbox-trigger.metrics';
@@ -108,9 +109,11 @@ export class ComputedOutboxWakeupHandler {
         v2RecordRepositoryPostgresTokens.computedUpdateWorker
       );
       const workerId = `computed-queue-${process.pid}`;
+      const tracer = container.resolve<ITracer>(v2CoreTokens.tracer);
       const result = await worker.runTaskById({
         taskId: wakeup.taskId,
         workerId,
+        tracer,
         // Healthy leases must not be stolen; claimById still reclaims expired processing.
         allowProcessingTakeover: false,
       });

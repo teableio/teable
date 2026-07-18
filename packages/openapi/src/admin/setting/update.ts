@@ -284,11 +284,18 @@ export const appAuthConfigSchema = z.object({
 
 export type IAppAuthConfig = z.infer<typeof appAuthConfigSchema>;
 
+// Deployment channel for newly published apps.
+// Values mirror AppDeployProviderType in the enterprise openapi package
+// (community cannot import enterprise packages).
+export const appConfigDeployProviderSchema = z.enum(['vercel', 'docker-runtime']);
+
+export type IAppConfigDeployProvider = z.infer<typeof appConfigDeployProviderSchema>;
+
 export const appConfigSchema = z.object({
   vercelToken: z.string().optional(),
   customDomain: z.string().optional(),
-  // Proxy URL for Vercel API (Cloudflare Workers reverse proxy)
-  vercelBaseUrl: z.url().optional(),
+  // Deployment channel for newly published apps; absent = env APP_DEPLOY_PROVIDER or vercel
+  deployProvider: appConfigDeployProviderSchema.optional(),
   appAuth: appAuthConfigSchema.optional(),
   // Instance-wide "Made with Teable" badge kill switch; absent = enabled
   badgeEnabled: z.boolean().optional(),

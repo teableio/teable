@@ -1316,7 +1316,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             }
           }
 
-          if (nextAttempts >= task.maxAttempts) {
+          if (options.directDeadLetter === true || nextAttempts >= task.maxAttempts) {
             const isBackfill = isFieldBackfillItem(task);
             const isSeed = isSeedItem(task);
 
@@ -1327,6 +1327,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
               nextAttempts,
               error,
               now,
+              diagnostics: options.diagnostics,
             });
 
             await trx.insertInto(DEAD_LETTER_TABLE).values(deadLetterValues).execute();
@@ -2609,9 +2610,10 @@ const buildDeadLetterValues = (
     nextAttempts: number;
     error: string;
     now: Date;
+    diagnostics?: MarkFailedOptions['diagnostics'];
   }
 ): Record<string, unknown> => {
-  const { isBackfill, isSeed, nextAttempts, error, now } = params;
+  const { isBackfill, isSeed, nextAttempts, error, now, diagnostics } = params;
 
   // Common fields for all task types
   const common = {
@@ -2624,6 +2626,7 @@ const buildDeadLetterValues = (
     locked_at: task.lockedAt ?? null,
     locked_by: task.lockedBy ?? null,
     last_error: error,
+    trace_data: diagnostics ? toJsonValue(diagnostics) : null,
     plan_hash: task.planHash,
     run_id: task.runId,
     failed_at: now,

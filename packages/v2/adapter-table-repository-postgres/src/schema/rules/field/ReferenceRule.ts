@@ -103,7 +103,7 @@ export class ReferenceRule implements ISchemaRule {
 
     // Check each expected reference entry exists in the reference table
     for (const ref of this.references) {
-      const result = await ctx.db
+      const result = await ctx.metaDb
         .selectFrom('reference')
         .select('id')
         .where('to_field_id', '=', ref.toFieldId)
@@ -154,7 +154,7 @@ export class ReferenceRule implements ISchemaRule {
       from_field_id: ref.fromFieldId,
     }));
 
-    const insert = ctx.db
+    const insert = ctx.metaDb
       .insertInto('reference')
       .values(values)
       .onConflict((oc) => oc.columns(['to_field_id', 'from_field_id']).doNothing());
@@ -167,7 +167,7 @@ export class ReferenceRule implements ISchemaRule {
 
     if (ctx.mode === 'delete') {
       // Permanent deletion: clean up all references both TO and FROM this field
-      const deleteStatement = ctx.db
+      const deleteStatement = ctx.metaDb
         .deleteFrom('reference')
         .where((eb) =>
           eb.or([eb.eb('to_field_id', '=', fieldId), eb.eb('from_field_id', '=', fieldId)])
@@ -176,7 +176,7 @@ export class ReferenceRule implements ISchemaRule {
     }
 
     // Update/convert (default): only remove references pointing TO this field
-    const deleteStatement = ctx.db.deleteFrom('reference').where('to_field_id', '=', fieldId);
+    const deleteStatement = ctx.metaDb.deleteFrom('reference').where('to_field_id', '=', fieldId);
     return ok([metaStatement(deleteStatement)]);
   }
 }

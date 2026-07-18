@@ -348,6 +348,7 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
       col.notNull().defaultTo(sql`ARRAY[]::text[]`)
     )
     .addColumn('sync_max_level', 'integer')
+    .addColumn('trace_data', 'jsonb')
     .addColumn('failed_at', 'timestamptz', (col) => col.notNull())
     .addColumn('created_at', 'timestamptz', (col) => col.notNull())
     .addColumn('updated_at', 'timestamptz', (col) => col.notNull())

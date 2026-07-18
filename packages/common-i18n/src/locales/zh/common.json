@@ -336,6 +336,7 @@
       "dark": "深色",
       "light": "浅色",
       "version": "应用版本",
+      "infraVersion": "Infra 版本",
       "system": "系统",
       "language": "语言",
       "interactionMode": "交互模式",
@@ -652,14 +653,14 @@
         "chatModels": {
           "lg": "高级对话模型",
           "lgDescription": "用于规划、编码和其他复杂任务场景。推荐使用 claude-sonnet-4.5",
-          "md": "标准",
+          "md": "中等任务模型",
           "mdDescription": "用于日常对话和一般任务",
-          "sm": "轻量",
+          "sm": "轻量任务模型",
           "smDescription": "用于简单查询和快速响应",
-          "inheritHint": "与主模型相同 ({{model}})",
+          "inheritHint": "与默认主模型相同 ({{model}})",
           "modelTiers": "模型分级",
-          "modelTiersDescription": "可为标准和轻量任务指定不同的模型，未设置的挡位将使用上方的主模型。",
-          "allInheriting": "所有挡位使用主模型",
+          "modelTiersDescription": "可为中等和轻量任务指定不同的模型，未设置的挡位将使用上方的默认主模型。",
+          "allInheriting": "所有挡位使用默认主模型",
           "customized": "已自定义 {{count}} 个"
         },
         "actions": {
@@ -930,8 +931,8 @@
           "quickSetup": "快速设置",
           "useRecommended": "使用推荐配置",
           "useRecommendedDesc": "一键将 {{model}} 设为所有聊天场景的默认模型",
-          "chatModels": "聊天模型",
-          "chatModelTip": "此模型用于侧边栏 AI 聊天功能，由管理员指定，用户无法更改",
+          "chatModels": "默认主模型",
+          "chatModelTip": "侧边栏 AI 聊天的默认主模型，由管理员指定，用户无法更改；未单独设置的任务挡位也使用它",
           "selectChatModel": "选择聊天模型...",
           "lgDesc": "复杂任务、深度分析",
           "mdDesc": "日常对话、一般任务",
@@ -968,9 +969,6 @@
         "customDomainDescription": "设置应用部署的自定义域名，访问 <a>Vercel 域名</a> 获取自定义域名",
         "vercelToken": "Vercel API 密钥",
         "vercelTokenDescription": "设置 Vercel API 密钥以启用自定义域名部署功能，访问 <a>Vercel 设置</a> 获取 API 密钥",
-        "apiProxy": "API 代理 (可选)",
-        "apiProxyDescription": "配置 Vercel API 的反向代理地址（如 Cloudflare Workers）。留空则使用默认地址。",
-        "vercelBaseUrl": "Vercel API 代理地址",
         "aiGateway": "Vercel AI Gateway",
         "aiGatewayDescription": "配置 Vercel AI Gateway 以通过单一端点访问数百种模型。访问 <a>AI Gateway 设置</a> 获取 API 密钥",
         "aiGatewayApiKey": "AI Gateway API 密钥",
@@ -1010,11 +1008,6 @@
           "title": "启用 HTTPS",
           "description": "您尚未启用 HTTPS，大规模复制（300行或更多）功能将不可用，建议启用。"
         },
-        "databaseProxy": {
-          "title": "PUBLIC_DATABASE_PROXY 环境变量",
-          "description": "<strong>PUBLIC_DATABASE_PROXY</strong> 未配置，外部数据库连接功能将不可用，请参考<a>帮助文档</a>",
-          "href": "https://help.teable.ai/zh/deploy/database-connection#enable-external-database-connection"
-        },
         "llmApi": {
           "title": "LLM API",
           "description": "您尚未配置 AI LLM API，AI 对话/AI 自动化将无法使用，<anchor>前往设置</anchor>",
@@ -1036,12 +1029,13 @@
           "title": "AI：设置聊天模型",
           "description": "为侧边栏 AI 聊天选择一个默认模型，<anchor>前往设置</anchor>"
         },
+        "appBuilderEngine": {
+          "title": "应用构建器：部署引擎",
+          "description": "配置用于发布应用的部署引擎（Vercel 或 Teable Infra），<anchor>前往设置</anchor>"
+        },
         "appBuilderDomain": {
           "title": "应用构建器：自定义域名",
           "description": "如需使用自定义域名发布应用，请配置域名与 Vercel Token，<anchor>前往设置</anchor>"
-        },
-        "appBuilderApiProxy": {
-          "title": "应用构建器：API 代理"
         },
         "email": {
           "title": "邮箱",

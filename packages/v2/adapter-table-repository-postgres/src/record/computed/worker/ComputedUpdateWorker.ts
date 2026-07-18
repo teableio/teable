@@ -1,4 +1,5 @@
 import { getPostgresTransaction } from '@teable/v2-adapter-db-postgres-shared';
+import type { PostgresSqlExecutionDiagnostics } from '@teable/v2-adapter-db-postgres-shared';
 import {
   ActorId,
   domainError,
@@ -62,6 +63,7 @@ import type { ComputedUpdateSeedTaskInput } from '../outbox/ComputedUpdateSeedPa
 import { deserializeSeedPayload } from '../outbox/ComputedUpdateSeedPayload';
 import type {
   AnyOutboxItem,
+  ComputedTaskFailureDiagnostics,
   ComputedUpdateOutboxConfig,
   FieldBackfillOutboxItem,
   SeedOutboxItem,
@@ -78,6 +80,25 @@ const MAX_STAGE_DEPTH = 50;
 const maxComputedEventLogItems = 10;
 const maxComputedEventLogFieldIds = 20;
 const maxComputedEventLogRecordIds = 10;
+
+const buildFailureDiagnostics = (
+  error: DomainError,
+  failure: ComputedTaskFailureClassification,
+  phase: string
+): ComputedTaskFailureDiagnostics => {
+  const execution = error.details?.postgresSql as PostgresSqlExecutionDiagnostics | undefined;
+  return {
+    version: 1,
+    failure: {
+      kind: failure.failureKind,
+      reason: failure.failureReason,
+      retryable: failure.retryable,
+      directDeadLetter: !failure.retryable,
+      phase,
+    },
+    ...(execution ? { execution } : {}),
+  };
+};
 
 type SeedRecordChunk = {
   seedRecordIds: string[];
@@ -858,7 +879,12 @@ export class ComputedUpdateWorker {
     });
     if (executeResult.isErr()) {
       if (isComputedUpdateLockUnavailable(executeResult.error)) {
-        await this.releaseTaskForRetry(computedTask, executeResult.error.message, context);
+        await this.releaseTaskForRetry(
+          computedTask,
+          executeResult.error.message,
+          context,
+          this.outboxConfig.lockUnavailableRetryDelayMs
+        );
         return ok(false);
       }
       const failure = classifyComputedTaskFailure(executeResult.error);
@@ -866,6 +892,7 @@ export class ComputedUpdateWorker {
       await this.handleTaskFailure(computedTask, executeResult.error.message, context, {
         forceDeadLetter: !failure.retryable,
         failure,
+        diagnostics: buildFailureDiagnostics(executeResult.error, failure, failurePhase),
       });
       return err(executeResult.error);
     }
@@ -918,18 +945,14 @@ export class ComputedUpdateWorker {
     options: {
       forceDeadLetter?: boolean;
       failure?: ComputedTaskFailureClassification;
+      diagnostics?: ComputedTaskFailureDiagnostics;
     } = {}
   ): Promise<boolean> {
     const forceDeadLetter = options.forceDeadLetter ?? options.failure?.retryable === false;
-    const failedTask = forceDeadLetter
-      ? {
-          ...task,
-          attempts: Math.max(task.attempts, task.maxAttempts - 1),
-        }
-      : task;
-    const result = await this.outbox.markFailed(failedTask, message, context, {
+    const result = await this.outbox.markFailed(task, message, context, {
       ...options.failure,
       directDeadLetter: forceDeadLetter || undefined,
+      diagnostics: options.diagnostics,
     });
     if (result.isErr()) {
       this.logger.warn('computed:outbox:markFailed_failed', {
@@ -1207,6 +1230,7 @@ export class ComputedUpdateWorker {
       await this.handleTaskFailure(task, executeResult.error.message, context, {
         forceDeadLetter: !failure.retryable,
         failure,
+        diagnostics: buildFailureDiagnostics(executeResult.error, failure, 'execute_backfill'),
       });
       return err(executeResult.error);
     }
@@ -1459,7 +1483,12 @@ export class ComputedUpdateWorker {
 
     if (executeResult.isErr()) {
       if (isComputedUpdateLockUnavailable(executeResult.error)) {
-        await this.releaseTaskForRetry(task, executeResult.error.message, context);
+        await this.releaseTaskForRetry(
+          task,
+          executeResult.error.message,
+          context,
+          this.outboxConfig.lockUnavailableRetryDelayMs
+        );
         return ok(false);
       }
       const failure = classifyComputedTaskFailure(executeResult.error);
@@ -1467,6 +1496,7 @@ export class ComputedUpdateWorker {
       await this.handleTaskFailure(task, executeResult.error.message, context, {
         forceDeadLetter: !failure.retryable,
         failure,
+        diagnostics: buildFailureDiagnostics(executeResult.error, failure, failurePhase),
       });
       return err(executeResult.error);
     }

@@ -687,11 +687,6 @@
           "title": "HTTPS'yi etkinleştir",
           "description": "HTTPS'yi etkinleştirmediniz, büyük ölçekli kopyalama (300 satır veya daha fazla) özelliği kullanılamayacak, etkinleştirmeniz önerilir."
         },
-        "databaseProxy": {
-          "title": "PUBLIC_DATABASE_PROXY ortam değişkeni",
-          "description": "<strong>PUBLIC_DATABASE_PROXY</strong> yapılandırılmamış, harici veritabanı bağlantı özelliği kullanılamayacak, lütfen <a>yardım belgelerine</a> bakın",
-          "href": "https://help.teable.ai/tr/deploy/database-connection#enable-external-database-connection"
-        },
         "llmApi": {
           "title": "LLM API",
           "description": "AI LLM API'sını henüz yapılandırmadınız, AI Sohbet/AI otomasyon kullanılamayacak, <anchor>ayarlara git</anchor>",

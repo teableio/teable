@@ -16,12 +16,13 @@ import {
   isDomainError,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
-import type { Kysely, Transaction } from 'kysely';
+import { sql, type Kysely, type Transaction } from 'kysely';
 import { err } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { IV2PostgresDbConfig } from './config';
 import { v2DataDbTokens, v2MetaDbTokens } from './di/tokens';
+import { getPostgresSqlExecutionDiagnostics } from './PostgresSqlExecutionError';
 
 class UnitOfWorkAbort extends Error {
   constructor(readonly error: DomainError) {
@@ -30,6 +31,25 @@ class UnitOfWorkAbort extends Error {
   }
 }
 
+const throwIfUnitOfWorkFailed = <T>(result: Result<T, DomainError>): void => {
+  if (result.isErr()) {
+    throw new UnitOfWorkAbort(result.error);
+  }
+};
+
+const toUnexpectedUnitOfWorkError = (error: unknown): DomainError => {
+  const postgresSql = getPostgresSqlExecutionDiagnostics(error);
+  return domainError.unexpected({
+    message: `Unexpected unit of work error: ${describeError(error)}`,
+    ...(postgresSql ? { details: { postgresSql } } : {}),
+  });
+};
+
+const shouldRetryTransactionAbort = (
+  error: DomainError,
+  attempt: number,
+  maxRetries: number
+): boolean => attempt < maxRetries && isRetryableTransactionAbort(error);
 type UnitOfWorkTransactionState =
   | 'pending'
   | 'committing'
@@ -178,8 +198,30 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
   private usesSinglePhysicalDatabase(): boolean {
     return (
       this.metaDb === this.dataDb ||
-      this.metaConfig.pg.connectionString === this.dataConfig.pg.connectionString
+      (this.metaConfig.pg.connectionString === this.dataConfig.pg.connectionString &&
+        this.metaConfig.pg.schema === this.dataConfig.pg.schema)
     );
+  }
+
+  private async setTransactionSchema(
+    transaction: Transaction<DB>,
+    scope: UnitOfWorkScope
+  ): Promise<void> {
+    const schema = scope === 'meta' ? this.metaConfig.pg.schema : this.dataConfig.pg.schema;
+    if (!schema) return;
+
+    await sql`
+      select set_config(
+        'search_path',
+        ${`${schema}, public`} || coalesce((
+          select ', ' || quote_ident(n.nspname)
+          from pg_extension e
+          join pg_namespace n on n.oid = e.extnamespace
+          where e.extname = 'pg_trgm'
+        ), ''),
+        true
+      )
+    `.execute(transaction);
   }
 
   private reuseSiblingScopeTransaction(
@@ -207,6 +249,51 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
     };
   }
 
+  private async executeWithRetries<T>(
+    context: IExecutionContext,
+    work: UnitOfWorkOperation<T>,
+    scope: UnitOfWorkScope
+  ): Promise<Result<T, DomainError>> {
+    const db = scope === 'meta' ? this.metaDb : this.dataDb;
+    const maxRetries = 3;
+    let attempt = 0;
+
+    // Retry only for top-level transactions, and only for retryable infra failures.
+    // Nested transactions must not retry because they share an outer transaction scope.
+    // Keep delays tiny because this is often used in request/response paths.
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      let transaction: PostgresUnitOfWorkTransaction<DB> | undefined;
+      try {
+        const transactionResult = await db.transaction().execute(async (trx) => {
+          await this.setTransactionSchema(trx, scope);
+          transaction = new PostgresUnitOfWorkTransaction(trx, scope);
+          const transactionContext = bindUnitOfWorkTransaction(context, transaction);
+
+          const workResult = await work(transactionContext);
+          throwIfUnitOfWorkFailed(workResult);
+
+          return { workResult, transaction };
+        });
+        await transactionResult.transaction.runAfterCommitHandlers();
+        return transactionResult.workResult;
+      } catch (error) {
+        if (error instanceof UnitOfWorkAbort) {
+          if (shouldRetryTransactionAbort(error.error, attempt, maxRetries)) {
+            const delayMs = backoffMs(attempt);
+            attempt += 1;
+            await sleep(delayMs);
+            continue;
+          }
+          await transaction?.runAfterRollbackHandlers();
+          return err(error.error);
+        }
+        await transaction?.runAfterRollbackHandlers();
+        return err(toUnexpectedUnitOfWorkError(error));
+      }
+    }
+  }
+
   async withTransaction<T>(
     context: IExecutionContext,
     work: UnitOfWorkOperation<T>,
@@ -227,49 +314,7 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
       return work(sharedTransactionContext);
     }
 
-    const db = scope === 'meta' ? this.metaDb : this.dataDb;
-    const maxRetries = 3;
-    let attempt = 0;
-
-    // Retry only for top-level transactions, and only for retryable infra failures.
-    // Nested transactions must not retry because they share an outer transaction scope.
-    // Keep delays tiny because this is often used in request/response paths.
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
-      let transaction: PostgresUnitOfWorkTransaction<DB> | undefined;
-      try {
-        const transactionResult = await db.transaction().execute(async (trx) => {
-          transaction = new PostgresUnitOfWorkTransaction(trx, scope);
-          const transactionContext = bindUnitOfWorkTransaction(context, transaction);
-
-          const workResult = await work(transactionContext);
-          if (workResult.isErr()) {
-            throw new UnitOfWorkAbort(workResult.error);
-          }
-
-          return { workResult, transaction };
-        });
-        await transactionResult.transaction.runAfterCommitHandlers();
-        return transactionResult.workResult;
-      } catch (error) {
-        if (error instanceof UnitOfWorkAbort) {
-          if (attempt < maxRetries && isRetryableTransactionAbort(error.error)) {
-            const delayMs = backoffMs(attempt);
-            attempt += 1;
-            await sleep(delayMs);
-            continue;
-          }
-          await transaction?.runAfterRollbackHandlers();
-          return err(error.error);
-        }
-        await transaction?.runAfterRollbackHandlers();
-        return err(
-          domainError.unexpected({
-            message: `Unexpected unit of work error: ${describeError(error)}`,
-          })
-        );
-      }
-    }
+    return this.executeWithRetries(context, work, scope);
   }
 }
 
