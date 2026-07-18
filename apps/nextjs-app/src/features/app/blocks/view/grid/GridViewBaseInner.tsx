@@ -129,7 +129,12 @@ import { DomBox } from './DomBox';
 import { useCollaborate, useSelectionOperation } from './hooks';
 import { useIsSelectionLoaded } from './hooks/useIsSelectionLoaded';
 import { useGridSearchStore } from './useGridSearchStore';
-import { buildFillSelectionPaste, getEffectRows, shouldUseDeleteSelectionStream } from './utils';
+import {
+  buildFillSelectionPaste,
+  getEffectRows,
+  getGroupValuesByRowIndex,
+  shouldUseDeleteSelectionStream,
+} from './utils';
 import { downgradeCrossBaseHeaders, isCrossBaseField } from './utils/crossBaseLink';
 import { getSyncCopyData } from './utils/getSyncCopyData';
 import {
@@ -694,15 +699,12 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
           insertRecord: (anchorId, position, num: number) => {
             if (!tableId || !view?.id || !record) return;
             const targetIndex = position === 'before' ? rowStart - 1 : rowStart;
-            const fieldValueMap =
-              group?.reduce(
-                (prev, { fieldId }) => {
-                  prev[fieldId] = record.getCellValue(fieldId);
-                  return prev;
-                },
-                {} as { [key: string]: unknown }
-              ) ?? {};
-            generateRecord(fieldValueMap, Math.max(targetIndex, 0), { anchorId, position }, num);
+            generateRecord(
+              getGroupFieldValueMap(rowStart),
+              Math.max(targetIndex, 0),
+              { anchorId, position },
+              num
+            );
           },
           duplicateRecord: async () => {
             if (!record || !activeViewId) return;
@@ -870,6 +872,32 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     []
   );
 
+  // group-field prefill for a record created at rowIndex. The neighbor
+  // record's cell value is exact, but the record subscription is projected to
+  // visible fields — for a hidden group field (or an unloaded neighbor) fall
+  // back to the group header value from the server-computed group points
+  const getGroupFieldValueMap = (rowIndex: number) => {
+    if (!group?.length) return {};
+    const record = recordMap[rowIndex];
+    const groupValues = getGroupValuesByRowIndex(groupPoints, rowIndex);
+    // the backend builds group points from the permission-readable group
+    // fields only, so the header value chain must be indexed against the
+    // same filtered list; unreadable group fields are skipped, not prefilled
+    const fieldMap = keyBy(allFields, 'id');
+    const readableGroup = group.filter(({ fieldId }) => fieldMap[fieldId]);
+    return readableGroup.reduce(
+      (prev, { fieldId }, depth) => {
+        const cellValue = record?.getCellValue(fieldId);
+        const value = cellValue === undefined ? groupValues?.[depth] : cellValue;
+        if (value !== undefined) {
+          prev[fieldId] = value;
+        }
+        return prev;
+      },
+      {} as { [fieldId: string]: unknown }
+    );
+  };
+
   const generateRecord = async (
     fieldValueMap: { [fieldId: string]: unknown },
     targetIndex?: number,
@@ -917,21 +945,10 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   };
 
   const onRowAppend = (targetIndex?: number) => {
-    if (group?.length && targetIndex != null) {
-      const record = recordMap[targetIndex];
-
-      if (record == null) return generateRecord({}, targetIndex);
-
-      const fieldValueMap = group.reduce(
-        (prev, { fieldId }) => {
-          prev[fieldId] = record.getCellValue(fieldId);
-          return prev;
-        },
-        {} as { [key: string]: unknown }
-      );
-      return generateRecord(fieldValueMap, targetIndex);
-    }
-    return generateRecord({}, targetIndex);
+    return generateRecord(
+      targetIndex != null ? getGroupFieldValueMap(targetIndex) : {},
+      targetIndex
+    );
   };
 
   const onColumnAppend = () => {

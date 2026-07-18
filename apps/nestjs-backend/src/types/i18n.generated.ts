@@ -455,6 +455,7 @@ export type I18nTranslations = {
                 "touchMode": string;
                 "systemMode": string;
                 "teableSkill": string;
+                "infraVersion": string;
                 "buySelfHostedLicense": string;
             };
             "teableSkill": {
@@ -1175,9 +1176,6 @@ export type I18nTranslations = {
                     "customDomainDescription": string;
                     "vercelToken": string;
                     "vercelTokenDescription": string;
-                    "apiProxy": string;
-                    "apiProxyDescription": string;
-                    "vercelBaseUrl": string;
                     "aiGateway": string;
                     "aiGatewayDescription": string;
                     "aiGatewayApiKey": string;
@@ -1206,11 +1204,6 @@ export type I18nTranslations = {
                     "https": {
                         "title": string;
                         "description": string;
-                    };
-                    "databaseProxy": {
-                        "title": string;
-                        "description": string;
-                        "href": string;
                     };
                     "llmApi": {
                         "title": string;
@@ -1243,12 +1236,13 @@ export type I18nTranslations = {
                         "title": string;
                         "description": string;
                     };
-                    "appBuilderDomain": {
+                    "appBuilderEngine": {
                         "title": string;
                         "description": string;
                     };
-                    "appBuilderApiProxy": {
+                    "appBuilderDomain": {
                         "title": string;
+                        "description": string;
                     };
                     "sandboxOpenSandbox": {
                         "title": string;

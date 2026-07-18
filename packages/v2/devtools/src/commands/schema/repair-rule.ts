@@ -7,6 +7,9 @@ import {
   connectionOption,
   dryRunOption,
   fieldIdOption,
+  manualRepairValuesOption,
+  optionToUndefined,
+  parseManualRepairValues,
   ruleIdOption,
   tableIdOption,
 } from '../shared';
@@ -17,19 +20,25 @@ const handler = (args: {
   readonly fieldId: string;
   readonly ruleId: string;
   readonly dryRun: boolean;
+  readonly manualRepairValues: Option.Option<string>;
 }) =>
   Effect.gen(function* () {
     const schemaRepairer = yield* SchemaRepairer;
     const output = yield* Output;
+    const manualRepairValues = parseManualRepairValues(optionToUndefined(args.manualRepairValues));
 
     const input = {
       tableId: args.tableId,
       fieldId: args.fieldId,
       ruleId: args.ruleId,
       dryRun: args.dryRun,
+      manualRepairValues,
     };
     const result = yield* schemaRepairer
-      .repairRule(args.tableId, args.fieldId, args.ruleId, { dryRun: args.dryRun })
+      .repairRule(args.tableId, args.fieldId, args.ruleId, {
+        dryRun: args.dryRun,
+        manualRepairValues,
+      })
       .pipe(
         Effect.catchAll((error) =>
           Effect.gen(function* () {
@@ -50,6 +59,7 @@ export const schemaRepairRule = Command.make(
     fieldId: fieldIdOption,
     ruleId: ruleIdOption,
     dryRun: dryRunOption,
+    manualRepairValues: manualRepairValuesOption,
   },
   handler
 ).pipe(Command.withDescription('Repair a specific schema rule for a field'));

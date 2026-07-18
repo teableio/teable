@@ -44,13 +44,16 @@
     "nestjs-cls": "^4.0.0"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "6.2.1",
     "@prisma/client": "6.2.1",
     "nanoid": "3.3.7",
+    "pg": "8.11.5",
     "prisma": "6.2.1"
   },
   "devDependencies": {
     "@teable/eslint-config-bases": "workspace:^",
     "@types/node": "22.18.0",
+    "@types/pg": "8.15.5",
     "cross-env": "7.0.3",
     "dotenv-flow-cli": "1.1.1",
     "eslint": "8.57.0",

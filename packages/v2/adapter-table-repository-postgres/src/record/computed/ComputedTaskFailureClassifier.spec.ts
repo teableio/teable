@@ -33,6 +33,21 @@ describe('classifyComputedTaskFailure', () => {
     });
   });
 
+  it('classifies deterministic computed cell limits as non-retryable', () => {
+    const failure = classifyComputedTaskFailure(
+      domainError.validation({
+        code: 'validation.limit.computed_cell_value_max_bytes',
+        message: 'Table data safety limit exceeded: validation.limit.computed_cell_value_max_bytes',
+      })
+    );
+
+    expect(failure).toEqual({
+      failureKind: 'data_safety_limit',
+      failureReason: 'computed_cell_value_max_bytes',
+      retryable: false,
+    });
+  });
+
   it('keeps unknown infrastructure errors retryable', () => {
     const failure = classifyComputedTaskFailure(
       domainError.infrastructure({

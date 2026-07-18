@@ -18,7 +18,6 @@ const darkTheme = {
   cellLineColorActived: colors.zinc[400],
   cellTextColor: colors.zinc[200],
   cellOptionBg: colors.zinc[700],
-  cellOptionBgHighlight: colors.zinc[600],
   cellOptionTextColor: colors.zinc[200],
 
   // Group Header
@@ -65,6 +64,7 @@ const darkTheme = {
   // search cursor
   searchCursorBg: '#243854',
   searchTargetIndexBg: '#172231',
+  searchTargetIndexSelectedBg: '#1E2D43',
 
   // comment
   commentCountBg: colors.orange[400],

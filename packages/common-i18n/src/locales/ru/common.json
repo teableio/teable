@@ -696,11 +696,6 @@
           "title": "Включить HTTPS",
           "description": "Вы не включили HTTPS, функция крупномасштабного копирования (300 строк или более) будет недоступна, рекомендуется включить."
         },
-        "databaseProxy": {
-          "title": "Переменная окружения PUBLIC_DATABASE_PROXY",
-          "description": "<strong>PUBLIC_DATABASE_PROXY</strong> не настроен, функция подключения внешней базы данных будет недоступна, пожалуйста, обратитесь к <a>справочному документу</a>",
-          "href": "https://help.teable.ai/ru/deploy/database-connection#enable-external-database-connection"
-        },
         "llmApi": {
           "title": "LLM API",
           "description": "Вы еще не настроили AI LLM API, AI Чат/AI автоматизация не будет использоваться, <anchor>перейти к настройкам</anchor>",

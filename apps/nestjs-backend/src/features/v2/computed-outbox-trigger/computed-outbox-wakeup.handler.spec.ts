@@ -1,4 +1,5 @@
 import { v2RecordRepositoryPostgresTokens } from '@teable/v2-adapter-table-repository-postgres';
+import { v2CoreTokens } from '@teable/v2-core';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createRoleAwareWakeupPublisher } from './computed-outbox-wakeup-producer.module';
@@ -39,10 +40,12 @@ describe('ComputedOutboxWakeupHandler', () => {
       isErr: () => false,
       value: 0,
     });
+    const tracer = { startSpan: vi.fn() };
     const resolve = vi.fn((token) => {
       if (token === v2RecordRepositoryPostgresTokens.computedUpdateWorker) {
         return { runTaskById, runOnce };
       }
+      if (token === v2CoreTokens.tracer) return tracer;
       return undefined;
     });
     const getContainerForBase = vi.fn().mockResolvedValue({ resolve });
@@ -61,6 +64,7 @@ describe('ComputedOutboxWakeupHandler', () => {
       expect.objectContaining({
         taskId: 'cuo1234567890123456',
         allowProcessingTakeover: false,
+        tracer,
       })
     );
     expect(runOnce).toHaveBeenCalledWith(

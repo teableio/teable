@@ -62,6 +62,8 @@ describe('InvitationService', () => {
     prismaService.$tx.mockImplementation(async (fn, _options) => {
       return await fn(prismaService);
     });
+
+    prismaService.setting.findMany.mockResolvedValue([]);
   });
 
   afterEach(() => {

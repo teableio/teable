@@ -8,7 +8,10 @@ import { ValueObject } from '../../shared/ValueObject';
 
 const fieldIdPrefix = 'fld';
 const fieldIdBodyLength = 16;
-const fieldIdPattern = new RegExp(`^${fieldIdPrefix}[0-9a-zA-Z]{${fieldIdBodyLength}}(?:_\\d+)?$`);
+const legacyFieldIdMaxBodyLength = 64;
+const fieldIdPattern = new RegExp(
+  `^${fieldIdPrefix}[0-9a-zA-Z]{1,${legacyFieldIdMaxBodyLength}}(?:_\\d+)?$`
+);
 const fieldIdSchema = z.string().regex(fieldIdPattern);
 
 export class FieldId extends ValueObject {

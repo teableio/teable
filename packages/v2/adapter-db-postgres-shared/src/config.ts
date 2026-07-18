@@ -3,6 +3,7 @@ import { z } from 'zod';
 export const v2PostgresDbConfigSchema = z.object({
   pg: z.object({
     connectionString: z.string().min(1),
+    schema: z.string().min(1).optional(),
     pool: z
       .object({
         max: z.number().int().min(1).optional(),

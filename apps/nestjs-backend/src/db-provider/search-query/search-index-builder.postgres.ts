@@ -178,7 +178,11 @@ export class IndexBuilderPostgres extends IndexBuilderAbstract {
       })
       .filter((sql): sql is string => sql !== null);
 
-    fieldSql.unshift(`CREATE EXTENSION IF NOT EXISTS pg_trgm;`);
+    // Install shared extensions outside a space's internal schema. Scoped BYODB
+    // transactions put that schema first on search_path, so omitting WITH SCHEMA
+    // would make the first space own pg_trgm and hide its operator classes from
+    // every other space using the same database.
+    fieldSql.unshift(`CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;`);
     return fieldSql;
   }
 

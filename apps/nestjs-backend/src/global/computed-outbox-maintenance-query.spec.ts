@@ -27,6 +27,7 @@ describe('buildComputedOutboxWakeupCandidatesQuery', () => {
     const query = buildComputedOutboxWakeupCandidatesQuery(
       {
         storage: 'byodb',
+        internalSchema: 'teable_data',
         baseSpaceMapping: [{ baseId: 'bse_a', spaceId: 'spc_a' }],
       },
       120_000,
@@ -34,6 +35,8 @@ describe('buildComputedOutboxWakeupCandidatesQuery', () => {
     );
 
     expect(query.sql).toContain('jsonb_to_recordset(?::jsonb)');
+    expect(query.sql).toContain('from "teable_data"."computed_update_outbox" as o');
+    expect(query.sql).toContain('from "teable_data"."computed_update_pause_scope" as cps');
     expect(query.bindings).toEqual(['[{"base_id":"bse_a","space_id":"spc_a"}]', 500]);
   });
 });

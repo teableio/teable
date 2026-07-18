@@ -677,11 +677,6 @@
           "title": "Увімкнути HTTPS",
           "description": "Ви не ввімкнули HTTPS, функція великомасштабного копіювання (300 рядків або більше) буде недоступна, рекомендується ввімкнути."
         },
-        "databaseProxy": {
-          "title": "Змінна середовища PUBLIC_DATABASE_PROXY",
-          "description": "<strong>PUBLIC_DATABASE_PROXY</strong> не налаштовано, функція підключення зовнішньої бази даних буде недоступна, будь ласка, зверніться до <a>довідкового документа</a>",
-          "href": "https://help.teable.ai/uk/deploy/database-connection#enable-external-database-connection"
-        },
         "llmApi": {
           "title": "LLM API",
           "description": "Ви ще не налаштували AI LLM API, AI чат/AI автоматизація не буде використовуватися, <anchor>перейти до налаштувань</anchor>",

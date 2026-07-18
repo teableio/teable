@@ -8,6 +8,7 @@ import {
   aiConfigVoSchema,
   aiModelMappingSchema,
   appAuthConfigSchema,
+  appConfigDeployProviderSchema,
   appConfigSchema,
   attachmentTestSchema,
   attachmentTransferModeSchema,
@@ -93,14 +94,12 @@ export type IUpdateAiConfigVo = z.infer<typeof updateAiConfigVoSchema>;
 
 const appConfigEnginePatchSchema = z.object({
   vercelToken: nullableStringSchema,
+  // null resets the channel back to env APP_DEPLOY_PROVIDER / vercel resolution
+  deployProvider: appConfigDeployProviderSchema.nullable().optional(),
 });
 
 const appConfigCustomDomainPatchSchema = z.object({
   customDomain: nullableStringSchema,
-});
-
-const appConfigApiProxyPatchSchema = z.object({
-  vercelBaseUrl: z.url().nullable().optional(),
 });
 
 const appConfigAppAuthPatchSchema = z.object({
@@ -114,7 +113,6 @@ const appConfigBrandingPatchSchema = z.object({
 export const updateAppConfigRoSchema = z.discriminatedUnion('section', [
   z.object({ section: z.literal('engine'), patch: appConfigEnginePatchSchema }),
   z.object({ section: z.literal('customDomain'), patch: appConfigCustomDomainPatchSchema }),
-  z.object({ section: z.literal('apiProxy'), patch: appConfigApiProxyPatchSchema }),
   z.object({ section: z.literal('appAuth'), patch: appConfigAppAuthPatchSchema }),
   z.object({ section: z.literal('branding'), patch: appConfigBrandingPatchSchema }),
 ]);

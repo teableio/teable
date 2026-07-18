@@ -13,15 +13,14 @@ export interface IList {
   key:
     | 'publicOrigin'
     | 'https'
-    | 'databaseProxy'
     | 'llmApi'
     | 'aiEnable'
     | 'aiLlmApi'
     | 'aiModelPool'
     | 'aiChatModel'
     | 'app'
+    | 'appBuilderEngine'
     | 'appBuilderDomain'
-    | 'appBuilderApiProxy'
     | 'sandboxVercel'
     | 'email';
   anchor?: RefObject<HTMLDivElement>;
@@ -34,10 +33,12 @@ export interface IList {
 
 export interface IConfigurationListProps {
   list: IList[];
+  appVersion?: string;
+  infraVersion?: string;
 }
 
 export const ConfigurationList = (props: IConfigurationListProps) => {
-  const { list } = props;
+  const { list, appVersion, infraVersion } = props;
   const { t } = useTranslation('common');
 
   const router = useRouter();
@@ -75,6 +76,13 @@ export const ConfigurationList = (props: IConfigurationListProps) => {
         <span className="justify-start self-stretch text-xs text-muted-foreground">
           {t('admin.configuration.description')}
         </span>
+        {(appVersion || infraVersion) && (
+          <span className="mt-1 justify-start self-stretch text-xs text-muted-foreground">
+            {appVersion && `${t('settings.setting.version')}: ${appVersion}`}
+            {appVersion && infraVersion && ' · '}
+            {infraVersion && `${t('settings.setting.infraVersion')}: ${infraVersion}`}
+          </span>
+        )}
       </div>
 
       {/* Progress */}

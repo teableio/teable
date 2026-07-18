@@ -123,33 +123,50 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
 
   async getContainerForSpace(spaceId: string): Promise<DependencyContainer> {
     const dataDb = await this.dataDbClientManager.getDataDatabaseForSpace(spaceId);
-    return await this.getContainerForDataDb(dataDb.cacheKey, dataDb.url);
+    return await this.getContainerForDataDb(
+      dataDb.cacheKey,
+      dataDb.connectionUrl ?? dataDb.url,
+      dataDb.internalSchema
+    );
   }
 
   async getContainerForBase(baseId: string): Promise<DependencyContainer> {
     const dataDb = await this.dataDbClientManager.getDataDatabaseForBase(baseId);
-    return await this.getContainerForDataDb(dataDb.cacheKey, dataDb.url);
+    return await this.getContainerForDataDb(
+      dataDb.cacheKey,
+      dataDb.connectionUrl ?? dataDb.url,
+      dataDb.internalSchema
+    );
   }
 
   async getContainerForTable(tableId: string): Promise<DependencyContainer> {
     const dataDb = await this.dataDbClientManager.getDataDatabaseForTable(tableId);
-    return await this.getContainerForDataDb(dataDb.cacheKey, dataDb.url);
+    return await this.getContainerForDataDb(
+      dataDb.cacheKey,
+      dataDb.connectionUrl ?? dataDb.url,
+      dataDb.internalSchema
+    );
   }
 
   async getContainerForMaintenanceTarget(
     target: IComputedOutboxMaintenanceTarget
   ): Promise<DependencyContainer> {
-    return this.getContainerForDataDb(target.cacheKey, target.url);
+    return this.getContainerForDataDb(
+      target.cacheKey,
+      target.connectionUrl ?? target.url,
+      target.internalSchema
+    );
   }
 
   private async getContainerForDataDb(
     cacheKey: string,
-    dataConnectionString: string
+    dataConnectionString: string,
+    dataSchema?: string
   ): Promise<DependencyContainer> {
     return await this.runtimeCache.getOrCreate(
       V2_CONTAINER_CACHE_NAMESPACE,
       cacheKey,
-      () => this.createContainer(dataConnectionString),
+      () => this.createContainer(dataConnectionString, dataSchema),
       (container) => this.destroyContainer(container)
     );
   }
@@ -162,7 +179,10 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
     );
   }
 
-  private async createContainer(dataConnectionString: string): Promise<DependencyContainer> {
+  private async createContainer(
+    dataConnectionString: string,
+    dataSchema?: string
+  ): Promise<DependencyContainer> {
     const metaConnectionString = this.getMetaConnectionString();
     const logger = new PinoLoggerAdapter(this.pinoLogger);
     const tracer = new OpenTelemetryTracer();
@@ -192,6 +212,7 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
     const container = await createV2NodePgContainer({
       metaConnectionString,
       dataConnectionString,
+      dataSchema,
       logger,
       tracer,
       commandBusMiddlewares,

@@ -1405,7 +1405,7 @@ export class FormulaSqlPgExpressionBuilder {
     while (normalized.startsWith('(') && normalized.endsWith(')')) {
       normalized = normalized.slice(1, -1).trim();
     }
-    return /^NULL(?:::[a-zA-Z0-9_ ]+)?$/i.test(normalized);
+    return /^NULL(?:::[\w ]+)?$/i.test(normalized);
   }
 
   protected buildLooseDatetimeComparison(left: SqlExpr, right: SqlExpr, operator: string): string {
@@ -2040,16 +2040,36 @@ export class FormulaSqlPgExpressionBuilder {
       return { left, right: blankExpr, type: left.valueType, isArray: left.isArray };
     }
 
-    const needsJsonStringCoercion =
-      left.valueType === 'string' &&
-      right.valueType === 'string' &&
+    const needsJsonScalarCoercion =
+      left.valueType === right.valueType &&
       left.isArray === right.isArray &&
       !left.isArray &&
       (left.storageKind === 'json' || right.storageKind === 'json');
-    if (needsJsonStringCoercion) {
-      const textLeft = this.coerceToString(left);
-      const textRight = this.coerceToString(right);
-      return { left: textLeft, right: textRight, type: 'string', isArray: false };
+    if (needsJsonScalarCoercion) {
+      switch (left.valueType) {
+        case 'number': {
+          const numericLeft = this.coerceToNumber(left, 'if');
+          const numericRight = this.coerceToNumber(right, 'if');
+          return { left: numericLeft, right: numericRight, type: 'number', isArray: false };
+        }
+        case 'boolean': {
+          const boolLeft = this.coerceToBoolean(left);
+          const boolRight = this.coerceToBoolean(right);
+          return { left: boolLeft, right: boolRight, type: 'boolean', isArray: false };
+        }
+        case 'datetime': {
+          const datetimeLeft = this.coerceToDatetime(left);
+          const datetimeRight = this.coerceToDatetime(right);
+          return { left: datetimeLeft, right: datetimeRight, type: 'datetime', isArray: false };
+        }
+        case 'string':
+        case 'unknown':
+        default: {
+          const textLeft = this.coerceToString(left);
+          const textRight = this.coerceToString(right);
+          return { left: textLeft, right: textRight, type: 'string', isArray: false };
+        }
+      }
     }
 
     if (left.valueType === right.valueType && left.isArray === right.isArray) {

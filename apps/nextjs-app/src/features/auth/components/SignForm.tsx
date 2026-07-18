@@ -89,6 +89,7 @@ export const SignForm: FC<ISignForm> = (props) => {
         return signin(form);
       }
       if (type === 'signup') {
+        // Affiliate attribution rides the teable_affiliate_via cookie, not this payload.
         return signup({
           ...form,
           refMeta: {

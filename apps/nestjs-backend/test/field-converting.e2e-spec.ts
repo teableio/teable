@@ -3902,6 +3902,104 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect((persisted.options as ISelectFieldOptions).choices?.length).toBeGreaterThanOrEqual(2);
     });
 
+    it.skipIf(!canRunCanaryV2)(
+      'should preserve nested select lookup choices when renaming through v2 T6243',
+      async () => {
+        const sourceSelectField = await createField(table1.id, {
+          name: 'Source Status',
+          type: FieldType.SingleSelect,
+          options: {
+            choices: [
+              { name: 'Queued', color: Colors.BlueBright },
+              { name: 'Active', color: Colors.GreenBright },
+              { name: 'Done', color: Colors.OrangeBright },
+            ],
+          },
+        });
+        const expectedChoices = (sourceSelectField.options as ISelectFieldOptions).choices;
+
+        const middleLinkField = await createField(table2.id, {
+          name: 'Middle Link',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyOne,
+            foreignTableId: table1.id,
+          },
+        });
+        const middleLookupField = await createField(table2.id, {
+          name: 'Middle Status',
+          type: FieldType.SingleSelect,
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId: table1.id,
+            lookupFieldId: sourceSelectField.id,
+            linkFieldId: middleLinkField.id,
+          },
+        });
+
+        const hostLinkField = await createField(table3.id, {
+          name: 'Host Link',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyOne,
+            foreignTableId: table2.id,
+          },
+        });
+        const nestedLookupField = await createField(table3.id, {
+          name: 'Nested Status',
+          type: FieldType.SingleSelect,
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId: table2.id,
+            lookupFieldId: middleLookupField.id,
+            linkFieldId: hostLinkField.id,
+          },
+        });
+
+        expect((nestedLookupField.options as ISelectFieldOptions).choices).toEqual(expectedChoices);
+
+        const values = ['Queued', 'Active', 'Done'];
+        for (const [index, value] of values.entries()) {
+          await updateRecordByApi(table1.id, table1.records[index].id, sourceSelectField.id, value);
+          await updateRecordByApi(table2.id, table2.records[index].id, middleLinkField.id, {
+            id: table1.records[index].id,
+          });
+          await updateRecordByApi(table3.id, table3.records[index].id, hostLinkField.id, {
+            id: table2.records[index].id,
+          });
+        }
+
+        const recordsBeforeRename = await getRecords(table3.id, {
+          fieldKeyType: FieldKeyType.Id,
+        });
+        expect(
+          recordsBeforeRename.records.map((record) => record.fields[nestedLookupField.id]).sort()
+        ).toEqual([...values].sort());
+
+        const updated = await convertFieldByCanaryV2(table3.id, nestedLookupField.id, {
+          name: 'Renamed Nested Status',
+          type: FieldType.SingleSelect,
+          isLookup: true,
+          options: { choices: [] },
+          lookupOptions: {
+            foreignTableId: table2.id,
+            lookupFieldId: middleLookupField.id,
+            linkFieldId: hostLinkField.id,
+          },
+        });
+
+        expect((updated.options as ISelectFieldOptions).choices).toEqual(expectedChoices);
+
+        const persisted = await getField(table3.id, nestedLookupField.id);
+        expect((persisted.options as ISelectFieldOptions).choices).toEqual(expectedChoices);
+
+        const records = await getRecords(table3.id, { fieldKeyType: FieldKeyType.Id });
+        expect(records.records.map((record) => record.fields[nestedLookupField.id]).sort()).toEqual(
+          [...values].sort()
+        );
+      }
+    );
+
     it('should update lookup when the change lookupField', async () => {
       const textFieldRo: IFieldRo = {
         name: 'text',

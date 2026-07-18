@@ -1,3 +1,4 @@
+import type { PostgresSqlExecutionDiagnostics } from '@teable/v2-adapter-db-postgres-shared';
 import type { DomainError, IExecutionContext } from '@teable/v2-core';
 import type { Result } from 'neverthrow';
 
@@ -15,6 +16,8 @@ export type ComputedUpdateOutboxConfig = {
   maxAttempts: number;
   /** Base backoff in milliseconds for retry scheduling. */
   baseBackoffMs: number;
+  /** Delay before retrying a transient computed advisory-lock conflict. */
+  lockUnavailableRetryDelayMs: number;
   /** Max backoff in milliseconds for retry scheduling. */
   maxBackoffMs: number;
   /**
@@ -69,6 +72,7 @@ export const defaultComputedUpdateOutboxConfig: ComputedUpdateOutboxConfig = {
   seedInlineLimit: 5000,
   maxAttempts: 8,
   baseBackoffMs: 5000,
+  lockUnavailableRetryDelayMs: 250,
   maxBackoffMs: 5 * 60 * 1000,
   processingLeaseMs: 2 * 60 * 1000,
   heartbeatIntervalMs: 30 * 1000,
@@ -90,6 +94,7 @@ export const normalizeComputedUpdateOutboxConfig = (
   const recommendedHeartbeat = Math.max(1000, Math.trunc(processingLeaseMs / 3));
   return {
     ...config,
+    lockUnavailableRetryDelayMs: Math.max(0, Math.trunc(config.lockUnavailableRetryDelayMs)),
     processingLeaseMs,
     heartbeatIntervalMs: Math.max(
       1000,
@@ -149,6 +154,19 @@ export type MarkFailedOptions = {
   failureReason?: string;
   retryable?: boolean;
   directDeadLetter?: boolean;
+  diagnostics?: ComputedTaskFailureDiagnostics;
+};
+
+export type ComputedTaskFailureDiagnostics = {
+  readonly version: 1;
+  readonly failure: {
+    readonly kind?: string;
+    readonly reason?: string;
+    readonly retryable?: boolean;
+    readonly directDeadLetter: boolean;
+    readonly phase?: string;
+  };
+  readonly execution?: PostgresSqlExecutionDiagnostics;
 };
 
 /**

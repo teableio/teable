@@ -24,6 +24,7 @@ import type { ITableFullVo } from '@teable/openapi';
 import type { Knex } from 'knex';
 import type { FieldCreateEvent } from '../src/event-emitter/events';
 import { Events } from '../src/event-emitter/events';
+import { DatabaseRouter } from '../src/global/database-router.service';
 import {
   createField,
   createTable,
@@ -56,12 +57,14 @@ const withForceV2All = async <T>(callback: () => Promise<T>) => {
 
 describe('OpenAPI FieldController (e2e)', () => {
   let app: INestApplication;
+  let databaseRouter: DatabaseRouter;
   const baseId = globalThis.testConfig.baseId;
   let event: EventEmitter2;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
+    databaseRouter = app.get(DatabaseRouter);
     event = app.get(EventEmitter2);
   });
 
@@ -1219,6 +1222,75 @@ describe('OpenAPI FieldController (e2e)', () => {
 
       const recordAfter = await getRecord(table.id, recordId, 'text' as CellFormat);
       expect(recordAfter.fields[formulaField.id]).toBe('200.00%');
+    });
+  });
+
+  describe('computed field metadata regression', () => {
+    let hostTable: ITableFullVo;
+    let foreignTable: ITableFullVo;
+
+    beforeAll(async () => {
+      foreignTable = await createTable(baseId, {
+        name: 'sanitized-computed-source',
+        fields: [{ name: 'Amount', type: FieldType.Number }],
+      });
+      hostTable = await createTable(baseId, {
+        name: 'sanitized-computed-host',
+        records: [{ fields: {} }],
+      });
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, hostTable.id);
+      await permanentDeleteTable(baseId, foreignTable.id);
+    });
+
+    it('does not backfill a computed field when only its name and description change', async () => {
+      const linkField = await createField(hostTable.id, {
+        name: 'Source link',
+        type: FieldType.Link,
+        options: {
+          foreignTableId: foreignTable.id,
+          relationship: Relationship.ManyOne,
+        } as ILinkFieldOptionsRo,
+      });
+      const amountField = foreignTable.fields.find((field) => field.name === 'Amount')!;
+      const rollupField = await createField(hostTable.id, {
+        name: 'Computed reference',
+        type: FieldType.Rollup,
+        options: {
+          expression: 'sum({values})',
+        },
+        lookupOptions: {
+          foreignTableId: foreignTable.id,
+          lookupFieldId: amountField.id,
+          linkFieldId: linkField.id,
+        } as ILookupOptionsRo,
+      });
+      const beforeDetail = await getField(hostTable.id, rollupField.id);
+      const recordId = hostTable.records[0].id;
+      const valueBefore = (await getRecord(hostTable.id, recordId)).fields[rollupField.id];
+
+      // Recreate the persisted shape reported in T6250 without retaining customer data:
+      // a scalar computed field whose historical physical column is still JSONB.
+      const dataKnex = await databaseRouter.dataKnexForTable(hostTable.id);
+      await dataKnex.raw('ALTER TABLE ?? ALTER COLUMN ?? TYPE jsonb USING to_jsonb(??)', [
+        hostTable.dbTableName,
+        rollupField.dbFieldName,
+        rollupField.dbFieldName,
+      ]);
+
+      const updatedField = await convertField(hostTable.id, rollupField.id, {
+        name: 'Computed reference renamed',
+        description: 'Metadata only',
+        type: FieldType.Rollup,
+        options: beforeDetail.options,
+        lookupOptions: beforeDetail.lookupOptions,
+      });
+
+      expect(updatedField.name).toBe('Computed reference renamed');
+      expect(updatedField.description).toBe('Metadata only');
+      expect((await getRecord(hostTable.id, recordId)).fields[rollupField.id]).toEqual(valueBefore);
     });
   });
 });

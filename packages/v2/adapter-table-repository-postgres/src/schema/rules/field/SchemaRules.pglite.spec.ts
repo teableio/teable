@@ -2608,6 +2608,46 @@ describe('Schema Rules Unit Tests with PGlite', () => {
     });
   });
 
+  describe('metadata schema routing', () => {
+    it('keeps metadata statements outside the scoped data schema', () => {
+      const dataDb = db.withSchema(TEST_SCHEMA);
+
+      const field = createRealField('meta_scope_001', 'Link', 'link_col')._unsafeUnwrap();
+      const fieldCtx = {
+        ...createContext('test_metadata_schema_routing', field),
+        db: dataDb,
+      };
+      const fieldMetaStatement = FieldMetaRule.forOrderColumn(field)
+        .up(fieldCtx)
+        ._unsafeUnwrap()[0];
+      expect(fieldMetaStatement?.compile(db).sql).toContain('update "field"');
+      expect(fieldMetaStatement?.compile(db).sql).not.toContain(`"${TEST_SCHEMA}"."field"`);
+
+      const referenceStatement = ReferenceRule.single(field, 'fld_source_field_001')
+        .up(fieldCtx)
+        ._unsafeUnwrap()[0];
+      expect(referenceStatement?.compile(db).sql).toContain('insert into "reference"');
+      expect(referenceStatement?.compile(db).sql).not.toContain(`"${TEST_SCHEMA}"."reference"`);
+
+      const selectField = createRealSingleSelectField({
+        id: 'meta_scope_002',
+        name: 'Status',
+        dbFieldName: 'status_col',
+        choices: [{ id: 'choKeep', name: 'Keep', color: 'blueBright' }],
+      })._unsafeUnwrap();
+      const selectCtx = {
+        ...createContext('test_metadata_schema_routing', selectField),
+        db: dataDb,
+      };
+      const selectMetaStatement = new SelectOptionsMetaRule(selectField)
+        .up(selectCtx)
+        ._unsafeUnwrap()
+        .find((statement) => statement.scope === 'meta');
+      expect(selectMetaStatement?.compile(db).sql).toContain('update "field"');
+      expect(selectMetaStatement?.compile(db).sql).not.toContain(`"${TEST_SCHEMA}"."field"`);
+    });
+  });
+
   describe('FieldMetaRule', () => {
     const TABLE_NAME = 'test_field_meta_rule';
 

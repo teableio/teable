@@ -333,6 +333,7 @@
       "light": "Light",
       "system": "System",
       "version": "App version",
+      "infraVersion": "Infra version",
       "language": "Language",
       "interactionMode": "Interaction mode",
       "mouseMode": "Cursor mode",
@@ -655,14 +656,14 @@
         "chatModels": {
           "lg": "Advanced chat model",
           "lgDescription": "For planning, coding, and other complex task scenarios. Recommended: claude-sonnet-4.5",
-          "md": "Standard",
+          "md": "Medium-task model",
           "mdDescription": "For daily conversations and general tasks",
-          "sm": "Lightweight",
+          "sm": "Light-task model",
           "smDescription": "For simple queries and quick responses",
-          "inheritHint": "Same as primary ({{model}})",
+          "inheritHint": "Same as the default main model ({{model}})",
           "modelTiers": "Model tiers",
-          "modelTiersDescription": "Optionally assign different models for standard and lightweight tasks. Unset tiers use the primary model above.",
-          "allInheriting": "All tiers using primary model",
+          "modelTiersDescription": "Assign different models to medium and light tasks; unset tiers use the default main model above.",
+          "allInheriting": "All tiers use the default main model",
           "customized": "{{count}} customized"
         },
         "actions": {
@@ -933,8 +934,8 @@
           "quickSetup": "Quick Setup",
           "useRecommended": "Use Recommended",
           "useRecommendedDesc": "Set {{model}} as default for all chat scenarios with one click",
-          "chatModels": "Chat Model",
-          "chatModelTip": "This model is used for sidebar AI chat, specified by admin and cannot be changed by users",
+          "chatModels": "Default main model",
+          "chatModelTip": "The default main model for sidebar AI chat, set by the admin and not user-changeable; task tiers without their own model also use it",
           "selectChatModel": "Select chat model...",
           "lgDesc": "Complex tasks, deep analysis",
           "mdDesc": "Daily conversations, general tasks",
@@ -971,9 +972,6 @@
         "customDomainDescription": "Set your custom domain for app deployment, access <a>Vercel domain</a> to get custom domain",
         "vercelToken": "Vercel API Token",
         "vercelTokenDescription": "Access <a>Vercel settings</a> to get API token",
-        "apiProxy": "API Proxy (Optional)",
-        "apiProxyDescription": "Configure reverse proxy URLs Vercel APIs (e.g., Cloudflare Workers). Leave empty to use default endpoints.",
-        "vercelBaseUrl": "Vercel API Base URL",
         "aiGateway": "Vercel AI Gateway",
         "aiGatewayDescription": "Configure Vercel AI Gateway to access hundreds of models through a single endpoint. Access <a>AI Gateway settings</a> to get API key",
         "aiGatewayApiKey": "AI Gateway API Key",
@@ -1013,11 +1011,6 @@
           "title": "Enable https",
           "description": "You have not enabled HTTPS, the large-scale copy (300 lines or more) feature will not be available, and it is recommended to enable it."
         },
-        "databaseProxy": {
-          "title": "PUBLIC_DATABASE_PROXY environment variable",
-          "description": "The <strong>PUBLIC_DATABASE_PROXY</strong> is not configured, the external database connection feature will not be available, please refer to the <a>help document</a>",
-          "href": "https://help.teable.ai/en/deploy/database-connection#enable-external-database-connection"
-        },
         "llmApi": {
           "title": "LLM API",
           "description": "You have not configured the AI LLM API, AI Chat/ AI automation will not be usable, <anchor>go to setting</anchor>",
@@ -1039,12 +1032,13 @@
           "title": "AI: Set chat model",
           "description": "Select a default model for the sidebar AI Chat, <anchor>go to setting</anchor>"
         },
+        "appBuilderEngine": {
+          "title": "App Builder: Deployment engine",
+          "description": "Configure the deployment engine (Vercel or Teable Infra) for publishing apps, <anchor>go to setting</anchor>"
+        },
         "appBuilderDomain": {
           "title": "App Builder: Custom domain",
           "description": "If you want to publish apps under your custom domain, configure domain + Vercel token, <anchor>go to setting</anchor>"
-        },
-        "appBuilderApiProxy": {
-          "title": "App Builder: API proxy"
         },
         "email": {
           "title": "Email",

@@ -5,12 +5,14 @@ const POSTGRES_STATEMENT_TIMEOUT_CODE = '57014';
 export type ComputedTaskFailureKind =
   | 'transient'
   | 'statement_timeout'
-  | 'computed_code_bug';
+  | 'computed_code_bug'
+  | 'data_safety_limit';
 
 export type ComputedTaskFailureReason =
   | 'unknown'
   | 'statement_timeout'
-  | 'postgres_sql_generation_error';
+  | 'postgres_sql_generation_error'
+  | 'computed_cell_value_max_bytes';
 
 export type ComputedTaskFailureClassification = {
   failureKind: ComputedTaskFailureKind;
@@ -46,6 +48,14 @@ export const classifyComputedTaskFailure = (
   error: DomainError
 ): ComputedTaskFailureClassification => {
   const message = error.message;
+
+  if (error.code === 'validation.limit.computed_cell_value_max_bytes') {
+    return {
+      failureKind: 'data_safety_limit',
+      failureReason: 'computed_cell_value_max_bytes',
+      retryable: false,
+    };
+  }
 
   if (isStatementTimeoutMessage(message)) {
     return {

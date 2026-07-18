@@ -61,6 +61,7 @@ import {
 import { CsvImporter } from '../src/features/import/open-api/import.class';
 import { SpaceDataDbMigrationWorkerService } from '../src/features/space/space-data-db-migration-worker.service';
 import { SpaceDataDbMigrationService } from '../src/features/space/space-data-db-migration.service';
+import { DataDbClientManager } from '../src/global/data-db-client-manager.service';
 import { createAwaitWithEventWithResult } from './utils/event-promise';
 import {
   createBase,
@@ -79,6 +80,7 @@ import {
   permanentDeleteTable,
   updateRecord,
 } from './utils/init-app';
+import { createSearchPathRejectingPostgresProxy } from './utils/postgres-pooler-proxy';
 
 const databaseIdentity = (url?: string) => {
   if (!url) {
@@ -863,6 +865,85 @@ describeByodbStorage('BYODB space storage placement (e2e)', () => {
     await assertDotTeaBaseImportRouting(space.id);
     await assertComputedSideEffectsStayOutOfMetaDb(base.id, mainTable.id, recordId);
   }, 240_000);
+
+  it('opens BYODB tables through poolers that reject search_path startup parameters', async () => {
+    const poolerInternalSchema = `byodb_pooler_${Date.now().toString(36)}`;
+    let poolerSpaceId: string | undefined;
+    let poolerBaseId: string | undefined;
+    let poolerConnectionId: string | undefined;
+    let poolerTable: ITableFullVo | undefined;
+    const pooler = await createSearchPathRejectingPostgresProxy(byodbDataDatabaseUrl!);
+
+    try {
+      const space = await createSpace({
+        name: 'BYODB pooler e2e',
+        dataDb: {
+          mode: 'byodb',
+          url: pooler.connectionUrl,
+          targetMode: 'initialize-empty',
+          internalSchema: poolerInternalSchema,
+        },
+      });
+      poolerSpaceId = space.id;
+      poolerConnectionId = (await app.get(DataDbClientManager).getDataDatabaseForSpace(space.id))
+        .connectionId;
+      const base = await createBase({ spaceId: space.id, name: 'BYODB pooler base' });
+      poolerBaseId = base.id;
+      poolerTable = await createTable(base.id, {
+        name: 'BYODB pooler table',
+        fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+        records: [{ fields: { Name: 'Before migration' } }],
+      });
+      await toggleTableIndex(base.id, poolerTable.id, { type: TableIndex.search });
+
+      const activatedIndex = await getTableActivatedIndex(base.id, poolerTable.id);
+      expect(activatedIndex.data).toContain(TableIndex.search);
+      expect(activatedIndex.headers[X_TEABLE_V2_HEADER]).toBe('false');
+      expect(activatedIndex.headers[X_TEABLE_V2_REASON_HEADER]).toBe('no_feature');
+
+      const records = await axios.get(`/table/${poolerTable.id}/record`, {
+        params: {
+          fieldKeyType: FieldKeyType.Id,
+          viewId: poolerTable.defaultViewId!,
+        },
+      });
+      expect(records.data.records).toHaveLength(1);
+      expect(records.headers[X_TEABLE_V2_HEADER]).toBe('true');
+      expect(records.headers[X_TEABLE_V2_REASON_HEADER]).toBe('new_base');
+
+      const scopedDataPrisma = (await app
+        .get(DataDbClientManager)
+        .dataPrismaForSpace(space.id)) as unknown as {
+        txClient(): {
+          $queryRawUnsafe<T>(query: string): Promise<T>;
+        };
+      };
+      const schemaRows = await scopedDataPrisma
+        .txClient()
+        .$queryRawUnsafe<
+          Array<{ schema: string; historyTable: string | null }>
+        >(`select current_schema()::text as schema, to_regclass('record_history')::text as "historyTable"`);
+      expect(schemaRows).toEqual([
+        { schema: poolerInternalSchema, historyTable: 'record_history' },
+      ]);
+      expect(pooler.getRejectedConnections()).toBe(0);
+    } finally {
+      if (poolerBaseId) {
+        await permanentDeleteBase(poolerBaseId).catch(() => undefined);
+      }
+      if (poolerSpaceId) {
+        await permanentDeleteSpace(poolerSpaceId).catch(() => undefined);
+      }
+      await safeDropSchema(dataDb, poolerBaseId);
+      await safeDropSchema(defaultDataDb, poolerBaseId);
+      await safeDropSchema(metaDb, poolerBaseId);
+      await safeDropSchema(dataDb, poolerInternalSchema);
+      if (poolerConnectionId) {
+        await app.get(DataDbClientManager).invalidateConnection(poolerConnectionId);
+      }
+      await pooler.close();
+    }
+  }, 180_000);
 
   itWithMigrationTools(
     'migrates an existing default space and routes post-switch writes to BYODB only',

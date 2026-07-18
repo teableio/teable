@@ -2448,7 +2448,11 @@ class UpdateRollupFieldSpec implements IUpdateTableFieldSpec {
 
     if (this.configValue !== undefined) {
       const currentConfig = currentField.config();
-      specs.push(UpdateRollupConfigSpec.create(currentField.id(), currentConfig, this.configValue));
+      if (!this.configValue.equals(currentConfig)) {
+        specs.push(
+          UpdateRollupConfigSpec.create(currentField.id(), currentConfig, this.configValue)
+        );
+      }
     }
 
     if (this.expressionValue !== undefined) {
@@ -2933,7 +2937,6 @@ class UpdateLookupFieldSpec implements IUpdateTableFieldSpec {
     }
 
     const specs: ISpecification<Table, ITableSpecVisitor>[] = [];
-
     if (this.nameValue && !this.nameValue.equals(currentField.name())) {
       specs.push(
         TableUpdateFieldNameSpec.create(currentField.id(), currentField.name(), this.nameValue)
@@ -2978,10 +2981,10 @@ class UpdateLookupFieldSpec implements IUpdateTableFieldSpec {
       }
       const nextOptions = nextOptionsResult.value;
 
-      if (!nextOptions.equals(currentOptions) || this.shouldClearShowAs) {
+      if (!nextOptions.equals(currentOptions) || this.shouldForceClearShowAs(currentField)) {
         specs.push(UpdateLookupOptionsSpec.create(currentField.id(), currentOptions, nextOptions));
       }
-    } else if (this.shouldClearShowAs) {
+    } else if (this.shouldForceClearShowAs(currentField)) {
       // Force a lookup options update to recreate the pending lookup field,
       // which re-resolves the inner field from the foreign table without showAs.
       specs.push(UpdateLookupOptionsSpec.create(currentField.id(), currentOptions, currentOptions));
@@ -2991,6 +2994,23 @@ class UpdateLookupFieldSpec implements IUpdateTableFieldSpec {
     if (constraintsSpec) specs.push(constraintsSpec);
 
     return ok(specs);
+  }
+
+  private shouldForceClearShowAs(currentField: LookupField): boolean {
+    if (!this.shouldClearShowAs) return false;
+
+    const currentInnerOptions = currentField
+      .innerField()
+      .andThen((field) => field.accept(new FieldOptionsDtoVisitor()));
+    if (currentInnerOptions.isErr()) return false;
+
+    const options = currentInnerOptions.value;
+    return (
+      options !== null &&
+      typeof options === 'object' &&
+      !Array.isArray(options) &&
+      Object.prototype.hasOwnProperty.call(options, 'showAs')
+    );
   }
 
   createField(): Result<Field, DomainError> {

@@ -729,11 +729,6 @@
           "title": "Abilita HTTPS",
           "description": "Non hai abilitato HTTPS, la funzione di copia su larga scala (300 righe o più) non sarà disponibile, si consiglia di abilitarla."
         },
-        "databaseProxy": {
-          "title": "Variabile d'ambiente PUBLIC_DATABASE_PROXY",
-          "description": "<strong>PUBLIC_DATABASE_PROXY</strong> non è configurato, la funzione di connessione database esterno non sarà disponibile, per favore fai riferimento al <a>documento di aiuto</a>",
-          "href": "https://help.teable.ai/it/deploy/database-connection#enable-external-database-connection"
-        },
         "llmApi": {
           "title": "LLM API",
           "description": "Non hai ancora configurato l'API LLM AI, AI Chat/automazione AI non sarà utilizzabile, <anchor>vai alle impostazioni</anchor>",

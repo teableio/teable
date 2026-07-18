@@ -1,4 +1,7 @@
-import { resolvePostgresDbOrTx } from '@teable/v2-adapter-db-postgres-shared';
+import {
+  PostgresSqlExecutionError,
+  resolvePostgresDbOrTx,
+} from '@teable/v2-adapter-db-postgres-shared';
 import {
   domainError,
   FieldType,
@@ -23,7 +26,7 @@ import type {
 import { inject, injectable } from '@teable/v2-di';
 import { formulaSqlPgTokens, type IPgTypeValidationStrategy } from '@teable/v2-formula-sql-pg';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import type { Expression, Kysely, SqlBool } from 'kysely';
+import type { CompiledQuery, Expression, Kysely, SqlBool } from 'kysely';
 import { sql } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
@@ -65,10 +68,10 @@ import { isPersistedAsGeneratedColumn } from './isPersistedAsGeneratedColumn';
 import { UpdateFromSelectBuilder } from './UpdateFromSelectBuilder';
 import type { UpdatedRecordRow } from './UpdateFromSelectBuilder';
 
-const DIRTY_TABLE = 'tmp_computed_dirty';
+const DIRTY_TABLE = 'pg_temp.tmp_computed_dirty';
 const DIRTY_TABLE_ID_COL = 'table_id';
 const DIRTY_RECORD_ID_COL = 'record_id';
-const BEFORE_IMAGE_TABLE = 'tmp_computed_before_image';
+const BEFORE_IMAGE_TABLE = 'pg_temp.tmp_computed_before_image';
 const BEFORE_IMAGE_SNAPSHOT_COL = 'field_values';
 const SAME_TABLE_BATCH_CHUNK_TRIGGER = 1000;
 const SAME_TABLE_BATCH_CHUNK_SIZE = 500;
@@ -345,6 +348,24 @@ export class ComputedFieldUpdater {
     @inject(v2CoreTokens.tableDataSafetyLimitComposer)
     private readonly tableDataSafetyLimitComposer: TableDataSafetyLimitComposer = new TableDataSafetyLimitComposer()
   ) {}
+
+  private async executeComputedQuery(
+    db: Kysely<DynamicDB>,
+    compiled: CompiledQuery,
+    context: {
+      source: string;
+      tableId: string;
+      tableName: string;
+      fieldIds: ReadonlyArray<string>;
+      stepLevel: number;
+    }
+  ) {
+    try {
+      return await db.executeQuery(compiled);
+    } catch (error) {
+      throw new PostgresSqlExecutionError(error, compiled, context);
+    }
+  }
 
   async execute(
     plan: ComputedUpdatePlan,
@@ -1096,7 +1117,10 @@ export class ComputedFieldUpdater {
                 })
                   .from(table)
                   .select(fieldChunk)
-                  .withDirtyFilter({ tableId: step.tableId.toString() });
+                  .withDirtyFilter({
+                    tableId: step.tableId.toString(),
+                    dirtyTableName: DIRTY_TABLE,
+                  });
                 yield* await builder.prepare({
                   context,
                   tableRepository: this.tableRepository,
@@ -1153,6 +1177,7 @@ export class ComputedFieldUpdater {
                     .select(fieldChunk)
                     .withDirtyFilter({
                       tableId: step.tableId.toString(),
+                      dirtyTableName: DIRTY_TABLE,
                       ...(recordIds ? { recordIds } : {}),
                     });
                   yield* await builder.prepare({
@@ -1187,14 +1212,23 @@ export class ComputedFieldUpdater {
               const chunkSuffix =
                 queryPlans.length > 1 ? `:chunk=${i + 1}/${queryPlans.length}` : '';
               const sqlLogContext = run
-                ? { ...toRunLogContext(run), parameters: compiledResult.compiled.parameters }
-                : { parameters: compiledResult.compiled.parameters };
+                ? {
+                    ...toRunLogContext(run),
+                    parameterCount: compiledResult.compiled.parameters.length,
+                  }
+                : { parameterCount: compiledResult.compiled.parameters.length };
               this.logger.debug(
                 `computed:update:table=${tableName}:level=${step.level}${chunkSuffix}:sql:\n${compiledResult.compiled.sql}`,
                 sqlLogContext
               );
 
-              const result = await db.executeQuery(compiledResult.compiled);
+              const result = await this.executeComputedQuery(db, compiledResult.compiled, {
+                source: 'computed_update',
+                tableId: step.tableId.toString(),
+                tableName,
+                fieldIds: chunkFieldIds.map((fieldId) => fieldId.toString()),
+                stepLevel: step.level,
+              });
               const rows = (result.rows ?? []) as UpdatedRecordRow[];
 
               // Build change data from returned rows
@@ -1217,7 +1251,7 @@ export class ComputedFieldUpdater {
               }
               const safetyResult = await this.ensureComputedChangesWithinLimit(
                 context,
-                step.tableId.toString(),
+                table,
                 chunkRecordChanges
               );
               if (safetyResult.isErr()) return err(safetyResult.error);
@@ -1239,7 +1273,13 @@ export class ComputedFieldUpdater {
                   sql: versionBump.sql,
                   parameterCount: versionBump.parameters.length,
                 });
-                await db.executeQuery(versionBump);
+                await this.executeComputedQuery(db, versionBump, {
+                  source: 'computed_version_bump',
+                  tableId: step.tableId.toString(),
+                  tableName,
+                  fieldIds: [],
+                  stepLevel: step.level,
+                });
               }
             }
 
@@ -1283,14 +1323,20 @@ export class ComputedFieldUpdater {
 
             const chunkSuffix = queryPlans.length > 1 ? `:chunk=${i + 1}/${queryPlans.length}` : '';
             const sqlLogContext = run
-              ? { ...toRunLogContext(run), parameters: compiled.parameters }
-              : { parameters: compiled.parameters };
+              ? { ...toRunLogContext(run), parameterCount: compiled.parameters.length }
+              : { parameterCount: compiled.parameters.length };
             this.logger.debug(
               `computed:update:table=${tableName}:level=${step.level}${chunkSuffix}:sql:\n${compiled.sql}`,
               sqlLogContext
             );
 
-            await db.executeQuery(compiled);
+            await this.executeComputedQuery(db, compiled, {
+              source: 'computed_update',
+              tableId: step.tableId.toString(),
+              tableName,
+              fieldIds: chunkFieldIds.map((fieldId) => fieldId.toString()),
+              stepLevel: step.level,
+            });
           }
 
           const sqlSummary =
@@ -1456,15 +1502,24 @@ export class ComputedFieldUpdater {
 
   private async ensureComputedChangesWithinLimit(
     context: IExecutionContext,
-    tableId: string,
+    table: Table,
     recordChanges: ReadonlyArray<RecordChangeData>
   ): Promise<Result<void, DomainError>> {
     const configResult = await this.tableDataSafetyLimitComposer.compose(context);
     if (configResult.isErr()) return err(configResult.error);
     const limits = resolveTableDataSafetyLimits(configResult.value);
+    const linkFieldIds = new Set(
+      table
+        .getFields((field) => field.type().equals(FieldType.link()))
+        .map((field) => field.id().toString())
+    );
 
     for (const recordChange of recordChanges) {
       for (const change of recordChange.changes) {
+        // Link values are a projection of junction/FK rows rather than an independent user value.
+        // Rejecting a large projection leaves that cache stale even though the relation is valid.
+        if (linkFieldIds.has(change.fieldId)) continue;
+
         const bytes = measureJsonBytes(change.newValue);
         if (bytes > limits.computed.maxComputedCellValueBytes) {
           return err(
@@ -1473,7 +1528,7 @@ export class ComputedFieldUpdater {
               message:
                 'Table data safety limit exceeded: validation.limit.computed_cell_value_max_bytes',
               details: {
-                tableId,
+                tableId: table.id().toString(),
                 recordId: recordChange.recordId,
                 fieldId: change.fieldId,
                 attempted: bytes,

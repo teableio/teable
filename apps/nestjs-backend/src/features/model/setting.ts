@@ -7,6 +7,15 @@ import { generateSettingCacheKey } from '../../performance-cache/generate-keys';
 import type { IClsStore } from '../../types/cls';
 import { clearCache } from './helper';
 
+export function parseSettingContent(content: string | null): unknown {
+  if (!content) return null;
+  try {
+    return JSON.parse(content);
+  } catch {
+    return content;
+  }
+}
+
 @Injectable()
 export class SettingModel {
   constructor(
@@ -37,6 +46,10 @@ export class SettingModel {
     statsType: 'instance:setting',
   })
   async getSetting() {
-    return await this.prismaService.setting.findMany();
+    const rows = await this.prismaService.setting.findMany();
+    return rows.map((row) => ({
+      ...row,
+      content: parseSettingContent(row.content),
+    }));
   }
 }

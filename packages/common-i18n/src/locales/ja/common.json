@@ -731,11 +731,6 @@
           "title": "HTTPSを有効にする",
           "description": "HTTPSを有効にしていません。大規模コピー（300行以上）機能が利用できなくなります。有効にすることをお勧めします。"
         },
-        "databaseProxy": {
-          "title": "PUBLIC_DATABASE_PROXY環境変数",
-          "description": "<strong>PUBLIC_DATABASE_PROXY</strong>が設定されていません。外部データベース接続機能が利用できません。<a>ヘルプドキュメント</a>を参照してください",
-          "href": "https://help.teable.ai/ja/deploy/database-connection#enable-external-database-connection"
-        },
         "llmApi": {
           "title": "LLM API",
           "description": "AI LLM APIをまだ設定していません。AIチャット/AI自動化が使用できません。<anchor>設定に移動</anchor>",

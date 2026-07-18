@@ -5,8 +5,8 @@
       <img alt="teable logo" height="150" src="static/assets/images/teable-vertical-light.png">
     </picture>
   </h1>
-  <h3 align="center"><strong>Manage Your Data & Connect Your Team</strong></h3>
-  <p>Teable uses a simple, spreadsheet-like interface to create powerful database applications. Collaborate with your team in real-time, and scale to millions of rows
+  <h3 align="center"><strong>Turn your data into AI workflows and custom apps that 100% fit your business</strong></h3>
+  <p>One platform where data management, AI workflows, and app building come together — spreadsheet-simple on the surface, real PostgreSQL underneath. Agents work inside your live data and real processes, so what they build lands seamlessly and fits your business exactly. In the cloud or fully self-hosted.</p>
   <p>Try out Teable using our hosted version at <a href="https://teable.ai">teable.ai</a></p>
 </div>
 
@@ -15,15 +15,12 @@
 </div>
 
 <p align="center">
-  <a target="_blank" href="https://teable.ai">Home</a> | <a target="_blank" href="https://help.teable.ai">Help</a> | <a target="_blank" href="https://teable.ai/blog">Blog</a> | <a target="_blank" href="https://teable.ai/templates">Template</a> | <a target="_blank" href="https://help.teable.ai/en/api-doc/token">API</a> | <a target="_blank" href="https://community.teable.ai">Community</a> | <a target="_blank" href="https://twitter.com/teableio">Twitter</a>
+  <a target="_blank" href="https://teable.ai">Home</a> | <a target="_blank" href="https://help.teable.ai">Help</a> | <a target="_blank" href="https://teable.ai/blog">Blog</a> | <a target="_blank" href="https://teable.ai/templates">Template</a> | <a target="_blank" href="https://help.teable.ai/en/api-doc/token">API</a> | <a target="_blank" href="https://community.teable.ai">Community</a> | <a target="_blank" href="https://x.com/teableio">X</a>
 </p>
 
 <p align="center">
   <a aria-label="Build" href="https://github.com/teableio/teable/actions?query=Build%20and%20Push%20to%20Docker%20Registry">
     <img alt="build" src="https://img.shields.io/github/actions/workflow/status/teableio/teable/docker-push.yml?label=Build&logo=github&style=flat-quare&labelColor=000000" />
-  </a>
-  <a aria-label="Coverage Status" href="https://coveralls.io/github/teableio/teable?branch=develop">
-    <img alt="Coverage" src="https://coveralls.io/repos/github/teableio/teable/badge.svg?branch=develop" />
   </a>
   <a aria-label="Codacy grade" href="https://www.codacy.com/gh/teableio/teable/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=teableio/teable&amp;utm_campaign=Badge_Grade">
     <img alt="Codacy grade" src="https://img.shields.io/codacy/grade/dff9c944af284a0fad4e165eb1727467?logo=codacy&style=flat-square&labelColor=000&label=Codacy">
@@ -31,130 +28,66 @@
   <a aria-label="Top language" href="https://github.com/teableio/teable/search?l=typescript">
     <img alt="GitHub top language" src="https://img.shields.io/github/languages/top/teableio/teable?style=flat-square&labelColor=000&color=blue">
   </a>
-  <a aria-label="Gurubase" href="https://gurubase.io/g/teable">
-    <img alt="Gurubase" src="https://img.shields.io/badge/Gurubase-Ask%20Teable%20Guru-006BFF" />
-  </a>
 </p>
-  <h1 align="center">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="static/assets/images/teable-interface-dark.png">
-      <img alt="teable interface" width="100%" src="static/assets/images/teable-interface-light.png">
-    </picture>
-  </h1>
 
 ## Quick Guide
 
-1. Looking for a quick experience? Select a scenario from the [template center](https://app.teable.ai/public/template) and click "Use this template".
-2. Seeking high performance? Try the [1 million rows demo](https://app.teable.ai/share/shrVgdLiOvNQABtW0yX/view) to feel the speed of Teable.
-3. Interested in deploying it yourself? Click [Deploy on Railway](https://railway.app/template/wada5e?referralCode=rE4BjB)
+1. Want to see it in action? Try Teable on our hosted cloud at [teable.ai](https://teable.ai).
+2. Deploying it yourself? Start from the [Deployment guide](https://help.teable.ai/en/deploy/choose) — standalone in minutes, or the full AI platform on your own machines.
+
+## Four platforms in one
+
+AI chat, App Builder, and app deployments are part of Teable, not bolt-ons.
+Self-hosting Teable deploys four platforms in one:
+
+- **A secure, scalable agent sandbox** — every AI session runs in its own isolated container, started on demand and gone when the session ends.
+- **A resource-efficient app deployment platform** — every app your team builds and publishes runs as its own lightweight, long-lived container.
+- **An AI workflow engine** — automations triggered by record changes, schedules, and webhooks, with AI steps, running right where your data lives.
+- **A full-featured database collaboration platform on PostgreSQL** — tables, views, permissions, and API.
+
+Self-hosting wraps your own compute into an **agent-ready, fully controlled
+productivity environment** — putting AI in the hands of everyone on your team.
+See [Architecture](https://help.teable.ai/en/deploy/architecture) for how the
+pieces fit together.
 
 ## ✨Features
 
-### 🍺 Feature Packed
+### 🤖 AI-native
 
-Everything you need, right out of the box:
+- **AI Chat** — ask, analyze, and operate on your data in natural language.
+- **App Builder** — describe the app you need; an agent builds it in an isolated sandbox and deploys it to its own URL in one click.
+- **AI automations** — react to record changes, schedules, and webhooks, with AI steps doing the reasoning.
+- **AI field filling** — generate and enrich field values in bulk.
 
-- [x] Aggregation
-- [x] Attachments Preview
-- [x] Batch Editing
-- [x] Charts
-- [x] Comments
-- [x] Custom Columns
-- [x] Field Conversion
-- [x] Filtering
-- [x] Formatting
-- [x] Formula Support
-- [x] Grouping
-- [x] History
-- [x] Import/Export
-- [x] Millions of Rows
-- [x] Plugins
-- [x] Real-time
-- [x] Search
-- [x] Sorting
-- [x] SQL Query
-- [x] Undo/Redo
-- [x] Validation
+### 🍺 Everything you need, out of the box
 
-### 🏞️ Multiple Views
+Grid, Form, Kanban, Gallery, and Calendar views; formulas, field conversion,
+filtering, grouping, sorting, and aggregation; comments, record history,
+undo/redo, and real-time collaboration; attachments preview, batch editing,
+import/export, search, validation, charts, plugins, SQL query — and millions
+of rows without breaking a sweat.
 
-Visualize and interact with data in various ways best suited for their specific tasks.
-
-- [x] Grid View
-- [x] Form View
-- [x] Kanban View
-- [x] Gallery View
-- [x] Calendar View
-
-<table align="center" style="width: 100%;">
-  <tr>
-    <td width="50%"><img alt="Grid View" src="static/assets/images/view-grid.png"></td>
-    <td width="50%"><img alt="Search" src="static/assets/images/search.png"></td>
-  </tr>
-  <tr>
-    <td width="50%"><img alt="Calendar View" src="static/assets/images/view-calendar.png"></td>
-    <td width="50%"><img alt="Gallery View" src="static/assets/images/view-gallery.png"></td>
-  </tr>
-  <tr>
-    <td width="50%"><img alt="Kanban View" src="static/assets/images/view-kanban.png"></td>
-    <td width="50%"><img alt="Form View" src="static/assets/images/view-form.png"></td>
-  </tr>
-  <tr>
-    <td width="50%"><img alt="Comments" src="static/assets/images/comments.png"></td>
-    <td width="50%"><img alt="Record history" src="static/assets/images/record-history.png"></td>
-  </tr>
-</table>
-
-More features have been added. See our <a target="_blank" href="https://help.teable.ai/en/changelog">Changelog</a>.
-
----
-
-# Structure
-
-[![Open in Gitpod](https://img.shields.io/badge/Open%20In-Gitpod.io-%231966D2?style=for-the-badge&logo=gitpod)](https://gitpod.io/#https://github.com/teableio/teable)
-
-```
-.
-├── apps (AGPL 3.0)
-│   ├── nextjs-app          (front-end)
-│   └── nestjs-backend      (backend)
-├── packages (MIT)
-│   ├── common-i18n         (locales)
-│   ├── core                (share code and interface)
-│   ├── sdk                 (sdk for extensions)
-│   ├── db-main-prisma      (schema, migrations, prisma client)
-│   ├── eslint-config-bases (to shared eslint configs)
-│   └── ui-lib              (ui component)
-└── plugins (AGPL 3.0)      (custom plugins)
-
-```
+More features land all the time — see the <a target="_blank" href="https://help.teable.ai/en/changelog">Changelog</a>.
 
 ## Deploy
 
-### Deploy With Docker
+Three ways to run Teable — pick by what you need (full comparison in the
+[Deployment guide](https://help.teable.ai/en/deploy/choose)):
 
-```sh
-cd dockers/examples/standalone/
-docker-compose up -d
-```
+| | **Teable Cloud** | **Full-featured self-host** | **Standalone self-host** |
+|---|---|---|---|
+| Tables, collaboration, API, automation | ✅ | ✅ | ✅ |
+| AI features (chat, agents) | ✅ | ✅ | ❌ |
+| App Builder (build & deploy apps) | ✅ | ✅ | ❌ |
+| Start here | [teable.ai](https://teable.ai) | [teableio/teable-deployment](https://github.com/teableio/teable-deployment) | [Docker guide](https://help.teable.ai/en/deploy/docker) |
 
-for more details, see [install teable](https://help.teable.ai/en/deploy/docker)
+Prefer not to deploy by hand? **Hand [teableio/teable-deployment](https://github.com/teableio/teable-deployment)
+to your AI agent** (Claude Code, Codex, …) together with a domain, a DNS token,
+and access to the target machine or cluster — it can take the deployment end
+to end.
 
-### One Click Deployment
-
-These platforms are easy to deploy with one click and come with free credits.
-
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/wada5e?referralCode=rE4BjB)
-
-[![Deploy on Sealos](https://sealos.io/Deploy-on-Sealos.svg)](https://template.sealos.io/deploy?templateName=teable)
-
-[![Deploy on Zeabur](https://zeabur.com/button.svg)](https://zeabur.com/templates/QF8695)
-
-[![Deploy to RepoCloud](https://d16t0pc4846x52.cloudfront.net/deploylobe.svg)](https://repocloud.io/details/?app_id=273)
-
-[![Deploy on Elestio](https://elest.io/images/logos/deploy-to-elestio-btn.png)](https://elest.io/open-source/teable)
-
-[![Deploy on AlibabaCloud ComputeNest](https://service-info-public.oss-cn-hangzhou.aliyuncs.com/computenest-en.svg)](https://computenest.console.aliyun.com/service/instance/create/default?ServiceName=Teable%20%E7%A4%BE%E5%8C%BA%E7%89%88)
+Already running standalone Teable? The runtime plane installs next to it and
+your data stays in place: [migration guide](https://github.com/teableio/teable-deployment/blob/main/migration/2026-07-basic-to-full-featured.md).
 
 ## Development
 
@@ -190,46 +123,47 @@ cd apps/nestjs-backend
 pnpm dev
 ```
 
-By default, the plugin development server is not started. To preview and develop plugins, run:
-
-```sh
-# build packages
-pnpm build:packages
-
-# start plugin development server
-cd plugins
-pnpm dev
-```
-
-This will start the plugin development server on port 3002.
-
 ## Why Teable?
 
-No-code tools have significantly speed up how we get things done, allowing non-tech users to build amazing apps and changing the way many work and live. People like using spreadsheet-like UI to handle their data because it's easy, flexible, and great for team collaboration. They also prefer designing their app screens without being stuck with clunky templates.
+**Software should fit the work — not the other way around.** Every team knows
+the compromise: you have a concrete business need, you search for an app, and
+it covers 70% of it. So you bend your process around the tool, or you file a
+ticket and wait quarters for custom development. The work adapts to the
+software, when it should be the software adapting to the work.
 
-Giving non-techy people the ability to create their software sounds exciting. But that's just the start:
+**AI only changes this if it reaches the real workflow.** A wave of AI tools
+can now generate an app on demand — but each one is built in a vacuum: an
+empty database, no knowledge of how your team actually operates, one more
+island to integrate and maintain. The demo impresses; the workflow stays the
+same.
 
-- As businesses expand, their data needs intensify. No one wishes to hear that once their orders reach 100k, they'll outgrow their current interface. Yet, many no-code platforms falter at such scales.
-- Most no-code platforms are cloud-based. This means your important data sits with the provider, and switching to another platform can be a headache.
-- Sometimes, no-code tools can't do what you want because of their limitations, leaving users stuck.
-- If a tool becomes essential, you'll eventually need some tech expertise. But developers often find these platforms tricky.
-- Maintaining systems with complex setups can be hard for developers, especially if these aren't built using common software standards.
-- Systems that don't use these standards might need revamping or replacing, costing more in the long run. It might even mean ditching the no-code route and going back to traditional coding.
+**Teable puts the agent where the work already happens.** Your data, apps,
+automations, permissions, and collaborators live here, on a real PostgreSQL —
+and the AI operates all of it. Chat acts on live data. Automations reason
+over records as they change. App Builder ships working systems wired to the
+same database your team already uses — so what gets built is never another
+silo, but a precise extension of the workflow it came from. AI lands in the
+work seamlessly, and what it builds fits the business exactly.
 
-#### What We Think the Future Of No-code Products Look Like
+**And it's an architecture an IT team can say yes to.** Self-hosting Teable
+packages your own compute into an agent-ready platform for the whole team:
+every AI session confined to an isolated sandbox, every app shipped as a
+standard container, everything resting on PostgreSQL and HTTP APIs, with your
+own models and keys, on your own infrastructure. Full AI capability, full
+control — neither traded for the other.
 
-- An interface that anyone can use to build applications easily.
-- Easy access to data, letting users grab, move, and reuse their information as they wish.
-- Data privacy and choice, whether that's in the cloud, on-premise, or even just on your local.
-- It needs to work for developers too, not just non-tech users.
-- It should handle lots of data, so it can grow with your business.
-- Flexibility to integrate with other software, combining strengths to get the job done.
-- Last, native AI integration to takes usability to the next level.
-
-In essence, Teable isn't just another no-code solution, it's a comprehensive answer to the evolving demands of modern software development, ensuring that everyone, regardless of their technical proficiency, has a platform tailored to their needs.
+The result is a different way of building: business systems shaped precisely
+to your business, delivered in days instead of quarters, evolving as fast as
+the work itself — by everyone on the team, not just the people who code.
 
 # License
 
-Teable Community Edition (CE) is free for self-hosting under the AGPL license. See [./LICENSE](./LICENSE) for details.
+This repository is the Teable Community Edition: free for self-hosting under
+the AGPL-3.0 license (packages under `packages/` are MIT). See
+[./LICENSE](./LICENSE) for details.
 
-Teable Enterprise Edition (EE) includes advanced features such as AI, authority matrix, automation and advanced admin. For detailed information and pricing, please visit [pricing](https://teable.ai/pricing).
+The official image [`ghcr.io/teableio/teable`](https://github.com/teableio/teable/pkgs/container/teable)
+ships the complete product: free to run, with paid plans unlocking AI features
+and advanced enterprise capabilities **in place** — activate with a license
+key, no image swap, no migration. See [pricing](https://teable.ai/pricing) and
+[subscribe & activate](https://help.teable.ai/en/deploy/activate).

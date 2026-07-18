@@ -1,20 +1,4 @@
-import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
-import { getLocaleDetection } from './lib/i18n/getLocale';
-
-export function proxy(request: NextRequest) {
-  const locale = getLocaleDetection({
-    req: request,
-    i18n: {
-      defaultLocale: 'en',
-      locales: ['en', 'it', 'de', 'zh', 'fr', 'ja', 'ru', 'uk', 'tr', 'es'],
-    },
-  });
-
-  const response = NextResponse.next();
-  response.headers.set('X-Server-Locale', locale);
-  return response;
-}
+export { proxy } from './lib/app-proxy';
 
 export const config = {
   /*

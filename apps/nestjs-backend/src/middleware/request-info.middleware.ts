@@ -1,7 +1,9 @@
 import { isIP } from 'node:net';
 import type { NestMiddleware } from '@nestjs/common';
 import { Injectable, Logger } from '@nestjs/common';
+import { AFFILIATE_COOKIE_NAME, AFFILIATE_VIA_MAX_LENGTH } from '@teable/core';
 import { X_CANARY_HEADER } from '@teable/openapi';
+import cookie from 'cookie';
 import type { Request, Response, NextFunction } from 'express';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../types/cls';
@@ -114,6 +116,12 @@ export class RequestInfoMiddleware implements NestMiddleware {
     // AI is a tool the real user invokes — keep their identity intact.
     if (via === 'automation') {
       this.cls.set('user.id', automationRobotUserId);
+    }
+
+    // Affiliate attribution (?via= cookie) — see IClsStore.affiliateVia.
+    const affiliateVia = cookie.parse(req.headers.cookie ?? '')[AFFILIATE_COOKIE_NAME];
+    if (affiliateVia) {
+      this.cls.set('affiliateVia', affiliateVia.slice(0, AFFILIATE_VIA_MAX_LENGTH));
     }
 
     // Canary header for canary release override

@@ -1,7 +1,7 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import {
   DataPrismaService,
-  PrismaClient as DataPrismaClient,
+  createScopedDataPrismaClient,
   getMetaDatabaseUrl,
 } from '@teable/db-data-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -15,6 +15,7 @@ import type { IClsStore } from '../types/cls';
 import {
   buildComputedOutboxActivePauseExclusion,
   buildComputedOutboxWakeupCandidatesQuery,
+  qualifyComputedOutboxTable,
   type ComputedOutboxWakeupCandidateQueryOptions,
 } from './computed-outbox-maintenance-query';
 import {
@@ -27,6 +28,8 @@ import { DATA_KNEX } from './knex';
 export interface IResolvedDataDatabase {
   cacheKey: string;
   url: string;
+  /** Raw connection URL without Teable's internal-schema startup parameters. */
+  connectionUrl?: string;
   isMetaFallback: boolean;
   connectionId?: string;
   internalSchema?: string;
@@ -128,6 +131,7 @@ export class DataDbClientManager {
       return {
         cacheKey: 'meta-fallback',
         url: getMetaDatabaseUrl(),
+        connectionUrl: getMetaDatabaseUrl(),
         isMetaFallback: true,
       };
     }
@@ -137,6 +141,7 @@ export class DataDbClientManager {
       connectionId: resolved.connectionId,
       internalSchema: resolved.internalSchema,
       url: withDataDbInternalSchemaParam(resolved.url, resolved.internalSchema),
+      connectionUrl: resolved.url,
       isMetaFallback: false,
     };
   }
@@ -217,6 +222,7 @@ export class DataDbClientManager {
       {
         cacheKey: 'meta-fallback',
         url: getMetaDatabaseUrl(),
+        connectionUrl: getMetaDatabaseUrl(),
         isMetaFallback: true,
         storage: 'default',
       },
@@ -224,6 +230,7 @@ export class DataDbClientManager {
         cacheKey: connection.id,
         connectionId: connection.id,
         internalSchema: connection.internalSchema,
+        connectionUrl: decryptDataDbUrl(connection.encryptedUrl),
         url: withDataDbInternalSchemaParam(
           decryptDataDbUrl(connection.encryptedUrl),
           connection.internalSchema
@@ -246,7 +253,7 @@ export class DataDbClientManager {
     const client = createKnex({
       client: 'pg',
       connection: {
-        connectionString: target.url,
+        connectionString: target.connectionUrl ?? target.url,
         connectionTimeoutMillis: COMPUTED_OUTBOX_MAINTENANCE_CONNECT_TIMEOUT_MS,
       },
       acquireConnectionTimeout: COMPUTED_OUTBOX_MAINTENANCE_CONNECT_TIMEOUT_MS,
@@ -360,13 +367,15 @@ export class DataDbClientManager {
     const client = createKnex({
       client: 'pg',
       connection: {
-        connectionString: target.url,
+        connectionString: target.connectionUrl ?? target.url,
         connectionTimeoutMillis: COMPUTED_OUTBOX_MAINTENANCE_CONNECT_TIMEOUT_MS,
       },
       acquireConnectionTimeout: COMPUTED_OUTBOX_MAINTENANCE_CONNECT_TIMEOUT_MS,
       pool: { min: 0, max: 1 },
     });
     const pauseExclusion = buildComputedOutboxActivePauseExclusion(target);
+    const outboxTable = qualifyComputedOutboxTable(target, 'computed_update_outbox');
+    const deadLetterTable = qualifyComputedOutboxTable(target, 'computed_update_dead_letter');
     try {
       const result = await client
         .raw<{
@@ -375,7 +384,7 @@ export class DataDbClientManager {
           `with outbox_state as (
             select o.*,
               ${pauseExclusion.sql} as actionable
-            from computed_update_outbox as o
+            from ${outboxTable} as o
           )
         select
           count(*) filter (
@@ -398,7 +407,7 @@ export class DataDbClientManager {
             ))) * 1000,
             0
           ) as oldest_due_age_ms,
-          (select count(*) from computed_update_dead_letter) as dead
+          (select count(*) from ${deadLetterTable}) as dead
         from outbox_state`,
           [...pauseExclusion.bindings, processingLeaseMs, processingLeaseMs]
         )
@@ -689,14 +698,7 @@ export class DataDbClientManager {
     return await this.runtimeCache.getOrCreate(
       DATA_DB_PRISMA_CACHE_NAMESPACE,
       resolved.connectionId,
-      () =>
-        new DataPrismaClient({
-          datasources: {
-            db: {
-              url: withDataDbInternalSchemaParam(resolved.url, resolved.internalSchema),
-            },
-          },
-        }),
+      () => createScopedDataPrismaClient(resolved.url, resolved.internalSchema),
       (client) => client.$disconnect()
     );
   }

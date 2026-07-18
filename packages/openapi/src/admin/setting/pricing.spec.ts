@@ -204,6 +204,17 @@ describe('pricing', () => {
       const expectedUsd = 1000 * 0.000003 + 500 * 0.000015 + 2000 * 0.000015;
       expect(credits).toBeCloseTo(expectedUsd / USD_PER_CREDIT);
     });
+
+    it('should round up to 2 decimals so any non-zero usage bills at least 0.01', () => {
+      const pricing: IModelPricing = { input: '0.000005', output: '0.00003' };
+
+      // 1 input token = $0.000005 = 0.0005 credits -> floors to 0.01.
+      expect(pricingToCredits(pricing, { inputTokens: 1 })).toBe(0.01);
+      // 1234 * $0.000005 = $0.00617 = 0.617 credits -> 0.62.
+      expect(pricingToCredits(pricing, { inputTokens: 1234 })).toBe(0.62);
+      // Zero usage stays free.
+      expect(pricingToCredits(pricing, { inputTokens: 0, outputTokens: 0 })).toBe(0);
+    });
   });
 
   describe('pricingToCreditsFromUsage', () => {
@@ -221,12 +232,10 @@ describe('pricing', () => {
         reasoningTokens: 1000,
         cachedInputTokens: 10000,
       });
-      const expectedUsd =
-        5000 * 0.000003 + // non-cached input
-        2000 * 0.000015 + // text output
-        10000 * 0.0000003 + // cache read
-        1000 * 0; // reasoning (no pricing set → 0)
-      expect(credits).toBeCloseTo(Math.ceil((expectedUsd / USD_PER_CREDIT) * 100) / 100);
+      // 5000 * $0.000003 (non-cached input) + 2000 * $0.000015 (text output)
+      // + 10000 * $0.0000003 (cache read) + 0 (reasoning, no pricing set)
+      // = $0.048 = 4.8 credits exactly — the ceil must not bump it a cent.
+      expect(credits).toBe(4.8);
     });
 
     it('should handle usage with inputTokenDetails', () => {

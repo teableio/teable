@@ -727,7 +727,7 @@ export class SameTableBatchQueryBuilder {
           const recordIdColumn = dirtyFilter.recordIdColumn ?? 'record_id';
           // Note: tableId is a trusted internal ID, embedded as a SQL literal.
           const tableIdLiteral = escapeSqlLiteral(dirtyFilter.tableId);
-          return ` INNER JOIN ${quoteIdentifier(dirtyTableName)} AS "__dirty" ON ${quoteRef(T, '__id')} = ${quoteRef('__dirty', recordIdColumn)} AND ${quoteRef('__dirty', tableIdColumn)} = '${tableIdLiteral}'`;
+          return ` INNER JOIN ${quoteQualifiedTableName(dirtyTableName)} AS "__dirty" ON ${quoteRef(T, '__id')} = ${quoteRef('__dirty', recordIdColumn)} AND ${quoteRef('__dirty', tableIdColumn)} = '${tableIdLiteral}'`;
         })();
 
         const recordIdsJoin =

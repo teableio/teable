@@ -63,6 +63,7 @@ export interface IV2NodePgContainerOptions {
   connectionString?: string;
   metaConnectionString?: string;
   dataConnectionString?: string;
+  dataSchema?: string;
   ensureSchema?: boolean;
   seed?: Partial<IV2PostgresStateAdapterConfig['seed']>;
   tableMaxRowLimit?: number;
@@ -93,6 +94,12 @@ const createEventHandlerLogger = (
   return baseLogger;
 };
 
+const canShareMetaAndDataDb = (
+  metaConnectionString: string,
+  dataConnectionString: string,
+  dataSchema: string | undefined
+) => metaConnectionString === dataConnectionString && !dataSchema;
+
 export const registerV2NodePgDependencies = async (
   c: DependencyContainer = container,
   options: IV2NodePgContainerOptions
@@ -110,11 +117,13 @@ export const registerV2NodePgDependencies = async (
   }
   const dataConnectionString = options.dataConnectionString ?? metaConnectionString;
 
-  if (metaConnectionString === dataConnectionString) {
+  if (canShareMetaAndDataDb(metaConnectionString, dataConnectionString, options.dataSchema)) {
     await registerV2PostgresDb(c, { pg: { connectionString: metaConnectionString } });
   } else {
     await registerV2PostgresMetaDb(c, { pg: { connectionString: metaConnectionString } });
-    await registerV2PostgresDataDb(c, { pg: { connectionString: dataConnectionString } });
+    await registerV2PostgresDataDb(c, {
+      pg: { connectionString: dataConnectionString, schema: options.dataSchema },
+    });
     const metaDb = c.resolve(v2MetaDbTokens.db);
     c.registerInstance(v2PostgresDbTokens.db, metaDb);
     c.registerInstance(v2PostgresDbTokens.config, {

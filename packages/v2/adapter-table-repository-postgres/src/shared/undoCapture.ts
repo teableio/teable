@@ -151,7 +151,7 @@ const hasUndoLogFunction = async <DB>(db: DbOrTx<DB>): Promise<boolean> => {
   return Boolean(result.rows[0]?.exists);
 };
 
-const hasUndoCaptureTrigger = async <DB>(db: Kysely<DB>, tableKey: string): Promise<boolean> => {
+const hasUndoCaptureTrigger = async <DB>(db: DbOrTx<DB>, tableKey: string): Promise<boolean> => {
   const { schemaName, plainTableName } = splitSchemaQualifiedTableName(tableKey);
   const schema = schemaName ?? 'public';
   const table = plainTableName;
@@ -235,7 +235,7 @@ export const ensureUndoCaptureInfrastructure = async <DB>(
   }
 
   try {
-    const hasDurableTrigger = await hasUndoCaptureTrigger(rootDb as Kysely<unknown>, tableKey);
+    const hasDurableTrigger = await hasUndoCaptureTrigger(db, tableKey);
     if (hasDurableTrigger) {
       cache.tableTriggers.add(tableKey);
       return 'ready';
