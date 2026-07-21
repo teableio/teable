@@ -172,4 +172,17 @@ export class ShareSocketService {
       );
     }
   }
+  authorizeComputedActivityRead(shareInfo: IShareViewInfo, tableId: string): void {
+    if (shareInfo.tableId === tableId) return;
+
+    throw new CustomHttpException(
+      `Table(${tableId}) permission not allowed: read`,
+      HttpErrorCode.RESTRICTED_RESOURCE,
+      {
+        localization: {
+          i18nKey: 'httpErrors.permission.notAllowedTables',
+        },
+      }
+    );
+  }
 }

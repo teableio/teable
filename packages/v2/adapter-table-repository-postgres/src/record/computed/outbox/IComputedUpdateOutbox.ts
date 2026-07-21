@@ -1,5 +1,10 @@
 import type { PostgresSqlExecutionDiagnostics } from '@teable/v2-adapter-db-postgres-shared';
-import type { DomainError, IExecutionContext } from '@teable/v2-core';
+import type {
+  DomainError,
+  FieldComputeBatch,
+  FieldComputeTarget,
+  IExecutionContext,
+} from '@teable/v2-core';
 import type { Result } from 'neverthrow';
 
 import type {
@@ -220,6 +225,19 @@ export const isSeedOutboxItem = (item: AnyOutboxItem): item is SeedOutboxItem =>
   return (item as SeedOutboxItem).taskType === 'seed';
 };
 
+export type RegisterPlannedTaskActivityParams = {
+  taskId: string;
+  baseId: string;
+  targets: ReadonlyArray<FieldComputeTarget>;
+  metrics: {
+    estimatedComplexity: number;
+    estimatedDirtyRecords: number;
+    hasAllTargetRecords: boolean;
+    batchProgress?: FieldComputeBatch;
+  };
+  now?: Date;
+};
+
 export interface IComputedUpdateOutbox {
   enqueueOrMerge(
     task: ComputedUpdateOutboxTaskInput,
@@ -235,6 +253,12 @@ export interface IComputedUpdateOutbox {
     task: ComputedUpdateSeedTaskInput,
     context?: IExecutionContext
   ): Promise<Result<{ taskId: string; merged: boolean }, DomainError>>;
+
+  /** Register the computed targets discovered while planning a claimed seed task. */
+  registerPlannedTaskActivity(
+    params: RegisterPlannedTaskActivityParams,
+    context?: IExecutionContext
+  ): Promise<Result<void, DomainError>>;
 
   /**
    * Enqueue a field backfill task to the outbox.

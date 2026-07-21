@@ -6,11 +6,16 @@ import { v2Contract } from '@teable/v2-contract-http';
 import {
   executeCreateTableEndpoint,
   executeDeleteRecordsEndpoint,
+  executeGetComputeActivityEndpoint,
   executeGetTableByIdEndpoint,
   executeUpdateRecordsEndpoint,
 } from '@teable/v2-contract-http-implementation/handlers';
 import { v2CoreTokens } from '@teable/v2-core';
-import type { IQueryBus, ICommandBus } from '@teable/v2-core' with { 'resolution-mode': 'import' };
+import type {
+  ICommandBus,
+  IComputedActivityReader,
+  IQueryBus,
+} from '@teable/v2-core' with { 'resolution-mode': 'import' };
 import { V2ContainerService } from './v2-container.service';
 import { V2ExecutionContextFactory } from './v2-execution-context.factory';
 
@@ -59,12 +64,32 @@ export class V2Controller {
         const container = await this.v2Container.getContainerForTable(input.tableId);
         const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
         const context = await this.v2ContextFactory.createContext(container);
+        let activityReader: IComputedActivityReader | undefined;
+        try {
+          activityReader = container.resolve<IComputedActivityReader>(
+            v2CoreTokens.computedActivityReader
+          );
+        } catch {
+          activityReader = undefined;
+        }
 
-        const result = await executeGetTableByIdEndpoint(context, input, queryBus);
+        const result = await executeGetTableByIdEndpoint(context, input, queryBus, activityReader);
         if (result.status === 200) return result.body;
 
         throwOrpcErrorByStatus(result.status, result.body.error);
       }),
+      getComputeActivity: implement(v2Contract.tables.getComputeActivity).handler(
+        async ({ input }) => {
+          const container = await this.v2Container.getContainerForTable(input.tableId);
+          const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
+          const context = await this.v2ContextFactory.createContext(container);
+
+          const result = await executeGetComputeActivityEndpoint(context, input, queryBus);
+          if (result.status === 200) return result.body;
+
+          throwOrpcErrorByStatus(result.status, result.body.error);
+        }
+      ),
       deleteRecords: implement(v2Contract.tables.deleteRecords).handler(async ({ input }) => {
         const container = await this.v2Container.getContainerForTable(input.tableId);
         const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);

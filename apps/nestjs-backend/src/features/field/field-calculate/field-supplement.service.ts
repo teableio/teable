@@ -818,7 +818,7 @@ export class FieldSupplementService {
     const mergedLookupOptions =
       newLookupOptions && oldLookupOptions
         ? { ...oldLookupOptions, ...newLookupOptions }
-        : (newLookupOptions ?? oldLookupOptions);
+        : newLookupOptions ?? oldLookupOptions;
 
     return this.prepareLookupField(tableId, {
       ...oldFieldVo,
@@ -1743,11 +1743,7 @@ export class FieldSupplementService {
         Boolean(oldFieldVo.isLookup) &&
         fieldRo.lookupOptions !== undefined);
     if (isLookupField && hasMajorChange) {
-      return this.prepareUpdateLookupField(
-        tableId,
-        { ...fieldRo, isLookup: true },
-        oldFieldVo
-      );
+      return this.prepareUpdateLookupField(tableId, { ...fieldRo, isLookup: true }, oldFieldVo);
     }
 
     switch (fieldRo.type) {

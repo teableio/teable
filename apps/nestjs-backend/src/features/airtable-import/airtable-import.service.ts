@@ -1,4 +1,4 @@
-import { Readable } from 'node:stream';
+import { pipeline, Readable, Transform } from 'node:stream';
 import { BadRequestException, Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import type {
   IColumnMetaRo,
@@ -71,6 +71,10 @@ export type IAirtableImportProgressReporter = (progress: IAirtableImportProgress
 
 const linkUpdateBatchSize = 100;
 const attachmentConcurrency = 3;
+// Stall watchdog for one attachment transfer: aborts only when NO bytes move
+// for this window (a silently dropped connection otherwise blocks the import
+// forever). A slow-but-flowing transfer of any size is never interrupted.
+const attachmentStallTimeoutMs = 60_000;
 const maxListRestarts = 2;
 const unknownErrorText = 'unknown error';
 
@@ -1014,30 +1018,83 @@ export class AirtableImportService {
         `attachment "${attachment.filename}" (${attachment.size} bytes) exceeds the ${maxSize}-byte upload limit`
       );
     }
-    const response = await fetch(attachment.url);
-    if (!response.ok || !response.body) {
-      throw new Error(`download failed with status ${response.status}`);
-    }
-    const contentLength = attachment.size ?? Number(response.headers.get('content-length'));
-    if (!contentLength || !Number.isFinite(contentLength)) {
-      await response.body.cancel();
-      throw new Error('attachment size is unknown');
-    }
-    const contentType =
-      attachment.type ?? response.headers.get('content-type') ?? 'application/octet-stream';
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const stream = Readable.fromWeb(response.body as any);
+    // The watchdog resets on every chunk that moves through the transfer, so
+    // it fires when either side goes dead: a dropped download stops producing
+    // chunks, and a stalled storage upload stops consuming them (backpressure)
+    // — or, once the download has drained, stops the race below.
+    const controller = new AbortController();
+    let onStall!: (error: Error) => void;
+    const stalled = new Promise<never>((_, reject) => {
+      onStall = reject;
+    });
+    // The watchdog can fire while the fetch below is still awaiting headers,
+    // before Promise.race() observes this promise — keep the rejection handled.
+    stalled.catch(() => undefined);
+    const monitor = new Transform({
+      transform(chunk, _encoding, callback) {
+        stallTimer.refresh();
+        callback(null, chunk);
+      },
+    });
+    // Same pre-consumer window: destroy(error) before pipeline() attaches
+    // would otherwise raise an unhandled 'error' event and crash the process.
+    monitor.on('error', () => undefined);
+    const stallTimer = setTimeout(() => {
+      const error = new Error(`attachment transfer stalled for ${attachmentStallTimeoutMs}ms`);
+      controller.abort(error);
+      monitor.destroy(error);
+      onStall(error);
+    }, attachmentStallTimeoutMs);
     try {
-      return await this.attachmentsService.uploadFromStream(
-        stream,
+      const response = await fetch(attachment.url, { signal: controller.signal });
+      if (!response.ok || !response.body) {
+        // Release the socket instead of holding it until GC (expired CDN
+        // links make this a common path).
+        await response.body?.cancel().catch(() => undefined);
+        throw new Error(`download failed with status ${response.status}`);
+      }
+      const rawContentLength = response.headers.get('content-length');
+      const contentLength =
+        attachment.size ?? (rawContentLength === null ? Number.NaN : Number(rawContentLength));
+      if (!Number.isFinite(contentLength) || contentLength < 0) {
+        await response.body.cancel();
+        throw new Error('attachment size is unknown');
+      }
+      const contentType =
+        attachment.type ?? response.headers.get('content-type') ?? 'application/octet-stream';
+      // pipeline() into the monitor rather than a bare on('data') listener: a
+      // data listener would start the flow before uploadFromStream attaches
+      // its consumer and silently drop those chunks, while the Transform
+      // buffers them with backpressure. pipeline also tears down the CDN
+      // socket when either side fails. A download error is surfaced through
+      // onStall so the transfer fails immediately with the real cause even if
+      // axios has not attached its consumer yet (it would otherwise hang on
+      // the destroyed stream until the watchdog mislabels it as a stall).
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      pipeline(Readable.fromWeb(response.body as any), monitor, (error) => {
+        if (error) onStall(error);
+      });
+      // The signal also cancels the storage PUT when the watchdog fires after
+      // the download has drained (destroying an ended stream cannot).
+      const upload = this.attachmentsService.uploadFromStream(
+        monitor,
         { filename: attachment.filename, contentType, contentLength },
-        UploadType.Table
+        UploadType.Table,
+        { signal: controller.signal }
       );
-    } catch (error) {
-      // Release the still-open CDN socket on any upload failure (e.g. the
-      // size-limit check) instead of leaking it.
-      stream.destroy();
-      throw error;
+      // The watchdog may win the race; the losing upload's late rejection
+      // must not surface as an unhandled rejection.
+      upload.catch(() => undefined);
+      try {
+        return await Promise.race([upload, stalled]);
+      } catch (error) {
+        // Release the still-open CDN socket on any upload failure (e.g. the
+        // size-limit check) instead of leaking it.
+        monitor.destroy();
+        throw error;
+      }
+    } finally {
+      clearTimeout(stallTimer);
     }
   }
 

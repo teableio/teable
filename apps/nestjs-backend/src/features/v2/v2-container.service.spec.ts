@@ -124,6 +124,9 @@ const createContainerMock = (): DependencyContainer => {
       if (token === v2CoreTokens.undoRedoStore) {
         return undefined;
       }
+      if (token === v2CoreTokens.tracer) {
+        return undefined;
+      }
       throw new Error(`Unexpected token: ${String(token)}`);
     }),
   } as unknown as DependencyContainer;
@@ -134,7 +137,10 @@ const createService = (providers: InstanceWrapper[] = []) => {
     getOrThrow: vi.fn().mockReturnValue('postgres://test'),
     get: vi.fn().mockReturnValue(undefined),
   };
-  const shareDbService = { pubsub: { publish: vi.fn() } };
+  const shareDbService = {
+    pubsub: { publish: vi.fn() },
+    setComputedActivitySnapshotLoader: vi.fn(),
+  };
   const cacheService = { getKeyv: vi.fn().mockReturnValue({}) };
   const attachmentsStorageService = {
     getPreviewUrlByPath: vi.fn(),
@@ -181,7 +187,10 @@ const createTestingModule = async (providers: InstanceWrapper[] = []) => {
     getOrThrow: vi.fn().mockReturnValue('postgres://test'),
     get: vi.fn().mockReturnValue(undefined),
   };
-  const shareDbService = { pubsub: { publish: vi.fn() } };
+  const shareDbService = {
+    pubsub: { publish: vi.fn() },
+    setComputedActivitySnapshotLoader: vi.fn(),
+  };
   const cacheService = { getKeyv: vi.fn().mockReturnValue({}) };
   const attachmentsStorageService = {
     getPreviewUrlByPath: vi.fn(),
@@ -399,6 +408,56 @@ describe('V2ContainerService', () => {
     );
   });
 
+  it('starts internal search-vector maintenance when generated search runtime is enabled', async () => {
+    const container = createContainerMock();
+    mocks.createV2NodePgContainer.mockResolvedValue(container);
+    const { service, configService } = createService();
+
+    configService.get.mockImplementation((key: string) => {
+      if (key === 'V2_TABLE_QUERY_OPS_ENABLED') return 'true';
+      if (key === 'V2_TABLE_QUERY_OPS_SEARCH_VECTOR_RUNTIME') return 'auto';
+      return undefined;
+    });
+
+    await service.getContainer();
+
+    expect(mocks.createV2NodePgContainer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tableQueryOps: expect.objectContaining({
+          taskWorkerConfig: expect.objectContaining({
+            enabled: true,
+            allowManualIndexExecution: false,
+            allowedKinds: ['rebuild_search_vector', 'manual_investigation'],
+          }),
+        }),
+      })
+    );
+  });
+
+  it('preserves an explicit remediation allowlist when search runtime is enabled', async () => {
+    const container = createContainerMock();
+    mocks.createV2NodePgContainer.mockResolvedValue(container);
+    const { service, configService } = createService();
+
+    configService.get.mockImplementation((key: string) => {
+      if (key === 'V2_TABLE_QUERY_OPS_ENABLED') return 'true';
+      if (key === 'V2_TABLE_QUERY_OPS_SEARCH_VECTOR_RUNTIME') return 'auto';
+      if (key === 'V2_TABLE_QUERY_OPS_ALLOWED_TASK_KINDS') return 'manual_investigation';
+      return undefined;
+    });
+
+    await service.getContainer();
+
+    expect(mocks.createV2NodePgContainer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tableQueryOps: expect.objectContaining({
+          taskWorkerConfig: expect.objectContaining({
+            allowedKinds: ['manual_investigation'],
+          }),
+        }),
+      })
+    );
+  });
   it('enables table query ops by default in preview runtime', async () => {
     const container = createContainerMock();
     mocks.createV2NodePgContainer.mockResolvedValue(container);

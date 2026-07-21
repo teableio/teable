@@ -12,6 +12,7 @@ export * from './UserRenamePropagationService';
 export * from './FieldDependencyGraph';
 export * from './UpdateFromSelectBuilder';
 export * from './isPersistedAsGeneratedColumn';
+export * from './activity';
 export * from './outbox/ComputedUpdateOutbox';
 export * from './outbox/ComputedOutboxWakeup';
 export * from './outbox/ComputedUpdateOutboxPayload';

@@ -153,9 +153,11 @@ describe('MailSenderService transporter pooling', () => {
       return t as any;
     });
 
-    // 51 distinct configs: the 51st set() LRU-evicts the first entry before its send runs
+    // max + 1 distinct configs: the last set() LRU-evicts the first entry before its send runs
+    const cacheMax = (service as unknown as { transporterCache: { max: number } }).transporterCache
+      .max;
     const results = await Promise.all(
-      Array.from({ length: 51 }, (_, i) =>
+      Array.from({ length: cacheMax + 1 }, (_, i) =>
         service.sendMailByConfig(
           { to: `user${i}@example.com` },
           { ...smtpConfig, auth: { user: `user-${i}`, pass: 'pass' } }
@@ -163,7 +165,7 @@ describe('MailSenderService transporter pooling', () => {
       )
     );
 
-    expect(results).toHaveLength(51);
+    expect(results).toHaveLength(cacheMax + 1);
     expect(transporters[0].sendMail).toHaveBeenCalledTimes(1);
     expect(transporters[0].close).toHaveBeenCalledTimes(1);
   });

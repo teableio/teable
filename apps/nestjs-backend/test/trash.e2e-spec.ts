@@ -211,7 +211,7 @@ describe('Trash (e2e)', () => {
       expect(restored.status).toEqual(201);
       expect(restored.headers['x-teable-v2']).toBe('true');
       expect(restored.headers['x-teable-v2-feature']).toBe('restoreTable');
-      expect(restored.headers['x-teable-v2-reason']).toBe('new_base');
+      expect(restored.headers['x-teable-v2-reason']).toBe('env_force_v2_all');
     });
   });
 

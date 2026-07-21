@@ -247,6 +247,18 @@ export class BaseService {
     };
   }
 
+  /**
+   * Export/import zip format follows physical schema (v2Enabled), not canary reason.
+   * FORCE_V2_ALL may report reason env_force_v2_all while the base is still physically V2.
+   */
+  async shouldUseV2BaseExport(baseId: string): Promise<boolean> {
+    const base = await this.prismaService.base.findFirst({
+      select: { v2Enabled: true },
+      where: { id: baseId, deletedTime: null },
+    });
+    return Boolean(base?.v2Enabled);
+  }
+
   async getBaseById(baseId: string) {
     const base = await this.prismaService.base
       .findFirstOrThrow({
@@ -421,8 +433,6 @@ export class BaseService {
           lastModifiedBy: userId,
         },
       });
-
-      return base;
     } catch (error) {
       await this.prismaService.base.update({
         where: { id: base.id },
@@ -433,6 +443,9 @@ export class BaseService {
       });
       throw error;
     }
+
+    await this.markBaseVisited(base.id, spaceId);
+    return base;
   }
 
   async updateBase(baseId: string, updateBaseRo: IUpdateBaseRo) {
@@ -655,7 +668,7 @@ export class BaseService {
         },
       })
       .catch((error) => {
-        this.logger.warn(`Failed to seed last-visit for duplicated base ${baseId}: ${error}`);
+        this.logger.warn(`Failed to seed last-visit for base ${baseId}: ${error}`);
       });
   }
 
@@ -816,6 +829,7 @@ export class BaseService {
       templateId,
       fromBaseId,
     });
+    await this.markBaseVisited(result.id, spaceId);
     return result;
   }
 

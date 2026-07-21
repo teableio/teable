@@ -218,6 +218,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
       spec instanceof RecordByIdsSpec
         ? spec.recordIds().map((recordId) => recordId.toString())
         : [];
+    const matchingIdSet = new Set(matchingIds);
     this.deleteRecordIdsByBatch.push(matchingIds);
 
     const batchIndex = this.deleteRecordIdsByBatch.length - 1;
@@ -228,10 +229,10 @@ class FakeTableRecordRepository implements ITableRecordRepository {
 
     if (this.queryRepository) {
       const deletedRecords = this.queryRepository.records
-        .filter((record) => matchingIds.includes(record.id))
+        .filter((record) => matchingIdSet.has(record.id))
         .map((record) => toStoredSnapshot(record));
       this.queryRepository.records = this.queryRepository.records.filter(
-        (record) => !matchingIds.includes(record.id)
+        (record) => !matchingIdSet.has(record.id)
       );
       this.queryRepository.total = this.queryRepository.records.length;
       return ok(deletedRecords.length > 0 ? { deletedRecords } : {});
@@ -345,6 +346,7 @@ class FakeUndoRedoService {
     tableId: string;
     entry: unknown;
   }> = [];
+  deletedRecordCounts: number[] = [];
 
   async recordEntry(context: IExecutionContext, tableId: TableId, entry: unknown) {
     this.recordEntryCalls.push({
@@ -364,6 +366,7 @@ class FakeUndoRedoService {
       groupId?: string;
     }
   ) {
+    this.deletedRecordCounts.push(params.deletedRecords.length);
     return this.recordEntry(context, params.tableId, {
       ...(params.groupId ? { groupId: params.groupId } : {}),
       undoCommand: {
@@ -649,51 +652,99 @@ describe('DeleteByRangeStreamHandler', () => {
     );
   });
 
-  it('uses the maximum default delete chunk size for large selections when batchSize is omitted', async () => {
-    const { table, tableId, viewId } = buildTable();
-    const tableRepository = new FakeTableRepository();
-    tableRepository.tables.push(table);
-    const queryRepository = new FakeTableRecordQueryRepository();
-    queryRepository.records = Array.from({ length: 5_000 }, (_, index) =>
-      buildRecordReadModel(index)
-    );
-    queryRepository.total = queryRepository.records.length;
-    const recordRepository = new FakeTableRecordRepository(queryRepository);
-    const eventBus = new FakeEventBus();
-    const undoRedoService = new FakeUndoRedoService();
-
-    const { handler } = createHandler({
-      tableRepository,
-      queryRepository,
-      recordRepository,
-      eventBus,
-      undoRedoService,
-    });
-    const command = DeleteByRangeStreamCommand.create({
+  it('preserves the explicit delete stream batch-size guard', () => {
+    const { tableId, viewId } = buildTable();
+    const input = {
       tableId: tableId.toString(),
       viewId,
-      ranges: [[0, 4_999]],
+      ranges: [[0, 0]],
       type: 'rows',
-    })._unsafeUnwrap();
+    } as const;
 
-    const result = await handler.handle(createContext(), command);
-    const events = [];
-    for await (const event of result._unsafeUnwrap()) {
-      events.push(event);
-    }
+    const maximum = DeleteByRangeStreamCommand.create({ ...input, batchSize: 1_000 });
+    const aboveMaximum = DeleteByRangeStreamCommand.create({ ...input, batchSize: 1_001 });
 
-    expect(events.at(-1)).toMatchObject({
-      id: 'done',
-      totalCount: 5_000,
-      deletedCount: 5_000,
-    });
-    expect(recordRepository.deleteRecordIdsByBatch).toHaveLength(5);
-    expect(
-      new Set(recordRepository.deleteRecordIdsByBatch.map((recordIds) => recordIds.length))
-    ).toEqual(new Set([1_000]));
-    expect(eventBus.publishManyCalls).toHaveLength(5);
-    expect(undoRedoService.recordEntryCalls).toHaveLength(5);
+    expect(maximum.isOk()).toBe(true);
+    expect(maximum._unsafeUnwrap().batchSize).toBe(1_000);
+    expect(aboveMaximum.isErr()).toBe(true);
   });
+
+  it.each([
+    { totalCount: 10_000, expectedChunkCount: 2 },
+    { totalCount: 30_000, expectedChunkCount: 6 },
+  ])(
+    'deletes $totalCount records in $expectedChunkCount default 5k chunk lifecycles',
+    async ({ totalCount, expectedChunkCount }) => {
+      const { table, tableId, viewId } = buildTable();
+      const tableRepository = new FakeTableRepository();
+      tableRepository.tables.push(table);
+      const queryRepository = new FakeTableRecordQueryRepository();
+      queryRepository.records = Array.from({ length: totalCount }, (_, index) =>
+        buildRecordReadModel(index)
+      );
+      queryRepository.total = queryRepository.records.length;
+      const recordRepository = new FakeTableRecordRepository(queryRepository);
+      const eventBus = new FakeEventBus();
+      const undoRedoService = new FakeUndoRedoService();
+      const { plugin, calls } = createTrackedRecordWritePlugin(['deleteMany']);
+
+      const { handler } = createHandler({
+        tableRepository,
+        queryRepository,
+        recordRepository,
+        eventBus,
+        undoRedoService,
+        plugins: [plugin],
+      });
+      const command = DeleteByRangeStreamCommand.create({
+        tableId: tableId.toString(),
+        viewId,
+        ranges: [[0, totalCount - 1]],
+        type: 'rows',
+      })._unsafeUnwrap();
+
+      const result = await handler.handle(createContext(), command);
+      const events = [];
+      for await (const event of result._unsafeUnwrap()) {
+        events.push(event);
+      }
+
+      expect(events.at(-1)).toMatchObject({
+        id: 'done',
+        totalCount,
+        deletedCount: totalCount,
+      });
+      expect(recordRepository.deleteRecordIdsByBatch).toHaveLength(expectedChunkCount);
+      expect(recordRepository.deleteRecordIdsByBatch.map((recordIds) => recordIds.length)).toEqual(
+        Array.from({ length: expectedChunkCount }, () => 5_000)
+      );
+      expect(recordRepository.deleteContexts).toHaveLength(expectedChunkCount);
+      expect(
+        new Set(recordRepository.deleteContexts.map((context) => context.transaction)).size
+      ).toBe(expectedChunkCount);
+      expect(eventBus.publishManyCalls).toHaveLength(expectedChunkCount);
+      expect(undoRedoService.recordEntryCalls).toHaveLength(expectedChunkCount);
+      expect(undoRedoService.deletedRecordCounts).toEqual(
+        Array.from({ length: expectedChunkCount }, () => 5_000)
+      );
+      expect(calls.prepare).toHaveLength(expectedChunkCount + 1);
+      expect(calls.prepare.map((call) => call.payload.recordCount)).toEqual([
+        totalCount,
+        ...Array.from({ length: expectedChunkCount }, () => 5_000),
+      ]);
+      expect(calls.guard).toHaveLength(expectedChunkCount + 1);
+      expect(calls.beforePersist).toHaveLength(expectedChunkCount);
+      expect(calls.afterCommit).toHaveLength(expectedChunkCount);
+      expect(calls.prepare[0]?.orchestration).toMatchObject({
+        scope: 'operation',
+        totalRecordCount: totalCount,
+        totalChunkCount: expectedChunkCount,
+      });
+      expect(calls.prepare.slice(1).map((call) => call.orchestration?.chunkIndex)).toEqual(
+        Array.from({ length: expectedChunkCount }, (_, index) => index)
+      );
+    }
+  );
 
   it('keeps medium delete streams in a single default chunk', async () => {
     const { table, tableId, viewId } = buildTable();
@@ -789,17 +840,14 @@ describe('DeleteByRangeStreamHandler', () => {
     expect(queryRepository.records.map((record) => record.id)).toEqual([excludedRecord!.id]);
   });
 
-  it('continues deleting later chunks after a chunk fails and emits error details', async () => {
+  it('keeps descending multi-range ordering and continues after an explicit-size chunk fails', async () => {
     const { table, tableId, viewId } = buildTable();
     const tableRepository = new FakeTableRepository();
     tableRepository.tables.push(table);
 
     const queryRepository = new FakeTableRecordQueryRepository();
-    queryRepository.records = [
-      { id: `rec${'a'.repeat(16)}`, fields: { title: 'Record A' }, version: 1 },
-      { id: `rec${'b'.repeat(16)}`, fields: { title: 'Record B' }, version: 1 },
-      { id: `rec${'c'.repeat(16)}`, fields: { title: 'Record C' }, version: 1 },
-    ];
+    queryRepository.records = Array.from({ length: 6 }, (_, index) => buildRecordReadModel(index));
+    queryRepository.total = queryRepository.records.length;
     const originalRecordIds = queryRepository.records.map((record) => record.id);
     const recordRepository = new FakeTableRecordRepository(queryRepository);
     recordRepository.failDeleteByBatchIndex.set(
@@ -819,7 +867,10 @@ describe('DeleteByRangeStreamHandler', () => {
     const command = DeleteByRangeStreamCommand.create({
       tableId: tableId.toString(),
       viewId,
-      ranges: [[0, 2]],
+      ranges: [
+        [0, 1],
+        [4, 5],
+      ],
       type: 'rows',
       batchSize: 1,
     })._unsafeUnwrap();
@@ -830,11 +881,18 @@ describe('DeleteByRangeStreamHandler', () => {
       events.push(event);
     }
 
+    expect(recordRepository.deleteRecordIdsByBatch).toEqual([
+      [originalRecordIds[4]],
+      [originalRecordIds[5]],
+      [originalRecordIds[0]],
+      [originalRecordIds[1]],
+    ]);
     expect(events.map((event) => event.id)).toEqual([
       'progress',
       'progress',
       'progress',
       'error',
+      'progress',
       'progress',
       'done',
     ]);
@@ -842,31 +900,26 @@ describe('DeleteByRangeStreamHandler', () => {
       id: 'error',
       phase: 'deleting',
       batchIndex: 1,
-      totalCount: 3,
+      totalCount: 4,
       deletedCount: 1,
-      recordIds: [originalRecordIds[1]],
+      recordIds: [originalRecordIds[5]],
       message: 'delete failed',
     });
     expect(events.at(-1)).toMatchObject({
       id: 'done',
-      totalCount: 3,
-      deletedCount: 2,
+      totalCount: 4,
+      deletedCount: 3,
       data: {
-        deletedRecordIds: [originalRecordIds[0], originalRecordIds[2]],
+        deletedRecordIds: [originalRecordIds[4], originalRecordIds[0], originalRecordIds[1]],
       },
     });
-    expect(eventBus.publishManyCalls).toHaveLength(2);
-    expect(undoRedoService.recordEntryCalls).toHaveLength(2);
-    expect(
-      undoRedoService.recordEntryCalls.map(
-        (call) =>
-          (
-            call.entry as {
-              undoCommand: { payload: { records: Array<{ recordId: string }> } };
-            }
-          ).undoCommand.payload.records[0]?.recordId
-      )
-    ).toEqual([originalRecordIds[0], originalRecordIds[2]]);
+    expect(eventBus.publishManyCalls).toHaveLength(3);
+    expect(undoRedoService.recordEntryCalls).toHaveLength(3);
+    expect(queryRepository.records.map((record) => record.id)).toEqual([
+      originalRecordIds[2],
+      originalRecordIds[3],
+      originalRecordIds[5],
+    ]);
   });
 
   it('emits a zero-result done event and skips undo when every chunk fails', async () => {

@@ -46,6 +46,7 @@ import type {
   BatchRecordMutationResult,
   InsertManyStreamBatchInput,
   InsertManyStreamOptions,
+  PhysicalTableDuplicatePlan,
   UpdateManyStreamBatchInput,
   UpdateManyStreamOptions,
   UpdateManyStreamResult,
@@ -322,8 +323,8 @@ class FakeTableRepository implements ITableRepository {
   }
 
   async duplicatePhysicalRows(
-    _context: any,
-    _plan: any
+    _context: IExecutionContext,
+    _plan: PhysicalTableDuplicatePlan
   ): Promise<Result<{ rowCount: number; recordIds: string[] }, DomainError>> {
     return ok({ rowCount: 0, recordIds: [] });
   }
@@ -408,6 +409,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   onUpdatedRecord?: (record: TableRecord) => void;
   updateManyStreamUpdatedRecordIds: Set<string> | undefined = undefined;
   updateManyStreamVersions = new Map<string, number>();
+  updateManyStreamErrorAtCall: number | undefined = undefined;
 
   constructor(private readonly queryRepository?: FakeTableRecordQueryRepository) {}
 
@@ -489,6 +491,9 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     options?: UpdateManyStreamOptions
   ): Promise<Result<UpdateManyStreamResult, DomainError>> {
     this.updateCalls += 1;
+    if (this.updateManyStreamErrorAtCall === this.updateCalls) {
+      return err(domainError.infrastructure({ message: 'connection exhausted' }));
+    }
     this.updateStreamContexts.push(context);
     this.updateStreamOptions.push(options ?? {});
     this.onUpdateManyStream?.(table);
@@ -2634,6 +2639,78 @@ describe('PasteHandler', () => {
 
       expect(trackingUndoRedoService.recordEntryCalls).toBe(3);
       expect(new Set(trackingUndoRedoService.entries.map((entry) => entry.groupId)).size).toBe(1);
+    });
+
+    it('stops after a persistence error without emitting done', async () => {
+      const { table, tableId, textFieldId } = buildTable();
+      const viewId = table.views()[0]!.id();
+      const tableRepository = new FakeTableRepository();
+      tableRepository.tables.push(table);
+      const tableQueryService = new TableQueryService(tableRepository);
+      const recordQueryRepository = new FakeTableRecordQueryRepository();
+      recordQueryRepository.records = [
+        {
+          id: `rec${'p'.repeat(16)}`,
+          fields: { [textFieldId.toString()]: 'Old 1' },
+          version: 1,
+        },
+        {
+          id: `rec${'q'.repeat(16)}`,
+          fields: { [textFieldId.toString()]: 'Old 2' },
+          version: 1,
+        },
+      ];
+      const recordRepository = new FakeTableRecordRepository();
+      recordRepository.updateManyStreamErrorAtCall = 2;
+      const eventBus = new FakeEventBus();
+      const unitOfWork = new FakeUnitOfWork();
+      const handler = new PasteStreamApplicationService(
+        tableQueryService,
+        createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+        new FakeFieldCreationSideEffectService() as never,
+        new FakeForeignTableLoaderService() as never,
+        recordRepository,
+        recordQueryRepository,
+        new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+        noopPasteLinkAutoResolveService,
+        new RecordWriteSideEffectService(),
+        noopRecordWriteUndoRedoPlanService,
+        createRecordWritePluginRunner(),
+        eventBus,
+        noopUndoRedoService,
+        unitOfWork
+      );
+      const command = PasteStreamCommand.create({
+        tableId: tableId.toString(),
+        viewId: viewId.toString(),
+        ranges: [
+          [0, 0],
+          [0, 1],
+        ],
+        content: [['Updated 1'], ['Updated 2']],
+        batchSize: 1,
+      })._unsafeUnwrap();
+
+      const events = [];
+      for await (const event of handler.createStream(createContext(), command)) {
+        events.push(event);
+      }
+
+      expect(events.map((event) => event.id)).toEqual([
+        'progress',
+        'progress',
+        'progress',
+        'error',
+      ]);
+      expect(events.at(-1)).toMatchObject({
+        id: 'error',
+        phase: 'pasting',
+        batchIndex: 1,
+        processedCount: 1,
+        updatedCount: 1,
+        message: 'connection exhausted',
+      });
+      expect(recordRepository.updateCalls).toBe(2);
     });
 
     it('snapshots filtered target rows before streamed paste chunks mutate them', async () => {

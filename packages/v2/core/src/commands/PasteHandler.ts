@@ -2409,8 +2409,7 @@ export class PasteStreamApplicationService extends PasteHandler {
               ),
             })
           );
-          batchIndex += 1;
-          continue;
+          return;
         }
 
         pendingColumnExpansion = undefined;

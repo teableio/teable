@@ -14,6 +14,7 @@ import {
 } from '@teable/openapi';
 import { isString } from 'lodash';
 import { LRUCache } from 'lru-cache';
+import ms from 'ms';
 import { I18nService } from 'nestjs-i18n';
 import type { Transporter } from 'nodemailer';
 import { createTransport } from 'nodemailer';
@@ -42,8 +43,8 @@ export class MailSenderService implements OnModuleDestroy {
   // Connection pool per SMTP config: transporter objects hold live sockets, so this
   // must live in process memory (not in the shared cache service)
   private readonly transporterCache = new LRUCache<string, IPooledTransporter>({
-    max: 50,
-    ttl: 30 * 60 * 1000,
+    max: 200,
+    ttl: ms('30m'),
     updateAgeOnGet: true,
     // Closing a nodemailer pool rejects its queued sends, so busy entries are
     // only marked here; the last send's finally closes them once drained
@@ -153,6 +154,11 @@ export class MailSenderService implements OnModuleDestroy {
     const key = this.getTransporterCacheKey(config);
     let entry = this.transporterCache.get(key);
     if (!entry) {
+      // Don't log the key: it hashes the password, so even a prefix is an
+      // offline-testable verifier
+      this.logger.debug(
+        `Transporter cache miss (host=${config.host}, size=${this.transporterCache.size})`
+      );
       const created = await this.createTransporter(config);
       // A concurrent request may have populated the same key while we created ours;
       // reuse theirs so set() does not dispose (close) a transporter that is mid-send

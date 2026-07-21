@@ -44,6 +44,45 @@ export interface TableQueryOpsAnalyzeObservationInput {
   readonly ensureSchema?: boolean;
 }
 
+export interface TableQueryOpsAnalyzeSearchVectorsInput extends TableQueryOpsScopeInput {
+  readonly limit?: number;
+  readonly fieldIds?: readonly string[];
+  readonly languageConfig?: string;
+  readonly sampleSearch?: string;
+  readonly includeResultSamples?: boolean;
+  readonly sampleResultLimit?: number;
+  readonly maxRecommendations?: number;
+  readonly ensureSchema?: boolean;
+}
+
+export interface TableQueryOpsExecuteSearchVectorInput extends TableQueryOpsScopeInput {
+  readonly mode?: 'create' | 'rebuild';
+  readonly fieldIds?: readonly string[];
+  readonly languageConfig?: string;
+  readonly sampleSearch?: string;
+  readonly validationMode?: 'plan' | 'real_ddl';
+  readonly execute?: boolean;
+  readonly allowLargeTableRewrite?: boolean;
+  readonly ensureSchema?: boolean;
+}
+
+export interface TableQueryOpsValidateSearchVectorTempTableInput extends TableQueryOpsScopeInput {
+  readonly connection?: string;
+  readonly fieldIds?: readonly string[];
+  readonly languageConfig?: string;
+  readonly sampleSearches: readonly string[];
+  readonly queryLimit?: number;
+  readonly rowLimit?: number;
+  readonly keepTempTable?: boolean;
+  readonly ensureSchema?: boolean;
+}
+
+export interface TableQueryOpsSearchVectorTempTableValidationScope
+  extends Omit<TableQueryOpsValidateSearchVectorTempTableInput, 'sampleSearches'> {
+  readonly sampleSearchCount: number;
+  readonly sampleSearchLengthBuckets: readonly ('none' | 'short' | 'medium' | 'long')[];
+}
+
 export interface TableQueryOpsSummary {
   readonly enabled: boolean;
   readonly observationWindowCount: number;
@@ -474,6 +513,315 @@ export interface TableQueryOpsExplainSavedViewsResult {
   readonly results: readonly TableQueryOpsExplainRecommendedIndexSummary[];
 }
 
+export interface TableQueryOpsSearchVectorFieldSummary {
+  readonly fieldId: string;
+  readonly fieldDbName?: string;
+  readonly fieldType: string;
+  readonly valueType?: string;
+  readonly included: boolean;
+  readonly skippedReason?: string;
+}
+
+export interface TableQueryOpsSearchVectorRecommendationSummary {
+  readonly candidateKey: string;
+  readonly tableId: string;
+  readonly baseId: string;
+  readonly generatedColumnName: string;
+  readonly indexName: string;
+  readonly indexKind: 'gin_tsvector';
+  readonly accessPath: 'generated_tsvector';
+  readonly languageConfig: string;
+  readonly searchScope: 'selected_fields' | 'all_fields';
+  readonly coveredFields: readonly TableQueryOpsSearchVectorFieldSummary[];
+  readonly skippedFields: readonly TableQueryOpsSearchVectorFieldSummary[];
+  readonly estimatedRows: number;
+  readonly tableSizeBytes?: number;
+  readonly inventory: {
+    readonly state: string;
+    readonly existingGeneratedColumn?: string;
+    readonly existingIndexName?: string;
+    readonly existingIndexValid?: boolean;
+    readonly staleReasons: readonly string[];
+  };
+  readonly planEvidence: {
+    readonly explainStatus: 'validated' | 'skipped' | 'failed';
+    readonly explainMethod?: 'explain' | 'hypothetical_index' | 'real_index';
+    readonly explainReason?: string;
+    readonly costBefore?: number;
+    readonly costAfter?: number;
+    readonly costDeltaPct?: number;
+    readonly planNodeBefore?: string;
+    readonly planNodeAfter?: string;
+    readonly usesCandidateIndex?: boolean;
+    readonly hypotheticalIndexStatement?: string;
+    readonly sqlDetails?: {
+      readonly beforeSql: string;
+      readonly afterSql: string;
+      readonly searchProbeLengthBucket: 'none' | 'short' | 'medium' | 'long';
+      readonly placeholders: {
+        readonly likePattern: string;
+        readonly tsquery: string;
+      };
+      readonly redaction: 'search_probe_parameterized';
+    };
+  };
+  readonly semanticsReport?: TableQueryOpsSearchSemanticsReportSummary;
+  readonly nextAction: TableQueryOpsIndexNextAction;
+}
+
+export interface TableQueryOpsSearchScopeHeatEntrySummary {
+  readonly scopeKey: string;
+  readonly searchedFieldIds: readonly string[];
+  readonly searchMode: 'ilike' | 'trigram' | 'full_text';
+  readonly languageConfig?: string;
+  readonly requestCount: number;
+  readonly slowCount: number;
+  readonly timeoutCount: number;
+  readonly totalDurationMs: number;
+  readonly maxDurationMs: number;
+  readonly averageDurationMs: number;
+  readonly heatScore: number;
+  readonly hot: boolean;
+  readonly reasonCodes: readonly string[];
+  readonly nextAction: 'needs_plan_validation' | 'no_index_change';
+}
+
+export interface TableQueryOpsSearchScopeHeatReportSummary {
+  readonly tableId: string;
+  readonly estimatedRows: number;
+  readonly scannedObservationCount: number;
+  readonly scopes: readonly TableQueryOpsSearchScopeHeatEntrySummary[];
+}
+
+export interface TableQueryOpsScopedSearchIndexRecommendationSummary {
+  readonly candidateKey: string;
+  readonly tableId: string;
+  readonly baseId: string;
+  readonly indexName: string;
+  readonly indexKind: 'gin_tsvector_expression';
+  readonly accessPath: 'scoped_expression_gin';
+  readonly languageConfig: string;
+  readonly searchedFieldIds: readonly string[];
+  readonly coveredFields: readonly TableQueryOpsSearchVectorFieldSummary[];
+  readonly scopeHeat: TableQueryOpsSearchScopeHeatEntrySummary;
+  readonly planEvidence: TableQueryOpsSearchVectorRecommendationSummary['planEvidence'];
+  readonly nextAction: TableQueryOpsIndexNextAction;
+}
+
+export type TableQueryOpsSearchSemanticsStrategy =
+  | 'ilike'
+  | 'trigram'
+  | 'tsvector_simple'
+  | 'tsvector_english'
+  | 'tsvector_pg_jieba';
+
+export interface TableQueryOpsSearchSemanticsTokenSummary {
+  readonly token: string;
+  readonly alias?: string;
+  readonly lexemes: readonly string[];
+}
+
+export interface TableQueryOpsSearchSemanticsSampleResultSummary {
+  readonly recordId?: string;
+  readonly fieldPreviews: readonly {
+    readonly fieldId: string;
+    readonly fieldDbName: string;
+    readonly preview: string;
+    readonly previewLength: number;
+    readonly truncated: boolean;
+  }[];
+}
+
+export interface TableQueryOpsSearchSemanticsComparisonSummary {
+  readonly strategy: TableQueryOpsSearchSemanticsStrategy;
+  readonly label: string;
+  readonly semantics: 'substring' | 'trigram_substring' | 'full_text';
+  readonly available: boolean;
+  readonly availabilityReason?: string;
+  readonly tokenizer?: string;
+  readonly languageConfig?: string;
+  readonly indexSupport:
+    | 'none'
+    | 'existing_or_manual_trigram'
+    | 'generated_tsvector_gin'
+    | 'extension_required';
+  readonly tokenPreview: readonly TableQueryOpsSearchSemanticsTokenSummary[];
+  readonly tokenCount?: number;
+  readonly explainStatus: 'validated' | 'skipped' | 'failed';
+  readonly explainReason?: string;
+  readonly cost?: number;
+  readonly planNode?: string;
+  readonly usesIndex?: boolean;
+  readonly matchCount?: number;
+  readonly matchCountDeltaFromIlike?: number;
+  readonly matchCountDeltaPctFromIlike?: number;
+  readonly sampleOverlapWithIlike?: number;
+  readonly sampleResults: readonly TableQueryOpsSearchSemanticsSampleResultSummary[];
+  readonly reasonablenessAssessment: {
+    readonly status: 'needs_llm_review' | 'not_evaluated';
+    readonly reasonCodes: readonly string[];
+    readonly instruction: string;
+  };
+}
+
+export interface TableQueryOpsSearchSemanticsReportSummary {
+  readonly searchProbeLengthBucket: 'none' | 'short' | 'medium' | 'long';
+  readonly comparedStrategies: readonly TableQueryOpsSearchSemanticsStrategy[];
+  readonly baselineStrategy: 'ilike';
+  readonly comparisons: readonly TableQueryOpsSearchSemanticsComparisonSummary[];
+  readonly llmEvaluationInput: {
+    readonly status: 'needs_llm_review';
+    readonly redaction: 'ephemeral_operator_probe_not_persisted';
+    readonly searchProbe: string;
+    readonly instruction: string;
+    readonly criteria: readonly string[];
+    readonly strategies: readonly {
+      readonly strategy: TableQueryOpsSearchSemanticsStrategy;
+      readonly label: string;
+      readonly tokenPreview: readonly TableQueryOpsSearchSemanticsTokenSummary[];
+      readonly matchCount?: number;
+      readonly cost?: number;
+      readonly sampleResults: readonly TableQueryOpsSearchSemanticsSampleResultSummary[];
+    }[];
+  };
+}
+
+export interface TableQueryOpsAnalyzeSearchVectorsResult {
+  readonly scope: TableQueryOpsAnalyzeSearchVectorsInput;
+  readonly tableCount: number;
+  readonly searchProbeLengthBucket: 'none' | 'short' | 'medium' | 'long';
+  readonly scannedFieldCount: number;
+  readonly coveredFieldCount: number;
+  readonly skippedFieldCount: number;
+  readonly recommendations: readonly TableQueryOpsSearchVectorRecommendationSummary[];
+  readonly scopeHeatReports: readonly TableQueryOpsSearchScopeHeatReportSummary[];
+  readonly scopedExpressionRecommendations: readonly TableQueryOpsScopedSearchIndexRecommendationSummary[];
+  readonly coverageReport: {
+    readonly scannedFieldCount: number;
+    readonly coveredFieldCount: number;
+    readonly skippedFieldCount: number;
+    readonly skippedReasons: Readonly<Record<string, number>>;
+  };
+}
+
+export interface TableQueryOpsExecuteSearchVectorResult {
+  readonly scope: TableQueryOpsExecuteSearchVectorInput;
+  readonly dryRun: boolean;
+  readonly action: 'dry_run' | 'executed' | 'failed';
+  readonly result?: unknown;
+  readonly error?: string;
+}
+
+export interface TableQueryOpsSearchVectorTempTableValidationResult {
+  readonly scope: TableQueryOpsSearchVectorTempTableValidationScope;
+  readonly tableId: string;
+  readonly baseId: string;
+  readonly languageConfig: string;
+  readonly candidateKey: string;
+  readonly generatedColumnName: string;
+  readonly recommendedIndexName: string;
+  readonly tempIndexName: string;
+  readonly tempTable: {
+    readonly schemaName: string;
+    readonly tableName: string;
+    readonly fullName: string;
+    readonly sourceTableName: string;
+    readonly copiedRows: number;
+    readonly rowLimit?: number;
+    readonly kept: boolean;
+  };
+  readonly coveredFields: readonly TableQueryOpsSearchVectorFieldSummary[];
+  readonly skippedFields: readonly TableQueryOpsSearchVectorFieldSummary[];
+  readonly samples: readonly {
+    readonly searchProbeLengthBucket: 'none' | 'short' | 'medium' | 'long';
+    readonly defaultPath: {
+      readonly durationMs: number;
+      readonly total: number;
+      readonly returnedCount: number;
+      readonly recordIds: readonly string[];
+    };
+    readonly generatedTsvectorPath: {
+      readonly durationMs: number;
+      readonly total: number;
+      readonly returnedCount: number;
+      readonly recordIds: readonly string[];
+    };
+    readonly totalDeltaFromDefault: number;
+    readonly totalDeltaPctFromDefault: number;
+    readonly durationDeltaPctFromDefault: number;
+    readonly sampleOverlapWithDefault: number;
+    readonly planEvidence: {
+      readonly explainStatus: 'validated' | 'failed';
+      readonly costBefore?: number;
+      readonly costAfter?: number;
+      readonly costDeltaPct?: number;
+      readonly planNodeBefore?: string;
+      readonly planNodeAfter?: string;
+      readonly usesGinIndex: boolean;
+      readonly ginExpected: boolean;
+      readonly ginDecisionReason: string;
+      readonly indexName: string;
+      readonly error?: string;
+    };
+    readonly llmReasonableness:
+      | 'reasonable'
+      | 'semantic_drift'
+      | 'needs_language_config'
+      | 'manual_review';
+  }[];
+  readonly summary: {
+    readonly sampleCount: number;
+    readonly ginValidatedSampleCount: number;
+    readonly allSelectiveSamplesUsedGinIndex: boolean;
+    readonly allSamplesImprovedDuration: boolean;
+    readonly hasMaterialSemanticDrift: boolean;
+    readonly nextAction:
+      | 'ready_for_confirmation'
+      | 'needs_language_config'
+      | 'needs_plan_validation'
+      | 'manual_investigation';
+  };
+}
+
+export interface TableQueryOpsObservabilitySchemaResult {
+  readonly spans: readonly {
+    readonly name: string;
+    readonly layer: 'api' | 'application' | 'repository' | 'admin' | 'advisor';
+    readonly purpose: string;
+    readonly attributes: readonly string[];
+  }[];
+  readonly metrics: readonly {
+    readonly name: string;
+    readonly type: 'counter' | 'histogram';
+    readonly purpose: string;
+    readonly safeAttributes: readonly string[];
+  }[];
+  readonly traceOnlyAttributes: readonly string[];
+  readonly redactionRules: readonly string[];
+  readonly environment: {
+    readonly tableIdMetricAllowlist: string;
+  };
+}
+
+export interface TableQueryOpsSignozDashboardTemplateResult {
+  readonly dashboards: readonly {
+    readonly title: string;
+    readonly panels: readonly {
+      readonly title: string;
+      readonly signal: 'traces' | 'metrics';
+      readonly query: string;
+      readonly groupBy?: readonly string[];
+    }[];
+  }[];
+  readonly alerts: readonly {
+    readonly name: string;
+    readonly signal: 'traces' | 'metrics';
+    readonly query: string;
+    readonly condition: string;
+  }[];
+  readonly drilldownFilters: readonly string[];
+}
+
 export class TableQueryOps extends Context.Tag('TableQueryOps')<
   TableQueryOps,
   {
@@ -489,8 +837,28 @@ export class TableQueryOps extends Context.Tag('TableQueryOps')<
     readonly explainSavedViews: (
       input: TableQueryOpsExplainSavedViewsInput
     ) => Effect.Effect<TableQueryOpsExplainSavedViewsResult, CliError>;
+    readonly analyzeSearchVectors: (
+      input: TableQueryOpsAnalyzeSearchVectorsInput
+    ) => Effect.Effect<TableQueryOpsAnalyzeSearchVectorsResult, CliError>;
+    readonly explainSearchVectors: (
+      input: TableQueryOpsAnalyzeSearchVectorsInput
+    ) => Effect.Effect<TableQueryOpsAnalyzeSearchVectorsResult, CliError>;
+    readonly executeSearchVector: (
+      input: TableQueryOpsExecuteSearchVectorInput
+    ) => Effect.Effect<TableQueryOpsExecuteSearchVectorResult, CliError>;
+    readonly validateSearchVectorTempTable: (
+      input: TableQueryOpsValidateSearchVectorTempTableInput
+    ) => Effect.Effect<TableQueryOpsSearchVectorTempTableValidationResult, CliError>;
     readonly analyzeObservation: (
       input: TableQueryOpsAnalyzeObservationInput
     ) => Effect.Effect<TableQueryOpsAnalyzeObservationResult, CliError>;
+    readonly observabilitySchema: () => Effect.Effect<
+      TableQueryOpsObservabilitySchemaResult,
+      CliError
+    >;
+    readonly signozDashboardTemplate: () => Effect.Effect<
+      TableQueryOpsSignozDashboardTemplateResult,
+      CliError
+    >;
   }
 >() {}

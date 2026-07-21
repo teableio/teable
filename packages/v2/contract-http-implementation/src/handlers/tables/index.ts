@@ -11,6 +11,7 @@ export * from './restoreTable';
 export * from './explainCommand';
 export * from './getRecordById';
 export * from './getTableById';
+export * from './getComputeActivity';
 export * from './importCsv';
 export * from './importRecords';
 export * from './listTableRecords';

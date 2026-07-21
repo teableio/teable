@@ -11,10 +11,7 @@ import {
   resolveOrderBy,
 } from '../../commands/shared/orderBy';
 import { ensureRecordIdsWithinScope } from '../../commands/shared/recordWriteScope';
-import {
-  MAX_SELECTION_STREAM_BATCH_SIZE,
-  resolveSelectionStreamBatchSize,
-} from '../../commands/shared/streamBatchSize';
+import { resolveDeleteStreamBatchSize } from '../../commands/shared/streamBatchSize';
 import { domainError, isNotFoundError, type DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import { generateUuid } from '../../domain/shared/IdGenerator';
@@ -67,7 +64,6 @@ import { toUndoRedoStackAppendContext, UndoRedoStackService } from './UndoRedoSt
 
 const DEFAULT_DELETE_QUERY_PAGE_SIZE = 500;
 const MAX_DELETE_STREAM_BUFFERED_EVENTS = 64;
-const DELETE_STREAM_SINGLE_CHUNK_RECORD_LIMIT = MAX_SELECTION_STREAM_BATCH_SIZE;
 
 const toRangeTypeSpanAttribute = (rangeType: RangeType): 'columns' | 'rows' | 'cells' =>
   rangeType ?? 'cells';
@@ -552,7 +548,7 @@ export class DeleteByRangeApplicationService {
       const recordIds = parsedRecordIdsResult.value.filter(
         (recordId) => !excludedRecordIds.has(recordId.toString())
       );
-      const batchSize = this.resolveDeleteStreamBatchSize(recordIds.length, command.batchSize);
+      const batchSize = resolveDeleteStreamBatchSize(recordIds.length, command.batchSize);
 
       return ok({
         table,
@@ -647,7 +643,7 @@ export class DeleteByRangeApplicationService {
       rowRanges.reduce((sum, [startRow, endRow]) => sum + (endRow - startRow + 1), 0) -
         (command.targetRecordIds !== undefined ? excludedRecordIds.size : 0)
     );
-    const batchSize = this.resolveDeleteStreamBatchSize(totalCount, command.batchSize);
+    const batchSize = resolveDeleteStreamBatchSize(totalCount, command.batchSize);
     const chunkPlans = this.buildDeleteStreamChunkPlans(rowRanges, batchSize);
 
     return ok({
@@ -706,22 +702,6 @@ export class DeleteByRangeApplicationService {
       });
     }
     return chunks;
-  }
-
-  private resolveDeleteStreamBatchSize(totalCount: number, requestedBatchSize?: number): number {
-    if (requestedBatchSize !== undefined) {
-      return resolveSelectionStreamBatchSize(totalCount, requestedBatchSize);
-    }
-
-    if (totalCount <= 0) {
-      return resolveSelectionStreamBatchSize(totalCount);
-    }
-
-    if (totalCount <= DELETE_STREAM_SINGLE_CHUNK_RECORD_LIMIT) {
-      return totalCount;
-    }
-
-    return MAX_SELECTION_STREAM_BATCH_SIZE;
   }
 
   private async prepareDeletePluginExecution(

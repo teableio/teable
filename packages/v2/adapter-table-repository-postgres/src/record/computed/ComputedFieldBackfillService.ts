@@ -408,6 +408,7 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
           typeValidationStrategy: this.typeValidationStrategy,
           forceLookupArrayOutput: true,
           resolveSystemUserSnapshotsFromUsers: true,
+          allowFullTableSetBasedRollups: true,
         })
           .from(input.table)
           .select([fieldId]);
@@ -507,6 +508,7 @@ export class ComputedFieldBackfillService implements IComputedFieldBackfillServi
             typeValidationStrategy: this.typeValidationStrategy,
             forceLookupArrayOutput: true,
             resolveSystemUserSnapshotsFromUsers: true,
+            allowFullTableSetBasedRollups: true,
           })
             .from(input.table)
             .select(chunkFieldIds);

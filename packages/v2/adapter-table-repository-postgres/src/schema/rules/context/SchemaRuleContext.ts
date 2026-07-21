@@ -49,6 +49,12 @@ export interface SchemaRuleContext {
    * structural DDL and metadata writes intact.
    */
   readonly optimizeForEmptyTables?: boolean;
+
+  /**
+   * Optional per checker/repairer session cache for expensive cross-table lookups
+   * (e.g. active link storage refs). Shared across tables in one base integrity run.
+   */
+  readonly sessionCache?: Map<string, unknown>;
 }
 
 /**
@@ -65,6 +71,7 @@ export const createSchemaRuleContext = (params: {
   table?: Table;
   mode?: 'delete' | 'update';
   optimizeForEmptyTables?: boolean;
+  sessionCache?: Map<string, unknown>;
 }): SchemaRuleContext => ({
   db: params.db,
   metaDb: params.metaDb ?? params.db,
@@ -76,4 +83,5 @@ export const createSchemaRuleContext = (params: {
   table: params.table,
   mode: params.mode,
   optimizeForEmptyTables: params.optimizeForEmptyTables,
+  sessionCache: params.sessionCache,
 });

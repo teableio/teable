@@ -87,7 +87,7 @@ export const useFieldCheckState = (fieldIds: string[], open: boolean) => {
   };
 };
 
-const mapItemReferences = (refs: IFieldDeleteReferencesItem): AffectedItem[] => {
+export const mapItemReferences = (refs: IFieldDeleteReferencesItem): AffectedItem[] => {
   const items: AffectedItem[] = [];
 
   refs.dependentFields.forEach((f) => {
@@ -113,9 +113,10 @@ const mapItemReferences = (refs: IFieldDeleteReferencesItem): AffectedItem[] => 
   refs.workflowNodes.forEach((node) => {
     items.push({
       id: node.id,
-      name: node.name ?? node.category,
+      name: node.name ?? '',
       itemType: 'workflow',
       type: node.type,
+      category: node.category,
       source: node.source,
     });
   });

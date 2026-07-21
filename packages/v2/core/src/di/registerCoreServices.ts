@@ -55,6 +55,7 @@ import { NoopComputedFieldBackfillService } from '../ports/defaults/NoopComputed
 import { NoopFieldDeleteSnapshotSink } from '../ports/defaults/NoopFieldDeleteSnapshotSink';
 import { NoopFieldTrashRepository } from '../ports/defaults/NoopFieldTrashRepository';
 import { NoopRecordOrderCalculator } from '../ports/defaults/NoopRecordOrderCalculator';
+import { NoopTableQueryObservability } from '../ports/defaults/NoopTableQueryObservability';
 import { NoopUndoRedoStore } from '../ports/defaults/NoopUndoRedoStore';
 import type { IFieldOperationPlugin } from '../ports/FieldOperationPlugin';
 import type { IRecordWritePlugin } from '../ports/RecordWritePlugin';
@@ -155,6 +156,12 @@ export const registerV2CoreServices = (
   // TableQueryService - common table lookup operations
   if (!container.isRegistered(v2CoreTokens.tableQueryService)) {
     container.register(v2CoreTokens.tableQueryService, TableQueryService, { lifecycle });
+  }
+
+  if (!container.isRegistered(v2CoreTokens.tableQueryObservability)) {
+    container.register(v2CoreTokens.tableQueryObservability, NoopTableQueryObservability, {
+      lifecycle,
+    });
   }
 
   // FieldCreationSideEffectService - cross-table field creation side effects

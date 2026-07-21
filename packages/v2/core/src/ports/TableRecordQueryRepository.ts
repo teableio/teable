@@ -36,6 +36,25 @@ export interface IRecordReadQuerySource {
   readonly enabledFieldIds?: ReadonlyArray<string>;
 }
 
+export type IRecordSearchAccessPath =
+  | { readonly kind: 'default' }
+  | {
+      readonly kind: 'generated_tsvector';
+      readonly generatedColumnName: string;
+      readonly languageConfig: string;
+      readonly searchScope: 'all_fields' | 'selected_fields';
+      readonly coveredFieldIds: ReadonlyArray<FieldId>;
+    };
+
+export type RecordSearchAccessPathKind = 'default' | 'generated_tsvector';
+
+export type RecordSearchAccessPathFallbackReason = 'generated_tsvector_unavailable';
+
+export interface IRecordSearchAccessPathResolution {
+  readonly requested: RecordSearchAccessPathKind;
+  readonly used: RecordSearchAccessPathKind;
+  readonly fallbackReason?: RecordSearchAccessPathFallbackReason;
+}
 export interface ITableRecordQueryOptions {
   /**
    * Query mode:
@@ -90,6 +109,12 @@ export interface ITableRecordQueryOptions {
    * through record-filter operators.
    */
   readonly search?: RecordQuerySearch;
+
+  /**
+   * Optional explicit search access path used by internal/admin validation flows.
+   * Omitted or `default` keeps the existing v1-compatible ILIKE behavior.
+   */
+  readonly searchAccessPath?: IRecordSearchAccessPath;
 
   /**
    * Optional explicit read source used by permission-scoped record reads.
@@ -164,6 +189,11 @@ export interface ITableRecordQueryStreamOptions {
   readonly search?: RecordQuerySearch;
 
   /**
+   * Optional explicit search access path used by internal/admin validation flows.
+   */
+  readonly searchAccessPath?: IRecordSearchAccessPath;
+
+  /**
    * Optional explicit read source used by permission-scoped record reads.
    */
   readonly recordReadQuerySource?: IRecordReadQuerySource;
@@ -175,6 +205,8 @@ export interface ITableRecordQueryResult {
   readonly records: ReadonlyArray<TableRecordReadModel>;
   /** Total count of records matching the query (for pagination) */
   readonly total: number;
+  /** Actual search access path selected by the repository after SQL planning. */
+  readonly searchAccessPath?: IRecordSearchAccessPathResolution;
 }
 
 export interface ITableRecordQueryRepository {

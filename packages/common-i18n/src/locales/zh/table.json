@@ -1478,7 +1478,16 @@
       "folderId": "文件夹 ID",
       "tableId": "表格 ID",
       "automationId": "自动化 ID",
-      "appId": "应用 ID"
+      "appId": "应用 ID",
+      "searchVector": "全文搜索优化",
+      "searchVectorFields": "个字段",
+      "searchVectorStatus": {
+        "ready": "已启用",
+        "configured": "已配置",
+        "rebuildPending": "等待维护",
+        "stale": "需要重建",
+        "unknown": "状态未知"
+      }
     }
   }
 }

@@ -284,6 +284,18 @@ export class ShareController {
   @ShareLinkView()
   @UseGuards(ShareAuthGuard)
   @AllowAnonymous()
+  @Get('/:shareId/socket/computed-activity/authorize')
+  authorizeComputedActivityRead(
+    @Request() req: { shareInfo: IShareViewInfo },
+    @Query('tableId') tableId: string
+  ): void {
+    const { shareInfo } = req;
+    this.shareSocketService.authorizeComputedActivityRead(shareInfo, tableId);
+  }
+
+  @ShareLinkView()
+  @UseGuards(ShareAuthGuard)
+  @AllowAnonymous()
   @Get('/:shareId/socket/record/snapshot-bulk')
   async getRecordSnapshotBulk(@Request() req: any, @Query('ids') ids: string[]) {
     const shareInfo = req.shareInfo as IShareViewInfo;

@@ -35,6 +35,8 @@ export type TableQueryRecommendationStatus = (typeof tableQueryRecommendationSta
 
 export const tableQueryRemediationKindValues = [
   'create_search_index',
+  'create_search_vector',
+  'rebuild_search_vector',
   'create_filter_index',
   'create_sort_index',
   'repair_index',
@@ -49,6 +51,8 @@ export type TableQueryRemediationKind = (typeof tableQueryRemediationKindValues)
 
 export const executablePhase1RemediationKindValues = [
   'create_search_index',
+  'create_search_vector',
+  'rebuild_search_vector',
   'create_filter_index',
   'create_sort_index',
   'repair_index',
@@ -69,10 +73,16 @@ export type TableQueryRemediationTaskStatus =
 
 export type SearchValueLengthBucket = 'none' | 'short' | 'medium' | 'long';
 export type TableQueryIndexState = 'ready' | 'missing' | 'invalid' | 'unknown';
-export type TableQueryIndexKind = 'btree' | 'gin_trgm';
-export type TableQueryIndexAccessPath = 'single_field' | 'composite' | 'expression';
+export type TableQueryIndexKind = 'btree' | 'gin_trgm' | 'gin_tsvector';
+export type TableQueryIndexAccessPath =
+  | 'single_field'
+  | 'composite'
+  | 'expression'
+  | 'generated_tsvector';
 export type TableQueryPlanValidationStatus = 'validated' | 'skipped' | 'failed';
 export type TableQueryPlanValidationMethod = 'explain' | 'hypothetical_index';
+export type TableQuerySearchMode = 'ilike' | 'trigram' | 'full_text';
+export type TableQuerySearchScope = 'selected_fields' | 'all_fields';
 
 export type TableQueryOperatorFamily =
   | 'text_contains'
@@ -125,7 +135,110 @@ export type TableQuerySearchShape = {
   readonly fieldCount: number;
   readonly allFields: boolean;
   readonly valueLengthBucket: SearchValueLengthBucket;
+  readonly searchedFieldIds?: ReadonlyArray<string>;
+  readonly searchMode?: TableQuerySearchMode;
+  readonly searchScope?: TableQuerySearchScope;
+  readonly languageConfig?: string;
+  readonly coveredFieldIds?: ReadonlyArray<string>;
 };
+
+export type TableSearchVectorShapeInput = {
+  readonly searchMode: 'full_text';
+  readonly searchScope: TableQuerySearchScope;
+  readonly languageConfig: string;
+  readonly fieldCount: number;
+  readonly allFields: boolean;
+  readonly coveredFieldIds: ReadonlyArray<string>;
+  readonly valueLengthBucket: SearchValueLengthBucket;
+};
+
+const tableSearchVectorShapeSchema: z.ZodType<TableSearchVectorShapeInput> = z.object({
+  searchMode: z.literal('full_text'),
+  searchScope: z.enum(['selected_fields', 'all_fields']),
+  languageConfig: z
+    .string()
+    .trim()
+    .min(1)
+    .regex(/^[\w.]+$/),
+  fieldCount: z.number().int().nonnegative(),
+  allFields: z.boolean(),
+  coveredFieldIds: z.array(z.string().min(1)),
+  valueLengthBucket: z.enum(['none', 'short', 'medium', 'long']),
+});
+
+export class TableSearchVectorShape {
+  private constructor(private readonly props: TableSearchVectorShapeInput) {}
+
+  static create(raw: TableSearchVectorShapeInput): Result<TableSearchVectorShape, DomainError> {
+    if (containsForbiddenLiteralKey(raw)) {
+      return err(
+        domainError.validation({
+          message: 'Search vector shape must not contain raw search or filter literals',
+        })
+      );
+    }
+    const parsed = tableSearchVectorShapeSchema.safeParse(raw);
+    if (!parsed.success) {
+      return err(domainError.validation({ message: 'Invalid table search vector shape' }));
+    }
+    if (parsed.data.fieldCount !== parsed.data.coveredFieldIds.length) {
+      return err(
+        domainError.validation({
+          message: 'Search vector field count must match covered field ids',
+        })
+      );
+    }
+    return ok(new TableSearchVectorShape(parsed.data));
+  }
+
+  snapshot(): TableSearchVectorShapeInput {
+    return this.props;
+  }
+}
+
+export type TableSearchVectorPlanEvidenceInput = {
+  readonly explainStatus: TableQueryPlanValidationStatus;
+  readonly explainMethod?: TableQueryPlanValidationMethod;
+  readonly explainReason?: string;
+  readonly costBefore?: number;
+  readonly costAfter?: number;
+  readonly costDeltaPct?: number;
+  readonly planNodeBefore?: string;
+  readonly planNodeAfter?: string;
+  readonly usesCandidateIndex?: boolean;
+};
+
+const tableSearchVectorPlanEvidenceSchema: z.ZodType<TableSearchVectorPlanEvidenceInput> = z.object(
+  {
+    explainStatus: z.enum(['validated', 'skipped', 'failed']),
+    explainMethod: z.enum(['explain', 'hypothetical_index']).optional(),
+    explainReason: z.string().min(1).optional(),
+    costBefore: z.number().optional(),
+    costAfter: z.number().optional(),
+    costDeltaPct: z.number().optional(),
+    planNodeBefore: z.string().optional(),
+    planNodeAfter: z.string().optional(),
+    usesCandidateIndex: z.boolean().optional(),
+  }
+);
+
+export class TableSearchVectorPlanEvidence {
+  private constructor(private readonly props: TableSearchVectorPlanEvidenceInput) {}
+
+  static create(
+    raw: TableSearchVectorPlanEvidenceInput
+  ): Result<TableSearchVectorPlanEvidence, DomainError> {
+    const parsed = tableSearchVectorPlanEvidenceSchema.safeParse(raw);
+    if (!parsed.success) {
+      return err(domainError.validation({ message: 'Invalid table search vector plan evidence' }));
+    }
+    return ok(new TableSearchVectorPlanEvidence(parsed.data));
+  }
+
+  snapshot(): TableSearchVectorPlanEvidenceInput {
+    return this.props;
+  }
+}
 
 export type TableQueryOrderFieldShape = {
   readonly fieldId?: string;
@@ -278,6 +391,16 @@ const tableQueryShapeSchema: z.ZodType<TableQueryShapeInput> = z.object({
       fieldCount: z.number().int().nonnegative(),
       allFields: z.boolean(),
       valueLengthBucket: z.enum(['none', 'short', 'medium', 'long']),
+      searchedFieldIds: z.array(z.string().min(1)).optional(),
+      searchMode: z.enum(['ilike', 'trigram', 'full_text']).optional(),
+      searchScope: z.enum(['selected_fields', 'all_fields']).optional(),
+      languageConfig: z
+        .string()
+        .trim()
+        .min(1)
+        .regex(/^[\w.]+$/)
+        .optional(),
+      coveredFieldIds: z.array(z.string().min(1)).optional(),
     })
     .optional(),
   orderShape: z
@@ -351,7 +474,21 @@ export class TableQueryShape {
         })
       );
     }
-    return ok(new TableQueryShape(parsed.data));
+    const searchShape = parsed.data.searchShape;
+    if (!searchShape?.searchedFieldIds) {
+      return ok(new TableQueryShape(parsed.data));
+    }
+    const searchedFieldIds = Array.from(new Set(searchShape.searchedFieldIds)).sort();
+    return ok(
+      new TableQueryShape({
+        ...parsed.data,
+        searchShape: {
+          ...searchShape,
+          fieldCount: searchedFieldIds.length,
+          searchedFieldIds,
+        },
+      })
+    );
   }
 
   queryKind(): TableQueryKind {
@@ -363,7 +500,8 @@ export class TableQueryShape {
   }
 
   shapeHash(): string {
-    return stableHash(this.value);
+    const { executionShape: _executionShape, ...structure } = this.value;
+    return stableHash(structure);
   }
 }
 
@@ -1128,6 +1266,13 @@ export class TableQueryShapeFactory {
         ? {
             fieldCount: input.search.fieldIds?.length ?? input.table.getFields().length,
             allFields: !input.search.fieldIds?.length,
+            ...(input.search.fieldIds?.length
+              ? {
+                  searchedFieldIds: input.search.fieldIds
+                    .map((fieldId) => fieldId.toString())
+                    .sort(),
+                }
+              : {}),
             valueLengthBucket: bucketSearchValueLength(input.search.valueLength ?? 0),
           }
         : undefined,

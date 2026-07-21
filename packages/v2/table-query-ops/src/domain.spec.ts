@@ -8,6 +8,8 @@ import {
   TableQueryRecommendation,
   TableQueryRiskPolicy,
   TableQueryShape,
+  TableSearchVectorPlanEvidence,
+  TableSearchVectorShape,
 } from './domain';
 
 const createObservation = () => {
@@ -58,6 +60,131 @@ describe('TableQueryShape', () => {
     });
 
     expect(result.isErr()).toBe(true);
+  });
+
+  it('captures full-text search shape without raw search values', () => {
+    const result = TableQueryShape.create({
+      queryKind: 'search',
+      searchShape: {
+        fieldCount: 2,
+        allFields: true,
+        valueLengthBucket: 'medium',
+        searchMode: 'full_text',
+        searchScope: 'all_fields',
+        languageConfig: 'simple',
+        coveredFieldIds: ['fld_title', 'fld_body'],
+      },
+      executionShape: {
+        durationMs: 100,
+        timedOut: false,
+      },
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().snapshot().searchShape).toMatchInlineSnapshot(`
+      {
+        "allFields": true,
+        "coveredFieldIds": [
+          "fld_title",
+          "fld_body",
+        ],
+        "fieldCount": 2,
+        "languageConfig": "simple",
+        "searchMode": "full_text",
+        "searchScope": "all_fields",
+        "valueLengthBucket": "medium",
+      }
+    `);
+  });
+
+  it('normalizes selected search fields and hashes query structure without execution timings', () => {
+    const createShape = (searchedFieldIds: string[], durationMs: number) =>
+      TableQueryShape.create({
+        queryKind: 'search',
+        searchShape: {
+          fieldCount: searchedFieldIds.length,
+          allFields: false,
+          searchedFieldIds,
+          searchMode: 'full_text',
+          searchScope: 'selected_fields',
+          languageConfig: 'simple',
+          valueLengthBucket: 'medium',
+        },
+        executionShape: {
+          durationMs,
+          timedOut: durationMs > 3_000,
+        },
+      })._unsafeUnwrap();
+
+    const fast = createShape(['fld_body', 'fld_title', 'fld_title'], 25);
+    const slow = createShape(['fld_title', 'fld_body'], 8_000);
+    const other = createShape(['fld_customer'], 25);
+
+    expect(fast.snapshot().searchShape?.searchedFieldIds).toEqual(['fld_body', 'fld_title']);
+    expect(fast.snapshot().searchShape?.fieldCount).toBe(2);
+    expect(fast.shapeHash()).toBe(slow.shapeHash());
+    expect(fast.shapeHash()).not.toBe(other.shapeHash());
+  });
+});
+
+describe('TableSearchVectorShape', () => {
+  it('does not accept raw search literals', () => {
+    const result = TableSearchVectorShape.create({
+      searchMode: 'full_text',
+      searchScope: 'all_fields',
+      languageConfig: 'simple',
+      fieldCount: 1,
+      allFields: true,
+      coveredFieldIds: ['fld_title'],
+      valueLengthBucket: 'medium',
+      searchValue: 'do-not-store-me',
+    } as never);
+
+    expect(result.isErr()).toBe(true);
+  });
+
+  it('requires covered fields to match field count', () => {
+    const result = TableSearchVectorShape.create({
+      searchMode: 'full_text',
+      searchScope: 'selected_fields',
+      languageConfig: 'english',
+      fieldCount: 2,
+      allFields: false,
+      coveredFieldIds: ['fld_title'],
+      valueLengthBucket: 'short',
+    });
+
+    expect(result.isErr()).toBe(true);
+  });
+});
+
+describe('TableSearchVectorPlanEvidence', () => {
+  it('keeps before/after plan validation evidence for generated tsvector candidates', () => {
+    const evidence = TableSearchVectorPlanEvidence.create({
+      explainStatus: 'validated',
+      explainMethod: 'hypothetical_index',
+      explainReason: 'plan_validated',
+      costBefore: 1200,
+      costAfter: 24,
+      costDeltaPct: -98,
+      planNodeBefore: 'Seq Scan',
+      planNodeAfter: 'Bitmap Heap Scan',
+      usesCandidateIndex: true,
+    })._unsafeUnwrap();
+
+    expect(evidence.snapshot()).toMatchInlineSnapshot(`
+      {
+        "costAfter": 24,
+        "costBefore": 1200,
+        "costDeltaPct": -98,
+        "explainMethod": "hypothetical_index",
+        "explainReason": "plan_validated",
+        "explainStatus": "validated",
+        "planNodeAfter": "Bitmap Heap Scan",
+        "planNodeBefore": "Seq Scan",
+        "usesCandidateIndex": true,
+      }
+    `);
   });
 });
 

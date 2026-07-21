@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
+import type { IRecordChangedValueDecoratorService } from '../application/services/RecordChangedValueDecoratorService';
 import { createDefaultTableDataSafetyLimitComposer } from '../application/services/TableDataSafetyLimitComposer';
 import { TableDataSafetyLimitTableOperationPlugin } from '../application/services/TableDataSafetyLimitTableOperationPlugin';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
@@ -12,6 +13,8 @@ import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
+import { isRecordCreatedEvent } from '../domain/table/events/RecordCreated';
+import { isRecordsBatchCreatedEvent } from '../domain/table/events/RecordsBatchCreated';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
 import type { FormulaField } from '../domain/table/fields/types/FormulaField';
@@ -185,6 +188,10 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   inserted: TableRecord[] = [];
   lastContext: IExecutionContext | undefined;
   lastInsertOptions: InsertOptions | undefined;
+  insertManyResultFactory?: (
+    table: Table,
+    records: ReadonlyArray<TableRecord>
+  ) => BatchRecordMutationResult;
 
   async insert(context: IExecutionContext, _table: Table, record: TableRecord) {
     this.lastContext = context;
@@ -194,14 +201,14 @@ class FakeTableRecordRepository implements ITableRecordRepository {
 
   async insertMany(
     context: IExecutionContext,
-    _table: Table,
+    table: Table,
     records: ReadonlyArray<TableRecord>,
     options?: InsertOptions
   ) {
     this.lastContext = context;
     this.lastInsertOptions = options;
     this.inserted.push(...records);
-    return ok({} as BatchRecordMutationResult);
+    return ok(this.insertManyResultFactory?.(table, records) ?? {});
   }
 
   async insertManyStream(
@@ -315,6 +322,62 @@ const createCommand = (baseIdSeed: string) => {
   });
 };
 
+const createHandlerHarness = (
+  recordChangedValueDecoratorService?: IRecordChangedValueDecoratorService
+) => {
+  const tableRepository = new FakeTableRepository();
+  const schemaRepository = new FakeTableSchemaRepository();
+  const recordRepository = new FakeTableRecordRepository();
+  const eventBus = new FakeEventBus();
+  const unitOfWork = new FakeUnitOfWork();
+  const tableUpdateFlow = new TableUpdateFlow(
+    tableRepository,
+    schemaRepository,
+    eventBus,
+    unitOfWork
+  );
+  const handler = new CreateTableHandler(
+    tableRepository,
+    schemaRepository,
+    recordRepository,
+    new FieldCreationSideEffectService(tableUpdateFlow),
+    new ForeignTableLoaderService(tableRepository),
+    eventBus,
+    unitOfWork,
+    undefined,
+    createTableLimitPluginRunner(tableRepository),
+    undefined,
+    recordChangedValueDecoratorService
+  );
+
+  return { handler, tableRepository, schemaRepository, recordRepository, eventBus, unitOfWork };
+};
+
+const decoratingRecordChangedValues: IRecordChangedValueDecoratorService = {
+  async decorateChangedFields(_table, changedFields) {
+    return ok(changedFields);
+  },
+  async decorateChangedFieldsByRecord(_table, changedFieldsByRecord) {
+    if (!changedFieldsByRecord) return ok(undefined);
+    return ok(
+      new Map(
+        [...changedFieldsByRecord].map(
+          ([recordId, changedFields]) =>
+            [
+              recordId,
+              new Map(
+                [...changedFields].map(([fieldId, value]) => [
+                  fieldId,
+                  `decorated:${String(value)}`,
+                ])
+              ),
+            ] as const
+        )
+      )
+    );
+  },
+};
+
 describe('CreateTableHandler', () => {
   it('builds tables and publishes events', async () => {
     const commandResult = createCommand('a');
@@ -363,6 +426,153 @@ describe('CreateTableHandler', () => {
       'ready',
     ]);
     expect(tableRepository.lastContext?.transaction?.kind).toBe('unitOfWorkTransaction');
+  });
+
+  it('publishes no record creation event for zero inline records', async () => {
+    const { handler, recordRepository, eventBus } = createHandlerHarness();
+
+    const result = await handler.handle(createContext(), createCommand('z')._unsafeUnwrap());
+    const created = result._unsafeUnwrap();
+
+    expect(recordRepository.inserted).toHaveLength(0);
+    expect(created.events.some(isRecordCreatedEvent)).toBe(false);
+    expect(created.events.some(isRecordsBatchCreatedEvent)).toBe(false);
+    expect(eventBus.published.some((event) => event.name.toString() === 'TableCreated')).toBe(true);
+  });
+
+  it('keeps one inline record as RecordCreated with persisted field changes', async () => {
+    const titleFieldId = `fld${'i'.repeat(16)}`;
+    const formulaFieldId = `fld${'j'.repeat(16)}`;
+    const { handler, recordRepository, eventBus } = createHandlerHarness(
+      decoratingRecordChangedValues
+    );
+    recordRepository.insertManyResultFactory = (table, records) => {
+      const recordId = records[0]!.id().toString();
+      const viewId = table.views()[0]!.id().toString();
+      return {
+        changedFieldsByRecord: new Map([[recordId, new Map([[titleFieldId, 'persisted-title']])]]),
+        computedChangesByRecord: new Map([[recordId, new Map([[formulaFieldId, 42]])]]),
+        recordOrders: new Map([[recordId, { [viewId]: 7 }]]),
+      };
+    };
+    const command = CreateTableCommand.create({
+      baseId: `bse${'i'.repeat(16)}`,
+      name: 'Single Inline Record',
+      fields: [
+        { type: 'singleLineText', id: titleFieldId, name: 'Title', isPrimary: true },
+        {
+          type: 'formula',
+          id: formulaFieldId,
+          name: 'Computed',
+          options: { expression: `{${titleFieldId}}` },
+        },
+      ],
+      records: [{ fields: { [titleFieldId]: 'input-title' } }],
+      views: [{ type: 'grid' }],
+    })._unsafeUnwrap();
+
+    const result = await handler.handle({ ...createContext(), requestId: 'single-op' }, command);
+    const created = result._unsafeUnwrap();
+    const recordEvents = created.events.filter(isRecordCreatedEvent);
+
+    expect(created.events[0]?.name.toString()).toBe('TableCreated');
+    expect(recordEvents).toHaveLength(1);
+    expect(created.events.some(isRecordsBatchCreatedEvent)).toBe(false);
+    expect(recordEvents[0]).toMatchObject({
+      recordId: recordRepository.inserted[0]!.id(),
+      fieldValues: [
+        { fieldId: titleFieldId, value: 'decorated:persisted-title' },
+        { fieldId: formulaFieldId, value: 42 },
+      ],
+      source: { type: 'user' },
+    });
+    expect(recordRepository.lastInsertOptions?.orchestration).toEqual({
+      operationId: 'single-op',
+      groupId: 'single-op',
+      totalRecordCount: 1,
+      totalChunkCount: 1,
+      chunkIndex: 0,
+      scope: 'operation',
+    });
+    expect(eventBus.published.some((event) => event.name.toString() === 'TableCreated')).toBe(true);
+  });
+
+  it('publishes one equivalent RecordsBatchCreated payload for 1,000 inline records', async () => {
+    const titleFieldId = `fld${'k'.repeat(16)}`;
+    const formulaFieldId = `fld${'m'.repeat(16)}`;
+    const inlineRecordCount = 1_000;
+    const { handler, recordRepository, eventBus } = createHandlerHarness(
+      decoratingRecordChangedValues
+    );
+    recordRepository.insertManyResultFactory = (table, records) => {
+      const viewId = table.views()[0]!.id().toString();
+      return {
+        changedFieldsByRecord: new Map(
+          records.map(
+            (record, index) =>
+              [record.id().toString(), new Map([[titleFieldId, `persisted-${index}`]])] as const
+          )
+        ),
+        computedChangesByRecord: new Map(
+          records.map(
+            (record, index) =>
+              [record.id().toString(), new Map([[formulaFieldId, index * 2]])] as const
+          )
+        ),
+        recordOrders: new Map(
+          records.map((record, index) => [record.id().toString(), { [viewId]: index + 1 }] as const)
+        ),
+      };
+    };
+    const command = CreateTableCommand.create({
+      baseId: `bse${'k'.repeat(16)}`,
+      name: 'Batch Inline Records',
+      fields: [
+        { type: 'singleLineText', id: titleFieldId, name: 'Title', isPrimary: true },
+        {
+          type: 'formula',
+          id: formulaFieldId,
+          name: 'Computed',
+          options: { expression: `{${titleFieldId}}` },
+        },
+      ],
+      records: Array.from({ length: inlineRecordCount }, (_, index) => ({
+        fields: { [titleFieldId]: `input-${index}` },
+      })),
+      views: [{ type: 'grid' }],
+    })._unsafeUnwrap();
+
+    const result = await handler.handle({ ...createContext(), requestId: 'batch-op' }, command);
+    const created = result._unsafeUnwrap();
+    const batchEvents = created.events.filter(isRecordsBatchCreatedEvent);
+    const viewId = created.table.views()[0]!.id().toString();
+
+    expect(created.events[0]?.name.toString()).toBe('TableCreated');
+    expect(created.events.some(isRecordCreatedEvent)).toBe(false);
+    expect(batchEvents).toHaveLength(1);
+    expect(batchEvents[0]?.records).toEqual(
+      recordRepository.inserted.map((record, index) => ({
+        recordId: record.id().toString(),
+        fields: [
+          { fieldId: titleFieldId, value: `decorated:persisted-${index}` },
+          { fieldId: formulaFieldId, value: index * 2 },
+        ],
+        orders: { [viewId]: index + 1 },
+      }))
+    );
+    expect(batchEvents[0]?.source).toEqual({ type: 'user' });
+    expect(batchEvents[0]?.orchestration).toEqual({
+      operationId: 'batch-op',
+      groupId: 'batch-op',
+      totalRecordCount: inlineRecordCount,
+      totalChunkCount: 1,
+      chunkIndex: 0,
+      scope: 'operation',
+    });
+    expect(recordRepository.lastInsertOptions?.orchestration).toEqual(
+      batchEvents[0]?.orchestration
+    );
+    expect(eventBus.published.some((event) => event.name.toString() === 'TableCreated')).toBe(true);
   });
 
   it('rejects create table when the base already reached the configured table limit', async () => {

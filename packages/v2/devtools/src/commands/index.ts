@@ -32,10 +32,16 @@ import {
 } from './schema-operation';
 import {
   tableQueryOpsAnalyzeObservation,
+  tableQueryOpsAnalyzeSearchVectors,
   tableQueryOpsAnalyzeSavedViews,
   tableQueryOpsExecuteRecommendations,
+  tableQueryOpsExecuteSearchVector,
+  tableQueryOpsExplainSearchVectors,
   tableQueryOpsExplainSavedViews,
+  tableQueryOpsObservabilitySchema,
   tableQueryOpsOverview,
+  tableQueryOpsSignozDashboardTemplate,
+  tableQueryOpsValidateSearchVectorTempTable,
 } from './table-query-ops';
 import { tablesCreate, tablesDescribeSchema } from './tables';
 import {
@@ -124,6 +130,12 @@ export const tableQueryOps = Command.make('table-query-ops').pipe(
     tableQueryOpsAnalyzeObservation,
     tableQueryOpsExplainSavedViews,
     tableQueryOpsExecuteRecommendations,
+    tableQueryOpsAnalyzeSearchVectors,
+    tableQueryOpsExplainSearchVectors,
+    tableQueryOpsExecuteSearchVector,
+    tableQueryOpsValidateSearchVectorTempTable,
+    tableQueryOpsObservabilitySchema,
+    tableQueryOpsSignozDashboardTemplate,
   ])
 );
 

@@ -30,6 +30,9 @@ const dataRelations = [
   'computed_update_outbox_seed',
   'computed_update_dead_letter',
   'computed_update_pause_scope',
+  'computed_field_activity',
+  'computed_table_activity',
+  'computed_task_field_ref',
 ] as const;
 
 const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

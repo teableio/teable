@@ -1,7 +1,10 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 
-import { ComputedOutboxAnomalyService } from './computed-outbox-anomaly.service';
+import {
+  ComputedOutboxAnomalyService,
+  groupComputedOutboxAnomalies,
+} from './computed-outbox-anomaly.service';
 
 const targets = [
   {
@@ -18,8 +21,85 @@ const targets = [
   },
 ] as const;
 
+const anomalyFields = {
+  failedSql: null,
+  failureKind: null,
+  failurePhase: null,
+  affectedTableName: null,
+} as const;
+
+describe('groupComputedOutboxAnomalies', () => {
+  it('merges repeated root causes into groups and keeps recent samples', () => {
+    const result = groupComputedOutboxAnomalies(
+      [
+        {
+          targetId: 'meta-fallback',
+          storage: 'default',
+          kind: 'dead',
+          taskId: 'cuo-2',
+          baseId: 'bse1',
+          seedTableId: 'tbl1',
+          attempts: 8,
+          maxAttempts: 8,
+          lastError: 'statement timeout',
+          failedSql: 'update t set x = 1',
+          failureKind: 'statement_timeout',
+          failurePhase: 'execute_plan',
+          affectedTableName: 't',
+          occurredAt: new Date('2026-07-15T05:00:00.000Z'),
+        },
+        {
+          targetId: 'meta-fallback',
+          storage: 'default',
+          kind: 'dead',
+          taskId: 'cuo-1',
+          baseId: 'bse1',
+          seedTableId: 'tbl1',
+          attempts: 8,
+          maxAttempts: 8,
+          lastError: 'statement timeout',
+          failedSql: null,
+          failureKind: 'statement_timeout',
+          failurePhase: 'execute_plan',
+          affectedTableName: 't',
+          occurredAt: new Date('2026-07-15T04:00:00.000Z'),
+        },
+        {
+          targetId: 'dcn1',
+          storage: 'byodb',
+          kind: 'stale',
+          taskId: 'cuo-3',
+          baseId: 'bse2',
+          seedTableId: 'tbl2',
+          attempts: 1,
+          maxAttempts: 8,
+          lastError: null,
+          ...anomalyFields,
+          occurredAt: new Date('2026-07-15T06:00:00.000Z'),
+        },
+      ],
+      { groupLimit: 10, sampleLimit: 12 }
+    );
+
+    expect(result.groupTotal).toBe(2);
+    expect(result.groups).toHaveLength(2);
+    expect(result.groups[0]).toMatchObject({
+      kind: 'stale',
+      count: 1,
+      baseId: 'bse2',
+    });
+    expect(result.groups[1]).toMatchObject({
+      kind: 'dead',
+      count: 2,
+      baseId: 'bse1',
+      failedSql: 'update t set x = 1',
+      items: [{ taskId: 'cuo-2' }, { taskId: 'cuo-1' }],
+    });
+  });
+});
+
 describe('ComputedOutboxAnomalyService', () => {
-  it('aggregates recent anomalies without exposing target URLs', async () => {
+  it('aggregates recent anomalies into groups without exposing target URLs', async () => {
     const listComputedOutboxMaintenanceAnomalies = vi
       .fn()
       .mockResolvedValueOnce({
@@ -33,7 +113,22 @@ describe('ComputedOutboxAnomalyService', () => {
             attempts: 8,
             maxAttempts: 8,
             lastError: 'timeout',
+            ...anomalyFields,
             occurredAt: new Date('2026-07-15T04:00:00.000Z'),
+          },
+          {
+            kind: 'dead',
+            taskId: 'cuo-old-2',
+            baseId: 'bse1',
+            seedTableId: 'tbl1',
+            attempts: 8,
+            maxAttempts: 8,
+            lastError: 'timeout',
+            failedSql: 'select 1',
+            failureKind: 'statement_timeout',
+            failurePhase: 'execute_plan',
+            affectedTableName: null,
+            occurredAt: new Date('2026-07-15T03:00:00.000Z'),
           },
         ],
       })
@@ -48,6 +143,7 @@ describe('ComputedOutboxAnomalyService', () => {
             attempts: 1,
             maxAttempts: 8,
             lastError: null,
+            ...anomalyFields,
             occurredAt: new Date('2026-07-15T05:00:00.000Z'),
           },
         ],
@@ -63,14 +159,26 @@ describe('ComputedOutboxAnomalyService', () => {
     const result = await service.list(20);
 
     expect(result.total).toBe(3);
+    expect(result.groupTotal).toBe(2);
     expect(result.unavailableTargetCount).toBe(0);
     expect(
-      result.items.map(({ taskId, targetId, storage }) => ({ taskId, targetId, storage }))
+      result.groups.map(({ count, items, targetId, storage }) => ({
+        count,
+        taskIds: items.map((item) => item.taskId),
+        targetId,
+        storage,
+      }))
     ).toEqual([
-      { taskId: 'cuo-new', targetId: 'dcn1', storage: 'byodb' },
-      { taskId: 'cuo-old', targetId: 'meta-fallback', storage: 'default' },
+      { count: 1, taskIds: ['cuo-new'], targetId: 'dcn1', storage: 'byodb' },
+      {
+        count: 2,
+        taskIds: ['cuo-old', 'cuo-old-2'],
+        targetId: 'meta-fallback',
+        storage: 'default',
+      },
     ]);
-    expect(result.items.some((item) => 'url' in item)).toBe(false);
+    expect(result.groups[1]?.failedSql).toBe('select 1');
+    expect(JSON.stringify(result.groups)).not.toContain('postgres://');
   });
 
   it('restores a dead letter and publishes a BullMQ wake-up', async () => {

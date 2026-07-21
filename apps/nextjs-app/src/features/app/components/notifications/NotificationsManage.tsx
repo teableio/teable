@@ -146,7 +146,11 @@ const showGeneralNotificationToast = (notification: INotification, toastId: stri
   toast.info(
     <div className="flex w-full min-w-0 items-start">
       <NotificationIcon notifyIcon={notification.notifyIcon} notifyType={notification.notifyType} />
-      <LinkNotification data={notification} notifyStatus={NotificationStatesEnum.Unread} />
+      <LinkNotification
+        data={notification}
+        notifyStatus={NotificationStatesEnum.Unread}
+        clampMessage
+      />
     </div>,
     {
       id: toastId,

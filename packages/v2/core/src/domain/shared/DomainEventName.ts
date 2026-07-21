@@ -94,6 +94,10 @@ export class DomainEventName extends ValueObject {
     return new DomainEventName('FieldOptionsAdded');
   }
 
+  static computedActivityBatchChanged(): DomainEventName {
+    return new DomainEventName('ComputedActivityBatchChanged');
+  }
+
   equals(other: DomainEventName): boolean {
     return this.value === other.value;
   }

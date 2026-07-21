@@ -110,6 +110,61 @@ model ComputedUpdatePauseScope {
   @@map("computed_update_pause_scope")
 }
 
+/// Projection of async computed activity per field (co-located with outbox on data plane).
+model ComputedFieldActivity {
+  fieldId               String    @id @map("field_id")
+  tableId               String    @map("table_id")
+  baseId                String    @map("base_id")
+  status                String
+  activeTaskCount       Int       @default(0) @map("active_task_count")
+  processingTaskCount   Int       @default(0) @map("processing_task_count")
+  generation            BigInt    @default(0)
+  estimatedComplexity   BigInt    @default(0) @map("estimated_complexity")
+  estimatedDirtyRecords BigInt    @default(0) @map("estimated_dirty_records")
+  hasAllTargetRecords   Boolean   @default(false) @map("has_all_target_records")
+  queuedAt              DateTime? @map("queued_at")
+  startedAt             DateTime? @map("started_at")
+  lastCompletedAt       DateTime? @map("last_completed_at")
+  lastDurationMs        Int?      @map("last_duration_ms")
+  lastError             Json?     @map("last_error")
+  extensions            Json?
+  updatedAt             DateTime  @default(now()) @map("updated_at")
+
+  @@index([tableId, status])
+  @@index([baseId, status])
+  @@map("computed_field_activity")
+}
+
+/// Projection of async computed activity per table.
+model ComputedTableActivity {
+  tableId               String   @id @map("table_id")
+  baseId                String   @map("base_id")
+  status                String
+  calculatingFieldCount Int      @default(0) @map("calculating_field_count")
+  queuedFieldCount      Int      @default(0) @map("queued_field_count")
+  estimatedComplexity   BigInt   @default(0) @map("estimated_complexity")
+  recentCompletions     Json     @default("[]") @map("recent_completions")
+  generation            BigInt   @default(0)
+  updatedAt             DateTime @default(now()) @map("updated_at")
+
+  @@index([baseId, status])
+  @@map("computed_table_activity")
+}
+
+/// Task→field refset for activity refcounting (prevents merge double-count).
+model ComputedTaskFieldRef {
+  taskId        String   @map("task_id")
+  fieldId       String   @map("field_id")
+  tableId       String   @map("table_id")
+  baseId        String   @map("base_id")
+  wasProcessing Boolean  @default(false) @map("was_processing")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@id([taskId, fieldId])
+  @@index([fieldId])
+  @@map("computed_task_field_ref")
+}
+
 model RecordHistory {
   id          String   @id @default(cuid())
   tableId     String   @map("table_id")

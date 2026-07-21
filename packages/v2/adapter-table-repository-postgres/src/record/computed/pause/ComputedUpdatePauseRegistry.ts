@@ -9,7 +9,7 @@ import {
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import { sql, type Kysely } from 'kysely';
+import { sql, type ExpressionBuilder, type Kysely } from 'kysely';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
@@ -388,37 +388,40 @@ export class ComputedUpdatePauseRegistry implements IComputedUpdatePauseRegistry
 }
 
 export const buildComputedTaskNotPausedCondition = (
+  eb: ExpressionBuilder<DynamicDB, keyof DynamicDB>,
   alias: string,
   now: Date,
   options: { includeSpaceScope?: boolean } = {}
 ) => {
   const includeSpaceScope = options.includeSpaceScope ?? true;
+  const pauseScopes = eb
+    .selectFrom(`${COMPUTED_UPDATE_PAUSE_SCOPE_TABLE} as cps`)
+    .select(sql<number>`1`.as('one'));
 
-  return sql<boolean>`
-  not exists (
-    select 1
-    from ${sql.table(COMPUTED_UPDATE_PAUSE_SCOPE_TABLE)} as cps
-    ${
-      includeSpaceScope
-        ? sql`left join "base" as cb on cb."id" = ${sql.ref(`${alias}.base_id`)}`
-        : sql``
-    }
-    where (cps."resume_at" is null or cps."resume_at" > ${now})
-      and (
-        (cps."scope_type" = 'base' and cps."scope_id" = ${sql.ref(`${alias}.base_id`)})
-        or (
-          cps."scope_type" = 'table'
-          and (
-            cps."scope_id" = ${sql.ref(`${alias}.seed_table_id`)}
-            or cps."scope_id" = any(coalesce(${sql.ref(`${alias}.affected_table_ids`)}, ARRAY[]::text[]))
-          )
+  const activeScopeCondition = sql<boolean>`
+    (cps."resume_at" is null or cps."resume_at" > ${now})
+    and (
+      (cps."scope_type" = 'base' and cps."scope_id" = ${sql.ref(`${alias}.base_id`)})
+      or (
+        cps."scope_type" = 'table'
+        and (
+          cps."scope_id" = ${sql.ref(`${alias}.seed_table_id`)}
+          or cps."scope_id" = any(coalesce(${sql.ref(`${alias}.affected_table_ids`)}, ARRAY[]::text[]))
         )
-        ${
-          includeSpaceScope
-            ? sql`or (cps."scope_type" = 'space' and cps."scope_id" = cb."space_id")`
-            : sql``
-        }
       )
-  )
-`;
+      ${
+        includeSpaceScope
+          ? sql`or (cps."scope_type" = 'space' and cps."scope_id" = cb."space_id")`
+          : sql``
+      }
+    )
+  `;
+
+  const activeScopes = includeSpaceScope
+    ? pauseScopes
+        .leftJoin('base as cb', (join) => join.onRef('cb.id', '=', `${alias}.base_id`))
+        .where(activeScopeCondition)
+    : pauseScopes.where(activeScopeCondition);
+
+  return eb.not(eb.exists(activeScopes));
 };

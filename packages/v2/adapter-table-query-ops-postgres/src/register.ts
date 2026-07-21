@@ -1,5 +1,6 @@
 import { v2DataDbTokens, v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-shared';
-import type { DependencyContainer, Lifecycle } from '@teable/v2-di';
+import { v2CoreTokens, type ITableRepository } from '@teable/v2-core';
+import { Lifecycle, type DependencyContainer } from '@teable/v2-di';
 import {
   v2TableOpsTokens,
   type TablePhysicalStatsReader,
@@ -11,6 +12,10 @@ import {
   type TableQueryRecommendationRepository,
   type TableQueryRemediationExecutor,
   type TableQueryRemediationTaskRepository,
+  type TableSearchVectorReconciler,
+  type TableSearchVectorSchemaMaintenanceScheduler,
+  type TableSearchVectorStatusReader,
+  TableSearchVectorSchemaMaintenanceProjection,
 } from '@teable/v2-table-query-ops';
 import type { Kysely } from 'kysely';
 import { z } from 'zod';
@@ -26,6 +31,9 @@ import {
   PostgresTableQueryRemediationTaskRepository,
 } from './repositories';
 import { ensureTableQueryOpsSchema, type TableQueryOpsDatabase } from './schema';
+import { PostgresTableSearchVectorReconciler } from './searchVector';
+import { PostgresTableSearchVectorSchemaMaintenanceScheduler } from './searchVectorMaintenance';
+import { PostgresTableSearchVectorStatusReader } from './searchVectorStatus';
 import { v2TableOpsPostgresTokens } from './tokens';
 import type { UnknownPostgresDatabase } from './types';
 
@@ -113,9 +121,35 @@ export const registerV2TableOpsPostgresAdapter = async <
     v2TableOpsTokens.leaseRepository,
     new PostgresTableQueryOpsLeaseRepository(opsMetaDb)
   );
+  const searchVectorReconciler = new PostgresTableSearchVectorReconciler(
+    unknownMetaDb,
+    unknownDataDb
+  );
+  container.registerInstance<TableSearchVectorReconciler>(
+    v2TableOpsTokens.searchVectorReconciler,
+    searchVectorReconciler
+  );
+  container.registerInstance<TableSearchVectorStatusReader>(
+    v2TableOpsTokens.searchVectorStatusReader,
+    new PostgresTableSearchVectorStatusReader(unknownMetaDb)
+  );
+  container.registerInstance<TableSearchVectorSchemaMaintenanceScheduler>(
+    v2TableOpsTokens.searchVectorSchemaMaintenanceScheduler,
+    new PostgresTableSearchVectorSchemaMaintenanceScheduler(unknownMetaDb)
+  );
   container.registerInstance<TableQueryRemediationExecutor>(
     v2TableOpsTokens.remediationExecutor,
-    new PostgresTableQueryRemediationExecutor(unknownMetaDb, unknownDataDb)
+    new PostgresTableQueryRemediationExecutor(
+      unknownMetaDb,
+      unknownDataDb,
+      container.resolve<ITableRepository>(v2CoreTokens.tableRepository),
+      searchVectorReconciler
+    )
+  );
+  container.register(
+    TableSearchVectorSchemaMaintenanceProjection,
+    TableSearchVectorSchemaMaintenanceProjection,
+    { lifecycle: rawOptions.lifecycle ?? Lifecycle.Singleton }
   );
 
   return container;

@@ -14,6 +14,11 @@ const minRequestIntervalMs = 220;
 const rateLimitWaitMs = 30_000;
 const maxRetries = 3;
 const recordsPageSize = 100;
+// Hang-breaker: without it a silently dropped connection (proxy, LB idle
+// reset) stalls the whole import forever. Used as a stall window — reset on
+// every received body chunk — so it only fires when no data moves at all,
+// and the abort is retried like any network error.
+const requestTimeoutMs = 30_000;
 
 export class AirtableApiError extends Error {
   constructor(
@@ -109,11 +114,26 @@ export class AirtableApiClient {
     while (true) {
       await this.throttle();
       const accessToken = await this.getAccessToken();
+      // Stall-based, not a whole-request deadline: the timer refreshes on
+      // every body chunk, so a slow-but-flowing large page is never killed —
+      // only a silently dropped connection (no headers or no data for the
+      // window) aborts and retries like any network error.
+      const controller = new AbortController();
+      const stallTimer = setTimeout(
+        () => controller.abort(new Error(`no response data for ${requestTimeoutMs}ms`)),
+        requestTimeoutMs
+      );
       let response: Response;
+      let bodyText: string;
       try {
         response = await fetch(`${airtableApiBaseUrl}${path}`, {
           headers: { Authorization: `Bearer ${accessToken}` },
+          signal: controller.signal,
         });
+        bodyText = await this.readBody(response, stallTimer);
+        if (response.ok) {
+          return JSON.parse(bodyText) as T;
+        }
       } catch (e) {
         if (attempt >= maxRetries) {
           throw new AirtableApiError(
@@ -124,13 +144,11 @@ export class AirtableApiClient {
         await sleep(1000 * 2 ** attempt);
         attempt++;
         continue;
+      } finally {
+        clearTimeout(stallTimer);
       }
 
-      if (response.ok) {
-        return (await response.json()) as T;
-      }
-
-      const errorBody = await this.parseError(response);
+      const errorBody = this.parseError(bodyText);
       if (response.status === 429 && attempt < maxRetries) {
         await sleep(rateLimitWaitMs);
         attempt++;
@@ -152,9 +170,22 @@ export class AirtableApiClient {
     }
   }
 
-  private async parseError(response: Response): Promise<{ type?: string; message?: string }> {
+  /** Read the body chunkwise, refreshing the stall timer on every chunk. */
+  private async readBody(response: Response, stallTimer: NodeJS.Timeout): Promise<string> {
+    if (!response.body) {
+      return '';
+    }
+    const chunks: Buffer[] = [];
+    for await (const chunk of response.body as unknown as AsyncIterable<Uint8Array>) {
+      stallTimer.refresh();
+      chunks.push(Buffer.from(chunk));
+    }
+    return Buffer.concat(chunks).toString('utf8');
+  }
+
+  private parseError(bodyText: string): { type?: string; message?: string } {
     try {
-      const body = (await response.json()) as {
+      const body = JSON.parse(bodyText) as {
         error?: string | { type?: string; message?: string };
       };
       if (typeof body.error === 'string') {

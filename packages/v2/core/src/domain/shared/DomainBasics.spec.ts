@@ -76,6 +76,9 @@ describe('DomainEventName', () => {
     const eventName = result._unsafeUnwrap();
     expect(eventName.toString()).toBe('CustomEvent');
     expect(DomainEventName.tableCreated().toString()).toBe('TableCreated');
+    expect(DomainEventName.computedActivityBatchChanged().toString()).toBe(
+      'ComputedActivityBatchChanged'
+    );
   });
 
   it('rejects invalid event names', () => {

@@ -44,6 +44,7 @@ export enum RegionType {
   ColumnStatistic = 'ColumnStatistic',
   ColumnHeaderMenu = 'ColumnHeaderMenu',
   ColumnPrimaryIcon = 'ColumnPrimaryIcon',
+  ColumnIcon = 'ColumnIcon',
   ColumnDescription = 'ColumnDescription',
   ColumnResizeHandler = 'ColumnResizeHandler',
   ColumnFreezeHandler = 'ColumnFreezeHandler',

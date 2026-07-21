@@ -188,7 +188,12 @@ const buildRecordQueryShape = (
   const searchFieldsResult = search?.search.resolveFields(table, {
     visibleFieldIds: search.visibleFieldIds,
   });
-  const searchFieldCount = searchFieldsResult?.isOk() ? searchFieldsResult.value.length : undefined;
+  const searchedFieldIds = searchFieldsResult?.isOk()
+    ? searchFieldsResult.value.map((field) => field.id().toString()).sort()
+    : undefined;
+  const searchFieldCount = searchedFieldIds?.length;
+  const searchAccessPath = options?.searchAccessPath;
+  const searchesAllFields = search?.search.searchesAllFields() ?? false;
 
   return TableQueryShape.create({
     queryKind,
@@ -203,8 +208,19 @@ const buildRecordQueryShape = (
     searchShape: search
       ? {
           fieldCount: searchFieldCount ?? table.getFields().length,
-          allFields: search.search.searchesAllFields(),
+          allFields: searchesAllFields,
+          ...(!searchesAllFields && searchedFieldIds ? { searchedFieldIds } : {}),
           valueLengthBucket: bucketSearchLength(search.search.value.length),
+          searchMode: searchAccessPath?.kind === 'generated_tsvector' ? 'full_text' : 'ilike',
+          searchScope: searchesAllFields ? 'all_fields' : 'selected_fields',
+          ...(searchAccessPath?.kind === 'generated_tsvector'
+            ? {
+                languageConfig: searchAccessPath.languageConfig,
+                coveredFieldIds: searchAccessPath.coveredFieldIds
+                  .map((fieldId) => fieldId.toString())
+                  .sort(),
+              }
+            : {}),
         }
       : undefined,
     orderShape: orderBy.length

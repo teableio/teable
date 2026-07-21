@@ -34,6 +34,8 @@ import {
   ICreateSpaceRo,
   dataDbPreflightRoSchema,
   IDataDbPreflightRo,
+  type ISpaceDataDbSummaryQuery,
+  spaceDataDbSummaryQuerySchema,
   updateSpaceRoSchema,
   IUpdateSpaceRo,
   emailSpaceInvitationRoSchema,
@@ -148,8 +150,12 @@ export class SpaceController {
 
   @Permissions('space|read')
   @Get(':spaceId/data-db')
-  async getSpaceDataDb(@Param('spaceId') spaceId: string): Promise<IDataDbConnectionSummaryVo> {
-    return await this.dataDbPreflightService.getSummary(spaceId);
+  async getSpaceDataDb(
+    @Param('spaceId') spaceId: string,
+    @Query(new ZodValidationPipe(spaceDataDbSummaryQuerySchema))
+    query: ISpaceDataDbSummaryQuery
+  ): Promise<IDataDbConnectionSummaryVo> {
+    return await this.dataDbPreflightService.getSummary(spaceId, query);
   }
 
   @Permissions('space|update')

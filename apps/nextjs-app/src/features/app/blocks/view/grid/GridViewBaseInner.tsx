@@ -150,6 +150,12 @@ interface IGridViewBaseInnerProps {
 
 const { scrollBuffer, columnAppendBtnWidth } = GRID_DEFAULT;
 
+const getColumnIconTooltip = (type: RegionType, icon: string | undefined, primaryText: string) => {
+  if (type === RegionType.ColumnPrimaryIcon) return primaryText;
+  if (type === RegionType.ColumnIcon && icon === 'calculating') return 'Calculating this field…';
+  return null;
+};
+
 export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   props: IGridViewBaseInnerProps
   // eslint-disable-next-line sonarjs/cognitive-complexity
@@ -201,6 +207,14 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   } = useGridViewStore();
   const { openSetting } = useFieldSettingStore();
   const { openTooltip, closeTooltip } = useGridTooltipStore();
+  const calculationTooltipOpenRef = useRef(false);
+  const hasCalculatingColumn = columns.some((column) => column.icon === 'calculating');
+
+  useEffect(() => {
+    if (hasCalculatingColumn || !calculationTooltipOpenRef.current) return;
+    calculationTooltipOpenRef.current = false;
+    closeTooltip();
+  }, [closeTooltip, hasCalculatingColumn]);
   const { openPopover: openUserPopover, closePopover: closeUserPopover } =
     useUserInfoPopoverStore();
   const preTableId = usePrevious(tableId);
@@ -1303,10 +1317,11 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     data?: unknown
   ) => {
     const [columnIndex] = cellItem;
-    const { description } = columns[columnIndex] ?? {};
+    const { description, icon } = columns[columnIndex] ?? {};
 
     closeTooltip();
     closeUserPopover();
+    calculationTooltipOpenRef.current = false;
 
     if (type === RegionType.ColumnDescription && description) {
       openTooltip({
@@ -1316,12 +1331,14 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       });
     }
 
-    if (type === RegionType.ColumnPrimaryIcon) {
+    const columnIconTooltip = getColumnIconTooltip(type, icon, t('sdk:hidden.primaryKey'));
+    if (columnIconTooltip) {
       openTooltip({
         id: componentId,
-        text: t('sdk:hidden.primaryKey'),
+        text: columnIconTooltip,
         position: bounds,
       });
+      calculationTooltipOpenRef.current = type === RegionType.ColumnIcon;
     }
 
     if (type === RegionType.RowHeaderDragHandler && isAutoSort) {

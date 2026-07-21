@@ -21,6 +21,7 @@ import {
 import {
   COMPUTED_OUTBOX_COMPLETED_RETENTION_COUNT,
   COMPUTED_OUTBOX_RECENT_COMPLETED_LIMIT,
+  COMPUTED_OUTBOX_RECENT_FAILED_LIMIT,
   COMPUTED_OUTBOX_WAKEUP_QUEUE,
 } from './constants';
 import { mapWithConcurrency } from './map-with-concurrency';
@@ -66,6 +67,14 @@ export type ComputedOutboxMonitorSnapshot = {
       cause: ComputedOutboxWakeupWire['cause'];
       finishedAt: string;
       processingDurationMs?: number;
+      attemptsMade: number;
+    }>;
+    recentFailed: Array<{
+      taskId: string;
+      baseId: string;
+      cause?: ComputedOutboxWakeupWire['cause'];
+      failedAt: string;
+      failedReason: string | null;
       attemptsMade: number;
     }>;
     error?: string;
@@ -229,6 +238,7 @@ export class ComputedOutboxMonitorService implements OnApplicationBootstrap, OnM
       completed: 0,
       completedRetentionLimit: COMPUTED_OUTBOX_COMPLETED_RETENTION_COUNT,
       recentCompleted: [],
+      recentFailed: [],
     };
   }
 
@@ -237,7 +247,7 @@ export class ComputedOutboxMonitorService implements OnApplicationBootstrap, OnM
       return { ...this.emptyQueue(false), error: 'BullMQ queue is not configured' };
     }
     try {
-      const [counts, workers, completedJobs] = await Promise.all([
+      const [counts, workers, completedJobs, failedJobs] = await Promise.all([
         this.queue.getJobCounts(
           'waiting',
           'active',
@@ -249,6 +259,7 @@ export class ComputedOutboxMonitorService implements OnApplicationBootstrap, OnM
         ),
         this.queue.getWorkersCount(),
         this.queue.getCompleted(0, COMPUTED_OUTBOX_RECENT_COMPLETED_LIMIT - 1),
+        this.queue.getFailed(0, COMPUTED_OUTBOX_RECENT_FAILED_LIMIT - 1),
       ]);
       return {
         configured: true,
@@ -264,6 +275,10 @@ export class ComputedOutboxMonitorService implements OnApplicationBootstrap, OnM
         completedRetentionLimit: COMPUTED_OUTBOX_COMPLETED_RETENTION_COUNT,
         recentCompleted: completedJobs.flatMap((job) => {
           const summary = this.summarizeCompletedJob(job);
+          return summary ? [summary] : [];
+        }),
+        recentFailed: failedJobs.flatMap((job) => {
+          const summary = this.summarizeFailedJob(job);
           return summary ? [summary] : [];
         }),
       };
@@ -292,6 +307,36 @@ export class ComputedOutboxMonitorService implements OnApplicationBootstrap, OnM
       cause: wakeupResult.data.cause,
       finishedAt: new Date(finishedOn).toISOString(),
       ...(processingDurationMs == null ? {} : { processingDurationMs }),
+      attemptsMade: Math.max(0, job.attemptsMade ?? 0),
+    };
+  }
+
+  private summarizeFailedJob(
+    job?: Job<ComputedOutboxWakeupWire>
+  ): ComputedOutboxMonitorSnapshot['queue']['recentFailed'][number] | null {
+    if (!job || !Number.isFinite(job.finishedOn)) return null;
+    const finishedOn = job.finishedOn as number;
+    const failedReason =
+      typeof job.failedReason === 'string' && job.failedReason.length > 0
+        ? job.failedReason.slice(0, 2000)
+        : null;
+    const wakeupResult = computedOutboxWakeupWireSchema.safeParse(job.data);
+    if (!wakeupResult.success) {
+      return {
+        taskId: String(job.id ?? 'unknown'),
+        baseId: 'unknown',
+        failedAt: new Date(finishedOn).toISOString(),
+        failedReason,
+        attemptsMade: Math.max(0, job.attemptsMade ?? 0),
+      };
+    }
+
+    return {
+      taskId: wakeupResult.data.taskId,
+      baseId: wakeupResult.data.baseId,
+      cause: wakeupResult.data.cause,
+      failedAt: new Date(finishedOn).toISOString(),
+      failedReason,
       attemptsMade: Math.max(0, job.attemptsMade ?? 0),
     };
   }

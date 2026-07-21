@@ -61,7 +61,7 @@ import {
 export const COMPUTED_TABLE_ALIAS = 't';
 const T = COMPUTED_TABLE_ALIAS; // main table alias
 const F = 'f'; // foreign table alias in lateral
-const H = 'h'; // host table alias in set-based conditional lookup joins
+const H = 'h'; // host table alias in set-based aggregate joins
 const DEFAULT_CONDITIONAL_ORDER_BY = { column: '__auto_number', direction: 'asc' } as const;
 
 const parsePositiveInt = (raw: string | undefined, fallback: number): number => {
@@ -582,6 +582,8 @@ export interface IComputedQueryBuilderOptions {
   readonly forceLookupArrayOutput?: boolean;
   readonly userSnapshotActorFallback?: UserSnapshotActorFallback;
   readonly resolveSystemUserSnapshotsFromUsers?: boolean;
+  /** Full-table computed backfills may aggregate all host rows before the outer UPDATE. */
+  readonly allowFullTableSetBasedRollups?: boolean;
 }
 
 /**
@@ -604,6 +606,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
   private readonly forceLookupArrayOutput: boolean;
   private userSnapshotActorFallback?: UserSnapshotActorFallback;
   private readonly resolveSystemUserSnapshotsFromUsers: boolean;
+  private readonly allowFullTableSetBasedRollups: boolean;
   private unchunkedDirtySetHostKeyColumns: ReadonlyArray<string> = [];
 
   readonly mode: QueryMode = 'computed';
@@ -619,6 +622,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     this.forceLookupArrayOutput = options.forceLookupArrayOutput ?? true;
     this.userSnapshotActorFallback = options.userSnapshotActorFallback;
     this.resolveSystemUserSnapshotsFromUsers = options.resolveSystemUserSnapshotsFromUsers ?? false;
+    this.allowFullTableSetBasedRollups = options.allowFullTableSetBasedRollups ?? false;
   }
 
   from(table: Table): this {
@@ -1153,7 +1157,10 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
 
     return safeTry<(qb: QB) => QB, DomainError>(
       function* (this: ComputedTableRecordQueryBuilder) {
-        const subqueries: AliasedExpression<Record<string, unknown>, string>[] = [];
+        const subqueries: Array<{
+          query: AliasedExpression<Record<string, unknown>, string>;
+          joinMode: 'lateral' | 'hostLeft';
+        }> = [];
 
         for (const [, lateral] of laterals) {
           const foreignTable = foreignTables.get(lateral.foreignTableId);
@@ -1173,6 +1180,21 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
 
           const foreignDbTableName = yield* foreignTable.dbTableName();
           const foreignTableName = yield* foreignDbTableName.value();
+
+          if (this.isSetBasedLinkRollupGroup(table, foreignTable, linkField, lateral.columns)) {
+            subqueries.push({
+              query: yield* this.buildSetBasedLinkRollupAggregate(
+                table,
+                foreignTable,
+                foreignTableName,
+                linkField,
+                lateral.alias,
+                lateral.columns
+              ),
+              joinMode: 'hostLeft',
+            });
+            continue;
+          }
 
           const selectExprs: AliasedRawBuilder<unknown, string>[] = [];
           for (const col of lateral.columns) {
@@ -1197,11 +1219,150 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             baseQuery = baseQuery.where(filterWhere);
           }
 
-          subqueries.push(baseQuery.as(lateral.alias));
+          subqueries.push({ query: baseQuery.as(lateral.alias), joinMode: 'lateral' });
         }
 
         return ok((qb: QB) =>
-          subqueries.reduce((q, sub) => q.innerJoinLateral(sub, (j) => j.onTrue()), qb)
+          subqueries.reduce(
+            (q, subquery) =>
+              subquery.joinMode === 'lateral'
+                ? (q.innerJoinLateral(subquery.query, (j) => j.onTrue()) as QB)
+                : (q.leftJoin(subquery.query, (j) =>
+                    j.onRef(`${subquery.query.alias}.__host_id`, '=', `${T}.__id`)
+                  ) as QB),
+            qb
+          )
+        );
+      }.bind(this)
+    );
+  }
+
+  /**
+   * Bulk computed backfills can share one grouped relationship scan when neither row
+   * order nor a per-field filter/limit affects their result. Ordinary reads keep the
+   * indexed per-host lateral because their outer filter/limit is not available here.
+   */
+  private isSetBasedLinkRollupGroup(
+    table: Table,
+    foreignTable: Table,
+    linkField: LinkField,
+    columns: Array<{ outputAlias: string; columnType: LateralColumnType }>
+  ): boolean {
+    if (
+      (!this.dirtyFilterConfig && !this.allowFullTableSetBasedRollups) ||
+      table.id().equals(foreignTable.id()) ||
+      columns.length === 0
+    ) {
+      return false;
+    }
+
+    const relationship = linkField.relationship();
+    if (
+      relationship.equals(LinkRelationship.manyMany()) ||
+      (relationship.equals(LinkRelationship.oneMany()) && linkField.isOneWay())
+    ) {
+      const junctionTable = linkField.fkHostTableNameString();
+      const selfKey = linkField.selfKeyNameString();
+      const foreignKey = linkField.foreignKeyNameString();
+      if (junctionTable.isErr() || selfKey.isErr() || foreignKey.isErr()) {
+        return false;
+      }
+    } else if (relationship.equals(LinkRelationship.oneMany())) {
+      const foreignHostKey = linkField.selfKeyNameString();
+      if (foreignHostKey.isErr() || foreignHostKey.value === '__id') {
+        return false;
+      }
+    } else {
+      return false;
+    }
+
+    return columns.every(({ columnType }) => {
+      if (
+        columnType.type !== 'rollup' ||
+        !isOrderInsensitiveRollupExpression(columnType.expression)
+      ) {
+        return false;
+      }
+
+      const condition = columnType.condition;
+      return (
+        !condition || (!condition.hasFilter() && !condition.hasSort() && !condition.hasLimit())
+      );
+    });
+  }
+
+  /**
+   * Drive the aggregate from the relevant host set so hosts without links still
+   * produce a grouped row and retain the existing COUNT/SUM/null empty semantics.
+   */
+  private buildSetBasedLinkRollupAggregate(
+    hostTable: Table,
+    foreignTable: Table,
+    foreignTableName: string,
+    linkField: LinkField,
+    alias: string,
+    columns: Array<{ outputAlias: string; columnType: LateralColumnType }>
+  ): Result<AliasedExpression<Record<string, unknown>, string>, DomainError> {
+    return safeTry<AliasedExpression<Record<string, unknown>, string>, DomainError>(
+      function* (this: ComputedTableRecordQueryBuilder) {
+        const hostDbTableName = yield* hostTable.dbTableName();
+        const hostTableName = yield* hostDbTableName.value();
+        const hostSource = this.buildConditionalHostSource(hostTableName);
+        const hostId = `${H}.__id`;
+        const selectExprs: AliasedRawBuilder<unknown, string>[] = [];
+
+        for (const col of columns) {
+          if (col.columnType.type !== 'rollup') {
+            return err(
+              domainError.invariant({
+                message: 'Set-based link rollup aggregate received a non-rollup column',
+              })
+            );
+          }
+          selectExprs.push(
+            (yield* this.buildRollupAggregateExpr(
+              foreignTable,
+              col.columnType.foreignFieldId,
+              col.columnType.expression,
+              { tableAlias: F }
+            )).as(col.outputAlias)
+          );
+        }
+
+        const relationship = linkField.relationship();
+        if (
+          relationship.equals(LinkRelationship.manyMany()) ||
+          (relationship.equals(LinkRelationship.oneMany()) && linkField.isOneWay())
+        ) {
+          const junctionTableName = yield* linkField.fkHostTableNameString();
+          const selfKey = yield* linkField.selfKeyNameString();
+          const foreignKey = yield* linkField.foreignKeyNameString();
+
+          return ok(
+            this.db
+              .selectFrom(hostSource)
+              .leftJoin(`${junctionTableName} as j`, (join) =>
+                join.onRef(`j.${selfKey}`, '=', hostId)
+              )
+              .leftJoin(`${foreignTableName} as ${F}`, (join) =>
+                join.onRef(`${F}.__id`, '=', `j.${foreignKey}`)
+              )
+              .select([sql`${sql.ref(hostId)}`.as('__host_id'), ...selectExprs])
+              .groupBy(sql.ref(hostId))
+              .as(alias)
+          );
+        }
+
+        const foreignHostKey = yield* linkField.selfKeyNameString();
+        return ok(
+          this.db
+            .selectFrom(hostSource)
+            .leftJoin(`${foreignTableName} as ${F}`, (join) =>
+              join.onRef(`${F}.${foreignHostKey}`, '=', hostId)
+            )
+            .select([sql`${sql.ref(hostId)}`.as('__host_id'), ...selectExprs])
+            .groupBy(sql.ref(hostId))
+            .as(alias)
         );
       }.bind(this)
     );

@@ -5,6 +5,9 @@ import {
   FieldId,
   FieldName,
   FormulaExpression,
+  LinkFieldConfig,
+  RollupExpression,
+  RollupFieldConfig,
   Table,
   TableId,
   TableName,
@@ -123,6 +126,85 @@ const createCreatedTimeTable = () => {
   return { table, createdTimeFieldId, lastModifiedTimeFieldId };
 };
 
+const createDuplicateManyManyRollupTable = () => {
+  const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+  const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+  const foreignTableId = TableId.create(`tbl${'f'.repeat(16)}`)._unsafeUnwrap();
+  const linkFieldId = FieldId.create(`fld${'k'.repeat(16)}`)._unsafeUnwrap();
+  const lookupFieldId = FieldId.create(`fld${'l'.repeat(16)}`)._unsafeUnwrap();
+
+  const foreignBuilder = Table.builder()
+    .withId(foreignTableId)
+    .withBaseId(baseId)
+    .withName(TableName.create('LineItems')._unsafeUnwrap());
+  foreignBuilder
+    .field()
+    .number()
+    .withId(lookupFieldId)
+    .withName(FieldName.create('Amount')._unsafeUnwrap())
+    .done();
+  foreignBuilder.view().defaultGrid().done();
+  const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+  foreignTable
+    .getFields()[0]
+    .setDbFieldName(DbFieldName.rehydrate('col_amount')._unsafeUnwrap())
+    ._unsafeUnwrap();
+
+  const linkConfig = LinkFieldConfig.create({
+    relationship: 'manyMany',
+    foreignTableId: foreignTableId.toString(),
+    lookupFieldId: lookupFieldId.toString(),
+    symmetricFieldId: `fld${'s'.repeat(16)}`,
+  })._unsafeUnwrap();
+  const rollupConfig = RollupFieldConfig.create({
+    linkFieldId: linkFieldId.toString(),
+    foreignTableId: foreignTableId.toString(),
+    lookupFieldId: lookupFieldId.toString(),
+  })._unsafeUnwrap();
+  const expression = RollupExpression.create('sum({values})')._unsafeUnwrap();
+
+  const builder = Table.builder()
+    .withId(tableId)
+    .withBaseId(baseId)
+    .withName(TableName.create('Invoices')._unsafeUnwrap());
+  builder.field().singleLineText().withName(FieldName.create('Name')._unsafeUnwrap()).done();
+  builder
+    .field()
+    .link()
+    .withId(linkFieldId)
+    .withName(FieldName.create('Items')._unsafeUnwrap())
+    .withConfig(linkConfig)
+    .done();
+  builder
+    .field()
+    .rollup()
+    .withName(FieldName.create('Total')._unsafeUnwrap())
+    .withConfig(rollupConfig)
+    .withExpression(expression)
+    .done();
+  builder
+    .field()
+    .rollup()
+    .withName(FieldName.create('Total copy')._unsafeUnwrap())
+    .withConfig(rollupConfig)
+    .withExpression(expression)
+    .done();
+  builder.view().defaultGrid().done();
+
+  const table = builder.build({ foreignTables: [foreignTable] })._unsafeUnwrap();
+  const fields = table.getFields();
+  ['col_name', 'col_items', 'col_total', 'col_total_copy'].forEach((columnName, index) => {
+    fields[index].setDbFieldName(DbFieldName.rehydrate(columnName)._unsafeUnwrap())._unsafeUnwrap();
+  });
+
+  return {
+    table,
+    foreignTable,
+    foreignTableId,
+    rollupFieldIds: [fields[2].id(), fields[3].id()],
+  };
+};
+
 describe('UpdateFromSelectBuilder', () => {
   it('builds UPDATE FROM SELECT for computed formula field', () => {
     const db = createTestDb();
@@ -166,6 +248,43 @@ describe('UpdateFromSelectBuilder', () => {
         END as "__set_col_score" from (select "t"."__id" as "__id", "t"."__version" as "__version", NULLIF(BTRIM((1)::text), '')::double precision as "col_score" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "t" where "t"."__id" in (select "d"."record_id" from "tmp_computed_dirty" as "d" where "d"."table_id" = $1)) as "c_src") as "c" where "u"."__id" = "c"."__id" and ("u"."col_score" IS DISTINCT FROM "c"."__set_col_score")"
     `
     );
+  });
+
+  it('aggregates duplicate manyMany rollups once in the generated UPDATE', () => {
+    const db = createTestDb();
+    const { table, foreignTable, foreignTableId, rollupFieldIds } =
+      createDuplicateManyManyRollupTable();
+    const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+    const selectResult = new ComputedTableRecordQueryBuilder(db, {
+      foreignTables,
+      typeValidationStrategy,
+    })
+      .from(table)
+      .select(rollupFieldIds)
+      .withDirtyFilter({ tableId: table.id().toString() })
+      .build();
+    expect(selectResult.isOk()).toBe(true);
+    if (selectResult.isErr()) return;
+
+    const updateResult = new UpdateFromSelectBuilder(db).build({
+      table,
+      fieldIds: rollupFieldIds,
+      selectQuery: selectResult.value,
+    });
+    expect(updateResult.isOk()).toBe(true);
+    if (updateResult.isErr()) return;
+
+    const sqlText = updateResult.value.sql;
+    expect(sqlText).not.toContain('join lateral');
+    expect(sqlText.match(/"junction_[^"]+"/g)).toHaveLength(1);
+    expect(sqlText).toContain('left join "bseaaaaaaaaaaaaaaaa"."junction_');
+    expect(sqlText).toContain('group by "h"."__id"');
+    expect(sqlText.match(/SUM\("f"\."col_amount"\)/g)).toHaveLength(2);
+    expect(sqlText).toContain('COALESCE(SUM("f"."col_amount"), 0)');
+    expect(sqlText).toContain('inner join "tmp_computed_dirty"');
+    expect(sqlText).toContain('"__version" = "u"."__version" + 1');
+    expect(sqlText).toContain('"u"."col_total" IS DISTINCT FROM');
+    expect(sqlText).toContain('"u"."col_total_copy" IS DISTINCT FROM');
   });
 
   it('increments __version in computed update SET clause', () => {

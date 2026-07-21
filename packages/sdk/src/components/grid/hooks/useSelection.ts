@@ -153,6 +153,7 @@ export const useSelection = (props: IUseSelectionProps) => {
     };
 
     switch (type) {
+      case RegionType.ColumnIcon:
       case RegionType.ColumnHeader: {
         if (selectable !== SelectableType.All && selectable !== SelectableType.Column) return;
         const thresholdColIndex =

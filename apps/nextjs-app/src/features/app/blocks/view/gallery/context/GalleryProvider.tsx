@@ -47,8 +47,10 @@ export const GalleryProvider = ({ children }: { children: ReactNode }) => {
   }, [coverFieldId, readableFields]);
 
   const projectionFieldIds = useMemo(() => {
-    if (!coverField) return visibleFieldIds;
-    return Array.from(new Set([...visibleFieldIds, coverField.id]));
+    // projection is a field-id set, not a sequence: keep it order-stable so
+    // downstream cache keys don't churn when fields are reordered
+    const ids = coverField ? new Set([...visibleFieldIds, coverField.id]) : visibleFieldIds;
+    return [...ids].sort();
   }, [coverField, visibleFieldIds]);
 
   const recordQuery = useMemo(() => {

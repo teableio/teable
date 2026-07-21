@@ -110,11 +110,21 @@ export class TrashListener {
 
     if (!deletedTime) return;
 
-    await this.prismaService.trash.create({
-      data: {
+    // Delete events can fire more than once for the same resource (e.g. soft delete
+    // followed by permanent delete), so recording the trash entry must be idempotent.
+    await this.prismaService.trash.upsert({
+      where: {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        resourceType_resourceId: { resourceType, resourceId },
+      },
+      create: {
         resourceId,
         resourceType,
         parentId,
+        deletedTime,
+        deletedBy: user?.id as string,
+      },
+      update: {
         deletedTime,
         deletedBy: user?.id as string,
       },

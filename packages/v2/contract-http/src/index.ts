@@ -18,6 +18,8 @@ export * from './table/deleteRecords';
 export * from './table/explainCommand';
 export * from './table/getRecordById';
 export * from './table/getTableById';
+export * from './table/getComputeActivity';
+export * from './table/enrichTableComputeActivity';
 export * from './table/importCsv';
 export * from './table/importRecords';
 export * from './table/listTableRecords';

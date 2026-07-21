@@ -1477,7 +1477,16 @@
       "folderId": "Folder ID",
       "tableId": "Table ID",
       "automationId": "Automation ID",
-      "appId": "App ID"
+      "appId": "App ID",
+      "searchVector": "Full-text search",
+      "searchVectorFields": "fields",
+      "searchVectorStatus": {
+        "ready": "Enabled",
+        "configured": "Configured",
+        "rebuildPending": "Maintenance pending",
+        "stale": "Needs rebuild",
+        "unknown": "Unknown"
+      }
     }
   }
 }

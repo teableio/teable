@@ -7,6 +7,11 @@ export const v2TableOpsTokens = {
   recommendationRepository: Symbol('v2.tableOps.recommendationRepository'),
   taskRepository: Symbol('v2.tableOps.taskRepository'),
   remediationExecutor: Symbol('v2.tableOps.remediationExecutor'),
+  searchVectorReconciler: Symbol('v2.tableOps.searchVectorReconciler'),
+  searchVectorStatusReader: Symbol('v2.tableOps.searchVectorStatusReader'),
+  searchVectorSchemaMaintenanceScheduler: Symbol(
+    'v2.tableOps.searchVectorSchemaMaintenanceScheduler'
+  ),
   leaseRepository: Symbol('v2.tableOps.leaseRepository'),
   clock: Symbol('v2.tableOps.clock'),
   riskPolicy: Symbol('v2.tableOps.riskPolicy'),

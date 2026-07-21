@@ -211,6 +211,22 @@ export const SpaceDataDbPreflightRoute: RouteConfig = registerRoute({
   tags: ['space'],
 });
 
+export const spaceDataDbSummaryQuerySchema = z.object({
+  includeRelatedSpaces: z
+    .union([z.boolean(), z.enum(['true', 'false'])])
+    .optional()
+    .transform((value) => {
+      if (value === undefined) return undefined;
+      if (typeof value === 'boolean') return value;
+      return value === 'true';
+    }),
+});
+// Zod marks transformed optional keys as required-with-undefined; keep the
+// public query type fully optional so callers can pass `{}`.
+export type ISpaceDataDbSummaryQuery = {
+  includeRelatedSpaces?: boolean;
+};
+
 export const GetSpaceDataDbRoute: RouteConfig = registerRoute({
   method: 'get',
   path: GET_SPACE_DATA_DB,
@@ -219,6 +235,7 @@ export const GetSpaceDataDbRoute: RouteConfig = registerRoute({
     params: z.object({
       spaceId: z.string(),
     }),
+    query: spaceDataDbSummaryQuerySchema,
   },
   responses: {
     200: {
@@ -381,8 +398,10 @@ export const preflightSpaceDataDb = async (data: IDataDbPreflightRo) => {
   return axios.post<IDataDbPreflightVo>(SPACE_DATA_DB_PREFLIGHT, data);
 };
 
-export const getSpaceDataDb = async (spaceId: string) => {
-  return axios.get<IDataDbConnectionSummaryVo>(urlBuilder(GET_SPACE_DATA_DB, { spaceId }));
+export const getSpaceDataDb = async (spaceId: string, query?: ISpaceDataDbSummaryQuery) => {
+  return axios.get<IDataDbConnectionSummaryVo>(urlBuilder(GET_SPACE_DATA_DB, { spaceId }), {
+    params: query,
+  });
 };
 
 export const updateSpaceDataDb = async (spaceId: string, data: IDataDbPreflightRo) => {

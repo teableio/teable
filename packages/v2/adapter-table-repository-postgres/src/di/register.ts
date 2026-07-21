@@ -20,6 +20,8 @@ import type {
 } from '../record/computed';
 import {
   AsyncWithRetryStrategy,
+  ComputedActivityProjector,
+  PostgresComputedActivityReader,
   ComputedFieldBackfillService,
   ComputedFieldUpdater,
   ComputedUpdateDrainService,
@@ -228,6 +230,16 @@ export const registerV2TableRepositoryPostgresAdapter = (
     config.computedUpdate?.wakeupPublisher ?? noopComputedOutboxWakeupPublisher
   );
 
+  c.register(
+    v2RecordRepositoryPostgresTokens.computedActivityProjector,
+    ComputedActivityProjector,
+    {
+      lifecycle: Lifecycle.Singleton,
+    }
+  );
+  c.register(v2CoreTokens.computedActivityReader, PostgresComputedActivityReader, {
+    lifecycle: Lifecycle.Singleton,
+  });
   c.register(v2RecordRepositoryPostgresTokens.computedUpdateOutbox, ComputedUpdateOutbox, {
     lifecycle: Lifecycle.Singleton,
   });

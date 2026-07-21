@@ -120,6 +120,57 @@ describe('shared Postgres unit of work helpers', () => {
     expect(getPostgresTransaction(observedContext, 'meta')).toBe(db);
   });
 
+  it('binds a new transaction to both scopes when meta and data share one database', async () => {
+    const db = { marker: 'shared' } as unknown as Transaction<unknown>;
+    const metaDb = { transaction: vi.fn() };
+    const dataDb = {
+      transaction: () => ({
+        execute: async <T>(work: (trx: Transaction<unknown>) => Promise<T>) => work(db),
+      }),
+    };
+    const unitOfWork = new PostgresUnitOfWork(
+      metaDb as never,
+      dataDb as never,
+      { pg: { connectionString: 'postgresql://local/teable' } },
+      { pg: { connectionString: 'postgresql://local/teable' } }
+    );
+
+    let observedMetaTransaction: Transaction<unknown> | null = null;
+    const result = await unitOfWork.withTransaction(createContext(), async (transactionContext) => {
+      observedMetaTransaction = getPostgresTransaction(transactionContext, 'meta');
+      return ok('done');
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(metaDb.transaction).not.toHaveBeenCalled();
+    expect(observedMetaTransaction).toBe(db);
+  });
+
+  it('keeps meta and data scopes separate when they use different databases', async () => {
+    const dataTransaction = { marker: 'data' } as unknown as Transaction<unknown>;
+    const dataDb = {
+      transaction: () => ({
+        execute: async <T>(work: (trx: Transaction<unknown>) => Promise<T>) =>
+          work(dataTransaction),
+      }),
+    };
+    const unitOfWork = new PostgresUnitOfWork(
+      { transaction: vi.fn() } as never,
+      dataDb as never,
+      { pg: { connectionString: 'postgresql://local/meta' } },
+      { pg: { connectionString: 'postgresql://local/data' } }
+    );
+
+    let observedMetaTransaction: Transaction<unknown> | null = dataTransaction;
+    const result = await unitOfWork.withTransaction(createContext(), async (transactionContext) => {
+      observedMetaTransaction = getPostgresTransaction(transactionContext, 'meta');
+      return ok('done');
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(observedMetaTransaction).toBeNull();
+  });
+
   it('does not reuse a sibling transaction when the same database uses different schemas', async () => {
     const siblingTransaction = {
       kind: 'unitOfWorkTransaction',

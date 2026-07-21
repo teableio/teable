@@ -21,6 +21,7 @@ export interface SchemaRulePlannerParams {
   introspector: SchemaIntrospector;
   schema: string | null;
   tableLocationsById?: ReadonlyMap<string, TableIdentifier>;
+  sessionCache?: Map<string, unknown>;
 }
 
 export interface SchemaRuleTarget {
@@ -251,6 +252,7 @@ export class SchemaRulePlanner {
           tableName: tableLocation.tableName,
           tableId: table.id().toString(),
           table,
+          sessionCache: this.params.sessionCache,
         });
 
         entries.push(
@@ -296,6 +298,7 @@ export class SchemaRulePlanner {
         tableId: table.id().toString(),
         field,
         table,
+        sessionCache: this.params.sessionCache,
       });
 
       const resolutionResult = schemaRuleResolver.resolve(rulesResult.value);

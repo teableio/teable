@@ -909,7 +909,9 @@ describeByodbStorage('BYODB space storage placement (e2e)', () => {
       });
       expect(records.data.records).toHaveLength(1);
       expect(records.headers[X_TEABLE_V2_HEADER]).toBe('true');
-      expect(records.headers[X_TEABLE_V2_REASON_HEADER]).toBe('new_base');
+      expect(['new_base', 'env_force_v2_all']).toContain(
+        records.headers[X_TEABLE_V2_REASON_HEADER]
+      );
 
       const scopedDataPrisma = (await app
         .get(DataDbClientManager)

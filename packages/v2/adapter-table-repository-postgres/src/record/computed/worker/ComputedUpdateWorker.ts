@@ -30,6 +30,11 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { v2RecordRepositoryPostgresTokens } from '../../di/tokens';
+import { toComputedActivityBatch } from '../activity/IComputedActivityProjector';
+import {
+  hasAllTargetRecordsEdge,
+  resolveFieldTargetsFromPlan,
+} from '../activity/resolveFieldTargets';
 import {
   buildBeforeImageRecordsFromStepChanges,
   mergeBeforeImageRecords,
@@ -796,6 +801,9 @@ export class ComputedUpdateWorker {
       failurePhase = 'execute_plan';
       const stageResult = await this.updater.execute(planResult.value, txContext, run, {
         collectChanges: true,
+        // Non-blocking target locks: overlapping writers requeue instead of overwriting
+        // computed columns with stale concurrent snapshots.
+        lockWait: false,
       });
       if (stageResult.isErr()) return err(stageResult.error);
 
@@ -1267,6 +1275,7 @@ export class ComputedUpdateWorker {
       | 'set_statement_timeout'
       | 'load_seed_table'
       | 'plan_seed'
+      | 'project_activity'
       | 'acquire_locks'
       | 'execute_plan'
       | 'publish_events'
@@ -1376,6 +1385,28 @@ export class ComputedUpdateWorker {
       return doneResult;
     }
 
+    failurePhase = 'project_activity';
+    const batchProgress = toComputedActivityBatch(task.orchestration);
+    const activityResult = await this.outbox.registerPlannedTaskActivity(
+      {
+        taskId: task.id,
+        baseId: plan.baseId.toString(),
+        targets: resolveFieldTargetsFromPlan(plan),
+        metrics: {
+          estimatedComplexity: plan.estimatedComplexity,
+          estimatedDirtyRecords: countSeedRecordDtos(task.seedRecordIds, task.extraSeedRecords),
+          hasAllTargetRecords: hasAllTargetRecordsEdge(plan.edges),
+          ...(batchProgress ? { batchProgress } : {}),
+        },
+      },
+      context
+    );
+    if (activityResult.isErr()) {
+      logSeedFailure(activityResult.error);
+      await this.handleTaskFailure(task, activityResult.error.message, context);
+      return err(activityResult.error);
+    }
+
     // Execute the plan within a transaction
     const executeResult = await this.unitOfWork.withTransaction(context, async (txContext) => {
       failurePhase = 'set_statement_timeout';
@@ -1400,6 +1431,7 @@ export class ComputedUpdateWorker {
       failurePhase = 'execute_plan';
       const stageResult = await this.updater.execute(plan, txContext, run, {
         collectChanges: true,
+        lockWait: false,
       });
       if (stageResult.isErr()) return err(stageResult.error);
 

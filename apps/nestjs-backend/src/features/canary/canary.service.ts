@@ -38,8 +38,8 @@ export class CanaryService {
   }
 
   /**
-   * Check if V2 is forced globally via environment variable (FORCE_V2_ALL=true)
-   * This is the fallback priority for bases that are not explicitly marked as new-base V2.
+   * Check if V2 is forced globally via environment variable (FORCE_V2_ALL=true).
+   * Highest priority for both routing and attribution reason.
    */
   isForceV2AllEnabled(): boolean {
     return process.env.FORCE_V2_ALL === 'true';
@@ -59,13 +59,20 @@ export class CanaryService {
   /**
    * Check if a space is in canary release
    * Priority:
-   * 1. If canary feature is disabled globally, return false
-   * 2. If x-canary header is set, use header value (true/false)
-   * 3. Otherwise, check space against configured spaceIds
+   * 1. FORCE_V2_ALL — canary list unused; skip loading large spaceIds config
+   * 2. If canary feature is disabled globally, return false
+   * 3. If x-canary header is set, use header value (true/false)
+   * 4. Otherwise, check space against configured spaceIds
    *
    * @param spaceId - The space ID to check (caller should provide this from their context)
    */
   async isSpaceInCanary(spaceId: string): Promise<boolean> {
+    // Under FORCE_V2_ALL routing never consults canary spaceIds — avoid reading
+    // the (often huge) setting blob just for isCanary UI badges.
+    if (this.isForceV2AllEnabled()) {
+      return false;
+    }
+
     // Check if canary feature is enabled globally
     if (!this.isCanaryFeatureEnabled()) {
       return false;
@@ -133,13 +140,21 @@ export class CanaryService {
   }
 
   /**
-   * New bases are V2-first regardless of canary, request headers, or rollout config.
+   * Resolve V2 for a base-scoped feature.
+   * Priority:
+   * 1. FORCE_V2_ALL env (highest — reason env_force_v2_all)
+   * 2. Base marked v2Enabled (reason new_base)
+   * 3. Space/canary/header/config decisions
    * Unsupported features still do not call this path because they have no @UseV2Feature marker.
    */
   async shouldUseV2ForBaseWithReason(
     base: IBaseV2DecisionContext | null | undefined,
     feature: V2Feature
   ): Promise<IV2Decision> {
+    if (this.isForceV2AllEnabled()) {
+      return { useV2: true, reason: 'env_force_v2_all' };
+    }
+
     if (base?.v2Enabled) {
       return { useV2: true, reason: 'new_base' };
     }

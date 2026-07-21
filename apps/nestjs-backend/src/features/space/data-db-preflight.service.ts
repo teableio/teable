@@ -327,7 +327,15 @@ export class DataDbPreflightService {
     }
   }
 
-  async getSummary(spaceId: string): Promise<IDataDbConnectionSummaryVo> {
+  async getSummary(
+    spaceId: string,
+    options?: { includeRelatedSpaces?: boolean }
+  ): Promise<IDataDbConnectionSummaryVo> {
+    // Cross-space link scan walks field.options with a global inbound prefilter and
+    // routinely takes multi-seconds in production. Callers that only need binding
+    // status (admin dialog first paint) can set includeRelatedSpaces=false.
+    const includeRelatedSpaces = options?.includeRelatedSpaces !== false;
+
     if (this.prismaService) {
       const migrationSummary = await this.getActiveMigrationSummary(spaceId);
       if (migrationSummary) {
@@ -335,12 +343,16 @@ export class DataDbPreflightService {
         // polling clients skip the cross-space link scan entirely.
         return migrationSummary;
       }
-      const relatedSpaces = await resolveSpaceDataDbRelatedSpaces(this.prismaService, spaceId);
 
-      const binding = await this.prismaService.spaceDataDbBinding.findUnique({
+      const bindingPromise = this.prismaService.spaceDataDbBinding.findUnique({
         where: { spaceId },
         include: { dataDbConnection: true },
       });
+      const relatedSpacesPromise = includeRelatedSpaces
+        ? resolveSpaceDataDbRelatedSpaces(this.prismaService, spaceId)
+        : Promise.resolve(undefined);
+      const [binding, relatedSpaces] = await Promise.all([bindingPromise, relatedSpacesPromise]);
+
       if (binding?.mode === 'byodb' && binding.dataDbConnection) {
         return {
           mode: binding.mode,
@@ -355,13 +367,13 @@ export class DataDbPreflightService {
           capabilities: binding.dataDbConnection.capabilities as
             | IDataDbConnectionSummaryVo['capabilities']
             | undefined,
-          relatedSpaces,
+          ...(relatedSpaces ? { relatedSpaces } : {}),
         };
       }
       return {
         mode: 'default',
         state: 'ready',
-        relatedSpaces,
+        ...(relatedSpaces ? { relatedSpaces } : {}),
       };
     }
     return {

@@ -33,5 +33,6 @@ export interface AffectedItem {
   name: string;
   itemType: AffectedItemType;
   type?: string;
+  category?: string;
   source?: AffectedItemSource;
 }

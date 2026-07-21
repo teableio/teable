@@ -316,14 +316,55 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
               prepared.value,
               syncSteps,
               run,
-              true
+              true,
+              {
+                wait: false,
+                logContext: toRunLogContext(run),
+              }
             );
       const syncResult =
         runSpan && context.tracer
           ? await context.tracer.withSpan(runSpan, syncWork)
           : await syncWork();
       runSpan?.end();
-      if (syncResult.isErr()) return err(syncResult.error);
+      if (syncResult.isErr()) {
+        // Dirty-target locks use wait=false; requeue the whole stage on conflict so a later
+        // worker recomputes against the latest committed source values.
+        if (!isComputedUpdateLockUnavailable(syncResult.error)) return err(syncResult.error);
+
+        const task = buildOutboxTaskInput({
+          plan: currentPlan,
+          dirtyStats: prepared.value.dirtyStats,
+          syncMaxLevel: -1,
+          hasher: this.hasher,
+          runId,
+          originRunIds: [...originRunIds],
+          runTotalSteps: totalSteps,
+          runCompletedStepsBefore: completedSteps,
+          affectedFieldIds: collectStepFieldIds(currentPlan).map((id) => id.toString()),
+          affectedTableIds: collectStepTableIds(currentPlan).map((id) => id.toString()),
+          orchestration: options?.orchestration,
+        });
+        const enqueueResult = await this.outbox.enqueueOrMerge(task, context);
+        if (enqueueResult.isErr()) {
+          runLogger.warn('computed:outbox:enqueue_failed', {
+            error: enqueueResult.error.message,
+            planHash: task.planHash,
+            reason: 'dirty_target_lock_unavailable',
+          });
+          return err(enqueueResult.error);
+        }
+
+        runLogger.info('computed:run:queued', {
+          taskId: enqueueResult.value.taskId,
+          pendingSteps: currentPlan.steps.length,
+          asyncStepCount: currentPlan.steps.length,
+          reason: 'dirty_target_lock_unavailable',
+        });
+
+        this.scheduleDispatch(context);
+        return ok({ changesByStep: allSyncChangesByStep });
+      }
 
       // Accumulate sync changes from this stage
       allSyncChangesByStep.push(...syncResult.value.changesByStep);

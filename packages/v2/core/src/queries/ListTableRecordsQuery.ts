@@ -8,9 +8,12 @@ import { PageLimit } from '../domain/shared/pagination/PageLimit';
 import { PageOffset } from '../domain/shared/pagination/PageOffset';
 import { type FieldKeyType, fieldKeyTypeSchema } from '../domain/table/fields/FieldKeyType';
 import { TableId } from '../domain/table/TableId';
-import type { IRecordReadQuerySource } from '../ports/TableRecordQueryRepository';
-import { recordSearchInputSchema, type RecordSearchInput } from './RecordSearch';
+import type {
+  IRecordReadQuerySource,
+  IRecordSearchAccessPath,
+} from '../ports/TableRecordQueryRepository';
 import { recordFilterSchema, type RecordFilter } from './RecordFilterDto';
+import { recordSearchInputSchema, type RecordSearchInput } from './RecordSearch';
 
 /** Default page size for records */
 export const DEFAULT_RECORDS_LIMIT = 100;
@@ -75,6 +78,7 @@ type IListTableRecordsQueryOutput = z.output<typeof listTableRecordsInputSchema>
 
 export interface IListTableRecordsQueryOptions {
   readonly recordReadQuerySource?: IRecordReadQuerySource;
+  readonly recordSearchAccessPath?: IRecordSearchAccessPath;
 }
 
 export class ListTableRecordsQuery {
@@ -93,7 +97,8 @@ export class ListTableRecordsQuery {
     readonly includeTotal?: boolean,
     readonly viewId?: string,
     readonly ignoreViewQuery?: boolean,
-    readonly recordReadQuerySource?: IRecordReadQuerySource
+    readonly recordReadQuerySource?: IRecordReadQuerySource,
+    readonly recordSearchAccessPath?: IRecordSearchAccessPath
   ) {}
 
   static create(
@@ -128,7 +133,8 @@ export class ListTableRecordsQuery {
             parsed.data.includeTotal,
             parsed.data.viewId,
             parsed.data.ignoreViewQuery,
-            options?.recordReadQuerySource
+            options?.recordReadQuerySource,
+            options?.recordSearchAccessPath
           )
       )
     );

@@ -120,6 +120,8 @@ type SelectOptionRecordUpdateRow = {
 const toRecordVersionNumber = (value: number | string | bigint): number =>
   typeof value === 'bigint' ? Number(value) : Number(value);
 
+const quoteSqlLiteral = (value: string): string => `'${value.replaceAll("'", "''")}'`;
+
 const formulaStorageTypeChanged = (
   previousField: FormulaField,
   nextField: FormulaField
@@ -191,6 +193,79 @@ export class TableSchemaUpdateVisitor
     return {
       scope: 'data',
       compile: () => sql`DROP INDEX IF EXISTS ${sql.raw(qualifiedIndex)}`.compile(db),
+    };
+  }
+
+  /**
+   * A stored generated tsvector depends on its source columns, so PostgreSQL
+   * rejects ALTER COLUMN TYPE until the managed column is removed. The
+   * post-schema projection rebuilds it from the latest Table aggregate.
+   */
+  private dropManagedSearchVectorColumnsStatement(): TableSchemaStatementBuilder {
+    const { db, schema, tableName } = this.params;
+    const pgSchema = schema ?? 'public';
+    const statement = `
+      DO $teable_search_vector$
+      DECLARE managed_column text;
+      BEGIN
+        FOR managed_column IN
+          SELECT a.attname
+          FROM pg_attribute a
+          JOIN pg_class c ON c.oid = a.attrelid
+          JOIN pg_namespace n ON n.oid = c.relnamespace
+          WHERE n.nspname = ${quoteSqlLiteral(pgSchema)}
+            AND c.relname = ${quoteSqlLiteral(tableName)}
+            AND a.attnum > 0
+            AND NOT a.attisdropped
+            AND a.attgenerated = 's'
+            AND a.attname LIKE '\\_\\_tqops\\_tsv\\_%' ESCAPE '\\'
+        LOOP
+          EXECUTE format(
+            'ALTER TABLE %I.%I DROP COLUMN IF EXISTS %I',
+            ${quoteSqlLiteral(pgSchema)},
+            ${quoteSqlLiteral(tableName)},
+            managed_column
+          );
+        END LOOP;
+      END
+      $teable_search_vector$;
+    `;
+    return {
+      scope: 'data',
+      compile: () => sql.raw(statement).compile(db),
+    };
+  }
+
+  private markSearchVectorConfigRebuildPendingStatement(
+    reason: string
+  ): TableSchemaStatementBuilder {
+    const { db, tableId } = this.params;
+    const statement = `
+      DO $teable_search_vector$
+      BEGIN
+        IF to_regclass('public.table_query_search_vector_config') IS NOT NULL THEN
+          UPDATE table_query_search_vector_config
+          SET status = 'rebuild_pending',
+              last_inspection = jsonb_build_object(
+                'state', 'rebuild_pending',
+                'staleReasons', jsonb_build_array(${quoteSqlLiteral(reason)})
+              ),
+              last_modified_time = now()
+          WHERE id = (
+            SELECT id
+            FROM table_query_search_vector_config
+            WHERE table_id = ${quoteSqlLiteral(tableId)}
+              AND status IN ('ready', 'rebuild_pending')
+            ORDER BY last_modified_time DESC NULLS LAST, created_time DESC
+            LIMIT 1
+          );
+        END IF;
+      END
+      $teable_search_vector$;
+    `;
+    return {
+      scope: 'meta',
+      compile: () => sql.raw(statement).compile(db),
     };
   }
 
@@ -563,7 +638,10 @@ export class TableSchemaUpdateVisitor
     const fieldVisitor = PostgresTableSchemaFieldCreateVisitor.forSchemaUpdate(this.params);
     const addCond = this.addCond.bind(this);
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
-      const statements = [...(yield* spec.field().accept(fieldVisitor))];
+      const statements = [
+        visitor.markSearchVectorConfigRebuildPendingStatement('source_field_added'),
+        ...(yield* spec.field().accept(fieldVisitor)),
+      ];
       const dbFieldName = yield* visitor.resolveDbFieldNameText(spec.field());
       const createSearchIdx = visitor.createSearchIndexStatement(spec.field(), dbFieldName);
       if (createSearchIdx) {
@@ -581,7 +659,9 @@ export class TableSchemaUpdateVisitor
     const fieldVisitor = PostgresTableSchemaFieldCreateVisitor.forSchemaUpdate(this.params);
     const addCond = this.addCond.bind(this);
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
-      const statements: TableSchemaStatementBuilder[] = [];
+      const statements: TableSchemaStatementBuilder[] = [
+        visitor.markSearchVectorConfigRebuildPendingStatement('source_fields_added'),
+      ];
       for (const field of spec.fields()) {
         statements.push(...(yield* field.accept(fieldVisitor)));
         const dbFieldName = yield* visitor.resolveDbFieldNameText(field);
@@ -598,10 +678,15 @@ export class TableSchemaUpdateVisitor
   visitTableRemoveField(
     spec: TableRemoveFieldSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    const visitor = this;
     const fieldVisitor = PostgresTableSchemaFieldDeleteVisitor.forSchemaUpdate(this.params);
     const addCond = this.addCond.bind(this);
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
-      const statements = yield* spec.field().accept(fieldVisitor);
+      const statements = [
+        visitor.markSearchVectorConfigRebuildPendingStatement('source_field_removed'),
+        visitor.dropManagedSearchVectorColumnsStatement(),
+        ...(yield* spec.field().accept(fieldVisitor)),
+      ];
       yield* addCond(statements);
       return ok(statements);
     });
@@ -824,6 +909,8 @@ export class TableSchemaUpdateVisitor
       const createSearchIdx = visitor.createSearchIndexStatement(newField, dbFieldName);
 
       const statements = [
+        visitor.markSearchVectorConfigRebuildPendingStatement('source_field_type_changed'),
+        visitor.dropManagedSearchVectorColumnsStatement(),
         dropSearchIdx,
         ...conversionStatements,
         ...referenceStatements,

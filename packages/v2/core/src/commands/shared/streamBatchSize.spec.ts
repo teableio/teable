@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  DEFAULT_DELETE_STREAM_BATCH_SIZE,
   DEFAULT_SELECTION_STREAM_BATCH_SIZE,
   DEFAULT_RESTORE_RECORDS_BATCH_SIZE,
   MAX_SELECTION_STREAM_BATCH_SIZE,
+  resolveDeleteStreamBatchSize,
   resolveRestoreRecordsBatchSize,
   resolveSelectionStreamBatchSize,
   TARGET_SELECTION_STREAM_CHUNK_COUNT,
@@ -28,6 +30,15 @@ describe('resolveSelectionStreamBatchSize', () => {
   it('preserves explicit caller-provided batch sizes', () => {
     expect(resolveSelectionStreamBatchSize(20_000, 50)).toBe(50);
     expect(resolveSelectionStreamBatchSize(20_000, 2_000)).toBe(MAX_SELECTION_STREAM_BATCH_SIZE);
+  });
+
+  it('uses bounded delete-specific chunks while preserving explicit smaller sizes', () => {
+    expect(resolveDeleteStreamBatchSize(0)).toBe(DEFAULT_DELETE_STREAM_BATCH_SIZE);
+    expect(resolveDeleteStreamBatchSize(1_000)).toBe(1_000);
+    expect(resolveDeleteStreamBatchSize(10_000)).toBe(DEFAULT_DELETE_STREAM_BATCH_SIZE);
+    expect(resolveDeleteStreamBatchSize(30_000)).toBe(DEFAULT_DELETE_STREAM_BATCH_SIZE);
+    expect(resolveDeleteStreamBatchSize(30_000, 250)).toBe(250);
+    expect(resolveDeleteStreamBatchSize(30_000, 10_000)).toBe(MAX_SELECTION_STREAM_BATCH_SIZE);
   });
 
   it('keeps restore batching at the 500 baseline until large undos need larger chunks', () => {

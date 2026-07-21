@@ -168,8 +168,11 @@ export class PermissionService {
     if (clientId && clientId.startsWith(IdPrefix.OAuthClient)) {
       const { spaceIds: spaceIdsByOAuth, baseIds: baseIdsByOAuth } =
         await this.getOAuthAccessBy(userId);
+      // Only expose base|read_all when the user actually consented to it.
+      // Previously it was concatenated unconditionally, granting third-party
+      // OAuth apps broader read access than the scopes they were approved for.
       return {
-        scopes: scopes.concat('base|read_all'),
+        scopes,
         spaceIds: spaceIdsByOAuth,
         baseIds: baseIdsByOAuth,
       };
