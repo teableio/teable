@@ -20,7 +20,7 @@ import { describe, it, expect, vi } from 'vitest';
 import type { ComputedFieldBackfillService } from '../ComputedFieldBackfillService';
 import type { ComputedFieldUpdater } from '../ComputedFieldUpdater';
 import { COMPUTED_UPDATE_LOCK_UNAVAILABLE_CODE } from '../ComputedUpdateLock';
-import type { ComputedUpdatePlanner } from '../ComputedUpdatePlanner';
+import type { ComputedUpdatePlan, ComputedUpdatePlanner } from '../ComputedUpdatePlanner';
 import type { ComputedUpdateOutboxItem } from '../outbox/ComputedUpdateOutboxPayload';
 import {
   defaultComputedUpdateOutboxConfig,
@@ -93,6 +93,7 @@ const createOutboxStub = (
 ): IComputedUpdateOutbox => ({
   enqueueOrMerge: vi.fn(),
   enqueueSeedTask: vi.fn(),
+  registerPlannedTaskActivity: vi.fn().mockResolvedValue(ok(undefined)),
   enqueueFieldBackfill: vi.fn(),
   claimBatch: vi.fn().mockResolvedValue(ok([])),
   claimById: vi.fn().mockResolvedValue(ok(null)),
@@ -608,6 +609,82 @@ describe('ComputedUpdateWorker', () => {
         expect.anything()
       );
       expect(markFailed).not.toHaveBeenCalled();
+    });
+
+    it('registers planned computed targets for seed tasks before execution', async () => {
+      const task = createMockSeedTask();
+      const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+      const tableId = TableId.create(TABLE_ID)._unsafeUnwrap();
+      const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
+      const computedFieldId = FieldId.create(`fld${'e'.repeat(16)}`)._unsafeUnwrap();
+      const table = {
+        id: () => tableId,
+        baseId: () => baseId,
+      } as unknown as Table;
+      const plan: ComputedUpdatePlan = {
+        baseId,
+        seedTableId: tableId,
+        seedRecordIds: [recordId],
+        extraSeedRecords: [],
+        beforeImageRecords: [],
+        steps: [{ level: 0, tableId, fieldIds: [computedFieldId] }],
+        edges: [],
+        estimatedComplexity: 7,
+        changeType: 'update',
+        sameTableBatches: [],
+      };
+      const registerPlannedTaskActivity = vi.fn().mockResolvedValue(ok(undefined));
+      const execute = vi.fn().mockResolvedValue(ok({ changesByStep: [] }));
+      const markDone = vi.fn().mockResolvedValue(ok(true));
+      const outbox = createOutboxStub({
+        claimBatch: vi.fn().mockResolvedValue(ok([task])),
+        registerPlannedTaskActivity,
+        markDone,
+      });
+      const updater = createUpdaterStub({
+        execute,
+        collectDirtySeedGroups: vi.fn().mockResolvedValue(ok({ groups: [], seedAllTableIds: [] })),
+      });
+      const planner = {
+        planStage: vi.fn().mockResolvedValue(ok(plan)),
+      } as unknown as ComputedUpdatePlanner;
+      const tableRepository = {
+        ...createTableRepository(),
+        findOne: vi.fn().mockResolvedValue(ok(table)),
+      } as ITableRepository;
+      const worker = new ComputedUpdateWorker(
+        outbox,
+        defaultComputedUpdateOutboxConfig,
+        updater,
+        planner,
+        createUnitOfWork(),
+        createLogger(),
+        createHasher(),
+        tableRepository,
+        createBackfillService(),
+        createEventBus()
+      );
+
+      const result = await worker.runOnce({ workerId: 'worker-1', limit: 10 });
+
+      expect(result._unsafeUnwrap()).toBe(1);
+      expect(registerPlannedTaskActivity).toHaveBeenCalledWith(
+        {
+          taskId: task.id,
+          baseId: BASE_ID,
+          targets: [{ tableId, fieldId: computedFieldId }],
+          metrics: {
+            estimatedComplexity: 7,
+            estimatedDirtyRecords: 1,
+            hasAllTargetRecords: false,
+          },
+        },
+        expect.anything()
+      );
+      expect(registerPlannedTaskActivity.mock.invocationCallOrder[0]).toBeLessThan(
+        execute.mock.invocationCallOrder[0]
+      );
+      expect(markDone).toHaveBeenCalledWith(task, expect.anything());
     });
 
     it('releases seed tasks for retry when the seed table exists but is not active', async () => {

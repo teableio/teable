@@ -256,6 +256,67 @@ export interface V1TaskReferenceTable {
   created_time: ColumnType<Date, Date | undefined, never>;
 }
 
+export interface V1ComputedFieldActivityTable {
+  field_id: string;
+  table_id: string;
+  base_id: string;
+  status: string;
+  active_task_count: number;
+  processing_task_count: number;
+  generation: ColumnType<
+    string | number | bigint,
+    string | number | bigint,
+    string | number | bigint
+  >;
+  estimated_complexity: ColumnType<
+    string | number | bigint,
+    string | number | bigint,
+    string | number | bigint
+  >;
+  estimated_dirty_records: ColumnType<
+    string | number | bigint,
+    string | number | bigint,
+    string | number | bigint
+  >;
+  has_all_target_records: boolean;
+  queued_at: ColumnType<Date | null, Date | null | undefined, Date | null | undefined>;
+  started_at: ColumnType<Date | null, Date | null | undefined, Date | null | undefined>;
+  last_completed_at: ColumnType<Date | null, Date | null | undefined, Date | null | undefined>;
+  last_duration_ms: number | null;
+  last_error: unknown | null;
+  extensions: unknown | null;
+  updated_at: ColumnType<Date, Date | undefined, Date | undefined>;
+}
+
+export interface V1ComputedTableActivityTable {
+  table_id: string;
+  base_id: string;
+  status: string;
+  calculating_field_count: number;
+  queued_field_count: number;
+  estimated_complexity: ColumnType<
+    string | number | bigint,
+    string | number | bigint,
+    string | number | bigint
+  >;
+  recent_completions: unknown;
+  generation: ColumnType<
+    string | number | bigint,
+    string | number | bigint,
+    string | number | bigint
+  >;
+  updated_at: ColumnType<Date, Date | undefined, Date | undefined>;
+}
+
+export interface V1ComputedTaskFieldRefTable {
+  task_id: string;
+  field_id: string;
+  table_id: string;
+  base_id: string;
+  was_processing: boolean;
+  created_at: ColumnType<Date, Date | undefined, Date | undefined>;
+}
+
 export interface V1TeableDatabase {
   users: V1UserTable;
   space: V1SpaceTable;
@@ -269,6 +330,9 @@ export interface V1TeableDatabase {
   computed_update_outbox: V1ComputedUpdateOutboxTable;
   computed_update_outbox_seed: V1ComputedUpdateOutboxSeedTable;
   computed_update_dead_letter: V1ComputedUpdateDeadLetterTable;
+  computed_field_activity: V1ComputedFieldActivityTable;
+  computed_table_activity: V1ComputedTableActivityTable;
+  computed_task_field_ref: V1ComputedTaskFieldRefTable;
   task: V1TaskTable;
   task_run: V1TaskRunTable;
   task_reference: V1TaskReferenceTable;

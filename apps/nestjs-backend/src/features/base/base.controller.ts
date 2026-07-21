@@ -510,8 +510,8 @@ export class BaseController {
   async exportBase(@Param('baseId') baseId: string, @Query('includeData') includeData?: string) {
     const includeDataValue =
       includeData === undefined ? true : !['false', '0'].includes(includeData.toLowerCase());
-    const base = await this.baseService.getBaseById(baseId);
-    if (base.v2Status?.reason === 'new_base') {
+    await this.baseService.getBaseById(baseId);
+    if (await this.baseService.shouldUseV2BaseExport(baseId)) {
       return await this.baseExportV2Service.exportBaseZip(baseId, includeDataValue);
     }
     return await this.baseExportService.exportBaseZip(baseId, includeDataValue);
@@ -548,11 +548,10 @@ export class BaseController {
     res.on('close', () => clearInterval(heartbeat));
 
     try {
-      const base = await this.baseService.getBaseById(baseId);
-      const exporter =
-        base.v2Status?.reason === 'new_base'
-          ? this.baseExportV2Service.exportBaseZip.bind(this.baseExportV2Service)
-          : this.baseExportService.exportBaseZip.bind(this.baseExportService);
+      await this.baseService.getBaseById(baseId);
+      const exporter = (await this.baseService.shouldUseV2BaseExport(baseId))
+        ? this.baseExportV2Service.exportBaseZip.bind(this.baseExportV2Service)
+        : this.baseExportService.exportBaseZip.bind(this.baseExportService);
       const result = await exporter(baseId, includeDataValue, (phase, detail, event) => {
         sendEvent({
           type: 'progress',

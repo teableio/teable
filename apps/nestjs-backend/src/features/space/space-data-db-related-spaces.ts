@@ -125,13 +125,14 @@ const findLinkFieldsOfSpaces = async (
   }));
 };
 
-// Coarse SQL prefilter for inbound links: match EVERY `"foreignTableId":"..."`
-// occurrence in the JSON blob (regexp_matches with 'g') so the scan returns only
-// candidate rows instead of every link-ish field in the instance. Matching all
-// occurrences keeps the prefilter a superset of the truth: a nested occurrence can
-// only add a false positive, never hide a row whose real top-level target is in the
-// frontier. `extractForeignTableId` (real JSON parsing) stays the source of truth
-// for every returned row, so a regex false positive can never fabricate an edge.
+// Coarse SQL prefilter for inbound links: match ANY `"foreignTableId":"<frontier>"`
+// substring in the JSON blob so the scan returns only candidate rows instead of
+// every link-ish field in the instance. Nested occurrences keep the prefilter a
+// superset of the truth (false positives only). Prefer strpos + unnest over
+// regexp_matches(..., 'g') — production traces showed the regex prefilter alone
+// dominating GET data-db (~2.5s of a ~3.3s admin summary).
+// `extractForeignTableId` (real JSON parsing) stays the source of truth for every
+// returned row, so a prefilter false positive can never fabricate an edge.
 const findLinkFieldsReferencingTables = async (
   prismaService: PrismaService,
   tableIds: string[]
@@ -156,16 +157,13 @@ const findLinkFieldsReferencingTables = async (
        AND ((f.type = $1 AND f.is_lookup IS NOT TRUE)
          OR f.type = $2
          OR (f.is_lookup IS TRUE AND f.is_conditional_lookup IS TRUE))
-       AND EXISTS (
-         SELECT 1
-         FROM regexp_matches(
-           CASE WHEN f.is_lookup IS TRUE AND f.is_conditional_lookup IS TRUE
-                THEN f.lookup_options
-                ELSE f.options END,
-           '"foreignTableId"\\s*:\\s*"([^"]+)"',
-           'g'
-         ) AS matches(captured)
-         WHERE matches.captured[1] = ANY($3::text[])
+       AND (
+         CASE WHEN f.is_lookup IS TRUE AND f.is_conditional_lookup IS TRUE
+              THEN f.lookup_options
+              ELSE f.options END
+       ) LIKE ANY (
+         SELECT ('%"foreignTableId":"' || frontier.table_id || '"%')
+         FROM unnest($3::text[]) AS frontier(table_id)
        )`,
     FieldType.Link,
     FieldType.ConditionalRollup,

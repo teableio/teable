@@ -2,6 +2,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { WsAdapter } from '@nestjs/platform-ws';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
@@ -78,12 +79,35 @@ import { GlobalExceptionFilter } from '../../src/filter/global-exception.filter'
 import type { IClsStore } from '../../src/types/cls';
 import { WsGateway } from '../../src/ws/ws.gateway';
 import { DevWsGateway } from '../../src/ws/ws.gateway.dev';
+import { acquireApp, getSharedBundle } from './e2e-shared';
 import { TestingLogger } from './testing-logger';
 
 export async function initApp() {
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   if (globalThis.initApp) return await globalThis.initApp();
 
+  const cacheKey = 'community:default';
+  // Private apps (env customized by the spec, or sharing disabled) keep a real
+  // close() that also restores the axios singleton to this worker's shared app.
+  return acquireApp(
+    cacheKey,
+    bootApp,
+    ({ cookieInterceptorId }) => {
+      axios.interceptors.request.eject(cookieInterceptorId);
+      const shared = getSharedBundle(cacheKey);
+      if (shared) {
+        axios.defaults.baseURL = shared.appUrl + '/api';
+      }
+    },
+    axios
+  );
+}
+
+async function bootApp() {
+  if (process.env.E2E_PROBE) {
+    // eslint-disable-next-line no-console
+    console.log(`[e2e-probe] BOOT community pool=${process.env.VITEST_POOL_ID}`);
+  }
   const moduleFixture: TestingModule = await Test.createTestingModule({
     imports: [AppModule, BaseSqlExecutorModule],
   })
@@ -93,6 +117,12 @@ export async function initApp() {
         return;
       },
     })
+    // EventEmitterModule.forRoot() is evaluated once per process, so every test
+    // app would otherwise share one EventEmitter2: closing any app wipes all
+    // listeners (onApplicationShutdown -> removeAllListeners) and events double
+    // fire across coexisting apps. Give each app its own emitter.
+    .overrideProvider(EventEmitter2)
+    .useValue(new EventEmitter2({ wildcard: true, delimiter: '.' }))
     .overrideProvider(DevWsGateway)
     .useClass(WsGateway)
     .compile();
@@ -132,8 +162,13 @@ export async function initApp() {
     await getCookie(globalThis.testConfig.email, globalThis.testConfig.password)
   ).cookie.join(';');
 
-  axios.interceptors.request.use((config) => {
-    config.headers.Cookie = cookie;
+  const cookieInterceptorId = axios.interceptors.request.use((config) => {
+    // Never attach the shared session to signin/signup: passport regenerates the
+    // session attached to a login request, which would destroy this cookie's sid
+    // and break every later spec file sharing the app.
+    if (!/\/auth\/(?:signin|signup)\b/.test(config.url ?? '')) {
+      config.headers.Cookie = cookie;
+    }
     return config;
   });
 
@@ -147,7 +182,7 @@ export async function initApp() {
   console.log('> Test Current System Time:', now.toString());
 
   const sessionHandleService = app.get<SessionHandleService>(SessionHandleService);
-  return {
+  const bundle = {
     app,
     appUrl: url,
     cookie,
@@ -157,6 +192,7 @@ export async function initApp() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any),
   };
+  return { bundle, cookieInterceptorId };
 }
 
 /**

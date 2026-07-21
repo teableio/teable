@@ -388,4 +388,7 @@ export class SchemaRepairer {
 }
 
 export const createSchemaRepairer = (params: SchemaRepairerParams): SchemaRepairer =>
-  new SchemaRepairer(params);
+  new SchemaRepairer({
+    ...params,
+    sessionCache: params.sessionCache ?? new Map<string, unknown>(),
+  });

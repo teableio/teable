@@ -105,6 +105,83 @@ export interface TableQueryRemediationExecutor {
   ): Promise<Result<unknown, DomainError>>;
 }
 
+export type ReconcileTableSearchVectorInput = {
+  readonly table: Table;
+  readonly mode: 'create' | 'rebuild';
+  readonly languageConfig?: string;
+  readonly fieldIds?: readonly string[];
+  readonly searchProbe?: string;
+  readonly validationMode?: 'plan' | 'real_ddl';
+  readonly allowLargeTableRewrite?: boolean;
+};
+
+export type ReconcileTableSearchVectorResult = {
+  readonly action: 'created' | 'rebuilt' | 'verified';
+  readonly tableId: string;
+  readonly definitionKey: string;
+  readonly generatedColumnName: string;
+  readonly indexName: string;
+  readonly languageConfig: string;
+  readonly fieldIds: readonly string[];
+  readonly status: 'ready';
+  readonly planEvidence?: unknown;
+};
+
+export interface TableSearchVectorReconciler {
+  reconcile(
+    context: IExecutionContext,
+    input: ReconcileTableSearchVectorInput
+  ): Promise<Result<ReconcileTableSearchVectorResult, DomainError>>;
+
+  maintainAfterSchemaChange(
+    context: IExecutionContext,
+    table: Table
+  ): Promise<Result<ReconcileTableSearchVectorResult | undefined, DomainError>>;
+}
+
+export type TableSearchVectorStatusState =
+  | 'disabled'
+  | 'ready'
+  | 'rebuild_pending'
+  | 'stale'
+  | 'unknown';
+
+export type TableSearchVectorStatus = {
+  readonly tableId: string;
+  readonly state: TableSearchVectorStatusState;
+  readonly configured: boolean;
+  readonly languageConfig?: string;
+  readonly coveredFieldCount: number;
+};
+
+export interface TableSearchVectorStatusReader {
+  read(
+    context: IExecutionContext,
+    tableId: string
+  ): Promise<Result<TableSearchVectorStatus, DomainError>>;
+}
+
+export type TableSearchVectorSchemaMaintenanceReason =
+  | 'field_created'
+  | 'field_updated'
+  | 'field_deleted';
+
+export type TableSearchVectorSchemaMaintenanceSchedule = {
+  readonly tableId: string;
+  readonly taskId: string;
+  readonly status: 'queued' | 'coalesced';
+};
+
+export interface TableSearchVectorSchemaMaintenanceScheduler {
+  schedule(
+    context: IExecutionContext,
+    input: {
+      readonly table: Table;
+      readonly reason: TableSearchVectorSchemaMaintenanceReason;
+    }
+  ): Promise<Result<TableSearchVectorSchemaMaintenanceSchedule | undefined, DomainError>>;
+}
+
 export interface TableQueryOpsLeaseRepository {
   acquire(
     context: IExecutionContext,

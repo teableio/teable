@@ -4,7 +4,9 @@ import {
   v2CoreTokens,
   TableId,
   RecordId,
+  RecordSearch,
   TableByIdSpec,
+  FieldId,
   PageLimit,
   PageOffset,
   OffsetPagination,
@@ -246,11 +248,37 @@ export const DebugDataLive = Layer.effect(
             const offsetResult = PageOffset.create(offset);
             if (offsetResult.isErr()) throw offsetResult.error;
             const pagination = OffsetPagination.create(limitResult.value, offsetResult.value);
+            const search =
+              options?.search !== undefined
+                ? {
+                    search: RecordSearch.fromTuple([
+                      options.search,
+                      options.searchFieldKeys ?? '',
+                      options.hideNotMatchRow ?? true,
+                    ]),
+                  }
+                : undefined;
+            const searchAccessPath =
+              options?.searchAccessPath?.kind === 'generated_tsvector'
+                ? {
+                    kind: 'generated_tsvector' as const,
+                    generatedColumnName: options.searchAccessPath.generatedColumnName,
+                    languageConfig: options.searchAccessPath.languageConfig,
+                    searchScope: options.searchAccessPath.searchScope,
+                    coveredFieldIds: options.searchAccessPath.coveredFieldIds.map((fieldId) => {
+                      const result = FieldId.create(fieldId);
+                      if (result.isErr()) throw result.error;
+                      return result.value;
+                    }),
+                  }
+                : options?.searchAccessPath;
 
             // 3. Query records
             const queryResult = await recordQueryRepo.find(context, table, undefined, {
               mode: options?.mode ?? 'stored',
               pagination,
+              search,
+              searchAccessPath,
             });
             if (queryResult.isErr()) throw queryResult.error;
 

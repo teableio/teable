@@ -1,14 +1,27 @@
 import { v2DataDbTokens, v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import {
-  TableRecordQueryBuilderManager,
+  getTablePhysicalName,
+  makePhysicalTableSql,
+  mergeSearchVectorCoverage,
+  PostgresTableSearchVectorAdvisor,
+  registerV2TableOpsPostgresAdapter,
+  type AnalyzeTableSearchVectorResult,
+  type UnknownPostgresDatabase,
+} from '@teable/v2-adapter-table-query-ops-postgres';
+import {
+  type TableRecordQueryBuilderManager,
   v2RecordRepositoryPostgresTokens,
 } from '@teable/v2-adapter-table-repository-postgres';
-import { registerV2TableOpsPostgresAdapter } from '@teable/v2-adapter-table-query-ops-postgres';
 import {
   ActorId,
   buildRecordConditionSpec,
   FieldId,
   FieldType,
+  OffsetPagination,
+  PageLimit,
+  PageOffset,
+  RecordSearch,
+  TableQueryTraceAttributes,
   sanitizeRecordFilter,
   TableByIdSpec,
   TableId,
@@ -17,6 +30,8 @@ import {
   type FormulaField,
   type ICommandBus,
   type IExecutionContext,
+  type ITableMapper,
+  type ITableRecordQueryRepository,
   type ITableRepository,
   type ITracer,
   type Table,
@@ -28,6 +43,7 @@ import {
 } from '@teable/v2-formula-sql-pg';
 import {
   AnalyzeAndRecommendTableQueryCommand,
+  chooseSearchVectorValidationNextAction,
   type AnalyzeAndRecommendTableQueryResult,
   buildSavedViewConfigObservation,
   planRecommendedIndexSet,
@@ -39,7 +55,10 @@ import {
   type ExecutablePhase1RemediationKind,
   type IndexSetPlannerCandidate,
   type TableQueryObservationWindowInput,
+  type TableQueryObservationReader,
   type TableQueryRemediationTask,
+  type TableSearchVectorReconciler,
+  v2TableOpsTokens,
 } from '@teable/v2-table-query-ops';
 import { Effect, Layer } from 'effect';
 import { CompiledQuery, sql, type Kysely } from 'kysely';
@@ -54,8 +73,19 @@ import {
   type TableQueryOpsAnalyzeSavedViewsResult,
   type TableQueryOpsExecuteRecommendationsInput,
   type TableQueryOpsExecuteRecommendationsResult,
+  type TableQueryOpsExecuteSearchVectorInput,
+  type TableQueryOpsExecuteSearchVectorResult,
   type TableQueryOpsExplainSavedViewsInput,
   type TableQueryOpsExplainSavedViewsResult,
+  type TableQueryOpsSearchVectorTempTableValidationResult,
+  type TableQueryOpsSearchVectorTempTableValidationScope,
+  type TableQueryOpsValidateSearchVectorTempTableInput,
+  type TableQueryOpsAnalyzeSearchVectorsInput,
+  type TableQueryOpsAnalyzeSearchVectorsResult,
+  type TableQueryOpsObservabilitySchemaResult,
+  type TableQueryOpsSignozDashboardTemplateResult,
+  type TableQueryOpsSearchVectorRecommendationSummary,
+  type TableQueryOpsScopedSearchIndexRecommendationSummary,
   type TableQueryOpsFormulaEvidenceSummary,
   type TableQueryOpsCoverageReportSummary,
   type TableQueryOpsIndexCandidateSummary,
@@ -76,6 +106,244 @@ import {
 
 type UnknownRow = Record<string, unknown>;
 
+const tableQueryOpsObservabilitySchema: TableQueryOpsObservabilitySchemaResult = {
+  spans: [
+    {
+      name: 'teable.table.query.list_records',
+      layer: 'application',
+      purpose: 'End-to-end v2 list records query, including search/filter/sort/group shape',
+      attributes: [
+        TableQueryTraceAttributes.TABLE_ID,
+        TableQueryTraceAttributes.VIEW_ID,
+        TableQueryTraceAttributes.QUERY_KIND,
+        TableQueryTraceAttributes.QUERY_SOURCE,
+        TableQueryTraceAttributes.SEARCH_ACCESS_PATH,
+        TableQueryTraceAttributes.SEARCH_MODE,
+      ],
+    },
+    {
+      name: 'teable.table.search.resolve_access_path',
+      layer: 'application',
+      purpose: 'Search access path decision and fallback reason',
+      attributes: [
+        TableQueryTraceAttributes.SEARCH_ACCESS_PATH,
+        TableQueryTraceAttributes.SEARCH_MODE,
+        TableQueryTraceAttributes.SEARCH_SCOPE,
+        TableQueryTraceAttributes.SEARCH_FALLBACK_REASON,
+        TableQueryTraceAttributes.SEARCH_VALUE_LENGTH_BUCKET,
+      ],
+    },
+    {
+      name: 'teable.table.query.db.records',
+      layer: 'repository',
+      purpose: 'Parent span for the records SQL query; pg auto spans should be children',
+      attributes: [
+        TableQueryTraceAttributes.TABLE_ID,
+        TableQueryTraceAttributes.QUERY_KIND,
+        TableQueryTraceAttributes.SEARCH_ACCESS_PATH,
+      ],
+    },
+    {
+      name: 'teable.table.query.db.count',
+      layer: 'repository',
+      purpose: 'Parent span for the optional count SQL query',
+      attributes: [
+        TableQueryTraceAttributes.TABLE_ID,
+        TableQueryTraceAttributes.QUERY_KIND,
+        TableQueryTraceAttributes.QUERY_INCLUDE_TOTAL,
+      ],
+    },
+    {
+      name: 'teable.table_query_ops.search_vector.analyze',
+      layer: 'advisor',
+      purpose: 'Admin search-vector advisor analysis and plan validation',
+      attributes: [
+        TableQueryTraceAttributes.TABLE_ID,
+        TableQueryTraceAttributes.SEARCH_LANGUAGE_CONFIG,
+        TableQueryTraceAttributes.SEARCH_VALUE_LENGTH_BUCKET,
+      ],
+    },
+    {
+      name: 'teable.table_query_ops.search_vector.execute',
+      layer: 'admin',
+      purpose: 'Explicit admin search-vector DDL execution flow',
+      attributes: [
+        TableQueryTraceAttributes.TABLE_ID,
+        TableQueryTraceAttributes.SEARCH_VECTOR_COLUMN,
+        TableQueryTraceAttributes.SEARCH_INDEX_NAME,
+      ],
+    },
+  ],
+  metrics: [
+    {
+      name: 'teable.table_query.requests.total',
+      type: 'counter',
+      purpose: 'Low-cardinality table query request count',
+      safeAttributes: [
+        TableQueryTraceAttributes.QUERY_KIND,
+        TableQueryTraceAttributes.QUERY_SOURCE,
+        TableQueryTraceAttributes.SEARCH_ACCESS_PATH,
+        TableQueryTraceAttributes.SEARCH_MODE,
+      ],
+    },
+    {
+      name: 'teable.table_query.errors.total',
+      type: 'counter',
+      purpose: 'Low-cardinality table query error count',
+      safeAttributes: [
+        TableQueryTraceAttributes.QUERY_KIND,
+        TableQueryTraceAttributes.SEARCH_ACCESS_PATH,
+        TableQueryTraceAttributes.ERROR_KIND,
+      ],
+    },
+    {
+      name: 'teable.table_query.duration.ms',
+      type: 'histogram',
+      purpose: 'Application-level table query duration',
+      safeAttributes: [
+        TableQueryTraceAttributes.QUERY_KIND,
+        TableQueryTraceAttributes.SEARCH_ACCESS_PATH,
+        TableQueryTraceAttributes.SEARCH_MODE,
+      ],
+    },
+    {
+      name: 'teable.table_query.search.fallback.total',
+      type: 'counter',
+      purpose: 'Generated-search-vector fallback decisions',
+      safeAttributes: [
+        TableQueryTraceAttributes.SEARCH_ACCESS_PATH,
+        TableQueryTraceAttributes.SEARCH_FALLBACK_REASON,
+      ],
+    },
+    {
+      name: 'teable.table_query.search.validation.total',
+      type: 'counter',
+      purpose: 'Search-vector advisor and execution validation attempts',
+      safeAttributes: [
+        TableQueryTraceAttributes.QUERY_SOURCE,
+        TableQueryTraceAttributes.SEARCH_LANGUAGE_CONFIG,
+        TableQueryTraceAttributes.ERROR_KIND,
+      ],
+    },
+    {
+      name: 'teable.table_query.search.cost_delta_pct',
+      type: 'histogram',
+      purpose: 'Search-vector plan-validation cost delta percentage',
+      safeAttributes: [
+        TableQueryTraceAttributes.QUERY_SOURCE,
+        TableQueryTraceAttributes.SEARCH_LANGUAGE_CONFIG,
+      ],
+    },
+  ],
+  traceOnlyAttributes: [
+    TableQueryTraceAttributes.SPACE_ID,
+    TableQueryTraceAttributes.BASE_ID,
+    TableQueryTraceAttributes.TABLE_ID,
+    TableQueryTraceAttributes.VIEW_ID,
+    TableQueryTraceAttributes.QUERY_SHAPE_HASH,
+    TableQueryTraceAttributes.SEARCH_VECTOR_COLUMN,
+    TableQueryTraceAttributes.SEARCH_INDEX_NAME,
+  ],
+  redactionRules: [
+    'Do not record raw search values; use teable.search.value_length_bucket.',
+    'Do not record filter literals or raw SQL parameters.',
+    'Do not add table/base/space IDs to metrics unless TABLE_QUERY_OBSERVABILITY_TABLE_IDS allows the table.',
+  ],
+  environment: {
+    tableIdMetricAllowlist: 'TABLE_QUERY_OBSERVABILITY_TABLE_IDS',
+  },
+};
+
+const tableQueryOpsSignozDashboardTemplate: TableQueryOpsSignozDashboardTemplateResult = {
+  dashboards: [
+    {
+      title: 'Table Query Search API RED',
+      panels: [
+        {
+          title: 'Search request rate by access path',
+          signal: 'metrics',
+          query: 'rate(teable.table_query.requests.total{teable.query.kind="search"}[5m])',
+          groupBy: [
+            TableQueryTraceAttributes.SEARCH_ACCESS_PATH,
+            TableQueryTraceAttributes.SEARCH_MODE,
+          ],
+        },
+        {
+          title: 'Search p95 duration',
+          signal: 'metrics',
+          query: 'p95(teable.table_query.duration.ms{teable.query.kind="search"})',
+          groupBy: [TableQueryTraceAttributes.SEARCH_ACCESS_PATH],
+        },
+        {
+          title: 'Search error rate',
+          signal: 'metrics',
+          query: 'rate(teable.table_query.errors.total{teable.query.kind="search"}[5m])',
+          groupBy: [TableQueryTraceAttributes.ERROR_KIND],
+        },
+      ],
+    },
+    {
+      title: 'Generated Search Vector Rollout',
+      panels: [
+        {
+          title: 'Fallback rate',
+          signal: 'metrics',
+          query: 'rate(teable.table_query.search.fallback.total[5m])',
+          groupBy: [TableQueryTraceAttributes.SEARCH_FALLBACK_REASON],
+        },
+        {
+          title: 'Validation cost delta',
+          signal: 'metrics',
+          query: 'avg(teable.table_query.search.cost_delta_pct)',
+          groupBy: [TableQueryTraceAttributes.SEARCH_LANGUAGE_CONFIG],
+        },
+      ],
+    },
+    {
+      title: 'Trace Drilldown',
+      panels: [
+        {
+          title: 'Slow search traces',
+          signal: 'traces',
+          query:
+            'span.name="teable.table.query.list_records" AND teable.query.kind="search" AND duration_ms > 1500',
+          groupBy: [
+            TableQueryTraceAttributes.TABLE_ID,
+            TableQueryTraceAttributes.SEARCH_ACCESS_PATH,
+          ],
+        },
+      ],
+    },
+  ],
+  alerts: [
+    {
+      name: 'Search p95 latency high',
+      signal: 'metrics',
+      query: 'p95(teable.table_query.duration.ms{teable.query.kind="search"})',
+      condition: '> 1500ms for 10m',
+    },
+    {
+      name: 'Generated search vector fallback spike',
+      signal: 'metrics',
+      query: 'rate(teable.table_query.search.fallback.total[5m])',
+      condition: '> 5% of search requests for 10m',
+    },
+    {
+      name: 'Search vector validation failures',
+      signal: 'metrics',
+      query: 'rate(teable.table_query.search.validation.total{teable.error.kind!=""}[5m])',
+      condition: '> 0 for 10m',
+    },
+  ],
+  drilldownFilters: [
+    TableQueryTraceAttributes.TABLE_ID,
+    TableQueryTraceAttributes.VIEW_ID,
+    TableQueryTraceAttributes.SEARCH_ACCESS_PATH,
+    TableQueryTraceAttributes.SEARCH_MODE,
+    TableQueryTraceAttributes.SEARCH_VALUE_LENGTH_BUCKET,
+  ],
+};
+
 type SavedViewRow = {
   readonly view_id: string;
   readonly space_id: string | null;
@@ -85,6 +353,10 @@ type SavedViewRow = {
   readonly sort: string | null;
   readonly group: string | null;
   readonly last_modified_time: Date | string | null;
+};
+
+type ScopeTableRow = {
+  readonly table_id: string;
 };
 
 type CountRow = {
@@ -168,6 +440,31 @@ type CompiledSql = {
 };
 
 const MIN_RECOMMENDED_COST_IMPROVEMENT_PCT = 20;
+const SEARCH_VECTOR_TEMP_TABLE_PREFIX = '__tqops_tmp_tsv_';
+
+type SearchVectorTempQueryPathResult = {
+  readonly durationMs: number;
+  readonly total: number;
+  readonly returnedCount: number;
+  readonly recordIds: readonly string[];
+};
+
+type SearchVectorTempPlanEvidence = {
+  readonly explainStatus: 'validated' | 'failed';
+  readonly costBefore?: number;
+  readonly costAfter?: number;
+  readonly costDeltaPct?: number;
+  readonly planNodeBefore?: string;
+  readonly planNodeAfter?: string;
+  readonly usesGinIndex: boolean;
+  readonly ginExpected: boolean;
+  readonly ginDecisionReason: string;
+  readonly indexName: string;
+  readonly error?: string;
+};
+
+type SearchVectorTempSampleResult =
+  TableQueryOpsSearchVectorTempTableValidationResult['samples'][number];
 
 const toNumber = (value: unknown): number => {
   if (typeof value === 'bigint') return Number(value);
@@ -1210,6 +1507,12 @@ const viewScopeSql = (scope: TableQueryOpsScopeInput) => sql`
   ${scope.tableId ? sql`AND v.table_id = ${scope.tableId}` : sql``}
 `;
 
+const tableScopeSql = (scope: TableQueryOpsScopeInput) => sql`
+  ${scope.spaceId ? sql`AND b.space_id = ${scope.spaceId}` : sql``}
+  ${scope.baseId ? sql`AND tm.base_id = ${scope.baseId}` : sql``}
+  ${scope.tableId ? sql`AND tm.id = ${scope.tableId}` : sql``}
+`;
+
 const createContext = (container: {
   isRegistered(token: unknown): boolean;
   resolve<T>(token: unknown): T;
@@ -1225,6 +1528,213 @@ const createContext = (container: {
       : {}),
   };
   return context;
+};
+
+const quoteLiteral = (value: string): string => `'${value.replace(/'/g, "''")}'`;
+
+const buildSearchVectorGeneratedExpression = (
+  languageConfig: string,
+  fields: ReadonlyArray<{ readonly fieldDbName?: string }>
+): string => {
+  const document = fields
+    .map((field) => field.fieldDbName)
+    .filter((fieldDbName): fieldDbName is string => Boolean(fieldDbName))
+    .map((fieldDbName) => `coalesce(${quoteIdentifier(fieldDbName)}::text, '')`)
+    .join(` || ' ' || `);
+  return `to_tsvector(${quoteLiteral(languageConfig)}::regconfig, ${document || quoteLiteral('')})`;
+};
+
+const makeTempSearchVectorTableName = (): string =>
+  `${SEARCH_VECTOR_TEMP_TABLE_PREFIX}${Date.now().toString(36)}_${Math.random()
+    .toString(36)
+    .slice(2, 8)}`.slice(0, 63);
+
+const makeTempSearchVectorIndexName = (): string =>
+  `idx${SEARCH_VECTOR_TEMP_TABLE_PREFIX}${Date.now().toString(36)}_${Math.random()
+    .toString(36)
+    .slice(2, 8)}`.slice(0, 63);
+
+const cloneTableWithDbTableName = (
+  table: Table,
+  tableMapper: ITableMapper,
+  dbTableName: string
+): Table => {
+  const dto = tableMapper.toDTO(table);
+  if (dto.isErr()) throw dto.error;
+  const cloned = tableMapper.toDomain({ ...dto.value, dbTableName });
+  if (cloned.isErr()) throw cloned.error;
+  return cloned.value;
+};
+
+const durationMsFrom = (startedAt: bigint): number =>
+  Number((process.hrtime.bigint() - startedAt) / BigInt(1_000_000));
+
+const sampleOverlap = (left: readonly string[], right: readonly string[]): number => {
+  if (!left.length || !right.length) return 0;
+  const rightSet = new Set(right);
+  return left.filter((id) => rightSet.has(id)).length;
+};
+
+const totalDeltaPct = (baseline: number, next: number): number =>
+  baseline > 0 ? Number((((next - baseline) / baseline) * 100).toFixed(4)) : 0;
+
+const durationDeltaPct = (baselineMs: number, nextMs: number): number =>
+  baselineMs > 0 ? Number((((nextMs - baselineMs) / baselineMs) * 100).toFixed(2)) : 0;
+
+const shouldExpectGinForSearchVectorSample = (input: {
+  readonly copiedRows: number;
+  readonly generatedTotal: number;
+}): boolean => {
+  if (input.copiedRows <= 0) return true;
+  return input.generatedTotal / input.copiedRows < 0.2;
+};
+
+const searchProbeLengthBucket = (search: string): 'none' | 'short' | 'medium' | 'long' => {
+  const length = search.trim().length;
+  if (length === 0) return 'none';
+  if (length < 3) return 'short';
+  if (length < 30) return 'medium';
+  return 'long';
+};
+
+const redactSearchVectorTempTableInput = (
+  input: TableQueryOpsValidateSearchVectorTempTableInput,
+  sampleSearches: readonly string[]
+): TableQueryOpsSearchVectorTempTableValidationScope => {
+  const { sampleSearches: _sampleSearches, ...scope } = input;
+  return {
+    ...scope,
+    ...(scope.connection ? { connection: '<redacted>' } : {}),
+    sampleSearchCount: sampleSearches.length,
+    sampleSearchLengthBuckets: sampleSearches.map(searchProbeLengthBucket),
+  };
+};
+
+const classifyTempSearchVectorSemantics = (input: {
+  readonly totalDeltaPctFromDefault: number;
+  readonly sampleOverlapWithDefault: number;
+  readonly defaultReturnedCount: number;
+  readonly generatedReturnedCount: number;
+}): SearchVectorTempSampleResult['llmReasonableness'] => {
+  const absDelta = Math.abs(input.totalDeltaPctFromDefault);
+  if (absDelta <= 1 && input.sampleOverlapWithDefault >= Math.min(3, input.defaultReturnedCount)) {
+    return 'reasonable';
+  }
+  if (input.generatedReturnedCount === 0 && input.defaultReturnedCount > 0) {
+    return 'semantic_drift';
+  }
+  if (absDelta > 20) {
+    return 'needs_language_config';
+  }
+  return 'manual_review';
+};
+
+const runTempSearchQuery = async (input: {
+  readonly context: IExecutionContext;
+  readonly recordQueryRepo: ITableRecordQueryRepository;
+  readonly table: Table;
+  readonly search: string;
+  readonly queryLimit: number;
+  readonly searchAccessPath:
+    | { readonly kind: 'default' }
+    | {
+        readonly kind: 'generated_tsvector';
+        readonly generatedColumnName: string;
+        readonly languageConfig: string;
+        readonly searchScope: 'all_fields' | 'selected_fields';
+        readonly coveredFieldIds: readonly FieldId[];
+      };
+}): Promise<SearchVectorTempQueryPathResult> => {
+  const limit = PageLimit.create(input.queryLimit);
+  if (limit.isErr()) throw limit.error;
+  const offset = PageOffset.create(0);
+  if (offset.isErr()) throw offset.error;
+  const pagination = OffsetPagination.create(limit.value, offset.value);
+  const startedAt = process.hrtime.bigint();
+  const result = await input.recordQueryRepo.find(input.context, input.table, undefined, {
+    mode: 'stored',
+    pagination,
+    search: {
+      search: RecordSearch.fromTuple([input.search, '', true]),
+    },
+    searchAccessPath: input.searchAccessPath,
+  });
+  const durationMs = durationMsFrom(startedAt);
+  if (result.isErr()) throw result.error;
+  return {
+    durationMs,
+    total: result.value.total,
+    returnedCount: result.value.records.length,
+    recordIds: result.value.records.map((record) => record.id),
+  };
+};
+
+const explainTempSearchVectorPlans = async (input: {
+  readonly db: Kysely<UnknownPostgresDatabase>;
+  readonly schemaName: string;
+  readonly tableName: string;
+  readonly fields: ReadonlyArray<{ readonly fieldDbName?: string }>;
+  readonly generatedColumnName: string;
+  readonly indexName: string;
+  readonly languageConfig: string;
+  readonly search: string;
+  readonly ginExpected: boolean;
+}): Promise<SearchVectorTempPlanEvidence> => {
+  try {
+    const tableSql = makePhysicalTableSql(input.schemaName, input.tableName);
+    const pattern = `%${input.search.replace(/[%_\\]/g, (match) => `\\${match}`)}%`;
+    const fields = input.fields
+      .map((field) => field.fieldDbName)
+      .filter((fieldDbName): fieldDbName is string => Boolean(fieldDbName));
+    const conditions = fields.map(
+      (fieldDbName) =>
+        sql`(${sql.raw(`${quoteIdentifier('t')}.${quoteIdentifier(fieldDbName)}`)})::text ILIKE ${pattern} ESCAPE '\\'`
+    );
+    const where = conditions.reduce((acc, condition) => sql`${acc} OR ${condition}`, sql`false`);
+    const beforeRows = await sql<ExplainRow>`
+      EXPLAIN (FORMAT JSON)
+      SELECT 1
+      FROM ${sql.raw(tableSql)} AS ${sql.raw(quoteIdentifier('t'))}
+      WHERE ${where}
+      LIMIT 100
+    `.execute(input.db);
+    const afterRows = await sql<ExplainRow>`
+      EXPLAIN (FORMAT JSON)
+      SELECT 1
+      FROM ${sql.raw(tableSql)} AS ${sql.raw(quoteIdentifier('t'))}
+      WHERE ${sql.raw(`${quoteIdentifier('t')}.${quoteIdentifier(input.generatedColumnName)}`)}
+        @@ websearch_to_tsquery(${input.languageConfig}::regconfig, ${input.search})
+      LIMIT 100
+    `.execute(input.db);
+    const before = parseExplainPlan(beforeRows.rows[0]?.['QUERY PLAN']);
+    const after = parseExplainPlan(afterRows.rows[0]?.['QUERY PLAN']);
+    return {
+      explainStatus: 'validated',
+      costBefore: before.totalCost,
+      costAfter: after.totalCost,
+      costDeltaPct: explainCostDeltaPct(before.totalCost, after.totalCost),
+      planNodeBefore: before.nodeType,
+      planNodeAfter: after.nodeType,
+      usesGinIndex: after.indexName === input.indexName,
+      ginExpected: input.ginExpected,
+      ginDecisionReason:
+        after.indexName === input.indexName
+          ? 'planner_used_real_gin_index'
+          : input.ginExpected
+            ? 'selective_sample_expected_gin_but_planner_did_not_use_it'
+            : 'common_term_high_match_rate_sequential_scan_is_expected',
+      indexName: input.indexName,
+    };
+  } catch (error) {
+    return {
+      explainStatus: 'failed',
+      usesGinIndex: false,
+      ginExpected: input.ginExpected,
+      ginDecisionReason: 'explain_failed',
+      indexName: input.indexName,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
 };
 
 const parseObservationInput = (raw: unknown): TableQueryObservationWindow => {
@@ -1440,6 +1950,303 @@ export const TableQueryOpsLive = Layer.effect(
         ),
         analyses,
       };
+    };
+
+    const loadScopeTableIds = async (
+      input: TableQueryOpsScopeInput,
+      limit = 100
+    ): Promise<string[]> => {
+      if (input.tableId) return [input.tableId];
+      const result = await sql<ScopeTableRow>`
+        SELECT tm.id AS table_id
+        FROM table_meta tm
+        JOIN base b ON b.id = tm.base_id
+        WHERE tm.deleted_time IS NULL
+          AND b.deleted_time IS NULL
+          ${tableScopeSql(input)}
+        ORDER BY tm.last_modified_time DESC
+        LIMIT ${limit}
+      `.execute(metaDb);
+      return result.rows.map((row) => row.table_id).filter(Boolean);
+    };
+
+    const analyzeSearchVectorsUnsafe = async (
+      input: TableQueryOpsAnalyzeSearchVectorsInput
+    ): Promise<TableQueryOpsAnalyzeSearchVectorsResult> => {
+      await ensureRegistered(input.ensureSchema ?? true);
+      const context = createContext(container);
+      const tableRepository = container.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+      const tableIds = await loadScopeTableIds(input, input.limit ?? 100);
+      const advisor = new PostgresTableSearchVectorAdvisor(
+        dataDb as Kysely<UnknownPostgresDatabase>
+      );
+      const observationReader = container.isRegistered(v2TableOpsTokens.observationReader)
+        ? container.resolve<TableQueryObservationReader>(v2TableOpsTokens.observationReader)
+        : undefined;
+      const results: AnalyzeTableSearchVectorResult[] = [];
+
+      for (const tableIdValue of tableIds) {
+        const tableId = TableId.create(tableIdValue);
+        if (tableId.isErr()) continue;
+        const tableResult = await tableRepository.findOne(
+          context,
+          TableByIdSpec.create(tableId.value)
+        );
+        if (tableResult.isErr()) continue;
+        const observationResult = observationReader
+          ? await observationReader.findRecent(context, {
+              tableId: tableIdValue,
+              since: new Date(Date.now() - 24 * 60 * 60 * 1000),
+              limit: 1_000,
+            })
+          : undefined;
+        results.push(
+          await advisor.analyze(context, {
+            table: tableResult.value,
+            fieldIds: input.fieldIds,
+            languageConfig: input.languageConfig,
+            searchProbe: input.sampleSearch,
+            includeResultSamples: input.includeResultSamples,
+            sampleResultLimit: input.sampleResultLimit,
+            maxRecommendations: input.maxRecommendations,
+            observations: observationResult?.isOk() ? observationResult.value : [],
+          })
+        );
+      }
+
+      const aggregate = mergeSearchVectorCoverage(results);
+      return {
+        scope: input,
+        tableCount: tableIds.length,
+        searchProbeLengthBucket: aggregate.searchProbeLengthBucket,
+        scannedFieldCount: aggregate.scannedFieldCount,
+        coveredFieldCount: aggregate.coveredFieldCount,
+        skippedFieldCount: aggregate.skippedFieldCount,
+        recommendations: results.flatMap(
+          (result) => result.recommendations as TableQueryOpsSearchVectorRecommendationSummary[]
+        ),
+        scopeHeatReports: results.flatMap((result) =>
+          result.scopeHeatReport ? [result.scopeHeatReport] : []
+        ),
+        scopedExpressionRecommendations: results.flatMap(
+          (result) =>
+            result.scopedExpressionRecommendations as TableQueryOpsScopedSearchIndexRecommendationSummary[]
+        ),
+        coverageReport: aggregate.coverageReport,
+      };
+    };
+
+    const validateSearchVectorTempTableUnsafe = async (
+      input: TableQueryOpsValidateSearchVectorTempTableInput
+    ): Promise<TableQueryOpsSearchVectorTempTableValidationResult> => {
+      if (!input.tableId) {
+        throw new Error('table-query-ops validate-search-vector-temp-table requires --table-id');
+      }
+      const sampleSearches = input.sampleSearches.map((sample) => sample.trim()).filter(Boolean);
+      if (!sampleSearches.length) {
+        throw new Error(
+          'table-query-ops validate-search-vector-temp-table requires at least one --sample-search or --sample-searches value'
+        );
+      }
+      await ensureRegistered(input.ensureSchema ?? true);
+      const context = createContext(container);
+      const tableRepository = container.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+      const tableMapper = container.resolve<ITableMapper>(v2CoreTokens.tableMapper);
+      const recordQueryRepo = container.resolve<ITableRecordQueryRepository>(
+        v2CoreTokens.tableRecordQueryRepository
+      );
+      const tableId = TableId.create(input.tableId);
+      if (tableId.isErr()) throw tableId.error;
+      const tableResult = await tableRepository.findOne(
+        context,
+        TableByIdSpec.create(tableId.value)
+      );
+      if (tableResult.isErr()) throw tableResult.error;
+      const table = tableResult.value;
+      const physical = getTablePhysicalName(table);
+      if (physical.isErr()) throw physical.error;
+
+      const advisor = new PostgresTableSearchVectorAdvisor(
+        dataDb as Kysely<UnknownPostgresDatabase>
+      );
+      const analysis = await advisor.analyze(context, {
+        table,
+        fieldIds: input.fieldIds,
+        languageConfig: input.languageConfig,
+        searchProbe: sampleSearches[0],
+        includeResultSamples: false,
+        maxRecommendations: 1,
+      });
+      const recommendation = analysis.recommendations[0];
+      if (!recommendation) {
+        throw new Error('No generated search vector recommendation was produced for this table');
+      }
+      const coveredFields = recommendation.coveredFields.filter((field) => field.fieldDbName);
+      if (!coveredFields.length) {
+        throw new Error('No searchable fields were covered by the generated search vector');
+      }
+
+      const tempTableName = makeTempSearchVectorTableName();
+      const tempIndexName = makeTempSearchVectorIndexName();
+      const tempFullName = `${physical.value.schema}.${tempTableName}`;
+      const tempTableSql = makePhysicalTableSql(physical.value.schema, tempTableName);
+      const sourceTableSql = makePhysicalTableSql(physical.value.schema, physical.value.tableName);
+      const rowLimit =
+        typeof input.rowLimit === 'number' && input.rowLimit > 0 ? input.rowLimit : undefined;
+      let copiedRows = 0;
+      let cleanup = !(input.keepTempTable ?? false);
+
+      try {
+        await sql
+          .raw(
+            rowLimit
+              ? `CREATE UNLOGGED TABLE ${tempTableSql} AS SELECT * FROM ${sourceTableSql} LIMIT ${rowLimit}`
+              : `CREATE UNLOGGED TABLE ${tempTableSql} AS SELECT * FROM ${sourceTableSql}`
+          )
+          .execute(dataDb);
+        const countResult = await sql<{ count: string }>`
+          SELECT COUNT(*)::text AS count FROM ${sql.raw(tempTableSql)}
+        `.execute(dataDb);
+        copiedRows = Number(countResult.rows[0]?.count ?? '0');
+
+        const expression = buildSearchVectorGeneratedExpression(
+          recommendation.languageConfig,
+          coveredFields
+        );
+        await sql
+          .raw(
+            `ALTER TABLE ${tempTableSql} ADD COLUMN ${quoteIdentifier(
+              recommendation.generatedColumnName
+            )} tsvector GENERATED ALWAYS AS (${expression}) STORED`
+          )
+          .execute(dataDb);
+        await sql
+          .raw(
+            `CREATE INDEX ${quoteIdentifier(tempIndexName)} ON ${tempTableSql} USING GIN (${quoteIdentifier(
+              recommendation.generatedColumnName
+            )})`
+          )
+          .execute(dataDb);
+        await sql.raw(`ANALYZE ${tempTableSql}`).execute(dataDb);
+
+        const tempTable = cloneTableWithDbTableName(table, tableMapper, tempFullName);
+        const coveredFieldIds = coveredFields.map((field) => {
+          const fieldId = FieldId.create(field.fieldId);
+          if (fieldId.isErr()) throw fieldId.error;
+          return fieldId.value;
+        });
+        const queryLimit =
+          typeof input.queryLimit === 'number' && input.queryLimit > 0 ? input.queryLimit : 20;
+        const samples: SearchVectorTempSampleResult[] = [];
+        for (const search of sampleSearches) {
+          const defaultPath = await runTempSearchQuery({
+            context,
+            recordQueryRepo,
+            table: tempTable,
+            search,
+            queryLimit,
+            searchAccessPath: { kind: 'default' },
+          });
+          const generatedTsvectorPath = await runTempSearchQuery({
+            context,
+            recordQueryRepo,
+            table: tempTable,
+            search,
+            queryLimit,
+            searchAccessPath: {
+              kind: 'generated_tsvector',
+              generatedColumnName: recommendation.generatedColumnName,
+              languageConfig: recommendation.languageConfig,
+              searchScope: recommendation.searchScope,
+              coveredFieldIds,
+            },
+          });
+          const sampleTotalDeltaPct = totalDeltaPct(defaultPath.total, generatedTsvectorPath.total);
+          const overlap = sampleOverlap(defaultPath.recordIds, generatedTsvectorPath.recordIds);
+          const ginExpected = shouldExpectGinForSearchVectorSample({
+            copiedRows,
+            generatedTotal: generatedTsvectorPath.total,
+          });
+          const planEvidence = await explainTempSearchVectorPlans({
+            db: dataDb as Kysely<UnknownPostgresDatabase>,
+            schemaName: physical.value.schema,
+            tableName: tempTableName,
+            fields: coveredFields,
+            generatedColumnName: recommendation.generatedColumnName,
+            indexName: tempIndexName,
+            languageConfig: recommendation.languageConfig,
+            search,
+            ginExpected,
+          });
+          samples.push({
+            searchProbeLengthBucket: searchProbeLengthBucket(search),
+            defaultPath,
+            generatedTsvectorPath,
+            totalDeltaFromDefault: generatedTsvectorPath.total - defaultPath.total,
+            totalDeltaPctFromDefault: sampleTotalDeltaPct,
+            durationDeltaPctFromDefault: durationDeltaPct(
+              defaultPath.durationMs,
+              generatedTsvectorPath.durationMs
+            ),
+            sampleOverlapWithDefault: overlap,
+            planEvidence,
+            llmReasonableness: classifyTempSearchVectorSemantics({
+              totalDeltaPctFromDefault: sampleTotalDeltaPct,
+              sampleOverlapWithDefault: overlap,
+              defaultReturnedCount: defaultPath.returnedCount,
+              generatedReturnedCount: generatedTsvectorPath.returnedCount,
+            }),
+          });
+        }
+        const ginValidatedSampleCount = samples.filter(
+          (sample) => sample.planEvidence.usesGinIndex
+        ).length;
+        const allSelectiveSamplesUsedGinIndex = samples.every(
+          (sample) => !sample.planEvidence.ginExpected || sample.planEvidence.usesGinIndex
+        );
+        const allSamplesImprovedDuration = samples.every(
+          (sample) => sample.generatedTsvectorPath.durationMs < sample.defaultPath.durationMs
+        );
+        const hasMaterialSemanticDrift = samples.some((sample) =>
+          ['semantic_drift', 'needs_language_config'].includes(sample.llmReasonableness)
+        );
+        const nextAction = chooseSearchVectorValidationNextAction(samples);
+        cleanup = !(input.keepTempTable ?? false);
+        return {
+          scope: redactSearchVectorTempTableInput(input, sampleSearches),
+          tableId: input.tableId,
+          baseId: table.baseId().toString(),
+          languageConfig: recommendation.languageConfig,
+          candidateKey: recommendation.candidateKey,
+          generatedColumnName: recommendation.generatedColumnName,
+          recommendedIndexName: recommendation.indexName,
+          tempIndexName,
+          tempTable: {
+            schemaName: physical.value.schema,
+            tableName: tempTableName,
+            fullName: tempFullName,
+            sourceTableName: `${physical.value.schema}.${physical.value.tableName}`,
+            copiedRows,
+            ...(rowLimit ? { rowLimit } : {}),
+            kept: input.keepTempTable ?? false,
+          },
+          coveredFields: recommendation.coveredFields,
+          skippedFields: recommendation.skippedFields,
+          samples,
+          summary: {
+            sampleCount: samples.length,
+            ginValidatedSampleCount,
+            allSelectiveSamplesUsedGinIndex,
+            allSamplesImprovedDuration,
+            hasMaterialSemanticDrift,
+            nextAction,
+          },
+        };
+      } finally {
+        if (cleanup) {
+          await sql.raw(`DROP TABLE IF EXISTS ${tempTableSql}`).execute(dataDb);
+        }
+      }
     };
 
     const rowOrderColumnExists = async (table: Table, viewId: string): Promise<boolean> => {
@@ -2079,6 +2886,99 @@ export const TableQueryOpsLive = Layer.effect(
           catch: (error) => CliError.fromUnknown(error),
         }),
 
+      analyzeSearchVectors: (
+        input: TableQueryOpsAnalyzeSearchVectorsInput
+      ): Effect.Effect<TableQueryOpsAnalyzeSearchVectorsResult, CliError> =>
+        Effect.tryPromise({
+          try: () => analyzeSearchVectorsUnsafe(input),
+          catch: (error) => CliError.fromUnknown(error),
+        }),
+
+      explainSearchVectors: (
+        input: TableQueryOpsAnalyzeSearchVectorsInput
+      ): Effect.Effect<TableQueryOpsAnalyzeSearchVectorsResult, CliError> =>
+        Effect.tryPromise({
+          try: () => {
+            if (!input.sampleSearch?.trim()) {
+              throw new Error('table-query-ops explain-search-vectors requires --sample-search');
+            }
+            return analyzeSearchVectorsUnsafe(input);
+          },
+          catch: (error) => CliError.fromUnknown(error),
+        }),
+
+      executeSearchVector: (
+        input: TableQueryOpsExecuteSearchVectorInput
+      ): Effect.Effect<TableQueryOpsExecuteSearchVectorResult, CliError> =>
+        Effect.tryPromise({
+          try: async () => {
+            if (!input.tableId) {
+              throw new Error('table-query-ops execute-search-vector requires --table-id');
+            }
+            const dryRun = !(input.execute ?? false);
+            if (dryRun) {
+              const analysis = await analyzeSearchVectorsUnsafe({
+                tableId: input.tableId,
+                fieldIds: input.fieldIds,
+                languageConfig: input.languageConfig,
+                sampleSearch: input.sampleSearch,
+                maxRecommendations: 1,
+              });
+              return {
+                scope: input,
+                dryRun,
+                action: 'dry_run',
+                result: analysis,
+              };
+            }
+            await ensureRegistered(input.ensureSchema ?? true);
+            const context = createContext(container);
+            const tableRepository = container.resolve<ITableRepository>(
+              v2CoreTokens.tableRepository
+            );
+            const tableId = TableId.create(input.tableId);
+            if (tableId.isErr()) throw tableId.error;
+            const tableResult = await tableRepository.findOne(
+              context,
+              TableByIdSpec.create(tableId.value)
+            );
+            if (tableResult.isErr()) throw tableResult.error;
+            if (!input.sampleSearch?.trim()) {
+              throw new Error(
+                'table-query-ops execute-search-vector --execute requires --sample-search'
+              );
+            }
+            const reconciler = container.resolve<TableSearchVectorReconciler>(
+              v2TableOpsTokens.searchVectorReconciler
+            );
+            const reconcileResult = await reconciler.reconcile(context, {
+              table: tableResult.value,
+              mode: input.mode ?? 'create',
+              fieldIds: input.fieldIds,
+              languageConfig: input.languageConfig,
+              searchProbe: input.sampleSearch,
+              validationMode: input.validationMode ?? 'real_ddl',
+              allowLargeTableRewrite: input.allowLargeTableRewrite,
+            });
+            if (reconcileResult.isErr()) throw reconcileResult.error;
+            return {
+              scope: input,
+              dryRun,
+              action: 'executed',
+              result: reconcileResult.value,
+            };
+          },
+          catch: (error) => CliError.fromUnknown(error),
+        }),
+
+      validateSearchVectorTempTable: (
+        input: TableQueryOpsValidateSearchVectorTempTableInput
+      ): Effect.Effect<TableQueryOpsSearchVectorTempTableValidationResult, CliError> =>
+        Effect.tryPromise({
+          try: () => validateSearchVectorTempTableUnsafe(input),
+          catch: (error) => CliError.fromUnknown(error),
+        }),
+
       analyzeObservation: (
         input: TableQueryOpsAnalyzeObservationInput
       ): Effect.Effect<TableQueryOpsAnalyzeObservationResult, CliError> =>
@@ -2126,6 +3026,14 @@ export const TableQueryOpsLive = Layer.effect(
           },
           catch: (error) => CliError.fromUnknown(error),
         }),
+
+      observabilitySchema: (): Effect.Effect<TableQueryOpsObservabilitySchemaResult, CliError> =>
+        Effect.succeed(tableQueryOpsObservabilitySchema),
+
+      signozDashboardTemplate: (): Effect.Effect<
+        TableQueryOpsSignozDashboardTemplateResult,
+        CliError
+      > => Effect.succeed(tableQueryOpsSignozDashboardTemplate),
     };
   })
 );

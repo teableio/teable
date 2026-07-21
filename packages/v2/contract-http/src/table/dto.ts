@@ -121,6 +121,42 @@ const conditionalRollupConfigSchema = z.object({
   condition: fieldConditionSchema,
 });
 
+/**
+ * Runtime compute metadata projected from the async computed outbox.
+ * Not field schema config — extends independently of options/meta.
+ */
+export const fieldComputeMetaDtoSchema = z.object({
+  status: z.enum(['idle', 'queued', 'running', 'failed']),
+  estimatedComplexity: z.number().optional(),
+  estimatedDirtyRecords: z.number().optional(),
+  startedAt: z.string().optional(),
+  lastDurationMs: z.number().optional(),
+  lastError: z
+    .object({
+      code: z.string().optional(),
+      message: z.string(),
+    })
+    .nullable()
+    .optional(),
+});
+
+export const tableComputeMetaDtoSchema = z.object({
+  status: z.enum(['idle', 'calculating']),
+  calculatingFieldCount: z.number(),
+  queuedFieldCount: z.number().optional(),
+  estimatedComplexity: z.number().optional(),
+  recentCompletions: z
+    .array(
+      z.object({
+        fieldId: z.string(),
+        durationMs: z.number(),
+        completedAt: z.string(),
+      })
+    )
+    .optional(),
+  computeMode: z.literal('server').optional(),
+});
+
 const baseFieldDtoSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -134,6 +170,8 @@ const baseFieldDtoSchema = z.object({
   isLookup: z.boolean().optional(),
   lookupOptions: lookupOptionsSchema.optional(),
   conditionalLookupOptions: conditionalLookupOptionsSchema.optional(),
+  /** Async computed activity for this field (formula/lookup/rollup recalculation). */
+  computeMeta: fieldComputeMetaDtoSchema.optional(),
 });
 
 const fieldColorSchema = z.enum(fieldColorValues);
@@ -437,6 +475,8 @@ export const tableDtoSchema = z.object({
   dbTableName: z.string().optional(),
   fields: z.array(fieldDtoSchema),
   views: z.array(viewDtoSchema),
+  /** Table-level async computed activity summary. */
+  computeMeta: tableComputeMetaDtoSchema.optional(),
 });
 
 export type ITableDto = z.infer<typeof tableDtoSchema>;

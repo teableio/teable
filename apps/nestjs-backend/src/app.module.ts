@@ -131,6 +131,9 @@ export const appModules = {
 
         return {
           connection: redis,
+          // Tests give short-lived app instances their own queue namespace so
+          // they don't consume each other's jobs; unset means the bull default.
+          prefix: process.env.BACKEND_QUEUE_PREFIX,
         };
       },
       inject: [ConfigService],

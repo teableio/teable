@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { RatingIcon } from '@teable/core';
-import { Check, DraggableHandle, MagicAi, Maximize2 } from '@teable/icons';
+import { Check, DraggableHandle, Loader2, MagicAi, Maximize2 } from '@teable/icons';
 import { useMemo } from 'react';
 import { useFieldStaticGetter } from '../../../hooks/use-field-static-getter';
 import { FIELD_TYPE_ORDER, getSpriteMap } from '../../../utils';
@@ -69,11 +69,18 @@ export const useGridIcons = () => {
         IconComponent: MagicAi,
       },
     ]);
+    const activityIcons = getSpriteMap([
+      {
+        type: 'calculating',
+        IconComponent: Loader2,
+      },
+    ]);
     return {
       ...columnHeaderIcons,
       ...rowHeaderIcons,
       ...ratingIcons,
       ...aiIcons,
+      ...activityIcons,
     };
   }, [getFieldStatic]);
 };

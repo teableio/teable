@@ -17,6 +17,7 @@ import {
   duplicateTableInputSchema,
   getRecordByIdInputSchema,
   getTableByIdInputSchema,
+  getComputeActivityInputSchema,
   importCsvInputSchema,
   importRecordsInputSchema,
   listBasesInputSchema,
@@ -59,6 +60,7 @@ import {
 } from './table/explainCommand';
 import { getRecordByIdOkResponseSchema } from './table/getRecordById';
 import { getTableByIdOkResponseSchema } from './table/getTableById';
+import { getComputeActivityOkResponseSchema } from './table/getComputeActivity';
 import { importCsvOkResponseSchema } from './table/importCsv';
 import { importRecordsOkResponseSchema } from './table/importRecords';
 import { listTableRecordsOkResponseSchema } from './table/listTableRecords';
@@ -91,6 +93,7 @@ const TABLES_EXPLAIN_DELETE_FIELD_PATH = '/tables/explainDeleteField';
 const TABLES_EXPLAIN_DELETE_TABLE_PATH = '/tables/explainDeleteTable';
 const TABLES_EXPLAIN_DELETE_RECORDS_PATH = '/tables/explainDeleteRecords';
 const TABLES_GET_PATH = '/tables/get';
+const TABLES_GET_COMPUTE_ACTIVITY_PATH = '/tables/getComputeActivity';
 const TABLES_GET_RECORD_PATH = '/tables/getRecord';
 const TABLES_IMPORT_CSV_PATH = '/tables/importCsv';
 const TABLES_IMPORT_RECORDS_PATH = '/tables/importRecords';
@@ -303,6 +306,16 @@ export const v2Contract: AnyContractRouter = {
       })
       .input(getTableByIdInputSchema)
       .output(getTableByIdOkResponseSchema),
+    getComputeActivity: oc
+      .route({
+        method: 'GET',
+        path: TABLES_GET_COMPUTE_ACTIVITY_PATH,
+        successStatus: 200,
+        summary: 'Get table compute activity and performance diagnostics',
+        tags: ['tables'],
+      })
+      .input(getComputeActivityInputSchema)
+      .output(getComputeActivityOkResponseSchema),
     getRecord: oc
       .route({
         method: 'GET',

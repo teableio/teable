@@ -12,12 +12,15 @@ import {
   FieldName,
   FormulaExpression,
   LinkFieldConfig,
+  NumberField,
   Table,
   TableAddFieldSpec,
   TableAddFieldsSpec,
   TableId,
+  TableRemoveFieldSpec,
   TableName,
   TableUpdateFieldHasErrorSpec,
+  TableUpdateFieldTypeSpec,
   UpdateLinkRelationshipSpec,
 } from '@teable/v2-core';
 import { describe, expect, it } from 'vitest';
@@ -837,6 +840,50 @@ describe('TableSchemaUpdateVisitor', () => {
   });
 
   describe('visitTableUpdateFieldType', () => {
+    it('drops managed generated search vectors before converting a source column', () => {
+      const db = createTestDb();
+      const schema = `bse${'a'.repeat(16)}`;
+      const tableName = `tbl${'b'.repeat(16)}`;
+      const fieldId = FieldId.create(`fld${'c'.repeat(16)}`)._unsafeUnwrap();
+      const builder = Table.builder()
+        .withId(TableId.create(tableName)._unsafeUnwrap())
+        .withBaseId(BaseId.create(schema)._unsafeUnwrap())
+        .withName(TableName.create('Search Vector Type Conversion')._unsafeUnwrap());
+      builder
+        .field()
+        .singleLineText()
+        .withId(fieldId)
+        .withName(FieldName.create('Source')._unsafeUnwrap())
+        .primary()
+        .done();
+      builder.view().defaultGrid().done();
+      const table = builder.build()._unsafeUnwrap();
+      const oldField = table.getField((field) => field.id().equals(fieldId))._unsafeUnwrap();
+      oldField.setDbFieldName(DbFieldName.rehydrate('source')._unsafeUnwrap())._unsafeUnwrap();
+      const newField = NumberField.create({
+        id: fieldId,
+        name: FieldName.create('Source')._unsafeUnwrap(),
+      })._unsafeUnwrap();
+      const visitor = new TableSchemaUpdateVisitor({
+        db,
+        schema,
+        tableName,
+        tableId: table.id().toString(),
+        table,
+      });
+
+      const result = visitor.visitTableUpdateFieldType(
+        TableUpdateFieldTypeSpec.create(oldField, newField)
+      );
+
+      expect(result.isOk()).toBe(true);
+      const sqls = result._unsafeUnwrap().map((statement) => statement.compile(db).sql);
+      expect(sqls[0]).toContain("status = 'rebuild_pending'");
+      expect(sqls[1]).toContain("a.attgenerated = 's'");
+      expect(sqls[1]).toContain("a.attname LIKE '\\_\\_tqops\\_tsv\\_%' ESCAPE '\\'");
+      expect(sqls[1]).toContain('ALTER TABLE %I.%I DROP COLUMN IF EXISTS %I');
+    });
+
     it.todo(
       'should delegate to generateFieldConversionStatements'
       // Verify: conversion statements returned
@@ -1024,6 +1071,7 @@ describe('TableSchemaUpdateVisitor', () => {
       expect(result.isOk()).toBe(true);
 
       const sqls = result._unsafeUnwrap().map((statement) => statement.compile(db).sql);
+      expect(sqls[0]).toContain("status = 'rebuild_pending'");
       expect(sqls.some((text) => text.includes("indexname LIKE 'idx_trgm%'"))).toBe(true);
       expect(sqls.some((text) => text.includes('CREATE INDEX IF NOT EXISTS'))).toBe(true);
     });
@@ -1090,6 +1138,44 @@ describe('TableSchemaUpdateVisitor', () => {
       'should delegate to PostgresTableSchemaFieldDeleteVisitor'
       // Verify: delete statements returned
     );
+
+    it('drops managed generated vectors before deleting a covered source field', () => {
+      const db = createTestDb();
+      const schema = `bse${'a'.repeat(16)}`;
+      const tableName = `tbl${'b'.repeat(16)}`;
+      const fieldId = FieldId.create(`fld${'c'.repeat(16)}`)._unsafeUnwrap();
+      const builder = Table.builder()
+        .withId(TableId.create(tableName)._unsafeUnwrap())
+        .withBaseId(BaseId.create(schema)._unsafeUnwrap())
+        .withName(TableName.create('Search Vector Field Deletion')._unsafeUnwrap());
+      builder
+        .field()
+        .singleLineText()
+        .withId(fieldId)
+        .withName(FieldName.create('Source')._unsafeUnwrap())
+        .primary()
+        .done();
+      builder.view().defaultGrid().done();
+      const table = builder.build()._unsafeUnwrap();
+      const field = table.getField((candidate) => candidate.id().equals(fieldId))._unsafeUnwrap();
+      field.setDbFieldName(DbFieldName.rehydrate('source')._unsafeUnwrap())._unsafeUnwrap();
+      const visitor = new TableSchemaUpdateVisitor({
+        db,
+        schema,
+        tableName,
+        tableId: table.id().toString(),
+        table,
+      });
+
+      const result = visitor.visitTableRemoveField(TableRemoveFieldSpec.create(field));
+
+      expect(result.isOk()).toBe(true);
+      const sqls = result._unsafeUnwrap().map((statement) => statement.compile(db).sql);
+      expect(sqls[0]).toContain("status = 'rebuild_pending'");
+      expect(sqls[1]).toContain("a.attgenerated = 's'");
+      expect(sqls[1]).toContain('ALTER TABLE %I.%I DROP COLUMN IF EXISTS %I');
+      expect(sqls.slice(2).some((text) => text.toLowerCase().includes('drop column'))).toBe(true);
+    });
   });
 
   describe('visitTableDuplicateField', () => {

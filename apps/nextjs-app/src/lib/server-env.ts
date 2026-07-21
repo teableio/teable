@@ -44,6 +44,7 @@ export interface IServerEnv {
   resetPasswordSendMailCodeRate?: number;
   signupVerificationSendMailCodeRate?: number;
   enableCanaryFeature?: boolean;
+  forceV2All?: boolean;
   task?: {
     maxTaskRows?: number;
   };

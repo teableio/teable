@@ -17,6 +17,8 @@ import {
   ComputedFieldUpdater,
   ComputedUpdateDrainService,
   defaultComputedUpdateLockConfig,
+  ComputedActivityProjector,
+  PostgresComputedActivityReader,
   ComputedUpdateOutbox,
   ComputedUpdatePlanner,
   ExternalComputedRefreshService,
@@ -153,6 +155,16 @@ export const registerV2RecordRepositoryPostgresAdapter = (
     config.computedUpdate?.wakeupPublisher ?? noopComputedOutboxWakeupPublisher
   );
 
+  c.register(
+    v2RecordRepositoryPostgresTokens.computedActivityProjector,
+    ComputedActivityProjector,
+    {
+      lifecycle: Lifecycle.Singleton,
+    }
+  );
+  c.register(v2CoreTokens.computedActivityReader, PostgresComputedActivityReader, {
+    lifecycle: Lifecycle.Singleton,
+  });
   c.register(v2RecordRepositoryPostgresTokens.computedUpdateOutbox, ComputedUpdateOutbox, {
     lifecycle: Lifecycle.Singleton,
   });

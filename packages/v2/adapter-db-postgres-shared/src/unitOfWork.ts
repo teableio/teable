@@ -203,6 +203,27 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
     );
   }
 
+  private bindTransactionToPhysicalDatabaseScopes(
+    context: IExecutionContext,
+    transaction: PostgresUnitOfWorkTransaction<DB>,
+    scope: UnitOfWorkScope
+  ): IExecutionContext {
+    const transactionContext = bindUnitOfWorkTransaction(context, transaction);
+    if (!this.usesSinglePhysicalDatabase()) {
+      return transactionContext;
+    }
+
+    const siblingScope: UnitOfWorkScope = scope === 'meta' ? 'data' : 'meta';
+    return {
+      ...transactionContext,
+      transactions: {
+        ...(transactionContext.transactions ?? {}),
+        [scope]: transaction,
+        [siblingScope]: transaction,
+      },
+    };
+  }
+
   private async setTransactionSchema(
     transaction: Transaction<DB>,
     scope: UnitOfWorkScope
@@ -249,6 +270,21 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
     };
   }
 
+  private runWithExistingTransaction<T>(
+    context: IExecutionContext,
+    scope: UnitOfWorkScope,
+    work: UnitOfWorkOperation<T>
+  ): Promise<Result<T, DomainError>> | null {
+    const existingTransaction = getUnitOfWorkTransaction(context, scope);
+    if (!existingTransaction) return null;
+    if (!isPostgresUnitOfWorkTransaction<DB>(existingTransaction)) {
+      return Promise.resolve(
+        err(domainError.validation({ message: 'Unsupported transaction context' }))
+      );
+    }
+    return work(activateUnitOfWorkScope(context, scope));
+  }
+
   private async executeWithRetries<T>(
     context: IExecutionContext,
     work: UnitOfWorkOperation<T>,
@@ -268,7 +304,11 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
         const transactionResult = await db.transaction().execute(async (trx) => {
           await this.setTransactionSchema(trx, scope);
           transaction = new PostgresUnitOfWorkTransaction(trx, scope);
-          const transactionContext = bindUnitOfWorkTransaction(context, transaction);
+          const transactionContext = this.bindTransactionToPhysicalDatabaseScopes(
+            context,
+            transaction,
+            scope
+          );
 
           const workResult = await work(transactionContext);
           throwIfUnitOfWorkFailed(workResult);
@@ -300,14 +340,8 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
     options?: IUnitOfWorkOptions
   ): Promise<Result<T, DomainError>> {
     const scope = options?.scope ?? 'data';
-    const existingTransaction = getUnitOfWorkTransaction(context, scope);
-
-    if (existingTransaction) {
-      if (isPostgresUnitOfWorkTransaction<DB>(existingTransaction)) {
-        return work(activateUnitOfWorkScope(context, scope));
-      }
-      return err(domainError.validation({ message: 'Unsupported transaction context' }));
-    }
+    const existingResult = this.runWithExistingTransaction(context, scope, work);
+    if (existingResult) return existingResult;
 
     const sharedTransactionContext = this.reuseSiblingScopeTransaction(context, scope);
     if (sharedTransactionContext) {

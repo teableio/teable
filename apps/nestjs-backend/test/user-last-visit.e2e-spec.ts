@@ -195,6 +195,11 @@ describe('OpenAPI OAuthController (e2e)', () => {
   });
 
   it('should get last visit list base', async () => {
+    const prisma = app.get(PrismaService);
+    await prisma.userLastVisit.deleteMany({
+      where: { resourceType: LastVisitResourceType.Base, resourceId: base.id },
+    });
+
     // eslint-disable-next-line @typescript-eslint/naming-convention
     const base_21: ICreateBaseVo[] = [];
 
@@ -229,7 +234,6 @@ describe('OpenAPI OAuthController (e2e)', () => {
 
     expect(res2.data.list.length).toEqual(0);
 
-    const prisma = app.get(PrismaService);
     const userLastVisit = await prisma.userLastVisit.findMany({
       where: {
         parentResourceId: base_21[0].spaceId,

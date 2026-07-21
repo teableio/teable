@@ -92,7 +92,9 @@ export const manualRepairValuesOption = Options.text('manual-repair-values').pip
 
 export type ManualRepairValues = Record<string, string | boolean>;
 
-export const parseManualRepairValues = (value: string | undefined): ManualRepairValues | undefined => {
+export const parseManualRepairValues = (
+  value: string | undefined
+): ManualRepairValues | undefined => {
   if (!value) return undefined;
 
   let parsed: unknown;

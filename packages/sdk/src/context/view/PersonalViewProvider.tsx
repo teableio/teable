@@ -34,7 +34,9 @@ export const PersonalViewProvider = ({ children }: IPersonalViewProviderProps) =
       filter,
       orderBy: (sort as ISort)?.sortObjs,
       groupBy: group,
-      projection: visibleFieldIds,
+      // projection is a field-id set, not a sequence: keep it order-stable so
+      // downstream cache keys don't churn when columns are reordered
+      projection: [...visibleFieldIds].sort(),
     } as IGetRecordsRo;
     const aggregationQuery = {
       ...commonQuery,

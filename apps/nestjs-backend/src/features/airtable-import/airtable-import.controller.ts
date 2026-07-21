@@ -1,4 +1,12 @@
-import { BadRequestException, Body, Controller, Logger, Post, Res } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  ForbiddenException,
+  Logger,
+  Post,
+  Res,
+} from '@nestjs/common';
 import { type Action } from '@teable/core';
 import {
   importAirtableAnalyzeRoSchema,
@@ -11,6 +19,7 @@ import { Response as ExpressResponse } from 'express';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
+import { TokenAccess } from '../auth/decorators/token.decorator';
 import { PermissionService } from '../auth/permission.service';
 import { AirtableApiError } from './airtable-api.client';
 import { AirtableImportService } from './airtable-import.service';
@@ -38,11 +47,34 @@ export class AirtableImportController {
     private readonly cls: ClsService<IClsStore>
   ) {}
 
+  /**
+   * Stored integration credentials are guarded by the user|integrations scope
+   * on /api/user-integrations; a PAT reaching these @TokenAccess routes with
+   * an integrationId must carry that same scope or it could use (and probe)
+   * the owner's stored Airtable OAuth token without ever being granted it.
+   */
+  private async assertIntegrationScope(integrationId: string | undefined): Promise<void> {
+    if (!integrationId) return;
+    const accessTokenId = this.cls.get('accessTokenId');
+    if (!accessTokenId) return;
+    const { scopes } = await this.permissionService.getAccessToken(accessTokenId);
+    if (!scopes.includes('user|integrations')) {
+      throw new ForbiddenException(
+        'The access token requires the user|integrations scope to use a stored integration credential.'
+      );
+    }
+  }
+
+  // Personal access tokens may call these routes (the guard blocks PATs on
+  // permissionless routes by default); the stream handler checks the concrete
+  // write target itself via validPermissions below.
+  @TokenAccess()
   @Post('import-airtable/analyze')
   async analyze(
     @Body(new ZodValidationPipe(importAirtableAnalyzeRoSchema))
     analyzeRo: IImportAirtableAnalyzeRo
   ): Promise<IImportAirtableAnalyzeVo> {
+    await this.assertIntegrationScope(analyzeRo.integrationId);
     try {
       return await this.airtableImportService.analyze(analyzeRo);
     } catch (error) {
@@ -53,6 +85,7 @@ export class AirtableImportController {
     }
   }
 
+  @TokenAccess()
   @Post('import-airtable/stream')
   async importStream(
     @Body(new ZodValidationPipe(importAirtableRoSchema))
@@ -77,6 +110,7 @@ export class AirtableImportController {
       requiredPermissions,
       this.cls.get('accessTokenId')
     );
+    await this.assertIntegrationScope(importAirtableRo.integrationId);
 
     const sseHeartbeatMs = 15_000;
     res.setHeader('Content-Type', 'text/event-stream');

@@ -59,6 +59,20 @@ export class FieldReadonlyServiceAdapter
       })
       .then((res) => res.data);
   }
+  authorizeComputedActivityRead(tableId: string): Promise<void> {
+    const shareId = this.cls.get('shareViewId');
+    const baseShareId = this.cls.get('baseShareId');
+    if (!shareId || baseShareId) {
+      return this.getDocIdsByQuery(tableId).then(() => undefined);
+    }
+
+    return this.axios
+      .get(`/share/${shareId}/socket/computed-activity/authorize`, {
+        headers: { cookie: this.cls.get('cookie') },
+        params: { tableId },
+      })
+      .then(() => undefined);
+  }
 
   getVersionAndType(tableId: string, fieldId: string) {
     return this.prismaService.field

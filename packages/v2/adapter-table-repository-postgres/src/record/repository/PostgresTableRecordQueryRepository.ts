@@ -7,6 +7,7 @@ import {
   FieldType,
   type IExecutionContext,
   type IRecordReadQuerySource,
+  type IRecordSearchAccessPathResolution,
   type ITableRecordQueryRepository,
   RecordByIdSpec,
   type ITableRecordQueryOptions,
@@ -27,6 +28,8 @@ import {
   buildUserAvatarUrl,
   isFieldOrderBy,
   isSystemColumnOrderBy,
+  createSearchTraceAttributes,
+  createTableQueryTraceAttributes,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
@@ -45,7 +48,10 @@ import type {
 import { buildRecordWhereClause } from './buildRecordWhereClause';
 import { CursorStreamPaginationStrategy } from './CursorStreamPaginationStrategy';
 import { OffsetStreamPaginationStrategy } from './OffsetStreamPaginationStrategy';
-import { buildRecordSearchWhereClause } from './RecordSearchWhereBuilder';
+import {
+  buildRecordSearchWhereClause,
+  buildRecordSearchWherePlan,
+} from './RecordSearchWhereBuilder';
 
 const RECORD_ID_COLUMN = '__id';
 const RECORD_VERSION_COLUMN = '__version';
@@ -66,6 +72,70 @@ type IExecutionContextWithTableQuerySqlDiagnostics = IExecutionContext & {
       readonly sql: string;
       readonly parameters?: ReadonlyArray<unknown>;
     }) => void;
+  };
+};
+
+const createRecordSearchAccessPathResolution = (
+  options: ITableRecordQueryOptions | undefined,
+  used: IRecordSearchAccessPathResolution['used']
+): IRecordSearchAccessPathResolution | undefined => {
+  if (!options?.search) return undefined;
+  const requested = options.searchAccessPath?.kind ?? 'default';
+  return {
+    requested,
+    used,
+    ...(requested === 'generated_tsvector' && used === 'default'
+      ? { fallbackReason: 'generated_tsvector_unavailable' as const }
+      : {}),
+  };
+};
+
+const createRepositoryFindTraceAttributes = (
+  table: Table,
+  options: ITableRecordQueryOptions | undefined,
+  source: 'repository.record_find' | 'repository.record_count',
+  resolution?: IRecordSearchAccessPathResolution
+) => {
+  const search = options?.search?.search;
+  const usesSearchVector = Boolean(search && resolution?.used === 'generated_tsvector');
+  const searchAccessPath = !search
+    ? 'none'
+    : resolution?.fallbackReason
+      ? 'fallback'
+      : usesSearchVector
+        ? 'generated_tsvector'
+        : 'default_ilike';
+  const searchMode = usesSearchVector ? 'full_text' : search ? 'ilike' : 'none';
+
+  return {
+    ...createTableQueryTraceAttributes({
+      tableId: table.id().toString(),
+      queryKind: search ? 'search' : 'record_list',
+      querySource: source,
+      hasSort: Boolean(options?.orderBy?.length),
+      includeTotal: options?.includeTotal !== false,
+    }),
+    ...createSearchTraceAttributes({
+      searchValue: search?.value,
+      fieldCount: options?.search?.visibleFieldIds?.length,
+      allFields: search?.searchesAllFields(),
+      accessPath: searchAccessPath,
+      searchMode,
+      searchScope: search
+        ? search.searchesAllFields()
+          ? 'all_fields'
+          : 'selected_fields'
+        : 'none',
+      languageConfig:
+        usesSearchVector && options?.searchAccessPath?.kind === 'generated_tsvector'
+          ? options.searchAccessPath.languageConfig
+          : undefined,
+      fallbackReason: resolution?.fallbackReason,
+      generatedColumnName:
+        usesSearchVector && options?.searchAccessPath?.kind === 'generated_tsvector'
+          ? options.searchAccessPath.generatedColumnName
+          : undefined,
+    }),
   };
 };
 
@@ -92,7 +162,10 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
     options?: ITableRecordQueryOptions
   ): Promise<Result<ITableRecordQueryResult, DomainError>> {
     // Start tracing span for record query
-    const span = context.tracer?.startSpan('teable.repository.record.find');
+    const span = context.tracer?.startSpan(
+      'teable.repository.record.find',
+      createRepositoryFindTraceAttributes(table, options, 'repository.record_find')
+    );
 
     const executeFind = async (): Promise<Result<ITableRecordQueryResult, DomainError>> => {
       return await safeTry<ITableRecordQueryResult, DomainError>(
@@ -170,12 +243,31 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
           if (whereClause.isErr()) {
             return err(whereClause.error);
           }
-          const searchWhereClause = buildRecordSearchWhereClause(table, options?.search, {
+          const searchWhereSpan = context.tracer?.startSpan(
+            'teable.table.query.build_search_where',
+            createRepositoryFindTraceAttributes(table, options, 'repository.record_find')
+          );
+          const searchWherePlan = buildRecordSearchWherePlan(table, options?.search, {
             tableAlias: TABLE_ALIAS,
+            searchAccessPath: options?.searchAccessPath,
           });
-          if (searchWhereClause.isErr()) {
-            return err(searchWhereClause.error);
+          if (searchWherePlan.isErr()) {
+            searchWhereSpan?.end();
+            return err(searchWherePlan.error);
           }
+          const searchAccessPath = createRecordSearchAccessPathResolution(
+            options,
+            searchWherePlan.value.usedAccessPath
+          );
+          const actualSearchAttributes = createRepositoryFindTraceAttributes(
+            table,
+            options,
+            'repository.record_find',
+            searchAccessPath
+          );
+          searchWhereSpan?.setAttributes(actualSearchAttributes);
+          searchWhereSpan?.end();
+          span?.setAttributes(actualSearchAttributes);
 
           // Query order columns if requested
           let orderColumns: string[] = [];
@@ -200,8 +292,8 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
               sql`array_position(${orderedRecordIds}::text[], ${sql.ref(`${TABLE_ALIAS}.${RECORD_ID_COLUMN}`)})`
             );
           }
-          if (searchWhereClause.value !== null) {
-            builtQuery = builtQuery.where(searchWhereClause.value);
+          if (searchWherePlan.value.condition !== null) {
+            builtQuery = builtQuery.where(searchWherePlan.value.condition);
           }
 
           // Add order columns to the query if requested
@@ -225,9 +317,24 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
 
           try {
             const shouldQueryTotal = options?.includeTotal !== false;
-            const rowsPromise = dynamicDb
-              .executeQuery<Record<string, unknown>>(compiled)
-              .then((result) => result.rows);
+            const recordsDbSpan = context.tracer?.startSpan(
+              'teable.table.query.db.records',
+              createRepositoryFindTraceAttributes(
+                table,
+                options,
+                'repository.record_find',
+                searchAccessPath
+              )
+            );
+            const rowsPromise = (
+              recordsDbSpan && context.tracer
+                ? context.tracer.withSpan(recordsDbSpan, () =>
+                    dynamicDb.executeQuery<Record<string, unknown>>(compiled)
+                  )
+                : dynamicDb.executeQuery<Record<string, unknown>>(compiled)
+            )
+              .then((result) => result.rows)
+              .finally(() => recordsDbSpan?.end());
             const countCompiled = shouldQueryTotal
               ? this.withRecordReadQuerySource(
                   dynamicDb
@@ -236,8 +343,8 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
                     .$if(whereClause.value !== null, (qb) =>
                       qb.where(whereClause.value as Expression<SqlBool>)
                     )
-                    .$if(searchWhereClause.value !== null, (qb) =>
-                      qb.where(searchWhereClause.value as Expression<SqlBool>)
+                    .$if(searchWherePlan.value.condition !== null, (qb) =>
+                      qb.where(searchWherePlan.value.condition as Expression<SqlBool>)
                     )
                     .compile(),
                   readQuerySource
@@ -246,10 +353,26 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
             if (countCompiled) {
               this.recordSqlDiagnostic(context, 'record_count', countCompiled);
             }
+            const countDbSpan = countCompiled
+              ? context.tracer?.startSpan(
+                  'teable.table.query.db.count',
+                  createRepositoryFindTraceAttributes(
+                    table,
+                    options,
+                    'repository.record_count',
+                    searchAccessPath
+                  )
+                )
+              : undefined;
             const countPromise = countCompiled
-              ? dynamicDb
-                  .executeQuery<{ count: string }>(countCompiled)
+              ? (countDbSpan && context.tracer
+                  ? context.tracer.withSpan(countDbSpan, () =>
+                      dynamicDb.executeQuery<{ count: string }>(countCompiled)
+                    )
+                  : dynamicDb.executeQuery<{ count: string }>(countCompiled)
+                )
                   .then((result) => result.rows[0] ?? { count: '0' })
+                  .finally(() => countDbSpan?.end())
               : Promise.resolve<{ count: string }>({ count: '0' });
 
             const [rows, countResult] = await Promise.all([rowsPromise, countPromise]);
@@ -257,7 +380,11 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
             const records = mapRowsToReadModels(fieldColumns, rows, orderColumns);
             const total = shouldQueryTotal ? parseInt(countResult.count, 10) : records.length;
 
-            return ok({ records, total });
+            return ok({
+              records,
+              total,
+              ...(searchAccessPath ? { searchAccessPath } : {}),
+            });
           } catch (error) {
             span?.recordError(describeError(error));
             return err(buildUnexpectedQueryError('Failed to load table records', error));
@@ -472,6 +599,7 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
       includeTotal: false,
       projectionFieldIds: options?.projectionFieldIds,
       search: options?.search,
+      searchAccessPath: options?.searchAccessPath,
       recordReadQuerySource: options?.recordReadQuerySource,
     });
 
@@ -519,6 +647,7 @@ export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepo
         let builtQuery = yield* queryBuilder.build();
         const searchWhereClause = buildRecordSearchWhereClause(table, options?.search, {
           tableAlias: TABLE_ALIAS,
+          searchAccessPath: options?.searchAccessPath,
         });
         if (searchWhereClause.isErr()) {
           return err(searchWhereClause.error);

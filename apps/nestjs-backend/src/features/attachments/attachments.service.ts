@@ -141,7 +141,6 @@ export class AttachmentsService {
     if (contentLength > MAX_FILE_SIZE) {
       this.throwFileSizeExceeded(MAX_FILE_SIZE);
     }
-    const hash = presignedParams.hash;
     const dir = StorageAdapter.getDir(type);
     const bucket = StorageAdapter.getBucket(type);
     const res = await this.storageAdapter.presigned(bucket, dir, {
@@ -150,7 +149,7 @@ export class AttachmentsService {
     const { path, token } = res;
     await this.cacheService.set(
       `attachment:signature:${token}`,
-      { path, bucket, hash },
+      { path, bucket },
       signatureRo.expiresIn ?? second(this.storageConfig.tokenExpireIn)
     );
     return res;
@@ -299,7 +298,8 @@ export class AttachmentsService {
   async uploadFromStream(
     stream: Readable,
     params: { filename: string; contentType: string; contentLength: number },
-    uploadType: UploadType = UploadType.Table
+    uploadType: UploadType = UploadType.Table,
+    options?: { signal?: AbortSignal }
   ): Promise<IAttachmentItem> {
     const MAX_FILE_SIZE = this.thresholdConfig.maxOpenapiAttachmentUploadSize;
     const { filename, contentType, contentLength } = params;
@@ -313,7 +313,7 @@ export class AttachmentsService {
       contentType,
       internal: true,
     });
-    await this.uploadStreamToStorage(url, stream, contentType, contentLength);
+    await this.uploadStreamToStorage(url, stream, contentType, contentLength, options?.signal);
     return await this.notifyToAttachmentItem(token, filename);
   }
 
@@ -486,7 +486,8 @@ export class AttachmentsService {
     url: string,
     stream: Readable,
     contentType: string,
-    contentLength: number
+    contentLength: number,
+    signal?: AbortSignal
   ): Promise<void> {
     try {
       await axios.put(url, stream, {
@@ -494,6 +495,7 @@ export class AttachmentsService {
           'Content-Type': getSafeUploadContentType(contentType),
           'Content-Length': contentLength,
         },
+        signal,
       });
     } catch (error) {
       stream.destroy();

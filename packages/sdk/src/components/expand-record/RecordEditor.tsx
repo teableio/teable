@@ -1,11 +1,11 @@
 import type { IAttachmentCellValue } from '@teable/core';
 import { Button } from '@teable/ui-lib';
 import { useRef } from 'react';
-import { useLocalStorage, useMeasure } from 'react-use';
-import { LocalStorageKeys } from '../../config';
+import { useMeasure } from 'react-use';
 import { useTranslation } from '../../context/app/i18n';
 import type { IButtonClickStatusHook } from '../../hooks';
 import type { IFieldInstance, Record } from '../../model';
+import { useExpandRecordHiddenFieldsStore } from '../../store';
 import { RecordEditorItem } from './RecordEditorItem';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -33,10 +33,7 @@ export const RecordEditor = (props: {
     onAttachmentDownload,
   } = props;
   const vertical = width > EDITOR_VERTICAL_MIN;
-  const [hiddenFieldsVisible, setHiddenFieldsVisible] = useLocalStorage(
-    LocalStorageKeys.ExpandRecordHiddenFieldsVisible,
-    false
-  );
+  const { hiddenFieldsVisible, setHiddenFieldsVisible } = useExpandRecordHiddenFieldsStore();
 
   return (
     <div ref={ref} className="mx-auto max-w-3xl">

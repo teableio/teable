@@ -475,7 +475,7 @@ const checkIsColumnHeader = (props: ICheckRegionProps): IRegionData | null => {
   if (rowIndex === -1 && columnIndex > -1) {
     const { scrollLeft } = scrollState;
     const { rowInitSize } = coordInstance;
-    const { isPrimary, description, hasMenu: hasColumnMenu } = columns[columnIndex];
+    const { icon, isPrimary, description, hasMenu: hasColumnMenu } = columns[columnIndex];
     const hasMenu = hasColumnMenu && isColumnHeaderMenuVisible;
     const width = coordInstance.getColumnWidth(columnIndex);
     const startOffsetX = coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft);
@@ -520,6 +520,24 @@ const checkIsColumnHeader = (props: ICheckRegionProps): IRegionData | null => {
         type: RegionType.ColumnPrimaryIcon,
         x: primaryIconX,
         y: primaryIconY,
+        width: iconSizeXS,
+        height: iconSizeXS,
+      };
+    }
+
+    const columnIconX =
+      startOffsetX + columnHeadPadding + (isPrimary ? iconSizeXS + columnHeadPadding / 2 : 0);
+    const columnIconY = (rowInitSize - iconSizeXS) / 2;
+
+    if (
+      icon === 'calculating' &&
+      inRange(x, columnIconX, columnIconX + iconSizeXS) &&
+      inRange(y, columnIconY, columnIconY + iconSizeXS)
+    ) {
+      return {
+        type: RegionType.ColumnIcon,
+        x: columnIconX,
+        y: columnIconY,
         width: iconSizeXS,
         height: iconSizeXS,
       };

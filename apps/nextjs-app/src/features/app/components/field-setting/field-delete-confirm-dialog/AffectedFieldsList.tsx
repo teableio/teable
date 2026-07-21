@@ -15,6 +15,7 @@ import { VIEW_ICON_MAP } from '@/features/app/blocks/view/constant';
 import { useStaticResolver } from '@/features/app/context/StaticTextRegistryProvider';
 import { Emoji } from '../../emoji/Emoji';
 import type { AffectedItem, AffectedItemType, AffectedTableSource } from './types';
+import { getAffectedItemDisplayName } from './utils';
 
 interface AffectedFieldsListProps {
   items: AffectedItem[];
@@ -28,8 +29,8 @@ export const AffectedFieldsList = ({ items, isMultiField = false }: AffectedFiel
     type: string
   ) => React.FC<React.SVGProps<SVGSVGElement>>;
   const getWorkflowNodeTypeName = useStaticResolver('workflow', 'getNodeTypeName') as (
-    type?: string,
-    name?: string
+    type: string,
+    category: string
   ) => string;
   const baseId = useBaseId();
 
@@ -46,14 +47,6 @@ export const AffectedFieldsList = ({ items, isMultiField = false }: AffectedFiel
       default:
         return '-';
     }
-  };
-
-  const getItemDisplayName = (item: AffectedItem) => {
-    if (item.itemType !== 'workflow') {
-      return item.name;
-    }
-
-    return getWorkflowNodeTypeName(item.type, item.name);
   };
 
   const getIcon = (item: AffectedItem) => {
@@ -114,7 +107,7 @@ export const AffectedFieldsList = ({ items, isMultiField = false }: AffectedFiel
         <TableBody>
           {items.map((item) => {
             const Icon = getIcon(item);
-            const displayName = getItemDisplayName(item);
+            const displayName = getAffectedItemDisplayName(item, getWorkflowNodeTypeName);
 
             return (
               <TableRow key={`${item.itemType}-${item.id}`} className="hover:bg-transparent">

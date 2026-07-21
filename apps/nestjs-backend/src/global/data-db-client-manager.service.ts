@@ -58,6 +58,10 @@ export type IComputedOutboxMaintenanceAnomaly = {
   attempts: number;
   maxAttempts: number;
   lastError: string | null;
+  failedSql: string | null;
+  failureKind: string | null;
+  failurePhase: string | null;
+  affectedTableName: string | null;
   occurredAt: Date;
 };
 
@@ -440,7 +444,7 @@ export class DataDbClientManager {
       acquireConnectionTimeout: COMPUTED_OUTBOX_MAINTENANCE_CONNECT_TIMEOUT_MS,
       pool: { min: 0, max: 1 },
     });
-    const normalizedLimit = Math.max(1, Math.min(100, Math.trunc(limit)));
+    const normalizedLimit = Math.max(1, Math.min(2000, Math.trunc(limit)));
     const baseSpaceMapping = target.baseSpaceMapping ?? [];
     const pauseSpaceJoin =
       target.storage === 'default'
@@ -470,6 +474,10 @@ export class DataDbClientManager {
             attempts: number | string;
             maxAttempts: number | string;
             lastError: string | null;
+            failedSql: string | null;
+            failureKind: string | null;
+            failurePhase: string | null;
+            affectedTableName: string | null;
             occurredAt: Date | string;
             total: number | string;
           }>;
@@ -483,6 +491,10 @@ export class DataDbClientManager {
               attempts,
               max_attempts as "maxAttempts",
               left(last_error, 2000) as "lastError",
+              left(trace_data #>> '{execution,statement,normalizedSql}', 4000) as "failedSql",
+              left(trace_data #>> '{failure,kind}', 128) as "failureKind",
+              left(trace_data #>> '{failure,phase}', 128) as "failurePhase",
+              left(trace_data #>> '{execution,context,tableName}', 256) as "affectedTableName",
               failed_at as "occurredAt"
             from computed_update_dead_letter
             union all
@@ -494,6 +506,10 @@ export class DataDbClientManager {
               o.attempts,
               o.max_attempts as "maxAttempts",
               left(o.last_error, 2000) as "lastError",
+              null::text as "failedSql",
+              null::text as "failureKind",
+              null::text as "failurePhase",
+              null::text as "affectedTableName",
               coalesce(o.locked_at, o.updated_at) as "occurredAt"
             from computed_update_outbox as o
             ${pauseSpaceJoin}
@@ -534,6 +550,10 @@ export class DataDbClientManager {
           attempts: Number(row.attempts),
           maxAttempts: Number(row.maxAttempts),
           lastError: row.lastError,
+          failedSql: row.failedSql,
+          failureKind: row.failureKind,
+          failurePhase: row.failurePhase,
+          affectedTableName: row.affectedTableName,
           occurredAt: new Date(row.occurredAt),
         })),
       };

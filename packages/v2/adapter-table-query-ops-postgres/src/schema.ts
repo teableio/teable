@@ -65,6 +65,23 @@ export type TableQueryOpsDatabase = {
     expires_at: Date;
     updated_time: Date;
   };
+  table_query_search_vector_config: {
+    id: string;
+    space_id: string | null;
+    base_id: string;
+    table_id: string;
+    candidate_key: string;
+    language_config: string;
+    generated_column_name: string;
+    index_name: string;
+    field_ids: unknown;
+    field_db_names: unknown;
+    search_scope: string;
+    status: string;
+    last_inspection: unknown | null;
+    created_time?: Date;
+    last_modified_time?: Date | null;
+  };
 };
 
 export const ensureTableQueryOpsSchema = async (
@@ -179,5 +196,38 @@ export const ensureTableQueryOpsSchema = async (
     .addColumn('owner_id', 'text', (col) => col.notNull())
     .addColumn('expires_at', 'timestamptz', (col) => col.notNull())
     .addColumn('updated_time', 'timestamptz', (col) => col.notNull())
+    .execute();
+
+  await db.schema
+    .createTable('table_query_search_vector_config')
+    .ifNotExists()
+    .addColumn('id', 'text', (col) => col.primaryKey())
+    .addColumn('space_id', 'text')
+    .addColumn('base_id', 'text', (col) => col.notNull())
+    .addColumn('table_id', 'text', (col) => col.notNull())
+    .addColumn('candidate_key', 'text', (col) => col.notNull())
+    .addColumn('language_config', 'text', (col) => col.notNull())
+    .addColumn('generated_column_name', 'text', (col) => col.notNull())
+    .addColumn('index_name', 'text', (col) => col.notNull())
+    .addColumn('field_ids', 'jsonb', (col) => col.notNull())
+    .addColumn('field_db_names', 'jsonb', (col) => col.notNull())
+    .addColumn('search_scope', 'text', (col) => col.notNull().defaultTo('all_fields'))
+    .addColumn('status', 'text', (col) => col.notNull())
+    .addColumn('last_inspection', 'jsonb')
+    .addColumn('created_time', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+    .addColumn('last_modified_time', 'timestamptz')
+    .execute();
+
+  await sql`
+    ALTER TABLE table_query_search_vector_config
+    ADD COLUMN IF NOT EXISTS search_scope text NOT NULL DEFAULT 'all_fields'
+  `.execute(db);
+
+  await db.schema
+    .createIndex('table_query_search_vector_config_unique_idx')
+    .ifNotExists()
+    .on('table_query_search_vector_config')
+    .columns(['table_id', 'candidate_key'])
+    .unique()
     .execute();
 };

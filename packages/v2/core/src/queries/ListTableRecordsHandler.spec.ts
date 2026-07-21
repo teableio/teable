@@ -11,8 +11,8 @@ import type { LinkFieldConfigValue } from '../domain/table/fields/types/LinkFiel
 import { LinkFieldConfig } from '../domain/table/fields/types/LinkFieldConfig';
 import { SelectOption } from '../domain/table/fields/types/SelectOption';
 import { RecordId } from '../domain/table/records/RecordId';
-import { NoopRecordConditionSpecVisitor } from '../domain/table/records/specs/visitors/NoopRecordConditionSpecVisitor';
 import type { UserConditionSpec } from '../domain/table/records/specs/UserConditionSpec';
+import { NoopRecordConditionSpecVisitor } from '../domain/table/records/specs/visitors/NoopRecordConditionSpecVisitor';
 import { TableUpdateViewColumnMetaSpec } from '../domain/table/specs/TableUpdateViewColumnMetaSpec';
 import { TableUpdateViewQueryDefaultsSpec } from '../domain/table/specs/TableUpdateViewQueryDefaultsSpec';
 import { Table } from '../domain/table/Table';
@@ -23,7 +23,15 @@ import { ViewQueryDefaults } from '../domain/table/views/ViewQueryDefaults';
 import { NoopLogger } from '../ports/defaults/NoopLogger';
 import type { IExecutionContext } from '../ports/ExecutionContext';
 import { MemoryTableRepository } from '../ports/memory/MemoryTableRepository';
-import type { ITableRecordQueryRepository } from '../ports/TableRecordQueryRepository';
+import type {
+  ITableQueryObservability,
+  TableQueryObservabilityEvent,
+  TableQuerySearchValidationEvent,
+} from '../ports/TableQueryObservability';
+import type {
+  ITableRecordQueryRepository,
+  ITableRecordQueryResult,
+} from '../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import type { ITableRepository } from '../ports/TableRepository';
 import { ListTableRecordsHandler } from './ListTableRecordsHandler';
@@ -1328,5 +1336,63 @@ describe('ListTableRecordsHandler', () => {
     expect(
       (captured.options as { search?: { visibleFieldIds?: unknown[] } }).search?.visibleFieldIds
     ).toEqual([]);
+  });
+
+  it('records the repository fallback instead of the requested generated search path', async () => {
+    const table = buildTable();
+    const tableRepository = new MemoryTableRepository();
+    await tableRepository.insert(createContext(), table);
+    const generatedPath = {
+      kind: 'generated_tsvector' as const,
+      generatedColumnName: '__tqops_search_vector',
+      languageConfig: 'simple',
+      searchScope: 'all_fields' as const,
+      coveredFieldIds: table.fieldIds(),
+    };
+    const recordQueryRepo: ITableRecordQueryRepository = {
+      find: async () =>
+        ok({
+          records: [],
+          total: 0,
+          searchAccessPath: {
+            requested: 'generated_tsvector',
+            used: 'default',
+            fallbackReason: 'generated_tsvector_unavailable',
+          },
+        } as unknown as ITableRecordQueryResult),
+      findOne: async () => err(domainError.notFound({ message: 'Not found' })),
+      async *findStream() {},
+    };
+    const requests: TableQueryObservabilityEvent[] = [];
+    const fallbacks: TableQueryObservabilityEvent[] = [];
+    const observability: ITableQueryObservability = {
+      recordRequest: (event) => requests.push(event),
+      recordError: () => undefined,
+      recordSearchFallback: (event) => fallbacks.push(event),
+      recordSearchValidation: (_event: TableQuerySearchValidationEvent) => undefined,
+    };
+    const query = ListTableRecordsQuery.create(
+      {
+        tableId: table.id().toString(),
+        search: ['Alpha', '', true],
+      },
+      { recordSearchAccessPath: generatedPath }
+    )._unsafeUnwrap();
+    const handler = new ListTableRecordsHandler(
+      tableRepository,
+      recordQueryRepo,
+      new NoopLogger(),
+      observability
+    );
+
+    const result = await handler.handle(createContext(), query);
+
+    expect(result.isOk()).toBe(true);
+    expect(requests[requests.length - 1]).toMatchObject({
+      accessPath: 'fallback',
+      searchMode: 'ilike',
+      fallbackReason: 'generated_tsvector_unavailable',
+    });
+    expect(fallbacks).toHaveLength(1);
   });
 });

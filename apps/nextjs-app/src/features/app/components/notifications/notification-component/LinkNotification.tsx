@@ -10,6 +10,7 @@ interface LinkNotificationProps {
   data: INotificationVo['notifications'][number];
   notifyStatus: NotificationStatesEnum;
   disableLink?: boolean;
+  clampMessage?: boolean;
 }
 
 export const LinkNotification = (props: LinkNotificationProps) => {
@@ -17,10 +18,14 @@ export const LinkNotification = (props: LinkNotificationProps) => {
     data,
     data: { url, notifyType },
     disableLink,
+    clampMessage,
   } = props;
 
   const { t } = useTranslation(['common']);
   const message = getShowMessage(data, t as ILocaleFunction);
+  const messageClassName = clampMessage
+    ? 'line-clamp-4 min-w-0 max-w-full break-words [overflow-wrap:anywhere]'
+    : 'max-h-20 min-w-0 max-w-full overflow-auto break-words [overflow-wrap:anywhere]';
 
   // When the message contains inner <a> links (e.g. error report download),
   // we need to stop the click from bubbling up to the parent <Link> which
@@ -42,7 +47,7 @@ export const LinkNotification = (props: LinkNotificationProps) => {
       <>
         {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
         <div
-          className="max-h-20 min-w-0 max-w-full flex-1 overflow-auto break-words [overflow-wrap:anywhere]"
+          className={`${messageClassName} flex-1`}
           dangerouslySetInnerHTML={{ __html: message }}
           onClick={handleContentClick}
         />
@@ -56,7 +61,7 @@ export const LinkNotification = (props: LinkNotificationProps) => {
     <Link href={url} className="min-w-0 max-w-full flex-1">
       {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div
-        className="max-h-20 min-w-0 max-w-full overflow-auto break-words [overflow-wrap:anywhere]"
+        className={messageClassName}
         dangerouslySetInnerHTML={{ __html: message }}
         onClick={handleContentClick}
       />

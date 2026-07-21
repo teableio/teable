@@ -125,18 +125,48 @@ const linkStorageRefKey = (ref: LinkStorageRef): string =>
 const linkStorageTableKey = (schema: string, tableName: string): string =>
   `${schema}\0${tableName}`;
 
-const collectActiveLinkStorageRefs = async (
+const ACTIVE_LINK_STORAGE_REFS_CACHE_KEY = 'activeLinkStorageRefsBySchema';
+
+type ActiveLinkStorageRefsBySchema = Map<string, Promise<ReadonlySet<string> | undefined>>;
+
+const getActiveLinkStorageRefsCache = (
+  sessionCache: Map<string, unknown> | undefined
+): ActiveLinkStorageRefsBySchema | undefined => {
+  if (!sessionCache) {
+    return undefined;
+  }
+
+  const existing = sessionCache.get(ACTIVE_LINK_STORAGE_REFS_CACHE_KEY);
+  if (existing instanceof Map) {
+    return existing as ActiveLinkStorageRefsBySchema;
+  }
+
+  const created: ActiveLinkStorageRefsBySchema = new Map();
+  sessionCache.set(ACTIVE_LINK_STORAGE_REFS_CACHE_KEY, created);
+  return created;
+};
+
+const loadActiveLinkStorageRefs = async (
   metaDb: TableSchemaStatementExecutorProvider,
   defaultSchema: string
 ): Promise<ReadonlySet<string> | undefined> => {
-  let rows: Array<{ options: unknown }>;
+  let rows: Array<{
+    fk_host_table_name: string | null;
+    self_key_name: string | null;
+    foreign_key_name: string | null;
+  }>;
   try {
     rows = await executeRawRows<{
-      options: unknown;
+      fk_host_table_name: string | null;
+      self_key_name: string | null;
+      foreign_key_name: string | null;
     }>(
       metaDb,
       sql`
-        select options
+        select
+          options::jsonb ->> 'fkHostTableName' as fk_host_table_name,
+          options::jsonb ->> 'selfKeyName' as self_key_name,
+          options::jsonb ->> 'foreignKeyName' as foreign_key_name
         from field
         where type = 'link'
           and deleted_time is null
@@ -153,30 +183,21 @@ const collectActiveLinkStorageRefs = async (
   const refs: LinkStorageRef[] = [];
 
   for (const row of rows) {
-    const options = typeof row.options === 'string' ? JSON.parse(row.options) : row.options;
-    if (!options || typeof options !== 'object') continue;
-
-    const {
-      fkHostTableName,
-      selfKeyName,
-      foreignKeyName,
-    }: {
-      fkHostTableName?: unknown;
-      selfKeyName?: unknown;
-      foreignKeyName?: unknown;
-    } = options;
-
-    if (typeof fkHostTableName !== 'string') continue;
+    const fkHostTableName = row.fk_host_table_name;
+    if (typeof fkHostTableName !== 'string' || fkHostTableName.length === 0) continue;
 
     const storageTable = splitStorageTableName(fkHostTableName, defaultSchema);
-    if (typeof selfKeyName === 'string') {
+    const selfKeyName = row.self_key_name;
+    const foreignKeyName = row.foreign_key_name;
+
+    if (typeof selfKeyName === 'string' && selfKeyName.length > 0) {
       refs.push({
         schema: storageTable.schema ?? defaultSchema,
         tableName: storageTable.tableName,
         columnName: selfKeyName,
       });
     }
-    if (typeof foreignKeyName === 'string') {
+    if (typeof foreignKeyName === 'string' && foreignKeyName.length > 0) {
       refs.push({
         schema: storageTable.schema ?? defaultSchema,
         tableName: storageTable.tableName,
@@ -186,6 +207,32 @@ const collectActiveLinkStorageRefs = async (
   }
 
   return new Set(refs.map(linkStorageRefKey));
+};
+
+const collectActiveLinkStorageRefs = async (
+  metaDb: TableSchemaStatementExecutorProvider,
+  defaultSchema: string,
+  sessionCache?: Map<string, unknown>
+): Promise<ReadonlySet<string> | undefined> => {
+  const bySchema = getActiveLinkStorageRefsCache(sessionCache);
+  if (!bySchema) {
+    return loadActiveLinkStorageRefs(metaDb, defaultSchema);
+  }
+
+  const cached = bySchema.get(defaultSchema);
+  if (cached) {
+    return cached;
+  }
+
+  let pending!: Promise<ReadonlySet<string> | undefined>;
+  pending = loadActiveLinkStorageRefs(metaDb, defaultSchema).catch((error: unknown) => {
+    if (bySchema.get(defaultSchema) === pending) {
+      bySchema.delete(defaultSchema);
+    }
+    throw error;
+  });
+  bySchema.set(defaultSchema, pending);
+  return pending;
 };
 
 const loadOrphanedLinkStorageConstraints = async (
@@ -261,7 +308,7 @@ const createOrphanedLinkStorageRepairStatement = (
     sql.raw(`select 'repair orphaned link storage' as schema_repair`).compile(executorProvider),
   execute: async ({ dataDb, metaDb }) => {
     const defaultSchema = target.schema ?? 'public';
-    const activeRefs = await collectActiveLinkStorageRefs(metaDb, defaultSchema);
+    const activeRefs = await collectActiveLinkStorageRefs(metaDb, defaultSchema, undefined);
     if (!activeRefs) return;
 
     const constraints = await loadOrphanedLinkStorageConstraints(dataDb, target, activeRefs);
@@ -593,7 +640,7 @@ class OrphanedLinkStorageRule implements ISchemaRule {
       const target = { schema: ctx.schema, tableName: ctx.tableName };
       const defaultSchema = target.schema ?? 'public';
       const activeRefs = yield* await ok(
-        await collectActiveLinkStorageRefs(ctx.metaDb, defaultSchema)
+        await collectActiveLinkStorageRefs(ctx.metaDb, defaultSchema, ctx.sessionCache)
       );
       if (!activeRefs) {
         return ok({ valid: true });

@@ -17,9 +17,15 @@ import { createV2NodePgContainer, type IV2NodePgContainerOptions } from '@teable
 import type {
   AttachmentValueDecoratorService,
   IAttachmentLookupService,
+  IComputedActivityReader,
   IExecutionContext,
 } from '@teable/v2-core';
-import { ActorId, v2CoreTokens } from '@teable/v2-core';
+import {
+  ActorId,
+  mapFieldComputeActivityToRealtime,
+  mapTableComputeActivityToRealtime,
+  v2CoreTokens,
+} from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import { registerV2ImportServices } from '@teable/v2-import';
 import {
@@ -40,6 +46,8 @@ import {
 import { ShareDbService } from '../../share-db/share-db.service';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import { COMPUTED_OUTBOX_WAKEUP_PUBLISHER } from './computed-outbox-trigger/constants';
+import { TableQuerySearchMetricsService } from './table-query-search-observability';
+import { resolveTableQuerySearchVectorRuntimeMode } from './table-query-search-vector-runtime.service';
 import { V2AttachmentUrlSignerService } from './v2-attachment-url-signer.service';
 import { CommandBusTracingMiddleware } from './v2-command-bus-tracing.middleware';
 import { PinoLoggerAdapter } from './v2-logger.adapter';
@@ -69,6 +77,8 @@ const resolveBoolean = (value: unknown, defaultValue = false): boolean => {
 
 const executablePhase1RemediationKinds = [
   'create_search_index',
+  'create_search_vector',
+  'rebuild_search_vector',
   'create_filter_index',
   'create_sort_index',
   'repair_index',
@@ -111,7 +121,31 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
     @Optional()
     @Inject(COMPUTED_OUTBOX_WAKEUP_PUBLISHER)
     private readonly computedOutboxWakeupPublisher: IComputedOutboxWakeupPublisher = noopComputedOutboxWakeupPublisher
-  ) {}
+  ) {
+    this.shareDbService.setComputedActivitySnapshotLoader(async (tableId) => {
+      const container = await this.getContainerForTable(tableId);
+      const reader = container.resolve<IComputedActivityReader>(
+        v2CoreTokens.computedActivityReader
+      );
+      const result = await reader.getByTableId(undefined, tableId);
+      if (result.isErr()) throw result.error;
+
+      const documents: Record<string, { version: number; data: unknown }> = {};
+      if (result.value.table) {
+        documents.table = {
+          version: result.value.table.generation,
+          data: mapTableComputeActivityToRealtime(result.value.table),
+        };
+      }
+      for (const field of result.value.fields) {
+        documents[field.fieldId] = {
+          version: field.generation,
+          data: mapFieldComputeActivityToRealtime(field),
+        };
+      }
+      return documents;
+    });
+  }
 
   async onApplicationBootstrap(): Promise<void> {
     await this.getContainer();
@@ -145,6 +179,14 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
       dataDb.cacheKey,
       dataDb.connectionUrl ?? dataDb.url,
       dataDb.internalSchema
+    );
+  }
+
+  isTableQuerySearchVectorRuntimeEnabled(): boolean {
+    return (
+      resolveTableQuerySearchVectorRuntimeMode(
+        this.configService.get('V2_TABLE_QUERY_OPS_SEARCH_VECTOR_RUNTIME')
+      ) === 'auto'
     );
   }
 
@@ -186,6 +228,7 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
     const metaConnectionString = this.getMetaConnectionString();
     const logger = new PinoLoggerAdapter(this.pinoLogger);
     const tracer = new OpenTelemetryTracer();
+    const tableQueryObservability = new TableQuerySearchMetricsService();
     const commandBusMiddlewares = [new CommandBusTracingMiddleware()];
     const queryBusMiddlewares = [new QueryBusTracingMiddleware()];
     const computedUpdateMode = process.env.V2_COMPUTED_UPDATE_MODE;
@@ -215,6 +258,7 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
       dataSchema,
       logger,
       tracer,
+      tableQueryObservability,
       commandBusMiddlewares,
       queryBusMiddlewares,
       computedUpdate,
@@ -282,13 +326,23 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
     const allowManualIndexExecution = resolveBoolean(
       this.configService.get('V2_TABLE_QUERY_OPS_ALLOW_MANUAL_INDEX_EXECUTION')
     );
-    const allowedKinds =
+    const searchVectorRuntimeEnabled =
+      resolveTableQuerySearchVectorRuntimeMode(
+        this.configService.get('V2_TABLE_QUERY_OPS_SEARCH_VECTOR_RUNTIME')
+      ) === 'auto';
+    const configuredAllowedKinds =
       parseAllowedRemediationKinds(
         this.configService.get('V2_TABLE_QUERY_OPS_ALLOWED_TASK_KINDS')
       ) ??
       (allowManualIndexExecution
         ? executablePhase1RemediationKinds
-        : (['manual_investigation'] satisfies ReadonlyArray<ExecutablePhase1RemediationKind>));
+        : searchVectorRuntimeEnabled
+          ? ([
+              'rebuild_search_vector',
+              'manual_investigation',
+            ] satisfies ReadonlyArray<ExecutablePhase1RemediationKind>)
+          : (['manual_investigation'] satisfies ReadonlyArray<ExecutablePhase1RemediationKind>));
+    const allowedKinds = configuredAllowedKinds;
     const analyzerIntervalMs = resolvePositiveInteger(
       this.configService.get('V2_TABLE_QUERY_OPS_ANALYZER_INTERVAL_MS')
     );
@@ -328,7 +382,10 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
         ...(analyzerBatchSize ? { batchSize: analyzerBatchSize } : {}),
       },
       taskWorkerConfig: {
-        enabled: resolveBoolean(this.configService.get('V2_TABLE_QUERY_OPS_TASK_WORKER_ENABLED')),
+        enabled: resolveBoolean(
+          this.configService.get('V2_TABLE_QUERY_OPS_TASK_WORKER_ENABLED'),
+          searchVectorRuntimeEnabled
+        ),
         workerId: `${workerId}:task-worker`,
         allowManualIndexExecution,
         allowedKinds,

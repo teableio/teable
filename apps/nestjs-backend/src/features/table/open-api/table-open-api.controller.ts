@@ -19,6 +19,7 @@ import type {
   IGetAbnormalVo,
   ITableFullVo,
   ITableListVo,
+  ITableSearchVectorStatusVo,
   ITableVo,
 } from '@teable/openapi';
 import {
@@ -268,6 +269,14 @@ export class TableController {
   @Permissions('table|read')
   async getTableIndex(@Param('tableId') tableId: string): Promise<string[]> {
     return this.tableIndexService.getActivatedTableIndexes(tableId);
+  }
+
+  @Get(':tableId/search-vector-status')
+  @Permissions('table|read')
+  async getSearchVectorStatus(
+    @Param('tableId') tableId: string
+  ): Promise<ITableSearchVectorStatusVo> {
+    return this.tableIndexService.getSearchVectorStatus(tableId);
   }
 
   @Get(':tableId/abnormal-index')

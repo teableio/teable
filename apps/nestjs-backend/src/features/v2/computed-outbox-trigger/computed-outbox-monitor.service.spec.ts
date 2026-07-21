@@ -93,6 +93,24 @@ describe('ComputedOutboxMonitorService', () => {
           returnvalue: { secret: 'must-not-leak' },
         },
       ]),
+      getFailed: vi.fn().mockResolvedValue([
+        {
+          id: 'job-failed',
+          data: {
+            schemaVersion: 1,
+            wakeupId: 'wake-failed-secret',
+            taskId: 'cuo-failed',
+            baseId: 'bse123',
+            availableAt: '2026-07-13T11:00:00.000Z',
+            emittedAt: '2026-07-13T11:00:00.000Z',
+            cause: 'retry',
+            secret: 'must-not-leak',
+          },
+          finishedOn: 900,
+          attemptsMade: 3,
+          failedReason: 'worker crashed: secret-must-stay',
+        },
+      ]),
     };
     const dataDbClientManager = {
       listComputedOutboxMaintenanceTargets: vi.fn().mockResolvedValue(targets),
@@ -143,10 +161,21 @@ describe('ComputedOutboxMonitorService', () => {
           attemptsMade: 1,
         },
       ],
+      recentFailed: [
+        {
+          taskId: 'cuo-failed',
+          baseId: 'bse123',
+          cause: 'retry',
+          failedAt: '1970-01-01T00:00:00.900Z',
+          failedReason: 'worker crashed: secret-must-stay',
+          attemptsMade: 3,
+        },
+      ],
     });
     expect(queue.getCompleted).toHaveBeenCalledWith(0, 9);
-    expect(JSON.stringify(result.queue.recentCompleted)).not.toContain('secret');
+    expect(queue.getFailed).toHaveBeenCalledWith(0, 9);
     expect(JSON.stringify(result.queue.recentCompleted)).not.toContain('wake-secret');
+    expect(JSON.stringify(result.queue.recentFailed)).not.toContain('wake-failed-secret');
     expect(result.outbox).toMatchObject({
       targetCount: 2,
       unavailableTargetCount: 0,
@@ -208,6 +237,7 @@ describe('ComputedOutboxMonitorService', () => {
         getJobCounts: vi.fn().mockResolvedValue({}),
         getWorkersCount: vi.fn().mockResolvedValue(0),
         getCompleted: vi.fn().mockResolvedValue([]),
+        getFailed: vi.fn().mockResolvedValue([]),
       } as never
     );
 
@@ -238,6 +268,7 @@ describe('ComputedOutboxMonitorService', () => {
         getJobCounts: vi.fn().mockRejectedValue(new Error('redis password leaked')),
         getWorkersCount: vi.fn(),
         getCompleted: vi.fn(),
+        getFailed: vi.fn(),
       } as never
     );
 
@@ -277,6 +308,7 @@ describe('ComputedOutboxMonitorService', () => {
         getJobCounts: vi.fn().mockResolvedValue({}),
         getWorkersCount: vi.fn().mockResolvedValue(1),
         getCompleted: vi.fn().mockResolvedValue([]),
+        getFailed: vi.fn().mockResolvedValue([]),
       } as never
     );
 
@@ -302,6 +334,7 @@ describe('ComputedOutboxMonitorService', () => {
         getJobCounts: vi.fn().mockResolvedValue({}),
         getWorkersCount: vi.fn().mockResolvedValue(1),
         getCompleted: vi.fn().mockResolvedValue([]),
+        getFailed: vi.fn().mockResolvedValue([]),
       } as never
     );
 

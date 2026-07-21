@@ -2,7 +2,7 @@
   <h1 align="center">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="static/assets/images/teable-vertical-dark.png">
-      <img alt="teable logo" height="150" src="static/assets/images/teable-vertical-light.png">
+      <img alt="teable logo" height="120" src="static/assets/images/teable-vertical-light.png">
     </picture>
   </h1>
   <h3 align="center"><strong>Turn your data into AI workflows and custom apps that 100% fit your business</strong></h3>
@@ -29,6 +29,8 @@
     <img alt="GitHub top language" src="https://img.shields.io/github/languages/top/teableio/teable?style=flat-square&labelColor=000&color=blue">
   </a>
 </p>
+
+![Teable cover](static/assets/images/teable-cover.png)
 
 ## Quick Guide
 
@@ -74,12 +76,12 @@ More features land all the time — see the <a target="_blank" href="https://hel
 Three ways to run Teable — pick by what you need (full comparison in the
 [Deployment guide](https://help.teable.ai/en/deploy/choose)):
 
-| | **Teable Cloud** | **Full-featured self-host** | **Standalone self-host** |
-|---|---|---|---|
-| Tables, collaboration, API, automation | ✅ | ✅ | ✅ |
-| AI features (chat, agents) | ✅ | ✅ | ❌ |
-| App Builder (build & deploy apps) | ✅ | ✅ | ❌ |
-| Start here | [teable.ai](https://teable.ai) | [teableio/teable-deployment](https://github.com/teableio/teable-deployment) | [Docker guide](https://help.teable.ai/en/deploy/docker) |
+|                                        | **Teable Cloud**               | **Full-featured self-host**                                                 | **Standalone self-host**                                |
+| -------------------------------------- | ------------------------------ | --------------------------------------------------------------------------- | ------------------------------------------------------- |
+| Tables, collaboration, API, automation | ✅                             | ✅                                                                          | ✅                                                      |
+| AI features (chat, agents)             | ✅                             | ✅                                                                          | ❌                                                      |
+| App Builder (build & deploy apps)      | ✅                             | ✅                                                                          | ❌                                                      |
+| Start here                             | [teable.ai](https://teable.ai) | [teableio/teable-deployment](https://github.com/teableio/teable-deployment) | [Docker guide](https://help.teable.ai/en/deploy/docker) |
 
 Prefer not to deploy by hand? **Hand [teableio/teable-deployment](https://github.com/teableio/teable-deployment)
 to your AI agent** (Claude Code, Codex, …) together with a domain, a DNS token,

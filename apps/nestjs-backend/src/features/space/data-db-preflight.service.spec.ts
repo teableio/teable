@@ -551,6 +551,31 @@ describe('DataDbPreflightService', () => {
     });
   });
 
+  it('skips the cross-space link scan when includeRelatedSpaces is false', async () => {
+    const tableMetaFindMany = vi.fn();
+    const fieldFindMany = vi.fn();
+    const service = new DataDbPreflightService({
+      ...defaultRelatedSpacesPrisma(),
+      tableMeta: { findMany: tableMetaFindMany },
+      field: { findMany: fieldFindMany },
+      spaceDataDbBinding: {
+        ...defaultRelatedSpacesPrisma().spaceDataDbBinding,
+        findUnique: vi.fn().mockResolvedValue(null),
+      },
+      spaceDataDbMigrationJob: {
+        findFirst: vi.fn().mockResolvedValue(null),
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+    } as never);
+
+    await expect(service.getSummary('spcxxx', { includeRelatedSpaces: false })).resolves.toEqual({
+      mode: 'default',
+      state: 'ready',
+    });
+    expect(tableMetaFindMany).not.toHaveBeenCalled();
+    expect(fieldFindMany).not.toHaveBeenCalled();
+  });
+
   it('returns default summary when the migration job table is not available yet', async () => {
     const service = new DataDbPreflightService({
       ...defaultRelatedSpacesPrisma(),

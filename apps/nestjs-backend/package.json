@@ -42,6 +42,7 @@
     "test": "run-s test-unit test-e2e",
     "test-unit:watch": "vitest --watch",
     "test-unit": "vitest run --silent --bail 1",
+    "test-unit-shard": "pnpm test-unit ${VITEST_SHARD:+--shard=$VITEST_SHARD}",
     "test-unit-cover": "pnpm test-unit --coverage ${VITEST_SHARD:+--shard=$VITEST_SHARD}",
     "dual-db-cutover-validate": "node ./scripts/validate-dual-db-cutover.mjs",
     "pre-test-e2e": "cross-env NODE_ENV=test pnpm -F @teable/db-main-prisma prisma-db-seed -- --e2e",

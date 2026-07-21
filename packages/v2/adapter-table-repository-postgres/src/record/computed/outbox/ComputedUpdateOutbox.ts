@@ -3,22 +3,38 @@ import {
   resolvePostgresDbOrTx,
 } from '@teable/v2-adapter-db-postgres-shared';
 import {
+  ActorId,
+  BaseId,
+  ComputedActivityBatchChanged,
   domainError,
   type DomainError,
   generatePrefixedId,
   getUnitOfWorkTransaction,
+  type IEventBus,
   type IExecutionContext,
   type ILogger,
+  registerAfterCommit,
   v2CoreTokens,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import { sql, type Kysely, type Transaction } from 'kysely';
+import { sql, type ExpressionBuilder, type Kysely, type Transaction } from 'kysely';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { v2RecordRepositoryPostgresTokens } from '../../di/tokens';
 import type { DynamicDB } from '../../query-builder';
+import {
+  noopComputedActivityProjector,
+  toComputedActivityBatch,
+  type ComputedActivityProjectionResult,
+  type IComputedActivityProjector,
+} from '../activity/IComputedActivityProjector';
+import {
+  hasAllTargetRecordsEdge,
+  resolveFieldTargetsFromOutboxItem,
+  sumDirtyRecordCount,
+} from '../activity/resolveFieldTargets';
 import type { DirtyRecordStats } from '../ComputedFieldUpdater';
 import { buildTryAdvisoryLockQuery } from '../ComputedUpdateLock';
 import { toErrorLogFields } from '../errorLog';
@@ -58,6 +74,7 @@ import type {
   AnyOutboxItem,
   FieldBackfillOutboxItem,
   SeedOutboxItem,
+  RegisterPlannedTaskActivityParams,
   MarkFailedOptions,
 } from './IComputedUpdateOutbox';
 
@@ -107,28 +124,29 @@ export const dedupeClaimRowsByScope = <T extends OutboxRow>(rows: ReadonlyArray<
 };
 
 const buildProcessingConcurrencyCondition = (
+  eb: ExpressionBuilder<DynamicDB, keyof DynamicDB>,
   alias: string,
   reclaimBefore: Date,
   config: ComputedUpdateOutboxConfig
-) => sql<boolean>`
-  (
-    select count(*)::int
-    from ${sql.table(OUTBOX_TABLE)} as active
-    where active."status" = 'processing'
-      and active."locked_at" is not null
-      and active."locked_at" > ${reclaimBefore}
-      and active."base_id" = ${sql.ref(`${alias}.base_id`)}
-  ) < ${config.maxConcurrentProcessingPerBase}
-  and (
-    select count(*)::int
-    from ${sql.table(OUTBOX_TABLE)} as active
-    where active."status" = 'processing'
-      and active."locked_at" is not null
-      and active."locked_at" > ${reclaimBefore}
-      and active."base_id" = ${sql.ref(`${alias}.base_id`)}
-      and active."seed_table_id" = ${sql.ref(`${alias}.seed_table_id`)}
-  ) < ${config.maxConcurrentProcessingPerSeedTable}
-`;
+) => {
+  const activeForBase = eb
+    .selectFrom(`${OUTBOX_TABLE} as active`)
+    .select(({ fn }) => fn.countAll<number>().as('count'))
+    .where('active.status', '=', 'processing')
+    .where('active.locked_at', 'is not', null)
+    .where('active.locked_at', '>', reclaimBefore)
+    .whereRef('active.base_id', '=', `${alias}.base_id`);
+  const activeForSeedTable = activeForBase.whereRef(
+    'active.seed_table_id',
+    '=',
+    `${alias}.seed_table_id`
+  );
+
+  return sql<boolean>`
+    (${activeForBase}) < ${config.maxConcurrentProcessingPerBase}
+    and (${activeForSeedTable}) < ${config.maxConcurrentProcessingPerSeedTable}
+  `;
+};
 
 type SeedRecord = {
   tableId: string;
@@ -153,6 +171,16 @@ type RunInTransactionOptions = {
 };
 
 type OutboxClaimDeferral = Extract<OutboxTaskClaimEligibility, { status: 'deferred' }>;
+type ActivityEnqueueOutcome = {
+  taskId: string;
+  merged: boolean;
+  activity: ComputedActivityProjectionResult | null;
+};
+
+type MarkDoneOutcome = {
+  done: boolean;
+  activity?: ComputedActivityProjectionResult | null;
+};
 
 /**
  * Persist computed update tasks for background processing (outbox pattern).
@@ -179,8 +207,188 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     @inject(v2RecordRepositoryPostgresTokens.metaDb)
     private readonly metaDb: Kysely<V1TeableDatabase> = db,
     @inject(v2RecordRepositoryPostgresTokens.computedOutboxWakeupPublisher)
-    private readonly wakeupPublisher: IComputedOutboxWakeupPublisher = noopComputedOutboxWakeupPublisher
+    private readonly wakeupPublisher: IComputedOutboxWakeupPublisher = noopComputedOutboxWakeupPublisher,
+    @inject(v2RecordRepositoryPostgresTokens.computedActivityProjector)
+    private readonly activityProjector: IComputedActivityProjector = noopComputedActivityProjector,
+    @inject(v2CoreTokens.eventBus)
+    private readonly eventBus: IEventBus | null = null
   ) {}
+
+  private resolvePublishContext(context?: IExecutionContext): IExecutionContext {
+    if (context?.actorId) return context;
+    const actorId = ActorId.create('system');
+    return {
+      actorId: actorId.isOk() ? actorId.value : (undefined as never),
+    };
+  }
+
+  private async publishActivityChanged(
+    projection: ComputedActivityProjectionResult | null | undefined,
+    context?: IExecutionContext
+  ): Promise<void> {
+    if (!projection || !this.eventBus) return;
+    if (projection.fields.length === 0 && projection.tables.length === 0) return;
+
+    const baseIdResult = BaseId.create(projection.baseId);
+    if (baseIdResult.isErr()) return;
+    const event = ComputedActivityBatchChanged.create({
+      baseId: baseIdResult.value,
+      fields: projection.fields,
+      tables: projection.tables,
+    });
+    const publishContext = this.resolvePublishContext(context);
+
+    const publish = async () => {
+      try {
+        const result = await this.eventBus!.publish(publishContext, event);
+        if (result.isErr()) {
+          this.logger.warn('computed:activity:event_publish_failed', {
+            baseId: projection.baseId,
+            fieldCount: projection.fields.length,
+            error: result.error.message,
+          });
+        }
+      } catch (error) {
+        this.logger.warn('computed:activity:event_publish_failed', {
+          baseId: projection.baseId,
+          fieldCount: projection.fields.length,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    };
+
+    const transaction = getUnitOfWorkTransaction(context, 'data');
+    if (transaction) {
+      if (context && registerAfterCommit(context, publish)) return;
+      this.logger.warn('computed:activity:event_publish_skipped_without_after_commit_hook', {
+        baseId: projection.baseId,
+        fieldCount: projection.fields.length,
+      });
+      return;
+    }
+    await publish();
+  }
+
+  private async projectEnqueuedItem(
+    params: {
+      taskId: string;
+      baseId: string;
+      item: AnyOutboxItem;
+      now: Date;
+      trx: unknown;
+    },
+    context?: IExecutionContext
+  ): Promise<Result<ComputedActivityProjectionResult | null, DomainError>> {
+    const targetsResult = resolveFieldTargetsFromOutboxItem(params.item);
+    if (targetsResult.isErr()) return err(targetsResult.error);
+    const targets = targetsResult.value;
+    if (targets.length === 0) return ok(null);
+
+    const estimatedComplexity =
+      'estimatedComplexity' in params.item && typeof params.item.estimatedComplexity === 'number'
+        ? params.item.estimatedComplexity
+        : isFieldBackfillOutboxItem(params.item)
+          ? params.item.estimatedRowCount ?? params.item.fieldIds.length
+          : isSeedOutboxItem(params.item)
+            ? params.item.seedRecordIds.length
+            : 1;
+
+    const estimatedDirtyRecords = isFieldBackfillOutboxItem(params.item)
+      ? params.item.estimatedRowCount ?? 0
+      : isSeedOutboxItem(params.item)
+        ? params.item.seedRecordIds.length
+        : sumDirtyRecordCount(
+            'dirtyStats' in params.item
+              ? (params.item.dirtyStats as ReadonlyArray<{ recordCount?: number }> | undefined)
+              : undefined
+          );
+
+    const hasAllTargets = isFieldBackfillOutboxItem(params.item)
+      ? true
+      : isSeedOutboxItem(params.item)
+        ? false
+        : hasAllTargetRecordsEdge(
+            'edges' in params.item
+              ? (params.item.edges as ReadonlyArray<{ propagationMode?: string }> | undefined)
+              : undefined
+          );
+
+    const batchProgress = toComputedActivityBatch(
+      'orchestration' in params.item ? params.item.orchestration : undefined
+    );
+
+    const result = await this.activityProjector.onTaskEnqueued(
+      {
+        taskId: params.taskId,
+        baseId: params.baseId,
+        targets,
+        metrics: {
+          estimatedComplexity: Math.max(0, Math.trunc(estimatedComplexity)),
+          estimatedDirtyRecords: Math.max(0, Math.trunc(estimatedDirtyRecords)),
+          hasAllTargetRecords: hasAllTargets,
+          ...(batchProgress ? { batchProgress } : {}),
+        },
+        now: params.now,
+        trx: params.trx,
+      },
+      context
+    );
+    if (result.isErr()) return err(result.error);
+    return ok(result.value);
+  }
+
+  async registerPlannedTaskActivity(
+    params: RegisterPlannedTaskActivityParams,
+    context?: IExecutionContext
+  ): Promise<Result<void, DomainError>> {
+    if (params.targets.length === 0) return ok(undefined);
+
+    const now = params.now ?? new Date();
+    const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
+    const result = await runInTransaction<{
+      enqueued: ComputedActivityProjectionResult | null;
+      claimed: ComputedActivityProjectionResult | null;
+    }>(
+      db,
+      context,
+      async (trx) => {
+        const enqueuedResult = await this.activityProjector.onTaskEnqueued(
+          {
+            taskId: params.taskId,
+            baseId: params.baseId,
+            targets: params.targets,
+            metrics: params.metrics,
+            now,
+            trx,
+          },
+          context
+        );
+        if (enqueuedResult.isErr()) return err(enqueuedResult.error);
+
+        const claimedResult = await this.activityProjector.onTasksClaimed(
+          {
+            tasks: [{ taskId: params.taskId, baseId: params.baseId }],
+            now,
+            trx,
+          },
+          context
+        );
+        if (claimedResult.isErr()) return err(claimedResult.error);
+
+        return ok({ enqueued: enqueuedResult.value, claimed: claimedResult.value });
+      },
+      {
+        logger: this.logger,
+        operation: 'register_planned_task_activity',
+        logContext: { taskId: params.taskId, baseId: params.baseId },
+      }
+    );
+    if (result.isErr()) return err(result.error);
+
+    await this.publishActivityChanged(result.value.enqueued, context);
+    await this.publishActivityChanged(result.value.claimed, context);
+    return ok(undefined);
+  }
 
   private async scheduleWakeup(
     params: {
@@ -243,13 +451,11 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       'outbox.changeType': task.changeType,
     });
 
-    const executeEnqueue = async (): Promise<
-      Result<{ taskId: string; merged: boolean }, DomainError>
-    > => {
+    const executeEnqueue = async (): Promise<Result<ActivityEnqueueOutcome, DomainError>> => {
       const now = new Date();
       const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
 
-      return runInTransaction<{ taskId: string; merged: boolean }>(
+      return runInTransaction<ActivityEnqueueOutcome>(
         db,
         context,
         async (trx) => {
@@ -275,12 +481,52 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
 
           if (!existing) {
             const taskId = await this.insertOutbox(trx, task, now);
-            return ok({ taskId, merged: false });
+            const projected = await this.projectEnqueuedItem(
+              {
+                taskId,
+                baseId: task.baseId,
+                item: {
+                  ...task,
+                  id: taskId,
+                  status: 'pending',
+                  attempts: 0,
+                  maxAttempts: this.config.maxAttempts,
+                  nextRunAt: now,
+                  createdAt: now,
+                  updatedAt: now,
+                },
+                now,
+                trx,
+              },
+              context
+            );
+            if (projected.isErr()) return err(projected.error);
+            return ok({ taskId, merged: false, activity: projected.value });
           }
 
           const taskId = await this.mergeComputedTask(trx, existing, task, now);
+          const projected = await this.projectEnqueuedItem(
+            {
+              taskId,
+              baseId: task.baseId,
+              item: {
+                ...task,
+                id: taskId,
+                status: 'pending',
+                attempts: 0,
+                maxAttempts: this.config.maxAttempts,
+                nextRunAt: now,
+                createdAt: now,
+                updatedAt: now,
+              },
+              now,
+              trx,
+            },
+            context
+          );
+          if (projected.isErr()) return err(projected.error);
 
-          return ok({ taskId, merged: true });
+          return ok({ taskId, merged: true, activity: projected.value });
         },
         {
           logger: this.logger,
@@ -295,23 +541,23 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     };
 
     try {
-      let result: Result<{ taskId: string; merged: boolean }, DomainError>;
+      let result: Result<ActivityEnqueueOutcome, DomainError>;
       if (span && context?.tracer) {
         result = await context.tracer.withSpan(span, executeEnqueue);
       } else {
         result = await executeEnqueue();
       }
-      if (result.isOk()) {
-        await this.scheduleWakeup(
-          {
-            taskId: result.value.taskId,
-            baseId: task.baseId,
-            cause: result.value.merged ? 'merged' : 'created',
-          },
-          context
-        );
-      }
-      return result;
+      if (result.isErr()) return err(result.error);
+      await this.publishActivityChanged(result.value.activity, context);
+      await this.scheduleWakeup(
+        {
+          taskId: result.value.taskId,
+          baseId: task.baseId,
+          cause: result.value.merged ? 'merged' : 'created',
+        },
+        context
+      );
+      return ok({ taskId: result.value.taskId, merged: result.value.merged });
     } finally {
       span?.end();
     }
@@ -327,13 +573,11 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       'outbox.fieldCount': task.fieldIds.length,
     });
 
-    const executeEnqueue = async (): Promise<
-      Result<{ taskId: string; merged: boolean }, DomainError>
-    > => {
+    const executeEnqueue = async (): Promise<Result<ActivityEnqueueOutcome, DomainError>> => {
       const now = new Date();
       const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
 
-      return runInTransaction<{ taskId: string; merged: boolean }>(
+      return runInTransaction<ActivityEnqueueOutcome>(
         db,
         context,
         async (trx) => {
@@ -360,7 +604,27 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
 
           if (!existing) {
             const taskId = await this.insertFieldBackfill(trx, task, now);
-            return ok({ taskId, merged: false });
+            const projected = await this.projectEnqueuedItem(
+              {
+                taskId,
+                baseId: task.baseId,
+                item: {
+                  ...task,
+                  id: taskId,
+                  status: 'pending',
+                  attempts: 0,
+                  maxAttempts: this.config.maxAttempts,
+                  nextRunAt: now,
+                  createdAt: now,
+                  updatedAt: now,
+                },
+                now,
+                trx,
+              },
+              context
+            );
+            if (projected.isErr()) return err(projected.error);
+            return ok({ taskId, merged: false, activity: projected.value });
           }
 
           // Merge field IDs with existing task
@@ -383,7 +647,29 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             fieldIds: mergedFieldIds,
           });
 
-          return ok({ taskId, merged: true });
+          const projected = await this.projectEnqueuedItem(
+            {
+              taskId,
+              baseId: task.baseId,
+              item: {
+                ...task,
+                fieldIds: mergedFieldIds,
+                id: taskId,
+                status: 'pending',
+                attempts: 0,
+                maxAttempts: this.config.maxAttempts,
+                nextRunAt: now,
+                createdAt: now,
+                updatedAt: now,
+              },
+              now,
+              trx,
+            },
+            context
+          );
+          if (projected.isErr()) return err(projected.error);
+
+          return ok({ taskId, merged: true, activity: projected.value });
         },
         {
           logger: this.logger,
@@ -398,23 +684,23 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     };
 
     try {
-      let result: Result<{ taskId: string; merged: boolean }, DomainError>;
+      let result: Result<ActivityEnqueueOutcome, DomainError>;
       if (span && context?.tracer) {
         result = await context.tracer.withSpan(span, executeEnqueue);
       } else {
         result = await executeEnqueue();
       }
-      if (result.isOk()) {
-        await this.scheduleWakeup(
-          {
-            taskId: result.value.taskId,
-            baseId: task.baseId,
-            cause: result.value.merged ? 'merged' : 'created',
-          },
-          context
-        );
-      }
-      return result;
+      if (result.isErr()) return err(result.error);
+      await this.publishActivityChanged(result.value.activity, context);
+      await this.scheduleWakeup(
+        {
+          taskId: result.value.taskId,
+          baseId: task.baseId,
+          cause: result.value.merged ? 'merged' : 'created',
+        },
+        context
+      );
+      return ok({ taskId: result.value.taskId, merged: result.value.merged });
     } finally {
       span?.end();
     }
@@ -431,13 +717,11 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       'outbox.seedCount': task.seedRecordIds.length,
     });
 
-    const executeEnqueue = async (): Promise<
-      Result<{ taskId: string; merged: boolean }, DomainError>
-    > => {
+    const executeEnqueue = async (): Promise<Result<ActivityEnqueueOutcome, DomainError>> => {
       const now = new Date();
       const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
 
-      return runInTransaction<{ taskId: string; merged: boolean }>(
+      return runInTransaction<ActivityEnqueueOutcome>(
         db,
         context,
         async (trx) => {
@@ -455,7 +739,27 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
           if (!existing) {
             const taskId = await this.insertSeedTask(trx, task, now);
             if (taskId) {
-              return ok({ taskId, merged: false });
+              const projected = await this.projectEnqueuedItem(
+                {
+                  taskId,
+                  baseId: task.baseId,
+                  item: {
+                    ...task,
+                    id: taskId,
+                    status: 'pending',
+                    attempts: 0,
+                    maxAttempts: this.config.maxAttempts,
+                    nextRunAt: now,
+                    createdAt: now,
+                    updatedAt: now,
+                  },
+                  now,
+                  trx,
+                },
+                context
+              );
+              if (projected.isErr()) return err(projected.error);
+              return ok({ taskId, merged: false, activity: projected.value });
             }
 
             const conflicted = await this.findPendingSeedTask(trx, task);
@@ -468,11 +772,51 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             }
 
             const mergedTaskId = await this.mergeSeedTask(trx, conflicted, task, now);
-            return ok({ taskId: mergedTaskId, merged: true });
+            const projected = await this.projectEnqueuedItem(
+              {
+                taskId: mergedTaskId,
+                baseId: task.baseId,
+                item: {
+                  ...task,
+                  id: mergedTaskId,
+                  status: 'pending',
+                  attempts: 0,
+                  maxAttempts: this.config.maxAttempts,
+                  nextRunAt: now,
+                  createdAt: now,
+                  updatedAt: now,
+                },
+                now,
+                trx,
+              },
+              context
+            );
+            if (projected.isErr()) return err(projected.error);
+            return ok({ taskId: mergedTaskId, merged: true, activity: projected.value });
           }
 
           const taskId = await this.mergeSeedTask(trx, existing, task, now);
-          return ok({ taskId, merged: true });
+          const projected = await this.projectEnqueuedItem(
+            {
+              taskId,
+              baseId: task.baseId,
+              item: {
+                ...task,
+                id: taskId,
+                status: 'pending',
+                attempts: 0,
+                maxAttempts: this.config.maxAttempts,
+                nextRunAt: now,
+                createdAt: now,
+                updatedAt: now,
+              },
+              now,
+              trx,
+            },
+            context
+          );
+          if (projected.isErr()) return err(projected.error);
+          return ok({ taskId, merged: true, activity: projected.value });
         },
         {
           logger: this.logger,
@@ -487,23 +831,23 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     };
 
     try {
-      let result: Result<{ taskId: string; merged: boolean }, DomainError>;
+      let result: Result<ActivityEnqueueOutcome, DomainError>;
       if (span && context?.tracer) {
         result = await context.tracer.withSpan(span, executeEnqueue);
       } else {
         result = await executeEnqueue();
       }
-      if (result.isOk()) {
-        await this.scheduleWakeup(
-          {
-            taskId: result.value.taskId,
-            baseId: task.baseId,
-            cause: result.value.merged ? 'merged' : 'created',
-          },
-          context
-        );
-      }
-      return result;
+      if (result.isErr()) return err(result.error);
+      await this.publishActivityChanged(result.value.activity, context);
+      await this.scheduleWakeup(
+        {
+          taskId: result.value.taskId,
+          baseId: task.baseId,
+          cause: result.value.merged ? 'merged' : 'created',
+        },
+        context
+      );
+      return ok({ taskId: result.value.taskId, merged: result.value.merged });
     } finally {
       span?.end();
     }
@@ -518,7 +862,11 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       'outbox.limit': params.limit,
     });
 
-    const executeClaim = async (): Promise<Result<ReadonlyArray<AnyOutboxItem>, DomainError>> => {
+    type ClaimBatchResult = {
+      tasks: ReadonlyArray<AnyOutboxItem>;
+      activity: ComputedActivityProjectionResult | null;
+    };
+    const executeClaim = async (): Promise<Result<ClaimBatchResult, DomainError>> => {
       const now = params.now ?? new Date();
       const reclaimBefore = new Date(now.getTime() - this.config.processingLeaseMs);
       const reclaimLimit = Math.min(params.limit, this.config.reclaimBatchSize);
@@ -538,8 +886,8 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                   .selectAll('o')
                   .where('o.status', '=', 'processing')
                   .where(sql<boolean>`("locked_at" is null or "locked_at" <= ${reclaimBefore})`)
-                  .where(
-                    buildComputedTaskNotPausedCondition('o', now, {
+                  .where((eb) =>
+                    buildComputedTaskNotPausedCondition(eb, 'o', now, {
                       includeSpaceScope: includeSpaceScopeInSql,
                     })
                   )
@@ -559,12 +907,14 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                   .selectAll('o')
                   .where('o.status', '=', DEFAULT_STATUS)
                   .where('o.next_run_at', '<=', now)
-                  .where(
-                    buildComputedTaskNotPausedCondition('o', now, {
+                  .where((eb) =>
+                    buildComputedTaskNotPausedCondition(eb, 'o', now, {
                       includeSpaceScope: includeSpaceScopeInSql,
                     })
                   )
-                  .where(buildProcessingConcurrencyCondition('o', reclaimBefore, this.config))
+                  .where((eb) =>
+                    buildProcessingConcurrencyCondition(eb, 'o', reclaimBefore, this.config)
+                  )
                   .orderBy('o.estimated_complexity', 'asc')
                   .orderBy('o.next_run_at', 'asc')
                   .orderBy('o.created_at', 'asc')
@@ -580,7 +930,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             : await this.filterRowsPausedBySpace(trx, candidateRows, now, context);
           const rows = await this.filterRowsByConcurrency(trx, unpausedRows, reclaimBefore);
 
-          if (rows.length === 0) return ok([]);
+          if (rows.length === 0) return ok({ tasks: [], activity: null });
 
           const ids = rows.map((row) => String(row.id));
           await trx
@@ -608,6 +958,19 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             )
           );
 
+          const activityResult = await this.activityProjector.onTasksClaimed(
+            {
+              tasks: tasks.map((task) => ({
+                taskId: task.id,
+                baseId: task.baseId,
+              })),
+              now,
+              trx,
+            },
+            context
+          );
+          if (activityResult.isErr()) return err(activityResult.error);
+
           this.logger.debug('computed:outbox:claimed', {
             workerId: params.workerId,
             leaseOwner: claimOwner,
@@ -628,7 +991,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             });
           }
 
-          return ok(tasks);
+          return ok({ tasks, activity: activityResult.value });
         },
         {
           logger: this.logger,
@@ -639,10 +1002,15 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     };
 
     try {
+      let result: Result<ClaimBatchResult, DomainError>;
       if (span && context?.tracer) {
-        return await context.tracer.withSpan(span, executeClaim);
+        result = await context.tracer.withSpan(span, executeClaim);
+      } else {
+        result = await executeClaim();
       }
-      return await executeClaim();
+      if (result.isErr()) return err(result.error);
+      await this.publishActivityChanged(result.value.activity, context);
+      return ok(result.value.tasks);
     } finally {
       span?.end();
     }
@@ -743,7 +1111,11 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       'outbox.workerId': params.workerId,
     });
 
-    const executeClaim = async (): Promise<Result<AnyOutboxItem | null, DomainError>> => {
+    type ClaimByIdResult = {
+      task: AnyOutboxItem;
+      activity: ComputedActivityProjectionResult | null;
+    } | null;
+    const executeClaim = async (): Promise<Result<ClaimByIdResult, DomainError>> => {
       const now = params.now ?? new Date();
       const reclaimBefore = new Date(now.getTime() - this.config.processingLeaseMs);
       const claimOwner = createClaimOwner(params.workerId);
@@ -831,7 +1203,23 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             });
           }
 
-          return ok(toAnyOutboxItem(claimedRow, seedMap.get(String(row.id)) ?? []));
+          const claimed = toAnyOutboxItem(claimedRow, seedMap.get(String(row.id)) ?? []);
+          const activityResult = await this.activityProjector.onTasksClaimed(
+            {
+              tasks: [
+                {
+                  taskId: claimed.id,
+                  baseId: claimed.baseId,
+                },
+              ],
+              now,
+              trx,
+            },
+            context
+          );
+          if (activityResult.isErr()) return err(activityResult.error);
+
+          return ok({ task: claimed, activity: activityResult.value });
         },
         {
           logger: this.logger,
@@ -842,10 +1230,19 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     };
 
     try {
+      let result: Result<
+        { task: AnyOutboxItem; activity: ComputedActivityProjectionResult | null } | null,
+        DomainError
+      >;
       if (span && context?.tracer) {
-        return await context.tracer.withSpan(span, executeClaim);
+        result = await context.tracer.withSpan(span, executeClaim);
+      } else {
+        result = await executeClaim();
       }
-      return await executeClaim();
+      if (result.isErr()) return err(result.error);
+      if (!result.value) return ok(null);
+      await this.publishActivityChanged(result.value.activity, context);
+      return ok(result.value.task);
     } finally {
       span?.end();
     }
@@ -1066,9 +1463,9 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       'outbox.taskId': taskId,
     });
 
-    const executeMarkDone = async (): Promise<Result<boolean, DomainError>> => {
+    const executeMarkDone = async (): Promise<Result<MarkDoneOutcome, DomainError>> => {
       const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
-      return runInTransaction(
+      return runInTransaction<MarkDoneOutcome>(
         db,
         context,
         async (trx) => {
@@ -1089,11 +1486,31 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                 leaseOwner,
               });
             }
-            return ok(false);
+            return ok({ done: false as const });
           }
 
           await trx.deleteFrom(OUTBOX_SEED_TABLE).where('task_id', '=', taskId).execute();
-          return ok(true);
+
+          const baseId = typeof taskOrId === 'string' ? undefined : taskOrId.baseId;
+          const startedAt =
+            typeof taskOrId === 'string'
+              ? undefined
+              : taskOrId.lockedAt ?? taskOrId.createdAt ?? undefined;
+          const durationMs =
+            startedAt instanceof Date ? Math.max(0, Date.now() - startedAt.getTime()) : undefined;
+          const activityResult = await this.activityProjector.onTaskDone(
+            {
+              taskId,
+              baseId,
+              durationMs,
+              now: new Date(),
+              trx,
+            },
+            context
+          );
+          if (activityResult.isErr()) return err(activityResult.error);
+
+          return ok({ done: true as const, activity: activityResult.value });
         },
         {
           logger: this.logger,
@@ -1104,10 +1521,17 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     };
 
     try {
+      let result: Result<MarkDoneOutcome, DomainError>;
       if (span && context?.tracer) {
-        return await context.tracer.withSpan(span, executeMarkDone);
+        result = await context.tracer.withSpan(span, executeMarkDone);
+      } else {
+        result = await executeMarkDone();
       }
-      return await executeMarkDone();
+      if (result.isErr()) return err(result.error);
+      if (result.value.done) {
+        await this.publishActivityChanged(result.value.activity, context);
+      }
+      return ok(result.value.done);
     } finally {
       span?.end();
     }
@@ -1125,6 +1549,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
       released: boolean;
       taskId?: string;
       availableAt?: Date;
+      activity?: ComputedActivityProjectionResult | null;
     };
     const executeRelease = async (): Promise<Result<ReleaseOutcome, DomainError>> => {
       const now = params.now ?? new Date();
@@ -1194,6 +1619,18 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
               return ok({ released: false });
             }
 
+            // Processing task is gone; drop its activity refs (pending already owns its own).
+            const dropActivity = await this.activityProjector.onTaskDone(
+              {
+                taskId: params.task.id,
+                baseId: params.task.baseId,
+                now,
+                trx,
+              },
+              context
+            );
+            if (dropActivity.isErr()) return err(dropActivity.error);
+
             this.logger.debug('computed:outbox:release_retry_merged_pending', {
               taskId: params.task.id,
               mergedTaskId,
@@ -1201,7 +1638,12 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
               nextRunAt,
             });
 
-            return ok({ released: true, taskId: mergedTaskId, availableAt: now });
+            return ok({
+              released: true,
+              taskId: mergedTaskId,
+              availableAt: now,
+              activity: dropActivity.value,
+            });
           }
 
           await trx
@@ -1217,13 +1659,31 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             .where('id', '=', params.task.id)
             .execute();
 
+          const retryActivity = await this.activityProjector.onTaskFailed(
+            {
+              taskId: params.task.id,
+              baseId: params.task.baseId,
+              error: { message: params.reason },
+              terminal: false,
+              now,
+              trx,
+            },
+            context
+          );
+          if (retryActivity.isErr()) return err(retryActivity.error);
+
           this.logger.debug('computed:outbox:released_for_retry', {
             taskId: params.task.id,
             reason: params.reason,
             nextRunAt,
           });
 
-          return ok({ released: true, taskId: params.task.id, availableAt: nextRunAt });
+          return ok({
+            released: true,
+            taskId: params.task.id,
+            availableAt: nextRunAt,
+            activity: retryActivity.value,
+          });
         },
         {
           logger: this.logger,
@@ -1241,6 +1701,9 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         result = await executeRelease();
       }
       if (result.isErr()) return err(result.error);
+      if (result.value.released) {
+        await this.publishActivityChanged(result.value.activity, context);
+      }
       if (result.value.released && result.value.taskId && result.value.availableAt) {
         await this.scheduleWakeup(
           {
@@ -1286,7 +1749,11 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
 
     const failureLogFields = buildFailureLogFields(task, options);
 
-    type MarkFailedOutcome = { updated: boolean; retryAt?: Date };
+    type MarkFailedOutcome = {
+      updated: boolean;
+      retryAt?: Date;
+      activity?: ComputedActivityProjectionResult | null;
+    };
     const executeMarkFailed = async (): Promise<Result<MarkFailedOutcome, DomainError>> => {
       const now = new Date();
       const db = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
@@ -1335,6 +1802,19 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             await trx.deleteFrom(OUTBOX_TABLE).where('id', '=', task.id).execute();
             await trx.deleteFrom(OUTBOX_SEED_TABLE).where('task_id', '=', task.id).execute();
 
+            const terminalActivity = await this.activityProjector.onTaskFailed(
+              {
+                taskId: task.id,
+                baseId: task.baseId,
+                error: { message: error },
+                terminal: true,
+                now,
+                trx,
+              },
+              context
+            );
+            if (terminalActivity.isErr()) return err(terminalActivity.error);
+
             span?.setAttribute('outbox.deadLetter', true);
             this.logger.warn('computed:outbox:dead_letter', {
               taskId: task.id,
@@ -1343,7 +1823,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
               maxAttempts: task.maxAttempts,
               ...failureLogFields,
             });
-            return ok({ updated: true });
+            return ok({ updated: true, activity: terminalActivity.value });
           }
 
           const delay = Math.min(
@@ -1366,6 +1846,19 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             .where('id', '=', task.id)
             .execute();
 
+          const retryActivity = await this.activityProjector.onTaskFailed(
+            {
+              taskId: task.id,
+              baseId: task.baseId,
+              error: { message: error },
+              terminal: false,
+              now,
+              trx,
+            },
+            context
+          );
+          if (retryActivity.isErr()) return err(retryActivity.error);
+
           span?.setAttribute('outbox.retryScheduled', true);
           this.logger.warn('computed:outbox:retry_scheduled', {
             taskId: task.id,
@@ -1374,7 +1867,11 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             ...failureLogFields,
           });
 
-          return ok({ updated: true, retryAt: nextRunAt });
+          return ok({
+            updated: true,
+            retryAt: nextRunAt,
+            activity: retryActivity.value,
+          });
         },
         {
           logger: this.logger,
@@ -1392,6 +1889,9 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         result = await executeMarkFailed();
       }
       if (result.isErr()) return err(result.error);
+      if (result.value.updated) {
+        await this.publishActivityChanged(result.value.activity, context);
+      }
       if (result.value.updated && result.value.retryAt) {
         await this.scheduleWakeup(
           {

@@ -446,6 +446,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         return onColumnAppend?.();
       case RegionType.RowHeaderExpandHandler:
         return onRowExpand?.(rowIndex);
+      case RegionType.ColumnIcon:
       case RegionType.ColumnHeader:
         return onColumnHeaderClick?.(columnIndex, {
           x: coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft),
@@ -545,7 +546,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       return setEditing(true);
     }
     if (
-      type === RegionType.ColumnHeader &&
+      [RegionType.ColumnHeader, RegionType.ColumnIcon].includes(type) &&
       isEqual(selectionRanges[0], [columnIndex, columnIndex])
     ) {
       return onColumnHeaderDblClick?.(columnIndex, {

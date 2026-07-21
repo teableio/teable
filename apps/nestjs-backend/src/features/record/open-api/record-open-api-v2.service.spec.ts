@@ -10,6 +10,7 @@ import {
   CreateRecordResult,
   CreateRecordsResult,
   DuplicateRecordResult,
+  FieldId,
   ListTableRecordsQuery,
   ListTableRecordsResult,
   UpdateRecordResult,
@@ -46,6 +47,7 @@ describe('RecordOpenApiV2Service', () => {
   const cacheSetDetail = vi.fn();
   const getDataDatabaseForTable = vi.fn();
   const dataPrismaForTable = vi.fn();
+  const resolveForRecordSearch = vi.fn();
   const assertTableRecordWritable = vi.fn();
 
   let service: RecordOpenApiV2Service;
@@ -175,6 +177,7 @@ describe('RecordOpenApiV2Service', () => {
       url: 'postgresql://meta',
       isMetaFallback: true,
     });
+    resolveForRecordSearch.mockResolvedValue(undefined);
     commandExecute.mockResolvedValue({
       isErr: () => false,
       value: UpdateRecordsResult.create(2, []),
@@ -211,7 +214,9 @@ describe('RecordOpenApiV2Service', () => {
         emitAtomic: vi.fn().mockResolvedValue(undefined),
         withOperation: vi.fn().mockImplementation((_operation, fn: () => Promise<unknown>) => fn()),
       } as never,
-      { assertTableRecordWritable } as never
+      { assertTableRecordWritable } as never,
+      undefined,
+      { resolveForRecordSearch } as never
     );
   });
 
@@ -425,6 +430,36 @@ describe('RecordOpenApiV2Service', () => {
       { id: 'rec1111111111111111', fields: {} },
       { id: 'rec2222222222222222', fields: {} },
     ]);
+  });
+
+  it('passes a meta-backed generated search vector access path into v2 list queries', async () => {
+    const tableId = `tbl${'c'.repeat(16)}`;
+    const search = ['order 123'] as [string];
+    const accessPath = {
+      kind: 'generated_tsvector' as const,
+      generatedColumnName: '__tqops_search_vector',
+      languageConfig: 'simple',
+      searchScope: 'all_fields' as const,
+      coveredFieldIds: [FieldId.create(noteFieldId)._unsafeUnwrap()],
+    };
+    resolveForRecordSearch.mockResolvedValueOnce(accessPath);
+
+    await service.getRecords(tableId, {
+      fieldKeyType: FieldKeyType.Id,
+      search,
+      skip: 0,
+      take: 2,
+    });
+
+    expect(resolveForRecordSearch).toHaveBeenCalledWith({
+      container: { resolve },
+      tableId,
+      search,
+    });
+    expect(getDocIdsByQuery).not.toHaveBeenCalled();
+    const query = execute.mock.calls[0]?.[1];
+    expect(query).toBeInstanceOf(ListTableRecordsQuery);
+    expect((query as ListTableRecordsQuery).recordSearchAccessPath).toBe(accessPath);
   });
 
   it('normalizes legacy ISO date filters for v2 date comparisons', async () => {

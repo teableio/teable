@@ -8,7 +8,7 @@ import {
   NullForeignTableLoaderService,
 } from '../application/services/ForeignTableLoaderService';
 import { type IRecordChangedValueDecoratorService } from '../application/services/RecordChangedValueDecoratorService';
-import { mergeRecordFieldValues } from '../application/services/recordEventFieldValues';
+import { aggregateRecordCreatedEvents } from '../application/services/recordEventFieldValues';
 import { requireStoredRecordSnapshots } from '../application/services/RecordMutationSnapshotContract';
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
@@ -22,12 +22,6 @@ import {
 } from '../application/services/UndoRedoStackService';
 import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
-import type { RecordCreated } from '../domain/table/events/RecordCreated';
-import {
-  RecordCreated as RecordCreatedEvent,
-  isRecordCreatedEvent,
-} from '../domain/table/events/RecordCreated';
-import { RecordsBatchCreated } from '../domain/table/events/RecordsBatchCreated';
 import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
 import type { FieldKeyMapping } from '../domain/table/records/RecordCreateResult';
 import type { TableRecord } from '../domain/table/records/TableRecord';
@@ -242,73 +236,12 @@ export class CreateRecordsHandler
           tableForCreate,
           mutationResult.mutation.changedFieldsByRecord
         );
-      const rawEvents = tableForCreate.pullDomainEvents().map((event) =>
-        isRecordCreatedEvent(event)
-          ? RecordCreatedEvent.create({
-              tableId: event.tableId,
-              baseId: event.baseId,
-              recordId: event.recordId,
-              fieldValues: mergeRecordFieldValues(
-                event.fieldValues,
-                decoratedChangedFieldsByRecord?.get(event.recordId.toString())
-              ),
-              source: event.source,
-            })
-          : event
-      );
-
-      // Aggregate multiple RecordCreated events into a single RecordsBatchCreated event
-      const recordCreatedEvents: RecordCreated[] = [];
-      const otherEvents: IDomainEvent[] = [];
-
-      for (const event of rawEvents) {
-        if (isRecordCreatedEvent(event)) {
-          const recordId = event.recordId.toString();
-          const recordFieldChanges = new Map<string, unknown>();
-          for (const [fieldId, value] of decoratedChangedFieldsByRecord?.get(recordId) ?? []) {
-            recordFieldChanges.set(fieldId, value);
-          }
-          for (const [fieldId, value] of mutationResult.mutation.computedChangesByRecord?.get(
-            recordId
-          ) ?? []) {
-            recordFieldChanges.set(fieldId, value);
-          }
-          const mergedRecordFieldChanges =
-            recordFieldChanges.size > 0 ? recordFieldChanges : undefined;
-          recordCreatedEvents.push(
-            RecordCreatedEvent.create({
-              tableId: event.tableId,
-              baseId: event.baseId,
-              recordId: event.recordId,
-              fieldValues: mergeRecordFieldValues(event.fieldValues, mergedRecordFieldChanges),
-              source: event.source,
-            })
-          );
-        } else {
-          otherEvents.push(event);
-        }
-      }
-
-      let events: IDomainEvent[];
-      if (recordCreatedEvents.length > 1) {
-        const source = recordCreatedEvents[0]?.source ?? { type: 'user' };
-        // Aggregate multiple RecordCreated events into a single RecordsBatchCreated event
-        const batchEvent = RecordsBatchCreated.create({
-          tableId: tableForCreate.id(),
-          baseId: tableForCreate.baseId(),
-          records: recordCreatedEvents.map((e) => ({
-            recordId: e.recordId.toString(),
-            fields: e.fieldValues,
-            orders: mutationResult.mutation.recordOrders?.get(e.recordId.toString()),
-          })),
-          source,
-          orchestration: buildOperationBatchMutation(context.requestId, records.length),
-        });
-        events = [batchEvent, ...otherEvents];
-      } else {
-        // Keep a single RecordCreated event, but preserve decorated and computed field values.
-        events = [...recordCreatedEvents, ...otherEvents];
-      }
+      const events = aggregateRecordCreatedEvents({
+        events: tableForCreate.pullDomainEvents(),
+        mutationResult: mutationResult.mutation,
+        decoratedChangedFieldsByRecord,
+        orchestration: buildOperationBatchMutation(context.requestId, records.length),
+      });
 
       const storedSnapshots = yield* requireStoredRecordSnapshots(
         {

@@ -13,6 +13,7 @@ import { SpaceDataDbMigrationGuardModule } from '../../space/space-data-db-migra
 import { TableModule } from '../../table/table.module';
 import { TableDomainQueryModule } from '../../table-domain';
 import { V2Module } from '../../v2/v2.module';
+import { TableQuerySearchVectorRuntimeService } from '../../v2/table-query-search-vector-runtime.service';
 import { ViewOpenApiModule } from '../../view/open-api/view-open-api.module';
 import { ViewModule } from '../../view/view.module';
 import { RecordModifyModule } from '../record-modify/record-modify.module';
@@ -43,7 +44,7 @@ import { RecordOpenApiService } from './record-open-api.service';
     forwardRef(() => SelectionModule),
   ],
   controllers: [RecordOpenApiController],
-  providers: [RecordOpenApiService, RecordOpenApiV2Service],
+  providers: [RecordOpenApiService, RecordOpenApiV2Service, TableQuerySearchVectorRuntimeService],
   exports: [RecordOpenApiService, RecordOpenApiV2Service],
 })
 export class RecordOpenApiModule {}

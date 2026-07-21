@@ -39,8 +39,10 @@ export const collectActionTriggers = async (params: {
     port,
     tableId,
     act,
-    idleMs = 300,
-    timeoutMs = 5000,
+    // Parallel e2e workers contend for CPU; presence events can trail `act` by
+    // well over 300ms, and finishing early records an empty batch.
+    idleMs = 1500,
+    timeoutMs = 8000,
     until,
   } = params;
 

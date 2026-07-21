@@ -1,9 +1,16 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { FieldType, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { TableIndex } from '@teable/openapi';
-import type { IGetAbnormalVo, ITableIndexType, IToggleIndexRo } from '@teable/openapi';
+import type {
+  IGetAbnormalVo,
+  ITableIndexType,
+  ITableSearchVectorStatusVo,
+  IToggleIndexRo,
+} from '@teable/openapi';
+import type { TableSearchVectorStatusReader } from '@teable/v2-table-query-ops';
+import { v2TableOpsTokens } from '@teable/v2-table-query-ops';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { CustomHttpException } from '../../custom.exception';
@@ -12,8 +19,11 @@ import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IDataDbRoutingOptions } from '../../global/data-db-client-manager.service';
 import { DatabaseRouter } from '../../global/database-router.service';
 import type { IClsStore } from '../../types/cls';
+import { CanaryService } from '../canary/canary.service';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
+import { V2ContainerService } from '../v2/v2-container.service';
+import { V2ExecutionContextFactory } from '../v2/v2-execution-context.factory';
 
 @Injectable()
 export class TableIndexService {
@@ -24,9 +34,70 @@ export class TableIndexService {
     private readonly prismaService: PrismaService,
     private readonly databaseRouter: DatabaseRouter,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
-    @InjectDbProvider() private readonly dbProvider: IDbProvider
+    @InjectDbProvider() private readonly dbProvider: IDbProvider,
+    @Inject(CanaryService)
+    @Optional()
+    private readonly canaryService?: CanaryService,
+    @Inject(V2ContainerService)
+    @Optional()
+    private readonly v2ContainerService?: V2ContainerService,
+    @Inject(V2ExecutionContextFactory)
+    @Optional()
+    private readonly v2ExecutionContextFactory?: V2ExecutionContextFactory
   ) {}
 
+  async getSearchVectorStatus(tableId: string): Promise<ITableSearchVectorStatusVo> {
+    const disabled: ITableSearchVectorStatusVo = {
+      tableId,
+      state: 'disabled',
+      configured: false,
+      active: false,
+      coveredFieldCount: 0,
+    };
+    if (!this.v2ContainerService || !this.v2ExecutionContextFactory) return disabled;
+
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
+    if (!container.isRegistered(v2TableOpsTokens.searchVectorStatusReader)) return disabled;
+
+    const context = await this.v2ExecutionContextFactory.createContext(container);
+    const reader = container.resolve<TableSearchVectorStatusReader>(
+      v2TableOpsTokens.searchVectorStatusReader
+    );
+    const result = await reader.read(context, tableId);
+    if (result.isErr()) {
+      this.logger.error(result.error.message, result.error);
+      throw new CustomHttpException(
+        'Failed to read table search vector status',
+        HttpErrorCode.INTERNAL_SERVER_ERROR
+      );
+    }
+    return {
+      ...result.value,
+      active:
+        result.value.state === 'ready' &&
+        this.v2ContainerService.isTableQuerySearchVectorRuntimeEnabled() &&
+        (await this.isV2RecordReadEnabled(tableId)),
+    };
+  }
+
+  private async isV2RecordReadEnabled(tableId: string): Promise<boolean> {
+    if (!this.canaryService) return false;
+    const prisma = this.prismaService.txClient();
+    const table = await prisma.tableMeta.findUnique({
+      where: { id: tableId, deletedTime: null },
+      select: { baseId: true },
+    });
+    if (!table) return false;
+
+    const base = await prisma.base.findUnique({
+      where: { id: table.baseId, deletedTime: null },
+      select: { spaceId: true, v2Enabled: true },
+    });
+    if (!base) return false;
+
+    const decision = await this.canaryService.shouldUseV2ForBaseWithReason(base, 'getRecords');
+    return decision.useV2;
+  }
   async getSearchIndexFields(tableId: string): Promise<IFieldInstance[]> {
     const fieldsRaw = await this.prismaService.field.findMany({
       where: {

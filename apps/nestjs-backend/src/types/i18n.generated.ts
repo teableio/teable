@@ -5543,6 +5543,15 @@ export type I18nTranslations = {
                 "tableId": string;
                 "automationId": string;
                 "appId": string;
+                "searchVector": string;
+                "searchVectorFields": string;
+                "searchVectorStatus": {
+                    "ready": string;
+                    "configured": string;
+                    "rebuildPending": string;
+                    "stale": string;
+                    "unknown": string;
+                };
             };
         };
         "pluginPanel": {

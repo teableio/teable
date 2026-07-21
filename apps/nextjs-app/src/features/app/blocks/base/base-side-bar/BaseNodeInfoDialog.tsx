@@ -1,6 +1,12 @@
-import { BaseNodeResourceType, type IBaseNodeResourceMeta } from '@teable/openapi';
+import { useQuery } from '@tanstack/react-query';
+import {
+  BaseNodeResourceType,
+  getTableSearchVectorStatus,
+  type IBaseNodeResourceMeta,
+  type ITableSearchVectorStatusVo,
+} from '@teable/openapi';
 import { CollaboratorWithHoverCard } from '@teable/sdk/components';
-import { useLanDayjs } from '@teable/sdk/hooks';
+import { useBaseId, useLanDayjs } from '@teable/sdk/hooks';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { CopyButton } from '@/features/app/components/CopyButton';
@@ -68,8 +74,34 @@ const InfoCard = ({
   );
 };
 
-const ResourceSummary = ({ node }: { node: TreeItemData }) => {
+const ResourceSummary = ({
+  node,
+  searchVectorStatus,
+}: {
+  node: TreeItemData;
+  searchVectorStatus?: ITableSearchVectorStatusVo;
+}) => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const searchVectorStatusText = (() => {
+    switch (searchVectorStatus?.state) {
+      case 'ready':
+        return searchVectorStatus?.active
+          ? t('table:baseNode.info.searchVectorStatus.ready', { defaultValue: 'Enabled' })
+          : t('table:baseNode.info.searchVectorStatus.configured', {
+              defaultValue: 'Configured',
+            });
+      case 'rebuild_pending':
+        return t('table:baseNode.info.searchVectorStatus.rebuildPending', {
+          defaultValue: 'Maintenance pending',
+        });
+      case 'stale':
+        return t('table:baseNode.info.searchVectorStatus.stale', {
+          defaultValue: 'Needs rebuild',
+        });
+      default:
+        return t('table:baseNode.info.searchVectorStatus.unknown', { defaultValue: 'Unknown' });
+    }
+  })();
   const resourceId = node.resourceId || EmptyValue;
   const IconComponent = BaseNodeResourceIconMap[node.resourceType];
   const resourceIdLabel = (() => {
@@ -111,11 +143,35 @@ const ResourceSummary = ({ node }: { node: TreeItemData }) => {
           />
         </div>
       </div>
+      {searchVectorStatus && searchVectorStatus.state !== 'disabled' && (
+        <div className="flex min-w-0 items-center justify-between gap-3 border-t pt-3 text-sm">
+          <span className="text-muted-foreground">
+            {t('table:baseNode.info.searchVector', { defaultValue: 'Full-text search' })}
+          </span>
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="rounded border bg-background px-2 py-0.5 text-xs font-medium">
+              {searchVectorStatusText}
+            </span>
+            {searchVectorStatus.languageConfig && (
+              <span className="truncate text-xs text-muted-foreground">
+                {searchVectorStatus.languageConfig} · {searchVectorStatus.coveredFieldCount}{' '}
+                {t('table:baseNode.info.searchVectorFields', { defaultValue: 'fields' })}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-const InfoSection = ({ node }: { node: TreeItemData }) => {
+const InfoSection = ({
+  node,
+  searchVectorStatus,
+}: {
+  node: TreeItemData;
+  searchVectorStatus?: ITableSearchVectorStatusVo;
+}) => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const dayjs = useLanDayjs();
   const { resourceMeta } = node;
@@ -125,7 +181,7 @@ const InfoSection = ({ node }: { node: TreeItemData }) => {
 
   return (
     <div className="min-w-0 max-w-full space-y-4 overflow-hidden">
-      <ResourceSummary node={node} />
+      <ResourceSummary node={node} searchVectorStatus={searchVectorStatus} />
       <div className="flex min-w-0 max-w-full flex-col gap-4 sm:flex-row">
         <InfoCard
           userLabel={t('table:baseNode.info.createdBy')}
@@ -149,6 +205,14 @@ const InfoSection = ({ node }: { node: TreeItemData }) => {
 export const BaseNodeInfoDialog = (props: IBaseNodeInfoDialogProps) => {
   const { node, open, onOpenChange } = props;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const baseId = useBaseId();
+  const tableId = node.resourceType === BaseNodeResourceType.Table ? node.resourceId : undefined;
+  const { data: searchVectorStatus } = useQuery({
+    queryKey: ['table-search-vector-status', baseId, tableId],
+    queryFn: () => getTableSearchVectorStatus(baseId!, tableId!).then(({ data }) => data),
+    enabled: Boolean(open && baseId && tableId),
+    retry: false,
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -158,7 +222,7 @@ export const BaseNodeInfoDialog = (props: IBaseNodeInfoDialogProps) => {
             <span className="min-w-0 flex-1 truncate">{t('table:baseNode.info.menu')}</span>
           </DialogTitle>
         </DialogHeader>
-        <InfoSection node={node} />
+        <InfoSection node={node} searchVectorStatus={searchVectorStatus} />
       </DialogContent>
     </Dialog>
   );

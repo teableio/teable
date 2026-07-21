@@ -41,6 +41,19 @@ export abstract class FieldCore implements IFieldVo {
 
   isPending?: boolean;
 
+  /**
+   * Runtime async compute activity (v2 projected metadata).
+   * When status is queued/running, treat the field as calculating.
+   */
+  computeMeta?: {
+    status: 'idle' | 'queued' | 'running' | 'failed';
+    estimatedComplexity?: number;
+    estimatedDirtyRecords?: number;
+    startedAt?: string;
+    lastDurationMs?: number;
+    lastError?: { code?: string; message: string } | null;
+  };
+
   hasError?: boolean;
 
   dbFieldType!: DbFieldType;

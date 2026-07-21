@@ -612,6 +612,10 @@ type IDeltaReplayColumnMetadata = {
 
 type IDeltaReplayStats = {
   phase: string;
+  // Seq floor of this job's own delta rows. `seq` is a bigserial shared by every
+  // migration job on the source, so absolute values carry the offset burned by
+  // earlier jobs; lag/progress must be computed relative to this baseline.
+  baselineSeq?: number;
   lastCapturedSeq: number;
   lastReplayedSeq: number;
   lag: number;
@@ -619,6 +623,17 @@ type IDeltaReplayStats = {
   startedAt: string;
   updatedAt?: string;
   completedAt?: string;
+};
+
+type IDeltaCaptureScope = {
+  column: string;
+  ids: string[];
+};
+
+type IDeltaCaptureRelation = {
+  schemaName: string;
+  tableName: string;
+  scope?: IDeltaCaptureScope;
 };
 
 type IStaleMigrationJobRecord = IMigrationJobRecord & {
@@ -2141,6 +2156,10 @@ export class SpaceDataDbMigrationService {
     return `${deltaTriggerNamePrefix}${jobId.replace(/\W/g, '_').slice(-32)}`;
   }
 
+  private deltaDeleteTriggerName(jobId: string) {
+    return `${this.deltaTriggerName(jobId)}_del`;
+  }
+
   private isMigrationDeltaTrigger(trigger: IBaseRelationTriggerSignature) {
     return trigger.triggerName.startsWith(deltaTriggerNamePrefix);
   }
@@ -2150,7 +2169,7 @@ export class SpaceDataDbMigrationService {
   }
 
   private getDeltaCaptureRelations(inventory: ISpaceDataDbInventory, sourceSchema: string) {
-    const baseRelations = inventory.physicalSchemas.flatMap((schema) =>
+    const baseRelations: IDeltaCaptureRelation[] = inventory.physicalSchemas.flatMap((schema) =>
       schema.relations
         .filter((relation) => relationKindsWithRows.has(relation.relationKind))
         .map((relation) => ({
@@ -2158,10 +2177,18 @@ export class SpaceDataDbMigrationService {
           tableName: relation.relationName,
         }))
     );
-    const sharedRelations = Object.values(sharedTables).map((tableName) => ({
-      schemaName: sourceSchema,
-      tableName,
-    }));
+    // Shared tables live in the source's public schema and receive writes from
+    // every space on the instance. Scope their capture triggers to this job's
+    // rows (mirroring shouldReplayDeltaRow) so a migration does not have to log
+    // and then page through the whole instance's shared-table churn.
+    const scopeBySharedTable = this.getDeltaCaptureScopeBySharedTable(inventory);
+    const sharedRelations: IDeltaCaptureRelation[] = Object.values(sharedTables).map(
+      (tableName) => ({
+        schemaName: sourceSchema,
+        tableName,
+        scope: scopeBySharedTable[tableName],
+      })
+    );
     const seen = new Set<string>();
     return [...baseRelations, ...sharedRelations].filter((relation) => {
       const key = `${relation.schemaName}.${relation.tableName}`;
@@ -2171,6 +2198,28 @@ export class SpaceDataDbMigrationService {
       seen.add(key);
       return true;
     });
+  }
+
+  private getDeltaCaptureScopeBySharedTable(
+    inventory: ISpaceDataDbInventory
+  ): Record<string, IDeltaCaptureScope | undefined> {
+    const scoped = (column: string, ids: string[]): IDeltaCaptureScope | undefined =>
+      ids.length ? { column, ids } : undefined;
+    const tableScopeIds = inventory.sharedTableIds.length
+      ? inventory.sharedTableIds
+      : inventory.tableIds;
+    return {
+      [sharedTables.recordHistory]: scoped('table_id', tableScopeIds),
+      [sharedTables.tableTrash]: scoped('table_id', tableScopeIds),
+      [sharedTables.recordTrash]: scoped('table_id', tableScopeIds),
+      [sharedTables.computedUpdateOutbox]: scoped('base_id', inventory.baseIds),
+      [sharedTables.computedUpdateDeadLetter]: scoped('base_id', inventory.baseIds),
+      [sharedTables.computedUpdateOutboxSeed]: scoped('table_id', inventory.tableIds),
+      // computed_update_pause_scope and __undo_log key their scope on composite
+      // or derived values that a trigger WHEN clause cannot express cheaply;
+      // their churn is negligible, so keep capturing them unscoped and let
+      // shouldReplayDeltaRow filter at replay time.
+    };
   }
 
   private async openSourceSnapshot(sourceUrl: string): Promise<ISourceSnapshotHandle> {
@@ -2286,16 +2335,41 @@ export class SpaceDataDbMigrationService {
         $$;
       `);
 
+      const deleteTriggerName = this.deltaDeleteTriggerName(job.id);
       for (const relation of this.getDeltaCaptureRelations(inventory, sourceSchema)) {
+        const qualifiedRelation = qualify(relation.schemaName, relation.tableName);
+        if (!relation.scope) {
+          await client.raw(
+            `
+              DROP TRIGGER IF EXISTS ${quoteIdent(triggerName)} ON ${qualifiedRelation};
+              DROP TRIGGER IF EXISTS ${quoteIdent(deleteTriggerName)} ON ${qualifiedRelation};
+              CREATE TRIGGER ${quoteIdent(triggerName)}
+              AFTER INSERT OR UPDATE OR DELETE ON ${qualifiedRelation}
+              FOR EACH ROW
+              EXECUTE FUNCTION ${qualify(sourceSchema, deltaCaptureFunction)}(${sqlLiteral(job.id)});
+            `
+          );
+          continue;
+        }
+        // A single multi-event trigger cannot reference NEW and OLD in one WHEN
+        // clause, so scoped relations get an INSERT/UPDATE trigger filtered on
+        // NEW and a DELETE trigger filtered on OLD. The WHEN clause runs before
+        // the function call, so out-of-scope rows cost almost nothing.
+        const scopeArray = `ARRAY[${relation.scope.ids.map((id) => sqlLiteral(id)).join(', ')}]::text[]`;
+        const scopeColumn = quoteIdent(relation.scope.column);
         await client.raw(
           `
-            DROP TRIGGER IF EXISTS ${quoteIdent(triggerName)} ON ${qualify(
-              relation.schemaName,
-              relation.tableName
-            )};
+            DROP TRIGGER IF EXISTS ${quoteIdent(triggerName)} ON ${qualifiedRelation};
+            DROP TRIGGER IF EXISTS ${quoteIdent(deleteTriggerName)} ON ${qualifiedRelation};
             CREATE TRIGGER ${quoteIdent(triggerName)}
-            AFTER INSERT OR UPDATE OR DELETE ON ${qualify(relation.schemaName, relation.tableName)}
+            AFTER INSERT OR UPDATE ON ${qualifiedRelation}
             FOR EACH ROW
+            WHEN (NEW.${scopeColumn} = ANY (${scopeArray}))
+            EXECUTE FUNCTION ${qualify(sourceSchema, deltaCaptureFunction)}(${sqlLiteral(job.id)});
+            CREATE TRIGGER ${quoteIdent(deleteTriggerName)}
+            AFTER DELETE ON ${qualifiedRelation}
+            FOR EACH ROW
+            WHEN (OLD.${scopeColumn} = ANY (${scopeArray}))
             EXECUTE FUNCTION ${qualify(sourceSchema, deltaCaptureFunction)}(${sqlLiteral(job.id)});
           `
         );
@@ -2333,10 +2407,19 @@ export class SpaceDataDbMigrationService {
     const triggerName = this.deltaTriggerName(job.id);
     const client = this.clientFactory(sourceDataDb.url);
     try {
+      const deleteTriggerName = this.deltaDeleteTriggerName(job.id);
       for (const relation of this.getDeltaCaptureRelations(inventory, sourceSchema)) {
         await client
           .raw(
             `DROP TRIGGER IF EXISTS ${quoteIdent(triggerName)} ON ${qualify(
+              relation.schemaName,
+              relation.tableName
+            )}`
+          )
+          .catch(() => undefined);
+        await client
+          .raw(
+            `DROP TRIGGER IF EXISTS ${quoteIdent(deleteTriggerName)} ON ${qualify(
               relation.schemaName,
               relation.tableName
             )}`
@@ -2366,6 +2449,24 @@ export class SpaceDataDbMigrationService {
       )
     );
     return Number(rows[0]?.maxSeq ?? 0);
+  }
+
+  private async getSourceDeltaMinSeq(
+    client: IDataDbPreflightClient,
+    sourceSchema: string,
+    jobId: string
+  ): Promise<number | null> {
+    const rows = normalizeRawRows<{ minSeq: string | number | bigint | null }>(
+      await client.raw(
+        `SELECT MIN("seq") AS "minSeq" FROM ${qualify(
+          sourceSchema,
+          deltaLogTable
+        )} WHERE "job_id" = ?`,
+        [jobId]
+      )
+    );
+    const minSeq = rows[0]?.minSeq;
+    return minSeq === null || minSeq === undefined ? null : Number(minSeq);
   }
 
   private async tryGetSourceDeltaMaxSeq(
@@ -2638,7 +2739,20 @@ export class SpaceDataDbMigrationService {
     if (stats.lastCapturedSeq <= 0) {
       return undefined;
     }
-    const seqFraction = Math.min(Math.max(stats.lastReplayedSeq / stats.lastCapturedSeq, 0), 1);
+    // Measure progress against this job's own seq range; absolute seq values
+    // include the offset burned by earlier jobs on the shared sequence.
+    const baselineSeq = Math.min(
+      Math.max(Number(stats.baselineSeq ?? 0), 0),
+      stats.lastCapturedSeq
+    );
+    const capturedSpan = stats.lastCapturedSeq - baselineSeq;
+    if (capturedSpan <= 0) {
+      return undefined;
+    }
+    const seqFraction = Math.min(
+      Math.max((stats.lastReplayedSeq - baselineSeq) / capturedSpan, 0),
+      1
+    );
     // The first replay pass covers the front of the delta stage; the cutover
     // pass after the final write gate covers the tail.
     if (stats.phase === 'delta_replaying') {
@@ -2700,6 +2814,18 @@ export class SpaceDataDbMigrationService {
     const existingLastReplayedSeq = Number(existingDeltaStats?.lastReplayedSeq ?? 0);
     let lastReplayedSeq = Number.isFinite(existingLastReplayedSeq) ? existingLastReplayedSeq : 0;
     let lastCapturedSeq = await this.getSourceDeltaMaxSeq(sourceClient, sourceSchema, jobId);
+    // `seq` is one bigserial shared by every migration job on this source, so
+    // this job's rows start wherever earlier jobs left the sequence. Floor the
+    // cursor at the job's own first row so lag and progress never report the
+    // ranges burned by previous migrations as pending catch-up work.
+    const existingBaselineSeq = Number(existingDeltaStats?.baselineSeq ?? NaN);
+    const jobMinSeq = await this.getSourceDeltaMinSeq(sourceClient, sourceSchema, jobId);
+    const computedBaselineSeq = jobMinSeq === null ? lastCapturedSeq : jobMinSeq - 1;
+    const baselineSeq = Math.max(
+      Number.isFinite(existingBaselineSeq) ? existingBaselineSeq : 0,
+      computedBaselineSeq
+    );
+    lastReplayedSeq = Math.max(lastReplayedSeq, baselineSeq);
 
     try {
       while (true) {
@@ -2737,6 +2863,7 @@ export class SpaceDataDbMigrationService {
         const lag = Math.max(0, lastCapturedSeq - lastReplayedSeq);
         const stats: IDeltaReplayStats = {
           phase,
+          baselineSeq,
           lastCapturedSeq,
           lastReplayedSeq,
           lag,

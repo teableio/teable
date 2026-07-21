@@ -874,6 +874,9 @@ importers:
       decimal.js-light:
         specifier: 2.5.1
         version: 2.5.1
+      dompurify:
+        specifier: 3.3.3
+        version: 3.3.3
       echarts:
         specifier: 5.5.0
         version: 5.5.0
@@ -2853,6 +2856,9 @@ importers:
       '@teable/v2-adapter-db-postgres-pg':
         specifier: workspace:*
         version: link:../adapter-db-postgres-pg
+      '@teable/v2-container-node-test':
+        specifier: workspace:*
+        version: link:../container-node-test
       '@teable/v2-tsdown-config':
         specifier: workspace:*
         version: link:../tsdown-config

@@ -628,6 +628,52 @@ describe('ComputedUpdateOutbox deadlock (pglite integration)', () => {
     expect(Number(processing.count)).toBe(2);
   });
 
+  it('claims pending work from a non-public data schema', async () => {
+    const dataSchema = 'teable_internal';
+    await sql.raw(`create schema "${dataSchema}"`).execute(db);
+    await sql
+      .raw(
+        `create table "${dataSchema}"."computed_update_outbox" (like "public"."computed_update_outbox" including all)`
+      )
+      .execute(db);
+    await sql
+      .raw(
+        `create table "${dataSchema}"."computed_update_outbox_seed" (like "public"."computed_update_outbox_seed" including all)`
+      )
+      .execute(db);
+    await sql
+      .raw(
+        `create table "${dataSchema}"."computed_update_pause_scope" (like "public"."computed_update_pause_scope" including all)`
+      )
+      .execute(db);
+
+    const dataDb = db.withSchema(dataSchema) as Kysely<V1TeableDatabase>;
+    await insertOutboxRow(dataDb, {
+      id: 'cuo-non-public-schema',
+      status: 'pending',
+    });
+
+    await sql.raw('set search_path to pg_catalog').execute(db);
+    try {
+      const outbox = new ComputedUpdateOutbox(
+        dataDb,
+        { ...defaultComputedUpdateOutboxConfig, seedInlineLimit: 0 },
+        createLogger(),
+        db
+      );
+      const claimed = await outbox.claimBatch({
+        workerId: 'schema-worker',
+        limit: 1,
+      });
+
+      expect(claimed.isOk()).toBe(true);
+      expect(claimed._unsafeUnwrap().map((task) => task.id)).toEqual(['cuo-non-public-schema']);
+    } finally {
+      await sql.raw('set search_path to public').execute(db);
+      await sql.raw(`drop schema "${dataSchema}" cascade`).execute(db);
+    }
+  });
+
   it('reports an active lease retry time through the claim eligibility seam', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-01-05T12:00:00Z'));

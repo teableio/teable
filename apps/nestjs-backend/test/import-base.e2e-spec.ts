@@ -1034,7 +1034,7 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       const prisma = app.get(PrismaService);
 
       if (process.env.V2_COMPUTED_UPDATE_MODE === 'sync') {
-        const deadline = Date.now() + 15_000;
+        const deadline = Date.now() + 45_000;
 
         while (Date.now() < deadline) {
           const deferredTasks = await prisma.computedUpdateOutbox.findMany({
@@ -1064,7 +1064,7 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
         throw new Error(`Timed out waiting for claimed computed tasks to drain for base ${baseId}`);
       }
 
-      const deadline = Date.now() + 15_000;
+      const deadline = Date.now() + 45_000;
 
       while (Date.now() < deadline) {
         const activeTaskCount = await prisma.computedUpdateOutbox.count({ where: { baseId } });

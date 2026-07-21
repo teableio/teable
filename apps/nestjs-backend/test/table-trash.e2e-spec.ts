@@ -206,7 +206,8 @@ describe('Trash (e2e)', () => {
 
       await awaitWithFieldDeleteSync(async () => deleteFields(tableId, deletedFieldIds));
 
-      const result = await getTrashItems({ resourceId: tableId, resourceType: ResourceType.Table });
+      // Wait like other field-delete cases: trash projection can lag slightly after sync.
+      const result = await waitForTableTrashItems(tableId, 1);
 
       expect(result.data.trashItems.length).toBe(1);
       expect((result.data.trashItems[0] as ITableTrashItemVo).resourceIds).toEqual(deletedFieldIds);

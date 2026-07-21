@@ -271,7 +271,7 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
       expect(response.status).toBe(201);
       expect(response.headers['x-teable-v2']).toBe('true');
       expect(response.headers['x-teable-v2-feature']).toBe('createTable');
-      expect(response.headers['x-teable-v2-reason']).toBe('new_base');
+      expect(['new_base', 'env_force_v2_all']).toContain(response.headers['x-teable-v2-reason']);
 
       nodesToCleanup.push(response.data.id);
     });
@@ -470,7 +470,7 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
       expect(response.status).toBe(201);
       expect(response.headers['x-teable-v2']).toBe('true');
       expect(response.headers['x-teable-v2-feature']).toBe('createTable');
-      expect(response.headers['x-teable-v2-reason']).toBe('new_base');
+      expect(['new_base', 'env_force_v2_all']).toContain(response.headers['x-teable-v2-reason']);
 
       nodesToCleanup.push(response.data.id);
 
@@ -759,7 +759,7 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
       expect(response.status).toBe(200);
       expect(response.headers['x-teable-v2']).toBe('true');
       expect(response.headers['x-teable-v2-feature']).toBe('deleteTable');
-      expect(response.headers['x-teable-v2-reason']).toBe('new_base');
+      expect(['new_base', 'env_force_v2_all']).toContain(response.headers['x-teable-v2-reason']);
 
       const error = await getError(() => getBaseNode(baseId, table.data.id));
       expect(error?.status).toBeGreaterThanOrEqual(400);
@@ -1118,7 +1118,7 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
       expect(response.status).toBe(201);
       expect(response.headers['x-teable-v2']).toBe('true');
       expect(response.headers['x-teable-v2-feature']).toBe('duplicateTable');
-      expect(response.headers['x-teable-v2-reason']).toBe('new_base');
+      expect(['new_base', 'env_force_v2_all']).toContain(response.headers['x-teable-v2-reason']);
 
       nodesToCleanup.push(response.data.id);
       expect(response.data.resourceMeta?.name).toBe('Duplicated Table Via Node Route');

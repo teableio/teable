@@ -283,5 +283,8 @@ export class SchemaChecker {
  * Create a schema checker instance.
  */
 export const createSchemaChecker = (params: SchemaCheckerParams): SchemaChecker => {
-  return new SchemaChecker(params);
+  return new SchemaChecker({
+    ...params,
+    sessionCache: params.sessionCache ?? new Map<string, unknown>(),
+  });
 };

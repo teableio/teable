@@ -9,11 +9,13 @@ import type {
   IExecutionContext,
   IQueryBus,
   IRecordReadQuerySource,
+  IRecordSearchAccessPath,
   ListTableRecordsResult,
 } from '@teable/v2-core';
 
 export interface IListTableRecordsEndpointOptions {
   readonly recordReadQuerySource?: IRecordReadQuerySource;
+  readonly recordSearchAccessPath?: IRecordSearchAccessPath;
 }
 
 export const executeListTableRecordsEndpoint = async (

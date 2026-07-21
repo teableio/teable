@@ -68,6 +68,7 @@ import {
   type IPasteCommandInput,
   type IQueryBus,
   type IRecordReadQuerySource,
+  type IRecordSearchAccessPath,
   type PasteStreamResult,
   type RecordFilter,
   type RecordFilterDateValue,
@@ -94,6 +95,7 @@ import { createFieldInstanceByVo } from '../../field/model/factory';
 import { TableService } from '../../table/table.service';
 import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migration-guard.service';
 import { buildUndoRedoEnginePreferenceKey } from '../../undo-redo/open-api/undo-redo-engine-preference';
+import { TableQuerySearchVectorRuntimeService } from '../../v2/table-query-search-vector-runtime.service';
 import { V2ContainerService } from '../../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
 import { convertLinkPasteCellValue } from '../paste-link-cell-value';
@@ -153,7 +155,9 @@ export class RecordOpenApiV2Service {
     private readonly dataDbClientManager: DataDbClientManager,
     private readonly audit: AuditScope,
     private readonly spaceDataDbMigrationGuard: SpaceDataDbMigrationGuardService,
-    @Optional() private readonly attachmentsService?: AttachmentsService
+    @Optional() private readonly attachmentsService?: AttachmentsService,
+    @Optional()
+    private readonly tableQuerySearchVectorRuntimeService?: TableQuerySearchVectorRuntimeService
   ) {}
 
   private async assertTableRecordWritable(tableId: string): Promise<void> {
@@ -301,7 +305,18 @@ export class RecordOpenApiV2Service {
       order: item.order,
     }));
     const normalizedGroupBy = effectiveQuery.groupBy?.map((item) => item.fieldId);
-    const queryExtra = await this.loadQueryExtraWithTrace(context, tableId, effectiveQuery);
+    const recordSearchAccessPath = await this.resolveRecordSearchAccessPath(
+      context,
+      tableId,
+      container,
+      effectiveQuery.search
+    );
+    const queryExtra = await this.loadQueryExtraWithTrace(
+      context,
+      tableId,
+      effectiveQuery,
+      recordSearchAccessPath
+    );
 
     const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
     const pageResult = await this.withRecordReadSpan(
@@ -344,7 +359,9 @@ export class RecordOpenApiV2Service {
           },
           context,
           queryBus,
-          recordReadQuerySource ? { recordReadQuerySource } : undefined
+          recordReadQuerySource || recordSearchAccessPath
+            ? { recordReadQuerySource, recordSearchAccessPath }
+            : undefined
         )
     );
     const orderedRecords = pageResult.records;
@@ -639,7 +656,10 @@ export class RecordOpenApiV2Service {
     input: IListTableRecordsQueryInput,
     context: IExecutionContext,
     queryBus: IQueryBus,
-    options?: { recordReadQuerySource?: IRecordReadQuerySource }
+    options?: {
+      recordReadQuerySource?: IRecordReadQuerySource;
+      recordSearchAccessPath?: IRecordSearchAccessPath;
+    }
   ): Promise<{
     records: Array<{ id: string; fields: Record<string, unknown> }>;
     pagination: { hasMore: boolean };
@@ -688,6 +708,32 @@ export class RecordOpenApiV2Service {
     };
   }
 
+  private async resolveRecordSearchAccessPath(
+    context: IExecutionContext,
+    tableId: string,
+    container: DependencyContainer,
+    search: IGetRecordsRo['search']
+  ): Promise<IRecordSearchAccessPath | undefined> {
+    const runtimeService = this.tableQuerySearchVectorRuntimeService;
+    if (!runtimeService) {
+      return undefined;
+    }
+
+    return await this.withRecordReadSpan(
+      context,
+      'teable.RecordOpenApiV2Service.resolveRecordSearchAccessPath',
+      {
+        'record.read.has_search': Boolean(search),
+      },
+      () =>
+        runtimeService.resolveForRecordSearch({
+          container,
+          tableId,
+          search,
+        })
+    );
+  }
+
   private sanitizeReadableSortAndGroup(
     query: Pick<IGetRecordsRo, 'orderBy' | 'groupBy'>,
     enabledFieldIds?: ReadonlyArray<string>
@@ -709,8 +755,18 @@ export class RecordOpenApiV2Service {
     };
   }
 
-  private shouldLoadQueryExtra(query: IGetRecordsRo): boolean {
+  private shouldLoadQueryExtra(
+    query: IGetRecordsRo,
+    recordSearchAccessPath?: IRecordSearchAccessPath
+  ): boolean {
     if (query.includeQueryExtra === false) {
+      return false;
+    }
+    if (
+      recordSearchAccessPath?.kind === 'generated_tsvector' &&
+      query.search &&
+      query.includeQueryExtra !== true
+    ) {
       return false;
     }
     const hasQueryExtraSource = Boolean(
@@ -733,9 +789,10 @@ export class RecordOpenApiV2Service {
   private async loadQueryExtraWithTrace(
     context: IExecutionContext,
     tableId: string,
-    query: IGetRecordsRo
+    query: IGetRecordsRo,
+    recordSearchAccessPath?: IRecordSearchAccessPath
   ): Promise<IRecordsVo['extra'] | undefined> {
-    const shouldLoad = this.shouldLoadQueryExtra(query);
+    const shouldLoad = this.shouldLoadQueryExtra(query, recordSearchAccessPath);
 
     return await this.withRecordReadSpan(
       context,
@@ -744,6 +801,7 @@ export class RecordOpenApiV2Service {
         'record.read.query_extra_enabled': shouldLoad,
         'record.read.include_query_extra': query.includeQueryExtra !== false,
         'record.read.has_search': Boolean(query.search),
+        'record.read.search_access_path': recordSearchAccessPath?.kind ?? 'default',
         'record.read.group_by_count': query.groupBy?.length ?? 0,
         'record.read.collapsed_group_count': query.collapsedGroupIds?.length ?? 0,
         'record.read.has_explicit_projection': Boolean(query.projection),

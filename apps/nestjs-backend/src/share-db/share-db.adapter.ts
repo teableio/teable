@@ -50,9 +50,16 @@ export interface ICollectionSnapshot {
 
 type IProjection = { [fieldNameOrId: string]: boolean };
 
+const computedActivityCollectionPrefix = 'cmp';
+
+export type ComputedActivitySnapshotLoader = (
+  tableId: string
+) => Promise<Readonly<Record<string, { version: number; data: unknown }>>>;
+
 @Injectable()
 export class ShareDbAdapter extends ShareDb.DB {
   private logger = new Logger(ShareDbAdapter.name);
+  private computedActivitySnapshotLoader?: ComputedActivitySnapshotLoader;
 
   // Read by sharedb QueryEmitter (lib/query-emitter.js): ops arriving while a
   // poll is in flight or within this window are coalesced into a single
@@ -72,6 +79,10 @@ export class ShareDbAdapter extends ShareDb.DB {
   ) {
     super();
     this.closed = false;
+  }
+
+  setComputedActivitySnapshotLoader(loader: ComputedActivitySnapshotLoader): void {
+    this.computedActivitySnapshotLoader = loader;
   }
 
   getReadonlyService(type: IdPrefix): IShareDbReadonlyAdapterService {
@@ -241,6 +252,28 @@ export class ShareDbAdapter extends ShareDb.DB {
     return this.snapshots2Map(snapshots);
   }
 
+  private async loadComputedActivitySnapshots(
+    tableId: string,
+    ids: string[]
+  ): Promise<ISnapshotBase<unknown>[]> {
+    await this.fieldService.authorizeComputedActivityRead(tableId);
+    if (!this.computedActivitySnapshotLoader) return [];
+
+    const documents = await this.computedActivitySnapshotLoader(tableId);
+    return ids.flatMap((id) => {
+      const document = documents[id];
+      if (!document) return [];
+      return [
+        {
+          id,
+          v: Math.max(1, Math.trunc(document.version)),
+          type: 'json0',
+          data: document.data,
+        },
+      ];
+    });
+  }
+
   // Get the named document from the database. The callback is called with (err,
   // snapshot). A snapshot with a version of zero is returned if the document
   // has never been created in the database.
@@ -272,6 +305,9 @@ export class ShareDbAdapter extends ShareDb.DB {
           ...authHeaders,
         },
         async () => {
+          if (docType === computedActivityCollectionPrefix) {
+            return this.loadComputedActivitySnapshots(collectionId, ids);
+          }
           return this.getReadonlyService(docType as IdPrefix).getSnapshotBulk(
             collectionId,
             ids,
@@ -305,7 +341,7 @@ export class ShareDbAdapter extends ShareDb.DB {
   }
 
   private async getSnapshotData(
-    docType: IdPrefix,
+    docType: string,
     collectionId: string,
     ids: string[],
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -326,6 +362,9 @@ export class ShareDbAdapter extends ShareDb.DB {
         ...authHeaders,
       },
       async () => {
+        if (docType === computedActivityCollectionPrefix) {
+          return await this.loadComputedActivitySnapshots(collectionId, ids);
+        }
         return await this.getReadonlyService(docType as IdPrefix).getSnapshotBulk(
           collectionId,
           ids
@@ -342,6 +381,15 @@ export class ShareDbAdapter extends ShareDb.DB {
     }
 
     return snapshots;
+  }
+
+  private getComputedActivityVersionAndType(snapshot?: ISnapshotBase<unknown>): {
+    version: number;
+    type: RawOpType;
+  } {
+    if (!snapshot) return { version: 0, type: RawOpType.Del };
+    if (snapshot.v === 1) return { version: 0, type: RawOpType.Create };
+    return { version: snapshot.v - 1, type: RawOpType.Edit };
   }
 
   private hasGapVersion({
@@ -459,7 +507,17 @@ export class ShareDbAdapter extends ShareDb.DB {
     options: any,
     callback: (error: unknown, data?: unknown) => void
   ) {
-    const [docType] = collection.split('_');
+    const [docType, collectionId] = collection.split('_');
+    if (docType === computedActivityCollectionPrefix) {
+      const snapshots = await this.getSnapshotData(docType, collectionId, [id], options);
+      const snapshot = snapshots[0];
+      await this.internalGetOps(collection, id, from, to, options, callback, {
+        getVersionAndType: async () => this.getComputedActivityVersionAndType(snapshot),
+        getSnapshotData: async () => (snapshot ? [snapshot] : []),
+      });
+      return;
+    }
+
     const readonlyService = this.getReadonlyService(docType as IdPrefix);
     await this.internalGetOps(collection, id, from, to, options, callback, {
       getVersionAndType: async (...args) => await readonlyService.getVersionAndType(...args),
@@ -476,11 +534,21 @@ export class ShareDbAdapter extends ShareDb.DB {
     callback: (error: unknown, data?: unknown) => void
   ) {
     const [docType, collectionId] = collection.split('_');
-    const readonlyService = this.getReadonlyService(docType as IdPrefix);
-    const versionAndTypeMap = await readonlyService.getVersionAndTypeMap(
-      collectionId,
-      Object.keys(fromMap)
-    );
+    const activitySnapshots =
+      docType === computedActivityCollectionPrefix
+        ? await this.getSnapshotData(docType, collectionId, Object.keys(fromMap), options)
+        : null;
+    const versionAndTypeMap = activitySnapshots
+      ? Object.fromEntries(
+          activitySnapshots.map((snapshot) => [
+            snapshot.id,
+            this.getComputedActivityVersionAndType(snapshot),
+          ])
+        )
+      : await this.getReadonlyService(docType as IdPrefix).getVersionAndTypeMap(
+          collectionId,
+          Object.keys(fromMap)
+        );
     const needGetSnapshotDataIds: string[] = [];
     for (const [id, from] of Object.entries(fromMap)) {
       const versionAndType = versionAndTypeMap[id];
@@ -498,20 +566,16 @@ export class ShareDbAdapter extends ShareDb.DB {
       }
     }
 
-    const snapshotDataMap = await this.getSnapshotData(
-      docType as IdPrefix,
-      collectionId,
-      needGetSnapshotDataIds,
-      options
-    ).then((snapshots) => {
-      return snapshots.reduce(
-        (acc, snapshot) => {
-          acc[snapshot.id] = snapshot;
-          return acc;
-        },
-        {} as Record<string, ISnapshotBase<unknown>>
-      );
-    });
+    const snapshots =
+      activitySnapshots ??
+      (await this.getSnapshotData(docType, collectionId, needGetSnapshotDataIds, options));
+    const snapshotDataMap = snapshots.reduce(
+      (acc, snapshot) => {
+        acc[snapshot.id] = snapshot;
+        return acc;
+      },
+      {} as Record<string, ISnapshotBase<unknown>>
+    );
     const result: Record<string, unknown> = {};
     for (const [id, from] of Object.entries(fromMap)) {
       let resultError: unknown = null;
@@ -544,7 +608,10 @@ export class ShareDbAdapter extends ShareDb.DB {
     callback(null, result);
   }
 
-  private getOpsFromSnapshot(docType: IdPrefix, snapshot: unknown): IOtOperation[] {
+  private getOpsFromSnapshot(docType: string, snapshot: unknown): IOtOperation[] {
+    if (docType === computedActivityCollectionPrefix) {
+      return [{ p: [], oi: snapshot }];
+    }
     switch (docType) {
       case IdPrefix.Record:
         return Object.entries((snapshot as IRecord).fields).map(([fieldId, fieldValue]) => {

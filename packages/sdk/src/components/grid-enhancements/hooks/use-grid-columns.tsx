@@ -21,8 +21,14 @@ import type { ChartType, ICell, IGridColumn, INumberShowAs as IGridNumberShowAs 
 import { CellType, hexToRGBA, getFileCover, onMixedTextClick } from '../..';
 import { useTranslation } from '../../../context/app/i18n/useTranslation';
 import type { IButtonClickStatusHook } from '../../../hooks';
-import { useFields, useTablePermission, useView } from '../../../hooks';
-import type { IFieldInstance, NumberField, Record } from '../../../model';
+import {
+  isFieldCalculating,
+  useComputeActivity,
+  useFields,
+  useTablePermission,
+  useView,
+} from '../../../hooks';
+import type { IFieldInstance, NumberField, Record as IRecordModel } from '../../../model';
 import type { GridView } from '../../../model/view';
 import { getDisplayChoiceMap } from '../../../utils/select-color';
 import { isMarkdownShowAs, stripMarkdown } from '../../editor/long-text/utils';
@@ -63,6 +69,8 @@ interface IGenerateColumnsProps {
   groupFieldIds?: Set<string>;
   filterFieldIds?: Set<string>;
   highlightedFieldId?: string | null;
+  /** Live compute-activity map so headers recompute without fields[] identity change. */
+  fieldMetaById?: Record<string, { status?: string }>;
 }
 
 const getColumnThemeByField = ({
@@ -78,8 +86,8 @@ const getColumnThemeByField = ({
 > & {
   field: IFieldInstance;
 }) => {
-  const { id, isPending, hasError } = field;
-  const { amber, red } = colors;
+  const { id, hasError } = field;
+  const { red } = colors;
   const isDark = theme === 'dark';
   const themeKey = isDark ? 'dark' : 'light';
   const opacity = isDark ? 1 : 0.8;
@@ -129,10 +137,11 @@ const getColumnThemeByField = ({
     };
   }
 
-  if (hasError || isPending) {
-    const c = hasError
-      ? { light: [red[100], red[200]] as const, dark: ['#3A2020', '#4A2828'] as const }
-      : { light: [amber[100], amber[200]] as const, dark: ['#3A2B14', '#4A3818'] as const };
+  if (hasError) {
+    const c = {
+      light: [red[100], red[200]] as const,
+      dark: ['#3A2020', '#4A2828'] as const,
+    };
     const [h, hs] = c[themeKey];
     customTheme = {
       ...customTheme,
@@ -172,6 +181,7 @@ const useGenerateColumns = () => {
       groupFieldIds,
       filterFieldIds,
       highlightedFieldId,
+      fieldMetaById,
     }: IGenerateColumnsProps): (IGridColumn & { id: string })[] => {
       return fields
         .map((field, i) => {
@@ -179,6 +189,10 @@ const useGenerateColumns = () => {
           const columnMeta = view?.columnMeta[field.id] ?? null;
           const width = columnMeta?.width || GRID_DEFAULT.columnWidth;
           const { id, type, name, description, isLookup, isPrimary, notNull } = field;
+          const isCalculating = isFieldCalculating(
+            field as IFieldInstance & { computeMeta?: { status?: string }; isPending?: boolean },
+            fieldMetaById?.[field.id]
+          );
           const customTheme = getColumnThemeByField({
             field,
             theme,
@@ -200,8 +214,11 @@ const useGenerateColumns = () => {
               showAlways: i === 0,
               label: i === 0 ? t('common.summaryTip') : t('common.summary'),
             },
-            icon:
-              field.aiConfig != null ? 'ai' : iconString(type, isLookup, field.isConditionalLookup),
+            icon: isCalculating
+              ? 'calculating'
+              : field.aiConfig != null
+                ? 'ai'
+                : iconString(type, isLookup, field.isConditionalLookup),
           };
         })
         .filter(Boolean)
@@ -229,7 +246,7 @@ export const useCreateCellValue2GridDisplay = (
   return useCallback(
     (fields: IFieldInstance[]) =>
       (
-        record: Record,
+        record: IRecordModel,
         col: number,
         isPrefilling?: boolean,
         expandRecord?: (tableId: string, recordId: string) => void,
@@ -610,6 +627,8 @@ export function useGridColumns(
   const filter = view?.filter;
   const isAutoSort = sort && !sort?.manualSort;
   const permission = useTablePermission();
+  // Shared activity revision — columns recompute when computeMeta status changes.
+  const { fieldMetaById, revision: computeActivityRevision } = useComputeActivity();
 
   const fields = useMemo(() => {
     const hiddenSet = new Set(hiddenFieldIds ?? []);
@@ -655,6 +674,7 @@ export function useGridColumns(
         groupFieldIds,
         filterFieldIds,
         highlightedFieldId,
+        fieldMetaById,
       }),
       cellValue2GridDisplay: createCellValue2GridDisplay(fields),
     }),
@@ -669,6 +689,8 @@ export function useGridColumns(
       filterFieldIds,
       highlightedFieldId,
       createCellValue2GridDisplay,
+      fieldMetaById,
+      computeActivityRevision,
     ]
   );
 }

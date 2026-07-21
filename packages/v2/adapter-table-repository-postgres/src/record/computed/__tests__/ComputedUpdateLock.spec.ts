@@ -87,4 +87,45 @@ describe('ComputedUpdateLock', () => {
       new Set(['table'])
     );
   });
+
+  it('shares record lock keys for the same target across different seed tables', () => {
+    // Hybrid dual-worker race (T6300): a User-seed task and an Order-seed task can hold
+    // non-overlapping seed locks while both writing Order computed columns. Dirty-target
+    // locks for the Order row must collide with the Order seed lock.
+    const orderTableId = TableId.create(`tbl${'c'.repeat(16)}`)._unsafeUnwrap();
+    const orderRecordId = makeRecordId('o');
+    const config = {
+      ...defaultComputedUpdateLockConfig,
+      maxRecordLocks: 10,
+      batchShardCount: 8,
+    };
+
+    const orderSeedLocks = buildComputedUpdateLockPlan(
+      {
+        baseId,
+        seedTableId: orderTableId,
+        seedRecordIds: [orderRecordId],
+        extraSeedRecords: [],
+      },
+      config
+    );
+    const userCascadeDirtyLocks = buildComputedUpdateLockPlan(
+      {
+        baseId,
+        seedTableId: tableId,
+        seedRecordIds: [],
+        extraSeedRecords: [
+          {
+            tableId: orderTableId,
+            recordIds: [orderRecordId],
+          },
+        ],
+      },
+      config
+    );
+
+    expect(orderSeedLocks.recordLocks).toHaveLength(1);
+    expect(userCascadeDirtyLocks.recordLocks).toHaveLength(1);
+    expect(orderSeedLocks.recordLocks[0]?.key).toBe(userCascadeDirtyLocks.recordLocks[0]?.key);
+  });
 });

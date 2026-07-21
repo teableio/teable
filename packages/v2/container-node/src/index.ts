@@ -38,6 +38,7 @@ import {
   type ILogger,
   type TableDataSafetyLimitConfig,
   type ITracer,
+  type ITableQueryObservability,
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import { Lifecycle, container } from '@teable/v2-di';
@@ -72,6 +73,7 @@ export interface IV2NodePgContainerOptions {
   maxFreeRowLimit?: number;
   logger?: ILogger;
   tracer?: ITracer;
+  tableQueryObservability?: ITableQueryObservability;
   commandBusMiddlewares?: ReadonlyArray<ICommandBusMiddleware>;
   queryBusMiddlewares?: ReadonlyArray<IQueryBusMiddleware>;
   computedUpdate?: IV2TableRepositoryPostgresConfig['computedUpdate'];
@@ -199,6 +201,10 @@ export const registerV2NodePgDependencies = async (
     c.register(v2CoreTokens.tracer, NoopTracer, {
       lifecycle: Lifecycle.Singleton,
     });
+  }
+
+  if (options.tableQueryObservability) {
+    c.registerInstance(v2CoreTokens.tableQueryObservability, options.tableQueryObservability);
   }
 
   if (!c.isRegistered(v2CoreTokens.realtimeEngine)) {

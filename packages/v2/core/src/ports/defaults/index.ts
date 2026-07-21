@@ -10,6 +10,7 @@ export * from './NoopTableRepository';
 export * from './NoopTableRecordQueryRepository';
 export * from './NoopTableRecordRepository';
 export * from './NoopTableSchemaRepository';
+export * from './NoopTableQueryObservability';
 export * from './NoopTracer';
 export * from './NoopUndoRedoStore';
 export * from './NoopUnitOfWork';

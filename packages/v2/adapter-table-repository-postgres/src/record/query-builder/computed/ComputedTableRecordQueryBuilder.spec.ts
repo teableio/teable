@@ -1675,7 +1675,16 @@ describe('ComputedTableRecordQueryBuilder', () => {
 
     const booleanRollupExpressions = ['and({values})', 'or({values})', 'xor({values})'] as const;
 
-    const createRollupTable = (expression: string) => {
+    const createRollupTable = (
+      expression: string,
+      options?: {
+        relationship?: 'oneOne' | 'oneMany' | 'manyOne' | 'manyMany';
+        isOneWay?: boolean;
+        includeSecondRollup?: boolean;
+        filter?: unknown;
+        limit?: number;
+      }
+    ) => {
       const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
       const mainTableId = TableId.create(MAIN_TABLE_ID)._unsafeUnwrap();
       const foreignTableId = TableId.create(FOREIGN_TABLE_ID)._unsafeUnwrap();
@@ -1701,24 +1710,24 @@ describe('ComputedTableRecordQueryBuilder', () => {
         .setDbFieldName(DbFieldName.rehydrate('col_number')._unsafeUnwrap())
         ._unsafeUnwrap();
 
-      // Link config - let table builder generate FK configs
+      // Link config - let table builder generate FK configs automatically.
       const linkConfig = LinkFieldConfig.create({
-        relationship: 'oneMany',
+        relationship: options?.relationship ?? 'oneMany',
         foreignTableId: foreignTableId.toString(),
         lookupFieldId: lookupFieldId.toString(),
         symmetricFieldId: SYMMETRIC_FIELD_ID,
+        isOneWay: options?.isOneWay,
       })._unsafeUnwrap();
 
-      // Rollup config
       const rollupConfig = RollupFieldConfig.create({
         linkFieldId: linkFieldId.toString(),
         foreignTableId: foreignTableId.toString(),
         lookupFieldId: lookupFieldId.toString(),
+        filter: options?.filter,
+        limit: options?.limit,
       })._unsafeUnwrap();
-
       const rollupExpr = RollupExpression.create(expression)._unsafeUnwrap();
 
-      // Main table
       const mainBuilder = Table.builder()
         .withId(mainTableId)
         .withBaseId(baseId)
@@ -1742,6 +1751,15 @@ describe('ComputedTableRecordQueryBuilder', () => {
         .withConfig(rollupConfig)
         .withExpression(rollupExpr)
         .done();
+      if (options?.includeSecondRollup) {
+        mainBuilder
+          .field()
+          .rollup()
+          .withName(FieldName.create('Total copy')._unsafeUnwrap())
+          .withConfig(rollupConfig)
+          .withExpression(rollupExpr)
+          .done();
+      }
       mainBuilder.view().defaultGrid().done();
 
       const mainTable = mainBuilder.build({ foreignTables: [foreignTable] })._unsafeUnwrap();
@@ -1757,8 +1775,18 @@ describe('ComputedTableRecordQueryBuilder', () => {
         .getFields()[2]
         .setDbFieldName(DbFieldName.rehydrate('col_rollup')._unsafeUnwrap())
         ._unsafeUnwrap();
+      if (options?.includeSecondRollup) {
+        mainTable
+          .getFields()[3]
+          .setDbFieldName(DbFieldName.rehydrate('col_rollup_copy')._unsafeUnwrap())
+          ._unsafeUnwrap();
+      }
 
-      return { mainTable, foreignTable, foreignTableId };
+      const rollupFieldIds = mainTable
+        .getFields()
+        .slice(2)
+        .map((field) => field.id());
+      return { mainTable, foreignTable, foreignTableId, rollupFieldIds };
     };
 
     const createMultiValueRollupTable = (expression: string) => {
@@ -1942,6 +1970,135 @@ describe('ComputedTableRecordQueryBuilder', () => {
         expect(sql).toContain(`${sqlAggregate}("f"."col_number")`);
       }
     );
+
+    test.each([
+      { relationship: 'manyMany', isOneWay: false },
+      { relationship: 'oneMany', isOneWay: true },
+    ] as const)(
+      'groups duplicate $relationship junction rollups once without a correlated lateral',
+      ({ relationship, isOneWay }) => {
+        const db = createTestDb();
+        const { mainTable, foreignTable, foreignTableId, rollupFieldIds } = createRollupTable(
+          'sum({values})',
+          { relationship, isOneWay, includeSecondRollup: true }
+        );
+
+        const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+        const { sql } = compileQuery(
+          db,
+          new ComputedTableRecordQueryBuilder(db, {
+            foreignTables,
+            typeValidationStrategy,
+            allowFullTableSetBasedRollups: true,
+          })
+            .from(mainTable)
+            .select(rollupFieldIds)
+        );
+
+        expect(sql).not.toContain('join lateral');
+        expect(sql.match(/"junction_[^"]+"/g)).toHaveLength(1);
+        expect(sql).toContain('left join "bseaaaaaaaaaaaaaaaa"."junction_');
+        expect(sql).toContain('left join "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f"');
+        expect(sql).toContain('group by "h"."__id"');
+        expect(sql).toContain('"__host_id" = "t"."__id"');
+        expect(sql.match(/SUM\("f"\."col_number"\)/g)).toHaveLength(2);
+      }
+    );
+
+    test('keeps empty-host sum semantics in the set-based oneMany aggregate', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId, rollupFieldIds } =
+        createRollupTable('sum({values})');
+
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, {
+          foreignTables,
+          typeValidationStrategy,
+          allowFullTableSetBasedRollups: true,
+        })
+          .from(mainTable)
+          .select(rollupFieldIds)
+      );
+
+      expect(sql).not.toContain('join lateral');
+      expect(sql).toContain(
+        'from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "h" left join "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f"'
+      );
+      expect(sql).toContain('CAST(COALESCE(SUM("f"."col_number"), 0) AS DOUBLE PRECISION)');
+      expect(sql).toContain('group by "h"."__id"');
+    });
+
+    test('keeps ordinary paginated rollup reads correlated', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId, rollupFieldIds } = createRollupTable(
+        'sum({values})',
+        { relationship: 'manyMany', includeSecondRollup: true }
+      );
+
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy })
+          .from(mainTable)
+          .select(rollupFieldIds)
+          .limit(1)
+      );
+
+      expect(sql).toContain('join lateral');
+      expect(sql).not.toContain('group by "h"."__id"');
+    });
+
+    test.each([
+      {
+        name: 'order-sensitive',
+        expression: 'array_join({values})',
+        options: { relationship: 'manyMany' },
+      },
+      {
+        name: 'filtered',
+        expression: 'sum({values})',
+        options: {
+          relationship: 'manyMany',
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: LOOKUP_TARGET_FIELD_ID,
+                operator: 'is',
+                value: 1,
+              },
+            ],
+          },
+        },
+      },
+      {
+        name: 'limited',
+        expression: 'sum({values})',
+        options: { relationship: 'manyMany', limit: 1 },
+      },
+      {
+        name: 'unsupported manyOne',
+        expression: 'sum({values})',
+        options: { relationship: 'manyOne' },
+      },
+    ] as const)('keeps the correlated lateral for $name rollups', ({ expression, options }) => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId, rollupFieldIds } = createRollupTable(
+        expression,
+        options
+      );
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy })
+          .from(mainTable)
+          .select(rollupFieldIds)
+      );
+
+      expect(sql).toContain('inner join lateral');
+    });
 
     test('rollup sum snapshot', () => {
       const db = createTestDb();
@@ -3549,6 +3706,22 @@ describe('ComputedTableRecordQueryBuilder', () => {
         }
       }
     );
+
+    test('keeps self-link rollups on the correlated lateral fallback', () => {
+      const db = createTestDb();
+      const { table, tableId } = createSelfRefWithLookupRollup('manyMany');
+      const rollupFieldId = table.getFields()[4].id();
+
+      const foreignTables = new Map([[tableId.toString(), table]]);
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy })
+          .from(table)
+          .select([rollupFieldId])
+      );
+
+      expect(sql).toContain('inner join lateral');
+    });
 
     test('uses UTC ISO datetime strings for multi-value lookup aggregation', () => {
       const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
