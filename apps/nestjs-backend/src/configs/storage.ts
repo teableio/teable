@@ -46,6 +46,7 @@ export const storageConfig = registerAs('storage', () => ({
     internalForcePathStyle: process.env.BACKEND_STORAGE_S3_INTERNAL_FORCE_PATH_STYLE
       ? process.env.BACKEND_STORAGE_S3_INTERNAL_FORCE_PATH_STYLE === 'true'
       : undefined,
+    useIAMRole: process.env.BACKEND_STORAGE_S3_USE_IAM_ROLE === 'true',
   },
   uploadMethod: process.env.BACKEND_STORAGE_UPLOAD_METHOD ?? 'put',
   encryption: {
