@@ -3,11 +3,13 @@ import {
   FieldId,
   FieldNotNull,
   FieldUnique,
+  LookupOptions,
   RatingMax,
   SelectOption,
   TableUpdateFieldConstraintsSpec,
   TableUpdateFieldDbFieldNameSpec,
   UpdateMultipleSelectOptionsSpec,
+  UpdateLookupOptionsSpec,
   UpdateRatingMaxSpec,
   UpdateSingleSelectOptionsSpec,
   UpdateUserMultiplicitySpec,
@@ -16,13 +18,13 @@ import {
 import { ok } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
-import { TableSchemaUpdateVisitor } from './TableSchemaUpdateVisitor';
 import {
   createBtnField,
   createTestDb,
   createTextField,
   createValidFieldId,
 } from './__tests__/helpers';
+import { TableSchemaUpdateVisitor } from './TableSchemaUpdateVisitor';
 
 const db = createTestDb();
 const SCHEMA = 'bseTableSchemaTest';
@@ -81,7 +83,6 @@ describe('TableSchemaUpdateVisitor coverage', () => {
       'visitUpdateFormulaShowAs',
       'visitUpdateFormulaTimeZone',
       'visitUpdateLinkConfig',
-      'visitUpdateLookupOptions',
       'visitUpdateRollupConfig',
       'visitUpdateRollupExpression',
       'visitUpdateRollupFormatting',
@@ -96,6 +97,18 @@ describe('TableSchemaUpdateVisitor coverage', () => {
         (visitor[method] as (spec: unknown) => ReturnType<typeof visitor.visitTableRename>)({})
       );
     }
+  });
+
+  it('skips lookup column conversion when the lookup target is unchanged', () => {
+    const fieldId = mkFieldId('lookupSame');
+    const lookupOptions = LookupOptions.create({
+      linkFieldId: createValidFieldId('lookupLink'),
+      lookupFieldId: createValidFieldId('lookupTarget'),
+      foreignTableId: `tbl${'a'.repeat(16)}`,
+    })._unsafeUnwrap();
+    const spec = UpdateLookupOptionsSpec.create(fieldId, lookupOptions, lookupOptions);
+
+    expectEmptyStatements(createVisitor().visitUpdateLookupOptions(spec));
   });
 
   it('returns validation errors for unsupported search specs', () => {
@@ -148,6 +161,28 @@ describe('TableSchemaUpdateVisitor coverage', () => {
       nextUnique: FieldUnique.disabled(),
     });
     expectEmptyStatements(visitor.visitTableUpdateFieldConstraints(noChange));
+
+    const uniqueDisabled = TableUpdateFieldConstraintsSpec.create({
+      fieldId,
+      dbFieldName: mkDbFieldName('constraint_col'),
+      previousNotNull: FieldNotNull.optional(),
+      nextNotNull: FieldNotNull.optional(),
+      previousUnique: FieldUnique.enabled(),
+      nextUnique: FieldUnique.disabled(),
+    });
+    const uniqueDisabledResult = visitor.visitTableUpdateFieldConstraints(uniqueDisabled);
+
+    expect(uniqueDisabledResult.isOk()).toBe(true);
+    const uniqueDisabledSqls = uniqueDisabledResult
+      ._unsafeUnwrap()
+      .map((statement) => normalizeSql(statement.compile(db).sql));
+    expect(uniqueDisabledSqls).toHaveLength(2);
+    expect(uniqueDisabledSqls[0]).toContain(
+      'ALTER TABLE "bseTableSchemaTest"."tblVisitorCoverage" DROP CONSTRAINT IF EXISTS "tblVisitorCoverage_constraint_col_unique"'
+    );
+    expect(uniqueDisabledSqls[1]).toContain(
+      'DROP INDEX IF EXISTS "bseTableSchemaTest"."tblVisitorCoverage_constraint_col_unique"'
+    );
   });
 
   it('renames db columns and the related trigram index', () => {
@@ -269,7 +304,10 @@ describe('TableSchemaUpdateVisitor coverage', () => {
       ._unsafeUnwrap()
       .map((statement) => normalizeSql(statement.compile(db).sql));
     expect(singleSqls[0]).toContain('SET "single_sel" = $1 WHERE "single_sel" = $2');
-    expect(singleSqls[1]).toContain('SET "single_sel" = NULL WHERE "single_sel" = $1');
+    expect(singleSqls[1]).toContain(
+      'SET "single_sel" = NULL, "__version" = "__version" + 1 WHERE "single_sel" = $1'
+    );
+    expect(singleSqls[1]).toContain('RETURNING "__id" AS "recordId"');
 
     const multiResult = visitor.visitUpdateMultipleSelectOptions(
       UpdateMultipleSelectOptionsSpec.create(
@@ -286,6 +324,9 @@ describe('TableSchemaUpdateVisitor coverage', () => {
     expect(multiSqls[0]).toContain('jsonb_array_elements_text("multi_sel")');
     expect(multiSqls[0]).toContain('value = $1 THEN $2 ELSE value END');
     expect(multiSqls[1]).toContain('WHERE value <> $1');
+    expect(multiSqls[1]).toContain('SET "multi_sel" = candidates."newValue"');
+    expect(multiSqls[1]).toContain('"__version" = t."__version" + 1');
+    expect(multiSqls[1]).toContain('RETURNING t."__id" AS "recordId"');
   });
 
   it('clears persisted button values when workflow changes', () => {

@@ -15,6 +15,7 @@ import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import { FieldOptionsAdded } from '../domain/table/events/FieldOptionsAdded';
+import { isRecordsBatchCreatedEvent } from '../domain/table/events/RecordsBatchCreated';
 import { isRecordsBatchUpdatedEvent } from '../domain/table/events/RecordsBatchUpdated';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
@@ -45,7 +46,9 @@ import type {
   BatchRecordMutationResult,
   InsertManyStreamBatchInput,
   InsertManyStreamOptions,
+  PhysicalTableDuplicatePlan,
   UpdateManyStreamBatchInput,
+  UpdateManyStreamOptions,
   UpdateManyStreamResult,
 } from '../ports/TableRecordRepository';
 import { isInsertManyStreamBatch, isUpdateManyStreamBatch } from '../ports/TableRecordRepository';
@@ -319,6 +322,13 @@ class FakeTableRepository implements ITableRepository {
     return ok([...tables]);
   }
 
+  async duplicatePhysicalRows(
+    _context: IExecutionContext,
+    _plan: PhysicalTableDuplicatePlan
+  ): Promise<Result<{ rowCount: number; recordIds: string[] }, DomainError>> {
+    return ok({ rowCount: 0, recordIds: [] });
+  }
+
   async findOne(
     _: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>,
@@ -392,11 +402,14 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   updateCalls = 0;
   insertStreamContexts: IExecutionContext[] = [];
   updateStreamContexts: IExecutionContext[] = [];
+  insertStreamOptions: InsertManyStreamOptions[] = [];
+  updateStreamOptions: UpdateManyStreamOptions[] = [];
   onInsertManyStream?: (table: Table) => void;
   onUpdateManyStream?: (table: Table) => void;
   onUpdatedRecord?: (record: TableRecord) => void;
   updateManyStreamUpdatedRecordIds: Set<string> | undefined = undefined;
   updateManyStreamVersions = new Map<string, number>();
+  updateManyStreamErrorAtCall: number | undefined = undefined;
 
   constructor(private readonly queryRepository?: FakeTableRecordQueryRepository) {}
 
@@ -424,6 +437,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   ): Promise<Result<{ totalInserted: number }, DomainError>> {
     this.insertCalls += 1;
     this.insertStreamContexts.push(context);
+    this.insertStreamOptions.push(options ?? {});
     this.onInsertManyStream?.(table);
     let totalInserted = 0;
     let batchIndex = 0;
@@ -473,13 +487,18 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     table: Table,
     batches:
       | Iterable<Result<UpdateManyStreamBatchInput, DomainError>>
-      | AsyncIterable<Result<UpdateManyStreamBatchInput, DomainError>>
+      | AsyncIterable<Result<UpdateManyStreamBatchInput, DomainError>>,
+    options?: UpdateManyStreamOptions
   ): Promise<Result<UpdateManyStreamResult, DomainError>> {
     this.updateCalls += 1;
+    if (this.updateManyStreamErrorAtCall === this.updateCalls) {
+      return err(domainError.infrastructure({ message: 'connection exhausted' }));
+    }
     this.updateStreamContexts.push(context);
+    this.updateStreamOptions.push(options ?? {});
     this.onUpdateManyStream?.(table);
     let totalUpdated = 0;
-    const updatedRecords: NonNullable<UpdateManyStreamResult['updatedRecords']> = [];
+    const updatedRecords: Array<NonNullable<UpdateManyStreamResult['updatedRecords']>[number]> = [];
     const normalizeBatch = (
       batch: UpdateManyStreamBatchInput
     ): ReadonlyArray<RecordUpdateResult> =>
@@ -865,7 +884,7 @@ describe('PasteHandler', () => {
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
         eventBus,
-        undoRedoService as unknown as UndoRedoService,
+        undoRedoService as unknown as UndoRedoStackService,
         unitOfWork
       );
 
@@ -925,7 +944,7 @@ describe('PasteHandler', () => {
         noopRecordWriteUndoRedoPlanService,
         createRecordWritePluginRunner(),
         eventBus,
-        undoRedoService as unknown as UndoRedoService,
+        undoRedoService as unknown as UndoRedoStackService,
         unitOfWork
       );
 
@@ -2411,7 +2430,7 @@ describe('PasteHandler', () => {
     const result = await handler.handle({ ...createContext(), requestId: 'req-paste' }, command);
     result._unsafeUnwrap();
 
-    expect(recordRepository.updateStreamContexts[0]?.batchMutation).toEqual({
+    expect(recordRepository.updateStreamOptions[0]?.orchestration).toEqual({
       operationId: 'req-paste',
       groupId: 'req-paste',
       totalRecordCount: 2,
@@ -2419,7 +2438,7 @@ describe('PasteHandler', () => {
       chunkIndex: 0,
       scope: 'operation',
     });
-    expect(recordRepository.insertStreamContexts[0]?.batchMutation).toEqual({
+    expect(recordRepository.insertStreamOptions[0]?.orchestration).toEqual({
       operationId: 'req-paste',
       groupId: 'req-paste',
       totalRecordCount: 2,
@@ -2437,6 +2456,12 @@ describe('PasteHandler', () => {
       chunkIndex: 0,
       scope: 'operation',
     });
+    expect(batchUpdatedEvent?.source).toBe('user');
+    expect(batchUpdatedEvent?.auditSource).toBe('paste');
+
+    const batchCreatedEvent = eventBus.published.find(isRecordsBatchCreatedEvent);
+    expect(batchCreatedEvent?.source).toEqual({ type: 'user' });
+    expect(batchCreatedEvent?.auditSource).toBe('paste');
   });
 
   describe('PasteStreamApplicationService', () => {
@@ -2567,30 +2592,27 @@ describe('PasteHandler', () => {
         chunkIndex: 0,
         scope: 'chunk',
       });
+      expect(batchUpdatedEvents[0]?.source).toBe('user');
+      expect(batchUpdatedEvents[0]?.auditSource).toBe('paste');
 
-      const batchCreatedEvents = eventBus.published.filter(
-        (event) => event.constructor.name === 'RecordsBatchCreated'
-      ) as Array<{
-        orchestration?: {
-          groupId?: string;
-          chunkIndex?: number;
-          totalChunkCount?: number;
-          scope?: string;
-        };
-      }>;
+      const batchCreatedEvents = eventBus.published.filter(isRecordsBatchCreatedEvent);
       expect(batchCreatedEvents).toHaveLength(2);
       expect(batchCreatedEvents[0]?.orchestration).toMatchObject({
         chunkIndex: 1,
         totalChunkCount: 3,
         scope: 'chunk',
       });
+      expect(batchCreatedEvents[0]?.source).toEqual({ type: 'user' });
+      expect(batchCreatedEvents[0]?.auditSource).toBe('paste');
       expect(batchCreatedEvents[1]?.orchestration).toMatchObject({
         chunkIndex: 2,
         totalChunkCount: 3,
         scope: 'chunk',
       });
+      expect(batchCreatedEvents[1]?.source).toEqual({ type: 'user' });
+      expect(batchCreatedEvents[1]?.auditSource).toBe('paste');
 
-      expect(recordRepository.updateStreamContexts[0]?.batchMutation).toEqual({
+      expect(recordRepository.updateStreamOptions[0]?.orchestration).toEqual({
         operationId: expect.any(String),
         groupId: expect.any(String),
         totalRecordCount: 3,
@@ -2598,7 +2620,7 @@ describe('PasteHandler', () => {
         chunkIndex: 0,
         scope: 'chunk',
       });
-      expect(recordRepository.insertStreamContexts[0]?.batchMutation).toEqual({
+      expect(recordRepository.insertStreamOptions[0]?.orchestration).toEqual({
         operationId: expect.any(String),
         groupId: expect.any(String),
         totalRecordCount: 3,
@@ -2606,7 +2628,7 @@ describe('PasteHandler', () => {
         chunkIndex: 1,
         scope: 'chunk',
       });
-      expect(recordRepository.insertStreamContexts[1]?.batchMutation).toEqual({
+      expect(recordRepository.insertStreamOptions[1]?.orchestration).toEqual({
         operationId: expect.any(String),
         groupId: expect.any(String),
         totalRecordCount: 3,
@@ -2617,6 +2639,78 @@ describe('PasteHandler', () => {
 
       expect(trackingUndoRedoService.recordEntryCalls).toBe(3);
       expect(new Set(trackingUndoRedoService.entries.map((entry) => entry.groupId)).size).toBe(1);
+    });
+
+    it('stops after a persistence error without emitting done', async () => {
+      const { table, tableId, textFieldId } = buildTable();
+      const viewId = table.views()[0]!.id();
+      const tableRepository = new FakeTableRepository();
+      tableRepository.tables.push(table);
+      const tableQueryService = new TableQueryService(tableRepository);
+      const recordQueryRepository = new FakeTableRecordQueryRepository();
+      recordQueryRepository.records = [
+        {
+          id: `rec${'p'.repeat(16)}`,
+          fields: { [textFieldId.toString()]: 'Old 1' },
+          version: 1,
+        },
+        {
+          id: `rec${'q'.repeat(16)}`,
+          fields: { [textFieldId.toString()]: 'Old 2' },
+          version: 1,
+        },
+      ];
+      const recordRepository = new FakeTableRecordRepository();
+      recordRepository.updateManyStreamErrorAtCall = 2;
+      const eventBus = new FakeEventBus();
+      const unitOfWork = new FakeUnitOfWork();
+      const handler = new PasteStreamApplicationService(
+        tableQueryService,
+        createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+        new FakeFieldCreationSideEffectService() as never,
+        new FakeForeignTableLoaderService() as never,
+        recordRepository,
+        recordQueryRepository,
+        new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+        noopPasteLinkAutoResolveService,
+        new RecordWriteSideEffectService(),
+        noopRecordWriteUndoRedoPlanService,
+        createRecordWritePluginRunner(),
+        eventBus,
+        noopUndoRedoService,
+        unitOfWork
+      );
+      const command = PasteStreamCommand.create({
+        tableId: tableId.toString(),
+        viewId: viewId.toString(),
+        ranges: [
+          [0, 0],
+          [0, 1],
+        ],
+        content: [['Updated 1'], ['Updated 2']],
+        batchSize: 1,
+      })._unsafeUnwrap();
+
+      const events = [];
+      for await (const event of handler.createStream(createContext(), command)) {
+        events.push(event);
+      }
+
+      expect(events.map((event) => event.id)).toEqual([
+        'progress',
+        'progress',
+        'progress',
+        'error',
+      ]);
+      expect(events.at(-1)).toMatchObject({
+        id: 'error',
+        phase: 'pasting',
+        batchIndex: 1,
+        processedCount: 1,
+        updatedCount: 1,
+        message: 'connection exhausted',
+      });
+      expect(recordRepository.updateCalls).toBe(2);
     });
 
     it('snapshots filtered target rows before streamed paste chunks mutate them', async () => {

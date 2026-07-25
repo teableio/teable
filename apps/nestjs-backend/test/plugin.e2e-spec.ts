@@ -1,6 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import type { ICreatePluginRo, IGetPluginCenterListVo } from '@teable/openapi';
 import {
+  axios,
   createPlugin,
   createPluginVoSchema,
   deletePlugin,
@@ -90,6 +91,44 @@ describe('PluginController', () => {
     await deletePlugin(res.data.id);
     const error = await getError(() => getPlugin(res.data.id));
     expect(error?.status).toBe(404);
+  });
+
+  it('does not let another user mutate a plugin by id', async () => {
+    await submitPlugin(pluginId);
+    await publishPlugin(pluginId);
+    const attackerAxios = await createNewUserAxios({
+      email: 'plugin-owner-scope@test.com',
+      password: '12345678',
+    });
+
+    const regenerateError = await getError(() =>
+      attackerAxios.post(`/plugin/${pluginId}/regenerate-secret`)
+    );
+    const unpublishError = await getError(() =>
+      attackerAxios.patch(`/plugin/${pluginId}/unpublish`)
+    );
+    const deleteError = await getError(() => attackerAxios.delete(`/plugin/${pluginId}`));
+
+    expect(regenerateError?.status).toBe(404);
+    expect(unpublishError?.status).toBe(404);
+    expect(deleteError?.status).toBe(404);
+    expect((await getPlugin(pluginId)).data.status).toBe(PluginStatus.Published);
+  });
+
+  it('does not let the regular plugin routes mutate a system plugin', async () => {
+    const systemPluginId = 'plgchart';
+    const statusBefore = (await getPlugin(systemPluginId)).data.status;
+
+    const regenerateError = await getError(() =>
+      axios.post(`/plugin/${systemPluginId}/regenerate-secret`)
+    );
+    const unpublishError = await getError(() => axios.patch(`/plugin/${systemPluginId}/unpublish`));
+    const deleteError = await getError(() => axios.delete(`/plugin/${systemPluginId}`));
+
+    expect(regenerateError?.status).toBe(404);
+    expect(unpublishError?.status).toBe(404);
+    expect(deleteError?.status).toBe(404);
+    expect((await getPlugin(systemPluginId)).data.status).toBe(statusBefore);
   });
 
   it('/api/plugin/{pluginId} (PUT)', async () => {

@@ -1,20 +1,21 @@
 import { describe, expect, it, vi } from 'vitest';
 import { RecordOpenApiService } from './record-open-api.service';
 
+const userId = 'usr1';
+const startDate = '2026-01-01T00:00:00.000Z';
+const endDate = '2026-01-02T00:00:00.000Z';
+
 const createService = ({
   prismaService = {},
-  dataPrismaService = {},
   recordService = {},
-  dataDbClientManager,
+  coldReadService = { collectHistoryRows: vi.fn().mockResolvedValue({ rows: [] }) },
 }: {
   prismaService?: unknown;
-  dataPrismaService?: unknown;
   recordService?: unknown;
-  dataDbClientManager?: unknown;
+  coldReadService?: unknown;
 } = {}) =>
   new RecordOpenApiService(
     prismaService as never,
-    dataPrismaService as never,
     recordService as never,
     {} as never,
     {} as never,
@@ -24,9 +25,9 @@ const createService = ({
     {} as never,
     {} as never,
     {} as never,
-    (dataDbClientManager ?? {
-      dataPrismaForTable: vi.fn().mockResolvedValue(dataPrismaService),
-    }) as never
+    {} as never,
+    {} as never,
+    coldReadService as never
   );
 
 describe('RecordOpenApiService', () => {
@@ -34,69 +35,58 @@ describe('RecordOpenApiService', () => {
     expect(createService()).toBeDefined();
   });
 
-  it('reads record history from the data database and user metadata from the meta database', async () => {
-    const metaRecordHistoryFindMany = vi.fn();
-    const dataRecordHistoryFindMany = vi.fn().mockResolvedValue([
-      {
-        id: 'rh1',
-        recordId: 'rec1',
-        fieldId: 'fld1',
-        before: JSON.stringify({ meta: { type: 'singleLineText' }, data: 'old' }),
-        after: JSON.stringify({ meta: { type: 'singleLineText' }, data: 'new' }),
-        createdTime: new Date('2026-01-01T00:00:00.000Z'),
-        createdBy: 'usr1',
-      },
-    ]);
+  it('serves record history through the merged read and user metadata from the meta database', async () => {
+    const collectHistoryRows = vi.fn().mockResolvedValue({
+      rows: [
+        {
+          id: 'rh1',
+          recordId: 'rec1',
+          fieldId: 'fld1',
+          before: JSON.stringify({ meta: { type: 'singleLineText' }, data: 'old' }),
+          after: JSON.stringify({ meta: { type: 'singleLineText' }, data: 'new' }),
+          createdTime: new Date(startDate),
+          createdBy: userId,
+        },
+      ],
+      nextCursor: undefined,
+    });
     const userFindMany = vi.fn().mockResolvedValue([
       {
-        id: 'usr1',
+        id: userId,
         name: 'Ada',
         email: 'ada@example.com',
         avatar: null,
       },
     ]);
-    const dataPrismaForTable = vi.fn().mockResolvedValue({
-      recordHistory: { findMany: dataRecordHistoryFindMany },
-    });
 
     const service = createService({
       prismaService: {
-        recordHistory: { findMany: metaRecordHistoryFindMany },
         user: { findMany: userFindMany },
       },
-      dataPrismaService: {
-        recordHistory: { findMany: dataRecordHistoryFindMany },
-      },
-      dataDbClientManager: {
-        dataPrismaForTable,
-      },
+      coldReadService: { collectHistoryRows },
     });
 
-    const result = await service.getRecordHistory(
-      'tbl1',
-      'rec1',
-      {
-        startDate: '2026-01-01T00:00:00.000Z',
-        endDate: '2026-01-02T00:00:00.000Z',
-      },
-      ['fld1']
-    );
+    const result = await service.getRecordHistory('tbl1', 'rec1', {
+      startDate,
+      endDate,
+      fieldIds: ['fld1'],
+      createdByIds: [userId],
+    });
 
-    expect(dataRecordHistoryFindMany).toHaveBeenCalledWith(
+    expect(collectHistoryRows).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({
-          tableId: 'tbl1',
-          recordId: 'rec1',
-          fieldId: { in: ['fld1'] },
-        }),
-        take: 21,
-        orderBy: { createdTime: 'desc' },
+        tableId: 'tbl1',
+        recordId: 'rec1',
+        startDate,
+        endDate,
+        allowedFieldIds: ['fld1'],
+        shouldFilterByField: true,
+        createdByIds: [userId],
+        limit: 20,
       })
     );
-    expect(dataPrismaForTable).toHaveBeenCalledWith('tbl1');
-    expect(metaRecordHistoryFindMany).not.toHaveBeenCalled();
     expect(userFindMany).toHaveBeenCalledWith({
-      where: { id: { in: ['usr1'] } },
+      where: { id: { in: [userId] } },
       select: {
         id: true,
         name: true,
@@ -112,15 +102,45 @@ describe('RecordOpenApiService', () => {
         fieldId: 'fld1',
         before: { meta: { type: 'singleLineText' }, data: 'old' },
         after: { meta: { type: 'singleLineText' }, data: 'new' },
-        createdTime: '2026-01-01T00:00:00.000Z',
-        createdBy: 'usr1',
+        createdTime: startDate,
+        createdBy: userId,
       },
     ]);
-    expect(result.userMap.usr1).toEqual({
-      id: 'usr1',
+    expect(result.userMap[userId]).toEqual({
+      id: userId,
       name: 'Ada',
       email: 'ada@example.com',
       avatar: null,
     });
+  });
+
+  it('keeps field filtering when selected fields are outside projection', async () => {
+    const collectHistoryRows = vi.fn().mockResolvedValue({ rows: [], nextCursor: undefined });
+    const userFindMany = vi.fn().mockResolvedValue([]);
+
+    const service = createService({
+      prismaService: {
+        user: { findMany: userFindMany },
+      },
+      coldReadService: { collectHistoryRows },
+    });
+
+    await service.getRecordHistory(
+      'tbl1',
+      'rec1',
+      {
+        fieldIds: ['fldDenied'],
+      },
+      ['fldAllowed']
+    );
+
+    expect(collectHistoryRows).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tableId: 'tbl1',
+        recordId: 'rec1',
+        allowedFieldIds: [],
+        shouldFilterByField: true,
+      })
+    );
   });
 });

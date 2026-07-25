@@ -15,6 +15,11 @@ export const connectionOption = Options.text('connection').pipe(
  */
 export const tableIdOption = Options.text('table-id').pipe(Options.withDescription('Table ID'));
 
+export const tableIdOptionalOption = Options.text('table-id').pipe(
+  Options.withDescription('Table ID'),
+  Options.optional
+);
+
 /**
  * Field ID option
  */
@@ -79,6 +84,38 @@ export const dryRunOption = Options.boolean('dry-run').pipe(
   Options.withDefault(false),
   Options.withDescription('Plan the repair without executing database writes')
 );
+
+export const manualRepairValuesOption = Options.text('manual-repair-values').pipe(
+  Options.withDescription('JSON object containing the selected manual repair values'),
+  Options.optional
+);
+
+export type ManualRepairValues = Record<string, string | boolean>;
+
+export const parseManualRepairValues = (
+  value: string | undefined
+): ManualRepairValues | undefined => {
+  if (!value) return undefined;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new Error('manual-repair-values must be valid JSON');
+  }
+
+  if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') {
+    throw new Error('manual-repair-values must be a JSON object');
+  }
+
+  for (const [key, item] of Object.entries(parsed)) {
+    if (typeof item !== 'string' && typeof item !== 'boolean') {
+      throw new Error(`manual-repair-values.${key} must be a string or boolean`);
+    }
+  }
+
+  return parsed as ManualRepairValues;
+};
 
 /**
  * Limit option for pagination

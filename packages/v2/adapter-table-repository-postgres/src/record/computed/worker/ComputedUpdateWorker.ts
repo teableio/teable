@@ -1,4 +1,5 @@
 import { getPostgresTransaction } from '@teable/v2-adapter-db-postgres-shared';
+import type { PostgresSqlExecutionDiagnostics } from '@teable/v2-adapter-db-postgres-shared';
 import {
   ActorId,
   domainError,
@@ -29,9 +30,19 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { v2RecordRepositoryPostgresTokens } from '../../di/tokens';
-import { buildBeforeImageRecordsFromStepChanges } from '../ComputedBeforeImageFromChanges';
+import { toComputedActivityBatch } from '../activity/IComputedActivityProjector';
+import {
+  hasAllTargetRecordsEdge,
+  resolveFieldTargetsFromPlan,
+} from '../activity/resolveFieldTargets';
+import {
+  buildBeforeImageRecordsFromStepChanges,
+  mergeBeforeImageRecords,
+} from '../ComputedBeforeImageFromChanges';
 import type { ComputedFieldBackfillService } from '../ComputedFieldBackfillService';
 import type { ComputedFieldUpdater, StepChangeData } from '../ComputedFieldUpdater';
+import type { ComputedTaskFailureClassification } from '../ComputedTaskFailureClassifier';
+import { classifyComputedTaskFailure } from '../ComputedTaskFailureClassifier';
 import { isComputedUpdateLockUnavailable } from '../ComputedUpdateLock';
 import type {
   ComputedSeedGroup,
@@ -57,6 +68,7 @@ import type { ComputedUpdateSeedTaskInput } from '../outbox/ComputedUpdateSeedPa
 import { deserializeSeedPayload } from '../outbox/ComputedUpdateSeedPayload';
 import type {
   AnyOutboxItem,
+  ComputedTaskFailureDiagnostics,
   ComputedUpdateOutboxConfig,
   FieldBackfillOutboxItem,
   SeedOutboxItem,
@@ -73,7 +85,25 @@ const MAX_STAGE_DEPTH = 50;
 const maxComputedEventLogItems = 10;
 const maxComputedEventLogFieldIds = 20;
 const maxComputedEventLogRecordIds = 10;
-const POSTGRES_STATEMENT_TIMEOUT_CODE = '57014';
+
+const buildFailureDiagnostics = (
+  error: DomainError,
+  failure: ComputedTaskFailureClassification,
+  phase: string
+): ComputedTaskFailureDiagnostics => {
+  const execution = error.details?.postgresSql as PostgresSqlExecutionDiagnostics | undefined;
+  return {
+    version: 1,
+    failure: {
+      kind: failure.failureKind,
+      reason: failure.failureReason,
+      retryable: failure.retryable,
+      directDeadLetter: !failure.retryable,
+      phase,
+    },
+    ...(execution ? { execution } : {}),
+  };
+};
 
 type SeedRecordChunk = {
   seedRecordIds: string[];
@@ -149,12 +179,64 @@ const withChunkedPlanHash = (planHash: string, chunkIndex: number, chunkCount: n
   `${planHash}:chunk:${chunkIndex + 1}/${chunkCount}`;
 
 const filterBeforeImageRecords = (
-  beforeImageRecords: ReadonlyArray<ComputedBeforeImageRecordDto>,
+  beforeImageRecords: ReadonlyArray<ComputedBeforeImageRecordDto> | undefined,
   seedRecordIds: ReadonlyArray<string>
 ): ComputedBeforeImageRecordDto[] => {
-  if (beforeImageRecords.length === 0 || seedRecordIds.length === 0) return [];
+  if (!beforeImageRecords || beforeImageRecords.length === 0 || seedRecordIds.length === 0) {
+    return [];
+  }
   const seedRecordIdSet = new Set(seedRecordIds);
   return beforeImageRecords.filter((record) => seedRecordIdSet.has(record.recordId));
+};
+
+/**
+ * Bound how many child tasks fanout-aware seed split may create. Large seed batches
+ * (hundreds of ids) already amortize work per task; exploding them into tiny chunks
+ * overwhelms outbox drain loops (e2e + workers) without improving parallelism much.
+ */
+const MAX_FANOUT_CHUNKS = 16;
+
+/**
+ * Effective seed cap for a claimed computed task.
+ *
+ * - Hard cap: maxSeedRecordsPerTask (existing behavior).
+ * - Fanout path: when dirtyStats predicts a large cascade, the plan has no
+ *   allTargetRecords edges, and the seed set is still small enough to stay within
+ *   MAX_FANOUT_CHUNKS, use fanoutSeedSplitMaxSeeds so small seed sets still split
+ *   into parallel chunk planHashes. Never fanout-split allTarget plans — each
+ *   child would still full-host-dirty and multiply work.
+ */
+export const resolveEffectiveMaxSeedRecordsPerTask = (
+  task: Pick<
+    ComputedUpdateOutboxItem,
+    'edges' | 'dirtyStats' | 'seedRecordIds' | 'extraSeedRecords'
+  >,
+  config: Pick<
+    ComputedUpdateOutboxConfig,
+    'maxSeedRecordsPerTask' | 'fanoutDirtyRecordsThreshold' | 'fanoutSeedSplitMaxSeeds'
+  >
+): number => {
+  const hardCap = Math.max(1, config.maxSeedRecordsPerTask);
+  const fanoutThreshold = config.fanoutDirtyRecordsThreshold;
+  if (fanoutThreshold <= 0) return hardCap;
+
+  const hasAllTargetEdge = task.edges.some((edge) => edge.propagationMode === 'allTargetRecords');
+  if (hasAllTargetEdge) return hardCap;
+
+  const totalDirty = (task.dirtyStats ?? []).reduce(
+    (sum, row) => sum + Math.max(0, Number(row.recordCount) || 0),
+    0
+  );
+  if (totalDirty < fanoutThreshold) return hardCap;
+
+  const seedCount = countSeedRecordDtos(task.seedRecordIds, task.extraSeedRecords);
+  if (seedCount < 2) return hardCap;
+
+  const fanoutCap = Math.max(1, config.fanoutSeedSplitMaxSeeds);
+  // Skip fanout when seed set would create more than MAX_FANOUT_CHUNKS children.
+  if (seedCount > fanoutCap * MAX_FANOUT_CHUNKS) return hardCap;
+
+  return Math.min(hardCap, fanoutCap);
 };
 
 export const splitComputedTaskForSeedRecordLimit = (
@@ -244,15 +326,6 @@ const chunkOrchestration = (
     chunkIndex,
     scope: 'chunk',
   };
-};
-
-const isComputedTaskStatementTimeout = (error: DomainError): boolean => {
-  const message = error.message.toLowerCase();
-  return (
-    message.includes(POSTGRES_STATEMENT_TIMEOUT_CODE) ||
-    message.includes('statement timeout') ||
-    message.includes('canceling statement due to statement timeout')
-  );
 };
 
 export type ComputedUpdateWorkerParams = {
@@ -531,7 +604,7 @@ export class ComputedUpdateWorker {
             {
               taskId: params.taskId,
               workerId: params.workerId,
-              allowProcessingTakeover: params.allowProcessingTakeover ?? true,
+              allowProcessingTakeover: params.allowProcessingTakeover ?? false,
             },
             context
           );
@@ -649,7 +722,7 @@ export class ComputedUpdateWorker {
       | 'plan_next_stage'
       | 'enqueue_next_stage'
       | 'mark_done' = 'deserialize_plan';
-    const logTaskFailure = (error: unknown) => {
+    const logTaskFailure = (error: unknown, failure?: ComputedTaskFailureClassification) => {
       this.logger.error('computed:outbox:task_failed', {
         taskId: computedTask.id,
         phase: failurePhase,
@@ -659,6 +732,7 @@ export class ComputedUpdateWorker {
         seedRecordCount: computedTask.seedRecordIds.length,
         extraSeedGroupCount: computedTask.extraSeedRecords.length,
         affectedFieldCount: computedTask.affectedFieldIds.length,
+        ...failure,
         ...toErrorLogFields(error),
         ...runLogContext,
       });
@@ -727,6 +801,9 @@ export class ComputedUpdateWorker {
       failurePhase = 'execute_plan';
       const stageResult = await this.updater.execute(planResult.value, txContext, run, {
         collectChanges: true,
+        // Non-blocking target locks: overlapping writers requeue instead of overwriting
+        // computed columns with stale concurrent snapshots.
+        lockWait: false,
       });
       if (stageResult.isErr()) return err(stageResult.error);
 
@@ -810,12 +887,20 @@ export class ComputedUpdateWorker {
     });
     if (executeResult.isErr()) {
       if (isComputedUpdateLockUnavailable(executeResult.error)) {
-        await this.releaseTaskForRetry(computedTask, executeResult.error.message, context);
+        await this.releaseTaskForRetry(
+          computedTask,
+          executeResult.error.message,
+          context,
+          this.outboxConfig.lockUnavailableRetryDelayMs
+        );
         return ok(false);
       }
-      logTaskFailure(executeResult.error);
+      const failure = classifyComputedTaskFailure(executeResult.error);
+      logTaskFailure(executeResult.error, failure);
       await this.handleTaskFailure(computedTask, executeResult.error.message, context, {
-        forceDeadLetter: isComputedTaskStatementTimeout(executeResult.error),
+        forceDeadLetter: !failure.retryable,
+        failure,
+        diagnostics: buildFailureDiagnostics(executeResult.error, failure, failurePhase),
       });
       return err(executeResult.error);
     }
@@ -865,15 +950,18 @@ export class ComputedUpdateWorker {
     task: AnyOutboxItem,
     message: string,
     context?: IExecutionContext,
-    options: { forceDeadLetter?: boolean } = {}
+    options: {
+      forceDeadLetter?: boolean;
+      failure?: ComputedTaskFailureClassification;
+      diagnostics?: ComputedTaskFailureDiagnostics;
+    } = {}
   ): Promise<boolean> {
-    const failedTask = options.forceDeadLetter
-      ? {
-          ...task,
-          attempts: Math.max(task.attempts, task.maxAttempts - 1),
-        }
-      : task;
-    const result = await this.outbox.markFailed(failedTask, message, context);
+    const forceDeadLetter = options.forceDeadLetter ?? options.failure?.retryable === false;
+    const result = await this.outbox.markFailed(task, message, context, {
+      ...options.failure,
+      directDeadLetter: forceDeadLetter || undefined,
+      diagnostics: options.diagnostics,
+    });
     if (result.isErr()) {
       this.logger.warn('computed:outbox:markFailed_failed', {
         taskId: task.id,
@@ -968,10 +1056,8 @@ export class ComputedUpdateWorker {
     context: IExecutionContext,
     logContext: Record<string, unknown>
   ): Promise<Result<boolean, DomainError>> {
-    const chunks = splitComputedTaskForSeedRecordLimit(
-      task,
-      this.outboxConfig.maxSeedRecordsPerTask
-    );
+    const maxSeedRecordsPerTask = resolveEffectiveMaxSeedRecordsPerTask(task, this.outboxConfig);
+    const chunks = splitComputedTaskForSeedRecordLimit(task, maxSeedRecordsPerTask);
     if (chunks.length === 0) return ok(false);
 
     for (const chunk of chunks) {
@@ -987,7 +1073,9 @@ export class ComputedUpdateWorker {
       taskId: task.id,
       chunkCount: chunks.length,
       seedRecordCount: countSeedRecordDtos(task.seedRecordIds, task.extraSeedRecords),
-      maxSeedRecordsPerTask: this.outboxConfig.maxSeedRecordsPerTask,
+      maxSeedRecordsPerTask,
+      configuredMaxSeedRecordsPerTask: this.outboxConfig.maxSeedRecordsPerTask,
+      fanoutDirtyRecordsThreshold: this.outboxConfig.fanoutDirtyRecordsThreshold,
       ...logContext,
     });
     return ok(true);
@@ -1140,13 +1228,17 @@ export class ComputedUpdateWorker {
     );
 
     if (executeResult.isErr()) {
+      const failure = classifyComputedTaskFailure(executeResult.error);
       this.logger.error('computed:worker:field_backfill_failed', {
         taskId: task.id,
         error: executeResult.error.message,
+        ...failure,
         ...runLogContext,
       });
       await this.handleTaskFailure(task, executeResult.error.message, context, {
-        forceDeadLetter: isComputedTaskStatementTimeout(executeResult.error),
+        forceDeadLetter: !failure.retryable,
+        failure,
+        diagnostics: buildFailureDiagnostics(executeResult.error, failure, 'execute_backfill'),
       });
       return err(executeResult.error);
     }
@@ -1183,6 +1275,7 @@ export class ComputedUpdateWorker {
       | 'set_statement_timeout'
       | 'load_seed_table'
       | 'plan_seed'
+      | 'project_activity'
       | 'acquire_locks'
       | 'execute_plan'
       | 'publish_events'
@@ -1194,7 +1287,8 @@ export class ComputedUpdateWorker {
       error: unknown,
       logType:
         | 'computed:worker:seed_failed'
-        | 'computed:worker:seed_plan_failed' = 'computed:worker:seed_failed'
+        | 'computed:worker:seed_plan_failed' = 'computed:worker:seed_failed',
+      failure?: ComputedTaskFailureClassification
     ) => {
       this.logger.error(logType, {
         taskId: task.id,
@@ -1202,6 +1296,7 @@ export class ComputedUpdateWorker {
         seedTableId: task.seedTableId,
         seedRecordCount: task.seedRecordIds.length,
         changedFieldCount: task.changedFieldIds.length,
+        ...failure,
         ...toErrorLogFields(error),
         ...runLogContext,
       });
@@ -1290,6 +1385,28 @@ export class ComputedUpdateWorker {
       return doneResult;
     }
 
+    failurePhase = 'project_activity';
+    const batchProgress = toComputedActivityBatch(task.orchestration);
+    const activityResult = await this.outbox.registerPlannedTaskActivity(
+      {
+        taskId: task.id,
+        baseId: plan.baseId.toString(),
+        targets: resolveFieldTargetsFromPlan(plan),
+        metrics: {
+          estimatedComplexity: plan.estimatedComplexity,
+          estimatedDirtyRecords: countSeedRecordDtos(task.seedRecordIds, task.extraSeedRecords),
+          hasAllTargetRecords: hasAllTargetRecordsEdge(plan.edges),
+          ...(batchProgress ? { batchProgress } : {}),
+        },
+      },
+      context
+    );
+    if (activityResult.isErr()) {
+      logSeedFailure(activityResult.error);
+      await this.handleTaskFailure(task, activityResult.error.message, context);
+      return err(activityResult.error);
+    }
+
     // Execute the plan within a transaction
     const executeResult = await this.unitOfWork.withTransaction(context, async (txContext) => {
       failurePhase = 'set_statement_timeout';
@@ -1314,6 +1431,7 @@ export class ComputedUpdateWorker {
       failurePhase = 'execute_plan';
       const stageResult = await this.updater.execute(plan, txContext, run, {
         collectChanges: true,
+        lockWait: false,
       });
       if (stageResult.isErr()) return err(stageResult.error);
 
@@ -1397,12 +1515,20 @@ export class ComputedUpdateWorker {
 
     if (executeResult.isErr()) {
       if (isComputedUpdateLockUnavailable(executeResult.error)) {
-        await this.releaseTaskForRetry(task, executeResult.error.message, context);
+        await this.releaseTaskForRetry(
+          task,
+          executeResult.error.message,
+          context,
+          this.outboxConfig.lockUnavailableRetryDelayMs
+        );
         return ok(false);
       }
-      logSeedFailure(executeResult.error);
+      const failure = classifyComputedTaskFailure(executeResult.error);
+      logSeedFailure(executeResult.error, 'computed:worker:seed_failed', failure);
       await this.handleTaskFailure(task, executeResult.error.message, context, {
-        forceDeadLetter: isComputedTaskStatementTimeout(executeResult.error),
+        forceDeadLetter: !failure.retryable,
+        failure,
+        diagnostics: buildFailureDiagnostics(executeResult.error, failure, failurePhase),
       });
       return err(executeResult.error);
     }
@@ -1433,7 +1559,12 @@ export class ComputedUpdateWorker {
     if (!seedSplit && (!seedAllTableIds || seedAllTableIds.length === 0))
       return ok({ ...plan, steps: [], edges: [] });
 
-    let beforeImageRecords: ComputedUpdatePlan['beforeImageRecords'] = [];
+    // Prefer step-change snapshots for this stage, but always carry forward any
+    // before-image already on the plan (e.g. filter-field values from the original
+    // user mutation). Dropping them forces conditional edges into allTargetRecords.
+    let beforeImageRecords: ComputedUpdatePlan['beforeImageRecords'] = [
+      ...(plan.beforeImageRecords ?? []),
+    ];
     if (seedSplit && changesByStep.length > 0) {
       const tableSpec = TableByIdSpec.create(seedSplit.seedTableId);
       const tableResult = await this.tableRepository.findOne(context, tableSpec);
@@ -1447,7 +1578,7 @@ export class ComputedUpdateWorker {
         tableById: new Map([[seedSplit.seedTableId.toString(), tableResult.value]]),
       });
       if (beforeImageResult.isErr()) return err(beforeImageResult.error);
-      beforeImageRecords = beforeImageResult.value;
+      beforeImageRecords = mergeBeforeImageRecords(beforeImageRecords, beforeImageResult.value);
     }
 
     const startTime = Date.now();

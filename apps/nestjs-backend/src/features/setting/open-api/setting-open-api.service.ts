@@ -21,9 +21,6 @@ import type {
   ITestApiKeyRo,
   ITestApiKeyVo,
   ITestPublicAccessVo,
-  GatewayModelType,
-  GatewayModelTag,
-  GatewayModelProvider,
   IImageSize,
   IAIConfig,
   IAppConfig,
@@ -40,7 +37,7 @@ import {
   getImageModelConfigByGatewayId,
   UploadType,
   LLMProviderType,
-  resolveOpenAIRealtimeEndpoints,
+  resolveOpenAITranscriptionEndpoint,
   SettingKey,
 } from '@teable/openapi';
 import { createGateway, generateText, tool, generateImage } from 'ai';
@@ -82,18 +79,31 @@ const clearUndefinedPatchValues = <T extends Record<string, unknown>>(patch: T):
   ) as Partial<T>;
 };
 
-const hasRealtimeClientSecret = (value: unknown): boolean => {
+const hasTranscriptionText = (value: unknown): boolean => {
   if (!value || typeof value !== 'object') return false;
-  const data = value as {
-    value?: unknown;
-    client_secret?: { value?: unknown };
-    session?: { client_secret?: { value?: unknown } };
-  };
-  return Boolean(
-    typeof data.value === 'string'
-      ? data.value
-      : data.client_secret?.value || data.session?.client_secret?.value
-  );
+  const data = value as { text?: unknown };
+  return typeof data.text === 'string';
+};
+
+const createSilentWavBuffer = () => {
+  const sampleRate = 16_000;
+  const sampleCount = Math.floor(sampleRate / 10);
+  const dataSize = sampleCount * 2;
+  const buffer = Buffer.alloc(44 + dataSize);
+  buffer.write('RIFF', 0);
+  buffer.writeUInt32LE(36 + dataSize, 4);
+  buffer.write('WAVE', 8);
+  buffer.write('fmt ', 12);
+  buffer.writeUInt32LE(16, 16);
+  buffer.writeUInt16LE(1, 20);
+  buffer.writeUInt16LE(1, 22);
+  buffer.writeUInt32LE(sampleRate, 24);
+  buffer.writeUInt32LE(sampleRate * 2, 28);
+  buffer.writeUInt16LE(2, 32);
+  buffer.writeUInt16LE(16, 34);
+  buffer.write('data', 36);
+  buffer.writeUInt32LE(dataSize, 40);
+  return buffer;
 };
 
 @Injectable()
@@ -229,6 +239,7 @@ export class SettingOpenApiService {
     const availableIntegrationProviders: string[] = [
       ...(process.env.GMAIL_CLIENT_ID ? ['gmail'] : []),
       ...(process.env.OUTLOOK_CLIENT_ID ? ['outlook'] : []),
+      ...(process.env.AIRTABLE_CLIENT_ID ? ['airtable'] : []),
     ];
 
     return {
@@ -250,15 +261,23 @@ export class SettingOpenApiService {
         voiceInput: {
           enabled: Boolean(
             (aiConfig?.realtimeTranscription?.enabled ?? true) &&
-              (aiConfig?.realtimeTranscription?.apiKey || process.env.OPENAI_REALTIME_API_KEY)
+              (aiConfig?.realtimeTranscription?.apiKey ||
+                process.env.OPENAI_TRANSCRIPTION_API_KEY ||
+                process.env.OPENAI_REALTIME_API_KEY)
           ),
-          model: aiConfig?.realtimeTranscription?.model ?? DEFAULT_REALTIME_TRANSCRIPTION_MODEL,
+          model:
+            aiConfig?.realtimeTranscription?.model === 'gpt-realtime-whisper'
+              ? DEFAULT_REALTIME_TRANSCRIPTION_MODEL
+              : aiConfig?.realtimeTranscription?.model ?? DEFAULT_REALTIME_TRANSCRIPTION_MODEL,
           maxSessionDurationSec:
             aiConfig?.realtimeTranscription?.maxSessionDurationSec ??
             DEFAULT_REALTIME_TRANSCRIPTION_MAX_SESSION_DURATION_SEC,
         },
       },
-      appGenerationEnabled: Boolean(appConfig?.vercelToken),
+      appGenerationEnabled:
+        Boolean(appConfig?.vercelToken) ||
+        (appConfig?.deployProvider === 'docker-runtime' &&
+          Boolean(process.env.TEABLE_INFRA_API_URL && process.env.TEABLE_INFRA_API_KEY)),
       availableIntegrationProviders,
     };
   }
@@ -1287,29 +1306,21 @@ export class SettingOpenApiService {
     endpoint?: string
   ): Promise<ITestApiKeyVo> {
     try {
-      const { clientSecretsUrl } = resolveOpenAIRealtimeEndpoints(endpoint);
-      const response = await fetch(clientSecretsUrl, {
+      const transcriptionUrl = resolveOpenAITranscriptionEndpoint(endpoint);
+      const body = new FormData();
+      body.append(
+        'file',
+        new Blob([createSilentWavBuffer()], { type: 'audio/wav' }),
+        'teable-voice-test.wav'
+      );
+      body.append('model', DEFAULT_REALTIME_TRANSCRIPTION_MODEL);
+
+      const response = await fetch(transcriptionUrl, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          expires_after: {
-            anchor: 'created_at',
-            seconds: 10,
-          },
-          session: {
-            type: 'transcription',
-            audio: {
-              input: {
-                transcription: {
-                  model: DEFAULT_REALTIME_TRANSCRIPTION_MODEL,
-                },
-              },
-            },
-          },
-        }),
+        body,
       });
 
       if (!response.ok) {
@@ -1319,24 +1330,24 @@ export class SettingOpenApiService {
             status: response.status,
             message: detail || response.statusText,
           },
-          'OpenAI Realtime transcription'
+          'OpenAI transcription'
         );
       }
 
       const data = (await response.json()) as unknown;
-      if (!hasRealtimeClientSecret(data)) {
+      if (!hasTranscriptionText(data)) {
         return {
           success: false,
           error: {
             code: 'unknown',
-            message: 'OpenAI Realtime transcription response did not include a client secret',
+            message: 'OpenAI transcription response did not include text',
           },
         };
       }
 
       return { success: true };
     } catch (error) {
-      return this.parseApiKeyError(error, 'OpenAI Realtime transcription');
+      return this.parseApiKeyError(error, 'OpenAI transcription');
     }
   }
 
@@ -1448,46 +1459,6 @@ export class SettingOpenApiService {
       }
 
       return { success: false, error: { code: 'unknown', message: detailedMessage } };
-    }
-  }
-
-  /**
-   * Get available models from AI Gateway
-   * Returns empty array if gateway is not configured
-   * Uses Redis cache with 1 hour TTL from SettingService
-   */
-  async getGatewayModels(): Promise<{
-    configured: boolean;
-    models: Array<{
-      id: string;
-      name?: string;
-      description?: string;
-      type?: GatewayModelType;
-      tags?: GatewayModelTag[];
-      contextWindow?: number;
-      maxTokens?: number;
-      created?: number;
-      ownedBy?: GatewayModelProvider;
-      pricing?: Record<string, unknown>;
-    }>;
-  }> {
-    // Check if gateway is configured
-    const { aiConfig } = await this.settingService.getSetting();
-    if (!aiConfig?.aiGatewayApiKey) {
-      return { configured: false, models: [] };
-    }
-
-    try {
-      const models = await this.settingService.getGatewayModels();
-      this.logger.log(`Fetched ${models.length} gateway models`);
-      return { configured: true, models };
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      const errorStack = error instanceof Error ? error.stack : '';
-      this.logger.error(`Failed to fetch gateway models: ${errorMessage}`, errorStack);
-      // Return configured=true but empty models on error
-      // so frontend knows gateway is configured but had a fetch error
-      return { configured: true, models: [] };
     }
   }
 }

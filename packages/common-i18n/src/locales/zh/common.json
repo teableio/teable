@@ -68,6 +68,7 @@
     "saveToMySpace": "保存到我的空间",
     "supportSaveCopy": "支持保存副本",
     "copyLink": "复制链接",
+    "openLink": "打开链接",
     "backToSpace": "返回空间",
     "switchBase": "切换数据库",
     "collapse": "收起",
@@ -335,13 +336,46 @@
       "dark": "深色",
       "light": "浅色",
       "version": "应用版本",
+      "infraVersion": "Infra 版本",
       "system": "系统",
       "language": "语言",
       "interactionMode": "交互模式",
       "mouseMode": "光标模式",
       "touchMode": "触控模式",
       "systemMode": "跟随系统",
-      "buySelfHostedLicense": "购买私有化部署许可证"
+      "buySelfHostedLicense": "购买私有化部署许可证",
+      "teableSkill": "Teable 技能"
+    },
+    "teableSkill": {
+      "intro": "让 AI Agent 连接你的 Base，帮你查询数据、管理表格/字段/视图、导入或更新记录，创建自动化和应用。",
+      "worksWith": "适用于所有主流 Agent",
+      "more": "+ 更多",
+      "copy": "复制",
+      "installPromptLabel": "Skill 安装提示词",
+      "installCommandLabel": "Skill 安装指令",
+      "installPrompt": "请阅读 https://github.com/teableio/agent-skills，根据指南帮我安装 Teable agent skill 并完成 Teable CLI 认证",
+      "step1Title": "安装 Skill",
+      "step1Description": "复制这段提示词发给你的 AI Agent。它会安装 Teable skill，并打开浏览器完成 Teable CLI 认证。",
+      "step3Title": "试试看使用 Teable 技能",
+      "step3Description": "成功安装技能后可以尝试以下提示词。",
+      "tryPrompts": {
+        "schema": {
+          "prompt": "在当前 base 中创建一个简单的 CRM 表。",
+          "note": "简单入门提示词"
+        },
+        "template": {
+          "prompt": "将这个本地文件夹中的所有发票上传到 <收据表> {粘贴表格 URL}，并提取关键字段。",
+          "note": "本地文件 → Teable"
+        },
+        "validate": {
+          "prompt": "将新的 GitHub issues 导入到 <Bug 追踪表> {粘贴表格 URL}。",
+          "note": "跨平台数据 → Teable"
+        },
+        "trace": {
+          "prompt": "检查 <任务表> {粘贴表格 URL} 并标记逾期任务。",
+          "note": "清理或整理 Teable 数据"
+        }
+      }
     },
     "nav": {
       "settings": "设置",
@@ -498,13 +532,15 @@
     },
     "addOrgCollaborator": {
       "title": "添加组织协作者",
+      "button": "从组织添加",
       "placeholder": "选择组织成员或部门"
     },
     "sendInvitationSuccess": "邀请已发送",
     "table": {
       "collaborator": "协作者",
       "accessPermission": "访问权限",
-      "joinAt": "加入于"
+      "joinAt": "加入于",
+      "lastLogin": "最近登录"
     },
     "authority": {
       "title": "权限矩阵已启用",
@@ -534,6 +570,9 @@
     "billable": "计费",
     "billableByAuthorityMatrix": "由权限矩阵产生的计费",
     "licenseExpiredGracePeriod": "您的私有化部署许可证已过期，系统将在 {{expiredTime}} 降级为免费版并停用高级功能，请尽快更新许可证以保留完整功能。",
+    "licenseAutoFetchFailed": "许可证自动续期失败，宽限期剩余 {{days}} 天，届时将降级为免费版。",
+    "licenseAutoFetchRetryFailed": "自动续期仍然失败，请检查与 Teable 服务器的连接，或手动更新许可证。",
+    "licenseExpiredGracePeriodDays": "许可证已过期，宽限期剩余 {{days}} 天，届时将降级为免费版。",
     "spaceSubscriptionModal": {
       "title": "升级空间站的订阅计划",
       "description": "您只能升级具有「可管理」权限的空间站"
@@ -557,6 +596,9 @@
       "description": "更改当前实例的设置",
       "allowSignUp": "允许新用户注册",
       "allowSignUpDescription": "关闭此选项将禁止新用户注册，登录页面将不再显示注册按钮。",
+      "bannedEmailDomains": "禁止注册的邮箱域名",
+      "bannedEmailDomainsDescription": "这些域名的邮箱将无法注册，与其相关的邀请邮件也不会发送。输入域名后按回车添加。",
+      "bannedEmailDomainsInvalid": "请输入有效的域名，例如 example.com",
       "allowSpaceInvitation": "允许发送空间邀请",
       "allowSpaceInvitationDescription": "关闭此选项将禁止除管理员以外的用户邀请他人加入空间。开启此选项后，通过邮箱邀请的新用户可以点击邮件内邀请链接完成注册，但通过创建邀请链接的方式无效。",
       "allowSpaceCreation": "允许所有人创建新的空间",
@@ -577,7 +619,7 @@
       },
       "ai": {
         "name": "名称",
-        "nameDescription": "名称可自定义，用于区分不同的模型提供商",
+        "nameDescription": "可自定义，用于区分不同的模型提供商",
         "customModel": "自定义模型",
         "customModelDescription": "配置的自定义模型可以用在 AI 字段、AI 自动化以及 AI 聊天界面，生图模型需要勾选后进行测试",
         "updateLLMProvider": "更新模型提供商",
@@ -590,6 +632,11 @@
         "apiKeyDescription": "模型提供商的 API 密钥",
         "models": "模型",
         "modelsDescription": "模型提供商支持的模型",
+        "modelsSelectedCount": "已选择 {{count}} 个模型",
+        "clearAllModels": "清除所有模型",
+        "customModelPlaceholder": "输入自定义模型名称",
+        "addModelFill": "填入",
+        "modelIdReservedAt": "模型 ID 不能包含 '@'",
         "baseUrlRequired": "基础 URL 是必需的",
         "fetchModelListError": "无法获取模型列表",
         "provider": "模型提供商",
@@ -606,14 +653,14 @@
         "chatModels": {
           "lg": "高级对话模型",
           "lgDescription": "用于规划、编码和其他复杂任务场景。推荐使用 claude-sonnet-4.5",
-          "md": "标准",
+          "md": "中等任务模型",
           "mdDescription": "用于日常对话和一般任务",
-          "sm": "轻量",
+          "sm": "轻量任务模型",
           "smDescription": "用于简单查询和快速响应",
-          "inheritHint": "与主模型相同 ({{model}})",
+          "inheritHint": "与默认主模型相同 ({{model}})",
           "modelTiers": "模型分级",
-          "modelTiersDescription": "可为标准和轻量任务指定不同的模型，未设置的挡位将使用上方的主模型。",
-          "allInheriting": "所有挡位使用主模型",
+          "modelTiersDescription": "可为中等和轻量任务指定不同的模型，未设置的挡位将使用上方的默认主模型。",
+          "allInheriting": "所有挡位使用默认主模型",
           "customized": "已自定义 {{count}} 个"
         },
         "actions": {
@@ -723,6 +770,7 @@
         "addCustomModel": "添加自定义模型",
         "isOpenRouter": "OpenRouter",
         "modelRates": "模型定价",
+        "modelSettings": "模型配置",
         "model": "模型",
         "inputRate": "输入 USD/token",
         "outputRate": "输出 USD/token",
@@ -750,11 +798,7 @@
         "imageGenerationModel": "生图模型",
         "markedAsImageModel": "已标记为生图模型，将测试文生图和图生图能力",
         "markedAsTextModel": "已标记为文本模型，将测试图片输入（视觉）能力",
-        "fetchPricing": "获取定价",
-        "fetchPricingTip": "从 AI Gateway 模型目录获取模型定价",
         "fetchPricingError": "获取定价失败",
-        "pricingPreview": "AI Gateway 参考价",
-        "pricingPreviewDesc": "已匹配 {{total}} 个模型中的 {{matched}} 个",
         "openRouterId": "Gateway 模型 ID",
         "notFound": "未找到",
         "applyPricing": "应用 ({{count}})",
@@ -769,6 +813,13 @@
         "gatewayRatioTip": "相对 AI Gateway 参考价的倍率。0.1 表示参考价的 10%。",
         "generatedPricing": "生成定价",
         "generatedPricingTip": "自动生成并保存到 modelConfigs[model].pricing 的 custom provider 输入/输出价格",
+        "rateExplanationManual": "未自动匹配到参考价时，可在模型编辑弹窗中手动选择参考模型。",
+        "referenceModelLabel": "参考模型",
+        "contextWindowCap": "上下文窗口",
+        "contextWindowCapTip": "模型可接受的最大输入 Token 数，用于上下文压缩。留空使用注册表或默认值。",
+        "maxOutputTokensCap": "最大输出",
+        "maxOutputTokensCapTip": "模型单次响应可生成的最大 Token 数。留空使用注册表或默认值。",
+        "rateExplanationCaps": "上下文/最大输出默认取自参考模型，可编辑，留空回退到注册表或默认值。",
         "relativeRatioTip": "按现有算法计算的成本等级，以 Claude Opus 4.6 = 1x 为基准",
         "hint": {
           "title": "建议",
@@ -784,6 +835,7 @@
           "checkConfiguration": "请检查您的配置，确保 Base URL、API Key 和模型名称都正确"
         },
         "recommended": "推荐",
+        "enabled": "启用",
         "gatewayModels": "AI Gateway 模型",
         "gatewayModelsDescription": "通过 Vercel AI Gateway 配置推荐模型，获得最佳 AI SDK 支持",
         "gatewayDescription": "使用 AI Gateway 获得最佳兼容性和可靠性。请在下方 App 配置区域配置 API 密钥。",
@@ -796,7 +848,6 @@
         "modelIdHint": "AI Gateway 使用的模型标识符（例如：anthropic/claude-sonnet-4）",
         "searchModelPlaceholder": "输入模型名称搜索...",
         "noMatchingModels": "未找到匹配的模型",
-        "useCustomId": "使用自定义 ID: {{id}}",
         "typeToSearch": "输入关键词搜索可用模型",
         "modelNotFound": "此模型 ID 在可用列表中未找到，请确认拼写正确",
         "testModel": "测试模型",
@@ -880,8 +931,8 @@
           "quickSetup": "快速设置",
           "useRecommended": "使用推荐配置",
           "useRecommendedDesc": "一键将 {{model}} 设为所有聊天场景的默认模型",
-          "chatModels": "聊天模型",
-          "chatModelTip": "此模型用于侧边栏 AI 聊天功能，由管理员指定，用户无法更改",
+          "chatModels": "默认主模型",
+          "chatModelTip": "侧边栏 AI 聊天的默认主模型，由管理员指定，用户无法更改；未单独设置的任务挡位也使用它",
           "selectChatModel": "选择聊天模型...",
           "lgDesc": "复杂任务、深度分析",
           "mdDesc": "日常对话、一般任务",
@@ -918,9 +969,6 @@
         "customDomainDescription": "设置应用部署的自定义域名，访问 <a>Vercel 域名</a> 获取自定义域名",
         "vercelToken": "Vercel API 密钥",
         "vercelTokenDescription": "设置 Vercel API 密钥以启用自定义域名部署功能，访问 <a>Vercel 设置</a> 获取 API 密钥",
-        "apiProxy": "API 代理 (可选)",
-        "apiProxyDescription": "配置 Vercel API 的反向代理地址（如 Cloudflare Workers）。留空则使用默认地址。",
-        "vercelBaseUrl": "Vercel API 代理地址",
         "aiGateway": "Vercel AI Gateway",
         "aiGatewayDescription": "配置 Vercel AI Gateway 以通过单一端点访问数百种模型。访问 <a>AI Gateway 设置</a> 获取 API 密钥",
         "aiGatewayApiKey": "AI Gateway API 密钥",
@@ -960,11 +1008,6 @@
           "title": "启用 HTTPS",
           "description": "您尚未启用 HTTPS，大规模复制（300行或更多）功能将不可用，建议启用。"
         },
-        "databaseProxy": {
-          "title": "PUBLIC_DATABASE_PROXY 环境变量",
-          "description": "<strong>PUBLIC_DATABASE_PROXY</strong> 未配置，外部数据库连接功能将不可用，请参考<a>帮助文档</a>",
-          "href": "https://help.teable.ai/zh/deploy/database-connection#enable-external-database-connection"
-        },
         "llmApi": {
           "title": "LLM API",
           "description": "您尚未配置 AI LLM API，AI 对话/AI 自动化将无法使用，<anchor>前往设置</anchor>",
@@ -986,21 +1029,22 @@
           "title": "AI：设置聊天模型",
           "description": "为侧边栏 AI 聊天选择一个默认模型，<anchor>前往设置</anchor>"
         },
+        "appBuilderEngine": {
+          "title": "应用构建器：部署引擎",
+          "description": "配置用于发布应用的部署引擎（Vercel 或 Teable Infra），<anchor>前往设置</anchor>"
+        },
         "appBuilderDomain": {
           "title": "应用构建器：自定义域名",
           "description": "如需使用自定义域名发布应用，请配置域名与 Vercel Token，<anchor>前往设置</anchor>"
-        },
-        "appBuilderApiProxy": {
-          "title": "应用构建器：API 代理"
-        },
-        "sandboxVercel": {
-          "title": "AI 聊天运行环境",
-          "description": "配置 AI 聊天的沙箱运行环境，<anchor>前往设置</anchor>"
         },
         "email": {
           "title": "邮箱",
           "description": "未配置邮箱，自助密码恢复和邮件通知功能将不可用，<anchor>前往设置</anchor>",
           "errorTips": "未配置邮箱，自助密码恢复、邮箱验证/通知功能将不可用"
+        },
+        "sandboxOpenSandbox": {
+          "title": "AI 聊天运行环境",
+          "description": "配置 AI 聊天的 OpenSandbox 运行环境，<anchor>前往设置</anchor>"
         }
       }
     },
@@ -1042,6 +1086,10 @@
     "exportBase": {
       "successText": "导出数据已就绪",
       "failedText": "导出失败，请重试"
+    },
+    "importantNotice": {
+      "title": "重要通知",
+      "acknowledge": "我已知晓"
     }
   },
   "role": {
@@ -1120,6 +1168,7 @@
     "unsubscribeTime": "取消订阅时间",
     "source": "来源",
     "sourceAutomationDeleted": "自动化或节点已删除",
+    "sourceApiSend": "API 发送邮件",
     "processing": "处理中...",
     "unsubscribeH1": "确认取消订阅",
     "unsubscribeH2": "您即将取消订阅 Teable 未来的促销和产品更新信息。您确定要取消订阅吗？",
@@ -1238,44 +1287,44 @@
           "credit": {
             "warning80": {
               "title": "空间 {{spaceName}} AI 算力已使用 80%",
-              "message": "您的空间已使用 80% 的 AI 算力。请考虑升级或购买更多算力。"
+              "message": "空间 {{spaceName}} 已使用 80% 的 AI 算力。请考虑升级或购买更多算力。"
             },
             "warning90": {
               "title": "空间 {{spaceName}} AI 算力已使用 90%",
-              "message": "您的空间已使用 90% 的 AI 算力。请尽快升级以避免中断。"
+              "message": "空间 {{spaceName}} 已使用 90% 的 AI 算力。请尽快升级以避免中断。"
             },
             "anomaly": {
               "dailySpike": {
                 "title": "空间 {{spaceName}} 检测到 AI 算力异常飙升",
-                "message": "今日 AI 算力消耗（{{todayValue}}）是近期日均值（{{ewma}}）的 {{multiplier}} 倍。这可能表示存在异常活动，请检查您的使用情况。主要来源：{{topContributors}}"
+                "message": "空间 {{spaceName}} 今日 AI 算力消耗（{{todayValue}}）是近期日均值（{{ewma}}）的 {{multiplier}} 倍。这可能表示存在异常活动，请检查您的使用情况。主要来源：{{topContributors}}"
               },
               "burst": {
                 "title": "空间 {{spaceName}} AI 算力突发告警",
-                "message": "在过去 {{windowMinutes}} 分钟内消耗了 {{recentValue}} AI 算力，是历史小时 P95（{{hourlyP95}}）的 {{multiplier}} 倍。这可能表示存在异常活动。主要来源：{{topContributors}}"
+                "message": "空间 {{spaceName}} 在过去 {{windowMinutes}} 分钟内消耗了 {{recentValue}} AI 算力，是历史小时 P95（{{hourlyP95}}）的 {{multiplier}} 倍。这可能表示存在异常活动。主要来源：{{topContributors}}"
               }
             }
           },
           "automationRun": {
             "warning80": {
               "title": "空间 {{spaceName}} 自动化运行次数已使用 80% 配额",
-              "message": "您的空间已使用 {{usedRuns}}/{{totalLimit}} 次自动化运行（80%）。请考虑升级订阅。"
+              "message": "空间 {{spaceName}} 已使用 {{usedRuns}}/{{totalLimit}} 次自动化运行（80%）。请考虑升级订阅。"
             },
             "warning90": {
               "title": "空间 {{spaceName}} 自动化运行次数已使用 90% 配额",
-              "message": "您的空间已使用 {{usedRuns}}/{{totalLimit}} 次自动化运行（90%）。请尽快升级以避免中断。"
+              "message": "空间 {{spaceName}} 已使用 {{usedRuns}}/{{totalLimit}} 次自动化运行（90%）。请尽快升级以避免中断。"
             },
             "gracePeriod": {
               "title": "空间 {{spaceName}} 自动化运行次数已超限 - 宽限期生效中",
-              "message": "您的自动化运行配额已超出。自动化将在接下来的 {{remainingHours}} 小时后停止运行并关闭。请升级订阅。"
+              "message": "空间 {{spaceName}} 的自动化运行配额已超出。自动化将在接下来的 {{remainingHours}} 小时后停止运行并关闭。请升级订阅。"
             },
             "anomaly": {
               "dailySpike": {
                 "title": "空间 {{spaceName}} 自动化运行次数异常飙升",
-                "message": "今日自动化运行次数（{{todayValue}}）是近期日均值（{{ewma}}）的 {{multiplier}} 倍。这可能表示存在失控的自动化流程，请检查您的工作流。主要来源：{{topContributors}}"
+                "message": "空间 {{spaceName}} 今日自动化运行次数（{{todayValue}}）是近期日均值（{{ewma}}）的 {{multiplier}} 倍。这可能表示存在失控的自动化流程，请检查您的工作流。主要来源：{{topContributors}}"
               },
               "burst": {
                 "title": "空间 {{spaceName}} 自动化运行突发告警",
-                "message": "在过去 {{windowMinutes}} 分钟内检测到 {{recentValue}} 次自动化运行，是历史小时 P95（{{hourlyP95}}）的 {{multiplier}} 倍。这可能表示存在循环或配置错误。主要来源：{{topContributors}}"
+                "message": "空间 {{spaceName}} 在过去 {{windowMinutes}} 分钟内检测到 {{recentValue}} 次自动化运行，是历史小时 P95（{{hourlyP95}}）的 {{multiplier}} 倍。这可能表示存在循环或配置错误。主要来源：{{topContributors}}"
               }
             }
           }
@@ -1462,9 +1511,12 @@
     "sandboxCapacityFull": "最多同时运行 {{max}} 个对话，请等待一个对话完成。",
     "sandboxTransient": "Cuppy 正在准备中，请稍后重试。",
     "sandboxSnapshotNotFound": "Cuppy 的运行环境尚未准备好，请联系管理员创建沙箱快照。",
+    "sandboxProviderError": "沙箱运行环境异常",
+    "sandboxProviderErrorDescription": "沙箱调用失败，请稍后重试或联系管理员查看运行环境。",
     "agentStartFailed": "AI 引擎启动失败，请重试或开始新的对话。",
     "idleTimeout": "命令执行超过时间限制（{{seconds}}秒），请重试。",
-    "danglingToolUse": "上一次会话被中断，已自动修复。请重新发送消息。"
+    "danglingToolUse": "上一次会话被中断，已自动修复。请重新发送消息。",
+    "contextImportFailed": "上一次会话数据恢复失败，请重试以继续（将不包含之前的上下文）。"
   },
   "system": {
     "notFound": {
@@ -1498,10 +1550,109 @@
       "unknown": "{{fieldHint}}{{message}}"
     }
   },
+  "skills": {
+    "title": "技能",
+    "tabs": {
+      "mySkills": "我的技能"
+    },
+    "actions": {
+      "import": "导入技能",
+      "sync": "同步",
+      "delete": "删除",
+      "enable": "启用",
+      "disable": "禁用",
+      "edit": "编辑",
+      "tryInChat": "在对话中试用",
+      "replace": "替换",
+      "download": "下载",
+      "uninstall": "卸载",
+      "copyToBase": "复制到 Base",
+      "copyToPersonal": "复制到个人",
+      "copyToApp": "复制到 App"
+    },
+    "import": {
+      "title": "导入技能",
+      "description": "从 GitHub 仓库或 ZIP 文件导入技能",
+      "githubTab": "GitHub URL",
+      "fileTab": "ZIP / Skill 文件",
+      "githubTitle": "从 GitHub 导入技能",
+      "githubPlaceholder": "https://github.com/owner/repo/tree/main/skills/my-skill",
+      "fileHint": "上传包含 SKILL.md 的 .zip 或 .skill 文件",
+      "or": "或",
+      "selectFile": "选择文件",
+      "replaceWarning": "若该作用域已存在同名技能，导入后将替换它。",
+      "importing": "导入中...",
+      "submit": "导入",
+      "success": "技能导入成功",
+      "error": "技能导入失败"
+    },
+    "detail": {
+      "slug": "Slug",
+      "type": "类型",
+      "description": "描述",
+      "source": "来源",
+      "addedBy": "添加者",
+      "skillLabel": "技能",
+      "syncStatus": "同步状态",
+      "preview": "SKILL.md 预览"
+    },
+    "scope": {
+      "label": "作用域",
+      "system": "系统",
+      "base": "当前数据库",
+      "user": "个人",
+      "userDescription": "仅自己可用",
+      "baseDescription": "当前数据库内协作者共用",
+      "app": "App",
+      "appDescription": "仅此 App 可用",
+      "cuppyclaw": "Bot",
+      "cuppyclawDescription": "仅此机器人可用"
+    },
+    "source": {
+      "github": "GitHub",
+      "file": "文件上传",
+      "manual": "手动"
+    },
+    "status": {
+      "enabled": "已启用",
+      "disabled": "已禁用",
+      "synced": "已同步",
+      "failed": "同步失败"
+    },
+    "empty": {
+      "mySkills": "暂无个人技能，导入一个开始使用。"
+    },
+    "confirm": {
+      "deleteTitle": "删除技能",
+      "deleteDescription": "确定要删除此技能吗？此操作无法撤销。",
+      "copyTitle": "复制技能",
+      "copyDescription": "技能文件将复制到目标范围，原技能保持不变。",
+      "copyOverwriteWarning": "若目标范围已存在同名技能，复制后将替换它。"
+    },
+    "toast": {
+      "syncing": "正在同步技能...",
+      "syncSuccess": "技能同步成功",
+      "syncError": "技能同步失败",
+      "deleting": "正在删除技能...",
+      "deleteSuccess": "技能已删除",
+      "deleteError": "删除技能失败",
+      "updateSuccess": "技能已更新",
+      "copying": "复制中...",
+      "copySuccess": "复制成功",
+      "copyError": "复制失败"
+    }
+  },
   "changelog": {
-    "newUpdate": "5 月 19 日更新",
-    "title": "Teable 让 Credit 效率提升 10x",
-    "url": "https://help.teable.ai/en/changelog#may-19-2026",
-    "id": "changelog-2026-05-19-teable-credits-up-10x"
+    "newUpdate": "7 月 15 日更新",
+    "title": "AI 记忆与生成文件下载",
+    "url": "https://help.teable.ai/en/changelog#jul-15-2026",
+    "id": "changelog-2026-07-15-ai-memory-and-file-downloads"
+  },
+  "resourceDescription": {
+    "addDescription": "添加描述",
+    "nodeDescription": "节点描述",
+    "descriptionSaving": "保存中...",
+    "descriptionSaveFailed": "保存描述失败，请重试",
+    "descriptionPlaceholder": "为此节点添加一段描述"
   }
 }

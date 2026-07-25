@@ -15,6 +15,7 @@ import {
   Colors,
   FieldKeyType,
   FieldType,
+  generatePluginInstallId,
   generateViewId,
   Relationship,
   RowHeightLevel,
@@ -35,9 +36,12 @@ import {
   updateViewLocked,
   duplicateView,
   installViewPlugin,
+  getViewInstallPlugin,
+  updateViewPluginStorage,
   deleteView,
 } from '@teable/openapi';
 import { sample } from 'lodash';
+import { X_TEABLE_V2_HEADER } from '../src/features/canary/interceptors/v2-indicator.interceptor';
 import { ViewService } from '../src/features/view/view.service';
 import { x_20 } from './data-helpers/20x';
 import { VIEW_DEFAULT_SHARE_META } from './data-helpers/caces/view-default-share-meta';
@@ -48,6 +52,7 @@ import {
   createView,
   permanentDeleteTable,
   createTable,
+  deleteField,
   getViews,
   getView,
   getTable,
@@ -59,6 +64,7 @@ const defaultViews = [
     type: ViewType.Grid,
   },
 ];
+const isForceV2 = process.env.FORCE_V2_ALL === 'true';
 
 describe('OpenAPI ViewController (e2e)', () => {
   let app: INestApplication;
@@ -91,6 +97,18 @@ describe('OpenAPI ViewController (e2e)', () => {
     expect(viewsResult).toMatchObject(defaultViews);
   });
 
+  it('should reject reading a view through another table', async () => {
+    const anotherTable = await createTable(baseId, { name: 'another_table' });
+
+    try {
+      const [anotherView] = await getViews(anotherTable.id);
+
+      await expect(getView(table.id, anotherView.id)).rejects.toThrow();
+    } finally {
+      await permanentDeleteTable(baseId, anotherTable.id);
+    }
+  });
+
   it('/api/table/{tableId}/view (POST)', async () => {
     const viewRo: IViewRo = {
       name: 'New view',
@@ -98,7 +116,18 @@ describe('OpenAPI ViewController (e2e)', () => {
       type: ViewType.Grid,
     };
 
-    await createView(table.id, viewRo);
+    const createdView = await createView(table.id, viewRo);
+
+    const { dbTableName } = await prismaService.tableMeta.findUniqueOrThrow({
+      where: { id: table.id },
+      select: { dbTableName: true },
+    });
+    const rowOrderColumn = await viewService.existIndex(
+      dbTableName,
+      createdView.id,
+      prismaService.txClient()
+    );
+    expect(rowOrderColumn).toBe(`__row_${createdView.id}`);
 
     const result = await getViews(table.id);
     expect(result).toMatchObject([
@@ -230,6 +259,47 @@ describe('OpenAPI ViewController (e2e)', () => {
     const view = await getView(table.id, randomViewId!);
     const columnMetaFieldIds = Object.keys(view.columnMeta).sort();
     expect(columnMetaFieldIds).toEqual(assertFieldIds);
+  });
+
+  it('should ignore stale column meta for deleted fields when reading views', async () => {
+    const staleField = await createField(table.id, {
+      name: 'deleted column meta field',
+      type: FieldType.SingleLineText,
+    });
+    const view = await createView(table.id, {
+      name: 'view with stale column meta',
+      type: ViewType.Grid,
+    });
+
+    await deleteField(table.id, staleField.id);
+    const activeFields = await getFields(table.id);
+    const activeColumnMeta = activeFields.reduce<Record<string, IColumn>>((acc, field, index) => {
+      acc[field.id] = { order: index };
+      return acc;
+    }, {});
+
+    await prismaService.txClient().view.update({
+      where: { id: view.id },
+      data: {
+        columnMeta: JSON.stringify({
+          ...activeColumnMeta,
+          [staleField.id]: { order: activeFields.length + 1, visible: true },
+        }),
+      },
+    });
+
+    const activeFieldIds = activeFields.map((field) => field.id).sort();
+    const viewAfter = await getView(table.id, view.id);
+    const viewsAfter = await getViews(table.id);
+    const viewFromList = viewsAfter.find(({ id }) => id === view.id);
+    const [viewSnapshot] = await viewService.getSnapshotBulk(table.id, [view.id]);
+
+    expect(viewAfter.columnMeta?.[staleField.id]).toBeUndefined();
+    expect(Object.keys(viewAfter.columnMeta ?? {}).sort()).toEqual(activeFieldIds);
+    expect(viewFromList?.columnMeta?.[staleField.id]).toBeUndefined();
+    expect(Object.keys(viewFromList?.columnMeta ?? {}).sort()).toEqual(activeFieldIds);
+    expect(viewSnapshot.data.columnMeta?.[staleField.id]).toBeUndefined();
+    expect(Object.keys(viewSnapshot.data.columnMeta ?? {}).sort()).toEqual(activeFieldIds);
   });
 
   it('fields in new view should sort by created time and primary field is always first', async () => {
@@ -520,6 +590,72 @@ describe('OpenAPI ViewController (e2e)', () => {
     });
   });
 
+  it('should reject reading filter link records through another table', async () => {
+    const anotherTable = await createTable(baseId, { name: 'another_filter_table' });
+
+    try {
+      const [anotherView] = await getViews(anotherTable.id);
+
+      await expect(getViewFilterLinkRecords(table.id, anotherView.id)).rejects.toThrow();
+    } finally {
+      await permanentDeleteTable(baseId, anotherTable.id);
+    }
+  });
+
+  describe('view plugin parent binding', () => {
+    let anotherTable: ITableFullVo;
+
+    beforeEach(async () => {
+      anotherTable = await createTable(baseId, { name: 'another_plugin_table' });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, anotherTable.id);
+    });
+
+    it('should reject reading a plugin installation through another table', async () => {
+      const plugin = (
+        await installViewPlugin(anotherTable.id, {
+          name: 'another_sheet_view',
+          pluginId: 'plgsheetform',
+        })
+      ).data;
+
+      await expect(getViewInstallPlugin(table.id, plugin.viewId)).rejects.toThrow();
+    });
+
+    it('should reject updating storage with a plugin installation from another view', async () => {
+      const ownPlugin = (
+        await installViewPlugin(table.id, {
+          name: 'own_sheet_view',
+          pluginId: 'plgsheetform',
+        })
+      ).data;
+      const anotherPlugin = (
+        await installViewPlugin(anotherTable.id, {
+          name: 'another_sheet_view',
+          pluginId: 'plgsheetform',
+        })
+      ).data;
+
+      await expect(
+        updateViewPluginStorage(table.id, ownPlugin.viewId, anotherPlugin.pluginInstallId, {
+          unauthorized: true,
+        })
+      ).rejects.toThrow();
+      await expect(
+        updateViewPluginStorage(table.id, anotherPlugin.viewId, anotherPlugin.pluginInstallId, {
+          unauthorized: true,
+        })
+      ).rejects.toThrow();
+
+      const pluginAfter = await getViewInstallPlugin(table.id, ownPlugin.viewId);
+      const anotherPluginAfter = await getViewInstallPlugin(anotherTable.id, anotherPlugin.viewId);
+      expect(pluginAfter.data.storage).toBeUndefined();
+      expect(anotherPluginAfter.data.storage).toBeUndefined();
+    });
+  });
+
   describe('/api/table/{tableId}/view/:viewId/duplicate (POST)', () => {
     let table: ITableFullVo;
     beforeEach(async () => {
@@ -532,6 +668,18 @@ describe('OpenAPI ViewController (e2e)', () => {
 
     afterEach(async () => {
       await permanentDeleteTable(baseId, table.id);
+    });
+
+    it('should reject duplicating a view through another table', async () => {
+      const anotherTable = await createTable(baseId, { name: 'another_duplicate_table' });
+
+      try {
+        const [anotherView] = await getViews(anotherTable.id);
+
+        await expect(duplicateView(table.id, anotherView.id)).rejects.toThrow();
+      } finally {
+        await permanentDeleteTable(baseId, anotherTable.id);
+      }
     });
 
     it('should duplicate grid view', async () => {
@@ -574,7 +722,18 @@ describe('OpenAPI ViewController (e2e)', () => {
         },
       });
 
-      const duplicatedView = (await duplicateView(table.id, view.id)).data;
+      const duplicatedViewResponse = await duplicateView(table.id, view.id);
+      const duplicatedView = duplicatedViewResponse.data;
+      const { dbTableName } = await prismaService.tableMeta.findUniqueOrThrow({
+        where: { id: table.id },
+        select: { dbTableName: true },
+      });
+      const duplicatedRowOrderColumn = await viewService.existIndex(
+        dbTableName,
+        duplicatedView.id,
+        prismaService.txClient()
+      );
+
       expect(duplicatedView.name).toEqual('grid_view 2');
       expect(duplicatedView.type).toEqual(ViewType.Grid);
       expect(duplicatedView.filter).toEqual(view.filter);
@@ -583,6 +742,13 @@ describe('OpenAPI ViewController (e2e)', () => {
       expect(duplicatedView.options).toEqual(view.options);
       expect(duplicatedView.columnMeta).toEqual(view.columnMeta);
       expect(duplicatedView.isLocked).toBeTruthy();
+      const duplicatedViaV2 = duplicatedViewResponse.headers[X_TEABLE_V2_HEADER] === 'true';
+      if (isForceV2) {
+        expect(duplicatedViewResponse.headers[X_TEABLE_V2_HEADER]).toBe('true');
+      }
+      if (duplicatedViaV2) {
+        expect(duplicatedRowOrderColumn).toBeUndefined();
+      }
     });
 
     it('should duplicate form view', async () => {
@@ -747,22 +913,46 @@ describe('OpenAPI ViewController (e2e)', () => {
       });
     });
 
-    it('should duplicate plugin view', async () => {
+    it('should duplicate a plugin view with historical stale install options', async () => {
       const sheetPlugin = (
         await installViewPlugin(table.id, {
           name: 'sheet_view',
           pluginId: 'plgsheetform',
         })
       ).data;
-
+      const storage = { imported: true };
+      await updateViewPluginStorage(
+        table.id,
+        sheetPlugin.viewId,
+        sheetPlugin.pluginInstallId,
+        storage
+      );
       const sheetView = await getView(table.id, sheetPlugin.viewId);
+      await prismaService.view.update({
+        where: { id: sheetView.id },
+        data: {
+          options: JSON.stringify({
+            ...(sheetView.options as IPluginViewOptions),
+            pluginInstallId: generatePluginInstallId(),
+          }),
+        },
+      });
+
+      const resolvedInstall = (await getViewInstallPlugin(table.id, sheetView.id)).data;
+      expect(resolvedInstall.pluginInstallId).toBe(sheetPlugin.pluginInstallId);
 
       const duplicatedView = (await duplicateView(table.id, sheetView.id)).data;
+      const duplicatedInstall = (await getViewInstallPlugin(table.id, duplicatedView.id)).data;
       expect(duplicatedView.name).toEqual('sheet_view 2');
       expect(duplicatedView.type).toEqual(ViewType.Plugin);
       expect(duplicatedView.options).contain({
         pluginLogo: (sheetView.options as IPluginViewOptions).pluginLogo,
       });
+      expect(duplicatedInstall.pluginInstallId).toBe(
+        (duplicatedView.options as IPluginViewOptions).pluginInstallId
+      );
+      expect(duplicatedInstall.pluginInstallId).not.toBe(sheetPlugin.pluginInstallId);
+      expect(duplicatedInstall.storage).toEqual(storage);
     });
   });
 

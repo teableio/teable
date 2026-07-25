@@ -1,4 +1,10 @@
-import type { DomainError, IExecutionContext } from '@teable/v2-core';
+import type { PostgresSqlExecutionDiagnostics } from '@teable/v2-adapter-db-postgres-shared';
+import type {
+  DomainError,
+  FieldComputeBatch,
+  FieldComputeTarget,
+  IExecutionContext,
+} from '@teable/v2-core';
 import type { Result } from 'neverthrow';
 
 import type {
@@ -15,6 +21,8 @@ export type ComputedUpdateOutboxConfig = {
   maxAttempts: number;
   /** Base backoff in milliseconds for retry scheduling. */
   baseBackoffMs: number;
+  /** Delay before retrying a transient computed advisory-lock conflict. */
+  lockUnavailableRetryDelayMs: number;
   /** Max backoff in milliseconds for retry scheduling. */
   maxBackoffMs: number;
   /**
@@ -38,6 +46,17 @@ export type ComputedUpdateOutboxConfig = {
    */
   maxSeedRecordsPerTask: number;
   /**
+   * When a claimed task's dirtyStats total is at least this many rows and the plan has
+   * no allTargetRecords edges, split more aggressively using fanoutSeedSplitMaxSeeds.
+   * 0 disables fanout-aware splitting.
+   */
+  fanoutDirtyRecordsThreshold: number;
+  /**
+   * Seed-record cap used when fanoutDirtyRecordsThreshold is exceeded (linkTraversal-only).
+   * Must be <= maxSeedRecordsPerTask. Ignored when fanout threshold is 0.
+   */
+  fanoutSeedSplitMaxSeeds: number;
+  /**
    * Maximum active processing tasks for the same base before pending claims are deferred.
    * Stale processing rows can still be reclaimed after the lease window.
    */
@@ -58,11 +77,16 @@ export const defaultComputedUpdateOutboxConfig: ComputedUpdateOutboxConfig = {
   seedInlineLimit: 5000,
   maxAttempts: 8,
   baseBackoffMs: 5000,
+  lockUnavailableRetryDelayMs: 250,
   maxBackoffMs: 5 * 60 * 1000,
   processingLeaseMs: 2 * 60 * 1000,
   heartbeatIntervalMs: 30 * 1000,
   reclaimBatchSize: 50,
-  maxSeedRecordsPerTask: 500,
+  maxSeedRecordsPerTask: 5000,
+  // Large dirty fan-out with few seeds (e.g. hub order updates) still fits under
+  // maxSeedRecordsPerTask; lower the cap so linkTraversal-only work can parallelize.
+  fanoutDirtyRecordsThreshold: 2000,
+  fanoutSeedSplitMaxSeeds: 5,
   maxConcurrentProcessingPerBase: 2,
   maxConcurrentProcessingPerSeedTable: 2,
   taskStatementTimeoutMs: 60 * 1000,
@@ -75,6 +99,7 @@ export const normalizeComputedUpdateOutboxConfig = (
   const recommendedHeartbeat = Math.max(1000, Math.trunc(processingLeaseMs / 3));
   return {
     ...config,
+    lockUnavailableRetryDelayMs: Math.max(0, Math.trunc(config.lockUnavailableRetryDelayMs)),
     processingLeaseMs,
     heartbeatIntervalMs: Math.max(
       1000,
@@ -82,6 +107,8 @@ export const normalizeComputedUpdateOutboxConfig = (
     ),
     reclaimBatchSize: Math.max(1, Math.trunc(config.reclaimBatchSize)),
     maxSeedRecordsPerTask: Math.max(1, Math.trunc(config.maxSeedRecordsPerTask)),
+    fanoutDirtyRecordsThreshold: Math.max(0, Math.trunc(config.fanoutDirtyRecordsThreshold)),
+    fanoutSeedSplitMaxSeeds: Math.max(1, Math.trunc(config.fanoutSeedSplitMaxSeeds)),
     maxConcurrentProcessingPerBase: Math.max(1, Math.trunc(config.maxConcurrentProcessingPerBase)),
     maxConcurrentProcessingPerSeedTable: Math.max(
       1,
@@ -104,6 +131,16 @@ export type ClaimByIdParams = {
   allowProcessingTakeover?: boolean;
 };
 
+export type OutboxTaskClaimEligibility =
+  | { status: 'terminal' }
+  | { status: 'eligible' }
+  | {
+      status: 'deferred';
+      reason: 'not_due' | 'active_lease' | 'paused' | 'concurrency';
+      /** Null when eligibility depends on an explicit resume or another worker completing. */
+      retryAt: Date | null;
+    };
+
 export type RenewLeaseParams = {
   taskIds: string[];
   leaseOwner: string;
@@ -115,6 +152,26 @@ export type ReleaseForRetryParams = {
   reason: string;
   retryDelayMs?: number;
   now?: Date;
+};
+
+export type MarkFailedOptions = {
+  failureKind?: string;
+  failureReason?: string;
+  retryable?: boolean;
+  directDeadLetter?: boolean;
+  diagnostics?: ComputedTaskFailureDiagnostics;
+};
+
+export type ComputedTaskFailureDiagnostics = {
+  readonly version: 1;
+  readonly failure: {
+    readonly kind?: string;
+    readonly reason?: string;
+    readonly retryable?: boolean;
+    readonly directDeadLetter: boolean;
+    readonly phase?: string;
+  };
+  readonly execution?: PostgresSqlExecutionDiagnostics;
 };
 
 /**
@@ -168,6 +225,19 @@ export const isSeedOutboxItem = (item: AnyOutboxItem): item is SeedOutboxItem =>
   return (item as SeedOutboxItem).taskType === 'seed';
 };
 
+export type RegisterPlannedTaskActivityParams = {
+  taskId: string;
+  baseId: string;
+  targets: ReadonlyArray<FieldComputeTarget>;
+  metrics: {
+    estimatedComplexity: number;
+    estimatedDirtyRecords: number;
+    hasAllTargetRecords: boolean;
+    batchProgress?: FieldComputeBatch;
+  };
+  now?: Date;
+};
+
 export interface IComputedUpdateOutbox {
   enqueueOrMerge(
     task: ComputedUpdateOutboxTaskInput,
@@ -183,6 +253,12 @@ export interface IComputedUpdateOutbox {
     task: ComputedUpdateSeedTaskInput,
     context?: IExecutionContext
   ): Promise<Result<{ taskId: string; merged: boolean }, DomainError>>;
+
+  /** Register the computed targets discovered while planning a claimed seed task. */
+  registerPlannedTaskActivity(
+    params: RegisterPlannedTaskActivityParams,
+    context?: IExecutionContext
+  ): Promise<Result<void, DomainError>>;
 
   /**
    * Enqueue a field backfill task to the outbox.
@@ -203,6 +279,11 @@ export interface IComputedUpdateOutbox {
     context?: IExecutionContext
   ): Promise<Result<AnyOutboxItem | null, DomainError>>;
 
+  getTaskClaimEligibility(
+    taskId: string,
+    context?: IExecutionContext
+  ): Promise<Result<OutboxTaskClaimEligibility | null, DomainError>>;
+
   renewLease(
     params: RenewLeaseParams,
     context?: IExecutionContext
@@ -221,6 +302,7 @@ export interface IComputedUpdateOutbox {
   markFailed(
     task: AnyOutboxItem,
     error: string,
-    context?: IExecutionContext
+    context?: IExecutionContext,
+    options?: MarkFailedOptions
   ): Promise<Result<boolean, DomainError>>;
 }

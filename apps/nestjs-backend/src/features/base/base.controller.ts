@@ -52,6 +52,7 @@ import {
 import type {
   CreateBaseInvitationLinkVo,
   EmailInvitationVo,
+  IBaseDataDbMoveJobStatusVo,
   IBaseErdVo,
   ICreateBaseVo,
   IDbConnectionVo,
@@ -60,6 +61,7 @@ import type {
   IDuplicateBaseCheckVo,
   IGetBaseVo,
   IMoveBaseCheckVo,
+  IMoveBaseVo,
   IGetSharedBaseVo,
   IImportBaseVo,
   IListBaseCollaboratorUserVo,
@@ -508,8 +510,8 @@ export class BaseController {
   async exportBase(@Param('baseId') baseId: string, @Query('includeData') includeData?: string) {
     const includeDataValue =
       includeData === undefined ? true : !['false', '0'].includes(includeData.toLowerCase());
-    const base = await this.baseService.getBaseById(baseId);
-    if (base.v2Status?.reason === 'new_base') {
+    await this.baseService.getBaseById(baseId);
+    if (await this.baseService.shouldUseV2BaseExport(baseId)) {
       return await this.baseExportV2Service.exportBaseZip(baseId, includeDataValue);
     }
     return await this.baseExportService.exportBaseZip(baseId, includeDataValue);
@@ -546,11 +548,10 @@ export class BaseController {
     res.on('close', () => clearInterval(heartbeat));
 
     try {
-      const base = await this.baseService.getBaseById(baseId);
-      const exporter =
-        base.v2Status?.reason === 'new_base'
-          ? this.baseExportV2Service.exportBaseZip.bind(this.baseExportV2Service)
-          : this.baseExportService.exportBaseZip.bind(this.baseExportService);
+      await this.baseService.getBaseById(baseId);
+      const exporter = (await this.baseService.shouldUseV2BaseExport(baseId))
+        ? this.baseExportV2Service.exportBaseZip.bind(this.baseExportV2Service)
+        : this.baseExportService.exportBaseZip.bind(this.baseExportService);
       const result = await exporter(baseId, includeDataValue, (phase, detail, event) => {
         sendEvent({
           type: 'progress',
@@ -579,8 +580,8 @@ export class BaseController {
   async moveBase(
     @Param('baseId') baseId: string,
     @Body(new ZodValidationPipe(moveBaseRoSchema)) moveBaseRo: IMoveBaseRo
-  ) {
-    await this.baseService.moveBase(baseId, moveBaseRo);
+  ): Promise<IMoveBaseVo> {
+    return await this.baseService.moveBase(baseId, moveBaseRo);
   }
 
   @Get(':baseId/move-check')
@@ -589,8 +590,34 @@ export class BaseController {
     @Param('baseId') baseId: string,
     @Query('spaceId') spaceId: string
   ): Promise<IMoveBaseCheckVo> {
-    const affectedFields = await this.baseService.previewMoveBaseCrossSpace(baseId, spaceId);
-    return { affectedFields };
+    return await this.baseService.checkMoveBase(baseId, spaceId);
+  }
+
+  @Get(':baseId/move-job/:jobId')
+  @Permissions('space|update')
+  async getBaseDataDbMoveJob(
+    @Param('baseId') baseId: string,
+    @Param('jobId') jobId: string
+  ): Promise<IBaseDataDbMoveJobStatusVo> {
+    return await this.baseService.getBaseDataDbMoveJob(baseId, jobId);
+  }
+
+  @Post(':baseId/move-job/:jobId/cancel')
+  @Permissions('space|update')
+  async cancelBaseDataDbMoveJob(
+    @Param('baseId') baseId: string,
+    @Param('jobId') jobId: string
+  ): Promise<IBaseDataDbMoveJobStatusVo> {
+    return await this.baseService.cancelBaseDataDbMoveJob(baseId, jobId);
+  }
+
+  @Post(':baseId/move-job/:jobId/retry')
+  @Permissions('space|update')
+  async retryBaseDataDbMoveJob(
+    @Param('baseId') baseId: string,
+    @Param('jobId') jobId: string
+  ): Promise<IBaseDataDbMoveJobStatusVo> {
+    return await this.baseService.retryBaseDataDbMoveJob(baseId, jobId);
   }
 
   @Permissions('base|update')

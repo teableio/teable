@@ -37,7 +37,6 @@ import type { Result } from 'neverthrow';
 import { err, ok, safeTry } from 'neverthrow';
 import { match } from 'ts-pattern';
 
-import { resolveUserAvatarUrlPrefix } from '../../../shared/userAvatarUrl';
 import { TableRecordConditionWhereVisitor } from '../../visitors';
 import { buildDateLikeOrderExpression } from '../dateLikeOrderBy';
 import type {
@@ -49,6 +48,10 @@ import type {
 } from '../ITableRecordQueryBuilder';
 import type { QueryMode } from '../TableRecordQueryBuilderManager';
 import {
+  buildUserJsonObjectFromSnapshotExpr,
+  type UserSnapshotActorFallback,
+} from '../userSnapshotSql';
+import {
   ComputedFieldSelectExpressionVisitor,
   type ILateralContext,
   type LateralColumnType,
@@ -58,7 +61,7 @@ import {
 export const COMPUTED_TABLE_ALIAS = 't';
 const T = COMPUTED_TABLE_ALIAS; // main table alias
 const F = 'f'; // foreign table alias in lateral
-const H = 'h'; // host table alias in set-based conditional lookup joins
+const H = 'h'; // host table alias in set-based aggregate joins
 const DEFAULT_CONDITIONAL_ORDER_BY = { column: '__auto_number', direction: 'asc' } as const;
 
 const parsePositiveInt = (raw: string | undefined, fallback: number): number => {
@@ -104,8 +107,18 @@ type SimpleConditionalRollupFilter = {
 type ConditionalFieldReferenceGroup = {
   foreignFieldId: string;
   hostFieldId: string;
+  /** Field-reference equality item (`foreign.field is {host.field}`). */
   filterItem: IFilterItemDTO;
+  /** Source-only residual filters AND-ed with the field-ref equality. */
+  residualFilterItems: IFilterItemDTO[];
   limit?: number;
+  /** Optional foreign-table sort for ranking / order-sensitive aggregates. */
+  sort?: { fieldId: string; order: 'asc' | 'desc' };
+  /**
+   * When true, unlimited paths may skip window ranking.
+   * Order-sensitive rollups (array_join, etc.) always rank.
+   */
+  orderInsensitive: boolean;
 };
 
 type ResolvedOrderBy = {
@@ -118,6 +131,40 @@ type ResolvedOrderBy = {
 
 const isSimpleConditionalRollupScalar = (value: unknown): value is string | number | boolean =>
   typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean';
+
+const resolveUserSnapshotActorFallback = (
+  context: unknown,
+  current?: UserSnapshotActorFallback
+): UserSnapshotActorFallback | undefined => {
+  if (!context || typeof context !== 'object') {
+    return current;
+  }
+
+  const raw = context as {
+    actorId?: { toString(): string } | string;
+    actorName?: unknown;
+    actorEmail?: unknown;
+  };
+  const actorId =
+    typeof raw.actorId === 'string'
+      ? raw.actorId
+      : typeof raw.actorId?.toString === 'function'
+        ? raw.actorId.toString()
+        : undefined;
+
+  if (!actorId) {
+    return current;
+  }
+
+  const actorName = typeof raw.actorName === 'string' ? raw.actorName : current?.actorName;
+  const actorEmail = typeof raw.actorEmail === 'string' ? raw.actorEmail : current?.actorEmail;
+
+  return {
+    actorId,
+    ...(actorName != null ? { actorName } : {}),
+    ...(actorEmail != null ? { actorEmail } : {}),
+  };
+};
 
 const isOrderInsensitiveRollupExpression = (expression: RollupFunction): boolean =>
   ORDER_INSENSITIVE_ROLLUP_EXPRESSIONS.has(expression);
@@ -152,6 +199,128 @@ const filterItems = (filter: FieldConditionDTO['filter']): IFilterItemDTO[] => {
   );
 };
 
+const residualFilterItemFingerprint = (item: IFilterItemDTO): string =>
+  JSON.stringify({
+    fieldId: item.fieldId,
+    operator: item.operator,
+    value: item.value,
+    isSymbol: item.isSymbol ?? false,
+  });
+
+const sameResidualFilterItems = (
+  left: ReadonlyArray<IFilterItemDTO>,
+  right: ReadonlyArray<IFilterItemDTO>
+): boolean => {
+  if (left.length !== right.length) {
+    return false;
+  }
+  const leftKeys = left.map(residualFilterItemFingerprint).sort();
+  const rightKeys = right.map(residualFilterItemFingerprint).sort();
+  return leftKeys.every((key, index) => key === rightKeys[index]);
+};
+
+const sameConditionalFieldReferenceGroup = (
+  left: ConditionalFieldReferenceGroup,
+  right: ConditionalFieldReferenceGroup
+): boolean =>
+  left.foreignFieldId === right.foreignFieldId &&
+  left.hostFieldId === right.hostFieldId &&
+  left.limit === right.limit &&
+  left.orderInsensitive === right.orderInsensitive &&
+  left.sort?.fieldId === right.sort?.fieldId &&
+  left.sort?.order === right.sort?.order &&
+  sameResidualFilterItems(left.residualFilterItems, right.residualFilterItems);
+
+const isResidualConstantFilterItem = (item: IFilterItemDTO): boolean => {
+  if (referencedHostFieldId(item) !== null) {
+    return false;
+  }
+  if (!SIMPLE_CONDITIONAL_ROLLUP_OPERATORS.has(item.operator)) {
+    return false;
+  }
+  if (item.operator === 'is') {
+    return item.value == null || isSimpleConditionalRollupScalar(item.value);
+  }
+  if (item.operator === 'isAnyOf') {
+    return (
+      Array.isArray(item.value) &&
+      item.value.every((entry) => isSimpleConditionalRollupScalar(entry))
+    );
+  }
+  return false;
+};
+
+/**
+ * Split an AND filter into one field-reference equality key plus residual
+ * source-only constant predicates. Nested filter sets are rejected.
+ */
+const splitFieldReferenceAndResiduals = (
+  filter: FieldConditionDTO['filter']
+): {
+  fieldRefItem: IFilterItemDTO;
+  hostFieldId: string;
+  residualFilterItems: IFilterItemDTO[];
+} | null => {
+  if (!filter || filter.conjunction !== 'and') {
+    return null;
+  }
+
+  const items = filterItems(filter);
+  if (items.length === 0) {
+    return null;
+  }
+
+  let fieldRefItem: IFilterItemDTO | null = null;
+  let hostFieldId: string | null = null;
+  const residualFilterItems: IFilterItemDTO[] = [];
+
+  for (const item of items) {
+    if (item.operator === 'is') {
+      const referenced = referencedHostFieldId(item);
+      if (referenced) {
+        if (fieldRefItem) {
+          return null;
+        }
+        fieldRefItem = item;
+        hostFieldId = referenced;
+        continue;
+      }
+    }
+
+    if (!isResidualConstantFilterItem(item)) {
+      return null;
+    }
+    residualFilterItems.push(item);
+  }
+
+  if (!fieldRefItem || !hostFieldId) {
+    return null;
+  }
+
+  return { fieldRefItem, hostFieldId, residualFilterItems };
+};
+
+const conditionSortDto = (
+  condition: FieldCondition
+): { fieldId: string; order: 'asc' | 'desc' } | undefined => {
+  if (!condition.hasSort()) {
+    return undefined;
+  }
+  const sort = condition.sort();
+  if (!sort) {
+    return undefined;
+  }
+  return {
+    fieldId: sort.fieldId().toString(),
+    order: sort.order(),
+  };
+};
+
+/**
+ * Join-key group for residual field-ref rollups that still share a correlated lateral
+ * when different residual predicates project multiple aggregates from one scan.
+ * Rejects explicit limit so order+limit stay on the generic lateral path.
+ */
 const conditionalRollupFieldReferenceGroup = (
   columnType: LateralColumnType
 ): ConditionalFieldReferenceGroup | null => {
@@ -164,65 +333,83 @@ const conditionalRollupFieldReferenceGroup = (
     return null;
   }
 
-  const filter = columnType.condition.toDto().filter;
-  if (!filter || filter.conjunction !== 'and') {
+  const split = splitFieldReferenceAndResiduals(columnType.condition.toDto().filter);
+  if (!split) {
     return null;
   }
 
-  for (const item of filterItems(filter)) {
-    if (item.operator !== 'is') {
-      continue;
-    }
-
-    const hostFieldId = referencedHostFieldId(item);
-    if (hostFieldId) {
-      return {
-        foreignFieldId: item.fieldId,
-        hostFieldId,
-        filterItem: item,
-      };
-    }
-  }
-
-  return null;
+  // Lateral sharing key only needs the field-ref pair; residual FILTER(...) is per column.
+  return {
+    foreignFieldId: split.fieldRefItem.fieldId,
+    hostFieldId: split.hostFieldId,
+    filterItem: split.fieldRefItem,
+    residualFilterItems: [],
+    orderInsensitive: true,
+  };
 };
 
-const conditionalLookupFieldReferenceGroup = (
+/**
+ * Field-reference rollup eligible for a set-based host join:
+ * - one field-ref equality (+ optional residual constant filters)
+ * - order-insensitive aggs (sum/max/...) with optional limit
+ * - order-sensitive aggs (array_join/...) with ranking + limit
+ */
+const conditionalRollupSetBasedFieldReferenceGroup = (
   columnType: LateralColumnType
 ): ConditionalFieldReferenceGroup | null => {
-  if (
-    columnType.type !== 'conditionalLookup' ||
-    columnType.condition.hasSort() ||
-    !columnType.condition.hasFilter()
-  ) {
+  if (columnType.type !== 'conditionalRollup' || !columnType.condition.hasFilter()) {
     return null;
   }
 
-  const filter = columnType.condition.toDto().filter;
-  if (!filter || filter.conjunction !== 'and') {
+  const orderInsensitive = isOrderInsensitiveRollupExpression(columnType.expression);
+  // Order-sensitive rollups may carry a condition sort; order-insensitive paths reject it
+  // so residual max/sum keep deterministic default ranking only when limited.
+  if (!orderInsensitive && columnType.condition.hasSort()) {
+    // Still OK — use the condition sort for ranking.
+  } else if (orderInsensitive && columnType.condition.hasSort()) {
     return null;
   }
 
-  const items = filterItems(filter);
-  if (items.length !== 1) {
-    return null;
-  }
-
-  const [item] = items;
-  if (item.operator !== 'is') {
-    return null;
-  }
-
-  const hostFieldId = referencedHostFieldId(item);
-  if (!hostFieldId) {
+  const split = splitFieldReferenceAndResiduals(columnType.condition.toDto().filter);
+  if (!split) {
     return null;
   }
 
   return {
-    foreignFieldId: item.fieldId,
-    hostFieldId,
-    filterItem: item,
+    foreignFieldId: split.fieldRefItem.fieldId,
+    hostFieldId: split.hostFieldId,
+    filterItem: split.fieldRefItem,
+    residualFilterItems: split.residualFilterItems,
     limit: columnType.condition.limit(),
+    sort: conditionSortDto(columnType.condition),
+    orderInsensitive,
+  };
+};
+
+/**
+ * Field-reference lookup eligible for set-based host join:
+ * one field-ref equality, optional residual constants, optional sort, optional limit.
+ */
+const conditionalLookupFieldReferenceGroup = (
+  columnType: LateralColumnType
+): ConditionalFieldReferenceGroup | null => {
+  if (columnType.type !== 'conditionalLookup' || !columnType.condition.hasFilter()) {
+    return null;
+  }
+
+  const split = splitFieldReferenceAndResiduals(columnType.condition.toDto().filter);
+  if (!split) {
+    return null;
+  }
+
+  return {
+    foreignFieldId: split.fieldRefItem.fieldId,
+    hostFieldId: split.hostFieldId,
+    filterItem: split.fieldRefItem,
+    residualFilterItems: split.residualFilterItems,
+    limit: columnType.condition.limit(),
+    sort: conditionSortDto(columnType.condition),
+    orderInsensitive: false,
   };
 };
 
@@ -253,6 +440,30 @@ const sharedConditionalFieldReferenceGroup = (
   return shared;
 };
 
+const sharedConditionalRollupSetBasedFieldReferenceGroup = (
+  columns: Array<{ columnType: LateralColumnType }>
+): ConditionalFieldReferenceGroup | null => {
+  let shared: ConditionalFieldReferenceGroup | null = null;
+
+  for (const column of columns) {
+    const group = conditionalRollupSetBasedFieldReferenceGroup(column.columnType);
+    if (!group) {
+      return null;
+    }
+
+    if (!shared) {
+      shared = group;
+      continue;
+    }
+
+    if (!sameConditionalFieldReferenceGroup(shared, group)) {
+      return null;
+    }
+  }
+
+  return shared;
+};
+
 const sharedConditionalLookupFieldReferenceGroup = (
   columns: Array<{ columnType: LateralColumnType }>
 ): ConditionalFieldReferenceGroup | null => {
@@ -269,11 +480,7 @@ const sharedConditionalLookupFieldReferenceGroup = (
       continue;
     }
 
-    if (
-      shared.foreignFieldId !== group.foreignFieldId ||
-      shared.hostFieldId !== group.hostFieldId ||
-      shared.limit !== group.limit
-    ) {
+    if (!sameConditionalFieldReferenceGroup(shared, group)) {
       return null;
     }
   }
@@ -356,6 +563,12 @@ export interface IDirtyFilterConfig {
   tableIdColumn?: string;
   /** Column name for record ID in dirty table (default: 'record_id') */
   recordIdColumn?: string;
+  /**
+   * Optional explicit dirty-record slice for large fan-out steps.
+   * When set, further restricts the dirty join to this id subset so each
+   * UPDATE…FROM statement stays under statement_timeout.
+   */
+  recordIds?: ReadonlyArray<string>;
 }
 
 export interface IComputedQueryBuilderOptions {
@@ -365,7 +578,12 @@ export interface IComputedQueryBuilderOptions {
   readonly typeValidationStrategy: IPgTypeValidationStrategy;
   /** Prefer stored values for non-deterministic formulas like LAST_MODIFIED_TIME(field) */
   readonly preferStoredLastModifiedFormula?: boolean;
+  readonly erroredLookupReferenceMode?: 'stored' | 'error';
   readonly forceLookupArrayOutput?: boolean;
+  readonly userSnapshotActorFallback?: UserSnapshotActorFallback;
+  readonly resolveSystemUserSnapshotsFromUsers?: boolean;
+  /** Full-table computed backfills may aggregate all host rows before the outer UPDATE. */
+  readonly allowFullTableSetBasedRollups?: boolean;
 }
 
 /**
@@ -384,7 +602,12 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
   private dirtyFilterConfig: IDirtyFilterConfig | null = null;
   private readonly typeValidationStrategy: IPgTypeValidationStrategy;
   private readonly preferStoredLastModifiedFormula: boolean;
+  private readonly erroredLookupReferenceMode: 'stored' | 'error';
   private readonly forceLookupArrayOutput: boolean;
+  private userSnapshotActorFallback?: UserSnapshotActorFallback;
+  private readonly resolveSystemUserSnapshotsFromUsers: boolean;
+  private readonly allowFullTableSetBasedRollups: boolean;
+  private unchunkedDirtySetHostKeyColumns: ReadonlyArray<string> = [];
 
   readonly mode: QueryMode = 'computed';
 
@@ -395,7 +618,11 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     this.foreignTables = options.foreignTables ?? new Map();
     this.typeValidationStrategy = options.typeValidationStrategy;
     this.preferStoredLastModifiedFormula = options.preferStoredLastModifiedFormula ?? false;
+    this.erroredLookupReferenceMode = options.erroredLookupReferenceMode ?? 'stored';
     this.forceLookupArrayOutput = options.forceLookupArrayOutput ?? true;
+    this.userSnapshotActorFallback = options.userSnapshotActorFallback;
+    this.resolveSystemUserSnapshotsFromUsers = options.resolveSystemUserSnapshotsFromUsers ?? false;
+    this.allowFullTableSetBasedRollups = options.allowFullTableSetBasedRollups ?? false;
   }
 
   from(table: Table): this {
@@ -442,6 +669,14 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     return this;
   }
 
+  canExecuteUnchunkedDirtySet(): boolean {
+    return this.unchunkedDirtySetHostKeyColumns.length > 0;
+  }
+
+  unchunkedHostKeyColumns(): ReadonlyArray<string> {
+    return this.unchunkedDirtySetHostKeyColumns;
+  }
+
   /**
    * Prepare by loading foreign tables needed for link/lookup/rollup fields.
    */
@@ -451,6 +686,10 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     }
 
     const table = this.table;
+    this.userSnapshotActorFallback = resolveUserSnapshotActorFallback(
+      deps.context,
+      this.userSnapshotActorFallback
+    );
 
     return safeTry<void, DomainError>(
       async function* (this: ComputedTableRecordQueryBuilder) {
@@ -512,6 +751,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     const table = this.table;
     const foreignTables = this.foreignTables;
     const projection = this.projection;
+    this.unchunkedDirtySetHostKeyColumns = [];
     const { laterals, conditionalLaterals, ctx: lateralCtx } = this.createLateralContext();
 
     return safeTry<QB, DomainError>(
@@ -525,6 +765,9 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           foreignTables,
           conditionalLaterals
         );
+        if (laterals.size > 0) {
+          this.unchunkedDirtySetHostKeyColumns = [];
+        }
 
         // Always include __id column for record identification
         const idColumn = sql`${sql.ref(`${T}.__id`)}`.as('__id');
@@ -615,13 +858,100 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     } = this.dirtyFilterConfig;
 
     const DIRTY_ALIAS = '__dirty';
+    const recordIdPredicate = this.buildDirtyRecordIdSlicePredicate(DIRTY_ALIAS, recordIdColumn);
 
-    return (qb) =>
-      qb.innerJoin(`${dirtyTableName} as ${DIRTY_ALIAS}`, (join) =>
+    return (qb) => {
+      let next = qb.innerJoin(`${dirtyTableName} as ${DIRTY_ALIAS}`, (join) =>
         join
           .onRef(`${T}.__id`, '=', `${DIRTY_ALIAS}.${recordIdColumn}`)
           .on(`${DIRTY_ALIAS}.${tableIdColumn}`, '=', tableId)
       ) as QB;
+
+      // Slice large dirty sets into smaller UPDATE statements (same TX).
+      if (recordIdPredicate) {
+        next = next.where(recordIdPredicate) as QB;
+      }
+
+      return next;
+    };
+  }
+
+  private dirtyRecordIdSlice(): ReadonlyArray<string> {
+    const recordIds = this.dirtyFilterConfig?.recordIds;
+    return recordIds?.length ? [...new Set(recordIds.filter((id) => id.length > 0))] : [];
+  }
+
+  private buildDirtyRecordIdSlicePredicate(
+    alias: string,
+    recordIdColumn: string
+  ): Expression<SqlBool> | null {
+    const recordIds = this.dirtyRecordIdSlice();
+    if (recordIds.length === 0) return null;
+
+    return sql<SqlBool>`${sql.ref(`${alias}.${recordIdColumn}`)} = ANY(${recordIds}::text[])`;
+  }
+
+  private buildConditionalHostSource(hostTableName: string) {
+    const dirtyConfig = this.dirtyFilterConfig;
+    if (!dirtyConfig) return `${hostTableName} as ${H}` as const;
+
+    const {
+      dirtyTableName = 'tmp_computed_dirty',
+      tableIdColumn = 'table_id',
+      recordIdColumn = 'record_id',
+    } = dirtyConfig;
+    const recordIdPredicate = this.buildDirtyRecordIdSlicePredicate('__cond_dirty', recordIdColumn);
+
+    let query = this.db
+      .selectFrom(`${hostTableName} as ${H}`)
+      .innerJoin(`${dirtyTableName} as __cond_dirty`, (join) =>
+        join
+          .onRef(`${H}.__id`, '=', `__cond_dirty.${recordIdColumn}`)
+          .on(`__cond_dirty.${tableIdColumn}`, '=', dirtyConfig.tableId)
+      )
+      .selectAll(H);
+
+    if (recordIdPredicate) {
+      query = query.where(recordIdPredicate);
+    }
+
+    return query.as(H);
+  }
+
+  private buildConditionalHostKeySource(hostTableName: string, hostKeyColumn: string) {
+    const dirtyConfig = this.dirtyFilterConfig;
+    const hostKeySelection = sql`${sql.ref(`${H}.${hostKeyColumn}`)}`.as(hostKeyColumn);
+
+    if (!dirtyConfig) {
+      return this.db
+        .selectFrom(`${hostTableName} as ${H}`)
+        .select(hostKeySelection)
+        .distinct()
+        .as(H);
+    }
+
+    const {
+      dirtyTableName = 'tmp_computed_dirty',
+      tableIdColumn = 'table_id',
+      recordIdColumn = 'record_id',
+    } = dirtyConfig;
+    const recordIdPredicate = this.buildDirtyRecordIdSlicePredicate('__cond_dirty', recordIdColumn);
+
+    let query = this.db
+      .selectFrom(`${hostTableName} as ${H}`)
+      .innerJoin(`${dirtyTableName} as __cond_dirty`, (join) =>
+        join
+          .onRef(`${H}.__id`, '=', `__cond_dirty.${recordIdColumn}`)
+          .on(`__cond_dirty.${tableIdColumn}`, '=', dirtyConfig.tableId)
+      )
+      .select(hostKeySelection)
+      .distinct();
+
+    if (recordIdPredicate) {
+      query = query.where(recordIdPredicate);
+    }
+
+    return query.as(H);
   }
 
   private createLateralContext() {
@@ -660,7 +990,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
 
     const conditionKey = (columnType: LateralColumnType): string => {
       if (
-        columnType.type !== 'lookup' ||
+        (columnType.type !== 'lookup' && columnType.type !== 'rollup') ||
         !columnType.condition ||
         !columnType.condition.hasFilter()
       ) {
@@ -679,6 +1009,25 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
       }
 
       const condition = columnType.condition;
+      const setBasedKey = (group: ConditionalFieldReferenceGroup): string =>
+        [
+          columnType.type,
+          'field-ref-set',
+          foreignTableId,
+          group.foreignFieldId,
+          group.hostFieldId,
+          group.limit ?? 'none',
+          group.orderInsensitive ? 'orderless' : 'ordered',
+          group.sort ? `${group.sort.fieldId}:${group.sort.order}` : 'nosort',
+          group.residualFilterItems.map(residualFilterItemFingerprint).sort().join('&') ||
+            'noresidual',
+        ].join('|');
+
+      const setBasedRollupGroup = conditionalRollupSetBasedFieldReferenceGroup(columnType);
+      if (setBasedRollupGroup) {
+        return setBasedKey(setBasedRollupGroup);
+      }
+
       const fieldRefGroup = conditionalRollupFieldReferenceGroup(columnType);
       if (fieldRefGroup) {
         return [
@@ -692,14 +1041,7 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
 
       const lookupFieldRefGroup = conditionalLookupFieldReferenceGroup(columnType);
       if (lookupFieldRefGroup) {
-        return [
-          columnType.type,
-          'field-ref-group',
-          foreignTableId,
-          lookupFieldRefGroup.foreignFieldId,
-          lookupFieldRefGroup.hostFieldId,
-          lookupFieldRefGroup.limit ?? 'default',
-        ].join('|');
+        return setBasedKey(lookupFieldRefGroup);
       }
 
       const orderMode =
@@ -723,7 +1065,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             foreignTableId,
             columns: [],
             condition:
-              columnType.type === 'lookup' && columnType.condition?.hasFilter()
+              (columnType.type === 'lookup' || columnType.type === 'rollup') &&
+              columnType.condition?.hasFilter()
                 ? columnType.condition
                 : undefined,
           });
@@ -774,7 +1117,10 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           {
             preferStoredLastModifiedFormula: this.preferStoredLastModifiedFormula,
             missingForeignTableIds: this.missingForeignTableIds,
+            erroredLookupReferenceMode: this.erroredLookupReferenceMode,
             forceLookupArrayOutput: this.forceLookupArrayOutput,
+            userSnapshotActorFallback: this.userSnapshotActorFallback,
+            resolveSystemUserSnapshotsFromUsers: this.resolveSystemUserSnapshotsFromUsers,
           }
         );
         const columns: AliasedRawBuilder<unknown, string>[] = [];
@@ -811,7 +1157,10 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
 
     return safeTry<(qb: QB) => QB, DomainError>(
       function* (this: ComputedTableRecordQueryBuilder) {
-        const subqueries: AliasedExpression<Record<string, unknown>, string>[] = [];
+        const subqueries: Array<{
+          query: AliasedExpression<Record<string, unknown>, string>;
+          joinMode: 'lateral' | 'hostLeft';
+        }> = [];
 
         for (const [, lateral] of laterals) {
           const foreignTable = foreignTables.get(lateral.foreignTableId);
@@ -831,6 +1180,21 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
 
           const foreignDbTableName = yield* foreignTable.dbTableName();
           const foreignTableName = yield* foreignDbTableName.value();
+
+          if (this.isSetBasedLinkRollupGroup(table, foreignTable, linkField, lateral.columns)) {
+            subqueries.push({
+              query: yield* this.buildSetBasedLinkRollupAggregate(
+                table,
+                foreignTable,
+                foreignTableName,
+                linkField,
+                lateral.alias,
+                lateral.columns
+              ),
+              joinMode: 'hostLeft',
+            });
+            continue;
+          }
 
           const selectExprs: AliasedRawBuilder<unknown, string>[] = [];
           for (const col of lateral.columns) {
@@ -855,11 +1219,150 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             baseQuery = baseQuery.where(filterWhere);
           }
 
-          subqueries.push(baseQuery.as(lateral.alias));
+          subqueries.push({ query: baseQuery.as(lateral.alias), joinMode: 'lateral' });
         }
 
         return ok((qb: QB) =>
-          subqueries.reduce((q, sub) => q.innerJoinLateral(sub, (j) => j.onTrue()), qb)
+          subqueries.reduce(
+            (q, subquery) =>
+              subquery.joinMode === 'lateral'
+                ? (q.innerJoinLateral(subquery.query, (j) => j.onTrue()) as QB)
+                : (q.leftJoin(subquery.query, (j) =>
+                    j.onRef(`${subquery.query.alias}.__host_id`, '=', `${T}.__id`)
+                  ) as QB),
+            qb
+          )
+        );
+      }.bind(this)
+    );
+  }
+
+  /**
+   * Bulk computed backfills can share one grouped relationship scan when neither row
+   * order nor a per-field filter/limit affects their result. Ordinary reads keep the
+   * indexed per-host lateral because their outer filter/limit is not available here.
+   */
+  private isSetBasedLinkRollupGroup(
+    table: Table,
+    foreignTable: Table,
+    linkField: LinkField,
+    columns: Array<{ outputAlias: string; columnType: LateralColumnType }>
+  ): boolean {
+    if (
+      (!this.dirtyFilterConfig && !this.allowFullTableSetBasedRollups) ||
+      table.id().equals(foreignTable.id()) ||
+      columns.length === 0
+    ) {
+      return false;
+    }
+
+    const relationship = linkField.relationship();
+    if (
+      relationship.equals(LinkRelationship.manyMany()) ||
+      (relationship.equals(LinkRelationship.oneMany()) && linkField.isOneWay())
+    ) {
+      const junctionTable = linkField.fkHostTableNameString();
+      const selfKey = linkField.selfKeyNameString();
+      const foreignKey = linkField.foreignKeyNameString();
+      if (junctionTable.isErr() || selfKey.isErr() || foreignKey.isErr()) {
+        return false;
+      }
+    } else if (relationship.equals(LinkRelationship.oneMany())) {
+      const foreignHostKey = linkField.selfKeyNameString();
+      if (foreignHostKey.isErr() || foreignHostKey.value === '__id') {
+        return false;
+      }
+    } else {
+      return false;
+    }
+
+    return columns.every(({ columnType }) => {
+      if (
+        columnType.type !== 'rollup' ||
+        !isOrderInsensitiveRollupExpression(columnType.expression)
+      ) {
+        return false;
+      }
+
+      const condition = columnType.condition;
+      return (
+        !condition || (!condition.hasFilter() && !condition.hasSort() && !condition.hasLimit())
+      );
+    });
+  }
+
+  /**
+   * Drive the aggregate from the relevant host set so hosts without links still
+   * produce a grouped row and retain the existing COUNT/SUM/null empty semantics.
+   */
+  private buildSetBasedLinkRollupAggregate(
+    hostTable: Table,
+    foreignTable: Table,
+    foreignTableName: string,
+    linkField: LinkField,
+    alias: string,
+    columns: Array<{ outputAlias: string; columnType: LateralColumnType }>
+  ): Result<AliasedExpression<Record<string, unknown>, string>, DomainError> {
+    return safeTry<AliasedExpression<Record<string, unknown>, string>, DomainError>(
+      function* (this: ComputedTableRecordQueryBuilder) {
+        const hostDbTableName = yield* hostTable.dbTableName();
+        const hostTableName = yield* hostDbTableName.value();
+        const hostSource = this.buildConditionalHostSource(hostTableName);
+        const hostId = `${H}.__id`;
+        const selectExprs: AliasedRawBuilder<unknown, string>[] = [];
+
+        for (const col of columns) {
+          if (col.columnType.type !== 'rollup') {
+            return err(
+              domainError.invariant({
+                message: 'Set-based link rollup aggregate received a non-rollup column',
+              })
+            );
+          }
+          selectExprs.push(
+            (yield* this.buildRollupAggregateExpr(
+              foreignTable,
+              col.columnType.foreignFieldId,
+              col.columnType.expression,
+              { tableAlias: F }
+            )).as(col.outputAlias)
+          );
+        }
+
+        const relationship = linkField.relationship();
+        if (
+          relationship.equals(LinkRelationship.manyMany()) ||
+          (relationship.equals(LinkRelationship.oneMany()) && linkField.isOneWay())
+        ) {
+          const junctionTableName = yield* linkField.fkHostTableNameString();
+          const selfKey = yield* linkField.selfKeyNameString();
+          const foreignKey = yield* linkField.foreignKeyNameString();
+
+          return ok(
+            this.db
+              .selectFrom(hostSource)
+              .leftJoin(`${junctionTableName} as j`, (join) =>
+                join.onRef(`j.${selfKey}`, '=', hostId)
+              )
+              .leftJoin(`${foreignTableName} as ${F}`, (join) =>
+                join.onRef(`${F}.__id`, '=', `j.${foreignKey}`)
+              )
+              .select([sql`${sql.ref(hostId)}`.as('__host_id'), ...selectExprs])
+              .groupBy(sql.ref(hostId))
+              .as(alias)
+          );
+        }
+
+        const foreignHostKey = yield* linkField.selfKeyNameString();
+        return ok(
+          this.db
+            .selectFrom(hostSource)
+            .leftJoin(`${foreignTableName} as ${F}`, (join) =>
+              join.onRef(`${F}.${foreignHostKey}`, '=', hostId)
+            )
+            .select([sql`${sql.ref(hostId)}`.as('__host_id'), ...selectExprs])
+            .groupBy(sql.ref(hostId))
+            .as(alias)
         );
       }.bind(this)
     );
@@ -872,10 +1375,47 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
    * use a condition filter to select which foreign records to aggregate.
    *
    * The generated SQL structure for each conditional field:
-   * - conditionalRollup: LATERAL (SELECT AGG(col) FROM foreign_table WHERE <condition>)
-   * - conditionalLookup: set-based host aggregate for simple field-reference equality,
-   *   otherwise LATERAL (SELECT jsonb_agg(col) FROM foreign_table WHERE <condition>)
+   * - conditionalRollup: set-based host join for field-reference equality (+ residual
+   *   constants, optional limit / order-sensitive ranking); uncorrelated join for
+   *   simple source-only filters; otherwise LATERAL aggregation
+   * - conditionalLookup: set-based host aggregate for field-reference equality
+   *   (+ residual constants, optional sort/limit); otherwise LATERAL jsonb_agg
    */
+  private resolveScalarConditionalHostKeyColumn(
+    foreignTable: Table,
+    group: ConditionalFieldReferenceGroup
+  ): Result<string | null, DomainError> {
+    const hostTable = this.table;
+    if (!hostTable) {
+      return err(domainError.validation({ message: 'Call from() first' }));
+    }
+
+    return safeTry<string | null, DomainError>(function* () {
+      const hostFieldId = yield* FieldId.create(group.hostFieldId);
+      const foreignFieldId = yield* FieldId.create(group.foreignFieldId);
+      const hostField = yield* hostTable.getField((field) => field.id().equals(hostFieldId));
+      const foreignField = yield* foreignTable.getField((field) =>
+        field.id().equals(foreignFieldId)
+      );
+
+      // Text equality is stable under DISTINCT/GROUP BY and covers the high-fanout
+      // conditional-group path. Multi-value/user/link semantics keep the host-id path.
+      if (
+        !hostField.type().equals(FieldType.singleLineText()) ||
+        !foreignField.type().equals(FieldType.singleLineText())
+      ) {
+        return ok(null);
+      }
+
+      const dbFieldName = yield* hostField.dbFieldName();
+      return ok(yield* dbFieldName.value());
+    });
+  }
+
+  private nullSafeTextKeyEquality(left: string, right: string): Expression<SqlBool> {
+    return sql<SqlBool>`(${sql.ref(left)} is null) = (${sql.ref(right)} is null) and coalesce(${sql.ref(left)}, ''::text) = coalesce(${sql.ref(right)}, ''::text)`;
+  }
+
   private buildConditionalJoins(
     foreignTables: ReadonlyMap<string, Table>,
     conditionalLaterals: Map<
@@ -896,7 +1436,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
       function* (this: ComputedTableRecordQueryBuilder) {
         const subqueries: Array<{
           query: AliasedExpression<Record<string, unknown>, string>;
-          joinMode: 'lateral' | 'inner' | 'hostLeft';
+          joinMode: 'lateral' | 'inner' | 'hostLeft' | 'hostKey';
+          hostKeyColumn?: string;
         }> = [];
 
         for (const [, lateral] of conditionalLaterals) {
@@ -913,20 +1454,50 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           const foreignTableName = yield* foreignDbTableName.value();
 
           const firstColumnType = lateral.columns[0]?.columnType;
+          const sharedRollupSetBasedGroup = sharedConditionalRollupSetBasedFieldReferenceGroup(
+            lateral.columns
+          );
+          if (sharedRollupSetBasedGroup) {
+            const hostKeyColumn = yield* this.resolveScalarConditionalHostKeyColumn(
+              foreignTable,
+              sharedRollupSetBasedGroup
+            );
+            const query = yield* this.buildConditionalRollupFieldReferenceAggregate(
+              foreignTable,
+              foreignTableName,
+              sharedRollupSetBasedGroup,
+              lateral.alias,
+              lateral.columns,
+              hostKeyColumn ?? undefined
+            );
+            subqueries.push({
+              query,
+              joinMode: hostKeyColumn ? 'hostKey' : 'hostLeft',
+              ...(hostKeyColumn ? { hostKeyColumn } : {}),
+            });
+            continue;
+          }
+
           const sharedLookupFieldRefGroup = sharedConditionalLookupFieldReferenceGroup(
             lateral.columns
           );
           if (sharedLookupFieldRefGroup) {
+            const hostKeyColumn = yield* this.resolveScalarConditionalHostKeyColumn(
+              foreignTable,
+              sharedLookupFieldRefGroup
+            );
             const query = yield* this.buildConditionalLookupFieldReferenceAggregate(
               foreignTable,
               foreignTableName,
               sharedLookupFieldRefGroup,
               lateral.alias,
-              lateral.columns
+              lateral.columns,
+              hostKeyColumn ?? undefined
             );
             subqueries.push({
               query,
-              joinMode: 'hostLeft',
+              joinMode: hostKeyColumn ? 'hostKey' : 'hostLeft',
+              ...(hostKeyColumn ? { hostKeyColumn } : {}),
             });
             continue;
           }
@@ -1030,6 +1601,17 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           });
         }
 
+        this.unchunkedDirtySetHostKeyColumns =
+          subqueries.length > 0 && subqueries.every((subquery) => subquery.joinMode === 'hostKey')
+            ? [
+                ...new Set(
+                  subqueries.flatMap((subquery) =>
+                    subquery.hostKeyColumn ? [subquery.hostKeyColumn] : []
+                  )
+                ),
+              ]
+            : [];
+
         return ok(
           (qb: QB) =>
             subqueries.reduce((q, subquery) => {
@@ -1039,6 +1621,16 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
               if (subquery.joinMode === 'hostLeft') {
                 return q.leftJoin(subquery.query, (j) =>
                   j.onRef(`${subquery.query.alias}.__host_id`, '=', `${T}.__id`)
+                ) as QB;
+              }
+              if (subquery.joinMode === 'hostKey' && subquery.hostKeyColumn) {
+                return q.leftJoin(subquery.query, (j) =>
+                  j.on(
+                    this.nullSafeTextKeyEquality(
+                      `${subquery.query.alias}.__host_key`,
+                      `${T}.${subquery.hostKeyColumn}`
+                    )
+                  )
                 ) as QB;
               }
               return q.innerJoin(subquery.query, (j) => j.onTrue()) as QB;
@@ -1105,11 +1697,31 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     return FieldCondition.create({
       filter: {
         conjunction: 'and',
-        filterSet: [group.filterItem],
+        filterSet: [group.filterItem, ...group.residualFilterItems],
       },
     }).andThen((condition) =>
       this.buildFilterConditionWhere(foreignTable, condition, hostTableAlias)
     );
+  }
+
+  private resolveSetBasedOrderBy(
+    foreignTable: Table,
+    group: ConditionalFieldReferenceGroup
+  ): Result<{ column: string; direction: 'asc' | 'desc' }, DomainError> {
+    if (!group.sort) {
+      return ok(DEFAULT_CONDITIONAL_ORDER_BY);
+    }
+
+    return safeTry<{ column: string; direction: 'asc' | 'desc' }, DomainError>(function* () {
+      const sortFieldId = FieldId.create(group.sort!.fieldId);
+      if (sortFieldId.isErr()) {
+        return err(sortFieldId.error);
+      }
+      const field = yield* foreignTable.getField((f) => f.id().equals(sortFieldId.value));
+      const dbFieldName = yield* field.dbFieldName();
+      const column = yield* dbFieldName.value();
+      return ok({ column, direction: group.sort!.order });
+    });
   }
 
   private buildConditionalLookupFieldReferenceAggregate(
@@ -1117,7 +1729,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     foreignTableName: string,
     group: ConditionalFieldReferenceGroup,
     alias: string,
-    columns: Array<{ outputAlias: string; columnType: LateralColumnType }>
+    columns: Array<{ outputAlias: string; columnType: LateralColumnType }>,
+    hostKeyColumn?: string
   ): Result<AliasedExpression<Record<string, unknown>, string>, DomainError> {
     const hostTable = this.table;
     if (!hostTable) {
@@ -1139,16 +1752,22 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
 
         const rankedAlias = `${alias}_src`;
         const limitValue = group.limit ?? CONDITIONAL_QUERY_DEFAULT_LIMIT;
-        const orderBy = DEFAULT_CONDITIONAL_ORDER_BY;
+        const orderBy = yield* this.resolveSetBasedOrderBy(foreignTable, group);
+        const hostSource = hostKeyColumn
+          ? this.buildConditionalHostKeySource(hostTableName, hostKeyColumn)
+          : this.buildConditionalHostSource(hostTableName);
+        const hostIdentity = hostKeyColumn ? `${H}.${hostKeyColumn}` : `${H}.__id`;
+        const hostIdentityAlias = hostKeyColumn ? '__host_key' : '__host_id';
+        const rankedColumns = [
+          sql`${sql.ref(hostIdentity)}`.as(hostIdentityAlias),
+          sql`row_number() over (partition by ${sql.ref(hostIdentity)} order by ${sql.ref(`${F}.${orderBy.column}`)} ${sql.raw(orderBy.direction)})`.as(
+            '__rn'
+          ),
+        ];
         const rankedQuery = this.db
-          .selectFrom(`${hostTableName} as ${H}`)
+          .selectFrom(hostSource)
           .innerJoin(`${foreignTableName} as ${F}`, (join) => join.on(whereClause))
-          .select([
-            sql`${sql.ref(`${H}.__id`)}`.as('__host_id'),
-            sql`row_number() over (partition by ${sql.ref(`${H}.__id`)} order by ${sql.ref(`${F}.${orderBy.column}`)} ${sql.raw(orderBy.direction)})`.as(
-              '__rn'
-            ),
-          ])
+          .select(rankedColumns)
           .selectAll(F);
 
         const selectExprs: AliasedRawBuilder<unknown, string>[] = [];
@@ -1164,9 +1783,128 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
         return ok(
           this.db
             .selectFrom(rankedQuery.as(rankedAlias))
-            .select([sql`${sql.ref(`${rankedAlias}.__host_id`)}`.as('__host_id'), ...selectExprs])
+            .select([
+              sql`${sql.ref(`${rankedAlias}.${hostIdentityAlias}`)}`.as(hostIdentityAlias),
+              ...selectExprs,
+            ])
             .where(sql<SqlBool>`${sql.ref(`${rankedAlias}.__rn`)} <= ${limitValue}`)
-            .groupBy(sql.ref(`${rankedAlias}.__host_id`))
+            .groupBy(sql.ref(`${rankedAlias}.${hostIdentityAlias}`))
+            .as(alias)
+        );
+      }.bind(this)
+    );
+  }
+
+  /**
+   * Set-based materialization for field-reference conditional rollups
+   * (optional residual constants, optional limit, order-sensitive or not).
+   *
+   * Host drives a single join against the foreign table (plus window ranking when a
+   * limit is set or the expression is order-sensitive), instead of a correlated LATERAL.
+   */
+  private buildConditionalRollupFieldReferenceAggregate(
+    foreignTable: Table,
+    foreignTableName: string,
+    group: ConditionalFieldReferenceGroup,
+    alias: string,
+    columns: Array<{ outputAlias: string; columnType: LateralColumnType }>,
+    hostKeyColumn?: string
+  ): Result<AliasedExpression<Record<string, unknown>, string>, DomainError> {
+    const hostTable = this.table;
+    if (!hostTable) {
+      return err(domainError.validation({ message: 'Call from() first' }));
+    }
+
+    return safeTry<AliasedExpression<Record<string, unknown>, string>, DomainError>(
+      function* (this: ComputedTableRecordQueryBuilder) {
+        const hostDbTableName = yield* hostTable.dbTableName();
+        const hostTableName = yield* hostDbTableName.value();
+        const whereClause = yield* this.buildFieldReferenceConditionWhere(foreignTable, group, H);
+        if (whereClause === null) {
+          return err(
+            domainError.invariant({
+              message: 'Conditional rollup field-reference set-based path requires a filter',
+            })
+          );
+        }
+
+        const buildHostSource = () =>
+          hostKeyColumn
+            ? this.buildConditionalHostKeySource(hostTableName, hostKeyColumn)
+            : this.buildConditionalHostSource(hostTableName);
+        const hostIdentity = hostKeyColumn ? `${H}.${hostKeyColumn}` : `${H}.__id`;
+        const hostIdentityAlias = hostKeyColumn ? '__host_key' : '__host_id';
+
+        const orderBy = yield* this.resolveSetBasedOrderBy(foreignTable, group);
+        // Rank whenever limit is set, or the expression is order-sensitive (array_join…).
+        const needsRanking = !group.orderInsensitive || group.limit !== undefined;
+        const limitValue = needsRanking
+          ? group.limit ?? CONDITIONAL_QUERY_DEFAULT_LIMIT
+          : undefined;
+
+        if (needsRanking && limitValue !== undefined) {
+          const rankedAlias = `${alias}_src`;
+          const rankedQuery = this.db
+            .selectFrom(buildHostSource())
+            .innerJoin(`${foreignTableName} as ${F}`, (join) => join.on(whereClause))
+            .select([
+              sql`${sql.ref(hostIdentity)}`.as(hostIdentityAlias),
+              sql`row_number() over (partition by ${sql.ref(hostIdentity)} order by ${sql.ref(`${F}.${orderBy.column}`)} ${sql.raw(orderBy.direction)})`.as(
+                '__rn'
+              ),
+            ])
+            .selectAll(F);
+
+          const selectExprs: AliasedRawBuilder<unknown, string>[] = [];
+          for (const col of columns) {
+            selectExprs.push(
+              yield* this.buildConditionalSelectExpr(
+                foreignTable,
+                col.columnType,
+                col.outputAlias,
+                {
+                  tableAlias: rankedAlias,
+                  orderBy,
+                }
+              )
+            );
+          }
+
+          // Drive from host so hosts with zero matches still emit a row (COUNT/SUM → 0).
+          return ok(
+            this.db
+              .selectFrom(buildHostSource())
+              .leftJoin(rankedQuery.as(rankedAlias), (join) =>
+                join
+                  .on(
+                    this.nullSafeTextKeyEquality(
+                      hostIdentity,
+                      `${rankedAlias}.${hostIdentityAlias}`
+                    )
+                  )
+                  .on(sql<SqlBool>`${sql.ref(`${rankedAlias}.__rn`)} <= ${limitValue}`)
+              )
+              .select([sql`${sql.ref(hostIdentity)}`.as(hostIdentityAlias), ...selectExprs])
+              .groupBy(sql.ref(hostIdentity))
+              .as(alias)
+          );
+        }
+
+        const selectExprs: AliasedRawBuilder<unknown, string>[] = [];
+        for (const col of columns) {
+          selectExprs.push(
+            yield* this.buildConditionalSelectExpr(foreignTable, col.columnType, col.outputAlias, {
+              tableAlias: F,
+            })
+          );
+        }
+
+        return ok(
+          this.db
+            .selectFrom(buildHostSource())
+            .leftJoin(`${foreignTableName} as ${F}`, (join) => join.on(whereClause))
+            .select([sql`${sql.ref(hostIdentity)}`.as(hostIdentityAlias), ...selectExprs])
+            .groupBy(sql.ref(hostIdentity))
             .as(alias)
         );
       }.bind(this)
@@ -1458,22 +2196,6 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     return `"${escapeIdentifier(tableAlias)}"."${escapeIdentifier(columnName)}"`;
   }
 
-  private buildSystemUserJsonExpr(tableAlias: string, systemColumn: string): RawBuilder<unknown> {
-    const systemColRef = sql.ref(`${tableAlias}.${systemColumn}`);
-    const avatarPrefix = resolveUserAvatarUrlPrefix();
-
-    return sql`(
-      select jsonb_build_object(
-        'id', u.id,
-        'title', u.name,
-        'email', u.email,
-        'avatarUrl', ${avatarPrefix} || u.id
-      )
-      from public.users u
-      where u.id = ${systemColRef}
-    )`;
-  }
-
   private getFieldSourceExpr(
     field: {
       type: () => FieldType;
@@ -1489,13 +2211,6 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
       return ok({ expr: sql.ref(`${tableAlias}.__created_time`) });
     }
 
-    if (field.type().equals(FieldType.createdBy())) {
-      return ok({
-        expr: this.buildSystemUserJsonExpr(tableAlias, '__created_by'),
-        isJsonbStorage: true,
-      });
-    }
-
     if (
       field.type().equals(FieldType.lastModifiedTime()) &&
       (field as { isTrackAll?: () => boolean }).isTrackAll?.()
@@ -1503,20 +2218,38 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
       return ok({ expr: sql.ref(`${tableAlias}.__last_modified_time`) });
     }
 
-    if (
-      field.type().equals(FieldType.lastModifiedBy()) &&
-      (field as { isTrackAll?: () => boolean }).isTrackAll?.()
-    ) {
-      return ok({
-        expr: this.buildSystemUserJsonExpr(tableAlias, '__last_modified_by'),
-        isJsonbStorage: true,
-      });
-    }
-
     return field
       .dbFieldName()
       .andThen((dbFieldName) => dbFieldName.value())
-      .map((columnName) => ({ expr: sql.ref(`${tableAlias}.${columnName}`) }));
+      .map((columnName) => {
+        const snapshotRef = sql.ref(`${tableAlias}.${columnName}`);
+        if (field.type().equals(FieldType.createdBy())) {
+          return {
+            expr: buildUserJsonObjectFromSnapshotExpr(
+              snapshotRef,
+              sql.ref(`${tableAlias}.__created_by`),
+              this.userSnapshotActorFallback
+            ),
+            isJsonbStorage: true,
+          };
+        }
+
+        if (field.type().equals(FieldType.lastModifiedBy())) {
+          const fallbackRef = (field as { isTrackAll?: () => boolean }).isTrackAll?.()
+            ? sql.ref(`${tableAlias}.__last_modified_by`)
+            : undefined;
+          return {
+            expr: buildUserJsonObjectFromSnapshotExpr(
+              snapshotRef,
+              fallbackRef,
+              this.userSnapshotActorFallback
+            ),
+            isJsonbStorage: true,
+          };
+        }
+
+        return { expr: snapshotRef };
+      });
   }
 
   private getForeignColRef(

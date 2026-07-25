@@ -47,9 +47,12 @@ import {
   X_CANARY_HEADER,
 } from '@teable/openapi';
 import type { Knex } from 'knex';
+import type { MockInstance } from 'vitest';
+import { vi } from 'vitest';
 import { DB_PROVIDER_SYMBOL } from '../src/db-provider/db.provider';
 import type { IDbProvider } from '../src/db-provider/db.provider.interface';
 import { FieldService } from '../src/features/field/field.service';
+import { ComputedOrchestratorService } from '../src/features/record/computed/services/computed-orchestrator.service';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import {
   getRecords,
@@ -78,6 +81,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
   let prisma: PrismaService;
   let fieldService: FieldService;
   let knex: Knex;
+  let computedOrchestrator: ComputedOrchestratorService;
 
   beforeAll(async () => {
     const appCtx = await initApp();
@@ -86,6 +90,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
     prisma = appCtx.app.get<PrismaService>(PrismaService);
     fieldService = appCtx.app.get<FieldService>(FieldService);
     knex = appCtx.app.get('CUSTOM_KNEX');
+    computedOrchestrator = appCtx.app.get(ComputedOrchestratorService);
   });
 
   afterAll(async () => {
@@ -260,6 +265,57 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       expect((newField.options as { timeZone?: string }).timeZone?.toLowerCase()).toEqual(
         Intl.DateTimeFormat().resolvedOptions().timeZone.toLowerCase()
       );
+    });
+
+    it('should not recompute dependent fields when only defaultValue changes', async () => {
+      const statusField = await createField(table1.id, {
+        name: 'Status',
+        type: FieldType.SingleSelect,
+        options: {
+          choices: [
+            { id: 'choTodo', name: 'Todo', color: Colors.Cyan },
+            { id: 'choDone', name: 'Done', color: Colors.Blue },
+          ],
+          defaultValue: 'Todo',
+        },
+      });
+
+      const formulaField = await createField(table1.id, {
+        name: 'Status formula',
+        type: FieldType.Formula,
+        options: {
+          expression: `{${statusField.id}}`,
+        },
+      });
+
+      await updateRecordByApi(table1.id, table1.records[0].id, statusField.id, 'Todo');
+
+      const computeSpy: MockInstance = vi.spyOn(
+        computedOrchestrator,
+        'computeCellChangesForFields'
+      );
+
+      try {
+        const updatedField = await convertField(table1.id, statusField.id, {
+          type: FieldType.SingleSelect,
+          options: {
+            choices: [
+              { id: 'choTodo', name: 'Todo', color: Colors.Cyan },
+              { id: 'choDone', name: 'Done', color: Colors.Blue },
+            ],
+            defaultValue: 'Done',
+          },
+        });
+
+        expect((updatedField.options as ISelectFieldOptions).defaultValue).toEqual('Done');
+        expect(computeSpy).not.toHaveBeenCalled();
+
+        const record = await getRecord(table1.id, table1.records[0].id);
+        expect(record.fields[statusField.id]).toEqual('Todo');
+        expect(record.fields[formulaField.id]).toEqual('Todo');
+      } finally {
+        computeSpy.mockRestore();
+      }
     });
 
     it('should modify field validation', async () => {
@@ -3761,6 +3817,189 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
       });
     });
 
+    // T6208: updating lookupOptions (e.g. filter) must not wipe select choices
+    it('should preserve select lookup choices when only lookupOptions filter is updated T6208', async () => {
+      const selectField = await createField(table1.id, {
+        name: 'LanguageSource',
+        type: FieldType.SingleSelect,
+        options: {
+          choices: [
+            { name: 'Arabic', color: Colors.OrangeDark1 },
+            { name: 'English', color: Colors.BlueLight1 },
+          ],
+        },
+      });
+
+      const linkField = await createField(table2.id, {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table1.id,
+        },
+      });
+
+      const lookupField = await createField(table2.id, {
+        name: 'LanguageLookup',
+        type: FieldType.SingleSelect,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table1.id,
+          lookupFieldId: selectField.id,
+          linkFieldId: linkField.id,
+        },
+      });
+
+      expect((lookupField.options as ISelectFieldOptions).choices).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ name: 'Arabic' }),
+          expect.objectContaining({ name: 'English' }),
+        ])
+      );
+
+      // Client often re-saves with only lookupOptions / type, omitting options (or null).
+      const updated = await convertField(table2.id, lookupField.id, {
+        type: FieldType.SingleSelect,
+        isLookup: true,
+        options: null,
+        lookupOptions: {
+          foreignTableId: table1.id,
+          lookupFieldId: selectField.id,
+          linkFieldId: linkField.id,
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: selectField.id, operator: 'is', value: 'Arabic' }],
+          },
+        },
+      });
+
+      expect((updated.options as ISelectFieldOptions).choices).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ name: 'Arabic' }),
+          expect.objectContaining({ name: 'English' }),
+        ])
+      );
+      expect((updated.lookupOptions as ILookupOptionsRo).filter).toBeDefined();
+
+      // Clear filter again still without sending choices — must re-mirror from source.
+      const updatedAgain = await convertField(table2.id, lookupField.id, {
+        type: FieldType.SingleSelect,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table1.id,
+          lookupFieldId: selectField.id,
+          linkFieldId: linkField.id,
+        },
+      });
+
+      expect((updatedAgain.options as ISelectFieldOptions).choices).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ name: 'Arabic' }),
+          expect.objectContaining({ name: 'English' }),
+        ])
+      );
+
+      const persisted = await getField(table2.id, lookupField.id);
+      expect((persisted.options as ISelectFieldOptions).choices?.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it.skipIf(!canRunCanaryV2)(
+      'should preserve nested select lookup choices when renaming through v2 T6243',
+      async () => {
+        const sourceSelectField = await createField(table1.id, {
+          name: 'Source Status',
+          type: FieldType.SingleSelect,
+          options: {
+            choices: [
+              { name: 'Queued', color: Colors.BlueBright },
+              { name: 'Active', color: Colors.GreenBright },
+              { name: 'Done', color: Colors.OrangeBright },
+            ],
+          },
+        });
+        const expectedChoices = (sourceSelectField.options as ISelectFieldOptions).choices;
+
+        const middleLinkField = await createField(table2.id, {
+          name: 'Middle Link',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyOne,
+            foreignTableId: table1.id,
+          },
+        });
+        const middleLookupField = await createField(table2.id, {
+          name: 'Middle Status',
+          type: FieldType.SingleSelect,
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId: table1.id,
+            lookupFieldId: sourceSelectField.id,
+            linkFieldId: middleLinkField.id,
+          },
+        });
+
+        const hostLinkField = await createField(table3.id, {
+          name: 'Host Link',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyOne,
+            foreignTableId: table2.id,
+          },
+        });
+        const nestedLookupField = await createField(table3.id, {
+          name: 'Nested Status',
+          type: FieldType.SingleSelect,
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId: table2.id,
+            lookupFieldId: middleLookupField.id,
+            linkFieldId: hostLinkField.id,
+          },
+        });
+
+        expect((nestedLookupField.options as ISelectFieldOptions).choices).toEqual(expectedChoices);
+
+        const values = ['Queued', 'Active', 'Done'];
+        for (const [index, value] of values.entries()) {
+          await updateRecordByApi(table1.id, table1.records[index].id, sourceSelectField.id, value);
+          await updateRecordByApi(table2.id, table2.records[index].id, middleLinkField.id, {
+            id: table1.records[index].id,
+          });
+          await updateRecordByApi(table3.id, table3.records[index].id, hostLinkField.id, {
+            id: table2.records[index].id,
+          });
+        }
+
+        const recordsBeforeRename = await getRecords(table3.id, {
+          fieldKeyType: FieldKeyType.Id,
+        });
+        expect(
+          recordsBeforeRename.records.map((record) => record.fields[nestedLookupField.id]).sort()
+        ).toEqual([...values].sort());
+
+        const updated = await convertFieldByCanaryV2(table3.id, nestedLookupField.id, {
+          name: 'Renamed Nested Status',
+          type: FieldType.SingleSelect,
+          isLookup: true,
+          options: { choices: [] },
+          lookupOptions: {
+            foreignTableId: table2.id,
+            lookupFieldId: middleLookupField.id,
+            linkFieldId: hostLinkField.id,
+          },
+        });
+
+        expect((updated.options as ISelectFieldOptions).choices).toEqual(expectedChoices);
+
+        const persisted = await getField(table3.id, nestedLookupField.id);
+        expect((persisted.options as ISelectFieldOptions).choices).toEqual(expectedChoices);
+
+        const records = await getRecords(table3.id, { fieldKeyType: FieldKeyType.Id });
+        expect(records.records.map((record) => record.fields[nestedLookupField.id]).sort()).toEqual(
+          [...values].sort()
+        );
+      }
+    );
+
     it('should update lookup when the change lookupField', async () => {
       const textFieldRo: IFieldRo = {
         name: 'text',
@@ -5094,6 +5333,56 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         dropUniqueField.dbFieldName
       );
       expect(matchedIndexes2).toHaveLength(0);
+    });
+
+    it('should drop stale standalone unique index when unique is disabled', async () => {
+      const sourceField = await createField(table1.id, {
+        name: 'Stale unique text',
+        type: FieldType.SingleLineText,
+      });
+      const { records } = await createRecords(table1.id, {
+        records: [
+          { fields: { [sourceField.id]: 'alpha' } },
+          { fields: { [sourceField.id]: 'beta' } },
+        ],
+      });
+      const uniqueField = await convertField(table1.id, sourceField.id, {
+        ...sourceField,
+        unique: true,
+      });
+      const [schemaName, physicalTableName] = dbProvider.splitTableName(table1.dbTableName);
+      const staleIndexName = `${physicalTableName}_${uniqueField.dbFieldName}_unique`;
+      const staleIndexSql = knex
+        .raw('CREATE UNIQUE INDEX ?? ON ??.?? (??)', [
+          staleIndexName,
+          schemaName,
+          physicalTableName,
+          uniqueField.dbFieldName,
+        ])
+        .toQuery();
+
+      await prisma.txClient().$executeRawUnsafe(staleIndexSql);
+
+      const matchedIndexes1 = await fieldService.findUniqueIndexesForField(
+        table1.dbTableName,
+        uniqueField.dbFieldName
+      );
+      expect(matchedIndexes1).toEqual(expect.arrayContaining([staleIndexName]));
+      expect(matchedIndexes1.length).toBeGreaterThanOrEqual(2);
+
+      const dropUniqueField = await convertField(table1.id, uniqueField.id, {
+        ...uniqueField,
+        unique: false,
+      });
+      expect(dropUniqueField.unique).toEqual(false);
+
+      const matchedIndexes2 = await fieldService.findUniqueIndexesForField(
+        table1.dbTableName,
+        dropUniqueField.dbFieldName
+      );
+      expect(matchedIndexes2).toHaveLength(0);
+
+      await updateRecordByApi(table1.id, records[1].id, dropUniqueField.id, 'alpha');
     });
 
     it('should modify old unique property', async () => {

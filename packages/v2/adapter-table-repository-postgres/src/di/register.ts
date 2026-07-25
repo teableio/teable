@@ -14,12 +14,14 @@ import type { Kysely } from 'kysely';
 import type {
   ComputedUpdateLockConfig,
   ComputedUpdateOutboxConfig,
-  ComputedUpdatePollingConfig,
   FieldBackfillConfig,
   HybridWithOutboxStrategyConfig,
+  IComputedOutboxWakeupPublisher,
 } from '../record/computed';
 import {
   AsyncWithRetryStrategy,
+  ComputedActivityProjector,
+  PostgresComputedActivityReader,
   ComputedFieldBackfillService,
   ComputedFieldUpdater,
   ComputedUpdateDrainService,
@@ -27,7 +29,6 @@ import {
   ComputedUpdateOutbox,
   ComputedUpdatePauseRegistry,
   ComputedUpdatePlanner,
-  ComputedUpdatePollingService,
   ExternalComputedRefreshService,
   FieldDependencyGraph,
   HybridWithOutboxStrategy,
@@ -35,8 +36,8 @@ import {
   defaultComputedUpdateOutboxConfig,
   defaultFieldBackfillConfig,
   defaultHybridWithOutboxStrategyConfig,
-  defaultPollingConfig,
   normalizeComputedUpdateOutboxConfig,
+  noopComputedOutboxWakeupPublisher,
   ComputedUpdateWorker,
   UserRenamePropagationService,
 } from '../record/computed';
@@ -82,7 +83,7 @@ export interface IV2TableRepositoryPostgresConfig {
     hybridConfig?: Partial<HybridWithOutboxStrategyConfig>;
     outboxConfig?: Partial<ComputedUpdateOutboxConfig>;
     lockConfig?: Partial<ComputedUpdateLockConfig>;
-    pollingConfig?: Partial<ComputedUpdatePollingConfig>;
+    wakeupPublisher?: IComputedOutboxWakeupPublisher;
     /**
      * Field backfill config for computed field initialization.
      * Controls how newly created computed fields are backfilled.
@@ -189,6 +190,9 @@ export const registerV2TableRepositoryPostgresAdapter = (
       lifecycle: Lifecycle.Singleton,
     }
   );
+  c.register(v2CoreTokens.computedFieldBackfillService, ComputedFieldBackfillService, {
+    lifecycle: Lifecycle.Singleton,
+  });
 
   c.register(
     v2RecordRepositoryPostgresTokens.computedFieldCascadeService,
@@ -221,21 +225,21 @@ export const registerV2TableRepositoryPostgresAdapter = (
   };
   c.registerInstance(v2RecordRepositoryPostgresTokens.fieldBackfillConfig, fieldBackfillConfig);
 
-  const dispatchMode =
-    hybridConfig.dispatchMode ?? defaultHybridWithOutboxStrategyConfig.dispatchMode;
-  const pollingEnabled =
-    config.computedUpdate?.pollingConfig?.enabled ??
-    (dispatchMode === 'hybrid' || dispatchMode === 'external');
+  c.registerInstance(
+    v2RecordRepositoryPostgresTokens.computedOutboxWakeupPublisher,
+    config.computedUpdate?.wakeupPublisher ?? noopComputedOutboxWakeupPublisher
+  );
 
-  const pollingConfig: ComputedUpdatePollingConfig = {
-    ...defaultPollingConfig,
-    enabled: pollingEnabled,
-    pollIntervalMs: dispatchMode === 'external' ? 500 : 1000,
-    ...config.computedUpdate?.pollingConfig,
-  };
-
-  c.registerInstance(v2RecordRepositoryPostgresTokens.computedUpdatePollingConfig, pollingConfig);
-
+  c.register(
+    v2RecordRepositoryPostgresTokens.computedActivityProjector,
+    ComputedActivityProjector,
+    {
+      lifecycle: Lifecycle.Singleton,
+    }
+  );
+  c.register(v2CoreTokens.computedActivityReader, PostgresComputedActivityReader, {
+    lifecycle: Lifecycle.Singleton,
+  });
   c.register(v2RecordRepositoryPostgresTokens.computedUpdateOutbox, ComputedUpdateOutbox, {
     lifecycle: Lifecycle.Singleton,
   });
@@ -249,12 +253,6 @@ export const registerV2TableRepositoryPostgresAdapter = (
   c.register(v2RecordRepositoryPostgresTokens.computedUpdateWorker, ComputedUpdateWorker, {
     lifecycle: Lifecycle.Singleton,
   });
-  c.register(
-    v2RecordRepositoryPostgresTokens.computedUpdatePollingService,
-    ComputedUpdatePollingService,
-    { lifecycle: Lifecycle.Singleton }
-  );
-
   const strategyMode = config.computedUpdate?.mode ?? 'hybrid';
   if (strategyMode === 'hybrid') {
     c.register(v2RecordRepositoryPostgresTokens.computedUpdateStrategy, HybridWithOutboxStrategy, {

@@ -1,3 +1,4 @@
+import { SPACE_NAME_MAX_LENGTH } from '@teable/openapi';
 import { cn, Input } from '@teable/ui-lib';
 import React, { useEffect, useRef } from 'react';
 
@@ -34,6 +35,7 @@ export const SpaceRenaming: React.FC<SpaceRenamingProps> = (props) => {
         <Input
           ref={inputRef}
           className={cn('m-0.5 h-6 flex-1', className)}
+          maxLength={SPACE_NAME_MAX_LENGTH}
           value={spaceName}
           onKeyDown={handleKeyDown}
           onChange={onChange}

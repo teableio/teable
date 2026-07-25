@@ -6,10 +6,12 @@ import {
   createRecordOkResponseSchema,
   createTableOkResponseSchema,
   listTableRecordsOkResponseSchema,
+  updateRecordOkResponseSchema,
 } from '@teable/v2-contract-http';
 import { createV2ExpressRouter } from '@teable/v2-contract-http-express';
 import { getRandomString } from '@teable/v2-core';
 import express from 'express';
+import { sql } from 'kysely';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createE2eTestContainer } from './shared/createE2eTestContainer';
 
@@ -108,6 +110,27 @@ const createRecord = async (
   expect(parsed.success).toBe(true);
   if (!parsed.success || !parsed.data.ok) {
     throw new Error(`Failed to create record: ${JSON.stringify(rawBody)}`);
+  }
+  return parsed.data.data.record;
+};
+
+const updateRecord = async (
+  harness: TestHarness,
+  tableId: string,
+  recordId: string,
+  fields: Record<string, unknown>
+) => {
+  const response = await fetch(`${harness.baseUrl}/tables/updateRecord`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ tableId, recordId, fields }),
+  });
+  const rawBody = await response.json();
+  expect(response.status, JSON.stringify(rawBody)).toBe(200);
+  const parsed = updateRecordOkResponseSchema.safeParse(rawBody);
+  expect(parsed.success).toBe(true);
+  if (!parsed.success || !parsed.data.ok) {
+    throw new Error(`Failed to update record: ${JSON.stringify(rawBody)}`);
   }
   return parsed.data.data.record;
 };
@@ -241,12 +264,147 @@ const prepareLookupScenario = async (harness: TestHarness) => {
   return { targetTableId: targetTable.id, lookupFieldId };
 };
 
+const prepareLockContentionScenario = async (harness: TestHarness) => {
+  const sourceNameFieldId = createFieldId();
+  const sourceValueFieldId = createFieldId();
+  const sourceTable = await createTable(harness, {
+    baseId: harness.baseId,
+    name: `ContentionSource_${getRandomString(6)}`,
+    fields: [
+      { type: 'singleLineText', id: sourceNameFieldId, name: 'Name', isPrimary: true },
+      { type: 'number', id: sourceValueFieldId, name: 'Value' },
+    ],
+    views: [{ type: 'grid' }],
+  });
+
+  const targetNameFieldId = createFieldId();
+  const linkFieldId = createFieldId();
+  const lookupFieldId = createFieldId();
+  const formulaFieldIds = Array.from({ length: 5 }, () => createFieldId());
+  const targetTable = await createTable(harness, {
+    baseId: harness.baseId,
+    name: `ContentionTarget_${getRandomString(6)}`,
+    fields: [
+      { type: 'singleLineText', id: targetNameFieldId, name: 'Name', isPrimary: true },
+      {
+        type: 'link',
+        id: linkFieldId,
+        name: 'Source',
+        options: {
+          relationship: 'manyOne',
+          foreignTableId: sourceTable.id,
+          lookupFieldId: sourceNameFieldId,
+        },
+      },
+      {
+        type: 'lookup',
+        id: lookupFieldId,
+        name: 'SourceValue',
+        options: {
+          linkFieldId,
+          foreignTableId: sourceTable.id,
+          lookupFieldId: sourceValueFieldId,
+        },
+      },
+      {
+        type: 'formula',
+        id: formulaFieldIds[0],
+        name: 'Step1',
+        options: { expression: `SUM({${lookupFieldId}})` },
+      },
+      ...formulaFieldIds.slice(1).map((fieldId, index) => ({
+        type: 'formula',
+        id: fieldId,
+        name: `Step${index + 2}`,
+        options: { expression: `{${formulaFieldIds[index]}} + 1` },
+      })),
+    ],
+    views: [{ type: 'grid' }],
+  });
+
+  await harness.testContainer.processOutbox();
+
+  const sourceRecord = await createRecord(harness, sourceTable.id, {
+    [sourceNameFieldId]: 'Source A',
+    [sourceValueFieldId]: 100,
+  });
+  await harness.testContainer.processOutbox();
+
+  return {
+    sourceTableId: sourceTable.id,
+    sourceRecordId: sourceRecord.id,
+    sourceValueFieldId,
+    targetTableId: targetTable.id,
+    targetNameFieldId,
+    linkFieldId,
+    finalFormulaFieldId: formulaFieldIds[formulaFieldIds.length - 1],
+  };
+};
+
 describe('computed outbox recovery (e2e)', () => {
+  it('retries transient computed lock contention without the generic failure backoff', async () => {
+    const harness = await createHarness({
+      computedUpdate: {
+        hybridConfig: { dispatchMode: 'external' },
+      },
+    });
+
+    const scenario = await prepareLockContentionScenario(harness);
+    const computedLockKey = `v2:computed:${harness.baseId}:${scenario.sourceTableId}:${scenario.sourceRecordId}`;
+    let targetRecordId = '';
+    let requeuedTaskId = '';
+
+    await harness.testContainer.db.transaction().execute(async (trx) => {
+      await sql`select pg_advisory_xact_lock(
+        ('x' || substr(md5(${computedLockKey}), 1, 16))::bit(64)::bigint
+      )`.execute(trx);
+
+      await updateRecord(harness, scenario.sourceTableId, scenario.sourceRecordId, {
+        [scenario.sourceValueFieldId]: 101,
+      });
+
+      const targetRecord = await createRecord(harness, scenario.targetTableId, {
+        [scenario.targetNameFieldId]: 'Target A',
+        [scenario.linkFieldId]: { id: scenario.sourceRecordId },
+      });
+      targetRecordId = targetRecord.id;
+
+      expect(await harness.testContainer.processOutboxOnce()).toBe(0);
+
+      const pendingTask = await harness.testContainer.db
+        .selectFrom('computed_update_outbox')
+        .select(['id', 'status', 'attempts', 'next_run_at', 'updated_at', 'last_error'])
+        .where('status', '=', 'pending')
+        .executeTakeFirstOrThrow();
+
+      requeuedTaskId = pendingTask.id;
+      expect(pendingTask.attempts).toBe(0);
+      expect(pendingTask.last_error).toContain(computedLockKey);
+      expect(pendingTask.next_run_at.getTime() - pendingTask.updated_at.getTime()).toBe(250);
+    });
+
+    await waitFor(
+      async () => {
+        await harness.testContainer.processOutboxOnce();
+        const records = await listRecordsWithoutDrain(harness, scenario.targetTableId);
+        const targetRecord = records.find((record) => record.id === targetRecordId);
+        expect(targetRecord?.fields[scenario.finalFormulaFieldId]).toBe(105);
+        expect(await pendingOutboxStatuses(harness)).toHaveLength(0);
+        const requeuedTask = await harness.testContainer.db
+          .selectFrom('computed_update_outbox')
+          .select('id')
+          .where('id', '=', requeuedTaskId)
+          .executeTakeFirst();
+        expect(requeuedTask).toBeUndefined();
+      },
+      { timeoutMs: 1500, intervalMs: 25 }
+    );
+  });
+
   it('drains pending computed backlog after a restart in external mode', async () => {
     const writer = await createHarness({
       computedUpdate: {
         hybridConfig: { dispatchMode: 'external' },
-        pollingConfig: { enabled: false },
       },
     });
 
@@ -264,10 +422,10 @@ describe('computed outbox recovery (e2e)', () => {
       seedBase: false,
       computedUpdate: {
         hybridConfig: { dispatchMode: 'external' },
-        pollingConfig: { enabled: true, pollIntervalMs: 50, batchSize: 10 },
       },
     });
 
+    await reader.testContainer.processOutbox();
     await waitFor(async () => {
       const records = await listRecordsWithoutDrain(reader, targetTableId);
       expect(getLookupValues(records, lookupFieldId)).toEqual([100]);
@@ -279,7 +437,6 @@ describe('computed outbox recovery (e2e)', () => {
     const writer = await createHarness({
       computedUpdate: {
         hybridConfig: { dispatchMode: 'external' },
-        pollingConfig: { enabled: false },
       },
     });
 
@@ -301,7 +458,6 @@ describe('computed outbox recovery (e2e)', () => {
       seedBase: false,
       computedUpdate: {
         hybridConfig: { dispatchMode: 'external' },
-        pollingConfig: { enabled: true, pollIntervalMs: 50, batchSize: 10 },
         outboxConfig: {
           processingLeaseMs: 5000,
           heartbeatIntervalMs: 1000,
@@ -309,7 +465,7 @@ describe('computed outbox recovery (e2e)', () => {
       },
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(await reader.testContainer.processOutboxOnce()).toBe(0);
 
     const rows = await pendingOutboxStatuses(reader);
     expect(rows).toHaveLength(1);
@@ -323,7 +479,6 @@ describe('computed outbox recovery (e2e)', () => {
     const writer = await createHarness({
       computedUpdate: {
         hybridConfig: { dispatchMode: 'external' },
-        pollingConfig: { enabled: false },
       },
     });
 
@@ -345,7 +500,6 @@ describe('computed outbox recovery (e2e)', () => {
       seedBase: false,
       computedUpdate: {
         hybridConfig: { dispatchMode: 'external' },
-        pollingConfig: { enabled: true, pollIntervalMs: 50, batchSize: 10 },
         outboxConfig: {
           processingLeaseMs: 5000,
           heartbeatIntervalMs: 1000,
@@ -353,6 +507,7 @@ describe('computed outbox recovery (e2e)', () => {
       },
     });
 
+    await reader.testContainer.processOutbox();
     await waitFor(async () => {
       const records = await listRecordsWithoutDrain(reader, targetTableId);
       expect(getLookupValues(records, lookupFieldId)).toEqual([100]);

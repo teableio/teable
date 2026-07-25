@@ -18,6 +18,8 @@ export enum UploadType {
   App = 12,
   ChatFile = 13,
   Automation = 14,
+  RecordHistory = 15,
+  SpaceAvatar = 16,
 }
 
 export const signatureRoSchema = z.object({
@@ -27,7 +29,6 @@ export const signatureRoSchema = z.object({
     .number()
     .optional()
     .meta({ example: 60 * 60 * 1, description: 'Token expire time, seconds' }),
-  hash: z.string().optional().meta({ example: 'xxxxxxxx', description: 'File hash' }),
   type: z.enum(UploadType).meta({ example: UploadType.Table, description: 'Type' }),
   baseId: z.string().optional(),
 });

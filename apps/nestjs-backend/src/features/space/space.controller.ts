@@ -1,10 +1,25 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Body, Controller, Param, Patch, Post, Get, Delete, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Param,
+  Patch,
+  Post,
+  Get,
+  Delete,
+  Query,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { HttpErrorCode, Role } from '@teable/core';
 import type {
   ICreateSpaceVo,
   IUpdateSpaceVo,
   IGetSpaceVo,
+  IDataDbConnectionSummaryVo,
+  IDataDbMigrationJobStatusVo,
+  IDataDbPreflightVo,
   EmailInvitationVo,
   ListSpaceInvitationLinkVo,
   CreateSpaceInvitationLinkVo,
@@ -17,6 +32,10 @@ import type {
 import {
   createSpaceRoSchema,
   ICreateSpaceRo,
+  dataDbPreflightRoSchema,
+  IDataDbPreflightRo,
+  type ISpaceDataDbSummaryQuery,
+  spaceDataDbSummaryQuerySchema,
   updateSpaceRoSchema,
   IUpdateSpaceRo,
   emailSpaceInvitationRoSchema,
@@ -43,21 +62,54 @@ import {
   spaceSearchRoSchema,
   ISpaceSearchRo,
 } from '@teable/openapi';
+import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
 import { EmitControllerEvent } from '../../event-emitter/decorators/emit-controller-event.decorator';
 import { Events } from '../../event-emitter/events';
+import { avatarUploadInterceptorOptions } from '../../utils/avatar';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { InvitationService } from '../invitation/invitation.service';
+import { DataDbBindingService } from './data-db-binding.service';
+import { DataDbPreflightService } from './data-db-preflight.service';
+import {
+  migrateSpaceTargetMode,
+  spaceDataDbAdminOnlyErrorCode,
+  spaceDataDbAdminOnlyMessage,
+} from './space-data-db-migration.constants';
+import { SpaceDataDbMigrationService } from './space-data-db-migration.service';
 import { SpaceService } from './space.service';
+
+const rejectSpaceDataDbMigrationFromSpaceApi = () => {
+  throw new CustomHttpException(spaceDataDbAdminOnlyMessage, HttpErrorCode.RESTRICTED_RESOURCE, {
+    errorCode: spaceDataDbAdminOnlyErrorCode,
+  });
+};
+
 @Controller('api/space/')
 export class SpaceController {
   constructor(
-    private readonly spaceService: SpaceService,
-    private readonly invitationService: InvitationService,
-    private readonly collaboratorService: CollaboratorService
+    protected readonly spaceService: SpaceService,
+    protected readonly invitationService: InvitationService,
+    protected readonly collaboratorService: CollaboratorService,
+    protected readonly dataDbPreflightService: DataDbPreflightService,
+    protected readonly dataDbBindingService: DataDbBindingService,
+    protected readonly cls: ClsService,
+    protected readonly spaceDataDbMigrationService: SpaceDataDbMigrationService
   ) {}
+
+  @Post('data-db/preflight')
+  @Permissions('space|create')
+  async preflightDataDb(
+    @Body(new ZodValidationPipe(dataDbPreflightRoSchema))
+    dataDbPreflightRo: IDataDbPreflightRo
+  ): Promise<IDataDbPreflightVo> {
+    if (dataDbPreflightRo.targetMode === migrateSpaceTargetMode) {
+      rejectSpaceDataDbMigrationFromSpaceApi();
+    }
+    return await this.dataDbPreflightService.preflight(dataDbPreflightRo);
+  }
 
   @Post()
   @Permissions('space|create')
@@ -80,10 +132,102 @@ export class SpaceController {
     return await this.spaceService.updateSpace(spaceId, updateSpaceRo);
   }
 
+  @Permissions('space|update')
+  @UseInterceptors(FileInterceptor('file', avatarUploadInterceptorOptions))
+  @Patch(':spaceId/avatar')
+  async updateSpaceAvatar(
+    @Param('spaceId') spaceId: string,
+    @UploadedFile() file: Express.Multer.File
+  ): Promise<void> {
+    return await this.spaceService.updateSpaceAvatar(spaceId, file);
+  }
+
   @Permissions('space|read')
   @Get(':spaceId')
   async getSpaceById(@Param('spaceId') spaceId: string): Promise<IGetSpaceVo> {
     return await this.spaceService.getSpaceById(spaceId);
+  }
+
+  @Permissions('space|read')
+  @Get(':spaceId/data-db')
+  async getSpaceDataDb(
+    @Param('spaceId') spaceId: string,
+    @Query(new ZodValidationPipe(spaceDataDbSummaryQuerySchema))
+    query: ISpaceDataDbSummaryQuery
+  ): Promise<IDataDbConnectionSummaryVo> {
+    return await this.dataDbPreflightService.getSummary(spaceId, query);
+  }
+
+  @Permissions('space|update')
+  @Patch(':spaceId/data-db')
+  async updateSpaceDataDb(
+    @Param('spaceId') spaceId: string,
+    @Body(new ZodValidationPipe(dataDbPreflightRoSchema))
+    dataDbPreflightRo: IDataDbPreflightRo
+  ): Promise<IDataDbConnectionSummaryVo> {
+    if (dataDbPreflightRo.targetMode === migrateSpaceTargetMode) {
+      rejectSpaceDataDbMigrationFromSpaceApi();
+    }
+    await this.dataDbBindingService.updateBindingForSpace(
+      spaceId,
+      this.cls.get('user.id') ?? '',
+      dataDbPreflightRo
+    );
+    return await this.dataDbPreflightService.getSummary(spaceId);
+  }
+
+  @Permissions('space|update')
+  @Post(':spaceId/data-db/retest')
+  async retestSpaceDataDb(@Param('spaceId') spaceId: string): Promise<IDataDbConnectionSummaryVo> {
+    await this.dataDbBindingService.retestBinding(spaceId);
+    return await this.dataDbPreflightService.getSummary(spaceId);
+  }
+
+  @Permissions('space|update')
+  @Post(':spaceId/data-db/retry')
+  async retrySpaceDataDbMigration(
+    @Param('spaceId') spaceId: string
+  ): Promise<IDataDbConnectionSummaryVo> {
+    await this.dataDbBindingService.retryMigrationForSpace(spaceId);
+    return await this.dataDbPreflightService.getSummary(spaceId);
+  }
+
+  @Permissions('space|read')
+  @Get(':spaceId/data-db/migration/:jobId')
+  async getSpaceDataDbMigration(
+    @Param('spaceId') spaceId: string,
+    @Param('jobId') jobId: string
+  ): Promise<IDataDbMigrationJobStatusVo> {
+    rejectSpaceDataDbMigrationFromSpaceApi();
+    return await this.spaceDataDbMigrationService.getMigrationJobStatus(spaceId, jobId);
+  }
+
+  @Permissions('space|update')
+  @Post(':spaceId/data-db/migration/:jobId/cancel')
+  async cancelSpaceDataDbMigration(
+    @Param('spaceId') spaceId: string,
+    @Param('jobId') jobId: string
+  ): Promise<IDataDbMigrationJobStatusVo> {
+    rejectSpaceDataDbMigrationFromSpaceApi();
+    return await this.spaceDataDbMigrationService.cancelMigrationForSpace(
+      spaceId,
+      jobId,
+      this.cls.get('user.id') ?? ''
+    );
+  }
+
+  @Permissions('space|update')
+  @Post(':spaceId/data-db/migration/:jobId/rollback')
+  async rollbackSpaceDataDbMigration(
+    @Param('spaceId') spaceId: string,
+    @Param('jobId') jobId: string
+  ): Promise<IDataDbMigrationJobStatusVo> {
+    rejectSpaceDataDbMigrationFromSpaceApi();
+    return await this.spaceDataDbMigrationService.rollbackMigrationForSpace(
+      spaceId,
+      jobId,
+      this.cls.get('user.id') ?? ''
+    );
   }
 
   @Permissions('space|read')

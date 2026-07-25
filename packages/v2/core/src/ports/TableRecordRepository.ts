@@ -9,6 +9,7 @@ import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/s
 import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellValueSpecVisitor';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { Table } from '../domain/table/Table';
+import type { IBatchMutationOrchestration } from './BatchMutationOrchestration';
 import type { IExecutionContext } from './ExecutionContext';
 
 export interface RecordStoredSnapshot {
@@ -124,6 +125,11 @@ export interface InsertManyStreamProgress {
  */
 export interface InsertManyStreamOptions {
   /**
+   * Batch write orchestration metadata for realtime/computed projection grouping.
+   */
+  orchestration?: IBatchMutationOrchestration | undefined;
+
+  /**
    * Callback invoked after the corresponding yielded batch is persisted.
    * `batchIndex` follows the source iterable emission order so callers can
    * safely align per-batch metadata with callback invocations.
@@ -153,6 +159,13 @@ export interface InsertManyStreamOptions {
    * related tables and junction rows are present.
    */
   skipComputedUpdates?: boolean;
+
+  /**
+   * When true, adapters may skip returning per-field changed values for each
+   * inserted record. Restore-style callers that only need persistence/progress
+   * can avoid sending large inserted values back over the database connection.
+   */
+  skipChangedFields?: boolean;
 }
 
 /**
@@ -212,6 +225,11 @@ export interface UpdateManyStreamProgress {
  * Options for streaming update operations.
  */
 export interface UpdateManyStreamOptions {
+  /**
+   * Batch write orchestration metadata for realtime/computed projection grouping.
+   */
+  orchestration?: IBatchMutationOrchestration | undefined;
+
   /** Callback invoked after each batch is updated */
   onBatchUpdated?: (progress: UpdateManyStreamProgress) => void;
 
@@ -242,6 +260,13 @@ export interface UpdateManyStreamOptions {
    * Foreign tables referenced by missing-title link payloads.
    */
   fillLinkTitleForeignTables?: ReadonlyMap<string, Table>;
+
+  /**
+   * When true, link fields in the batch are known to have no existing persisted
+   * relation state, so adapters can skip loading old link ids while collecting
+   * relation impact.
+   */
+  assumeEmptyLinkState?: boolean;
 }
 
 /**
@@ -310,8 +335,8 @@ export interface RecordRestoreSystemValues {
   autoNumber?: number;
   createdTime?: string;
   createdBy?: string;
-  lastModifiedTime?: string;
-  lastModifiedBy?: string;
+  lastModifiedTime?: string | null;
+  lastModifiedBy?: string | null;
   /** Preserve per-view row-order snapshot during undo/redo restore. */
   orders?: Readonly<Record<string, number>>;
   /**
@@ -327,6 +352,11 @@ export interface RecordRestoreSystemValues {
  */
 export interface InsertOptions {
   /**
+   * Batch write orchestration metadata for realtime/computed projection grouping.
+   */
+  orchestration?: IBatchMutationOrchestration | undefined;
+
+  /**
    * Optional ordering specification for the inserted record(s).
    * When provided, records will be positioned relative to an anchor record
    * in the specified view, rather than appending to the end.
@@ -338,6 +368,13 @@ export interface InsertOptions {
    * Keys are stringified record ids.
    */
   restoreRecordsById?: ReadonlyMap<string, RecordRestoreSystemValues>;
+
+  /**
+   * When true, computed planning for this insert may include tables whose
+   * schema/data provisioning is still pending. Used by create-table flows while
+   * inserting initial records before the table is marked ready.
+   */
+  allowPendingTableProvisionForComputedUpdates?: boolean;
 
   /**
    * Optional record ids whose table trash metadata should be removed within
@@ -361,6 +398,11 @@ export interface InsertOptions {
 }
 
 export interface UpdateOptions {
+  /**
+   * Batch write orchestration metadata for realtime/computed projection grouping.
+   */
+  orchestration?: IBatchMutationOrchestration | undefined;
+
   /**
    * When true, computed field updates are deferred to a background worker
    * instead of being processed inline after the update statement.
@@ -390,6 +432,51 @@ export interface UpdateOptions {
   fillLinkTitleForeignTables?: ReadonlyMap<string, Table>;
 }
 
+/**
+ * Column mapping for server-side table row duplication (`INSERT … SELECT`).
+ * `sourceSql` is a SQL expression (quoted column or constant like `1`).
+ */
+export type PhysicalTableDuplicateColumn = {
+  readonly targetColumn: string;
+  readonly sourceSql: string;
+};
+
+/**
+ * Junction (or multi-host) table copy: `INSERT INTO target (self, foreign)
+ * SELECT self, foreign FROM source`. Used for manyMany / one-way oneMany links.
+ */
+export type PhysicalJunctionCopy = {
+  readonly sourceJunctionTable: string;
+  readonly targetJunctionTable: string;
+  readonly sourceSelfKey: string;
+  readonly sourceForeignKey: string;
+  readonly targetSelfKey: string;
+  readonly targetForeignKey: string;
+};
+
+/**
+ * Plan for copying rows between two physical tables in the same database
+ * without hydrating domain records.
+ */
+export type PhysicalTableDuplicatePlan = {
+  readonly sourceTableName: string;
+  readonly targetTableName: string;
+  readonly columns: ReadonlyArray<PhysicalTableDuplicateColumn>;
+  /**
+   * Target view-order columns (`__row_{viewId}`) that must exist before copy.
+   */
+  readonly ensureTargetOrderColumns: ReadonlyArray<string>;
+  /**
+   * Optional junction/host-table copies for external link storage (T6156).
+   */
+  readonly junctionCopies: ReadonlyArray<PhysicalJunctionCopy>;
+};
+
+export type PhysicalTableDuplicateResult = {
+  readonly rowCount: number;
+  readonly recordIds: ReadonlyArray<string>;
+};
+
 export interface ITableRecordRepository {
   insert(
     context: IExecutionContext,
@@ -403,6 +490,20 @@ export interface ITableRecordRepository {
     records: ReadonlyArray<TableRecord>,
     options?: InsertOptions
   ): Promise<Result<BatchRecordMutationResult, DomainError>>;
+
+  /**
+   * Copy rows from a source physical table into a target table via a single
+   * server-side `INSERT … SELECT` (no per-row domain hydration).
+   *
+   * Used by table duplicate for bulk data clone when the plan is fully
+   * expressible in SQL (column remap, constants). Callers are responsible for
+   * building a safe plan (excluding computed/button columns, remapping view
+   * order columns, etc.).
+   */
+  duplicatePhysicalRows(
+    context: IExecutionContext,
+    plan: PhysicalTableDuplicatePlan
+  ): Promise<Result<PhysicalTableDuplicateResult, DomainError>>;
 
   /**
    * Insert records from a streaming/batched source.

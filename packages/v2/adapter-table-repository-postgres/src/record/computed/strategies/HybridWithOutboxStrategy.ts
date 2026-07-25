@@ -3,6 +3,7 @@ import type {
   FieldId,
   TableId,
   DomainError,
+  IBatchMutationOrchestration,
   IExecutionContext,
   IHasher,
   ILogger,
@@ -20,13 +21,17 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { v2RecordRepositoryPostgresTokens } from '../../di/tokens';
-import { buildBeforeImageRecordsFromStepChanges } from '../ComputedBeforeImageFromChanges';
+import {
+  buildBeforeImageRecordsFromStepChanges,
+  mergeBeforeImageRecords,
+} from '../ComputedBeforeImageFromChanges';
 import type {
   ComputedFieldUpdater,
   ComputedUpdateResult,
   PreparedDirtyState,
   StepChangeData,
 } from '../ComputedFieldUpdater';
+import { isComputedUpdateLockUnavailable } from '../ComputedUpdateLock';
 import type {
   ComputedSeedGroup,
   ComputedUpdatePlan,
@@ -42,7 +47,11 @@ import {
 import { buildOutboxTaskInput } from '../outbox/ComputedUpdateOutboxPayload';
 import type { IComputedUpdateOutbox } from '../outbox/IComputedUpdateOutbox';
 import type { ComputedUpdateWorker } from '../worker/ComputedUpdateWorker';
-import type { IUpdateStrategy, UpdateStrategyMode } from './IUpdateStrategy';
+import type {
+  IUpdateStrategy,
+  UpdateStrategyExecuteOptions,
+  UpdateStrategyMode,
+} from './IUpdateStrategy';
 
 /**
  * Dispatch mode for async computed updates:
@@ -51,13 +60,11 @@ import type { IUpdateStrategy, UpdateStrategyMode } from './IUpdateStrategy';
  *           Fast but has race condition if delay is too short.
  *           Use `dispatchDelayMs >= 50` to allow transaction commit.
  *
- * - `external`: No inline dispatch - relies on external worker polling.
- *               Most reliable, recommended for production.
- *               Latency depends on worker poll interval.
+ * - `external`: No inline dispatch - relies on an external wake-up worker.
+ *               Recommended when BullMQ owns asynchronous delivery.
  *
- * - `hybrid`: Push with external fallback. Tries inline dispatch
- *             but external worker catches any missed tasks.
- *             Best of both worlds for production with low latency.
+ * - `hybrid`: Push plus external delivery. Tries inline dispatch while
+ *             the external worker handles queued wake-ups.
  */
 export type DispatchMode = 'push' | 'external' | 'hybrid';
 
@@ -97,7 +104,7 @@ export const defaultHybridWithOutboxStrategyConfig: HybridWithOutboxStrategyConf
   syncMaxDirtyPerTable: 2000,
   syncMaxTotalDirty: 5000,
   syncMaxLevelHardCap: 1,
-  // Default to external polling for restart-safe production behavior.
+  // Default to external BullMQ delivery for restart-safe production behavior.
   dispatchMode: 'external',
   dispatchWorkerLimit: 50,
   dispatchWorkerId: 'computed-inline',
@@ -113,7 +120,7 @@ const maxComputedEventLogRecordIds = 10;
  */
 export const productionHybridWithOutboxStrategyConfig: HybridWithOutboxStrategyConfig = {
   ...defaultHybridWithOutboxStrategyConfig,
-  dispatchMode: 'external', // Rely on external worker polling
+  dispatchMode: 'external', // Rely on the external wake-up worker
 };
 
 /**
@@ -163,7 +170,8 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
   async execute(
     updater: ComputedFieldUpdater,
     plan: ComputedUpdatePlan,
-    context: IExecutionContext
+    context: IExecutionContext,
+    options?: UpdateStrategyExecuteOptions
   ): Promise<Result<ComputedUpdateResult | undefined, DomainError>> {
     if (
       plan.steps.length === 0 ||
@@ -211,10 +219,46 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
       });
       const lockResult = await updater.acquireLocks(currentPlan, context, {
         logContext: toRunLogContext(run),
+        wait: false,
       });
-      if (lockResult.isErr()) return err(lockResult.error);
 
       const runLogger = this.logger.child(toRunLogContext(run));
+      if (lockResult.isErr()) {
+        if (!isComputedUpdateLockUnavailable(lockResult.error)) return err(lockResult.error);
+
+        const task = buildOutboxTaskInput({
+          plan: currentPlan,
+          dirtyStats: prepared.value.dirtyStats,
+          syncMaxLevel: -1,
+          hasher: this.hasher,
+          runId,
+          originRunIds: [...originRunIds],
+          runTotalSteps: totalSteps,
+          runCompletedStepsBefore: completedSteps,
+          affectedFieldIds: collectStepFieldIds(currentPlan).map((id) => id.toString()),
+          affectedTableIds: collectStepTableIds(currentPlan).map((id) => id.toString()),
+          orchestration: options?.orchestration,
+        });
+        const enqueueResult = await this.outbox.enqueueOrMerge(task, context);
+        if (enqueueResult.isErr()) {
+          runLogger.warn('computed:outbox:enqueue_failed', {
+            error: enqueueResult.error.message,
+            planHash: task.planHash,
+            reason: 'lock_unavailable',
+          });
+          return err(enqueueResult.error);
+        }
+
+        runLogger.info('computed:run:queued', {
+          taskId: enqueueResult.value.taskId,
+          pendingSteps: currentPlan.steps.length,
+          asyncStepCount: currentPlan.steps.length,
+          reason: 'lock_unavailable',
+        });
+
+        this.scheduleDispatch(context);
+        return ok({ changesByStep: allSyncChangesByStep });
+      }
 
       runLogger.info('computed:run:start', {
         baseId: currentPlan.baseId.toString(),
@@ -272,14 +316,55 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
               prepared.value,
               syncSteps,
               run,
-              true
+              true,
+              {
+                wait: false,
+                logContext: toRunLogContext(run),
+              }
             );
       const syncResult =
         runSpan && context.tracer
           ? await context.tracer.withSpan(runSpan, syncWork)
           : await syncWork();
       runSpan?.end();
-      if (syncResult.isErr()) return err(syncResult.error);
+      if (syncResult.isErr()) {
+        // Dirty-target locks use wait=false; requeue the whole stage on conflict so a later
+        // worker recomputes against the latest committed source values.
+        if (!isComputedUpdateLockUnavailable(syncResult.error)) return err(syncResult.error);
+
+        const task = buildOutboxTaskInput({
+          plan: currentPlan,
+          dirtyStats: prepared.value.dirtyStats,
+          syncMaxLevel: -1,
+          hasher: this.hasher,
+          runId,
+          originRunIds: [...originRunIds],
+          runTotalSteps: totalSteps,
+          runCompletedStepsBefore: completedSteps,
+          affectedFieldIds: collectStepFieldIds(currentPlan).map((id) => id.toString()),
+          affectedTableIds: collectStepTableIds(currentPlan).map((id) => id.toString()),
+          orchestration: options?.orchestration,
+        });
+        const enqueueResult = await this.outbox.enqueueOrMerge(task, context);
+        if (enqueueResult.isErr()) {
+          runLogger.warn('computed:outbox:enqueue_failed', {
+            error: enqueueResult.error.message,
+            planHash: task.planHash,
+            reason: 'dirty_target_lock_unavailable',
+          });
+          return err(enqueueResult.error);
+        }
+
+        runLogger.info('computed:run:queued', {
+          taskId: enqueueResult.value.taskId,
+          pendingSteps: currentPlan.steps.length,
+          asyncStepCount: currentPlan.steps.length,
+          reason: 'dirty_target_lock_unavailable',
+        });
+
+        this.scheduleDispatch(context);
+        return ok({ changesByStep: allSyncChangesByStep });
+      }
 
       // Accumulate sync changes from this stage
       allSyncChangesByStep.push(...syncResult.value.changesByStep);
@@ -288,7 +373,7 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
       const events = buildComputedUpdateEvents(
         syncResult.value.changesByStep,
         currentPlan.baseId,
-        context.batchMutation
+        options?.orchestration
       );
       if (events.length > 0) {
         const publish = async () => {
@@ -350,7 +435,7 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
           runCompletedStepsBefore: completedSteps,
           affectedFieldIds: stageFieldIds.map((id) => id.toString()),
           affectedTableIds: stageTableIds.map((id) => id.toString()),
-          orchestration: context.batchMutation,
+          orchestration: options?.orchestration,
         });
 
         const enqueueResult = await this.outbox.enqueueOrMerge(task, context);
@@ -424,11 +509,11 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
   }
 
   scheduleDispatch(context: IExecutionContext): void {
-    // 'external' mode: no inline dispatch, rely on external worker polling
+    // 'external' mode: no inline dispatch; BullMQ owns asynchronous delivery.
     if (this.config.dispatchMode === 'external') {
       this.logger.debug('computed:outbox:dispatch_skipped', {
         reason: 'external_mode',
-        message: 'Task enqueued, waiting for external worker to poll',
+        message: 'Task enqueued, waiting for an external wake-up',
       });
       return;
     }
@@ -480,7 +565,9 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
           continue;
         }
 
-        if (result.value < limit) {
+        // Any progress may have enqueued the next cascade stage; keep draining until
+        // an empty poll proves the queue is idle (T6191 / dual-link propagation).
+        if (result.value <= 0) {
           shouldContinue = false;
         }
       }
@@ -512,13 +599,19 @@ export class HybridWithOutboxStrategy implements IUpdateStrategy {
     });
     if (beforeImageResult.isErr()) return err(beforeImageResult.error);
 
+    // Carry original mutation before-image (filter fields) into follow-up stages.
+    const beforeImageRecords = mergeBeforeImageRecords(
+      plan.beforeImageRecords ?? [],
+      beforeImageResult.value
+    );
+
     return this.planner.planStage(
       {
         baseId: plan.baseId,
         seedTableId: seedSplit.seedTableId,
         seedRecordIds: seedSplit.seedRecordIds,
         extraSeedRecords: seedSplit.extraSeedRecords,
-        beforeImageRecords: beforeImageResult.value,
+        beforeImageRecords,
         changedFieldIds: seedFieldIds,
         changeType:
           plan.changeType === 'insert' || plan.changeType === 'delete' ? 'update' : plan.changeType,
@@ -574,10 +667,38 @@ const splitStepsByPolicy = (
   }
 
   if (config.syncPolicy === 'seedTableOnly') {
-    const syncSteps = plan.steps.filter((step) => step.tableId.toString() === seedTableId);
+    const seedSteps = plan.steps.filter((step) => step.tableId.toString() === seedTableId);
+    const dirtyCountByTable = new Map(
+      prepared.dirtyStats.map((stat) => [stat.tableId, stat.recordCount])
+    );
+    const seedLevels = [...new Set(seedSteps.map((step) => step.level))].sort((a, b) => a - b);
+
+    let syncMaxLevel = -1;
+    let cumulativeDirty = 0;
+
+    for (const level of seedLevels) {
+      const levelSteps = seedSteps.filter((step) => step.level === level);
+      const tableIds = new Set(levelSteps.map((step) => step.tableId.toString()));
+      let levelTotal = 0;
+      let levelMax = 0;
+
+      for (const tableId of tableIds) {
+        const count = dirtyCountByTable.get(tableId) ?? 0;
+        levelTotal += count;
+        levelMax = Math.max(levelMax, count);
+      }
+
+      cumulativeDirty += levelTotal;
+
+      if (levelMax > config.syncMaxDirtyPerTable) break;
+      if (cumulativeDirty > config.syncMaxTotalDirty) break;
+
+      syncMaxLevel = level;
+    }
+
+    const syncSteps = seedSteps.filter((step) => step.level <= syncMaxLevel);
     const syncStepKeys = new Set(syncSteps.map(syncStepKey));
     const asyncSteps = plan.steps.filter((step) => !syncStepKeys.has(syncStepKey(step)));
-    const syncMaxLevel = syncSteps.reduce((acc, step) => Math.max(acc, step.level), -1);
     return { syncSteps, asyncSteps, syncMaxLevel };
   }
 
@@ -634,7 +755,7 @@ const splitStepsByPolicy = (
 const buildComputedUpdateEvents = (
   changesByStep: ReadonlyArray<StepChangeData>,
   baseId: BaseId,
-  orchestration?: IExecutionContext['batchMutation']
+  orchestration?: IBatchMutationOrchestration
 ): RecordsBatchUpdated[] => {
   if (changesByStep.length === 0) return [];
 

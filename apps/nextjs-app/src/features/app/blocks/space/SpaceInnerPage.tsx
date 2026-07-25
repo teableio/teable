@@ -30,6 +30,7 @@ import { useIsCloud } from '../../hooks/useIsCloud';
 import { useSetting } from '../../hooks/useSetting';
 import { useTemplateMonitor } from '../base/duplicate/useTemplateMonitor';
 import { BaseList } from './BaseList';
+import { DataDbBadge } from './DataDbBadge';
 import { StarButton } from './space-side-bar/StarButton';
 import { useBaseList } from './useBaseList';
 
@@ -150,10 +151,12 @@ export const SpaceInnerPage: React.FC = () => {
           organization={space.organization}
           onUpgradeClick={handleOpenUpgrade}
           appSumoTier={subscriptionSummary?.appSumoTier}
-        />
+        >
+          <DataDbBadge dataDb={space.dataDb} />
+        </LevelWithUpgrade>
       );
     }
-    return null;
+    return <DataDbBadge dataDb={space?.dataDb} />;
   };
 
   const renderOrganization = () => {
@@ -164,16 +167,30 @@ export const SpaceInnerPage: React.FC = () => {
   };
 
   useEffect(() => {
-    const { subscribeLevel, host } = router.query;
-    if (!subscribeLevel) return;
+    const { subscribeLevel, host, settingTab } = router.query;
 
-    if (host === 'self-hosted') {
-      setSettingDefaultTab(PersonalSettingTab.LicensePlan);
-      setSettingModalOpen(true);
-    } else if (isCloud && space?.role === Role.Owner) {
-      setSettingDefaultTab(SpaceSettingTab.Plan);
-      setSettingModalOpen(true);
+    let tab: SpaceSettingTab | PersonalSettingTab | undefined;
+
+    if (subscribeLevel) {
+      if (host === 'self-hosted') {
+        tab = PersonalSettingTab.LicensePlan;
+      } else if (isCloud && space?.role === Role.Owner) {
+        tab = SpaceSettingTab.Plan;
+      }
+    } else if (settingTab) {
+      tab = settingTab as SpaceSettingTab;
     }
+
+    if (!tab) return;
+
+    setSettingDefaultTab(tab);
+    setSettingModalOpen(true);
+
+    if (settingTab) {
+      const { settingTab: _, ...rest } = router.query;
+      router.replace({ pathname: router.pathname, query: rest }, undefined, { shallow: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.query, isCloud, space?.role]);
 
   return (

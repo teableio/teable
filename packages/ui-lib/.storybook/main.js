@@ -2,7 +2,7 @@ const path = require('path');
 const TsconfigPathsPlugin = require('tsconfig-paths-webpack-plugin');
 
 module.exports = {
-  framework: '@storybook/react',
+  framework: '@storybook/react-webpack5',
   core: {
     builder: {
       name: 'webpack5',
@@ -16,12 +16,7 @@ module.exports = {
   // - https://github.com/storybookjs/storybook/issues/18094
   // @link https://github.com/storybookjs/storybook/blob/next/MIGRATION.md#react18-new-root-api
   reactOptions: { legacyRootApi: true },
-  stories: ['../src/**/*.stories.mdx', '../src/**/*.stories.@(ts|tsx|js|jsx)'],
-  features: {
-    // Still issues with mdx2 and react 18
-    // @link https://github.com/storybookjs/storybook/blob/next/MIGRATION.md#opt-in-mdx2-support
-    previewMdx2: false,
-  },
+  stories: ['../src/**/*.stories.@(ts|tsx|js|jsx)'],
   babel: (config) => {
     // config.presets.push(require.resolve('@emotion/babel-preset-css-prop'));
     return config;
@@ -33,19 +28,33 @@ module.exports = {
         configFile: path.resolve(__dirname, '../tsconfig.json'),
       })
     );
+    config.resolve.extensions = Array.from(
+      new Set([...(config.resolve.extensions || []), '.ts', '.tsx'])
+    );
+    config.watchOptions = {
+      ...(config.watchOptions || {}),
+      ignored: ['**/node_modules/**', '**/dist/**', '**/build/**', '**/.cache/**'],
+    };
+    config.module.rules.push({
+      test: /\.(ts|tsx)$/,
+      include: path.resolve(__dirname, '../src'),
+      use: [
+        {
+          loader: require.resolve('babel-loader'),
+          options: {
+            presets: [
+              [require.resolve('@babel/preset-react'), { runtime: 'automatic' }],
+              require.resolve('@babel/preset-typescript'),
+            ],
+          },
+        },
+      ],
+    });
     return config;
   },
   addons: [
     '@storybook/addon-links',
     '@storybook/addon-essentials',
-    {
-      name: '@storybook/addon-storysource',
-      options: {
-        loaderOptions: {
-          injectStoryParameters: true,
-        },
-      },
-    },
     {
       name: '@storybook/addon-postcss',
       options: {

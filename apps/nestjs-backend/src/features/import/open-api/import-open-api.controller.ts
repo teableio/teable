@@ -16,6 +16,7 @@ import {
   importOptionRoSchema,
   IInplaceImportOptionRo,
   inplaceImportOptionRoSchema,
+  SUPPORTEDTYPE,
 } from '@teable/openapi';
 import type { ITableFullVo, IAnalyzeVo, IImportStatusVo } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
@@ -27,11 +28,12 @@ import { PermissionGuard } from '../../auth/guard/permission.guard';
 import { UseV2Feature } from '../../canary/decorators/use-v2-feature.decorator';
 import { V2FeatureGuard } from '../../canary/guards/v2-feature.guard';
 import { V2IndicatorInterceptor } from '../../canary/interceptors/v2-indicator.interceptor';
+import { TableBaseScopeGuard } from '../../table/guard/table-base-scope.guard';
 import { ImportOpenApiV2Service } from './import-open-api-v2.service';
 import { ImportOpenApiService } from './import-open-api.service';
 
 @Controller('api/import')
-@UseGuards(PermissionGuard, V2FeatureGuard)
+@UseGuards(PermissionGuard, V2FeatureGuard, TableBaseScopeGuard)
 @UseInterceptors(V2IndicatorInterceptor)
 export class ImportController {
   constructor(
@@ -55,12 +57,22 @@ export class ImportController {
   }
 
   @Post(':baseId')
+  @UseV2Feature('importCsv')
   @Permissions('base|table_import')
   @TokenAccess()
   async createTableFromImport(
     @Param('baseId') baseId: string,
     @Body(new ZodValidationPipe(importOptionRoSchema)) importRo: IImportOptionRo
   ): Promise<ITableFullVo[]> {
+    if (this.cls.get('useV2') && importRo.fileType === SUPPORTEDTYPE.CSV) {
+      return await this.importOpenApiV2Service.createTableFromCsvImport(baseId, importRo);
+    }
+
+    if (this.cls.get('useV2')) {
+      this.cls.set('useV2', false);
+      this.cls.set('v2Reason', 'unsupported_feature');
+    }
+
     return await this.importOpenService.createTableFromImport(baseId, importRo);
   }
 

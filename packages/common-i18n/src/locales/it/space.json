@@ -9,7 +9,8 @@
   "action": {
     "createBase": "Crea una base",
     "createSpace": "Crea uno spazio",
-    "invite": "Invita"
+    "invite": "Invita",
+    "startFromScratch": "Inizia da zero"
   },
   "allSpaces": "Tutti gli spazi",
   "emptySpaceTitle": "Non ci sono basi in questo spazio",
@@ -25,7 +26,6 @@
     "duplicateBase": "Duplica base",
     "missTargetTip": "Seleziona uno spazio per duplicare la base.",
     "copying": "Duplicazione della base in corso, potrebbe richiedere del tempo...",
-    "copyingTemplate": "Creazione della base da modello in corso, potrebbe richiedere del tempo...",
     "howToCreate": "Come vuoi iniziare?",
     "fromScratch": "Da zero",
     "fromTemplate": "Da modello",
@@ -37,7 +37,6 @@
     "general": "Generale",
     "collaborators": "Collaboratori",
     "generalDescription": "Modifica qui le impostazioni per il tuo spazio corrente",
-    "collaboratorDescription": "Gestisci i collaboratori del tuo spazio e imposta i loro permessi di accesso",
     "spaceName": "Nome dello spazio",
     "spaceId": "ID dello spazio"
   },
@@ -52,8 +51,6 @@
   },
   "tip": {
     "delete": "Sei sicuro di voler eliminare <0/>?",
-    "title": "Suggerimenti",
-    "exportTips1": "Esporta la base corrente come file .tea, il che potrebbe richiedere del tempo. Puoi controllare i risultati dell'esportazione nel centro notifiche.",
     "exportTips2": "Puoi importare il file .tea in spazio -> altro -> importa",
     "exportTips3": "I campi di relazione tra basi saranno convertiti in testo a riga singola.",
     "exportIncludeDataLabel": "Includi record",
@@ -71,31 +68,21 @@
   "deleteSpaceModal": {
     "title": "Elimina spazio",
     "blockedTitle": "Impossibile eliminare questo spazio",
-    "blockedDesc": "Questo spazio ha un abbonamento attivo. Si prega di annullare l'abbonamento prima di eliminare lo spazio.",
-    "permanentDeleteWarning": "Questa azione eliminerà definitivamente tutte le risorse e i dati nello spazio corrente. Si prega di procedere con cautela!",
-    "confirmInputLabel": "Si prega di digitare DELETE per confermare l'eliminazione"
+    "blockedDesc": "Questo spazio ha un abbonamento attivo. Si prega di annullare l'abbonamento prima di eliminare lo spazio."
   },
   "sharedBase": {
     "title": "Basi condivise",
     "description": "Tutte le basi a cui sono stato invitato a partecipare",
     "empty": "Nessuna base condivisa ancora"
   },
-  "integration": {
-    "title": "Integrazioni",
-    "description": "Gestisci le integrazioni del tuo spazio",
-    "addIntegration": "Aggiungi integrazione",
-    "ai": "AI"
-  },
+  "integration": {},
   "aiSetting": {
     "title": "Impostazioni AI",
     "description": "Gestisci le impostazioni AI del tuo spazio",
-    "enableTips": "Abilita l'AI per utilizzare le funzionalità AI nel tuo spazio invece di usare l'AI di sistema",
-    "enable": "Inizializza impostazioni AI",
-    "enableSwitchTips": "Si prega di configurare il modello di coding prima di abilitare"
+    "enable": "Inizializza impostazioni AI"
   },
   "import": {
     "importing": "Importazione in corso",
-    "importWayTip": "Clicca o trascina il file in quest'area per caricarlo",
     "baseImportTips": "Clicca o trascina il file .tea in quest'area per caricarlo",
     "confirm": "Conferma e continua",
     "phase": {
@@ -139,7 +126,7 @@
   },
   "baseList": {
     "allBases": "Tutte le basi",
-    "owner": "Proprietario",
+    "creator": "Creatore",
     "createdTime": "Creato",
     "lastOpened": "Ultima apertura",
     "enter": "Entra",
@@ -154,12 +141,10 @@
       "title": "Titolo",
       "description": "Descrizione",
       "security": "Sicurezza",
-      "includeNodes": "Includi nodi",
       "advanced": "Avanzate",
       "publishNode": "Pubblica nodi",
       "includeData": "Includi dati",
       "defaultActiveNode": "Nodo attivo predefinito",
-      "select": "seleziona",
       "descriptionPlaceholder": "Descrivi brevemente la tua idea...",
       "titlePlaceholder": "Dai un nome al tuo lavoro..."
     },
@@ -172,7 +157,6 @@
     "unPublishSuccess": "Pubblicazione base annullata con successo!",
     "unPublishConfirmTitle": "Conferma annullamento pubblicazione",
     "unPublishConfirmDescription": "Sei sicuro di voler annullare la pubblicazione di questa base? Non sarà più visibile nel centro modelli.",
-    "usageCount": "Conteggio utilizzo: ",
     "uploadCover": "Clicca per caricare l'immagine di copertina",
     "changeCover": "Clicca per cambiare copertina",
     "uploading": "Caricamento immagine...",
@@ -207,5 +191,66 @@
       "redeploy": "Ridistribuisci",
       "unnamedApp": "App senza nome"
     }
+  },
+  "airtableImport": {
+    "title": "Importa da Airtable",
+    "close": "Chiudi",
+    "pickBase": "Scegli la base da importare",
+    "noBases": "Nessuna base accessibile trovata per questo token.",
+    "optionRecords": "Importa i record",
+    "optionAttachments": "Scarica e importa gli allegati",
+    "import": "Avvia importazione",
+    "done": "Importazione completata",
+    "failed": "Importazione non riuscita",
+    "openBase": "Apri la base",
+    "issuesSummary": "{{count}} elementi sono stati adattati durante l'importazione:",
+    "issuesMore": "+{{count}} altri",
+    "issue": {
+      "fieldDegraded": "{{tableName}} / {{fieldName}}: {{fromType}} → {{toType}}",
+      "fieldSkipped": "{{tableName}} / {{fieldName}} ({{fromType}}) saltato: {{reason}}",
+      "viewSkipped": "{{tableName}} / vista \"{{viewName}}\" ({{fromType}}) saltata",
+      "valuesDropped": "{{tableName}} / {{fieldName}}: {{count}} valori scartati ({{reason}})",
+      "viewConfigDegraded": "{{tableName}} / vista \"{{viewName}}\": {{reason}}"
+    },
+    "phase": {
+      "fetchingSchema": "Lettura della struttura della base Airtable",
+      "creatingBase": "Creazione della base: {{detail}}",
+      "creatingTable": "Creazione della tabella: {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "creatingLinks": "Creazione dei campi di collegamento",
+      "fillingLinks": "{{tableName}} (collegamenti)",
+      "applyingViewConfig": "Importazione della configurazione delle viste"
+    },
+    "searchBases": "Cerca basi",
+    "noSearchResults": "Nessuna base corrisponde alla ricerca.",
+    "detecting": "Verifica della connessione ad Airtable…",
+    "connectWithAirtable": "Collega account Airtable",
+    "waitingOAuth": "Completa l'autorizzazione nel popup…",
+    "connectedAs": "Collegato: {{account}}",
+    "permission": {
+      "create": "Creatore",
+      "edit": "Editor",
+      "comment": "Commentatore",
+      "read": "Sola lettura"
+    },
+    "integrationRequired": "L'integrazione con Airtable non è configurata su questa istanza. Chiedi a un amministratore di configurarla.",
+    "optionViewConfig": "Importa filtri, ordinamenti e raggruppamenti delle viste",
+    "viewConfig": {
+      "help": "L’API di Airtable non espone la configurazione delle viste, quindi è necessario un link condiviso di sola lettura.",
+      "helpStep1": "In Airtable apri il menu \"Share\" della base",
+      "helpStep2": "Scegli \"Share to web\" e attiva l’accesso completo alla base",
+      "helpStep3": "Copia il link di sola lettura e incollalo nel campo sopra",
+      "linkPlaceholder": "Incolla qui il link condiviso",
+      "mismatch": "Questo link condiviso punta a una base diversa da quella selezionata.",
+      "disableReminder": "Fatto: ora puoi disattivare il link condiviso in Airtable."
+    }
+  },
+  "createBaseDialog": {
+    "title": "Come vuoi iniziare?"
+  },
+  "importBaseDialog": {
+    "title": "Importa base",
+    "fromFile": "Importa da file",
+    "fromFileDesc": "Carica un file di database .tea",
+    "fromAirtableDesc": "Connetti il tuo account Airtable"
   }
 }

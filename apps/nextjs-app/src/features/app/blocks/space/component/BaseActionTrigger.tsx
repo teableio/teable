@@ -12,11 +12,22 @@ import {
   ArrowRight,
 } from '@teable/icons';
 import { useTheme } from '@teable/next-themes';
-import { exportBaseStream, getSpaceList, moveBase, moveBaseCheck } from '@teable/openapi';
+import {
+  cancelBaseDataDbMoveJob,
+  exportBaseStream,
+  getBaseDataDbMoveJob,
+  getSpaceList,
+  moveBase,
+  moveBaseCheck,
+  retryBaseDataDbMoveJob,
+} from '@teable/openapi';
 import type {
+  IBaseDataDbMoveJobStatusVo,
   ICrossSpaceAffectedField,
   IExportBaseProgressEvent,
   IGetBaseVo,
+  IMoveBaseCheckVo,
+  IMoveBaseDataDbCheck,
 } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { ConfirmDialog } from '@teable/ui-lib/base';
@@ -121,7 +132,10 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
   const [crossSpaceConfirm, setCrossSpaceConfirm] = React.useState<{
     open: boolean;
     affectedFields: ICrossSpaceAffectedField[];
+    dataDb?: IMoveBaseDataDbCheck;
   }>({ open: false, affectedFields: [] });
+  const [moveJobId, setMoveJobId] = React.useState<string | null>(null);
+  const [moveJobStatus, setMoveJobStatus] = React.useState<IBaseDataDbMoveJobStatusVo | null>(null);
 
   // Group by destination table (baseId + tableId). Move-base may include
   // incoming refs from other bases, so we surface baseName as part of the
@@ -144,33 +158,88 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
     return Array.from(groups.entries()).map(([key, value]) => ({ key, ...value }));
   }, [crossSpaceConfirm.affectedFields]);
 
+  const finishMoveSuccess = React.useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ReactQueryKeys.baseList(spaceId!) });
+    queryClient.invalidateQueries({ queryKey: ReactQueryKeys.baseAll() });
+    setCrossSpaceConfirm({ open: false, affectedFields: [] });
+    setMoveJobId(null);
+    setMoveJobStatus(null);
+    const newSpace = spaceList?.find((space) => space.id === spaceId)?.name;
+    toast.success(t('space:tip.moveBaseSuccessTitle'), {
+      description: t('space:tip.moveBaseSuccessDescription', {
+        baseName: base.name,
+        spaceName: newSpace,
+      }),
+    });
+  }, [base.name, queryClient, spaceId, spaceList, t]);
+
   const { mutate: moveBaseFn, isPending: moveBaseLoading } = useMutation({
-    mutationFn: ({ baseId }: { baseId: string }) => moveBase(baseId, spaceId!),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.baseList(spaceId!) });
-      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.baseAll() });
-      setCrossSpaceConfirm({ open: false, affectedFields: [] });
-      const newSpace = spaceList?.find((space) => space.id === spaceId)?.name;
-      toast.success(t('space:tip.moveBaseSuccessTitle'), {
-        description: t('space:tip.moveBaseSuccessDescription', {
-          baseName: base.name,
-          spaceName: newSpace,
-        }),
-      });
+    mutationFn: ({ baseId }: { baseId: string }) =>
+      moveBase(baseId, spaceId!).then((res) => res.data),
+    onSuccess: (data) => {
+      if (data?.jobId) {
+        setCrossSpaceConfirm({ open: false, affectedFields: [] });
+        setMoveJobId(data.jobId);
+        return;
+      }
+      finishMoveSuccess();
     },
   });
 
   const { mutate: checkMoveFn, isPending: checkMoveLoading } = useMutation({
     mutationFn: ({ baseId }: { baseId: string }) =>
-      moveBaseCheck(baseId, spaceId!).then((res) => res.data),
+      moveBaseCheck(baseId, spaceId!).then((res) => res.data as IMoveBaseCheckVo),
     onSuccess: (data, { baseId }) => {
-      if (data.affectedFields.length > 0) {
+      const needsConfirm =
+        data.affectedFields.length > 0 || Boolean(data.dataDb?.requiresPhysicalMove);
+      if (needsConfirm) {
         setMoveConfirm(false);
-        setCrossSpaceConfirm({ open: true, affectedFields: data.affectedFields });
+        setCrossSpaceConfirm({
+          open: true,
+          affectedFields: data.affectedFields,
+          dataDb: data.dataDb,
+        });
       } else {
         setMoveConfirm(false);
         moveBaseFn({ baseId });
       }
+    },
+  });
+
+  const { data: polledMoveJob } = useQuery({
+    queryKey: ['base-data-db-move-job', base.id, moveJobId],
+    queryFn: () => getBaseDataDbMoveJob(base.id, moveJobId!).then((res) => res.data),
+    enabled: Boolean(moveJobId),
+    refetchInterval: (query) => {
+      const state = query.state.data?.state;
+      if (state === 'succeeded' || state === 'failed' || state === 'cancelled') {
+        return false;
+      }
+      return 1500;
+    },
+  });
+
+  React.useEffect(() => {
+    if (!polledMoveJob) return;
+    setMoveJobStatus(polledMoveJob);
+    if (polledMoveJob.state === 'succeeded') {
+      finishMoveSuccess();
+    }
+  }, [finishMoveSuccess, polledMoveJob]);
+
+  const { mutate: cancelMoveJobFn, isPending: cancelMoveJobLoading } = useMutation({
+    mutationFn: () => cancelBaseDataDbMoveJob(base.id, moveJobId!),
+    onSuccess: (res) => {
+      setMoveJobStatus(res.data);
+      setMoveJobId(null);
+    },
+  });
+
+  const { mutate: retryMoveJobFn, isPending: retryMoveJobLoading } = useMutation({
+    mutationFn: () => retryBaseDataDbMoveJob(base.id, moveJobId!),
+    onSuccess: (res) => {
+      setMoveJobStatus(res.data);
+      setMoveJobId(res.data.id);
     },
   });
 
@@ -506,7 +575,11 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
       <ConfirmDialog
         open={crossSpaceConfirm.open}
         onOpenChange={(open) => !open && setCrossSpaceConfirm({ open: false, affectedFields: [] })}
-        title={t('space:tip.moveBaseCrossSpaceTitle')}
+        title={
+          crossSpaceConfirm.dataDb?.requiresPhysicalMove
+            ? t('space:tip.moveBaseCrossDataDbTitle')
+            : t('space:tip.moveBaseCrossSpaceTitle')
+        }
         cancelText={t('actions.cancel')}
         confirmText={t('actions.confirm')}
         onCancel={() => setCrossSpaceConfirm({ open: false, affectedFields: [] })}
@@ -518,6 +591,11 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
         }}
         content={
           <div className="flex flex-col gap-3 text-sm">
+            {crossSpaceConfirm.dataDb?.requiresPhysicalMove && (
+              <div className="rounded-md border border-blue-300 bg-blue-50 px-3 py-2 text-xs text-blue-900 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-200">
+                {t('space:tip.moveBaseCrossDataDbWarning')}
+              </div>
+            )}
             {crossSpaceConfirm.affectedFields.length > 0 && (
               <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
                 {t('space:tip.moveBaseCrossSpaceDataLossWarning')}
@@ -566,6 +644,69 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
           </div>
         }
       />
+
+      <Dialog
+        open={Boolean(moveJobId)}
+        onOpenChange={(open) => {
+          if (!open && moveJobStatus?.state === 'failed') {
+            setMoveJobId(null);
+            setMoveJobStatus(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {moveJobStatus?.state === 'failed'
+                ? t('space:tip.moveBaseFailedTitle')
+                : t('space:tip.moveBaseProgressTitle')}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-2 text-sm">
+            <div className="flex items-center gap-2">
+              {moveJobStatus?.state !== 'failed' && moveJobStatus?.state !== 'succeeded' && (
+                <Loader2 className="size-4 animate-spin" />
+              )}
+              <span>
+                {t('space:tip.moveBaseProgressPhase', {
+                  phase: moveJobStatus?.phase ?? moveJobStatus?.state ?? 'pending',
+                })}
+              </span>
+            </div>
+            <div className="text-muted-foreground">
+              {t('space:tip.moveBaseProgressPercent', {
+                percent: moveJobStatus?.progressPercent ?? 0,
+              })}
+            </div>
+            {moveJobStatus?.state === 'failed' && (
+              <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                {t('space:tip.moveBaseFailedDescription', {
+                  phase: moveJobStatus.phase ?? moveJobStatus.state,
+                  error: moveJobStatus.lastError ?? 'Unknown error',
+                })}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            {moveJobStatus?.cancelable && (
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={cancelMoveJobLoading}
+                onClick={() => cancelMoveJobFn()}
+              >
+                {t('space:tip.moveBaseCancel')}
+              </Button>
+            )}
+            {moveJobStatus?.state === 'failed' && (
+              <Button size="sm" disabled={retryMoveJobLoading} onClick={() => retryMoveJobFn()}>
+                {retryMoveJobLoading && <Loader2 className="size-4 animate-spin" />}
+                {t('space:tip.moveBaseRetry')}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <BaseShareDialog
         baseId={base.id}

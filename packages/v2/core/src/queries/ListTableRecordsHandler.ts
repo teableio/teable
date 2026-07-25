@@ -3,10 +3,13 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { FieldKeyResolverService } from '../application/services/FieldKeyResolverService';
-import { mergeOrderBy, resolveOrderBy as resolveQueryOrderBy } from '../commands/shared/orderBy';
+import {
+  mergeOrderBy,
+  resolveGroupByToOrderBy,
+  resolveOrderBy as resolveQueryOrderBy,
+} from '../commands/shared/orderBy';
 import { domainError, isNotFoundError, type DomainError } from '../domain/shared/DomainError';
 import { type ISpecification } from '../domain/shared/specification/ISpecification';
-import { FieldType } from '../domain/table/fields/FieldType';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
 import { FieldCondition } from '../domain/table/fields/types/FieldCondition';
@@ -21,8 +24,19 @@ import type { TableRecord } from '../domain/table/records/TableRecord';
 import { TableByIdSpec } from '../domain/table/specs/TableByIdSpec';
 import { TableByIncomingReferenceToTableSpec } from '../domain/table/specs/TableByIncomingReferenceToTableSpec';
 import type { Table } from '../domain/table/Table';
+import type { ViewQueryGroupItem } from '../domain/table/views/ViewQueryDefaults';
+import { NoopTableQueryObservability } from '../ports/defaults/NoopTableQueryObservability';
 import type { IExecutionContext } from '../ports/ExecutionContext';
 import * as LoggerPort from '../ports/Logger';
+import { ITableQueryObservability } from '../ports/TableQueryObservability';
+import type { TableQueryObservabilityEvent } from '../ports/TableQueryObservability';
+import {
+  createSearchTraceAttributes,
+  createTableQueryTraceAttributes,
+  type TableSearchAccessPath,
+  type TableSearchMode,
+  type TableSearchScope,
+} from '../ports/TableQueryTraceAttributes';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import * as TableRepositoryPort from '../ports/TableRepository';
@@ -37,12 +51,13 @@ import {
   type RecordFilter,
   type RecordFilterCondition,
   type RecordFilterNode,
-  type RecordFilterValue,
 } from './RecordFilterDto';
-import { buildRecordConditionSpec, sanitizeRecordFilter } from './RecordFilterMapper';
+import {
+  buildRecordConditionSpec,
+  replaceCurrentUserTagInFilter,
+  sanitizeRecordFilter,
+} from './RecordFilterMapper';
 import { RecordSearch, resolveVisibleRowSearch } from './RecordSearch';
-
-const currentUserFilterValue = 'Me';
 
 export class ListTableRecordsResult {
   private constructor(
@@ -158,71 +173,8 @@ function resolveFilterNodeFieldKeys(
   return ok(node);
 }
 
-function isUserLikeFieldType(type: FieldType): boolean {
-  return (
-    type.equals(FieldType.user()) ||
-    type.equals(FieldType.createdBy()) ||
-    type.equals(FieldType.lastModifiedBy())
-  );
-}
-
-function replaceCurrentUserTagInFilter(
-  table: Table,
-  filter: RecordFilter | null | undefined,
-  actorId: string
-): RecordFilter | null | undefined {
-  if (!filter) {
-    return filter;
-  }
-
-  const replaceNode = (node: RecordFilterNode): RecordFilterNode => {
-    if (isRecordFilterNot(node)) {
-      return { not: replaceNode(node.not) };
-    }
-
-    if (isRecordFilterGroup(node)) {
-      return {
-        ...node,
-        items: node.items.map((item) => replaceNode(item)),
-      };
-    }
-
-    if (!isRecordFilterCondition(node)) {
-      return node;
-    }
-
-    const fieldResult = table.getField((field) => field.id().toString() === node.fieldId);
-    if (fieldResult.isErr() || !isUserLikeFieldType(fieldResult.value.type())) {
-      return node;
-    }
-
-    const replaceValue = (value: RecordFilterValue): RecordFilterValue => {
-      if (Array.isArray(value)) {
-        return value.map((item) => (item === currentUserFilterValue ? actorId : item));
-      }
-      return value === currentUserFilterValue ? actorId : value;
-    };
-
-    return {
-      ...node,
-      value: replaceValue(node.value),
-    };
-  };
-
-  return replaceNode(filter);
-}
-
-type IRecordReadQuerySource = {
-  enabledFieldIds?: ReadonlyArray<string>;
-};
-
-type IExecutionContextWithRecordReadQuerySource = IExecutionContext & {
-  recordReadQuerySource?: IRecordReadQuerySource;
-};
-
-const getEnabledFieldIdSet = (context: IExecutionContext): ReadonlySet<string> | undefined => {
-  const enabledFieldIds = (context as IExecutionContextWithRecordReadQuerySource)
-    .recordReadQuerySource?.enabledFieldIds;
+const getEnabledFieldIdSet = (query: ListTableRecordsQuery): ReadonlySet<string> | undefined => {
+  const enabledFieldIds = query.recordReadQuerySource?.enabledFieldIds;
   return enabledFieldIds ? new Set(enabledFieldIds) : undefined;
 };
 
@@ -261,6 +213,107 @@ const sanitizeFilterByEnabledFieldIds = (
   };
 
   return sanitizeNode(filter);
+};
+
+const nowMs = () => Date.now();
+
+const resolveSearchAccessPath = (
+  query: ListTableRecordsQuery,
+  visibleRowSearch: ReturnType<typeof resolveVisibleRowSearch>,
+  resolution?: TableRecordQueryRepositoryPort.IRecordSearchAccessPathResolution
+): {
+  accessPath: TableSearchAccessPath;
+  searchMode: TableSearchMode;
+  searchScope: TableSearchScope;
+  fallbackReason?: string;
+  languageConfig?: string;
+  generatedColumnName?: string;
+} => {
+  if (!visibleRowSearch) {
+    return {
+      accessPath: 'none',
+      searchMode: 'none',
+      searchScope: 'none',
+      ...(query.recordSearchAccessPath?.kind === 'generated_tsvector'
+        ? { fallbackReason: 'no_visible_row_search' }
+        : {}),
+    };
+  }
+
+  const searchScope = visibleRowSearch.search.searchesAllFields()
+    ? 'all_fields'
+    : 'selected_fields';
+  if (query.recordSearchAccessPath?.kind === 'generated_tsvector') {
+    if (resolution?.used === 'default') {
+      return {
+        accessPath: 'fallback',
+        searchMode: 'ilike',
+        searchScope,
+        fallbackReason: resolution.fallbackReason ?? 'generated_tsvector_unavailable',
+      };
+    }
+    if (resolution?.used !== 'generated_tsvector') {
+      return { accessPath: 'none', searchMode: 'none', searchScope };
+    }
+    return {
+      accessPath: 'generated_tsvector',
+      searchMode: 'full_text',
+      searchScope,
+      languageConfig: query.recordSearchAccessPath.languageConfig,
+      generatedColumnName: query.recordSearchAccessPath.generatedColumnName,
+    };
+  }
+
+  return {
+    accessPath: 'default_ilike',
+    searchMode: 'ilike',
+    searchScope,
+  };
+};
+
+const createListRecordsObservabilityEvent = (
+  query: ListTableRecordsQuery,
+  input?: {
+    readonly hasFilter?: boolean;
+    readonly hasSort?: boolean;
+    readonly hasGroup?: boolean;
+    readonly visibleRowSearch?: ReturnType<typeof resolveVisibleRowSearch>;
+    readonly searchAccessPath?: TableRecordQueryRepositoryPort.IRecordSearchAccessPathResolution;
+    readonly resultCount?: number;
+    readonly errorKind?: string;
+    readonly durationMs?: number;
+  }
+): TableQueryObservabilityEvent => {
+  const visibleRowSearch = input?.visibleRowSearch;
+  const searchPath = resolveSearchAccessPath(query, visibleRowSearch, input?.searchAccessPath);
+
+  return {
+    tableId: query.tableId.toString(),
+    viewId: query.viewId,
+    queryKind: visibleRowSearch ? 'search' : 'record_list',
+    querySource: 'v2.list_records',
+    hasFilter: input?.hasFilter ?? Boolean(query.filter),
+    hasSort: input?.hasSort ?? Boolean(query.sort?.length),
+    hasGroup: input?.hasGroup ?? Boolean(query.groupBy?.length),
+    includeTotal: query.includeTotal !== false,
+    searchValue: visibleRowSearch?.search.value,
+    fieldCount: visibleRowSearch?.visibleFieldIds?.length,
+    allFields: visibleRowSearch?.search.searchesAllFields(),
+    accessPath: searchPath.accessPath,
+    searchMode: searchPath.searchMode,
+    searchScope: searchPath.searchScope,
+    languageConfig: searchPath.languageConfig,
+    fallbackReason: searchPath.fallbackReason,
+    generatedColumnName: searchPath.generatedColumnName,
+    resultCount: input?.resultCount,
+    errorKind: input?.errorKind,
+    durationMs: input?.durationMs,
+  };
+};
+
+type ListRecordsQueryPlan = {
+  readonly spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>;
+  readonly recordIdsOrder?: ReadonlyArray<RecordId>;
 };
 
 const mergeFilterWithViewDefaults = (
@@ -367,6 +420,40 @@ const filterFieldIdsByEnabledFieldIds = (
   return fieldIds.filter((fieldId) => enabledFieldIds.has(fieldId.toString()));
 };
 
+const resolveProjectionFieldIds = (
+  table: Table,
+  projection: ReadonlyArray<string> | undefined,
+  fieldKeyType: FieldKeyType,
+  enabledFieldIds?: ReadonlySet<string>
+): Result<ReadonlyArray<FieldId> | undefined, DomainError> => {
+  if (projection === undefined) {
+    return ok(undefined);
+  }
+
+  const fieldIds: FieldId[] = [];
+  const seen = new Set<string>();
+  for (const fieldKey of projection) {
+    const resolvedFieldId = FieldKeyResolverService.resolveFieldKey(table, fieldKey, fieldKeyType);
+    if (resolvedFieldId.isErr()) {
+      return err(resolvedFieldId.error);
+    }
+    if (enabledFieldIds && !enabledFieldIds.has(resolvedFieldId.value)) {
+      continue;
+    }
+    if (seen.has(resolvedFieldId.value)) {
+      continue;
+    }
+    const fieldId = FieldId.create(resolvedFieldId.value);
+    if (fieldId.isErr()) {
+      return err(fieldId.error);
+    }
+    seen.add(resolvedFieldId.value);
+    fieldIds.push(fieldId.value);
+  }
+
+  return ok(fieldIds);
+};
+
 @QueryHandler(ListTableRecordsQuery)
 @injectable()
 export class ListTableRecordsHandler
@@ -378,7 +465,9 @@ export class ListTableRecordsHandler
     @inject(v2CoreTokens.tableRecordQueryRepository)
     private readonly tableRecordQueryRepository: TableRecordQueryRepositoryPort.ITableRecordQueryRepository,
     @inject(v2CoreTokens.logger)
-    private readonly logger: LoggerPort.ILogger
+    private readonly logger: LoggerPort.ILogger,
+    @inject(v2CoreTokens.tableQueryObservability)
+    private readonly tableQueryObservability: ITableQueryObservability = new NoopTableQueryObservability()
   ) {}
 
   async handle(
@@ -390,11 +479,15 @@ export class ListTableRecordsHandler
     });
     logger.debug('ListTableRecordsHandler.start', { actorId: context.actorId.toString() });
 
-    // Start main span for the query handler
-    const span = context.tracer?.startSpan('teable.ListTableRecordsHandler.handle');
+    const startedAt = nowMs();
+    let observabilityEvent = createListRecordsObservabilityEvent(query);
+    const span = context.tracer?.startSpan('teable.table.query.list_records', {
+      ...createTableQueryTraceAttributes(observabilityEvent),
+      ...createSearchTraceAttributes(observabilityEvent),
+    });
 
     try {
-      return safeTry<ListTableRecordsResult, DomainError>(
+      const result = await safeTry<ListTableRecordsResult, DomainError>(
         async function* (this: ListTableRecordsHandler) {
           // 1. Load main table (tableId is globally unique)
           const loadTableSpan = context.tracer?.startSpan(
@@ -410,73 +503,108 @@ export class ListTableRecordsHandler
           loadTableSpan?.end();
 
           // 2. Resolve effective filter/sort/search inputs with view defaults and permission-aware fields.
-          const enabledFieldIds = getEnabledFieldIdSet(context);
-          const resolvedFilter = query.filter
-            ? yield* resolveFilterFieldKeys(table, query.filter, query.fieldKeyType)
-            : undefined;
-          const actorResolvedFilter = replaceCurrentUserTagInFilter(
-            table,
-            resolvedFilter,
-            context.actorId.toString()
-          );
-
-          // Pre-resolve link candidate plan so filterByViewId can inform effectiveView.
-          const linkCandidatePlan = query.filterLinkCellCandidate
-            ? yield* await this.buildLinkCandidatePlan(
-                context,
-                table,
-                query.filterLinkCellCandidate
-              )
-            : undefined;
-
-          // query.viewId takes priority; fall back to the link field's filterByViewId.
-          let effectiveView =
-            query.viewId && !query.ignoreViewQuery
-              ? yield* table.getViewById(query.viewId)
+          const enabledFieldIds = getEnabledFieldIdSet(query);
+          let effectiveFilter: RecordFilter | undefined;
+          let effectiveSort: ReadonlyArray<RecordSortValue> | undefined;
+          let effectiveGroup: ReadonlyArray<ViewQueryGroupItem> | undefined;
+          let orderBy: ReturnType<typeof mergeOrderBy> | undefined;
+          let queryPlan: ListRecordsQueryPlan | undefined;
+          let projectionFieldIds: ReadonlyArray<FieldId> | undefined;
+          const resolveShapeSpan = context.tracer?.startSpan('teable.table.query.resolve_shape', {
+            ...createTableQueryTraceAttributes(observabilityEvent),
+            ...createSearchTraceAttributes(observabilityEvent),
+          });
+          try {
+            const resolvedFilter = query.filter
+              ? yield* resolveFilterFieldKeys(table, query.filter, query.fieldKeyType)
               : undefined;
-          if (!effectiveView && linkCandidatePlan?.filterByViewId && !query.ignoreViewQuery) {
-            const fallbackViewResult = table.getViewById(linkCandidatePlan.filterByViewId);
-            if (fallbackViewResult.isOk()) {
-              effectiveView = fallbackViewResult.value;
+            const actorResolvedFilter = replaceCurrentUserTagInFilter(
+              table,
+              resolvedFilter,
+              context.actorId.toString()
+            );
+
+            // Pre-resolve link candidate plan so filterByViewId can inform effectiveView.
+            const linkCandidatePlan = query.filterLinkCellCandidate
+              ? yield* await this.buildLinkCandidatePlan(
+                  context,
+                  table,
+                  query.filterLinkCellCandidate
+                )
+              : undefined;
+
+            // query.viewId takes priority; fall back to the link field's filterByViewId.
+            let effectiveView =
+              query.viewId && !query.ignoreViewQuery
+                ? yield* table.getViewById(query.viewId)
+                : undefined;
+            if (!effectiveView && linkCandidatePlan?.filterByViewId && !query.ignoreViewQuery) {
+              const fallbackViewResult = table.getViewById(linkCandidatePlan.filterByViewId);
+              if (fallbackViewResult.isOk()) {
+                effectiveView = fallbackViewResult.value;
+              }
+              // silently ignore if the view no longer exists
             }
-            // silently ignore if the view no longer exists
+            const resolvedSort = yield* resolveSortValues(
+              table,
+              query.sort,
+              query.fieldKeyType,
+              enabledFieldIds
+            );
+            const effectiveQueryDefaults = effectiveView
+              ? yield* effectiveView.queryDefaults()
+              : undefined;
+            const defaultFilter = replaceCurrentUserTagInFilter(
+              table,
+              effectiveQueryDefaults?.filter(),
+              context.actorId.toString()
+            );
+            const sanitizedDefaultFilter = yield* sanitizeRecordFilter(table, defaultFilter);
+            effectiveFilter = sanitizeFilterByEnabledFieldIds(
+              mergeFilterWithViewDefaults(sanitizedDefaultFilter, actorResolvedFilter),
+              enabledFieldIds
+            );
+            effectiveSort = mergeSortWithViewDefaults(
+              effectiveQueryDefaults?.sort(),
+              effectiveQueryDefaults?.manualSort(),
+              resolvedSort
+            );
+            effectiveGroup = query.groupBy?.length ? undefined : effectiveQueryDefaults?.group();
+            orderBy = mergeOrderBy(
+              yield* resolveGroupByToOrderBy(effectiveGroup),
+              yield* resolveQueryOrderBy(effectiveSort),
+              query.viewId
+            );
+            const builtQueryPlan = yield* await this.buildQueryPlan(
+              context,
+              table,
+              query,
+              effectiveFilter,
+              linkCandidatePlan
+            );
+            queryPlan = builtQueryPlan;
+            projectionFieldIds = yield* resolveProjectionFieldIds(
+              table,
+              query.projection,
+              query.fieldKeyType,
+              enabledFieldIds
+            );
+            observabilityEvent = createListRecordsObservabilityEvent(query, {
+              hasFilter: Boolean(effectiveFilter),
+              hasSort: Boolean(effectiveSort?.length),
+              hasGroup: Boolean(effectiveGroup?.length),
+            });
+            span?.setAttributes({
+              ...createTableQueryTraceAttributes(observabilityEvent),
+              ...createSearchTraceAttributes(observabilityEvent),
+            });
+            resolveShapeSpan?.setAttributes({
+              ...createTableQueryTraceAttributes(observabilityEvent),
+              ...createSearchTraceAttributes(observabilityEvent),
+            });
+          } finally {
+            resolveShapeSpan?.end();
           }
-          const resolvedSort = yield* resolveSortValues(
-            table,
-            query.sort,
-            query.fieldKeyType,
-            enabledFieldIds
-          );
-          const effectiveQueryDefaults = effectiveView
-            ? yield* effectiveView.queryDefaults()
-            : undefined;
-          const defaultFilter = replaceCurrentUserTagInFilter(
-            table,
-            effectiveQueryDefaults?.filter(),
-            context.actorId.toString()
-          );
-          const sanitizedDefaultFilter = yield* sanitizeRecordFilter(table, defaultFilter);
-          const effectiveFilter = sanitizeFilterByEnabledFieldIds(
-            mergeFilterWithViewDefaults(sanitizedDefaultFilter, actorResolvedFilter),
-            enabledFieldIds
-          );
-          const effectiveSort = mergeSortWithViewDefaults(
-            effectiveQueryDefaults?.sort(),
-            effectiveQueryDefaults?.manualSort(),
-            resolvedSort
-          );
-          const orderBy = mergeOrderBy(
-            undefined,
-            yield* resolveQueryOrderBy(effectiveSort),
-            query.viewId
-          );
-          const queryPlan = yield* await this.buildQueryPlan(
-            context,
-            table,
-            query,
-            effectiveFilter,
-            linkCandidatePlan
-          );
 
           // 3. Resolve visible-row search through the repository
           const searchVisibleFieldIds =
@@ -490,26 +618,59 @@ export class ListTableRecordsHandler
             RecordSearch.fromOptionalTuple(query.search),
             searchVisibleFieldIds
           );
+          const searchAccessEvent = createListRecordsObservabilityEvent(query, {
+            hasFilter: Boolean(effectiveFilter),
+            hasSort: Boolean(effectiveSort?.length),
+            hasGroup: Boolean(effectiveGroup?.length),
+            visibleRowSearch,
+          });
+          observabilityEvent = searchAccessEvent;
 
           // 4. Query records with pagination
-          const queryRecordsSpan = context.tracer?.startSpan(
-            'teable.ListTableRecordsHandler.queryRecords'
-          );
-          const queryResult = yield* await this.tableRecordQueryRepository.find(
-            context,
-            table,
-            queryPlan.spec,
-            {
-              pagination: query.pagination,
-              orderBy: queryPlan.recordIdsOrder?.length ? undefined : orderBy,
-              recordIdsOrder: queryPlan.recordIdsOrder,
-              search: visibleRowSearch,
-              // !!!IMPORTANT: List table records are always using stored values
-              // never change this to 'computed'
-              mode: 'stored',
+          const queryRecordsSpan = context.tracer?.startSpan('teable.table.query.records.find', {
+            ...createTableQueryTraceAttributes(searchAccessEvent),
+            ...createSearchTraceAttributes(searchAccessEvent),
+          });
+          let queryRecordsResult: Result<
+            TableRecordQueryRepositoryPort.ITableRecordQueryResult,
+            DomainError
+          >;
+          try {
+            queryRecordsResult = await this.tableRecordQueryRepository.find(
+              context,
+              table,
+              queryPlan?.spec,
+              {
+                pagination: query.pagination,
+                orderBy: queryPlan?.recordIdsOrder?.length ? undefined : orderBy,
+                recordIdsOrder: queryPlan?.recordIdsOrder,
+                search: visibleRowSearch,
+                // !!!IMPORTANT: List table records are always using stored values
+                // never change this to 'computed'
+                mode: 'stored',
+                projectionFieldIds,
+                includeTotal: query.includeTotal,
+                recordReadQuerySource: query.recordReadQuerySource,
+                searchAccessPath: query.recordSearchAccessPath,
+              }
+            );
+            if (queryRecordsResult.isOk()) {
+              const appliedSearchEvent = createListRecordsObservabilityEvent(query, {
+                hasFilter: Boolean(effectiveFilter),
+                hasSort: Boolean(effectiveSort?.length),
+                hasGroup: Boolean(effectiveGroup?.length),
+                visibleRowSearch,
+                searchAccessPath: queryRecordsResult.value.searchAccessPath,
+              });
+              queryRecordsSpan?.setAttributes({
+                ...createTableQueryTraceAttributes(appliedSearchEvent),
+                ...createSearchTraceAttributes(appliedSearchEvent),
+              });
             }
-          );
-          queryRecordsSpan?.end();
+          } finally {
+            queryRecordsSpan?.end();
+          }
+          const queryResult = yield* queryRecordsResult;
 
           // 5. Transform response field keys if needed
           const transformedRecords =
@@ -528,6 +689,25 @@ export class ListTableRecordsHandler
             count: queryResult.records.length,
             total: queryResult.total,
           });
+          observabilityEvent = createListRecordsObservabilityEvent(query, {
+            hasFilter: Boolean(effectiveFilter),
+            hasSort: Boolean(effectiveSort?.length),
+            hasGroup: Boolean(effectiveGroup?.length),
+            visibleRowSearch,
+            resultCount: queryResult.records.length,
+            searchAccessPath: queryResult.searchAccessPath,
+          });
+          const searchAccessPathSpan = context.tracer?.startSpan(
+            'teable.table.search.resolve_access_path',
+            {
+              ...createTableQueryTraceAttributes(observabilityEvent),
+              ...createSearchTraceAttributes(observabilityEvent),
+            }
+          );
+          searchAccessPathSpan?.end();
+          if (observabilityEvent.fallbackReason) {
+            this.tableQueryObservability.recordSearchFallback(observabilityEvent);
+          }
 
           return ok(
             ListTableRecordsResult.create(
@@ -539,7 +719,31 @@ export class ListTableRecordsHandler
           );
         }.bind(this)
       );
+
+      if (result.isErr()) {
+        const errorKind = result.error.code ?? 'domain_error';
+        observabilityEvent = { ...observabilityEvent, errorKind };
+        span?.recordError(result.error.message ?? errorKind);
+        this.tableQueryObservability.recordError(observabilityEvent);
+      }
+
+      return result;
+    } catch (error) {
+      const errorKind = error instanceof Error ? error.name : 'unknown_error';
+      observabilityEvent = { ...observabilityEvent, errorKind };
+      span?.recordError(error instanceof Error ? error.message : String(error));
+      this.tableQueryObservability.recordError(observabilityEvent);
+      throw error;
     } finally {
+      const durationMs = nowMs() - startedAt;
+      this.tableQueryObservability.recordRequest({
+        ...observabilityEvent,
+        durationMs,
+      });
+      span?.setAttributes({
+        ...createTableQueryTraceAttributes(observabilityEvent),
+        ...createSearchTraceAttributes(observabilityEvent),
+      });
       span?.end();
     }
   }

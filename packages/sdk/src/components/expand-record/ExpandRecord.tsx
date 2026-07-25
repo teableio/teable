@@ -15,6 +15,7 @@ import {
   useTablePermission,
 } from '../../hooks';
 import type { GridView, IFieldInstance } from '../../model';
+import { useExpandRecordHiddenFieldsStore } from '../../store';
 import { CommentPanel } from '../comment';
 import { ExpandRecordHeader } from './ExpandRecordHeader';
 import { ExpandRecordWrap } from './ExpandRecordWrap';
@@ -75,7 +76,25 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
   const baseId = useBaseId();
   const allFields = useFields({ withHidden: true });
   const showFields = useFields();
-  const record = useRecord(recordId, serverData);
+
+  const showFieldsId = useMemo(() => new Set(showFields.map((field) => field.id)), [showFields]);
+
+  const fields = useMemo(
+    () => (viewId ? allFields.filter((field) => showFieldsId.has(field.id)) : []),
+    [allFields, showFieldsId, viewId]
+  );
+
+  const hiddenFields = useMemo(
+    () => (viewId ? allFields.filter((field) => !showFieldsId.has(field.id)) : []),
+    [allFields, showFieldsId, viewId]
+  );
+
+  const hiddenFieldsVisible = useExpandRecordHiddenFieldsStore(
+    (state) => state.hiddenFieldsVisible
+  );
+  const record = useRecord(recordId, serverData, {
+    withHidden: hiddenFieldsVisible && hiddenFields.length > 0,
+  });
   const isTouchDevice = useIsTouchDevice();
   const { t } = useTranslation();
   const tablePermission = useTablePermission();
@@ -90,18 +109,6 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
       return Boolean(record?.isLocked(field.id)) || Boolean(field.isComputed);
     },
     [record, canUpdateRecord]
-  );
-
-  const showFieldsId = useMemo(() => new Set(showFields.map((field) => field.id)), [showFields]);
-
-  const fields = useMemo(
-    () => (viewId ? allFields.filter((field) => showFieldsId.has(field.id)) : []),
-    [allFields, showFieldsId, viewId]
-  );
-
-  const hiddenFields = useMemo(
-    () => (viewId ? allFields.filter((field) => !showFieldsId.has(field.id)) : []),
-    [allFields, showFieldsId, viewId]
   );
 
   const nextRecordIndex = useMemo(() => {

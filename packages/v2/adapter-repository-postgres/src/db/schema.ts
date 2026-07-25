@@ -348,6 +348,7 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
       col.notNull().defaultTo(sql`ARRAY[]::text[]`)
     )
     .addColumn('sync_max_level', 'integer')
+    .addColumn('trace_data', 'jsonb')
     .addColumn('failed_at', 'timestamptz', (col) => col.notNull())
     .addColumn('created_at', 'timestamptz', (col) => col.notNull())
     .addColumn('updated_at', 'timestamptz', (col) => col.notNull())
@@ -430,6 +431,90 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .ifNotExists()
     .on('computed_update_dead_letter')
     .column('run_id')
+    .execute();
+
+  // Computed field/table activity projection (Feishu-like "calculating" metadata)
+  await db.schema
+    .createTable('computed_field_activity')
+    .ifNotExists()
+    .addColumn('field_id', 'text', (col) => col.primaryKey())
+    .addColumn('table_id', 'text', (col) => col.notNull())
+    .addColumn('base_id', 'text', (col) => col.notNull())
+    .addColumn('status', 'text', (col) => col.notNull())
+    .addColumn('active_task_count', 'integer', (col) => col.notNull().defaultTo(0))
+    .addColumn('processing_task_count', 'integer', (col) => col.notNull().defaultTo(0))
+    .addColumn('generation', 'bigint', (col) => col.notNull().defaultTo(0))
+    .addColumn('estimated_complexity', 'bigint', (col) => col.notNull().defaultTo(0))
+    .addColumn('estimated_dirty_records', 'bigint', (col) => col.notNull().defaultTo(0))
+    .addColumn('has_all_target_records', 'boolean', (col) => col.notNull().defaultTo(false))
+    .addColumn('queued_at', 'timestamptz')
+    .addColumn('started_at', 'timestamptz')
+    .addColumn('last_completed_at', 'timestamptz')
+    .addColumn('last_duration_ms', 'integer')
+    .addColumn('last_error', 'jsonb')
+    .addColumn('extensions', 'jsonb')
+    .addColumn('updated_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+    .execute();
+
+  await db.schema
+    .createIndex('computed_field_activity_table_id_status_idx')
+    .ifNotExists()
+    .on('computed_field_activity')
+    .columns(['table_id', 'status'])
+    .execute();
+
+  await db.schema
+    .createIndex('computed_field_activity_base_id_status_idx')
+    .ifNotExists()
+    .on('computed_field_activity')
+    .columns(['base_id', 'status'])
+    .execute();
+
+  await db.schema
+    .createTable('computed_table_activity')
+    .ifNotExists()
+    .addColumn('table_id', 'text', (col) => col.primaryKey())
+    .addColumn('base_id', 'text', (col) => col.notNull())
+    .addColumn('status', 'text', (col) => col.notNull())
+    .addColumn('calculating_field_count', 'integer', (col) => col.notNull().defaultTo(0))
+    .addColumn('queued_field_count', 'integer', (col) => col.notNull().defaultTo(0))
+    .addColumn('estimated_complexity', 'bigint', (col) => col.notNull().defaultTo(0))
+    .addColumn('recent_completions', 'jsonb', (col) => col.notNull().defaultTo(sql`'[]'::jsonb`))
+    .addColumn('generation', 'bigint', (col) => col.notNull().defaultTo(0))
+    .addColumn('updated_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+    .execute();
+
+  await db.schema
+    .createIndex('computed_table_activity_base_id_status_idx')
+    .ifNotExists()
+    .on('computed_table_activity')
+    .columns(['base_id', 'status'])
+    .execute();
+
+  await db.schema
+    .createTable('computed_task_field_ref')
+    .ifNotExists()
+    .addColumn('task_id', 'text', (col) => col.notNull())
+    .addColumn('field_id', 'text', (col) => col.notNull())
+    .addColumn('table_id', 'text', (col) => col.notNull())
+    .addColumn('base_id', 'text', (col) => col.notNull())
+    .addColumn('was_processing', 'boolean', (col) => col.notNull().defaultTo(false))
+    .addColumn('created_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+    .execute();
+
+  await db.schema
+    .createIndex('computed_task_field_ref_task_id_field_id_key')
+    .ifNotExists()
+    .on('computed_task_field_ref')
+    .columns(['task_id', 'field_id'])
+    .unique()
+    .execute();
+
+  await db.schema
+    .createIndex('computed_task_field_ref_field_id_idx')
+    .ifNotExists()
+    .on('computed_task_field_ref')
+    .column('field_id')
     .execute();
 
   // Attachments tables (for attachment field support)

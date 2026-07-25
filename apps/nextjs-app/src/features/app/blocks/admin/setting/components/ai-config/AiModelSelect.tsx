@@ -260,6 +260,8 @@ export function AIModelSelect({
         selectedModelId={selectedModelIdForPicker}
         onSelectModel={handlePickerModelSelect}
         priceMode={isCloud ? 'multiplier' : 'none'}
+        isModelDisabled={(model) => model.id.includes('@')}
+        disabledBadgeText={t('admin.setting.ai.modelIdReservedAt')}
       />
     </>
   );

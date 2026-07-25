@@ -1,5 +1,7 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
+import { timeZoneStringSchema } from '@teable/core';
 import { axios } from '../axios';
+import { CREATE_SOURCE_HEADER, CREATE_SOURCE_TEMPLATE } from '../types';
 import { registerRoute } from '../utils';
 import { z } from '../zod';
 import { createBaseVoSchema } from './create';
@@ -11,6 +13,11 @@ export const createBaseFromTemplateRoSchema = z.object({
   templateId: z.string().describe('The template id to create a base from'),
   withRecords: z.boolean().optional().describe('Whether to create records from the template'),
   baseId: z.string().optional().describe('The base id to apply the template to'),
+  timeZone: timeZoneStringSchema
+    .optional()
+    .describe(
+      'The IANA time zone of the user; date-related field options in the template will be adapted to it'
+    ),
 });
 
 export type ICreateBaseFromTemplateRo = z.infer<typeof createBaseFromTemplateRoSchema>;
@@ -49,5 +56,9 @@ export const CreateBaseFromTemplateRoute: RouteConfig = registerRoute({
 });
 
 export const createBaseFromTemplate = async (createBaseRo: ICreateBaseFromTemplateRo) => {
-  return axios.post<ICreateBaseFromTemplateVo>(CREATE_BASE_FROM_TEMPLATE, createBaseRo);
+  // Source header is intrinsic to this endpoint: analytics segments base
+  // creations into manual / template / import / auto.
+  return axios.post<ICreateBaseFromTemplateVo>(CREATE_BASE_FROM_TEMPLATE, createBaseRo, {
+    headers: { [CREATE_SOURCE_HEADER]: CREATE_SOURCE_TEMPLATE },
+  });
 };

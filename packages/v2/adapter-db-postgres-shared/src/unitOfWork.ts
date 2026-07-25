@@ -16,12 +16,13 @@ import {
   isDomainError,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
-import type { Kysely, Transaction } from 'kysely';
+import { sql, type Kysely, type Transaction } from 'kysely';
 import { err } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { IV2PostgresDbConfig } from './config';
 import { v2DataDbTokens, v2MetaDbTokens } from './di/tokens';
+import { getPostgresSqlExecutionDiagnostics } from './PostgresSqlExecutionError';
 
 class UnitOfWorkAbort extends Error {
   constructor(readonly error: DomainError) {
@@ -30,45 +31,146 @@ class UnitOfWorkAbort extends Error {
   }
 }
 
+const throwIfUnitOfWorkFailed = <T>(result: Result<T, DomainError>): void => {
+  if (result.isErr()) {
+    throw new UnitOfWorkAbort(result.error);
+  }
+};
+
+const toUnexpectedUnitOfWorkError = (error: unknown): DomainError => {
+  const postgresSql = getPostgresSqlExecutionDiagnostics(error);
+  return domainError.unexpected({
+    message: `Unexpected unit of work error: ${describeError(error)}`,
+    ...(postgresSql ? { details: { postgresSql } } : {}),
+  });
+};
+
+const shouldRetryTransactionAbort = (
+  error: DomainError,
+  attempt: number,
+  maxRetries: number
+): boolean => attempt < maxRetries && isRetryableTransactionAbort(error);
+type UnitOfWorkTransactionState =
+  | 'pending'
+  | 'committing'
+  | 'committed'
+  | 'rollingBack'
+  | 'rolledBack';
+
 export class PostgresUnitOfWorkTransaction<DB> implements IUnitOfWorkTransaction {
   readonly kind = 'unitOfWorkTransaction' as const;
   private readonly afterCommitHandlers: UnitOfWorkAfterCommitHandler[] = [];
   private readonly afterRollbackHandlers: UnitOfWorkAfterCommitHandler[] = [];
+  private state: UnitOfWorkTransactionState = 'pending';
 
   constructor(
     readonly db: Transaction<DB>,
     readonly scope: UnitOfWorkScope
   ) {}
 
+  get committed(): boolean {
+    return this.state === 'committed';
+  }
+
+  get rolledBack(): boolean {
+    return this.state === 'rolledBack';
+  }
+
   afterCommit(handler: UnitOfWorkAfterCommitHandler): void {
+    if (this.state === 'committed') {
+      void handler();
+      return;
+    }
+
+    if (this.state === 'rollingBack' || this.state === 'rolledBack') {
+      return;
+    }
+
     this.afterCommitHandlers.push(handler);
   }
 
   afterRollback(handler: UnitOfWorkAfterCommitHandler): void {
+    if (this.state === 'rolledBack') {
+      void handler();
+      return;
+    }
+
+    if (this.state === 'committing' || this.state === 'committed') {
+      return;
+    }
+
     this.afterRollbackHandlers.push(handler);
   }
 
   async runAfterCommitHandlers(): Promise<void> {
-    for (const handler of this.afterCommitHandlers) {
+    if (this.state !== 'pending') {
+      return;
+    }
+
+    this.state = 'committing';
+    while (this.afterCommitHandlers.length > 0) {
+      const handler = this.afterCommitHandlers.shift();
+      if (!handler) {
+        continue;
+      }
       await handler();
     }
+    this.state = 'committed';
   }
 
   async runAfterRollbackHandlers(): Promise<void> {
-    for (const handler of this.afterRollbackHandlers) {
+    if (this.state !== 'pending') {
+      return;
+    }
+
+    this.state = 'rollingBack';
+    while (this.afterRollbackHandlers.length > 0) {
+      const handler = this.afterRollbackHandlers.shift();
+      if (!handler) {
+        continue;
+      }
       await handler();
     }
+    this.state = 'rolledBack';
   }
 }
+
+type PostgresUnitOfWorkTransactionLike<DB> = IUnitOfWorkTransaction & {
+  readonly db: Transaction<DB>;
+};
+
+const isPostgresUnitOfWorkTransaction = <DB>(
+  transaction: IUnitOfWorkTransaction | undefined
+): transaction is PostgresUnitOfWorkTransaction<DB> | PostgresUnitOfWorkTransactionLike<DB> => {
+  if (!transaction) {
+    return false;
+  }
+  if (transaction instanceof PostgresUnitOfWorkTransaction) {
+    return true;
+  }
+  return (
+    transaction.kind === 'unitOfWorkTransaction' && 'db' in transaction && transaction.db != null
+  );
+};
 
 export const getPostgresTransaction = <DB>(
   context?: IExecutionContext,
   scope: UnitOfWorkScope = 'data'
 ): Transaction<DB> | null => {
   const transaction = getUnitOfWorkTransaction(context, scope);
-  if (transaction instanceof PostgresUnitOfWorkTransaction) {
+  if (isPostgresUnitOfWorkTransaction<DB>(transaction)) {
     return transaction.db as Transaction<DB>;
   }
+
+  const activeTransaction = context?.transaction;
+  if (
+    activeTransaction !== transaction &&
+    (!activeTransaction?.scope || activeTransaction.scope === scope) &&
+    isPostgresUnitOfWorkTransaction<DB>(activeTransaction)
+  ) {
+    return activeTransaction.db as Transaction<DB>;
+  }
+
   return null;
 };
 
@@ -96,8 +198,51 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
   private usesSinglePhysicalDatabase(): boolean {
     return (
       this.metaDb === this.dataDb ||
-      this.metaConfig.pg.connectionString === this.dataConfig.pg.connectionString
+      (this.metaConfig.pg.connectionString === this.dataConfig.pg.connectionString &&
+        this.metaConfig.pg.schema === this.dataConfig.pg.schema)
     );
+  }
+
+  private bindTransactionToPhysicalDatabaseScopes(
+    context: IExecutionContext,
+    transaction: PostgresUnitOfWorkTransaction<DB>,
+    scope: UnitOfWorkScope
+  ): IExecutionContext {
+    const transactionContext = bindUnitOfWorkTransaction(context, transaction);
+    if (!this.usesSinglePhysicalDatabase()) {
+      return transactionContext;
+    }
+
+    const siblingScope: UnitOfWorkScope = scope === 'meta' ? 'data' : 'meta';
+    return {
+      ...transactionContext,
+      transactions: {
+        ...(transactionContext.transactions ?? {}),
+        [scope]: transaction,
+        [siblingScope]: transaction,
+      },
+    };
+  }
+
+  private async setTransactionSchema(
+    transaction: Transaction<DB>,
+    scope: UnitOfWorkScope
+  ): Promise<void> {
+    const schema = scope === 'meta' ? this.metaConfig.pg.schema : this.dataConfig.pg.schema;
+    if (!schema) return;
+
+    await sql`
+      select set_config(
+        'search_path',
+        ${`${schema}, public`} || coalesce((
+          select ', ' || quote_ident(n.nspname)
+          from pg_extension e
+          join pg_namespace n on n.oid = e.extnamespace
+          where e.extname = 'pg_trgm'
+        ), ''),
+        true
+      )
+    `.execute(transaction);
   }
 
   private reuseSiblingScopeTransaction(
@@ -125,26 +270,26 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
     };
   }
 
-  async withTransaction<T>(
+  private runWithExistingTransaction<T>(
+    context: IExecutionContext,
+    scope: UnitOfWorkScope,
+    work: UnitOfWorkOperation<T>
+  ): Promise<Result<T, DomainError>> | null {
+    const existingTransaction = getUnitOfWorkTransaction(context, scope);
+    if (!existingTransaction) return null;
+    if (!isPostgresUnitOfWorkTransaction<DB>(existingTransaction)) {
+      return Promise.resolve(
+        err(domainError.validation({ message: 'Unsupported transaction context' }))
+      );
+    }
+    return work(activateUnitOfWorkScope(context, scope));
+  }
+
+  private async executeWithRetries<T>(
     context: IExecutionContext,
     work: UnitOfWorkOperation<T>,
-    options?: IUnitOfWorkOptions
+    scope: UnitOfWorkScope
   ): Promise<Result<T, DomainError>> {
-    const scope = options?.scope ?? 'data';
-    const existingTransaction = getUnitOfWorkTransaction(context, scope);
-
-    if (existingTransaction) {
-      if (existingTransaction instanceof PostgresUnitOfWorkTransaction) {
-        return work(activateUnitOfWorkScope(context, scope));
-      }
-      return err(domainError.validation({ message: 'Unsupported transaction context' }));
-    }
-
-    const sharedTransactionContext = this.reuseSiblingScopeTransaction(context, scope);
-    if (sharedTransactionContext) {
-      return work(sharedTransactionContext);
-    }
-
     const db = scope === 'meta' ? this.metaDb : this.dataDb;
     const maxRetries = 3;
     let attempt = 0;
@@ -157,13 +302,16 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
       let transaction: PostgresUnitOfWorkTransaction<DB> | undefined;
       try {
         const transactionResult = await db.transaction().execute(async (trx) => {
+          await this.setTransactionSchema(trx, scope);
           transaction = new PostgresUnitOfWorkTransaction(trx, scope);
-          const transactionContext = bindUnitOfWorkTransaction(context, transaction);
+          const transactionContext = this.bindTransactionToPhysicalDatabaseScopes(
+            context,
+            transaction,
+            scope
+          );
 
           const workResult = await work(transactionContext);
-          if (workResult.isErr()) {
-            throw new UnitOfWorkAbort(workResult.error);
-          }
+          throwIfUnitOfWorkFailed(workResult);
 
           return { workResult, transaction };
         });
@@ -171,7 +319,7 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
         return transactionResult.workResult;
       } catch (error) {
         if (error instanceof UnitOfWorkAbort) {
-          if (attempt < maxRetries && isRetryableTransactionAbort(error.error)) {
+          if (shouldRetryTransactionAbort(error.error, attempt, maxRetries)) {
             const delayMs = backoffMs(attempt);
             attempt += 1;
             await sleep(delayMs);
@@ -181,13 +329,26 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
           return err(error.error);
         }
         await transaction?.runAfterRollbackHandlers();
-        return err(
-          domainError.unexpected({
-            message: `Unexpected unit of work error: ${describeError(error)}`,
-          })
-        );
+        return err(toUnexpectedUnitOfWorkError(error));
       }
     }
+  }
+
+  async withTransaction<T>(
+    context: IExecutionContext,
+    work: UnitOfWorkOperation<T>,
+    options?: IUnitOfWorkOptions
+  ): Promise<Result<T, DomainError>> {
+    const scope = options?.scope ?? 'data';
+    const existingResult = this.runWithExistingTransaction(context, scope, work);
+    if (existingResult) return existingResult;
+
+    const sharedTransactionContext = this.reuseSiblingScopeTransaction(context, scope);
+    if (sharedTransactionContext) {
+      return work(sharedTransactionContext);
+    }
+
+    return this.executeWithRetries(context, work, scope);
   }
 }
 

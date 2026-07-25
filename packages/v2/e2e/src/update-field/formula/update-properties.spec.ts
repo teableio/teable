@@ -302,6 +302,88 @@ describe('update-field: formula property updates', () => {
     }
   });
 
+  test('should keep distinct filtering when text formula expression keeps storage type', async () => {
+    let tableId: string | undefined;
+    try {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: 'v2-formula-update-text-distinct-filter',
+        fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+      });
+      tableId = table.id;
+      const primaryFieldId = table.fields.find((f) => f.isPrimary)?.id;
+      if (!primaryFieldId) throw new Error('Primary field not found');
+
+      const withCode = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId,
+        field: { type: 'singleLineText', name: 'Code' },
+      });
+      const codeField = withCode.fields.find((f) => f.name === 'Code');
+      if (!codeField) throw new Error('Code field not found');
+
+      const withFormula = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId,
+        field: {
+          type: 'formula',
+          name: 'Plan Key',
+          options: { expression: `CONCATENATE({${primaryFieldId}}, "-", {${codeField.id}})` },
+        },
+      });
+      const formulaField = withFormula.fields.find((f) => f.name === 'Plan Key');
+      if (!formulaField) throw new Error('Formula field not found');
+
+      await ctx.createRecords(tableId, [
+        { fields: { [primaryFieldId]: 'PLTFL26042108', [codeField.id]: 'AVP1' } },
+        { fields: { [primaryFieldId]: 'static' } },
+      ]);
+      await ctx.drainOutbox();
+      ctx.testContainer.clearLogs();
+
+      await ctx.updateField({
+        tableId,
+        fieldId: formulaField.id,
+        field: {
+          type: 'formula',
+          options: { expression: `CONCATENATE({${primaryFieldId}}, "--", {${codeField.id}})` },
+        },
+      });
+      await ctx.drainOutbox();
+
+      const records = await ctx.listRecords(tableId);
+      const values = records.map((r) => r.fields[formulaField.id]).sort();
+      expect(values).toEqual(['PLTFL26042108--AVP1', 'static--']);
+
+      const updateSqlLogs = ctx.testContainer.spyLogger.getEntriesByMessage(
+        'computed:backfillMany:sql'
+      );
+      const formulaBackfillStarts = ctx.testContainer.spyLogger
+        .getEntriesByMessage('computed:backfillMany:start')
+        .filter((entry) => {
+          const context = entry.context;
+          if (!isObjectRecord(context) || context['tableId'] !== tableId) {
+            return false;
+          }
+
+          const fieldIds = context['fieldIds'];
+          return Array.isArray(fieldIds) && fieldIds.includes(formulaField.id);
+        });
+      expect(formulaBackfillStarts).toHaveLength(1);
+
+      const formulaBackfillContext = updateSqlLogs
+        .map((entry) => (isObjectRecord(entry.context) ? entry.context : undefined))
+        .find((context): context is Record<string, unknown> => context?.['tableId'] === tableId);
+      const formulaBackfillSql = formulaBackfillContext?.['sql'];
+      expect(typeof formulaBackfillSql).toBe('string');
+      if (typeof formulaBackfillSql === 'string') {
+        expect(formulaBackfillSql.toLowerCase()).toContain('is distinct from');
+      }
+    } finally {
+      if (tableId) await ctx.deleteTable(tableId).catch(() => undefined);
+    }
+  });
+
   test('should not publish upstream source field updates when formula expression changes', async () => {
     let tableId: string | undefined;
     try {
@@ -627,6 +709,96 @@ describe('update-field: formula property updates', () => {
         | ({ hasError?: boolean } & typeof formulaField)
         | undefined;
       expect(afterField?.hasError).toBe(true);
+    } finally {
+      if (tableId) await ctx.deleteTable(tableId).catch(() => undefined);
+    }
+  });
+
+  test('should create records when a computed field chunk only contains skipped errored formulas', async () => {
+    let tableId: string | undefined;
+    try {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: 'v2-formula-create-empty-computed-chunk',
+        fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+      });
+      tableId = table.id;
+      const primaryFieldId = table.fields.find((f) => f.isPrimary)?.id;
+      if (!primaryFieldId) throw new Error('Primary field not found');
+
+      const withGoodSource = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId,
+        field: { type: 'number', name: 'Good Source' },
+      });
+      const goodSourceField = withGoodSource.fields.find((f) => f.name === 'Good Source');
+      if (!goodSourceField) throw new Error('Good Source field not found');
+
+      const validFormulaFieldIds: string[] = [];
+      for (let i = 0; i < 16; i += 1) {
+        const withFormula = await ctx.createField({
+          baseId: ctx.baseId,
+          tableId,
+          field: {
+            type: 'formula',
+            name: `Valid Formula ${i + 1}`,
+            options: { expression: `{${goodSourceField.id}} + ${i + 1}` },
+          },
+        });
+        const formulaField = withFormula.fields.find((f) => f.name === `Valid Formula ${i + 1}`);
+        if (!formulaField) throw new Error(`Valid Formula ${i + 1} field not found`);
+        validFormulaFieldIds.push(formulaField.id);
+      }
+
+      const withBrokenSource = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId,
+        field: { type: 'number', name: 'Broken Source' },
+      });
+      const brokenSourceField = withBrokenSource.fields.find((f) => f.name === 'Broken Source');
+      if (!brokenSourceField) throw new Error('Broken Source field not found');
+
+      const withBrokenFormula = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId,
+        field: {
+          type: 'formula',
+          name: 'Broken Formula',
+          options: { expression: `{${brokenSourceField.id}} + 1` },
+        },
+      });
+      const brokenFormulaField = withBrokenFormula.fields.find((f) => f.name === 'Broken Formula');
+      if (!brokenFormulaField) throw new Error('Broken Formula field not found');
+
+      await ctx.deleteField({ tableId, fieldId: brokenSourceField.id });
+      await ctx.drainOutbox();
+
+      const tableAfterDelete = await ctx.getTableById(tableId);
+      const brokenAfterDelete = tableAfterDelete.fields.find(
+        (f) => f.id === brokenFormulaField.id
+      ) as ({ hasError?: boolean } & typeof brokenFormulaField) | undefined;
+      expect(brokenAfterDelete?.hasError).toBe(true);
+
+      ctx.clearLogs();
+      const created = await ctx.createRecord(tableId, {
+        [primaryFieldId]: 'row-after-broken-formula',
+        [goodSourceField.id]: 10,
+      });
+      await ctx.drainOutbox();
+
+      const records = await ctx.listRecords(tableId);
+      const row = records.find((record) => record.id === created.id);
+      expect(row?.fields[validFormulaFieldIds[0] as string]).toBe(11);
+      expect(row?.fields[validFormulaFieldIds[15] as string]).toBe(26);
+
+      const updateSqlLogs = ctx.testContainer.spyLogger.getEntriesByMessage(
+        /computed:update:table=.*:sql:/
+      );
+      const updateSql = updateSqlLogs.map((entry) => entry.message).join('\n');
+      expect(updateSql).not.toContain(' set  from ');
+      expect(updateSql).toContain(
+        'select null::text as "__id", null::integer as "__old_version" where false'
+      );
     } finally {
       if (tableId) await ctx.deleteTable(tableId).catch(() => undefined);
     }

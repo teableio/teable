@@ -1,5 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Injectable } from '@nestjs/common';
+import { join } from 'path';
+import { Injectable, Optional } from '@nestjs/common';
 import type { IRole } from '@teable/core';
 import {
   HttpErrorCode,
@@ -21,7 +22,13 @@ import type {
   IUpdateIntegrationRo,
   IUpdateSpaceRo,
 } from '@teable/openapi';
-import { ResourceType, CollaboratorType, PrincipalType, IntegrationType } from '@teable/openapi';
+import {
+  ResourceType,
+  CollaboratorType,
+  PrincipalType,
+  IntegrationType,
+  UploadType,
+} from '@teable/openapi';
 import { Knex } from 'knex';
 import { keyBy, map, uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
@@ -33,6 +40,9 @@ import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { PerformanceCache, PerformanceCacheService } from '../../performance-cache';
 import { generateIntegrationCacheKey } from '../../performance-cache/generate-keys';
 import type { IClsStore } from '../../types/cls';
+import { AVATAR_OUTPUT_MIMETYPE, AVATAR_SIZE, cropSquareAvatarImage } from '../../utils/avatar';
+import StorageAdapter from '../attachments/plugins/adapter';
+import { InjectStorageAdapter } from '../attachments/plugins/storage';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { PermissionService } from '../auth/permission.service';
 import { BaseService } from '../base/base.service';
@@ -41,6 +51,7 @@ import { SettingOpenApiService } from '../setting/open-api/setting-open-api.serv
 import { SettingService } from '../setting/setting.service';
 import { normalizeSpaceAIIntegrationConfig } from './ai-integration-config';
 import { DataDbBindingService } from './data-db-binding.service';
+import { SpaceDataDbMigrationGuardService } from './space-data-db-migration-guard.service';
 
 @Injectable()
 export class SpaceService {
@@ -56,8 +67,15 @@ export class SpaceService {
     protected readonly dataDbBindingService: DataDbBindingService,
     @ThresholdConfig() protected readonly thresholdConfig: IThresholdConfig,
     @InjectModel('CUSTOM_KNEX') protected readonly knex: Knex,
-    @InjectDbProvider() protected readonly dbProvider: IDbProvider
+    @InjectDbProvider() protected readonly dbProvider: IDbProvider,
+    @InjectStorageAdapter() protected readonly storageAdapter: StorageAdapter,
+    @Optional()
+    protected readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService
   ) {}
+
+  private async assertSpaceWritable(spaceId: string) {
+    await this.spaceDataDbMigrationGuard?.assertSpaceWritable(spaceId);
+  }
 
   protected supportsByodbSpaceCreation() {
     return false;
@@ -100,6 +118,7 @@ export class SpaceService {
       select: {
         id: true,
         name: true,
+        avatar: true,
       },
       where: {
         id: spaceId,
@@ -127,11 +146,12 @@ export class SpaceService {
     }
     return {
       ...space,
+      avatar: space.avatar ? getPublicFullStorageUrl(space.avatar) : null,
       role,
     };
   }
 
-  async filterSpaceListWithAccessToken(spaceList: { id: string; name: string }[]) {
+  async filterSpaceListWithAccessToken<T extends { id: string; name: string }>(spaceList: T[]) {
     const accessTokenId = this.cls.get('accessTokenId');
     if (!accessTokenId) {
       return spaceList;
@@ -166,7 +186,7 @@ export class SpaceService {
         deletedTime: null,
         isTemplate: null,
       },
-      select: { id: true, name: true },
+      select: { id: true, name: true, avatar: true },
       orderBy: { createdTime: 'asc' },
     });
     const roleMap = collaboratorSpaceList.reduce(
@@ -184,6 +204,7 @@ export class SpaceService {
     const filteredSpaceList = await this.filterSpaceListWithAccessToken(spaceList);
     return filteredSpaceList.map((space) => ({
       ...space,
+      avatar: space.avatar ? getPublicFullStorageUrl(space.avatar) : null,
       role: roleMap[space.id].roleName as IRole,
     }));
   }
@@ -240,6 +261,7 @@ export class SpaceService {
   }
 
   async updateSpace(spaceId: string, updateSpaceRo: IUpdateSpaceRo) {
+    await this.assertSpaceWritable(spaceId);
     const userId = this.cls.get('user.id');
 
     return await this.prismaService.space.update({
@@ -258,7 +280,69 @@ export class SpaceService {
     });
   }
 
+  async updateSpaceAvatar(
+    spaceId: string,
+    avatarFile: { path: string; mimetype: string; size: number }
+  ) {
+    await this.assertSpaceWritable(spaceId);
+    const userId = this.cls.get('user.id');
+
+    const space = await this.prismaService.space.findFirst({
+      select: { id: true },
+      where: { id: spaceId, deletedTime: null },
+    });
+    if (!space) {
+      throw new CustomHttpException('Space not found', HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.space.notFound',
+        },
+      });
+    }
+
+    const storagePath = join(StorageAdapter.getDir(UploadType.SpaceAvatar), spaceId);
+    const bucket = StorageAdapter.getBucket(UploadType.SpaceAvatar);
+
+    // Crop the image to a square before uploading
+    const croppedImageBuffer = await cropSquareAvatarImage(avatarFile.path, AVATAR_SIZE);
+
+    // Upload the cropped image buffer directly
+    const { hash } = await this.storageAdapter.uploadFile(bucket, storagePath, croppedImageBuffer, {
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      'Content-Type': AVATAR_OUTPUT_MIMETYPE,
+    });
+
+    const attachmentInput = {
+      hash,
+      size: croppedImageBuffer.length,
+      mimetype: AVATAR_OUTPUT_MIMETYPE,
+      token: spaceId,
+      path: storagePath,
+    };
+    await this.prismaService.txClient().attachments.upsert({
+      create: {
+        ...attachmentInput,
+        createdBy: userId,
+      },
+      update: attachmentInput,
+      where: {
+        token: spaceId,
+        deletedTime: null,
+      },
+    });
+
+    // Append a version query so re-uploads bust the browser cache. The storage
+    // path itself is stable (one file per space), only the URL string varies.
+    await this.prismaService.txClient().space.update({
+      data: {
+        avatar: `${storagePath}?v=${Date.now()}`,
+        lastModifiedBy: userId,
+      },
+      where: { id: spaceId, deletedTime: null },
+    });
+  }
+
   async deleteSpace(spaceId: string) {
+    await this.assertSpaceWritable(spaceId);
     const userId = this.cls.get('user.id');
 
     await this.prismaService.$tx(async () => {
@@ -308,6 +392,7 @@ export class SpaceService {
         createdBy: true,
         lastModifiedTime: true,
         createdTime: true,
+        v2Enabled: true,
       },
       where: {
         spaceId,
@@ -333,11 +418,14 @@ export class SpaceService {
     const userMap = keyBy(userList, 'id');
     const sharedBaseIds = new Set(sharedBaseList.map((s) => s.baseId));
 
-    return baseList.map((base) => {
+    const baseListWithV2Status = await this.baseService.enrichBaseListV2Status(baseList);
+
+    return baseListWithV2Status.map((base) => {
+      const { v2Enabled, ...baseInfo } = base;
       const role = roleMap[base.id] || roleMap[base.spaceId];
       const createdUser = userMap[base.createdBy];
       return {
-        ...base,
+        ...baseInfo,
         role,
         isShared: sharedBaseIds.has(base.id),
         lastModifiedTime: base.lastModifiedTime?.toISOString(),
@@ -497,7 +585,7 @@ export class SpaceService {
         .filter((row) => row.type === ResourceType.Base)
         .map((row) => baseMap[row.base_id].spaceId)
     );
-    const { validCreatorSet, spaceOwnerMap } =
+    const { spaceOwnerMap } =
       await this.collaboratorService.buildSpaceOwnerContext(spaceIdsForBases);
 
     const allUserIds = uniq([...userIds, ...spaceOwnerMap.values()]);
@@ -509,10 +597,11 @@ export class SpaceService {
 
     const list = resultsToReturn.map((row) => {
       const base = baseMap[row.base_id];
-      const isCreatorInSpace = validCreatorSet.has(`${base?.spaceId}:${row.created_by}`);
+      // Show the real base creator; only when their user record is unresolvable
+      // (e.g. permanently deleted) fall back to a space owner.
       const displayUserId =
         row.type === ResourceType.Base
-          ? isCreatorInSpace
+          ? userMap[row.created_by]
             ? row.created_by
             : spaceOwnerMap.get(base.spaceId)
           : row.created_by;
@@ -546,6 +635,7 @@ export class SpaceService {
   }
 
   async permanentDeleteSpace(spaceId: string, ignorePermissionCheck: boolean = false) {
+    await this.assertSpaceWritable(spaceId);
     if (!ignorePermissionCheck) {
       const accessTokenId = this.cls.get('accessTokenId');
       await this.permissionService.validPermissions(spaceId, ['space|delete'], accessTokenId, true);

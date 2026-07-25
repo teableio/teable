@@ -1,8 +1,16 @@
-import { CellValueType, DbFieldType, FieldKeyType, FieldType, SortFunc } from '@teable/core';
+import {
+  CellValueType,
+  DbFieldType,
+  FieldKeyType,
+  FieldType,
+  SortFunc,
+  TimeFormatting,
+} from '@teable/core';
 import {
   CreateRecordResult,
   CreateRecordsResult,
   DuplicateRecordResult,
+  FieldId,
   ListTableRecordsQuery,
   ListTableRecordsResult,
   UpdateRecordResult,
@@ -39,6 +47,8 @@ describe('RecordOpenApiV2Service', () => {
   const cacheSetDetail = vi.fn();
   const getDataDatabaseForTable = vi.fn();
   const dataPrismaForTable = vi.fn();
+  const resolveForRecordSearch = vi.fn();
+  const assertTableRecordWritable = vi.fn();
 
   let service: RecordOpenApiV2Service;
 
@@ -132,6 +142,7 @@ describe('RecordOpenApiV2Service', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    assertTableRecordWritable.mockResolvedValue(undefined);
 
     resolve.mockImplementation((token) => {
       if (token === v2CoreTokens.queryBus) {
@@ -166,6 +177,7 @@ describe('RecordOpenApiV2Service', () => {
       url: 'postgresql://meta',
       isMetaFallback: true,
     });
+    resolveForRecordSearch.mockResolvedValue(undefined);
     commandExecute.mockResolvedValue({
       isErr: () => false,
       value: UpdateRecordsResult.create(2, []),
@@ -201,7 +213,10 @@ describe('RecordOpenApiV2Service', () => {
         current: vi.fn().mockReturnValue(undefined),
         emitAtomic: vi.fn().mockResolvedValue(undefined),
         withOperation: vi.fn().mockImplementation((_operation, fn: () => Promise<unknown>) => fn()),
-      } as never
+      } as never,
+      { assertTableRecordWritable } as never,
+      undefined,
+      { resolveForRecordSearch } as never
     );
   });
 
@@ -266,6 +281,68 @@ describe('RecordOpenApiV2Service', () => {
     });
 
     expect(prepared.commandInput.content).toEqual([['Alpha'], ['Beta']]);
+  });
+
+  it('preserves structured link titles when preparing v2 paste into link fields (T6106)', async () => {
+    const tableId = `tbl${'c'.repeat(16)}`;
+    const viewId = `viw${'v'.repeat(16)}`;
+    const targetFieldId = `fld${'t'.repeat(16)}`;
+    const sourceFieldId = `fld${'l'.repeat(16)}`;
+    const foreignTableId = `tbl${'f'.repeat(16)}`;
+    const lookupFieldId = `fld${'p'.repeat(16)}`;
+    const linkFieldVo = {
+      id: targetFieldId,
+      dbFieldName: 'related',
+      name: 'Related',
+      type: FieldType.Link,
+      cellValueType: CellValueType.String,
+      dbFieldType: DbFieldType.Json,
+      isMultipleCellValue: false,
+      options: {
+        relationship: 'manyOne',
+        foreignTableId,
+        lookupFieldId,
+        isOneWay: true,
+      },
+    };
+
+    performRowCount.mockResolvedValueOnce({ rowCount: 2 });
+    getFieldInstances.mockResolvedValueOnce([createFieldInstanceByVo(linkFieldVo as never)]);
+
+    const prepared = await (
+      service as unknown as {
+        preparePasteCommandInput: (
+          tableId: string,
+          pasteRo: {
+            viewId: string;
+            ranges: [[number, number], [number, number]];
+            content: unknown[][];
+            header: unknown[];
+          }
+        ) => Promise<{ commandInput: { content: unknown[][] } }>;
+      }
+    ).preparePasteCommandInput(tableId, {
+      viewId,
+      ranges: [
+        [0, 0],
+        [0, 1],
+      ],
+      content: [
+        [{ id: `rec${'1'.repeat(16)}`, title: 'Alpha' }],
+        [{ id: `rec${'2'.repeat(16)}`, title: 'Beta' }],
+      ],
+      header: [
+        {
+          ...linkFieldVo,
+          id: sourceFieldId,
+        },
+      ],
+    });
+
+    expect(prepared.commandInput.content).toEqual([
+      [{ id: `rec${'1'.repeat(16)}`, title: 'Alpha' }],
+      [{ id: `rec${'2'.repeat(16)}`, title: 'Beta' }],
+    ]);
   });
 
   it('should ignore unreadable fields in orderBy and groupBy', () => {
@@ -340,6 +417,8 @@ describe('RecordOpenApiV2Service', () => {
       filterLinkCellCandidate
     );
     expect((query as ListTableRecordsQuery).selectedRecordIds).toEqual(selectedRecordIds);
+    expect((query as ListTableRecordsQuery).projection).toEqual([]);
+    expect((query as ListTableRecordsQuery).includeTotal).toBe(false);
     expect((query as ListTableRecordsQuery).viewId).toBe(viewId);
     expect((query as ListTableRecordsQuery).ignoreViewQuery).toBe(true);
     expect(getReadQuerySource).toHaveBeenCalledWith(`tbl${'c'.repeat(16)}`, {
@@ -351,6 +430,185 @@ describe('RecordOpenApiV2Service', () => {
       { id: 'rec1111111111111111', fields: {} },
       { id: 'rec2222222222222222', fields: {} },
     ]);
+  });
+
+  it('passes a meta-backed generated search vector access path into v2 list queries', async () => {
+    const tableId = `tbl${'c'.repeat(16)}`;
+    const search = ['order 123'] as [string];
+    const accessPath = {
+      kind: 'generated_tsvector' as const,
+      generatedColumnName: '__tqops_search_vector',
+      languageConfig: 'simple',
+      searchScope: 'all_fields' as const,
+      coveredFieldIds: [FieldId.create(noteFieldId)._unsafeUnwrap()],
+    };
+    resolveForRecordSearch.mockResolvedValueOnce(accessPath);
+
+    await service.getRecords(tableId, {
+      fieldKeyType: FieldKeyType.Id,
+      search,
+      skip: 0,
+      take: 2,
+    });
+
+    expect(resolveForRecordSearch).toHaveBeenCalledWith({
+      container: { resolve },
+      tableId,
+      search,
+    });
+    expect(getDocIdsByQuery).not.toHaveBeenCalled();
+    const query = execute.mock.calls[0]?.[1];
+    expect(query).toBeInstanceOf(ListTableRecordsQuery);
+    expect((query as ListTableRecordsQuery).recordSearchAccessPath).toBe(accessPath);
+  });
+
+  it('normalizes legacy ISO date filters for v2 date comparisons', async () => {
+    const tableId = `tbl${'c'.repeat(16)}`;
+    const dateFieldId = `fld${'d'.repeat(16)}`;
+    const exactDate = '2026-06-02T00:00:00.000Z';
+
+    getFieldInstances.mockResolvedValueOnce([
+      createFieldInstanceByVo({
+        id: dateFieldId,
+        dbFieldName: 'created_date',
+        name: 'Created Date',
+        type: FieldType.Date,
+        cellValueType: CellValueType.DateTime,
+        dbFieldType: DbFieldType.DateTime,
+        options: {
+          formatting: {
+            date: 'YYYY-MM-DD',
+            time: TimeFormatting.None,
+            timeZone: 'Asia/Shanghai',
+          },
+        },
+      }),
+    ]);
+
+    await service.getRecords(tableId, {
+      fieldKeyType: FieldKeyType.Id,
+      skip: 0,
+      take: 2,
+      filter: {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: dateFieldId,
+            operator: 'isOnOrAfter',
+            value: exactDate,
+          },
+        ],
+      } as never,
+    });
+
+    const query = execute.mock.calls[0]?.[1];
+    expect(query).toBeInstanceOf(ListTableRecordsQuery);
+    expect((query as ListTableRecordsQuery).filter).toEqual({
+      conjunction: 'and',
+      items: [
+        {
+          fieldId: dateFieldId,
+          operator: 'isOnOrAfter',
+          value: {
+            mode: 'exactDate',
+            exactDate,
+            timeZone: 'Asia/Shanghai',
+          },
+        },
+      ],
+    });
+  });
+
+  it('loads grouped query extra by default for grouped record reads', async () => {
+    const tableId = `tbl${'c'.repeat(16)}`;
+    const groupBy = [{ fieldId: statusFieldId, order: SortFunc.Asc }];
+    const extra = {
+      groupPoints: [{ type: 1, count: 2 }],
+      allGroupHeaderRefs: [],
+    };
+    getDocIdsByQuery.mockResolvedValueOnce({ extra });
+
+    const result = await service.getRecords(tableId, {
+      fieldKeyType: FieldKeyType.Id,
+      skip: 0,
+      take: 2,
+      groupBy,
+    });
+
+    expect(getDocIdsByQuery).toHaveBeenCalledWith(
+      tableId,
+      expect.objectContaining({ groupBy }),
+      true
+    );
+    expect(result.extra).toEqual(extra);
+  });
+
+  it('skips grouped query extra when includeQueryExtra is false', async () => {
+    const tableId = `tbl${'c'.repeat(16)}`;
+    const groupBy = [{ fieldId: statusFieldId, order: SortFunc.Asc }];
+
+    const result = await service.getRecords(tableId, {
+      fieldKeyType: FieldKeyType.Id,
+      skip: 0,
+      take: 2,
+      groupBy,
+      includeQueryExtra: false,
+    });
+
+    expect(getDocIdsByQuery).not.toHaveBeenCalled();
+    expect(result.extra).toBeUndefined();
+
+    const query = execute.mock.calls[0]?.[1];
+    expect(query).toBeInstanceOf(ListTableRecordsQuery);
+    expect((query as ListTableRecordsQuery).sort).toEqual(groupBy);
+    expect((query as ListTableRecordsQuery).groupBy).toEqual([statusFieldId]);
+  });
+
+  it('skips grouped query extra by default for projected record reads', async () => {
+    const tableId = `tbl${'c'.repeat(16)}`;
+    const groupBy = [{ fieldId: statusFieldId, order: SortFunc.Asc }];
+
+    const result = await service.getRecords(tableId, {
+      fieldKeyType: FieldKeyType.Id,
+      skip: 0,
+      take: 2,
+      groupBy,
+      projection: [statusFieldId, noteFieldId],
+    });
+
+    expect(getDocIdsByQuery).not.toHaveBeenCalled();
+    expect(result.extra).toBeUndefined();
+
+    const query = execute.mock.calls[0]?.[1];
+    expect(query).toBeInstanceOf(ListTableRecordsQuery);
+    expect((query as ListTableRecordsQuery).sort).toEqual(groupBy);
+    expect((query as ListTableRecordsQuery).groupBy).toEqual([statusFieldId]);
+  });
+
+  it('loads grouped query extra for projected record reads when explicitly requested', async () => {
+    const tableId = `tbl${'c'.repeat(16)}`;
+    const groupBy = [{ fieldId: statusFieldId, order: SortFunc.Asc }];
+    const extra = {
+      groupPoints: [{ type: 1, count: 2 }],
+      allGroupHeaderRefs: [],
+    };
+    getDocIdsByQuery.mockResolvedValueOnce({ extra });
+
+    const result = await service.getRecords(tableId, {
+      fieldKeyType: FieldKeyType.Id,
+      skip: 0,
+      take: 2,
+      groupBy,
+      projection: [statusFieldId, noteFieldId],
+      includeQueryExtra: true,
+    });
+
+    expect(getDocIdsByQuery).toHaveBeenCalledWith(
+      tableId,
+      expect.objectContaining({ groupBy, projection: [statusFieldId, noteFieldId] }),
+      true
+    );
+    expect(result.extra).toEqual(extra);
   });
 
   it('runs legacy snapshot compatibility reads against the table data client for BYODB tables', async () => {
@@ -626,6 +884,21 @@ describe('RecordOpenApiV2Service', () => {
     expect(cacheDel).toHaveBeenCalledWith(
       `operations:engine:usr${'h'.repeat(16)}:tbl${'c'.repeat(16)}:win${'i'.repeat(16)}`
     );
+  });
+
+  it('checks the record-level migration guard before v2 mutations', async () => {
+    const error = new Error('space data database migration is switching');
+    assertTableRecordWritable.mockRejectedValueOnce(error);
+
+    await expect(
+      service.updateRecords(`tbl${'c'.repeat(16)}`, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [{ id: 'rec1111111111111111', fields: { [statusFieldId]: 'Done' } }],
+      })
+    ).rejects.toBe(error);
+
+    expect(assertTableRecordWritable).toHaveBeenCalledWith(`tbl${'c'.repeat(16)}`);
+    expect(commandExecute).not.toHaveBeenCalled();
   });
 
   it('returns the v2 updateRecord payload directly without reloading legacy snapshots', async () => {

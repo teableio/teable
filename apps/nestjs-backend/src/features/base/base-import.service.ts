@@ -1,5 +1,6 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import type { Readable } from 'stream';
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   DbFieldType,
@@ -15,13 +16,13 @@ import {
   generateShareId,
   generateViewId,
   getUniqName,
+  pluginViewOptionSchema,
   ViewType,
 } from '@teable/core';
 import { PrismaService, ProvisionState } from '@teable/db-main-prisma';
 import type {
   ICreateBaseVo,
   IBaseJson,
-  ImportBaseRo,
   IFieldWithTableIdJson,
   IImportBaseVo,
 } from '@teable/openapi';
@@ -31,6 +32,7 @@ import {
   BaseNodeResourceType,
   BaseDuplicateMode,
   CreateRecordAction,
+  ImportBaseRo,
 } from '@teable/openapi';
 import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import {
@@ -58,9 +60,8 @@ import {
 import type { DependencyContainer } from '@teable/v2-di';
 
 import * as csvParser from 'csv-parser';
-import { Knex } from 'knex';
-import { Kysely, sql } from 'kysely';
-import { InjectModel } from 'nest-knexjs';
+import type { Kysely } from 'kysely';
+import { sql } from 'kysely';
 import { ClsService } from 'nestjs-cls';
 import streamJson from 'stream-json';
 import streamValues from 'stream-json/streamers/StreamValues';
@@ -76,6 +77,7 @@ import { InjectStorageAdapter } from '../attachments/plugins/storage';
 import { AuditScope } from '../audit/audit-scope';
 import { Audit } from '../audit/audit.decorator';
 import { FieldDuplicateService } from '../field/field-duplicate/field-duplicate.service';
+import { SpaceDataDbMigrationGuardService } from '../space/space-data-db-migration-guard.service';
 import { TableService } from '../table/table.service';
 import { V2ContainerService } from '../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../v2/v2-execution-context.factory';
@@ -112,6 +114,25 @@ type IDataPrismaScopedClient = IDataPrismaExecutor & {
 
 const tableDataImportBatchSize = 100;
 const linkFieldImportBatchSize = 25;
+const attachmentsDirPrefix = 'attachments/';
+
+const remapPluginViewOptions = (
+  options: unknown,
+  maps: Record<string, Record<string, string>>,
+  pluginId: string,
+  pluginInstallId: string
+): string => {
+  const remappedOptions = replaceStringByMap(options, maps, false) as
+    | { pluginLogo?: unknown }
+    | undefined;
+  return JSON.stringify(
+    pluginViewOptionSchema.parse({
+      pluginId,
+      pluginInstallId,
+      pluginLogo: typeof remappedOptions?.pluginLogo === 'string' ? remappedOptions.pluginLogo : '',
+    })
+  );
+};
 
 const stringifyErrorDetails = (details: unknown): string | undefined => {
   if (details === undefined || details === null) {
@@ -181,8 +202,19 @@ export class BaseImportService {
     private readonly v2ContainerService: V2ContainerService,
     private readonly v2ContextFactory: V2ExecutionContextFactory,
     private readonly dataDbClientManager: DataDbClientManager,
-    private readonly audit: AuditScope
+    private readonly audit: AuditScope,
+    @Optional()
+    @Inject(SpaceDataDbMigrationGuardService)
+    private readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService
   ) {}
+
+  private async assertSpaceWritable(spaceId: string) {
+    await this.spaceDataDbMigrationGuard?.assertSpaceWritable(spaceId);
+  }
+
+  private async assertBaseWritable(baseId: string) {
+    await this.spaceDataDbMigrationGuard?.assertBaseWritable(baseId);
+  }
 
   private async getMaxOrder(spaceId: string) {
     const spaceAggregate = await this.prismaService.txClient().base.aggregate({
@@ -198,6 +230,7 @@ export class BaseImportService {
     icon?: string,
     routingOptions?: IDataDbRoutingOptions
   ) {
+    await this.assertSpaceWritable(spaceId);
     const userId = this.cls.get('user.id');
     const order = (await this.getMaxOrder(spaceId)) + 1;
 
@@ -259,7 +292,9 @@ export class BaseImportService {
     updateExistingBase: boolean = true
   ): Promise<ICreateBaseVo> {
     const userId = this.cls.get('user.id');
+    await this.assertSpaceWritable(spaceId);
     if (baseId) {
+      await this.assertBaseWritable(baseId);
       const existingResult = await sql<{
         id: string;
         name: string;
@@ -351,8 +386,10 @@ export class BaseImportService {
   })
   async importBase(importBaseRo: ImportBaseRo, onProgress?: BaseImportProgressCallback) {
     const {
+      spaceId,
       notify: { path },
     } = importBaseRo;
+    await this.assertSpaceWritable(spaceId);
     const logId = this.audit.current()!.operationId;
 
     onProgress?.('parsing_structure');
@@ -418,6 +455,7 @@ export class BaseImportService {
       spaceId,
       notify: { path },
     } = importBaseRo;
+    await this.assertSpaceWritable(spaceId);
 
     onProgress?.('importing_v2');
     onProgress?.('parsing_structure');
@@ -473,7 +511,7 @@ export class BaseImportService {
     const { tableIdMap, fieldIdMap, viewIdMap } = result.value;
 
     onProgress?.('structure_created', base.id);
-    await this.restoreBaseExtrasV2(
+    const { appIdMap, workflowIdMap } = await this.restoreBaseExtrasV2(
       db,
       base.id,
       structure,
@@ -512,6 +550,15 @@ export class BaseImportService {
       tableIdMap,
       fieldIdMap,
       viewIdMap,
+      appIdMap,
+      workflowIdMap,
+      // Source->new base id, so EE import can rewrite base-id references baked into app
+      // build artifacts (matches the v1 import/duplicate idMap; v2 dropped it).
+      baseIdMap: { [structure.id]: base.id },
+    } as IImportBaseVo & {
+      appIdMap: Record<string, string>;
+      workflowIdMap: Record<string, string>;
+      baseIdMap: Record<string, string>;
     };
   }
 
@@ -525,8 +572,7 @@ export class BaseImportService {
       viewIdMap: Record<string, string>;
     },
     duplicateMode: BaseDuplicateMode = BaseDuplicateMode.Normal,
-    onProgress?: BaseImportProgressCallback,
-    options?: { restoreEeResources?: boolean }
+    onProgress?: BaseImportProgressCallback
   ): Promise<{ appIdMap: Record<string, string>; workflowIdMap: Record<string, string> }> {
     const { tableIdMap, fieldIdMap, viewIdMap } = idMaps;
     let dashboardIdMap: Record<string, string> = {};
@@ -545,20 +591,17 @@ export class BaseImportService {
       ));
     }
 
-    // Restore edition-specific resources (apps / workflows / authority matrix) and collect their
-    // id maps so the matching base_node rows can be remapped below. Community has none, so the
-    // hook is a no-op; the EE subclass overrides it. Gated to the duplicate/copy path
-    // (restoreEeResources) so the .tea import path keeps its current behavior untouched.
-    const { workflowIdMap = {}, appIdMap = {} } = options?.restoreEeResources
-      ? await this.restoreExtraBaseResourcesV2(
-          db,
-          baseId,
-          structure,
-          { tableIdMap, fieldIdMap, viewIdMap },
-          duplicateMode,
-          onProgress
-        )
-      : {};
+    // Restore edition-specific resources (apps / workflows / authority matrix) through the v2
+    // extension hook and collect their id maps so matching base_node rows can be remapped below.
+    // Community has none, so the hook is a no-op; EE overrides it for imported and duplicated bases.
+    const { workflowIdMap = {}, appIdMap = {} } = await this.restoreExtraBaseResourcesV2(
+      db,
+      baseId,
+      structure,
+      { tableIdMap, fieldIdMap, viewIdMap },
+      duplicateMode,
+      onProgress
+    );
 
     const hasFolders = Array.isArray(structure.folders) && structure.folders.length > 0;
     const hasNodes = Array.isArray(structure.nodes) && structure.nodes.length > 0;
@@ -589,10 +632,10 @@ export class BaseImportService {
   }
 
   /**
-   * Hook for edition-specific (EE) base resources restored during a v2 duplicate/copy:
-   * apps, workflows, and the authority matrix. Community has none, so this is a no-op.
-   * The EE subclass overrides it to create those rows and returns their id maps so the
-   * caller can remap the corresponding base_node entries.
+   * Hook for edition-specific base resources restored during v2 `.tea` import and v2 duplicate/copy:
+   * apps, workflows, and the authority matrix. Community has none, so this is a no-op. The EE
+   * subclass overrides it to create those rows and returns their id maps so the caller can remap the
+   * corresponding base_node entries.
    */
   protected async restoreExtraBaseResourcesV2(
     _db: Kysely<unknown>,
@@ -984,105 +1027,228 @@ export class BaseImportService {
     fieldIdMap: Record<string, string>,
     viewIdMap: Record<string, string>
   ) {
-    const userId = this.cls.get('user.id');
-
     for (const pluginView of pluginViews) {
-      const {
-        id,
-        name,
-        description,
-        enableShare,
-        shareMeta,
-        isLocked,
-        tableId,
-        pluginInstall,
-        order,
-      } = pluginView;
-      if (viewIdMap[id]) {
-        continue;
-      }
-
-      const newViewId = generateViewId();
-      const pluginInstallId = generatePluginInstallId();
-      viewIdMap[id] = newViewId;
-      const configProperties = ['columnMeta', 'options', 'sort', 'group', 'filter'] as const;
-      const updateConfig = {} as Record<(typeof configProperties)[number], string | null>;
-      for (const property of configProperties) {
-        updateConfig[property] =
-          replaceStringByMap(pluginView[property], {
-            tableIdMap,
-            fieldIdMap,
-            viewIdMap,
-          }) ?? null;
-      }
-
-      await sql`
-        insert into "view" (
-          "id",
-          "name",
-          "description",
-          "table_id",
-          "type",
-          "sort",
-          "filter",
-          "group",
-          "options",
-          "order",
-          "version",
-          "column_meta",
-          "is_locked",
-          "enable_share",
-          "share_meta",
-          "created_by"
-        )
-        values (
-          ${newViewId},
-          ${name},
-          ${description ?? null},
-          ${tableIdMap[tableId]},
-          ${ViewType.Plugin},
-          ${updateConfig.sort},
-          ${updateConfig.filter},
-          ${updateConfig.group},
-          ${updateConfig.options},
-          ${order},
-          ${1},
-          ${updateConfig.columnMeta ?? JSON.stringify({})},
-          ${isLocked ?? null},
-          ${enableShare ?? null},
-          ${shareMeta ? JSON.stringify(shareMeta) : null},
-          ${userId}
-        )
-      `.execute(db);
-
-      const newStorage = replaceStringByMap(pluginInstall.storage, {
-        tableIdMap,
-        fieldIdMap,
-        viewIdMap,
-      });
-      await sql`
-        insert into "plugin_install" (
-          "id",
-          "created_by",
-          "base_id",
-          "plugin_id",
-          "name",
-          "position_id",
-          "position",
-          "storage"
-        )
-        values (
-          ${pluginInstallId},
-          ${userId},
-          ${baseId},
-          ${pluginInstall.pluginId},
-          ${pluginInstall.name},
-          ${newViewId},
-          ${pluginInstall.position},
-          ${newStorage}
-        )
-      `.execute(db);
+      await this.createPluginViewV2(db, baseId, pluginView, tableIdMap, fieldIdMap, viewIdMap);
     }
+  }
+
+  private mapPluginViewConfig(
+    pluginView: IBaseJson['plugins'][PluginPosition.View][number],
+    tableIdMap: Record<string, string>,
+    fieldIdMap: Record<string, string>,
+    viewIdMap: Record<string, string>,
+    pluginInstallId: string
+  ) {
+    const configMaps = { tableIdMap, fieldIdMap, viewIdMap };
+    return {
+      sort: replaceStringByMap(pluginView.sort, configMaps) ?? null,
+      filter: replaceStringByMap(pluginView.filter, configMaps) ?? null,
+      group: replaceStringByMap(pluginView.group, configMaps) ?? null,
+      columnMeta: replaceStringByMap(pluginView.columnMeta, configMaps) ?? JSON.stringify({}),
+      options: remapPluginViewOptions(
+        pluginView.options,
+        configMaps,
+        pluginView.pluginInstall.pluginId,
+        pluginInstallId
+      ),
+      storage: replaceStringByMap(pluginView.pluginInstall.storage, configMaps),
+    };
+  }
+
+  private async savePluginViewV2(
+    db: Kysely<unknown>,
+    pluginView: IBaseJson['plugins'][PluginPosition.View][number],
+    newViewId: string,
+    newTableId: string,
+    userId: string,
+    config: ReturnType<BaseImportService['mapPluginViewConfig']>,
+    exists: boolean
+  ) {
+    const { name, description, enableShare, shareMeta, isLocked, order } = pluginView;
+    if (exists) {
+      await sql`
+        update "view"
+        set "name" = ${name},
+            "description" = ${description ?? null},
+            "table_id" = ${newTableId},
+            "type" = ${ViewType.Plugin},
+            "sort" = ${config.sort},
+            "filter" = ${config.filter},
+            "group" = ${config.group},
+            "options" = ${config.options},
+            "order" = ${order},
+            "column_meta" = ${config.columnMeta},
+            "is_locked" = ${isLocked ?? null},
+            "enable_share" = ${enableShare ?? null},
+            "share_meta" = ${shareMeta ? JSON.stringify(shareMeta) : null},
+            "last_modified_by" = ${userId},
+            "last_modified_time" = now()
+        where "id" = ${newViewId}
+      `.execute(db);
+      return;
+    }
+
+    await sql`
+      insert into "view" (
+        "id",
+        "name",
+        "description",
+        "table_id",
+        "type",
+        "sort",
+        "filter",
+        "group",
+        "options",
+        "order",
+        "version",
+        "column_meta",
+        "is_locked",
+        "enable_share",
+        "share_meta",
+        "created_by"
+      )
+      values (
+        ${newViewId},
+        ${name},
+        ${description ?? null},
+        ${newTableId},
+        ${ViewType.Plugin},
+        ${config.sort},
+        ${config.filter},
+        ${config.group},
+        ${config.options},
+        ${order},
+        ${1},
+        ${config.columnMeta},
+        ${isLocked ?? null},
+        ${enableShare ?? null},
+        ${shareMeta ? JSON.stringify(shareMeta) : null},
+        ${userId}
+      )
+    `.execute(db);
+  }
+
+  private async createPluginViewV2(
+    db: Kysely<unknown>,
+    baseId: string,
+    pluginView: IBaseJson['plugins'][PluginPosition.View][number],
+    tableIdMap: Record<string, string>,
+    fieldIdMap: Record<string, string>,
+    viewIdMap: Record<string, string>
+  ) {
+    const userId = this.cls.get('user.id');
+    const existingViewId = viewIdMap[pluginView.id];
+    const newViewId = existingViewId ?? generateViewId();
+    const pluginInstallId = generatePluginInstallId();
+    viewIdMap[pluginView.id] = newViewId;
+    const config = this.mapPluginViewConfig(
+      pluginView,
+      tableIdMap,
+      fieldIdMap,
+      viewIdMap,
+      pluginInstallId
+    );
+
+    await this.savePluginViewV2(
+      db,
+      pluginView,
+      newViewId,
+      tableIdMap[pluginView.tableId],
+      userId,
+      config,
+      Boolean(existingViewId)
+    );
+
+    await sql`
+      insert into "plugin_install" (
+        "id",
+        "created_by",
+        "base_id",
+        "plugin_id",
+        "name",
+        "position_id",
+        "position",
+        "storage"
+      )
+      values (
+        ${pluginInstallId},
+        ${userId},
+        ${baseId},
+        ${pluginView.pluginInstall.pluginId},
+        ${pluginView.pluginInstall.name},
+        ${newViewId},
+        ${PluginPosition.View},
+        ${config.storage}
+      )
+    `.execute(db);
+  }
+
+  /**
+   * Stream the uploaded .tea straight from storage and hand only the entries selected by
+   * `match` to `consume`, one at a time.
+   *
+   * Uses the event-based `unzipper.Parse()` (NOT `{ forceStream: true }`) and, crucially,
+   * decides skip-vs-consume and calls `entry.autodrain()` for skipped entries
+   * SYNCHRONOUSLY inside the 'entry' event. That matters: unzipper begins inflating an
+   * entry (`zlib.createInflateRaw`) the moment it is emitted unless `autodrain()` is
+   * called before the next tick — a late/deferred autodrain still decompresses the entry.
+   * With `{ forceStream: true }` + `for await`, `autodrain()` always runs a tick too late,
+   * so a single entry whose deflate stream doesn't decode cleanly (e.g. an odd app-version
+   * zip, a truncated upload, or a data-descriptor boundary false-match) throws
+   * "unexpected end of file (Z_BUF_ERROR)" even though we only meant to skip it. Draining
+   * inline routes skipped entries through a PassThrough (no inflate), so they can never
+   * fail — the same approach the v1 CSV/junction importers use.
+   *
+   * Memory stays bounded to a single in-flight entry: the parser back-pressures on the
+   * current entry instead of buffering the archive (no temp file, no full-file buffer).
+   * `consume` may `await` before reading the entry; the parser simply waits.
+   */
+  private async forEachDotTeaEntry(
+    path: string,
+    match: (entryPath: string, entry: unzipper.Entry) => boolean,
+    consume: (entry: unzipper.Entry) => Promise<void>
+  ): Promise<void> {
+    const zipStream = await this.storageAdapter.downloadFile(
+      StorageAdapter.getBucket(UploadType.Import),
+      path
+    );
+    const parser = unzipper.Parse();
+
+    await new Promise<void>((resolve, reject) => {
+      let settled = false;
+      let chain: Promise<void> = Promise.resolve();
+
+      const fail = (error: unknown) => {
+        if (settled) return;
+        settled = true;
+        zipStream.destroy();
+        reject(error instanceof Error ? error : new Error(String(error)));
+      };
+
+      parser.on('entry', (entry: unzipper.Entry) => {
+        // Synchronous skip: drain (PassThrough, no inflate) entries we don't need.
+        if (settled || !match(entry.path, entry)) {
+          entry.autodrain();
+          return;
+        }
+        // Matched entries are consumed sequentially; the parser back-pressures until done.
+        chain = chain.then(() => consume(entry)).catch(fail);
+      });
+      parser.on('error', fail);
+      zipStream.on('error', fail);
+      parser.on('close', () => {
+        chain
+          .then(() => {
+            if (!settled) {
+              settled = true;
+              resolve();
+            }
+          })
+          .catch(fail);
+      });
+
+      zipStream.pipe(parser);
+    });
   }
 
   private async importAttachmentsV2(db: Kysely<unknown>, path: string) {
@@ -1091,29 +1257,18 @@ export class BaseImportService {
   }
 
   private async importAttachmentFilesV2(db: Kysely<unknown>, path: string) {
-    const zipStream = await this.storageAdapter.downloadFile(
-      StorageAdapter.getBucket(UploadType.Import),
-      path
-    );
-    const parser = unzipper.Parse({ forceStream: true });
-    zipStream.pipe(parser);
     const bucket = StorageAdapter.getBucket(UploadType.Table);
 
-    try {
-      for await (const entry of parser as AsyncIterable<unzipper.Entry>) {
+    await this.forEachDotTeaEntry(
+      path,
+      (entryPath, entry) =>
+        entryPath.startsWith(attachmentsDirPrefix) &&
+        entry.type !== 'Directory' &&
+        (entryPath.split('.').pop() ?? '') !== 'csv',
+      async (entry) => {
         const filePath = entry.path;
         const fileSuffix = filePath.split('.').pop() ?? '';
-
-        if (
-          !filePath.startsWith('attachments/') ||
-          entry.type === 'Directory' ||
-          fileSuffix === 'csv'
-        ) {
-          entry.autodrain();
-          continue;
-        }
-
-        const token = filePath.replace('attachments/', '').split('.')[0];
+        const token = filePath.replace(attachmentsDirPrefix, '').split('.')[0];
         const isThumbnail = token.includes('thumbnail__');
         const finalPath = isThumbnail
           ? `table/${token.split('__')[1].split('.')[0]}`
@@ -1128,7 +1283,7 @@ export class BaseImportService {
 
         if (existing.rows[0]) {
           entry.autodrain();
-          continue;
+          return;
         }
 
         await this.storageAdapter.uploadFileStream(bucket, finalPath, entry, {
@@ -1136,32 +1291,19 @@ export class BaseImportService {
           'Content-Type': this.getAttachmentMimeType(fileSuffix),
         });
       }
-    } finally {
-      zipStream.destroy();
-    }
+    );
   }
 
   private async importAttachmentMetadataV2(db: Kysely<unknown>, path: string) {
-    const zipStream = await this.storageAdapter.downloadFile(
-      StorageAdapter.getBucket(UploadType.Import),
-      path
-    );
-    const parser = unzipper.Parse({ forceStream: true });
-    zipStream.pipe(parser);
     const userId = this.cls.get('user.id');
 
-    try {
-      for await (const entry of parser as AsyncIterable<unzipper.Entry>) {
-        const filePath = entry.path;
-        if (
-          !filePath.startsWith('attachments/') ||
-          entry.type === 'Directory' ||
-          !filePath.endsWith('.csv')
-        ) {
-          entry.autodrain();
-          continue;
-        }
-
+    await this.forEachDotTeaEntry(
+      path,
+      (entryPath, entry) =>
+        entryPath.startsWith(attachmentsDirPrefix) &&
+        entry.type !== 'Directory' &&
+        entryPath.endsWith('.csv'),
+      async (entry) => {
         const csvStream = entry.pipe(
           csvParser.default({
             mapHeaders: ({ header }) => header.replace(/^\uFEFF/, ''),
@@ -1216,9 +1358,7 @@ export class BaseImportService {
           `.execute(db);
         }
       }
-    } finally {
-      zipStream.destroy();
-    }
+    );
   }
 
   private getAttachmentMimeType(extension: string): string {
@@ -1263,6 +1403,23 @@ export class BaseImportService {
     return extensionToMimeType[ext] || 'application/octet-stream';
   }
 
+  /** A `tables/<id>.csv` entry (excluding junction tables) whose table exists in the structure. */
+  private isImportableTableCsv(
+    entryPath: string,
+    entry: unzipper.Entry,
+    tablesById: Map<string, IBaseJson['tables'][number]>
+  ): boolean {
+    if (
+      !entryPath.startsWith('tables/') ||
+      entry.type === 'Directory' ||
+      !entryPath.endsWith('.csv') ||
+      entryPath.includes('junction_')
+    ) {
+      return false;
+    }
+    return tablesById.has(entryPath.replace('tables/', '').replace(/\.csv$/, ''));
+  }
+
   private async importTableDataV2(
     path: string,
     baseId: string,
@@ -1274,49 +1431,29 @@ export class BaseImportService {
     context: IExecutionContext,
     onProgress?: BaseImportProgressCallback
   ) {
-    const dotTeaDataStream = await this.storageAdapter.downloadFile(
-      StorageAdapter.getBucket(UploadType.Import),
-      path
-    );
-    const parser = unzipper.Parse({ forceStream: true });
-    dotTeaDataStream.pipe(parser);
-
     const tablesById = new Map(structure.tables.map((table) => [table.id, table]));
     let importedTables = 0;
 
-    for await (const entry of parser as AsyncIterable<unzipper.Entry>) {
-      const filePath = entry.path;
-      const isTableCsv =
-        filePath.startsWith('tables/') &&
-        entry.type !== 'Directory' &&
-        filePath.endsWith('.csv') &&
-        !filePath.includes('junction_');
-
-      if (!isTableCsv) {
-        entry.autodrain();
-        continue;
+    await this.forEachDotTeaEntry(
+      path,
+      (entryPath, entry) => this.isImportableTableCsv(entryPath, entry, tablesById),
+      async (entry) => {
+        const tableId = entry.path.replace('tables/', '').replace(/\.csv$/, '');
+        const table = tablesById.get(tableId)!;
+        importedTables++;
+        await this.importTableDataEntryV2(
+          entry,
+          table,
+          baseId,
+          tableIdMap[table.id] ?? table.id,
+          viewIdMap,
+          commandBus,
+          queryBus,
+          context,
+          onProgress
+        );
       }
-
-      const tableId = filePath.replace('tables/', '').replace(/\.csv$/, '');
-      const table = tablesById.get(tableId);
-      if (!table) {
-        entry.autodrain();
-        continue;
-      }
-
-      importedTables++;
-      await this.importTableDataEntryV2(
-        entry,
-        table,
-        baseId,
-        tableIdMap[table.id] ?? table.id,
-        viewIdMap,
-        commandBus,
-        queryBus,
-        context,
-        onProgress
-      );
-    }
+    );
 
     if (importedTables === 0) {
       onProgress?.('table_data_empty');
@@ -1476,13 +1613,6 @@ export class BaseImportService {
       return;
     }
 
-    const dotTeaDataStream = await this.storageAdapter.downloadFile(
-      StorageAdapter.getBucket(UploadType.Import),
-      path
-    );
-    const parser = unzipper.Parse({ forceStream: true });
-    dotTeaDataStream.pipe(parser);
-
     const tablesById = new Map(structure.tables.map((table) => [table.id, table]));
     let processedRows = 0;
     let currentBatch = 0;
@@ -1513,37 +1643,24 @@ export class BaseImportService {
       });
     };
 
-    for await (const entry of parser as AsyncIterable<unzipper.Entry>) {
-      const filePath = entry.path;
-      const isTableCsv =
-        filePath.startsWith('tables/') &&
-        entry.type !== 'Directory' &&
-        filePath.endsWith('.csv') &&
-        !filePath.includes('junction_');
-
-      if (!isTableCsv) {
-        entry.autodrain();
-        continue;
+    await this.forEachDotTeaEntry(
+      path,
+      (entryPath, entry) => this.isImportableTableCsv(entryPath, entry, tablesById),
+      async (entry) => {
+        const tableId = entry.path.replace('tables/', '').replace(/\.csv$/, '');
+        const table = tablesById.get(tableId)!;
+        await this.importTableLinkFieldEntryV2(
+          entry,
+          baseId,
+          tableIdMap[table.id] ?? table.id,
+          queryBus,
+          tableRecordRepository,
+          unitOfWork,
+          context,
+          onLinkBatchUpdated
+        );
       }
-
-      const tableId = filePath.replace('tables/', '').replace(/\.csv$/, '');
-      const table = tablesById.get(tableId);
-      if (!table) {
-        entry.autodrain();
-        continue;
-      }
-
-      await this.importTableLinkFieldEntryV2(
-        entry,
-        baseId,
-        tableIdMap[table.id] ?? table.id,
-        queryBus,
-        tableRecordRepository,
-        unitOfWork,
-        context,
-        onLinkBatchUpdated
-      );
-    }
+    );
 
     if (processedRows > 0) {
       onProgress?.({
@@ -1563,55 +1680,36 @@ export class BaseImportService {
     queryBus: IQueryBus,
     context: IExecutionContext
   ) {
-    const dotTeaDataStream = await this.storageAdapter.downloadFile(
-      StorageAdapter.getBucket(UploadType.Import),
-      path
-    );
-    const parser = unzipper.Parse({ forceStream: true });
-    dotTeaDataStream.pipe(parser);
-
     const tablesById = new Map(structure.tables.map((table) => [table.id, table]));
     let totalRows = 0;
 
-    for await (const entry of parser as AsyncIterable<unzipper.Entry>) {
-      const filePath = entry.path;
-      const isTableCsv =
-        filePath.startsWith('tables/') &&
-        entry.type !== 'Directory' &&
-        filePath.endsWith('.csv') &&
-        !filePath.includes('junction_');
+    await this.forEachDotTeaEntry(
+      path,
+      (entryPath, entry) => this.isImportableTableCsv(entryPath, entry, tablesById),
+      async (entry) => {
+        const tableId = entry.path.replace('tables/', '').replace(/\.csv$/, '');
+        const table = tablesById.get(tableId)!;
+        const config = await this.buildTableDataImportConfig(
+          baseId,
+          tableIdMap[table.id] ?? table.id,
+          queryBus,
+          context
+        );
+        const hasLinkFields = [...config.fieldsByDbFieldName.values()].some(
+          (field) => field.type === FieldType.Link && !this.isRestoreComputedField(field)
+        );
 
-      if (!isTableCsv) {
-        entry.autodrain();
-        continue;
+        if (!hasLinkFields) {
+          entry.autodrain();
+          return;
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        for await (const _record of this.createTableLinkFieldUpdateStream(entry, config)) {
+          totalRows += 1;
+        }
       }
-
-      const tableId = filePath.replace('tables/', '').replace(/\.csv$/, '');
-      const table = tablesById.get(tableId);
-      if (!table) {
-        entry.autodrain();
-        continue;
-      }
-
-      const config = await this.buildTableDataImportConfig(
-        baseId,
-        tableIdMap[table.id] ?? table.id,
-        queryBus,
-        context
-      );
-      const hasLinkFields = [...config.fieldsByDbFieldName.values()].some(
-        (field) => field.type === FieldType.Link && !this.isRestoreComputedField(field)
-      );
-
-      if (!hasLinkFields) {
-        entry.autodrain();
-        continue;
-      }
-
-      for await (const _record of this.createTableLinkFieldUpdateStream(entry, config)) {
-        totalRows += 1;
-      }
-    }
+    );
 
     return totalRows;
   }
@@ -1676,6 +1774,7 @@ export class BaseImportService {
     }
   }
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   private toRestoreRecordInput(
     row: Record<string, unknown>,
     config: Awaited<ReturnType<BaseImportService['buildTableDataImportConfig']>>,
@@ -1878,6 +1977,7 @@ export class BaseImportService {
     );
   }
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   private normalizeDotTeaCsvValue(
     value: unknown,
     field?: { dbFieldType?: string; isMultipleCellValue?: boolean; notNull?: boolean }
@@ -2153,26 +2253,14 @@ export class BaseImportService {
       ? tables.map(({ dbTableName: _, ...rest }) => rest)
       : tables;
 
-    // Skip computed field evaluation during structure creation — tables have no records yet,
-    // and calculations will run when data is actually imported/copied.
-    this.cls.set('skipFieldComputation', true);
-
-    let tableIdMap: Record<string, string>;
-    let fieldIdMap: Record<string, string>;
-    let viewIdMap: Record<string, string>;
-    let fkMap: Record<string, string>;
-
-    try {
-      // create table
-      ({ tableIdMap, fieldIdMap, viewIdMap, fkMap } = await this.createTables(
-        newBase.id,
-        effectiveTables as IBaseJson['tables'],
-        onProgress,
-        routingOptions
-      ));
-    } finally {
-      this.cls.set('skipFieldComputation', false);
-    }
+    // create table
+    const { tableIdMap, fieldIdMap, viewIdMap, fkMap } = await this.createTables(
+      newBase.id,
+      effectiveTables as IBaseJson['tables'],
+      onProgress,
+      routingOptions,
+      { skipComputedEvaluation: true }
+    );
 
     this.logger.log(`base-duplicate-service: Duplicate base tables successfully`);
 
@@ -2235,7 +2323,8 @@ export class BaseImportService {
     baseId: string,
     tables: IBaseJson['tables'],
     onProgress?: BaseImportProgressCallback,
-    routingOptions?: IDataDbRoutingOptions
+    routingOptions?: IDataDbRoutingOptions,
+    options: { skipComputedEvaluation?: boolean } = {}
   ) {
     const tableIdMap: Record<string, string> = {};
     // Build a name lookup: oldTableId → tableName
@@ -2260,11 +2349,14 @@ export class BaseImportService {
       tableIdMap,
       tableNameMap,
       onProgress,
-      routingOptions
+      routingOptions,
+      options
     );
     this.logger.log(`base-duplicate-service: Duplicate table fields successfully`);
 
-    const viewIdMap = await this.createViews(tables, tableIdMap, fieldIdMap, onProgress);
+    const viewIdMap = await this.createViews(tables, tableIdMap, fieldIdMap, onProgress, {
+      ensureRowOrder: routingOptions?.useTransaction !== true,
+    });
     this.logger.log(`base-duplicate-service: Duplicate table views successfully`);
 
     await this.fieldDuplicateService.repairFieldOptions(tables, tableIdMap, fieldIdMap, viewIdMap);
@@ -2277,7 +2369,8 @@ export class BaseImportService {
     tableIdMap: Record<string, string>,
     tableNameMap?: Record<string, string>,
     onProgress?: BaseImportProgressCallback,
-    routingOptions?: IDataDbRoutingOptions
+    routingOptions?: IDataDbRoutingOptions,
+    options: { skipComputedEvaluation?: boolean } = {}
   ) {
     const fieldMap: Record<string, string> = {};
     const fkMap: Record<string, string> = {};
@@ -2350,16 +2443,27 @@ export class BaseImportService {
     };
 
     emitFieldProgress('creating_common_fields', commonFields);
-    await this.fieldDuplicateService.createCommonFields(commonFields, fieldMap, routingOptions);
+    await this.fieldDuplicateService.createCommonFields(
+      commonFields,
+      fieldMap,
+      routingOptions,
+      options
+    );
 
     emitFieldProgress('creating_button_fields', buttonFields);
-    await this.fieldDuplicateService.createButtonFields(buttonFields, fieldMap, routingOptions);
+    await this.fieldDuplicateService.createButtonFields(
+      buttonFields,
+      fieldMap,
+      routingOptions,
+      options
+    );
 
     emitFieldProgress('creating_formula_fields', primaryFormulaFields);
     await this.fieldDuplicateService.createTmpPrimaryFormulaFields(
       primaryFormulaFields,
       fieldMap,
-      routingOptions
+      routingOptions,
+      options
     );
 
     // main fix formula dbField type
@@ -2372,7 +2476,8 @@ export class BaseImportService {
     await this.fieldDuplicateService.bootstrapPrimaryDependencyFields(
       primaryDependencyFields,
       fieldMap,
-      routingOptions
+      routingOptions,
+      options
     );
 
     emitFieldProgress('creating_link_fields', linkFields);
@@ -2381,7 +2486,8 @@ export class BaseImportService {
       tableIdMap,
       fieldMap,
       fkMap,
-      routingOptions
+      routingOptions,
+      options
     );
 
     emitFieldProgress('creating_lookup_fields', dependencyFields);
@@ -2390,7 +2496,8 @@ export class BaseImportService {
       tableIdMap,
       fieldMap,
       'base',
-      routingOptions
+      routingOptions,
+      options
     );
 
     // fix formula expression' field map
@@ -2411,7 +2518,8 @@ export class BaseImportService {
     tables: IBaseJson['tables'],
     tableIdMap: Record<string, string>,
     fieldMap: Record<string, string>,
-    onProgress?: BaseImportProgressCallback
+    onProgress?: BaseImportProgressCallback,
+    options: { ensureRowOrder?: boolean } = {}
   ) {
     const viewMap: Record<string, string> = {};
     for (const table of tables) {
@@ -2446,14 +2554,18 @@ export class BaseImportService {
           const newValue = keyString ? JSON.parse(keyString) : null;
           obj[key] = newValue;
         }
-        const newViewVo = await this.viewOpenApiService.createView(tableIdMap[tableId], {
-          name,
-          type,
-          description,
-          enableShare,
-          isLocked,
-          ...obj,
-        });
+        const newViewVo = await this.viewOpenApiService.createView(
+          tableIdMap[tableId],
+          {
+            name,
+            type,
+            description,
+            enableShare,
+            isLocked,
+            ...obj,
+          },
+          { ensureRowOrder: options.ensureRowOrder }
+        );
 
         viewMap[viewId] = newViewVo.id;
 
@@ -2579,22 +2691,7 @@ export class BaseImportService {
     );
     // Sort nodes by parent-child relationship (topological sort)
     // Ensure parent nodes are created before child nodes
-    const sortedNodes: typeof nodes = [];
-    const nodeMap = new Map(nodes.map((node) => [node.id, node]));
-    const visited = new Set<string>();
-
-    const visit = (node: (typeof nodes)[0]) => {
-      if (visited.has(node.id)) return;
-      if (node.parentId && nodeMap.has(node.parentId)) {
-        visit(nodeMap.get(node.parentId)!);
-      }
-      visited.add(node.id);
-      sortedNodes.push(node);
-    };
-
-    for (const node of nodes) {
-      visit(node);
-    }
+    const sortedNodes = this.sortBaseNodesByParent(nodes);
 
     // Deduplicate nodes by (resourceType, newResourceId) to avoid unique constraint violations
     const createdResourceKeys = new Set<string>();
@@ -2869,7 +2966,7 @@ export class BaseImportService {
       });
 
       // 1. update view options
-      const configProperties = ['columnMeta', 'options', 'sort', 'group', 'filter'] as const;
+      const configProperties = ['columnMeta', 'sort', 'group', 'filter'] as const;
       const updateConfig = {} as Record<(typeof configProperties)[number], string>;
       for (const property of configProperties) {
         const result = replaceStringByMap(pluginView[property], {
@@ -2882,6 +2979,12 @@ export class BaseImportService {
           updateConfig[property] = result;
         }
       }
+      const options = remapPluginViewOptions(
+        pluginView.options,
+        { tableIdMap, fieldIdMap, viewIdMap },
+        pluginInstall.pluginId,
+        pluginInstallId
+      );
       await prisma.view.update({
         where: { id: newViewId },
         data: {
@@ -2890,6 +2993,7 @@ export class BaseImportService {
           enableShare,
           shareMeta: shareMeta ? JSON.stringify(shareMeta) : undefined,
           ...updateConfig,
+          options,
         },
       });
 

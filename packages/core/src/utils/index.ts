@@ -7,3 +7,5 @@ export * from './clipboard';
 export * from './minidenticon';
 export * from './replace-suffix';
 export * from './mime-type';
+export * from './query-field-ids';
+export * from './search-hit-index';

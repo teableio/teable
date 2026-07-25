@@ -15,6 +15,7 @@ import {
   type NumberField,
   type NumberFormatting,
   type RecordQuerySearch,
+  type IRecordSearchAccessPath,
   type RollupField,
   type Table,
 } from '@teable/v2-core';
@@ -30,6 +31,15 @@ const escapeLikeWildcards = (input: string): string => {
 
 const escapePostgresRegex = (input: string): string => {
   return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+};
+
+const isPostgresIdentifier = (input: string): boolean => {
+  return /^[a-z_]\w*$/i.test(input);
+};
+
+type RecordSearchWhereBuilderOptions = {
+  readonly tableAlias?: string;
+  readonly searchAccessPath?: IRecordSearchAccessPath;
 };
 
 const normalizeToJsonArray = (columnRef: Expression<unknown>) => sql`CASE
@@ -152,6 +162,10 @@ const isStructuredStringField = (field: Field): boolean => {
 
 const isLongTextField = (field: Field): boolean => {
   return resolveSearchShapeSourceField(field).type().equals(FieldType.longText());
+};
+
+const isMultipleSelectField = (field: Field): boolean => {
+  return resolveSearchShapeSourceField(field).type().equals(FieldType.multipleSelect());
 };
 
 const resolveNumberFormatting = (field: Field): NumberFormatting | undefined => {
@@ -295,6 +309,15 @@ const buildFieldSearchCondition = (
     }
 
     if (isMultiple) {
+      if (isMultipleSelectField(field)) {
+        // multipleSelect stores a plain string[] of option names. Match the whole cell as text so
+        // the predicate is sargable against the gin_trgm index (built on the same "<col>"::text
+        // expression) instead of a jsonb_array_elements + regex subquery that cannot use it. Trades
+        // negligible precision (JSON brackets/quotes become matchable) for index usage.
+        return ok(
+          sql<SqlBool>`(${columnRef})::text ILIKE ${`%${escapeLikeWildcards(search.value)}%`} ESCAPE '\\'`
+        );
+      }
       return ok(buildPlainMultipleCondition(columnRef, search.value));
     }
 
@@ -310,20 +333,136 @@ const buildFieldSearchCondition = (
   });
 };
 
-export const buildRecordSearchWhereClause = (
-  table: Table,
-  recordSearch: RecordQuerySearch | undefined,
-  options?: { tableAlias?: string }
-): Result<Expression<SqlBool> | null, DomainError> => {
-  if (!recordSearch) {
-    return ok(null);
+const buildSearchVectorDocumentPart = (
+  field: Field,
+  tableAlias: string
+): Result<Expression<string>, DomainError> =>
+  safeTry(function* () {
+    const columnRef = yield* resolveColumnRef(field, tableAlias);
+    const fieldValueType = yield* field.accept(fieldValueTypeVisitor);
+    const isMultiple = fieldValueType.isMultipleCellValue.isMultiple();
+
+    if (isStructuredStringField(field)) {
+      if (!isMultiple) {
+        return ok(sql<string>`coalesce((${columnRef})::jsonb #>> '{title}', '')`);
+      }
+      const arrayExpr = normalizeToJsonArray(columnRef);
+      return ok(sql<string>`coalesce((
+        WITH RECURSIVE f(e) AS (
+          SELECT ${arrayExpr}
+          UNION ALL
+          SELECT jsonb_array_elements(f.e)
+          FROM f
+          WHERE jsonb_typeof(f.e) = 'array'
+        )
+        SELECT string_agg((e ->> 'title')::text, ', ')
+        FROM f
+        WHERE jsonb_typeof(e) <> 'array'
+      ), '')`);
+    }
+
+    return ok(
+      isLongTextField(field)
+        ? sql<string>`coalesce(${buildLongTextExpression(columnRef)}, '')`
+        : sql<string>`coalesce((${columnRef})::text, '')`
+    );
+  });
+const buildGeneratedTsvectorSearchCondition = (
+  resolvedFields: ReadonlyArray<Field>,
+  recordSearch: RecordQuerySearch,
+  accessPath: IRecordSearchAccessPath | undefined,
+  tableAlias: string
+): Result<Expression<SqlBool> | undefined, DomainError> => {
+  if (accessPath?.kind !== 'generated_tsvector') {
+    return ok(undefined);
   }
 
-  return safeTry<Expression<SqlBool> | null, DomainError>(function* () {
+  if (
+    !isPostgresIdentifier(accessPath.generatedColumnName) ||
+    !isPostgresIdentifier(accessPath.languageConfig)
+  ) {
+    return ok(undefined);
+  }
+
+  const resolvedFieldIds = new Set(resolvedFields.map((field) => field.id().toString()));
+  const coveredFieldIds = new Set(accessPath.coveredFieldIds.map((fieldId) => fieldId.toString()));
+  if (
+    coveredFieldIds.size === 0 ||
+    !resolvedFields.some((field) => coveredFieldIds.has(field.id().toString()))
+  ) {
+    return ok(undefined);
+  }
+
+  const query = sql`websearch_to_tsquery(${accessPath.languageConfig}::regconfig, ${recordSearch.search.value})`;
+  const globalCondition = sql<SqlBool>`${sql.ref(
+    `${tableAlias}.${accessPath.generatedColumnName}`
+  )} @@ ${query}`;
+
+  if (recordSearch.search.searchesAllFields()) {
+    if (
+      accessPath.searchScope !== 'all_fields' ||
+      coveredFieldIds.size !== resolvedFieldIds.size ||
+      [...coveredFieldIds].some((fieldId) => !resolvedFieldIds.has(fieldId))
+    ) {
+      return ok(undefined);
+    }
+    return ok(globalCondition);
+  }
+
+  if (resolvedFields.some((field) => !coveredFieldIds.has(field.id().toString()))) {
+    return ok(undefined);
+  }
+
+  return safeTry(function* () {
+    const scopedDocumentParts: Expression<string>[] = [];
+    for (const field of resolvedFields) {
+      scopedDocumentParts.push(yield* buildSearchVectorDocumentPart(field, tableAlias));
+    }
+
+    const [firstPart, ...restParts] = scopedDocumentParts;
+    if (!firstPart) return ok(undefined);
+    const scopedDocument = restParts.reduce<Expression<string>>(
+      (document, part) => sql<string>`${document} || ' ' || ${part}`,
+      firstPart
+    );
+    const scopedCondition = sql<SqlBool>`to_tsvector(${accessPath.languageConfig}::regconfig, ${scopedDocument}) @@ ${query}`;
+
+    return ok(sql<SqlBool>`(${globalCondition}) AND (${scopedCondition})`);
+  });
+};
+
+export type RecordSearchWherePlan = {
+  readonly condition: Expression<SqlBool> | null;
+  readonly usedAccessPath: 'default' | 'generated_tsvector';
+};
+
+export const buildRecordSearchWherePlan = (
+  table: Table,
+  recordSearch: RecordQuerySearch | undefined,
+  options?: RecordSearchWhereBuilderOptions
+): Result<RecordSearchWherePlan, DomainError> => {
+  if (!recordSearch) {
+    return ok({ condition: null, usedAccessPath: 'default' });
+  }
+
+  return safeTry<RecordSearchWherePlan, DomainError>(function* () {
     const tableAlias = options?.tableAlias ?? 't';
     const resolvedFields = yield* recordSearch.search.resolveFields(table, {
       visibleFieldIds: recordSearch.visibleFieldIds,
     });
+
+    const searchAccessPathCondition = yield* buildGeneratedTsvectorSearchCondition(
+      resolvedFields,
+      recordSearch,
+      options?.searchAccessPath,
+      tableAlias
+    );
+    if (searchAccessPathCondition) {
+      return ok({
+        condition: searchAccessPathCondition,
+        usedAccessPath: 'generated_tsvector',
+      });
+    }
 
     const searchConditions: Expression<SqlBool>[] = [];
     for (const field of resolvedFields) {
@@ -334,12 +473,15 @@ export const buildRecordSearchWhereClause = (
     }
 
     if (!searchConditions.length) {
-      return ok(resolvedFields.length ? null : sql<SqlBool>`false`);
+      return ok({
+        condition: resolvedFields.length ? null : sql<SqlBool>`false`,
+        usedAccessPath: 'default',
+      });
     }
 
     const [firstCondition, ...restConditions] = searchConditions;
     if (!firstCondition) {
-      return ok(sql<SqlBool>`false`);
+      return ok({ condition: sql<SqlBool>`false`, usedAccessPath: 'default' });
     }
 
     const combinedCondition = restConditions.reduce<Expression<SqlBool>>(
@@ -347,6 +489,13 @@ export const buildRecordSearchWhereClause = (
       firstCondition
     );
 
-    return ok(combinedCondition);
+    return ok({ condition: combinedCondition, usedAccessPath: 'default' });
   });
 };
+
+export const buildRecordSearchWhereClause = (
+  table: Table,
+  recordSearch: RecordQuerySearch | undefined,
+  options?: RecordSearchWhereBuilderOptions
+): Result<Expression<SqlBool> | null, DomainError> =>
+  buildRecordSearchWherePlan(table, recordSearch, options).map((plan) => plan.condition);

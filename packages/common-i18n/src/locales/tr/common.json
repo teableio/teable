@@ -69,6 +69,7 @@
     "import": "İçe Aktar",
     "getMore": "Daha fazla al",
     "copySuccess": "Kopyalama başarılı",
+    "openLink": "Bağlantıyı aç",
     "share": "Paylaş"
   },
   "quickAction": {
@@ -333,7 +334,39 @@
       "interactionMode": "Etkileşim Modu",
       "mouseMode": "İmleç Modu",
       "touchMode": "Dokunmatik Mod",
-      "systemMode": "Sistemi Takip Et"
+      "systemMode": "Sistemi Takip Et",
+      "teableSkill": "Teable becerisi"
+    },
+    "teableSkill": {
+      "intro": "AI Agent modelinizin Base’inize bağlanarak verileri sorgulamasına, tabloları, alanları ve görünümleri yönetmesine, kayıtları içe aktarmasına veya güncellemesine, otomasyonlar ve uygulamalar oluşturmasına yardımcı olun.",
+      "worksWith": "Tüm yaygın agent modelleriyle çalışır",
+      "more": "+ daha fazla",
+      "copy": "Kopyala",
+      "installPromptLabel": "Skill kurulum promptu",
+      "installCommandLabel": "Skill kurulum komutu",
+      "installPrompt": "Lütfen https://github.com/teableio/agent-skills adresini oku, rehbere göre Teable agent skill kurmama yardımcı ol ve Teable CLI kimlik doğrulamasını tamamla.",
+      "step1Title": "Skill kur",
+      "step1Description": "Bu promptu AI Agent modelinize kopyalayın. Teable skill’ini kurar ve Teable CLI kimlik doğrulamasını tamamlamak için tarayıcıyı açar.",
+      "step3Title": "Teable becerisini deneyin",
+      "step3Description": "Beceri kurulduktan sonra bu promptları deneyin.",
+      "tryPrompts": {
+        "schema": {
+          "prompt": "Bu base içinde basit bir CRM tablosu oluştur.",
+          "note": "Basit başlangıç promptları"
+        },
+        "template": {
+          "prompt": "Bu yerel klasördeki tüm faturaları <Makbuz Tablosu> {tablo URL'sini yapıştır} içine yükle ve önemli alanları çıkar.",
+          "note": "Yerel dosyalar → Teable"
+        },
+        "validate": {
+          "prompt": "Yeni GitHub issues kayıtlarını <Bug Tracker> {tablo URL'sini yapıştır} içine aktar.",
+          "note": "Çapraz platform verileri → Teable"
+        },
+        "trace": {
+          "prompt": "<Görev Tablosu> {tablo URL'sini yapıştır} öğesini kontrol et ve süresi geçmiş görevleri işaretle.",
+          "note": "Teable verilerini temizle veya düzenle"
+        }
+      }
     },
     "nav": {
       "settings": "Ayarlar",
@@ -451,6 +484,12 @@
       "desc_other": "Bu veritabanı {{count}} işbirlikçi ile paylaşılıyor.",
       "baseTitle": "Veritabanı işbirlikçileri",
       "collaboratorSearchPlaceholder": "İsim veya e-posta ile veritabanı işbirlikçisi bul"
+    },
+    "table": {
+      "collaborator": "İşbirlikçi",
+      "accessPermission": "Erişim izni",
+      "joinAt": "Katılma tarihi",
+      "lastLogin": "Son giriş"
     }
   },
   "help": {
@@ -471,6 +510,9 @@
     "billable": "Faturalandırılabilir",
     "billableByAuthorityMatrix": "Yetki matrisi tarafından oluşturulan faturalandırma",
     "licenseExpiredGracePeriod": "Kendi sunucunuzda barındırma lisansınızın süresi doldu ve {{expiredTime}} tarihinde ücretsiz plana düşürülecek. Premium özelliklere erişimi korumak için lütfen lisansınızı hemen güncelleyin.",
+    "licenseAutoFetchFailed": "Lisansın otomatik yenilenmesi başarısız oldu. Sürüm düşürülmeden önce {{days}} gün ek süre kaldı.",
+    "licenseAutoFetchRetryFailed": "Otomatik yenileme yine başarısız oldu. Lütfen Teable sunucusuyla bağlantıyı kontrol edin veya lisansı manuel olarak güncelleyin.",
+    "licenseExpiredGracePeriodDays": "Lisansın süresi doldu. Sürüm düşürülmeden önce {{days}} gün ek süre kaldı.",
     "spaceSubscriptionModal": {
       "title": "Alan abonelik planını yükselt",
       "description": "Yalnızca sahibi olduğunuz çalışma alanlarını yükseltebilirsiniz"
@@ -492,6 +534,9 @@
       "description": "Mevcut örneğinizin ayarlarını değiştirin",
       "allowSignUp": "Yeni hesap oluşturmaya izin ver",
       "allowSignUpDescription": "Bu seçeneği devre dışı bırakmak yeni kullanıcı kayıtlarını yasaklar ve kayıt düğmesi artık giriş sayfasında görünmez.",
+      "bannedEmailDomains": "Yasaklı e-posta alan adları",
+      "bannedEmailDomainsDescription": "Bu alan adlarına ait e-posta adresleri kaydolamaz ve bunlarla ilgili davet e-postaları gönderilmez. Bir alan adı yazın ve eklemek için Enter'a basın.",
+      "bannedEmailDomainsInvalid": "Geçerli bir alan adı girin, örn. example.com",
       "allowSpaceInvitation": "Alan davetleri göndermeye izin ver",
       "allowSpaceInvitationDescription": "Bu seçeneği devre dışı bırakmak, yöneticiler dışındaki kullanıcıların başkalarını alanlara davet etmesini engeller. Etkinleştirildiğinde, e-posta ile davet edilen yeni kullanıcılar e-postadaki davet bağlantısına tıklayarak kaydı tamamlayabilir, ancak paylaşılan davet bağlantıları çalışmaz.",
       "allowSpaceCreation": "Herkesin yeni alan oluşturmasına izin ver",
@@ -642,11 +687,6 @@
           "title": "HTTPS'yi etkinleştir",
           "description": "HTTPS'yi etkinleştirmediniz, büyük ölçekli kopyalama (300 satır veya daha fazla) özelliği kullanılamayacak, etkinleştirmeniz önerilir."
         },
-        "databaseProxy": {
-          "title": "PUBLIC_DATABASE_PROXY ortam değişkeni",
-          "description": "<strong>PUBLIC_DATABASE_PROXY</strong> yapılandırılmamış, harici veritabanı bağlantı özelliği kullanılamayacak, lütfen <a>yardım belgelerine</a> bakın",
-          "href": "https://help.teable.ai/tr/deploy/database-connection#enable-external-database-connection"
-        },
         "llmApi": {
           "title": "LLM API",
           "description": "AI LLM API'sını henüz yapılandırmadınız, AI Sohbet/AI otomasyon kullanılamayacak, <anchor>ayarlara git</anchor>",
@@ -678,6 +718,10 @@
     "exportBase": {
       "successText": "Dışa aktarma verileri hazır",
       "failedText": "Dışa aktarma başarısız oldu, lütfen tekrar deneyin"
+    },
+    "importantNotice": {
+      "title": "Important Notice",
+      "acknowledge": "I Understand"
     }
   },
   "role": {
@@ -755,6 +799,7 @@
     "unsubscribeTime": "Abonelikten çıkma zamanı",
     "source": "Kaynak",
     "sourceAutomationDeleted": "Otomasyon veya düğüm silindi",
+    "sourceApiSend": "API ile e-posta gönderimi",
     "processing": "İşleniyor...",
     "unsubscribeH1": "Abonelikten çıkışı onaylıyor musunuz?",
     "unsubscribeH2": "Gelecekteki Teable promosyonları ve ürün güncellemelerinden aboneliğinizi iptal etmek üzeresiniz. Abonelikten çıkmak istediğinizden emin misiniz?",
@@ -873,44 +918,44 @@
           "credit": {
             "warning80": {
               "title": "Alan {{spaceName}} yapay zeka kredileri %80 kullanıldı",
-              "message": "Alanınız yapay zeka kredilerinin %80'ini kullandı. Yükseltmeyi veya daha fazla kredi satın almayı düşünün."
+              "message": "{{spaceName}} alanı yapay zeka kredilerinin %80'ini kullandı. Yükseltmeyi veya daha fazla kredi satın almayı düşünün."
             },
             "warning90": {
               "title": "Alan {{spaceName}} yapay zeka kredileri %90 kullanıldı",
-              "message": "Alanınız yapay zeka kredilerinin %90'ını kullandı. Kesinti yaşamamak için yakında yükseltin."
+              "message": "{{spaceName}} alanı yapay zeka kredilerinin %90'ını kullandı. Kesinti yaşamamak için yakında yükseltin."
             },
             "anomaly": {
               "dailySpike": {
                 "title": "Alan {{spaceName}}: olağandışı yapay zeka kredisi artışı tespit edildi",
-                "message": "Bugünkü yapay zeka kredisi kullanımı ({{todayValue}}), son günlük ortalamanın ({{ewma}}) {{multiplier}} katıdır. Bu, beklenmeyen bir aktiviteye işaret edebilir. Lütfen kullanımınızı gözden geçirin. En çok katkıda bulunanlar: {{topContributors}}"
+                "message": "Alan {{spaceName}}: bugünkü yapay zeka kredisi kullanımı ({{todayValue}}), son günlük ortalamanın ({{ewma}}) {{multiplier}} katıdır. Bu, beklenmeyen bir aktiviteye işaret edebilir. Lütfen kullanımınızı gözden geçirin. En çok katkıda bulunanlar: {{topContributors}}"
               },
               "burst": {
                 "title": "Alan {{spaceName}}: yapay zeka kredisi patlaması tespit edildi",
-                "message": "Son {{windowMinutes}} dakikada {{recentValue}} yapay zeka kredisi tüketildi, bu tarihsel saatlik P95'in ({{hourlyP95}}) {{multiplier}} katıdır. Bu, beklenmeyen bir aktiviteye işaret edebilir. En çok katkıda bulunanlar: {{topContributors}}"
+                "message": "Alan {{spaceName}}: son {{windowMinutes}} dakikada {{recentValue}} yapay zeka kredisi tüketildi, bu tarihsel saatlik P95'in ({{hourlyP95}}) {{multiplier}} katıdır. Bu, beklenmeyen bir aktiviteye işaret edebilir. En çok katkıda bulunanlar: {{topContributors}}"
               }
             }
           },
           "automationRun": {
             "warning80": {
               "title": "Alan {{spaceName}} otomasyon çalıştırmaları kotanın %80'i kullanıldı",
-              "message": "Alanınız {{usedRuns}}/{{totalLimit}} otomasyon çalıştırmasının %80'ini kullandı. Planınızı yükseltmeyi düşünün."
+              "message": "{{spaceName}} alanı {{usedRuns}}/{{totalLimit}} otomasyon çalıştırmasının %80'ini kullandı. Planınızı yükseltmeyi düşünün."
             },
             "warning90": {
               "title": "Alan {{spaceName}} otomasyon çalıştırmaları kotanın %90'ı kullanıldı",
-              "message": "Alanınız {{usedRuns}}/{{totalLimit}} otomasyon çalıştırmasının %90'ını kullandı. Kesinti yaşamamak için yakında yükseltin."
+              "message": "{{spaceName}} alanı {{usedRuns}}/{{totalLimit}} otomasyon çalıştırmasının %90'ını kullandı. Kesinti yaşamamak için yakında yükseltin."
             },
             "gracePeriod": {
               "title": "Alan {{spaceName}} otomasyon çalıştırmaları aşıldı – ek süre aktif",
-              "message": "Otomasyon çalıştırma kotanız aşıldı. Otomasyonlar {{remainingHours}} saat sonra çalışmayı durduracak ve kapatılacak. Lütfen planınızı yükseltin."
+              "message": "{{spaceName}} alanının otomasyon çalıştırma kotası aşıldı. Otomasyonlar {{remainingHours}} saat sonra çalışmayı durduracak ve kapatılacak. Lütfen planınızı yükseltin."
             },
             "anomaly": {
               "dailySpike": {
                 "title": "Alan {{spaceName}}: olağandışı otomasyon çalıştırma artışı",
-                "message": "Bugünkü otomasyon çalıştırmaları ({{todayValue}}), son günlük ortalamanın ({{ewma}}) {{multiplier}} katıdır. Bu, kontrolden çıkmış bir otomasyona işaret edebilir. Lütfen iş akışlarınızı gözden geçirin. En çok katkıda bulunanlar: {{topContributors}}"
+                "message": "Alan {{spaceName}}: bugünkü otomasyon çalıştırmaları ({{todayValue}}), son günlük ortalamanın ({{ewma}}) {{multiplier}} katıdır. Bu, kontrolden çıkmış bir otomasyona işaret edebilir. Lütfen iş akışlarınızı gözden geçirin. En çok katkıda bulunanlar: {{topContributors}}"
               },
               "burst": {
                 "title": "Alan {{spaceName}}: otomasyon çalıştırma patlaması tespit edildi",
-                "message": "Son {{windowMinutes}} dakikada {{recentValue}} otomasyon çalıştırması tespit edildi, bu tarihsel saatlik P95'in ({{hourlyP95}}) {{multiplier}} katıdır. Bu, bir döngü veya yanlış yapılandırmaya işaret edebilir. En çok katkıda bulunanlar: {{topContributors}}"
+                "message": "Alan {{spaceName}}: son {{windowMinutes}} dakikada {{recentValue}} otomasyon çalıştırması tespit edildi, bu tarihsel saatlik P95'in ({{hourlyP95}}) {{multiplier}} katıdır. Bu, bir döngü veya yanlış yapılandırmaya işaret edebilir. En çok katkıda bulunanlar: {{topContributors}}"
               }
             }
           }
@@ -1149,10 +1194,102 @@
       "unknown": "{{fieldHint}}{{message}}"
     }
   },
+  "skills": {
+    "title": "Beceriler",
+    "tabs": {
+      "mySkills": "Becerilerim"
+    },
+    "actions": {
+      "import": "Beceri İçe Aktar",
+      "sync": "Senkronize Et",
+      "delete": "Sil",
+      "enable": "Etkinleştir",
+      "disable": "Devre Dışı Bırak",
+      "edit": "Düzenle",
+      "tryInChat": "Sohbette dene",
+      "replace": "Değiştir",
+      "download": "İndir",
+      "uninstall": "Kaldır",
+      "copyToBase": "Base'e kopyala",
+      "copyToPersonal": "Kişisele kopyala",
+      "copyToApp": "Uygulamaya kopyala"
+    },
+    "import": {
+      "title": "Beceri İçe Aktar",
+      "description": "GitHub deposundan veya ZIP dosyasından bir beceri içe aktarın",
+      "githubTab": "GitHub URL",
+      "fileTab": "ZIP Dosyası",
+      "githubTitle": "GitHub'dan beceri içe aktar",
+      "githubPlaceholder": "https://github.com/owner/repo/tree/main/skills/my-skill",
+      "fileHint": "SKILL.md içeren bir ZIP dosyası yükleyin",
+      "or": "veya",
+      "selectFile": "Dosya seç",
+      "replaceWarning": "Bu kapsamda aynı ada sahip bir beceri zaten varsa, içe aktarma onu değiştirir.",
+      "importing": "İçe aktarılıyor...",
+      "submit": "İçe Aktar",
+      "success": "Beceri başarıyla içe aktarıldı",
+      "error": "Beceri içe aktarılamadı"
+    },
+    "detail": {
+      "slug": "Slug",
+      "type": "Tür",
+      "description": "Açıklama",
+      "source": "Kaynak",
+      "skillLabel": "Beceri",
+      "syncStatus": "Senkronizasyon Durumu",
+      "preview": "SKILL.md Önizleme"
+    },
+    "scope": {
+      "label": "Kapsam",
+      "system": "Sistem",
+      "base": "Geçerli veritabanı",
+      "user": "Kişisel",
+      "userDescription": "Yalnızca size açık",
+      "baseDescription": "Bu Base'deki işbirlikçilerle paylaşılır",
+      "app": "App",
+      "appDescription": "Yalnızca bu uygulamada kullanılabilir",
+      "cuppyclaw": "Bot",
+      "cuppyclawDescription": "Yalnızca bu bot için kullanılabilir"
+    },
+    "source": {
+      "github": "GitHub",
+      "file": "Dosya Yükleme",
+      "manual": "Manuel"
+    },
+    "status": {
+      "enabled": "Etkin",
+      "disabled": "Devre Dışı",
+      "synced": "Senkronize Edildi",
+      "failed": "Senkronizasyon Başarısız"
+    },
+    "empty": {
+      "mySkills": "Henüz kişisel beceri yok. Başlamak için bir tane içe aktarın."
+    },
+    "confirm": {
+      "deleteTitle": "Beceriyi Sil",
+      "deleteDescription": "Bu beceriyi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz."
+    },
+    "toast": {
+      "syncing": "Beceri senkronize ediliyor...",
+      "syncSuccess": "Beceri başarıyla senkronize edildi",
+      "syncError": "Beceri senkronize edilemedi",
+      "deleting": "Beceri siliniyor...",
+      "deleteSuccess": "Beceri başarıyla silindi",
+      "deleteError": "Beceri silinemedi",
+      "updateSuccess": "Beceri başarıyla güncellendi"
+    }
+  },
   "changelog": {
-    "newUpdate": "19 MAYIS GUNCELLEMESI",
-    "title": "Teable Credits 10 kat daha verimli!",
-    "url": "https://help.teable.ai/en/changelog#may-19-2026",
-    "id": "changelog-2026-05-19-teable-credits-up-10x"
+    "newUpdate": "15 TEMMUZ GUNCELLEMESI",
+    "title": "AI hafızası ve dosya indirmeleri",
+    "url": "https://help.teable.ai/en/changelog#jul-15-2026",
+    "id": "changelog-2026-07-15-ai-memory-and-file-downloads"
+  },
+  "resourceDescription": {
+    "addDescription": "Açıklama ekle",
+    "nodeDescription": "Düğüm açıklaması",
+    "descriptionSaving": "Kaydediliyor...",
+    "descriptionSaveFailed": "Açıklama kaydedilemedi, lütfen tekrar deneyin",
+    "descriptionPlaceholder": "Bu düğüm için bir açıklama ekleyin"
   }
 }

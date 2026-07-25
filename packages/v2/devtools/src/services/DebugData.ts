@@ -10,10 +10,24 @@ import { Context } from 'effect';
 import type { CliError } from '../errors';
 
 /** Options for querying records via application layer */
+export type RecordQuerySearchAccessPathOption =
+  | { readonly kind: 'default' }
+  | {
+      readonly kind: 'generated_tsvector';
+      readonly generatedColumnName: string;
+      readonly languageConfig: string;
+      readonly searchScope: 'all_fields' | 'selected_fields';
+      readonly coveredFieldIds: readonly string[];
+    };
+
 export interface RecordQueryOptions {
   readonly limit?: number;
   readonly offset?: number;
   readonly mode?: 'computed' | 'stored';
+  readonly search?: string;
+  readonly searchFieldKeys?: string;
+  readonly hideNotMatchRow?: boolean;
+  readonly searchAccessPath?: RecordQuerySearchAccessPathOption;
 }
 
 /** Result of application layer record query */

@@ -18,6 +18,7 @@ import { useEnv } from '@/features/app/hooks/useEnv';
 import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import { useIsEE } from '@/features/app/hooks/useIsEE';
 import { CopyInstance } from './components';
+import { BannedEmailDomains } from './components/BannedEmailDomains';
 import { Branding } from './components/Branding';
 import { CanarySettings } from './components/canary';
 import type { IList } from './components/ConfigurationList';
@@ -33,10 +34,12 @@ export interface ISettingPageProps {
   rewardManage?: React.ReactNode;
   canarySettings?: React.ReactNode;
   limitSettings?: React.ReactNode;
+  /** Teable Infra service version, injected by the EE page when available. */
+  infraVersion?: string;
 }
 
 export const SettingPage = (props: ISettingPageProps) => {
-  const { settingServerData, rewardManage, canarySettings, limitSettings } = props;
+  const { settingServerData, rewardManage, canarySettings, limitSettings, infraVersion } = props;
   const queryClient = useQueryClient();
   const { t } = useTranslation('common');
 
@@ -67,7 +70,8 @@ export const SettingPage = (props: ISettingPageProps) => {
   };
 
   const emailRef = useRef<HTMLDivElement>(null);
-  const { publicOrigin, publicDatabaseProxy } = useEnv();
+  const { publicOrigin, buildVersion } = useEnv();
+  const displayBuildVersion = buildVersion ?? process.env.APP_VERSION ?? 'develop';
 
   const isHydrated = useIsHydrated();
 
@@ -94,14 +98,6 @@ export const SettingPage = (props: ISettingPageProps) => {
         path: '/admin/setting',
       },
       {
-        title: t('admin.configuration.list.databaseProxy.title'),
-        key: 'databaseProxy' as const,
-        isRequired: true,
-        isComplete: Boolean(publicDatabaseProxy),
-        group: 'system' as const,
-        path: '/admin/setting',
-      },
-      {
         title: t('admin.configuration.list.llmApi.title'),
         key: 'llmApi' as const,
         isRequired: true,
@@ -119,10 +115,12 @@ export const SettingPage = (props: ISettingPageProps) => {
         path: '/admin/ai-setting?anchor=llm',
       },
       {
-        title: t('admin.configuration.list.appBuilderDomain.title'),
-        key: 'app' as const,
+        title: t('admin.configuration.list.appBuilderEngine.title'),
+        key: 'appBuilderEngine' as const,
         isRequired: true,
-        isComplete: Boolean(setting?.appConfig?.vercelToken),
+        isComplete:
+          Boolean(setting?.appConfig?.vercelToken) ||
+          setting?.appConfig?.deployProvider === 'docker-runtime',
         group: 'appBuilder' as const,
         path: '/admin/ai-setting?anchor=app',
       },
@@ -138,7 +136,6 @@ export const SettingPage = (props: ISettingPageProps) => {
     ],
     [
       isHydrated,
-      publicDatabaseProxy,
       publicOrigin,
       setting?.aiConfig,
       setting?.appConfig,
@@ -165,6 +162,7 @@ export const SettingPage = (props: ISettingPageProps) => {
   const {
     instanceId,
     disallowSignUp,
+    bannedEmailDomains,
     disallowSpaceCreation,
     disallowSpaceInvitation,
     enableEmailVerification,
@@ -200,6 +198,13 @@ export const SettingPage = (props: ISettingPageProps) => {
                   disabled={isUpdatingSetting}
                 />
               </div>
+              {isCloud && (
+                <BannedEmailDomains
+                  bannedEmailDomains={bannedEmailDomains}
+                  onChange={(domains) => void onValueChange('bannedEmailDomains', domains)}
+                  disabled={isUpdatingSetting}
+                />
+              )}
               <div className="flex items-center justify-between space-x-2 rounded-lg border bg-card p-4 shadow-sm">
                 <div className="space-y-1">
                   <Label htmlFor="allow-space-invitation">
@@ -383,9 +388,15 @@ export const SettingPage = (props: ISettingPageProps) => {
             />
           )}
 
-          <CopyInstance instanceId={instanceId} />
+          <CopyInstance instanceId={instanceId} infraVersion={infraVersion} />
         </div>
-        {finalList.length > 0 && <ConfigurationList list={finalList as IList[]} />}
+        {finalList.length > 0 && (
+          <ConfigurationList
+            list={finalList as IList[]}
+            appVersion={displayBuildVersion}
+            infraVersion={infraVersion}
+          />
+        )}
       </div>
     </div>
   );

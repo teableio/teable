@@ -6,6 +6,7 @@ import { v2Contract } from '@teable/v2-contract-http';
 import {
   ActorId,
   type ICommandBus,
+  type IComputedActivityReader,
   type IExecutionContext,
   type IQueryBus,
   v2CoreTokens,
@@ -36,6 +37,7 @@ import {
   executeExplainUpdateRecordEndpoint,
 } from './handlers/tables/explainCommand';
 import { executeGetRecordByIdEndpoint } from './handlers/tables/getRecordById';
+import { executeGetComputeActivityEndpoint } from './handlers/tables/getComputeActivity';
 import { executeGetTableByIdEndpoint } from './handlers/tables/getTableById';
 import { executeImportCsvEndpoint } from './handlers/tables/importCsv';
 import { executeImportRecordsEndpoint } from './handlers/tables/importRecords';
@@ -686,7 +688,48 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     }
 
     const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
-    const result = await executeGetTableByIdEndpoint(executionContext, input, queryBus);
+    let activityReader: IComputedActivityReader | undefined;
+    try {
+      activityReader = container.resolve<IComputedActivityReader>(
+        v2CoreTokens.computedActivityReader
+      );
+    } catch {
+      activityReader = undefined;
+    }
+    const result = await executeGetTableByIdEndpoint(
+      executionContext,
+      input,
+      queryBus,
+      activityReader
+    );
+
+    if (result.status === 200) return result.body;
+
+    if (result.status === 400) {
+      throwDomainError('BAD_REQUEST', result.body.error);
+    }
+
+    if (result.status === 404) {
+      throwDomainError('NOT_FOUND', result.body.error);
+    }
+
+    throwDomainError('INTERNAL_SERVER_ERROR', result.body.error);
+  });
+
+  const tablesGetComputeActivity = os.tables.getComputeActivity.handler(async ({ input }) => {
+    const container = await resolveContainer();
+
+    let executionContext: IExecutionContext;
+    try {
+      executionContext = await createExecutionContext();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', {
+        message: executionContextErrorMessage,
+      });
+    }
+
+    const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
+    const result = await executeGetComputeActivityEndpoint(executionContext, input, queryBus);
 
     if (result.status === 200) return result.body;
 
@@ -1174,6 +1217,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
       delete: tablesDelete,
       restore: tablesRestore,
       getById: tablesGetById,
+      getComputeActivity: tablesGetComputeActivity,
       getRecord: tablesGetRecord,
       importCsv: tablesImportCsv,
       importRecords: tablesImportRecords,

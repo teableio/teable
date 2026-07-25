@@ -1,6 +1,9 @@
 import type { IFilterOperator, ILiteralValue } from '@teable/core';
 import type { Knex } from 'knex';
-import { escapeJsonbRegex } from '../../../../../utils/postgres-regex-escape';
+import {
+  escapeJsonPathRegexLiteral,
+  escapeJsonPathStringLiteral,
+} from '../../../../../utils/postgres-regex-escape';
 import type { IDbProvider } from '../../../../db.provider.interface';
 import { CellValueFilterPostgres } from '../cell-value-filter.postgres';
 
@@ -12,7 +15,10 @@ export class MultipleStringCellValueFilterAdapter extends CellValueFilterPostgre
     _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     this.ensureLiteralValue(value, _operator);
-    builderClient.whereRaw(`${this.tableColumnRef}::jsonb @\\? '$[*] \\? (@ == "${value}")'`);
+    // Bind the jsonpath as a parameter; never concatenate the raw value into the
+    // SQL string (a single quote would otherwise break out and inject SQL).
+    const jsonPath = `$[*] ? (@ == "${escapeJsonPathStringLiteral(String(value))}")`;
+    builderClient.whereRaw(`${this.tableColumnRef}::jsonb @\\? ?`, [jsonPath]);
     return builderClient;
   }
 
@@ -22,9 +28,8 @@ export class MultipleStringCellValueFilterAdapter extends CellValueFilterPostgre
     value: ILiteralValue,
     _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
-    builderClient.whereRaw(
-      `NOT COALESCE(${this.tableColumnRef}, '[]')::jsonb @\\? '$[*] \\? (@ == "${value}")'`
-    );
+    const jsonPath = `$[*] ? (@ == "${escapeJsonPathStringLiteral(String(value))}")`;
+    builderClient.whereRaw(`NOT COALESCE(${this.tableColumnRef}, '[]')::jsonb @\\? ?`, [jsonPath]);
     return builderClient;
   }
 
@@ -34,11 +39,9 @@ export class MultipleStringCellValueFilterAdapter extends CellValueFilterPostgre
     value: ILiteralValue,
     _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
-    const escapedValue = escapeJsonbRegex(String(value));
     this.ensureLiteralValue(value, _operator);
-    builderClient.whereRaw(
-      `${this.tableColumnRef}::jsonb @\\? '$[*] \\? (@ like_regex "${escapedValue}" flag "i")'`
-    );
+    const jsonPath = `$[*] ? (@ like_regex "${escapeJsonPathRegexLiteral(String(value))}" flag "i")`;
+    builderClient.whereRaw(`${this.tableColumnRef}::jsonb @\\? ?`, [jsonPath]);
     return builderClient;
   }
 
@@ -48,11 +51,9 @@ export class MultipleStringCellValueFilterAdapter extends CellValueFilterPostgre
     value: ILiteralValue,
     _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
-    const escapedValue = escapeJsonbRegex(String(value));
     this.ensureLiteralValue(value, _operator);
-    builderClient.whereRaw(
-      `NOT COALESCE(${this.tableColumnRef}, '[]')::jsonb @\\? '$[*] \\? (@ like_regex "${escapedValue}" flag "i")'`
-    );
+    const jsonPath = `$[*] ? (@ like_regex "${escapeJsonPathRegexLiteral(String(value))}" flag "i")`;
+    builderClient.whereRaw(`NOT COALESCE(${this.tableColumnRef}, '[]')::jsonb @\\? ?`, [jsonPath]);
     return builderClient;
   }
 }

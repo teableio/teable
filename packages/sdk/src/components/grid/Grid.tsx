@@ -40,7 +40,7 @@ import type { ISpriteMap, CombinedSelection, IIndicesMap } from './managers';
 import { CoordinateManager, SpriteManager, ImageManager } from './managers';
 import { getCellRenderer, type ICell, type IInnerCell } from './renderers';
 import { TouchLayer } from './TouchLayer';
-import { getRowControlExtraWidth, measuredCanvas } from './utils';
+import { getMaxFreezeColumnCount, getRowControlExtraWidth, measuredCanvas } from './utils';
 
 export interface IGridExternalProps {
   theme?: Partial<IGridTheme>;
@@ -87,6 +87,12 @@ export interface IGridExternalProps {
   isMultiSelectionEnable?: boolean;
   isRowClickSelectionEnabled?: boolean;
 
+  /**
+   * Keep the cursor on the active cell after Enter instead of moving to the next
+   * row, so the caller can follow a record that re-positions on edit.
+   */
+  disableEnterMoveDown?: boolean;
+
   groupCollection?: IGroupCollection | null;
   collapsedGroupIds?: Set<string> | null;
   groupPoints?: IGroupPoint[] | null;
@@ -102,6 +108,7 @@ export interface IGridExternalProps {
   onVisibleRegionChanged?: (rect: IRectangle) => void;
   onCollapsedGroupChanged?: (collapsedGroupIds: Set<string>) => void;
   onColumnFreeze?: (freezeColumnCount: number) => void;
+  onColumnFreezeFailed?: () => void;
   onColumnAppend?: () => void;
   onRowExpand?: (rowIndex: number) => void;
   onRowAppend?: (targetIndex?: number) => void;
@@ -178,6 +185,10 @@ export interface IGridRef {
   getCellIndicesAtPosition: (x: number, y: number) => ICellItem | null;
   getContainer: () => HTMLDivElement | null;
   getCellBounds: (cell: ICellItem) => IRectangle | null;
+  getFreezeColumnState: () => {
+    effectiveFreezeColumnCount: number;
+    maxFreezeColumnCount: number;
+  };
   setCellLoading: (cells: ICellItem[]) => void;
   setColumnLoadings: (columnLoadings: IColumnLoading[]) => void;
   setCellErrors: (cellErrors: ICellError[]) => void;
@@ -220,6 +231,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     rowIndexVisible = true,
     isMultiSelectionEnable = true,
     isRowClickSelectionEnabled = true,
+    disableEnterMoveDown = false,
     style,
     customIcons,
     collaborators,
@@ -246,6 +258,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     onSelectionChanged,
     onVisibleRegionChanged,
     onColumnFreeze,
+    onColumnFreezeFailed,
     onColumnHeaderClick,
     onColumnHeaderDblClick,
     onColumnHeaderMenuClick,
@@ -289,6 +302,10 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
       return [columnIndex, realIndex];
     },
     getContainer: () => containerRef.current,
+    getFreezeColumnState: () => ({
+      effectiveFreezeColumnCount,
+      maxFreezeColumnCount,
+    }),
     setCellLoading: (cells: ICellItem[]) => {
       setCellLoadings(cells);
     },
@@ -366,6 +383,21 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
       getRowControlExtraWidth(theme, rowControlPaddingX) * 2
     );
   }, [rowControlCount, rowIndexVisible, iconSizeMD, theme, rowControlPaddingX]);
+
+  const maxFreezeColumnCount = useMemo(() => {
+    if (width <= 0) {
+      return freezeColumnCount;
+    }
+
+    return getMaxFreezeColumnCount({
+      containerWidth: width,
+      columnInitSize,
+      columnCount,
+      getColumnWidth: (index) => columns[index]?.width || defaultColumnWidth,
+    });
+  }, [freezeColumnCount, columnInitSize, columnCount, columns, width]);
+
+  const effectiveFreezeColumnCount = Math.min(freezeColumnCount, maxFreezeColumnCount);
 
   const defaultRowsInfo = useMemo(() => {
     return {
@@ -502,7 +534,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
       pureRowCount,
       rowCount,
       columnCount,
-      freezeColumnCount,
+      freezeColumnCount: effectiveFreezeColumnCount,
       containerWidth: width,
       containerHeight,
       rowInitSize: columnHeaderHeight,
@@ -523,9 +555,9 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
   useMemo(() => {
     coordInstance.containerWidth = width;
     coordInstance.containerHeight = containerHeight;
-    coordInstance.freezeColumnCount = freezeColumnCount;
+    coordInstance.freezeColumnCount = effectiveFreezeColumnCount;
     setForceRenderFlag(uniqueId('grid_'));
-  }, [coordInstance, width, containerHeight, freezeColumnCount]);
+  }, [coordInstance, width, containerHeight, effectiveFreezeColumnCount]);
 
   const activeCellBound = useMemo(() => {
     if (activeColumnIndex == null || activeRowIndex == null) {
@@ -708,6 +740,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             collapsedGroupIds={collapsedGroupIds}
             columnHeaderHeight={columnHeaderHeight}
             isMultiSelectionEnable={isMultiSelectionEnable}
+            disableEnterMoveDown={disableEnterMoveDown}
             activeCell={activeCell}
             mouseState={mouseState}
             scrollState={scrollState}
@@ -745,6 +778,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             onGroupHeaderContextMenu={onGroupHeaderContextMenu}
             onSelectionChanged={onSelectionChanged}
             onColumnFreeze={onColumnFreeze}
+            onColumnFreezeFailed={onColumnFreezeFailed}
             onItemHovered={onItemHovered}
             onItemClick={onItemClick}
             onFillSelection={onFillSelection}
@@ -787,6 +821,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
         cellErrors={cellErrors}
         coordInstance={coordInstance}
         scrollState={scrollState}
+        real2RowIndex={real2RowIndex}
       />
     </div>
   );

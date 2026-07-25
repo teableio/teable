@@ -3,6 +3,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Prisma } from '@prisma/client';
+import * as Sentry from '@sentry/nestjs';
 import type {
   CreatedByFieldCore,
   FieldCore,
@@ -23,9 +24,9 @@ import type {
 import {
   and,
   CellFormat,
-  CellValueType,
   DbFieldType,
   DriverClient,
+  extractFieldIdsFromFilter,
   FieldKeyType,
   FieldType,
   generateRecordHistoryId,
@@ -67,7 +68,6 @@ import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.confi
 import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
-import { Events } from '../../event-emitter/events';
 import { DatabaseRouter } from '../../global/database-router.service';
 import { DATA_KNEX } from '../../global/knex/knex.module';
 import { RawOpType } from '../../share-db/interface';
@@ -100,6 +100,16 @@ type IGeneratedColumnMeta = { meta?: { persistedAsGeneratedColumn?: boolean } };
 type IGeneratedColumnStateRow = {
   column_name: string;
   is_generated: string | null;
+};
+type IAttachmentCellValueLike = IAttachmentCellValue | IAttachmentCellValue[number];
+type IRecordsPresignedUrlContext = {
+  tableId?: string;
+  viewQueryDbTableName?: string;
+  fieldKeyType: FieldKeyType;
+  cellFormat?: CellFormat;
+  useQueryModel?: boolean;
+  recordIds?: string[];
+  projectionFieldIds?: string[];
 };
 
 function removeUndefined<T extends Record<string, unknown>>(obj: T) {
@@ -162,23 +172,25 @@ export class RecordService {
     );
   }
 
-  private async getWritableCreatedTimeFieldNames(
+  private async getWritableGeneratedAwareFieldNames(
     tableId: string,
     dbTableName: string,
-    fields: readonly FieldCore[]
+    fields: readonly FieldCore[],
+    fieldType: FieldType.CreatedTime | FieldType.CreatedBy
   ): Promise<Set<string>> {
-    const createdTimeFields = fields.filter(
-      (field) => field.type === FieldType.CreatedTime && !field.isLookup
-    );
-    if (!createdTimeFields.length) {
+    const candidateFields = fields.filter((field) => field.type === fieldType && !field.isLookup);
+    if (!candidateFields.length) {
       return new Set<string>();
     }
 
     const fallbackWritableFieldNames = new Set(
-      createdTimeFields
-        .filter(
-          (field) => (field as IGeneratedColumnMeta).meta?.persistedAsGeneratedColumn !== true
-        )
+      candidateFields
+        .filter((field) => {
+          if (fieldType === FieldType.CreatedBy) {
+            return (field as CreatedByFieldCore).shouldPersistAuditValue?.() !== false;
+          }
+          return (field as IGeneratedColumnMeta).meta?.persistedAsGeneratedColumn !== true;
+        })
         .map((field) => field.dbFieldName)
     );
 
@@ -195,7 +207,7 @@ export class RecordService {
       })
       .whereIn(
         'column_name',
-        createdTimeFields.map((field) => field.dbFieldName)
+        candidateFields.map((field) => field.dbFieldName)
       )
       .toSQL()
       .toNative();
@@ -208,7 +220,7 @@ export class RecordService {
     const columnStateMap = new Map(rows.map((row) => [row.column_name, row.is_generated]));
 
     return new Set(
-      createdTimeFields
+      candidateFields
         .filter((field) => {
           const isGenerated = columnStateMap.get(field.dbFieldName);
           if (isGenerated == null) {
@@ -217,6 +229,32 @@ export class RecordService {
           return isGenerated === 'NEVER';
         })
         .map((field) => field.dbFieldName)
+    );
+  }
+
+  private async getWritableCreatedTimeFieldNames(
+    tableId: string,
+    dbTableName: string,
+    fields: readonly FieldCore[]
+  ): Promise<Set<string>> {
+    return this.getWritableGeneratedAwareFieldNames(
+      tableId,
+      dbTableName,
+      fields,
+      FieldType.CreatedTime
+    );
+  }
+
+  private async getWritableCreatedByFieldNames(
+    tableId: string,
+    dbTableName: string,
+    fields: readonly FieldCore[]
+  ): Promise<Set<string>> {
+    return this.getWritableGeneratedAwareFieldNames(
+      tableId,
+      dbTableName,
+      fields,
+      FieldType.CreatedBy
     );
   }
 
@@ -570,6 +608,45 @@ export class RecordService {
     }
   }
 
+  private resolveAggregateProjection(params: {
+    groupBy?: IGroup;
+    filter?: IFilter;
+    searchFields?: IFieldInstance[];
+    allowedFieldIds?: string[];
+  }): string[] | undefined {
+    const { groupBy, filter, searchFields, allowedFieldIds } = params;
+    const projectionSet = new Set<string>();
+
+    groupBy?.forEach(({ fieldId }) => {
+      if (fieldId) {
+        projectionSet.add(fieldId);
+      }
+    });
+
+    if (filter) {
+      for (const fieldId of extractFieldIdsFromFilter(filter)) {
+        projectionSet.add(fieldId);
+      }
+    }
+
+    searchFields?.forEach((fieldInstance) => {
+      projectionSet.add(fieldInstance.id);
+    });
+
+    if (projectionSet.size === 0) {
+      return undefined;
+    }
+
+    const projectionArray = Array.from(projectionSet);
+    if (!allowedFieldIds?.length) {
+      return projectionArray;
+    }
+
+    const allowedSet = new Set(allowedFieldIds);
+    const filtered = projectionArray.filter((fieldId) => allowedSet.has(fieldId));
+    return filtered.length ? filtered : undefined;
+  }
+
   private async sanitizeFilterByEnabledFields(
     tableId: string,
     filter: IFilter | undefined,
@@ -830,6 +907,7 @@ export class RecordService {
       | 'groupBy'
       | 'filter'
       | 'search'
+      | 'projection'
       | 'filterLinkCellCandidate'
       | 'filterLinkCellSelected'
       | 'collapsedGroupIds'
@@ -920,11 +998,19 @@ export class RecordService {
     }
 
     if (search && search[2] && fieldMap) {
+      // query.projection narrows search to the fields the caller displays
+      // (e.g. personal view visible columns); intersect it with the permission
+      // whitelist so it can only ever shrink the searchable set
+      const searchProjection = query.projection?.length
+        ? enabledFieldIds
+          ? query.projection.filter((fieldId) => enabledFieldIds.includes(fieldId))
+          : query.projection
+        : enabledFieldIds;
       const searchFields = await this.getSearchFields(
         fieldMap,
         search,
         query?.viewId,
-        enabledFieldIds
+        searchProjection
       );
       const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
       qb.where((builder) => {
@@ -1321,6 +1407,11 @@ export class RecordService {
       dbTableName,
       fields
     );
+    const writableCreatedByFieldNames = await this.getWritableCreatedByFieldNames(
+      table.id,
+      dbTableName,
+      fields
+    );
     const auditUserValue =
       user &&
       UserFieldDto.fullAvatarUrl({
@@ -1329,7 +1420,10 @@ export class RecordService {
         email: user.email,
       });
     const createdByFields = fields.filter(
-      (f) => f.type === FieldType.CreatedBy && f.shouldPersistAuditValue?.()
+      (f) =>
+        f.type === FieldType.CreatedBy &&
+        f.shouldPersistAuditValue?.() &&
+        writableCreatedByFieldNames.has(f.dbFieldName)
     ) as IFieldInstance[];
     const fieldInstanceMap = fields.reduce(
       (map, curField) => {
@@ -1495,6 +1589,11 @@ export class RecordService {
       dbTableName,
       fields
     );
+    const writableCreatedByFieldNames = await this.getWritableCreatedByFieldNames(
+      table.id,
+      dbTableName,
+      fields
+    );
 
     const views = await this.prismaService.txClient().view.findMany({
       where: { tableId: table.id, deletedTime: null },
@@ -1517,7 +1616,10 @@ export class RecordService {
         email: user.email,
       });
     const createdByFields = fields.filter(
-      (f) => f.type === FieldType.CreatedBy && (f as CreatedByFieldCore).shouldPersistAuditValue?.()
+      (f) =>
+        f.type === FieldType.CreatedBy &&
+        (f as CreatedByFieldCore).shouldPersistAuditValue?.() &&
+        writableCreatedByFieldNames.has(f.dbFieldName)
     );
     const cloneAuditUserValue = () => (auditUserValue ? { ...auditUserValue } : null);
     const sanitizeAuditUserValue = () => {
@@ -1667,7 +1769,8 @@ export class RecordService {
   public async getFieldsByProjection(
     tableId: string,
     projection?: { [fieldNameOrId: string]: boolean },
-    fieldKeyType: FieldKeyType = FieldKeyType.Id
+    fieldKeyType: FieldKeyType = FieldKeyType.Id,
+    options: { skipUnavailableFields?: boolean } = {}
   ) {
     let fields = await this.dataLoaderService.field.load(tableId);
     if (projection) {
@@ -1677,6 +1780,9 @@ export class RecordService {
       if (projectionFieldKeys.length) {
         fields = fields.filter((field) => projectionFieldKeys.includes(field[fieldKeyType]));
       }
+    }
+    if (options.skipUnavailableFields) {
+      fields = fields.filter((field) => !field.isPending);
     }
 
     return fields.map((field) => createFieldInstanceByRaw(field));
@@ -1692,9 +1798,9 @@ export class RecordService {
       if (field.type === FieldType.Attachment) {
         const fieldKey = field[fieldKeyType];
         for (const record of records) {
-          const cellValue = record.data.fields[fieldKey];
+          const cellValue = this.normalizeAttachmentCellValue(record.data.fields[fieldKey]);
           if (cellValue == null) continue;
-          (cellValue as IAttachmentCellValue).forEach((item) => {
+          cellValue.forEach((item) => {
             if (item.mimetype.startsWith('image/') && item.width && item.height) {
               const { smThumbnailPath, lgThumbnailPath } = generateTableThumbnailPath(item.path);
               previewToken.push(getTableThumbnailToken(smThumbnailPath));
@@ -1731,9 +1837,9 @@ export class RecordService {
       if (field.type === FieldType.Attachment) {
         const fieldKey = field[fieldKeyType];
         for (const record of records) {
-          const cellValue = record.data.fields[fieldKey];
+          const cellValue = this.normalizeAttachmentCellValue(record.data.fields[fieldKey]);
           if (cellValue == null) continue;
-          (cellValue as IAttachmentCellValue).forEach((item) => {
+          cellValue.forEach((item) => {
             if (isImage(item.mimetype) || isPdf(item.mimetype)) {
               thumbnailTokens.push(getTableThumbnailToken(item.token));
             }
@@ -1767,34 +1873,150 @@ export class RecordService {
   private async recordsPresignedUrl(
     records: ISnapshotBase<IRecord>[],
     fields: IFieldInstance[],
-    fieldKeyType: FieldKeyType
+    fieldKeyType: FieldKeyType,
+    context?: IRecordsPresignedUrlContext
   ) {
-    if (records.length === 0 || fields.findIndex((f) => f.type === FieldType.Attachment) === -1) {
-      return records;
-    }
-    const cacheTokenUrlMap = await this.getCachePreviewUrlTokenMap(records, fields, fieldKeyType);
-    const thumbnailPathTokenMap = await this.getThumbnailPathTokenMap(
-      records,
-      fields,
-      fieldKeyType
-    );
-    for (const field of fields) {
-      if (field.type === FieldType.Attachment) {
-        const fieldKey = field[fieldKeyType];
-        for (const record of records) {
-          const cellValue = record.data.fields[fieldKey];
-          const presignedCellValue = await this.getAttachmentPresignedCellValue(
-            cellValue as IAttachmentCellValue,
-            cacheTokenUrlMap,
-            thumbnailPathTokenMap
-          );
-          if (presignedCellValue == null) continue;
+    try {
+      if (records.length === 0 || fields.findIndex((f) => f.type === FieldType.Attachment) === -1) {
+        return records;
+      }
+      const cacheTokenUrlMap = await this.getCachePreviewUrlTokenMap(records, fields, fieldKeyType);
+      const thumbnailPathTokenMap = await this.getThumbnailPathTokenMap(
+        records,
+        fields,
+        fieldKeyType
+      );
+      for (const field of fields) {
+        if (field.type === FieldType.Attachment) {
+          const fieldKey = field[fieldKeyType];
+          for (const record of records) {
+            const cellValue = this.normalizeAttachmentCellValue(record.data.fields[fieldKey]);
+            const presignedCellValue = await this.getAttachmentPresignedCellValue(
+              cellValue,
+              cacheTokenUrlMap,
+              thumbnailPathTokenMap
+            );
+            if (presignedCellValue == null) continue;
 
-          record.data.fields[fieldKey] = presignedCellValue;
+            record.data.fields[fieldKey] = presignedCellValue;
+          }
         }
       }
+      return records;
+    } catch (error) {
+      this.captureRecordSnapshotPresignedUrlError(error, records, fields, fieldKeyType, context);
+      throw error;
     }
-    return records;
+  }
+
+  private normalizeAttachmentCellValue(cellValue: unknown): IAttachmentCellValue | null {
+    if (cellValue == null) {
+      return null;
+    }
+
+    return Array.isArray(cellValue) ? cellValue : [cellValue as IAttachmentCellValue[number]];
+  }
+
+  private captureRecordSnapshotPresignedUrlError(
+    error: unknown,
+    records: ISnapshotBase<IRecord>[],
+    fields: IFieldInstance[],
+    fieldKeyType: FieldKeyType,
+    context?: IRecordsPresignedUrlContext
+  ) {
+    const exception = error instanceof Error ? error : new Error(String(error));
+    const attachmentFields = fields
+      .filter((field) => field.type === FieldType.Attachment)
+      .map((field) =>
+        removeUndefined({
+          id: field.id,
+          dbFieldName: field.dbFieldName,
+          name: field.name,
+          fieldKey: field[fieldKeyType],
+        })
+      );
+    const valueShapes = this.getAttachmentValueShapeSummaries(records, fields, fieldKeyType);
+    const recordIds = context?.recordIds ?? records.map((record) => record.id);
+    const logContext = removeUndefined({
+      message: 'Record snapshot attachment presigned url failed',
+      error: exception.message,
+      tableId: context?.tableId,
+      viewQueryDbTableName: context?.viewQueryDbTableName,
+      fieldKeyType,
+      cellFormat: context?.cellFormat,
+      useQueryModel: context?.useQueryModel,
+      recordCount: records.length,
+      recordIds: recordIds.slice(0, 20),
+      projectionFieldIds: context?.projectionFieldIds,
+      attachmentFields,
+      valueShapes,
+    });
+
+    this.logger.error(logContext, exception.stack);
+
+    Sentry.withScope((scope) => {
+      scope.setLevel('error');
+      scope.setTag('feature', 'record-snapshot-presigned-url');
+      scope.setTag('field_key_type', fieldKeyType);
+      scope.setTag('record_count', String(records.length));
+      scope.setTag('attachment_field_count', String(attachmentFields.length));
+      if (context?.useQueryModel) {
+        scope.setTag('teable.version', 'v2');
+      }
+      if (context?.tableId) {
+        scope.setTag('table.id', context.tableId);
+      }
+      scope.setContext('record_snapshot_presigned_url', logContext);
+      Sentry.captureException(exception, {
+        mechanism: { handled: true, type: 'record.snapshot.presigned_url' },
+      });
+    });
+  }
+
+  private getAttachmentValueShapeSummaries(
+    records: ISnapshotBase<IRecord>[],
+    fields: IFieldInstance[],
+    fieldKeyType: FieldKeyType
+  ) {
+    return fields
+      .filter((field) => field.type === FieldType.Attachment)
+      .flatMap((field) => {
+        const fieldKey = field[fieldKeyType];
+        return records.map((record) =>
+          removeUndefined({
+            recordId: record.id,
+            fieldId: field.id,
+            dbFieldName: field.dbFieldName,
+            fieldKey,
+            ...this.getAttachmentValueShape(record.data.fields[fieldKey]),
+          })
+        );
+      })
+      .slice(0, 20);
+  }
+
+  private getAttachmentValueShape(cellValue: unknown) {
+    if (cellValue == null) {
+      return { valueType: 'null', isArray: false };
+    }
+
+    const isArrayValue = Array.isArray(cellValue);
+    const sampleValue = isArrayValue ? cellValue[0] : cellValue;
+    const sampleRecord =
+      sampleValue && typeof sampleValue === 'object' && !Array.isArray(sampleValue)
+        ? (sampleValue as Record<string, unknown>)
+        : undefined;
+
+    return removeUndefined({
+      valueType: isArrayValue ? 'array' : typeof cellValue,
+      isArray: isArrayValue,
+      arrayLength: isArrayValue ? cellValue.length : undefined,
+      itemValueType: Array.isArray(sampleValue) ? 'array' : typeof sampleValue,
+      itemKeys: sampleRecord ? Object.keys(sampleRecord).sort().slice(0, 20) : undefined,
+      hasToken: sampleRecord ? typeof sampleRecord.token === 'string' : undefined,
+      hasPath: sampleRecord ? typeof sampleRecord.path === 'string' : undefined,
+      hasMimetype: sampleRecord ? typeof sampleRecord.mimetype === 'string' : undefined,
+    });
   }
 
   async invalidateAttachmentPresignedUrlCache(tokens: string[]) {
@@ -1802,15 +2024,16 @@ export class RecordService {
   }
 
   async getAttachmentPresignedCellValue(
-    cellValue: IAttachmentCellValue | null,
+    cellValue: IAttachmentCellValueLike | null,
     cacheTokenUrlMap?: Record<string, string>,
     thumbnailPathTokenMap?: Record<string, { sm?: string; lg?: string } | undefined>
   ) {
-    if (cellValue == null) {
+    const normalizedCellValue = this.normalizeAttachmentCellValue(cellValue);
+    if (normalizedCellValue == null) {
       return null;
     }
     return await Promise.all(
-      cellValue.map(async (item) => {
+      normalizedCellValue.map(async (item) => {
         const { path, mimetype, token } = item;
         const presignedUrl =
           cacheTokenUrlMap?.[token] ??
@@ -1871,7 +2094,9 @@ export class RecordService {
     }
   ): Promise<ISnapshotBase<IRecord>[]> {
     const { tableId, recordIds, projection, fieldKeyType, cellFormat } = query;
-    const fields = await this.getFieldsByProjection(tableId, projection, fieldKeyType);
+    const fields = await this.getFieldsByProjection(tableId, projection, fieldKeyType, {
+      skipUnavailableFields: true,
+    });
     const fieldIds = fields.map((f) => f.id);
 
     const { qb: queryBuilder } = await this.recordQueryBuilder.createRecordQueryBuilder(
@@ -1955,7 +2180,15 @@ export class RecordService {
         };
       });
     if (cellFormat === CellFormat.Json) {
-      return await this.recordsPresignedUrl(snapshots, fields, fieldKeyType);
+      return await this.recordsPresignedUrl(snapshots, fields, fieldKeyType, {
+        tableId,
+        viewQueryDbTableName,
+        fieldKeyType,
+        cellFormat,
+        useQueryModel: query.useQueryModel,
+        recordIds,
+        projectionFieldIds: fieldIds,
+      });
     }
     return snapshots;
   }
@@ -2053,7 +2286,7 @@ export class RecordService {
       },
       useQueryModel
     );
-    const { queryBuilder, dbTableName } = await this.buildFilterSortQuery(
+    const { queryBuilder, dbTableName, alias } = await this.buildFilterSortQuery(
       tableId,
       {
         ...query,
@@ -2061,7 +2294,9 @@ export class RecordService {
       },
       useQueryModel
     );
-    // queryBuilder.select(this.knex.ref(`${selectDbTableName}.__id`));
+    // This path only needs record IDs. Avoid evaluating display projections such as
+    // CreatedBy user lookups, which may reference meta-plane tables outside BYODB.
+    queryBuilder.clearSelect().select(`${alias}.__id`);
 
     skip && queryBuilder.offset(skip);
     if (take !== -1) {
@@ -2181,6 +2416,10 @@ export class RecordService {
     return uniqBy(
       orderBy(
         Object.values(fieldInstanceMap)
+          // shared searchability predicate from @teable/core, also used by
+          // client-side highlighting; must run before the spread below which
+          // strips class methods
+          .filter((field) => field.isSearchable(search[0], { isSearchAllFields }))
           .map((field) => ({
             ...field,
             isStructuredCellValue: field.isStructuredCellValue,
@@ -2204,23 +2443,6 @@ export class RecordService {
 
             const searchArr = search?.[1]?.split(',') || [];
             return searchArr.includes(field.id);
-          })
-          .filter((field) => {
-            if (field.type === FieldType.Button) {
-              return false;
-            }
-            if (field.cellValueType === CellValueType.Boolean) {
-              return false;
-            }
-            if (isSearchAllFields) {
-              if (field.cellValueType === CellValueType.DateTime) {
-                return false;
-              }
-              if (field.cellValueType === CellValueType.Number && isNaN(Number(search[0]))) {
-                return false;
-              }
-            }
-            return true;
           })
           .map((field) => {
             return {
@@ -2626,7 +2848,8 @@ export class RecordService {
     filter?: IFilter,
     search?: [string, string?, boolean?],
     viewId?: string,
-    useQueryModel = false
+    useQueryModel = false,
+    projection?: string[]
   ) {
     const withUserId = this.cls.get('user.id');
     const wrap = await this.recordPermissionService.wrapView(
@@ -2649,6 +2872,7 @@ export class RecordService {
         currentUserId: withUserId,
         useQueryModel,
         builder: wrap.builder,
+        projection,
       }
     );
 
@@ -2739,6 +2963,15 @@ export class RecordService {
 
     const withUserId = this.cls.get('user.id');
     const shouldUseQueryModel = useQueryModel && !viewCte;
+    const searchFields = search?.[2]
+      ? await this.getSearchFields(fieldInstanceMap, search, viewId)
+      : [];
+    const aggregateProjection = this.resolveAggregateProjection({
+      groupBy,
+      filter: mergedFilter,
+      searchFields,
+      allowedFieldIds: enabledFieldIds,
+    });
     const { qb: queryBuilder, selectionMap } =
       await this.recordQueryBuilder.createRecordAggregateBuilder(viewCte ?? dbTableName, {
         tableId,
@@ -2755,10 +2988,10 @@ export class RecordService {
         currentUserId: withUserId,
         useQueryModel: shouldUseQueryModel,
         builder: permissionBuilder,
+        projection: aggregateProjection,
       });
 
     if (search && search[2]) {
-      const searchFields = await this.getSearchFields(fieldInstanceMap, search, viewId);
       const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
       queryBuilder.where((builder) => {
         this.dbProvider.searchQuery(builder, searchFields, tableIndex, search, { selectionMap });
@@ -2777,7 +3010,8 @@ export class RecordService {
       mergedFilter,
       search,
       viewId,
-      useQueryModel
+      useQueryModel,
+      aggregateProjection
     );
 
     try {

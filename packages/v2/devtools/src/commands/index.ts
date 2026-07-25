@@ -9,6 +9,7 @@ import {
   computedTask,
   computedTasks,
 } from './computed';
+import { dataDbMigrationStatus } from './data-db';
 import { dottea } from './dottea';
 import {
   explainCreate,
@@ -29,6 +30,19 @@ import {
   schemaOperationMarkDead,
   schemaOperationRetry,
 } from './schema-operation';
+import {
+  tableQueryOpsAnalyzeObservation,
+  tableQueryOpsAnalyzeSearchVectors,
+  tableQueryOpsAnalyzeSavedViews,
+  tableQueryOpsExecuteRecommendations,
+  tableQueryOpsExecuteSearchVector,
+  tableQueryOpsExplainSearchVectors,
+  tableQueryOpsExplainSavedViews,
+  tableQueryOpsObservabilitySchema,
+  tableQueryOpsOverview,
+  tableQueryOpsSignozDashboardTemplate,
+  tableQueryOpsValidateSearchVectorTempTable,
+} from './table-query-ops';
 import { tablesCreate, tablesDescribeSchema } from './tables';
 import {
   underlyingTables,
@@ -77,6 +91,12 @@ export const computed = Command.make('computed').pipe(
   ])
 );
 
+// data-db subcommand group
+export const dataDb = Command.make('data-db').pipe(
+  Command.withDescription('Inspect data database migration and routing state'),
+  Command.withSubcommands([dataDbMigrationStatus])
+);
+
 // records subcommand group (application layer queries and mutations)
 export const records = Command.make('records').pipe(
   Command.withDescription('Query and mutate records via application layer'),
@@ -101,6 +121,24 @@ export const tables = Command.make('tables').pipe(
   Command.withSubcommands([tablesCreate, tablesDescribeSchema])
 );
 
+// table-query-ops subcommand group
+export const tableQueryOps = Command.make('table-query-ops').pipe(
+  Command.withDescription('Inspect and analyze Table Query Ops recommendations'),
+  Command.withSubcommands([
+    tableQueryOpsOverview,
+    tableQueryOpsAnalyzeSavedViews,
+    tableQueryOpsAnalyzeObservation,
+    tableQueryOpsExplainSavedViews,
+    tableQueryOpsExecuteRecommendations,
+    tableQueryOpsAnalyzeSearchVectors,
+    tableQueryOpsExplainSearchVectors,
+    tableQueryOpsExecuteSearchVector,
+    tableQueryOpsValidateSearchVectorTempTable,
+    tableQueryOpsObservabilitySchema,
+    tableQueryOpsSignozDashboardTemplate,
+  ])
+);
+
 // underlying subcommand group
 export const underlying = Command.make('underlying').pipe(
   Command.withDescription('Query underlying database metadata and data'),
@@ -121,16 +159,18 @@ export const root = Command.make('teable-devtools').pipe(
   Command.withDescription('Teable v2 developer tools CLI'),
   Command.withSubcommands([
     computed,
+    dataDb,
     explain,
     mock,
     records,
     relations,
     schema,
     schemaOperation,
+    tableQueryOps,
     tables,
     underlying,
     dottea,
   ])
 );
 
-export { dottea, relations };
+export { dataDbMigrationStatus, dottea, relations };

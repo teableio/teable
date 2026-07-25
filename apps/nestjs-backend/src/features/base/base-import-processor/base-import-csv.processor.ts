@@ -1,13 +1,9 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import { pipeline } from 'stream/promises';
 import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import type { IAttachmentCellValue, ILinkFieldOptions } from '@teable/core';
-import {
-  DbFieldType,
-  FieldType,
-  generateAttachmentId,
-  generateRecordHistoryId,
-} from '@teable/core';
+import { DbFieldType, FieldType, generateAttachmentId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IBaseJson, ImportBaseRo } from '@teable/openapi';
 import { CreateRecordAction, UploadType } from '@teable/openapi';
@@ -137,6 +133,7 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
     let totalRecordsCount = 0;
 
     await new Promise<void>((resolve, reject) => {
+      const entryImports: Promise<void>[] = [];
       parser.on('entry', (entry) => {
         const filePath = entry.path;
         const isTable = filePath.startsWith('tables/') && entry.type !== 'Directory';
@@ -167,7 +164,7 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
                 [
                   FieldType.Formula,
                   FieldType.Rollup,
-                  // FieldType.ConditionalRollup,
+                  FieldType.ConditionalRollup,
                   FieldType.CreatedTime,
                   FieldType.LastModifiedTime,
                   FieldType.CreatedBy,
@@ -200,9 +197,6 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
               });
             }
           });
-          const fieldDbNameMap = new Map(
-            table?.fields?.map(({ dbFieldName, id }) => [dbFieldName, fieldIdMap[id] ?? id]) ?? []
-          );
 
           const batchProcessor = new BatchProcessor<Record<string, unknown>>(async (chunk) => {
             totalRecordsCount += chunk.length;
@@ -219,53 +213,57 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
                 fkMap,
                 attachmentsFields,
                 notNullFieldMap,
-                fieldDbNameMap,
               },
               excludeDbFieldNames
             );
           });
 
-          entry
-            .pipe(
-              csvParser.default({
-                // strict: true,
-                mapValues: ({ value }) => {
-                  return value;
-                },
-                mapHeaders: ({ header }) => {
-                  if (header.startsWith('__row_') && viewIdMap[header.slice(6)]) {
-                    return `__row_${viewIdMap[header.slice(6)]}`;
-                  }
+          const entryImport = pipeline(
+            entry,
+            csvParser.default({
+              // strict: true,
+              mapValues: ({ value }) => {
+                return value;
+              },
+              mapHeaders: ({ header }) => {
+                if (header.startsWith('__row_') && viewIdMap[header.slice(6)]) {
+                  return `__row_${viewIdMap[header.slice(6)]}`;
+                }
 
-                  // special case for cross base link fields, there is no map causing the old error link config
-                  if (header.startsWith('__fk_')) {
-                    return fieldIdMap[header.slice(5)]
-                      ? `__fk_${fieldIdMap[header.slice(5)]}`
-                      : fkMap[header] || header;
-                  }
+                // special case for cross base link fields, there is no map causing the old error link config
+                if (header.startsWith('__fk_')) {
+                  return fieldIdMap[header.slice(5)]
+                    ? `__fk_${fieldIdMap[header.slice(5)]}`
+                    : fkMap[header] || header;
+                }
 
-                  return header;
-                },
-              })
-            )
-            .pipe(batchProcessor)
-            .on('error', (error: Error) => {
-              this.logger.error(`import csv import error: ${error.message}`, error.stack);
-              reject(error);
-            })
-            .on('end', () => {
-              this.logger.log(
-                `csv ${tableId} finished, total records so far: ${totalRecordsCount}`
-              );
-            });
+                return header;
+              },
+            }),
+            batchProcessor
+          ).then(() => {
+            this.logger.log(`csv ${tableId} finished, total records so far: ${totalRecordsCount}`);
+          });
+
+          void entryImport.catch((error: Error) => {
+            this.logger.error(`import csv import error: ${error.message}`, error.stack);
+            reject(error);
+          });
+          entryImports.push(entryImport);
         } else {
           entry.autodrain();
         }
       });
 
       parser.on('close', () => {
-        this.logger.log(`import csv parser completed, total records: ${totalRecordsCount}`);
-        resolve();
+        Promise.all(entryImports)
+          .then(() => {
+            this.logger.log(`import csv parser completed, total records: ${totalRecordsCount}`);
+            resolve();
+          })
+          .catch((error) => {
+            reject(error);
+          });
       });
 
       parser.on('error', (error) => {
@@ -305,10 +303,6 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
     return await fn(dataPrisma);
   }
 
-  private getDataDbInternalSchema(dataDbUrl: string) {
-    return new URL(dataDbUrl).searchParams.get('schema') || 'public';
-  }
-
   // Raw SQL chunk insert (no v2 events). Active BaseImport operation is set by
   // `handleBaseImportCsv` above; the `@Audit` atomic emit mode writes one audit row per
   // chunk with atomic record-create action and rootAction=BaseImport.
@@ -327,20 +321,11 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
       fkMap: Record<string, string>;
       attachmentsFields: { dbFieldName: string; id: string }[];
       notNullFieldMap: Map<string, { dbFieldType: string; isMultipleCellValue: boolean }>;
-      fieldDbNameMap: Map<string, string>;
     },
     excludeDbFieldNames: string[]
   ) {
-    const {
-      baseId,
-      tableId,
-      userId,
-      fieldIdMap,
-      attachmentsFields,
-      fkMap,
-      notNullFieldMap,
-      fieldDbNameMap,
-    } = config;
+    const { baseId, tableId, userId, fieldIdMap, attachmentsFields, fkMap, notNullFieldMap } =
+      config;
     const { dbTableName } = await this.prismaService.tableMeta.findUniqueOrThrow({
       where: { id: tableId },
       select: {
@@ -364,22 +349,11 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
       recordId: string;
       fieldId: string;
     }[];
-    const recordHistoryList: {
-      id: string;
-      table_id: string;
-      record_id: string;
-      field_id: string;
-      before: string;
-      after: string;
-      created_by: string;
-    }[] = [];
 
     const dataPrisma = (await this.dataDbClientManager.dataPrismaForBase(
       baseId
     )) as IDataPrismaScopedClient;
     const dataKnex = await this.dataDbClientManager.dataKnexForBase(baseId);
-    const dataDb = await this.dataDbClientManager.getDataDatabaseForBase(baseId);
-    const dataDbInternalSchema = this.getDataDbInternalSchema(dataDb.url);
 
     await this.dataTransaction(dataPrisma, async (prisma) => {
       // delete foreign keys if(exist) then duplicate table data
@@ -432,9 +406,24 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
             : fkMap[name] || name;
         });
 
+      // Authoritative set of columns that actually exist on the freshly-created table.
+      // The .tea CSV is dumped from the source data table's physical columns, which can
+      // include "ghost" columns left behind by deleted/renamed fields. Those have no field
+      // in the exported structure, so the new table lacks them; inserting them raw aborts the
+      // whole table transaction (42703 -> 25P02) and drops every record. Mirror the v2 import,
+      // which only restores columns present in the field metadata.
+      const realColumns = new Set(columnInfo.map(({ name }) => name));
+
       const recordsToInsert = newResult.map((result) => {
         const res = { ...result };
         Object.entries(res).forEach(([key, value]) => {
+          // drop ghost business columns absent from the target table (system / __fk_ / __row_
+          // columns are left to the dedicated handling below and the lacking-column ALTER step)
+          if (!key.startsWith('__') && !realColumns.has(key)) {
+            delete res[key];
+            return;
+          }
+
           if (res[key] === '') {
             const notNullInfo = notNullFieldMap.get(key);
             if (notNullInfo) {
@@ -468,24 +457,6 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
               });
             });
           }
-
-          if (key.startsWith('__') && !key.startsWith('__fk_')) {
-            return;
-          }
-
-          const sourceFieldId = key.startsWith('__fk_') ? key.slice(5) : key;
-          const fieldId = fieldIdMap[sourceFieldId] ?? fieldDbNameMap.get(key) ?? sourceFieldId;
-          if (fieldId && value !== '' && value != null) {
-            recordHistoryList.push({
-              id: generateRecordHistoryId(),
-              table_id: tableId,
-              record_id: res['__id'] as string,
-              field_id: fieldId,
-              before: JSON.stringify({ data: null }),
-              after: JSON.stringify({ data: value }),
-              created_by: userId,
-            });
-          }
         });
 
         // default value set
@@ -513,15 +484,6 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
 
       const sql = dataKnex.table(dbTableName).insert(recordsToInsert).toQuery();
       await prisma.$executeRawUnsafe(sql);
-
-      if (recordHistoryList.length) {
-        const historySql = dataKnex
-          .withSchema(dataDbInternalSchema)
-          .insert(recordHistoryList)
-          .into('record_history')
-          .toQuery();
-        await prisma.$executeRawUnsafe(historySql);
-      }
     });
 
     // restore foreign keys with NOT VALID

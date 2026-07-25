@@ -1,12 +1,12 @@
 {
   "common": {
-    "comingSoon": "Bientôt disponible",
     "empty": "Vide",
     "noRecords": "Aucun enregistrement disponible",
     "unnamedRecord": "Enregistrement sans nom",
     "untitled": "Sans titre",
     "cancel": "Annuler",
     "confirm": "Confirmer",
+    "clear": "Effacer",
     "back": "Retour",
     "done": "Terminé",
     "create": "Créer",
@@ -89,7 +89,6 @@
     "link": {
       "placeholder": "Sélectionner des enregistrements à lier",
       "searchPlaceholder": "Rechercher des enregistrements",
-      "allFields": "Tous les champs",
       "globalSearch": "Recherche globale",
       "fieldSearch": "Recherche par champ",
       "maxFieldTips": "Le nombre maximum de {{count}} champs a été dépassé, les champs supplémentaires seront ignorés",
@@ -97,14 +96,11 @@
       "selectRecord": "Sélectionner un enregistrement",
       "all": "Tous",
       "selected": "Sélectionné",
-      "expandRecordError": "Aucun droit pour voir cet enregistrement.",
       "alreadyOpen": "Cet enregistrement est déjà ouvert.",
       "linkedTo": "Lié à",
-      "goToForeignTable": "Accéder à la table liée",
       "foreignTableIdRequired": "La table externe est requise",
       "linkFieldIdRequired": "Le champ de lien est requis",
       "selectTooManyRecords": "Les enregistrements sélectionnés ne doivent pas dépasser {{maxCount}}",
-      "relationshipRequired": "La relation est requise",
       "rangeSelectFailed": "Échec de la sélection des enregistrements dans la plage"
     },
     "user": {
@@ -118,12 +114,10 @@
     "lookup": {
       "lookupFieldIdRequired": "Le champ de recherche est requis",
       "lookupOptionsNotAllowed": "Les options de recherche ne sont pas autorisées lorsque l'attribut isLookup est vrai ou que le type de champ est rollup.",
-      "lookupOptionsRequired": "Les options de recherche sont requises",
-      "refineOptionsError": "Erreur lors de l'analyse des options de recherche {{message}}"
+      "lookupOptionsRequired": "Les options de recherche sont requises"
     },
     "rollup": {
-      "expressionRequired": "L'expression est requise",
-      "unsupportedTip": "Le rollup ne prend en charge que les champs de lien et de rollup"
+      "expressionRequired": "L'expression est requise"
     },
     "conditionalRollup": {
       "filterRequired": "Le filtre doit contenir au moins une condition"
@@ -151,11 +145,8 @@
     "addConditionGroup": "Ajouter un groupe de conditions",
     "nestedLimitTip": "Les conditions de filtrage ne peuvent être imbriquées que jusqu'à 3 niveaux",
     "linkInputPlaceholder": "Entrez une valeur",
-    "groupDescription": "L'un des éléments suivants est vrai…",
     "currentUser": "Moi (utilisateur actuel)",
-    "tips": {
-      "scope": "Dans cette vue, afficher les enregistrements"
-    },
+    "tips": {},
     "invalidateSelected": "Invalid value",
     "invalidateSelectedTips": "The selected value has been deleted, please select again",
     "invalidConditionTip": "Cette condition de filtre est invalide et sera ignorée. Veuillez ajuster la valeur.",
@@ -217,6 +208,7 @@
         "daysAgo": "jours écoulés",
         "daysFromNow": "jours restants",
         "exactDate": "date exacte",
+        "exactDateTime": "horodatage exact",
         "exactFormatDate": "date exacte (formatée)",
         "currentWeek": "current week",
         "currentMonth": "current month",
@@ -252,15 +244,10 @@
     "title": "du nom de champ",
     "displayLines": "{{count}} lignes"
   },
-  "share": {
-    "title": "partager"
-  },
-  "extensions": {
-    "title": "extensions"
-  },
+  "share": {},
+  "extensions": {},
   "hidden": {
     "label": "Champs cachés",
-    "configLabel_one": "{{count}} champ caché",
     "configLabel_other": "{{count}} champs cachés",
     "configLabel_other_visible": "{{count}} champs visibles",
     "showAll": "Tout afficher",
@@ -278,10 +265,15 @@
     "recordHistory": {
       "hiddenRecordHistory": "Masquer l'historique des enregistrements",
       "showRecordHistory": "Afficher l'historique des enregistrements",
-      "createdTime": "Heure de création",
-      "createdBy": "Créé par",
+      "createdTime": "Heure de modification",
+      "createdBy": "Modifié par",
       "before": "Avant",
       "after": "Après",
+      "buttonClicked": "Bouton cliqué",
+      "filterTime": "Plage horaire",
+      "allFields": "Tous les champs",
+      "allUsers": "Tous les utilisateurs",
+      "clearFilter": "Effacer les filtres",
       "viewRecord": "Voir l'enregistrement"
     },
     "showHiddenFields": "Afficher {{count}} champs cachés",
@@ -383,7 +375,6 @@
       "baseUpdate": "Mettre à jour une base",
       "baseInviteEmail": "Inviter par email dans la base",
       "baseInviteLink": "Inviter par lien dans la base",
-      "baseTableImport": "Importer des données dans la base",
       "baseAuthorityMatrixConfig": "Configurer la matrice d'autorité",
       "baseDbConnect": "Se connecter à la base de données",
       "tableCreate": "Créer une table",
@@ -418,7 +409,6 @@
       "appDelete": "Supprimer une application",
       "appRead": "Lire une application",
       "appUpdate": "Mettre à jour une application",
-      "userProfileRead": "Lire le profil de l'utilisateur",
       "userEmailRead": "Lire l'email de l'utilisateur",
       "userIntegrations": "Manage user integrations",
       "recordHistoryRead": "Lire l'historique des enregistrements",
@@ -856,7 +846,6 @@
     "placeholder": "Laissez un commentaire...",
     "emptyComment": "Démarrer une conversation",
     "deletedComment": "Commentaire supprimé",
-    "imageSizeLimit": "La taille de l'image ne peut pas dépasser {{size}}",
     "tip": {
       "editing": "Modification en cours...",
       "edited": "(Modifié)",
@@ -875,8 +864,6 @@
     },
     "floatToolbar": {
       "editLink": "Modifier le lien",
-      "caption": "Légende",
-      "delete": "Supprimer",
       "linkText": "Texte du lien",
       "enterUrl": "Entrez l'URL"
     }
@@ -886,7 +873,6 @@
     "memberSelectorSearchPlaceholder": "Search members...",
     "departmentSelectorSearchPlaceholder": "Search departments...",
     "selected": "Selected",
-    "noSelected": "No selected",
     "empty": "No members",
     "emptyDepartment": "No departments"
   },
@@ -916,29 +902,34 @@
     "automationNodeTestOutdated": "Test du nœud d'automatisation obsolète",
     "invalidToken": "Jeton non valide",
     "limit": {
-      "fieldOptionsMaxBytes": "Field options are too large. Maximum is {{max}} bytes.",
-      "selectChoicesMax": "This select field has too many choices. Maximum is {{max}} choices.",
-      "selectChoiceNameMaxLength": "Select choice names are too long. Maximum is {{max}} characters.",
-      "selectDefaultValuesMax": "This select field has too many default values. Maximum is {{max}} values.",
-      "cellValueMaxBytes": "Cell value is too large. Maximum is {{max}} bytes.",
-      "recordFieldsMaxBytes": "Record payload is too large. Maximum is {{max}} bytes.",
-      "recordsPerMutationMax": "This operation changes too many records. Maximum is {{max}} records at a time.",
-      "computedCellValueMaxBytes": "Computed cell value is too large. Maximum is {{max}} bytes.",
-      "formulaMaxLength": "Formula is too long. Maximum is {{max}} characters.",
-      "tablesPerBaseMax": "This base has reached the table limit. Maximum is {{max}} tables.",
-      "fieldsPerTableMax": "This table has too many fields. Maximum is {{max}} fields.",
-      "rowsPerTableMax": "This table has too many records. Maximum is {{max}} records.",
-      "viewsPerTableMax": "This table has reached the view limit. Maximum is {{max}} views.",
-      "createTableFieldsMax": "The new table has too many fields. Maximum is {{max}} fields.",
-      "createTableViewsMax": "The new table has too many views. Maximum is {{max}} views.",
-      "createTableRecordsMax": "The new table has too many records. Maximum is {{max}} records.",
-      "viewFilterItemsMax": "This view has too many filter conditions. Maximum is {{max}} conditions.",
-      "viewFilterDepthMax": "This view filter is too deeply nested. Maximum depth is {{max}}.",
-      "viewSortItemsMax": "This view has too many sort rules. Maximum is {{max}} rules.",
-      "viewGroupItemsMax": "This view has too many group rules. Maximum is {{max}} rules.",
-      "viewOptionsMaxBytes": "View options are too large. Maximum is {{max}} bytes.",
-      "nameMaxLength": "Name is too long. Maximum is {{max}} characters.",
-      "descriptionMaxLength": "Description is too long. Maximum is {{max}} characters."
+      "fieldOptionsMaxBytes": "Les options du champ sont trop volumineuses. Le maximum est de {{max}} octets.",
+      "selectChoicesMax": "Ce champ de sélection contient trop de choix. Le maximum est de {{max}} choix.",
+      "selectChoiceNameMaxLength": "Les noms des choix de sélection sont trop longs. Le maximum est de {{max}} caractères.",
+      "selectDefaultValuesMax": "Ce champ de sélection contient trop de valeurs par défaut. Le maximum est de {{max}} valeurs.",
+      "cellValueMaxBytes": "La valeur de cellule est trop volumineuse. Le maximum est de {{max}} octets.",
+      "recordFieldsMaxBytes": "Le contenu de l'enregistrement est trop volumineux. Le maximum est de {{max}} octets.",
+      "recordsPerMutationMax": "Cette opération modifie trop d'enregistrements. Le maximum est de {{max}} enregistrements à la fois.",
+      "computedCellValueMaxBytes": "La valeur calculée de cellule est trop volumineuse. Le maximum est de {{max}} octets.",
+      "formulaMaxLength": "La formule est trop longue. Le maximum est de {{max}} caractères.",
+      "tablesPerBaseMax": "Cette base a atteint la limite de tables. Le maximum est de {{max}} tables.",
+      "fieldsPerTableMax": "Cette table contient trop de champs. Le maximum est de {{max}} champs.",
+      "rowsPerTableMax": "Cette table contient trop d'enregistrements. Le maximum est de {{max}} enregistrements.",
+      "viewsPerTableMax": "Cette table a atteint la limite de vues. Le maximum est de {{max}} vues.",
+      "createTableFieldsMax": "La nouvelle table contient trop de champs. Le maximum est de {{max}} champs.",
+      "createTableViewsMax": "La nouvelle table contient trop de vues. Le maximum est de {{max}} vues.",
+      "createTableRecordsMax": "La nouvelle table contient trop d'enregistrements. Le maximum est de {{max}} enregistrements.",
+      "viewFilterItemsMax": "Cette vue contient trop de conditions de filtre. Le maximum est de {{max}} conditions.",
+      "viewFilterDepthMax": "Ce filtre de vue est trop profondément imbriqué. La profondeur maximale est de {{max}}.",
+      "viewSortItemsMax": "Cette vue contient trop de règles de tri. Le maximum est de {{max}} règles.",
+      "viewGroupItemsMax": "Cette vue contient trop de règles de regroupement. Le maximum est de {{max}} règles.",
+      "viewOptionsMaxBytes": "Les options de vue sont trop volumineuses. Le maximum est de {{max}} octets.",
+      "nameMaxLength": "Le nom est trop long. Le maximum est de {{max}} caractères.",
+      "descriptionMaxLength": "La description est trop longue. Le maximum est de {{max}} caractères."
+    },
+    "validation": {
+      "field": {
+        "unique": "Le champ doit avoir une valeur unique"
+      }
     },
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" champ \"{{fieldName}}\" ne permet pas les valeurs vides, veuillez les remplir complètement avant de soumettre.",
@@ -1319,6 +1310,42 @@
       "generateFailed": "Échec de la génération IA",
       "unsupportedActionType": "Type d'action IA non pris en charge"
     },
+    "skill": {
+      "notFound": "Compétence introuvable",
+      "onlyGithubCanSync": "Seules les compétences provenant de GitHub peuvent être synchronisées",
+      "syncFailed": "Échec de la synchronisation : {{errorCode}}",
+      "skillMdNotFoundAtSource": "SKILL.md introuvable à l'emplacement source",
+      "slugChangedUpstream": "Le slug de la compétence a changé en amont de \"{{oldSlug}}\" à \"{{newSlug}}\". Supprimez et réimportez pour adopter le nouveau slug.",
+      "skillMdNotFoundAtPath": "SKILL.md introuvable à {{path}}/SKILL.md",
+      "invalidSkillFile": "Fichier de compétence invalide. Une archive .skill ou .zip est attendue",
+      "tooManyResourceFiles": "La compétence contient trop de fichiers (max. {{max}})",
+      "noSkillMdInPackage": "Aucun SKILL.md trouvé dans le paquet",
+      "multipleSkillMdInPackage": "{{count}} fichiers SKILL.md trouvés au même niveau. Le paquet doit contenir exactement une compétence.",
+      "invalidResourcePaths": "Chemins de ressources invalides : {{paths}}",
+      "nameFieldRequired": "SKILL.md doit contenir un champ \"name\" dans le frontmatter",
+      "invalidSlugFormat": "Le slug de la compétence doit être en minuscules alphanumériques avec des tirets",
+      "filesExceedSizeLimit": "Les fichiers dépassent la limite de {{maxSizeKB}} Ko : {{files}}",
+      "binaryFilesNotAllowed": "Les fichiers binaires ne sont pas autorisés : {{files}}",
+      "totalSizeExceedsLimit": "La taille totale des ressources dépasse la limite de {{maxSizeMB}} Mo",
+      "invalidGithubUrl": "URL GitHub invalide. Attendu : https://github.com/owner/repo/tree/<branch>/path/to/skill",
+      "directoryTooDeep": "Le répertoire de la compétence dépasse la profondeur maximale de {{maxDepth}} niveaux. Répertoires imbriqués : {{dirs}}",
+      "importFailed": "Échec de l'importation : {{errorCode}}"
+    },
+    "sandbox": {
+      "fileNotFound": "Fichier introuvable dans le sandbox",
+      "onlyRegularFiles": "Seuls les fichiers réguliers peuvent être téléchargés",
+      "fileTooLarge": "Le fichier est trop volumineux pour être téléchargé (max. {{max}} octets)",
+      "cannotDeleteRoot": "Impossible de supprimer le dossier racine uploads/outputs",
+      "deleteFailed": "Échec de la suppression des fichiers",
+      "uploadFailed": "Échec du téléversement du fichier vers le sandbox",
+      "fileEndpointUnavailable": "Le sandbox n'expose pas de point de terminaison de fichier accessible",
+      "invalidPath": "Chemin de fichier invalide : il doit se trouver dans le répertoire uploads ou outputs du sandbox",
+      "tooManyDownloads": "Trop de demandes de téléchargement",
+      "dailyLimitExceeded": "Limite quotidienne de taille de téléchargement dépassée",
+      "storageFull": "Le stockage du sandbox est plein",
+      "tooManyFiles": "Au maximum {{max}} fichiers sont autorisés par message",
+      "noActiveSandbox": "Aucun sandbox actif trouvé"
+    },
     "role": {
       "notFound": "Rôle introuvable"
     },
@@ -1390,6 +1417,7 @@
     },
     "user": {
       "disallowSignUp": "L'instance actuelle n'autorise pas l'inscription par l'administrateur",
+      "emailDomainBanned": "Ce domaine de messagerie a été banni pour violation des règles d'utilisation",
       "waitlistInviteCodeRequired": "La liste d'attente est activée, un code d'invitation est requis",
       "waitlistInviteCodeInvalid": "La liste d'attente est activée, le code d'invitation n'est pas valide",
       "systemUser": "L'utilisateur est un utilisateur système",

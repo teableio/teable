@@ -253,6 +253,9 @@ export class LocalAuthService {
 
     const user = await this.userService.getUserByEmail(email);
     this.isRegisteredValidate(user);
+    // Risk control first, before any write and outside the transaction below —
+    // a slow risk service must never hold a database connection.
+    await this.userService.throwIfEmailDeniedByRiskControl('signup', email);
     const { salt, hashPassword } = await this.encodePassword(password);
     const res = await this.prismaService.$tx(async (prisma) => {
       if (user) {
@@ -300,6 +303,13 @@ export class LocalAuthService {
   }
 
   async sendSignupVerificationCode(email: string) {
+    // Reject banned domains before any mail goes out — otherwise the
+    // verification-code mail itself becomes a spam channel and the user only
+    // learns about the ban after entering the code.
+    const { bannedEmailDomains } = await this.settingService.getSetting();
+    this.userService.throwIfEmailDomainBanned(email, bannedEmailDomains);
+    await this.userService.throwIfEmailDeniedByRiskControl('signup', email);
+
     return await this.mailSenderService.checkSendMailRateLimit(
       {
         email,

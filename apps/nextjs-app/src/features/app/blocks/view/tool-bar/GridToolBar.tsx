@@ -1,3 +1,4 @@
+import { ComputeActivityPanel } from '../grid/components/ComputeActivityPanel';
 import { GridViewOperators, ToolBarAddRecordButton } from './components';
 import { useViewConfigurable } from './hook';
 import { Others } from './Others';
@@ -10,7 +11,10 @@ export const GridToolBar: React.FC = () => {
       <ToolBarAddRecordButton />
       <div className="flex min-w-0 flex-1 justify-between @container/toolbar">
         <GridViewOperators disabled={!isViewConfigurable} />
-        <Others />
+        <div className="flex shrink-0 items-center">
+          <ComputeActivityPanel />
+          <Others />
+        </div>
       </div>
     </div>
   );

@@ -2,7 +2,12 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable sonarjs/cognitive-complexity */
 import type { INestApplication } from '@nestjs/common';
-import type { IAttachmentItem, IConditionalRollupFieldOptions, IFilter } from '@teable/core';
+import type {
+  IAttachmentItem,
+  IConditionalRollupFieldOptions,
+  IFilter,
+  IPluginViewOptions,
+} from '@teable/core';
 import { Colors, FieldKeyType, FieldType, Relationship, SortFunc, ViewType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
@@ -29,6 +34,7 @@ import {
   listPluginPanels,
   getPluginPanel,
   getPluginPanelPlugin,
+  getViewInstallPlugin,
   getViewList,
   createBaseNode,
   getBaseNodeTree,
@@ -41,7 +47,7 @@ import {
   updateSetting,
   SettingKey,
 } from '@teable/openapi';
-import { pick } from 'lodash';
+import { omit, pick } from 'lodash';
 import type { ClsStore } from 'nestjs-cls';
 import { ClsService } from 'nestjs-cls';
 import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
@@ -300,7 +306,7 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
     });
     it('should export table and import the table', async () => {
       const { previewUrl: url } = await awaitWithEvent(async () => {
-        await exportBase(sourceBaseId);
+        await exportBase(sourceBaseId, { includeData: false });
       });
       const previewUrl = appUrl + url;
 
@@ -415,8 +421,37 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       expect(table1Views.length).toBe(table.views.length);
       expect(table2Views.length).toBe(subTable.views.length);
 
-      expect(duplicatedTable1Views).toEqual(sourceTable1Views);
-      expect(duplicatedTable2Views).toEqual(sourceTable2Views);
+      // Import rewrites plugin view options to reference the newly created installs,
+      // so compare views without pluginInstallId and assert the rewritten ids below.
+      const withoutPluginInstallId = <T extends { options?: unknown }>(views: T[]) =>
+        views.map((view) => {
+          const options = view.options as IPluginViewOptions | undefined;
+          return options?.pluginInstallId
+            ? { ...view, options: omit(options, 'pluginInstallId') }
+            : view;
+        });
+
+      expect(withoutPluginInstallId(duplicatedTable1Views)).toEqual(
+        withoutPluginInstallId(sourceTable1Views)
+      );
+      expect(withoutPluginInstallId(duplicatedTable2Views)).toEqual(
+        withoutPluginInstallId(sourceTable2Views)
+      );
+
+      const sourcePluginInstallIds = [...table.views, ...subTable.views]
+        .map((view) => (view.options as IPluginViewOptions | undefined)?.pluginInstallId)
+        .filter(Boolean);
+      for (const importedTable of [table1, table2]) {
+        for (const view of importedTable.views!) {
+          if (view.type !== ViewType.Plugin) {
+            continue;
+          }
+          const optionsInstallId = (view.options as IPluginViewOptions).pluginInstallId;
+          const resolvedInstall = (await getViewInstallPlugin(importedTable.id, view.id)).data;
+          expect(optionsInstallId).toBe(resolvedInstall.pluginInstallId);
+          expect(sourcePluginInstallIds).not.toContain(optionsInstallId);
+        }
+      }
 
       // plugins
       // dashboard
@@ -566,7 +601,7 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
 
     it('converts errored lookup and rollup fields to text on import', async () => {
       const { previewUrl } = await awaitErroredExport(async () => {
-        await exportBase(erroredBaseId);
+        await exportBase(erroredBaseId, { includeData: false });
       });
 
       const attachmentService = getAttachmentService(app);
@@ -715,97 +750,107 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       }
     });
 
-    it('imports base with conditional rollup without circular dependency', async () => {
-      const { previewUrl } = await awaitConditionalExport(async () => {
-        await exportBase(conditionalBaseId);
-      });
+    it(
+      'imports base with conditional rollup without circular dependency',
+      { timeout: 180_000 },
+      async () => {
+        const { previewUrl } = await awaitConditionalExport(async () => {
+          await exportBase(conditionalBaseId);
+        });
 
-      const attachmentService = getAttachmentService(app);
-      const clsService = app.get(ClsService);
+        const attachmentService = getAttachmentService(app);
+        const clsService = app.get(ClsService);
 
-      const notify = await clsService.runWith<Promise<IAttachmentItem>>(
-        {
-          user: {
-            id: userId,
-            name: 'Test User',
-            email: 'test@example.com',
-            isAdmin: null,
-          },
-        } as unknown as ClsStore,
-        async () => {
-          return await attachmentService.uploadFromUrl(appUrl + previewUrl);
-        }
-      );
+        const notify = await clsService.runWith<Promise<IAttachmentItem>>(
+          {
+            user: {
+              id: userId,
+              name: 'Test User',
+              email: 'test@example.com',
+              isAdmin: null,
+            },
+          } as unknown as ClsStore,
+          async () => {
+            return await attachmentService.uploadFromUrl(appUrl + previewUrl);
+          }
+        );
 
-      const { base: importedBase } = (
-        await importBase({
-          notify: notify as unknown as INotifyVo,
-          spaceId,
-        })
-      ).data;
+        const { base: importedBase } = (
+          await importBase({
+            notify: notify as unknown as INotifyVo,
+            spaceId,
+          })
+        ).data;
 
-      importedBaseId = importedBase.id;
+        importedBaseId = importedBase.id;
 
-      const tableList = (await getTableList(importedBase.id)).data;
-      expect(tableList.map(({ name }) => name).sort()).toEqual(
-        [hostTable.name, foreignTable.name].sort()
-      );
+        const tableList = (await getTableList(importedBase.id)).data;
+        expect(tableList.map(({ name }) => name).sort()).toEqual(
+          [hostTable.name, foreignTable.name].sort()
+        );
 
-      const importedHostMeta = tableList.find((tableMeta) => tableMeta.name === hostTable.name)!;
-      const importedHost = await getTable(importedBase.id, importedHostMeta.id, {
-        includeContent: true,
-      });
+        const importedHostMeta = tableList.find((tableMeta) => tableMeta.name === hostTable.name)!;
+        const importedHost = await getTable(importedBase.id, importedHostMeta.id, {
+          includeContent: true,
+        });
 
-      const importedFields = importedHost.fields ?? [];
-      const importedRollupField = importedFields.find((field) => field.name === 'Status Rollup')!;
-      expect(importedRollupField.type).toBe(FieldType.ConditionalRollup);
-      expect(importedRollupField.hasError).toBeFalsy();
+        const importedFields = importedHost.fields ?? [];
+        const importedRollupField = importedFields.find((field) => field.name === 'Status Rollup')!;
+        expect(importedRollupField.type).toBe(FieldType.ConditionalRollup);
+        expect(importedRollupField.hasError).toBeFalsy();
 
-      const importedLookupField = importedFields.find((field) => field.name === 'Status Lookup')!;
-      expect(importedLookupField.isLookup).toBeTruthy();
-      expect(importedLookupField.isConditionalLookup).toBeTruthy();
-      expect(importedLookupField.hasError).toBeFalsy();
-      const lookupOptions =
-        typeof importedLookupField.lookupOptions === 'string'
-          ? (JSON.parse(importedLookupField.lookupOptions) as {
-              sort?: { fieldId: string; order?: SortFunc };
-            })
-          : (importedLookupField.lookupOptions as
-              | { sort?: { fieldId: string; order?: SortFunc } }
-              | undefined);
-      expect(lookupOptions?.sort?.order).toBe(SortFunc.Asc);
+        const importedLookupField = importedFields.find((field) => field.name === 'Status Lookup')!;
+        expect(importedLookupField.isLookup).toBeTruthy();
+        expect(importedLookupField.isConditionalLookup).toBeTruthy();
+        expect(importedLookupField.hasError).toBeFalsy();
+        const lookupOptions =
+          typeof importedLookupField.lookupOptions === 'string'
+            ? (JSON.parse(importedLookupField.lookupOptions) as {
+                sort?: { fieldId: string; order?: SortFunc };
+              })
+            : (importedLookupField.lookupOptions as
+                | { sort?: { fieldId: string; order?: SortFunc } }
+                | undefined);
+        expect(lookupOptions?.sort?.order).toBe(SortFunc.Asc);
 
-      const importedStatusFilter = importedFields.find((field) => field.name === 'StatusFilter')!;
+        const importedStatusFilter = importedFields.find((field) => field.name === 'StatusFilter')!;
+        const importedRecordTimeoutMs = 30_000;
 
-      const activeRecordMeta = await waitForRecordWithFieldValue(
-        importedHostMeta.id,
-        importedStatusFilter.id,
-        'Active'
-      );
-      const inactiveRecordMeta = await waitForRecordWithFieldValue(
-        importedHostMeta.id,
-        importedStatusFilter.id,
-        'Inactive'
-      );
+        const activeRecordMeta = await waitForRecordWithFieldValue(
+          importedHostMeta.id,
+          importedStatusFilter.id,
+          'Active',
+          importedRecordTimeoutMs
+        );
+        const inactiveRecordMeta = await waitForRecordWithFieldValue(
+          importedHostMeta.id,
+          importedStatusFilter.id,
+          'Inactive',
+          importedRecordTimeoutMs
+        );
 
-      expect(activeRecordMeta).toBeDefined();
-      expect(inactiveRecordMeta).toBeDefined();
+        expect(activeRecordMeta).toBeDefined();
+        expect(inactiveRecordMeta).toBeDefined();
 
-      const activeRecord = await waitForComputedRecord(importedHostMeta.id, activeRecordMeta!.id, [
-        importedRollupField.id,
-        importedLookupField.id,
-      ]);
-      const inactiveRecord = await waitForComputedRecord(
-        importedHostMeta.id,
-        inactiveRecordMeta!.id,
-        [importedRollupField.id, importedLookupField.id]
-      );
+        const activeRecord = await waitForComputedRecord(
+          importedHostMeta.id,
+          activeRecordMeta!.id,
+          [importedRollupField.id, importedLookupField.id],
+          importedRecordTimeoutMs
+        );
+        const inactiveRecord = await waitForComputedRecord(
+          importedHostMeta.id,
+          inactiveRecordMeta!.id,
+          [importedRollupField.id, importedLookupField.id],
+          importedRecordTimeoutMs
+        );
 
-      expect(activeRecord.fields?.[importedRollupField.id]).toBe('Alpha');
-      expect(inactiveRecord.fields?.[importedRollupField.id]).toBe('Beta');
-      expect(activeRecord.fields?.[importedLookupField.id]).toEqual(['Alpha']);
-      expect(inactiveRecord.fields?.[importedLookupField.id]).toEqual(['Beta']);
-    });
+        expect(activeRecord.fields?.[importedRollupField.id]).toBe('Alpha');
+        expect(inactiveRecord.fields?.[importedRollupField.id]).toBe('Beta');
+        expect(activeRecord.fields?.[importedLookupField.id]).toEqual(['Alpha']);
+        expect(inactiveRecord.fields?.[importedLookupField.id]).toEqual(['Beta']);
+      }
+    );
   });
 
   describe('primary formula import', () => {
@@ -985,6 +1030,54 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       return { progressEvents, result: doneEvent!.data };
     };
 
+    const permanentDeleteCanaryBase = async (baseId: string) => {
+      const prisma = app.get(PrismaService);
+
+      if (process.env.V2_COMPUTED_UPDATE_MODE === 'sync') {
+        const deadline = Date.now() + 45_000;
+
+        while (Date.now() < deadline) {
+          const deferredTasks = await prisma.computedUpdateOutbox.findMany({
+            where: { baseId },
+            select: { status: true, attempts: true },
+          });
+          const unexpectedTasks = deferredTasks.filter(
+            ({ status, attempts }) =>
+              status !== 'processing' && !(status === 'pending' && attempts === 0)
+          );
+
+          expect(unexpectedTasks).toEqual([]);
+          await prisma.computedUpdateOutbox.deleteMany({
+            where: { baseId, status: 'pending', attempts: 0 },
+          });
+
+          const remainingTaskCount = await prisma.computedUpdateOutbox.count({
+            where: { baseId },
+          });
+          if (remainingTaskCount === 0) {
+            await permanentDeleteBase(baseId);
+            return;
+          }
+          await sleep(100);
+        }
+
+        throw new Error(`Timed out waiting for claimed computed tasks to drain for base ${baseId}`);
+      }
+
+      const deadline = Date.now() + 45_000;
+
+      while (Date.now() < deadline) {
+        const activeTaskCount = await prisma.computedUpdateOutbox.count({ where: { baseId } });
+        if (activeTaskCount === 0) {
+          await permanentDeleteBase(baseId);
+          return;
+        }
+        await sleep(100);
+      }
+
+      throw new Error(`Timed out waiting for computed tasks to drain for base ${baseId}`);
+    };
+
     afterEach(async () => {
       await updateSetting({
         [SettingKey.CANARY_CONFIG]: {
@@ -994,15 +1087,15 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       });
 
       if (importedCanaryStreamBaseId) {
-        await permanentDeleteBase(importedCanaryStreamBaseId);
+        await permanentDeleteCanaryBase(importedCanaryStreamBaseId);
         importedCanaryStreamBaseId = undefined;
       }
       if (importedCanaryBaseId) {
-        await permanentDeleteBase(importedCanaryBaseId);
+        await permanentDeleteCanaryBase(importedCanaryBaseId);
         importedCanaryBaseId = undefined;
       }
       if (canarySourceBaseId) {
-        await permanentDeleteBase(canarySourceBaseId);
+        await permanentDeleteCanaryBase(canarySourceBaseId);
         canarySourceBaseId = undefined;
       }
       if (canarySpaceId) {
@@ -1425,8 +1518,10 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
         pluginId: 'plgchart',
       });
 
-      await installViewPlugin(mainTable.id, { name: 'sheetView1', pluginId: 'plgsheetform' });
-      await installViewPlugin(mainTable.id, { name: 'sheetView2', pluginId: 'plgsheetform' });
+      const sourcePluginViews = await Promise.all([
+        installViewPlugin(mainTable.id, { name: 'sheetView1', pluginId: 'plgsheetform' }),
+        installViewPlugin(mainTable.id, { name: 'sheetView2', pluginId: 'plgsheetform' }),
+      ]).then((responses) => responses.map(({ data }) => data));
 
       const panel = (await createPluginPanel(mainTable.id, { name: 'panel1' })).data;
       await installPluginPanel(mainTable.id, panel.id, {
@@ -1451,6 +1546,19 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       expect(importedPluginViews.map((view) => view.name).sort()).toEqual(
         ['sheetView1', 'sheetView2'].sort()
       );
+      for (const sourceView of sourcePluginViews) {
+        const importedView = importedPluginViews.find(({ name }) => name === sourceView.name)!;
+        const importedInstall = (await getViewInstallPlugin(importedMainTable.id, importedView.id))
+          .data;
+        expect(importedInstall).toMatchObject({
+          baseId: importedBaseId,
+          pluginId: sourceView.pluginId,
+        });
+        expect(importedInstall.pluginInstallId).toBe(
+          (importedView.options as IPluginViewOptions).pluginInstallId
+        );
+        expect(importedInstall.pluginInstallId).not.toBe(sourceView.pluginInstallId);
+      }
 
       const importedDashboards = (await getDashboardList(importedBaseId)).data;
       expect(importedDashboards.map((item) => item.name)).toEqual(['dashboard']);

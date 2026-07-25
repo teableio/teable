@@ -121,6 +121,7 @@ import { TableUpdateFieldAiConfigSpec } from '../domain/table/specs/TableUpdateF
 import { TableUpdateFieldConstraintsSpec } from '../domain/table/specs/TableUpdateFieldConstraintsSpec';
 import { TableUpdateFieldDbFieldNameSpec } from '../domain/table/specs/TableUpdateFieldDbFieldNameSpec';
 import { TableUpdateFieldDescriptionSpec } from '../domain/table/specs/TableUpdateFieldDescriptionSpec';
+import { TableUpdateFieldHasErrorSpec } from '../domain/table/specs/TableUpdateFieldHasErrorSpec';
 import { TableUpdateFieldNameSpec } from '../domain/table/specs/TableUpdateFieldNameSpec';
 import { TableUpdateFieldTypeSpec } from '../domain/table/specs/TableUpdateFieldTypeSpec';
 import type { Table } from '../domain/table/Table';
@@ -190,11 +191,14 @@ const parseRequiredFormulaShowAs = (raw: unknown): Result<FormulaShowAs, DomainE
 
 const sequence = <T>(
   values: ReadonlyArray<Result<T, DomainError>>
-): Result<ReadonlyArray<T>, DomainError> =>
-  values.reduce<Result<ReadonlyArray<T>, DomainError>>(
-    (acc, next) => acc.andThen((arr) => next.map((v) => [...arr, v])),
-    ok([])
-  );
+): Result<ReadonlyArray<T>, DomainError> => {
+  const result: T[] = [];
+  for (const value of values) {
+    if (value.isErr()) return err<ReadonlyArray<T>, DomainError>(value.error);
+    result.push(value.value);
+  }
+  return ok(result);
+};
 
 const parseTrackedFieldIds = (
   raw: unknown
@@ -219,6 +223,8 @@ const fieldIdArrayEquals = (a: ReadonlyArray<FieldId>, b: ReadonlyArray<FieldId>
   if (a.length !== b.length) return false;
   return a.every((item, index) => item.equals(b[index]));
 };
+
+type FieldUpdateMode = 'partial' | 'full';
 
 const parseSelectOptionWithFallback = (
   choice: unknown,
@@ -569,6 +575,7 @@ class UpdateNumberFieldSpec implements IUpdateTableFieldSpec {
     private readonly formattingValue: NumberFormatting | undefined,
     private readonly showAsValue: NumberShowAs | undefined,
     private readonly defaultValueValue: NumberDefaultValue | undefined,
+    private readonly shouldClearDefaultValue: boolean,
     private readonly notNullValue: FieldNotNull | undefined,
     private readonly uniqueValue: FieldUnique | undefined
   ) {}
@@ -583,14 +590,28 @@ class UpdateNumberFieldSpec implements IUpdateTableFieldSpec {
     notNull?: unknown;
     unique?: unknown;
   }): Result<UpdateNumberFieldSpec, DomainError> {
+    const hasDefaultValue = input.options !== undefined && 'defaultValue' in input.options;
+
     return optional(input.name, FieldName.create).andThen((name) =>
       optional(input.options?.formatting, NumberFormatting.create).andThen((formatting) =>
         optional(input.options?.showAs, NumberShowAs.create).andThen((showAs) =>
-          optional(input.options?.defaultValue, NumberDefaultValue.create).andThen((defaultValue) =>
+          clearable(
+            input.options?.defaultValue,
+            hasDefaultValue,
+            NumberDefaultValue.create
+          ).andThen((defaultValueResult) =>
             optional(input.notNull, FieldNotNull.create).andThen((notNull) =>
               optional(input.unique, FieldUnique.create).map(
                 (unique) =>
-                  new UpdateNumberFieldSpec(name, formatting, showAs, defaultValue, notNull, unique)
+                  new UpdateNumberFieldSpec(
+                    name,
+                    formatting,
+                    showAs,
+                    defaultValueResult.value,
+                    defaultValueResult.shouldClear,
+                    notNull,
+                    unique
+                  )
               )
             )
           )
@@ -645,6 +666,13 @@ class UpdateNumberFieldSpec implements IUpdateTableFieldSpec {
             currentDefault,
             this.defaultValueValue
           )
+        );
+      }
+    } else if (this.shouldClearDefaultValue) {
+      const currentDefault = currentField.defaultValue();
+      if (currentDefault !== undefined) {
+        specs.push(
+          UpdateNumberDefaultValueSpec.create(currentField.id(), currentDefault, undefined)
         );
       }
     }
@@ -775,6 +803,7 @@ class UpdateDateFieldSpec implements IUpdateTableFieldSpec {
     private readonly nameValue: FieldName | undefined,
     private readonly formattingValue: DateTimeFormatting | undefined,
     private readonly defaultValueValue: DateDefaultValue | undefined,
+    private readonly shouldClearDefaultValue: boolean,
     private readonly notNullValue: FieldNotNull | undefined,
     private readonly uniqueValue: FieldUnique | undefined
   ) {}
@@ -788,14 +817,25 @@ class UpdateDateFieldSpec implements IUpdateTableFieldSpec {
     notNull?: unknown;
     unique?: unknown;
   }): Result<UpdateDateFieldSpec, DomainError> {
+    const hasDefaultValue = input.options !== undefined && 'defaultValue' in input.options;
+
     return optional(input.name, FieldName.create).andThen((name) =>
       optional(input.options?.formatting, DateTimeFormatting.create).andThen((formatting) =>
-        optional(input.options?.defaultValue, DateDefaultValue.create).andThen((defaultValue) =>
-          optional(input.notNull, FieldNotNull.create).andThen((notNull) =>
-            optional(input.unique, FieldUnique.create).map(
-              (unique) => new UpdateDateFieldSpec(name, formatting, defaultValue, notNull, unique)
+        clearable(input.options?.defaultValue, hasDefaultValue, DateDefaultValue.create).andThen(
+          (defaultValueResult) =>
+            optional(input.notNull, FieldNotNull.create).andThen((notNull) =>
+              optional(input.unique, FieldUnique.create).map(
+                (unique) =>
+                  new UpdateDateFieldSpec(
+                    name,
+                    formatting,
+                    defaultValueResult.value,
+                    defaultValueResult.shouldClear,
+                    notNull,
+                    unique
+                  )
+              )
             )
-          )
         )
       )
     );
@@ -840,6 +880,11 @@ class UpdateDateFieldSpec implements IUpdateTableFieldSpec {
           )
         );
       }
+    } else if (this.shouldClearDefaultValue) {
+      const currentDefault = currentField.defaultValue();
+      if (currentDefault !== undefined) {
+        specs.push(UpdateDateDefaultValueSpec.create(currentField.id(), currentDefault, undefined));
+      }
     }
 
     const constraintsSpec = buildConstraintsSpec(currentField, this.notNullValue, this.uniqueValue);
@@ -867,6 +912,7 @@ class UpdateCheckboxFieldSpec implements IUpdateTableFieldSpec {
   private constructor(
     private readonly nameValue: FieldName | undefined,
     private readonly defaultValueValue: CheckboxDefaultValue | undefined,
+    private readonly shouldClearDefaultValue: boolean,
     private readonly notNullValue: FieldNotNull | undefined,
     private readonly uniqueValue: FieldUnique | undefined
   ) {}
@@ -879,13 +925,23 @@ class UpdateCheckboxFieldSpec implements IUpdateTableFieldSpec {
     notNull?: unknown;
     unique?: unknown;
   }): Result<UpdateCheckboxFieldSpec, DomainError> {
+    const hasDefaultValue = input.options !== undefined && 'defaultValue' in input.options;
+
     return optional(input.name, FieldName.create).andThen((name) =>
-      optional(input.options?.defaultValue, CheckboxDefaultValue.create).andThen((defaultValue) =>
-        optional(input.notNull, FieldNotNull.create).andThen((notNull) =>
-          optional(input.unique, FieldUnique.create).map(
-            (unique) => new UpdateCheckboxFieldSpec(name, defaultValue, notNull, unique)
+      clearable(input.options?.defaultValue, hasDefaultValue, CheckboxDefaultValue.create).andThen(
+        (defaultValueResult) =>
+          optional(input.notNull, FieldNotNull.create).andThen((notNull) =>
+            optional(input.unique, FieldUnique.create).map(
+              (unique) =>
+                new UpdateCheckboxFieldSpec(
+                  name,
+                  defaultValueResult.value,
+                  defaultValueResult.shouldClear,
+                  notNull,
+                  unique
+                )
+            )
           )
-        )
       )
     );
   }
@@ -914,6 +970,13 @@ class UpdateCheckboxFieldSpec implements IUpdateTableFieldSpec {
             currentDefault,
             this.defaultValueValue
           )
+        );
+      }
+    } else if (this.shouldClearDefaultValue) {
+      const currentDefault = currentField.defaultValue();
+      if (currentDefault !== undefined) {
+        specs.push(
+          UpdateCheckboxDefaultValueSpec.create(currentField.id(), currentDefault, undefined)
         );
       }
     }
@@ -1889,6 +1952,7 @@ class UpdateSingleSelectFieldSpec implements IUpdateTableFieldSpec {
     private readonly nameValue: FieldName | undefined,
     private readonly optionsValue: ReadonlyArray<SelectOption> | undefined,
     private readonly defaultValueValue: SelectDefaultValue | undefined,
+    private readonly shouldClearDefaultValue: boolean,
     private readonly preventAutoNewOptionsValue: SelectAutoNewOptions | undefined,
     private readonly notNullValue: FieldNotNull | undefined,
     private readonly uniqueValue: FieldUnique | undefined,
@@ -1910,6 +1974,8 @@ class UpdateSingleSelectFieldSpec implements IUpdateTableFieldSpec {
       executionContext?: IExecutionContext;
     }
   ): Result<UpdateSingleSelectFieldSpec, DomainError> {
+    const hasDefaultValue = input.options !== undefined && 'defaultValue' in input.options;
+
     return optional(input.name, FieldName.create).andThen((name) => {
       const parseOptions = (): Result<ReadonlyArray<SelectOption> | undefined, DomainError> => {
         if (!input.options?.choices) return ok(undefined);
@@ -1921,24 +1987,26 @@ class UpdateSingleSelectFieldSpec implements IUpdateTableFieldSpec {
       };
 
       return parseOptions().andThen((selectOptions) =>
-        optional(input.options?.defaultValue, SelectDefaultValue.create).andThen((defaultValue) =>
-          optional(input.options?.preventAutoNewOptions, SelectAutoNewOptions.create).andThen(
-            (preventAutoNewOptions) =>
-              optional(input.notNull, FieldNotNull.create).andThen((notNull) =>
-                optional(input.unique, FieldUnique.create).map(
-                  (unique) =>
-                    new UpdateSingleSelectFieldSpec(
-                      name,
-                      selectOptions,
-                      defaultValue,
-                      preventAutoNewOptions,
-                      notNull,
-                      unique,
-                      getDomainContext(options?.executionContext)
-                    )
+        clearable(input.options?.defaultValue, hasDefaultValue, SelectDefaultValue.create).andThen(
+          (defaultValueResult) =>
+            optional(input.options?.preventAutoNewOptions, SelectAutoNewOptions.create).andThen(
+              (preventAutoNewOptions) =>
+                optional(input.notNull, FieldNotNull.create).andThen((notNull) =>
+                  optional(input.unique, FieldUnique.create).map(
+                    (unique) =>
+                      new UpdateSingleSelectFieldSpec(
+                        name,
+                        selectOptions,
+                        defaultValueResult.value,
+                        defaultValueResult.shouldClear,
+                        preventAutoNewOptions,
+                        notNull,
+                        unique,
+                        getDomainContext(options?.executionContext)
+                      )
+                  )
                 )
-              )
-          )
+            )
         )
       );
     });
@@ -1987,6 +2055,13 @@ class UpdateSingleSelectFieldSpec implements IUpdateTableFieldSpec {
           )
         );
       }
+    } else if (this.shouldClearDefaultValue) {
+      const currentDefault = currentField.defaultValue();
+      if (currentDefault !== undefined) {
+        specs.push(
+          UpdateSingleSelectDefaultValueSpec.create(currentField.id(), currentDefault, undefined)
+        );
+      }
     }
 
     if (this.preventAutoNewOptionsValue !== undefined) {
@@ -2028,6 +2103,7 @@ class UpdateMultipleSelectFieldSpec implements IUpdateTableFieldSpec {
     private readonly nameValue: FieldName | undefined,
     private readonly optionsValue: ReadonlyArray<SelectOption> | undefined,
     private readonly defaultValueValue: SelectDefaultValue | undefined,
+    private readonly shouldClearDefaultValue: boolean,
     private readonly preventAutoNewOptionsValue: SelectAutoNewOptions | undefined,
     private readonly notNullValue: FieldNotNull | undefined,
     private readonly uniqueValue: FieldUnique | undefined,
@@ -2049,6 +2125,8 @@ class UpdateMultipleSelectFieldSpec implements IUpdateTableFieldSpec {
       executionContext?: IExecutionContext;
     }
   ): Result<UpdateMultipleSelectFieldSpec, DomainError> {
+    const hasDefaultValue = input.options !== undefined && 'defaultValue' in input.options;
+
     return optional(input.name, FieldName.create).andThen((name) => {
       const parseOptions = (): Result<ReadonlyArray<SelectOption> | undefined, DomainError> => {
         if (!input.options?.choices) return ok(undefined);
@@ -2060,24 +2138,26 @@ class UpdateMultipleSelectFieldSpec implements IUpdateTableFieldSpec {
       };
 
       return parseOptions().andThen((selectOptions) =>
-        optional(input.options?.defaultValue, SelectDefaultValue.create).andThen((defaultValue) =>
-          optional(input.options?.preventAutoNewOptions, SelectAutoNewOptions.create).andThen(
-            (preventAutoNewOptions) =>
-              optional(input.notNull, FieldNotNull.create).andThen((notNull) =>
-                optional(input.unique, FieldUnique.create).map(
-                  (unique) =>
-                    new UpdateMultipleSelectFieldSpec(
-                      name,
-                      selectOptions,
-                      defaultValue,
-                      preventAutoNewOptions,
-                      notNull,
-                      unique,
-                      getDomainContext(options?.executionContext)
-                    )
+        clearable(input.options?.defaultValue, hasDefaultValue, SelectDefaultValue.create).andThen(
+          (defaultValueResult) =>
+            optional(input.options?.preventAutoNewOptions, SelectAutoNewOptions.create).andThen(
+              (preventAutoNewOptions) =>
+                optional(input.notNull, FieldNotNull.create).andThen((notNull) =>
+                  optional(input.unique, FieldUnique.create).map(
+                    (unique) =>
+                      new UpdateMultipleSelectFieldSpec(
+                        name,
+                        selectOptions,
+                        defaultValueResult.value,
+                        defaultValueResult.shouldClear,
+                        preventAutoNewOptions,
+                        notNull,
+                        unique,
+                        getDomainContext(options?.executionContext)
+                      )
+                  )
                 )
-              )
-          )
+            )
         )
       );
     });
@@ -2124,6 +2204,13 @@ class UpdateMultipleSelectFieldSpec implements IUpdateTableFieldSpec {
             currentDefault,
             this.defaultValueValue
           )
+        );
+      }
+    } else if (this.shouldClearDefaultValue) {
+      const currentDefault = currentField.defaultValue();
+      if (currentDefault !== undefined) {
+        specs.push(
+          UpdateMultipleSelectDefaultValueSpec.create(currentField.id(), currentDefault, undefined)
         );
       }
     }
@@ -2228,6 +2315,11 @@ class UpdateFormulaFieldSpec implements IUpdateTableFieldSpec {
             this.expressionValue
           )
         );
+        if (currentField.hasError().isError()) {
+          specs.push(
+            TableUpdateFieldHasErrorSpec.clearError(currentField.id(), currentField.hasError())
+          );
+        }
       }
     }
 
@@ -2356,7 +2448,11 @@ class UpdateRollupFieldSpec implements IUpdateTableFieldSpec {
 
     if (this.configValue !== undefined) {
       const currentConfig = currentField.config();
-      specs.push(UpdateRollupConfigSpec.create(currentField.id(), currentConfig, this.configValue));
+      if (!this.configValue.equals(currentConfig)) {
+        specs.push(
+          UpdateRollupConfigSpec.create(currentField.id(), currentConfig, this.configValue)
+        );
+      }
     }
 
     if (this.expressionValue !== undefined) {
@@ -2443,10 +2539,10 @@ class UpdateLinkFieldSpec implements IUpdateTableFieldSpec {
     options?: {
       foreignTables?: ReadonlyArray<Table>;
       hostTable?: Table;
-      replaceOptions?: boolean;
+      updateMode?: FieldUpdateMode;
     }
   ): Result<UpdateLinkFieldSpec, DomainError> {
-    const replaceOptions = options?.replaceOptions === true;
+    const isFullUpdate = options?.updateMode === 'full';
     const parseConfigPatch = (): Result<
       Readonly<Record<string, unknown>> | undefined,
       DomainError
@@ -2456,7 +2552,7 @@ class UpdateLinkFieldSpec implements IUpdateTableFieldSpec {
         return err(domainError.validation({ message: 'Invalid LinkFieldConfig' }));
       }
       const patch = { ...(input.options as Record<string, unknown>) };
-      if (replaceOptions) {
+      if (isFullUpdate) {
         const clearableKeys = ['filterByViewId', 'visibleFieldIds', 'filter'] as const;
         for (const key of clearableKeys) {
           if (!Object.prototype.hasOwnProperty.call(input.options, key)) {
@@ -2658,7 +2754,17 @@ class UpdateLinkFieldSpec implements IUpdateTableFieldSpec {
         const withDerivedDbConfigResult = this.deriveNextDbConfig(currentField, effectiveConfig);
         if (withDerivedDbConfigResult.isErr()) return err(withDerivedDbConfigResult.error);
         effectiveConfig = withDerivedDbConfigResult.value;
+      } else if (currentConfig.hasDbConfig() && !effectiveConfig.hasDbConfig()) {
+        const withCurrentDbConfigResult = effectiveConfig.withDbConfig({
+          fkHostTableName: currentConfig.fkHostTableName(),
+          selfKeyName: currentConfig.selfKeyName(),
+          foreignKeyName: currentConfig.foreignKeyName(),
+        });
+        if (withCurrentDbConfigResult.isErr()) return err(withCurrentDbConfigResult.error);
+        effectiveConfig = withCurrentDbConfigResult.value;
       }
+
+      const isConfigChanging = !currentConfig.equals(effectiveConfig);
 
       if (isForeignTableChanging) {
         const nextFieldResult = LinkField.create({
@@ -2678,7 +2784,7 @@ class UpdateLinkFieldSpec implements IUpdateTableFieldSpec {
 
         // Changing foreign table requires physical schema migration, not metadata-only update.
         specs.push(TableUpdateFieldTypeSpec.create(currentField, nextField));
-      } else {
+      } else if (isConfigChanging) {
         specs.push(UpdateLinkConfigSpec.create(currentField.id(), currentConfig, effectiveConfig));
       }
 
@@ -2687,6 +2793,7 @@ class UpdateLinkFieldSpec implements IUpdateTableFieldSpec {
       // For isOneWayChanging without storage or relationship change, we only need
       // the spec when the junction table name changes (junction-based storage).
       const needsRelationshipSpec =
+        isConfigChanging &&
         !isForeignTableChanging &&
         (relationshipChanging ||
           isStorageTypeChanging ||
@@ -2773,15 +2880,15 @@ class UpdateLookupFieldSpec implements IUpdateTableFieldSpec {
     },
     context?: {
       foreignTables?: ReadonlyArray<Table>;
-      replaceOptions?: boolean;
+      updateMode?: FieldUpdateMode;
     }
   ): Result<UpdateLookupFieldSpec, DomainError> {
-    const replaceOptions = context?.replaceOptions === true;
+    const isFullUpdate = context?.updateMode === 'full';
     const shouldClearShowAs =
       input.options !== undefined &&
       ((Object.prototype.hasOwnProperty.call(input.options, 'showAs') &&
         input.options.showAs === null) ||
-        (replaceOptions && !Object.prototype.hasOwnProperty.call(input.options, 'showAs')));
+        (isFullUpdate && !Object.prototype.hasOwnProperty.call(input.options, 'showAs')));
     return optional(input.name, FieldName.create).andThen((name) => {
       const optionsPatch = input.options
         ? {
@@ -2794,13 +2901,13 @@ class UpdateLookupFieldSpec implements IUpdateTableFieldSpec {
             ...(Object.prototype.hasOwnProperty.call(input.options, 'lookupFieldId')
               ? { lookupFieldId: input.options.lookupFieldId }
               : {}),
-            ...(Object.prototype.hasOwnProperty.call(input.options, 'filter') || replaceOptions
+            ...(Object.prototype.hasOwnProperty.call(input.options, 'filter') || isFullUpdate
               ? { filter: input.options.filter }
               : {}),
-            ...(Object.prototype.hasOwnProperty.call(input.options, 'sort') || replaceOptions
+            ...(Object.prototype.hasOwnProperty.call(input.options, 'sort') || isFullUpdate
               ? { sort: input.options.sort }
               : {}),
-            ...(Object.prototype.hasOwnProperty.call(input.options, 'limit') || replaceOptions
+            ...(Object.prototype.hasOwnProperty.call(input.options, 'limit') || isFullUpdate
               ? { limit: input.options.limit }
               : {}),
           }
@@ -2830,7 +2937,6 @@ class UpdateLookupFieldSpec implements IUpdateTableFieldSpec {
     }
 
     const specs: ISpecification<Table, ITableSpecVisitor>[] = [];
-
     if (this.nameValue && !this.nameValue.equals(currentField.name())) {
       specs.push(
         TableUpdateFieldNameSpec.create(currentField.id(), currentField.name(), this.nameValue)
@@ -2875,10 +2981,10 @@ class UpdateLookupFieldSpec implements IUpdateTableFieldSpec {
       }
       const nextOptions = nextOptionsResult.value;
 
-      if (!nextOptions.equals(currentOptions) || this.shouldClearShowAs) {
+      if (!nextOptions.equals(currentOptions) || this.shouldForceClearShowAs(currentField)) {
         specs.push(UpdateLookupOptionsSpec.create(currentField.id(), currentOptions, nextOptions));
       }
-    } else if (this.shouldClearShowAs) {
+    } else if (this.shouldForceClearShowAs(currentField)) {
       // Force a lookup options update to recreate the pending lookup field,
       // which re-resolves the inner field from the foreign table without showAs.
       specs.push(UpdateLookupOptionsSpec.create(currentField.id(), currentOptions, currentOptions));
@@ -2888,6 +2994,23 @@ class UpdateLookupFieldSpec implements IUpdateTableFieldSpec {
     if (constraintsSpec) specs.push(constraintsSpec);
 
     return ok(specs);
+  }
+
+  private shouldForceClearShowAs(currentField: LookupField): boolean {
+    if (!this.shouldClearShowAs) return false;
+
+    const currentInnerOptions = currentField
+      .innerField()
+      .andThen((field) => field.accept(new FieldOptionsDtoVisitor()));
+    if (currentInnerOptions.isErr()) return false;
+
+    const options = currentInnerOptions.value;
+    return (
+      options !== null &&
+      typeof options === 'object' &&
+      !Array.isArray(options) &&
+      Object.prototype.hasOwnProperty.call(options, 'showAs')
+    );
   }
 
   createField(): Result<Field, DomainError> {
@@ -2915,6 +3038,7 @@ class UpdateUserFieldSpec implements IUpdateTableFieldSpec {
     private readonly multiplicityValue: UserMultiplicity | undefined,
     private readonly notificationValue: UserNotification | undefined,
     private readonly defaultValueValue: UserDefaultValue | undefined,
+    private readonly shouldClearDefaultValue: boolean,
     private readonly notNullValue: FieldNotNull | undefined,
     private readonly uniqueValue: FieldUnique | undefined
   ) {}
@@ -2929,23 +3053,27 @@ class UpdateUserFieldSpec implements IUpdateTableFieldSpec {
     notNull?: unknown;
     unique?: unknown;
   }): Result<UpdateUserFieldSpec, DomainError> {
+    const hasDefaultValue = input.options !== undefined && 'defaultValue' in input.options;
+
     return optional(input.name, FieldName.create).andThen((name) =>
       optional(input.options?.isMultiple, UserMultiplicity.create).andThen((multiplicity) =>
         optional(input.options?.shouldNotify, UserNotification.create).andThen((notification) =>
-          optional(input.options?.defaultValue, UserDefaultValue.create).andThen((defaultValue) =>
-            optional(input.notNull, FieldNotNull.create).andThen((notNull) =>
-              optional(input.unique, FieldUnique.create).map(
-                (unique) =>
-                  new UpdateUserFieldSpec(
-                    name,
-                    multiplicity,
-                    notification,
-                    defaultValue,
-                    notNull,
-                    unique
-                  )
+          clearable(input.options?.defaultValue, hasDefaultValue, UserDefaultValue.create).andThen(
+            (defaultValueResult) =>
+              optional(input.notNull, FieldNotNull.create).andThen((notNull) =>
+                optional(input.unique, FieldUnique.create).map(
+                  (unique) =>
+                    new UpdateUserFieldSpec(
+                      name,
+                      multiplicity,
+                      notification,
+                      defaultValueResult.value,
+                      defaultValueResult.shouldClear,
+                      notNull,
+                      unique
+                    )
+                )
               )
-            )
           )
         )
       )
@@ -3008,6 +3136,11 @@ class UpdateUserFieldSpec implements IUpdateTableFieldSpec {
             this.defaultValueValue
           )
         );
+      }
+    } else if (this.shouldClearDefaultValue) {
+      const currentDefault = currentField.defaultValue();
+      if (currentDefault !== undefined) {
+        specs.push(UpdateUserDefaultValueSpec.create(currentField.id(), currentDefault, undefined));
       }
     }
 
@@ -3227,7 +3360,7 @@ export const parseUpdateFieldSpec = (
     max?: unknown;
     cellValueType?: string;
     isMultipleCellValue?: boolean;
-    replaceOptions?: boolean;
+    updateMode?: FieldUpdateMode;
   },
   options?: {
     hostTable?: Table;
@@ -3316,13 +3449,13 @@ export const parseUpdateFieldSpec = (
       UpdateLinkFieldSpec.create(input as Parameters<typeof UpdateLinkFieldSpec.create>[0], {
         foreignTables: options?.foreignTables,
         hostTable: options?.hostTable,
-        replaceOptions: input.replaceOptions === true,
+        updateMode: input.updateMode,
       })
     )
     .with('lookup', () =>
       UpdateLookupFieldSpec.create(input as Parameters<typeof UpdateLookupFieldSpec.create>[0], {
         foreignTables: options?.foreignTables,
-        replaceOptions: input.replaceOptions === true,
+        updateMode: input.updateMode,
       })
     )
     .with('conditionalLookup', () =>
@@ -3365,7 +3498,7 @@ export const buildUpdateFieldSpecs = (
     cellValueType?: string;
     isMultipleCellValue?: boolean;
     aiConfig?: unknown;
-    replaceOptions?: boolean;
+    updateMode?: FieldUpdateMode;
   },
   options?: {
     hostTable?: Table;

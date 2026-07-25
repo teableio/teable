@@ -17,9 +17,17 @@ import { CustomHttpException } from '../../../custom.exception';
 import type { IClsStore } from '../../../types/cls';
 import { FileUtils } from '../../../utils';
 import { Encryptor } from '../../../utils/encryptor';
+import { normalizeImageDimensions } from '../../../utils/image-orientation';
 import { second } from '../../../utils/second';
 import StorageAdapter from './adapter';
-import type { ILocalFileUpload, IObjectMeta, IPresignParams, IRespHeaders } from './types';
+import type {
+  ILocalFileUpload,
+  IListObjectsOptions,
+  IListObjectsResult,
+  IObjectMeta,
+  IPresignParams,
+  IRespHeaders,
+} from './types';
 import { isBodyParserFallback } from './utils';
 
 interface ITokenEncryptor {
@@ -213,10 +221,7 @@ export class LocalStorage implements StorageAdapter {
   async getFileMate(path: string) {
     try {
       const info = await sharp(path).metadata();
-      return {
-        width: info.width,
-        height: info.height,
-      };
+      return normalizeImageDimensions(info);
     } catch (error) {
       return {};
     }
@@ -356,7 +361,7 @@ export class LocalStorage implements StorageAdapter {
     }
 
     const imagePath = resolve(this.storageDir, bucket, path);
-    const image = sharp(imagePath, { failOn: 'none', unlimited: true });
+    const image = sharp(imagePath, { failOn: 'none', unlimited: true }).rotate();
     const metadata = await image.metadata();
     if (!metadata.width || !metadata.height) {
       throw new CustomHttpException('Invalid image', HttpErrorCode.VALIDATION_ERROR, {
@@ -366,12 +371,53 @@ export class LocalStorage implements StorageAdapter {
       });
     }
     const resizedImage = image.resize(width, height);
-    await resizedImage.toFile(resizedImagePath);
+    const tmpPath = `${resizedImagePath}_tmp_${getRandomString(8)}`;
+    try {
+      await resizedImage.toFile(tmpPath);
+      await fse.move(tmpPath, resizedImagePath, { overwrite: true });
+    } finally {
+      await fse.remove(tmpPath);
+    }
     return newPath;
   }
 
   async downloadFile(bucket: string, path: string): Promise<ReadableStream> {
     return createReadStream(resolve(this.storageDir, bucket, path));
+  }
+
+  async listObjects(
+    bucket: string,
+    prefix: string,
+    options?: IListObjectsOptions
+  ): Promise<IListObjectsResult> {
+    const objects: IListObjectsResult['objects'] = [];
+    const prefixes = new Set<string>();
+    const bucketDir = resolve(this.storageDir, bucket);
+    // emulate S3 prefix semantics on the filesystem: prefix is a key prefix, keys use '/'
+    const isRelevant = (key: string) =>
+      key.startsWith(prefix) || prefix.startsWith(`${key}/`) || prefix.startsWith(key);
+    const walk = (dir: string, keyPrefix: string) => {
+      if (!existsSync(dir)) return;
+      for (const entry of fse.readdirSync(dir, { withFileTypes: true })) {
+        const key = keyPrefix ? `${keyPrefix}/${entry.name}` : entry.name;
+        if (!isRelevant(key)) continue;
+        if (entry.isFile()) {
+          if (key.startsWith(prefix)) {
+            objects.push({ key, size: fse.statSync(join(dir, entry.name)).size });
+          }
+          continue;
+        }
+        if (!entry.isDirectory()) continue;
+        if (options?.delimiter && key.startsWith(prefix)) {
+          prefixes.add(`${key}${options.delimiter}`);
+          continue;
+        }
+        walk(join(dir, entry.name), key);
+      }
+    };
+    walk(bucketDir, '');
+    objects.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+    return { objects, prefixes: [...prefixes].sort() };
   }
 
   async deleteFile(bucket: string, path: string): Promise<void> {

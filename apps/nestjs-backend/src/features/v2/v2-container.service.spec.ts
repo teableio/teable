@@ -5,7 +5,6 @@ import { DiscoveryService, Reflector } from '@nestjs/core';
 import type { InstanceWrapper } from '@nestjs/core/injector/instance-wrapper';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { v2DataDbTokens, v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
-import { v2RecordRepositoryPostgresTokens } from '@teable/v2-adapter-table-repository-postgres';
 import { v2CoreTokens } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import { PinoLogger } from 'nestjs-pino';
@@ -30,6 +29,8 @@ const mocks = vi.hoisted(() => ({
   createV2NodePgContainer: vi.fn(),
   registerV2ShareDbRealtime: vi.fn(),
   registerV2ImportServices: vi.fn(),
+  startTableQueryOpsAnalyzerIfEnabled: vi.fn(),
+  startTableQueryOpsTaskWorkerIfEnabled: vi.fn(),
 }));
 
 vi.mock('@teable/v2-container-node', () => ({
@@ -45,6 +46,11 @@ vi.mock('@teable/v2-adapter-realtime-sharedb', () => ({
 
 vi.mock('@teable/v2-import', () => ({
   registerV2ImportServices: mocks.registerV2ImportServices,
+}));
+
+vi.mock('@teable/v2-table-query-ops', () => ({
+  startTableQueryOpsAnalyzerIfEnabled: mocks.startTableQueryOpsAnalyzerIfEnabled,
+  startTableQueryOpsTaskWorkerIfEnabled: mocks.startTableQueryOpsTaskWorkerIfEnabled,
 }));
 
 vi.mock('@teable/v2-adapter-undo-redo-keyv', () => ({
@@ -100,11 +106,7 @@ const createProviderWrapper = (instance: object, staticTree = true): InstanceWra
 const createContainerMock = (): DependencyContainer => {
   const db = { destroy: vi.fn() };
   return {
-    isRegistered: vi.fn(
-      (token: symbol) =>
-        token === v2RecordRepositoryPostgresTokens.computedUpdatePollingConfig ||
-        token === v2RecordRepositoryPostgresTokens.computedUpdatePollingService
-    ),
+    isRegistered: vi.fn(),
     registerInstance: vi.fn(),
     resolve: vi.fn((token: symbol) => {
       if (token === v2MetaDbTokens.db || token === v2DataDbTokens.db) {
@@ -116,13 +118,13 @@ const createContainerMock = (): DependencyContainer => {
       if (token === v2CoreTokens.attachmentValueDecoratorService) {
         return {};
       }
-      if (token === v2RecordRepositoryPostgresTokens.computedUpdatePollingConfig) {
-        return { enabled: true };
-      }
-      if (token === v2RecordRepositoryPostgresTokens.computedUpdatePollingService) {
-        return { stop: vi.fn() };
+      if (token === v2CoreTokens.tracer) {
+        return {};
       }
       if (token === v2CoreTokens.undoRedoStore) {
+        return undefined;
+      }
+      if (token === v2CoreTokens.tracer) {
         return undefined;
       }
       throw new Error(`Unexpected token: ${String(token)}`);
@@ -135,7 +137,10 @@ const createService = (providers: InstanceWrapper[] = []) => {
     getOrThrow: vi.fn().mockReturnValue('postgres://test'),
     get: vi.fn().mockReturnValue(undefined),
   };
-  const shareDbService = { pubsub: { publish: vi.fn() } };
+  const shareDbService = {
+    pubsub: { publish: vi.fn() },
+    setComputedActivitySnapshotLoader: vi.fn(),
+  };
   const cacheService = { getKeyv: vi.fn().mockReturnValue({}) };
   const attachmentsStorageService = {
     getPreviewUrlByPath: vi.fn(),
@@ -182,7 +187,10 @@ const createTestingModule = async (providers: InstanceWrapper[] = []) => {
     getOrThrow: vi.fn().mockReturnValue('postgres://test'),
     get: vi.fn().mockReturnValue(undefined),
   };
-  const shareDbService = { pubsub: { publish: vi.fn() } };
+  const shareDbService = {
+    pubsub: { publish: vi.fn() },
+    setComputedActivitySnapshotLoader: vi.fn(),
+  };
   const cacheService = { getKeyv: vi.fn().mockReturnValue({}) };
   const attachmentsStorageService = {
     getPreviewUrlByPath: vi.fn(),
@@ -231,6 +239,7 @@ const createTestingModule = async (providers: InstanceWrapper[] = []) => {
 describe('V2ContainerService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.unstubAllEnvs();
   });
 
   it('discovers projection registrars and initializes the shared container during bootstrap', async () => {
@@ -291,6 +300,48 @@ describe('V2ContainerService', () => {
     );
   });
 
+  it('publishes outbox wakeups without configuring a polling worker', async () => {
+    const container = createContainerMock();
+    mocks.createV2NodePgContainer.mockResolvedValue(container);
+    const { service } = createService();
+
+    await service.getContainer();
+
+    expect(mocks.createV2NodePgContainer.mock.calls[0]?.[0].computedUpdate).toEqual(
+      expect.objectContaining({
+        wakeupPublisher: expect.objectContaining({ publish: expect.any(Function) }),
+      })
+    );
+    expect(mocks.createV2NodePgContainer.mock.calls[0]?.[0].computedUpdate).not.toHaveProperty(
+      'pollingConfig'
+    );
+    expect(
+      mocks.createV2NodePgContainer.mock.calls[0]?.[0].computedUpdate?.fieldBackfillConfig
+    ).toBeUndefined();
+  });
+
+  it('publishes transaction-sized synchronous backfills without configuring polling', async () => {
+    vi.stubEnv('V2_COMPUTED_UPDATE_MODE', 'sync');
+    const container = createContainerMock();
+    mocks.createV2NodePgContainer.mockResolvedValue(container);
+    const { service } = createService();
+
+    await service.getContainer();
+
+    expect(mocks.createV2NodePgContainer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        computedUpdate: expect.objectContaining({
+          mode: 'sync',
+          fieldBackfillConfig: { mode: 'sync' },
+          wakeupPublisher: expect.objectContaining({ publish: expect.any(Function) }),
+        }),
+      })
+    );
+    expect(mocks.createV2NodePgContainer.mock.calls[0]?.[0].computedUpdate).not.toHaveProperty(
+      'pollingConfig'
+    );
+  });
+
   it('parses string row-limit config before creating the shared container', async () => {
     const container = createContainerMock();
     mocks.createV2NodePgContainer.mockResolvedValue(container);
@@ -332,6 +383,98 @@ describe('V2ContainerService', () => {
     expect(mocks.createV2NodePgContainer).toHaveBeenCalledWith(
       expect.objectContaining({
         tableMaxRowLimit: 8,
+      })
+    );
+  });
+
+  it('registers table query ops when the feature flag is enabled', async () => {
+    const container = createContainerMock();
+    mocks.createV2NodePgContainer.mockResolvedValue(container);
+    const { service, configService } = createService();
+
+    configService.get.mockImplementation((key: string) => {
+      if (key === 'V2_TABLE_QUERY_OPS_ENABLED') return 'true';
+      return undefined;
+    });
+
+    await service.getContainer();
+
+    expect(mocks.createV2NodePgContainer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tableQueryOps: expect.objectContaining({
+          ensureSchema: true,
+        }),
+      })
+    );
+  });
+
+  it('starts internal search-vector maintenance when generated search runtime is enabled', async () => {
+    const container = createContainerMock();
+    mocks.createV2NodePgContainer.mockResolvedValue(container);
+    const { service, configService } = createService();
+
+    configService.get.mockImplementation((key: string) => {
+      if (key === 'V2_TABLE_QUERY_OPS_ENABLED') return 'true';
+      if (key === 'V2_TABLE_QUERY_OPS_SEARCH_VECTOR_RUNTIME') return 'auto';
+      return undefined;
+    });
+
+    await service.getContainer();
+
+    expect(mocks.createV2NodePgContainer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tableQueryOps: expect.objectContaining({
+          taskWorkerConfig: expect.objectContaining({
+            enabled: true,
+            allowManualIndexExecution: false,
+            allowedKinds: ['rebuild_search_vector', 'manual_investigation'],
+          }),
+        }),
+      })
+    );
+  });
+
+  it('preserves an explicit remediation allowlist when search runtime is enabled', async () => {
+    const container = createContainerMock();
+    mocks.createV2NodePgContainer.mockResolvedValue(container);
+    const { service, configService } = createService();
+
+    configService.get.mockImplementation((key: string) => {
+      if (key === 'V2_TABLE_QUERY_OPS_ENABLED') return 'true';
+      if (key === 'V2_TABLE_QUERY_OPS_SEARCH_VECTOR_RUNTIME') return 'auto';
+      if (key === 'V2_TABLE_QUERY_OPS_ALLOWED_TASK_KINDS') return 'manual_investigation';
+      return undefined;
+    });
+
+    await service.getContainer();
+
+    expect(mocks.createV2NodePgContainer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tableQueryOps: expect.objectContaining({
+          taskWorkerConfig: expect.objectContaining({
+            allowedKinds: ['manual_investigation'],
+          }),
+        }),
+      })
+    );
+  });
+  it('enables table query ops by default in preview runtime', async () => {
+    const container = createContainerMock();
+    mocks.createV2NodePgContainer.mockResolvedValue(container);
+    const { service, configService } = createService();
+
+    configService.get.mockImplementation((key: string) => {
+      if (key === 'PREVIEW_TAG') return 'alpha-pr-2270';
+      return undefined;
+    });
+
+    await service.getContainer();
+
+    expect(mocks.createV2NodePgContainer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tableQueryOps: expect.objectContaining({
+          ensureSchema: true,
+        }),
       })
     );
   });
@@ -404,24 +547,13 @@ describe('V2ContainerService', () => {
     expect(registrar.registerProjections).not.toHaveBeenCalled();
   });
 
-  it('stops computed polling before destroying the shared V2 db driver', async () => {
-    const stop = vi.fn().mockResolvedValue(undefined);
+  it('destroys the shared V2 db driver during shutdown', async () => {
     const destroy = vi.fn().mockResolvedValue(undefined);
     const db = { destroy };
     const container = {
-      isRegistered: vi.fn(
-        (token: symbol) =>
-          token === v2RecordRepositoryPostgresTokens.computedUpdatePollingConfig ||
-          token === v2RecordRepositoryPostgresTokens.computedUpdatePollingService
-      ),
+      isRegistered: vi.fn(),
       registerInstance: vi.fn(),
       resolve: vi.fn((token: symbol) => {
-        if (token === v2RecordRepositoryPostgresTokens.computedUpdatePollingConfig) {
-          return { enabled: true };
-        }
-        if (token === v2RecordRepositoryPostgresTokens.computedUpdatePollingService) {
-          return { stop };
-        }
         if (token === v2MetaDbTokens.db || token === v2DataDbTokens.db) {
           return db;
         }
@@ -429,6 +561,9 @@ describe('V2ContainerService', () => {
           return {};
         }
         if (token === v2CoreTokens.attachmentValueDecoratorService) {
+          return {};
+        }
+        if (token === v2CoreTokens.tracer) {
           return {};
         }
         if (token === v2CoreTokens.undoRedoStore) {
@@ -444,8 +579,6 @@ describe('V2ContainerService', () => {
     await service.getContainer();
     await service.onModuleDestroy();
 
-    expect(stop).toHaveBeenCalledTimes(1);
     expect(destroy).toHaveBeenCalledTimes(1);
-    expect(stop.mock.invocationCallOrder[0]).toBeLessThan(destroy.mock.invocationCallOrder[0]);
   });
 });

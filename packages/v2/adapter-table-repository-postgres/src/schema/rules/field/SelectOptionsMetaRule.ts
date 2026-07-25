@@ -53,6 +53,7 @@ export class SelectOptionsMetaRule implements ISchemaRule {
   readonly description: string;
   readonly dependencies: ReadonlyArray<string>;
   readonly required = true;
+  readonly validationScope = 'meta';
 
   constructor(
     private readonly field: SelectField,
@@ -129,7 +130,7 @@ export class SelectOptionsMetaRule implements ISchemaRule {
 
   async isValid(ctx: SchemaRuleContext): Promise<Result<SchemaRuleValidationResult, DomainError>> {
     const fieldId = this.field.id().toString();
-    const result = await ctx.db
+    const result = await ctx.metaDb
       .selectFrom('field')
       .select('options')
       .where('id', '=', fieldId)
@@ -188,10 +189,16 @@ export class SelectOptionsMetaRule implements ISchemaRule {
   up(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const rule = this;
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
+      if (ctx.optimizeForEmptyTables) {
+        // Duplicate/import already persisted field.options from the field aggregate, and there
+        // are no rows yet whose stored select values need repair.
+        return ok([]);
+      }
+
       const fieldId = rule.field.id().toString();
       const columnName = yield* resolveColumnName(ctx.field);
       const patch = JSON.stringify({ choices: rule.expectedChoices() });
-      const updateOptions = ctx.db
+      const updateOptions = ctx.metaDb
         .updateTable('field')
         .set({
           options: sql`(coalesce(options::jsonb, '{}'::jsonb) || ${patch}::jsonb)::text`,
@@ -204,7 +211,7 @@ export class SelectOptionsMetaRule implements ISchemaRule {
 
   down(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const fieldId = this.field.id().toString();
-    const updateOptions = ctx.db
+    const updateOptions = ctx.metaDb
       .updateTable('field')
       .set({
         options: sql`(coalesce(options::jsonb, '{}'::jsonb) - 'choices')::text`,

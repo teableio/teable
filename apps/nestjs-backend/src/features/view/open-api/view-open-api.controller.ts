@@ -83,10 +83,10 @@ export class ViewOpenApiController {
   @Permissions('view|read')
   @Get(':viewId')
   async getView(
-    @Param('tableId') _tableId: string,
+    @Param('tableId') tableId: string,
     @Param('viewId') viewId: string
   ): Promise<IViewVo> {
-    return await this.viewService.getViewById(viewId);
+    return await this.viewService.getViewById(tableId, viewId);
   }
 
   @Permissions('view|read')
@@ -375,16 +375,30 @@ export class ViewOpenApiController {
   @Permissions('view|update')
   @Patch(':viewId/plugin/:pluginInstallId')
   async pluginUpdateStorage(
+    @Param('tableId') tableId: string,
     @Param('viewId') viewId: string,
+    @Param('pluginInstallId') pluginInstallId: string,
     @Body(new ZodValidationPipe(viewPluginUpdateStorageRoSchema))
     ro: IViewPluginUpdateStorageRo
   ) {
-    return this.viewOpenApiService.updatePluginStorage(viewId, ro.storage);
+    return this.viewOpenApiService.updatePluginStorage(
+      tableId,
+      viewId,
+      pluginInstallId,
+      ro.storage
+    );
   }
 
   @Permissions('view|create')
   @Post('/:viewId/duplicate')
+  @UseV2Feature('duplicateView')
+  @UseGuards(V2FeatureGuard)
+  @UseInterceptors(V2IndicatorInterceptor)
   async duplicateView(@Param('tableId') tableId: string, @Param('viewId') viewId: string) {
+    if (this.cls.get('useV2')) {
+      return this.viewOpenApiV2Service.duplicateView(tableId, viewId);
+    }
+
     return this.viewOpenApiService.duplicateView(tableId, viewId);
   }
 }

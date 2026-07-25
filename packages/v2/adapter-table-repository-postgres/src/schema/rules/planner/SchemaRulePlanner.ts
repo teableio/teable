@@ -17,9 +17,11 @@ import {
 
 export interface SchemaRulePlannerParams {
   db: Kysely<V1TeableDatabase>;
+  metaDb?: Kysely<V1TeableDatabase>;
   introspector: SchemaIntrospector;
   schema: string | null;
   tableLocationsById?: ReadonlyMap<string, TableIdentifier>;
+  sessionCache?: Map<string, unknown>;
 }
 
 export interface SchemaRuleTarget {
@@ -244,11 +246,13 @@ export class SchemaRulePlanner {
       } else {
         const systemCtx = createSchemaRuleContext({
           db: this.params.db,
+          metaDb: this.params.metaDb,
           introspector: this.params.introspector,
           schema: tableLocation.schema,
           tableName: tableLocation.tableName,
           tableId: table.id().toString(),
           table,
+          sessionCache: this.params.sessionCache,
         });
 
         entries.push(
@@ -287,12 +291,14 @@ export class SchemaRulePlanner {
 
       const ctx = createSchemaRuleContext({
         db: this.params.db,
+        metaDb: this.params.metaDb,
         introspector: this.params.introspector,
         schema: tableLocation.schema,
         tableName: tableLocation.tableName,
         tableId: table.id().toString(),
         field,
         table,
+        sessionCache: this.params.sessionCache,
       });
 
       const resolutionResult = schemaRuleResolver.resolve(rulesResult.value);

@@ -1,4 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
+import { createHash } from 'crypto';
+import type { OnModuleDestroy } from '@nestjs/common';
 import { Injectable, Logger } from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
 import { HttpErrorCode } from '@teable/core';
@@ -11,7 +13,10 @@ import {
   EmailVerifyCodeType,
 } from '@teable/openapi';
 import { isString } from 'lodash';
+import { LRUCache } from 'lru-cache';
+import ms from 'ms';
 import { I18nService } from 'nestjs-i18n';
+import type { Transporter } from 'nodemailer';
 import { createTransport } from 'nodemailer';
 import { CacheService } from '../../cache/cache.service';
 import { BaseConfig, IBaseConfig } from '../../configs/base.config';
@@ -21,13 +26,35 @@ import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
 import type { I18nTranslations } from '../../types/i18n.generated';
 import { SettingOpenApiService } from '../setting/open-api/setting-open-api.service';
-import { buildEmailFrom, type ISendMailOptions } from './mail-helpers';
+import { buildEmailFrom, truncateMailName, type ISendMailOptions } from './mail-helpers';
+
+interface IPooledTransporter {
+  transporter: Transporter;
+  pendingSends: number;
+  evicted: boolean;
+}
 
 @Injectable()
-export class MailSenderService {
+export class MailSenderService implements OnModuleDestroy {
   private logger = new Logger(MailSenderService.name);
   private readonly defaultTransportConfig: IMailTransportConfig;
   private readonly isMailConfigured: boolean;
+  private destroyed = false;
+  // Connection pool per SMTP config: transporter objects hold live sockets, so this
+  // must live in process memory (not in the shared cache service)
+  private readonly transporterCache = new LRUCache<string, IPooledTransporter>({
+    max: 200,
+    ttl: ms('30m'),
+    updateAgeOnGet: true,
+    // Closing a nodemailer pool rejects its queued sends, so busy entries are
+    // only marked here; the last send's finally closes them once drained
+    dispose: (entry) => {
+      entry.evicted = true;
+      if (entry.pendingSends === 0) {
+        entry.transporter.close();
+      }
+    },
+  });
 
   constructor(
     private readonly mailService: MailerService,
@@ -103,6 +130,7 @@ export class MailSenderService {
     const { connectionTimeout, greetingTimeout, dnsTimeout } = this.mailConfig;
     const transporter = createTransport({
       ...config,
+      pool: true,
       connectionTimeout,
       greetingTimeout,
       dnsTimeout,
@@ -110,6 +138,50 @@ export class MailSenderService {
     const templateAdapter = this.mailService['templateAdapter'];
     this.mailService['initTemplateAdapter'](templateAdapter, transporter);
     return transporter;
+  }
+
+  private getTransporterCacheKey(config: IMailTransportConfig): string {
+    // Only connection-level fields: sender/senderName don't affect the SMTP session
+    const { host, port, secure, auth } = config;
+    return createHash('sha256')
+      .update(JSON.stringify([host, port, secure, auth?.user, auth?.pass]))
+      .digest('hex');
+  }
+
+  private async acquirePooledTransporter(
+    config: IMailTransportConfig
+  ): Promise<IPooledTransporter> {
+    const key = this.getTransporterCacheKey(config);
+    let entry = this.transporterCache.get(key);
+    if (!entry) {
+      // Don't log the key: it hashes the password, so even a prefix is an
+      // offline-testable verifier
+      this.logger.debug(
+        `Transporter cache miss (host=${config.host}, size=${this.transporterCache.size})`
+      );
+      const created = await this.createTransporter(config);
+      // A concurrent request may have populated the same key while we created ours;
+      // reuse theirs so set() does not dispose (close) a transporter that is mid-send
+      const raced = this.transporterCache.get(key);
+      if (raced) {
+        created.close();
+        entry = raced;
+      } else if (this.destroyed) {
+        entry = { transporter: created, pendingSends: 0, evicted: true };
+      } else {
+        entry = { transporter: created, pendingSends: 0, evicted: false };
+        this.transporterCache.set(key, entry);
+      }
+    }
+    // Same sync block as the get/set above: an await here would let LRU
+    // eviction close this entry while it still looks idle
+    entry.pendingSends++;
+    return entry;
+  }
+
+  onModuleDestroy() {
+    this.destroyed = true;
+    this.transporterCache.clear();
   }
 
   /**
@@ -129,11 +201,18 @@ export class MailSenderService {
       return { messageId: 'mock-message-id-not-configured' };
     }
 
-    const instance = await this.createTransporter(config);
     const from =
       mailOptions.from ??
       buildEmailFrom(config.sender, mailOptions.senderName ?? config.senderName);
-    return instance.sendMail({ ...mailOptions, from });
+    const entry = await this.acquirePooledTransporter(config);
+    try {
+      return await entry.transporter.sendMail({ ...mailOptions, from });
+    } finally {
+      entry.pendingSends--;
+      if (entry.evicted && entry.pendingSends === 0) {
+        entry.transporter.close();
+      }
+    }
   }
 
   async getTransportConfigByName(name?: MailTransporterType) {
@@ -264,10 +343,17 @@ export class MailSenderService {
     const { name, email, inviteUrl, resourceName, resourceType } = info;
     const { brandName, brandLogo } = await this.settingOpenApiService.getServerBrand();
     const resourceAlias = resourceType === CollaboratorType.Space ? 'Space' : 'Base';
+    const { userNameMaxLength, spaceNameMaxLength } = this.mailConfig.invite;
 
     return {
       subject: this.i18n.t('common.email.templates.invite.subject', {
-        args: { name, email, resourceAlias, resourceName, brandName },
+        args: {
+          name: truncateMailName(name, userNameMaxLength),
+          email,
+          resourceAlias,
+          resourceName: truncateMailName(resourceName, spaceNameMaxLength),
+          brandName,
+        },
       }),
       template: 'normal',
       context: {

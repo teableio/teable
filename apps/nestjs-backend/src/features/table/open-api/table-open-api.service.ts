@@ -1,4 +1,4 @@
-import { NotFoundException, Injectable, Logger } from '@nestjs/common';
+import { Inject, NotFoundException, Injectable, Logger, Optional } from '@nestjs/common';
 import type {
   FieldAction,
   IFieldRo,
@@ -28,14 +28,13 @@ import { PrismaService, ProvisionState } from '@teable/db-main-prisma';
 import type {
   ICreateRecordsRo,
   ICreateTableRo,
-  ICreateTableWithDefault,
   IDuplicateTableRo,
   ITableFullVo,
   ITablePermissionVo,
   ITableVo,
   IUpdateOrderRo,
 } from '@teable/openapi';
-import { CreateRecordAction, ResourceType } from '@teable/openapi';
+import { CreateRecordAction, ResourceType, ICreateTableWithDefault } from '@teable/openapi';
 import { nanoid } from 'nanoid';
 import { ClsService } from 'nestjs-cls';
 import { ThresholdConfig, IThresholdConfig } from '../../../configs/threshold.config';
@@ -60,6 +59,8 @@ import { createFieldInstanceByVo } from '../../field/model/factory';
 import { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { RecordService } from '../../record/record.service';
+import { RecordHistoryColdStorageService } from '../../record-history-cold/record-history-cold-storage.service';
+import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migration-guard.service';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
 import { TableDuplicateService } from '../table-duplicate.service';
 import { TableService } from '../table.service';
@@ -87,12 +88,24 @@ export class TableOpenApiService {
     private readonly cls: ClsService<IClsStore>,
     private readonly eventEmitterService: EventEmitterService,
     private readonly tableMutationCacheInvalidator: TableMutationCacheInvalidator,
-    private readonly audit: AuditScope
+    private readonly audit: AuditScope,
+    private readonly recordHistoryColdStorage: RecordHistoryColdStorageService,
+    @Optional()
+    @Inject(SpaceDataDbMigrationGuardService)
+    private readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService
   ) {}
+
+  private async assertBaseWritable(baseId: string) {
+    await this.spaceDataDbMigrationGuard?.assertBaseWritable(baseId);
+  }
+
+  private async assertTableWritable(tableId: string) {
+    await this.spaceDataDbMigrationGuard?.assertTableWritable(tableId);
+  }
 
   private async createView(tableId: string, viewRos: IViewRo[]) {
     const viewCreationPromises = viewRos.map(async (viewRo) => {
-      return this.viewOpenApiService.createView(tableId, viewRo);
+      return this.viewOpenApiService.createView(tableId, viewRo, { ensureRowOrder: false });
     });
     return await Promise.all(viewCreationPromises);
   }
@@ -280,6 +293,7 @@ export class TableOpenApiService {
   }
 
   async createTable(baseId: string, tableRo: ICreateTableWithDefault): Promise<ITableFullVo> {
+    await this.assertBaseWritable(baseId);
     let createdTable: ITableVo | undefined;
     const schema = await this.prismaService
       .$tx(async () => {
@@ -364,6 +378,8 @@ export class TableOpenApiService {
   }
 
   async duplicateTable(baseId: string, tableId: string, tableRo: IDuplicateTableRo) {
+    await this.assertBaseWritable(baseId);
+    await this.assertTableWritable(tableId);
     return await this.tableDuplicateService.duplicateTable(baseId, tableId, tableRo);
   }
 
@@ -427,6 +443,7 @@ export class TableOpenApiService {
   }
 
   async permanentDeleteTables(baseId: string, tableIds: string[]) {
+    await this.assertBaseWritable(baseId);
     // If the table has already been deleted, exceptions may occur
     // If the table hasn't been deleted and permanent deletion is executed directly,
     // we need to handle the deletion of associated data
@@ -438,7 +455,7 @@ export class TableOpenApiService {
       console.log('Permanent delete tables error:', e);
     }
 
-    return await this.prismaService.$tx(
+    const result = await this.prismaService.$tx(
       async () => {
         await this.dropTables(tableIds);
         await this.cleanTaskRelatedData(tableIds);
@@ -448,6 +465,25 @@ export class TableOpenApiService {
         timeout: this.thresholdConfig.bigTransactionTimeout,
       }
     );
+    await this.cleanupColdHistoryPrefixes(tableIds);
+    return result;
+  }
+
+  /**
+   * Best-effort removal of the tables' cold-history prefixes on the private
+   * bucket. The delete is irreversible, so it must only run AFTER the DB purge
+   * transaction has committed — never inside it (a rollback would restore the
+   * table without its cold history). An S3 miss never fails the purge;
+   * leftover prefixes are reconciled by ops tooling against table existence.
+   */
+  async cleanupColdHistoryPrefixes(tableIds: string[]) {
+    for (const tableId of tableIds) {
+      await this.recordHistoryColdStorage
+        .deleteTablePrefix(tableId)
+        .catch((error) =>
+          this.logger.warn(`failed to delete cold history prefix for ${tableId}: ${error}`)
+        );
+    }
   }
 
   async dropTables(tableIds: string[]) {
@@ -575,6 +611,7 @@ export class TableOpenApiService {
   }
 
   async deleteTable(baseId: string, tableId: string) {
+    await this.assertBaseWritable(baseId);
     try {
       await this.detachLink(tableId);
     } catch (e) {
@@ -604,6 +641,7 @@ export class TableOpenApiService {
   }
 
   async restoreTable(baseId: string, tableId: string) {
+    await this.assertBaseWritable(baseId);
     return await this.prismaService.$tx(
       async (prisma) => {
         const { deletedTime } = await prisma.trash.findFirstOrThrow({
@@ -684,6 +722,7 @@ export class TableOpenApiService {
   }
 
   async updateDbTableName(baseId: string, tableId: string, dbTableNameRo: string) {
+    await this.assertBaseWritable(baseId);
     const dbTableName = this.dbProvider.joinDbTableName(baseId, dbTableNameRo);
     const existDbTableName = await this.prismaService.tableMeta
       .findFirst({
@@ -800,6 +839,7 @@ export class TableOpenApiService {
   }
 
   async shuffle(baseId: string) {
+    await this.assertBaseWritable(baseId);
     const tables = await this.prismaService.tableMeta.findMany({
       where: { baseId, deletedTime: null, provisionState: ProvisionState.ready },
       select: { id: true },
@@ -817,6 +857,7 @@ export class TableOpenApiService {
   }
 
   async updateOrder(baseId: string, tableId: string, orderRo: IUpdateOrderRo) {
+    await this.assertBaseWritable(baseId);
     const { anchorId, position } = orderRo;
 
     const tablesOrder = await this.prismaService.txClient().tableMeta.findMany({

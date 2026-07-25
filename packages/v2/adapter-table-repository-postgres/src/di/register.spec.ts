@@ -84,7 +84,7 @@ describe('registerV2TableRepositoryPostgresAdapter', () => {
     ).toThrow('Invalid v2 postgres ddl adapter config');
   });
 
-  it('registers default schema, record, strategy, and polling dependencies', async () => {
+  it('registers default schema, record, and strategy dependencies', async () => {
     const {
       registerV2TableRepositoryPostgresAdapter,
       registerV2RecordRepositoryPostgresAdapter,
@@ -99,6 +99,7 @@ describe('registerV2TableRepositoryPostgresAdapter', () => {
     const { TableRecordQueryBuilderManager } = await import('../record/query-builder');
     const {
       HybridWithOutboxStrategy,
+      ComputedFieldBackfillService,
       defaultFieldBackfillConfig,
       defaultHybridWithOutboxStrategyConfig,
     } = await import('../record/computed');
@@ -127,12 +128,6 @@ describe('registerV2TableRepositoryPostgresAdapter', () => {
     expect(getInstance(container, v2RecordRepositoryPostgresTokens.fieldBackfillConfig)).toEqual(
       defaultFieldBackfillConfig
     );
-    expect(
-      getInstance(container, v2RecordRepositoryPostgresTokens.computedUpdatePollingConfig)
-    ).toMatchObject({
-      enabled: true,
-      pollIntervalMs: 500,
-    });
     expect(getRegistration(container, v2CoreTokens.tableSchemaRepository)).toEqual({
       token: v2CoreTokens.tableSchemaRepository,
       implementation: PostgresTableSchemaRepository,
@@ -150,6 +145,18 @@ describe('registerV2TableRepositoryPostgresAdapter', () => {
     ).toEqual({
       token: v2RecordRepositoryPostgresTokens.computedUpdateStrategy,
       implementation: HybridWithOutboxStrategy,
+      options: { lifecycle: Lifecycle.Singleton },
+    });
+    expect(
+      getRegistration(container, v2RecordRepositoryPostgresTokens.computedFieldBackfillService)
+    ).toEqual({
+      token: v2RecordRepositoryPostgresTokens.computedFieldBackfillService,
+      implementation: ComputedFieldBackfillService,
+      options: { lifecycle: Lifecycle.Singleton },
+    });
+    expect(getRegistration(container, v2CoreTokens.computedFieldBackfillService)).toEqual({
+      token: v2CoreTokens.computedFieldBackfillService,
+      implementation: ComputedFieldBackfillService,
       options: { lifecycle: Lifecycle.Singleton },
     });
   });
@@ -185,10 +192,6 @@ describe('registerV2TableRepositoryPostgresAdapter', () => {
         lockConfig: {
           enabled: false,
         },
-        pollingConfig: {
-          enabled: false,
-          pollIntervalMs: 250,
-        },
         fieldBackfillConfig: {
           mode: 'hybrid',
         },
@@ -221,12 +224,6 @@ describe('registerV2TableRepositoryPostgresAdapter', () => {
       hybridThreshold: 10000,
     });
     expect(
-      getInstance(container, v2RecordRepositoryPostgresTokens.computedUpdatePollingConfig)
-    ).toMatchObject({
-      enabled: false,
-      pollIntervalMs: 250,
-    });
-    expect(
       getRegistration(container, v2RecordRepositoryPostgresTokens.computedUpdateStrategy)
     ).toEqual({
       token: v2RecordRepositoryPostgresTokens.computedUpdateStrategy,
@@ -235,7 +232,7 @@ describe('registerV2TableRepositoryPostgresAdapter', () => {
     });
   });
 
-  it('registers the sync strategy and disables polling for push-only dispatch', async () => {
+  it('registers the sync strategy for push-only dispatch', async () => {
     const { registerV2TableRepositoryPostgresAdapter } = await loadRegisterModule();
     const { v2RecordRepositoryPostgresTokens } = await import('../record/di/tokens');
     const { SyncInTransactionStrategy } = await import('../record/computed');
@@ -253,12 +250,6 @@ describe('registerV2TableRepositoryPostgresAdapter', () => {
       },
     });
 
-    expect(
-      getInstance(container, v2RecordRepositoryPostgresTokens.computedUpdatePollingConfig)
-    ).toMatchObject({
-      enabled: false,
-      pollIntervalMs: 1000,
-    });
     expect(
       getRegistration(container, v2RecordRepositoryPostgresTokens.computedUpdateStrategy)
     ).toEqual({

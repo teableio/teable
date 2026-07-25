@@ -101,16 +101,22 @@ export class V2FeatureGuard implements CanActivate {
 
   /**
    * Extract base V2 decision context from request context.
-   * Supports: spaceId (direct), baseId (lookup), tableId (lookup via base)
+   * Supports: spaceId (direct), baseId (lookup), tableId (lookup via base),
+   * and share routes where ShareAuthGuard has already set req.shareInfo.tableId.
    */
   private async getBaseV2DecisionContext(
     context: ExecutionContext
   ): Promise<IBaseV2DecisionContext | undefined> {
     const req = context.switchToHttp().getRequest();
+    const shareTableId =
+      req.shareInfo && typeof req.shareInfo.tableId === 'string'
+        ? req.shareInfo.tableId
+        : undefined;
     const resourceId =
       req.params.spaceId ||
       req.params.baseId ||
       req.params.tableId ||
+      shareTableId ||
       this.getStringResourceId(req.body, ['spaceId', 'baseId', 'tableId']);
 
     if (!resourceId) {

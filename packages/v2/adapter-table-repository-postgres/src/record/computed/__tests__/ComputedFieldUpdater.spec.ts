@@ -5,6 +5,7 @@ import {
   FormulaExpression,
   FieldId,
   FieldName,
+  ConditionalLookupOptions,
   LinkFieldConfig,
   LookupOptions,
   RecordId,
@@ -37,6 +38,7 @@ import {
 import { err } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
+import { createPGliteDb } from '../../../schema/visitors/__tests__/helpers/createPGliteDb';
 import type { DynamicDB } from '../../query-builder';
 import { ComputedFieldUpdater } from '../ComputedFieldUpdater';
 import { COMPUTED_UPDATE_LOCK_UNAVAILABLE_CODE } from '../ComputedUpdateLock';
@@ -49,13 +51,21 @@ import type { ComputedUpdatePlan } from '../ComputedUpdatePlanner';
 class RecordingConnection implements DatabaseConnection {
   constructor(
     private readonly queries: CompiledQuery[],
-    private readonly returningRows: unknown[][]
+    private readonly returningRows: unknown[][],
+    private readonly propagationAffectedRows: bigint[]
   ) {}
 
   async executeQuery<R>(compiledQuery: CompiledQuery): Promise<QueryResult<R>> {
     this.queries.push(compiledQuery);
     if (compiledQuery.sql.includes(' RETURNING ') && this.returningRows.length > 0) {
       return { rows: this.returningRows.shift() as R[], numAffectedRows: BigInt(0) };
+    }
+    if (
+      compiledQuery.sql.includes('insert into "pg_temp"."tmp_computed_dirty"') &&
+      compiledQuery.sql.includes(' select ') &&
+      this.propagationAffectedRows.length > 0
+    ) {
+      return { rows: [], numAffectedRows: this.propagationAffectedRows.shift() };
     }
     return { rows: [], numAffectedRows: BigInt(0) };
   }
@@ -68,14 +78,17 @@ class RecordingConnection implements DatabaseConnection {
 class RecordingDriver implements Driver {
   readonly queries: CompiledQuery[] = [];
 
-  constructor(private readonly returningRows: unknown[][] = []) {}
+  constructor(
+    private readonly returningRows: unknown[][] = [],
+    private readonly propagationAffectedRows: bigint[] = []
+  ) {}
 
   async init(): Promise<void> {
     return undefined;
   }
 
   async acquireConnection(): Promise<DatabaseConnection> {
-    return new RecordingConnection(this.queries, this.returningRows);
+    return new RecordingConnection(this.queries, this.returningRows, this.propagationAffectedRows);
   }
 
   async beginTransaction(): Promise<void> {
@@ -104,8 +117,11 @@ class RecordingDriver implements Driver {
   }
 }
 
-const createRecordingDb = (returningRows: unknown[][] = []) => {
-  const driver = new RecordingDriver(returningRows);
+const createRecordingDb = (
+  returningRows: unknown[][] = [],
+  propagationAffectedRows: bigint[] = []
+) => {
+  const driver = new RecordingDriver(returningRows, propagationAffectedRows);
   const db = new Kysely<DynamicDB>({
     dialect: {
       createAdapter: () => new PostgresAdapter(),
@@ -176,6 +192,11 @@ const createTableRepository = (tables: ReadonlyArray<Table>): ITableRepository =
     err(domainError.notImplemented({ message: 'ITableRepository.updateOne not used in tests' })),
   delete: async () =>
     err(domainError.notImplemented({ message: 'ITableRepository.delete not used in tests' })),
+});
+
+const createFilteringTableRepository = (tables: ReadonlyArray<Table>): ITableRepository => ({
+  ...createTableRepository(tables),
+  find: async (_context, spec) => ok(tables.filter((table) => spec.isSatisfiedBy(table))),
 });
 
 const toSnapshot = (queries: ReadonlyArray<CompiledQuery>) =>
@@ -644,6 +665,101 @@ const createConditionalPropagationTables = () => {
   return { baseId, sourceTable, targetTable, statusFieldId, targetFieldId };
 };
 
+const createConditionalGroupLookupTables = () => {
+  const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+  const sourceTableId = TableId.create(CONDITIONAL_SOURCE_TABLE_ID)._unsafeUnwrap();
+  const hostTableId = TableId.create(CONDITIONAL_TARGET_TABLE_ID)._unsafeUnwrap();
+  const sourceValueFieldId = FieldId.create(CONDITIONAL_NAME_FIELD_ID)._unsafeUnwrap();
+  const sourceGroupFieldId = FieldId.create(CONDITIONAL_STATUS_FIELD_ID)._unsafeUnwrap();
+  const hostGroupFieldId = FieldId.create(CONDITIONAL_TARGET_FIELD_ID)._unsafeUnwrap();
+  const conditionalLookupFieldId = FieldId.create(`fld${'4'.repeat(16)}`)._unsafeUnwrap();
+
+  const sourceBuilder = Table.builder()
+    .withId(sourceTableId)
+    .withBaseId(baseId)
+    .withName(TableName.create('ConditionalGroupSource')._unsafeUnwrap());
+  sourceBuilder
+    .field()
+    .singleLineText()
+    .withId(sourceValueFieldId)
+    .withName(FieldName.create('Value')._unsafeUnwrap())
+    .primary()
+    .done();
+  sourceBuilder
+    .field()
+    .singleLineText()
+    .withId(sourceGroupFieldId)
+    .withName(FieldName.create('Group')._unsafeUnwrap())
+    .done();
+  sourceBuilder.view().defaultGrid().done();
+  const sourceTable = sourceBuilder.build()._unsafeUnwrap();
+  sourceTable
+    .getField((field) => field.id().equals(sourceValueFieldId))
+    ._unsafeUnwrap()
+    .setDbFieldName(DbFieldName.rehydrate('col_value')._unsafeUnwrap())
+    ._unsafeUnwrap();
+  sourceTable
+    .getField((field) => field.id().equals(sourceGroupFieldId))
+    ._unsafeUnwrap()
+    .setDbFieldName(DbFieldName.rehydrate('col_group')._unsafeUnwrap())
+    ._unsafeUnwrap();
+
+  const conditionalLookupOptions = ConditionalLookupOptions.create({
+    foreignTableId: sourceTableId.toString(),
+    lookupFieldId: sourceValueFieldId.toString(),
+    condition: {
+      filter: {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: sourceGroupFieldId.toString(),
+            operator: 'is',
+            value: hostGroupFieldId.toString(),
+            isSymbol: true,
+          },
+        ],
+      },
+      limit: 100,
+    },
+  })._unsafeUnwrap();
+
+  const hostBuilder = Table.builder()
+    .withId(hostTableId)
+    .withBaseId(baseId)
+    .withName(TableName.create('ConditionalGroupHost')._unsafeUnwrap());
+  hostBuilder
+    .field()
+    .singleLineText()
+    .withId(hostGroupFieldId)
+    .withName(FieldName.create('Lookup Group')._unsafeUnwrap())
+    .primary()
+    .done();
+  hostBuilder
+    .field()
+    .conditionalLookup()
+    .withId(conditionalLookupFieldId)
+    .withName(FieldName.create('Group Values')._unsafeUnwrap())
+    .withConditionalLookupOptions(conditionalLookupOptions)
+    .withInnerField(
+      sourceTable.getField((field) => field.id().equals(sourceValueFieldId))._unsafeUnwrap()
+    )
+    .done();
+  hostBuilder.view().defaultGrid().done();
+  const hostTable = hostBuilder.build({ foreignTables: [sourceTable] })._unsafeUnwrap();
+  hostTable
+    .getField((field) => field.id().equals(hostGroupFieldId))
+    ._unsafeUnwrap()
+    .setDbFieldName(DbFieldName.rehydrate('col_lookup_group')._unsafeUnwrap())
+    ._unsafeUnwrap();
+  hostTable
+    .getField((field) => field.id().equals(conditionalLookupFieldId))
+    ._unsafeUnwrap()
+    .setDbFieldName(DbFieldName.rehydrate('col_group_values')._unsafeUnwrap())
+    ._unsafeUnwrap();
+
+  return { baseId, sourceTable, hostTable, conditionalLookupFieldId };
+};
+
 const createSequentialRecordIds = (count: number): RecordId[] =>
   Array.from({ length: count }, (_, index) =>
     RecordId.create(`rec${index.toString().padStart(16, '0')}`)._unsafeUnwrap()
@@ -692,6 +808,52 @@ describe('ComputedFieldUpdater', () => {
     expect(result._unsafeUnwrapErr().code).toBe(COMPUTED_UPDATE_LOCK_UNAVAILABLE_CODE);
     expect(driver.queries[0]?.sql).toContain('pg_try_advisory_xact_lock');
     expect(driver.queries[0]?.sql).not.toContain('pg_advisory_xact_lock');
+  });
+
+  it('loads tables referenced only by seedAllTableIds before dirty seeding', async () => {
+    const { baseId, table, plusOneFieldId } = createSameTableFormulaChainTable();
+    const { hostTable: seedAllTable } = createLinkTables();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+    const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
+
+    const plan: ComputedUpdatePlan = {
+      baseId,
+      seedTableId: table.id(),
+      seedRecordIds: [recordId],
+      extraSeedRecords: [],
+      seedAllTableIds: [seedAllTable.id()],
+      steps: [
+        {
+          tableId: table.id(),
+          fieldIds: [plusOneFieldId],
+          level: 0,
+        },
+      ],
+      edges: [],
+      estimatedComplexity: 1,
+      changeType: 'update',
+      sameTableBatches: [],
+    };
+
+    const { db, driver } = createRecordingDb();
+    const updater = new ComputedFieldUpdater(
+      createFilteringTableRepository([table, seedAllTable]),
+      createLogger(),
+      db as unknown as Kysely<V1TeableDatabase>,
+      undefined,
+      createTypeValidationStrategy()
+    );
+
+    const result = await updater.prepareDirtyState(plan, { actorId });
+
+    expect(result.isOk()).toBe(true);
+    expect(
+      driver.queries.some(
+        (query) =>
+          query.sql.includes('insert into "pg_temp"."tmp_computed_dirty"') &&
+          query.sql.includes(`from "${BASE_ID}"."${TABLE_ID}"`)
+      )
+    ).toBe(true);
   });
 
   it('generates SQL for link computed updates with dirty propagation', async () => {
@@ -746,23 +908,32 @@ describe('ComputedFieldUpdater', () => {
       [
         {
           "parameters": [],
-          "sql": "drop table if exists "tmp_computed_dirty"",
+          "sql": "drop table if exists "pg_temp"."tmp_computed_dirty"",
         },
         {
           "parameters": [],
-          "sql": "create temporary table "tmp_computed_dirty" (
+          "sql": "create temporary table "pg_temp"."tmp_computed_dirty" (
               table_id text not null,
               record_id text not null,
+              generation integer not null default 0,
               primary key (table_id, record_id)
             ) on commit drop",
         },
         {
           "parameters": [],
-          "sql": "drop table if exists "tmp_computed_before_image"",
+          "sql": "create index tmp_computed_dirty_frontier_idx on "pg_temp"."tmp_computed_dirty" (
+              generation,
+              table_id,
+              record_id
+            )",
         },
         {
           "parameters": [],
-          "sql": "create temporary table "tmp_computed_before_image" (
+          "sql": "drop table if exists "pg_temp"."tmp_computed_before_image"",
+        },
+        {
+          "parameters": [],
+          "sql": "create temporary table "pg_temp"."tmp_computed_before_image" (
               table_id text not null,
               record_id text not null,
               field_values jsonb not null,
@@ -774,23 +945,24 @@ describe('ComputedFieldUpdater', () => {
             "tblcccccccccccccccc",
             "rechhhhhhhhhhhhhhhh",
           ],
-          "sql": "insert into "tmp_computed_dirty" ("table_id", "record_id") values ($1, $2) on conflict ("table_id", "record_id") do nothing",
+          "sql": "insert into "pg_temp"."tmp_computed_dirty" ("table_id", "record_id") values ($1, $2) on conflict ("table_id", "record_id") do nothing",
         },
         {
           "parameters": [
             "tblcccccccccccccccc",
+            0,
           ],
-          "sql": "insert into "tmp_computed_dirty" ("table_id", "record_id") select distinct 'tblbbbbbbbbbbbbbbbb' as "table_id", "j"."__fk_fldffffffffffffffff" as "record_id" from "bseaaaaaaaaaaaaaaaa"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff" as "j" inner join "tmp_computed_dirty" as "d" on "d"."record_id" = "j"."__fk_fldeeeeeeeeeeeeeeee" where "d"."table_id" = $1 on conflict ("table_id", "record_id") do nothing",
+          "sql": "insert into "pg_temp"."tmp_computed_dirty" ("table_id", "record_id", "generation") select "propagated"."table_id" as "table_id", "propagated"."record_id" as "record_id", 1 as "generation" from (select distinct 'tblbbbbbbbbbbbbbbbb' as "table_id", "j"."__fk_fldffffffffffffffff" as "record_id" from "bseaaaaaaaaaaaaaaaa"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff" as "j" inner join "pg_temp"."tmp_computed_dirty" as "d" on "d"."record_id" = "j"."__fk_fldeeeeeeeeeeeeeeee" where "d"."table_id" = $1 and "d"."generation" = $2) as "propagated" on conflict ("table_id", "record_id") do nothing",
         },
         {
           "parameters": [],
-          "sql": "select "table_id" as "tableId", count(*) as "recordCount" from "tmp_computed_dirty" group by "table_id"",
+          "sql": "select "table_id" as "tableId", count(*) as "recordCount" from "pg_temp"."tmp_computed_dirty" group by "table_id"",
         },
         {
           "parameters": [
             "tblbbbbbbbbbbbbbbbb",
           ],
-          "sql": "select count(*) as "count" from "tmp_computed_dirty" where "table_id" = $1",
+          "sql": "select count(*) as "count" from "pg_temp"."tmp_computed_dirty" where "table_id" = $1",
         },
         {
           "parameters": [
@@ -799,7 +971,7 @@ describe('ComputedFieldUpdater', () => {
           "sql": "update "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "u" set "__version" = "u"."__version" + 1, "col_link" = "c"."__set_col_link" from (select "c_src"."__id" as "__id", (CASE
           WHEN "c_src"."col_link" IS NULL THEN NULL::jsonb
           ELSE to_jsonb("c_src"."col_link")
-        END) as "__set_col_link" from (select "t"."__id" as "__id", "t"."__version" as "__version", "lat_fldeeeeeeeeeeeeeeee_0"."col_link" as "col_link" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "t" inner join "tmp_computed_dirty" as "__dirty" on "t"."__id" = "__dirty"."record_id" and "__dirty"."table_id" = $1 inner join lateral (select jsonb_agg(jsonb_strip_nulls(jsonb_build_object('id', "f"."__id", 'title', ("f"."col_name")::text)) ORDER BY (SELECT "j"."__order" FROM "bseaaaaaaaaaaaaaaaa"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff" AS j WHERE "j"."__fk_fldffffffffffffffff" = "t"."__id" AND "j"."__fk_fldeeeeeeeeeeeeeeee" = "f"."__id"), (SELECT "j"."__id" FROM "bseaaaaaaaaaaaaaaaa"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff" AS j WHERE "j"."__fk_fldffffffffffffffff" = "t"."__id" AND "j"."__fk_fldeeeeeeeeeeeeeeee" = "f"."__id")) as "col_link" from "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" as "f" where "f"."__id" IN (SELECT "j"."__fk_fldeeeeeeeeeeeeeeee" FROM "bseaaaaaaaaaaaaaaaa"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff" AS j WHERE "j"."__fk_fldffffffffffffffff" = "t"."__id")) as "lat_fldeeeeeeeeeeeeeeee_0" on true) as "c_src") as "c" where "u"."__id" = "c"."__id" and ("u"."col_link" IS DISTINCT FROM "c"."__set_col_link")",
+        END) as "__set_col_link" from (select "t"."__id" as "__id", "t"."__version" as "__version", "lat_fldeeeeeeeeeeeeeeee_0"."col_link" as "col_link" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "t" inner join "pg_temp"."tmp_computed_dirty" as "__dirty" on "t"."__id" = "__dirty"."record_id" and "__dirty"."table_id" = $1 inner join lateral (select jsonb_agg(jsonb_strip_nulls(jsonb_build_object('id', "f"."__id", 'title', ("f"."col_name")::text)) ORDER BY (SELECT "j"."__order" FROM "bseaaaaaaaaaaaaaaaa"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff" AS j WHERE "j"."__fk_fldffffffffffffffff" = "t"."__id" AND "j"."__fk_fldeeeeeeeeeeeeeeee" = "f"."__id"), (SELECT "j"."__id" FROM "bseaaaaaaaaaaaaaaaa"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff" AS j WHERE "j"."__fk_fldffffffffffffffff" = "t"."__id" AND "j"."__fk_fldeeeeeeeeeeeeeeee" = "f"."__id")) as "col_link" from "bseaaaaaaaaaaaaaaaa"."tblcccccccccccccccc" as "f" where "f"."__id" IN (SELECT "j"."__fk_fldeeeeeeeeeeeeeeee" FROM "bseaaaaaaaaaaaaaaaa"."junction_fldeeeeeeeeeeeeeeee_fldffffffffffffffff" AS j WHERE "j"."__fk_fldffffffffffffffff" = "t"."__id")) as "lat_fldeeeeeeeeeeeeeeee_0" on true) as "c_src") as "c" where "u"."__id" = "c"."__id" and ("u"."col_link" IS DISTINCT FROM "c"."__set_col_link")",
         },
       ]
     `);
@@ -854,6 +1026,68 @@ describe('ComputedFieldUpdater', () => {
 
     expect(result.isErr()).toBe(true);
     expect(result._unsafeUnwrapErr().code).toBe('validation.limit.computed_cell_value_max_bytes');
+  });
+
+  it('allows oversized junction-backed link projections to stay consistent', async () => {
+    const { baseId, foreignTable, hostTable, linkFieldId } = createLinkTables();
+    const recordId = RecordId.create(RECORD_ID)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+    const linkValue = Array.from({ length: 8_000 }, (_, index) => ({
+      id: `rec${index.toString().padStart(16, '0')}`,
+      title: `Synthetic item ${index}`,
+    }));
+    expect(JSON.stringify(linkValue).length).toBeGreaterThan(262_144);
+
+    const plan: ComputedUpdatePlan = {
+      baseId,
+      seedTableId: hostTable.id(),
+      seedRecordIds: [recordId],
+      extraSeedRecords: [],
+      steps: [
+        {
+          tableId: hostTable.id(),
+          fieldIds: [linkFieldId],
+          level: 0,
+        },
+      ],
+      edges: [],
+      estimatedComplexity: 1,
+      changeType: 'update',
+      sameTableBatches: [],
+    };
+
+    const { db } = createRecordingDb([
+      [
+        {
+          __id: RECORD_ID,
+          __old_version: 1,
+          col_link: linkValue,
+        },
+      ],
+    ]);
+    const updater = new ComputedFieldUpdater(
+      createTableRepository([hostTable, foreignTable]),
+      createLogger(),
+      db as unknown as Kysely<V1TeableDatabase>,
+      undefined,
+      createTypeValidationStrategy(),
+      new TableDataSafetyLimitComposer([
+        new StaticTableDataSafetyLimitPlugin({
+          computed: { maxComputedCellValueBytes: 262_144 },
+        }),
+      ])
+    );
+
+    const result = await updater.execute(plan, { actorId }, undefined, { collectChanges: true });
+
+    expect(result.isOk()).toBe(true);
+    expect(result._unsafeUnwrap().changesByStep[0]?.recordChanges[0]?.changes).toEqual([
+      {
+        fieldId: linkFieldId.toString(),
+        oldValue: undefined,
+        newValue: linkValue,
+      },
+    ]);
   });
 
   it('chunks wide same-level computed updates and bumps record versions once', async () => {
@@ -1006,9 +1240,7 @@ describe('ComputedFieldUpdater', () => {
     expect(result.isOk()).toBe(true);
 
     const propagationQuery = driver.queries.find((query) =>
-      query.sql.includes(
-        `insert into "tmp_computed_dirty" ("table_id", "record_id") select distinct '${CASCADE_MIDDLE_TABLE_ID}'`
-      )
+      query.sql.includes(`select distinct '${CASCADE_MIDDLE_TABLE_ID}' as "table_id"`)
     );
 
     expect(propagationQuery).toBeDefined();
@@ -1104,6 +1336,74 @@ describe('ComputedFieldUpdater', () => {
     );
   });
 
+  it('gates all-target self-refresh propagation by the current dirty frontier', async () => {
+    const {
+      baseId,
+      sourceTable,
+      middleTable,
+      sourceNameFieldId,
+      middleLinkFieldId,
+      middleLookupFieldId,
+    } = createLookupRollupCascadeTables();
+    const recordId = RecordId.create(CASCADE_RECORD_ID)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const plan: ComputedUpdatePlan = {
+      baseId,
+      seedTableId: sourceTable.id(),
+      seedRecordIds: [recordId],
+      extraSeedRecords: [],
+      steps: [{ tableId: middleTable.id(), fieldIds: [middleLookupFieldId], level: 0 }],
+      edges: [
+        {
+          fromFieldId: sourceNameFieldId,
+          toFieldId: sourceNameFieldId,
+          fromTableId: sourceTable.id(),
+          toTableId: sourceTable.id(),
+          propagationMode: 'allTargetRecords',
+          order: 0,
+        },
+        {
+          fromFieldId: sourceNameFieldId,
+          toFieldId: middleLookupFieldId,
+          fromTableId: sourceTable.id(),
+          toTableId: middleTable.id(),
+          linkFieldId: middleLinkFieldId,
+          order: 1,
+        },
+      ],
+      estimatedComplexity: 2,
+      changeType: 'update',
+      sameTableBatches: [],
+    };
+
+    const { db, driver } = createRecordingDb([], [BigInt(1), BigInt(0)]);
+    const updater = new ComputedFieldUpdater(
+      createTableRepository([sourceTable, middleTable]),
+      createLogger(),
+      db as unknown as Kysely<V1TeableDatabase>,
+      undefined,
+      createTypeValidationStrategy()
+    );
+
+    const result = await updater.execute(plan, { actorId });
+    expect(result.isOk()).toBe(true);
+
+    const propagationQueries = driver.queries.filter(
+      (query) =>
+        query.sql.includes('insert into "pg_temp"."tmp_computed_dirty"') &&
+        query.sql.includes(' select ')
+    );
+    expect(propagationQueries).toHaveLength(2);
+
+    for (const [frontierGeneration, query] of propagationQueries.entries()) {
+      expect(query.sql).toContain(
+        `from "${BASE_ID}"."${CASCADE_SOURCE_TABLE_ID}" as "t" inner join (select "d"."table_id" as "table_id" from "pg_temp"."tmp_computed_dirty" as "d"`
+      );
+      expect(query.parameters).toContain(frontierGeneration);
+    }
+  });
+
   it('uses before-image snapshots in conditional propagation SQL when requested', async () => {
     const { baseId, sourceTable, targetTable, statusFieldId, targetFieldId } =
       createConditionalPropagationTables();
@@ -1145,7 +1445,11 @@ describe('ComputedFieldUpdater', () => {
                 {
                   fieldId: statusFieldId.toString(),
                   operator: 'is',
-                  value: 'open',
+                  value: {
+                    type: 'field',
+                    fieldId: targetFieldId.toString(),
+                    tableId: targetTable.id().toString(),
+                  },
                 },
               ],
             },
@@ -1176,7 +1480,7 @@ describe('ComputedFieldUpdater', () => {
     expect(prepared.isOk()).toBe(true);
 
     const beforeImageSeedQuery = driver.queries.find((query) =>
-      query.sql.includes('insert into "tmp_computed_before_image"')
+      query.sql.includes('insert into "pg_temp"."tmp_computed_before_image"')
     );
     expect(beforeImageSeedQuery?.parameters).toEqual([
       CONDITIONAL_SOURCE_TABLE_ID,
@@ -1187,10 +1491,349 @@ describe('ComputedFieldUpdater', () => {
     const propagationQuery = driver.queries.find((query) =>
       query.sql.includes('jsonb_populate_record')
     );
-    expect(propagationQuery?.sql).toContain('"tmp_computed_before_image"');
+    expect(propagationQuery?.sql).toContain('"pg_temp"."tmp_computed_before_image"');
     expect(propagationQuery?.sql).toContain('jsonb_populate_record');
-    expect(propagationQuery?.sql).toContain('as s_before');
+    expect(propagationQuery?.sql).toContain('as "s_before"');
     expect(propagationQuery?.sql).toContain(`coalesce(to_jsonb("s_current"), '{}'::jsonb)`);
+    expect(propagationQuery?.sql).toContain('from "pg_temp"."tmp_computed_dirty" as "d"');
+    expect(propagationQuery?.sql).toContain(
+      'inner join "bseaaaaaaaaaaaaaaaa"."tbl0000000000000000" as "s"'
+    );
+    expect(propagationQuery?.sql).toContain(
+      'from "bseaaaaaaaaaaaaaaaa"."tbl9999999999999999" as "t"'
+    );
+    expect(propagationQuery?.sql).toContain('where (exists (');
+    expect(propagationQuery?.sql.match(/exists \(/g)).toHaveLength(2);
+    expect(propagationQuery?.sql).not.toContain('union all');
+    expect(propagationQuery?.sql).not.toContain(
+      'inner join "bseaaaaaaaaaaaaaaaa"."tbl9999999999999999" as "t"'
+    );
+  });
+
+  it('propagates host-field conditional matches from current and before-image rows', async () => {
+    const { baseId, sourceTable, targetTable, statusFieldId, targetFieldId } =
+      createConditionalPropagationTables();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+    const currentOnlyId = RecordId.create(`rec${'1'.repeat(16)}`)._unsafeUnwrap();
+    const beforeOnlyId = RecordId.create(`rec${'2'.repeat(16)}`)._unsafeUnwrap();
+    const bothId = RecordId.create(`rec${'3'.repeat(16)}`)._unsafeUnwrap();
+    const deletedId = RecordId.create(`rec${'4'.repeat(16)}`)._unsafeUnwrap();
+    const data = await createPGliteDb();
+
+    try {
+      await data.db.schema.createSchema(BASE_ID).execute();
+      await data.db.schema
+        .createTable(`${BASE_ID}.${CONDITIONAL_SOURCE_TABLE_ID}`)
+        .addColumn('__id', 'varchar', (column) => column.primaryKey())
+        .addColumn('col_source_name', 'varchar')
+        .addColumn('col_status', 'varchar')
+        .execute();
+      await data.db.schema
+        .createTable(`${BASE_ID}.${CONDITIONAL_TARGET_TABLE_ID}`)
+        .addColumn('__id', 'varchar', (column) => column.primaryKey())
+        .addColumn('col_filtered_value', 'varchar')
+        .execute();
+
+      await data.db
+        .insertInto(`${BASE_ID}.${CONDITIONAL_SOURCE_TABLE_ID}`)
+        .values([
+          { __id: currentOnlyId.toString(), col_status: 'current-only' },
+          { __id: beforeOnlyId.toString(), col_status: 'not-before-only' },
+          { __id: bothId.toString(), col_status: 'both' },
+        ])
+        .execute();
+      await data.db
+        .insertInto(`${BASE_ID}.${CONDITIONAL_TARGET_TABLE_ID}`)
+        .values([
+          { __id: `rec${'a'.repeat(16)}`, col_filtered_value: 'current-only' },
+          { __id: `rec${'b'.repeat(16)}`, col_filtered_value: 'before-only' },
+          { __id: `rec${'c'.repeat(16)}`, col_filtered_value: 'both' },
+          { __id: `rec${'d'.repeat(16)}`, col_filtered_value: 'deleted' },
+          { __id: `rec${'e'.repeat(16)}`, col_filtered_value: 'neither' },
+        ])
+        .execute();
+
+      const plan: ComputedUpdatePlan = {
+        baseId,
+        seedTableId: sourceTable.id(),
+        seedRecordIds: [currentOnlyId, beforeOnlyId, bothId, deletedId],
+        extraSeedRecords: [],
+        beforeImageRecords: [
+          { recordId: currentOnlyId, fieldValuesByDbName: { col_status: 'not-current-only' } },
+          { recordId: beforeOnlyId, fieldValuesByDbName: { col_status: 'before-only' } },
+          { recordId: bothId, fieldValuesByDbName: { col_status: 'both' } },
+          { recordId: deletedId, fieldValuesByDbName: { col_status: 'deleted' } },
+        ],
+        steps: [{ tableId: targetTable.id(), fieldIds: [targetFieldId], level: 0 }],
+        edges: [
+          {
+            fromFieldId: statusFieldId,
+            toFieldId: targetFieldId,
+            fromTableId: sourceTable.id(),
+            toTableId: targetTable.id(),
+            propagationMode: 'conditionalFiltered',
+            filterCondition: {
+              foreignTableId: sourceTable.id(),
+              filterDto: {
+                conjunction: 'and',
+                filterSet: [
+                  {
+                    fieldId: statusFieldId.toString(),
+                    operator: 'is',
+                    value: {
+                      type: 'field',
+                      fieldId: targetFieldId.toString(),
+                      tableId: targetTable.id().toString(),
+                    },
+                  },
+                ],
+              },
+              includeBeforeImage: true,
+            },
+            order: 0,
+          },
+        ],
+        estimatedComplexity: 1,
+        changeType: 'update',
+        sameTableBatches: [],
+      };
+
+      await data.db.transaction().execute(async (trx) => {
+        const updater = new ComputedFieldUpdater(
+          createTableRepository([sourceTable, targetTable]),
+          createLogger(),
+          trx,
+          undefined,
+          createTypeValidationStrategy()
+        );
+        const result = await updater.prepareDirtyState(plan, { actorId });
+        expect(result.isOk()).toBe(true);
+
+        const dirtyTargets = await trx
+          .selectFrom('tmp_computed_dirty')
+          .select('record_id')
+          .where('table_id', '=', targetTable.id().toString())
+          .orderBy('record_id')
+          .execute();
+
+        expect(dirtyTargets.map((row) => row.record_id)).toEqual([
+          `rec${'a'.repeat(16)}`,
+          `rec${'b'.repeat(16)}`,
+          `rec${'c'.repeat(16)}`,
+          `rec${'d'.repeat(16)}`,
+        ]);
+      });
+    } finally {
+      await data.db.destroy();
+    }
+  });
+
+  it('uses only the current dirty frontier on later propagation passes', async () => {
+    const {
+      baseId,
+      sourceTable,
+      middleTable,
+      targetTable,
+      sourceNameFieldId,
+      middleLinkFieldId,
+      middleLookupFieldId,
+      middleRollupFieldId,
+      targetLinkFieldId,
+      targetLookupFieldId,
+    } = createLookupRollupCascadeTables();
+    const recordId = RecordId.create(CASCADE_RECORD_ID)._unsafeUnwrap();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+
+    const plan: ComputedUpdatePlan = {
+      baseId,
+      seedTableId: sourceTable.id(),
+      seedRecordIds: [recordId],
+      extraSeedRecords: [],
+      steps: [
+        {
+          tableId: middleTable.id(),
+          fieldIds: [middleLookupFieldId],
+          level: 0,
+        },
+        {
+          tableId: targetTable.id(),
+          fieldIds: [targetLookupFieldId],
+          level: 1,
+        },
+      ],
+      edges: [
+        {
+          fromFieldId: sourceNameFieldId,
+          toFieldId: middleLookupFieldId,
+          fromTableId: sourceTable.id(),
+          toTableId: middleTable.id(),
+          linkFieldId: middleLinkFieldId,
+          order: 0,
+        },
+        {
+          fromFieldId: middleRollupFieldId,
+          toFieldId: targetLookupFieldId,
+          fromTableId: middleTable.id(),
+          toTableId: targetTable.id(),
+          linkFieldId: targetLinkFieldId,
+          order: 1,
+        },
+      ],
+      estimatedComplexity: 2,
+      changeType: 'update',
+      sameTableBatches: [],
+    };
+
+    const { db, driver } = createRecordingDb([], [BigInt(1), BigInt(0)]);
+    const updater = new ComputedFieldUpdater(
+      createTableRepository([sourceTable, middleTable, targetTable]),
+      createLogger(),
+      db as unknown as Kysely<V1TeableDatabase>,
+      undefined,
+      createTypeValidationStrategy()
+    );
+
+    const result = await updater.execute(plan, { actorId });
+    expect(result.isOk()).toBe(true);
+
+    const propagationQueries = driver.queries.filter(
+      (query) =>
+        query.sql.includes('insert into "pg_temp"."tmp_computed_dirty"') &&
+        query.sql.includes(' select ')
+    );
+    expect(propagationQueries).toHaveLength(2);
+    expect(propagationQueries[0]?.sql).toContain('"generation"');
+    expect(propagationQueries[0]?.parameters).toContain(0);
+    expect(propagationQueries[1]?.sql).toContain('"generation"');
+    expect(propagationQueries[1]?.parameters).toContain(1);
+    expect(propagationQueries[1]?.parameters).not.toContain(0);
+  });
+
+  it('propagates a multi-hop dirty frontier through successive generations', async () => {
+    const {
+      baseId,
+      sourceTable,
+      middleTable,
+      targetTable,
+      sourceNameFieldId,
+      middleLinkFieldId,
+      middleLookupFieldId,
+      middleRollupFieldId,
+      targetLinkFieldId,
+      targetLookupFieldId,
+    } = createLookupRollupCascadeTables();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+    const sourceRecordId = RecordId.create(CASCADE_RECORD_ID)._unsafeUnwrap();
+    const middleRecordId = RecordId.create(`rec${'3'.repeat(16)}`)._unsafeUnwrap();
+    const targetRecordId = RecordId.create(`rec${'4'.repeat(16)}`)._unsafeUnwrap();
+    const data = await createPGliteDb();
+
+    try {
+      await data.db.schema.createSchema(BASE_ID).execute();
+      await data.db.schema
+        .createTable(`${BASE_ID}.${CASCADE_SOURCE_TABLE_ID}`)
+        .addColumn('__id', 'varchar', (column) => column.primaryKey())
+        .execute();
+      await data.db.schema
+        .createTable(`${BASE_ID}.${CASCADE_MIDDLE_TABLE_ID}`)
+        .addColumn('__id', 'varchar', (column) => column.primaryKey())
+        .addColumn(`__fk_${CASCADE_MIDDLE_LINK_FIELD_ID}`, 'varchar')
+        .execute();
+      await data.db.schema
+        .createTable(`${BASE_ID}.${CASCADE_TARGET_TABLE_ID}`)
+        .addColumn('__id', 'varchar', (column) => column.primaryKey())
+        .addColumn(`__fk_${CASCADE_TARGET_LINK_FIELD_ID}`, 'varchar')
+        .execute();
+
+      await data.db
+        .insertInto(`${BASE_ID}.${CASCADE_SOURCE_TABLE_ID}`)
+        .values({ __id: sourceRecordId.toString() })
+        .execute();
+      await data.db
+        .insertInto(`${BASE_ID}.${CASCADE_MIDDLE_TABLE_ID}`)
+        .values({
+          __id: middleRecordId.toString(),
+          [`__fk_${CASCADE_MIDDLE_LINK_FIELD_ID}`]: sourceRecordId.toString(),
+        })
+        .execute();
+      await data.db
+        .insertInto(`${BASE_ID}.${CASCADE_TARGET_TABLE_ID}`)
+        .values({
+          __id: targetRecordId.toString(),
+          [`__fk_${CASCADE_TARGET_LINK_FIELD_ID}`]: middleRecordId.toString(),
+        })
+        .execute();
+
+      const plan: ComputedUpdatePlan = {
+        baseId,
+        seedTableId: sourceTable.id(),
+        seedRecordIds: [sourceRecordId],
+        extraSeedRecords: [],
+        steps: [
+          { tableId: middleTable.id(), fieldIds: [middleLookupFieldId], level: 0 },
+          { tableId: targetTable.id(), fieldIds: [targetLookupFieldId], level: 1 },
+        ],
+        edges: [
+          {
+            fromFieldId: sourceNameFieldId,
+            toFieldId: middleLookupFieldId,
+            fromTableId: sourceTable.id(),
+            toTableId: middleTable.id(),
+            linkFieldId: middleLinkFieldId,
+            order: 0,
+          },
+          {
+            fromFieldId: middleRollupFieldId,
+            toFieldId: targetLookupFieldId,
+            fromTableId: middleTable.id(),
+            toTableId: targetTable.id(),
+            linkFieldId: targetLinkFieldId,
+            order: 1,
+          },
+        ],
+        estimatedComplexity: 2,
+        changeType: 'update',
+        sameTableBatches: [],
+      };
+
+      await data.db.transaction().execute(async (trx) => {
+        const updater = new ComputedFieldUpdater(
+          createTableRepository([sourceTable, middleTable, targetTable]),
+          createLogger(),
+          trx,
+          undefined,
+          createTypeValidationStrategy()
+        );
+        const result = await updater.prepareDirtyState(plan, { actorId });
+        expect(result.isOk()).toBe(true);
+
+        const dirtyRecords = await trx
+          .selectFrom('tmp_computed_dirty')
+          .select(['table_id', 'record_id', 'generation'])
+          .orderBy('generation')
+          .execute();
+
+        expect(dirtyRecords).toEqual([
+          {
+            table_id: sourceTable.id().toString(),
+            record_id: sourceRecordId.toString(),
+            generation: 0,
+          },
+          {
+            table_id: middleTable.id().toString(),
+            record_id: middleRecordId.toString(),
+            generation: 1,
+          },
+          {
+            table_id: targetTable.id().toString(),
+            record_id: targetRecordId.toString(),
+            generation: 2,
+          },
+        ]);
+      });
+    } finally {
+      await data.db.destroy();
+    }
   });
 
   it('generates SQL for lookup/rollup cascade updates', async () => {
@@ -1278,23 +1921,32 @@ describe('ComputedFieldUpdater', () => {
       [
         {
           "parameters": [],
-          "sql": "drop table if exists "tmp_computed_dirty"",
+          "sql": "drop table if exists "pg_temp"."tmp_computed_dirty"",
         },
         {
           "parameters": [],
-          "sql": "create temporary table "tmp_computed_dirty" (
+          "sql": "create temporary table "pg_temp"."tmp_computed_dirty" (
               table_id text not null,
               record_id text not null,
+              generation integer not null default 0,
               primary key (table_id, record_id)
             ) on commit drop",
         },
         {
           "parameters": [],
-          "sql": "drop table if exists "tmp_computed_before_image"",
+          "sql": "create index tmp_computed_dirty_frontier_idx on "pg_temp"."tmp_computed_dirty" (
+              generation,
+              table_id,
+              record_id
+            )",
         },
         {
           "parameters": [],
-          "sql": "create temporary table "tmp_computed_before_image" (
+          "sql": "drop table if exists "pg_temp"."tmp_computed_before_image"",
+        },
+        {
+          "parameters": [],
+          "sql": "create temporary table "pg_temp"."tmp_computed_before_image" (
               table_id text not null,
               record_id text not null,
               field_values jsonb not null,
@@ -1306,24 +1958,26 @@ describe('ComputedFieldUpdater', () => {
             "tblkkkkkkkkkkkkkkkk",
             "recyyyyyyyyyyyyyyyy",
           ],
-          "sql": "insert into "tmp_computed_dirty" ("table_id", "record_id") values ($1, $2) on conflict ("table_id", "record_id") do nothing",
+          "sql": "insert into "pg_temp"."tmp_computed_dirty" ("table_id", "record_id") values ($1, $2) on conflict ("table_id", "record_id") do nothing",
         },
         {
           "parameters": [
             "tblkkkkkkkkkkkkkkkk",
+            0,
             "tblllllllllllllllll",
+            0,
           ],
-          "sql": "insert into "tmp_computed_dirty" ("table_id", "record_id") select distinct 'tblllllllllllllllll' as "table_id", "t"."__id" as "record_id" from "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "t" inner join "tmp_computed_dirty" as "d" on "d"."record_id" = "t"."__fk_fldpppppppppppppppp" where "d"."table_id" = $1 union all select distinct 'tblmmmmmmmmmmmmmmmm' as "table_id", "t"."__id" as "record_id" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join "tmp_computed_dirty" as "d" on "d"."record_id" = "t"."__fk_fldtttttttttttttttt" where "d"."table_id" = $2 on conflict ("table_id", "record_id") do nothing",
+          "sql": "insert into "pg_temp"."tmp_computed_dirty" ("table_id", "record_id", "generation") select "propagated"."table_id" as "table_id", "propagated"."record_id" as "record_id", 1 as "generation" from (select distinct 'tblllllllllllllllll' as "table_id", "t"."__id" as "record_id" from "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "t" inner join "pg_temp"."tmp_computed_dirty" as "d" on "d"."record_id" = "t"."__fk_fldpppppppppppppppp" where "d"."table_id" = $1 and "d"."generation" = $2 union all select distinct 'tblmmmmmmmmmmmmmmmm' as "table_id", "t"."__id" as "record_id" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join "pg_temp"."tmp_computed_dirty" as "d" on "d"."record_id" = "t"."__fk_fldtttttttttttttttt" where "d"."table_id" = $3 and "d"."generation" = $4) as "propagated" on conflict ("table_id", "record_id") do nothing",
         },
         {
           "parameters": [],
-          "sql": "select "table_id" as "tableId", count(*) as "recordCount" from "tmp_computed_dirty" group by "table_id"",
+          "sql": "select "table_id" as "tableId", count(*) as "recordCount" from "pg_temp"."tmp_computed_dirty" group by "table_id"",
         },
         {
           "parameters": [
             "tblllllllllllllllll",
           ],
-          "sql": "select count(*) as "count" from "tmp_computed_dirty" where "table_id" = $1",
+          "sql": "select count(*) as "count" from "pg_temp"."tmp_computed_dirty" where "table_id" = $1",
         },
         {
           "parameters": [
@@ -1337,13 +1991,13 @@ describe('ComputedFieldUpdater', () => {
           WHEN BTRIM(("c_src"."col_rollup_b")::text) ~ '^[+-]?([0-9]+([.][0-9]+)?|[.][0-9]+)([eE][+-]?[0-9]+)?$'
             THEN BTRIM(("c_src"."col_rollup_b")::text)::double precision
           ELSE NULL
-        END as "__set_col_rollup_b" from (select "t"."__id" as "__id", "t"."__version" as "__version", "lat_fldpppppppppppppppp_0"."col_lookup_b" as "col_lookup_b", "lat_fldpppppppppppppppp_0"."col_rollup_b" as "col_rollup_b" from "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "t" inner join "tmp_computed_dirty" as "__dirty" on "t"."__id" = "__dirty"."record_id" and "__dirty"."table_id" = $1 inner join lateral (select jsonb_agg(to_jsonb("f"."col_source_name")) FILTER (WHERE "f"."col_source_name" IS NOT NULL) as "col_lookup_b", CAST(COALESCE(SUM("f"."col_source_score"), 0) AS DOUBLE PRECISION) as "col_rollup_b" from "bseaaaaaaaaaaaaaaaa"."tblkkkkkkkkkkkkkkkk" as "f" where "f"."__id" = "t"."__fk_fldpppppppppppppppp") as "lat_fldpppppppppppppppp_0" on true) as "c_src") as "c" where "u"."__id" = "c"."__id" and ("u"."col_lookup_b" IS DISTINCT FROM "c"."__set_col_lookup_b" OR "u"."col_rollup_b" IS DISTINCT FROM "c"."__set_col_rollup_b")",
+        END as "__set_col_rollup_b" from (select "t"."__id" as "__id", "t"."__version" as "__version", "lat_fldpppppppppppppppp_0"."col_lookup_b" as "col_lookup_b", "lat_fldpppppppppppppppp_0"."col_rollup_b" as "col_rollup_b" from "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "t" inner join "pg_temp"."tmp_computed_dirty" as "__dirty" on "t"."__id" = "__dirty"."record_id" and "__dirty"."table_id" = $1 inner join lateral (select jsonb_agg(to_jsonb("f"."col_source_name")) FILTER (WHERE "f"."col_source_name" IS NOT NULL) as "col_lookup_b", CAST(COALESCE(SUM("f"."col_source_score"), 0) AS DOUBLE PRECISION) as "col_rollup_b" from "bseaaaaaaaaaaaaaaaa"."tblkkkkkkkkkkkkkkkk" as "f" where "f"."__id" = "t"."__fk_fldpppppppppppppppp") as "lat_fldpppppppppppppppp_0" on true) as "c_src") as "c" where "u"."__id" = "c"."__id" and ("u"."col_lookup_b" IS DISTINCT FROM "c"."__set_col_lookup_b" OR "u"."col_rollup_b" IS DISTINCT FROM "c"."__set_col_rollup_b")",
         },
         {
           "parameters": [
             "tblmmmmmmmmmmmmmmmm",
           ],
-          "sql": "select count(*) as "count" from "tmp_computed_dirty" where "table_id" = $1",
+          "sql": "select count(*) as "count" from "pg_temp"."tmp_computed_dirty" where "table_id" = $1",
         },
         {
           "parameters": [
@@ -1352,7 +2006,7 @@ describe('ComputedFieldUpdater', () => {
           "sql": "update "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "u" set "__version" = "u"."__version" + 1, "col_lookup_c" = "c"."__set_col_lookup_c" from (select "c_src"."__id" as "__id", (CASE
           WHEN "c_src"."col_lookup_c" IS NULL THEN NULL::jsonb
           ELSE ("c_src"."col_lookup_c")::jsonb
-        END) as "__set_col_lookup_c" from (select "t"."__id" as "__id", "t"."__version" as "__version", "lat_fldtttttttttttttttt_0"."col_lookup_c" as "col_lookup_c" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join "tmp_computed_dirty" as "__dirty" on "t"."__id" = "__dirty"."record_id" and "__dirty"."table_id" = $1 inner join lateral (select jsonb_agg(to_jsonb("f"."col_rollup_b")) FILTER (WHERE "f"."col_rollup_b" IS NOT NULL) as "col_lookup_c" from "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "f" where "f"."__id" = "t"."__fk_fldtttttttttttttttt") as "lat_fldtttttttttttttttt_0" on true) as "c_src") as "c" where "u"."__id" = "c"."__id" and ("u"."col_lookup_c" IS DISTINCT FROM "c"."__set_col_lookup_c")",
+        END) as "__set_col_lookup_c" from (select "t"."__id" as "__id", "t"."__version" as "__version", "lat_fldtttttttttttttttt_0"."col_lookup_c" as "col_lookup_c" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join "pg_temp"."tmp_computed_dirty" as "__dirty" on "t"."__id" = "__dirty"."record_id" and "__dirty"."table_id" = $1 inner join lateral (select jsonb_agg(to_jsonb("f"."col_rollup_b")) FILTER (WHERE "f"."col_rollup_b" IS NOT NULL) as "col_lookup_c" from "bseaaaaaaaaaaaaaaaa"."tblllllllllllllllll" as "f" where "f"."__id" = "t"."__fk_fldtttttttttttttttt") as "lat_fldtttttttttttttttt_0" on true) as "c_src") as "c" where "u"."__id" = "c"."__id" and ("u"."col_lookup_c" IS DISTINCT FROM "c"."__set_col_lookup_c")",
         },
       ]
     `);
@@ -1437,11 +2091,181 @@ describe('ComputedFieldUpdater', () => {
     expect(updateQueries).toHaveLength(3);
     for (const query of updateQueries) {
       expect(query.sql).toMatch(/with "level_0" as/i);
-      expect(query.sql).toMatch(/join "level_1" on u\."__id" = "level_1"\."__id"/i);
+      expect(query.sql).toMatch(/join "level_1" on "u"\."__id" = "level_1"\."__id"/i);
       expect(query.sql).toContain(
         'AS "__record_ids"("__id") ON "t"."__id" = "__record_ids"."__id"'
       );
       expect(query.sql).not.toContain('from "level_0", "level_1"');
+    }
+  });
+
+  it('chunks lateral lookup updates when dirty records exceed threshold', async () => {
+    const {
+      baseId,
+      sourceTable,
+      middleTable,
+      middleLinkFieldId,
+      middleLookupFieldId,
+      sourceNameFieldId,
+    } = createLookupRollupCascadeTables();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+    const seedRecordIds = createSequentialRecordIds(1001);
+
+    const plan: ComputedUpdatePlan = {
+      baseId,
+      seedTableId: sourceTable.id(),
+      seedRecordIds,
+      extraSeedRecords: [],
+      steps: [
+        {
+          tableId: middleTable.id(),
+          fieldIds: [middleLookupFieldId],
+          level: 0,
+        },
+      ],
+      edges: [
+        {
+          fromFieldId: sourceNameFieldId,
+          toFieldId: middleLookupFieldId,
+          fromTableId: sourceTable.id(),
+          toTableId: middleTable.id(),
+          linkFieldId: middleLinkFieldId,
+          order: 0,
+        },
+      ],
+      estimatedComplexity: 1,
+      changeType: 'update',
+      sameTableBatches: [],
+    };
+
+    const { db, driver } = createRecordingDb();
+    const tableRepository = createTableRepository([sourceTable, middleTable]);
+    const logger = createLogger();
+    const typeValidationStrategy = createTypeValidationStrategy();
+    const updater = new ComputedFieldUpdater(
+      tableRepository,
+      logger,
+      db as unknown as Kysely<V1TeableDatabase>,
+      undefined,
+      typeValidationStrategy
+    );
+    const updaterInternal = updater as unknown as {
+      getDirtyCountForTable: () => Promise<number>;
+      getDirtyRecordIdChunks: () => Promise<ReadonlyArray<ReadonlyArray<string>>>;
+    };
+    updaterInternal.getDirtyCountForTable = async () => 1001;
+    updaterInternal.getDirtyRecordIdChunks = async () => [
+      Array.from({ length: 500 }, (_, i) => `rec${i.toString().padStart(16, '0')}`),
+      Array.from({ length: 500 }, (_, i) => `rec${(i + 500).toString().padStart(16, '0')}`),
+      Array.from({ length: 1 }, (_, i) => `rec${(i + 1000).toString().padStart(16, '0')}`),
+    ];
+
+    const context: IExecutionContext = { actorId };
+    const result = await updater.execute(plan, context);
+    expect(result.isOk()).toBe(true);
+
+    const updateQueries = driver.queries.filter(
+      (query) => query.sql.startsWith('update ') && query.sql.includes(' as "u"')
+    );
+
+    // Three dirty-id chunks → three lateral UPDATE…FROM statements.
+    expect(updateQueries.length).toBeGreaterThanOrEqual(3);
+    const lateralUpdates = updateQueries.filter((query) =>
+      query.sql.includes('inner join lateral')
+    );
+    expect(lateralUpdates).toHaveLength(3);
+    const expectedChunkSizes = [500, 500, 1];
+    for (const [index, query] of lateralUpdates.entries()) {
+      expect(query.sql).toContain('inner join "pg_temp"."tmp_computed_dirty" as "__dirty"');
+      expect(query.sql).toMatch(/"__dirty"\."record_id" = any\(\$\d+::text\[\]\)/i);
+      const recordIdParameters = query.parameters.filter(Array.isArray);
+      expect(recordIdParameters).toHaveLength(1);
+      expect(recordIdParameters[0]).toHaveLength(expectedChunkSizes[index]);
+    }
+  });
+
+  it('executes distinct-host-key conditional aggregates without record-id chunks', async () => {
+    const { baseId, sourceTable, hostTable, conditionalLookupFieldId } =
+      createConditionalGroupLookupTables();
+    const actorId = ActorId.create(ACTOR_ID)._unsafeUnwrap();
+    const seedRecordIds = createSequentialRecordIds(1001);
+    const plan: ComputedUpdatePlan = {
+      baseId,
+      seedTableId: sourceTable.id(),
+      seedRecordIds,
+      extraSeedRecords: [],
+      steps: [
+        {
+          tableId: hostTable.id(),
+          fieldIds: [conditionalLookupFieldId],
+          level: 0,
+        },
+      ],
+      edges: [],
+      estimatedComplexity: 1,
+      changeType: 'update',
+      sameTableBatches: [],
+    };
+
+    const { db, driver } = createRecordingDb();
+    const updater = new ComputedFieldUpdater(
+      createTableRepository([sourceTable, hostTable]),
+      createLogger(),
+      db as unknown as Kysely<V1TeableDatabase>,
+      undefined,
+      createTypeValidationStrategy()
+    );
+    const updaterInternal = updater as unknown as {
+      getDirtyCountForTable: () => Promise<number>;
+      getDirtyRecordIdChunks: () => Promise<ReadonlyArray<ReadonlyArray<string>>>;
+    };
+    const recordIdChunks = [
+      Array.from({ length: 500 }, (_, index) => `rec${index.toString().padStart(16, '0')}`),
+      Array.from({ length: 500 }, (_, index) => `rec${(index + 500).toString().padStart(16, '0')}`),
+      [`rec${'1000'.padStart(16, '0')}`],
+    ];
+    updaterInternal.getDirtyCountForTable = async () => 1001;
+    updaterInternal.getDirtyRecordIdChunks = async () => recordIdChunks;
+
+    const result = await updater.execute(plan, { actorId });
+    expect(result.isOk()).toBe(true);
+
+    const conditionalUpdates = driver.queries.filter(
+      (query) => query.sql.startsWith('update ') && query.sql.includes('"__host_key"')
+    );
+    expect(conditionalUpdates).toHaveLength(1);
+    expect(conditionalUpdates[0]?.sql).not.toMatch(
+      /"__dirty"\."record_id" = any\(\$\d+::text\[\]\)/i
+    );
+    const cardinalityQuery = driver.queries.find((query) => query.sql.includes('as "__keys"'));
+    expect(cardinalityQuery?.sql).toContain('select distinct "h"."col_lookup_group" as "__key"');
+    expect(cardinalityQuery?.parameters).toEqual([hostTable.id().toString(), 5001]);
+
+    const fallbackDb = createRecordingDb();
+    const fallbackUpdater = new ComputedFieldUpdater(
+      createTableRepository([sourceTable, hostTable]),
+      createLogger(),
+      fallbackDb.db as unknown as Kysely<V1TeableDatabase>,
+      undefined,
+      createTypeValidationStrategy()
+    );
+    const fallbackInternal = fallbackUpdater as unknown as {
+      getDirtyCountForTable: () => Promise<number>;
+      getDirtyRecordIdChunks: () => Promise<ReadonlyArray<ReadonlyArray<string>>>;
+      hasBoundedDistinctHostKeys: () => Promise<unknown>;
+    };
+    fallbackInternal.getDirtyCountForTable = async () => 1001;
+    fallbackInternal.getDirtyRecordIdChunks = async () => recordIdChunks;
+    fallbackInternal.hasBoundedDistinctHostKeys = async () => ok(false);
+
+    const fallbackResult = await fallbackUpdater.execute(plan, { actorId });
+    expect(fallbackResult.isOk()).toBe(true);
+    const fallbackUpdates = fallbackDb.driver.queries.filter(
+      (query) => query.sql.startsWith('update ') && query.sql.includes('"__host_key"')
+    );
+    expect(fallbackUpdates).toHaveLength(3);
+    for (const query of fallbackUpdates) {
+      expect(query.sql).toMatch(/"__dirty"\."record_id" = any\(\$\d+::text\[\]\)/i);
     }
   });
 });

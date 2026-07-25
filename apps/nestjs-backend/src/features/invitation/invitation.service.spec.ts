@@ -62,6 +62,8 @@ describe('InvitationService', () => {
     prismaService.$tx.mockImplementation(async (fn, _options) => {
       return await fn(prismaService);
     });
+
+    prismaService.setting.findMany.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -265,6 +267,64 @@ describe('InvitationService', () => {
           ).rejects.toThrow('tx error');
         }
       );
+    });
+  });
+
+  describe('banned email domains', () => {
+    beforeEach(() => {
+      prismaService.space.findFirst.mockResolvedValue(mockSpace as any);
+      prismaService.setting.findMany.mockResolvedValue([
+        { name: 'bannedEmailDomains', content: JSON.stringify(['tankmail.cn']) },
+      ] as any);
+      vi.spyOn(invitationService as any, 'generateInvitation').mockResolvedValue({
+        id: mockInvitationId,
+        invitationCode: mockInvitationCode,
+      } as any);
+      collaboratorService.validateUserAddRole.mockResolvedValue();
+      mailSenderService.sendMail.mockClear();
+    });
+
+    it('should drop banned-domain invitees without creating accounts or sending mail', async () => {
+      prismaService.user.findMany.mockResolvedValue([mockInvitedUser as any]);
+
+      const result = await clsService.runWith(
+        {
+          ...defaultCls,
+          permissions: getPermissions(Role.Owner),
+        },
+        async () =>
+          await invitationService.emailInvitationBySpace(mockSpace.id, {
+            emails: [mockInvitedUser.email, 'spammer@tankmail.cn'],
+            role: Role.Owner,
+          })
+      );
+
+      expect(prismaService.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { email: { in: [mockInvitedUser.email] } } })
+      );
+      expect(prismaService.user.create).not.toHaveBeenCalled();
+      expect(result).toEqual({ [mockInvitedUser.email]: { invitationId: mockInvitationId } });
+    });
+
+    it('should not send mail when the inviter email domain is banned', async () => {
+      prismaService.user.findMany.mockResolvedValue([mockInvitedUser as any]);
+
+      const result = await clsService.runWith(
+        {
+          ...defaultCls,
+          user: { ...mockUser, email: 'inviter@tankmail.cn' },
+          permissions: getPermissions(Role.Owner),
+        },
+        async () =>
+          await invitationService.emailInvitationBySpace(mockSpace.id, {
+            emails: [mockInvitedUser.email],
+            role: Role.Owner,
+          })
+      );
+
+      expect(collaboratorService.createSpaceCollaborator).toHaveBeenCalled();
+      expect(mailSenderService.sendMail).not.toHaveBeenCalled();
+      expect(result).toEqual({ [mockInvitedUser.email]: { invitationId: mockInvitationId } });
     });
   });
 

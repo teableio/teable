@@ -99,6 +99,7 @@ export class PostgresTableSchemaFieldDeleteVisitor extends AbstractFieldVisitor<
   private createRuleContext(field: Field): SchemaRuleContext {
     return createSchemaRuleContext({
       db: this.db,
+      metaDb: this.db.withoutPlugins(),
       introspector: new PostgresSchemaIntrospector(this.db),
       schema: this.rulesContext.schema,
       tableName: this.rulesContext.tableName,

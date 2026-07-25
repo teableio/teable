@@ -4,12 +4,9 @@
     "duplicateFieldDescription": "Перехресні посилання між просторами не підтримуються. Копія буде перетворена на однорядкове текстове поле.",
     "duplicateTableTitle": "Сповіщення",
     "duplicateTableDescription": "Перехресні посилання між просторами не підтримуються. Копія буде перетворена на однорядкове текстове поле.",
-    "duplicateBaseTitle": "Сповіщення",
-    "duplicateBaseDescription": "Перехресні посилання між просторами не підтримуються. Копія буде перетворена на однорядкове текстове поле.",
     "convertAndDuplicate": "Перетворити та дублювати"
   },
   "toolbar": {
-    "comingSoon": "Скоро",
     "viewFilterInShare": "Цей вид використовується у засланні для спільного доступу. Зміни в налаштуваннях виду також змінять посилання для спільного доступу.",
     "createFieldButtonText": "Створити нове поле <0/>",
     "others": {
@@ -17,8 +14,6 @@
         "label": "Поділитися",
         "statusLabel": "Поділитися виглядом у мережі",
         "noPermission": "Немає дозволу ділитися переглядом",
-        "shareLink": "Посилання для спільного доступу",
-        "copied": "Скопійовано",
         "genLink": "Створити нове посилання",
         "allowCopy": "Дозволити глядачам копіювати дані з цього виду",
         "allowEdit": "Дозволити авторизованим користувачам редагувати видимі дані",
@@ -36,19 +31,38 @@
         "save": "Зберегти",
         "requireLogin": "Потребує входу в систему"
       },
-      "extensions": {
-        "label": "Розширення",
-        "graph": "Графік"
-      },
       "api": {
-        "label": "API",
-        "restfulApi": "Restful API",
-        "databaseConnection": "Підключення до бази даних"
+        "title": "Доступ до API",
+        "aiContext": "Підключення AI",
+        "advanced": "Розширено",
+        "recommended": "Рекомендовано",
+        "apiDocGroupTitle": "Контекст API",
+        "apiDocGroupDescription": "Скопіюйте документ нижче в AI. Він отримає поточну структуру таблиці, поля та приклади API й зможе читати, створювати, оновлювати або видаляти записи за вашим запитом.",
+        "generatingToken": "Генерується...",
+        "generateToken": "Створити токен",
+        "confirmTitle": "Створити API-токен",
+        "confirmDescription": "Буде створено новий API-токен із такими дозволами для цієї бази:",
+        "scopeTableRead": "Читати інформацію про таблицю",
+        "scopeFieldRead": "Читати поля",
+        "scopeRead": "Читати записи",
+        "scopeCreate": "Створювати записи",
+        "scopeUpdate": "Оновлювати записи",
+        "scopeDelete": "Видаляти записи",
+        "confirmExpiry": "Токен буде дійсний 1 рік.",
+        "confirmButton": "Підтвердити створення",
+        "tokenInfo": "Термін дії токена: {{expiry}}",
+        "copied": "Скопійовано!",
+        "copyAIDoc": "Скопіювати документ",
+        "aiDocPreview": "Перегляд контексту",
+        "manageToken": "Керувати токеном",
+        "openInNewTab": "Відкрити в новій вкладці",
+        "queryBuilderTitle": "Конструктор API-запитів",
+        "queryBuilderDesc": "Візуально налаштуйте фільтри, сортування та інші параметри, щоб згенерувати готовий до запуску код API-запиту.",
+        "viewApiDocs": "Переглянути повну документацію API"
       },
       "personalView": {
         "personal": "Особисте",
         "tip": "Після активації налаштування вигляду застосовуватимуться лише до вас",
-        "collaborative": "Спільна робота",
         "dialog": {
           "title": "Вийти з особистого режиму",
           "description": "Налаштування особистого перегляду буде відновлено до стану спільної роботи в реальному часі. Ви також можете зберегти особисті налаштування перегляду та синхронізувати їх для всіх.",
@@ -72,12 +86,11 @@
       "one_one_duplicate": "Неможливо пов'язати запис: цільовий запис уже пов'язано іншим записом у зв'язку один-до-одного."
     },
     "field": {
-      "maxColumnLimit": "Таблиця \"{{tableName}}\" може містити не більше ніж {{maxFieldCount}} полів."
+      "maxColumnLimit": "Таблиця \"{{tableName}}\" може містити не більше ніж {{maxFieldCount}} полів.",
+      "requiredExistingValues": "Не можна зробити поле \"{{fieldName}}\" обов'язковим, оскільки наявні записи містять порожні значення."
     }
   },
   "field": {
-    "fieldManagement": "Керування полями",
-    "fieldManagementDesc": "Детальні властивості всіх полів поточної таблиці",
     "advancedProps": "Розширені властивості",
     "hide": "приховати",
     "default": {
@@ -158,7 +171,6 @@
       "button": {
         "title": "Кнопка",
         "label": "Текст кнопки",
-        "color": "Колір кнопки",
         "limitCount": "Обмежити лічильник кліків",
         "resetCount": "Дозволити скидання лічильника кліків",
         "maxCount": "Максимальна кількість кліків",
@@ -233,7 +245,6 @@
       "areYouSurePerformIt": "Ви впевнені, що хочете це виконати?",
       "addDescription": "Додати опис",
       "dbFieldName": "Назва поля БД",
-      "description": "Опис",
       "descriptionPlaceholder": "Опишіть це поле (необов'язково)",
       "type": "Тип",
       "showAs": "Показати як",
@@ -299,11 +310,7 @@
         "title": "Видалити поле",
         "simpleConfirm": "Ви впевнені, що хочете видалити поле <b>{{fieldName}}</b>?",
         "withDependencies": "Видалення поля <b>{{fieldName}}</b> вплине на такі поля:",
-        "affectedFields": "Поля, на які вплине:",
-        "fieldsToDelete": "Поля для видалення ({{count}})",
-        "unviewedHint": "{{count}} поле(ів) не переглянуто",
         "deleteCount": "Видалити {{count}} полів",
-        "noAffectedFields": "Це поле не використовується іншими полями.",
         "riskIdentified": "Виявлено ризик({{count}})",
         "noDependencies": "Без залежностей({{count}})",
         "safeToDelete": "Безпечно видалити",
@@ -317,8 +324,6 @@
       "conditionalLookup": {
         "sortLimitToggleLabel": "Sort linked records and limit the number of matches",
         "sortLabel": "Sort results",
-        "orderPlaceholder": "Select an order",
-        "clearSort": "Clear sort",
         "limitLabel": "Maximum records to include",
         "limitPlaceholder": "Leave blank to include all matches",
         "limitHint": "We only keep up to {{limit}} matching records.",
@@ -337,12 +342,10 @@
       "user": "Додати користувача до запису.",
       "date": "Введіть дату (наприклад, 12.11.2023) або виберіть її з календаря.",
       "number": "Введіть число або попередньо заповніть кожну нову клітинку стандартним значенням.",
-      "duration": "Введіть тривалість часу в годинах, хвилинах або секундах (наприклад, 1:23).",
       "rating": "Додайте оцінку за попередньо визначеною шкалою.",
       "formula": "Обчислити значення на основі полів.",
       "rollup": "Підсумувати дані з пов'язаних записів.",
       "conditionalLookup": "Показує пов'язані значення, що відповідають заданим фільтрам.",
-      "count": "Підрахувати кількість зв'язаних записів.",
       "createdTime": "Перегляньте дату та час створення кожного запису.",
       "lastModifiedTime": "Дивіться дату й час останнього редагування деяких або всіх полів у записі.",
       "createdBy": "Дивіться, який користувач створив запис.",
@@ -389,7 +392,6 @@
         "improveText": "Формальний, дружний, гуморний...",
         "attachPromptForTag": "Не дозволяти перевищувати три теги",
         "attachPromptForClassify": "Класифікувати “В процесі” як “Без ризику”",
-        "attachPrompt": "Будь ласка, введіть додаткові вимоги",
         "prompt": "Будь ласка, введіть власний prompt",
         "type": "Виберіть дію AI",
         "targetLanguage": "Англійська, Китайська, Французька...",
@@ -403,6 +405,9 @@
         "medium": "Середня",
         "high": "Висока"
       },
+      "tip": {
+        "gptImageResolution": "Через обмеження загальної кількості пікселів режим 4K для деяких співвідношень сторін використовує найбільший допустимий розмір."
+      },
       "autoFill": {
         "title": "Автооновлення",
         "tip": "Після увімкнення поточне поле буде оновлюватися синхронно зі змінами вмісту конфігурації AI"
@@ -415,18 +420,13 @@
         "title": "Згенерувати весь стовпець?",
         "description": "Генерація всього стовпця оновить {{rowCount}} рядків. Ця операція може споживати велику кількість ресурсів AI.",
         "saveConfigOnly": "Зберегти лише конфігурацію",
-        "generate": "Згенерувати",
         "generateFailed": "Не вдалося виконати генерацію"
-      },
-      "action": {
-        "addAttachment": "Додати вкладення"
       }
     }
   },
   "table": {
     "newTableLabel": "Нова таблиця",
     "rename": "Перейменувати",
-    "design": "Дизайн",
     "tableRecordHistory": "Історія записів таблиці",
     "deleteConfirm": "Ви впевнені, що хочете видалити \"{{tableName}}\" ?",
     "dbTableName": "Ім'я таблиці у фізичній базі даних",
@@ -435,11 +435,9 @@
     "typeOfDatabase": "Тип бази даних",
     "descriptionForTable": "Опис цієї таблиці",
     "loginUserTable": "Вхід у додаток",
-    "loginUserTableClickTips": "Відкрити пов'язаний додаток",
     "linkedApps": "Пов'язані додатки",
     "nameForTable": "Назва цієї таблиці",
     "deleteTip1": "Поля посилань, пов'язані з цією таблицею в інших таблицях, будуть видалені.",
-    "deleteTip2": "Цю таблицю можна відновити з кошика після видалення.",
     "operator": {
       "createBlank": "Нова таблиця"
     },
@@ -457,7 +455,6 @@
       "fillFailed": "Не вдалося заповнити",
       "clearing": "Очищення...",
       "clearSuccessful": "Очистити успішно",
-      "deleteFieldConfirmTitle": "Ви видаляєте наступні поля",
       "deleting": "Видалення...",
       "deleteSuccessful": "Успішне видалення",
       "deleteStream": {
@@ -470,7 +467,6 @@
         "chunkFailureSummary": "{{count}} chunk(s) reported an error while the stream kept running.",
         "chunkLabel": "Chunk {{index}}",
         "rowsLabel": "{{count}} rows",
-        "partialFailureDescription": "Deleted {{deletedCount}} of {{totalCount}} records. Review chunk details in the dialog.",
         "phaseLabel": {
           "preparing": "Preparing",
           "guarding": "Checking",
@@ -489,7 +485,6 @@
       "crossBaseCopyLoadFirst": "Прокрутіть, щоб завантажити всі вибрані рядки, перш ніж копіювати поля між базами."
     },
     "graph": {
-      "tableLabel": "Мітка таблиці",
       "effectCells": "Може впливати на клітини",
       "estimatedTime": "Орієнтовний час",
       "linkFieldCount": "Впливає на кількість посилань"
@@ -572,11 +567,6 @@
           "fieldMeta": "Field metadata",
           "symmetricField": "Symmetric field relationship",
           "systemColumn": "System column \"{{columnName}}\"",
-          "systemColumnTyped": "System column \"{{columnName}}\" ({{dataType}})",
-          "systemNotNull": "NOT NULL on system column \"{{columnName}}\"",
-          "systemUnique": "UNIQUE index on system column \"{{columnName}}\"",
-          "systemPrimaryKey": "PRIMARY KEY on system column \"{{columnName}}\"",
-          "systemDefault": "Default expression on system column \"{{columnName}}\"",
           "connection": "Connection",
           "completion": "Completion",
           "unexpected": "Unexpected error"
@@ -652,7 +642,6 @@
               "resolutionDescription": "Choose which field should keep the two-way link behavior.",
               "option": {
                 "keepCurrent": "Keep the current field as the two-way link",
-                "keepDuplicate": "Keep the duplicate field as the two-way link",
                 "convertDuplicate": "Convert the duplicate field to a one-way link"
               }
             }
@@ -666,15 +655,18 @@
       }
     },
     "index": {
-      "description": "Індекси можуть значно підвищити ефективність пошуку, особливо під час роботи з великими обсягами даних (понад {{rowCount}} рядків). Недоліком є ​​дещо повільніші операції запису. Якщо ви часто виконуєте пошук або маєте великі набори даних, рекомендується щоб увімкнути індексацію.",
-      "repair": "ремонт",
-      "repairTip": "Виявлено аномалії індексу, які можуть спричинити погіршення продуктивності пошуку. Рекомендовано натиснути кнопку відновлення, щоб виправити індекс",
-      "enableIndexTip": "Ви створюєте індекс. Необхідний час залежить від розміру таблиці. Під час цього процесу може вплинути швидкість читання та запису таблиці. Будь ласка, будьте терплячими.",
-      "globalSearchTip_infinity": "Шукати в усіх полях, крім дати, поля прапорця та поля кнопок",
-      "globalSearchTip_limited": "Шукати в усіх полях, крім дати, поля прапорця та поля кнопок, максимум {{count}} полей",
-      "autoIndexTip": "Ваша таблиця перевищила кількість рядків ({{rowCount}}). Ми рекомендуємо ввімкнути індексування, щоб покращити ефективність пошуку. Зауважте, що індексування може дещо зменшити швидкість запису. Під час створення індексу продуктивність читання/запису таблиці може тимчасово вплинути. Будь ласка будь терплячим.",
+      "description": "Індекси можуть значно покращити продуктивність пошуку, особливо коли даних багато (понад {{rowCount}} рядків). Недолік полягає в тому, що операції запису стають трохи повільнішими. Якщо ви часто виконуєте пошук або маєте багато даних, рекомендуємо ввімкнути індекси",
+      "repair": "Оновити індекс",
+      "repairTip": "Виявлено аномалії індексу, які можуть погіршити продуктивність пошуку. Рекомендуємо натиснути кнопку Оновити індекс, щоб оновити індекс",
+      "enableIndexTip": "Ви створюєте індекс. Необхідний час залежить від розміру таблиці. Під час цього процесу може бути зачеплена продуктивність читання та запису таблиці. Будь ласка, зачекайте",
+      "fieldSearchTip_limited": "Коли вимкнено, нечіткий пошук виконується по всіх полях. Поля дати, прапорця та кнопки не підтримуються. Підтримується до {{count}} полів",
+      "fieldSearchTip_infinity": "Коли вимкнено, нечіткий пошук виконується по всіх полях. Поля дати, прапорця та кнопки не підтримуються",
+      "globalSearchFieldTip": "Увімкнено режим глобального пошуку. Нечіткий пошук виконується по всіх полях. Поля дати, прапорця та кнопки не підтримуються",
+      "hideNotMatchRowTip": "Коли вимкнено, показувати всі рядки",
+      "autoIndexTip": "Ваша таблиця перевищила {{rowCount}} рядків. Рекомендуємо ввімкнути індекси, щоб покращити продуктивність пошуку. Увімкнення індексів може трохи зменшити швидкість запису. Під час створення індексу може бути зачеплена продуктивність читання/запису таблиці. Будь ласка, зачекайте",
       "enableIndex": "увімкнути",
-      "keepAsIs": "залишити як"
+      "keepAsIs": "залишити як",
+      "ignoreIndexError": "тимчасово ігнорувати"
     }
   },
   "import": {
@@ -696,11 +688,11 @@
     "menu": {
       "addFromOtherSource": "Додати з інших джерел",
       "excelFile": "Microsoft Excel",
+      "airtable": "Airtable",
       "csvFile": "CSV-файл",
       "importCsvData": "Імпортувати дані CSV",
       "importExcelData": "Імпортувати дані Microsoft Excel",
       "cancel": "Скасувати",
-      "leave": "Залишити",
       "downAsCsv": "Завантажити csv",
       "importData": "Імпорт даних",
       "duplicate": "Дублювати",
@@ -713,7 +705,6 @@
     },
     "tips": {
       "importWayTip": "Натисніть або перетягніть файл у цю область, щоб завантажити",
-      "leaveTip": "Ваші дані все одно будуть імпортовані.",
       "fileExceedSizeTip": "Розмір файлу цього типу перевищує ліміт",
       "analyzing": "аналіз",
       "importing": "Імпорт",
@@ -743,11 +734,6 @@
       "option": {
         "doNotImport": "Не імпортувати"
       }
-    }
-  },
-  "export": {
-    "menu": {
-      "exportCsv": "Завантажити CSV"
     }
   },
   "grid": {
@@ -824,13 +810,13 @@
   "menu": {
     "insertRecordAbove": "Вставити запис <input /> вище",
     "insertRecordBelow": "Вставте запис <input /> нижче",
-    "copyCells": "Копіювати комірки",
     "deleteRecord": "Видалити запис",
     "deleteAllSelectedRecords": "Видалити всі вибрані записи",
     "editField": "Поле редагування",
     "insertFieldLeft": "Вставити ліворуч",
     "insertFieldRight": "Вставити праворуч",
     "freezeUpField": "Закріпити до цього поля",
+    "freezeFieldWindowTooNarrow": "Неможливо закріпити до цієї області, оскільки поточне вікно занадто вузьке",
     "hideField": "Приховати поле",
     "deleteField": "Видалити поле",
     "deleteAllSelectedFields": "Видалити всі вибрані поля",
@@ -850,7 +836,7 @@
     "noPermission": "У вас немає дозволів на доступ до бази даних",
     "connectionCountTip": "Максимальна кількість підключень до бази даних - <b>{{max}}</b>, поточна кількість підключень - <b>{{current}}</b>",
     "createFailed": "Пожалуйста, переконайтеся, що змінне середовище PUBLIC_DATABASE_PROXY встановлено правильно",
-    "helpLink": "https://help.teable.ai/en/deploy/database-connection"
+    "readonlyUnavailable": "Readonly database sharing is unavailable for this data database. Grant the Teable database user permission to create roles and grants, or use a target database that supports readonly roles."
   },
   "view": {
     "addRecord": "Додати запис",
@@ -896,30 +882,18 @@
     "deletedResource": "Ресурс"
   },
   "baseShare": {
-    "title": "Поділитися базою",
     "shareTitle": "Поділитися",
     "shareToWeb": "Поділитися в Інтернеті",
-    "description": "Поділитися «{{baseName}}» з іншими",
-    "nodeShareDescription": "Поділитися «{{nodeName}}» та його вмістом",
-    "shareLinks": "Посилання для спільного доступу",
-    "newLink": "Нове посилання",
-    "noShareLinks": "Ще немає посилань для спільного доступу",
-    "createFirstLink": "Створити посилання для спільного доступу",
-    "editSettings": "Змінити налаштування",
     "refreshLink": "Оновити посилання",
-    "deleteLink": "Видалити посилання",
     "deleteConfirmTitle": "Видалити посилання для спільного доступу",
     "deleteConfirmDescription": "Цю дію не можна скасувати. Люди з цим посиланням більше не матимуть доступу до спільної бази.",
     "createSuccess": "Посилання для спільного доступу створено",
     "createFailed": "Не вдалося створити посилання для спільного доступу",
-    "updateSuccess": "Налаштування спільного доступу оновлено",
     "updateFailed": "Не вдалося оновити налаштування спільного доступу",
     "deleteSuccess": "Посилання для спільного доступу видалено",
     "deleteFailed": "Не вдалося видалити посилання для спільного доступу",
     "refreshSuccess": "Посилання для спільного доступу оновлено",
     "refreshFailed": "Не вдалося оновити посилання для спільного доступу",
-    "copied": "Посилання скопійовано в буфер обміну",
-    "shareLink": "Посилання для спільного доступу",
     "linkHolderLabel": "Особа, яка отримала посилання",
     "linkHolderCanView": "Може переглядати",
     "linkHolderCanViewDesc": "Anyone with the link can view the data",
@@ -936,27 +910,9 @@
     "linkHolderCanCopyAndSave": "Може зберегти як копію",
     "linkHolderCanCopyAndSaveDesc": "Anyone with the link can save a copy to their space",
     "editRequiresLogin": "Users must log in to edit records",
-    "passwordProtection": "Захист паролем",
     "enterPassword": "Введіть пароль",
-    "selectNodes": "Вибрати таблиці",
-    "shareEntireBase": "Поділитися всією базою",
-    "shareSelectedNodes": "Поділитися вибраними вузлами",
-    "shareEntireBaseDescription": "Нові таблиці та папки, додані до цієї бази, будуть автоматично доступні",
-    "noNodesSelectedWarning": "Будь ласка, виберіть принаймні один вузол для спільного доступу",
-    "allowSave": "Дозволити збереження в просторі",
-    "allowSaveDescription": "Дозволити глядачам зберігати копію цієї бази у своєму просторі",
-    "allowCopy": "Дозволити копіювання даних",
     "allowCopyData": "Дозволити глядачам копіювати дані",
-    "allowDuplicate": "Дозволити глядачам дублювати",
-    "allowCopyDescription": "Дозволити глядачам копіювати дані таблиці з цієї спільної бази",
-    "selectedNodes": "Вибрано {{count}} таблиць",
-    "allNodes": "Усі таблиці",
     "sharedNode": "Спільний вузол",
-    "sharedNodeDescription": "Це посилання для спільного доступу призначено для конкретного вузла та його нащадків",
-    "publicShareTitle": "Публічний доступ за посиланням",
-    "publicShareCount": "{{count}} публічних посилань для спільного доступу",
-    "noPublicShare": "Немає публічних посилань для спільного доступу",
-    "security": "Безпека",
     "restrictByPassword": "Обмежити паролем",
     "advanced": "Додатково",
     "embedConfig": "Конфігурація вбудовування",
@@ -968,10 +924,23 @@
     "openLink": "Відкрити посилання",
     "appPublished": "Програму опубліковано",
     "shareTableTab": "Поділитися таблицею",
-    "shareViewTab": "Поділитися виглядом",
-    "shareNodeTab": "Поділитися вузлом"
+    "shareViewTab": "Поділитися виглядом"
   },
   "aiChat": {
+    "integrationConnect": {
+      "title": "Підключити {{provider}}",
+      "reconnectTitle": "Повторно підключити {{provider}}",
+      "defaultReason": "Агенту потрібен доступ до вашого облікового запису {{provider}}, щоб продовжити.",
+      "connect": "Підключити",
+      "connecting": "Підключення…",
+      "giveUp": "Відмовитися",
+      "failed": "Не вдалося підключитися",
+      "status": {
+        "connected": "Підключено",
+        "cancelled": "Пропущено",
+        "failed": "Помилка"
+      }
+    },
     "agent": {
       "askUserQuestion": {
         "otherPlaceholder": "Або введіть відповідь…"
@@ -1006,6 +975,11 @@
     "action": {
       "locateResource": "Знайти"
     },
+    "showUI": {
+      "skip": "Пропустити",
+      "next": "Наступний",
+      "submit": "Надіслати"
+    },
     "newChat": "Новий чат",
     "expand": "Розгорнути",
     "history": "Історія",
@@ -1021,14 +995,12 @@
       "other": "Інше"
     },
     "context": {
-      "button": "Додати вузол",
-      "search": "Додати таблиці",
       "searchEmpty": "Не знайдено відповідного контексту",
-      "emptyContext": "Немає контексту для додавання",
       "selectionRow": "Row {{row}}",
       "selectionRows": "Рядки {{start}}-{{end}}",
       "selectionColumn": "Col {{col}}",
-      "selectionColumns": "Col {{start}}-{{end}}"
+      "selectionColumns": "Col {{start}}-{{end}}",
+      "selectionColumnsNamed": "{{names}} +{{count}}"
     },
     "mention": {
       "tables": "Таблиці",
@@ -1036,17 +1008,28 @@
       "workflows": "Автоматизації",
       "folders": "Папки"
     },
-    "inputPlaceholder": "Введіть @, щоб додати вузол",
+    "slashCommand": {
+      "skills": "Skills",
+      "searchEmpty": "No results found"
+    },
+    "inputPlaceholder": "@ додає вузли, / запускає навички",
     "inputPlaceholderFiles": "Вставте або перетягніть файли сюди",
     "thought": "Міркування",
+    "stage": {
+      "initializing": "Ініціалізація",
+      "working": "Працює",
+      "committing": "Фіксація",
+      "recovering": "Відновлення"
+    },
     "meta": {
       "input": "Вхід",
-      "output": "Вихід",
-      "taskCompleted": "Завдання виконано"
+      "output": "Вихід"
     },
     "attachment": {
       "pastedTextFileName": "Вставлений текст",
-      "imageNotSupported": "Зображення не підтримується"
+      "imageNotSupported": "Зображення не підтримується",
+      "tooManyFiles": "Ви можете прикріпити не більше {{count}} файлів до одного повідомлення",
+      "storageFull": "Сховище пісочниці заповнене. Видаліть кілька файлів і повторіть спробу."
     },
     "suggestions": {
       "title": "Як я можу допомогти?",
@@ -1076,17 +1059,11 @@
   "download": {
     "allAttachments": {
       "title": "Завантажити всі вкладення",
-      "loading": "Завантаження попереднього перегляду...",
       "rowsWithAttachments": "Рядки з вклад.",
       "totalAttachments": "Вкладення",
       "totalSize": "Загальний розмір",
-      "confirmTitle": "Завантажити {{count}} файлів",
-      "confirmDescription": "Загальний розмір: {{size}}. Файли будуть стиснуті в ZIP-архів.",
-      "confirm": "Завантажити",
       "cancel": "Скасувати",
       "downloading": "Завантаження...",
-      "downloadingFile": "Завантаження: {{fileName}}",
-      "progress": "{{downloaded}} / {{total}}",
       "completed": "Завантаження завершено",
       "cancelled": "Завантаження скасовано",
       "noAttachments": "Немає вкладень для завантаження",
@@ -1100,6 +1077,19 @@
       "noPrefixOptionDesc": "Зберегти оригінальну назву файлу",
       "groupByRow": "Архівувати в папки",
       "groupByRowTip": "Коли рядок має кілька вкладень, вони будуть розміщені в одній папці; рядки з одним вкладенням не створюють папку."
+    }
+  },
+  "baseNode": {
+    "info": {
+      "menu": "Інформація про вузол",
+      "createdBy": "Створив",
+      "createdTime": "Час створення",
+      "lastModifiedBy": "Змінив",
+      "lastModifiedTime": "Час зміни",
+      "folderId": "ID папки",
+      "tableId": "ID таблиці",
+      "automationId": "ID автоматизації",
+      "appId": "ID додатка"
     }
   }
 }

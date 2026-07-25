@@ -64,6 +64,7 @@ const darkTheme = {
   // search cursor
   searchCursorBg: '#243854',
   searchTargetIndexBg: '#172231',
+  searchTargetIndexSelectedBg: '#1E2D43',
 
   // comment
   commentCountBg: colors.orange[400],

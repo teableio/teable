@@ -1,6 +1,6 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { context as otelContext, trace as otelTrace } from '@opentelemetry/api';
-import { FieldOpBuilder, IdPrefix, ViewOpBuilder } from '@teable/core';
+import { FieldOpBuilder, IdPrefix } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { noop } from 'lodash';
 import { ClsService } from 'nestjs-cls';
@@ -16,7 +16,7 @@ import { authMiddleware } from './auth.middleware';
 import type { IRawOpMap } from './interface';
 import { RealtimeMetricsService } from './metrics/realtime-metrics.service';
 import { RepairAttachmentOpService } from './repair-attachment-op/repair-attachment-op.service';
-import { ShareDbAdapter } from './share-db.adapter';
+import { ShareDbAdapter, type ComputedActivitySnapshotLoader } from './share-db.adapter';
 import { RedisPubSub } from './sharedb-redis.pubsub';
 
 const v2ProjectionOpSourcePrefix = '@@v2-projection:';
@@ -105,6 +105,10 @@ export class ShareDbService extends ShareDBClass {
     return this.connect();
   }
 
+  setComputedActivitySnapshotLoader(loader: ComputedActivitySnapshotLoader): void {
+    this.shareDbAdapter.setComputedActivitySnapshotLoader(loader);
+  }
+
   @Timing()
   private async updateTableMetaByRawOpMap(rawOpMap?: IRawOpMap[]) {
     if (!rawOpMap?.length) {
@@ -152,9 +156,9 @@ export class ShareDbService extends ShareDBClass {
           this.pubsub.publish(channels, repairedOp, noop);
           publishCount++;
 
-          if (this.shouldPublishAction(repairedOp)) {
+          if (this.shouldForwardToRecordChannel(repairedOp)) {
             const tableId = collection.split('_')[1];
-            this.publishRelatedChannels(tableId, repairedOp);
+            this.forwardToRecordChannel(tableId, repairedOp);
           }
         }
       }
@@ -164,28 +168,28 @@ export class ShareDbService extends ShareDBClass {
     }
   }
 
-  // for update record when import
+  // synthetic ops that only wake record query polling, never doc subscribers
+  // (no doc id): import progress and manual row reorder
   publishRecordChannel(tableId: string, rawOp: EditOp | CreateOp | DeleteOp) {
     this.pubsub.publish([`${IdPrefix.Record}_${tableId}`], rawOp, noop);
   }
 
-  private shouldPublishAction(rawOp: EditOp | CreateOp | DeleteOp) {
-    const viewKeys = ['filter', 'sort', 'group', 'lastModifiedTime'];
+  // field options shape record query result semantics (e.g. select choice
+  // order drives sorting) without emitting record ops, so their changes must
+  // wake record query subscriptions; the adapter's skipPoll narrows the
+  // fan-out to subscriptions referencing the field. View condition changes
+  // are not forwarded: clients inline view conditions into the query and
+  // resubscribe on change. Manual row reorder emits a synthetic record op
+  // itself (see ViewOpenApiService.publishRowOrderChange)
+  private shouldForwardToRecordChannel(rawOp: EditOp | CreateOp | DeleteOp) {
     const fieldKeys = ['options'];
-    return rawOp.op?.some(
-      (op) =>
-        viewKeys.includes(ViewOpBuilder.editor.setViewProperty.detect(op)?.key as string) ||
-        fieldKeys.includes(FieldOpBuilder.editor.setFieldProperty.detect(op)?.key as string)
+    return rawOp.op?.some((op) =>
+      fieldKeys.includes(FieldOpBuilder.editor.setFieldProperty.detect(op)?.key as string)
     );
   }
 
-  /**
-   * this is for some special scenarios like manual sort
-   * which only send view ops but update record too
-   */
-  private publishRelatedChannels(tableId: string, rawOp: EditOp | CreateOp | DeleteOp) {
+  private forwardToRecordChannel(tableId: string, rawOp: EditOp | CreateOp | DeleteOp) {
     this.pubsub.publish([`${IdPrefix.Record}_${tableId}`], rawOp, noop);
-    this.pubsub.publish([`${IdPrefix.Field}_${tableId}`], rawOp, noop);
   }
 
   private onSubmit = (

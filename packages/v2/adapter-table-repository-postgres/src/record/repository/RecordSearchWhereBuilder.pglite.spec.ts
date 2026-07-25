@@ -9,6 +9,7 @@ import {
   Table,
   TableId,
   TableName,
+  type IRecordSearchAccessPath,
   UserMultiplicity,
 } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
@@ -16,7 +17,10 @@ import type { Dialect } from 'kysely';
 import { Kysely, PostgresAdapter, PostgresIntrospector, PostgresQueryCompiler, sql } from 'kysely';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
-import { buildRecordSearchWhereClause } from './RecordSearchWhereBuilder';
+import {
+  buildRecordSearchWhereClause,
+  buildRecordSearchWherePlan,
+} from './RecordSearchWhereBuilder';
 
 class PGliteDialect implements Dialect {
   constructor(private readonly client: PGlite) {}
@@ -264,12 +268,14 @@ const findMatchingRecordIds = async ({
   fullTableName,
   search,
   visibleFieldIds,
+  searchAccessPath,
 }: {
   db: Kysely<V1TeableDatabase>;
   table: Table;
   fullTableName: string;
   search: RecordSearch;
   visibleFieldIds?: ReadonlyArray<FieldId>;
+  searchAccessPath?: IRecordSearchAccessPath;
 }) => {
   const whereClause = buildRecordSearchWhereClause(
     table,
@@ -279,6 +285,7 @@ const findMatchingRecordIds = async ({
     },
     {
       tableAlias: 't',
+      searchAccessPath,
     }
   )._unsafeUnwrap();
 
@@ -302,12 +309,14 @@ const compileSearchQuery = ({
   fullTableName,
   search,
   visibleFieldIds,
+  searchAccessPath,
 }: {
   db: Kysely<V1TeableDatabase>;
   table: Table;
   fullTableName: string;
   search: RecordSearch;
   visibleFieldIds?: ReadonlyArray<FieldId>;
+  searchAccessPath?: IRecordSearchAccessPath;
 }) => {
   const whereClause = buildRecordSearchWhereClause(
     table,
@@ -317,6 +326,7 @@ const compileSearchQuery = ({
     },
     {
       tableAlias: 't',
+      searchAccessPath,
     }
   )._unsafeUnwrap();
 
@@ -461,6 +471,188 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
     expect(compiled.sql.toLowerCase()).toContain('"t"."col_due" <');
     expect(compiled.sql.toLowerCase()).not.toContain('to_char(');
   });
+
+  it('compiles multiple-select searches to a text-cast ILIKE (gin_trgm-sargable) instead of a jsonb_array_elements subquery', async () => {
+    const fixture = await setupSearchFixture({ db, createdSchemas, seed: 'multi-select-sql' });
+
+    const compiled = compileSearchQuery({
+      db,
+      table: fixture.table,
+      fullTableName: fixture.fullTableName,
+      search: RecordSearch.fromTuple(['Beta', fixture.fieldIds.tags.toString(), true]),
+    });
+
+    const lower = compiled.sql.toLowerCase();
+    expect(lower).toContain('::text ilike');
+    expect(lower).not.toContain('jsonb_array_elements');
+  });
+
+  it('compiles field-scoped search to generated tsvector when explicitly requested and covered', async () => {
+    const fixture = await setupSearchFixture({ db, createdSchemas, seed: 'fts-sql' });
+    const search = RecordSearch.fromTuple(['Alpha', fixture.fieldIds.name.toString(), true]);
+    const searchAccessPath = {
+      kind: 'generated_tsvector' as const,
+      generatedColumnName: '__tqops_search_vector',
+      languageConfig: 'simple',
+      searchScope: 'selected_fields' as const,
+      coveredFieldIds: [fixture.fieldIds.name],
+    };
+    const plan = buildRecordSearchWherePlan(
+      fixture.table,
+      { search, visibleFieldIds: fixture.table.fieldIds() },
+      { tableAlias: 't', searchAccessPath }
+    )._unsafeUnwrap();
+
+    expect(plan.usedAccessPath).toBe('generated_tsvector');
+
+    const compiled = compileSearchQuery({
+      db,
+      table: fixture.table,
+      fullTableName: fixture.fullTableName,
+      search,
+      searchAccessPath,
+    });
+
+    const lower = compiled.sql.toLowerCase();
+    expect(lower).toContain('"t"."__tqops_search_vector" @@ websearch_to_tsquery');
+    expect(lower).not.toContain(' ilike ');
+  });
+
+  it('falls back to default search when generated tsvector scope does not cover the requested fields', async () => {
+    const fixture = await setupSearchFixture({ db, createdSchemas, seed: 'fts-fallback' });
+    const search = RecordSearch.fromTuple(['Alpha', fixture.fieldIds.name.toString(), true]);
+    const searchAccessPath = {
+      kind: 'generated_tsvector' as const,
+      generatedColumnName: '__tqops_search_vector',
+      languageConfig: 'simple',
+      searchScope: 'selected_fields' as const,
+      coveredFieldIds: [fixture.fieldIds.owner],
+    };
+    const plan = buildRecordSearchWherePlan(
+      fixture.table,
+      { search, visibleFieldIds: fixture.table.fieldIds() },
+      { tableAlias: 't', searchAccessPath }
+    )._unsafeUnwrap();
+
+    expect(plan.usedAccessPath).toBe('default');
+
+    const compiled = compileSearchQuery({
+      db,
+      table: fixture.table,
+      fullTableName: fixture.fullTableName,
+      search,
+      searchAccessPath,
+    });
+
+    const lower = compiled.sql.toLowerCase();
+    expect(lower).toContain(' ilike ');
+    expect(lower).not.toContain('@@ websearch_to_tsquery');
+  });
+
+  it('uses the global vector as a prefilter and rechecks an explicitly selected field', async () => {
+    const fixture = await setupSearchFixture({ db, createdSchemas, seed: 'fts-scoped-recheck' });
+
+    await sql`
+      ALTER TABLE ${sql.table(fixture.fullTableName)}
+      ADD COLUMN __tqops_search_vector tsvector GENERATED ALWAYS AS (
+        to_tsvector(
+          'simple'::regconfig,
+          COALESCE(col_name, '') || ' ' || COALESCE(col_owner::text, '')
+        )
+      ) STORED
+    `.execute(db);
+
+    const accessPath: IRecordSearchAccessPath = {
+      kind: 'generated_tsvector',
+      generatedColumnName: '__tqops_search_vector',
+      languageConfig: 'simple',
+      searchScope: 'all_fields',
+      coveredFieldIds: [fixture.fieldIds.name, fixture.fieldIds.owner],
+    };
+    const compiled = compileSearchQuery({
+      db,
+      table: fixture.table,
+      fullTableName: fixture.fullTableName,
+      search: RecordSearch.fromTuple(['Title', fixture.fieldIds.name.toString(), true]),
+      searchAccessPath: accessPath,
+    });
+
+    expect(compiled.sql.toLowerCase()).toContain(
+      '"t"."__tqops_search_vector" @@ websearch_to_tsquery'
+    );
+    expect(compiled.sql.toLowerCase()).toContain('to_tsvector');
+    expect(compiled.sql.toLowerCase()).not.toContain(' ilike ');
+    await expect(
+      findMatchingRecordIds({
+        db,
+        table: fixture.table,
+        fullTableName: fixture.fullTableName,
+        search: RecordSearch.fromTuple(['Title', fixture.fieldIds.name.toString(), true]),
+        searchAccessPath: accessPath,
+      })
+    ).resolves.toEqual([]);
+    await expect(
+      findMatchingRecordIds({
+        db,
+        table: fixture.table,
+        fullTableName: fixture.fullTableName,
+        search: RecordSearch.fromTuple([
+          'hidden-name@example.com',
+          fixture.fieldIds.owner.toString(),
+          true,
+        ]),
+        searchAccessPath: accessPath,
+      })
+    ).resolves.toEqual([]);
+  });
+
+  it('falls back for all-field search when the vector covers only a selected scope', async () => {
+    const fixture = await setupSearchFixture({ db, createdSchemas, seed: 'fts-selected-global' });
+    const compiled = compileSearchQuery({
+      db,
+      table: fixture.table,
+      fullTableName: fixture.fullTableName,
+      search: RecordSearch.fromTuple(['Alpha', '', true]),
+      searchAccessPath: {
+        kind: 'generated_tsvector',
+        generatedColumnName: '__tqops_search_vector',
+        languageConfig: 'simple',
+        searchScope: 'selected_fields',
+        coveredFieldIds: [fixture.fieldIds.name],
+      },
+    });
+
+    expect(compiled.sql.toLowerCase()).toContain(' ilike ');
+    expect(compiled.sql.toLowerCase()).not.toContain('@@ websearch_to_tsquery');
+  });
+
+  it('can query through a generated tsvector column for explicit full-text search validation', async () => {
+    const fixture = await setupSearchFixture({ db, createdSchemas, seed: 'fts-result' });
+
+    await sql`
+      ALTER TABLE ${sql.table(fixture.fullTableName)}
+      ADD COLUMN __tqops_search_vector tsvector GENERATED ALWAYS AS (
+        to_tsvector('simple'::regconfig, COALESCE(col_name, ''))
+      ) STORED
+    `.execute(db);
+
+    await expect(
+      findMatchingRecordIds({
+        db,
+        table: fixture.table,
+        fullTableName: fixture.fullTableName,
+        search: RecordSearch.fromTuple(['Alpha', fixture.fieldIds.name.toString(), true]),
+        searchAccessPath: {
+          kind: 'generated_tsvector',
+          generatedColumnName: '__tqops_search_vector',
+          languageConfig: 'simple',
+          searchScope: 'selected_fields',
+          coveredFieldIds: [fixture.fieldIds.name],
+        },
+      })
+    ).resolves.toEqual([fixture.recordIds.alpha]);
+  });
+
   it('does not filter rows for checkbox field-specific visible-row search', async () => {
     const fixture = await setupSearchFixture({ db, createdSchemas, seed: 'checkbox' });
 

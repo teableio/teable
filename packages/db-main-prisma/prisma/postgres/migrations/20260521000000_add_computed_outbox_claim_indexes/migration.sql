@@ -1,4 +1,4 @@
--- Speed up computed outbox polling under backlog pressure.
+-- Speed up computed outbox claims under backlog pressure.
 CREATE INDEX IF NOT EXISTS "computed_update_outbox_pending_claim_idx"
 ON "computed_update_outbox"("estimated_complexity", "next_run_at", "created_at", "id")
 WHERE "status" = 'pending';

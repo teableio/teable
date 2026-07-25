@@ -1,3 +1,5 @@
+import { LRUCache } from 'lru-cache';
+
 type IEnv = Record<string, string | undefined>;
 
 export type ITraceDbRole = 'meta' | 'data';
@@ -39,9 +41,24 @@ const normalizeConnection = (connection: ITraceDbConnection) => ({
   user: connection.user,
 });
 
-const parseDatabaseUrl = (url: string | undefined) => {
+type ParsedDatabaseUrl = {
+  database: string | undefined;
+  host: string;
+  port: number;
+  user: string | undefined;
+  url: string;
+};
+
+export const parseDatabaseUrlCache = new LRUCache<string, ParsedDatabaseUrl>({ max: 100 });
+
+export const parseDatabaseUrl = (url: string | undefined): ParsedDatabaseUrl | undefined => {
   if (!url) {
     return;
+  }
+
+  const cached = parseDatabaseUrlCache.get(url);
+  if (cached) {
+    return cached;
   }
 
   try {
@@ -50,15 +67,17 @@ const parseDatabaseUrl = (url: string | undefined) => {
     const port = normalizePort(parsed.port);
     const database = normalizeDatabaseName(parsed.pathname);
 
-    return {
+    const result = {
       database,
       host: parsed.hostname.toLowerCase(),
       port,
       user: parsed.username ? decodeURIComponent(parsed.username) : undefined,
       url: `${parsed.protocol}//${userPart}${parsed.hostname}${parsed.port ? `:${parsed.port}` : ''}${database ? `/${database}` : ''}`,
     };
+    parseDatabaseUrlCache.set(url, result);
+    return result;
   } catch {
-    return;
+    return undefined;
   }
 };
 

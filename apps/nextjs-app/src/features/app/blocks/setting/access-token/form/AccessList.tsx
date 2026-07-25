@@ -73,17 +73,17 @@ export const AccessList = (props: IAccessListProps) => {
   }, [spaceIds, baseIds, spaceMap, baseMap]);
 
   return (
-    <div className="pl-1 text-sm">
+    <div className="space-y-3 text-sm">
       {hasFullAccess && (
         <div className="space-y-1">
           <div className="text-xs text-muted-foreground">{t('accessSelect.fullAccess.title')}</div>
 
-          <div className="flex h-8 items-center justify-between">
+          <div className="flex h-8 items-center justify-between hover:bg-accent">
             <div className="flex items-center gap-2">
               <Component className="size-4 shrink-0" />
               {t('accessSelect.fullAccess.description')}
             </div>
-            <Button variant={'ghost'} size={'sm'} onClick={() => onDeleteFullAccess()}>
+            <Button variant={'ghost'} size={'icon-xs'} onClick={() => onDeleteFullAccess()}>
               <X className="size-4 shrink-0" />
             </Button>
           </div>
@@ -95,17 +95,18 @@ export const AccessList = (props: IAccessListProps) => {
         const displayBases = displayBaseMap[spaceId];
         return (
           <div key={spaceId} className="space-y-1">
-            <div className="text-xs text-muted-foreground">{space?.name}</div>
+            <div className="pl-2 text-xs font-medium text-muted-foreground">{space?.name}</div>
             <div>
               {displaySpace && (
-                <div className="flex h-8 items-center justify-between">
+                <div className="flex h-8 items-center justify-between rounded-md pl-2 pr-1 hover:bg-accent">
                   <div className="flex items-center gap-2">
                     <Component className="size-4 shrink-0" />
                     {t('allSpace')}
                   </div>
                   <Button
                     variant={'ghost'}
-                    size={'sm'}
+                    size={'icon-xs'}
+                    className="bg-transparent text-muted-foreground hover:text-foreground"
                     onClick={() => onDeleteSpaceId(displaySpace.id)}
                   >
                     <X className="size-4 shrink-0" />
@@ -113,7 +114,10 @@ export const AccessList = (props: IAccessListProps) => {
                 </div>
               )}
               {displayBases?.map((base) => (
-                <div key={base.id} className="flex h-8 items-center justify-between">
+                <div
+                  key={base.id}
+                  className="flex h-8 items-center justify-between rounded-md pl-2 pr-1 hover:bg-accent"
+                >
                   <div className="flex items-center gap-2">
                     {base.icon ? (
                       <Emoji className="w-4 shrink-0" emoji={base.icon} size={16} />
@@ -122,7 +126,12 @@ export const AccessList = (props: IAccessListProps) => {
                     )}
                     {base.name}
                   </div>
-                  <Button variant={'ghost'} size={'sm'} onClick={() => onDeleteBaseId(base.id)}>
+                  <Button
+                    variant={'ghost'}
+                    className="bg-transparent text-muted-foreground hover:text-foreground"
+                    size={'icon-xs'}
+                    onClick={() => onDeleteBaseId(base.id)}
+                  >
                     <X className="size-4 shrink-0" />
                   </Button>
                 </div>

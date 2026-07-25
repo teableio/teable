@@ -14,10 +14,10 @@ import {
   SpaceCreditTableRowLimitPolicy,
   registerV2PostgresStateAdapter,
 } from '@teable/v2-adapter-repository-postgres';
+import { registerV2TableOpsPostgresAdapter } from '@teable/v2-adapter-table-query-ops-postgres';
 import {
   createTypeValidationStrategy,
   registerV2TableRepositoryPostgresAdapter,
-  startComputedUpdatePollingIfEnabled,
   type IV2TableRepositoryPostgresConfig,
 } from '@teable/v2-adapter-table-repository-postgres';
 import { registerCommandExplainModule } from '@teable/v2-command-explain';
@@ -38,10 +38,16 @@ import {
   type ILogger,
   type TableDataSafetyLimitConfig,
   type ITracer,
+  type ITableQueryObservability,
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import { Lifecycle, container } from '@teable/v2-di';
 import { DotTeaParser } from '@teable/v2-dottea';
+import {
+  decorateV2TableRecordQueryRepositoryWithTableOps,
+  registerV2TableOps,
+  type RegisterV2TableOpsOptions,
+} from '@teable/v2-table-query-ops';
 
 import { resolveTableDataSafetyLimitsFromEnv } from './tableDataSafetyLimits';
 
@@ -58,6 +64,7 @@ export interface IV2NodePgContainerOptions {
   connectionString?: string;
   metaConnectionString?: string;
   dataConnectionString?: string;
+  dataSchema?: string;
   ensureSchema?: boolean;
   seed?: Partial<IV2PostgresStateAdapterConfig['seed']>;
   tableMaxRowLimit?: number;
@@ -66,9 +73,13 @@ export interface IV2NodePgContainerOptions {
   maxFreeRowLimit?: number;
   logger?: ILogger;
   tracer?: ITracer;
+  tableQueryObservability?: ITableQueryObservability;
   commandBusMiddlewares?: ReadonlyArray<ICommandBusMiddleware>;
   queryBusMiddlewares?: ReadonlyArray<IQueryBusMiddleware>;
   computedUpdate?: IV2TableRepositoryPostgresConfig['computedUpdate'];
+  tableQueryOps?: RegisterV2TableOpsOptions & {
+    ensureSchema?: boolean;
+  };
 }
 
 const createEventHandlerLogger = (
@@ -84,6 +95,12 @@ const createEventHandlerLogger = (
   }
   return baseLogger;
 };
+
+const canShareMetaAndDataDb = (
+  metaConnectionString: string,
+  dataConnectionString: string,
+  dataSchema: string | undefined
+) => metaConnectionString === dataConnectionString && !dataSchema;
 
 export const registerV2NodePgDependencies = async (
   c: DependencyContainer = container,
@@ -102,11 +119,13 @@ export const registerV2NodePgDependencies = async (
   }
   const dataConnectionString = options.dataConnectionString ?? metaConnectionString;
 
-  if (metaConnectionString === dataConnectionString) {
+  if (canShareMetaAndDataDb(metaConnectionString, dataConnectionString, options.dataSchema)) {
     await registerV2PostgresDb(c, { pg: { connectionString: metaConnectionString } });
   } else {
     await registerV2PostgresMetaDb(c, { pg: { connectionString: metaConnectionString } });
-    await registerV2PostgresDataDb(c, { pg: { connectionString: dataConnectionString } });
+    await registerV2PostgresDataDb(c, {
+      pg: { connectionString: dataConnectionString, schema: options.dataSchema },
+    });
     const metaDb = c.resolve(v2MetaDbTokens.db);
     c.registerInstance(v2PostgresDbTokens.db, metaDb);
     c.registerInstance(v2PostgresDbTokens.config, {
@@ -184,6 +203,10 @@ export const registerV2NodePgDependencies = async (
     });
   }
 
+  if (options.tableQueryObservability) {
+    c.registerInstance(v2CoreTokens.tableQueryObservability, options.tableQueryObservability);
+  }
+
   if (!c.isRegistered(v2CoreTokens.realtimeEngine)) {
     c.register(v2CoreTokens.realtimeEngine, NoopRealtimeEngine, {
       lifecycle: Lifecycle.Singleton,
@@ -217,7 +240,15 @@ export const registerV2NodePgDependencies = async (
   // Register command explain module
   registerCommandExplainModule(c);
 
-  startComputedUpdatePollingIfEnabled(c);
+  if (options.tableQueryOps) {
+    registerV2TableOps(c, options.tableQueryOps);
+    await registerV2TableOpsPostgresAdapter(c, {
+      metaDb,
+      dataDb,
+      ensureSchema: options.tableQueryOps.ensureSchema ?? options.ensureSchema,
+    });
+    decorateV2TableRecordQueryRepositoryWithTableOps(c);
+  }
 
   return c;
 };

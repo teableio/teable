@@ -29,6 +29,32 @@ export type SystemOrderColumn =
   | '__last_modified_time'
   | `__row_${string}`;
 
+export interface IRecordReadQuerySource {
+  readonly tableName: string;
+  readonly cteName: string;
+  readonly cteSql: string;
+  readonly enabledFieldIds?: ReadonlyArray<string>;
+}
+
+export type IRecordSearchAccessPath =
+  | { readonly kind: 'default' }
+  | {
+      readonly kind: 'generated_tsvector';
+      readonly generatedColumnName: string;
+      readonly languageConfig: string;
+      readonly searchScope: 'all_fields' | 'selected_fields';
+      readonly coveredFieldIds: ReadonlyArray<FieldId>;
+    };
+
+export type RecordSearchAccessPathKind = 'default' | 'generated_tsvector';
+
+export type RecordSearchAccessPathFallbackReason = 'generated_tsvector_unavailable';
+
+export interface IRecordSearchAccessPathResolution {
+  readonly requested: RecordSearchAccessPathKind;
+  readonly used: RecordSearchAccessPathKind;
+  readonly fallbackReason?: RecordSearchAccessPathFallbackReason;
+}
 export interface ITableRecordQueryOptions {
   /**
    * Query mode:
@@ -83,6 +109,17 @@ export interface ITableRecordQueryOptions {
    * through record-filter operators.
    */
   readonly search?: RecordQuerySearch;
+
+  /**
+   * Optional explicit search access path used by internal/admin validation flows.
+   * Omitted or `default` keeps the existing v1-compatible ILIKE behavior.
+   */
+  readonly searchAccessPath?: IRecordSearchAccessPath;
+
+  /**
+   * Optional explicit read source used by permission-scoped record reads.
+   */
+  readonly recordReadQuerySource?: IRecordReadQuerySource;
 }
 
 /**
@@ -150,6 +187,16 @@ export interface ITableRecordQueryStreamOptions {
    * Optional v1-compatible search query used for visible-row semantics.
    */
   readonly search?: RecordQuerySearch;
+
+  /**
+   * Optional explicit search access path used by internal/admin validation flows.
+   */
+  readonly searchAccessPath?: IRecordSearchAccessPath;
+
+  /**
+   * Optional explicit read source used by permission-scoped record reads.
+   */
+  readonly recordReadQuerySource?: IRecordReadQuerySource;
 }
 
 /** Result type for paginated record queries */
@@ -158,6 +205,8 @@ export interface ITableRecordQueryResult {
   readonly records: ReadonlyArray<TableRecordReadModel>;
   /** Total count of records matching the query (for pagination) */
   readonly total: number;
+  /** Actual search access path selected by the repository after SQL planning. */
+  readonly searchAccessPath?: IRecordSearchAccessPathResolution;
 }
 
 export interface ITableRecordQueryRepository {
@@ -190,7 +239,7 @@ export interface ITableRecordQueryRepository {
     context: IExecutionContext,
     table: Table,
     recordId: RecordId,
-    options?: Pick<ITableRecordQueryOptions, 'mode' | 'includeOrders'>
+    options?: Pick<ITableRecordQueryOptions, 'mode' | 'includeOrders' | 'recordReadQuerySource'>
   ): Promise<Result<TableRecordReadModel, DomainError>>;
 
   /**

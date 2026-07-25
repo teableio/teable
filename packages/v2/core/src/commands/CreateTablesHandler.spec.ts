@@ -37,6 +37,7 @@ import type {
   ITableRecordRepository,
   InsertManyStreamOptions,
   InsertManyStreamResult,
+  InsertOptions,
   RecordMutationResult,
 } from '../ports/TableRecordRepository';
 import type { ITableRepository, TableProvisionState } from '../ports/TableRepository';
@@ -97,6 +98,13 @@ class FakeTableRepository implements ITableRepository {
   async insertMany(_context: IExecutionContext, tables: ReadonlyArray<Table>) {
     this.inserted.push(...tables);
     return ok([...tables]);
+  }
+
+  async duplicatePhysicalRows(
+    _context: any,
+    _plan: any
+  ): Promise<Result<{ rowCount: number; recordIds: string[] }, DomainError>> {
+    return ok({ rowCount: 0, recordIds: [] });
   }
 
   async findOne(
@@ -176,6 +184,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   insertedCount = 0;
   insertedTableIds: string[] = [];
   insertedRecordsByTable = new Map<string, TableRecord[]>();
+  insertOptions: InsertOptions[] = [];
 
   async insert(
     _context: IExecutionContext,
@@ -188,10 +197,14 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   async insertMany(
     _context: IExecutionContext,
     table: Table,
-    records: ReadonlyArray<TableRecord>
+    records: ReadonlyArray<TableRecord>,
+    options?: InsertOptions
   ): Promise<Result<BatchRecordMutationResult, DomainError>> {
     const tableId = table.id().toString();
     this.insertedTableIds.push(tableId);
+    if (options) {
+      this.insertOptions.push(options);
+    }
     this.insertedCount += records.length;
     const existing = this.insertedRecordsByTable.get(tableId) ?? [];
     this.insertedRecordsByTable.set(tableId, [...existing, ...records]);
@@ -433,6 +446,11 @@ describe('CreateTablesHandler', () => {
     result._unsafeUnwrap();
 
     expect(recordRepository.insertedCount).toBe(3);
+    expect(recordRepository.insertOptions).toHaveLength(2);
+    expect(recordRepository.insertOptions).toEqual([
+      expect.objectContaining({ allowPendingTableProvisionForComputedUpdates: true }),
+      expect.objectContaining({ allowPendingTableProvisionForComputedUpdates: true }),
+    ]);
   });
 
   it('keeps record insertion mapped to input order', async () => {

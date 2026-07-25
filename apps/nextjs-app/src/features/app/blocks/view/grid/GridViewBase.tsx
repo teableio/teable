@@ -11,32 +11,54 @@ interface IGridViewProps {
   onRowExpand?: (recordId: string) => void;
 }
 
-export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) => {
+const GridViewBaseLoaded: React.FC<IGridViewProps> = (props) => {
   const { groupPointsServerDataMap, onRowExpand } = props;
   const activeViewId = useViewId();
-  const view = useView(activeViewId) as GridView | undefined;
+  // useGridColumns reads ComputeActivityContext revision so amber headers refresh.
   const { columns } = useGridColumns();
-  const isLoading = !view || !columns.length;
-  const isHydrated = useIsHydrated();
-
+  if (!columns.length) {
+    return (
+      <div className="relative size-full overflow-hidden">
+        <div className="flex w-full items-center space-x-4">
+          <div className="w-full space-y-3 px-2">
+            <Skeleton className="h-7 w-full" />
+            <Skeleton className="h-7 w-full" />
+            <Skeleton className="h-7 w-full" />
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
-    <>
-      {isHydrated && !isLoading ? (
+    <div className="relative flex size-full flex-col overflow-hidden">
+      <div className="min-h-0 flex-1">
         <GridViewBaseInner
           groupPointsServerData={groupPointsServerDataMap?.[activeViewId as string]}
           onRowExpand={onRowExpand}
         />
-      ) : (
-        <div className="relative size-full overflow-hidden">
-          <div className="flex w-full items-center space-x-4">
-            <div className="w-full space-y-3 px-2">
-              <Skeleton className="h-7 w-full" />
-              <Skeleton className="h-7 w-full" />
-              <Skeleton className="h-7 w-full" />
-            </div>
+      </div>
+    </div>
+  );
+};
+
+export const GridViewBase: React.FC<IGridViewProps> = (props: IGridViewProps) => {
+  const activeViewId = useViewId();
+  const view = useView(activeViewId) as GridView | undefined;
+  const isHydrated = useIsHydrated();
+
+  if (!isHydrated || !view) {
+    return (
+      <div className="relative size-full overflow-hidden">
+        <div className="flex w-full items-center space-x-4">
+          <div className="w-full space-y-3 px-2">
+            <Skeleton className="h-7 w-full" />
+            <Skeleton className="h-7 w-full" />
+            <Skeleton className="h-7 w-full" />
           </div>
         </div>
-      )}
-    </>
-  );
+      </div>
+    );
+  }
+
+  return <GridViewBaseLoaded {...props} />;
 };

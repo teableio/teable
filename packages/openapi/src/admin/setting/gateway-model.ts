@@ -1,5 +1,8 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
+import { axios } from '../../axios';
+import { registerRoute, urlBuilder } from '../../utils';
 import { modelAbilitySchema } from './model-ability';
 import {
   legacyRatesSchema,
@@ -41,6 +44,7 @@ export const GatewayModelProviderValues = [
   'deepseek',
   'google',
   'inception',
+  'interfaze',
   'kwaipilot',
   'meituan',
   'meta',
@@ -54,7 +58,9 @@ export const GatewayModelProviderValues = [
   'prime-intellect',
   'prodia',
   'recraft',
+  'sakana',
   'stealth',
+  'stepfun',
   'vercel',
   'voyage',
   'xai',
@@ -75,8 +81,10 @@ export enum GatewayModelDefaultFor {
 
 // Individual gateway model configuration (admin-maintained)
 export const gatewayModelSchema = z.object({
-  // modelId used directly with AI Gateway (e.g., "anthropic/claude-sonnet-4")
-  id: z.string(),
+  // Model ID used directly with AI Gateway; '@' is reserved for model keys.
+  id: z.string().refine((id) => !id.includes('@'), {
+    message: `Gateway model id cannot contain '@' (reserved model key delimiter)`,
+  }),
   // Display label (e.g., "Claude Sonnet 4")
   label: z.string(),
   // Whether this model is visible to end users
@@ -108,6 +116,15 @@ export const gatewayModelSchema = z.object({
   description: z.string().optional(),
   // Admin-curated i18n description (e.g., "Most capable for ambitious work")
   i18nDescription: z
+    .object({
+      en: z.string().optional(),
+      zh: z.string().optional(),
+    })
+    .optional(),
+  // Promoted in the chat model nudge (at most one model)
+  recommended: z.boolean().optional(),
+  // Admin-curated nudge copy; falls back to the generic i18n copy when empty
+  recommendedDescription: z
     .object({
       en: z.string().optional(),
       zh: z.string().optional(),
@@ -164,3 +181,34 @@ export function convertGatewayApiModel(raw: IGatewayApiModelRaw): IGatewayApiMod
     pricing: normalizeGatewayPricing(raw.pricing),
   };
 }
+
+export const getGatewayModelsVoSchema = z.object({
+  configured: z.boolean(),
+  models: z.array(gatewayApiModelSchema),
+});
+
+export type IGetGatewayModelsVo = z.infer<typeof getGatewayModelsVoSchema>;
+
+export const GET_AI_PROXY_GATEWAY_MODELS = '/v1/ai-proxy/gateway-models';
+
+export const GetAiProxyGatewayModelsRoute: RouteConfig = registerRoute({
+  method: 'get',
+  path: GET_AI_PROXY_GATEWAY_MODELS,
+  description:
+    'Get AI Gateway models supported by the agent runtime (enterprise/cloud editions only)',
+  responses: {
+    200: {
+      description: 'Supported gateway models; configured=false when no gateway key is set.',
+      content: {
+        'application/json': {
+          schema: getGatewayModelsVoSchema,
+        },
+      },
+    },
+  },
+  tags: ['admin'],
+});
+
+export const getAiProxyGatewayModels = async () => {
+  return axios.get<IGetGatewayModelsVo>(urlBuilder(GET_AI_PROXY_GATEWAY_MODELS));
+};

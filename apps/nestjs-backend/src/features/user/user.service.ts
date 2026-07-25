@@ -1,6 +1,6 @@
 import https from 'https';
 import { join } from 'path';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   generateAccountId,
   generateSpaceId,
@@ -11,7 +11,7 @@ import {
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
-import { CollaboratorType, PrincipalType, UploadType } from '@teable/openapi';
+import { CollaboratorType, isEmailDomainBanned, PrincipalType, UploadType } from '@teable/openapi';
 import type { IUserInfoVo, ICreateSpaceRo, IUserNotifyMeta } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import { I18nContext } from 'nestjs-i18n';
@@ -23,16 +23,21 @@ import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
 import { UserSignUpEvent } from '../../event-emitter/events/user/user.event';
 import type { IClsStore } from '../../types/cls';
+import { AVATAR_OUTPUT_MIMETYPE, AVATAR_SIZE, cropSquareAvatarImage } from '../../utils/avatar';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
-import { Audit } from '../audit/audit.decorator';
 import { AuditScope } from '../audit/audit-scope';
+import { Audit } from '../audit/audit.decorator';
 import { UserModel } from '../model/user';
+import type { IRiskCheckType } from '../risk-control/risk-control.service';
+import { RiskControlService } from '../risk-control/risk-control.service';
 import { SettingService } from '../setting/setting.service';
 
 @Injectable()
 export class UserService {
+  private readonly logger = new Logger(UserService.name);
+
   constructor(
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
@@ -40,6 +45,7 @@ export class UserService {
     private readonly settingService: SettingService,
     private readonly cacheService: CacheService,
     private readonly userModel: UserModel,
+    private readonly riskControlService: RiskControlService,
     @BaseConfig() private readonly baseConfig: IBaseConfig,
     @InjectStorageAdapter() readonly storageAdapter: StorageAdapter,
     private readonly audit: AuditScope
@@ -109,6 +115,32 @@ export class UserService {
     return space;
   }
 
+  /**
+   * NOTE: callers run this inside a Prisma transaction, so it must not await
+   * external I/O — run the (remote) risk control check before the transaction
+   * via `throwIfEmailDeniedByRiskControl` instead.
+   */
+  /**
+   * Merges the affiliate token (teable_affiliate_via cookie via CLS — see
+   * apps/nextjs-app/src/lib/affiliate-cookie.ts) into refMeta. Lives at the
+   * self-signup choke point so password and OAuth/SSO paths store one shape.
+   */
+  private withAffiliateVia(
+    refMeta: Prisma.UserCreateInput['refMeta']
+  ): Prisma.UserCreateInput['refMeta'] {
+    const via = this.cls.get('affiliateVia');
+    if (!via) {
+      return refMeta;
+    }
+    try {
+      const parsed = refMeta ? JSON.parse(refMeta) : {};
+      return JSON.stringify({ ...parsed, attribution: { via } });
+    } catch {
+      // Attribution must never break account creation — keep refMeta as-is.
+      return refMeta;
+    }
+  }
+
   async createUserWithSettingCheck(
     user: Omit<Prisma.UserCreateInput, 'name'> & { name?: string },
     account?: Omit<Prisma.AccountUncheckedCreateInput, 'userId'>,
@@ -116,6 +148,7 @@ export class UserService {
     inviteCode?: string,
     autoSpaceCreation: boolean = true
   ) {
+    user = { ...user, refMeta: this.withAffiliateVia(user.refMeta) };
     const setting = await this.settingService.getSetting();
     if (setting?.disallowSignUp) {
       throw new CustomHttpException(
@@ -128,11 +161,42 @@ export class UserService {
         }
       );
     }
+    this.throwIfEmailDomainBanned(user.email, setting.bannedEmailDomains);
     if (setting.enableWaitlist) {
       await this.checkWaitlistInviteCode(inviteCode);
     }
 
     return await this.createUser(user, account, defaultSpaceName, autoSpaceCreation);
+  }
+
+  throwIfEmailDomainBanned(email: string, bannedEmailDomains?: string[] | null) {
+    if (isEmailDomainBanned(email, bannedEmailDomains)) {
+      this.logger.log(`[banned-domain] rejected email=${email}`);
+      throw new CustomHttpException(
+        'This email domain has been banned due to policy violations',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.user.emailDomainBanned',
+          },
+        }
+      );
+    }
+  }
+
+  /** Same rejection as the local banned list, but backed by the external risk service. */
+  async throwIfEmailDeniedByRiskControl(type: IRiskCheckType, email: string) {
+    if (await this.riskControlService.isEmailDenied(type, email)) {
+      throw new CustomHttpException(
+        'This email domain has been banned due to policy violations',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.user.emailDomainBanned',
+          },
+        }
+      );
+    }
   }
 
   async checkWaitlistInviteCode(inviteCode?: string) {
@@ -235,30 +299,36 @@ export class UserService {
         avatar: true,
       },
     });
+    // Consumed by the SigNoz spam-name alert pipeline: it filters on `event`
+    // and groups by `userId`/`newName`, so these keys are a downstream
+    // contract. Keep fields as structured attributes — never concatenate
+    // `name` into the message (attacker-controlled input).
+    this.logger.log({
+      event: 'user.name.set',
+      userId: id,
+      newName: name,
+      msg: 'user name set',
+    });
     this.eventEmitterService.emitAsync(Events.USER_RENAME, user);
   }
-
-  // Avatar size for cropping (square)
-  private static readonly avatarSize = 128;
-  private static readonly avatarMimetype = 'image/webp';
 
   async updateAvatar(id: string, avatarFile: { path: string; mimetype: string; size: number }) {
     const storagePath = join(StorageAdapter.getDir(UploadType.Avatar), id);
     const bucket = StorageAdapter.getBucket(UploadType.Avatar);
 
     // Crop the image to a square before uploading
-    const croppedImageBuffer = await this.cropAvatarImage(avatarFile.path);
+    const croppedImageBuffer = await cropSquareAvatarImage(avatarFile.path, AVATAR_SIZE);
 
     // Upload the cropped image buffer directly
     const { hash } = await this.storageAdapter.uploadFile(bucket, storagePath, croppedImageBuffer, {
       // eslint-disable-next-line @typescript-eslint/naming-convention
-      'Content-Type': UserService.avatarMimetype,
+      'Content-Type': AVATAR_OUTPUT_MIMETYPE,
     });
 
     await this.mountAttachment(id, {
       hash,
       size: croppedImageBuffer.length,
-      mimetype: UserService.avatarMimetype,
+      mimetype: AVATAR_OUTPUT_MIMETYPE,
       token: id,
       path: storagePath,
     });
@@ -273,47 +343,6 @@ export class UserService {
       },
       where: { id, deletedTime: null },
     });
-  }
-
-  /**
-   * Crop avatar image to a square (center crop) and resize to avatarSize
-   * Output format is WebP for better compression
-   */
-  private async cropAvatarImage(filePath: string): Promise<Buffer> {
-    try {
-      const image = sharp(filePath, { failOn: 'none' });
-      const metadata = await image.metadata();
-
-      if (!metadata.width || !metadata.height) {
-        throw new CustomHttpException('Unsupported file type', HttpErrorCode.VALIDATION_ERROR, {
-          localization: {
-            i18nKey: 'httpErrors.attachment.invalidImage',
-          },
-        });
-      }
-
-      // Center crop to square
-      const size = Math.min(metadata.width, metadata.height);
-      const left = Math.floor((metadata.width - size) / 2);
-      const top = Math.floor((metadata.height - size) / 2);
-
-      return await image
-        .extract({ left, top, width: size, height: size })
-        .resize(UserService.avatarSize, UserService.avatarSize)
-        .webp({ quality: 85 })
-        .toBuffer();
-    } catch (error) {
-      // If it's already a CustomHttpException, rethrow it
-      if (error instanceof CustomHttpException) {
-        throw error;
-      }
-      // For any other errors (e.g., unsupported format, corrupted file), throw 400
-      throw new CustomHttpException('Unsupported file type', HttpErrorCode.VALIDATION_ERROR, {
-        localization: {
-          i18nKey: 'httpErrors.attachment.invalidImage',
-        },
-      });
-    }
   }
 
   private async mountAttachment(
@@ -334,12 +363,37 @@ export class UserService {
   }
 
   async updateNotifyMeta(id: string, notifyMetaRo: IUserNotifyMeta) {
-    await this.prismaService.txClient().user.update({
-      data: {
-        notifyMeta: JSON.stringify(notifyMetaRo),
-      },
-      where: { id, deletedTime: null },
+    await this.prismaService.$tx(async () => {
+      const [user] = await this.prismaService.txClient().$queryRaw<
+        Array<{ notifyMeta: string | null }>
+      >`
+        SELECT "notify_meta" AS "notifyMeta"
+        FROM "users"
+        WHERE "id" = ${id}
+          AND "deleted_time" IS NULL
+        FOR UPDATE
+      `;
+      const prevNotifyMeta = this.parseNotifyMeta(user?.notifyMeta);
+
+      await this.prismaService.txClient().user.update({
+        data: {
+          notifyMeta: JSON.stringify({ ...prevNotifyMeta, ...notifyMetaRo }),
+        },
+        where: { id, deletedTime: null },
+      });
     });
+  }
+
+  private parseNotifyMeta(notifyMeta?: string | null): IUserNotifyMeta {
+    if (!notifyMeta) {
+      return {};
+    }
+
+    try {
+      return JSON.parse(notifyMeta) as IUserNotifyMeta;
+    } catch {
+      return {};
+    }
   }
 
   async updateLang(id: string, lang: string) {
@@ -406,14 +460,14 @@ export class UserService {
               croppedBuffer,
               {
                 // eslint-disable-next-line @typescript-eslint/naming-convention
-                'Content-Type': UserService.avatarMimetype,
+                'Content-Type': AVATAR_OUTPUT_MIMETYPE,
               }
             );
 
             await this.mountAttachment(userId, {
               hash: hash,
               size: croppedBuffer.length,
-              mimetype: UserService.avatarMimetype,
+              mimetype: AVATAR_OUTPUT_MIMETYPE,
               token: userId,
               path: storagePath,
             });
@@ -429,7 +483,7 @@ export class UserService {
   }
 
   /**
-   * Crop avatar image buffer to a square (center crop) and resize to avatarSize
+   * Crop avatar image buffer to a square (center crop) and resize to AVATAR_SIZE
    * Output format is WebP for better compression
    */
   private async cropAvatarBuffer(imageBuffer: Buffer): Promise<Buffer> {
@@ -438,10 +492,7 @@ export class UserService {
 
     if (!metadata.width || !metadata.height) {
       // If we can't get metadata, just resize without center crop
-      return image
-        .resize(UserService.avatarSize, UserService.avatarSize)
-        .webp({ quality: 85 })
-        .toBuffer();
+      return image.resize(AVATAR_SIZE, AVATAR_SIZE).webp({ quality: 85 }).toBuffer();
     }
 
     // Center crop to square
@@ -451,7 +502,7 @@ export class UserService {
 
     return image
       .extract({ left, top, width: size, height: size })
-      .resize(UserService.avatarSize, UserService.avatarSize)
+      .resize(AVATAR_SIZE, AVATAR_SIZE)
       .webp({ quality: 85 })
       .toBuffer();
   }
@@ -469,6 +520,9 @@ export class UserService {
     onCreateNewUser?: () => void
   ) {
     let isNewUser = false;
+    // Risk control first, before the transaction — a slow risk service must
+    // never hold a database connection.
+    await this.throwIfEmailDeniedByRiskControl('signup', user.email);
     const res = await this.prismaService.$tx(async () => {
       const { email, name, provider, providerId, type, avatarUrl } = user;
       // account exist check

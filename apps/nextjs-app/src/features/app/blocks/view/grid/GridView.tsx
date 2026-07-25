@@ -1,3 +1,4 @@
+import { ComputeActivityProvider } from '@teable/sdk';
 import {
   AggregationProvider,
   RecordProvider,
@@ -20,10 +21,12 @@ export const GridView = (props: IViewBaseProps) => {
         <AggregationProvider query={personalViewAggregationQuery}>
           <TaskStatusCollectionProvider>
             <RowCountProvider query={personalViewCommonQuery}>
-              <GridToolBar />
-              <div className="w-full grow overflow-hidden sm:pl-2">
-                <GridViewBase groupPointsServerDataMap={groupPointsServerDataMap} />
-              </div>
+              <ComputeActivityProvider>
+                <GridToolBar />
+                <div className="w-full grow overflow-hidden sm:pl-2">
+                  <GridViewBase groupPointsServerDataMap={groupPointsServerDataMap} />
+                </div>
+              </ComputeActivityProvider>
             </RowCountProvider>
           </TaskStatusCollectionProvider>
         </AggregationProvider>

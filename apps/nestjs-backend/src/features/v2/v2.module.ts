@@ -5,10 +5,15 @@ import type { Response } from 'express';
 import { LoggerModule } from '../../logger/logger.module';
 import { ShareDbModule } from '../../share-db/share-db.module';
 import { AttachmentsStorageModule } from '../attachments/attachments-storage.module';
+import { CalculationModule } from '../calculation/calculation.module';
 import { NotificationModule } from '../notification/notification.module';
 import { RecordModule } from '../record/record.module';
 import { UndoRedoStackService } from '../undo-redo/stack/undo-redo-stack.service';
 import { ViewModule } from '../view/view.module';
+import { ComputedOutboxAnomalyService } from './computed-outbox-trigger/computed-outbox-anomaly.service';
+import { ComputedOutboxMonitorService } from './computed-outbox-trigger/computed-outbox-monitor.service';
+import { ComputedOutboxRedriveService } from './computed-outbox-trigger/computed-outbox-redrive.service';
+import { ComputedOutboxWakeupProducerModule } from './computed-outbox-trigger/computed-outbox-wakeup-producer.module';
 import { V2ActionTriggerService } from './v2-action-trigger.service';
 import { V2BaseNodeCompatService } from './v2-base-node-compat.service';
 import {
@@ -102,10 +107,12 @@ const toErrorMessage = (body: unknown): string => {
     }),
     LoggerModule.register(),
     AttachmentsStorageModule,
+    CalculationModule,
     ShareDbModule,
     NotificationModule,
     RecordModule,
     ViewModule,
+    ComputedOutboxWakeupProducerModule.register(),
   ],
   controllers: [V2Controller, V2OpenApiController],
   providers: [
@@ -122,7 +129,17 @@ const toErrorMessage = (body: unknown): string => {
     V2SchemaOperationRunnerService,
     V2ViewCompatService,
     UndoRedoStackService,
+    ComputedOutboxRedriveService,
+    ComputedOutboxMonitorService,
+    ComputedOutboxAnomalyService,
   ],
-  exports: [V2ContainerService, V2ExecutionContextFactory, V2UserRenamePropagationService],
+  exports: [
+    V2ContainerService,
+    V2ExecutionContextFactory,
+    V2UserRenamePropagationService,
+    ComputedOutboxWakeupProducerModule,
+    ComputedOutboxMonitorService,
+    ComputedOutboxAnomalyService,
+  ],
 })
 export class V2Module {}

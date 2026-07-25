@@ -1,11 +1,12 @@
 import { BaseController } from './base.controller';
 
-const createController = (v2Reason: string | undefined) => {
+const createController = (useV2Export: boolean) => {
   const baseService = {
     getBaseById: vi.fn().mockResolvedValue({
       id: 'bseTest',
-      v2Status: v2Reason ? { useV2: true, reason: v2Reason } : undefined,
+      v2Status: { useV2: true, reason: useV2Export ? 'new_base' : 'space_feature' },
     }),
+    shouldUseV2BaseExport: vi.fn().mockResolvedValue(useV2Export),
   };
   const baseExportService = {
     exportBaseZip: vi.fn().mockResolvedValue('v1-export'),
@@ -23,6 +24,7 @@ const createController = (v2Reason: string | undefined) => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
       {} as never
     ),
     baseService,
@@ -33,8 +35,24 @@ const createController = (v2Reason: string | undefined) => {
 
 describe('BaseController', () => {
   describe('exportBase', () => {
-    it('uses the v2 exporter for v2-created bases', async () => {
-      const { controller, baseExportService, baseExportV2Service } = createController('new_base');
+    it('uses the v2 exporter for physical v2 bases', async () => {
+      const { controller, baseExportService, baseExportV2Service, baseService } =
+        createController(true);
+
+      await expect(controller.exportBase('bseTest')).resolves.toBe('v2-export');
+
+      expect(baseService.shouldUseV2BaseExport).toHaveBeenCalledWith('bseTest');
+      expect(baseExportV2Service.exportBaseZip).toHaveBeenCalledWith('bseTest', true);
+      expect(baseExportService.exportBaseZip).not.toHaveBeenCalled();
+    });
+
+    it('uses the v2 exporter even when FORCE_V2_ALL overrides canary reason', async () => {
+      const { controller, baseExportService, baseExportV2Service, baseService } =
+        createController(true);
+      baseService.getBaseById.mockResolvedValue({
+        id: 'bseTest',
+        v2Status: { useV2: true, reason: 'env_force_v2_all' },
+      });
 
       await expect(controller.exportBase('bseTest')).resolves.toBe('v2-export');
 
@@ -43,8 +61,7 @@ describe('BaseController', () => {
     });
 
     it('keeps rollout-only v2 decisions on the legacy exporter', async () => {
-      const { controller, baseExportService, baseExportV2Service } =
-        createController('space_feature');
+      const { controller, baseExportService, baseExportV2Service } = createController(false);
 
       await expect(controller.exportBase('bseTest', '0')).resolves.toBe('v1-export');
 

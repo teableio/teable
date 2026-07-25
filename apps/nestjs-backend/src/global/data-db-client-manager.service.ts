@@ -1,7 +1,7 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import {
   DataPrismaService,
-  PrismaClient as DataPrismaClient,
+  createScopedDataPrismaClient,
   getMetaDatabaseUrl,
 } from '@teable/db-data-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -13,6 +13,12 @@ import { DataDbMigrationService } from '../features/space/data-db-migration.serv
 import { decryptDataDbUrl } from '../features/space/data-db-url-secret';
 import type { IClsStore } from '../types/cls';
 import {
+  buildComputedOutboxActivePauseExclusion,
+  buildComputedOutboxWakeupCandidatesQuery,
+  qualifyComputedOutboxTable,
+  type ComputedOutboxWakeupCandidateQueryOptions,
+} from './computed-outbox-maintenance-query';
+import {
   DATA_DB_KNEX_CACHE_NAMESPACE,
   DATA_DB_PRISMA_CACHE_NAMESPACE,
   DataDbRuntimeCacheService,
@@ -22,16 +28,84 @@ import { DATA_KNEX } from './knex';
 export interface IResolvedDataDatabase {
   cacheKey: string;
   url: string;
+  /** Raw connection URL without Teable's internal-schema startup parameters. */
+  connectionUrl?: string;
   isMetaFallback: boolean;
   connectionId?: string;
   internalSchema?: string;
 }
 
+export type IComputedOutboxMaintenanceTarget = IResolvedDataDatabase & {
+  storage: 'default' | 'byodb';
+  /** Meta-DB routing needed to evaluate space pause scopes in a BYODB data database. */
+  baseSpaceMapping?: ReadonlyArray<{ baseId: string; spaceId: string }>;
+};
+
+export type IComputedOutboxMaintenanceSnapshot = {
+  duePending: number;
+  scheduledPending: number;
+  activeProcessing: number;
+  staleProcessing: number;
+  dead: number;
+  oldestDueAgeMs: number;
+};
+
+export type IComputedOutboxMaintenanceAnomaly = {
+  kind: 'dead' | 'stale';
+  taskId: string;
+  baseId: string;
+  seedTableId: string;
+  attempts: number;
+  maxAttempts: number;
+  lastError: string | null;
+  failedSql: string | null;
+  failureKind: string | null;
+  failurePhase: string | null;
+  affectedTableName: string | null;
+  occurredAt: Date;
+};
+
+export type IComputedOutboxMaintenanceAnomalySnapshot = {
+  total: number;
+  items: IComputedOutboxMaintenanceAnomaly[];
+};
+
+export type IComputedOutboxMaintenanceRecovery =
+  | { status: 'recovered'; baseId: string }
+  | { status: 'not_found' | 'conflict' };
+
+export type IComputedOutboxWakeupCandidate = {
+  taskId: string;
+  baseId: string;
+  availableAt: Date;
+  revision: string;
+};
+
+export interface IDataDbPreviewBinding {
+  spaceId: string;
+  connectionId: string;
+  encryptedUrl: string;
+  internalSchema: string;
+  urlFingerprint?: string | null;
+  displayHost?: string | null;
+  displayDatabase?: string | null;
+}
+
 export interface IDataDbRoutingOptions {
   useTransaction?: boolean;
+  previewBinding?: IDataDbPreviewBinding;
+  sourceConnectionId?: string | null;
 }
 
 type IMetaRoutingClient = PrismaService | NonNullable<IClsStore['tx']['client']>;
+
+type IResolvedSpaceDataDbRoute =
+  | { isMetaFallback: true }
+  | { connectionId: string; internalSchema: string; isMetaFallback: false; url: string };
+
+const COMPUTED_OUTBOX_REDRIVE_LOCK_KEY = 'v2:computed-outbox:global-redrive:v1';
+const COMPUTED_OUTBOX_MAINTENANCE_CONNECT_TIMEOUT_MS = 5000;
+const COMPUTED_OUTBOX_MAINTENANCE_QUERY_TIMEOUT_MS = 10_000;
 
 @Injectable()
 export class DataDbClientManager {
@@ -61,6 +135,7 @@ export class DataDbClientManager {
       return {
         cacheKey: 'meta-fallback',
         url: getMetaDatabaseUrl(),
+        connectionUrl: getMetaDatabaseUrl(),
         isMetaFallback: true,
       };
     }
@@ -70,6 +145,7 @@ export class DataDbClientManager {
       connectionId: resolved.connectionId,
       internalSchema: resolved.internalSchema,
       url: withDataDbInternalSchemaParam(resolved.url, resolved.internalSchema),
+      connectionUrl: resolved.url,
       isMetaFallback: false,
     };
   }
@@ -102,6 +178,506 @@ export class DataDbClientManager {
       throw new Error(`Table ${tableId} not found`);
     }
     return await this.getDataDatabaseForSpace(table.base.spaceId, options);
+  }
+
+  async listComputedOutboxMaintenanceTargets(): Promise<
+    ReadonlyArray<IComputedOutboxMaintenanceTarget>
+  > {
+    const connections = await this.prismaService.dataDbConnection.findMany({
+      where: {
+        status: 'ready',
+        spaceBindings: {
+          some: {
+            mode: 'byodb',
+            state: 'ready',
+          },
+        },
+      },
+      select: {
+        id: true,
+        encryptedUrl: true,
+        internalSchema: true,
+        spaceBindings: {
+          where: { mode: 'byodb', state: 'ready' },
+          select: { spaceId: true },
+        },
+      },
+    });
+    const spaceIds = [
+      ...new Set(
+        connections.flatMap((connection) => connection.spaceBindings.map((b) => b.spaceId))
+      ),
+    ];
+    const bases =
+      spaceIds.length > 0
+        ? await this.prismaService.base.findMany({
+            where: { spaceId: { in: spaceIds } },
+            select: { id: true, spaceId: true },
+          })
+        : [];
+    const basesBySpace = new Map<string, Array<{ baseId: string; spaceId: string }>>();
+    for (const base of bases) {
+      const mapping = basesBySpace.get(base.spaceId) ?? [];
+      mapping.push({ baseId: base.id, spaceId: base.spaceId });
+      basesBySpace.set(base.spaceId, mapping);
+    }
+
+    return [
+      {
+        cacheKey: 'meta-fallback',
+        url: getMetaDatabaseUrl(),
+        connectionUrl: getMetaDatabaseUrl(),
+        isMetaFallback: true,
+        storage: 'default',
+      },
+      ...connections.map((connection) => ({
+        cacheKey: connection.id,
+        connectionId: connection.id,
+        internalSchema: connection.internalSchema,
+        connectionUrl: decryptDataDbUrl(connection.encryptedUrl),
+        url: withDataDbInternalSchemaParam(
+          decryptDataDbUrl(connection.encryptedUrl),
+          connection.internalSchema
+        ),
+        isMetaFallback: false as const,
+        storage: 'byodb' as const,
+        baseSpaceMapping: connection.spaceBindings.flatMap(
+          (binding) => basesBySpace.get(binding.spaceId) ?? []
+        ),
+      })),
+    ];
+  }
+
+  async *iterateComputedOutboxWakeupCandidates(
+    target: IComputedOutboxMaintenanceTarget,
+    processingLeaseMs: number,
+    batchSize = 500,
+    options: ComputedOutboxWakeupCandidateQueryOptions = {}
+  ): AsyncGenerator<ReadonlyArray<IComputedOutboxWakeupCandidate>> {
+    const client = createKnex({
+      client: 'pg',
+      connection: {
+        connectionString: target.connectionUrl ?? target.url,
+        connectionTimeoutMillis: COMPUTED_OUTBOX_MAINTENANCE_CONNECT_TIMEOUT_MS,
+      },
+      acquireConnectionTimeout: COMPUTED_OUTBOX_MAINTENANCE_CONNECT_TIMEOUT_MS,
+      pool: { min: 0, max: 1 },
+    });
+    let afterId: string | undefined;
+    const normalizedBatchSize = Math.max(1, Math.trunc(batchSize));
+
+    try {
+      while (true) {
+        const candidateQuery = buildComputedOutboxWakeupCandidatesQuery(
+          target,
+          processingLeaseMs,
+          normalizedBatchSize,
+          afterId,
+          options
+        );
+        const result = await client
+          .raw<{
+            rows: Array<{
+              taskId: string;
+              baseId: string;
+              status: 'pending' | 'processing';
+              nextRunAt: Date | string;
+              lockedAt: Date | string | null;
+              attempts: number;
+              updatedAt: Date | string;
+            }>;
+          }>(candidateQuery.sql, candidateQuery.bindings)
+          .timeout(COMPUTED_OUTBOX_MAINTENANCE_QUERY_TIMEOUT_MS, { cancel: true });
+        const rows = result.rows as Array<{
+          taskId: string;
+          baseId: string;
+          status: 'pending' | 'processing';
+          nextRunAt: Date | string;
+          lockedAt: Date | string | null;
+          attempts: number;
+          updatedAt: Date | string;
+        }>;
+        if (rows.length === 0) return;
+
+        yield rows.map((row) => {
+          const dueAt =
+            row.status === 'processing' && row.lockedAt
+              ? new Date(row.lockedAt).getTime() + processingLeaseMs
+              : new Date(row.nextRunAt).getTime();
+          return {
+            taskId: String(row.taskId),
+            baseId: String(row.baseId),
+            availableAt: new Date(dueAt),
+            revision: [
+              new Date(row.updatedAt).getTime(),
+              row.attempts,
+              new Date(row.nextRunAt).getTime(),
+              row.lockedAt ? new Date(row.lockedAt).getTime() : 0,
+            ].join('-'),
+          };
+        });
+
+        afterId = String(rows[rows.length - 1]?.taskId);
+        if (rows.length < normalizedBatchSize) return;
+      }
+    } finally {
+      await client.destroy();
+    }
+  }
+
+  async withComputedOutboxRedriveLease(run: () => Promise<void>): Promise<boolean> {
+    const client = createKnex({
+      client: 'pg',
+      connection: {
+        connectionString: getMetaDatabaseUrl(),
+        connectionTimeoutMillis: COMPUTED_OUTBOX_MAINTENANCE_CONNECT_TIMEOUT_MS,
+      },
+      acquireConnectionTimeout: COMPUTED_OUTBOX_MAINTENANCE_CONNECT_TIMEOUT_MS,
+      pool: { min: 0, max: 1 },
+    });
+    let connection: unknown;
+    try {
+      connection = await client.client.acquireConnection();
+      const lockResult = await client
+        .raw<{
+          rows: Array<{ acquired: boolean }>;
+        }>('select pg_try_advisory_lock(hashtext(?)) as acquired', [
+          COMPUTED_OUTBOX_REDRIVE_LOCK_KEY,
+        ])
+        .connection(connection)
+        .timeout(COMPUTED_OUTBOX_MAINTENANCE_QUERY_TIMEOUT_MS, { cancel: true });
+      if (!lockResult.rows[0]?.acquired) return false;
+
+      try {
+        await run();
+        return true;
+      } finally {
+        await client
+          .raw('select pg_advisory_unlock(hashtext(?))', [COMPUTED_OUTBOX_REDRIVE_LOCK_KEY])
+          .connection(connection)
+          .timeout(COMPUTED_OUTBOX_MAINTENANCE_QUERY_TIMEOUT_MS, { cancel: true })
+          .catch(() => undefined);
+      }
+    } finally {
+      if (connection) await client.client.releaseConnection(connection);
+      await client.destroy();
+    }
+  }
+
+  async inspectComputedOutboxMaintenanceTarget(
+    target: IComputedOutboxMaintenanceTarget,
+    processingLeaseMs: number
+  ): Promise<IComputedOutboxMaintenanceSnapshot> {
+    const client = createKnex({
+      client: 'pg',
+      connection: {
+        connectionString: target.connectionUrl ?? target.url,
+        connectionTimeoutMillis: COMPUTED_OUTBOX_MAINTENANCE_CONNECT_TIMEOUT_MS,
+      },
+      acquireConnectionTimeout: COMPUTED_OUTBOX_MAINTENANCE_CONNECT_TIMEOUT_MS,
+      pool: { min: 0, max: 1 },
+    });
+    const pauseExclusion = buildComputedOutboxActivePauseExclusion(target);
+    const outboxTable = qualifyComputedOutboxTable(target, 'computed_update_outbox');
+    const deadLetterTable = qualifyComputedOutboxTable(target, 'computed_update_dead_letter');
+    try {
+      const result = await client
+        .raw<{
+          rows: Array<Record<string, string | number | null>>;
+        }>(
+          `with outbox_state as (
+            select o.*,
+              ${pauseExclusion.sql} as actionable
+            from ${outboxTable} as o
+          )
+        select
+          count(*) filter (
+            where status = 'pending' and next_run_at <= now() and actionable
+          ) as due_pending,
+          count(*) filter (where status = 'pending' and next_run_at > now()) as scheduled_pending,
+          count(*) filter (
+            where status = 'processing'
+              and locked_at is not null
+              and locked_at > now() - (? * interval '1 millisecond')
+          ) as active_processing,
+          count(*) filter (
+            where status = 'processing'
+              and actionable
+              and (locked_at is null or locked_at <= now() - (? * interval '1 millisecond'))
+          ) as stale_processing,
+          coalesce(
+            extract(epoch from (now() - min(next_run_at) filter (
+              where status = 'pending' and next_run_at <= now() and actionable
+            ))) * 1000,
+            0
+          ) as oldest_due_age_ms,
+          (select count(*) from ${deadLetterTable}) as dead
+        from outbox_state`,
+          [...pauseExclusion.bindings, processingLeaseMs, processingLeaseMs]
+        )
+        .timeout(COMPUTED_OUTBOX_MAINTENANCE_QUERY_TIMEOUT_MS, { cancel: true });
+      const row = result.rows[0] ?? {};
+      return {
+        duePending: Number(row.due_pending ?? 0),
+        scheduledPending: Number(row.scheduled_pending ?? 0),
+        activeProcessing: Number(row.active_processing ?? 0),
+        staleProcessing: Number(row.stale_processing ?? 0),
+        dead: Number(row.dead ?? 0),
+        oldestDueAgeMs: Number(row.oldest_due_age_ms ?? 0),
+      };
+    } finally {
+      await client.destroy();
+    }
+  }
+
+  async listComputedOutboxMaintenanceAnomalies(
+    target: IComputedOutboxMaintenanceTarget,
+    processingLeaseMs: number,
+    limit: number
+  ): Promise<IComputedOutboxMaintenanceAnomalySnapshot> {
+    const client = createKnex({
+      client: 'pg',
+      connection: {
+        connectionString: target.url,
+        connectionTimeoutMillis: COMPUTED_OUTBOX_MAINTENANCE_CONNECT_TIMEOUT_MS,
+      },
+      acquireConnectionTimeout: COMPUTED_OUTBOX_MAINTENANCE_CONNECT_TIMEOUT_MS,
+      pool: { min: 0, max: 1 },
+    });
+    const normalizedLimit = Math.max(1, Math.min(2000, Math.trunc(limit)));
+    const baseSpaceMapping = target.baseSpaceMapping ?? [];
+    const pauseSpaceJoin =
+      target.storage === 'default'
+        ? 'left join "base" as cb on cb."id" = o.base_id'
+        : `left join jsonb_to_recordset(?::jsonb) as cb(base_id text, space_id text)
+            on cb.base_id = o.base_id`;
+    const pauseSpaceParams =
+      target.storage === 'byodb'
+        ? [
+            JSON.stringify(
+              baseSpaceMapping.map(({ baseId, spaceId }) => ({
+                base_id: baseId,
+                space_id: spaceId,
+              }))
+            ),
+          ]
+        : [];
+
+    try {
+      const result = await client
+        .raw<{
+          rows: Array<{
+            kind: 'dead' | 'stale';
+            taskId: string;
+            baseId: string;
+            seedTableId: string;
+            attempts: number | string;
+            maxAttempts: number | string;
+            lastError: string | null;
+            failedSql: string | null;
+            failureKind: string | null;
+            failurePhase: string | null;
+            affectedTableName: string | null;
+            occurredAt: Date | string;
+            total: number | string;
+          }>;
+        }>(
+          `with anomalies as (
+            select
+              'dead'::text as kind,
+              id as "taskId",
+              base_id as "baseId",
+              seed_table_id as "seedTableId",
+              attempts,
+              max_attempts as "maxAttempts",
+              left(last_error, 2000) as "lastError",
+              left(trace_data #>> '{execution,statement,normalizedSql}', 4000) as "failedSql",
+              left(trace_data #>> '{failure,kind}', 128) as "failureKind",
+              left(trace_data #>> '{failure,phase}', 128) as "failurePhase",
+              left(trace_data #>> '{execution,context,tableName}', 256) as "affectedTableName",
+              failed_at as "occurredAt"
+            from computed_update_dead_letter
+            union all
+            select
+              'stale'::text as kind,
+              o.id as "taskId",
+              o.base_id as "baseId",
+              o.seed_table_id as "seedTableId",
+              o.attempts,
+              o.max_attempts as "maxAttempts",
+              left(o.last_error, 2000) as "lastError",
+              null::text as "failedSql",
+              null::text as "failureKind",
+              null::text as "failurePhase",
+              null::text as "affectedTableName",
+              coalesce(o.locked_at, o.updated_at) as "occurredAt"
+            from computed_update_outbox as o
+            ${pauseSpaceJoin}
+            where o.status = 'processing'
+              and (o.locked_at is null or o.locked_at <= now() - (? * interval '1 millisecond'))
+              and not exists (
+                select 1
+                from computed_update_pause_scope as cps
+                where (cps.resume_at is null or cps.resume_at > now())
+                  and (
+                    (cps.scope_type = 'base' and cps.scope_id = o.base_id)
+                    or (
+                      cps.scope_type = 'table'
+                      and (
+                        cps.scope_id = o.seed_table_id
+                        or cps.scope_id = any(coalesce(o.affected_table_ids, ARRAY[]::text[]))
+                      )
+                    )
+                    or (cps.scope_type = 'space' and cps.scope_id = cb.space_id)
+                  )
+              )
+          )
+          select *, count(*) over () as total
+          from anomalies
+          order by "occurredAt" desc, "taskId" asc
+          limit ?`,
+          [...pauseSpaceParams, processingLeaseMs, normalizedLimit]
+        )
+        .timeout(COMPUTED_OUTBOX_MAINTENANCE_QUERY_TIMEOUT_MS, { cancel: true });
+
+      return {
+        total: Number(result.rows[0]?.total ?? 0),
+        items: result.rows.map((row) => ({
+          kind: row.kind,
+          taskId: String(row.taskId),
+          baseId: String(row.baseId),
+          seedTableId: String(row.seedTableId),
+          attempts: Number(row.attempts),
+          maxAttempts: Number(row.maxAttempts),
+          lastError: row.lastError,
+          failedSql: row.failedSql,
+          failureKind: row.failureKind,
+          failurePhase: row.failurePhase,
+          affectedTableName: row.affectedTableName,
+          occurredAt: new Date(row.occurredAt),
+        })),
+      };
+    } finally {
+      await client.destroy();
+    }
+  }
+
+  async recoverComputedOutboxMaintenanceAnomaly(
+    target: IComputedOutboxMaintenanceTarget,
+    taskId: string,
+    kind: 'dead' | 'stale',
+    processingLeaseMs: number
+  ): Promise<IComputedOutboxMaintenanceRecovery> {
+    const client = createKnex({
+      client: 'pg',
+      connection: {
+        connectionString: target.url,
+        connectionTimeoutMillis: COMPUTED_OUTBOX_MAINTENANCE_CONNECT_TIMEOUT_MS,
+      },
+      acquireConnectionTimeout: COMPUTED_OUTBOX_MAINTENANCE_CONNECT_TIMEOUT_MS,
+      pool: { min: 0, max: 1 },
+    });
+
+    try {
+      if (kind === 'stale') {
+        const baseSpaceMapping = target.baseSpaceMapping ?? [];
+        const pauseSpaceJoin =
+          target.storage === 'default'
+            ? 'left join "base" as cb on cb."id" = o.base_id'
+            : `left join jsonb_to_recordset(?::jsonb) as cb(base_id text, space_id text)
+                on cb.base_id = o.base_id`;
+        const pauseSpaceParams =
+          target.storage === 'byodb'
+            ? [
+                JSON.stringify(
+                  baseSpaceMapping.map(({ baseId, spaceId }) => ({
+                    base_id: baseId,
+                    space_id: spaceId,
+                  }))
+                ),
+              ]
+            : [];
+        const result = await client
+          .raw<{ rows: Array<{ baseId: string }> }>(
+            `select o.base_id as "baseId"
+             from computed_update_outbox as o
+             ${pauseSpaceJoin}
+             where o.id = ?
+               and o.status = 'processing'
+               and (o.locked_at is null or o.locked_at <= now() - (? * interval '1 millisecond'))
+               and not exists (
+                 select 1
+                 from computed_update_pause_scope as cps
+                 where (cps.resume_at is null or cps.resume_at > now())
+                   and (
+                     (cps.scope_type = 'base' and cps.scope_id = o.base_id)
+                     or (
+                       cps.scope_type = 'table'
+                       and (
+                         cps.scope_id = o.seed_table_id
+                         or cps.scope_id = any(coalesce(o.affected_table_ids, ARRAY[]::text[]))
+                       )
+                     )
+                     or (cps.scope_type = 'space' and cps.scope_id = cb.space_id)
+                   )
+               )
+             limit 1`,
+            [...pauseSpaceParams, taskId, processingLeaseMs]
+          )
+          .timeout(COMPUTED_OUTBOX_MAINTENANCE_QUERY_TIMEOUT_MS, { cancel: true });
+        const row = result.rows[0];
+        return row ? { status: 'recovered', baseId: String(row.baseId) } : { status: 'not_found' };
+      }
+
+      return await client.transaction(async (trx) => {
+        const dead = await trx('computed_update_dead_letter')
+          .select('*')
+          .where({ id: taskId })
+          .forUpdate()
+          .first();
+        if (!dead) return { status: 'not_found' } as const;
+
+        const inserted = await trx('computed_update_outbox')
+          .insert({
+            id: dead.id,
+            base_id: dead.base_id,
+            seed_table_id: dead.seed_table_id,
+            seed_record_ids:
+              dead.seed_record_ids == null ? null : JSON.stringify(dead.seed_record_ids),
+            change_type: dead.change_type,
+            steps: dead.steps == null ? null : JSON.stringify(dead.steps),
+            edges: dead.edges == null ? null : JSON.stringify(dead.edges),
+            status: 'pending',
+            attempts: 0,
+            max_attempts: dead.max_attempts,
+            next_run_at: trx.fn.now(),
+            locked_at: null,
+            locked_by: null,
+            last_error: null,
+            estimated_complexity: dead.estimated_complexity,
+            plan_hash: dead.plan_hash,
+            dirty_stats: dead.dirty_stats == null ? null : JSON.stringify(dead.dirty_stats),
+            run_id: dead.run_id,
+            origin_run_ids: dead.origin_run_ids,
+            run_total_steps: dead.run_total_steps,
+            run_completed_steps_before: dead.run_completed_steps_before,
+            affected_table_ids: dead.affected_table_ids,
+            affected_field_ids: dead.affected_field_ids,
+            sync_max_level: dead.sync_max_level,
+            created_at: dead.created_at,
+            updated_at: trx.fn.now(),
+          })
+          .onConflict()
+          .ignore()
+          .returning('id');
+        if (inserted.length === 0) return { status: 'conflict' } as const;
+
+        await trx('computed_update_dead_letter').where({ id: taskId }).delete();
+        return { status: 'recovered', baseId: String(dead.base_id) } as const;
+      });
+    } finally {
+      await client.destroy();
+    }
   }
 
   async getDataDatabaseUrlForTable(tableId: string, options?: IDataDbRoutingOptions) {
@@ -142,14 +718,7 @@ export class DataDbClientManager {
     return await this.runtimeCache.getOrCreate(
       DATA_DB_PRISMA_CACHE_NAMESPACE,
       resolved.connectionId,
-      () =>
-        new DataPrismaClient({
-          datasources: {
-            db: {
-              url: withDataDbInternalSchemaParam(resolved.url, resolved.internalSchema),
-            },
-          },
-        }),
+      () => createScopedDataPrismaClient(resolved.url, resolved.internalSchema),
       (client) => client.$disconnect()
     );
   }
@@ -205,10 +774,15 @@ export class DataDbClientManager {
   private async resolveSpaceDataDb(
     spaceId: string,
     options?: IDataDbRoutingOptions
-  ): Promise<
-    | { isMetaFallback: true }
-    | { connectionId: string; internalSchema: string; isMetaFallback: false; url: string }
-  > {
+  ): Promise<IResolvedSpaceDataDbRoute> {
+    if ('sourceConnectionId' in (options ?? {})) {
+      return await this.resolveSourceSpaceDataDb(options);
+    }
+
+    if (options?.previewBinding?.spaceId === spaceId) {
+      return this.resolvePreviewSpaceDataDb(spaceId, options.previewBinding);
+    }
+
     const binding = await this.getMetaRoutingClient(options).spaceDataDbBinding.findUnique({
       where: { spaceId },
       include: { dataDbConnection: true },
@@ -263,6 +837,53 @@ export class DataDbClientManager {
       internalSchema: connection.internalSchema,
       isMetaFallback: false,
       url,
+    };
+  }
+
+  private resolvePreviewSpaceDataDb(
+    spaceId: string,
+    preview: IDataDbPreviewBinding
+  ): IResolvedSpaceDataDbRoute {
+    if (this.cls?.isActive()) {
+      this.cls.set('dataDb', {
+        mode: 'byodb',
+        spaceId,
+        connectionId: preview.connectionId,
+        urlFingerprint: preview.urlFingerprint ?? null,
+        displayHost: preview.displayHost ?? null,
+        displayDatabase: preview.displayDatabase ?? null,
+        internalSchema: preview.internalSchema,
+      });
+    }
+
+    return {
+      connectionId: preview.connectionId,
+      internalSchema: preview.internalSchema,
+      isMetaFallback: false,
+      url: decryptDataDbUrl(preview.encryptedUrl),
+    };
+  }
+
+  private async resolveSourceSpaceDataDb(
+    options?: IDataDbRoutingOptions
+  ): Promise<IResolvedSpaceDataDbRoute> {
+    const sourceConnectionId = options?.sourceConnectionId ?? null;
+    if (!sourceConnectionId) {
+      return { isMetaFallback: true };
+    }
+
+    const connection = await this.getMetaRoutingClient(options).dataDbConnection.findUnique({
+      where: { id: sourceConnectionId },
+    });
+    if (!connection?.encryptedUrl) {
+      throw new Error(`Data database source connection ${sourceConnectionId} was not found`);
+    }
+
+    return {
+      connectionId: connection.id,
+      internalSchema: connection.internalSchema,
+      isMetaFallback: false,
+      url: decryptDataDbUrl(connection.encryptedUrl),
     };
   }
 

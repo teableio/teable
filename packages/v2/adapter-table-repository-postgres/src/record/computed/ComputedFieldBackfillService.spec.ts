@@ -1,7 +1,13 @@
 import {
   BaseId,
+  CellValueMultiplicity,
+  CellValueType,
   FieldId,
+  FieldName,
+  FormulaExpression,
+  FormulaMeta,
   TableId,
+  createFormulaField,
   domainError,
   type Field,
   type IExecutionContext,
@@ -10,7 +16,11 @@ import {
 import { err, ok } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
-import { ComputedFieldBackfillService } from './ComputedFieldBackfillService';
+import {
+  ComputedFieldBackfillService,
+  defaultFieldBackfillConfig,
+  type FieldBackfillConfig,
+} from './ComputedFieldBackfillService';
 
 const BASE_ID = `bse${'a'.repeat(16)}`;
 const HOST_TABLE_ID = `tbl${'b'.repeat(16)}`;
@@ -25,6 +35,10 @@ const createTestTable = (): Table => {
   return {
     id: () => id,
     baseId: () => baseId,
+    dbTableName: () =>
+      ok({
+        split: () => ok({ schema: BASE_ID, tableName: HOST_TABLE_ID }),
+      }),
   } as unknown as Table;
 };
 
@@ -106,7 +120,9 @@ const createSymmetricOneOneLinkField = () => {
   };
 };
 
-const createService = () =>
+const createService = (
+  config: FieldBackfillConfig = { mode: 'sync', hybridThreshold: 5000 }
+) =>
   new ComputedFieldBackfillService(
     {
       findOne: vi.fn().mockResolvedValue(
@@ -129,11 +145,47 @@ const createService = () =>
     {
       enqueueFieldBackfill: vi.fn(async () => ok({ taskId: 'cuo_test', merged: false })),
     } as never,
-    { mode: 'sync', hybridThreshold: 5000 },
+    config,
     {} as never
   );
 
 describe('ComputedFieldBackfillService collectBackfillFields', () => {
+  it('defaults new computed field backfills to hybrid mode', () => {
+    expect(defaultFieldBackfillConfig).toEqual({
+      mode: 'hybrid',
+      hybridThreshold: 10000,
+    });
+  });
+
+  it('backfills formula fields even when legacy meta says generated column', async () => {
+    const service = createService();
+    const table = createTestTable();
+    const field = createFormulaField({
+      id: FieldId.create(FIELD_ID)._unsafeUnwrap(),
+      name: FieldName.create('Formula')._unsafeUnwrap(),
+      expression: FormulaExpression.create('1 + 1')._unsafeUnwrap(),
+      meta: FormulaMeta.rehydrate({ persistedAsGeneratedColumn: true })._unsafeUnwrap(),
+      resultType: {
+        cellValueType: CellValueType.number(),
+        isMultipleCellValue: CellValueMultiplicity.single(),
+      },
+    })._unsafeUnwrap();
+    const executeSyncMany = vi.spyOn(service, 'executeSyncMany');
+
+    executeSyncMany.mockResolvedValueOnce(ok({ fields: [field] }));
+
+    const result = await service.backfillMany({} as IExecutionContext, {
+      table,
+      fields: [field],
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(executeSyncMany).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ fields: [field] })
+    );
+  });
+
   it('uses oneMany foreign-table fallback when self key is absent on fkHost', async () => {
     const service = createService();
     const table = createTestTable();
@@ -347,6 +399,40 @@ describe('ComputedFieldBackfillService collectBackfillFields', () => {
     expect((service as any).outbox.enqueueFieldBackfill).toHaveBeenCalledTimes(1);
   });
 
+  it('returns original sync failure when outbox fallback also fails', async () => {
+    const service = createService();
+    const table = createTestTable();
+    const field = createComputedField();
+    const syncFailure = domainError.infrastructure({ message: 'operator does not exist' });
+    const outboxFailure = domainError.infrastructure({
+      message: 'Outbox transaction failed: current transaction is aborted',
+    });
+    const executeSyncMany = vi.spyOn(service, 'executeSyncMany');
+
+    executeSyncMany.mockResolvedValueOnce(err(syncFailure));
+    (service as any).outbox.enqueueFieldBackfill.mockResolvedValueOnce(err(outboxFailure));
+
+    const result = await service.backfillMany({} as IExecutionContext, {
+      table,
+      fields: [field],
+    });
+
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error).toBe(syncFailure);
+      expect(result.error.message).toBe('operator does not exist');
+    }
+    expect((service as any).logger.warn).toHaveBeenCalledWith(
+      'computed:backfillMany:enqueue_fallback_failed',
+      expect.objectContaining({
+        tableId: HOST_TABLE_ID,
+        fieldIds: [FIELD_ID],
+        error: 'operator does not exist',
+        fallbackError: 'Outbox transaction failed: current transaction is aborted',
+      })
+    );
+  });
+
   it('enqueues multi-field transaction backfills instead of building one wide sync query', async () => {
     const service = createService();
     const table = createTestTable();
@@ -371,6 +457,78 @@ describe('ComputedFieldBackfillService collectBackfillFields', () => {
       expect.objectContaining({
         tableId: HOST_TABLE_ID,
         fieldIds: [`fld${'g'.repeat(16)}`, `fld${'h'.repeat(16)}`],
+      })
+    );
+    expect((service as any).outbox.enqueueFieldBackfill).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps hybrid field backfill synchronous for small tables', async () => {
+    const service = createService({ mode: 'hybrid', hybridThreshold: 5000 });
+    const table = createTestTable();
+    const field = createComputedField();
+    const estimateTableRowCount = vi.spyOn(service as any, 'estimateTableRowCount');
+    const executeSyncMany = vi.spyOn(service, 'executeSyncMany');
+
+    estimateTableRowCount.mockResolvedValueOnce(10);
+    executeSyncMany.mockResolvedValueOnce(ok({ fields: [field] }));
+
+    const result = await service.backfillMany({} as IExecutionContext, {
+      table,
+      fields: [field],
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(executeSyncMany).toHaveBeenCalledTimes(1);
+    expect((service as any).outbox.enqueueFieldBackfill).not.toHaveBeenCalled();
+  });
+
+  it('enqueues hybrid field backfill for large tables', async () => {
+    const service = createService({ mode: 'hybrid', hybridThreshold: 5000 });
+    const table = createTestTable();
+    const field = createComputedField();
+    const estimateTableRowCount = vi.spyOn(service as any, 'estimateTableRowCount');
+    const executeSyncMany = vi.spyOn(service, 'executeSyncMany');
+
+    estimateTableRowCount.mockResolvedValueOnce(5001);
+
+    const result = await service.backfillMany({} as IExecutionContext, {
+      table,
+      fields: [field],
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(executeSyncMany).not.toHaveBeenCalled();
+    expect((service as any).outbox.enqueueFieldBackfill).toHaveBeenCalledTimes(1);
+  });
+
+  it('enqueues hybrid transaction backfill when table row estimate is unavailable', async () => {
+    const service = createService({ mode: 'hybrid', hybridThreshold: 5000 });
+    const table = createTestTable();
+    const field = createComputedField();
+    const estimateTableRowCount = vi.spyOn(service as any, 'estimateTableRowCount');
+    const executeSyncMany = vi.spyOn(service, 'executeSyncMany');
+
+    estimateTableRowCount.mockResolvedValueOnce(undefined);
+
+    const result = await service.backfillMany(
+      {
+        transaction: { kind: 'unitOfWorkTransaction' },
+      } as IExecutionContext,
+      {
+        table,
+        fields: [field],
+      }
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(executeSyncMany).not.toHaveBeenCalled();
+    expect((service as any).logger.warn).toHaveBeenCalledWith(
+      'computed:backfill:row_count_estimate_unavailable',
+      expect.objectContaining({
+        tableId: HOST_TABLE_ID,
+        mode: 'hybrid',
+        fallback: 'async',
+        inTransaction: true,
       })
     );
     expect((service as any).outbox.enqueueFieldBackfill).toHaveBeenCalledTimes(1);

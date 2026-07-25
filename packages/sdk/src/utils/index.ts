@@ -5,3 +5,5 @@ export * from './fieldType';
 export * from './urlParams';
 export * from './copy';
 export * from './filterWithDefaultValue';
+export * from './select-color';
+export * from './select-option';

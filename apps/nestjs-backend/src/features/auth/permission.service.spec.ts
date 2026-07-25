@@ -303,6 +303,62 @@ describe('PermissionService', () => {
     });
   });
 
+  describe('getAccessToken (GHSA-c57x: OAuth scope escalation)', () => {
+    it('does NOT add base|read_all to an OAuth token that did not consent to it', async () => {
+      // A user consented only to table|read for this OAuth client.
+      prismaServiceMock.accessToken.findFirstOrThrow.mockResolvedValue({
+        scopes: JSON.stringify(['table|read'] satisfies Action[]),
+        spaceIds: null,
+        baseIds: null,
+        clientId: 'cltoauthclient00', // IdPrefix.OAuthClient
+        userId: 'usrxxxxxxxx',
+        hasFullAccess: null,
+      } as any);
+      // OAuth collaborator resolution goes through txClient().collaborator.
+      prismaServiceMock.txClient.mockReturnValue(prismaServiceMock as any);
+      prismaServiceMock.collaborator.findMany.mockResolvedValue([]);
+
+      const result = await service.getAccessToken('actxxxxxxxx');
+
+      // The token must not gain read access it was never approved for.
+      expect(result.scopes).not.toContain('base|read_all');
+      expect(result.scopes).toEqual(['table|read']);
+    });
+
+    it('preserves base|read_all for an OAuth token that DID consent to it', async () => {
+      prismaServiceMock.accessToken.findFirstOrThrow.mockResolvedValue({
+        scopes: JSON.stringify(['table|read', 'base|read_all'] satisfies Action[]),
+        spaceIds: null,
+        baseIds: null,
+        clientId: 'cltoauthclient00',
+        userId: 'usrxxxxxxxx',
+        hasFullAccess: null,
+      } as any);
+      prismaServiceMock.txClient.mockReturnValue(prismaServiceMock as any);
+      prismaServiceMock.collaborator.findMany.mockResolvedValue([]);
+
+      const result = await service.getAccessToken('actxxxxxxxx');
+
+      expect(result.scopes).toContain('base|read_all');
+    });
+
+    it('does NOT add base|read_all to a regular (non-OAuth) PAT', async () => {
+      prismaServiceMock.accessToken.findFirstOrThrow.mockResolvedValue({
+        scopes: JSON.stringify(['table|read'] satisfies Action[]),
+        spaceIds: null,
+        baseIds: null,
+        clientId: null, // regular personal access token
+        userId: 'usrxxxxxxxx',
+        hasFullAccess: null,
+      } as any);
+
+      const result = await service.getAccessToken('actxxxxxxxx');
+
+      expect(result.scopes).not.toContain('base|read_all');
+      expect(result.scopes).toEqual(['table|read']);
+    });
+  });
+
   describe('getPermissions', () => {
     it('should return permissions for a user', async () => {
       const resourceId = 'bsexxxxxx';

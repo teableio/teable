@@ -9,7 +9,7 @@ export enum UsageFeature {
   AttachmentSize = 'attachmentSize',
   NumDatabaseConnections = 'numDatabaseConnections',
   NumCollaborators = 'numCollaborators',
-  NumAutomationSendEmail = 'numAutomationSendEmail',
+  NumSystemSendEmail = 'numSystemSendEmail',
   NumAutomationRuns = 'numAutomationRuns',
 }
 
@@ -18,7 +18,7 @@ export const usageFeatureSchema = z.object({
   [UsageFeature.AttachmentSize]: z.number(),
   [UsageFeature.NumDatabaseConnections]: z.number(),
   [UsageFeature.NumCollaborators]: z.number(),
-  [UsageFeature.NumAutomationSendEmail]: z.number(),
+  [UsageFeature.NumSystemSendEmail]: z.number(),
   [UsageFeature.NumAutomationRuns]: z.number(),
 });
 
@@ -45,8 +45,9 @@ export enum UsageFeatureLimit {
   APIRateLimit = 'apiRateLimit',
   ChatAIEnable = 'chatAIEnable',
   AppEnable = 'appEnable',
+  AppHideBadgeEnable = 'appHideBadgeEnable',
   CustomDomainEnable = 'customDomainEnable',
-  MaxNumAutomationSendEmail = 'maxNumAutomationSendEmail',
+  MaxNumSystemSendEmail = 'maxNumSystemSendEmail',
 }
 
 export const usageFeatureLimitSchema = z.object({
@@ -72,8 +73,9 @@ export const usageFeatureLimitSchema = z.object({
   [UsageFeatureLimit.APIRateLimit]: z.number(),
   [UsageFeatureLimit.ChatAIEnable]: z.boolean(),
   [UsageFeatureLimit.AppEnable]: z.boolean(),
+  [UsageFeatureLimit.AppHideBadgeEnable]: z.boolean(),
   [UsageFeatureLimit.CustomDomainEnable]: z.boolean(),
-  [UsageFeatureLimit.MaxNumAutomationSendEmail]: z.number(),
+  [UsageFeatureLimit.MaxNumSystemSendEmail]: z.number(),
 });
 
 export const usageVoSchema = z.object({

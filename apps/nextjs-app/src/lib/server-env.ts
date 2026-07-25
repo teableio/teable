@@ -13,6 +13,8 @@ export interface IServerEnv {
   gaId?: string;
   googleAdsConversionId?: string;
   marketingGaId?: string;
+  posthogKey?: string;
+  posthogHost?: string;
   umamiUrl?: string;
   sentryDsn?: string;
   socialAuthProviders?: string[];
@@ -42,6 +44,7 @@ export interface IServerEnv {
   resetPasswordSendMailCodeRate?: number;
   signupVerificationSendMailCodeRate?: number;
   enableCanaryFeature?: boolean;
+  forceV2All?: boolean;
   task?: {
     maxTaskRows?: number;
   };

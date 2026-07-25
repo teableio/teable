@@ -7,10 +7,12 @@ import { authConfig } from './auth.config';
 import { baseConfig } from './base.config';
 import { bootstrapConfigs, nextJsConfig } from './bootstrap.config';
 import { cacheConfig } from './cache.config';
+import { computedOutboxTriggerConfig } from './computed-outbox-trigger.config';
 import { envValidationSchema } from './env.validation.schema';
 import { loggerConfig } from './logger.config';
 import { mailConfig } from './mail.config';
 import { oauthConfig } from './oauth.config';
+import { riskControlConfig } from './risk-control.config';
 import { storageConfig } from './storage';
 import { thresholdConfig } from './threshold.config';
 import { trashConfig } from './trash.config';
@@ -24,8 +26,10 @@ const configurations = [
   storageConfig,
   thresholdConfig,
   cacheConfig,
+  computedOutboxTriggerConfig,
   oauthConfig,
   trashConfig,
+  riskControlConfig,
 ];
 
 @Module({})

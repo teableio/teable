@@ -75,3 +75,49 @@ export const buildBeforeImageRecordsFromStepChanges = (
 
   return ok(records);
 };
+
+/**
+ * Merge before-image snapshots by record id, keeping the earliest value for each
+ * db field name (existing wins over incoming for the same key).
+ *
+ * Used when chaining computed stages so filter-field old values captured on the
+ * original user mutation are not dropped when later stages only see computed-field
+ * change events.
+ */
+export const mergeBeforeImageRecords = (
+  existing: ReadonlyArray<ComputedBeforeImageRecord>,
+  incoming: ReadonlyArray<ComputedBeforeImageRecord>
+): ComputedBeforeImageRecord[] => {
+  const byRecordId = new Map<
+    string,
+    { recordId: ComputedBeforeImageRecord['recordId']; fields: Record<string, unknown> }
+  >();
+
+  const merge = (records: ReadonlyArray<ComputedBeforeImageRecord>): void => {
+    for (const record of records) {
+      const key = record.recordId.toString();
+      const current = byRecordId.get(key);
+      if (!current) {
+        byRecordId.set(key, {
+          recordId: record.recordId,
+          fields: { ...record.fieldValuesByDbName },
+        });
+        continue;
+      }
+
+      for (const [dbFieldName, oldValue] of Object.entries(record.fieldValuesByDbName)) {
+        if (!(dbFieldName in current.fields)) {
+          current.fields[dbFieldName] = oldValue;
+        }
+      }
+    }
+  };
+
+  merge(existing);
+  merge(incoming);
+
+  return [...byRecordId.values()].map(({ recordId, fields }) => ({
+    recordId,
+    fieldValuesByDbName: fields,
+  }));
+};

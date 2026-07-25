@@ -69,6 +69,7 @@
     "expand": "Espandi",
     "getMore": "Ottieni di più",
     "copySuccess": "Copia riuscita",
+    "openLink": "Apri link",
     "share": "Condividi"
   },
   "quickAction": {
@@ -331,7 +332,39 @@
       "interactionMode": "Modalità di interazione",
       "mouseMode": "Modalità cursore",
       "touchMode": "Modalità touch",
-      "systemMode": "Segui le impostazioni di sistema"
+      "systemMode": "Segui le impostazioni di sistema",
+      "teableSkill": "Competenza Teable"
+    },
+    "teableSkill": {
+      "intro": "Consenti al tuo AI Agent di connettersi alla tua Base per interrogare dati, gestire tabelle, campi e viste, importare o aggiornare record e creare automazioni e app.",
+      "worksWith": "Compatibile con tutti gli agent principali",
+      "more": "+ altro",
+      "copy": "Copia",
+      "installPromptLabel": "Prompt di installazione skill",
+      "installCommandLabel": "Comando di installazione skill",
+      "installPrompt": "Leggi https://github.com/teableio/agent-skills, segui la guida per aiutarmi a installare il Teable agent skill e completa l’autenticazione Teable CLI.",
+      "step1Title": "Installa Skill",
+      "step1Description": "Copia questo prompt nel tuo AI Agent. Installerà la skill Teable e aprirà il browser per completare l’autenticazione Teable CLI.",
+      "step3Title": "Prova la competenza Teable",
+      "step3Description": "Dopo aver installato lo skill, prova questi prompt.",
+      "tryPrompts": {
+        "schema": {
+          "prompt": "Crea una semplice tabella CRM in questa base.",
+          "note": "Prompt semplici per iniziare"
+        },
+        "template": {
+          "prompt": "Carica tutte le fatture in questa cartella locale su <Tabella ricevute> {incolla URL tabella} ed estrai i campi chiave.",
+          "note": "File locali → Teable"
+        },
+        "validate": {
+          "prompt": "Importa nuovi issue GitHub in <Bug Tracker> {incolla URL tabella}.",
+          "note": "Dati multipiattaforma → Teable"
+        },
+        "trace": {
+          "prompt": "Controlla <Tabella attività> {incolla URL tabella} e contrassegna le attività scadute.",
+          "note": "Pulire o organizzare dati Teable"
+        }
+      }
     },
     "nav": {
       "settings": "Impostazioni",
@@ -482,7 +515,14 @@
     },
     "addOrgCollaborator": {
       "title": "Aggiungi collaboratore dell'organizzazione",
+      "button": "Aggiungi dall'organizzazione",
       "placeholder": "Seleziona membro dell'organizzazione o dipartimento"
+    },
+    "table": {
+      "collaborator": "Collaboratore",
+      "accessPermission": "Permesso di accesso",
+      "joinAt": "Data di adesione",
+      "lastLogin": "Ultimo accesso"
     }
   },
   "help": {
@@ -507,6 +547,9 @@
     "billable": "Fatturabile",
     "billableByAuthorityMatrix": "Fatturazione generata dalla matrice dei permessi",
     "licenseExpiredGracePeriod": "La tua licenza self-hosted è scaduta e verrà declassata al piano gratuito il {{expiredTime}}. Aggiorna la tua licenza tempestivamente per mantenere l'accesso alle funzionalità premium.",
+    "licenseAutoFetchFailed": "Rinnovo automatico della licenza non riuscito. Restano {{days}} giorno/i del periodo di tolleranza prima del downgrade.",
+    "licenseAutoFetchRetryFailed": "Il rinnovo automatico non è ancora riuscito. Verifica la connessione al server Teable o aggiorna la licenza manualmente.",
+    "licenseExpiredGracePeriodDays": "La licenza è scaduta. Restano {{days}} giorno/i del periodo di tolleranza prima del downgrade.",
     "spaceSubscriptionModal": {
       "title": "Aggiorna il piano di abbonamento dello spazio",
       "description": "Puoi aggiornare solo gli spazi di lavoro di cui sei proprietario"
@@ -529,6 +572,9 @@
       "description": "Modifica le impostazioni per la tua istanza corrente",
       "allowSignUp": "Consenti la creazione di nuovi account",
       "allowSignUpDescription": "Disabilitando questa opzione si proibiranno le nuove registrazioni degli utenti e il pulsante di registrazione non apparirà più nella pagina di accesso.",
+      "bannedEmailDomains": "Domini email vietati",
+      "bannedEmailDomainsDescription": "Gli indirizzi email di questi domini non possono registrarsi e le relative email di invito non verranno inviate. Digita un dominio e premi Invio per aggiungerlo.",
+      "bannedEmailDomainsInvalid": "Inserisci un dominio valido, ad es. example.com",
       "allowSpaceInvitation": "Consenti l'invio di inviti per lo spazio",
       "allowSpaceInvitationDescription": "Disabilitando questa opzione si impedirà agli utenti diversi dagli amministratori di invitare altri a unirsi agli spazi. Quando abilitata, i nuovi utenti invitati via email possono completare la registrazione cliccando sul link di invito nell'email, ma i link di invito condivisi non funzioneranno.",
       "allowSpaceCreation": "Consenti a tutti di creare nuovi spazi",
@@ -621,7 +667,7 @@
         "defaultModel": "{{name}} (Predefinito)",
         "moreModels": "Altri modelli",
         "agentModelWarningTitle": "Scegli i modelli con attenzione",
-        "agentModelWarningDescription": "I modelli consigliati sopra sono ottimizzati per attività agentiche come l’uso di strumenti e il ragionamento multi-step. Altri modelli potrebbero avere capacità limitate e produrre risultati imprevisti.",
+        "agentModelWarningDescription": "I modelli consigliati sopra sono ottimizzati per attività agentiche come l'uso di strumenti e il ragionamento multi-step. Altri modelli potrebbero avere capacità limitate e produrre risultati imprevisti.",
         "agentModelWarningConfirm": "Ho capito",
         "recommendedModelNudge": {
           "title": "Prova {{model}}",
@@ -683,11 +729,6 @@
           "title": "Abilita HTTPS",
           "description": "Non hai abilitato HTTPS, la funzione di copia su larga scala (300 righe o più) non sarà disponibile, si consiglia di abilitarla."
         },
-        "databaseProxy": {
-          "title": "Variabile d'ambiente PUBLIC_DATABASE_PROXY",
-          "description": "<strong>PUBLIC_DATABASE_PROXY</strong> non è configurato, la funzione di connessione database esterno non sarà disponibile, per favore fai riferimento al <a>documento di aiuto</a>",
-          "href": "https://help.teable.ai/it/deploy/database-connection#enable-external-database-connection"
-        },
         "llmApi": {
           "title": "LLM API",
           "description": "Non hai ancora configurato l'API LLM AI, AI Chat/automazione AI non sarà utilizzabile, <anchor>vai alle impostazioni</anchor>",
@@ -719,6 +760,10 @@
     "exportBase": {
       "successText": "I dati di esportazione sono pronti",
       "failedText": "Esportazione fallita, riprova"
+    },
+    "importantNotice": {
+      "title": "Important Notice",
+      "acknowledge": "I Understand"
     }
   },
   "role": {
@@ -796,6 +841,7 @@
     "unsubscribeTime": "Ora di annullamento iscrizione",
     "source": "Fonte",
     "sourceAutomationDeleted": "Automazione o nodo eliminato",
+    "sourceApiSend": "Invio email tramite API",
     "processing": "Elaborazione in corso...",
     "unsubscribeH1": "Confermare la cancellazione dell'iscrizione?",
     "unsubscribeH2": "Stai per annullare l'iscrizione alle future promozioni e aggiornamenti dei prodotti Teable. Sei sicuro di voler annullare l'iscrizione?",
@@ -914,44 +960,44 @@
           "credit": {
             "warning80": {
               "title": "Spazio {{spaceName}} crediti IA 80 % utilizzati",
-              "message": "Il tuo spazio ha utilizzato l'80 % dei crediti IA. Considera l'upgrade o l'acquisto di crediti aggiuntivi."
+              "message": "Lo spazio {{spaceName}} ha utilizzato l'80 % dei crediti IA. Considera l'upgrade o l'acquisto di crediti aggiuntivi."
             },
             "warning90": {
               "title": "Spazio {{spaceName}} crediti IA 90 % utilizzati",
-              "message": "Il tuo spazio ha utilizzato il 90 % dei crediti IA. Aggiorna presto per evitare interruzioni."
+              "message": "Lo spazio {{spaceName}} ha utilizzato il 90 % dei crediti IA. Aggiorna presto per evitare interruzioni."
             },
             "anomaly": {
               "dailySpike": {
                 "title": "Spazio {{spaceName}}: picco insolito di crediti IA rilevato",
-                "message": "L'utilizzo di crediti IA di oggi ({{todayValue}}) è {{multiplier}}x la media giornaliera recente ({{ewma}}). Questo potrebbe indicare un'attività imprevista. Si prega di verificare l'utilizzo. Principali contributori: {{topContributors}}"
+                "message": "Spazio {{spaceName}}: l'utilizzo di crediti IA di oggi ({{todayValue}}) è {{multiplier}}x la media giornaliera recente ({{ewma}}). Questo potrebbe indicare un'attività imprevista. Si prega di verificare l'utilizzo. Principali contributori: {{topContributors}}"
               },
               "burst": {
                 "title": "Spazio {{spaceName}}: burst di crediti IA rilevato",
-                "message": "{{recentValue}} crediti IA consumati negli ultimi {{windowMinutes}} minuti, pari a {{multiplier}}x il P95 orario storico ({{hourlyP95}}). Questo potrebbe indicare un'attività imprevista. Principali contributori: {{topContributors}}"
+                "message": "Spazio {{spaceName}}: {{recentValue}} crediti IA consumati negli ultimi {{windowMinutes}} minuti, pari a {{multiplier}}x il P95 orario storico ({{hourlyP95}}). Questo potrebbe indicare un'attività imprevista. Principali contributori: {{topContributors}}"
               }
             }
           },
           "automationRun": {
             "warning80": {
               "title": "Spazio {{spaceName}} esecuzioni automazione 80 % della quota utilizzata",
-              "message": "Il tuo spazio ha utilizzato {{usedRuns}} di {{totalLimit}} esecuzioni di automazione (80 %). Considera l'upgrade del tuo piano."
+              "message": "Lo spazio {{spaceName}} ha utilizzato {{usedRuns}} di {{totalLimit}} esecuzioni di automazione (80 %). Considera l'upgrade del tuo piano."
             },
             "warning90": {
               "title": "Spazio {{spaceName}} esecuzioni automazione 90 % della quota utilizzata",
-              "message": "Il tuo spazio ha utilizzato {{usedRuns}} di {{totalLimit}} esecuzioni di automazione (90 %). Aggiorna presto per evitare interruzioni."
+              "message": "Lo spazio {{spaceName}} ha utilizzato {{usedRuns}} di {{totalLimit}} esecuzioni di automazione (90 %). Aggiorna presto per evitare interruzioni."
             },
             "gracePeriod": {
               "title": "Spazio {{spaceName}} esecuzioni automazione superate - periodo di grazia attivo",
-              "message": "La quota di esecuzioni di automazione è stata superata. Le automazioni smetteranno di funzionare e verranno disattivate tra {{remainingHours}} ore. Aggiorna il tuo piano."
+              "message": "Lo spazio {{spaceName}} ha superato la quota di esecuzioni di automazione. Le automazioni smetteranno di funzionare e verranno disattivate tra {{remainingHours}} ore. Aggiorna il tuo piano."
             },
             "anomaly": {
               "dailySpike": {
                 "title": "Spazio {{spaceName}}: picco insolito di esecuzioni automazione",
-                "message": "Le esecuzioni automazione di oggi ({{todayValue}}) sono {{multiplier}}x la media giornaliera recente ({{ewma}}). Questo potrebbe indicare un'automazione fuori controllo. Si prega di verificare i flussi di lavoro. Principali contributori: {{topContributors}}"
+                "message": "Spazio {{spaceName}}: le esecuzioni automazione di oggi ({{todayValue}}) sono {{multiplier}}x la media giornaliera recente ({{ewma}}). Questo potrebbe indicare un'automazione fuori controllo. Si prega di verificare i flussi di lavoro. Principali contributori: {{topContributors}}"
               },
               "burst": {
                 "title": "Spazio {{spaceName}}: burst di esecuzioni automazione rilevato",
-                "message": "{{recentValue}} esecuzioni automazione rilevate negli ultimi {{windowMinutes}} minuti, pari a {{multiplier}}x il P95 orario storico ({{hourlyP95}}). Questo potrebbe indicare un loop o una configurazione errata. Principali contributori: {{topContributors}}"
+                "message": "Spazio {{spaceName}}: {{recentValue}} esecuzioni automazione rilevate negli ultimi {{windowMinutes}} minuti, pari a {{multiplier}}x il P95 orario storico ({{hourlyP95}}). Questo potrebbe indicare un loop o una configurazione errata. Principali contributori: {{topContributors}}"
               }
             }
           }
@@ -1159,10 +1205,102 @@
       "unknown": "{{fieldHint}}{{message}}"
     }
   },
+  "skills": {
+    "title": "Competenze",
+    "tabs": {
+      "mySkills": "Le mie competenze"
+    },
+    "actions": {
+      "import": "Importa competenza",
+      "sync": "Sincronizza",
+      "delete": "Elimina",
+      "enable": "Attiva",
+      "disable": "Disattiva",
+      "edit": "Modifica",
+      "tryInChat": "Prova nella chat",
+      "replace": "Sostituisci",
+      "download": "Scarica",
+      "uninstall": "Disinstalla",
+      "copyToBase": "Copia in Base",
+      "copyToPersonal": "Copia in personale",
+      "copyToApp": "Copia nell'app"
+    },
+    "import": {
+      "title": "Importa competenza",
+      "description": "Importa una competenza da un repository GitHub o da un file ZIP",
+      "githubTab": "URL GitHub",
+      "fileTab": "File ZIP",
+      "githubTitle": "Importa una competenza da GitHub",
+      "githubPlaceholder": "https://github.com/owner/repo/tree/main/skills/my-skill",
+      "fileHint": "Carica un file ZIP contenente SKILL.md",
+      "or": "o",
+      "selectFile": "Scegli file",
+      "replaceWarning": "Se in questo ambito esiste già una competenza con lo stesso nome, l'importazione la sostituirà.",
+      "importing": "Importazione...",
+      "submit": "Importa",
+      "success": "Competenza importata con successo",
+      "error": "Importazione della competenza non riuscita"
+    },
+    "detail": {
+      "slug": "Slug",
+      "type": "Tipo",
+      "description": "Descrizione",
+      "source": "Origine",
+      "skillLabel": "Competenza",
+      "syncStatus": "Stato sincronizzazione",
+      "preview": "Anteprima SKILL.md"
+    },
+    "scope": {
+      "label": "Ambito",
+      "system": "Sistema",
+      "base": "Base attuale",
+      "user": "Personale",
+      "userDescription": "Disponibile solo per te",
+      "baseDescription": "Condivisa con i collaboratori di questa base",
+      "app": "App",
+      "appDescription": "Disponibile solo per questa app",
+      "cuppyclaw": "Bot",
+      "cuppyclawDescription": "Disponibile solo per questo bot"
+    },
+    "source": {
+      "github": "GitHub",
+      "file": "Caricamento file",
+      "manual": "Manuale"
+    },
+    "status": {
+      "enabled": "Attivato",
+      "disabled": "Disattivato",
+      "synced": "Sincronizzato",
+      "failed": "Sincronizzazione non riuscita"
+    },
+    "empty": {
+      "mySkills": "Nessuna competenza personale. Importane una per iniziare."
+    },
+    "confirm": {
+      "deleteTitle": "Elimina competenza",
+      "deleteDescription": "Sei sicuro di voler eliminare questa competenza? Questa azione non può essere annullata."
+    },
+    "toast": {
+      "syncing": "Sincronizzazione della competenza...",
+      "syncSuccess": "Competenza sincronizzata con successo",
+      "syncError": "Sincronizzazione della competenza non riuscita",
+      "deleting": "Eliminazione della competenza...",
+      "deleteSuccess": "Competenza eliminata con successo",
+      "deleteError": "Eliminazione della competenza non riuscita",
+      "updateSuccess": "Competenza aggiornata con successo"
+    }
+  },
   "changelog": {
-    "newUpdate": "AGGIORNAMENTO DEL 19 MAGGIO",
-    "title": "I Credits Teable rendono 10x di piu!",
-    "url": "https://help.teable.ai/en/changelog#may-19-2026",
-    "id": "changelog-2026-05-19-teable-credits-up-10x"
+    "newUpdate": "AGGIORNAMENTO DEL 15 LUGLIO",
+    "title": "Memoria AI e download dei file",
+    "url": "https://help.teable.ai/en/changelog#jul-15-2026",
+    "id": "changelog-2026-07-15-ai-memory-and-file-downloads"
+  },
+  "resourceDescription": {
+    "addDescription": "Aggiungi descrizione",
+    "nodeDescription": "Descrizione nodo",
+    "descriptionSaving": "Salvataggio...",
+    "descriptionSaveFailed": "Impossibile salvare la descrizione, riprova",
+    "descriptionPlaceholder": "Aggiungi una descrizione per questo nodo"
   }
 }

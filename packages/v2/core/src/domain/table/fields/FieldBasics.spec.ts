@@ -30,6 +30,14 @@ describe('FieldName', () => {
   });
 });
 
+describe('FieldId', () => {
+  it('accepts canonical and legacy alphanumeric field ids', () => {
+    expect(createFieldId('a').isOk()).toBe(true);
+    expect(FieldId.create('fldAccessKey').isOk()).toBe(true);
+    expect(FieldId.create('fldAccess-Key').isErr()).toBe(true);
+  });
+});
+
 describe('DbFieldName', () => {
   it('rehydrates and validates', () => {
     DbFieldName.rehydrate('db_field')._unsafeUnwrap();

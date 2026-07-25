@@ -1,7 +1,7 @@
 import { createHash } from 'crypto';
+import * as fs from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { dirname, resolve, resolve as resolvePath } from 'node:path';
-import * as fs from 'node:fs';
 import { PapaparseCsvParser } from '@teable/v2-adapter-csv-parser-papaparse';
 import type { IV2PostgresDbConfig } from '@teable/v2-adapter-db-postgres-pg';
 import {
@@ -17,7 +17,6 @@ import {
   createTypeValidationStrategy,
   installUndoCaptureGlobals,
   registerV2TableRepositoryPostgresAdapter,
-  startComputedUpdatePollingIfEnabled,
   v2RecordRepositoryPostgresTokens,
   type IV2TableRepositoryPostgresConfig,
   type ComputedUpdateWorker,
@@ -94,6 +93,8 @@ export interface IV2NodeTestContainer {
    * Returns the number of tasks processed.
    */
   processOutbox(): Promise<number>;
+  /** Process one available outbox batch without waiting for the queue to become idle. */
+  processOutboxOnce(): Promise<number>;
   dispose(): Promise<void>;
 
   /**
@@ -338,7 +339,6 @@ export const createV2NodeTestContainer = async (
       db: dataDb,
       computedUpdate: {
         hybridConfig: { dispatchMode: 'external' },
-        pollingConfig: { enabled: false },
         ...options.computedUpdate,
       },
       typeValidationStrategy,
@@ -401,8 +401,6 @@ export const createV2NodeTestContainer = async (
   await time('register-command-explain', async () => {
     registerCommandExplainModule(c);
   });
-
-  const computedUpdatePollingService = startComputedUpdatePollingIfEnabled(c);
 
   const baseIdResult = BaseId.generate();
   if (baseIdResult.isErr()) {
@@ -468,10 +466,18 @@ export const createV2NodeTestContainer = async (
     c.registerInstance(v2CoreTokens.tableRepository, tableRepository);
   }
 
+  const worker = c.resolve<ComputedUpdateWorker>(
+    v2RecordRepositoryPostgresTokens.computedUpdateWorker
+  );
+  const processOutboxOnce = async (): Promise<number> => {
+    const result = await worker.runOnce({ workerId: 'test-worker', limit: 100 });
+    if (result.isErr()) {
+      throw new Error(`Outbox processing failed: ${result.error.message}`);
+    }
+    return result.value;
+  };
+
   const processOutbox = async (): Promise<number> => {
-    const worker = c.resolve<ComputedUpdateWorker>(
-      v2RecordRepositoryPostgresTokens.computedUpdateWorker
-    );
     const getActiveOutboxState = async () => {
       const now = new Date();
       const rows = await dataDb
@@ -512,14 +518,7 @@ export const createV2NodeTestContainer = async (
 
     // Keep processing until no more tasks are pending
     while (iterations < maxIterations) {
-      const result = await worker.runOnce({
-        workerId: 'test-worker',
-        limit: 100,
-      });
-      if (result.isErr()) {
-        throw new Error(`Outbox processing failed: ${result.error.message}`);
-      }
-      const processed = result.value;
+      const processed = await processOutboxOnce();
       totalProcessed += processed;
       iterations += 1;
 
@@ -549,9 +548,9 @@ export const createV2NodeTestContainer = async (
     db,
     connectionString,
     processOutbox,
+    processOutboxOnce,
     dispose: async () => {
       try {
-        await computedUpdatePollingService?.stop();
         const closers = Array.from(new Set([metaDb, dataDb]));
         await Promise.all(closers.map((db) => db.destroy()));
       } finally {

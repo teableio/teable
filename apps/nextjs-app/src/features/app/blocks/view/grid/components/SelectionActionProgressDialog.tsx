@@ -85,6 +85,7 @@ const MAX_PREDICTED_BATCH_DURATION_MS = 30000;
 const ELAPSED_TIME_HIGH_PRECISION_MS = 10000;
 const ELAPSED_TIME_MEDIUM_PRECISION_MS = 60000;
 const ELAPSED_TIME_LOW_PRECISION_MS = 10 * 60 * 1000;
+const SUCCESS_AUTO_DISMISS_DELAY_MS = 3000;
 
 const clampPredictedBatchDuration = (durationMs: number) =>
   Math.min(MAX_PREDICTED_BATCH_DURATION_MS, Math.max(MIN_PREDICTED_BATCH_DURATION_MS, durationMs));
@@ -364,7 +365,7 @@ const getDialogDescription = (
   }
 
   if (status === 'error') {
-    return latestError ?? t(config.failedTitleKey);
+    return latestError ? null : t(config.failedTitleKey);
   }
 
   if (status === 'success') {
@@ -479,6 +480,41 @@ const getProgressIndicatorClassName = (status: SelectionActionDialogStatus) => {
   return 'bg-foreground transition-[transform] duration-500 ease-out';
 };
 
+const getDisplayedProgressState = ({
+  mode,
+  resolvedStatus,
+  isPreparing,
+  totalCount,
+  completedCount,
+  interpolatedCompletedCount,
+}: {
+  mode: SelectionActionDialogMode;
+  resolvedStatus: SelectionActionDialogStatus;
+  isPreparing: boolean;
+  totalCount: number;
+  completedCount: number;
+  interpolatedCompletedCount: number;
+}) => {
+  const displayedCompletedCount =
+    mode === 'progress' && resolvedStatus === 'running' && !isPreparing
+      ? interpolatedCompletedCount
+      : completedCount;
+  const percent =
+    totalCount > 0
+      ? Math.min(100, Math.round((displayedCompletedCount / totalCount) * 100))
+      : resolvedStatus === 'success'
+        ? 100
+        : 0;
+  const displayPercent =
+    mode === 'progress' && resolvedStatus === 'running' && isPreparing
+      ? 0
+      : resolvedStatus === 'running'
+        ? Math.max(percent, totalCount > 0 ? 2 : 0)
+        : percent;
+
+  return { displayedCompletedCount, percent, displayPercent };
+};
+
 const getStatusAccentClassName = (status: SelectionActionDialogStatus) => {
   if (status === 'success') {
     return 'text-emerald-600 dark:text-emerald-500';
@@ -557,9 +593,11 @@ const SelectionActionChunkErrorDetails = ({
                 })}
               </span>
             </div>
-            <div className="mt-2 text-sm text-foreground">{error.message}</div>
+            <div className="mt-2 whitespace-pre-wrap break-words text-sm text-foreground">
+              {error.message}
+            </div>
             {error.recordIds.length ? (
-              <div className="mt-1 line-clamp-2 font-mono text-[11px] text-muted-foreground">
+              <div className="mt-1 whitespace-pre-wrap break-all font-mono text-[11px] text-muted-foreground">
                 {error.recordIds.join(', ')}
               </div>
             ) : null}
@@ -605,6 +643,7 @@ const SelectionActionProgressContent = ({
   isPreparing,
   formattedCompletedCount,
   formattedTotalCount,
+  showProgressCount,
   statusSummaryLabel,
   resolvedStatus,
   errors,
@@ -619,6 +658,7 @@ const SelectionActionProgressContent = ({
   isPreparing: boolean;
   formattedCompletedCount: string;
   formattedTotalCount: string;
+  showProgressCount: boolean;
   statusSummaryLabel: string;
   resolvedStatus: SelectionActionDialogStatus;
   errors: ISelectionActionDialogError[];
@@ -652,10 +692,14 @@ const SelectionActionProgressContent = ({
 
         {!isPreparing ? (
           <div className="mt-3 flex items-center justify-between gap-3 text-[13px] text-muted-foreground">
-            <div className="tabular-nums">
-              <span className="font-medium text-foreground">{formattedCompletedCount}</span>
-              <span> / {formattedTotalCount}</span>
-            </div>
+            {showProgressCount ? (
+              <div className="tabular-nums">
+                <span className="font-medium text-foreground">{formattedCompletedCount}</span>
+                <span> / {formattedTotalCount}</span>
+              </div>
+            ) : (
+              <div />
+            )}
             {elapsedTimeLabel ? <div className="tabular-nums">{elapsedTimeLabel}</div> : null}
           </div>
         ) : null}
@@ -726,23 +770,34 @@ export const SelectionActionProgressDialog = ({
     isPreparing,
     exactCompletedCount: completedCount,
   });
-  const displayedCompletedCount =
-    mode === 'progress' && resolvedStatus === 'running' && !isPreparing
-      ? interpolatedCompletedCount
-      : completedCount;
-  const percent =
-    totalCount > 0 ? Math.min(100, Math.round((displayedCompletedCount / totalCount) * 100)) : 0;
-  const displayPercent =
-    mode === 'progress' && resolvedStatus === 'running' && isPreparing
-      ? 0
-      : resolvedStatus === 'running'
-        ? Math.max(percent, totalCount > 0 ? 2 : 0)
-        : percent;
+  const { displayedCompletedCount, percent, displayPercent } = getDisplayedProgressState({
+    mode,
+    resolvedStatus,
+    isPreparing,
+    totalCount,
+    completedCount,
+    interpolatedCompletedCount,
+  });
   const elapsedTimeLabel = useAdaptiveElapsedTimeLabel({
     open,
     mode,
     resolvedStatus,
   });
+
+  useEffect(() => {
+    if (!open || mode !== 'progress' || resolvedStatus !== 'success') {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      onOpenChange?.(false);
+    }, SUCCESS_AUTO_DISMISS_DELAY_MS);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [mode, onOpenChange, open, resolvedStatus]);
+
   const handleOpenChange = (nextOpen: boolean) => {
     if (!canDismiss) {
       return;
@@ -757,6 +812,7 @@ export const SelectionActionProgressDialog = ({
   };
   const formattedCompletedCount = displayedCompletedCount.toLocaleString();
   const formattedTotalCount = totalCount.toLocaleString();
+  const showProgressCount = !(resolvedStatus === 'success' && totalCount === 0);
   const contentKey = `${mode}-${mode === 'confirm' ? 'confirm' : resolvedStatus}`;
 
   return (
@@ -801,6 +857,7 @@ export const SelectionActionProgressDialog = ({
               isPreparing={isPreparing}
               formattedCompletedCount={formattedCompletedCount}
               formattedTotalCount={formattedTotalCount}
+              showProgressCount={showProgressCount}
               statusSummaryLabel={statusSummaryLabel}
               resolvedStatus={resolvedStatus}
               errors={errors}

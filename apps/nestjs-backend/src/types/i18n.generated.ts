@@ -122,11 +122,9 @@ export type I18nTranslations = {
             "combo": {
                 "xAxis": {
                     "label": string;
-                    "placeholder": string;
                 };
                 "yAxis": {
                     "label": string;
-                    "placeholder": string;
                     "position": string;
                 };
                 "xDisplay": {
@@ -139,7 +137,6 @@ export type I18nTranslations = {
                 "addYAxis": string;
                 "stack": string;
                 "position": {
-                    "label": string;
                     "auto": string;
                     "left": string;
                     "right": string;
@@ -257,6 +254,7 @@ export type I18nTranslations = {
             "switchBase": string;
             "getMore": string;
             "copySuccess": string;
+            "openLink": string;
             "share": string;
             "clear": string;
             "retry": string;
@@ -456,7 +454,40 @@ export type I18nTranslations = {
                 "mouseMode": string;
                 "touchMode": string;
                 "systemMode": string;
+                "teableSkill": string;
+                "infraVersion": string;
                 "buySelfHostedLicense": string;
+            };
+            "teableSkill": {
+                "intro": string;
+                "worksWith": string;
+                "more": string;
+                "copy": string;
+                "installPromptLabel": string;
+                "installCommandLabel": string;
+                "installPrompt": string;
+                "step1Title": string;
+                "step1Description": string;
+                "step3Title": string;
+                "step3Description": string;
+                "tryPrompts": {
+                    "schema": {
+                        "prompt": string;
+                        "note": string;
+                    };
+                    "template": {
+                        "prompt": string;
+                        "note": string;
+                    };
+                    "validate": {
+                        "prompt": string;
+                        "note": string;
+                    };
+                    "trace": {
+                        "prompt": string;
+                        "note": string;
+                    };
+                };
             };
             "nav": {
                 "settings": string;
@@ -697,14 +728,16 @@ export type I18nTranslations = {
             };
             "addOrgCollaborator": {
                 "title": string;
+                "button": string;
                 "placeholder": string;
             };
-            "sendInvitationSuccess": string;
             "table": {
                 "collaborator": string;
                 "accessPermission": string;
                 "joinAt": string;
+                "lastLogin": string;
             };
+            "sendInvitationSuccess": string;
             "authority": {
                 "title": string;
                 "description": string;
@@ -736,6 +769,9 @@ export type I18nTranslations = {
             "billable": string;
             "billableByAuthorityMatrix": string;
             "licenseExpiredGracePeriod": string;
+            "licenseAutoFetchFailed": string;
+            "licenseAutoFetchRetryFailed": string;
+            "licenseExpiredGracePeriodDays": string;
             "spaceSubscriptionModal": {
                 "title": string;
                 "description": string;
@@ -759,6 +795,9 @@ export type I18nTranslations = {
                 "description": string;
                 "allowSignUp": string;
                 "allowSignUpDescription": string;
+                "bannedEmailDomains": string;
+                "bannedEmailDomainsDescription": string;
+                "bannedEmailDomainsInvalid": string;
                 "allowSpaceInvitation": string;
                 "allowSpaceInvitationDescription": string;
                 "allowSpaceCreation": string;
@@ -900,6 +939,11 @@ export type I18nTranslations = {
                     "isOpenRouter": string;
                     "customModel": string;
                     "customModelDescription": string;
+                    "modelsSelectedCount": string;
+                    "clearAllModels": string;
+                    "customModelPlaceholder": string;
+                    "addModelFill": string;
+                    "modelIdReservedAt": string;
                     "aiAbilitySettings": string;
                     "aiAbilitySettingsDescription": string;
                     "imageModelAbility": {
@@ -931,6 +975,7 @@ export type I18nTranslations = {
                     "pending": string;
                     "configuredModels": string;
                     "modelRates": string;
+                    "modelSettings": string;
                     "model": string;
                     "inputRate": string;
                     "outputRate": string;
@@ -958,11 +1003,7 @@ export type I18nTranslations = {
                     "imageGenerationModel": string;
                     "markedAsImageModel": string;
                     "markedAsTextModel": string;
-                    "fetchPricing": string;
-                    "fetchPricingTip": string;
                     "fetchPricingError": string;
-                    "pricingPreview": string;
-                    "pricingPreviewDesc": string;
                     "openRouterId": string;
                     "notFound": string;
                     "applyPricing": string;
@@ -977,6 +1018,13 @@ export type I18nTranslations = {
                     "gatewayRatioTip": string;
                     "generatedPricing": string;
                     "generatedPricingTip": string;
+                    "rateExplanationManual": string;
+                    "referenceModelLabel": string;
+                    "contextWindowCap": string;
+                    "contextWindowCapTip": string;
+                    "maxOutputTokensCap": string;
+                    "maxOutputTokensCapTip": string;
+                    "rateExplanationCaps": string;
                     "relativeRatioTip": string;
                     "hint": {
                         "title": string;
@@ -992,6 +1040,7 @@ export type I18nTranslations = {
                         "checkConfiguration": string;
                     };
                     "recommended": string;
+                    "enabled": string;
                     "gatewayModels": string;
                     "gatewayModelsDescription": string;
                     "gatewayDescription": string;
@@ -1003,7 +1052,6 @@ export type I18nTranslations = {
                     "modelIdHint": string;
                     "searchModelPlaceholder": string;
                     "noMatchingModels": string;
-                    "useCustomId": string;
                     "typeToSearch": string;
                     "modelNotFound": string;
                     "testModel": string;
@@ -1128,9 +1176,6 @@ export type I18nTranslations = {
                     "customDomainDescription": string;
                     "vercelToken": string;
                     "vercelTokenDescription": string;
-                    "apiProxy": string;
-                    "apiProxyDescription": string;
-                    "vercelBaseUrl": string;
                     "aiGateway": string;
                     "aiGatewayDescription": string;
                     "aiGatewayApiKey": string;
@@ -1159,11 +1204,6 @@ export type I18nTranslations = {
                     "https": {
                         "title": string;
                         "description": string;
-                    };
-                    "databaseProxy": {
-                        "title": string;
-                        "description": string;
-                        "href": string;
                     };
                     "llmApi": {
                         "title": string;
@@ -1196,14 +1236,15 @@ export type I18nTranslations = {
                         "title": string;
                         "description": string;
                     };
+                    "appBuilderEngine": {
+                        "title": string;
+                        "description": string;
+                    };
                     "appBuilderDomain": {
                         "title": string;
                         "description": string;
                     };
-                    "appBuilderApiProxy": {
-                        "title": string;
-                    };
-                    "sandboxVercel": {
+                    "sandboxOpenSandbox": {
                         "title": string;
                         "description": string;
                     };
@@ -1246,6 +1287,10 @@ export type I18nTranslations = {
             "exportBase": {
                 "successText": string;
                 "failedText": string;
+            };
+            "importantNotice": {
+                "title": string;
+                "acknowledge": string;
             };
             "noAttention": string;
             "noSeverity": string;
@@ -1334,6 +1379,7 @@ export type I18nTranslations = {
             "unsubscribeTime": string;
             "source": string;
             "sourceAutomationDeleted": string;
+            "sourceApiSend": string;
             "processing": string;
             "unsubscribeH1": string;
             "unsubscribeH2": string;
@@ -1698,11 +1744,110 @@ export type I18nTranslations = {
                 "unknown": string;
             };
         };
+        "skills": {
+            "title": string;
+            "tabs": {
+                "mySkills": string;
+            };
+            "actions": {
+                "import": string;
+                "sync": string;
+                "delete": string;
+                "enable": string;
+                "disable": string;
+                "edit": string;
+                "tryInChat": string;
+                "replace": string;
+                "download": string;
+                "uninstall": string;
+                "copyToBase": string;
+                "copyToPersonal": string;
+                "copyToApp": string;
+            };
+            "import": {
+                "title": string;
+                "description": string;
+                "githubTab": string;
+                "fileTab": string;
+                "githubTitle": string;
+                "githubPlaceholder": string;
+                "fileHint": string;
+                "or": string;
+                "selectFile": string;
+                "replaceWarning": string;
+                "importing": string;
+                "submit": string;
+                "success": string;
+                "error": string;
+            };
+            "detail": {
+                "slug": string;
+                "type": string;
+                "description": string;
+                "source": string;
+                "skillLabel": string;
+                "syncStatus": string;
+                "preview": string;
+                "addedBy": string;
+            };
+            "scope": {
+                "label": string;
+                "system": string;
+                "base": string;
+                "user": string;
+                "userDescription": string;
+                "baseDescription": string;
+                "app": string;
+                "appDescription": string;
+                "cuppyclaw": string;
+                "cuppyclawDescription": string;
+            };
+            "source": {
+                "github": string;
+                "file": string;
+                "manual": string;
+            };
+            "status": {
+                "enabled": string;
+                "disabled": string;
+                "synced": string;
+                "failed": string;
+            };
+            "empty": {
+                "mySkills": string;
+            };
+            "confirm": {
+                "deleteTitle": string;
+                "deleteDescription": string;
+                "copyTitle": string;
+                "copyDescription": string;
+                "copyOverwriteWarning": string;
+            };
+            "toast": {
+                "syncing": string;
+                "syncSuccess": string;
+                "syncError": string;
+                "deleting": string;
+                "deleteSuccess": string;
+                "deleteError": string;
+                "updateSuccess": string;
+                "copying": string;
+                "copySuccess": string;
+                "copyError": string;
+            };
+        };
         "changelog": {
             "newUpdate": string;
             "title": string;
             "url": string;
             "id": string;
+        };
+        "resourceDescription": {
+            "addDescription": string;
+            "nodeDescription": string;
+            "descriptionSaving": string;
+            "descriptionSaveFailed": string;
+            "descriptionPlaceholder": string;
         };
         "noPermissionToCreateBase": string;
         "chat": {
@@ -1719,9 +1864,12 @@ export type I18nTranslations = {
             "sandboxCapacityFull": string;
             "sandboxTransient": string;
             "sandboxSnapshotNotFound": string;
+            "sandboxProviderError": string;
+            "sandboxProviderErrorDescription": string;
             "agentStartFailed": string;
             "idleTimeout": string;
             "danglingToolUse": string;
+            "contextImportFailed": string;
         };
         "clickToCopyTooltip": string;
         "copiedTooltip": string;
@@ -1836,7 +1984,6 @@ export type I18nTranslations = {
             };
             "description": {
                 "label": string;
-                "description": string;
             };
             "homePageUrl": {
                 "label": string;
@@ -1856,10 +2003,6 @@ export type I18nTranslations = {
                 "label": string;
                 "description": string;
                 "add": string;
-            };
-            "scopes": {
-                "label": string;
-                "description": string;
             };
             "secret": {
                 "label": string;
@@ -1970,13 +2113,13 @@ export type I18nTranslations = {
     };
     "sdk": {
         "common": {
-            "comingSoon": string;
             "empty": string;
             "noRecords": string;
             "unnamedRecord": string;
             "untitled": string;
             "cancel": string;
             "confirm": string;
+            "clear": string;
             "back": string;
             "done": string;
             "create": string;
@@ -2031,7 +2174,6 @@ export type I18nTranslations = {
                 "uploadDragDefault": string;
                 "upload": string;
                 "downloadAll": string;
-                "downloading": string;
                 "downloadSuccess": string;
                 "downloadFailed": string;
                 "downloadCancelled": string;
@@ -2070,7 +2212,6 @@ export type I18nTranslations = {
             "link": {
                 "placeholder": string;
                 "searchPlaceholder": string;
-                "allFields": string;
                 "globalSearch": string;
                 "fieldSearch": string;
                 "maxFieldTips": string;
@@ -2078,14 +2219,11 @@ export type I18nTranslations = {
                 "selectRecord": string;
                 "all": string;
                 "selected": string;
-                "expandRecordError": string;
                 "alreadyOpen": string;
                 "linkedTo": string;
-                "goToForeignTable": string;
                 "foreignTableIdRequired": string;
                 "linkFieldIdRequired": string;
                 "selectTooManyRecords": string;
-                "relationshipRequired": string;
                 "rangeSelectFailed": string;
             };
             "user": {
@@ -2100,11 +2238,9 @@ export type I18nTranslations = {
                 "lookupFieldIdRequired": string;
                 "lookupOptionsNotAllowed": string;
                 "lookupOptionsRequired": string;
-                "refineOptionsError": string;
             };
             "rollup": {
                 "expressionRequired": string;
-                "unsupportedTip": string;
             };
             "conditionalRollup": {
                 "filterRequired": string;
@@ -2132,11 +2268,8 @@ export type I18nTranslations = {
             "addConditionGroup": string;
             "nestedLimitTip": string;
             "linkInputPlaceholder": string;
-            "groupDescription": string;
             "currentUser": string;
-            "tips": {
-                "scope": string;
-            };
+            "tips": {};
             "invalidateSelected": string;
             "invalidateSelectedTips": string;
             "invalidConditionTip": string;
@@ -2198,6 +2331,7 @@ export type I18nTranslations = {
                     "daysAgo": string;
                     "daysFromNow": string;
                     "exactDate": string;
+                    "exactDateTime": string;
                     "exactFormatDate": string;
                     "currentWeek": string;
                     "currentMonth": string;
@@ -2234,15 +2368,10 @@ export type I18nTranslations = {
             "title": string;
             "displayLines": string;
         };
-        "share": {
-            "title": string;
-        };
-        "extensions": {
-            "title": string;
-        };
+        "share": {};
+        "extensions": {};
         "hidden": {
             "label": string;
-            "configLabel_one": string;
             "configLabel_other": string;
             "configLabel_other_visible": string;
             "showAll": string;
@@ -2264,6 +2393,11 @@ export type I18nTranslations = {
                 "createdBy": string;
                 "before": string;
                 "after": string;
+                "buttonClicked": string;
+                "filterTime": string;
+                "allFields": string;
+                "allUsers": string;
+                "clearFilter": string;
                 "viewRecord": string;
             };
             "showHiddenFields": string;
@@ -2365,7 +2499,6 @@ export type I18nTranslations = {
                 "baseUpdate": string;
                 "baseInviteEmail": string;
                 "baseInviteLink": string;
-                "baseTableImport": string;
                 "baseAuthorityMatrixConfig": string;
                 "baseDbConnect": string;
                 "tableCreate": string;
@@ -2400,7 +2533,6 @@ export type I18nTranslations = {
                 "appDelete": string;
                 "appRead": string;
                 "appUpdate": string;
-                "userProfileRead": string;
                 "userEmailRead": string;
                 "userIntegrations": string;
                 "recordHistoryRead": string;
@@ -2846,7 +2978,6 @@ export type I18nTranslations = {
             "placeholder": string;
             "emptyComment": string;
             "deletedComment": string;
-            "imageSizeLimit": string;
             "tip": {
                 "editing": string;
                 "edited": string;
@@ -2865,8 +2996,6 @@ export type I18nTranslations = {
             };
             "floatToolbar": {
                 "editLink": string;
-                "caption": string;
-                "delete": string;
                 "linkText": string;
                 "enterUrl": string;
             };
@@ -2876,7 +3005,6 @@ export type I18nTranslations = {
             "memberSelectorSearchPlaceholder": string;
             "departmentSelectorSearchPlaceholder": string;
             "selected": string;
-            "noSelected": string;
             "empty": string;
             "emptyDepartment": string;
         };
@@ -2929,6 +3057,11 @@ export type I18nTranslations = {
                 "viewOptionsMaxBytes": string;
                 "nameMaxLength": string;
                 "descriptionMaxLength": string;
+            };
+            "validation": {
+                "field": {
+                    "unique": string;
+                };
             };
             "custom": {
                 "fieldValueNotNull": string;
@@ -3317,6 +3450,43 @@ export type I18nTranslations = {
                 "gatewayApiKeyNotSet": string;
                 "geminiImageNotSupportedViaGateway": string;
             };
+            "skill": {
+                "notFound": string;
+                "onlyGithubCanSync": string;
+                "syncFailed": string;
+                "skillMdNotFoundAtSource": string;
+                "slugChangedUpstream": string;
+                "skillMdNotFoundAtPath": string;
+                "invalidSkillFile": string;
+                "tooManyResourceFiles": string;
+                "noSkillMdInPackage": string;
+                "multipleSkillMdInPackage": string;
+                "invalidResourcePaths": string;
+                "nameFieldRequired": string;
+                "invalidSlugFormat": string;
+                "filesExceedSizeLimit": string;
+                "binaryFilesNotAllowed": string;
+                "totalSizeExceedsLimit": string;
+                "invalidGithubUrl": string;
+                "directoryTooDeep": string;
+                "importFailed": string;
+                "alreadyInScope": string;
+            };
+            "sandbox": {
+                "fileNotFound": string;
+                "onlyRegularFiles": string;
+                "fileTooLarge": string;
+                "cannotDeleteRoot": string;
+                "deleteFailed": string;
+                "uploadFailed": string;
+                "fileEndpointUnavailable": string;
+                "invalidPath": string;
+                "tooManyDownloads": string;
+                "dailyLimitExceeded": string;
+                "storageFull": string;
+                "tooManyFiles": string;
+                "noActiveSandbox": string;
+            };
             "role": {
                 "notFound": string;
             };
@@ -3397,6 +3567,7 @@ export type I18nTranslations = {
             };
             "user": {
                 "disallowSignUp": string;
+                "emailDomainBanned": string;
                 "waitlistInviteCodeRequired": string;
                 "waitlistInviteCodeInvalid": string;
                 "systemUser": string;
@@ -3510,7 +3681,6 @@ export type I18nTranslations = {
         };
         "view": {
             "signInToEdit": string;
-            "login": string;
         };
         "openOnNewPage": string;
         "errorTips": string;
@@ -3531,6 +3701,7 @@ export type I18nTranslations = {
             "createBase": string;
             "createSpace": string;
             "invite": string;
+            "startFromScratch": string;
         };
         "allSpaces": string;
         "emptySpaceTitle": string;
@@ -3546,7 +3717,6 @@ export type I18nTranslations = {
             "duplicateBase": string;
             "missTargetTip": string;
             "copying": string;
-            "copyingTemplate": string;
             "howToCreate": string;
             "fromScratch": string;
             "fromTemplate": string;
@@ -3559,7 +3729,6 @@ export type I18nTranslations = {
             "general": string;
             "collaborators": string;
             "generalDescription": string;
-            "collaboratorDescription": string;
             "spaceName": string;
             "spaceId": string;
             "importBase": string;
@@ -3575,8 +3744,6 @@ export type I18nTranslations = {
         };
         "tip": {
             "delete": string;
-            "title": string;
-            "exportTips1": string;
             "exportTips2": string;
             "exportTips3": string;
             "exportIncludeDataLabel": string;
@@ -3590,35 +3757,34 @@ export type I18nTranslations = {
             "moveBaseSuccessDescription": string;
             "moveBaseCrossSpaceTitle": string;
             "moveBaseCrossSpaceDataLossWarning": string;
+            "moveBaseCrossDataDbTitle": string;
+            "moveBaseCrossDataDbWarning": string;
+            "moveBaseProgressTitle": string;
+            "moveBaseProgressPhase": string;
+            "moveBaseProgressPercent": string;
+            "moveBaseFailedTitle": string;
+            "moveBaseFailedDescription": string;
+            "moveBaseRetry": string;
+            "moveBaseCancel": string;
         };
         "deleteSpaceModal": {
             "title": string;
             "blockedTitle": string;
             "blockedDesc": string;
-            "permanentDeleteWarning": string;
-            "confirmInputLabel": string;
         };
         "sharedBase": {
             "title": string;
             "description": string;
             "empty": string;
         };
-        "integration": {
-            "title": string;
-            "description": string;
-            "addIntegration": string;
-            "ai": string;
-        };
+        "integration": {};
         "aiSetting": {
             "title": string;
             "description": string;
-            "enableTips": string;
             "enable": string;
-            "enableSwitchTips": string;
         };
         "import": {
             "importing": string;
-            "importWayTip": string;
             "baseImportTips": string;
             "confirm": string;
             "phase": {
@@ -3665,8 +3831,6 @@ export type I18nTranslations = {
                 "tableDataBatch": string;
                 "tableDataBatchRows": string;
                 "tableDataEmpty": string;
-                "computedBackfill": string;
-                "computedBackfillFailed": string;
             };
         };
         "template": {
@@ -3688,7 +3852,7 @@ export type I18nTranslations = {
         };
         "baseList": {
             "allBases": string;
-            "owner": string;
+            "creator": string;
             "createdTime": string;
             "lastOpened": string;
             "enter": string;
@@ -3696,7 +3860,6 @@ export type I18nTranslations = {
             "empty": string;
             "recent": string;
             "manual": string;
-            "noBasesFound": string;
         };
         "publishBase": {
             "title": string;
@@ -3706,12 +3869,10 @@ export type I18nTranslations = {
                 "title": string;
                 "description": string;
                 "security": string;
-                "includeNodes": string;
                 "advanced": string;
                 "publishNode": string;
                 "includeData": string;
                 "defaultActiveNode": string;
-                "select": string;
                 "descriptionPlaceholder": string;
                 "titlePlaceholder": string;
                 "toBeFilledTitle": string;
@@ -3726,7 +3887,6 @@ export type I18nTranslations = {
             "unPublishSuccess": string;
             "unPublishConfirmTitle": string;
             "unPublishConfirmDescription": string;
-            "usageCount": string;
             "uploadCover": string;
             "changeCover": string;
             "uploading": string;
@@ -3762,6 +3922,67 @@ export type I18nTranslations = {
                 "unnamedApp": string;
             };
         };
+        "airtableImport": {
+            "title": string;
+            "close": string;
+            "pickBase": string;
+            "noBases": string;
+            "optionRecords": string;
+            "optionAttachments": string;
+            "import": string;
+            "done": string;
+            "failed": string;
+            "openBase": string;
+            "issuesSummary": string;
+            "issuesMore": string;
+            "issue": {
+                "fieldDegraded": string;
+                "fieldSkipped": string;
+                "viewSkipped": string;
+                "valuesDropped": string;
+                "viewConfigDegraded": string;
+            };
+            "phase": {
+                "fetchingSchema": string;
+                "creatingBase": string;
+                "creatingTable": string;
+                "creatingLinks": string;
+                "fillingLinks": string;
+                "applyingViewConfig": string;
+            };
+            "searchBases": string;
+            "noSearchResults": string;
+            "detecting": string;
+            "connectWithAirtable": string;
+            "waitingOAuth": string;
+            "connectedAs": string;
+            "permission": {
+                "create": string;
+                "edit": string;
+                "comment": string;
+                "read": string;
+            };
+            "integrationRequired": string;
+            "optionViewConfig": string;
+            "viewConfig": {
+                "help": string;
+                "helpStep1": string;
+                "helpStep2": string;
+                "helpStep3": string;
+                "linkPlaceholder": string;
+                "mismatch": string;
+                "disableReminder": string;
+            };
+        };
+        "createBaseDialog": {
+            "title": string;
+        };
+        "importBaseDialog": {
+            "title": string;
+            "fromFile": string;
+            "fromFileDesc": string;
+            "fromAirtableDesc": string;
+        };
         "collaborators": string;
         "more": string;
         "export": {
@@ -3787,7 +4008,6 @@ export type I18nTranslations = {
             "create": {
                 "title": string;
                 "description": string;
-                "defaultOption": string;
                 "defaultHint": string;
                 "byodbOption": string;
                 "byodbHint": string;
@@ -3843,6 +4063,10 @@ export type I18nTranslations = {
                 "version": string;
                 "classification": string;
             };
+            "badge": {
+                "label": string;
+                "tooltip": string;
+            };
         };
     };
     "table": {
@@ -3851,12 +4075,9 @@ export type I18nTranslations = {
             "duplicateFieldDescription": string;
             "duplicateTableTitle": string;
             "duplicateTableDescription": string;
-            "duplicateBaseTitle": string;
-            "duplicateBaseDescription": string;
             "convertAndDuplicate": string;
         };
         "toolbar": {
-            "comingSoon": string;
             "viewFilterInShare": string;
             "createFieldButtonText": string;
             "others": {
@@ -3864,8 +4085,6 @@ export type I18nTranslations = {
                     "label": string;
                     "statusLabel": string;
                     "noPermission": string;
-                    "shareLink": string;
-                    "copied": string;
                     "genLink": string;
                     "allowCopy": string;
                     "allowEdit": string;
@@ -3883,26 +4102,15 @@ export type I18nTranslations = {
                     "save": string;
                     "requireLogin": string;
                     "copyCode": string;
-                    "theme": string;
-                    "themeSystem": string;
-                    "themeLight": string;
-                    "themeDark": string;
-                };
-                "extensions": {
-                    "label": string;
-                    "graph": string;
                 };
                 "api": {
-                    "label": string;
-                    "restfulApi": string;
-                    "databaseConnection": string;
                     "title": string;
                     "aiContext": string;
                     "advanced": string;
+                    "recommended": string;
+                    "apiDocGroupTitle": string;
+                    "apiDocGroupDescription": string;
                     "generatingToken": string;
-                    "aiContextTitle": string;
-                    "aiContextDescriptionNoToken": string;
-                    "aiContextDescriptionWithToken": string;
                     "generateToken": string;
                     "confirmTitle": string;
                     "confirmDescription": string;
@@ -3915,15 +4123,11 @@ export type I18nTranslations = {
                     "confirmExpiry": string;
                     "confirmButton": string;
                     "tokenInfo": string;
-                    "tokenCreatedSuccess": string;
                     "copied": string;
-                    "copy": string;
                     "copyAIDoc": string;
                     "aiDocPreview": string;
                     "manageToken": string;
                     "openInNewTab": string;
-                    "advancedDesc": string;
-                    "openAdvanced": string;
                     "queryBuilderTitle": string;
                     "queryBuilderDesc": string;
                     "viewApiDocs": string;
@@ -3931,7 +4135,6 @@ export type I18nTranslations = {
                 "personalView": {
                     "personal": string;
                     "tip": string;
-                    "collaborative": string;
                     "dialog": {
                         "title": string;
                         "description": string;
@@ -3956,11 +4159,10 @@ export type I18nTranslations = {
             };
             "field": {
                 "maxColumnLimit": string;
+                "requiredExistingValues": string;
             };
         };
         "field": {
-            "fieldManagement": string;
-            "fieldManagementDesc": string;
             "advancedProps": string;
             "hide": string;
             "default": {
@@ -4043,7 +4245,6 @@ export type I18nTranslations = {
                 "button": {
                     "title": string;
                     "label": string;
-                    "color": string;
                     "limitCount": string;
                     "resetCount": string;
                     "maxCount": string;
@@ -4103,7 +4304,6 @@ export type I18nTranslations = {
                 };
                 "conditionalRollup": {
                     "title": string;
-                    "description": string;
                 };
             };
             "editor": {
@@ -4119,7 +4319,6 @@ export type I18nTranslations = {
                 "areYouSurePerformIt": string;
                 "addDescription": string;
                 "dbFieldName": string;
-                "description": string;
                 "descriptionPlaceholder": string;
                 "type": string;
                 "showAs": string;
@@ -4185,11 +4384,7 @@ export type I18nTranslations = {
                     "title": string;
                     "simpleConfirm": string;
                     "withDependencies": string;
-                    "affectedFields": string;
-                    "fieldsToDelete": string;
-                    "unviewedHint": string;
                     "deleteCount": string;
-                    "noAffectedFields": string;
                     "riskIdentified": string;
                     "noDependencies": string;
                     "safeToDelete": string;
@@ -4205,8 +4400,6 @@ export type I18nTranslations = {
                 "conditionalLookup": {
                     "sortLimitToggleLabel": string;
                     "sortLabel": string;
-                    "orderPlaceholder": string;
-                    "clearSort": string;
                     "limitLabel": string;
                     "limitPlaceholder": string;
                     "limitHint": string;
@@ -4218,13 +4411,7 @@ export type I18nTranslations = {
                 "lastModifiedAll": string;
                 "lastModifiedSpecific": string;
                 "lastModifiedSelect": string;
-                "lastModifiedSelectAll": string;
                 "noEditableFields": string;
-                "conditionalRollup": {
-                    "fieldMapping": string;
-                    "selectBaseField": string;
-                    "noMappings": string;
-                };
             };
             "subTitle": {
                 "link": string;
@@ -4237,12 +4424,10 @@ export type I18nTranslations = {
                 "user": string;
                 "date": string;
                 "number": string;
-                "duration": string;
                 "rating": string;
                 "formula": string;
                 "rollup": string;
                 "conditionalLookup": string;
-                "count": string;
                 "createdTime": string;
                 "lastModifiedTime": string;
                 "createdBy": string;
@@ -4293,7 +4478,6 @@ export type I18nTranslations = {
                     "improveText": string;
                     "attachPromptForTag": string;
                     "attachPromptForClassify": string;
-                    "attachPrompt": string;
                     "prompt": string;
                     "type": string;
                     "targetLanguage": string;
@@ -4309,6 +4493,9 @@ export type I18nTranslations = {
                     "medium": string;
                     "high": string;
                 };
+                "tip": {
+                    "gptImageResolution": string;
+                };
                 "autoFill": {
                     "title": string;
                     "tip": string;
@@ -4321,9 +4508,7 @@ export type I18nTranslations = {
                     "title": string;
                     "description": string;
                     "saveConfigOnly": string;
-                    "generate": string;
                     "generateFailed": string;
-                    "generateMode": string;
                     "emptyOnlyMode": string;
                     "emptyOnlyModeDesc": string;
                     "allMode": string;
@@ -4333,11 +4518,7 @@ export type I18nTranslations = {
                     "fillEmptyCells": string;
                     "generateAll": string;
                     "recommended": string;
-                    "taskLimited": string;
                     "limitWarning": string;
-                };
-                "action": {
-                    "addAttachment": string;
                 };
                 "hint": {
                     "imageInputSupported": string;
@@ -4355,7 +4536,6 @@ export type I18nTranslations = {
         "table": {
             "newTableLabel": string;
             "rename": string;
-            "design": string;
             "tableRecordHistory": string;
             "deleteConfirm": string;
             "dbTableName": string;
@@ -4364,11 +4544,9 @@ export type I18nTranslations = {
             "typeOfDatabase": string;
             "descriptionForTable": string;
             "loginUserTable": string;
-            "loginUserTableClickTips": string;
             "linkedApps": string;
             "nameForTable": string;
             "deleteTip1": string;
-            "deleteTip2": string;
             "operator": {
                 "createBlank": string;
             };
@@ -4386,7 +4564,6 @@ export type I18nTranslations = {
                 "fillFailed": string;
                 "clearing": string;
                 "clearSuccessful": string;
-                "deleteFieldConfirmTitle": string;
                 "deleting": string;
                 "deleteSuccessful": string;
                 "deleteStream": {
@@ -4399,7 +4576,6 @@ export type I18nTranslations = {
                     "chunkFailureSummary": string;
                     "chunkLabel": string;
                     "rowsLabel": string;
-                    "partialFailureDescription": string;
                     "phaseLabel": {
                         "preparing": string;
                         "guarding": string;
@@ -4427,13 +4603,9 @@ export type I18nTranslations = {
                 "duplicateRecordsConfirmDescription": string;
                 "pasteConfirmTitle": string;
                 "pasteConfirmDescription": string;
-                "expandCommonDescription": string;
-                "expandColDescription": string;
-                "expandRowDescription": string;
                 "paste": string;
                 "deleteRecord": string;
                 "clear": string;
-                "conjunction": string;
                 "duplicating": string;
                 "deleteFailed": string;
                 "duplicateFailed": string;
@@ -4449,7 +4621,6 @@ export type I18nTranslations = {
                     "chunkFailureSummary": string;
                     "chunkLabel": string;
                     "rowsLabel": string;
-                    "partialFailureDescription": string;
                     "phaseLabel": {
                         "preparing": string;
                         "guarding": string;
@@ -4468,7 +4639,6 @@ export type I18nTranslations = {
                     "chunkFailureSummary": string;
                     "chunkLabel": string;
                     "rowsLabel": string;
-                    "partialFailureDescription": string;
                     "phaseLabel": {
                         "preparing": string;
                         "guarding": string;
@@ -4488,7 +4658,28 @@ export type I18nTranslations = {
                     "chunkFailureSummary": string;
                     "chunkLabel": string;
                     "rowsLabel": string;
-                    "partialFailureDescription": string;
+                    "phaseLabel": {
+                        "preparing": string;
+                        "guarding": string;
+                        "processing": string;
+                        "publishing": string;
+                        "finalizing": string;
+                    };
+                };
+                "restoreFieldStream": {
+                    "confirmTitle": string;
+                    "confirmDescription": string;
+                    "preparing": string;
+                    "restoring": string;
+                    "restoringRecords": string;
+                    "restoreFailed": string;
+                    "descriptionWithIssues": string;
+                    "completedWithIssues": string;
+                    "issuesBadge": string;
+                    "chunkFailureTitle": string;
+                    "chunkFailureSummary": string;
+                    "chunkLabel": string;
+                    "rowsLabel": string;
                     "phaseLabel": {
                         "preparing": string;
                         "guarding": string;
@@ -4500,7 +4691,6 @@ export type I18nTranslations = {
                 "pasing": string;
             };
             "graph": {
-                "tableLabel": string;
                 "effectCells": string;
                 "estimatedTime": string;
                 "linkFieldCount": string;
@@ -4585,11 +4775,6 @@ export type I18nTranslations = {
                         "fieldMeta": string;
                         "symmetricField": string;
                         "systemColumn": string;
-                        "systemColumnTyped": string;
-                        "systemNotNull": string;
-                        "systemUnique": string;
-                        "systemPrimaryKey": string;
-                        "systemDefault": string;
                         "connection": string;
                         "completion": string;
                         "unexpected": string;
@@ -4687,7 +4872,6 @@ export type I18nTranslations = {
                                 "resolutionDescription": string;
                                 "option": {
                                     "keepCurrent": string;
-                                    "keepDuplicate": string;
                                     "convertDuplicate": string;
                                 };
                             };
@@ -4729,8 +4913,6 @@ export type I18nTranslations = {
                             };
                         };
                     };
-                    "manualRepairPreview": string;
-                    "manualRepairPreviewTip": string;
                     "repairPreviewTitle": string;
                     "repairPreviewDescription": string;
                     "repairPreviewTooltip": string;
@@ -4770,8 +4952,10 @@ export type I18nTranslations = {
                 "repair": string;
                 "repairTip": string;
                 "enableIndexTip": string;
-                "globalSearchTip_limited": string;
-                "globalSearchTip_infinity": string;
+                "fieldSearchTip_limited": string;
+                "fieldSearchTip_infinity": string;
+                "globalSearchFieldTip": string;
+                "hideNotMatchRowTip": string;
                 "autoIndexTip": string;
                 "enableIndex": string;
                 "keepAsIs": string;
@@ -4803,11 +4987,11 @@ export type I18nTranslations = {
             "menu": {
                 "addFromOtherSource": string;
                 "excelFile": string;
+                "airtable": string;
                 "csvFile": string;
                 "importCsvData": string;
                 "importExcelData": string;
                 "cancel": string;
-                "leave": string;
                 "downAsCsv": string;
                 "importData": string;
                 "duplicate": string;
@@ -4820,7 +5004,6 @@ export type I18nTranslations = {
             };
             "tips": {
                 "importWayTip": string;
-                "leaveTip": string;
                 "fileExceedSizeTip": string;
                 "analyzing": string;
                 "importing": string;
@@ -4850,11 +5033,6 @@ export type I18nTranslations = {
                 "option": {
                     "doNotImport": string;
                 };
-            };
-        };
-        "export": {
-            "menu": {
-                "exportCsv": string;
             };
         };
         "grid": {
@@ -4949,13 +5127,13 @@ export type I18nTranslations = {
         "menu": {
             "insertRecordAbove": string;
             "insertRecordBelow": string;
-            "copyCells": string;
             "deleteRecord": string;
             "deleteAllSelectedRecords": string;
             "editField": string;
             "insertFieldLeft": string;
             "insertFieldRight": string;
             "freezeUpField": string;
+            "freezeFieldWindowTooNarrow": string;
             "hideField": string;
             "deleteField": string;
             "deleteAllSelectedFields": string;
@@ -4979,7 +5157,7 @@ export type I18nTranslations = {
             "noPermission": string;
             "connectionCountTip": string;
             "createFailed": string;
-            "helpLink": string;
+            "readonlyUnavailable": string;
         };
         "view": {
             "addRecord": string;
@@ -5027,30 +5205,18 @@ export type I18nTranslations = {
             "deletedResource": string;
         };
         "baseShare": {
-            "title": string;
             "shareTitle": string;
             "shareToWeb": string;
-            "description": string;
-            "nodeShareDescription": string;
-            "shareLinks": string;
-            "newLink": string;
-            "noShareLinks": string;
-            "createFirstLink": string;
-            "editSettings": string;
             "refreshLink": string;
-            "deleteLink": string;
             "deleteConfirmTitle": string;
             "deleteConfirmDescription": string;
             "createSuccess": string;
             "createFailed": string;
-            "updateSuccess": string;
             "updateFailed": string;
             "deleteSuccess": string;
             "deleteFailed": string;
             "refreshSuccess": string;
             "refreshFailed": string;
-            "copied": string;
-            "shareLink": string;
             "linkHolderLabel": string;
             "linkHolderCanView": string;
             "linkHolderCanViewDesc": string;
@@ -5067,27 +5233,9 @@ export type I18nTranslations = {
             "linkHolderCanCopyAndSave": string;
             "linkHolderCanCopyAndSaveDesc": string;
             "editRequiresLogin": string;
-            "passwordProtection": string;
             "enterPassword": string;
-            "selectNodes": string;
-            "shareEntireBase": string;
-            "shareSelectedNodes": string;
-            "shareEntireBaseDescription": string;
-            "noNodesSelectedWarning": string;
-            "allowSave": string;
-            "allowSaveDescription": string;
-            "allowCopy": string;
             "allowCopyData": string;
-            "allowDuplicate": string;
-            "allowCopyDescription": string;
-            "selectedNodes": string;
-            "allNodes": string;
             "sharedNode": string;
-            "sharedNodeDescription": string;
-            "publicShareTitle": string;
-            "publicShareCount": string;
-            "noPublicShare": string;
-            "security": string;
             "restrictByPassword": string;
             "advanced": string;
             "embedConfig": string;
@@ -5100,9 +5248,22 @@ export type I18nTranslations = {
             "appPublished": string;
             "shareTableTab": string;
             "shareViewTab": string;
-            "shareNodeTab": string;
         };
         "aiChat": {
+            "integrationConnect": {
+                "title": string;
+                "reconnectTitle": string;
+                "defaultReason": string;
+                "connect": string;
+                "connecting": string;
+                "giveUp": string;
+                "failed": string;
+                "status": {
+                    "connected": string;
+                    "cancelled": string;
+                    "failed": string;
+                };
+            };
             "agent": {
                 "askUserQuestion": {
                     "otherPlaceholder": string;
@@ -5119,10 +5280,8 @@ export type I18nTranslations = {
                     "commentTitle": string;
                     "commentPlaceholder": string;
                     "saveFailed": string;
-                    "copied": string;
                 };
                 "completion": {
-                    "completed": string;
                     "noDetails": string;
                     "model": string;
                     "contextWindow": string;
@@ -5133,6 +5292,7 @@ export type I18nTranslations = {
                 "contextCompaction": {
                     "auto": string;
                     "manual": string;
+                    "compacting": string;
                 };
                 "taskProgress": {
                     "title": string;
@@ -5171,6 +5331,11 @@ export type I18nTranslations = {
             "action": {
                 "locateResource": string;
             };
+            "showUI": {
+                "skip": string;
+                "next": string;
+                "submit": string;
+            };
             "newChat": string;
             "expand": string;
             "history": string;
@@ -5186,14 +5351,12 @@ export type I18nTranslations = {
                 "other": string;
             };
             "context": {
-                "button": string;
-                "search": string;
                 "searchEmpty": string;
-                "emptyContext": string;
                 "selectionRow": string;
                 "selectionRows": string;
                 "selectionColumn": string;
                 "selectionColumns": string;
+                "selectionColumnsNamed": string;
             };
             "mention": {
                 "tables": string;
@@ -5202,17 +5365,28 @@ export type I18nTranslations = {
                 "folders": string;
                 "envs": string;
             };
+            "slashCommand": {
+                "skills": string;
+                "searchEmpty": string;
+            };
             "inputPlaceholder": string;
             "inputPlaceholderFiles": string;
             "thought": string;
+            "stage": {
+                "initializing": string;
+                "working": string;
+                "committing": string;
+                "recovering": string;
+            };
             "meta": {
                 "input": string;
                 "output": string;
-                "taskCompleted": string;
             };
             "attachment": {
                 "pastedTextFileName": string;
                 "imageNotSupported": string;
+                "tooManyFiles": string;
+                "storageFull": string;
             };
             "suggestions": {
                 "title": string;
@@ -5237,11 +5411,6 @@ export type I18nTranslations = {
                 "writeCodeHint": string;
                 "noPreview": string;
                 "codeChanged": string;
-            };
-            "showUI": {
-                "skip": string;
-                "next": string;
-                "submit": string;
             };
             "clearChat": string;
             "clearChatConfirmTitle": string;
@@ -5273,7 +5442,9 @@ export type I18nTranslations = {
             "queue": {
                 "nQueued": string;
                 "edit": string;
-                "forceSend": string;
+                "steerNow": string;
+                "steerFailed": string;
+                "conversationInputMarker": string;
                 "removeFromQueue": string;
             };
             "partTool": {
@@ -5282,15 +5453,26 @@ export type I18nTranslations = {
                 "write": string;
                 "edit": string;
                 "glob": string;
+                "find": string;
                 "grep": string;
+                "ls": string;
                 "webSearch": string;
                 "skill": string;
                 "foundFiles": string;
+                "listedEntries": string;
                 "moreTools": string;
                 "moreItems": string;
                 "fallbackName": string;
                 "questionCount_one": string;
                 "questionCount_other": string;
+                "presentFiles": string;
+                "download": string;
+                "installSkill": string;
+                "installSkillTitle": string;
+                "installSkillDescription": string;
+                "skillInstalled": string;
+                "installSkillFailed": string;
+                "installSkillReplaceWarning": string;
             };
             "retry": {
                 "interrupted": string;
@@ -5298,9 +5480,6 @@ export type I18nTranslations = {
                 "offline": string;
                 "pausedHidden": string;
                 "maxAttemptsReached": string;
-            };
-            "guide": {
-                "goToScenario": string;
             };
             "initChatFailed": string;
             "app": {
@@ -5314,18 +5493,13 @@ export type I18nTranslations = {
                 "accept": string;
                 "cancel": string;
                 "permissionTip": string;
-                "connecting": string;
-                "reconnecting": string;
-                "listening": string;
-                "preview": string;
+                "recording": string;
+                "transcribing": string;
                 "error": {
                     "microphoneDenied": string;
                     "microphoneUnavailable": string;
                     "unsupportedBrowser": string;
-                    "sessionFailed": string;
-                    "connectionFailed": string;
-                    "localConnectionFailed": string;
-                    "disconnected": string;
+                    "recordingFailed": string;
                     "missingServerKey": string;
                     "unauthenticated": string;
                     "rateLimited": string;
@@ -5338,17 +5512,11 @@ export type I18nTranslations = {
         "download": {
             "allAttachments": {
                 "title": string;
-                "loading": string;
                 "rowsWithAttachments": string;
                 "totalAttachments": string;
                 "totalSize": string;
-                "confirmTitle": string;
-                "confirmDescription": string;
-                "confirm": string;
                 "cancel": string;
                 "downloading": string;
-                "downloadingFile": string;
-                "progress": string;
                 "completed": string;
                 "cancelled": string;
                 "noAttachments": string;
@@ -5364,9 +5532,27 @@ export type I18nTranslations = {
                 "groupByRowTip": string;
             };
         };
-        "plugin": {
-            "recent": string;
-            "more": string;
+        "baseNode": {
+            "info": {
+                "menu": string;
+                "createdBy": string;
+                "createdTime": string;
+                "lastModifiedBy": string;
+                "lastModifiedTime": string;
+                "folderId": string;
+                "tableId": string;
+                "automationId": string;
+                "appId": string;
+                "searchVector": string;
+                "searchVectorFields": string;
+                "searchVectorStatus": {
+                    "ready": string;
+                    "configured": string;
+                    "rebuildPending": string;
+                    "stale": string;
+                    "unknown": string;
+                };
+            };
         };
         "pluginPanel": {
             "empty": {
@@ -5435,8 +5621,6 @@ export type I18nTranslations = {
         };
         "edit": {
             "title": string;
-            "name": string;
-            "scopes": string;
             "selectAll": string;
             "cancelSelectAll": string;
         };

@@ -1,4 +1,5 @@
 import type { DomainError } from '@teable/v2-core';
+import type { RawBuilder } from 'kysely';
 import { sql } from 'kysely';
 import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
@@ -9,12 +10,14 @@ import type {
   ISchemaRule,
   SchemaRuleValidationResult,
   TableSchemaStatementBuilder,
+  TableSchemaStatementExecutorProvider,
 } from '../core/ISchemaRule';
 import {
   buildTableIdentifier,
   dataStatement,
   dropColumnStatement,
   dropConstraintStatement,
+  dropTableStatement,
 } from '../helpers';
 
 export const SYSTEM_RULE_FIELD_ID = '__system__';
@@ -23,6 +26,19 @@ export const SYSTEM_RULE_FIELD_NAME = 'System Columns';
 type TableTarget = {
   schema: string | null;
   tableName: string;
+};
+
+type LinkStorageRef = {
+  schema: string;
+  tableName: string;
+  columnName: string;
+};
+
+type OrphanedLinkStorageConstraint = {
+  constraintName: string;
+  childSchemaName: string;
+  childTableName: string;
+  childColumnName: string;
 };
 
 const normalize = (value: string | null | undefined): string =>
@@ -75,6 +91,257 @@ const toQualifiedSequenceLiteral = (target: TableTarget, sequenceName: string): 
       ? `${quoteIdentifier(target.schema)}.${quoteIdentifier(sequenceName)}`
       : quoteIdentifier(sequenceName)
   );
+
+const executeRawRows = async <T>(
+  executor: TableSchemaStatementExecutorProvider,
+  query: RawBuilder<T>
+): Promise<T[]> => {
+  const result = await executor.executeQuery<T>(query.compile(executor));
+  return result.rows;
+};
+
+const executeSchemaStatement = async (
+  executor: TableSchemaStatementExecutorProvider,
+  statement: TableSchemaStatementBuilder
+): Promise<void> => {
+  await executor.executeQuery(statement.compile(executor));
+};
+
+const splitStorageTableName = (value: string, defaultSchema: string): TableTarget => {
+  const dotIndex = value.indexOf('.');
+  if (dotIndex === -1) {
+    return { schema: defaultSchema, tableName: value };
+  }
+
+  return {
+    schema: value.slice(0, dotIndex),
+    tableName: value.slice(dotIndex + 1),
+  };
+};
+
+const linkStorageRefKey = (ref: LinkStorageRef): string =>
+  `${ref.schema}\0${ref.tableName}\0${ref.columnName}`;
+
+const linkStorageTableKey = (schema: string, tableName: string): string =>
+  `${schema}\0${tableName}`;
+
+const ACTIVE_LINK_STORAGE_REFS_CACHE_KEY = 'activeLinkStorageRefsBySchema';
+
+type ActiveLinkStorageRefsBySchema = Map<string, Promise<ReadonlySet<string> | undefined>>;
+
+const getActiveLinkStorageRefsCache = (
+  sessionCache: Map<string, unknown> | undefined
+): ActiveLinkStorageRefsBySchema | undefined => {
+  if (!sessionCache) {
+    return undefined;
+  }
+
+  const existing = sessionCache.get(ACTIVE_LINK_STORAGE_REFS_CACHE_KEY);
+  if (existing instanceof Map) {
+    return existing as ActiveLinkStorageRefsBySchema;
+  }
+
+  const created: ActiveLinkStorageRefsBySchema = new Map();
+  sessionCache.set(ACTIVE_LINK_STORAGE_REFS_CACHE_KEY, created);
+  return created;
+};
+
+const loadActiveLinkStorageRefs = async (
+  metaDb: TableSchemaStatementExecutorProvider,
+  defaultSchema: string
+): Promise<ReadonlySet<string> | undefined> => {
+  let rows: Array<{
+    fk_host_table_name: string | null;
+    self_key_name: string | null;
+    foreign_key_name: string | null;
+  }>;
+  try {
+    rows = await executeRawRows<{
+      fk_host_table_name: string | null;
+      self_key_name: string | null;
+      foreign_key_name: string | null;
+    }>(
+      metaDb,
+      sql`
+        select
+          options::jsonb ->> 'fkHostTableName' as fk_host_table_name,
+          options::jsonb ->> 'selfKeyName' as self_key_name,
+          options::jsonb ->> 'foreignKeyName' as foreign_key_name
+        from field
+        where type = 'link'
+          and deleted_time is null
+          and is_lookup is null
+      `
+    );
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('relation "field" does not exist')) {
+      return undefined;
+    }
+    throw error;
+  }
+
+  const refs: LinkStorageRef[] = [];
+
+  for (const row of rows) {
+    const fkHostTableName = row.fk_host_table_name;
+    if (typeof fkHostTableName !== 'string' || fkHostTableName.length === 0) continue;
+
+    const storageTable = splitStorageTableName(fkHostTableName, defaultSchema);
+    const selfKeyName = row.self_key_name;
+    const foreignKeyName = row.foreign_key_name;
+
+    if (typeof selfKeyName === 'string' && selfKeyName.length > 0) {
+      refs.push({
+        schema: storageTable.schema ?? defaultSchema,
+        tableName: storageTable.tableName,
+        columnName: selfKeyName,
+      });
+    }
+    if (typeof foreignKeyName === 'string' && foreignKeyName.length > 0) {
+      refs.push({
+        schema: storageTable.schema ?? defaultSchema,
+        tableName: storageTable.tableName,
+        columnName: foreignKeyName,
+      });
+    }
+  }
+
+  return new Set(refs.map(linkStorageRefKey));
+};
+
+const collectActiveLinkStorageRefs = async (
+  metaDb: TableSchemaStatementExecutorProvider,
+  defaultSchema: string,
+  sessionCache?: Map<string, unknown>
+): Promise<ReadonlySet<string> | undefined> => {
+  const bySchema = getActiveLinkStorageRefsCache(sessionCache);
+  if (!bySchema) {
+    return loadActiveLinkStorageRefs(metaDb, defaultSchema);
+  }
+
+  const cached = bySchema.get(defaultSchema);
+  if (cached) {
+    return cached;
+  }
+
+  let pending!: Promise<ReadonlySet<string> | undefined>;
+  pending = loadActiveLinkStorageRefs(metaDb, defaultSchema).catch((error: unknown) => {
+    if (bySchema.get(defaultSchema) === pending) {
+      bySchema.delete(defaultSchema);
+    }
+    throw error;
+  });
+  bySchema.set(defaultSchema, pending);
+  return pending;
+};
+
+const loadOrphanedLinkStorageConstraints = async (
+  dataDb: TableSchemaStatementExecutorProvider,
+  target: TableTarget,
+  activeRefs: ReadonlySet<string>
+): Promise<ReadonlyArray<OrphanedLinkStorageConstraint>> => {
+  const targetSchema = target.schema ?? 'public';
+  const rows = await executeRawRows<{
+    constraint_name: string;
+    child_schema_name: string;
+    child_table_name: string;
+    child_column_name: string;
+  }>(
+    dataDb,
+    sql`
+      select
+        c.conname as constraint_name,
+        child_ns.nspname as child_schema_name,
+        child.relname as child_table_name,
+        child_attr.attname as child_column_name
+      from pg_constraint c
+      join pg_class child on child.oid = c.conrelid
+      join pg_namespace child_ns on child_ns.oid = child.relnamespace
+      join pg_class parent on parent.oid = c.confrelid
+      join pg_namespace parent_ns on parent_ns.oid = parent.relnamespace
+      join unnest(c.conkey) with ordinality as child_key(attnum, ord) on true
+      join unnest(c.confkey) with ordinality as parent_key(attnum, ord)
+        on parent_key.ord = child_key.ord
+      join pg_attribute child_attr
+        on child_attr.attrelid = c.conrelid and child_attr.attnum = child_key.attnum
+      join pg_attribute parent_attr
+        on parent_attr.attrelid = c.confrelid and parent_attr.attnum = parent_key.attnum
+      where c.contype = 'f'
+        and parent_ns.nspname = ${targetSchema}
+        and parent.relname = ${target.tableName}
+        and parent_attr.attname = '__id'
+        and array_length(c.conkey, 1) = 1
+        and array_length(c.confkey, 1) = 1
+    `
+  );
+
+  return rows.flatMap((row) => {
+    const isLinkStorage =
+      row.child_table_name.startsWith('junction_') || row.child_column_name.startsWith('__fk_');
+    if (!isLinkStorage) return [];
+
+    const isActive = activeRefs.has(
+      linkStorageRefKey({
+        schema: row.child_schema_name,
+        tableName: row.child_table_name,
+        columnName: row.child_column_name,
+      })
+    );
+    if (isActive) return [];
+
+    return [
+      {
+        constraintName: row.constraint_name,
+        childSchemaName: row.child_schema_name,
+        childTableName: row.child_table_name,
+        childColumnName: row.child_column_name,
+      },
+    ];
+  });
+};
+
+const createOrphanedLinkStorageRepairStatement = (
+  target: TableTarget
+): TableSchemaStatementBuilder => ({
+  scope: 'data',
+  compile: (executorProvider) =>
+    sql.raw(`select 'repair orphaned link storage' as schema_repair`).compile(executorProvider),
+  execute: async ({ dataDb, metaDb }) => {
+    const defaultSchema = target.schema ?? 'public';
+    const activeRefs = await collectActiveLinkStorageRefs(metaDb, defaultSchema, undefined);
+    if (!activeRefs) return;
+
+    const constraints = await loadOrphanedLinkStorageConstraints(dataDb, target, activeRefs);
+    const activeTables = new Set(
+      [...activeRefs].map((refKey) => {
+        const [schema, tableName] = refKey.split('\0');
+        return linkStorageTableKey(schema ?? defaultSchema, tableName ?? '');
+      })
+    );
+
+    const droppedTables = new Set<string>();
+    for (const constraint of constraints) {
+      const childTarget = {
+        schema: constraint.childSchemaName,
+        tableName: constraint.childTableName,
+      };
+      const tableKey = linkStorageTableKey(constraint.childSchemaName, constraint.childTableName);
+
+      if (constraint.childTableName.startsWith('junction_') && !activeTables.has(tableKey)) {
+        if (droppedTables.has(tableKey)) continue;
+
+        await executeSchemaStatement(dataDb, dropTableStatement(childTarget));
+        droppedTables.add(tableKey);
+        continue;
+      }
+
+      await executeSchemaStatement(
+        dataDb,
+        dropColumnStatement(childTarget, constraint.childColumnName)
+      );
+    }
+  },
+});
 
 class SystemColumnExistsRule implements ISchemaRule {
   readonly id: string;
@@ -361,6 +628,62 @@ class SystemDefaultRule implements ISchemaRule {
   }
 }
 
+class OrphanedLinkStorageRule implements ISchemaRule {
+  readonly id = 'system_orphaned_link_storage';
+  readonly description = 'Orphaned link storage foreign keys referencing this table';
+  readonly dependencies: ReadonlyArray<string> = [];
+  readonly required = false;
+  readonly repairMode = 'auto';
+
+  async isValid(ctx: SchemaRuleContext): Promise<Result<SchemaRuleValidationResult, DomainError>> {
+    return safeTry(async function* () {
+      const target = { schema: ctx.schema, tableName: ctx.tableName };
+      const defaultSchema = target.schema ?? 'public';
+      const activeRefs = yield* await ok(
+        await collectActiveLinkStorageRefs(ctx.metaDb, defaultSchema, ctx.sessionCache)
+      );
+      if (!activeRefs) {
+        return ok({ valid: true });
+      }
+
+      const constraints = yield* await ok(
+        await loadOrphanedLinkStorageConstraints(ctx.db, target, activeRefs)
+      );
+
+      if (constraints.length === 0) {
+        return ok({ valid: true });
+      }
+
+      return ok({
+        valid: false,
+        extra: constraints.map(
+          (constraint) =>
+            `orphaned link storage "${constraint.childSchemaName}.${constraint.childTableName}" via "${constraint.childColumnName}"`
+        ),
+        extraItems: constraints.map((constraint) => ({
+          code: 'orphaned_link_storage',
+          message: {
+            fallback: `Orphaned link storage ${constraint.childSchemaName}.${constraint.childTableName}.${constraint.childColumnName}`,
+          },
+          description: {
+            fallback: `Constraint "${constraint.constraintName}" references "${defaultSchema}.${ctx.tableName}" but no active link field owns it.`,
+          },
+        })),
+      });
+    });
+  }
+
+  up(ctx: SchemaRuleContext): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    return ok([
+      createOrphanedLinkStorageRepairStatement({ schema: ctx.schema, tableName: ctx.tableName }),
+    ]);
+  }
+
+  down(): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    return ok([]);
+  }
+}
+
 const createAutoNumberDefaultStatements = (
   ctx: SchemaRuleContext
 ): ReadonlyArray<TableSchemaStatementBuilder> => {
@@ -455,6 +778,8 @@ export const createSystemTableRules = (): ReadonlyArray<ISchemaRule> => {
   const versionColumnRule = new SystemColumnExistsRule('__version', 'integer');
   rules.push(versionColumnRule);
   rules.push(new SystemColumnNotNullRule('__version', versionColumnRule));
+
+  rules.push(new OrphanedLinkStorageRule());
 
   return rules;
 };

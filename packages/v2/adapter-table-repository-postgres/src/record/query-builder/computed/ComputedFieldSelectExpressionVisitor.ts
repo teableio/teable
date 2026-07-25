@@ -45,9 +45,13 @@ import { sql, type AliasedRawBuilder } from 'kysely';
 import type { Result } from 'neverthrow';
 import { err, ok } from 'neverthrow';
 
-import { resolveUserAvatarUrlPrefix } from '../../../shared/userAvatarUrl';
 import { FieldSqlLiteralVisitor } from '../../visitors/FieldSqlLiteralVisitor';
 import { FieldOutputColumnVisitor } from '../FieldOutputColumnVisitor';
+import {
+  buildUserJsonObjectFromSnapshotExpr,
+  buildUserJsonObjectFromSnapshotWithLookupExpr,
+  type UserSnapshotActorFallback,
+} from '../userSnapshotSql';
 import { FieldReferenceSqlVisitor } from './FieldReferenceSqlVisitor';
 
 /** Column type for lateral join */
@@ -75,6 +79,7 @@ export type LateralColumnType =
       foreignFieldId: FieldId;
       expression: RollupFunction;
       orderBy?: LinkOrderBy;
+      condition?: FieldCondition;
     }
   | {
       type: 'conditionalLookup';
@@ -161,7 +166,10 @@ export interface ComputedFieldSelectExpressionVisitorOptions {
    * Foreign table IDs that are missing (e.g., deleted) and should be skipped.
    */
   missingForeignTableIds?: ReadonlySet<string>;
+  erroredLookupReferenceMode?: 'stored' | 'error';
   forceLookupArrayOutput?: boolean;
+  userSnapshotActorFallback?: UserSnapshotActorFallback;
+  resolveSystemUserSnapshotsFromUsers?: boolean;
 }
 
 export class ComputedFieldSelectExpressionVisitor
@@ -171,7 +179,10 @@ export class ComputedFieldSelectExpressionVisitor
   private readonly fieldReferenceVisitor: FieldReferenceSqlVisitor;
   private readonly preferStoredLastModifiedFormula: boolean;
   private readonly missingForeignTableIds: ReadonlySet<string>;
+  private readonly erroredLookupReferenceMode: 'stored' | 'error';
   private readonly forceLookupArrayOutput: boolean;
+  private readonly userSnapshotActorFallback?: UserSnapshotActorFallback;
+  private readonly resolveSystemUserSnapshotsFromUsers: boolean;
 
   constructor(
     private readonly table: Table,
@@ -182,12 +193,17 @@ export class ComputedFieldSelectExpressionVisitor
   ) {
     this.preferStoredLastModifiedFormula = options?.preferStoredLastModifiedFormula ?? false;
     this.missingForeignTableIds = options?.missingForeignTableIds ?? new Set();
+    this.erroredLookupReferenceMode = options?.erroredLookupReferenceMode ?? 'stored';
     this.forceLookupArrayOutput = options?.forceLookupArrayOutput ?? true;
+    this.userSnapshotActorFallback = options?.userSnapshotActorFallback;
+    this.resolveSystemUserSnapshotsFromUsers =
+      options?.resolveSystemUserSnapshotsFromUsers ?? false;
     this.fieldReferenceVisitor = new FieldReferenceSqlVisitor({
       table,
       tableAlias,
       lateral,
       missingForeignTableIds: this.missingForeignTableIds,
+      erroredLookupReferenceMode: this.erroredLookupReferenceMode,
     });
   }
 
@@ -262,76 +278,25 @@ export class ComputedFieldSelectExpressionVisitor
   }
 
   private userColumn(field: Field): Result<AliasedRawBuilder<unknown, string>, DomainError> {
-    return this.getColAlias(field).map((colAlias) => {
-      const colRef = sql.ref(`${this.tableAlias}.${colAlias}`);
-      const colJson = sql`to_jsonb(${colRef})`;
-      const normalizedColJson = sql`(CASE
-        WHEN ${colRef} IS NULL THEN '[]'::jsonb
-        WHEN jsonb_typeof(${colJson}) = 'array' THEN ${colJson}
-        ELSE '[]'::jsonb
-      END)`;
-      const avatarPrefix = resolveUserAvatarUrlPrefix();
-
-      const userFromId = (idExpr: ReturnType<typeof sql>) => sql`(
-        select jsonb_build_object(
-          'id', u.id,
-          'title', u.name,
-          'email', u.email,
-          'avatarUrl', ${avatarPrefix} || u.id
-        )
-        from public.users u
-        where u.id = ${idExpr}
-      )`;
-
-      const idFromJson = (jsonExpr: ReturnType<typeof sql>) =>
-        sql`coalesce(${jsonExpr} ->> 'id', ${jsonExpr} #>> '{}')`;
-
-      const arrayExpr = sql`(
-        select coalesce(
-          jsonb_agg(coalesce(${userFromId(idFromJson(sql`elem`))}, elem)),
-          '[]'::jsonb
-        )
-        from jsonb_array_elements(${normalizedColJson}) as elem
-      )`;
-
-      const singleExpr = sql`coalesce(${userFromId(idFromJson(colJson))}, ${colJson})`;
-
-      return sql`
-        case
-          when ${colRef} is null then null
-          when jsonb_typeof(${colJson}) = 'array' then ${arrayExpr}
-          else ${singleExpr}
-        end
-      `.as(colAlias);
-    });
+    return this.simpleColumn(field);
   }
 
-  /**
-   * Generates SELECT expression for CreatedBy/LastModifiedBy fields.
-   * These fields read from system columns (__created_by / __last_modified_by) which store user IDs,
-   * then join the users table to populate complete user objects (id, title, email, avatarUrl).
-   */
   private systemUserColumn(
     field: Field,
-    systemColumn: string
+    systemColumn?: string
   ): Result<AliasedRawBuilder<unknown, string>, DomainError> {
     return this.getColAlias(field).map((colAlias) => {
-      const systemColRef = sql.ref(`${this.tableAlias}.${systemColumn}`);
-      const avatarPrefix = resolveUserAvatarUrlPrefix();
-
-      // Build user object from system column's user ID
-      const userExpr = sql`(
-        select jsonb_build_object(
-          'id', u.id,
-          'title', u.name,
-          'email', u.email,
-          'avatarUrl', ${avatarPrefix} || u.id
-        )
-        from public.users u
-        where u.id = ${systemColRef}
-      )`;
-
-      return sql`${userExpr}`.as(colAlias);
+      const snapshotRef = sql.ref(`${this.tableAlias}.${colAlias}`);
+      const systemColRef = systemColumn ? sql.ref(`${this.tableAlias}.${systemColumn}`) : undefined;
+      const valueExpr =
+        this.resolveSystemUserSnapshotsFromUsers && systemColRef
+          ? buildUserJsonObjectFromSnapshotWithLookupExpr(snapshotRef, systemColRef)
+          : buildUserJsonObjectFromSnapshotExpr(
+              snapshotRef,
+              systemColRef,
+              this.userSnapshotActorFallback
+            );
+      return sql`${valueExpr}`.as(colAlias);
     });
   }
 
@@ -412,7 +377,13 @@ export class ComputedFieldSelectExpressionVisitor
   visitLastModifiedByField(
     field: LastModifiedByField
   ): Result<AliasedRawBuilder<unknown, string>, DomainError> {
-    return this.systemUserColumn(field, '__last_modified_by');
+    if (this.resolveSystemUserSnapshotsFromUsers) {
+      return this.systemUserColumn(field, '__last_modified_by');
+    }
+
+    return field.isTrackAll()
+      ? this.systemUserColumn(field, '__last_modified_by')
+      : this.systemUserColumn(field);
   }
 
   visitRatingField(field: RatingField): Result<AliasedRawBuilder<unknown, string>, DomainError> {
@@ -460,6 +431,8 @@ export class ComputedFieldSelectExpressionVisitor
             : extractJsonScalarText(`(${expr.valueSql})::jsonb`);
       } else if (expr.isArray && !formulaIsMultiple) {
         finalValueSql = this.unwrapFormulaArrayToScalar(expr.valueSql, expr.valueType);
+      } else if (expr.storageKind === 'json' && !formulaIsMultiple) {
+        finalValueSql = this.unwrapFormulaJsonScalar(expr.valueSql, expr.valueType);
       } else {
         finalValueSql = expr.valueSql;
       }
@@ -504,6 +477,22 @@ export class ComputedFieldSelectExpressionVisitor
       case 'string':
       default:
         return firstElemText;
+    }
+  }
+
+  private unwrapFormulaJsonScalar(valueSql: string, valueType: SqlValueType): string {
+    const scalarText = extractJsonScalarText(`(${valueSql})::jsonb`);
+
+    switch (valueType) {
+      case 'number':
+        return `NULLIF(${scalarText}, '')::double precision`;
+      case 'boolean':
+        return `(${scalarText})::boolean`;
+      case 'datetime':
+        return `(${scalarText})::timestamptz`;
+      case 'string':
+      default:
+        return scalarText;
     }
   }
 
@@ -612,6 +601,7 @@ export class ComputedFieldSelectExpressionVisitor
       }
       const orderByResult = this.getLinkOrderBy(linkField);
       if (orderByResult.isErr()) return err(orderByResult.error);
+      const condition = field.config().condition();
       const lateralAlias = this.lateral.addColumn(
         field.linkFieldId(),
         field.foreignTableId().toString(),
@@ -621,6 +611,7 @@ export class ComputedFieldSelectExpressionVisitor
           foreignFieldId: field.lookupFieldId(),
           expression,
           orderBy: orderByResult.value,
+          condition,
         }
       );
       return ok(sql`${sql.ref(`${lateralAlias}.${colAlias}`)}`.as(colAlias));

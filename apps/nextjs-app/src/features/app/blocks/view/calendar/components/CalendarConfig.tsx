@@ -108,7 +108,7 @@ export const CalendarConfig: FC<PropsWithChildren> = (props) => {
       <PopoverContent
         side="bottom"
         align="start"
-        className="relative flex w-[272px] flex-col gap-4 p-4"
+        className="relative flex w-[280px] flex-col gap-4 p-4"
       >
         {readOnly && <ReadOnlyTip />}
         {fields.length > 0 ? (
@@ -206,6 +206,7 @@ export const CalendarConfig: FC<PropsWithChildren> = (props) => {
             </div>
             {colorType === ColorConfigType.Custom && (
               <ColorPicker
+                themeAwareSelectColor
                 color={color ?? DEFAULT_COLOR}
                 onSelect={(color) => onColorChange(color)}
                 className="p-0"

@@ -1,16 +1,23 @@
 import type { IGetTableByIdEndpointResult } from '@teable/v2-contract-http';
 import {
+  enrichTableDtoWithComputeActivity,
   mapDomainErrorToHttpError,
   mapDomainErrorToHttpStatus,
   mapGetTableByIdResultToDto,
 } from '@teable/v2-contract-http';
 import { GetTableByIdQuery } from '@teable/v2-core';
-import type { GetTableByIdResult, IExecutionContext, IQueryBus } from '@teable/v2-core';
+import type {
+  GetTableByIdResult,
+  IComputedActivityReader,
+  IExecutionContext,
+  IQueryBus,
+} from '@teable/v2-core';
 
 export const executeGetTableByIdEndpoint = async (
   context: IExecutionContext,
   rawInput: unknown,
-  queryBus: IQueryBus
+  queryBus: IQueryBus,
+  activityReader?: IComputedActivityReader
 ): Promise<IGetTableByIdEndpointResult> => {
   const queryResult = GetTableByIdQuery.create(rawInput);
   if (queryResult.isErr()) {
@@ -42,11 +49,24 @@ export const executeGetTableByIdEndpoint = async (
     };
   }
 
+  let table = mapped.value.table;
+  if (activityReader) {
+    const activity = await activityReader.getByTableId(
+      context,
+      queryResult.value.tableId.toString()
+    );
+    if (activity.isOk()) {
+      table = enrichTableDtoWithComputeActivity(table, activity.value);
+    }
+  } else {
+    table = enrichTableDtoWithComputeActivity(table, null);
+  }
+
   return {
     status: 200,
     body: {
       ok: true,
-      data: mapped.value,
+      data: { table },
     },
   };
 };

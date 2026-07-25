@@ -8,8 +8,12 @@ import { PageLimit } from '../domain/shared/pagination/PageLimit';
 import { PageOffset } from '../domain/shared/pagination/PageOffset';
 import { type FieldKeyType, fieldKeyTypeSchema } from '../domain/table/fields/FieldKeyType';
 import { TableId } from '../domain/table/TableId';
-import { recordSearchInputSchema, type RecordSearchInput } from './RecordSearch';
+import type {
+  IRecordReadQuerySource,
+  IRecordSearchAccessPath,
+} from '../ports/TableRecordQueryRepository';
 import { recordFilterSchema, type RecordFilter } from './RecordFilterDto';
+import { recordSearchInputSchema, type RecordSearchInput } from './RecordSearch';
 
 /** Default page size for records */
 export const DEFAULT_RECORDS_LIMIT = 100;
@@ -50,6 +54,8 @@ export const listTableRecordsInputSchema = z
     filterLinkCellSelected: parseJsonInput(incomingLinkSelectionSchema).optional(),
     filterLinkCellCandidate: parseJsonInput(incomingLinkSelectionSchema).optional(),
     selectedRecordIds: parseJsonInput(z.array(z.string().min(1))).optional(),
+    projection: parseJsonInput(z.array(z.string().min(1))).optional(),
+    includeTotal: z.coerce.boolean().optional(),
     viewId: z.string().min(1).optional(),
     ignoreViewQuery: z.coerce.boolean().optional(),
     limit: z.coerce.number().int().positive().max(MAX_RECORDS_LIMIT).optional(),
@@ -70,6 +76,11 @@ export const listTableRecordsInputSchema = z
 export type IListTableRecordsQueryInput = z.input<typeof listTableRecordsInputSchema>;
 type IListTableRecordsQueryOutput = z.output<typeof listTableRecordsInputSchema>;
 
+export interface IListTableRecordsQueryOptions {
+  readonly recordReadQuerySource?: IRecordReadQuerySource;
+  readonly recordSearchAccessPath?: IRecordSearchAccessPath;
+}
+
 export class ListTableRecordsQuery {
   private constructor(
     readonly tableId: TableId,
@@ -82,11 +93,18 @@ export class ListTableRecordsQuery {
     readonly filterLinkCellSelected?: string | [string, string],
     readonly filterLinkCellCandidate?: string | [string, string],
     readonly selectedRecordIds?: ReadonlyArray<string>,
+    readonly projection?: ReadonlyArray<string>,
+    readonly includeTotal?: boolean,
     readonly viewId?: string,
-    readonly ignoreViewQuery?: boolean
+    readonly ignoreViewQuery?: boolean,
+    readonly recordReadQuerySource?: IRecordReadQuerySource,
+    readonly recordSearchAccessPath?: IRecordSearchAccessPath
   ) {}
 
-  static create(raw: unknown): Result<ListTableRecordsQuery, DomainError> {
+  static create(
+    raw: unknown,
+    options?: IListTableRecordsQueryOptions
+  ): Result<ListTableRecordsQuery, DomainError> {
     const parsed = listTableRecordsInputSchema.safeParse(raw);
     if (!parsed.success) {
       return err(
@@ -111,8 +129,12 @@ export class ListTableRecordsQuery {
             parsed.data.filterLinkCellSelected,
             parsed.data.filterLinkCellCandidate,
             parsed.data.selectedRecordIds,
+            parsed.data.projection,
+            parsed.data.includeTotal,
             parsed.data.viewId,
-            parsed.data.ignoreViewQuery
+            parsed.data.ignoreViewQuery,
+            options?.recordReadQuerySource,
+            options?.recordSearchAccessPath
           )
       )
     );

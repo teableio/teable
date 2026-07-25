@@ -4,6 +4,7 @@ import {
   domainError,
   FieldValueTypeVisitor,
   FormulaField,
+  LookupField,
 } from '@teable/v2-core';
 import type {
   TableAddFieldSpec,
@@ -74,9 +75,10 @@ import type {
   FieldId,
   Table,
   Field,
+  RecordUpdateDTO,
 } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import type { Kysely } from 'kysely';
+import type { Kysely, QueryExecutorProvider } from 'kysely';
 import { sql } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
@@ -91,6 +93,7 @@ import {
   type FieldConversionParams,
 } from './FieldTypeConversionVisitor';
 import { FieldValueDuplicateVisitor } from './FieldValueDuplicateVisitor';
+import { resolveColumnType } from './PostgresTableSchemaFieldColumn';
 import { PostgresTableSchemaFieldCreateVisitor } from './PostgresTableSchemaFieldCreateVisitor';
 import { PostgresTableSchemaFieldDeleteVisitor } from './PostgresTableSchemaFieldDeleteVisitor';
 
@@ -101,6 +104,37 @@ type TableSchemaUpdateVisitorParams = {
   tableId: string;
   table: Table;
   tableLocationsById?: ReadonlyMap<string, TableIdentifier>;
+  recordUpdateCollector?: {
+    add(update: RecordUpdateDTO): void;
+  };
+};
+
+type SelectOptionRecordUpdateRow = {
+  recordId: string;
+  oldVersion: number | string | bigint;
+  newVersion: number | string | bigint;
+  oldValue: unknown;
+  newValue: unknown;
+};
+
+const toRecordVersionNumber = (value: number | string | bigint): number =>
+  typeof value === 'bigint' ? Number(value) : Number(value);
+
+const quoteSqlLiteral = (value: string): string => `'${value.replaceAll("'", "''")}'`;
+
+const formulaStorageTypeChanged = (
+  previousField: FormulaField,
+  nextField: FormulaField
+): boolean => {
+  const visitor = new FieldValueTypeVisitor();
+  const previousType = previousField.accept(visitor);
+  const nextType = nextField.accept(visitor);
+  if (previousType.isErr() || nextType.isErr()) return true;
+
+  return (
+    !previousType.value.cellValueType.equals(nextType.value.cellValueType) ||
+    !previousType.value.isMultipleCellValue.equals(nextType.value.isMultipleCellValue)
+  );
 };
 
 export class TableSchemaUpdateVisitor
@@ -159,6 +193,79 @@ export class TableSchemaUpdateVisitor
     return {
       scope: 'data',
       compile: () => sql`DROP INDEX IF EXISTS ${sql.raw(qualifiedIndex)}`.compile(db),
+    };
+  }
+
+  /**
+   * A stored generated tsvector depends on its source columns, so PostgreSQL
+   * rejects ALTER COLUMN TYPE until the managed column is removed. The
+   * post-schema projection rebuilds it from the latest Table aggregate.
+   */
+  private dropManagedSearchVectorColumnsStatement(): TableSchemaStatementBuilder {
+    const { db, schema, tableName } = this.params;
+    const pgSchema = schema ?? 'public';
+    const statement = `
+      DO $teable_search_vector$
+      DECLARE managed_column text;
+      BEGIN
+        FOR managed_column IN
+          SELECT a.attname
+          FROM pg_attribute a
+          JOIN pg_class c ON c.oid = a.attrelid
+          JOIN pg_namespace n ON n.oid = c.relnamespace
+          WHERE n.nspname = ${quoteSqlLiteral(pgSchema)}
+            AND c.relname = ${quoteSqlLiteral(tableName)}
+            AND a.attnum > 0
+            AND NOT a.attisdropped
+            AND a.attgenerated = 's'
+            AND a.attname LIKE '\\_\\_tqops\\_tsv\\_%' ESCAPE '\\'
+        LOOP
+          EXECUTE format(
+            'ALTER TABLE %I.%I DROP COLUMN IF EXISTS %I',
+            ${quoteSqlLiteral(pgSchema)},
+            ${quoteSqlLiteral(tableName)},
+            managed_column
+          );
+        END LOOP;
+      END
+      $teable_search_vector$;
+    `;
+    return {
+      scope: 'data',
+      compile: () => sql.raw(statement).compile(db),
+    };
+  }
+
+  private markSearchVectorConfigRebuildPendingStatement(
+    reason: string
+  ): TableSchemaStatementBuilder {
+    const { db, tableId } = this.params;
+    const statement = `
+      DO $teable_search_vector$
+      BEGIN
+        IF to_regclass('public.table_query_search_vector_config') IS NOT NULL THEN
+          UPDATE table_query_search_vector_config
+          SET status = 'rebuild_pending',
+              last_inspection = jsonb_build_object(
+                'state', 'rebuild_pending',
+                'staleReasons', jsonb_build_array(${quoteSqlLiteral(reason)})
+              ),
+              last_modified_time = now()
+          WHERE id = (
+            SELECT id
+            FROM table_query_search_vector_config
+            WHERE table_id = ${quoteSqlLiteral(tableId)}
+              AND status IN ('ready', 'rebuild_pending')
+            ORDER BY last_modified_time DESC NULLS LAST, created_time DESC
+            LIMIT 1
+          );
+        END IF;
+      END
+      $teable_search_vector$;
+    `;
+    return {
+      scope: 'meta',
+      compile: () => sql.raw(statement).compile(db),
     };
   }
 
@@ -258,6 +365,49 @@ export class TableSchemaUpdateVisitor
     return this.resolveDbFieldNameText(tableFieldResult.value);
   }
 
+  private addSelectOptionRecordUpdates(
+    fieldId: FieldId,
+    rows: ReadonlyArray<SelectOptionRecordUpdateRow>
+  ): void {
+    const collector = this.params.recordUpdateCollector;
+    if (!collector) {
+      return;
+    }
+
+    for (const row of rows) {
+      collector.add({
+        recordId: row.recordId,
+        oldVersion: toRecordVersionNumber(row.oldVersion),
+        newVersion: toRecordVersionNumber(row.newVersion),
+        changes: [
+          {
+            fieldId: fieldId.toString(),
+            oldValue: row.oldValue,
+            newValue: row.newValue,
+          },
+        ],
+      });
+    }
+  }
+
+  private buildCurrentTableFieldMetadataById(): Result<
+    ReadonlyMap<string, { dbFieldName: string; tableId: string }>,
+    DomainError
+  > {
+    return safeTry<ReadonlyMap<string, { dbFieldName: string; tableId: string }>, DomainError>(
+      function* (this: TableSchemaUpdateVisitor) {
+        const fieldsById = new Map<string, { dbFieldName: string; tableId: string }>();
+        for (const field of this.params.table.getFields()) {
+          fieldsById.set(field.id().toString(), {
+            dbFieldName: yield* this.resolveDbFieldNameText(field),
+            tableId: this.params.tableId,
+          });
+        }
+        return ok(fieldsById);
+      }.bind(this)
+    );
+  }
+
   /**
    * Build a conditional ALTER INDEX RENAME statement for a field's search index.
    * Only executes if the old index exists.
@@ -305,6 +455,7 @@ export class TableSchemaUpdateVisitor
         };
         const ctx = createSchemaRuleContext({
           db: this.params.db,
+          metaDb: this.params.db.withoutPlugins(),
           introspector: new PostgresSchemaIntrospector(this.params.db),
           schema: rulesContext.schema,
           tableName: rulesContext.tableName,
@@ -401,6 +552,9 @@ export class TableSchemaUpdateVisitor
     if (previousFieldResult.isErr()) return err(previousFieldResult.error);
     const nextFieldResult = this.buildFormulaFieldWithExpression(field, spec.nextExpression());
     if (nextFieldResult.isErr()) return err(nextFieldResult.error);
+    spec.markDbStorageTypeChanged(
+      formulaStorageTypeChanged(previousFieldResult.value, nextFieldResult.value)
+    );
 
     const dbFieldNameResult = this.resolveDbFieldNameText(field);
     if (dbFieldNameResult.isErr()) return err(dbFieldNameResult.error);
@@ -419,6 +573,57 @@ export class TableSchemaUpdateVisitor
     );
   }
 
+  private buildLookupConversionStatements(
+    spec: UpdateLookupOptionsSpec
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    if (spec.previousOptions().lookupFieldId().equals(spec.nextOptions().lookupFieldId())) {
+      return ok([]);
+    }
+
+    const fieldResult = this.params.table.getField((field) => field.id().equals(spec.fieldId()));
+    if (fieldResult.isErr()) return err(fieldResult.error);
+    const field = fieldResult.value;
+    if (!(field instanceof LookupField)) return ok([]);
+
+    const columnTypeResult = resolveColumnType(field);
+    if (columnTypeResult.isErr()) return err(columnTypeResult.error);
+    const columnType = String(columnTypeResult.value);
+    const expectedDataType = columnType === 'timestamptz' ? 'timestamp with time zone' : columnType;
+
+    const dbFieldNameResult = this.resolveDbFieldNameText(field);
+    if (dbFieldNameResult.isErr()) return err(dbFieldNameResult.error);
+    const dbFieldName = dbFieldNameResult.value;
+    const { schema, tableName } = this.params;
+    const fullTableName = schema ? `"${schema}"."${tableName}"` : `"${tableName}"`;
+    const compileAlter = (executorProvider: QueryExecutorProvider) =>
+      sql`ALTER TABLE ${sql.raw(fullTableName)} ALTER COLUMN ${sql.ref(dbFieldName)} TYPE ${sql.raw(columnType)} USING NULL::${sql.raw(columnType)}`.compile(
+        executorProvider
+      );
+
+    return ok([
+      {
+        scope: 'data',
+        compile: compileAlter,
+        execute: async ({ scopedDb }) => {
+          const introspector = new PostgresSchemaIntrospector(
+            scopedDb as unknown as Kysely<unknown>
+          );
+          const currentColumnResult = await introspector.getColumn(schema, tableName, dbFieldName);
+          if (currentColumnResult.isErr()) {
+            throw new Error(currentColumnResult.error.message);
+          }
+          const currentColumn = currentColumnResult.value;
+          if (!currentColumn) {
+            throw new Error(`Lookup column not found: ${dbFieldName}`);
+          }
+          if (currentColumn.dataType === expectedDataType) return;
+
+          await scopedDb.executeQuery(compileAlter(scopedDb));
+        },
+      },
+    ]);
+  }
+
   visitTableRename(
     _spec: TableRenameSpec
   ): Result<readonly TableSchemaStatementBuilder[], DomainError> {
@@ -433,7 +638,10 @@ export class TableSchemaUpdateVisitor
     const fieldVisitor = PostgresTableSchemaFieldCreateVisitor.forSchemaUpdate(this.params);
     const addCond = this.addCond.bind(this);
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
-      const statements = [...(yield* spec.field().accept(fieldVisitor))];
+      const statements = [
+        visitor.markSearchVectorConfigRebuildPendingStatement('source_field_added'),
+        ...(yield* spec.field().accept(fieldVisitor)),
+      ];
       const dbFieldName = yield* visitor.resolveDbFieldNameText(spec.field());
       const createSearchIdx = visitor.createSearchIndexStatement(spec.field(), dbFieldName);
       if (createSearchIdx) {
@@ -451,7 +659,9 @@ export class TableSchemaUpdateVisitor
     const fieldVisitor = PostgresTableSchemaFieldCreateVisitor.forSchemaUpdate(this.params);
     const addCond = this.addCond.bind(this);
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
-      const statements: TableSchemaStatementBuilder[] = [];
+      const statements: TableSchemaStatementBuilder[] = [
+        visitor.markSearchVectorConfigRebuildPendingStatement('source_fields_added'),
+      ];
       for (const field of spec.fields()) {
         statements.push(...(yield* field.accept(fieldVisitor)));
         const dbFieldName = yield* visitor.resolveDbFieldNameText(field);
@@ -468,10 +678,15 @@ export class TableSchemaUpdateVisitor
   visitTableRemoveField(
     spec: TableRemoveFieldSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    const visitor = this;
     const fieldVisitor = PostgresTableSchemaFieldDeleteVisitor.forSchemaUpdate(this.params);
     const addCond = this.addCond.bind(this);
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
-      const statements = yield* spec.field().accept(fieldVisitor);
+      const statements = [
+        visitor.markSearchVectorConfigRebuildPendingStatement('source_field_removed'),
+        visitor.dropManagedSearchVectorColumnsStatement(),
+        ...(yield* spec.field().accept(fieldVisitor)),
+      ];
       yield* addCond(statements);
       return ok(statements);
     });
@@ -674,6 +889,8 @@ export class TableSchemaUpdateVisitor
         tableId: visitor.params.tableId,
         dbFieldName,
         fieldId: newField.id().toString(),
+        tableLocationsById: visitor.params.tableLocationsById,
+        fieldsById: yield* visitor.buildCurrentTableFieldMetadataById(),
       };
 
       const conversionStatements = yield* generateFieldConversionStatements(
@@ -692,6 +909,8 @@ export class TableSchemaUpdateVisitor
       const createSearchIdx = visitor.createSearchIndexStatement(newField, dbFieldName);
 
       const statements = [
+        visitor.markSearchVectorConfigRebuildPendingStatement('source_field_type_changed'),
+        visitor.dropManagedSearchVectorColumnsStatement(),
         dropSearchIdx,
         ...conversionStatements,
         ...referenceStatements,
@@ -716,8 +935,14 @@ export class TableSchemaUpdateVisitor
       );
       const statements: TableSchemaStatementBuilder[] = [];
 
-      // Build schema-qualified table name
-      const fullTableName = schema ? `"${schema}"."${tableName}"` : `"${tableName}"`;
+      const quoteIdentifier = (value: string): string => `"${value.replaceAll('"', '""')}"`;
+      const fullTableName = schema
+        ? `${quoteIdentifier(schema)}.${quoteIdentifier(tableName)}`
+        : quoteIdentifier(tableName);
+      const quoteIndexName = (indexName: string): string =>
+        schema
+          ? `${quoteIdentifier(schema)}.${quoteIdentifier(indexName)}`
+          : quoteIdentifier(indexName);
 
       // Handle NOT NULL constraint changes
       if (spec.isNotNullChanging()) {
@@ -765,6 +990,11 @@ export class TableSchemaUpdateVisitor
                 db
               ),
           });
+          statements.push({
+            scope: 'data',
+            compile: () =>
+              sql`DROP INDEX IF EXISTS ${sql.raw(quoteIndexName(constraintName))}`.compile(db),
+          });
         }
       }
 
@@ -785,6 +1015,7 @@ export class TableSchemaUpdateVisitor
       );
       const ctx = createSchemaRuleContext({
         db: visitor.params.db,
+        metaDb: visitor.params.db.withoutPlugins(),
         introspector: new PostgresSchemaIntrospector(visitor.params.db),
         schema: visitor.params.schema,
         tableName: visitor.params.tableName,
@@ -1148,12 +1379,25 @@ export class TableSchemaUpdateVisitor
       // Handle removed options: UPDATE records SET col = NULL WHERE col = 'deleted_name'
       for (const removed of spec.removedOptions()) {
         const deletedName = removed.name().toString();
+        const compile = () =>
+          sql<SelectOptionRecordUpdateRow>`
+            UPDATE ${sql.raw(fullTableName)}
+            SET ${sql.ref(dbFieldName)} = NULL,
+                ${sql.ref('__version')} = ${sql.ref('__version')} + 1
+            WHERE ${sql.ref(dbFieldName)} = ${deletedName}
+            RETURNING ${sql.ref('__id')} AS "recordId",
+              (${sql.ref('__version')} - 1) AS "oldVersion",
+              ${sql.ref('__version')} AS "newVersion",
+              ${deletedName} AS "oldValue",
+              NULL AS "newValue"
+          `.compile(db);
         statements.push({
           scope: 'data',
-          compile: () =>
-            sql`UPDATE ${sql.raw(fullTableName)} SET ${sql.ref(dbFieldName)} = NULL WHERE ${sql.ref(dbFieldName)} = ${deletedName}`.compile(
-              db
-            ),
+          compile,
+          execute: async ({ scopedDb }) => {
+            const result = await scopedDb.executeQuery<SelectOptionRecordUpdateRow>(compile());
+            visitor.addSelectOptionRecordUpdates(spec.fieldId(), result.rows);
+          },
         });
       }
 
@@ -1217,19 +1461,39 @@ export class TableSchemaUpdateVisitor
       // Handle removed options: filter JSONB array values
       for (const removed of spec.removedOptions()) {
         const deletedName = removed.name().toString();
-        statements.push({
-          scope: 'data',
-          compile: () =>
-            sql`
-              UPDATE ${sql.raw(fullTableName)}
-              SET ${sql.ref(dbFieldName)} = (
+        const compile = () =>
+          sql<SelectOptionRecordUpdateRow>`
+            WITH candidates AS (
+              SELECT ${sql.ref('__id')} AS "recordId",
+                ${sql.ref('__version')} AS "oldVersion",
+                ${sql.ref(dbFieldName)} AS "oldValue",
+                (
                   SELECT jsonb_agg(value)
                   FROM jsonb_array_elements_text(${sql.ref(dbFieldName)}) AS value
                   WHERE value <> ${deletedName}
-                )
+                ) AS "newValue"
+              FROM ${sql.raw(fullTableName)}
               WHERE jsonb_typeof(${sql.ref(dbFieldName)}) = 'array'
                 AND ${sql.ref(dbFieldName)} ? ${deletedName}
-            `.compile(db),
+            )
+            UPDATE ${sql.raw(fullTableName)} AS t
+            SET ${sql.ref(dbFieldName)} = candidates."newValue",
+                ${sql.ref('__version')} = t.${sql.ref('__version')} + 1
+            FROM candidates
+            WHERE t.${sql.ref('__id')} = candidates."recordId"
+            RETURNING t.${sql.ref('__id')} AS "recordId",
+              candidates."oldVersion" AS "oldVersion",
+              t.${sql.ref('__version')} AS "newVersion",
+              candidates."oldValue" AS "oldValue",
+              candidates."newValue" AS "newValue"
+          `.compile(db);
+        statements.push({
+          scope: 'data',
+          compile,
+          execute: async ({ scopedDb }) => {
+            const result = await scopedDb.executeQuery<SelectOptionRecordUpdateRow>(compile());
+            visitor.addSelectOptionRecordUpdates(spec.fieldId(), result.rows);
+          },
         });
       }
 
@@ -1356,6 +1620,9 @@ export class TableSchemaUpdateVisitor
 
     // Helper to build fully-qualified table name from fkHostTableName (which is "baseId.tableName")
     const quoteIdentifier = (name: string): string => `"${name.replaceAll('"', '""')}"`;
+    const quoteLiteral = (value: string): string => `'${value.replaceAll("'", "''")}'`;
+    const sqlNullableLiteral = (value: string | null | undefined): string =>
+      value == null ? 'NULL' : quoteLiteral(value);
     const quoteTableName = (name: string): string => {
       if (!name.includes('.')) return quoteIdentifier(name);
       const [s, t] = name.split('.');
@@ -1432,6 +1699,76 @@ export class TableSchemaUpdateVisitor
         },
       ];
     };
+    const parseTableIdentifier = (dbTableName: string): TableIdentifier => {
+      const [schemaName, ...rest] = dbTableName.split('.');
+      if (rest.length === 0) {
+        return { schema: null, tableName: schemaName ?? dbTableName };
+      }
+      return { schema: schemaName ?? null, tableName: rest.join('.') };
+    };
+    const fallbackForeignTableIdentifier = (tableId: string): TableIdentifier =>
+      this.params.tableLocationsById?.get(tableId) ?? {
+        schema: this.params.schema,
+        tableName: tableId,
+      };
+    const buildForeignTableDeclarations = (table: TableIdentifier | null): string => {
+      const schemaName = table?.schema ?? (table ? 'public' : null);
+      return [
+        `  foreign_schema text := ${sqlNullableLiteral(schemaName)};`,
+        `  foreign_name text := ${sqlNullableLiteral(table?.tableName)};`,
+      ].join('\n');
+    };
+    const resolveCurrentTableFieldDbName = (fieldId: string): string | null => {
+      const field = this.params.table
+        ?.getFields()
+        .find((candidate) => candidate.id().toString() === fieldId);
+      if (!field) {
+        return null;
+      }
+      const dbFieldNameResult = this.resolveDbFieldNameText(field);
+      return dbFieldNameResult.isOk() ? dbFieldNameResult.value : null;
+    };
+    const fetchFieldDbName = async (
+      ctx: Parameters<NonNullable<TableSchemaStatementBuilder['execute']>>[0],
+      fieldId: string
+    ): Promise<string | null> => {
+      const rows = await sql<{ db_field_name: string | null }>`
+        SELECT db_field_name
+        FROM field
+        WHERE id = ${fieldId} AND deleted_time IS NULL
+        LIMIT 1
+      `.execute(ctx.metaDb);
+      return rows.rows[0]?.db_field_name ?? null;
+    };
+    const fetchTableIdentifier = async (
+      ctx: Parameters<NonNullable<TableSchemaStatementBuilder['execute']>>[0],
+      tableId: string
+    ): Promise<TableIdentifier | null> => {
+      const rows = await sql<{ db_table_name: string | null }>`
+        SELECT db_table_name
+        FROM table_meta
+        WHERE id = ${tableId} AND deleted_time IS NULL
+        LIMIT 1
+      `.execute(ctx.metaDb);
+      const dbTableName = rows.rows[0]?.db_table_name;
+      return dbTableName ? parseTableIdentifier(dbTableName) : null;
+    };
+    const customDataStatement = (
+      previewSql: string,
+      resolveSql: (
+        ctx: Parameters<NonNullable<TableSchemaStatementBuilder['execute']>>[0]
+      ) => Promise<string | null>
+    ): TableSchemaStatementBuilder => ({
+      scope: 'data',
+      compile: () => sql.raw(previewSql).compile(db),
+      execute: async (ctx) => {
+        const sqlText = await resolveSql(ctx);
+        if (!sqlText) {
+          return;
+        }
+        await sql.raw(sqlText).execute(ctx.dataDb);
+      },
+    });
 
     // For oneWay conversions that don't change storage type
     // (both manyMany and oneMany oneWay use junction table, or both manyOne and oneOne use FK):
@@ -1691,42 +2028,26 @@ export class TableSchemaUpdateVisitor
         if (symmetricFieldId) {
           const nextRelationship = spec.nextRelationship().toString();
           const symmetricIsMultiple = nextRelationship === 'manyOne';
-          const escapedSymmetricFieldId = symmetricFieldId.toString().replace(/'/g, "''");
-          const escapedForeignTableId = nextConfig.foreignTableId().toString().replace(/'/g, "''");
-          const escapedFkColumnName = newFkColumnName.replace(/'/g, "''");
+          const symmetricFieldIdString = symmetricFieldId.toString();
+          const foreignTableIdString = nextConfig.foreignTableId().toString();
+          const previewSymmetricColumn = resolveCurrentTableFieldDbName(symmetricFieldIdString);
+          const previewForeignTable = fallbackForeignTableIdentifier(foreignTableIdString);
+          const buildTrimSymmetricSql = (
+            symmetricColumnName: string | null,
+            foreignTable: TableIdentifier | null
+          ): string | null => {
+            if (!symmetricColumnName || !foreignTable) {
+              return null;
+            }
 
-          const trimSymmetricSql = `
+            return `
 DO $v2_link_trim$
 DECLARE
-  sym_col text;
-  foreign_tbl text;
-  foreign_schema text;
-  foreign_name text;
+  sym_col text := ${quoteLiteral(symmetricColumnName)};
+${buildForeignTableDeclarations(foreignTable)}
 BEGIN
-  IF to_regclass('public.field') IS NULL OR to_regclass('public.table_meta') IS NULL THEN
+  IF sym_col IS NULL OR foreign_schema IS NULL OR foreign_name IS NULL THEN
     RETURN;
-  END IF;
-
-  SELECT db_field_name INTO sym_col
-  FROM field
-  WHERE id = '${escapedSymmetricFieldId}' AND deleted_time IS NULL
-  LIMIT 1;
-
-  SELECT db_table_name INTO foreign_tbl
-  FROM table_meta
-  WHERE id = '${escapedForeignTableId}' AND deleted_time IS NULL
-  LIMIT 1;
-
-  IF sym_col IS NULL OR foreign_tbl IS NULL THEN
-    RETURN;
-  END IF;
-
-  IF strpos(foreign_tbl, '.') > 0 THEN
-    foreign_schema := split_part(foreign_tbl, '.', 1);
-    foreign_name := split_part(foreign_tbl, '.', 2);
-  ELSE
-    foreign_schema := 'public';
-    foreign_name := foreign_tbl;
   END IF;
 
   IF ${symmetricIsMultiple ? 'TRUE' : 'FALSE'} THEN
@@ -1761,7 +2082,7 @@ BEGIN
       sym_col,
       sym_col,
       sym_col,
-      '${escapedFkColumnName}'
+      ${quoteLiteral(newFkColumnName)}
     );
   ELSE
     EXECUTE format(
@@ -1793,16 +2114,24 @@ BEGIN
       sym_col,
       sym_col,
       sym_col,
-      '${escapedFkColumnName}'
+      ${quoteLiteral(newFkColumnName)}
     );
   END IF;
 END
 $v2_link_trim$;`;
+          };
+          const previewTrimSql =
+            buildTrimSymmetricSql(previewSymmetricColumn, previewForeignTable) ??
+            `DO $v2_link_trim$ BEGIN RETURN; END $v2_link_trim$;`;
 
-          statements.push({
-            scope: 'data',
-            compile: () => sql.raw(trimSymmetricSql).compile(db),
-          });
+          statements.push(
+            customDataStatement(previewTrimSql, async (ctx) =>
+              buildTrimSymmetricSql(
+                await fetchFieldDbName(ctx, symmetricFieldIdString),
+                (await fetchTableIdentifier(ctx, foreignTableIdString)) ?? previewForeignTable
+              )
+            )
+          );
         }
 
         statements.push(...buildLinkValueShapeRewriteStatements());
@@ -2012,10 +2341,11 @@ $v2_link_trim$;`;
   // ============ Lookup Update specs ============
 
   visitUpdateLookupOptions(
-    _spec: UpdateLookupOptionsSpec
+    spec: UpdateLookupOptionsSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    const statements: ReadonlyArray<TableSchemaStatementBuilder> = [];
-    return this.addCond(statements).map(() => statements);
+    const statements = this.buildLookupConversionStatements(spec);
+    if (statements.isErr()) return err(statements.error);
+    return this.addCond(statements.value).map(() => statements.value);
   }
 
   // ============ Rollup Update specs ============

@@ -21,6 +21,7 @@ import { SpaceActionBar } from '../../components/space/SpaceActionBar';
 import { SpaceRenaming } from '../../components/space/SpaceRenaming';
 import { useIsCloud } from '../../hooks/useIsCloud';
 import { BaseList } from './BaseList';
+import { DataDbBadge } from './DataDbBadge';
 import { StarButton } from './space-side-bar/StarButton';
 
 interface ISpaceCard {
@@ -113,11 +114,14 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
                 withUpgrade={space.role === Role.Owner}
                 organization={space?.organization}
                 appSumoTier={subscription?.appSumoTier}
-              />
+              >
+                <DataDbBadge dataDb={space.dataDb} />
+              </LevelWithUpgrade>
             )}
             {!isCloud && space?.organization && (
               <div className="text-sm text-gray-500">{space.organization.name}</div>
             )}
+            {!isCloud && <DataDbBadge dataDb={space.dataDb} />}
           </div>
           <SpaceActionBar
             buttonSize="xs"

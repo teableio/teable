@@ -5,6 +5,7 @@ export * from './use-fields';
 export * from './use-row-count';
 export * from './use-table-id';
 export * from './use-view';
+export * from './use-server-view-filter';
 export * from './use-views';
 export * from './use-view-id';
 export * from './use-ssr-records';
@@ -32,9 +33,20 @@ export * from './use-permission-actions-static';
 export * from './use-permission-update-listener';
 export * from './use-presence';
 export * from './use-table-listener';
+export * from './use-field-aware-table-listener';
 export * from './use-view-listener';
 export * from './use-lan-dayjs';
 export * from './use-base-id';
+export * from './apply-field-compute-meta';
+export {
+  useComputeActivity,
+  useComputeActivitySubscription,
+  type TableComputeActivityClient,
+  type ComputeActivityDiagnosticsClient,
+  type ComputeActivitySnapshotClient,
+  type ComputeActivityFieldClient,
+  type IComputeActivityState,
+} from './use-compute-activity';
 export * from './use-undo-redo';
 export * from './use-comment-count-map';
 export * from './use-organization';

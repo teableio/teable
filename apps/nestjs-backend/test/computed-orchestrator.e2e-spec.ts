@@ -581,34 +581,38 @@ IF(
       // Prime value to 2
       await updateRecordByApi(table.id, table.records[0].id, aId, 2);
 
-      // Expect a single update event on this table; verify B,C,D old/new
-      const { payloads } = (await createAwaitWithEventV2Compatible(
-        eventEmitterService,
-        Events.TABLE_RECORD_UPDATE,
-        1
-      )(async () => {
-        await updateRecordByApi(table.id, table.records[0].id, aId, 3);
-      })) as any;
+      const { events } = await runAndCaptureRecordUpdates(
+        async () => {
+          await updateRecordByApi(table.id, table.records[0].id, aId, 3);
+        },
+        {
+          isComplete: (events) => {
+            const changes = findLatestRecordChangeMap(events, table.id, table.records[0].id);
+            return (
+              changes?.[b.id]?.newValue === 4 &&
+              changes?.[c.id]?.newValue === 8 &&
+              changes?.[d.id]?.newValue === 5
+            );
+          },
+          timeoutMs: 4000,
+        }
+      );
 
       // Event payload verification only in v1 mode
       if (!isV2Mode) {
-        const event = payloads[0] as any;
-        expect(event.payload.tableId).toBe(table.id);
-        const rec = Array.isArray(event.payload.record)
-          ? event.payload.record[0]
-          : event.payload.record;
-        const changes = rec.fields as FieldChangeMap;
+        const changes = findLatestRecordChangeMap(events, table.id, table.records[0].id);
+        expect(changes).toBeDefined();
 
         // A: 2 -> 3, so B: 3 -> 4, C: 6 -> 8, D: 4 -> 5
-        const bChange = assertChange(changes[b.id]);
+        const bChange = assertChange(changes?.[b.id]);
         expectNoOldValue(bChange);
         expect(bChange.newValue).toEqual(4);
 
-        const cChange = assertChange(changes[c.id]);
+        const cChange = assertChange(changes?.[c.id]);
         expectNoOldValue(cChange);
         expect(cChange.newValue).toEqual(8);
 
-        const dChange = assertChange(changes[d.id]);
+        const dChange = assertChange(changes?.[d.id]);
         expectNoOldValue(dChange);
         expect(dChange.newValue).toEqual(5);
       }
@@ -1242,14 +1246,27 @@ IF(
       await updateRecordByApi(t2.id, t2.records[0].id, link.id, [{ id: t1.records[0].id }]);
 
       // Replace with [r2] -> lookup [7]
-      const { events } = await runAndCaptureRecordUpdates(async () => {
-        await updateRecordByApi(t2.id, t2.records[0].id, link.id, [{ id: t1.records[1].id }]);
-      });
+      // Link+lookup replace can emit a longer burst of async record.update events
+      // (symmetric counterparts + lookup). Give the capture window more settle time
+      // so CI under load does not observe an empty event stream for the host row.
+      const { events } = await runAndCaptureRecordUpdates(
+        async () => {
+          await updateRecordByApi(t2.id, t2.records[0].id, link.id, [{ id: t1.records[1].id }]);
+        },
+        {
+          timeoutMs: 5000,
+          isComplete: (captured) => {
+            const changes = findLatestRecordChangeMap(captured, t2.id, t2.records[0].id);
+            return Boolean(changes?.[lkp.id]?.newValue);
+          },
+        }
+      );
 
       // Event payload verification only in v1 mode
       if (!isV2Mode) {
         const changes = findLatestRecordChangeMap(events, t2.id, t2.records[0].id);
-        const lkpChange = assertChange(changes[lkp.id]);
+        expect(changes).toBeDefined();
+        const lkpChange = assertChange(changes?.[lkp.id]);
         expectNoOldValue(lkpChange);
         expect(lkpChange.newValue).toEqual([7]);
       }

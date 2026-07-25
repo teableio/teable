@@ -6,6 +6,7 @@ import { useCallback, useMemo } from 'react';
 import { useTranslation } from '../../../context/app/i18n/useTranslation';
 import { useFields, useView } from '../../../hooks';
 import type { IFieldInstance } from '../../../model';
+import { getDisplayChoiceMap } from '../../../utils/select-color';
 import { getFileCover, isSystemFileIcon } from '../../editor';
 import { GRID_DEFAULT } from '../../grid/configs';
 import type { IGridColumn } from '../../grid/interface';
@@ -62,7 +63,7 @@ const useGenerateGroupCellFn = () => {
 
         const validateCellValue =
           field.cellValueType === CellValueType.DateTime
-            ? validateDateFieldValueLoose(_cellValue)
+            ? validateDateFieldValueLoose(_cellValue, field.isMultipleCellValue)
             : field.validateCellValue(_cellValue);
         const cellValue = (
           validateCellValue.success ? validateCellValue.data : undefined
@@ -208,8 +209,8 @@ const useGenerateGroupCellFn = () => {
               type: CellType.Select,
               data,
               displayData: data,
-              choiceSorted: field.options.choices,
-              choiceMap: field.displayChoiceMap,
+              choiceSorted: field.options?.choices ?? [],
+              choiceMap: getDisplayChoiceMap(field.options?.choices ?? [], resolvedTheme),
               isMultiple,
             };
           }

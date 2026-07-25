@@ -7,10 +7,13 @@ import { CanaryModule } from '../../canary/canary.module';
 import { CollaboratorModule } from '../../collaborator/collaborator.module';
 import { FieldCalculateModule } from '../../field/field-calculate/field-calculate.module';
 import { FieldModule } from '../../field/field.module';
+import { RecordHistoryColdCoreModule } from '../../record-history-cold/record-history-cold.module';
 import { SelectionModule } from '../../selection/selection.module';
+import { SpaceDataDbMigrationGuardModule } from '../../space/space-data-db-migration-guard.module';
 import { TableModule } from '../../table/table.module';
 import { TableDomainQueryModule } from '../../table-domain';
 import { V2Module } from '../../v2/v2.module';
+import { TableQuerySearchVectorRuntimeService } from '../../v2/table-query-search-vector-runtime.service';
 import { ViewOpenApiModule } from '../../view/open-api/view-open-api.module';
 import { ViewModule } from '../../view/view.module';
 import { RecordModifyModule } from '../record-modify/record-modify.module';
@@ -34,12 +37,14 @@ import { RecordOpenApiService } from './record-open-api.service';
     ViewOpenApiModule,
     TableModule,
     TableDomainQueryModule,
+    RecordHistoryColdCoreModule,
     V2Module,
     CanaryModule,
+    SpaceDataDbMigrationGuardModule,
     forwardRef(() => SelectionModule),
   ],
   controllers: [RecordOpenApiController],
-  providers: [RecordOpenApiService, RecordOpenApiV2Service],
+  providers: [RecordOpenApiService, RecordOpenApiV2Service, TableQuerySearchVectorRuntimeService],
   exports: [RecordOpenApiService, RecordOpenApiV2Service],
 })
 export class RecordOpenApiModule {}

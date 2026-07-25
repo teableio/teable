@@ -547,6 +547,7 @@ describe('v2 http deleteField (e2e)', () => {
       let tableId: string | undefined;
       try {
         const sourceFieldId = createFieldId();
+        const fallbackFieldId = createFieldId();
         const formulaFieldId = createFieldId();
         const table = await ctx.createTable({
           baseId: ctx.baseId,
@@ -554,8 +555,17 @@ describe('v2 http deleteField (e2e)', () => {
           fields: [
             { type: 'singleLineText', name: 'Name', isPrimary: true },
             { type: 'singleLineText', id: sourceFieldId, name: 'Source' },
+            { type: 'singleLineText', id: fallbackFieldId, name: 'Fallback' },
           ],
-          records: [{ fields: { Name: 'r1', [sourceFieldId]: 'Source 1' } }],
+          records: [
+            {
+              fields: {
+                Name: 'r1',
+                [sourceFieldId]: 'Source 1',
+                [fallbackFieldId]: 'Fallback 1',
+              },
+            },
+          ],
         });
         tableId = table.id;
 
@@ -591,6 +601,26 @@ describe('v2 http deleteField (e2e)', () => {
         expect(await getStoredCellValue(tableId, firstRecordId, formulaDbFieldName)).toBeNull();
         const recordsAfter = await ctx.listRecordsWithoutDrain(tableId);
         expect(recordsAfter).toHaveLength(1);
+
+        await ctx.updateField({
+          tableId,
+          fieldId: formulaFieldId,
+          field: {
+            type: 'formula',
+            options: { expression: `LOWER({${fallbackFieldId}})` },
+          },
+        });
+        await ctx.drainOutbox();
+
+        const tableAfterFormulaRepair = await ctx.getTableById(tableId);
+        const repairedFormulaField = tableAfterFormulaRepair.fields.find(
+          (field) => field.id === formulaFieldId
+        );
+        expect(repairedFormulaField?.type).toBe('formula');
+        expect(repairedFormulaField?.hasError).toBeFalsy();
+        expect(await getStoredCellValue(tableId, firstRecordId, formulaDbFieldName)).toBe(
+          'fallback 1'
+        );
       } finally {
         await safeDeleteTable(tableId);
       }
@@ -1540,6 +1570,98 @@ describe('v2 http deleteField (e2e)', () => {
         expect(recordsAfter).toHaveLength(1);
       } finally {
         await safeDeleteTable(tableId);
+      }
+    });
+
+    /**
+     * T4927: After table A links to table B and B is deleted (soft-delete to trash),
+     * the remaining link field on A must still be deletable.
+     */
+    it('T4927: deletes orphan link field after foreign table is soft-deleted', async () => {
+      let hostTableId: string | undefined;
+      let foreignTableId: string | undefined;
+
+      try {
+        const host = await createTable('T4927 Host A');
+        const foreign = await createTable('T4927 Foreign B');
+        hostTableId = host.tableId;
+        foreignTableId = foreign.tableId;
+
+        const linkFieldId = createFieldId();
+        const hostWithLink = await ctx.createField({
+          baseId: ctx.baseId,
+          tableId: host.tableId,
+          field: {
+            type: 'link',
+            id: linkFieldId,
+            name: 'Link to B',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: foreign.tableId,
+              lookupFieldId: foreign.primaryFieldId,
+              isOneWay: false,
+            },
+          },
+        });
+
+        const linkField = hostWithLink.fields.find((field) => field.id === linkFieldId);
+        expect(linkField?.type).toBe('link');
+        if (!linkField || linkField.type !== 'link') return;
+        expect(linkField.options.symmetricFieldId).toBeTruthy();
+
+        // Soft-delete foreign table B (moves to trash; link on A remains).
+        await ctx.deleteTable(foreign.tableId, { mode: 'soft' });
+        foreignTableId = undefined;
+
+        // Orphan link field on A must still delete successfully.
+        await ctx.deleteField({ tableId: host.tableId, fieldId: linkFieldId });
+
+        const hostAfter = await ctx.getTableById(host.tableId);
+        expect(hostAfter.fields.some((field) => field.id === linkFieldId)).toBe(false);
+        expect(hostAfter.fields.some((field) => field.id === host.primaryFieldId)).toBe(true);
+      } finally {
+        await safeDeleteTable(hostTableId);
+        await safeDeleteTable(foreignTableId);
+      }
+    });
+
+    it('T4927: deletes orphan one-way link field after foreign table is soft-deleted', async () => {
+      let hostTableId: string | undefined;
+      let foreignTableId: string | undefined;
+
+      try {
+        const host = await createTable('T4927 Host OneWay A');
+        const foreign = await createTable('T4927 Foreign OneWay B');
+        hostTableId = host.tableId;
+        foreignTableId = foreign.tableId;
+
+        const linkFieldId = createFieldId();
+        await ctx.createField({
+          baseId: ctx.baseId,
+          tableId: host.tableId,
+          field: {
+            type: 'link',
+            id: linkFieldId,
+            name: 'One-way Link to B',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: foreign.tableId,
+              lookupFieldId: foreign.primaryFieldId,
+              isOneWay: true,
+            },
+          },
+        });
+
+        await ctx.deleteTable(foreign.tableId, { mode: 'soft' });
+        foreignTableId = undefined;
+
+        await ctx.deleteField({ tableId: host.tableId, fieldId: linkFieldId });
+
+        const hostAfter = await ctx.getTableById(host.tableId);
+        expect(hostAfter.fields.some((field) => field.id === linkFieldId)).toBe(false);
+      } finally {
+        await safeDeleteTable(hostTableId);
+        await safeDeleteTable(foreignTableId);
       }
     });
   });

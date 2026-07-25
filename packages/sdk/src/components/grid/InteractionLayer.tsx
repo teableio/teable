@@ -124,6 +124,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     columnStatistics,
     forceRenderFlag,
     rowIndexVisible,
+    disableEnterMoveDown,
     groupCollection,
     isMultiSelectionEnable,
     activeCellBound: _activeCellBound,
@@ -153,6 +154,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     onCellDblClick,
     onSelectionChanged,
     onColumnFreeze,
+    onColumnFreezeFailed,
     onColumnAppend,
     onColumnResize,
     onColumnOrdered,
@@ -444,6 +446,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         return onColumnAppend?.();
       case RegionType.RowHeaderExpandHandler:
         return onRowExpand?.(rowIndex);
+      case RegionType.ColumnIcon:
       case RegionType.ColumnHeader:
         return onColumnHeaderClick?.(columnIndex, {
           x: coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft),
@@ -543,7 +546,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       return setEditing(true);
     }
     if (
-      type === RegionType.ColumnHeader &&
+      [RegionType.ColumnHeader, RegionType.ColumnIcon].includes(type) &&
       isEqual(selectionRanges[0], [columnIndex, columnIndex])
     ) {
       return onColumnHeaderDblClick?.(columnIndex, {
@@ -739,10 +742,16 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       }
       setCursor('default');
     });
-    onColumnFreezeEnd((columnCount: number) => {
-      onColumnFreeze?.(columnCount);
-      setMouseState(DEFAULT_MOUSE_STATE);
-    });
+    onColumnFreezeEnd(
+      (columnCount: number) => {
+        onColumnFreeze?.(columnCount);
+        setMouseState(DEFAULT_MOUSE_STATE);
+      },
+      () => {
+        onColumnFreezeFailed?.();
+        setMouseState(DEFAULT_MOUSE_STATE);
+      }
+    );
     onSelectionEnd();
     onColumnResizeEnd();
   };
@@ -906,6 +915,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
         scrollState={scrollState}
         coordInstance={coordInstance}
         activeCellBound={activeCellBound}
+        disableEnterMoveDown={disableEnterMoveDown}
         onCopy={onCopy}
         onPaste={onPaste}
         onUndo={onUndo}

@@ -97,7 +97,7 @@ const EmbedConfigPopover = ({
       <PopoverTrigger asChild>
         <Button
           variant="ghost"
-          className="-mx-2 flex w-[calc(100%+16px)] items-center justify-between px-2 py-1"
+          className="-mx-2 flex w-[calc(100%+16px)] items-center justify-between px-2 py-1 data-[state=open]:bg-accent data-[state=open]:text-accent-foreground"
         >
           <Label className="cursor-pointer text-sm font-normal">
             {t('table:baseShare.embedConfig')}
@@ -105,7 +105,12 @@ const EmbedConfigPopover = ({
           <ChevronRight className="size-4 text-muted-foreground" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent side="right" align="start" className="w-80">
+      <PopoverContent
+        side="right"
+        align="start"
+        collisionPadding={24}
+        className="max-h-[var(--radix-popover-content-available-height)] w-80 overflow-y-auto"
+      >
         <div className="mb-3 rounded-md border bg-muted p-3">
           <code className="break-all text-xs">{embedHtml}</code>
         </div>
@@ -163,10 +168,10 @@ const EmbedConfigPopover = ({
             </div>
           )}
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-2">
             <Label className="text-xs">{t('common:settings.setting.theme')}</Label>
             <RadioGroup
-              className="flex h-5 gap-3"
+              className="flex flex-wrap gap-3"
               defaultValue={shareTheme}
               onValueChange={(e) => setShareTheme(e)}
             >

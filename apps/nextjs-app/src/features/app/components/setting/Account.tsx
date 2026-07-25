@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { updateUserAvatar, updateUserName } from '@teable/openapi';
+import { updateUserAvatar, updateUserName, USER_NAME_MAX_LENGTH } from '@teable/openapi';
 import { useIsTouchDevice, useSession } from '@teable/sdk';
 import {
   Button,
@@ -108,6 +108,7 @@ export const Account: React.FC = () => {
               <Input
                 className="w-full px-3 sm:max-w-sm"
                 defaultValue={sessionUser.name}
+                maxLength={USER_NAME_MAX_LENGTH}
                 onBlur={(e) => toggleRenameUser(e)}
               />
               <Label className="text-xs font-normal text-muted-foreground" htmlFor="Preferred name">

@@ -10,7 +10,6 @@ import type {
   IConditionalLookupOptions,
 } from '@teable/core';
 import { FieldType, getRandomString, ViewType, isLinkLookupOptions } from '@teable/core';
-import { DataPrismaService } from '@teable/db-data-prisma';
 import type { Field, View, TableMeta, Base } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { PluginPosition, UploadType } from '@teable/openapi';
@@ -23,7 +22,7 @@ import type {
 import archiver from 'archiver';
 import { stringify } from 'csv-stringify/sync';
 import { Knex } from 'knex';
-import { omit, pick } from 'lodash';
+import { groupBy, omit, pick } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { IStorageConfig, StorageConfig } from '../../configs/storage';
@@ -47,6 +46,9 @@ import { EXCLUDE_SYSTEM_FIELDS } from './constant';
 @Injectable()
 export class BaseExportService {
   public static CSV_CHUNK = 500;
+  public static FIELD_EXPORT_BATCH_SIZE = 500;
+  public static VIEW_EXPORT_BATCH_SIZE = 500;
+  private static readonly TABLE_ID_QUERY_CHUNK_SIZE = 100;
   public static FILE_SUFFIX = 'tea';
   public static EXPORT_FIELD_COLUMNS = [
     'id',
@@ -336,25 +338,8 @@ export class BaseExportService {
       },
     });
     const tableIds = tableRaws.map(({ id }) => id);
-    const fieldRaws = await prisma.field.findMany({
-      where: {
-        tableId: {
-          in: tableIds,
-        },
-        deletedTime: null,
-      },
-    });
-    const viewRaws = await prisma.view.findMany({
-      where: {
-        tableId: {
-          in: tableIds,
-        },
-        deletedTime: null,
-      },
-      orderBy: {
-        order: 'asc',
-      },
-    });
+    const fieldRaws = await this.findFieldsByTableIds(tableIds);
+    const viewRaws = await this.findViewsByTableIds(tableIds);
 
     // 2. generate base structure json
     onProgress?.('exporting_structure');
@@ -504,6 +489,8 @@ export class BaseExportService {
       fieldRaws,
       destSpaceId
     );
+    const fieldsByTableId = groupBy(fieldRaws, 'tableId');
+    const viewsByTableId = groupBy(viewRaws, 'tableId');
     const tables = [] as IBaseJson['tables'];
     for (const table of tableRaws) {
       const { name, description, order, id, icon, dbTableName } = table;
@@ -516,18 +503,18 @@ export class BaseExportService {
         icon,
         dbTableName: realDbTableName,
       } as IBaseJson['tables'][number];
-      const currentTableFields = fieldRaws.filter(({ tableId }) => tableId === id);
+      const currentTableFields = fieldsByTableId[id] ?? [];
       tableObject.fields = this.generateFieldConfig(
         currentTableFields,
         allowCrossBase,
         excludedTableIds,
         crossSpaceForeignBaseIds
       );
-      tableObject.views = this.generateViewConfig(viewRaws.filter(({ tableId }) => tableId === id));
+      tableObject.views = this.generateViewConfig(viewsByTableId[id] ?? []);
       tables.push(tableObject);
     }
 
-    const plugins = await this.generatePluginConfig(baseId, includedDashboardIds);
+    const plugins = await this.generatePluginConfig(baseId, includedDashboardIds, viewRaws);
     const folders = await this.generateFolderConfig(baseId, includedFolderIds);
     const nodes = await this.generateNodeConfig(baseId, includeNodes, rootNodeIds);
 
@@ -917,6 +904,98 @@ export class BaseExportService {
       .orderBy('__auto_number', 'asc')
       .toQuery();
     return await prisma.$queryRawUnsafe<Record<string, unknown>[]>(recordsQuery);
+  }
+
+  async findFieldsByTableIds(tableIds: string[]) {
+    const prisma = this.prismaService.txClient();
+    const fieldRaws: Field[] = [];
+
+    for (
+      let index = 0;
+      index < tableIds.length;
+      index += BaseExportService.TABLE_ID_QUERY_CHUNK_SIZE
+    ) {
+      const tableIdChunk = tableIds.slice(
+        index,
+        index + BaseExportService.TABLE_ID_QUERY_CHUNK_SIZE
+      );
+      let cursor: string | undefined;
+      let hasMore = true;
+
+      while (hasMore) {
+        const page = await prisma.field.findMany({
+          where: {
+            tableId: { in: tableIdChunk },
+            deletedTime: null,
+          },
+          ...(cursor
+            ? {
+                cursor: {
+                  id: cursor,
+                },
+                skip: 1,
+              }
+            : {}),
+          orderBy: [{ tableId: 'asc' }, { id: 'asc' }],
+          take: BaseExportService.FIELD_EXPORT_BATCH_SIZE,
+        });
+
+        fieldRaws.push(...page);
+
+        hasMore = page.length === BaseExportService.FIELD_EXPORT_BATCH_SIZE;
+        if (hasMore) {
+          cursor = page[page.length - 1].id;
+        }
+      }
+    }
+
+    return fieldRaws;
+  }
+
+  async findViewsByTableIds(tableIds: string[]) {
+    const prisma = this.prismaService.txClient();
+    const viewRaws: View[] = [];
+
+    for (
+      let index = 0;
+      index < tableIds.length;
+      index += BaseExportService.TABLE_ID_QUERY_CHUNK_SIZE
+    ) {
+      const tableIdChunk = tableIds.slice(
+        index,
+        index + BaseExportService.TABLE_ID_QUERY_CHUNK_SIZE
+      );
+      let cursor: string | undefined;
+      let hasMore = true;
+
+      while (hasMore) {
+        const page = await prisma.view.findMany({
+          where: {
+            tableId: { in: tableIdChunk },
+            deletedTime: null,
+          },
+          ...(cursor
+            ? {
+                cursor: {
+                  id: cursor,
+                },
+                skip: 1,
+              }
+            : {}),
+          orderBy: [{ tableId: 'asc' }, { order: 'asc' }, { id: 'asc' }],
+          take: BaseExportService.VIEW_EXPORT_BATCH_SIZE,
+        });
+
+        viewRaws.push(...page);
+
+        hasMore = page.length === BaseExportService.VIEW_EXPORT_BATCH_SIZE;
+        if (hasMore) {
+          cursor = page[page.length - 1].id;
+        }
+      }
+    }
+
+    return viewRaws;
   }
 
   /**
@@ -1437,7 +1516,7 @@ export class BaseExportService {
     });
   }
 
-  async generatePluginConfig(baseId: string, includedDashboardIds?: string[]) {
+  async generatePluginConfig(baseId: string, includedDashboardIds?: string[], viewRaws?: View[]) {
     const pluginJson = {} as IBaseJson['plugins'];
 
     pluginJson[PluginPosition.Dashboard] = await this.generateDashboard(
@@ -1447,35 +1526,17 @@ export class BaseExportService {
 
     pluginJson[PluginPosition.Panel] = await this.generatePluginPanel(baseId);
 
-    pluginJson[PluginPosition.View] = await this.generatePluginView(baseId);
+    pluginJson[PluginPosition.View] = await this.generatePluginView(baseId, viewRaws);
 
     return pluginJson;
   }
 
-  private async generatePluginView(baseId: string) {
-    const tableIds = await this.prismaService.txClient().tableMeta.findMany({
-      where: {
-        baseId,
-        deletedTime: null,
-      },
-    });
+  private async generatePluginView(baseId: string, viewRaws?: View[]) {
+    const viewPluginRaws = viewRaws
+      ? viewRaws.filter(({ type }) => type === ViewType.Plugin)
+      : await this.findPluginViewsByBaseId(baseId);
 
-    const prisma = this.prismaService.txClient();
-
-    const viewPluginRaws = await prisma.view.findMany({
-      where: {
-        tableId: {
-          in: tableIds.map(({ id }) => id),
-        },
-        type: ViewType.Plugin,
-        deletedTime: null,
-      },
-      orderBy: {
-        createdTime: 'asc',
-      },
-    });
-
-    const viewPluginInstallRaws = await prisma.pluginInstall.findMany({
+    const viewPluginInstallRaws = await this.prismaService.txClient().pluginInstall.findMany({
       where: {
         positionId: {
           in: viewPluginRaws.map(({ id }) => id),
@@ -1501,6 +1562,22 @@ export class BaseExportService {
         },
       };
     }) as unknown as IBaseJson['plugins'][PluginPosition.View];
+  }
+
+  private async findPluginViewsByBaseId(baseId: string) {
+    const tableIds = await this.prismaService.txClient().tableMeta.findMany({
+      where: {
+        baseId,
+        deletedTime: null,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    return (await this.findViewsByTableIds(tableIds.map(({ id }) => id))).filter(
+      ({ type }) => type === ViewType.Plugin
+    );
   }
 
   private async generatePluginPanel(baseId: string) {

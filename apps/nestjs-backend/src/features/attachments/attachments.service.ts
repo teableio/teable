@@ -5,7 +5,7 @@ import { tmpdir } from 'os';
 import { join, resolve } from 'path';
 import { Readable } from 'stream';
 import { pipeline } from 'stream/promises';
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { HttpErrorCode, type IAttachmentItem } from '@teable/core';
 import { generateAttachmentId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -130,12 +130,17 @@ export class AttachmentsService {
 
   async signature(signatureRo: SignatureRo & { internal?: boolean }): Promise<SignatureVo> {
     const { type, ...presignedParams } = signatureRo;
+    // cold record-history parts are written exclusively by the backend flusher
+    // (never presigned); a client-signed upload under this prefix could forge
+    // or corrupt cold history parts and _stats.json
+    if (type === UploadType.RecordHistory) {
+      throw new BadRequestException('this upload type cannot be signed');
+    }
     const contentLength = signatureRo.contentLength;
     const MAX_FILE_SIZE = this.thresholdConfig.maxAttachmentUploadSize;
     if (contentLength > MAX_FILE_SIZE) {
       this.throwFileSizeExceeded(MAX_FILE_SIZE);
     }
-    const hash = presignedParams.hash;
     const dir = StorageAdapter.getDir(type);
     const bucket = StorageAdapter.getBucket(type);
     const res = await this.storageAdapter.presigned(bucket, dir, {
@@ -144,7 +149,7 @@ export class AttachmentsService {
     const { path, token } = res;
     await this.cacheService.set(
       `attachment:signature:${token}`,
-      { path, bucket, hash },
+      { path, bucket },
       signatureRo.expiresIn ?? second(this.storageConfig.tokenExpireIn)
     );
     return res;
@@ -283,6 +288,32 @@ export class AttachmentsService {
 
     await this.uploadStreamToStorage(url, fileStream, contentType, contentLength);
 
+    return await this.notifyToAttachmentItem(token, filename);
+  }
+
+  /**
+   * Streams an already-open file stream of a known size straight into
+   * storage — no temp file, works the same for local, S3 and MinIO backends.
+   */
+  async uploadFromStream(
+    stream: Readable,
+    params: { filename: string; contentType: string; contentLength: number },
+    uploadType: UploadType = UploadType.Table,
+    options?: { signal?: AbortSignal }
+  ): Promise<IAttachmentItem> {
+    const MAX_FILE_SIZE = this.thresholdConfig.maxOpenapiAttachmentUploadSize;
+    const { filename, contentType, contentLength } = params;
+    if (contentLength > MAX_FILE_SIZE) {
+      this.throwFileSizeExceeded(MAX_FILE_SIZE);
+    }
+
+    const { token, url } = await this.signature({
+      type: uploadType,
+      contentLength,
+      contentType,
+      internal: true,
+    });
+    await this.uploadStreamToStorage(url, stream, contentType, contentLength, options?.signal);
     return await this.notifyToAttachmentItem(token, filename);
   }
 
@@ -455,7 +486,8 @@ export class AttachmentsService {
     url: string,
     stream: Readable,
     contentType: string,
-    contentLength: number
+    contentLength: number,
+    signal?: AbortSignal
   ): Promise<void> {
     try {
       await axios.put(url, stream, {
@@ -463,6 +495,7 @@ export class AttachmentsService {
           'Content-Type': getSafeUploadContentType(contentType),
           'Content-Length': contentLength,
         },
+        signal,
       });
     } catch (error) {
       stream.destroy();

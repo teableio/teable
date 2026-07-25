@@ -51,7 +51,7 @@ describe('CanaryService', () => {
     expect(cls.get).not.toHaveBeenCalled();
   });
 
-  it('reports new_base for a marked new base even when force v2 all is enabled', async () => {
+  it('reports env_force_v2_all over new_base when force v2 all is enabled', async () => {
     process.env.ENABLE_CANARY_FEATURE = 'true';
     process.env.FORCE_V2_ALL = 'true';
     const { service, settingService, cls } = createService({
@@ -64,7 +64,7 @@ describe('CanaryService', () => {
       'createRecord'
     );
 
-    expect(decision).toEqual({ useV2: true, reason: 'new_base' });
+    expect(decision).toEqual({ useV2: true, reason: 'env_force_v2_all' });
     expect(settingService.getSetting).not.toHaveBeenCalled();
     expect(cls.get).not.toHaveBeenCalled();
   });
@@ -129,5 +129,16 @@ describe('CanaryService', () => {
     );
 
     expect(decision).toEqual({ useV2: true, reason: 'header_override' });
+  });
+
+  it('skips loading canary spaceIds when FORCE_V2_ALL is enabled', async () => {
+    process.env.ENABLE_CANARY_FEATURE = 'true';
+    process.env.FORCE_V2_ALL = 'true';
+    const { service, settingService } = createService({
+      config: { enabled: true, spaceIds: ['spc1'], forceV2All: false },
+    });
+
+    await expect(service.isSpaceInCanary('spc1')).resolves.toBe(false);
+    expect(settingService.getSetting).not.toHaveBeenCalled();
   });
 });

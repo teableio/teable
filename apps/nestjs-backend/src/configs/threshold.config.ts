@@ -20,6 +20,9 @@ export const thresholdConfig = registerAs('threshold', () => ({
   bigTransactionTimeout: Number(
     process.env.BIG_TRANSACTION_TIMEOUT ?? 10 * 60 * 1000 /* 10 mins */
   ),
+  // DB statement_timeout (ms) for the search query, so a slow / full-scan search is canceled
+  // and its connection released instead of being held for minutes. Tune via SEARCH_TIMEOUT.
+  searchTimeout: Number(process.env.SEARCH_TIMEOUT ?? 15_000 /* 15s */),
   automationGap: Number(process.env.AUTOMATION_GAP ?? 200),
   maxAttachmentUploadSize: Number(process.env.MAX_ATTACHMENT_UPLOAD_SIZE ?? Infinity),
   maxOpenapiAttachmentUploadSize: Number(
@@ -63,6 +66,7 @@ export const thresholdConfig = registerAs('threshold', () => ({
     maxEmailsPerPoll: Number(process.env.AUTOMATION_MAX_EMAILS_PER_POLL ?? 100),
     maxEmailDedupWindowSize: Number(process.env.AUTOMATION_MAX_EMAIL_DEDUP_WINDOW_SIZE ?? 500),
     httpRequestTimeout: Number(process.env.AUTOMATION_HTTP_REQUEST_TIMEOUT ?? 300_000), // 5 mins
+    watchdogDisabled: process.env.AUTOMATION_WATCHDOG_DISABLED === 'true',
   },
 }));
 

@@ -1,8 +1,20 @@
+import { Buffer as NodeBuffer } from 'node:buffer';
+import http from 'node:http';
+import { createRequire } from 'node:module';
 import path from 'path';
 import type { INestApplication } from '@nestjs/common';
 import { DriverClient, parseDsn } from '@teable/core';
 import dotenv from 'dotenv-flow';
 import { buildSync } from 'esbuild';
+
+// Node >=19 enables keep-alive on the global http agent; the app servers close
+// idle sockets after ~5s and a reuse racing that close surfaces as ECONNRESET.
+// Tests favor determinism over connection reuse.
+http.globalAgent = new http.Agent({ keepAlive: false });
+
+const require = createRequire(import.meta.url);
+const bufferModule = require('buffer') as Record<string, unknown>;
+bufferModule['SlowBuffer'] ??= bufferModule['Buffer'] ?? NodeBuffer;
 
 // Handle ConditionalModule timeout errors that occur sporadically in CI
 // These errors are thrown from setTimeout callbacks and cannot be caught normally
@@ -79,8 +91,12 @@ function compileWorkerFile() {
 async function setup() {
   dotenv.config({ path: '../nextjs-app' });
 
-  // Use sync mode for v2 computed updates in tests
-  process.env.V2_COMPUTED_UPDATE_MODE = 'sync';
+  // Keep the broad e2e suite deterministic; the dedicated suite verifies BullMQ delivery.
+  if (process.env.V2_COMPUTED_OUTBOX_BULLMQ_E2E === 'true') {
+    delete process.env.V2_COMPUTED_UPDATE_MODE;
+  } else {
+    process.env.V2_COMPUTED_UPDATE_MODE = 'sync';
+  }
 
   if (!process.env.CONDITIONAL_QUERY_MAX_LIMIT) {
     process.env.CONDITIONAL_QUERY_MAX_LIMIT = '7';
@@ -88,6 +104,9 @@ async function setup() {
   if (!process.env.CONDITIONAL_QUERY_DEFAULT_LIMIT) {
     process.env.CONDITIONAL_QUERY_DEFAULT_LIMIT = process.env.CONDITIONAL_QUERY_MAX_LIMIT;
   }
+
+  const { applyWorkerDatabaseEnv, captureBaselineEnv } = await import('./test/utils/e2e-shared');
+  applyWorkerDatabaseEnv();
 
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   const databaseUrl = process.env.PRISMA_DATABASE_URL!;
@@ -97,7 +116,16 @@ async function setup() {
   console.log('driver: ', driver);
   globalThis.testConfig.driver = driver;
 
-  compileWorkerFile();
+  // globalSetup pre-builds the worker bundle for the e2e configs; other configs
+  // (bench) still compile here, where files run serially.
+  if (process.env.E2E_WORKER_PREBUILT !== '1') {
+    compileWorkerFile();
+  }
+
+  // Fingerprint the clean pre-boot env. The first spec file's initApp boots the
+  // worker's shared app (no eager boot here: vitest does not await this setup
+  // promise, and an in-flight boot would race the first file's env fingerprint).
+  captureBaselineEnv();
 }
 
 export default setup();

@@ -1,16 +1,18 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/cognitive-complexity */
-import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus, Optional } from '@nestjs/common';
 import { trace } from '@opentelemetry/api';
 import {
   CellFormat,
   CellValueType,
   FieldKeyType,
   FieldType,
+  HttpErrorCode,
   TimeFormatting,
   formatDateToString,
   isMeTag,
   parseClipboardText,
+  type IAttachmentItem,
   type IDatetimeFormatting,
   type IFieldVo,
   type IFilter,
@@ -26,13 +28,18 @@ import type {
   IRecord,
   ICreateRecordsVo,
   IGetRecordsRo,
+  ICreateRecordsRo,
+  IUpdateRecordsRo,
   IPasteRo,
+  IPasteByIdStreamRo,
   IPasteVo,
   IRangesRo,
+  ISelectionIdMutationBaseRo,
+  ISelectionIdsRo,
   IRecordsVo,
   IRecordInsertOrderRo,
 } from '@teable/openapi';
-import { ICreateRecordsRo, IUpdateRecordsRo, RangeType } from '@teable/openapi';
+import { RangeType } from '@teable/openapi';
 import { mapDomainErrorToHttpError, mapDomainErrorToHttpStatus } from '@teable/v2-contract-http';
 import {
   executeCreateRecordsEndpoint,
@@ -60,6 +67,8 @@ import {
   type IListTableRecordsQueryInput,
   type IPasteCommandInput,
   type IQueryBus,
+  type IRecordReadQuerySource,
+  type IRecordSearchAccessPath,
   type PasteStreamResult,
   type RecordFilter,
   type RecordFilterDateValue,
@@ -67,6 +76,7 @@ import {
   type RecordFilterNode,
   type RecordFilterOperator,
   type RecordFilterValue,
+  type RecordWritePluginRunnerOptions,
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import { pick } from 'lodash';
@@ -77,21 +87,27 @@ import { CustomHttpException, getDefaultCodeByStatus } from '../../../custom.exc
 import { DataDbClientManager } from '../../../global/data-db-client-manager.service';
 import type { IClsStore } from '../../../types/cls';
 import { AggregationService } from '../../aggregation/aggregation.service';
+import { AttachmentsService } from '../../attachments/attachments.service';
 import { AuditScope } from '../../audit/audit-scope';
 import { FieldService } from '../../field/field.service';
 import type { IFieldInstance } from '../../field/model/factory';
 import { createFieldInstanceByVo } from '../../field/model/factory';
 import { TableService } from '../../table/table.service';
+import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migration-guard.service';
 import { buildUndoRedoEnginePreferenceKey } from '../../undo-redo/open-api/undo-redo-engine-preference';
-import { V2_RECORD_PASTE_AUDIT_CONTEXT_KEY } from '../../v2/v2-audit-log.constants';
+import { TableQuerySearchVectorRuntimeService } from '../../v2/table-query-search-vector-runtime.service';
 import { V2ContainerService } from '../../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../../v2/v2-execution-context.factory';
+import { convertLinkPasteCellValue } from '../paste-link-cell-value';
 import { RecordPermissionService } from '../record-permission.service';
 import { RecordService } from '../record.service';
 
 const internalServerError = 'Internal server error';
 const invalidFilterCode = 'validation.invalid_filter';
 const dataTxClientKey = 'dataTx.client';
+const maxResolveSelectionRecordIdsPageSize = 1000;
+const describeTraceError = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
 const v1SymbolOperatorMap: Record<string, string> = {
   '=': 'is',
   '!=': 'isNot',
@@ -108,6 +124,21 @@ const v1SymbolOperatorMap: Record<string, string> = {
   'IS NOT NULL': 'isNotEmpty',
   'IS WITH IN': 'isWithIn',
 };
+const dateComparisonOperators: ReadonlySet<RecordFilterOperator> = new Set([
+  'is',
+  'isNot',
+  'isBefore',
+  'isAfter',
+  'isOnOrBefore',
+  'isOnOrAfter',
+]);
+const dateFilterFieldTypes: ReadonlySet<FieldType> = new Set([
+  FieldType.Date,
+  FieldType.CreatedTime,
+  FieldType.LastModifiedTime,
+]);
+
+type FilterFieldMeta = Pick<IFieldInstance, 'type' | 'cellValueType' | 'options'>;
 
 @Injectable()
 export class RecordOpenApiV2Service {
@@ -122,8 +153,16 @@ export class RecordOpenApiV2Service {
     private readonly recordPermissionService: RecordPermissionService,
     private readonly aggregationService: AggregationService,
     private readonly dataDbClientManager: DataDbClientManager,
-    private readonly audit: AuditScope
+    private readonly audit: AuditScope,
+    private readonly spaceDataDbMigrationGuard: SpaceDataDbMigrationGuardService,
+    @Optional() private readonly attachmentsService?: AttachmentsService,
+    @Optional()
+    private readonly tableQuerySearchVectorRuntimeService?: TableQuerySearchVectorRuntimeService
   ) {}
+
+  private async assertTableRecordWritable(tableId: string): Promise<void> {
+    await this.spaceDataDbMigrationGuard.assertTableRecordWritable(tableId);
+  }
 
   private throwV2Error(
     error: {
@@ -227,25 +266,36 @@ export class RecordOpenApiV2Service {
     }
 
     const container = await this.v2ContainerService.getContainerForTable(tableId);
-    const context = await this.createV2ReadContext(tableId, query, container);
-    const enabledFieldIds = (
-      context as IExecutionContext & {
-        recordReadQuerySource?: { enabledFieldIds?: string[] };
-      }
-    ).recordReadQuerySource?.enabledFieldIds;
+    const { context, recordReadQuerySource } = await this.createV2ReadContext(
+      tableId,
+      query,
+      container
+    );
+    const enabledFieldIds = recordReadQuerySource?.enabledFieldIds;
     const effectiveQuery = {
       ...query,
       ...this.sanitizeReadableSortAndGroup(query, enabledFieldIds),
     } satisfies IGetRecordsRo;
 
     const requestedFieldKeyType = query.fieldKeyType ?? FieldKeyType.Name;
-    const snapshotProjection = await this.resolveSnapshotProjection(
-      tableId,
-      query,
-      requestedFieldKeyType,
-      enabledFieldIds
+    const snapshotProjection = await this.withRecordReadSpan(
+      context,
+      'teable.RecordOpenApiV2Service.resolveSnapshotProjection',
+      {
+        'record.read.has_explicit_projection': Boolean(query.projection),
+        'record.read.has_enabled_fields': Boolean(enabledFieldIds?.length),
+        'record.read.field_key_type': requestedFieldKeyType,
+      },
+      () => this.resolveSnapshotProjection(tableId, query, requestedFieldKeyType, enabledFieldIds)
     );
-    const normalizedFilter = await this.normalizeFilterForV2(tableId, query.filter);
+    const normalizedFilter = await this.withRecordReadSpan(
+      context,
+      'teable.RecordOpenApiV2Service.normalizeFilter',
+      {
+        'record.read.has_filter': Boolean(query.filter),
+      },
+      () => this.normalizeFilterForV2(tableId, query.filter)
+    );
     const sortWithGroupFallback = this.mergeGroupByIntoSort(
       effectiveQuery.groupBy,
       effectiveQuery.orderBy
@@ -255,38 +305,64 @@ export class RecordOpenApiV2Service {
       order: item.order,
     }));
     const normalizedGroupBy = effectiveQuery.groupBy?.map((item) => item.fieldId);
-    const queryExtra = this.shouldLoadQueryExtra(effectiveQuery)
-      ? await this.withTableDataClient(tableId, () => this.getQueryExtra(tableId, effectiveQuery))
-      : undefined;
+    const recordSearchAccessPath = await this.resolveRecordSearchAccessPath(
+      context,
+      tableId,
+      container,
+      effectiveQuery.search
+    );
+    const queryExtra = await this.loadQueryExtraWithTrace(
+      context,
+      tableId,
+      effectiveQuery,
+      recordSearchAccessPath
+    );
 
     const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
-    const pageResult = await this.executeListRecordsEndpoint(
-      {
-        tableId,
-        // FieldKeyPipe has normalized request field keys to ids.
-        fieldKeyType: FieldKeyType.Id,
-        limit: query.take,
-        offset: query.skip,
-        ...(normalizedFilter ? { filter: normalizedFilter } : {}),
-        ...(normalizedSort?.length ? { sort: normalizedSort } : {}),
-        ...(normalizedGroupBy?.length ? { groupBy: normalizedGroupBy } : {}),
-        ...(effectiveQuery.search ? { search: effectiveQuery.search } : {}),
-        ...(effectiveQuery.filterLinkCellSelected
-          ? { filterLinkCellSelected: effectiveQuery.filterLinkCellSelected }
-          : {}),
-        ...(effectiveQuery.filterLinkCellCandidate
-          ? { filterLinkCellCandidate: effectiveQuery.filterLinkCellCandidate }
-          : {}),
-        ...(effectiveQuery.selectedRecordIds?.length
-          ? { selectedRecordIds: effectiveQuery.selectedRecordIds }
-          : {}),
-        ...(effectiveQuery.viewId ? { viewId: effectiveQuery.viewId } : {}),
-        ...(effectiveQuery.ignoreViewQuery !== undefined
-          ? { ignoreViewQuery: effectiveQuery.ignoreViewQuery }
-          : {}),
-      },
+    const pageResult = await this.withRecordReadSpan(
       context,
-      queryBus
+      'teable.RecordOpenApiV2Service.listRecordIds',
+      {
+        'record.read.limit': query.take ?? 0,
+        'record.read.offset': query.skip ?? 0,
+        'record.read.has_filter': Boolean(normalizedFilter),
+        'record.read.sort_count': normalizedSort?.length ?? 0,
+        'record.read.group_by_count': normalizedGroupBy?.length ?? 0,
+      },
+      () =>
+        this.executeListRecordsEndpoint(
+          {
+            tableId,
+            // FieldKeyPipe has normalized request field keys to ids.
+            fieldKeyType: FieldKeyType.Id,
+            limit: query.take,
+            offset: query.skip,
+            projection: [],
+            includeTotal: false,
+            ...(normalizedFilter ? { filter: normalizedFilter } : {}),
+            ...(normalizedSort?.length ? { sort: normalizedSort } : {}),
+            ...(normalizedGroupBy?.length ? { groupBy: normalizedGroupBy } : {}),
+            ...(effectiveQuery.search ? { search: effectiveQuery.search } : {}),
+            ...(effectiveQuery.filterLinkCellSelected
+              ? { filterLinkCellSelected: effectiveQuery.filterLinkCellSelected }
+              : {}),
+            ...(effectiveQuery.filterLinkCellCandidate
+              ? { filterLinkCellCandidate: effectiveQuery.filterLinkCellCandidate }
+              : {}),
+            ...(effectiveQuery.selectedRecordIds?.length
+              ? { selectedRecordIds: effectiveQuery.selectedRecordIds }
+              : {}),
+            ...(effectiveQuery.viewId ? { viewId: effectiveQuery.viewId } : {}),
+            ...(effectiveQuery.ignoreViewQuery !== undefined
+              ? { ignoreViewQuery: effectiveQuery.ignoreViewQuery }
+              : {}),
+          },
+          context,
+          queryBus,
+          recordReadQuerySource || recordSearchAccessPath
+            ? { recordReadQuerySource, recordSearchAccessPath }
+            : undefined
+        )
     );
     const orderedRecords = pageResult.records;
 
@@ -295,42 +371,116 @@ export class RecordOpenApiV2Service {
     }
 
     const recordIds = orderedRecords.map((record) => record.id);
-    const snapshots = await this.withTableDataClient(tableId, () =>
-      this.recordService.getSnapshotBulkWithPermission(
-        tableId,
-        recordIds,
-        snapshotProjection,
-        requestedFieldKeyType,
-        query.cellFormat,
-        true
-      )
+    const snapshots = await this.withRecordReadSpan(
+      context,
+      'teable.RecordOpenApiV2Service.snapshotBulk',
+      {
+        'record.read.record_count': recordIds.length,
+        'record.read.has_snapshot_projection': Boolean(snapshotProjection),
+      },
+      () =>
+        this.withTableDataClient(tableId, () =>
+          this.recordService.getSnapshotBulkWithPermission(
+            tableId,
+            recordIds,
+            snapshotProjection,
+            requestedFieldKeyType,
+            query.cellFormat,
+            true
+          )
+        )
     );
 
-    if (snapshots.length !== recordIds.length) {
-      throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    const records = this.withRecordReadSyncSpan(
+      context,
+      'teable.RecordOpenApiV2Service.orderSnapshots',
+      {
+        'record.read.record_count': recordIds.length,
+      },
+      () => {
+        if (snapshots.length !== recordIds.length) {
+          throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
 
-    const snapshotMap = new Map(
-      snapshots.map((snapshot) => [snapshot.data.id, snapshot.data as IRecord])
+        const snapshotMap = new Map(
+          snapshots.map((snapshot) => [snapshot.data.id, snapshot.data as IRecord])
+        );
+        const records = recordIds
+          .map((recordId) => snapshotMap.get(recordId))
+          .filter((record): record is IRecord => Boolean(record));
+
+        if (records.length !== recordIds.length) {
+          throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+
+        return records;
+      }
     );
-    const records = recordIds
-      .map((recordId) => snapshotMap.get(recordId))
-      .filter((record): record is IRecord => Boolean(record));
 
-    if (records.length !== recordIds.length) {
-      throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
-
-    const normalizedRecords = await this.formatSystemDatetimeFields(
-      tableId,
-      records,
-      query.cellFormat,
-      sortWithGroupFallback?.map((item) => item.fieldId)
+    const normalizedRecords = await this.withRecordReadSpan(
+      context,
+      'teable.RecordOpenApiV2Service.formatRecords',
+      {
+        'record.read.record_count': records.length,
+        'record.read.sorted_field_count': sortWithGroupFallback?.length ?? 0,
+      },
+      () =>
+        this.formatSystemDatetimeFields(
+          tableId,
+          records,
+          query.cellFormat,
+          sortWithGroupFallback?.map((item) => item.fieldId)
+        )
     );
 
     return queryExtra
       ? { records: normalizedRecords, extra: queryExtra }
       : { records: normalizedRecords };
+  }
+
+  async resolveRecordIdsBySelection(
+    tableId: string,
+    selectionRo: Pick<
+      ISelectionIdMutationBaseRo,
+      | 'selection'
+      | 'viewId'
+      | 'ignoreViewQuery'
+      | 'filter'
+      | 'orderBy'
+      | 'groupBy'
+      | 'search'
+      | 'collapsedGroupIds'
+      | 'projection'
+    >
+  ): Promise<string[]> {
+    const { selection, ...queryRo } = selectionRo;
+    if (selection.recordIds) {
+      return selection.recordIds;
+    }
+
+    const rangeQuery = await this.normalizeRangeQuery(tableId, queryRo);
+    const records: IRecordsVo['records'] = [];
+    let skip = 0;
+    let hasMore = true;
+    while (hasMore) {
+      const result = await this.getRecords(tableId, {
+        viewId: rangeQuery.viewId,
+        ignoreViewQuery: rangeQuery.ignoreViewQuery,
+        filter: rangeQuery.filter,
+        orderBy: rangeQuery.orderBy,
+        groupBy: rangeQuery.groupBy,
+        search: rangeQuery.search,
+        projection: queryRo.projection,
+        skip,
+        take: maxResolveSelectionRecordIdsPageSize,
+        fieldKeyType: FieldKeyType.Id,
+      });
+      records.push(...result.records);
+      hasMore = result.records.length === maxResolveSelectionRecordIdsPageSize;
+      skip += maxResolveSelectionRecordIdsPageSize;
+    }
+    const excludedIds = new Set(selection.excludeRecordIds ?? []);
+    return records.map((record) => record.id).filter((recordId) => !excludedIds.has(recordId));
   }
 
   private async withTableDataClient<T>(tableId: string, fn: () => Promise<T>): Promise<T> {
@@ -427,7 +577,9 @@ export class RecordOpenApiV2Service {
     return formatting as IDatetimeFormatting;
   }
 
-  private toProjectionMap(fieldKeys?: string | string[]): Record<string, boolean> | undefined {
+  private toProjectionMap(
+    fieldKeys?: string | ReadonlyArray<string>
+  ): Record<string, boolean> | undefined {
     if (!fieldKeys) {
       return undefined;
     }
@@ -447,7 +599,7 @@ export class RecordOpenApiV2Service {
     tableId: string,
     query: IGetRecordsRo,
     fieldKeyType: FieldKeyType,
-    enabledFieldIds?: string[]
+    enabledFieldIds?: ReadonlyArray<string>
   ): Promise<Record<string, boolean> | undefined> {
     const explicitProjection = this.toProjectionMap(
       query.projection as unknown as string | string[]
@@ -462,7 +614,7 @@ export class RecordOpenApiV2Service {
       }
 
       const visibleFields = await this.fieldService.getFieldsByQuery(tableId, {
-        projection: enabledFieldIds,
+        projection: [...enabledFieldIds],
       });
       const projectionKeys = visibleFields
         .map((field) => {
@@ -503,12 +655,16 @@ export class RecordOpenApiV2Service {
   private async executeListRecordsEndpoint(
     input: IListTableRecordsQueryInput,
     context: IExecutionContext,
-    queryBus: IQueryBus
+    queryBus: IQueryBus,
+    options?: {
+      recordReadQuerySource?: IRecordReadQuerySource;
+      recordSearchAccessPath?: IRecordSearchAccessPath;
+    }
   ): Promise<{
     records: Array<{ id: string; fields: Record<string, unknown> }>;
     pagination: { hasMore: boolean };
   }> {
-    const result = await executeListTableRecordsEndpoint(context, input, queryBus);
+    const result = await executeListTableRecordsEndpoint(context, input, queryBus, options);
     if (result.status === 200 && result.body.ok) {
       return {
         records: result.body.data.records as Array<{ id: string; fields: Record<string, unknown> }>,
@@ -529,29 +685,58 @@ export class RecordOpenApiV2Service {
     tableId: string,
     query: Pick<IGetRecordsRo, 'viewId' | 'ignoreViewQuery' | 'filterLinkCellSelected'>,
     container: DependencyContainer
-  ): Promise<IExecutionContext> {
+  ): Promise<{
+    context: IExecutionContext;
+    recordReadQuerySource?: IRecordReadQuerySource;
+  }> {
     const context = await this.v2ContextFactory.createContext(container);
     const readSource = await this.recordPermissionService.getReadQuerySource(tableId, {
       viewId: query.viewId,
       keepPrimaryKey: Boolean(query.filterLinkCellSelected),
     });
     if (!readSource) {
-      return context;
+      return { context };
     }
     return {
-      ...context,
+      context,
       recordReadQuerySource: {
         tableName: readSource.tableName,
         cteName: readSource.cteName,
         cteSql: readSource.cteSql,
         enabledFieldIds: readSource.enabledFieldIds,
       },
-    } as IExecutionContext;
+    };
+  }
+
+  private async resolveRecordSearchAccessPath(
+    context: IExecutionContext,
+    tableId: string,
+    container: DependencyContainer,
+    search: IGetRecordsRo['search']
+  ): Promise<IRecordSearchAccessPath | undefined> {
+    const runtimeService = this.tableQuerySearchVectorRuntimeService;
+    if (!runtimeService) {
+      return undefined;
+    }
+
+    return await this.withRecordReadSpan(
+      context,
+      'teable.RecordOpenApiV2Service.resolveRecordSearchAccessPath',
+      {
+        'record.read.has_search': Boolean(search),
+      },
+      () =>
+        runtimeService.resolveForRecordSearch({
+          container,
+          tableId,
+          search,
+        })
+    );
   }
 
   private sanitizeReadableSortAndGroup(
     query: Pick<IGetRecordsRo, 'orderBy' | 'groupBy'>,
-    enabledFieldIds?: string[]
+    enabledFieldIds?: ReadonlyArray<string>
   ): Pick<IGetRecordsRo, 'orderBy' | 'groupBy'> {
     if (!enabledFieldIds?.length) {
       return {
@@ -570,8 +755,62 @@ export class RecordOpenApiV2Service {
     };
   }
 
-  private shouldLoadQueryExtra(query: IGetRecordsRo): boolean {
-    return Boolean(query.search || query.groupBy?.length || query.collapsedGroupIds?.length);
+  private shouldLoadQueryExtra(
+    query: IGetRecordsRo,
+    recordSearchAccessPath?: IRecordSearchAccessPath
+  ): boolean {
+    if (query.includeQueryExtra === false) {
+      return false;
+    }
+    if (
+      recordSearchAccessPath?.kind === 'generated_tsvector' &&
+      query.search &&
+      query.includeQueryExtra !== true
+    ) {
+      return false;
+    }
+    const hasQueryExtraSource = Boolean(
+      query.search || query.groupBy?.length || query.collapsedGroupIds?.length
+    );
+    if (query.includeQueryExtra === true) {
+      return hasQueryExtraSource;
+    }
+
+    const hasExplicitProjection = Array.isArray(query.projection)
+      ? query.projection.length > 0
+      : Boolean(query.projection);
+    if (hasExplicitProjection && !query.search && !query.collapsedGroupIds?.length) {
+      return false;
+    }
+
+    return hasQueryExtraSource;
+  }
+
+  private async loadQueryExtraWithTrace(
+    context: IExecutionContext,
+    tableId: string,
+    query: IGetRecordsRo,
+    recordSearchAccessPath?: IRecordSearchAccessPath
+  ): Promise<IRecordsVo['extra'] | undefined> {
+    const shouldLoad = this.shouldLoadQueryExtra(query, recordSearchAccessPath);
+
+    return await this.withRecordReadSpan(
+      context,
+      'teable.RecordOpenApiV2Service.queryExtra',
+      {
+        'record.read.query_extra_enabled': shouldLoad,
+        'record.read.include_query_extra': query.includeQueryExtra !== false,
+        'record.read.has_search': Boolean(query.search),
+        'record.read.search_access_path': recordSearchAccessPath?.kind ?? 'default',
+        'record.read.group_by_count': query.groupBy?.length ?? 0,
+        'record.read.collapsed_group_count': query.collapsedGroupIds?.length ?? 0,
+        'record.read.has_explicit_projection': Boolean(query.projection),
+      },
+      () =>
+        shouldLoad
+          ? this.withTableDataClient(tableId, () => this.getQueryExtra(tableId, query))
+          : Promise.resolve(undefined)
+    );
   }
 
   private async getQueryExtra(
@@ -598,11 +837,56 @@ export class RecordOpenApiV2Service {
     return result.extra;
   }
 
+  private async withRecordReadSpan<T>(
+    context: IExecutionContext,
+    name: string,
+    attributes: Record<string, string | number | boolean>,
+    callback: () => Promise<T>
+  ): Promise<T> {
+    const span = context.tracer?.startSpan(name, attributes);
+    if (!span || !context.tracer) {
+      return await callback();
+    }
+
+    return await context.tracer.withSpan(span, async () => {
+      try {
+        return await callback();
+      } catch (error) {
+        span.recordError(describeTraceError(error));
+        throw error;
+      } finally {
+        span.end();
+      }
+    });
+  }
+
+  private withRecordReadSyncSpan<T>(
+    context: IExecutionContext,
+    name: string,
+    attributes: Record<string, string | number | boolean>,
+    callback: () => T
+  ): T {
+    const span = context.tracer?.startSpan(name, attributes);
+    if (!span) {
+      return callback();
+    }
+
+    try {
+      return callback();
+    } catch (error) {
+      span.recordError(describeTraceError(error));
+      throw error;
+    } finally {
+      span.end();
+    }
+  }
+
   async updateRecord(
     tableId: string,
     recordId: string,
     updateRecordRo: IUpdateRecordRo
   ): Promise<IRecord> {
+    await this.assertTableRecordWritable(tableId);
     const order = updateRecordRo.order;
     const hasOrder = Boolean(order);
     const fields = updateRecordRo.record.fields ?? {};
@@ -650,7 +934,14 @@ export class RecordOpenApiV2Service {
     throw new HttpException(internalServerError, HttpStatus.INTERNAL_SERVER_ERROR);
   }
 
-  async updateRecords(tableId: string, updateRecordsRo: IUpdateRecordsRo): Promise<IRecord[]> {
+  async updateRecords(
+    tableId: string,
+    updateRecordsRo: IUpdateRecordsRo,
+    options?: {
+      recordWritePluginRunnerOptions?: RecordWritePluginRunnerOptions;
+    }
+  ): Promise<IRecord[]> {
+    await this.assertTableRecordWritable(tableId);
     const rawRecords = updateRecordsRo.records ?? [];
     const records = this.mergeDuplicateRecordUpdates(rawRecords);
     const recordIds = records.map((record) => record.id);
@@ -689,7 +980,10 @@ export class RecordOpenApiV2Service {
         fieldKeyType: updateRecordsRo.fieldKeyType ?? FieldKeyType.Name,
         ...(updateRecordsRo.order ? { order: updateRecordsRo.order } : {}),
       },
-      commandBus
+      commandBus,
+      {
+        recordWritePluginRunnerOptions: options?.recordWritePluginRunnerOptions,
+      }
     );
     if (!(updateResult.status === 200 && updateResult.body.ok)) {
       if (!updateResult.body.ok) {
@@ -711,11 +1005,108 @@ export class RecordOpenApiV2Service {
     return updateResult.body.data.records;
   }
 
+  private async getValidateAttachmentRecord(tableId: string, recordId: string, fieldId: string) {
+    const field = await this.fieldService.getField(tableId, fieldId);
+
+    if (field.type !== FieldType.Attachment) {
+      throw new CustomHttpException('Field is not an attachment', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.field.notAttachment',
+        },
+      });
+    }
+
+    if (field.isComputed) {
+      throw new CustomHttpException('Field is computed', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.field.isComputed',
+        },
+      });
+    }
+
+    const recordData = await this.recordService.getRecordsById(tableId, [recordId]);
+    const record = recordData.records[0];
+    if (!record) {
+      throw new CustomHttpException(`Record ${recordId} not found`, HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.record.notFound',
+        },
+      });
+    }
+    return record;
+  }
+
+  async uploadAttachment(
+    tableId: string,
+    recordId: string,
+    fieldId: string,
+    file?: Express.Multer.File,
+    fileUrl?: string
+  ) {
+    await this.assertTableRecordWritable(tableId);
+    if (!file && !fileUrl) {
+      throw new CustomHttpException('No file or URL provided', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.record.noFileOrUrlProvided',
+        },
+      });
+    }
+
+    if (!this.attachmentsService) {
+      throw new CustomHttpException(internalServerError, HttpErrorCode.INTERNAL_SERVER_ERROR);
+    }
+
+    const record = await this.getValidateAttachmentRecord(tableId, recordId, fieldId);
+    const attachmentItem = file
+      ? await this.attachmentsService.uploadFile(file)
+      : await this.attachmentsService.uploadFromUrl(fileUrl as string);
+
+    return await this.updateRecord(tableId, recordId, {
+      fieldKeyType: FieldKeyType.Id,
+      record: {
+        fields: {
+          [fieldId]: ((record.fields[fieldId] || []) as IAttachmentItem[]).concat(attachmentItem),
+        },
+      },
+    });
+  }
+
+  async insertAttachment(
+    tableId: string,
+    recordId: string,
+    fieldId: string,
+    attachments: IAttachmentItem[],
+    anchorId?: string
+  ) {
+    await this.assertTableRecordWritable(tableId);
+    if (!attachments.length) {
+      throw new CustomHttpException('No attachments provided', HttpErrorCode.VALIDATION_ERROR);
+    }
+
+    const record = await this.getValidateAttachmentRecord(tableId, recordId, fieldId);
+    const current = (record.fields[fieldId] || []) as IAttachmentItem[];
+    const anchorIndex = anchorId ? current.findIndex((item) => item.id === anchorId) : -1;
+    const next =
+      anchorIndex >= 0
+        ? [...current.slice(0, anchorIndex + 1), ...attachments, ...current.slice(anchorIndex + 1)]
+        : current.concat(attachments);
+
+    return await this.updateRecord(tableId, recordId, {
+      fieldKeyType: FieldKeyType.Id,
+      record: {
+        fields: {
+          [fieldId]: next,
+        },
+      },
+    });
+  }
+
   async createRecords(
     tableId: string,
     createRecordsRo: ICreateRecordsRo,
     _isAiInternal?: string
   ): Promise<ICreateRecordsVo> {
+    await this.assertTableRecordWritable(tableId);
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext(container);
@@ -750,6 +1141,7 @@ export class RecordOpenApiV2Service {
   }
 
   async formSubmit(tableId: string, formSubmitRo: IFormSubmitRo): Promise<IRecord> {
+    await this.assertTableRecordWritable(tableId);
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext(container);
@@ -787,14 +1179,10 @@ export class RecordOpenApiV2Service {
       allowRecordExpansion?: boolean;
     }
   ): Promise<IPasteVo> {
+    await this.assertTableRecordWritable(tableId);
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext(container);
-    (
-      context as IExecutionContext & {
-        [V2_RECORD_PASTE_AUDIT_CONTEXT_KEY]?: boolean;
-      }
-    )[V2_RECORD_PASTE_AUDIT_CONTEXT_KEY] = true;
     const preparedPaste = await this.preparePasteCommandInput(tableId, pasteRo, options);
     const result = await executePasteEndpoint(context, preparedPaste.commandInput, commandBus);
 
@@ -861,14 +1249,10 @@ export class RecordOpenApiV2Service {
       allowRecordExpansion?: boolean;
     }
   ): Promise<AsyncIterable<IPasteSelectionStreamEvent>> {
+    await this.assertTableRecordWritable(tableId);
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext(container);
-    (
-      context as IExecutionContext & {
-        [V2_RECORD_PASTE_AUDIT_CONTEXT_KEY]?: boolean;
-      }
-    )[V2_RECORD_PASTE_AUDIT_CONTEXT_KEY] = true;
 
     const preparedPaste = await this.preparePasteCommandInput(tableId, pasteRo, options);
     const commandResult = PasteStreamCommand.create(preparedPaste.commandInput);
@@ -891,6 +1275,82 @@ export class RecordOpenApiV2Service {
     }
 
     return this.wrapStreamAndClearPreference(result.value, tableId);
+  }
+
+  async pasteByIdStream(
+    tableId: string,
+    pasteRo: IPasteByIdStreamRo,
+    options?: {
+      updateFilter?: IFilterSet | null;
+      windowId?: string;
+      allowFieldExpansion?: boolean;
+      allowRecordExpansion?: boolean;
+    }
+  ): Promise<AsyncIterable<IPasteSelectionStreamEvent>> {
+    await this.assertTableRecordWritable(tableId);
+    const fieldIds = this.resolveSelectedFieldIds(pasteRo.selection);
+    const recordIds = this.resolveSelectedRecordIds(pasteRo.selection);
+    const syntheticPasteRo: IPasteRo = {
+      ...pasteRo,
+      projection: fieldIds ?? pasteRo.projection,
+      ranges: [
+        [0, 0],
+        [Math.max((fieldIds?.length ?? 1) - 1, 0), Math.max((recordIds?.length ?? 1) - 1, 0)],
+      ],
+    };
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const context = await this.v2ContextFactory.createContext(container);
+
+    const preparedPaste = await this.preparePasteCommandInput(tableId, syntheticPasteRo, options);
+    const commandResult = PasteStreamCommand.create({
+      ...preparedPaste.commandInput,
+      targetRecordIds: recordIds,
+      excludedTargetRecordIds: this.resolveExcludedRecordIds(pasteRo.selection),
+      targetFieldIds: fieldIds,
+    });
+    if (commandResult.isErr()) {
+      this.throwV2Error(
+        mapDomainErrorToHttpError(commandResult.error),
+        mapDomainErrorToHttpStatus(commandResult.error)
+      );
+    }
+
+    const result = await commandBus.execute<PasteStreamCommand, PasteStreamResult>(
+      context,
+      commandResult.value
+    );
+    if (result.isErr()) {
+      this.throwV2Error(
+        mapDomainErrorToHttpError(result.error),
+        mapDomainErrorToHttpStatus(result.error)
+      );
+    }
+
+    return this.wrapStreamAndClearPreference(result.value, tableId);
+  }
+
+  private resolveSelectedRecordIds(selection: ISelectionIdsRo['selection']): string[] | undefined {
+    if (selection.allRecords) {
+      return [];
+    }
+    const excluded = new Set(selection.excludedRecordIds ?? []);
+    return selection.recordIds?.filter((recordId) => !excluded.has(recordId));
+  }
+
+  private resolveExcludedRecordIds(selection: ISelectionIdsRo['selection']): string[] | undefined {
+    if (!selection.allRecords) {
+      return undefined;
+    }
+    return selection.excludedRecordIds?.length ? selection.excludedRecordIds : undefined;
+  }
+
+  private resolveSelectedFieldIds(selection: ISelectionIdsRo['selection']): string[] | undefined {
+    if (selection.allFields) {
+      return undefined;
+    }
+    const excluded = new Set(selection.excludedFieldIds ?? []);
+    return selection.fieldIds?.filter((fieldId) => !excluded.has(fieldId));
   }
 
   private async preparePasteCommandInput(
@@ -1158,12 +1618,7 @@ export class RecordOpenApiV2Service {
           ? this.getFirstCopiedDateValue(sourceField, cellValue)
           : sourceField.cellValue2String(cellValue);
       case FieldType.Link:
-        return sourceField.type === FieldType.Link
-          ? [cellValue as { id: string }]
-              .flat()
-              .map((value) => (typeof value === 'string' ? value : value.id))
-              .join(',')
-          : sourceField.cellValue2String(cellValue);
+        return convertLinkPasteCellValue(targetField, sourceField, cellValue);
       default:
         return sourceField.cellValue2String(cellValue) ?? null;
     }
@@ -1246,6 +1701,7 @@ export class RecordOpenApiV2Service {
   }
 
   async clear(tableId: string, rangesRo: IRangesRo): Promise<null> {
+    await this.assertTableRecordWritable(tableId);
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext(container);
@@ -1289,6 +1745,7 @@ export class RecordOpenApiV2Service {
     tableId: string,
     rangesRo: IRangesRo
   ): Promise<AsyncIterable<IClearSelectionStreamEvent>> {
+    await this.assertTableRecordWritable(tableId);
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext(container);
@@ -1311,6 +1768,61 @@ export class RecordOpenApiV2Service {
         order: item.order,
       })),
       ignoreViewQuery: rangeQuery.ignoreViewQuery,
+    });
+    if (commandResult.isErr()) {
+      this.throwV2Error(
+        mapDomainErrorToHttpError(commandResult.error),
+        mapDomainErrorToHttpStatus(commandResult.error)
+      );
+    }
+
+    const result = await commandBus.execute<ClearStreamCommand, ClearStreamResult>(
+      context,
+      commandResult.value
+    );
+    if (result.isErr()) {
+      this.throwV2Error(
+        mapDomainErrorToHttpError(result.error),
+        mapDomainErrorToHttpStatus(result.error)
+      );
+    }
+
+    return this.wrapStreamAndClearPreference(result.value, tableId);
+  }
+
+  async clearByIdStream(
+    tableId: string,
+    selectionRo: ISelectionIdsRo
+  ): Promise<AsyncIterable<IClearSelectionStreamEvent>> {
+    await this.assertTableRecordWritable(tableId);
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const context = await this.v2ContextFactory.createContext(container);
+    const rangeQuery = await this.normalizeRangeQuery(tableId, selectionRo);
+    const normalizedFilter = await this.normalizeFilterForV2(tableId, rangeQuery.filter);
+    const sortWithGroupFallback = this.mergeGroupByIntoSort(rangeQuery.groupBy, rangeQuery.orderBy);
+
+    const commandResult = ClearStreamCommand.create({
+      tableId,
+      viewId: rangeQuery.viewId,
+      ranges: [
+        [0, 0],
+        [0, 0],
+      ],
+      projection: selectionRo.projection,
+      filter: normalizedFilter,
+      search: rangeQuery.search,
+      sort: sortWithGroupFallback,
+      groupBy: rangeQuery.groupBy?.map((item) => ({
+        fieldId: item.fieldId,
+        order: item.order,
+      })),
+      ignoreViewQuery: rangeQuery.ignoreViewQuery,
+      targetRecordIds: selectionRo.selection.allRecords
+        ? []
+        : this.resolveSelectedRecordIds(selectionRo.selection),
+      excludedTargetRecordIds: this.resolveExcludedRecordIds(selectionRo.selection),
+      targetFieldIds: this.resolveSelectedFieldIds(selectionRo.selection),
     });
     if (commandResult.isErr()) {
       this.throwV2Error(
@@ -1417,6 +1929,7 @@ export class RecordOpenApiV2Service {
     rangesRo: IRangesRo,
     _windowId?: string
   ): Promise<{ ids: string[] }> {
+    await this.assertTableRecordWritable(tableId);
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext(container);
@@ -1464,6 +1977,7 @@ export class RecordOpenApiV2Service {
     tableId: string,
     rangesRo: IRangesRo
   ): Promise<AsyncIterable<IDeleteSelectionStreamEvent>> {
+    await this.assertTableRecordWritable(tableId);
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext(container);
@@ -1509,10 +2023,64 @@ export class RecordOpenApiV2Service {
     return this.wrapStreamAndClearPreference(result.value, tableId);
   }
 
+  async deleteByIdStream(
+    tableId: string,
+    selectionRo: ISelectionIdsRo
+  ): Promise<AsyncIterable<IDeleteSelectionStreamEvent>> {
+    await this.assertTableRecordWritable(tableId);
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const context = await this.v2ContextFactory.createContext(container);
+    const rangeQuery = await this.normalizeRangeQuery(tableId, selectionRo);
+    const sortWithGroupFallback = this.mergeGroupByIntoSort(rangeQuery.groupBy, rangeQuery.orderBy);
+
+    const commandResult = DeleteByRangeStreamCommand.create({
+      tableId,
+      viewId: rangeQuery.viewId,
+      ranges: [
+        [0, 0],
+        [0, 0],
+      ],
+      filter: await this.normalizeFilterForV2(tableId, rangeQuery.filter),
+      sort: sortWithGroupFallback?.map((item) => ({
+        fieldId: item.fieldId,
+        order: item.order,
+      })),
+      search: rangeQuery.search,
+      groupBy: rangeQuery.groupBy?.map((item) => ({
+        fieldId: item.fieldId,
+        order: item.order,
+      })),
+      ignoreViewQuery: rangeQuery.ignoreViewQuery,
+      targetRecordIds: this.resolveSelectedRecordIds(selectionRo.selection),
+      excludedTargetRecordIds: this.resolveExcludedRecordIds(selectionRo.selection),
+    });
+    if (commandResult.isErr()) {
+      this.throwV2Error(
+        mapDomainErrorToHttpError(commandResult.error),
+        mapDomainErrorToHttpStatus(commandResult.error)
+      );
+    }
+
+    const result = await commandBus.execute<DeleteByRangeStreamCommand, DeleteByRangeStreamResult>(
+      context,
+      commandResult.value
+    );
+    if (result.isErr()) {
+      this.throwV2Error(
+        mapDomainErrorToHttpError(result.error),
+        mapDomainErrorToHttpStatus(result.error)
+      );
+    }
+
+    return this.wrapStreamAndClearPreference(result.value, tableId);
+  }
+
   async duplicateByRangeStream(
     tableId: string,
     rangesRo: IRangesRo
   ): Promise<AsyncIterable<IDuplicateSelectionStreamEvent>> {
+    await this.assertTableRecordWritable(tableId);
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext(container);
@@ -1563,6 +2131,7 @@ export class RecordOpenApiV2Service {
     recordIds: string[],
     _windowId?: string
   ): Promise<IRecordsVo> {
+    await this.assertTableRecordWritable(tableId);
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
@@ -1585,20 +2154,38 @@ export class RecordOpenApiV2Service {
       recordsBeforeDelete.push(...(page.records as IRecord[]));
     }
 
-    const v2Input = {
-      tableId,
-      recordIds,
-    };
+    await this.executeDeleteRecordsCommand(context, commandBus, tableId, recordIds);
 
-    const result = await executeDeleteRecordsEndpoint(context, v2Input, commandBus);
+    // Return records that were deleted (V1 format)
+    return {
+      records: recordsBeforeDelete,
+    };
+  }
+
+  async deleteRecordsByIds(
+    tableId: string,
+    recordIds: string[],
+    _windowId?: string
+  ): Promise<void> {
+    await this.assertTableRecordWritable(tableId);
+    const container = await this.v2ContainerService.getContainerForTable(tableId);
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const context = await this.v2ContextFactory.createContext(container);
+
+    await this.executeDeleteRecordsCommand(context, commandBus, tableId, recordIds);
+  }
+
+  private async executeDeleteRecordsCommand(
+    context: IExecutionContext,
+    commandBus: ICommandBus,
+    tableId: string,
+    recordIds: string[]
+  ): Promise<void> {
+    const result = await executeDeleteRecordsEndpoint(context, { tableId, recordIds }, commandBus);
 
     if (result.status === 200 && result.body.ok) {
       await this.clearUndoRedoEnginePreference(tableId);
-
-      // Return records that were deleted (V1 format)
-      return {
-        records: recordsBeforeDelete,
-      };
+      return;
     }
 
     if (!result.body.ok) {
@@ -1746,6 +2333,7 @@ export class RecordOpenApiV2Service {
         {
           type: field.type,
           cellValueType: field.cellValueType,
+          options: field.options,
         },
       ])
     );
@@ -1822,6 +2410,8 @@ export class RecordOpenApiV2Service {
         }
       }
 
+      value = this.normalizeLegacyDateComparisonValue(fieldMeta, operator, value);
+
       if (operatorsExpectingArray.has(operator)) {
         if (!Array.isArray(value) && !this.isRecordFilterFieldReferenceValue(value)) {
           value = [value] as RecordFilterValue;
@@ -1837,6 +2427,39 @@ export class RecordOpenApiV2Service {
 
     const normalized = normalizeNode(mapped);
     return normalized ?? undefined;
+  }
+
+  private normalizeLegacyDateComparisonValue(
+    fieldMeta: FilterFieldMeta | undefined,
+    operator: RecordFilterOperator,
+    value: RecordFilterValue
+  ): RecordFilterValue {
+    if (
+      !fieldMeta ||
+      !dateComparisonOperators.has(operator) ||
+      !this.isDateFilterField(fieldMeta)
+    ) {
+      return value;
+    }
+    if (this.isRecordFilterFieldReferenceValue(value) || Array.isArray(value)) {
+      return value;
+    }
+    if (typeof value !== 'string' || !Number.isFinite(Date.parse(value))) {
+      return value;
+    }
+
+    return {
+      mode: 'exactDate',
+      exactDate: value,
+      timeZone: this.extractDatetimeFormatting(fieldMeta.options)?.timeZone ?? 'utc',
+    } as RecordFilterDateValue;
+  }
+
+  private isDateFilterField(fieldMeta: FilterFieldMeta): boolean {
+    return (
+      dateFilterFieldTypes.has(fieldMeta.type as FieldType) ||
+      fieldMeta.cellValueType === CellValueType.DateTime
+    );
   }
 
   private mapV1FilterToV2(filter: unknown): RecordFilter | undefined | null {
@@ -2118,6 +2741,7 @@ export class RecordOpenApiV2Service {
     recordId: string,
     order?: IRecordInsertOrderRo
   ): Promise<IRecord> {
+    await this.assertTableRecordWritable(tableId);
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext(container);

@@ -69,6 +69,7 @@
     "switchBase": "Base wechseln",
     "getMore": "Mehr erhalten",
     "copySuccess": "Kopieren erfolgreich",
+    "openLink": "Link öffnen",
     "share": "Teilen"
   },
   "quickAction": {
@@ -260,7 +261,39 @@
       "interactionMode": "Interaktionsmodus",
       "mouseMode": "Cursor-Modus",
       "touchMode": "Touch-Modus",
-      "systemMode": "Systemeinstellung folgen"
+      "systemMode": "Systemeinstellung folgen",
+      "teableSkill": "Teable-Fähigkeit"
+    },
+    "teableSkill": {
+      "intro": "Lass deinen AI Agent eine Verbindung zu deiner Base herstellen, um Daten abzufragen, Tabellen, Felder und Ansichten zu verwalten, Datensätze zu importieren oder zu aktualisieren sowie Automationen und Apps zu erstellen.",
+      "worksWith": "Funktioniert mit allen gängigen Agents",
+      "more": "+ mehr",
+      "copy": "Kopieren",
+      "installPromptLabel": "Skill-Installationsprompt",
+      "installCommandLabel": "Skill-Installationsbefehl",
+      "installPrompt": "Bitte lies https://github.com/teableio/agent-skills und hilf mir anhand des Leitfadens, den Teable agent skill zu installieren und die Teable CLI-Authentifizierung abzuschließen.",
+      "step1Title": "Skill installieren",
+      "step1Description": "Kopiere diesen Prompt in deinen AI Agent. Er installiert den Teable Skill und öffnet den Browser, um die Teable CLI-Authentifizierung abzuschließen.",
+      "step3Title": "Teable-Fähigkeit ausprobieren",
+      "step3Description": "Nach der Installation des Skills kannst du diese Prompts ausprobieren.",
+      "tryPrompts": {
+        "schema": {
+          "prompt": "Erstelle eine einfache CRM-Tabelle in dieser Base.",
+          "note": "Einfache Starter-Prompts"
+        },
+        "template": {
+          "prompt": "Lade alle Rechnungen in diesem lokalen Ordner in <Belegtabelle> {Tabellen-URL einfügen} hoch und extrahiere wichtige Felder.",
+          "note": "Lokale Dateien → Teable"
+        },
+        "validate": {
+          "prompt": "Importiere neue GitHub issues in <Bug Tracker> {Tabellen-URL einfügen}.",
+          "note": "Plattformübergreifende Daten → Teable"
+        },
+        "trace": {
+          "prompt": "Prüfe <Aufgabentabelle> {Tabellen-URL einfügen} und markiere überfällige Aufgaben.",
+          "note": "Teable-Daten bereinigen oder organisieren"
+        }
+      }
     },
     "nav": {
       "settings": "Einstellungen",
@@ -480,7 +513,14 @@
     },
     "addOrgCollaborator": {
       "title": "Organisationskollaborateur hinzufügen",
+      "button": "Aus Organisation hinzufügen",
       "placeholder": "Organisationskollaborateur oder Abteilung auswählen"
+    },
+    "table": {
+      "collaborator": "Mitarbeiter",
+      "accessPermission": "Zugriffsberechtigung",
+      "joinAt": "Beigetreten am",
+      "lastLogin": "Letzter Login"
     }
   },
   "help": {
@@ -505,6 +545,9 @@
     "billable": "Abrechenbar",
     "billableByAuthorityMatrix": "Abrechnung durch Berechtigungsmatrix generiert",
     "licenseExpiredGracePeriod": "Ihre Self-Hosted-Lizenz ist abgelaufen und wird am {{expiredTime}} auf den kostenlosen Plan herabgestuft. Bitte aktualisieren Sie Ihre Lizenz umgehend, um Zugriff auf Premium-Funktionen zu behalten.",
+    "licenseAutoFetchFailed": "Automatische Lizenzverlängerung fehlgeschlagen. Noch {{days}} Tag(e) Kulanzzeitraum bis zur Herabstufung.",
+    "licenseAutoFetchRetryFailed": "Die automatische Verlängerung ist weiterhin fehlgeschlagen. Bitte überprüfen Sie die Verbindung zum Teable-Server oder aktualisieren Sie die Lizenz manuell.",
+    "licenseExpiredGracePeriodDays": "Die Lizenz ist abgelaufen. Noch {{days}} Tag(e) Kulanzzeitraum bis zur Herabstufung.",
     "spaceSubscriptionModal": {
       "title": "Upgrade des Space-Abonnementplans",
       "description": "Sie können nur Arbeitsbereiche aktualisieren, deren Eigentümer Sie sind."
@@ -527,6 +570,9 @@
       "description": "Ändern Sie die Einstellungen für Ihre aktuelle Instanz",
       "allowSignUp": "Erstellen neuer Konten zulassen",
       "allowSignUpDescription": "Wenn Sie diese Option deaktivieren, werden neue Benutzerregistrierungen verhindert, und die Schaltfläche „Registrieren“ wird nicht mehr auf der Anmeldeseite angezeigt.",
+      "bannedEmailDomains": "Gesperrte E-Mail-Domains",
+      "bannedEmailDomainsDescription": "E-Mail-Adressen dieser Domains können sich nicht registrieren, und zugehörige Einladungs-E-Mails werden nicht versendet. Domain eingeben und mit der Eingabetaste hinzufügen.",
+      "bannedEmailDomainsInvalid": "Geben Sie eine gültige Domain ein, z. B. example.com",
       "allowSpaceInvitation": "Erlauben Sie das Versenden von Space-Einladungen",
       "allowSpaceInvitationDescription": "Die Deaktivierung dieser Option verhindert, dass andere Benutzer als Administratoren andere Benutzer zu Spaces einladen können. Wenn aktiviert, können neue Benutzer, die per E-Mail eingeladen wurden, die Registrierung durch Klicken auf den Einladungslink in der E-Mail abschließen, aber freigegebene Einladungslinks funktionieren nicht.",
       "allowSpaceCreation": "Jedem die Möglichkeit geben, neue Space anzulegen",
@@ -678,11 +724,6 @@
           "title": "HTTPS aktivieren",
           "description": "Sie haben HTTPS nicht aktiviert. Die großmaßstäbliche Kopierfunktion (300 Zeilen oder mehr) ist nicht verfügbar. Es wird empfohlen, sie zu aktivieren."
         },
-        "databaseProxy": {
-          "title": "PUBLIC_DATABASE_PROXY Umgebungsvariable",
-          "description": "<strong>PUBLIC_DATABASE_PROXY</strong> ist nicht konfiguriert. Die externe Datenbankverbindungsfunktion ist nicht verfügbar. Bitte beachten Sie das <a>Hilfedokument</a>",
-          "href": "https://help.teable.ai/de/deploy/database-connection#enable-external-database-connection"
-        },
         "llmApi": {
           "title": "LLM API",
           "description": "Sie haben die AI LLM API noch nicht konfiguriert. AI Chat/AI Automatisierung kann nicht verwendet werden, <anchor>zu den Einstellungen gehen</anchor>",
@@ -714,6 +755,10 @@
     "exportBase": {
       "successText": "Exportdaten sind bereit",
       "failedText": "Export fehlgeschlagen, bitte erneut versuchen"
+    },
+    "importantNotice": {
+      "title": "Important Notice",
+      "acknowledge": "I Understand"
     }
   },
   "role": {
@@ -791,6 +836,7 @@
     "unsubscribeTime": "Abbestellzeit",
     "source": "Quelle",
     "sourceAutomationDeleted": "Automatisierung oder Knoten gelöscht",
+    "sourceApiSend": "E-Mail-Versand per API",
     "processing": "Verarbeitung...",
     "unsubscribeH1": "Abmeldung bestätigen?",
     "unsubscribeH2": "Sie sind dabei, sich von zukünftigen Teable-Werbeaktionen und Produktaktualisierungen abzumelden. Möchten Sie sich wirklich abmelden?",
@@ -909,44 +955,44 @@
           "credit": {
             "warning80": {
               "title": "Space {{spaceName}} KI-Guthaben 80 % verwendet",
-              "message": "Ihr Space hat 80 % des KI-Guthabens verwendet. Erwägen Sie ein Upgrade oder den Kauf weiterer Guthaben."
+              "message": "Space {{spaceName}} hat 80 % des KI-Guthabens verwendet. Erwägen Sie ein Upgrade oder den Kauf weiterer Guthaben."
             },
             "warning90": {
               "title": "Space {{spaceName}} KI-Guthaben 90 % verwendet",
-              "message": "Ihr Space hat 90 % des KI-Guthabens verwendet. Upgraden Sie bald, um Unterbrechungen zu vermeiden."
+              "message": "Space {{spaceName}} hat 90 % des KI-Guthabens verwendet. Upgraden Sie bald, um Unterbrechungen zu vermeiden."
             },
             "anomaly": {
               "dailySpike": {
                 "title": "Space {{spaceName}}: ungewöhnlicher Anstieg des KI-Guthabens erkannt",
-                "message": "Die heutige KI-Guthaben-Nutzung ({{todayValue}}) beträgt das {{multiplier}}-fache des aktuellen Tagesdurchschnitts ({{ewma}}). Dies kann auf unerwartete Aktivität hinweisen. Bitte überprüfen Sie Ihre Nutzung. Top-Beitragende: {{topContributors}}"
+                "message": "Space {{spaceName}}: Die heutige KI-Guthaben-Nutzung ({{todayValue}}) beträgt das {{multiplier}}-fache des aktuellen Tagesdurchschnitts ({{ewma}}). Dies kann auf unerwartete Aktivität hinweisen. Bitte überprüfen Sie Ihre Nutzung. Top-Beitragende: {{topContributors}}"
               },
               "burst": {
                 "title": "Space {{spaceName}}: KI-Guthaben-Burst erkannt",
-                "message": "{{recentValue}} KI-Guthaben in den letzten {{windowMinutes}} Minuten verbraucht, das ist das {{multiplier}}-fache des historischen stündlichen P95 ({{hourlyP95}}). Dies kann auf unerwartete Aktivität hinweisen. Top-Beitragende: {{topContributors}}"
+                "message": "Space {{spaceName}}: {{recentValue}} KI-Guthaben in den letzten {{windowMinutes}} Minuten verbraucht, das ist das {{multiplier}}-fache des historischen stündlichen P95 ({{hourlyP95}}). Dies kann auf unerwartete Aktivität hinweisen. Top-Beitragende: {{topContributors}}"
               }
             }
           },
           "automationRun": {
             "warning80": {
               "title": "Space {{spaceName}} Automatisierungsläufe 80 % des Kontingents verwendet",
-              "message": "Ihr Space hat {{usedRuns}} von {{totalLimit}} Automatisierungsläufen (80 %) verwendet. Erwägen Sie ein Upgrade Ihres Plans."
+              "message": "Space {{spaceName}} hat {{usedRuns}} von {{totalLimit}} Automatisierungsläufen (80 %) verwendet. Erwägen Sie ein Upgrade Ihres Plans."
             },
             "warning90": {
               "title": "Space {{spaceName}} Automatisierungsläufe 90 % des Kontingents verwendet",
-              "message": "Ihr Space hat {{usedRuns}} von {{totalLimit}} Automatisierungsläufen (90 %) verwendet. Upgraden Sie bald, um Unterbrechungen zu vermeiden."
+              "message": "Space {{spaceName}} hat {{usedRuns}} von {{totalLimit}} Automatisierungsläufen (90 %) verwendet. Upgraden Sie bald, um Unterbrechungen zu vermeiden."
             },
             "gracePeriod": {
               "title": "Space {{spaceName}} Automatisierungsläufe überschritten – Karenzzeit aktiv",
-              "message": "Ihr Kontingent an Automatisierungsläufen wurde überschritten. Automatisierungen werden in {{remainingHours}} Stunden gestoppt und deaktiviert. Bitte upgraden Sie Ihren Plan."
+              "message": "Space {{spaceName}} hat sein Kontingent an Automatisierungsläufen überschritten. Automatisierungen werden in {{remainingHours}} Stunden gestoppt und deaktiviert. Bitte upgraden Sie Ihren Plan."
             },
             "anomaly": {
               "dailySpike": {
                 "title": "Space {{spaceName}}: ungewöhnlicher Anstieg der Automatisierungsläufe",
-                "message": "Die heutigen Automatisierungsläufe ({{todayValue}}) betragen das {{multiplier}}-fache des aktuellen Tagesdurchschnitts ({{ewma}}). Dies kann auf eine außer Kontrolle geratene Automatisierung hinweisen. Bitte überprüfen Sie Ihre Workflows. Top-Beitragende: {{topContributors}}"
+                "message": "Space {{spaceName}}: Die heutigen Automatisierungsläufe ({{todayValue}}) betragen das {{multiplier}}-fache des aktuellen Tagesdurchschnitts ({{ewma}}). Dies kann auf eine außer Kontrolle geratene Automatisierung hinweisen. Bitte überprüfen Sie Ihre Workflows. Top-Beitragende: {{topContributors}}"
               },
               "burst": {
                 "title": "Space {{spaceName}}: Automatisierungslauf-Burst erkannt",
-                "message": "{{recentValue}} Automatisierungsläufe in den letzten {{windowMinutes}} Minuten erkannt, das ist das {{multiplier}}-fache des historischen stündlichen P95 ({{hourlyP95}}). Dies kann auf eine Schleife oder Fehlkonfiguration hinweisen. Top-Beitragende: {{topContributors}}"
+                "message": "Space {{spaceName}}: {{recentValue}} Automatisierungsläufe in den letzten {{windowMinutes}} Minuten erkannt, das ist das {{multiplier}}-fache des historischen stündlichen P95 ({{hourlyP95}}). Dies kann auf eine Schleife oder Fehlkonfiguration hinweisen. Top-Beitragende: {{topContributors}}"
               }
             }
           }
@@ -1154,10 +1200,102 @@
       "unknown": "{{fieldHint}}{{message}}"
     }
   },
+  "skills": {
+    "title": "Fähigkeiten",
+    "tabs": {
+      "mySkills": "Meine Fähigkeiten"
+    },
+    "actions": {
+      "import": "Fähigkeit importieren",
+      "sync": "Synchronisieren",
+      "delete": "Löschen",
+      "enable": "Aktivieren",
+      "disable": "Deaktivieren",
+      "edit": "Bearbeiten",
+      "tryInChat": "Im Chat ausprobieren",
+      "replace": "Ersetzen",
+      "download": "Herunterladen",
+      "uninstall": "Deinstallieren",
+      "copyToBase": "In Base kopieren",
+      "copyToPersonal": "In persönlichen Bereich kopieren",
+      "copyToApp": "In App kopieren"
+    },
+    "import": {
+      "title": "Fähigkeit importieren",
+      "description": "Importieren Sie eine Fähigkeit aus einem GitHub-Repository oder einer ZIP-Datei",
+      "githubTab": "GitHub-URL",
+      "fileTab": "ZIP-Datei",
+      "githubTitle": "Skill von GitHub importieren",
+      "githubPlaceholder": "https://github.com/owner/repo/tree/main/skills/my-skill",
+      "fileHint": "Laden Sie eine ZIP-Datei mit SKILL.md hoch",
+      "or": "oder",
+      "selectFile": "Datei auswählen",
+      "replaceWarning": "Wenn in diesem Bereich bereits eine Fähigkeit mit demselben Namen existiert, wird sie beim Import ersetzt.",
+      "importing": "Importiere...",
+      "submit": "Importieren",
+      "success": "Fähigkeit erfolgreich importiert",
+      "error": "Fähigkeit konnte nicht importiert werden"
+    },
+    "detail": {
+      "slug": "Slug",
+      "type": "Typ",
+      "description": "Beschreibung",
+      "source": "Quelle",
+      "skillLabel": "Fähigkeit",
+      "syncStatus": "Synchronisierungsstatus",
+      "preview": "SKILL.md-Vorschau"
+    },
+    "scope": {
+      "label": "Bereich",
+      "system": "System",
+      "base": "Aktuelle Base",
+      "user": "Persönlich",
+      "userDescription": "Nur für Sie verfügbar",
+      "baseDescription": "Mit Kollaborateuren dieser Base geteilt",
+      "app": "App",
+      "appDescription": "Nur in dieser App verfügbar",
+      "cuppyclaw": "Bot",
+      "cuppyclawDescription": "Nur für diesen Bot verfügbar"
+    },
+    "source": {
+      "github": "GitHub",
+      "file": "Datei-Upload",
+      "manual": "Manuell"
+    },
+    "status": {
+      "enabled": "Aktiviert",
+      "disabled": "Deaktiviert",
+      "synced": "Synchronisiert",
+      "failed": "Synchronisierung fehlgeschlagen"
+    },
+    "empty": {
+      "mySkills": "Noch keine persönlichen Fähigkeiten. Importieren Sie eine, um zu beginnen."
+    },
+    "confirm": {
+      "deleteTitle": "Fähigkeit löschen",
+      "deleteDescription": "Sind Sie sicher, dass Sie diese Fähigkeit löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden."
+    },
+    "toast": {
+      "syncing": "Fähigkeit wird synchronisiert...",
+      "syncSuccess": "Fähigkeit erfolgreich synchronisiert",
+      "syncError": "Fähigkeit konnte nicht synchronisiert werden",
+      "deleting": "Fähigkeit wird gelöscht...",
+      "deleteSuccess": "Fähigkeit erfolgreich gelöscht",
+      "deleteError": "Fähigkeit konnte nicht gelöscht werden",
+      "updateSuccess": "Fähigkeit erfolgreich aktualisiert"
+    }
+  },
   "changelog": {
-    "newUpdate": "UPDATE VOM 19. MAI",
-    "title": "Teable Credits jetzt 10x effizienter!",
-    "url": "https://help.teable.ai/en/changelog#may-19-2026",
-    "id": "changelog-2026-05-19-teable-credits-up-10x"
+    "newUpdate": "UPDATE VOM 15. JULI",
+    "title": "KI-Gedächtnis und Datei-Downloads",
+    "url": "https://help.teable.ai/en/changelog#jul-15-2026",
+    "id": "changelog-2026-07-15-ai-memory-and-file-downloads"
+  },
+  "resourceDescription": {
+    "addDescription": "Beschreibung hinzufügen",
+    "nodeDescription": "Knotenbeschreibung",
+    "descriptionSaving": "Speichern...",
+    "descriptionSaveFailed": "Beschreibung konnte nicht gespeichert werden, bitte erneut versuchen",
+    "descriptionPlaceholder": "Fügen Sie diesem Knoten eine Beschreibung hinzu"
   }
 }

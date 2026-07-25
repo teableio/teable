@@ -11,8 +11,8 @@ import type { LinkFieldConfigValue } from '../domain/table/fields/types/LinkFiel
 import { LinkFieldConfig } from '../domain/table/fields/types/LinkFieldConfig';
 import { SelectOption } from '../domain/table/fields/types/SelectOption';
 import { RecordId } from '../domain/table/records/RecordId';
-import { NoopRecordConditionSpecVisitor } from '../domain/table/records/specs/visitors/NoopRecordConditionSpecVisitor';
 import type { UserConditionSpec } from '../domain/table/records/specs/UserConditionSpec';
+import { NoopRecordConditionSpecVisitor } from '../domain/table/records/specs/visitors/NoopRecordConditionSpecVisitor';
 import { TableUpdateViewColumnMetaSpec } from '../domain/table/specs/TableUpdateViewColumnMetaSpec';
 import { TableUpdateViewQueryDefaultsSpec } from '../domain/table/specs/TableUpdateViewQueryDefaultsSpec';
 import { Table } from '../domain/table/Table';
@@ -23,7 +23,15 @@ import { ViewQueryDefaults } from '../domain/table/views/ViewQueryDefaults';
 import { NoopLogger } from '../ports/defaults/NoopLogger';
 import type { IExecutionContext } from '../ports/ExecutionContext';
 import { MemoryTableRepository } from '../ports/memory/MemoryTableRepository';
-import type { ITableRecordQueryRepository } from '../ports/TableRecordQueryRepository';
+import type {
+  ITableQueryObservability,
+  TableQueryObservabilityEvent,
+  TableQuerySearchValidationEvent,
+} from '../ports/TableQueryObservability';
+import type {
+  ITableRecordQueryRepository,
+  ITableRecordQueryResult,
+} from '../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import type { ITableRepository } from '../ports/TableRepository';
 import { ListTableRecordsHandler } from './ListTableRecordsHandler';
@@ -140,10 +148,11 @@ describe('ListTableRecordsHandler', () => {
     const tableRepository = new MemoryTableRepository();
     await tableRepository.insert(createContext(), table);
 
-    const captured: { spec?: unknown } = {};
+    const captured: { spec?: unknown; options?: unknown } = {};
     const recordQueryRepo: ITableRecordQueryRepository = {
-      find: async (_context, _table, spec) => {
+      find: async (_context, _table, spec, options) => {
         captured.spec = spec;
+        captured.options = options;
         const records: TableRecordReadModel[] = [
           { id: 'rec1', fields: { Title: 'Hello' }, version: 1 },
         ];
@@ -163,6 +172,54 @@ describe('ListTableRecordsHandler', () => {
     expect(payload.records.length).toBe(1);
     expect(payload.total).toBe(1);
     expect(captured.spec).toBeUndefined();
+    expect(
+      (
+        captured.options as {
+          projectionFieldIds?: unknown;
+          includeTotal?: boolean;
+        }
+      ).projectionFieldIds
+    ).toBeUndefined();
+    expect((captured.options as { includeTotal?: boolean }).includeTotal).toBeUndefined();
+  });
+
+  it('passes empty projection and includeTotal false to the query repository', async () => {
+    const table = buildTable();
+    const tableRepository = new MemoryTableRepository();
+    await tableRepository.insert(createContext(), table);
+
+    const captured: { options?: unknown } = {};
+    const recordQueryRepo: ITableRecordQueryRepository = {
+      find: async (_context, _table, _spec, options) => {
+        captured.options = options;
+        return ok({
+          records: [{ id: 'rec1', fields: {}, version: 1 }],
+          total: 1,
+        });
+      },
+      findOne: async () => err(domainError.notFound({ message: 'Not found' })),
+      async *findStream() {},
+    };
+
+    const queryResult = ListTableRecordsQuery.create({
+      tableId: table.id().toString(),
+      fieldKeyType: FieldKeyType.Id,
+      projection: [],
+      includeTotal: false,
+    });
+    const handler = new ListTableRecordsHandler(tableRepository, recordQueryRepo, new NoopLogger());
+    const result = await handler.handle(createContext(), queryResult._unsafeUnwrap());
+
+    expect(result.isOk()).toBe(true);
+    expect(
+      (
+        captured.options as {
+          projectionFieldIds?: ReadonlyArray<{ toString(): string }>;
+          includeTotal?: boolean;
+        }
+      ).projectionFieldIds?.map((fieldId) => fieldId.toString())
+    ).toEqual([]);
+    expect((captured.options as { includeTotal?: boolean }).includeTotal).toBe(false);
   });
 
   it('passes filter specs to the query repository', async () => {
@@ -273,24 +330,26 @@ describe('ListTableRecordsHandler', () => {
       async *findStream() {},
     };
 
-    const queryResult = ListTableRecordsQuery.create({
-      tableId: table.id().toString(),
-      filter: {
-        fieldId: statusField.id().toString(),
-        operator: 'is',
-        value: 'Open',
-      },
-    });
-    const handler = new ListTableRecordsHandler(tableRepository, recordQueryRepo, new NoopLogger());
-    const result = await handler.handle(
+    const queryResult = ListTableRecordsQuery.create(
       {
-        ...createContext(),
+        tableId: table.id().toString(),
+        filter: {
+          fieldId: statusField.id().toString(),
+          operator: 'is',
+          value: 'Open',
+        },
+      },
+      {
         recordReadQuerySource: {
+          tableName: 'base.table',
+          cteName: 'read_source',
+          cteSql: 'select * from base.table',
           enabledFieldIds: [],
         },
-      } as IExecutionContext,
-      queryResult._unsafeUnwrap()
+      }
     );
+    const handler = new ListTableRecordsHandler(tableRepository, recordQueryRepo, new NoopLogger());
+    const result = await handler.handle(createContext(), queryResult._unsafeUnwrap());
 
     expect(result.isOk()).toBe(true);
     expect(captured.spec).toBeUndefined();
@@ -306,6 +365,7 @@ describe('ListTableRecordsHandler', () => {
       updateOne: async (_context, _table, _spec) =>
         err(domainError.notFound({ message: 'Not found' })),
       delete: async (_context, _table) => err(domainError.notFound({ message: 'Not found' })),
+      restore: async (_context, _table) => err(domainError.notFound({ message: 'Not found' })),
     };
 
     const recordQueryRepo: ITableRecordQueryRepository = {
@@ -543,6 +603,10 @@ describe('ListTableRecordsHandler', () => {
         column: `__row_${viewId}`,
         direction: 'asc',
       },
+      {
+        column: '__auto_number',
+        direction: 'asc',
+      },
     ]);
   });
 
@@ -651,12 +715,20 @@ describe('ListTableRecordsHandler', () => {
       {
         fieldId: titleField.id().toString(),
         direction: 'desc',
+        column: undefined,
       },
       {
         fieldId: statusField.id().toString(),
         direction: 'asc',
+        column: undefined,
       },
       {
+        fieldId: undefined,
+        column: `__row_${view.id().toString()}`,
+        direction: 'asc',
+      },
+      {
+        fieldId: undefined,
         column: '__auto_number',
         direction: 'asc',
       },
@@ -684,25 +756,27 @@ describe('ListTableRecordsHandler', () => {
       async *findStream() {},
     };
 
-    const queryResult = ListTableRecordsQuery.create({
-      tableId: table.id().toString(),
-      sort: [
-        { fieldId: statusField.id().toString(), order: 'asc' },
-        { fieldId: titleField.id().toString(), order: 'desc' },
-      ],
-      search: ['hello', '', true],
-      fieldKeyType: FieldKeyType.Id,
-    });
-    const handler = new ListTableRecordsHandler(tableRepository, recordQueryRepo, new NoopLogger());
-    const result = await handler.handle(
+    const queryResult = ListTableRecordsQuery.create(
       {
-        ...createContext(),
+        tableId: table.id().toString(),
+        sort: [
+          { fieldId: statusField.id().toString(), order: 'asc' },
+          { fieldId: titleField.id().toString(), order: 'desc' },
+        ],
+        search: ['hello', '', true],
+        fieldKeyType: FieldKeyType.Id,
+      },
+      {
         recordReadQuerySource: {
+          tableName: 'base.table',
+          cteName: 'read_source',
+          cteSql: 'select * from base.table',
           enabledFieldIds: [titleField.id().toString()],
         },
-      } as IExecutionContext,
-      queryResult._unsafeUnwrap()
+      }
     );
+    const handler = new ListTableRecordsHandler(tableRepository, recordQueryRepo, new NoopLogger());
+    const result = await handler.handle(createContext(), queryResult._unsafeUnwrap());
 
     expect(result.isOk()).toBe(true);
     const options = captured.options as {
@@ -975,36 +1049,38 @@ describe('ListTableRecordsHandler', () => {
       async *findStream() {},
     };
 
-    const queryResult = ListTableRecordsQuery.create({
-      tableId: table.id().toString(),
-      filter: {
-        conjunction: 'and',
-        items: [
-          {
-            fieldId: statusField.id().toString(),
-            operator: 'is',
-            value: 'Open',
-          },
-          {
-            not: {
-              fieldId: titleField.id().toString(),
-              operator: 'contains',
-              value: 'archived',
-            },
-          },
-        ],
-      },
-    });
-    const handler = new ListTableRecordsHandler(tableRepository, recordQueryRepo, new NoopLogger());
-    const result = await handler.handle(
+    const queryResult = ListTableRecordsQuery.create(
       {
-        ...createContext(),
-        recordReadQuerySource: {
-          enabledFieldIds: [titleField.id().toString()],
+        tableId: table.id().toString(),
+        filter: {
+          conjunction: 'and',
+          items: [
+            {
+              fieldId: statusField.id().toString(),
+              operator: 'is',
+              value: 'Open',
+            },
+            {
+              not: {
+                fieldId: titleField.id().toString(),
+                operator: 'contains',
+                value: 'archived',
+              },
+            },
+          ],
         },
-      } as IExecutionContext,
-      queryResult._unsafeUnwrap()
+      },
+      {
+        recordReadQuerySource: {
+          tableName: 'base.table',
+          cteName: 'read_source',
+          cteSql: 'select * from base.table',
+          enabledFieldIds: [statusField.id().toString()],
+        },
+      }
     );
+    const handler = new ListTableRecordsHandler(tableRepository, recordQueryRepo, new NoopLogger());
+    const result = await handler.handle(createContext(), queryResult._unsafeUnwrap());
 
     expect(result.isOk()).toBe(true);
     expect(captured.spec).toBeDefined();
@@ -1260,5 +1336,63 @@ describe('ListTableRecordsHandler', () => {
     expect(
       (captured.options as { search?: { visibleFieldIds?: unknown[] } }).search?.visibleFieldIds
     ).toEqual([]);
+  });
+
+  it('records the repository fallback instead of the requested generated search path', async () => {
+    const table = buildTable();
+    const tableRepository = new MemoryTableRepository();
+    await tableRepository.insert(createContext(), table);
+    const generatedPath = {
+      kind: 'generated_tsvector' as const,
+      generatedColumnName: '__tqops_search_vector',
+      languageConfig: 'simple',
+      searchScope: 'all_fields' as const,
+      coveredFieldIds: table.fieldIds(),
+    };
+    const recordQueryRepo: ITableRecordQueryRepository = {
+      find: async () =>
+        ok({
+          records: [],
+          total: 0,
+          searchAccessPath: {
+            requested: 'generated_tsvector',
+            used: 'default',
+            fallbackReason: 'generated_tsvector_unavailable',
+          },
+        } as unknown as ITableRecordQueryResult),
+      findOne: async () => err(domainError.notFound({ message: 'Not found' })),
+      async *findStream() {},
+    };
+    const requests: TableQueryObservabilityEvent[] = [];
+    const fallbacks: TableQueryObservabilityEvent[] = [];
+    const observability: ITableQueryObservability = {
+      recordRequest: (event) => requests.push(event),
+      recordError: () => undefined,
+      recordSearchFallback: (event) => fallbacks.push(event),
+      recordSearchValidation: (_event: TableQuerySearchValidationEvent) => undefined,
+    };
+    const query = ListTableRecordsQuery.create(
+      {
+        tableId: table.id().toString(),
+        search: ['Alpha', '', true],
+      },
+      { recordSearchAccessPath: generatedPath }
+    )._unsafeUnwrap();
+    const handler = new ListTableRecordsHandler(
+      tableRepository,
+      recordQueryRepo,
+      new NoopLogger(),
+      observability
+    );
+
+    const result = await handler.handle(createContext(), query);
+
+    expect(result.isOk()).toBe(true);
+    expect(requests[requests.length - 1]).toMatchObject({
+      accessPath: 'fallback',
+      searchMode: 'ilike',
+      fallbackReason: 'generated_tsvector_unavailable',
+    });
+    expect(fallbacks).toHaveLength(1);
   });
 });

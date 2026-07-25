@@ -5,10 +5,12 @@ import {
   domainError,
   generatePrefixedId,
   type DomainError,
+  type IComputedFieldBackfillService,
   type IExecutionContext,
   type IHasher,
   type ILogger,
   type ITableRepository,
+  type ComputedFieldBackfillManyResult,
   type LinkField,
   type Table,
   v2CoreTokens,
@@ -33,7 +35,15 @@ type ComputedFieldBackfillInput = {
   field: Field;
 };
 
+export type { ComputedFieldBackfillManyResult } from '@teable/v2-core';
+
 const BACKFILL_SYNC_FIELD_CHUNK_SIZE = 1;
+
+const hasTrackedFieldIds = (
+  field: Field
+): field is Field & { trackedFieldIds: () => ReadonlyArray<unknown> } => {
+  return 'trackedFieldIds' in field && typeof field.trackedFieldIds === 'function';
+};
 
 const chunkArray = <T>(items: ReadonlyArray<T>, size: number): ReadonlyArray<ReadonlyArray<T>> => {
   if (size <= 0 || items.length <= size) return [items];
@@ -55,9 +65,9 @@ const hasUnitOfWorkTransaction = (context: IExecutionContext): boolean => {
 export type FieldBackfillConfig = {
   /**
    * Strategy for backfill execution.
-   * - 'sync': Execute immediately in current transaction (default)
+   * - 'sync': Execute immediately in current transaction
    * - 'async': Enqueue to outbox for background processing
-   * - 'hybrid': Sync for small tables, async for large tables
+   * - 'hybrid': Sync for small tables, async for large tables (default)
    */
   mode: 'sync' | 'async' | 'hybrid';
 
@@ -71,7 +81,7 @@ export type FieldBackfillConfig = {
 };
 
 export const defaultFieldBackfillConfig: FieldBackfillConfig = {
-  mode: 'sync',
+  mode: 'hybrid',
   hybridThreshold: 10000,
 };
 
@@ -90,7 +100,7 @@ export const defaultFieldBackfillConfig: FieldBackfillConfig = {
  *
  * @example
  * ```typescript
- * // Sync mode (default)
+ * // Sync mode (explicit)
  * const result = await backfillService.backfill(context, {
  *   table,
  *   field: newFormulaField,
@@ -104,7 +114,7 @@ export const defaultFieldBackfillConfig: FieldBackfillConfig = {
  * ```
  */
 @injectable()
-export class ComputedFieldBackfillService {
+export class ComputedFieldBackfillService implements IComputedFieldBackfillService {
   constructor(
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: ITableRepository,
@@ -170,14 +180,14 @@ export class ComputedFieldBackfillService {
       skipDistinctFilter?: boolean;
       includeOneManyTwoWay?: boolean;
     }
-  ): Promise<Result<void, DomainError>> {
+  ): Promise<Result<ComputedFieldBackfillManyResult, DomainError>> {
     const computedFieldsResult = await this.collectBackfillFields(context, input);
     if (computedFieldsResult.isErr()) {
       return err(computedFieldsResult.error);
     }
     const computedFields = computedFieldsResult.value;
     if (computedFields.length === 0) {
-      return ok(undefined);
+      return ok({ fields: [] });
     }
 
     if (
@@ -188,22 +198,24 @@ export class ComputedFieldBackfillService {
         tableId: input.table.id().toString(),
         fieldIds: computedFields.map((field) => field.id().toString()),
       });
-      return this.enqueueMany(context, {
+      const result = await this.enqueueMany(context, {
         table: input.table,
         fields: computedFields,
         includeOneManyTwoWay: input.includeOneManyTwoWay,
       });
+      return result.map(() => ({ fields: computedFields }));
     }
 
     // Determine execution mode
     const shouldAsync = await this.shouldUseAsyncMode(context, input.table);
 
     if (shouldAsync) {
-      return this.enqueueMany(context, {
+      const result = await this.enqueueMany(context, {
         table: input.table,
         fields: computedFields,
         includeOneManyTwoWay: input.includeOneManyTwoWay,
       });
+      return result.map(() => ({ fields: computedFields }));
     }
 
     const syncResult = await this.executeSyncMany(context, {
@@ -216,7 +228,7 @@ export class ComputedFieldBackfillService {
       return syncResult;
     }
 
-    return this.enqueueManyAfterSyncFailure(
+    const fallbackResult = await this.enqueueManyAfterSyncFailure(
       context,
       {
         table: input.table,
@@ -225,6 +237,7 @@ export class ComputedFieldBackfillService {
       },
       syncResult.error
     );
+    return fallbackResult.map(() => ({ fields: computedFields }));
   }
 
   private async enqueueAfterSyncFailure(
@@ -240,7 +253,13 @@ export class ComputedFieldBackfillService {
 
     const enqueueResult = await this.enqueue(context, input);
     if (enqueueResult.isErr()) {
-      return err(enqueueResult.error);
+      this.logger.warn('computed:backfill:enqueue_fallback_failed', {
+        tableId: input.table.id().toString(),
+        fieldId: input.field.id().toString(),
+        error: error.message,
+        fallbackError: enqueueResult.error.message,
+      });
+      return err(error);
     }
 
     return ok(undefined);
@@ -259,7 +278,13 @@ export class ComputedFieldBackfillService {
 
     const enqueueResult = await this.enqueueMany(context, input);
     if (enqueueResult.isErr()) {
-      return err(enqueueResult.error);
+      this.logger.warn('computed:backfillMany:enqueue_fallback_failed', {
+        tableId: input.table.id().toString(),
+        fieldIds: input.fields.map((field) => field.id().toString()),
+        error: error.message,
+        fallbackError: enqueueResult.error.message,
+      });
+      return err(error);
     }
 
     return ok(undefined);
@@ -382,6 +407,8 @@ export class ComputedFieldBackfillService {
         const builder = new ComputedTableRecordQueryBuilder(db, {
           typeValidationStrategy: this.typeValidationStrategy,
           forceLookupArrayOutput: true,
+          resolveSystemUserSnapshotsFromUsers: true,
+          allowFullTableSetBasedRollups: true,
         })
           .from(input.table)
           .select([fieldId]);
@@ -446,12 +473,12 @@ export class ComputedFieldBackfillService {
       skipDistinctFilter?: boolean;
       includeOneManyTwoWay?: boolean;
     }
-  ): Promise<Result<void, DomainError>> {
+  ): Promise<Result<ComputedFieldBackfillManyResult, DomainError>> {
     const computedFields = input.fields.filter((f) =>
       this.needsBackfill(f, input.includeOneManyTwoWay)
     );
     if (computedFields.length === 0) {
-      return ok(undefined);
+      return ok({ fields: [] });
     }
 
     const filtered: Field[] = [];
@@ -460,7 +487,7 @@ export class ComputedFieldBackfillService {
       if (persistedAsGenerated.isErr()) return err(persistedAsGenerated.error);
       if (!persistedAsGenerated.value) filtered.push(field);
     }
-    if (filtered.length === 0) return ok(undefined);
+    if (filtered.length === 0) return ok({ fields: [] });
 
     const db = this.resolveDb(context);
     const fieldIds = filtered.map((f) => f.id());
@@ -470,7 +497,7 @@ export class ComputedFieldBackfillService {
       fieldIds: fieldIds.map((id) => id.toString()),
     });
 
-    return safeTry<void, DomainError>(
+    return safeTry<ComputedFieldBackfillManyResult, DomainError>(
       async function* (this: ComputedFieldBackfillService) {
         const fieldChunks = chunkArray(filtered, BACKFILL_SYNC_FIELD_CHUNK_SIZE);
         for (let index = 0; index < fieldChunks.length; index += 1) {
@@ -480,6 +507,8 @@ export class ComputedFieldBackfillService {
           const builder = new ComputedTableRecordQueryBuilder(db, {
             typeValidationStrategy: this.typeValidationStrategy,
             forceLookupArrayOutput: true,
+            resolveSystemUserSnapshotsFromUsers: true,
+            allowFullTableSetBasedRollups: true,
           })
             .from(input.table)
             .select(chunkFieldIds);
@@ -529,7 +558,7 @@ export class ComputedFieldBackfillService {
           fieldCount: fieldIds.length,
         });
 
-        return ok(undefined);
+        return ok({ fields: filtered });
       }.bind(this)
     );
   }
@@ -540,6 +569,15 @@ export class ComputedFieldBackfillService {
    * link fields (which store JSONB values derived from FK/junction relationships).
    */
   private needsBackfill(field: Field, includeOneManyTwoWay = false): boolean {
+    if (
+      (field.type().equals(FieldType.lastModifiedTime()) ||
+        field.type().equals(FieldType.lastModifiedBy())) &&
+      hasTrackedFieldIds(field) &&
+      field.trackedFieldIds().length > 0
+    ) {
+      return false;
+    }
+
     // Computed fields (formula, lookup, rollup, conditionalLookup, conditionalRollup)
     const specResult = Field.specs().isComputed().build();
     if (specResult.isOk() && specResult.value.isSatisfiedBy(field)) {
@@ -816,21 +854,61 @@ export class ComputedFieldBackfillService {
       return true;
     }
 
-    // Hybrid mode: check table row count
+    const rowCountEstimate = await this.estimateTableRowCount(context, table);
+    if (rowCountEstimate !== undefined) {
+      return rowCountEstimate > this.config.hybridThreshold;
+    }
+
+    const fallbackToAsync = hasUnitOfWorkTransaction(context);
+    this.logger.warn('computed:backfill:row_count_estimate_unavailable', {
+      tableId: table.id().toString(),
+      mode: this.config.mode,
+      fallback: fallbackToAsync ? 'async' : 'sync',
+      inTransaction: fallbackToAsync,
+    });
+    return fallbackToAsync;
+  }
+
+  private async estimateTableRowCount(
+    context: IExecutionContext,
+    table: Table
+  ): Promise<number | undefined> {
+    const locationResult = table
+      .dbTableName()
+      .andThen((dbTableName) => dbTableName.split({ defaultSchema: 'public' }));
+    if (locationResult.isErr()) {
+      this.logger.warn('computed:backfill:row_count_estimate_table_name_failed', {
+        tableId: table.id().toString(),
+        error: locationResult.error.message,
+      });
+      return undefined;
+    }
+
     const db = this.resolveDb(context);
-    const tableName = table.dbTableName().toString();
+    const { schema, tableName } = locationResult.value;
 
     try {
-      const result = await db
-        .selectFrom(tableName as keyof DynamicDB)
-        .select((eb) => eb.fn.countAll<number>().as('count'))
-        .executeTakeFirst();
+      const result = await sql<{ estimated_row_count: number | string | null }>`
+        SELECT GREATEST(c.reltuples, COALESCE(s.n_live_tup, 0), 0)::float8 AS estimated_row_count
+        FROM pg_class c
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        LEFT JOIN pg_stat_all_tables s ON s.relid = c.oid
+        WHERE n.nspname = ${schema ?? 'public'}
+          AND c.relname = ${tableName}
+        LIMIT 1
+      `.execute(db);
 
-      const rowCount = Number(result?.count ?? 0);
-      return rowCount > this.config.hybridThreshold;
-    } catch {
-      // If count fails, default to sync
-      return false;
+      const rawEstimate = result.rows[0]?.estimated_row_count;
+      const estimate = rawEstimate == null ? undefined : Number(rawEstimate);
+      return estimate !== undefined && Number.isFinite(estimate) ? Math.ceil(estimate) : undefined;
+    } catch (error) {
+      this.logger.warn('computed:backfill:row_count_estimate_failed', {
+        tableId: table.id().toString(),
+        tableSchema: schema ?? 'public',
+        tableName,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return undefined;
     }
   }
 

@@ -415,7 +415,50 @@ describe('OpenAPI OAuthController (e2e)', () => {
       )
     );
     expect(error?.status).toBe(403);
-    // base|read_all
+    // base|read_all must NOT be granted implicitly: this token only consented
+    // to table|read, so /base/access/all (requires base|read_all) is denied.
+    // (Regression guard for GHSA-c57x — previously read_all was auto-added.)
+    const baseListError = await getError(() =>
+      anonymousAxios.get<IGetBaseAllVo>(`/base/access/all`, {
+        headers: {
+          Authorization: `${tokenRes.data.token_type} ${tokenRes.data.access_token}`,
+        },
+      })
+    );
+    expect(baseListError?.status).toBe(403);
+  });
+
+  it('/api/oauth/access_token (POST) - base|read_all only granted when consented', async () => {
+    const oauthRes = await oauthCreate({
+      ...oauthData,
+      scopes: ['base|read_all'],
+    });
+    const { transactionID } = await getAuthorize(axios, oauthRes.data);
+
+    const res = await decision(axios, transactionID!);
+    const url = new URL(res.headers.location);
+    const code = url.searchParams.get('code');
+    const secret = await generateOAuthSecret(oauthRes.data.clientId);
+
+    const tokenRes = await anonymousAxios.post(
+      `/oauth/access_token`,
+      new URLSearchParams({
+        grant_type: 'authorization_code',
+        code: code ?? '',
+        client_id: oauthRes.data.clientId,
+        client_secret: secret.data.secret,
+        redirect_uri: oauthRes.data.redirectUris[0],
+      }),
+      {
+        maxRedirects: 0,
+        headers: {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      }
+    );
+
+    // With base|read_all consented, /base/access/all succeeds.
     const baseListRes = await anonymousAxios.get<IGetBaseAllVo>(`/base/access/all`, {
       headers: {
         Authorization: `${tokenRes.data.token_type} ${tokenRes.data.access_token}`,
@@ -1165,6 +1208,13 @@ describe('OpenAPI OAuthController (e2e)', () => {
     });
 
     it('/api/oauth/client/:clientId/revoke-token (POST)', async () => {
+      const userRes = await anonymousAxios.get(`/auth/user`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+      expect(userRes.status).toBe(200);
+
       const revokeRes = await axios.post<void>(
         urlBuilder(REVOKE_TOKEN, { clientId: oauth.clientId })
       );

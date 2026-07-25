@@ -38,7 +38,7 @@ export const dateFilterSchema = z
     timeZone: timeZoneStringSchema,
   })
   .superRefine((val, ctx) => {
-    if (['exactDate', 'exactFormatDate'].includes(val.mode) && !val.exactDate) {
+    if (['exactDate', 'exactDateTime', 'exactFormatDate'].includes(val.mode) && !val.exactDate) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: `When the mode is set to '${val.mode}', an '${val.mode}' must be provided`,

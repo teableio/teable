@@ -10,8 +10,7 @@
       "description": "OAuthアプリの名前。"
     },
     "description": {
-      "label": "説明",
-      "description": "OAuthアプリの簡単な説明。"
+      "label": "説明"
     },
     "homePageUrl": {
       "label": "ホームページURL",
@@ -30,10 +29,6 @@
       "label": "コールバックURL",
       "description": "ユーザーが統合を承認した後にリダイレクトする完全なURL。",
       "add": "コールバックURLを追加"
-    },
-    "scopes": {
-      "label": "Scopes",
-      "description": "OAuthアプリに必要な権限。"
     },
     "secret": {
       "label": "クライアントシークレット",

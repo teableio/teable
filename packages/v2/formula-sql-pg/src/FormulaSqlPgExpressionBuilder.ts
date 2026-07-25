@@ -3,7 +3,6 @@
 import {
   DateTimeFormatting,
   FieldType,
-  TimeFormatting,
   type ConditionalLookupField,
   type LookupField,
   type Field,
@@ -465,9 +464,8 @@ export class FormulaSqlPgExpressionBuilder {
 
   protected coerceDatetimeToStringForConcat(expr: SqlExpr): SqlExpr {
     const formatting = this.resolveDateTimeFormatting(expr.field);
-    const hasTime = formatting ? formatting.time() !== TimeFormatting.None : false;
     const timeZone = this.formulaTimeZone();
-    const formattedSql = hasTime
+    const formattedSql = formatting
       ? formatFieldValueAsStringSql(expr.field, expr.valueSql, 'datetime', timeZone)
       : undefined;
     const fallbackSql = formattedSql ?? this.formatDatetimeForConcat(expr.valueSql, timeZone);
@@ -1033,6 +1031,28 @@ export class FormulaSqlPgExpressionBuilder {
     );
   }
 
+  private jsonScalarText(valueSql: string): string {
+    const jsonValue = `to_jsonb(${valueSql})`;
+    return `(CASE
+      WHEN ${valueSql} IS NULL THEN NULL
+      WHEN jsonb_typeof(${jsonValue}) = 'array' THEN ${jsonValue} ->> 0
+      WHEN jsonb_typeof(${jsonValue}) = 'null' THEN NULL
+      ELSE ${jsonValue} #>> '{}'
+    END)`;
+  }
+
+  private jsonScalarNumber(valueSql: string): string {
+    return `(NULLIF(${this.jsonScalarText(valueSql)}, '')::double precision)`;
+  }
+
+  private jsonScalarBoolean(valueSql: string): string {
+    return `(NULLIF(${this.jsonScalarText(valueSql)}, '')::boolean)`;
+  }
+
+  private jsonScalarDatetime(valueSql: string): string {
+    return `(NULLIF(${this.jsonScalarText(valueSql)}, '')::timestamptz)`;
+  }
+
   protected coerceToBoolean(expr: SqlExpr): SqlExpr {
     if (expr.isArray) {
       const normalizedArray = this.normalizeArrayExpr(expr);
@@ -1055,7 +1075,9 @@ export class FormulaSqlPgExpressionBuilder {
     }
     const base = this.unwrapArrayToScalar(expr);
     if (base.valueType === 'boolean') {
-      const valueSql = `COALESCE(${base.valueSql}, FALSE)`;
+      const booleanSql =
+        base.storageKind === 'json' ? this.jsonScalarBoolean(base.valueSql) : base.valueSql;
+      const valueSql = `COALESCE(${booleanSql}, FALSE)`;
       return makeExpr(
         valueSql,
         'boolean',
@@ -1066,7 +1088,9 @@ export class FormulaSqlPgExpressionBuilder {
       );
     }
     if (base.valueType === 'number') {
-      const valueSql = `(CASE WHEN ${base.valueSql} IS NULL THEN FALSE WHEN ${base.valueSql} <> 0 THEN TRUE ELSE FALSE END)`;
+      const numberSql =
+        base.storageKind === 'json' ? this.jsonScalarNumber(base.valueSql) : base.valueSql;
+      const valueSql = `(CASE WHEN ${numberSql} IS NULL THEN FALSE WHEN ${numberSql} <> 0 THEN TRUE ELSE FALSE END)`;
       return makeExpr(
         valueSql,
         'boolean',
@@ -1125,6 +1149,16 @@ export class FormulaSqlPgExpressionBuilder {
     }
 
     if (base.valueType === 'number') {
+      if (base.storageKind === 'json') {
+        return makeExpr(
+          this.jsonScalarNumber(base.valueSql),
+          'number',
+          false,
+          base.errorConditionSql,
+          base.errorMessageSql,
+          base.field
+        );
+      }
       return makeExpr(
         `(${base.valueSql})::double precision`,
         'number',
@@ -1135,7 +1169,9 @@ export class FormulaSqlPgExpressionBuilder {
       );
     }
     if (base.valueType === 'boolean') {
-      const valueSql = `(CASE WHEN ${base.valueSql} IS NULL THEN NULL WHEN ${base.valueSql} THEN 1 ELSE 0 END)::double precision`;
+      const booleanSql =
+        base.storageKind === 'json' ? this.jsonScalarBoolean(base.valueSql) : base.valueSql;
+      const valueSql = `(CASE WHEN ${booleanSql} IS NULL THEN NULL WHEN ${booleanSql} THEN 1 ELSE 0 END)::double precision`;
       return makeExpr(
         valueSql,
         'number',
@@ -1226,8 +1262,12 @@ export class FormulaSqlPgExpressionBuilder {
       );
     }
     if (base.valueType === 'datetime') {
+      const valueSql =
+        base.storageKind === 'json'
+          ? this.jsonScalarDatetime(base.valueSql)
+          : `(${base.valueSql})::timestamptz`;
       return makeExpr(
-        `(${base.valueSql})::timestamptz`,
+        valueSql,
         'datetime',
         false,
         base.errorConditionSql,
@@ -1361,7 +1401,11 @@ export class FormulaSqlPgExpressionBuilder {
   }
 
   private isNullSqlLiteral(valueSql: string): boolean {
-    return valueSql.trim().toUpperCase() === 'NULL';
+    let normalized = valueSql.trim();
+    while (normalized.startsWith('(') && normalized.endsWith(')')) {
+      normalized = normalized.slice(1, -1).trim();
+    }
+    return /^NULL(?:::[\w ]+)?$/i.test(normalized);
   }
 
   protected buildLooseDatetimeComparison(left: SqlExpr, right: SqlExpr, operator: string): string {
@@ -1384,6 +1428,14 @@ export class FormulaSqlPgExpressionBuilder {
     castableSql: string;
     invalidSql: string;
   } {
+    if (this.isNullSqlLiteral(valueSql)) {
+      return {
+        valueSql: 'NULL::double precision',
+        castableSql: 'FALSE',
+        invalidSql: 'FALSE',
+      };
+    }
+
     // Extract numeric prefix from text (matches v1 VALUE() function behavior).
     // Examples: "42" → 42, "10天" → 10, "3.14pi" → 3.14, "-5meters" → -5
     // Intentionally disallow scientific notation (e.g. "3.7e+35") so that SUM/AVERAGE over
@@ -1988,16 +2040,36 @@ export class FormulaSqlPgExpressionBuilder {
       return { left, right: blankExpr, type: left.valueType, isArray: left.isArray };
     }
 
-    const needsJsonStringCoercion =
-      left.valueType === 'string' &&
-      right.valueType === 'string' &&
+    const needsJsonScalarCoercion =
+      left.valueType === right.valueType &&
       left.isArray === right.isArray &&
       !left.isArray &&
       (left.storageKind === 'json' || right.storageKind === 'json');
-    if (needsJsonStringCoercion) {
-      const textLeft = this.coerceToString(left);
-      const textRight = this.coerceToString(right);
-      return { left: textLeft, right: textRight, type: 'string', isArray: false };
+    if (needsJsonScalarCoercion) {
+      switch (left.valueType) {
+        case 'number': {
+          const numericLeft = this.coerceToNumber(left, 'if');
+          const numericRight = this.coerceToNumber(right, 'if');
+          return { left: numericLeft, right: numericRight, type: 'number', isArray: false };
+        }
+        case 'boolean': {
+          const boolLeft = this.coerceToBoolean(left);
+          const boolRight = this.coerceToBoolean(right);
+          return { left: boolLeft, right: boolRight, type: 'boolean', isArray: false };
+        }
+        case 'datetime': {
+          const datetimeLeft = this.coerceToDatetime(left);
+          const datetimeRight = this.coerceToDatetime(right);
+          return { left: datetimeLeft, right: datetimeRight, type: 'datetime', isArray: false };
+        }
+        case 'string':
+        case 'unknown':
+        default: {
+          const textLeft = this.coerceToString(left);
+          const textRight = this.coerceToString(right);
+          return { left: textLeft, right: textRight, type: 'string', isArray: false };
+        }
+      }
     }
 
     if (left.valueType === right.valueType && left.isArray === right.isArray) {

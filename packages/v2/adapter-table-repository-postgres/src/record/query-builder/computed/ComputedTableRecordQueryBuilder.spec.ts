@@ -186,62 +186,81 @@ describe('ComputedTableRecordQueryBuilder', () => {
 
       expect(sql).toMatchInlineSnapshot(
         `
-        "select "t"."__id" as "__id", "t"."__version" as "__version", "t"."col_single_line_text" as "col_single_line_text", "t"."col_long_text" as "col_long_text", "t"."col_number" as "col_number", "t"."col_rating" as "col_rating", "t"."col_single_select" as "col_single_select", "t"."col_multiple_select" as "col_multiple_select", "t"."col_checkbox" as "col_checkbox", "t"."col_attachment" as "col_attachment", "t"."col_date" as "col_date", "t"."__created_time" as "col_created_time", "t"."__last_modified_time" as "col_last_modified_time", 
-                case
-                  when "t"."col_user" is null then null
-                  when jsonb_typeof(to_jsonb("t"."col_user")) = 'array' then (
-                select coalesce(
-                  jsonb_agg(coalesce((
-                select jsonb_build_object(
-                  'id', u.id,
-                  'title', u.name,
-                  'email', u.email,
-                  'avatarUrl', $1 || u.id
-                )
-                from public.users u
-                where u.id = coalesce(elem ->> 'id', elem #>> '{}')
-              ), elem)),
-                  '[]'::jsonb
-                )
-                from jsonb_array_elements((CASE
-                WHEN "t"."col_user" IS NULL THEN '[]'::jsonb
-                WHEN jsonb_typeof(to_jsonb("t"."col_user")) = 'array' THEN to_jsonb("t"."col_user")
-                ELSE '[]'::jsonb
-              END)) as elem
+        "select "t"."__id" as "__id", "t"."__version" as "__version", "t"."col_single_line_text" as "col_single_line_text", "t"."col_long_text" as "col_long_text", "t"."col_number" as "col_number", "t"."col_rating" as "col_rating", "t"."col_single_select" as "col_single_select", "t"."col_multiple_select" as "col_multiple_select", "t"."col_checkbox" as "col_checkbox", "t"."col_attachment" as "col_attachment", "t"."col_date" as "col_date", "t"."__created_time" as "col_created_time", "t"."__last_modified_time" as "col_last_modified_time", "t"."col_user" as "col_user", jsonb_strip_nulls(
+            CASE
+              WHEN (CASE
+            WHEN "t"."col_created_by" IS NULL THEN NULL::jsonb
+            WHEN jsonb_typeof(to_jsonb("t"."col_created_by")) = 'object' THEN to_jsonb("t"."col_created_by")
+            ELSE jsonb_build_object('id', to_jsonb("t"."col_created_by") #>> '{}', 'title', to_jsonb("t"."col_created_by") #>> '{}')
+          END) IS NULL AND "t"."__created_by" IS NULL THEN NULL::jsonb
+              ELSE COALESCE(
+                (CASE
+            WHEN "t"."col_created_by" IS NULL THEN NULL::jsonb
+            WHEN jsonb_typeof(to_jsonb("t"."col_created_by")) = 'object' THEN to_jsonb("t"."col_created_by")
+            ELSE jsonb_build_object('id', to_jsonb("t"."col_created_by") #>> '{}', 'title', to_jsonb("t"."col_created_by") #>> '{}')
+          END),
+                jsonb_build_object('id', "t"."__created_by", 'title', "t"."__created_by")
+              ) || jsonb_build_object(
+                'id', COALESCE((CASE
+            WHEN "t"."col_created_by" IS NULL THEN NULL::jsonb
+            WHEN jsonb_typeof(to_jsonb("t"."col_created_by")) = 'object' THEN to_jsonb("t"."col_created_by")
+            ELSE jsonb_build_object('id', to_jsonb("t"."col_created_by") #>> '{}', 'title', to_jsonb("t"."col_created_by") #>> '{}')
+          END)->>'id', "t"."__created_by"),
+                'title', COALESCE((CASE
+            WHEN "t"."col_created_by" IS NULL THEN NULL::jsonb
+            WHEN jsonb_typeof(to_jsonb("t"."col_created_by")) = 'object' THEN to_jsonb("t"."col_created_by")
+            ELSE jsonb_build_object('id', to_jsonb("t"."col_created_by") #>> '{}', 'title', to_jsonb("t"."col_created_by") #>> '{}')
+          END)->>'title', (CASE
+            WHEN "t"."col_created_by" IS NULL THEN NULL::jsonb
+            WHEN jsonb_typeof(to_jsonb("t"."col_created_by")) = 'object' THEN to_jsonb("t"."col_created_by")
+            ELSE jsonb_build_object('id', to_jsonb("t"."col_created_by") #>> '{}', 'title', to_jsonb("t"."col_created_by") #>> '{}')
+          END)->>'name', (CASE
+            WHEN "t"."col_created_by" IS NULL THEN NULL::jsonb
+            WHEN jsonb_typeof(to_jsonb("t"."col_created_by")) = 'object' THEN to_jsonb("t"."col_created_by")
+            ELSE jsonb_build_object('id', to_jsonb("t"."col_created_by") #>> '{}', 'title', to_jsonb("t"."col_created_by") #>> '{}')
+          END)->>'id', "t"."__created_by")
               )
-                  else coalesce((
-                select jsonb_build_object(
-                  'id', u.id,
-                  'title', u.name,
-                  'email', u.email,
-                  'avatarUrl', $2 || u.id
-                )
-                from public.users u
-                where u.id = coalesce(to_jsonb("t"."col_user") ->> 'id', to_jsonb("t"."col_user") #>> '{}')
-              ), to_jsonb("t"."col_user"))
-                end
-               as "col_user", (
-                select jsonb_build_object(
-                  'id', u.id,
-                  'title', u.name,
-                  'email', u.email,
-                  'avatarUrl', $3 || u.id
-                )
-                from public.users u
-                where u.id = "t"."__created_by"
-              ) as "col_created_by", (
-                select jsonb_build_object(
-                  'id', u.id,
-                  'title', u.name,
-                  'email', u.email,
-                  'avatarUrl', $4 || u.id
-                )
-                from public.users u
-                where u.id = "t"."__last_modified_by"
-              ) as "col_last_modified_by", "t"."__auto_number" as "col_auto_number", "t"."col_button" as "col_button" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t""
+            END
+          ) as "col_created_by", jsonb_strip_nulls(
+            CASE
+              WHEN (CASE
+            WHEN "t"."col_last_modified_by" IS NULL THEN NULL::jsonb
+            WHEN jsonb_typeof(to_jsonb("t"."col_last_modified_by")) = 'object' THEN to_jsonb("t"."col_last_modified_by")
+            ELSE jsonb_build_object('id', to_jsonb("t"."col_last_modified_by") #>> '{}', 'title', to_jsonb("t"."col_last_modified_by") #>> '{}')
+          END) IS NULL AND "t"."__last_modified_by" IS NULL THEN NULL::jsonb
+              ELSE COALESCE(
+                (CASE
+            WHEN "t"."col_last_modified_by" IS NULL THEN NULL::jsonb
+            WHEN jsonb_typeof(to_jsonb("t"."col_last_modified_by")) = 'object' THEN to_jsonb("t"."col_last_modified_by")
+            ELSE jsonb_build_object('id', to_jsonb("t"."col_last_modified_by") #>> '{}', 'title', to_jsonb("t"."col_last_modified_by") #>> '{}')
+          END),
+                jsonb_build_object('id', "t"."__last_modified_by", 'title', "t"."__last_modified_by")
+              ) || jsonb_build_object(
+                'id', COALESCE((CASE
+            WHEN "t"."col_last_modified_by" IS NULL THEN NULL::jsonb
+            WHEN jsonb_typeof(to_jsonb("t"."col_last_modified_by")) = 'object' THEN to_jsonb("t"."col_last_modified_by")
+            ELSE jsonb_build_object('id', to_jsonb("t"."col_last_modified_by") #>> '{}', 'title', to_jsonb("t"."col_last_modified_by") #>> '{}')
+          END)->>'id', "t"."__last_modified_by"),
+                'title', COALESCE((CASE
+            WHEN "t"."col_last_modified_by" IS NULL THEN NULL::jsonb
+            WHEN jsonb_typeof(to_jsonb("t"."col_last_modified_by")) = 'object' THEN to_jsonb("t"."col_last_modified_by")
+            ELSE jsonb_build_object('id', to_jsonb("t"."col_last_modified_by") #>> '{}', 'title', to_jsonb("t"."col_last_modified_by") #>> '{}')
+          END)->>'title', (CASE
+            WHEN "t"."col_last_modified_by" IS NULL THEN NULL::jsonb
+            WHEN jsonb_typeof(to_jsonb("t"."col_last_modified_by")) = 'object' THEN to_jsonb("t"."col_last_modified_by")
+            ELSE jsonb_build_object('id', to_jsonb("t"."col_last_modified_by") #>> '{}', 'title', to_jsonb("t"."col_last_modified_by") #>> '{}')
+          END)->>'name', (CASE
+            WHEN "t"."col_last_modified_by" IS NULL THEN NULL::jsonb
+            WHEN jsonb_typeof(to_jsonb("t"."col_last_modified_by")) = 'object' THEN to_jsonb("t"."col_last_modified_by")
+            ELSE jsonb_build_object('id', to_jsonb("t"."col_last_modified_by") #>> '{}', 'title', to_jsonb("t"."col_last_modified_by") #>> '{}')
+          END)->>'id', "t"."__last_modified_by")
+              )
+            END
+          ) as "col_last_modified_by", "t"."__auto_number" as "col_auto_number", "t"."col_button" as "col_button" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t""
       `
       );
-      expect(parameters).toEqual(Array(4).fill('/api/attachments/read/public/avatar/'));
+      expect(sql).not.toContain('public.users');
+      expect(parameters).toEqual([]);
     });
 
     test('applies limit and offset', () => {
@@ -251,12 +270,8 @@ describe('ComputedTableRecordQueryBuilder', () => {
       const qb = new ComputedTableRecordQueryBuilder(db, { typeValidationStrategy });
       const { sql, parameters } = compileQuery(db, qb.from(table).limit(10).offset(20));
 
-      expect(sql).toContain('limit $5 offset $6');
-      expect(parameters).toEqual([
-        ...Array(4).fill('/api/attachments/read/public/avatar/'),
-        10,
-        20,
-      ]);
+      expect(sql).toContain('limit $1 offset $2');
+      expect(parameters).toEqual([10, 20]);
     });
 
     test('orders createdTime by formatted day when time formatting omits time', () => {
@@ -1415,6 +1430,109 @@ describe('ComputedTableRecordQueryBuilder', () => {
       );
     });
 
+    test('coerces single-value number lookup json scalar before boolean formula comparison', () => {
+      const db = createTestDb();
+      const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+      const mainTableId = TableId.create(MAIN_TABLE_ID)._unsafeUnwrap();
+      const foreignTableId = TableId.create(FOREIGN_TABLE_ID)._unsafeUnwrap();
+      const linkFieldId = FieldId.create(LINK_FIELD_ID)._unsafeUnwrap();
+      const lookupFieldId = FieldId.create(`fld${'r'.repeat(16)}`)._unsafeUnwrap();
+      const formulaFieldId = FieldId.create(`fld${'q'.repeat(16)}`)._unsafeUnwrap();
+      const amountFieldId = FieldId.create(LOOKUP_TARGET_FIELD_ID)._unsafeUnwrap();
+
+      const foreignBuilder = Table.builder()
+        .withId(foreignTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('ForeignTable')._unsafeUnwrap());
+      foreignBuilder
+        .field()
+        .number()
+        .withId(amountFieldId)
+        .withName(FieldName.create('Rate')._unsafeUnwrap())
+        .done();
+      foreignBuilder.view().defaultGrid().done();
+      const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+      foreignTable
+        .getFields()[0]
+        .setDbFieldName(DbFieldName.rehydrate('col_rate')._unsafeUnwrap())
+        ._unsafeUnwrap();
+
+      const linkConfig = LinkFieldConfig.create({
+        relationship: 'manyOne',
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: amountFieldId.toString(),
+        symmetricFieldId: SYMMETRIC_FIELD_ID,
+      })._unsafeUnwrap();
+      const lookupOptions = LookupOptions.create({
+        linkFieldId: linkFieldId.toString(),
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: amountFieldId.toString(),
+      })._unsafeUnwrap();
+      const innerField = createNumberField({
+        id: amountFieldId,
+        name: FieldName.create('Rate')._unsafeUnwrap(),
+      })._unsafeUnwrap();
+
+      const mainBuilder = Table.builder()
+        .withId(mainTableId)
+        .withBaseId(baseId)
+        .withName(TableName.create('MainTable')._unsafeUnwrap());
+      mainBuilder
+        .field()
+        .link()
+        .withId(linkFieldId)
+        .withName(FieldName.create('Coach')._unsafeUnwrap())
+        .withConfig(linkConfig)
+        .done();
+      mainBuilder
+        .field()
+        .lookup()
+        .withId(lookupFieldId)
+        .withName(FieldName.create('CoachRate')._unsafeUnwrap())
+        .withLookupOptions(lookupOptions)
+        .withInnerField(innerField)
+        .withIsMultipleCellValue(false)
+        .done();
+      mainBuilder
+        .field()
+        .formula()
+        .withId(formulaFieldId)
+        .withName(FieldName.create('HasRate')._unsafeUnwrap())
+        .withExpression(
+          FormulaExpression.create(`IF({${lookupFieldId.toString()}}, 1, 0)`)._unsafeUnwrap()
+        )
+        .done();
+      mainBuilder.view().defaultGrid().done();
+
+      const mainTable = mainBuilder.build({ foreignTables: [foreignTable] })._unsafeUnwrap();
+      mainTable
+        .getFields()[0]
+        .setDbFieldName(DbFieldName.rehydrate('col_link')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      mainTable
+        .getFields()[1]
+        .setDbFieldName(DbFieldName.rehydrate('col_lookup_rate')._unsafeUnwrap())
+        ._unsafeUnwrap();
+      mainTable
+        .getFields()[2]
+        .setDbFieldName(DbFieldName.rehydrate('col_has_rate')._unsafeUnwrap())
+        ._unsafeUnwrap();
+
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy })
+          .from(mainTable)
+          .select([formulaFieldId])
+      );
+
+      expect(sql).toContain('jsonb_agg(to_jsonb("f"."col_rate"))');
+      expect(sql).toContain(`"lat_${linkFieldId.toString()}_0"."col_lookup_rate"`);
+      expect(sql).toContain('to_jsonb');
+      expect(sql).toContain(`#>> '{}'`);
+      expect(sql).not.toContain(`"lat_${linkFieldId.toString()}_0"."col_lookup_rate" <> 0`);
+    });
+
     test('projection with only lookup field (no link field) generates correct lateral join', () => {
       const db = createTestDb();
       const { mainTable, foreignTable, foreignTableId } = createLookupTable();
@@ -1557,7 +1675,16 @@ describe('ComputedTableRecordQueryBuilder', () => {
 
     const booleanRollupExpressions = ['and({values})', 'or({values})', 'xor({values})'] as const;
 
-    const createRollupTable = (expression: string) => {
+    const createRollupTable = (
+      expression: string,
+      options?: {
+        relationship?: 'oneOne' | 'oneMany' | 'manyOne' | 'manyMany';
+        isOneWay?: boolean;
+        includeSecondRollup?: boolean;
+        filter?: unknown;
+        limit?: number;
+      }
+    ) => {
       const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
       const mainTableId = TableId.create(MAIN_TABLE_ID)._unsafeUnwrap();
       const foreignTableId = TableId.create(FOREIGN_TABLE_ID)._unsafeUnwrap();
@@ -1583,24 +1710,24 @@ describe('ComputedTableRecordQueryBuilder', () => {
         .setDbFieldName(DbFieldName.rehydrate('col_number')._unsafeUnwrap())
         ._unsafeUnwrap();
 
-      // Link config - let table builder generate FK configs
+      // Link config - let table builder generate FK configs automatically.
       const linkConfig = LinkFieldConfig.create({
-        relationship: 'oneMany',
+        relationship: options?.relationship ?? 'oneMany',
         foreignTableId: foreignTableId.toString(),
         lookupFieldId: lookupFieldId.toString(),
         symmetricFieldId: SYMMETRIC_FIELD_ID,
+        isOneWay: options?.isOneWay,
       })._unsafeUnwrap();
 
-      // Rollup config
       const rollupConfig = RollupFieldConfig.create({
         linkFieldId: linkFieldId.toString(),
         foreignTableId: foreignTableId.toString(),
         lookupFieldId: lookupFieldId.toString(),
+        filter: options?.filter,
+        limit: options?.limit,
       })._unsafeUnwrap();
-
       const rollupExpr = RollupExpression.create(expression)._unsafeUnwrap();
 
-      // Main table
       const mainBuilder = Table.builder()
         .withId(mainTableId)
         .withBaseId(baseId)
@@ -1624,6 +1751,15 @@ describe('ComputedTableRecordQueryBuilder', () => {
         .withConfig(rollupConfig)
         .withExpression(rollupExpr)
         .done();
+      if (options?.includeSecondRollup) {
+        mainBuilder
+          .field()
+          .rollup()
+          .withName(FieldName.create('Total copy')._unsafeUnwrap())
+          .withConfig(rollupConfig)
+          .withExpression(rollupExpr)
+          .done();
+      }
       mainBuilder.view().defaultGrid().done();
 
       const mainTable = mainBuilder.build({ foreignTables: [foreignTable] })._unsafeUnwrap();
@@ -1639,8 +1775,18 @@ describe('ComputedTableRecordQueryBuilder', () => {
         .getFields()[2]
         .setDbFieldName(DbFieldName.rehydrate('col_rollup')._unsafeUnwrap())
         ._unsafeUnwrap();
+      if (options?.includeSecondRollup) {
+        mainTable
+          .getFields()[3]
+          .setDbFieldName(DbFieldName.rehydrate('col_rollup_copy')._unsafeUnwrap())
+          ._unsafeUnwrap();
+      }
 
-      return { mainTable, foreignTable, foreignTableId };
+      const rollupFieldIds = mainTable
+        .getFields()
+        .slice(2)
+        .map((field) => field.id());
+      return { mainTable, foreignTable, foreignTableId, rollupFieldIds };
     };
 
     const createMultiValueRollupTable = (expression: string) => {
@@ -1824,6 +1970,135 @@ describe('ComputedTableRecordQueryBuilder', () => {
         expect(sql).toContain(`${sqlAggregate}("f"."col_number")`);
       }
     );
+
+    test.each([
+      { relationship: 'manyMany', isOneWay: false },
+      { relationship: 'oneMany', isOneWay: true },
+    ] as const)(
+      'groups duplicate $relationship junction rollups once without a correlated lateral',
+      ({ relationship, isOneWay }) => {
+        const db = createTestDb();
+        const { mainTable, foreignTable, foreignTableId, rollupFieldIds } = createRollupTable(
+          'sum({values})',
+          { relationship, isOneWay, includeSecondRollup: true }
+        );
+
+        const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+        const { sql } = compileQuery(
+          db,
+          new ComputedTableRecordQueryBuilder(db, {
+            foreignTables,
+            typeValidationStrategy,
+            allowFullTableSetBasedRollups: true,
+          })
+            .from(mainTable)
+            .select(rollupFieldIds)
+        );
+
+        expect(sql).not.toContain('join lateral');
+        expect(sql.match(/"junction_[^"]+"/g)).toHaveLength(1);
+        expect(sql).toContain('left join "bseaaaaaaaaaaaaaaaa"."junction_');
+        expect(sql).toContain('left join "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f"');
+        expect(sql).toContain('group by "h"."__id"');
+        expect(sql).toContain('"__host_id" = "t"."__id"');
+        expect(sql.match(/SUM\("f"\."col_number"\)/g)).toHaveLength(2);
+      }
+    );
+
+    test('keeps empty-host sum semantics in the set-based oneMany aggregate', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId, rollupFieldIds } =
+        createRollupTable('sum({values})');
+
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, {
+          foreignTables,
+          typeValidationStrategy,
+          allowFullTableSetBasedRollups: true,
+        })
+          .from(mainTable)
+          .select(rollupFieldIds)
+      );
+
+      expect(sql).not.toContain('join lateral');
+      expect(sql).toContain(
+        'from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "h" left join "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f"'
+      );
+      expect(sql).toContain('CAST(COALESCE(SUM("f"."col_number"), 0) AS DOUBLE PRECISION)');
+      expect(sql).toContain('group by "h"."__id"');
+    });
+
+    test('keeps ordinary paginated rollup reads correlated', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId, rollupFieldIds } = createRollupTable(
+        'sum({values})',
+        { relationship: 'manyMany', includeSecondRollup: true }
+      );
+
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy })
+          .from(mainTable)
+          .select(rollupFieldIds)
+          .limit(1)
+      );
+
+      expect(sql).toContain('join lateral');
+      expect(sql).not.toContain('group by "h"."__id"');
+    });
+
+    test.each([
+      {
+        name: 'order-sensitive',
+        expression: 'array_join({values})',
+        options: { relationship: 'manyMany' },
+      },
+      {
+        name: 'filtered',
+        expression: 'sum({values})',
+        options: {
+          relationship: 'manyMany',
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: LOOKUP_TARGET_FIELD_ID,
+                operator: 'is',
+                value: 1,
+              },
+            ],
+          },
+        },
+      },
+      {
+        name: 'limited',
+        expression: 'sum({values})',
+        options: { relationship: 'manyMany', limit: 1 },
+      },
+      {
+        name: 'unsupported manyOne',
+        expression: 'sum({values})',
+        options: { relationship: 'manyOne' },
+      },
+    ] as const)('keeps the correlated lateral for $name rollups', ({ expression, options }) => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId, rollupFieldIds } = createRollupTable(
+        expression,
+        options
+      );
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy })
+          .from(mainTable)
+          .select(rollupFieldIds)
+      );
+
+      expect(sql).toContain('inner join lateral');
+    });
 
     test('rollup sum snapshot', () => {
       const db = createTestDb();
@@ -2073,7 +2348,11 @@ describe('ComputedTableRecordQueryBuilder', () => {
 
     const createConditionalRollupTable = (
       condition: unknown,
-      options?: { includeSecondRollup?: boolean; secondCondition?: unknown }
+      options?: {
+        includeSecondRollup?: boolean;
+        secondCondition?: unknown;
+        expression?: string;
+      }
     ) => {
       const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
       const mainTableId = TableId.create(MAIN_TABLE_ID)._unsafeUnwrap();
@@ -2139,7 +2418,9 @@ describe('ComputedTableRecordQueryBuilder', () => {
         lookupFieldId: foreignValuesFieldId.toString(),
         condition: options?.secondCondition ?? condition,
       })._unsafeUnwrap();
-      const rollupExpr = RollupExpression.create('sum({values})')._unsafeUnwrap();
+      const rollupExpr = RollupExpression.create(
+        options?.expression ?? 'sum({values})'
+      )._unsafeUnwrap();
 
       const mainBuilder = Table.builder()
         .withId(mainTableId)
@@ -2221,7 +2502,7 @@ describe('ComputedTableRecordQueryBuilder', () => {
       );
     });
 
-    test('conditional rollups with the same field-reference key share one lateral scan', () => {
+    test('conditional rollups with residual field-ref filters use set-based host joins', () => {
       const db = createTestDb();
       const { mainTable, foreignTable, foreignTableId } = createConditionalRollupTable(
         {
@@ -2266,25 +2547,95 @@ describe('ComputedTableRecordQueryBuilder', () => {
       );
 
       const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
-      const { sql } = compileQuery(
+      const { sql, parameters } = compileQuery(
         db,
         new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy }).from(
           mainTable
         )
       );
 
-      const lateralCount = (sql.match(/inner join lateral/g) || []).length;
-      expect(lateralCount).toBe(1);
-      expect(sql).toContain('"cond_fldcccccccccccccccc"."col_conditional_rollup"');
-      expect(sql).toContain('"cond_fldcccccccccccccccc"."col_conditional_rollup_copy"');
-      expect(sql).toContain('from "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f"');
-      expect(sql).toContain('where "f"."col_category" = "t"."col_category_ref"');
-      expect(sql).toContain(
-        'SUM("f"."col_number") FILTER (WHERE ("f"."col_category" = "t"."col_category_ref") and ("f"."col_status" = $1))'
+      // Different residual predicates become independent set-based host joins.
+      expect(sql).not.toContain('inner join lateral');
+      expect((sql.match(/left join \(select/g) || []).length).toBe(2);
+      expect(sql).toContain('"f"."col_category" = "h"."col_category_ref"');
+      expect(sql).toContain('"f"."col_status" = $');
+      expect(parameters).toEqual(expect.arrayContaining(['active', 'inactive']));
+      expect(sql).toContain('group by "h"."col_category_ref"');
+    });
+
+    test('conditional rollup with residual filter and limit uses ranked set-based join', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId } = createConditionalRollupTable(
+        {
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: FOREIGN_FILTER_FIELD_ID,
+                operator: 'is',
+                value: HOST_FILTER_FIELD_ID,
+                isSymbol: true,
+              },
+              {
+                fieldId: FOREIGN_STATUS_FIELD_ID,
+                operator: 'is',
+                value: 'active',
+              },
+            ],
+          },
+          limit: 10,
+        },
+        { expression: 'max({values})' }
       );
-      expect(sql).toContain(
-        'SUM("f"."col_number") FILTER (WHERE ("f"."col_category" = "t"."col_category_ref") and ("f"."col_status" = $2))'
+
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const { sql, parameters } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy }).from(
+          mainTable
+        )
       );
+
+      expect(sql).not.toContain('inner join lateral');
+      expect(sql).toContain('row_number() over');
+      expect(sql).toContain('"f"."col_status" = $');
+      expect(sql).toContain('partition by "h"."col_category_ref"');
+      expect(parameters).toEqual(expect.arrayContaining(['active', 10]));
+    });
+
+    test('order-sensitive array_join field-ref rollup uses ranked set-based join', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId } = createConditionalRollupTable(
+        {
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: FOREIGN_FILTER_FIELD_ID,
+                operator: 'is',
+                value: HOST_FILTER_FIELD_ID,
+                isSymbol: true,
+              },
+            ],
+          },
+          limit: 1,
+        },
+        { expression: 'array_join({values})' }
+      );
+
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const { sql, parameters } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy }).from(
+          mainTable
+        )
+      );
+
+      expect(sql).not.toContain('inner join lateral');
+      expect(sql).toContain('row_number() over');
+      expect(sql.toLowerCase()).toContain('string_agg');
+      expect(sql).toContain('partition by "h"."col_category_ref"');
+      expect(parameters).toEqual([1]);
     });
 
     test('conditional rollup falls back to lateral for complex source-only filter', () => {
@@ -2325,7 +2676,7 @@ describe('ComputedTableRecordQueryBuilder', () => {
       expect(sql).toContain('"f"."col_category" = $2');
     });
 
-    test('conditional rollup snapshot with field reference filter', () => {
+    test('conditional rollup uses set-based host join for pure field reference filter', () => {
       const db = createTestDb();
       const { mainTable, foreignTable, foreignTableId } = createConditionalRollupTable({
         filter: {
@@ -2349,10 +2700,253 @@ describe('ComputedTableRecordQueryBuilder', () => {
         )
       );
 
-      expect(sql).toContain('inner join lateral');
-      expect(sql).toMatchInlineSnapshot(
-        `"select "t"."__id" as "__id", "t"."__version" as "__version", "t"."col_category_ref" as "col_category_ref", "cond_fldcccccccccccccccc"."col_conditional_rollup" as "col_conditional_rollup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select CAST(COALESCE(SUM("f"."col_number") FILTER (WHERE "f"."col_category" = "t"."col_category_ref"), 0) AS DOUBLE PRECISION) as "col_conditional_rollup" from "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" where "f"."col_category" = "t"."col_category_ref") as "cond_fldcccccccccccccccc" on true"`
+      expect(sql).not.toContain('inner join lateral');
+      expect(sql).toContain('left join (select');
+      expect(sql).toContain(
+        'coalesce("cond_fldcccccccccccccccc"."__host_key", \'\'::text) = coalesce("t"."col_category_ref", \'\'::text)'
       );
+      expect(sql).toContain('left join "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f"');
+      expect(sql).toContain('"f"."col_category" = "h"."col_category_ref"');
+      expect(sql).toContain('group by "h"."col_category_ref"');
+      expect(sql).toMatchInlineSnapshot(
+        `"select "t"."__id" as "__id", "t"."__version" as "__version", "t"."col_category_ref" as "col_category_ref", "cond_fldcccccccccccccccc"."col_conditional_rollup" as "col_conditional_rollup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" left join (select "h"."col_category_ref" as "__host_key", CAST(COALESCE(SUM("f"."col_number"), 0) AS DOUBLE PRECISION) as "col_conditional_rollup" from (select distinct "h"."col_category_ref" as "col_category_ref" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "h") as "h" left join "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" on "f"."col_category" = "h"."col_category_ref" group by "h"."col_category_ref") as "cond_fldcccccccccccccccc" on ("cond_fldcccccccccccccccc"."__host_key" is null) = ("t"."col_category_ref" is null) and coalesce("cond_fldcccccccccccccccc"."__host_key", ''::text) = coalesce("t"."col_category_ref", ''::text)"`
+      );
+    });
+
+    test('conditional rollup uses window ranking for field-reference filter with limit', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId } = createConditionalRollupTable(
+        {
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: FOREIGN_FILTER_FIELD_ID,
+                operator: 'is',
+                value: HOST_FILTER_FIELD_ID,
+                isSymbol: true,
+              },
+            ],
+          },
+          limit: 10,
+        },
+        { expression: 'countall({values})' }
+      );
+
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const { sql, parameters } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy }).from(
+          mainTable
+        )
+      );
+
+      expect(sql).not.toContain('inner join lateral');
+      expect(sql).toContain('left join (select');
+      expect(sql).toContain('row_number() over');
+      expect(sql).toContain('select distinct "h"."col_category_ref"');
+      expect(sql).toContain('partition by "h"."col_category_ref"');
+      expect(sql).toContain('group by "h"."col_category_ref"');
+      expect(sql).toContain(
+        'coalesce("cond_fldcccccccccccccccc"."__host_key", \'\'::text) = coalesce("t"."col_category_ref", \'\'::text)'
+      );
+      expect(parameters).toEqual([10]);
+    });
+
+    test('scopes both ranked conditional rollup host sources to the dirty record slice', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId } = createConditionalRollupTable(
+        {
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: FOREIGN_FILTER_FIELD_ID,
+                operator: 'is',
+                value: HOST_FILTER_FIELD_ID,
+                isSymbol: true,
+              },
+            ],
+          },
+          limit: 10,
+        },
+        { expression: 'countall({values})' }
+      );
+
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const dirtyRecordIds = [`rec${'a'.repeat(16)}`, `rec${'b'.repeat(16)}`];
+      const { sql, parameters } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy })
+          .from(mainTable)
+          .withDirtyFilter({
+            tableId: mainTable.id().toString(),
+            recordIds: dirtyRecordIds,
+          })
+      );
+
+      expect(sql).not.toContain('inner join lateral');
+      expect(sql).toContain('row_number() over');
+      expect(sql.match(/"__dirty"\."record_id" = any\(\$\d+::text\[\]\)/gi) ?? []).toHaveLength(1);
+      expect(
+        sql.match(/"__cond_dirty"\."record_id" = any\(\$\d+::text\[\]\)/gi) ?? []
+      ).toHaveLength(2);
+      expect(parameters).toEqual([
+        mainTable.id().toString(),
+        mainTable.id().toString(),
+        dirtyRecordIds,
+        mainTable.id().toString(),
+        dirtyRecordIds,
+        10,
+        dirtyRecordIds,
+      ]);
+    });
+
+    test('scopes set-based field-reference conditional rollup to dirty host rows', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId } = createConditionalRollupTable({
+        filter: {
+          conjunction: 'and',
+          filterSet: [
+            {
+              fieldId: FOREIGN_FILTER_FIELD_ID,
+              operator: 'is',
+              value: HOST_FILTER_FIELD_ID,
+              isSymbol: true,
+            },
+          ],
+        },
+      });
+
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const dirtyRecordIds = [`rec${'a'.repeat(16)}`, `rec${'b'.repeat(16)}`];
+      const { sql, parameters } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy })
+          .from(mainTable)
+          .withDirtyFilter({
+            tableId: mainTable.id().toString(),
+            recordIds: [dirtyRecordIds[0], '', dirtyRecordIds[0], dirtyRecordIds[1]],
+          })
+      );
+
+      expect(sql).not.toContain('inner join lateral');
+      expect(sql).not.toContain('row_number() over');
+      expect(sql).toContain('tmp_computed_dirty');
+      expect(sql).toContain('"__cond_dirty"."record_id"');
+      expect(sql).toContain('select distinct "h"."col_category_ref"');
+      expect(sql).toContain('group by "h"."col_category_ref"');
+      expect(sql).toContain(
+        'coalesce("cond_fldcccccccccccccccc"."__host_key", \'\'::text) = coalesce("t"."col_category_ref", \'\'::text)'
+      );
+      expect(sql.match(/"__dirty"\."record_id" = any\(\$\d+::text\[\]\)/gi) ?? []).toHaveLength(1);
+      expect(
+        sql.match(/"__cond_dirty"\."record_id" = any\(\$\d+::text\[\]\)/gi) ?? []
+      ).toHaveLength(1);
+      expect(parameters).toEqual([
+        mainTable.id().toString(),
+        mainTable.id().toString(),
+        dirtyRecordIds,
+        dirtyRecordIds,
+      ]);
+    });
+
+    test('executes scalar field-reference rollup once per dirty host key', async () => {
+      const { pglite, db } = await createPGliteDb();
+      try {
+        const { mainTable, foreignTable, foreignTableId } = createConditionalRollupTable({
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: FOREIGN_FILTER_FIELD_ID,
+                operator: 'is',
+                value: HOST_FILTER_FIELD_ID,
+                isSymbol: true,
+              },
+            ],
+          },
+        });
+        const conditionalRollupFieldId = FieldId.create(
+          CONDITIONAL_ROLLUP_FIELD_ID
+        )._unsafeUnwrap();
+
+        await pglite.query(`create schema "${BASE_ID}"`);
+        await pglite.query(`
+          create table "${BASE_ID}"."${FOREIGN_TABLE_ID}" (
+            "__id" text primary key,
+            "__version" integer not null default 1,
+            "__auto_number" integer not null,
+            "col_number" double precision,
+            "col_category" text,
+            "col_status" text
+          )
+        `);
+        await pglite.query(`
+          create table "${BASE_ID}"."${MAIN_TABLE_ID}" (
+            "__id" text primary key,
+            "__version" integer not null default 1,
+            "__auto_number" integer not null,
+            "col_category_ref" text,
+            "col_conditional_rollup" double precision
+          )
+        `);
+        await pglite.query(`
+          create temporary table "tmp_computed_dirty" (
+            "table_id" text not null,
+            "record_id" text not null,
+            primary key ("table_id", "record_id")
+          )
+        `);
+        await pglite.query(`
+          insert into "${BASE_ID}"."${FOREIGN_TABLE_ID}"
+            ("__id", "__auto_number", "col_number", "col_category")
+          values
+            ('f-1', 1, 10, 'G-1'),
+            ('f-2', 2, 20, 'G-1'),
+            ('f-3', 3, 5, 'G-2')
+        `);
+        await pglite.query(`
+          insert into "${BASE_ID}"."${MAIN_TABLE_ID}"
+            ("__id", "__auto_number", "col_category_ref")
+          values
+            ('h-1', 1, 'G-1'),
+            ('h-2', 2, 'G-1'),
+            ('h-3', 3, 'G-missing'),
+            ('h-4', 4, null)
+        `);
+        await pglite.query(`
+          insert into "tmp_computed_dirty" ("table_id", "record_id")
+          values
+            ('${MAIN_TABLE_ID}', 'h-1'),
+            ('${MAIN_TABLE_ID}', 'h-2'),
+            ('${MAIN_TABLE_ID}', 'h-3'),
+            ('${MAIN_TABLE_ID}', 'h-4')
+        `);
+
+        const dirtyRecordIds = ['h-1', 'h-2', 'h-3', 'h-4'];
+        const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+        const query = new ComputedTableRecordQueryBuilder(db as unknown as Kysely<DynamicDB>, {
+          foreignTables,
+          typeValidationStrategy,
+        })
+          .from(mainTable)
+          .withDirtyFilter({ tableId: mainTable.id().toString(), recordIds: dirtyRecordIds })
+          .select([conditionalRollupFieldId])
+          .orderBy('__auto_number', 'asc')
+          .build()
+          ._unsafeUnwrap();
+
+        const rows = await query.execute();
+        expect(rows).toMatchObject([
+          { col_conditional_rollup: 30 },
+          { col_conditional_rollup: 30 },
+          { col_conditional_rollup: 0 },
+          { col_conditional_rollup: 0 },
+        ]);
+      } finally {
+        await db.destroy();
+      }
     });
   });
 
@@ -2474,10 +3068,43 @@ describe('ComputedTableRecordQueryBuilder', () => {
       expect(sql).toContain('jsonb_exists_any');
       expect(sql).toContain('to_jsonb("f"."col_owner")');
       expect(sql).toContain('to_jsonb("h"."col_assignees")');
+      expect(parameters).toEqual([5000]);
+    });
+
+    test('scopes field-reference conditional lookup aggregate to dirty host rows', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId } = createConditionalLookupTable('is');
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const dirtyRecordIds = [`rec${'a'.repeat(16)}`, `rec${'b'.repeat(16)}`];
+
+      const { sql, parameters } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy })
+          .from(mainTable)
+          .withDirtyFilter({
+            tableId: mainTable.id().toString(),
+            recordIds: [dirtyRecordIds[0], '', dirtyRecordIds[0], dirtyRecordIds[1]],
+          })
+      );
+
+      const hostDirtyJoin =
+        'from (select "h".* from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "h" inner join "tmp_computed_dirty" as "__cond_dirty"';
+      const foreignJoin = 'as "h" inner join "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f"';
+
+      expect(sql).toContain('left join (select');
+      expect(sql).toContain('row_number() over');
+      expect(sql).toContain(hostDirtyJoin);
+      expect(sql).toContain(foreignJoin);
+      expect(sql.indexOf(hostDirtyJoin)).toBeLessThan(sql.indexOf(foreignJoin));
+      expect(sql).toContain('"__cond_dirty"."record_id" and "__cond_dirty"."table_id" = $2');
+      expect(sql).toMatch(/"__dirty"\."record_id" = any\(\$\d+::text\[\]\)/i);
+      expect(sql).toMatch(/"__cond_dirty"\."record_id" = any\(\$\d+::text\[\]\)/i);
       expect(parameters).toEqual([
-        '/api/attachments/read/public/avatar/',
-        '/api/attachments/read/public/avatar/',
+        mainTable.id().toString(),
+        mainTable.id().toString(),
+        dirtyRecordIds,
         5000,
+        dirtyRecordIds,
       ]);
     });
 
@@ -2498,11 +3125,7 @@ describe('ComputedTableRecordQueryBuilder', () => {
       expect(sql).toContain('jsonb_array_elements_text');
       expect(sql).toContain('to_jsonb("f"."col_owner")');
       expect(sql).toContain('to_jsonb("t"."col_assignees")');
-      expect(parameters).toEqual([
-        '/api/attachments/read/public/avatar/',
-        '/api/attachments/read/public/avatar/',
-        5000,
-      ]);
+      expect(parameters).toEqual([5000]);
     });
 
     test('executes field-reference conditional lookup with set-based pglite query', async () => {
@@ -2619,6 +3242,13 @@ describe('ComputedTableRecordQueryBuilder', () => {
           )
         `);
         await pglite.query(`
+          create temporary table "tmp_computed_dirty" (
+            "table_id" text not null,
+            "record_id" text not null,
+            primary key ("table_id", "record_id")
+          )
+        `);
+        await pglite.query(`
           insert into "${BASE_ID}"."${FOREIGN_TABLE_ID}" ("__id", "__auto_number", "a_key", "a_value")
           select 'a-' || g, g, 'K-' || g, 'A-Value-' || g
           from generate_series(1, 1000) as g
@@ -2628,16 +3258,37 @@ describe('ComputedTableRecordQueryBuilder', () => {
           select 'b-' || g, g, 'K-' || g
           from generate_series(1, 1000) as g
         `);
+        await pglite.query(`
+          insert into "${BASE_ID}"."${MAIN_TABLE_ID}" ("__id", "__auto_number", "lookup_a_key")
+          values
+            ('b-1001', 1001, 'K-1'),
+            ('b-1002', 1002, 'K-missing'),
+            ('b-1003', 1003, null)
+        `);
+        await pglite.query(`
+          insert into "tmp_computed_dirty" ("table_id", "record_id")
+          select '${MAIN_TABLE_ID}', 'b-' || g
+          from generate_series(1, 5) as g
+        `);
+        await pglite.query(`
+          insert into "tmp_computed_dirty" ("table_id", "record_id")
+          values
+            ('${MAIN_TABLE_ID}', 'b-1001'),
+            ('${MAIN_TABLE_ID}', 'b-1002'),
+            ('${MAIN_TABLE_ID}', 'b-1003')
+        `);
 
         const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+        const dirtyRecordIds = ['b-1', 'b-1001', 'b-1002', 'b-1003'];
         const result = new ComputedTableRecordQueryBuilder(db as unknown as Kysely<DynamicDB>, {
           foreignTables,
           typeValidationStrategy,
         })
           .from(mainTable)
+          .withDirtyFilter({ tableId: mainTableId.toString(), recordIds: dirtyRecordIds })
           .select([conditionalLookupFieldId])
           .orderBy('__auto_number', 'asc')
-          .limit(3)
+          .limit(4)
           .build();
         expect(result.isOk()).toBe(true);
         const query = result._unsafeUnwrap();
@@ -2645,12 +3296,28 @@ describe('ComputedTableRecordQueryBuilder', () => {
         expect(compiled.sql).toContain('left join (select');
         expect(compiled.sql).toContain('row_number() over');
         expect(compiled.sql).not.toContain('inner join lateral');
+        expect(compiled.sql).toContain('select distinct "h"."lookup_a_key"');
+        expect(compiled.sql).toContain('partition by "h"."lookup_a_key"');
+        expect(compiled.sql).toContain('group by "cond_fldqqqqqqqqqqqqqqqq_src"."__host_key"');
+        expect(compiled.sql).toContain(
+          'coalesce("cond_fldqqqqqqqqqqqqqqqq"."__host_key", \'\'::text) = coalesce("t"."lookup_a_key", \'\'::text)'
+        );
+        expect(compiled.sql.match(/= ANY\(\$\d+::text\[\]\)/g)).toHaveLength(2);
+        expect(compiled.parameters).toEqual([
+          mainTableId.toString(),
+          mainTableId.toString(),
+          dirtyRecordIds,
+          1,
+          dirtyRecordIds,
+          4,
+        ]);
 
         const rows = await query.execute();
         expect(rows).toMatchObject([
           { matched_a_value: ['A-Value-1'] },
-          { matched_a_value: ['A-Value-2'] },
-          { matched_a_value: ['A-Value-3'] },
+          { matched_a_value: ['A-Value-1'] },
+          { matched_a_value: null },
+          { matched_a_value: null },
         ]);
       } finally {
         await db.destroy();
@@ -3039,6 +3706,22 @@ describe('ComputedTableRecordQueryBuilder', () => {
         }
       }
     );
+
+    test('keeps self-link rollups on the correlated lateral fallback', () => {
+      const db = createTestDb();
+      const { table, tableId } = createSelfRefWithLookupRollup('manyMany');
+      const rollupFieldId = table.getFields()[4].id();
+
+      const foreignTables = new Map([[tableId.toString(), table]]);
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy })
+          .from(table)
+          .select([rollupFieldId])
+      );
+
+      expect(sql).toContain('inner join lateral');
+    });
 
     test('uses UTC ISO datetime strings for multi-value lookup aggregation', () => {
       const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();

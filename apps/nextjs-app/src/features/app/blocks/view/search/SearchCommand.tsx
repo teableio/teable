@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FieldType, ViewType } from '@teable/core';
-import { HelpCircle } from '@teable/icons';
+import { HelpCircle, RefreshCcw } from '@teable/icons';
 import {
   toggleTableIndex,
   getTableActivatedIndex,
@@ -30,7 +30,6 @@ import {
   TooltipTrigger,
   TooltipContent,
   Switch,
-  Toggle,
   Spin,
   Button,
   AlertDialog,
@@ -44,6 +43,7 @@ import {
   AlertDialogAction,
 } from '@teable/ui-lib';
 import { useTranslation } from 'next-i18next';
+import type { ReactNode } from 'react';
 import { forwardRef, useCallback, useImperativeHandle, useMemo, useState } from 'react';
 import { useLocalStorage } from 'react-use';
 import { useEnv } from '@/features/app/hooks/useEnv';
@@ -65,13 +65,53 @@ enum ActionType {
   create = 'create',
 }
 
+interface ISearchOptionItem {
+  id: string;
+  label: string;
+  tooltip: ReactNode;
+  checked?: boolean;
+  loading?: boolean;
+  extra?: ReactNode;
+  onCheckedChange: (checked: boolean) => void | Promise<void>;
+}
+
+const SearchOptionItem = (props: ISearchOptionItem) => {
+  const { id, label, tooltip, checked, loading, extra, onCheckedChange } = props;
+
+  return (
+    <div className="flex h-8 items-center justify-between rounded-md px-2 hover:bg-accent">
+      <Label htmlFor={id} className="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center gap-2 truncate text-sm font-medium">
+                <span className="truncate" title={label}>
+                  {label}
+                </span>
+                <HelpCircle className="size-4 shrink-0 text-muted-foreground" />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-80 text-wrap break-words">{tooltip}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        {extra}
+      </Label>
+
+      <div className="ml-2 flex items-center gap-1">
+        {loading ? <Spin className="size-3" /> : null}
+        <Switch id={id} size="sm" checked={checked} onCheckedChange={onCheckedChange} />
+      </div>
+    </div>
+  );
+};
+
 export const SearchCommand = forwardRef<ISearchCommandRef, ISearchCommand>((props, ref) => {
   const { onChange, value, hideNotMatchRow, onHideSwitchChange, shareView } = props;
-  const env = useEnv();
-  const { maxSearchFieldCount = Infinity } = env;
+  const { maxSearchFieldCount = Infinity } = useEnv();
   const { t } = useTranslation(['common', 'table']);
   const defaultFields = useFields();
   const fields = defaultFields.filter((f) => f.type !== FieldType.Button);
+  const hasSearchFieldLimit = Number.isFinite(maxSearchFieldCount);
   const view = useView();
   const fieldStaticGetter = useFieldStaticGetter();
   const baseId = useBaseId();
@@ -159,6 +199,7 @@ export const SearchCommand = forwardRef<ISearchCommandRef, ISearchCommand>((prop
         <>
           <CommandInput
             placeholder={t('actions.search')}
+            containerClassName="h-10 py-0"
             className="h-8 text-xs"
             disabled={enableGlobalSearch}
             value={filterText}
@@ -166,7 +207,7 @@ export const SearchCommand = forwardRef<ISearchCommandRef, ISearchCommand>((prop
               setFilterText(value);
             }}
           />
-          <CommandList className="my-2 max-h-64">
+          <CommandList className="max-h-64 p-2">
             {<CommandEmpty>{t('listEmptyTips')}</CommandEmpty>}
             {fields.map((field) => {
               const {
@@ -186,40 +227,52 @@ export const SearchCommand = forwardRef<ISearchCommandRef, ISearchCommand>((prop
               });
               return (
                 <CommandItem
-                  className="flex flex-1 truncate p-0"
+                  className={`flex flex-1 truncate p-0 ${
+                    enableGlobalSearch ? 'cursor-not-allowed' : ''
+                  }`}
                   key={id}
                   value={id}
-                  disabled={enableGlobalSearch}
+                  aria-disabled={enableGlobalSearch}
                 >
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <div className="flex flex-1 items-center truncate p-0">
+                        <div
+                          className={`flex flex-1 items-center truncate p-0 ${
+                            enableGlobalSearch ? 'cursor-not-allowed opacity-50' : ''
+                          }`}
+                        >
                           <Label
                             htmlFor={id}
-                            className="flex flex-1 cursor-pointer items-center truncate p-2"
+                            className={`flex h-9 flex-1 items-center gap-2 truncate rounded-md px-2 hover:bg-accent ${
+                              enableGlobalSearch ? 'cursor-not-allowed' : 'cursor-pointer'
+                            }`}
                           >
                             <Switch
                               id={id}
-                              className="scale-75"
+                              size="sm"
                               checked={selectedFields.includes(id) || enableGlobalSearch}
                               onCheckedChange={(checked) => {
                                 switchChange(id, checked);
                               }}
-                              disabled={selectedFields.includes(id) && selectedFields.length === 1}
+                              disabled={
+                                enableGlobalSearch ||
+                                (selectedFields.includes(id) && selectedFields.length === 1)
+                              }
                             />
-                            <Icon className="ml-2 size-4 shrink-0" />
-                            <span
-                              className="h-full flex-1 cursor-pointer truncate pl-1 text-sm"
-                              title={name}
-                            >
+                            <Icon className="size-4 shrink-0" />
+                            <span className="flex-1 cursor-pointer truncate text-sm" title={name}>
                               {name}
                             </span>
                           </Label>
                         </div>
                       </TooltipTrigger>
-                      {selectedFields.includes(id) && selectedFields.length === 1 ? (
-                        <TooltipContent>
+                      {enableGlobalSearch ? (
+                        <TooltipContent className="max-w-80 text-wrap break-words">
+                          {t('table:table.index.globalSearchFieldTip')}
+                        </TooltipContent>
+                      ) : selectedFields.includes(id) && selectedFields.length === 1 ? (
+                        <TooltipContent className="max-w-80 text-wrap break-words">
                           {t('atLeastOne', { noun: t('noun.field') })}
                         </TooltipContent>
                       ) : null}
@@ -232,163 +285,94 @@ export const SearchCommand = forwardRef<ISearchCommandRef, ISearchCommand>((prop
         </>
       }
 
-      <div className="flex flex-col gap-y-1">
-        <div className="flex items-center justify-around gap-1">
-          <TooltipProvider>
-            <Tooltip>
-              <Toggle
-                pressed={enableGlobalSearch}
-                onPressedChange={() => {
-                  onChange(['all_fields']);
-                  setFilterText('');
-                }}
-                size={'sm'}
-                className="flex flex-1 items-center truncate p-0"
-              >
-                <TooltipTrigger asChild>
-                  <div className="flex size-full flex-1 items-center justify-center truncate p-0">
-                    <span
-                      className="flex items-center gap-0.5 truncate text-sm"
-                      title={t('actions.hideNotMatchRow')}
-                    >
-                      {t('actions.globalSearch')}
-                      <HelpCircle />
-                    </span>
-                  </div>
-                </TooltipTrigger>
-              </Toggle>
-
-              <TooltipContent>
-                {maxSearchFieldCount !== Infinity
-                  ? t('table:table.index.globalSearchTip_limited', {
-                      count: maxSearchFieldCount,
-                    })
-                  : t('table:table.index.globalSearchTip_infinity')}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-
-          <Toggle
-            pressed={!enableGlobalSearch}
-            onPressedChange={() => {
+      <div className="flex flex-col gap-0 border-t p-2">
+        <SearchOptionItem
+          id="search-mode-field"
+          label={t('actions.fieldSearch')}
+          tooltip={
+            hasSearchFieldLimit
+              ? t('table:table.index.fieldSearchTip_limited', {
+                  count: maxSearchFieldCount,
+                })
+              : t('table:table.index.fieldSearchTip_infinity')
+          }
+          checked={!enableGlobalSearch}
+          onCheckedChange={(checked) => {
+            if (checked) {
               onChange(null);
-            }}
-            size={'sm'}
-            className="flex flex-1 items-center truncate p-0"
-          >
-            <span className="truncate text-sm" title={t('actions.hideNotMatchRow')}>
-              {t('actions.fieldSearch')}
-            </span>
-          </Toggle>
-        </div>
+              return;
+            }
+            onChange(['all_fields']);
+            setFilterText('');
+          }}
+        />
 
         {view?.type === ViewType.Grid && (
-          <div className="flex items-center justify-around gap-1">
-            <Toggle
-              pressed={!hideNotMatchRow}
-              onPressedChange={() => {
-                onHideSwitchChange(false);
-              }}
-              size={'sm'}
-              className="flex flex-1 items-center truncate p-0"
-            >
-              <span className="truncate text-sm" title={t('actions.hideNotMatchRow')}>
-                {t('actions.showAllRow')}
-              </span>
-            </Toggle>
+          <SearchOptionItem
+            id="search-hide-not-match-row"
+            label={t('actions.hideNotMatchRow')}
+            tooltip={t('table:table.index.hideNotMatchRowTip')}
+            checked={!!hideNotMatchRow}
+            onCheckedChange={(checked) => {
+              onHideSwitchChange(checked);
+            }}
+          />
+        )}
 
-            <Toggle
-              pressed={!!hideNotMatchRow}
-              onPressedChange={() => {
-                onHideSwitchChange(true);
-              }}
-              size={'sm'}
-              className="flex flex-1 items-center truncate p-0"
-            >
-              <span className="truncate text-sm" title={t('actions.hideNotMatchRow')}>
-                {t('actions.hideNotMatchRow')}
-              </span>
-            </Toggle>
-          </div>
+        {!shareView && editable && (
+          <SearchOptionItem
+            id="search-index"
+            label={t('actions.tableIndex')}
+            tooltip={t('table:table.index.description', { rowCount: RecommendedIndexRow })}
+            checked={enabledSearchIndex}
+            loading={isLoading}
+            extra={
+              enabledSearchIndex && !!searchAbnormalIndex?.length ? (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-0.5">
+                        <Button
+                          size={'xs'}
+                          variant={'outline'}
+                          className="flex h-6 items-center gap-1"
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (shouldAlert) {
+                              setAlertVisible(true);
+                              setActionType(ActionType.repair);
+                              return;
+                            }
+                            await repairIndexFn(TableIndex.search);
+                          }}
+                        >
+                          <RefreshCcw className="size-3 text-muted-foreground" />
+                          {t('table:table.index.repair')}
+                          {repairIndexLoading || getAbnormalLoading ? (
+                            <Spin className="size-3" />
+                          ) : null}
+                        </Button>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-80 text-wrap break-words" sideOffset={5}>
+                      {t('table:table.index.repairTip')}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ) : null
+            }
+            onCheckedChange={async (val) => {
+              if (val && shouldAlert) {
+                setAlertVisible(true);
+                setActionType(ActionType.create);
+                return;
+              }
+              baseId && tableId && (await toggleIndexFn(TableIndex.search));
+            }}
+          />
         )}
       </div>
-
-      {!shareView && editable && (
-        <div className="flex items-center justify-between pl-1">
-          <div className="flex flex-1 items-center gap-1">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center gap-0.5 text-sm">
-                    {t('actions.tableIndex')}
-                    <HelpCircle />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent className="max-w-80 text-wrap break-words" sideOffset={5}>
-                  {t('table:table.index.description', { rowCount: RecommendedIndexRow })}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            {enabledSearchIndex && !!searchAbnormalIndex?.length && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="flex items-center gap-0.5">
-                      <Button
-                        size={'xs'}
-                        variant={'destructive'}
-                        className="flex h-6 items-center gap-0.5"
-                        onClick={async () => {
-                          if (shouldAlert) {
-                            setAlertVisible(true);
-                            setActionType(ActionType.repair);
-                            return;
-                          }
-                          await repairIndexFn(TableIndex.search);
-                        }}
-                      >
-                        {t('table:table.index.repair')}
-                        {repairIndexLoading || getAbnormalLoading ? (
-                          <Spin className="size-3" />
-                        ) : null}
-                      </Button>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent className="text-wrap break-words" sideOffset={5}>
-                    {t('table:table.index.repairTip')}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-          </div>
-
-          <div>
-            <Label
-              htmlFor={'search-index'}
-              className="flex flex-1 cursor-pointer items-center justify-between truncate p-2"
-            >
-              <div className="flex h-7 items-center gap-1">
-                <div className="flex items-center gap-1">
-                  {isLoading ? <Spin className="size-3" /> : null}
-                  <Switch
-                    id={'search-index'}
-                    className="scale-75"
-                    checked={enabledSearchIndex}
-                    onCheckedChange={async (val) => {
-                      if (val && shouldAlert) {
-                        setAlertVisible(true);
-                        setActionType(ActionType.create);
-                        return;
-                      }
-                      baseId && tableId && (await toggleIndexFn(TableIndex.search));
-                    }}
-                  />
-                </div>
-              </div>
-            </Label>
-          </div>
-        </div>
-      )}
 
       <AlertDialog open={alertVisible} onOpenChange={setAlertVisible}>
         <AlertDialogContent>

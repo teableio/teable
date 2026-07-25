@@ -151,7 +151,7 @@ const hasUndoLogFunction = async <DB>(db: DbOrTx<DB>): Promise<boolean> => {
   return Boolean(result.rows[0]?.exists);
 };
 
-const hasUndoCaptureTrigger = async <DB>(db: Kysely<DB>, tableKey: string): Promise<boolean> => {
+const hasUndoCaptureTrigger = async <DB>(db: DbOrTx<DB>, tableKey: string): Promise<boolean> => {
   const { schemaName, plainTableName } = splitSchemaQualifiedTableName(tableKey);
   const schema = schemaName ?? 'public';
   const table = plainTableName;
@@ -161,10 +161,13 @@ const hasUndoCaptureTrigger = async <DB>(db: Kysely<DB>, tableKey: string): Prom
       FROM pg_trigger AS t
       JOIN pg_class AS c ON c.oid = t.tgrelid
       JOIN pg_namespace AS n ON n.oid = c.relnamespace
+      JOIN pg_proc AS p ON p.oid = t.tgfoid
       WHERE NOT t.tgisinternal
       AND t.tgname = '__teable_undo_capture'
       AND n.nspname = ${schema}
       AND c.relname = ${table}
+      AND p.proname = '__teable_capture_undo_row'
+      AND p.pronamespace = current_schema()::regnamespace
     ) AS "exists"
   `.execute(db);
 
@@ -232,7 +235,7 @@ export const ensureUndoCaptureInfrastructure = async <DB>(
   }
 
   try {
-    const hasDurableTrigger = await hasUndoCaptureTrigger(rootDb as Kysely<unknown>, tableKey);
+    const hasDurableTrigger = await hasUndoCaptureTrigger(db, tableKey);
     if (hasDurableTrigger) {
       cache.tableTriggers.add(tableKey);
       return 'ready';

@@ -7,6 +7,7 @@
  * - Cascading updates when target field changes
  */
 /* eslint-disable @typescript-eslint/naming-convention */
+import { sql } from 'kysely';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from '../../shared/globalTestContext';
 
@@ -204,6 +205,102 @@ describe('update-field: lookup property updates', () => {
     await ctx.deleteField({ tableId: sourceTableId, fieldId: lookupField.id });
     await ctx.deleteField({ tableId: sourceTableId, fieldId: linkField.id });
     await ctx.deleteField({ tableId: foreignTableId, fieldId: emailField.id });
+  });
+
+  test('T6195 updates a scalar lookup from date to text', async () => {
+    const foreignTableWithDate = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: foreignTableId,
+      field: { type: 'date', name: 'T6195 Date' },
+    });
+    const dateField = foreignTableWithDate.fields.find((field) => field.name === 'T6195 Date');
+    if (!dateField) throw new Error('T6195 date field not found');
+
+    const foreignTableWithText = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: foreignTableId,
+      field: { type: 'singleLineText', name: 'T6195 Text' },
+    });
+    const textField = foreignTableWithText.fields.find((field) => field.name === 'T6195 Text');
+    if (!textField) throw new Error('T6195 text field not found');
+
+    const sourceTableWithLink = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: sourceTableId,
+      field: {
+        type: 'link',
+        name: 'T6195 Link',
+        options: {
+          foreignTableId,
+          relationship: 'oneOne',
+          lookupFieldId: foreignPrimaryFieldId,
+          isOneWay: true,
+        },
+      },
+    });
+    const linkField = sourceTableWithLink.fields.find((field) => field.name === 'T6195 Link');
+    if (!linkField) throw new Error('T6195 link field not found');
+
+    const sourceTableWithLookup = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: sourceTableId,
+      field: {
+        type: 'lookup',
+        name: 'T6195 Lookup',
+        options: {
+          linkFieldId: linkField.id,
+          foreignTableId,
+          lookupFieldId: dateField.id,
+        },
+      },
+    });
+    const lookupField = sourceTableWithLookup.fields.find((field) => field.name === 'T6195 Lookup');
+    if (!lookupField) throw new Error('T6195 lookup field not found');
+
+    const lookupDbFieldName = lookupField.dbFieldName;
+    if (!lookupDbFieldName) throw new Error('T6195 lookup db field name not found');
+
+    // Existing v1 lookup fields can use scalar storage. Recreate that persisted shape so the
+    // v2 update path must migrate the physical column when the lookup target type changes.
+    await sql`
+      UPDATE "field"
+      SET "cell_value_type" = 'dateTime',
+          "is_multiple_cell_value" = false,
+          "db_field_type" = 'DATETIME'
+      WHERE "id" = ${lookupField.id}
+    `.execute(ctx.testContainer.db);
+    await sql`
+      ALTER TABLE ${sql.table(`${ctx.baseId}.${sourceTableId}`)}
+      ALTER COLUMN ${sql.ref(lookupDbFieldName)} TYPE timestamptz USING NULL
+    `.execute(ctx.testContainer.db);
+
+    const foreignRecord = await ctx.createRecord(foreignTableId, {
+      [foreignPrimaryFieldId]: 'T6195 Foreign',
+      [dateField.id]: '2026-07-15T00:00:00.000Z',
+      [textField.id]: 'T6195 replacement',
+    });
+    const sourceRecord = await ctx.createRecord(sourceTableId, {
+      [linkField.id]: { id: foreignRecord.id, title: 'T6195 Foreign' },
+    });
+
+    const updatedTable = await ctx.updateField({
+      tableId: sourceTableId,
+      fieldId: lookupField.id,
+      field: {
+        options: {
+          lookupFieldId: textField.id,
+        },
+      },
+    });
+
+    const updatedField = updatedTable.fields.find((field) => field.id === lookupField.id);
+    expect(updatedField?.lookupOptions?.lookupFieldId).toBe(textField.id);
+    expect(updatedField?.type).toBe('singleLineText');
+
+    const records = await ctx.listRecords(sourceTableId);
+    expect(records.find((record) => record.id === sourceRecord.id)?.fields[lookupField.id]).toBe(
+      'T6195 replacement'
+    );
   });
 
   test('should update linkFieldId', async () => {
