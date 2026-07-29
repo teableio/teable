@@ -6,8 +6,10 @@ import { AiService } from './ai.service';
 
 const openAIProviderName = 'custom-openai';
 const openRouterProviderName = 'custom-openrouter';
+const orcaRouterProviderName = 'custom-orcarouter';
 const gptImage2Model = 'gpt-image-2';
 const openRouterModel = `openai/${gptImage2Model}`;
+const orcaRouterModel = `openai/${gptImage2Model}`;
 const imageGenerationTag = 'image-generation';
 
 const setBaseConfig = (service: AiService, isCloud: boolean) => {
@@ -60,6 +62,21 @@ describe('AiService.getModelTags', () => {
           type: LLMProviderType.OPENROUTER,
           name: openRouterProviderName,
           models: openRouterModel,
+        },
+      ]
+    );
+
+    expect(tags).toEqual([]);
+  });
+
+  it('does not infer tags for OrcaRouter models without explicit config', async () => {
+    const tags = await service.getModelTags(
+      `${LLMProviderType.ORCAROUTER}@${orcaRouterModel}@${orcaRouterProviderName}`,
+      [
+        {
+          type: LLMProviderType.ORCAROUTER,
+          name: orcaRouterProviderName,
+          models: orcaRouterModel,
         },
       ]
     );

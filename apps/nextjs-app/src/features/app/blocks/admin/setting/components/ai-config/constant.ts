@@ -13,6 +13,7 @@ import {
   Ollama,
   AmazonBedrock,
   OpenRouter,
+  OrcaRouter,
   Zap,
   // Gateway provider icons
   Meta,
@@ -54,6 +55,7 @@ export const LLM_PROVIDER_ICONS = {
   [LLMProviderType.OLLAMA]: Ollama,
   [LLMProviderType.AMAZONBEDROCK]: AmazonBedrock,
   [LLMProviderType.OPENROUTER]: OpenRouter,
+  [LLMProviderType.ORCAROUTER]: OrcaRouter,
   [LLMProviderType.OPENAI_COMPATIBLE]: Openai,
   [LLMProviderType.AI_GATEWAY]: Zap, // AI Gateway uses Zap icon
 };
@@ -187,6 +189,13 @@ export const LLM_PROVIDERS: readonly LLMProviderOption[] = [
     modelsPlaceholder: 'anthropic/claude-sonnet-4-6,google/gemini-2.5-flash',
     Icon: LLM_PROVIDER_ICONS[LLMProviderType.OPENROUTER],
     hideInProviderSelect: true,
+  },
+  {
+    value: LLMProviderType.ORCAROUTER,
+    label: 'OrcaRouter',
+    baseUrlPlaceholder: 'https://api.orcarouter.ai/v1',
+    modelsPlaceholder: 'orcarouter/auto,openai/gpt-5.2,anthropic/claude-opus-4.8',
+    Icon: LLM_PROVIDER_ICONS[LLMProviderType.ORCAROUTER],
   },
   {
     value: LLMProviderType.OPENAI_COMPATIBLE,

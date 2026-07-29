@@ -158,6 +158,7 @@ export { default as Object } from './components/Object';
 export { default as Ollama } from './components/Ollama';
 export { default as Openai } from './components/Openai';
 export { default as OpenRouter } from './components/OpenRouter';
+export { default as OrcaRouter } from './components/OrcaRouter';
 export { default as PackageCheck } from './components/PackageCheck';
 export { default as PaintBucket } from './components/PaintBucket';
 export { default as Pencil } from './components/Pencil';
