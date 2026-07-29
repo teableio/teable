@@ -108,6 +108,29 @@ export interface IComputedActivityProjector {
     },
     context?: IExecutionContext
   ): Promise<Result<ComputedActivityProjectionResult | null, DomainError>>;
+
+  /**
+   * Reconcile field/table activity for one table from persisted task-field refs.
+   * Heals orphaned queued/running counters that no longer have outbox refs.
+   */
+  reconcileTable(
+    params: {
+      tableId: string;
+      baseId?: string;
+      now?: Date;
+      trx?: ComputedActivityDbHandle;
+    },
+    context?: IExecutionContext
+  ): Promise<Result<ComputedActivityProjectionResult | null, DomainError>>;
+
+  /**
+   * Optional realtime publish hook used after read-time healing.
+   * Implementations without an event bus may no-op.
+   */
+  publishActivityChanged?(
+    projection: ComputedActivityProjectionResult | null | undefined,
+    context?: IExecutionContext
+  ): Promise<void>;
 }
 
 export const noopComputedActivityProjector: IComputedActivityProjector = {
@@ -122,5 +145,11 @@ export const noopComputedActivityProjector: IComputedActivityProjector = {
   },
   async onTaskFailed() {
     return ok(null);
+  },
+  async reconcileTable() {
+    return ok(null);
+  },
+  async publishActivityChanged() {
+    return;
   },
 };

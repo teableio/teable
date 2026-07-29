@@ -222,6 +222,32 @@ describe('OpenAPI ImportController (e2e)', () => {
       });
     });
 
+    it(`should keep a non-ASCII file name intact as the sheet name`, async () => {
+      const csvPath = testFiles[TestFileFormat.CSV].path;
+      const stats = fs.statSync(csvPath);
+      const { token, requestHeaders } = (
+        await apiGetSignature(
+          { type: UploadType.Import, contentLength: stats.size, contentType: 'text/csv' },
+          undefined
+        )
+      ).data;
+      await apiUploadFile(token, fs.createReadStream(csvPath), requestHeaders);
+      const {
+        data: { presignedUrl },
+      } = await apiNotify(token, undefined, '表格 3 (2).csv');
+
+      const {
+        data: { worksheets },
+      } = await apiAnalyzeFile({
+        attachmentUrl: presignedUrl,
+        fileType: SUPPORTEDTYPE.CSV,
+      });
+      // Regression: the read endpoint double-encoded the file name, so the
+      // analyzed sheet name (and the table created from it) showed up as
+      // a percent-encoded string like %E8%A1%A8%E6%A0%BC%203%20(2).
+      expect(worksheets[CsvImporter.DEFAULT_SHEETKEY].name).toBe('表格 3 (2)');
+    });
+
     it(`should return column header info from excel file`, async () => {
       const {
         data: { worksheets },

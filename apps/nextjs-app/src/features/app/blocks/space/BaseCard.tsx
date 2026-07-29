@@ -7,13 +7,13 @@ import type { IGetBaseVo } from '@teable/openapi';
 import { PinType, deleteBase, permanentDeleteBase, updateBase } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { Button, Card, CardContent, cn, Input } from '@teable/ui-lib/shadcn';
-import { useRouter } from 'next/router';
 import { useState, type FC, useRef } from 'react';
 import { Emoji } from '../../components/emoji/Emoji';
 import { EmojiPicker } from '../../components/emoji/EmojiPicker';
 import { ColorBg } from './ColorBg';
 import { BaseActionTrigger } from './component/BaseActionTrigger';
 import { StarButton } from './space-side-bar/StarButton';
+import { useEnterBase } from './useEnterBase';
 
 interface IBaseCard {
   base: IGetBaseVo;
@@ -27,7 +27,7 @@ export const BaseCard: FC<IBaseCard> = (props) => {
   const [renaming, setRenaming] = useState<boolean>();
   const inputRef = useRef<HTMLInputElement>(null);
   const [baseName, setBaseName] = useState<string>(base.name);
-  const router = useRouter();
+  const { enterBase, enterBaseOverlay } = useEnterBase();
 
   const { mutateAsync: updateBaseMutator } = useMutation({
     mutationFn: updateBase,
@@ -84,12 +84,7 @@ export const BaseCard: FC<IBaseCard> = (props) => {
     if (renaming) {
       return;
     }
-    router.push({
-      pathname: '/base/[baseId]',
-      query: {
-        baseId: base.id,
-      },
-    });
+    enterBase(base);
   };
 
   const hasUpdatePermission = base.restrictedAuthority
@@ -110,6 +105,7 @@ export const BaseCard: FC<IBaseCard> = (props) => {
       )}
       onClick={intoBase}
     >
+      {enterBaseOverlay}
       <ColorBg emoji={base.icon || undefined} />
       <CardContent className="relative flex size-full items-center gap-3 px-4 py-0">
         <div onClick={(e) => hasUpdatePermission && clickStopPropagation(e)}>

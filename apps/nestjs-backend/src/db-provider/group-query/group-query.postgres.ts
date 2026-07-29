@@ -28,7 +28,8 @@ export class GroupQueryPostgres extends AbstractGroupQuery {
     const columnName = this.getTableColumnName(field);
 
     if (this.isDistinct) {
-      return this.originQueryBuilder.countDistinct(columnName);
+      // raw to keep knex from re-quoting the already-quoted columnName
+      return this.originQueryBuilder.countDistinct(this.knex.raw(columnName));
     }
     return this.originQueryBuilder
       .select({ [field.dbFieldName]: this.knex.raw(columnName) })
@@ -109,7 +110,7 @@ export class GroupQueryPostgres extends AbstractGroupQuery {
 
         return this.originQueryBuilder.countDistinct(column);
       }
-      return this.originQueryBuilder.countDistinct(columnName);
+      return this.originQueryBuilder.countDistinct(this.knex.raw(columnName));
     }
 
     if (isUserOrLink(type)) {

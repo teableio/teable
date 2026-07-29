@@ -763,7 +763,8 @@ export class RecordOpenApiV2Service {
       return false;
     }
     if (
-      recordSearchAccessPath?.kind === 'generated_tsvector' &&
+      (recordSearchAccessPath?.kind === 'generated_tsvector' ||
+        recordSearchAccessPath?.kind === 'generated_text') &&
       query.search &&
       query.includeQueryExtra !== true
     ) {

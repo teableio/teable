@@ -1,4 +1,32 @@
 {
+  "computeActivity": {
+    "currentCalculations": "Cálculos actuales",
+    "thisTableOnly": "Solo esta tabla",
+    "calculatingNow": "Calculando ahora",
+    "calculating": "Calculando",
+    "waiting": "En espera",
+    "failed": "Con error",
+    "calculationFailed": "Error de cálculo",
+    "calculatingSummary": "Calculando ({{count}})",
+    "failedSummary": "Con error ({{count}})",
+    "fieldsCalculating_one": "Se está calculando {{count}} campo",
+    "fieldsCalculating_many": "Se están calculando {{count}} campos",
+    "fieldsCalculating_other": "Se están calculando {{count}} campos",
+    "fieldCalculationsFailed_one": "Error al calcular {{count}} campo",
+    "fieldCalculationsFailed_many": "Error al calcular {{count}} campos",
+    "fieldCalculationsFailed_other": "Error al calcular {{count}} campos",
+    "batchesRunning_one": "{{count}} lote en proceso",
+    "batchesRunning_many": "{{count}} lotes en proceso",
+    "batchesRunning_other": "{{count}} lotes en proceso",
+    "batchesQueued_one": "{{count}} lote en espera",
+    "batchesQueued_many": "{{count}} lotes en espera",
+    "batchesQueued_other": "{{count}} lotes en espera",
+    "records_one": "{{formattedCount}} registro",
+    "records_many": "{{formattedCount}} registros",
+    "records_other": "{{formattedCount}} registros",
+    "batchesComplete": "Lotes completados {{completed}}/{{total}}",
+    "progressAriaLabel": "Progreso del cálculo de {{fieldName}}"
+  },
   "crossSpace": {
     "duplicateFieldTitle": "Aviso",
     "duplicateFieldDescription": "Las referencias entre espacios no son compatibles. El duplicado se convertirá en un campo de texto de una sola línea.",
@@ -425,7 +453,7 @@
   "table": {
     "newTableLabel": "Nueva tabla",
     "rename": "Renombrar",
-    "tableRecordHistory": "Historial de registros de tabla",
+    "tableRecordHistory": "Historial de cambios",
     "dbTableName": "Nombre de la tabla en la base de datos física",
     "schemaName": "Nombre del esquema en la base de datos física",
     "baseInfo": "Información base",
@@ -870,9 +898,10 @@
     "title": "¿Quieres agregar múltiples registros?"
   },
   "tableTrash": {
-    "title": "Papelera de tablas",
+    "title": "Papelera",
     "resourceType": "Tipo",
-    "deletedResource": "Recurso"
+    "deletedResource": "Recurso",
+    "moreResources": "y {{count}} más"
   },
   "baseShare": {
     "shareTitle": "Compartir",

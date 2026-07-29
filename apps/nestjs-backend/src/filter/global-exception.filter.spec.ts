@@ -191,6 +191,33 @@ describe('GlobalExceptionFilter', () => {
     expect(captureException).not.toHaveBeenCalled();
   });
 
+  it('writes nothing once the response is already completed, but keeps telemetry', () => {
+    const sentResponse = {
+      status: vi.fn(),
+      json: vi.fn(),
+      setHeader: vi.fn(),
+      headersSent: true,
+    };
+    sentResponse.status.mockReturnValue(sentResponse);
+    const sentHost = {
+      switchToHttp: () => ({
+        getRequest: () => ({ url: '/api/oauth/authorize' }),
+        getResponse: () => sentResponse,
+      }),
+    };
+    const filter = new GlobalExceptionFilter(configService as never);
+
+    // e.g. a guard already redirected (EnsureLogin) and Nest raised
+    // ForbiddenException afterwards; writing again would crash with
+    // ERR_HTTP_HEADERS_SENT.
+    filter.catch(new Error('boom after redirect'), sentHost as never);
+
+    expect(sentResponse.setHeader).not.toHaveBeenCalled();
+    expect(sentResponse.status).not.toHaveBeenCalled();
+    expect(sentResponse.json).not.toHaveBeenCalled();
+    expect(captureException).toHaveBeenCalledTimes(1);
+  });
+
   it('returns a classified BYODB runtime error and annotates Sentry plus OTel', () => {
     const cls = {
       get: vi.fn((key: string) => {

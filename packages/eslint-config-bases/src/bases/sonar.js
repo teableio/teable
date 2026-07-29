@@ -5,7 +5,7 @@
 
 const sonarPatterns = {
   files: ['*.{js,jsx,ts,tsx}'],
-  excludedFiles: ['**/?(*.)+(test).{js,jsx,ts,tsx}', '*.stories.{js,ts,jsx,tsx}'],
+  excludedFiles: ['**/?(*.)+(spec|test).{js,jsx,ts,tsx}', '*.stories.{js,ts,jsx,tsx}'],
 };
 
 module.exports = {
@@ -27,6 +27,7 @@ module.exports = {
     },
     {
       files: ['*.{jsx,tsx}'],
+      excludedFiles: sonarPatterns.excludedFiles,
       rules: {
         // relax complexity for react code
         'sonarjs/cognitive-complexity': ['error', 15],

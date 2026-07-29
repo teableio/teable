@@ -34,6 +34,7 @@ import { RouteTracingInterceptor } from '../tracing/route-tracing.interceptor';
 import { getI18nPath, getI18nTypesOutputPath } from '../utils/i18n';
 import { DataDbClientManager } from './data-db-client-manager.service';
 import { DataDbRuntimeCacheService } from './data-db-runtime-cache.service';
+import { DatabaseClientPoolMetrics } from './database-client-pool.metrics';
 import { DatabaseRouter } from './database-router.service';
 import { KnexModule } from './knex';
 
@@ -100,6 +101,7 @@ const globalModules = {
     DbProvider,
     DataDbRuntimeCacheService,
     DataDbClientManager,
+    DatabaseClientPoolMetrics,
     DataDbMigrationService,
     SpaceDataDbMigrationGuardService,
     DatabaseRouter,

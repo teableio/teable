@@ -68,7 +68,7 @@ import type { TreeItemData } from '../base-node/hooks';
 import { findAdjacentNonFolderNode, getNodeUrl, useBaseNodeCrud } from '../base-node/hooks';
 import { useBaseNodeContext } from '../base-node/hooks/useBaseNodeContext';
 import { BaseNodeInfoDialog } from './BaseNodeInfoDialog';
-import { getTableOperationMenuPermission } from './BaseNodeMore.utils';
+import { getTableOperationMenuPermission, getTableRecordNavigation } from './BaseNodeMore.utils';
 import { NodeShareDialog } from './NodeShareDialog';
 
 const useNode = (resourceId: string) => {
@@ -128,6 +128,10 @@ interface IBaseNodeMoreProps {
   onDeleteSuccess?: (nodeId: string) => void;
   onDuplicateSuccess?: (node: IBaseNodeVo) => void;
   onUpdateSuccess?: (node: IBaseNodeVo) => void;
+}
+
+interface ITableOperationProps extends IBaseNodeMoreProps {
+  onRecordClick: (recordId: string) => void;
 }
 
 interface ICommonOperationProps extends IBaseNodeMoreProps {
@@ -450,7 +454,7 @@ export const FolderOperation = (props: IBaseNodeMoreProps) => {
   );
 };
 
-export const TableOperation = (props: IBaseNodeMoreProps) => {
+export const TableOperation = (props: ITableOperationProps) => {
   const {
     resourceId,
     open,
@@ -459,6 +463,7 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
     children,
     onDelete,
     onDuplicate,
+    onRecordClick,
     variant = 'dropdown',
     contentAlign = 'end',
   } = props;
@@ -579,19 +584,6 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
     // Cross-space affected-fields are surfaced inline; bypass the global toast.
     meta: { preventGlobalError: true },
   });
-
-  const onRecordClick = (recordId: string) => {
-    router.push(
-      {
-        pathname: router.pathname,
-        query: { ...router.query, recordId },
-      },
-      undefined,
-      {
-        shallow: true,
-      }
-    );
-  };
 
   if (!table && !node) {
     return null;
@@ -1073,6 +1065,27 @@ export const BaseNodeMore = (props: IBaseNodeMoreProps) => {
   }, [baseResource]);
   const { baseId } = baseResource;
 
+  const onRecordClick = useCallback(
+    (recordId: string) => {
+      const navigation = getTableRecordNavigation({
+        activeTableId:
+          baseResource.resourceType === BaseNodeResourceType.Table
+            ? baseResource.tableId
+            : undefined,
+        targetTableId: resourceId,
+        targetTableHref: tableHrefMap[resourceId],
+        targetViewId: tableViewIdsMap[resourceId],
+        currentPathname: router.pathname,
+        currentQuery: router.query,
+        recordId,
+      });
+      if (!navigation) return;
+
+      router.push(navigation.url, undefined, { shallow: navigation.shallow });
+    },
+    [baseResource, resourceId, router, tableHrefMap, tableViewIdsMap]
+  );
+
   const createSuccefulyCallback = useCallback(
     (node: IBaseNodeVo) => {
       const { resourceType, resourceId, resourceMeta } = node;
@@ -1148,7 +1161,11 @@ export const BaseNodeMore = (props: IBaseNodeMoreProps) => {
         resourceId: adjResourceId,
       });
       if (url) {
-        router.push(url, undefined, { shallow: true });
+        // A table URL without a view id needs getServerSideProps to resolve
+        // the view, so it must not be a shallow navigation.
+        router.push(url, undefined, {
+          shallow: adjResourceType !== BaseNodeResourceType.Table,
+        });
       }
     },
     [resourceId, currentResourceId, treeItems, baseId, router, tableHrefMap, tableViewIdsMap]
@@ -1224,7 +1241,11 @@ export const BaseNodeMore = (props: IBaseNodeMoreProps) => {
 
   switch (resourceType) {
     case BaseNodeResourceType.Table:
-      return <TableOperation {...mergedProps}>{children}</TableOperation>;
+      return (
+        <TableOperation {...mergedProps} onRecordClick={onRecordClick}>
+          {children}
+        </TableOperation>
+      );
     case BaseNodeResourceType.Dashboard:
       return <DashboardOperation {...mergedProps}>{children}</DashboardOperation>;
     case BaseNodeResourceType.Workflow:

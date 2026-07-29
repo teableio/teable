@@ -45,6 +45,7 @@ export interface IServerEnv {
   signupVerificationSendMailCodeRate?: number;
   enableCanaryFeature?: boolean;
   forceV2All?: boolean;
+  allowCrossSpaceReference?: boolean;
   task?: {
     maxTaskRows?: number;
   };

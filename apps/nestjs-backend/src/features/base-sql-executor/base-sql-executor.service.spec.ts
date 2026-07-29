@@ -1,4 +1,4 @@
-import { ConfigService } from '@nestjs/config';
+import type { ConfigService } from '@nestjs/config';
 import knex from 'knex';
 import { describe, expect, it, vi } from 'vitest';
 import { BaseSqlExecutorService } from './base-sql-executor.service';

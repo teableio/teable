@@ -1,9 +1,10 @@
-import { ok } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
 import { BaseId } from '../../domain/base/BaseId';
 import { ComputedActivityBatchChanged } from '../../domain/computed/events/ComputedActivityBatchChanged';
 import { ActorId } from '../../domain/shared/ActorId';
+import { domainError } from '../../domain/shared/DomainError';
 import { ComputedActivityRealtimeProjection } from './ComputedActivityRealtimeProjection';
 
 const createEvent = (generation: number) => {
@@ -87,5 +88,46 @@ describe('ComputedActivityRealtimeProjection', () => {
     expect(ensure).not.toHaveBeenCalled();
     expect(applyChange).toHaveBeenCalledTimes(2);
     expect(applyChange.mock.calls.every((call) => call[3]?.version === 1)).toBe(true);
+  });
+
+  it('publishes independent table and field documents concurrently', async () => {
+    let activeTasks = 0;
+    let maxActiveTasks = 0;
+    const ensure = vi.fn().mockImplementation(async () => {
+      activeTasks += 1;
+      maxActiveTasks = Math.max(maxActiveTasks, activeTasks);
+      await new Promise<void>((resolve) => setTimeout(resolve, 20));
+      activeTasks -= 1;
+      return ok(undefined);
+    });
+    const projection = new ComputedActivityRealtimeProjection({
+      ensure,
+      applyChange: vi.fn().mockResolvedValue(ok(undefined)),
+      delete: vi.fn(),
+    } as never);
+
+    const result = await projection.handle(context, createEvent(1));
+
+    expect(result.isOk()).toBe(true);
+    expect(maxActiveTasks).toBe(2);
+  });
+
+  it('processes field documents but reports a table publication failure', async () => {
+    const tableError = domainError.infrastructure({ message: 'table publish failed' });
+    const ensure = vi
+      .fn()
+      .mockImplementation(async (_context, docId) =>
+        String(docId).includes('/table') ? err(tableError) : ok(undefined)
+      );
+    const projection = new ComputedActivityRealtimeProjection({
+      ensure,
+      applyChange: vi.fn().mockResolvedValue(ok(undefined)),
+      delete: vi.fn(),
+    } as never);
+
+    const result = await projection.handle(context, createEvent(1));
+
+    expect(result.isErr()).toBe(true);
+    expect(ensure).toHaveBeenCalledTimes(2);
   });
 });

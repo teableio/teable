@@ -57,6 +57,7 @@ import type {
   IConditionalLookupOptions,
   INumberFieldOptions,
 } from '@teable/core';
+import { stripLookupFormulaExecutableOptions } from '@teable/v2-core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { uniq, keyBy, mergeWith } from 'lodash';
@@ -74,7 +75,10 @@ import {
   majorFieldKeysChanged,
   NON_INFECT_OPTION_KEYS,
 } from '../../../utils/major-field-keys-changed';
-import { parseFieldJson } from '../../base/cross-space-detection.util';
+import {
+  isCrossSpaceReferenceAllowed,
+  parseFieldJson,
+} from '../../base/cross-space-detection.util';
 import { ReferenceService } from '../../calculation/reference.service';
 import { hasCycle } from '../../calculation/utils/dfs';
 import { FieldService } from '../field.service';
@@ -112,6 +116,10 @@ export class FieldSupplementService {
   }
 
   async isCrossSpaceTarget(tableId: string, foreignTableId: string): Promise<boolean> {
+    // Central policy switch: with the escape hatch on, nothing counts as a
+    // cross-space target, which disables the create-forbid and the
+    // field-duplicate downgrade in one place.
+    if (isCrossSpaceReferenceAllowed()) return false;
     if (!foreignTableId || tableId === foreignTableId) return false;
     const rows = await this.prismaService.txClient().tableMeta.findMany({
       where: { id: { in: [tableId, foreignTableId] }, deletedTime: null },
@@ -713,7 +721,8 @@ export class FieldSupplementService {
     options: IFieldRo['options'] = {},
     sourceOptions: IFieldVo['options'],
     cellValueType: CellValueType,
-    isMultipleCellValue?: boolean
+    isMultipleCellValue?: boolean,
+    config?: { stripSourceFormulaExecutableOptions?: boolean }
   ) {
     const safeSourceOptions =
       sourceOptions && typeof sourceOptions === 'object' && !Array.isArray(sourceOptions)
@@ -721,10 +730,18 @@ export class FieldSupplementService {
         : {};
     const safeOptions =
       options && typeof options === 'object' && !Array.isArray(options) ? options : {};
+
+    // When stripping, only drop formula executable keys from SOURCE options.
+    // Request options may still carry formatting/showAs overrides. Source structural
+    // options (e.g. select choices) must win over stale request options (T6332/T6208).
+    const mirroredSourceOptions = config?.stripSourceFormulaExecutableOptions
+      ? stripLookupFormulaExecutableOptions(safeSourceOptions) ?? {}
+      : (safeSourceOptions as Record<string, unknown>);
+
     const sourceFormatting =
-      'formatting' in safeSourceOptions ? safeSourceOptions.formatting : undefined;
+      'formatting' in mirroredSourceOptions ? mirroredSourceOptions.formatting : undefined;
     const showAsSchema = getShowAsSchema(cellValueType, isMultipleCellValue);
-    let sourceShowAs = 'showAs' in safeSourceOptions ? safeSourceOptions.showAs : undefined;
+    let sourceShowAs = 'showAs' in mirroredSourceOptions ? mirroredSourceOptions.showAs : undefined;
 
     // if source showAs is invalid, we should ignore it
     if (sourceShowAs && !showAsSchema.safeParse(sourceShowAs).success) {
@@ -741,7 +758,7 @@ export class FieldSupplementService {
     const showAs = 'showAs' in safeOptions ? safeOptions.showAs : sourceShowAs;
 
     return {
-      ...safeSourceOptions,
+      ...mirroredSourceOptions,
       formatting,
       showAs,
     };
@@ -789,7 +806,8 @@ export class FieldSupplementService {
       fieldRo.options,
       sourceOptions,
       cellValueType,
-      isMultipleCellValue
+      isMultipleCellValue,
+      { stripSourceFormulaExecutableOptions: true }
     );
 
     return {
@@ -2271,8 +2289,20 @@ export class FieldSupplementService {
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
   getFieldReferenceIds(field: IFieldInstance): string[] {
-    if (field.lookupOptions && (field.isLookup || field.type !== FieldType.ConditionalRollup)) {
-      // Lookup/Rollup fields depend on BOTH the target lookup field and the link field.
+    // Lookup-of-formula is type=formula + isLookup. Always use lookup edges, never
+    // formula expression field IDs from a foreign table (T6332).
+    if (field.isLookup && !field.isConditionalLookup) {
+      const refs: string[] = [];
+      if (field.lookupOptions && isLinkLookupOptions(field.lookupOptions)) {
+        const { lookupFieldId, linkFieldId } = field.lookupOptions;
+        if (lookupFieldId) refs.push(lookupFieldId);
+        if (linkFieldId) refs.push(linkFieldId);
+      }
+      return refs;
+    }
+
+    if (field.lookupOptions && field.type !== FieldType.ConditionalRollup) {
+      // Rollup fields depend on BOTH the target lookup field and the link field.
       // This ensures when a link cell changes, the dependent lookup/rollup fields are
       // included in the computed impact and persisted via updateFromSelect.
       const refs: string[] = [];

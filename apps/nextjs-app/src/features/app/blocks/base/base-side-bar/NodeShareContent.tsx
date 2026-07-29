@@ -11,6 +11,7 @@ import {
   deleteBaseShare,
   getBaseShareByNodeId,
   refreshBaseShare,
+  ShortLinkType,
   updateBaseShare,
 } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
@@ -33,15 +34,16 @@ import { useMemo, useState } from 'react';
 import { useAppPublishContext } from '@/features/app/blocks/table/table-header/publish-base/AppPublishContext';
 import { CopyButton } from '@/features/app/components/CopyButton';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
+import { useOrigin } from '@/features/app/hooks/useOrigin';
+import { useShortLink } from '@/features/app/hooks/useShortLink';
 import { BaseNodeResourceIconMap, getNodeIcon, getNodeName } from '../base-node/hooks';
 import type { TreeItemData } from '../base-node/hooks';
 import { useSharedNodeIds } from './BaseNodeShareIndicator';
 import { BaseShareContent } from './BaseShareContent';
 import { useBaseSharePermissionOptions } from './useBaseSharePermissionOptions';
 
-export const getShareUrl = (shareId: string) => {
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://app.teable.ai';
-  return `${origin}/share/${shareId}/base`;
+export const getShareUrl = (shareId: string, origin: string) => {
+  return origin ? `${origin}/share/${shareId}/base` : '';
 };
 
 export const NodeShareHeader = ({ node }: { node: TreeItemData }) => {
@@ -185,10 +187,19 @@ export const NodeShareContent = ({
     enabled: isNodeShared,
   });
 
+  // Prefer the short URL for display/copy/QR code; only fall back to the long
+  // URL when short link creation failed (empty while loading to avoid a flash)
+  const { shortUrl, isFallback } = useShortLink(
+    share ? { type: ShortLinkType.BaseShare, resourceId: share.shareId } : undefined
+  );
+  const origin = useOrigin();
   const shareUrl = useMemo(() => {
     if (!share) return '';
-    return getShareUrl(share.shareId);
-  }, [share]);
+    return shortUrl ?? (isFallback ? getShareUrl(share.shareId, origin) : '');
+  }, [share, shortUrl, isFallback, origin]);
+  // Embed always uses the long URL: the iframe lives on third-party pages, so
+  // there is no reason to go through the short-link redirect
+  const embedUrl = share ? getShareUrl(share.shareId, origin) : '';
 
   const { mutate: createShare, isPending: isCreateLoading } = useMutation({
     mutationFn: (data: ICreateBaseShareRo) => createBaseShare(baseId, data),
@@ -284,6 +295,7 @@ export const NodeShareContent = ({
       header={!hideHeader ? <NodeShareHeader node={node} /> : undefined}
       share={share || null}
       shareUrl={shareUrl}
+      embedUrl={embedUrl}
       isCreateLoading={isCreateLoading}
       isDeleteLoading={isDeleteLoading}
       isRefreshLoading={isRefreshLoading}

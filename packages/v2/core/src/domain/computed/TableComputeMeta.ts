@@ -9,6 +9,7 @@ import { TableId } from '../table/TableId';
 import { TableComputeStatus, type TableComputeStatusValue } from './ComputeStatus';
 
 const recentCompletionSchema = z.object({
+  taskId: z.string().min(1).optional(),
   fieldId: z.string().min(1),
   durationMs: z.number().int().nonnegative(),
   completedAt: z.string().datetime(),
@@ -28,6 +29,7 @@ const tableComputeMetaSchema = z.object({
 });
 
 export type TableComputeRecentCompletion = {
+  taskId?: string;
   fieldId: string;
   durationMs: number;
   completedAt: string;
@@ -49,11 +51,17 @@ export type TableComputeMetaDto = {
 const DEFAULT_RECENT_LIMIT = 20;
 
 export class TableComputeMeta {
+  /** Content changed since last generation bump; flushed by recompute/finalize. */
+  private dirty = false;
+  private readonly initialGeneration: number;
+
   private constructor(
     private state: TableComputeMetaDto,
     private readonly tableIdValue: TableId,
     private readonly baseIdValue: BaseId
-  ) {}
+  ) {
+    this.initialGeneration = state.generation;
+  }
 
   static create(raw: unknown): Result<TableComputeMeta, DomainError> {
     const parsed = tableComputeMetaSchema.safeParse(raw);
@@ -130,8 +138,14 @@ export class TableComputeMeta {
     return TableComputeStatus.create(this.state.status)._unsafeUnwrap();
   }
 
+  hasChanged(): boolean {
+    return this.state.generation !== this.initialGeneration;
+  }
+
   /**
    * Recompute table-level counters from field activity snapshots.
+   * Flushes any pending completion dirty bit in the same generation step so one
+   * domain transaction maps to one ShareDB version (T6276).
    */
   recomputeFromFields(
     fields: ReadonlyArray<{
@@ -153,12 +167,25 @@ export class TableComputeMeta {
         complexity = Math.max(complexity, field.estimatedComplexity);
       }
     }
-    this.state.calculatingFieldCount = calculating;
-    this.state.queuedFieldCount = queued;
-    this.state.estimatedComplexity = complexity;
-    this.state.status = TableComputeStatus.fromActiveFieldCount(calculating + queued).toString();
+    const nextStatus = TableComputeStatus.fromActiveFieldCount(calculating + queued).toString();
+    const countersChanged =
+      this.state.calculatingFieldCount !== calculating ||
+      this.state.queuedFieldCount !== queued ||
+      this.state.estimatedComplexity !== complexity ||
+      this.state.status !== nextStatus;
+
+    if (countersChanged) {
+      this.state.calculatingFieldCount = calculating;
+      this.state.queuedFieldCount = queued;
+      this.state.estimatedComplexity = complexity;
+      this.state.status = nextStatus;
+      this.dirty = true;
+    }
+
+    if (!this.dirty) return;
     this.state.generation += 1;
     this.state.updatedAt = ts.toISOString();
+    this.dirty = false;
   }
 
   pushCompletion(
@@ -171,6 +198,9 @@ export class TableComputeMeta {
       { ...completion, fieldId: completion.fieldId.toString() },
       ...this.state.recentCompletions,
     ].slice(0, limit);
+    // Defer generation bump to recomputeFromFields so completion + counter updates
+    // share a single ShareDB version in the same release transaction.
+    this.dirty = true;
     this.state.updatedAt = now.toISOString();
   }
 }

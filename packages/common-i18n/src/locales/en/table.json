@@ -1,4 +1,27 @@
 {
+  "computeActivity": {
+    "currentCalculations": "Current calculations",
+    "thisTableOnly": "This table only",
+    "calculatingNow": "Calculating now",
+    "calculating": "Calculating",
+    "waiting": "Waiting",
+    "failed": "Failed",
+    "calculationFailed": "Calculation failed",
+    "calculatingSummary": "Calculating ({{count}})",
+    "failedSummary": "Failed ({{count}})",
+    "fieldsCalculating_one": "{{count}} field calculating",
+    "fieldsCalculating_other": "{{count}} fields calculating",
+    "fieldCalculationsFailed_one": "{{count}} field calculation failed",
+    "fieldCalculationsFailed_other": "{{count}} field calculations failed",
+    "batchesRunning_one": "{{count}} batch running",
+    "batchesRunning_other": "{{count}} batches running",
+    "batchesQueued_one": "{{count}} batch waiting",
+    "batchesQueued_other": "{{count}} batches waiting",
+    "records_one": "{{formattedCount}} record",
+    "records_other": "{{formattedCount}} records",
+    "batchesComplete": "Completed batches {{completed}}/{{total}}",
+    "progressAriaLabel": "{{fieldName}} calculation progress"
+  },
   "crossSpace": {
     "duplicateFieldTitle": "Notice",
     "duplicateFieldDescription": "Cross-space references are not supported. The duplicate will be converted to a single line text field.",
@@ -461,7 +484,7 @@
   "table": {
     "newTableLabel": "New table",
     "rename": "Rename",
-    "tableRecordHistory": "Table record history",
+    "tableRecordHistory": "Record History",
     "deleteConfirm": "Are you sure you want to delete \"{{tableName}}\" ?",
     "dbTableName": "Table name in physical database",
     "schemaName": "Schema name in physical database",
@@ -1125,9 +1148,10 @@
     "description": "The {{count}} records will be added to the table."
   },
   "tableTrash": {
-    "title": "Table trash",
+    "title": "Trash",
     "resourceType": "Type",
-    "deletedResource": "Resource"
+    "deletedResource": "Resource",
+    "moreResources": "and {{count}} more"
   },
   "pluginPanel": {
     "empty": {
@@ -1218,6 +1242,11 @@
         "otherPlaceholder": "Or type your answer…",
         "asked": "Asked",
         "skipped": "Skipped",
+        "pendingAnswer": "Awaiting answer",
+        "notSelected": "Not selected",
+        "timedOut": "Timed out",
+        "timedOutWithDuration": "Timed out ({{duration}})",
+        "cancelled": "Cancelled",
         "previousQuestion": "Previous question",
         "nextQuestion": "Next question"
       },

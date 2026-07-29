@@ -1,12 +1,15 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ITableActionKey } from '@teable/core';
 import { getTaskStatusCollection } from '@teable/openapi';
+import { throttle } from 'lodash';
 import type { FC, ReactNode } from 'react';
 import { useCallback, useContext, useMemo } from 'react';
 import { ReactQueryKeys } from '../../config';
 import { useIsHydrated, useTableListener } from '../../hooks';
 import { AnchorContext } from '../anchor';
 import { TaskStatusCollectionContext } from './TaskStatusCollectionContext';
+
+const THROTTLE_TIME_MS = 2000;
 
 interface ITaskStatusCollectionProviderProps {
   children: ReactNode;
@@ -33,11 +36,16 @@ export const TaskStatusCollectionProvider: FC<ITaskStatusCollectionProviderProps
     });
   }, [queryClient, tableId]);
 
+  const throttleUpdateTaskStatusCollectionForTable = useMemo(
+    () => throttle(updateTaskStatusCollectionForTable, THROTTLE_TIME_MS),
+    [updateTaskStatusCollectionForTable]
+  );
+
   const tableMatches = useMemo<ITableActionKey[]>(
     () => ['taskProcessing', 'taskCompleted', 'taskCancelled', 'taskFailed'],
     []
   );
-  useTableListener(tableId, tableMatches, updateTaskStatusCollectionForTable);
+  useTableListener(tableId, tableMatches, throttleUpdateTaskStatusCollectionForTable);
 
   const taskStatusCollection = useMemo(
     () => resTaskStatusCollection || null,

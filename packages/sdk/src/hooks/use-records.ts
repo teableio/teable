@@ -2,7 +2,8 @@ import type { IFilter, IRecord, ISort } from '@teable/core';
 import { IdPrefix, mergeWithDefaultFilter, mergeWithDefaultSort } from '@teable/core';
 import type { IGetRecordsRo } from '@teable/openapi';
 import { keyBy } from 'lodash';
-import { useContext, useMemo } from 'react';
+import { useCallback, useContext, useMemo } from 'react';
+import type { Doc } from 'sharedb/lib/client';
 import { ShareViewContext } from '../context/table/ShareViewContext';
 import { TablePermissionContext } from '../context/table-permission';
 import { useInstances } from '../context/use-instances';
@@ -89,9 +90,22 @@ export const useRecords = (query?: IGetRecordsRo, initData?: IRecord[]) => {
     shareViewSort,
     visibleFieldIds,
   ]);
+  const factory = useCallback(
+    (record: IRecord, doc?: Doc<IRecord>) => {
+      const instance = createRecordInstance(record, doc);
+      if (!doc) {
+        // doc-less (seeded) instance: stash the table id so cell edits can
+        // still resolve their REST endpoint before the subscription doc arrives
+        instance.tableId = tableId;
+      }
+      return instance;
+    },
+    [tableId]
+  );
+
   const { instances, extra } = useInstances({
     collection: `${IdPrefix.Record}_${tableId}`,
-    factory: createRecordInstance,
+    factory,
     queryParams,
     initData,
   });

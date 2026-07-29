@@ -44,6 +44,7 @@ import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
 import { DataDbClientManager } from '../../global/data-db-client-manager.service';
+import { handleBestEffortDataDbDropError } from '../../global/data-db-runtime-error';
 import type { IClsStore } from '../../types/cls';
 import { getMaxLevelRole } from '../../utils/get-max-level-role';
 import { updateOrder } from '../../utils/update-order';
@@ -68,6 +69,7 @@ import type { BaseImportProgressCallback } from './base-import.service';
 import {
   computeCrossSpaceFieldLevels,
   extractForeignTableId,
+  isCrossSpaceReferenceAllowed,
   sortByConversionDepth,
 } from './cross-space-detection.util';
 import { replaceDefaultUrl } from './utils';
@@ -873,6 +875,7 @@ export class BaseService {
 
         await this.dropBase(baseId, tableIds);
         await this.tableOpenApiService.cleanReferenceFieldIds(tableIds);
+        await this.tableOpenApiService.cleanTaskRelatedData(tableIds);
         await this.tableOpenApiService.cleanTablesRelatedData(baseId, tableIds, {
           useTransaction: true,
         });
@@ -907,6 +910,7 @@ export class BaseService {
 
       await this.dropBaseTable(tableIds);
       await this.tableOpenApiService.cleanReferenceFieldIds(tableIds);
+      await this.tableOpenApiService.cleanTaskRelatedData(tableIds);
       await this.tableOpenApiService.cleanTablesRelatedData(baseId, tableIds, {
         useTransaction: true,
       });
@@ -967,13 +971,25 @@ export class BaseService {
 
   async dropBase(baseId: string, tableIds: string[]) {
     const sql = this.dbProvider.dropSchema(baseId);
-    if (sql) {
+    if (!sql) {
+      await this.tableOpenApiService.dropTables(tableIds);
+      return;
+    }
+    try {
       const scopedDataPrisma = await this.dataDbClientManager.dataPrismaForBase(baseId, {
         useTransaction: true,
       });
-      return await this.getDataPrismaExecutor(scopedDataPrisma).$executeRawUnsafe(sql);
+      await this.getDataPrismaExecutor(scopedDataPrisma).$executeRawUnsafe(sql);
+    } catch (error) {
+      handleBestEffortDataDbDropError({
+        error,
+        isMetaFallback: await this.dataDbClientManager.isMetaFallbackForBase(baseId, {
+          useTransaction: true,
+        }),
+        logger: this.logger,
+        target: `schema for base ${baseId}`,
+      });
     }
-    await this.tableOpenApiService.dropTables(tableIds);
   }
 
   async dropBaseTable(tableIds: string[]) {
@@ -1179,6 +1195,7 @@ export class BaseService {
     baseId: string,
     targetSpaceId: string
   ): Promise<{ affected: ICrossSpaceAffectedField[]; levels: Map<string, number> }> {
+    if (isCrossSpaceReferenceAllowed()) return { affected: [], levels: new Map() };
     const prisma = this.prismaService.txClient();
 
     const movingBase = await prisma.base.findUniqueOrThrow({

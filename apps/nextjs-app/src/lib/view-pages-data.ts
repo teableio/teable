@@ -15,10 +15,11 @@ export const getViewPageServerData = async (
   ssrApi: SsrApi,
   baseId: string,
   tableId: string,
-  viewId: string
+  viewId: string,
+  preloadedViews?: IViewVo[]
 ): Promise<IViewPageProps | undefined> => {
   const api = ssrApi;
-  const tableResult = await api.getTable(baseId, tableId, viewId);
+  const tableResult = await api.getTable(baseId, tableId, viewId, preloadedViews);
   if (tableResult) {
     const { fields, views, records, extra } = tableResult;
 

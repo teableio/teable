@@ -6,7 +6,6 @@ import type { IValidateTypes, IAnalyzeVo } from '@teable/openapi';
 import { SUPPORTEDTYPE, importTypeMap } from '@teable/openapi';
 import jschardet from 'jschardet';
 import { zip, toString, intersection, chunk as chunkArray } from 'lodash';
-import fetch from 'node-fetch';
 import sizeof from 'object-sizeof';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
@@ -14,6 +13,7 @@ import { z } from 'zod';
 import type { ZodType } from 'zod';
 import { CustomHttpException } from '../../../custom.exception';
 import { exceptionParse } from '../../../utils/exception-parse';
+import { safeFetch } from '../../../utils/ssrf-http';
 import { toLineDelimitedStream } from './delimiter-stream';
 
 export const DEFAULT_IMPORT_CPU_USAGE = 0.5;
@@ -242,7 +242,7 @@ export abstract class Importer {
       url = `http://localhost:${process.env.PORT}${url}`;
     }
 
-    const { body: stream, headers } = await fetch(url);
+    const { body: stream, headers } = await safeFetch(url);
 
     const supportType = importTypeMap[type].accept.split(',');
 

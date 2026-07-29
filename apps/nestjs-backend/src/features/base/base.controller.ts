@@ -305,6 +305,7 @@ export class BaseController {
 
   @Put(':baseId/order')
   @Permissions('base|update')
+  @EmitControllerEvent(Events.BASE_UPDATE)
   async updateOrder(
     @Param('baseId') baseId: string,
     @Body(new ZodValidationPipe(updateOrderRoSchema)) updateOrderRo: IUpdateOrderRo

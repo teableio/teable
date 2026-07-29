@@ -48,6 +48,11 @@ interface IRecordHistoryProps {
   onRecordClick?: (recordId: string) => void;
 }
 
+interface IRecordHistoryContentProps extends IRecordHistoryProps {
+  tableId: string;
+  contextFields?: IFieldInstance[];
+}
+
 const SUPPORTED_COPY_FIELD_TYPES = [FieldType.SingleLineText, FieldType.LongText];
 const RECORD_HISTORY_TIME_FORMAT = 'YYYY/MM/DD HH:mm';
 
@@ -349,15 +354,12 @@ const RecordHistoryFilterBar = (props: IRecordHistoryFilterBarProps) => {
   );
 };
 
-export const RecordHistory = (props: IRecordHistoryProps) => {
-  const { recordId, onRecordClick } = props;
-  const anchorTableId = useTableId() as string;
-  const tableId = props.tableId || anchorTableId;
+const RecordHistoryContent = (props: IRecordHistoryContentProps) => {
+  const { recordId, onRecordClick, tableId, contextFields } = props;
   const baseId = useBaseId();
   const { t } = useTranslation();
   const isHydrated = useIsHydrated();
   const getFieldStatic = useFieldStaticGetter();
-  const fields = useFields({ withHidden: true });
 
   const [userMap, setUserMap] = useState<IRecordHistoryVo['userMap']>({});
   const [fieldIds, setFieldIds] = useState<string[]>([]);
@@ -368,7 +370,7 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
     {}
   );
 
-  const shouldFetchFields = tableId !== anchorTableId;
+  const shouldFetchFields = contextFields == null;
 
   const { data: fetchedFields } = useQuery({
     queryKey: ReactQueryKeys.fieldList(tableId),
@@ -377,8 +379,8 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
   });
 
   const targetFields = useMemo(
-    () => (shouldFetchFields ? fetchedFields?.map((field) => createFieldInstance(field)) : fields),
-    [fetchedFields, fields, shouldFetchFields]
+    () => contextFields ?? fetchedFields?.map((field) => createFieldInstance(field)),
+    [contextFields, fetchedFields]
   );
   const visibleFields = useMemo(
     () => targetFields?.filter((field) => field.canReadFieldRecord) ?? [],
@@ -722,4 +724,19 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
       />
     </div>
   );
+};
+
+const RecordHistoryWithFieldContext = (props: Omit<IRecordHistoryProps, 'tableId'>) => {
+  const tableId = useTableId() as string;
+  const fields = useFields({ withHidden: true });
+
+  return <RecordHistoryContent {...props} tableId={tableId} contextFields={fields} />;
+};
+
+export const RecordHistory = (props: IRecordHistoryProps) => {
+  if (props.tableId) {
+    return <RecordHistoryContent {...props} tableId={props.tableId} />;
+  }
+
+  return <RecordHistoryWithFieldContext {...props} />;
 };

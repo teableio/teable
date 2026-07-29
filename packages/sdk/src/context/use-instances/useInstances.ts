@@ -428,6 +428,9 @@ export function useInstances<T, R extends { id: string }>({
   const preQueryRef = useRef<Query<T>>();
   const lastConnectionRef = useRef<typeof connection>();
   const projectedRefreshSeqRef = useRef(0);
+  // whether initData may still seed the instances: true until the current
+  // subscription delivers live (doc-backed) results, reset on scope change
+  const seedableRef = useRef(true);
 
   const refreshProjectedRecordFields = useCallback(
     async (fieldIds: string[]) => {
@@ -611,6 +614,7 @@ export function useInstances<T, R extends { id: string }>({
     if (!query.results) {
       return;
     }
+    seedableRef.current = false;
     dispatch({ type: 'ready', results: query.results, extra: query.extra });
     query.results.forEach((doc) => {
       opListeners.current.add(doc, (op) => {
@@ -669,6 +673,7 @@ export function useInstances<T, R extends { id: string }>({
       docs.map((doc) => doc.id)
     );
     const results = query.results ?? docs;
+    seedableRef.current = false;
     dispatch({ type: 'ready', results, extra: query.extra });
     results.forEach((doc) => {
       opListeners.current.add(doc, (op) => {
@@ -730,13 +735,20 @@ export function useInstances<T, R extends { id: string }>({
 
     const previousKey = currentKeyRef.current;
     const previousScopeKey = currentScopeKeyRef.current;
+    // a real scope switch (not the initial mount) invalidates everything,
+    // including doc-less seeded instances from the previous scope
+    const scopeSwitched = previousScopeKey !== undefined && previousScopeKey !== nextScopeKey;
     const shouldClearInstances = connectionChanged || previousScopeKey !== nextScopeKey;
     currentKeyRef.current = undefined;
     currentScopeKeyRef.current = undefined;
     preQueryRef.current = undefined;
 
     if (shouldClearInstances) {
-      dispatch({ type: 'clear' });
+      seedableRef.current = true;
+      // 'clear' keeps doc-less instances so initial SSR data survives the
+      // first connect; 'reset' wipes unconditionally so a previous table's
+      // seeds cannot leak across a switch
+      dispatch({ type: scopeSwitched ? 'reset' : 'clear' });
       setQuery(undefined);
     }
 
@@ -806,6 +818,19 @@ export function useInstances<T, R extends { id: string }>({
       query.removeListener('extra', handleExtra);
     };
   }, [query, handleInsert, handleRemove, handleMove, handleReady, handleChanged, handleExtra]);
+
+  // Seed instances from initData while the subscription is still in flight,
+  // so a table switch can render immediately from prefetched REST data instead
+  // of a blank screen. Declared after the main effect on purpose: on a scope
+  // change the clear above runs first, then the (fresh) initData reseeds.
+  // Once the subscription delivers doc-backed results (seedableRef false, and
+  // the reducer ignores seeds over doc-backed instances) seeds become no-ops.
+  useEffect(() => {
+    if (!initData?.length || !seedableRef.current) {
+      return;
+    }
+    dispatch({ type: 'seed', data: initData });
+  }, [initData]);
 
   return instances;
 }

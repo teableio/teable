@@ -382,7 +382,9 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
   }
 
   visitUpdateButtonWorkflow(spec: UpdateButtonWorkflowSpec): Result<void, DomainError> {
-    this.addValueChanged(spec.fieldId());
+    if (spec.previousWorkflow()?.toDto().id !== spec.nextWorkflow()?.toDto().id) {
+      this.addValueChanged(spec.fieldId());
+    }
     return ok(undefined);
   }
 

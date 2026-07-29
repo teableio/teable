@@ -267,8 +267,12 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
         urlPrefix: shareUrlPrefix,
       });
       if (!url) return;
+      // Table URLs built here have no view id (hrefMap not ready yet); only a
+      // non-shallow navigation runs getServerSideProps, which redirects to the
+      // last-visited/default view. A shallow push would strand the page on a
+      // viewless URL.
       router.push(url, undefined, {
-        shallow: !isSharePage,
+        shallow: !isSharePage && resourceType !== BaseNodeResourceType.Table,
       });
     },
     [baseId, router, tableHrefMap, tableViewIdsMap, onPrimaryAction, shareUrlPrefix]

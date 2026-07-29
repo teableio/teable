@@ -32,16 +32,20 @@ import {
 } from './schema-operation';
 import {
   tableQueryOpsAnalyzeObservation,
+  tableQueryOpsAnalyzeSearchAccessPaths,
   tableQueryOpsAnalyzeSearchVectors,
   tableQueryOpsAnalyzeSavedViews,
   tableQueryOpsExecuteRecommendations,
+  tableQueryOpsExecuteSearchAccessPath,
   tableQueryOpsExecuteSearchVector,
   tableQueryOpsExplainSearchVectors,
   tableQueryOpsExplainSavedViews,
+  tableQueryOpsExplainSearchAccessPaths,
   tableQueryOpsObservabilitySchema,
   tableQueryOpsOverview,
   tableQueryOpsSignozDashboardTemplate,
   tableQueryOpsValidateSearchVectorTempTable,
+  tableQueryOpsValidateSearchAccessPathTempTable,
 } from './table-query-ops';
 import { tablesCreate, tablesDescribeSchema } from './tables';
 import {
@@ -130,6 +134,10 @@ export const tableQueryOps = Command.make('table-query-ops').pipe(
     tableQueryOpsAnalyzeObservation,
     tableQueryOpsExplainSavedViews,
     tableQueryOpsExecuteRecommendations,
+    tableQueryOpsAnalyzeSearchAccessPaths,
+    tableQueryOpsExplainSearchAccessPaths,
+    tableQueryOpsExecuteSearchAccessPath,
+    tableQueryOpsValidateSearchAccessPathTempTable,
     tableQueryOpsAnalyzeSearchVectors,
     tableQueryOpsExplainSearchVectors,
     tableQueryOpsExecuteSearchVector,

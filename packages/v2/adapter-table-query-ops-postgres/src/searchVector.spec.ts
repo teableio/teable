@@ -5,9 +5,11 @@ import {
   assertReadySearchVectorExecutionRecommendation,
   assertSearchVectorExecutionCandidate,
   chooseScopedExpressionNextAction,
+  selectSubstringSearchProvider,
   type AnalyzeTableSearchVectorResult,
   type TableQuerySearchSemanticsComparison,
   type TableQuerySearchVectorRecommendation,
+  type TableQuerySubstringSearchProviderCapability,
 } from './searchVector';
 
 describe('assertReadySearchVectorExecutionRecommendation', () => {
@@ -93,7 +95,7 @@ describe('addSearchSemanticsBaselineDeltas', () => {
         recordIds: ['recA', 'recB'],
       }),
       makeSemanticsComparison({
-        strategy: 'tsvector_simple',
+        strategy: 'bigram',
         matchCount: 40,
         recordIds: ['recA', 'recC'],
       }),
@@ -104,12 +106,12 @@ describe('addSearchSemanticsBaselineDeltas', () => {
       matchCountDeltaPctFromIlike: -60,
       sampleOverlapWithIlike: 1,
       reasonablenessAssessment: {
-        reasonCodes: expect.arrayContaining(['large_match_count_delta']),
+        reasonCodes: expect.arrayContaining(['substring_result_mismatch']),
       },
     });
   });
 
-  it('marks close full-text match counts as close to the ILIKE baseline', () => {
+  it('marks identical n-gram match counts as compatible with the ILIKE baseline', () => {
     const comparisons = addSearchSemanticsBaselineDeltas([
       makeSemanticsComparison({
         strategy: 'ilike',
@@ -117,14 +119,14 @@ describe('addSearchSemanticsBaselineDeltas', () => {
         recordIds: ['recA'],
       }),
       makeSemanticsComparison({
-        strategy: 'tsvector_english',
-        matchCount: 95,
+        strategy: 'trigram',
+        matchCount: 100,
         recordIds: ['recA'],
       }),
     ]);
 
     expect(comparisons[1]?.reasonablenessAssessment.reasonCodes).toContain(
-      'match_count_close_to_ilike'
+      'substring_results_match'
     );
   });
 });
@@ -168,6 +170,24 @@ describe('chooseScopedExpressionNextAction', () => {
   });
 });
 
+describe('selectSubstringSearchProvider', () => {
+  it('prefers pg_bigm only when it is already usable', () => {
+    expect(
+      selectSubstringSearchProvider([
+        makeCapability('pg_bigm', { extensionAvailable: true, usable: false }),
+        makeCapability('pg_trgm', { usable: true }),
+      ])
+    ).toBe('pg_trgm');
+
+    expect(
+      selectSubstringSearchProvider([
+        makeCapability('pg_bigm', { usable: true }),
+        makeCapability('pg_trgm', { usable: true }),
+      ])
+    ).toBe('pg_bigm');
+  });
+});
+
 const makeAnalyzeResult = (
   recommendation: TableQuerySearchVectorRecommendation
 ): AnalyzeTableSearchVectorResult => ({
@@ -193,13 +213,23 @@ const makeRecommendation = (input: {
   readonly nextAction: TableQuerySearchVectorRecommendation['nextAction'];
   readonly explainReason?: string;
 }): TableQuerySearchVectorRecommendation => ({
-  candidateKey: 'search_vector:tblTest:1234',
+  candidateKey: 'search_document:tblTest:pg_trgm:1234',
   tableId: 'tblTest',
   baseId: 'bseTest',
-  generatedColumnName: '__tqops_tsv_1234',
-  indexName: 'idx_tqops_tsv_tblTest_1234',
-  indexKind: 'gin_tsvector',
-  accessPath: 'generated_tsvector',
+  generatedColumnName: '__tqops_search_1234',
+  generatedTextColumnName: '__tqops_search_1234',
+  indexName: 'idx_tqops_search_tblTest_1234',
+  indexKind: 'gin_trgm',
+  accessPath: 'generated_text',
+  semantics: 'substring',
+  provider: 'pg_trgm',
+  providerCapability: makeCapability('pg_trgm', { usable: true }),
+  providerCapabilities: [
+    makeCapability('pg_bigm', { extensionAvailable: true, usable: false }),
+    makeCapability('pg_trgm', { usable: true }),
+  ],
+  operatorClass: 'gin_trgm_ops',
+  minimumProbeLength: 3,
   languageConfig: 'simple',
   searchScope: 'all_fields',
   coveredFields: [
@@ -233,6 +263,25 @@ const makeRecommendation = (input: {
   nextAction: input.nextAction,
 });
 
+const makeCapability = (
+  provider: TableQuerySubstringSearchProviderCapability['provider'],
+  overrides: Partial<TableQuerySubstringSearchProviderCapability> = {}
+): TableQuerySubstringSearchProviderCapability => {
+  const usable = overrides.usable ?? false;
+  return {
+    provider,
+    extensionName: provider,
+    operatorClass: provider === 'pg_bigm' ? 'gin_bigm_ops' : 'gin_trgm_ops',
+    extensionInstalled: usable,
+    extensionAvailable: true,
+    operatorClassInstalled: usable,
+    usable,
+    minimumProbeLength: provider === 'pg_bigm' ? 2 : 3,
+    ...(!usable ? { reason: 'extension_not_installed' as const } : {}),
+    ...overrides,
+  };
+};
+
 const makeSemanticsComparison = (input: {
   readonly strategy: TableQuerySearchSemanticsComparison['strategy'];
   readonly matchCount: number;
@@ -240,9 +289,9 @@ const makeSemanticsComparison = (input: {
 }): TableQuerySearchSemanticsComparison => ({
   strategy: input.strategy,
   label: input.strategy,
-  semantics: input.strategy === 'ilike' ? 'substring' : 'full_text',
+  semantics: input.strategy === 'trigram' ? 'trigram_substring' : 'substring',
   available: true,
-  indexSupport: input.strategy === 'ilike' ? 'none' : 'generated_tsvector_gin',
+  indexSupport: input.strategy === 'ilike' ? 'none' : 'generated_text_gin',
   tokenPreview: [],
   explainStatus: 'validated',
   matchCount: input.matchCount,

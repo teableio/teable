@@ -8,7 +8,9 @@ export const v2TableOpsTokens = {
   taskRepository: Symbol('v2.tableOps.taskRepository'),
   remediationExecutor: Symbol('v2.tableOps.remediationExecutor'),
   searchVectorReconciler: Symbol('v2.tableOps.searchVectorReconciler'),
+  searchAccessPathReconciler: Symbol('v2.tableOps.searchAccessPathReconciler'),
   searchVectorStatusReader: Symbol('v2.tableOps.searchVectorStatusReader'),
+  searchAccessPathCapabilityReader: Symbol('v2.tableOps.searchAccessPathCapabilityReader'),
   searchVectorSchemaMaintenanceScheduler: Symbol(
     'v2.tableOps.searchVectorSchemaMaintenanceScheduler'
   ),

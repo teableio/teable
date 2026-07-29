@@ -988,7 +988,8 @@
       "waitlistNotEnabled": "The waitlist feature is not enabled",
       "emailOrPasswordIncorrect": "Email or password is incorrect",
       "accountDeactivated": "This account has been deactivated by the administrator",
-      "accountLockedOut": "Your account has been locked due to too many failed login attempts. Please try again later."
+      "accountLockedOut": "Your account has been locked due to too many failed login attempts. Please try again later.",
+      "passwordLoginDisabled": "L'accesso con password è disabilitato"
     },
     "automation": {
       "buttonClickTriggerDuplicated": "Questo campo di pulsante è già collegato a {{name}}[{{id}}] questo processo di automazione, per favore seleziona un altro campo di pulsante",

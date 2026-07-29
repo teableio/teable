@@ -1,13 +1,12 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 import { dehydrate } from '@tanstack/react-query';
-import { ViewType } from '@teable/core';
+import type { IViewVo } from '@teable/core';
 import { BaseNodeResourceType, LastVisitResourceType } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import dynamic from 'next/dynamic';
-import type { SsrApi } from '@/backend/api/rest/ssr-api';
 import type { IBaseResourceParsed } from '@/features/app/hooks/useBaseResource';
 import { getViewPageServerData } from '@/lib/view-pages-data';
-import { redirect, validateResourceExists } from './helper';
+import { getDefaultViewId, redirect, validateResourceExists } from './helper';
 import type { ISSRContext, SSRResult, ITablePageProps } from './types';
 
 interface IQueryParams {
@@ -15,24 +14,6 @@ interface IQueryParams {
   fromNotify?: string;
   [key: string]: unknown;
 }
-
-const getDefaultViewId = async (ssrApi: SsrApi, tableId: string, queryParams?: IQueryParams) => {
-  const { recordId } = queryParams ?? {};
-  const [lastVisit, viewList] = await Promise.all([
-    ssrApi.getUserLastVisit(LastVisitResourceType.View, tableId),
-    ssrApi.getViewList(tableId),
-  ]);
-  if (viewList.length === 0) {
-    return undefined;
-  }
-  const nonFormViews = viewList.filter((v) => v.type !== ViewType.Form);
-  const candidateViews = recordId && nonFormViews.length > 0 ? nonFormViews : viewList;
-  const viewIds = candidateViews.map((v) => v.id);
-
-  return lastVisit?.resourceId && viewIds.includes(lastVisit.resourceId)
-    ? lastVisit.resourceId
-    : viewIds[0]!;
-};
 
 export const getTableServerSideProps = async (
   ctx: ISSRContext,
@@ -68,11 +49,22 @@ export const getTableServerSideProps = async (
     return redirect(`/base/${baseId}`);
   }
 
-  // check table exists first
-  const tableList = await queryClient.fetchQuery({
-    queryKey: ReactQueryKeys.tableList(baseId),
-    queryFn: () => ssrApi.getTables(baseId),
-  });
+  // Fetch table list and view list in parallel; the view list may fail when
+  // tableId is invalid, so defer its error to the table validation below
+  const [tableList, viewListResult] = await Promise.all([
+    queryClient.fetchQuery({
+      queryKey: ReactQueryKeys.tableList(baseId),
+      queryFn: () => ssrApi.getTables(baseId),
+    }),
+    viewId
+      ? queryClient
+          .fetchQuery({
+            queryKey: ReactQueryKeys.viewList(tableId),
+            queryFn: () => ssrApi.getViewList(tableId),
+          })
+          .catch(() => null)
+      : null,
+  ]);
 
   if (tableList.length === 0) return { notFound: true };
 
@@ -107,37 +99,44 @@ export const getTableServerSideProps = async (
     return redirect(`/base/${baseId}/table/${tableIds[0]}`);
   }
 
-  // check view exists
-  const viewList = await queryClient.fetchQuery({
-    queryKey: ReactQueryKeys.viewList(tableId),
-    queryFn: () => ssrApi.getViewList(tableId),
-  });
+  // check view exists (table is validated by now — retry if the parallel fetch failed)
+  const viewList =
+    viewListResult ??
+    (await queryClient.fetchQuery<IViewVo[]>({
+      queryKey: ReactQueryKeys.viewList(tableId),
+      queryFn: () => ssrApi.getViewList(tableId),
+    }));
   const viewIds = viewList.map((v) => v.id);
   if (viewIds.length === 0) return { notFound: true };
   if (!viewIds.includes(viewId)) {
     return redirect(`/base/${baseId}/table/${tableId}/${viewIds[0]}${query}`);
   }
 
-  // handle recordId
-  let recordServerData: ITablePageProps['recordServerData'];
-  if (recordId) {
-    if (notifyId) await ssrApi.updateNotificationStatus(notifyId, { isRead: true });
-    recordServerData = await ssrApi.getRecord(tableId, recordId);
-    if (!recordServerData) return redirect(`/base/${baseId}/table/${tableId}/${viewId}`);
+  // Table content, table permission, translations and the optional record
+  // (notification links) are independent — fetch in parallel
+  const [serverData, translationsProps, , recordServerData] = await Promise.all([
+    getViewPageServerData(ssrApi, baseId, tableId, viewId, viewList),
+    ctx.getTranslationsProps(),
+    queryClient.fetchQuery({
+      queryKey: ReactQueryKeys.getTablePermission(baseId, tableId),
+      queryFn: () => ssrApi.getTablePermission(baseId, tableId),
+    }),
+    (async (): Promise<ITablePageProps['recordServerData']> => {
+      if (!recordId) return undefined;
+      if (notifyId) await ssrApi.updateNotificationStatus(notifyId, { isRead: true });
+      return ssrApi.getRecord(tableId, recordId);
+    })(),
+  ]);
+  if (!serverData) return { notFound: true };
+  if (recordId && !recordServerData) {
+    return redirect(`/base/${baseId}/table/${tableId}/${viewId}`);
   }
 
-  const serverData = await getViewPageServerData(ssrApi, baseId, tableId, viewId);
-  if (!serverData) return { notFound: true };
-
-  await queryClient.fetchQuery({
-    queryKey: ReactQueryKeys.getTablePermission(baseId, tableId),
-    queryFn: () => ssrApi.getTablePermission(baseId, tableId),
-  });
   return {
     props: {
       ...serverData,
       ...(recordServerData ? { recordServerData } : {}),
-      ...(await ctx.getTranslationsProps()),
+      ...translationsProps,
       dehydratedState: dehydrate(ctx.queryClient),
       base,
     },

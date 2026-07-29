@@ -10,7 +10,10 @@ type UnknownRow = Record<string, unknown>;
 
 export type SearchVectorConfigRow = {
   readonly generatedColumnName: string;
-  readonly languageConfig: string;
+  readonly semantics?: string;
+  readonly accessPath?: string;
+  readonly provider?: string;
+  readonly languageConfig?: string | null;
   readonly fieldIds: unknown;
   readonly searchScope: string;
   readonly status: string;
@@ -19,6 +22,7 @@ export type SearchVectorConfigRow = {
 export type TableQuerySearchVectorRuntimeMode = 'off' | 'auto';
 
 export const tableQuerySearchVectorRuntimeEnv = 'V2_TABLE_QUERY_OPS_SEARCH_VECTOR_RUNTIME';
+export const tableQuerySearchAccessPathRuntimeEnv = 'V2_TABLE_QUERY_OPS_SEARCH_ACCESS_PATH_RUNTIME';
 
 export const resolveTableQuerySearchVectorRuntimeMode = (
   value: unknown
@@ -77,14 +81,25 @@ export const toRecordSearchAccessPathFromConfig = (
       ? row.searchScope
       : undefined;
   const coveredFieldIds = parseFieldIds(row.fieldIds);
-  if (
-    !row.generatedColumnName ||
-    !row.languageConfig ||
-    !searchScope ||
-    coveredFieldIds.length === 0
-  ) {
+  if (!row.generatedColumnName || !searchScope || coveredFieldIds.length === 0) {
     return undefined;
   }
+
+  if (
+    row.semantics === 'substring' &&
+    row.accessPath === 'generated_text' &&
+    (row.provider === 'pg_trgm' || row.provider === 'pg_bigm')
+  ) {
+    return {
+      kind: 'generated_text',
+      generatedColumnName: row.generatedColumnName,
+      provider: row.provider,
+      searchScope,
+      coveredFieldIds,
+    };
+  }
+
+  if (!row.languageConfig) return undefined;
 
   return {
     kind: 'generated_tsvector',
@@ -127,7 +142,8 @@ export class TableQuerySearchVectorRuntimeService {
 
   private mode(): TableQuerySearchVectorRuntimeMode {
     return resolveTableQuerySearchVectorRuntimeMode(
-      this.configService.get(tableQuerySearchVectorRuntimeEnv)
+      this.configService.get(tableQuerySearchAccessPathRuntimeEnv) ??
+        this.configService.get(tableQuerySearchVectorRuntimeEnv)
     );
   }
 
@@ -143,6 +159,9 @@ export class TableQuerySearchVectorRuntimeService {
     const result = await sql<SearchVectorConfigRow>`
       SELECT
         generated_column_name AS "generatedColumnName",
+        semantics,
+        access_path AS "accessPath",
+        provider,
         language_config AS "languageConfig",
         field_ids AS "fieldIds",
         search_scope AS "searchScope",

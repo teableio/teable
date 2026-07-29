@@ -1,5 +1,5 @@
 import type { IRole } from '@teable/core';
-import { Popover, PopoverTrigger, PopoverContent } from '@teable/ui-lib/shadcn';
+import { cn, Popover, PopoverTrigger, PopoverContent } from '@teable/ui-lib/shadcn';
 import { useState } from 'react';
 import { InviteSpaceContent } from './InviteSpaceContent';
 
@@ -15,17 +15,26 @@ interface IInviteSpacePopoverProps {
 export const InviteSpacePopover = (props: IInviteSpacePopoverProps) => {
   const { space, children } = props;
   const [open, setOpen] = useState(false);
-  const onClose = () => setOpen(false);
+  const [isSubPage, setIsSubPage] = useState(false);
+  const onOpenChange = (open: boolean) => {
+    setOpen(open);
+    if (!open) setIsSubPage(false);
+  };
+  const onClose = () => onOpenChange(false);
 
   return (
-    <Popover open={open} onOpenChange={setOpen} modal>
+    <Popover open={open} onOpenChange={onOpenChange} modal>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent className="h-auto w-[480px] rounded-xl border p-6 shadow-lg" align="end">
+      <PopoverContent
+        className={cn('h-auto w-[480px] rounded-xl border p-6 shadow-lg', !isSubPage && 'pb-3')}
+        align="end"
+      >
         <InviteSpaceContent
           spaceId={space.id}
           spaceName={space.name}
           role={space.role}
           onClose={onClose}
+          onSubPageChange={setIsSubPage}
         />
       </PopoverContent>
     </Popover>

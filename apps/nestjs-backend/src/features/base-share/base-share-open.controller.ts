@@ -105,6 +105,26 @@ export class BaseShareOpenController {
   }
 
   /**
+   * base_node rows are synced lazily (only when the node tree is first listed),
+   * so a base can have tables but no nodes yet. Fall back to the first table so
+   * whole-base shares still land somewhere.
+   */
+  private async buildFallbackDefaultUrl(
+    baseId: string,
+    nodeId: string | null
+  ): Promise<string | undefined> {
+    if (nodeId !== null) {
+      return undefined;
+    }
+    const firstTable = await this.prismaService.tableMeta.findFirst({
+      where: { baseId, deletedTime: null },
+      select: { id: true },
+      orderBy: { order: 'asc' },
+    });
+    return firstTable ? `/base/${baseId}/table/${firstTable.id}` : undefined;
+  }
+
+  /**
    * Build the default URL for share redirect.
    * Returns a URL like "/base/xxx/table/yyy/zzz" or "/base/xxx/dashboard/yyy"
    */
@@ -126,7 +146,7 @@ export class BaseShareOpenController {
     });
 
     if (allNodes.length === 0) {
-      return undefined;
+      return this.buildFallbackDefaultUrl(baseId, nodeId);
     }
 
     let targetNode: { resourceType: string; resourceId: string } | null = null;

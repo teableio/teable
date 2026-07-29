@@ -31,6 +31,7 @@ export const OAUTH_ACTIONS: (
   'base|table_import',
   'base|table_export',
   'base|query_data',
+  'base|authority_matrix_config',
   'table|create',
   'table|delete',
   'table|export',

@@ -4,7 +4,6 @@ import { ArrowLeft } from '@teable/icons';
 import {
   Button,
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -34,7 +33,7 @@ interface IFieldCreateOrSelectModalProps {
   readOnly?: boolean;
   getCreateBtnText: (fieldName: string) => ReactNode;
   children: (isActive: boolean) => React.ReactNode;
-  onConfirm?: (field: IFieldVo | IFieldInstance) => void;
+  onConfirm?: (field: IFieldVo | IFieldInstance) => void | Promise<void>;
 }
 
 export interface IFieldCreateOrSelectModalRef {
@@ -63,10 +62,23 @@ export const FieldCreateOrSelectModal = forwardRef<
   const { t } = useTranslation();
   const [selectedFieldId, setSelectedFieldId] = useState<string | undefined>(_selectedFieldId);
   const [open, setOpen] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
+
+  const onOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      setSelectedFieldId(_selectedFieldId);
+      setNewField(undefined);
+    }
+    setOpen(nextOpen);
+  };
+
+  const onDismissAttempt = (event: Event) => {
+    if (isConfirming || _selectedFieldId == null) event.preventDefault();
+  };
 
   useImperativeHandle(forwardRef, () => ({
-    onOpen: () => setOpen(true),
-    onClose: () => setOpen(false),
+    onOpen: () => onOpenChange(true),
+    onClose: () => onOpenChange(false),
   }));
 
   useEffect(() => {
@@ -79,20 +91,29 @@ export const FieldCreateOrSelectModal = forwardRef<
   };
 
   const onConfirmInner = async () => {
-    if (readOnly) return;
-    if (newField != null) {
-      if (tableId == null) return setNewField(undefined);
-      const result = createFieldRoSchema.safeParse(newField);
-      if (result.success) {
-        const field = await createField({ tableId, fieldRo: newField });
+    if (readOnly) return onOpenChange(false);
+    if (isConfirming) return;
+
+    setIsConfirming(true);
+    try {
+      let field: IFieldVo | IFieldInstance | undefined;
+      if (newField != null) {
+        if (tableId == null) return setNewField(undefined);
+        const result = createFieldRoSchema.safeParse(newField);
+        if (!result.success) return setNewField(undefined);
+        field = await createField({ tableId, fieldRo: newField });
         setNewField(undefined);
-        return onConfirm?.(field);
+      } else if (selectedFieldId != null) {
+        field = totalFields.find(({ id }) => id === selectedFieldId);
       }
-      return setNewField(undefined);
-    }
-    if (selectedFieldId != null) {
-      const selectedField = totalFields.find((field) => field.id === selectedFieldId);
-      return selectedField ? onConfirm?.(selectedField) : undefined;
+
+      if (field == null) return;
+      await onConfirm?.(field);
+      onOpenChange(false);
+    } catch {
+      // Request handlers surface the error; keep the dialog open for retry.
+    } finally {
+      setIsConfirming(false);
     }
   };
 
@@ -107,26 +128,26 @@ export const FieldCreateOrSelectModal = forwardRef<
   }, [totalFields]);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>{children(open)}</DialogTrigger>
       <DialogContent
         className="p-5"
         closeable={false}
-        onInteractOutside={(e) => e.preventDefault()}
-        onEscapeKeyDown={(e) => e.preventDefault()}
+        onInteractOutside={onDismissAttempt}
+        onEscapeKeyDown={onDismissAttempt}
       >
         <DialogHeader className="space-y-2">
           <DialogTitle>{title}</DialogTitle>
-          {description && <DialogDescription className="text-xs">{description}</DialogDescription>}
+          {description && <DialogDescription className="text-sm">{description}</DialogDescription>}
         </DialogHeader>
 
-        <div className="relative rounded-md bg-muted p-4 pr-0">
+        <div className="relative rounded-md bg-muted">
           {readOnly && <ReadOnlyTip />}
-          <ScrollArea className="h-52 w-full" type="always">
+          <ScrollArea className="h-52 w-full p-4" type="always">
             {newField ? (
               <FieldCreator field={newField} setField={setNewField} />
             ) : (
-              <RadioGroup className="gap-4" value={selectedFieldId} onValueChange={onFieldSelect}>
+              <RadioGroup className="gap-0" value={selectedFieldId} onValueChange={onFieldSelect}>
                 {filteredFields.map((field) => {
                   const { id, type, name, isLookup, aiConfig, canReadFieldRecord } = field;
                   const { Icon } = getFieldStatic(type, {
@@ -136,19 +157,25 @@ export const FieldCreateOrSelectModal = forwardRef<
                     deniedReadRecord: !canReadFieldRecord,
                   });
                   return (
-                    <div key={id} className="flex items-center space-x-2">
-                      <RadioGroupItem value={id} id={id} disabled={readOnly} />
-                      <Label
-                        className={cn(
-                          'flex items-center space-x-1',
-                          readOnly ? 'cursor-not-allowed' : 'cursor-pointer'
-                        )}
-                        htmlFor={id}
-                      >
+                    <Label
+                      key={id}
+                      htmlFor={id}
+                      className={cn(
+                        '-mx-2 flex h-8 items-center space-x-3 rounded-sm px-2 transition-colors',
+                        readOnly ? 'cursor-not-allowed' : 'cursor-pointer hover:text-foreground/70'
+                      )}
+                    >
+                      <RadioGroupItem
+                        value={id}
+                        id={id}
+                        disabled={readOnly}
+                        className="relative after:absolute after:left-1/2 after:top-1/2 after:hidden after:size-2 after:-translate-x-1/2 after:-translate-y-1/2 after:rounded-full after:bg-primary data-[state=checked]:after:block [&_svg]:hidden"
+                      />
+                      <span className="flex items-center space-x-2">
                         <Icon className="size-4" />
                         <span>{name}</span>
-                      </Label>
-                    </div>
+                      </span>
+                    </Label>
                   );
                 })}
               </RadioGroup>
@@ -168,11 +195,12 @@ export const FieldCreateOrSelectModal = forwardRef<
               {t('common.back')}
             </Button>
           )}
-          <DialogClose asChild>
-            <Button disabled={!readOnly && !selectedFieldId && !newField} onClick={onConfirmInner}>
-              {t('common.done')}
-            </Button>
-          </DialogClose>
+          <Button
+            disabled={isConfirming || (!readOnly && !selectedFieldId && !newField)}
+            onClick={onConfirmInner}
+          >
+            {t('common.done')}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

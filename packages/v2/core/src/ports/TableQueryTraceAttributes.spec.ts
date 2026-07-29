@@ -53,6 +53,26 @@ describe('TableQueryTraceAttributes', () => {
     ).toHaveProperty(TableQueryTraceAttributes.TABLE_ID, 'tblSecret');
   });
 
+  it('describes generated substring access paths without exposing the probe', () => {
+    const attrs = createSearchTraceAttributes({
+      searchValue: '订单',
+      fieldCount: 4,
+      allFields: false,
+      searchMode: 'substring',
+      accessPath: 'generated_text_bigram',
+      indexProvider: 'pg_bigm',
+      searchScope: 'selected_fields',
+    });
+
+    expect(attrs).toMatchObject({
+      [TableQueryTraceAttributes.SEARCH_MODE]: 'substring',
+      [TableQueryTraceAttributes.SEARCH_ACCESS_PATH]: 'generated_text_bigram',
+      [TableQueryTraceAttributes.SEARCH_INDEX_PROVIDER]: 'pg_bigm',
+      [TableQueryTraceAttributes.SEARCH_VALUE_LENGTH_BUCKET]: 'short',
+    });
+    expect(JSON.stringify(attrs)).not.toContain('订单');
+  });
+
   it('bounds every dynamic metric label', () => {
     const uncontrolled = 'customer-controlled-value';
     const attrs = createTableQueryMetricAttributes({

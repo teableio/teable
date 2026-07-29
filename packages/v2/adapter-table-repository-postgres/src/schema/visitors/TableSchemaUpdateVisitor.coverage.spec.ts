@@ -1,4 +1,6 @@
 import {
+  ButtonConfirm,
+  ButtonWorkflow,
   DbFieldName,
   FieldId,
   FieldNotNull,
@@ -13,6 +15,7 @@ import {
   UpdateRatingMaxSpec,
   UpdateSingleSelectOptionsSpec,
   UpdateUserMultiplicitySpec,
+  UpdateButtonWorkflowSpec,
   UserMultiplicity,
 } from '@teable/v2-core';
 import { ok } from 'neverthrow';
@@ -329,19 +332,41 @@ describe('TableSchemaUpdateVisitor coverage', () => {
     expect(multiSqls[1]).toContain('RETURNING t."__id" AS "recordId"');
   });
 
-  it('clears persisted button values when workflow changes', () => {
+  it('clears persisted button values only when the workflow identity changes', () => {
     const buttonField = createBtnField('buttonField', 'Button', 'button_col')._unsafeUnwrap();
     const visitor = createVisitor({
       getField: () => ok(buttonField),
     });
-    const result = visitor.visitUpdateButtonWorkflow({
-      fieldId: () => buttonField.id(),
-    } as never);
+    const previousWorkflow = ButtonWorkflow.create({
+      id: 'wflPreviousWorkflow',
+      name: 'Previous',
+      isActive: true,
+    })._unsafeUnwrap();
+    const nextWorkflow = ButtonWorkflow.create({
+      id: 'wflNextWorkflow',
+      name: 'Next',
+      isActive: true,
+    })._unsafeUnwrap();
 
-    expect(result.isOk()).toBe(true);
-    expect(normalizeSql(result._unsafeUnwrap()[0].compile(db).sql)).toContain(
+    const changedResult = visitor.visitUpdateButtonWorkflow(
+      UpdateButtonWorkflowSpec.create(buttonField.id(), previousWorkflow, nextWorkflow)
+    );
+    expect(changedResult.isOk()).toBe(true);
+    expect(normalizeSql(changedResult._unsafeUnwrap()[0].compile(db).sql)).toContain(
       'UPDATE "bseTableSchemaTest"."tblVisitorCoverage" SET "button_col" = NULL WHERE "button_col" IS NOT NULL'
     );
+
+    const metadataResult = visitor.visitUpdateButtonWorkflow(
+      UpdateButtonWorkflowSpec.create(
+        buttonField.id(),
+        previousWorkflow,
+        previousWorkflow,
+        undefined,
+        ButtonConfirm.create({ title: 'Confirm' })._unsafeUnwrap()
+      )
+    );
+    expect(metadataResult.isOk()).toBe(true);
+    expect(metadataResult._unsafeUnwrap()).toHaveLength(0);
   });
 
   it('drops only the symmetric jsonb column during link teardown', () => {

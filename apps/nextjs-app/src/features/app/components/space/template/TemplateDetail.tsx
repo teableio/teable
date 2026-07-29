@@ -1,8 +1,10 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   createBaseFromTemplate,
+  createShortLink,
   getTemplateCategoryList,
   getTemplateDetail,
+  ShortLinkType,
 } from '@teable/openapi';
 import { MarkdownPreview } from '@teable/sdk';
 import { ReactQueryKeys } from '@teable/sdk/config/react-query-keys';
@@ -13,6 +15,7 @@ import { ArrowUpRight, ChevronLeft, Share2 } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useEffect, useMemo, useRef } from 'react';
+import { useOrigin } from '@/features/app/hooks/useOrigin';
 import { useSpaceId } from './hooks/use-space-id';
 import { RecommendTemplate } from './RecommendTemplate';
 import { TemplatePreview } from './TemplatePreview';
@@ -82,9 +85,23 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
     return [templateId];
   }, [templateId]);
 
-  const handleCopyPermalink = () => {
-    const permalink = `${window.location.origin}/t/${templateId}`;
-    navigator.clipboard.writeText(permalink);
+  const origin = useOrigin();
+
+  const handleCopyPermalink = async () => {
+    const base = origin || window.location.origin;
+    // Create the short link on demand; fall back to the /t permalink when the
+    // template is not published or the request fails
+    let permalink = `${base}/t/${templateId}`;
+    try {
+      const { data } = await createShortLink({
+        type: ShortLinkType.Template,
+        resourceId: templateId,
+      });
+      permalink = `${base}/s/${data.code}`;
+    } catch {
+      // keep the permalink fallback
+    }
+    await navigator.clipboard.writeText(permalink);
     toast({
       title: t('common:template.non.copy'),
     });

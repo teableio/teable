@@ -1,15 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  chooseSearchVectorValidationNextAction,
-  type SearchVectorValidationSample,
+  chooseSearchAccessPathValidationNextAction,
+  type SearchAccessPathValidationSample,
 } from './searchVectorValidation';
 
 const sample = (
-  overrides: Partial<SearchVectorValidationSample> = {}
-): SearchVectorValidationSample => ({
-  defaultPath: { durationMs: 20 },
-  generatedTsvectorPath: { durationMs: 5 },
+  overrides: Partial<SearchAccessPathValidationSample> = {}
+): SearchAccessPathValidationSample => ({
+  legacyPath: { medianMs: 20, p95Ms: 25 },
+  candidatePath: { medianMs: 5, p95Ms: 8 },
+  exactResultMatch: true,
   planEvidence: {
     explainStatus: 'validated',
     costBefore: 100,
@@ -17,48 +18,56 @@ const sample = (
     usesGinIndex: true,
     ginExpected: true,
   },
-  llmReasonableness: 'reasonable',
   ...overrides,
 });
 
-describe('chooseSearchVectorValidationNextAction', () => {
-  it('requires plan validation when EXPLAIN failed even for a high-match sample', () => {
+describe('chooseSearchAccessPathValidationNextAction', () => {
+  it('requires plan validation when an expected GIN plan was not validated', () => {
     expect(
-      chooseSearchVectorValidationNextAction([
+      chooseSearchAccessPathValidationNextAction([
         sample({
           planEvidence: {
             explainStatus: 'failed',
             usesGinIndex: false,
-            ginExpected: false,
+            ginExpected: true,
           },
         }),
       ])
     ).toBe('needs_plan_validation');
   });
 
-  it('does not confirm a candidate whose estimated cost did not improve', () => {
+  it('never confirms a candidate with a different complete result set', () => {
+    expect(chooseSearchAccessPathValidationNextAction([sample({ exactResultMatch: false })])).toBe(
+      'manual_investigation'
+    );
+  });
+
+  it('keeps a materially slower candidate out of the execution path', () => {
     expect(
-      chooseSearchVectorValidationNextAction([
-        sample({
-          planEvidence: {
-            explainStatus: 'validated',
-            costBefore: 10,
-            costAfter: 20,
-            usesGinIndex: true,
-            ginExpected: true,
-          },
-        }),
+      chooseSearchAccessPathValidationNextAction([
+        sample({ candidatePath: { medianMs: 30, p95Ms: 35 } }),
       ])
     ).toBe('manual_investigation');
   });
 
-  it('keeps semantic drift out of the execution path', () => {
-    expect(
-      chooseSearchVectorValidationNextAction([sample({ llmReasonableness: 'semantic_drift' })])
-    ).toBe('needs_language_config');
+  it('accepts exact results with a cheaper real GIN plan and stable timings', () => {
+    expect(chooseSearchAccessPathValidationNextAction([sample()])).toBe('ready_for_confirmation');
   });
 
-  it('confirms only validated candidates with lower plan cost and duration', () => {
-    expect(chooseSearchVectorValidationNextAction([sample()])).toBe('ready_for_confirmation');
+  it('allows a short-probe fallback when another selective probe proves the index', () => {
+    expect(
+      chooseSearchAccessPathValidationNextAction([
+        sample({
+          legacyPath: { medianMs: 3, p95Ms: 4 },
+          candidatePath: { medianMs: 3, p95Ms: 4 },
+          planEvidence: {
+            explainStatus: 'skipped',
+            usesGinIndex: false,
+            ginExpected: false,
+          },
+        }),
+        sample(),
+      ])
+    ).toBe('ready_for_confirmation');
   });
 });

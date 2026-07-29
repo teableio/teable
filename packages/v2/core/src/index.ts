@@ -343,6 +343,7 @@ export * from './domain/table/fields/FieldName';
 export * from './domain/table/fields/FieldType';
 export * from './domain/table/fields/FieldFactory';
 export * from './domain/table/fields/ForeignTableRelatedField';
+export * from './domain/table/fields/lookupFormulaOptions';
 export * from './domain/table/fields/visitors/IFieldVisitor';
 export * from './domain/table/fields/visitors/AbstractFieldVisitor';
 export * from './domain/table/fields/visitors/NoopFieldVisitor';

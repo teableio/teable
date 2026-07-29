@@ -1,4 +1,32 @@
 {
+  "computeActivity": {
+    "currentCalculations": "Calculs actuels",
+    "thisTableOnly": "Cette table uniquement",
+    "calculatingNow": "Calculs en cours",
+    "calculating": "Calcul en cours",
+    "waiting": "En attente",
+    "failed": "Échec",
+    "calculationFailed": "Échec du calcul",
+    "calculatingSummary": "Calcul en cours ({{count}})",
+    "failedSummary": "Échec ({{count}})",
+    "fieldsCalculating_one": "{{count}} champ en cours de calcul",
+    "fieldsCalculating_many": "{{count}} champs en cours de calcul",
+    "fieldsCalculating_other": "{{count}} champs en cours de calcul",
+    "fieldCalculationsFailed_one": "Échec du calcul de {{count}} champ",
+    "fieldCalculationsFailed_many": "Échec du calcul de {{count}} champs",
+    "fieldCalculationsFailed_other": "Échec du calcul de {{count}} champs",
+    "batchesRunning_one": "{{count}} lot en traitement",
+    "batchesRunning_many": "{{count}} lots en traitement",
+    "batchesRunning_other": "{{count}} lots en traitement",
+    "batchesQueued_one": "{{count}} lot en attente",
+    "batchesQueued_many": "{{count}} lots en attente",
+    "batchesQueued_other": "{{count}} lots en attente",
+    "records_one": "{{formattedCount}} enregistrement",
+    "records_many": "{{formattedCount}} enregistrements",
+    "records_other": "{{formattedCount}} enregistrements",
+    "batchesComplete": "Lots terminés {{completed}}/{{total}}",
+    "progressAriaLabel": "Progression du calcul pour {{fieldName}}"
+  },
   "crossSpace": {
     "duplicateFieldTitle": "Avis",
     "duplicateFieldDescription": "Les références inter-espaces ne sont pas prises en charge. La copie sera convertie en un champ de texte sur une seule ligne.",
@@ -418,7 +446,7 @@
   "table": {
     "newTableLabel": "Nouvelle table",
     "rename": "Renommer",
-    "tableRecordHistory": "Historique des enregistrements de la table",
+    "tableRecordHistory": "Historique des modifications",
     "deleteConfirm": "Êtes-vous sûr de vouloir supprimer \"{{tableName}}\" ?",
     "dbTableName": "Nom de la table dans la base de données physique",
     "schemaName": "Nom du schéma dans la base de données physique",
@@ -858,9 +886,10 @@
   "lastModifiedTime": "Dernière modification",
   "lastModify": "Dernière modification : ",
   "tableTrash": {
-    "title": "Corbeille de Table",
+    "title": "Corbeille",
     "resourceType": "Type",
-    "deletedResource": "Ressource"
+    "deletedResource": "Ressource",
+    "moreResources": "et {{count}} de plus"
   },
   "baseShare": {
     "shareTitle": "Partager",

@@ -1,6 +1,7 @@
 module.exports = {
   jest: require('./jest'),
   mdx: require('./mdx'),
+  'no-ssrf': require('./no-ssrf'),
   playwright: require('./playwright'),
   'prettier-plugin': require('./prettier-plugin'),
   'prettier-config': require('./prettier-config'),

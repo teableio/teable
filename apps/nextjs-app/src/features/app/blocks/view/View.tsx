@@ -19,6 +19,7 @@ import { GridView } from './grid/GridView';
 import { KanbanView } from './kanban/KanbanView';
 import { PluginView } from './plugin/PluginView';
 import type { IViewBaseProps } from './types';
+import { ViewSkeleton } from './ViewSkeleton';
 
 export const View = (props: IViewBaseProps) => {
   const view = useView();
@@ -75,7 +76,10 @@ export const View = (props: IViewBaseProps) => {
       case ViewType.Plugin:
         return <PluginView />;
       default:
-        return null;
+        // view not loaded yet (e.g. right after a table switch) — keep a
+        // skeleton instead of a blank area; a loaded view of an unrecognized
+        // type still renders nothing (a skeleton would read as a hang)
+        return view ? null : <ViewSkeleton />;
     }
   };
 

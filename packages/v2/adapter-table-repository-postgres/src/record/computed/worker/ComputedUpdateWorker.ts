@@ -50,7 +50,7 @@ import type {
   ComputedUpdatePlanner,
 } from '../ComputedUpdatePlanner';
 import { splitSeedGroupsForPlan } from '../ComputedUpdatePlanner';
-import { createComputedUpdateRun } from '../ComputedUpdateRun';
+import { createComputedUpdateRun, toRunSpanAttributes } from '../ComputedUpdateRun';
 import { toErrorLogFields } from '../errorLog';
 import type {
   ComputedBeforeImageRecordDto,
@@ -82,6 +82,11 @@ import { isFieldBackfillOutboxItem, isSeedOutboxItem } from '../outbox/IComputed
  * When this limit is reached, no more follow-up tasks are created.
  */
 const MAX_STAGE_DEPTH = 50;
+/**
+ * Lock-miss requeues carry no attempt budget (they must not consume retries toward the
+ * dead letter), so a task starving on a hot key only surfaces through this warning.
+ */
+const TASK_REQUEUE_STARVATION_WARN_AGE_MS = 5 * 60 * 1000;
 const maxComputedEventLogItems = 10;
 const maxComputedEventLogFieldIds = 20;
 const maxComputedEventLogRecordIds = 10;
@@ -117,6 +122,9 @@ type LoadTaskTableResult =
     }
   | {
       status: 'blocked';
+    }
+  | {
+      status: 'completed';
     };
 
 const countSeedRecordDtos = (
@@ -609,7 +617,46 @@ export class ComputedUpdateWorker {
             context
           );
 
+          span?.setAttribute('outbox.taskClaimed', claimed != null);
           if (!claimed) return ok(false);
+
+          const taskKind = isFieldBackfillOutboxItem(claimed)
+            ? 'field-backfill'
+            : isSeedOutboxItem(claimed)
+              ? 'seed'
+              : 'computed';
+          span?.setAttributes({
+            'outbox.baseId': claimed.baseId,
+            'outbox.taskKind': taskKind,
+            'outbox.taskAgeMs': Math.max(0, Date.now() - claimed.createdAt.getTime()),
+            'outbox.attempts': claimed.attempts,
+          });
+
+          if (!isFieldBackfillOutboxItem(claimed)) {
+            span?.setAttribute('outbox.seedTableId', claimed.seedTableId);
+          }
+
+          if (!isFieldBackfillOutboxItem(claimed) && !isSeedOutboxItem(claimed)) {
+            span?.setAttributes({
+              ...toRunSpanAttributes({
+                runId: claimed.runId,
+                originRunIds: claimed.originRunIds,
+                phase: 'async',
+                totalSteps: claimed.runTotalSteps,
+                completedStepsBefore: claimed.runCompletedStepsBefore,
+                taskId: claimed.id,
+              }),
+              'computed.stageDepth': claimed.stageDepth ?? 0,
+              'computed.stepCount': claimed.steps.length,
+              'computed.edgeCount': claimed.edges.length,
+              'computed.seedRecordCount': countSeedRecordDtos(
+                claimed.seedRecordIds,
+                claimed.extraSeedRecords
+              ),
+              'computed.affectedTableCount': claimed.affectedTableIds.length,
+              'computed.affectedFieldCount': claimed.affectedFieldIds.length,
+            });
+          }
 
           const leaseManager = this.createLeaseManager([claimed]);
           leaseManager.start();
@@ -895,6 +942,34 @@ export class ComputedUpdateWorker {
         );
         return ok(false);
       }
+      if (isNotFoundError(executeResult.error)) {
+        const referencedTableIds = new Map<string, TableId>([
+          [planResult.value.seedTableId.toString(), planResult.value.seedTableId],
+          ...planResult.value.steps.map((step) => [step.tableId.toString(), step.tableId] as const),
+          ...planResult.value.edges.flatMap((edge) => [
+            [edge.fromTableId.toString(), edge.fromTableId] as const,
+            [edge.toTableId.toString(), edge.toTableId] as const,
+          ]),
+          ...(planResult.value.seedAllTableIds ?? []).map(
+            (tableId) => [tableId.toString(), tableId] as const
+          ),
+        ]);
+        for (const tableId of referencedTableIds.values()) {
+          const tableResult = await this.loadActiveTableForTask({
+            task: computedTask,
+            tableId,
+            context,
+            logContext: runLogContext,
+          });
+          if (tableResult.isErr()) {
+            logTaskFailure(tableResult.error);
+            await this.handleTaskFailure(computedTask, tableResult.error.message, context);
+            return err(tableResult.error);
+          }
+          if (tableResult.value.status === 'completed') return ok(true);
+          if (tableResult.value.status === 'blocked') return ok(false);
+        }
+      }
       const failure = classifyComputedTaskFailure(executeResult.error);
       logTaskFailure(executeResult.error, failure);
       await this.handleTaskFailure(computedTask, executeResult.error.message, context, {
@@ -986,6 +1061,15 @@ export class ComputedUpdateWorker {
     context?: IExecutionContext,
     retryDelayMs?: number
   ): Promise<boolean> {
+    const createdAt = task.createdAt instanceof Date ? task.createdAt : undefined;
+    const taskAgeMs = createdAt ? Date.now() - createdAt.getTime() : undefined;
+    if (taskAgeMs !== undefined && taskAgeMs > TASK_REQUEUE_STARVATION_WARN_AGE_MS) {
+      this.logger.warn('computed:worker:task_requeue_starvation', {
+        taskId: task.id,
+        taskAgeMs,
+        reason,
+      });
+    }
     const result = await this.outbox.releaseForRetry(
       {
         task,
@@ -1032,7 +1116,18 @@ export class ComputedUpdateWorker {
       state: 'all',
     });
     if (anyStateResult.isErr()) {
-      return err(isNotFoundError(anyStateResult.error) ? activeResult.error : anyStateResult.error);
+      if (!isNotFoundError(anyStateResult.error)) return err(anyStateResult.error);
+
+      const doneResult = await this.outbox.markDone(params.task, params.context);
+      if (doneResult.isErr()) return err(doneResult.error);
+      if (!doneResult.value) return ok({ status: 'blocked' });
+
+      this.logger.info('computed:worker:missing_table_task_completed', {
+        taskId: params.task.id,
+        tableId: params.tableId.toString(),
+        ...params.logContext,
+      });
+      return ok({ status: 'completed' });
     }
 
     const tableId = params.tableId.toString();
@@ -1181,7 +1276,9 @@ export class ComputedUpdateWorker {
       await this.handleTaskFailure(task, tableResult.error.message, context);
       return err(tableResult.error);
     }
-    if (tableResult.value.status === 'blocked') return ok(false);
+    if (tableResult.value.status !== 'loaded') {
+      return ok(tableResult.value.status === 'completed');
+    }
 
     const table = tableResult.value.table;
 
@@ -1341,7 +1438,9 @@ export class ComputedUpdateWorker {
       await this.handleTaskFailure(task, tableResult.error.message, context);
       return err(tableResult.error);
     }
-    if (tableResult.value.status === 'blocked') return ok(false);
+    if (tableResult.value.status !== 'loaded') {
+      return ok(tableResult.value.status === 'completed');
+    }
 
     const table = tableResult.value.table;
 

@@ -1,20 +1,6 @@
-import { PrismaPg } from '@prisma/adapter-pg';
-import { Pool } from 'pg';
+import { createPrismaPgAdapter, type IPgPoolLease } from '@teable/db-main-prisma';
 
 import { Prisma, PrismaClient } from './generated/client';
-
-const resolvePoolMax = (connectionString: string): number => {
-  try {
-    const value = new URL(connectionString).searchParams.get('connection_limit');
-    const parsed = value ? Number.parseInt(value, 10) : NaN;
-    if (Number.isInteger(parsed) && parsed > 0) return parsed;
-  } catch {
-    // Let pg report malformed connection strings with its normal error.
-  }
-
-  const configured = Number.parseInt(process.env.BYODB_DATA_DB_POOL_MAX ?? '', 10);
-  return Number.isInteger(configured) && configured > 0 ? configured : 5;
-};
 
 const quoteLiteral = (value: string) => `'${value.replaceAll("'", "''")}'`;
 
@@ -39,14 +25,10 @@ export type ScopedDataPrismaClient = PrismaClient & {
  * works through transaction poolers.
  */
 export const createScopedDataPrismaClient = (
-  connectionString: string,
+  poolLease: IPgPoolLease,
   schema: string
 ): ScopedDataPrismaClient => {
-  const pool = new Pool({
-    connectionString,
-    max: resolvePoolMax(connectionString),
-  });
-  const client = new PrismaClient({ adapter: new PrismaPg(pool, { schema }) });
+  const client = new PrismaClient({ adapter: createPrismaPgAdapter(poolLease.pool, schema) });
   const setLocalSearchPath = `
     SELECT set_config(
       'search_path',
@@ -102,7 +84,7 @@ export const createScopedDataPrismaClient = (
           try {
             await target.$disconnect();
           } finally {
-            await pool.end();
+            await poolLease.release();
           }
         };
       }

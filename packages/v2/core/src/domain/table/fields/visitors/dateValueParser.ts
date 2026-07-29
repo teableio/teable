@@ -4,9 +4,15 @@ import type { DateField } from '../types/DateField';
 const normalizeTimeZone = (timeZone: string) =>
   timeZone.toLowerCase() === 'utc' ? 'UTC' : timeZone;
 
-const getTimeZoneOffsetMinutes = (date: Date, timeZone: string): number => {
+const timeZoneFormatterCache = new Map<string, Intl.DateTimeFormat>();
+
+const getTimeZoneFormatter = (timeZone: string): Intl.DateTimeFormat => {
+  const normalizedTimeZone = normalizeTimeZone(timeZone);
+  const cachedFormatter = timeZoneFormatterCache.get(normalizedTimeZone);
+  if (cachedFormatter) return cachedFormatter;
+
   const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: normalizeTimeZone(timeZone),
+    timeZone: normalizedTimeZone,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -15,7 +21,12 @@ const getTimeZoneOffsetMinutes = (date: Date, timeZone: string): number => {
     second: '2-digit',
     hour12: false,
   });
+  timeZoneFormatterCache.set(normalizedTimeZone, formatter);
+  return formatter;
+};
 
+const getTimeZoneOffsetMinutes = (date: Date, timeZone: string): number => {
+  const formatter = getTimeZoneFormatter(timeZone);
   const parts = formatter.formatToParts(date);
   const values: Record<string, number> = {};
   for (const part of parts) {
@@ -58,7 +69,10 @@ const parseDateStringWithTimeZone = (value: string, timeZone: string): string | 
     const second = Number(match[6] ?? 0);
     const millisecond = Number((match[7] ?? '0').padEnd(3, '0'));
     const utcBase = new Date(Date.UTC(year, month - 1, day, hour, minute, second, millisecond));
-    const offsetMinutes = getTimeZoneOffsetMinutes(utcBase, timeZone);
+    const normalizedTimeZone = normalizeTimeZone(timeZone);
+    if (normalizedTimeZone === 'UTC') return utcBase.toISOString();
+
+    const offsetMinutes = getTimeZoneOffsetMinutes(utcBase, normalizedTimeZone);
     const adjusted = new Date(utcBase.getTime() - offsetMinutes * 60000);
     return adjusted.toISOString();
   }

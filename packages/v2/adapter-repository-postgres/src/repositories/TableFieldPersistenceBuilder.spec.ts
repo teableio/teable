@@ -140,8 +140,7 @@ describe('TableFieldPersistenceBuilder', () => {
     const row = persistenceBuilder.buildRowForField(field)._unsafeUnwrap();
 
     expect(JSON.parse(row.options ?? 'null')).toEqual({
-      expression: '1',
-      timeZone: 'Asia/Shanghai',
+      expression: '""',
       formatting: {
         type: 'currency',
         precision: 2,

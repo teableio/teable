@@ -18,10 +18,12 @@ import {
   type TableQueryRiskPolicyConfig,
 } from './domain';
 import {
+  NoopTableSearchVectorSchemaMaintenanceScheduler,
   SystemTableQueryOpsClock,
   type TableQueryOpsAnalyzerConfig,
   type TableQueryOpsTaskWorkerConfig,
 } from './ports';
+import { TableSearchVectorSchemaMaintenanceProjection } from './searchVectorSchemaMaintenance';
 import {
   defaultTableQuerySqlDiagnosticsConfig,
   type TableQuerySqlDiagnosticsConfig,
@@ -74,6 +76,23 @@ export const registerV2TableOps = (
     container.register(v2TableOpsTokens.planValidator, NoopTableQueryPlanValidator, {
       lifecycle,
     });
+  }
+  // The projection is registered into the global event bus by @ProjectionHandler on
+  // package import. Always wire a scheduler + the class token so field events never
+  // hit "unregistered dependency" when table-query-ops postgres adapters are off.
+  if (!container.isRegistered(v2TableOpsTokens.searchVectorSchemaMaintenanceScheduler)) {
+    container.register(
+      v2TableOpsTokens.searchVectorSchemaMaintenanceScheduler,
+      NoopTableSearchVectorSchemaMaintenanceScheduler,
+      { lifecycle }
+    );
+  }
+  if (!container.isRegistered(TableSearchVectorSchemaMaintenanceProjection)) {
+    container.register(
+      TableSearchVectorSchemaMaintenanceProjection,
+      TableSearchVectorSchemaMaintenanceProjection,
+      { lifecycle }
+    );
   }
   if (!container.isRegistered(v2TableOpsTokens.analyzerConfig)) {
     container.registerInstance(v2TableOpsTokens.analyzerConfig, {

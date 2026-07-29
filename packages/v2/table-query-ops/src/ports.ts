@@ -1,5 +1,5 @@
 import type { DomainError, IExecutionContext, Table, TableId } from '@teable/v2-core';
-import type { Result } from 'neverthrow';
+import { ok, type Result } from 'neverthrow';
 
 import type {
   ExecutablePhase1RemediationKind,
@@ -105,9 +105,12 @@ export interface TableQueryRemediationExecutor {
   ): Promise<Result<unknown, DomainError>>;
 }
 
-export type ReconcileTableSearchVectorInput = {
+export type ReconcileTableSearchAccessPathInput = {
   readonly table: Table;
   readonly mode: 'create' | 'rebuild';
+  readonly expectedDefinitionKey?: string;
+  readonly semantics?: 'substring' | 'lexical';
+  readonly provider?: 'pg_trgm' | 'pg_bigm' | 'tsvector';
   readonly languageConfig?: string;
   readonly fieldIds?: readonly string[];
   readonly searchProbe?: string;
@@ -115,29 +118,35 @@ export type ReconcileTableSearchVectorInput = {
   readonly allowLargeTableRewrite?: boolean;
 };
 
-export type ReconcileTableSearchVectorResult = {
+export type ReconcileTableSearchAccessPathResult = {
   readonly action: 'created' | 'rebuilt' | 'verified';
   readonly tableId: string;
   readonly definitionKey: string;
   readonly generatedColumnName: string;
   readonly indexName: string;
   readonly languageConfig: string;
+  readonly semantics?: 'substring' | 'lexical';
+  readonly provider?: 'pg_trgm' | 'pg_bigm' | 'tsvector';
   readonly fieldIds: readonly string[];
   readonly status: 'ready';
   readonly planEvidence?: unknown;
 };
 
-export interface TableSearchVectorReconciler {
+export interface TableSearchAccessPathReconciler {
   reconcile(
     context: IExecutionContext,
-    input: ReconcileTableSearchVectorInput
-  ): Promise<Result<ReconcileTableSearchVectorResult, DomainError>>;
+    input: ReconcileTableSearchAccessPathInput
+  ): Promise<Result<ReconcileTableSearchAccessPathResult, DomainError>>;
 
   maintainAfterSchemaChange(
     context: IExecutionContext,
     table: Table
-  ): Promise<Result<ReconcileTableSearchVectorResult | undefined, DomainError>>;
+  ): Promise<Result<ReconcileTableSearchAccessPathResult | undefined, DomainError>>;
 }
+
+export type ReconcileTableSearchVectorInput = ReconcileTableSearchAccessPathInput;
+export type ReconcileTableSearchVectorResult = ReconcileTableSearchAccessPathResult;
+export type TableSearchVectorReconciler = TableSearchAccessPathReconciler;
 
 export type TableSearchVectorStatusState =
   | 'disabled'
@@ -151,6 +160,9 @@ export type TableSearchVectorStatus = {
   readonly state: TableSearchVectorStatusState;
   readonly configured: boolean;
   readonly languageConfig?: string;
+  readonly semantics?: 'substring' | 'lexical';
+  readonly provider?: 'pg_trgm' | 'pg_bigm' | 'tsvector';
+  readonly accessPath?: 'generated_text' | 'generated_tsvector';
   readonly coveredFieldCount: number;
 };
 
@@ -159,6 +171,33 @@ export interface TableSearchVectorStatusReader {
     context: IExecutionContext,
     tableId: string
   ): Promise<Result<TableSearchVectorStatus, DomainError>>;
+}
+
+export type TableSearchAccessPathProvider = 'pg_trgm' | 'pg_bigm';
+export type TableSearchAccessPathCapabilityState =
+  | 'ready'
+  | 'requires_database_extension'
+  | 'requires_cluster_restart'
+  | 'unavailable';
+
+export type TableSearchAccessPathCapability = {
+  readonly provider: TableSearchAccessPathProvider;
+  readonly extensionName: 'pg_trgm' | 'pg_bigm';
+  readonly operatorClass: 'gin_trgm_ops' | 'gin_bigm_ops';
+  readonly operatorClassSchema?: string;
+  readonly operatorClassInstalled: boolean;
+  readonly minimumProbeLength: number;
+  readonly state: TableSearchAccessPathCapabilityState;
+  readonly installed: boolean;
+  readonly available: boolean;
+  readonly preloaded: boolean;
+  readonly reason?: string;
+};
+
+export interface TableSearchAccessPathCapabilityReader {
+  read(
+    context: IExecutionContext
+  ): Promise<Result<ReadonlyArray<TableSearchAccessPathCapability>, DomainError>>;
 }
 
 export type TableSearchVectorSchemaMaintenanceReason =
@@ -180,6 +219,16 @@ export interface TableSearchVectorSchemaMaintenanceScheduler {
       readonly reason: TableSearchVectorSchemaMaintenanceReason;
     }
   ): Promise<Result<TableSearchVectorSchemaMaintenanceSchedule | undefined, DomainError>>;
+}
+
+export class NoopTableSearchVectorSchemaMaintenanceScheduler
+  implements TableSearchVectorSchemaMaintenanceScheduler
+{
+  async schedule(): Promise<
+    Result<TableSearchVectorSchemaMaintenanceSchedule | undefined, DomainError>
+  > {
+    return ok(undefined);
+  }
 }
 
 export interface TableQueryOpsLeaseRepository {

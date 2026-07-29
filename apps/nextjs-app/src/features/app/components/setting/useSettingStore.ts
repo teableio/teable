@@ -9,7 +9,6 @@ export enum PersonalSettingTab {
   OAuthApp = 'oauth-app',
   EnvVariable = 'env-variable',
   License = 'license',
-  LicensePlan = 'license-plan',
   TeableSkill = 'teable-skill',
 }
 

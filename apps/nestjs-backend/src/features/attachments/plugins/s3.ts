@@ -46,7 +46,16 @@ export class S3Storage implements StorageAdapter {
   private logger = new Logger(S3Storage.name);
 
   constructor(@StorageConfig() readonly config: IStorageConfig) {
-    const { endpoint, region, accessKey, secretKey, maxSockets, internalEndpoint } = this.config.s3;
+    const {
+      endpoint,
+      region,
+      accessKey,
+      secretKey,
+      maxSockets,
+      internalEndpoint,
+      forcePathStyle,
+      internalForcePathStyle,
+    } = this.config.s3;
     this.checkConfig();
     this.httpAgent = new http.Agent({
       maxSockets,
@@ -68,6 +77,7 @@ export class S3Storage implements StorageAdapter {
     this.s3Client = new S3Client({
       region,
       endpoint,
+      forcePathStyle,
       requestHandler,
       credentials: {
         accessKeyId: accessKey,
@@ -76,17 +86,25 @@ export class S3Storage implements StorageAdapter {
     });
     // Reuse the same requestHandler (shared http/https agents) so the
     // maxSockets limit governs both public and internal endpoint traffic.
-    this.s3ClientPrivateNetwork = internalEndpoint
-      ? new S3Client({
-          region,
-          endpoint: internalEndpoint,
-          requestHandler,
-          credentials: {
-            accessKeyId: accessKey,
-            secretAccessKey: secretKey,
-          },
-        })
-      : this.s3Client;
+    // Unset internal flag: inherit the public addressing style when sharing
+    // the public endpoint; keep the historical virtual-hosted default when a
+    // separate internal endpoint is configured. An explicit flag always wins.
+    const internalPathStyle = internalForcePathStyle ?? (internalEndpoint ? false : forcePathStyle);
+    // A dedicated internal client is needed when the endpoint differs, or when
+    // the two sides disagree on addressing style.
+    this.s3ClientPrivateNetwork =
+      internalEndpoint || internalPathStyle !== forcePathStyle
+        ? new S3Client({
+            region,
+            endpoint: internalEndpoint ?? endpoint,
+            forcePathStyle: internalPathStyle,
+            requestHandler,
+            credentials: {
+              accessKeyId: accessKey,
+              secretAccessKey: secretKey,
+            },
+          })
+        : this.s3Client;
     fse.ensureDirSync(StorageAdapter.TEMPORARY_DIR);
 
     this.s3ClientPreSigner = this.config.privateBucketEndpoint
@@ -148,6 +166,14 @@ export class S3Storage implements StorageAdapter {
 
   private checkConfig() {
     const { tokenExpireIn } = this.config;
+    if (this.config.s3.forcePathStyle && this.config.privateBucketEndpoint) {
+      // privateBucketEndpoint presigns against a bucket-specific host
+      // (bucketEndpoint: true), which contradicts path-style addressing.
+      throw new CustomHttpException(
+        'BACKEND_STORAGE_S3_FORCE_PATH_STYLE cannot be combined with BACKEND_STORAGE_PRIVATE_BUCKET_ENDPOINT',
+        HttpErrorCode.VALIDATION_ERROR
+      );
+    }
     if (ms(tokenExpireIn) >= ms('7d')) {
       throw new CustomHttpException(
         'Token expire in must be more than 7 days',

@@ -4,6 +4,7 @@ import { CanaryModule } from '../../canary/canary.module';
 import { FieldCalculateModule } from '../../field/field-calculate/field-calculate.module';
 import { FieldModule } from '../../field/field.module';
 import { RecordModule } from '../../record/record.module';
+import { ShortLinkModule } from '../../short-link/short-link.module';
 import { TableDomainQueryModule } from '../../table-domain';
 import { V2Module } from '../../v2/v2.module';
 import { ViewModule } from '../view.module';
@@ -21,6 +22,7 @@ import { ViewOpenApiService } from './view-open-api.service';
     TableDomainQueryModule,
     V2Module,
     CanaryModule,
+    ShortLinkModule,
   ],
   controllers: [ViewOpenApiController],
   providers: [ViewOpenApiService, ViewOpenApiV2Service],

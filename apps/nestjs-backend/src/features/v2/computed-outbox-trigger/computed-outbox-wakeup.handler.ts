@@ -9,6 +9,11 @@ import {
 import { v2CoreTokens, type ITracer } from '@teable/v2-core';
 
 import { V2ContainerService } from '../v2-container.service';
+import {
+  ComputedOutboxBaseAdmissionService,
+  type ComputedOutboxBaseAdmissionPermit,
+} from './computed-outbox-base-admission.service';
+
 import { ComputedOutboxTriggerMetrics } from './computed-outbox-trigger.metrics';
 import { IComputedOutboxWakeupAppPublisher } from './computed-outbox-wakeup.publisher';
 import type { ComputedOutboxWakeupWire } from './computed-outbox-wakeup.wire';
@@ -18,17 +23,18 @@ export type ComputedOutboxWakeupHandlerOutcome = {
   status: 'processed' | 'noop' | 'deferred' | 'parked';
 };
 
-/** Minimum delay for transient claim races and database lock misses. */
-const MIN_DEFER_DELAY_MS = 2_000;
 /**
- * Retry when the base concurrency/advisory slot is busy.
+ * Retry when the base concurrency/advisory slot is busy or a claim races a transaction.
  * Keep this short: a successful worker now drains the remaining queue immediately
  * (see drainRemainingOutbox), so long concurrency sleeps only add dual-link lag
  * when that drain races another claim miss. Pause still uses deterministic resume.
  */
-const CONCURRENCY_DEFER_DELAY_MS = 100;
+const TRANSIENT_DEFER_DELAY_MS = 100;
 /** Conservative retry for blockers without a deterministic release time. */
 const BLOCKED_DEFER_DELAY_MS = 30_000;
+/** Bounded stable spread keeps a hot base from retrying every rejected wake-up in lockstep. */
+const ADMISSION_DEFER_MIN_MS = 500;
+const ADMISSION_DEFER_SPREAD_MS = 1001;
 /** Per claimBatch size while continuing after a targeted wake-up. */
 const POST_PROCESS_DRAIN_BATCH_SIZE = 50;
 /** Hard cap so a pathological queue cannot pin one consumer forever. */
@@ -38,6 +44,15 @@ const createDeferredWakeupId = (taskId: string, availableAt: Date, bucketMs?: nu
   `cuwd-${taskId}-${
     bucketMs ? Math.floor(availableAt.getTime() / bucketMs) : availableAt.getTime()
   }`;
+
+const stableAdmissionDeferDelayMs = (baseId: string, taskId: string): number => {
+  let hash = 2166136261;
+  for (const char of `${baseId}:${taskId}`) {
+    hash ^= char.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return ADMISSION_DEFER_MIN_MS + ((hash >>> 0) % ADMISSION_DEFER_SPREAD_MS);
+};
 
 const isIndefinitelyPaused = (eligibility: OutboxTaskClaimEligibility): boolean =>
   eligibility.status === 'deferred' &&
@@ -50,30 +65,45 @@ const resolveDeferredWakeup = (
   eligibility: Exclude<OutboxTaskClaimEligibility, { status: 'terminal' }>,
   nowMs: number
 ): { wakeupId: string; availableAt: Date } => {
-  const fallbackDelay =
-    eligibility.status === 'deferred' && eligibility.reason === 'concurrency'
-      ? CONCURRENCY_DEFER_DELAY_MS
-      : eligibility.status === 'deferred' && eligibility.reason === 'paused'
-        ? BLOCKED_DEFER_DELAY_MS
-        : MIN_DEFER_DELAY_MS;
-  const retryAt = eligibility.status === 'deferred' ? eligibility.retryAt : null;
-  const finitePauseResumeAt =
-    eligibility.status === 'deferred' && eligibility.reason === 'paused' && retryAt !== null
-      ? retryAt
-      : null;
-  let availableAt =
-    finitePauseResumeAt ??
-    new Date(Math.max(nowMs + fallbackDelay, retryAt?.getTime() ?? Number.NEGATIVE_INFINITY));
-  const baseWakeupId = createDeferredWakeupId(
-    taskId,
-    availableAt,
-    finitePauseResumeAt ? undefined : fallbackDelay
-  );
+  const transientRetryAt = new Date(nowMs + TRANSIENT_DEFER_DELAY_MS);
+  let availableAt: Date;
+  let bucketMs: number | undefined;
+
+  if (eligibility.status === 'eligible') {
+    // claimById can miss a row locked by a transaction that commits immediately afterwards.
+    availableAt = transientRetryAt;
+    bucketMs = TRANSIENT_DEFER_DELAY_MS;
+  } else {
+    const { reason, retryAt } = eligibility;
+    switch (reason) {
+      case 'concurrency':
+        // retryAt is the processing lease expiry, not the expected blocker completion time.
+        // The active worker drains siblings after it commits, so only use a short safety retry.
+        availableAt = transientRetryAt;
+        bucketMs = TRANSIENT_DEFER_DELAY_MS;
+        break;
+      case 'not_due':
+        // releaseForRetry already chose the safe retry instant (250ms for computed lock misses).
+        // Do not inflate it to the old generic two-second claim-race delay.
+        availableAt = retryAt && retryAt.getTime() > nowMs ? retryAt : transientRetryAt;
+        break;
+      case 'active_lease':
+        availableAt = new Date(
+          Math.max(transientRetryAt.getTime(), retryAt?.getTime() ?? Number.NEGATIVE_INFINITY)
+        );
+        break;
+      case 'paused':
+        availableAt = retryAt ?? new Date(nowMs + BLOCKED_DEFER_DELAY_MS);
+        break;
+    }
+  }
+
+  const baseWakeupId = createDeferredWakeupId(taskId, availableAt, bucketMs);
   if (currentWakeupId === baseWakeupId || currentWakeupId.startsWith(`${baseWakeupId}-r`)) {
-    availableAt = new Date(Math.max(availableAt.getTime(), nowMs + MIN_DEFER_DELAY_MS));
+    availableAt = new Date(Math.max(availableAt.getTime(), nowMs + TRANSIENT_DEFER_DELAY_MS));
     return {
       availableAt,
-      wakeupId: `${baseWakeupId}-r${Math.floor(availableAt.getTime() / MIN_DEFER_DELAY_MS)}`,
+      wakeupId: `${baseWakeupId}-r${Math.floor(availableAt.getTime() / TRANSIENT_DEFER_DELAY_MS)}`,
     };
   }
   return {
@@ -90,7 +120,8 @@ export class ComputedOutboxWakeupHandler {
     private readonly v2ContainerService: V2ContainerService,
     private readonly metrics: ComputedOutboxTriggerMetrics,
     @Inject(COMPUTED_OUTBOX_WAKEUP_PUBLISHER)
-    private readonly wakeupPublisher: IComputedOutboxWakeupAppPublisher
+    private readonly wakeupPublisher: IComputedOutboxWakeupAppPublisher,
+    private readonly baseAdmission: ComputedOutboxBaseAdmissionService
   ) {}
 
   async handle(wakeup: ComputedOutboxWakeupWire): Promise<ComputedOutboxWakeupHandlerOutcome> {
@@ -101,15 +132,72 @@ export class ComputedOutboxWakeupHandler {
     wakeup: ComputedOutboxWakeupWire
   ): Promise<ComputedOutboxWakeupHandlerOutcome> {
     const startedAt = performance.now();
+    let admittedOperationStarted = false;
     this.metrics.recordDeliveryLag(Date.now() - new Date(wakeup.availableAt).getTime());
-
+    let admission;
     try {
+      admission = await this.baseAdmission.runWithPermit(wakeup.baseId, (permit) => {
+        admittedOperationStarted = true;
+        return this.handleAdmitted(wakeup, startedAt, permit);
+      });
+    } catch (error) {
+      if (!admittedOperationStarted) {
+        this.metrics.recordConsume('error');
+        this.metrics.recordExecutionDuration(performance.now() - startedAt, 'error');
+      }
+      throw error;
+    }
+    if (admission.admitted) return admission.value;
+
+    const nowMs = Date.now();
+    const deferDelayMs = stableAdmissionDeferDelayMs(wakeup.baseId, wakeup.taskId);
+    const availableAt = new Date(nowMs + deferDelayMs);
+    const baseWakeupId = `cuwd-admit-${wakeup.taskId}-${Math.floor(
+      availableAt.getTime() / ADMISSION_DEFER_SPREAD_MS
+    )}`;
+    const wakeupId =
+      wakeup.wakeupId === baseWakeupId || wakeup.wakeupId.startsWith(`${baseWakeupId}-r`)
+        ? `${baseWakeupId}-r${Math.floor(nowMs / ADMISSION_DEFER_MIN_MS)}`
+        : baseWakeupId;
+    try {
+      await this.wakeupPublisher.publish(
+        createComputedOutboxWakeup({
+          wakeupId,
+          taskId: wakeup.taskId,
+          baseId: wakeup.baseId,
+          availableAt,
+          cause: 'replay',
+        })
+      );
+    } catch (error) {
+      this.metrics.recordConsume('error');
+      this.metrics.recordExecutionDuration(performance.now() - startedAt, 'error');
+      throw error;
+    }
+    this.metrics.recordConsume('deferred');
+    this.metrics.recordExecutionDuration(performance.now() - startedAt, 'deferred');
+    this.logger.debug('computed:outbox:wakeup_admission_deferred', {
+      taskId: wakeup.taskId,
+      baseId: wakeup.baseId,
+      availableAt: availableAt.toISOString(),
+    });
+    return { status: 'deferred' };
+  }
+
+  private async handleAdmitted(
+    wakeup: ComputedOutboxWakeupWire,
+    startedAt: number,
+    permit: ComputedOutboxBaseAdmissionPermit
+  ): Promise<ComputedOutboxWakeupHandlerOutcome> {
+    try {
+      permit.assertActive();
       const container = await this.v2ContainerService.getContainerForBase(wakeup.baseId);
       const worker = container.resolve<ComputedUpdateWorker>(
         v2RecordRepositoryPostgresTokens.computedUpdateWorker
       );
       const workerId = `computed-queue-${process.pid}`;
       const tracer = container.resolve<ITracer>(v2CoreTokens.tracer);
+      permit.assertActive();
       const result = await worker.runTaskById({
         taskId: wakeup.taskId,
         workerId,
@@ -118,6 +206,7 @@ export class ComputedOutboxWakeupHandler {
         allowProcessingTakeover: false,
       });
       if (result.isErr()) throw result.error;
+      permit.assertActive();
 
       if (result.value) {
         // A processed seed/computed task can enqueue the next cascade stage (and bulk
@@ -125,17 +214,19 @@ export class ComputedOutboxWakeupHandler {
         // immediately instead of waiting for another BullMQ delivery or a multi-second
         // concurrency defer — this restores the T6191 "continue after any progress"
         // behavior after polling was replaced by BullMQ-only wake-ups.
-        await this.drainRemainingOutbox(worker, workerId, wakeup.baseId);
+        await this.drainRemainingOutbox(worker, workerId, wakeup.baseId, permit);
         this.metrics.recordConsume('processed');
         this.metrics.recordExecutionDuration(performance.now() - startedAt, 'processed');
         return { status: 'processed' };
       }
 
+      permit.assertActive();
       const outbox = container.resolve<IComputedUpdateOutbox>(
         v2RecordRepositoryPostgresTokens.computedUpdateOutbox
       );
       const eligibilityResult = await outbox.getTaskClaimEligibility(wakeup.taskId);
       if (eligibilityResult.isErr()) throw eligibilityResult.error;
+      permit.assertActive();
 
       const eligibility = eligibilityResult.value;
       if (!eligibility || eligibility.status === 'terminal') {
@@ -163,6 +254,7 @@ export class ComputedOutboxWakeupHandler {
         eligibility,
         Date.now()
       );
+      permit.assertActive();
       await this.wakeupPublisher.publish(
         createComputedOutboxWakeup({
           wakeupId,
@@ -196,14 +288,17 @@ export class ComputedOutboxWakeupHandler {
   private async drainRemainingOutbox(
     worker: ComputedUpdateWorker,
     workerId: string,
-    baseId: string
+    baseId: string,
+    permit: ComputedOutboxBaseAdmissionPermit
   ): Promise<void> {
     let drained = 0;
     while (drained < POST_PROCESS_DRAIN_MAX_TASKS) {
+      permit.assertActive();
       const more = await worker.runOnce({
         workerId,
         limit: POST_PROCESS_DRAIN_BATCH_SIZE,
       });
+      permit.assertActive();
       if (more.isErr()) {
         this.logger.warn('computed:outbox:post_process_drain_failed', {
           baseId,

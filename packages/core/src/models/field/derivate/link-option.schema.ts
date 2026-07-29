@@ -38,7 +38,8 @@ export const linkFieldOptionsSchema = z
       description: 'the view id that limits the number of records in the link field',
     }),
     visibleFieldIds: z.array(z.string()).nullable().optional().meta({
-      description: 'the fields that will be displayed in the link field',
+      description:
+        'the fields that will be displayed in the link field, the primary field is always visible even if omitted from this list',
     }),
     filter: filterSchema.optional(),
   })

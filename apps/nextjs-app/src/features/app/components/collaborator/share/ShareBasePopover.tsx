@@ -1,5 +1,5 @@
 import type { IRole } from '@teable/core';
-import { Popover, PopoverTrigger, PopoverContent } from '@teable/ui-lib/shadcn';
+import { cn, Popover, PopoverTrigger, PopoverContent } from '@teable/ui-lib/shadcn';
 import { useState } from 'react';
 import { ShareBaseContent } from './ShareBaseContent';
 
@@ -16,13 +16,21 @@ interface IShareBasePopoverProps {
 export const ShareBasePopover = (props: IShareBasePopoverProps) => {
   const { base, children } = props;
   const [open, setOpen] = useState(false);
-  const onClose = () => setOpen(false);
+  const [isSubPage, setIsSubPage] = useState(false);
+  const onOpenChange = (open: boolean) => {
+    setOpen(open);
+    if (!open) setIsSubPage(false);
+  };
+  const onClose = () => onOpenChange(false);
 
   return (
-    <Popover open={open} onOpenChange={setOpen} modal>
+    <Popover open={open} onOpenChange={onOpenChange} modal>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent
-        className="h-auto w-[480px] max-w-[100vw] rounded-xl border p-6 pb-3 shadow-lg"
+        className={cn(
+          'h-auto w-[480px] max-w-[100vw] rounded-xl border p-6 shadow-lg',
+          !isSubPage && 'pb-3'
+        )}
         align="end"
       >
         <ShareBaseContent
@@ -31,6 +39,7 @@ export const ShareBasePopover = (props: IShareBasePopoverProps) => {
           role={base.role}
           enabledAuthority={base.enabledAuthority}
           onClose={onClose}
+          onSubPageChange={setIsSubPage}
         />
       </PopoverContent>
     </Popover>

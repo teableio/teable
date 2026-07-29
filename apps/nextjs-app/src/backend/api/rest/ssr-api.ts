@@ -36,6 +36,7 @@ import type {
   ICreateBaseRo,
   ICreateBaseVo,
   ITemplatePermalinkVo,
+  IShortLinkVo,
   IGetBaseShareVo,
 } from '@teable/openapi';
 import {
@@ -80,6 +81,7 @@ import {
   GET_USER_LAST_VISIT_BASE_NODE,
   GET_BASE_NODE_LIST,
   GET_TEMPLATE_PERMALINK,
+  GET_SHORT_LINK,
 } from '@teable/openapi';
 import type { AxiosInstance } from 'axios';
 import { getAxios } from './axios';
@@ -128,51 +130,55 @@ export class SsrApi {
   async getTable(
     baseId: string,
     tableId: string,
-    viewId?: string
+    viewId?: string,
+    preloadedViews?: IViewVo[]
   ): Promise<ITableFullVo & { extra: IRecordsVo['extra'] }> {
-    const fields = await this.getFields(tableId, { viewId });
-    const views = await this.axios
-      .get<IViewVo[]>(urlBuilder(GET_VIEW_LIST, { tableId }))
-      .then(({ data }) => data);
-    const table = await this.axios
-      .get<ITableVo>(urlBuilder(GET_TABLE, { baseId, tableId }), {
-        params: {
-          includeContent: true,
-          viewId,
-          fieldKeyType: FieldKeyType.Id,
-        },
-      })
-      .then(({ data }) => data);
+    const viewsPromise = preloadedViews
+      ? Promise.resolve(preloadedViews)
+      : this.axios.get<IViewVo[]>(urlBuilder(GET_VIEW_LIST, { tableId })).then(({ data }) => data);
 
-    const currentView = views.find((view) => view.id === viewId);
-
-    // Gracefully handle records fetch errors (e.g., invalid filter in view)
-    // This prevents SSR crash when view has corrupted filter data
-    let records: IRecord[] = [];
-    let extra: IRecordsVo['extra'] = undefined;
-    try {
-      const recordsResult = await this.axios
-        .get<IRecordsVo>(urlBuilder(GET_RECORDS_URL, { baseId, tableId }), {
+    // Records depend on the current view's group config, so chain off views;
+    // gracefully handle records fetch errors (e.g., invalid filter in view)
+    // to prevent SSR crash when view has corrupted filter data
+    const recordsPromise = viewsPromise
+      .then((views) => {
+        const currentView = views.find((view) => view.id === viewId);
+        return this.axios.get<IRecordsVo>(urlBuilder(GET_RECORDS_URL, { baseId, tableId }), {
           params: {
             viewId,
             fieldKeyType: FieldKeyType.Id,
             groupBy: currentView?.group ? JSON.stringify(currentView.group) : undefined,
           },
+        });
+      })
+      .then(({ data }) => data)
+      .catch((error): IRecordsVo | undefined => {
+        // Log error but continue - client-side will show appropriate error toast
+        console.error('[SSR] Failed to fetch records, view may have invalid filter:', error);
+        return undefined;
+      });
+
+    const [fields, views, table, recordsResult] = await Promise.all([
+      this.getFields(tableId, { viewId }),
+      viewsPromise,
+      this.axios
+        .get<ITableVo>(urlBuilder(GET_TABLE, { baseId, tableId }), {
+          params: {
+            includeContent: true,
+            viewId,
+            fieldKeyType: FieldKeyType.Id,
+          },
         })
-        .then(({ data }) => data);
-      records = recordsResult.records;
-      extra = recordsResult.extra;
-    } catch (error) {
-      // Log error but continue - client-side will show appropriate error toast
-      console.error('[SSR] Failed to fetch records, view may have invalid filter:', error);
-    }
+        .then(({ data }) => data),
+      recordsPromise,
+    ]);
 
     return {
       ...table,
-      records,
+      records: recordsResult?.records ?? [],
       views,
       fields,
-      extra,
+      extra: recordsResult?.extra,
     };
   }
 
@@ -376,6 +382,12 @@ export class SsrApi {
   async getTemplatePermalink(identifier: string) {
     return this.axios
       .get<ITemplatePermalinkVo>(urlBuilder(GET_TEMPLATE_PERMALINK, { identifier }))
+      .then(({ data }) => data);
+  }
+
+  async getShortLink(code: string) {
+    return this.axios
+      .get<IShortLinkVo>(urlBuilder(GET_SHORT_LINK, { code }))
       .then(({ data }) => data);
   }
 }

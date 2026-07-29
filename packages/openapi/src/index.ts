@@ -15,6 +15,7 @@ export * from './auth';
 export * from './db-connection';
 export * from './invitation';
 export * from './share';
+export * from './short-link';
 export * from './notification';
 export * from './user';
 export * from './access-token';

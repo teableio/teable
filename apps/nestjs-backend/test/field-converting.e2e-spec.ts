@@ -4066,6 +4066,121 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
     });
 
     it.skipIf(!canRunCanaryV2)(
+      'should create and convert lookup-of-formula without foreign expression (T6332)',
+      async () => {
+        // Sanitized structure-equivalent of the canary repro:
+        // foreign formula CONCATENATE(text, code) -> host lookup via manyOne link.
+        // Retained facts only: formula source, lookup-of-formula, convert path.
+        const supplierField = await createField(table2.id, {
+          name: 'Supplier Code',
+          type: FieldType.SingleLineText,
+        });
+        const batchField = await createField(table2.id, {
+          name: 'Batch Code',
+          type: FieldType.SingleLineText,
+        });
+        const displayFormula = await createField(table2.id, {
+          name: 'Batch Display Name',
+          type: FieldType.Formula,
+          options: {
+            expression: `CONCATENATE({${supplierField.id}}, " / ", {${batchField.id}})`,
+          },
+        });
+
+        const linkField = await createField(table1.id, {
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyOne,
+            foreignTableId: table2.id,
+          },
+        });
+
+        await updateRecordByApi(table2.id, table2.records[0].id, supplierField.id, 'ACME');
+        await updateRecordByApi(table2.id, table2.records[0].id, batchField.id, 'PO-100');
+        await updateRecordByApi(table1.id, table1.records[0].id, linkField.id, {
+          id: table2.records[0].id,
+        });
+
+        // Create through canary/v2 so we exercise the production path.
+        const createRes = await axios.post<IFieldVo>(
+          `/table/${table1.id}/field`,
+          {
+            type: FieldType.Formula,
+            isLookup: true,
+            name: 'Batch Name Lookup',
+            lookupOptions: {
+              foreignTableId: table2.id,
+              lookupFieldId: displayFormula.id,
+              linkFieldId: linkField.id,
+            },
+          },
+          {
+            headers: {
+              [X_CANARY_HEADER]: 'true',
+            },
+          }
+        );
+        expect(createRes.status).toEqual(201);
+        expect(createRes.headers['x-teable-v2']).toEqual('true');
+
+        const lookupField = createRes.data;
+        expect(lookupField.isLookup).toBe(true);
+        expect(lookupField.type).toBe(FieldType.Formula);
+        expect(
+          ((lookupField.options as { expression?: string } | undefined)?.expression ?? '').includes(
+            supplierField.id
+          )
+        ).toBe(false);
+        expect(
+          ((lookupField.options as { expression?: string } | undefined)?.expression ?? '').includes(
+            batchField.id
+          )
+        ).toBe(false);
+
+        const createdRecord = await getRecord(table1.id, table1.records[0].id);
+        expect(createdRecord.fields[lookupField.id]).toEqual('ACME / PO-100');
+
+        // Convert/edit must stay on lookup path and not validate foreign formula IDs.
+        const updatedField = await convertFieldByCanaryV2(table1.id, lookupField.id, {
+          type: FieldType.Formula,
+          isLookup: true,
+          name: 'Batch Name Lookup Renamed',
+          lookupOptions: {
+            foreignTableId: table2.id,
+            lookupFieldId: displayFormula.id,
+            linkFieldId: linkField.id,
+          },
+        });
+
+        expect(updatedField.isLookup).toBe(true);
+        expect(updatedField.name).toBe('Batch Name Lookup Renamed');
+        expect(
+          (
+            (updatedField.options as { expression?: string } | undefined)?.expression ?? ''
+          ).includes(supplierField.id)
+        ).toBe(false);
+        expect(
+          (
+            (updatedField.options as { expression?: string } | undefined)?.expression ?? ''
+          ).includes(batchField.id)
+        ).toBe(false);
+        const docIdsRes = await axios.post(
+          `/table/${table1.id}/record/socket/doc-ids`,
+          {},
+          {
+            headers: {
+              [X_CANARY_HEADER]: 'true',
+            },
+          }
+        );
+        expect(docIdsRes.status).toEqual(201);
+
+        const afterRecord = await getRecord(table1.id, table1.records[0].id);
+        expect(afterRecord.fields[lookupField.id]).toEqual('ACME / PO-100');
+      }
+    );
+
+    it.skipIf(!canRunCanaryV2)(
       'should remove lookup filter when convert payload omits filter in v2',
       async () => {
         const regionField = await createField(table2.id, {

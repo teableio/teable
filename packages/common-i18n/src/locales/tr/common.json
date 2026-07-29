@@ -468,6 +468,7 @@
       "tabLink": "Bağlantı ile davet et",
       "linkPlaceholder": "Açan herkese <0/> erişimi veren bir davet bağlantısı oluştur.",
       "emailSend": "Davet gönder",
+      "directAccessDescription": "Davet edilen ortak çalışanlar aşağıdaki bağlantıdan doğrudan erişerek iş birliğine katılabilir",
       "linkSend": "Bağlantı oluştur",
       "spaceTitle": "Alan işbirlikçileri",
       "collaboratorSearchPlaceholder": "İsim veya e-posta ile alan işbirlikçisi bul",
@@ -894,6 +895,10 @@
           "title": "Kayıt Yorumu Bildirimi",
           "message": "{{fromUserName}}, {{baseName}} içindeki {{tableName}} tablosundaki {{recordName}} kaydına yorum yaptı"
         },
+        "collaboratorInvite": {
+          "space": "{{fromUserName}} sizi {{resourceName}} alanına davet etti",
+          "base": "{{fromUserName}} sizi {{resourceName}} veritabanına davet etti"
+        },
         "automation": {
           "title": "Otomasyon Bildirimi",
           "failed": {
@@ -1280,10 +1285,10 @@
     }
   },
   "changelog": {
-    "newUpdate": "15 TEMMUZ GUNCELLEMESI",
-    "title": "AI hafızası ve dosya indirmeleri",
-    "url": "https://help.teable.ai/en/changelog#jul-15-2026",
-    "id": "changelog-2026-07-15-ai-memory-and-file-downloads"
+    "newUpdate": "28 TEMMUZ GÜNCELLEMESİ",
+    "title": "AI Aracıları için Teable Skill",
+    "url": "https://help.teable.ai/en/changelog#jul-28-2026",
+    "id": "changelog-2026-07-28-teable-skill-for-ai-agents"
   },
   "resourceDescription": {
     "addDescription": "Açıklama ekle",

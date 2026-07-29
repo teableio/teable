@@ -68,6 +68,14 @@ export class SettingService {
       }
     }
 
+    // spaceIds are stripped from the Redis setting blob; hydrate only when canary is requested.
+    if (nameSet.has(SettingKey.CANARY_CONFIG)) {
+      const canaryConfig = await this.settingModel.getCanaryConfigFromDb();
+      if (canaryConfig) {
+        res[SettingKey.CANARY_CONFIG] = canaryConfig;
+      }
+    }
+
     // Apply environment variable overrides
     this.applyEnvOverrides(res);
 

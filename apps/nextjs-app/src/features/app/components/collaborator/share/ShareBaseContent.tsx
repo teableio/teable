@@ -42,12 +42,14 @@ export const ShareBaseContent = ({
   role: userRole,
   enabledAuthority,
   onClose,
+  onSubPageChange,
 }: {
   baseId: string;
   baseName: string;
   role: IRole;
   enabledAuthority?: boolean;
   onClose: () => void;
+  onSubPageChange: (isSubPage: boolean) => void;
 }) => {
   const router = useRouter();
   const { user } = useSession();
@@ -66,7 +68,7 @@ export const ShareBaseContent = ({
     fetchNextPage,
     isLoading: isListLoading,
   } = useInfiniteQuery({
-    queryKey: ReactQueryKeys.baseCollaboratorList(baseId, { includeSystem: true, search }),
+    queryKey: ReactQueryKeys.baseCollaboratorList(baseId, { search }),
     staleTime: 1000,
     refetchOnWindowFocus: false,
     queryFn: ({ queryKey, pageParam }) =>
@@ -94,13 +96,12 @@ export const ShareBaseContent = ({
     enabled: hasInviteLinkPermission,
   });
 
-  const { mutate: emailInvitation, isPending: emailInvitationLoading } = useMutation({
+  const { mutateAsync: emailInvitation, isPending: emailInvitationLoading } = useMutation({
     mutationFn: emailBaseInvitation,
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ReactQueryKeys.baseCollaboratorList(baseId),
       });
-      onClose();
       toast.success(t('invite.sendInvitationSuccess'));
     },
   });
@@ -180,7 +181,11 @@ export const ShareBaseContent = ({
   };
 
   const linkListCount = linkList?.length || 0;
-  const onBack = () => setTabType(undefined);
+  const changeTabType = (nextTabType: typeof tabType) => {
+    setTabType(nextTabType);
+    onSubPageChange(Boolean(nextTabType && nextTabType !== 'collaborators'));
+  };
+  const onBack = () => changeTabType(undefined);
   const defaultRole = userRole === Role.Owner ? Role.Creator : userRole;
   const filteredRoleStatic = useFilteredRoleStatic(defaultRole);
 
@@ -213,13 +218,19 @@ export const ShareBaseContent = ({
   }
 
   if (tabType === 'email') {
+    const resourceUrl =
+      typeof window === 'undefined' ? '' : `${window.location.origin}/base/${baseId}`;
+
     return (
       <EmailContent
         defaultRole={defaultRole}
         isCreateLoading={emailInvitationLoading}
-        onCreate={(ro) => emailInvitation({ baseId, emailBaseInvitationRo: ro })}
+        onCreate={async (ro) => {
+          await emailInvitation({ baseId, emailBaseInvitationRo: ro });
+        }}
         onBack={onBack}
         filteredRoleStatic={filteredRoleStatic}
+        resourceUrl={resourceUrl}
       />
     );
   }
@@ -260,11 +271,11 @@ export const ShareBaseContent = ({
       />
       {enabledAuthority && <AuthorityTips onViewDetail={toAuthorityManage} />}
       <div className="flex flex-col gap-5">
-        <InviteEmailButton onClick={() => setTabType('email')} />
+        <InviteEmailButton onClick={() => changeTabType('email')} />
         {user?.organization && (
           <div className="space-y-2">
             <p className="text-sm font-semibold">{t('invite.addOrgCollaborator.title')}</p>
-            <InviteOrgButton onClick={() => setTabType('organization')} />
+            <InviteOrgButton onClick={() => changeTabType('organization')} />
           </div>
         )}
         {hasInviteLinkPermission && (
@@ -273,7 +284,7 @@ export const ShareBaseContent = ({
             <InviteLinkButton
               className="box-content -translate-x-2 px-2 py-0"
               linkListCount={linkListCount}
-              onClick={() => setTabType('link')}
+              onClick={() => changeTabType('link')}
             />
           </div>
         )}
@@ -351,7 +362,7 @@ export const ShareBaseContent = ({
             <CollaboratorButton
               collaborators={collaborators?.slice(0, 4) || []}
               total={total}
-              onClick={() => setTabType('collaborators')}
+              onClick={() => changeTabType('collaborators')}
               className="box-content -translate-x-2 px-2 py-0"
             />
           </CollaboratorsDialog>

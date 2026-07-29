@@ -956,13 +956,15 @@ export class BaseImportService {
   private async createPanelV2(
     db: Kysely<unknown>,
     baseId: string,
-    plugins: IBaseJson['plugins'][PluginPosition.Panel],
+    panelPlugins: IBaseJson['plugins'][PluginPosition.Panel],
     tableMap: Record<string, string>,
     fieldMap: Record<string, string>
   ) {
     const panelMap: Record<string, string> = {};
     const pluginInstallMap: Record<string, string> = {};
     const userId = this.cls.get('user.id');
+    // Panels whose table is outside the imported scope have no table mapping
+    const plugins = panelPlugins.filter(({ tableId }) => tableMap[tableId]);
     const pluginInstalls = plugins.map(({ pluginInstall }) => pluginInstall).flat();
 
     for (const plugin of plugins) {
@@ -2864,7 +2866,7 @@ export class BaseImportService {
 
   async createPanel(
     baseId: string,
-    plugins: IBaseJson['plugins'][PluginPosition.Panel],
+    panelPlugins: IBaseJson['plugins'][PluginPosition.Panel],
     tableMap: Record<string, string>,
     fieldMap: Record<string, string>
   ) {
@@ -2872,6 +2874,8 @@ export class BaseImportService {
     const pluginInstallMap: Record<string, string> = {};
     const userId = this.cls.get('user.id');
     const prisma = this.prismaService.txClient();
+    // Panels whose table is outside the imported scope have no table mapping
+    const plugins = panelPlugins.filter(({ tableId }) => tableMap[tableId]);
     const pluginInstalls = plugins.map(({ pluginInstall }) => pluginInstall).flat();
 
     for (const plugin of plugins) {

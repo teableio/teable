@@ -16,6 +16,9 @@ import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
 
 const getEmbedUrl = (shareUrl: string) => {
+  // Guard against an empty/invalid URL (e.g. before origin is known) so a bad
+  // prop degrades to empty embed code instead of crashing the page on render
+  if (!shareUrl) return '';
   const url = new URL(shareUrl);
   url.searchParams.append('embed', 'true');
   return url.toString();

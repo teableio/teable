@@ -58,12 +58,41 @@ export class FieldCreationSideEffectVisitor implements IFieldVisitor<FieldCreati
     fields: ReadonlyArray<Field>,
     context: FieldCreationSideEffectContext
   ): Result<FieldCreationSideEffects, DomainError> {
-    const visitor = FieldCreationSideEffectVisitor.create(context);
-    return fields.reduce<Result<FieldCreationSideEffects, DomainError>>(
-      (acc, field) =>
-        acc.andThen((effects) => field.accept(visitor).map((next) => [...effects, ...next])),
-      ok([])
+    const tableState = new Map<string, Table>(
+      context.foreignTables.map((table) => [table.id().toString(), table])
     );
+    tableState.set(context.table.id().toString(), context.table);
+
+    const effects: FieldCreationSideEffect[] = [];
+    for (const field of fields) {
+      const table = tableState.get(context.table.id().toString());
+      if (!table) return err(domainError.invariant({ message: 'Host table not loaded' }));
+
+      const nextEffectsResult = field.accept(
+        FieldCreationSideEffectVisitor.create({
+          table,
+          foreignTables: [...tableState.values()],
+          domainContext: context.domainContext,
+        })
+      );
+      if (nextEffectsResult.isErr()) return err(nextEffectsResult.error);
+
+      for (const effect of nextEffectsResult.value) {
+        // Keep planning state current so later fields can avoid names reserved by earlier effects.
+        const foreignTableId = effect.foreignTable.id().toString();
+        const foreignTable = tableState.get(foreignTableId);
+        if (!foreignTable) {
+          return err(domainError.invariant({ message: 'Foreign table not loaded' }));
+        }
+
+        const previewResult = effect.mutateSpec.mutate(foreignTable);
+        if (previewResult.isErr()) return err(previewResult.error);
+        tableState.set(foreignTableId, previewResult.value);
+        effects.push(effect);
+      }
+    }
+
+    return ok(effects);
   }
 
   static create(context: FieldCreationSideEffectContext): FieldCreationSideEffectVisitor {

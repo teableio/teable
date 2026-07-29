@@ -797,17 +797,26 @@ describe('record-history cold storage', () => {
         createdBy: 'u1',
       };
       const fakeKnex = {
-        raw: async (sql: string, bindings: unknown[]) => {
-          capturedSql = sql;
-          capturedBindings = bindings;
-          return { rows: [returnedRow] };
-        },
+        raw: (sql: string, bindings: unknown[]) => ({
+          connection: async () => {
+            capturedSql = sql;
+            capturedBindings = bindings;
+            return { rows: [returnedRow] };
+          },
+        }),
       };
-      const dataKnexForTable = async () => fakeKnex;
+      const withDataKnexConnectionForTable = async (
+        _tableId: string,
+        run: (knex: typeof fakeKnex, connection: object) => unknown
+      ) => run(fakeKnex, {});
       const flusher = new RecordHistoryFlusherService(
-        ...([null, null, null, { dataKnexForTable }, null] as unknown as ConstructorParameters<
-          typeof RecordHistoryFlusherService
-        >)
+        ...([
+          null,
+          null,
+          { withDataKnexConnectionForTable },
+          null,
+          null,
+        ] as unknown as ConstructorParameters<typeof RecordHistoryFlusherService>)
       );
       const rows = await (
         flusher as unknown as {

@@ -217,7 +217,7 @@ describe('OAuthServerService', () => {
       };
 
       cacheService.get.mockResolvedValue(mockCodeState);
-      cacheService.del.mockResolvedValue();
+      cacheService.del.mockResolvedValue(true);
       const mockAccessToken = { id: 'accessTokenId', token: 'accessToken' };
       mockGenerateAccessToken.mockResolvedValue(mockAccessToken);
       const mockRefreshToken = 'refreshToken';

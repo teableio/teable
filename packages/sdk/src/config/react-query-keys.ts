@@ -65,6 +65,8 @@ export const ReactQueryKeys = {
 
   tableList: (baseId: string) => ['table-list', baseId] as const,
 
+  tableSeed: (tableId: string, viewId: string) => ['table-seed', tableId, viewId] as const,
+
   recordCommentCount: (tableId: string, recordId: string) =>
     ['record-comment-count', tableId, recordId] as const,
 
@@ -110,6 +112,7 @@ export const ReactQueryKeys = {
     filter ? (['notification', 'list', filter] as const) : (['notification', 'list'] as const),
   notifyUnreadCount: () => ['notification', 'unread-count'],
   notifyCriticalAdmin: () => ['notification', 'critical-admin'] as const,
+  notifyUnreadInvite: () => ['notification', 'unread-invite'] as const,
 
   rowCount: (tableId: string, query: IQueryBaseRo) => ['row-count', tableId, query] as const,
   groupPoints: (tableId: string, query: IGroupPointsRo) =>

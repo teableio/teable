@@ -4,7 +4,8 @@
  */
 
 const jestPatterns = {
-  files: ['**/?(*.)+(test).{js,jsx,ts,tsx}'],
+  files: ['**/?(*.)+(spec|test).{js,jsx,ts,tsx}'],
+  strictFiles: ['**/?(*.)+(test).{js,jsx,ts,tsx}'],
 };
 
 module.exports = {
@@ -20,16 +21,13 @@ module.exports = {
   },
   overrides: [
     {
-      // Perf: To ensure best performance enable eslint-plugin-jest for test files only.
+      // Keep high-signal safeguards and relaxed TypeScript rules for all test conventions.
       files: jestPatterns.files,
-      // @see https://github.com/jest-community/eslint-plugin-jest
-      extends: ['plugin:jest/recommended'],
+      plugins: ['jest'],
       rules: {
-        // Relax rules that are known to be slow and less useful in a test context
         'import/namespace': 'off',
         'import/default': 'off',
         'import/no-duplicates': 'off',
-        // Relax rules that makes writing tests easier
         'import/no-named-as-default-member': 'off',
         '@typescript-eslint/no-non-null-assertion': 'off',
         '@typescript-eslint/no-object-literal-type-assertion': 'off',
@@ -38,7 +36,15 @@ module.exports = {
         '@typescript-eslint/ban-ts-comment': 'off',
         '@typescript-eslint/no-unsafe-member-access': 'off',
         '@typescript-eslint/no-unsafe-assignment': 'off',
-        // Enable Jest rules
+        'jest/no-focused-tests': 'error',
+      },
+    },
+    {
+      // Preserve the existing stricter profile for *.test.* files.
+      files: jestPatterns.strictFiles,
+      // @see https://github.com/jest-community/eslint-plugin-jest
+      extends: ['plugin:jest/recommended'],
+      rules: {
         'jest/no-focused-tests': 'error',
         'jest/prefer-mock-promise-shorthand': 'error',
         'jest/no-commented-out-tests': 'error',

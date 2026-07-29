@@ -25,10 +25,12 @@ export type TableSearchAccessPath =
   | 'none'
   | 'default_ilike'
   | 'trigram'
+  | 'generated_text_trigram'
+  | 'generated_text_bigram'
   | 'generated_tsvector'
   | 'fallback';
 
-export type TableSearchMode = 'none' | 'ilike' | 'trigram' | 'full_text';
+export type TableSearchMode = 'none' | 'ilike' | 'substring' | 'trigram' | 'full_text';
 
 export type TableSearchScope = 'none' | 'all_fields' | 'selected_fields';
 
@@ -60,6 +62,7 @@ export const TableQueryTraceAttributes = {
   SEARCH_ALL_FIELDS: 'teable.search.all_fields',
   SEARCH_VECTOR_COLUMN: 'teable.search.vector_column',
   SEARCH_INDEX_NAME: 'teable.search.index_name',
+  SEARCH_INDEX_PROVIDER: 'teable.search.index_provider',
   ERROR_KIND: 'teable.error.kind',
 } as const;
 
@@ -111,6 +114,7 @@ export type SearchTraceAttributeInput = {
   readonly fallbackReason?: string;
   readonly generatedColumnName?: string;
   readonly indexName?: string;
+  readonly indexProvider?: 'pg_trgm' | 'pg_bigm';
 };
 
 const metricQueryKinds = new Set<string>([
@@ -134,19 +138,24 @@ const metricQuerySources = new Set<string>([
   'devtools.table_query_ops',
   'runtime_observation',
 ]);
-const metricSearchModes = new Set<string>(['none', 'ilike', 'trigram', 'full_text']);
+const metricSearchModes = new Set<string>(['none', 'ilike', 'substring', 'trigram', 'full_text']);
 const metricSearchAccessPaths = new Set<string>([
   'none',
   'default_ilike',
   'trigram',
+  'generated_text_trigram',
+  'generated_text_bigram',
   'generated_tsvector',
   'fallback',
 ]);
 const metricSearchScopes = new Set<string>(['none', 'all_fields', 'selected_fields']);
 const metricLanguageConfigs = new Set<string>(['simple', 'english', 'jiebacfg']);
+const metricIndexProviders = new Set<string>(['pg_trgm', 'pg_bigm']);
 const metricFallbackReasons = new Set<string>([
   'no_visible_row_search',
   'generated_tsvector_unavailable',
+  'generated_text_unavailable',
+  'generated_text_probe_too_short',
 ]);
 const metricErrorKinds = new Set<string>([
   'timeout',
@@ -231,6 +240,9 @@ export const createSearchTraceAttributes = (input: SearchTraceAttributeInput): S
   ...(isPresent(input.indexName)
     ? { [TableQueryTraceAttributes.SEARCH_INDEX_NAME]: input.indexName }
     : {}),
+  ...(isPresent(input.indexProvider)
+    ? { [TableQueryTraceAttributes.SEARCH_INDEX_PROVIDER]: input.indexProvider }
+    : {}),
 });
 
 export type TableQueryMetricAttributeInput = TableQueryTraceAttributeInput &
@@ -247,6 +259,7 @@ export const createTableQueryMetricAttributes = (
   const accessPath = normalizeMetricLabel(input.accessPath, metricSearchAccessPaths);
   const searchScope = normalizeMetricLabel(input.searchScope, metricSearchScopes);
   const languageConfig = normalizeMetricLabel(input.languageConfig, metricLanguageConfigs);
+  const indexProvider = normalizeMetricLabel(input.indexProvider, metricIndexProviders);
   const fallbackReason = normalizeMetricLabel(input.fallbackReason, metricFallbackReasons);
   const errorKind = normalizeMetricLabel(input.errorKind, metricErrorKinds);
 
@@ -262,6 +275,7 @@ export const createTableQueryMetricAttributes = (
     ...(languageConfig
       ? { [TableQueryTraceAttributes.SEARCH_LANGUAGE_CONFIG]: languageConfig }
       : {}),
+    ...(indexProvider ? { [TableQueryTraceAttributes.SEARCH_INDEX_PROVIDER]: indexProvider } : {}),
     ...(fallbackReason
       ? { [TableQueryTraceAttributes.SEARCH_FALLBACK_REASON]: fallbackReason }
       : {}),

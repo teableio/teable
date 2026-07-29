@@ -197,7 +197,7 @@ export class TableSchemaUpdateVisitor
   }
 
   /**
-   * A stored generated tsvector depends on its source columns, so PostgreSQL
+   * A managed stored search document depends on its source columns, so PostgreSQL
    * rejects ALTER COLUMN TYPE until the managed column is removed. The
    * post-schema projection rebuilds it from the latest Table aggregate.
    */
@@ -218,7 +218,10 @@ export class TableSchemaUpdateVisitor
             AND a.attnum > 0
             AND NOT a.attisdropped
             AND a.attgenerated = 's'
-            AND a.attname LIKE '\\_\\_tqops\\_tsv\\_%' ESCAPE '\\'
+            AND (
+              a.attname LIKE '\\_\\_tqops\\_tsv\\_%' ESCAPE '\\'
+              OR a.attname LIKE '\\_\\_tqops\\_search\\_%' ESCAPE '\\'
+            )
         LOOP
           EXECUTE format(
             'ALTER TABLE %I.%I DROP COLUMN IF EXISTS %I',
@@ -1321,23 +1324,27 @@ export class TableSchemaUpdateVisitor
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const statements: TableSchemaStatementBuilder[] = [];
 
-      // When the workflow changes, clear all existing button cell values
-      // to prevent stale workflow execution data from persisting.
-      const field = yield* visitor.params.table.getField((candidate) =>
-        candidate.id().equals(spec.fieldId())
-      );
-      const dbFieldName = yield* visitor.resolveDbFieldNameText(field);
-      const fullTableName = visitor.params.schema
-        ? `"${visitor.params.schema}"."${visitor.params.tableName}"`
-        : `"${visitor.params.tableName}"`;
+      const workflowChanged =
+        spec.previousWorkflow()?.toDto().id !== spec.nextWorkflow()?.toDto().id;
+      if (workflowChanged) {
+        // Clear click counts when the workflow identity changes so they cannot be
+        // attributed to a different workflow.
+        const field = yield* visitor.params.table.getField((candidate) =>
+          candidate.id().equals(spec.fieldId())
+        );
+        const dbFieldName = yield* visitor.resolveDbFieldNameText(field);
+        const fullTableName = visitor.params.schema
+          ? `"${visitor.params.schema}"."${visitor.params.tableName}"`
+          : `"${visitor.params.tableName}"`;
 
-      statements.push({
-        scope: 'data',
-        compile: () =>
-          sql`UPDATE ${sql.raw(fullTableName)} SET ${sql.ref(dbFieldName)} = NULL WHERE ${sql.ref(dbFieldName)} IS NOT NULL`.compile(
-            visitor.params.db
-          ),
-      });
+        statements.push({
+          scope: 'data',
+          compile: () =>
+            sql`UPDATE ${sql.raw(fullTableName)} SET ${sql.ref(dbFieldName)} = NULL WHERE ${sql.ref(dbFieldName)} IS NOT NULL`.compile(
+              visitor.params.db
+            ),
+        });
+      }
 
       yield* addCond(statements);
       return ok(statements);

@@ -1,4 +1,5 @@
 export type IDataDbRuntimeErrorCode =
+  | 'data_db.tenant_missing'
   | 'data_db.database_missing'
   | 'data_db.auth_failed'
   | 'data_db.connection_refused'
@@ -18,6 +19,11 @@ export type IDataDbRuntimeErrorClassification = {
   pgCode?: string;
   driverCode?: string;
 };
+
+// Supavisor (Supabase pooler) login failure when the project itself has been
+// deleted, e.g. "(ENOTFOUND) tenant/user postgres.abc not found" or
+// "Tenant or user not found"
+const tenantMissingMessagePattern = /tenant\/user .+ not found|tenant or user not found/i;
 
 const getErrorCode = (error: unknown): string | undefined => {
   if (!error || typeof error !== 'object') {
@@ -63,6 +69,17 @@ export const classifyDataDbRuntimeError = (
 ): IDataDbRuntimeErrorClassification | null => {
   const driverCode = getErrorCode(error);
   const message = getErrorMessage(error);
+
+  // checked before the driver-code switch: the error may carry a generic
+  // network code (e.g. ENOTFOUND) that would misclassify it as unreachable
+  if (tenantMissingMessagePattern.test(message)) {
+    return buildClassification(
+      error,
+      'data_db.tenant_missing',
+      'The bound data database project no longer exists.',
+      { retryable: false, userActionable: true }
+    );
+  }
 
   switch (driverCode) {
     case '3D000':
@@ -204,4 +221,37 @@ export const classifyDataDbRuntimeError = (
   }
 
   return null;
+};
+
+/**
+ * Handle a failed physical cleanup (drop, purge) on a routed data database.
+ *
+ * Drops on a bound (BYODB) data database are best-effort: when the classifier
+ * confirms a non-retryable failure (the database or project no longer exists,
+ * credentials revoked), the error is logged and swallowed so cleanup can
+ * finish. Everything else — platform (meta-fallback) errors, transient
+ * failures against a live bound database, unclassified errors — is rethrown
+ * so cleanup retries instead of leaving the physical object orphaned.
+ */
+export const handleBestEffortDataDbDropError = ({
+  error,
+  isMetaFallback,
+  logger,
+  target,
+}: {
+  error: unknown;
+  isMetaFallback: boolean;
+  logger: { warn(message: string): void };
+  target: string;
+}): void => {
+  if (isMetaFallback) {
+    throw error;
+  }
+  const classification = classifyDataDbRuntimeError(error);
+  if (!classification || classification.retryable) {
+    throw error;
+  }
+  logger.warn(
+    `Best-effort data DB drop: failed to drop ${target} (${classification.code}), continuing: ${error}`
+  );
 };

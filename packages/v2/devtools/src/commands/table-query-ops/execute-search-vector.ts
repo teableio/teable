@@ -132,5 +132,7 @@ export const tableQueryOpsExecuteSearchVector = Command.make(
   },
   handler
 ).pipe(
-  Command.withDescription('Dry-run or execute a generated tsvector search access-path candidate')
+  Command.withDescription(
+    'Deprecated alias for execute-search-access-path; execution still requires real-DDL validation'
+  )
 );

@@ -21,6 +21,13 @@ const stripPort = (value: string): string => {
   const v4WithPort = /^(\d{1,3}(?:\.\d{1,3}){3}):\d+$/.exec(value);
   return v4WithPort ? v4WithPort[1] : value;
 };
+// Longest endpoint path we keep. Real routes are far shorter; the cap only guards against a
+// caller stuffing a huge URL into an audit row.
+const maxOriginPathLength = 512;
+
+const requestPath = (req: Request): string =>
+  (req.originalUrl ?? req.url ?? '').split('?')[0].slice(0, maxOriginPathLength);
+
 const fallbackScheduleV2BackgroundTask: NonNullable<IClsStore['scheduleV2BackgroundTask']> = (
   task
 ) => {
@@ -109,6 +116,13 @@ export class RequestInfoMiddleware implements NestMiddleware {
       byApi,
       userAgent,
       referer,
+      method: req.method,
+      // Path only — the query string can carry filters, search terms and share signatures,
+      // none of which belong in an audit row. Read from originalUrl, not req.path: this
+      // middleware is mounted on a wildcard route, which makes Express rewrite req.path.
+      // The middleware also runs before routing, so the route template
+      // (/table/:tableId/...) isn't available — the concrete path is more useful anyway.
+      path: requestPath(req),
       ...(via ? { via } : {}),
     });
 

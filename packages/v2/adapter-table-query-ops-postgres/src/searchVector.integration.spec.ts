@@ -25,8 +25,12 @@ import {
 } from './searchVector';
 import type { UnknownPostgresDatabase } from './types';
 
+const runPostgresAcceptance = process.env.TEABLE_V2_RUN_SEARCH_VECTOR_PG_INTEGRATION === '1';
 const testDatabaseUrl = process.env.PRISMA_DATABASE_URL;
-const describeWithPostgres = testDatabaseUrl ? describe : describe.skip;
+if (runPostgresAcceptance && !testDatabaseUrl) {
+  throw new Error('TEABLE_V2_RUN_SEARCH_VECTOR_PG_INTEGRATION=1 requires PRISMA_DATABASE_URL');
+}
+const describeWithPostgres = runPostgresAcceptance ? describe : describe.skip;
 
 describeWithPostgres('PostgresTableSearchVectorAdvisor', () => {
   let db: Kysely<UnknownPostgresDatabase>;
@@ -41,13 +45,14 @@ describeWithPostgres('PostgresTableSearchVectorAdvisor', () => {
         },
       },
     });
+    await sql.raw('CREATE EXTENSION IF NOT EXISTS pg_trgm').execute(db);
   });
 
   afterAll(async () => {
     await db?.destroy();
   });
 
-  it('recommends a generated tsvector access path and validates the real GIN index after execution', async () => {
+  it('recommends a generated substring document and validates result-compatible real GIN', async () => {
     const schemaName = `tqops_search_vector_${process.pid}_${Date.now()}`;
     const physicalTableName = 'records';
     const physicalTableSql = makePhysicalTableSql(schemaName, physicalTableName);
@@ -69,7 +74,7 @@ describeWithPostgres('PostgresTableSearchVectorAdvisor', () => {
           fieldCount: 1,
           allFields: false,
           searchedFieldIds: [titleFieldId],
-          searchMode: 'full_text',
+          searchMode: 'ilike',
           searchScope: 'selected_fields',
           languageConfig: 'simple',
           valueLengthBucket: 'medium',
@@ -101,11 +106,15 @@ describeWithPostgres('PostgresTableSearchVectorAdvisor', () => {
       });
       const recommendation = result.recommendations[0];
       if (!recommendation) {
-        throw new Error('Expected generated tsvector recommendation');
+        throw new Error('Expected generated substring recommendation');
       }
 
       expect({
         accessPath: recommendation.accessPath,
+        semantics: recommendation.semantics,
+        provider: recommendation.provider,
+        operatorClass: recommendation.operatorClass,
+        minimumProbeLength: recommendation.minimumProbeLength,
         indexKind: recommendation.indexKind,
         languageConfig: recommendation.languageConfig,
         coveredFieldDbNames: recommendation.coveredFields.map((field) => field.fieldDbName),
@@ -113,14 +122,18 @@ describeWithPostgres('PostgresTableSearchVectorAdvisor', () => {
         planStatus: recommendation.planEvidence.explainStatus,
       }).toMatchInlineSnapshot(`
           {
-            "accessPath": "generated_tsvector",
+            "accessPath": "generated_text",
             "coveredFieldDbNames": [
               "fld_title",
               "fld_notes",
             ],
-            "indexKind": "gin_tsvector",
+            "indexKind": "gin_trgm",
             "languageConfig": "simple",
+            "minimumProbeLength": 3,
+            "operatorClass": "gin_trgm_ops",
             "planStatus": "validated",
+            "provider": "pg_trgm",
+            "semantics": "substring",
             "skippedReasons": [
               "non_text_value",
             ],
@@ -139,7 +152,7 @@ describeWithPostgres('PostgresTableSearchVectorAdvisor', () => {
         redaction: 'search_probe_parameterized',
       });
       expect(recommendation.planEvidence.sqlDetails?.beforeSql).toContain('ILIKE');
-      expect(recommendation.planEvidence.sqlDetails?.afterSql).toContain('websearch_to_tsquery');
+      expect(recommendation.planEvidence.sqlDetails?.afterSql).toContain('LIKE lower');
       expect(JSON.stringify(recommendation.planEvidence.sqlDetails)).not.toContain(
         'needle package'
       );
@@ -155,7 +168,7 @@ describeWithPostgres('PostgresTableSearchVectorAdvisor', () => {
         ],
       });
       expect(result.scopedExpressionRecommendations[0]).toMatchObject({
-        indexKind: 'gin_tsvector_expression',
+        indexKind: 'gin_trgm_expression',
         accessPath: 'scoped_expression_gin',
         searchedFieldIds: [titleFieldId],
         coveredFields: [{ fieldId: titleFieldId, fieldDbName: 'fld_title' }],
@@ -183,6 +196,8 @@ describeWithPostgres('PostgresTableSearchVectorAdvisor', () => {
           validationMode: 'real_ddl',
           generatedColumnName: recommendation.generatedColumnName,
           indexName: recommendation.indexName,
+          provider: recommendation.provider,
+          operatorClass: recommendation.operatorClass,
           fields: recommendation.coveredFields.map((field) => ({
             fieldId: field.fieldId,
             fieldDbName: field.fieldDbName ?? '',
@@ -198,6 +213,7 @@ describeWithPostgres('PostgresTableSearchVectorAdvisor', () => {
         explainStatus: 'validated',
         explainMethod: 'real_index',
         usesCandidateIndex: true,
+        semanticsCompatible: true,
       });
       expect(execution.planEvidence?.costAfter).toBeLessThan(
         execution.planEvidence?.costBefore ?? 0
@@ -206,6 +222,115 @@ describeWithPostgres('PostgresTableSearchVectorAdvisor', () => {
         recommendation.generatedColumnName
       );
       expect(JSON.stringify(execution.planEvidence?.sqlDetails)).not.toContain('needle package');
+      const managedState = await sql<{
+        data_type: string;
+        generated_kind: string;
+        operator_class: string;
+        access_method: string;
+        indexed_column: string;
+      }>`
+        SELECT
+          format_type(a.atttypid, a.atttypmod) AS data_type,
+          a.attgenerated AS generated_kind,
+          opc.opcname AS operator_class,
+          am.amname AS access_method,
+          indexed_attribute.attname AS indexed_column
+        FROM pg_attribute a
+        JOIN pg_class t ON t.oid = a.attrelid
+        JOIN pg_namespace n ON n.oid = t.relnamespace
+        JOIN pg_index i ON i.indrelid = t.oid
+        JOIN pg_class idx ON idx.oid = i.indexrelid AND idx.relname = ${recommendation.indexName}
+        JOIN pg_am am ON am.oid = idx.relam
+        JOIN pg_opclass opc ON opc.oid = i.indclass[0]
+        JOIN pg_attribute indexed_attribute
+          ON indexed_attribute.attrelid = i.indrelid
+          AND indexed_attribute.attnum = i.indkey[0]
+        WHERE n.nspname = ${schemaName}
+          AND t.relname = ${physicalTableName}
+          AND a.attname = ${recommendation.generatedColumnName}
+      `.execute(db);
+      expect(managedState.rows[0]).toEqual({
+        data_type: 'text',
+        generated_kind: 's',
+        operator_class: 'gin_trgm_ops',
+        access_method: 'gin',
+        indexed_column: recommendation.generatedColumnName,
+      });
+
+      const resultCases = [
+        { search: 'needle package', expectedRecordIds: ['rec_4242'] },
+        { search: 'shipment note', expectedRecordIds: ['rec_4242'] },
+        { search: 'customer billing', expectedRecordIds: ['rec_8424'] },
+        { search: 'target', expectedRecordIds: ['rec_4242', 'rec_8424'] },
+        { search: '上', expectedRecordIds: ['rec_126'] },
+        { search: '订单', expectedRecordIds: ['rec_126'] },
+        { search: '订单已', expectedRecordIds: ['rec_126'] },
+        { search: 'mixedcasesku', expectedRecordIds: ['rec_129'] },
+        { search: 'MIXEDCASESKU', expectedRecordIds: ['rec_129'] },
+        { search: 'مرحبا', expectedRecordIds: ['rec_128'] },
+        { search: '%', expectedRecordIds: ['rec_127'] },
+        { search: '_', expectedRecordIds: ['rec_127'] },
+        { search: 'scope-only', expectedRecordIds: ['rec_130'] },
+      ] as const;
+      for (const resultCase of resultCases) {
+        const defaultRecordIds = await querySearchRecordIds({
+          db,
+          physicalTableSql,
+          fieldDbNames: ['fld_title', 'fld_notes'],
+          generatedColumnName: recommendation.generatedColumnName,
+          languageConfig: recommendation.languageConfig,
+          search: resultCase.search,
+          accessPath: 'default',
+        });
+        const generatedRecordIds = await querySearchRecordIds({
+          db,
+          physicalTableSql,
+          fieldDbNames: ['fld_title', 'fld_notes'],
+          generatedColumnName: recommendation.generatedColumnName,
+          languageConfig: recommendation.languageConfig,
+          search: resultCase.search,
+          accessPath: 'generated_text',
+        });
+
+        expect(defaultRecordIds, `default results for ${resultCase.search}`).toEqual(
+          resultCase.expectedRecordIds
+        );
+        expect(generatedRecordIds, `generated results for ${resultCase.search}`).toEqual(
+          resultCase.expectedRecordIds
+        );
+      }
+
+      const selectedFieldDefaultIds = await querySearchRecordIds({
+        db,
+        physicalTableSql,
+        fieldDbNames: ['fld_title'],
+        generatedColumnName: recommendation.generatedColumnName,
+        languageConfig: recommendation.languageConfig,
+        search: 'scope-only',
+        accessPath: 'default',
+      });
+      const selectedFieldGeneratedIds = await querySearchRecordIds({
+        db,
+        physicalTableSql,
+        fieldDbNames: ['fld_title'],
+        generatedColumnName: recommendation.generatedColumnName,
+        languageConfig: recommendation.languageConfig,
+        search: 'scope-only',
+        accessPath: 'generated_text',
+      });
+      expect(selectedFieldDefaultIds).toEqual([]);
+      expect(selectedFieldGeneratedIds).toEqual(selectedFieldDefaultIds);
+
+      const performance = await compareMedianSearchDuration({
+        db,
+        physicalTableSql,
+        fieldDbNames: ['fld_title', 'fld_notes'],
+        generatedColumnName: recommendation.generatedColumnName,
+        languageConfig: recommendation.languageConfig,
+        search: 'needle package',
+      });
+      expect(performance.generatedTextMedianMs).toBeLessThan(performance.defaultMedianMs);
+
       const scopedResult = await advisor.analyze({} as never, {
         table,
         languageConfig: 'simple',
@@ -219,7 +344,7 @@ describeWithPostgres('PostgresTableSearchVectorAdvisor', () => {
       expect(scopedRecommendation?.planEvidence.sqlDetails?.beforeSql).toContain(
         recommendation.generatedColumnName
       );
-      expect(scopedRecommendation?.planEvidence.sqlDetails?.beforeSql).toContain('to_tsvector');
+      expect(scopedRecommendation?.planEvidence.sqlDetails?.beforeSql).toContain('LIKE lower');
       expect(scopedRecommendation?.planEvidence.sqlDetails?.afterSql).toBe(
         scopedRecommendation?.planEvidence.sqlDetails?.beforeSql
       );
@@ -231,8 +356,12 @@ describeWithPostgres('PostgresTableSearchVectorAdvisor', () => {
         base_id: string;
         table_id: string;
         status: string;
+        semantics: string;
+        access_path: string;
+        provider: string;
+        operator_class: string | null;
       }>`
-        SELECT space_id, base_id, table_id, status
+        SELECT space_id, base_id, table_id, status, semantics, access_path, provider, operator_class
         FROM table_query_search_vector_config
         WHERE table_id = ${table.id().toString()}
           AND candidate_key = ${recommendation.candidateKey}
@@ -243,12 +372,29 @@ describeWithPostgres('PostgresTableSearchVectorAdvisor', () => {
         base_id: schemaName,
         table_id: table.id().toString(),
         status: 'ready',
+        semantics: 'substring',
+        access_path: 'generated_text',
+        provider: 'pg_trgm',
+        operator_class: 'gin_trgm_ops',
       });
 
       const reconciler = new PostgresTableSearchVectorReconciler(db, db);
+      const changedCandidate = await reconciler.reconcile({} as never, {
+        table,
+        mode: 'create',
+        expectedDefinitionKey: 'search_document:stale-confirmation',
+        provider: recommendation.provider,
+        searchProbe: 'needle package',
+        validationMode: 'real_ddl',
+      });
+      expect(changedCandidate.isErr()).toBe(true);
+      expect(changedCandidate._unsafeUnwrapErr().message).toContain('analyze and confirm again');
+
       const repeatedCreate = await reconciler.reconcile({} as never, {
         table,
         mode: 'create',
+        expectedDefinitionKey: recommendation.candidateKey,
+        provider: recommendation.provider,
         languageConfig: 'simple',
         searchProbe: 'needle package',
         validationMode: 'real_ddl',
@@ -275,10 +421,41 @@ describeWithPostgres('PostgresTableSearchVectorAdvisor', () => {
       const generatedCount = await sql<{ count: string | number }>`
           SELECT count(*) AS count
           FROM ${sql.raw(physicalTableSql)}
-          WHERE ${sql.raw(quoteIdentifier(recommendation.generatedColumnName))} @@ websearch_to_tsquery('simple'::regconfig, 'fresh generated search token')
+          WHERE ${sql.raw(quoteIdentifier(recommendation.generatedColumnName))} LIKE lower('%fresh generated search token%')
         `.execute(db);
 
       expect(Number(generatedCount.rows[0]?.count ?? 0)).toBeGreaterThan(0);
+
+      await sql
+        .raw(
+          `DROP INDEX ${quoteIdentifier(schemaName)}.${quoteIdentifier(recommendation.indexName)}`
+        )
+        .execute(db);
+      await sql
+        .raw(
+          `CREATE INDEX ${quoteIdentifier(recommendation.indexName)} ON ${physicalTableSql} (${quoteIdentifier(
+            recommendation.generatedColumnName
+          )})`
+        )
+        .execute(db);
+      await expect(
+        executor.execute({
+          tableId: table.id().toString(),
+          payload: {
+            candidateKey: recommendation.candidateKey,
+            languageConfig: recommendation.languageConfig,
+            generatedColumnName: recommendation.generatedColumnName,
+            indexName: recommendation.indexName,
+            provider: recommendation.provider,
+            operatorClass: recommendation.operatorClass,
+            fields: recommendation.coveredFields.map((field) => ({
+              fieldId: field.fieldId,
+              fieldDbName: field.fieldDbName ?? '',
+              fieldType: field.fieldType,
+            })),
+          },
+        })
+      ).rejects.toThrow(/managed substring search objects are stale/i);
     } finally {
       await cleanupExecutorMeta({
         db,
@@ -435,9 +612,16 @@ const createSearchVectorFixture = async (input: {
       )}, ${quoteIdentifier('fld_count')})
        SELECT 'rec_' || i::text,
               CASE WHEN i = 4242 THEN 'needle package target'
+                   WHEN i = 8424 THEN 'invoice alpha target'
+                   WHEN i = 126 THEN '上海订单已完成'
+                   WHEN i = 127 THEN '客户_100%确认'
+                   WHEN i = 128 THEN 'مرحبا طلب'
+                   WHEN i = 129 THEN 'MixedCaseSKU-AbC123'
                    ELSE md5(i::text) || md5((i + 100000)::text)
               END,
               CASE WHEN i = 4242 THEN 'shipment note target'
+                   WHEN i = 8424 THEN 'customer billing target'
+                   WHEN i = 130 THEN 'scope-only note value'
                    ELSE md5((i + 200000)::text)
               END,
               i
@@ -487,4 +671,105 @@ const createSearchVectorTableAggregate = (input: {
   notesField?.setDbFieldName(DbFieldName.rehydrate('fld_notes')._unsafeUnwrap())._unsafeUnwrap();
   countField?.setDbFieldName(DbFieldName.rehydrate('fld_count')._unsafeUnwrap())._unsafeUnwrap();
   return table;
+};
+
+type SearchQueryInput = {
+  readonly db: Kysely<UnknownPostgresDatabase>;
+  readonly physicalTableSql: string;
+  readonly fieldDbNames: readonly string[];
+  readonly generatedColumnName: string;
+  readonly languageConfig: string;
+  readonly search: string;
+};
+
+const escapeLikePattern = (value: string): string =>
+  value.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
+
+const buildDefaultSearchPredicate = (fieldDbNames: readonly string[], search: string) =>
+  sql.join(
+    fieldDbNames.map(
+      (fieldDbName) =>
+        sql`COALESCE(${sql.ref(fieldDbName)}, '') ILIKE ${`%${escapeLikePattern(
+          search
+        )}%`} ESCAPE '\\'`
+    ),
+    sql` OR `
+  );
+
+const querySearchRecordIds = async (
+  input: SearchQueryInput & {
+    readonly accessPath: 'default' | 'generated_text';
+  }
+): Promise<string[]> => {
+  const predicate =
+    input.accessPath === 'default'
+      ? buildDefaultSearchPredicate(input.fieldDbNames, input.search)
+      : sql`${sql.ref(input.generatedColumnName)} LIKE lower(${`%${escapeLikePattern(
+          input.search
+        )}%`}) ESCAPE '\\' AND (${buildDefaultSearchPredicate(input.fieldDbNames, input.search)})`;
+  const result = await sql<{ id: string }>`
+    SELECT "__id" AS id
+    FROM ${sql.raw(input.physicalTableSql)}
+    WHERE ${predicate}
+    ORDER BY "__id"
+  `.execute(input.db);
+  return result.rows.map((row) => row.id);
+};
+
+const querySearchCount = async (
+  input: SearchQueryInput & {
+    readonly accessPath: 'default' | 'generated_text';
+  }
+): Promise<void> => {
+  const predicate =
+    input.accessPath === 'default'
+      ? buildDefaultSearchPredicate(input.fieldDbNames, input.search)
+      : sql`${sql.ref(input.generatedColumnName)} LIKE lower(${`%${escapeLikePattern(
+          input.search
+        )}%`}) ESCAPE '\\' AND (${buildDefaultSearchPredicate(input.fieldDbNames, input.search)})`;
+  await sql`
+    SELECT count(*)
+    FROM ${sql.raw(input.physicalTableSql)}
+    WHERE ${predicate}
+  `.execute(input.db);
+};
+
+const median = (values: readonly number[]): number => {
+  const sorted = [...values].sort((left, right) => left - right);
+  return sorted[Math.floor(sorted.length / 2)] ?? 0;
+};
+
+const measureSearchDurations = async (
+  input: SearchQueryInput & {
+    readonly accessPath: 'default' | 'generated_text';
+  }
+): Promise<number[]> => {
+  for (let warmup = 0; warmup < 2; warmup += 1) {
+    await querySearchCount(input);
+  }
+
+  const durations: number[] = [];
+  for (let iteration = 0; iteration < 7; iteration += 1) {
+    const startedAt = process.hrtime.bigint();
+    await querySearchCount(input);
+    durations.push(Number(process.hrtime.bigint() - startedAt) / 1_000_000);
+  }
+  return durations;
+};
+
+const compareMedianSearchDuration = async (
+  input: SearchQueryInput
+): Promise<{
+  readonly defaultMedianMs: number;
+  readonly generatedTextMedianMs: number;
+}> => {
+  const defaultDurations = await measureSearchDurations({ ...input, accessPath: 'default' });
+  const generatedTextDurations = await measureSearchDurations({
+    ...input,
+    accessPath: 'generated_text',
+  });
+  return {
+    defaultMedianMs: median(defaultDurations),
+    generatedTextMedianMs: median(generatedTextDurations),
+  };
 };

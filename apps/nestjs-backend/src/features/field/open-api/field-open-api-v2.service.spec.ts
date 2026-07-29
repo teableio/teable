@@ -362,7 +362,7 @@ describe('FieldOpenApiV2Service mapConvertFieldToV2', () => {
     });
   });
 
-  it('keeps legacy lookup formula convert payloads on formula semantics', () => {
+  it('maps lookup-of-formula convert payloads as lookup, not host formula', () => {
     const service = createService();
     const mapped = service.mapConvertFieldToV2(
       {
@@ -374,6 +374,7 @@ describe('FieldOpenApiV2Service mapConvertFieldToV2', () => {
           foreignTableId: 'tblForeign00000001',
         },
         options: {
+          expression: 'CONCATENATE({fldForeignText0001}, " / ", {fldForeignCode0001})',
           formatting: { precision: 4, type: 'decimal' },
         },
       },
@@ -388,18 +389,21 @@ describe('FieldOpenApiV2Service mapConvertFieldToV2', () => {
           foreignTableId: 'tblForeign00000001',
         },
         options: {
-          expression: 'max({values})',
+          expression: 'CONCATENATE({fldForeignText0001}, " / ", {fldForeignCode0001})',
           formatting: { precision: 2, type: 'decimal' },
         },
       }
     );
 
     expect(mapped).toEqual({
-      type: 'formula',
+      type: 'lookup',
       options: {
-        expression: 'max({values})',
+        linkFieldId: 'fldLink000000000001',
+        lookupFieldId: 'fldLookup000000001',
+        foreignTableId: 'tblForeign00000001',
+      },
+      innerOptions: {
         formatting: { precision: 4, type: 'decimal' },
-        showAs: null,
       },
     });
   });
@@ -1086,6 +1090,65 @@ describe('FieldOpenApiV2Service mapLegacyCreateFieldToV2', () => {
     expect(mapped).toMatchObject({
       type: 'lookup',
       isMultipleCellValue: true,
+      options: {
+        foreignTableId: 'tblForeign00000001',
+        lookupFieldId: 'fldLookup000000001',
+        linkFieldId: 'fldLink000000000001',
+      },
+    });
+  });
+
+  it('strips formula expression from lookup create innerOptions', () => {
+    const service = createService();
+    const mapped = service.mapLegacyCreateFieldToV2({
+      type: 'formula',
+      isLookup: true,
+      options: {
+        expression: 'CONCATENATE({fldForeignText0001}, " / ", {fldForeignCode0001})',
+        timeZone: 'Asia/Shanghai',
+        formatting: { type: 'decimal', precision: 0 },
+        showAs: { type: 'url' },
+      },
+      lookupOptions: {
+        foreignTableId: 'tblForeign00000001',
+        lookupFieldId: 'fldLookup000000001',
+        linkFieldId: 'fldLink000000000001',
+      },
+    });
+
+    expect(mapped).toEqual({
+      id: expect.any(String),
+      type: 'lookup',
+      legacyMultiplicityDerivation: true,
+      options: {
+        foreignTableId: 'tblForeign00000001',
+        lookupFieldId: 'fldLookup000000001',
+        linkFieldId: 'fldLink000000000001',
+      },
+      innerOptions: {
+        formatting: { type: 'decimal', precision: 0 },
+        showAs: { type: 'url' },
+      },
+    });
+  });
+
+  it('keeps structural select options out of lookup convert innerOptions', () => {
+    const service = createService();
+    const mapped = service.mapConvertFieldToV2({
+      type: 'singleSelect',
+      isLookup: true,
+      options: {
+        choices: [],
+      },
+      lookupOptions: {
+        foreignTableId: 'tblForeign00000001',
+        lookupFieldId: 'fldLookup000000001',
+        linkFieldId: 'fldLink000000000001',
+      },
+    });
+
+    expect(mapped).toEqual({
+      type: 'lookup',
       options: {
         foreignTableId: 'tblForeign00000001',
         lookupFieldId: 'fldLookup000000001',

@@ -184,6 +184,7 @@ describe('BaseNodeService', () => {
         {} as never,
         tableOpenApiV2Service as never,
         tableDuplicateService as never,
+        {} as never,
         {} as never
       );
 
@@ -264,6 +265,7 @@ describe('BaseNodeService', () => {
         { get: vi.fn(), set: vi.fn() } as never,
         {} as never,
         canaryService as never,
+        {} as never,
         {} as never,
         {} as never,
         {} as never,

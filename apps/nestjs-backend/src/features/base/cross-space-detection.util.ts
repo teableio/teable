@@ -1,5 +1,18 @@
 import { FieldType } from '@teable/core';
 
+/**
+ * Escape hatch for single-database self-hosted deployments: when
+ * ALLOW_CROSS_SPACE_REFERENCE=true, cross-space link / lookup / rollup /
+ * conditionalLookup / conditionalRollup behave as before T3837 — creation is
+ * allowed and duplicate/move no longer downgrade them to text. Incompatible
+ * with per-space data DBs (cross-database junctions and computed updates
+ * would break), so data-db migration preflight must reject when this is on.
+ * Read at call time (not cached) so tests can toggle it.
+ */
+export function isCrossSpaceReferenceAllowed(): boolean {
+  return process.env.ALLOW_CROSS_SPACE_REFERENCE === 'true';
+}
+
 export interface ICrossSpaceFieldInput {
   id: string;
   type: string;

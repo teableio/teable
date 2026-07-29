@@ -1,4 +1,5 @@
 import { CellValueType, DbFieldType, FieldType, Relationship } from '@teable/core';
+import { ResourceType } from '@teable/openapi';
 import { describe, expect, it, vi } from 'vitest';
 import { TableOpenApiService } from './table-open-api.service';
 
@@ -506,6 +507,210 @@ describe('TableOpenApiService.dropTables', () => {
     expect(tableMutationCacheInvalidator.invalidateDroppedTable).toHaveBeenCalledWith(
       '"bseTest"."tblA"'
     );
+  });
+
+  const buildService = (dropError: Error, { isMetaFallback = true } = {}) => {
+    const metaTxClient = {
+      tableMeta: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: 'tblA',
+            baseId: 'bseTest',
+            dbTableName: '"bseTest"."tblA"',
+            version: 3,
+            deletedTime: new Date(),
+          },
+        ]),
+      },
+    };
+    const databaseRouter = {
+      executeDataPrismaForTable: vi.fn().mockRejectedValue(dropError),
+      isMetaFallbackForBase: vi.fn().mockResolvedValue(isMetaFallback),
+    };
+    const tableMutationCacheInvalidator = {
+      invalidateDroppedTable: vi.fn().mockResolvedValue(undefined),
+    };
+    const service = new TableOpenApiService(
+      { txClient: vi.fn().mockReturnValue(metaTxClient) } as never,
+      databaseRouter as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { saveRawOps: vi.fn() } as never,
+      { dropTable: vi.fn().mockReturnValue('drop table "bseTest"."tblA"') } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      tableMutationCacheInvalidator as never,
+      {} as never,
+      { deleteTablePrefix: async () => undefined } as never
+    );
+    return { service, databaseRouter, tableMutationCacheInvalidator };
+  };
+
+  it('tolerates a failed physical drop on a bound (BYODB) data database', async () => {
+    const { service, tableMutationCacheInvalidator } = buildService(
+      new Error('(ENOTFOUND) tenant/user postgres.abc not found'),
+      { isMetaFallback: false }
+    );
+
+    await expect(service.dropTables(['tblA'])).resolves.toBeUndefined();
+    expect(tableMutationCacheInvalidator.invalidateDroppedTable).toHaveBeenCalledWith(
+      '"bseTest"."tblA"'
+    );
+  });
+
+  it('classifies the drop failure without re-migrating the unreachable database', async () => {
+    const { service, databaseRouter } = buildService(
+      new Error('(ENOTFOUND) tenant/user postgres.abc not found'),
+      { isMetaFallback: false }
+    );
+
+    await service.dropTables(['tblA']);
+
+    expect(databaseRouter.isMetaFallbackForBase).toHaveBeenCalledWith('bseTest', {
+      useTransaction: true,
+    });
+  });
+
+  it('rethrows platform data DB errors from the physical drop', async () => {
+    const { service } = buildService(
+      new Error("Can't reach database server at `db.example.com:5432`")
+    );
+
+    await expect(service.dropTables(['tblA'])).rejects.toThrow("Can't reach database server");
+  });
+});
+
+describe('TableOpenApiService.cleanTablesRelatedData', () => {
+  const buildService = (
+    dataDbError?: Error,
+    {
+      isMetaFallback = false,
+      tableTrashError,
+    }: { isMetaFallback?: boolean; tableTrashError?: Error } = {}
+  ) => {
+    const deleteMany = () => vi.fn().mockResolvedValue({ count: 0 });
+    const metaTxClient = {
+      field: { deleteMany: deleteMany() },
+      view: { deleteMany: deleteMany() },
+      attachmentsTable: { deleteMany: deleteMany() },
+      ops: { deleteMany: deleteMany() },
+      tableMeta: { deleteMany: deleteMany() },
+      trash: { deleteMany: deleteMany() },
+    };
+    const dataPrisma = {
+      recordHistory: { deleteMany: deleteMany() },
+      tableTrash: {
+        deleteMany: tableTrashError ? vi.fn().mockRejectedValue(tableTrashError) : deleteMany(),
+      },
+      recordTrash: { deleteMany: deleteMany() },
+    };
+    const databaseRouter = {
+      dataPrismaForBase: dataDbError
+        ? vi.fn().mockRejectedValue(dataDbError)
+        : vi.fn().mockResolvedValue(dataPrisma),
+      isMetaFallbackForBase: vi.fn().mockResolvedValue(isMetaFallback),
+    };
+    const service = new TableOpenApiService(
+      { txClient: vi.fn().mockReturnValue(metaTxClient) } as never,
+      databaseRouter as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      { deleteTablePrefix: async () => undefined } as never
+    );
+    return { service, databaseRouter, metaTxClient, dataPrisma };
+  };
+
+  it('purges record history and trash snapshots on the data database', async () => {
+    const { service, dataPrisma, metaTxClient } = buildService();
+
+    await service.cleanTablesRelatedData('bseTest', ['tblA'], { useTransaction: true });
+
+    expect(dataPrisma.recordHistory.deleteMany).toHaveBeenCalledWith({
+      where: { tableId: { in: ['tblA'] } },
+    });
+    expect(dataPrisma.tableTrash.deleteMany).toHaveBeenCalled();
+    expect(dataPrisma.recordTrash.deleteMany).toHaveBeenCalled();
+    expect(metaTxClient.trash.deleteMany).toHaveBeenCalled();
+  });
+
+  it('still removes the meta trash row when the bound (BYODB) data database is gone', async () => {
+    const { service, metaTxClient, databaseRouter } = buildService(
+      new Error('(ENOTFOUND) tenant/user postgres.abc not found'),
+      { isMetaFallback: false }
+    );
+
+    await expect(
+      service.cleanTablesRelatedData('bseTest', ['tblA'], { useTransaction: true })
+    ).resolves.toBeUndefined();
+
+    expect(metaTxClient.trash.deleteMany).toHaveBeenCalledWith({
+      where: { resourceId: { in: ['tblA'] }, resourceType: ResourceType.Table },
+    });
+    expect(databaseRouter.isMetaFallbackForBase).toHaveBeenCalledWith('bseTest', {
+      useTransaction: true,
+    });
+  });
+
+  it('rethrows platform data DB errors from the related-data cleanup', async () => {
+    const { service } = buildService(
+      new Error("Can't reach database server at `db.example.com:5432`"),
+      { isMetaFallback: true }
+    );
+
+    await expect(
+      service.cleanTablesRelatedData('bseTest', ['tblA'], { useTransaction: true })
+    ).rejects.toThrow("Can't reach database server");
+  });
+
+  it('keeps purging after swallowing one relation that the bound database never had', async () => {
+    const { service, dataPrisma, metaTxClient } = buildService(undefined, {
+      isMetaFallback: false,
+      tableTrashError: new Error('relation "table_trash" does not exist'),
+    });
+
+    await expect(
+      service.cleanTablesRelatedData('bseTest', ['tblA'], { useTransaction: true })
+    ).resolves.toBeUndefined();
+
+    expect(dataPrisma.recordTrash.deleteMany).toHaveBeenCalled();
+    expect(metaTxClient.trash.deleteMany).toHaveBeenCalled();
+  });
+
+  it('keeps the meta trash row when the cleanup failure is rethrown', async () => {
+    const { service, metaTxClient } = buildService(
+      new Error("Can't reach database server at `db.example.com:5432`"),
+      { isMetaFallback: true }
+    );
+
+    await expect(
+      service.cleanTablesRelatedData('bseTest', ['tblA'], { useTransaction: true })
+    ).rejects.toThrow();
+
+    expect(metaTxClient.trash.deleteMany).not.toHaveBeenCalled();
   });
 });
 

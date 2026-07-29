@@ -20,7 +20,8 @@ import {
   PostgresIntrospector,
   PostgresQueryCompiler,
 } from 'kysely';
-import { describe, expect, it } from 'vitest';
+import { ok } from 'neverthrow';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { DynamicDB } from '../../query-builder';
 import {
@@ -205,6 +206,17 @@ const createDuplicateManyManyRollupTable = () => {
   };
 };
 
+const createSharedDbFieldNameRollupTable = () => {
+  const result = createDuplicateManyManyRollupTable();
+  const fields = result.rollupFieldIds.map((fieldId) =>
+    result.table.getField((field) => field.id().equals(fieldId))._unsafeUnwrap()
+  );
+  const sharedDbFieldName = DbFieldName.rehydrate('col_shared_total')._unsafeUnwrap();
+  vi.spyOn(fields[0], 'dbFieldName').mockReturnValue(ok(sharedDbFieldName));
+  vi.spyOn(fields[1], 'dbFieldName').mockReturnValue(ok(sharedDbFieldName));
+  return result;
+};
+
 describe('UpdateFromSelectBuilder', () => {
   it('builds UPDATE FROM SELECT for computed formula field', () => {
     const db = createTestDb();
@@ -285,6 +297,66 @@ describe('UpdateFromSelectBuilder', () => {
     expect(sqlText).toContain('"__version" = "u"."__version" + 1');
     expect(sqlText).toContain('"u"."col_total" IS DISTINCT FROM');
     expect(sqlText).toContain('"u"."col_total_copy" IS DISTINCT FROM');
+  });
+
+  it('updates a shared physical column only once when duplicate fields reference it', () => {
+    const db = createTestDb();
+    const { table, foreignTable, foreignTableId, rollupFieldIds } =
+      createSharedDbFieldNameRollupTable();
+    const selectResult = new ComputedTableRecordQueryBuilder(db, {
+      foreignTables: new Map([[foreignTableId.toString(), foreignTable]]),
+      typeValidationStrategy,
+    })
+      .from(table)
+      .select(rollupFieldIds)
+      .withDirtyFilter({ tableId: table.id().toString() })
+      .build();
+    expect(selectResult.isOk()).toBe(true);
+    if (selectResult.isErr()) return;
+
+    const updateResult = new UpdateFromSelectBuilder(db).build({
+      table,
+      fieldIds: rollupFieldIds,
+      selectQuery: selectResult.value,
+    });
+    expect(updateResult.isOk()).toBe(true);
+    if (updateResult.isErr()) return;
+
+    const sqlText = updateResult.value.sql;
+    expect(sqlText.match(/as "col_shared_total"/g)).toHaveLength(2);
+    expect(sqlText.match(/"col_shared_total" =/g)).toHaveLength(1);
+    expect(sqlText).not.toContain('__set_col_shared_total_1');
+  });
+
+  it('uses the healthy field when a later errored field shares its physical column', () => {
+    const db = createTestDb();
+    const { table, foreignTable, foreignTableId, rollupFieldIds } =
+      createSharedDbFieldNameRollupTable();
+    table
+      .getField((field) => field.id().equals(rollupFieldIds[1]))
+      ._unsafeUnwrap()
+      .setHasError(FieldHasError.error());
+    const selectResult = new ComputedTableRecordQueryBuilder(db, {
+      foreignTables: new Map([[foreignTableId.toString(), foreignTable]]),
+      typeValidationStrategy,
+    })
+      .from(table)
+      .select(rollupFieldIds)
+      .withDirtyFilter({ tableId: table.id().toString() })
+      .build();
+    expect(selectResult.isOk()).toBe(true);
+    if (selectResult.isErr()) return;
+
+    const updateResult = new UpdateFromSelectBuilder(db).build({
+      table,
+      fieldIds: rollupFieldIds,
+      selectQuery: selectResult.value,
+    });
+    expect(updateResult.isOk()).toBe(true);
+    if (updateResult.isErr()) return;
+
+    expect(updateResult.value.sql.match(/"col_shared_total" =/g)).toHaveLength(1);
+    expect(updateResult.value.sql).not.toContain('__set_col_shared_total_1');
   });
 
   it('increments __version in computed update SET clause', () => {

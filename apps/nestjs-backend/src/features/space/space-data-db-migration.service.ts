@@ -18,6 +18,7 @@ import {
   type IResolvedDataDatabase,
 } from '../../global/data-db-client-manager.service';
 import { BASE_IMPORT_CSV_QUEUE } from '../base/base-import-processor/base-import-csv.processor';
+import { isCrossSpaceReferenceAllowed } from '../base/cross-space-detection.util';
 import { BASE_IMPORT_JUNCTION_CSV_QUEUE } from '../base/base-import-processor/base-import-junction.processor';
 import { TABLE_IMPORT_CSV_CHUNK_QUEUE } from '../import/open-api/import-csv-chunk.processor';
 import { TABLE_IMPORT_CSV_QUEUE } from '../import/open-api/import-csv.processor';
@@ -981,7 +982,19 @@ export class SpaceDataDbMigrationService {
     this.clientFactory = clientFactory ?? dataDbKnexClientFactory;
   }
 
+  // ALLOW_CROSS_SPACE_REFERENCE lets users create new cross-space links at any
+  // time, so the related-spaces closure computed at migration start can be
+  // invalidated right after — the two features are mutually exclusive.
+  private assertCrossSpaceReferenceFlagOff() {
+    if (!isCrossSpaceReferenceAllowed()) return;
+    throw new CustomHttpException(
+      'Per-space data DB migration is unavailable while ALLOW_CROSS_SPACE_REFERENCE is enabled',
+      HttpErrorCode.VALIDATION_ERROR
+    );
+  }
+
   async startMigrationForSpace(spaceId: string, createdBy: string, dataDb: IDataDbPreflightRo) {
+    this.assertCrossSpaceReferenceFlagOff();
     if (dataDb.targetMode !== migrateSpaceTargetMode) {
       throw new CustomHttpException(
         'Only migrate-space BYODB target mode can start a space data DB migration',
@@ -1099,6 +1112,7 @@ export class SpaceDataDbMigrationService {
   }
 
   async preflightMigrationTargetForSpace(spaceId: string, dataDb: IDataDbPreflightRo) {
+    this.assertCrossSpaceReferenceFlagOff();
     if (!dataDb.url) {
       throw new CustomHttpException(dataDbUrlRequiredError, HttpErrorCode.VALIDATION_ERROR);
     }

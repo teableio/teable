@@ -53,4 +53,15 @@ describe('FieldFormatter', () => {
       'CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;',
     ]);
   });
+
+  it('casts pg_indexes name columns to text and scopes index info to the table schema', () => {
+    const builder = new IndexBuilderPostgres();
+
+    const sql = builder.getIndexInfoSql('base_table.records');
+
+    expect(sql).toContain('schemaname::text, tablename::text, indexname::text, indexdef');
+    expect(sql).not.toContain('SELECT *');
+    expect(sql).toContain(`schemaname = 'base_table'`);
+    expect(sql).toContain(`tablename = 'records'`);
+  });
 });

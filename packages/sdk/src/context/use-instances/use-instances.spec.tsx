@@ -225,6 +225,131 @@ describe('useInstances hook', () => {
     );
   });
 
+  it('seeds instances from initData while the subscription is pending, then hands over', () => {
+    const seedProps = { ...mockProps, collection: 'seedTestCollection' };
+    const pendingQuery: any = {
+      collection: seedProps.collection,
+      query: {},
+      results: undefined,
+      ready: false,
+      sent: true,
+      ...mockQueryMethods,
+    };
+    const connection = {
+      createSubscribeQuery: vi.fn(() => pendingQuery),
+    } as any;
+
+    const seedData = [
+      { id: 's1', name: 'Seed 1' },
+      { id: 's2', name: 'Seed 2' },
+    ];
+
+    const { result, rerender } = renderHook(
+      ({ init }: { init?: any[] }) => useInstances({ ...seedProps, initData: init }),
+      {
+        wrapper: createUseInstancesWrap({ connection, connected: true }),
+        initialProps: { init: undefined as any[] | undefined },
+      }
+    );
+
+    // subscription pending, no seed data yet → empty
+    expect(result.current.instances).toEqual([]);
+
+    // prefetched data arrives → instances seeded without doc backing
+    rerender({ init: seedData });
+    expect(result.current.instances.map((i) => i.id)).toEqual(['s1', 's2']);
+    expect(result.current.instances.every((i) => i.doc === undefined)).toBe(true);
+
+    // subscription delivers doc-backed results → seeds are replaced
+    act(() => {
+      pendingQuery.results = initData;
+      pendingQuery.ready = true;
+      const readyListener = mockQueryMethods.on.mock.calls.find((args: any) => args[0] === 'ready');
+      readyListener?.[1]();
+    });
+    expect(result.current.instances).toEqual(defaultInstance);
+
+    // a late seed (e.g. a react-query background refetch) must not clobber live data
+    rerender({ init: [{ id: 'stale', name: 'Stale seed' }] });
+    expect(result.current.instances).toEqual(defaultInstance);
+  });
+
+  it('never seeds from an empty initData (cannot fake an empty table)', () => {
+    const pendingQuery: any = {
+      collection: 'seedEmptyCollection',
+      query: {},
+      results: undefined,
+      ready: false,
+      sent: true,
+      ...mockQueryMethods,
+    };
+    const connection = {
+      createSubscribeQuery: vi.fn(() => pendingQuery),
+    } as any;
+
+    const { result, rerender } = renderHook(
+      ({ init }: { init?: any[] }) =>
+        useInstances({ ...mockProps, collection: 'seedEmptyCollection', initData: init }),
+      {
+        wrapper: createUseInstancesWrap({ connection, connected: true }),
+        initialProps: { init: undefined as any[] | undefined },
+      }
+    );
+
+    rerender({ init: [] });
+    expect(result.current.instances).toEqual([]);
+  });
+
+  it('keeps subscription-delivered data intact across unrelated initData churn', () => {
+    const { result, rerender } = renderHook(
+      ({ init }: { init?: any[] }) => useInstances({ ...mockProps, initData: init }),
+      {
+        wrapper: createUseInstancesWrap(mockAppContext),
+        initialProps: { init: undefined as any[] | undefined },
+      }
+    );
+
+    // default mock query is ready immediately → doc-backed instances
+    expect(result.current.instances).toEqual(defaultInstance);
+
+    // any later initData (e.g. a react-query refetch) must be a no-op
+    rerender({ init: [{ id: 'x1', name: 'Imposter' }] });
+    expect(result.current.instances).toEqual(defaultInstance);
+    rerender({ init: [{ id: 'x2', name: 'Imposter 2' }] });
+    expect(result.current.instances).toEqual(defaultInstance);
+  });
+
+  it('resets seeded instances when the collection scope changes', () => {
+    const connection = {
+      createSubscribeQuery: vi.fn((collection: string, queryParams: unknown) => ({
+        collection,
+        query: queryParams,
+        results: undefined,
+        ready: false,
+        sent: true,
+        ...mockQueryMethods,
+      })),
+    } as any;
+
+    const seedData = [{ id: 's1', name: 'Seed 1' }];
+
+    const { result, rerender } = renderHook(
+      ({ collection, init }: { collection: string; init?: any[] }) =>
+        useInstances({ ...mockProps, collection, initData: init }),
+      {
+        wrapper: createUseInstancesWrap({ connection, connected: true }),
+        initialProps: { collection: 'seedScopeA', init: seedData as any[] | undefined },
+      }
+    );
+
+    expect(result.current.instances.map((i: any) => i.id)).toEqual(['s1']);
+
+    // switching scope must not leak the previous scope's seeds, even though
+    // they are doc-less (the plain 'clear' would keep them)
+    rerender({ collection: 'seedScopeB', init: seedData });
+    expect(result.current.instances).toEqual([]);
+  });
+
   it('should create a subscribe query with correct parameters', () => {
     renderHook(() => useInstances(mockProps), {
       wrapper: createUseInstancesWrap(mockAppContext),

@@ -35,6 +35,12 @@ export interface IDataDbPreflightTransaction {
   rollback(): Promise<void>;
 }
 
+export interface IDataDbDatabaseIdentity {
+  systemIdentifier: string;
+  databaseOid: string;
+  databaseName: string;
+}
+
 export type IDataDbPreflightClientFactory = (url: string) => IDataDbPreflightClient;
 export const DATA_DB_PREFLIGHT_CLIENT_FACTORY = Symbol('DATA_DB_PREFLIGHT_CLIENT_FACTORY');
 
@@ -43,6 +49,9 @@ const DATA_PLANE_TABLES = [
   'computed_update_outbox_seed',
   'computed_update_dead_letter',
   'computed_update_pause_scope',
+  'computed_field_activity',
+  'computed_table_activity',
+  'computed_task_field_ref',
   'record_history',
   'table_trash',
   'record_trash',
@@ -322,6 +331,30 @@ export class DataDbPreflightService {
         classification: 'non-empty-unknown',
         internalSchema,
       });
+    } finally {
+      await client.destroy().catch(() => undefined);
+    }
+  }
+
+  async inspectDatabaseIdentity(url: string): Promise<IDataDbDatabaseIdentity> {
+    const client = this.clientFactory(url);
+    try {
+      const rows = normalizeRawRows<IDataDbDatabaseIdentity>(
+        await client.raw<IDataDbDatabaseIdentity>(`
+          SELECT
+            control.system_identifier::text AS "systemIdentifier",
+            db.oid::text AS "databaseOid",
+            current_database()::text AS "databaseName"
+          FROM pg_catalog.pg_database AS db
+          CROSS JOIN pg_catalog.pg_control_system() AS control
+          WHERE db.datname = current_database()
+        `)
+      );
+      const identity = rows[0];
+      if (!identity?.systemIdentifier || !identity.databaseOid || !identity.databaseName) {
+        throw new Error('PostgreSQL did not return a complete database identity');
+      }
+      return identity;
     } finally {
       await client.destroy().catch(() => undefined);
     }

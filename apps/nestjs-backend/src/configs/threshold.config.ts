@@ -68,6 +68,13 @@ export const thresholdConfig = registerAs('threshold', () => ({
     httpRequestTimeout: Number(process.env.AUTOMATION_HTTP_REQUEST_TIMEOUT ?? 300_000), // 5 mins
     watchdogDisabled: process.env.AUTOMATION_WATCHDOG_DISABLED === 'true',
   },
+  // per-space scheduling defaults; clamped to each resource's worker pool at resolve time
+  spaceScheduling: {
+    aiFieldGenerationDefaultLimit: Number(
+      process.env.SPACE_AI_FIELD_GENERATION_DEFAULT_LIMIT ?? 10
+    ),
+    workflowRunDefaultLimit: Number(process.env.SPACE_WORKFLOW_RUN_DEFAULT_LIMIT ?? 10),
+  },
 }));
 
 export const ThresholdConfig = () => Inject(thresholdConfig.KEY);

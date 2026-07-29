@@ -10,6 +10,10 @@ import { DbFieldType } from '../../../domain/table/fields/DbFieldType';
 import type { Field } from '../../../domain/table/fields/Field';
 import { FieldId } from '../../../domain/table/fields/FieldId';
 import { FieldName } from '../../../domain/table/fields/FieldName';
+import {
+  extractLookupDisplayOptionsPatch,
+  toRegularLookupFormulaOptions,
+} from '../../../domain/table/fields/lookupFormulaOptions';
 import { AttachmentField } from '../../../domain/table/fields/types/AttachmentField';
 import { AutoNumberField } from '../../../domain/table/fields/types/AutoNumberField';
 import { ButtonConfirm } from '../../../domain/table/fields/types/ButtonConfirm';
@@ -242,6 +246,8 @@ const unwrapConditionalLookupInner = (
 const mergeLookupInnerOptions = (params: {
   innerOptions?: unknown;
   innerOptionsPatch?: Readonly<Record<string, unknown>>;
+  innerType?: string;
+  normalizeRegularLookupFormulaOptions?: boolean;
 }): ITableFieldPersistenceDTO['options'] | undefined => {
   const baseInnerOptions =
     params.innerOptions &&
@@ -251,14 +257,19 @@ const mergeLookupInnerOptions = (params: {
       : undefined;
   const innerOptionsPatch = params.innerOptionsPatch;
 
-  if (!innerOptionsPatch || Object.keys(innerOptionsPatch).length === 0) {
-    return baseInnerOptions as ITableFieldPersistenceDTO['options'] | undefined;
-  }
+  const merged: Record<string, unknown> | undefined =
+    !innerOptionsPatch || Object.keys(innerOptionsPatch).length === 0
+      ? baseInnerOptions
+      : {
+          ...(baseInnerOptions ?? {}),
+          ...innerOptionsPatch,
+        };
 
-  return {
-    ...(baseInnerOptions ?? {}),
-    ...innerOptionsPatch,
-  } as ITableFieldPersistenceDTO['options'];
+  // Regular lookup-of-formula: force parseable placeholder expression, never foreign refs.
+  if (params.normalizeRegularLookupFormulaOptions && params.innerType === 'formula') {
+    return toRegularLookupFormulaOptions(merged) as IFormulaFieldOptionsDTO;
+  }
+  return merged as ITableFieldPersistenceDTO['options'] | undefined;
 };
 
 class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceDTO> {
@@ -751,6 +762,8 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
         const mergedInnerOptions = mergeLookupInnerOptions({
           innerOptions: unwrappedInner.innerOptions,
           innerOptionsPatch: field.innerOptionsPatch(),
+          innerType: unwrappedInner.innerType ?? innerDto.type,
+          normalizeRegularLookupFormulaOptions: true,
         });
         const {
           innerType: _innerType,
@@ -862,6 +875,8 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
         const mergedInnerOptions = mergeLookupInnerOptions({
           innerOptions: unwrapped.innerOptions,
           innerOptionsPatch: field.innerOptionsPatch(),
+          innerType: unwrapped.innerType,
+          normalizeRegularLookupFormulaOptions: false,
         });
         return {
           ...baseDto,
@@ -1032,6 +1047,7 @@ export class DefaultTableMapper implements ITableMapper {
         LookupOptions.create(lookupOptionsRaw).andThen((lookupOptions) =>
           FieldId.generate().andThen((innerId) =>
             ((innerFieldResult) => {
+              const innerOptionsPatch = extractLookupDisplayOptionsPatch(dto.options);
               const lookupFieldResult = innerFieldResult.isOk()
                 ? LookupField.create({
                     id,
@@ -1039,6 +1055,7 @@ export class DefaultTableMapper implements ITableMapper {
                     innerField: innerFieldResult.value,
                     lookupOptions,
                     isMultipleCellValue: dto.isMultipleCellValue,
+                    innerOptionsPatch,
                   })
                 : dto.type === 'link'
                   ? LookupField.createPending({
@@ -1046,6 +1063,7 @@ export class DefaultTableMapper implements ITableMapper {
                       name,
                       lookupOptions,
                       isMultipleCellValue: dto.isMultipleCellValue,
+                      innerOptionsPatch,
                     })
                   : err(innerFieldResult.error);
 
@@ -1056,13 +1074,31 @@ export class DefaultTableMapper implements ITableMapper {
                   .map((updated) => updated as Field)
               );
             })(
-              this.mapBaseFieldToDomain({
-                ...dto,
-                isLookup: undefined,
-                lookupOptions: undefined,
-                // Use a valid generated id for inner field (it's not persisted separately)
-                id: innerId.toString(),
-              })
+              this.mapBaseFieldToDomain(
+                dto.type === 'formula'
+                  ? {
+                      id: innerId.toString(),
+                      name: dto.name,
+                      type: 'formula' as const,
+                      options: toRegularLookupFormulaOptions(
+                        dto.options
+                      ) as IFormulaFieldOptionsDTO,
+                      ...(typeof dto.cellValueType === 'string'
+                        ? { cellValueType: dto.cellValueType }
+                        : {}),
+                      ...(typeof dto.isMultipleCellValue === 'boolean'
+                        ? { isMultipleCellValue: dto.isMultipleCellValue }
+                        : {}),
+                      ...(dto.meta != null ? { meta: dto.meta } : {}),
+                    }
+                  : {
+                      ...dto,
+                      isLookup: undefined,
+                      lookupOptions: undefined,
+                      // Use a valid generated id for inner field (it's not persisted separately)
+                      id: innerId.toString(),
+                    }
+              )
             )
           )
         )
@@ -1406,22 +1442,28 @@ export class DefaultTableMapper implements ITableMapper {
             .with({ type: 'conditionalLookup' }, (dto) => {
               const options = dto.options;
               return ConditionalLookupOptions.create(options).andThen((conditionalLookupOptions) =>
-                this.mapConditionalLookupInnerField(dto).andThen((innerField) =>
-                  innerField
+                this.mapConditionalLookupInnerField(dto).andThen((innerField) => {
+                  const unwrapped = unwrapConditionalLookupInner(dto);
+                  const innerOptionsPatch = extractLookupDisplayOptionsPatch(
+                    unwrapped.innerOptions
+                  );
+                  return innerField
                     ? ConditionalLookupField.create({
                         id,
                         name,
                         innerField,
                         conditionalLookupOptions,
                         isMultipleCellValue: dto.isMultipleCellValue,
+                        innerOptionsPatch,
                       })
                     : ConditionalLookupField.createPending({
                         id,
                         name,
                         conditionalLookupOptions,
                         isMultipleCellValue: dto.isMultipleCellValue,
-                      })
-                )
+                        innerOptionsPatch,
+                      });
+                })
               );
             })
             .exhaustive();

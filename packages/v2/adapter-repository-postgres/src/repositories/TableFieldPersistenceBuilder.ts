@@ -2,6 +2,7 @@ import {
   DbFieldName,
   FieldOptionsDtoVisitor,
   FieldSpecBuilder,
+  toRegularLookupFormulaOptions,
   type Field,
   type ILinkFieldOptionsDTO,
   type ITableFieldPersistenceDTO,
@@ -558,12 +559,28 @@ export class TableFieldPersistenceBuilder {
       return undefined;
     }
 
-    const innerOptionsResult = innerFieldResult.value.accept(new FieldOptionsDtoVisitor());
+    const innerField = innerFieldResult.value;
+    const innerOptionsResult = innerField.accept(new FieldOptionsDtoVisitor());
     if (innerOptionsResult.isErr()) {
       return undefined;
     }
 
-    return this.mergeLookupInnerOptions(innerOptionsResult.value, field.innerOptionsPatch());
+    const merged = this.mergeLookupInnerOptions(
+      innerOptionsResult.value,
+      field.innerOptionsPatch()
+    );
+    // Regular lookup-of-formula must not persist foreign formula expression (T6332).
+    // Conditional lookup formula still needs expression for filtered evaluation.
+    const isRegularLookup = field.type().toString() === 'lookup';
+    if (
+      isRegularLookup &&
+      innerField.type().toString() === 'formula' &&
+      merged &&
+      typeof merged === 'object'
+    ) {
+      return toRegularLookupFormulaOptions(merged);
+    }
+    return merged;
   }
 
   private mergeLookupInnerOptions(

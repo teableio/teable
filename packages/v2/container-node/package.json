@@ -41,7 +41,8 @@
     "@teable/v2-core": "workspace:*",
     "@teable/v2-di": "workspace:*",
     "@teable/v2-dottea": "workspace:*",
-    "@teable/v2-table-query-ops": "workspace:*"
+    "@teable/v2-table-query-ops": "workspace:*",
+    "@teable/v2-utils": "workspace:*"
   },
   "devDependencies": {
     "@teable/v2-tsdown-config": "workspace:*",

@@ -23,7 +23,7 @@ import type {
   IUserInfoVo,
   V2Feature,
 } from '@teable/openapi';
-import { BaseNodeResourceType } from '@teable/openapi';
+import { BaseNodeResourceType, ShortLinkType } from '@teable/openapi';
 import { Knex } from 'knex';
 import { isString, keyBy, omit } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
@@ -43,6 +43,7 @@ import { updateOrder } from '../../utils/update-order';
 import type { IV2Decision } from '../canary/canary.service';
 import { CanaryService } from '../canary/canary.service';
 import { DashboardService } from '../dashboard/dashboard.service';
+import { ShortLinkService } from '../short-link/short-link.service';
 import { TableOpenApiV2Service } from '../table/open-api/table-open-api-v2.service';
 import { TableOpenApiService } from '../table/open-api/table-open-api.service';
 import { prepareCreateTableRo } from '../table/open-api/table.pipe.helper';
@@ -92,7 +93,8 @@ export class BaseNodeService {
     private readonly tableOpenApiService: TableOpenApiService,
     private readonly tableOpenApiV2Service: TableOpenApiV2Service,
     private readonly tableDuplicateService: TableDuplicateService,
-    private readonly dashboardService: DashboardService
+    private readonly dashboardService: DashboardService,
+    private readonly shortLinkService: ShortLinkService
   ) {}
 
   private get userId() {
@@ -114,11 +116,21 @@ export class BaseNodeService {
    * Delete all share records for a node and invalidate cache
    */
   private async deleteNodeShares(baseId: string, nodeId: string): Promise<void> {
+    const shares = await this.prismaService.baseShare.findMany({
+      where: { baseId, nodeId },
+      select: { shareId: true },
+    });
+
+    // Unconditional so a share committed between findMany and here is still
+    // removed (its short links, if any, stay unmarked — harmless)
     const deleted = await this.prismaService.baseShare.deleteMany({
       where: { baseId, nodeId },
     });
 
-    // Invalidate cache if any shares were deleted
+    // The shareIds are gone for good, so their short links are dead too
+    for (const share of shares) {
+      await this.shortLinkService.markDeletedByResource(ShortLinkType.BaseShare, share.shareId);
+    }
     if (deleted.count > 0) {
       await this.performanceCacheService.del(generateBaseShareListCacheKey(baseId));
     }

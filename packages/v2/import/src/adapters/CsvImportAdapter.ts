@@ -1,7 +1,3 @@
-import Papa from 'papaparse';
-import { err, ok } from 'neverthrow';
-import type { Result } from 'neverthrow';
-
 import {
   domainError,
   type DomainError,
@@ -10,6 +6,10 @@ import {
   type IImportParseResult,
   type IImportSource,
 } from '@teable/v2-core';
+import { safeFetch } from '@teable/v2-utils';
+import { err, ok } from 'neverthrow';
+import type { Result } from 'neverthrow';
+import Papa from 'papaparse';
 
 /**
  * CSV Import Adapter
@@ -90,7 +90,7 @@ export class CsvImportAdapter implements IImportSourceAdapter {
     options?: IImportOptions
   ): Promise<Result<IImportParseResult, DomainError>> {
     try {
-      const response = await fetch(url);
+      const response = await safeFetch(url);
       if (!response.ok) {
         return err(
           domainError.infrastructure({

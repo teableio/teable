@@ -3,13 +3,14 @@ import { container } from '@teable/v2-di';
 
 import type { IV2PostgresDbConfig } from '../config';
 import { v2PostgresDbConfigSchema } from '../config';
-import { createV2PostgresDb } from '../createDb';
+import { createV2PostgresDb, type IV2PostgresDbDependencies } from '../createDb';
 import { v2DataDbTokens, v2MetaDbTokens, v2PostgresDbTokens } from './tokens';
 
 const registerDb = async (
   c: DependencyContainer,
   rawConfig: Partial<IV2PostgresDbConfig>,
-  target: 'all' | 'meta' | 'data'
+  target: 'all' | 'meta' | 'data',
+  dependencies: IV2PostgresDbDependencies
 ): Promise<DependencyContainer> => {
   const parsed = v2PostgresDbConfigSchema.safeParse(rawConfig);
   if (!parsed.success) {
@@ -17,7 +18,7 @@ const registerDb = async (
   }
 
   const config = parsed.data;
-  const db = await createV2PostgresDb(config);
+  const db = await createV2PostgresDb(config, dependencies);
 
   if (target === 'all' || target === 'meta') {
     c.registerInstance(v2MetaDbTokens.db, db);
@@ -37,21 +38,24 @@ const registerDb = async (
 
 export const registerV2PostgresDb = async (
   c: DependencyContainer = container,
-  rawConfig: Partial<IV2PostgresDbConfig> = {}
+  rawConfig: Partial<IV2PostgresDbConfig> = {},
+  dependencies: IV2PostgresDbDependencies = {}
 ): Promise<DependencyContainer> => {
-  return registerDb(c, rawConfig, 'all');
+  return registerDb(c, rawConfig, 'all', dependencies);
 };
 
 export const registerV2PostgresMetaDb = async (
   c: DependencyContainer = container,
-  rawConfig: Partial<IV2PostgresDbConfig> = {}
+  rawConfig: Partial<IV2PostgresDbConfig> = {},
+  dependencies: IV2PostgresDbDependencies = {}
 ): Promise<DependencyContainer> => {
-  return registerDb(c, rawConfig, 'meta');
+  return registerDb(c, rawConfig, 'meta', dependencies);
 };
 
 export const registerV2PostgresDataDb = async (
   c: DependencyContainer = container,
-  rawConfig: Partial<IV2PostgresDbConfig> = {}
+  rawConfig: Partial<IV2PostgresDbConfig> = {},
+  dependencies: IV2PostgresDbDependencies = {}
 ): Promise<DependencyContainer> => {
-  return registerDb(c, rawConfig, 'data');
+  return registerDb(c, rawConfig, 'data', dependencies);
 };

@@ -28,7 +28,7 @@ export const defaultSearchScopeHeatPolicyConfig: SearchScopeHeatPolicyConfig = {
 export type SearchScopeHeatEntry = {
   readonly scopeKey: string;
   readonly searchedFieldIds: readonly string[];
-  readonly searchMode: 'ilike' | 'trigram' | 'full_text';
+  readonly searchMode: 'ilike' | 'substring' | 'trigram' | 'full_text';
   readonly languageConfig?: string;
   readonly requestCount: number;
   readonly slowCount: number;

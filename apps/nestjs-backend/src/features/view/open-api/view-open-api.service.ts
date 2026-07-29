@@ -34,7 +34,7 @@ import {
   HttpErrorCode,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { PluginPosition, PluginStatus, IViewShareMetaRo } from '@teable/openapi';
+import { PluginPosition, PluginStatus, IViewShareMetaRo, ShortLinkType } from '@teable/openapi';
 import type {
   IViewPluginUpdateStorageRo,
   IGetViewFilterLinkRecordsVo,
@@ -66,6 +66,7 @@ import { FieldService } from '../../field/field.service';
 import type { IFieldInstance } from '../../field/model/factory';
 import { createFieldInstanceByRaw, createFieldInstanceByVo } from '../../field/model/factory';
 import { RecordService } from '../../record/record.service';
+import { ShortLinkService } from '../../short-link/short-link.service';
 import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migration-guard.service';
 import { ROW_ORDER_FIELD_PREFIX } from '../constant';
 import { createViewInstanceByRaw } from '../model/factory';
@@ -86,6 +87,7 @@ export class ViewOpenApiService {
     private readonly shareDbService: ShareDbService,
     private readonly cls: ClsService<IClsStore>,
     private readonly audit: AuditScope,
+    private readonly shortLinkService: ShortLinkService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel(DATA_KNEX) private readonly knex: Knex,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
@@ -221,6 +223,10 @@ export class ViewOpenApiService {
       }
     );
     await this.viewService.updateViewSort(tableId, viewId, newSort);
+    // The bulk rewrite above emits no record ops, so live record query
+    // subscriptions would never re-poll and the doc-ids cache (keyed by table
+    // lastModifiedTime) would keep serving the pre-sort order after refresh.
+    await this.publishRowOrderChange(tableId, viewId);
   }
 
   async updateViewColumnMeta(
@@ -926,6 +932,10 @@ export class ViewOpenApiService {
       oldValue: view.shareId || undefined,
     });
     await this.updateViewByOps(tableId, viewId, [setShareIdOp]);
+    if (view.shareId) {
+      // The old shareId is gone for good, so its short links are dead too
+      await this.shortLinkService.markDeletedByResource(ShortLinkType.ViewShare, view.shareId);
+    }
     return { shareId: newShareId };
   }
 
@@ -1029,6 +1039,10 @@ export class ViewOpenApiService {
     });
 
     await this.updateViewByOps(tableId, viewId, [enableShareOp]);
+    if (view.shareId) {
+      // Re-enabling always rotates the shareId, so the disabled one is dead for good
+      await this.shortLinkService.markDeletedByResource(ShortLinkType.ViewShare, view.shareId);
+    }
   }
 
   /**

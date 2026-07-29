@@ -239,8 +239,10 @@ export interface V1TaskTable {
 export interface V1TaskRunTable {
   id: string;
   task_id: string;
+  base_id: string | null;
   status: string;
   snapshot: string;
+  depends_on_run_ids: ColumnType<string[], string[] | undefined, string[] | undefined>;
   spent: number | null;
   log: string | null;
   error_msg: string | null;

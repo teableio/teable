@@ -13,7 +13,10 @@ import type { UnknownPostgresDatabase } from './types';
 
 type SearchVectorStatusRow = {
   readonly status: string;
-  readonly language_config: string;
+  readonly semantics: string;
+  readonly access_path: string;
+  readonly provider: string;
+  readonly language_config: string | null;
   readonly field_ids: unknown;
 };
 
@@ -44,7 +47,7 @@ export class PostgresTableSearchVectorStatusReader implements TableSearchVectorS
       if (!relation.rows[0]?.relation_name) return ok(disabledStatus(tableId));
 
       const result = await sql<SearchVectorStatusRow>`
-        SELECT status, language_config, field_ids
+        SELECT status, semantics, access_path, provider, language_config, field_ids
         FROM table_query_search_vector_config
         WHERE table_id = ${tableId}
           AND status IN ('ready', 'rebuild_pending', 'stale')
@@ -59,7 +62,11 @@ export class PostgresTableSearchVectorStatusReader implements TableSearchVectorS
         tableId,
         state,
         configured: true,
-        languageConfig: row.language_config,
+        ...(row.language_config ? { languageConfig: row.language_config } : {}),
+        semantics: row.semantics === 'substring' ? 'substring' : 'lexical',
+        provider:
+          row.provider === 'pg_bigm' || row.provider === 'pg_trgm' ? row.provider : 'tsvector',
+        accessPath: row.access_path === 'generated_text' ? 'generated_text' : 'generated_tsvector',
         coveredFieldCount: fieldCount(row.field_ids),
       } satisfies TableSearchVectorStatus);
     } catch (error) {

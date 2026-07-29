@@ -35,9 +35,10 @@ import {
   TableIndex,
   toggleTableIndex,
   undo,
-  updateSetting,
   updateDbTableName,
   updateRecordOrders,
+  updateSetting,
+  updateSpaceDataDb,
   UploadType,
   uploadFile as apiUploadFile,
   X_CANARY_HEADER,
@@ -114,6 +115,9 @@ const dataPlaneSystemTables = [
   'computed_update_outbox_seed',
   'computed_update_dead_letter',
   'computed_update_pause_scope',
+  'computed_field_activity',
+  'computed_table_activity',
+  'computed_task_field_ref',
   'record_history',
   'table_trash',
   'record_trash',
@@ -631,6 +635,18 @@ describeByodbStorage('BYODB space storage placement (e2e)', () => {
       records: [{ fields: {} }, { fields: {} }, { fields: {} }],
     });
     expect(mainTable.records).toHaveLength(3);
+    const computeActivityResponse = await axios.get('/v2/tables/getComputeActivity', {
+      params: { baseId: base.id, tableId: mainTable.id },
+    });
+    expect(computeActivityResponse.status).toBe(200);
+    expect(computeActivityResponse.data).toMatchObject({
+      ok: true,
+      data: {
+        baseId: base.id,
+        tableId: mainTable.id,
+        diagnostics: { activeFieldCount: 0 },
+      },
+    });
     const foreignTable = await createTable(base.id, {
       name: 'BYODB placement foreign',
       fields: [{ name: 'Name', type: FieldType.SingleLineText }],
@@ -928,6 +944,79 @@ describeByodbStorage('BYODB space storage placement (e2e)', () => {
       expect(schemaRows).toEqual([
         { schema: poolerInternalSchema, historyTable: 'record_history' },
       ]);
+      expect(pooler.getRejectedConnections()).toBe(0);
+    } finally {
+      if (poolerBaseId) {
+        await permanentDeleteBase(poolerBaseId).catch(() => undefined);
+      }
+      if (poolerSpaceId) {
+        await permanentDeleteSpace(poolerSpaceId).catch(() => undefined);
+      }
+      await safeDropSchema(dataDb, poolerBaseId);
+      await safeDropSchema(defaultDataDb, poolerBaseId);
+      await safeDropSchema(metaDb, poolerBaseId);
+      await safeDropSchema(dataDb, poolerInternalSchema);
+      if (poolerConnectionId) {
+        await app.get(DataDbClientManager).invalidateConnection(poolerConnectionId);
+      }
+      await pooler.close();
+    }
+  }, 180_000);
+
+  it('updates an existing BYODB connection from direct PostgreSQL to a pooler for the same database', async () => {
+    const poolerInternalSchema = `byodb_pooler_update_${Date.now().toString(36)}`;
+    let poolerSpaceId: string | undefined;
+    let poolerBaseId: string | undefined;
+    let poolerConnectionId: string | undefined;
+    let poolerTable: ITableFullVo | undefined;
+    const pooler = await createSearchPathRejectingPostgresProxy(byodbDataDatabaseUrl!);
+
+    try {
+      const space = await createSpace({
+        name: 'BYODB pooler update e2e',
+        dataDb: {
+          mode: 'byodb',
+          url: byodbDataDatabaseUrl!,
+          targetMode: 'initialize-empty',
+          internalSchema: poolerInternalSchema,
+        },
+      });
+      poolerSpaceId = space.id;
+      poolerConnectionId = (await app.get(DataDbClientManager).getDataDatabaseForSpace(space.id))
+        .connectionId;
+      const base = await createBase({ spaceId: space.id, name: 'BYODB pooler update base' });
+      poolerBaseId = base.id;
+      poolerTable = await createTable(base.id, {
+        name: 'BYODB pooler update table',
+        fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+        records: [{ fields: { Name: 'Before pooler update' } }],
+      });
+
+      const updateResult = await updateSpaceDataDb(space.id, {
+        url: pooler.connectionUrl,
+        targetMode: 'initialize-empty',
+        internalSchema: poolerInternalSchema,
+      });
+      expect(updateResult.data).toMatchObject({
+        mode: 'byodb',
+        state: 'ready',
+        displayHost: new URL(pooler.connectionUrl).host,
+        internalSchema: poolerInternalSchema,
+      });
+
+      const primaryFieldId = poolerTable.fields.find((field) => field.isPrimary)?.id;
+      expect(primaryFieldId).toBeDefined();
+      await createRecords(poolerTable.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [{ fields: { [primaryFieldId!]: 'After pooler update' } }],
+      });
+
+      const records = await getRecords(poolerTable.id, {
+        fieldKeyType: FieldKeyType.Id,
+        viewId: poolerTable.defaultViewId!,
+      });
+      expect(records.records).toHaveLength(2);
+      await expect(countDbTableRows(dataDb, poolerTable.dbTableName)).resolves.toBe(2);
       expect(pooler.getRejectedConnections()).toBe(0);
     } finally {
       if (poolerBaseId) {

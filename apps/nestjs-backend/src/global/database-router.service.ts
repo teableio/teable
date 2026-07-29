@@ -3,6 +3,7 @@ import { DataPrismaService } from '@teable/db-data-prisma';
 import { getDatabaseUrl, MetaPrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
+import type { PoolClient } from 'pg';
 import { DataDbClientManager } from './data-db-client-manager.service';
 import type { IDataDbRoutingOptions } from './data-db-client-manager.service';
 import { DATA_KNEX, META_KNEX } from './knex';
@@ -96,6 +97,10 @@ export class DatabaseRouter {
     return await this.dataDbClientManager.getDataDatabaseForBase(baseId, options);
   }
 
+  async isMetaFallbackForBase(baseId: string, options?: IDataDbRoutingOptions) {
+    return await this.dataDbClientManager.isMetaFallbackForBase(baseId, options);
+  }
+
   async dataKnexForSpace(spaceId: string, options?: IDataDbRoutingOptions) {
     return await this.dataDbClientManager.dataKnexForSpace(spaceId, options);
   }
@@ -114,6 +119,14 @@ export class DatabaseRouter {
 
   async dataKnexForTable(tableId: string, options?: IDataDbRoutingOptions) {
     return await this.dataDbClientManager.dataKnexForTable(tableId, options);
+  }
+
+  async withDataKnexConnectionForTable<T>(
+    tableId: string,
+    fn: (knex: Knex, connection: PoolClient) => Promise<T>,
+    options?: IDataDbRoutingOptions
+  ) {
+    return await this.dataDbClientManager.withDataKnexConnectionForTable(tableId, fn, options);
   }
 
   async dataPrismaForTable(tableId: string, options?: IDataDbRoutingOptions) {

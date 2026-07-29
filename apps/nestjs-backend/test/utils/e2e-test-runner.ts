@@ -1,4 +1,5 @@
 import { axios } from '@teable/openapi';
+import type { Suite } from 'vitest';
 import { VitestTestRunner } from 'vitest/runners';
 import type { IBaseConfig } from '../../src/configs/base.config';
 import { baseConfig } from '../../src/configs/base.config';
@@ -37,8 +38,10 @@ export default class E2eTestRunner extends VitestTestRunner {
     super.onCollectStart(file);
   }
 
-  onAfterRunFiles(): void {
-    super.onAfterRunFiles();
+  onAfterRunSuite(suite: Suite): void {
+    super.onAfterRunSuite(suite);
+    if (!('filepath' in suite)) return;
+
     restoreBaselineEnv();
     reapStrayFreshApps();
     resetAxiosToSharedApp(axios);
@@ -53,9 +56,7 @@ export default class E2eTestRunner extends VitestTestRunner {
         // Values too: under app-per-file every file got a new session id, so
         // sid-scoped cache entries were never warm at file start. The flush is
         // async; the next file's initApp awaits it via setPendingMaintenance.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const cleared = (perfCache as any)?._clear?.();
-        if (cleared) cleanups.push(cleared.catch(() => undefined));
+        cleanups.push(perfCache._clear().catch(() => undefined));
         const config = bundle.app.get<IBaseConfig>(baseConfig.KEY, { strict: false });
         if (config) {
           config.recordHistoryDisabled = true;

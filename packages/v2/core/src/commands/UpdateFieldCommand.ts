@@ -27,6 +27,8 @@ export const updateFieldInputSchema = z.object({
     unique: z.boolean().optional(),
     // Type-specific options (partial)
     options: z.record(z.string(), z.unknown()).optional(),
+    // Lookup/conditionalLookup display options applied onto the inner field
+    innerOptions: z.record(z.string(), z.unknown()).optional(),
     // For rollup/conditionalRollup
     config: z.record(z.string(), z.unknown()).optional(),
     // For rating field (legacy support)

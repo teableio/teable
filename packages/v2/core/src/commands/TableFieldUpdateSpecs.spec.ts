@@ -1,3 +1,4 @@
+import { ok } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../domain/base/BaseId';
@@ -19,6 +20,9 @@ import { LinkFieldConfig } from '../domain/table/fields/types/LinkFieldConfig';
 import { LookupField } from '../domain/table/fields/types/LookupField';
 import { LookupOptions } from '../domain/table/fields/types/LookupOptions';
 import { MultipleSelectField } from '../domain/table/fields/types/MultipleSelectField';
+import { NumberField } from '../domain/table/fields/types/NumberField';
+import { NumberFormatting } from '../domain/table/fields/types/NumberFormatting';
+import { NumberShowAs } from '../domain/table/fields/types/NumberShowAs';
 import { RollupExpression } from '../domain/table/fields/types/RollupExpression';
 import { SelectAutoNewOptions } from '../domain/table/fields/types/SelectAutoNewOptions';
 import { SelectDefaultValue } from '../domain/table/fields/types/SelectDefaultValue';
@@ -2600,5 +2604,340 @@ describe('TableFieldUpdateSpecs', () => {
     }
     expect(valueTypeResult.value.cellValueType.toString()).toBe('dateTime');
     expect(valueTypeResult.value.isMultipleCellValue.toBoolean()).toBe(false);
+  });
+
+  it('applies display-only lookup innerOptions without lookup id changes', () => {
+    const hostTableId = createTableId('h');
+    const primaryFieldId = createFieldId('p');
+    const lookupFieldId = createFieldId('l');
+    const linkFieldId = createFieldId('k');
+    const foreignTableId = createTableId('f');
+    const foreignLookupFieldId = createFieldId('n');
+
+    const currentField = LookupField.create({
+      id: lookupFieldId,
+      name: FieldName.create('Amount Lookup')._unsafeUnwrap(),
+      innerField: NumberField.create({
+        id: createFieldId('i'),
+        name: FieldName.create('Amount')._unsafeUnwrap(),
+        formatting: NumberFormatting.create({ type: 'decimal', precision: 2 })._unsafeUnwrap(),
+      })._unsafeUnwrap(),
+      lookupOptions: LookupOptions.create({
+        linkFieldId: linkFieldId.toString(),
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: foreignLookupFieldId.toString(),
+      })._unsafeUnwrap(),
+    })._unsafeUnwrap();
+
+    const hostTable = Table.builder()
+      .withBaseId(createBaseId('b'))
+      .withId(hostTableId)
+      .withName(TableName.create('Host')._unsafeUnwrap());
+    hostTable
+      .field()
+      .singleLineText()
+      .withId(primaryFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    hostTable.addFieldFromResult(ok(currentField));
+    hostTable.view().defaultGrid().done();
+    let table = hostTable.build()._unsafeUnwrap();
+
+    const specsResult = buildUpdateFieldSpecs(
+      currentField,
+      {
+        type: 'lookup',
+        options: {
+          linkFieldId: linkFieldId.toString(),
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: foreignLookupFieldId.toString(),
+        },
+        innerOptions: {
+          formatting: { type: 'currency', precision: 0, symbol: '$' },
+        },
+        updateMode: 'full',
+      },
+      {
+        hostTable: table,
+        foreignTables: [],
+      }
+    );
+
+    expect(specsResult.isOk()).toBe(true);
+    if (specsResult.isErr()) return;
+    expect(specsResult.value.length).toBeGreaterThan(0);
+    expect(specsResult.value[0]).toBeInstanceOf(UpdateLookupOptionsSpec);
+
+    for (const spec of specsResult.value) {
+      table = spec.mutate(table)._unsafeUnwrap();
+    }
+    const updated = table
+      .getField((field) => field.id().equals(lookupFieldId))
+      ._unsafeUnwrap() as LookupField;
+    expect(updated.innerOptionsPatch()).toEqual({
+      formatting: { type: 'currency', precision: 0, symbol: '$' },
+      showAs: null,
+    });
+  });
+
+  it('keeps explicitly provided lookup showAs during a full update', () => {
+    const hostTableId = createTableId('h');
+    const primaryFieldId = createFieldId('p');
+    const lookupFieldId = createFieldId('l');
+    const linkFieldId = createFieldId('k');
+    const foreignTableId = createTableId('f');
+    const foreignLookupFieldId = createFieldId('n');
+    const showAs = {
+      type: 'bar' as const,
+      color: 'blueBright' as const,
+      showValue: true,
+      maxValue: 100,
+    };
+
+    const currentField = LookupField.create({
+      id: lookupFieldId,
+      name: FieldName.create('Amount Lookup')._unsafeUnwrap(),
+      innerField: NumberField.create({
+        id: createFieldId('i'),
+        name: FieldName.create('Amount')._unsafeUnwrap(),
+        formatting: NumberFormatting.create({ type: 'decimal', precision: 2 })._unsafeUnwrap(),
+      })._unsafeUnwrap(),
+      lookupOptions: LookupOptions.create({
+        linkFieldId: linkFieldId.toString(),
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: foreignLookupFieldId.toString(),
+      })._unsafeUnwrap(),
+    })._unsafeUnwrap();
+
+    const hostTable = Table.builder()
+      .withBaseId(createBaseId('b'))
+      .withId(hostTableId)
+      .withName(TableName.create('Host')._unsafeUnwrap());
+    hostTable
+      .field()
+      .singleLineText()
+      .withId(primaryFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    hostTable.addFieldFromResult(ok(currentField));
+    hostTable.view().defaultGrid().done();
+    let table = hostTable.build()._unsafeUnwrap();
+
+    const specsResult = buildUpdateFieldSpecs(
+      currentField,
+      {
+        type: 'lookup',
+        options: {
+          linkFieldId: linkFieldId.toString(),
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: foreignLookupFieldId.toString(),
+        },
+        innerOptions: {
+          formatting: { type: 'currency', precision: 0, symbol: '$' },
+          showAs,
+        },
+        updateMode: 'full',
+      },
+      {
+        hostTable: table,
+        foreignTables: [],
+      }
+    );
+
+    expect(specsResult.isOk()).toBe(true);
+    if (specsResult.isErr()) return;
+    for (const spec of specsResult.value) {
+      table = spec.mutate(table)._unsafeUnwrap();
+    }
+
+    const updated = table
+      .getField((field) => field.id().equals(lookupFieldId))
+      ._unsafeUnwrap() as LookupField;
+    expect(updated.innerOptionsPatch()).toEqual({
+      formatting: { type: 'currency', precision: 0, symbol: '$' },
+      showAs,
+    });
+  });
+
+  it('merges partial lookup innerOptions without dropping existing showAs', () => {
+    const hostTableId = createTableId('h');
+    const primaryFieldId = createFieldId('p');
+    const lookupFieldId = createFieldId('l');
+    const linkFieldId = createFieldId('k');
+    const foreignTableId = createTableId('f');
+    const foreignLookupFieldId = createFieldId('n');
+
+    const currentField = LookupField.create({
+      id: lookupFieldId,
+      name: FieldName.create('Amount Lookup')._unsafeUnwrap(),
+      innerField: NumberField.create({
+        id: createFieldId('i'),
+        name: FieldName.create('Amount')._unsafeUnwrap(),
+        formatting: NumberFormatting.create({ type: 'decimal', precision: 2 })._unsafeUnwrap(),
+        showAs: NumberShowAs.create({
+          type: 'bar',
+          color: 'blueBright',
+          showValue: true,
+          maxValue: 100,
+        })._unsafeUnwrap(),
+      })._unsafeUnwrap(),
+      lookupOptions: LookupOptions.create({
+        linkFieldId: linkFieldId.toString(),
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: foreignLookupFieldId.toString(),
+      })._unsafeUnwrap(),
+      innerOptionsPatch: {
+        formatting: { type: 'decimal', precision: 2 },
+        showAs: {
+          type: 'bar',
+          color: 'blueBright',
+          showValue: true,
+          maxValue: 100,
+        },
+      },
+    })._unsafeUnwrap();
+
+    const hostTable = Table.builder()
+      .withBaseId(createBaseId('b'))
+      .withId(hostTableId)
+      .withName(TableName.create('Host')._unsafeUnwrap());
+    hostTable
+      .field()
+      .singleLineText()
+      .withId(primaryFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    hostTable.addFieldFromResult(ok(currentField));
+    hostTable.view().defaultGrid().done();
+    let table = hostTable.build()._unsafeUnwrap();
+
+    const specsResult = buildUpdateFieldSpecs(
+      currentField,
+      {
+        type: 'lookup',
+        options: {
+          linkFieldId: linkFieldId.toString(),
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: foreignLookupFieldId.toString(),
+        },
+        innerOptions: {
+          formatting: { type: 'currency', precision: 0, symbol: '$' },
+        },
+      },
+      {
+        hostTable: table,
+        foreignTables: [],
+      }
+    );
+
+    expect(specsResult.isOk()).toBe(true);
+    if (specsResult.isErr()) return;
+
+    for (const spec of specsResult.value) {
+      table = spec.mutate(table)._unsafeUnwrap();
+    }
+    const updated = table
+      .getField((field) => field.id().equals(lookupFieldId))
+      ._unsafeUnwrap() as LookupField;
+    expect(updated.innerOptionsPatch()).toEqual({
+      formatting: { type: 'currency', precision: 0, symbol: '$' },
+      showAs: {
+        type: 'bar',
+        color: 'blueBright',
+        showValue: true,
+        maxValue: 100,
+      },
+    });
+  });
+
+  it('keeps showAs null tombstone on lookup display clear', () => {
+    const hostTableId = createTableId('h');
+    const primaryFieldId = createFieldId('p');
+    const lookupFieldId = createFieldId('l');
+    const linkFieldId = createFieldId('k');
+    const foreignTableId = createTableId('f');
+    const foreignLookupFieldId = createFieldId('n');
+
+    const currentField = LookupField.create({
+      id: lookupFieldId,
+      name: FieldName.create('Amount Lookup')._unsafeUnwrap(),
+      innerField: NumberField.create({
+        id: createFieldId('i'),
+        name: FieldName.create('Amount')._unsafeUnwrap(),
+        formatting: NumberFormatting.create({ type: 'decimal', precision: 2 })._unsafeUnwrap(),
+        showAs: NumberShowAs.create({
+          type: 'bar',
+          color: 'blueBright',
+          showValue: true,
+          maxValue: 100,
+        })._unsafeUnwrap(),
+      })._unsafeUnwrap(),
+      lookupOptions: LookupOptions.create({
+        linkFieldId: linkFieldId.toString(),
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: foreignLookupFieldId.toString(),
+      })._unsafeUnwrap(),
+      innerOptionsPatch: {
+        formatting: { type: 'decimal', precision: 2 },
+        showAs: {
+          type: 'bar',
+          color: 'blueBright',
+          showValue: true,
+          maxValue: 100,
+        },
+      },
+    })._unsafeUnwrap();
+
+    const hostTable = Table.builder()
+      .withBaseId(createBaseId('b'))
+      .withId(hostTableId)
+      .withName(TableName.create('Host')._unsafeUnwrap());
+    hostTable
+      .field()
+      .singleLineText()
+      .withId(primaryFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    hostTable.addFieldFromResult(ok(currentField));
+    hostTable.view().defaultGrid().done();
+    let table = hostTable.build()._unsafeUnwrap();
+
+    const specsResult = buildUpdateFieldSpecs(
+      currentField,
+      {
+        type: 'lookup',
+        options: {
+          linkFieldId: linkFieldId.toString(),
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: foreignLookupFieldId.toString(),
+          showAs: null,
+        },
+        innerOptions: {
+          showAs: null,
+        },
+      },
+      {
+        hostTable: table,
+        foreignTables: [],
+      }
+    );
+
+    expect(specsResult.isOk()).toBe(true);
+    if (specsResult.isErr()) return;
+
+    for (const spec of specsResult.value) {
+      table = spec.mutate(table)._unsafeUnwrap();
+    }
+    const updated = table
+      .getField((field) => field.id().equals(lookupFieldId))
+      ._unsafeUnwrap() as LookupField;
+    expect(updated.innerOptionsPatch()).toEqual({
+      formatting: { type: 'decimal', precision: 2 },
+      showAs: null,
+    });
   });
 });

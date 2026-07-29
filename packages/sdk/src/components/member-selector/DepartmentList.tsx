@@ -196,10 +196,17 @@ export function DepartmentList({
                   name={item.name}
                   pathName={debouncedSearch ? item.pathName : undefined}
                   checked={isSelected(item.id)}
-                  onClick={() => handleDepartmentClick(item)}
+                  // Search results are a flat select-only list: drilling in is a
+                  // browse-mode affordance, and searched departments may not be
+                  // browsable at all (e.g. unrelated ones under RelatedSearchAll)
+                  onClick={debouncedSearch ? undefined : () => handleDepartmentClick(item)}
                   onCheckedChange={() => onSelect(item)}
                   showCheckbox={!disabledDepartment}
-                  suffix={<ChevronRight className="size-4 text-muted-foreground" />}
+                  suffix={
+                    debouncedSearch ? undefined : (
+                      <ChevronRight className="size-4 text-muted-foreground" />
+                    )
+                  }
                 />
               ))}
 

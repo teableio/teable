@@ -517,6 +517,13 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .column('field_id')
     .execute();
 
+  await db.schema
+    .createIndex('computed_task_field_ref_table_id_idx')
+    .ifNotExists()
+    .on('computed_task_field_ref')
+    .column('table_id')
+    .execute();
+
   // Attachments tables (for attachment field support)
   await db.schema
     .createTable('attachments')

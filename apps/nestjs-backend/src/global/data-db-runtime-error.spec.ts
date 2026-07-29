@@ -1,5 +1,8 @@
-import { describe, expect, it } from 'vitest';
-import { classifyDataDbRuntimeError } from './data-db-runtime-error';
+import { describe, expect, it, vi } from 'vitest';
+import {
+  classifyDataDbRuntimeError,
+  handleBestEffortDataDbDropError,
+} from './data-db-runtime-error';
 
 describe('classifyDataDbRuntimeError', () => {
   it('classifies a missing external database without echoing the raw driver message', () => {
@@ -62,5 +65,75 @@ describe('classifyDataDbRuntimeError', () => {
 
   it('returns null for unrelated application errors', () => {
     expect(classifyDataDbRuntimeError(new Error('field validation failed'))).toBeNull();
+  });
+
+  it('classifies a deleted Supabase tenant as non-retryable even with a network driver code', () => {
+    const error = Object.assign(
+      new Error('(ENOTFOUND) tenant/user postgres.sztvxsaduujhapiqjtin not found'),
+      { code: 'ENOTFOUND' }
+    );
+
+    expect(classifyDataDbRuntimeError(error)).toMatchObject({
+      code: 'data_db.tenant_missing',
+      retryable: false,
+      userActionable: true,
+    });
+    expect(classifyDataDbRuntimeError(new Error('Tenant or user not found'))).toMatchObject({
+      code: 'data_db.tenant_missing',
+      retryable: false,
+    });
+  });
+});
+
+describe('handleBestEffortDataDbDropError', () => {
+  const tenantMissingError = new Error('(ENOTFOUND) tenant/user postgres.abc not found');
+
+  it('swallows non-retryable errors on a bound (BYODB) data database', () => {
+    const logger = { warn: vi.fn() };
+
+    expect(() =>
+      handleBestEffortDataDbDropError({
+        error: tenantMissingError,
+        isMetaFallback: false,
+        logger,
+        target: 'table tblA',
+      })
+    ).not.toThrow();
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('data_db.tenant_missing'));
+  });
+
+  it('rethrows retryable errors even on a bound data database', () => {
+    const error = Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' });
+
+    expect(() =>
+      handleBestEffortDataDbDropError({
+        error,
+        isMetaFallback: false,
+        logger: { warn: vi.fn() },
+        target: 'table tblA',
+      })
+    ).toThrow('connect ECONNREFUSED');
+  });
+
+  it('rethrows unclassified errors on a bound data database', () => {
+    expect(() =>
+      handleBestEffortDataDbDropError({
+        error: new Error('field validation failed'),
+        isMetaFallback: false,
+        logger: { warn: vi.fn() },
+        target: 'table tblA',
+      })
+    ).toThrow('field validation failed');
+  });
+
+  it('rethrows any error on the platform (meta-fallback) data database', () => {
+    expect(() =>
+      handleBestEffortDataDbDropError({
+        error: tenantMissingError,
+        isMetaFallback: true,
+        logger: { warn: vi.fn() },
+        target: 'table tblA',
+      })
+    ).toThrow('tenant/user postgres.abc not found');
   });
 });

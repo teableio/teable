@@ -1,8 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { generateShareId, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { ICreateBaseShareRo, IUpdateBaseShareRo, IBaseShareVo } from '@teable/openapi';
-import { BaseNodeResourceType } from '@teable/openapi';
+import type { IBaseShareVo } from '@teable/openapi';
+import {
+  BaseNodeResourceType,
+  ShortLinkType,
+  ICreateBaseShareRo,
+  IUpdateBaseShareRo,
+} from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
 import { Events } from '../../event-emitter/events';
@@ -11,6 +16,7 @@ import { generateBaseShareListCacheKey } from '../../performance-cache/generate-
 import type { IClsStore } from '../../types/cls';
 import { AuditScope } from '../audit/audit-scope';
 import { Audit } from '../audit/audit.decorator';
+import { ShortLinkService } from '../short-link/short-link.service';
 
 const baseShareNotFoundMessage = 'Base share not found';
 const baseShareNotFoundKey = 'httpErrors.baseShare.notFound';
@@ -23,7 +29,8 @@ export class BaseShareService {
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
     private readonly performanceCacheService: PerformanceCacheService,
-    private readonly audit: AuditScope
+    private readonly audit: AuditScope,
+    private readonly shortLinkService: ShortLinkService
   ) {}
 
   private async invalidateBaseShareListCache(baseId: string): Promise<void> {
@@ -98,7 +105,8 @@ export class BaseShareService {
 
     if (existingShare) {
       if (!existingShare.enabled) {
-        // Hard-delete the old disabled share so a fresh one can be created
+        // Hard-delete the old disabled share so a fresh one can be created;
+        // its short links were already marked deleted when the share was disabled
         await this.prismaService.baseShare.delete({ where: { id: existingShare.id } });
       } else {
         throw new CustomHttpException(
@@ -226,6 +234,12 @@ export class BaseShareService {
       await this.invalidateBaseShareListCache(baseId);
     }
 
+    // Disabling via update is as permanent as deleteBaseShare (a disabled share
+    // can never be re-enabled with the same shareId), so mark short links dead
+    if (data.enabled === false && share.enabled) {
+      await this.shortLinkService.markDeletedByResource(ShortLinkType.BaseShare, shareId);
+    }
+
     return this.formatBaseShareVo(updated);
   }
 
@@ -253,6 +267,10 @@ export class BaseShareService {
       where: { id: share.id },
       data: { enabled: false },
     });
+
+    // A disabled share can never be re-enabled with the same shareId (re-sharing
+    // always mints a new one), so its short links are dead from this point on
+    await this.shortLinkService.markDeletedByResource(ShortLinkType.BaseShare, shareId);
 
     // Invalidate cache when deleting share
     await this.invalidateBaseShareListCache(baseId);
@@ -282,6 +300,9 @@ export class BaseShareService {
       where: { id: share.id },
       data: { shareId: newShareId },
     });
+
+    // The old shareId is gone for good, so its short links are dead too
+    await this.shortLinkService.markDeletedByResource(ShortLinkType.BaseShare, shareId);
 
     return this.formatBaseShareVo(updated);
   }

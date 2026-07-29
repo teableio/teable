@@ -46,6 +46,8 @@ export const authConfig = registerAs('auth', () => ({
     process.env.BACKEND_SIGNUP_VERIFICATION_EXPIRES_IN ??
     '30m',
   socialAuthProviders: process.env.SOCIAL_AUTH_PROVIDERS?.split(',') ?? [],
+  // Same switch that gates LocalAuthModule registration in auth.module.ts
+  passwordLoginDisabled: process.env.PASSWORD_LOGIN_DISABLED === 'true',
   github: {
     clientID: process.env.BACKEND_GITHUB_CLIENT_ID,
     clientSecret: process.env.BACKEND_GITHUB_CLIENT_SECRET,

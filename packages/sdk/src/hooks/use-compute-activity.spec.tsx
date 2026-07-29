@@ -11,6 +11,7 @@ import {
   type IComputeActivityState,
 } from './use-compute-activity';
 import { useConnection } from './use-connection';
+import { useIsReadOnlyPreview } from './use-is-readonly-preview';
 
 vi.mock('@tanstack/react-query', () => ({
   useQuery: vi.fn(),
@@ -28,8 +29,13 @@ vi.mock('./use-connection', () => ({
   useConnection: vi.fn(),
 }));
 
+vi.mock('./use-is-readonly-preview', () => ({
+  useIsReadOnlyPreview: vi.fn(() => false),
+}));
+
 const mockedUseQuery = vi.mocked(useQuery);
 const mockedUseConnection = vi.mocked(useConnection);
+const mockedUseIsReadOnlyPreview = vi.mocked(useIsReadOnlyPreview);
 
 const idleSnapshot: ComputeActivitySnapshotClient = {
   tableId: 'tblTest',
@@ -154,6 +160,27 @@ describe('useComputeActivitySubscription', () => {
   beforeEach(() => {
     mockedUseQuery.mockReset();
     mockedUseConnection.mockReset();
+    mockedUseIsReadOnlyPreview.mockReturnValue(false);
+  });
+
+  it('does not request or subscribe to compute activity in read-only previews', () => {
+    const connection = { get: vi.fn() };
+    mockedUseConnection.mockReturnValue({ connection, connected: true } as never);
+    mockedUseIsReadOnlyPreview.mockReturnValue(true);
+    mockedUseQuery.mockReturnValue({
+      data: idleSnapshot,
+      isFetching: false,
+      refetch: vi.fn(),
+    } as never);
+
+    const { result } = renderHook(() => useComputeActivitySubscription(), {
+      wrapper: createWrapper([{ id: 'fldTest' }]),
+    });
+
+    expect(mockedUseQuery).toHaveBeenCalledWith(expect.objectContaining({ enabled: false }));
+    expect(connection.get).not.toHaveBeenCalled();
+    expect(result.current.snapshot).toBeNull();
+    expect(result.current.fieldMetaById).toEqual({});
   });
 
   it('refreshes diagnostics and polling from merged realtime and HTTP field state', async () => {

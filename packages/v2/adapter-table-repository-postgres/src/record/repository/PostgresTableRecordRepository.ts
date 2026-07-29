@@ -56,6 +56,7 @@ import {
   type OutgoingLinkDeleteOp,
 } from '../visitors';
 import { CellValueMutateVisitor } from '../visitors/CellValueMutateVisitor';
+import { normalizeStoredLinkItems } from '../normalizeLinkItems';
 import type { LinkExclusivityConstraint } from '../visitors/LinkExclusivityConstraintCollector';
 import { buildRecordWhereClause } from './buildRecordWhereClause';
 import type {
@@ -926,6 +927,39 @@ const buildEmptyBeforeImageRecord = (recordId: core.RecordId): ComputedBeforeIma
   recordId,
   fieldValuesByDbName: {},
 });
+
+const buildOldLinkExtraSeedRecords = (
+  table: core.Table,
+  linkFieldIds: ReadonlyArray<core.FieldId>,
+  updatedRecords: ReadonlyArray<{ oldFieldValues: Readonly<Record<string, unknown>> }>
+): Result<ExtraSeedRecordGroup[], DomainError> =>
+  safeTry(function* () {
+    const extraSeedMap = new Map<
+      string,
+      { tableId: core.TableId; recordIds: Map<string, core.RecordId> }
+    >();
+
+    for (const fieldId of linkFieldIds) {
+      const field = yield* table.getField((candidate) => candidate.id().equals(fieldId));
+      if (!field.type().equals(core.FieldType.link())) continue;
+
+      const linkField = field as core.LinkField;
+      if (linkField.isOneWay()) continue;
+
+      const oldForeignRecordIds = new Set<string>();
+      for (const record of updatedRecords) {
+        for (const item of normalizeStoredLinkItems(record.oldFieldValues[fieldId.toString()])) {
+          oldForeignRecordIds.add(item.id);
+        }
+      }
+
+      yield* mergeExtraSeedRecords(extraSeedMap, linkField.foreignTableId(), [
+        ...oldForeignRecordIds,
+      ]);
+    }
+
+    return ok(finalizeExtraSeedRecords(extraSeedMap));
+  });
 
 const mergeTrackedFields = (
   ...groups: ReadonlyArray<ReadonlyArray<BulkUpdateTrackedField>>
@@ -2249,6 +2283,18 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
 
         const { setClauses, additionalStatements, changedFieldIds } =
           mutateVisitor.getSetClausesRaw();
+        const valueFieldIds: core.FieldId[] = [];
+        const linkFieldIds: core.FieldId[] = [];
+        for (const fieldId of changedFieldIds) {
+          const field = yield* table.getField((candidate) => candidate.id().equals(fieldId));
+          if (field.type().equals(core.FieldType.link())) {
+            linkFieldIds.push(fieldId);
+          } else {
+            valueFieldIds.push(fieldId);
+          }
+        }
+        const impact = { valueFieldIds, linkFieldIds };
+        const normalizedImpact = this.normalizeImpactHint(impact);
         if (additionalStatements.length > 0) {
           return err(
             core.domainError.notImplemented({
@@ -2273,7 +2319,8 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           context,
           table,
           expandedChangedFieldIds,
-          'update'
+          'update',
+          normalizedImpact
         );
         const changedTrackedFields = yield* toBulkUpdateTrackedFields(table, changedFieldIds);
         const trackedFields = mergeTrackedFields(
@@ -2357,10 +2404,11 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
                       )
                 )
               : [];
-            const impact = {
-              valueFieldIds: changedFieldIds,
-              linkFieldIds: [],
-            };
+            const extraSeedRecords = yield* buildOldLinkExtraSeedRecords(
+              table,
+              linkFieldIds,
+              updatedRecords
+            );
             const computedResult = deferComputed
               ? enqueueDeferredComputedUpdates
                 ? await this.runComputedUpdateManyByIds(
@@ -2368,7 +2416,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
                     table,
                     updatedRecordIds,
                     impact,
-                    [],
+                    extraSeedRecords,
                     beforeImageRecords,
                     {
                       forceOutbox: true,
@@ -2381,7 +2429,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
                     table,
                     updatedRecordIds,
                     impact,
-                    [],
+                    extraSeedRecords,
                     beforeImageRecords,
                     options?.orchestration
                   )
@@ -2390,7 +2438,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
                   table,
                   updatedRecordIds,
                   impact,
-                  [],
+                  extraSeedRecords,
                   beforeImageRecords,
                   {
                     orchestration: options?.orchestration,

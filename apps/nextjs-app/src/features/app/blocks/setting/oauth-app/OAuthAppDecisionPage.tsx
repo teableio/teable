@@ -21,7 +21,7 @@ export const OAuthAppDecisionPage = () => {
   const transactionId = router.query.transaction_id as string;
   const getPreviewUrl = usePreviewUrl();
   const { t } = useTranslation(oauthAppConfig.i18nNamespaces);
-  const { data } = useQuery({
+  const { data, error } = useQuery({
     queryKey: ['oauth-app-decision-info', transactionId],
     queryFn: ({ queryKey }) => decisionInfoGet(queryKey[1]).then((data) => data.data),
     enabled: !!transactionId,
@@ -46,6 +46,21 @@ export const OAuthAppDecisionPage = () => {
 
   if (!transactionId) {
     return <div>Transaction ID is required</div>;
+  }
+
+  if (error) {
+    // Without this branch a failed fetch (expired transaction, lost session)
+    // left the page spinning forever.
+    const message = error instanceof Error && error.message ? error.message : undefined;
+    return (
+      <div className="flex h-screen w-full items-center justify-center px-4">
+        <Card className="max-w-md space-y-4 p-8 text-center">
+          <TeableLogo className="mx-auto size-8" />
+          <h2 className="text-lg font-semibold">{t('common:noun.unknownError')}</h2>
+          {message && <p className="text-sm text-muted-foreground">{message}</p>}
+        </Card>
+      </div>
+    );
   }
 
   if (!decisionInfo) {

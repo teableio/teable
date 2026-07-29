@@ -122,4 +122,8 @@ export const tableQueryOpsAnalyzeSearchVectors = Command.make(
     noEnsureSchema: noEnsureSchemaOption,
   },
   handler
-).pipe(Command.withDescription('Analyze generated tsvector search access-path candidates'));
+).pipe(
+  Command.withDescription(
+    'Deprecated alias for analyze-search-access-paths; language-config is ignored in substring mode'
+  )
+);

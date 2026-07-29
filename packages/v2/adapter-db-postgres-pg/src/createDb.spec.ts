@@ -1,6 +1,7 @@
+import type { Pool } from 'pg';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { handlePgPoolError, shouldIgnorePgPoolError } from './createDb';
+import { createV2PostgresDb, handlePgPoolError, shouldIgnorePgPoolError } from './createDb';
 
 describe('createDb pg pool error handling', () => {
   afterEach(() => {
@@ -35,5 +36,17 @@ describe('createDb pg pool error handling', () => {
       '[v2-adapter-db-postgres-pg] Unexpected idle pg pool error',
       error
     );
+  });
+  it('does not end a borrowed pool when the Kysely handle is destroyed', async () => {
+    const end = vi.fn().mockResolvedValue(undefined);
+    const pool = { connect: vi.fn(), end } as unknown as Pool;
+    const db = await createV2PostgresDb(
+      { pg: { connectionString: 'postgresql://teable:secret@db.example.com/teable' } },
+      { pool }
+    );
+
+    await db.destroy();
+
+    expect(end).not.toHaveBeenCalled();
   });
 });

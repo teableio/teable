@@ -71,7 +71,11 @@ export type TableQueryOpsDatabase = {
     base_id: string;
     table_id: string;
     candidate_key: string;
-    language_config: string;
+    semantics: string;
+    access_path: string;
+    provider: string;
+    operator_class: string | null;
+    language_config: string | null;
     generated_column_name: string;
     index_name: string;
     field_ids: unknown;
@@ -206,7 +210,11 @@ export const ensureTableQueryOpsSchema = async (
     .addColumn('base_id', 'text', (col) => col.notNull())
     .addColumn('table_id', 'text', (col) => col.notNull())
     .addColumn('candidate_key', 'text', (col) => col.notNull())
-    .addColumn('language_config', 'text', (col) => col.notNull())
+    .addColumn('semantics', 'text', (col) => col.notNull().defaultTo('lexical'))
+    .addColumn('access_path', 'text', (col) => col.notNull().defaultTo('generated_tsvector'))
+    .addColumn('provider', 'text', (col) => col.notNull().defaultTo('tsvector'))
+    .addColumn('operator_class', 'text')
+    .addColumn('language_config', 'text')
     .addColumn('generated_column_name', 'text', (col) => col.notNull())
     .addColumn('index_name', 'text', (col) => col.notNull())
     .addColumn('field_ids', 'jsonb', (col) => col.notNull())
@@ -221,6 +229,13 @@ export const ensureTableQueryOpsSchema = async (
   await sql`
     ALTER TABLE table_query_search_vector_config
     ADD COLUMN IF NOT EXISTS search_scope text NOT NULL DEFAULT 'all_fields'
+  `.execute(db);
+  await sql`
+    ALTER TABLE table_query_search_vector_config
+      ADD COLUMN IF NOT EXISTS semantics text NOT NULL DEFAULT 'lexical',
+      ADD COLUMN IF NOT EXISTS access_path text NOT NULL DEFAULT 'generated_tsvector',
+      ADD COLUMN IF NOT EXISTS provider text NOT NULL DEFAULT 'tsvector',
+      ADD COLUMN IF NOT EXISTS operator_class text
   `.execute(db);
 
   await db.schema

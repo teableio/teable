@@ -4,7 +4,7 @@
  *
  * Sampling stays at 100%; this module decides at export time which spans
  * reach the backend:
- * - slow / error / 5xx spans always export and promote their whole trace:
+ * - error / 5xx spans always export and promote their whole trace:
  *   buffered spans are flushed, later spans export directly
  * - traces picked by the traceId hash (OTEL_EXPORT_RATIO) export in full
  * - other traces export only priority spans (SERVER/route/handler, keeps APM
@@ -67,19 +67,15 @@ export const isPriorityTraceSpan = (span: ReadableSpan): boolean => {
   );
 };
 
-export const isSlowOrErrorSpan = (span: ReadableSpan, latencyThresholdMs: number): boolean => {
+export const isErrorSpan = (span: ReadableSpan): boolean => {
   if (span.status.code === SpanStatusCode.ERROR) return true;
 
   const httpStatusCode = span.attributes[ATTR_HTTP_RESPONSE_STATUS_CODE];
-  if (typeof httpStatusCode === 'number' && httpStatusCode >= 500) return true;
-
-  const durationMs = span.duration[0] * 1000 + span.duration[1] / 1_000_000;
-  return durationMs > latencyThresholdMs;
+  return typeof httpStatusCode === 'number' && httpStatusCode >= 500;
 };
 
 export interface ISmartSpanProcessorOptions {
   exportRatio: number;
-  latencyThresholdMs: number;
   maxQueueSize: number;
   maxExportBatchSize: number;
   scheduledDelayMillis: number;
@@ -277,7 +273,7 @@ export const createSmartSpanProcessor = (
   priorityExporter: SpanExporter,
   options: ISmartSpanProcessorOptions
 ): SpanProcessor => {
-  const { exportRatio, latencyThresholdMs } = options;
+  const { exportRatio } = options;
   const batchProcessor = new BatchSpanProcessor(batchExporter, {
     maxQueueSize: options.maxQueueSize,
     maxExportBatchSize: options.maxExportBatchSize,
@@ -319,7 +315,7 @@ export const createSmartSpanProcessor = (
     return {
       onStart: forwardStart,
       onEnd: (span: ReadableSpan) => {
-        if (isDroppedPrismaSpan(span) && !isSlowOrErrorSpan(span, latencyThresholdMs)) return;
+        if (isDroppedPrismaSpan(span) && !isErrorSpan(span)) return;
         route(span);
       },
       shutdown: shutdownProcessors,
@@ -350,7 +346,7 @@ export const createSmartSpanProcessor = (
   };
 
   const decide = (span: ReadableSpan, trace: ITraceState, traceId: string, nowMs: number): void => {
-    if (isSlowOrErrorSpan(span, latencyThresholdMs)) {
+    if (isErrorSpan(span)) {
       promote(traceId, trace, nowMs);
       route(span);
       return;

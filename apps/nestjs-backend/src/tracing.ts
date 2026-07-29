@@ -13,9 +13,9 @@
  * | OTEL_EXPORTER_OTLP_LOGS_ENDPOINT   | Log exporter endpoint          | localhost:4318   | (disabled)   |
  * | OTEL_EXPORTER_OTLP_METRICS_ENDPOINT| Metrics exporter endpoint      | (disabled)       | (disabled)   |
  * | OTEL_EXPORTER_OTLP_HEADERS         | Custom headers (key=val,...)   | (none)           | (none)       |
+ * | OTEL_LOG_LEVEL                     | SDK diagnostic log level       | (disabled)       | (disabled)   |
  * | OTEL_SERVICE_NAME                  | Service name for tracing       | teable           | teable       |
  * | OTEL_EXPORT_RATIO                  | Export ratio (0.0-1.0)         | 1.0 (100%)       | 0.1 (10%)    |
- * | OTEL_EXPORT_LATENCY_THRESHOLD_MS   | Slow request threshold (ms)    | 1500             | 1500         |
  * | OTEL_BSP_MAX_QUEUE_SIZE            | Trace BSP max queue size       | 2048             | 2048         |
  * | OTEL_BSP_MAX_EXPORT_BATCH_SIZE     | Trace BSP max export batch     | 512              | 512          |
  * | OTEL_BSP_SCHEDULE_DELAY            | Trace BSP delay (ms)           | 5000             | 5000         |
@@ -30,11 +30,12 @@
  * - In development, traces and logs are enabled by default (localhost endpoint)
  * - In production, you must explicitly set OTEL_EXPORTER_OTLP_ENDPOINT to enable tracing
  * - Sampling rate is always 100%; OTEL_EXPORT_RATIO controls how many spans are sent to backend
- * - Smart export always sends: errors, HTTP 5xx responses, and slow requests (regardless of ratio),
- *   and promotes their whole trace so it arrives complete (see tracing-span-export.ts)
+ * - Smart export always sends errors and HTTP 5xx responses (regardless of ratio) and promotes
+ *   their whole trace so it arrives complete; everything else follows the trace-level
+ *   OTEL_EXPORT_RATIO (see tracing-span-export.ts)
  */
 import { Logger } from '@nestjs/common';
-import { diag, DiagConsoleLogger, DiagLogLevel, metrics, SpanKind } from '@opentelemetry/api';
+import { metrics, SpanKind } from '@opentelemetry/api';
 import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks';
 import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-http';
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
@@ -71,11 +72,6 @@ const { AlwaysOnSampler } = opentelemetry.node;
 const otelLogger = new Logger('OpenTelemetry');
 const isDevelopment = process.env.NODE_ENV !== 'production';
 
-// OTel SDK self-diagnostics (span queue drops, export failures) are no-op by
-// default; surface WARN+ to stdout. Not routed through pino, so this reaches
-// container logs only, never the OTLP log pipeline.
-diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.WARN);
-
 /**
  * Environment-specific default values
  * - undefined means the feature is disabled unless explicitly configured
@@ -87,7 +83,6 @@ const ENV_DEFAULTS = {
     OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: undefined,
     OTEL_SERVICE_NAME: 'teable',
     OTEL_EXPORT_RATIO: '1.0',
-    OTEL_EXPORT_LATENCY_THRESHOLD_MS: '1500',
     OTEL_BSP_MAX_QUEUE_SIZE: '2048',
     OTEL_BSP_MAX_EXPORT_BATCH_SIZE: '512',
     OTEL_BSP_SCHEDULE_DELAY: '5000',
@@ -101,7 +96,6 @@ const ENV_DEFAULTS = {
     OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: undefined,
     OTEL_SERVICE_NAME: 'teable',
     OTEL_EXPORT_RATIO: '0.1',
-    OTEL_EXPORT_LATENCY_THRESHOLD_MS: '1500',
     OTEL_BSP_MAX_QUEUE_SIZE: '2048',
     OTEL_BSP_MAX_EXPORT_BATCH_SIZE: '512',
     OTEL_BSP_SCHEDULE_DELAY: '5000',
@@ -157,10 +151,6 @@ const logEndpoint = getConfig('OTEL_EXPORTER_OTLP_LOGS_ENDPOINT');
 const metricsEndpoint = getConfig('OTEL_EXPORTER_OTLP_METRICS_ENDPOINT');
 const serviceName = getConfig('OTEL_SERVICE_NAME') || 'teable';
 const exportRatio = Math.max(0, Math.min(1, parseNumber(getConfig('OTEL_EXPORT_RATIO'), 0.1)));
-const latencyThresholdMs = Math.max(
-  0,
-  parseNumber(getConfig('OTEL_EXPORT_LATENCY_THRESHOLD_MS'), 1500)
-);
 const traceBatchMaxQueueSize = parseIntegerConfig('OTEL_BSP_MAX_QUEUE_SIZE', 2048, 1);
 const traceBatchMaxExportBatchSize = Math.min(
   traceBatchMaxQueueSize,
@@ -282,7 +272,6 @@ const spanProcessors = [
           new OTLPTraceExporter(createExporterOptions(traceEndpoint)),
           {
             exportRatio,
-            latencyThresholdMs,
             maxQueueSize: traceBatchMaxQueueSize,
             maxExportBatchSize: traceBatchMaxExportBatchSize,
             scheduledDelayMillis: traceBatchScheduledDelayMillis,
@@ -395,7 +384,7 @@ const otelSDK = new opentelemetry.NodeSDK({
 // Log configuration on startup
 otelLogger.log(
   `Initialized: service=${serviceName}, env=${isDevelopment ? 'dev' : 'prod'}, ` +
-    `exportRatio=${exportRatio * 100}%, latencyThreshold=${latencyThresholdMs}ms, ` +
+    `exportRatio=${exportRatio * 100}%, ` +
     `exporters=[traces:${!!traceEndpoint}, logs:${!!logEndpoint}, metrics:${!!metricsEndpoint}], ` +
     `traceBatch=[queue:${traceBatchMaxQueueSize}, batch:${traceBatchMaxExportBatchSize}, ` +
     `delay:${traceBatchScheduledDelayMillis}ms, timeout:${traceBatchExportTimeoutMillis}ms], ` +

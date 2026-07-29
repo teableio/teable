@@ -1,13 +1,37 @@
 import { FieldType, timeZoneStringSchema } from '@teable/core';
 import { z } from 'zod';
+import { READ_PATH } from '../attachment/utils';
 
 export enum SUPPORTEDTYPE {
   CSV = 'csv',
   EXCEL = 'excel',
 }
 
+/**
+ * An import source URL must be either an absolute http(s) URL or the server's
+ * own attachment-read path (resolved against the server origin downstream).
+ *
+ * This blocks two SSRF vectors at the API boundary: non-http protocols
+ * (file://, gopher://, …) and arbitrary relative paths that would be fetched
+ * from the loopback interface (e.g. "/admin" → http://localhost/admin). The
+ * socket-level SSRF guard in the import fetch additionally blocks absolute URLs
+ * that resolve to internal/private addresses.
+ */
+export const attachmentUrlSchema = z.string().refine(
+  (value) => {
+    const trimmed = value.trim();
+    try {
+      const { protocol } = new URL(trimmed);
+      return protocol === 'http:' || protocol === 'https:';
+    } catch {
+      return trimmed.startsWith(`${READ_PATH}/`);
+    }
+  },
+  { message: 'attachmentUrl must be an http(s) URL or an attachment read path' }
+);
+
 export const analyzeRoSchema = z.object({
-  attachmentUrl: z.string(),
+  attachmentUrl: attachmentUrlSchema,
   fileType: z.enum(SUPPORTEDTYPE),
 });
 
@@ -57,14 +81,14 @@ export const importOptionSchema = importSheetItem.pick({
 
 export const importOptionRoSchema = z.object({
   worksheets: z.record(z.string(), importSheetItem),
-  attachmentUrl: z.string(),
+  attachmentUrl: attachmentUrlSchema,
   fileType: z.enum(SUPPORTEDTYPE),
   notification: z.boolean().optional(),
   tz: timeZoneStringSchema,
 });
 
 export const inplaceImportOptionRoSchema = z.object({
-  attachmentUrl: z.string(),
+  attachmentUrl: attachmentUrlSchema,
   fileType: z.enum(SUPPORTEDTYPE),
   insertConfig: z.object({
     sourceWorkSheetKey: z.string(),

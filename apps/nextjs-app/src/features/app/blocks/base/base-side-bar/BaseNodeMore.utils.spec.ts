@@ -1,5 +1,59 @@
 import { describe, expect, it } from 'vitest';
-import { getTableOperationMenuPermission } from './BaseNodeMore.utils';
+import { getTableOperationMenuPermission, getTableRecordNavigation } from './BaseNodeMore.utils';
+
+describe('getTableRecordNavigation', () => {
+  it('keeps the current route when the record belongs to the active table', () => {
+    expect(
+      getTableRecordNavigation({
+        activeTableId: 'tblA',
+        targetTableId: 'tblA',
+        targetTableHref: '/base/bse1/table/tblA/viwA',
+        targetViewId: 'viwA',
+        currentPathname: '/base/[baseId]/[[...slug]]',
+        currentQuery: { baseId: 'bse1', slug: ['table', 'tblA', 'viwA'] },
+        recordId: 'recA',
+      })
+    ).toEqual({
+      url: {
+        pathname: '/base/[baseId]/[[...slug]]',
+        query: { baseId: 'bse1', slug: ['table', 'tblA', 'viwA'], recordId: 'recA' },
+      },
+      shallow: true,
+    });
+  });
+
+  it('navigates to the owning table before opening a cross-table record', () => {
+    expect(
+      getTableRecordNavigation({
+        activeTableId: 'tblA',
+        targetTableId: 'tblB',
+        targetTableHref: '/base/bse1/table/tblB/viwB',
+        targetViewId: 'viwB',
+        currentPathname: '/base/[baseId]/[[...slug]]',
+        currentQuery: { baseId: 'bse1', slug: ['table', 'tblA', 'viwA'] },
+        recordId: 'recB',
+      })
+    ).toEqual({
+      url: {
+        pathname: '/base/bse1/table/tblB/viwB',
+        query: { recordId: 'recB' },
+      },
+      shallow: true,
+    });
+  });
+
+  it('does not open a cross-table record when its table route is unavailable', () => {
+    expect(
+      getTableRecordNavigation({
+        activeTableId: 'tblA',
+        targetTableId: 'tblB',
+        currentPathname: '/base/[baseId]/[[...slug]]',
+        currentQuery: {},
+        recordId: 'recB',
+      })
+    ).toBeUndefined();
+  });
+});
 
 describe('getTableOperationMenuPermission', () => {
   it('keeps recovery actions for a table node missing from the ready table list', () => {

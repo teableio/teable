@@ -468,6 +468,7 @@
       "tabLink": "Пригласить по ссылке",
       "linkPlaceholder": "Создать ссылку приглашения, которая предоставит <0/> доступ любому, кто её откроет.",
       "emailSend": "Отправить приглашение",
+      "directAccessDescription": "Приглашённые участники могут напрямую перейти по ссылке ниже и начать совместную работу",
       "linkSend": "Создать ссылку",
       "spaceTitle": "Сотрудники пространства",
       "collaboratorSearchPlaceholder": "Найдите сотрудника пространства по имени или электронной почте",
@@ -893,6 +894,10 @@
           "title": "Уведомление о комментарии к записи",
           "message": "{{fromUserName}} оставил комментарий к {{recordName}} в {{tableName}} в {{baseName}}"
         },
+        "collaboratorInvite": {
+          "space": "{{fromUserName}} пригласил вас присоединиться к пространству {{resourceName}}",
+          "base": "{{fromUserName}} пригласил вас присоединиться к базе {{resourceName}}"
+        },
         "automation": {
           "title": "Уведомление об автоматизации",
           "failed": {
@@ -1248,10 +1253,10 @@
     }
   },
   "changelog": {
-    "newUpdate": "ОБНОВЛЕНИЕ ОТ 15 ИЮЛЯ",
-    "title": "Память ИИ и загрузка файлов",
-    "url": "https://help.teable.ai/en/changelog#jul-15-2026",
-    "id": "changelog-2026-07-15-ai-memory-and-file-downloads"
+    "newUpdate": "ОБНОВЛЕНИЕ ОТ 28 ИЮЛЯ",
+    "title": "Teable Skill для ИИ-агентов",
+    "url": "https://help.teable.ai/en/changelog#jul-28-2026",
+    "id": "changelog-2026-07-28-teable-skill-for-ai-agents"
   },
   "resourceDescription": {
     "addDescription": "Добавить описание",

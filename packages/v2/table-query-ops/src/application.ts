@@ -461,6 +461,8 @@ const parseTableId = (raw: string) => TableId.create(raw);
 const isExecutablePhase1Kind = (kind: string): kind is ExecutablePhase1RemediationKind =>
   [
     'create_search_index',
+    'create_search_access_path',
+    'rebuild_search_access_path',
     'create_search_vector',
     'rebuild_search_vector',
     'create_filter_index',

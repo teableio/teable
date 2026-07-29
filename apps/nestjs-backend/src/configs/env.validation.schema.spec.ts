@@ -42,6 +42,20 @@ describe('envValidationSchema', () => {
     expect(value.DATABASE_URL).toContain('/teable');
   });
 
+  it('accepts a positive process-level database pool limit', () => {
+    const { error, value } = envValidationSchema.validate(
+      createEnv({
+        PRISMA_DATABASE_URL: 'postgresql://teable:teable@127.0.0.1:5432/teable?schema=public',
+        DATABASE_POOL_MAX: '8',
+        BYODB_DATA_DB_POOL_MAX: '4',
+      })
+    );
+
+    expect(error).toBeUndefined();
+    expect(value.DATABASE_POOL_MAX).toBe(8);
+    expect(value.BYODB_DATA_DB_POOL_MAX).toBe(4);
+  });
+
   it('rejects missing meta database envs', () => {
     const { error } = envValidationSchema.validate(createEnv());
 
@@ -80,5 +94,32 @@ describe('envValidationSchema', () => {
     );
 
     expect(error?.message).toContain('requires a producer or consumer role');
+  });
+
+  it('accepts integer space scheduling limits', () => {
+    const { error, value } = envValidationSchema.validate(
+      createEnv({
+        PRISMA_DATABASE_URL: 'postgresql://teable:teable@127.0.0.1:5432/teable?schema=public',
+        SPACE_AI_FIELD_GENERATION_DEFAULT_LIMIT: '20',
+      })
+    );
+
+    expect(error).toBeUndefined();
+    expect(value.SPACE_AI_FIELD_GENERATION_DEFAULT_LIMIT).toBe(20);
+  });
+
+  it.each([
+    ['SPACE_AI_FIELD_GENERATION_DEFAULT_LIMIT', 'abc'],
+    ['SPACE_WORKFLOW_RUN_DEFAULT_LIMIT', '2.5'],
+    ['SPACE_WORKFLOW_RUN_DEFAULT_LIMIT', '0'],
+  ])('rejects invalid space scheduling limit %s=%s', (key, value) => {
+    const { error } = envValidationSchema.validate(
+      createEnv({
+        PRISMA_DATABASE_URL: 'postgresql://teable:teable@127.0.0.1:5432/teable?schema=public',
+        [key]: value,
+      })
+    );
+
+    expect(error?.message).toContain(key);
   });
 });

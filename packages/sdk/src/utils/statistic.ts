@@ -33,6 +33,21 @@ export const bytesToMB = (bytes: number) => {
   return (mb <= 1 ? 0 : mb.toFixed(2)).toString();
 };
 
+export const formatAttachmentSize = (bytes: number): string => {
+  if (bytes <= 0) return '0 B';
+
+  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+  let unitIndex = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  let value = bytes / 1024 ** unitIndex;
+
+  if (Number(value.toFixed(2)) >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+
+  return `${Number(value.toFixed(2))} ${units[unitIndex]}`;
+};
+
 export const statisticsValue2DisplayValue = (
   statFunc: StatisticsFunc,
   value: string | number | null,
@@ -70,7 +85,7 @@ export const statisticsValue2DisplayValue = (
       return `${percentFormatting(value as number)}%`;
     }
     case StatisticsFunc.TotalAttachmentSize: {
-      return `${bytesToMB(value as number)}MB`;
+      return formatAttachmentSize(Number(value));
     }
   }
 };

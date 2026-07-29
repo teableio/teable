@@ -7,6 +7,7 @@ import {
   type SearchScopeHeatEntry,
   type SearchScopeHeatReportSnapshot,
   type TableQueryObservationWindow,
+  type TableSearchAccessPathCapability,
   type TableSearchVectorReconciler,
 } from '@teable/v2-table-query-ops';
 import type { Kysely } from 'kysely';
@@ -14,6 +15,7 @@ import { sql } from 'kysely';
 import { err, ok } from 'neverthrow';
 
 import { getTablePhysicalName, makePhysicalTableSql, quoteIdentifier } from './helpers';
+import { readPostgresSearchAccessPathCapabilities } from './searchAccessPathCapability';
 import type { UnknownPostgresDatabase } from './types';
 
 const DEFAULT_LANGUAGE_CONFIG = 'simple';
@@ -23,9 +25,12 @@ const MIN_RECOMMENDED_COST_IMPROVEMENT_PCT = 20;
 // All generated columns and indexes this advisor manages carry these prefixes.
 // The executor refuses to ADD/DROP anything that does not, so a hand-built or
 // mistyped payload can never rewrite/drop a real user column or index.
-const GENERATED_COLUMN_PREFIX = '__tqops_tsv_';
-const INDEX_NAME_PREFIX = 'idx_tqops_tsv_';
-const SCOPED_EXPRESSION_INDEX_PREFIX = 'idx_tqops_fts_scope_';
+const GENERATED_COLUMN_PREFIX = '__tqops_search_';
+const INDEX_NAME_PREFIX = 'idx_tqops_search_';
+const SCOPED_EXPRESSION_INDEX_PREFIX = 'idx_tqops_search_scope_';
+const LEGACY_GENERATED_COLUMN_PREFIX = '__tqops_tsv_';
+const LEGACY_INDEX_NAME_PREFIX = 'idx_tqops_tsv_';
+const SEARCH_DOCUMENT_DEFINITION_VERSION = 'v1';
 const SEARCH_SEMANTICS_SAMPLE_LIMIT = 3;
 const SEARCH_SEMANTICS_FIELD_PREVIEW_LIMIT = 4;
 const SEARCH_SEMANTICS_TOKEN_LIMIT = 16;
@@ -61,10 +66,39 @@ export type TableQuerySearchVectorFieldSummary = {
 
 export type TableQuerySearchVectorInventory = {
   readonly state: 'ready' | 'missing' | 'stale' | 'invalid' | 'unknown';
+  readonly semantics?: 'substring';
+  readonly provider?: TableQuerySubstringSearchProvider;
+  readonly operatorClass?: TableQuerySubstringSearchOperatorClass;
   readonly existingGeneratedColumn?: string;
   readonly existingIndexName?: string;
   readonly existingIndexValid?: boolean;
   readonly staleReasons: readonly string[];
+};
+
+export type TableQuerySubstringSearchProvider = 'pg_bigm' | 'pg_trgm';
+
+export type TableQuerySubstringSearchOperatorClass = 'gin_bigm_ops' | 'gin_trgm_ops';
+
+export type TableQuerySubstringSearchProviderCapability = {
+  readonly provider: TableQuerySubstringSearchProvider;
+  readonly extensionName: TableQuerySubstringSearchProvider;
+  readonly operatorClass: TableQuerySubstringSearchOperatorClass;
+  readonly operatorClassSchema?: string;
+  readonly extensionInstalled: boolean;
+  readonly extensionAvailable: boolean;
+  readonly operatorClassInstalled: boolean;
+  readonly usable: boolean;
+  readonly minimumProbeLength: number;
+  readonly reason?:
+    | 'extension_not_installed'
+    | 'extension_unavailable'
+    | 'extension_not_preloaded'
+    | 'operator_class_missing';
+};
+
+export type TableQuerySubstringSearchCapabilities = {
+  readonly selectedProvider: TableQuerySubstringSearchProvider;
+  readonly providers: readonly TableQuerySubstringSearchProviderCapability[];
 };
 
 export type TableQuerySearchVectorPlanEvidence = {
@@ -77,6 +111,7 @@ export type TableQuerySearchVectorPlanEvidence = {
   readonly planNodeBefore?: string;
   readonly planNodeAfter?: string;
   readonly usesCandidateIndex?: boolean;
+  readonly semanticsCompatible?: boolean;
   readonly hypotheticalIndexStatement?: string;
   readonly sqlDetails?: TableQuerySearchVectorSqlDetails;
 };
@@ -87,6 +122,7 @@ export type TableQuerySearchVectorSqlDetails = {
   readonly searchProbeLengthBucket: 'none' | 'short' | 'medium' | 'long';
   readonly placeholders: {
     readonly likePattern: string;
+    /** @deprecated Substring access paths use likePattern. */
     readonly tsquery: string;
   };
   readonly redaction: 'search_probe_parameterized';
@@ -94,6 +130,7 @@ export type TableQuerySearchVectorSqlDetails = {
 
 export type TableQuerySearchSemanticsStrategy =
   | 'ilike'
+  | 'bigram'
   | 'trigram'
   | 'tsvector_simple'
   | 'tsvector_english'
@@ -132,6 +169,7 @@ export type TableQuerySearchSemanticsComparison = {
   readonly languageConfig?: string;
   readonly indexSupport:
     | 'none'
+    | 'generated_text_gin'
     | 'existing_or_manual_trigram'
     | 'generated_tsvector_gin'
     | 'extension_required';
@@ -177,9 +215,17 @@ export type TableQuerySearchVectorRecommendation = {
   readonly tableId: string;
   readonly baseId: string;
   readonly generatedColumnName: string;
+  readonly generatedTextColumnName: string;
   readonly indexName: string;
-  readonly indexKind: 'gin_tsvector';
-  readonly accessPath: 'generated_tsvector';
+  readonly indexKind: 'gin_bigm' | 'gin_trgm';
+  readonly accessPath: 'generated_text';
+  readonly semantics: 'substring';
+  readonly provider: TableQuerySubstringSearchProvider;
+  readonly providerCapability: TableQuerySubstringSearchProviderCapability;
+  readonly providerCapabilities: readonly TableQuerySubstringSearchProviderCapability[];
+  readonly operatorClass: TableQuerySubstringSearchOperatorClass;
+  readonly minimumProbeLength: number;
+  /** @deprecated Substring search does not use a text-search language configuration. */
   readonly languageConfig: string;
   readonly searchScope: 'selected_fields' | 'all_fields';
   readonly coveredFields: readonly TableQuerySearchVectorFieldSummary[];
@@ -197,8 +243,12 @@ export type TableQueryScopedSearchIndexRecommendation = {
   readonly tableId: string;
   readonly baseId: string;
   readonly indexName: string;
-  readonly indexKind: 'gin_tsvector_expression';
+  readonly indexKind: 'gin_bigm_expression' | 'gin_trgm_expression';
   readonly accessPath: 'scoped_expression_gin';
+  readonly semantics: 'substring';
+  readonly provider: TableQuerySubstringSearchProvider;
+  readonly operatorClass: TableQuerySubstringSearchOperatorClass;
+  readonly minimumProbeLength: number;
   readonly languageConfig: string;
   readonly searchedFieldIds: readonly string[];
   readonly coveredFields: readonly TableQuerySearchVectorFieldSummary[];
@@ -210,6 +260,7 @@ export type TableQueryScopedSearchIndexRecommendation = {
 export type AnalyzeTableSearchVectorInput = {
   readonly table: Table;
   readonly fieldIds?: readonly string[];
+  readonly provider?: TableQuerySubstringSearchProvider;
   readonly languageConfig?: string;
   readonly searchProbe?: string;
   readonly includeResultSamples?: boolean;
@@ -247,6 +298,8 @@ export type ExecuteTableSearchVectorInput = {
     readonly validationMode?: 'plan' | 'real_ddl';
     readonly generatedColumnName: string;
     readonly indexName: string;
+    readonly provider?: TableQuerySubstringSearchProvider;
+    readonly operatorClass?: TableQuerySubstringSearchOperatorClass;
     readonly fields: readonly {
       readonly fieldId: string;
       readonly fieldDbName: string;
@@ -274,6 +327,9 @@ export type ExecuteTableSearchVectorResult = {
   readonly candidateKey: string;
   readonly generatedColumnName: string;
   readonly indexName: string;
+  readonly semantics: 'substring';
+  readonly provider: TableQuerySubstringSearchProvider;
+  readonly operatorClass: TableQuerySubstringSearchOperatorClass;
   readonly languageConfig: string;
   readonly fieldIds: readonly string[];
   readonly fieldDbNames: readonly string[];
@@ -290,6 +346,10 @@ type TableMetaRow = {
 
 type SearchVectorConfigRow = {
   readonly candidate_key: string;
+  readonly semantics: string;
+  readonly access_path: string;
+  readonly provider: string;
+  readonly operator_class: string | null;
   readonly generated_column_name: string;
   readonly index_name: string;
   readonly language_config: string;
@@ -306,6 +366,158 @@ type IncludedSearchVectorField = TableQuerySearchVectorFieldSummary & {
   readonly fieldDbName: string;
 };
 
+const requireProviderCapability = (
+  capabilities: TableQuerySubstringSearchCapabilities,
+  provider: TableQuerySubstringSearchProvider
+): TableQuerySubstringSearchProviderCapability => {
+  const capability = capabilities.providers.find((item) => item.provider === provider);
+  if (!capability) throw new Error('Substring search provider capability resolution failed');
+  return capability;
+};
+
+const buildPhysicalNameFailureResult = (input: {
+  readonly tableId: string;
+  readonly baseId: string;
+  readonly languageConfig: string;
+  readonly searchProbe?: string;
+  readonly fieldSummaries: readonly TableQuerySearchVectorFieldSummary[];
+  readonly coveredFields: readonly IncludedSearchVectorField[];
+  readonly skippedFields: readonly TableQuerySearchVectorFieldSummary[];
+}): AnalyzeTableSearchVectorResult => ({
+  tableId: input.tableId,
+  baseId: input.baseId,
+  languageConfig: input.languageConfig,
+  searchProbeLengthBucket: lengthBucket(input.searchProbe),
+  scannedFieldCount: input.fieldSummaries.length,
+  coveredFieldCount: input.coveredFields.length,
+  skippedFieldCount: input.skippedFields.length,
+  recommendations: [],
+  scopedExpressionRecommendations: [],
+  inventory: {
+    state: 'unknown',
+    staleReasons: ['physical_table_name_failed'],
+  },
+  coverageReport: buildCoverage(input.fieldSummaries),
+});
+
+const buildSearchAccessPathRecommendation = (input: {
+  readonly tableId: string;
+  readonly baseId: string;
+  readonly languageConfig: string;
+  readonly requestedFieldIds?: readonly string[];
+  readonly coveredFields: readonly IncludedSearchVectorField[];
+  readonly skippedFields: readonly TableQuerySearchVectorFieldSummary[];
+  readonly providerCapability: TableQuerySubstringSearchProviderCapability;
+  readonly providerCapabilities: readonly TableQuerySubstringSearchProviderCapability[];
+  readonly names: ReturnType<typeof buildSearchVectorNames>;
+  readonly estimatedRows: number;
+  readonly tableSizeBytes?: number;
+  readonly inventory: TableQuerySearchVectorInventory;
+  readonly planEvidence: TableQuerySearchVectorPlanEvidence;
+  readonly semanticsReport?: TableQuerySearchSemanticsReport;
+  readonly nextAction: TableQuerySearchVectorNextAction;
+}): TableQuerySearchVectorRecommendation | undefined => {
+  if (!input.coveredFields.length) return undefined;
+  return {
+    candidateKey: input.names.candidateKey,
+    tableId: input.tableId,
+    baseId: input.baseId,
+    generatedColumnName: input.names.generatedColumnName,
+    generatedTextColumnName: input.names.generatedColumnName,
+    indexName: input.names.indexName,
+    indexKind: input.providerCapability.provider === 'pg_bigm' ? 'gin_bigm' : 'gin_trgm',
+    accessPath: 'generated_text',
+    semantics: 'substring',
+    provider: input.providerCapability.provider,
+    providerCapability: input.providerCapability,
+    providerCapabilities: input.providerCapabilities,
+    operatorClass: input.providerCapability.operatorClass,
+    minimumProbeLength: input.providerCapability.minimumProbeLength,
+    languageConfig: input.languageConfig,
+    searchScope: input.requestedFieldIds?.length ? 'selected_fields' : 'all_fields',
+    coveredFields: input.coveredFields,
+    skippedFields: input.skippedFields,
+    estimatedRows: input.estimatedRows,
+    ...(input.tableSizeBytes == null ? {} : { tableSizeBytes: input.tableSizeBytes }),
+    inventory: input.inventory,
+    planEvidence: input.planEvidence,
+    ...(input.semanticsReport ? { semanticsReport: input.semanticsReport } : {}),
+    nextAction: input.nextAction,
+  };
+};
+
+type SearchAccessPathExecutionField = ExecuteTableSearchVectorInput['payload']['fields'][number] & {
+  readonly fieldDbName: string;
+};
+
+const requireExecutionFields = (
+  fields: ExecuteTableSearchVectorInput['payload']['fields']
+): readonly SearchAccessPathExecutionField[] => {
+  const included = fields.filter((field): field is SearchAccessPathExecutionField =>
+    Boolean(field.fieldDbName)
+  );
+  if (!included.length) {
+    throw new Error('Search access-path task payload must include at least one field');
+  }
+  return included;
+};
+
+const requireUsableExecutionProvider = (
+  capabilities: TableQuerySubstringSearchCapabilities,
+  requestedProvider?: TableQuerySubstringSearchProvider
+): TableQuerySubstringSearchProviderCapability => {
+  const selectedProvider = requestedProvider ?? capabilities.selectedProvider;
+  const capability = requireProviderCapability(capabilities, selectedProvider);
+  if (!capability.usable) {
+    throw new Error(
+      `Substring search provider ${selectedProvider} is not usable (${capability.reason ?? 'capability_missing'})`
+    );
+  }
+  return capability;
+};
+
+const assertExecutionOperatorClass = (
+  requested: TableQuerySubstringSearchOperatorClass | undefined,
+  capability: TableQuerySubstringSearchProviderCapability
+): void => {
+  if (!requested || requested === capability.operatorClass) return;
+  throw new Error(
+    `Substring search operator class ${requested} does not match provider ${capability.provider}`
+  );
+};
+
+const resolveExecutionValidation = (
+  input: ExecuteTableSearchVectorInput,
+  capability: TableQuerySubstringSearchProviderCapability
+): {
+  readonly validationMode: 'plan' | 'real_ddl';
+  readonly searchProbe?: string;
+} => {
+  const validationMode = input.payload.validationMode ?? 'plan';
+  const searchProbe = input.payload.searchProbe;
+  if (validationMode !== 'real_ddl') return { validationMode, searchProbe };
+  if (!searchProbe?.trim()) {
+    throw new Error('Real-DDL search access-path validation requires a searchProbe');
+  }
+  if (Array.from(searchProbe.trim()).length < capability.minimumProbeLength) {
+    throw new Error(
+      `Real-DDL substring validation requires at least ${capability.minimumProbeLength} characters for ${capability.provider}`
+    );
+  }
+  return { validationMode, searchProbe };
+};
+
+const assertInventoryCanBeApplied = (
+  inventory: TableQuerySearchVectorInventory,
+  rebuild: boolean | undefined
+): void => {
+  if (inventory.state !== 'stale' && inventory.state !== 'invalid') return;
+  if (rebuild) return;
+  throw new Error(
+    `Managed substring search objects are ${inventory.state}; rerun with rebuild=true`
+  );
+};
+
 export class PostgresTableSearchVectorAdvisor {
   constructor(private readonly dataDb: Kysely<UnknownPostgresDatabase>) {}
 
@@ -317,9 +529,13 @@ export class PostgresTableSearchVectorAdvisor {
     const tableId = table.id().toString();
     const baseId = table.baseId().toString();
     const languageConfig = normalizeLanguageConfig(input.languageConfig);
+    const capabilities = await readSubstringSearchCapabilities(this.dataDb);
+    const selectedProvider = input.provider ?? capabilities.selectedProvider;
+    const providerCapability = requireProviderCapability(capabilities, selectedProvider);
     const definition = buildTableSearchVectorDefinition(table, {
       fieldIds: input.fieldIds,
-      languageConfig,
+      semantics: 'substring',
+      provider: selectedProvider,
     });
     if (definition.isErr()) throw definition.error;
     const fieldSummaries: readonly TableQuerySearchVectorFieldSummary[] = [
@@ -332,44 +548,39 @@ export class PostgresTableSearchVectorAdvisor {
     const skippedFields = fieldSummaries.filter((field) => !field.included);
     const physicalResult = getTablePhysicalName(table);
     if (physicalResult.isErr()) {
-      return {
+      return buildPhysicalNameFailureResult({
         tableId,
         baseId,
         languageConfig,
-        searchProbeLengthBucket: lengthBucket(input.searchProbe),
-        scannedFieldCount: fieldSummaries.length,
-        coveredFieldCount: coveredFields.length,
-        skippedFieldCount: skippedFields.length,
-        recommendations: [],
-        scopedExpressionRecommendations: [],
-        inventory: {
-          state: 'unknown',
-          staleReasons: ['physical_table_name_failed'],
-        },
-        coverageReport: buildCoverage(fieldSummaries),
-      };
+        searchProbe: input.searchProbe,
+        fieldSummaries,
+        coveredFields,
+        skippedFields,
+      });
     }
 
     const physical = physicalResult.value;
     const rowEstimate = await readRowEstimate(this.dataDb, physical);
     const estimatedRows = rowEstimate.rows;
     const tableSizeBytes = await readTableSizeBytes(this.dataDb, physical);
-    const names = buildSearchVectorNames(tableId, languageConfig, coveredFields);
+    const names = buildSearchVectorNames(tableId, providerCapability, coveredFields);
     const inventory = await inspectSearchVectorInventory(
       this.dataDb,
       physical,
       names,
-      coveredFields
+      coveredFields,
+      providerCapability
     );
     const planEvidence = await this.validatePlan({
       physical,
-      languageConfig,
+      providerCapability,
       fields: coveredFields,
       searchProbe: input.searchProbe,
     });
     const semanticsReport = await analyzeSearchSemantics(this.dataDb, {
       physical,
       fields: coveredFields,
+      providerCapabilities: capabilities.providers,
       searchProbe: input.searchProbe,
       includeResultSamples: input.includeResultSamples ?? true,
       sampleResultLimit: input.sampleResultLimit ?? SEARCH_SEMANTICS_SAMPLE_LIMIT,
@@ -380,28 +591,23 @@ export class PostgresTableSearchVectorAdvisor {
       coveredFieldCount: coveredFields.length,
     });
 
-    const recommendation: TableQuerySearchVectorRecommendation | undefined =
-      coveredFields.length > 0
-        ? {
-            candidateKey: names.candidateKey,
-            tableId,
-            baseId,
-            generatedColumnName: names.generatedColumnName,
-            indexName: names.indexName,
-            indexKind: 'gin_tsvector',
-            accessPath: 'generated_tsvector',
-            languageConfig,
-            searchScope: input.fieldIds?.length ? 'selected_fields' : 'all_fields',
-            coveredFields,
-            skippedFields,
-            estimatedRows,
-            tableSizeBytes,
-            inventory,
-            planEvidence,
-            ...(semanticsReport ? { semanticsReport } : {}),
-            nextAction,
-          }
-        : undefined;
+    const recommendation = buildSearchAccessPathRecommendation({
+      tableId,
+      baseId,
+      languageConfig,
+      requestedFieldIds: input.fieldIds,
+      coveredFields,
+      skippedFields,
+      providerCapability,
+      providerCapabilities: capabilities.providers,
+      names,
+      estimatedRows,
+      tableSizeBytes,
+      inventory,
+      planEvidence,
+      semanticsReport,
+      nextAction,
+    });
 
     const scopeHeatReport = this.evaluateScopeHeat(input.observations, estimatedRows);
     if (scopeHeatReport?.isErr()) throw scopeHeatReport.error;
@@ -411,7 +617,7 @@ export class PostgresTableSearchVectorAdvisor {
           coveredFields,
           tableId,
           baseId,
-          languageConfig,
+          providerCapability,
           physical,
           globalGeneratedColumnName: names.generatedColumnName,
           globalInventoryState: inventory.state,
@@ -445,7 +651,7 @@ export class PostgresTableSearchVectorAdvisor {
     readonly coveredFields: readonly IncludedSearchVectorField[];
     readonly tableId: string;
     readonly baseId: string;
-    readonly languageConfig: string;
+    readonly providerCapability: TableQuerySubstringSearchProviderCapability;
     readonly physical: PhysicalTable;
     readonly globalGeneratedColumnName: string;
     readonly globalInventoryState: TableQuerySearchVectorInventory['state'];
@@ -460,15 +666,16 @@ export class PostgresTableSearchVectorAdvisor {
           );
           if (scopeFields.length !== scopeFieldIds.size) return undefined;
 
-          const languageConfig = normalizeLanguageConfig(
-            scopeHeat.languageConfig ?? input.languageConfig
+          const names = buildScopedExpressionIndexNames(
+            input.tableId,
+            input.providerCapability,
+            scopeFields
           );
-          const names = buildScopedExpressionIndexNames(input.tableId, languageConfig, scopeFields);
           const planEvidence =
             input.globalInventoryState === 'ready'
               ? await this.validatePlan({
                   physical: input.physical,
-                  languageConfig,
+                  providerCapability: input.providerCapability,
                   fields: scopeFields,
                   searchProbe: input.searchProbe,
                   globalGeneratedColumnName: input.globalGeneratedColumnName,
@@ -483,9 +690,16 @@ export class PostgresTableSearchVectorAdvisor {
             tableId: input.tableId,
             baseId: input.baseId,
             indexName: names.indexName,
-            indexKind: 'gin_tsvector_expression',
+            indexKind:
+              input.providerCapability.provider === 'pg_bigm'
+                ? 'gin_bigm_expression'
+                : 'gin_trgm_expression',
             accessPath: 'scoped_expression_gin',
-            languageConfig,
+            semantics: 'substring',
+            provider: input.providerCapability.provider,
+            operatorClass: input.providerCapability.operatorClass,
+            minimumProbeLength: input.providerCapability.minimumProbeLength,
+            languageConfig: DEFAULT_LANGUAGE_CONFIG,
             searchedFieldIds: scopeHeat.searchedFieldIds,
             coveredFields: scopeFields,
             scopeHeat,
@@ -511,7 +725,7 @@ export class PostgresTableSearchVectorAdvisor {
 
   private async validatePlan(input: {
     readonly physical: PhysicalTable;
-    readonly languageConfig: string;
+    readonly providerCapability: TableQuerySubstringSearchProviderCapability;
     readonly fields: readonly IncludedSearchVectorField[];
     readonly searchProbe?: string;
     readonly globalGeneratedColumnName?: string;
@@ -522,10 +736,24 @@ export class PostgresTableSearchVectorAdvisor {
         explainReason: 'no_indexable_search_fields',
       };
     }
+    if (!input.providerCapability.usable) {
+      return {
+        explainStatus: 'skipped',
+        explainReason: `${input.providerCapability.provider}_${
+          input.providerCapability.reason ?? 'unusable'
+        }`,
+      };
+    }
     if (!input.searchProbe?.trim()) {
       return {
         explainStatus: 'skipped',
         explainReason: 'search_probe_missing',
+      };
+    }
+    if (Array.from(input.searchProbe.trim()).length < input.providerCapability.minimumProbeLength) {
+      return {
+        explainStatus: 'skipped',
+        explainReason: `${input.providerCapability.provider}_probe_too_short`,
       };
     }
 
@@ -536,15 +764,6 @@ export class PostgresTableSearchVectorAdvisor {
             globalGeneratedColumnName: input.globalGeneratedColumnName,
           })
         : buildSearchVectorExpressionSqlDetails(input);
-      const tsqueryHasNodes = await hasTsQueryNodes(
-        this.dataDb,
-        input.languageConfig,
-        input.searchProbe
-      );
-      if (!tsqueryHasNodes) {
-        return { explainStatus: 'skipped', explainReason: 'empty_tsquery' };
-      }
-
       return await this.dataDb.connection().execute(async (db) => {
         const before = input.globalGeneratedColumnName
           ? await explainScopedSearch(db, {
@@ -669,16 +888,12 @@ export class PostgresTableSearchVectorExecutor {
 
     const rowEstimate = await readRowEstimate(this.dataDb, physical);
 
-    const fields = input.payload.fields.filter((field) => field.fieldDbName);
-    if (!fields.length) {
-      throw new Error('Search vector task payload must include at least one field');
-    }
+    const fields = requireExecutionFields(input.payload.fields);
     const languageConfig = normalizeLanguageConfig(input.payload.languageConfig);
-    const validationMode = input.payload.validationMode ?? 'plan';
-    const searchProbe = input.payload.searchProbe;
-    if (validationMode === 'real_ddl' && !searchProbe?.trim()) {
-      throw new Error('Real-DDL search vector validation requires a searchProbe');
-    }
+    const capabilities = await readSubstringSearchCapabilities(this.dataDb);
+    const providerCapability = requireUsableExecutionProvider(capabilities, input.payload.provider);
+    assertExecutionOperatorClass(input.payload.operatorClass, providerCapability);
+    const { validationMode, searchProbe } = resolveExecutionValidation(input, providerCapability);
     const validationFields = fields.map((field) => ({
       fieldId: field.fieldId,
       fieldDbName: field.fieldDbName,
@@ -689,15 +904,11 @@ export class PostgresTableSearchVectorExecutor {
       validationMode === 'real_ddl'
         ? await readRealDdlSearchVectorBeforePlan(this.dataDb, {
             physical,
-            languageConfig,
             fields: validationFields,
             searchProbe,
           })
         : undefined;
-    const expression = buildSearchVectorExpression(
-      languageConfig,
-      fields.map((field) => field.fieldDbName)
-    );
+    const expression = buildSearchDocumentExpression(fields.map((field) => field.fieldDbName));
     const tableSql = makePhysicalTableSql(physical.schema, physical.tableName);
 
     const currentConfig = await this.currentConfig(input.tableId);
@@ -706,8 +917,10 @@ export class PostgresTableSearchVectorExecutor {
       this.dataDb,
       physical,
       { generatedColumnName: columnName, indexName },
-      validationFields
+      validationFields,
+      providerCapability
     );
+    assertInventoryCanBeApplied(inventoryBefore, input.payload.rebuild);
     const alreadyReady =
       currentConfig?.candidate_key === input.payload.candidateKey &&
       inventoryBefore.state === 'ready' &&
@@ -731,7 +944,7 @@ export class PostgresTableSearchVectorExecutor {
         rebuild: input.payload.rebuild ?? false,
         alreadyReady,
         validationMode,
-        languageConfig,
+        providerCapability,
         realDdlBeforePlan,
         searchProbe,
         validationFields,
@@ -742,6 +955,10 @@ export class PostgresTableSearchVectorExecutor {
         baseId: tableMeta.base_id,
         spaceId: tableMeta.space_id,
         candidateKey: input.payload.candidateKey,
+        semantics: 'substring',
+        accessPath: 'generated_text',
+        provider: providerCapability.provider,
+        operatorClass: providerCapability.operatorClass,
         languageConfig,
         generatedColumnName: columnName,
         indexName,
@@ -757,6 +974,9 @@ export class PostgresTableSearchVectorExecutor {
         candidateKey: input.payload.candidateKey,
         generatedColumnName: columnName,
         indexName,
+        semantics: 'substring',
+        provider: providerCapability.provider,
+        operatorClass: providerCapability.operatorClass,
         languageConfig,
         fieldIds: fields.map((field) => field.fieldId),
         fieldDbNames: fields.map((field) => field.fieldDbName),
@@ -840,7 +1060,7 @@ export class PostgresTableSearchVectorExecutor {
     readonly rebuild: boolean;
     readonly alreadyReady: boolean;
     readonly validationMode: 'plan' | 'real_ddl';
-    readonly languageConfig: string;
+    readonly providerCapability: TableQuerySubstringSearchProviderCapability;
     readonly realDdlBeforePlan: ExplainPlan | undefined;
     readonly searchProbe: string | undefined;
     readonly validationFields: readonly IncludedSearchVectorField[];
@@ -863,7 +1083,8 @@ export class PostgresTableSearchVectorExecutor {
         input.tableSql,
         input.columnName,
         input.indexName,
-        input.expression
+        input.expression,
+        input.providerCapability
       );
     }
 
@@ -874,7 +1095,8 @@ export class PostgresTableSearchVectorExecutor {
         generatedColumnName: input.columnName,
         indexName: input.indexName,
       },
-      input.validationFields
+      input.validationFields,
+      input.providerCapability
     );
     this.assertReadyInventory(inventory);
 
@@ -882,7 +1104,7 @@ export class PostgresTableSearchVectorExecutor {
       input.validationMode === 'real_ddl'
         ? await validateRealDdlSearchVectorPlan(this.dataDb, {
             physical: input.physical,
-            languageConfig: input.languageConfig,
+            providerCapability: input.providerCapability,
             beforePlan: input.realDdlBeforePlan,
             searchProbe: input.searchProbe,
             fields: input.validationFields,
@@ -955,20 +1177,34 @@ export class PostgresTableSearchVectorExecutor {
     tableSql: string,
     columnName: string,
     indexName: string,
-    expression: string
+    expression: string,
+    providerCapability: TableQuerySubstringSearchProviderCapability
   ): Promise<void> {
+    // pg_bigm has cluster-level deployment requirements. The adapter only uses
+    // capabilities that are already installed and never attempts CREATE EXTENSION.
+    if (!providerCapability.usable) {
+      throw new Error(`Substring search provider ${providerCapability.provider} is not usable`);
+    }
     await sql
       .raw(
         `ALTER TABLE ${tableSql} ADD COLUMN IF NOT EXISTS ${quoteIdentifier(
           columnName
-        )} tsvector GENERATED ALWAYS AS (${expression}) STORED`
+        )} text GENERATED ALWAYS AS (${expression}) STORED`
       )
       .execute(this.dataDb);
     await sql
       .raw(
+        `COMMENT ON COLUMN ${tableSql}.${quoteIdentifier(columnName)} IS ${quoteLiteral(
+          buildSearchDocumentDefinitionMarker(expression, providerCapability)
+        )}`
+      )
+      .execute(this.dataDb);
+    const operatorClass = qualifyOperatorClass(providerCapability);
+    await sql
+      .raw(
         `CREATE INDEX CONCURRENTLY IF NOT EXISTS ${quoteIdentifier(indexName)} ON ${tableSql} USING GIN (${quoteIdentifier(
           columnName
-        )})`
+        )} ${operatorClass})`
       )
       .execute(this.dataDb);
   }
@@ -994,7 +1230,8 @@ export class PostgresTableSearchVectorExecutor {
 
   async currentConfig(tableId: string): Promise<SearchVectorConfigRow | undefined> {
     const result = await sql<SearchVectorConfigRow>`
-      SELECT candidate_key, generated_column_name, index_name, language_config, field_ids, search_scope
+      SELECT candidate_key, semantics, access_path, provider, operator_class,
+             generated_column_name, index_name, language_config, field_ids, search_scope
       FROM table_query_search_vector_config
       WHERE table_id = ${tableId}
         AND status IN ('ready', 'stale', 'rebuild_pending')
@@ -1009,6 +1246,10 @@ export class PostgresTableSearchVectorExecutor {
     readonly baseId: string;
     readonly spaceId: string | null;
     readonly candidateKey: string;
+    readonly semantics: 'substring';
+    readonly accessPath: 'generated_text';
+    readonly provider: TableQuerySubstringSearchProvider;
+    readonly operatorClass: TableQuerySubstringSearchOperatorClass;
     readonly languageConfig: string;
     readonly generatedColumnName: string;
     readonly indexName: string;
@@ -1033,6 +1274,10 @@ export class PostgresTableSearchVectorExecutor {
         base_id,
         table_id,
         candidate_key,
+        semantics,
+        access_path,
+        provider,
+        operator_class,
         language_config,
         generated_column_name,
         index_name,
@@ -1049,6 +1294,10 @@ export class PostgresTableSearchVectorExecutor {
         ${input.baseId},
         ${input.tableId},
         ${input.candidateKey},
+        ${input.semantics},
+        ${input.accessPath},
+        ${input.provider},
+        ${input.operatorClass},
         ${input.languageConfig},
         ${input.generatedColumnName},
         ${input.indexName},
@@ -1062,6 +1311,10 @@ export class PostgresTableSearchVectorExecutor {
       ON CONFLICT (table_id, candidate_key)
       DO UPDATE SET
         space_id = EXCLUDED.space_id,
+        semantics = EXCLUDED.semantics,
+        access_path = EXCLUDED.access_path,
+        provider = EXCLUDED.provider,
+        operator_class = EXCLUDED.operator_class,
         language_config = EXCLUDED.language_config,
         generated_column_name = EXCLUDED.generated_column_name,
         index_name = EXCLUDED.index_name,
@@ -1087,6 +1340,8 @@ export class PostgresTableSearchVectorReconciler implements TableSearchVectorRec
       const analysis = await advisor.analyze(context, {
         table: input.table,
         fieldIds: input.fieldIds,
+        provider:
+          input.provider === 'pg_bigm' || input.provider === 'pg_trgm' ? input.provider : undefined,
         languageConfig: input.languageConfig,
         searchProbe: input.searchProbe,
         maxRecommendations: 1,
@@ -1095,6 +1350,16 @@ export class PostgresTableSearchVectorReconciler implements TableSearchVectorRec
       if (!recommendation) {
         return err(
           domainError.validation({ message: 'Table has no fields eligible for full-text search' })
+        );
+      }
+      if (
+        input.expectedDefinitionKey &&
+        recommendation.candidateKey !== input.expectedDefinitionKey
+      ) {
+        return err(
+          domainError.conflict({
+            message: `Search access path changed from ${input.expectedDefinitionKey} to ${recommendation.candidateKey}; analyze and confirm again`,
+          })
         );
       }
 
@@ -1124,6 +1389,8 @@ export class PostgresTableSearchVectorReconciler implements TableSearchVectorRec
           validationMode,
           generatedColumnName: recommendation.generatedColumnName,
           indexName: recommendation.indexName,
+          provider: recommendation.provider,
+          operatorClass: recommendation.operatorClass,
           fields: recommendation.coveredFields.map((field) => ({
             fieldId: field.fieldId,
             fieldDbName: field.fieldDbName ?? '',
@@ -1170,6 +1437,10 @@ export class PostgresTableSearchVectorReconciler implements TableSearchVectorRec
         table,
         fieldIds: selectedFieldIds,
         languageConfig: current.language_config,
+        provider:
+          current.provider === 'pg_bigm' || current.provider === 'pg_trgm'
+            ? current.provider
+            : undefined,
         maxRecommendations: 1,
       });
       const recommendation = analysis.recommendations[0];
@@ -1189,13 +1460,17 @@ export class PostgresTableSearchVectorReconciler implements TableSearchVectorRec
           validationMode: 'plan',
           generatedColumnName: recommendation.generatedColumnName,
           indexName: recommendation.indexName,
+          provider: recommendation.provider,
+          operatorClass: recommendation.operatorClass,
           fields: recommendation.coveredFields.map((field) => ({
             fieldId: field.fieldId,
             fieldDbName: field.fieldDbName ?? '',
             fieldType: field.fieldType,
           })),
           searchScope: recommendation.searchScope,
-          allowLargeTableRewrite: true,
+          // Schema maintenance must obey the same rewrite guard as an explicit
+          // remediation. Large or unknown tables remain pending for Admin approval.
+          allowLargeTableRewrite: false,
           rebuild,
         },
       });
@@ -1374,16 +1649,16 @@ const lengthBucket = (value: string | undefined): 'none' | 'short' | 'medium' | 
 
 const buildSearchVectorNames = (
   tableId: string,
-  languageConfig: string,
+  providerCapability: TableQuerySubstringSearchProviderCapability,
   fields: readonly { readonly fieldId: string; readonly fieldDbName?: string }[]
 ) => {
   const hash = stableHash(
-    `${tableId}:${languageConfig}:${fields
+    `${tableId}:substring:${providerCapability.provider}:${providerCapability.operatorClass}:${fields
       .map((field) => `${field.fieldId}=${field.fieldDbName ?? ''}`)
       .join(',')}`
   );
   return {
-    candidateKey: `search_vector:${tableId}:${hash}`,
+    candidateKey: `search_document:${tableId}:${providerCapability.provider}:${hash}`,
     generatedColumnName: `${GENERATED_COLUMN_PREFIX}${hash}`.slice(0, 63),
     indexName: `${INDEX_NAME_PREFIX}${tableId}_${hash}`.slice(0, 63),
   };
@@ -1391,11 +1666,11 @@ const buildSearchVectorNames = (
 
 const buildScopedExpressionIndexNames = (
   tableId: string,
-  languageConfig: string,
+  providerCapability: TableQuerySubstringSearchProviderCapability,
   fields: readonly { readonly fieldId: string; readonly fieldDbName?: string }[]
 ) => {
   const hash = stableHash(
-    `${tableId}:${languageConfig}:${fields
+    `${tableId}:substring:${providerCapability.provider}:${providerCapability.operatorClass}:${fields
       .map((field) => `${field.fieldId}=${field.fieldDbName ?? ''}`)
       .sort()
       .join(',')}`
@@ -1406,18 +1681,14 @@ const buildScopedExpressionIndexNames = (
   };
 };
 
-const buildSearchVectorExpression = (
-  languageConfig: string,
-  fieldDbNames: readonly string[]
-): string => {
+const buildSearchDocumentExpression = (fieldDbNames: readonly string[]): string => {
   const document = fieldDbNames
     .map((fieldDbName) => `coalesce(${quoteIdentifier(fieldDbName)}::text, '')`)
-    .join(` || ' ' || `);
-  return `to_tsvector(${quoteLiteral(languageConfig)}::regconfig, ${document || quoteLiteral('')})`;
+    .join(` || E'\\n' || `);
+  return `lower(${document || quoteLiteral('')})`;
 };
 
-const buildSearchVectorExpressionWithAlias = (
-  languageConfig: string,
+const buildSearchDocumentExpressionWithAlias = (
   fields: readonly IncludedSearchVectorField[],
   alias: string
 ): string => {
@@ -1426,8 +1697,8 @@ const buildSearchVectorExpressionWithAlias = (
       (field) =>
         `coalesce(${quoteIdentifier(alias)}.${quoteIdentifier(field.fieldDbName)}::text, '')`
     )
-    .join(` || ' ' || `);
-  return `to_tsvector(${quoteLiteral(languageConfig)}::regconfig, ${document || quoteLiteral('')})`;
+    .join(` || E'\\n' || `);
+  return `lower(${document || quoteLiteral('')})`;
 };
 
 const analyzeSearchSemantics = async (
@@ -1435,6 +1706,7 @@ const analyzeSearchSemantics = async (
   input: {
     readonly physical: PhysicalTable;
     readonly fields: readonly IncludedSearchVectorField[];
+    readonly providerCapabilities: readonly TableQuerySubstringSearchProviderCapability[];
     readonly searchProbe?: string;
     readonly includeResultSamples: boolean;
     readonly sampleResultLimit: number;
@@ -1451,39 +1723,9 @@ const analyzeSearchSemantics = async (
   });
   const comparisons = addSearchSemanticsBaselineDeltas([
     baseline,
-    await analyzeTrigramSemantics(db, {
-      ...input,
-      searchProbe,
-      sampleResultLimit: sampleLimit,
-      baseline,
-    }),
-    await analyzeTsvectorSemantics(db, {
-      ...input,
-      searchProbe,
-      sampleResultLimit: sampleLimit,
-      strategy: 'tsvector_simple',
-      label: 'tsvector(simple)',
-      languageConfig: 'simple',
-      tokenizer: 'PostgreSQL simple',
-    }),
-    await analyzeTsvectorSemantics(db, {
-      ...input,
-      searchProbe,
-      sampleResultLimit: sampleLimit,
-      strategy: 'tsvector_english',
-      label: 'tsvector(english)',
-      languageConfig: 'english',
-      tokenizer: 'PostgreSQL english',
-    }),
-    await analyzeTsvectorSemantics(db, {
-      ...input,
-      searchProbe,
-      sampleResultLimit: sampleLimit,
-      strategy: 'tsvector_pg_jieba',
-      label: 'tsvector(pg_jieba jiebacfg)',
-      languageConfig: 'jiebacfg',
-      tokenizer: 'pg_jieba jiebacfg',
-    }),
+    ...input.providerCapabilities.map((capability) =>
+      analyzeNgramSemantics({ capability, baseline, searchProbe })
+    ),
   ]);
 
   return {
@@ -1496,12 +1738,12 @@ const analyzeSearchSemantics = async (
       redaction: 'ephemeral_operator_probe_not_persisted',
       searchProbe,
       instruction:
-        'Compare whether each search strategy returns business-reasonable results for the operator-provided probe. Prefer exact substring/trigram when substring semantics are required; prefer tsvector when tokenized matches are acceptable and materially cheaper.',
+        'Confirm that each n-gram access path preserves the ILIKE substring result set and materially reduces plan cost before rollout.',
       criteria: [
-        'Does tokenization preserve the important business words or identifiers in the probe?',
-        'Do match counts diverge from ILIKE in an expected way, or does the strategy lose important rows?',
-        'Do sample results look relevant to the search probe?',
-        'Is the cost improvement large enough to justify changing search semantics?',
+        'Do match counts and sampled record ids remain identical to the ILIKE baseline?',
+        'Is the probe long enough for the selected n-gram provider?',
+        'Does EXPLAIN use the managed GIN index?',
+        'Is the measured cost improvement large enough to justify write and storage overhead?',
       ],
       strategies: comparisons.map((comparison) => ({
         strategy: comparison.strategy,
@@ -1553,33 +1795,28 @@ const analyzeIlikeSemantics = async (
   }
 };
 
-const analyzeTrigramSemantics = async (
-  db: Kysely<UnknownPostgresDatabase>,
-  input: {
-    readonly physical: PhysicalTable;
-    readonly fields: readonly IncludedSearchVectorField[];
-    readonly searchProbe: string;
-    readonly includeResultSamples: boolean;
-    readonly sampleResultLimit: number;
-    readonly baseline: TableQuerySearchSemanticsComparison;
-  }
-): Promise<TableQuerySearchSemanticsComparison> => {
-  const extension = await readExtensionAvailability(db, 'pg_trgm');
+const analyzeNgramSemantics = (input: {
+  readonly capability: TableQuerySubstringSearchProviderCapability;
+  readonly searchProbe: string;
+  readonly baseline: TableQuerySearchSemanticsComparison;
+}): TableQuerySearchSemanticsComparison => {
+  const strategy = input.capability.provider === 'pg_bigm' ? 'bigram' : 'trigram';
   return {
-    strategy: 'trigram',
-    label: 'pg_trgm substring',
-    semantics: 'trigram_substring',
-    available: extension.installed,
-    availabilityReason: extension.installed
-      ? undefined
-      : extension.available
-        ? 'pg_trgm_extension_not_installed'
-        : 'pg_trgm_extension_unavailable',
-    indexSupport: extension.installed ? 'existing_or_manual_trigram' : 'extension_required',
-    tokenPreview: buildTrigramTokenPreview(input.searchProbe),
-    tokenCount: Math.max(0, input.searchProbe.length - 2),
+    strategy,
+    label: `${input.capability.provider} substring`,
+    semantics: input.capability.provider === 'pg_bigm' ? 'substring' : 'trigram_substring',
+    available: input.capability.usable,
+    availabilityReason: input.capability.reason,
+    indexSupport: input.capability.usable ? 'generated_text_gin' : 'extension_required',
+    tokenPreview:
+      input.capability.provider === 'pg_bigm'
+        ? buildNgramTokenPreview(input.searchProbe, 2)
+        : buildNgramTokenPreview(input.searchProbe, 3),
+    tokenCount: Math.max(0, input.searchProbe.length - input.capability.minimumProbeLength + 1),
     explainStatus: input.baseline.explainStatus,
-    explainReason: extension.installed ? 'same_substring_semantics_as_ilike' : undefined,
+    explainReason: input.capability.usable
+      ? 'same_substring_semantics_as_ilike'
+      : input.capability.reason,
     cost: input.baseline.cost,
     planNode: input.baseline.planNode,
     usesIndex: input.baseline.usesIndex,
@@ -1587,100 +1824,9 @@ const analyzeTrigramSemantics = async (
     sampleResults: input.baseline.sampleResults,
     reasonablenessAssessment: buildLlmAssessment([
       'same_result_semantics_as_ilike',
-      extension.installed ? 'extension_installed' : 'extension_not_installed',
+      input.capability.usable ? 'provider_usable' : 'provider_not_usable',
     ]),
   };
-};
-
-const analyzeTsvectorSemantics = async (
-  db: Kysely<UnknownPostgresDatabase>,
-  input: {
-    readonly physical: PhysicalTable;
-    readonly fields: readonly IncludedSearchVectorField[];
-    readonly searchProbe: string;
-    readonly includeResultSamples: boolean;
-    readonly sampleResultLimit: number;
-    readonly strategy: Extract<
-      TableQuerySearchSemanticsStrategy,
-      'tsvector_simple' | 'tsvector_english' | 'tsvector_pg_jieba'
-    >;
-    readonly label: string;
-    readonly languageConfig: string;
-    readonly tokenizer: string;
-  }
-): Promise<TableQuerySearchSemanticsComparison> => {
-  const configAvailable = await readRegConfigAvailability(db, input.languageConfig);
-  if (!configAvailable) {
-    return {
-      strategy: input.strategy,
-      label: input.label,
-      semantics: 'full_text',
-      available: false,
-      availabilityReason:
-        input.strategy === 'tsvector_pg_jieba'
-          ? 'pg_jieba_regconfig_unavailable'
-          : 'regconfig_unavailable',
-      tokenizer: input.tokenizer,
-      languageConfig: input.languageConfig,
-      indexSupport:
-        input.strategy === 'tsvector_pg_jieba' ? 'extension_required' : 'generated_tsvector_gin',
-      tokenPreview: [],
-      explainStatus: 'skipped',
-      explainReason: 'regconfig_unavailable',
-      sampleResults: [],
-      reasonablenessAssessment: buildLlmAssessment(['strategy_unavailable']),
-    };
-  }
-
-  try {
-    const tokenPreview = await readSearchTokenPreview(db, input.languageConfig, input.searchProbe);
-    const tsqueryHasNodes = await hasTsQueryNodes(db, input.languageConfig, input.searchProbe);
-    if (!tsqueryHasNodes) {
-      return {
-        strategy: input.strategy,
-        label: input.label,
-        semantics: 'full_text',
-        available: true,
-        tokenizer: input.tokenizer,
-        languageConfig: input.languageConfig,
-        indexSupport: 'generated_tsvector_gin',
-        tokenPreview,
-        tokenCount: tokenPreview.length,
-        explainStatus: 'skipped',
-        explainReason: 'empty_tsquery',
-        matchCount: 0,
-        sampleResults: [],
-        reasonablenessAssessment: buildLlmAssessment(['empty_tsquery']),
-      };
-    }
-    const plan = await explainSearchAfter(db, input);
-    const matchCount = await countTsvectorMatches(db, input);
-    const sampleResults = input.includeResultSamples ? await sampleTsvectorMatches(db, input) : [];
-    return {
-      strategy: input.strategy,
-      label: input.label,
-      semantics: 'full_text',
-      available: true,
-      tokenizer: input.tokenizer,
-      languageConfig: input.languageConfig,
-      indexSupport: 'generated_tsvector_gin',
-      tokenPreview,
-      tokenCount: tokenPreview.length,
-      explainStatus: 'validated',
-      cost: plan.totalCost,
-      planNode: plan.nodeType,
-      usesIndex: Boolean(plan.indexName),
-      matchCount,
-      sampleResults,
-      reasonablenessAssessment: buildLlmAssessment(['fts_semantics_requires_llm_review']),
-    };
-  } catch (error) {
-    return failedSemanticsComparison(input.strategy, input.label, 'full_text', error, {
-      tokenizer: input.tokenizer,
-      languageConfig: input.languageConfig,
-      indexSupport: 'generated_tsvector_gin',
-    });
-  }
 };
 
 export const addSearchSemanticsBaselineDeltas = (
@@ -1730,7 +1876,13 @@ const semanticDeltaReasonCodes = (
   comparison: TableQuerySearchSemanticsComparison,
   matchCountDeltaPctFromIlike: number | undefined
 ): readonly string[] => {
-  if (comparison.strategy === 'ilike' || comparison.strategy === 'trigram') return [];
+  if (comparison.strategy === 'ilike') return [];
+  if (comparison.strategy === 'bigram' || comparison.strategy === 'trigram') {
+    if (typeof matchCountDeltaPctFromIlike !== 'number') return ['match_count_delta_unknown'];
+    return matchCountDeltaPctFromIlike === 0
+      ? ['substring_results_match']
+      : ['substring_result_mismatch'];
+  }
   if (typeof matchCountDeltaPctFromIlike !== 'number') return ['match_count_delta_unknown'];
   if (Math.abs(matchCountDeltaPctFromIlike) >= 50) return ['large_match_count_delta'];
   if (Math.abs(matchCountDeltaPctFromIlike) >= 10) return ['moderate_match_count_delta'];
@@ -1786,78 +1938,73 @@ const buildLiteralTokenPreview = (
       ]
     : [];
 
-const buildTrigramTokenPreview = (
-  searchProbe: string
+const buildNgramTokenPreview = (
+  searchProbe: string,
+  ngramLength: 2 | 3
 ): readonly TableQuerySearchSemanticsToken[] => {
   const compact = searchProbe.replace(/\s+/g, ' ').trim();
-  if (compact.length < 3) return buildLiteralTokenPreview(compact);
+  if (compact.length < ngramLength) return buildLiteralTokenPreview(compact);
   const tokens: TableQuerySearchSemanticsToken[] = [];
-  for (let index = 0; index <= compact.length - 3; index += 1) {
+  for (let index = 0; index <= compact.length - ngramLength; index += 1) {
     tokens.push({
-      token: compact.slice(index, index + 3),
-      alias: 'trigram',
-      lexemes: [compact.slice(index, index + 3)],
+      token: compact.slice(index, index + ngramLength),
+      alias: ngramLength === 2 ? 'bigram' : 'trigram',
+      lexemes: [compact.slice(index, index + ngramLength)],
     });
     if (tokens.length >= SEARCH_SEMANTICS_TOKEN_LIMIT) break;
   }
   return tokens;
 };
 
-const readSearchTokenPreview = async (
-  db: Kysely<UnknownPostgresDatabase>,
-  languageConfig: string,
-  searchProbe: string
-): Promise<readonly TableQuerySearchSemanticsToken[]> => {
-  const result = await sql<{
-    alias: string | null;
-    token: string | null;
-    lexemes: string[] | null;
-  }>`
-    SELECT alias::text AS alias, token::text AS token, lexemes::text[] AS lexemes
-    FROM ts_debug(${sql.raw(`${quoteLiteral(languageConfig)}::regconfig`)}, ${searchProbe})
-    WHERE token IS NOT NULL
-    LIMIT ${SEARCH_SEMANTICS_TOKEN_LIMIT}
-  `.execute(db);
-  return result.rows.map((row) => ({
-    token: row.token ?? '',
-    alias: row.alias ?? undefined,
-    lexemes: Array.isArray(row.lexemes) ? row.lexemes.filter(Boolean) : [],
-  }));
-};
-
-const readRegConfigAvailability = async (
-  db: Kysely<UnknownPostgresDatabase>,
-  languageConfig: string
-): Promise<boolean> => {
-  const parts = languageConfig.split('.');
-  const schemaName = parts.length > 1 ? parts.slice(0, -1).join('.') : undefined;
-  const configName = parts[parts.length - 1] ?? languageConfig;
-  const result = await sql<{ exists: boolean }>`
-    SELECT EXISTS (
-      SELECT 1
-      FROM pg_ts_config c
-      JOIN pg_namespace n ON n.oid = c.cfgnamespace
-      WHERE c.cfgname = ${configName}
-        AND (${schemaName ?? null}::text IS NULL OR n.nspname = ${schemaName ?? null})
-    ) AS "exists"
-  `.execute(db);
-  return Boolean(result.rows[0]?.exists);
-};
-
-const readExtensionAvailability = async (
-  db: Kysely<UnknownPostgresDatabase>,
-  extensionName: string
-): Promise<{ readonly installed: boolean; readonly available: boolean }> => {
-  const result = await sql<{ installed: boolean; available: boolean }>`
-    SELECT
-      EXISTS (SELECT 1 FROM pg_extension WHERE extname = ${extensionName}) AS installed,
-      EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = ${extensionName}) AS available
-  `.execute(db);
+const toSubstringProviderCapability = (
+  capability: TableSearchAccessPathCapability
+): TableQuerySubstringSearchProviderCapability => {
+  const reason =
+    capability.state === 'ready'
+      ? undefined
+      : capability.state === 'requires_database_extension'
+        ? ('extension_not_installed' as const)
+        : capability.state === 'requires_cluster_restart'
+          ? ('extension_not_preloaded' as const)
+          : capability.available
+            ? ('operator_class_missing' as const)
+            : ('extension_unavailable' as const);
   return {
-    installed: Boolean(result.rows[0]?.installed),
-    available: Boolean(result.rows[0]?.available),
+    provider: capability.provider,
+    extensionName: capability.extensionName,
+    operatorClass: capability.operatorClass,
+    ...(capability.operatorClassSchema
+      ? { operatorClassSchema: capability.operatorClassSchema }
+      : {}),
+    extensionInstalled: capability.installed,
+    extensionAvailable: capability.available,
+    operatorClassInstalled: capability.operatorClassInstalled,
+    usable: capability.state === 'ready',
+    minimumProbeLength: capability.minimumProbeLength,
+    ...(reason ? { reason } : {}),
   };
 };
+
+export const readSubstringSearchCapabilities = async (
+  db: Kysely<UnknownPostgresDatabase>
+): Promise<TableQuerySubstringSearchCapabilities> => {
+  const providers = (await readPostgresSearchAccessPathCapabilities(db)).map(
+    toSubstringProviderCapability
+  );
+  // Merely being listed in pg_available_extensions is not enough for pg_bigm:
+  // it can require cluster-level preload/deployment. Never install it here.
+  return {
+    selectedProvider: selectSubstringSearchProvider(providers),
+    providers,
+  };
+};
+
+export const selectSubstringSearchProvider = (
+  capabilities: readonly TableQuerySubstringSearchProviderCapability[]
+): TableQuerySubstringSearchProvider =>
+  capabilities.find((capability) => capability.provider === 'pg_bigm' && capability.usable)
+    ? 'pg_bigm'
+    : 'pg_trgm';
 
 const countIlikeMatches = async (
   db: Kysely<UnknownPostgresDatabase>,
@@ -1876,24 +2023,6 @@ const countIlikeMatches = async (
   return Number(result.rows[0]?.match_count ?? 0);
 };
 
-const countTsvectorMatches = async (
-  db: Kysely<UnknownPostgresDatabase>,
-  input: {
-    readonly physical: PhysicalTable;
-    readonly fields: readonly IncludedSearchVectorField[];
-    readonly searchProbe: string;
-    readonly languageConfig: string;
-  }
-): Promise<number> => {
-  const where = buildTsvectorWhere(input.fields, input.languageConfig, input.searchProbe);
-  const result = await sql<{ match_count: string | number | bigint }>`
-    SELECT count(*)::text AS match_count
-    FROM ${sql.raw(makePhysicalTableSql(input.physical.schema, input.physical.tableName))} AS ${sql.raw(quoteIdentifier('t'))}
-    WHERE ${where}
-  `.execute(db);
-  return Number(result.rows[0]?.match_count ?? 0);
-};
-
 const sampleIlikeMatches = async (
   db: Kysely<UnknownPostgresDatabase>,
   input: {
@@ -1904,22 +2033,6 @@ const sampleIlikeMatches = async (
   }
 ): Promise<readonly TableQuerySearchSemanticsSampleResult[]> =>
   sampleSearchMatches(db, input, buildIlikeWhere(input.fields, input.searchProbe));
-
-const sampleTsvectorMatches = async (
-  db: Kysely<UnknownPostgresDatabase>,
-  input: {
-    readonly physical: PhysicalTable;
-    readonly fields: readonly IncludedSearchVectorField[];
-    readonly searchProbe: string;
-    readonly languageConfig: string;
-    readonly sampleResultLimit: number;
-  }
-): Promise<readonly TableQuerySearchSemanticsSampleResult[]> =>
-  sampleSearchMatches(
-    db,
-    input,
-    buildTsvectorWhere(input.fields, input.languageConfig, input.searchProbe)
-  );
 
 const sampleSearchMatches = async (
   db: Kysely<UnknownPostgresDatabase>,
@@ -1979,15 +2092,6 @@ const buildIlikeWhere = (
   return conditions.reduce((acc, condition) => sql`${acc} OR ${condition}`, sql`false`);
 };
 
-const buildTsvectorWhere = (
-  fields: readonly IncludedSearchVectorField[],
-  languageConfig: string,
-  searchProbe: string
-): ReturnType<typeof sql> =>
-  sql`${sql.raw(
-    buildSearchVectorExpressionWithAlias(languageConfig, fields, 't')
-  )} @@ websearch_to_tsquery(${sql.raw(`${quoteLiteral(languageConfig)}::regconfig`)}, ${searchProbe})`;
-
 const truncatePreview = (
   value: string
 ): {
@@ -2017,13 +2121,22 @@ const inspectSearchVectorInventory = async (
     readonly generatedColumnName: string;
     readonly indexName: string;
   },
-  fields: readonly { readonly fieldDbName?: string }[]
+  fields: readonly { readonly fieldDbName?: string }[],
+  providerCapability: TableQuerySubstringSearchProviderCapability
 ): Promise<TableQuerySearchVectorInventory> => {
   const columnRows = await sql<{
     column_name: string;
     generation_expression: string | null;
+    data_type: string;
+    generated_kind: string;
+    definition_marker: string | null;
   }>`
-    SELECT a.attname AS column_name, pg_get_expr(ad.adbin, ad.adrelid) AS generation_expression
+    SELECT
+      a.attname AS column_name,
+      pg_get_expr(ad.adbin, ad.adrelid) AS generation_expression,
+      format_type(a.atttypid, a.atttypmod) AS data_type,
+      a.attgenerated AS generated_kind,
+      col_description(a.attrelid, a.attnum) AS definition_marker
     FROM pg_attribute a
     JOIN pg_class t ON t.oid = a.attrelid
     JOIN pg_namespace n ON n.oid = t.relnamespace
@@ -2034,12 +2147,31 @@ const inspectSearchVectorInventory = async (
       AND NOT a.attisdropped
     LIMIT 1
   `.execute(db);
-  const indexRows = await sql<{ index_name: string; valid: boolean }>`
-    SELECT c.relname AS index_name, i.indisvalid AS valid
+  const indexRows = await sql<{
+    index_name: string;
+    valid: boolean;
+    access_method: string;
+    indexed_column: string | null;
+    operator_class: string | null;
+    operator_class_schema: string | null;
+  }>`
+    SELECT
+      c.relname AS index_name,
+      i.indisvalid AS valid,
+      am.amname AS access_method,
+      indexed_attribute.attname AS indexed_column,
+      opc.opcname AS operator_class,
+      opn.nspname AS operator_class_schema
     FROM pg_index i
     JOIN pg_class c ON c.oid = i.indexrelid
     JOIN pg_class t ON t.oid = i.indrelid
     JOIN pg_namespace n ON n.oid = t.relnamespace
+    JOIN pg_am am ON am.oid = c.relam
+    LEFT JOIN pg_attribute indexed_attribute
+      ON indexed_attribute.attrelid = i.indrelid
+      AND indexed_attribute.attnum = i.indkey[0]
+    LEFT JOIN pg_opclass opc ON opc.oid = i.indclass[0]
+    LEFT JOIN pg_namespace opn ON opn.oid = opc.opcnamespace
     WHERE n.nspname = ${physical.schema}
       AND t.relname = ${physical.tableName}
       AND c.relname = ${names.indexName}
@@ -2048,10 +2180,25 @@ const inspectSearchVectorInventory = async (
 
   const column = columnRows.rows[0];
   const index = indexRows.rows[0];
-  const staleReasons = collectSearchVectorStaleReasons(column, index, fields);
+  const expectedExpression = buildSearchDocumentExpression(
+    fields
+      .map((field) => field.fieldDbName)
+      .filter((fieldDbName): fieldDbName is string => Boolean(fieldDbName))
+  );
+  const staleReasons = collectSearchVectorStaleReasons(
+    column,
+    index,
+    fields,
+    names,
+    expectedExpression,
+    providerCapability
+  );
   const state = resolveSearchVectorInventoryState(column, index, staleReasons);
   return {
     state,
+    semantics: 'substring',
+    provider: providerCapability.provider,
+    operatorClass: providerCapability.operatorClass,
     existingGeneratedColumn: column?.column_name,
     existingIndexName: index?.index_name,
     existingIndexValid: index?.valid,
@@ -2059,12 +2206,30 @@ const inspectSearchVectorInventory = async (
   };
 };
 
-const collectSearchVectorStaleReasons = (
-  column: { readonly generation_expression: string | null } | undefined,
-  index: { readonly valid: boolean } | undefined,
-  fields: readonly { readonly fieldDbName?: string }[]
+type SearchDocumentCatalogColumn = {
+  readonly generation_expression: string | null;
+  readonly data_type: string;
+  readonly generated_kind: string;
+  readonly definition_marker: string | null;
+};
+
+type SearchDocumentCatalogIndex = {
+  readonly valid: boolean;
+  readonly access_method: string;
+  readonly indexed_column: string | null;
+  readonly operator_class: string | null;
+  readonly operator_class_schema: string | null;
+};
+
+const collectSearchDocumentColumnStaleReasons = (
+  column: SearchDocumentCatalogColumn | undefined,
+  fields: readonly { readonly fieldDbName?: string }[],
+  expectedExpression: string,
+  providerCapability: TableQuerySubstringSearchProviderCapability
 ): string[] => {
   const staleReasons: string[] = [];
+  if (column && column.data_type !== 'text') staleReasons.push('generated_column_type_mismatch');
+  if (column && column.generated_kind !== 's') staleReasons.push('generated_column_not_stored');
   if (column?.generation_expression) {
     for (const field of fields) {
       if (!field.fieldDbName) continue;
@@ -2075,10 +2240,57 @@ const collectSearchVectorStaleReasons = (
         staleReasons.push(`missing_field:${field.fieldDbName}`);
       }
     }
+    const expectedMarker = buildSearchDocumentDefinitionMarker(
+      expectedExpression,
+      providerCapability
+    );
+    if (column.definition_marker !== expectedMarker) {
+      staleReasons.push('generated_expression_mismatch');
+    }
+  }
+  return staleReasons;
+};
+
+const collectSearchDocumentIndexStaleReasons = (
+  index: SearchDocumentCatalogIndex | undefined,
+  generatedColumnName: string,
+  providerCapability: TableQuerySubstringSearchProviderCapability
+): string[] => {
+  const staleReasons: string[] = [];
+  if (index && index.access_method !== 'gin') staleReasons.push('index_access_method_mismatch');
+  if (index && index.indexed_column !== generatedColumnName) {
+    staleReasons.push('index_column_mismatch');
+  }
+  if (index && index.operator_class !== providerCapability.operatorClass) {
+    staleReasons.push('index_operator_class_mismatch');
+  }
+  if (
+    index &&
+    providerCapability.operatorClassSchema &&
+    index.operator_class_schema !== providerCapability.operatorClassSchema
+  ) {
+    staleReasons.push('index_operator_class_schema_mismatch');
   }
   if (index && !index.valid) staleReasons.push('invalid_index');
   return staleReasons;
 };
+
+const collectSearchVectorStaleReasons = (
+  column: SearchDocumentCatalogColumn | undefined,
+  index: SearchDocumentCatalogIndex | undefined,
+  fields: readonly { readonly fieldDbName?: string }[],
+  names: { readonly generatedColumnName: string; readonly indexName: string },
+  expectedExpression: string,
+  providerCapability: TableQuerySubstringSearchProviderCapability
+): string[] => [
+  ...collectSearchDocumentColumnStaleReasons(
+    column,
+    fields,
+    expectedExpression,
+    providerCapability
+  ),
+  ...collectSearchDocumentIndexStaleReasons(index, names.generatedColumnName, providerCapability),
+];
 
 const containsIdentifierToken = (expression: string, identifier: string): boolean => {
   if (expression.includes(quoteIdentifier(identifier))) return true;
@@ -2124,17 +2336,39 @@ const readRowEstimate = async (
 };
 
 const assertManagedSearchVectorNames = (columnName: string, indexName: string): void => {
-  if (!columnName.startsWith(GENERATED_COLUMN_PREFIX)) {
+  if (
+    !columnName.startsWith(GENERATED_COLUMN_PREFIX) &&
+    !columnName.startsWith(LEGACY_GENERATED_COLUMN_PREFIX)
+  ) {
     throw new Error(
       `Refusing to manage generated column "${columnName}": search vector columns must start with "${GENERATED_COLUMN_PREFIX}"`
     );
   }
-  if (!indexName.startsWith(INDEX_NAME_PREFIX)) {
+  if (!indexName.startsWith(INDEX_NAME_PREFIX) && !indexName.startsWith(LEGACY_INDEX_NAME_PREFIX)) {
     throw new Error(
       `Refusing to manage index "${indexName}": search vector indexes must start with "${INDEX_NAME_PREFIX}"`
     );
   }
 };
+
+const buildSearchDocumentDefinitionMarker = (
+  expression: string,
+  providerCapability: TableQuerySubstringSearchProviderCapability
+): string =>
+  `teable.table-query-ops.search-document:${SEARCH_DOCUMENT_DEFINITION_VERSION}:${stableHash(
+    `${expression}:${providerCapability.provider}:${providerCapability.operatorClass}:${
+      providerCapability.operatorClassSchema ?? ''
+    }`
+  )}`;
+
+const qualifyOperatorClass = (
+  providerCapability: TableQuerySubstringSearchProviderCapability
+): string =>
+  providerCapability.operatorClassSchema
+    ? `${quoteIdentifier(providerCapability.operatorClassSchema)}.${quoteIdentifier(
+        providerCapability.operatorClass
+      )}`
+    : quoteIdentifier(providerCapability.operatorClass);
 
 const isHypopgGinUnsupported = (error: unknown): boolean => {
   const message = error instanceof Error ? error.message : String(error);
@@ -2152,22 +2386,10 @@ const readTableSizeBytes = async (
   return Number.isFinite(value) ? value : undefined;
 };
 
-const hasTsQueryNodes = async (
-  db: Kysely<UnknownPostgresDatabase>,
-  languageConfig: string,
-  searchProbe: string
-): Promise<boolean> => {
-  const result = await sql<{ node_count: number | string }>`
-    SELECT numnode(websearch_to_tsquery(${languageConfig}::regconfig, ${searchProbe})) AS node_count
-  `.execute(db);
-  return Number(result.rows[0]?.node_count ?? 0) > 0;
-};
-
 const readRealDdlSearchVectorBeforePlan = async (
   db: Kysely<UnknownPostgresDatabase>,
   input: {
     readonly physical: PhysicalTable;
-    readonly languageConfig: string;
     readonly fields: readonly IncludedSearchVectorField[];
     readonly searchProbe?: string;
   }
@@ -2178,10 +2400,6 @@ const readRealDdlSearchVectorBeforePlan = async (
   if (!input.searchProbe?.trim()) {
     throw new Error('Real-DDL search vector validation requires a searchProbe');
   }
-  const tsqueryHasNodes = await hasTsQueryNodes(db, input.languageConfig, input.searchProbe);
-  if (!tsqueryHasNodes) {
-    throw new Error('Real-DDL search vector validation produced an empty tsquery');
-  }
   return explainSearchBefore(db, input);
 };
 
@@ -2189,7 +2407,7 @@ const validateRealDdlSearchVectorPlan = async (
   db: Kysely<UnknownPostgresDatabase>,
   input: {
     readonly physical: PhysicalTable;
-    readonly languageConfig: string;
+    readonly providerCapability: TableQuerySubstringSearchProviderCapability;
     readonly beforePlan?: ExplainPlan;
     readonly searchProbe?: string;
     readonly fields: readonly IncludedSearchVectorField[];
@@ -2202,6 +2420,7 @@ const validateRealDdlSearchVectorPlan = async (
       return { explainStatus: 'skipped', explainReason: 'before_plan_missing' };
     }
     const after = await explainGeneratedSearchVectorColumn(db, input);
+    const semanticsCompatible = await validateSubstringResultCompatibility(db, input);
     return {
       explainStatus: 'validated',
       explainMethod: 'real_index',
@@ -2212,6 +2431,7 @@ const validateRealDdlSearchVectorPlan = async (
       planNodeBefore: input.beforePlan.nodeType,
       planNodeAfter: after.nodeType,
       usesCandidateIndex: after.indexName === input.indexName,
+      semanticsCompatible,
       sqlDetails: buildSearchVectorGeneratedColumnSqlDetails(input),
     };
   } catch (error) {
@@ -2241,6 +2461,9 @@ const assertRealDdlPlanEvidenceReady = (
   }
   if (!evidence.usesCandidateIndex) {
     throw new Error(`Real-DDL search vector validation did not use index ${indexName}`);
+  }
+  if (evidence.semanticsCompatible !== true) {
+    throw new Error('Real-DDL substring search validation did not preserve ILIKE results');
   }
   if (
     typeof evidence.costDeltaPct !== 'number' ||
@@ -2279,7 +2502,7 @@ const explainSearchBefore = async (
 
 const buildSearchVectorExpressionSqlDetails = (input: {
   readonly physical: PhysicalTable;
-  readonly languageConfig: string;
+  readonly providerCapability: TableQuerySubstringSearchProviderCapability;
   readonly fields: readonly IncludedSearchVectorField[];
   readonly searchProbe?: string;
 }): TableQuerySearchVectorSqlDetails => ({
@@ -2295,7 +2518,7 @@ const buildSearchVectorExpressionSqlDetails = (input: {
 
 const buildScopedSearchVectorSqlDetails = (input: {
   readonly physical: PhysicalTable;
-  readonly languageConfig: string;
+  readonly providerCapability: TableQuerySubstringSearchProviderCapability;
   readonly fields: readonly IncludedSearchVectorField[];
   readonly searchProbe?: string;
   readonly globalGeneratedColumnName: string;
@@ -2315,7 +2538,7 @@ const buildScopedSearchVectorSqlDetails = (input: {
 
 const buildSearchVectorGeneratedColumnSqlDetails = (input: {
   readonly physical: PhysicalTable;
-  readonly languageConfig: string;
+  readonly providerCapability: TableQuerySubstringSearchProviderCapability;
   readonly fields: readonly IncludedSearchVectorField[];
   readonly searchProbe?: string;
   readonly generatedColumnName: string;
@@ -2353,82 +2576,101 @@ const buildBeforeSearchSql = (input: {
 
 const buildExpressionSearchSql = (input: {
   readonly physical: PhysicalTable;
-  readonly languageConfig: string;
   readonly fields: readonly IncludedSearchVectorField[];
 }): string =>
-  buildAfterSearchSql({
-    physical: input.physical,
-    vectorExpression: buildSearchVectorExpressionWithAlias(input.languageConfig, input.fields, 't'),
-    languageConfig: input.languageConfig,
-  });
+  buildSubstringSearchSql(input, buildSearchDocumentExpressionWithAlias(input.fields, 't'));
 
 const buildGeneratedColumnSearchSql = (input: {
   readonly physical: PhysicalTable;
-  readonly languageConfig: string;
+  readonly fields: readonly IncludedSearchVectorField[];
   readonly generatedColumnName: string;
 }): string =>
-  buildAfterSearchSql({
-    physical: input.physical,
-    vectorExpression: `${quoteIdentifier('t')}.${quoteIdentifier(input.generatedColumnName)}`,
-    languageConfig: input.languageConfig,
-  });
+  buildSubstringSearchSql(
+    input,
+    `${quoteIdentifier('t')}.${quoteIdentifier(input.generatedColumnName)}`
+  );
 
 const buildScopedSearchSql = (input: {
   readonly physical: PhysicalTable;
-  readonly languageConfig: string;
   readonly fields: readonly IncludedSearchVectorField[];
   readonly globalGeneratedColumnName: string;
 }): string => {
-  const tsquery = `websearch_to_tsquery(${quoteLiteral(
-    input.languageConfig
-  )}::regconfig, :search_probe)`;
+  const exactConditions = buildBeforeSearchConditionsSql(input.fields);
   return [
     'EXPLAIN (FORMAT JSON)',
     'SELECT 1',
     `FROM ${makePhysicalTableSql(input.physical.schema, input.physical.tableName)} AS ${quoteIdentifier(
       't'
     )}`,
-    `WHERE ${quoteIdentifier('t')}.${quoteIdentifier(input.globalGeneratedColumnName)} @@ ${tsquery}`,
-    `  AND ${buildSearchVectorExpressionWithAlias(
-      input.languageConfig,
+    `WHERE ${quoteIdentifier('t')}.${quoteIdentifier(
+      input.globalGeneratedColumnName
+    )} LIKE lower(:search_probe_like_pattern) ESCAPE '\\\\'`,
+    `  AND ${buildSearchDocumentExpressionWithAlias(
       input.fields,
       't'
-    )} @@ ${tsquery}`,
+    )} LIKE lower(:search_probe_like_pattern) ESCAPE '\\\\'`,
+    `  AND (${exactConditions})`,
     'LIMIT 100',
   ].join('\n');
 };
 
-const buildAfterSearchSql = (input: {
-  readonly physical: PhysicalTable;
-  readonly vectorExpression: string;
-  readonly languageConfig: string;
-}): string =>
-  [
+const buildSubstringSearchSql = (
+  input: {
+    readonly physical: PhysicalTable;
+    readonly fields: readonly IncludedSearchVectorField[];
+  },
+  documentExpression: string
+): string => {
+  const exactConditions = buildBeforeSearchConditionsSql(input.fields);
+  return [
     'EXPLAIN (FORMAT JSON)',
     'SELECT 1',
     `FROM ${makePhysicalTableSql(input.physical.schema, input.physical.tableName)} AS ${quoteIdentifier(
       't'
     )}`,
-    `WHERE ${input.vectorExpression} @@ websearch_to_tsquery(${quoteLiteral(
-      input.languageConfig
-    )}::regconfig, :search_probe)`,
+    `WHERE ${documentExpression} LIKE lower(:search_probe_like_pattern) ESCAPE '\\\\'`,
+    `  AND (${exactConditions})`,
     'LIMIT 100',
   ].join('\n');
+};
+
+const buildBeforeSearchConditionsSql = (fields: readonly IncludedSearchVectorField[]): string =>
+  fields
+    .map(
+      (field) =>
+        `(${quoteIdentifier('t')}.${quoteIdentifier(field.fieldDbName)})::text ILIKE :search_probe_like_pattern ESCAPE '\\\\'`
+    )
+    .join(' OR ') || 'false';
+
+const buildOptimizedSubstringWhere = (input: {
+  readonly fields: readonly IncludedSearchVectorField[];
+  readonly searchProbe?: string;
+  readonly documentExpression: string;
+}): ReturnType<typeof sql> => {
+  const pattern = `%${escapeLikeWildcards(input.searchProbe ?? '')}%`;
+  const exactWhere = buildIlikeWhere(input.fields, input.searchProbe ?? '');
+  return sql`${sql.raw(input.documentExpression)} LIKE lower(${pattern}) ESCAPE '\\' AND (${exactWhere})`;
+};
 
 const explainGeneratedSearchVectorColumn = async (
   db: Kysely<UnknownPostgresDatabase>,
   input: {
     readonly physical: PhysicalTable;
-    readonly languageConfig: string;
+    readonly fields: readonly IncludedSearchVectorField[];
     readonly searchProbe?: string;
     readonly generatedColumnName: string;
   }
 ): Promise<ExplainPlan> => {
+  const where = buildOptimizedSubstringWhere({
+    fields: input.fields,
+    searchProbe: input.searchProbe,
+    documentExpression: `${quoteIdentifier('t')}.${quoteIdentifier(input.generatedColumnName)}`,
+  });
   const rows = await sql<ExplainRow>`
     EXPLAIN (FORMAT JSON)
     SELECT 1
     FROM ${sql.raw(makePhysicalTableSql(input.physical.schema, input.physical.tableName))} AS ${sql.raw(quoteIdentifier('t'))}
-    WHERE ${sql.raw(`${quoteIdentifier('t')}.${quoteIdentifier(input.generatedColumnName)}`)} @@ websearch_to_tsquery(${input.languageConfig}::regconfig, ${input.searchProbe ?? ''})
+    WHERE ${where}
     LIMIT 100
   `.execute(db);
   return parseExplainPlan(rows.rows[0]?.['QUERY PLAN']);
@@ -2438,17 +2680,20 @@ const explainSearchAfter = async (
   db: Kysely<UnknownPostgresDatabase>,
   input: {
     readonly physical: PhysicalTable;
-    readonly languageConfig: string;
     readonly fields: readonly IncludedSearchVectorField[];
     readonly searchProbe?: string;
   }
 ): Promise<ExplainPlan> => {
-  const expression = buildSearchVectorExpressionWithAlias(input.languageConfig, input.fields, 't');
+  const where = buildOptimizedSubstringWhere({
+    fields: input.fields,
+    searchProbe: input.searchProbe,
+    documentExpression: buildSearchDocumentExpressionWithAlias(input.fields, 't'),
+  });
   const rows = await sql<ExplainRow>`
     EXPLAIN (FORMAT JSON)
     SELECT 1
     FROM ${sql.raw(makePhysicalTableSql(input.physical.schema, input.physical.tableName))} AS ${sql.raw(quoteIdentifier('t'))}
-    WHERE ${sql.raw(expression)} @@ websearch_to_tsquery(${input.languageConfig}::regconfig, ${input.searchProbe ?? ''})
+    WHERE ${where}
     LIMIT 100
   `.execute(db);
   return parseExplainPlan(rows.rows[0]?.['QUERY PLAN']);
@@ -2458,34 +2703,66 @@ const explainScopedSearch = async (
   db: Kysely<UnknownPostgresDatabase>,
   input: {
     readonly physical: PhysicalTable;
-    readonly languageConfig: string;
     readonly fields: readonly IncludedSearchVectorField[];
     readonly searchProbe?: string;
     readonly globalGeneratedColumnName: string;
   }
 ): Promise<ExplainPlan> => {
-  const expression = buildSearchVectorExpressionWithAlias(input.languageConfig, input.fields, 't');
+  const pattern = `%${escapeLikeWildcards(input.searchProbe ?? '')}%`;
+  const exactWhere = buildIlikeWhere(input.fields, input.searchProbe ?? '');
+  const scopedExpression = buildSearchDocumentExpressionWithAlias(input.fields, 't');
   const rows = await sql<ExplainRow>`
     EXPLAIN (FORMAT JSON)
     SELECT 1
     FROM ${sql.raw(makePhysicalTableSql(input.physical.schema, input.physical.tableName))} AS ${sql.raw(quoteIdentifier('t'))}
-    WHERE ${sql.raw(`${quoteIdentifier('t')}.${quoteIdentifier(input.globalGeneratedColumnName)}`)} @@ websearch_to_tsquery(${input.languageConfig}::regconfig, ${input.searchProbe ?? ''})
-      AND ${sql.raw(expression)} @@ websearch_to_tsquery(${input.languageConfig}::regconfig, ${input.searchProbe ?? ''})
+    WHERE ${sql.raw(`${quoteIdentifier('t')}.${quoteIdentifier(input.globalGeneratedColumnName)}`)} LIKE lower(${pattern}) ESCAPE '\\'
+      AND ${sql.raw(scopedExpression)} LIKE lower(${pattern}) ESCAPE '\\'
+      AND (${exactWhere})
     LIMIT 100
   `.execute(db);
   return parseExplainPlan(rows.rows[0]?.['QUERY PLAN']);
 };
 
+const validateSubstringResultCompatibility = async (
+  db: Kysely<UnknownPostgresDatabase>,
+  input: {
+    readonly physical: PhysicalTable;
+    readonly fields: readonly IncludedSearchVectorField[];
+    readonly searchProbe?: string;
+    readonly generatedColumnName: string;
+  }
+): Promise<boolean> => {
+  const baseline = buildIlikeWhere(input.fields, input.searchProbe ?? '');
+  const optimized = buildOptimizedSubstringWhere({
+    fields: input.fields,
+    searchProbe: input.searchProbe,
+    documentExpression: `${quoteIdentifier('t')}.${quoteIdentifier(input.generatedColumnName)}`,
+  });
+  const tableSql = makePhysicalTableSql(input.physical.schema, input.physical.tableName);
+  const result = await sql<{ compatible: boolean }>`
+    SELECT NOT EXISTS (
+      (SELECT ctid FROM ${sql.raw(tableSql)} AS ${sql.raw(quoteIdentifier('t'))} WHERE ${baseline}
+       EXCEPT
+       SELECT ctid FROM ${sql.raw(tableSql)} AS ${sql.raw(quoteIdentifier('t'))} WHERE ${optimized})
+      UNION ALL
+      (SELECT ctid FROM ${sql.raw(tableSql)} AS ${sql.raw(quoteIdentifier('t'))} WHERE ${optimized}
+       EXCEPT
+       SELECT ctid FROM ${sql.raw(tableSql)} AS ${sql.raw(quoteIdentifier('t'))} WHERE ${baseline})
+    ) AS compatible
+  `.execute(db);
+  return Boolean(result.rows[0]?.compatible);
+};
+
 const buildHypotheticalSearchVectorIndexStatement = (input: {
   readonly physical: PhysicalTable;
-  readonly languageConfig: string;
+  readonly providerCapability: TableQuerySubstringSearchProviderCapability;
   readonly fields: readonly IncludedSearchVectorField[];
 }): string => {
-  const expression = buildSearchVectorExpression(
-    input.languageConfig,
-    input.fields.map((field) => field.fieldDbName)
-  );
-  return `CREATE INDEX ON ${makePhysicalTableSql(input.physical.schema, input.physical.tableName)} USING gin ((${expression}))`;
+  const expression = buildSearchDocumentExpression(input.fields.map((field) => field.fieldDbName));
+  return `CREATE INDEX ON ${makePhysicalTableSql(
+    input.physical.schema,
+    input.physical.tableName
+  )} USING gin ((${expression}) ${qualifyOperatorClass(input.providerCapability)})`;
 };
 
 const readHypopgSchema = async (

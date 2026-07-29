@@ -128,4 +128,37 @@ describe('ComputedUpdateLock', () => {
     expect(userCascadeDirtyLocks.recordLocks).toHaveLength(1);
     expect(orderSeedLocks.recordLocks[0]?.key).toBe(userCascadeDirtyLocks.recordLocks[0]?.key);
   });
+  it.each([
+    { scope: 'record', maxRecordLocks: 10, batchShardCount: 8 },
+    { scope: 'batch', maxRecordLocks: 0, batchShardCount: 8 },
+    { scope: 'table', maxRecordLocks: 0, batchShardCount: 0 },
+  ])('shares $scope target lock keys across different root bases', (lockConfig) => {
+    const otherBaseId = BaseId.create(`bse${'z'.repeat(16)}`)._unsafeUnwrap();
+    const targetTableId = TableId.create(`tbl${'c'.repeat(16)}`)._unsafeUnwrap();
+    const targetRecordId = makeRecordId('o');
+    const config = { ...defaultComputedUpdateLockConfig, ...lockConfig };
+
+    const sourceBaseLocks = buildComputedUpdateLockPlan(
+      {
+        baseId,
+        seedTableId: tableId,
+        seedRecordIds: [],
+        extraSeedRecords: [{ tableId: targetTableId, recordIds: [targetRecordId] }],
+      },
+      config
+    );
+    const targetBaseLocks = buildComputedUpdateLockPlan(
+      {
+        baseId: otherBaseId,
+        seedTableId: targetTableId,
+        seedRecordIds: [targetRecordId],
+        extraSeedRecords: [],
+      },
+      config
+    );
+
+    expect(sourceBaseLocks.statements.map(({ key }) => key)).toEqual(
+      targetBaseLocks.statements.map(({ key }) => key)
+    );
+  });
 });

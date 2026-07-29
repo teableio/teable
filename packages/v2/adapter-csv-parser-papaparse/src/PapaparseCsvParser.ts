@@ -6,6 +6,7 @@ import type {
   ICsvParser,
 } from '@teable/v2-core';
 import { domainError } from '@teable/v2-core';
+import { safeFetch } from '@teable/v2-utils';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import Papa from 'papaparse';
@@ -137,7 +138,7 @@ export class PapaparseCsvParser implements ICsvParser {
     options: { delimiter?: string; hasHeader: boolean; skipEmptyLines: boolean }
   ): Promise<Result<CsvParseResult, DomainError>> {
     try {
-      const response = await fetch(url);
+      const response = await safeFetch(url);
 
       if (!response.ok) {
         return err(

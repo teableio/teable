@@ -10,8 +10,8 @@ import {
   getTraceDecision,
   hashTraceId,
   isDroppedPrismaSpan,
+  isErrorSpan,
   isPriorityTraceSpan,
-  isSlowOrErrorSpan,
   EXPORTED_TTL_MS,
   GLOBAL_CAP,
   LIVE_TTL_MS,
@@ -109,7 +109,6 @@ const makeSpan = (options: FakeSpanOptions = {}): ReadableSpan => {
 
 const DEFAULT_OPTIONS = {
   exportRatio: 0.1,
-  latencyThresholdMs: 1500,
   maxQueueSize: 20_000,
   maxExportBatchSize: 512,
   scheduledDelayMillis: 5000,
@@ -160,13 +159,12 @@ describe('hashTraceId / getTraceDecision', () => {
 });
 
 describe('span predicates', () => {
-  it('detects slow, error and 5xx spans', () => {
-    expect(isSlowOrErrorSpan(makeSpan({ durationMs: 2000 }), 1500)).toBe(true);
-    expect(isSlowOrErrorSpan(makeSpan({ statusCode: SpanStatusCode.ERROR }), 1500)).toBe(true);
-    expect(
-      isSlowOrErrorSpan(makeSpan({ attributes: { [ATTR_HTTP_RESPONSE_STATUS_CODE]: 502 } }), 1500)
-    ).toBe(true);
-    expect(isSlowOrErrorSpan(makeSpan({ durationMs: 100 }), 1500)).toBe(false);
+  it('detects error and 5xx spans; slowness is not an error', () => {
+    expect(isErrorSpan(makeSpan({ statusCode: SpanStatusCode.ERROR }))).toBe(true);
+    expect(isErrorSpan(makeSpan({ attributes: { [ATTR_HTTP_RESPONSE_STATUS_CODE]: 502 } }))).toBe(
+      true
+    );
+    expect(isErrorSpan(makeSpan({ durationMs: 2000 }))).toBe(false);
   });
 
   it('keeps the prisma spine and drops the rest', () => {
@@ -217,10 +215,10 @@ describe('createSmartSpanProcessor', () => {
     expect(names(batchExporter)).toEqual([]);
     expect(names(priorityExporter)).toEqual(['root']);
 
-    // within the settle linger, a late slow span still promotes the full trace
-    runSpan(processor, makeSpan({ name: 'late-slow', durationMs: 2000 }));
+    // within the settle linger, a late error span still promotes the full trace
+    runSpan(processor, makeSpan({ name: 'late-error', statusCode: SpanStatusCode.ERROR }));
     await processor.forceFlush();
-    expect(names(batchExporter)).toEqual(['child-a', 'child-b', 'late-slow']);
+    expect(names(batchExporter)).toEqual(['child-a', 'child-b', 'late-error']);
   });
 
   it('discards a settled remote-parent trace after the linger, not the 5-minute TTL', async () => {
@@ -239,9 +237,9 @@ describe('createSmartSpanProcessor', () => {
     runSpan(processor, makeSpan({ traceId: findTraceIds(2, false)[1], name: 'other' }));
 
     // the linger expired: promotion has nothing left to flush
-    runSpan(processor, makeSpan({ name: 'late-slow', durationMs: 2000 }));
+    runSpan(processor, makeSpan({ name: 'late-error', statusCode: SpanStatusCode.ERROR }));
     await processor.forceFlush();
-    expect(names(batchExporter)).toEqual(['late-slow']);
+    expect(names(batchExporter)).toEqual(['late-error']);
   });
 
   it('async tail work re-opens the trace and is exported on promotion', async () => {
@@ -249,33 +247,37 @@ describe('createSmartSpanProcessor', () => {
     runSpan(processor, makeSpan({ name: 'root', kind: SpanKind.SERVER, parent: 'none' }));
     // fire-and-forget work after the response: buffered through the linger
     runSpan(processor, makeSpan({ name: 'tail' }));
-    runSpan(processor, makeSpan({ name: 'slow', durationMs: 2000 }));
+    runSpan(processor, makeSpan({ name: 'error', statusCode: SpanStatusCode.ERROR }));
     await processor.forceFlush();
-    expect(names(batchExporter)).toEqual(['tail', 'slow']);
+    expect(names(batchExporter)).toEqual(['tail', 'error']);
   });
 
-  it('promotes the whole trace when a slow child ends mid-trace', async () => {
+  it('slow spans follow the trace-level export ratio instead of promoting', async () => {
     const { processor, batchExporter, priorityExporter } = createProcessor();
     const root = makeSpan({ name: 'root', kind: SpanKind.SERVER, parent: 'none' });
     startSpan(processor, root);
-    runSpan(processor, makeSpan({ name: 'early-1' }));
-    runSpan(processor, makeSpan({ name: 'early-2' }));
+    runSpan(processor, makeSpan({ name: 'early' }));
     runSpan(processor, makeSpan({ name: 'slow-child', durationMs: 6000 }));
-    // spans ending after promotion follow the exported decision directly
-    runSpan(processor, makeSpan({ name: 'after-promotion' }));
     processor.onEnd(root);
     await processor.forceFlush();
-    expect(names(batchExporter)).toEqual(['early-1', 'early-2', 'slow-child', 'after-promotion']);
+    // unsampled trace: the slow child is buffered and discarded like any other span
+    expect(names(batchExporter)).toEqual([]);
     expect(names(priorityExporter)).toEqual(['root']);
+
+    // sampled trace: the slow child exports via the ratio decision, not promotion
+    const { processor: p2, batchExporter: b2 } = createProcessor();
+    runSpan(p2, makeSpan({ traceId: SAMPLED_TRACE_ID, name: 'slow-child', durationMs: 6000 }));
+    await p2.forceFlush();
+    expect(names(b2)).toEqual(['slow-child']);
   });
 
-  it('flushes the buffer when only the root span is slow', async () => {
+  it('flushes the buffer when only the root span errors', async () => {
     const { processor, batchExporter, priorityExporter } = createProcessor();
     const root = makeSpan({
-      name: 'slow-root',
+      name: 'error-root',
       kind: SpanKind.SERVER,
       parent: 'none',
-      durationMs: 10_600,
+      statusCode: SpanStatusCode.ERROR,
     });
     startSpan(processor, root);
     runSpan(processor, makeSpan({ name: 'mid-1' }));
@@ -283,7 +285,7 @@ describe('createSmartSpanProcessor', () => {
     processor.onEnd(root);
     await processor.forceFlush();
     expect(names(batchExporter)).toEqual(['mid-1', 'mid-2']);
-    expect(names(priorityExporter)).toEqual(['slow-root']);
+    expect(names(priorityExporter)).toEqual(['error-root']);
   });
 
   it('promotes on error status and on http 5xx', async () => {
@@ -303,14 +305,14 @@ describe('createSmartSpanProcessor', () => {
 
   it('does not re-export priority spans on promotion', async () => {
     const { processor, batchExporter, priorityExporter } = createProcessor();
-    const slowChild = makeSpan({ name: 'slow-child', durationMs: 3000 });
-    startSpan(processor, slowChild);
+    const errorChild = makeSpan({ name: 'error-child', statusCode: SpanStatusCode.ERROR });
+    startSpan(processor, errorChild);
     runSpan(processor, makeSpan({ name: 'buffered' }));
     runSpan(processor, makeSpan({ name: 'handler', attributes: { 'http.route': '/api/chat' } }));
-    processor.onEnd(slowChild);
+    processor.onEnd(errorChild);
     await processor.forceFlush();
     expect(names(priorityExporter)).toEqual(['handler']);
-    expect(names(batchExporter)).toEqual(['buffered', 'slow-child']);
+    expect(names(batchExporter)).toEqual(['buffered', 'error-child']);
   });
 
   it('does not finalize the buffer when a nested remote-parent SERVER span ends mid-trace', async () => {
@@ -319,7 +321,7 @@ describe('createSmartSpanProcessor', () => {
       name: 'outer-root',
       kind: SpanKind.SERVER,
       parent: 'none',
-      durationMs: 10_600,
+      statusCode: SpanStatusCode.ERROR,
     });
     startSpan(processor, outerRoot);
     runSpan(processor, makeSpan({ name: 'mid-1' }));
@@ -332,7 +334,7 @@ describe('createSmartSpanProcessor', () => {
     expect(names(priorityExporter)).toEqual(['inner-server', 'outer-root']);
   });
 
-  it('trims non-spine prisma spans unless they are slow', async () => {
+  it('trims non-spine prisma spans', async () => {
     const { processor, batchExporter } = createProcessor();
     // sampled trace: non-spine prisma dropped, spine kept
     runSpan(processor, makeSpan({ traceId: SAMPLED_TRACE_ID, name: 'prisma:client:serialize' }));
@@ -342,19 +344,22 @@ describe('createSmartSpanProcessor', () => {
 
     // unsampled trace: non-spine prisma is never buffered, so promotion does not flush it
     const { processor: p2, batchExporter: b2 } = createProcessor();
-    const slow = makeSpan({ name: 'slow', durationMs: 2000 });
-    startSpan(p2, slow);
+    const errorSpan = makeSpan({ name: 'error', statusCode: SpanStatusCode.ERROR });
+    startSpan(p2, errorSpan);
     runSpan(p2, makeSpan({ name: 'prisma:client:serialize' }));
     runSpan(p2, makeSpan({ name: 'kept' }));
-    p2.onEnd(slow);
+    p2.onEnd(errorSpan);
     await p2.forceFlush();
-    expect(names(b2)).toEqual(['kept', 'slow']);
+    expect(names(b2)).toEqual(['kept', 'error']);
 
-    // slow non-spine prisma span is still exported (slow/error takes precedence)
+    // slow non-spine prisma is trimmed like any other, even in a sampled trace
     const { processor: p3, batchExporter: b3 } = createProcessor();
-    runSpan(p3, makeSpan({ name: 'prisma:client:serialize', durationMs: 2000 }));
+    runSpan(
+      p3,
+      makeSpan({ traceId: SAMPLED_TRACE_ID, name: 'prisma:client:serialize', durationMs: 2000 })
+    );
     await p3.forceFlush();
-    expect(names(b3)).toEqual(['prisma:client:serialize']);
+    expect(names(b3)).toEqual([]);
   });
 
   it('exportRatio >= 1.0 exports everything immediately without lifecycle tracking', async () => {
@@ -375,13 +380,13 @@ describe('createSmartSpanProcessor', () => {
     for (let i = 0; i <= PER_TRACE_CAP; i++) {
       runSpan(processor, makeSpan({ name: `b${i}` }));
     }
-    runSpan(processor, makeSpan({ name: 'slow', durationMs: 2000 }));
+    runSpan(processor, makeSpan({ name: 'trigger', statusCode: SpanStatusCode.ERROR }));
     await processor.forceFlush();
     const exportedNames = names(batchExporter);
     expect(exportedNames).toHaveLength(PER_TRACE_CAP + 1);
     expect(exportedNames[0]).toBe('b1');
     expect(exportedNames).not.toContain('b0');
-    expect(exportedNames[exportedNames.length - 1]).toBe('slow');
+    expect(exportedNames[exportedNames.length - 1]).toBe('trigger');
   });
 
   it('evicts the oldest trace entirely when the global cap is exceeded', async () => {
@@ -400,16 +405,22 @@ describe('createSmartSpanProcessor', () => {
       }
     }
     // trace 0 (oldest) was evicted: promoting it flushes nothing
-    runSpan(processor, makeSpan({ traceId: traceIds[0], name: 'slow-a', durationMs: 2000 }));
+    runSpan(
+      processor,
+      makeSpan({ traceId: traceIds[0], name: 'err-a', statusCode: SpanStatusCode.ERROR })
+    );
     await processor.forceFlush();
-    expect(names(batchExporter)).toEqual(['slow-a']);
+    expect(names(batchExporter)).toEqual(['err-a']);
 
     // trace 1 survived intact
-    runSpan(processor, makeSpan({ traceId: traceIds[1], name: 'slow-t1', durationMs: 2000 }));
+    runSpan(
+      processor,
+      makeSpan({ traceId: traceIds[1], name: 'err-t1', statusCode: SpanStatusCode.ERROR })
+    );
     await processor.forceFlush();
     expect(batchExporter.spans).toHaveLength(1 + perTrace + 1);
     expect(names(batchExporter)).toContain('t1-0');
-    expect(names(batchExporter)[batchExporter.spans.length - 1]).toBe('slow-t1');
+    expect(names(batchExporter)[batchExporter.spans.length - 1]).toBe('err-t1');
   });
 
   it('cap eviction spends settled linger buffers before in-flight ones', async () => {
@@ -436,12 +447,18 @@ describe('createSmartSpanProcessor', () => {
       }
     }
     // S (settled) was evicted even though A is the older holder
-    runSpan(processor, makeSpan({ traceId: traceIds[1], name: 'slow-s', durationMs: 2000 }));
+    runSpan(
+      processor,
+      makeSpan({ traceId: traceIds[1], name: 'err-s', statusCode: SpanStatusCode.ERROR })
+    );
     await processor.forceFlush();
-    expect(names(batchExporter)).toEqual(['slow-s']);
+    expect(names(batchExporter)).toEqual(['err-s']);
 
     // A (in-flight) kept its buffer
-    runSpan(processor, makeSpan({ traceId: traceIds[0], name: 'slow-a', durationMs: 2000 }));
+    runSpan(
+      processor,
+      makeSpan({ traceId: traceIds[0], name: 'err-a', statusCode: SpanStatusCode.ERROR })
+    );
     await processor.forceFlush();
     expect(names(batchExporter)).toContain('a0');
     expect(names(batchExporter)).toContain('a99');
@@ -460,9 +477,12 @@ describe('createSmartSpanProcessor', () => {
     runSpan(processor, makeSpan({ traceId: traceIds[1], name: 'other' }));
 
     // the open 'hold' span keeps the trace live, so promotion still flushes
-    runSpan(processor, makeSpan({ traceId: traceIds[0], name: 'slow', durationMs: 2000 }));
+    runSpan(
+      processor,
+      makeSpan({ traceId: traceIds[0], name: 'err', statusCode: SpanStatusCode.ERROR })
+    );
     await processor.forceFlush();
-    expect(names(batchExporter)).toEqual(['buffered', 'slow']);
+    expect(names(batchExporter)).toEqual(['buffered', 'err']);
   });
 
   it('evicts leaked traces and their buffers after the live TTL', async () => {
@@ -476,9 +496,12 @@ describe('createSmartSpanProcessor', () => {
     vi.setSystemTime(start + LIVE_TTL_MS + 60_000);
     runSpan(processor, makeSpan({ traceId: traceIds[1], name: 'other' }));
 
-    runSpan(processor, makeSpan({ traceId: traceIds[0], name: 'slow', durationMs: 2000 }));
+    runSpan(
+      processor,
+      makeSpan({ traceId: traceIds[0], name: 'err', statusCode: SpanStatusCode.ERROR })
+    );
     await processor.forceFlush();
-    expect(names(batchExporter)).toEqual(['slow']);
+    expect(names(batchExporter)).toEqual(['err']);
   });
 
   it('expires untracked pending buffers after the pending TTL', async () => {
@@ -492,9 +515,12 @@ describe('createSmartSpanProcessor', () => {
     vi.setSystemTime(start + PENDING_TTL_MS + 60_000);
     runSpan(processor, makeSpan({ traceId: traceIds[1], name: 'other' }));
 
-    runSpan(processor, makeSpan({ traceId: traceIds[0], name: 'slow', durationMs: 2000 }));
+    runSpan(
+      processor,
+      makeSpan({ traceId: traceIds[0], name: 'err', statusCode: SpanStatusCode.ERROR })
+    );
     await processor.forceFlush();
-    expect(names(batchExporter)).toEqual(['slow']);
+    expect(names(batchExporter)).toEqual(['err']);
   });
 
   it('expires exported marks after the exported TTL', async () => {
@@ -502,7 +528,10 @@ describe('createSmartSpanProcessor', () => {
     const start = Date.now();
     const traceIds = findTraceIds(2, false);
     const { processor, batchExporter } = createProcessor();
-    runSpan(processor, makeSpan({ traceId: traceIds[0], name: 'slow', durationMs: 2000 }));
+    runSpan(
+      processor,
+      makeSpan({ traceId: traceIds[0], name: 'err', statusCode: SpanStatusCode.ERROR })
+    );
     runSpan(processor, makeSpan({ traceId: traceIds[0], name: 'follow-1' }));
 
     vi.setSystemTime(start + EXPORTED_TTL_MS + 60_000);
@@ -511,7 +540,7 @@ describe('createSmartSpanProcessor', () => {
     // the exported mark expired: this span is buffered, then discarded when the trace settles
     runSpan(processor, makeSpan({ traceId: traceIds[0], name: 'follow-2' }));
     await processor.forceFlush();
-    expect(names(batchExporter)).toEqual(['slow', 'follow-1']);
+    expect(names(batchExporter)).toEqual(['err', 'follow-1']);
   });
 
   it('caps promoted tombstones, evicting the oldest first', async () => {
@@ -520,7 +549,10 @@ describe('createSmartSpanProcessor', () => {
     const traceIds = findTraceIds(TOMBSTONE_CAP + 2, false);
     const { processor, batchExporter } = createProcessor();
     for (let i = 0; i <= TOMBSTONE_CAP; i++) {
-      runSpan(processor, makeSpan({ traceId: traceIds[i], name: `slow-${i}`, durationMs: 2000 }));
+      runSpan(
+        processor,
+        makeSpan({ traceId: traceIds[i], name: `err-${i}`, statusCode: SpanStatusCode.ERROR })
+      );
     }
 
     vi.setSystemTime(start + 60_000);
@@ -546,14 +578,14 @@ describe('createSmartSpanProcessor', () => {
 });
 
 describe('integration with real SDK spans', () => {
-  it('promotes a slow trace in full and discards a fast one', async () => {
+  it('promotes an errored trace in full and discards a slow-but-clean one', async () => {
     const { processor, batchExporter, priorityExporter } = createProcessor({ exportRatio: 0 });
     const provider = new BasicTracerProvider({ spanProcessors: [processor] });
     const tracer = provider.getTracer('test');
     const t0 = 1_700_000_000_000;
 
-    // slow request: a fast child, a slow child, then the slow SERVER root
-    const root = tracer.startSpan('slow-root', {
+    // errored request: the buffered child flushes when the SERVER root ends with ERROR
+    const root = tracer.startSpan('error-root', {
       kind: SpanKind.SERVER,
       startTime: t0,
       root: true,
@@ -561,26 +593,25 @@ describe('integration with real SDK spans', () => {
     const ctx = trace.setSpan(context.active(), root);
     const fastChild = tracer.startSpan('fast-child', { startTime: t0 }, ctx);
     fastChild.end(t0 + 10);
-    const slowChild = tracer.startSpan('slow-child', { startTime: t0 }, ctx);
-    slowChild.end(t0 + 6000);
-    root.end(t0 + 10_600);
+    root.setStatus({ code: SpanStatusCode.ERROR });
+    root.end(t0 + 100);
     await processor.forceFlush();
-    expect(names(batchExporter)).toEqual(['fast-child', 'slow-child']);
-    expect(names(priorityExporter)).toEqual(['slow-root']);
+    expect(names(batchExporter)).toEqual(['fast-child']);
+    expect(names(priorityExporter)).toEqual(['error-root']);
 
-    // fast request: child is buffered, then discarded when the last span ends
-    const root2 = tracer.startSpan('fast-root', {
+    // slow-but-clean request: follows the ratio (0 here), children are discarded
+    const root2 = tracer.startSpan('slow-root', {
       kind: SpanKind.SERVER,
       startTime: t0,
       root: true,
     });
     const ctx2 = trace.setSpan(context.active(), root2);
-    const quickChild = tracer.startSpan('quick-child', { startTime: t0 }, ctx2);
-    quickChild.end(t0 + 10);
-    root2.end(t0 + 100);
+    const slowChild = tracer.startSpan('slow-child', { startTime: t0 }, ctx2);
+    slowChild.end(t0 + 6000);
+    root2.end(t0 + 10_600);
     await processor.forceFlush();
-    expect(names(batchExporter)).toEqual(['fast-child', 'slow-child']);
-    expect(names(priorityExporter)).toEqual(['slow-root', 'fast-root']);
+    expect(names(batchExporter)).toEqual(['fast-child']);
+    expect(names(priorityExporter)).toEqual(['error-root', 'slow-root']);
 
     await provider.shutdown();
   });

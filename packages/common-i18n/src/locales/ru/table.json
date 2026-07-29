@@ -1,4 +1,37 @@
 {
+  "computeActivity": {
+    "currentCalculations": "Текущие вычисления",
+    "thisTableOnly": "Только эта таблица",
+    "calculatingNow": "Сейчас вычисляются",
+    "calculating": "Вычисляется",
+    "waiting": "Ожидание",
+    "failed": "Ошибка",
+    "calculationFailed": "Ошибка вычисления",
+    "calculatingSummary": "Вычисление ({{count}})",
+    "failedSummary": "Ошибка ({{count}})",
+    "fieldsCalculating_one": "Вычисляется {{count}} поле",
+    "fieldsCalculating_few": "Вычисляются {{count}} поля",
+    "fieldsCalculating_many": "Вычисляются {{count}} полей",
+    "fieldsCalculating_other": "Вычисляются поля: {{count}}",
+    "fieldCalculationsFailed_one": "Не удалось вычислить {{count}} поле",
+    "fieldCalculationsFailed_few": "Не удалось вычислить {{count}} поля",
+    "fieldCalculationsFailed_many": "Не удалось вычислить {{count}} полей",
+    "fieldCalculationsFailed_other": "Не удалось вычислить поля: {{count}}",
+    "batchesRunning_one": "{{count}} пакет обрабатывается",
+    "batchesRunning_few": "{{count}} пакета обрабатываются",
+    "batchesRunning_many": "{{count}} пакетов обрабатываются",
+    "batchesRunning_other": "Обрабатывается пакетов: {{count}}",
+    "batchesQueued_one": "{{count}} пакет ожидает",
+    "batchesQueued_few": "{{count}} пакета ожидают",
+    "batchesQueued_many": "{{count}} пакетов ожидают",
+    "batchesQueued_other": "Ожидает пакетов: {{count}}",
+    "records_one": "{{formattedCount}} запись",
+    "records_few": "{{formattedCount}} записи",
+    "records_many": "{{formattedCount}} записей",
+    "records_other": "Записей: {{formattedCount}}",
+    "batchesComplete": "Завершено пакетов {{completed}}/{{total}}",
+    "progressAriaLabel": "Прогресс вычисления для {{fieldName}}"
+  },
   "crossSpace": {
     "duplicateFieldTitle": "Уведомление",
     "duplicateFieldDescription": "Перекрёстные ссылки между пространствами не поддерживаются. Копия будет преобразована в однострочное текстовое поле.",
@@ -418,7 +451,7 @@
   "table": {
     "newTableLabel": "Новая таблица",
     "rename": "Переименовать",
-    "tableRecordHistory": "История записей таблицы",
+    "tableRecordHistory": "История изменений",
     "deleteConfirm": "Вы уверены, что хотите удалить \"{{tableName}}\"?",
     "dbTableName": "Имя таблицы в физической базе данных",
     "schemaName": "Имя схемы в физической базе данных",
@@ -858,9 +891,10 @@
   "lastModifiedTime": "Время последнего изменения",
   "lastModify": "Последнее изменение: ",
   "tableTrash": {
-    "title": "Корзина таблицы",
+    "title": "Корзина",
     "resourceType": "Тип",
-    "deletedResource": "Ресурс"
+    "deletedResource": "Ресурс",
+    "moreResources": "и ещё {{count}}"
   },
   "baseShare": {
     "shareTitle": "Поделиться",

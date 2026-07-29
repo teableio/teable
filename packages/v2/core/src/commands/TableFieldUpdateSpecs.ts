@@ -2860,7 +2860,9 @@ class UpdateLookupFieldSpec implements IUpdateTableFieldSpec {
     private readonly notNullValue: FieldNotNull | undefined,
     private readonly uniqueValue: FieldUnique | undefined,
     private readonly shouldClearShowAs: boolean,
-    private readonly foreignTablesValue: ReadonlyArray<Table>
+    private readonly foreignTablesValue: ReadonlyArray<Table>,
+    private readonly innerOptionsValue: Readonly<Record<string, unknown>> | undefined,
+    private readonly isFullUpdate: boolean
   ) {}
 
   static create(
@@ -2875,6 +2877,7 @@ class UpdateLookupFieldSpec implements IUpdateTableFieldSpec {
         limit?: number;
         showAs?: unknown;
       };
+      innerOptions?: Readonly<Record<string, unknown>>;
       notNull?: unknown;
       unique?: unknown;
     },
@@ -2884,11 +2887,20 @@ class UpdateLookupFieldSpec implements IUpdateTableFieldSpec {
     }
   ): Result<UpdateLookupFieldSpec, DomainError> {
     const isFullUpdate = context?.updateMode === 'full';
+    const innerOptions =
+      input.innerOptions &&
+      typeof input.innerOptions === 'object' &&
+      !Array.isArray(input.innerOptions)
+        ? (input.innerOptions as Readonly<Record<string, unknown>>)
+        : undefined;
+    const hasOptionsShowAs =
+      input.options !== undefined && Object.prototype.hasOwnProperty.call(input.options, 'showAs');
+    const hasInnerShowAs =
+      innerOptions !== undefined && Object.prototype.hasOwnProperty.call(innerOptions, 'showAs');
     const shouldClearShowAs =
-      input.options !== undefined &&
-      ((Object.prototype.hasOwnProperty.call(input.options, 'showAs') &&
-        input.options.showAs === null) ||
-        (isFullUpdate && !Object.prototype.hasOwnProperty.call(input.options, 'showAs')));
+      (hasOptionsShowAs && input.options?.showAs === null) ||
+      (hasInnerShowAs && innerOptions?.showAs === null) ||
+      (input.options !== undefined && isFullUpdate && !hasOptionsShowAs && !hasInnerShowAs);
     return optional(input.name, FieldName.create).andThen((name) => {
       const optionsPatch = input.options
         ? {
@@ -2922,7 +2934,9 @@ class UpdateLookupFieldSpec implements IUpdateTableFieldSpec {
               notNull,
               unique,
               shouldClearShowAs,
-              context?.foreignTables ?? []
+              context?.foreignTables ?? [],
+              innerOptions,
+              isFullUpdate
             )
         )
       );
@@ -2981,19 +2995,70 @@ class UpdateLookupFieldSpec implements IUpdateTableFieldSpec {
       }
       const nextOptions = nextOptionsResult.value;
 
-      if (!nextOptions.equals(currentOptions) || this.shouldForceClearShowAs(currentField)) {
-        specs.push(UpdateLookupOptionsSpec.create(currentField.id(), currentOptions, nextOptions));
+      // Display-only convert sends unchanged lookup IDs plus innerOptions (formatting/showAs).
+      // Still emit an update so the patch is applied (T6332).
+      if (
+        !nextOptions.equals(currentOptions) ||
+        this.shouldForceClearShowAs(currentField) ||
+        this.innerOptionsValue !== undefined
+      ) {
+        specs.push(
+          UpdateLookupOptionsSpec.create(
+            currentField.id(),
+            currentOptions,
+            nextOptions,
+            this.resolveInnerOptionsPatch(currentField)
+          )
+        );
       }
-    } else if (this.shouldForceClearShowAs(currentField)) {
+    } else if (this.shouldForceClearShowAs(currentField) || this.innerOptionsValue !== undefined) {
       // Force a lookup options update to recreate the pending lookup field,
-      // which re-resolves the inner field from the foreign table without showAs.
-      specs.push(UpdateLookupOptionsSpec.create(currentField.id(), currentOptions, currentOptions));
+      // which re-resolves the inner field from the foreign table and applies
+      // formatting/showAs from innerOptions when present (T6332).
+      specs.push(
+        UpdateLookupOptionsSpec.create(
+          currentField.id(),
+          currentOptions,
+          currentOptions,
+          this.resolveInnerOptionsPatch(currentField)
+        )
+      );
     }
 
     const constraintsSpec = buildConstraintsSpec(currentField, this.notNullValue, this.uniqueValue);
     if (constraintsSpec) specs.push(constraintsSpec);
 
     return ok(specs);
+  }
+
+  private resolveInnerOptionsPatch(
+    currentField: LookupField
+  ): Readonly<Record<string, unknown>> | undefined {
+    const currentPatch = currentField.innerOptionsPatch();
+    let nextPatch: Record<string, unknown> | undefined;
+
+    if (this.innerOptionsValue !== undefined) {
+      // Default updateField is partial PATCH: merge display overrides so a
+      // formatting-only request does not drop an existing showAs (T6332).
+      // Convert/replay full mode replaces the patch entirely.
+      nextPatch = this.isFullUpdate
+        ? { ...this.innerOptionsValue }
+        : {
+            ...(currentPatch ?? {}),
+            ...this.innerOptionsValue,
+          };
+    } else if (this.shouldClearShowAs) {
+      nextPatch = { ...(currentPatch ?? {}) };
+    } else {
+      return undefined;
+    }
+
+    if (this.shouldClearShowAs) {
+      // Persist an explicit clear so reload does not re-inherit source showAs.
+      nextPatch.showAs = null;
+    }
+
+    return Object.keys(nextPatch).length > 0 ? nextPatch : undefined;
   }
 
   private shouldForceClearShowAs(currentField: LookupField): boolean {
@@ -3354,6 +3419,7 @@ export const parseUpdateFieldSpec = (
     name?: string;
     description?: string | null;
     options?: unknown;
+    innerOptions?: Readonly<Record<string, unknown>>;
     config?: unknown;
     notNull?: unknown;
     unique?: unknown;
@@ -3493,6 +3559,8 @@ export const buildUpdateFieldSpecs = (
     notNull?: unknown;
     unique?: unknown;
     options?: unknown;
+    /** Lookup/conditionalLookup display options applied onto the inner field. */
+    innerOptions?: Readonly<Record<string, unknown>>;
     config?: unknown;
     max?: unknown;
     cellValueType?: string;

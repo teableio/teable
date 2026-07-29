@@ -44,6 +44,7 @@ import { SelectionModule } from './features/selection/selection.module';
 import { AdminOpenApiModule } from './features/setting/open-api/admin-open-api.module';
 import { SettingOpenApiModule } from './features/setting/open-api/setting-open-api.module';
 import { ShareModule } from './features/share/share.module';
+import { ShortLinkModule } from './features/short-link/short-link.module';
 import { SpaceModule } from './features/space/space.module';
 import { TemplateOpenApiModule } from './features/template/template-open-api.module';
 import { TrashModule } from './features/trash/trash.module';
@@ -82,6 +83,7 @@ export const appModules = {
     CollaboratorModule,
     InvitationModule,
     ShareModule,
+    ShortLinkModule,
     BaseShareModule,
     NotificationModule,
     AccessTokenModule,

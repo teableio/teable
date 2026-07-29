@@ -30,6 +30,7 @@ import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import {
   CollaboratorCreateEvent,
   CollaboratorDeleteEvent,
+  CollaboratorInvitedEvent,
   CollaboratorUpdateEvent,
   Events,
 } from '../../event-emitter/events';
@@ -56,6 +57,7 @@ export class CollaboratorService {
     spaceId,
     role,
     createdBy,
+    skipEvent,
   }: {
     collaborators: {
       principalId: string;
@@ -64,6 +66,7 @@ export class CollaboratorService {
     spaceId: string;
     role: IRole;
     createdBy?: string;
+    skipEvent?: boolean;
   }) {
     const currentUserId = createdBy || this.cls.get('user.id');
     const exist = await this.prismaService.txClient().collaborator.count({
@@ -123,10 +126,12 @@ export class CollaboratorService {
         createdBy: currentUserId!,
       })),
     });
-    this.eventEmitterService.emitAsync(
-      Events.COLLABORATOR_CREATE,
-      new CollaboratorCreateEvent(spaceId)
-    );
+    if (!skipEvent) {
+      this.eventEmitterService.emitAsync(
+        Events.COLLABORATOR_CREATE,
+        new CollaboratorCreateEvent(spaceId)
+      );
+    }
   }
 
   protected async getBaseCollaboratorBuilder(
@@ -834,6 +839,7 @@ export class CollaboratorService {
     baseId,
     role,
     createdBy,
+    skipEvent,
   }: {
     collaborators: {
       principalId: string;
@@ -842,6 +848,7 @@ export class CollaboratorService {
     baseId: string;
     role: IBaseRole;
     createdBy?: string;
+    skipEvent?: boolean;
   }) {
     const currentUserId = createdBy || this.cls.get('user.id');
     const base = await this.prismaService.txClient().base.findUniqueOrThrow({
@@ -880,10 +887,12 @@ export class CollaboratorService {
         createdBy: currentUserId!,
       })),
     });
-    this.eventEmitterService.emitAsync(
-      Events.COLLABORATOR_CREATE,
-      new CollaboratorCreateEvent(base.spaceId)
-    );
+    if (!skipEvent) {
+      this.eventEmitterService.emitAsync(
+        Events.COLLABORATOR_CREATE,
+        new CollaboratorCreateEvent(base.spaceId)
+      );
+    }
     return res;
   }
 
@@ -993,12 +1002,22 @@ export class CollaboratorService {
         .filter((c) => c.principalType === PrincipalType.User)
         .map((c) => c.principalId)
     );
-    return this.createSpaceCollaborator({
+    const res = await this.createSpaceCollaborator({
       collaborators: collaborator.collaborators,
       spaceId,
       role: collaborator.role,
       createdBy: this.cls.get('user.id'),
     });
+    this.eventEmitterService.emitAsync(
+      Events.COLLABORATOR_INVITED,
+      new CollaboratorInvitedEvent(
+        spaceId,
+        CollaboratorType.Space,
+        this.cls.get('user.id'),
+        collaborator.collaborators
+      )
+    );
+    return res;
   }
 
   async addBaseCollaborators(baseId: string, collaborator: AddBaseCollaboratorRo) {
@@ -1015,12 +1034,22 @@ export class CollaboratorService {
         .filter((c) => c.principalType === PrincipalType.User)
         .map((c) => c.principalId)
     );
-    return this.createBaseCollaborator({
+    const res = await this.createBaseCollaborator({
       collaborators: collaborator.collaborators,
       baseId,
       role: collaborator.role,
       createdBy: this.cls.get('user.id'),
     });
+    this.eventEmitterService.emitAsync(
+      Events.COLLABORATOR_INVITED,
+      new CollaboratorInvitedEvent(
+        baseId,
+        CollaboratorType.Base,
+        this.cls.get('user.id'),
+        collaborator.collaborators
+      )
+    );
+    return res;
   }
 
   async validateUserAddRole({

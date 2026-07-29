@@ -350,7 +350,7 @@ describe('computed outbox recovery (e2e)', () => {
     });
 
     const scenario = await prepareLockContentionScenario(harness);
-    const computedLockKey = `v2:computed:${harness.baseId}:${scenario.sourceTableId}:${scenario.sourceRecordId}`;
+    const computedLockKey = `v2:computed:${scenario.sourceTableId}:${scenario.sourceRecordId}`;
     let targetRecordId = '';
     let requeuedTaskId = '';
 
@@ -380,7 +380,11 @@ describe('computed outbox recovery (e2e)', () => {
       requeuedTaskId = pendingTask.id;
       expect(pendingTask.attempts).toBe(0);
       expect(pendingTask.last_error).toContain(computedLockKey);
-      expect(pendingTask.next_run_at.getTime() - pendingTask.updated_at.getTime()).toBe(250);
+      // Lock-miss requeue delay carries jitter across [0.5x, 1.5x) of
+      // lockUnavailableRetryDelayMs (250ms) so same-key losers do not wake in lockstep.
+      const requeueDelayMs = pendingTask.next_run_at.getTime() - pendingTask.updated_at.getTime();
+      expect(requeueDelayMs).toBeGreaterThanOrEqual(125);
+      expect(requeueDelayMs).toBeLessThanOrEqual(375);
     });
 
     await waitFor(

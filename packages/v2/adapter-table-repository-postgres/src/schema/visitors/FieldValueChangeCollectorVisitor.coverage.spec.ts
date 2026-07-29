@@ -1,15 +1,18 @@
 import {
+  ButtonConfirm,
+  ButtonWorkflow,
   FieldHasError,
   FieldId,
   FieldName,
   FormulaExpression,
   RollupExpression,
   createFormulaField,
+  UpdateButtonWorkflowSpec,
 } from '@teable/v2-core';
 import { describe, expect, it } from 'vitest';
 
-import { FieldValueChangeCollectorVisitor } from './FieldValueChangeCollectorVisitor';
 import { createBtnField, createTextField, createValidFieldId } from './__tests__/helpers';
+import { FieldValueChangeCollectorVisitor } from './FieldValueChangeCollectorVisitor';
 
 const mkFieldId = (seed: string) => FieldId.create(createValidFieldId(seed))._unsafeUnwrap();
 const mkFieldName = (name: string) => FieldName.create(name)._unsafeUnwrap();
@@ -95,12 +98,23 @@ describe('FieldValueChangeCollectorVisitor coverage', () => {
     ]);
   });
 
-  it('tracks error clearing/rebuild branches and workflow/timezone updates', () => {
+  it('tracks value changes only for workflow identity updates', () => {
     const visitor = new FieldValueChangeCollectorVisitor();
     const errorFieldId = mkFieldId('hasError');
     const workflowFieldId = mkFieldId('workflow');
+    const confirmFieldId = mkFieldId('confirmOnly');
     const formulaFieldId = mkFieldId('formulaTz');
     const rollupFieldId = mkFieldId('rollupTz');
+    const previousWorkflow = ButtonWorkflow.create({
+      id: 'wflPreviousWorkflow',
+      name: 'Previous',
+      isActive: true,
+    })._unsafeUnwrap();
+    const nextWorkflow = ButtonWorkflow.create({
+      id: 'wflNextWorkflow',
+      name: 'Next',
+      isActive: true,
+    })._unsafeUnwrap();
 
     visitor.visitTableUpdateFieldHasError({
       isSettingError: () => true,
@@ -114,9 +128,18 @@ describe('FieldValueChangeCollectorVisitor coverage', () => {
       previousHasError: () => FieldHasError.error(),
       nextHasError: () => FieldHasError.ok(),
     } as never);
-    visitor.visitUpdateButtonWorkflow({
-      fieldId: () => workflowFieldId,
-    } as never);
+    visitor.visitUpdateButtonWorkflow(
+      UpdateButtonWorkflowSpec.create(workflowFieldId, previousWorkflow, nextWorkflow)
+    );
+    visitor.visitUpdateButtonWorkflow(
+      UpdateButtonWorkflowSpec.create(
+        confirmFieldId,
+        previousWorkflow,
+        previousWorkflow,
+        undefined,
+        ButtonConfirm.create({ title: 'Confirm' })._unsafeUnwrap()
+      )
+    );
     visitor.visitUpdateFormulaTimeZone({
       fieldId: () => formulaFieldId,
     } as never);

@@ -7,6 +7,7 @@ export * from './repositories';
 export * from './schema';
 export * from './searchVector';
 export * from './searchVectorStatus';
+export * from './searchAccessPathCapability';
 export * from './searchVectorMaintenance';
 export * from './tokens';
 export type * from './types';

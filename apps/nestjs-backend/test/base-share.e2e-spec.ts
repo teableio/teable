@@ -13,9 +13,11 @@ import {
   createBaseShare,
   CREATE_RECORD,
   createField,
+  createPluginPanel,
   createSpace,
   DELETE_RECORD_URL,
   deleteBaseShare,
+  deletePluginPanel,
   deleteSpace,
   EXPORT_BASE,
   GET_BASE_NODE_LIST,
@@ -28,6 +30,7 @@ import {
   getTableList,
   getBaseLevelShare,
   listBaseShare,
+  listPluginPanels,
   moveBaseNode,
   refreshBaseShare,
   UPDATE_RECORD,
@@ -594,6 +597,37 @@ describe('BaseShareController (e2e)', () => {
       copiedBaseId = copyRes.data.id;
       expect(copyRes.data.name).toBeDefined();
       expect(copyRes.data.name.length).toBeGreaterThan(0);
+    });
+
+    it('should copy share when a plugin panel exists on a table outside the shared scope', async () => {
+      // Panel on rootTable (outside the shared folder) must not break the copy
+      // nor leak into the copied base; panel on childTable (inside) must be copied.
+      const outsidePanel = await createPluginPanel(rootTableId, { name: 'outside-panel' });
+      const insidePanel = await createPluginPanel(childTableId, { name: 'inside-panel' });
+
+      try {
+        const share = await createBaseShare(baseId, { nodeId: folderNodeId });
+        testShareId = share.data.shareId;
+        await updateBaseShare(baseId, testShareId, { allowSave: true });
+
+        const copyRes = await copyBaseShare(testShareId, {
+          spaceId: targetSpaceId,
+          name: 'copied-base-with-panel',
+          withRecords: true,
+        });
+
+        expect(copyRes.status).toEqual(200);
+        copiedBaseId = copyRes.data.id;
+
+        const tableList = await getTableList(copiedBaseId);
+        expect(tableList.data.map(({ name }) => name)).toEqual(['child-table']);
+
+        const copiedPanels = await listPluginPanels(tableList.data[0].id);
+        expect(copiedPanels.data.map(({ name }) => name)).toEqual(['inside-panel']);
+      } finally {
+        await deletePluginPanel(rootTableId, outsidePanel.data.id).catch(() => undefined);
+        await deletePluginPanel(childTableId, insidePanel.data.id).catch(() => undefined);
+      }
     });
   });
 

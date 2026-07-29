@@ -4,6 +4,7 @@ import {
   FieldType,
   Relationship,
   type IFieldRo,
+  type IButtonFieldOptions,
   type ILinkFieldOptions,
   FieldKeyType,
 } from '@teable/core';
@@ -325,6 +326,42 @@ describe('OpenAPI Graph (e2e)', () => {
     const { data: plan } = await planFieldConvert(table1.id, textField.id, newFieldRo);
 
     expect(plan.skip).toBeTruthy();
+  });
+
+  it('should skip the update plan when only button display options change', async () => {
+    const buttonField = await createField(table1.id, {
+      name: 'Action',
+      type: FieldType.Button,
+      options: {
+        label: 'Run',
+        color: 'teal',
+        maxCount: 1,
+        resetCount: true,
+        confirm: {
+          title: 'Confirm action',
+          description: 'Run this action?',
+          confirmText: 'Run',
+        },
+      } satisfies IButtonFieldOptions,
+    });
+
+    const { data: plan } = await planFieldConvert(table1.id, buttonField.id, {
+      type: FieldType.Button,
+      options: {
+        ...(buttonField.options as IButtonFieldOptions),
+        label: 'Deploy',
+        color: 'red',
+        maxCount: 2,
+        resetCount: false,
+        confirm: {
+          title: 'Confirm deployment',
+          description: 'Deploy this release?',
+          confirmText: 'Deploy',
+        },
+      } satisfies IButtonFieldOptions,
+    });
+
+    expect(plan).toEqual({ skip: true });
   });
 
   it('should update lookup field plan', async () => {

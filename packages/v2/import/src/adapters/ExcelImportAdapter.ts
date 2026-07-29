@@ -1,7 +1,3 @@
-import * as XLSX from 'xlsx';
-import { err, ok } from 'neverthrow';
-import type { Result } from 'neverthrow';
-
 import {
   domainError,
   type DomainError,
@@ -10,6 +6,10 @@ import {
   type IImportParseResult,
   type IImportSource,
 } from '@teable/v2-core';
+import { safeFetch } from '@teable/v2-utils';
+import { err, ok } from 'neverthrow';
+import type { Result } from 'neverthrow';
+import * as XLSX from 'xlsx';
 
 /**
  * Excel Import Adapter
@@ -135,7 +135,7 @@ export class ExcelImportAdapter implements IImportSourceAdapter {
 
     if (source.url) {
       try {
-        const response = await fetch(source.url);
+        const response = await safeFetch(source.url);
         if (!response.ok) {
           return err(
             domainError.infrastructure({

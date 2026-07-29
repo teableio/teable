@@ -211,7 +211,12 @@ const buildRecordQueryShape = (
           allFields: searchesAllFields,
           ...(!searchesAllFields && searchedFieldIds ? { searchedFieldIds } : {}),
           valueLengthBucket: bucketSearchLength(search.search.value.length),
-          searchMode: searchAccessPath?.kind === 'generated_tsvector' ? 'full_text' : 'ilike',
+          searchMode:
+            searchAccessPath?.kind === 'generated_tsvector'
+              ? 'full_text'
+              : searchAccessPath?.kind === 'generated_text'
+                ? 'substring'
+                : 'ilike',
           searchScope: searchesAllFields ? 'all_fields' : 'selected_fields',
           ...(searchAccessPath?.kind === 'generated_tsvector'
             ? {

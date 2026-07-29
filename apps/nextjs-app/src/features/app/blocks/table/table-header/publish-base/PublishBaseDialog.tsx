@@ -8,6 +8,7 @@ import {
   unpublishTemplate,
   UploadType,
   BaseNodeResourceType,
+  ShortLinkType,
 } from '@teable/openapi';
 import { AttachmentManager } from '@teable/sdk/components';
 import { useBase } from '@teable/sdk/hooks';
@@ -41,6 +42,8 @@ import { Camera, Send, Copy, ExternalLink } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useIsCloud } from '@/features/app/hooks/useIsCloud';
+import { useOrigin } from '@/features/app/hooks/useOrigin';
+import { useShortLink } from '@/features/app/hooks/useShortLink';
 import { ROOT_ID } from '../../../base/base-node/hooks';
 import { useBaseNodeContext } from '../../../base/base-node/hooks/useBaseNodeContext';
 import { useAppPublishContext } from './AppPublishContext';
@@ -52,11 +55,11 @@ import { UnpublishedAppsDialog, getUnpublishedAppNodes } from './UnpublishedApps
 const attachmentManager = new AttachmentManager(1);
 
 const generateShareUrl = (
+  origin: string,
   permalink?: string,
   defaultUrl?: string,
   snapshotBaseId?: string
 ): string => {
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
   // Prioritize permalink for stable sharing URL
   const relativeUrl =
     permalink || defaultUrl || (snapshotBaseId && `/base/${snapshotBaseId}`) || '';
@@ -123,6 +126,16 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
   });
   const isTemplatePublished = templateDetail?.isPublished;
   const isTemplateFeatured = templateDetail?.featured ?? false;
+  const origin = useOrigin();
+
+  // Prefer the short URL when sharing a published template; only fall back to
+  // the permalink when short link creation failed (empty while loading)
+  const { shortUrl, isFallback } = useShortLink(
+    isTemplatePublished && templateDetail?.id
+      ? { type: ShortLinkType.Template, resourceId: templateDetail.id }
+      : undefined
+  );
+  const displayShareUrl = shortUrl ?? (isFallback ? shareUrl : '');
 
   // Handle template data changes (replaces onSuccess callback removed in React Query v5)
   useEffect(() => {
@@ -161,12 +174,13 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
     const permalink = templateDetail?.id ? `/t/${templateDetail.id}` : undefined;
     setShareUrl(
       generateShareUrl(
+        origin,
         permalink,
         templateDetail?.publishInfo?.defaultUrl,
         templateDetail?.snapshot?.baseId
       )
     );
-  }, [templateDetail, base?.name, allNodeIds, treeItems, uploadedCover]);
+  }, [templateDetail, base?.name, allNodeIds, treeItems, uploadedCover, origin]);
 
   const { mutateAsync: unpublishTemplateMutate, isPending: unpublishTemplateLoading } = useMutation(
     {
@@ -216,7 +230,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
       // Close the publish dialog and show success dialog
       setOpen(false);
       // Generate share URL with permalink
-      setShareUrl(generateShareUrl(permalink, defaultUrl, templateBaseId));
+      setShareUrl(generateShareUrl(origin, permalink, defaultUrl, templateBaseId));
       setSuccessDialogOpen(true);
       // Trigger fireworks effect
       fireConfetti();
@@ -331,28 +345,28 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
   }, [selectedNodeIds, defaultActiveNodeId]);
 
   const handleCopyUrl = () => {
-    navigator.clipboard.writeText(shareUrl);
+    navigator.clipboard.writeText(displayShareUrl);
     toast.success(t('publishBase.urlCopied'));
   };
 
   const handleShareToX = () => {
     const text = encodeURIComponent(`Check out this template: ${title}`);
     window.open(
-      `https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent(shareUrl)}`,
+      `https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent(displayShareUrl)}`,
       '_blank'
     );
   };
 
   const handleShareToLinkedIn = () => {
     window.open(
-      `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`,
+      `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(displayShareUrl)}`,
       '_blank'
     );
   };
 
   const handleShareToDiscord = () => {
     // Discord doesn't have a direct share URL, so we just copy the URL
-    navigator.clipboard.writeText(shareUrl);
+    navigator.clipboard.writeText(displayShareUrl);
     toast.success(t('publishBase.urlCopiedForDiscord'));
   };
 
@@ -627,7 +641,9 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
                 {templateDetail?.isPublished && (
                   <div className="z-50 flex h-9 w-[432px] items-center gap-2 overflow-hidden rounded-md border bg-background pl-3">
                     <Link className="size-4 shrink-0" />
-                    <div className="grow truncate text-sm text-muted-foreground">{shareUrl}</div>
+                    <div className="grow truncate text-sm text-muted-foreground">
+                      {displayShareUrl}
+                    </div>
                     <Button
                       size="icon"
                       variant="ghost"
@@ -640,7 +656,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
                       size="icon"
                       variant="ghost"
                       className="size-9 shrink-0 rounded-none border-l p-0"
-                      onClick={() => window.open(shareUrl, '_blank')}
+                      onClick={() => window.open(displayShareUrl, '_blank')}
                     >
                       <ExternalLink className="size-4" />
                     </Button>
@@ -677,12 +693,16 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
             <div className="flex w-full items-center gap-2 py-2">
               <div className="flex h-9 flex-1 items-center gap-2 truncate rounded-md border px-3 text-sm">
                 <Link className="size-4 shrink-0" />
-                <div className="flex-1 truncate">{shareUrl}</div>
+                <div className="flex-1 truncate">{displayShareUrl}</div>
               </div>
               <Button size="icon" variant="outline" onClick={handleCopyUrl}>
                 <Copy className="size-4" />
               </Button>
-              <Button size="icon" variant="outline" onClick={() => window.open(shareUrl, '_blank')}>
+              <Button
+                size="icon"
+                variant="outline"
+                onClick={() => window.open(displayShareUrl, '_blank')}
+              >
                 <ExternalLink className="size-4" />
               </Button>
             </div>

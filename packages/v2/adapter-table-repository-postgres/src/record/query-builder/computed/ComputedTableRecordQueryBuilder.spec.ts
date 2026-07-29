@@ -2498,8 +2498,183 @@ describe('ComputedTableRecordQueryBuilder', () => {
 
       expect(sql).not.toContain('inner join lateral');
       expect(sql).toMatchInlineSnapshot(
-        `"select "t"."__id" as "__id", "t"."__version" as "__version", "t"."col_category_ref" as "col_category_ref", "cond_fldcccccccccccccccc"."col_conditional_rollup" as "col_conditional_rollup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join (select CAST(COALESCE(SUM("f"."col_number"), 0) AS DOUBLE PRECISION) as "col_conditional_rollup" from "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" where "f"."col_category" = $1) as "cond_fldcccccccccccccccc" on true"`
+        `"select "t"."__id" as "__id", "t"."__version" as "__version", "t"."col_category_ref" as "col_category_ref", "cond_fldcccccccccccccccc"."col_conditional_rollup" as "col_conditional_rollup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join (select CAST(COALESCE(SUM("f"."col_number") FILTER (WHERE "f"."col_category" = $1), 0) AS DOUBLE PRECISION) as "col_conditional_rollup" from "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f") as "cond_fldcccccccccccccccc" on true"`
       );
+    });
+
+    test('conditional rollups with distinct source-only filters share one source scan', () => {
+      const db = createTestDb();
+      const { mainTable, foreignTable, foreignTableId } = createConditionalRollupTable(
+        {
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: FOREIGN_FILTER_FIELD_ID, operator: 'is', value: 'A' }],
+          },
+        },
+        {
+          includeSecondRollup: true,
+          secondCondition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [{ fieldId: FOREIGN_FILTER_FIELD_ID, operator: 'is', value: 'B' }],
+            },
+          },
+        }
+      );
+
+      const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
+      const { sql, parameters } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables, typeValidationStrategy }).from(
+          mainTable
+        )
+      );
+
+      expect(sql).not.toContain('inner join lateral');
+      expect(
+        sql.match(/from "bseaaaaaaaaaaaaaaaa"\."tblffffffffffffffff" as "f"/g) || []
+      ).toHaveLength(1);
+      expect(sql).toContain('FILTER (WHERE "f"."col_category" = $1)');
+      expect(sql).toContain('FILTER (WHERE "f"."col_category" = $2)');
+      expect(parameters).toEqual(['A', 'B']);
+    });
+
+    test('keeps a complex self-correlated rollup separate from a source-only scan', async () => {
+      const { pglite, db } = await createPGliteDb();
+      try {
+        const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
+        const tableId = TableId.create(MAIN_TABLE_ID)._unsafeUnwrap();
+        const categoryFieldId = FieldId.create(FOREIGN_FILTER_FIELD_ID)._unsafeUnwrap();
+        const valuesFieldId = FieldId.create(FOREIGN_VALUES_FIELD_ID)._unsafeUnwrap();
+        const simpleRollupFieldId = FieldId.create(CONDITIONAL_ROLLUP_FIELD_ID)._unsafeUnwrap();
+        const correlatedRollupFieldId = FieldId.create(
+          SECOND_CONDITIONAL_ROLLUP_FIELD_ID
+        )._unsafeUnwrap();
+        const valuesField = createNumberField({
+          id: valuesFieldId,
+          name: FieldName.create('Amount')._unsafeUnwrap(),
+        })._unsafeUnwrap();
+        const simpleConfig = ConditionalRollupConfig.create({
+          foreignTableId: tableId.toString(),
+          lookupFieldId: valuesFieldId.toString(),
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [{ fieldId: categoryFieldId.toString(), operator: 'is', value: 'A' }],
+            },
+          },
+        })._unsafeUnwrap();
+        const correlatedConfig = ConditionalRollupConfig.create({
+          foreignTableId: tableId.toString(),
+          lookupFieldId: valuesFieldId.toString(),
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: categoryFieldId.toString(),
+                  operator: 'isNot',
+                  value: { type: 'field', fieldId: categoryFieldId.toString() },
+                },
+              ],
+            },
+          },
+        })._unsafeUnwrap();
+        const rollupExpression = RollupExpression.create('sum({values})')._unsafeUnwrap();
+
+        const builder = Table.builder()
+          .withId(tableId)
+          .withBaseId(baseId)
+          .withName(TableName.create('SelfConditionalRollups')._unsafeUnwrap());
+        builder
+          .field()
+          .singleLineText()
+          .withId(categoryFieldId)
+          .withName(FieldName.create('Category')._unsafeUnwrap())
+          .done();
+        builder
+          .field()
+          .number()
+          .withId(valuesFieldId)
+          .withName(FieldName.create('Amount')._unsafeUnwrap())
+          .done();
+        builder
+          .field()
+          .conditionalRollup()
+          .withId(simpleRollupFieldId)
+          .withName(FieldName.create('SimpleTotal')._unsafeUnwrap())
+          .withConfig(simpleConfig)
+          .withExpression(rollupExpression)
+          .withValuesField(valuesField)
+          .done();
+        builder
+          .field()
+          .conditionalRollup()
+          .withId(correlatedRollupFieldId)
+          .withName(FieldName.create('CorrelatedTotal')._unsafeUnwrap())
+          .withConfig(correlatedConfig)
+          .withExpression(rollupExpression)
+          .withValuesField(valuesField)
+          .done();
+        builder.view().defaultGrid().done();
+
+        const table = builder.build({ includeSelf: true })._unsafeUnwrap();
+        table
+          .getFields()[0]
+          .setDbFieldName(DbFieldName.rehydrate('col_category')._unsafeUnwrap())
+          ._unsafeUnwrap();
+        table
+          .getFields()[1]
+          .setDbFieldName(DbFieldName.rehydrate('col_number')._unsafeUnwrap())
+          ._unsafeUnwrap();
+        table
+          .getFields()[2]
+          .setDbFieldName(DbFieldName.rehydrate('col_simple_total')._unsafeUnwrap())
+          ._unsafeUnwrap();
+        table
+          .getFields()[3]
+          .setDbFieldName(DbFieldName.rehydrate('col_correlated_total')._unsafeUnwrap())
+          ._unsafeUnwrap();
+
+        await pglite.query(`create schema "${BASE_ID}"`);
+        await pglite.query(`
+          create table "${BASE_ID}"."${MAIN_TABLE_ID}" (
+            "__id" text primary key,
+            "__version" integer not null default 1,
+            "__auto_number" integer not null,
+            "col_category" text,
+            "col_number" double precision
+          )
+        `);
+        await pglite.query(`
+          insert into "${BASE_ID}"."${MAIN_TABLE_ID}"
+            ("__id", "__auto_number", "col_category", "col_number")
+          values ('row-a', 1, 'A', 10), ('row-b', 2, 'B', 20)
+        `);
+
+        const foreignTables = new Map([[tableId.toString(), table]]);
+        const query = new ComputedTableRecordQueryBuilder(db as unknown as Kysely<DynamicDB>, {
+          foreignTables,
+          typeValidationStrategy,
+        })
+          .from(table)
+          .select([simpleRollupFieldId, correlatedRollupFieldId])
+          .orderBy('__auto_number', 'asc')
+          .build()
+          ._unsafeUnwrap();
+        const compiled = query.compile();
+
+        expect(compiled.sql.match(/inner join lateral/g) ?? []).toHaveLength(1);
+        expect(
+          compiled.sql.match(/from "bseaaaaaaaaaaaaaaaa"\."tblmmmmmmmmmmmmmmmm" as "f"/g) ?? []
+        ).toHaveLength(2);
+        expect(await query.execute()).toMatchObject([
+          { col_simple_total: 10, col_correlated_total: 20 },
+          { col_simple_total: 10, col_correlated_total: 10 },
+        ]);
+      } finally {
+        await db.destroy();
+      }
     });
 
     test('conditional rollups with residual field-ref filters use set-based host joins', () => {

@@ -494,6 +494,7 @@
       "tabLink": "Invitar por enlace",
       "linkPlaceholder": "Cree un enlace de invitación que otorgue el acceso <0/> a cualquier persona que lo abra.",
       "emailSend": "Enviar invitación",
+      "directAccessDescription": "Los colaboradores invitados pueden acceder directamente mediante el siguiente enlace y empezar a colaborar",
       "linkSend": "Crear enlace",
       "spaceTitle": "Colaboradores espaciales",
       "collaboratorSearchPlaceholder": "Encuentra un colaborador espacial por nombre o correo electrónico",
@@ -934,6 +935,10 @@
           "title": "Notificación de comentario de registro",
           "message": "{{fromUserName}} hizo un comentario en {{recordName}} en {{tableName}} en {{baseName}}"
         },
+        "collaboratorInvite": {
+          "space": "{{fromUserName}} te ha invitado a unirte al espacio {{resourceName}}",
+          "base": "{{fromUserName}} te ha invitado a unirte a la base {{resourceName}}"
+        },
         "automation": {
           "title": "Notificación de automatización",
           "failed": {
@@ -1289,10 +1294,10 @@
     }
   },
   "changelog": {
-    "newUpdate": "ACTUALIZACION DEL 15 DE JULIO",
-    "title": "Memoria de IA y descargas de archivos",
-    "url": "https://help.teable.ai/en/changelog#jul-15-2026",
-    "id": "changelog-2026-07-15-ai-memory-and-file-downloads"
+    "newUpdate": "ACTUALIZACIÓN DEL 28 DE JULIO",
+    "title": "Teable Skill para agentes de IA",
+    "url": "https://help.teable.ai/en/changelog#jul-28-2026",
+    "id": "changelog-2026-07-28-teable-skill-for-ai-agents"
   },
   "resourceDescription": {
     "addDescription": "Agregar descripción",

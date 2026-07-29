@@ -8,6 +8,7 @@ import {
   v2DataDbTokens,
   v2MetaDbTokens,
   v2PostgresDbTokens,
+  type IV2PostgresDbDependencies,
 } from '@teable/v2-adapter-db-postgres-pg';
 import type { IV2PostgresStateAdapterConfig } from '@teable/v2-adapter-repository-postgres';
 import {
@@ -65,6 +66,8 @@ export interface IV2NodePgContainerOptions {
   metaConnectionString?: string;
   dataConnectionString?: string;
   dataSchema?: string;
+  metaDbDependencies?: IV2PostgresDbDependencies;
+  dataDbDependencies?: IV2PostgresDbDependencies;
   ensureSchema?: boolean;
   seed?: Partial<IV2PostgresStateAdapterConfig['seed']>;
   tableMaxRowLimit?: number;
@@ -120,12 +123,27 @@ export const registerV2NodePgDependencies = async (
   const dataConnectionString = options.dataConnectionString ?? metaConnectionString;
 
   if (canShareMetaAndDataDb(metaConnectionString, dataConnectionString, options.dataSchema)) {
-    await registerV2PostgresDb(c, { pg: { connectionString: metaConnectionString } });
+    const metaPool = options.metaDbDependencies?.pool;
+    const dataPool = options.dataDbDependencies?.pool;
+    if (metaPool && dataPool && metaPool !== dataPool) {
+      throw new Error('Shared V2 meta/data database requires the same PostgreSQL pool');
+    }
+    await registerV2PostgresDb(
+      c,
+      { pg: { connectionString: metaConnectionString } },
+      options.metaDbDependencies ?? options.dataDbDependencies
+    );
   } else {
-    await registerV2PostgresMetaDb(c, { pg: { connectionString: metaConnectionString } });
-    await registerV2PostgresDataDb(c, {
-      pg: { connectionString: dataConnectionString, schema: options.dataSchema },
-    });
+    await registerV2PostgresMetaDb(
+      c,
+      { pg: { connectionString: metaConnectionString } },
+      options.metaDbDependencies
+    );
+    await registerV2PostgresDataDb(
+      c,
+      { pg: { connectionString: dataConnectionString, schema: options.dataSchema } },
+      options.dataDbDependencies
+    );
     const metaDb = c.resolve(v2MetaDbTokens.db);
     c.registerInstance(v2PostgresDbTokens.db, metaDb);
     c.registerInstance(v2PostgresDbTokens.config, {
@@ -213,7 +231,6 @@ export const registerV2NodePgDependencies = async (
     });
   }
 
-  // Register CSV parser
   if (!c.isRegistered(v2CoreTokens.csvParser)) {
     c.register(v2CoreTokens.csvParser, PapaparseCsvParser, {
       lifecycle: Lifecycle.Singleton,
@@ -240,8 +257,11 @@ export const registerV2NodePgDependencies = async (
   // Register command explain module
   registerCommandExplainModule(c);
 
+  // Always register core table-ops DI. Importing @teable/v2-table-query-ops already
+  // puts TableSearchVectorSchemaMaintenanceProjection into the global event registry
+  // via @ProjectionHandler; without these registrations every Field* event fails DI.
+  registerV2TableOps(c, options.tableQueryOps);
   if (options.tableQueryOps) {
-    registerV2TableOps(c, options.tableQueryOps);
     await registerV2TableOpsPostgresAdapter(c, {
       metaDb,
       dataDb,

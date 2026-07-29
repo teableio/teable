@@ -26,6 +26,8 @@ type TableMetaRow = {
 };
 
 const manualSearchVectorTaskKinds: Partial<Record<ExecutablePhase1RemediationKind, true>> = {
+  create_search_access_path: true,
+  rebuild_search_access_path: true,
   create_search_vector: true,
   rebuild_search_vector: true,
 };
@@ -49,7 +51,10 @@ export class PostgresTableQueryRemediationExecutor implements TableQueryRemediat
     if (task.kind === 'manual_investigation') {
       return ok({ skipped: true, reason: 'manual investigation task' });
     }
-    if (task.kind === 'rebuild_search_vector' && isSchemaMaintenancePayload(task.payload)) {
+    if (
+      (task.kind === 'rebuild_search_access_path' || task.kind === 'rebuild_search_vector') &&
+      isSchemaMaintenancePayload(task.payload)
+    ) {
       return this.executeSearchVectorSchemaMaintenance(context, task);
     }
     if (!input.allowManualIndexExecution) {

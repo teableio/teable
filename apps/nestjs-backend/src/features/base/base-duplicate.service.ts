@@ -24,6 +24,7 @@ import {
 import { normalizeFields } from '@teable/v2-dottea';
 import { Knex } from 'knex';
 import type { Kysely } from 'kysely';
+import type { PoolClient } from 'pg';
 import { groupBy, omit } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
@@ -45,6 +46,7 @@ import { BaseImportService } from './base-import.service';
 import {
   collectCrossSpaceAffectedFieldIds,
   extractForeignTableId,
+  isCrossSpaceReferenceAllowed,
 } from './cross-space-detection.util';
 import { adaptStructureTimeZone, mergeLinkFieldTableMaps } from './utils';
 import type { ILinkFieldTableInfo, ILinkFieldTableMap } from './utils';
@@ -1246,6 +1248,7 @@ export class BaseDuplicateService {
     fromBaseId: string,
     destSpaceId: string
   ): Promise<ICrossSpaceBaseAffectedField[]> {
+    if (isCrossSpaceReferenceAllowed()) return [];
     const prisma = this.prismaService.txClient();
     const tables = await prisma.tableMeta.findMany({
       where: { baseId: fromBaseId, deletedTime: null },
@@ -1309,6 +1312,11 @@ export class BaseDuplicateService {
     tableIdMap: Record<string, string>,
     destSpaceId?: string
   ): Promise<ILinkFieldTableMap> {
+    // destSpaceId narrows the value downgrade to cross-space links; with the
+    // escape hatch on, those keep their link values. The destSpaceId-less
+    // branch is the user-chosen "drop cross-base links" duplicate option and
+    // must keep downgrading regardless of the flag.
+    if (destSpaceId && isCrossSpaceReferenceAllowed()) return {};
     const tableId2DbFieldNameMap: ILinkFieldTableMap = {};
     const prisma = this.prismaService.txClient();
     const allFieldRaws = await prisma.field.findMany({
@@ -1360,6 +1368,8 @@ export class BaseDuplicateService {
     tableIdMap: Record<string, string>,
     destSpaceId?: string
   ): Promise<ILinkFieldTableMap> {
+    // Same contract as getCrossBaseLinkFieldTableMap above.
+    if (destSpaceId && isCrossSpaceReferenceAllowed()) return {};
     const linkFields = (await this.findV2DuplicateLinkFields(Object.keys(tableIdMap))).filter(
       (field) => this.parseLinkFieldOptions(field.options)?.baseId
     );
@@ -1720,30 +1730,35 @@ export class BaseDuplicateService {
     crossBaseLinkInfo: ILinkFieldTableInfo[],
     internalLinkInfo: V2InternalLinkFieldTableInfo[] = []
   ): AsyncGenerator<Record<string, unknown>> {
-    const dataKnex = await this.dataDbClientManager.dataKnexForBase(sourceBaseId, {
-      useTransaction: true,
-    });
     let lastAutoNumber = 0;
 
     while (true) {
-      const rows = await dataKnex<Record<string, unknown>>(sourceDbTableName)
-        .select('*')
-        .where('__auto_number', '>', lastAutoNumber)
-        .orderBy('__auto_number', 'asc')
-        .limit(v2DuplicateReadBatchSize);
+      const { rows, normalizedRows } = await this.dataDbClientManager.withDataKnexConnectionForBase(
+        sourceBaseId,
+        async (dataKnex, connection) => {
+          const rows = await dataKnex<Record<string, unknown>>(sourceDbTableName)
+            .connection(connection)
+            .select('*')
+            .where('__auto_number', '>', lastAutoNumber)
+            .orderBy('__auto_number', 'asc')
+            .limit(v2DuplicateReadBatchSize);
+          const sourceRecordIds = rows.flatMap((row) =>
+            typeof row.__id === 'string' ? [row.__id] : []
+          );
+          const normalizedRows = await this.normalizeInternalLinkColumns(
+            dataKnex,
+            connection,
+            rows.map((row) => this.normalizeCrossBaseLinkColumns(row, crossBaseLinkInfo)),
+            sourceRecordIds,
+            internalLinkInfo
+          );
+          return { rows, normalizedRows };
+        },
+        { useTransaction: true }
+      );
       if (!rows.length) {
         return;
       }
-
-      const sourceRecordIds = rows.flatMap((row) =>
-        typeof row.__id === 'string' ? [row.__id] : []
-      );
-      const normalizedRows = await this.normalizeInternalLinkColumns(
-        dataKnex,
-        rows.map((row) => this.normalizeCrossBaseLinkColumns(row, crossBaseLinkInfo)),
-        sourceRecordIds,
-        internalLinkInfo
-      );
 
       for (const row of normalizedRows) {
         yield row;
@@ -1775,6 +1790,7 @@ export class BaseDuplicateService {
 
   private async normalizeInternalLinkColumns(
     dataKnex: Knex,
+    connection: PoolClient,
     rows: Record<string, unknown>[],
     sourceRecordIds: string[],
     internalLinkInfo: V2InternalLinkFieldTableInfo[]
@@ -1797,7 +1813,12 @@ export class BaseDuplicateService {
     }
 
     for (const info of internalLinkInfo) {
-      const relations = await this.findV2InternalLinkRelations(dataKnex, sourceRecordIds, info);
+      const relations = await this.findV2InternalLinkRelations(
+        dataKnex,
+        connection,
+        sourceRecordIds,
+        info
+      );
       for (const [sourceRecordId, linkItems] of relations) {
         const row = rowsById.get(sourceRecordId);
         if (!row) continue;
@@ -1814,18 +1835,19 @@ export class BaseDuplicateService {
 
   private async findV2InternalLinkRelations(
     dataKnex: Knex,
+    connection: PoolClient,
     sourceRecordIds: string[],
     info: V2InternalLinkFieldTableInfo
   ): Promise<Map<string, V2LinkCellItem[]>> {
     if (info.relationship === 'manyMany' || (info.relationship === 'oneMany' && info.isOneWay)) {
-      return this.findV2JunctionLinkRelations(dataKnex, sourceRecordIds, info);
+      return this.findV2JunctionLinkRelations(dataKnex, connection, sourceRecordIds, info);
     }
 
     if (
       (info.relationship === 'manyOne' || info.relationship === 'oneOne') &&
       info.foreignKeyName !== '__id'
     ) {
-      return this.findV2CurrentTableFkLinkRelations(dataKnex, sourceRecordIds, info);
+      return this.findV2CurrentTableFkLinkRelations(dataKnex, connection, sourceRecordIds, info);
     }
 
     if (
@@ -1833,7 +1855,7 @@ export class BaseDuplicateService {
       ((info.relationship === 'manyOne' || info.relationship === 'oneOne') &&
         info.foreignKeyName === '__id')
     ) {
-      return this.findV2ForeignTableFkLinkRelations(dataKnex, sourceRecordIds, info);
+      return this.findV2ForeignTableFkLinkRelations(dataKnex, connection, sourceRecordIds, info);
     }
 
     return new Map();
@@ -1841,10 +1863,12 @@ export class BaseDuplicateService {
 
   private async findV2JunctionLinkRelations(
     dataKnex: Knex,
+    connection: PoolClient,
     sourceRecordIds: string[],
     info: V2InternalLinkFieldTableInfo
   ): Promise<Map<string, V2LinkCellItem[]>> {
     const relationRows = await dataKnex(info.fkHostTableName)
+      .connection(connection)
       .select({
         sourceRecordId: info.selfKeyName,
         foreignRecordId: info.foreignKeyName,
@@ -1857,10 +1881,12 @@ export class BaseDuplicateService {
 
   private async findV2CurrentTableFkLinkRelations(
     dataKnex: Knex,
+    connection: PoolClient,
     sourceRecordIds: string[],
     info: V2InternalLinkFieldTableInfo
   ): Promise<Map<string, V2LinkCellItem[]>> {
     const relationRows = await dataKnex(info.fkHostTableName)
+      .connection(connection)
       .select({
         sourceRecordId: info.selfKeyName,
         foreignRecordId: info.foreignKeyName,
@@ -1873,10 +1899,12 @@ export class BaseDuplicateService {
 
   private async findV2ForeignTableFkLinkRelations(
     dataKnex: Knex,
+    connection: PoolClient,
     sourceRecordIds: string[],
     info: V2InternalLinkFieldTableInfo
   ): Promise<Map<string, V2LinkCellItem[]>> {
     const query = dataKnex(info.fkHostTableName)
+      .connection(connection)
       .select({
         sourceRecordId: info.selfKeyName,
         foreignRecordId: info.foreignKeyName,

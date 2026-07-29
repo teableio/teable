@@ -228,13 +228,15 @@ const resolveSearchAccessPath = (
   fallbackReason?: string;
   languageConfig?: string;
   generatedColumnName?: string;
+  indexProvider?: 'pg_trgm' | 'pg_bigm';
 } => {
   if (!visibleRowSearch) {
     return {
       accessPath: 'none',
       searchMode: 'none',
       searchScope: 'none',
-      ...(query.recordSearchAccessPath?.kind === 'generated_tsvector'
+      ...(query.recordSearchAccessPath?.kind === 'generated_tsvector' ||
+      query.recordSearchAccessPath?.kind === 'generated_text'
         ? { fallbackReason: 'no_visible_row_search' }
         : {}),
     };
@@ -243,6 +245,29 @@ const resolveSearchAccessPath = (
   const searchScope = visibleRowSearch.search.searchesAllFields()
     ? 'all_fields'
     : 'selected_fields';
+  if (query.recordSearchAccessPath?.kind === 'generated_text') {
+    if (resolution?.used === 'default') {
+      return {
+        accessPath: 'fallback',
+        searchMode: 'ilike',
+        searchScope,
+        fallbackReason: resolution.fallbackReason ?? 'generated_text_unavailable',
+      };
+    }
+    if (resolution?.used !== 'generated_text') {
+      return { accessPath: 'none', searchMode: 'none', searchScope };
+    }
+    return {
+      accessPath:
+        query.recordSearchAccessPath.provider === 'pg_bigm'
+          ? 'generated_text_bigram'
+          : 'generated_text_trigram',
+      searchMode: 'substring',
+      searchScope,
+      generatedColumnName: query.recordSearchAccessPath.generatedColumnName,
+      indexProvider: query.recordSearchAccessPath.provider,
+    };
+  }
   if (query.recordSearchAccessPath?.kind === 'generated_tsvector') {
     if (resolution?.used === 'default') {
       return {
@@ -305,6 +330,7 @@ const createListRecordsObservabilityEvent = (
     languageConfig: searchPath.languageConfig,
     fallbackReason: searchPath.fallbackReason,
     generatedColumnName: searchPath.generatedColumnName,
+    indexProvider: searchPath.indexProvider,
     resultCount: input?.resultCount,
     errorKind: input?.errorKind,
     durationMs: input?.durationMs,

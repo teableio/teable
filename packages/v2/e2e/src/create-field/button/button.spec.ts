@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import { sql } from 'kysely';
 import { beforeAll, describe, expect, test } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from '../../shared/globalTestContext';
 
@@ -11,6 +12,53 @@ describe('create-field: button v1 parity', () => {
   beforeAll(async () => {
     ctx = await getSharedTestContext();
   });
+
+  const getButtonStorage = async (tableId: string, fieldId: string) => {
+    const fieldResult = await sql<{ db_field_name: string | null; db_field_type: string | null }>`
+      SELECT "db_field_name", "db_field_type"
+      FROM "field"
+      WHERE "id" = ${fieldId}
+    `.execute(ctx.testContainer.db);
+    const field = fieldResult.rows.at(0);
+    if (!field?.db_field_name || !field.db_field_type) {
+      throw new Error(`Missing button storage metadata for ${fieldId}`);
+    }
+
+    return {
+      dbFieldName: field.db_field_name,
+      dbFieldType: field.db_field_type,
+      tableName: `${ctx.baseId}.${tableId}`,
+    };
+  };
+
+  const setButtonValue = async (tableId: string, fieldId: string, recordId: string) => {
+    const storage = await getButtonStorage(tableId, fieldId);
+    const value = JSON.stringify({ count: 3 });
+    if (storage.dbFieldType === 'JSON') {
+      await sql`
+        UPDATE ${sql.table(storage.tableName)}
+        SET ${sql.ref(storage.dbFieldName)} = ${value}::jsonb
+        WHERE "__id" = ${recordId}
+      `.execute(ctx.testContainer.db);
+    } else {
+      await sql`
+        UPDATE ${sql.table(storage.tableName)}
+        SET ${sql.ref(storage.dbFieldName)} = ${value}
+        WHERE "__id" = ${recordId}
+      `.execute(ctx.testContainer.db);
+    }
+  };
+
+  const getButtonValue = async (tableId: string, fieldId: string, recordId: string) => {
+    const storage = await getButtonStorage(tableId, fieldId);
+    const result = await sql<{ value: unknown }>`
+      SELECT ${sql.ref(storage.dbFieldName)} AS "value"
+      FROM ${sql.table(storage.tableName)}
+      WHERE "__id" = ${recordId}
+    `.execute(ctx.testContainer.db);
+    const value = result.rows.at(0)?.value;
+    return typeof value === 'string' ? JSON.parse(value) : value;
+  };
 
   test('button field resetCount=true is persisted in field options', async () => {
     let tableId: string | undefined;
@@ -149,6 +197,72 @@ describe('create-field: button v1 parity', () => {
         description: '123',
         confirmText: 'Y',
       });
+    } finally {
+      if (tableId) await ctx.deleteTable(tableId).catch(() => undefined);
+    }
+  });
+
+  test('button display and confirmation updates preserve click counts', async () => {
+    let tableId: string | undefined;
+
+    try {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: nextName('v2-update-button-metadata'),
+        fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+      });
+      tableId = table.id;
+
+      const withButton = await ctx.createField({
+        baseId: ctx.baseId,
+        tableId,
+        field: {
+          type: 'button',
+          name: 'Button',
+          options: {
+            label: 'Run',
+            color: 'teal',
+            maxCount: 5,
+            resetCount: false,
+            workflow: {
+              id: 'wflButtonMetadataTest',
+              name: 'Workflow',
+              isActive: true,
+            },
+          },
+        },
+      });
+      const buttonField = withButton.fields.find((field) => field.name === 'Button');
+      if (!buttonField) throw new Error('Missing button field');
+
+      const record = await ctx.createRecord(table.id, {});
+      await setButtonValue(table.id, buttonField.id, record.id);
+
+      await ctx.updateField({
+        tableId: table.id,
+        fieldId: buttonField.id,
+        field: {
+          type: 'button',
+          options: {
+            label: 'Launch',
+            color: 'blue',
+            maxCount: 8,
+            resetCount: true,
+            workflow: {
+              id: 'wflButtonMetadataTest',
+              name: 'Renamed workflow',
+              isActive: false,
+            },
+            confirm: {
+              title: 'Confirm launch',
+              description: 'Launch now?',
+              confirmText: 'Launch',
+            },
+          },
+        },
+      });
+
+      expect(await getButtonValue(table.id, buttonField.id, record.id)).toEqual({ count: 3 });
     } finally {
       if (tableId) await ctx.deleteTable(tableId).catch(() => undefined);
     }

@@ -44,44 +44,79 @@ export interface TableQueryOpsAnalyzeObservationInput {
   readonly ensureSchema?: boolean;
 }
 
-export interface TableQueryOpsAnalyzeSearchVectorsInput extends TableQueryOpsScopeInput {
+export type TableQueryOpsSearchAccessPathProvider = 'auto' | 'pg_bigm' | 'pg_trgm';
+
+export type TableQueryOpsSearchProbeSource =
+  | 'manual'
+  | 'field_value'
+  | 'select_option'
+  | 'observed_search';
+
+export interface TableQueryOpsAnalyzeSearchAccessPathsInput extends TableQueryOpsScopeInput {
   readonly limit?: number;
   readonly fieldIds?: readonly string[];
-  readonly languageConfig?: string;
+  readonly provider?: TableQueryOpsSearchAccessPathProvider;
   readonly sampleSearch?: string;
+  readonly probeSource?: TableQueryOpsSearchProbeSource;
   readonly includeResultSamples?: boolean;
   readonly sampleResultLimit?: number;
   readonly maxRecommendations?: number;
   readonly ensureSchema?: boolean;
 }
 
-export interface TableQueryOpsExecuteSearchVectorInput extends TableQueryOpsScopeInput {
+export interface TableQueryOpsExecuteSearchAccessPathInput extends TableQueryOpsScopeInput {
   readonly mode?: 'create' | 'rebuild';
   readonly fieldIds?: readonly string[];
-  readonly languageConfig?: string;
+  readonly provider?: TableQueryOpsSearchAccessPathProvider;
   readonly sampleSearch?: string;
+  readonly probeSource?: TableQueryOpsSearchProbeSource;
   readonly validationMode?: 'plan' | 'real_ddl';
   readonly execute?: boolean;
   readonly allowLargeTableRewrite?: boolean;
   readonly ensureSchema?: boolean;
 }
 
-export interface TableQueryOpsValidateSearchVectorTempTableInput extends TableQueryOpsScopeInput {
+export interface TableQueryOpsValidateSearchAccessPathTempTableInput
+  extends TableQueryOpsScopeInput {
   readonly connection?: string;
   readonly fieldIds?: readonly string[];
-  readonly languageConfig?: string;
+  readonly provider?: TableQueryOpsSearchAccessPathProvider;
   readonly sampleSearches: readonly string[];
+  readonly probeSource?: TableQueryOpsSearchProbeSource;
   readonly queryLimit?: number;
   readonly rowLimit?: number;
+  readonly repetitions?: number;
   readonly keepTempTable?: boolean;
   readonly ensureSchema?: boolean;
 }
 
-export interface TableQueryOpsSearchVectorTempTableValidationScope
-  extends Omit<TableQueryOpsValidateSearchVectorTempTableInput, 'sampleSearches'> {
+export interface TableQueryOpsSearchAccessPathTempTableValidationScope
+  extends Omit<TableQueryOpsValidateSearchAccessPathTempTableInput, 'sampleSearches'> {
   readonly sampleSearchCount: number;
   readonly sampleSearchLengthBuckets: readonly ('none' | 'short' | 'medium' | 'long')[];
 }
+
+/** @deprecated Use TableQueryOpsAnalyzeSearchAccessPathsInput. */
+export interface TableQueryOpsAnalyzeSearchVectorsInput
+  extends TableQueryOpsAnalyzeSearchAccessPathsInput {
+  readonly languageConfig?: string;
+}
+
+/** @deprecated Use TableQueryOpsExecuteSearchAccessPathInput. */
+export interface TableQueryOpsExecuteSearchVectorInput
+  extends TableQueryOpsExecuteSearchAccessPathInput {
+  readonly languageConfig?: string;
+}
+
+/** @deprecated Use TableQueryOpsValidateSearchAccessPathTempTableInput. */
+export interface TableQueryOpsValidateSearchVectorTempTableInput
+  extends TableQueryOpsValidateSearchAccessPathTempTableInput {
+  readonly languageConfig?: string;
+}
+
+/** @deprecated Use TableQueryOpsSearchAccessPathTempTableValidationScope. */
+export type TableQueryOpsSearchVectorTempTableValidationScope =
+  TableQueryOpsSearchAccessPathTempTableValidationScope;
 
 export interface TableQueryOpsSummary {
   readonly enabled: boolean;
@@ -515,6 +550,7 @@ export interface TableQueryOpsExplainSavedViewsResult {
 
 export interface TableQueryOpsSearchVectorFieldSummary {
   readonly fieldId: string;
+  readonly fieldName?: string;
   readonly fieldDbName?: string;
   readonly fieldType: string;
   readonly valueType?: string;
@@ -522,15 +558,44 @@ export interface TableQueryOpsSearchVectorFieldSummary {
   readonly skippedReason?: string;
 }
 
-export interface TableQueryOpsSearchVectorRecommendationSummary {
+export interface TableQueryOpsSearchScopeIdentity {
+  readonly table: { readonly id: string; readonly name: string };
+  readonly base: { readonly id: string; readonly name: string };
+  readonly space: { readonly id: string; readonly name: string };
+}
+
+export interface TableQueryOpsSearchProviderCapabilitySummary {
+  readonly provider: 'pg_bigm' | 'pg_trgm';
+  readonly extensionName: 'pg_bigm' | 'pg_trgm';
+  readonly operatorClass: 'gin_bigm_ops' | 'gin_trgm_ops';
+  readonly minimumProbeLength: number;
+  readonly state:
+    | 'ready'
+    | 'requires_database_extension'
+    | 'requires_cluster_restart'
+    | 'unavailable';
+  readonly installed: boolean;
+  readonly available: boolean;
+  readonly preloaded: boolean;
+  readonly reason?: string;
+}
+
+export interface TableQueryOpsSearchAccessPathRecommendationSummary {
   readonly candidateKey: string;
   readonly tableId: string;
   readonly baseId: string;
+  readonly identity: TableQueryOpsSearchScopeIdentity;
+  readonly semantics: 'substring';
+  readonly provider: 'pg_bigm' | 'pg_trgm';
+  readonly providerCapability: TableQueryOpsSearchProviderCapabilitySummary;
+  readonly providerCapabilities: readonly TableQueryOpsSearchProviderCapabilitySummary[];
   readonly generatedColumnName: string;
+  readonly generatedTextColumnName: string;
   readonly indexName: string;
-  readonly indexKind: 'gin_tsvector';
-  readonly accessPath: 'generated_tsvector';
-  readonly languageConfig: string;
+  readonly indexKind: 'gin_bigm' | 'gin_trgm';
+  readonly accessPath: 'generated_text';
+  readonly operatorClass: 'gin_bigm_ops' | 'gin_trgm_ops';
+  readonly minimumProbeLength: number;
   readonly searchScope: 'selected_fields' | 'all_fields';
   readonly coveredFields: readonly TableQueryOpsSearchVectorFieldSummary[];
   readonly skippedFields: readonly TableQueryOpsSearchVectorFieldSummary[];
@@ -569,10 +634,14 @@ export interface TableQueryOpsSearchVectorRecommendationSummary {
   readonly nextAction: TableQueryOpsIndexNextAction;
 }
 
+/** @deprecated Use TableQueryOpsSearchAccessPathRecommendationSummary. */
+export type TableQueryOpsSearchVectorRecommendationSummary =
+  TableQueryOpsSearchAccessPathRecommendationSummary;
+
 export interface TableQueryOpsSearchScopeHeatEntrySummary {
   readonly scopeKey: string;
   readonly searchedFieldIds: readonly string[];
-  readonly searchMode: 'ilike' | 'trigram' | 'full_text';
+  readonly searchMode: 'ilike' | 'substring' | 'trigram' | 'full_text';
   readonly languageConfig?: string;
   readonly requestCount: number;
   readonly slowCount: number;
@@ -598,9 +667,12 @@ export interface TableQueryOpsScopedSearchIndexRecommendationSummary {
   readonly tableId: string;
   readonly baseId: string;
   readonly indexName: string;
-  readonly indexKind: 'gin_tsvector_expression';
+  readonly indexKind: 'gin_bigm_expression' | 'gin_trgm_expression';
   readonly accessPath: 'scoped_expression_gin';
-  readonly languageConfig: string;
+  readonly semantics: 'substring';
+  readonly provider: 'pg_bigm' | 'pg_trgm';
+  readonly operatorClass: 'gin_bigm_ops' | 'gin_trgm_ops';
+  readonly minimumProbeLength: number;
   readonly searchedFieldIds: readonly string[];
   readonly coveredFields: readonly TableQueryOpsSearchVectorFieldSummary[];
   readonly scopeHeat: TableQueryOpsSearchScopeHeatEntrySummary;
@@ -610,6 +682,7 @@ export interface TableQueryOpsScopedSearchIndexRecommendationSummary {
 
 export type TableQueryOpsSearchSemanticsStrategy =
   | 'ilike'
+  | 'bigram'
   | 'trigram'
   | 'tsvector_simple'
   | 'tsvector_english'
@@ -642,6 +715,7 @@ export interface TableQueryOpsSearchSemanticsComparisonSummary {
   readonly languageConfig?: string;
   readonly indexSupport:
     | 'none'
+    | 'generated_text_gin'
     | 'existing_or_manual_trigram'
     | 'generated_tsvector_gin'
     | 'extension_required';
@@ -686,14 +760,19 @@ export interface TableQueryOpsSearchSemanticsReportSummary {
   };
 }
 
-export interface TableQueryOpsAnalyzeSearchVectorsResult {
-  readonly scope: TableQueryOpsAnalyzeSearchVectorsInput;
+export interface TableQueryOpsAnalyzeSearchAccessPathsResult {
+  readonly scope: TableQueryOpsAnalyzeSearchAccessPathsInput;
+  readonly semantics: 'substring';
+  readonly requestedProvider: TableQueryOpsSearchAccessPathProvider;
+  readonly selectedProvider?: 'pg_bigm' | 'pg_trgm';
+  readonly providerCapabilities: readonly TableQueryOpsSearchProviderCapabilitySummary[];
+  readonly probeSource: TableQueryOpsSearchProbeSource;
   readonly tableCount: number;
   readonly searchProbeLengthBucket: 'none' | 'short' | 'medium' | 'long';
   readonly scannedFieldCount: number;
   readonly coveredFieldCount: number;
   readonly skippedFieldCount: number;
-  readonly recommendations: readonly TableQueryOpsSearchVectorRecommendationSummary[];
+  readonly recommendations: readonly TableQueryOpsSearchAccessPathRecommendationSummary[];
   readonly scopeHeatReports: readonly TableQueryOpsSearchScopeHeatReportSummary[];
   readonly scopedExpressionRecommendations: readonly TableQueryOpsScopedSearchIndexRecommendationSummary[];
   readonly coverageReport: {
@@ -704,21 +783,43 @@ export interface TableQueryOpsAnalyzeSearchVectorsResult {
   };
 }
 
-export interface TableQueryOpsExecuteSearchVectorResult {
-  readonly scope: TableQueryOpsExecuteSearchVectorInput;
+/** @deprecated Use TableQueryOpsAnalyzeSearchAccessPathsResult. */
+export type TableQueryOpsAnalyzeSearchVectorsResult = TableQueryOpsAnalyzeSearchAccessPathsResult;
+
+export interface TableQueryOpsExecuteSearchAccessPathResult {
+  readonly scope: TableQueryOpsExecuteSearchAccessPathInput;
   readonly dryRun: boolean;
   readonly action: 'dry_run' | 'executed' | 'failed';
   readonly result?: unknown;
   readonly error?: string;
 }
 
-export interface TableQueryOpsSearchVectorTempTableValidationResult {
-  readonly scope: TableQueryOpsSearchVectorTempTableValidationScope;
+/** @deprecated Use TableQueryOpsExecuteSearchAccessPathResult. */
+export type TableQueryOpsExecuteSearchVectorResult = TableQueryOpsExecuteSearchAccessPathResult;
+
+export interface TableQueryOpsSearchTimingSummary {
+  readonly runsMs: readonly number[];
+  readonly minMs: number;
+  readonly medianMs: number;
+  readonly p95Ms: number;
+  readonly maxMs: number;
+  readonly averageMs: number;
+}
+
+export interface TableQueryOpsSearchAccessPathTempTableValidationResult {
+  readonly scope: TableQueryOpsSearchAccessPathTempTableValidationScope;
+  readonly identity: TableQueryOpsSearchScopeIdentity;
   readonly tableId: string;
   readonly baseId: string;
-  readonly languageConfig: string;
+  readonly spaceId: string;
+  readonly semantics: 'substring';
+  readonly provider: 'pg_bigm' | 'pg_trgm';
+  readonly providerCapability: TableQueryOpsSearchProviderCapabilitySummary;
+  readonly operatorClass: 'gin_bigm_ops' | 'gin_trgm_ops';
+  readonly probeSource: TableQueryOpsSearchProbeSource;
   readonly candidateKey: string;
   readonly generatedColumnName: string;
+  readonly generatedTextColumnName: string;
   readonly recommendedIndexName: string;
   readonly tempIndexName: string;
   readonly tempTable: {
@@ -734,22 +835,26 @@ export interface TableQueryOpsSearchVectorTempTableValidationResult {
   readonly skippedFields: readonly TableQueryOpsSearchVectorFieldSummary[];
   readonly samples: readonly {
     readonly searchProbeLengthBucket: 'none' | 'short' | 'medium' | 'long';
-    readonly defaultPath: {
+    readonly probeSource: TableQueryOpsSearchProbeSource;
+    readonly legacyIlikePath: {
       readonly durationMs: number;
+      readonly timing: TableQueryOpsSearchTimingSummary;
       readonly total: number;
       readonly returnedCount: number;
       readonly recordIds: readonly string[];
     };
-    readonly generatedTsvectorPath: {
+    readonly optimizedGeneratedTextPath: {
       readonly durationMs: number;
+      readonly timing: TableQueryOpsSearchTimingSummary;
       readonly total: number;
       readonly returnedCount: number;
       readonly recordIds: readonly string[];
     };
-    readonly totalDeltaFromDefault: number;
-    readonly totalDeltaPctFromDefault: number;
-    readonly durationDeltaPctFromDefault: number;
-    readonly sampleOverlapWithDefault: number;
+    readonly exactResultMatch: boolean;
+    readonly missingFromOptimized: readonly string[];
+    readonly unexpectedFromOptimized: readonly string[];
+    readonly totalDeltaFromLegacy: number;
+    readonly durationDeltaPctFromLegacy: number;
     readonly planEvidence: {
       readonly explainStatus: 'validated' | 'failed';
       readonly costBefore?: number;
@@ -763,25 +868,23 @@ export interface TableQueryOpsSearchVectorTempTableValidationResult {
       readonly indexName: string;
       readonly error?: string;
     };
-    readonly llmReasonableness:
-      | 'reasonable'
-      | 'semantic_drift'
-      | 'needs_language_config'
-      | 'manual_review';
   }[];
   readonly summary: {
     readonly sampleCount: number;
     readonly ginValidatedSampleCount: number;
     readonly allSelectiveSamplesUsedGinIndex: boolean;
     readonly allSamplesImprovedDuration: boolean;
-    readonly hasMaterialSemanticDrift: boolean;
+    readonly allResultsExactlyMatch: boolean;
     readonly nextAction:
       | 'ready_for_confirmation'
-      | 'needs_language_config'
       | 'needs_plan_validation'
       | 'manual_investigation';
   };
 }
+
+/** @deprecated Use TableQueryOpsSearchAccessPathTempTableValidationResult. */
+export type TableQueryOpsSearchVectorTempTableValidationResult =
+  TableQueryOpsSearchAccessPathTempTableValidationResult;
 
 export interface TableQueryOpsObservabilitySchemaResult {
   readonly spans: readonly {
@@ -837,18 +940,34 @@ export class TableQueryOps extends Context.Tag('TableQueryOps')<
     readonly explainSavedViews: (
       input: TableQueryOpsExplainSavedViewsInput
     ) => Effect.Effect<TableQueryOpsExplainSavedViewsResult, CliError>;
+    readonly analyzeSearchAccessPaths: (
+      input: TableQueryOpsAnalyzeSearchAccessPathsInput
+    ) => Effect.Effect<TableQueryOpsAnalyzeSearchAccessPathsResult, CliError>;
+    readonly explainSearchAccessPaths: (
+      input: TableQueryOpsAnalyzeSearchAccessPathsInput
+    ) => Effect.Effect<TableQueryOpsAnalyzeSearchAccessPathsResult, CliError>;
+    readonly executeSearchAccessPath: (
+      input: TableQueryOpsExecuteSearchAccessPathInput
+    ) => Effect.Effect<TableQueryOpsExecuteSearchAccessPathResult, CliError>;
+    readonly validateSearchAccessPathTempTable: (
+      input: TableQueryOpsValidateSearchAccessPathTempTableInput
+    ) => Effect.Effect<TableQueryOpsSearchAccessPathTempTableValidationResult, CliError>;
+    /** @deprecated Use analyzeSearchAccessPaths. */
     readonly analyzeSearchVectors: (
       input: TableQueryOpsAnalyzeSearchVectorsInput
-    ) => Effect.Effect<TableQueryOpsAnalyzeSearchVectorsResult, CliError>;
+    ) => Effect.Effect<TableQueryOpsAnalyzeSearchAccessPathsResult, CliError>;
+    /** @deprecated Use explainSearchAccessPaths. */
     readonly explainSearchVectors: (
       input: TableQueryOpsAnalyzeSearchVectorsInput
-    ) => Effect.Effect<TableQueryOpsAnalyzeSearchVectorsResult, CliError>;
+    ) => Effect.Effect<TableQueryOpsAnalyzeSearchAccessPathsResult, CliError>;
+    /** @deprecated Use executeSearchAccessPath. */
     readonly executeSearchVector: (
       input: TableQueryOpsExecuteSearchVectorInput
-    ) => Effect.Effect<TableQueryOpsExecuteSearchVectorResult, CliError>;
+    ) => Effect.Effect<TableQueryOpsExecuteSearchAccessPathResult, CliError>;
+    /** @deprecated Use validateSearchAccessPathTempTable. */
     readonly validateSearchVectorTempTable: (
       input: TableQueryOpsValidateSearchVectorTempTableInput
-    ) => Effect.Effect<TableQueryOpsSearchVectorTempTableValidationResult, CliError>;
+    ) => Effect.Effect<TableQueryOpsSearchAccessPathTempTableValidationResult, CliError>;
     readonly analyzeObservation: (
       input: TableQueryOpsAnalyzeObservationInput
     ) => Effect.Effect<TableQueryOpsAnalyzeObservationResult, CliError>;

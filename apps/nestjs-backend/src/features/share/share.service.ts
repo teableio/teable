@@ -60,6 +60,27 @@ export interface IJwtShareInfo {
   password: string;
 }
 
+const resolveShareRecordProjection = (
+  fields: IFieldVo[],
+  requestedProjection: string[] | undefined,
+  keepPrimary: boolean
+): string[] => {
+  const allFieldIds = fields.map((field) => field.id);
+  if (!requestedProjection?.length) return allFieldIds;
+
+  const requestedFieldIds = new Set(requestedProjection);
+  const requestedFields = fields.filter((field) => requestedFieldIds.has(field.id));
+
+  // An empty projection means "all fields" downstream, so preserve the bounded
+  // share scope when the client requested only hidden or otherwise unreadable fields.
+  if (!requestedFields.length) return allFieldIds;
+  if (!keepPrimary) return requestedFields.map((field) => field.id);
+
+  return fields
+    .filter((field) => field.isPrimary || requestedFieldIds.has(field.id))
+    .map((field) => field.id);
+};
+
 @Injectable()
 export class ShareService {
   constructor(
@@ -247,18 +268,14 @@ export class ShareService {
     const { filterByViewId, filter: linkFilter } = linkOptions ?? {};
     const viewId = filterByViewId ?? id;
 
-    // A client-supplied projection must never widen the share's field scope:
-    // intersect it with the visible fields so a crafted projection cannot read
-    // hidden columns (the default projection already lists only visible fields).
-    const shareVisibleFieldIds = await this.getShareVisibleFieldIds(shareInfo);
-    const visibleFieldIdSet = new Set(shareVisibleFieldIds);
-    const requestedFieldIds = query?.projection?.length
-      ? query.projection.filter((fieldId) => visibleFieldIdSet.has(fieldId))
-      : shareVisibleFieldIds;
-    // Fall back to the full visible set when a (crafted) projection requested
-    // only hidden fields: an empty projection is read downstream as "all
-    // fields", which would leak every column.
-    const projection = requestedFieldIds.length ? requestedFieldIds : shareVisibleFieldIds;
+    // Bound client projections to the share scope. Link shares additionally keep
+    // their primary field implicit even when visibleFieldIds is sent explicitly.
+    const shareVisibleFields = await this.getShareVisibleFields(shareInfo);
+    const projection = resolveShareRecordProjection(
+      shareVisibleFields,
+      query?.projection,
+      Boolean(linkOptions)
+    );
 
     // Queries that load already-linked records (filterLinkCellSelected or explicit
     // selectedRecordIds) must return them in full, even when they fall outside the link
@@ -345,7 +362,7 @@ export class ShareService {
   // Used to bound any client-supplied projection so hidden columns never leak —
   // the share context carries no authority matrix, so this is the only column
   // guard for the records/calendar read paths.
-  private async getShareVisibleFieldIds(shareInfo: IShareViewInfo): Promise<string[]> {
+  private async getShareVisibleFields(shareInfo: IShareViewInfo): Promise<IFieldVo[]> {
     const { tableId, view, linkOptions, shareMeta } = shareInfo;
     const { filterByViewId, visibleFieldIds } = linkOptions ?? {};
     const viewId = filterByViewId ?? view?.id;
@@ -353,10 +370,13 @@ export class ShareService {
       viewId,
       filterHidden: Boolean(filterByViewId) || !shareMeta?.includeHiddenField,
     });
-    const filtered = visibleFieldIds?.length
+    return visibleFieldIds?.length
       ? fields.filter((f) => visibleFieldIds.includes(f.id) || f.isPrimary)
       : fields;
-    return filtered.map((f) => f.id);
+  }
+
+  private async getShareVisibleFieldIds(shareInfo: IShareViewInfo): Promise<string[]> {
+    return (await this.getShareVisibleFields(shareInfo)).map((field) => field.id);
   }
 
   private preCheckFieldHidden(view: IViewVo, fieldId: string) {

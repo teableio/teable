@@ -3,6 +3,7 @@ import { createTableOkResponseSchema } from '@teable/v2-contract-http';
 import { createV2HttpClient } from '@teable/v2-contract-http-client';
 import type { ICreateTableCommandInput } from '@teable/v2-core';
 import { createAllFieldTypesFields, tableTemplates } from '@teable/v2-table-templates';
+import { sql } from 'kysely';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
@@ -600,6 +601,89 @@ describe('v2 http createTable (e2e)', () => {
   });
 
   describe('link fields', () => {
+    it('creates unique symmetric fields for multiple links to the same table', async () => {
+      const foreignTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: 'Reference Items',
+        fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+      });
+      const foreignPrimaryField = foreignTable.fields.find((field) => field.isPrimary);
+      expect(foreignPrimaryField).toBeDefined();
+      if (!foreignPrimaryField) return;
+
+      const firstLinkFieldId = createFieldId();
+      const secondLinkFieldId = createFieldId();
+      const response = await fetch(`${ctx.baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId: ctx.baseId,
+          name: 'Assignments',
+          fields: [
+            { type: 'singleLineText', name: 'Name', isPrimary: true },
+            {
+              type: 'link',
+              id: firstLinkFieldId,
+              name: 'Primary Reference',
+              options: {
+                relationship: 'manyMany',
+                foreignTableId: foreignTable.id,
+                lookupFieldId: foreignPrimaryField.id,
+              },
+            },
+            {
+              type: 'link',
+              id: secondLinkFieldId,
+              name: 'Secondary Reference',
+              options: {
+                relationship: 'manyMany',
+                foreignTableId: foreignTable.id,
+                lookupFieldId: foreignPrimaryField.id,
+              },
+            },
+          ],
+        } satisfies ICreateTableCommandInput),
+      });
+
+      expect(response.status).toBe(201);
+      const parsed = createTableOkResponseSchema.safeParse(await response.json());
+      expect(parsed.success).toBe(true);
+      if (!parsed.success || !parsed.data.ok) return;
+
+      const updatedForeignTable = await ctx.getTableById(foreignTable.id);
+      const symmetricFields = updatedForeignTable.fields.filter(
+        (field) =>
+          field.type === 'link' &&
+          (field.options.symmetricFieldId === firstLinkFieldId ||
+            field.options.symmetricFieldId === secondLinkFieldId)
+      );
+      expect(symmetricFields).toHaveLength(2);
+      expect(new Set(symmetricFields.map((field) => field.name)).size).toBe(2);
+
+      const createdLinkFields = parsed.data.data.table.fields.filter(
+        (field) =>
+          field.type === 'link' && (field.id === firstLinkFieldId || field.id === secondLinkFieldId)
+      );
+      expect(createdLinkFields).toHaveLength(2);
+
+      const junctionTableNames = createdLinkFields.map((field) => {
+        if (field.type !== 'link') return undefined;
+        return field.options.fkHostTableName?.split('.').at(-1);
+      });
+      expect(junctionTableNames.every(Boolean)).toBe(true);
+      expect(new Set(junctionTableNames).size).toBe(2);
+
+      for (const junctionTableName of junctionTableNames) {
+        const physicalTable = await sql<{ table_name: string }>`
+          SELECT table_name
+          FROM information_schema.tables
+          WHERE table_schema = ${ctx.baseId}
+            AND table_name = ${junctionTableName!}
+        `.execute(ctx.testContainer.db);
+        expect(physicalTable.rows).toHaveLength(1);
+      }
+    });
+
     it('creates symmetric link fields for all relationships', async () => {
       const foreignTable = await ctx.createTable({
         baseId: ctx.baseId,

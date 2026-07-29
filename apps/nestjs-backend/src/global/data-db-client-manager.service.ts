@@ -4,10 +4,11 @@ import {
   createScopedDataPrismaClient,
   getMetaDatabaseUrl,
 } from '@teable/db-data-prisma';
-import { PrismaService } from '@teable/db-main-prisma';
+import { PgPoolRegistry, PrismaService } from '@teable/db-main-prisma';
 import createKnex, { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import type { PoolClient } from 'pg';
 import { withDataDbInternalSchemaParam } from '../features/space/data-db-internal-schema';
 import { DataDbMigrationService } from '../features/space/data-db-migration.service';
 import { decryptDataDbUrl } from '../features/space/data-db-url-secret';
@@ -19,7 +20,6 @@ import {
   type ComputedOutboxWakeupCandidateQueryOptions,
 } from './computed-outbox-maintenance-query';
 import {
-  DATA_DB_KNEX_CACHE_NAMESPACE,
   DATA_DB_PRISMA_CACHE_NAMESPACE,
   DataDbRuntimeCacheService,
 } from './data-db-runtime-cache.service';
@@ -99,6 +99,13 @@ export interface IDataDbRoutingOptions {
 
 type IMetaRoutingClient = PrismaService | NonNullable<IClsStore['tx']['client']>;
 
+/**
+ * Missing row and `mode: 'default'` both mean the platform meta DB — unbinding
+ * rewrites `mode` rather than deleting the row. `state` is not consulted.
+ */
+const isBoundToDataDb = <T extends { mode: string }>(binding: T | null): binding is T =>
+  binding !== null && binding.mode !== 'default';
+
 type IResolvedSpaceDataDbRoute =
   | { isMetaFallback: true }
   | { connectionId: string; internalSchema: string; isMetaFallback: false; url: string };
@@ -114,6 +121,7 @@ export class DataDbClientManager {
     private readonly metaFallbackDataPrismaService: DataPrismaService,
     @InjectModel(DATA_KNEX) private readonly metaFallbackDataKnex: Knex,
     private readonly runtimeCache: DataDbRuntimeCacheService,
+    private readonly pgPoolRegistry: PgPoolRegistry,
     @Optional()
     private readonly dataDbMigrationService?: DataDbMigrationService,
     @Optional()
@@ -178,6 +186,29 @@ export class DataDbClientManager {
       throw new Error(`Table ${tableId} not found`);
     }
     return await this.getDataDatabaseForSpace(table.base.spaceId, options);
+  }
+
+  /**
+   * Stops at the binding row: `resolveSpaceDataDb` would migrate the bound
+   * database first, which throws once that database is gone — exactly when a
+   * failed cleanup needs this answer.
+   */
+  async isMetaFallbackForBase(baseId: string, options?: IDataDbRoutingOptions) {
+    const base = await this.getMetaRoutingClient(options).base.findUnique({
+      where: { id: baseId },
+      select: { spaceId: true },
+    });
+    if (!base) {
+      throw new Error(`Base ${baseId} not found`);
+    }
+    return !isBoundToDataDb(await this.findSpaceDataDbBinding(base.spaceId, options));
+  }
+
+  private async findSpaceDataDbBinding(spaceId: string, options?: IDataDbRoutingOptions) {
+    return await this.getMetaRoutingClient(options).spaceDataDbBinding.findUnique({
+      where: { spaceId },
+      include: { dataDbConnection: true },
+    });
   }
 
   async listComputedOutboxMaintenanceTargets(): Promise<
@@ -684,28 +715,32 @@ export class DataDbClientManager {
     return (await this.getDataDatabaseForTable(tableId, options)).url;
   }
 
+  /** Returns a compiler-only Knex handle. Execute queries through withDataKnexConnectionForSpace. */
   async dataKnexForSpace(spaceId: string, options?: IDataDbRoutingOptions) {
+    await this.resolveSpaceDataDb(spaceId, options);
+    return this.metaFallbackDataKnex;
+  }
+
+  async withDataKnexConnectionForSpace<T>(
+    spaceId: string,
+    fn: (knex: Knex, connection: PoolClient) => Promise<T>,
+    options?: IDataDbRoutingOptions
+  ): Promise<T> {
     const resolved = await this.resolveSpaceDataDb(spaceId, options);
-
-    if (resolved.isMetaFallback) {
-      return this.metaFallbackDataKnex;
+    const connectionString = resolved.isMetaFallback ? getMetaDatabaseUrl() : resolved.url;
+    const poolLease = this.pgPoolRegistry.acquire(connectionString, {
+      ...(!resolved.isMetaFallback
+        ? { max: Number(process.env.BYODB_DATA_DB_POOL_MAX ?? 5) }
+        : undefined),
+    });
+    let connection: PoolClient | undefined;
+    try {
+      connection = await poolLease.pool.connect();
+      return await fn(this.metaFallbackDataKnex, connection);
+    } finally {
+      connection?.release();
+      await poolLease.release();
     }
-
-    return await this.runtimeCache.getOrCreate(
-      DATA_DB_KNEX_CACHE_NAMESPACE,
-      resolved.connectionId,
-      () =>
-        createKnex({
-          client: 'pg',
-          connection: resolved.url,
-          searchPath: [resolved.internalSchema],
-          pool: {
-            min: 0,
-            max: Number(process.env.BYODB_DATA_DB_POOL_MAX ?? 5),
-          },
-        }),
-      (client) => client.destroy()
-    );
   }
 
   async dataPrismaForSpace(spaceId: string, options?: IDataDbRoutingOptions) {
@@ -718,11 +753,22 @@ export class DataDbClientManager {
     return await this.runtimeCache.getOrCreate(
       DATA_DB_PRISMA_CACHE_NAMESPACE,
       resolved.connectionId,
-      () => createScopedDataPrismaClient(resolved.url, resolved.internalSchema),
+      async () => {
+        const poolLease = this.pgPoolRegistry.acquire(resolved.url, {
+          max: Number(process.env.BYODB_DATA_DB_POOL_MAX ?? 5),
+        });
+        try {
+          return createScopedDataPrismaClient(poolLease, resolved.internalSchema);
+        } catch (error) {
+          await poolLease.release();
+          throw error;
+        }
+      },
       (client) => client.$disconnect()
     );
   }
 
+  /** Returns a compiler-only Knex handle. Execute queries through withDataKnexConnectionForBase. */
   async dataKnexForBase(baseId: string, options?: IDataDbRoutingOptions) {
     const base = await this.getMetaRoutingClient(options).base.findUnique({
       where: { id: baseId },
@@ -734,6 +780,22 @@ export class DataDbClientManager {
     return await this.dataKnexForSpace(base.spaceId, options);
   }
 
+  async withDataKnexConnectionForBase<T>(
+    baseId: string,
+    fn: (knex: Knex, connection: PoolClient) => Promise<T>,
+    options?: IDataDbRoutingOptions
+  ): Promise<T> {
+    const base = await this.getMetaRoutingClient(options).base.findUnique({
+      where: { id: baseId },
+      select: { spaceId: true },
+    });
+    if (!base) {
+      throw new Error(`Base ${baseId} not found`);
+    }
+    return this.withDataKnexConnectionForSpace(base.spaceId, fn, options);
+  }
+
+  /** Returns a compiler-only Knex handle. Execute queries through withDataKnexConnectionForTable. */
   async dataKnexForTable(tableId: string, options?: IDataDbRoutingOptions) {
     const table = await this.getMetaRoutingClient(options).tableMeta.findUnique({
       where: { id: tableId },
@@ -743,6 +805,21 @@ export class DataDbClientManager {
       throw new Error(`Table ${tableId} not found`);
     }
     return await this.dataKnexForSpace(table.base.spaceId, options);
+  }
+
+  async withDataKnexConnectionForTable<T>(
+    tableId: string,
+    fn: (knex: Knex, connection: PoolClient) => Promise<T>,
+    options?: IDataDbRoutingOptions
+  ): Promise<T> {
+    const table = await this.getMetaRoutingClient(options).tableMeta.findUnique({
+      where: { id: tableId },
+      select: { base: { select: { spaceId: true } } },
+    });
+    if (!table) {
+      throw new Error(`Table ${tableId} not found`);
+    }
+    return this.withDataKnexConnectionForSpace(table.base.spaceId, fn, options);
   }
 
   async dataPrismaForTable(tableId: string, options?: IDataDbRoutingOptions) {
@@ -783,12 +860,9 @@ export class DataDbClientManager {
       return this.resolvePreviewSpaceDataDb(spaceId, options.previewBinding);
     }
 
-    const binding = await this.getMetaRoutingClient(options).spaceDataDbBinding.findUnique({
-      where: { spaceId },
-      include: { dataDbConnection: true },
-    });
+    const binding = await this.findSpaceDataDbBinding(spaceId, options);
 
-    if (!binding || binding.mode === 'default') {
+    if (!isBoundToDataDb(binding)) {
       return { isMetaFallback: true };
     }
 
@@ -888,9 +962,6 @@ export class DataDbClientManager {
   }
 
   async onModuleDestroy() {
-    await Promise.all([
-      this.runtimeCache.deleteByNamespace(DATA_DB_KNEX_CACHE_NAMESPACE),
-      this.runtimeCache.deleteByNamespace(DATA_DB_PRISMA_CACHE_NAMESPACE),
-    ]);
+    await this.runtimeCache.deleteByNamespace(DATA_DB_PRISMA_CACHE_NAMESPACE);
   }
 }

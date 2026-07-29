@@ -1,13 +1,16 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { IDsn } from '@teable/core';
 import { DriverClient, HttpErrorCode, parseDsn } from '@teable/core';
-import { Prisma, PrismaService, getDatabaseUrl } from '@teable/db-main-prisma';
+import { PrismaService, getDatabaseUrl } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { CustomHttpException } from '../../custom.exception';
-import { DatabaseRouter } from '../../global/database-router.service';
+import {
+  DatabaseRouter,
+  type IDataPrismaQueryExecutor,
+} from '../../global/database-router.service';
 import { DATA_KNEX } from '../../global/knex';
 import { BASE_READ_ONLY_ROLE_PREFIX } from './const';
 import { checkTableAccess, validateRoleOperations } from './utils';
@@ -16,7 +19,6 @@ import { checkTableAccess, validateRoleOperations } from './utils';
 export class BaseSqlExecutorService {
   private readonly dsn: IDsn;
   readonly driver: DriverClient;
-  private readonly logger = new Logger(BaseSqlExecutorService.name);
 
   constructor(
     private readonly prismaService: PrismaService,
@@ -44,9 +46,8 @@ export class BaseSqlExecutorService {
     return await this.databaseRouter.dataPrismaExecutorForBase(baseId);
   }
 
-  async createReadOnlyRole(baseId: string) {
+  private async createReadOnlyRoleWithPrisma(baseId: string, dataPrisma: IDataPrismaQueryExecutor) {
     const roleName = this.getReadOnlyRoleName(baseId);
-    const dataPrisma = await this.dataPrismaForBase(baseId);
     await dataPrisma.$executeRawUnsafe(
       this.knex
         .raw(
@@ -69,6 +70,11 @@ export class BaseSqlExecutorService {
         ])
         .toQuery()
     );
+  }
+
+  async createReadOnlyRole(baseId: string) {
+    const dataPrisma = await this.dataPrismaForBase(baseId);
+    await this.createReadOnlyRoleWithPrisma(baseId, dataPrisma);
   }
 
   async dropReadOnlyRole(baseId: string) {
@@ -114,8 +120,7 @@ export class BaseSqlExecutorService {
     );
   }
 
-  private async roleExits(role: string, baseId?: string): Promise<boolean> {
-    const dataPrisma = baseId ? await this.dataPrismaForBase(baseId) : this.prismaService;
+  private async roleExists(role: string, dataPrisma: IDataPrismaQueryExecutor): Promise<boolean> {
     const roleExists = await dataPrisma.$queryRawUnsafe<{ count: bigint }[]>(
       this.knex.raw('SELECT count(*) FROM pg_roles WHERE rolname = ?', [role]).toQuery()
     );
@@ -131,23 +136,18 @@ export class BaseSqlExecutorService {
       return false;
     }
     const roleName = this.getReadOnlyRoleName(baseId);
-    if (!(await this.roleExits(roleName, baseId))) {
-      try {
-        await this.createReadOnlyRole(baseId);
-      } catch (error) {
-        // Handle race condition: another concurrent request may have already created the role
-        if (
-          error instanceof Prisma.PrismaClientKnownRequestError &&
-          (error?.meta?.code === '42710' || error?.meta?.code === '23505')
-        ) {
-          this.logger.warn(
-            `read only role ${roleName} already exists (concurrent creation), skipping`
-          );
-          return true;
-        }
-        throw error;
-      }
+    const dataPrisma = await this.dataPrismaForBase(baseId);
+    if (await this.roleExists(roleName, dataPrisma)) {
+      return true;
     }
+    await this.databaseRouter.dataPrismaTransactionForBase(baseId, async (dataPrisma) => {
+      await dataPrisma.$executeRawUnsafe(
+        this.knex.raw('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', [roleName]).toQuery()
+      );
+      if (!(await this.roleExists(roleName, dataPrisma))) {
+        await this.createReadOnlyRoleWithPrisma(baseId, dataPrisma);
+      }
+    });
     return true;
   }
 

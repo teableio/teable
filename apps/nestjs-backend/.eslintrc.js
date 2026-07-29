@@ -21,6 +21,8 @@ module.exports = {
     '@teable/eslint-config-bases/sonar',
     '@teable/eslint-config-bases/regexp',
     '@teable/eslint-config-bases/jest',
+    // SSRF guardrail: steer raw outbound HTTP clients to the ssrf-http wrappers
+    '@teable/eslint-config-bases/no-ssrf',
     // Apply prettier and disable incompatible rules
     '@teable/eslint-config-bases/prettier-plugin',
   ],
@@ -28,6 +30,15 @@ module.exports = {
     // optional overrides per project
   },
   overrides: [
+    {
+      // The paved-road wrapper is the allowed raw-client site; the low-level
+      // guards live in @teable/v2-utils.
+      files: ['src/utils/ssrf-http.ts'],
+      rules: {
+        'no-restricted-imports': 'off',
+        'no-restricted-syntax': 'off',
+      },
+    },
     {
       files: ['src/event-emitter/events/**/*.event.ts'],
       rules: {

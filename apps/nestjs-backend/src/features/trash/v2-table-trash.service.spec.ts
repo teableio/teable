@@ -18,6 +18,7 @@ vi.mock('@teable/db-main-prisma', () => ({
   DataPrismaModule: class DataPrismaModule {},
   PrismaService: class PrismaService {},
   MetaPrismaService: class MetaPrismaService {},
+  PgPoolRegistry: class PgPoolRegistry {},
   DataPrismaService: class DataPrismaService {},
 }));
 

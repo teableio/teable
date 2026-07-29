@@ -149,6 +149,7 @@ export const tableComputeMetaDtoSchema = z.object({
     .array(
       z.object({
         fieldId: z.string(),
+        taskId: z.string().optional(),
         durationMs: z.number(),
         completedAt: z.string(),
       })

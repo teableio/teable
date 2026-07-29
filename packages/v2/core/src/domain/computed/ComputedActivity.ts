@@ -78,6 +78,28 @@ export class ComputedActivity {
     return created;
   }
 
+  noteEnqueueMetrics(params: {
+    baseId: BaseId;
+    targets: ReadonlyArray<FieldComputeTarget>;
+    estimatedComplexity: number;
+    estimatedDirtyRecords: number;
+    hasAllTargetRecords: boolean;
+    batchProgress?: FieldComputeBatch;
+    now?: Date;
+  }): void {
+    const now = params.now ?? new Date();
+    for (const target of params.targets) {
+      const field = this.ensureField({ ...target, baseId: params.baseId, now });
+      field.noteEnqueueMetrics({
+        estimatedComplexity: params.estimatedComplexity,
+        estimatedDirtyRecords: params.estimatedDirtyRecords,
+        hasAllTargetRecords: params.hasAllTargetRecords,
+        batchProgress: params.batchProgress,
+        now,
+      });
+    }
+  }
+
   attachTask(params: {
     baseId: BaseId;
     targets: ReadonlyArray<FieldComputeTarget>;
@@ -144,6 +166,79 @@ export class ComputedActivity {
     }
   }
 
+  syncFromTaskRefs(params: {
+    targets: ReadonlyArray<
+      FieldComputeTarget & {
+        baseId: BaseId;
+        activeTaskCount: number;
+        processingTaskCount: number;
+      }
+    >;
+    now?: Date;
+  }): void {
+    const now = params.now ?? new Date();
+    const touchedTables = new Map<string, { tableId: TableId; baseId: BaseId }>();
+    for (const target of params.targets) {
+      const field = this.ensureField({ ...target, now });
+      field.syncFromTaskRefs({
+        activeTaskCount: target.activeTaskCount,
+        processingTaskCount: target.processingTaskCount,
+        now,
+      });
+      touchedTables.set(target.tableId.toString(), target);
+    }
+    for (const { tableId, baseId } of touchedTables.values()) {
+      this.recomputeTables(baseId, [tableId], now);
+    }
+  }
+
+  noteTaskFinished(params: {
+    baseId: BaseId;
+    taskId: string;
+    targets: ReadonlyArray<FieldComputeTarget>;
+    durationMs?: number;
+    error?: { code?: string; message: string } | null;
+    now?: Date;
+  }): void {
+    const now = params.now ?? new Date();
+    for (const target of params.targets) {
+      const field = this.ensureField({ ...target, baseId: params.baseId, now });
+      field.noteTaskFinished({
+        durationMs: params.durationMs,
+        error: params.error,
+        now,
+      });
+      if (params.durationMs != null && params.durationMs >= 0 && !params.error) {
+        const table = this.ensureTable({
+          tableId: target.tableId,
+          baseId: params.baseId,
+          now,
+        });
+        table.pushCompletion(
+          {
+            fieldId: target.fieldId,
+            taskId: params.taskId,
+            durationMs: Math.trunc(params.durationMs),
+            completedAt: now.toISOString(),
+          },
+          { now }
+        );
+      }
+    }
+  }
+
+  noteRetryScheduled(params: {
+    targets: ReadonlyArray<FieldComputeTarget & { baseId: BaseId }>;
+    error: { code?: string; message: string };
+    now?: Date;
+  }): void {
+    const now = params.now ?? new Date();
+    for (const target of params.targets) {
+      const field = this.ensureField({ ...target, now });
+      field.noteRetryScheduled({ error: params.error, now });
+    }
+  }
+
   releaseTask(params: {
     baseId: BaseId;
     targets: ReadonlyArray<FieldComputeTarget>;
@@ -186,6 +281,17 @@ export class ComputedActivity {
     return {
       fields: [...this.fields.values()].map((field) => field.toDto()),
       tables: [...this.tables.values()].map((table) => table.toDto()),
+    };
+  }
+
+  changedSnapshot(): ComputedActivitySnapshot {
+    return {
+      fields: [...this.fields.values()]
+        .filter((field) => field.hasChanged())
+        .map((field) => field.toDto()),
+      tables: [...this.tables.values()]
+        .filter((table) => table.hasChanged())
+        .map((table) => table.toDto()),
     };
   }
 

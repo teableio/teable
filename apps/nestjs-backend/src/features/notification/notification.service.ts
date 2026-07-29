@@ -69,6 +69,7 @@ export class NotificationService {
     [NotificationTypeEnum.Comment]: MailType.Common,
     [NotificationTypeEnum.ExportBase]: MailType.ExportBase,
     [NotificationTypeEnum.AdminNotice]: MailType.System,
+    [NotificationTypeEnum.CollaboratorInvite]: MailType.Common,
   };
   constructor(
     private readonly prismaService: PrismaService,
@@ -190,7 +191,7 @@ export class NotificationService {
         messageI18n: notifyData.messageI18n,
         notifyIcon: userIcon,
         notifyType: notifyData.type as NotificationTypeEnum,
-        url: this.mailConfig.origin + notifyPath,
+        url: notifyPath,
         severity: NotificationSeverityEnum.Info,
         isRead: false,
         createdTime: notifyData.createdTime.toISOString(),
@@ -611,7 +612,7 @@ export class NotificationService {
         id: v.id,
         notifyIcon: notifyIcon,
         notifyType: v.type as NotificationTypeEnum,
-        url: v.urlPath ? this.mailConfig.origin + v.urlPath : '',
+        url: v.urlPath || '',
         message: v.message,
         messageI18n: v.messageI18n,
         severity: this.getNotificationSeverity(v.type as NotificationTypeEnum, v.severity),
@@ -626,16 +627,15 @@ export class NotificationService {
     fromUserId: string,
     fromUserSets: Record<string, { id: string; name: string; avatar: string | null }>
   ) {
-    const origin = this.mailConfig.origin;
-
     switch (notifyType) {
       case NotificationTypeEnum.System:
       case NotificationTypeEnum.ExportBase:
       case NotificationTypeEnum.AdminNotice:
-        return { iconUrl: `${origin}/images/favicon/favicon.svg` };
+        return { iconUrl: '/images/favicon/favicon.svg' };
       case NotificationTypeEnum.Comment:
       case NotificationTypeEnum.CollaboratorCellTag:
-      case NotificationTypeEnum.CollaboratorMultiRowTag: {
+      case NotificationTypeEnum.CollaboratorMultiRowTag:
+      case NotificationTypeEnum.CollaboratorInvite: {
         const { id, name, avatar } = fromUserSets[fromUserId];
 
         return {
@@ -667,6 +667,7 @@ export class NotificationService {
       case NotificationTypeEnum.ExportBase:
       case NotificationTypeEnum.System:
       case NotificationTypeEnum.AdminNotice:
+      case NotificationTypeEnum.CollaboratorInvite:
         return NotificationSeverityEnum.Info;
       default:
         throw assertNever(notifyType);
@@ -695,6 +696,7 @@ export class NotificationService {
         return downloadUrl as string;
       }
       case NotificationTypeEnum.AdminNotice:
+      case NotificationTypeEnum.CollaboratorInvite:
         return '';
       default:
         throw assertNever(notifyType);

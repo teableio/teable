@@ -6,6 +6,7 @@ import { PermissionModule } from '../auth/permission.module';
 import { BaseModule } from '../base/base.module';
 import { CanaryModule } from '../canary';
 import { FieldModule } from '../field/field.module';
+import { ShortLinkModule } from '../short-link/short-link.module';
 import { ViewModule } from '../view/view.module';
 import { BaseShareAuthService } from './base-share-auth.service';
 import { BaseShareOpenController } from './base-share-open.controller';
@@ -22,6 +23,7 @@ import { BaseShareJwtStrategy } from './strategies/jwt.strategy';
     BaseModule,
     CanaryModule,
     FieldModule,
+    ShortLinkModule,
     ViewModule,
     JwtModule.registerAsync({
       useFactory: () => ({

@@ -31,8 +31,8 @@ export interface IPerformanceCacheStore {
   // template cache
   [key: `template:${string}`]: unknown;
 
-  // instance setting cache (v2: stores pre-parsed content)
-  'instance:setting:v2': unknown;
+  // instance setting cache (v3: pre-parsed content; canary spaceIds omitted)
+  'instance:setting:v3': unknown;
 
   // base node list cache, format: base-node-list:base_id
   [key: `base-node-list:${string}`]: unknown;
@@ -48,6 +48,9 @@ export interface IPerformanceCacheStore {
 
   // Base share list cache, format: base-share-list:base_id
   [key: `base-share-list:${string}`]: { nodeId: string }[];
+
+  // Short link resolve cache, format: short-link:code
+  [key: `short-link:${string}`]: unknown;
 }
 
 /**

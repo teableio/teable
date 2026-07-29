@@ -333,6 +333,10 @@ export class MailSenderService implements OnModuleDestroy {
     });
   }
 
+  generateInviteUrl(invitationId: string, invitationCode: string) {
+    return `${this.mailConfig.origin}/invite?invitationId=${invitationId}&invitationCode=${invitationCode}`;
+  }
+
   async inviteEmailOptions(info: {
     name: string;
     email: string;

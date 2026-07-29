@@ -384,4 +384,168 @@ describe('conditional rollup simple-filter fast path (e2e)', () => {
       await cleanup();
     }
   });
+
+  /**
+   * Sanitized structure-equivalent of the BYODB overload:
+   * - 826 target rows and 27 conditional rollups over three low-cardinality filters
+   * - one filter-only source edit dirties every target while leaving every aggregate unchanged
+   * - computed SQL must scan the source once per 16-field execution chunk, not once per condition
+   */
+  test('shares source scans across many low-cardinality conditional rollups', async () => {
+    const sourceName = createTableName('conditional_source');
+    const targetName = createTableName('conditional_target');
+    const sourcePrimaryFieldId = createFieldId();
+    const sourceValueFieldId = createFieldId();
+    const sourceFilterFieldIds = [createFieldId(), createFieldId(), createFieldId()];
+    const choices = ['A', 'B', 'C'] as const;
+    const combinations = choices.flatMap((first) =>
+      choices.flatMap((second) => choices.map((third) => [first, second, third] as const))
+    );
+    const rollupFieldIds = combinations.map(() => createFieldId());
+    let sourceTableId: string | undefined;
+    let targetTableId: string | undefined;
+
+    try {
+      const sourceTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: sourceName,
+        fields: [
+          {
+            type: 'singleLineText',
+            id: sourcePrimaryFieldId,
+            name: 'SourceName',
+            isPrimary: true,
+          },
+          { type: 'number', id: sourceValueFieldId, name: 'Value' },
+          ...sourceFilterFieldIds.map((fieldId, index) => ({
+            type: 'singleSelect' as const,
+            id: fieldId,
+            name: `Category${index + 1}`,
+            options: {
+              choices: choices.map((choice) => ({
+                id: `choice_${index}_${choice.toLowerCase()}`,
+                name: choice,
+                color: 'gray' as const,
+              })),
+            },
+          })),
+        ],
+        views: [{ type: 'grid' }],
+      });
+      sourceTableId = sourceTable.id;
+
+      const targetPrimaryFieldId = createFieldId();
+      const targetTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: targetName,
+        fields: [
+          {
+            type: 'singleLineText',
+            id: targetPrimaryFieldId,
+            name: 'TargetName',
+            isPrimary: true,
+          },
+          ...combinations.map((combination, index) => ({
+            type: 'conditionalRollup' as const,
+            id: rollupFieldIds[index]!,
+            name: `Summary${index + 1}`,
+            options: { expression: 'sum({values})' },
+            config: {
+              foreignTableId: sourceTable.id,
+              lookupFieldId: sourceValueFieldId,
+              condition: {
+                filter: {
+                  conjunction: 'and' as const,
+                  filterSet: sourceFilterFieldIds.map((fieldId, filterIndex) => ({
+                    fieldId,
+                    operator: 'is',
+                    value: combination[filterIndex],
+                  })),
+                },
+              },
+            },
+          })),
+        ],
+        views: [{ type: 'grid' }],
+      });
+      targetTableId = targetTable.id;
+
+      const sourceRecords = await ctx.createRecords(
+        sourceTable.id,
+        combinations.map((combination, index) => ({
+          fields: {
+            [sourcePrimaryFieldId]: `source-${index + 1}`,
+            [sourceValueFieldId]: index === 0 ? 0 : 1,
+            ...Object.fromEntries(
+              sourceFilterFieldIds.map((fieldId, filterIndex) => [
+                fieldId,
+                `choice_${filterIndex}_${combination[filterIndex].toLowerCase()}`,
+              ])
+            ),
+          },
+        }))
+      );
+      await ctx.createRecords(
+        targetTable.id,
+        Array.from({ length: 826 }, (_, index) => ({
+          fields: { [targetPrimaryFieldId]: `target-${index + 1}` },
+        }))
+      );
+      await ctx.drainOutbox();
+
+      const previousTargetVersions = await listRecordVersions(ctx, targetTable.id);
+      const beforeEventCount = ctx.testContainer.eventBus.events().length;
+
+      ctx.clearLogs();
+      await ctx.updateRecord(sourceTable.id, sourceRecords[0]!.id, {
+        [sourceFilterFieldIds[0]!]: 'choice_0_b',
+      });
+      await ctx.drainOutbox();
+
+      const targetStep = ctx
+        .getLastComputedPlan()
+        ?.steps.find((step) => step.tableId === targetTable.id);
+      const plan = ctx.getLastComputedPlan() as
+        | {
+            edges?: Array<{
+              to?: string;
+              propagationMode?: string;
+            }>;
+          }
+        | undefined;
+      const targetEdges = plan?.edges?.filter((edge) =>
+        rollupFieldIds.some((fieldId) => edge.to?.endsWith(`.${fieldId}`))
+      );
+      expect(targetEdges).toHaveLength(rollupFieldIds.length);
+      expect(
+        targetEdges?.every((edge) =>
+          ['allTargetRecords', 'conditionalFiltered'].includes(edge.propagationMode ?? '')
+        )
+      ).toBe(true);
+      expect(targetStep?.fieldIds).toHaveLength(rollupFieldIds.length);
+
+      const sqlEntries = ctx.testContainer.spyLogger
+        .getEntriesByMessage(/computed:update:/)
+        .map((entry) => entry.message);
+      const sourceTableToken = `."${sourceTable.id}" as "f"`;
+      const sourceScanCount = sqlEntries.reduce(
+        (total, message) => total + message.split(sourceTableToken).length - 1,
+        0
+      );
+      const expectedFieldChunks = Math.ceil(rollupFieldIds.length / 16);
+      expect(sourceScanCount).toBe(expectedFieldChunks);
+
+      expect(await listRecordVersions(ctx, targetTable.id)).toEqual(previousTargetVersions);
+      expect(getComputedSummaryEvents(ctx, targetTable.id, beforeEventCount)).toHaveLength(0);
+
+      const targetRecords = await ctx.listRecords(targetTable.id);
+      for (const record of targetRecords) {
+        expect(Number(record.fields[rollupFieldIds[0]!] ?? 0)).toBe(0);
+        expect(Number(record.fields[rollupFieldIds[9]!] ?? 0)).toBe(1);
+      }
+    } finally {
+      await deleteTableSafe(ctx, targetTableId);
+      await deleteTableSafe(ctx, sourceTableId);
+    }
+  }, 180_000);
 });
