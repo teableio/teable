@@ -4,10 +4,13 @@ import { ConfigService } from '@nestjs/config';
 import { DiscoveryService, Reflector } from '@nestjs/core';
 import type { InstanceWrapper } from '@nestjs/core/injector/instance-wrapper';
 import { Test, type TestingModule } from '@nestjs/testing';
+import { PgPoolRegistry } from '@teable/db-main-prisma';
 import { v2DataDbTokens, v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import { v2CoreTokens } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
+import type { IV2NodePgContainerOptions } from '@teable/v2-container-node';
 import { PinoLogger } from 'nestjs-pino';
+import type { Pool } from 'pg';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../attachments/attachments-storage.service', () => ({
@@ -24,6 +27,18 @@ import { V2ContainerService } from './v2-container.service';
 import { V2ProjectionRegistrar, type IV2ProjectionRegistrar } from './v2-projection-registrar';
 
 const fallbackDatabaseUrl = 'postgres://fallback-db';
+const createPgPoolRegistry = () =>
+  new PgPoolRegistry(
+    () =>
+      ({
+        connect: vi.fn(),
+        end: vi.fn().mockResolvedValue(undefined),
+        idleCount: 0,
+        on: vi.fn(),
+        totalCount: 0,
+        waitingCount: 0,
+      }) as unknown as Pool
+  );
 
 const mocks = vi.hoisted(() => ({
   createV2NodePgContainer: vi.fn(),
@@ -152,6 +167,7 @@ const createService = (providers: InstanceWrapper[] = []) => {
     getDataDatabaseForTable: vi.fn(),
   };
   const runtimeCache = new DataDbRuntimeCacheService();
+  const pgPoolRegistry = createPgPoolRegistry();
   const reflector = new Reflector();
   const discoveryService = {
     getProviders: vi.fn().mockReturnValue(providers),
@@ -167,7 +183,8 @@ const createService = (providers: InstanceWrapper[] = []) => {
     reflector,
     discoveryService,
     dataDbClientManager as never,
-    runtimeCache
+    runtimeCache,
+    pgPoolRegistry
   );
 
   return {
@@ -178,6 +195,7 @@ const createService = (providers: InstanceWrapper[] = []) => {
     attachmentsStorageService,
     dataDbClientManager,
     runtimeCache,
+    pgPoolRegistry,
     discoveryService,
   };
 };
@@ -202,6 +220,7 @@ const createTestingModule = async (providers: InstanceWrapper[] = []) => {
     getDataDatabaseForTable: vi.fn(),
   };
   const runtimeCache = new DataDbRuntimeCacheService();
+  const pgPoolRegistry = createPgPoolRegistry();
   const reflector = new Reflector();
   const discoveryService = {
     getProviders: vi.fn().mockReturnValue(providers),
@@ -217,6 +236,7 @@ const createTestingModule = async (providers: InstanceWrapper[] = []) => {
       { provide: AttachmentsStorageService, useValue: attachmentsStorageService },
       { provide: DataDbClientManager, useValue: dataDbClientManager },
       { provide: DataDbRuntimeCacheService, useValue: runtimeCache },
+      { provide: PgPoolRegistry, useValue: pgPoolRegistry },
       {
         provide: thresholdConfig.KEY,
         useValue: { undoExpirationTime: 60, maxUndoStackSize: 20 },
@@ -510,6 +530,31 @@ describe('V2ContainerService', () => {
       })
     );
     expect(mocks.createV2NodePgContainer).toHaveBeenCalledTimes(2);
+    const defaultOptions = mocks.createV2NodePgContainer.mock
+      .calls[0]![0] as IV2NodePgContainerOptions;
+    const scopedOptions = mocks.createV2NodePgContainer.mock
+      .calls[1]![0] as IV2NodePgContainerOptions;
+    expect(scopedOptions.metaDbDependencies?.pool).toBe(defaultOptions.metaDbDependencies?.pool);
+    expect(scopedOptions.dataDbDependencies?.pool).not.toBe(
+      defaultOptions.metaDbDependencies?.pool
+    );
+  });
+
+  it('reuses the bootstrapped container for the meta-fallback route', async () => {
+    const container = createContainerMock();
+    mocks.createV2NodePgContainer.mockResolvedValue(container);
+    const { service, dataDbClientManager } = createService();
+    dataDbClientManager.getDataDatabaseForSpace.mockResolvedValue({
+      cacheKey: 'meta-fallback',
+      url: fallbackDatabaseUrl,
+      connectionUrl: fallbackDatabaseUrl,
+      isMetaFallback: true,
+    });
+
+    await expect(service.getContainer()).resolves.toBe(container);
+    await expect(service.getContainerForSpace('spcxxx')).resolves.toBe(container);
+
+    expect(mocks.createV2NodePgContainer).toHaveBeenCalledOnce();
   });
 
   it('falls back to DATABASE_URL when neither meta nor legacy alias is configured', async () => {

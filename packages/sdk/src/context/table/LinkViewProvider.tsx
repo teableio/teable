@@ -4,12 +4,13 @@ import { map } from 'lodash';
 import React, { useContext, useMemo } from 'react';
 import { ReactQueryKeys } from '../../config/react-query-keys';
 import { useFields } from '../../hooks';
+import { createFieldInstance } from '../../model';
 import { addQueryParamsToWebSocketUrl } from '../../utils/urlParams';
 import { AnchorContext } from '../anchor/AnchorContext';
 import { AppContext } from '../app/AppContext';
 import { ConnectionProvider } from '../app/ConnectionProvider';
 import { getWsPath } from '../app/useConnection';
-import { FieldProvider } from '../field';
+import { FieldContext } from '../field';
 import { SearchProvider } from '../query';
 import { RecordProvider } from '../record';
 import { TablePermissionContext, TablePermissionContextDefaultValue } from '../table-permission';
@@ -64,22 +65,31 @@ export const LinkViewProvider: React.FC<ILinkViewProvider> = ({
     [parentAppContext, linkFieldId]
   );
 
+  const fieldContextValue = useMemo(
+    () => ({ fields: (shareData?.fields ?? []).map((field) => createFieldInstance(field)) }),
+    [shareData?.fields]
+  );
+
   if (isLoading || !linkFieldId || !shareData) {
     return <>{fallback}</>;
   }
 
-  const { tableId, viewId, fields } = shareData;
+  const { tableId, viewId } = shareData;
   return (
     <AppContext.Provider value={appContextValue}>
       <ConnectionProvider wsPath={wsPath}>
         <ShareViewContext.Provider value={shareData}>
           <AnchorContext.Provider value={{ baseId: linkBaseId, tableId, viewId }}>
             <SearchProvider>
-              <FieldProvider fallback={fallback} serverSideData={fields}>
-                <ReadonlyFieldsPermissionProvider>
-                  <RecordProvider>{children}</RecordProvider>
-                </ReadonlyFieldsPermissionProvider>
-              </FieldProvider>
+              {fieldContextValue.fields.length ? (
+                <FieldContext.Provider value={fieldContextValue}>
+                  <ReadonlyFieldsPermissionProvider>
+                    <RecordProvider>{children}</RecordProvider>
+                  </ReadonlyFieldsPermissionProvider>
+                </FieldContext.Provider>
+              ) : (
+                fallback
+              )}
             </SearchProvider>
           </AnchorContext.Provider>
         </ShareViewContext.Provider>

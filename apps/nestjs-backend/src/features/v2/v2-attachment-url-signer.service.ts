@@ -14,6 +14,7 @@ import pLimit from 'p-limit';
 import { CacheService } from '../../cache/cache.service';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import StorageAdapter from '../attachments/plugins/adapter';
+import { getPreviewCacheKey } from '../attachments/plugins/utils';
 import { resolveThumbnailMimetype } from '../attachments/utils';
 
 const ATTACHMENT_DECORATION_CONCURRENCY = 4;
@@ -61,7 +62,7 @@ export class V2AttachmentUrlSignerService implements IAttachmentUrlSignerService
   }
 
   async invalidatePreview(tokens: ReadonlyArray<string>): Promise<Result<void, DomainError>> {
-    await Promise.all(tokens.map((t) => this.cacheService.del(`attachment:preview:${t}`)));
+    await Promise.all(tokens.map((t) => this.cacheService.del(getPreviewCacheKey(t))));
     return ok(undefined);
   }
 
@@ -75,7 +76,9 @@ export class V2AttachmentUrlSignerService implements IAttachmentUrlSignerService
       item.token,
       undefined,
       {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         'Content-Type': item.mimetype,
+        // eslint-disable-next-line @typescript-eslint/naming-convention
         'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(
           item.name ?? item.token
         )}`,

@@ -10,6 +10,7 @@ import {
 } from './apply-field-compute-meta';
 import { useBaseId } from './use-base-id';
 import { useConnection } from './use-connection';
+import { useIsReadOnlyPreview } from './use-is-readonly-preview';
 import { useTableId } from './use-table-id';
 
 export type TableComputeActivityClient = {
@@ -195,7 +196,8 @@ const mergeFieldMeta = (
 export function useComputeActivitySubscription(
   options: { enabled?: boolean } = {}
 ): IComputeActivityState {
-  const enabled = options.enabled ?? true;
+  const isReadOnlyPreview = useIsReadOnlyPreview();
+  const enabled = (options.enabled ?? true) && !isReadOnlyPreview;
   const baseId = useBaseId();
   const tableId = useTableId();
   const { connection, connected } = useConnection();
@@ -306,8 +308,9 @@ export function useComputeActivitySubscription(
   }, [enabled, tableId, connection, connected, fields]);
 
   const fieldMetaById = useMemo(
-    () => mergeFieldMeta(query.data?.fields, realtimeFields, tableId, readableFieldIds),
-    [query.data?.fields, realtimeFields, tableId, readableFieldIds]
+    () =>
+      enabled ? mergeFieldMeta(query.data?.fields, realtimeFields, tableId, readableFieldIds) : {},
+    [enabled, query.data?.fields, realtimeFields, tableId, readableFieldIds]
   );
 
   // Apply onto field instances for any code reading field.isPending/computeMeta,
@@ -331,12 +334,11 @@ export function useComputeActivitySubscription(
     }
   }, [enabled, fields, fieldMetaById]);
 
-  const tableMeta = preferNewestActivity(
-    query.data?.table ?? undefined,
-    realtimeTable ?? undefined
-  );
+  const tableMeta = enabled
+    ? preferNewestActivity(query.data?.table ?? undefined, realtimeTable ?? undefined)
+    : undefined;
   const diagnostics = useMemo<ComputeActivityDiagnosticsClient | null>(() => {
-    const httpDiagnostics = query.data?.diagnostics;
+    const httpDiagnostics = enabled ? query.data?.diagnostics : undefined;
     const fieldMeta = Object.values(fieldMetaById);
     if (!httpDiagnostics && fieldMeta.length === 0) return null;
 
@@ -358,18 +360,18 @@ export function useComputeActivitySubscription(
       highComplexityFieldCount: httpDiagnostics?.highComplexityFieldCount ?? 0,
       anomalies: httpDiagnostics?.anomalies ?? [],
     };
-  }, [fieldMetaById, query.data?.diagnostics]);
+  }, [enabled, fieldMetaById, query.data?.diagnostics]);
   const activeFieldCount = diagnostics?.activeFieldCount ?? 0;
 
-  const refetch = useCallback(() => query.refetch(), [query]);
+  const refetch = useCallback(() => (enabled ? query.refetch() : undefined), [enabled, query]);
 
   return {
-    snapshot: query.data ?? null,
+    snapshot: enabled ? query.data ?? null : null,
     tableMeta: tableMeta ?? null,
     fieldMetaById,
     diagnostics,
     activeFieldCount,
-    isFetching: query.isFetching,
+    isFetching: enabled && query.isFetching,
     refetch,
     /** Increments when activity changes — include in useGridColumns memo deps. */
     revision,

@@ -57,6 +57,33 @@ describe('RequestInfoMiddleware', () => {
     expect(originIp()).toBe('10.0.0.5');
   });
 
+  it('records the called endpoint without its query string', () => {
+    const clsValues = new Map<string, unknown>();
+    const cls = {
+      get: vi.fn(),
+      set: vi.fn((key: string, value: unknown) => {
+        clsValues.set(key, value);
+      }),
+    } as unknown as ClsService<IClsStore>;
+    const res = { once: vi.fn(), writableEnded: false, destroyed: false } as unknown as Response;
+    const middleware = new RequestInfoMiddleware(cls);
+
+    middleware.use(
+      createRequest({
+        method: 'POST',
+        originalUrl: '/api/table/tbl1/selection/delete-by-id?search=secret',
+        // Express rewrites req.path to '/' for wildcard-mounted middleware — originalUrl wins.
+        path: '/',
+      }),
+      res,
+      vi.fn()
+    );
+
+    const origin = clsValues.get('origin') as IClsStore['origin'];
+    expect(origin.method).toBe('POST');
+    expect(origin.path).toBe('/api/table/tbl1/selection/delete-by-id');
+  });
+
   it('captures the affiliate cookie into CLS, ignoring unrelated cookies', () => {
     const clsValues = new Map<string, unknown>();
     const cls = {

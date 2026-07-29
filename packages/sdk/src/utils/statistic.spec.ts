@@ -1,7 +1,7 @@
 import type { IGridColumnMeta } from '@teable/core';
 import { StatisticsFunc } from '@teable/core';
 import { describe, expect, it } from 'vitest';
-import { buildStatisticFieldMap } from './statistic';
+import { buildStatisticFieldMap, formatAttachmentSize } from './statistic';
 
 const columnMeta = {
   fldVisibleSum: { order: 0, statisticFunc: StatisticsFunc.Sum },
@@ -30,5 +30,18 @@ describe('buildStatisticFieldMap', () => {
   it('returns an empty map for empty visible set or missing columnMeta', () => {
     expect(buildStatisticFieldMap(columnMeta, [])).toEqual({});
     expect(buildStatisticFieldMap(undefined)).toEqual({});
+  });
+});
+
+describe('formatAttachmentSize', () => {
+  it.each([
+    [0, '0 B'],
+    [1024, '1 KB'],
+    [1.5 * 1024 ** 2, '1.5 MB'],
+    [1024 ** 2 - 1, '1 MB'],
+    [3322.55 * 1024 ** 2, '3.24 GB'],
+    [1024 ** 3 - 1, '1 GB'],
+  ])('formats %d bytes as %s', (bytes, expected) => {
+    expect(formatAttachmentSize(bytes)).toBe(expected);
   });
 });

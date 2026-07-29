@@ -35,7 +35,8 @@ export function generateAccessTokenCacheKey(id: string) {
 }
 
 export function generateSettingCacheKey() {
-  return `instance:setting:v2` as const;
+  // v3: canaryConfig.spaceIds are never stored in this blob (hydrated from DB on demand).
+  return `instance:setting:v3` as const;
 }
 
 export function generateIntegrationCacheKey(spaceId: string) {
@@ -64,4 +65,8 @@ export function generateInstanceBillableUserCountCacheKey() {
 
 export function generateBaseShareListCacheKey(baseId: string) {
   return `base-share-list:${baseId}` as const;
+}
+
+export function generateShortLinkCacheKey(code: string) {
+  return `short-link:${code}` as const;
 }

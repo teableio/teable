@@ -1,8 +1,9 @@
 import type { OnModuleInit } from '@nestjs/common';
 import { Injectable, Logger } from '@nestjs/common';
+import { createPrismaPgAdapter, type IPgPoolLease } from '@teable/db-main-prisma';
 import { nanoid } from 'nanoid';
 import type { ClsService } from 'nestjs-cls';
-import { getDataDatabaseUrl, isSharedMetaDataDatabase } from './database-url';
+import { isSharedMetaDataDatabase } from './database-url';
 import { Prisma, PrismaClient } from './generated/client';
 import { TimeoutHttpException } from './utils';
 
@@ -46,7 +47,11 @@ export class DataPrismaService
   private readonly defaultTxTimeout = Number(process.env.PRISMA_TRANSACTION_TIMEOUT ?? 5000);
   private readonly defaultTxMaxWait = Number(process.env.PRISMA_TRANSACTION_MAX_WAIT ?? 2000);
 
-  constructor(private readonly cls: ClsService<Record<'dataTx', IDataTxStore>>) {
+  constructor(
+    private readonly cls: ClsService<Record<'dataTx', IDataTxStore>>,
+    private readonly poolLease: IPgPoolLease,
+    schema?: string
+  ) {
     const logConfig = {
       log: [
         {
@@ -59,11 +64,7 @@ export class DataPrismaService
 
     super({
       ...initialConfig,
-      datasources: {
-        db: {
-          url: getDataDatabaseUrl(),
-        },
-      },
+      adapter: createPrismaPgAdapter(poolLease.pool, schema),
     });
 
     console.log(
@@ -157,6 +158,10 @@ export class DataPrismaService
   }
 
   async onModuleDestroy() {
-    await this.$disconnect();
+    try {
+      await this.$disconnect();
+    } finally {
+      await this.poolLease.release();
+    }
   }
 }

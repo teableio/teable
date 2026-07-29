@@ -124,11 +124,17 @@ export class CacheService<T extends ICacheStore = ICacheStore> {
     await this.cacheManager.set(key as string, value, numberTTL ? numberTTL * 1000 : undefined);
   }
 
-  async del<TKey extends keyof T>(key: TKey): Promise<void> {
-    await this.cacheManager.delete(key as string);
+  // Returns true if the key existed and was deleted, so callers can use it
+  // as an atomic consume for one-time tokens.
+  async del<TKey extends keyof T>(key: TKey): Promise<boolean> {
+    return await this.cacheManager.delete(key as string);
   }
 
   async getMany<TKey extends keyof T>(keys: TKey[]): Promise<Array<T[TKey] | undefined>> {
+    // Redis-backed stores forward this to MGET, which rejects an empty key list
+    if (keys.length === 0) {
+      return [];
+    }
     return this.cacheManager.get(keys as string[]);
   }
 

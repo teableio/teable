@@ -351,6 +351,52 @@ describe('OpenAPI link (e2e)', () => {
       });
     });
 
+    it('should create unique foreign fields for multiple many-many links to the same table', async () => {
+      const textFieldRo: IFieldRo = {
+        name: 'Name',
+        type: FieldType.SingleLineText,
+      };
+
+      table1 = await createTable(baseId, {
+        name: 'Reference Items',
+        fields: [textFieldRo],
+      });
+
+      const linkFields: IFieldRo[] = ['Primary Reference', 'Secondary Reference'].map((name) => ({
+        name,
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: table1.id,
+        },
+      }));
+      table2 = await createTable(baseId, {
+        name: 'Assignments',
+        fields: [textFieldRo, ...linkFields],
+      });
+
+      const sourceLinkFields = table2.fields.filter((field) => field.type === FieldType.Link);
+      expect(sourceLinkFields).toHaveLength(2);
+
+      const sourceLinkIds = new Set(sourceLinkFields.map((field) => field.id));
+      const symmetricFields = (await getFields(table1.id)).filter((field) => {
+        const symmetricFieldId = (field.options as ILinkFieldOptions).symmetricFieldId;
+        return (
+          field.type === FieldType.Link &&
+          symmetricFieldId !== undefined &&
+          sourceLinkIds.has(symmetricFieldId)
+        );
+      });
+      expect(symmetricFields).toHaveLength(2);
+      expect(new Set(symmetricFields.map((field) => field.name)).size).toBe(2);
+
+      const junctionTableNames = sourceLinkFields.map(
+        (field) => (field.options as ILinkFieldOptions).fkHostTableName
+      );
+      expect(junctionTableNames.every(Boolean)).toBe(true);
+      expect(new Set(junctionTableNames).size).toBe(2);
+    });
+
     it('should auto create foreign manyOne link field when create oneMany link field', async () => {
       const numberFieldRo: IFieldRo = {
         name: 'Number field',

@@ -27,7 +27,11 @@ export interface IProxyPersonalView
 }
 
 const getViewData = (view?: IViewInstance, initData?: IViewVo[]) => {
-  return (view?.['doc']?.data || initData?.find((v) => v.id === view?.id))!;
+  // doc-less (seeded) view instances carry the full VO on the instance
+  // itself, so fall back to it when there is no doc and no matching initData
+  return (view?.['doc']?.data ||
+    initData?.find((v) => v.id === view?.id) ||
+    (view as unknown as IViewVo))!;
 };
 
 const mergeColumnMeta = (localColumnMeta: IColumnMeta, remoteColumnMeta: IColumnMeta) => {

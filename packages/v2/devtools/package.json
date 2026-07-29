@@ -70,6 +70,7 @@
     "rimraf": "5.0.5",
     "tsdown": "0.18.1",
     "tsx": "4.19.4",
-    "typescript": "5.4.3"
+    "typescript": "5.4.3",
+    "vitest": "4.0.17"
   }
 }

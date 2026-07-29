@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
+import type { ICanaryConfig } from '@teable/openapi';
+import { SettingKey } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import type { IPerformanceCacheStore } from '../../performance-cache';
 import { PerformanceCache, PerformanceCacheService } from '../../performance-cache';
@@ -14,6 +16,20 @@ export function parseSettingContent(content: string | null): unknown {
   } catch {
     return content;
   }
+}
+
+/** Never put canary spaceIds in the shared setting Redis blob — list can be huge. */
+export function stripCanarySpaceIdsFromSettingCache(name: string, content: unknown): unknown {
+  if (name !== SettingKey.CANARY_CONFIG) {
+    return content;
+  }
+  if (!content || typeof content !== 'object' || Array.isArray(content)) {
+    return content;
+  }
+  return {
+    ...(content as Record<string, unknown>),
+    spaceIds: [],
+  };
 }
 
 @Injectable()
@@ -49,7 +65,20 @@ export class SettingModel {
     const rows = await this.prismaService.setting.findMany();
     return rows.map((row) => ({
       ...row,
-      content: parseSettingContent(row.content),
+      content: stripCanarySpaceIdsFromSettingCache(row.name, parseSettingContent(row.content)),
     }));
+  }
+
+  /** Full canaryConfig including spaceIds — always from DB, never the stripped setting cache. */
+  async getCanaryConfigFromDb(): Promise<ICanaryConfig | null> {
+    const row = await this.prismaService.setting.findUnique({
+      where: { name: SettingKey.CANARY_CONFIG },
+      select: { content: true },
+    });
+    const content = parseSettingContent(row?.content ?? null);
+    if (!content || typeof content !== 'object' || Array.isArray(content)) {
+      return null;
+    }
+    return content as ICanaryConfig;
   }
 }

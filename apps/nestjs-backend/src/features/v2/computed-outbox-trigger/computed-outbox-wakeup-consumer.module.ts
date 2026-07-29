@@ -5,11 +5,16 @@ import { ConditionalModule } from '@nestjs/config';
 import { readComputedOutboxBoolean } from '../../../configs/computed-outbox-trigger.config';
 import { V2Module } from '../v2.module';
 import { BullMqComputedOutboxWakeupProcessor } from './bullmq-computed-outbox-wakeup.processor';
+import { ComputedOutboxBaseAdmissionService } from './computed-outbox-base-admission.service';
 import { ComputedOutboxWakeupHandler } from './computed-outbox-wakeup.handler';
 
 @Module({
   imports: [V2Module],
-  providers: [ComputedOutboxWakeupHandler, BullMqComputedOutboxWakeupProcessor],
+  providers: [
+    ComputedOutboxBaseAdmissionService,
+    ComputedOutboxWakeupHandler,
+    BullMqComputedOutboxWakeupProcessor,
+  ],
 })
 class ComputedOutboxWakeupConsumerRuntimeModule {}
 

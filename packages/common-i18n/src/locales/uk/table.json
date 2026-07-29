@@ -1,4 +1,37 @@
 {
+  "computeActivity": {
+    "currentCalculations": "Поточні обчислення",
+    "thisTableOnly": "Лише ця таблиця",
+    "calculatingNow": "Зараз обчислюються",
+    "calculating": "Обчислюється",
+    "waiting": "Очікування",
+    "failed": "Помилка",
+    "calculationFailed": "Помилка обчислення",
+    "calculatingSummary": "Обчислення ({{count}})",
+    "failedSummary": "Помилка ({{count}})",
+    "fieldsCalculating_one": "Обчислюється {{count}} поле",
+    "fieldsCalculating_few": "Обчислюються {{count}} поля",
+    "fieldsCalculating_many": "Обчислюються {{count}} полів",
+    "fieldsCalculating_other": "Обчислюються поля: {{count}}",
+    "fieldCalculationsFailed_one": "Не вдалося обчислити {{count}} поле",
+    "fieldCalculationsFailed_few": "Не вдалося обчислити {{count}} поля",
+    "fieldCalculationsFailed_many": "Не вдалося обчислити {{count}} полів",
+    "fieldCalculationsFailed_other": "Не вдалося обчислити поля: {{count}}",
+    "batchesRunning_one": "{{count}} пакет обробляється",
+    "batchesRunning_few": "{{count}} пакети обробляються",
+    "batchesRunning_many": "{{count}} пакетів обробляються",
+    "batchesRunning_other": "Обробляється пакетів: {{count}}",
+    "batchesQueued_one": "{{count}} пакет очікує",
+    "batchesQueued_few": "{{count}} пакети очікують",
+    "batchesQueued_many": "{{count}} пакетів очікують",
+    "batchesQueued_other": "Очікує пакетів: {{count}}",
+    "records_one": "{{formattedCount}} запис",
+    "records_few": "{{formattedCount}} записи",
+    "records_many": "{{formattedCount}} записів",
+    "records_other": "Записів: {{formattedCount}}",
+    "batchesComplete": "Завершено пакетів {{completed}}/{{total}}",
+    "progressAriaLabel": "Прогрес обчислення для {{fieldName}}"
+  },
   "crossSpace": {
     "duplicateFieldTitle": "Сповіщення",
     "duplicateFieldDescription": "Перехресні посилання між просторами не підтримуються. Копія буде перетворена на однорядкове текстове поле.",
@@ -427,7 +460,7 @@
   "table": {
     "newTableLabel": "Нова таблиця",
     "rename": "Перейменувати",
-    "tableRecordHistory": "Історія записів таблиці",
+    "tableRecordHistory": "Історія змін",
     "deleteConfirm": "Ви впевнені, що хочете видалити \"{{tableName}}\" ?",
     "dbTableName": "Ім'я таблиці у фізичній базі даних",
     "schemaName": "Назва схеми у фізичній базі даних",
@@ -877,9 +910,10 @@
     "description": "{{count}} записів буде додано до таблиці."
   },
   "tableTrash": {
-    "title": "Кошик таблиці",
+    "title": "Кошик",
     "resourceType": "Тип",
-    "deletedResource": "Ресурс"
+    "deletedResource": "Ресурс",
+    "moreResources": "і ще {{count}}"
   },
   "baseShare": {
     "shareTitle": "Поділитися",

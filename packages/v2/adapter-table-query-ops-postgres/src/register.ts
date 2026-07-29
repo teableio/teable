@@ -15,6 +15,7 @@ import {
   type TableSearchVectorReconciler,
   type TableSearchVectorSchemaMaintenanceScheduler,
   type TableSearchVectorStatusReader,
+  type TableSearchAccessPathCapabilityReader,
   TableSearchVectorSchemaMaintenanceProjection,
 } from '@teable/v2-table-query-ops';
 import type { Kysely } from 'kysely';
@@ -34,6 +35,7 @@ import { ensureTableQueryOpsSchema, type TableQueryOpsDatabase } from './schema'
 import { PostgresTableSearchVectorReconciler } from './searchVector';
 import { PostgresTableSearchVectorSchemaMaintenanceScheduler } from './searchVectorMaintenance';
 import { PostgresTableSearchVectorStatusReader } from './searchVectorStatus';
+import { PostgresTableSearchAccessPathCapabilityReader } from './searchAccessPathCapability';
 import { v2TableOpsPostgresTokens } from './tokens';
 import type { UnknownPostgresDatabase } from './types';
 
@@ -129,9 +131,17 @@ export const registerV2TableOpsPostgresAdapter = async <
     v2TableOpsTokens.searchVectorReconciler,
     searchVectorReconciler
   );
+  container.registerInstance<TableSearchVectorReconciler>(
+    v2TableOpsTokens.searchAccessPathReconciler,
+    searchVectorReconciler
+  );
   container.registerInstance<TableSearchVectorStatusReader>(
     v2TableOpsTokens.searchVectorStatusReader,
     new PostgresTableSearchVectorStatusReader(unknownMetaDb)
+  );
+  container.registerInstance<TableSearchAccessPathCapabilityReader>(
+    v2TableOpsTokens.searchAccessPathCapabilityReader,
+    new PostgresTableSearchAccessPathCapabilityReader(unknownDataDb)
   );
   container.registerInstance<TableSearchVectorSchemaMaintenanceScheduler>(
     v2TableOpsTokens.searchVectorSchemaMaintenanceScheduler,

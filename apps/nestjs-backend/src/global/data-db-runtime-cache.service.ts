@@ -1,7 +1,6 @@
 import type { OnModuleDestroy } from '@nestjs/common';
 import { Injectable, Logger } from '@nestjs/common';
 
-export const DATA_DB_KNEX_CACHE_NAMESPACE = 'data-db:knex';
 export const DATA_DB_PRISMA_CACHE_NAMESPACE = 'data-db:prisma';
 export const V2_CONTAINER_CACHE_NAMESPACE = 'v2:container';
 

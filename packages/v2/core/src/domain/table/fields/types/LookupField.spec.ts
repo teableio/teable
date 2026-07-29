@@ -1291,6 +1291,48 @@ describe('LookupField', () => {
       expect(nextInner.selectOptions()[1]?.name().toString()).toBe('y');
     });
 
+    it('drops an incompatible display patch when the lookup target type changes', () => {
+      const linkFieldId = createFieldId('l')._unsafeUnwrap();
+      const foreignTableId = createTableId('m')._unsafeUnwrap();
+      const lookupTargetId = createFieldId('n')._unsafeUnwrap();
+      const previousInnerField = DateField.create({
+        id: lookupTargetId,
+        name: FieldName.create('Date')._unsafeUnwrap(),
+      })._unsafeUnwrap();
+      const lookupField = LookupField.create({
+        id: createFieldId('o')._unsafeUnwrap(),
+        name: FieldName.create('Lookup Date')._unsafeUnwrap(),
+        innerField: previousInnerField,
+        lookupOptions: LookupOptions.create({
+          linkFieldId: linkFieldId.toString(),
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: lookupTargetId.toString(),
+        })._unsafeUnwrap(),
+        innerOptionsPatch: {
+          formatting: { date: 'YYYY-MM-DD', time: 'None', timeZone: 'UTC' },
+        },
+      })._unsafeUnwrap();
+      const nextInnerField = NumberField.create({
+        id: lookupTargetId,
+        name: FieldName.create('Number')._unsafeUnwrap(),
+        formatting: NumberFormatting.create({
+          type: NumberFormattingType.Decimal,
+          precision: 2,
+        })._unsafeUnwrap(),
+      })._unsafeUnwrap();
+      const conversionSpec = TableUpdateFieldTypeSpec.create(previousInnerField, nextInnerField);
+
+      const result = lookupField.onDependencyUpdated(nextInnerField, [conversionSpec], {
+        table: {} as Table,
+        foreignTables: [],
+      });
+
+      expect(result.isOk()).toBe(true);
+      const spec = result._unsafeUnwrap() as TableUpdateFieldTypeSpec;
+      expect(spec).toBeInstanceOf(TableUpdateFieldTypeSpec);
+      expect((spec.newField() as LookupField).innerOptionsPatch()).toBeUndefined();
+    });
+
     it('sets hasError when value-referenced field in filter is type-converted', () => {
       const linkFieldId = createFieldId('f')._unsafeUnwrap();
       const foreignTableId = createTableId('g')._unsafeUnwrap();

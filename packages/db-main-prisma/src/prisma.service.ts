@@ -3,7 +3,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { nanoid } from 'nanoid';
 import type { ClsService } from 'nestjs-cls';
-import { getDatabaseUrl, type IDatabaseTarget } from './database-url';
+import type { IDatabaseTarget } from './database-url';
+import type { IPgPoolLease } from './pg-pool-registry';
+import { createPrismaPgAdapter } from './prisma-pg-adapter';
 import { TimeoutHttpException } from './utils';
 
 interface ITx {
@@ -51,8 +53,10 @@ class NamedPrismaService
 
   constructor(
     private readonly cls: ClsService<Record<ITxStoreKey, ITx>>,
-    private readonly target: IDatabaseTarget,
-    private readonly txStoreKey: ITxStoreKey
+    target: IDatabaseTarget,
+    private readonly txStoreKey: ITxStoreKey,
+    private readonly poolLease: IPgPoolLease,
+    schema?: string
   ) {
     const logConfig = {
       log: [
@@ -76,14 +80,9 @@ class NamedPrismaService
     };
     const initialConfig = process.env.NODE_ENV === 'production' ? {} : { ...logConfig };
 
-    const databaseUrl = getDatabaseUrl(target);
     super({
       ...initialConfig,
-      datasources: {
-        db: {
-          url: databaseUrl,
-        },
-      },
+      adapter: createPrismaPgAdapter(poolLease.pool, schema),
     });
 
     this.logger = new Logger(target === 'meta' ? MetaPrismaService.name : DataPrismaService.name);
@@ -175,14 +174,18 @@ class NamedPrismaService
   }
 
   async onModuleDestroy() {
-    await this.$disconnect();
+    try {
+      await this.$disconnect();
+    } finally {
+      await this.poolLease.release();
+    }
   }
 }
 
 @Injectable()
 export class MetaPrismaService extends NamedPrismaService {
-  constructor(cls: ClsService<Record<ITxStoreKey, ITx>>) {
-    super(cls, 'meta', 'tx');
+  constructor(cls: ClsService<Record<ITxStoreKey, ITx>>, poolLease: IPgPoolLease, schema?: string) {
+    super(cls, 'meta', 'tx', poolLease, schema);
   }
 }
 
@@ -191,7 +194,7 @@ export class PrismaService extends MetaPrismaService {}
 
 @Injectable()
 export class DataPrismaService extends NamedPrismaService {
-  constructor(cls: ClsService<Record<ITxStoreKey, ITx>>) {
-    super(cls, 'data', 'dataTx');
+  constructor(cls: ClsService<Record<ITxStoreKey, ITx>>, poolLease: IPgPoolLease, schema?: string) {
+    super(cls, 'data', 'dataTx', poolLease, schema);
   }
 }

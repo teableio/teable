@@ -698,6 +698,7 @@ export type I18nTranslations = {
                 "tabLink": string;
                 "linkPlaceholder": string;
                 "emailSend": string;
+                "directAccessDescription": string;
                 "linkSend": string;
                 "spaceTitle": string;
                 "collaboratorSearchPlaceholder": string;
@@ -1473,6 +1474,10 @@ export type I18nTranslations = {
                     "recordComment": {
                         "title": string;
                         "message": string;
+                    };
+                    "collaboratorInvite": {
+                        "space": string;
+                        "base": string;
                     };
                     "automation": {
                         "title": string;
@@ -3121,6 +3126,7 @@ export type I18nTranslations = {
                 "emailOrPasswordIncorrect": string;
                 "accountDeactivated": string;
                 "accountLockedOut": string;
+                "passwordLoginDisabled": string;
             };
             "automation": {
                 "buttonClickTriggerDuplicated": string;
@@ -4070,6 +4076,39 @@ export type I18nTranslations = {
         };
     };
     "table": {
+        "computeActivity": {
+            "currentCalculations": string;
+            "thisTableOnly": string;
+            "calculatingNow": string;
+            "calculating": string;
+            "waiting": string;
+            "failed": string;
+            "calculationFailed": string;
+            "calculatingSummary": string;
+            "failedSummary": string;
+            "fieldsCalculating_one": string;
+            "fieldsCalculating_other": string;
+            "fieldCalculationsFailed_one": string;
+            "fieldCalculationsFailed_other": string;
+            "batchesRunning_one": string;
+            "batchesRunning_other": string;
+            "batchesQueued_one": string;
+            "batchesQueued_other": string;
+            "records_one": string;
+            "records_other": string;
+            "batchesComplete": string;
+            "progressAriaLabel": string;
+            "fieldsCalculating_many": string;
+            "fieldCalculationsFailed_many": string;
+            "batchesRunning_many": string;
+            "batchesQueued_many": string;
+            "records_many": string;
+            "fieldsCalculating_few": string;
+            "fieldCalculationsFailed_few": string;
+            "batchesRunning_few": string;
+            "batchesQueued_few": string;
+            "records_few": string;
+        };
         "crossSpace": {
             "duplicateFieldTitle": string;
             "duplicateFieldDescription": string;
@@ -5203,6 +5242,7 @@ export type I18nTranslations = {
             "title": string;
             "resourceType": string;
             "deletedResource": string;
+            "moreResources": string;
         };
         "baseShare": {
             "shareTitle": string;
@@ -5269,6 +5309,11 @@ export type I18nTranslations = {
                     "otherPlaceholder": string;
                     "asked": string;
                     "skipped": string;
+                    "pendingAnswer": string;
+                    "notSelected": string;
+                    "timedOut": string;
+                    "timedOutWithDuration": string;
+                    "cancelled": string;
                     "previousQuestion": string;
                     "nextQuestion": string;
                 };

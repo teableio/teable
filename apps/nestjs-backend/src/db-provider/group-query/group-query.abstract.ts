@@ -26,7 +26,15 @@ export abstract class AbstractGroupQuery implements IGroupQueryInterface {
     if (selection) {
       return selection as string;
     }
-    return field.dbFieldName;
+    // Quote so case-sensitive column names survive Postgres lower-case folding
+    return this.quoteIdentifier(field.dbFieldName);
+  }
+
+  private quoteIdentifier(identifier: string): string {
+    if (!identifier || (identifier.startsWith('"') && identifier.endsWith('"'))) {
+      return identifier;
+    }
+    return `"${identifier.replace(/"/g, '""')}"`;
   }
 
   private parseGroups(

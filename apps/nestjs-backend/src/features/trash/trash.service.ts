@@ -31,7 +31,7 @@ import type {
   TableQueryService,
 } from '@teable/v2-core';
 import { Knex } from 'knex';
-import { keyBy } from 'lodash';
+import { chunk, keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import type { ICreateFieldsOperation } from '../../cache/types';
@@ -65,6 +65,10 @@ import { ViewService } from '../view/view.service';
 import { resolveV2TrashRecordDisplayName } from './v2-trash-record-name';
 
 type IRecordTrashSnapshot = IDeleteRecordsPayload['records'][number];
+
+// A single trash item can reference tens of thousands of resource ids (bulk record deletion),
+// while postgres prepared statements accept at most 32767 bind variables per query.
+const IN_CHUNK = 5000;
 
 type IRestoreProgressInput = {
   phase: 'preparing' | 'restoring';
@@ -541,28 +545,40 @@ export class TrashService {
   ): Promise<IResourceMapVo> {
     switch (resourceType) {
       case TableTrashType.View: {
-        const views = await this.prismaService.view.findMany({
-          where: { id: { in: resourceIds }, deletedTime: { not: null } },
-          select: {
-            id: true,
-            name: true,
-            type: true,
-          },
-        });
+        const views = (
+          await Promise.all(
+            chunk(resourceIds, IN_CHUNK).map((ids) =>
+              this.prismaService.view.findMany({
+                where: { id: { in: ids }, deletedTime: { not: null } },
+                select: {
+                  id: true,
+                  name: true,
+                  type: true,
+                },
+              })
+            )
+          )
+        ).flat();
         return keyBy(views, 'id');
       }
       case TableTrashType.Field: {
-        const fields = await this.prismaService.field.findMany({
-          where: { id: { in: resourceIds }, deletedTime: { not: null } },
-          select: {
-            id: true,
-            name: true,
-            type: true,
-            options: true,
-            isLookup: true,
-            isConditionalLookup: true,
-          },
-        });
+        const fields = (
+          await Promise.all(
+            chunk(resourceIds, IN_CHUNK).map((ids) =>
+              this.prismaService.field.findMany({
+                where: { id: { in: ids }, deletedTime: { not: null } },
+                select: {
+                  id: true,
+                  name: true,
+                  type: true,
+                  options: true,
+                  isLookup: true,
+                  isConditionalLookup: true,
+                },
+              })
+            )
+          )
+        ).flat();
         return fields.reduce((acc, { id, name, type, options, isLookup, isConditionalLookup }) => {
           acc[id] = {
             id,
@@ -579,13 +595,19 @@ export class TrashService {
         const dataPrisma = this.getTrashDataPrismaExecutor(
           await this.trashDataPrismaForTable(tableId)
         );
-        const recordList = await dataPrisma.recordTrash.findMany({
-          where: { tableId, recordId: { in: resourceIds } },
-          select: {
-            recordId: true,
-            snapshot: true,
-          },
-        });
+        const recordList = (
+          await Promise.all(
+            chunk(resourceIds, IN_CHUNK).map((ids) =>
+              dataPrisma.recordTrash.findMany({
+                where: { tableId, recordId: { in: ids } },
+                select: {
+                  recordId: true,
+                  snapshot: true,
+                },
+              })
+            )
+          )
+        ).flat();
 
         return await this.getRecordTrashResourceMap(tableId, recordList);
       }
@@ -1167,16 +1189,22 @@ export class TrashService {
     );
 
     const recordIds = JSON.parse(originSnapshot) as string[];
-    const recordTrashRows = await lookupDataPrisma.recordTrash.findMany({
-      where: { tableId, recordId: { in: recordIds } },
-      select: {
-        id: true,
-        recordId: true,
-        snapshot: true,
-        createdTime: true,
-      },
-      orderBy: [{ recordId: 'asc' }, { createdTime: 'desc' }, { id: 'desc' }],
-    });
+    const recordTrashRows = (
+      await Promise.all(
+        chunk(recordIds, IN_CHUNK).map((ids) =>
+          lookupDataPrisma.recordTrash.findMany({
+            where: { tableId, recordId: { in: ids } },
+            select: {
+              id: true,
+              recordId: true,
+              snapshot: true,
+              createdTime: true,
+            },
+            orderBy: [{ recordId: 'asc' }, { createdTime: 'desc' }, { id: 'desc' }],
+          })
+        )
+      )
+    ).flat();
     const latestSnapshotsByRecordId = recordTrashRows.reduce<
       Map<string, (typeof recordTrashRows)[number]>
     >((acc, row) => {
@@ -1440,16 +1468,22 @@ export class TrashService {
             createdTime: true;
           };
         }>;
-        const recordTrashRows = await dataPrisma.recordTrash.findMany({
-          where: { tableId, recordId: { in: recordIds } },
-          select: {
-            id: true,
-            recordId: true,
-            snapshot: true,
-            createdTime: true,
-          },
-          orderBy: [{ recordId: 'asc' }, { createdTime: 'desc' }, { id: 'desc' }],
-        });
+        const recordTrashRows = (
+          await Promise.all(
+            chunk(recordIds, IN_CHUNK).map((ids) =>
+              dataPrisma.recordTrash.findMany({
+                where: { tableId, recordId: { in: ids } },
+                select: {
+                  id: true,
+                  recordId: true,
+                  snapshot: true,
+                  createdTime: true,
+                },
+                orderBy: [{ recordId: 'asc' }, { createdTime: 'desc' }, { id: 'desc' }],
+              })
+            )
+          )
+        ).flat();
 
         // A record can be deleted, restored through undo, then deleted again with the same id.
         // Restore should use the snapshot that belongs to this trash item, not every historical

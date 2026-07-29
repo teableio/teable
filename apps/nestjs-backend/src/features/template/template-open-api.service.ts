@@ -12,6 +12,7 @@ import {
   type IUpdateOrderRo,
   BaseDuplicateMode,
   MAX_TEMPLATE_CATEGORY_COUNT,
+  ShortLinkType,
 } from '@teable/openapi';
 import { isNumber } from 'lodash';
 import { ClsService } from 'nestjs-cls';
@@ -28,6 +29,7 @@ import { updateOrder } from '../../utils/update-order';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { BaseDuplicateService } from '../base/base-duplicate.service';
+import { ShortLinkService } from '../short-link/short-link.service';
 
 @Injectable()
 export class TemplateOpenApiService {
@@ -39,7 +41,8 @@ export class TemplateOpenApiService {
     private readonly cls: ClsService<IClsStore>,
     private readonly attachmentsStorageService: AttachmentsStorageService,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
-    private readonly performanceCacheService: PerformanceCacheService
+    private readonly performanceCacheService: PerformanceCacheService,
+    private readonly shortLinkService: ShortLinkService
   ) {}
 
   async createTemplate(createTemplateRo: ICreateTemplateRo) {
@@ -187,6 +190,8 @@ export class TemplateOpenApiService {
         }
         // Clear permalink cache
         await this.performanceCacheService.del(generateTemplatePermalinkCacheKey(templateId));
+        // The template is hard-deleted, so its short links are dead for good
+        await this.shortLinkService.markDeletedByResource(ShortLinkType.Template, templateId);
         return res;
       });
   }

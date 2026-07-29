@@ -23,7 +23,7 @@ import { spaceConfig } from '@/features/i18n/space.config';
 import { SpaceSettingTab, SpaceInnerSettingModal } from '@overridable/SpaceInnerSettingModal';
 import { LevelWithUpgrade } from '../../components/billing/LevelWithUpgrade';
 import { Collaborators } from '../../components/collaborator-manage/space-inner/Collaborators';
-import { PersonalSettingTab } from '../../components/setting/useSettingStore';
+import { PersonalSettingTab, useSettingStore } from '../../components/setting/useSettingStore';
 import { SpaceActionBar } from '../../components/space/SpaceActionBar';
 import { SpaceRenaming } from '../../components/space/SpaceRenaming';
 import { useIsCloud } from '../../hooks/useIsCloud';
@@ -49,9 +49,9 @@ export const SpaceInnerPage: React.FC = () => {
   const [renaming, setRenaming] = useState<boolean>(false);
   const [spaceName, setSpaceName] = useState<string>();
   const [settingModalOpen, setSettingModalOpen] = useState(false);
-  const [settingDefaultTab, setSettingDefaultTab] = useState<SpaceSettingTab | PersonalSettingTab>(
-    SpaceSettingTab.Plan
-  );
+  const [settingDefaultTab, setSettingDefaultTab] = useState<SpaceSettingTab>(SpaceSettingTab.Plan);
+
+  const openSetting = useSettingStore((state) => state.setOpen);
 
   const { data: space } = useQuery({
     queryKey: ReactQueryKeys.space(spaceId),
@@ -168,16 +168,20 @@ export const SpaceInnerPage: React.FC = () => {
 
   useEffect(() => {
     const { subscribeLevel, host, settingTab } = router.query;
+    const isOwner = space?.role === Role.Owner;
 
-    let tab: SpaceSettingTab | PersonalSettingTab | undefined;
+    if (subscribeLevel && host === 'self-hosted') {
+      openSetting(true, PersonalSettingTab.License);
+      return;
+    }
+
+    let tab: SpaceSettingTab | undefined;
 
     if (subscribeLevel) {
-      if (host === 'self-hosted') {
-        tab = PersonalSettingTab.LicensePlan;
-      } else if (isCloud && space?.role === Role.Owner) {
+      if (isCloud && isOwner) {
         tab = SpaceSettingTab.Plan;
       }
-    } else if (settingTab) {
+    } else if (settingTab && isOwner) {
       tab = settingTab as SpaceSettingTab;
     }
 

@@ -1,10 +1,15 @@
 import type { IGetRecordsRo } from '@teable/openapi';
-import { inRange, debounce, get } from 'lodash';
+import { debounce, get } from 'lodash';
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import type { IGridProps, IRectangle } from '../..';
 import { useSearch } from '../../../hooks';
 import { useRecordsQuery } from '../../../hooks/use-records-query';
-import { type IRecordIndexMap, LOAD_PAGE_SIZE } from './use-grid-async-records';
+import {
+  computeNextWindowQuery,
+  INITIAL_LOAD_PAGE_SIZE,
+  LOAD_PAGE_SIZE,
+} from '../../../utils/record-window';
+import { type IRecordIndexMap } from './use-grid-async-records';
 
 type ISearchHits = { recordId: string; fieldId: string }[];
 type IRecordSearchHitIndexItem = { recordId: string; fieldId: string[] };
@@ -72,7 +77,7 @@ export const useGridAsyncRecordsQuery = (
 ): IRes => {
   const [query, setQuery] = useState<IGetRecordsRo>({
     skip: 0,
-    take: LOAD_PAGE_SIZE,
+    take: INITIAL_LOAD_PAGE_SIZE,
     ...initQuery,
   });
   const recordsQuery = useMemo(() => ({ ...query, ...outerQuery }), [query, outerQuery]);
@@ -171,22 +176,11 @@ export const useGridAsyncRecordsQuery = (
         return cv;
       }
 
-      const take = initQuery?.take ?? cv.take ?? LOAD_PAGE_SIZE;
-
-      const pageOffsetSize = take / 3;
-      const pageGap = take / 3;
-
-      const visibleStartIndex = cv.skip <= y ? cv.skip - pageOffsetSize : cv.skip + pageOffsetSize;
-      const visibleEndIndex = visibleStartIndex + take;
-      const viewInRange =
-        inRange(y, visibleStartIndex, visibleEndIndex) &&
-        inRange(y + height, visibleStartIndex, visibleEndIndex);
-      if (!viewInRange) {
-        const skip = Math.floor(y / pageGap) * pageGap - pageGap;
+      const next = computeNextWindowQuery(cv, y, height, initQuery?.take ?? LOAD_PAGE_SIZE);
+      if (next) {
         return {
-          take: cv.take,
           ...initQuery,
-          skip: Math.max(0, skip),
+          ...next,
         };
       }
       return {

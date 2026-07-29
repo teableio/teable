@@ -1405,6 +1405,47 @@ describe('OpenAPI ShareController (e2e)', () => {
       expect(shareResult.data.fields.length).toEqual(3);
     });
 
+    it('should keep the primary field visible when the API configuration omits it', async () => {
+      const primaryField = table2.fields.find((field) => field.isPrimary);
+      const configuredField = table2.fields.find((field) => !field.isPrimary);
+      const unconfiguredField = table2.fields.find(
+        (field) => field.id !== primaryField?.id && field.id !== configuredField?.id
+      );
+      if (!primaryField || !configuredField || !unconfiguredField) {
+        throw new Error('Expected primary, configured, and unconfigured fields');
+      }
+
+      const linkField = await createField(table1.id, {
+        name: 'link field with implicit primary visibility',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: table2.id,
+          visibleFieldIds: [configuredField.id],
+        },
+      });
+
+      expect((linkField.data.options as ILinkFieldOptions).visibleFieldIds).toEqual([
+        configuredField.id,
+      ]);
+
+      const shareResult = await getShareView(linkField.data.id);
+      expect(shareResult.data.fields.map((field) => field.id)).toEqual([
+        primaryField.id,
+        configuredField.id,
+      ]);
+
+      const projectedRecords = await apiGetShareViewRecords(linkField.data.id, {
+        projection: [configuredField.id],
+      });
+      const recordWithConfiguredValue = projectedRecords.data.records.find((record) =>
+        Object.prototype.hasOwnProperty.call(record.fields, configuredField.id)
+      );
+      expect(recordWithConfiguredValue?.fields).toHaveProperty(primaryField.id);
+      expect(recordWithConfiguredValue?.fields).toHaveProperty(configuredField.id);
+      expect(recordWithConfiguredValue?.fields).not.toHaveProperty(unconfiguredField.id);
+    });
+
     it('should get link view limited by multiple conditions', async () => {
       const filterByViewId = table2.defaultViewId;
       const textField = table2.fields[0];

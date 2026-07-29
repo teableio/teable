@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { hasPermission } from '@teable/core';
 import { ChevronDown, Clock4, LayoutList } from '@teable/icons';
 import {
+  BaseNodeResourceType,
   deleteBase,
   getSpaceById,
   permanentDeleteBase,
@@ -27,7 +28,6 @@ import {
   cn,
 } from '@teable/ui-lib/shadcn';
 import { keyBy } from 'lodash';
-import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useState, useMemo, useCallback } from 'react';
 import { useLocalStorage } from 'react-use';
@@ -39,6 +39,7 @@ import { useLastVisitBase } from '../base/hooks';
 import { BaseItem } from './BaseItem';
 import { DraggableBaseRows } from './DraggableBaseRows';
 import { useBaseList } from './useBaseList';
+import { useEnterBase } from './useEnterBase';
 
 enum ViewMode {
   Recent = 'recent',
@@ -54,8 +55,8 @@ interface IBaseListProps {
 export const BaseList = (props: IBaseListProps) => {
   const { baseIds, spaceId, showToolbar = false } = props;
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
-  const router = useRouter();
   const queryClient = useQueryClient();
+  const { enterBase, enterBaseOverlay } = useEnterBase();
   const [expandedBases, setExpandedBases] = useState<Set<string>>(new Set());
 
   const isHydrated = useIsHydrated();
@@ -175,10 +176,6 @@ export const BaseList = (props: IBaseListProps) => {
     },
   });
 
-  const intoBase = (baseId: string) => {
-    router.push(`/base/${baseId}`);
-  };
-
   const toggleExpanded = (baseId: string) => {
     setExpandedBases((prev) => {
       const next = new Set(prev);
@@ -256,7 +253,7 @@ export const BaseList = (props: IBaseListProps) => {
           showDragHandle={showDragHandle}
           dragHandleListeners={showDragHandle ? options?.listeners : undefined}
           onToggleExpand={() => toggleExpanded(base.id)}
-          onEnterBase={() => intoBase(base.id)}
+          onEnterBase={() => enterBase(base)}
           onUpdate={(data) => updateBaseMutator({ baseId: base.id, updateBaseRo: data })}
           onDelete={(permanent) => deleteBaseMutator({ baseId: base.id, permanent })}
         />
@@ -281,7 +278,11 @@ export const BaseList = (props: IBaseListProps) => {
                       resourceId,
                     });
                     if (url) {
-                      router.push(url);
+                      enterBase(
+                        base,
+                        url,
+                        resourceType === BaseNodeResourceType.Table ? 'table' : 'plain'
+                      );
                     }
                   }}
                 />
@@ -294,6 +295,7 @@ export const BaseList = (props: IBaseListProps) => {
   };
   return (
     <div className="flex h-full flex-col bg-background">
+      {enterBaseOverlay}
       {/* Toolbar: View Mode Select */}
       {showToolbar && (
         <div className="flex items-center gap-4">

@@ -8,6 +8,8 @@ export type IInstanceAction<T> =
   | { type: 'removeByIds'; ids: string[] }
   | { type: 'move'; docs: Doc<T>[]; from: number; to: number }
   | { type: 'clear' }
+  | { type: 'reset' }
+  | { type: 'seed'; data: T[] }
   | { type: 'extra'; extra: unknown };
 
 export interface IInstanceState<R> {
@@ -90,6 +92,31 @@ export function instanceReducer<T, R extends { id: string }>(
         };
       }
       return state;
+    }
+    case 'reset': {
+      // unconditional wipe — unlike 'clear' this also drops doc-less seeded
+      // instances; used on scope changes where any previous data (seeded or
+      // doc-backed) belongs to another collection/query and must not leak
+      if (!state.instances.length && state.extra === undefined) {
+        return state;
+      }
+      return {
+        ...state,
+        instances: [],
+        extra: undefined,
+      };
+    }
+    case 'seed': {
+      // seed data (REST-fetched bootstrap, no doc backing) must never clobber
+      // live doc-backed instances — the subscription is the source of truth
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if (state.instances[0] && (state.instances[0] as any).doc) {
+        return state;
+      }
+      return {
+        ...state,
+        instances: action.data.map((data) => factory(data)),
+      };
     }
     case 'extra': {
       return {

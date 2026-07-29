@@ -18,7 +18,8 @@ export class UpdateLookupOptionsSpec<
   private constructor(
     private readonly fieldIdValue: FieldId,
     private readonly previousOptionsValue: LookupOptions,
-    private readonly nextOptionsValue: LookupOptions
+    private readonly nextOptionsValue: LookupOptions,
+    private readonly innerOptionsPatchValue?: Readonly<Record<string, unknown>>
   ) {
     super();
   }
@@ -26,9 +27,10 @@ export class UpdateLookupOptionsSpec<
   static create(
     fieldId: FieldId,
     previousOptions: LookupOptions,
-    nextOptions: LookupOptions
+    nextOptions: LookupOptions,
+    innerOptionsPatch?: Readonly<Record<string, unknown>>
   ): UpdateLookupOptionsSpec {
-    return new UpdateLookupOptionsSpec(fieldId, previousOptions, nextOptions);
+    return new UpdateLookupOptionsSpec(fieldId, previousOptions, nextOptions, innerOptionsPatch);
   }
 
   fieldId(): FieldId {
@@ -62,6 +64,13 @@ export class UpdateLookupOptionsSpec<
       : undefined;
     const dbFieldNameResult = field.dbFieldName();
 
+    // Prefer an explicit patch (formatting/showAs from convert/update). Otherwise keep
+    // the existing patch so display options survive a lookupOptions-only update (T6332).
+    const innerOptionsPatch =
+      this.innerOptionsPatchValue !== undefined
+        ? this.innerOptionsPatchValue
+        : field.innerOptionsPatch();
+
     // Note: Lookup field inner field resolution happens during foreign table validation
     // Here we just create a pending lookup field with the new options
     const updatedFieldResult = LookupField.createPending({
@@ -71,6 +80,7 @@ export class UpdateLookupOptionsSpec<
       dbFieldName: dbFieldNameResult.isOk() ? dbFieldNameResult.value : undefined,
       dependencies: field.dependencies(),
       isMultipleCellValue,
+      innerOptionsPatch,
     });
     if (updatedFieldResult.isErr()) return err(updatedFieldResult.error);
 

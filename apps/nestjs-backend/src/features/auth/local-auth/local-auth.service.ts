@@ -433,6 +433,16 @@ export class LocalAuthService {
       });
     }
     const { userId } = resetPasswordEmail;
+    // Consume the one-time code atomically before updating the password so
+    // concurrent requests carrying the same code cannot both reset it.
+    const consumed = await this.cacheService.del(`reset-password-email:${code}`);
+    if (!consumed) {
+      throw new CustomHttpException(`Token is invalid`, HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.auth.tokenInvalid',
+        },
+      });
+    }
     const { salt, hashPassword } = await this.encodePassword(newPassword);
     await this.prismaService.txClient().user.update({
       where: { id: userId, deletedTime: null },
@@ -441,7 +451,6 @@ export class LocalAuthService {
         salt,
       },
     });
-    await this.cacheService.del(`reset-password-email:${code}`);
     // clear session
     await this.sessionStoreService.clearByUserId(userId);
   }

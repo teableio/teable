@@ -37,6 +37,9 @@
     "./jest": {
       "require": "./src/bases/jest.js"
     },
+    "./no-ssrf": {
+      "require": "./src/bases/no-ssrf.js"
+    },
     "./playwright": {
       "require": "./src/bases/playwright.js"
     },

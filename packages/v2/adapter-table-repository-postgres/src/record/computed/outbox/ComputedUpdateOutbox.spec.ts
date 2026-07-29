@@ -1,5 +1,11 @@
 import { FieldId, TableId, type IEventBus, type ILogger } from '@teable/v2-core';
-import type { Kysely } from 'kysely';
+import {
+  DummyDriver,
+  Kysely,
+  PostgresAdapter,
+  PostgresIntrospector,
+  PostgresQueryCompiler,
+} from 'kysely';
 import { ok } from 'neverthrow';
 import { describe, it, expect, vi } from 'vitest';
 
@@ -7,7 +13,12 @@ import {
   noopComputedActivityProjector,
   type IComputedActivityProjector,
 } from '../activity/IComputedActivityProjector';
-import { ComputedUpdateOutbox, dedupeClaimRowsByScope } from './ComputedUpdateOutbox';
+import { buildAdvisoryLockQuery, buildTryAdvisoryLockQuery } from '../ComputedUpdateLock';
+import {
+  buildTryOutboxAdvisoryLockQuery,
+  ComputedUpdateOutbox,
+  dedupeClaimRowsByScope,
+} from './ComputedUpdateOutbox';
 import type { ComputedUpdateOutboxItem } from './ComputedUpdateOutboxPayload';
 import {
   defaultComputedUpdateOutboxConfig,
@@ -106,7 +117,7 @@ describe('ComputedUpdateOutbox', () => {
             return result;
           },
         }),
-        executeQuery: vi.fn().mockResolvedValue({ rows: [] }),
+        executeQuery: vi.fn().mockResolvedValue({ rows: [{ locked: true }] }),
         getExecutor: vi.fn(() => executor),
         selectFrom: vi.fn().mockReturnValue({
           selectAll: vi.fn().mockReturnValue(selectChain),
@@ -188,7 +199,10 @@ describe('ComputedUpdateOutbox', () => {
         updated_at: now,
       });
       expect(updateValues?.attempts).toBeUndefined();
-      expect(updateValues?.next_run_at).toEqual(new Date(now.getTime() + 250));
+      // Retry delays carry jitter across [0.5x, 1.5x) of the requested delay.
+      const nextRunAtMs = (updateValues?.next_run_at as Date).getTime();
+      expect(nextRunAtMs).toBeGreaterThanOrEqual(now.getTime() + 125);
+      expect(nextRunAtMs).toBeLessThanOrEqual(now.getTime() + 375);
       expect(publish).toHaveBeenCalledOnce();
       expect(order).toEqual(['commit', 'publish']);
     });
@@ -211,7 +225,7 @@ describe('ComputedUpdateOutbox', () => {
             return result;
           },
         }),
-        executeQuery: vi.fn().mockResolvedValue({ rows: [] }),
+        executeQuery: vi.fn().mockResolvedValue({ rows: [{ locked: true }] }),
         getExecutor: vi.fn(() => createMockExecutor()),
         selectFrom: vi.fn().mockReturnValue({
           selectAll: vi.fn().mockReturnValue(selectChain),
@@ -301,7 +315,7 @@ describe('ComputedUpdateOutbox', () => {
             return result;
           },
         }),
-        executeQuery: vi.fn().mockResolvedValue({ rows: [] }),
+        executeQuery: vi.fn().mockResolvedValue({ rows: [{ locked: true }] }),
         getExecutor: vi.fn(() => createMockExecutor()),
       } as unknown as MockDb;
       const now = new Date('2026-07-16T10:00:00.000Z');
@@ -480,15 +494,15 @@ describe('ComputedUpdateOutbox', () => {
           await outbox.markFailed(task, 'Test error');
         }
 
-        // Expected: 1000 * 2^0 = 1000, 1000 * 2^1 = 2000, 1000 * 2^2 = 4000, 1000 * 2^3 = 8000
-        expect(backoffs[0]).toBeGreaterThanOrEqual(1000);
-        expect(backoffs[0]).toBeLessThan(2000);
-        expect(backoffs[1]).toBeGreaterThanOrEqual(2000);
-        expect(backoffs[1]).toBeLessThan(4000);
-        expect(backoffs[2]).toBeGreaterThanOrEqual(4000);
-        expect(backoffs[2]).toBeLessThan(8000);
-        expect(backoffs[3]).toBeGreaterThanOrEqual(8000);
-        expect(backoffs[3]).toBeLessThan(16000);
+        // Exponential base: 1000 * 2^0..2^3, each spread by jitter across [0.5x, 1.5x).
+        expect(backoffs[0]).toBeGreaterThanOrEqual(500);
+        expect(backoffs[0]).toBeLessThan(1500);
+        expect(backoffs[1]).toBeGreaterThanOrEqual(1000);
+        expect(backoffs[1]).toBeLessThan(3000);
+        expect(backoffs[2]).toBeGreaterThanOrEqual(2000);
+        expect(backoffs[2]).toBeLessThan(6000);
+        expect(backoffs[3]).toBeGreaterThanOrEqual(4000);
+        expect(backoffs[3]).toBeLessThan(12000);
       } finally {
         vi.useRealTimers();
       }
@@ -728,7 +742,7 @@ describe('ComputedUpdateOutbox', () => {
         transaction: () => ({
           execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
         }),
-        executeQuery: vi.fn().mockResolvedValue({ rows: [] }),
+        executeQuery: vi.fn().mockResolvedValue({ rows: [{ locked: true }] }),
         getExecutor: vi.fn(() => createMockExecutor()),
         selectFrom: vi
           .fn()
@@ -804,7 +818,7 @@ describe('ComputedUpdateOutbox', () => {
         transaction: () => ({
           execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
         }),
-        executeQuery: vi.fn().mockResolvedValue({ rows: [] }),
+        executeQuery: vi.fn().mockResolvedValue({ rows: [{ locked: true }] }),
         getExecutor: vi.fn(() => createMockExecutor()),
         selectFrom: vi
           .fn()
@@ -872,5 +886,116 @@ describe('ComputedUpdateOutbox', () => {
       expect(deletedTables).toContain('computed_update_outbox');
       expect(deletedTables).toContain('computed_update_outbox_seed');
     });
+  });
+});
+
+describe('retry jitter', () => {
+  it('spreads lock-miss requeue delays across the [0.5x, 1.5x) envelope', async () => {
+    const now = new Date('2026-01-05T12:00:00Z');
+    const delays: number[] = [];
+    let takeFirstCalls = 0;
+    const executor = createMockExecutor();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const selectChain: Record<string, any> = {};
+    selectChain.where = vi.fn().mockReturnValue(selectChain);
+    selectChain.forUpdate = vi.fn().mockReturnValue({
+      // Alternate ownership-check hit and pending-lookup miss for every release call.
+      executeTakeFirst: vi.fn().mockImplementation(() => {
+        takeFirstCalls += 1;
+        return Promise.resolve(takeFirstCalls % 2 === 1 ? { id: 'cuo123456789012345' } : undefined);
+      }),
+    });
+    const mockDb = {
+      transaction: () => ({
+        execute: async <T>(fn: (trx: unknown) => Promise<T>) => fn(mockDb),
+      }),
+      executeQuery: vi.fn().mockResolvedValue({ rows: [{ locked: true }] }),
+      getExecutor: vi.fn(() => executor),
+      selectFrom: vi.fn().mockReturnValue({
+        selectAll: vi.fn().mockReturnValue(selectChain),
+        select: vi.fn().mockReturnValue(selectChain),
+      }),
+      updateTable: vi.fn().mockReturnValue({
+        set: vi.fn().mockImplementation((values) => {
+          delays.push(new Date(values.next_run_at).getTime() - now.getTime());
+          return {
+            where: vi.fn().mockReturnValue({ execute: vi.fn().mockResolvedValue([]) }),
+          };
+        }),
+      }),
+    } as unknown as MockDb;
+
+    const outbox = new ComputedUpdateOutbox(
+      mockDb,
+      defaultComputedUpdateOutboxConfig,
+      createLogger(),
+      mockDb
+    );
+    const task = createMockTask({
+      status: 'processing',
+      lockedAt: now,
+      lockedBy: 'worker-1:cuc_lock',
+    });
+
+    for (let i = 0; i < 20; i += 1) {
+      const result = await outbox.releaseForRetry({
+        task,
+        reason: 'lock busy',
+        retryDelayMs: 250,
+        now,
+      });
+      expect(result._unsafeUnwrap()).toBe(true);
+    }
+
+    expect(delays).toHaveLength(20);
+    for (const delay of delays) {
+      expect(delay).toBeGreaterThanOrEqual(125);
+      expect(delay).toBeLessThan(375);
+    }
+    // 20 draws from a 250ms-wide uniform range collapsing to a single value would mean
+    // the jitter is gone (fixed delays are what synchronize same-key retry waves).
+    expect(new Set(delays).size).toBeGreaterThan(1);
+  });
+});
+
+describe('advisory lock scope fingerprints', () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const compileDb = new Kysely<any>({
+    dialect: {
+      createAdapter: () => new PostgresAdapter(),
+      createDriver: () => new DummyDriver(),
+      createIntrospector: (innerDb) => new PostgresIntrospector(innerDb),
+      createQueryCompiler: () => new PostgresQueryCompiler(),
+    },
+  });
+
+  const structuralFingerprint = (query: string): string =>
+    query
+      // pg_stat_statements ignores aliases and constant values. Normalize both while
+      // retaining function names, target arity, and constant kinds (text/number/boolean).
+      .replace(/\s+as\s+\w+/gi, '')
+      .replace(/'[^']*'/g, "'<text>'")
+      .replace(/\b\d+\b/g, '<number>')
+      .replace(/\b(?:true|false)\b/gi, '<boolean>')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  it('emits structurally distinct SQL per lock scope', () => {
+    const computedWait = buildAdvisoryLockQuery(compileDb, 'k').sql;
+    const computedTry = buildTryAdvisoryLockQuery(compileDb, 'k').sql;
+    const merge = buildTryOutboxAdvisoryLockQuery(compileDb, 'k', 'merge').sql;
+    const claimGlobal = buildTryOutboxAdvisoryLockQuery(compileDb, 'k', 'claim_global').sql;
+    const claimBase = buildTryOutboxAdvisoryLockQuery(compileDb, 'k', 'claim_base').sql;
+
+    expect(computedWait).toContain("'computed' as lock_scope");
+    expect(merge).toContain("'outbox_merge' as lock_scope");
+    expect(claimGlobal).toContain('as lock_scope_outbox_claim_global');
+    expect(claimBase).toContain('as lock_scope_outbox_claim_base');
+
+    // pg_stat_statements queryid jumbles function identity, constant types, and target
+    // arity — not aliases or constant values — so normalize the latter before comparing.
+    const variants = [computedWait, computedTry, merge, claimGlobal, claimBase];
+    const fingerprints = variants.map(structuralFingerprint);
+    expect(new Set(fingerprints).size).toBe(fingerprints.length);
   });
 });

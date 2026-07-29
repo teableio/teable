@@ -905,8 +905,10 @@ export class RecordHistoryFlusherService {
          WHERE "table_id" = ${tableIdBind} AND "created_time" < ${cutoffBind}${rangeClause}${afterClause}
          ORDER BY "record_id", "created_time", "id" LIMIT ${Math.max(1, Math.floor(limit))}
        ) "sub"`;
-    const knex = await this.databaseRouter.dataKnexForTable(tableId);
-    const result = await knex.raw(sql, bindings);
+    const result = await this.dataDbClientManager.withDataKnexConnectionForTable(
+      tableId,
+      (knex, connection) => knex.raw(sql, bindings).connection(connection)
+    );
     const raw = ((result as { rows?: unknown[] }).rows ?? (result as unknown[])) as Array<{
       id: string;
       recordId: string;

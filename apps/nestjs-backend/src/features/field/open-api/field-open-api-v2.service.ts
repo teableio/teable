@@ -41,8 +41,10 @@ import {
   type ISpan,
   type ITableMapper,
   type ITracer,
+  extractLookupDisplayOptionsPatch,
   LinkFieldConfig,
   LinkRelationship,
+  stripLookupFormulaExecutableOptions,
   TableId,
   type Table,
   type TableQueryService,
@@ -594,10 +596,37 @@ export class FieldOpenApiV2Service {
             : undefined;
 
         if (sourceOptions || currentOptions) {
-          vo.options = {
-            ...(sourceOptions ?? {}),
-            ...(currentOptions ?? {}),
-          } as IFieldVo['options'];
+          if (vo.isConditionalLookup) {
+            // Conditional lookup formula still needs a real expression/timeZone.
+            vo.options = {
+              ...(sourceOptions ?? {}),
+              ...(currentOptions ?? {}),
+            } as IFieldVo['options'];
+          } else if ((vo.type ?? sourceVo.type) === FieldType.Formula) {
+            // Regular lookup-of-formula: never expose foreign expression/timeZone.
+            const displaySourceOptions = stripLookupFormulaExecutableOptions(sourceOptions) ?? {};
+            const displayCurrentOptions = stripLookupFormulaExecutableOptions(currentOptions) ?? {};
+            vo.options = {
+              ...displaySourceOptions,
+              ...displayCurrentOptions,
+            } as IFieldVo['options'];
+          } else {
+            // Non-formula lookup: source structural options win; only formatting/showAs
+            // from the current field may override (T6208/T6332).
+            const nextOptions: Record<string, unknown> = {
+              ...(sourceOptions ?? {}),
+            };
+            if (
+              currentOptions &&
+              Object.prototype.hasOwnProperty.call(currentOptions, 'formatting')
+            ) {
+              nextOptions.formatting = currentOptions.formatting;
+            }
+            if (currentOptions && Object.prototype.hasOwnProperty.call(currentOptions, 'showAs')) {
+              nextOptions.showAs = currentOptions.showAs;
+            }
+            vo.options = nextOptions as IFieldVo['options'];
+          }
           vo.options = this.denormalizeLegacyTimeZone(vo.options) as IFieldVo['options'];
         }
 
@@ -1035,10 +1064,13 @@ export class FieldOpenApiV2Service {
         ro.lookupOptions && typeof ro.lookupOptions === 'object' && !Array.isArray(ro.lookupOptions)
           ? (ro.lookupOptions as Record<string, unknown>)
           : undefined;
-      const innerOptions =
+      const rawInnerOptions =
         ro.options && typeof ro.options === 'object' && !Array.isArray(ro.options)
           ? (ro.options as Record<string, unknown>)
           : undefined;
+      // Lookup options are display-only. Drop formula/rollup executable keys so a
+      // lookup-of-formula cannot be rehydrated as a host formula (T6332).
+      const innerOptions = extractLookupDisplayOptionsPatch(rawInnerOptions) ?? {};
       return this.normalizeLegacyTimeZone({
         ...base,
         type: 'lookup',
@@ -1054,7 +1086,7 @@ export class FieldOpenApiV2Service {
           ...(lookupOpts?.sort ? { sort: lookupOpts.sort } : {}),
           ...(lookupOpts?.limit != null ? { limit: lookupOpts.limit } : {}),
         },
-        ...(innerOptions && Object.keys(innerOptions).length > 0 ? { innerOptions } : {}),
+        ...(Object.keys(innerOptions).length > 0 ? { innerOptions } : {}),
       }) as Record<string, unknown>;
     }
 
@@ -2015,12 +2047,9 @@ export class FieldOpenApiV2Service {
     }
 
     // Case 3: Regular Lookup (non-conditional)
-    if (
-      ro.isLookup &&
-      ro.lookupOptions &&
-      ro.type !== FieldType.Formula &&
-      ro.type !== FieldType.Rollup
-    ) {
+    // Lookup-of-formula must stay on the lookup path. Falling through to Case 5
+    // treats foreign formula expressions as host formulas and blocks convert (T6332).
+    if (ro.isLookup && ro.lookupOptions && ro.type !== FieldType.Rollup) {
       const lookupOpts = ro.lookupOptions as Record<string, unknown>;
       const currentLookupOpts =
         currentField?.lookupOptions &&
@@ -2056,10 +2085,21 @@ export class FieldOpenApiV2Service {
         ...(hasLimitPatch || shouldClearLimit ? { limit: lookupOpts.limit } : {}),
         ...(shouldClearShowAs ? { showAs: null } : {}),
       };
+      // Display-only options for the looked-up value. Never forward formula expression —
+      // lookup values come from the foreign field, not host formula evaluation.
+      const displayOpts = extractLookupDisplayOptionsPatch(opts) ?? {};
+      const innerOptions =
+        Object.keys(displayOpts).length > 0 || shouldClearShowAs
+          ? {
+              ...displayOpts,
+              ...(shouldClearShowAs ? { showAs: null } : {}),
+            }
+          : undefined;
       return {
         ...base,
         type: 'lookup',
         options: lookupOptions,
+        ...(innerOptions ? { innerOptions } : {}),
       };
     }
 

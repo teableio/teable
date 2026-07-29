@@ -254,6 +254,20 @@ const nextConfig = {
         ],
       },
       {
+        // Pages rendered INSIDE an OAuth popup opened by a cross-origin page
+        // (e.g. a generated app signing in with Teable). For the popup side,
+        // any COOP value except unsafe-none severs it from its opener —
+        // allow-popups above only protects the opener side. Must come after
+        // the all-pages rule so this value wins (later setHeader overwrites).
+        // Keep in sync with the backend middleware (utils/oauth-popup-coop.ts).
+        source: '/auth/login',
+        headers: [{ key: 'Cross-Origin-Opener-Policy', value: 'unsafe-none' }],
+      },
+      {
+        source: '/oauth/decision',
+        headers: [{ key: 'Cross-Origin-Opener-Policy', value: 'unsafe-none' }],
+      },
+      {
         source: '/images/(.*)',
         headers: [
           { key: 'Access-Control-Allow-Origin', value: '*' },

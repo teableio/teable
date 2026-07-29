@@ -93,7 +93,7 @@ export const TableInfo: React.FC<ITableInfoProps> = (props: ITableInfoProps) => 
       )}
       <div
         className={cn(
-          'relative flex h-8 max-w-[120px] shrink-0 grow-0 flex-col items-start justify-center gap-1 @xl/view-header:max-w-[240px]',
+          'relative flex h-8 max-w-[120px] shrink-0 grow-0 flex-col items-start justify-center gap-1 @xl/view-header:max-w-[144px]',
           isEditing ? 'min-w-[120px]' : 'min-w-20'
         )}
       >

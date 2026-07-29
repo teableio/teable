@@ -6,7 +6,15 @@ import { Events } from '../event.enum';
 
 type ISpaceCreatePayload = { space: ICreateSpaceVo };
 type ISpaceDeletePayload = { spaceId: string; permanent?: boolean };
-type ISpaceUpdatePayload = ISpaceCreatePayload;
+/**
+ * The space is partial because an update route need not resolve to one — the id then comes from
+ * the route param. `body` is what the caller asked for, kept by consumers only when the resolved
+ * space does not already say it.
+ */
+type ISpaceUpdatePayload = {
+  space: Pick<ICreateSpaceVo, 'id'> & Partial<ICreateSpaceVo>;
+  body?: Record<string, unknown>;
+};
 
 export class SpaceCreateEvent extends CoreEvent<ISpaceCreatePayload> {
   public readonly name = Events.SPACE_CREATE;
@@ -27,8 +35,12 @@ export class SpaceDeleteEvent extends CoreEvent<ISpaceDeletePayload> {
 export class SpaceUpdateEvent extends CoreEvent<ISpaceUpdatePayload> {
   public readonly name = Events.SPACE_UPDATE;
 
-  constructor(space: ICreateSpaceVo, context: IEventContext) {
-    super({ space }, context);
+  constructor(
+    space: ISpaceUpdatePayload['space'],
+    context: IEventContext,
+    body?: Record<string, unknown>
+  ) {
+    super({ space, ...(body && Object.keys(body).length ? { body } : {}) }, context);
   }
 }
 
@@ -48,8 +60,8 @@ export class SpaceEventFactory {
         return new SpaceDeleteEvent({ spaceId, permanent }, context);
       })
       .with(Events.SPACE_UPDATE, () => {
-        const { space } = payload as ISpaceUpdatePayload;
-        return new SpaceUpdateEvent(space, context);
+        const { space, body } = payload as ISpaceUpdatePayload;
+        return new SpaceUpdateEvent(space, context, body);
       })
       .otherwise(() => null);
   }

@@ -4,8 +4,9 @@ import { mkdtemp, mkdir, rm } from 'fs/promises';
 import { createServer } from 'net';
 import { tmpdir } from 'os';
 import path from 'path';
+import { PgPoolRegistry } from '@teable/db-main-prisma';
 import createKnex from 'knex';
-import { Client } from 'pg';
+import { Client, Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { DataDbClientManager } from '../../global/data-db-client-manager.service';
 import { DataDbRuntimeCacheService } from '../../global/data-db-runtime-cache.service';
@@ -476,6 +477,7 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
   it('copies base schemas and validates/switches the migration job through real PostgreSQL tools', async () => {
     const sourceUrl = pgUrl(port, sourceDatabase);
     const targetUrl = pgUrl(port, targetDatabase);
+    vi.stubEnv('PRISMA_DATABASE_URL', sourceUrl);
     const service = new SpaceDataDbCopyService(new SpaceDataDbProcessRunnerService());
     await mkdir(path.join(rootDir, 'work'));
 
@@ -523,6 +525,7 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
       spaceId,
       targetConnectionId,
       targetInternalSchema: targetSchema,
+      switchOnCompletion: true,
       createdBy: 'usr',
       startedAt: new Date('2026-05-06T00:00:00.000Z'),
       completedAt: null,
@@ -592,7 +595,8 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
       prismaService as never,
       {} as never,
       sourceFallbackKnex,
-      runtimeCache
+      runtimeCache,
+      new PgPoolRegistry((config) => new Pool(config))
     );
     const migrationService = new SpaceDataDbMigrationService(
       prismaService as never,
@@ -639,8 +643,15 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
           ]),
         },
       });
-      expectProcessTiming(baseCopyStats.baseSchemas.dump);
-      expectProcessTiming(baseCopyStats.baseSchemas.restore);
+      if (baseCopyStats.baseSchemas.strategy === 'pg_dump_stream_restore') {
+        expectProcessTiming(baseCopyStats.baseSchemas.stream!.source);
+        expectProcessTiming(baseCopyStats.baseSchemas.stream!.target);
+      } else if (baseCopyStats.baseSchemas.strategy === 'pgcopydb') {
+        expectProcessTiming(baseCopyStats.baseSchemas.pgcopydb!);
+      } else {
+        expectProcessTiming(baseCopyStats.baseSchemas.dump!);
+        expectProcessTiming(baseCopyStats.baseSchemas.restore!);
+      }
 
       const sharedResults = await service.copySharedTables(
         buildMigrationSharedTablePsqlCopyPlans({
@@ -657,14 +668,14 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
 
       expect(sharedResults).toEqual(
         expect.arrayContaining([
-          expect.objectContaining({ table: 'record_history', copiedRows: 1 }),
-          expect.objectContaining({ table: 'table_trash', copiedRows: 1 }),
-          expect.objectContaining({ table: 'record_trash', copiedRows: 1 }),
-          expect.objectContaining({ table: 'computed_update_outbox', copiedRows: 1 }),
-          expect.objectContaining({ table: 'computed_update_dead_letter', copiedRows: 1 }),
-          expect.objectContaining({ table: 'computed_update_outbox_seed', copiedRows: 1 }),
-          expect.objectContaining({ table: 'computed_update_pause_scope', copiedRows: 3 }),
-          expect.objectContaining({ table: '__undo_log', copiedRows: 1 }),
+          expect.objectContaining({ table: 'record_history', copiedRows: null }),
+          expect.objectContaining({ table: 'table_trash', copiedRows: null }),
+          expect.objectContaining({ table: 'record_trash', copiedRows: null }),
+          expect.objectContaining({ table: 'computed_update_outbox', copiedRows: null }),
+          expect.objectContaining({ table: 'computed_update_dead_letter', copiedRows: null }),
+          expect.objectContaining({ table: 'computed_update_outbox_seed', copiedRows: null }),
+          expect.objectContaining({ table: 'computed_update_pause_scope', copiedRows: null }),
+          expect.objectContaining({ table: '__undo_log', copiedRows: null }),
         ])
       );
       const historyCopy = sharedResults.find((result) => result.table === 'record_history');
@@ -705,6 +716,7 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
             [legacyAutoNumberSequenceName]
           )
         ).resolves.toBe(1);
+        await target.query(`DELETE FROM "${baseId}"."${mainRelationName}" WHERE "id" = 'rec3'`);
         await expect(
           queryCount(target, `SELECT COUNT(*) AS count FROM "${baseId}"."${linkedRelationName}"`)
         ).resolves.toBe(2);
@@ -876,18 +888,28 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
           ]),
         }),
       });
+      expect(txClient.spaceDataDbBinding.upsert).toHaveBeenCalled();
+      expect(currentBinding).not.toBeNull();
 
-      const postSwitchKnex = await routingManager.dataKnexForBase(baseId);
-      expect(postSwitchKnex).not.toBe(sourceFallbackKnex);
-      await postSwitchKnex.raw(
-        `INSERT INTO "${baseId}"."${mainRelationName}" ("id", "__created_time", "name") VALUES (?, now(), ?)`,
-        ['rec-post-switch', 'BYODB target']
-      );
-      const otherSpaceKnex = await routingManager.dataKnexForBase(otherBaseId);
-      expect(otherSpaceKnex).toBe(sourceFallbackKnex);
-      await otherSpaceKnex.raw(
-        `INSERT INTO "${otherBaseId}"."${mainRelationName}" ("id", "__created_time", "name") VALUES (?, now(), ?)`,
-        ['rec-other-post-switch', 'Default source']
+      await routingManager.withDataKnexConnectionForBase(baseId, async (knex, connection) => {
+        const route = await knex
+          .raw<{ rows: Array<{ database: string }> }>('SELECT current_database() AS "database"')
+          .connection(connection);
+        expect(route.rows[0]?.database).toBe(targetDatabase);
+        await knex
+          .raw(
+            `INSERT INTO "${baseId}"."${mainRelationName}" ("id", "__created_time", "name") VALUES (?, now(), ?)`,
+            ['rec-post-switch', 'BYODB target']
+          )
+          .connection(connection);
+      });
+      await routingManager.withDataKnexConnectionForBase(otherBaseId, (knex, connection) =>
+        knex
+          .raw(
+            `INSERT INTO "${otherBaseId}"."${mainRelationName}" ("id", "__created_time", "name") VALUES (?, now(), ?)`,
+            ['rec-other-post-switch', 'Default source']
+          )
+          .connection(connection)
       );
 
       const source = new Client({ connectionString: sourceUrl });
@@ -946,13 +968,14 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
           state: 'ready',
         },
       });
-      expect(txClient.spaceDataDbMigrationJob.update).toHaveBeenCalledWith({
+      expect(prismaService.spaceDataDbMigrationJob.update).toHaveBeenCalledWith({
         where: { id: jobId },
         data: expect.objectContaining({ state: 'succeeded', lastError: null }),
       });
       expect(dataDbClientManager.invalidateConnection).toHaveBeenCalledWith(targetConnectionId);
     } finally {
       await Promise.all([routingManager.onModuleDestroy(), sourceFallbackKnex.destroy()]);
+      vi.unstubAllEnvs();
     }
   }, 60_000);
 
@@ -1068,7 +1091,8 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
       prismaService as never,
       {} as never,
       sourceFallbackKnex,
-      new DataDbRuntimeCacheService()
+      new DataDbRuntimeCacheService(),
+      new PgPoolRegistry((config) => new Pool(config))
     );
     const migrationService = new SpaceDataDbMigrationService(
       prismaService as never,

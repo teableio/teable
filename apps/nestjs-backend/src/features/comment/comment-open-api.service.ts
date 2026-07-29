@@ -27,7 +27,11 @@ import type { IClsStore } from '../../types/cls';
 import type { I18nPath } from '../../types/i18n.generated';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import StorageAdapter from '../attachments/plugins/adapter';
-import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
+import {
+  getFreshPreviewCacheUrl,
+  getPreviewCacheKey,
+  getPublicFullStorageUrl,
+} from '../attachments/plugins/utils';
 import { NotificationService } from '../notification/notification.service';
 import { RecordService } from '../record/record.service';
 
@@ -103,9 +107,9 @@ export class CommentOpenApiService {
     let urls: string[] = [];
     if (tokens.length) {
       const cacheUrls = await this.cacheService.getMany(
-        tokens.map((token) => `attachment:preview:${token}` as const)
+        tokens.map((token) => getPreviewCacheKey(token ?? ''))
       );
-      urls = cacheUrls.map((url) => url?.url) as string[];
+      urls = cacheUrls.map((cacheValue) => getFreshPreviewCacheUrl(cacheValue)) as string[];
     }
     const presignedUrls = await Promise.all(
       urls.map(async (url, index) => {

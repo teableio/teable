@@ -339,7 +339,7 @@ describe('TableMetaUpdateVisitor', () => {
         return [];
       }
     });
-    const fieldOptions = jsonParameters.find((value) => value.expression === '1') as
+    const fieldOptions = jsonParameters.find((value) => value.expression === '""') as
       | Record<string, unknown>
       | undefined;
     const lookupOptions = jsonParameters.find(
@@ -347,7 +347,7 @@ describe('TableMetaUpdateVisitor', () => {
     ) as Record<string, unknown> | undefined;
 
     expect(fieldOptions).toMatchObject({
-      expression: '1',
+      expression: '""',
       formatting: {
         type: 'currency',
         precision: 2,

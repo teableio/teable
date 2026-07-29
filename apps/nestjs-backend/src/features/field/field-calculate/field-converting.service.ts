@@ -8,6 +8,7 @@ import type {
   ILinkFieldOptions,
   FieldCore,
 } from '@teable/core';
+import { stripLookupFormulaExecutableOptions } from '@teable/v2-core';
 import {
   ColorUtils,
   DbFieldType,
@@ -137,12 +138,14 @@ export class FieldConvertingService {
     }
 
     const linkFieldDto = linkField as LinkFieldDto;
-    const { showAs: _, ...inheritableOptions } = lookupField.options as Record<string, unknown>;
+    const strippedLookupOptions = stripLookupFormulaExecutableOptions(lookupField.options) ?? {};
+    const { showAs: _showAs, ...inheritableOptions } = strippedLookupOptions;
+    const strippedFieldOptions = stripLookupFormulaExecutableOptions(field.options) ?? {};
     const {
       formatting = inheritableOptions.formatting,
       showAs,
       ...inheritOptions
-    } = field.options as Record<string, unknown>;
+    } = strippedFieldOptions;
     const cellValueTypeChanged = field.cellValueType !== lookupField.cellValueType;
 
     const clearErrorOp = this.buildOpAndMutateField(field, 'hasError', null);
@@ -560,7 +563,8 @@ export class FieldConvertingService {
           field.options,
           JSON.parse(lookupToFieldRaw.options as string),
           field.cellValueType,
-          isMultipleCellValue
+          isMultipleCellValue,
+          { stripSourceFormulaExecutableOptions: !field.isConditionalLookup }
         );
 
         if (!isEqual(newOptions, field.options)) {

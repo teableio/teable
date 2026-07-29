@@ -7,6 +7,10 @@ import type { EditOp, CreateOp, DeleteOp } from 'sharedb';
 import { CacheService } from '../../cache/cache.service';
 import { AttachmentsStorageService } from '../../features/attachments/attachments-storage.service';
 import StorageAdapter from '../../features/attachments/plugins/adapter';
+import {
+  getFreshPreviewCacheUrl,
+  getPreviewCacheKey,
+} from '../../features/attachments/plugins/utils';
 import { resolveThumbnailMimetype } from '../../features/attachments/utils';
 import { getTableThumbnailToken } from '../../utils/generate-thumbnail-path';
 import { Timing } from '../../utils/timing';
@@ -140,11 +144,12 @@ export class RepairAttachmentOpService {
     for (let i = 0; i < tokens.length; i += batchSize) {
       const batch = tokens.slice(i, i + batchSize);
       const previewUrls = await this.cacheService.getMany(
-        batch.map((token) => `attachment:preview:${token}` as const)
+        batch.map((token) => getPreviewCacheKey(token))
       );
       previewUrls.forEach((urlCache, index) => {
-        if (urlCache) {
-          previewUrlTokenMap[batch[i + index]] = urlCache.url;
+        const freshUrl = getFreshPreviewCacheUrl(urlCache);
+        if (freshUrl) {
+          previewUrlTokenMap[batch[i + index]] = freshUrl;
         }
       });
     }
@@ -275,7 +280,7 @@ export class RepairAttachmentOpService {
     if (!needsRepair) return;
 
     if (isRenamed) {
-      await this.cacheService.del(`attachment:preview:${item.token}`);
+      await this.cacheService.del(getPreviewCacheKey(item.token));
       delete context.cachePreviewUrlTokenMap[item.token];
     }
 

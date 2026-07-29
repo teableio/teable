@@ -19,7 +19,7 @@ const ToolBarButton = forwardRef<HTMLButtonElement, IToolBarButton>(
         variant={'ghost'}
         size={'xs'}
         className={cn(
-          'font-normal shrink-0 truncate px-1.5',
+          'shrink-0 truncate px-1.5 font-normal focus-visible:ring-inset',
           { 'bg-secondary': isActive },
           className
         )}

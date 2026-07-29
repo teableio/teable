@@ -32,11 +32,15 @@ export const LinkNotification = (props: LinkNotificationProps) => {
   // would navigate to the table URL instead.
   const handleContentClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
-    if (target.tagName === 'A' || target.closest('a')) {
+    const anchor = (
+      target.tagName === 'A' ? target : target.closest('a')
+    ) as HTMLAnchorElement | null;
+    // closest('a') also matches the wrapping <Link>; only intercept anchors
+    // inside the content itself so normal clicks still navigate via the Link.
+    if (anchor && e.currentTarget.contains(anchor)) {
       e.stopPropagation();
       e.preventDefault();
-      const anchor = (target.tagName === 'A' ? target : target.closest('a')) as HTMLAnchorElement;
-      if (anchor?.href) {
+      if (anchor.href) {
         window.open(anchor.href, anchor.target || '_blank', 'noopener,noreferrer');
       }
     }

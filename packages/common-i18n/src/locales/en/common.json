@@ -505,6 +505,7 @@
       "tabLink": "Invite by link",
       "linkPlaceholder": "Create an invite link that grants <0/> access to anyone who opens it.",
       "emailSend": "Send invite",
+      "directAccessDescription": "Invited collaborators can use the link below to access this resource directly and start collaborating",
       "linkSend": "Create link",
       "spaceTitle": "Space collaborators",
       "spaceTitleWithCount": "Space collaborators ({{count}})",
@@ -1266,6 +1267,10 @@
           "title": "Record comment notification",
           "message": "{{fromUserName}} made a comment on {{recordName}} in {{tableName}} in {{baseName}}"
         },
+        "collaboratorInvite": {
+          "space": "{{fromUserName}} invited you to join the space {{resourceName}}",
+          "base": "{{fromUserName}} invited you to join the base {{resourceName}}"
+        },
         "automation": {
           "title": "Automation notification",
           "failed": {
@@ -1646,10 +1651,10 @@
     }
   },
   "changelog": {
-    "newUpdate": "JUL 15 UPDATE",
-    "title": "AI Memory and File Downloads",
-    "url": "https://help.teable.ai/en/changelog#jul-15-2026",
-    "id": "changelog-2026-07-15-ai-memory-and-file-downloads"
+    "newUpdate": "JUL 28 UPDATE",
+    "title": "Teable Skill for AI Agents",
+    "url": "https://help.teable.ai/en/changelog#jul-28-2026",
+    "id": "changelog-2026-07-28-teable-skill-for-ai-agents"
   },
   "resourceDescription": {
     "addDescription": "Add description",

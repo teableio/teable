@@ -531,15 +531,32 @@ const buildFieldMappings = (
   return safeTry<ReadonlyArray<FieldMapping>, DomainError>(function* () {
     const mappings: FieldMapping[] = [];
     const valueTypeVisitor = new FieldValueTypeVisitor();
+    const selectedFieldIds = new Set(fieldIds.map((fieldId) => fieldId.toString()));
+    const selectedFields = table
+      .getFields()
+      .filter(
+        (field) => selectedFieldIds.has(field.id().toString()) && !field.hasError().isError()
+      );
+    const lastFieldIdByColumn = new Map<string, string>();
 
     for (const fieldId of fieldIds) {
-      const field = yield* table.getField((candidate) => candidate.id().equals(fieldId));
-      // Skip fields with errors - they should not be updated
-      if (field.hasError().isError()) {
-        continue;
-      }
+      yield* table.getField((candidate) => candidate.id().equals(fieldId));
+    }
+
+    for (const field of selectedFields) {
+      const dbFieldName = yield* field.dbFieldName();
+      lastFieldIdByColumn.set(yield* dbFieldName.value(), field.id().toString());
+    }
+
+    const selectedFieldById = new Map(
+      selectedFields.map((field) => [field.id().toString(), field] as const)
+    );
+    for (const fieldId of fieldIds) {
+      const field = selectedFieldById.get(fieldId.toString());
+      if (!field) continue;
       const dbFieldName = yield* field.dbFieldName();
       const columnName = yield* dbFieldName.value();
+      if (lastFieldIdByColumn.get(columnName) !== field.id().toString()) continue;
       // Determine if this is a lookup field
       // V1 compatibility: V1 stores lookup fields with isLookup=true metadata and a specific type
       // (e.g., type='autoNumber', isLookup=true). When loaded by V2, these become LookupField instances
@@ -605,7 +622,7 @@ const buildFieldMappings = (
 
       mappings.push({
         column: columnName,
-        fieldId,
+        fieldId: field.id(),
         isLookup,
         isLookupMultiValue,
         isLookupAutoNumber,

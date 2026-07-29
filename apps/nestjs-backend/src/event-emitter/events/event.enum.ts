@@ -67,6 +67,7 @@ export enum Events {
   COLLABORATOR_CREATE = 'collaborator.create',
   COLLABORATOR_DELETE = 'collaborator.delete',
   COLLABORATOR_UPDATE = 'collaborator.update',
+  COLLABORATOR_INVITED = 'collaborator.invited',
 
   // Base-scope collaborator audit actions (parallel to the generic COLLABORATOR_*
   // business events above, which are kept for internal pub/sub). Future space-level

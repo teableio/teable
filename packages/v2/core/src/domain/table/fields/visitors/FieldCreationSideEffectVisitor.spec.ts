@@ -131,6 +131,63 @@ describe('FieldCreationSideEffectVisitor', () => {
     expect(symmetricField.symmetricFieldId()?.equals(linkFieldIdResult._unsafeUnwrap())).toBe(true);
   });
 
+  it('plans unique symmetric fields for multiple links to the same foreign table', () => {
+    const baseId = createBaseId('a')._unsafeUnwrap();
+    const hostTableId = createTableId('b')._unsafeUnwrap();
+    const foreignTableId = createTableId('c')._unsafeUnwrap();
+    const foreignPrimaryId = createFieldId('d')._unsafeUnwrap();
+    const hostTable = buildTable({
+      baseId,
+      tableId: hostTableId,
+      tableName: 'Assignments',
+      primaryFieldId: createFieldId('e')._unsafeUnwrap(),
+      primaryFieldName: 'Name',
+    });
+    const foreignTable = buildTable({
+      baseId,
+      tableId: foreignTableId,
+      tableName: 'Reference Items',
+      primaryFieldId: foreignPrimaryId,
+      primaryFieldName: 'Name',
+    });
+    const config = LinkFieldConfig.create({
+      relationship: 'manyMany',
+      foreignTableId: foreignTableId.toString(),
+      lookupFieldId: foreignPrimaryId.toString(),
+    })._unsafeUnwrap();
+    const links = [
+      createNewLinkField({
+        id: createFieldId('f')._unsafeUnwrap(),
+        name: FieldName.create('Primary Reference')._unsafeUnwrap(),
+        config,
+        baseId,
+        hostTableId,
+      })._unsafeUnwrap(),
+      createNewLinkField({
+        id: createFieldId('g')._unsafeUnwrap(),
+        name: FieldName.create('Secondary Reference')._unsafeUnwrap(),
+        config,
+        baseId,
+        hostTableId,
+      })._unsafeUnwrap(),
+    ];
+
+    const effects = FieldCreationSideEffectVisitor.collect(links, {
+      table: hostTable,
+      foreignTables: [foreignTable],
+    })._unsafeUnwrap();
+    expect(effects).toHaveLength(2);
+
+    let updatedForeignTable = foreignTable;
+    for (const effect of effects) {
+      updatedForeignTable = effect.mutateSpec.mutate(updatedForeignTable)._unsafeUnwrap();
+    }
+    const symmetricNames = updatedForeignTable
+      .getFields(buildFieldSpec((builder) => builder.isLink()))
+      .map((field) => field.name().toString());
+    expect(symmetricNames).toEqual(['Assignments', 'Assignments (linked)']);
+  });
+
   it('skips one-way links', () => {
     const baseIdResult = createBaseId('g');
     const hostTableIdResult = createTableId('h');

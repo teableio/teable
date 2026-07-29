@@ -15,6 +15,7 @@ import type { ISecurityWebConfig, IApiDocConfig } from './configs/bootstrap.conf
 import { GlobalExceptionFilter } from './filter/global-exception.filter';
 import { setupSwagger } from './swagger';
 import type { IClsStore } from './types/cls';
+import { relaxOAuthPopupCoop } from './utils/oauth-popup-coop';
 
 const host = 'localhost';
 
@@ -28,6 +29,7 @@ export async function setUpAppMiddleware(app: INestApplication, configService: C
   // HSTS is configured at the WAF level. Disable it here to avoid sending duplicate
   // `Strict-Transport-Security` headers with potentially different max-age values.
   app.use(helmet({ hsts: false }));
+  app.use(relaxOAuthPopupCoop);
   app.use(json({ limit: '50mb' }));
   app.use(urlencoded({ limit: '50mb', extended: true }));
 

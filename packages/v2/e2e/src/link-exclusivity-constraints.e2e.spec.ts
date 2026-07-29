@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import { getRandomString } from '@teable/v2-core';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
@@ -803,6 +804,121 @@ describe('v2 link field exclusivity constraints (e2e)', () => {
       });
 
       assertClientError(response, rawBody);
+    });
+
+    it('keeps cross-base oneMany caches consistent after filtered symmetric updates', async () => {
+      const foreignBaseId = `bse${getRandomString(16)}`;
+      const spaceId = `spc${getRandomString(16)}`;
+
+      await ctx.testContainer.db
+        .insertInto('space')
+        .values({ id: spaceId, name: 'Cross-base exclusivity space', created_by: 'system' })
+        .execute();
+      await ctx.testContainer.db
+        .insertInto('base')
+        .values({
+          id: foreignBaseId,
+          space_id: spaceId,
+          name: 'Cross-base exclusivity base',
+          order: 1,
+          created_by: 'system',
+        })
+        .execute();
+
+      const childTitleFieldId = `fld${getRandomString(16)}`;
+      const childTable = await ctx.createTable({
+        baseId: foreignBaseId,
+        name: 'Cross-base exclusive child',
+        fields: [{ type: 'singleLineText', id: childTitleFieldId, name: 'Title', isPrimary: true }],
+        views: [{ type: 'grid' }],
+      });
+      const child = await ctx.createRecord(childTable.id, {
+        [childTitleFieldId]: 'Exclusive child',
+      });
+      const childMeta = await ctx.testContainer.db
+        .selectFrom('table_meta')
+        .select('db_table_name')
+        .where('id', '=', childTable.id)
+        .executeTakeFirstOrThrow();
+
+      const parentTitleFieldId = `fld${getRandomString(16)}`;
+      const oneManyFieldId = `fld${getRandomString(16)}`;
+      const symmetricFieldId = `fld${getRandomString(16)}`;
+      const parentTable = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: 'Cross-base exclusive parent',
+        fields: [
+          { type: 'singleLineText', id: parentTitleFieldId, name: 'Title', isPrimary: true },
+        ],
+        views: [{ type: 'grid' }],
+      });
+      await ctx.createField({
+        baseId: ctx.baseId,
+        tableId: parentTable.id,
+        field: {
+          type: 'link',
+          id: oneManyFieldId,
+          name: 'Children',
+          options: {
+            baseId: foreignBaseId,
+            relationship: 'oneMany',
+            foreignTableId: childTable.id,
+            lookupFieldId: childTitleFieldId,
+            isOneWay: false,
+            symmetricFieldId,
+            fkHostTableName: childMeta.db_table_name,
+            selfKeyName: `__fk_${symmetricFieldId}`,
+            foreignKeyName: '__id',
+          },
+        },
+      });
+      const parent1 = await ctx.createRecord(parentTable.id, {
+        [parentTitleFieldId]: 'Parent 1',
+      });
+      const parent2 = await ctx.createRecord(parentTable.id, {
+        [parentTitleFieldId]: 'Parent 2',
+      });
+
+      await ctx.updateRecord(parentTable.id, parent1.id, {
+        [oneManyFieldId]: [{ id: child.id }],
+      });
+      await ctx.drainOutbox();
+
+      const moved = await ctx.updateRecords({
+        tableId: childTable.id,
+        fields: { [symmetricFieldId]: { id: parent2.id } },
+        filter: {
+          fieldId: childTitleFieldId,
+          operator: 'is',
+          value: 'Exclusive child',
+        },
+      });
+      expect(moved.updatedCount).toBe(1);
+      await ctx.drainOutbox();
+
+      const parentsAfterMove = await ctx.listRecords(parentTable.id);
+      const parent1AfterMove = parentsAfterMove.find((record) => record.id === parent1.id);
+      const parent2AfterMove = parentsAfterMove.find((record) => record.id === parent2.id);
+      expect(parent1AfterMove?.fields[oneManyFieldId] ?? []).toEqual([]);
+      expect(parent2AfterMove?.fields[oneManyFieldId]).toEqual([
+        expect.objectContaining({ id: child.id }),
+      ]);
+
+      const cleared = await ctx.updateRecords({
+        tableId: childTable.id,
+        fields: { [symmetricFieldId]: null },
+        filter: {
+          fieldId: childTitleFieldId,
+          operator: 'is',
+          value: 'Exclusive child',
+        },
+      });
+      expect(cleared.updatedCount).toBe(1);
+      await ctx.drainOutbox();
+
+      const parentsAfterClear = await ctx.listRecords(parentTable.id);
+      const parent2AfterClear = parentsAfterClear.find((record) => record.id === parent2.id);
+      expect(parent2AfterClear?.fields[oneManyFieldId] ?? []).toEqual([]);
     });
 
     it('should NOT enforce exclusivity on manyOne side (multiple children can link to same parent)', async () => {

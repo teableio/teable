@@ -152,7 +152,7 @@
     }
   },
   "settings": {
-    "title": "Приклад налаштувань",
+    "title": "Налаштування екземпляра",
     "allSetting": "Налаштування простору й особисті",
     "personal": {
       "title": "Особисте"
@@ -453,6 +453,7 @@
       "tabLink": "Запросити на посилання",
       "linkPlaceholder": "Створити посилання запрошення, яке надасть <0/> доступ будь-кому, хто його відкриє.",
       "emailSend": "Надіслати запрошення",
+      "directAccessDescription": "Запрошені учасники можуть безпосередньо перейти за посиланням нижче та приєднатися до співпраці",
       "linkSend": "Створити посилання",
       "spaceTitle": "Співавтори простору",
       "collaboratorSearchPlaceholder": "Знайдіть співавтора простору на ім'я або електронну пошту",
@@ -884,6 +885,10 @@
           "title": "Сповіщення про коментар до запису",
           "message": "{{fromUserName}} залишив коментар до {{recordName}} у {{tableName}} у {{baseName}}"
         },
+        "collaboratorInvite": {
+          "space": "{{fromUserName}} запросив вас приєднатися до простору {{resourceName}}",
+          "base": "{{fromUserName}} запросив вас приєднатися до бази {{resourceName}}"
+        },
         "automation": {
           "title": "Сповіщення про автоматизацію",
           "failed": {
@@ -1270,10 +1275,10 @@
     }
   },
   "changelog": {
-    "newUpdate": "ОНОВЛЕННЯ ВІД 15 ЛИПНЯ",
-    "title": "Пам’ять ШІ та завантаження файлів",
-    "url": "https://help.teable.ai/en/changelog#jul-15-2026",
-    "id": "changelog-2026-07-15-ai-memory-and-file-downloads"
+    "newUpdate": "ОНОВЛЕННЯ ВІД 28 ЛИПНЯ",
+    "title": "Teable Skill для ШІ-агентів",
+    "url": "https://help.teable.ai/en/changelog#jul-28-2026",
+    "id": "changelog-2026-07-28-teable-skill-for-ai-agents"
   },
   "resourceDescription": {
     "addDescription": "Додати опис",

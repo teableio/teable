@@ -21,6 +21,11 @@ import {
 import StorageAdapter from './plugins/adapter';
 import { InjectStorageAdapter } from './plugins/storage';
 import type { IRespHeaders } from './plugins/types';
+import {
+  getFreshPreviewCacheUrl,
+  getPreviewCacheKey,
+  getPreviewUrlConfigSig,
+} from './plugins/utils';
 
 @Injectable()
 export class AttachmentsStorageService {
@@ -90,15 +95,17 @@ export class AttachmentsStorageService {
     // Use 50% of URL expiration time for cache TTL to ensure URLs are refreshed
     // before they expire, preventing stale URLs after deployments
     const cacheTtl = Math.floor(expiresIn * 0.5);
-    const previewCache = await this.cacheService.get(`attachment:preview:${token}`);
-    let url = previewCache?.url;
+    const cacheKey = getPreviewCacheKey(token);
+    const previewCache = await this.cacheService.get(cacheKey);
+    let url = getFreshPreviewCacheUrl(previewCache);
     if (!url) {
       url = await this.storageAdapter.getPreviewUrl(bucket, path, expiresIn, respHeaders);
       await this.cacheService.set(
-        `attachment:preview:${token}`,
+        cacheKey,
         {
           url,
           expiresIn,
+          configSig: getPreviewUrlConfigSig(),
         },
         cacheTtl
       );

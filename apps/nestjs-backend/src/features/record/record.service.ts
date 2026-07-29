@@ -82,7 +82,11 @@ import {
 import { Timing } from '../../utils/timing';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import StorageAdapter from '../attachments/plugins/adapter';
-import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
+import {
+  getFreshPreviewCacheUrl,
+  getPreviewCacheKey,
+  getPublicFullStorageUrl,
+} from '../attachments/plugins/utils';
 import { resolveThumbnailMimetype } from '../attachments/utils';
 import { BatchService } from '../calculation/batch.service';
 import { DataLoaderService } from '../data-loader/data-loader.service';
@@ -1816,11 +1820,12 @@ export class RecordService {
     for (let i = 0; i < previewToken.length; i += 1000) {
       const tokenBatch = previewToken.slice(i, i + 1000);
       const previewUrls = await this.cacheService.getMany(
-        tokenBatch.map((token) => `attachment:preview:${token}` as const)
+        tokenBatch.map((token) => getPreviewCacheKey(token))
       );
-      previewUrls.forEach((url, index) => {
-        if (url) {
-          tokenMap[previewToken[i + index]] = url.url;
+      previewUrls.forEach((cacheValue, index) => {
+        const freshUrl = getFreshPreviewCacheUrl(cacheValue);
+        if (freshUrl) {
+          tokenMap[previewToken[i + index]] = freshUrl;
         }
       });
     }
@@ -2020,7 +2025,7 @@ export class RecordService {
   }
 
   async invalidateAttachmentPresignedUrlCache(tokens: string[]) {
-    await Promise.all(tokens.map((token) => this.cacheService.del(`attachment:preview:${token}`)));
+    await Promise.all(tokens.map((token) => this.cacheService.del(getPreviewCacheKey(token))));
   }
 
   async getAttachmentPresignedCellValue(

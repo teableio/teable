@@ -10,6 +10,7 @@ import {
   getNotificationList,
   getNotificationUnreadCount,
   notificationReadAll,
+  updateNotificationStatus,
 } from '@teable/openapi';
 import { useNotification } from '@teable/sdk';
 import { ReactQueryKeys } from '@teable/sdk/config/react-query-keys';
@@ -17,6 +18,7 @@ import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib'
 import { cn } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import dayjs from 'dayjs';
+import ms from 'ms';
 import { useTranslation } from 'next-i18next';
 import type { TFunction } from 'next-i18next';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -26,14 +28,13 @@ import { LinkNotification } from './notification-component';
 import { NotificationIcon } from './NotificationIcon';
 import { NotificationList } from './NotificationList';
 
-const isCriticalAdminNotice = (n: INotification) =>
-  n.notifyType === NotificationTypeEnum.AdminNotice &&
-  n.severity === NotificationSeverityEnum.Critical;
-
-const SHOWN_NOTIFICATIONS_LIMIT = 100;
-const TOAST_AUTO_CLOSE_DURATION = 1000 * 3;
+const UNREAD_INVITE_TOAST_LIMIT = 3;
+// Matches the 1-month expiry of email invitation records: older unread invites
+// stay in the bell but are no longer recalled as toasts on app open.
+const UNREAD_INVITE_RECALL_WINDOW_DAYS = 30;
+const CATCH_UP_STALE_TIME = ms('5m');
+const TOAST_AUTO_CLOSE_DURATION = ms('3s');
 const TOAST_MANUAL_CLOSE_DURATION = Infinity;
-const shownNotificationIds = new Set<string>();
 const CREDIT_EXHAUSTED_NOTIFICATION_TOAST_ID = 'credit-exhausted-notification';
 const CREDIT_NOTIFICATION_I18N_KEYS = new Set([
   'email.templates.notify.task.ai.cancelled.creditExhausted',
@@ -45,64 +46,90 @@ const NOTIFICATION_SEVERITIES = [
   NotificationSeverityEnum.Info,
 ] as const;
 
-const getNotificationToastDuration = (notification: Pick<INotification, 'severity'>) =>
-  notification.severity === NotificationSeverityEnum.Critical
+// Session-scoped dedup: each notification is surfaced (toast / important popup)
+// at most once per page load.
+const SHOWN_NOTIFICATIONS_LIMIT = 100;
+const shownNotificationIds = new Set<string>();
+
+const markNotificationShown = (notificationId: string) => {
+  if (shownNotificationIds.has(notificationId)) return false;
+  if (shownNotificationIds.size >= SHOWN_NOTIFICATIONS_LIMIT) {
+    shownNotificationIds.clear();
+  }
+  shownNotificationIds.add(notificationId);
+  return true;
+};
+
+const isCriticalAdminNotice = (n: INotification) =>
+  n.notifyType === NotificationTypeEnum.AdminNotice &&
+  n.severity === NotificationSeverityEnum.Critical;
+
+const parseMessageI18n = (
+  messageI18n: string | null | undefined
+): { i18nKey?: string; context?: Record<string, string> } | null => {
+  try {
+    return JSON.parse(messageI18n || '{}');
+  } catch {
+    return null;
+  }
+};
+
+// Invite toasts never auto-close: they may fire while the user is away from
+// the tab, and an invite needs a response — it waits until clicked or closed.
+const getNotificationToastDuration = (
+  notification: Pick<INotification, 'severity' | 'notifyType'>
+) =>
+  notification.severity === NotificationSeverityEnum.Critical ||
+  notification.notifyType === NotificationTypeEnum.CollaboratorInvite
     ? TOAST_MANUAL_CLOSE_DURATION
     : TOAST_AUTO_CLOSE_DURATION;
 
 const getNotificationToastId = (notification: INotification) => {
-  let i18nKey: string | undefined;
-  try {
-    const parsed = JSON.parse(notification.messageI18n || '{}');
-    i18nKey = typeof parsed?.i18nKey === 'string' ? parsed.i18nKey : undefined;
-  } catch {
-    // ignore invalid messageI18n
-  }
-
-  return i18nKey && CREDIT_NOTIFICATION_I18N_KEYS.has(i18nKey)
+  const i18nKey = parseMessageI18n(notification.messageI18n)?.i18nKey;
+  return typeof i18nKey === 'string' && CREDIT_NOTIFICATION_I18N_KEYS.has(i18nKey)
     ? `${dayjs().format('YYYY-MM-DD')}-${CREDIT_EXHAUSTED_NOTIFICATION_TOAST_ID}`
     : notification.id;
 };
 
-const dispatchExportBaseComplete = (notification: Pick<INotification, 'messageI18n' | 'url'>) => {
-  const { messageI18n, url } = notification;
-
-  try {
-    const parsed = JSON.parse(messageI18n || '{}');
-    const baseName = parsed?.context?.baseName || '';
-    const fileName = parsed?.context?.name || baseName;
-    const downloadUrl = url || parsed?.context?.previewUrl || '';
-    const isSuccess = !parsed?.i18nKey?.includes('failed');
-    const event = new CustomEvent('export-base-complete', {
-      cancelable: true,
-      detail: { downloadUrl, fileName, baseName, isSuccess },
-    });
-    window.dispatchEvent(event);
-    return event.defaultPrevented;
-  } catch {
-    return false;
-  }
+const getExportBaseInfo = (notification: Pick<INotification, 'messageI18n' | 'url'>) => {
+  const parsed = parseMessageI18n(notification.messageI18n);
+  if (!parsed) return null;
+  const baseName = parsed.context?.baseName || '';
+  return {
+    baseName,
+    fileName: parsed.context?.name || baseName,
+    downloadUrl: notification.url || parsed.context?.previewUrl || '',
+    isSuccess: !parsed.i18nKey?.includes('failed'),
+  };
 };
+
+const dispatchExportBaseComplete = (notification: Pick<INotification, 'messageI18n' | 'url'>) => {
+  const info = getExportBaseInfo(notification);
+  if (!info) return false;
+  const event = new CustomEvent('export-base-complete', {
+    cancelable: true,
+    detail: info,
+  });
+  window.dispatchEvent(event);
+  return event.defaultPrevented;
+};
+
+// Any deliberate act on a toast — clicking it (navigate / download) or closing
+// it — consumes the notification, so it is marked read and dismissed. Only an
+// auto-close leaves it unread, since the user may never have looked at it.
+type IAcknowledgeNotification = (notification: INotification, toastId: string) => void;
 
 const showExportBaseToast = (
   notification: INotification & { notifyIcon: INotificationIcon },
   toastId: string,
-  t: TFunction
+  t: TFunction,
+  onAcknowledge: IAcknowledgeNotification
 ) => {
-  const { url, messageI18n } = notification;
-  let fileName = '';
-  let downloadUrl = url || '';
-  let isSuccess = true;
-  try {
-    const parsed = JSON.parse(messageI18n || '{}');
-    fileName = parsed?.context?.name || parsed?.context?.baseName || '';
-    isSuccess = !parsed?.i18nKey?.includes('failed');
-    if (!downloadUrl) {
-      downloadUrl = parsed?.context?.previewUrl || '';
-    }
-  } catch {
-    // ignore
-  }
+  const { fileName, downloadUrl, isSuccess } = getExportBaseInfo(notification) ?? {
+    fileName: '',
+    downloadUrl: notification.url || '',
+    isSuccess: true,
+  };
 
   const toastFn = isSuccess ? toast : toast.error;
   const titleKey = isSuccess
@@ -121,6 +148,7 @@ const showExportBaseToast = (
           download={fileName || undefined}
           className="ml-auto"
           onClick={(event) => {
+            onAcknowledge(notification, toastId);
             if (!fileName) return;
             event.preventDefault();
             void downloadUrlWithFileName(downloadUrl, fileName);
@@ -138,13 +166,22 @@ const showExportBaseToast = (
       position: 'top-center',
       duration: getNotificationToastDuration(notification),
       closeButton: true,
+      onDismiss: () => onAcknowledge(notification, toastId),
     }
   );
 };
 
-const showGeneralNotificationToast = (notification: INotification, toastId: string) => {
+const showGeneralNotificationToast = (
+  notification: INotification,
+  toastId: string,
+  onAcknowledge: IAcknowledgeNotification
+) => {
   toast.info(
-    <div className="flex w-full min-w-0 items-start">
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+    <div
+      className="flex w-full min-w-0 items-center"
+      onClickCapture={() => onAcknowledge(notification, toastId)}
+    >
       <NotificationIcon notifyIcon={notification.notifyIcon} notifyType={notification.notifyType} />
       <LinkNotification
         data={notification}
@@ -157,38 +194,45 @@ const showGeneralNotificationToast = (notification: INotification, toastId: stri
       position: 'top-center',
       duration: getNotificationToastDuration(notification),
       closeButton: true,
+      onDismiss: () => onAcknowledge(notification, toastId),
     }
   );
 };
 
-const showNotificationToast = (notification: INotification, toastId: string, t: TFunction) => {
+const showNotificationToast = (
+  notification: INotification,
+  toastId: string,
+  t: TFunction,
+  onAcknowledge: IAcknowledgeNotification
+) => {
   if (notification.notifyType === NotificationTypeEnum.ExportBase) {
     if (!dispatchExportBaseComplete(notification)) {
-      showExportBaseToast(notification, toastId, t);
+      showExportBaseToast(notification, toastId, t, onAcknowledge);
     }
     return;
   }
 
-  showGeneralNotificationToast(notification, toastId);
+  showGeneralNotificationToast(notification, toastId, onAcknowledge);
 };
 
-export const NotificationsManage: React.FC = () => {
+/**
+ * Surfaces unread notifications outside the bell, over three channels:
+ * - live socket notifications → toast (or the important popup for critical
+ *   admin notices);
+ * - unread critical admin notices caught up by query → important popup;
+ * - recent unread collaborator invites caught up by query → manual-close
+ *   toasts, so invites received while away are not missed.
+ */
+const useNotificationAlerts = (onMarkedRead: () => void) => {
   const queryClient = useQueryClient();
   const notification = useNotification();
   const { t } = useTranslation('common');
-
-  const [isOpen, setOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState<number>(0);
-
-  const [newUnreadCount, setNewUnreadCount] = useState<number | undefined>(undefined);
-
-  const [notifyStatus, setNotifyStatus] = useState(NotificationStatesEnum.Unread);
-  const [selectedSeverity, setSelectedSeverity] = useState<NotificationSeverityEnum | undefined>(
-    undefined
-  );
-
   const [importantNotifications, setImportantNotifications] = useState<INotification[]>([]);
 
+  // The socket only covers arrivals while it is open — the SDK closes it after
+  // ten minutes hidden and presence does not replay what was missed — so both
+  // catch-up queries stay refetchable on focus. Anything already surfaced is
+  // dropped by the session dedup, so a refetch can only add missed items.
   const { data: criticalAdminNotices } = useQuery({
     queryKey: ReactQueryKeys.notifyCriticalAdmin(),
     queryFn: () =>
@@ -197,68 +241,132 @@ export const NotificationsManage: React.FC = () => {
         severity: NotificationSeverityEnum.Critical,
         notifyType: NotificationTypeEnum.AdminNotice,
       }).then(({ data }) => data.notifications),
+    staleTime: CATCH_UP_STALE_TIME,
   });
+
+  const { data: unreadInviteNotifications } = useQuery({
+    queryKey: ReactQueryKeys.notifyUnreadInvite(),
+    queryFn: () =>
+      getNotificationList({
+        notifyStates: NotificationStatesEnum.Unread,
+        notifyType: NotificationTypeEnum.CollaboratorInvite,
+      }).then(({ data }) => data.notifications),
+    staleTime: CATCH_UP_STALE_TIME,
+  });
+
+  const { mutate: markNotificationAsRead } = useMutation({
+    mutationFn: (notificationId: string) =>
+      updateNotificationStatus({ notificationId, updateNotifyStatusRo: { isRead: true } }),
+    onSuccess: () => {
+      onMarkedRead();
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.notifyUnreadCount() });
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.notifyList() });
+    },
+  });
+
+  const acknowledgeToast = useCallback<IAcknowledgeNotification>(
+    (acknowledged, toastId) => {
+      toast.dismiss(toastId);
+      markNotificationAsRead(acknowledged.id);
+    },
+    [markNotificationAsRead]
+  );
+
+  const addImportantNotifications = useCallback((items: INotification[]) => {
+    if (!items.length) return;
+    setImportantNotifications((prev) => {
+      const existingIds = new Set(prev.map((p) => p.id));
+      const fresh = items.filter((n) => !existingIds.has(n.id));
+      return fresh.length ? [...prev, ...fresh] : prev;
+    });
+  }, []);
 
   useEffect(() => {
     if (!criticalAdminNotices?.length) return;
-    const fresh = criticalAdminNotices.filter((n) => !shownNotificationIds.has(n.id));
-    if (!fresh.length) return;
-    fresh.forEach((n) => shownNotificationIds.add(n.id));
-    setImportantNotifications((prev) => {
-      const existingIds = new Set(prev.map((p) => p.id));
-      return [...prev, ...fresh.filter((n) => !existingIds.has(n.id))];
-    });
-  }, [criticalAdminNotices]);
+    addImportantNotifications(criticalAdminNotices.filter((n) => markNotificationShown(n.id)));
+  }, [criticalAdminNotices, addImportantNotifications]);
 
-  const handleAcknowledgeImportant = useCallback(
+  useEffect(() => {
+    if (!unreadInviteNotifications?.length) return;
+    const recallCutoff = dayjs().subtract(UNREAD_INVITE_RECALL_WINDOW_DAYS, 'day');
+    unreadInviteNotifications
+      .filter((n) => !shownNotificationIds.has(n.id) && dayjs(n.createdTime).isAfter(recallCutoff))
+      .slice(0, UNREAD_INVITE_TOAST_LIMIT)
+      .forEach((invite) => {
+        markNotificationShown(invite.id);
+        showGeneralNotificationToast(invite, invite.id, acknowledgeToast);
+      });
+  }, [unreadInviteNotifications, acknowledgeToast]);
+
+  useEffect(() => {
+    const live = notification?.notification;
+    if (live == null || live.isRead) return;
+    if (!markNotificationShown(live.id)) return;
+
+    if (isCriticalAdminNotice(live)) {
+      addImportantNotifications([live]);
+      return;
+    }
+
+    showNotificationToast(live, getNotificationToastId(live), t, acknowledgeToast);
+  }, [notification?.notification, t, acknowledgeToast, addImportantNotifications]);
+
+  const acknowledgeImportant = useCallback(
     (id: string) => {
       setImportantNotifications((prev) => prev.filter((n) => n.id !== id));
+      onMarkedRead();
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.notifyList() });
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.notifyUnreadCount() });
     },
-    [queryClient]
+    [queryClient, onMarkedRead]
   );
+
+  // Everything is read: drop the alert surfaces and the catch-up cache with
+  // them. Reset rather than invalidate — cached rows would otherwise re-toast
+  // on the next remount.
+  const clearAlerts = useCallback(() => {
+    setImportantNotifications([]);
+    toast.dismiss();
+    queryClient.resetQueries({ queryKey: ReactQueryKeys.notifyUnreadInvite() });
+  }, [queryClient]);
+
+  return { importantNotifications, acknowledgeImportant, clearAlerts };
+};
+
+export const NotificationsManage: React.FC = () => {
+  const queryClient = useQueryClient();
+  const notification = useNotification();
+  const { t } = useTranslation('common');
+
+  const [isOpen, setOpen] = useState(false);
+  const [newUnreadCount, setNewUnreadCount] = useState<number | undefined>(undefined);
+  const [notifyStatus, setNotifyStatus] = useState(NotificationStatesEnum.Unread);
+  const [selectedSeverity, setSelectedSeverity] = useState<NotificationSeverityEnum | undefined>(
+    undefined
+  );
+
+  const dropSocketUnreadCount = useCallback(() => setNewUnreadCount(undefined), []);
+
+  const { importantNotifications, acknowledgeImportant, clearAlerts } =
+    useNotificationAlerts(dropSocketUnreadCount);
 
   const { data: queryUnreadCount = 0 } = useQuery({
     queryKey: ReactQueryKeys.notifyUnreadCount(),
     queryFn: () => getNotificationUnreadCount().then(({ data }) => data.unreadCount),
   });
 
+  // Keyed off the buffer, not the number: after a read drops the override, the
+  // next push can carry the same count and still has to re-arm it.
   useEffect(() => {
     if (notification?.unreadCount == null) return;
 
     setNewUnreadCount(notification.unreadCount);
-  }, [notification?.unreadCount]);
+  }, [notification]);
 
-  useEffect(() => {
-    setUnreadCount(newUnreadCount ?? queryUnreadCount);
-  }, [newUnreadCount, queryUnreadCount]);
-
-  useEffect(() => {
-    if (notification?.notification == null) return;
-    if (notification.notification.isRead) return;
-
-    const notificationId = notification.notification.id;
-    if (shownNotificationIds.has(notificationId)) return;
-    if (shownNotificationIds.size >= SHOWN_NOTIFICATIONS_LIMIT) {
-      shownNotificationIds.clear();
-    }
-    shownNotificationIds.add(notificationId);
-
-    if (isCriticalAdminNotice(notification.notification)) {
-      setImportantNotifications((prev) => {
-        if (prev.some((n) => n.id === notificationId)) return prev;
-        return [...prev, notification.notification];
-      });
-      return;
-    }
-
-    showNotificationToast(
-      notification.notification,
-      getNotificationToastId(notification.notification),
-      t
-    );
-  }, [notification?.notification, t]);
+  // live socket count wins until something reads notifications back — opening
+  // the bell (refresh) or acknowledging a toast — which hands the badge back to
+  // the freshly invalidated query.
+  const unreadCount = newUnreadCount ?? queryUnreadCount;
 
   const {
     data: notifyPage,
@@ -279,29 +387,28 @@ export const NotificationsManage: React.FC = () => {
     staleTime: 0,
   });
 
-  const { mutateAsync: markAllAsReadMutator } = useMutation({
-    mutationFn: notificationReadAll,
-    onSuccess: () => {
-      setImportantNotifications([]);
-      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.notifyList() });
-      refresh();
-    },
-  });
-
   const refresh = () => {
     setNewUnreadCount(undefined);
     queryClient.invalidateQueries({ queryKey: ReactQueryKeys.notifyUnreadCount() });
     queryClient.resetQueries({ queryKey: ReactQueryKeys.notifyList() });
   };
 
+  const { mutateAsync: markAllAsReadMutator } = useMutation({
+    mutationFn: notificationReadAll,
+    onSuccess: () => {
+      clearAlerts();
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.notifyList() });
+      refresh();
+    },
+  });
+
   const notifySummary = notifyPage?.pages[0]?.summary;
+  const totalSummaryCount = notifySummary
+    ? notifySummary.critical + notifySummary.warning + notifySummary.info
+    : 0;
 
   const getSeverityLabel = (severity: NotificationSeverityEnum) =>
     t(`notification.severity.${severity}`);
-
-  const handleSeverityClick = (severity?: NotificationSeverityEnum) => {
-    setSelectedSeverity(severity);
-  };
 
   const renderNewButton = () => {
     if (!newUnreadCount) return;
@@ -331,20 +438,18 @@ export const NotificationsManage: React.FC = () => {
         <PopoverTrigger asChild>
           <Button
             variant="ghost"
-            size={'xs'}
-            className="relative "
+            size="xs"
+            className="relative"
             onClick={() => {
               setNotifyStatus(NotificationStatesEnum.Unread);
               refresh();
             }}
           >
             <Bell className="size-5 shrink-0" />
-            {unreadCount > 0 ? (
+            {unreadCount > 0 && (
               <span className="absolute right-2.5 top-1 inline-flex -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-full bg-red-400 p-1 text-[8px] leading-none text-white">
                 {unreadCount}
               </span>
-            ) : (
-              ''
             )}
           </Button>
         </PopoverTrigger>
@@ -377,50 +482,28 @@ export const NotificationsManage: React.FC = () => {
               </div>
             </div>
             <div className="flex gap-1.5 px-4 py-2.5">
-              <Button
-                variant="ghost"
-                size="xs"
-                className={cn(
-                  'h-7 gap-1.5 rounded px-2.5 text-xs font-medium text-muted-foreground hover:bg-muted/70 hover:text-foreground',
-                  selectedSeverity === undefined &&
-                    'bg-foreground/10 text-foreground hover:bg-foreground/10'
-                )}
-                onClick={() => handleSeverityClick(undefined)}
-              >
-                {t('notification.sections.all')}
-                <span
-                  className={cn(
-                    'min-w-6 rounded-full px-2 py-0.5 text-center text-xs font-medium leading-none text-muted-foreground',
-                    selectedSeverity === undefined ? 'bg-background/80' : 'bg-muted/70'
-                  )}
-                >
-                  {notifySummary
-                    ? notifySummary.critical + notifySummary.warning + notifySummary.info
-                    : 0}
-                </span>
-              </Button>
-              {NOTIFICATION_SEVERITIES.map((severity) => {
+              {[undefined, ...NOTIFICATION_SEVERITIES].map((severity) => {
                 const isSelected = selectedSeverity === severity;
 
                 return (
                   <Button
-                    key={severity}
+                    key={severity ?? 'all'}
                     variant="ghost"
                     size="xs"
                     className={cn(
                       'h-7 gap-1.5 rounded px-2.5 text-xs font-medium text-muted-foreground hover:bg-muted/70 hover:text-foreground',
                       isSelected && 'bg-foreground/10 text-foreground hover:bg-foreground/10'
                     )}
-                    onClick={() => handleSeverityClick(severity)}
+                    onClick={() => setSelectedSeverity(severity)}
                   >
-                    {getSeverityLabel(severity)}
+                    {severity ? getSeverityLabel(severity) : t('notification.sections.all')}
                     <span
                       className={cn(
                         'min-w-6 rounded-full px-2 py-0.5 text-center text-xs font-medium leading-none text-muted-foreground',
                         isSelected ? 'bg-background/80' : 'bg-muted/70'
                       )}
                     >
-                      {notifySummary?.[severity] ?? 0}
+                      {severity ? notifySummary?.[severity] ?? 0 : totalSummaryCount}
                     </span>
                   </Button>
                 );
@@ -439,7 +522,7 @@ export const NotificationsManage: React.FC = () => {
                   : undefined
               }
             />
-            {notifyStatus === NotificationStatesEnum.Unread ? (
+            {notifyStatus === NotificationStatesEnum.Unread && (
               <div className="my-1.5 flex justify-end">
                 <Button
                   variant="ghost"
@@ -454,15 +537,13 @@ export const NotificationsManage: React.FC = () => {
                   {t('notification.markAllAsRead')}
                 </Button>
               </div>
-            ) : (
-              ''
             )}
           </div>
         </PopoverContent>
       </Popover>
       <ImportantNotificationPopup
         notifications={importantNotifications}
-        onAcknowledge={handleAcknowledgeImportant}
+        onAcknowledge={acknowledgeImportant}
       />
     </>
   );

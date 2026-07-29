@@ -43,6 +43,7 @@ import { createFieldInstanceByRaw } from '../field/model/factory';
 import { NotificationService } from '../notification/notification.service';
 import { createViewVoByRaw } from '../view/model/factory';
 import { EXCLUDE_SYSTEM_FIELDS } from './constant';
+import { isCrossSpaceReferenceAllowed } from './cross-space-detection.util';
 @Injectable()
 export class BaseExportService {
   public static CSV_CHUNK = 500;
@@ -514,7 +515,12 @@ export class BaseExportService {
       tables.push(tableObject);
     }
 
-    const plugins = await this.generatePluginConfig(baseId, includedDashboardIds, viewRaws);
+    const plugins = await this.generatePluginConfig(
+      baseId,
+      includedDashboardIds,
+      viewRaws,
+      tableRaws.map(({ id }) => id)
+    );
     const folders = await this.generateFolderConfig(baseId, includedFolderIds);
     const nodes = await this.generateNodeConfig(baseId, includeNodes, rootNodeIds);
 
@@ -1221,7 +1227,7 @@ export class BaseExportService {
     fieldRaws: Field[],
     destSpaceId?: string
   ): Promise<Set<string>> {
-    if (!destSpaceId) return new Set();
+    if (!destSpaceId || isCrossSpaceReferenceAllowed()) return new Set();
     const foreignBaseIds = new Set<string>();
     for (const f of fieldRaws) {
       try {
@@ -1516,7 +1522,12 @@ export class BaseExportService {
     });
   }
 
-  async generatePluginConfig(baseId: string, includedDashboardIds?: string[], viewRaws?: View[]) {
+  async generatePluginConfig(
+    baseId: string,
+    includedDashboardIds?: string[],
+    viewRaws?: View[],
+    includedTableIds?: string[]
+  ) {
     const pluginJson = {} as IBaseJson['plugins'];
 
     pluginJson[PluginPosition.Dashboard] = await this.generateDashboard(
@@ -1524,7 +1535,7 @@ export class BaseExportService {
       includedDashboardIds
     );
 
-    pluginJson[PluginPosition.Panel] = await this.generatePluginPanel(baseId);
+    pluginJson[PluginPosition.Panel] = await this.generatePluginPanel(baseId, includedTableIds);
 
     pluginJson[PluginPosition.View] = await this.generatePluginView(baseId, viewRaws);
 
@@ -1580,22 +1591,26 @@ export class BaseExportService {
     );
   }
 
-  private async generatePluginPanel(baseId: string) {
+  private async generatePluginPanel(baseId: string, includedTableIds?: string[]) {
     const prisma = this.prismaService.txClient();
-    const tableIds = await prisma.tableMeta.findMany({
-      where: {
-        baseId,
-        deletedTime: null,
-      },
-      select: {
-        id: true,
-      },
-    });
+    const tableIds =
+      includedTableIds ??
+      (
+        await prisma.tableMeta.findMany({
+          where: {
+            baseId,
+            deletedTime: null,
+          },
+          select: {
+            id: true,
+          },
+        })
+      ).map(({ id }) => id);
 
     const pluginPanelRaws = await prisma.pluginPanel.findMany({
       where: {
         tableId: {
-          in: tableIds.map(({ id }) => id),
+          in: tableIds,
         },
       },
       orderBy: {

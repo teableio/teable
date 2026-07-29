@@ -86,6 +86,8 @@ export const createShareBaseSSR = async <T extends IShareBasePagePropsBase>(
 
   try {
     const shareData = await ssrApi.getBaseShare(shareId as string);
+    // Missing defaultUrl means the base has nothing to land on (no nodes and no
+    // tables) — render a 404 rather than a blank page
     if (shareData.baseId !== baseId || !shareData?.defaultUrl) {
       return { notFound: true };
     }

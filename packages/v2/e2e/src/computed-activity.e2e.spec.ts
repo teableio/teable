@@ -195,6 +195,127 @@ describe('computed activity lifecycle (e2e)', () => {
     expect(afterDone.value.diagnostics.activeFieldCount).toBe(0);
   });
 
+  it('heals orphaned queued field activity when outbox task disappears', async () => {
+    const table = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: `computed activity orphan ${Date.now()}`,
+      fields: [
+        { type: 'singleLineText', name: 'Name', isPrimary: true },
+        { type: 'number', name: 'Amount' },
+      ],
+    });
+    const amountField = table.fields.find((field) => field.name === 'Amount');
+    if (!amountField) throw new Error('missing amount field');
+
+    const withFormula = await ctx.createField({
+      baseId: ctx.baseId,
+      tableId: table.id,
+      field: {
+        type: 'formula',
+        name: 'AmountTimesTwoOrphan',
+        options: { expression: `{${amountField.id}} * 2` },
+      },
+    });
+    const formulaField = withFormula.fields.find((field) => field.name === 'AmountTimesTwoOrphan');
+    if (!formulaField) throw new Error('missing formula field');
+
+    const nameField = table.fields.find((field) => field.isPrimary);
+    if (!nameField) throw new Error('missing primary field');
+
+    const record = await ctx.createRecord(table.id, {
+      [nameField.id]: 'row-orphan',
+      [amountField.id]: 7,
+    });
+    await ctx.drainOutbox();
+
+    const baseId = unwrapDomainId(BaseId.create(ctx.baseId));
+    const tableId = unwrapDomainId(TableId.create(table.id));
+    const recordId = unwrapDomainId(RecordId.create(record.id));
+    const formulaFieldId = unwrapDomainId(FieldId.create(formulaField.id));
+
+    const plan: ComputedUpdatePlan = {
+      baseId,
+      seedTableId: tableId,
+      seedRecordIds: [recordId],
+      extraSeedRecords: [],
+      beforeImageRecords: [],
+      steps: [
+        {
+          tableId,
+          fieldIds: [formulaFieldId],
+          level: 0,
+        },
+      ],
+      edges: [],
+      estimatedComplexity: 9,
+      changeType: 'update',
+      sameTableBatches: [],
+    };
+
+    const hasher = ctx.testContainer.container.resolve<IHasher>(v2CoreTokens.hasher);
+    const runId = `run_activity_orphan_${Date.now()}`;
+    const task = buildOutboxTaskInput({
+      plan,
+      hasher,
+      runId,
+      originRunIds: [runId],
+      runTotalSteps: plan.steps.length,
+      runCompletedStepsBefore: 0,
+      syncMaxLevel: 0,
+      dirtyStats: [{ tableId: table.id, recordCount: 1 }],
+    });
+
+    const outbox = ctx.testContainer.container.resolve<IComputedUpdateOutbox>(
+      v2RecordRepositoryPostgresTokens.computedUpdateOutbox
+    );
+    const enqueueResult = await outbox.enqueueOrMerge(task);
+    if (enqueueResult.isErr()) {
+      throw new Error(enqueueResult.error.message);
+    }
+    const taskId = enqueueResult.value.taskId;
+
+    const reader = ctx.testContainer.container.resolve<IComputedActivityReader>(
+      v2CoreTokens.computedActivityReader
+    );
+    const afterEnqueue = await reader.getByTableId(undefined, table.id);
+    if (afterEnqueue.isErr()) throw new Error(afterEnqueue.error.message);
+    expect(
+      afterEnqueue.value.fields.find((field) => field.fieldId === formulaField.id)?.status
+    ).toMatch(/queued|running/);
+
+    // Crash-style cleanup: outbox row disappears while activity stays active.
+    await ctx.testContainer.db
+      .deleteFrom('computed_update_outbox')
+      .where('id', '=', taskId)
+      .execute();
+    await ctx.testContainer.db
+      .deleteFrom('computed_update_outbox_seed')
+      .where('task_id', '=', taskId)
+      .execute();
+
+    // Read path must self-heal without requiring another outbox event.
+    const afterHeal = await reader.getByTableId(undefined, table.id);
+    if (afterHeal.isErr()) throw new Error(afterHeal.error.message);
+    const formulaAfterHeal = afterHeal.value.fields.find(
+      (field) => field.fieldId === formulaField.id
+    );
+    expect(formulaAfterHeal?.status).toBe('idle');
+    expect(formulaAfterHeal?.activeTaskCount).toBe(0);
+    expect(afterHeal.value.diagnostics.activeFieldCount).toBe(0);
+
+    const httpRes = await fetch(
+      `${ctx.baseUrl}/tables/getComputeActivity?baseId=${ctx.baseId}&tableId=${table.id}`,
+      { method: 'GET' }
+    );
+    expect(httpRes.status).toBe(200);
+    const httpBody = getComputeActivityOkResponseSchema.parse(await httpRes.json());
+    expect(httpBody.ok).toBe(true);
+    expect(httpBody.data.diagnostics.activeFieldCount).toBe(0);
+    expect(
+      httpBody.data.fields.find((field) => field.fieldId === formulaField.id)?.status ?? 'idle'
+    ).toBe('idle');
+  });
+
   it('projects computed targets discovered while processing a seed task', async () => {
     const table = await ctx.createTable({
       baseId: ctx.baseId,

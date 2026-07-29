@@ -740,5 +740,110 @@ describe('v2 conditionalField dirty propagation (e2e)', () => {
       );
       expect(byName.get('English Desk')?.fields[activeStoriesFieldId]).toContain('Story 1');
     });
+    it('limits inserted source propagation to hosts matching the new field-reference key', async () => {
+      const sourceNameFieldId = createFieldId();
+      const sourceKeyFieldId = createFieldId();
+      const sourceValueFieldId = createFieldId();
+      const hostNameFieldId = createFieldId();
+      const hostKeyFieldId = createFieldId();
+      const matchingValuesFieldId = createFieldId();
+
+      const sourceTable = await createTable({
+        baseId: ctx.baseId,
+        name: 'Source Orders Repro',
+        fields: [
+          { type: 'singleLineText', id: sourceNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'singleLineText', id: sourceKeyFieldId, name: 'Order Key' },
+          { type: 'singleLineText', id: sourceValueFieldId, name: 'Value' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const hostTable = await createTable({
+        baseId: ctx.baseId,
+        name: 'Inventory Hosts Repro',
+        fields: [
+          { type: 'singleLineText', id: hostNameFieldId, name: 'Name', isPrimary: true },
+          { type: 'singleLineText', id: hostKeyFieldId, name: 'Order Key' },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      const { status, rawBody } = await createField(hostTable.id, {
+        type: 'conditionalLookup',
+        id: matchingValuesFieldId,
+        name: 'Matching Values',
+        options: {
+          foreignTableId: sourceTable.id,
+          lookupFieldId: sourceValueFieldId,
+          condition: {
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: sourceKeyFieldId,
+                  operator: 'is',
+                  value: { type: 'field', fieldId: hostKeyFieldId },
+                },
+              ],
+            },
+          },
+        },
+      });
+
+      if (status !== 200) {
+        throw new Error(`Failed to create field-reference lookup: ${JSON.stringify(rawBody)}`);
+      }
+
+      const matchingHost = await createRecord(hostTable.id, {
+        [hostNameFieldId]: 'Matching Host',
+        [hostKeyFieldId]: 'order-a',
+      });
+      const unrelatedHost = await createRecord(hostTable.id, {
+        [hostNameFieldId]: 'Unrelated Host',
+        [hostKeyFieldId]: 'order-b',
+      });
+      await ctx.drainOutbox(20);
+
+      ctx.clearLogs();
+      await ctx.createRecords(sourceTable.id, [
+        {
+          fields: {
+            [sourceNameFieldId]: 'Inserted Order A',
+            [sourceKeyFieldId]: 'order-a',
+            [sourceValueFieldId]: 'matched-value',
+          },
+        },
+        {
+          fields: {
+            [sourceNameFieldId]: 'Inserted Order C',
+            [sourceKeyFieldId]: 'order-c',
+            [sourceValueFieldId]: 'unmatched-value',
+          },
+        },
+      ]);
+      await ctx.drainOutbox(20);
+
+      const plan = ctx.getLastComputedPlan() as
+        | {
+            edges?: Array<{
+              to?: string;
+              propagationMode?: string;
+            }>;
+          }
+        | undefined;
+      const lookupEdge = plan?.edges?.find((edge) =>
+        edge.to?.endsWith(`.${matchingValuesFieldId}`)
+      );
+      expect(lookupEdge?.propagationMode).toBe('conditionalFiltered');
+      expect(plan?.edges?.some((edge) => edge.propagationMode === 'allTargetRecords')).toBe(false);
+
+      const hostRecords = await listRecords(hostTable.id);
+      const byId = new Map(hostRecords.map((record) => [record.id, record]));
+      expect(byId.get(matchingHost.id)?.fields[matchingValuesFieldId]).toContain('matched-value');
+      expect(byId.get(unrelatedHost.id)?.fields[matchingValuesFieldId] ?? []).not.toContain(
+        'unmatched-value'
+      );
+    });
   });
 });

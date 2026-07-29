@@ -1,4 +1,22 @@
 {
+  "computeActivity": {
+    "currentCalculations": "当前计算任务",
+    "thisTableOnly": "仅此表",
+    "calculatingNow": "正在计算",
+    "calculating": "计算中",
+    "waiting": "等待中",
+    "failed": "失败",
+    "calculationFailed": "计算失败",
+    "calculatingSummary": "计算中({{count}})",
+    "failedSummary": "失败({{count}})",
+    "fieldsCalculating_other": "{{count}} 个字段正在计算",
+    "fieldCalculationsFailed_other": "{{count}} 个字段计算失败",
+    "batchesRunning_other": "{{count}} 批次处理中",
+    "batchesQueued_other": "{{count}} 批次等待中",
+    "records_other": "{{formattedCount}} 条记录",
+    "batchesComplete": "已完成批次 {{completed}}/{{total}}",
+    "progressAriaLabel": "{{fieldName}} 计算进度"
+  },
   "crossSpace": {
     "duplicateFieldTitle": "温馨提示",
     "duplicateFieldDescription": "不支持跨空间引用，复制后将转换成单行文本字段。",
@@ -462,7 +480,7 @@
   "table": {
     "newTableLabel": "表格",
     "rename": "重命名",
-    "tableRecordHistory": "表格记录历史",
+    "tableRecordHistory": "修改历史",
     "deleteConfirm": "你确定要删除 \"{{tableName}}\" 表吗？",
     "dbTableName": "物理数据库中的表名",
     "schemaName": "物理数据库中的模式(Schema)名",
@@ -1127,9 +1145,10 @@
     "description": "将会新增 {{count}} 条记录"
   },
   "tableTrash": {
-    "title": "表格回收站",
+    "title": "回收站",
     "resourceType": "类型",
-    "deletedResource": "资源"
+    "deletedResource": "资源",
+    "moreResources": "还有 {{count}} 条"
   },
   "pluginPanel": {
     "empty": {
@@ -1220,6 +1239,11 @@
         "otherPlaceholder": "或输入自定义回答…",
         "asked": "询问",
         "skipped": "已跳过",
+        "pendingAnswer": "待回答",
+        "notSelected": "未选择",
+        "timedOut": "已超时",
+        "timedOutWithDuration": "已超时（{{duration}}）",
+        "cancelled": "已取消",
         "previousQuestion": "上一个问题",
         "nextQuestion": "下一个问题"
       },

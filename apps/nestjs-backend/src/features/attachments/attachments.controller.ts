@@ -38,6 +38,17 @@ export class AttachmentsController {
     return null;
   }
 
+  // The disposition query param is caller input — a malformed percent
+  // sequence (e.g. a bare '%') is expected; fall back to the raw value so it
+  // gets percent-encoded as-is.
+  private safeDecodeURIComponent(value: string) {
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
+  }
+
   @Get('/read/:path(*)')
   async read(
     @Res({ passthrough: true }) res: Response,
@@ -62,16 +73,16 @@ export class AttachmentsController {
     );
     Object.assign(headers, fileHeaders);
     if (responseContentDisposition) {
-      const fileNameMatch =
-        responseContentDisposition.match(/filename\*=UTF-8''([^;]+)/) ||
-        responseContentDisposition.match(/filename="?([^"]+)"?/);
-      if (fileNameMatch) {
-        const fileName = fileNameMatch[1] as string;
-        headers['Content-Disposition'] =
-          `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`;
-      } else {
-        headers['Content-Disposition'] = responseContentDisposition;
-      }
+      // RFC 5987: the filename*= value is already percent-encoded — decode it
+      // before re-encoding, otherwise the file name gets double-encoded. The
+      // plain filename= value is raw and only needs encoding.
+      const utf8Match = responseContentDisposition.match(/filename\*=UTF-8''([^;]+)/);
+      const fileName = utf8Match
+        ? this.safeDecodeURIComponent(utf8Match[1])
+        : responseContentDisposition.match(/filename="?([^"]+)"?/)?.[1];
+      headers['Content-Disposition'] = fileName
+        ? `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`
+        : responseContentDisposition;
     }
     res.set(headers);
     return new StreamableFile(fileStream);

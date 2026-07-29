@@ -1,5 +1,7 @@
+import { hash } from 'crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import type { Redis } from 'ioredis';
+import { LRUCache } from 'lru-cache';
 import { CacheService } from './cache.service';
 
 /**
@@ -14,6 +16,7 @@ import { CacheService } from './cache.service';
 export class RedisNativeService {
   private readonly logger = new Logger(RedisNativeService.name);
   private readonly redis: Redis | undefined;
+  private readonly scriptShas = new LRUCache<string, string>({ max: 256 });
 
   constructor(cacheService: CacheService) {
     try {
@@ -240,6 +243,35 @@ export class RedisNativeService {
    */
   async eval(script: string, keys: string[], args: (string | number)[]): Promise<unknown> {
     return this.client.eval(script, keys.length, ...keys, ...args);
+  }
+
+  /**
+   * Same contract as {@link eval}, but sends the script's SHA1 (40 bytes) instead of
+   * its source on every call. Prefer this for scripts on hot paths.
+   *
+   * NOSCRIPT (server restart / SCRIPT FLUSH / a replica that never saw the script)
+   * falls back to EVAL, which both answers the call and reloads the script into the
+   * server cache so subsequent EVALSHAs hit.
+   *
+   * @param script - Lua script source code
+   * @param keys - KEYS array accessible in Lua as KEYS[1], KEYS[2], ...
+   * @param args - ARGV array accessible in Lua as ARGV[1], ARGV[2], ...
+   * @returns Script return value (type depends on the Lua script)
+   */
+  async evalsha(script: string, keys: string[], args: (string | number)[]): Promise<unknown> {
+    let sha = this.scriptShas.get(script);
+    if (!sha) {
+      sha = hash('sha1', script, 'hex');
+      this.scriptShas.set(script, sha);
+    }
+    try {
+      return await this.client.evalsha(sha, keys.length, ...keys, ...args);
+    } catch (err) {
+      if (!(err instanceof Error) || !err.message.includes('NOSCRIPT')) {
+        throw err;
+      }
+      return this.client.eval(script, keys.length, ...keys, ...args);
+    }
   }
 
   /**

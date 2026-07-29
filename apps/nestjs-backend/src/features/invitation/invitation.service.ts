@@ -1,6 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { IBaseRole, IRole } from '@teable/core';
 import { generateInvitationId, HttpErrorCode } from '@teable/core';
@@ -8,8 +7,6 @@ import { PrismaService } from '@teable/db-main-prisma';
 import {
   CollaboratorType,
   isEmailDomainBanned,
-  MailTransporterType,
-  MailType,
   PrincipalType,
   SettingKey,
   type AcceptInvitationLinkRo,
@@ -20,9 +17,13 @@ import {
 import dayjs from 'dayjs';
 import { pick } from 'lodash';
 import { ClsService } from 'nestjs-cls';
-import type { IMailConfig } from '../../configs/mail.config';
 import { CustomHttpException } from '../../custom.exception';
-import { Events } from '../../event-emitter/events';
+import type { ICollaboratorInvitee } from '../../event-emitter/events';
+import {
+  CollaboratorCreateEvent,
+  CollaboratorInvitedEvent,
+  Events,
+} from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
 import { generateInvitationCode } from '../../utils/code-generate';
 import { AuditScope } from '../audit/audit-scope';
@@ -41,7 +42,6 @@ export class InvitationService {
     private readonly prismaService: PrismaService,
     private readonly settingOpenApiService: SettingOpenApiService,
     private readonly cls: ClsService<IClsStore>,
-    private readonly configService: ConfigService,
     private readonly mailSenderService: MailSenderService,
     private readonly collaboratorService: CollaboratorService,
     private readonly userService: UserService,
@@ -49,11 +49,6 @@ export class InvitationService {
     private readonly eventEmitter: EventEmitter2,
     private readonly audit: AuditScope
   ) {}
-
-  private generateInviteUrl(invitationId: string, invitationCode: string) {
-    const mailConfig = this.configService.get<IMailConfig>('mail');
-    return `${mailConfig?.origin}/invite?invitationId=${invitationId}&invitationCode=${invitationCode}`;
-  }
 
   private async createNotExistedUser(emails: string[]) {
     const users: { email: string; name: string; id: string }[] = [];
@@ -113,18 +108,16 @@ export class InvitationService {
     emails,
     role,
     resourceId,
-    resourceName,
     resourceType,
+    spaceId,
   }: {
     emails: string[];
     role: IRole;
     resourceId: string;
-    resourceName: string;
     resourceType: CollaboratorType;
+    spaceId: string;
   }) {
     const user = { ...this.cls.get('user') };
-
-    await this.checkInvitationLimits();
 
     const departmentIds = this.cls.get('organization.departments')?.map((d) => d.id);
     await this.collaboratorService.validateUserAddRole({
@@ -174,7 +167,8 @@ export class InvitationService {
       (email) => !sendUsers.find((u) => u.email.toLowerCase() === email.toLowerCase())
     );
 
-    return this.prismaService.$tx(async () => {
+    const invitees: ICollaboratorInvitee[] = [];
+    const invitationResult = await this.prismaService.$tx(async () => {
       // create user if not exist
       const newUsers = await this.createNotExistedUser(noExistEmails);
       sendUsers.push(...newUsers);
@@ -192,6 +186,7 @@ export class InvitationService {
             ],
             spaceId: resourceId,
             role: role as IRole,
+            skipEvent: true,
           });
         } else {
           await this.collaboratorService.createBaseCollaborator({
@@ -203,10 +198,11 @@ export class InvitationService {
             ],
             baseId: resourceId,
             role: role as IBaseRole,
+            skipEvent: true,
           });
         }
         // generate invitation record
-        const { id, invitationCode } = await this.generateInvitation({
+        const { id } = await this.generateInvitation({
           type: 'email',
           role,
           resourceId,
@@ -225,43 +221,26 @@ export class InvitationService {
           },
         });
 
-        if (!skipSendMail) {
-          // get email info
-          const inviteEmailOptions = await this.mailSenderService.inviteEmailOptions({
-            name: user.name,
-            email: user.email,
-            resourceName,
-            resourceType,
-            inviteUrl: this.generateInviteUrl(id, invitationCode),
-          });
-          this.mailSenderService.sendMail(
-            {
-              to: sendUser.email,
-              ...inviteEmailOptions,
-            },
-            {
-              type: MailType.Invite,
-              transporterName: MailTransporterType.Notify,
-            }
-          );
-          // one line per recipient — SigNoz alerts count these to detect
-          // mass-invitation abuse and group by `inviterId` to feed the
-          // suspicious-account pipeline, so field keys are a downstream contract
-          this.logger.log({
-            event: 'invitation.email.sent',
-            inviterId: user.id,
-            inviterEmail: user.email,
-            inviteeEmail: sendUser.email,
-            resourceType,
-            resourceId,
-            msg: 'invitation email sent',
-          });
-        }
+        invitees.push({
+          principalId: sendUser.id,
+          principalType: PrincipalType.User,
+          email: sendUser.email,
+          invitationId: id,
+        });
         result[sendUser.email] = { invitationId: id };
       }
 
       return result;
     });
+
+    // The batch's single post-commit billing signal (seat/quantity listeners).
+    this.eventEmitter.emitAsync(Events.COLLABORATOR_CREATE, new CollaboratorCreateEvent(spaceId));
+    this.eventEmitter.emitAsync(
+      Events.COLLABORATOR_INVITED,
+      new CollaboratorInvitedEvent(resourceId, resourceType, user.id, invitees, skipSendMail)
+    );
+
+    return invitationResult;
   }
 
   async emailInvitationBySpace(spaceId: string, data: EmailSpaceInvitationRo) {
@@ -283,8 +262,8 @@ export class InvitationService {
       emails: data.emails,
       role: data.role,
       resourceId: spaceId,
-      resourceName: space.name,
       resourceType: CollaboratorType.Space,
+      spaceId,
     });
   }
 
@@ -307,8 +286,8 @@ export class InvitationService {
       emails: data.emails,
       role: data.role,
       resourceId: baseId,
-      resourceName: base.name,
       resourceType: CollaboratorType.Base,
+      spaceId: base.spaceId,
     });
   }
 
@@ -353,7 +332,7 @@ export class InvitationService {
       role: role as IRole,
       createdBy,
       createdTime: createdTime.toISOString(),
-      inviteUrl: this.generateInviteUrl(id, invitationCode),
+      inviteUrl: this.mailSenderService.generateInviteUrl(id, invitationCode),
       invitationCode,
     };
   }
@@ -455,7 +434,7 @@ export class InvitationService {
       createdBy,
       createdTime: createdTime.toISOString(),
       invitationCode,
-      inviteUrl: this.generateInviteUrl(id, invitationCode),
+      inviteUrl: this.mailSenderService.generateInviteUrl(id, invitationCode),
     }));
   }
 
@@ -547,6 +526,7 @@ export class InvitationService {
             spaceId: spaceId!,
             role: role as IRole,
             createdBy,
+            skipEvent: true,
           });
         } else {
           await this.collaboratorService.createBaseCollaborator({
@@ -559,6 +539,7 @@ export class InvitationService {
             baseId: baseId!,
             role: role as IBaseRole,
             createdBy,
+            skipEvent: true,
           });
         }
         // save invitation record for audit
@@ -573,12 +554,19 @@ export class InvitationService {
           },
         });
       });
+      // Post-commit and without a notification context: quantity-check
+      // listeners must see the new collaborator, while the accepter joined by
+      // their own action and gets no invite notification.
+      this.eventEmitter.emitAsync(
+        Events.COLLABORATOR_CREATE,
+        new CollaboratorCreateEvent((spaceId ?? baseSpaceId)!)
+      );
     }
     await this.recordInvitationAccept({
-      resourceId: (spaceId || baseId) as string,
+      resourceId,
       accepterId: currentUserId,
       inviterId: createdBy,
-      resourceType: spaceId ? CollaboratorType.Space : CollaboratorType.Base,
+      resourceType,
     });
 
     return { baseId, spaceId };
@@ -605,37 +593,5 @@ export class InvitationService {
     resourceType: CollaboratorType;
   }) {
     // Decorator does all the work; body is empty.
-  }
-
-  private async checkInvitationLimits(): Promise<void> {
-    if (!process.env.MAX_INVITATIONS_PER_HOUR) return;
-
-    const user = this.cls.get('user');
-    const maxInvitationsPerHour = Number(process.env.MAX_INVITATIONS_PER_HOUR);
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-    const recentInvitations = await this.prismaService.invitationRecord.count({
-      where: {
-        inviter: user.id,
-        createdTime: { gte: oneHourAgo.toISOString() },
-      },
-    });
-
-    if (Number(recentInvitations) >= maxInvitationsPerHour) {
-      await this.prismaService.user.update({
-        where: { id: user.id },
-        data: {
-          deactivatedTime: new Date().toISOString(),
-        },
-      });
-      throw new CustomHttpException(
-        'You have reached the maximum number of invitations per hour',
-        HttpErrorCode.VALIDATION_ERROR,
-        {
-          localization: {
-            i18nKey: 'httpErrors.invitation.limitExceeded',
-          },
-        }
-      );
-    }
   }
 }

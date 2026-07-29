@@ -54,72 +54,110 @@ export class EventMiddleware implements NestInterceptor {
   }
 
   private createEvent(
-    eventName: Events,
+    declaredEventName: Events,
     interceptContext: ReturnType<typeof this.interceptContext>
   ) {
-    const { reqUser, reqHeaders, reqParams, resolveData } = interceptContext;
+    const { reqUser, reqHeaders, reqParams, reqBody, resolveData } = interceptContext;
 
     const eventContext: IEventContext = {
       user: reqUser,
       headers: reqHeaders,
     };
-
-    return match(eventName)
-      .with(Events.BASE_DELETE, () =>
-        BaseEventFactory.create(eventName, { ...resolveData, ...reqParams }, eventContext)
-      )
-      .with(P.union(Events.BASE_CREATE, Events.BASE_UPDATE, Events.BASE_PERMISSION_UPDATE), () =>
-        BaseEventFactory.create(eventName, { base: resolveData, ...reqParams }, eventContext)
-      )
-      .with(Events.SPACE_DELETE, () =>
-        SpaceEventFactory.create(eventName, { ...resolveData, ...reqParams }, eventContext)
-      )
-      .with(P.union(Events.SPACE_CREATE, Events.SPACE_UPDATE), () =>
-        SpaceEventFactory.create(eventName, { space: resolveData, ...reqParams }, eventContext)
-      )
-      .with(Events.WORKFLOW_DELETE, () =>
-        WorkflowEventFactory.create(eventName, { ...resolveData, ...reqParams }, eventContext)
-      )
-      .with(P.union(Events.WORKFLOW_CREATE, Events.WORKFLOW_UPDATE), () =>
-        WorkflowEventFactory.create(
-          eventName,
-          { baseId: reqParams.baseId, workflow: resolveData, ...reqParams },
-          eventContext
+    // `create-from-template` applies the template to an existing base when the request names one,
+    // and emits BASE_CREATE either way. Naming the target makes it an update, not a create — no
+    // other create route accepts a `baseId`.
+    const eventName =
+      declaredEventName === Events.BASE_CREATE && typeof reqBody?.baseId === 'string'
+        ? Events.BASE_UPDATE
+        : declaredEventName;
+    return (
+      match(eventName)
+        .with(Events.BASE_DELETE, () =>
+          BaseEventFactory.create(eventName, { ...resolveData, ...reqParams }, eventContext)
         )
-      )
-      .with(Events.APP_DELETE, () =>
-        AppEventFactory.create(eventName, { ...resolveData, ...reqParams }, eventContext)
-      )
-      .with(P.union(Events.APP_CREATE, Events.APP_UPDATE), () =>
-        AppEventFactory.create(
-          eventName,
-          { baseId: reqParams.baseId, app: resolveData, ...reqParams },
-          eventContext
-        )
-      )
-      .with(Events.DASHBOARD_DELETE, () =>
-        DashboardEventFactory.create(eventName, { ...resolveData, ...reqParams }, eventContext)
-      )
-      .with(P.union(Events.DASHBOARD_CREATE, Events.DASHBOARD_UPDATE), () =>
-        DashboardEventFactory.create(
-          eventName,
-          { baseId: reqParams.baseId, dashboard: resolveData, ...reqParams },
-          eventContext
-        )
-      )
-
-      .with(
-        P.union(Events.BASE_NODE_CREATE, Events.BASE_NODE_UPDATE, Events.BASE_NODE_DELETE),
-        () => {
-          const { baseId } = reqParams;
-          return BaseNodeEventFactory.create(
+        // An update route may resolve to nothing (reorder) — fall back to the route param so the
+        // event still identifies the base it changed.
+        .with(Events.BASE_UPDATE, () =>
+          BaseEventFactory.create(
             eventName,
-            { baseId, node: resolveData },
+            {
+              base: { id: reqParams.baseId, ...resolveData },
+              body: reqBody,
+              ...reqParams,
+            },
             eventContext
-          );
-        }
-      )
+          )
+        )
+        .with(P.union(Events.BASE_CREATE, Events.BASE_PERMISSION_UPDATE), () =>
+          BaseEventFactory.create(
+            eventName,
+            // An import resolves to `{ base, tableIdMap, … }` rather than to the base itself.
+            { base: resolveData?.base ?? resolveData, ...reqParams },
+            eventContext
+          )
+        )
+        .with(Events.SPACE_DELETE, () =>
+          SpaceEventFactory.create(eventName, { ...resolveData, ...reqParams }, eventContext)
+        )
+        // Same as BASE_UPDATE: the avatar route returns void, so the id comes from the param.
+        .with(Events.SPACE_UPDATE, () =>
+          SpaceEventFactory.create(
+            eventName,
+            {
+              space: { id: reqParams.spaceId, ...resolveData },
+              body: reqBody,
+              ...reqParams,
+            },
+            eventContext
+          )
+        )
+        .with(Events.SPACE_CREATE, () =>
+          SpaceEventFactory.create(eventName, { space: resolveData, ...reqParams }, eventContext)
+        )
+        .with(Events.WORKFLOW_DELETE, () =>
+          WorkflowEventFactory.create(eventName, { ...resolveData, ...reqParams }, eventContext)
+        )
+        .with(P.union(Events.WORKFLOW_CREATE, Events.WORKFLOW_UPDATE), () =>
+          WorkflowEventFactory.create(
+            eventName,
+            { baseId: reqParams.baseId, workflow: resolveData, ...reqParams },
+            eventContext
+          )
+        )
+        .with(Events.APP_DELETE, () =>
+          AppEventFactory.create(eventName, { ...resolveData, ...reqParams }, eventContext)
+        )
+        .with(P.union(Events.APP_CREATE, Events.APP_UPDATE), () =>
+          AppEventFactory.create(
+            eventName,
+            { baseId: reqParams.baseId, app: resolveData, ...reqParams },
+            eventContext
+          )
+        )
+        .with(Events.DASHBOARD_DELETE, () =>
+          DashboardEventFactory.create(eventName, { ...resolveData, ...reqParams }, eventContext)
+        )
+        .with(P.union(Events.DASHBOARD_CREATE, Events.DASHBOARD_UPDATE), () =>
+          DashboardEventFactory.create(
+            eventName,
+            { baseId: reqParams.baseId, dashboard: resolveData, ...reqParams },
+            eventContext
+          )
+        )
 
-      .otherwise(() => null);
+        .with(
+          P.union(Events.BASE_NODE_CREATE, Events.BASE_NODE_UPDATE, Events.BASE_NODE_DELETE),
+          () => {
+            const { baseId } = reqParams;
+            return BaseNodeEventFactory.create(
+              eventName,
+              { baseId, node: resolveData },
+              eventContext
+            );
+          }
+        )
+
+        .otherwise(() => null)
+    );
   }
 }

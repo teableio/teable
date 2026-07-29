@@ -16,7 +16,7 @@ export class AliyunStorage extends S3Storage implements StorageAdapter {
 
   constructor(@StorageConfig() readonly config: IStorageConfig) {
     super(config);
-    const { endpoint, region, accessKey, secretKey, maxSockets } = this.config.s3;
+    const { endpoint, region, accessKey, secretKey, maxSockets, forcePathStyle } = this.config.s3;
     const requestHandler = maxSockets
       ? new NodeHttpHandler({
           httpsAgent: {
@@ -27,6 +27,7 @@ export class AliyunStorage extends S3Storage implements StorageAdapter {
     this.aliyunClient = new S3Client({
       region,
       endpoint,
+      forcePathStyle,
       requestHandler,
       credentials: {
         accessKeyId: accessKey,

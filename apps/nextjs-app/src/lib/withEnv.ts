@@ -64,6 +64,8 @@ export default function withEnv<P extends { [key: string]: any }>(
         publicOrigin: process.env.PUBLIC_ORIGIN,
         enableCanaryFeature: process.env.ENABLE_CANARY_FEATURE === 'true' ? true : undefined,
         forceV2All: process.env.FORCE_V2_ALL === 'true' ? true : undefined,
+        allowCrossSpaceReference:
+          process.env.ALLOW_CROSS_SPACE_REFERENCE === 'true' ? true : undefined,
         task,
         trash,
       },

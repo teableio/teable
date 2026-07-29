@@ -1,12 +1,16 @@
 import type { IRecord } from '@teable/core';
 import type { IGetRecordsRo } from '@teable/openapi';
-import { inRange, debounce } from 'lodash';
+import { debounce } from 'lodash';
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import type { Record } from '../model';
+import {
+  computeNextWindowQuery,
+  INITIAL_LOAD_PAGE_SIZE,
+  LOAD_PAGE_SIZE,
+} from '../utils/record-window';
 import { useRecords } from './use-records';
 
-// eslint-disable-next-line
-export const LOAD_PAGE_SIZE = 300;
+export { INITIAL_LOAD_PAGE_SIZE, LOAD_PAGE_SIZE };
 const defaultVisiblePages = { y: 0, height: 0 };
 
 interface IVisiblePages {
@@ -29,7 +33,7 @@ export const useInfiniteRecords = (
 ): IRes => {
   const [query, setQuery] = useState<IGetRecordsRo>({
     skip: 0,
-    take: LOAD_PAGE_SIZE,
+    take: INITIAL_LOAD_PAGE_SIZE,
     ...recordsQuery,
   });
   const queryRef = useRef(query);
@@ -75,22 +79,11 @@ export const useInfiniteRecords = (
         return cv;
       }
 
-      const take = cv.take ?? LOAD_PAGE_SIZE;
-
-      const pageOffsetSize = take / 3;
-      const pageGap = take / 3;
-
-      const visibleStartIndex = cv.skip <= y ? cv.skip - pageOffsetSize : cv.skip + pageOffsetSize;
-      const visibleEndIndex = visibleStartIndex + take;
-      const viewInRange =
-        inRange(y, visibleStartIndex, visibleEndIndex) &&
-        inRange(y + height, visibleStartIndex, visibleEndIndex);
-      if (!viewInRange) {
-        const skip = Math.floor(y / pageGap) * pageGap - pageGap;
+      const next = computeNextWindowQuery(cv, y, height);
+      if (next) {
         return {
-          take: cv.take,
           ...recordsQuery,
-          skip: Math.max(0, skip),
+          ...next,
         };
       }
       return {

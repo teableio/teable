@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { setSafeFetch } from '@teable/v2-utils';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ExcelImportAdapter } from './ExcelImportAdapter';
 
@@ -42,6 +43,19 @@ describe('ExcelImportAdapter', () => {
       if (result.isErr()) {
         expect(result.error.code).toBe('import.excel.invalid_source');
       }
+    });
+  });
+
+  describe('safeFetch registration', () => {
+    afterEach(() => setSafeFetch(undefined));
+
+    it('fetches URL sources through the registered safeFetch', async () => {
+      const fetchFn = vi.fn().mockResolvedValue(new Response('not-an-xlsx', { status: 200 }));
+      setSafeFetch(fetchFn);
+
+      await adapter.parse({ type: 'xlsx', url: 'https://example.com/a.xlsx' });
+
+      expect(fetchFn).toHaveBeenCalledWith('https://example.com/a.xlsx', undefined);
     });
   });
 });

@@ -111,6 +111,9 @@ const BASELINE_TABLES = [
   'computed_update_outbox_seed',
   'computed_update_dead_letter',
   'computed_update_pause_scope',
+  'computed_field_activity',
+  'computed_table_activity',
+  'computed_task_field_ref',
   'record_history',
   'table_trash',
   'record_trash',
@@ -166,6 +169,39 @@ describe('DataDbPreflightService', () => {
 
   afterEach(() => {
     delete process.env.TEABLE_SSRF_PROTECTION_DISABLED;
+  });
+
+  it('reads the PostgreSQL cluster and current database identity through a pooler-compatible query', async () => {
+    const raw = vi.fn().mockResolvedValue({
+      rows: [
+        {
+          systemIdentifier: '7612345678901234567',
+          databaseOid: '16384',
+          databaseName: 'teable_data',
+        },
+      ],
+    });
+    const destroy = vi.fn().mockResolvedValue(undefined);
+    const service = new DataDbPreflightService(undefined, () => ({ raw, destroy }));
+
+    const identity = await service.inspectDatabaseIdentity(DATA_URL);
+
+    expect(identity).toEqual({
+      systemIdentifier: '7612345678901234567',
+      databaseOid: '16384',
+      databaseName: 'teable_data',
+    });
+    expect(raw).toHaveBeenCalledWith(expect.stringContaining('pg_control_system()'));
+    expect(destroy).toHaveBeenCalledOnce();
+  });
+
+  it('closes the PostgreSQL identity client when the query fails', async () => {
+    const raw = vi.fn().mockRejectedValue(new Error('permission denied'));
+    const destroy = vi.fn().mockResolvedValue(undefined);
+    const service = new DataDbPreflightService(undefined, () => ({ raw, destroy }));
+
+    await expect(service.inspectDatabaseIdentity(DATA_URL)).rejects.toThrow('permission denied');
+    expect(destroy).toHaveBeenCalledOnce();
   });
 
   it('classifies an empty database as usable', async () => {

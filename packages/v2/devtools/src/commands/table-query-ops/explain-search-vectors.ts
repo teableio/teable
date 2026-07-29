@@ -122,5 +122,7 @@ export const tableQueryOpsExplainSearchVectors = Command.make(
   },
   handler
 ).pipe(
-  Command.withDescription('Validate generated tsvector search access paths with EXPLAIN/HypoPG')
+  Command.withDescription(
+    'Deprecated alias for explain-search-access-paths; language-config is ignored in substring mode'
+  )
 );

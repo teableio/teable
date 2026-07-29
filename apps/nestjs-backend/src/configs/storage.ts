@@ -33,6 +33,19 @@ export const storageConfig = registerAs('storage', () => ({
     accessKey: process.env.BACKEND_STORAGE_S3_ACCESS_KEY!,
     secretKey: process.env.BACKEND_STORAGE_S3_SECRET_KEY!,
     maxSockets: Number(process.env.BACKEND_STORAGE_S3_MAX_SOCKETS ?? 100),
+    // Path-style addressing (https://endpoint/bucket/key) for S3-compatible
+    // storage that cannot serve virtual-hosted bucket subdomains. Only affects
+    // presigned URLs handed to browsers; the internal client has its own flag
+    // below because the two endpoints may differ in addressing support (e.g.
+    // a path-style public proxy in front of virtual-hosted-only Aliyun OSS).
+    forcePathStyle: process.env.BACKEND_STORAGE_S3_FORCE_PATH_STYLE === 'true',
+    // Tri-state: when unset, the internal client inherits forcePathStyle if it
+    // shares the public endpoint, and stays virtual-hosted when a separate
+    // internal endpoint is configured (its addressing support is independent
+    // of the public side's, e.g. Aliyun OSS internal is virtual-hosted-only).
+    internalForcePathStyle: process.env.BACKEND_STORAGE_S3_INTERNAL_FORCE_PATH_STYLE
+      ? process.env.BACKEND_STORAGE_S3_INTERNAL_FORCE_PATH_STYLE === 'true'
+      : undefined,
   },
   uploadMethod: process.env.BACKEND_STORAGE_UPLOAD_METHOD ?? 'put',
   encryption: {

@@ -9,6 +9,8 @@ import {
 import type {
   IEventBus,
   IHasher,
+  ISpan,
+  ITracer,
   ILogger,
   ITableRepository,
   IUnitOfWork,
@@ -743,6 +745,89 @@ describe('ComputedUpdateWorker', () => {
       expect(planner.plan).not.toHaveBeenCalled();
     });
 
+    it('completes obsolete seed tasks when the seed table no longer exists', async () => {
+      const task = createMockSeedTask();
+      const markDone = vi.fn().mockResolvedValue(ok(true));
+      const markFailed = vi.fn().mockResolvedValue(ok(true));
+      const planner = {
+        plan: vi.fn(),
+      } as unknown as ComputedUpdatePlanner;
+      const tableRepository: ITableRepository = {
+        ...createTableRepository(),
+        findOne: vi
+          .fn()
+          .mockResolvedValue(err(domainError.notFound({ message: 'Table not found' }))),
+      };
+      const outbox = createOutboxStub({
+        claimBatch: vi.fn().mockResolvedValue(ok([task])),
+        markDone,
+        markFailed,
+      });
+      const worker = new ComputedUpdateWorker(
+        outbox,
+        defaultComputedUpdateOutboxConfig,
+        createUpdaterStub(),
+        planner,
+        createUnitOfWork(),
+        createLogger(),
+        createHasher(),
+        tableRepository,
+        createBackfillService(),
+        createEventBus()
+      );
+
+      const result = await worker.runOnce({ workerId: 'worker-1', limit: 10 });
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toBe(1);
+      expect(markDone).toHaveBeenCalledWith(task, expect.anything());
+      expect(markFailed).not.toHaveBeenCalled();
+      expect(planner.plan).not.toHaveBeenCalled();
+    });
+
+    it('completes obsolete planned tasks when a referenced table no longer exists', async () => {
+      const task = createMockTask();
+      const markDone = vi.fn().mockResolvedValue(ok(true));
+      const markFailed = vi.fn().mockResolvedValue(ok(true));
+      const updater = createUpdaterStub({
+        execute: vi
+          .fn()
+          .mockResolvedValue(
+            err(domainError.notFound({ message: `Missing table for computed update: ${TABLE_ID}` }))
+          ),
+      });
+      const tableRepository: ITableRepository = {
+        ...createTableRepository(),
+        findOne: vi
+          .fn()
+          .mockResolvedValue(err(domainError.notFound({ message: 'Table not found' }))),
+      };
+      const outbox = createOutboxStub({
+        claimBatch: vi.fn().mockResolvedValue(ok([task])),
+        markDone,
+        markFailed,
+      });
+      const worker = new ComputedUpdateWorker(
+        outbox,
+        defaultComputedUpdateOutboxConfig,
+        updater,
+        {} as ComputedUpdatePlanner,
+        createUnitOfWork(),
+        createLogger(),
+        createHasher(),
+        tableRepository,
+        createBackfillService(),
+        createEventBus()
+      );
+
+      const result = await worker.runOnce({ workerId: 'worker-1', limit: 10 });
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toBe(1);
+      expect(markDone).toHaveBeenCalledWith(task, expect.anything());
+      expect(markFailed).not.toHaveBeenCalled();
+    });
+
     it('splits large computed tasks into smaller child tasks before acquiring locks', async () => {
       const seedRecordIds = Array.from(
         { length: 5 },
@@ -1362,6 +1447,75 @@ describe('ComputedUpdateWorker', () => {
         expect.anything()
       );
       expect(markDone).toHaveBeenCalledWith(task, expect.anything());
+    });
+
+    it('annotates claimed computed task traces with run and stage context', async () => {
+      const task = createMockTask({
+        stageDepth: 2,
+        runTotalSteps: 5,
+        runCompletedStepsBefore: 2,
+        affectedTableIds: [TABLE_ID, `tbl${'e'.repeat(16)}`],
+        affectedFieldIds: [FIELD_ID, `fld${'f'.repeat(16)}`],
+      });
+      const rootSpan: ISpan = {
+        setAttribute: vi.fn(),
+        setAttributes: vi.fn(),
+        recordError: vi.fn(),
+        end: vi.fn(),
+      };
+      const tracer: ITracer = {
+        startSpan: vi.fn(() => rootSpan),
+        withSpan: vi.fn(async <T>(_span: ISpan, work: () => Promise<T>) => await work()),
+        getActiveSpan: vi.fn(() => rootSpan),
+      };
+      const outbox = createOutboxStub({
+        claimById: vi.fn().mockResolvedValue(ok(task)),
+        markDone: vi.fn().mockResolvedValue(ok(true)),
+      });
+      const updater = createUpdaterStub({
+        execute: vi.fn().mockResolvedValue(ok({ changesByStep: [] })),
+        collectDirtySeedGroups: vi.fn().mockResolvedValue(ok({ groups: [], seedAllTableIds: [] })),
+      });
+      const planner = {
+        planStage: vi.fn().mockResolvedValue(ok({ steps: [], edges: [] })),
+      } as unknown as ComputedUpdatePlanner;
+      const worker = new ComputedUpdateWorker(
+        outbox,
+        defaultComputedUpdateOutboxConfig,
+        updater,
+        planner,
+        createUnitOfWork(),
+        createLogger(),
+        createHasher(),
+        createTableRepository(),
+        createBackfillService(),
+        createEventBus()
+      );
+
+      const result = await worker.runTaskById({
+        taskId: task.id,
+        workerId: 'manual-worker',
+        tracer,
+      });
+
+      expect(result.isOk()).toBe(true);
+      expect(rootSpan.setAttribute).toHaveBeenCalledWith('outbox.taskClaimed', true);
+      expect(rootSpan.setAttributes).toHaveBeenCalledWith(
+        expect.objectContaining({
+          'outbox.baseId': BASE_ID,
+          'outbox.taskKind': 'computed',
+        })
+      );
+      expect(rootSpan.setAttribute).toHaveBeenCalledWith('outbox.seedTableId', TABLE_ID);
+      expect(rootSpan.setAttributes).toHaveBeenCalledWith(
+        expect.objectContaining({
+          'computed.runId': task.runId,
+          'computed.stageDepth': 2,
+          'computed.stepCount': 1,
+          'computed.affectedTableCount': 2,
+          'computed.affectedFieldCount': 2,
+        })
+      );
     });
 
     it('returns false when the task cannot be claimed by id', async () => {

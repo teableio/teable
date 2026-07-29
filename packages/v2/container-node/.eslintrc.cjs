@@ -19,6 +19,8 @@ module.exports = {
     '@teable/eslint-config-bases/sonar',
     '@teable/eslint-config-bases/regexp',
     '@teable/eslint-config-bases/jest',
+    // SSRF guardrail: steer raw outbound HTTP clients to the safe-fetch factory
+    '@teable/eslint-config-bases/no-ssrf',
     // Apply prettier and disable incompatible rules
     '@teable/eslint-config-bases/prettier-plugin',
   ],

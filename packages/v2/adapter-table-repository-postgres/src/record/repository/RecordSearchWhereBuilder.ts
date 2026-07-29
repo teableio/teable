@@ -431,9 +431,73 @@ const buildGeneratedTsvectorSearchCondition = (
   });
 };
 
+const buildDefaultSearchCondition = (
+  resolvedFields: ReadonlyArray<Field>,
+  recordSearch: RecordQuerySearch,
+  tableAlias: string
+): Result<Expression<SqlBool> | null, DomainError> =>
+  safeTry(function* () {
+    const searchConditions: Expression<SqlBool>[] = [];
+    for (const field of resolvedFields) {
+      const condition = yield* buildFieldSearchCondition(field, recordSearch.search, tableAlias);
+      if (condition) searchConditions.push(condition);
+    }
+
+    const [firstCondition, ...restConditions] = searchConditions;
+    if (!firstCondition) return ok(resolvedFields.length ? null : sql<SqlBool>`false`);
+
+    return ok(
+      restConditions.reduce<Expression<SqlBool>>(
+        (acc, condition) => sql<SqlBool>`(${acc}) OR (${condition})`,
+        firstCondition
+      )
+    );
+  });
+
+const buildGeneratedTextSearchCondition = (
+  resolvedFields: ReadonlyArray<Field>,
+  recordSearch: RecordQuerySearch,
+  accessPath: IRecordSearchAccessPath | undefined,
+  tableAlias: string
+): Result<Expression<SqlBool> | undefined, DomainError> => {
+  if (accessPath?.kind !== 'generated_text') return ok(undefined);
+  if (!isPostgresIdentifier(accessPath.generatedColumnName)) return ok(undefined);
+
+  const probeLength = Array.from(recordSearch.search.value).length;
+  if (accessPath.provider === 'pg_trgm' && probeLength < 3) return ok(undefined);
+  if (accessPath.provider === 'pg_bigm' && probeLength < 2) return ok(undefined);
+
+  const resolvedFieldIds = new Set(resolvedFields.map((field) => field.id().toString()));
+  const coveredFieldIds = new Set(accessPath.coveredFieldIds.map((fieldId) => fieldId.toString()));
+  if (
+    !coveredFieldIds.size ||
+    resolvedFields.some((field) => !coveredFieldIds.has(field.id().toString()))
+  ) {
+    return ok(undefined);
+  }
+  if (
+    recordSearch.search.searchesAllFields() &&
+    (accessPath.searchScope !== 'all_fields' || coveredFieldIds.size !== resolvedFieldIds.size)
+  ) {
+    return ok(undefined);
+  }
+
+  return buildDefaultSearchCondition(resolvedFields, recordSearch, tableAlias).map(
+    (exactCondition) => {
+      if (!exactCondition) return undefined;
+      const pattern = `%${escapeLikeWildcards(recordSearch.search.value)}%`;
+      const documentRef = sql.ref(`${tableAlias}.${accessPath.generatedColumnName}`);
+      // pg_bigm indexes LIKE only. Keeping both providers on a normalized document gives the
+      // runtime one predicate shape; the original field predicate below remains the result oracle.
+      const indexedPrefilter = sql<SqlBool>`${documentRef} LIKE lower(${pattern}) ESCAPE '\\'`;
+      return sql<SqlBool>`(${indexedPrefilter}) AND (${exactCondition})`;
+    }
+  );
+};
+
 export type RecordSearchWherePlan = {
   readonly condition: Expression<SqlBool> | null;
-  readonly usedAccessPath: 'default' | 'generated_tsvector';
+  readonly usedAccessPath: 'default' | 'generated_text' | 'generated_tsvector';
 };
 
 export const buildRecordSearchWherePlan = (
@@ -451,6 +515,16 @@ export const buildRecordSearchWherePlan = (
       visibleFieldIds: recordSearch.visibleFieldIds,
     });
 
+    const generatedTextCondition = yield* buildGeneratedTextSearchCondition(
+      resolvedFields,
+      recordSearch,
+      options?.searchAccessPath,
+      tableAlias
+    );
+    if (generatedTextCondition) {
+      return ok({ condition: generatedTextCondition, usedAccessPath: 'generated_text' });
+    }
+
     const searchAccessPathCondition = yield* buildGeneratedTsvectorSearchCondition(
       resolvedFields,
       recordSearch,
@@ -464,32 +538,12 @@ export const buildRecordSearchWherePlan = (
       });
     }
 
-    const searchConditions: Expression<SqlBool>[] = [];
-    for (const field of resolvedFields) {
-      const condition = yield* buildFieldSearchCondition(field, recordSearch.search, tableAlias);
-      if (condition) {
-        searchConditions.push(condition);
-      }
-    }
-
-    if (!searchConditions.length) {
-      return ok({
-        condition: resolvedFields.length ? null : sql<SqlBool>`false`,
-        usedAccessPath: 'default',
-      });
-    }
-
-    const [firstCondition, ...restConditions] = searchConditions;
-    if (!firstCondition) {
-      return ok({ condition: sql<SqlBool>`false`, usedAccessPath: 'default' });
-    }
-
-    const combinedCondition = restConditions.reduce<Expression<SqlBool>>(
-      (acc, condition) => sql<SqlBool>`(${acc}) OR (${condition})`,
-      firstCondition
+    const defaultCondition = yield* buildDefaultSearchCondition(
+      resolvedFields,
+      recordSearch,
+      tableAlias
     );
-
-    return ok({ condition: combinedCondition, usedAccessPath: 'default' });
+    return ok({ condition: defaultCondition, usedAccessPath: 'default' });
   });
 };
 

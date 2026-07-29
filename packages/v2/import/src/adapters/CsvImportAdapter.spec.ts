@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { setSafeFetch } from '@teable/v2-utils';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { CsvImportAdapter } from './CsvImportAdapter';
 
@@ -186,6 +187,20 @@ describe('CsvImportAdapter', () => {
       if (result.isOk()) {
         expect(result.value.sampleRows).toEqual([['Alice', '30']]);
       }
+    });
+  });
+
+  describe('safeFetch registration', () => {
+    afterEach(() => setSafeFetch(undefined));
+
+    it('fetches URL sources through the registered safeFetch', async () => {
+      const fetchFn = vi.fn().mockResolvedValue(new Response('a,b\n1,2\n', { status: 200 }));
+      setSafeFetch(fetchFn);
+
+      const result = await adapter.parse({ type: 'csv', url: 'https://example.com/a.csv' });
+
+      expect(result.isOk()).toBe(true);
+      expect(fetchFn).toHaveBeenCalledWith('https://example.com/a.csv', undefined);
     });
   });
 });

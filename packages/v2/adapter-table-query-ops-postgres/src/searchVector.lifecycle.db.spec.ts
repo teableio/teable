@@ -54,6 +54,10 @@ type SearchVectorConfig = {
   search_scope: string;
   field_db_names: unknown;
   status: string;
+  semantics: string;
+  access_path: string;
+  provider: 'pg_bigm' | 'pg_trgm';
+  operator_class: 'gin_bigm_ops' | 'gin_trgm_ops';
 };
 
 type SearchVectorPhysicalState = {
@@ -74,7 +78,7 @@ const asStringArray = (value: unknown): string[] => {
     : [];
 };
 
-describe('generated tsvector schema lifecycle (db)', () => {
+describe('generated substring search document schema lifecycle (db)', () => {
   let testContainer: IV2NodeTestContainer;
   let commandBus: ICommandBus;
   let tableRepository: ITableRepository;
@@ -111,6 +115,7 @@ describe('generated tsvector schema lifecycle (db)', () => {
       v2TableOpsTokens.searchVectorStatusReader
     );
     db = testContainer.dataDb as unknown as Kysely<UnknownPostgresDatabase>;
+    await sql.raw('CREATE EXTENSION IF NOT EXISTS pg_trgm').execute(db);
   }, 120_000);
 
   afterAll(async () => {
@@ -124,7 +129,7 @@ describe('generated tsvector schema lifecycle (db)', () => {
     const scoreField = fieldByName(table, 'Score');
 
     await createSemanticRecords(table, titleField.id().toString(), scoreField.id().toString());
-    await insertPlannerFiller(table, titleField, scoreField, 4_000);
+    await insertPlannerFiller(table, titleField, scoreField, 30_000);
 
     const initial = await reconciler.reconcile(context, {
       table,
@@ -134,6 +139,10 @@ describe('generated tsvector schema lifecycle (db)', () => {
       validationMode: 'real_ddl',
       allowLargeTableRewrite: true,
     });
+    expect(
+      initial.isOk(),
+      initial.isErr() ? JSON.stringify(initial.error) : 'initial reconciliation result missing'
+    ).toBe(true);
     expect(initial._unsafeUnwrap()).toMatchObject({ action: 'created', status: 'ready' });
     expect((await statusReader.read(context, table.id().toString()))._unsafeUnwrap()).toMatchObject(
       {
@@ -253,7 +262,7 @@ describe('generated tsvector schema lifecycle (db)', () => {
     const titleField = fieldByName(table, 'Title');
     const scoreField = fieldByName(table, 'Score');
     await createSemanticRecords(table, titleField.id().toString(), scoreField.id().toString());
-    await insertPlannerFiller(table, titleField, scoreField, 4_000);
+    await insertPlannerFiller(table, titleField, scoreField, 30_000);
 
     const initial = await reconciler.reconcile(context, {
       table,
@@ -263,7 +272,10 @@ describe('generated tsvector schema lifecycle (db)', () => {
       validationMode: 'real_ddl',
       allowLargeTableRewrite: true,
     });
-    expect(initial.isOk()).toBe(true);
+    expect(
+      initial.isOk(),
+      initial.isErr() ? JSON.stringify(initial.error) : 'initial reconciliation result missing'
+    ).toBe(true);
     const config = await expectReadyConfig(table);
 
     const failedRebuild = await reconciler.reconcile(context, {
@@ -363,7 +375,8 @@ describe('generated tsvector schema lifecycle (db)', () => {
 
   const expectReadyConfig = async (table: Table): Promise<SearchVectorConfig> => {
     const configs = await sql<SearchVectorConfig>`
-      SELECT candidate_key, generated_column_name, index_name, field_ids, field_db_names, search_scope, status
+      SELECT candidate_key, generated_column_name, index_name, field_ids, field_db_names,
+             search_scope, status, semantics, access_path, provider, operator_class
       FROM table_query_search_vector_config
       WHERE table_id = ${table.id().toString()}
       ORDER BY last_modified_time DESC NULLS LAST, created_time DESC
@@ -371,6 +384,12 @@ describe('generated tsvector schema lifecycle (db)', () => {
     const ready = configs.rows.filter((row) => row.status === 'ready');
     expect(ready).toHaveLength(1);
     const config = ready[0] as SearchVectorConfig;
+    expect(config).toMatchObject({
+      semantics: 'substring',
+      access_path: 'generated_text',
+      provider: 'pg_trgm',
+      operator_class: 'gin_trgm_ops',
+    });
 
     const physical = getTablePhysicalName(table)._unsafeUnwrap();
     const state = await sql<SearchVectorPhysicalState>`
@@ -410,7 +429,7 @@ describe('generated tsvector schema lifecycle (db)', () => {
       SELECT count(*)::text AS count
       FROM table_query_remediation_task
       WHERE table_id = ${table.id().toString()}
-        AND kind = 'rebuild_search_vector'
+        AND kind = 'rebuild_search_access_path'
         AND status = 'queued'
     `.execute(testContainer.metaDb as unknown as Kysely<TableQueryOpsDatabase>);
     expect(Number(tasks.rows[0]?.count)).toBe(1);
@@ -420,7 +439,7 @@ describe('generated tsvector schema lifecycle (db)', () => {
     const claimed = await taskRepository.claimNextAccepted(context, {
       workerId: 'search-vector-lifecycle-e2e-worker',
       now: new Date(),
-      allowedKinds: ['rebuild_search_vector'],
+      allowedKinds: ['rebuild_search_access_path'],
     });
     const task = claimed._unsafeUnwrap();
     expect(task).toBeDefined();
@@ -445,9 +464,9 @@ describe('generated tsvector schema lifecycle (db)', () => {
     const result = await recordQueryRepository.find(context, table, undefined, {
       search: { search: RecordSearch.fromTuple([value, '', true]) },
       searchAccessPath: {
-        kind: 'generated_tsvector',
+        kind: 'generated_text',
         generatedColumnName: config.generated_column_name,
-        languageConfig: 'simple',
+        provider: config.provider,
         searchScope: config.search_scope === 'selected_fields' ? 'selected_fields' : 'all_fields',
         coveredFieldIds,
       },

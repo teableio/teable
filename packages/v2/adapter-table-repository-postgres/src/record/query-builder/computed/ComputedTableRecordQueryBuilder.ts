@@ -413,6 +413,33 @@ const conditionalLookupFieldReferenceGroup = (
   };
 };
 
+const isSourceOnlyConditionalRollup = (
+  columnType: LateralColumnType,
+  foreignFieldIds: ReadonlySet<string>
+): boolean => {
+  if (
+    columnType.type !== 'conditionalRollup' ||
+    !isOrderInsensitiveRollupExpression(columnType.expression) ||
+    columnType.condition.hasSort() ||
+    columnType.condition.hasLimit()
+  ) {
+    return false;
+  }
+
+  return isSimpleConditionalRollupFilter(columnType.condition.toDto().filter, foreignFieldIds);
+};
+
+const isSourceOnlyConditionalRollupGroup = (
+  foreignTable: Table,
+  columns: Array<{ columnType: LateralColumnType }>
+): boolean => {
+  const foreignFieldIds = new Set(foreignTable.getFields().map((field) => field.id().toString()));
+  return (
+    columns.length > 0 &&
+    columns.every((column) => isSourceOnlyConditionalRollup(column.columnType, foreignFieldIds))
+  );
+};
+
 const sharedConditionalFieldReferenceGroup = (
   columns: Array<{ columnType: LateralColumnType }>
 ): ConditionalFieldReferenceGroup | null => {
@@ -1044,6 +1071,16 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
         return setBasedKey(lookupFieldRefGroup);
       }
 
+      if (columnType.type === 'conditionalRollup') {
+        const foreignTable = this.foreignTables.get(foreignTableId);
+        const foreignFieldIds = foreignTable
+          ? new Set(foreignTable.getFields().map((field) => field.id().toString()))
+          : new Set<string>();
+        if (isSourceOnlyConditionalRollup(columnType, foreignFieldIds)) {
+          return [columnType.type, 'source-only', foreignTableId].join('|');
+        }
+      }
+
       const orderMode =
         columnType.type === 'conditionalRollup' &&
         isOrderInsensitiveRollupExpression(columnType.expression)
@@ -1124,9 +1161,38 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           }
         );
         const columns: AliasedRawBuilder<unknown, string>[] = [];
+        const selectedFields = table
+          .getFields()
+          .filter(
+            (field) =>
+              !field.hasError().isError() &&
+              (!projection || projection.some((p) => p.equals(field.id())))
+          );
+        const lastFieldIdByColumn = new Map<string, string>();
 
-        for (const field of table.getFields()) {
-          if (projection && !projection.some((p) => p.toString() === field.id().toString())) {
+        for (const field of selectedFields) {
+          const dbFieldName = field.dbFieldName().andThen((name) => name.value());
+          if (dbFieldName.isOk()) {
+            lastFieldIdByColumn.set(dbFieldName.value, field.id().toString());
+          }
+        }
+
+        const selectedFieldById = new Map(
+          selectedFields.map((field) => [field.id().toString(), field] as const)
+        );
+        const orderedFields = projection
+          ? projection.flatMap((fieldId) => {
+              const field = selectedFieldById.get(fieldId.toString());
+              return field ? [field] : [];
+            })
+          : selectedFields;
+
+        for (const field of orderedFields) {
+          const dbFieldName = field.dbFieldName().andThen((name) => name.value());
+          if (
+            dbFieldName.isOk() &&
+            lastFieldIdByColumn.get(dbFieldName.value) !== field.id().toString()
+          ) {
             continue;
           }
           columns.push(yield* field.accept(visitor));
@@ -1508,10 +1574,17 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
             .with({ type: 'conditionalRollup' }, (c) => c.condition)
             .otherwise(() => undefined);
 
+          const sourceOnlyRollupGroup = isSourceOnlyConditionalRollupGroup(
+            foreignTable,
+            lateral.columns
+          );
+
           // Build WHERE clause from condition filter
-          const whereClause = sharedFieldRefGroup
-            ? yield* this.buildFieldReferenceConditionWhere(foreignTable, sharedFieldRefGroup)
-            : yield* this.buildConditionWhere(foreignTable, firstColumnType);
+          const whereClause = sourceOnlyRollupGroup
+            ? null
+            : sharedFieldRefGroup
+              ? yield* this.buildFieldReferenceConditionWhere(foreignTable, sharedFieldRefGroup)
+              : yield* this.buildConditionWhere(foreignTable, firstColumnType);
 
           const sortClause = condition
             ? yield* this.resolveConditionalSort(foreignTable, condition)
@@ -1547,7 +1620,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           const selectExprs: AliasedRawBuilder<unknown, string>[] = [];
           for (const col of lateral.columns) {
             const filterWhere =
-              sharedFieldRefGroup && col.columnType.type === 'conditionalRollup'
+              (sharedFieldRefGroup || sourceOnlyRollupGroup) &&
+              col.columnType.type === 'conditionalRollup'
                 ? yield* this.buildConditionWhere(foreignTable, col.columnType)
                 : undefined;
             selectExprs.push(

@@ -60,6 +60,7 @@ export interface IBaseShareContentProps {
   header?: ReactNode;
   share: IBaseShareData | null;
   shareUrl: string;
+  embedUrl: string;
   isCreateLoading?: boolean;
   isDeleteLoading?: boolean;
   isRefreshLoading?: boolean;
@@ -75,6 +76,7 @@ export const BaseShareContent = ({
   header,
   share,
   shareUrl,
+  embedUrl,
   isCreateLoading,
   isDeleteLoading,
   isRefreshLoading,
@@ -248,7 +250,7 @@ export const BaseShareContent = ({
               )}
             </div>
 
-            <EmbedConfigPopover shareUrl={shareUrl} />
+            {embedUrl && <EmbedConfigPopover shareUrl={embedUrl} />}
           </div>
         </>
       )}

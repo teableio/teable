@@ -35,6 +35,7 @@ vi.mock('../../canary/interceptors/v2-indicator.interceptor', () => ({
 }));
 
 vi.mock('@teable/db-main-prisma', () => ({
+  PgPoolRegistry: class PgPoolRegistry {},
   PrismaService: class PrismaService {},
   MetaPrismaService: class MetaPrismaService {},
   DataPrismaService: class DataPrismaService {},

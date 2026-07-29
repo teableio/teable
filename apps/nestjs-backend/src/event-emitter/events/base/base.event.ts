@@ -6,7 +6,16 @@ import { Events } from '../event.enum';
 
 type IBaseCreatePayload = { base: ICreateBaseVo };
 type IBaseDeletePayload = { baseId: string; permanent?: boolean };
-type IBaseUpdatePayload = IBaseCreatePayload;
+/**
+ * An update route that returns nothing (reorder) only knows the base id, so the base here is
+ * partial. `body` is what the caller asked for, which is the only legible form of a change the
+ * resource itself does not spell out (a reorder stores an internal fractional index; the body
+ * says "after this anchor").
+ */
+type IBaseUpdatePayload = {
+  base: Pick<ICreateBaseVo, 'id'> & Partial<ICreateBaseVo>;
+  body?: Record<string, unknown>;
+};
 type IBasePermissionUpdatePayload = { baseId: string };
 
 export class BaseCreateEvent extends CoreEvent<IBaseCreatePayload> {
@@ -27,8 +36,12 @@ export class BaseDeleteEvent extends CoreEvent<IBaseDeletePayload> {
 export class BaseUpdateEvent extends CoreEvent<IBaseUpdatePayload> {
   public readonly name = Events.BASE_UPDATE;
 
-  constructor(base: ICreateBaseVo, context: IEventContext) {
-    super({ base }, context);
+  constructor(
+    base: IBaseUpdatePayload['base'],
+    context: IEventContext,
+    body?: Record<string, unknown>
+  ) {
+    super({ base, ...(body && Object.keys(body).length ? { body } : {}) }, context);
   }
 }
 
@@ -56,8 +69,8 @@ export class BaseEventFactory {
         return new BaseDeleteEvent({ baseId, permanent }, context);
       })
       .with(Events.BASE_UPDATE, () => {
-        const { base } = payload as IBaseUpdatePayload;
-        return new BaseUpdateEvent(base, context);
+        const { base, body } = payload as IBaseUpdatePayload;
+        return new BaseUpdateEvent(base, context, body);
       })
       .with(Events.BASE_PERMISSION_UPDATE, () => {
         const { baseId } = payload as IBasePermissionUpdatePayload;

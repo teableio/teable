@@ -1,4 +1,32 @@
 {
+  "computeActivity": {
+    "currentCalculations": "Calcoli correnti",
+    "thisTableOnly": "Solo questa tabella",
+    "calculatingNow": "Calcoli in corso",
+    "calculating": "Calcolo in corso",
+    "waiting": "In attesa",
+    "failed": "Errore",
+    "calculationFailed": "Errore di calcolo",
+    "calculatingSummary": "Calcolo ({{count}})",
+    "failedSummary": "Errore ({{count}})",
+    "fieldsCalculating_one": "{{count}} campo in fase di calcolo",
+    "fieldsCalculating_many": "{{count}} campi in fase di calcolo",
+    "fieldsCalculating_other": "{{count}} campi in fase di calcolo",
+    "fieldCalculationsFailed_one": "Errore nel calcolo di {{count}} campo",
+    "fieldCalculationsFailed_many": "Errore nel calcolo di {{count}} campi",
+    "fieldCalculationsFailed_other": "Errore nel calcolo di {{count}} campi",
+    "batchesRunning_one": "{{count}} batch in elaborazione",
+    "batchesRunning_many": "{{count}} batch in elaborazione",
+    "batchesRunning_other": "{{count}} batch in elaborazione",
+    "batchesQueued_one": "{{count}} batch in attesa",
+    "batchesQueued_many": "{{count}} batch in attesa",
+    "batchesQueued_other": "{{count}} batch in attesa",
+    "records_one": "{{formattedCount}} record",
+    "records_many": "{{formattedCount}} record",
+    "records_other": "{{formattedCount}} record",
+    "batchesComplete": "Batch completati {{completed}}/{{total}}",
+    "progressAriaLabel": "Avanzamento del calcolo per {{fieldName}}"
+  },
   "crossSpace": {
     "duplicateFieldTitle": "Avviso",
     "duplicateFieldDescription": "I riferimenti tra spazi non sono supportati. La copia sarà convertita in un campo di testo a riga singola.",
@@ -427,7 +455,7 @@
   "table": {
     "newTableLabel": "Nuova tabella",
     "rename": "Rinomina",
-    "tableRecordHistory": "Cronologia dei record della tabella",
+    "tableRecordHistory": "Cronologia delle modifiche",
     "deleteConfirm": "Sei sicuro di voler eliminare \"{{tableName}}\"?",
     "dbTableName": "Nome della tabella nel database fisico",
     "schemaName": "Nome dello schema nel database fisico",
@@ -879,9 +907,10 @@
     "description": "I {{count}} record saranno aggiunti alla tabella."
   },
   "tableTrash": {
-    "title": "Cestino della tabella",
+    "title": "Cestino",
     "resourceType": "Tipo",
-    "deletedResource": "Risorsa"
+    "deletedResource": "Risorsa",
+    "moreResources": "e altri {{count}}"
   },
   "baseShare": {
     "shareTitle": "Condividi",

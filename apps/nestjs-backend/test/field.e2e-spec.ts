@@ -1273,12 +1273,15 @@ describe('OpenAPI FieldController (e2e)', () => {
 
       // Recreate the persisted shape reported in T6250 without retaining customer data:
       // a scalar computed field whose historical physical column is still JSONB.
-      const dataKnex = await databaseRouter.dataKnexForTable(hostTable.id);
-      await dataKnex.raw('ALTER TABLE ?? ALTER COLUMN ?? TYPE jsonb USING to_jsonb(??)', [
-        hostTable.dbTableName,
-        rollupField.dbFieldName,
-        rollupField.dbFieldName,
-      ]);
+      await databaseRouter.withDataKnexConnectionForTable(hostTable.id, (dataKnex, connection) =>
+        dataKnex
+          .raw('ALTER TABLE ?? ALTER COLUMN ?? TYPE jsonb USING to_jsonb(??)', [
+            hostTable.dbTableName,
+            rollupField.dbFieldName,
+            rollupField.dbFieldName,
+          ])
+          .connection(connection)
+      );
 
       const updatedField = await convertField(hostTable.id, rollupField.id, {
         name: 'Computed reference renamed',

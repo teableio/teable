@@ -66,7 +66,7 @@ export class PostgresTableSearchVectorSchemaMaintenanceScheduler
           SELECT id
           FROM table_query_remediation_task
           WHERE table_id = ${tableId}
-            AND kind = 'rebuild_search_vector'
+            AND kind IN ('rebuild_search_access_path', 'rebuild_search_vector')
             AND status = 'queued'
             AND payload ->> 'trigger' = 'schema_change'
           ORDER BY created_time DESC
@@ -93,7 +93,7 @@ export class PostgresTableSearchVectorSchemaMaintenanceScheduler
         const task = TableQueryRemediationTask.createQueued({
           tableId,
           baseId,
-          kind: 'rebuild_search_vector',
+          kind: 'rebuild_search_access_path',
           payload: { trigger: 'schema_change', reason: input.reason },
           now: new Date(),
         })._unsafeUnwrap();

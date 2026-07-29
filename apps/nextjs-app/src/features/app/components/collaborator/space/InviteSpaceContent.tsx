@@ -47,6 +47,7 @@ interface IInviteSpaceContentProps {
   spaceName: string;
   role: IRole;
   onClose: () => void;
+  onSubPageChange: (isSubPage: boolean) => void;
 }
 
 const MEMBERS_PER_PAGE = 50;
@@ -54,7 +55,7 @@ const MEMBERS_PER_PAGE = 50;
 const inviteLinkQueryKey = (spaceId: string) => ['space-invite-link-list', spaceId] as const;
 
 export const InviteSpaceContent = (props: IInviteSpaceContentProps) => {
-  const { spaceId, spaceName, role: userRole, onClose } = props;
+  const { spaceId, spaceName, role: userRole, onClose, onSubPageChange } = props;
   const { t } = useTranslation('common');
   const { user } = useSession();
   const [tabType, setTabType] = useState<'email' | 'organization' | 'link' | 'collaborators'>();
@@ -68,7 +69,6 @@ export const InviteSpaceContent = (props: IInviteSpaceContentProps) => {
     isLoading: isListLoading,
   } = useInfiniteQuery({
     queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId, {
-      includeSystem: true,
       search,
       includeBase: true,
     }),
@@ -99,13 +99,12 @@ export const InviteSpaceContent = (props: IInviteSpaceContentProps) => {
     enabled: hasInviteLinkPermission,
   });
 
-  const { mutate: emailInvitation, isPending: emailInvitationLoading } = useMutation({
+  const { mutateAsync: emailInvitation, isPending: emailInvitationLoading } = useMutation({
     mutationFn: emailSpaceInvitation,
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId),
       });
-      onClose();
       toast.success(t('invite.sendInvitationSuccess'));
     },
   });
@@ -215,7 +214,11 @@ export const InviteSpaceContent = (props: IInviteSpaceContentProps) => {
 
   const defaultRole = userRole === Role.Owner ? Role.Creator : userRole;
   const linkListCount = linkList?.length || 0;
-  const onBack = () => setTabType(undefined);
+  const changeTabType = (nextTabType: typeof tabType) => {
+    setTabType(nextTabType);
+    onSubPageChange(Boolean(nextTabType && nextTabType !== 'collaborators'));
+  };
+  const onBack = () => changeTabType(undefined);
   const filteredRoleStatic = useFilteredRoleStatic(userRole);
   const baseFilteredRoleStatic = useFilteredBaseRoleStatic(defaultRole);
 
@@ -248,13 +251,19 @@ export const InviteSpaceContent = (props: IInviteSpaceContentProps) => {
   }
 
   if (tabType === 'email') {
+    const resourceUrl =
+      typeof window === 'undefined' ? '' : `${window.location.origin}/space/${spaceId}`;
+
     return (
       <EmailContent
         defaultRole={defaultRole}
         isCreateLoading={emailInvitationLoading}
-        onCreate={(ro) => emailInvitation({ spaceId, emailSpaceInvitationRo: ro })}
+        onCreate={async (ro) => {
+          await emailInvitation({ spaceId, emailSpaceInvitationRo: ro });
+        }}
         onBack={onBack}
         filteredRoleStatic={filteredRoleStatic}
+        resourceUrl={resourceUrl}
       />
     );
   }
@@ -305,11 +314,11 @@ export const InviteSpaceContent = (props: IInviteSpaceContentProps) => {
         }
       />
       <div className="flex flex-col gap-5">
-        <InviteEmailButton onClick={() => setTabType('email')} />
+        <InviteEmailButton onClick={() => changeTabType('email')} />
         {user?.organization && (
           <div className="space-y-2">
             <p className="text-sm font-semibold">{t('invite.addOrgCollaborator.title')}</p>
-            <InviteOrgButton onClick={() => setTabType('organization')} />
+            <InviteOrgButton onClick={() => changeTabType('organization')} />
           </div>
         )}
         {hasInviteLinkPermission && (
@@ -318,7 +327,7 @@ export const InviteSpaceContent = (props: IInviteSpaceContentProps) => {
             <InviteLinkButton
               className="box-content -translate-x-2 bg-transparent px-2 py-0"
               linkListCount={linkListCount}
-              onClick={() => setTabType('link')}
+              onClick={() => changeTabType('link')}
             />
           </div>
         )}
@@ -391,7 +400,7 @@ export const InviteSpaceContent = (props: IInviteSpaceContentProps) => {
               className="box-content -translate-x-2 px-2 py-0"
               collaborators={collaborators?.slice(0, 4) || []}
               total={total}
-              onClick={() => setTabType('collaborators')}
+              onClick={() => changeTabType('collaborators')}
             />
           </CollaboratorsDialog>
         </div>

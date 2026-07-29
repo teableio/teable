@@ -1380,11 +1380,12 @@ export class RecordBulkUpdateService {
     recordIds: ReadonlyArray<RecordId>,
     includeOrders: boolean
   ): Promise<Result<ITableRecordQueryResult, DomainError>> {
+    // Authorization joins these rows back to resolved updates by id, preserving request order
+    // without an expensive array_position sort in PostgreSQL.
     return this.tableRecordQueryRepository.find(context, table, RecordByIdsSpec.create(recordIds), {
       mode: 'stored',
       includeOrders,
       includeTotal: false,
-      recordIdsOrder: recordIds,
     });
   }
 

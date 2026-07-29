@@ -33,6 +33,7 @@ import { Audit } from '../audit/audit.decorator';
 import {
   collectCrossSpaceAffectedFieldIds,
   extractForeignTableId,
+  isCrossSpaceReferenceAllowed,
 } from '../base/cross-space-detection.util';
 import type { ILinkFieldTableInfo } from '../base/utils';
 import { DataLoaderService } from '../data-loader/data-loader.service';
@@ -550,6 +551,7 @@ export class TableDuplicateService {
     sourceTableId: string,
     targetTableId: string = sourceTableId
   ): Promise<ICrossSpaceTableAffectedField[]> {
+    if (isCrossSpaceReferenceAllowed()) return [];
     const prisma = this.prismaService.txClient();
 
     const fieldsRaw = await prisma.field.findMany({
@@ -592,6 +594,7 @@ export class TableDuplicateService {
     targetTableId: string,
     fields: IFieldWithTableIdJson[]
   ): Promise<Set<string>> {
+    if (isCrossSpaceReferenceAllowed()) return new Set();
     const foreignTableIds = Array.from(
       new Set(
         fields

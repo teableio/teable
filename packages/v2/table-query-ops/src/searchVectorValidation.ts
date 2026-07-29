@@ -1,53 +1,58 @@
-export type SearchVectorValidationSample = {
-  readonly defaultPath: { readonly durationMs: number };
-  readonly generatedTsvectorPath: { readonly durationMs: number };
+export type SearchAccessPathValidationTiming = {
+  readonly medianMs: number;
+  readonly p95Ms: number;
+};
+
+export type SearchAccessPathValidationSample = {
+  readonly legacyPath: SearchAccessPathValidationTiming;
+  readonly candidatePath: SearchAccessPathValidationTiming;
+  readonly exactResultMatch: boolean;
   readonly planEvidence: {
-    readonly explainStatus: 'validated' | 'failed';
+    readonly explainStatus: 'validated' | 'failed' | 'skipped';
     readonly costBefore?: number;
     readonly costAfter?: number;
     readonly usesGinIndex: boolean;
     readonly ginExpected: boolean;
   };
-  readonly llmReasonableness:
-    | 'reasonable'
-    | 'semantic_drift'
-    | 'needs_language_config'
-    | 'manual_review';
 };
 
-export const chooseSearchVectorValidationNextAction = (
-  samples: readonly SearchVectorValidationSample[]
-):
-  | 'ready_for_confirmation'
-  | 'needs_language_config'
-  | 'needs_plan_validation'
-  | 'manual_investigation' => {
-  const hasUnvalidatedPlan = samples.some(
-    (sample) => sample.planEvidence.explainStatus !== 'validated'
-  );
-  const hasMissingSelectiveGin = samples.some(
-    (sample) => sample.planEvidence.ginExpected && !sample.planEvidence.usesGinIndex
-  );
-  if (hasUnvalidatedPlan || hasMissingSelectiveGin) return 'needs_plan_validation';
+/** @deprecated Use SearchAccessPathValidationSample. */
+export type SearchVectorValidationSample = SearchAccessPathValidationSample;
 
+export const chooseSearchAccessPathValidationNextAction = (
+  samples: readonly SearchAccessPathValidationSample[]
+): 'ready_for_confirmation' | 'needs_plan_validation' | 'manual_investigation' => {
+  if (!samples.length) return 'needs_plan_validation';
+  if (samples.some((sample) => !sample.exactResultMatch)) return 'manual_investigation';
+
+  const indexedSamples = samples.filter((sample) => sample.planEvidence.ginExpected);
   if (
-    samples.some((sample) =>
-      ['semantic_drift', 'needs_language_config'].includes(sample.llmReasonableness)
+    indexedSamples.some(
+      (sample) =>
+        sample.planEvidence.explainStatus !== 'validated' ||
+        !sample.planEvidence.usesGinIndex ||
+        typeof sample.planEvidence.costBefore !== 'number' ||
+        typeof sample.planEvidence.costAfter !== 'number'
     )
   ) {
-    return 'needs_language_config';
+    return 'needs_plan_validation';
   }
 
-  const allSamplesImprovedCost = samples.every(
+  const hasMaterialPlanImprovement = indexedSamples.some(
     (sample) =>
-      typeof sample.planEvidence.costBefore === 'number' &&
-      typeof sample.planEvidence.costAfter === 'number' &&
-      sample.planEvidence.costAfter < sample.planEvidence.costBefore
+      (sample.planEvidence.costAfter ?? Number.POSITIVE_INFINITY) <
+      (sample.planEvidence.costBefore ?? Number.NEGATIVE_INFINITY)
   );
-  const allSamplesImprovedDuration = samples.every(
-    (sample) => sample.generatedTsvectorPath.durationMs < sample.defaultPath.durationMs
+  const hasMaterialTimingRegression = samples.some(
+    (sample) =>
+      sample.legacyPath.medianMs > 0 &&
+      sample.candidatePath.medianMs > sample.legacyPath.medianMs * 1.2
   );
-  return allSamplesImprovedCost && allSamplesImprovedDuration
+
+  return hasMaterialPlanImprovement && !hasMaterialTimingRegression
     ? 'ready_for_confirmation'
     : 'manual_investigation';
 };
+
+/** @deprecated Use chooseSearchAccessPathValidationNextAction. */
+export const chooseSearchVectorValidationNextAction = chooseSearchAccessPathValidationNextAction;

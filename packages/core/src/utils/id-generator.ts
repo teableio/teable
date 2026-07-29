@@ -62,6 +62,7 @@ export enum IdPrefix {
   TemplateCategory = 'tpc',
 
   Task = 'tsk',
+  TaskRun = 'trn',
 
   Chat = 'cht',
   ChatMessage = 'cmm',
@@ -260,6 +261,10 @@ export function generateTemplateCategoryId() {
 
 export function generateTaskId() {
   return IdPrefix.Task + getRandomString(16);
+}
+
+export function generateTaskRunId() {
+  return IdPrefix.TaskRun + getRandomString(16);
 }
 
 export function generateChatId() {

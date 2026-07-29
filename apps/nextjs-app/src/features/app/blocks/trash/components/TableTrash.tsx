@@ -34,6 +34,10 @@ interface ITableTrashProps {
   tableId: string;
 }
 
+// A bulk deletion can put tens of thousands of resources into one trash item;
+// rendering them all would create as many DOM nodes in a single cell.
+const MAX_DISPLAY_RESOURCE_COUNT = 100;
+
 export const TableTrash = (props: ITableTrashProps) => {
   const { tableId } = props;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
@@ -179,11 +183,13 @@ export const TableTrash = (props: ITableTrashProps) => {
               return resourceMap[resourceId];
             })
             .filter(Boolean);
+          const displayList = resourceList.slice(0, MAX_DISPLAY_RESOURCE_COUNT);
+          const hiddenCount = resourceList.length - displayList.length;
           return (
             <Fragment>
               {resourceList.length ? (
                 <div className="flex w-full flex-wrap gap-1">
-                  {resourceList.map((resource) => {
+                  {displayList.map((resource) => {
                     const { id, name } = resource;
                     const Icon =
                       resourceType === TableTrashType.Field
@@ -207,9 +213,14 @@ export const TableTrash = (props: ITableTrashProps) => {
                       </div>
                     );
                   })}
+                  {hiddenCount > 0 && (
+                    <span className="ml-1 flex items-center text-xs text-muted-foreground">
+                      {t('table:tableTrash.moreResources', { count: hiddenCount })}
+                    </span>
+                  )}
                 </div>
               ) : (
-                <span className="text-muted-foreground">{t('common.empty')}</span>
+                <span className="text-muted-foreground">{t('sdk:common.empty')}</span>
               )}
             </Fragment>
           );

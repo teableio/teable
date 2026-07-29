@@ -26,13 +26,20 @@ class MyDocument extends Document<Props> {
           />
           <link
             rel="icon"
-            type="image/png"
-            sizes="16x16"
-            href="/images/favicon/favicon-16x16.png"
+            type="image/svg+xml"
+            sizes="any"
+            href="/images/favicon/favicon-light.svg"
+            media="(prefers-color-scheme: light)"
+          />
+          <link
+            rel="icon"
+            type="image/svg+xml"
+            sizes="any"
+            href="/images/favicon/favicon-dark.svg"
+            media="(prefers-color-scheme: dark)"
           />
           <link rel="manifest" href="/images/favicon/site.webmanifest" />
           <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg" color="#5bbad5" />
-          <link rel="shortcut icon" href="/images/favicon/favicon.svg" type="image/svg+xml" />
           <meta name="msapplication-TileColor" content="#da532c" />
           <meta name="msapplication-config" content="/images/favicon/browserconfig.xml" />
         </Head>

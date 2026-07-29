@@ -1,5 +1,45 @@
 type PermissionMap = Record<string, boolean | undefined>;
 
+interface ITableRecordNavigationInput {
+  activeTableId?: string;
+  targetTableId: string;
+  targetTableHref?: string;
+  targetViewId?: string;
+  currentPathname: string;
+  currentQuery: Record<string, string | string[] | undefined>;
+  recordId: string;
+}
+
+export const getTableRecordNavigation = ({
+  activeTableId,
+  targetTableId,
+  targetTableHref,
+  targetViewId,
+  currentPathname,
+  currentQuery,
+  recordId,
+}: ITableRecordNavigationInput) => {
+  if (activeTableId === targetTableId) {
+    return {
+      url: {
+        pathname: currentPathname,
+        query: { ...currentQuery, recordId },
+      },
+      shallow: true,
+    };
+  }
+
+  if (!targetTableHref) return;
+
+  return {
+    url: {
+      pathname: targetTableHref,
+      query: { recordId },
+    },
+    shallow: Boolean(targetViewId),
+  };
+};
+
 interface ITableOperationPermissionInput {
   table?: { permission?: PermissionMap } | null;
   nodeExists: boolean;

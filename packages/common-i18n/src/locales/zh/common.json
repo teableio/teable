@@ -505,6 +505,7 @@
       "tabLink": "通过链接邀请",
       "linkPlaceholder": "创建一个邀请链接，让任何打开它的人获得<0/>权限。",
       "emailSend": "发送邀请",
+      "directAccessDescription": "受邀协作者可以直接访问以下链接加入协作",
       "linkSend": "创建链接",
       "spaceTitle": "空间协作者",
       "spaceTitleWithCount": "空间协作者（{{count}}）",
@@ -1263,6 +1264,10 @@
           "title": "记录评论通知",
           "message": "{{fromUserName}} 在数据库 {{baseName}} 的 {{tableName}} 的 {{recordName}} 上评论了"
         },
+        "collaboratorInvite": {
+          "space": "{{fromUserName}} 刚刚邀请你加入空间 {{resourceName}}",
+          "base": "{{fromUserName}} 刚刚邀请你加入数据库 {{resourceName}}"
+        },
         "automation": {
           "title": "自动化通知",
           "failed": {
@@ -1643,10 +1648,10 @@
     }
   },
   "changelog": {
-    "newUpdate": "7 月 15 日更新",
-    "title": "AI 记忆与生成文件下载",
-    "url": "https://help.teable.ai/en/changelog#jul-15-2026",
-    "id": "changelog-2026-07-15-ai-memory-and-file-downloads"
+    "newUpdate": "7 月 28 日更新",
+    "title": "面向 AI Agent 的 Teable Skill",
+    "url": "https://help.teable.ai/en/changelog#jul-28-2026",
+    "id": "changelog-2026-07-28-teable-skill-for-ai-agents"
   },
   "resourceDescription": {
     "addDescription": "添加描述",

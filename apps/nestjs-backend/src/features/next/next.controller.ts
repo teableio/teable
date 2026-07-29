@@ -75,6 +75,7 @@ export class NextController {
     'unsubscribe/?*',
     'integrations/authorize/?*',
     't/?*',
+    's/?*',
   ])
   public async home(@Req() req: Request, @Res() res: Response) {
     if (!this.nextService.server) {

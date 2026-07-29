@@ -153,6 +153,21 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
   const duplicateBaseName = 'Duplicated base';
   const sourceTableName = 'Source table';
   const sourceDbTableName = 'bseSource.tblSource';
+  const createDataKnexManager = (dataKnex: (...args: never[]) => Record<string, unknown>) => ({
+    withDataKnexConnectionForBase: vi.fn(
+      (
+        _baseId: string,
+        run: (knex: (...args: never[]) => Record<string, unknown>, connection: object) => unknown
+      ) => {
+        const compiler = ((...args: never[]) => {
+          const query = dataKnex(...args);
+          query.connection = vi.fn().mockReturnValue(query);
+          return query;
+        }) as (...args: never[]) => Record<string, unknown>;
+        return run(compiler, {});
+      }
+    ),
+  });
 
   type IDuplicateServiceInternals = {
     buildDuplicateStructureConfig: (...args: unknown[]) => Promise<unknown>;
@@ -793,9 +808,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       {} as IServiceArgs[5],
       {} as IServiceArgs[6],
       {} as IServiceArgs[7],
-      {
-        dataKnexForBase: vi.fn().mockResolvedValue(dataKnex),
-      } as unknown as IServiceArgs[8],
+      createDataKnexManager(dataKnex) as unknown as IServiceArgs[8],
       {} as IServiceArgs[9],
       {} as IServiceArgs[10],
       {} as IServiceArgs[11]
@@ -872,7 +885,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       {} as IServiceArgs[5],
       {} as IServiceArgs[6],
       {} as IServiceArgs[7],
-      { dataKnexForBase: vi.fn().mockResolvedValue(dataKnex) } as unknown as IServiceArgs[8],
+      createDataKnexManager(dataKnex) as unknown as IServiceArgs[8],
       {} as IServiceArgs[9],
       {} as IServiceArgs[10],
       {} as IServiceArgs[11]
@@ -973,7 +986,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       {} as IServiceArgs[5],
       {} as IServiceArgs[6],
       {} as IServiceArgs[7],
-      { dataKnexForBase: vi.fn().mockResolvedValue(dataKnex) } as unknown as IServiceArgs[8],
+      createDataKnexManager(dataKnex) as unknown as IServiceArgs[8],
       {} as IServiceArgs[9],
       {} as IServiceArgs[10],
       {} as IServiceArgs[11]
@@ -1068,7 +1081,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       {} as IServiceArgs[5],
       {} as IServiceArgs[6],
       {} as IServiceArgs[7],
-      { dataKnexForBase: vi.fn().mockResolvedValue(dataKnex) } as unknown as IServiceArgs[8],
+      createDataKnexManager(dataKnex) as unknown as IServiceArgs[8],
       {} as IServiceArgs[9],
       {} as IServiceArgs[10],
       {} as IServiceArgs[11]
@@ -1170,7 +1183,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       {} as IServiceArgs[5],
       {} as IServiceArgs[6],
       {} as IServiceArgs[7],
-      { dataKnexForBase: vi.fn().mockResolvedValue(dataKnex) } as unknown as IServiceArgs[8],
+      createDataKnexManager(dataKnex) as unknown as IServiceArgs[8],
       {} as IServiceArgs[9],
       {} as IServiceArgs[10],
       {} as IServiceArgs[11]
@@ -1255,9 +1268,7 @@ describe('BaseDuplicateService duplicateBaseV2', () => {
       {} as IServiceArgs[5],
       {} as IServiceArgs[6],
       {} as IServiceArgs[7],
-      {
-        dataKnexForBase: vi.fn().mockResolvedValue(dataKnex),
-      } as unknown as IServiceArgs[8],
+      createDataKnexManager(dataKnex) as unknown as IServiceArgs[8],
       {} as IServiceArgs[9],
       {} as IServiceArgs[10],
       {} as IServiceArgs[11]

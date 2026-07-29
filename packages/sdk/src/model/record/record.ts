@@ -11,6 +11,10 @@ import type { IFieldInstance } from '../field/factory';
 
 const { toast } = sonner;
 export class Record extends RecordCore {
+  // set by useRecords' factory for doc-less (seeded) instances so cell edits
+  // can still resolve their REST endpoint before the subscription doc arrives
+  tableId?: string;
+
   private _title?: {
     value?: string;
   };
@@ -97,6 +101,12 @@ export class Record extends RecordCore {
 
   private onCommitLocal(fieldId: string, cellValue: unknown, _undo?: boolean) {
     const oldCellValue = this.fields[fieldId];
+    if (!this.doc?.data) {
+      // doc-less (seeded) instance: no local doc to mirror — update the
+      // in-memory value only; the subscription snapshot supersedes it
+      this.fields[fieldId] = cellValue;
+      return;
+    }
     const operation = RecordOpBuilder.editor.setRecord.build({
       fieldId,
       newCellValue: cellValue,
@@ -148,6 +158,11 @@ export class Record extends RecordCore {
     if (!changeCellFieldIds.length) {
       return;
     }
+    if (!this.doc?.data) {
+      // doc-less (seeded) instance: computed values arrive with the
+      // subscription snapshot instead
+      return;
+    }
     changeCellFieldIds.forEach((fieldId) => {
       this.doc.data.fields[fieldId] = record.fields[fieldId];
     });
@@ -167,7 +182,11 @@ export class Record extends RecordCore {
         // you have to set null to clear the value
         [fieldId]: cellValue === undefined ? null : cellValue,
       };
-      const res = await updateRecord(this.doc.collection.split('_')[1], this.doc.id, {
+      const tableId = this.doc ? this.doc.collection.split('_')[1] : this.tableId;
+      if (!tableId) {
+        throw new Error('Cannot update record: missing table context');
+      }
+      const res = await updateRecord(tableId, this.id, {
         fieldKeyType: FieldKeyType.Id,
         record: { fields: normalizedFields },
       });

@@ -1,4 +1,22 @@
 {
+  "computeActivity": {
+    "currentCalculations": "現在の計算状況",
+    "thisTableOnly": "このテーブルのみ",
+    "calculatingNow": "現在計算中",
+    "calculating": "計算中",
+    "waiting": "待機中",
+    "failed": "失敗",
+    "calculationFailed": "計算に失敗しました",
+    "calculatingSummary": "計算中（{{count}}）",
+    "failedSummary": "失敗（{{count}}）",
+    "fieldsCalculating_other": "{{count}}個のフィールドを計算中",
+    "fieldCalculationsFailed_other": "{{count}}個のフィールドの計算に失敗",
+    "batchesRunning_other": "{{count}}件のバッチを処理中",
+    "batchesQueued_other": "{{count}}件のバッチが待機中",
+    "records_other": "{{formattedCount}}件のレコード",
+    "batchesComplete": "完了バッチ {{completed}}/{{total}}",
+    "progressAriaLabel": "{{fieldName}}の計算進捗"
+  },
   "crossSpace": {
     "duplicateFieldTitle": "ご注意",
     "duplicateFieldDescription": "クロススペース参照はサポートされていません。複製は単一行テキストフィールドに変換されます。",
@@ -418,7 +436,7 @@
   "table": {
     "newTableLabel": "新しいテーブル",
     "rename": "名前を変更",
-    "tableRecordHistory": "テーブルレコード履歴",
+    "tableRecordHistory": "変更履歴",
     "deleteConfirm": "本当に \"{{tableName}}\" を削除してもよろしいですか?",
     "dbTableName": "物理データベース内のテーブル名",
     "schemaName": "物理データベースのスキーマ名",
@@ -857,9 +875,10 @@
   "lastModifiedTime": "最終更新日時",
   "lastModify": "最終更新: ",
   "tableTrash": {
-    "title": "テーブルのごみ箱",
+    "title": "ゴミ箱",
     "resourceType": "タイプ",
-    "deletedResource": "リソース"
+    "deletedResource": "リソース",
+    "moreResources": "他 {{count}} 件"
   },
   "baseShare": {
     "shareTitle": "共有",

@@ -10,7 +10,7 @@ import {
 } from '@teable/v2-core';
 import { describe, expect, it } from 'vitest';
 
-import { buildTableSearchVectorDefinition } from './searchVectorDefinition';
+import { buildTableSearchAccessPathDefinition } from './searchVectorDefinition';
 
 const makeTable = (): Table => {
   const builder = Table.builder()
@@ -45,18 +45,19 @@ const makeTable = (): Table => {
   return table;
 };
 
-describe('buildTableSearchVectorDefinition', () => {
-  it('aggregates field visitor decisions into one deterministic table definition', () => {
-    const definition = buildTableSearchVectorDefinition(makeTable(), {
-      languageConfig: 'simple',
+describe('buildTableSearchAccessPathDefinition', () => {
+  it('builds a deterministic substring document definition by default', () => {
+    const definition = buildTableSearchAccessPathDefinition(makeTable(), {
+      provider: 'pg_trgm',
     })._unsafeUnwrap();
 
     expect(definition).toMatchObject({
       tableId: 'tbl0000000000000001',
-      languageConfig: 'simple',
+      semantics: 'substring',
+      provider: 'pg_trgm',
       scope: 'all_fields',
-      accessPath: 'generated_tsvector',
-      indexKind: 'gin_tsvector',
+      accessPath: 'generated_text',
+      indexKind: 'gin_trgm',
       fields: [
         { fieldId: 'fld0000000000000001', fieldDbName: 'order_no' },
         { fieldId: 'fld0000000000000002', fieldDbName: 'notes' },
@@ -66,13 +67,13 @@ describe('buildTableSearchVectorDefinition', () => {
       ],
     });
     expect(definition.definitionKey).toBe(
-      'tbl0000000000000001:simple:fld0000000000000001=order_no,fld0000000000000002=notes'
+      'tbl0000000000000001:substring:pg_trgm:none:fld0000000000000001=order_no,fld0000000000000002=notes'
     );
   });
 
   it('uses selected field ids without accepting physical column names from callers', () => {
-    const definition = buildTableSearchVectorDefinition(makeTable(), {
-      languageConfig: 'english',
+    const definition = buildTableSearchAccessPathDefinition(makeTable(), {
+      provider: 'pg_bigm',
       fieldIds: ['fld0000000000000002'],
     })._unsafeUnwrap();
 
@@ -80,5 +81,21 @@ describe('buildTableSearchVectorDefinition', () => {
     expect(definition.fields).toEqual([
       expect.objectContaining({ fieldId: 'fld0000000000000002', fieldDbName: 'notes' }),
     ]);
+  });
+
+  it('keeps lexical tsvector as an explicit non-substring definition', () => {
+    const definition = buildTableSearchAccessPathDefinition(makeTable(), {
+      semantics: 'lexical',
+      provider: 'tsvector',
+      languageConfig: 'english',
+    })._unsafeUnwrap();
+
+    expect(definition).toMatchObject({
+      semantics: 'lexical',
+      provider: 'tsvector',
+      languageConfig: 'english',
+      accessPath: 'generated_tsvector',
+      indexKind: 'gin_tsvector',
+    });
   });
 });

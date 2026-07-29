@@ -61,8 +61,12 @@ export type ComputedUpdateLockPlan = {
   statements: ReadonlyArray<ComputedUpdateLockStatement>;
 };
 
+// The trailing constant column splits pg_stat_statements/PI fingerprints per lock scope:
+// queryid ignores comments and constant values, but jumbles constant types and target
+// arity, and aliases stay visible in the normalized query text. Outbox locks carry their
+// own labels (see ComputedUpdateOutbox), so lock waits are attributable per scope.
 const ADVISORY_LOCK_SQL =
-  "select pg_advisory_xact_lock(('x' || substr(md5($1), 1, 16))::bit(64)::bigint)";
+  "select pg_advisory_xact_lock(('x' || substr(md5($1), 1, 16))::bit(64)::bigint), 'computed' as lock_scope";
 export const COMPUTED_UPDATE_LOCK_UNAVAILABLE_CODE = 'computed_update.lock_unavailable';
 
 type SeedRecordGroup = {
@@ -130,7 +134,6 @@ export const buildComputedUpdateLockPlan = (
   const batchLocks: ComputedUpdateLockBatch[] = [];
   const tableLocks: ComputedUpdateLockTable[] = [];
   const tableLockTableIds: string[] = [];
-  const baseId = plan.baseId.toString();
 
   for (const group of seedGroups) {
     if (group.recordIds.length === 0) continue;
@@ -139,7 +142,7 @@ export const buildComputedUpdateLockPlan = (
         tableLockTableIds.push(group.tableId);
         tableLocks.push({
           tableId: group.tableId,
-          key: buildTableLockKey(baseId, group.tableId),
+          key: buildTableLockKey(group.tableId),
         });
         continue;
       }
@@ -155,7 +158,7 @@ export const buildComputedUpdateLockPlan = (
           tableId: group.tableId,
           batchId,
           recordCount,
-          key: buildBatchLockKey(baseId, group.tableId, batchId),
+          key: buildBatchLockKey(group.tableId, batchId),
         });
       }
       continue;
@@ -164,7 +167,7 @@ export const buildComputedUpdateLockPlan = (
       recordLocks.push({
         tableId: group.tableId,
         recordId,
-        key: buildRecordLockKey(baseId, group.tableId, recordId),
+        key: buildRecordLockKey(group.tableId, recordId),
       });
     }
   }
@@ -199,8 +202,10 @@ export const buildAdvisoryLockStatement = (key: string) => ({
 export const buildAdvisoryLockQuery = <DB>(db: Kysely<DB> | Transaction<DB>, key: string) =>
   sql`select pg_advisory_xact_lock(
     ('x' || substr(md5(${key}), 1, 16))::bit(64)::bigint
-  )`.compile(db);
+  ), 'computed' as lock_scope`.compile(db);
 
+// Single-column shape is the computed-scope try fingerprint; outbox try locks add a
+// scope column so they never share this queryid.
 export const buildTryAdvisoryLockQuery = <DB>(db: Kysely<DB> | Transaction<DB>, key: string) =>
   sql<{ locked: boolean }>`select pg_try_advisory_xact_lock(
     ('x' || substr(md5(${key}), 1, 16))::bit(64)::bigint
@@ -240,14 +245,16 @@ const collectSeedRecordGroups = (plan: {
     .sort((a, b) => a.tableId.localeCompare(b.tableId));
 };
 
-const buildRecordLockKey = (baseId: string, tableId: string, recordId: string): string =>
-  `v2:computed:${baseId}:${tableId}:${recordId}`;
+// Table IDs are globally unique. Root-base prefixes let cross-base cascades acquire different
+// advisory locks for the same physical target row, so PostgreSQL row-lock waits can consume the
+// entire statement timeout. Key locks only by the records they protect.
+const buildRecordLockKey = (tableId: string, recordId: string): string =>
+  `v2:computed:${tableId}:${recordId}`;
 
-const buildBatchLockKey = (baseId: string, tableId: string, batchId: string): string =>
-  `v2:computed:${baseId}:${tableId}:batch:${batchId}`;
+const buildBatchLockKey = (tableId: string, batchId: string): string =>
+  `v2:computed:${tableId}:batch:${batchId}`;
 
-const buildTableLockKey = (baseId: string, tableId: string): string =>
-  `v2:computed:${baseId}:${tableId}`;
+const buildTableLockKey = (tableId: string): string => `v2:computed:${tableId}`;
 
 const resolveLockMode = (
   tableLocks: number,

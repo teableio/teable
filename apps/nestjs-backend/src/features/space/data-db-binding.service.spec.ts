@@ -8,6 +8,7 @@ vi.mock('@teable/db-main-prisma', () => ({
   MetaPrismaService: class MetaPrismaService {},
   Prisma: {},
   PrismaModule: class PrismaModule {},
+  PgPoolRegistry: class PgPoolRegistry {},
   PrismaService: class PrismaService {},
   ProvisionState: {},
   getDatabaseUrl: vi.fn(),
@@ -61,6 +62,7 @@ describe('DataDbBindingService', () => {
   };
   const preflightService = {
     preflight: vi.fn(),
+    inspectDatabaseIdentity: vi.fn(),
   };
   const baselineService = {
     initialize: vi.fn(),
@@ -103,6 +105,11 @@ describe('DataDbBindingService', () => {
     txClient.spaceDataDbBinding.updateMany.mockReset();
     prismaService.$tx.mockClear();
     preflightService.preflight.mockReset();
+    preflightService.inspectDatabaseIdentity.mockReset().mockResolvedValue({
+      systemIdentifier: '7612345678901234567',
+      databaseOid: '16384',
+      databaseName: 'teable_data',
+    });
     baselineService.initialize.mockReset().mockResolvedValue(schemaVersion);
     dataDbClientManager.invalidateConnection.mockReset();
     dataDbMigrationService.ensureConnectionMigrated.mockReset().mockResolvedValue([]);
@@ -364,14 +371,17 @@ describe('DataDbBindingService', () => {
     expect(dataDbClientManager.invalidateConnection).toHaveBeenCalledWith('dcnxxx');
   });
 
-  it('updates credentials for the same BYODB database identity', async () => {
-    const updatedUrl = 'postgresql://teable:new-secret@example.com:5432/teable_data';
+  it('updates a direct connection to a PgBouncer address for the same PostgreSQL database', async () => {
+    const updatedUrl = 'postgresql://teable:new-secret@pooler.example.com:6432/teable_data';
     preflightService.preflight.mockResolvedValue({
       ok: true,
       provider: 'postgres',
       classification: 'teable-managed-compatible',
       capabilities,
       errors: [],
+      internalSchema,
+      displayHost: 'pooler.example.com:6432',
+      displayDatabase: 'teable_data',
     });
     const service = new DataDbBindingService(
       prismaService as never,
@@ -392,11 +402,15 @@ describe('DataDbBindingService', () => {
       internalSchema,
     });
     expect(baselineService.initialize).toHaveBeenCalledWith(updatedUrl, internalSchema);
+    expect(preflightService.inspectDatabaseIdentity).toHaveBeenCalledWith(dataUrl);
+    expect(preflightService.inspectDatabaseIdentity).toHaveBeenCalledWith(updatedUrl);
     expect(prismaService.dataDbConnection.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: 'dcnxxx' },
         data: expect.objectContaining({
           encryptedUrl: expect.not.stringContaining('new-secret'),
+          displayHost: 'pooler.example.com:6432',
+          displayDatabase: 'teable_data',
           schemaVersion,
           status: 'ready',
         }),
@@ -563,7 +577,7 @@ describe('DataDbBindingService', () => {
     expect(txClient.spaceDataDbBinding.upsert).not.toHaveBeenCalled();
   });
 
-  it('rejects credential updates that would move the space to a different data DB', async () => {
+  it('rejects connection updates that point to a different PostgreSQL cluster', async () => {
     preflightService.preflight.mockResolvedValue({
       ok: true,
       provider: 'postgres',
@@ -574,6 +588,17 @@ describe('DataDbBindingService', () => {
       displayHost: 'other.example.com:5432',
       displayDatabase: 'teable_data',
     });
+    preflightService.inspectDatabaseIdentity
+      .mockResolvedValueOnce({
+        systemIdentifier: '7612345678901234567',
+        databaseOid: '16384',
+        databaseName: 'teable_data',
+      })
+      .mockResolvedValueOnce({
+        systemIdentifier: '7699999999999999999',
+        databaseOid: '16384',
+        databaseName: 'teable_data',
+      });
     const service = new DataDbBindingService(
       prismaService as never,
       preflightService as never,
@@ -590,5 +615,80 @@ describe('DataDbBindingService', () => {
       })
     ).rejects.toMatchObject({ code: HttpErrorCode.VALIDATION_ERROR });
     expect(baselineService.initialize).not.toHaveBeenCalled();
+    expect(prismaService.dataDbConnection.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects connection updates that select another database in the same PostgreSQL cluster', async () => {
+    preflightService.preflight.mockResolvedValue({
+      ok: true,
+      provider: 'postgres',
+      classification: 'teable-managed-compatible',
+      capabilities,
+      errors: [],
+      internalSchema,
+      displayHost: 'pooler.example.com:6432',
+      displayDatabase: 'other_data',
+    });
+    preflightService.inspectDatabaseIdentity
+      .mockResolvedValueOnce({
+        systemIdentifier: '7612345678901234567',
+        databaseOid: '16384',
+        databaseName: 'teable_data',
+      })
+      .mockResolvedValueOnce({
+        systemIdentifier: '7612345678901234567',
+        databaseOid: '24576',
+        databaseName: 'other_data',
+      });
+    const service = new DataDbBindingService(
+      prismaService as never,
+      preflightService as never,
+      baselineService as never,
+      dataDbClientManager as never,
+      dataDbMigrationService as never
+    );
+
+    await expect(
+      service.updateBindingForSpace('spcxxx', 'usrxxx', {
+        url: 'postgresql://teable:secret@pooler.example.com:6432/other_data',
+        targetMode: initializeEmptyTargetMode,
+        internalSchema,
+      })
+    ).rejects.toMatchObject({ code: HttpErrorCode.VALIDATION_ERROR });
+    expect(baselineService.initialize).not.toHaveBeenCalled();
+    expect(prismaService.dataDbConnection.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects connection updates when PostgreSQL identity cannot be verified', async () => {
+    preflightService.preflight.mockResolvedValue({
+      ok: true,
+      provider: 'postgres',
+      classification: 'teable-managed-compatible',
+      capabilities,
+      errors: [],
+      internalSchema,
+      displayHost: 'pooler.example.com:6432',
+      displayDatabase: 'teable_data',
+    });
+    preflightService.inspectDatabaseIdentity.mockRejectedValue(
+      new Error('permission denied for pg_control_system')
+    );
+    const service = new DataDbBindingService(
+      prismaService as never,
+      preflightService as never,
+      baselineService as never,
+      dataDbClientManager as never,
+      dataDbMigrationService as never
+    );
+
+    await expect(
+      service.updateBindingForSpace('spcxxx', 'usrxxx', {
+        url: 'postgresql://teable:secret@pooler.example.com:6432/teable_data',
+        targetMode: initializeEmptyTargetMode,
+        internalSchema,
+      })
+    ).rejects.toMatchObject({ code: HttpErrorCode.VALIDATION_ERROR });
+    expect(baselineService.initialize).not.toHaveBeenCalled();
+    expect(prismaService.dataDbConnection.update).not.toHaveBeenCalled();
   });
 });

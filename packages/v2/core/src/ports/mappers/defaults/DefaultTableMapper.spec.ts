@@ -41,6 +41,7 @@ import { SelectOption } from '../../../domain/table/fields/types/SelectOption';
 import { SingleLineTextField } from '../../../domain/table/fields/types/SingleLineTextField';
 import { SingleLineTextShowAs } from '../../../domain/table/fields/types/SingleLineTextShowAs';
 import { SingleSelectField } from '../../../domain/table/fields/types/SingleSelectField';
+import { TimeZone } from '../../../domain/table/fields/types/TimeZone';
 import { TextDefaultValue } from '../../../domain/table/fields/types/TextDefaultValue';
 import { UserDefaultValue } from '../../../domain/table/fields/types/UserDefaultValue';
 import { UserField } from '../../../domain/table/fields/types/UserField';
@@ -856,6 +857,171 @@ describe('DefaultTableMapper', () => {
         precision: 1,
         symbol: '¥',
       },
+    });
+  });
+
+  it('strips formula expression when persisting lookup-of-formula options', () => {
+    const baseId = BaseId.create(`bse${'l'.repeat(16)}`)._unsafeUnwrap();
+    const tableId = TableId.create(`tbl${'l'.repeat(16)}`)._unsafeUnwrap();
+    const primaryFieldId = FieldId.create(`fld${'l'.repeat(16)}`)._unsafeUnwrap();
+    const lookupFieldId = FieldId.create(`fld${'m'.repeat(16)}`)._unsafeUnwrap();
+    const innerFieldId = FieldId.create(`fld${'n'.repeat(16)}`)._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withBaseId(baseId)
+      .withId(tableId)
+      .withName(TableName.create('Formula Lookup Persist')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(primaryFieldId)
+      .withName(FieldName.create('Name')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.addFieldFromResult(
+      LookupField.create({
+        id: lookupFieldId,
+        name: FieldName.create('Batch Name Lookup')._unsafeUnwrap(),
+        innerField: FormulaField.create({
+          id: innerFieldId,
+          name: FieldName.create('Batch Display')._unsafeUnwrap(),
+          expression: FormulaExpression.create(
+            `CONCATENATE({${`fld${'a'.repeat(16)}`}}, ' / ', {${`fld${'b'.repeat(16)}`}})`
+          )._unsafeUnwrap(),
+          timeZone: TimeZone.create('Asia/Shanghai')._unsafeUnwrap(),
+          showAs: SingleLineTextShowAs.create({ type: 'url' })._unsafeUnwrap(),
+          resultType: {
+            cellValueType: CellValueType.string(),
+            isMultipleCellValue: CellValueMultiplicity.single(),
+          },
+        })._unsafeUnwrap(),
+        lookupOptions: LookupOptions.create({
+          linkFieldId: `fld${'o'.repeat(16)}`,
+          foreignTableId: `tbl${'o'.repeat(16)}`,
+          lookupFieldId: `fld${'p'.repeat(16)}`,
+        })._unsafeUnwrap(),
+      })
+    );
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+    const mapper = new DefaultTableMapper();
+    const dto = mapper.toDTO(table)._unsafeUnwrap();
+    const persisted = dto.fields.find((field) => field.id === lookupFieldId.toString());
+
+    expect(persisted).toMatchObject({
+      id: lookupFieldId.toString(),
+      type: 'formula',
+      isLookup: true,
+      options: {
+        expression: '""',
+        showAs: {
+          type: 'url',
+        },
+      },
+    });
+    expect((persisted?.options as { timeZone?: string } | undefined)?.timeZone).toBeUndefined();
+  });
+
+  it('restores lookup display options patch after reload', () => {
+    const mapper = new DefaultTableMapper();
+    const dto = {
+      id: `tbl${'r'.repeat(16)}`,
+      baseId: `bse${'r'.repeat(16)}`,
+      name: 'Lookup Reload',
+      primaryFieldId: `fld${'r'.repeat(16)}`,
+      fields: [
+        {
+          id: `fld${'r'.repeat(16)}`,
+          name: 'Name',
+          type: 'singleLineText' as const,
+        },
+        {
+          id: `fld${'s'.repeat(16)}`,
+          name: 'Amount Lookup',
+          type: 'formula' as const,
+          isLookup: true,
+          isComputed: true,
+          options: {
+            expression: '""',
+            formatting: { type: 'currency', precision: 1, symbol: '¥' },
+          },
+          lookupOptions: {
+            linkFieldId: `fld${'t'.repeat(16)}`,
+            foreignTableId: `tbl${'t'.repeat(16)}`,
+            lookupFieldId: `fld${'u'.repeat(16)}`,
+          },
+          cellValueType: 'number',
+          isMultipleCellValue: false,
+        },
+      ],
+      views: [],
+    };
+
+    const table = mapper.toDomain(dto as never)._unsafeUnwrap();
+    const lookup = table
+      .getFields()
+      .find((field) => field.id().toString() === `fld${'s'.repeat(16)}`);
+    expect(lookup).toBeInstanceOf(LookupField);
+    expect((lookup as LookupField).innerOptionsPatch()).toEqual({
+      formatting: { type: 'currency', precision: 1, symbol: '¥' },
+    });
+  });
+
+  it('restores showAs null tombstone after lookup reload', () => {
+    const mapper = new DefaultTableMapper();
+    const dto = {
+      id: `tbl${'r'.repeat(16)}`,
+      baseId: `bse${'r'.repeat(16)}`,
+      name: 'Lookup Reload Tombstone',
+      primaryFieldId: `fld${'r'.repeat(16)}`,
+      fields: [
+        {
+          id: `fld${'r'.repeat(16)}`,
+          name: 'Name',
+          type: 'singleLineText' as const,
+        },
+        {
+          id: `fld${'s'.repeat(16)}`,
+          name: 'Amount Lookup',
+          type: 'formula' as const,
+          isLookup: true,
+          isComputed: true,
+          options: {
+            expression: '""',
+            formatting: { type: 'currency', precision: 1, symbol: '¥' },
+            showAs: null,
+          },
+          lookupOptions: {
+            linkFieldId: `fld${'t'.repeat(16)}`,
+            foreignTableId: `tbl${'t'.repeat(16)}`,
+            lookupFieldId: `fld${'u'.repeat(16)}`,
+          },
+          cellValueType: 'number',
+          isMultipleCellValue: false,
+        },
+      ],
+      views: [],
+    };
+
+    const table = mapper.toDomain(dto as never)._unsafeUnwrap();
+    const lookup = table
+      .getFields()
+      .find((field) => field.id().toString() === `fld${'s'.repeat(16)}`);
+    expect(lookup).toBeInstanceOf(LookupField);
+    expect((lookup as LookupField).innerOptionsPatch()).toEqual({
+      formatting: { type: 'currency', precision: 1, symbol: '¥' },
+      showAs: null,
+    });
+
+    const persisted = mapper
+      .toDTO(table)
+      ._unsafeUnwrap()
+      .fields.find((field) => field.id === `fld${'s'.repeat(16)}`);
+    expect(persisted?.options).toMatchObject({
+      expression: '""',
+      formatting: { type: 'currency', precision: 1, symbol: '¥' },
+      showAs: null,
     });
   });
 

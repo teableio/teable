@@ -93,6 +93,108 @@ type SearchFixture = {
   };
 };
 
+const generatedTsvectorSemanticCases = [
+  {
+    name: 'matches a complete token case-insensitively',
+    languageConfig: 'simple',
+    search: 'ALPHA',
+    expected: ['alpha'],
+  },
+  {
+    name: 'requires every unquoted token in a multi-token query',
+    languageConfig: 'simple',
+    search: 'alpha shipment',
+    expected: ['alpha'],
+  },
+  {
+    name: 'matches a quoted phrase in token order',
+    languageConfig: 'simple',
+    search: '"shipment package"',
+    expected: ['alpha'],
+  },
+  {
+    name: 'supports websearch OR syntax',
+    languageConfig: 'simple',
+    search: 'shipment OR billing',
+    expected: ['alpha', 'bravo'],
+  },
+  {
+    name: 'supports websearch excluded terms',
+    languageConfig: 'simple',
+    search: 'package -billing',
+    expected: ['alpha'],
+  },
+  {
+    name: 'matches a complete structured order number',
+    languageConfig: 'simple',
+    search: 'SO-123456',
+    expected: ['alpha'],
+  },
+  {
+    name: 'does not claim substring semantics for an incomplete latin token',
+    languageConfig: 'simple',
+    search: 'ship',
+    expected: [],
+  },
+  {
+    name: 'matches a complete CJK token under the simple configuration',
+    languageConfig: 'simple',
+    search: '上海订单已完成',
+    expected: ['alpha'],
+  },
+  {
+    name: 'does not claim Chinese word segmentation under the simple configuration',
+    languageConfig: 'simple',
+    search: '上海订单',
+    expected: [],
+  },
+  {
+    name: 'does not apply english stemming under the simple configuration',
+    languageConfig: 'simple',
+    search: 'run shipment',
+    expected: [],
+  },
+  {
+    name: 'applies english stemming under the english configuration',
+    languageConfig: 'english',
+    search: 'run shipment',
+    expected: ['alpha'],
+  },
+] as const;
+
+const chineseSearchWithoutJiebaCases = [
+  {
+    name: 'matches a complete contiguous Chinese token',
+    search: '上海订单已完成',
+    expectedDefault: ['alpha'],
+    expectedSimpleFts: ['alpha'],
+  },
+  {
+    name: 'shows that a meaningful Chinese prefix is not segmented by simple',
+    search: '上海订单',
+    expectedDefault: ['alpha'],
+    expectedSimpleFts: [],
+  },
+  {
+    name: 'shows that a shared Chinese business term remains substring-only without jieba',
+    search: '订单',
+    expectedDefault: ['alpha', 'bravo'],
+    expectedSimpleFts: [],
+  },
+  {
+    name: 'matches another complete contiguous Chinese token',
+    search: '已取消订单',
+    expectedDefault: ['bravo'],
+    expectedSimpleFts: ['bravo'],
+  },
+  {
+    name: 'combines a structured identifier with a complete Chinese token',
+    search: 'SO-123456 上海订单已完成',
+    expectedDefault: ['alpha'],
+    expectedSimpleFts: ['alpha'],
+  },
+] as const;
+
 const setupSearchFixture = async ({
   db,
   createdSchemas,
@@ -487,6 +589,163 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
     expect(lower).not.toContain('jsonb_array_elements');
   });
 
+  it('uses a generated substring document as an index prefilter and keeps the legacy field recheck', async () => {
+    const fixture = await setupSearchFixture({ db, createdSchemas, seed: 'substring-document' });
+    await sql`
+      ALTER TABLE ${sql.table(fixture.fullTableName)}
+      ADD COLUMN __tqops_search_document text GENERATED ALWAYS AS (
+        lower(COALESCE(col_name, ''))
+      ) STORED
+    `.execute(db);
+
+    const accessPath: IRecordSearchAccessPath = {
+      kind: 'generated_text',
+      generatedColumnName: '__tqops_search_document',
+      provider: 'pg_trgm',
+      searchScope: 'selected_fields',
+      coveredFieldIds: [fixture.fieldIds.name],
+    };
+    const search = RecordSearch.fromTuple(['lPh', fixture.fieldIds.name.toString(), true]);
+    const compiled = compileSearchQuery({
+      db,
+      table: fixture.table,
+      fullTableName: fixture.fullTableName,
+      search,
+      searchAccessPath: accessPath,
+    });
+
+    expect(compiled.sql.toLowerCase()).toContain('"t"."__tqops_search_document" like lower(');
+    expect(compiled.sql.toLowerCase()).toContain(' ilike ');
+    await expect(
+      findMatchingRecordIds({
+        db,
+        table: fixture.table,
+        fullTableName: fixture.fullTableName,
+        search,
+        searchAccessPath: accessPath,
+      })
+    ).resolves.toEqual([fixture.recordIds.alpha]);
+  });
+
+  it('uses pg_bigm for two-character substring probes without changing result ids', async () => {
+    const fixture = await setupSearchFixture({ db, createdSchemas, seed: 'bigram-document' });
+    await sql`
+      ALTER TABLE ${sql.table(fixture.fullTableName)}
+      ADD COLUMN __tqops_search_document text GENERATED ALWAYS AS (
+        lower(COALESCE(col_name, ''))
+      ) STORED
+    `.execute(db);
+    const search = RecordSearch.fromTuple(['Al', fixture.fieldIds.name.toString(), true]);
+    const accessPath: IRecordSearchAccessPath = {
+      kind: 'generated_text',
+      generatedColumnName: '__tqops_search_document',
+      provider: 'pg_bigm',
+      searchScope: 'selected_fields',
+      coveredFieldIds: [fixture.fieldIds.name],
+    };
+
+    const optimized = await findMatchingRecordIds({
+      db,
+      table: fixture.table,
+      fullTableName: fixture.fullTableName,
+      search,
+      searchAccessPath: accessPath,
+    });
+    const legacy = await findMatchingRecordIds({
+      db,
+      table: fixture.table,
+      fullTableName: fixture.fullTableName,
+      search,
+    });
+    expect(optimized).toEqual(legacy);
+    expect(optimized).toEqual([fixture.recordIds.alpha]);
+  });
+
+  it('preserves Chinese two-character substring results with the pg_bigm access path', async () => {
+    const fixture = await setupSearchFixture({ db, createdSchemas, seed: 'bigram-chinese' });
+    await sql`
+      UPDATE ${sql.table(fixture.fullTableName)}
+      SET col_name = '上海订单已完成'
+      WHERE __id = ${fixture.recordIds.alpha}
+    `.execute(db);
+    await sql`
+      ALTER TABLE ${sql.table(fixture.fullTableName)}
+      ADD COLUMN __tqops_search_document text GENERATED ALWAYS AS (
+        lower(COALESCE(col_name, ''))
+      ) STORED
+    `.execute(db);
+    const search = RecordSearch.fromTuple(['订单', fixture.fieldIds.name.toString(), true]);
+    const accessPath: IRecordSearchAccessPath = {
+      kind: 'generated_text',
+      generatedColumnName: '__tqops_search_document',
+      provider: 'pg_bigm',
+      searchScope: 'selected_fields',
+      coveredFieldIds: [fixture.fieldIds.name],
+    };
+
+    const optimized = await findMatchingRecordIds({
+      db,
+      table: fixture.table,
+      fullTableName: fixture.fullTableName,
+      search,
+      searchAccessPath: accessPath,
+    });
+    const legacy = await findMatchingRecordIds({
+      db,
+      table: fixture.table,
+      fullTableName: fixture.fullTableName,
+      search,
+    });
+    expect(optimized).toEqual(legacy);
+    expect(optimized).toEqual([fixture.recordIds.alpha]);
+  });
+
+  it('falls back to the legacy predicate for one-character pg_bigm probes', async () => {
+    const fixture = await setupSearchFixture({ db, createdSchemas, seed: 'bigram-short' });
+    const plan = buildRecordSearchWherePlan(
+      fixture.table,
+      {
+        search: RecordSearch.fromTuple(['上', fixture.fieldIds.name.toString(), true]),
+        visibleFieldIds: fixture.table.fieldIds(),
+      },
+      {
+        tableAlias: 't',
+        searchAccessPath: {
+          kind: 'generated_text',
+          generatedColumnName: '__tqops_search_document',
+          provider: 'pg_bigm',
+          searchScope: 'selected_fields',
+          coveredFieldIds: [fixture.fieldIds.name],
+        },
+      }
+    )._unsafeUnwrap();
+
+    expect(plan.usedAccessPath).toBe('default');
+  });
+
+  it('falls back to the legacy predicate for pg_trgm probes shorter than three characters', async () => {
+    const fixture = await setupSearchFixture({ db, createdSchemas, seed: 'trigram-short' });
+    const plan = buildRecordSearchWherePlan(
+      fixture.table,
+      {
+        search: RecordSearch.fromTuple(['Al', fixture.fieldIds.name.toString(), true]),
+        visibleFieldIds: fixture.table.fieldIds(),
+      },
+      {
+        tableAlias: 't',
+        searchAccessPath: {
+          kind: 'generated_text',
+          generatedColumnName: '__tqops_search_document',
+          provider: 'pg_trgm',
+          searchScope: 'selected_fields',
+          coveredFieldIds: [fixture.fieldIds.name],
+        },
+      }
+    )._unsafeUnwrap();
+
+    expect(plan.usedAccessPath).toBe('default');
+  });
+
   it('compiles field-scoped search to generated tsvector when explicitly requested and covered', async () => {
     const fixture = await setupSearchFixture({ db, createdSchemas, seed: 'fts-sql' });
     const search = RecordSearch.fromTuple(['Alpha', fixture.fieldIds.name.toString(), true]);
@@ -651,6 +910,125 @@ describe('RecordSearchWhereBuilder (pglite)', () => {
         },
       })
     ).resolves.toEqual([fixture.recordIds.alpha]);
+  });
+
+  it.each(generatedTsvectorSemanticCases)('$name', async ({ languageConfig, search, expected }) => {
+    const fixture = await setupSearchFixture({
+      db,
+      createdSchemas,
+      seed: `fts-semantics-${search}`,
+    });
+
+    await sql`
+      UPDATE ${sql.table(fixture.fullTableName)}
+      SET col_name = CASE __id
+        WHEN ${fixture.recordIds.alpha}
+          THEN 'Alpha running shipment package Order SO-123456 上海订单已完成'
+        WHEN ${fixture.recordIds.bravo}
+          THEN 'Bravo billing package Order SO-654321 已取消订单'
+        ELSE col_name
+      END
+    `.execute(db);
+    await sql`
+      ALTER TABLE ${sql.table(fixture.fullTableName)}
+      ADD COLUMN __tqops_search_vector_simple tsvector GENERATED ALWAYS AS (
+        to_tsvector('simple'::regconfig, COALESCE(col_name, ''))
+      ) STORED
+    `.execute(db);
+    await sql`
+      ALTER TABLE ${sql.table(fixture.fullTableName)}
+      ADD COLUMN __tqops_search_vector_english tsvector GENERATED ALWAYS AS (
+        to_tsvector('english'::regconfig, COALESCE(col_name, ''))
+      ) STORED
+    `.execute(db);
+
+    const recordIdsByName = {
+      alpha: fixture.recordIds.alpha,
+      bravo: fixture.recordIds.bravo,
+    } as const;
+    const expectedRecordIds = expected.map((name) => recordIdsByName[name]);
+
+    await expect(
+      findMatchingRecordIds({
+        db,
+        table: fixture.table,
+        fullTableName: fixture.fullTableName,
+        search: RecordSearch.fromTuple([search, fixture.fieldIds.name.toString(), true]),
+        searchAccessPath: {
+          kind: 'generated_tsvector',
+          generatedColumnName: `__tqops_search_vector_${languageConfig}`,
+          languageConfig,
+          searchScope: 'selected_fields',
+          coveredFieldIds: [fixture.fieldIds.name],
+        },
+      })
+    ).resolves.toEqual(expectedRecordIds);
+  });
+
+  describe('Chinese search semantics without jieba', () => {
+    it.each(chineseSearchWithoutJiebaCases)(
+      '$name',
+      async ({ search, expectedDefault, expectedSimpleFts }) => {
+        const fixture = await setupSearchFixture({
+          db,
+          createdSchemas,
+          seed: `fts-chinese-${search}`,
+        });
+
+        await sql`
+          UPDATE ${sql.table(fixture.fullTableName)}
+          SET col_name = CASE __id
+            WHEN ${fixture.recordIds.alpha}
+              THEN 'Alpha Order SO-123456 上海订单已完成'
+            WHEN ${fixture.recordIds.bravo}
+              THEN 'Bravo Order SO-654321 已取消订单'
+            ELSE col_name
+          END
+        `.execute(db);
+        await sql`
+          ALTER TABLE ${sql.table(fixture.fullTableName)}
+          ADD COLUMN __tqops_search_vector_simple tsvector GENERATED ALWAYS AS (
+            to_tsvector('simple'::regconfig, COALESCE(col_name, ''))
+          ) STORED
+        `.execute(db);
+
+        const recordIdsByName = {
+          alpha: fixture.recordIds.alpha,
+          bravo: fixture.recordIds.bravo,
+        } as const;
+        const expectedDefaultIds = expectedDefault.map((name) => recordIdsByName[name]);
+        const expectedSimpleFtsIds = expectedSimpleFts.map((name) => recordIdsByName[name]);
+        const recordSearch = RecordSearch.fromTuple([
+          search,
+          fixture.fieldIds.name.toString(),
+          true,
+        ]);
+
+        await expect(
+          findMatchingRecordIds({
+            db,
+            table: fixture.table,
+            fullTableName: fixture.fullTableName,
+            search: recordSearch,
+          })
+        ).resolves.toEqual(expectedDefaultIds);
+        await expect(
+          findMatchingRecordIds({
+            db,
+            table: fixture.table,
+            fullTableName: fixture.fullTableName,
+            search: recordSearch,
+            searchAccessPath: {
+              kind: 'generated_tsvector',
+              generatedColumnName: '__tqops_search_vector_simple',
+              languageConfig: 'simple',
+              searchScope: 'selected_fields',
+              coveredFieldIds: [fixture.fieldIds.name],
+            },
+          })
+        ).resolves.toEqual(expectedSimpleFtsIds);
+      }
+    );
   });
 
   it('does not filter rows for checkbox field-specific visible-row search', async () => {

@@ -39,6 +39,7 @@ export interface ICacheStore {
   [key: `automation:fail-notify-count:${string}`]: number;
   // Watchdog round-robin scan cursor per status (staleAt stored as ISO string).
   [key: `automation:orphan-cursor:${string}`]: { staleAt: string; key: string };
+  [key: `task:watchdog-cursor:${string}`]: { staleAt: string; key: string };
   // Distributed lock keys
   [key: `lock:${string}`]: string;
   [key: `import:result:manifest:${string}`]: {
@@ -52,6 +53,13 @@ export interface ICacheStore {
   [key: `import:latest-job:${string}`]: string;
   // trash cleanup: per-item backoff after failed cleanup attempts
   [key: `trash-cleanup:skipped:${string}`]: { attempts: number; retryAfter: number };
+  // space-load exporter (EE): pg_stat counter baseline + sampling watermarks
+  ['space-load:pgstat-baseline']: {
+    snapshotAt: string;
+    totals: Record<string, [number, number, number]>;
+  };
+  ['space-load:compute-watermark']: { watermark: string; boundaryKeys: string[] };
+  ['space-load:dead-letter-watermark']: string;
 }
 
 export interface IAttachmentSignatureCache {
@@ -75,6 +83,8 @@ export interface IAttachmentLocalTokenCache {
 export interface IAttachmentPreviewCache {
   url: string;
   expiresIn: number;
+  /** Storage config fingerprint the URL was generated under; mismatch = stale. */
+  configSig?: string;
 }
 
 export interface IOauth2State {

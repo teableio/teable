@@ -5,7 +5,9 @@ import { registerAs } from '@nestjs/config';
 export const oauthConfig = registerAs('oauth', () => ({
   accessTokenExpireIn: process.env.BACKEND_OAUTH_ACCESS_TOKEN_EXPIRE_IN || '10m',
   refreshTokenExpireIn: process.env.BACKEND_OAUTH_REFRESH_TOKEN_EXPIRE_IN || '30d',
-  transactionExpireIn: process.env.BACKEND_OAUTH_TRANSACTION_EXPIRE_IN || '5m',
+  // 10m matches the OAuth state/relay TTLs of the app popup flow: the consent
+  // page must stay submittable for as long as the sign-in window is open.
+  transactionExpireIn: process.env.BACKEND_OAUTH_TRANSACTION_EXPIRE_IN || '10m',
   codeExpireIn: process.env.BACKEND_OAUTH_CODE_EXPIRE_IN || '5m',
   authorizedExpireIn: process.env.BACKEND_OAUTH_AUTHORIZED_EXPIRE_IN || '7d',
   tokenRateLimit: Number(process.env.BACKEND_OAUTH_TOKEN_RATE_LIMIT || 30),

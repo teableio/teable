@@ -114,12 +114,18 @@ const MAX_RECENT = 0; // field meta does not keep recent list
  * Mutable in-memory aggregate used by the computed activity projector.
  */
 export class FieldComputeMeta {
+  private readonly initialGeneration: number;
+  private dirty = false;
+  private terminalFailurePending = false;
+
   private constructor(
     private state: FieldComputeMetaDto,
     private readonly fieldIdValue: FieldId,
     private readonly tableIdValue: TableId,
     private readonly baseIdValue: BaseId
-  ) {}
+  ) {
+    this.initialGeneration = state.generation;
+  }
 
   static create(raw: unknown): Result<FieldComputeMeta, DomainError> {
     const parsed = fieldComputeMetaSchema.safeParse(raw);
@@ -215,6 +221,26 @@ export class FieldComputeMeta {
     return this.state.activeTaskCount > 0;
   }
 
+  hasChanged(): boolean {
+    return this.state.generation !== this.initialGeneration;
+  }
+
+  /**
+   * Apply enqueue metrics without touching counters/generation.
+   * Projector sets absolute counters from refs via syncFromTaskRefs (T6276).
+   */
+  noteEnqueueMetrics(params: {
+    estimatedComplexity: number;
+    estimatedDirtyRecords: number;
+    hasAllTargetRecords: boolean;
+    batchProgress?: FieldComputeBatch;
+    now?: Date;
+  }): void {
+    const now = params.now ?? new Date();
+    this.applyEnqueueMetrics(params, now);
+    this.dirty = true;
+  }
+
   /**
    * Attach a task reference (enqueue). Idempotent for the same task is handled by the store.
    * This method only mutates counters once per successful attach.
@@ -227,41 +253,8 @@ export class FieldComputeMeta {
     now?: Date;
   }): void {
     const now = params.now ?? new Date();
-    const iso = now.toISOString();
-    if (params.batchProgress) {
-      const total = Math.max(1, Math.trunc(params.batchProgress.total));
-      const completed = Math.max(0, Math.min(total, Math.trunc(params.batchProgress.completed)));
-      this.setBatchProgress({
-        groupId: params.batchProgress.groupId,
-        total,
-        completed,
-      });
-    } else {
-      const currentProgress = getFieldComputeBatchProgress(this.state) ?? {
-        total: this.state.activeTaskCount,
-        completed: 0,
-      };
-      this.setBatchProgress(
-        this.state.activeTaskCount === 0
-          ? { total: 1, completed: 0 }
-          : { total: currentProgress.total + 1, completed: currentProgress.completed }
-      );
-    }
+    this.applyEnqueueMetrics(params, now);
     this.state.activeTaskCount += 1;
-    this.state.estimatedComplexity = Math.max(
-      this.state.estimatedComplexity,
-      Math.max(0, Math.trunc(params.estimatedComplexity))
-    );
-    this.state.estimatedDirtyRecords = Math.max(
-      this.state.estimatedDirtyRecords,
-      Math.max(0, Math.trunc(params.estimatedDirtyRecords))
-    );
-    this.state.hasAllTargetRecords =
-      this.state.hasAllTargetRecords || params.hasAllTargetRecords === true;
-    if (!this.state.queuedAt) {
-      this.state.queuedAt = iso;
-    }
-    this.state.lastError = null;
     this.recomputeStatus(now);
   }
 
@@ -296,6 +289,101 @@ export class FieldComputeMeta {
   }
 
   /**
+   * Force counters from persisted task-field refs.
+   * Used after attach/claim/release so orphaned activity cannot stay queued
+   * when no task refs remain (or counters drift above real refs).
+   */
+  syncFromTaskRefs(params: {
+    activeTaskCount: number;
+    processingTaskCount: number;
+    now?: Date;
+  }): void {
+    const now = params.now ?? new Date();
+    const activeTaskCount = Math.max(0, Math.trunc(params.activeTaskCount));
+    const processingTaskCount = Math.min(
+      activeTaskCount,
+      Math.max(0, Math.trunc(params.processingTaskCount))
+    );
+    // Reconciliation preserves an existing terminal failure. A new terminal release
+    // marks terminalFailurePending explicitly so retry errors are never misclassified.
+    const preserveTerminalFailure =
+      activeTaskCount === 0 && (this.state.status === 'failed' || this.terminalFailurePending);
+    const nextStatus = FieldComputeStatus.fromActive({
+      activeTaskCount,
+      processingTaskCount,
+      failed: preserveTerminalFailure,
+    }).toString();
+
+    const clearingActive = activeTaskCount === 0;
+    const nextEstimatedComplexity = clearingActive ? 0 : this.state.estimatedComplexity;
+    const nextEstimatedDirtyRecords = clearingActive ? 0 : this.state.estimatedDirtyRecords;
+    const nextHasAllTargetRecords = clearingActive ? false : this.state.hasAllTargetRecords;
+    const nextQueuedAt = clearingActive ? null : this.state.queuedAt;
+    const nextStartedAt = clearingActive
+      ? null
+      : processingTaskCount > 0 && !this.state.startedAt
+        ? now.toISOString()
+        : this.state.startedAt;
+    const nextLastError = clearingActive && !preserveTerminalFailure ? null : this.state.lastError;
+    const nextExtensions =
+      clearingActive && this.state.extensions?.batchProgress !== undefined
+        ? (() => {
+            const { batchProgress: _batchProgress, ...rest } = this.state.extensions;
+            return Object.keys(rest).length > 0 ? rest : undefined;
+          })()
+        : this.state.extensions;
+
+    const unchanged =
+      this.state.activeTaskCount === activeTaskCount &&
+      this.state.processingTaskCount === processingTaskCount &&
+      this.state.status === nextStatus &&
+      this.state.estimatedComplexity === nextEstimatedComplexity &&
+      this.state.estimatedDirtyRecords === nextEstimatedDirtyRecords &&
+      this.state.hasAllTargetRecords === nextHasAllTargetRecords &&
+      this.state.queuedAt === nextQueuedAt &&
+      this.state.startedAt === nextStartedAt &&
+      this.state.lastError === nextLastError &&
+      this.state.extensions === nextExtensions;
+    if (!unchanged) {
+      this.state.activeTaskCount = activeTaskCount;
+      this.state.processingTaskCount = processingTaskCount;
+      this.state.estimatedComplexity = nextEstimatedComplexity;
+      this.state.estimatedDirtyRecords = nextEstimatedDirtyRecords;
+      this.state.hasAllTargetRecords = nextHasAllTargetRecords;
+      this.state.queuedAt = nextQueuedAt;
+      this.state.startedAt = nextStartedAt;
+      this.state.lastError = nextLastError;
+      this.state.extensions = nextExtensions;
+      this.dirty = true;
+    }
+    if (!this.dirty) return;
+    this.recomputeStatus(now, preserveTerminalFailure);
+  }
+
+  /**
+   * Apply completion metadata without counter/generation changes.
+   * Pair with syncFromTaskRefs for absolute counter authority (T6276).
+   */
+  noteTaskFinished(params: {
+    durationMs?: number;
+    error?: { code?: string; message: string } | null;
+    now?: Date;
+  }): void {
+    const now = params.now ?? new Date();
+    this.applyTaskFinishedMetadata(params, now);
+    this.terminalFailurePending = params.error != null;
+    this.dirty = true;
+  }
+
+  /** Apply retry diagnostics without recording a completion. */
+  noteRetryScheduled(params: { error: { code?: string; message: string }; now?: Date }): void {
+    const now = params.now ?? new Date();
+    this.state.lastError = params.error;
+    this.state.updatedAt = now.toISOString();
+    this.dirty = true;
+  }
+
+  /**
    * Release one task reference (done / dropped).
    */
   releaseTask(params: {
@@ -305,29 +393,13 @@ export class FieldComputeMeta {
     now?: Date;
   }): void {
     const now = params.now ?? new Date();
-    const storedProgress = readBatchProgressExtension(this.state.extensions);
-    if (this.state.activeTaskCount > 0 && !storedProgress?.groupId) {
-      const currentProgress = getFieldComputeBatchProgress(this.state) ?? {
-        total: this.state.activeTaskCount,
-        completed: 0,
-      };
-      this.setBatchProgress({
-        total: currentProgress.total,
-        completed: Math.min(currentProgress.total, currentProgress.completed + 1),
-      });
-    }
+    this.applyTaskFinishedMetadata(params, now);
     this.state.activeTaskCount = Math.max(0, this.state.activeTaskCount - 1);
     if (params.wasProcessing) {
       this.state.processingTaskCount = Math.max(0, this.state.processingTaskCount - 1);
     }
-    if (params.error) {
-      this.state.lastError = params.error;
-    } else if (this.state.activeTaskCount === 0) {
+    if (this.state.activeTaskCount === 0 && params.error == null) {
       this.state.lastError = null;
-    }
-    if (params.durationMs != null && params.durationMs >= 0) {
-      this.state.lastDurationMs = Math.trunc(params.durationMs);
-      this.state.lastCompletedAt = now.toISOString();
     }
     if (this.state.activeTaskCount === 0) {
       this.state.estimatedComplexity = 0;
@@ -336,6 +408,10 @@ export class FieldComputeMeta {
       this.state.queuedAt = null;
       this.state.startedAt = null;
       this.state.processingTaskCount = 0;
+      if (this.state.extensions?.batchProgress !== undefined) {
+        const { batchProgress: _batchProgress, ...rest } = this.state.extensions;
+        this.state.extensions = Object.keys(rest).length > 0 ? rest : undefined;
+      }
     }
     this.recomputeStatus(now, params.error != null && this.state.activeTaskCount === 0);
   }
@@ -347,6 +423,72 @@ export class FieldComputeMeta {
     };
   }
 
+  private applyEnqueueMetrics(
+    params: {
+      estimatedComplexity: number;
+      estimatedDirtyRecords: number;
+      hasAllTargetRecords: boolean;
+      batchProgress?: FieldComputeBatch;
+    },
+    now: Date
+  ): void {
+    const iso = now.toISOString();
+    if (params.batchProgress) {
+      const total = Math.max(1, Math.trunc(params.batchProgress.total));
+      const completed = Math.max(0, Math.min(total, Math.trunc(params.batchProgress.completed)));
+      this.setBatchProgress({ groupId: params.batchProgress.groupId, total, completed });
+    } else {
+      const currentProgress = getFieldComputeBatchProgress(this.state) ?? {
+        total: this.state.activeTaskCount,
+        completed: 0,
+      };
+      this.setBatchProgress(
+        this.state.activeTaskCount === 0
+          ? { total: 1, completed: 0 }
+          : { total: currentProgress.total + 1, completed: currentProgress.completed }
+      );
+    }
+    this.state.estimatedComplexity = Math.max(
+      this.state.estimatedComplexity,
+      Math.max(0, Math.trunc(params.estimatedComplexity))
+    );
+    this.state.estimatedDirtyRecords = Math.max(
+      this.state.estimatedDirtyRecords,
+      Math.max(0, Math.trunc(params.estimatedDirtyRecords))
+    );
+    this.state.hasAllTargetRecords =
+      this.state.hasAllTargetRecords || params.hasAllTargetRecords === true;
+    if (!this.state.queuedAt) this.state.queuedAt = iso;
+    this.state.lastError = null;
+    this.state.updatedAt = iso;
+  }
+
+  private applyTaskFinishedMetadata(
+    params: {
+      durationMs?: number;
+      error?: { code?: string; message: string } | null;
+    },
+    now: Date
+  ): void {
+    const storedProgress = readBatchProgressExtension(this.state.extensions);
+    if (this.state.activeTaskCount > 0 && !storedProgress?.groupId) {
+      const currentProgress = getFieldComputeBatchProgress(this.state) ?? {
+        total: this.state.activeTaskCount,
+        completed: 0,
+      };
+      this.setBatchProgress({
+        total: currentProgress.total,
+        completed: Math.min(currentProgress.total, currentProgress.completed + 1),
+      });
+    }
+    if (params.error !== undefined) this.state.lastError = params.error;
+    if (params.durationMs != null && params.durationMs >= 0) {
+      this.state.lastDurationMs = Math.trunc(params.durationMs);
+      this.state.lastCompletedAt = now.toISOString();
+    }
+    this.state.updatedAt = now.toISOString();
+  }
+
   private recomputeStatus(now: Date, failed = false): void {
     const status = FieldComputeStatus.fromActive({
       activeTaskCount: this.state.activeTaskCount,
@@ -356,6 +498,8 @@ export class FieldComputeMeta {
     this.state.status = status.toString();
     this.state.generation += 1;
     this.state.updatedAt = now.toISOString();
+    this.dirty = false;
+    this.terminalFailurePending = false;
     void MAX_RECENT;
   }
 }

@@ -1,7 +1,8 @@
 import type { IFieldVo } from '@teable/core';
 import { IdPrefix } from '@teable/core';
 import type { FC, ReactNode } from 'react';
-import { useContext, useMemo } from 'react';
+import { useCallback, useContext, useMemo } from 'react';
+import type { Doc } from 'sharedb/lib/client';
 import { createFieldInstance } from '../../model';
 import { AnchorContext } from '../anchor/AnchorContext';
 import { useInstances } from '../use-instances';
@@ -13,14 +14,28 @@ interface IFieldProviderProps {
   fallback?: React.ReactNode;
 }
 
+const emptyParams = {};
 export const FieldProvider: FC<IFieldProviderProps> = ({ children, fallback, serverSideData }) => {
-  const { viewId, tableId } = useContext(AnchorContext);
+  const { tableId } = useContext(AnchorContext);
+
+  const factory = useCallback(
+    (field: IFieldVo, doc?: Doc<IFieldVo>) => {
+      const instance = createFieldInstance(field, doc);
+      if (!doc && tableId) {
+        // doc-less (seeded) instance: the factory derives tableId from the
+        // doc collection, so inject it here to keep field mutations working
+        instance.tableId = tableId;
+      }
+      return instance;
+    },
+    [tableId]
+  );
 
   const { instances: fields } = useInstances({
     collection: `${IdPrefix.Field}_${tableId}`,
-    factory: createFieldInstance,
+    factory,
     initData: serverSideData,
-    queryParams: { viewId },
+    queryParams: emptyParams,
   });
 
   const value = useMemo(() => {

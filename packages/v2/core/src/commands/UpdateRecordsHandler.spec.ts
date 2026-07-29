@@ -42,7 +42,10 @@ import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/Executi
 import type { IRecordOrderCalculator } from '../ports/RecordOrderCalculator';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
-import type { ITableRecordQueryRepository } from '../ports/TableRecordQueryRepository';
+import type {
+  ITableRecordQueryOptions,
+  ITableRecordQueryRepository,
+} from '../ports/TableRecordQueryRepository';
 import type {
   ITableRecordRepository,
   RecordMutationResult,
@@ -203,8 +206,8 @@ class FakeTableRepository implements ITableRepository {
   }
 
   async duplicatePhysicalRows(
-    _context: any,
-    _plan: any
+    _context: IExecutionContext,
+    _plan: unknown
   ): Promise<Result<{ rowCount: number; recordIds: string[] }, DomainError>> {
     return ok({ rowCount: 0, recordIds: [] });
   }
@@ -445,8 +448,15 @@ type FakeQueryRecord = {
 
 class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
   records: FakeQueryRecord[] = [];
+  lastFindOptions?: ITableRecordQueryOptions;
 
-  async find(): Promise<Result<{ records: FakeQueryRecord[]; total: number }, DomainError>> {
+  async find(
+    _context: IExecutionContext,
+    _table: Table,
+    _spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
+    options?: ITableRecordQueryOptions
+  ): Promise<Result<{ records: FakeQueryRecord[]; total: number }, DomainError>> {
+    this.lastFindOptions = options;
     return ok({
       records: [...this.records],
       total: this.records.length,
@@ -810,19 +820,19 @@ describe('UpdateRecordsHandler', () => {
     const queryRepository = new FakeTableRecordQueryRepository();
     queryRepository.records = [
       {
-        id: recordIdA,
-        version: 2,
-        fields: {
-          [numberFieldId.toString()]: 1,
-          [textFieldId.toString()]: 'before-a',
-        },
-      },
-      {
         id: recordIdB,
         version: 5,
         fields: {
           [numberFieldId.toString()]: 2,
           [textFieldId.toString()]: 'before-b',
+        },
+      },
+      {
+        id: recordIdA,
+        version: 2,
+        fields: {
+          [numberFieldId.toString()]: 1,
+          [textFieldId.toString()]: 'before-a',
         },
       },
     ];
@@ -892,6 +902,12 @@ describe('UpdateRecordsHandler', () => {
     ]);
     expect(recordRepository.updateManyCalls).toBe(0);
     expect(recordRepository.updateManyStreamCalls).toBe(1);
+    expect(queryRepository.lastFindOptions).toMatchObject({
+      mode: 'stored',
+      includeOrders: false,
+      includeTotal: false,
+    });
+    expect(queryRepository.lastFindOptions?.recordIdsOrder).toBeUndefined();
     expect(calls.prepare[0]?.payload).toMatchObject({
       variant: 'explicit',
       recordCount: 2,

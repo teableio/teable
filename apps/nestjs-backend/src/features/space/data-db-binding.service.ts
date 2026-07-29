@@ -232,7 +232,11 @@ export class DataDbBindingService {
 
     const current = binding.dataDbConnection;
     const target = await this.prepareExistingBindingUpdateTarget(dataDb, current);
-    this.assertExistingBindingTargetUnchanged(current, target);
+    this.assertExistingBindingInternalSchemaUnchanged(current, target);
+    await this.assertExistingBindingDatabaseIdentityUnchanged(
+      decryptDataDbUrl(current.encryptedUrl),
+      dataDb.url
+    );
 
     const schemaVersion = await this.baselineService.initialize(dataDb.url, target.internalSchema);
     await this.prismaService.dataDbConnection.update({
@@ -240,6 +244,8 @@ export class DataDbBindingService {
       data: {
         encryptedUrl: encryptDataDbUrl(dataDb.url),
         urlFingerprint: fingerprintDataDbConnection(dataDb.url, target.internalSchema),
+        displayHost: target.displayHost,
+        displayDatabase: target.displayDatabase,
         status: 'ready',
         schemaVersion,
         capabilities: target.preflight.capabilities,
@@ -333,19 +339,44 @@ export class DataDbBindingService {
     };
   }
 
-  private assertExistingBindingTargetUnchanged(
-    current: Pick<IExistingDataDbConnection, 'internalSchema' | 'displayHost' | 'displayDatabase'>,
-    next: Pick<IExistingBindingUpdateTarget, 'internalSchema' | 'displayHost' | 'displayDatabase'>
+  private assertExistingBindingInternalSchemaUnchanged(
+    current: Pick<IExistingDataDbConnection, 'internalSchema'>,
+    next: Pick<IExistingBindingUpdateTarget, 'internalSchema'>
   ) {
-    if (
-      current.internalSchema === next.internalSchema &&
-      current.displayHost === next.displayHost &&
-      current.displayDatabase === next.displayDatabase
-    ) {
+    if (current.internalSchema === next.internalSchema) {
       return;
     }
     throw new CustomHttpException(
-      'Changing the BYODB database or internal schema is not supported yet',
+      'Changing the BYODB internal schema is not supported',
+      HttpErrorCode.VALIDATION_ERROR
+    );
+  }
+
+  private async assertExistingBindingDatabaseIdentityUnchanged(
+    currentUrl: string,
+    nextUrl: string
+  ) {
+    try {
+      const [currentIdentity, nextIdentity] = await Promise.all([
+        this.preflightService.inspectDatabaseIdentity(currentUrl),
+        this.preflightService.inspectDatabaseIdentity(nextUrl),
+      ]);
+      if (
+        currentIdentity.systemIdentifier === nextIdentity.systemIdentifier &&
+        currentIdentity.databaseOid === nextIdentity.databaseOid &&
+        currentIdentity.databaseName === nextIdentity.databaseName
+      ) {
+        return;
+      }
+    } catch {
+      throw new CustomHttpException(
+        'Could not verify that the new BYODB address points to the currently bound PostgreSQL database',
+        HttpErrorCode.VALIDATION_ERROR
+      );
+    }
+
+    throw new CustomHttpException(
+      'The new BYODB address points to a different PostgreSQL database',
       HttpErrorCode.VALIDATION_ERROR
     );
   }

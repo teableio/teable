@@ -2,6 +2,7 @@ import { ViewType } from '@teable/core';
 import { sortBy } from 'lodash';
 import { useContext, useMemo } from 'react';
 import { FieldContext } from '../context';
+import { useViewColumnOrderStore } from '../context/view/store/useViewColumnOrderStore';
 import { useView } from './use-view';
 
 export function useFields(options: { withHidden?: boolean; withDenied?: boolean } = {}) {
@@ -9,10 +10,17 @@ export function useFields(options: { withHidden?: boolean; withDenied?: boolean 
   const { fields: originFields } = useContext(FieldContext);
 
   const view = useView();
-  const { type: viewType, columnMeta } = view ?? {};
+  const { id: viewId, type: viewType, columnMeta } = view ?? {};
+  // optimistic column order applied while a reorder request is in flight
+  const pendingOrder = useViewColumnOrderStore((state) =>
+    viewId ? state.pendingOrderMap[viewId] : undefined
+  );
 
   return useMemo(() => {
-    const sortedFields = sortBy(originFields, (field) => columnMeta?.[field.id]?.order ?? Infinity);
+    const sortedFields = sortBy(
+      originFields,
+      (field) => pendingOrder?.[field.id] ?? columnMeta?.[field.id]?.order ?? Infinity
+    );
 
     if ((withHidden && withDenied) || viewType == null) {
       return sortedFields;
@@ -45,5 +53,5 @@ export function useFields(options: { withHidden?: boolean; withDenied?: boolean 
       return isHidden() && hasPermission();
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [originFields, withHidden, viewType, JSON.stringify(columnMeta)]);
+  }, [originFields, withHidden, viewType, pendingOrder, JSON.stringify(columnMeta)]);
 }

@@ -44,6 +44,7 @@ import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import { Events } from '../../../event-emitter/events';
 import type { IDataDbRoutingOptions } from '../../../global/data-db-client-manager.service';
+import { handleBestEffortDataDbDropError } from '../../../global/data-db-runtime-error';
 import { DatabaseRouter } from '../../../global/database-router.service';
 import { RawOpType } from '../../../share-db/interface';
 import type { IClsStore } from '../../../types/cls';
@@ -497,11 +498,22 @@ export class TableOpenApiService {
           { docId: table.id, version: table.version },
         ]);
       }
-      await this.databaseRouter.executeDataPrismaForTable(
-        table.id,
-        this.dbProvider.dropTable(table.dbTableName),
-        { useTransaction: true }
-      );
+      try {
+        await this.databaseRouter.executeDataPrismaForTable(
+          table.id,
+          this.dbProvider.dropTable(table.dbTableName),
+          { useTransaction: true }
+        );
+      } catch (error) {
+        handleBestEffortDataDbDropError({
+          error,
+          isMetaFallback: await this.databaseRouter.isMetaFallbackForBase(table.baseId, {
+            useTransaction: true,
+          }),
+          logger: this.logger,
+          target: `table ${table.id}`,
+        });
+      }
       await this.tableMutationCacheInvalidator.invalidateDroppedTable(table.dbTableName);
     }
   }
@@ -583,30 +595,43 @@ export class TableOpenApiService {
     });
 
     // record history and trash snapshots live with the physical record tables on the data DB.
-    const routedDataPrisma = await this.databaseRouter.dataPrismaForBase(baseId, routingOptions);
-    const dataPrisma =
-      'txClient' in routedDataPrisma && typeof routedDataPrisma.txClient === 'function'
-        ? routedDataPrisma.txClient()
-        : routedDataPrisma;
+    // Nested so one swallowed purge (a relation the bound database never had) cannot skip the
+    // others and orphan their rows, while a gone database still skips all three.
+    const bestEffort = async (target: string, purge: () => Promise<unknown>) => {
+      try {
+        await purge();
+      } catch (error) {
+        handleBestEffortDataDbDropError({
+          error,
+          isMetaFallback: await this.databaseRouter.isMetaFallbackForBase(baseId, routingOptions),
+          logger: this.logger,
+          target,
+        });
+      }
+    };
+    const tables = tableIds.join(', ');
+    await bestEffort(`data database for base ${baseId}`, async () => {
+      const routedDataPrisma = await this.databaseRouter.dataPrismaForBase(baseId, routingOptions);
+      const dataPrisma =
+        'txClient' in routedDataPrisma && typeof routedDataPrisma.txClient === 'function'
+          ? routedDataPrisma.txClient()
+          : routedDataPrisma;
+      const where = { tableId: { in: tableIds } };
 
-    // clean record history for table
-    await dataPrisma.recordHistory.deleteMany({
-      where: { tableId: { in: tableIds } },
+      await bestEffort(`record history for tables ${tables}`, () =>
+        dataPrisma.recordHistory.deleteMany({ where })
+      );
+      await bestEffort(`table trash for tables ${tables}`, () =>
+        dataPrisma.tableTrash.deleteMany({ where })
+      );
+      await bestEffort(`record trash for tables ${tables}`, () =>
+        dataPrisma.recordTrash.deleteMany({ where })
+      );
     });
 
     // clean trash for table
     await metaPrisma.trash.deleteMany({
       where: { resourceId: { in: tableIds }, resourceType: ResourceType.Table },
-    });
-
-    // clean table trash
-    await dataPrisma.tableTrash.deleteMany({
-      where: { tableId: { in: tableIds } },
-    });
-
-    // clean record trash
-    await dataPrisma.recordTrash.deleteMany({
-      where: { tableId: { in: tableIds } },
     });
   }
 

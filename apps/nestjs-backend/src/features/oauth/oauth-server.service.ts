@@ -197,8 +197,19 @@ export class OAuthServerService {
     return done(null, false, undefined, undefined);
   };
 
+  // oauth2orize middlewares complete the response themselves on their success
+  // paths (trusted-client authorize, token issuance, decision redirect) and
+  // never invoke next() there — so a promise resolved only from the next()
+  // callback stays pending forever, retaining the request context. Resolving
+  // on response close (fires after finish and on aborted connections alike)
+  // settles every path; a later resolve after reject is a no-op.
+  private settleOnResponseClose(res: Response, resolve: () => void) {
+    res.once('close', resolve);
+  }
+
   async authorize(req: Request, res: Response) {
     return new Promise<void>((resolve, reject) => {
+      this.settleOnResponseClose(res, resolve);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (this.server as any).authorization(this.authorizeValidate, this.authorizeImmediate)(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -221,6 +232,7 @@ export class OAuthServerService {
 
   async token(req: Request, res: Response) {
     return new Promise<void>((resolve, reject) => {
+      this.settleOnResponseClose(res, resolve);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       this.server.token()(req as any, res, (error) => {
         if (error) {
@@ -260,6 +272,7 @@ export class OAuthServerService {
 
   async decision(req: Request, res: Response) {
     return new Promise<void>((resolve, reject) => {
+      this.settleOnResponseClose(res, resolve);
       // this.decision() return an array of middleware
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const fns: Array<ReturnType<IOAuth2Server['decision']>> = (this.server as any).decision(

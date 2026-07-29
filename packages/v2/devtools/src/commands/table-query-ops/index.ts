@@ -1,11 +1,15 @@
 export { tableQueryOpsOverview } from './overview';
 export { tableQueryOpsAnalyzeSavedViews } from './analyze-saved-views';
 export { tableQueryOpsAnalyzeSearchVectors } from './analyze-search-vectors';
+export { tableQueryOpsAnalyzeSearchAccessPaths } from './analyze-search-access-paths';
 export { tableQueryOpsAnalyzeObservation } from './analyze-observation';
 export { tableQueryOpsExecuteRecommendations } from './execute-recommendations';
 export { tableQueryOpsExecuteSearchVector } from './execute-search-vector';
+export { tableQueryOpsExecuteSearchAccessPath } from './execute-search-access-path';
 export { tableQueryOpsExplainSavedViews } from './explain-saved-views';
 export { tableQueryOpsExplainSearchVectors } from './explain-search-vectors';
+export { tableQueryOpsExplainSearchAccessPaths } from './explain-search-access-paths';
 export { tableQueryOpsObservabilitySchema } from './observability-schema';
 export { tableQueryOpsSignozDashboardTemplate } from './signoz-dashboard-template';
 export { tableQueryOpsValidateSearchVectorTempTable } from './validate-search-vector-temp-table';
+export { tableQueryOpsValidateSearchAccessPathTempTable } from './validate-search-access-path-temp-table';

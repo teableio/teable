@@ -81,9 +81,19 @@ const createRecordSearchAccessPathResolution = (
 ): IRecordSearchAccessPathResolution | undefined => {
   if (!options?.search) return undefined;
   const requested = options.searchAccessPath?.kind ?? 'default';
+  const generatedTextFallbackReason =
+    requested === 'generated_text' &&
+    options.searchAccessPath?.kind === 'generated_text' &&
+    options.searchAccessPath.provider === 'pg_trgm' &&
+    Array.from(options.search.search.value).length < 3
+      ? ('generated_text_probe_too_short' as const)
+      : ('generated_text_unavailable' as const);
   return {
     requested,
     used,
+    ...(requested === 'generated_text' && used === 'default'
+      ? { fallbackReason: generatedTextFallbackReason }
+      : {}),
     ...(requested === 'generated_tsvector' && used === 'default'
       ? { fallbackReason: 'generated_tsvector_unavailable' as const }
       : {}),
@@ -97,15 +107,26 @@ const createRepositoryFindTraceAttributes = (
   resolution?: IRecordSearchAccessPathResolution
 ) => {
   const search = options?.search?.search;
+  const usesGeneratedText = Boolean(search && resolution?.used === 'generated_text');
   const usesSearchVector = Boolean(search && resolution?.used === 'generated_tsvector');
   const searchAccessPath = !search
     ? 'none'
     : resolution?.fallbackReason
       ? 'fallback'
-      : usesSearchVector
-        ? 'generated_tsvector'
-        : 'default_ilike';
-  const searchMode = usesSearchVector ? 'full_text' : search ? 'ilike' : 'none';
+      : usesGeneratedText && options?.searchAccessPath?.kind === 'generated_text'
+        ? options.searchAccessPath.provider === 'pg_bigm'
+          ? 'generated_text_bigram'
+          : 'generated_text_trigram'
+        : usesSearchVector
+          ? 'generated_tsvector'
+          : 'default_ilike';
+  const searchMode = usesGeneratedText
+    ? 'substring'
+    : usesSearchVector
+      ? 'full_text'
+      : search
+        ? 'ilike'
+        : 'none';
 
   return {
     ...createTableQueryTraceAttributes({
@@ -132,8 +153,13 @@ const createRepositoryFindTraceAttributes = (
           : undefined,
       fallbackReason: resolution?.fallbackReason,
       generatedColumnName:
-        usesSearchVector && options?.searchAccessPath?.kind === 'generated_tsvector'
+        (usesSearchVector && options?.searchAccessPath?.kind === 'generated_tsvector') ||
+        (usesGeneratedText && options?.searchAccessPath?.kind === 'generated_text')
           ? options.searchAccessPath.generatedColumnName
+          : undefined,
+      indexProvider:
+        usesGeneratedText && options?.searchAccessPath?.kind === 'generated_text'
+          ? options.searchAccessPath.provider
           : undefined,
     }),
   };

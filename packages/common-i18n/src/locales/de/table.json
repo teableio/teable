@@ -1,4 +1,27 @@
 {
+  "computeActivity": {
+    "currentCalculations": "Aktuelle Berechnungen",
+    "thisTableOnly": "Nur diese Tabelle",
+    "calculatingNow": "Wird gerade berechnet",
+    "calculating": "Wird berechnet",
+    "waiting": "Wartend",
+    "failed": "Fehlgeschlagen",
+    "calculationFailed": "Berechnung fehlgeschlagen",
+    "calculatingSummary": "Wird berechnet ({{count}})",
+    "failedSummary": "Fehlgeschlagen ({{count}})",
+    "fieldsCalculating_one": "{{count}} Feld wird berechnet",
+    "fieldsCalculating_other": "{{count}} Felder werden berechnet",
+    "fieldCalculationsFailed_one": "Berechnung für {{count}} Feld fehlgeschlagen",
+    "fieldCalculationsFailed_other": "Berechnung für {{count}} Felder fehlgeschlagen",
+    "batchesRunning_one": "{{count}} Batch wird verarbeitet",
+    "batchesRunning_other": "{{count}} Batches werden verarbeitet",
+    "batchesQueued_one": "{{count}} Batch wartet",
+    "batchesQueued_other": "{{count}} Batches warten",
+    "records_one": "{{formattedCount}} Datensatz",
+    "records_other": "{{formattedCount}} Datensätze",
+    "batchesComplete": "Abgeschlossene Batches {{completed}}/{{total}}",
+    "progressAriaLabel": "Berechnungsfortschritt für {{fieldName}}"
+  },
   "crossSpace": {
     "duplicateFieldTitle": "Hinweis",
     "duplicateFieldDescription": "Bereichsübergreifende Verweise werden nicht unterstützt. Das Duplikat wird in ein einzeiliges Textfeld umgewandelt.",
@@ -427,7 +450,7 @@
   "table": {
     "newTableLabel": "Neue Tabelle",
     "rename": "Umbenennen",
-    "tableRecordHistory": "Tabelle Datensatzhistorie",
+    "tableRecordHistory": "Änderungsverlauf",
     "deleteConfirm": "Sind Sie sicher, dass Sie \"{{tableName}}\" löschen möchten?",
     "dbTableName": "Tabelle Name in der physischen Datenbank",
     "schemaName": "Schema Name in der physischen Datenbank",
@@ -879,9 +902,10 @@
     "description": "Die {{count}} Datensätze werden der Tabelle hinzugefügt."
   },
   "tableTrash": {
-    "title": "Tabelle Papierkorb",
+    "title": "Papierkorb",
     "resourceType": "Typ",
-    "deletedResource": "Ressource"
+    "deletedResource": "Ressource",
+    "moreResources": "und {{count}} weitere"
   },
   "baseShare": {
     "shareTitle": "Teilen",

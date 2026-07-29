@@ -1,5 +1,6 @@
 generator client {
   provider      = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
   binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
@@ -474,6 +475,7 @@ model ComputedTaskFieldRef {
 
   @@id([taskId, fieldId])
   @@index([fieldId])
+  @@index([tableId])
   @@map("computed_task_field_ref")
 }
 
@@ -1026,8 +1028,10 @@ model Task {
 model TaskRun {
   id               String    @id @default(cuid())
   taskId           String    @map("task_id")
+  baseId           String?   @map("base_id")
   status           String    @map("status")
   snapshot         String    @map("snapshot")
+  dependsOnRunIds  String[]  @default([]) @map("depends_on_run_ids")
   spent            Int?      @map("spent")
   log              String?   @map("log")
   errorMsg         String?   @map("error_msg")
@@ -1038,6 +1042,8 @@ model TaskRun {
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   @@index([taskId, status])
+  @@index([status, baseId, createdTime])
+  @@index([status, lastModifiedTime])
   @@map("task_run")
 }
 
@@ -1116,4 +1122,21 @@ model BaseShare {
   @@unique([baseId, nodeId])
   @@index([baseId])
   @@map("base_share")
+}
+
+model ShortLink {
+  id          String    @id @default(cuid())
+  code        String    @unique @db.VarChar(32)
+  type        String    @db.VarChar(32)
+  resourceId  String    @map("resource_id")
+  createdTime DateTime  @default(now()) @map("created_time")
+  createdBy   String    @map("created_by")
+  // Set when the target resource is permanently invalidated (shareId rotated,
+  // resource hard-deleted). Advisory only: redirect-time resolution against the
+  // target resource remains the source of truth for link validity.
+  deletedTime DateTime? @map("deleted_time")
+
+  @@unique([type, resourceId])
+  @@index([deletedTime])
+  @@map("short_link")
 }

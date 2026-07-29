@@ -39,6 +39,18 @@ export interface IRecordReadQuerySource {
 export type IRecordSearchAccessPath =
   | { readonly kind: 'default' }
   | {
+      /**
+       * A same-table normalized text document used only to narrow substring candidates.
+       * Repositories must recheck the original field predicates to preserve visible-row semantics.
+       */
+      readonly kind: 'generated_text';
+      readonly generatedColumnName: string;
+      readonly provider: 'pg_trgm' | 'pg_bigm';
+      readonly searchScope: 'all_fields' | 'selected_fields';
+      readonly coveredFieldIds: ReadonlyArray<FieldId>;
+    }
+  | {
+      /** Explicit lexical search. This is not substring-compatible. */
       readonly kind: 'generated_tsvector';
       readonly generatedColumnName: string;
       readonly languageConfig: string;
@@ -46,9 +58,12 @@ export type IRecordSearchAccessPath =
       readonly coveredFieldIds: ReadonlyArray<FieldId>;
     };
 
-export type RecordSearchAccessPathKind = 'default' | 'generated_tsvector';
+export type RecordSearchAccessPathKind = 'default' | 'generated_text' | 'generated_tsvector';
 
-export type RecordSearchAccessPathFallbackReason = 'generated_tsvector_unavailable';
+export type RecordSearchAccessPathFallbackReason =
+  | 'generated_text_unavailable'
+  | 'generated_text_probe_too_short'
+  | 'generated_tsvector_unavailable';
 
 export interface IRecordSearchAccessPathResolution {
   readonly requested: RecordSearchAccessPathKind;

@@ -498,6 +498,7 @@
       "tabLink": "リンクで招待",
       "linkPlaceholder": "招待リンクを作成すると、リンクを開いたすべてのユーザーに<0/>アクセスが許可されます。",
       "emailSend": "正体の送信",
+      "directAccessDescription": "招待された共同作業者は、以下のリンクから直接アクセスして共同作業に参加できます",
       "linkSend": "リンクの作成",
       "spaceTitle": "スペースの共同作業者",
       "collaboratorSearchPlaceholder": "名前またはメールアドレスでスペースの共同作業者を探す",
@@ -938,6 +939,10 @@
           "title": "レコードコメント通知",
           "message": "{{fromUserName}}が{{baseName}}の{{tableName}}の{{recordName}}にコメントしました"
         },
+        "collaboratorInvite": {
+          "space": "{{fromUserName}}があなたをスペース {{resourceName}} に招待しました",
+          "base": "{{fromUserName}}があなたをベース {{resourceName}} に招待しました"
+        },
         "automation": {
           "title": "自動化通知",
           "failed": {
@@ -1293,10 +1298,10 @@
     }
   },
   "changelog": {
-    "newUpdate": "7月15日アップデート",
-    "title": "AIメモリとファイルダウンロード",
-    "url": "https://help.teable.ai/en/changelog#jul-15-2026",
-    "id": "changelog-2026-07-15-ai-memory-and-file-downloads"
+    "newUpdate": "7月28日アップデート",
+    "title": "AIエージェント向けTeable Skill",
+    "url": "https://help.teable.ai/en/changelog#jul-28-2026",
+    "id": "changelog-2026-07-28-teable-skill-for-ai-agents"
   },
   "resourceDescription": {
     "addDescription": "説明を追加",

@@ -1,5 +1,5 @@
 import { inject, injectable } from '@teable/v2-di';
-import { ok, safeTry } from 'neverthrow';
+import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import {
@@ -18,6 +18,7 @@ import { RealtimeDocId } from '../../ports/RealtimeDocId';
 import * as RealtimeEnginePort from '../../ports/RealtimeEngine';
 import { v2CoreTokens } from '../../ports/tokens';
 import { ProjectionHandler } from './Projection';
+import { runRealtimeTasks } from './runRealtimeTasks';
 
 const computeCollectionPrefix = 'cmp';
 
@@ -84,42 +85,64 @@ export class ComputedActivityRealtimeProjection
       }
 
       const tableIds = new Set<string>([...tablesById.keys(), ...fieldsByTable.keys()]);
+      const tasks: Array<{
+        kind: 'table' | 'field';
+        run: () => Promise<Result<void, DomainError>>;
+      }> = [];
 
       for (const tableId of tableIds) {
         const collection = `${computeCollectionPrefix}_${tableId}`;
         const tableMeta = tablesById.get(tableId);
-        if (tableMeta) {
+        if (tableMeta?.generation && tableMeta.generation >= 1) {
           const tableDocId = yield* RealtimeDocId.fromParts(collection, 'table').safeUnwrap();
           const publicTable = mapTableComputeActivityToRealtime(tableMeta);
-          const result =
-            tableMeta.generation <= 1
-              ? await realtimeEngine.ensure(context, tableDocId, publicTable)
-              : await realtimeEngine.applyChange(
-                  context,
-                  tableDocId,
-                  { type: 'set', path: [], value: publicTable },
-                  { version: tableMeta.generation - 1 }
-                );
-          yield* result.safeUnwrap();
+          tasks.push({
+            kind: 'table',
+            run: () =>
+              tableMeta.generation === 1
+                ? realtimeEngine.ensure(context, tableDocId, publicTable)
+                : realtimeEngine.applyChange(
+                    context,
+                    tableDocId,
+                    { type: 'set', path: [], value: publicTable },
+                    { version: tableMeta.generation - 1 }
+                  ),
+          });
         }
 
         for (const field of fieldsByTable.get(tableId) ?? []) {
+          if (field.generation < 1) continue;
           const fieldDocId = yield* RealtimeDocId.fromParts(collection, field.fieldId).safeUnwrap();
           const publicField = mapFieldComputeActivityToRealtime(field);
-          const result =
-            field.generation <= 1
-              ? await realtimeEngine.ensure(context, fieldDocId, publicField)
-              : await realtimeEngine.applyChange(
-                  context,
-                  fieldDocId,
-                  { type: 'set', path: [], value: publicField },
-                  { version: field.generation - 1 }
-                );
-          yield* result.safeUnwrap();
+          tasks.push({
+            kind: 'field',
+            run: () =>
+              field.generation === 1
+                ? realtimeEngine.ensure(context, fieldDocId, publicField)
+                : realtimeEngine.applyChange(
+                    context,
+                    fieldDocId,
+                    { type: 'set', path: [], value: publicField },
+                    { version: field.generation - 1 }
+                  ),
+          });
         }
       }
 
-      return ok(undefined);
+      const results = await runRealtimeTasks(tasks.map((task) => task.run));
+      let tablePublicationError: DomainError | undefined;
+
+      for (let index = 0; index < results.length; index += 1) {
+        const result = results[index]!;
+        if (result.isOk()) continue;
+        if (tasks[index]?.kind === 'table') {
+          tablePublicationError ??= result.error;
+          continue;
+        }
+        return err(result.error);
+      }
+
+      return tablePublicationError ? err(tablePublicationError) : ok(undefined);
     });
   }
 }

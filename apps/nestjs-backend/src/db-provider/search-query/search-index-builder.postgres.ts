@@ -9,7 +9,6 @@ interface IPgIndex {
   schemaname: string;
   tablename: string;
   indexname: string;
-  tablespace: string;
   indexdef: string;
 }
 
@@ -222,11 +221,15 @@ export class IndexBuilderPostgres extends IndexBuilderAbstract {
   }
 
   getIndexInfoSql(dbTableName: string): string {
-    const [, table] = dbTableName.split('.');
+    const [schema, table] = dbTableName.split('.');
     const searchFactor = this.getSearchFactor();
+    // Cast pg_catalog `name` columns to text: scoped data-db clients run raw
+    // queries through @prisma/adapter-pg, which cannot deserialize `name`.
     return `
-      SELECT * FROM pg_indexes 
-      WHERE tablename = '${table}'
+      SELECT schemaname::text, tablename::text, indexname::text, indexdef
+      FROM pg_indexes
+      WHERE schemaname = '${schema}'
+      AND tablename = '${table}'
       AND indexname like '${searchFactor}%'`;
   }
 

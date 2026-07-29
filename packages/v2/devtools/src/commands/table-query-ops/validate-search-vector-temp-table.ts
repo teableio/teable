@@ -153,6 +153,6 @@ export const tableQueryOpsValidateSearchVectorTempTable = Command.make(
   handler
 ).pipe(
   Command.withDescription(
-    'Validate generated tsvector search on a real temporary physical table with GIN'
+    'Deprecated alias for validate-search-access-path-temp-table; validates substring generated text'
   )
 );

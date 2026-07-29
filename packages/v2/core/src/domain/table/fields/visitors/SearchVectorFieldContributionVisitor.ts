@@ -29,7 +29,7 @@ import type { UserField } from '../types/UserField';
 import { FieldValueTypeVisitor } from './FieldValueTypeVisitor';
 import type { IFieldVisitor } from './IFieldVisitor';
 
-export type SearchVectorFieldContribution = {
+export type SearchDocumentFieldContribution = {
   readonly fieldId: string;
   readonly fieldType: string;
   readonly valueType?: string;
@@ -43,7 +43,7 @@ export type SearchVectorFieldContribution = {
 
 const valueTypeVisitor = new FieldValueTypeVisitor();
 
-const include = (field: Field): SearchVectorFieldContribution => ({
+const include = (field: Field): SearchDocumentFieldContribution => ({
   fieldId: field.id().toString(),
   fieldType: field.type().toString(),
   valueType: CellValueType.string().toString(),
@@ -53,9 +53,9 @@ const include = (field: Field): SearchVectorFieldContribution => ({
 
 const skip = (
   field: Field,
-  skippedReason: SearchVectorFieldContribution['skippedReason'],
+  skippedReason: SearchDocumentFieldContribution['skippedReason'],
   valueType?: string
-): SearchVectorFieldContribution => ({
+): SearchDocumentFieldContribution => ({
   fieldId: field.id().toString(),
   fieldType: field.type().toString(),
   ...(valueType ? { valueType } : {}),
@@ -63,10 +63,10 @@ const skip = (
   skippedReason,
 });
 
-export class SearchVectorFieldContributionVisitor
-  implements IFieldVisitor<SearchVectorFieldContribution>
+export class SearchDocumentFieldContributionVisitor
+  implements IFieldVisitor<SearchDocumentFieldContribution>
 {
-  private byValueType(field: Field): Result<SearchVectorFieldContribution, DomainError> {
+  private byValueType(field: Field): Result<SearchDocumentFieldContribution, DomainError> {
     return field
       .accept(valueTypeVisitor)
       .map(({ cellValueType }) =>
@@ -76,11 +76,11 @@ export class SearchVectorFieldContributionVisitor
       );
   }
 
-  private unsupported(field: Field): Result<SearchVectorFieldContribution, DomainError> {
+  private unsupported(field: Field): Result<SearchDocumentFieldContribution, DomainError> {
     return ok(skip(field, 'unsupported_search_field_type'));
   }
 
-  private generatedDependency(field: Field): Result<SearchVectorFieldContribution, DomainError> {
+  private generatedDependency(field: Field): Result<SearchDocumentFieldContribution, DomainError> {
     return ok(skip(field, 'generated_column_dependency'));
   }
 
@@ -172,3 +172,9 @@ export class SearchVectorFieldContributionVisitor
     return this.byValueType(field);
   }
 }
+
+/** @deprecated Use the semantics-neutral search-document names. */
+export type SearchVectorFieldContribution = SearchDocumentFieldContribution;
+
+/** @deprecated Use SearchDocumentFieldContributionVisitor. */
+export class SearchVectorFieldContributionVisitor extends SearchDocumentFieldContributionVisitor {}

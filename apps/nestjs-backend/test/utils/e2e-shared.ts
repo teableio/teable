@@ -11,9 +11,10 @@
  *   automatically fall back to a private, really-closable app: initApp compares the
  *   current env against the worker's baseline fingerprint and boots fresh on any
  *   difference. The custom e2e runner restores the baseline env after every file.
- * - `close()` on the shared app is a no-op (156 spec files call it in afterAll); the
- *   worker process teardown reclaims resources. Fresh apps keep a real close() that
- *   also restores the axios singleton to the shared app.
+ * - `close()` is a no-op for every app while sharing is enabled. Nest testing
+ *   modules in one worker can share process-global Prisma/Knex resources, so
+ *   closing a private app would poison the worker's canonical app. The process
+ *   reclaims both shared and private apps at worker teardown.
  *
  * Parallel file execution is made safe by giving every worker its own database,
  * cloned from the freshly seeded template DB in globalSetup (CREATE DATABASE ...
@@ -48,7 +49,7 @@ interface ISharedState {
   primaryKey?: string;
   /** Interceptor-list lengths right after the primary shared app registered its own. */
   axiosSnapshot?: { request: number; response: number };
-  /** Private apps whose spec never called close(); reaped after each file. */
+  /** Private apps awaiting cleanup in classic app-per-file mode. */
   strayFreshApps: Set<() => Promise<void>>;
   /** Async cleanup from the runner's per-file reset; awaited by the next initApp. */
   pendingMaintenance?: Promise<unknown>;
@@ -289,8 +290,10 @@ export function getAllSharedBundles(): ISharedBundle[] {
 }
 
 /**
- * Wrap a privately-booted app so its close() also restores the axios singleton
- * (baseURL + cookie interceptor) back to the shared app of this worker.
+ * Wrap a privately-booted app so its close() restores the axios singleton. While
+ * the shared harness is enabled it must not close the Nest app: independently
+ * compiled testing modules still share process-global Prisma/Knex resources, and
+ * shutting one down can end the canonical app's pools. Worker exit owns teardown.
  */
 export function wrapFreshApp(bundle: ISharedBundle, restoreAxios: () => void): ISharedBundle {
   const app = bundle.app;
@@ -301,9 +304,13 @@ export function wrapFreshApp(bundle: ISharedBundle, restoreAxios: () => void): I
     closed = true;
     state().strayFreshApps.delete(close);
     restoreAxios();
-    await realClose();
+    if (!sharedAppEnabled()) {
+      await realClose();
+    }
   };
-  state().strayFreshApps.add(close);
+  if (!sharedAppEnabled()) {
+    state().strayFreshApps.add(close);
+  }
   const proxied = new Proxy(app, {
     get(target, prop) {
       if (prop === 'close') return close;
@@ -315,8 +322,8 @@ export function wrapFreshApp(bundle: ISharedBundle, restoreAxios: () => void): I
 }
 
 /**
- * Close private apps whose spec file finished without calling close(). Left
- * running they would keep consuming queue events on this worker's DB/redis.
+ * Close unclaimed private apps only in classic app-per-file mode. Shared-app
+ * workers intentionally keep them alive until process teardown (see above).
  */
 export function reapStrayFreshApps(): void {
   for (const close of [...state().strayFreshApps]) {

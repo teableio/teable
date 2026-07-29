@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { Kysely, PostgresDialect } from 'kysely';
 import type { IV2PostgresDbConfig } from './config';
+import type { Pool as PgPool } from 'pg';
 
 // Use webpack's special require that bypasses bundling, falling back to dynamic import
 // This is needed because webpack transforms dynamic imports in ways that bypass
@@ -19,7 +20,20 @@ const loadPg = async (): Promise<typeof import('pg')> => {
   return import('pg');
 };
 
-const createPgDb = async <DB>(config: IV2PostgresDbConfig): Promise<Kysely<DB>> => {
+export interface IV2PostgresDbDependencies {
+  pool?: PgPool;
+}
+
+const borrowPool = (pool: PgPool): PgPool =>
+  ({
+    connect: () => pool.connect(),
+    end: () => Promise.resolve(),
+  }) as PgPool;
+
+const createPgDb = async <DB>(
+  config: IV2PostgresDbConfig,
+  dependencies: IV2PostgresDbDependencies
+): Promise<Kysely<DB>> => {
   const connectionString = config.pg.connectionString;
   if (!connectionString) {
     throw new Error('Missing pg.connectionString');
@@ -33,21 +47,25 @@ const createPgDb = async <DB>(config: IV2PostgresDbConfig): Promise<Kysely<DB>> 
   }
 
   const poolOptions = resolvePoolOptions(config);
-  const pool = new Pool(poolOptions);
-  pool.on('error', handlePgPoolError);
+  const pool = dependencies.pool ?? new Pool(poolOptions);
+  if (!dependencies.pool) {
+    pool.on('error', handlePgPoolError);
+  }
+  const dialectPool = dependencies.pool ? borrowPool(pool) : pool;
 
   const db = new Kysely<DB>({
     dialect: new PostgresDialect({
-      pool,
+      pool: dialectPool,
     }),
   });
   return config.pg.schema ? db.withSchema(config.pg.schema) : db;
 };
 
 export const createV2PostgresDb = async <DB = unknown>(
-  config: IV2PostgresDbConfig
+  config: IV2PostgresDbConfig,
+  dependencies: IV2PostgresDbDependencies = {}
 ): Promise<Kysely<DB>> => {
-  return createPgDb<DB>(config);
+  return createPgDb<DB>(config, dependencies);
 };
 
 type PgDefaultExport = { Pool: typeof import('pg').Pool };

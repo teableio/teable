@@ -3,6 +3,8 @@ import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DiscoveryService, Reflector } from '@nestjs/core';
 import type { InstanceWrapper } from '@nestjs/core/injector/instance-wrapper';
+import type { IPgPoolLease } from '@teable/db-main-prisma';
+import { PgPoolRegistry } from '@teable/db-main-prisma';
 import { v2DataDbTokens, v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import {
   ShareDbPubSubPublisher,
@@ -34,6 +36,7 @@ import {
   type ExecutablePhase1RemediationKind,
   type TableQueryOpsRunnerHandle,
 } from '@teable/v2-table-query-ops';
+import { createSsrfSafeFetch, setSafeFetch } from '@teable/v2-utils';
 import { PinoLogger } from 'nestjs-pino';
 import { CacheService } from '../../cache/cache.service';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
@@ -106,6 +109,7 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
     DependencyContainer,
     ReadonlyArray<TableQueryOpsRunnerHandle>
   >();
+  private readonly poolLeases = new WeakMap<DependencyContainer, ReadonlyArray<IPgPoolLease>>();
 
   constructor(
     private readonly configService: ConfigService,
@@ -118,6 +122,7 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
     private readonly discoveryService: DiscoveryService,
     private readonly dataDbClientManager: DataDbClientManager,
     private readonly runtimeCache: DataDbRuntimeCacheService,
+    private readonly pgPoolRegistry: PgPoolRegistry,
     @Optional()
     @Inject(COMPUTED_OUTBOX_WAKEUP_PUBLISHER)
     private readonly computedOutboxWakeupPublisher: IComputedOutboxWakeupPublisher = noopComputedOutboxWakeupPublisher
@@ -152,7 +157,7 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
   }
 
   async getContainer(): Promise<DependencyContainer> {
-    return await this.getContainerForDataDb('default', this.getMetaConnectionString());
+    return await this.getContainerForDataDb('meta-fallback', this.getMetaConnectionString());
   }
 
   async getContainerForSpace(spaceId: string): Promise<DependencyContainer> {
@@ -185,7 +190,8 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
   isTableQuerySearchVectorRuntimeEnabled(): boolean {
     return (
       resolveTableQuerySearchVectorRuntimeMode(
-        this.configService.get('V2_TABLE_QUERY_OPS_SEARCH_VECTOR_RUNTIME')
+        this.configService.get('V2_TABLE_QUERY_OPS_SEARCH_ACCESS_PATH_RUNTIME') ??
+          this.configService.get('V2_TABLE_QUERY_OPS_SEARCH_VECTOR_RUNTIME')
       ) === 'auto'
     );
   }
@@ -226,91 +232,110 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
     dataSchema?: string
   ): Promise<DependencyContainer> {
     const metaConnectionString = this.getMetaConnectionString();
-    const logger = new PinoLoggerAdapter(this.pinoLogger);
-    const tracer = new OpenTelemetryTracer();
-    const tableQueryObservability = new TableQuerySearchMetricsService();
-    const commandBusMiddlewares = [new CommandBusTracingMiddleware()];
-    const queryBusMiddlewares = [new QueryBusTracingMiddleware()];
-    const computedUpdateMode = process.env.V2_COMPUTED_UPDATE_MODE;
-    const tableQueryOps = this.resolveTableQueryOpsOptions();
-    const tableMaxRowLimit = resolvePositiveInteger(
-      this.configService.get('TABLE_LIMIT_RECORDS_PER_TABLE_MAX')
-    );
-    const legacyMaxFreeRowLimit = resolvePositiveInteger(
-      this.configService.get('MAX_FREE_ROW_LIMIT')
-    );
-    const computedUpdate: IV2NodePgContainerOptions['computedUpdate'] =
-      computedUpdateMode === 'sync'
-        ? {
-            mode: 'sync',
-            fieldBackfillConfig: { mode: 'sync' },
-            wakeupPublisher: this.computedOutboxWakeupPublisher,
-          }
-        : {
-            wakeupPublisher: this.computedOutboxWakeupPublisher,
-          };
+    const metaPoolLease = this.pgPoolRegistry.acquire(metaConnectionString);
+    const dataPoolLease =
+      dataConnectionString === metaConnectionString && !dataSchema
+        ? metaPoolLease
+        : this.pgPoolRegistry.acquire(dataConnectionString, {
+            ...(dataSchema ? { max: Number(process.env.BYODB_DATA_DB_POOL_MAX ?? 5) } : undefined),
+          });
+    const poolLeases =
+      dataPoolLease === metaPoolLease ? [metaPoolLease] : [metaPoolLease, dataPoolLease];
 
-    this.logger.log('Initializing V2 container');
+    try {
+      const logger = new PinoLoggerAdapter(this.pinoLogger);
+      const tracer = new OpenTelemetryTracer();
+      const tableQueryObservability = new TableQuerySearchMetricsService();
+      const commandBusMiddlewares = [new CommandBusTracingMiddleware()];
+      const queryBusMiddlewares = [new QueryBusTracingMiddleware()];
+      const computedUpdateMode = process.env.V2_COMPUTED_UPDATE_MODE;
+      const tableQueryOps = this.resolveTableQueryOpsOptions();
+      const tableMaxRowLimit = resolvePositiveInteger(
+        this.configService.get('TABLE_LIMIT_RECORDS_PER_TABLE_MAX')
+      );
+      const legacyMaxFreeRowLimit = resolvePositiveInteger(
+        this.configService.get('MAX_FREE_ROW_LIMIT')
+      );
+      const computedUpdate: IV2NodePgContainerOptions['computedUpdate'] =
+        computedUpdateMode === 'sync'
+          ? {
+              mode: 'sync',
+              fieldBackfillConfig: { mode: 'sync' },
+              wakeupPublisher: this.computedOutboxWakeupPublisher,
+            }
+          : {
+              wakeupPublisher: this.computedOutboxWakeupPublisher,
+            };
 
-    const container = await createV2NodePgContainer({
-      metaConnectionString,
-      dataConnectionString,
-      dataSchema,
-      logger,
-      tracer,
-      tableQueryObservability,
-      commandBusMiddlewares,
-      queryBusMiddlewares,
-      computedUpdate,
-      tableQueryOps,
-      ...(tableMaxRowLimit
-        ? { tableMaxRowLimit }
-        : legacyMaxFreeRowLimit
-          ? { maxFreeRowLimit: legacyMaxFreeRowLimit }
-          : {}),
-    });
+      this.logger.log('Initializing V2 container');
 
-    registerV2ShareDbRealtime(container, {
-      publisher: new ShareDbPubSubPublisher(this.shareDbService.pubsub),
-    });
-    const attachmentLookupService = container.resolve<IAttachmentLookupService>(
-      v2CoreTokens.attachmentLookupService
-    );
-    container.registerInstance(
-      v2CoreTokens.attachmentUrlSignerService,
-      new V2AttachmentUrlSignerService(
-        this.attachmentsStorageService,
-        attachmentLookupService,
-        this.cacheService
-      )
-    );
-    const attachmentValueDecoratorService = container.resolve<AttachmentValueDecoratorService>(
-      v2CoreTokens.attachmentValueDecoratorService
-    );
-    container.registerInstance(
-      v2CoreTokens.recordChangedValueDecoratorService,
-      new V2RecordChangedValueDecoratorService(attachmentValueDecoratorService)
-    );
-    container.registerInstance(
-      v2CoreTokens.undoRedoStore,
-      new KeyvUndoRedoStore(this.cacheService.getKeyv(), {
-        keyPrefix: 'v2:undo-redo',
-        ttlMs: this.thresholdConfig.undoExpirationTime * 1000,
-        maxEntries: this.thresholdConfig.maxUndoStackSize,
-      })
-    );
-    // Register V2 import services (csv, excel adapters)
-    registerV2ImportServices(container);
-    if (tableQueryOps) {
-      this.startTableQueryOpsRunners(container);
+      const container = await createV2NodePgContainer({
+        metaConnectionString,
+        dataConnectionString,
+        dataSchema,
+        metaDbDependencies: { pool: metaPoolLease.pool },
+        dataDbDependencies: { pool: dataPoolLease.pool },
+        logger,
+        tracer,
+        tableQueryObservability,
+        commandBusMiddlewares,
+        queryBusMiddlewares,
+        computedUpdate,
+        tableQueryOps,
+        ...(tableMaxRowLimit
+          ? { tableMaxRowLimit }
+          : legacyMaxFreeRowLimit
+            ? { maxFreeRowLimit: legacyMaxFreeRowLimit }
+            : {}),
+      });
+
+      setSafeFetch(createSsrfSafeFetch());
+
+      registerV2ShareDbRealtime(container, {
+        publisher: new ShareDbPubSubPublisher(this.shareDbService.pubsub),
+      });
+      const attachmentLookupService = container.resolve<IAttachmentLookupService>(
+        v2CoreTokens.attachmentLookupService
+      );
+      container.registerInstance(
+        v2CoreTokens.attachmentUrlSignerService,
+        new V2AttachmentUrlSignerService(
+          this.attachmentsStorageService,
+          attachmentLookupService,
+          this.cacheService
+        )
+      );
+      const attachmentValueDecoratorService = container.resolve<AttachmentValueDecoratorService>(
+        v2CoreTokens.attachmentValueDecoratorService
+      );
+      container.registerInstance(
+        v2CoreTokens.recordChangedValueDecoratorService,
+        new V2RecordChangedValueDecoratorService(attachmentValueDecoratorService)
+      );
+      container.registerInstance(
+        v2CoreTokens.undoRedoStore,
+        new KeyvUndoRedoStore(this.cacheService.getKeyv(), {
+          keyPrefix: 'v2:undo-redo',
+          ttlMs: this.thresholdConfig.undoExpirationTime * 1000,
+          maxEntries: this.thresholdConfig.maxUndoStackSize,
+        })
+      );
+      registerV2ImportServices(container);
+      if (tableQueryOps) {
+        this.startTableQueryOpsRunners(container);
+      }
+
+      for (const registrar of this.discoverProjectionRegistrars()) {
+        registrar.registerProjections(container);
+      }
+
+      this.poolLeases.set(container, poolLeases);
+      this.logger.log('V2 container initialized');
+      return container;
+    } catch (error) {
+      await Promise.all(poolLeases.map((lease) => lease.release()));
+      throw error;
     }
-
-    for (const registrar of this.discoverProjectionRegistrars()) {
-      registrar.registerProjections(container);
-    }
-
-    this.logger.log('V2 container initialized');
-    return container;
   }
 
   private resolveTableQueryOpsOptions(): IV2NodePgContainerOptions['tableQueryOps'] | undefined {
@@ -328,7 +353,8 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
     );
     const searchVectorRuntimeEnabled =
       resolveTableQuerySearchVectorRuntimeMode(
-        this.configService.get('V2_TABLE_QUERY_OPS_SEARCH_VECTOR_RUNTIME')
+        this.configService.get('V2_TABLE_QUERY_OPS_SEARCH_ACCESS_PATH_RUNTIME') ??
+          this.configService.get('V2_TABLE_QUERY_OPS_SEARCH_VECTOR_RUNTIME')
       ) === 'auto';
     const configuredAllowedKinds =
       parseAllowedRemediationKinds(
@@ -471,13 +497,19 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
 
   private async destroyContainer(container: DependencyContainer): Promise<void> {
     this.stopTableQueryOpsRunners(container);
+    const poolLeases = this.poolLeases.get(container) ?? [];
+    this.poolLeases.delete(container);
     const closers = Array.from(
       new Set([
         container.resolve<{ destroy(): Promise<void> }>(v2MetaDbTokens.db),
         container.resolve<{ destroy(): Promise<void> }>(v2DataDbTokens.db),
       ])
     );
-    await Promise.all(closers.map((db) => db.destroy()));
+    try {
+      await Promise.all(closers.map((db) => db.destroy()));
+    } finally {
+      await Promise.all(poolLeases.map((lease) => lease.release()));
+    }
   }
 
   private stopTableQueryOpsRunners(container: DependencyContainer): void {

@@ -47,6 +47,11 @@ export interface IClsStore extends ClsStore {
     byApi: boolean;
     userAgent: string;
     referer: string;
+    // The API endpoint the caller hit (`referer` is the frontend page, not the request).
+    // Optional: non-HTTP entry points (import/base-import workers, robot agent) rebuild
+    // `origin` from stored job data and have no request of their own.
+    method?: string;
+    path?: string;
     // Provenance/initiator of the request — orthogonal to byApi (auth method).
     // 'ai' / 'automation' set by RequestInfoMiddleware from x-ai-internal /
     // x-automation-internal headers. 'app' set by JwtStrategy after App-token auth.

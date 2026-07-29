@@ -988,7 +988,8 @@
       "waitlistNotEnabled": "The waitlist feature is not enabled",
       "emailOrPasswordIncorrect": "Email or password is incorrect",
       "accountDeactivated": "This account has been deactivated by the administrator",
-      "accountLockedOut": "Your account has been locked due to too many failed login attempts. Please try again later."
+      "accountLockedOut": "Your account has been locked due to too many failed login attempts. Please try again later.",
+      "passwordLoginDisabled": "Parola ile giriş devre dışı bırakıldı"
     },
     "automation": {
       "buttonClickTriggerDuplicated": "Bu buton alanı zaten {{name}}[{{id}}] otomasyon işlemine bağlı, lütfen başka bir buton alanı seçin",

@@ -1,4 +1,27 @@
 {
+  "computeActivity": {
+    "currentCalculations": "Mevcut hesaplamalar",
+    "thisTableOnly": "Yalnızca bu tablo",
+    "calculatingNow": "Şimdi hesaplanıyor",
+    "calculating": "Hesaplanıyor",
+    "waiting": "Beklemede",
+    "failed": "Başarısız",
+    "calculationFailed": "Hesaplama başarısız oldu",
+    "calculatingSummary": "Hesaplanıyor ({{count}})",
+    "failedSummary": "Başarısız ({{count}})",
+    "fieldsCalculating_one": "{{count}} alan hesaplanıyor",
+    "fieldsCalculating_other": "{{count}} alan hesaplanıyor",
+    "fieldCalculationsFailed_one": "{{count}} alan hesaplanamadı",
+    "fieldCalculationsFailed_other": "{{count}} alan hesaplanamadı",
+    "batchesRunning_one": "{{count}} toplu işlem işleniyor",
+    "batchesRunning_other": "{{count}} toplu işlem işleniyor",
+    "batchesQueued_one": "{{count}} toplu işlem bekliyor",
+    "batchesQueued_other": "{{count}} toplu işlem bekliyor",
+    "records_one": "{{formattedCount}} kayıt",
+    "records_other": "{{formattedCount}} kayıt",
+    "batchesComplete": "Tamamlanan toplu işlemler {{completed}}/{{total}}",
+    "progressAriaLabel": "{{fieldName}} için hesaplama ilerlemesi"
+  },
   "crossSpace": {
     "duplicateFieldTitle": "Bildirim",
     "duplicateFieldDescription": "Alanlar arası referanslar desteklenmiyor. Kopya tek satırlı bir metin alanına dönüştürülecek.",
@@ -425,7 +448,7 @@
   "table": {
     "newTableLabel": "Yeni tablo",
     "rename": "Yeniden adlandır",
-    "tableRecordHistory": "Tablo kayıt geçmişi",
+    "tableRecordHistory": "Değişiklik geçmişi",
     "deleteConfirm": "\"{{tableName}}\" tablosunu silmek istediğinizden emin misiniz?",
     "dbTableName": "Fiziksel veritabanındaki tablo adı",
     "schemaName": "Fiziksel veritabanındaki şema adı",

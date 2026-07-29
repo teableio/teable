@@ -56,6 +56,7 @@ const parseRecentCompletions = (value: unknown): TableComputeMetaDto['recentComp
     return [
       {
         fieldId: row.fieldId,
+        ...(typeof row.taskId === 'string' ? { taskId: row.taskId } : {}),
         durationMs: row.durationMs,
         completedAt: row.completedAt,
       },

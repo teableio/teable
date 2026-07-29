@@ -40,7 +40,9 @@ import type {
   ForeignTableRelatedField,
   ForeignTableValidationContext,
 } from '../ForeignTableRelatedField';
+import { inferLookupDisplayOptionsPatch } from '../lookupFormulaOptions';
 import type { FieldUpdateContext, OnTeableFieldUpdated } from '../OnTeableFieldUpdated';
+import { FieldOptionsDtoVisitor } from '../visitors/FieldOptionsDtoVisitor';
 import { FieldValueTypeVisitor, type FieldValueType } from '../visitors/FieldValueTypeVisitor';
 import type { IFieldVisitor } from '../visitors/IFieldVisitor';
 import { CellValueMultiplicity } from './CellValueMultiplicity';
@@ -436,7 +438,15 @@ export class LookupField
   private normalizeInnerOptionsPatch(resolvedTargetField: Field): void {
     if (this.shouldMirrorTargetSelectOptions(resolvedTargetField)) {
       this.innerOptionsPatchValue = undefined;
+      return;
     }
+
+    const sourceOptionsResult = resolvedTargetField.accept(new FieldOptionsDtoVisitor());
+    if (sourceOptionsResult.isErr()) return;
+    this.innerOptionsPatchValue = inferLookupDisplayOptionsPatch(
+      this.innerOptionsPatchValue,
+      sourceOptionsResult.value
+    );
   }
 
   private shouldMirrorTargetSelectOptions(field: Field): boolean {
@@ -521,7 +531,7 @@ export class LookupField
         dbFieldName: dbFieldNameResult.isOk() ? dbFieldNameResult.value : undefined,
         isMultipleCellValue: isMultipleResult.value.isMultiple(),
         dependencies: this.dependencies(),
-        innerOptionsPatch: this.innerOptionsPatchValue,
+        innerOptionsPatch: hasTypeConversion ? undefined : this.innerOptionsPatchValue,
         legacyMultiplicityDerivation: this.legacyMultiplicityDerivationEnabled,
       });
       if (nextLookupFieldResult.isErr()) {

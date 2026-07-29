@@ -11,14 +11,18 @@ import {
   createBase,
   createSpace,
   getRecord,
+  getSignature,
+  notify,
   updateRecord,
   uploadAttachment,
+  uploadFile,
   urlBuilder,
   axios as defaultAxios,
   GET_RECORD_URL,
   permanentDeleteSpace,
   listAccessToken,
   deleteAccessToken,
+  UploadType,
 } from '@teable/openapi';
 import dayjs from 'dayjs';
 import { CacheService } from '../src/cache/cache.service';
@@ -175,6 +179,36 @@ describe('OpenAPI AttachmentController (e2e)', () => {
     });
     expect(cachedRes.status).toBe(304);
     expect(cachedRes.headers['cross-origin-resource-policy']).toBe(corp);
+  });
+
+  it('should keep a non-ASCII file name single-encoded on the local read path', async () => {
+    const csvPath = path.join(
+      StorageAdapter.TEMPORARY_DIR,
+      `encoded-name-${getRandomString(8)}.csv`
+    );
+    fs.writeFileSync(csvPath, 'field_1,field_2\n1,foo\n');
+    const stats = fs.statSync(csvPath);
+
+    const { token, requestHeaders } = (
+      await getSignature(
+        { type: UploadType.Import, contentLength: stats.size, contentType: 'text/csv' },
+        undefined
+      )
+    ).data;
+    await uploadFile(token, fs.createReadStream(csvPath), requestHeaders);
+    const {
+      data: { presignedUrl },
+    } = await notify(token, undefined, '表格 3 (2).csv');
+    fs.unlinkSync(csvPath);
+
+    const readUrl = presignedUrl.startsWith('http') ? presignedUrl : `${appUrl}${presignedUrl}`;
+    const res = await createAxios().get(readUrl, { responseType: 'arraybuffer' });
+    expect(res.status).toBe(200);
+    // Regression: the read endpoint used to re-encode the already-encoded
+    // RFC 5987 value, producing a double-encoded file name (%25E8%25A1...).
+    expect(res.headers['content-disposition']).toBe(
+      "attachment; filename*=UTF-8''%E8%A1%A8%E6%A0%BC%203%20(2).csv"
+    );
   });
 
   it('should write attachment with simplified ro format without typecast', async () => {

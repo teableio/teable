@@ -35,6 +35,8 @@ export type TableQueryRecommendationStatus = (typeof tableQueryRecommendationSta
 
 export const tableQueryRemediationKindValues = [
   'create_search_index',
+  'create_search_access_path',
+  'rebuild_search_access_path',
   'create_search_vector',
   'rebuild_search_vector',
   'create_filter_index',
@@ -51,6 +53,8 @@ export type TableQueryRemediationKind = (typeof tableQueryRemediationKindValues)
 
 export const executablePhase1RemediationKindValues = [
   'create_search_index',
+  'create_search_access_path',
+  'rebuild_search_access_path',
   'create_search_vector',
   'rebuild_search_vector',
   'create_filter_index',
@@ -73,15 +77,16 @@ export type TableQueryRemediationTaskStatus =
 
 export type SearchValueLengthBucket = 'none' | 'short' | 'medium' | 'long';
 export type TableQueryIndexState = 'ready' | 'missing' | 'invalid' | 'unknown';
-export type TableQueryIndexKind = 'btree' | 'gin_trgm' | 'gin_tsvector';
+export type TableQueryIndexKind = 'btree' | 'gin_trgm' | 'gin_bigm' | 'gin_tsvector';
 export type TableQueryIndexAccessPath =
   | 'single_field'
   | 'composite'
   | 'expression'
+  | 'generated_text'
   | 'generated_tsvector';
 export type TableQueryPlanValidationStatus = 'validated' | 'skipped' | 'failed';
 export type TableQueryPlanValidationMethod = 'explain' | 'hypothetical_index';
-export type TableQuerySearchMode = 'ilike' | 'trigram' | 'full_text';
+export type TableQuerySearchMode = 'ilike' | 'substring' | 'trigram' | 'full_text';
 export type TableQuerySearchScope = 'selected_fields' | 'all_fields';
 
 export type TableQueryOperatorFamily =
@@ -392,7 +397,7 @@ const tableQueryShapeSchema: z.ZodType<TableQueryShapeInput> = z.object({
       allFields: z.boolean(),
       valueLengthBucket: z.enum(['none', 'short', 'medium', 'long']),
       searchedFieldIds: z.array(z.string().min(1)).optional(),
-      searchMode: z.enum(['ilike', 'trigram', 'full_text']).optional(),
+      searchMode: z.enum(['ilike', 'substring', 'trigram', 'full_text']).optional(),
       searchScope: z.enum(['selected_fields', 'all_fields']).optional(),
       languageConfig: z
         .string()

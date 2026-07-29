@@ -65,7 +65,14 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const dataDbContext = this.getDataDbContext();
     const dataDbError = dataDbContext ? classifyDataDbRuntimeError(exception) : null;
 
-    setV2AttributionHeaders(response, getV2Attribution(this.cls));
+    // The response may already be completed upstream (e.g. a guard issued a
+    // redirect and returned false, or a streamed reply failed midway). Any
+    // further header/body write would itself throw ERR_HTTP_HEADERS_SENT.
+    const responseWritable = !response.headersSent;
+
+    if (responseWritable) {
+      setV2AttributionHeaders(response, getV2Attribution(this.cls));
+    }
     this.annotateActiveSpan(dataDbError);
     this.recordDataDbMetric(dataDbError);
     this.captureException(exception, dataDbError);
@@ -81,6 +88,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       )
     ) {
       this.logError(exception, request);
+    }
+    if (!responseWritable) {
+      return;
     }
     if (exception instanceof TemplateAppTokenNotAllowedException) {
       return response.status(exception.getStatus()).json({

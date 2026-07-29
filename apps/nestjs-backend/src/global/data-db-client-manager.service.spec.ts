@@ -1,3 +1,5 @@
+import { PgPoolRegistry } from '@teable/db-main-prisma';
+import { Pool } from 'pg';
 import { describe, expect, it, vi } from 'vitest';
 import { encryptDataDbUrl } from '../features/space/data-db-url-secret';
 import { DataDbClientManager } from './data-db-client-manager.service';
@@ -7,6 +9,24 @@ const withTxClient = <T extends object>(txClient: T) => ({
   ...txClient,
   txClient: vi.fn(() => txClient),
 });
+
+const createManager = (
+  prismaService: ConstructorParameters<typeof DataDbClientManager>[0],
+  dataPrisma: ConstructorParameters<typeof DataDbClientManager>[1],
+  knex: ConstructorParameters<typeof DataDbClientManager>[2],
+  runtimeCache: ConstructorParameters<typeof DataDbClientManager>[3],
+  migrationService?: ConstructorParameters<typeof DataDbClientManager>[5],
+  cls?: ConstructorParameters<typeof DataDbClientManager>[6]
+) =>
+  new DataDbClientManager(
+    prismaService,
+    dataPrisma,
+    knex,
+    runtimeCache,
+    new PgPoolRegistry((config) => new Pool(config)),
+    migrationService,
+    cls
+  );
 
 const dataUrl = 'postgresql://teable:secret@example.com:5432/teable_data';
 const internalSchema = 'teable_meta_test';
@@ -36,7 +56,7 @@ describe('DataDbClientManager', () => {
         ]),
       },
     });
-    const manager = new DataDbClientManager(
+    const manager = createManager(
       prismaService as never,
       {} as never,
       {} as never,
@@ -62,7 +82,7 @@ describe('DataDbClientManager', () => {
     });
     const metaFallbackDataPrisma = {};
     const metaFallbackDataKnex = {};
-    const manager = new DataDbClientManager(
+    const manager = createManager(
       prismaService as never,
       metaFallbackDataPrisma as never,
       metaFallbackDataKnex as never,
@@ -84,7 +104,7 @@ describe('DataDbClientManager', () => {
     });
     const metaFallbackDataPrisma = {};
     const metaFallbackDataKnex = {};
-    const manager = new DataDbClientManager(
+    const manager = createManager(
       prismaService as never,
       metaFallbackDataPrisma as never,
       metaFallbackDataKnex as never,
@@ -111,7 +131,7 @@ describe('DataDbClientManager', () => {
     });
     const metaFallbackDataPrisma = {};
     const metaFallbackDataKnex = {};
-    const manager = new DataDbClientManager(
+    const manager = createManager(
       prismaService as never,
       metaFallbackDataPrisma as never,
       metaFallbackDataKnex as never,
@@ -144,7 +164,7 @@ describe('DataDbClientManager', () => {
     };
     const metaFallbackDataPrisma = {};
     const metaFallbackDataKnex = {};
-    const manager = new DataDbClientManager(
+    const manager = createManager(
       prismaService as never,
       metaFallbackDataPrisma as never,
       metaFallbackDataKnex as never,
@@ -181,7 +201,7 @@ describe('DataDbClientManager', () => {
     };
     const metaFallbackDataPrisma = {};
     const metaFallbackDataKnex = {};
-    const manager = new DataDbClientManager(
+    const manager = createManager(
       prismaService as never,
       metaFallbackDataPrisma as never,
       metaFallbackDataKnex as never,
@@ -224,7 +244,7 @@ describe('DataDbClientManager', () => {
     });
     const metaFallbackDataPrisma = {};
     const metaFallbackDataKnex = {};
-    const manager = new DataDbClientManager(
+    const manager = createManager(
       prismaService as never,
       metaFallbackDataPrisma as never,
       metaFallbackDataKnex as never,
@@ -251,7 +271,7 @@ describe('DataDbClientManager', () => {
       displayDatabase,
       internalSchema,
     });
-    await expect(manager.dataKnexForSpace('spcxxx')).resolves.not.toBe(metaFallbackDataKnex);
+    await expect(manager.dataKnexForSpace('spcxxx')).resolves.toBe(metaFallbackDataKnex);
     await manager.onModuleDestroy();
   });
 
@@ -261,7 +281,7 @@ describe('DataDbClientManager', () => {
         findUnique: vi.fn().mockResolvedValue(null),
       },
     });
-    const manager = new DataDbClientManager(
+    const manager = createManager(
       prismaService as never,
       {} as never,
       {} as never,
@@ -309,7 +329,7 @@ describe('DataDbClientManager', () => {
         }),
       },
     });
-    const manager = new DataDbClientManager(
+    const manager = createManager(
       prismaService as never,
       {} as never,
       {} as never,
@@ -342,7 +362,7 @@ describe('DataDbClientManager', () => {
         findUnique: vi.fn(),
       },
     });
-    const manager = new DataDbClientManager(
+    const manager = createManager(
       prismaService as never,
       {} as never,
       {} as never,
@@ -388,7 +408,7 @@ describe('DataDbClientManager', () => {
         }),
       },
     });
-    const manager = new DataDbClientManager(
+    const manager = createManager(
       prismaService as never,
       {} as never,
       {} as never,
@@ -421,7 +441,7 @@ describe('DataDbClientManager', () => {
         }),
       },
     });
-    const manager = new DataDbClientManager(
+    const manager = createManager(
       prismaService as never,
       {} as never,
       {} as never,

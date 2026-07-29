@@ -5,6 +5,7 @@ import {
   deleteBaseShare,
   getBaseLevelShare,
   refreshBaseShare,
+  ShortLinkType,
   updateBaseShare,
 } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
@@ -13,6 +14,8 @@ import { Dialog, DialogContent } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
+import { useOrigin } from '@/features/app/hooks/useOrigin';
+import { useShortLink } from '@/features/app/hooks/useShortLink';
 import { BaseShareContent } from './BaseShareContent';
 import { getShareUrl } from './NodeShareContent';
 import { useBaseSharePermissionOptions } from './useBaseSharePermissionOptions';
@@ -65,10 +68,19 @@ const BaseShareDialogContent = ({
     enabled: isBaseShared !== false,
   });
 
+  // Prefer the short URL for display/copy/QR code; only fall back to the long
+  // URL when short link creation failed (empty while loading to avoid a flash)
+  const { shortUrl, isFallback } = useShortLink(
+    share ? { type: ShortLinkType.BaseShare, resourceId: share.shareId } : undefined
+  );
+  const origin = useOrigin();
   const shareUrl = useMemo(() => {
     if (!share) return '';
-    return getShareUrl(share.shareId);
-  }, [share]);
+    return shortUrl ?? (isFallback ? getShareUrl(share.shareId, origin) : '');
+  }, [share, shortUrl, isFallback, origin]);
+  // Embed always uses the long URL: the iframe lives on third-party pages, so
+  // there is no reason to go through the short-link redirect
+  const embedUrl = share ? getShareUrl(share.shareId, origin) : '';
 
   const invalidateShareState = () => {
     queryClient.invalidateQueries({ queryKey: ReactQueryKeys.baseShareBase(baseId) });
@@ -164,6 +176,7 @@ const BaseShareDialogContent = ({
       }
       share={share || null}
       shareUrl={shareUrl}
+      embedUrl={embedUrl}
       isCreateLoading={isCreateLoading}
       isDeleteLoading={isDeleteLoading}
       isRefreshLoading={isRefreshLoading}

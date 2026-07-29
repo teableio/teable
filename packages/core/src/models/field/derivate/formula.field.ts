@@ -87,6 +87,11 @@ export class FormulaFieldCore extends FormulaAbstractCore {
   }
 
   getReferenceFieldIds() {
+    // Lookup-of-formula is type=formula + isLookup. Edges come from lookupOptions,
+    // never from a foreign/host formula expression (T6332).
+    if (this.isLookup) {
+      return [];
+    }
     const visitor = new FieldReferenceVisitor();
     return Array.from(new Set(visitor.visit(this.tree)));
   }

@@ -16,6 +16,8 @@ export const envValidationSchema = Joi.object({
   PRISMA_DATABASE_URL: Joi.string(),
   PRISMA_META_DATABASE_URL: Joi.string(),
   DATABASE_URL: Joi.string(),
+  DATABASE_POOL_MAX: Joi.number().integer().positive().optional(),
+  BYODB_DATA_DB_POOL_MAX: Joi.number().integer().positive().optional(),
   V2_COMPUTED_UPDATE_MODE: Joi.string().valid('sync').optional(),
 
   STORAGE_PREFIX: Joi.string().uri().optional(),
@@ -47,6 +49,10 @@ export const envValidationSchema = Joi.object({
   V2_COMPUTED_OUTBOX_TRIGGER_PUBLISH_TIMEOUT_MS: Joi.number().integer().positive().default(1000),
   V2_COMPUTED_OUTBOX_MONITOR_CONCURRENCY: Joi.number().integer().positive().default(4),
   V2_COMPUTED_OUTBOX_MONITOR_INTERVAL_MS: Joi.number().integer().positive().default(30000),
+
+  // per-space scheduling default concurrency limits
+  SPACE_AI_FIELD_GENERATION_DEFAULT_LIMIT: Joi.number().integer().positive().optional(),
+  SPACE_WORKFLOW_RUN_DEFAULT_LIMIT: Joi.number().integer().positive().optional(),
   // github auth
   BACKEND_GITHUB_CLIENT_ID: Joi.when('SOCIAL_AUTH_PROVIDERS', {
     is: Joi.string()

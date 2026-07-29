@@ -76,9 +76,11 @@ export class TableFields {
     for (const f of fields) {
       // Collect dependencies for each field
       let deps: string[] = [];
-      if (f.type === FieldType.Formula) {
+      // Lookup-of-formula stores type=formula + isLookup. Dependency edges come from
+      // lookupOptions only — never parse a foreign/empty formula expression (T6332).
+      if (f.type === FieldType.Formula && !f.isLookup) {
         // Prefer instance method if available, fallback to static helper
-        deps = (f as unknown as FormulaFieldCore).getReferenceFieldIds?.();
+        deps = (f as unknown as FormulaFieldCore).getReferenceFieldIds?.() ?? [];
       }
 
       // Lookup fields depend on their link field

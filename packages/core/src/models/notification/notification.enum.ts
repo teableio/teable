@@ -5,6 +5,7 @@ export enum NotificationTypeEnum {
   Comment = 'comment',
   ExportBase = 'exportBase',
   AdminNotice = 'adminNotice',
+  CollaboratorInvite = 'collaboratorInvite',
 }
 
 export enum NotificationStatesEnum {

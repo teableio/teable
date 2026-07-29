@@ -41,6 +41,27 @@ describe('TableQuerySearchVectorRuntimeService', () => {
     expect(accessPath?.coveredFieldIds.map((id) => id.toString())).toEqual([fieldId]);
   });
 
+  it('converts a ready substring config into a generated text access path', () => {
+    const fieldId = `fld${'b'.repeat(16)}`;
+    const accessPath = toRecordSearchAccessPathFromConfig({
+      generatedColumnName: '__tqops_search_document',
+      semantics: 'substring',
+      accessPath: 'generated_text',
+      provider: 'pg_bigm',
+      fieldIds: [fieldId],
+      searchScope: 'all_fields',
+      status: 'ready',
+    });
+
+    expect(accessPath).toMatchObject({
+      kind: 'generated_text',
+      generatedColumnName: '__tqops_search_document',
+      provider: 'pg_bigm',
+      searchScope: 'all_fields',
+    });
+    expect(accessPath?.coveredFieldIds.map((id) => id.toString())).toEqual([fieldId]);
+  });
+
   it('does not create an access path when covered fields are missing or invalid', () => {
     expect(
       toRecordSearchAccessPathFromConfig({

@@ -1,12 +1,40 @@
 import type { QueryClient } from '@tanstack/react-query';
+import { ViewType } from '@teable/core';
 import type { IBaseNodeVo } from '@teable/openapi';
-import { BaseNodeResourceType } from '@teable/openapi';
+import { BaseNodeResourceType, LastVisitResourceType } from '@teable/openapi';
+import type { SsrApi } from '@/backend/api/rest/ssr-api';
 import { getNodeUrl } from '@/features/app/blocks/base/base-node/hooks/helper';
 import type { SSRResult, ISSRContext } from './types';
 
 export const redirect = (destination: string): SSRResult => ({
   redirect: { destination, permanent: false },
 });
+
+/**
+ * Resolve the default view of a table: prefer the last visited view,
+ * otherwise fall back to the first view (skipping form views when opening a record)
+ */
+export const getDefaultViewId = async (
+  ssrApi: SsrApi,
+  tableId: string,
+  queryParams?: { recordId?: string }
+) => {
+  const { recordId } = queryParams ?? {};
+  const [lastVisit, viewList] = await Promise.all([
+    ssrApi.getUserLastVisit(LastVisitResourceType.View, tableId),
+    ssrApi.getViewList(tableId),
+  ]);
+  if (viewList.length === 0) {
+    return undefined;
+  }
+  const nonFormViews = viewList.filter((v) => v.type !== ViewType.Form);
+  const candidateViews = recordId && nonFormViews.length > 0 ? nonFormViews : viewList;
+  const viewIds = candidateViews.map((v) => v.id);
+
+  return lastVisit?.resourceId && viewIds.includes(lastVisit.resourceId)
+    ? lastVisit.resourceId
+    : viewIds[0]!;
+};
 
 interface IDefaultNodeOptions {
   filterNode?: (node: IBaseNodeVo) => boolean;
@@ -41,10 +69,17 @@ export const getDefaultNodeUrl = async (
     }
 
     if (findNode) {
+      // For table nodes, resolve the default view in the same pass so the browser
+      // gets a single redirect to the final URL instead of a second SSR round trip
+      let viewId: string | undefined;
+      if (findNode.resourceType === BaseNodeResourceType.Table) {
+        viewId = await getDefaultViewId(ssrApi, findNode.resourceId).catch(() => undefined);
+      }
       const url = getNodeUrl({
         baseId,
         resourceType: findNode.resourceType,
         resourceId: findNode.resourceId,
+        viewId,
       });
       return url?.pathname || null;
     }

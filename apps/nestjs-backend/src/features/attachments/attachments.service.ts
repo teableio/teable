@@ -26,7 +26,7 @@ import { StorageConfig, IStorageConfig } from '../../configs/storage';
 import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
 import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
-import { FileUtils, getSsrfSafeAgents } from '../../utils';
+import { FileUtils, getSafeAxiosAgents } from '../../utils';
 import { second } from '../../utils/second';
 import { AttachmentsCropQueueProcessor } from './attachments-crop.processor';
 import { AttachmentsStorageService } from './attachments-storage.service';
@@ -417,7 +417,7 @@ export class AttachmentsService {
     let tempFilePath: string | null = null;
 
     try {
-      const headResponse = await axios.head(fileUrl, getSsrfSafeAgents());
+      const headResponse = await axios.head(fileUrl, getSafeAxiosAgents());
       contentLength =
         headResponse.headers['content-length'] && parseInt(headResponse.headers['content-length']);
       contentType =
@@ -476,7 +476,7 @@ export class AttachmentsService {
       this.logger.log(`Downloading and uploading from URL: ${fileUrl}`);
       const response = await axios.get(fileUrl, {
         responseType: 'stream',
-        ...getSsrfSafeAgents(),
+        ...getSafeAxiosAgents(),
       });
       await this.uploadStreamToStorage(url, response.data, contentType, contentLength);
     }
@@ -527,7 +527,7 @@ export class AttachmentsService {
       method: 'get',
       url: url,
       responseType: 'stream',
-      ...getSsrfSafeAgents(),
+      ...getSafeAxiosAgents(),
     });
 
     return new Promise((resolve, reject) => {

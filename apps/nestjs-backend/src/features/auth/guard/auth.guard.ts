@@ -60,7 +60,11 @@ export class AuthGuard extends PassportAuthGuard([
       const res = context.switchToHttp().getResponse();
       const req = context.switchToHttp().getRequest();
       if (ensureLogin) {
-        return res.redirect(`/auth/login?redirect=${encodeURIComponent(req.url)}`);
+        // The redirect completes the response; returning false stops the
+        // pipeline. Nest still raises ForbiddenException for a false guard,
+        // which the global exception filter drops once headers are sent.
+        res.redirect(`/auth/login?redirect=${encodeURIComponent(req.url)}`);
+        return false;
       }
       throw error;
     }

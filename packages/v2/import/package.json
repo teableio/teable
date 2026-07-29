@@ -32,6 +32,7 @@
   },
   "dependencies": {
     "@teable/v2-core": "workspace:*",
+    "@teable/v2-utils": "workspace:*",
     "@teable/v2-di": "workspace:*",
     "neverthrow": "8.2.0",
     "papaparse": "5.5.3",

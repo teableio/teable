@@ -36,7 +36,6 @@ import {
   sumDirtyRecordCount,
 } from '../activity/resolveFieldTargets';
 import type { DirtyRecordStats } from '../ComputedFieldUpdater';
-import { buildTryAdvisoryLockQuery } from '../ComputedUpdateLock';
 import { toErrorLogFields } from '../errorLog';
 import { buildComputedTaskNotPausedCondition } from '../pause/ComputedUpdatePauseRegistry';
 import { COMPUTED_UPDATE_PAUSE_SCOPE_TABLE } from '../pause/IComputedUpdatePauseRegistry';
@@ -459,34 +458,50 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         db,
         context,
         async (trx) => {
-          await acquireOutboxAdvisoryLock(
+          // Try-lock only: losing the merge race must never park the caller's (often the
+          // user's write) transaction behind another enqueuer. Losers insert a fresh task
+          // under a bypass plan hash instead; recomputes are idempotent.
+          const mergeLockAcquired = await tryAcquireOutboxAdvisoryLock(
             trx,
             buildOutboxLockKey({
               baseId: task.baseId,
               seedTableId: task.seedTableId,
               planHash: task.planHash,
               changeType: task.changeType,
-            })
+            }),
+            'merge'
           );
-          const existing = await trx
-            .selectFrom(OUTBOX_TABLE)
-            .selectAll()
-            .where('base_id', '=', task.baseId)
-            .where('seed_table_id', '=', task.seedTableId)
-            .where('plan_hash', '=', task.planHash)
-            .where('change_type', '=', task.changeType)
-            .where('status', '=', DEFAULT_STATUS)
-            .forUpdate()
-            .executeTakeFirst();
+          const existing = mergeLockAcquired
+            ? await trx
+                .selectFrom(OUTBOX_TABLE)
+                .selectAll()
+                .where('base_id', '=', task.baseId)
+                .where('seed_table_id', '=', task.seedTableId)
+                .where('plan_hash', '=', task.planHash)
+                .where('change_type', '=', task.changeType)
+                .where('status', '=', DEFAULT_STATUS)
+                .forUpdate()
+                .executeTakeFirst()
+            : undefined;
 
           if (!existing) {
-            const taskId = await this.insertOutbox(trx, task, now);
+            const effectiveTask = mergeLockAcquired
+              ? task
+              : { ...task, planHash: uniquifyPlanHash(task.planHash) };
+            if (!mergeLockAcquired) {
+              this.logger.debug('computed:outbox:merge_lock_busy_bypass_insert', {
+                baseId: task.baseId,
+                seedTableId: task.seedTableId,
+                planHash: effectiveTask.planHash,
+              });
+            }
+            const taskId = await this.insertOutbox(trx, effectiveTask, now);
             const projected = await this.projectEnqueuedItem(
               {
                 taskId,
                 baseId: task.baseId,
                 item: {
-                  ...task,
+                  ...effectiveTask,
                   id: taskId,
                   status: 'pending',
                   attempts: 0,
@@ -581,35 +596,49 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         db,
         context,
         async (trx) => {
-          await acquireOutboxAdvisoryLock(
+          // Try-lock only; see enqueueOrMerge for the bypass-insert rationale.
+          const mergeLockAcquired = await tryAcquireOutboxAdvisoryLock(
             trx,
             buildOutboxLockKey({
               baseId: task.baseId,
               seedTableId: task.tableId,
               planHash: task.planHash,
               changeType: FIELD_BACKFILL_CHANGE_TYPE,
-            })
+            }),
+            'merge'
           );
           // Check for existing pending backfill task for same table/fields
-          const existing = await trx
-            .selectFrom(OUTBOX_TABLE)
-            .selectAll()
-            .where('base_id', '=', task.baseId)
-            .where('seed_table_id', '=', task.tableId)
-            .where('plan_hash', '=', task.planHash)
-            .where('change_type', '=', FIELD_BACKFILL_CHANGE_TYPE)
-            .where('status', '=', DEFAULT_STATUS)
-            .forUpdate()
-            .executeTakeFirst();
+          const existing = mergeLockAcquired
+            ? await trx
+                .selectFrom(OUTBOX_TABLE)
+                .selectAll()
+                .where('base_id', '=', task.baseId)
+                .where('seed_table_id', '=', task.tableId)
+                .where('plan_hash', '=', task.planHash)
+                .where('change_type', '=', FIELD_BACKFILL_CHANGE_TYPE)
+                .where('status', '=', DEFAULT_STATUS)
+                .forUpdate()
+                .executeTakeFirst()
+            : undefined;
 
           if (!existing) {
-            const taskId = await this.insertFieldBackfill(trx, task, now);
+            const effectiveTask = mergeLockAcquired
+              ? task
+              : { ...task, planHash: uniquifyPlanHash(task.planHash) };
+            if (!mergeLockAcquired) {
+              this.logger.debug('computed:outbox:backfill_merge_lock_busy_bypass_insert', {
+                baseId: task.baseId,
+                tableId: task.tableId,
+                planHash: effectiveTask.planHash,
+              });
+            }
+            const taskId = await this.insertFieldBackfill(trx, effectiveTask, now);
             const projected = await this.projectEnqueuedItem(
               {
                 taskId,
                 baseId: task.baseId,
                 item: {
-                  ...task,
+                  ...effectiveTask,
                   id: taskId,
                   status: 'pending',
                   attempts: 0,
@@ -725,15 +754,56 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         db,
         context,
         async (trx) => {
-          await acquireOutboxAdvisoryLock(
+          // Try-lock only; see enqueueOrMerge for the bypass-insert rationale. The bypass
+          // plan hash also keeps the insert clear of the pending-unique index.
+          const mergeLockAcquired = await tryAcquireOutboxAdvisoryLock(
             trx,
             buildOutboxLockKey({
               baseId: task.baseId,
               seedTableId: task.seedTableId,
               planHash: task.planHash,
               changeType: SEED_CHANGE_TYPE,
-            })
+            }),
+            'merge'
           );
+          if (!mergeLockAcquired) {
+            const bypassTask = { ...task, planHash: uniquifyPlanHash(task.planHash) };
+            this.logger.debug('computed:outbox:seed_merge_lock_busy_bypass_insert', {
+              baseId: task.baseId,
+              seedTableId: task.seedTableId,
+              planHash: bypassTask.planHash,
+            });
+            const taskId = await this.insertSeedTask(trx, bypassTask, now);
+            if (!taskId) {
+              return err(
+                domainError.infrastructure({
+                  message: 'Failed to insert seed task under bypass plan hash',
+                })
+              );
+            }
+            const projected = await this.projectEnqueuedItem(
+              {
+                taskId,
+                baseId: task.baseId,
+                item: {
+                  ...bypassTask,
+                  id: taskId,
+                  status: 'pending',
+                  attempts: 0,
+                  maxAttempts: this.config.maxAttempts,
+                  nextRunAt: now,
+                  createdAt: now,
+                  updatedAt: now,
+                },
+                now,
+                trx,
+              },
+              context
+            );
+            if (projected.isErr()) return err(projected.error);
+            return ok({ taskId, merged: false, activity: projected.value });
+          }
+
           const existing = await this.findPendingSeedTask(trx, task);
 
           if (!existing) {
@@ -878,7 +948,21 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         db,
         context,
         async (trx) => {
-          await acquireOutboxAdvisoryLock(trx, OUTBOX_CLAIM_ADVISORY_LOCK_KEY);
+          // Try-or-skip: another node inside a claim round means work is being drained;
+          // parking every worker's claim behind one holder is how a single stuck claim
+          // transaction stalls the whole fleet. Pending tasks are re-driven by their own
+          // wakeups and the periodic redrive sweep.
+          const claimLockAcquired = await tryAcquireOutboxAdvisoryLock(
+            trx,
+            OUTBOX_CLAIM_ADVISORY_LOCK_KEY,
+            'claim_global'
+          );
+          if (!claimLockAcquired) {
+            this.logger.debug('computed:outbox:claim_skipped_lock_busy', {
+              workerId: params.workerId,
+            });
+            return ok({ tasks: [], activity: null });
+          }
           const staleRows =
             reclaimLimit > 0
               ? await trx
@@ -1148,7 +1232,8 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             // the handler will re-arm this durable task after a fast miss.
             const acquired = await tryAcquireOutboxAdvisoryLock(
               trx,
-              `v2:outbox:claim:base:${String(locator.base_id)}`
+              `v2:outbox:claim:base:${String(locator.base_id)}`,
+              'claim_base'
             );
             if (!acquired) return ok(null);
             const candidate = await trx
@@ -1485,8 +1570,24 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
                 taskId,
                 leaseOwner,
               });
+              // Lease lost: do not touch activity here; the new owner owns the task lifecycle.
+              return ok({ done: false as const });
             }
-            return ok({ done: false as const });
+
+            // Task row already gone (crash/reclaim/manual cleanup). Still drop any leftover
+            // activity refs so the UI cannot stay queued forever with no outbox work.
+            const baseId = typeof taskOrId === 'string' ? undefined : taskOrId.baseId;
+            const activityResult = await this.activityProjector.onTaskDone(
+              {
+                taskId,
+                baseId,
+                now: new Date(),
+                trx,
+              },
+              context
+            );
+            if (activityResult.isErr()) return err(activityResult.error);
+            return ok({ done: false as const, activity: activityResult.value });
           }
 
           await trx.deleteFrom(OUTBOX_SEED_TABLE).where('task_id', '=', taskId).execute();
@@ -1528,7 +1629,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         result = await executeMarkDone();
       }
       if (result.isErr()) return err(result.error);
-      if (result.value.done) {
+      if (result.value.activity) {
         await this.publishActivityChanged(result.value.activity, context);
       }
       return ok(result.value.done);
@@ -1553,9 +1654,8 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
     };
     const executeRelease = async (): Promise<Result<ReleaseOutcome, DomainError>> => {
       const now = params.now ?? new Date();
-      const retryDelayMs = Math.max(
-        0,
-        Math.trunc(params.retryDelayMs ?? this.config.baseBackoffMs)
+      const retryDelayMs = applyRetryJitter(
+        Math.max(0, Math.trunc(params.retryDelayMs ?? this.config.baseBackoffMs))
       );
       const nextRunAt = new Date(now.getTime() + retryDelayMs);
       const leaseOwner = params.task.lockedBy ?? null;
@@ -1571,7 +1671,10 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         db,
         context,
         async (trx) => {
-          await acquireOutboxAdvisoryLock(trx, lockKey);
+          // Try-lock only: a busy merge key just skips merge-into-pending; the row is
+          // re-released under a bypass plan hash so the pending-unique index cannot
+          // collide with a twin we did not inspect.
+          const mergeLockAcquired = await tryAcquireOutboxAdvisoryLock(trx, lockKey, 'merge');
 
           if (leaseOwner) {
             const ownedRow = await trx
@@ -1592,16 +1695,18 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             }
           }
 
-          const pending = await trx
-            .selectFrom(OUTBOX_TABLE)
-            .selectAll()
-            .where('base_id', '=', params.task.baseId)
-            .where('seed_table_id', '=', getOutboxRowSeedTableId(params.task))
-            .where('plan_hash', '=', params.task.planHash)
-            .where('change_type', '=', getOutboxRowChangeType(params.task))
-            .where('status', '=', DEFAULT_STATUS)
-            .forUpdate()
-            .executeTakeFirst();
+          const pending = mergeLockAcquired
+            ? await trx
+                .selectFrom(OUTBOX_TABLE)
+                .selectAll()
+                .where('base_id', '=', params.task.baseId)
+                .where('seed_table_id', '=', getOutboxRowSeedTableId(params.task))
+                .where('plan_hash', '=', params.task.planHash)
+                .where('change_type', '=', getOutboxRowChangeType(params.task))
+                .where('status', '=', DEFAULT_STATUS)
+                .forUpdate()
+                .executeTakeFirst()
+            : undefined;
 
           if (pending && String(pending.id) !== params.task.id) {
             const mergedTaskId = await this.mergeRetryTaskIntoPending(
@@ -1650,6 +1755,9 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             .updateTable(OUTBOX_TABLE)
             .set({
               status: DEFAULT_STATUS,
+              ...(mergeLockAcquired
+                ? {}
+                : { plan_hash: uniquifyPlanHash(params.task.planHash) }),
               next_run_at: nextRunAt,
               last_error: params.reason,
               locked_at: null,
@@ -1826,9 +1934,8 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
             return ok({ updated: true, activity: terminalActivity.value });
           }
 
-          const delay = Math.min(
-            this.config.baseBackoffMs * 2 ** (nextAttempts - 1),
-            this.config.maxBackoffMs
+          const delay = applyRetryJitter(
+            Math.min(this.config.baseBackoffMs * 2 ** (nextAttempts - 1), this.config.maxBackoffMs)
           );
           const nextRunAt = new Date(now.getTime() + delay);
 
@@ -2885,24 +2992,56 @@ const buildOutboxLockKey = (params: {
 }): string =>
   `v2:outbox:${params.baseId}:${params.seedTableId}:${params.planHash}:${params.changeType}`;
 
-const acquireOutboxAdvisoryLock = async <DB>(
+type OutboxAdvisoryLockScope = 'merge' | 'claim_global' | 'claim_base';
+
+// The trailing constant column splits pg_stat_statements/PI fingerprints per lock scope:
+// queryid ignores comments and constant values, but jumbles constant types and target
+// arity, and aliases stay visible in the normalized query text. Computed locks keep the
+// single-column shape (see ComputedUpdateLock), so each scope's waits are attributable.
+export const buildTryOutboxAdvisoryLockQuery = <DB>(
   db: Kysely<DB> | Transaction<DB>,
-  key: string
-): Promise<void> => {
-  await db.executeQuery(
-    sql`SELECT pg_advisory_xact_lock(('x' || substr(md5(${key}), 1, 16))::bit(64)::bigint)`.compile(
-      db
-    )
-  );
+  key: string,
+  scope: OutboxAdvisoryLockScope
+) => {
+  switch (scope) {
+    case 'merge':
+      return sql<{ locked: boolean }>`select pg_try_advisory_xact_lock(
+        ('x' || substr(md5(${key}), 1, 16))::bit(64)::bigint
+      ) as locked, 'outbox_merge' as lock_scope`.compile(db);
+    case 'claim_global':
+      return sql<{ locked: boolean }>`select pg_try_advisory_xact_lock(
+        ('x' || substr(md5(${key}), 1, 16))::bit(64)::bigint
+      ) as locked, 1 as lock_scope_outbox_claim_global`.compile(db);
+    case 'claim_base':
+      return sql<{ locked: boolean }>`select pg_try_advisory_xact_lock(
+        ('x' || substr(md5(${key}), 1, 16))::bit(64)::bigint
+      ) as locked, true as lock_scope_outbox_claim_base`.compile(db);
+  }
 };
 
 const tryAcquireOutboxAdvisoryLock = async <DB>(
   db: Kysely<DB> | Transaction<DB>,
-  key: string
+  key: string,
+  scope: OutboxAdvisoryLockScope
 ): Promise<boolean> => {
-  const result = await db.executeQuery(buildTryAdvisoryLockQuery(db, key));
+  const result = await db.executeQuery(buildTryOutboxAdvisoryLockQuery(db, key, scope));
   return result.rows[0]?.locked === true;
 };
+
+const NO_MERGE_PLAN_HASH_MARKER = ':nolock:';
+
+/**
+ * Bypass plan hash for enqueues that lost the merge try-lock. A unique suffix keeps the
+ * insert clear of the pending-unique index and merge lookups, trading one redundant
+ * (idempotent) recompute for never blocking inside the caller's transaction.
+ */
+const uniquifyPlanHash = (planHash: string): string => {
+  const base = planHash.split(NO_MERGE_PLAN_HASH_MARKER)[0];
+  return `${base}${NO_MERGE_PLAN_HASH_MARKER}${generatePrefixedId('cnm', 8)}`;
+};
+
+/** Spread retries across [0.5x, 1.5x) so same-key losers do not wake in lockstep. */
+const applyRetryJitter = (delayMs: number): number => Math.floor(delayMs * (0.5 + Math.random()));
 
 const describeError = (error: unknown): string => {
   if (error instanceof Error) return error.message ? `${error.name}: ${error.message}` : error.name;

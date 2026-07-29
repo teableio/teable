@@ -1,6 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { sharePasswordSchema, type IShareViewMeta, ViewType } from '@teable/core';
 import { Copy, Edit, RefreshCcw, Qrcode } from '@teable/icons';
+import { ShortLinkType } from '@teable/openapi';
 import { useTablePermission, useView } from '@teable/sdk/hooks';
 import type { View } from '@teable/sdk/model';
 import {
@@ -34,19 +35,22 @@ import { useTranslation } from 'next-i18next';
 import { QRCodeSVG } from 'qrcode.react';
 import { useEffect, useMemo, useState } from 'react';
 import { CopyButton } from '@/features/app/components/CopyButton';
+import { useOrigin } from '@/features/app/hooks/useOrigin';
+import { useShortLink } from '@/features/app/hooks/useShortLink';
 import { tableConfig } from '@/features/i18n/table.config';
 import { ShareLinkScopeSettings } from './ShareLinkScopeSettings';
 
 const getShareUrl = ({
+  origin,
   shareId,
   theme,
   hideToolBar,
 }: {
+  origin: string;
   shareId: string;
   theme?: string;
   hideToolBar?: boolean;
 }) => {
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://app.teable.ai';
   const url = new URL(`/share/${shareId}/view`, origin);
   if (theme && theme !== 'system') {
     url.searchParams.append('theme', theme);
@@ -229,11 +233,36 @@ export const ShareViewContent: React.FC = () => {
     onSuccess: () => setOptimisticEnabled(false),
   });
 
+  const origin = useOrigin();
   const shareUrl = useMemo(() => {
-    return view?.shareId
-      ? getShareUrl({ shareId: view?.shareId, theme: shareTheme, hideToolBar })
+    return view?.shareId && origin
+      ? getShareUrl({ origin, shareId: view?.shareId, theme: shareTheme, hideToolBar })
       : undefined;
-  }, [view?.shareId, shareTheme, hideToolBar]);
+  }, [origin, view?.shareId, shareTheme, hideToolBar]);
+
+  const shareEnabled = optimisticEnabled ?? view?.enableShare;
+  const { shortUrl, isFallback } = useShortLink(
+    shareEnabled && view?.shareId
+      ? { type: ShortLinkType.ViewShare, resourceId: view.shareId }
+      : undefined
+  );
+  // Prefer the short URL for display/copy/QR code; extra params (theme, hideToolBar)
+  // are forwarded to the target path when the short link redirects.
+  // Only fall back to the long URL when short link creation failed
+  // (empty while loading to avoid a flash of the long URL).
+  const displayShareUrl = useMemo(() => {
+    if (!shortUrl) {
+      return isFallback ? shareUrl : undefined;
+    }
+    const url = new URL(shortUrl);
+    if (shareTheme && shareTheme !== 'system') {
+      url.searchParams.append('theme', shareTheme);
+    }
+    if (hideToolBar) {
+      url.searchParams.append('hideToolBar', 'true');
+    }
+    return url.toString();
+  }, [shortUrl, isFallback, shareUrl, shareTheme, hideToolBar]);
 
   if (!view) {
     return null;
@@ -364,9 +393,9 @@ export const ShareViewContent: React.FC = () => {
             )}
             <ShareLinkScopeSettings />
             <div className="flex items-center gap-2">
-              <Input className="min-w-0 flex-1" id="share-link" value={shareUrl} readOnly />
+              <Input className="min-w-0 flex-1" id="share-link" value={displayShareUrl} readOnly />
               <CopyButton
-                text={shareUrl as string}
+                text={displayShareUrl as string}
                 variant="outline"
                 size="icon-sm"
                 className="shrink-0"
@@ -378,7 +407,7 @@ export const ShareViewContent: React.FC = () => {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="size-48 bg-white p-2">
-                  {shareUrl && <QRCodeSVG value={shareUrl} className="size-full" />}
+                  {displayShareUrl && <QRCodeSVG value={displayShareUrl} className="size-full" />}
                 </PopoverContent>
               </Popover>
               <TooltipProvider>

@@ -10,6 +10,7 @@ import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
 import { Selector } from '@/components/Selector';
 import { RequireCom } from '@/features/app/blocks/setting/components/RequireCom';
+import { useEnv } from '@/features/app/hooks/useEnv';
 import { tableConfig } from '@/features/i18n/table.config';
 
 interface ISelectTableProps {
@@ -136,6 +137,7 @@ interface IBasePickerProps {
 const BasePicker = ({ baseId, onChange }: IBasePickerProps) => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const selfBase = useBase();
+  const { allowCrossSpaceReference } = useEnv();
   const { data: allBases } = useQuery({
     queryKey: ReactQueryKeys.baseAll(),
     queryFn: () =>
@@ -144,7 +146,9 @@ const BasePicker = ({ baseId, onChange }: IBasePickerProps) => {
       >,
   });
 
-  let bases = allBases?.filter((base) => base.spaceId === selfBase?.spaceId);
+  let bases = allowCrossSpaceReference
+    ? allBases
+    : allBases?.filter((base) => base.spaceId === selfBase?.spaceId);
 
   if (baseId && !bases?.find((base) => base.id === baseId)) {
     const grandfathered = allBases?.find((base) => base.id === baseId);
