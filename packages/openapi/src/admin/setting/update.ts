@@ -29,6 +29,7 @@ export enum LLMProviderType {
   COHERE = 'cohere',
   MISTRAL = 'mistral',
   DEEPSEEK = 'deepseek',
+  MINIMAX = 'minimax',
   QWEN = 'qwen',
   ZHIPU = 'zhipu',
   LINGYIWANWU = 'lingyiwanwu',
@@ -83,6 +84,67 @@ export const modelConfigSchema = z.object({
 });
 
 export type IModelConfig = z.infer<typeof modelConfigSchema>;
+
+export const MINIMAX_MODEL_IDS = ['MiniMax-M3', 'MiniMax-M2.7'] as const;
+
+export const MINIMAX_PROVIDER_ENDPOINTS = [
+  {
+    region: 'global_en',
+    apiStyle: 'chatCompletions',
+    baseUrl: 'https://api.minimax.io/v1',
+  },
+  {
+    region: 'cn_zh',
+    apiStyle: 'chatCompletions',
+    baseUrl: 'https://api.minimaxi.com/v1',
+  },
+  {
+    region: 'global_en',
+    apiStyle: 'messages',
+    baseUrl: 'https://api.minimax.io/anthropic',
+  },
+  {
+    region: 'cn_zh',
+    apiStyle: 'messages',
+    baseUrl: 'https://api.minimaxi.com/anthropic',
+  },
+] as const;
+
+export const MINIMAX_DEFAULT_MODEL_CONFIGS = {
+  'MiniMax-M3': {
+    pricing: {
+      input: '0.0000006',
+      output: '0.0000024',
+      inputCacheRead: '0.00000012',
+    },
+    ability: { image: true, reasoning: true },
+    ownedBy: 'minimax',
+    modelType: 'language',
+    tags: ['reasoning', 'vision', 'video-input'],
+    contextWindow: 1_000_000,
+  },
+  'MiniMax-M2.7': {
+    pricing: {
+      input: '0.0000003',
+      output: '0.0000012',
+      inputCacheRead: '0.00000006',
+      inputCacheWrite: '0.000000375',
+    },
+    ability: { reasoning: true },
+    ownedBy: 'minimax',
+    modelType: 'language',
+    tags: ['reasoning'],
+    contextWindow: 204_800,
+  },
+} satisfies Record<(typeof MINIMAX_MODEL_IDS)[number], IModelConfig>;
+
+export const isMiniMaxMessagesEndpoint = (baseUrl: string): boolean => {
+  const normalizedBaseUrl = baseUrl.replace(/\/+$/, '');
+  return MINIMAX_PROVIDER_ENDPOINTS.some(
+    (endpoint) =>
+      endpoint.apiStyle === 'messages' && endpoint.baseUrl.replace(/\/+$/, '') === normalizedBaseUrl
+  );
+};
 
 export const llmProviderSchema = z.object({
   type: z.enum(LLMProviderType),

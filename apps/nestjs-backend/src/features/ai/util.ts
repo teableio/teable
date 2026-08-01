@@ -11,7 +11,7 @@ import { createTogetherAI } from '@ai-sdk/togetherai';
 import { createXai } from '@ai-sdk/xai';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import type { IAIConfig, Task } from '@teable/openapi';
-import { LLMProviderType } from '@teable/openapi';
+import { isMiniMaxMessagesEndpoint, LLMProviderType } from '@teable/openapi';
 import { get } from 'lodash';
 import { createOllama } from 'ollama-ai-provider-v2';
 import { TASK_MODEL_MAP } from './constant';
@@ -88,6 +88,13 @@ const createOpenAICompatibleWrapper = (
   });
 };
 
+const createMiniMax = (options: Parameters<typeof createOpenAICompatible>[0]) => {
+  if (isMiniMaxMessagesEndpoint(options.baseURL)) {
+    return createAnthropic(options);
+  }
+  return createOpenAICompatible(options);
+};
+
 export const modelProviders = {
   [LLMProviderType.OPENAI]: createOpenAI,
   [LLMProviderType.ANTHROPIC]: createAnthropic,
@@ -96,6 +103,7 @@ export const modelProviders = {
   [LLMProviderType.COHERE]: createCohere,
   [LLMProviderType.MISTRAL]: createMistral,
   [LLMProviderType.DEEPSEEK]: createDeepSeek,
+  [LLMProviderType.MINIMAX]: createMiniMax,
   [LLMProviderType.QWEN]: createOpenAICompatible,
   [LLMProviderType.ZHIPU]: createOpenAICompatible,
   [LLMProviderType.LINGYIWANWU]: createOpenAICompatible,

@@ -35,8 +35,13 @@ import {
   Prodia,
   Recraft,
 } from '@teable/icons';
-import type { GatewayModelProvider } from '@teable/openapi';
-import { LLMProviderType } from '@teable/openapi';
+import type { GatewayModelProvider, LLMProvider } from '@teable/openapi';
+import {
+  LLMProviderType,
+  MINIMAX_DEFAULT_MODEL_CONFIGS,
+  MINIMAX_MODEL_IDS,
+  MINIMAX_PROVIDER_ENDPOINTS,
+} from '@teable/openapi';
 
 export const LLM_PROVIDER_ICONS = {
   [LLMProviderType.OPENAI]: Openai,
@@ -46,6 +51,7 @@ export const LLM_PROVIDER_ICONS = {
   [LLMProviderType.COHERE]: Cohere,
   [LLMProviderType.MISTRAL]: Mistral,
   [LLMProviderType.DEEPSEEK]: Deepseek,
+  [LLMProviderType.MINIMAX]: Minimax,
   [LLMProviderType.QWEN]: Qwen,
   [LLMProviderType.ZHIPU]: Zhipu,
   [LLMProviderType.LINGYIWANWU]: Lingyiwanwu,
@@ -66,7 +72,16 @@ type LLMProviderOption = {
   apiKeyPlaceholder?: string;
   Icon: React.ComponentType<{ className?: string }>;
   hideInProviderSelect?: boolean;
+  baseUrlPresets?: ReadonlyArray<{ label: string; baseUrl: string }>;
+  defaults?: Pick<LLMProvider, 'baseUrl' | 'models' | 'modelConfigs'>;
 };
+
+const MINIMAX_BASE_URL_PRESETS = MINIMAX_PROVIDER_ENDPOINTS.map((endpoint) => ({
+  label: `${endpoint.region === 'global_en' ? 'Global' : 'China'} (${
+    endpoint.apiStyle === 'chatCompletions' ? 'Chat Completions' : 'Messages'
+  })`,
+  baseUrl: endpoint.baseUrl,
+}));
 
 export const LLM_PROVIDERS: readonly LLMProviderOption[] = [
   {
@@ -76,6 +91,19 @@ export const LLM_PROVIDERS: readonly LLMProviderOption[] = [
     modelsPlaceholder: 'deepseek-chat,deepseek-reasoner',
     Icon: LLM_PROVIDER_ICONS[LLMProviderType.DEEPSEEK],
     hideInProviderSelect: true,
+  },
+  {
+    value: LLMProviderType.MINIMAX,
+    label: 'MiniMax',
+    baseUrlPlaceholder: MINIMAX_PROVIDER_ENDPOINTS[0].baseUrl,
+    modelsPlaceholder: MINIMAX_MODEL_IDS.join(','),
+    Icon: LLM_PROVIDER_ICONS[LLMProviderType.MINIMAX],
+    baseUrlPresets: MINIMAX_BASE_URL_PRESETS,
+    defaults: {
+      baseUrl: MINIMAX_PROVIDER_ENDPOINTS[0].baseUrl,
+      models: MINIMAX_MODEL_IDS.join(','),
+      modelConfigs: MINIMAX_DEFAULT_MODEL_CONFIGS,
+    },
   },
   {
     value: LLMProviderType.OPENAI,
