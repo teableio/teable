@@ -1,0 +1,16 @@
+-- AlterTable
+ALTER TABLE "plugin" ADD COLUMN     "config" TEXT;
+
+-- CreateTable
+CREATE TABLE "plugin_panel" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "table_id" TEXT NOT NULL,
+    "layout" TEXT,
+    "created_by" TEXT NOT NULL,
+    "created_time" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "last_modified_time" TIMESTAMP(3),
+    "last_modified_by" TEXT,
+
+    CONSTRAINT "plugin_panel_pkey" PRIMARY KEY ("id")
+);

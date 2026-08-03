@@ -1,0 +1,648 @@
+import { err, ok, safeTry } from 'neverthrow';
+import type { Result } from 'neverthrow';
+import { z } from 'zod';
+
+import { domainError, type DomainError } from '../../../shared/DomainError';
+import type { ISpecification } from '../../../shared/specification/ISpecification';
+import { ValueObject } from '../../../shared/ValueObject';
+import type { ITableRecordConditionSpecVisitor } from '../../records/specs/ITableRecordConditionSpecVisitor';
+import {
+  recordConditionOperatorSchema,
+  type RecordConditionOperator,
+} from '../../records/specs/RecordConditionOperators';
+import { RecordConditionSpecBuilder } from '../../records/specs/RecordConditionSpecBuilder';
+import {
+  RecordConditionDateValue,
+  RecordConditionFieldReferenceValue,
+  RecordConditionLiteralListValue,
+  RecordConditionLiteralValue,
+  type RecordConditionValue,
+} from '../../records/specs/RecordConditionValues';
+import type { TableRecord } from '../../records/TableRecord';
+import type { Table } from '../../Table';
+import { DbFieldName } from '../DbFieldName';
+import type { Field } from '../Field';
+import { FieldId } from '../FieldId';
+import { FieldName } from '../FieldName';
+import { SingleLineTextField } from './SingleLineTextField';
+
+/**
+ * Represents a single filter item in a condition.
+ */
+export type FilterItemValue = {
+  fieldId: string;
+  operator: RecordConditionOperator;
+  value?: unknown;
+};
+
+/**
+ * Sort configuration for a condition.
+ */
+export type ConditionSortValue = {
+  fieldId: string;
+  order: 'asc' | 'desc';
+};
+
+/**
+ * DTO format for FieldCondition, compatible with v1 IFilter format.
+ */
+export type FieldConditionDTO = {
+  filter?: IFilterDTO | null;
+  sort?: ConditionSortValue;
+  limit?: number;
+};
+
+/**
+ * v1 IFilter compatible format.
+ */
+export type IFilterDTO = {
+  conjunction: 'and' | 'or';
+  filterSet: (IFilterItemDTO | IFilterDTO)[];
+};
+
+/**
+ * v1 IFilterItem compatible format.
+ */
+export type IFilterItemDTO = {
+  fieldId: string;
+  operator: string;
+  value?: unknown;
+  isSymbol?: boolean;
+};
+
+const conditionSortSchema = z.object({
+  fieldId: z.string().min(1),
+  order: z.enum(['asc', 'desc']),
+});
+
+const filterItemSchema = z.object({
+  fieldId: z.string().min(1),
+  operator: z.string().min(1),
+  value: z.unknown().optional(),
+  isSymbol: z.boolean().optional(),
+});
+
+const baseFilterSetSchema = z.object({
+  conjunction: z.enum(['and', 'or']),
+});
+
+type FilterSetType = z.infer<typeof baseFilterSetSchema> & {
+  filterSet: (z.infer<typeof filterItemSchema> | FilterSetType)[];
+};
+
+const nestedFilterSchema: z.ZodType<FilterSetType> = baseFilterSetSchema.extend({
+  filterSet: z.lazy(() => z.union([filterItemSchema, nestedFilterSchema]).array()),
+});
+
+const fieldConditionDtoSchema = z.object({
+  filter: nestedFilterSchema.nullable().optional(),
+  sort: conditionSortSchema.optional(),
+  limit: z.number().int().positive().optional(),
+});
+
+const RECORD_ID_FIELD_ID = '__id';
+type ConditionFieldId = FieldId | typeof RECORD_ID_FIELD_ID;
+
+const isRecordIdFieldId = (value: unknown): value is typeof RECORD_ID_FIELD_ID =>
+  value === RECORD_ID_FIELD_ID;
+
+const conditionFieldIdEquals = (a: ConditionFieldId, b: ConditionFieldId): boolean =>
+  typeof a === 'string' || typeof b === 'string' ? a === b : a.equals(b);
+
+/**
+ * Internal representation of a filter item.
+ */
+type FilterItem = {
+  fieldId: ConditionFieldId;
+  operator: RecordConditionOperator;
+  value?: unknown;
+  /**
+   * When true, the value is a field ID reference (column-to-column comparison).
+   * This allows conditions like "field1 = field2".
+   */
+  isSymbol?: boolean;
+};
+
+/**
+ * Internal representation of sort configuration.
+ */
+class ConditionSort extends ValueObject {
+  private constructor(
+    private readonly fieldIdValue: FieldId,
+    private readonly orderValue: 'asc' | 'desc'
+  ) {
+    super();
+  }
+
+  static create(value: unknown): Result<ConditionSort, DomainError> {
+    const parsed = conditionSortSchema.safeParse(value);
+    if (!parsed.success) {
+      return err(domainError.validation({ message: 'Invalid ConditionSort' }));
+    }
+
+    return FieldId.create(parsed.data.fieldId).map(
+      (fieldId) => new ConditionSort(fieldId, parsed.data.order)
+    );
+  }
+
+  fieldId(): FieldId {
+    return this.fieldIdValue;
+  }
+
+  order(): 'asc' | 'desc' {
+    return this.orderValue;
+  }
+
+  toDto(): ConditionSortValue {
+    return {
+      fieldId: this.fieldIdValue.toString(),
+      order: this.orderValue,
+    };
+  }
+
+  equals(other: ConditionSort): boolean {
+    return this.fieldIdValue.equals(other.fieldIdValue) && this.orderValue === other.orderValue;
+  }
+}
+
+/**
+ * FieldCondition value object for conditional field configuration.
+ *
+ * Encapsulates filter/sort/limit configuration that can be converted to RecordConditionSpec.
+ * Compatible with v1 IFilter DTO format for seamless migration.
+ *
+ * This abstraction is shared between:
+ * - ConditionalRollupField
+ * - ConditionalLookupField
+ * - View filter (future)
+ */
+export class FieldCondition extends ValueObject {
+  private constructor(
+    private readonly filterItemsValue: ReadonlyArray<FilterItem>,
+    private readonly conjunctionValue: 'and' | 'or',
+    private readonly sortValue: ConditionSort | undefined,
+    private readonly limitValue: number | undefined,
+    private readonly rawFilterValue: IFilterDTO | null | undefined
+  ) {
+    super();
+  }
+
+  /**
+   * Creates a FieldCondition from a raw DTO (compatible with v1 IFilter format).
+   */
+  static create(dto: unknown): Result<FieldCondition, DomainError> {
+    const parsed = fieldConditionDtoSchema.safeParse(dto);
+    if (!parsed.success) {
+      return err(
+        domainError.validation({
+          code: 'field.condition.invalid',
+          message: 'Invalid FieldCondition',
+          details: { issues: parsed.error.issues },
+        })
+      );
+    }
+
+    const { filter, sort, limit } = parsed.data;
+
+    // Parse filter into flat FilterItems
+    let filterItems: FilterItem[] = [];
+    let conjunction: 'and' | 'or' = 'and';
+
+    if (filter) {
+      const parseResult = FieldCondition.parseV1Filter(filter);
+      if (parseResult.isErr()) return err(parseResult.error);
+      filterItems = parseResult.value.items;
+      conjunction = parseResult.value.conjunction;
+    }
+
+    // Parse sort
+    let sortVO: ConditionSort | undefined;
+    if (sort) {
+      const sortResult = ConditionSort.create(sort);
+      if (sortResult.isErr()) return err(sortResult.error);
+      sortVO = sortResult.value;
+    }
+
+    return ok(new FieldCondition(filterItems, conjunction, sortVO, limit, filter));
+  }
+
+  /**
+   * Creates an empty FieldCondition (no filter, sort, or limit).
+   */
+  static empty(): FieldCondition {
+    return new FieldCondition([], 'and', undefined, undefined, null);
+  }
+
+  /**
+   * Parses v1 IFilter format into a flat array of FilterItems.
+   */
+  private static parseConditionFieldId(fieldId: string): Result<ConditionFieldId, DomainError> {
+    if (isRecordIdFieldId(fieldId)) return ok(RECORD_ID_FIELD_ID);
+    return FieldId.create(fieldId);
+  }
+
+  private static createRecordIdField(): Result<Field, DomainError> {
+    const nameResult = FieldName.create(RECORD_ID_FIELD_ID);
+    if (nameResult.isErr()) return err(nameResult.error);
+
+    const fieldResult = SingleLineTextField.create({
+      id: FieldId.mustGenerate(),
+      name: nameResult.value,
+    });
+    if (fieldResult.isErr()) return err(fieldResult.error);
+
+    const dbFieldNameResult = DbFieldName.rehydrate(RECORD_ID_FIELD_ID);
+    if (dbFieldNameResult.isErr()) return err(dbFieldNameResult.error);
+
+    const setDbFieldNameResult = fieldResult.value.setDbFieldName(dbFieldNameResult.value);
+    if (setDbFieldNameResult.isErr()) return err(setDbFieldNameResult.error);
+
+    return ok(fieldResult.value);
+  }
+
+  private static resolveConditionField(
+    fieldIdValue: string,
+    fields: ReadonlyArray<Field>,
+    options: {
+      code: string;
+      messagePrefix: string;
+    }
+  ): Result<Field, DomainError> {
+    if (isRecordIdFieldId(fieldIdValue)) return FieldCondition.createRecordIdField();
+
+    const fieldIdResult = FieldId.create(fieldIdValue);
+    if (fieldIdResult.isErr()) return err(fieldIdResult.error);
+
+    const field = fields.find((f) => f.id().equals(fieldIdResult.value));
+    if (!field) {
+      return err(
+        domainError.notFound({
+          code: options.code,
+          message: `${options.messagePrefix}: ${fieldIdValue}`,
+          details: { fieldId: fieldIdValue },
+        })
+      );
+    }
+
+    return ok(field);
+  }
+
+  private static parseV1Filter(
+    filter: IFilterDTO
+  ): Result<{ items: FilterItem[]; conjunction: 'and' | 'or' }, DomainError> {
+    const items: FilterItem[] = [];
+
+    for (const entry of filter.filterSet) {
+      if ('fieldId' in entry && !('filterSet' in entry)) {
+        // This is a filter item
+        const filterItemEntry = entry as IFilterItemDTO;
+
+        const fieldIdResult = FieldCondition.parseConditionFieldId(filterItemEntry.fieldId);
+        if (fieldIdResult.isErr()) return err(fieldIdResult.error);
+
+        const operatorResult = recordConditionOperatorSchema.safeParse(filterItemEntry.operator);
+        if (!operatorResult.success) {
+          return err(
+            domainError.validation({
+              code: 'field.condition.invalid_operator',
+              message: `Invalid operator: ${filterItemEntry.operator}`,
+            })
+          );
+        }
+
+        items.push({
+          fieldId: fieldIdResult.value,
+          operator: operatorResult.data,
+          value: filterItemEntry.value,
+          ...(filterItemEntry.isSymbol !== undefined && { isSymbol: filterItemEntry.isSymbol }),
+        });
+      } else if ('filterSet' in entry) {
+        // This is a nested filter - recursively parse
+        const nestedResult = FieldCondition.parseV1Filter(entry as IFilterDTO);
+        if (nestedResult.isErr()) return err(nestedResult.error);
+        items.push(...nestedResult.value.items);
+      }
+    }
+
+    return ok({ items, conjunction: filter.conjunction });
+  }
+
+  /**
+   * Returns the filter items as internal representation.
+   */
+  filterItems(): ReadonlyArray<{
+    fieldId: ConditionFieldId;
+    operator: RecordConditionOperator;
+    value?: unknown;
+    isSymbol?: boolean;
+  }> {
+    return this.filterItemsValue;
+  }
+
+  /**
+   * Returns the conjunction type ('and' or 'or').
+   */
+  conjunction(): 'and' | 'or' {
+    return this.conjunctionValue;
+  }
+
+  /**
+   * Returns the sort configuration, if any.
+   */
+  sort(): ConditionSort | undefined {
+    return this.sortValue;
+  }
+
+  /**
+   * Returns the limit value, if any.
+   */
+  limit(): number | undefined {
+    return this.limitValue;
+  }
+
+  /**
+   * Returns true if this condition has any filter items.
+   */
+  hasFilter(): boolean {
+    return this.filterItemsValue.length > 0;
+  }
+
+  /**
+   * Returns true if this condition has a sort configuration.
+   */
+  hasSort(): boolean {
+    return this.sortValue !== undefined;
+  }
+
+  /**
+   * Returns true if this condition has a limit value.
+   */
+  hasLimit(): boolean {
+    return this.limitValue !== undefined;
+  }
+
+  /**
+   * Returns true if this condition is empty (no filter, sort, or limit).
+   */
+  isEmpty(): boolean {
+    return !this.hasFilter() && !this.hasSort() && !this.hasLimit();
+  }
+
+  /**
+   * Returns the field IDs referenced by filter items.
+   */
+  filterFieldIds(): ReadonlyArray<FieldId> {
+    return this.filterItemsValue
+      .map((item) => item.fieldId)
+      .filter((fieldId): fieldId is FieldId => !isRecordIdFieldId(fieldId));
+  }
+
+  referencedFieldIds(): ReadonlyArray<FieldId> {
+    const idMap = new Map<string, FieldId>();
+    for (const fieldId of this.filterFieldIds()) {
+      idMap.set(fieldId.toString(), fieldId);
+    }
+
+    const filter = this.rawFilterValue;
+    if (!filter) return [...idMap.values()];
+
+    const collect = (node: IFilterDTO | IFilterItemDTO): void => {
+      if ('filterSet' in node) {
+        node.filterSet.forEach((entry) => collect(entry as IFilterDTO | IFilterItemDTO));
+        return;
+      }
+
+      const rawValue = node.value;
+      if (node.isSymbol && typeof rawValue === 'string') {
+        const fieldIdResult = FieldId.create(rawValue);
+        if (fieldIdResult.isOk()) {
+          idMap.set(rawValue, fieldIdResult.value);
+        }
+      }
+
+      if (
+        rawValue &&
+        typeof rawValue === 'object' &&
+        'type' in rawValue &&
+        (rawValue as { type?: unknown }).type === 'field' &&
+        'fieldId' in rawValue &&
+        typeof (rawValue as { fieldId?: unknown }).fieldId === 'string'
+      ) {
+        const refFieldId = (rawValue as { fieldId: string }).fieldId;
+        const fieldIdResult = FieldId.create(refFieldId);
+        if (fieldIdResult.isOk()) {
+          idMap.set(refFieldId, fieldIdResult.value);
+        }
+      }
+    };
+
+    collect(filter);
+    return [...idMap.values()];
+  }
+
+  referencesField(fieldId: FieldId): boolean {
+    return this.referencesFieldId(fieldId.toString());
+  }
+
+  referencesFieldId(fieldId: string): boolean {
+    const filter = this.rawFilterValue;
+    if (!filter) return false;
+
+    const visit = (node: IFilterDTO | IFilterItemDTO): boolean => {
+      if ('filterSet' in node) {
+        return node.filterSet.some((entry) => visit(entry as IFilterDTO | IFilterItemDTO));
+      }
+
+      if (node.fieldId === fieldId) {
+        return true;
+      }
+
+      const rawValue = node.value;
+      if (node.isSymbol && typeof rawValue === 'string' && rawValue === fieldId) {
+        return true;
+      }
+
+      if (
+        rawValue &&
+        typeof rawValue === 'object' &&
+        'type' in rawValue &&
+        (rawValue as { type?: unknown }).type === 'field' &&
+        'fieldId' in rawValue &&
+        (rawValue as { fieldId?: unknown }).fieldId === fieldId
+      ) {
+        return true;
+      }
+
+      return false;
+    };
+
+    return visit(filter);
+  }
+
+  /**
+   * Converts this FieldCondition to a DTO format.
+   */
+  toDto(): FieldConditionDTO {
+    // Return the raw filter value to preserve nested structure
+    // (reconstructing from filterItemsValue would lose nesting)
+    return {
+      filter: this.rawFilterValue,
+      sort: this.sortValue?.toDto(),
+      limit: this.limitValue,
+    };
+  }
+
+  equals(other: FieldCondition): boolean {
+    if (this.conjunctionValue !== other.conjunctionValue) return false;
+    if (this.limitValue !== other.limitValue) return false;
+
+    // Compare sort
+    if (this.sortValue && other.sortValue) {
+      if (!this.sortValue.equals(other.sortValue)) return false;
+    } else if (this.sortValue !== other.sortValue) {
+      return false;
+    }
+
+    // Compare filter items
+    if (this.filterItemsValue.length !== other.filterItemsValue.length) return false;
+    for (let i = 0; i < this.filterItemsValue.length; i++) {
+      const a = this.filterItemsValue[i];
+      const b = other.filterItemsValue[i];
+      if (!conditionFieldIdEquals(a.fieldId, b.fieldId)) return false;
+      if (a.operator !== b.operator) return false;
+      // Deep compare values (simple JSON comparison)
+      if (JSON.stringify(a.value) !== JSON.stringify(b.value)) return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Converts this FieldCondition to a RecordConditionSpec.
+   *
+   * This is the canonical way to use conditions - via the visitor pattern.
+   * The resulting spec can be translated to SQL or evaluated in-memory via visitors.
+   *
+   * @param table The table containing the fields referenced in the condition filters (typically the foreign table).
+   * @param hostTable Optional host table for resolving field references when isSymbol is true. If not provided, references are resolved from the main table.
+   * @returns A RecordConditionSpec that can be used with ITableRecordConditionSpecVisitor.
+   */
+  toRecordConditionSpec(
+    table: Table,
+    hostTable?: Table
+  ): Result<ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | null, DomainError> {
+    if (this.filterItemsValue.length === 0) {
+      return ok(null);
+    }
+
+    // Use reconstructed filter from toDto() to ensure isSymbol is preserved
+    const filter = this.toDto().filter;
+    if (!filter) {
+      return ok(null);
+    }
+
+    const fields = table.getFields();
+    const hostFields = hostTable?.getFields() ?? fields;
+    const buildSpecFromFilter = (
+      filter: IFilterDTO
+    ): Result<ISpecification<TableRecord, ITableRecordConditionSpecVisitor>, DomainError> =>
+      safeTry<ISpecification<TableRecord, ITableRecordConditionSpecVisitor>, DomainError>(
+        function* () {
+          const builder = RecordConditionSpecBuilder.create(filter.conjunction);
+
+          for (const entry of filter.filterSet) {
+            if ('filterSet' in entry) {
+              const nestedSpec = yield* buildSpecFromFilter(entry as IFilterDTO);
+              builder.addConditionSpec(nestedSpec);
+              continue;
+            }
+
+            const filterItemEntry = entry as IFilterItemDTO;
+            const operatorResult = recordConditionOperatorSchema.safeParse(
+              filterItemEntry.operator
+            );
+            if (!operatorResult.success) {
+              return err(
+                domainError.validation({
+                  code: 'field.condition.invalid_operator',
+                  message: `Invalid operator: ${filterItemEntry.operator}`,
+                })
+              );
+            }
+
+            const isFieldRefObject =
+              typeof filterItemEntry.value === 'object' &&
+              filterItemEntry.value !== null &&
+              'type' in filterItemEntry.value &&
+              (filterItemEntry.value as { type?: string }).type === 'field' &&
+              'fieldId' in filterItemEntry.value;
+            const isSelfTableReference =
+              isFieldRefObject && hostTable !== undefined && hostTable.id().equals(table.id());
+            const effectiveFieldIdValue =
+              isSelfTableReference && isFieldRefObject
+                ? (filterItemEntry.value as { fieldId: string }).fieldId
+                : filterItemEntry.fieldId;
+
+            const fieldResult = FieldCondition.resolveConditionField(
+              effectiveFieldIdValue,
+              fields,
+              {
+                code: 'field.condition.field_not_found',
+                messagePrefix: 'Field not found',
+              }
+            );
+            if (fieldResult.isErr()) return err(fieldResult.error);
+            const field = fieldResult.value;
+
+            let conditionValue: RecordConditionValue | undefined;
+            // `value: null` is commonly used by v1-style filters for operators that don't require a value
+            // (e.g. `isEmpty`, `isNotEmpty`). Treat null the same as "not provided".
+            if (filterItemEntry.value !== undefined && filterItemEntry.value !== null) {
+              if (filterItemEntry.isSymbol || isFieldRefObject) {
+                // Field reference - resolve from host table if provided, otherwise from main table
+                const refFieldIdValue = isFieldRefObject
+                  ? isSelfTableReference
+                    ? filterItemEntry.fieldId
+                    : (filterItemEntry.value as { fieldId: string }).fieldId
+                  : String(filterItemEntry.value);
+                const refFieldResult = FieldCondition.resolveConditionField(
+                  refFieldIdValue,
+                  hostFields,
+                  {
+                    code: 'field.condition.reference_field_not_found',
+                    messagePrefix: 'Reference field not found',
+                  }
+                );
+                if (refFieldResult.isErr()) return err(refFieldResult.error);
+                const refField = refFieldResult.value;
+                conditionValue = yield* RecordConditionFieldReferenceValue.create(refField);
+              } else if (Array.isArray(filterItemEntry.value)) {
+                conditionValue = yield* RecordConditionLiteralListValue.create(
+                  filterItemEntry.value
+                );
+              } else if (
+                typeof filterItemEntry.value === 'object' &&
+                filterItemEntry.value !== null &&
+                'mode' in filterItemEntry.value &&
+                'timeZone' in filterItemEntry.value
+              ) {
+                conditionValue = yield* RecordConditionDateValue.create(filterItemEntry.value);
+              } else {
+                conditionValue = yield* RecordConditionLiteralValue.create(filterItemEntry.value);
+              }
+            }
+
+            builder.addCondition({
+              field,
+              operator: operatorResult.data,
+              value: conditionValue,
+            });
+          }
+
+          return builder.build();
+        }
+      );
+
+    return buildSpecFromFilter(filter);
+  }
+}

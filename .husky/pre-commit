@@ -1,0 +1,1 @@
+pnpm g:lint-staged-files --debug

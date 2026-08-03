@@ -1,0 +1,1097 @@
+{
+  "crossSpace": {
+    "duplicateFieldTitle": "Avviso",
+    "duplicateFieldDescription": "I riferimenti tra spazi non sono supportati. La copia sarà convertita in un campo di testo a riga singola.",
+    "duplicateTableTitle": "Avviso",
+    "duplicateTableDescription": "I riferimenti tra spazi non sono supportati. La copia sarà convertita in un campo di testo a riga singola.",
+    "convertAndDuplicate": "Converti e duplica"
+  },
+  "toolbar": {
+    "viewFilterInShare": "Questa vista è utilizzata in un link di condivisione della vista. Le modifiche alla configurazione della vista cambieranno anche il link di condivisione della vista.",
+    "createFieldButtonText": "Crea un nuovo campo <0/>",
+    "others": {
+      "share": {
+        "label": "Condividi",
+        "statusLabel": "Condividi vista sul web",
+        "noPermission": "Nessun permesso per condividere la vista",
+        "genLink": "Genera nuovo link",
+        "allowCopy": "Consenti ai visualizzatori di copiare i dati da questa vista",
+        "allowEdit": "Consenti agli utenti connessi di modificare i dati visibili",
+        "showAllFields": "Mostra tutti i campi nei record espansi",
+        "restrict": "Restringi con password",
+        "tips": "Le persone che hanno il link possono vedere la vista.",
+        "passwordTitle": "Inserisci una password",
+        "passwordTips": "Restrizioni di password per accedere alle viste condivise",
+        "embed": "Incorpora",
+        "embedPreview": "Anteprima incorporamento",
+        "hideToolbar": "Nascondi barra degli strumenti",
+        "URLSetting": "Configurazione parametri URL",
+        "URLSettingDescription": "Regolare le seguenti impostazioni non influirà sui link condivisi. È necessario copiare il link con i nuovi parametri per renderlo effettivo",
+        "cancel": "Annulla",
+        "save": "Salva",
+        "requireLogin": "Richiedi accesso per inviare"
+      },
+      "api": {
+        "title": "Accesso API",
+        "aiContext": "Connessione AI",
+        "advanced": "Avanzate",
+        "recommended": "Consigliato",
+        "apiDocGroupTitle": "Contesto API",
+        "apiDocGroupDescription": "Copia il documento qui sotto nell'AI. Otterrà la struttura della tabella corrente, i campi e gli esempi API, e potrà leggere, creare, aggiornare o eliminare record in base alla tua richiesta.",
+        "generatingToken": "Generazione...",
+        "generateToken": "Genera token",
+        "confirmTitle": "Crea token API",
+        "confirmDescription": "Questo creerà un nuovo token API con le seguenti autorizzazioni per questa base:",
+        "scopeTableRead": "Leggi informazioni tabella",
+        "scopeFieldRead": "Leggi campi",
+        "scopeRead": "Leggi record",
+        "scopeCreate": "Crea record",
+        "scopeUpdate": "Aggiorna record",
+        "scopeDelete": "Elimina record",
+        "confirmExpiry": "Il token sarà valido per 1 anno.",
+        "confirmButton": "Conferma creazione",
+        "tokenInfo": "Il token scade: {{expiry}}",
+        "copied": "Copiato!",
+        "copyAIDoc": "Copia documento",
+        "aiDocPreview": "Anteprima contesto",
+        "manageToken": "Gestisci token",
+        "openInNewTab": "Apri in una nuova scheda",
+        "queryBuilderTitle": "Generatore query API",
+        "queryBuilderDesc": "Configura visivamente filtri, ordinamento e altri parametri per generare codice di richiesta API pronto da eseguire.",
+        "viewApiDocs": "Vedi documentazione API completa"
+      },
+      "personalView": {
+        "personal": "Personale",
+        "tip": "Dopo l’attivazione, la configurazione della visualizzazione si applicherà solo a te",
+        "dialog": {
+          "title": "Esci dalla modalità personale",
+          "description": "La configurazione della vista personale verrà ripristinata allo stato di collaborazione in tempo reale; puoi anche salvare le impostazioni della vista personale e sincronizzarle con tutti.",
+          "cancelText": "Esci e sincronizza",
+          "confirmText": "Conferma uscita"
+        }
+      }
+    }
+  },
+  "welcome": {
+    "title": "Benvenuto",
+    "emptyTitle": "Inizia a costruire il tuo database",
+    "description": "Fai clic sul pulsante \"+\" nella barra laterale per aggiungere risorse",
+    "help": "Visita il <HelpCenter /> per maggiori informazioni.",
+    "helpCenter": "Centro Assistenza"
+  },
+  "validation": {
+    "link": {
+      "batch_duplicate": "Impossibile collegare il record: nello stesso batch è già collegato da un altro record. Nelle relazioni uno-a-molti, ogni record figlio può appartenere a un solo record padre.",
+      "one_many_duplicate": "Impossibile collegare il record: è già collegato a un altro record. Nelle relazioni uno-a-molti, ogni record figlio può appartenere a un solo record padre.",
+      "one_one_duplicate": "Impossibile collegare il record: il record di destinazione è già collegato da un altro record in una relazione uno-a-uno."
+    },
+    "field": {
+      "maxColumnLimit": "La tabella \"{{tableName}}\" può avere al massimo {{maxFieldCount}} campi.",
+      "requiredExistingValues": "Impossibile contrassegnare il campo \"{{fieldName}}\" come obbligatorio perché i record esistenti contengono valori vuoti."
+    }
+  },
+  "field": {
+    "advancedProps": "Proprietà avanzate",
+    "hide": "nascondi",
+    "default": {
+      "singleLineText": {
+        "title": "Etichetta"
+      },
+      "longText": {
+        "title": "Note"
+      },
+      "number": {
+        "title": "Numero",
+        "formatType": "Tipo di Formato",
+        "currencySymbol": "Simbolo della Valuta",
+        "defaultSymbol": "$",
+        "precision": "Precisione",
+        "decimalExample": "Numero (123)",
+        "currencyExample": "Valuta ($100)",
+        "percentExample": "Percentuale (20%)"
+      },
+      "singleSelect": {
+        "title": "Stato",
+        "options": {
+          "todo": "Da fare",
+          "inProgress": "In corso",
+          "done": "Fatto"
+        }
+      },
+      "multipleSelect": {
+        "title": "Tag"
+      },
+      "attachment": {
+        "title": "Allegati"
+      },
+      "user": {
+        "title": "Collaboratore"
+      },
+      "date": {
+        "title": "Data",
+        "dateFormatting": "Formattazione della Data",
+        "timeFormatting": "Formattazione dell'Ora",
+        "timeZone": "Fuso Orario",
+        "yearMonth": "Anno/Mese",
+        "monthDay": "Mese/Giorno",
+        "year": "Anno",
+        "month": "Mese",
+        "day": "Giorno",
+        "local": "Locale",
+        "friendly": "Amichevole",
+        "us": "USA",
+        "european": "Europeo",
+        "asia": "Asia",
+        "custom": "Personalizzato",
+        "12Hour": "12 ore",
+        "24Hour": "24 ore",
+        "noDisplay": "Nessuna visualizzazione"
+      },
+      "autoNumber": {
+        "title": "ID"
+      },
+      "createdTime": {
+        "title": "Ora di creazione"
+      },
+      "lastModifiedTime": {
+        "title": "Ultima modifica"
+      },
+      "createdBy": {
+        "title": "Creato da"
+      },
+      "lastModifiedBy": {
+        "title": "Ultima modifica di"
+      },
+      "rating": {
+        "title": "Valutazione"
+      },
+      "checkbox": {
+        "title": "Fatto"
+      },
+      "button": {
+        "title": "Pulsante",
+        "label": "Testo del pulsante",
+        "limitCount": "Limita conteggio clic",
+        "resetCount": "Consenti reimpostazione conteggio clic",
+        "maxCount": "Massimo di clic",
+        "automation": "Automazione",
+        "customAutomation": "Automazione personalizzata",
+        "clickConfirm": "Conferma prima di cliccare",
+        "confirmTitle": "Titolo",
+        "confirmDescription": "Contenuto",
+        "confirmButtonText": "Testo del pulsante di conferma"
+      },
+      "formula": {
+        "title": "Calcolo",
+        "formula": "Formula"
+      },
+      "lookup": {
+        "title": "{{lookupFieldName}} (da {{linkFieldName}})"
+      },
+      "conditionalLookup": {
+        "title": "{{lookupFieldName}} (filtrato da {{tableName}})"
+      },
+      "rollup": {
+        "title": "Rollup {{lookupFieldName}} (da {{linkFieldName}})",
+        "rollup": "Rollup",
+        "selectAnRollupFunction": "Seleziona una funzione di rollup",
+        "func": {
+          "and": "AND",
+          "arrayCompact": "ARRAYCOMPACT",
+          "arrayJoin": "ARRAYJOIN",
+          "arrayUnique": "ARRAYUNIQUE",
+          "average": "AVERAGE",
+          "concatenate": "CONCATENATE",
+          "count": "COUNT",
+          "countA": "COUNTA",
+          "countAll": "COUNTALL",
+          "max": "MAX",
+          "min": "MIN",
+          "or": "OR",
+          "sum": "SUM",
+          "xor": "XOR"
+        },
+        "funcDesc": {
+          "and": "Restituisce vero se tutti i valori sono veri",
+          "arrayCompact": "Rimuove stringhe vuote e valori nulli dall'array. Mantiene 'false' e stringhe che contengono uno o più caratteri vuoti.",
+          "arrayJoin": "Unisce tutti i valori in una singola stringa separata da virgole.",
+          "arrayUnique": "Restituisce solo elementi unici.",
+          "average": "Media aritmetica dei valori.",
+          "concatenate": "Unisce insieme i valori di testo in un singolo valore di testo.",
+          "count": "Conta solo i valori numerici non vuoti. Se vuoi contare tutti i record, usa COUNTALL.",
+          "countA": "Conta il numero di valori non vuoti. Questa funzione conta sia valori numerici che di testo.",
+          "countAll": "Conta tutti i valori inclusi i record vuoti.",
+          "max": "Restituisce il numero più grande tra quelli forniti.",
+          "min": "Restituisce il numero più piccolo tra quelli forniti.",
+          "or": "Restituisce vero se uno qualsiasi dei valori è vero.",
+          "sum": "Somma insieme i valori.",
+          "xor": "Restituisce vero se e solo se un numero dispari di valori è vero."
+        }
+      },
+      "conditionalRollup": {
+        "title": "{{lookupFieldName}} rollup condizionale"
+      }
+    },
+    "editor": {
+      "addField": "Aggiungi Campo",
+      "editField": "Modifica Campo",
+      "insertField": "Inserisci Campo",
+      "graph": "Grafico",
+      "defaultValue": "Valore predefinito",
+      "reset": "Reimposta",
+      "fieldUpdated": "Il campo è stato aggiornato",
+      "fieldCreated": "Il campo è stato creato",
+      "confirmFieldChange": "Confirm Field Change",
+      "areYouSurePerformIt": "Sei sicuro di voler eseguire questa operazione?",
+      "addDescription": "Aggiungi Descrizione",
+      "dbFieldName": "Nome campo DB",
+      "descriptionPlaceholder": "Descrivi questo campo (opzionale)",
+      "type": "Tipo",
+      "showAs": "Mostra come",
+      "color": "Colore",
+      "number": "Numero",
+      "chartBar": "Grafico a Barre",
+      "chartLine": "Grafico a Linee",
+      "ring": "Anello",
+      "bar": "Barra",
+      "text": "Testo",
+      "markdown": "Markdown",
+      "url": "Url",
+      "email": "Email",
+      "phone": "Telefono",
+      "maxNumber": "Numero massimo",
+      "showNumber": "Mostra Numero",
+      "autoFillDate": "Compila automaticamente con la data corrente",
+      "createSymmetricLink": "Crea un campo di collegamento inverso nella tabella di collegamento",
+      "allowLinkMultipleRecords": "Consenti selezione multipla",
+      "allowLinkToDuplicateRecords": "Consenti che i record siano selezionati più di una volta",
+      "allowSymmetricFieldLinkMultipleRecords": "Consenti che i record siano selezionati più di una volta",
+      "oneToOne": "uno-a-uno",
+      "oneToMany": "uno-a-molti",
+      "manyToOne": "molti-a-uno",
+      "manyToMany": "molti-a-molti",
+      "self": "Se stesso",
+      "selectTable": "Seleziona tabella...",
+      "selectBase": "Seleziona una base...",
+      "linkFromAnotherBase": "Collega da base esterna",
+      "inSelfLink": "in auto-collegamento",
+      "betweenTwoTables": "tra due tabelle",
+      "tips": "Suggerimenti",
+      "linkTipMessage": "Qquesta configurazione rappresenta una<br></br> <b>{{relationship}}</b> relazione <span>{{linkType}}</span>",
+      "style": "Stile",
+      "maximum": "Massimo",
+      "addOption": "Aggiungi opzione",
+      "allowMultiUsers": "Consenti l'aggiunta di più utenti",
+      "notifyUsers": "Notifica agli utenti una volta selezionati",
+      "searchTable": "Cerca tabella...",
+      "calculating": "Calcolo in corso...",
+      "doSaveChanges": "Vuoi salvare le modifiche apportate?",
+      "linkFieldToLookup": "Campo record collegato da utilizzare per la ricerca",
+      "lookupToTable": "Campo di <bold>{{tableName}}</bold> che vuoi cercare",
+      "rollupToTable": "Campo di <bold>{{tableName}}</bold> che vuoi cercare",
+      "selectField": "Seleziona un campo...",
+      "linkTable": "Collega tabella",
+      "linkBase": "Collega base",
+      "tableNoPermission": "Nessun permesso tabella",
+      "baseNoPermission": "Nessun permesso base",
+      "noLinkTip": "Nessun record collegato da cercare. Aggiungi un campo di collegamento a un altro record, quindi prova a configurare di nuovo la tua ricerca.",
+      "fieldValidationRules": "Regole di validazione del valore del campo",
+      "enableValidateFieldUnique": "Vieta valori duplicati",
+      "enableValidateFieldNotNull": "Obbligatorio",
+      "knowMore": "saperne di più",
+      "linkFieldKnowMoreLink": "https://help.teable.ai/en/basic/field/advanced/link",
+      "showByField": "Mostra record per campo",
+      "filterByView": "Filtra record per vista",
+      "filter": "Filtra record",
+      "hideFields": "Nascondi campi",
+      "moreOptions": "Altre opzioni",
+      "allowNewOptionsWhenEditing": "Consenti nuove opzioni durante la modifica",
+      "deleteField": {
+        "title": "Elimina campo",
+        "simpleConfirm": "Sei sicuro di voler eliminare il campo <b>{{fieldName}}</b>?",
+        "withDependencies": "L'eliminazione del campo <b>{{fieldName}}</b> influenzerà i seguenti campi:",
+        "deleteCount": "Elimina {{count}} campi",
+        "riskIdentified": "Rischio identificato({{count}})",
+        "noDependencies": "Nessuna dipendenza({{count}})",
+        "safeToDelete": "Sicuro da eliminare",
+        "safeToDeleteDesc": "Questo campo non è referenziato da altri campi, può essere eliminato in sicurezza",
+        "affectedItems": "Elementi interessati",
+        "type": "Tipo",
+        "source": "Fonte",
+        "sourceTable": "Tabella di origine",
+        "typeField": "Campo"
+      },
+      "conditionalLookup": {
+        "sortLimitToggleLabel": "Sort linked records and limit the number of matches",
+        "sortLabel": "Sort results",
+        "limitLabel": "Maximum records to include",
+        "limitPlaceholder": "Leave blank to include all matches",
+        "limitHint": "We only keep up to {{limit}} matching records.",
+        "sortMissingWarningTitle": "Sorting field unavailable",
+        "sortMissingWarningDescription": "The field that powered this sort was deleted. Results ignore the sort and only enforce the limit."
+      }
+    },
+    "subTitle": {
+      "link": "Collega ai record nella tabella che scegli",
+      "singleLineText": "Inserisci testo, o precompila ogni nuova cella con un valore predefinito.",
+      "longText": "Inserisci più righe di testo.",
+      "attachment": "Aggiungi o genera con IA immagini, oppure carica documenti o altri file da visualizzare o scaricare.",
+      "checkbox": "Seleziona o deseleziona per indicare lo stato.",
+      "multipleSelect": "Seleziona una o più opzioni predefinite in un elenco.",
+      "singleSelect": "Seleziona un'opzione predefinita da un elenco, o precompila ogni nuova cella con un'opzione predefinita.",
+      "user": "Aggiungi un utente a un record.",
+      "date": "Inserisci una data (es. 11/12/2023) o scegline una da un calendario.",
+      "number": "Inserisci un numero, o precompila ogni nuova cella con un valore predefinito.",
+      "rating": "Aggiungi una valutazione su una scala predefinita.",
+      "formula": "Calcola valori basati sui campi.",
+      "rollup": "Riepiloga dati da record collegati.",
+      "conditionalLookup": "Mostra valori collegati che rispettano i filtri impostati.",
+      "createdTime": "Visualizza la data e l'ora in cui ogni record è stato creato.",
+      "lastModifiedTime": "Visualizza la data e l'ora dell'ultima modifica a uno o tutti i campi in un record.",
+      "createdBy": "Visualizza quale utente ha creato il record.",
+      "lastModifiedBy": "Visualizza quale utente ha effettuato l'ultima modifica a uno o tutti i campi in un record.",
+      "autoNumber": "Genera automaticamente numeri incrementali unici per ogni record.",
+      "button": "Attiva un'azione personalizzata.",
+      "lookup": "Visualizza valori da un campo in un record collegato."
+    },
+    "fieldName": "Nome del Campo",
+    "fieldNameOptional": "Nome del Campo (Opzionale)",
+    "fieldType": "Tipo di Campo",
+    "aiConfig": {
+      "title": "Configurazione AI",
+      "type": {
+        "summary": "Riepilogo",
+        "translation": "Traduzione",
+        "extraction": "Estrazione Informazioni",
+        "improvement": "Miglioramento",
+        "tag": "Smart-Tag",
+        "classification": "Smart-Classify",
+        "customization": "Personalizzazione",
+        "imageGeneration": "Generazione di immagini",
+        "rating": "Valutazione di immagini"
+      },
+      "label": {
+        "type": "Tipo di Azione AI",
+        "model": "Modello AI",
+        "targetLanguage": "Lingua Target",
+        "sourceField": "Campo di Origine",
+        "sourceFieldForTag": "Seleziona un campo, corrispondilo ai tag creati",
+        "sourceFieldForClassify": "Seleziona un campo, corrispondilo alle classificazioni create",
+        "attachPrompt": "Attacca Requisiti",
+        "prompt": "Personalizza Prompt",
+        "sourceFieldForAttachment": "Campo di origine per l'allegato",
+        "imageSize": "Dimensione dell'immagine",
+        "imageQuality": "Qualità dell'immagine",
+        "imageCount": "Numero di immagini"
+      },
+      "placeholder": {
+        "summarize": "Riepilogo del contenuto",
+        "translate": "Traduzione concisa e facile da capire, leggera",
+        "extractInfo": "Estrai email, telefono, nome, indirizzo...",
+        "extractDate": "Estrai ora di inizio",
+        "improveText": "Formale, amichevole, umoristica...",
+        "attachPromptForTag": "Non consentito superare tre tag",
+        "attachPromptForClassify": "Classifica “In Progress” come “No Risk”",
+        "prompt": "Inserisci un prompt personalizzato",
+        "type": "Seleziona Azione AI",
+        "targetLanguage": "Inglese, Cinese, Francese...",
+        "imageSize": "Inserisci la dimensione dell'immagine",
+        "imageQuality": "Inserisci la qualità dell'immagine",
+        "attachPromptForImageGeneration": "L'immagine deve essere vivida e naturale",
+        "attachPromptForRating": "Valuta la qualità dell'immagine"
+      },
+      "imageQuality": {
+        "low": "Basso",
+        "medium": "Medio",
+        "high": "Alto"
+      },
+      "tip": {
+        "gptImageResolution": "A causa del limite sul numero totale di pixel, in modalità 4K alcuni rapporti useranno la dimensione di output conforme più grande disponibile."
+      },
+      "autoFill": {
+        "title": "Aggiorna Automaticamente",
+        "tip": "Dopo averlo abilitato, il campo corrente verrà aggiornato sincronizzando il contenuto con le modifiche della configurazione AI"
+      },
+      "autoFillFieldDialog": {
+        "title": "Aggiorna tutti i record",
+        "description": "Tutti i record nella vista corrente verranno aggiornati, incluso tutti i dati generati dal campo"
+      },
+      "autoFillConfirm": {
+        "title": "Generare l'intera colonna?",
+        "description": "La generazione dell'intera colonna aggiornerà {{rowCount}} righe. Questa operazione può consumare molte risorse di IA.",
+        "saveConfigOnly": "Salva solo la configurazione",
+        "generateFailed": "Generazione non riuscita"
+      }
+    }
+  },
+  "table": {
+    "newTableLabel": "Nuova tabella",
+    "rename": "Rinomina",
+    "tableRecordHistory": "Cronologia dei record della tabella",
+    "deleteConfirm": "Sei sicuro di voler eliminare \"{{tableName}}\"?",
+    "dbTableName": "Nome della tabella nel database fisico",
+    "schemaName": "Nome dello schema nel database fisico",
+    "baseInfo": "Informazioni di Base",
+    "typeOfDatabase": "Tipo di database",
+    "descriptionForTable": "Descrizione per questa tabella",
+    "loginUserTable": "Login app",
+    "linkedApps": "App collegate",
+    "nameForTable": "Nome per questa tabella",
+    "deleteTip1": "I campi di collegamento collegati a questa tabella in altre tabelle saranno eliminati.",
+    "operator": {
+      "createBlank": "Nuova tabella"
+    },
+    "actionTips": {
+      "copyAndPasteEnvironment": "Copia e incolla funziona solo in HTTPS o localhost",
+      "copyAndPasteBrowser": "Copia e incolla non supportato in questo browser",
+      "copying": "Copia in corso...",
+      "copySuccessful": "Copia riuscita",
+      "copyFailed": "Copia fallita",
+      "pasting": "Incolla in corso...",
+      "pasteSuccessful": "Incolla riuscita",
+      "pasteFailed": "Incolla fallita",
+      "filling": "Riempimento in corso...",
+      "fillSuccessful": "Riempimento riuscito",
+      "fillFailed": "Riempimento fallito",
+      "clearing": "Cancellazione in corso...",
+      "clearSuccessful": "Cancellazione riuscita",
+      "deleting": "Eliminazione in corso...",
+      "deleteSuccessful": "Eliminazione riuscita",
+      "deleteStream": {
+        "preparing": "Preparing selection",
+        "deleting": "Deleting records",
+        "descriptionWithIssues": "Some delete chunks failed. Review the details below.",
+        "completedWithIssues": "Deletion completed with issues",
+        "issuesBadge": "{{count}} issues",
+        "chunkFailureTitle": "Chunk failure details",
+        "chunkFailureSummary": "{{count}} chunk(s) reported an error while the stream kept running.",
+        "chunkLabel": "Chunk {{index}}",
+        "rowsLabel": "{{count}} rows",
+        "phaseLabel": {
+          "preparing": "Preparing",
+          "guarding": "Checking",
+          "deleting": "Deleting",
+          "publishing": "Publishing",
+          "finalizing": "Finalizing"
+        }
+      },
+      "pasteFileFailed": "I file possono essere incollati solo in un campo di allegato",
+      "copyError": {
+        "noFocus": "Si prega di mantenere la pagina attiva e non cambiare finestra"
+      },
+      "crossBaseCopyTitle": "Copiare come testo semplice?",
+      "crossBaseCopyDescription": "Questa selezione include un campo di collegamento tra basi. Per mantenere i dati all'interno della loro base originale, il campo verrà copiato come testo semplice e perderà le sue relazioni di collegamento.",
+      "crossBaseCopyConfirm": "Copia come testo semplice",
+      "crossBaseCopyLoadFirst": "Scorri per caricare tutte le righe selezionate prima di copiare i campi tra basi."
+    },
+    "graph": {
+      "effectCells": "Può influire sulle celle",
+      "estimatedTime": "Tempo stimato",
+      "linkFieldCount": "Influisce sul numero di campi collegati"
+    },
+    "integrity": {
+      "check": "Controlla",
+      "title": "Controllo dell'integrità",
+      "loading": "Controllo dell'integrità in corso...",
+      "allGood": "Tutto bene!",
+      "fixIssues": "Risolvi Problemi",
+      "v2": {
+        "dialogTitle": "Integrità dello schema",
+        "dialogDescription": "Esegui il controllo e la riparazione dello schema v2 per {{tableName}}.",
+        "dialogDescriptionNoTable": "Esegui il controllo e la riparazione dello schema v2 per la base corrente.",
+        "runCheck": "Avvia controllo",
+        "recheck": "Controlla di nuovo",
+        "repair": "Ripara",
+        "repairWarnings": "Ripara solo gli avvisi",
+        "repairWarningsAndErrors": "Ripara avvisi ed errori",
+        "repairRule": "Ripara regola",
+        "repairUnavailable": "Questa regola non può essere riparata automaticamente",
+        "manual": "Manuale",
+        "manualRepairNotice": "Questo problema richiede una riparazione manuale",
+        "manualRepairNoticeWithCount": "{{count}} problemi richiedono una riparazione manuale. Usa l'azione \"Manuale\" a destra di ogni regola per aprire la finestra di riparazione.",
+        "manualRepairDialogTitle": "Riparazione manuale richiesta",
+        "manualRepairDialogDescription": "Questo problema non può essere riparato automaticamente. Consulta le indicazioni qui sotto e scegli come correggerlo.",
+        "manualRepairDialogReason": "Perché è necessaria una riparazione manuale",
+        "manualRepairDialogHint": "Questa finestra mostra per ora le opzioni di riparazione richieste dalla regola. L'esecuzione effettiva potrà essere aggiunta in seguito su questa base.",
+        "manualRepairDialogClose": "Chiudi",
+        "checking": "Controllo dello schema...",
+        "repairing": "Riparazione dello schema...",
+        "streamError": "Flusso di integrità dello schema non riuscito.",
+        "noTableSelected": "Seleziona prima una tabella per eseguire il controllo dello schema v2.",
+        "noResults": "Nessun risultato dello schema al momento.",
+        "noFilteredResults": "Nessun risultato corrisponde ai filtri correnti.",
+        "systemColumns": "Colonne di sistema",
+        "general": "Generale",
+        "optional": "Opzionale",
+        "statementCount": "{{count}} istruzioni",
+        "detailsMissing": "Mancanti: {{details}}",
+        "detailsExtra": "Extra: {{details}}",
+        "message": {
+          "schemaValid": "Schema is valid",
+          "schemaValidationFailed": "Schema validation failed",
+          "schemaElementMissing": "Schema element missing",
+          "schemaAlreadyValid": "Schema is already valid",
+          "schemaRepaired": "Schema repaired successfully",
+          "manualRepair": "Rule requires manual repair",
+          "noRepairStatements": "No repair statements available",
+          "skippedDependencies": "Skipped because dependencies are not satisfied",
+          "checkStreamConnected": "Schema integrity check stream connected",
+          "baseCheckStreamConnected": "Base schema integrity check stream connected",
+          "repairStreamConnected": "Schema integrity repair stream connected",
+          "baseRepairStreamConnected": "Base schema integrity repair stream connected",
+          "checkCompleted": "Schema integrity check completed",
+          "baseCheckCompleted": "Base schema integrity check completed",
+          "repairCompleted": "Schema integrity repair completed",
+          "baseRepairCompleted": "Base schema integrity repair completed"
+        },
+        "rule": {
+          "column": "Physical column",
+          "columnTyped": "Physical column ({{dataType}})",
+          "notNull": "NOT NULL constraint",
+          "columnUnique": "UNIQUE constraint",
+          "fkColumn": "Foreign key column",
+          "index": "Index",
+          "uniqueIndex": "Unique index",
+          "primaryKey": "PRIMARY KEY",
+          "defaultExpression": "Default expression",
+          "foreignKey": "Foreign key constraint",
+          "junctionTable": "Junction table",
+          "junctionUnique": "Junction table unique constraint",
+          "junctionIndex": "Junction table index",
+          "junctionForeignKey": "Junction table foreign key",
+          "reference": "Reference records",
+          "generatedColumn": "Generated column",
+          "generatedMeta": "Generated column state",
+          "linkValueColumn": "Link value column",
+          "orderColumn": "Order column",
+          "fieldMeta": "Field metadata",
+          "symmetricField": "Symmetric field relationship",
+          "systemColumn": "System column \"{{columnName}}\"",
+          "connection": "Connection",
+          "completion": "Completion",
+          "unexpected": "Unexpected error"
+        },
+        "detail": {
+          "systemColumnMissing": "System column \"{{columnName}}\" not found",
+          "systemColumnNotNull": "System column \"{{columnName}}\" should be NOT NULL",
+          "systemColumnUnique": "System column \"{{columnName}}\" should have a UNIQUE index",
+          "systemColumnPrimaryKey": "System column \"{{columnName}}\" should be PRIMARY KEY",
+          "systemColumnDefault": "System column \"{{columnName}}\" should have a default expression",
+          "foreignKeyOrphanRows": "Field \"{{fieldName}}\" still has {{count}} rows pointing to missing linked records",
+          "foreignKeyOrphanRowsDescription": "Automatic repair cannot restore the foreign key for \"{{fieldName}}\" until the {{count}} invalid references to \"{{targetTableName}}\" are cleaned up.",
+          "junctionForeignKeyMissing": "The junction table for \"{{fieldName}}\" is missing one of its foreign keys",
+          "junctionForeignKeyMissingDescription": "Restore the junction foreign key for \"{{fieldName}}\" so relation rows stay linked to existing records in \"{{targetTableName}}\".",
+          "junctionForeignKeyTargetTableMissing": "The linked table for the junction of \"{{fieldName}}\" cannot be found",
+          "junctionForeignKeyTargetTableMissingDescription": "Automatic repair cannot restore the junction foreign key for \"{{fieldName}}\" because the target table \"{{targetPhysicalTableName}}\" does not exist.",
+          "junctionForeignKeyOrphanRows": "The junction table for \"{{fieldName}}\" still has {{count}} rows pointing to missing linked records",
+          "junctionForeignKeyOrphanRowsDescription": "Automatic repair cannot restore the junction foreign key for \"{{fieldName}}\" until the {{count}} invalid relation rows referencing \"{{targetTableName}}\" are cleaned up."
+        },
+        "phase": {
+          "check": "Risultati del controllo",
+          "repair": "Risultati della riparazione"
+        },
+        "summary": {
+          "checks": "{{count}} controlli",
+          "success": "{{count}} riusciti",
+          "warn": "{{count}} avvisi",
+          "error": "{{count}} errori",
+          "skipped": "{{count}} saltati",
+          "repaired": "{{count}} riparati",
+          "manual": "{{count}} manuali",
+          "problems": "{{count}} problemi"
+        },
+        "status": {
+          "success": "Riuscito",
+          "error": "Errore",
+          "warn": "Avviso",
+          "pending": "In attesa",
+          "running": "In corso",
+          "skipped": "Saltato"
+        },
+        "outcome": {
+          "repaired": "Riparato",
+          "unchanged": "Invariato",
+          "manual": "Manuale",
+          "skipped": "Saltato"
+        },
+        "repairMeta": {
+          "reason": {
+            "alreadyValid": "This rule is already valid",
+            "manualRule": "This rule requires a manual decision",
+            "statementGenerationFailed": "The system could not generate a safe repair statement",
+            "noStatements": "This rule has no automatic repair statement",
+            "symmetricFieldConflict": "This symmetric link conflict needs a manual choice",
+            "foreignKeyTargetTableMissing": "Automatic repair is unavailable because the linked table is missing",
+            "foreignKeyOrphanRows": "Automatic repair is unavailable because invalid linked rows still exist",
+            "junctionForeignKeyTargetTableMissing": "Automatic repair is unavailable because the junction target table is missing",
+            "junctionForeignKeyOrphanRows": "Automatic repair is unavailable because invalid junction rows still exist"
+          },
+          "description": {
+            "symmetricFieldConflict": "More than one field points at the same symmetric link target. Pick which field should own the two-way relationship before repairing.",
+            "foreignKeyTargetTableMissing": "Check whether the linked table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
+            "foreignKeyOrphanRows": "Clean up the invalid linked rows for \"{{fieldName}}\" before adding the foreign key constraint again.",
+            "junctionForeignKeyTargetTableMissing": "Check whether the target table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
+            "junctionForeignKeyOrphanRows": "Clean up the invalid junction rows for \"{{fieldName}}\" before adding the foreign key back."
+          },
+          "manual": {
+            "apply": "Apply manual repair",
+            "symmetricField": {
+              "title": "Resolve symmetric link conflict",
+              "description": "Pick how this duplicate symmetric link should be repaired.",
+              "resolutionLabel": "Repair strategy",
+              "resolutionDescription": "Choose which field should keep the two-way link behavior.",
+              "option": {
+                "keepCurrent": "Keep the current field as the two-way link",
+                "convertDuplicate": "Convert the duplicate field to a one-way link"
+              }
+            }
+          }
+        }
+      },
+      "errorType": {
+        "InvalidPrimaryLookup": "Campo primario configurato erroneamente come Lookup",
+        "InvalidPrimaryType": "Il campo primario ha un tipo non supportato",
+        "MissingPrimary": "La tabella non ha un campo primario"
+      }
+    },
+    "index": {
+      "description": "Gli indici possono migliorare significativamente le prestazioni di ricerca, soprattutto quando la quantità di dati è elevata (oltre {{rowCount}} righe). Lo svantaggio è che le operazioni di scrittura sono leggermente più lente. Se esegui spesso ricerche o hai molti dati, consigliamo di abilitare gli indici",
+      "repair": "Aggiorna indice",
+      "repairTip": "Sono state rilevate anomalie dell'indice, che potrebbero degradare le prestazioni di ricerca. Si consiglia di fare clic sul pulsante Aggiorna indice per aggiornare l'indice",
+      "enableIndexTip": "Stai creando un indice. Il tempo richiesto dipende dalla dimensione della tabella. Durante questo processo, le prestazioni di lettura e scrittura della tabella potrebbero essere influenzate. Attendi",
+      "fieldSearchTip_limited": "Quando è disattivata, la ricerca fuzzy viene eseguita su tutti i campi. I campi data, casella di controllo e pulsante non sono supportati. Sono supportati fino a {{count}} campi",
+      "fieldSearchTip_infinity": "Quando è disattivata, la ricerca fuzzy viene eseguita su tutti i campi. I campi data, casella di controllo e pulsante non sono supportati",
+      "globalSearchFieldTip": "La modalità di ricerca globale è attiva. La ricerca fuzzy viene eseguita su tutti i campi. I campi data, casella di controllo e pulsante non sono supportati",
+      "hideNotMatchRowTip": "Quando è disattivata, mostra tutte le righe",
+      "autoIndexTip": "La tua tabella ha superato {{rowCount}} righe. Consigliamo di abilitare gli indici per migliorare le prestazioni di ricerca. L'abilitazione degli indici può ridurre leggermente la velocità di scrittura. Durante la creazione dell'indice, le prestazioni di lettura/scrittura della tabella potrebbero essere influenzate. Attendi",
+      "enableIndex": "abilita",
+      "keepAsIs": "mantieni così com'è",
+      "ignoreIndexError": "ignora temporaneamente"
+    }
+  },
+  "import": {
+    "title": {
+      "upload": "Carica",
+      "import": "Importa",
+      "localFile": "File Locali",
+      "linkUrl": "Link(URL)",
+      "linkUrlInputTitle": "Aggiungi file da URL",
+      "importTitle": "Crea una nuova tabella",
+      "incrementImportTitle": "Importa In — ",
+      "optionsTitle": "Opzioni di importazione",
+      "primitiveFields": "Campi Primitivi",
+      "importFields": "Campo di Importazione",
+      "primaryField": "Campo Primario",
+      "tipsTitle": "Suggerimenti",
+      "confirm": "Conferma e continua"
+    },
+    "menu": {
+      "addFromOtherSource": "Aggiungi da altre fonti",
+      "excelFile": "Microsoft Excel",
+      "airtable": "Airtable",
+      "csvFile": "File Csv",
+      "importCsvData": "Importa dati CSV",
+      "importExcelData": "Importa dati Microsoft Excel",
+      "cancel": "Annulla",
+      "downAsCsv": "Scarica csv",
+      "importData": "Importa Dati",
+      "duplicate": "Duplica",
+      "duplicating": "Duplicazione in corso...",
+      "duplicateSuccess": "Duplicato con successo",
+      "duplicateFailed": "Duplicazione fallita",
+      "importing": "Importazione",
+      "includeRecords": "Includi record"
+    },
+    "tips": {
+      "importWayTip": "Clicca o trascina il file in quest'area per caricare",
+      "fileExceedSizeTip": "La dimensione del file di questo tipo supera il limite di",
+      "analyzing": "analisi in corso",
+      "importing": "Importazione in corso",
+      "notSupportFieldType": "Tipo di campo non supportato",
+      "resultEmpty": "Nessun risultato trovato.",
+      "searchPlaceholder": "Cerca...",
+      "importAlert": "Una volta iniziata l'importazione, non può essere fermata fino a quando non è completata con successo o terminata a causa di un errore. Lo stato dell'importazione è visualizzato nell'angolo in alto a destra della tabella. I risultati del processo di importazione ti saranno notificati una volta completati. Non dovresti aggiornare il campo durante l'importazione poiché potrebbe causare errori.",
+      "noTips": "Lo so, non mostrare di nuovo"
+    },
+    "options": {
+      "autoSelectFieldOptionName": "Seleziona automaticamente i tipi di campo",
+      "useFirstRowAsHeaderOptionName": "Usa la prima riga come intestazione",
+      "importDataOptionName": "Importa Dati",
+      "sheetKey": "NomeFoglio: ",
+      "excludeFirstRow": "Escludi la prima riga nell'importazione"
+    },
+    "form": {
+      "defaultFieldName": "Campo",
+      "error": {
+        "urlEmptyTip": "L'URL non deve essere vuoto!",
+        "errorFileFormat": "Formato del file non corretto!",
+        "uniqueFieldName": "Il nome del campo deve essere univoco!",
+        "fieldNameEmpty": "Il nome del campo non deve essere vuoto!",
+        "atLeastAImportField": "Si prega di impostare almeno un campo di importazione",
+        "urlValidateTip": "Impossibile analizzare l'URL. Prova un URL diverso!"
+      },
+      "option": {
+        "doNotImport": "Non importare"
+      }
+    }
+  },
+  "grid": {
+    "prefillingRowTitle": "Aggiungi nuovo record",
+    "prefillingRowTooltip": "Inserisci i dati del nuovo record qui sotto. Il record verrà salvato automaticamente una volta che clicchi fuori da questa riga.",
+    "presortRowTitle": "Questo record è stato filtrato o spostato a causa delle regole di ordinamento"
+  },
+  "form": {
+    "fieldsManagement": "Campi",
+    "addAll": "Mostra tutto",
+    "removeAll": "Nascondi tutto",
+    "createField": "Crea campo",
+    "hideFieldTip": "Nascondi il campo qui",
+    "unableAddFieldTip": "Impossibile aggiungere questo tipo di campo",
+    "removeFromFormTip": "Rimuovi dal modulo",
+    "descriptionPlaceholder": "Inserisci la descrizione del modulo",
+    "dragToFormTip": "Trascina il campo qui per aggiungerlo al modulo",
+    "protectedFieldTip": "Questo campo è stato impostato come campo \"obbligatorio\" e non può essere rimosso nella vista modulo. Si prega di modificarlo nelle impostazioni del campo."
+  },
+  "kanban": {
+    "toolbar": {
+      "hideFieldName": "Nascondi nome campo",
+      "customizeCards": "Personalizza carte",
+      "stackedBy": "Impilato per <0/>",
+      "chooseStackingField": "Scegli un campo di impilamento",
+      "chooseStackingFieldDescription": "Quale campo vorresti usare per questa vista kanban? I tuoi record saranno impilati in base a questo campo.",
+      "hideEmptyStack": "Nascondi pila vuota",
+      "imageSetting": "Impostazione immagine",
+      "fit": "Adatta",
+      "noImage": "Nessuna immagine",
+      "chooseAttachmentField": "Scegli campo allegato"
+    },
+    "stack": {
+      "addStack": "Aggiungi Pila",
+      "noCards": "Nessuna carta",
+      "uncategorized": "Non categorizzato"
+    },
+    "stackMenu": {
+      "collapseStack": "Comprimi pila",
+      "renameStack": "Rinomina pila",
+      "deleteStack": "Elimina pila"
+    },
+    "cardMenu": {
+      "insertCardAbove": "Inserisci carta sopra",
+      "insertCardBelow": "Inserisci carta sotto",
+      "expandCard": "Espandi carta",
+      "deleteCard": "Elimina carta",
+      "duplicateCard": "Duplica carta"
+    }
+  },
+  "calendar": {
+    "toolbar": {
+      "config": "Configurazione Calendario",
+      "startDateField": "Campo data di inizio",
+      "endDateField": "Campo data di fine",
+      "titleField": "Campo titolo",
+      "colorField": "Campo colore",
+      "colorType": "Visualizzazione colore",
+      "customColor": "Personalizza colore",
+      "alignWithRecords": "Allinea con i record"
+    },
+    "placeholder": {
+      "selectColorField": "Seleziona un campo colore"
+    },
+    "dialog": {
+      "startDate": "Data di inizio",
+      "endDate": "Data di fine",
+      "notAdd": "Non aggiungere",
+      "addDateField": "Aggiungi campi data",
+      "content": "Crea una pianificazione della vista calendario, e la tabella deve avere due campi data: data di inizio e data di fine"
+    },
+    "moreLinkText": "Mostra tutti i {{count}} record"
+  },
+  "menu": {
+    "insertRecordAbove": "Inserisci <input /> record sopra",
+    "insertRecordBelow": "Inserisci <input /> record sotto",
+    "deleteRecord": "Elimina record",
+    "deleteAllSelectedRecords": "Elimina tutti i record selezionati",
+    "editField": "Modifica campo",
+    "insertFieldLeft": "Inserisci a sinistra",
+    "insertFieldRight": "Inserisci a destra",
+    "freezeUpField": "Blocca fino a questo campo",
+    "freezeFieldWindowTooNarrow": "Impossibile bloccare quest'area perché la finestra corrente è troppo stretta",
+    "hideField": "Nascondi campo",
+    "deleteField": "Elimina campo",
+    "deleteAllSelectedFields": "Elimina tutti i campi selezionati",
+    "filterField": "Filtra per questo campo",
+    "sortField": "Ordina per questo campo",
+    "groupField": "Raggruppa per questo campo",
+    "autoFill": "Aggiorna tutti i record",
+    "groupMenuTitle": "Menu di raggruppamento",
+    "expandGroup": "Espandi questo gruppo e i suoi sottogruppi",
+    "collapseGroup": "Comprimi questo gruppo e i suoi sottogruppi",
+    "expandAllGroups": "Espandi tutti i gruppi",
+    "collapseAllGroups": "Comprimi tutti i gruppi",
+    "addToChat": "Aggiungi alla chat"
+  },
+  "connection": {
+    "title": "Connessione al Database",
+    "description": "Puoi accedere direttamente al database tramite la connessione al database, inclusi tutti i tavoli sotto la base corrente",
+    "noPermission": "Non hai il permesso di accedere al database",
+    "connectionCountTip": "Il numero massimo di connessioni al database è <b>{{max}}</b> e le connessioni attuali sono <b>{{current}}</b>",
+    "createFailed": "Assicurati che la variabile d'ambiente PUBLIC_DATABASE_PROXY sia impostata correttamente",
+    "readonlyUnavailable": "Readonly database sharing is unavailable for this data database. Grant the Teable database user permission to create roles and grants, or use a target database that supports readonly roles."
+  },
+  "view": {
+    "addRecord": "Aggiungi record",
+    "searchView": "Cerca vista...",
+    "dragToolTip": "L'ordinamento automatico è attivato, il trascinamento manuale non è disponibile",
+    "insertToolTip": "L'ordinamento automatico è attivato, l'inserimento con ordine non è disponibile",
+    "action": {
+      "rename": "Rinomina",
+      "duplicate": "Duplica",
+      "delete": "Elimina",
+      "lock": "Blocca",
+      "unlock": "Sblocca",
+      "enable": "Abilita"
+    },
+    "category": {
+      "table": "Vista Griglia",
+      "form": "Vista Modulo",
+      "kanban": "Vista Kanban",
+      "gallery": "Vista Galleria",
+      "calendar": "Vista Calendario"
+    },
+    "crash": {
+      "title": "Errore!",
+      "description": "Questa vista è danneggiata. Se il refresh fallisce ancora, contattaci. support@teable.ai"
+    },
+    "addPluginView": "Aggiungi Vista Plugin",
+    "search": {
+      "field_one": "{{name}}",
+      "field_other": "campi({{length}})"
+    },
+    "locked": {
+      "tip": "Questa vista è bloccata. Puoi abilitare la modalità personale per modificare le opzioni della vista, e le modifiche avranno effetto solo per te."
+    },
+    "noView": "Nessuna vista"
+  },
+  "lastModifiedTime": "Ultima modifica",
+  "lastModify": "Ultima modifica: ",
+  "pasteNewRecords": {
+    "title": "Vuoi aggiungere più record?",
+    "description": "I {{count}} record saranno aggiunti alla tabella."
+  },
+  "tableTrash": {
+    "title": "Cestino della tabella",
+    "resourceType": "Tipo",
+    "deletedResource": "Risorsa"
+  },
+  "baseShare": {
+    "shareTitle": "Condividi",
+    "shareToWeb": "Condividi sul web",
+    "refreshLink": "Rigenera link",
+    "deleteConfirmTitle": "Elimina link di condivisione",
+    "deleteConfirmDescription": "Questa azione non può essere annullata. Le persone con questo link non potranno più accedere alla base condivisa.",
+    "createSuccess": "Link di condivisione creato",
+    "createFailed": "Impossibile creare il link di condivisione",
+    "updateFailed": "Impossibile aggiornare le impostazioni di condivisione",
+    "deleteSuccess": "Link di condivisione eliminato",
+    "deleteFailed": "Impossibile eliminare il link di condivisione",
+    "refreshSuccess": "Link di condivisione rigenerato",
+    "refreshFailed": "Impossibile rigenerare il link di condivisione",
+    "linkHolderLabel": "La persona che ha ottenuto il link",
+    "linkHolderCanView": "Può visualizzare",
+    "linkHolderCanViewDesc": "Anyone with the link can view the data",
+    "linkHolderCanEdit": "Può modificare",
+    "linkHolderCanEditDesc": "Logged-in users can edit records in the table",
+    "viewLinkHolderCanViewDesc": "Chiunque abbia il link può visualizzare i dati di questa vista",
+    "viewLinkHolderCanEditDesc": "Gli utenti registrati possono modificare i dati nell'ambito della vista",
+    "linkExposureNoticeOne": "Visitors can see data from \"{{name}}\"",
+    "linkExposureNoticeMany": "Visitors can see data from \"{{name}}\" and {{count}} tables in total",
+    "linkExposureNoticeGeneric": "Visitors can see data from linked tables",
+    "restrictScope": "Restrict scope",
+    "linkScopeDesc": "Restrict which records and fields are selectable in this views link fields. The setting applies to the field itself and affects every view that uses it.",
+    "linkScopeDialogTitle": "Link field scope",
+    "linkHolderCanCopyAndSave": "Può salvare come copia",
+    "linkHolderCanCopyAndSaveDesc": "Anyone with the link can save a copy to their space",
+    "editRequiresLogin": "Users must log in to edit records",
+    "enterPassword": "Inserisci password",
+    "allowCopyData": "Consenti agli spettatori di copiare i dati",
+    "sharedNode": "Nodo condiviso",
+    "restrictByPassword": "Limita con password",
+    "advanced": "Avanzato",
+    "embedConfig": "Configurazione incorporamento",
+    "appPublicLink": "Link pubblico dell'app",
+    "appNotPublished": "Questa app non è ancora pubblicata. Pubblica prima l'app prima di condividerla.",
+    "goToPublish": "Vai alla pubblicazione",
+    "publishSuccess": "App pubblicata con successo",
+    "publishFailed": "Impossibile pubblicare l'app",
+    "openLink": "Apri link",
+    "appPublished": "App pubblicata",
+    "shareTableTab": "Condividi tabella",
+    "shareViewTab": "Condividi vista"
+  },
+  "aiChat": {
+    "integrationConnect": {
+      "title": "Collega {{provider}}",
+      "reconnectTitle": "Ricollega {{provider}}",
+      "defaultReason": "L'agente deve accedere al tuo account {{provider}} per continuare.",
+      "connect": "Collega",
+      "connecting": "Connessione in corso…",
+      "giveUp": "Rinuncia",
+      "failed": "Connessione non riuscita",
+      "status": {
+        "connected": "Collegato",
+        "cancelled": "Saltato",
+        "failed": "Non riuscito"
+      }
+    },
+    "agent": {
+      "askUserQuestion": {
+        "otherPlaceholder": "Oppure digita la tua risposta…"
+      },
+      "messageActions": {
+        "copy": "Copia",
+        "copyToInput": "Copia nell'input"
+      }
+    },
+    "tool": {
+      "showLess": "Mostra meno",
+      "generateApp": {
+        "creatingApp": "Creazione app",
+        "updatingApp": "Aggiornamento app",
+        "viewProgress": "Visualizza avanzamento"
+      },
+      "htmlPreview": {
+        "preview": "Anteprima",
+        "code": "Codice",
+        "download": "Scarica",
+        "downloadHtml": "HTML",
+        "downloadImage": "Immagine (PNG)",
+        "copy": "Copia",
+        "copied": "Copiato!",
+        "fullscreen": "Schermo intero",
+        "exitFullscreen": "Esci da schermo intero",
+        "downloadSuccess": "Immagine scaricata con successo",
+        "downloadFailed": "Cattura immagine fallita",
+        "iframeFailed": "Cattura fallita: iframe non accessibile"
+      }
+    },
+    "action": {
+      "locateResource": "Localizza"
+    },
+    "showUI": {
+      "skip": "Salta",
+      "next": "Successivo",
+      "submit": "Invia"
+    },
+    "newChat": "Nuovo Chat",
+    "expand": "Espandi",
+    "history": "Cronologia",
+    "close": "Comprimi",
+    "addAttachment": "Aggiungi allegato",
+    "noHistory": "Nessun chat history",
+    "noFoundHistory": "Nessun chat history trovato, per favore inizia una nuova conversazione",
+    "timeGroup": {
+      "today": "Oggi",
+      "oneWeek": "Una settimana",
+      "twoWeek": "Due settimane",
+      "oneMonth": "Un mese",
+      "other": "Altro"
+    },
+    "context": {
+      "searchEmpty": "Nessun contesto trovato",
+      "selectionRow": "Row {{row}}",
+      "selectionRows": "Righe {{start}}-{{end}}",
+      "selectionColumn": "Col {{col}}",
+      "selectionColumns": "Col {{start}}-{{end}}",
+      "selectionColumnsNamed": "{{names}} +{{count}}"
+    },
+    "mention": {
+      "tables": "Tabelle",
+      "apps": "App",
+      "workflows": "Automazioni",
+      "folders": "Cartelle"
+    },
+    "slashCommand": {
+      "skills": "Skills",
+      "searchEmpty": "No results found"
+    },
+    "inputPlaceholder": "@ aggiunge nodi, / esegue skill",
+    "inputPlaceholderFiles": "Incolla o trascina file qui",
+    "thought": "Pensando",
+    "stage": {
+      "initializing": "Inizializzazione",
+      "working": "In lavorazione",
+      "committing": "Commit in corso",
+      "recovering": "Ripristino"
+    },
+    "meta": {
+      "input": "Input",
+      "output": "Output"
+    },
+    "attachment": {
+      "pastedTextFileName": "Testo incollato",
+      "imageNotSupported": "L'immagine non è supportata",
+      "tooManyFiles": "Puoi allegare al massimo {{count}} file per messaggio",
+      "storageFull": "L'archiviazione della sandbox è piena. Elimina alcuni file e riprova."
+    },
+    "suggestions": {
+      "title": "Come posso aiutarti?",
+      "whatCanIDo": "Cosa posso fare?",
+      "createOrModifyDatabase": "Crea o modifica database",
+      "buildAutomations": "Costruisci automazioni",
+      "buildApps": "Costruisci app",
+      "buildMeCRM": "Costruiscimi un CRM",
+      "addAIField": "Aggiungi un campo AI per analizzare ogni cliente",
+      "createDataAnalysis": "Creami un report di analisi dati",
+      "emailWhenRecordCreated": "Inviami un'email quando viene creato un record",
+      "syncStatusToSlack": "Sincronizza gli aggiornamenti di stato su Slack",
+      "buildDashboard": "Costruisci una dashboard da questa tabella",
+      "buildLeadCapture": "Costruiscimi una landing page per acquisizione lead"
+    },
+    "buildApp": {
+      "task": {
+        "foundResults": "Trovati {{count}} risultati"
+      }
+    },
+    "scriptPreview": {
+      "writeCodeHint": "Scrivi del codice per vedere l'anteprima del diagramma di flusso.",
+      "noPreview": "Nessuna anteprima del diagramma di flusso disponibile.",
+      "codeChanged": "Il codice è cambiato da quando è stata generata questa anteprima."
+    }
+  },
+  "download": {
+    "allAttachments": {
+      "title": "Scarica tutti gli allegati",
+      "rowsWithAttachments": "Righe con allegati",
+      "totalAttachments": "Allegati",
+      "totalSize": "Dimensione totale",
+      "cancel": "Annulla",
+      "downloading": "Download in corso...",
+      "completed": "Download completato",
+      "cancelled": "Download annullato",
+      "noAttachments": "Nessun allegato da scaricare",
+      "error": "Download fallito",
+      "errorPartial": "{{failedCount}} file non sono stati scaricati",
+      "requireHttps": "Il download batch richiede HTTPS. Accedi tramite HTTPS o localhost.",
+      "advancedOptions": "Opzioni avanzate",
+      "namingFieldLabel": "Prefisso nome allegato",
+      "selectField": "Predefinito: indice allegato",
+      "noPrefixOption": "Nessun prefisso",
+      "noPrefixOptionDesc": "Mantieni il nome file originale",
+      "groupByRow": "Archivia in cartelle",
+      "groupByRowTip": "Quando una riga ha più allegati, verranno inseriti nella stessa cartella; le righe con un solo allegato non creeranno una cartella."
+    }
+  },
+  "baseNode": {
+    "info": {
+      "menu": "Info nodo",
+      "createdBy": "Creato da",
+      "createdTime": "Ora di creazione",
+      "lastModifiedBy": "Modificato da",
+      "lastModifiedTime": "Ora di modifica",
+      "folderId": "ID cartella",
+      "tableId": "ID tabella",
+      "automationId": "ID automazione",
+      "appId": "ID app"
+    }
+  }
+}

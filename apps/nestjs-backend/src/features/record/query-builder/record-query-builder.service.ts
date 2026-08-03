@@ -1,0 +1,773 @@
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { DbFieldType, extractFieldIdsFromFilter, FieldType, SortFunc, Tables } from '@teable/core';
+import type { FieldCore, IFilter, ISortItem, TableDomain } from '@teable/core';
+import { Knex } from 'knex';
+import { InjectDbProvider } from '../../../db-provider/db.provider';
+import { IDbProvider } from '../../../db-provider/db.provider.interface';
+import { DATA_KNEX } from '../../../global/knex/knex.module';
+import { isUserOrLink } from '../../../utils/is-user-or-link';
+import { ID_FIELD_NAME, preservedDbFieldNames } from '../../field/constant';
+import { TableDomainQueryService } from '../../table-domain/table-domain-query.service';
+import { FieldCteVisitor } from './field-cte-visitor';
+import { FieldSelectVisitor } from './field-select-visitor';
+import type {
+  ICreateRecordAggregateBuilderOptions,
+  ICreateRecordQueryBuilderOptions,
+  IPrepareViewParams,
+  IRecordQueryBuilder,
+  IMutableQueryBuilderState,
+  IReadonlyRecordSelectionMap,
+} from './record-query-builder.interface';
+import { RecordQueryBuilderManager } from './record-query-builder.manager';
+import { InjectRecordQueryDialect } from './record-query-builder.provider';
+import { getOrderedFieldsByProjection, getTableAliasFromTable } from './record-query-builder.util';
+import { IRecordQueryDialectProvider } from './record-query-dialect.interface';
+
+@Injectable()
+export class RecordQueryBuilderService implements IRecordQueryBuilder {
+  private readonly logger = new Logger(RecordQueryBuilderService.name);
+  constructor(
+    private readonly tableDomainQueryService: TableDomainQueryService,
+    @InjectDbProvider()
+    private readonly dbProvider: IDbProvider,
+    @Inject(DATA_KNEX) private readonly knex: Knex,
+    @InjectRecordQueryDialect()
+    private readonly dialect: IRecordQueryDialectProvider
+  ) {}
+
+  private async createQueryBuilderFromTable(
+    from: string,
+    tableId: string,
+    projection?: string[],
+    baseBuilder?: Knex.QueryBuilder,
+    providedTables?: Tables
+  ): Promise<{
+    qb: Knex.QueryBuilder;
+    alias: string;
+    tables: Tables;
+    table: TableDomain;
+    state: IMutableQueryBuilderState;
+  }> {
+    let tables = providedTables;
+    if (!tables || !tables.hasTable(tableId)) {
+      tables = await this.tableDomainQueryService.getAllRelatedTableDomains(tableId, projection);
+    } else if (tables.entryTableId !== tableId) {
+      tables = new Tables(tableId, new Map(tables.tableDomains), new Set(tables.visited));
+    }
+    const table = tables.mustGetEntryTable();
+    const mainTableAlias = getTableAliasFromTable(table);
+    const qbSource = baseBuilder ?? this.knex.queryBuilder();
+    const qb = qbSource.from({ [mainTableAlias]: from });
+
+    const state: IMutableQueryBuilderState = new RecordQueryBuilderManager('table');
+    state.setMainTableAlias(mainTableAlias);
+    state.setMainTableSource(table.dbTableName);
+    if (from !== table.dbTableName) {
+      state.setMainTableSource(from);
+    }
+
+    return { qb, alias: mainTableAlias, tables, table, state };
+  }
+
+  private async createQueryBuilderFromTableCache(
+    tableId: string,
+    from: string,
+    baseBuilder?: Knex.QueryBuilder
+  ): Promise<{
+    qb: Knex.QueryBuilder;
+    alias: string;
+    table: TableDomain;
+    state: IMutableQueryBuilderState;
+  }> {
+    const table = await this.tableDomainQueryService.getTableDomainById(tableId);
+    const mainTableAlias = getTableAliasFromTable(table);
+    const qbSource = baseBuilder ?? this.knex.queryBuilder();
+    const qb = qbSource.from({ [mainTableAlias]: from });
+
+    const state = new RecordQueryBuilderManager('tableCache');
+    state.setMainTableAlias(mainTableAlias);
+    state.setMainTableSource(table.dbTableName);
+
+    return { qb, table, state, alias: mainTableAlias };
+  }
+
+  private async createQueryBuilder(
+    from: string,
+    tableId: string,
+    options: Partial<ICreateRecordQueryBuilderOptions> = {}
+  ): Promise<{
+    qb: Knex.QueryBuilder;
+    alias: string;
+    table: TableDomain;
+    state: IMutableQueryBuilderState;
+  }> {
+    const useQueryModel = options.useQueryModel ?? false;
+    const baseBuilder = options.builder;
+
+    let builder:
+      | {
+          qb: Knex.QueryBuilder;
+          alias: string;
+          table: TableDomain;
+          state: IMutableQueryBuilderState;
+          tables?: Tables;
+        }
+      | undefined;
+
+    if (useQueryModel) {
+      try {
+        builder = await this.createQueryBuilderFromTableCache(tableId, from, baseBuilder);
+      } catch (error) {
+        this.logger.error(`Failed to create query builder from view: ${error}, use table instead`);
+        builder = await this.createQueryBuilderFromTable(
+          from,
+          tableId,
+          options.projection,
+          baseBuilder,
+          options.tables
+        );
+      }
+    } else {
+      builder = await this.createQueryBuilderFromTable(
+        from,
+        tableId,
+        options.projection,
+        baseBuilder,
+        options.tables
+      );
+    }
+
+    const { qb, alias, table, state } = builder;
+
+    if (state.getContext() === 'table') {
+      const tables = (builder as unknown as { tables: Tables }).tables;
+      this.applyBasePaginationIfNeeded(qb, table, state, alias, {
+        limit: options.limit,
+        offset: options.offset,
+        filter: options.filter,
+        sort: options.sort,
+        currentUserId: options.currentUserId,
+        defaultOrderField: options.defaultOrderField,
+        hasSearch: options.hasSearch,
+        restrictRecordIds: options.restrictRecordIds,
+        paginationMode: options.paginationMode,
+      });
+      this.buildFieldCtes(
+        qb,
+        tables,
+        state,
+        options.projection,
+        options.preferRawFieldReferences ?? false,
+        options.preferStoredLookupFields ?? false
+      );
+    }
+
+    return { qb, alias, table, state };
+  }
+
+  async prepareView(
+    from: string,
+    params: IPrepareViewParams
+  ): Promise<{ qb: Knex.QueryBuilder; table: TableDomain }> {
+    const { tableIdOrDbTableName } = params;
+    const { qb, table, state } = await this.createQueryBuilder(from, tableIdOrDbTableName);
+
+    this.buildSelect(qb, table, state);
+
+    return { qb, table };
+  }
+
+  async createRecordQueryBuilder(
+    from: string,
+    options: ICreateRecordQueryBuilderOptions
+  ): Promise<{ qb: Knex.QueryBuilder; alias: string; selectionMap: IReadonlyRecordSelectionMap }> {
+    const { tableId, filter, sort, currentUserId, restrictRecordIds } = options;
+    const preferStoredLookupFields = options.preferStoredLookupFields ?? !options.rawProjection;
+    const { qb, alias, table, state } = await this.createQueryBuilder(from, tableId, {
+      builder: options.builder,
+      useQueryModel: options.useQueryModel,
+      projection: options.projection,
+      projectionByTable: options.projectionByTable,
+      tables: options.tables,
+      limit: options.limit,
+      offset: options.offset,
+      filter,
+      sort,
+      currentUserId,
+      defaultOrderField: options.defaultOrderField,
+      hasSearch: options.hasSearch,
+      restrictRecordIds,
+      preferRawFieldReferences: options.preferRawFieldReferences,
+      preferStoredLookupFields,
+    });
+
+    this.buildSelect(
+      qb,
+      table,
+      state,
+      options.projection,
+      options.rawProjection,
+      options.preferRawFieldReferences ?? false,
+      preferStoredLookupFields
+    );
+
+    // Selection map collected as fields are visited.
+
+    const selectionMap = state.getSelectionMap();
+    if (filter) {
+      this.buildFilter(qb, table, filter, selectionMap, currentUserId, alias);
+    }
+
+    if (sort) {
+      this.buildSort(qb, table, sort, selectionMap);
+    }
+
+    return { qb, alias, selectionMap };
+  }
+
+  async createRecordAggregateBuilder(
+    from: string,
+    options: ICreateRecordAggregateBuilderOptions
+  ): Promise<{ qb: Knex.QueryBuilder; alias: string; selectionMap: IReadonlyRecordSelectionMap }> {
+    const {
+      tableId,
+      filter,
+      aggregationFields,
+      groupBy,
+      currentUserId,
+      useQueryModel,
+      restrictRecordIds,
+      sort,
+      defaultOrderField,
+      limit,
+      offset,
+      preferStoredLookupFields = true,
+    } = options;
+    const usePaginatedRange = limit !== undefined;
+    // The tableCache path skips applyBasePaginationIfNeeded, which would silently
+    // aggregate the entire view instead of the requested [offset, offset+limit)
+    // slice. Force the table path whenever a row range is requested.
+    const effectiveUseQueryModel = usePaginatedRange ? false : useQueryModel;
+    const { qb, table, alias, state } = await this.createQueryBuilder(from, tableId, {
+      builder: options.builder,
+      useQueryModel: effectiveUseQueryModel,
+      projection: options.projection,
+      filter,
+      currentUserId,
+      restrictRecordIds,
+      sort,
+      defaultOrderField,
+      limit,
+      offset,
+      paginationMode: usePaginatedRange ? 'full' : undefined,
+      preferStoredLookupFields,
+    });
+
+    this.buildAggregateSelect(qb, table, state, options.projection, preferStoredLookupFields);
+    const selectionMap = state.getSelectionMap();
+
+    if (filter) {
+      this.buildFilter(qb, table, filter, selectionMap, currentUserId, alias);
+    }
+
+    const fieldMap = table.fieldList.reduce(
+      (map, field) => {
+        map[field.id] = field;
+        return map;
+      },
+      {} as Record<string, FieldCore>
+    );
+
+    const groupByFieldIds = groupBy?.map((item) => item.fieldId);
+    // Apply aggregation (do NOT pass groupBy here; grouping is handled by GroupQuery below)
+    this.dbProvider
+      .aggregationQuery(qb, fieldMap, aggregationFields, undefined, {
+        selectionMap,
+        tableDbName: table.dbTableName,
+        tableAlias: alias,
+      })
+      .appendBuilder();
+
+    // Apply grouping if specified
+    if (groupBy && groupBy.length > 0) {
+      this.dbProvider
+        .groupQuery(qb, fieldMap, groupByFieldIds, undefined, { selectionMap })
+        .appendGroupBuilder();
+
+      for (const groupItem of groupBy) {
+        const groupedField = fieldMap[groupItem.fieldId];
+        if (!groupedField) continue;
+        const direction: 'ASC' | 'DESC' = groupItem.order === SortFunc.Desc ? 'DESC' : 'ASC';
+
+        this.orderAggregateByGroup(qb, groupedField, direction, selectionMap);
+      }
+    }
+
+    return { qb, alias, selectionMap };
+  }
+
+  private buildFieldCtes(
+    qb: Knex.QueryBuilder,
+    tables: Tables | undefined,
+    state: IMutableQueryBuilderState,
+    projection?: string[],
+    preferRawFieldReferences: boolean = false,
+    preferStoredLookupFields: boolean = false
+  ): void {
+    if (!tables) {
+      return;
+    }
+    const visitor = new FieldCteVisitor(
+      qb,
+      this.dbProvider,
+      tables,
+      state,
+      this.dialect,
+      projection,
+      !preferRawFieldReferences,
+      preferStoredLookupFields
+    );
+    visitor.build();
+  }
+
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  private orderAggregateByGroup(
+    qb: Knex.QueryBuilder,
+    field: FieldCore,
+    direction: 'ASC' | 'DESC',
+    selectionMap: IReadonlyRecordSelectionMap
+  ) {
+    const nullOrdering = direction === 'DESC' ? 'NULLS LAST' : 'NULLS FIRST';
+    const quotedAlias = `"${field.dbFieldName.replace(/"/g, '""')}"`;
+    const selection = selectionMap.get(field.id);
+    const selectionExpression =
+      typeof selection === 'string' ? selection : selection ? selection.toQuery() : undefined;
+
+    const orderableSelection = selectionExpression ?? quotedAlias;
+    // Respect choice order for select fields (single & multiple)
+    if (field.type === FieldType.SingleSelect || field.type === FieldType.MultipleSelect) {
+      const rawChoices = (field.options as { choices?: { name: string }[] } | undefined)?.choices;
+      const choices = Array.isArray(rawChoices) ? rawChoices : [];
+      if (choices.length) {
+        const choiceNames = choices.map(({ name }) => name);
+        const placeholders = choiceNames.map(() => '?').join(', ');
+        const arrayLiteral = `ARRAY[${placeholders}]`;
+
+        if (field.type === FieldType.MultipleSelect) {
+          const firstIndexExpr = `CASE
+            WHEN ${orderableSelection} IS NULL THEN NULL
+            WHEN jsonb_typeof(${orderableSelection}::jsonb) = 'array'
+              THEN ARRAY_POSITION(${arrayLiteral}, jsonb_path_query_first(${orderableSelection}::jsonb, '$[0]') #>> '{}')
+            ELSE ARRAY_POSITION(${arrayLiteral}, ${orderableSelection}::text)
+          END`;
+          // arrayLiteral appears twice in firstIndexExpr, so duplicate bindings
+          qb.orderByRaw(`${firstIndexExpr} ${direction} ${nullOrdering}`, [
+            ...choiceNames,
+            ...choiceNames,
+          ]);
+          qb.orderByRaw(`${orderableSelection}::jsonb::text ${direction} ${nullOrdering}`);
+          return;
+        } else {
+          const normalizedExpr = this.normalizeOrderableTextExpression(
+            orderableSelection,
+            field.dbFieldType
+          );
+          const arrayPositionExpr = `ARRAY_POSITION(${arrayLiteral}, ${normalizedExpr})`;
+          qb.orderByRaw(`${arrayPositionExpr} ${direction} ${nullOrdering}`, choiceNames);
+          return;
+        }
+      }
+    }
+
+    if (isUserOrLink(field.type)) {
+      if (field.isMultipleCellValue) {
+        if (selectionExpression) {
+          qb.orderByRaw(
+            `jsonb_path_query_array((${selectionExpression})::jsonb, '$[*].title')::text ${direction} ${nullOrdering}`
+          );
+        } else {
+          qb.orderByRaw(`${quotedAlias} ${direction} ${nullOrdering}`);
+        }
+      } else {
+        qb.orderByRaw(
+          `(${selectionExpression ?? quotedAlias})::jsonb ->> 'title' ${direction} ${nullOrdering}`
+        );
+      }
+      return;
+    }
+
+    qb.orderByRaw(`${quotedAlias} ${direction} ${nullOrdering}`);
+  }
+
+  private normalizeOrderableTextExpression(expr: string, dbFieldType: DbFieldType): string {
+    if (!expr || dbFieldType !== DbFieldType.Json) {
+      return expr;
+    }
+    const wrappedExpr = `(${expr})`;
+    const jsonbValue = `to_jsonb${wrappedExpr}`;
+    const firstArrayElement = `jsonb_path_query_first(${jsonbValue}, '$[0]')`;
+    return `(CASE
+      WHEN ${wrappedExpr} IS NULL THEN NULL
+      ELSE
+        CASE jsonb_typeof(${jsonbValue})
+          WHEN 'string' THEN ${jsonbValue} #>> '{}'
+          WHEN 'number' THEN ${jsonbValue} #>> '{}'
+          WHEN 'boolean' THEN ${jsonbValue} #>> '{}'
+          WHEN 'null' THEN NULL
+          WHEN 'array' THEN ${firstArrayElement} #>> '{}'
+          ELSE ${jsonbValue}::text
+        END
+    END)`;
+  }
+
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  private applyBasePaginationIfNeeded(
+    qb: Knex.QueryBuilder,
+    table: TableDomain,
+    state: IMutableQueryBuilderState,
+    alias: string,
+    params: {
+      limit?: number;
+      offset?: number;
+      filter?: IFilter;
+      sort?: ISortItem[];
+      currentUserId?: string;
+      defaultOrderField?: string;
+      hasSearch?: boolean;
+      restrictRecordIds?: string[];
+      paginationMode?: 'split' | 'full';
+    }
+  ): void {
+    const {
+      limit,
+      offset,
+      filter,
+      sort,
+      currentUserId,
+      defaultOrderField,
+      hasSearch,
+      restrictRecordIds,
+      paginationMode = 'split',
+    } = params;
+    state.setBaseCteName(undefined);
+
+    if (state.getContext() !== 'table') {
+      return;
+    }
+
+    const originalSource = state.getOriginalMainTableSource();
+    if (!originalSource) {
+      return;
+    }
+
+    const safeOffset = offset && offset > 0 ? offset : 0;
+    const baseLimit = paginationMode === 'full' ? limit : this.resolveBaseLimit(limit, offset);
+    let applyPagination = Boolean(baseLimit) && !hasSearch;
+    const normalizedRecordIds = Array.from(
+      new Set(
+        (restrictRecordIds ?? []).filter(
+          (id): id is string => typeof id === 'string' && id.length > 0
+        )
+      )
+    );
+    const applyRecordRestriction = normalizedRecordIds.length > 0;
+
+    if (!applyPagination && !applyRecordRestriction) {
+      return;
+    }
+
+    let baseSelectionMap: Map<string, string> | undefined;
+
+    if (applyPagination) {
+      const requiredFieldIds = this.collectRequiredFieldIds(filter, sort, defaultOrderField);
+      const fieldLookup = this.buildFieldLookup(table);
+
+      if (this.referencesComputedField(requiredFieldIds, fieldLookup)) {
+        // Fall back to full table scan when pagination conflicts with computed fields,
+        // but still allow record-level restriction to run.
+        applyPagination = false;
+        if (!applyRecordRestriction) {
+          return;
+        }
+      } else {
+        baseSelectionMap = this.createBaseSelectionMap(requiredFieldIds, fieldLookup, alias);
+      }
+    }
+
+    const baseBuilder = this.knex
+      .queryBuilder()
+      .select(this.knex.raw('??.*', [alias]))
+      .from({ [alias]: originalSource });
+
+    if (applyPagination && filter) {
+      this.buildFilter(baseBuilder, table, filter, baseSelectionMap!, currentUserId, alias);
+    }
+
+    if (applyPagination && sort && sort.length) {
+      this.buildSort(baseBuilder, table, sort, baseSelectionMap!);
+    }
+
+    if (applyPagination && defaultOrderField) {
+      baseBuilder.orderBy(`${alias}.${defaultOrderField}`, 'asc');
+    }
+
+    if (applyPagination && baseLimit) {
+      baseBuilder.limit(baseLimit);
+      if (paginationMode === 'full' && safeOffset > 0) {
+        baseBuilder.offset(safeOffset);
+      }
+    }
+
+    if (applyRecordRestriction) {
+      baseBuilder.whereIn(`${alias}.${ID_FIELD_NAME}`, normalizedRecordIds);
+    }
+
+    const baseCteName = `BASE_${alias}`;
+    qb.with(baseCteName, baseBuilder);
+    qb.from({ [alias]: baseCteName });
+    state.setBaseCteName(baseCteName);
+    state.setMainTableSource(baseCteName);
+  }
+
+  private isComputedField(field: FieldCore): boolean {
+    if (field.isLookup) {
+      return true;
+    }
+    switch (field.type) {
+      case FieldType.Rollup:
+      case FieldType.ConditionalRollup:
+      case FieldType.Formula:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  private resolveBaseLimit(limit?: number, offset?: number): number | undefined {
+    if (limit === undefined || limit === null) {
+      return undefined;
+    }
+    if (limit < 0 || limit === -1) {
+      return undefined;
+    }
+    const safeOffset = offset && offset > 0 ? offset : 0;
+    const baseLimit = safeOffset + limit;
+    if (!Number.isFinite(baseLimit) || baseLimit <= 0) {
+      return undefined;
+    }
+    return baseLimit;
+  }
+
+  private collectRequiredFieldIds(
+    filter: IFilter | undefined,
+    sort: ISortItem[] | undefined,
+    defaultOrderField?: string
+  ): Set<string> {
+    const ids = new Set<string>();
+    for (const fieldId of extractFieldIdsFromFilter(filter)) {
+      ids.add(fieldId);
+    }
+    sort?.forEach((item) => {
+      if (item.fieldId) {
+        ids.add(item.fieldId);
+      }
+    });
+    if (defaultOrderField) {
+      ids.add(defaultOrderField);
+    }
+    return ids;
+  }
+
+  private buildFieldLookup(table: TableDomain): Map<string, FieldCore> {
+    const lookup = new Map<string, FieldCore>();
+    for (const field of table.fieldList) {
+      lookup.set(field.id, field);
+    }
+    return lookup;
+  }
+
+  private referencesComputedField(
+    fieldIds: Set<string>,
+    fieldLookup: Map<string, FieldCore>
+  ): boolean {
+    for (const fieldId of fieldIds) {
+      const field = fieldLookup.get(fieldId);
+      if (!field) {
+        continue;
+      }
+      if (this.isComputedField(field)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private createBaseSelectionMap(
+    fieldIds: Set<string>,
+    fieldLookup: Map<string, FieldCore>,
+    alias: string
+  ): Map<string, string> {
+    const selectionMap = new Map<string, string>();
+    for (const fieldId of fieldIds) {
+      const field = fieldLookup.get(fieldId);
+      if (!field) continue;
+      selectionMap.set(field.id, `"${alias}"."${field.dbFieldName}"`);
+    }
+    return selectionMap;
+  }
+
+  private getReadyLinkFieldIds(state: IMutableQueryBuilderState): ReadonlySet<string> | undefined {
+    const fieldCtes = state.getFieldCteMap();
+    if (!fieldCtes.size) {
+      return undefined;
+    }
+    const ready = new Set<string>();
+    for (const [fieldId, cteName] of fieldCtes) {
+      if (state.isCteJoined(cteName)) {
+        ready.add(fieldId);
+      }
+    }
+    return ready;
+  }
+
+  private buildSelect(
+    qb: Knex.QueryBuilder,
+    table: TableDomain,
+    state: IMutableQueryBuilderState,
+    projection?: string[],
+    rawProjection: boolean = false,
+    preferRawFieldReferences: boolean = false,
+    preferStoredLookupFields: boolean = false
+  ): this {
+    const readyLinkFieldIds = this.getReadyLinkFieldIds(state);
+    const visitor = new FieldSelectVisitor(
+      qb,
+      this.dbProvider,
+      table,
+      state,
+      this.dialect,
+      undefined,
+      rawProjection,
+      preferRawFieldReferences,
+      undefined,
+      readyLinkFieldIds,
+      undefined,
+      preferStoredLookupFields
+    );
+    const alias = getTableAliasFromTable(table);
+
+    for (const field of preservedDbFieldNames) {
+      qb.select(`${alias}.${field}`);
+    }
+
+    const orderedFields = getOrderedFieldsByProjection(
+      table,
+      projection,
+      !preferRawFieldReferences
+    ) as FieldCore[];
+    for (const field of orderedFields) {
+      const result = field.accept(visitor);
+      if (!result) continue;
+      if (typeof result === 'string') {
+        // Always alias via raw to avoid Knex placeholder detection on expressions (e.g., regex with '?')
+        const aliasBinding = field.dbFieldName;
+        qb.select({ [aliasBinding]: this.knex.raw(result) });
+      } else {
+        qb.select({ [field.dbFieldName]: result });
+      }
+    }
+
+    return this;
+  }
+
+  private buildAggregateSelect(
+    qb: Knex.QueryBuilder,
+    table: TableDomain,
+    state: IMutableQueryBuilderState,
+    projection?: string[],
+    preferStoredLookupFields: boolean = false
+  ): this {
+    const readyLinkFieldIds = this.getReadyLinkFieldIds(state);
+    const visitor = new FieldSelectVisitor(
+      qb,
+      this.dbProvider,
+      table,
+      state,
+      this.dialect,
+      undefined,
+      false,
+      false,
+      undefined,
+      readyLinkFieldIds,
+      undefined,
+      preferStoredLookupFields
+    );
+
+    // Add field-specific selections using visitor pattern. Aggregations only need
+    // selections for fields referenced by aggregation/group/search/filter callers.
+    const orderedFields = getOrderedFieldsByProjection(table, projection, true) as FieldCore[];
+    for (const field of orderedFields) {
+      field.accept(visitor);
+    }
+
+    return this;
+  }
+
+  private buildFilter(
+    qb: Knex.QueryBuilder,
+    table: TableDomain,
+    filter: IFilter,
+    selectionMap: IReadonlyRecordSelectionMap,
+    currentUserId: string | undefined,
+    mainAlias?: string
+  ): this {
+    // Allow filters to reference fields even if they are not part of the final projection
+    // so that permission-hidden fields can still participate in WHERE clauses.
+    const map = table.fieldList.reduce(
+      (acc, field) => {
+        acc[field.id] = field;
+        acc[field.name] = field;
+        return acc;
+      },
+      {} as Record<string, FieldCore>
+    );
+    const augmentedSelection = new Map(selectionMap);
+    if (mainAlias) {
+      table.fieldList.forEach((field) => {
+        const qualified = this.knex.ref(`${mainAlias}.${field.dbFieldName}`).toQuery();
+        augmentedSelection.set(field.id, qualified);
+      });
+    }
+    this.dbProvider
+      .filterQuery(
+        qb,
+        map,
+        filter,
+        { withUserId: currentUserId },
+        { selectionMap: augmentedSelection }
+      )
+      .appendQueryBuilder();
+    return this;
+  }
+
+  private buildSort(
+    qb: Knex.QueryBuilder,
+    table: TableDomain,
+    sort: ISortItem[],
+    selectionMap: IReadonlyRecordSelectionMap
+  ): this {
+    // Restrict sortable fields to those present in the current selection (permission-respected)
+    const allowedIds = new Set<string>(Array.from(selectionMap.keys()));
+    const map = table.fieldList.reduce(
+      (acc, field) => {
+        if (!allowedIds.has(field.id)) return acc;
+        acc[field.id] = field;
+        acc[field.name] = field;
+        return acc;
+      },
+      {} as Record<string, FieldCore>
+    );
+    this.dbProvider.sortQuery(qb, map, sort, undefined, { selectionMap }).appendSortBuilder();
+    return this;
+  }
+}

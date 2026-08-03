@@ -1,0 +1,148 @@
+{
+  "name": "@teable/eslint-config-bases",
+  "version": "1.10.0",
+  "license": "MIT",
+  "private": true,
+  "homepage": "https://github.com/teableio/teable",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/teableio/teable",
+    "directory": "packages/eslint-config-bases"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "author": {
+    "name": "tea artist",
+    "url": "https://github.com/tea-artist"
+  },
+  "type": "commonjs",
+  "main": "./src/index.js",
+  "files": [
+    "src"
+  ],
+  "exports": {
+    ".": {
+      "require": "./src/index.js"
+    },
+    "./patch/modern-module-resolution": {
+      "require": "./src/patch/modern-module-resolution.js"
+    },
+    "./helpers": {
+      "require": "./src/helpers/index.js"
+    },
+    "./mdx": {
+      "require": "./src/bases/mdx.js"
+    },
+    "./jest": {
+      "require": "./src/bases/jest.js"
+    },
+    "./playwright": {
+      "require": "./src/bases/playwright.js"
+    },
+    "./prettier-config": {
+      "require": "./src/bases/prettier-config.js"
+    },
+    "./prettier-plugin": {
+      "require": "./src/bases/prettier-plugin.js"
+    },
+    "./react": {
+      "require": "./src/bases/react.js"
+    },
+    "./react-query": {
+      "require": "./src/bases/react-query.js"
+    },
+    "./rtl": {
+      "require": "./src/bases/rtl.js"
+    },
+    "./regexp": {
+      "require": "./src/bases/regexp.js"
+    },
+    "./sonar": {
+      "require": "./src/bases/sonar.js"
+    },
+    "./storybook": {
+      "require": "./src/bases/storybook.js"
+    },
+    "./tailwind": {
+      "require": "./src/bases/tailwind.js"
+    },
+    "./typescript": {
+      "require": "./src/bases/typescript.js"
+    }
+  },
+  "scripts": {
+    "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./.eslintcache",
+    "lint": "eslint . --ext .ts,.js,.cjs,.mjs --cache --cache-location ../../.cache/eslint/eslint-config-bases.eslintcache",
+    "typecheck": "tsc --project tsconfig.json --noEmit",
+    "fix-all-files": "eslint  --ext .ts,.tsx,.js,.jsx --fix"
+  },
+  "dependencies": {
+    "@rushstack/eslint-patch": "1.8.0",
+    "@tanstack/eslint-plugin-query": "5.91.2",
+    "@typescript-eslint/eslint-plugin": "7.3.1",
+    "@typescript-eslint/parser": "7.3.1",
+    "eslint-config-prettier": "9.1.0",
+    "eslint-import-resolver-typescript": "3.6.1",
+    "eslint-plugin-import": "2.29.1",
+    "eslint-plugin-jest": "27.9.0",
+    "eslint-plugin-jest-formatting": "3.1.0",
+    "eslint-plugin-jsx-a11y": "6.8.0",
+    "eslint-plugin-playwright": "1.5.4",
+    "eslint-plugin-prettier": "5.1.3",
+    "eslint-plugin-react": "7.34.1",
+    "eslint-plugin-react-hooks": "4.6.0 || 5.0.0-canary-7118f5dd7-20230705",
+    "eslint-plugin-regexp": "2.4.0",
+    "eslint-plugin-sonarjs": "0.24.0",
+    "eslint-plugin-storybook": "0.8.0",
+    "eslint-plugin-testing-library": "6.2.0"
+  },
+  "peerDependencies": {
+    "eslint": "^8.55.0",
+    "eslint-plugin-mdx": "^2.2.0 || ^3.0.0",
+    "eslint-plugin-tailwindcss": "^3.13.0",
+    "prettier": "^3.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "typescript": "^5.1.6"
+  },
+  "peerDependenciesMeta": {
+    "eslint-plugin-mdx": {
+      "optional": true
+    },
+    "eslint-plugin-tailwindcss": {
+      "optional": true
+    },
+    "prettier": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    },
+    "tailwindcss": {
+      "optional": true
+    },
+    "typescript": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "6.4.2",
+    "@testing-library/react": "14.2.2",
+    "@types/node": "22.18.0",
+    "@types/react": "18.3.18",
+    "@types/react-dom": "18.3.5",
+    "es-check": "7.1.1",
+    "eslint": "8.57.0",
+    "eslint-plugin-mdx": "3.1.5",
+    "eslint-plugin-tailwindcss": "3.15.1",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "rimraf": "5.0.5",
+    "tailwindcss": "3.4.1",
+    "typescript": "5.4.3"
+  }
+}

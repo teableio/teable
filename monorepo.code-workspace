@@ -1,0 +1,104 @@
+{
+  "folders": [
+    {
+      "name": "nextjs-app",
+      "path": "apps/nextjs-app",
+    },
+    {
+      "name": "plugins",
+      "path": "plugins",
+    },
+    {
+      "name": "nestjs-backend",
+      "path": "apps/nestjs-backend",
+    },
+    {
+      "name": "common-i18n",
+      "path": "packages/common-i18n",
+    },
+    {
+      "name": "sdk",
+      "path": "packages/sdk",
+    },
+    {
+      "name": "core",
+      "path": "packages/core",
+    },
+    {
+      "name": "db-main-prisma",
+      "path": "packages/db-main-prisma",
+    },
+    {
+      "name": "eslint-config-bases",
+      "path": "packages/eslint-config-bases",
+    },
+    {
+      "name": "ui-lib",
+      "path": "packages/ui-lib",
+    },
+    {
+      "name": "icons",
+      "path": "packages/icons",
+    },
+    {
+      "name": "openapi",
+      "path": "packages/openapi",
+    },
+    {
+      "name": "root",
+      "path": ".",
+    },
+  ],
+  "extensions": {
+    "recommendations": ["dbaeumer.vscode-eslint", "esbenp.prettier-vscode"],
+  },
+  "settings": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": "explicit",
+    },
+    // Disable vscode formatting for js,jsx,ts,tsx files
+    // to allow dbaeumer.vscode-eslint to format them
+    "[javascript]": {
+      "editor.formatOnSave": false,
+    },
+    "eslint.alwaysShowStatus": true,
+    // https://github.com/Microsoft/vscode-eslint#mono-repository-setup
+    "eslint.workingDirectories": [
+      "./apps/nextjs-app",
+      "./apps/nestjs-backend",
+      "./packages/common-i18n",
+      "./packages/sdk",
+      "./packages/core",
+      "./packages/icons",
+      "./packages/db-main-prisma",
+      "./packages/eslint-config-bases",
+      "./packages/ui-lib",
+      "./plugins",
+    ],
+    "cSpell.words": [
+      "combobox",
+      "DATEPICKEROPTIONS",
+      "glideapps",
+      "Gridlines",
+      "INPUTOPTIONS",
+      "jschardet",
+      "overscan",
+      "Qrcode",
+      "sharedb",
+      "Sqls",
+      "tada",
+      "Teable",
+      "thumbsdown",
+      "thumbsup",
+      "Trgm",
+      "tsvector",
+      "udecode",
+      "univer",
+      "Univer",
+      "univerjs",
+      "zustand",
+    ],
+  },
+}

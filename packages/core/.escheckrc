@@ -1,0 +1,5 @@
+{
+  "ecmaVersion": "es2017",
+  "module": true,
+  "files": "./dist/**/*.js"
+}

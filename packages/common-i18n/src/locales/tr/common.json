@@ -1,0 +1,1295 @@
+{
+  "actions": {
+    "title": "İşlemler",
+    "add": "Ekle",
+    "save": "Kaydet",
+    "doNotSave": "Kaydetme",
+    "submit": "Gönder",
+    "confirm": "Onayla",
+    "close": "Kapat",
+    "edit": "Düzenle",
+    "fill": "Doldur",
+    "update": "Güncelle",
+    "create": "Oluştur",
+    "delete": "Sil",
+    "cancel": "İptal",
+    "zoomIn": "Yakınlaştır",
+    "zoomOut": "Uzaklaştır",
+    "back": "Geri",
+    "download": "İndir",
+    "remove": "Kaldır",
+    "removeConfig": "Yapılandırmayı sil",
+    "saveSucceed": "Başarıyla Kaydedildi!",
+    "submitSucceed": "Başarıyla Gönderildi!",
+    "editSucceed": "Başarıyla Düzenlendi!",
+    "updateSucceed": "Başarıyla Güncellendi!",
+    "deleteSucceed": "Başarıyla Silindi!",
+    "resetSucceed": "Çöp Kutusu Başarıyla Boşaltıldı!",
+    "restoreSucceed": "Başarıyla Geri Yüklendi!",
+    "loading": "Yükleniyor...",
+    "refreshPage": "Sayfayı Yenile",
+    "yesDelete": "Evet, sil",
+    "rename": "Yeniden Adlandır",
+    "duplicate": "Çoğalt",
+    "change": "Değiştir",
+    "upgrade": "Yükselt",
+    "upgradeToLevel": "{{level}}'e yükselt",
+    "search": "Ara",
+    "loadMore": "Daha Fazla Yükle",
+    "collapseSidebar": "Kenar Çubuğunu Daralt",
+    "restore": "Geri Yükle",
+    "permanentDelete": "Kalıcı Olarak Sil",
+    "globalSearch": "Genel Arama",
+    "fieldSearch": "Alan Ara",
+    "showAllRow": "Tüm satırları göster",
+    "hideNotMatchRow": "Eşleşmeyen satırları gizle",
+    "more": "Daha Fazla",
+    "expand": "Genişlet",
+    "tableIndex": "Dizin",
+    "move": "Taşı",
+    "turnOn": "Aç",
+    "exit": "Çıkış",
+    "next": "Sonraki",
+    "previous": "Önceki",
+    "select": "Seç",
+    "view": "Görüntüle",
+    "preview": "Önizleme",
+    "viewAndEdit": "Görüntüle ve düzenle",
+    "deleteTip": "\"{{name}}\" öğesini silmek istediğinizden emin misiniz?",
+    "refresh": "Yenile",
+    "login": "Giriş Yap",
+    "useTemplate": "Şablon Kullan",
+    "copyToMySpace": "Copy to my space",
+    "saveToMySpace": "Save to my space",
+    "supportSaveCopy": "Support saving a copy",
+    "backToSpace": "Alana Dön",
+    "switchBase": "Veritabanı Değiştir",
+    "continue": "Devam Et",
+    "export": "Dışa Aktar",
+    "import": "İçe Aktar",
+    "getMore": "Daha fazla al",
+    "copySuccess": "Kopyalama başarılı",
+    "openLink": "Bağlantıyı aç",
+    "share": "Paylaş"
+  },
+  "quickAction": {
+    "title": "Hızlı İşlemler",
+    "placeHolder": "Bir komut yazın veya arayın..."
+  },
+  "password": {
+    "setInvalid": "Şifre geçersiz, en az 8 karakter olmalı ve en az bir harf ve bir rakam içermelidir."
+  },
+  "template": {
+    "non": {
+      "share": "Paylaş",
+      "copy": "Kopyalandı"
+    },
+    "aiTitle": "Birlikte inşa edelim",
+    "aiGreeting": "Size nasıl yardımcı olabilirim, {{name}}?",
+    "aiSubTitle": "Ekiplerin veriler üzerinde işbirliği yaptığı ve üretim uygulamaları oluşturduğu ilk AI platformu",
+    "guideTitle": "Senaryonuzdan başlayın",
+    "watchVideo": "Video izle",
+    "title": "Şablon",
+    "description": "Şablondan yeni bir veritabanı oluştur",
+    "browseAll": "Tümüne Göz At",
+    "templateTitle": "Şablonla başla",
+    "loadMore": "Daha Fazla Yükle",
+    "allTemplatesLoaded": "Tüm şablonlar yüklendi",
+    "createTemplate": "Şablon Oluştur",
+    "useTemplateDialog": {
+      "title": "Alan Seçin",
+      "description": "Şablon için bir alan seçin",
+      "noSpaceDescription": "You don't have any spaces yet. Create one to continue.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create"
+    },
+    "promptBox": {
+      "placeholder": "Teable ile iş uygulamanızı oluşturun",
+      "start": "Başlat",
+      "carouselGuides": {
+        "guide1": "Makbuzları yapıştırın → Teable'dan anahtar verileri otomatik olarak çıkarmasını isteyin",
+        "guide2": "Müşteri adayı ve takip tabloları ile AI CRM oluşturun",
+        "guide3": "Müşteri geri bildirimlerini yapıştırın → Teable'dan içgörüler bulmasını ve raporlar oluşturmasını isteyin",
+        "guide4": "Görevler ve son tarihlerle bir proje takip sistemi oluşturun",
+        "guide5": "Müşteri adayları elektronik tablosunu yapıştırın → Teable'dan akıllı bir CRM oluşturmasını isteyin",
+        "guide6": "Gönderiler ve yayın tarihleri ile bir içerik planlayıcısı oluşturun",
+        "guide7": "Özgeçmişleri yapıştırın → Teable'dan adayları düzenlemesini ve ön elemeyi yapmasını isteyin"
+      }
+    }
+  },
+  "baseShare": {
+    "shareTitle": "Paylaş",
+    "shareToWeb": "Web'de paylaş",
+    "linkHolderLabel": "Bağlantıya sahip kişi",
+    "linkHolderCanView": "Görüntüleyebilir",
+    "linkHolderCanViewDesc": "Bağlantıya sahip herkes verileri görüntüleyebilir",
+    "linkHolderCanEdit": "Düzenleyebilir",
+    "linkHolderCanEditDesc": "Oturum açmış kullanıcılar tablodaki kayıtları düzenleyebilir",
+    "linkHolderCanCopyAndSave": "Kopya olarak kaydet",
+    "linkHolderCanCopyAndSaveDesc": "Bağlantıya sahip herkes kendi alanına bir kopya kaydedebilir",
+    "refreshLink": "Bağlantıyı yeniden oluştur",
+    "advanced": "Gelişmiş",
+    "allowCopyData": "Görüntüleyenlerin verileri kopyalamasına izin ver",
+    "restrictByPassword": "Şifre ile koru",
+    "embedConfig": "Yerleştirme yapılandırması",
+    "embedPreview": "Yerleştirme önizlemesi",
+    "copyCode": "Kodu kopyala",
+    "enterPassword": "Şifre girin",
+    "passwordTitle": "Şifre belirle",
+    "deleteConfirmTitle": "Paylaşım bağlantısını sil",
+    "deleteConfirmDescription": "Bu işlem geri alınamaz. Bu bağlantıya sahip kişiler artık paylaşılan tabana erişemeyecektir.",
+    "createSuccess": "Paylaşım bağlantısı oluşturuldu",
+    "createFailed": "Paylaşım bağlantısı oluşturulamadı",
+    "updateFailed": "Paylaşım ayarları güncellenemedi",
+    "deleteSuccess": "Paylaşım bağlantısı silindi",
+    "deleteFailed": "Paylaşım bağlantısı silinemedi",
+    "refreshSuccess": "Paylaşım bağlantısı yeniden oluşturuldu",
+    "refreshFailed": "Paylaşım bağlantısı yeniden oluşturulamadı"
+  },
+  "share": {
+    "copyToSpaceDialog": {
+      "title": "Alana kopyala",
+      "description": "Bu veritabanını kopyalamak için bir alan seçin",
+      "baseName": "Veritabanı adı",
+      "baseNamePlaceholder": "Veritabanı adını girin",
+      "selectSpace": "Alan seç",
+      "noSpaceDescription": "Yönetilebilir alan yok. Devam etmek için yeni bir alan oluşturun.",
+      "newSpacePlaceholder": "Space name",
+      "createSpace": "Create",
+      "copyTarget": "Copy to",
+      "createNewBase": "New base",
+      "copyToExistingBase": "Existing base",
+      "selectBase": "Select base",
+      "selectBasePlaceholder": "Select a base",
+      "noBaseInSpace": "Bu alanda yönetilebilir veritabanı yok. \"Yeni veritabanı\"nı seçin."
+    }
+  },
+  "settings": {
+    "title": "Örnek Ayarları",
+    "allSetting": "Alan ve kişisel ayarlar",
+    "personal": {
+      "title": "Kişisel"
+    },
+    "templateAdmin": {
+      "title": "Şablon yönetimi",
+      "noData": "Veri yok",
+      "importing": "İçe aktarılıyor...",
+      "usageCount": "Kullanım sayısı: {{count}}",
+      "useTemplate": "Bu şablonu kullan",
+      "createdBy": "{{user}} tarafından",
+      "backToTemplateList": "Şablon listesine dön",
+      "tips": {
+        "errorCategoryName": "Kategori mevcut değil veya silindi",
+        "needSnapshot": "Yayınlamadan önce bir anlık görüntü oluşturun, şablon adı ve açıklaması boş olamaz",
+        "needPublish": "Öne çıkan olarak ayarlamadan önce şablonu yayınlayın",
+        "needBaseSource": "Anlık görüntü oluşturmadan önce bir kaynak veritabanı seçin",
+        "forbiddenUpdateSystemTemplate": "Sistem şablonu değiştirilemez",
+        "addCategoryTips": "Lütfen önce arama kutusuna bir kategori adı girin.",
+        "categoryNamePlaceholder": "Kategori adını girin",
+        "duplicateCategoryName": "Kategori adı zaten mevcut"
+      },
+      "category": {
+        "menu": {
+          "getStarted": "Başlayın",
+          "recommended": "Önerilen",
+          "all": "Tümü",
+          "browseByCategory": "Kategoriye göre gözat"
+        }
+      },
+      "header": {
+        "cover": "Kapak",
+        "name": "Ad",
+        "description": "Açıklama",
+        "markdownDescription": "Markdown açıklaması",
+        "category": "Kategori",
+        "isSystem": "Sistem",
+        "source": "Kaynak",
+        "status": "Yayınlandı",
+        "publishSnapshot": "Anlık görüntü yayınla",
+        "snapshotTime": "Anlık görüntü zamanı",
+        "actions": "Eylemler",
+        "featured": "Öne çıkan",
+        "createdBy": "Oluşturan",
+        "userNonExistent": "Kullanıcı mevcut değil",
+        "preview": "Önizleme",
+        "usage": "Kullanım",
+        "visit": "Ziyaret"
+      },
+      "actions": {
+        "title": "Eylemler",
+        "publish": "Yayınla",
+        "delete": "Sil",
+        "duplicate": "Çoğalt",
+        "preview": "Önizleme",
+        "use": "Kullan",
+        "pinTop": "Üste sabitle",
+        "addCategory": "Kategori ekle",
+        "selectCategory": "Kategori seç",
+        "viewTemplate": "Şablonu görüntüle",
+        "manageCategory": "Kategorileri yönet"
+      },
+      "relatedTemplates": "İlgili Şablonlar",
+      "noImage": "Resim yok",
+      "baseSelectPanel": {
+        "title": "Şablon kaynağını seçin",
+        "description": "Şablon olarak bir veritabanı seçin",
+        "confirm": "Onayla",
+        "search": "Ara...",
+        "cancel": "İptal",
+        "selectBase": "Veritabanı seç",
+        "createTemplate": "Şablon oluştur",
+        "abnormalBase": "Veritabanı mevcut değil veya silindi"
+      }
+    },
+    "back": "Ana sayfaya dön",
+    "account": {
+      "title": "Profilim",
+      "tab": "Hesabım",
+      "updatePhoto": "Fotoğrafı güncelle",
+      "updateNameDesc": "Takma ad veya isim, Teable'da size nasıl hitap edilmesini istiyorsanız",
+      "securityTitle": "Hesap güvenliği",
+      "email": "E-posta",
+      "password": "Şifre",
+      "passwordDesc": "Hesabınıza giriş yapmak için kalıcı bir şifre belirleyin.",
+      "changePassword": {
+        "title": "Şifre değiştir",
+        "desc": "Lütfen mevcut şifrenizi girin ve yeni bir şifre belirleyin",
+        "current": "Mevcut şifre",
+        "new": "Yeni şifre",
+        "confirm": "Yeni şifreyi onayla"
+      },
+      "changePasswordError": {
+        "disMatch": "Yeni şifreleriniz eşleşmiyor.",
+        "equal": "Yeni şifreniz mevcut şifrenizden farklı olmalıdır.",
+        "invalid": "Mevcut şifreniz geçersiz.",
+        "invalidNew": "Yeni şifreniz geçersiz, minimum 8 karakter olmalıdır."
+      },
+      "changePasswordSuccess": {
+        "title": "🎉 Şifre başarıyla değiştirildi.",
+        "desc": "2 saniye içinde giriş sayfasına yönlendirileceksiniz."
+      },
+      "manageToken": "Erişim Tokeni",
+      "addPassword": {
+        "title": "Şifre ekle",
+        "desc": "Hesabınıza giriş yapmak için kalıcı bir şifre belirleyin.",
+        "password": "Şifrenizi girin",
+        "confirm": "Şifrenizi onaylayın"
+      },
+      "addPasswordError": {
+        "disMatch": "Şifreleriniz eşleşmiyor.",
+        "invalid": "Şifreniz geçersiz, minimum 8 karakter olmalıdır."
+      },
+      "addPasswordSuccess": {
+        "title": "🎉 Şifre başarıyla eklendi."
+      },
+      "deleteAccount": {
+        "title": "Hesabı Sil",
+        "desc": "Bu işlem geri alınamaz. Hesabınız ve tüm ilişkili veriler kalıcı olarak silinecektir.",
+        "error": {
+          "title": "Hesap silinemedi",
+          "desc": "Önce aşağıdaki bağımlılıkları çözmeniz gerekiyor:",
+          "spacesError": "Hesabınızı silmeden önce, Alanlarınızdan çıkmanız (veya silip çöp kutusuna taşımanız) gerekiyor."
+        },
+        "confirm": {
+          "title": "Onaylamak için <code>DELETE</code> yazın",
+          "placeholder": "DELETE"
+        },
+        "loading": "Siliniyor..."
+      },
+      "changeEmail": {
+        "title": "E-posta adresini değiştir",
+        "desc": "Lütfen şifrenizi doğrulayın ve yeni e-posta adresinizi onaylayın",
+        "current": "Mevcut şifre",
+        "new": "Yeni e-posta",
+        "code": "Doğrulama kodu",
+        "getCode": "Kodu gönder",
+        "error": {
+          "invalidCode": "Doğrulama kodu geçersiz.",
+          "invalidPassword": "Şifre geçersiz.",
+          "invalidConflict": "Yeni e-posta adresi zaten kayıtlı.",
+          "invalidSameEmail": "Yeni e-posta mevcut e-posta ile aynı.",
+          "sendMailRateLimit": "Yeni bir e-posta göndermeden önce lütfen {{seconds}} saniye bekleyin"
+        },
+        "success": {
+          "title": "🎉 E-posta başarıyla değiştirildi.",
+          "desc": "2 saniye içinde giriş sayfasına yönlendirileceksiniz.",
+          "sendSuccess": "Doğrulama kodu başarıyla gönderildi."
+        }
+      }
+    },
+    "notify": {
+      "title": "Bildirimlerim",
+      "label": "Alan etkinliği",
+      "desc": "Yorum aldığınızda, bahsedildiğinizde, sayfa davetleri, hatırlatmalar, erişim istekleri ve özellik değişiklikleri için e-posta alın."
+    },
+    "setting": {
+      "title": "Ayarlarım",
+      "theme": "Tema",
+      "themeDesc": "Uygulama temasını seçin.",
+      "dark": "Koyu",
+      "light": "Açık",
+      "system": "Sistem",
+      "version": "Uygulama sürümü",
+      "language": "Dil",
+      "interactionMode": "Etkileşim Modu",
+      "mouseMode": "İmleç Modu",
+      "touchMode": "Dokunmatik Mod",
+      "systemMode": "Sistemi Takip Et",
+      "teableSkill": "Teable becerisi"
+    },
+    "teableSkill": {
+      "intro": "AI Agent modelinizin Base’inize bağlanarak verileri sorgulamasına, tabloları, alanları ve görünümleri yönetmesine, kayıtları içe aktarmasına veya güncellemesine, otomasyonlar ve uygulamalar oluşturmasına yardımcı olun.",
+      "worksWith": "Tüm yaygın agent modelleriyle çalışır",
+      "more": "+ daha fazla",
+      "copy": "Kopyala",
+      "installPromptLabel": "Skill kurulum promptu",
+      "installCommandLabel": "Skill kurulum komutu",
+      "installPrompt": "Lütfen https://github.com/teableio/agent-skills adresini oku, rehbere göre Teable agent skill kurmama yardımcı ol ve Teable CLI kimlik doğrulamasını tamamla.",
+      "step1Title": "Skill kur",
+      "step1Description": "Bu promptu AI Agent modelinize kopyalayın. Teable skill’ini kurar ve Teable CLI kimlik doğrulamasını tamamlamak için tarayıcıyı açar.",
+      "step3Title": "Teable becerisini deneyin",
+      "step3Description": "Beceri kurulduktan sonra bu promptları deneyin.",
+      "tryPrompts": {
+        "schema": {
+          "prompt": "Bu base içinde basit bir CRM tablosu oluştur.",
+          "note": "Basit başlangıç promptları"
+        },
+        "template": {
+          "prompt": "Bu yerel klasördeki tüm faturaları <Makbuz Tablosu> {tablo URL'sini yapıştır} içine yükle ve önemli alanları çıkar.",
+          "note": "Yerel dosyalar → Teable"
+        },
+        "validate": {
+          "prompt": "Yeni GitHub issues kayıtlarını <Bug Tracker> {tablo URL'sini yapıştır} içine aktar.",
+          "note": "Çapraz platform verileri → Teable"
+        },
+        "trace": {
+          "prompt": "<Görev Tablosu> {tablo URL'sini yapıştır} öğesini kontrol et ve süresi geçmiş görevleri işaretle.",
+          "note": "Teable verilerini temizle veya düzenle"
+        }
+      }
+    },
+    "nav": {
+      "settings": "Ayarlar",
+      "logout": "Çıkış yap",
+      "contactSupport": "Destek ile İletişim"
+    },
+    "integration": {
+      "title": "Entegrasyonlar",
+      "description": "{{count}} uygulamaya hesabınıza erişim izni verdiniz.",
+      "lastUsed": "Son kullanım: {{date}}",
+      "revoke": "İptal et",
+      "owner": "Sahibi: {{user}}",
+      "revokeTitle": "Yetkilendirmeyi iptal etmek istediğinizden emin misiniz?",
+      "revokeDesc": "{{name}} artık Teable API'sine erişemeyecek. Bu işlem geri alınamaz.",
+      "scopeTitle": "İzinler",
+      "scopeDesc": "Bu uygulama aşağıdaki kapsamlara erişebilecek:"
+    }
+  },
+  "noun": {
+    "table": "Tablo",
+    "view": "Görünüm",
+    "space": "Alan",
+    "base": "Veritabanı",
+    "field": "Alan",
+    "record": "Kayıt",
+    "dashboard": "Gösterge Paneli",
+    "automation": "Otomasyon",
+    "authorityMatrix": "Yetki Matrisi",
+    "design": "Tasarım",
+    "adminPanel": "Sistem Yönetimi",
+    "license": "Kendi sunuculu lisans",
+    "instanceId": "Örnek Kimliği",
+    "beta": "Beta",
+    "trash": "Çöp Kutusu",
+    "global": "Genel",
+    "organizationPanel": "Organizasyon Ayarları",
+    "unknownError": "Bilinmeyen hata",
+    "pluginPanel": "Panel",
+    "pluginContextMenu": "Bağlam menüsü",
+    "plugin": "Eklentiler",
+    "copy": "Kopya",
+    "credits": "Krediler",
+    "aiChat": "AI Sohbet",
+    "app": "Uygulama",
+    "webSearch": "Web araması",
+    "folder": "Klasör",
+    "newAutomation": "Yeni otomasyon",
+    "newApp": "Yeni uygulama",
+    "newFolder": "Yeni klasör",
+    "template": "Şablon"
+  },
+  "level": {
+    "free": "Ücretsiz",
+    "plus": "Plus",
+    "pro": "Pro",
+    "business": "İş",
+    "enterprise": "Kurumsal"
+  },
+  "noResult": "Sonuç Bulunamadı.",
+  "allNodes": "Tüm Düğümler",
+  "noDescription": "Açıklama yok",
+  "untitled": "Başlıksız",
+  "name": "İsim",
+  "description": "Açıklama",
+  "required": "Zorunlu",
+  "characters": "karakter",
+  "atLeastOne": "En az bir {{noun}} bulunmalıdır",
+  "guide": {
+    "prev": "Önceki",
+    "next": "Sonraki",
+    "done": "Tamam",
+    "skip": "Atla",
+    "createSpaceTooltipTitle": "Alan oluştur",
+    "createSpaceTooltipContent": "Teable alanlar halinde düzenlenmiştir, her alan kullanıcıları işbirliği yapmaya davet eder. <br></br>Teable'daki alanlar, menü çubuğunda birincil gezinme öğesi olarak hizmet verir ve kullanıcılara gerektiğinde veritabanı ekleme ve yönetme için temel bir platform sunar.",
+    "createBaseTooltipTitle": "Veritabanı oluştur",
+    "createBaseTooltipContent": "Veritabanı, önemli verileri ve bunlara bağlı iş akışlarını depolamak için bir yerdir.",
+    "createTableTooltipTitle": "Tablo oluştur",
+    "createTableTooltipContent": "Tablolar, çeşitli veri türleri aracılığıyla bilgilerin çok yönlü görüntülenmesini sağlayarak farklı veri kümelerini verimli bir şekilde işlemek için tasarlanmıştır.",
+    "createViewTooltipTitle": "Görünüm oluştur",
+    "createViewTooltipContent": "Şu anda kullanıcılar Izgara, Galeri, Kanban ve Form görünümleri oluşturabilir, Takvim görünümleri gelecek sürümlerde planlanmaktadır. <br></br>Bu çeşitlilik, kullanıcılara çeşitli veri yönetimi görevleri için kapsamlı bir araç seti sunar.",
+    "viewFilteringTooltipTitle": "Kayıtları filtreleme",
+    "viewFilteringTooltipContent": "Görünümlerin temel özelliklerinden biri, belirlediğiniz koşullara göre kayıtları görünümden filtreleyebilmektir. <br></br>Bir kayıt bir koşula göre filtrelendiğinde silinmez—sadece tablonuza bakmak için kullandığınız belirli görünümden gizlenir.",
+    "viewSortingTooltipTitle": "Kayıtları sıralama",
+    "viewSortingTooltipContent": "Bir görünümdeyken, kayıtlarınızı belirli alanlardaki değerlere göre belirli bir sırada görünecek şekilde sıralayabilirsiniz. <br></br>Kayıtlarınızı bir görünümde sıralamak diğer görünümlerdeki kayıtların sırasını etkilemez—sadece tablonuza bakmak için kullandığınız mevcut görünüme uygulanır.",
+    "viewGroupingTooltipTitle": "Kayıtları gruplama",
+    "viewGroupingTooltipContent": "Kayıtları gruplamak, oluşturuculara belirli bir görünümde sunulan veri kümesini kategorize etmeye yardımcı olacak bir veya daha fazla koşul kümesi oluşturma imkanı sağlar.",
+    "apiButtonTooltipTitle": "API",
+    "apiButtonTooltipContent": "Teable, neredeyse tüm ürün özelliklerini destekleyen güçlü bir API sunar ve geliştiricilerin <a>Token</a> kullanarak çağrı yapmasına olanak tanır."
+  },
+  "token": "Token",
+  "poweredBy": "<0></0> tarafından desteklenmektedir",
+  "invite": {
+    "dialog": {
+      "title": "{{spaceName}} alanı paylaşımı",
+      "desc_one": "Bu alanda <b>{{count}} işbirlikçi</b> var. Bir alan işbirlikçisi eklemek, onlara bu alandaki tüm veritabanlarına erişim izni verecektir.",
+      "desc_other": "Bu alanda <b>{{count}} işbirlikçi</b> var. Bir alan işbirlikçisi eklemek, onlara bu alandaki tüm veritabanlarına erişim izni verecektir.",
+      "tabEmail": "E-posta ile davet et",
+      "emailPlaceholder": "E-posta adreslerini girin ve Enter tuşu ile ayırın",
+      "tabLink": "Bağlantı ile davet et",
+      "linkPlaceholder": "Açan herkese <0/> erişimi veren bir davet bağlantısı oluştur.",
+      "emailSend": "Davet gönder",
+      "linkSend": "Bağlantı oluştur",
+      "spaceTitle": "Alan işbirlikçileri",
+      "collaboratorSearchPlaceholder": "İsim veya e-posta ile alan işbirlikçisi bul",
+      "collaboratorJoin": "{{joinTime}} tarihinde katıldı",
+      "collaboratorRemove": "İşbirlikçiyi kaldır",
+      "linkTitle": "Davet bağlantıları",
+      "linkCreatedTime": "{{createdTime}} tarihinde oluşturuldu",
+      "linkCopySuccess": "Bağlantı kopyalandı",
+      "linkRemove": "Bağlantıyı kaldır"
+    },
+    "base": {
+      "title": "{{baseName}} paylaş",
+      "desc_one": "Bu veritabanı {{count}} işbirlikçi ile paylaşılıyor.",
+      "desc_other": "Bu veritabanı {{count}} işbirlikçi ile paylaşılıyor.",
+      "baseTitle": "Veritabanı işbirlikçileri",
+      "collaboratorSearchPlaceholder": "İsim veya e-posta ile veritabanı işbirlikçisi bul"
+    },
+    "table": {
+      "collaborator": "İşbirlikçi",
+      "accessPermission": "Erişim izni",
+      "joinAt": "Katılma tarihi",
+      "lastLogin": "Son giriş"
+    }
+  },
+  "help": {
+    "title": "Yardım",
+    "appLink": "https://app.teable.ai",
+    "mainLink": "https://help.teable.ai",
+    "apiLink": "https://help.teable.ai/en/api-doc/token"
+  },
+  "pagePermissionChangeTip": "Sayfa izinleri güncellendi. En son içeriği görmek için lütfen sayfayı yenileyin.",
+  "listEmptyTips": "Liste boş",
+  "billing": {
+    "overLimits": "Limit aşımı",
+    "overLimitsDescription": "Mevcut aboneliğiniz kullanım sınırını aştı. Bu özelliği kesintisiz kullanmaya devam etmek için lütfen planınızı yükseltin.",
+    "userLimitExceededDescription": "Mevcut örnek, lisansınızın izin verdiği maksimum kullanıcı sayısına ulaştı. Lütfen bazı kullanıcıları devre dışı bırakın veya lisansı yükseltin.",
+    "unavailableInPlanTips": "Mevcut abonelik planı bu özelliği desteklemiyor",
+    "unavailableConnectionTips": "Veritabanı bağlantısı özelliği gelecekte kaldırılacak ve yalnızca Kurumsal Plan ve kendi sunucu sürümleri için kullanılabilir olacak.",
+    "levelTips": "Bu alan şu anda {{level}} planında",
+    "billable": "Faturalandırılabilir",
+    "billableByAuthorityMatrix": "Yetki matrisi tarafından oluşturulan faturalandırma",
+    "licenseExpiredGracePeriod": "Kendi sunucunuzda barındırma lisansınızın süresi doldu ve {{expiredTime}} tarihinde ücretsiz plana düşürülecek. Premium özelliklere erişimi korumak için lütfen lisansınızı hemen güncelleyin.",
+    "licenseAutoFetchFailed": "Lisansın otomatik yenilenmesi başarısız oldu. Sürüm düşürülmeden önce {{days}} gün ek süre kaldı.",
+    "licenseAutoFetchRetryFailed": "Otomatik yenileme yine başarısız oldu. Lütfen Teable sunucusuyla bağlantıyı kontrol edin veya lisansı manuel olarak güncelleyin.",
+    "licenseExpiredGracePeriodDays": "Lisansın süresi doldu. Sürüm düşürülmeden önce {{days}} gün ek süre kaldı.",
+    "spaceSubscriptionModal": {
+      "title": "Alan abonelik planını yükselt",
+      "description": "Yalnızca sahibi olduğunuz çalışma alanlarını yükseltebilirsiniz"
+    },
+    "status": {
+      "active": "Aktif",
+      "canceled": "İptal Edildi",
+      "incomplete": "Tamamlanmadı",
+      "incompleteExpired": "Tamamlanmamış Süresi Doldu",
+      "trialing": "Deneme",
+      "pastDue": "Vadesi Geçmiş",
+      "unpaid": "Ödenmemiş",
+      "paused": "Duraklatıldı",
+      "seatLimitExceeded": "Koltuk limiti aşıldı"
+    }
+  },
+  "admin": {
+    "setting": {
+      "description": "Mevcut örneğinizin ayarlarını değiştirin",
+      "allowSignUp": "Yeni hesap oluşturmaya izin ver",
+      "allowSignUpDescription": "Bu seçeneği devre dışı bırakmak yeni kullanıcı kayıtlarını yasaklar ve kayıt düğmesi artık giriş sayfasında görünmez.",
+      "bannedEmailDomains": "Yasaklı e-posta alan adları",
+      "bannedEmailDomainsDescription": "Bu alan adlarına ait e-posta adresleri kaydolamaz ve bunlarla ilgili davet e-postaları gönderilmez. Bir alan adı yazın ve eklemek için Enter'a basın.",
+      "bannedEmailDomainsInvalid": "Geçerli bir alan adı girin, örn. example.com",
+      "allowSpaceInvitation": "Alan davetleri göndermeye izin ver",
+      "allowSpaceInvitationDescription": "Bu seçeneği devre dışı bırakmak, yöneticiler dışındaki kullanıcıların başkalarını alanlara davet etmesini engeller. Etkinleştirildiğinde, e-posta ile davet edilen yeni kullanıcılar e-postadaki davet bağlantısına tıklayarak kaydı tamamlayabilir, ancak paylaşılan davet bağlantıları çalışmaz.",
+      "allowSpaceCreation": "Herkesin yeni alan oluşturmasına izin ver",
+      "allowSpaceCreationDescription": "Bu seçeneği devre dışı bırakmak, yöneticiler dışındaki kullanıcıların yeni alan oluşturmasını engeller.",
+      "enableEmailVerification": "E-posta doğrulamasını etkinleştir",
+      "enableEmailVerificationDescription": "Bu seçeneği etkinleştirmek, yeni hesap oluştururken kullanıcıların e-posta adreslerini doğrulamasını gerektirecektir.",
+      "enableWaitlist": "Bekleme listesini etkinleştir",
+      "enableWaitlistDescription": "Bu seçeneği etkinleştirmek, kullanıcıların yalnızca davet kodu ile hesap oluşturmasına izin verecektir.",
+      "generalSettings": "Genel ayarlar",
+      "aiSettings": "AI ayarları",
+      "brandingSettings": {
+        "title": "Marka ayarları",
+        "description": "Yalnızca Kurumsal Sürümde kullanılabilir",
+        "logo": "Logo",
+        "logoDescription": "Logo, Teable'daki marka kimliğinizdir.",
+        "logoUpload": "Logo yükle",
+        "logoUploadDescription": "Logo resmi yükleyin, PNG, JPEG formatlarını destekler, önerilen boyut 100x100px. Maksimum yükleme boyutu 500KB."
+      },
+      "ai": {
+        "name": "İsim",
+        "nameDescription": "İsim özelleştirilebilir, farklı model sağlayıcılarını ayırt etmek için kullanılır",
+        "enable": "AI'ı etkinleştir",
+        "enableDescription": "Mevcut örnek için AI özelliklerini etkinleştirin, tüm kullanıcılar AI özelliklerini kullanabilecek",
+        "updateLLMProvider": "Model sağlayıcısını güncelle",
+        "addProvider": "Model sağlayıcı ekle",
+        "addProviderDescription": "Listeye yeni bir model sağlayıcı ekle",
+        "providerType": "Sağlayıcı türü",
+        "baseUrl": "Temel URL",
+        "apiKey": "API anahtarı",
+        "baseUrlDescription": "Model sağlayıcının temel URL'si",
+        "apiKeyDescription": "Model sağlayıcının API anahtarı",
+        "models": "Modeller",
+        "modelsDescription": "Model sağlayıcının desteklediği modeller",
+        "baseUrlRequired": "Temel URL gereklidir",
+        "fetchModelListError": "Model listesi alınamadı",
+        "provider": "Model sağlayıcı",
+        "providerDescription": "Kullanılacak model sağlayıcı",
+        "modelPreferences": "Model tercihleri",
+        "modelPreferencesDescription": "Model sağlayıcının model tercihleri",
+        "embeddingModel": "Gömme modeli",
+        "embeddingModelDescription": "Optional. For Document Q&A. Usually, the model ID contains \"embedding\".",
+        "translationModel": "Çeviri modeli",
+        "translationModelDescription": "Kullanılacak çeviri modeli",
+        "chatModel": "Sohbet modeli",
+        "chatModelDescription": "Kullanılacak sohbet modeli, İpucu: orta kodlama modeli varsayılan olarak AI formül üretimi ve ilgili özellikler için kullanılır",
+        "chatModels": {
+          "lg": "Gelişmiş sohbet modeli",
+          "lgDescription": "Planlama, kodlama ve diğer karmaşık görev senaryoları için. Önerilen: claude-sonnet-4.5"
+        },
+        "actions": {
+          "title": "AI Yetenekleri",
+          "aiField": {
+            "title": "AI Alan",
+            "description": "Otomatik doldurma ve alan ayarlarında AI yapılandırması dahil AI alan işlevleri"
+          },
+          "aiChat": {
+            "title": "AI Sohbet",
+            "description": "AI Sohbet kenar çubuğu ve tüm ajan işlevleri"
+          }
+        },
+        "chatModelTest": {
+          "text": "Test modeli",
+          "description": "Modelin resim, PDF işleme kabiliyetini test et",
+          "notConfigLgModel": "Lütfen önce büyük modeli yapılandırın",
+          "confirmTitle": "Model Kabiliyetini Test Et",
+          "confirmDescription": "Büyük sohbet modelinin kabiliyetlerini test etmek istiyor musunuz?",
+          "confirm": "Modeli Test Et",
+          "cancel": "İptal",
+          "missingCapabilitiesWarning": "Bu model resim veya PDF işlemeyi desteklemiyor, bu bazı özelliklerin kullanılamaz olmasına neden olabilir.",
+          "enableAITitle": "AI'ı Etkinleştir",
+          "enableAIDescription": "Model testi tamamlandı. AI şu anda etkin değil. Bu model kabiliyetlerini kullanmak için AI'ı etkinleştirmek istiyor musunuz?",
+          "enableAI": "AI'ı Etkinleştir",
+          "skipTest": "Atla"
+        },
+        "chatModelAbility": {
+          "image": "Resim",
+          "pdf": "PDF",
+          "webSearch": "Web Araması",
+          "disabledWebSearch": "Web Araması Devre Dışı",
+          "lgModelAbility": "Büyük model kabiliyeti"
+        },
+        "configUpdated": "AI yapılandırması güncellendi",
+        "noModelFound": "Model bulunamadı",
+        "searchModel": "Model ara...",
+        "selectModel": "Model seç...",
+        "defaultModel": "{{name}} (Varsayılan)",
+        "moreModels": "Daha fazla model",
+        "agentModelWarningTitle": "Modelleri dikkatli seçin",
+        "agentModelWarningDescription": "Yukarıdaki önerilen modeller, araç kullanımı ve çok adımlı akıl yürütme gibi ajan görevleri için optimize edilmiştir. Diğer modellerin yetenekleri sınırlı olabilir ve beklenmeyen sonuçlara yol açabilir.",
+        "agentModelWarningConfirm": "Anladım",
+        "recommendedModelNudge": {
+          "title": "{{model}} modelini deneyin",
+          "description": "Çok daha düşük kredi kullanımıyla daha iyi AI sonuçları alın.",
+          "use": "{{model}} kullan",
+          "later": "Daha sonra"
+        },
+        "noModelsAvailable": "Kullanılabilir model yok",
+        "input": "Giriş {{ratio}}",
+        "output": "Çıkış {{ratio}}",
+        "inputOrOutputTip": "Oran, hesaplama gücü ile Token arasındaki dönüşüm ilişkisini temsil eder, örneğin \"1:1000\" 1 hesaplama gücü ≈ 1000 Token anlamına gelir.<br></br>Not: Her kullanımda en az 1 hesaplama gücü kesilir, gerçek tüketim 1 hesaplama gücünden az olsa bile",
+        "imageOutput": "Her resim {{credits}}",
+        "imageOutputTip": "Resim üretimi hesaplama gücü gerektirir, her resim {{credits}} hesaplama gücü tüketir",
+        "supportImageOutputTip": "Bu model resim üretimini destekler",
+        "supportVisionTip": "Bu model resim girişini destekler",
+        "supportAudioTip": "Bu model ses girişini destekler",
+        "supportVideoTip": "Bu model video girişini destekler",
+        "supportDeepThinkTip": "Bu model derin düşünmeyi destekler",
+        "testConnection": "Test",
+        "testing": "Test ediliyor...",
+        "testSuccess": "Test başarılı",
+        "testFailed": "Test başarısız",
+        "fillRequiredFields": "Lütfen tüm gerekli alanları doldurun",
+        "modelsRequired": "Lütfen en az bir model doldurun",
+        "noValidModel": "Geçerli model bulunamadı",
+        "addCustomModel": "Özel model ekle",
+        "isOpenRouter": "OpenRouter"
+      },
+      "webSearch": {
+        "description": "Web arama özelliğini etkinleştirmek için Firecrawl API anahtarını yapılandırın, API anahtarını almak için <a>Firecrawl ayarlarına</a> erişin"
+      },
+      "app": {
+        "domain": "Alan Adı",
+        "customDomain": "Özel Alan Adı (İsteğe Bağlı)",
+        "customDomainDescription": "Uygulama dağıtımı için özel alan adınızı ayarlayın, özel alan adı almak için <a>Vercel alan adına</a> erişin",
+        "vercelToken": "Vercel API Token",
+        "vercelTokenDescription": "API token almak için <a>Vercel ayarlarına</a> erişin"
+      }
+    },
+    "action": {
+      "enterApiKey": "API anahtarı girin",
+      "goToConfiguration": "Yapılandırmaya git"
+    },
+    "tips": {
+      "thankYouForUsingTeable": "Teable kullandığınız için teşekkürler",
+      "pleaseGoToConfiguration": "Teable'ın tam işlevselliğini ve daha iyi kullanıcı deneyimini keyfini çıkarmak için lütfen ayarlar sayfasına giderek bazı başlangıç yapılandırmalarını tamamlayın",
+      "pleaseContactAdmin": "Lütfen yöneticiyle iletişime geçin"
+    },
+    "configuration": {
+      "title": "Yapılandırma bekleyen öğeler",
+      "description": "Tam işlevsellik için bu yapılandırmaları tamamlayın",
+      "copyInstance": "ID'yi kopyala",
+      "list": {
+        "publicOrigin": {
+          "title": "PUBLIC_ORIGIN ortam değişkeni",
+          "description": "<strong>PUBLIC_ORIGIN</strong> ortam değişkeni yapılandırmanız mevcut erişim adresi <underline>https://example.com</underline> ile eşleşmiyor, xlsx, csv içe aktarma ve ek alanı işlevleri normal çalışmayabilir, <underline>https://example.com</underline> olarak ayarlanması önerilir"
+        },
+        "https": {
+          "title": "HTTPS'yi etkinleştir",
+          "description": "HTTPS'yi etkinleştirmediniz, büyük ölçekli kopyalama (300 satır veya daha fazla) özelliği kullanılamayacak, etkinleştirmeniz önerilir."
+        },
+        "llmApi": {
+          "title": "LLM API",
+          "description": "AI LLM API'sını henüz yapılandırmadınız, AI Sohbet/AI otomasyon kullanılamayacak, <anchor>ayarlara git</anchor>",
+          "errorTips": "AI LLM API'sını henüz yapılandırmadınız, AI Sohbet/AI otomasyon kullanılamayacak"
+        },
+        "webSearch": {
+          "title": "Web Araması",
+          "description": "Web arama API'sını henüz yapılandırmadınız, web arama özelliği kullanılamayacak, <anchor>ayarlara git</anchor>",
+          "errorTips": "Web arama API'sını henüz yapılandırmadınız, web arama özelliği kullanılamayacak"
+        },
+        "email": {
+          "title": "E-posta",
+          "description": "E-posta yapılandırılmamış, self-servis şifre kurtarma ve e-posta bildirim işlevi kullanılamayacak, <anchor>ayarlara git</anchor>",
+          "errorTips": "E-posta yapılandırılmamış, self-servis şifre kurtarma, e-posta doğrulama/bildirim işlevi kullanılamayacak"
+        }
+      }
+    }
+  },
+  "notification": {
+    "title": "Bildirimler",
+    "unread": "Okunmamış",
+    "read": "Okunmuş",
+    "markAs": "Bu bildirimi {{status}} olarak işaretle",
+    "markAllAsRead": "Tümünü okundu olarak işaretle",
+    "noUnread": "{{status}} bildirim yok",
+    "changeSetting": "Sayfa bildirim ayarlarını değiştir",
+    "new": "yeni {{count}}",
+    "showMore": "Daha fazla göster",
+    "exportBase": {
+      "successText": "Dışa aktarma verileri hazır",
+      "failedText": "Dışa aktarma başarısız oldu, lütfen tekrar deneyin"
+    },
+    "importantNotice": {
+      "title": "Important Notice",
+      "acknowledge": "I Understand"
+    }
+  },
+  "role": {
+    "title": {
+      "owner": "Sahip",
+      "creator": "Oluşturucu",
+      "editor": "Düzenleyici",
+      "commenter": "Yorumcu",
+      "viewer": "İzleyici"
+    },
+    "description": {
+      "owner": "Veritabanlarını, otomasyonları, yetki matrislerini tam olarak yapılandırıp düzenleyebilir ve alan ayarlarını ve faturalandırmayı yönetebilir",
+      "creator": "Veritabanlarını, otomasyonları tam olarak yapılandırıp düzenleyebilir ve yetki matrisini etkinleştirebilir",
+      "editor": "Kayıtları ve görünümleri düzenleyebilir, ancak tabloları veya alanları yapılandıramaz",
+      "commenter": "Kayıtlara yorum yapabilir",
+      "viewer": "Düzenleyemez veya yorum yapamaz"
+    }
+  },
+  "trash": {
+    "spaceTrash": "Alan çöp kutusu",
+    "type": "Tür",
+    "resetTrash": "Çöp kutusunu boşalt",
+    "deletedBy": "Kişi",
+    "deletedTime": "Zaman",
+    "fromSpace": "\"{{name}}\" alanından",
+    "permanentDeleteTips": "\"{{name}}\" {{resource}} öğesini kalıcı olarak silmek istediğinizden emin misiniz?",
+    "resetTrashConfirm": "Çöp kutusunu boşaltmak istediğinizden emin misiniz?",
+    "addToTrash": "Çöp kutusuna taşı",
+    "description": "Çöp kutusundaki veriler hala kayıt kullanımı ve ekli dosya kullanımı kaplar.",
+    "spaceDescription": "Son {{retentionDays}} gün içinde silinen alanları geri yükle",
+    "spaceInnerDescription": "Son {{retentionDays}} gün içinde bu alandan silinen veritabanlarını geri yükle",
+    "baseDescription": "Son {{retentionDays}} gün içinde bu veritabanından silinen kaynakları geri yükle"
+  },
+  "pluginCenter": {
+    "pluginUrlEmpty": "Eklenti URL'si Ayarlanmamış",
+    "install": "Yükle",
+    "publisher": "Yayıncı",
+    "lastUpdated": "Son Güncelleme",
+    "pluginNotFound": "Eklenti Bulunamadı",
+    "pluginEmpty": {
+      "title": "Henüz Eklenti Yok"
+    }
+  },
+  "automation": {
+    "turnOnTip": "Mevcut otomasyonu açmak istediğinizden emin misiniz?"
+  },
+  "email": {
+    "send": "Gönder",
+    "config": "E-posta Yapılandırması",
+    "customConfig": "Özel E-posta Sunucusu",
+    "notify": "Bildirim E-postası",
+    "automation": "Otomasyon E-postası",
+    "customNotifyConfig": "Özel Bildirim E-posta Yapılandırması",
+    "customAutomationConfig": "Özel Otomasyon E-posta Yapılandırması",
+    "addConfig": "Yapılandırma Ekle",
+    "editConfig": "Yapılandırmayı Düzenle",
+    "resetConfig": "Sıfırla",
+    "testEmail": "Test E-postası",
+    "testEmailPlaceholder": "Lütfen test e-postasını girin",
+    "testEmailError": "Lütfen geçerli bir test e-posta adresi girin",
+    "testEmailSend": "Test e-postası başarıyla gönderildi, lütfen posta kutunuzu kontrol edin",
+    "configError": "Lütfen geçerli bir e-posta yapılandırması girin",
+    "host": "Sunucu Adresi",
+    "hostDescription": "Lütfen SMTP e-posta sunucu adresini girin, örneğin: smtp.example.com",
+    "port": "Port",
+    "secure": "SSL/TLS",
+    "auth": "Kimlik Doğrulama",
+    "username": "Kullanıcı Adı",
+    "password": "Şifre",
+    "sender": "Gönderen Adresi",
+    "senderName": "Gönderen Adı",
+    "subscribe": "Abone ol",
+    "unsubscribe": "Abonelikten çık",
+    "unsubscribeList": "Abonelikten çıkma listesi",
+    "unsubscribeTime": "Abonelikten çıkma zamanı",
+    "source": "Kaynak",
+    "sourceAutomationDeleted": "Otomasyon veya düğüm silindi",
+    "sourceApiSend": "API ile e-posta gönderimi",
+    "processing": "İşleniyor...",
+    "unsubscribeH1": "Abonelikten çıkışı onaylıyor musunuz?",
+    "unsubscribeH2": "Gelecekteki Teable promosyonları ve ürün güncellemelerinden aboneliğinizi iptal etmek üzeresiniz. Abonelikten çıkmak istediğinizden emin misiniz?",
+    "subscribeH1": "Aboneliği onaylıyor musunuz?",
+    "subscribeH2": "Gelecekteki Teable promosyonları ve ürün güncellemelerine abone olmak üzeresiniz. Abone olmak istediğinizden emin misiniz?",
+    "unsubscribeListTip": "Mevcut tabanındaki aşağıdaki kullanıcılar abonelikten çıkmıştır, artık onlara e-posta gönderemeyeceksiniz. E-postaları içe aktarırken, lütfen e-posta adreslerini ilk sütuna yerleştirin ve başlığı \"email\" olarak adlandırın.",
+    "templates": {
+      "resetPassword": {
+        "subject": "Şifreyi Sıfırla - {{brandName}}",
+        "title": "Şifrenizi sıfırlayın",
+        "message": "Bu değişikliği talep etmediyseniz, lütfen bu e-postayı görmezden gelin. Aksi takdirde, şifrenizi sıfırlamak için aşağıdaki düğmeye tıklayın.",
+        "buttonText": "Şifreyi Sıfırla"
+      },
+      "emailVerifyCode": {
+        "signupVerification": {
+          "subject": "Kayıt Doğrulama - {{brandName}}",
+          "title": "Kayıt Doğrulama",
+          "message": "Doğrulama kodunuz {{code}}, lütfen {{expiresIn}} dakika içinde kullanın."
+        },
+        "domainVerification": {
+          "subject": "Alan Adı Doğrulama - {{brandName}}",
+          "title": "Alan Adı Doğrulama",
+          "message": "Tek kullanımlık kodunuz: {{code}}, lütfen {{expiresIn}} dakika içinde kullanın."
+        },
+        "changeEmailVerification": {
+          "subject": "E-posta Değiştirme Doğrulama - {{brandName}}",
+          "title": "E-posta Değiştirme Doğrulama",
+          "message": "Doğrulama kodunuz {{code}}, lütfen {{expiresIn}} dakika içinde kullanın."
+        }
+      },
+      "collaboratorCellTag": {
+        "subject": "{{fromUserName}} sizi {{tableName}} tablosundaki bir kaydın {{fieldName}} alanına ekledi",
+        "title": "<strong>{{fromUserName}}</strong> sizi <strong>{{tableName}}</strong> tablosundaki bir kaydın <strong>{{fieldName}}</strong> alanına ekledi",
+        "buttonText": "Kaydı görüntüle"
+      },
+      "collaboratorMultiRowTag": {
+        "subject": "{{fromUserName}} sizi {{tableName}} tablosundaki {{refLength}} kayda ekledi",
+        "title": "<strong>{{fromUserName}}</strong> sizi <strong>{{tableName}}</strong> tablosundaki <strong>{{refLength}}</strong> kayda ekledi",
+        "buttonText": "Kayıtları görüntüle"
+      },
+      "invite": {
+        "subject": "{{name}} ({{email}}) sizi {{resourceAlias}} {{resourceName}}'e davet etti - {{brandName}}",
+        "title": "İşbirliğine davet",
+        "message": "<strong>{{name}}</strong> ({{email}}) sizi {{resourceAlias}} <strong>{{resourceName}}</strong>'e davet etti.",
+        "buttonText": "Daveti kabul et"
+      },
+      "waitlistInvite": {
+        "subject": "Hoş geldiniz - {{brandName}}",
+        "title": "Hoş geldiniz",
+        "message": "{{brandName}} bekleme listesine başarıyla katıldınız. Kayıt olmak için aşağıdaki davet kodunu kullanın: {{code}}, {{times}} kez kullanılabilir.",
+        "buttonText": "Kayıt ol"
+      },
+      "test": {
+        "subject": "Test E-postası - {{brandName}}",
+        "title": "Test E-postası",
+        "message": "Bu bir test e-postasıdır, lütfen görmezden gelin."
+      },
+      "notify": {
+        "subject": "Bildirim - {{brandName}}",
+        "title": "Bildirim",
+        "buttonText": "Görüntüle",
+        "import": {
+          "title": "İçe Aktarma Sonuç Bildirimi",
+          "table": {
+            "aborted": {
+              "message": "❌ {{tableName}} içe aktarma iptal edildi: {{errorMessage}} başarısız satır aralığı: [{{range}}]. Lütfen bu aralıktaki verileri kontrol edin ve tekrar deneyin."
+            },
+            "failed": {
+              "message": "❌ {{tableName}} içe aktarma başarısız oldu: {{errorMessage}}"
+            },
+            "planLimitExceeded": {
+              "message": "❌ {{tableName}} içe aktarma başarısız oldu: Satır sınırına ulaşıldı, daha fazla kayıt içe aktarmak için planınızı yükseltin"
+            },
+            "noRecordsProcessed": {
+              "message": "❌ {{tableName}} içe aktarma başarısız oldu: Hiçbir kayıt işlenmedi"
+            },
+            "success": {
+              "message": "🎉 {{tableName}} başarıyla içe aktarıldı.",
+              "inplace": "🎉 {{tableName}} yerinde başarıyla içe aktarıldı."
+            },
+            "partialSuccess": {
+              "message": "⚠️ {{tableName}} partially imported: {{successCount}} rows succeeded, {{failedCount}} rows failed. <a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 Download</a>",
+              "messageNoReport": "⚠️ {{tableName}} partially imported: {{successCount}} rows succeeded, {{failedCount}} rows failed."
+            },
+            "allFailed": {
+              "message": "❌ {{tableName}} import failed: all {{failedCount}} rows failed. <a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 Download</a>",
+              "messageNoReport": "❌ {{tableName}} import failed: all {{failedCount}} rows failed."
+            }
+          }
+        },
+        "recordComment": {
+          "title": "Kayıt Yorumu Bildirimi",
+          "message": "{{fromUserName}}, {{baseName}} içindeki {{tableName}} tablosundaki {{recordName}} kaydına yorum yaptı"
+        },
+        "automation": {
+          "title": "Otomasyon Bildirimi",
+          "failed": {
+            "title": "Otomasyon {{name}} başarısız oldu",
+            "message": "Otomasyonunuz {{name}} çalıştırılamadı. Çalıştırma geçmişinden belirli hataları görmek için aşağıdaki düğmeye tıklayın."
+          },
+          "insufficientCredit": {
+            "title": "Otomasyon {{name}} yetersiz kredi nedeniyle başarısız oldu",
+            "message": "Otomasyonunuz {{name}} yetersiz kredi nedeniyle çalıştırılamadı. Lütfen aboneliği yükseltin veya destekle iletişime geçin."
+          },
+          "runQuotaExceeded": {
+            "title": "Otomasyon {{name}} aylık maksimum çalıştırma sayısına ulaştı",
+            "message": "Otomasyon {{name}} için aylık çalıştırma hakkı tükendiği için şu anda çalıştırılamıyor. Aboneliğinizi yükseltin veya ek çalıştırma satın alın."
+          },
+          "failedSummary": {
+            "title": "Otomasyon {{name}} {{failCount}} kez başarısız oldu",
+            "message": "Otomasyonunuz {{name}} art arda {{failCount}} kez başarısız oldu. Ayrıntıları görmek için çalıştırma geçmişini açın."
+          }
+        },
+        "billing": {
+          "title": "Fatura bildirimi",
+          "credit": {
+            "warning80": {
+              "title": "Alan {{spaceName}} yapay zeka kredileri %80 kullanıldı",
+              "message": "{{spaceName}} alanı yapay zeka kredilerinin %80'ini kullandı. Yükseltmeyi veya daha fazla kredi satın almayı düşünün."
+            },
+            "warning90": {
+              "title": "Alan {{spaceName}} yapay zeka kredileri %90 kullanıldı",
+              "message": "{{spaceName}} alanı yapay zeka kredilerinin %90'ını kullandı. Kesinti yaşamamak için yakında yükseltin."
+            },
+            "anomaly": {
+              "dailySpike": {
+                "title": "Alan {{spaceName}}: olağandışı yapay zeka kredisi artışı tespit edildi",
+                "message": "Alan {{spaceName}}: bugünkü yapay zeka kredisi kullanımı ({{todayValue}}), son günlük ortalamanın ({{ewma}}) {{multiplier}} katıdır. Bu, beklenmeyen bir aktiviteye işaret edebilir. Lütfen kullanımınızı gözden geçirin. En çok katkıda bulunanlar: {{topContributors}}"
+              },
+              "burst": {
+                "title": "Alan {{spaceName}}: yapay zeka kredisi patlaması tespit edildi",
+                "message": "Alan {{spaceName}}: son {{windowMinutes}} dakikada {{recentValue}} yapay zeka kredisi tüketildi, bu tarihsel saatlik P95'in ({{hourlyP95}}) {{multiplier}} katıdır. Bu, beklenmeyen bir aktiviteye işaret edebilir. En çok katkıda bulunanlar: {{topContributors}}"
+              }
+            }
+          },
+          "automationRun": {
+            "warning80": {
+              "title": "Alan {{spaceName}} otomasyon çalıştırmaları kotanın %80'i kullanıldı",
+              "message": "{{spaceName}} alanı {{usedRuns}}/{{totalLimit}} otomasyon çalıştırmasının %80'ini kullandı. Planınızı yükseltmeyi düşünün."
+            },
+            "warning90": {
+              "title": "Alan {{spaceName}} otomasyon çalıştırmaları kotanın %90'ı kullanıldı",
+              "message": "{{spaceName}} alanı {{usedRuns}}/{{totalLimit}} otomasyon çalıştırmasının %90'ını kullandı. Kesinti yaşamamak için yakında yükseltin."
+            },
+            "gracePeriod": {
+              "title": "Alan {{spaceName}} otomasyon çalıştırmaları aşıldı – ek süre aktif",
+              "message": "{{spaceName}} alanının otomasyon çalıştırma kotası aşıldı. Otomasyonlar {{remainingHours}} saat sonra çalışmayı durduracak ve kapatılacak. Lütfen planınızı yükseltin."
+            },
+            "anomaly": {
+              "dailySpike": {
+                "title": "Alan {{spaceName}}: olağandışı otomasyon çalıştırma artışı",
+                "message": "Alan {{spaceName}}: bugünkü otomasyon çalıştırmaları ({{todayValue}}), son günlük ortalamanın ({{ewma}}) {{multiplier}} katıdır. Bu, kontrolden çıkmış bir otomasyona işaret edebilir. Lütfen iş akışlarınızı gözden geçirin. En çok katkıda bulunanlar: {{topContributors}}"
+              },
+              "burst": {
+                "title": "Alan {{spaceName}}: otomasyon çalıştırma patlaması tespit edildi",
+                "message": "Alan {{spaceName}}: son {{windowMinutes}} dakikada {{recentValue}} otomasyon çalıştırması tespit edildi, bu tarihsel saatlik P95'in ({{hourlyP95}}) {{multiplier}} katıdır. Bu, bir döngü veya yanlış yapılandırmaya işaret edebilir. En çok katkıda bulunanlar: {{topContributors}}"
+              }
+            }
+          }
+        },
+        "exportBase": {
+          "title": "Veritabanı Dışa Aktarma Sonuç Bildirimi",
+          "success": {
+            "message": "{{baseName}} başarıyla dışa aktarıldı: <a href=\"{{previewUrl}}\" name=\"{{name}}\" class=\"hover:text-blue-500 underline\">🗂️ {{name}}</a>"
+          },
+          "failed": {
+            "message": "❌ {{baseName}} dışa aktarma başarısız oldu: {{errorMessage}}"
+          }
+        },
+        "task": {
+          "ai": {
+            "failed": {
+              "title": "AI görevi {{tableName}} tablosunda başarısız oldu",
+              "message": "{{tableName}} tablosundaki {{fieldName}} alanı için AI görevi (Kayıt ID: {{recordId}}) başarısız oldu.\n\n{{errorMsg}}\n\nAyrıntıları görmek için aşağıdaki düğmeye tıklayın."
+            },
+            "cancelled": {
+              "title": "AI görevi iptal edildi",
+              "rateLimit": "\"{{tableName}}\" tablosu için AI görevi, hız sınırlaması (429) nedeniyle iptal edildi. Lütfen daha sonra tekrar deneyin.",
+              "creditExhausted": "\"{{tableName}}\" tablosu için AI görevi, krediler tükendiği için iptal edildi. Lütfen aboneliğinizi yükseltin veya kredilerin yenilenmesini bekleyin.",
+              "authFailed": "\"{{tableName}}\" tablosu için AI görevi, kimlik doğrulama hatası nedeniyle iptal edildi. Lütfen API anahtarı yapılandırmanızı kontrol edin.",
+              "serviceUnavailable": "\"{{tableName}}\" tablosu için AI görevi, AI hizmeti geçici olarak kullanılamadığı için iptal edildi. Lütfen daha sonra tekrar deneyin.",
+              "unknown": "\"{{tableName}}\" tablosu için AI görevi iptal edildi. Hata: {{errorMessage}}"
+            }
+          }
+        },
+        "rewardRejected": {
+          "title": "Ödül talebi reddedildi",
+          "message": "<a href=\"{{spaceUrl}}\">{{spaceName}}</a> için ödül talebiniz şu nedenlerle reddedildi: {{errorMessages}}. Lütfen gözden geçirip tekrar gönderin.",
+          "buttonText": "Alanı Görüntüle"
+        },
+        "rewardApproved": {
+          "title": "Ödül talebi onaylandı",
+          "message": "Tebrikler! <a href=\"{{spaceUrl}}\">{{spaceName}}</a> için ödül talebiniz onaylandı. {{amount}} kredi eklendi, {{expiredDays}} gün geçerlidir.",
+          "buttonText": "Alanı Görüntüle"
+        }
+      }
+    }
+  },
+  "waitlist": {
+    "title": "Bekleme Listesi",
+    "email": "E-posta",
+    "joinTitle": "İhtiyaçlarımızı hızla karşılıyoruz",
+    "joinDesc": "Bekleme listesine katılın — hazır olduğumuzda size haber vereceğiz",
+    "emailPlaceholder": "E-posta adresinizi girin",
+    "youAreOnTheList": "Bekleme listesine katıldınız!",
+    "thanksForJoining": "Bekleme listesine katıldığınız için teşekkür ederiz. Hazır olduğumuzda size haber vereceğiz.",
+    "back": "Geri",
+    "inviteCodePlaceholder": "Davet kodunu girin",
+    "join": "Bekleme listesine katıl",
+    "joining": "Katılıyor...",
+    "invite": "Davet",
+    "inviteTime": "Davet zamanı",
+    "createdTime": "Katılma zamanı",
+    "yes": "Evet",
+    "no": "Hayır",
+    "generateCode": "Davet kodu oluştur",
+    "count": "Adet",
+    "times": "Kullanım",
+    "generate": "Oluştur",
+    "code": "Davet kodu",
+    "inviteSuccess": "Davet başarılı",
+    "app": {
+      "previewAppError": "Uygulama hatası",
+      "sendErrorToAI": "Hata AI'ye gönder"
+    }
+  },
+  "base": {
+    "deleteTip": "\"{{name}}\" veritabanını silmek istediğinizden emin misiniz?",
+    "createResource": "Kaynak oluştur",
+    "noPermissionToCreateResource": "Kaynak oluşturma izniniz yok"
+  },
+  "credit": {
+    "title": "Kredi",
+    "leftAmount": "Kalan kredi",
+    "winFreeCredits": "Deneyim paylaş",
+    "getCredits": "1000 ücretsiz kredi al",
+    "winCredit": {
+      "title": "Olumlu bir inceleme paylaşarak kazan",
+      "freeCredits": "1000 ücretsiz kredi",
+      "guidelinesTitle": "Paylaşım kontrol listesi",
+      "tagTeableio": "<bold>@teableio</bold>'yu etiketle",
+      "minCharacters": "<bold>80+</bold> karakter inceleme yaz",
+      "minFollowers": "<bold>10+</bold> takipçiye sahip ol",
+      "limitPerWeek": "Gönderi başına 500 kredi, haftalık en fazla 2 gönderi (X + LinkedIn)",
+      "postOnX": "X'te paylaş",
+      "postOnLinkedIn": "LinkedIn'de paylaş",
+      "preFilledDraft": "🌟 Sizin için önceden doldurulmuş taslak hazır!",
+      "claimTitle": "Kredilerinizi almak için gönderi URL'sini yapıştırın",
+      "userEmail": "Kullanıcı e-postası",
+      "postUrlLabel": "Gönderi URL'si (X veya LinkedIn)",
+      "postUrlPlaceholder": "Gönderinizin bağlantısını buraya yapıştırın",
+      "invalidUrl": "Lütfen geçerli bir X veya LinkedIn gönderi URL'si girin",
+      "claiming": "Talep ediliyor...",
+      "claimCredits": "Kredi talep et",
+      "congratulations": "Tebrikler!",
+      "claimSuccess": "500 kredi kazandınız!",
+      "verifying": "Gönderiniz doğrulanıyor...",
+      "verifyingDescription": "Gönderi içeriğinizi kontrol ediyoruz, bu genellikle birkaç saniye sürer",
+      "verifyFailed": "Doğrulama başarısız",
+      "tryAgain": "Tekrar dene"
+    },
+    "error": {
+      "verificationFailed": "Doğrulama başarısız"
+    }
+  },
+  "reward": {
+    "title": "Ödül",
+    "rewardCredits": "Ödül kredileri",
+    "minCharCount": "Gönderi en az {{count}} karakter içermelidir",
+    "minFollowerCount": "Hesapta en az {{count}} takipçi olmalıdır",
+    "mustMention": "Gönderi {{mention}}'dan bahsetmelidir",
+    "fetchSnapshotFailed": "Gönderi anlık görüntüsü alınamadı",
+    "alreadyClaimedThisWeek": "Bu hesap için bu hafta zaten bir ödül talep ettiniz",
+    "manage": {
+      "title": "Ödül Yönetimi",
+      "description": "Tüm alanlardaki ödül kayıtlarını görüntüle ve yönet",
+      "overview": "Genel Bakış",
+      "records": "Kayıtlar",
+      "searchSpace": "Alan ara...",
+      "searchRecords": "postUrl/userId ara...",
+      "dateRange": "Tarih aralığı seç",
+      "from": "Başlangıç",
+      "to": "Bitiş",
+      "totalSpaces": "Toplam: {{count}} alan",
+      "totalRecords": "Toplam: {{count}} kayıt",
+      "space": "Alan",
+      "allSpaces": "Tüm Alanlar",
+      "user": "Kullanıcı",
+      "creator": "Oluşturan",
+      "sourceType": "Kaynak Türü",
+      "platform": "Platform",
+      "allStatuses": "Tüm Durumlar",
+      "allSourceTypes": "Tüm Kaynak Türleri",
+      "allPlatforms": "Tüm Platformlar",
+      "pendingCount": "Bekleyen Sayısı",
+      "approvedCount": "Onaylanan Sayısı",
+      "rejectedCount": "Reddedilen Sayısı",
+      "approvedAmount": "Onaylanan Miktar",
+      "consumedAmount": "Tüketilen Miktar",
+      "availableAmount": "Kullanılabilir Miktar",
+      "expiringSoonAmount": "Yakında Sona Erecek (7g)",
+      "amount": "Miktar",
+      "remainingAmount": "Kalan Miktar",
+      "createdTime": "Oluşturma Zamanı",
+      "rewardTime": "Ödül Zamanı",
+      "expiredTime": "Sona Erme Zamanı",
+      "lastModified": "Son Değişiklik",
+      "viewDetails": "Detayları Görüntüle",
+      "details": "Ödül Detayları",
+      "basicInfo": "Temel Bilgi",
+      "amountInfo": "Miktar Bilgisi",
+      "timeInfo": "Zaman Bilgisi",
+      "socialInfo": "Sosyal Bilgi",
+      "verifyResult": "Doğrulama Sonucu",
+      "uniqueKey": "Benzersiz Anahtar",
+      "verify": "Doğrula",
+      "valid": "Geçerli",
+      "invalid": "Geçersiz",
+      "errors": "Hatalar",
+      "copied": "{{label}} kopyalandı",
+      "openPost": "Gönderiyi aç",
+      "noData": "Veri yok",
+      "page": "Sayfa {{current}} / {{total}}",
+      "status": {
+        "label": "Durum",
+        "pending": "Bekliyor",
+        "approved": "Onaylandı",
+        "rejected": "Reddedildi"
+      }
+    }
+  },
+  "clickToCopyTooltip": "Panoya kopyalamak için tıklayın",
+  "copiedTooltip": "Kopyalandı!",
+  "hiddenFieldCount_one": "{{count}} gizli alan",
+  "hiddenFieldCount_other": "{{count}} gizli alan",
+  "invalidFieldMapping": "Geçersiz alan eşlemesi",
+  "sourceFieldNotFoundMapping": "Kaynak alan bulunamadı",
+  "targetFieldNotFoundMapping": "Hedef alan bulunamadı",
+  "fieldTypeNotSupportedMapping": "Alan türü desteklenmiyor",
+  "fieldSettingsNotMatchMapping": "Alan ayarları eşleşmiyor",
+  "fieldSettingsLookupNotMatch": "Arama alan ayarları eşleşmiyor",
+  "fieldSettingsLinkTableNotMatch": "Bağlantı tablosu eşleşmiyor",
+  "fieldSettingsLinkViewNotMatch": "Bağlantı görünümü eşleşmiyor",
+  "fieldTypeDifferentMapping": "Alan türleri farklı",
+  "fieldMappingSourceTip": "Kaynak alanları hedef alanlarla eşleyin",
+  "fieldMappingTargetTip": "Alanları hedefle eşleştirme",
+  "reset": "Sıfırla",
+  "checkAll": "Tümünü seç",
+  "uncheckAll": "Seçimi kaldır",
+  "duplicateOptionsMapping": "Yinelenen seçenekler",
+  "lookupFieldInvalidMapping": "Arama alanı geçersiz",
+  "noMatchedOptions": "Eşleşen seçenek yok",
+  "needManualSelectionMapping": "Manuel seçim gerekli",
+  "targetFieldIsComputed": "Hedef alan hesaplanmış",
+  "targetFieldIsComputedTips": "Hedef alan hesaplanmış ve değiştirilemez",
+  "emptyOption": "(boş)",
+  "showEmptyTip": "Boş seçenekleri göster",
+  "hideEmptyTip": "Boş seçenekleri gizle",
+  "hideText": "Metni Gizle",
+  "showText": "Metni Göster",
+  "sourceTable": "Kaynak Tablo",
+  "sourceView": "Kaynak Görünüm",
+  "system": {
+    "notFound": {
+      "title": "Sayfa bulunamadı",
+      "description": "Takip ettiğiniz bağlantı bozuk olabilir veya sayfa taşınmış olabilir."
+    },
+    "links": {
+      "backToHome": "Ana sayfaya dön"
+    },
+    "forbidden": {
+      "title": "Erişim kısıtlı",
+      "description": "Bu kaynağa erişmek için izne ihtiyacınız var.\nLütfen yöneticinizle iletişime geçin."
+    },
+    "paymentRequired": {
+      "title": "Premium özelliğin kilidini aç",
+      "description": "Bu özellik gelişmiş planlarda kullanılabilir.\nYeteneklerinizi genişletmek için yükseltin."
+    },
+    "error": {
+      "title": "Bir şeyler yanlış gitti",
+      "description": "Beklenmeyen bir hata oluştu. Lütfen daha sonra tekrar deneyin."
+    }
+  },
+  "import": {
+    "error": {
+      "dateOutOfRange": "{{fieldHint}}Tarih ayrıştırma hatası, \"{{value}}\" değeri geçerli aralığın dışında",
+      "planRowLimit": "Satır sınırına ulaşıldı: daha fazla kayıt içe aktarmak için planınızı yükseltin",
+      "notNullValidation": "{{fieldHint}}Zorunlu alan(lar) boş olamaz",
+      "uniqueValidation": "{{fieldHint}}Benzersiz alan(lar)da yinelenen değerler",
+      "requestTimeout": "İstek zaman aşımına uğradı",
+      "chunkProcessingFailed": "Toplu işlem başarısız oldu: {{reason}}",
+      "unknown": "{{fieldHint}}{{message}}"
+    }
+  },
+  "skills": {
+    "title": "Beceriler",
+    "tabs": {
+      "mySkills": "Becerilerim"
+    },
+    "actions": {
+      "import": "Beceri İçe Aktar",
+      "sync": "Senkronize Et",
+      "delete": "Sil",
+      "enable": "Etkinleştir",
+      "disable": "Devre Dışı Bırak",
+      "edit": "Düzenle",
+      "tryInChat": "Sohbette dene",
+      "replace": "Değiştir",
+      "download": "İndir",
+      "uninstall": "Kaldır",
+      "copyToBase": "Base'e kopyala",
+      "copyToPersonal": "Kişisele kopyala",
+      "copyToApp": "Uygulamaya kopyala"
+    },
+    "import": {
+      "title": "Beceri İçe Aktar",
+      "description": "GitHub deposundan veya ZIP dosyasından bir beceri içe aktarın",
+      "githubTab": "GitHub URL",
+      "fileTab": "ZIP Dosyası",
+      "githubTitle": "GitHub'dan beceri içe aktar",
+      "githubPlaceholder": "https://github.com/owner/repo/tree/main/skills/my-skill",
+      "fileHint": "SKILL.md içeren bir ZIP dosyası yükleyin",
+      "or": "veya",
+      "selectFile": "Dosya seç",
+      "replaceWarning": "Bu kapsamda aynı ada sahip bir beceri zaten varsa, içe aktarma onu değiştirir.",
+      "importing": "İçe aktarılıyor...",
+      "submit": "İçe Aktar",
+      "success": "Beceri başarıyla içe aktarıldı",
+      "error": "Beceri içe aktarılamadı"
+    },
+    "detail": {
+      "slug": "Slug",
+      "type": "Tür",
+      "description": "Açıklama",
+      "source": "Kaynak",
+      "skillLabel": "Beceri",
+      "syncStatus": "Senkronizasyon Durumu",
+      "preview": "SKILL.md Önizleme"
+    },
+    "scope": {
+      "label": "Kapsam",
+      "system": "Sistem",
+      "base": "Geçerli veritabanı",
+      "user": "Kişisel",
+      "userDescription": "Yalnızca size açık",
+      "baseDescription": "Bu Base'deki işbirlikçilerle paylaşılır",
+      "app": "App",
+      "appDescription": "Yalnızca bu uygulamada kullanılabilir",
+      "cuppyclaw": "Bot",
+      "cuppyclawDescription": "Yalnızca bu bot için kullanılabilir"
+    },
+    "source": {
+      "github": "GitHub",
+      "file": "Dosya Yükleme",
+      "manual": "Manuel"
+    },
+    "status": {
+      "enabled": "Etkin",
+      "disabled": "Devre Dışı",
+      "synced": "Senkronize Edildi",
+      "failed": "Senkronizasyon Başarısız"
+    },
+    "empty": {
+      "mySkills": "Henüz kişisel beceri yok. Başlamak için bir tane içe aktarın."
+    },
+    "confirm": {
+      "deleteTitle": "Beceriyi Sil",
+      "deleteDescription": "Bu beceriyi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz."
+    },
+    "toast": {
+      "syncing": "Beceri senkronize ediliyor...",
+      "syncSuccess": "Beceri başarıyla senkronize edildi",
+      "syncError": "Beceri senkronize edilemedi",
+      "deleting": "Beceri siliniyor...",
+      "deleteSuccess": "Beceri başarıyla silindi",
+      "deleteError": "Beceri silinemedi",
+      "updateSuccess": "Beceri başarıyla güncellendi"
+    }
+  },
+  "changelog": {
+    "newUpdate": "15 TEMMUZ GUNCELLEMESI",
+    "title": "AI hafızası ve dosya indirmeleri",
+    "url": "https://help.teable.ai/en/changelog#jul-15-2026",
+    "id": "changelog-2026-07-15-ai-memory-and-file-downloads"
+  },
+  "resourceDescription": {
+    "addDescription": "Açıklama ekle",
+    "nodeDescription": "Düğüm açıklaması",
+    "descriptionSaving": "Kaydediliyor...",
+    "descriptionSaveFailed": "Açıklama kaydedilemedi, lütfen tekrar deneyin",
+    "descriptionPlaceholder": "Bu düğüm için bir açıklama ekleyin"
+  }
+}

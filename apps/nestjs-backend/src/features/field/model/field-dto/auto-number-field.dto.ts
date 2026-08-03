@@ -1,0 +1,27 @@
+import { AutoNumberFieldCore } from '@teable/core';
+import type { IFormulaFieldMeta } from '@teable/core';
+import type { FieldBase } from '../field-base';
+
+export class AutoNumberFieldDto extends AutoNumberFieldCore implements FieldBase {
+  get isStructuredCellValue() {
+    return false;
+  }
+
+  convertCellValue2DBValue(value: unknown): unknown {
+    if (this.isMultipleCellValue) {
+      return value == null ? value : JSON.stringify(value);
+    }
+    return value;
+  }
+
+  convertDBValue2CellValue(value: unknown): unknown {
+    if (this.isMultipleCellValue) {
+      return value == null || typeof value === 'object' ? value : JSON.parse(value as string);
+    }
+    return value;
+  }
+
+  setMetadata(meta: IFormulaFieldMeta) {
+    this.meta = meta;
+  }
+}

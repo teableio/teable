@@ -1,0 +1,662 @@
+import { Injectable } from '@nestjs/common';
+import type { FieldAction, ILinkCellValue, ILinkFieldOptions, IOtOperation } from '@teable/core';
+import {
+  Relationship,
+  RelationshipRevert,
+  FieldType,
+  RecordOpBuilder,
+  isMultiValueLink,
+  PRIMARY_SUPPORTED_TYPES,
+  HttpErrorCode,
+} from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
+import { isEqual } from 'lodash';
+import { CustomHttpException } from '../../../custom.exception';
+import { InjectDbProvider } from '../../../db-provider/db.provider';
+import { IDbProvider } from '../../../db-provider/db.provider.interface';
+import { DropColumnOperationType } from '../../../db-provider/drop-database-column-query/drop-database-column-field-visitor.interface';
+import { DatabaseRouter } from '../../../global/database-router.service';
+import { FieldCalculationService } from '../../calculation/field-calculation.service';
+import type { IOpsMap } from '../../calculation/utils/compose-maps';
+import { TableDomainQueryService } from '../../table-domain/table-domain-query.service';
+import type { IFieldInstance } from '../model/factory';
+import {
+  createFieldInstanceByVo,
+  createFieldInstanceByRaw,
+  rawField2FieldObj,
+} from '../model/factory';
+import type { LinkFieldDto } from '../model/field-dto/link-field.dto';
+import { FieldCreatingService } from './field-creating.service';
+import { FieldDeletingService } from './field-deleting.service';
+import { FieldSupplementService } from './field-supplement.service';
+
+const isLink = (field: IFieldInstance): field is LinkFieldDto =>
+  !field.isLookup && field.type === FieldType.Link;
+
+@Injectable()
+export class FieldConvertingLinkService {
+  constructor(
+    private readonly prismaService: PrismaService,
+    private readonly databaseRouter: DatabaseRouter,
+    private readonly fieldDeletingService: FieldDeletingService,
+    private readonly fieldCreatingService: FieldCreatingService,
+    private readonly fieldSupplementService: FieldSupplementService,
+    private readonly fieldCalculationService: FieldCalculationService,
+    @InjectDbProvider() private readonly dbProvider: IDbProvider,
+    private readonly tableDomainQueryService: TableDomainQueryService
+  ) {}
+
+  private async symLinkRelationshipChange(newField: LinkFieldDto) {
+    // field options has been modified but symmetricFieldId not change
+    const fieldRaw = await this.prismaService.txClient().field.findFirstOrThrow({
+      where: { id: newField.options.symmetricFieldId, deletedTime: null },
+    });
+
+    const newFieldVo = rawField2FieldObj(fieldRaw);
+
+    const options = newFieldVo.options as ILinkFieldOptions;
+    options.relationship = RelationshipRevert[newField.options.relationship];
+    options.fkHostTableName = newField.options.fkHostTableName;
+    options.selfKeyName = newField.options.foreignKeyName;
+    options.foreignKeyName = newField.options.selfKeyName;
+    newFieldVo.isMultipleCellValue = isMultiValueLink(options.relationship) || undefined;
+
+    // return modified changes in foreignTable
+    return {
+      tableId: newField.options.foreignTableId,
+      newField: createFieldInstanceByVo(newFieldVo),
+      oldField: createFieldInstanceByRaw(fieldRaw),
+    };
+  }
+
+  private async alterSymmetricFieldChange(
+    tableId: string,
+    oldField: LinkFieldDto,
+    newField: LinkFieldDto
+  ) {
+    // noting change
+    if (
+      (!newField.options.symmetricFieldId && !oldField.options.symmetricFieldId) ||
+      newField.options.symmetricFieldId === oldField.options.symmetricFieldId
+    ) {
+      return;
+    }
+
+    // delete old symmetric link
+    if (oldField.options.symmetricFieldId) {
+      const { foreignTableId, symmetricFieldId } = oldField.options;
+      const symField = await this.fieldDeletingService.getField(foreignTableId, symmetricFieldId);
+      symField &&
+        (await this.fieldDeletingService.deleteFieldItem(
+          foreignTableId,
+          symField,
+          DropColumnOperationType.DELETE_SYMMETRIC_FIELD
+        ));
+    }
+
+    // create new symmetric link
+    if (newField.options.symmetricFieldId) {
+      const symmetricField = await this.fieldSupplementService.generateSymmetricField(
+        tableId,
+        newField
+      );
+      await this.fieldCreatingService.createFieldItem(
+        newField.options.foreignTableId,
+        symmetricField,
+        undefined,
+        true
+      );
+    }
+  }
+
+  private async linkOptionsChange(tableId: string, newField: LinkFieldDto, oldField: LinkFieldDto) {
+    if (
+      newField.options.foreignTableId === oldField.options.foreignTableId &&
+      newField.options.relationship === oldField.options.relationship &&
+      newField.options.symmetricFieldId === oldField.options.symmetricFieldId
+    ) {
+      return;
+    }
+
+    // change link table, delete link in old table and create link in new table
+    if (newField.options.foreignTableId !== oldField.options.foreignTableId) {
+      // update current field reference
+      await this.prismaService.txClient().reference.deleteMany({
+        where: {
+          toFieldId: newField.id,
+        },
+      });
+      await this.fieldSupplementService.createReference(newField);
+      await this.fieldSupplementService.cleanForeignKey(oldField.options);
+      await this.fieldDeletingService.cleanLookupRollupRef(tableId, newField.id);
+
+      // Create foreign key using dbProvider (handled by visitor)
+      await this.createForeignKeyUsingDbProvider(tableId, newField);
+      // change relationship, alter foreign key
+    } else if (newField.options.relationship !== oldField.options.relationship) {
+      await this.fieldSupplementService.cleanForeignKey(oldField.options);
+      await this.createForeignKeyUsingDbProvider(tableId, newField);
+      // eslint-disable-next-line sonarjs/no-duplicated-branches
+    } else if (newField.options.isOneWay !== oldField.options.isOneWay) {
+      // one-way <-> two-way switch within the same relationship type
+      // drop previous FK/junction and recreate according to new isOneWay
+      await this.fieldSupplementService.cleanForeignKey(oldField.options);
+      await this.createForeignKeyUsingDbProvider(tableId, newField);
+    }
+
+    // change one-way to two-way or two-way to one-way (symmetricFieldId add or delete, symmetricFieldId can not be change)
+    await this.alterSymmetricFieldChange(tableId, oldField, newField);
+  }
+
+  private async otherToLink(tableId: string, newField: LinkFieldDto) {
+    await this.createForeignKeyUsingDbProvider(tableId, newField);
+    await this.fieldSupplementService.createReference(newField);
+    if (newField.options.symmetricFieldId) {
+      const symmetricField = await this.fieldSupplementService.generateSymmetricField(
+        tableId,
+        newField
+      );
+      await this.fieldCreatingService.createFieldItem(
+        newField.options.foreignTableId,
+        symmetricField,
+        undefined,
+        true
+      );
+    }
+  }
+
+  private async createForeignKeyUsingDbProvider(tableId: string, field: LinkFieldDto) {
+    const { foreignTableId } = field.options;
+
+    // Get table information for both current and foreign tables
+    const tables = await this.prismaService.txClient().tableMeta.findMany({
+      where: { id: { in: [tableId, foreignTableId] } },
+      select: { id: true, dbTableName: true },
+    });
+    const tableDomain = await this.tableDomainQueryService.getTableDomainById(tableId);
+
+    const currentTable = tables.find((table) => table.id === tableId);
+    const foreignTable = tables.find((table) => table.id === foreignTableId);
+
+    if (!currentTable || !foreignTable) {
+      throw new Error(`Table not found: ${tableId} or ${foreignTableId}`);
+    }
+
+    // Create table name mapping for visitor
+    const tableNameMap = new Map<string, string>();
+    tableNameMap.set(tableId, currentTable.dbTableName);
+    tableNameMap.set(foreignTableId, foreignTable.dbTableName);
+
+    const createColumnQueries = this.dbProvider.createColumnSchema(
+      currentTable.dbTableName,
+      field,
+      tableDomain,
+      false,
+      tableId,
+      tableNameMap,
+      false, // This is not a symmetric field in converting context
+      true // Base column is already ensured during modify; create only FK/junction here
+    );
+    // Execute all queries (FK/junction creation, order columns, etc.)
+    for (const query of createColumnQueries) {
+      await this.databaseRouter.executeDataPrismaForTable(tableId, query, { useTransaction: true });
+    }
+  }
+
+  private async linkToOther(tableId: string, oldField: LinkFieldDto, skipDestructive?: boolean) {
+    await this.fieldDeletingService.cleanLookupRollupRef(tableId, oldField.id);
+
+    // Cross-space move path: caller wants both sides of a symmetric pair to be
+    // converted independently, each preserving its own values. Skipping
+    // cleanForeignKey leaves the junction/FK intact so the partner can still
+    // read its values when its own conversion runs; skipping the symmetric
+    // cascade keeps the partner field alive so it can be converted in turn.
+    // Storage left behind here is orphaned and is dropped by the caller (e.g.
+    // moveBase) once every paired field has been converted.
+    if (skipDestructive) return;
+
+    await this.fieldSupplementService.cleanForeignKey(oldField.options);
+
+    if (oldField.options.symmetricFieldId) {
+      const { foreignTableId, symmetricFieldId } = oldField.options;
+      const symField = await this.fieldDeletingService.getField(foreignTableId, symmetricFieldId);
+      symField &&
+        (await this.fieldDeletingService.deleteFieldItem(
+          foreignTableId,
+          symField,
+          DropColumnOperationType.DELETE_SYMMETRIC_FIELD
+        ));
+    }
+  }
+
+  /**
+   * 1. switch link table
+   * 2. other field to link field
+   * 3. link field to other field
+   */
+  async deleteOrCreateSupplementLink(
+    tableId: string,
+    newField: IFieldInstance,
+    oldField: IFieldInstance,
+    skipDestructive?: boolean
+  ) {
+    if (isLink(newField) && isLink(oldField) && !isEqual(newField.options, oldField.options)) {
+      return this.linkOptionsChange(tableId, newField, oldField);
+    }
+
+    if (!isLink(newField) && isLink(oldField)) {
+      return this.linkToOther(tableId, oldField, skipDestructive);
+    }
+
+    if (isLink(newField) && !isLink(oldField)) {
+      return this.otherToLink(tableId, newField);
+    }
+  }
+
+  async analysisReference(oldField: IFieldInstance) {
+    if (!isLink(oldField)) {
+      return;
+    }
+
+    // self and symmetricLinkField outgoing reference
+    const linkFieldIds = [oldField.id];
+    if (oldField.options.symmetricFieldId) {
+      linkFieldIds.push(oldField.options.symmetricFieldId);
+    }
+
+    // LookupField and Rollup field witch linkFieldId is self and symmetricLinkField, should also treat as reference
+    const lookupRelatedFields = await this.prismaService.txClient().field.findMany({
+      where: {
+        lookupLinkedFieldId: { in: linkFieldIds },
+        deletedTime: null,
+      },
+      select: { id: true },
+    });
+
+    const references: string[] = lookupRelatedFields.map((field) => field.id);
+
+    const referencesRaw = await this.prismaService.txClient().reference.findMany({
+      where: {
+        fromFieldId: { in: linkFieldIds },
+      },
+      select: {
+        toFieldId: true,
+      },
+    });
+
+    return references.concat(referencesRaw.map((r) => r.toFieldId));
+  }
+
+  async analysisSupplementLink(newField: IFieldInstance, oldField: IFieldInstance) {
+    if (
+      isLink(newField) &&
+      isLink(oldField) &&
+      !isEqual(newField.options, oldField.options) &&
+      newField.options.foreignTableId === oldField.options.foreignTableId &&
+      newField.options.symmetricFieldId &&
+      newField.options.symmetricFieldId === oldField.options.symmetricFieldId &&
+      newField.options.relationship !== oldField.options.relationship
+    ) {
+      return this.symLinkRelationshipChange(newField);
+    }
+  }
+
+  private async getRecords(tableId: string, field: IFieldInstance) {
+    const { dbTableName, name: tableName } = await this.prismaService
+      .txClient()
+      .tableMeta.findFirstOrThrow({
+        where: { id: tableId },
+        select: { dbTableName: true, name: true },
+      });
+
+    const result = await this.fieldCalculationService.getRecordsBatchByFields(
+      {
+        [dbTableName]: [field],
+      },
+      { [dbTableName]: tableId }
+    );
+    const records = result[dbTableName];
+    if (!records) {
+      throw new CustomHttpException(
+        `Can't find recordMap for tableId: ${tableId} and fieldId: ${field.id}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.recordMapNotFound',
+            context: { tableName, fieldName: field.name },
+          },
+        }
+      );
+    }
+
+    return records;
+  }
+
+  async oneWayToTwoWay(oldField: LinkFieldDto, newField: LinkFieldDto) {
+    // Resolve table ids
+    const { foreignTableId, relationship, symmetricFieldId } = newField.options;
+    const sourceFieldRaw = await this.prismaService.txClient().field.findFirstOrThrow({
+      where: { id: oldField.id, deletedTime: null },
+      select: { tableId: true },
+    });
+    const sourceTableId = sourceFieldRaw.tableId;
+
+    // Fetch existing source records and derive mapping directly from cell values
+    const sourceRecords = await this.getRecords(sourceTableId, oldField);
+
+    const targetOpsMap: { [recordId: string]: IOtOperation[] } = {};
+    const sourceOpsMap: { [recordId: string]: IOtOperation[] } = {};
+
+    for (const record of sourceRecords) {
+      const sourceId = record.id;
+      const cell = record.fields[oldField.id] as ILinkCellValue | ILinkCellValue[] | undefined;
+      if (!cell) continue;
+      const links = [cell].flat();
+
+      // source side new value
+      const newSourceValue =
+        relationship === Relationship.OneOne || relationship === Relationship.ManyOne
+          ? { id: links[0].id }
+          : links.map((l) => ({ id: l.id }));
+
+      sourceOpsMap[sourceId] = [
+        RecordOpBuilder.editor.setRecord.build({
+          fieldId: newField.id,
+          newCellValue: newSourceValue,
+          oldCellValue: cell,
+        }),
+      ];
+
+      // target side symmetric value
+      for (const l of links) {
+        if (relationship === Relationship.OneOne || relationship === Relationship.OneMany) {
+          targetOpsMap[l.id] = [
+            RecordOpBuilder.editor.setRecord.build({
+              fieldId: symmetricFieldId as string,
+              newCellValue: { id: sourceId },
+              oldCellValue: undefined,
+            }),
+          ];
+        } else {
+          targetOpsMap[l.id] = [
+            RecordOpBuilder.editor.setRecord.build({
+              fieldId: symmetricFieldId as string,
+              newCellValue: [{ id: sourceId }],
+              oldCellValue: undefined,
+            }),
+          ];
+        }
+      }
+    }
+
+    return { [sourceTableId]: sourceOpsMap, [foreignTableId]: targetOpsMap };
+  }
+
+  async modifyLinkOptions(tableId: string, newField: LinkFieldDto, oldField: LinkFieldDto) {
+    if (
+      newField.options.foreignTableId === oldField.options.foreignTableId &&
+      newField.options.relationship === oldField.options.relationship &&
+      newField.options.symmetricFieldId &&
+      !newField.options.isOneWay &&
+      oldField.options.isOneWay
+    ) {
+      return this.oneWayToTwoWay(oldField, newField);
+    }
+    // Preserve source values when converting from TwoWay to OneWay
+    if (
+      newField.options.foreignTableId === oldField.options.foreignTableId &&
+      newField.options.relationship === oldField.options.relationship &&
+      !!oldField.options.symmetricFieldId &&
+      !newField.options.symmetricFieldId &&
+      newField.options.isOneWay &&
+      !oldField.options.isOneWay
+    ) {
+      // Preserve source table link values by copying old values into the updated field
+      const sourceFieldRaw = await this.prismaService.txClient().field.findFirstOrThrow({
+        where: { id: oldField.id, deletedTime: null },
+        select: { tableId: true },
+      });
+      const sourceTableId = sourceFieldRaw.tableId;
+      const sourceRecords = await this.getRecords(sourceTableId, oldField);
+
+      const sourceOpsMap: { [recordId: string]: IOtOperation[] } = {};
+      for (const record of sourceRecords) {
+        const cell = record.fields[oldField.id] as ILinkCellValue | ILinkCellValue[] | undefined;
+        if (cell == null) continue;
+
+        const links = [cell].flat();
+        const relationship = newField.options.relationship;
+        const newValue =
+          relationship === Relationship.OneOne || relationship === Relationship.ManyOne
+            ? { id: links[0].id }
+            : links.map((l) => ({ id: l.id }));
+
+        sourceOpsMap[record.id] = [
+          RecordOpBuilder.editor.setRecord.build({
+            fieldId: newField.id,
+            newCellValue: newValue,
+            // Force reapply after FK/junction cleanup by setting oldCellValue to null
+            oldCellValue: null,
+          }),
+        ];
+      }
+
+      return { [sourceTableId]: sourceOpsMap } as IOpsMap;
+    }
+    if (newField.options.foreignTableId === oldField.options.foreignTableId) {
+      return this.convertLinkOnlyRelationship(tableId, newField, oldField);
+    }
+    return this.convertLink(tableId, newField, oldField);
+  }
+
+  /**
+   * convert oldCellValue to new link field cellValue
+   * if oldCellValue is not in foreignTable, create new record in foreignTable
+   */
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  async convertLink(tableId: string, newField: LinkFieldDto, oldField: IFieldInstance) {
+    const fieldId = newField.id;
+    const foreignTableId = newField.options.foreignTableId;
+    const lookupFieldRaw = await this.prismaService.txClient().field.findFirstOrThrow({
+      where: { id: newField.options.lookupFieldId, deletedTime: null },
+    });
+    const lookupField = createFieldInstanceByRaw(lookupFieldRaw);
+
+    const records = await this.getRecords(tableId, oldField);
+    // TODO: should not get all records in foreignTable, only get records witch title is not exist in candidate records link cell value title
+    const foreignRecords = await this.getRecords(foreignTableId, lookupField);
+
+    // TODO: maybe have same title in foreignTable, should use id to map
+    const primaryNameToIdMap = foreignRecords.reduce<{ [name: string]: string }>((pre, record) => {
+      const str = lookupField.cellValue2String(record.fields[lookupField.id]);
+      pre[str] = record.id;
+      return pre;
+    }, {});
+
+    const recordOpsMap: IOpsMap = { [tableId]: {}, [foreignTableId]: {} };
+    const globalCheckSet = new Set<string>();
+    // eslint-disable-next-line sonarjs/cognitive-complexity
+    records.forEach((record) => {
+      const oldCellValue = record.fields[fieldId];
+      const recordCheckSet = new Set<string>();
+      if (oldCellValue == null) {
+        return;
+      }
+      let newCellValueTitle: string[];
+      if (newField.isMultipleCellValue) {
+        newCellValueTitle = oldField.isMultipleCellValue
+          ? (oldCellValue as unknown[]).map((item) => oldField.item2String(item))
+          : oldField.item2String(oldCellValue).split(', ');
+      } else {
+        newCellValueTitle = oldField.isMultipleCellValue
+          ? [oldField.item2String((oldCellValue as unknown[])[0])]
+          : [oldField.item2String(oldCellValue).split(', ')[0]];
+      }
+
+      const newCellValue: ILinkCellValue[] = [];
+      function pushNewCellValue(linkCell: ILinkCellValue) {
+        // not allow link to same recordId in one record
+        if (recordCheckSet.has(linkCell.id)) return;
+
+        // OneMany and OneOne relationship only allow link to one same recordId
+        if (
+          newField.options.relationship === Relationship.OneMany ||
+          newField.options.relationship === Relationship.OneOne
+        ) {
+          if (globalCheckSet.has(linkCell.id)) return;
+          globalCheckSet.add(linkCell.id);
+          recordCheckSet.add(linkCell.id);
+          return newCellValue.push(linkCell);
+        }
+        recordCheckSet.add(linkCell.id);
+        return newCellValue.push(linkCell);
+      }
+
+      newCellValueTitle.forEach((title) => {
+        if (primaryNameToIdMap[title]) {
+          pushNewCellValue({ id: primaryNameToIdMap[title], title });
+        }
+      });
+
+      if (!recordOpsMap[tableId][record.id]) {
+        recordOpsMap[tableId][record.id] = [];
+      }
+      recordOpsMap[tableId][record.id].push(
+        RecordOpBuilder.editor.setRecord.build({
+          fieldId,
+          newCellValue: newField.isMultipleCellValue ? newCellValue : newCellValue[0],
+          oldCellValue,
+        })
+      );
+    });
+
+    return recordOpsMap;
+  }
+
+  async convertLinkOnlyRelationship(
+    tableId: string,
+    newField: LinkFieldDto,
+    oldField: LinkFieldDto
+  ) {
+    const fieldId = newField.id;
+    const foreignTableId = newField.options.foreignTableId;
+    const lookupFieldRaw = await this.prismaService.txClient().field.findFirstOrThrow({
+      where: { id: newField.options.lookupFieldId, deletedTime: null },
+    });
+    const lookupField = createFieldInstanceByRaw(lookupFieldRaw);
+
+    const records = await this.getRecords(tableId, oldField);
+    // TODO: should not get all records in foreignTable, only get records witch title is not exist in candidate records link cell value title
+    const foreignRecords = await this.getRecords(foreignTableId, lookupField);
+
+    const idToTitleMap = foreignRecords.reduce<{ [id: string]: string }>((pre, record) => {
+      const str = lookupField.cellValue2String(record.fields[lookupField.id]);
+      pre[record.id] = str;
+      return pre;
+    }, {});
+
+    const recordOpsMap: IOpsMap = { [tableId]: {}, [foreignTableId]: {} };
+    const globalCheckSet = new Set<string>();
+    records.forEach((record) => {
+      const recordCheckSet = new Set<string>();
+      const oldCellValue = record.fields[fieldId];
+      if (oldCellValue == null) {
+        return;
+      }
+      const oldLinkLinks = [oldCellValue].flat() as ILinkCellValue[];
+      const newCellValue: ILinkCellValue[] = [];
+      // eslint-disable-next-line sonarjs/no-identical-functions
+      function pushNewCellValue(linkCell: ILinkCellValue) {
+        // not allow link to same recordId in one record
+        if (recordCheckSet.has(linkCell.id)) return;
+
+        // OneMany and OneOne relationship only allow link to one same recordId
+        if (
+          newField.options.relationship === Relationship.OneMany ||
+          newField.options.relationship === Relationship.OneOne
+        ) {
+          if (globalCheckSet.has(linkCell.id)) return;
+          globalCheckSet.add(linkCell.id);
+          recordCheckSet.add(linkCell.id);
+          return newCellValue.push(linkCell);
+        }
+        recordCheckSet.add(linkCell.id);
+        return newCellValue.push(linkCell);
+      }
+
+      oldLinkLinks.forEach((link) => {
+        if (idToTitleMap[link.id]) {
+          pushNewCellValue({
+            ...link,
+            title: idToTitleMap[link.id],
+          });
+        }
+      });
+
+      if (!recordOpsMap[tableId][record.id]) {
+        recordOpsMap[tableId][record.id] = [];
+      }
+      recordOpsMap[tableId][record.id].push(
+        RecordOpBuilder.editor.setRecord.build({
+          fieldId,
+          newCellValue: newField.isMultipleCellValue ? newCellValue : newCellValue[0],
+          oldCellValue,
+        })
+      );
+    });
+
+    return recordOpsMap;
+  }
+
+  async planResetLinkFieldLookupFieldId(
+    lookupedTableId: string,
+    lookupedField: IFieldInstance,
+    fieldAction: FieldAction
+  ): Promise<string[]> {
+    if (fieldAction !== 'field|update' && fieldAction !== 'field|delete') {
+      return [];
+    }
+    if (fieldAction === 'field|update' && PRIMARY_SUPPORTED_TYPES.has(lookupedField.type)) {
+      return [];
+    }
+
+    const prisma = this.prismaService.txClient();
+
+    const lookupedFieldId = lookupedField.id;
+    const refRaws = await prisma.reference.findMany({
+      where: {
+        fromFieldId: lookupedFieldId,
+      },
+    });
+    const toFieldIds = refRaws.map((ref) => ref.toFieldId);
+
+    const lookupedPrimaryField = await prisma.field.findFirst({
+      where: { tableId: lookupedTableId, isPrimary: true },
+      select: { id: true },
+    });
+
+    if (!lookupedPrimaryField) {
+      return [];
+    }
+
+    const fieldRaws = await prisma.field.findMany({
+      where: {
+        id: { in: toFieldIds },
+        type: FieldType.Link,
+        deletedTime: null,
+      },
+    });
+
+    const fieldInstances = fieldRaws
+      .filter((field) => field.type === FieldType.Link && !field.isLookup)
+      .map((field) => createFieldInstanceByRaw(field))
+      .filter((field) => {
+        const option = field.options as ILinkFieldOptions;
+        return (
+          option.foreignTableId === lookupedTableId && option.lookupFieldId === lookupedFieldId
+        );
+      });
+
+    return fieldInstances.map((field) => field.id);
+  }
+}

@@ -1,0 +1,3 @@
+tasks:
+  - init: pnpm install
+    command: make sqlite-mode && cd apps/nestjs-backend && pnpm dev

@@ -1,0 +1,19 @@
+{
+  "empty": {
+    "title": "Noch keine Dashboards",
+    "description": "Es sieht so aus, als hätten Sie noch keine Dashboards erstellt. Dashboards helfen Ihnen, Ihre Daten besser zu visualisieren und zu verwalten.",
+    "create": "Erstellen Sie Ihr erstes Dashboard"
+  },
+  "addPlugin": "Ein Plugin hinzufügen",
+  "createDashboard": {
+    "button": "Dashboard erstellen",
+    "title": "Neues Dashboard erstellen",
+    "placeholder": "Name des Dashboards eingeben"
+  },
+  "findDashboard": "Ein Dashboards finden...",
+  "expand": "Erweitern",
+  "deprecation": {
+    "title": "Die Dashboard-Knoten-Funktion wird eingestellt",
+    "description": "Um Ihnen ein intelligenteres und effizienteres Erlebnis zu bieten, werden wir die Unterstützung für die Dashboard-Knoten-Funktion einstellen. Sie können neue Dashboards einfach über KI in der KI-generierten Anwendung erstellen."
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "apiQueryBuilder": "Constructor de queries API",
+  "subTitle": "Puedes construir rápidamente tus queries a través de una interfaz interactiva y copiar el código que se puede ejecutar directamente",
+  "apiList": "Lista completa de APIs",
+  "cellFormat": "Formato del resultado de celda",
+  "fieldKeyType": "Tipo de key del campo",
+  "chooseSource": "Elige una fuente de datos",
+  "action": {
+    "selectBase": "Seleccionar una base de datos...",
+    "selectTable": "Seleccionar una tabla..."
+  },
+  "pickParams": "Selecciona y configura los parámetros",
+  "buildResult": "Construir resultado",
+  "buildResultEmpty": "Aún no hay resultados",
+  "previewReturnValue": "Vista previa del valor retornado",
+  "replaceToken": "Reemplazar token",
+  "createNewToken": "Crear nuevo token",
+  "showPagination": "Los parámetros de paginación se muestran en modo JSON",
+  "addSort": "Agregar un ordenamiento"
+}

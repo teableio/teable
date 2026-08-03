@@ -1,0 +1,329 @@
+import { AlertTriangle, Check, Image, File, Settings } from '@teable/icons';
+import { chatModelAbilityType } from '@teable/openapi';
+import type { IAIIntegrationConfig, IChatModelAbility, IAbilityDetail } from '@teable/openapi';
+import {
+  cn,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@teable/ui-lib/shadcn';
+import { ChevronRight, Cpu } from 'lucide-react';
+import { useTranslation } from 'next-i18next';
+import { useMemo, useState } from 'react';
+import { AIModelSelect, type IModelOption } from './AiModelSelect';
+
+// Helper to check if ability is supported (handles both boolean and detailed format)
+const isAbilitySupported = (ability: boolean | IAbilityDetail | undefined): boolean => {
+  if (typeof ability === 'boolean') return ability;
+  if (ability && typeof ability === 'object') {
+    return ability.url === true || ability.base64 === true;
+  }
+  return false;
+};
+
+// Helper to get support details for display
+const getAbilitySupportDetails = (ability: boolean | IAbilityDetail | undefined): string | null => {
+  if (typeof ability === 'boolean') return null;
+  if (ability && typeof ability === 'object') {
+    const supports: string[] = [];
+    if (ability.url) supports.push('URL');
+    if (ability.base64) supports.push('Base64');
+    return supports.length > 0 ? supports.join(', ') : null;
+  }
+  return null;
+};
+
+export const CodingModels = ({
+  value,
+  onChange,
+  models,
+  needGroup,
+  placeholder,
+}: {
+  value: IAIIntegrationConfig['chatModel'];
+  onChange: (value: IAIIntegrationConfig['chatModel']) => void;
+  models?: IModelOption[];
+  // Kept for backward compatibility, but not used since testing happens in provider config
+  onTestChatModelAbility?: (
+    chatModel: IAIIntegrationConfig['chatModel']
+  ) => Promise<IChatModelAbility | undefined>;
+  needGroup?: boolean;
+  placeholder?: string;
+}) => {
+  const { t } = useTranslation('common');
+  const [tiersOpen, setTiersOpen] = useState(
+    () =>
+      Boolean(value?.md && value.md !== value?.lg) || Boolean(value?.sm && value.sm !== value?.lg)
+  );
+
+  const abilityIconMap = useMemo(() => {
+    return {
+      image: <Image className="size-4" />,
+      pdf: <File className="size-4" />,
+      toolCall: <Settings className="size-4" />,
+    };
+  }, []);
+
+  // Get ability from the selected model's capabilities or from value.ability
+  // Priority: value.ability (from selection) > model capabilities (from provider config)
+  const selectedModelAbility = useMemo(() => {
+    // First check value.ability (set when model is selected)
+    if (value?.ability && Object.keys(value.ability).length > 0) {
+      return value.ability as IChatModelAbility;
+    }
+    // Fallback to model's capabilities from provider config
+    if (!value?.lg || !models) return undefined;
+    const selectedModel = models.find((m) => m.modelKey === value.lg);
+    return selectedModel?.capabilities as IChatModelAbility | undefined;
+  }, [value?.lg, value?.ability, models]);
+
+  const handleLgChange = (model: string) => {
+    // Get ability from the model's capabilities (already tested)
+    const selectedModel = models?.find((m) => m.modelKey === model);
+    const ability = (selectedModel?.capabilities as IChatModelAbility) || {};
+
+    // Update lg; clear md/sm if they were inheriting (same as old lg)
+    const next: IAIIntegrationConfig['chatModel'] = { ...value, lg: model, ability };
+    if (value?.md === value?.lg) next.md = undefined;
+    if (value?.sm === value?.lg) next.sm = undefined;
+    onChange(next);
+  };
+
+  const handleMdChange = (model: string) => {
+    onChange({ ...value, md: model || undefined });
+  };
+
+  const handleSmChange = (model: string) => {
+    onChange({ ...value, sm: model || undefined });
+  };
+
+  // Display name of the lg model for inherit hint
+  const lgModelLabel = useMemo(() => {
+    if (!value?.lg || !models) return '';
+    const m = models.find((m) => m.modelKey === value.lg);
+    return m?.label || value.lg;
+  }, [value?.lg, models]);
+
+  const inheritPlaceholder = useMemo(
+    () => t('admin.setting.ai.chatModels.inheritHint', { model: lgModelLabel }),
+    [t, lgModelLabel]
+  );
+
+  // Icon for chat model selection
+  const chatModelIcon = useMemo(() => <Cpu className="size-4 text-purple-500" />, []);
+
+  // Check if model has been tested
+  const isModelTested = useMemo(() => {
+    return selectedModelAbility && Object.keys(selectedModelAbility).length > 0;
+  }, [selectedModelAbility]);
+
+  // Check if model has missing critical abilities
+  const hasMissingAbilities = useMemo(() => {
+    if (!value?.lg) return false;
+    // If model is not tested, show warning
+    if (!isModelTested) return true;
+    // Model should support toolCall (critical for AI features)
+    const hasToolCall = isAbilitySupported(selectedModelAbility?.toolCall);
+    return !hasToolCall;
+  }, [value?.lg, isModelTested, selectedModelAbility]);
+
+  const getMissingAbilitiesMessage = useMemo(() => {
+    if (!value?.lg) return null;
+    const missing: string[] = [];
+
+    // If model is not tested, show "not tested" warning
+    if (!isModelTested) {
+      missing.push(t('admin.setting.ai.chatModelAbility.notTested'));
+      return missing;
+    }
+
+    // Check for missing abilities
+    if (
+      !isAbilitySupported(selectedModelAbility?.image) &&
+      !isAbilitySupported(selectedModelAbility?.pdf)
+    ) {
+      missing.push(t('admin.setting.ai.chatModelAbility.missingVision'));
+    }
+    if (!isAbilitySupported(selectedModelAbility?.toolCall)) {
+      missing.push(t('admin.setting.ai.chatModelAbility.missingToolCall'));
+    }
+    return missing.length > 0 ? missing : null;
+  }, [value?.lg, isModelTested, selectedModelAbility, t]);
+
+  // Count how many tiers have a custom (non-inherited) model
+  const customizedCount = useMemo(() => {
+    let count = 0;
+    if (value?.md && value.md !== value?.lg) count++;
+    if (value?.sm && value.sm !== value?.lg) count++;
+    return count;
+  }, [value?.lg, value?.md, value?.sm]);
+
+  // Abilities to test and display
+  const testableAbilities = chatModelAbilityType.options;
+
+  return (
+    <div className="flex flex-1 flex-col gap-4">
+      {/* LG - Primary chat model (required) */}
+      <div className="relative flex flex-col gap-2">
+        <div className="flex shrink-0 items-center gap-2 truncate text-sm">
+          {chatModelIcon}
+          <span>{t('admin.setting.ai.chatModel')}</span>
+          <div className="h-4 text-red-500">*</div>
+        </div>
+        <div className="text-left text-xs text-muted-foreground">
+          {t('admin.setting.ai.chatModelDescription')}
+        </div>
+
+        <AIModelSelect
+          value={value?.lg ?? ''}
+          onValueChange={handleLgChange}
+          options={models}
+          className="flex-1"
+          needGroup={needGroup}
+          placeholder={placeholder}
+        />
+
+        {/* Model Ability Section - directly under model select */}
+        {value?.lg && (
+          <div className="mt-2 rounded-md border bg-muted p-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">
+                {t('admin.setting.ai.chatModelAbility.lgModelAbility')}
+              </span>
+            </div>
+
+            {/* Ability badges - from pre-tested results in provider config */}
+            <div className="mt-2 flex flex-wrap gap-2">
+              <TooltipProvider>
+                {testableAbilities.map((type) => {
+                  const abilityValue = selectedModelAbility?.[type];
+                  const supported = isAbilitySupported(abilityValue);
+                  const supportDetails = getAbilitySupportDetails(abilityValue);
+
+                  const badge = (
+                    <div
+                      className={cn(
+                        'flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs transition-colors',
+                        supported
+                          ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-500'
+                          : 'bg-muted text-muted-foreground'
+                      )}
+                    >
+                      {supported ? (
+                        <Check className="size-3" />
+                      ) : (
+                        abilityIconMap[type as keyof typeof abilityIconMap]
+                      )}
+                      <span>{t(`admin.setting.ai.chatModelAbility.${type}`)}</span>
+                      {supportDetails && (
+                        <span className="ml-0.5 opacity-70">({supportDetails})</span>
+                      )}
+                    </div>
+                  );
+
+                  // Show tooltip with details for image/pdf
+                  if (supportDetails) {
+                    return (
+                      <Tooltip key={type}>
+                        <TooltipTrigger asChild>{badge}</TooltipTrigger>
+                        <TooltipContent>
+                          <p>
+                            {t('admin.setting.ai.chatModelAbility.supportedFormats')}:{' '}
+                            {supportDetails}
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  }
+
+                  return <div key={type}>{badge}</div>;
+                })}
+              </TooltipProvider>
+            </div>
+
+            {/* Warning for missing abilities */}
+            {hasMissingAbilities && getMissingAbilitiesMessage && (
+              <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-500/50 bg-amber-50/50 p-2.5 dark:bg-amber-900/20">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" />
+                <div className="text-xs text-amber-700 dark:text-amber-400">
+                  <p className="font-medium">
+                    {t('admin.setting.ai.chatModelTest.modelNotSuitable')}
+                  </p>
+                  <ul className="mt-1 list-inside list-disc">
+                    {getMissingAbilitiesMessage.map((msg, i) => (
+                      <li key={i}>{msg}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Model tiers - collapsible */}
+      {value?.lg && (
+        <Collapsible open={tiersOpen} onOpenChange={setTiersOpen}>
+          <CollapsibleTrigger className="flex w-full items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+            <ChevronRight
+              className={cn('size-4 shrink-0 transition-transform', tiersOpen && 'rotate-90')}
+            />
+            <span>{t('admin.setting.ai.chatModels.modelTiers')}</span>
+            {!tiersOpen && (
+              <span className="ml-1 text-xs opacity-60">
+                {customizedCount > 0
+                  ? t('admin.setting.ai.chatModels.customized', { count: customizedCount })
+                  : t('admin.setting.ai.chatModels.allInheriting')}
+              </span>
+            )}
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="mt-2 text-xs text-muted-foreground">
+              {t('admin.setting.ai.chatModels.modelTiersDescription')}
+            </div>
+            <div className="mt-3 flex flex-col gap-4 rounded-md border bg-muted/30 p-4">
+              {/* MD - Standard */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-sm font-medium">{t('admin.setting.ai.chatModels.md')}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {t('admin.setting.ai.chatModels.mdDescription')}
+                  </span>
+                </div>
+                <AIModelSelect
+                  value={value?.md ?? ''}
+                  onValueChange={handleMdChange}
+                  options={models}
+                  className="flex-1"
+                  needGroup={needGroup}
+                  placeholder={inheritPlaceholder}
+                />
+              </div>
+              {/* SM - Lightweight */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-sm font-medium">{t('admin.setting.ai.chatModels.sm')}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {t('admin.setting.ai.chatModels.smDescription')}
+                  </span>
+                </div>
+                <AIModelSelect
+                  value={value?.sm ?? ''}
+                  onValueChange={handleSmChange}
+                  options={models}
+                  className="flex-1"
+                  needGroup={needGroup}
+                  placeholder={inheritPlaceholder}
+                />
+              </div>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+    </div>
+  );
+};

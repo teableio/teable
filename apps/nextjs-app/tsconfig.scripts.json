@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "strictNullChecks": true,
+    "module": "NodeNext",
+    "esModuleInterop": true
+  },
+  "include": ["**/*.ts", "**/*.tsx"]
+}

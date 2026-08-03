@@ -1,0 +1,20 @@
+{
+  "apiQueryBuilder": "API sorgu oluşturucu",
+  "subTitle": "Etkileşimli bir arayüz aracılığıyla sorgu isteklerinizi hızlıca oluşturabilir ve doğrudan çalıştırılabilecek kodu kopyalayabilirsiniz",
+  "apiList": "Tüm API Listesi",
+  "cellFormat": "Hücre sonuç formatı",
+  "fieldKeyType": "Alan anahtar türü",
+  "chooseSource": "Bir veri kaynağı seçin",
+  "action": {
+    "selectBase": "Bir veritabanı seçin...",
+    "selectTable": "Bir tablo seçin..."
+  },
+  "pickParams": "Parametreleri seçin ve yapılandırın",
+  "buildResult": "Sonuç oluştur",
+  "buildResultEmpty": "Henüz sonuç yok",
+  "previewReturnValue": "Dönüş değeri önizleme",
+  "replaceToken": "Token değiştir",
+  "createNewToken": "Yeni token oluştur",
+  "showPagination": "Sayfalandırma parametreleri JSON modunda görüntülenir",
+  "addSort": "Sıralama ekle"
+}

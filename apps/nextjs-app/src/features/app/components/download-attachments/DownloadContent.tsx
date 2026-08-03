@@ -1,0 +1,463 @@
+import type { IFieldVo } from '@teable/core';
+import { HelpCircle, ChevronDown, Check } from '@teable/icons';
+import type { IGetRecordsRo } from '@teable/openapi';
+import { useFields, useFieldStaticGetter } from '@teable/sdk';
+import {
+  Button,
+  Checkbox,
+  cn,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+  Label,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Skeleton,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@teable/ui-lib';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
+import { useTranslation } from 'next-i18next';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { tableConfig } from '@/features/i18n/table.config';
+import type { IAttachmentPreview, IDownloadProgress } from '../../utils/download-all-attachments';
+import {
+  downloadAllAttachments,
+  formatFileSize,
+  getAttachmentPreview,
+  isFieldSuitableForNaming,
+} from '../../utils/download-all-attachments';
+import { DownloadProgressToast } from '../DownloadProgressToast';
+import { useColumnDownloadDialogStore } from './useDownloadAttachmentsStore';
+
+interface IDownloadContentProps {
+  tableId: string;
+  fieldId: string;
+  fieldName: string;
+  viewId?: string;
+  shareId?: string;
+  personalViewCommonQuery?: IGetRecordsRo;
+  onClose: () => void;
+}
+
+export const DownloadContent = ({
+  tableId,
+  fieldId,
+  fieldName,
+  viewId,
+  shareId,
+  personalViewCommonQuery,
+  onClose,
+}: IDownloadContentProps) => {
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const [loading, setLoading] = useState(true);
+  const [preview, setPreview] = useState<IAttachmentPreview | null>(null);
+  const [downloading, setDownloading] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const { namingFieldId, setNamingFieldId, noPrefix, setNoPrefix, groupByRow, setGroupByRow } =
+    useColumnDownloadDialogStore();
+  const allFields = useFields({ withHidden: true, withDenied: true });
+  const fieldStaticGetter = useFieldStaticGetter();
+  const [selectorOpen, setSelectorOpen] = useState(false);
+
+  // Filter fields suitable for naming (text-based fields)
+  const namingFields = useMemo(() => {
+    return allFields.filter((field) => isFieldSuitableForNaming(field as unknown as IFieldVo));
+  }, [allFields]);
+
+  // Get the selected naming field instance for download
+  // When namingFieldId is undefined, return undefined (use row number prefix)
+  const namingField = useMemo(() => {
+    if (!namingFieldId) return undefined;
+    return allFields.find((f) => f.id === namingFieldId);
+  }, [namingFieldId, allFields]);
+
+  // Handle field selection - toggle if clicking the same field (deselect)
+  const handleFieldSelect = useCallback(
+    (selectedValue: string) => {
+      setSelectorOpen(false);
+      if (selectedValue === namingFieldId) {
+        // Deselect if clicking the same field
+        setNamingFieldId(undefined);
+      } else {
+        setNamingFieldId(selectedValue);
+      }
+    },
+    [namingFieldId, setNamingFieldId]
+  );
+
+  // Handle "no prefix" option - toggle on/off
+  const handleNoPrefixSelect = useCallback(() => {
+    setSelectorOpen(false);
+    setNoPrefix(!noPrefix);
+  }, [noPrefix, setNoPrefix]);
+
+  // Load preview on mount
+  useEffect(() => {
+    const loadPreview = async () => {
+      try {
+        const previewData = await getAttachmentPreview(
+          tableId,
+          fieldId,
+          viewId,
+          shareId,
+          personalViewCommonQuery
+        );
+        setPreview(previewData);
+      } catch (error) {
+        console.error('Failed to load preview:', error);
+        onClose();
+        toast.error(t('table:download.allAttachments.error'));
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadPreview();
+  }, [tableId, fieldId, viewId, shareId, personalViewCommonQuery, onClose, t]);
+
+  const handleStartDownload = useCallback(async () => {
+    if (!preview || preview.totalAttachments === 0) return;
+
+    // Check if Service Worker is available (requires HTTPS or localhost)
+    if (typeof window !== 'undefined' && !navigator.serviceWorker) {
+      toast.error(t('table:download.allAttachments.requireHttps'));
+      return;
+    }
+
+    setDownloading(true);
+    onClose();
+
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
+    const toastId = toast.custom(
+      () => (
+        <DownloadProgressToast
+          progress={{ downloaded: 0, total: 0, currentFileName: '', percent: 0 }}
+          onCancel={() => {
+            abortController.abort();
+            toast.dismiss(toastId);
+          }}
+        />
+      ),
+      { duration: Infinity, unstyled: true, classNames: { toast: 'bg-transparent shadow-none' } }
+    );
+
+    const updateProgress = (progress: IDownloadProgress) => {
+      toast.custom(
+        () => (
+          <DownloadProgressToast
+            progress={progress}
+            onCancel={() => {
+              abortController.abort();
+              toast.dismiss(toastId);
+            }}
+          />
+        ),
+        {
+          id: toastId,
+          duration: Infinity,
+          unstyled: true,
+          classNames: { toast: 'bg-transparent shadow-none border rounded-lg' },
+        }
+      );
+    };
+
+    try {
+      updateProgress({
+        downloaded: 0,
+        total: preview.totalSize,
+        currentFileName: '',
+        percent: 0,
+      });
+
+      const result = await downloadAllAttachments({
+        tableId,
+        fieldId,
+        fieldName,
+        viewId,
+        shareId,
+        personalViewCommonQuery,
+        namingField,
+        noPrefix,
+        groupByRow,
+        abortController,
+        onProgress: updateProgress,
+      });
+
+      toast.dismiss(toastId);
+
+      if (result.cancelled) {
+        toast.info(t('table:download.allAttachments.cancelled'));
+      } else if (result.success) {
+        toast.success(t('table:download.allAttachments.completed'));
+      } else if (result.failedFiles.length > 0) {
+        toast.warning(
+          t('table:download.allAttachments.errorPartial', {
+            failedCount: result.failedFiles.length,
+          })
+        );
+      }
+    } catch (error) {
+      toast.dismiss(toastId);
+      console.error('Download failed:', error);
+      toast.error(t('table:download.allAttachments.error'));
+    } finally {
+      setDownloading(false);
+      abortControllerRef.current = null;
+    }
+  }, [
+    preview,
+    tableId,
+    fieldId,
+    fieldName,
+    viewId,
+    shareId,
+    namingField,
+    noPrefix,
+    groupByRow,
+    personalViewCommonQuery,
+    onClose,
+    t,
+  ]);
+
+  if (loading) {
+    return (
+      <>
+        <div className="flex flex-col gap-4">
+          <Skeleton className="h-5 w-48" />
+          <Skeleton className="h-5 w-36" />
+          <Skeleton className="h-5 w-40" />
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose}>
+            {t('table:download.allAttachments.cancel')}
+          </Button>
+          <Button disabled>{t('common:actions.download')}</Button>
+        </div>
+      </>
+    );
+  }
+
+  if (!preview || preview.totalAttachments === 0) {
+    return (
+      <>
+        <div className="py-4">
+          <p className="text-muted-foreground">
+            {t('table:download.allAttachments.noAttachments')}
+          </p>
+        </div>
+        <div className="flex justify-end">
+          <Button variant="outline" onClick={onClose}>
+            {t('table:download.allAttachments.cancel')}
+          </Button>
+        </div>
+      </>
+    );
+  }
+
+  const [totalSizeValue, totalSizeUnit] = formatFileSize(preview.totalSize).split(' ');
+
+  return (
+    <>
+      <div className="flex flex-col gap-4">
+        <div className="grid grid-cols-3 overflow-hidden rounded-md border bg-background">
+          {[
+            {
+              label: t('table:download.allAttachments.rowsWithAttachments'),
+              value: preview.rowsWithAttachments,
+            },
+            {
+              label: t('table:download.allAttachments.totalAttachments'),
+              value: preview.totalAttachments,
+            },
+            {
+              label: t('table:download.allAttachments.totalSize'),
+              value: (
+                <>
+                  {totalSizeValue}
+                  {totalSizeUnit && (
+                    <span className="ml-1 text-sm font-normal text-foreground">
+                      {totalSizeUnit}
+                    </span>
+                  )}
+                </>
+              ),
+            },
+          ].map(({ label, value }, index) => (
+            <div key={label} className={cn('min-w-0 px-4 py-3', index > 0 && 'border-l')}>
+              <div className="truncate text-xs font-medium text-muted-foreground">{label}</div>
+              <div className="mt-1 truncate text-base font-semibold text-foreground">{value}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Advanced options */}
+        <Collapsible>
+          <CollapsibleTrigger className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+            {t('table:download.allAttachments.advancedOptions')}
+            <ChevronDown className="size-4 transition-transform duration-200 [[data-state=open]>&]:rotate-180" />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-4 pt-2">
+            {/* Naming field selector */}
+            <div className="space-y-1.5">
+              <Label className="text-sm font-normal text-foreground">
+                {t('table:download.allAttachments.namingFieldLabel')}
+              </Label>
+              <Popover open={selectorOpen} onOpenChange={setSelectorOpen} modal>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={selectorOpen}
+                    className="h-8 w-full justify-between dark:bg-[color-mix(in_oklab,white_10%,hsl(var(--background)))]"
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      {(() => {
+                        if (noPrefix) {
+                          return (
+                            <span className="truncate">
+                              {t('table:download.allAttachments.noPrefixOption')}
+                            </span>
+                          );
+                        }
+                        if (namingFieldId) {
+                          const selectedField = namingFields.find((f) => f.id === namingFieldId);
+                          if (!selectedField) return null;
+                          const { Icon } = fieldStaticGetter(selectedField.type, {
+                            isLookup: selectedField.isLookup,
+                            isConditionalLookup: selectedField.isConditionalLookup,
+                            hasAiConfig: Boolean(selectedField.aiConfig),
+                            deniedReadRecord: !selectedField.canReadFieldRecord,
+                          });
+                          return (
+                            <>
+                              <Icon className="size-4 shrink-0" />
+                              <span className="truncate">{selectedField.name}</span>
+                            </>
+                          );
+                        }
+                        return (
+                          <span className="text-muted-foreground">
+                            {t('table:download.allAttachments.selectField')}
+                          </span>
+                        );
+                      })()}
+                    </div>
+                    <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className="w-[var(--radix-popover-trigger-width)] p-0"
+                  align="start"
+                >
+                  <Command>
+                    <CommandInput placeholder={t('common:actions.search')} />
+                    <CommandList className="max-h-60">
+                      <CommandEmpty>{t('common:noResult')}</CommandEmpty>
+                      <CommandGroup>
+                        <CommandItem
+                          value="__no_prefix__"
+                          keywords={[
+                            t('table:download.allAttachments.noPrefixOption'),
+                            t('table:download.allAttachments.noPrefixOptionDesc'),
+                          ]}
+                          onSelect={handleNoPrefixSelect}
+                        >
+                          <div className="flex min-w-0 flex-1 flex-col">
+                            <span className="truncate">
+                              {t('table:download.allAttachments.noPrefixOption')}
+                            </span>
+                            <span className="truncate text-xs text-muted-foreground">
+                              {t('table:download.allAttachments.noPrefixOptionDesc')}
+                            </span>
+                          </div>
+                          <Check
+                            className={cn(
+                              'ml-2 size-4 shrink-0',
+                              noPrefix ? 'opacity-100' : 'opacity-0'
+                            )}
+                          />
+                        </CommandItem>
+                      </CommandGroup>
+                      <CommandSeparator />
+                      <CommandGroup>
+                        {namingFields.map((field) => {
+                          const { Icon } = fieldStaticGetter(field.type, {
+                            isLookup: field.isLookup,
+                            isConditionalLookup: field.isConditionalLookup,
+                            hasAiConfig: Boolean(field.aiConfig),
+                            deniedReadRecord: !field.canReadFieldRecord,
+                          });
+                          return (
+                            <CommandItem
+                              key={field.id}
+                              value={field.id}
+                              keywords={[field.name]}
+                              onSelect={() => handleFieldSelect(field.id)}
+                            >
+                              <Icon className="mr-2 size-4" />
+                              <span className="truncate">{field.name}</span>
+                              <Check
+                                className={cn(
+                                  'ml-auto size-4',
+                                  namingFieldId === field.id ? 'opacity-100' : 'opacity-0'
+                                )}
+                              />
+                            </CommandItem>
+                          );
+                        })}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Group by row option */}
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="groupByRow"
+                checked={groupByRow}
+                onCheckedChange={(checked) => setGroupByRow(checked === true)}
+              />
+              <Label htmlFor="groupByRow" className="cursor-pointer text-sm">
+                {t('table:download.allAttachments.groupByRow')}
+              </Label>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <HelpCircle className="size-4 cursor-pointer text-muted-foreground" />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" sideOffset={5}>
+                    <p className="max-w-xs">{t('table:download.allAttachments.groupByRowTip')}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={onClose} disabled={downloading}>
+          {t('table:download.allAttachments.cancel')}
+        </Button>
+        <Button onClick={handleStartDownload} disabled={downloading}>
+          {t('common:actions.download')}
+        </Button>
+      </div>
+    </>
+  );
+};

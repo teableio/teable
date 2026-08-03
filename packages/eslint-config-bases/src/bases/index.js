@@ -1,0 +1,15 @@
+module.exports = {
+  jest: require('./jest'),
+  mdx: require('./mdx'),
+  playwright: require('./playwright'),
+  'prettier-plugin': require('./prettier-plugin'),
+  'prettier-config': require('./prettier-config'),
+  react: require('./react'),
+  regexp: require('./regexp'),
+  reactQuery: require('./react-query'),
+  reactTestingLibrary: require('./rtl'),
+  sonar: require('./sonar'),
+  storybook: require('./storybook'),
+  tailwind: require('./tailwind'),
+  typescript: require('./typescript'),
+};

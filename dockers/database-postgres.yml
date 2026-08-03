@@ -1,0 +1,28 @@
+
+services:
+  teable-postgres:
+    image: postgres:15.4
+    container_name: teable-postgres
+    hostname: teable-postgres
+    ports:
+      - '5432:5432'
+    networks:
+      - teable-net
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - db_data:/var/lib/postgresql/data:rw
+      # you may use a bind-mounted host directory instead,
+      # so that it is harder to accidentally remove the volume and lose all your data!
+      # - ./docker/db/data:/var/lib/postgresql/data:rw
+    healthcheck:
+      test: ['CMD-SHELL', "sh -c 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}'"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    restart: always
+
+volumes:
+  db_data:

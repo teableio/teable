@@ -1,0 +1,62 @@
+#######################################################################################
+# "pnpm install" composite action                                                      #
+########################################################################################
+
+name: 'Monorepo install (pnpm)'
+description: 'Run pnpm install with node_modules linker and cache enabled'
+inputs:
+  cwd:
+    description: "Changes node's process.cwd() if the project is not located on the root. Default to process.cwd()"
+    required: false
+    default: '.'
+  cache-prefix:
+    description: 'Add a specific cache-prefix'
+    required: false
+    default: 'default'
+  cache-pnpm-cache:
+    description: 'Cache npm global cache folder often used by node-gyp, prebuild binaries (invalidated on lock/os/node-version)'
+    required: false
+    default: 'true'
+  enable-corepack:
+    description: 'Enable corepack'
+    required: false
+    default: 'true'
+
+runs:
+  using: 'composite'
+
+  steps:
+    - name: ⚙️ Enable Corepack
+      if: inputs.enable-corepack == 'true'
+      shell: bash
+      working-directory: ${{ inputs.cwd }}
+      run: corepack enable
+
+    - name: ⚙️ Expose pnpm config as "$GITHUB_OUTPUT"
+      id: pnpm-config
+      shell: bash
+      run: |
+        echo "STORE_PATH=$(pnpm store path | tr -d '\n')" >> $GITHUB_OUTPUT
+
+    - name: ⚙️ Cache rotation keys
+      id: cache-rotation
+      shell: bash
+      run: |
+        echo "YEAR_MONTH=$(/bin/date -u "+%Y%m")" >> $GITHUB_OUTPUT
+        echo "YEAR_WEEK=$(/bin/date -u "+%Y%W")" >> $GITHUB_OUTPUT
+
+    - name: ♻️ Restore pnpm cache
+      id: pnpm-store-cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.pnpm-config.outputs.STORE_PATH }}
+        key: ${{ runner.os }}-pnpm-store-cache-${{ steps.cache-rotation.outputs.YEAR_WEEK }}-${{ hashFiles('**/pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-store-cache-${{ steps.cache-rotation.outputs.YEAR_WEEK }}-
+
+    - name: 📥 Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile
+      env:
+        # Other environment variables
+        HUSKY: '0' # By default do not run HUSKY install

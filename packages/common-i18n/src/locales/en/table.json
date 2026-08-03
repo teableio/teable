@@ -1,0 +1,1492 @@
+{
+  "crossSpace": {
+    "duplicateFieldTitle": "Notice",
+    "duplicateFieldDescription": "Cross-space references are not supported. The duplicate will be converted to a single line text field.",
+    "duplicateTableTitle": "Notice",
+    "duplicateTableDescription": "Cross-space references are not supported. The duplicate will be converted to a single line text field.",
+    "convertAndDuplicate": "Convert & duplicate"
+  },
+  "toolbar": {
+    "viewFilterInShare": "This view is being used in a view share link. Modifications to the view configuration will also change the view share link.",
+    "createFieldButtonText": "Create a new <0/> field",
+    "others": {
+      "share": {
+        "label": "Share",
+        "statusLabel": "Share view to web",
+        "noPermission": "No permission to share view",
+        "genLink": "Generate new link",
+        "allowCopy": "Allow viewers to copy data out of this view",
+        "allowEdit": "Allow signed-in viewers to edit visible data",
+        "showAllFields": "Show all fields in expanded records",
+        "restrict": "Restrict by password",
+        "tips": "People who have the link can see the view.",
+        "passwordTitle": "Enter a password",
+        "passwordTips": "Password restrictions for accessing shared views",
+        "embed": "Embed",
+        "embedPreview": "Preview",
+        "copyCode": "Copy code",
+        "hideToolbar": "Hide toolbar",
+        "URLSetting": "URL parameters config",
+        "URLSettingDescription": "Adjusting the following settings will not affect the embed code. You need to copy the code with new parameters to make it take effect",
+        "cancel": "Cancel",
+        "save": "Save",
+        "requireLogin": "Require login submit"
+      },
+      "api": {
+        "title": "API Access",
+        "aiContext": "AI Connect",
+        "advanced": "Advanced",
+        "recommended": "Recommended",
+        "apiDocGroupTitle": "API context",
+        "apiDocGroupDescription": "Copy the document below to AI so it can understand the current table schema, fields, and API examples, then read, create, update, or delete records as requested.",
+        "generatingToken": "Generating...",
+        "generateToken": "Generate token",
+        "confirmTitle": "Create API Token",
+        "confirmDescription": "This will create a new API token with the following permissions for this base:",
+        "scopeTableRead": "Read table info",
+        "scopeFieldRead": "Read fields",
+        "scopeRead": "Read records",
+        "scopeCreate": "Create records",
+        "scopeUpdate": "Update records",
+        "scopeDelete": "Delete records",
+        "confirmExpiry": "The token will be valid for 1 year.",
+        "confirmButton": "Confirm & Create",
+        "tokenInfo": "Token expires: {{expiry}}",
+        "copied": "Copied!",
+        "copyAIDoc": "Copy doc",
+        "aiDocPreview": "Context preview",
+        "manageToken": "Manage token",
+        "openInNewTab": "Open in New Tab",
+        "queryBuilderTitle": "API Query Builder",
+        "queryBuilderDesc": "Visually configure filters, sorting, and other parameters to generate ready-to-run API request code.",
+        "viewApiDocs": "View Full API Docs"
+      },
+      "personalView": {
+        "personal": "Personal",
+        "tip": "After enabling, the view settings will only take effect for you personally",
+        "dialog": {
+          "title": "Exit personal mode",
+          "description": "The personal view configuration will be restored to the real-time collaboration state, you can also save the personal view settings and synchronize them to everyone",
+          "cancelText": "Exit and sync",
+          "confirmText": "Confirm exit"
+        }
+      }
+    }
+  },
+  "welcome": {
+    "title": "Welcome",
+    "emptyTitle": "Start building your base",
+    "description": "Click the \"+\" button in the sidebar to add resources",
+    "help": "Visit the <HelpCenter /> for more information",
+    "helpCenter": "Help center"
+  },
+  "validation": {
+    "link": {
+      "batch_duplicate": "Cannot link record(s): already linked by another record in the same batch. In one-to-many relationships, each record can only belong to one parent.",
+      "one_many_duplicate": "Cannot link record(s): already linked to another record. In one-to-many relationships, each record can only belong to one parent.",
+      "one_one_duplicate": "Cannot link record(s): the target record is already linked by another record in a one-to-one relationship."
+    },
+    "field": {
+      "maxColumnLimit": "Table \"{{tableName}}\" can have at most {{maxFieldCount}} fields.",
+      "requiredExistingValues": "Cannot mark field \"{{fieldName}}\" as required because existing records contain empty values."
+    }
+  },
+  "field": {
+    "advancedProps": "Advanced properties",
+    "hide": "hide",
+    "default": {
+      "singleLineText": {
+        "title": "Label"
+      },
+      "longText": {
+        "title": "Notes"
+      },
+      "number": {
+        "title": "Number",
+        "formatType": "Format type",
+        "currencySymbol": "Currency symbol",
+        "defaultSymbol": "$",
+        "precision": "Precision",
+        "decimalExample": "Number (123)",
+        "currencyExample": "Currency ($100)",
+        "percentExample": "Percent (20%)"
+      },
+      "singleSelect": {
+        "title": "Status",
+        "options": {
+          "todo": "To do",
+          "inProgress": "In progress",
+          "done": "Done"
+        }
+      },
+      "multipleSelect": {
+        "title": "Tags"
+      },
+      "attachment": {
+        "title": "Attachments"
+      },
+      "user": {
+        "title": "Collaborator"
+      },
+      "date": {
+        "title": "Date",
+        "dateFormatting": "Date formatting",
+        "timeFormatting": "Time formatting",
+        "timeZone": "Time zone",
+        "yearMonth": "Year/month",
+        "monthDay": "Month/day",
+        "year": "Year",
+        "month": "Month",
+        "day": "Day",
+        "local": "Local",
+        "friendly": "Friendly",
+        "us": "US",
+        "european": "European",
+        "asia": "Asia",
+        "custom": "Custom",
+        "12Hour": "12 hour",
+        "24Hour": "24 hour",
+        "noDisplay": "No display"
+      },
+      "autoNumber": {
+        "title": "ID"
+      },
+      "createdTime": {
+        "title": "Created time"
+      },
+      "lastModifiedTime": {
+        "title": "Last modified time"
+      },
+      "createdBy": {
+        "title": "Created by"
+      },
+      "lastModifiedBy": {
+        "title": "Last modified by"
+      },
+      "rating": {
+        "title": "Rating"
+      },
+      "checkbox": {
+        "title": "Done"
+      },
+      "button": {
+        "title": "Button",
+        "label": "Button label",
+        "limitCount": "Limit clicks",
+        "resetCount": "Allow reset",
+        "maxCount": "Max clicks",
+        "automation": "Automation",
+        "customAutomation": "Custom automation",
+        "clickConfirm": "Confirm before clicking",
+        "confirmTitle": "Title",
+        "confirmDescription": "Content",
+        "confirmButtonText": "Confirm button text"
+      },
+      "formula": {
+        "title": "Calculation",
+        "formula": "Formula"
+      },
+      "lookup": {
+        "title": "{{lookupFieldName}} (from {{linkFieldName}})"
+      },
+      "conditionalLookup": {
+        "title": "{{lookupFieldName}} (filtered from {{tableName}})"
+      },
+      "rollup": {
+        "title": "{{lookupFieldName}} Rollup (from {{linkFieldName}})",
+        "rollup": "Rollup",
+        "selectAnRollupFunction": "Select an rollup function",
+        "func": {
+          "and": "AND",
+          "arrayCompact": "ARRAYCOMPACT",
+          "arrayJoin": "ARRAYJOIN",
+          "arrayUnique": "ARRAYUNIQUE",
+          "average": "AVERAGE",
+          "concatenate": "CONCATENATE",
+          "count": "COUNT",
+          "countA": "COUNTA",
+          "countAll": "COUNTALL",
+          "max": "MAX",
+          "min": "MIN",
+          "or": "OR",
+          "sum": "SUM",
+          "xor": "XOR"
+        },
+        "funcDesc": {
+          "and": "Returns true if all the values are true",
+          "arrayCompact": "Removes empty strings and null values from the array. Keeps 'false' and strings that contain one or more blank characters.",
+          "arrayJoin": "Join all the values into a single comma-separated string.",
+          "arrayUnique": "Return only unique items.",
+          "average": "Mean average of the values.",
+          "concatenate": "Joins together the text values into a single text value.",
+          "count": "Count only non-empty numeric values. If you want to count all records, use COUNTALL.",
+          "countA": "Count the number of non-empty values. This function counts both numeric and text values.",
+          "countAll": "counts all values including blank records.",
+          "max": "Returns the largest of the given numbers.",
+          "min": "Returns the smallest of the given numbers.",
+          "or": "Returns true if any one of the values is true.",
+          "sum": "Sum together the values.",
+          "xor": "Returns true if and only if odd number of values are true."
+        }
+      },
+      "conditionalRollup": {
+        "title": "{{lookupFieldName}} conditional rollup"
+      }
+    },
+    "editor": {
+      "addField": "Add field",
+      "editField": "Edit field",
+      "insertField": "Insert field",
+      "graph": "Graph",
+      "defaultValue": "Default value",
+      "reset": "Reset",
+      "fieldUpdated": "Field has been updated",
+      "fieldCreated": "Field has been created",
+      "fieldUnavailable": "This field is unavailable. Refresh the table and try again.",
+      "confirmFieldChange": "Confirm Field Change",
+      "areYouSurePerformIt": "Are you sure you want to perform it?",
+      "addDescription": "Add description",
+      "dbFieldName": "DB field name",
+      "descriptionPlaceholder": "Describe this field (optional)",
+      "type": "Type",
+      "showAs": "Show as",
+      "color": "Color",
+      "number": "Number",
+      "chartBar": "Chart bar",
+      "chartLine": "Chart line",
+      "ring": "Ring",
+      "bar": "Bar",
+      "text": "Text",
+      "markdown": "Markdown",
+      "url": "Url",
+      "email": "Email",
+      "phone": "Phone",
+      "maxNumber": "Max number",
+      "showNumber": "Show number",
+      "autoFillDate": "Auto fill with current date",
+      "createSymmetricLink": "Create a back link field in the link table",
+      "allowLinkMultipleRecords": "Allow multiple select",
+      "allowLinkToDuplicateRecords": "Allows records to be selected more than once",
+      "allowSymmetricFieldLinkMultipleRecords": "Allows records to be selected more than once",
+      "oneToOne": "one-to-one",
+      "oneToMany": "one-to-many",
+      "manyToOne": "many-to-one",
+      "manyToMany": "many-to-many",
+      "self": "Self",
+      "selectTable": "Select table...",
+      "selectBase": "Select a base...",
+      "linkFromAnotherBase": "Link from another base",
+      "inSelfLink": "in self-link",
+      "betweenTwoTables": "between two tables",
+      "tips": "Tips",
+      "linkTipMessage": "This configuration represents a<br></br> <b>{{relationship}}</b> relationship <span>{{linkType}}</span>",
+      "style": "Style",
+      "maximum": "Maximum",
+      "addOption": "Add option",
+      "allowMultiUsers": "Allow adding multiple users",
+      "notifyUsers": "Notify users once they're selected",
+      "searchTable": "Search table...",
+      "calculating": "Calculating...",
+      "doSaveChanges": "Do you want to save the changes you made?",
+      "linkFieldToLookup": "Linked record field to use for lookup",
+      "lookupToTable": "Field from <bold>{{tableName}}</bold> you want to look up",
+      "rollupToTable": "Field from <bold>{{tableName}}</bold> you want to roll up",
+      "selectField": "Select a field...",
+      "lastModifiedScope": "Fields",
+      "lastModifiedAll": "All editable fields",
+      "lastModifiedSpecific": "Specific fields",
+      "lastModifiedSelect": "Tracked fields",
+      "noEditableFields": "No editable fields available",
+      "conditionalLookup": {
+        "sortLimitToggleLabel": "Sort linked records and limit the number of matches",
+        "sortLabel": "Sort results",
+        "limitLabel": "Maximum records to include",
+        "limitPlaceholder": "Leave blank to include all matches",
+        "limitHint": "We only keep up to {{limit}} matching records.",
+        "sortMissingWarningTitle": "Sorting field unavailable",
+        "sortMissingWarningDescription": "The field that powered this sort was deleted. Results ignore the sort and only enforce the limit."
+      },
+      "linkTable": "Link table",
+      "linkBase": "Link base",
+      "tableNoPermission": "No permission table",
+      "baseNoPermission": "No permission base",
+      "noLinkTip": "No linked records to look up. Add a Link to another record field, then try to configure your lookup again.",
+      "fieldValidationRules": "Field value validation rules",
+      "enableValidateFieldUnique": "Unique values only",
+      "enableValidateFieldNotNull": "Required",
+      "knowMore": "know more",
+      "linkFieldKnowMoreLink": "https://help.teable.ai/en/basic/field/advanced/link",
+      "showByField": "Show records by field",
+      "filterByView": "Filter records by view",
+      "filter": "Filter records",
+      "hideFields": "Hide fields",
+      "moreOptions": "More options",
+      "allowNewOptionsWhenEditing": "Allow new options when editing",
+      "deleteField": {
+        "title": "Delete field",
+        "simpleConfirm": "Are you sure you want to delete the field <b>{{fieldName}}</b>?",
+        "withDependencies": "Deleting the field <b>{{fieldName}}</b> will affect the following fields:",
+        "deleteCount": "Delete {{count}} fields",
+        "riskIdentified": "Risk identified({{count}})",
+        "noDependencies": "Not referenced({{count}})",
+        "safeToDelete": "Safe to delete",
+        "safeToDeleteDesc": "This field is not referenced by other fields, can be deleted safely",
+        "affectedItems": "Affected Items",
+        "type": "Type",
+        "source": "Source",
+        "loginEmailFieldWarning": "This field is used as the login email identifier. Deleting it will break login for the following apps:",
+        "loginEmailFieldConvertWarning": "This field is used as the login email field for apps. Changing its type will break login for the following apps:"
+      }
+    },
+    "subTitle": {
+      "link": "Link to records in the table you choose",
+      "singleLineText": "Enter text, or prefill each new cell with a default value.",
+      "longText": "Enter multiple lines of text.",
+      "attachment": "Add or AI generate images, or upload documents or other files to be viewed or downloaded.",
+      "checkbox": "Check or uncheck to indicate status.",
+      "multipleSelect": "Select one or more predefined options in a list.",
+      "singleSelect": "Select one predefined option from a list, or prefill each new cell with a default option.",
+      "user": "Add an user to a record.",
+      "date": "Enter a date (e.g. 11/12/2023) or choose one from a calendar.",
+      "number": "Enter a number, or prefill each new cell with a default value.",
+      "rating": "Add a rating on a predefined scale.",
+      "formula": "Compute values based on fields.",
+      "rollup": "Summarize data from linked records.",
+      "conditionalRollup": "Summarize values from a linked table with conditional filters.",
+      "conditionalLookup": "Show linked values that meet your filter conditions.",
+      "createdTime": "See the date and time each record was created.",
+      "lastModifiedTime": "See the date and time of the most recent edit to some or all fields in a record.",
+      "createdBy": "See which user created the record.",
+      "lastModifiedBy": "See which user made the most recent edit to some or all fields in a record.",
+      "autoNumber": "Automatically generate unique incremental numbers for each record.",
+      "button": "Trigger a customized action.",
+      "lookup": "See values from a field in a linked record."
+    },
+    "fieldName": "Field name",
+    "fieldNameOptional": "Field name (Optional)",
+    "fieldType": "Field type",
+    "aiConfig": {
+      "title": "AI config",
+      "type": {
+        "summary": "Summarize",
+        "translation": "Translate",
+        "extraction": "Extract information",
+        "improvement": "Improve",
+        "tag": "Smart-tag",
+        "classification": "Smart-classify",
+        "customization": "Customize",
+        "imageGeneration": "Image generation",
+        "rating": "Rating"
+      },
+      "label": {
+        "type": "AI action type",
+        "model": "AI model",
+        "targetLanguage": "Target language",
+        "sourceField": "Source field",
+        "sourceFieldForTag": "Select a field, match it with the created tags",
+        "sourceFieldForClassify": "Select a field, match it with the created classifications",
+        "attachPrompt": "Attach requirements",
+        "prompt": "Customize prompt",
+        "sourceFieldForAttachment": "Source field for attachment",
+        "imageSize": "Image size",
+        "imageQuality": "Image quality",
+        "imageCount": "Image count",
+        "aspectRatio": "Aspect ratio",
+        "resolution": "Resolution",
+        "advancedSettings": "Advanced settings"
+      },
+      "placeholder": {
+        "summarize": "Summary of the content",
+        "translate": "Translation concise and easy to understand, light-hearted",
+        "extractInfo": "Extract email, phone, name, address...",
+        "extractDate": "Extract start time",
+        "improveText": "Formal, friendly, humorous...",
+        "attachPromptForTag": "Not allowed to exceed three tags",
+        "attachPromptForClassify": "Classify \"In Progress\" as \"No Risk\"",
+        "prompt": "Enter / select the referenced field",
+        "type": "Select AI action",
+        "targetLanguage": "English, Chinese, French...",
+        "imageSize": "Please enter the image size",
+        "imageQuality": "Please enter the image quality",
+        "aspectRatio": "Select aspect ratio",
+        "resolution": "Select resolution",
+        "attachPromptForImageGeneration": "The image should be vivid and natural",
+        "attachPromptForRating": "Rate the image quality"
+      },
+      "imageQuality": {
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High"
+      },
+      "hint": {
+        "imageInputSupported": "💡 This model supports image input. You can select an attachment field to use images as reference for generation.",
+        "attachmentNotSupported": "💡 This model does not support attachment input. Only Gemini models support image-to-image generation.",
+        "singleImageOnly": "This model can only generate one image at a time"
+      },
+      "tip": {
+        "gptImageResolution": "4K is still limited by the total pixel cap, so some aspect ratios use the largest compliant size instead of a full 3840px edge."
+      },
+      "auto": "Auto",
+      "resolution": {
+        "1K": "1K (Standard)",
+        "2K": "2K (HD)",
+        "4K": "4K (Ultra HD)"
+      },
+      "autoFill": {
+        "title": "Auto update",
+        "tip": "After enabling, the current field will be updated synchronously with the content changes of the AI configuration"
+      },
+      "autoFillFieldDialog": {
+        "title": "Regenerate AI Field",
+        "description": "Will generate for {{count}} rows in the current view. Task will run in the background."
+      },
+      "autoFillConfirm": {
+        "title": "Apply AI Field Configuration",
+        "description": "Will generate for {{count}} rows in the current view. Task will run in the background.",
+        "emptyOnlyMode": "Fill empty cells only",
+        "emptyOnlyModeDesc": "Only generate for empty cells, existing content will not be overwritten",
+        "allMode": "Generate entire column",
+        "allModeDesc": "Generate for all rows, will overwrite existing content",
+        "saveOnlyMode": "Save configuration only",
+        "saveOnlyModeDesc": "Only save field configuration, no cells will be written",
+        "saveConfigOnly": "Save configuration only",
+        "fillEmptyCells": "Fill empty cells",
+        "generateAll": "Generate all",
+        "recommended": "Recommended",
+        "generateFailed": "Generate failed",
+        "limitWarning": "Due to the 1,000 row limit per task, only the first 1,000 rows will be processed. You can run the task again to process remaining rows."
+      }
+    }
+  },
+  "table": {
+    "newTableLabel": "New table",
+    "rename": "Rename",
+    "tableRecordHistory": "Table record history",
+    "deleteConfirm": "Are you sure you want to delete \"{{tableName}}\" ?",
+    "dbTableName": "Table name in physical database",
+    "schemaName": "Schema name in physical database",
+    "baseInfo": "Base info",
+    "loginUserTable": "App Login",
+    "linkedApps": "Linked apps",
+    "typeOfDatabase": "Type of database",
+    "descriptionForTable": "Description for this table",
+    "nameForTable": "Name for this table",
+    "deleteTip1": "Link fields linked with this table in other tables will be deleted.",
+    "loginDeleteWarning": "This table is used as a user table by the following apps. Deleting it will break their login functionality.",
+    "operator": {
+      "createBlank": "New table"
+    },
+    "actionTips": {
+      "copyAndPasteEnvironment": "Copy and paste only works in HTTPS or localhost",
+      "copyAndPasteBrowser": "Copy and paste not supported in this browser",
+      "copying": "Copying...",
+      "copySuccessful": "Copy successful",
+      "copyFailed": "Copy failed",
+      "pasting": "Pasting...",
+      "pasteSuccessful": "Paste successful",
+      "pasteFailed": "Paste failed",
+      "pasteNoEditableFields": "The selected fields are read-only and cannot be pasted into.",
+      "filling": "Filling...",
+      "fillSuccessful": "Fill successful",
+      "fillFailed": "Fill failed",
+      "clearing": "Clearing...",
+      "clearSuccessful": "Clear successful",
+      "clearFailed": "Clear failed",
+      "clearConfirmTitle": "Clear data",
+      "clearConfirmDescription": "This action will clear {{cellCount}} cells in {{rowCount}} records. Are you sure you want to continue?",
+      "deleteRecordConfirmTitle": "Delete records",
+      "deleteRecordConfirmDescription": "This action will delete {{recordCount}} records. Are you sure you want to continue?",
+      "duplicateRecordsConfirmTitle": "Duplicate records",
+      "duplicateRecordsConfirmDescription": "This action will duplicate {{recordCount}} records. Are you sure you want to continue?",
+      "pasteConfirmTitle": "Perform paste",
+      "pasteConfirmDescription": "You are about to perform a paste that overwrites {{recordCount}} records. Are you sure you want to continue?",
+      "paste": "Paste",
+      "deleteRecord": "Delete",
+      "clear": "Clear",
+      "deleting": "Deleting...",
+      "duplicating": "Duplicating...",
+      "deleteFailed": "Delete failed",
+      "deleteSuccessful": "Delete successful",
+      "duplicateFailed": "Duplicate failed",
+      "duplicateSuccessful": "Duplicate successful",
+      "duplicateRecords": "Duplicate",
+      "deleteStream": {
+        "preparing": "Preparing selection",
+        "deleting": "Deleting records",
+        "descriptionWithIssues": "Some delete chunks failed. Review the details below.",
+        "completedWithIssues": "Deletion completed with issues",
+        "issuesBadge": "{{count}} issues",
+        "chunkFailureTitle": "Chunk failure details",
+        "chunkFailureSummary": "{{count}} chunk(s) reported an error while the stream kept running.",
+        "chunkLabel": "Chunk {{index}}",
+        "rowsLabel": "{{count}} rows",
+        "phaseLabel": {
+          "preparing": "Preparing",
+          "guarding": "Checking",
+          "deleting": "Deleting",
+          "publishing": "Publishing",
+          "finalizing": "Finalizing"
+        }
+      },
+      "duplicateStream": {
+        "preparing": "Preparing selection",
+        "duplicating": "Duplicating records",
+        "descriptionWithIssues": "Some duplicate chunks failed. Review the details below.",
+        "completedWithIssues": "Duplication completed with issues",
+        "issuesBadge": "{{count}} issues",
+        "chunkFailureTitle": "Chunk failure details",
+        "chunkFailureSummary": "{{count}} chunk(s) reported an error while the stream kept running.",
+        "chunkLabel": "Chunk {{index}}",
+        "rowsLabel": "{{count}} rows",
+        "phaseLabel": {
+          "preparing": "Preparing",
+          "guarding": "Checking",
+          "processing": "Duplicating",
+          "publishing": "Publishing",
+          "finalizing": "Finalizing"
+        }
+      },
+      "pasteStream": {
+        "preparing": "Preparing selection",
+        "pasting": "Pasting records",
+        "descriptionWithIssues": "Some paste chunks failed. Review the details below.",
+        "completedWithIssues": "Paste completed with issues",
+        "issuesBadge": "{{count}} issues",
+        "chunkFailureTitle": "Chunk failure details",
+        "chunkFailureSummary": "{{count}} chunk(s) reported an error while the stream kept running.",
+        "chunkLabel": "Chunk {{index}}",
+        "rowsLabel": "{{count}} rows",
+        "phaseLabel": {
+          "preparing": "Preparing",
+          "guarding": "Checking",
+          "processing": "Pasting",
+          "publishing": "Publishing",
+          "finalizing": "Finalizing"
+        }
+      },
+      "clearStream": {
+        "confirmDescription": "This action will clear values in {{recordCount}} records. Are you sure you want to continue?",
+        "preparing": "Preparing selection",
+        "clearing": "Clearing records",
+        "descriptionWithIssues": "Some clear chunks failed. Review the details below.",
+        "completedWithIssues": "Clear completed with issues",
+        "issuesBadge": "{{count}} issues",
+        "chunkFailureTitle": "Chunk failure details",
+        "chunkFailureSummary": "{{count}} chunk(s) reported an error while the stream kept running.",
+        "chunkLabel": "Chunk {{index}}",
+        "rowsLabel": "{{count}} rows",
+        "phaseLabel": {
+          "preparing": "Preparing",
+          "guarding": "Checking",
+          "processing": "Clearing",
+          "publishing": "Publishing",
+          "finalizing": "Finalizing"
+        }
+      },
+      "restoreFieldStream": {
+        "confirmTitle": "Restore fields",
+        "confirmDescription": "This action will restore deleted fields and their record values.",
+        "preparing": "Preparing field restore",
+        "restoring": "Restoring fields...",
+        "restoringRecords": "Restoring record values",
+        "restoreFailed": "Restore failed",
+        "descriptionWithIssues": "Some restore chunks failed. Review the details below.",
+        "completedWithIssues": "Restore completed with issues",
+        "issuesBadge": "{{count}} issues",
+        "chunkFailureTitle": "Chunk failure details",
+        "chunkFailureSummary": "{{count}} chunk(s) reported an error while the stream kept running.",
+        "chunkLabel": "Chunk {{index}}",
+        "rowsLabel": "{{count}} rows",
+        "phaseLabel": {
+          "preparing": "Preparing",
+          "guarding": "Checking",
+          "processing": "Restoring",
+          "publishing": "Publishing",
+          "finalizing": "Finalizing"
+        }
+      },
+      "pasteFileFailed": "Files can only be pasted into an attachment field",
+      "copyError": {
+        "noFocus": "Please keep the page active and do not switch windows",
+        "noPermission": "You don't have permission to copy records"
+      },
+      "crossBaseCopyTitle": "Copy as plain text?",
+      "crossBaseCopyDescription": "This selection includes a cross-base link field. To keep data inside its original base, the field will be copied as plain text and lose its link relationships.",
+      "crossBaseCopyConfirm": "Copy as plain text",
+      "crossBaseCopyLoadFirst": "Please scroll to load all selected rows before copying cross-base fields."
+    },
+    "graph": {
+      "effectCells": "May effect cells",
+      "estimatedTime": "Estimated time",
+      "linkFieldCount": "Affects the number of linked fields"
+    },
+    "integrity": {
+      "check": "Check",
+      "title": "Integrity check",
+      "loading": "Checking integrity...",
+      "allGood": "All good!",
+      "fixIssues": "Fix issues",
+      "type": "Type",
+      "message": "Error message",
+      "v2": {
+        "dialogTitle": "Schema Integrity",
+        "dialogDescription": "Run the v2 schema checker and repair flow for {{tableName}}.",
+        "dialogDescriptionNoTable": "Run the v2 schema checker and repair flow for the current base.",
+        "runCheck": "Run Check",
+        "recheck": "Re-check",
+        "repair": "Repair",
+        "repairWarnings": "Repair warnings only",
+        "repairWarningsAndErrors": "Repair warnings and errors",
+        "repairRule": "Repair rule",
+        "repairUnavailable": "This rule cannot be repaired automatically",
+        "manual": "Manual",
+        "manualRepairNotice": "This issue needs manual repair",
+        "manualRepairNoticeWithCount": "{{count}} issues need manual repair. Use the \"Manual\" action on the right side of each rule to open the repair dialog.",
+        "manualRepairDialogTitle": "Manual repair required",
+        "manualRepairDialogDescription": "This issue cannot be repaired automatically. Review the guidance below and choose how it should be fixed.",
+        "manualRepairDialogReason": "Why manual repair is needed",
+        "manualRepairDialogHint": "This dialog currently guides the user through the repair choices required by the rule. Execution can be added on top of this contract later.",
+        "manualRepairDialogClose": "Close",
+        "repairPreviewTitle": "Confirm repair details",
+        "repairPreviewDescription": "These details come from the repair dry run. The repair will only execute after you confirm.",
+        "repairPreviewTooltip": "Open the dry-run repair plan. The dialog will show the returned SQL, or clearly say when no SQL is available.",
+        "repairPreviewMissingTable": "This check result does not include a table, so the dry-run repair target cannot be resolved.",
+        "repairPreviewUnavailableStatus": "This status does not need repair, so a dry-run repair plan cannot be generated.",
+        "repairPreviewWhat": "What will be repaired",
+        "repairPreviewTarget": "The \"{{ruleName}}\" rule for field \"{{fieldName}}\"",
+        "repairPreviewPrinciple": "How the repair works",
+        "repairPreviewNoPrinciple": "This rule did not return additional repair guidance.",
+        "repairPreviewSql": "SQL to execute",
+        "repairPreviewNoSql": "The dry run did not return executable SQL, so automatic repair cannot be run directly.",
+        "repairPreviewCannotConfirm": "The dry run returned SQL, but this rule cannot be confirmed for automatic repair right now. You can still review the repair plan.",
+        "repairPreviewParameters": "Parameters",
+        "repairPreviewConfirm": "Run repair",
+        "checking": "Checking schema...",
+        "repairing": "Repairing schema...",
+        "streamError": "Failed to stream schema integrity results.",
+        "noTableSelected": "Select a table first to run the v2 schema checker.",
+        "noResults": "No schema results yet.",
+        "noFilteredResults": "No results match the current filters.",
+        "systemColumns": "System columns",
+        "general": "General",
+        "optional": "Optional",
+        "statementCount": "{{count}} statements",
+        "detailsMissing": "Missing: {{details}}",
+        "detailsExtra": "Extra: {{details}}",
+        "message": {
+          "schemaValid": "Schema is valid",
+          "schemaValidationFailed": "Schema validation failed",
+          "schemaElementMissing": "Schema element missing",
+          "schemaAlreadyValid": "Schema is already valid",
+          "schemaRepaired": "Schema repaired successfully",
+          "manualRepair": "Rule requires manual repair",
+          "noRepairStatements": "No repair statements available",
+          "skippedDependencies": "Skipped because dependencies are not satisfied",
+          "checkStreamConnected": "Schema integrity check stream connected",
+          "baseCheckStreamConnected": "Base schema integrity check stream connected",
+          "repairStreamConnected": "Schema integrity repair stream connected",
+          "baseRepairStreamConnected": "Base schema integrity repair stream connected",
+          "checkCompleted": "Schema integrity check completed",
+          "baseCheckCompleted": "Base schema integrity check completed",
+          "repairCompleted": "Schema integrity repair completed",
+          "baseRepairCompleted": "Base schema integrity repair completed",
+          "skippedStatusNotSelected": "Skipped because this status level was not selected for repair",
+          "skippedRepairUnavailable": "Skipped because automatic repair is unavailable in the current state"
+        },
+        "rule": {
+          "column": "Physical column",
+          "columnTyped": "Physical column ({{dataType}})",
+          "notNull": "NOT NULL constraint",
+          "columnUnique": "UNIQUE constraint",
+          "fkColumn": "Foreign key column",
+          "index": "Index",
+          "uniqueIndex": "Unique index",
+          "primaryKey": "PRIMARY KEY",
+          "defaultExpression": "Default expression",
+          "foreignKey": "Foreign key constraint",
+          "junctionTable": "Junction table",
+          "junctionUnique": "Junction table unique constraint",
+          "junctionIndex": "Junction table index",
+          "junctionForeignKey": "Junction table foreign key",
+          "reference": "Reference records",
+          "generatedColumn": "Generated column",
+          "generatedMeta": "Generated column state",
+          "linkValueColumn": "Link value column",
+          "orderColumn": "Order column",
+          "fieldMeta": "Field metadata",
+          "symmetricField": "Symmetric field relationship",
+          "systemColumn": "System column \"{{columnName}}\"",
+          "connection": "Connection",
+          "completion": "Completion",
+          "unexpected": "Unexpected error"
+        },
+        "detail": {
+          "systemColumnMissing": "System column \"{{columnName}}\" not found",
+          "systemColumnNotNull": "System column \"{{columnName}}\" should be NOT NULL",
+          "systemColumnUnique": "System column \"{{columnName}}\" should have a UNIQUE index",
+          "systemColumnPrimaryKey": "System column \"{{columnName}}\" should be PRIMARY KEY",
+          "systemColumnDefault": "System column \"{{columnName}}\" should have a default expression",
+          "columnUniqueMissing": "Field \"{{fieldName}}\" should be unique",
+          "columnUniqueMissingDescription": "Add a UNIQUE constraint to \"{{fieldName}}\" so duplicate values cannot be written.",
+          "columnUniqueIndexMismatch": "Field \"{{fieldName}}\" is missing the expected unique index",
+          "columnUniqueIndexMismatchDescription": "Rebuild the index for \"{{fieldName}}\" as a unique index so reads and writes follow the field's uniqueness rule.",
+          "foreignKeyMissing": "Field \"{{fieldName}}\" is missing its foreign key constraint",
+          "foreignKeyMissingDescription": "Restore the foreign key from \"{{fieldName}}\" to \"{{targetTableName}}\" so linked records stay consistent.",
+          "foreignKeyTargetTableMissing": "The linked table for \"{{fieldName}}\" cannot be found",
+          "foreignKeyTargetTableMissingDescription": "Automatic repair cannot restore the foreign key for \"{{fieldName}}\" because the target table \"{{targetPhysicalTableName}}\" does not exist.",
+          "foreignKeyOrphanRows": "Field \"{{fieldName}}\" still has {{count}} rows pointing to missing linked records",
+          "foreignKeyOrphanRowsDescription": "Automatic repair cannot restore the foreign key for \"{{fieldName}}\" until the {{count}} invalid references to \"{{targetTableName}}\" are cleaned up.",
+          "junctionForeignKeyMissing": "The junction table for \"{{fieldName}}\" is missing one of its foreign keys",
+          "junctionForeignKeyMissingDescription": "Restore the junction foreign key for \"{{fieldName}}\" so relation rows stay linked to existing records in \"{{targetTableName}}\".",
+          "junctionForeignKeyTargetTableMissing": "The linked table for the junction of \"{{fieldName}}\" cannot be found",
+          "junctionForeignKeyTargetTableMissingDescription": "Automatic repair cannot restore the junction foreign key for \"{{fieldName}}\" because the target table \"{{targetPhysicalTableName}}\" does not exist.",
+          "junctionForeignKeyOrphanRows": "The junction table for \"{{fieldName}}\" still has {{count}} rows pointing to missing linked records",
+          "junctionForeignKeyOrphanRowsDescription": "Automatic repair cannot restore the junction foreign key for \"{{fieldName}}\" until the {{count}} invalid relation rows referencing \"{{targetTableName}}\" are cleaned up.",
+          "referenceMissing": "Field \"{{fieldName}}\" is missing a reference mapping",
+          "referenceMissingDescription": "Restore the reference metadata between \"{{fieldName}}\" and its dependency field so lookup and relation updates can propagate correctly.",
+          "symmetricFieldTargetMissing": "The paired link field for \"{{fieldName}}\" cannot be found",
+          "symmetricFieldWrongType": "The paired field for \"{{fieldName}}\" is not a link field",
+          "symmetricFieldInvalidOptions": "The paired field for \"{{fieldName}}\" has invalid link configuration",
+          "symmetricFieldMissingBackReference": "The paired field for \"{{fieldName}}\" does not point back to the current field",
+          "symmetricFieldWrongBackReference": "The paired field for \"{{fieldName}}\" points to another field instead of the current one",
+          "symmetricFieldDuplicateUsage": "The symmetric link target \"{{symmetricFieldId}}\" is reused by \"{{conflictFieldName}}\"",
+          "symmetricFieldDuplicateUsageDescription": "Each two-way link pair must have a unique symmetric field. Choose which field should keep this relationship before repairing."
+        },
+        "repairMeta": {
+          "reason": {
+            "alreadyValid": "This rule is already valid",
+            "manualRule": "This rule requires a manual decision",
+            "statementGenerationFailed": "The system could not generate a safe repair statement",
+            "noStatements": "This rule has no automatic repair statement",
+            "symmetricFieldConflict": "This symmetric link conflict needs a manual choice",
+            "symmetricFieldMissing": "The paired link field is missing and needs confirmation before repair",
+            "symmetricFieldBroken": "The paired link field is broken and needs confirmation before repair",
+            "foreignKeyTargetTableMissing": "Automatic repair is unavailable because the linked table is missing",
+            "foreignKeyOrphanRows": "Automatic repair is unavailable because invalid linked rows still exist",
+            "junctionForeignKeyTargetTableMissing": "Automatic repair is unavailable because the junction target table is missing",
+            "junctionForeignKeyOrphanRows": "Automatic repair is unavailable because invalid junction rows still exist"
+          },
+          "description": {
+            "autoRule": "The repair will execute the schema statements generated by this rule, then re-check the rule to confirm the schema is valid.",
+            "symmetricFieldConflict": "More than one field points at the same symmetric link target. Pick which field should own the two-way relationship before repairing.",
+            "symmetricFieldMissing": "Convert the current link to one-way, then rerun repair so dependent junction table rules can be recreated if needed.",
+            "symmetricFieldBroken": "Convert the current link to one-way, then rerun repair so dependent link schema rules can be checked again.",
+            "foreignKeyTargetTableMissing": "Check whether the linked table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
+            "foreignKeyOrphanRows": "Clean up the invalid linked rows for \"{{fieldName}}\" before adding the foreign key constraint again.",
+            "junctionForeignKeyTargetTableMissing": "Check whether the target table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
+            "junctionForeignKeyOrphanRows": "Clean up the invalid junction rows for \"{{fieldName}}\" before adding the foreign key back."
+          },
+          "manual": {
+            "apply": "Apply manual repair",
+            "symmetricField": {
+              "title": "Resolve symmetric link conflict",
+              "description": "Pick how this duplicate symmetric link should be repaired.",
+              "resolutionLabel": "Repair strategy",
+              "resolutionDescription": "Choose which field should keep the two-way link behavior.",
+              "option": {
+                "keepCurrent": "Keep the current field as the two-way link",
+                "convertDuplicate": "Convert the duplicate field to a one-way link"
+              }
+            },
+            "symmetricFieldMissing": {
+              "title": "Resolve missing paired link field",
+              "description": "The paired link field has been deleted. Confirm converting this field to a one-way link before repairing.",
+              "resolutionLabel": "Repair strategy",
+              "resolutionDescription": "Convert the current link to a one-way link so the existing relation data can keep using its stored link structure.",
+              "option": {
+                "convertCurrent": "Convert the current link to one-way"
+              }
+            },
+            "symmetricFieldBroken": {
+              "title": "Resolve broken paired link field",
+              "description": "The paired link field exists but is not a valid two-way counterpart. Confirm converting this field to a one-way link before repairing.",
+              "resolutionLabel": "Repair strategy",
+              "resolutionDescription": "Convert the current link to a one-way link so it no longer depends on the broken pair.",
+              "option": {
+                "convertCurrent": "Convert the current link to one-way"
+              }
+            },
+            "foreignKeyOrphanRows": {
+              "title": "Clear invalid linked values",
+              "description": "Clear foreign-key values that point to missing records, then restore the foreign key constraint.",
+              "resolutionLabel": "Repair strategy",
+              "resolutionDescription": "Invalid linked values point to records that no longer exist. Confirm clearing those values before restoring the foreign key.",
+              "option": {
+                "clearOrphanValues": "Clear invalid linked values"
+              }
+            },
+            "junctionForeignKeyOrphanRows": {
+              "title": "Clean invalid junction rows",
+              "description": "Delete junction rows that point to missing records, then restore the foreign key constraint.",
+              "resolutionLabel": "Repair strategy",
+              "resolutionDescription": "Invalid junction rows point to records that no longer exist. Confirm deleting those invalid relation rows before restoring the foreign key.",
+              "option": {
+                "deleteOrphanRows": "Delete invalid relation rows"
+              }
+            }
+          }
+        },
+        "phase": {
+          "check": "Check results",
+          "repair": "Repair results"
+        },
+        "summary": {
+          "checks": "{{count}} checks",
+          "success": "{{count}} passed",
+          "warn": "{{count}} warnings",
+          "error": "{{count}} errors",
+          "skipped": "{{count}} skipped",
+          "repaired": "{{count}} repaired",
+          "manual": "{{count}} manual",
+          "problems": "{{count}} problems"
+        },
+        "status": {
+          "success": "Pass",
+          "error": "Error",
+          "warn": "Warn",
+          "pending": "Pending",
+          "running": "Running",
+          "skipped": "Skipped"
+        },
+        "outcome": {
+          "repaired": "Repaired",
+          "unchanged": "Unchanged",
+          "manual": "Manual",
+          "skipped": "Skipped"
+        }
+      },
+      "errorType": {
+        "ForeignTableNotFound": "ForeignTableNotFound",
+        "ForeignKeyNotFound": "ForeignKeyNotFound",
+        "SelfKeyNotFound": "SelfKeyNotFound",
+        "SymmetricFieldNotFound": "SymmetricFieldNotFound",
+        "MissingRecordReference": "MissingRecordReference",
+        "InvalidLinkReference": "InvalidLinkReference",
+        "ForeignKeyHostTableNotFound": "ForeignKeyHostTableNotFound",
+        "ReferenceFieldNotFound": "ReferenceFieldNotFound",
+        "UniqueIndexNotFound": "UniqueIndexNotFound",
+        "EmptyString": "EmptyString",
+        "InvalidFilterOperator": "InvalidFilterOperator",
+        "InvalidPrimaryLookup": "Primary field misconfigured as lookup",
+        "InvalidPrimaryType": "Primary field has unsupported type",
+        "MissingPrimary": "Table has no primary field"
+      }
+    },
+    "index": {
+      "description": "Indexes can significantly improve search performance, especially when dealing with large amounts of data (over {{rowCount}} rows). The downside is slightly slower write operations. If you frequently perform searches or have large datasets, we recommend enabling indexes",
+      "repair": "Update index",
+      "repairTip": "Index anomalies detected, which may cause search performance degradation. It is recommended to click the update index button to update the index",
+      "enableIndexTip": "You are creating an index. The time required depends on the table size. During this process, table read and write performance may be affected. Please be patient",
+      "fieldSearchTip_limited": "When off, fuzzy search runs across all fields. Date, checkbox, and button fields are not supported. Up to {{count}} fields are supported",
+      "fieldSearchTip_infinity": "When off, fuzzy search runs across all fields. Date, checkbox, and button fields are not supported",
+      "globalSearchFieldTip": "Global search mode is active. Fuzzy search runs across all fields. Date, checkbox, and button fields are not supported",
+      "hideNotMatchRowTip": "When off, show all rows",
+      "autoIndexTip": "Your table has exceeded {{rowCount}} rows. We recommend enabling indexes to improve search performance. Enabling indexes may slightly reduce write speed. During index creation, table read/write performance may be affected. Please be patient",
+      "enableIndex": "enable",
+      "keepAsIs": "keep as it",
+      "ignoreIndexError": "ignore"
+    },
+    "searchTips": {
+      "maxFieldTips_limited": "Exceeded the maximum {{count}} number of fields, extra fields will be ignored"
+    }
+  },
+  "import": {
+    "title": {
+      "upload": "Upload",
+      "import": "Import",
+      "localFile": "Local files",
+      "linkUrl": "Link(URL)",
+      "linkUrlInputTitle": "Add file from URL",
+      "importTitle": "Create a new table",
+      "incrementImportTitle": "Import into — ",
+      "optionsTitle": "Import option",
+      "primitiveFields": "Primitive fields",
+      "importFields": "Import field",
+      "primaryField": "Primary field",
+      "tipsTitle": "Tips",
+      "confirm": "Confirm and continue"
+    },
+    "menu": {
+      "addFromOtherSource": "Add from other sources",
+      "excelFile": "Microsoft Excel",
+      "airtable": "Airtable",
+      "csvFile": "CSV file",
+      "importCsvData": "Import CSV data",
+      "importExcelData": "Import Microsoft Excel data",
+      "cancel": "Cancel",
+      "downAsCsv": "Download CSV",
+      "importData": "Import data",
+      "duplicate": "Duplicate",
+      "duplicating": "Duplicating...",
+      "duplicateSuccess": "Duplicated successfully",
+      "duplicateFailed": "Failed to duplicate",
+      "includeRecords": "Include records"
+    },
+    "tips": {
+      "importWayTip": "Click or drag file to this area to upload",
+      "fileExceedSizeTip": "This type file size exceeds the limit of",
+      "analyzing": "analyzing",
+      "importing": "Importing",
+      "notSupportFieldType": "Field type is not supported",
+      "resultEmpty": "No results found.",
+      "searchPlaceholder": "Search...",
+      "importAlert": "Once the import begins, it cannot be stopped until it is either successfully completed or terminated due to failure. The import status is displayed in the upper right corner of the table. The results of import process will be notified to you once completed. You should not update the field during the import as it may cause errors.",
+      "noTips": "I know that, don't show again"
+    },
+    "options": {
+      "autoSelectFieldOptionName": "Auto-select field types",
+      "useFirstRowAsHeaderOptionName": "Use first row as header",
+      "importDataOptionName": "Import data",
+      "sheetKey": "SheetName: ",
+      "excludeFirstRow": "Exclude first row in import"
+    },
+    "form": {
+      "defaultFieldName": "Field",
+      "error": {
+        "urlEmptyTip": "URL should not be empty!",
+        "errorFileFormat": "File format is incorrect!",
+        "uniqueFieldName": "Field name should be unique!",
+        "fieldNameEmpty": "Field name should not be empty!",
+        "atLeastAImportField": "Please set a import field at least",
+        "urlValidateTip": "Couldn't parse URL. Try a different URL!"
+      },
+      "option": {
+        "doNotImport": "Do not import"
+      }
+    }
+  },
+  "download": {
+    "allAttachments": {
+      "title": "Download All Attachments",
+      "rowsWithAttachments": "Attachment rows",
+      "totalAttachments": "Attachments",
+      "totalSize": "Total size",
+      "cancel": "Cancel",
+      "downloading": "Downloading...",
+      "completed": "Download completed",
+      "cancelled": "Download cancelled",
+      "noAttachments": "No attachments to download",
+      "error": "Download failed",
+      "errorPartial": "{{failedCount}} files failed to download",
+      "requireHttps": "Batch download requires HTTPS. Please access via HTTPS or localhost.",
+      "advancedOptions": "Advanced options",
+      "namingFieldLabel": "Attachment name prefix",
+      "selectField": "Default: attachment index",
+      "noPrefixOption": "No prefix",
+      "noPrefixOptionDesc": "Keep the original filename",
+      "groupByRow": "Archive into folders",
+      "groupByRowTip": "When a row has multiple attachments, they will be placed in the same folder; rows with only one attachment will not create a folder."
+    }
+  },
+  "grid": {
+    "prefillingRowTitle": "Add new record",
+    "prefillingRowTooltip": "Please enter the new record data below. The record will be saved automatically once you click outside this row.",
+    "presortRowTitle": "This record has been filtered or moved due to sorting rules"
+  },
+  "form": {
+    "fieldsManagement": "Fields",
+    "addAll": "Show all",
+    "removeAll": "Hide all",
+    "createField": "Create field",
+    "hideFieldTip": "Drag field here to hide from form",
+    "unableAddFieldTip": "Unable to add this type field",
+    "removeFromFormTip": "Hide from the form",
+    "descriptionPlaceholder": "Enter from description",
+    "dragToFormTip": "Drag field here to show in form",
+    "protectedFieldTip": "This field has been set as a \"required\" field, and cannot be removed in the form view. Please modify it in the field settings."
+  },
+  "kanban": {
+    "toolbar": {
+      "hideFieldName": "Hide field name",
+      "customizeCards": "Customize cards",
+      "stackedBy": "Stacked by <0/>",
+      "chooseStackingField": "Choose a stacking field",
+      "chooseStackingFieldDescription": "Which field would you like to use for this kanban view? Your records will be stacked based on this field.",
+      "hideEmptyStack": "Hide empty stack",
+      "imageSetting": "Image setting",
+      "fit": "Fit",
+      "noImage": "No image",
+      "chooseAttachmentField": "Choose attachment field"
+    },
+    "stack": {
+      "addStack": "Add stack",
+      "noCards": "No cards",
+      "uncategorized": "Uncategorized"
+    },
+    "stackMenu": {
+      "collapseStack": "Collapse stack",
+      "renameStack": "Rename stack",
+      "deleteStack": "Delete stack"
+    },
+    "cardMenu": {
+      "insertCardAbove": "Insert card above",
+      "insertCardBelow": "Insert card below",
+      "expandCard": "Expand card",
+      "deleteCard": "Delete card",
+      "duplicateCard": "Duplicate card"
+    }
+  },
+  "calendar": {
+    "toolbar": {
+      "config": "Calendar config",
+      "startDateField": "Start date field",
+      "endDateField": "End date field",
+      "titleField": "Title field",
+      "colorField": "Color field",
+      "colorType": "Color display",
+      "customColor": "Customize color",
+      "alignWithRecords": "Align with records"
+    },
+    "placeholder": {
+      "selectColorField": "Select a color field"
+    },
+    "dialog": {
+      "startDate": "Start date",
+      "endDate": "End date",
+      "notAdd": "Not add",
+      "addDateField": "Add date fields",
+      "content": "Create a calendar view schedule, and the table needs to have two date fields: start date and end date"
+    },
+    "moreLinkText": "Show all {{count}} records"
+  },
+  "menu": {
+    "insertRecordAbove": "Insert <input /> record above",
+    "insertRecordBelow": "Insert <input /> record below",
+    "deleteRecord": "Delete record",
+    "deleteAllSelectedRecords": "Delete all selected records",
+    "duplicateRecords": "Duplicate selected records",
+    "editField": "Edit field",
+    "duplicateField": "Duplicate field",
+    "insertFieldLeft": "Insert left",
+    "insertFieldRight": "Insert right",
+    "freezeUpField": "Freeze up to this field",
+    "freezeFieldWindowTooNarrow": "Cannot freeze to this area because the current window is too narrow",
+    "hideField": "Hide field",
+    "deleteField": "Delete field",
+    "deleteAllSelectedFields": "Delete all selected fields",
+    "filterField": "Filter by this field",
+    "sortField": "Sort by this field",
+    "groupField": "Group by this field",
+    "downloadAllAttachments": "Download all files",
+    "autoFill": "Generate",
+    "groupMenuTitle": "Group menu",
+    "expandGroup": "Expand this group and its sub-groups",
+    "collapseGroup": "Collapse this group and its sub-groups",
+    "expandAllGroups": "Expand all groups",
+    "collapseAllGroups": "Collapse all groups",
+    "addToChat": "Add to Chat"
+  },
+  "connection": {
+    "title": "Database connection",
+    "description": "You can access the database directly through the database connection, including all the tables under the current base",
+    "noPermission": "You don't have permission to access the database",
+    "connectionCountTip": "The maximum number of database connections is <b>{{max}}</b> and the current connections is <b>{{current}}</b>",
+    "createFailed": "Please ensure that the PUBLIC_DATABASE_PROXY environment variable is set correctly",
+    "readonlyUnavailable": "Readonly database sharing is unavailable for this data database. Grant the Teable database user permission to create roles and grants, or use a target database that supports readonly roles."
+  },
+  "view": {
+    "addRecord": "Add record",
+    "searchView": "Search view...",
+    "dragToolTip": "Automatic sorting is turned on, manual drag is not available",
+    "insertToolTip": "Automatic sorting is turned on, insert with order is not available",
+    "action": {
+      "rename": "Rename",
+      "duplicate": "Duplicate",
+      "delete": "Delete",
+      "lock": "Lock view",
+      "unlock": "Unlock view",
+      "enable": "Enable"
+    },
+    "category": {
+      "table": "Grid view",
+      "form": "Form view",
+      "kanban": "Kanban view",
+      "gallery": "Gallery view",
+      "calendar": "Calendar view"
+    },
+    "crash": {
+      "title": "Crash!",
+      "description": "This view is broken. If the refresh still fails, please contact us. support@teable.ai"
+    },
+    "addPluginView": "Add plugin view",
+    "search": {
+      "field_one": "{{name}}",
+      "field_other": "fields({{length}})"
+    },
+    "locked": {
+      "tip": "This view is locked. You can enable personal mode to edit view options, and the changes will only take effect for yourself."
+    },
+    "noView": "No view"
+  },
+  "lastModifiedTime": "Last modified time",
+  "lastModify": "Last modify: ",
+  "pasteNewRecords": {
+    "title": "Do you want to add multiple records?",
+    "description": "The {{count}} records will be added to the table."
+  },
+  "tableTrash": {
+    "title": "Table trash",
+    "resourceType": "Type",
+    "deletedResource": "Resource"
+  },
+  "pluginPanel": {
+    "empty": {
+      "description": "No plugin panels have been added yet."
+    },
+    "createPluginPanel": {
+      "button": "Create a plugin panel",
+      "title": "Create a plugin panel"
+    },
+    "namePlaceholder": "Enter a plugin panel name"
+  },
+  "addPlugin": "Add plugin",
+  "pluginContextMenu": {
+    "mangeButton": "Manage plugins",
+    "manage": "Manage your Context menu plugins",
+    "noPlugin": "No Context menu plugins",
+    "delete": "Delete",
+    "deleteDescription": "Are you sure you want to delete this plugin?"
+  },
+  "permission": {
+    "cell": {
+      "deniedRead": "You don't have permission to view this cell",
+      "deniedUpdate": "You don't have permission to update this cell"
+    }
+  },
+  "baseShare": {
+    "shareTitle": "Share",
+    "shareToWeb": "Share to web",
+    "refreshLink": "Regenerate Link",
+    "deleteConfirmTitle": "Delete Share Link",
+    "deleteConfirmDescription": "This action cannot be undone. People with this link will no longer be able to access the shared base.",
+    "createSuccess": "Share link created",
+    "createFailed": "Failed to create share link",
+    "updateFailed": "Failed to update share settings",
+    "deleteSuccess": "Share link deleted",
+    "deleteFailed": "Failed to delete share link",
+    "refreshSuccess": "Share link regenerated",
+    "refreshFailed": "Failed to regenerate share link",
+    "linkHolderLabel": "The person who obtained the link",
+    "linkHolderCanView": "Can view",
+    "linkHolderCanViewDesc": "Anyone with the link can view the data",
+    "linkHolderCanEdit": "Can edit",
+    "linkHolderCanEditDesc": "Logged-in users can edit records in the table",
+    "viewLinkHolderCanViewDesc": "Anyone with the link can view this view's data",
+    "viewLinkHolderCanEditDesc": "Signed-in users can edit data within the view's scope",
+    "linkExposureNoticeOne": "Visitors can see data from \"{{name}}\"",
+    "linkExposureNoticeMany": "Visitors can see data from \"{{name}}\" and {{count}} tables in total",
+    "linkExposureNoticeGeneric": "Visitors can see data from linked tables",
+    "restrictScope": "Restrict scope",
+    "linkScopeDesc": "Restrict which records and fields are selectable in this view's link fields. The setting applies to the field itself and affects every view that uses it.",
+    "linkScopeDialogTitle": "Link field scope",
+    "linkHolderCanCopyAndSave": "Can save as copy",
+    "linkHolderCanCopyAndSaveDesc": "Anyone with the link can save a copy to their space",
+    "editRequiresLogin": "Users must log in to edit records",
+    "enterPassword": "Enter password",
+    "allowCopyData": "Allow viewers to copy data",
+    "sharedNode": "Shared node",
+    "restrictByPassword": "Restrict by password",
+    "advanced": "Advanced",
+    "embedConfig": "Embed config",
+    "appPublicLink": "App public link",
+    "appNotPublished": "This app is not published yet. Please publish the app first before sharing.",
+    "goToPublish": "Go to publish",
+    "publishSuccess": "App published successfully",
+    "publishFailed": "Failed to publish app",
+    "openLink": "Open link",
+    "appPublished": "App published",
+    "shareTableTab": "Share table",
+    "shareViewTab": "Share view"
+  },
+  "aiChat": {
+    "integrationConnect": {
+      "title": "Connect {{provider}}",
+      "reconnectTitle": "Reconnect {{provider}}",
+      "defaultReason": "The agent needs access to your {{provider}} account to continue.",
+      "connect": "Connect",
+      "connecting": "Connecting…",
+      "giveUp": "Give up",
+      "failed": "Connection failed",
+      "status": {
+        "connected": "Connected",
+        "cancelled": "Skipped",
+        "failed": "Failed"
+      }
+    },
+    "agent": {
+      "askUserQuestion": {
+        "otherPlaceholder": "Or type your answer…",
+        "asked": "Asked",
+        "skipped": "Skipped",
+        "previousQuestion": "Previous question",
+        "nextQuestion": "Next question"
+      },
+      "completion": {
+        "noDetails": "No details available",
+        "model": "Model",
+        "contextWindow": "Context Window",
+        "contextTooltip": "Agent's working memory usage. When approaching the limit, the agent will automatically summarize earlier conversation to free up space.",
+        "contextTipNewChat": "Start a new chat for different topics to significantly reduce Credit usage.",
+        "contextTipMemory": "Say \"remember something\" to save to long-term memory, accessible across chats."
+      },
+      "messageActions": {
+        "helpful": "Helpful",
+        "notHelpful": "Not helpful",
+        "commentTitle": "How could this response be better? (optional)",
+        "commentPlaceholder": "e.g. missed the point, inaccurate, wrong tool…",
+        "saveFailed": "Failed to save feedback",
+        "copy": "Copy",
+        "copyToInput": "Copy to input"
+      },
+      "contextCompaction": {
+        "auto": "Context was automatically compacted",
+        "manual": "Context was compacted",
+        "compacting": "Compacting context…"
+      },
+      "taskProgress": {
+        "title": "Task Progress"
+      },
+      "tool": {
+        "copy": "Copy",
+        "copied": "Copied!",
+        "collapse": "Collapse",
+        "linesHidden": "{{count}} lines hidden - click to expand"
+      }
+    },
+    "tool": {
+      "retrying": "Retrying ({{attempt}}/{{maxRetries}})...",
+      "showLess": "Show Less",
+      "generateApp": {
+        "creatingApp": "Creating app",
+        "updatingApp": "Updating app",
+        "viewProgress": "View Progress"
+      },
+      "htmlPreview": {
+        "preview": "Preview",
+        "code": "Code",
+        "download": "Download",
+        "downloadHtml": "HTML",
+        "downloadImage": "Image (PNG)",
+        "copy": "Copy",
+        "copied": "Copied!",
+        "fullscreen": "Fullscreen",
+        "exitFullscreen": "Exit Fullscreen",
+        "downloadSuccess": "Image downloaded successfully",
+        "downloadFailed": "Failed to capture image",
+        "iframeFailed": "Failed to capture: iframe not accessible",
+        "iframeTitle": "HTML Preview"
+      }
+    },
+    "action": {
+      "locateResource": "Locate"
+    },
+    "showUI": {
+      "skip": "Skip",
+      "next": "Next",
+      "submit": "Submit"
+    },
+    "newChat": "New Chat",
+    "clearChat": "Clear Chat",
+    "expand": "Expand",
+    "history": "History",
+    "close": "Collapse",
+    "clearChatConfirmTitle": "Confirm Clear Chat",
+    "clearChatConfirmDesc": "Current chat content will not be saved. Are you sure you want to clear it?",
+    "dontShowAgain": "Don't show again",
+    "modelSwitchTitle": "Switch model",
+    "modelSwitchHint": "Currently running on {{previous}}. On next send, the new model takes over and only sees the last 3 turns.",
+    "effort": {
+      "title": "Intelligence",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "xhigh": "Extra High"
+    },
+    "sandboxExpiry": {
+      "expiresIn": "Agent Computer expires in {{time}}",
+      "reset": "Renew",
+      "resetTitle": "Renew Agent Computer",
+      "runningTasks_one": "There is {{count}} running task. Renewing will interrupt it.",
+      "runningTasks_other": "There are {{count}} running tasks. Renewing will interrupt them.",
+      "noRunningTasks": "No tasks are currently running.",
+      "newSandboxHint": "You can continue using it normally after renewal.",
+      "cancel": "Cancel",
+      "confirmReset": "Renew",
+      "confirmResetWithTasks": "Renew Anyway",
+      "expiresSoon": "Agent Computer expiring soon",
+      "resetFailed": "Failed to renew Agent Computer"
+    },
+    "addAttachment": "Add attachment",
+    "noHistory": "No chat history",
+    "noFoundHistory": "No chat history found, please start a new conversation",
+    "timeGroup": {
+      "today": "Today",
+      "oneWeek": "One week",
+      "twoWeek": "Two week",
+      "oneMonth": "One month",
+      "other": "Other"
+    },
+    "context": {
+      "searchEmpty": "No matching context found",
+      "selectionRow": "Row {{row}}",
+      "selectionRows": "Row {{start}}-{{end}}",
+      "selectionColumn": "Col {{col}}",
+      "selectionColumns": "Col {{start}}-{{end}}",
+      "selectionColumnsNamed": "{{names}} +{{count}}"
+    },
+    "mention": {
+      "tables": "Tables",
+      "apps": "Apps",
+      "workflows": "Automations",
+      "folders": "Folders",
+      "envs": "Secrets"
+    },
+    "slashCommand": {
+      "skills": "Skills",
+      "searchEmpty": "No results found"
+    },
+    "inputPlaceholder": "@ Adds Nodes, / Runs Skills",
+    "inputPlaceholderFiles": "Paste or drop files here",
+    "thought": "Thinking",
+    "stage": {
+      "initializing": "Preparing",
+      "working": "Working",
+      "committing": "Committing",
+      "recovering": "Recovering"
+    },
+    "meta": {
+      "input": "Input",
+      "output": "Output"
+    },
+    "attachment": {
+      "pastedTextFileName": "Pasted text",
+      "imageNotSupported": "Image is not supported",
+      "tooManyFiles": "You can attach at most {{count}} files per message",
+      "storageFull": "Sandbox storage is full. Delete some files and try again."
+    },
+    "suggestions": {
+      "title": "How can I help?",
+      "whatCanIDo": "What can I do?",
+      "createOrModifyDatabase": "Create or modify database",
+      "buildAutomations": "Build automations",
+      "buildApps": "Build apps",
+      "buildMeCRM": "Build me a CRM",
+      "addAIField": "Add an AI field to analyze each customer",
+      "createDataAnalysis": "Create me a data analysis report",
+      "emailWhenRecordCreated": "Email me when record created",
+      "syncStatusToSlack": "Sync status updates to Slack",
+      "buildDashboard": "Build a dashboard from this table",
+      "buildLeadCapture": "Build me a lead capture landing page"
+    },
+    "buildApp": {
+      "task": {
+        "foundResults": "Found {{count}} results"
+      }
+    },
+    "scriptPreview": {
+      "writeCodeHint": "Write some code to see the flowchart preview.",
+      "noPreview": "No flowchart preview available.",
+      "codeChanged": "Code changed since this preview was generated."
+    },
+    "queue": {
+      "nQueued": "{{count}} Queued",
+      "edit": "Edit",
+      "steerNow": "Steer conversation without interrupting",
+      "steerFailed": "Couldn't steer conversation. Message kept in queue.",
+      "conversationInputMarker": "Steered conversation",
+      "removeFromQueue": "Remove"
+    },
+    "partTool": {
+      "bash": "Run command",
+      "read": "Read file",
+      "write": "Create file",
+      "edit": "Edit file",
+      "glob": "Find files",
+      "find": "Find files",
+      "grep": "Search in files",
+      "ls": "List directory",
+      "webSearch": "Search web",
+      "skill": "Loading skill",
+      "foundFiles": "Found {{count}} files",
+      "listedEntries": "{{count}} entries",
+      "moreTools": "+{{count}} more tools",
+      "moreItems": "+{{count}} more",
+      "fallbackName": "Tool",
+      "questionCount_one": "{{count}} question",
+      "questionCount_other": "{{count}} questions",
+      "presentFiles": "Presented files",
+      "download": "Download",
+      "installSkill": "Install",
+      "installSkillTitle": "Install skill",
+      "installSkillDescription": "Choose where to install this skill",
+      "skillInstalled": "Installed",
+      "installSkillFailed": "Failed to install skill",
+      "installSkillReplaceWarning": "If a skill with the same name already exists in this scope, it will be replaced."
+    },
+    "retry": {
+      "interrupted": "Response interrupted",
+      "button": "Retry",
+      "offline": "You're offline. We'll retry once your connection is back.",
+      "pausedHidden": "Retry paused — open this tab to reconnect.",
+      "maxAttemptsReached": "Couldn't reconnect automatically. Please refresh the page manually."
+    },
+    "initChatFailed": "Failed to initialize chat",
+    "app": {
+      "loadingChatHistory": "Loading chat history...",
+      "generatorTitle": "AI App Generator",
+      "generatorDesc": "Describe what you want to build"
+    },
+    "voice": {
+      "start": "Start voice input",
+      "stop": "Stop voice input",
+      "accept": "Finish voice input",
+      "cancel": "Discard voice input",
+      "permissionTip": "Allow microphone access.",
+      "recording": "Recording...",
+      "transcribing": "Transcribing...",
+      "error": {
+        "microphoneDenied": "Microphone access is blocked.",
+        "microphoneUnavailable": "No microphone found.",
+        "unsupportedBrowser": "Audio recording is not supported.",
+        "recordingFailed": "Recording failed.",
+        "missingServerKey": "Voice input is not configured.",
+        "unauthenticated": "Sign in again.",
+        "rateLimited": "Too many tries. Wait a moment.",
+        "upstreamAuthFailed": "Transcription API key is invalid.",
+        "upstreamBadRequest": "Voice endpoint is invalid.",
+        "upstreamUnavailable": "Voice is unavailable."
+      }
+    }
+  },
+  "upload": {
+    "panelUploading": "Uploading {{count}} files",
+    "panelFailed": "{{count}} files failed",
+    "panelCompleted": "{{count}} files completed",
+    "statusFailed": "Failed",
+    "statusCompleted": "Completed",
+    "statusCancel": "Cancel upload",
+    "statusRetry": "Retry upload"
+  },
+  "baseNode": {
+    "info": {
+      "menu": "Node info",
+      "createdBy": "Created by",
+      "createdTime": "Created time",
+      "lastModifiedBy": "Modified by",
+      "lastModifiedTime": "Modified time",
+      "folderId": "Folder ID",
+      "tableId": "Table ID",
+      "automationId": "Automation ID",
+      "appId": "App ID",
+      "searchVector": "Full-text search",
+      "searchVectorFields": "fields",
+      "searchVectorStatus": {
+        "ready": "Enabled",
+        "configured": "Configured",
+        "rebuildPending": "Maintenance pending",
+        "stale": "Needs rebuild",
+        "unknown": "Unknown"
+      }
+    }
+  }
+}

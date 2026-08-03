@@ -1,0 +1,15 @@
+import { Global, Module } from '@nestjs/common';
+import { PrismaModule } from '@teable/db-main-prisma';
+import { AccessTokenModel } from './access-token';
+import { CollaboratorModel } from './collaborator';
+import { SettingModel } from './setting';
+import { TemplateModel } from './template';
+import { UserModel } from './user';
+
+@Global()
+@Module({
+  imports: [PrismaModule],
+  providers: [UserModel, CollaboratorModel, AccessTokenModel, SettingModel, TemplateModel],
+  exports: [UserModel, CollaboratorModel, AccessTokenModel, SettingModel, TemplateModel],
+})
+export class ModelModule {}

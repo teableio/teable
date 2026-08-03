@@ -1,0 +1,51 @@
+{
+  "toolbar": {
+    "design": "设计",
+    "preview": "预览",
+    "share": "分享",
+    "insertCell": "插入单元格",
+    "submit": "提交"
+  },
+  "tooltips": {
+    "insertCellTips": "请先选择一个插入的字段",
+    "unSupportFieldType": "不支持的字段类型",
+    "selected": "已选择",
+    "submitSuccess": "提交成功",
+    "onlyPreview": "此为预览视图，如需提交请分享该视图"
+  },
+  "validation": {
+    "coordinate": "坐标",
+    "validateError": "数据校验失败",
+    "errorInfo": "错误信息",
+    "unknownError": "未知错误",
+    "unTitle": "未命名"
+  },
+  "share": {
+    "label": "分享",
+    "statusLabel": "分享视图",
+    "noPermission": "无权限分享视图",
+    "shareLink": "分享链接",
+    "copied": "已复制",
+    "genLink": "生成新链接",
+    "allowCopy": "允许拷贝视图数据",
+    "showAllFields": "显示展开记录中的所有字段",
+    "restrict": "设置访问密码",
+    "tips": "开启后将获取一个链接，此链接仅允许访问当前视图。",
+    "passwordTitle": "设置访问密码",
+    "passwordTips": "链接仅在正确密码输入后可访问",
+    "embed": "嵌入",
+    "embedPreview": "嵌入预览",
+    "hideToolbar": "隐藏工具栏",
+    "URLSetting": "链接参数设置",
+    "URLSettingDescription": "通过链接参数来控制显示样式，调整以下设置不会影响已分享出去的链接，您需要复制带上新参数的链接以使其生效",
+    "cancel": "取消",
+    "save": "保存",
+    "requireLogin": "需要登录提交",
+    "theme": {
+      "label": "主题",
+      "light": "浅色",
+      "dark": "深色",
+      "system": "系统"
+    }
+  }
+}

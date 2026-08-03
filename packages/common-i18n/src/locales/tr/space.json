@@ -1,0 +1,256 @@
+{
+  "crossSpace": {
+    "duplicateBaseTitle": "Bildirim",
+    "duplicateBaseDescription": "Alanlar arası referanslar desteklenmiyor. Kopya tek satırlı bir metin alanına dönüştürülecek.",
+    "affectedTableSuffix": "({{count}} alan)",
+    "convertAndDuplicate": "Dönüştür ve kopyala"
+  },
+  "initialSpaceName": "{{name}}'in alanı",
+  "action": {
+    "createBase": "Veritabanı oluştur",
+    "createSpace": "Alan oluştur",
+    "invite": "Davet et",
+    "startFromScratch": "Sıfırdan başla"
+  },
+  "allSpaces": "Tüm alanlar",
+  "emptySpaceTitle": "Bu alanda base yok",
+  "spaceIsEmpty": "Başlamak için ilk base'inizi oluşturun",
+  "baseModal": {
+    "copy": "Kopyala",
+    "duplicate": "\"{{baseName}}\" çoğalt",
+    "createBaseFromTemplate": "Şablondan veritabanı oluştur",
+    "duplicateRecords": "Kayıtları çoğalt",
+    "duplicateRecordsTip": "Revizyon geçmişiniz ve işbirlikçileriniz çoğaltılmayacak.",
+    "toSpace": "Alana",
+    "copyToSpace": "Alana kopyala",
+    "duplicateBase": "Veritabanını çoğalt",
+    "missTargetTip": "Lütfen veritabanını çoğaltmak için bir alan seçin.",
+    "copying": "Veritabanı çoğaltılıyor, bu biraz zaman alabilir...",
+    "howToCreate": "Nasıl başlamak istersiniz?",
+    "fromScratch": "Sıfırdan",
+    "fromTemplate": "Şablondan",
+    "moveBaseToAnotherSpace": "{{baseName}}'i başka bir alana taşı",
+    "chooseSpace": "Alan seç"
+  },
+  "spaceSetting": {
+    "title": "Alan ayarları",
+    "general": "Genel",
+    "collaborators": "İşbirlikçiler",
+    "generalDescription": "Mevcut alanınızın ayarlarını buradan değiştirin",
+    "spaceName": "Alan Adı",
+    "spaceId": "Alan Kimliği"
+  },
+  "pin": {
+    "add": "Sabitlemelere ekle",
+    "remove": "Sabitlemeleri kaldır",
+    "pin": "Sabitle",
+    "empty": "Sabitlediğiniz veritabanları ve alanlar burada görünecek"
+  },
+  "tooltip": {
+    "noPermissionToCreateBase": "Veritabanı oluşturma izniniz yok"
+  },
+  "tip": {
+    "delete": "<0/> silmek istediğinizden emin misiniz?",
+    "exportTips2": "Alan -> daha fazla -> içe aktar yolundan .tea dosyasını içe aktarabilirsiniz",
+    "exportTips3": "Veritabanları arası ilişki alanları tek satır metne dönüştürülecektir.",
+    "exportIncludeDataLabel": "Kayıtları dahil et",
+    "exportIncludeDataDescription": "Kapatıldığında yalnızca yapı ve yapılandırma dışa aktarılır",
+    "exportTitle": "Dışa Aktar",
+    "exportDescription": "Mevcut veritabanını .tea dosyası olarak dışa aktarın, bu biraz zaman alabilir.",
+    "exportStartButton": "Dışa aktarmayı başlat",
+    "exportSlowTip": "Veri hacmi büyük. Dışa aktarma biraz zaman alabilir. Geçici olarak ayrılabilirsiniz.",
+    "exportReadyDescription": "Lütfen .tea dosyasını indirin, {{importHint}}",
+    "moveBaseSuccessTitle": "Taşıma başarılı",
+    "moveBaseSuccessDescription": "{{baseName}} başarıyla {{spaceName}} alanına taşındı",
+    "moveBaseCrossSpaceTitle": "Bildirim",
+    "moveBaseCrossSpaceDataLossWarning": "Alanlar arası referanslar desteklenmiyor. İlgili alanlar metin alanlarına dönüştürülecek. Bu işlem geri alınamaz."
+  },
+  "deleteSpaceModal": {
+    "title": "Alanı Sil",
+    "blockedTitle": "Bu alan silinemiyor",
+    "blockedDesc": "Bu alanın aktif bir aboneliği var. Lütfen alanı silmeden önce aboneliği iptal edin."
+  },
+  "sharedBase": {
+    "title": "Paylaşılan veritabanları",
+    "description": "Katılmaya davet edildiğim tüm veritabanları",
+    "empty": "Henüz paylaşılan veritabanı yok"
+  },
+  "integration": {},
+  "aiSetting": {
+    "title": "AI ayarları",
+    "description": "Alanınızın AI ayarlarını yönetin",
+    "enable": "AI ayarlarını başlat"
+  },
+  "import": {
+    "importing": "İçe aktarılıyor",
+    "baseImportTips": "Yüklemek için .tea dosyasını bu alana tıklayın veya sürükleyip bırakın",
+    "confirm": "Onayla ve devam et",
+    "phase": {
+      "parsingStructure": "Parsing structure",
+      "creatingBase": "Creating base: {{detail}}",
+      "creatingTable": "Creating table: {{detail}}",
+      "creatingCommonFields": "Creating basic fields for {{table}}: {{fields}}",
+      "creatingButtonFields": "Creating button fields for {{table}}: {{fields}}",
+      "creatingFormulaFields": "Creating formula fields for {{table}}: {{fields}}",
+      "creatingLinkFields": "Creating link fields for {{table}}: {{fields}}",
+      "creatingLookupFields": "Creating lookup fields for {{table}}: {{fields}}",
+      "creatingTableViews": "Creating views for {{table}}: {{fields}}",
+      "creatingPlugins": "Creating plugins",
+      "creatingFolders": "Creating folders",
+      "creatingWorkflows": "Creating workflows",
+      "creatingApps": "Creating apps",
+      "creatingAuthorityMatrix": "Creating authority matrix",
+      "queuingAttachments": "Queuing attachment uploads",
+      "uploadingAppFiles": "Uploading app files",
+      "queuingDataImport": "Queuing data import",
+      "done": "Import completed",
+      "clickToView": "Görüntülemek için tıklayın"
+    }
+  },
+  "template": {
+    "title": "Şablon",
+    "description": "Bir şablondan hızlıca yeni bir üs (base) oluşturun",
+    "noTemplatesAvailable": "Kullanılabilir şablon yok",
+    "noTemplatesDescription": "Şu anda burada hiçbir şey yok"
+  },
+  "recentlyBase": {
+    "title": "Son ziyaret edilenler"
+  },
+  "noBases": {
+    "title": "Merhaba {{userName}}!",
+    "description": "İlk üssünüzle (base) işlerinizi yönetmeye başlayalım."
+  },
+  "noSpaces": {
+    "title": "Merhaba {{userName}}!",
+    "description": "Veri işbirliği yolculuğunuza başlamak için ilk alanınızı oluşturun."
+  },
+  "baseList": {
+    "allBases": "Tüm üsler",
+    "creator": "Oluşturan",
+    "createdTime": "Oluşturulma",
+    "lastOpened": "Son açılan",
+    "enter": "Giriş",
+    "noTables": "Tablo yok",
+    "empty": "Henüz üs yok"
+  },
+  "publishBase": {
+    "title": "Şablon Merkezinde Yayınla",
+    "description": "Tek tıkla üssünüzü şablon merkezinde yayınlayın! Yaratıcılığınızı daha fazla kişinin görmesine, kullanmasına ve Remix yapmasına izin verin ve birlikte daha güçlü bir iş kurun",
+    "infoTitle": "Temel bilgiler",
+    "form": {
+      "title": "Başlık",
+      "description": "Açıklama",
+      "security": "Güvenlik",
+      "advanced": "Gelişmiş",
+      "publishNode": "Düğümleri yayınla",
+      "includeData": "Verileri dahil et",
+      "defaultActiveNode": "Varsayılan aktif düğüm",
+      "descriptionPlaceholder": "Fikrinizi kısaca açıklayın...",
+      "titlePlaceholder": "Çalışmanıza bir ad verin..."
+    },
+    "publishToCommunity": "Şablon merkezinde yayınla",
+    "publish": "Yayınla",
+    "publishSuccess": "Yayınlama başarılı!",
+    "previewTips": "Dünyanın çalışmanızı görmesine izin verin",
+    "update": "Güncelle",
+    "unPublish": "Yayından kaldır",
+    "unPublishSuccess": "Üs başarıyla yayından kaldırıldı!",
+    "unPublishConfirmTitle": "Yayından kaldırmayı onayla",
+    "unPublishConfirmDescription": "Bu üssü yayından kaldırmak istediğinizden emin misiniz? Artık şablon merkezinde görünmeyecek.",
+    "uploadCover": "Kapak resmi yüklemek için tıklayın",
+    "changeCover": "Kapağı değiştirmek için tıklayın",
+    "uploading": "Resim yükleniyor...",
+    "uploadSuccess": "Resim başarıyla yüklendi",
+    "uploadFailed": "Yükleme başarısız",
+    "invalidImageType": "Lütfen bir resim dosyası seçin",
+    "tips": {
+      "publishValidation": "başlık ve açıklama gereklidir",
+      "atLeastOneNode": "Yayınlamak için en az bir düğüm seçin"
+    },
+    "urlCopied": "URL panoya kopyalandı!",
+    "urlCopiedForDiscord": "URL panoya kopyalandı! Discord'a yapıştırabilirsiniz.",
+    "featuredLabel": "Featured",
+    "unfeaturedLabel": "Unfeatured",
+    "featuredTip": "Resmi olarak öne çıkan olarak seçildi. Şablonunuz daha fazla görünürlük kazanacak.",
+    "unfeaturedTip": "Henüz öne çıkarılmadı. Tavsiye edilme şansı için geliştirmeye devam edin. Daha fazla kişinin çalışmanızı görmesine izin verin.",
+    "publishSuccessDescription": "Çalışmanızı dünyayla paylaşın",
+    "shareWith": "Şununla paylaş",
+    "unpublishedApps": {
+      "title": "Yayınlanmamış Uygulamalar Tespit Edildi",
+      "description": "Yayınlanmamış uygulamalar şablon önizleme hatalarına neden olabilir. Şimdi yayınlayın veya devam edin.",
+      "publishAll": "Tümünü Yayınla",
+      "publish": "Yayınla",
+      "published": "Yayınlandı",
+      "publishing": "Yayınlanıyor...",
+      "publishFailed": "Yayınlama başarısız",
+      "publishFailedTip1": "Kaynak uygulamanın başarıyla yayınlanıp yayınlanamayacağını kontrol edin",
+      "publishFailedTip2": "Bu şablonu yeniden yayınlamayı deneyin",
+      "notPublished": "Yayınlanmadı",
+      "ignoreAndContinue": "Yoksay ve Devam Et",
+      "goToFix": "Düzeltmeye Git",
+      "redeploy": "Yeniden Dağıt",
+      "unnamedApp": "Adsız Uygulama"
+    }
+  },
+  "airtableImport": {
+    "title": "Airtable'dan içe aktar",
+    "close": "Kapat",
+    "pickBase": "İçe aktarılacak base'i seçin",
+    "noBases": "Bu belirteç için erişilebilir base bulunamadı.",
+    "optionRecords": "Kayıtları içe aktar",
+    "optionAttachments": "Ekleri indirip içe aktar",
+    "import": "İçe aktarmayı başlat",
+    "done": "İçe aktarma tamamlandı",
+    "failed": "İçe aktarma başarısız",
+    "openBase": "Base'i aç",
+    "issuesSummary": "İçe aktarma sırasında {{count}} öğe uyarlandı:",
+    "issuesMore": "+{{count}} öğe daha",
+    "issue": {
+      "fieldDegraded": "{{tableName}} / {{fieldName}}: {{fromType}} → {{toType}}",
+      "fieldSkipped": "{{tableName}} / {{fieldName}} ({{fromType}}) atlandı: {{reason}}",
+      "viewSkipped": "{{tableName}} / \"{{viewName}}\" görünümü ({{fromType}}) atlandı",
+      "valuesDropped": "{{tableName}} / {{fieldName}}: {{count}} değer atıldı ({{reason}})",
+      "viewConfigDegraded": "{{tableName}} / görünüm \"{{viewName}}\": {{reason}}"
+    },
+    "phase": {
+      "fetchingSchema": "Airtable base yapısı okunuyor",
+      "creatingBase": "Base oluşturuluyor: {{detail}}",
+      "creatingTable": "Tablo oluşturuluyor: {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "creatingLinks": "Bağlantı alanları oluşturuluyor",
+      "fillingLinks": "{{tableName}} (bağlantılar)",
+      "applyingViewConfig": "Görünüm yapılandırması içe aktarılıyor"
+    },
+    "searchBases": "Base ara",
+    "noSearchResults": "Aramanızla eşleşen base yok.",
+    "detecting": "Airtable bağlantısı denetleniyor…",
+    "connectWithAirtable": "Airtable hesabını bağla",
+    "waitingOAuth": "Yetkilendirmeyi açılır pencerede tamamlayın…",
+    "connectedAs": "Bağlandı: {{account}}",
+    "permission": {
+      "create": "Oluşturucu",
+      "edit": "Düzenleyen",
+      "comment": "Yorumcu",
+      "read": "Salt okunur"
+    },
+    "integrationRequired": "Bu örnekte Airtable entegrasyonu yapılandırılmamış. Kurulum için bir yöneticiye başvurun.",
+    "optionViewConfig": "Görünüm filtrelerini, sıralamaları ve gruplamaları içe aktar",
+    "viewConfig": {
+      "help": "Airtable API’si görünüm ayarlarını sağlamaz; bu nedenle salt okunur bir paylaşım bağlantısı gerekir.",
+      "helpStep1": "Airtable’da tabanın \"Share\" menüsünü açın",
+      "helpStep2": "\"Share to web\" seçeneğini seçin ve tam taban erişimini açın",
+      "helpStep3": "Salt okunur bağlantıyı kopyalayıp yukarıdaki alana yapıştırın",
+      "linkPlaceholder": "Paylaşım bağlantısını buraya yapıştırın",
+      "mismatch": "Bu paylaşım bağlantısı seçili olandan farklı bir tabana işaret ediyor.",
+      "disableReminder": "Tamamlandı — artık Airtable’daki paylaşım bağlantısını kapatabilirsiniz."
+    }
+  },
+  "createBaseDialog": {
+    "title": "Nasıl başlamak istersiniz?"
+  },
+  "importBaseDialog": {
+    "title": "Veritabanını içe aktar",
+    "fromFile": "Dosyadan içe aktar",
+    "fromFileDesc": ".tea veritabanı dosyası yükleyin",
+    "fromAirtableDesc": "Airtable hesabınızı bağlayın"
+  }
+}

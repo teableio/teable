@@ -1,0 +1,1514 @@
+{
+  "common": {
+    "empty": "空白",
+    "noRecords": "記録がありません",
+    "unnamedRecord": "無名のレコード",
+    "untitled": "無題",
+    "cancel": "キャンセル",
+    "confirm": "確認",
+    "clear": "クリア",
+    "back": "戻る",
+    "done": "決定",
+    "create": "作成",
+    "search": {
+      "placeholder": "検索...",
+      "empty": "結果が見つかりません"
+    },
+    "readOnlyTip": "このビューはロックされています。<button>個人モード</button>を有効にすることで、ビューのオプションを編集できます。変更はあなたにのみ適用されます。",
+    "selectPlaceHolder": "選択...",
+    "loading": "読込中...",
+    "loadMore": "さらに読み込む",
+    "uploadFailed": "アップロードに失敗しました",
+    "rowCount": "{{count}}レコード",
+    "summary": "概要ー",
+    "summaryTip": "カーソルを合わせて概要を選択",
+    "actions": "アクション",
+    "remove": "削除",
+    "runStatus": {
+      "success": "{{name}} 成功",
+      "failed": "{{name}} 失敗",
+      "running": "{{name}} 実行中"
+    },
+    "resetSuccess": "リセット成功",
+    "click": "クリック",
+    "clickedCount": "{{label}}: クリック {{text}} 回",
+    "atLeastOne": "少なくとも1つの{{noun}}を保持してください"
+  },
+  "notification": {
+    "title": "通知"
+  },
+  "preview": {
+    "previewFileLimit": "プレビュー可能なファイルサイズの上限: {{size}}MB、ダウンロードしてご覧ください。",
+    "loadFileError": "ファイルの読み込みに失敗しました"
+  },
+  "undoRedo": {
+    "undo": "Undo",
+    "redo": "Redo",
+    "undoFailed": "Undo failed",
+    "redoFailed": "Redo failed",
+    "nothingToUndo": "Nothing to undo",
+    "nothingToRedo": "Nothing to redo",
+    "undoSucceed": "Undo succeed",
+    "redoSucceed": "Redo succeed",
+    "undoing": "undoing...",
+    "redoing": "redoing..."
+  },
+  "editor": {
+    "attachment": {
+      "uploadDragOver": "ファイルをアップロードするにはリリースしてください",
+      "uploadBaseTextPrefix": "Click to upload ",
+      "uploadBaseText": "or paste or drag and drop here",
+      "uploadDragDefault": "ここに貼り付けるかドラッグアンドドロップしてアップロードしてください",
+      "upload": "アップロード"
+    },
+    "date": {
+      "placeholder": "日付を選択",
+      "today": "今日"
+    },
+    "formula": {
+      "title": "数式エディタ",
+      "guideSyntax": "構文",
+      "guideExample": "例",
+      "helperExample": "例: ",
+      "fieldValue": "{{fieldName}}フィールドのセルに値を返します。",
+      "placeholder": "数式を入力",
+      "placeholderForAIPrompt": "生成したい数式を記述してください",
+      "editExpression": "数式を編集",
+      "generateExpressionByAI": "AIで数式を生成",
+      "inputPrompt": "入力指示",
+      "generateExpression": "生成数式",
+      "generatingByAI": "AIで数式を生成中...",
+      "generatedExpressionTips": "生成後、適用ボタンをクリックして数式を挿入します",
+      "action": {
+        "generating": "生成中...",
+        "generate": "生成",
+        "apply": "適用"
+      },
+      "expressionRequired": "式は必須です"
+    },
+    "link": {
+      "placeholder": "リンクするレコードを選択",
+      "searchPlaceholder": "レコードの検索",
+      "globalSearch": "グローバル検索",
+      "fieldSearch": "フィールド検索",
+      "maxFieldTips": "最大{{count}}フィールドを超えました。余分なフィールドは無視されます",
+      "create": "レコードの追加",
+      "selectRecord": "レコードを選択",
+      "all": "すべて",
+      "selected": "選択済",
+      "alreadyOpen": "このレコードはすでに開いています。",
+      "linkedTo": "リンク先",
+      "foreignTableIdRequired": "関連テーブルは必須です",
+      "linkFieldIdRequired": "リンクフィールドは必須です",
+      "selectTooManyRecords": "選択されたレコードは{{maxCount}}を超えてはいけません",
+      "rangeSelectFailed": "範囲内のレコードの選択に失敗しました"
+    },
+    "user": {
+      "searchPlaceholder": "名前でユーザーを検索する",
+      "notify": "選択されたらユーザーに通知する"
+    },
+    "select": {
+      "addOption": "オプション '{{option}}' を追加",
+      "choicesNameRequired": "選択肢名は空にできません"
+    },
+    "lookup": {
+      "lookupFieldIdRequired": "ルックアップフィールドは必須です",
+      "lookupOptionsNotAllowed": "isLookup属性がtrueまたはフィールドタイプがrollupの場合、ルックアップオプションは許可されません。",
+      "lookupOptionsRequired": "ルックアップオプションが必要です"
+    },
+    "rollup": {
+      "expressionRequired": "式は必須です"
+    },
+    "conditionalRollup": {
+      "filterRequired": "フィルターには少なくとも1つの条件が必要です"
+    },
+    "conditionalLookup": {
+      "filterRequired": "条件付き検索には少なくとも1つのフィルター条件が必要です"
+    },
+    "aiConfig": {
+      "modelKeyRequired": "モデルは必須です",
+      "typeNotSupported": "サポートされていないAIタイプ",
+      "sourceFieldIdRequired": "ソースフィールドは必須です",
+      "targetLanguageRequired": "対象言語は必須です",
+      "promptRequired": "プロンプトは必須です"
+    },
+    "error": {
+      "refineOptionsError": "フィールドオプションの解析エラー {{message}}",
+      "optionsRequired": "フィールドオプションは必須です"
+    }
+  },
+  "filter": {
+    "label": "フィルター",
+    "displayLabel": "フィルター ",
+    "displayLabel_other": "{{fieldName}}と{{count}}の他のフィールドでフィルタリング",
+    "addCondition": "条件を追加",
+    "addConditionGroup": "条件グループを追加",
+    "nestedLimitTip": "フィルタ条件は{{depth}}レベルまでネストできます",
+    "linkInputPlaceholder": "値を入力してください",
+    "currentUser": "自分 (現在のユーザー)",
+    "tips": {},
+    "invalidateSelected": "無効な値",
+    "invalidateSelectedTips": "選択した値は削除されました。もう一度選択してください",
+    "invalidConditionTip": "このフィルター条件は無効なため無視されます。値を調整してください。",
+    "default": {
+      "empty": "フィルター条件は適用されません",
+      "placeholder": "値を入力してください"
+    },
+    "conjunction": {
+      "and": "and",
+      "or": "or",
+      "where": "where",
+      "meetingAll": "すべての条件を満たす",
+      "meetingAny": "いずれかの条件を満たす"
+    },
+    "operator": {
+      "is": "等しい",
+      "isNot": "等しくない",
+      "contains": "含む",
+      "doesNotContain": "含まない",
+      "isEmpty": "空",
+      "isNotEmpty": "空ではない",
+      "isGreater": "より大きい",
+      "isGreaterEqual": "以上",
+      "isLess": "より小さい",
+      "isLessEqual": "以下",
+      "isAnyOf": "いずれか",
+      "isNoneOf": "いずれでもない",
+      "hasAnyOf": "いずれも含む",
+      "hasAllOf": "すべて含む",
+      "hasNoneOf": "含まない",
+      "isExactly": "正確に",
+      "isWithIn": "中にある",
+      "isBefore": "より前",
+      "isAfter": "より後",
+      "isOnOrBefore": "以前",
+      "isOnOrAfter": "以後",
+      "number": {
+        "is": "=",
+        "isNot": "≠",
+        "isGreater": ">",
+        "isGreaterEqual": "≥",
+        "isLess": "<",
+        "isLessEqual": "≤"
+      }
+    },
+    "conditionalRollup": {
+      "switchToField": "Use field value",
+      "switchToValue": "Use manual value"
+    },
+    "component": {
+      "date": {
+        "today": "今日",
+        "tomorrow": "明日",
+        "yesterday": "昨日",
+        "oneWeekAgo": "一週間前",
+        "oneWeekFromNow": "一週間後",
+        "oneMonthAgo": "一ヶ月前",
+        "oneMonthFromNow": "一ヶ月後",
+        "daysAgo": "日前",
+        "daysFromNow": "日後",
+        "exactDate": "正確な日付",
+        "exactDateTime": "正確な日時",
+        "exactFormatDate": "正確な日付（フォーマット）",
+        "currentWeek": "current week",
+        "currentMonth": "current month",
+        "currentYear": "current year",
+        "lastWeek": "last week",
+        "lastMonth": "last month",
+        "lastYear": "last year",
+        "nextWeekPeriod": "next week",
+        "nextMonthPeriod": "next month",
+        "nextYearPeriod": "next year",
+        "pastWeek": "先週",
+        "pastMonth": "先月",
+        "pastYear": "去年",
+        "nextWeek": "来週",
+        "nextMonth": "来月",
+        "nextYear": "来年",
+        "pastNumberOfDays": "過去の日数",
+        "nextNumberOfDays": "次の日数"
+      }
+    }
+  },
+  "color": {
+    "label": "色"
+  },
+  "rowHeight": {
+    "short": "低",
+    "medium": "中",
+    "tall": "高",
+    "extraTall": "超高",
+    "title": "行高"
+  },
+  "fieldNameConfig": {
+    "title": "フィールド名",
+    "displayLines": "{{count}} 行"
+  },
+  "share": {},
+  "extensions": {},
+  "hidden": {
+    "label": "隠しフィールド",
+    "configLabel_other": "{{count}}個の隠しフィールド",
+    "configLabel_other_visible": "{{count}}表示フィールド",
+    "showAll": "すべて表示",
+    "hideAll": "すべて非表示",
+    "primaryKey": "プライマリフィールド: レコードを識別するために使用され、非表示にしたり削除したりすることはできません",
+    "notInCurrentView": "フィールド「{{fieldName}}」は現在のビューに表示されていないため、移動できません"
+  },
+  "expandRecord": {
+    "copy": "クリップボードにコピー",
+    "duplicateRecord": "Duplicate record",
+    "copyRecordUrl": "レコードのURLをコピー",
+    "deleteRecord": "レコードを削除",
+    "addRecordComment": "コメントを追加",
+    "viewRecordHistory": "レコード履歴を表示",
+    "recordHistory": {
+      "hiddenRecordHistory": "レコードの履歴を非表示",
+      "showRecordHistory": "レコードの履歴を表示",
+      "createdTime": "変更日時",
+      "createdBy": "変更者",
+      "before": "以前",
+      "after": "以後",
+      "buttonClicked": "ボタンをクリックしました",
+      "filterTime": "時間範囲",
+      "allFields": "すべてのフィールド",
+      "allUsers": "すべてのユーザー",
+      "clearFilter": "フィルターをクリア",
+      "viewRecord": "レコードを表示"
+    },
+    "showHiddenFields": "{{count}} 個の隠しフィールドを表示",
+    "hideHiddenFields": "{{count}} 個の隠しフィールドを非表示",
+    "showMore": "Show more",
+    "showLess": "Show less",
+    "recordFrom": "レコード元"
+  },
+  "sort": {
+    "label": "ソート",
+    "displayLabel_one": "{{count}}フィールドで並べ替え",
+    "displayLabel_other": "{{count}}フィールドで並べ替え",
+    "setTips": "並べ替え",
+    "addButton": "別のソートを追加",
+    "autoSort": "レコードを自動的に並べ替える",
+    "selectASCLabel": "最初 → 最後",
+    "selectDESCLabel": "最後 → 最初"
+  },
+  "group": {
+    "label": "グループ",
+    "displayLabel_one": "{{count}}フィールドでグループ化",
+    "displayLabel_other": "{{count}}フィールドでグループ化",
+    "setTips": "グループ化",
+    "addButton": "サブグループを追加"
+  },
+  "field": {
+    "title": {
+      "singleLineText": "1行テキスト",
+      "longText": "長いテキスト",
+      "singleSelect": "単一選択",
+      "number": "番号",
+      "multipleSelect": "複数選択",
+      "link": "別のレコードへのリンク",
+      "formula": "式",
+      "date": "日付",
+      "createdTime": "作成日時",
+      "lastModifiedTime": "最終更新日時",
+      "attachment": "添付ファイル",
+      "checkbox": "チェックボックス",
+      "rollup": "ロールアップ",
+      "conditionalRollup": "条件付きロールアップ",
+      "user": "ユーザー",
+      "rating": "評価",
+      "autoNumber": "自動番号",
+      "lookup": "関連テーブルから検索",
+      "conditionalLookup": "条件付き検索",
+      "button": "ボタン",
+      "createdBy": "作成者",
+      "lastModifiedBy": "最終更新者"
+    },
+    "description": {
+      "singleLineText": "名前やタイトルなどの短いテキストを保存します。",
+      "longText": "長めのメモや説明を記録します。",
+      "singleSelect": "リストから1つの選択肢を選びます。",
+      "number": "書式を保った数値を管理します。",
+      "multipleSelect": "複数の選択肢でレコードにタグ付けします。",
+      "link": "このレコードを別のテーブルと関連付けます。",
+      "formula": "他のフィールドから値を計算します。",
+      "date": "日付や時間を記録します。",
+      "createdTime": "レコードが作成された日時を表示します。",
+      "lastModifiedTime": "最新の更新日時を表示します。",
+      "attachment": "ファイルのアップロードやAI画像生成が可能、🍌 Nano banana pro などのモデルに対応",
+      "checkbox": "シンプルなオン／オフを切り替えます。",
+      "rollup": "関連レコードを数式で集計します。",
+      "conditionalRollup": "条件に基づいてデータを集計します。",
+      "user": "レコードをワークスペースメンバーに割り当てます。",
+      "rating": "カスタムアイコンで項目に評価を付けます。",
+      "autoNumber": "各レコードに連番を付与します。",
+      "lookup": "関連レコードの値を表示します。",
+      "conditionalLookup": "設定したフィルター条件に合致する関連値を表示します。",
+      "button": "クリック可能なボタンでアクションを実行します。",
+      "createdBy": "レコードを作成したユーザーを表示します。",
+      "lastModifiedBy": "最後に編集したユーザーを表示します。"
+    },
+    "link": {
+      "oneWay": "一方向",
+      "twoWay": "双方向"
+    },
+    "button": {
+      "confirm": {
+        "title": "操作確認",
+        "description": "この操作を実行してもよろしいですか？"
+      }
+    }
+  },
+  "permission": {
+    "actionDescription": {
+      "spaceCreate": "スペースを作成",
+      "spaceDelete": "スペースを削除",
+      "spaceRead": "スペースを読み取り",
+      "spaceUpdate": "スペースを更新",
+      "spaceInviteEmail": "スペースにメールで招待",
+      "spaceInviteLink": "スペースにリンクで招待",
+      "spaceGrantRole": "スペースでの役割",
+      "baseCreate": "ベースの作成",
+      "baseDelete": "ベースの削除",
+      "baseRead": "ベースを読み取り",
+      "baseReadAll": "すべてのベースを読み取り",
+      "baseUpdate": "ベースの更新",
+      "baseInviteEmail": "ベースにメールで招待",
+      "baseInviteLink": "ベースにリンクで招待",
+      "baseAuthorityMatrixConfig": "権限マトリックスを構成する",
+      "baseDbConnect": "データベースに接続",
+      "tableCreate": "テーブルの作成",
+      "tableRead": "テーブルを読み取り",
+      "tableDelete": "テーブルを削除",
+      "tableUpdate": "テーブルの更新",
+      "tableImport": "テーブルにデータをインポート",
+      "tableExport": "テーブルのデータをエクスポート",
+      "tableTrashRead": "テーブルのごみ箱を読む",
+      "tableTrashUpdate": "テーブルのごみ箱を更新",
+      "tableTrashReset": "テーブルのごみ箱をリセット",
+      "viewCreate": "ビューを作成",
+      "viewDelete": "ビューを削除",
+      "viewRead": "ビューを読み取り",
+      "viewUpdate": "ビューを更新",
+      "viewShare": "Share view",
+      "fieldCreate": "フィールドの作成",
+      "fieldDelete": "フィールドの削除",
+      "fieldRead": "フィールドの読み取り",
+      "fieldUpdate": "フィールドの更新",
+      "recordCreate": "レコードの作成",
+      "recordComment": "レコードにコメント",
+      "recordDelete": "レコードの削除",
+      "recordRead": "レコードの読み取り",
+      "recordUpdate": "レコードの更新",
+      "recordCopy": "Copy record",
+      "automationCreate": "オートメーションの作成",
+      "automationDelete": "オートメーションの削除",
+      "automationRead": "オートメーションの読み取り",
+      "automationUpdate": "オートメーションの更新",
+      "appCreate": "アプリを作成",
+      "appDelete": "アプリを削除",
+      "appRead": "アプリを読み取り",
+      "appUpdate": "アプリを更新",
+      "userEmailRead": "ユーザーメールの読み取り",
+      "userIntegrations": "ユーザー統合の管理",
+      "recordHistoryRead": "レコード履歴の読み取り",
+      "baseQuery": "クエリベース",
+      "instanceRead": "インスタンスの読み取り",
+      "instanceUpdate": "インスタンスの更新",
+      "enterpriseRead": "Read enterprise configuration",
+      "enterpriseUpdate": "Update enterprise configuration"
+    }
+  },
+  "noun": {
+    "table": "テーブル",
+    "view": "ビュー",
+    "space": "スペース",
+    "base": "ベース",
+    "field": "フィールド",
+    "record": "レコード",
+    "automation": "オートメーション",
+    "app": "アプリ",
+    "user": "ユーザー",
+    "recordHistory": "レコード履歴",
+    "you": "あなた",
+    "instance": "インスタンス",
+    "enterprise": "エンタープライズ",
+    "history": "履歴",
+    "global": "グローバル"
+  },
+  "formula": {
+    "SUM": {
+      "summary": "数字を合計します。数字1 + 数字2 + ...",
+      "example": "SUM(100, 200, 300) => 600"
+    },
+    "AVERAGE": {
+      "summary": "数値の平均を返します。",
+      "example": "AVERAGE(100, 200, 300) => 200"
+    },
+    "MAX": {
+      "summary": "指定された数値の最大値を返します。",
+      "example": "MAX(100, 200, 300) => 300"
+    },
+    "MIN": {
+      "summary": "指定された数値の最小値を返します。",
+      "example": "MIN(100, 200, 300) => 100"
+    },
+    "ROUND": {
+      "summary": "値を \"precision\" で指定された小数点以下の桁数に丸めます（具体的には、ROUND は指定された precision で四捨五入に丸め、同点の場合は正の無限大に向かって半分に切り上げます）。",
+      "example": "ROUND(1.99, 0) => 2\nROUND(16.8, -1) => 20"
+    },
+    "ROUNDUP": {
+      "summary": "値を \"precision\" で指定された小数点以下の桁数に丸めます。常に切り上げ、つまり0から離れます。（precisionの値を指定しないと、関数は機能しません。）",
+      "example": "ROUNDUP(1.1, 0) => 2\nROUNDUP(-1.1, 0) => -2"
+    },
+    "ROUNDDOWN": {
+      "summary": "値を \"precision\" で指定された小数点以下の桁数に丸めます。常に切り捨て、つまり0に近づきます。（precisionの値を指定しないと、関数は機能しません。）",
+      "example": "ROUNDDOWN(1.9, 0) => 1\nROUNDDOWN(-1.9, 0) => -1"
+    },
+    "CEILING": {
+      "summary": "値以上の、重要度の最も近い整数倍を返します。重要度が指定されていない場合は、重要度1が想定されます。",
+      "example": "CEILING(2.49) => 3\nCEILING(2.49, 1) => 2.5\nCEILING(2.49, -1) => 10"
+    },
+    "FLOOR": {
+      "summary": "値以下の、重要度の最も近い整数倍を返します。重要度が指定されていない場合は、重要度1が想定されます。",
+      "example": "FLOOR(2.49) => 2\nFLOOR(2.49, 1) => 2.4\nFLOOR(2.49, -1) => 0"
+    },
+    "EVEN": {
+      "summary": "指定された値以上の最小の偶数を返します。",
+      "example": "EVEN(0.1) => 2\nEVEN(-0.1) => -2"
+    },
+    "ODD": {
+      "summary": "正の値は最も近い奇数に切り上げ、負の値は最も近い奇数に切り下げます。",
+      "example": "ODD(0.1) => 1\nODD(-0.1) => -1"
+    },
+    "INT": {
+      "summary": "数値を最も近い整数に切り捨てます。",
+      "example": "INT(1.9) => 1\nINT(-1.9) => -2"
+    },
+    "ABS": {
+      "summary": "絶対値を返します。",
+      "example": "ABS(-1) => 1"
+    },
+    "SQRT": {
+      "summary": "負でない数の平方根を返します。",
+      "example": "SQRT(4) => 2"
+    },
+    "POWER": {
+      "summary": "指定された値を指定された指数で累乗します。",
+      "example": "POWER(2) => 4"
+    },
+    "EXP": {
+      "summary": "オイラー数(e)を指定された累乗で計算します。",
+      "example": "EXP(0) => 1\nEXP(1) => 2.718"
+    },
+    "LOG": {
+      "summary": "指定された値の対数を計算します。値が指定されていない場合、デフォルトで10になります。",
+      "example": "LOG(100) => 2\nLOG(1024, 2) => 10"
+    },
+    "MOD": {
+      "summary": "最初の引数を 2 番目の引数で割った余りを返します。",
+      "example": "MOD(9, 2) => 1\nMOD(9, 3) => 0"
+    },
+    "VALUE": {
+      "summary": "テキスト文字列を数値に変換します。",
+      "example": "VALUE(\"$1,000,000\") => 1000000"
+    },
+    "CONCATENATE": {
+      "summary": "さまざまな値のタイプの引数を 1つのテキスト値に結合します。",
+      "example": "CONCATENATE(\"Hello \", \"Teable\") => Hello Teable"
+    },
+    "FIND": {
+      "summary": "オプションの startFromPosition から始まる whereToSearch 文字列内で stringToFind の出現を検索します（ startFromPosition はデフォルトで0です）。stringToFind の出現が見つからない場合、結果は0になります。",
+      "example": "FIND(\"Teable\", \"Hello Teable\") => 7\nFIND(\"Teable\", \"Hello Teable\", 5) => 7\nFIND(\"Teable\", \"Hello Teable\", 10) => 0"
+    },
+    "SEARCH": {
+      "summary": "stringToFind は、オプションの startFromPosition から whereToSearch 文字列内で stringToFind の出現を検索します。（startFromPosition はデフォルトで0です。）stringToFind の出現が見つからない場合、結果は空になります。\nFIND()と似ていますが、FIND() は stringToFind の出現が見つからない場合、空ではなく0を返します。",
+      "example": "SEARCH(\"Teable\", \"Hello Teable\") => 7\nSEARCH(\"Teable\", \"Hello Teable\", 5) => 7\nSEARCH(\"Teable\", \"Hello Teable\", 10) => \"\""
+    },
+    "MID": {
+      "summary": "whereToStart から始まるcount文字の部分文字列を抽出します。",
+      "example": "MID(\"Hello Teable\", 6, 6) => \"Teable\""
+    },
+    "LEFT": {
+      "summary": "文字列の先頭から howMany 文字を抽出します。",
+      "example": "LEFT(\"2023-09-06\", 4) => \"2023\""
+    },
+    "RIGHT": {
+      "summary": "文字列の末尾から howMany 文字を抽出します。",
+      "example": "RIGHT(\"2023-09-06\", 5) => \"09-06\""
+    },
+    "REPLACE": {
+      "summary": "開始文字から始まる文字数を置換テキストに置き換えます。\n(old_text のすべての出現箇所を検索して new_text に置き換える方法を探している場合は、SUBSTITUTE() を参照してください。)",
+      "example": "REPLACE(\"Hello Table\", 7, 5, \"Teable\") => \"Hello Teable\""
+    },
+    "REGEXP_REPLACE": {
+      "summary": "正規表現に一致するすべての部分文字列を置換文字列に置き換えます。",
+      "example": "REGEXP_REPLACE(\"Hello Table\", \"H.* \", \"\") => \"Teable\""
+    },
+    "SUBSTITUTE": {
+      "summary": "old_text の出現箇所を new_text に置き換えます。\nオプションでインデックス番号 (1 から始まる) を指定して、old_text の特定の出現箇所のみを置き換えることができます。インデックス番号を指定しないと、old_text のすべての出現箇所が置き換えられます。",
+      "example": "SUBSTITUTE(\"Hello Table\", \"Table\", \"Teable\") => \"Hello Teable\""
+    },
+    "LOWER": {
+      "summary": "文字列を小文字にします。",
+      "example": "LOWER(\"Hello Teable\") => \"hello teable\""
+    },
+    "UPPER": {
+      "summary": "文字列を大文字にします。",
+      "example": "UPPER(\"Hello Teable\") => \"HELLO TEABLE\""
+    },
+    "REPT": {
+      "summary": "文字列を指定された回数繰り返します。",
+      "example": "REPT(\"Hello!\") => \"Hello!Hello!Hello!\""
+    },
+    "TRIM": {
+      "summary": "文字列の先頭と末尾の空白を削除します。",
+      "example": "TRIM(\" Hello \") => \"Hello\""
+    },
+    "LEN": {
+      "summary": "文字列の先頭から howMany 文字を抽出します。",
+      "example": "LEN(\"Hello\") => 5"
+    },
+    "T": {
+      "summary": "引数がテキストの場合はそれを返し、それ以外の場合は空白を返します。",
+      "example": "T(\"Hello\") => \"Hello\"\nT(100) => null"
+    },
+    "ENCODE_URL_COMPONENT": {
+      "summary": "URL または URI の構築に使用するために、特定の文字をエンコードされた同等の文字に置き換えます。次の文字はエンコードされません: - _ . ~",
+      "example": "ENCODE_URL_COMPONENT(\"Hello Teable\") => \"Hello%20Teable\""
+    },
+    "IF": {
+      "summary": "論理引数が true の場合は 値1 を返し、そうでない場合は 値2 を返します。ネストされた IFステートメントを作成するためにも使用できます。\nセルが空白かどうかを確認するためにも使用できます。",
+      "example": "IF(2 > 1, \"A\", \"B\") => \"A\"\nIF(2 > 1, TRUE, FALSE) => TRUE"
+    },
+    "SWITCH": {
+      "summary": "式と、その式に対して取り得る値のリスト、そしてそれぞれの値に対して、その式が取るべき値を取ります。また、式の入力が定義されたパターンのいずれにもマッチしない場合は、デフォルト値を取ることもできます。多くの場合、入れ子になった IF() 式の代わりに SWITCH() を使用できます。",
+      "example": "SWITCH(\"B\", \"A\", \"Value A\", \"B\", \"Value B\", \"Default Value\") => \"Value B\""
+    },
+    "AND": {
+      "summary": "すべての引数が true の場合は true を返し、それ以外の場合は false を返します。",
+      "example": "AND(1 < 2, 5 > 3) => true\nAND(1 < 2, 5 < 3) => false"
+    },
+    "OR": {
+      "summary": "引数のいずれかが true の場合、true を返します。",
+      "example": "OR(1 < 2, 5 < 3) => true\nOR(1 > 2, 5 < 3) => false"
+    },
+    "XOR": {
+      "summary": "真である引数の数が奇数の場合、true を返します。",
+      "example": "XOR(1 < 2, 5 < 3, 8 < 10) => false\nXOR(1 > 2, 5 < 3, 8 < 10) => true"
+    },
+    "NOT": {
+      "summary": "引数の論理値を反転します。",
+      "example": "NOT(1 < 2) => false\nNOT(1 > 2) => true"
+    },
+    "BLANK": {
+      "summary": "空白の値を返します。",
+      "example": "BLANK() => null\nIF(2 > 3, \"Yes\", BLANK()) => null"
+    },
+    "ERROR": {
+      "summary": "エラー値を返します。",
+      "example": "IF(2 > 3, \"Yes\", ERROR(\"Calculation\")) => \"#ERROR: Calculation\""
+    },
+    "IS_ERROR": {
+      "summary": "式がエラーを引き起こした場合は true を返します。",
+      "example": "IS_ERROR(ERROR()) => true"
+    },
+    "TODAY": {
+      "summary": "現在の日付を返します。",
+      "example": "TODAY() => \"2023-09-08 00:00\""
+    },
+    "NOW": {
+      "summary": "現在の日付と時刻を返します。",
+      "example": "NOW() => \"2023-09-08 16:50\""
+    },
+    "YEAR": {
+      "summary": "日付時刻の4桁の年を返します。",
+      "example": "YEAR(\"2023-09-08\") => 2023"
+    },
+    "MONTH": {
+      "summary": "日付時刻の月を 1（1月）から 12（12月）までの数値として返します。",
+      "example": "MONTH(\"2023-09-08\") => 9"
+    },
+    "WEEKNUM": {
+      "summary": "年内の何週目かを返します。",
+      "example": "WEEKNUM(\"2023-09-08\") => 36"
+    },
+    "WEEKDAY": {
+      "summary": "0 から 6 までの整数として曜日を返します。オプションで 2 番目の引数 (\"Sunday\" または \"Monday\") を指定して、その曜日から週を開始することもできます。省略した場合、週はデフォルトで日曜日から始まります。例:\nWEEKDAY(TODAY(), \"Monday\")",
+      "example": "WEEKDAY(\"2023-09-08\") => 5"
+    },
+    "DAY": {
+      "summary": "日付時刻の月の日を 1～31 の数値形式で返します。",
+      "example": "DAY(\"2023-09-08\") => 8"
+    },
+    "HOUR": {
+      "summary": "日付時刻の時間を 0（午前00:00）から 23（午後11:00）までの数値として返します。",
+      "example": "HOUR(\"2023-09-08 16:50\") => 16"
+    },
+    "MINUTE": {
+      "summary": "日付時刻の分を 0 から 59 までの整数として返します。",
+      "example": "MINUTE(\"2023-09-08 16:50\") => 50"
+    },
+    "SECOND": {
+      "summary": "日付時刻の秒を 0 から 59 までの整数として返します。",
+      "example": "SECOND(\"2023-09-08 16:50:30\") => 30"
+    },
+    "FROMNOW": {
+      "summary": "現在の日付と別の日付の間の日数を計算します。",
+      "example": "FROMNOW({Date}, \"day\") => 25"
+    },
+    "TONOW": {
+      "summary": "現在の日付と別の日付の間の日数を計算します。",
+      "example": "TONOW({Date}, \"day\") => 25"
+    },
+    "DATETIME_DIFF": {
+      "summary": "指定された単位で日付時刻の差を返します。デフォルトの単位は \"day\" です。\nサポートされている単位: \"millisecond\" (ms)、\"second\" (s)、\"minute\" (m)、\"hour\" (h)、\"day\" (d)、\"week\" (w)、\"month\" (M)、\"year\" (y)。\n日付時刻の差は、[date1] から [date2] を減算して決定されます。つまり、[date2] が [date1] より後の場合、結果の値は負になります。",
+      "example": "DATETIME_DIFF(\"2023-09-08\", \"2022-08-01\", \"day\") => 403"
+    },
+    "WORKDAY": {
+      "summary": "指定された休日を除いて、開始日の就業日を返します。",
+      "example": "WORKDAY(\"2023-09-08\", 200) => \"2024-06-14 00:00:00\"\nWORKDAY(\"2023-09-08\", 200, \"2024-01-22, 2024-01-23, 2024-01-24, 2024-01-25\") => \"2024-06-20 00:00:00\""
+    },
+    "WORKDAY_DIFF": {
+      "summary": "日付1 と 日付2 の間の営業日数を返します。営業日には週末とオプションの休日リストは含まれず、ISO形式の日付のコンマ区切りの文字列としてフォーマットされます。",
+      "example": "WORKDAY_DIFF(\"2023-06-18\", \"2023-10-01\") => 75\nWORKDAY(\"2023-06-18\", \"2023-10-01\", \"2023-07-12, 2023-08-18, 2023-08-19\") => 73"
+    },
+    "IS_SAME": {
+      "summary": "2つの日付を単位まで比較し、同一かどうかを判断します。同一である場合は true を返し、同一でない場合は false を返します。",
+      "example": "IS_SAME(\"2023-09-08\", \"2023-09-10\") => false\nIS_SAME(\"2023-09-08\", \"2023-09-10\", \"month\") => true"
+    },
+    "IS_AFTER": {
+      "summary": "日付1 が 日付2 より後かどうかを判断します。後の場合は true を返し、後の場合は false を返します。",
+      "example": "IS_AFTER(\"2023-09-10\", \"2023-09-08\") => true\nIS_AFTER(\"2023-09-10\", \"2023-09-08\", \"month\") => false"
+    },
+    "IS_BEFORE": {
+      "summary": "日付1 が 日付2 より前かどうかを判断します。前であれば true を返し、前でない場合は false を返します。",
+      "example": "IS_BEFORE(\"2023-09-08\", \"2023-09-10\") => true\nIS_BEFORE(\"2023-09-08\", \"2023-09-10\", \"month\") => false"
+    },
+    "DATE_ADD": {
+      "summary": "指定された \"count\" 単位を日時に追加します。",
+      "example": "DATE_ADD(\"2023-09-08 18:00:00\", 10, \"day\") => \"2023-09-18 18:00:00\""
+    },
+    "DATESTR": {
+      "summary": "日時を文字列 (YYYY-MM-DD) にフォーマットします。",
+      "example": "DATESTR(\"2023/09/08\") => \"2023-09-08\""
+    },
+    "TIMESTR": {
+      "summary": "日時を時間のみの文字列 (HH:mm:ss) にフォーマットします。",
+      "example": "DATESTR(\"2023/09/08 16:50:30\") => \"16:50:30\""
+    },
+    "DATETIME_FORMAT": {
+      "summary": "日時を指定された文字列にフォーマットします。日付フィールドでこの関数を使用する方法については、ここをクリックしてください。サポートされている書式指定子のリストについては、ここをクリックしてください。",
+      "example": "DATETIME_FORMAT(\"2023-09-08\", \"DD-MM-YYYY\") => \"08-09-2023\""
+    },
+    "DATETIME_PARSE": {
+      "summary": "オプションの入力形式とロケールパラメータを使用して、テキスト文字列を構造化された日付として解釈します。出力形式は常に \"M/D/YYYY h:mm a\" にフォーマットされます。",
+      "example": "DATETIME_PARSE(\"8 Sep 2023 18:00\", \"D MMM YYYY HH:mm\") => \"2023-09-08 18:00:00\""
+    },
+    "CREATED_TIME": {
+      "summary": "現在のレコードの作成時刻を返します。",
+      "example": "CREATED_TIME() => \"2023-09-08 18:00:00\""
+    },
+    "LAST_MODIFIED_TIME": {
+      "summary": "テーブル内の非計算フィールドでユーザーが最後に変更した日時を返します。",
+      "example": "LAST_MODIFIED_TIME() => \"2023-09-08 18:00:00\"; LAST_MODIFIED_TIME({Due Date}) => \"2023-09-09 12:00:00\""
+    },
+    "COUNTALL": {
+      "summary": "テキストと空白を含むすべての要素の数を返します。",
+      "example": "COUNTALL(100, 200, \"\", \"Teable\", TRUE()) => 5"
+    },
+    "COUNTA": {
+      "summary": "空でない値の数を返します。この関数は数値とテキスト値の両方をカウントします。",
+      "example": "COUNTA(100, 200, 300, \"\", \"Teable\", TRUE) => 4"
+    },
+    "COUNT": {
+      "summary": "数値の数を返します。",
+      "example": "COUNT(100, 200, 300, \"\", \"Teable\", TRUE) => 3"
+    },
+    "ARRAY_JOIN": {
+      "summary": "ロールアップ項目の配列をセパレーターを使用して文字列に結合します。",
+      "example": "ARRAY_JOIN([\"Tom\", \"Jerry\", \"Mike\"], \"; \") => \"Tom; Jerry; Mike\""
+    },
+    "ARRAY_UNIQUE": {
+      "summary": "配列内の一意の項目のみを返します。",
+      "example": "ARRAY_UNIQUE([1, 2, 3, 2, 1]) => [1, 2, 3]"
+    },
+    "ARRAY_FLATTEN": {
+      "summary": "配列のネストを削除して配列をフラット化します。すべての項目が単一の配列の要素になります。",
+      "example": "ARRAY_FLATTEN([1, 2, \" \", 3, true], [\"ABC\"]) => [1, 2, 3, \" \", true, \"ABC\"]"
+    },
+    "ARRAY_COMPACT": {
+      "summary": "配列から空の文字列と null値を削除します。\"false\" と 1つ以上の空白文字を含む文字列は保持されます。",
+      "example": "ARRAY_COMPACT([1, 2, 3, \"\", null, \"ABC\"]) => [1, 2, 3, \"ABC\"]"
+    },
+    "TEXT_ALL": {
+      "summary": "すべてのテキスト値を返します",
+      "example": "TEXT_ALL(\"t\") => t"
+    },
+    "RECORD_ID": {
+      "summary": "現在のレコードの ID を返します。",
+      "example": "RECORD_ID() => \"recxxxxxx\""
+    },
+    "AUTO_NUMBER": {
+      "summary": "各レコードの一意の増分番号を返します。",
+      "example": "AUTO_NUMBER() => 1"
+    },
+    "FORMULA": {
+      "summary": "変数、演算文字、関数を入力して計算式を作成します。",
+      "example": "Quoting the Column: {Field name}\n\nUsing operator: 100 * 2 + 300\n\nUsing function: SUM({Number Field 1}, 100)\n\nUsing IF statement: \nIF(logical condition, \"value 1\", \"value 2\")"
+    }
+  },
+  "functionType": {
+    "fields": "フィールド",
+    "numeric": "数値",
+    "text": "テキスト",
+    "logical": "論理的",
+    "date": "日付",
+    "array": "配列",
+    "system": "システム"
+  },
+  "statisticFunc": {
+    "none": "なし",
+    "count": "計数",
+    "empty": "空",
+    "filled": "埋められた",
+    "unique": "固有",
+    "max": "最大",
+    "min": "最小",
+    "sum": "合計",
+    "average": "平均",
+    "checked": "チェックされた",
+    "unChecked": "チェックされていない",
+    "percentEmpty": "空の割合",
+    "percentFilled": "埋められた割合",
+    "percentUnique": "固有の割合",
+    "percentChecked": "チェックされた割合",
+    "percentUnChecked": "チェックされていない割合",
+    "earliestDate": "最も早い日付",
+    "latestDate": "最終日",
+    "dateRangeOfDays": "日付範囲（日数）",
+    "dateRangeOfMonths": "日付範囲（月）",
+    "totalAttachmentSize": "添付ファイルの合計サイズ"
+  },
+  "selectionStatistic": {
+    "tip": "「数値型」フィールドのみを集計します。",
+    "copyTip": "クリックしてコピー",
+    "copied": "コピーしました"
+  },
+  "baseQuery": {
+    "add": "追加",
+    "error": {
+      "invalidCol": "無効な列です。再度選択してください",
+      "invalidCols": "無効な列: {{colNames}}",
+      "invalidTable": "無効なテーブルです。再度選択してください",
+      "requiredSelect": "いずれかを選択してください"
+    },
+    "from": {
+      "title": "From",
+      "fromTable": "テーブルを選択",
+      "fromQuery": "クエリから"
+    },
+    "select": {
+      "title": "選択"
+    },
+    "where": {
+      "title": "場所"
+    },
+    "groupBy": {
+      "title": "グループ化"
+    },
+    "orderBy": {
+      "title": "並び替え",
+      "asc": "昇順",
+      "desc": "降順"
+    },
+    "limit": {
+      "title": "リミット"
+    },
+    "offset": {
+      "title": "オフセット"
+    },
+    "join": {
+      "title": "結合",
+      "joinType": "結合タイプ",
+      "leftJoin": "左結合",
+      "rightJoin": "右結合",
+      "innerJoin": "内部結合",
+      "fullJoin": "全て結合",
+      "data": "From"
+    },
+    "aggregation": {
+      "title": "集約"
+    }
+  },
+  "comment": {
+    "title": "コメント",
+    "placeholder": "コメントを残す...",
+    "emptyComment": "会話を始める",
+    "deletedComment": "削除されたコメント",
+    "tip": {
+      "editing": "編集中...",
+      "edited": "(編集済み)",
+      "notifyAll": "すべてのコメントを通知",
+      "notifyRelatedToMe": "関連するコメントを通知",
+      "all": "すべて",
+      "relatedToMe": "関連するコメント",
+      "reactionUserSuffix": "{{emoji}}の絵文字でリアクションしました",
+      "me": "あなた",
+      "connection": "と"
+    },
+    "toolbar": {
+      "link": "リンク",
+      "image": "画像",
+      "mention": "メンション"
+    },
+    "floatToolbar": {
+      "editLink": "リンクを編集",
+      "linkText": "リンクテキスト",
+      "enterUrl": "URLを入力"
+    }
+  },
+  "memberSelector": {
+    "title": "Select Members",
+    "memberSelectorSearchPlaceholder": "Search members...",
+    "departmentSelectorSearchPlaceholder": "Search departments...",
+    "selected": "Selected",
+    "empty": "No members",
+    "emptyDepartment": "No departments"
+  },
+  "httpErrors": {
+    "validationError": "バリデーションエラー",
+    "invalidCaptcha": "キャプチャが無効です",
+    "invalidCredentials": "無効な資格情報",
+    "unauthorized": "承認されていません",
+    "unauthorizedShare": "共有が承認されていません",
+    "paymentRequired": "支払いが必要です",
+    "creditLimitExceeded": "算力上限を超えました",
+    "restrictedResource": "制限されたリソース",
+    "notFound": "見つかりません",
+    "conflict": "競合",
+    "unprocessableEntity": "処理不可",
+    "userLimitExceeded": "ユーザーの制限超過",
+    "tooManyRequests": "要求が多すぎます",
+    "internalServerError": "内部サーバーエラー",
+    "databaseConnectionUnavailable": "データベース接続不可",
+    "gatewayTimeout": "ゲートウェイタイムアウト",
+    "unknownErrorCode": "不明なエラーコード",
+    "networkError": "ネットワーク接続の問題",
+    "requestTimeout": "要求タイムアウト",
+    "failedDependency": "依存操作失敗",
+    "automationNodeParseError": "自動化ノード解析エラー",
+    "automationNodeNeedTest": "自動化ノードはテストが必要です",
+    "automationNodeTestOutdated": "自動化ノードのテストが古くなっています",
+    "invalidToken": "無効なトークン",
+    "limit": {
+      "fieldOptionsMaxBytes": "フィールドオプションが大きすぎます。最大 {{max}} バイトです。",
+      "selectChoicesMax": "この選択フィールドの選択肢が多すぎます。最大 {{max}} 個です。",
+      "selectChoiceNameMaxLength": "選択肢名が長すぎます。最大 {{max}} 文字です。",
+      "selectDefaultValuesMax": "この選択フィールドのデフォルト値が多すぎます。最大 {{max}} 個です。",
+      "cellValueMaxBytes": "セル値が大きすぎます。最大 {{max}} バイトです。",
+      "recordFieldsMaxBytes": "レコードの内容が大きすぎます。最大 {{max}} バイトです。",
+      "recordsPerMutationMax": "この操作で変更するレコード数が多すぎます。一度に最大 {{max}} 件までです。",
+      "computedCellValueMaxBytes": "計算セル値が大きすぎます。最大 {{max}} バイトです。",
+      "formulaMaxLength": "数式が長すぎます。最大 {{max}} 文字です。",
+      "tablesPerBaseMax": "このベースはテーブル数の上限に達しました。最大 {{max}} 個です。",
+      "fieldsPerTableMax": "このテーブルのフィールド数が多すぎます。最大 {{max}} 個です。",
+      "rowsPerTableMax": "このテーブルのレコード数が多すぎます。最大 {{max}} 件です。",
+      "viewsPerTableMax": "このテーブルはビュー数の上限に達しました。最大 {{max}} 個です。",
+      "createTableFieldsMax": "新しいテーブルのフィールド数が多すぎます。最大 {{max}} 個です。",
+      "createTableViewsMax": "新しいテーブルのビュー数が多すぎます。最大 {{max}} 個です。",
+      "createTableRecordsMax": "新しいテーブルのレコード数が多すぎます。最大 {{max}} 件です。",
+      "viewFilterItemsMax": "このビューのフィルター条件が多すぎます。最大 {{max}} 件です。",
+      "viewFilterDepthMax": "このビューフィルターのネストが深すぎます。最大深度は {{max}} です。",
+      "viewSortItemsMax": "このビューの並べ替えルールが多すぎます。最大 {{max}} 件です。",
+      "viewGroupItemsMax": "このビューのグループ化ルールが多すぎます。最大 {{max}} 件です。",
+      "viewOptionsMaxBytes": "ビューオプションが大きすぎます。最大 {{max}} バイトです。",
+      "nameMaxLength": "名前が長すぎます。最大 {{max}} 文字です。",
+      "descriptionMaxLength": "説明が長すぎます。最大 {{max}} 文字です。"
+    },
+    "validation": {
+      "field": {
+        "unique": "フィールドには一意の値が必要です"
+      }
+    },
+    "custom": {
+      "fieldValueNotNull": "\"{{tableName}}\" フィールド \"{{fieldName}}\" は空の値を許可しません。送信する前に完全に入力してください。",
+      "fieldValueDuplicate": "\"{{tableName}}\" フィールド \"{{fieldName}}\" は重複する値を許可しません。送信する前に一意の値を入力してください。",
+      "linkFieldValueDuplicate": "\"{{fieldName}}\" フィールドは同じレコードに複数の関連付けを許可しません。",
+      "requestTimeout": "操作範囲が大きすぎます。範囲を縮小して再試行してください。",
+      "searchTimeOut": "検索が期限切れ、検索範囲を狭めて再試行してください。",
+      "dependencyNodeRequire": "依存ノードがテストされていません。前のノードをテストしてください。",
+      "invalidOperation": "無効な操作が検出されました。操作パラメータを確認してください"
+    },
+    "comment": {
+      "listCountExceeded": "リクエストされたコメント数が最大制限の 1000 を超えています",
+      "invalidContentType": "無効なコメントコンテンツタイプ"
+    },
+    "attachment": {
+      "tokenExpireInTooLong": "トークンの有効期限は7日未満である必要があります",
+      "s3RegionRequired": "S3リージョンが必要です",
+      "s3EndpointRequired": "S3エンドポイントが必要です",
+      "s3AccessKeyRequired": "S3アクセスキーが必要です",
+      "s3SecretKeyRequired": "S3シークレットキーが必要です",
+      "s3UploadMethodMustBePut": "S3アップロード方法はPUTである必要があります",
+      "presignedError": "事前署名URLの生成に失敗しました",
+      "invalidObjectMeta": "無効なオブジェクトメタデータ",
+      "invalidImageStream": "無効な画像ストリーム",
+      "calculateImageSizeFailed": "画像サイズの計算に失敗しました",
+      "uploadFailed": "アップロードに失敗しました",
+      "invalidImage": "無効な画像",
+      "cantGetImageStream": "画像ストリームを取得できません",
+      "invalidProvider": "無効なストレージプロバイダー",
+      "failedToDeleteDirectory": "ディレクトリの削除に失敗しました",
+      "invalidToken": "無効なトークン",
+      "tokenExpired": "トークンの有効期限が切れています",
+      "sizeMismatch": "ファイルサイズが一致しません",
+      "notAllowUploadFileType": "{{mimetype}} ファイルタイプのアップロードは許可されていません",
+      "notFound": "添付ファイルが見つかりません",
+      "invalidPath": "無効な添付ファイルパス",
+      "fileSizeExceedsMaximumLimit": "ファイルサイズが最大制限 {{maxSize}} を超えています",
+      "invalidUploadType": "無効なアップロードタイプ",
+      "urlReject": "URLが拒否されたか、アクセスできません"
+    },
+    "email": {
+      "testEmailError": "メール設定エラー {{message}}"
+    },
+    "auth": {
+      "invalidConfirm": "Invalid confirmation input",
+      "emailNotRegistered": "This email is not registered",
+      "passwordNotSet": "Password has not been set for this account",
+      "systemUser": "This is a system user account",
+      "alreadyRegistered": "This email is already registered",
+      "passwordIncorrect": "The password is incorrect",
+      "tokenInvalid": "The token is invalid or has expired",
+      "passwordAlreadyExists": "Password has already been set for this account",
+      "verificationCodeInvalid": "The verification code is invalid or has expired",
+      "newEmailSameAsCurrentEmail": "The new email address is the same as the current one",
+      "emailAlreadyRegistered": "This email address is already registered",
+      "waitlistNotEnabled": "The waitlist feature is not enabled",
+      "emailOrPasswordIncorrect": "Email or password is incorrect",
+      "accountDeactivated": "This account has been deactivated by the administrator",
+      "accountLockedOut": "Your account has been locked due to too many failed login attempts. Please try again later."
+    },
+    "automation": {
+      "buttonClickTriggerDuplicated": "このボタンフィールドはすでに {{name}}[{{id}}] この自動化プロセスにバインドされています。別のボタンフィールドを選択してください",
+      "triggerNotFound": "自動化にはトリガーノードが必要です",
+      "nodeNotFound": "{{nodeId}} ノードが見つかりません",
+      "triggerTestFailed": "トリガーテストが失敗しました。トリガーの設定を確認してください",
+      "testFailed": "自動化テストが失敗しました。自動化設定を確認してください",
+      "runFailed": "自動化の実行に失敗しました",
+      "nodeParseError": "{{name}} ノード設定が不完全またはエラーがあります。ノード設定を確認してください",
+      "nodeNeedTest": "{{name}} ノードはテストが必要です",
+      "nodeTestOutdated": "{{name}} ノードのテストは古くなっています",
+      "notFound": "自動化が見つかりません",
+      "currentSnapshotEmpty": "自動化の現在のスナップショットが空です",
+      "runNotFound": "自動化の実行が見つかりません",
+      "anchorNotFound": "アンカー自動化が見つかりません",
+      "validationError": "自動化設定の検証エラー",
+      "tableNotInBase": "あなたのデータベース内のテーブルのみを購読できます",
+      "alreadyActiveAndNotDraft": "自動化は既にアクティブでドラフトではありません",
+      "noActiveSnapshot": "自動化にアクティブなスナップショットがありません",
+      "onlyFailedRunsCanRerun": "失敗した実行のみ再実行できます",
+      "workflowMustBeActiveToRerun": "再実行するにはワークフローが有効である必要があります",
+      "snapshotChangedOnlyFullRerun": "この実行以降にワークフローが変更されました。完全な再実行のみ許可されています。",
+      "controlStepsMissingOnlyFullRerun": "この実行のコントロールノードデータが見つかりません。完全な再実行のみサポートされています。",
+      "triggerNodeAlreadyExists": "この自動化には既にトリガーノードがあります",
+      "generateLogicError": "ロジックノードの生成エラー",
+      "logicNotFound": "自動化ロジックノードが見つかりません",
+      "actionNotFound": "自動化アクションノードが見つかりません",
+      "unSupportDuplicateWorkflowNodeType": "この自動化ノードタイプの複製はサポートされていません",
+      "unSupportLogicType": "サポートされていないロジックタイプ",
+      "groupEndNotFound": "ロジックのGroupEndが見つかりません",
+      "insertNodeError": "ノード挿入エラー",
+      "controlNodeNotBeTested": "制御ノードはテストすべきではありません",
+      "invalidNodeType": "無効なノードタイプ",
+      "unsupportedCategory": "サポートされていないカテゴリ",
+      "unknownConnectionType": "不明なメール接続タイプ",
+      "imapPasswordNotConfigured": "IMAPパスワードが設定されていません",
+      "integrationNotFound": "インテグレーションが見つからないか、資格情報がありません",
+      "webhookTriggerNotFound": "Webhookトリガーが見つかりません",
+      "emailReceivedTriggerNotFound": "メール受信トリガーが見つかりません",
+      "emailConnectorNotAvailable": "メールコネクタサービスが利用できません",
+      "listMailboxesFailed": "メールボックス一覧の取得に失敗しました: {{detail}}"
+    },
+    "scrape": {
+      "unknownDataset": "不明なデータセット：{{datasetId}}",
+      "apiKeyNotConfigured": "スクレイプサービスが設定されていません",
+      "triggerFailed": "スクレイプトリガーに失敗しました：{{detail}}",
+      "snapshotError": "スクレイプスナップショットエラー：{{detail}}",
+      "timeout": "スクレイプが{{seconds}}秒後にタイムアウトしました"
+    },
+    "integration": {
+      "oauthCodeExchangeFailed": "OAuthコードの交換に失敗しました：{{detail}}",
+      "oauthTokenRefreshFailed": "OAuthトークンの更新に失敗しました：{{detail}}",
+      "userInfoFetchFailed": "ユーザー情報の取得に失敗しました：{{detail}}"
+    },
+    "space": {
+      "notFound": "スペースが見つかりません",
+      "noPermission": "このスペースにアクセスする権限がありません",
+      "disallowSpaceCreation": "管理者によってスペースの作成が無効化されています",
+      "cannotChangeOnlyOwnerRole": "スペースの唯一の所有者のロールを変更できません",
+      "cannotDeleteOnlyOwner": "スペースの唯一の所有者を削除できません",
+      "deleted": "スペースが削除されました",
+      "cannotOperate": "スペースで操作できません、スペースに組織メンバーがいて所有者であることを確認してください",
+      "notBelongToOrg": "このスペースは組織に属していません",
+      "invalidSpaceIds": "スペースIDが無効です: {{spaceIds}}",
+      "freeOwnedSpaceLimitExceeded": "You have reached the maximum number of free spaces you can own ({{max}}). Please upgrade an existing space or delete one to create a new free space.",
+      "freeOwnedSpaceLimitExceededOther": "{{name}} has reached the maximum number of free spaces they can own ({{max}})."
+    },
+    "base": {
+      "notFound": "ベース が見つかりません",
+      "cannotAccess": "ベース {{baseId}} にアクセスする権限がありません",
+      "anchorNotFound": "アンカーベース {{anchorId}} が見つかりません",
+      "baseAndSpaceMismatch": "ベース {{baseId}} とスペース {{spaceId}} が一致しません",
+      "templateNotFound": "テンプレート {{templateId}} が見つかりません"
+    },
+    "baseNode": {
+      "baseIdIsRequired": "ベースIDが必要です",
+      "nodeIdIsRequired": "ノードIDが必要です",
+      "invalidResourceType": "無効なリソースタイプ",
+      "notFound": "ベースノードが見つかりません",
+      "parentMustBeFolder": "親はフォルダーである必要があります",
+      "cannotDuplicateFolder": "フォルダーを複製できません",
+      "cannotDeleteEmptyFolder": "フォルダーが空ではないため削除できません",
+      "onlyOneOfParentIdOrAnchorIdRequired": "parentId または anchorId のいずれか一方のみを指定してください",
+      "cannotMoveToItself": "ノードを自分自身に移動できません",
+      "cannotMoveToCircularReference": "ノードを自身の子ノードに移動できません（循環参照）",
+      "anchorIdOrParentIdRequired": "parentId または anchorId のいずれかを指定する必要があります",
+      "parentNotFound": "親ノードが見つかりません",
+      "parentIsNotFolder": "親がフォルダーではありません",
+      "circularReference": "循環参照が検出されました",
+      "folderDepthLimitExceeded": "フォルダーの深さ制限を超えました",
+      "folderNotFound": "フォルダーが見つかりません",
+      "anchorNotFound": "アンカーノードが見つかりません",
+      "nameAlreadyExists": "名前がすでに存在します"
+    },
+    "dashboard": {
+      "notFound": "ダッシュボードが見つかりません"
+    },
+    "plugin": {
+      "notFound": "プラグインが見つかりません",
+      "notSupportInstallInView": "プラグインはビューへのインストールをサポートしていません",
+      "userNotFound": "プラグインユーザーが見つかりません",
+      "invalidSecret": "無効なシークレット",
+      "invalidRefreshToken": "無効なリフレッシュトークン",
+      "anomalousToken": "異常なトークン"
+    },
+    "pluginPanel": {
+      "notFound": "プラグインパネルが見つかりません"
+    },
+    "pluginInstall": {
+      "notFound": "プラグインがインストールされていません"
+    },
+    "share": {
+      "incorrectPassword": "パスワードが正しくありません",
+      "notAllowedToSubmit": "フォームの送信は許可されていません",
+      "notAllowedToEdit": "この共有では編集は許可されていません",
+      "viewRequired": "この操作にはビューが必要です",
+      "hiddenFieldsSubmissionNotAllowed": "非表示フィールドが含まれている場合、フォームの送信は許可されません",
+      "submitRecordsError": "レコードの送信に失敗しました",
+      "notAllowedToCopy": "コピー操作は許可されていません",
+      "fieldHiddenNotAllowed": "フィールドは非表示でアクセスできません",
+      "fieldTypeNotLinkField": "フィールドはリンクフィールドではありません",
+      "fieldIdRequired": "フィールドIDが必要です",
+      "fieldNotUserRelatedField": "フィールドはユーザー関連フィールドではありません",
+      "viewTypeNotAllowed": "このビュータイプはこの操作では許可されていません"
+    },
+    "shareAuth": {
+      "passwordRestrictionNotEnabled": "この共有ビューではパスワード制限が有効になっていません",
+      "shareViewNotFound": "共有ビューが見つからないか、共有が無効になっています",
+      "linkFieldNotFound": "リンクフィールドが見つかりません",
+      "loginRequired": "この共有ビューを編集するにはサインインしてください"
+    },
+    "baseShare": {
+      "notFound": "ベース共有が見つからないか、共有が無効になっています",
+      "alreadyExists": "このノードには既に共有が存在します",
+      "copyNotAllowed": "この共有ではコピーが許可されていません"
+    },
+    "shareSocket": {
+      "viewPermissionNotAllowed": "このビューにアクセスする権限がありません",
+      "fieldPermissionNotAllowed": "これらのフィールドにアクセスする権限がありません",
+      "recordPermissionNotAllowed": "これらのレコードにアクセスする権限がありません"
+    },
+    "pluginContextMenu": {
+      "notFound": "プラグインコンテキストメニューが見つかりません",
+      "anchorNotFound": "プラグインコンテキストメニューのアンカーが見つかりません"
+    },
+    "pluginChart": {
+      "queryNotFound": "プラグインチャートのクエリが見つかりません"
+    },
+    "dbConnection": {
+      "unsupportedDriver": "サポートされていないデータベースドライバー: {{driver}}",
+      "onlyOwnerCanRemove": "ベース {{baseId}} のデータベース接続を削除できるのはベース所有者のみです",
+      "onlyOwnerCanCreate": "ベース {{baseId}} のデータベース接続を作成できるのはベース所有者のみです",
+      "roleNotExist": "データベースロール {{role}} は存在しません"
+    },
+    "baseQuery": {
+      "queryFailed": "クエリが失敗しました: {{message}}",
+      "invalidJoinType": "無効な結合タイプ: {{joinType}}",
+      "tableNotFound": "ベース {{baseId}} にテーブル {{tableId}} が見つかりません"
+    },
+    "baseSqlExecutor": {
+      "notAllowedToExecuteSqlWithKeyword": "キーワード {{keyword}} を含むSQLの実行は許可されていません",
+      "whiteListCheckError": "テーブルアクセスの確認中にエラーが発生しました: {{message}}",
+      "databaseConnectionFailed": "データベース接続に失敗しました: {{message}}",
+      "executeQuerySqlFailed": "クエリSQLの実行に失敗しました: {{message}}",
+      "sqlSyntaxError": "SQL構文エラーです。クエリを確認してください"
+    },
+    "permission": {
+      "createRecordWithDeniedFields": "フィールド({{fields}})を含むレコードを作成する権限がありません",
+      "deleteRecords": "レコード({{recordIds}})を削除する権限がありません",
+      "readRecordWithDeniedFields": "レコード({{recordId}})のフィールド({{fields}})を読み取る権限がありません",
+      "updateRecordWithDeniedFields": "レコード({{recordId}})のフィールド({{fields}})を更新する権限がありません",
+      "checkIdNotExist": "権限チェックIDが存在しません",
+      "userNotAdmin": "ユーザーは管理者ではありません",
+      "accessTokenNoPermission": "アクセストークンには必要な権限がありません",
+      "invalidResource": "リソースが無効です",
+      "notAllowedSpace": "このスペースにアクセスする権限がありません",
+      "notAllowedBase": "このベースにアクセスする権限がありません",
+      "notAllowedTables": "このテーブル({{tableIds}})にアクセスする権限がありません",
+      "notAllowedOperationTable": "このテーブルを操作する権限がありません",
+      "notAllowedOperationRecord": "このレコードを操作する権限がありません",
+      "notAllowedRecordUpdate": "このレコードを更新する権限がありません",
+      "notAllowedOperationView": "このビューを操作する権限がありません",
+      "deniedByEnabledAuthorityMatrix": "有効な権限マトリックスにより拒否されました",
+      "invalidRequestPath": "リクエストパスが無効です",
+      "notAllowedOperation": "この操作を実行する権限がありません",
+      "notAllowedDepartment": "この部門にアクセスする権限がありません"
+    },
+    "authorityMatrix": {
+      "defaultRoleNotFound": "デフォルトのロールが見つかりません",
+      "alreadyDisabled": "権限マトリックスは既に無効になっています",
+      "alreadyEnabled": "権限マトリックスは既に有効になっています",
+      "notFound": "権限マトリックスが見つかりません",
+      "primaryFieldCannotBeDisabledForRead": "主フィールドは読み取りアクセスを無効にできません",
+      "fieldDuplicated": "権限設定でフィールドが重複しています",
+      "cannotSetRecordPermissionGroup": "このレコード権限の組み合わせ({{actions}})を設定できません",
+      "notFoundBaseAndTable": "ベースIDとテーブルIDが見つかりません",
+      "roleTablesShouldNotBeEmpty": "権限マトリックスのロールテーブルは空にできません"
+    },
+    "selection": {
+      "invalidReturnType": "無効な戻り値の型",
+      "exceedMaxReadRows": "最大読み取り行数の制限を超えました",
+      "invalidCellValueType": "無効なセル値の型",
+      "exceedMaxCopyCells": "最大コピーセル数の制限を超えました",
+      "exceedMaxPasteCells": "最大貼り付けセル数の制限を超えました"
+    },
+    "field": {
+      "unsupportedFieldType": "サポートされていないフィールドタイプ {{type}}",
+      "unsupportedPrimaryFieldType": "プライマリフィールドとしてサポートされていないフィールドタイプ {{type}}",
+      "primaryFieldNotSupported": "フィールドタイプはプライマリフィールドとしてサポートされていません",
+      "calculateRecordNotFound": "レコードが見つかりません: {{value}}、fieldId: {{fieldId}}、{{recordId}} の計算時",
+      "toRecordIdsOrFromRecordIdsRequired": "通常の計算フィールドには toRecordIds または fromRecordIds が必要です",
+      "recordFieldsRequired": "レコードフィールドが未定義です",
+      "uniqueUnsupportedType": "フィールド {{name}}[{{fieldId}}] はフィールド値の一意性検証をサポートしていません",
+      "notNullValidationWhenCreateField": "フィールド {{name}}[{{fieldId}}] は新しいフィールドの作成時に非NULL検証をサポートしていません",
+      "dbFieldNameAlreadyExists": "データベースフィールド名 {{dbFieldName}} は既に存在します",
+      "fieldValidationError": "フィールド {{name}}[{{fieldId}}] フィールド検証エラー",
+      "fieldNameAlreadyExists": "フィールド名 {{name}} は既に存在します",
+      "notFound": "フィールド が見つかりません",
+      "fieldKeyTypeNotFound": "フィールド \"{{fieldKeyType}}: {{missedFields}}\" が見つかりません",
+      "notFoundInTable": "フィールド {{fieldId}} がテーブル {{tableId}} に見つかりません",
+      "deleteFieldsNotFound": "削除するフィールド {{fieldIds}} がテーブル {{tableId}} に見つかりません",
+      "lookupValuesShouldBeArray": "リンクフィールドが複数のセル値を持つ場合、lookupValues は配列である必要があります",
+      "linkCellValuesShouldBeArray": "リンクフィールドが複数のセル値を持つ場合、linkCellValues は配列である必要があります",
+      "lookupAndLinkLengthMatch": "lookupValues の長さは linkCellValues の長さと同じである必要があります",
+      "cycleDetected": "循環が検出されました",
+      "cycleDetectedCreateField": "循環が検出されました、フィールド {{name}}[{{id}}] を作成できません",
+      "recordMapNotFound": "テーブル {{tableName}} のフィールド {{fieldName}} のレコードが見つかりません",
+      "forbidDeletePrimaryField": "プライマリフィールドの削除は禁止されています",
+      "foreignTableIdInvalid": "外部テーブル {{foreignTableId}} が無効です",
+      "crossSpaceLinkForbidden": "クロススペース参照はサポートされていません。同じスペース内のテーブルを選択してください（対象 {{foreignTableId}} は別のスペースにあります）。",
+      "relationshipInvalid": "リレーションシップ {{relationship}} が無効です",
+      "linkFieldIdInvalid": "リンクフィールド {{linkFieldId}} が無効です",
+      "lookupFieldIdInvalid": "ルックアップフィールド {{lookupFieldId}} が無効です",
+      "formulaExpressionParseError": "数式の式の解析エラー",
+      "formulaReferenceNotFound": "数式参照フィールド {{fieldIds}} が見つかりません",
+      "rollupExpressionParseError": "ロールアップ式の解析エラー",
+      "choiceNameAlreadyExists": "選択肢名 {{name}} は既に存在します",
+      "symmetricFieldIdRequired": "対称フィールドIDが必要です",
+      "foreignKeyNameCannotUseId": "外部キー名に __id は使用できません",
+      "createForeignKeyError": "外部キーの作成エラー",
+      "lookupFieldTypeNotEqual": "現在のフィールドタイプ {{fieldType}} はルックアップフィールドタイプ {{lookupFieldType}} と等しくありません",
+      "recordNotFound": "レコード {{recordId}} が {{tableId}} に見つかりません",
+      "linkCellRecordIdAlreadyExists": "同じセルに重複した recordId を設定できません: {{recordId}}",
+      "oneOneLinkCellValueCannotBeArray": "1対1リンクフィールドの値は配列にできません",
+      "manyOneLinkCellValueCannotBeArray": "多対1リンクフィールドの値は配列にできません",
+      "foreignKeyDuplicate": "外部キーが重複しています",
+      "linkConsistencyError": "整合性エラー、recordId {{recordId}} が存在しません",
+      "oneManyLinkCellValueShouldBeArray": "1対多リンクフィールドの値は配列である必要があります",
+      "manyManyLinkCellValueShouldBeArray": "多対多リンクフィールドの値は配列である必要があります",
+      "onlyLinkFieldCanBeFiltered": "リンクフィールドのみフィルタリングに使用できます",
+      "notLinkedToCurrentTable": "フィールドは現在のテーブルにリンクされていません",
+      "notAttachment": "フィールドは添付ファイルフィールドではありません",
+      "isComputed": "フィールドは計算されており、変更できません",
+      "notFoundAICofig": "フィールドにAI設定がありません",
+      "foreignTableIdRequired": "外部テーブルは必須です",
+      "lookupFieldIdRequired": "参照フィールドは必須です",
+      "lookupFieldNotExist": "参照フィールド {{lookupFieldId}} が存在しません",
+      "lookupFieldNotBelongToTable": "参照フィールド {{lookupFieldId}} はテーブル {{foreignTableId}} に属していません",
+      "lookupFieldTypeNotMatch": "現在のフィールドタイプ {{fieldType}} は参照フィールドタイプ {{lookupFieldType}} と一致しません",
+      "conditionalRollupOptionsRequired": "条件付き集約フィールドのオプションは必須です",
+      "conditionalRollupParseError": "条件付き集約の解析エラー：{{message}}",
+      "conditionalLookupOptionsRequired": "条件付き検索フィールドのオプションは必須です",
+      "button": {
+        "clickCountReachedMaxCount": "ボタンのクリック数が最大制限に達しました",
+        "notSupportReset": "ボタンはリセットをサポートしていません"
+      },
+      "primaryCannotBeLookup": "主フィールドを Lookup フィールドとして設定することはできません",
+      "primaryFieldAlreadyExists": "テーブルには既に主フィールドがあります"
+    },
+    "view": {
+      "notFound": "ビューが見つかりません",
+      "defaultViewNotFound": "デフォルトビューが見つかりません",
+      "propertyParseError": "ビュープロパティの解析に失敗しました",
+      "primaryFieldCannotBeHidden": "プライマリフィールドを非表示にできません",
+      "filterUnsupportedFieldType": "フィルターでサポートされていないフィールドタイプ",
+      "sortUnsupportedFieldType": "ソートでサポートされていないフィールドタイプ",
+      "groupUnsupportedFieldType": "グループ化でサポートされていないフィールドタイプ",
+      "anchorNotFound": "アンカービューが見つかりません",
+      "notEnoughGapToShuffleRow": "行をシャッフルするための十分なギャップがありません",
+      "shareNotEnabled": "ビュー共有が有効になっていません",
+      "shareAlreadyEnabled": "ビュー共有はすでに有効になっています",
+      "shareAlreadyDisabled": "ビュー共有はすでに無効になっています"
+    },
+    "billing": {
+      "insufficientCredit": "クレジット不足",
+      "exceedMaxRowLimit": "最大行数制限 {{maxRowCount}} を超えました",
+      "exceedMaxAutomationRunLimit": "自動化の月間最大実行回数に達しました",
+      "manualSubscriptionNotSupported": "このスペースではセルフサービスのサブスクリプション操作をご利用いただけません。アップグレード、ダウングレード、その他のサブスクリプション変更については、Teableサポートまでお問い合わせください。",
+      "appSumoSubscriptionNotSupported": "AppSumoのサブスクリプションはこのインターフェースから変更できません。AppSumoでサブスクリプションを管理してください。",
+      "customerNotFound": "このスペースの請求顧客レコードが見つかりません。"
+    },
+    "aggregation": {
+      "searchQueryRequired": "検索クエリが必要です",
+      "maxSearchIndexResult": "最大検索インデックス結果は 1000 です",
+      "queryCollectionMustBeTableId": "クエリコレクションはテーブル ID でなければなりません",
+      "searchTimeOut": "検索が期限切れ、検索範囲を狭めて再試行してください。",
+      "indexNotFound": "インデックスが見つかりません",
+      "invalidStartDateFieldId": "無効な開始日フィールド ID",
+      "invalidEndDateFieldId": "無効な終了日フィールド ID",
+      "fieldMapRequired": "検索が設定されている場合、フィールドマップが必要です",
+      "filterLinkCellQueryConflict": "filterLinkCellSelectedとfilterLinkCellCandidateは同時に設定できません"
+    },
+    "ai": {
+      "chatModelLgNotSet": "AI チャットモデル lg が設定されていません",
+      "chatModelLgProviderNotSet": "AI チャットモデル lg プロバイダーが設定されていません",
+      "chatModelSmNotSet": "AI チャットモデル sm が設定されていません",
+      "chatModelMdNotSet": "AI チャットモデル md が設定されていません",
+      "configurationNotSet": "AI 設定が設定されていません",
+      "unsupportedProvider": "サポートされていない AI プロバイダー {{type}}",
+      "providerConfigurationNotSet": "AI プロバイダー設定が設定されていません",
+      "testLLMFailed": "LLM 接続テストに失敗しました",
+      "audioNotSupported": "このモデル {{model}} はオーディオ入力をサポートしていません",
+      "imageNotSupported": "このモデル {{model}} は画像入力をサポートしていません",
+      "modelNotSet": "AIモデルが設定されていません",
+      "unsupportedFileType": "サポートされていないファイルタイプ {{mimetype}}",
+      "unsupportedModelType": "サポートされていないモデルタイプ",
+      "embeddingModelNotSet": "埋め込みモデルが設定されていません",
+      "validateActionFailed": "フィールドAIアクションの検証に失敗しました",
+      "generateFailed": "AI生成に失敗しました",
+      "unsupportedActionType": "サポートされていないAIアクションタイプです"
+    },
+    "skill": {
+      "notFound": "スキルが見つかりません",
+      "onlyGithubCanSync": "GitHub由来のスキルのみ同期できます",
+      "syncFailed": "同期に失敗しました: {{errorCode}}",
+      "skillMdNotFoundAtSource": "ソースの場所にSKILL.mdが見つかりません",
+      "slugChangedUpstream": "スキルのスラッグが上流で\"{{oldSlug}}\"から\"{{newSlug}}\"に変更されました。新しいスラッグを採用するには、削除して再インポートしてください。",
+      "skillMdNotFoundAtPath": "{{path}}/SKILL.md にSKILL.mdが見つかりません",
+      "invalidSkillFile": "無効なスキルファイルです。.skill または .zip アーカイブが必要です",
+      "tooManyResourceFiles": "スキルに含まれるファイルが多すぎます（最大 {{max}}）",
+      "noSkillMdInPackage": "スキルパッケージ内にSKILL.mdが見つかりません",
+      "multipleSkillMdInPackage": "同じ階層に{{count}}個のSKILL.mdファイルが見つかりました。パッケージには1つのスキルのみ含めてください。",
+      "invalidResourcePaths": "無効なリソースパス: {{paths}}",
+      "nameFieldRequired": "SKILL.mdのフロントマターに\"name\"フィールドが必要です",
+      "invalidSlugFormat": "スキルのスラッグは小文字の英数字とハイフンのみ使用できます",
+      "filesExceedSizeLimit": "ファイルが{{maxSizeKB}}KBの制限を超えています: {{files}}",
+      "binaryFilesNotAllowed": "バイナリファイルは許可されていません: {{files}}",
+      "totalSizeExceedsLimit": "リソースの合計サイズが{{maxSizeMB}}MBの制限を超えています",
+      "invalidGithubUrl": "無効なGitHub URLです。期待される形式: https://github.com/owner/repo/tree/<branch>/path/to/skill",
+      "directoryTooDeep": "スキルディレクトリが最大深度{{maxDepth}}レベルを超えています。ネストされたディレクトリ: {{dirs}}",
+      "importFailed": "インポートに失敗しました：{{errorCode}}"
+    },
+    "sandbox": {
+      "fileNotFound": "サンドボックス内にファイルが見つかりません",
+      "onlyRegularFiles": "通常ファイルのみダウンロードできます",
+      "fileTooLarge": "ファイルが大きすぎてダウンロードできません（最大 {{max}} バイト）",
+      "cannotDeleteRoot": "uploads/outputs のルートフォルダーは削除できません",
+      "deleteFailed": "ファイルの削除に失敗しました",
+      "uploadFailed": "サンドボックスへのファイルのアップロードに失敗しました",
+      "fileEndpointUnavailable": "サンドボックスは到達可能なファイルエンドポイントを公開していません",
+      "invalidPath": "無効なファイルパスです: サンドボックスの uploads または outputs ディレクトリ内である必要があります",
+      "tooManyDownloads": "ダウンロードのリクエストが多すぎます",
+      "dailyLimitExceeded": "1日のダウンロードサイズの上限を超えました",
+      "storageFull": "サンドボックスのストレージがいっぱいです",
+      "tooManyFiles": "1 つのメッセージにつき最大 {{max}} 個のファイルまで添付できます",
+      "noActiveSandbox": "アクティブなサンドボックスが見つかりません"
+    },
+    "role": {
+      "notFound": "ロールが見つかりません"
+    },
+    "collaborator": {
+      "alreadyExisted": "コラボレーターは既に存在しています",
+      "notFound": "コラボレーターが見つかりません",
+      "userNotFoundInCollaborator": "コラボレーターにユーザーが見つかりません",
+      "noPermissionToDelete": "このコラボレーターを削除する権限がありません",
+      "noPermissionToUpdate": "このコラボレーターを更新する権限がありません",
+      "noPermissionToOperateRole": "この役割を操作する権限がありません",
+      "alreadyExistedInBase": "コラボレーターは既にデータベースに存在しています",
+      "userNotFound": "ユーザーが見つかりません：{{userIds}}",
+      "baseNotFound": "データベースが見つかりません",
+      "noPermissionToAddRole": "この役割のコラボレーターを追加する権限がありません",
+      "departmentNotFound": "部署が見つかりません"
+    },
+    "table": {
+      "notFound": "テーブルが見つかりません",
+      "dbTableNameAlreadyExists": "データベーステーブル名は既に存在します",
+      "anchorNotFound": "アンカーテーブルが見つかりません",
+      "notInTrash": "テーブルはごみ箱にありません",
+      "notSupportTableIndex": "テーブルインデックスタイプはサポートされていません",
+      "createTableIndexError": "テーブルインデックスの作成に失敗しました",
+      "dropTableIndexError": "テーブルインデックスの削除に失敗しました",
+      "notFoundPrimaryField": "テーブル内にプライマリフィールドが見つかりません"
+    },
+    "export": {
+      "notSupportViewType": "{{viewType}} ビュータイプはエクスポートに対応していません"
+    },
+    "import": {
+      "notSupportedFileFormat": "ファイル形式がサポートされていません。{{supportType}} のみがサポートされており、ファイルのコンテンツタイプは {{fileFormat}} です",
+      "notSupportedFileType": "インポートファイルタイプがサポートされていません",
+      "exceedMaxFieldsLength": "テーブル内のフィールド数は {{maxFieldsLength}} を超えることができません。現在は {{length}} です",
+      "tooManyConcurrentImports": "Too many import tasks in progress ({{current}}/{{max}}). Please try again later."
+    },
+    "invitation": {
+      "disallowSpaceInvitation": "現在のインスタンスでは、管理者によるスペース招待が許可されていません",
+      "invalidCode": "無効な招待コード",
+      "linkNotFound": "招待リンクが見つかりません",
+      "linkExpired": "招待リンクの有効期限が切れています",
+      "limitExceeded": "1時間あたりの最大招待数に達しました"
+    },
+    "pin": {
+      "alreadyExists": "お気に入りは既に存在します",
+      "notFound": "お気に入りが見つかりません",
+      "anchorNotFound": "アンカーお気に入りが見つかりません"
+    },
+    "trash": {
+      "invalidResourceType": "無効なリソースタイプ",
+      "notFound": "ゴミ箱のアイテムが見つかりません",
+      "parentSpaceTrashed": "親スペースもゴミ箱にあるため、このベースを復元できません",
+      "parentBaseOrSpaceTrashed": "親ベースまたはスペースもゴミ箱にあるため、このテーブルを復元できません",
+      "parentBaseTrashed": "親ベースもゴミ箱にあるため、このアイテムを復元できません",
+      "parentNotFound": "親リソースが見つかりません",
+      "tableNotFound": "テーブルのゴミ箱アイテムが見つかりません"
+    },
+    "license": {
+      "invalid": "ライセンスが無効です",
+      "instanceIdMismatch": "入力されたインスタンスIDが現在のインスタンスIDと一致しません",
+      "expired": "ライセンスの有効期限が切れています",
+      "userLimitExceeded": "現在のインスタンスのユーザー数がライセンスのシート制限を超えています。一部のユーザーを無効化するか、ライセンスをアップグレードしてください"
+    },
+    "domainVerification": {
+      "notFound": "ドメイン認証コードが見つかりません",
+      "invalidCode": "認証コードが無効です",
+      "resendCooldown": "新しいコードをリクエストする前に1分間お待ちください"
+    },
+    "organization": {
+      "notFound": "組織が見つかりません",
+      "authenticationNotFound": "認証が見つかりません",
+      "spaceShouldExist": "組織スペースが存在する必要があります",
+      "emailsNotInOrgDomain": "これらのメールアドレス {{emails}} は組織のドメインにありません",
+      "emailNotSpaceUser": "メールアドレスはスペースユーザーではありません"
+    },
+    "mail": {
+      "failedToSendEmail": "メール送信に失敗しました"
+    },
+    "user": {
+      "disallowSignUp": "現在のインスタンスでは、管理者によるサインアップが許可されていません",
+      "emailDomainBanned": "このメールドメインは規約違反のため利用が禁止されています",
+      "waitlistInviteCodeRequired": "待機リストが有効になっています、招待コードが必要です",
+      "waitlistInviteCodeInvalid": "待機リストが有効になっています、招待コードが無効です",
+      "systemUser": "ユーザーはシステムユーザーです",
+      "collaboratorsInSpaces": "ユーザーはスペース内に協力者がいます（またはゴミ箱内に削除されたスペース）",
+      "notFound": "ユーザーが見つかりません",
+      "cannotDeleteAdmin": "管理者ユーザーを削除できません",
+      "cannotDeactivateAdmin": "管理者ユーザーを無効化できません",
+      "cannotRemoveLastAdmin": "最後のアクティブな管理者ユーザーから管理者権限を削除できません",
+      "permanentDeleted": "ユーザーは完全に削除されています",
+      "cannotDeleteSelf": "自分自身を削除することはできません",
+      "alreadyInDepartment": "ユーザー{{userId}}は既に対象部門にいます",
+      "emailsNotFound": "メールアドレス{{emails}}が見つかりません",
+      "deleted": "ユーザー{{userId}}が削除されています",
+      "alreadyInOrg": "ユーザー{{userId}}は既に組織にいます",
+      "notInOrg": "ユーザー{{userId}}は組織にいません"
+    },
+    "record": {
+      "notFound": "レコードが見つかりません",
+      "deletedIdsNotFound": "削除するレコードの一部が見つかりません",
+      "updateFailed": "レコードの更新に失敗しました",
+      "noFileOrUrlProvided": "ファイルまたはURLが提供されていません",
+      "createRecordsEmpty": "レコードの作成を空にすることはできません",
+      "duplicateFailed": "レコードの複製に失敗しました"
+    },
+    "typecast": {
+      "cellValueValidationFailed": "セル値の検証に失敗しました"
+    },
+    "workflow": {
+      "notActive": "自動化が開いていません"
+    },
+    "lastVisit": {
+      "invalidResourceType": "無効なリソースタイプ"
+    },
+    "template": {
+      "categoryNotFound": "テンプレートカテゴリが見つかりません",
+      "snapshotRequired": "スナップショットがないため、このテンプレートを公開できませんでした",
+      "sourceTemplateNotFound": "ソーステンプレートが見つかりません",
+      "noMinOrderFound": "最小順序が見つかりません",
+      "takeCountTooLarge": "リクエストされたテンプレートの数が最大制限を超えています",
+      "categoryLimitReached": "テンプレートカテゴリの上限に達しました（最大 {{maxCount}} 件）"
+    },
+    "department": {
+      "parentNotFound": "親部門が見つかりません",
+      "notFound": "部門が見つかりません",
+      "cannotMoveToItself": "部門を自分自身に移動することはできません",
+      "cannotMoveToSub": "部門をその子部門に移動することはできません"
+    },
+    "app": {
+      "notFound": "アプリが見つかりません",
+      "noFilesToUpdate": "更新するファイルがありません",
+      "noChatIdFound": "このアプリにチャットIDが見つかりません",
+      "noChatFound": "このアプリにチャットが見つかりません",
+      "versionNotFound": "バージョンが見つかりません",
+      "cannotRollbackToLatestVersion": "最新バージョンにロールバックできません",
+      "noChatOrProjectTokenFound": "チャットまたはプロジェクトトークンが見つかりません",
+      "apiKeyNotSet": "アプリビルダーAPIキーが設定されていません",
+      "cannotDeployAppBeforeInitialization": "初期化前にアプリをデプロイできません",
+      "noProjectOrVersionFound": "プロジェクトまたはバージョンが見つかりません",
+      "noDeploymentUrlAvailable": "デプロイURLが利用できません"
+    },
+    "reward": {
+      "notFound": "リワードが見つかりません",
+      "unsupportedSourceType": "サポートされていないリワードソースタイプです",
+      "maxClaimsReached": "今週のリワード請求上限（2回）に達しました",
+      "verificationFailed": "検証に失敗しました: {{errors}}",
+      "alreadyClaimedThisWeek": "今週すでにこのアカウントのリワードを請求しています",
+      "invalidPostUrl": "投稿URLの形式が無効です",
+      "postAlreadyUsed": "この投稿はすでにリワードの請求に使用されています",
+      "unsupportedPlatformUrl": "サポートされていないソーシャルプラットフォームのURLです",
+      "unsupportedPlatform": "サポートされていないプラットフォーム: {{platform}}",
+      "minCharCount": "投稿は少なくとも{{count}}文字必要です",
+      "minFollowerCount": "アカウントには少なくとも{{count}}人のフォロワーが必要です",
+      "mustMention": "投稿には{{mention}}へのメンションが必要です",
+      "fetchTweetFailed": "Xツイートの取得に失敗しました: {{error}}",
+      "tweetNotFound": "Xツイートが見つかりません: {{postId}}",
+      "fetchUserFailed": "Xユーザーの取得に失敗しました: {{error}}",
+      "xUserNotFound": "Xユーザーが見つかりません: {{username}}",
+      "fetchLinkedInPostFailed": "LinkedIn投稿の取得に失敗しました: {{error}}",
+      "linkedInPostNotFound": "LinkedIn投稿が見つかりません: {{postId}}",
+      "linkedInAuthorNotFound": "LinkedIn投稿者が見つかりません: {{postId}}",
+      "fetchLinkedInUserFailed": "LinkedInユーザーの取得に失敗しました: {{error}}",
+      "domainAlreadyInUse": "このドメインはすでに別のアプリに紐付けられています",
+      "domainReserved": "サブドメインは予約済みです"
+    }
+  }
+}

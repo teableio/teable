@@ -1,0 +1,1030 @@
+import {
+  domainError,
+  type ILogger,
+  isDomainError,
+  v2CoreTokens,
+  type DomainError,
+  FieldType,
+  type IExecutionContext,
+  type IRecordReadQuerySource,
+  type IRecordSearchAccessPathResolution,
+  type ITableRecordQueryRepository,
+  RecordByIdSpec,
+  type ITableRecordQueryOptions,
+  type ITableRecordQueryResult,
+  type ITableRecordQueryStreamOptions,
+  type RecordId,
+  type ISpecification,
+  type ITableRecordConditionSpecVisitor,
+  type Table,
+  type TableRecordReadModel,
+  type TableRecord,
+  type TableRecordQueryMode,
+  type ITableRecordStreamPagination,
+  type ITableRecordStreamPaginationStrategy,
+  OffsetPagination,
+  PageLimit,
+  PageOffset,
+  buildUserAvatarUrl,
+  isFieldOrderBy,
+  isSystemColumnOrderBy,
+  createSearchTraceAttributes,
+  createTableQueryTraceAttributes,
+} from '@teable/v2-core';
+import { inject, injectable } from '@teable/v2-di';
+import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
+import { CompiledQuery, sql } from 'kysely';
+import type { Expression, Kysely, SqlBool } from 'kysely';
+import { err, ok, safeTry } from 'neverthrow';
+import type { Result } from 'neverthrow';
+
+import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
+import { FieldOutputColumnVisitor } from '../query-builder';
+import type {
+  TableRecordQueryBuilderManager,
+  FieldOutputColumn,
+  DynamicDB,
+} from '../query-builder';
+import { buildRecordWhereClause } from './buildRecordWhereClause';
+import { CursorStreamPaginationStrategy } from './CursorStreamPaginationStrategy';
+import { OffsetStreamPaginationStrategy } from './OffsetStreamPaginationStrategy';
+import {
+  buildRecordSearchWhereClause,
+  buildRecordSearchWherePlan,
+} from './RecordSearchWhereBuilder';
+
+const RECORD_ID_COLUMN = '__id';
+const RECORD_VERSION_COLUMN = '__version';
+const TABLE_ALIAS = 't';
+const ORDER_COLUMN_CACHE_TTL_MS = 5_000;
+const LEGACY_AVATAR_PREFIX = '/api/attachments/read/public/avatar/';
+const TABLE_QUERY_SQL_DIAGNOSTICS_CONTEXT_KEY = Symbol.for('teable.v2.tableOps.sqlDiagnostics');
+
+type OrderColumnExistsCacheEntry = {
+  exists: boolean;
+  cachedAt: number;
+};
+
+type IExecutionContextWithTableQuerySqlDiagnostics = IExecutionContext & {
+  [TABLE_QUERY_SQL_DIAGNOSTICS_CONTEXT_KEY]?: {
+    readonly record?: (input: {
+      readonly source: string;
+      readonly sql: string;
+      readonly parameters?: ReadonlyArray<unknown>;
+    }) => void;
+  };
+};
+
+const createRecordSearchAccessPathResolution = (
+  options: ITableRecordQueryOptions | undefined,
+  used: IRecordSearchAccessPathResolution['used']
+): IRecordSearchAccessPathResolution | undefined => {
+  if (!options?.search) return undefined;
+  const requested = options.searchAccessPath?.kind ?? 'default';
+  return {
+    requested,
+    used,
+    ...(requested === 'generated_tsvector' && used === 'default'
+      ? { fallbackReason: 'generated_tsvector_unavailable' as const }
+      : {}),
+  };
+};
+
+const createRepositoryFindTraceAttributes = (
+  table: Table,
+  options: ITableRecordQueryOptions | undefined,
+  source: 'repository.record_find' | 'repository.record_count',
+  resolution?: IRecordSearchAccessPathResolution
+) => {
+  const search = options?.search?.search;
+  const usesSearchVector = Boolean(search && resolution?.used === 'generated_tsvector');
+  const searchAccessPath = !search
+    ? 'none'
+    : resolution?.fallbackReason
+      ? 'fallback'
+      : usesSearchVector
+        ? 'generated_tsvector'
+        : 'default_ilike';
+  const searchMode = usesSearchVector ? 'full_text' : search ? 'ilike' : 'none';
+
+  return {
+    ...createTableQueryTraceAttributes({
+      tableId: table.id().toString(),
+      queryKind: search ? 'search' : 'record_list',
+      querySource: source,
+      hasSort: Boolean(options?.orderBy?.length),
+      includeTotal: options?.includeTotal !== false,
+    }),
+    ...createSearchTraceAttributes({
+      searchValue: search?.value,
+      fieldCount: options?.search?.visibleFieldIds?.length,
+      allFields: search?.searchesAllFields(),
+      accessPath: searchAccessPath,
+      searchMode,
+      searchScope: search
+        ? search.searchesAllFields()
+          ? 'all_fields'
+          : 'selected_fields'
+        : 'none',
+      languageConfig:
+        usesSearchVector && options?.searchAccessPath?.kind === 'generated_tsvector'
+          ? options.searchAccessPath.languageConfig
+          : undefined,
+      fallbackReason: resolution?.fallbackReason,
+      generatedColumnName:
+        usesSearchVector && options?.searchAccessPath?.kind === 'generated_tsvector'
+          ? options.searchAccessPath.generatedColumnName
+          : undefined,
+    }),
+  };
+};
+
+@injectable()
+export class PostgresTableRecordQueryRepository implements ITableRecordQueryRepository {
+  private readonly orderColumnExistsCache = new Map<string, OrderColumnExistsCacheEntry>();
+  private readonly defaultStreamPaginationStrategy = new OffsetStreamPaginationStrategy();
+  private readonly streamPaginationStrategies: ReadonlyArray<ITableRecordStreamPaginationStrategy> =
+    [new CursorStreamPaginationStrategy(), this.defaultStreamPaginationStrategy];
+
+  constructor(
+    @inject(v2RecordRepositoryPostgresTokens.tableRecordQueryBuilderManager)
+    private readonly queryBuilderManager: TableRecordQueryBuilderManager,
+    @inject(v2RecordRepositoryPostgresTokens.db)
+    private readonly db: Kysely<V1TeableDatabase>,
+    @inject(v2CoreTokens.logger)
+    private readonly logger: ILogger
+  ) {}
+
+  async find(
+    context: IExecutionContext,
+    table: Table,
+    spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
+    options?: ITableRecordQueryOptions
+  ): Promise<Result<ITableRecordQueryResult, DomainError>> {
+    // Start tracing span for record query
+    const span = context.tracer?.startSpan(
+      'teable.repository.record.find',
+      createRepositoryFindTraceAttributes(table, options, 'repository.record_find')
+    );
+
+    const executeFind = async (): Promise<Result<ITableRecordQueryResult, DomainError>> => {
+      return await safeTry<ITableRecordQueryResult, DomainError>(
+        async function* (this: PostgresTableRecordQueryRepository) {
+          const readQuerySource = this.getRecordReadQuerySource(options);
+          // Create query builder via manager (it handles prepare)
+          const queryBuilder = yield* await this.queryBuilderManager.createBuilder(context, table, {
+            mode: resolveQueryMode(table, options?.mode),
+            sourceTableName: readQuerySource?.tableName,
+          });
+
+          if (options?.projectionFieldIds !== undefined) {
+            queryBuilder.select(options.projectionFieldIds);
+          }
+
+          const dbTableName = yield* table.dbTableName();
+          const tableName = yield* dbTableName.value();
+          const sourceTableName = readQuerySource?.tableName ?? tableName;
+          const [schemaName, tableNameOnly] = tableName.split('.');
+          const dynamicDb = this.db as unknown as Kysely<DynamicDB>;
+
+          const orderBy = options?.orderBy;
+          const explicitRecordIdsOrder = options?.recordIdsOrder;
+          if (!explicitRecordIdsOrder?.length) {
+            if (orderBy && orderBy.length > 0) {
+              for (const sort of orderBy) {
+                if (isFieldOrderBy(sort)) {
+                  // Order by user-defined field
+                  queryBuilder.orderBy(sort.fieldId, sort.direction);
+                } else if (isSystemColumnOrderBy(sort)) {
+                  // Order by system column
+                  const column = sort.column;
+                  // Check if it's a view row order column that might not exist
+                  if (column.startsWith('__row_')) {
+                    // Check if the view row order column exists
+                    const columnExists = await this.getOrderColumnExists(
+                      dynamicDb,
+                      schemaName,
+                      tableNameOnly,
+                      column
+                    );
+
+                    if (columnExists) {
+                      queryBuilder.orderBy(column as '__auto_number', sort.direction);
+                    } else {
+                      // Fall back to auto_number if view row order column doesn't exist
+                      queryBuilder.orderBy('__auto_number', 'asc');
+                    }
+                  } else {
+                    // Standard system column (e.g., __auto_number, __created_time)
+                    queryBuilder.orderBy(column as '__auto_number', sort.direction);
+                  }
+                }
+              }
+            } else {
+              // Default ordering by auto_number
+              queryBuilder.orderBy('__auto_number', 'asc');
+            }
+          }
+
+          // Apply pagination if provided
+          if (options?.pagination) {
+            queryBuilder.limit(options.pagination.limit().toNumber());
+            queryBuilder.offset(options.pagination.offset().toNumber());
+          }
+
+          // Apply filter spec if provided
+          if (spec) {
+            queryBuilder.where(spec);
+          }
+
+          const whereClause = spec
+            ? buildRecordWhereClause(spec, { tableAlias: TABLE_ALIAS })
+            : ok(null);
+          if (whereClause.isErr()) {
+            return err(whereClause.error);
+          }
+          const searchWhereSpan = context.tracer?.startSpan(
+            'teable.table.query.build_search_where',
+            createRepositoryFindTraceAttributes(table, options, 'repository.record_find')
+          );
+          const searchWherePlan = buildRecordSearchWherePlan(table, options?.search, {
+            tableAlias: TABLE_ALIAS,
+            searchAccessPath: options?.searchAccessPath,
+          });
+          if (searchWherePlan.isErr()) {
+            searchWhereSpan?.end();
+            return err(searchWherePlan.error);
+          }
+          const searchAccessPath = createRecordSearchAccessPathResolution(
+            options,
+            searchWherePlan.value.usedAccessPath
+          );
+          const actualSearchAttributes = createRepositoryFindTraceAttributes(
+            table,
+            options,
+            'repository.record_find',
+            searchAccessPath
+          );
+          searchWhereSpan?.setAttributes(actualSearchAttributes);
+          searchWhereSpan?.end();
+          span?.setAttributes(actualSearchAttributes);
+
+          // Query order columns if requested
+          let orderColumns: string[] = [];
+          if (options?.includeOrders) {
+            // Query for order columns
+            const orderColumnsResult = await sql<{ column_name: string }>`
+              SELECT column_name
+              FROM information_schema.columns
+              WHERE table_schema = ${schemaName}
+              AND table_name = ${tableNameOnly}
+              AND column_name LIKE '__row_%'
+            `.execute(dynamicDb);
+
+            orderColumns = orderColumnsResult.rows.map((r) => r.column_name);
+          }
+
+          // Build the query
+          let builtQuery = yield* queryBuilder.build();
+          if (explicitRecordIdsOrder?.length) {
+            const orderedRecordIds = explicitRecordIdsOrder.map((recordId) => recordId.toString());
+            builtQuery = builtQuery.orderBy(
+              sql`array_position(${orderedRecordIds}::text[], ${sql.ref(`${TABLE_ALIAS}.${RECORD_ID_COLUMN}`)})`
+            );
+          }
+          if (searchWherePlan.value.condition !== null) {
+            builtQuery = builtQuery.where(searchWherePlan.value.condition);
+          }
+
+          // Add order columns to the query if requested
+          if (orderColumns.length > 0) {
+            for (const col of orderColumns) {
+              builtQuery = builtQuery.select(sql.ref(`${TABLE_ALIAS}.${col}`).as(col));
+            }
+          }
+
+          const compiled = this.withRecordReadQuerySource(builtQuery.compile(), readQuerySource);
+          this.logger.debug(`find:mode:${queryBuilder.mode}:sql\n${compiled.sql}`, {
+            parameters: compiled.parameters,
+          });
+          this.recordSqlDiagnostic(context, 'record_find', compiled);
+
+          // Collect field column mappings (respect projection when provided)
+          const fieldColumns = yield* new FieldOutputColumnVisitor().collect(
+            table,
+            options?.projectionFieldIds
+          );
+
+          try {
+            const shouldQueryTotal = options?.includeTotal !== false;
+            const recordsDbSpan = context.tracer?.startSpan(
+              'teable.table.query.db.records',
+              createRepositoryFindTraceAttributes(
+                table,
+                options,
+                'repository.record_find',
+                searchAccessPath
+              )
+            );
+            const rowsPromise = (
+              recordsDbSpan && context.tracer
+                ? context.tracer.withSpan(recordsDbSpan, () =>
+                    dynamicDb.executeQuery<Record<string, unknown>>(compiled)
+                  )
+                : dynamicDb.executeQuery<Record<string, unknown>>(compiled)
+            )
+              .then((result) => result.rows)
+              .finally(() => recordsDbSpan?.end());
+            const countCompiled = shouldQueryTotal
+              ? this.withRecordReadQuerySource(
+                  dynamicDb
+                    .selectFrom(`${sourceTableName} as ${TABLE_ALIAS}`)
+                    .select(sql<string>`count(*)`.as('count'))
+                    .$if(whereClause.value !== null, (qb) =>
+                      qb.where(whereClause.value as Expression<SqlBool>)
+                    )
+                    .$if(searchWherePlan.value.condition !== null, (qb) =>
+                      qb.where(searchWherePlan.value.condition as Expression<SqlBool>)
+                    )
+                    .compile(),
+                  readQuerySource
+                )
+              : undefined;
+            if (countCompiled) {
+              this.recordSqlDiagnostic(context, 'record_count', countCompiled);
+            }
+            const countDbSpan = countCompiled
+              ? context.tracer?.startSpan(
+                  'teable.table.query.db.count',
+                  createRepositoryFindTraceAttributes(
+                    table,
+                    options,
+                    'repository.record_count',
+                    searchAccessPath
+                  )
+                )
+              : undefined;
+            const countPromise = countCompiled
+              ? (countDbSpan && context.tracer
+                  ? context.tracer.withSpan(countDbSpan, () =>
+                      dynamicDb.executeQuery<{ count: string }>(countCompiled)
+                    )
+                  : dynamicDb.executeQuery<{ count: string }>(countCompiled)
+                )
+                  .then((result) => result.rows[0] ?? { count: '0' })
+                  .finally(() => countDbSpan?.end())
+              : Promise.resolve<{ count: string }>({ count: '0' });
+
+            const [rows, countResult] = await Promise.all([rowsPromise, countPromise]);
+
+            const records = mapRowsToReadModels(fieldColumns, rows, orderColumns);
+            const total = shouldQueryTotal ? parseInt(countResult.count, 10) : records.length;
+
+            return ok({
+              records,
+              total,
+              ...(searchAccessPath ? { searchAccessPath } : {}),
+            });
+          } catch (error) {
+            span?.recordError(describeError(error));
+            return err(buildUnexpectedQueryError('Failed to load table records', error));
+          }
+        }.bind(this)
+      );
+    };
+
+    try {
+      // Use withSpan to set span as active context so pg queries become children
+      if (span && context.tracer) {
+        return await context.tracer.withSpan(span, executeFind);
+      }
+      return await executeFind();
+    } finally {
+      span?.end();
+    }
+  }
+
+  async findOne(
+    context: IExecutionContext,
+    table: Table,
+    recordId: RecordId,
+    options?: Pick<ITableRecordQueryOptions, 'mode' | 'includeOrders' | 'recordReadQuerySource'>
+  ): Promise<Result<TableRecordReadModel, DomainError>> {
+    const span = context.tracer?.startSpan('teable.repository.record.findOne');
+
+    const executeFindOne = async (): Promise<Result<TableRecordReadModel, DomainError>> => {
+      return await safeTry<TableRecordReadModel, DomainError>(
+        async function* (this: PostgresTableRecordQueryRepository) {
+          const readQuerySource = this.getRecordReadQuerySource(options);
+          // Create query builder via manager
+          const queryBuilder = yield* await this.queryBuilderManager.createBuilder(context, table, {
+            mode: resolveQueryMode(table, options?.mode),
+            sourceTableName: readQuerySource?.tableName,
+          });
+
+          // Filter by record ID via specification
+          const recordSpec = RecordByIdSpec.create(recordId);
+          queryBuilder.where(recordSpec);
+
+          // Limit to 1
+          queryBuilder.limit(1);
+
+          let orderColumns: string[] = [];
+          if (options?.includeOrders) {
+            const dbTableName = yield* table.dbTableName();
+            const tableName = yield* dbTableName.value();
+            const [schemaName, tableNameOnly] = tableName.split('.');
+            const dynamicDb = this.db as unknown as Kysely<DynamicDB>;
+            const orderColumnsResult = await sql<{ column_name: string }>`
+              SELECT column_name
+              FROM information_schema.columns
+              WHERE table_schema = ${schemaName}
+              AND table_name = ${tableNameOnly}
+              AND column_name LIKE '__row_%'
+            `.execute(dynamicDb);
+
+            orderColumns = orderColumnsResult.rows.map((r) => r.column_name);
+          }
+
+          // Build the query
+          let builtQuery = yield* queryBuilder.build();
+
+          if (orderColumns.length > 0) {
+            for (const col of orderColumns) {
+              builtQuery = builtQuery.select(sql.ref(`${TABLE_ALIAS}.${col}`).as(col));
+            }
+          }
+
+          const compiled = this.withRecordReadQuerySource(builtQuery.compile(), readQuerySource);
+          this.logger.debug(`findOne:mode:${queryBuilder.mode}:sql\n${compiled.sql}`, {
+            parameters: compiled.parameters,
+          });
+
+          // Collect field column mappings
+          const fieldColumns = yield* new FieldOutputColumnVisitor().collect(table);
+
+          try {
+            const rows = (await (this.db as unknown as Kysely<DynamicDB>).executeQuery(compiled))
+              .rows;
+
+            if (rows.length === 0) {
+              return err(
+                domainError.notFound({ code: 'record.not_found', message: 'Record not found' })
+              );
+            }
+
+            const records = mapRowsToReadModels(fieldColumns, rows, orderColumns);
+            return ok(records[0]);
+          } catch (error) {
+            span?.recordError(describeError(error));
+            return err(buildUnexpectedQueryError('Failed to load record', error));
+          }
+        }.bind(this)
+      );
+    };
+
+    try {
+      // Use withSpan to set span as active context so pg queries become children
+      if (span && context.tracer) {
+        return await context.tracer.withSpan(span, executeFindOne);
+      }
+      return await executeFindOne();
+    } finally {
+      span?.end();
+    }
+  }
+
+  async *findStream(
+    context: IExecutionContext,
+    table: Table,
+    spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
+    options?: ITableRecordQueryStreamOptions
+  ): AsyncIterable<Result<TableRecordReadModel, DomainError>> {
+    const DEFAULT_BATCH_SIZE = 500;
+    const batchSize = options?.batchSize ?? DEFAULT_BATCH_SIZE;
+    let yieldedCount = 0;
+    let lastBatchCount: number | undefined;
+    let lastCursor: string | undefined;
+    const paginationStrategy =
+      options?.paginationStrategy ?? this.resolvePaginationStrategy(options?.pagination);
+
+    while (true) {
+      const nextPage = paginationStrategy.next({
+        pagination: options?.pagination,
+        batchSize,
+        yieldedCount,
+        lastBatchCount,
+        lastCursor,
+      });
+      if (!nextPage) {
+        break;
+      }
+      const result =
+        nextPage.type === 'offset'
+          ? await this.findByOffsetPage(
+              context,
+              table,
+              spec,
+              options,
+              nextPage.limit,
+              nextPage.offset
+            )
+          : await this.findByCursorPage(
+              context,
+              table,
+              spec,
+              options,
+              nextPage.limit,
+              nextPage.cursor
+            );
+
+      if (result.isErr()) {
+        yield err(result.error);
+        return;
+      }
+
+      const records = result.value;
+      lastBatchCount = records.length;
+      if (records.length === 0) {
+        // No more records
+        break;
+      }
+
+      // Yield each record individually
+      for (const record of records) {
+        yield ok(record);
+        yieldedCount++;
+      }
+
+      if (nextPage.type === 'cursor') {
+        const nextCursor = getLastAutoNumberCursor(records);
+        if (!nextCursor) {
+          this.logger.warn(
+            'findStream: cursor pagination cannot advance because last record has no autoNumber'
+          );
+          break;
+        }
+        lastCursor = nextCursor;
+      }
+
+      // If we got fewer records than requested, we've reached the end
+      if (records.length < nextPage.limit) {
+        break;
+      }
+    }
+  }
+
+  private async findByOffsetPage(
+    context: IExecutionContext,
+    table: Table,
+    spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,
+    options: ITableRecordQueryStreamOptions | undefined,
+    limit: number,
+    offset: number
+  ): Promise<Result<ReadonlyArray<TableRecordReadModel>, DomainError>> {
+    const pageLimitResult = PageLimit.create(limit);
+    if (pageLimitResult.isErr()) {
+      return err(pageLimitResult.error);
+    }
+    const pageOffsetResult = PageOffset.create(offset);
+    if (pageOffsetResult.isErr()) {
+      return err(pageOffsetResult.error);
+    }
+
+    const pagination = OffsetPagination.create(pageLimitResult.value, pageOffsetResult.value);
+    const result = await this.find(context, table, spec, {
+      mode: options?.mode,
+      pagination,
+      orderBy: options?.orderBy,
+      includeTotal: false,
+      projectionFieldIds: options?.projectionFieldIds,
+      search: options?.search,
+      searchAccessPath: options?.searchAccessPath,
+      recordReadQuerySource: options?.recordReadQuerySource,
+    });
+
+    if (result.isErr()) {
+      return err(result.error);
+    }
+
+    return ok(result.value.records);
+  }
+
+  private async findByCursorPage(
+    context: IExecutionContext,
+    table: Table,
+    spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,
+    options: ITableRecordQueryStreamOptions | undefined,
+    limit: number,
+    cursor: string | undefined
+  ): Promise<Result<ReadonlyArray<TableRecordReadModel>, DomainError>> {
+    return await safeTry<ReadonlyArray<TableRecordReadModel>, DomainError>(
+      async function* (this: PostgresTableRecordQueryRepository) {
+        const queryBuilder = yield* await this.queryBuilderManager.createBuilder(context, table, {
+          mode: resolveQueryMode(table, options?.mode),
+          sourceTableName: this.getRecordReadQuerySource(options)?.tableName,
+        });
+
+        if (!isCursorOrderBySupported(options?.orderBy)) {
+          return err(
+            domainError.validation({
+              message: 'Cursor pagination only supports orderBy __auto_number asc',
+            })
+          );
+        }
+
+        if (options?.projectionFieldIds !== undefined) {
+          queryBuilder.select(options.projectionFieldIds);
+        }
+
+        queryBuilder.orderBy('__auto_number', 'asc');
+        queryBuilder.limit(limit);
+
+        if (spec) {
+          queryBuilder.where(spec);
+        }
+
+        let builtQuery = yield* queryBuilder.build();
+        const searchWhereClause = buildRecordSearchWhereClause(table, options?.search, {
+          tableAlias: TABLE_ALIAS,
+          searchAccessPath: options?.searchAccessPath,
+        });
+        if (searchWhereClause.isErr()) {
+          return err(searchWhereClause.error);
+        }
+        if (searchWhereClause.value !== null) {
+          builtQuery = builtQuery.where(searchWhereClause.value);
+        }
+
+        const parsedCursor = parseCursorToken(cursor);
+        if (cursor != null && parsedCursor == null) {
+          this.logger.warn('findStream: invalid cursor token, fallback to stream start', {
+            cursor,
+          });
+        }
+        if (parsedCursor != null) {
+          builtQuery = builtQuery.where(
+            sql`${sql.ref(`${TABLE_ALIAS}.__auto_number`)} > ${parsedCursor}` as Expression<SqlBool>
+          );
+        }
+
+        const compiled = this.withRecordReadQuerySource(
+          builtQuery.compile(),
+          this.getRecordReadQuerySource(options)
+        );
+        this.logger.debug(`findStream:mode:${queryBuilder.mode}:cursor:sql\n${compiled.sql}`, {
+          parameters: compiled.parameters,
+        });
+        this.recordSqlDiagnostic(context, 'record_stream_cursor', compiled);
+
+        const fieldColumns = yield* new FieldOutputColumnVisitor().collect(
+          table,
+          options?.projectionFieldIds
+        );
+
+        try {
+          const rows = (await (this.db as unknown as Kysely<DynamicDB>).executeQuery(compiled))
+            .rows;
+          const records = mapRowsToReadModels(fieldColumns, rows, []);
+          return ok(records);
+        } catch (error) {
+          return err(buildUnexpectedQueryError('Failed to load table records by cursor', error));
+        }
+      }.bind(this)
+    );
+  }
+
+  private resolvePaginationStrategy(
+    pagination: ITableRecordStreamPagination | undefined
+  ): ITableRecordStreamPaginationStrategy {
+    return (
+      this.streamPaginationStrategies.find((strategy) => strategy.accepts(pagination)) ??
+      this.defaultStreamPaginationStrategy
+    );
+  }
+
+  private async getOrderColumnExists(
+    db: Kysely<DynamicDB>,
+    schemaName: string,
+    tableName: string,
+    columnName: string
+  ): Promise<boolean> {
+    const now = Date.now();
+    const cacheKey = `${schemaName}.${tableName}.${columnName}`;
+    const cached = this.orderColumnExistsCache.get(cacheKey);
+    if (cached && now - cached.cachedAt <= ORDER_COLUMN_CACHE_TTL_MS) {
+      return cached.exists;
+    }
+
+    const columnCheckResult = await sql<{ exists: boolean }>`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = ${schemaName}
+        AND table_name = ${tableName}
+        AND column_name = ${columnName}
+      ) as exists
+    `.execute(db);
+
+    const exists = Boolean(columnCheckResult.rows[0]?.exists);
+    if (exists) {
+      this.orderColumnExistsCache.set(cacheKey, {
+        exists,
+        cachedAt: now,
+      });
+    }
+    return exists;
+  }
+
+  private getRecordReadQuerySource(
+    options: { readonly recordReadQuerySource?: IRecordReadQuerySource } | undefined
+  ): IRecordReadQuerySource | undefined {
+    const source = options?.recordReadQuerySource;
+    if (!source) {
+      return undefined;
+    }
+    if (
+      typeof source.tableName !== 'string' ||
+      typeof source.cteName !== 'string' ||
+      typeof source.cteSql !== 'string'
+    ) {
+      return undefined;
+    }
+    return source;
+  }
+
+  private recordSqlDiagnostic(
+    context: IExecutionContext,
+    source: string,
+    compiled: CompiledQuery<unknown>
+  ): void {
+    const collector = (context as IExecutionContextWithTableQuerySqlDiagnostics)[
+      TABLE_QUERY_SQL_DIAGNOSTICS_CONTEXT_KEY
+    ];
+    if (!collector?.record) {
+      return;
+    }
+    try {
+      collector.record({
+        source,
+        sql: compiled.sql,
+        parameters: compiled.parameters,
+      });
+    } catch {
+      // Best-effort diagnostics must never affect user-facing queries.
+    }
+  }
+
+  private withRecordReadQuerySource<O>(
+    compiled: CompiledQuery<O>,
+    source?: IRecordReadQuerySource
+  ): CompiledQuery<O> {
+    if (!source) {
+      return compiled;
+    }
+    const cteName = source.cteName.trim();
+    if (!/^[A-Z_]\w*$/i.test(cteName)) {
+      this.logger.warn('Skip invalid record read CTE name', {
+        cteName,
+      });
+      return compiled;
+    }
+    const escapedName = cteName.replace(/"/g, '""');
+    const sqlWithCte = `with "${escapedName}" as (${source.cteSql}) ${compiled.sql}`;
+    return CompiledQuery.raw(sqlWithCte, Array.from(compiled.parameters)) as CompiledQuery<O>;
+  }
+}
+
+const mapRowsToReadModels = (
+  fieldColumns: ReadonlyArray<FieldOutputColumn>,
+  rows: ReadonlyArray<Record<string, unknown>>,
+  orderColumns: string[] = []
+): ReadonlyArray<TableRecordReadModel> => {
+  return rows.map((row) => {
+    const rawId = row[RECORD_ID_COLUMN];
+    const id = typeof rawId === 'string' ? rawId : String(rawId);
+
+    const rawVersion = row[RECORD_VERSION_COLUMN];
+    const version = typeof rawVersion === 'number' ? rawVersion : Number(rawVersion) || 0;
+
+    // Extract system columns for undo/redo support
+    const rawAutoNumber = row['__auto_number'];
+    const autoNumber =
+      typeof rawAutoNumber === 'number'
+        ? rawAutoNumber
+        : rawAutoNumber != null
+          ? Number(rawAutoNumber)
+          : undefined;
+
+    const rawCreatedTime = row['__created_time'];
+    const createdTime =
+      rawCreatedTime instanceof Date
+        ? rawCreatedTime.toISOString()
+        : typeof rawCreatedTime === 'string'
+          ? rawCreatedTime
+          : undefined;
+
+    const rawCreatedBy = row['__created_by'];
+    const createdBy = typeof rawCreatedBy === 'string' ? rawCreatedBy : undefined;
+
+    const rawLastModifiedTime = row['__last_modified_time'];
+    const lastModifiedTime =
+      rawLastModifiedTime instanceof Date
+        ? rawLastModifiedTime.toISOString()
+        : typeof rawLastModifiedTime === 'string'
+          ? rawLastModifiedTime
+          : undefined;
+
+    const rawLastModifiedBy = row['__last_modified_by'];
+    const lastModifiedBy = typeof rawLastModifiedBy === 'string' ? rawLastModifiedBy : undefined;
+
+    // Extract order values if order columns were requested
+    let orders: Record<string, number> | undefined;
+    if (orderColumns.length > 0) {
+      orders = {};
+      for (const colName of orderColumns) {
+        const orderValue = row[colName];
+        const parsedOrder =
+          typeof orderValue === 'number'
+            ? orderValue
+            : orderValue != null
+              ? Number(orderValue)
+              : undefined;
+        if (parsedOrder != null && Number.isFinite(parsedOrder)) {
+          // Extract viewId from column name (format: __row_{viewId})
+          const viewId = colName.replace('__row_', '');
+          orders[viewId] = parsedOrder;
+        }
+      }
+      if (Object.keys(orders).length === 0) {
+        orders = undefined;
+      }
+    }
+
+    const fields: Record<string, unknown> = {};
+    for (const column of fieldColumns) {
+      const value = row[column.columnAlias];
+      fields[column.fieldId.toString()] =
+        column.valueKind === 'user' ? normalizeStoredUserAvatarUrls(value) : value;
+    }
+    return {
+      id,
+      fields,
+      version,
+      autoNumber,
+      createdTime,
+      createdBy,
+      lastModifiedTime,
+      lastModifiedBy,
+      orders,
+    };
+  });
+};
+
+const normalizeStoredUserAvatarUrls = (value: unknown): unknown => {
+  if (typeof value === 'string') {
+    if (!value.includes(LEGACY_AVATAR_PREFIX)) {
+      return value;
+    }
+
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      const normalized = normalizeStoredUserAvatarUrls(parsed);
+      return normalized === parsed ? value : normalized;
+    } catch {
+      return value;
+    }
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeStoredUserAvatarUrls(item));
+  }
+
+  if (!value || typeof value !== 'object') {
+    return value;
+  }
+
+  const item = value as Record<string, unknown>;
+  const id = item.id;
+  if (typeof id !== 'string' || id.length === 0) {
+    return value;
+  }
+
+  const avatarUrl = item.avatarUrl;
+  if (typeof avatarUrl === 'string' && !avatarUrl.startsWith(LEGACY_AVATAR_PREFIX)) {
+    return value;
+  }
+
+  return {
+    ...item,
+    avatarUrl: buildUserAvatarUrl(id),
+  };
+};
+
+const describeError = (error: unknown): string => {
+  if (isDomainError(error)) return error.message;
+  if (error instanceof Error) {
+    return error.message ? `${error.name}: ${error.message}` : error.name;
+  }
+  if (typeof error === 'string') return error;
+  try {
+    const json = JSON.stringify(error);
+    return json ?? String(error);
+  } catch {
+    return String(error);
+  }
+};
+
+const extractDatabaseErrorDetails = (
+  error: unknown
+): Readonly<Record<string, unknown>> | undefined => {
+  if (!error || typeof error !== 'object') {
+    return undefined;
+  }
+
+  const candidate = error as Record<string, unknown>;
+  const details: Record<string, unknown> = {};
+
+  if (typeof candidate.code === 'string') {
+    details.pgCode = candidate.code;
+  }
+  if (typeof candidate.column === 'string') {
+    details.column = candidate.column;
+  }
+  if (typeof candidate.table === 'string') {
+    details.table = candidate.table;
+  }
+  if (typeof candidate.schema === 'string') {
+    details.schema = candidate.schema;
+  }
+  if (typeof candidate.constraint === 'string') {
+    details.constraint = candidate.constraint;
+  }
+
+  return Object.keys(details).length > 0 ? details : undefined;
+};
+
+const buildUnexpectedQueryError = (prefix: string, error: unknown): DomainError => {
+  const details = extractDatabaseErrorDetails(error);
+  const pgCode = details?.pgCode;
+
+  return domainError.unexpected({
+    ...(pgCode === '42703' ? { code: 'db.undefined_column' } : {}),
+    ...(details ? { details } : {}),
+    message: `${prefix}: ${describeError(error)}`,
+  });
+};
+
+const parseCursorToken = (cursor: string | undefined): number | undefined => {
+  if (!cursor) {
+    return undefined;
+  }
+  const parsed = Number(cursor);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return undefined;
+  }
+  return Math.floor(parsed);
+};
+
+const getLastAutoNumberCursor = (
+  records: ReadonlyArray<TableRecordReadModel>
+): string | undefined => {
+  const lastRecord = records[records.length - 1];
+  if (
+    !lastRecord ||
+    typeof lastRecord.autoNumber !== 'number' ||
+    !Number.isFinite(lastRecord.autoNumber)
+  ) {
+    return undefined;
+  }
+  return String(Math.floor(lastRecord.autoNumber));
+};
+
+const isCursorOrderBySupported = (orderBy: ITableRecordQueryStreamOptions['orderBy']): boolean => {
+  if (!orderBy?.length) {
+    return true;
+  }
+
+  return orderBy.every(
+    (sort) =>
+      isSystemColumnOrderBy(sort) && sort.column === '__auto_number' && sort.direction === 'asc'
+  );
+};
+
+const resolveQueryMode = (
+  table: Table,
+  mode: TableRecordQueryMode | undefined
+): TableRecordQueryMode => {
+  if (mode) return mode;
+  const needsComputedLinks = table
+    .getFields()
+    .some((field) => field.type().equals(FieldType.link()));
+  if (needsComputedLinks) return 'computed';
+  const hasConditionalFields = table
+    .getFields()
+    .some(
+      (field) =>
+        field.type().equals(FieldType.conditionalRollup()) ||
+        field.type().equals(FieldType.conditionalLookup())
+    );
+  return hasConditionalFields ? 'computed' : 'stored';
+};

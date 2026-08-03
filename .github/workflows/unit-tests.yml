@@ -1,0 +1,49 @@
+name: Unit Tests
+
+on:
+  push:
+    branches:
+      - develop
+  pull_request:
+    branches:
+      - develop
+    paths:
+      - 'apps/nextjs-app/**'
+      - 'packages/core/**'
+      - 'packages/sdk/**'
+      - 'packages/openapi/**'
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: Unit Tests
+
+    strategy:
+      matrix:
+        node-version: [22.22.3]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: 📥 Monorepo install
+        uses: ./.github/actions/pnpm-install
+
+      - name: 🧩 Generate Prisma Client
+        working-directory: packages/db-main-prisma
+        run: |
+          pnpm -F @teable/db-main-prisma prisma-generate --schema ./prisma/postgres/schema.prisma
+
+      - name: 🏗 Run build
+        run: |
+          pnpm -F "./packages/**" -F "!@teable/v2-*" run build
+
+      - name: 🧪 Run Tests
+        run: |
+          pnpm -r -F "@teable/app" -F "@teable/core" -F "@teable/sdk" -F "@teable/openapi" --parallel test-unit

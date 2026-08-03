@@ -1,0 +1,1762 @@
+import { getPostgresTransaction } from '@teable/v2-adapter-db-postgres-shared';
+import type { PostgresSqlExecutionDiagnostics } from '@teable/v2-adapter-db-postgres-shared';
+import {
+  ActorId,
+  domainError,
+  FieldId,
+  isNotFoundError,
+  registerAfterCommit,
+  TableByIdSpec,
+  TableId,
+  v2CoreTokens,
+  RecordsBatchUpdated,
+  withoutTransaction,
+} from '@teable/v2-core';
+import type {
+  BaseId,
+  DomainError,
+  IExecutionContext,
+  IHasher,
+  ITableRepository,
+  IUnitOfWork,
+  ILogger,
+  IEventBus,
+  Table,
+  ITracer,
+} from '@teable/v2-core';
+import { inject, injectable } from '@teable/v2-di';
+import { sql } from 'kysely';
+import { err, ok, safeTry } from 'neverthrow';
+import type { Result } from 'neverthrow';
+
+import { v2RecordRepositoryPostgresTokens } from '../../di/tokens';
+import { toComputedActivityBatch } from '../activity/IComputedActivityProjector';
+import {
+  hasAllTargetRecordsEdge,
+  resolveFieldTargetsFromPlan,
+} from '../activity/resolveFieldTargets';
+import {
+  buildBeforeImageRecordsFromStepChanges,
+  mergeBeforeImageRecords,
+} from '../ComputedBeforeImageFromChanges';
+import type { ComputedFieldBackfillService } from '../ComputedFieldBackfillService';
+import type { ComputedFieldUpdater, StepChangeData } from '../ComputedFieldUpdater';
+import type { ComputedTaskFailureClassification } from '../ComputedTaskFailureClassifier';
+import { classifyComputedTaskFailure } from '../ComputedTaskFailureClassifier';
+import { isComputedUpdateLockUnavailable } from '../ComputedUpdateLock';
+import type {
+  ComputedSeedGroup,
+  ComputedUpdatePlan,
+  ComputedUpdatePlanner,
+} from '../ComputedUpdatePlanner';
+import { splitSeedGroupsForPlan } from '../ComputedUpdatePlanner';
+import { createComputedUpdateRun } from '../ComputedUpdateRun';
+import { toErrorLogFields } from '../errorLog';
+import type {
+  ComputedBeforeImageRecordDto,
+  ComputedRealtimeOrchestrationDto,
+  ComputedUpdateSeedGroupDto,
+  ComputedUpdateOutboxItem,
+  ComputedUpdateOutboxPayload,
+  ComputedUpdateOutboxTaskInput,
+} from '../outbox/ComputedUpdateOutboxPayload';
+import {
+  buildOutboxTaskInput,
+  deserializeComputedUpdatePlan,
+} from '../outbox/ComputedUpdateOutboxPayload';
+import type { ComputedUpdateSeedTaskInput } from '../outbox/ComputedUpdateSeedPayload';
+import { deserializeSeedPayload } from '../outbox/ComputedUpdateSeedPayload';
+import type {
+  AnyOutboxItem,
+  ComputedTaskFailureDiagnostics,
+  ComputedUpdateOutboxConfig,
+  FieldBackfillOutboxItem,
+  SeedOutboxItem,
+  IComputedUpdateOutbox,
+} from '../outbox/IComputedUpdateOutbox';
+import { isFieldBackfillOutboxItem, isSeedOutboxItem } from '../outbox/IComputedUpdateOutbox';
+
+/**
+ * Maximum stage depth to prevent cascading update loops.
+ * Each time a computed update creates a follow-up task, the stage depth increments.
+ * When this limit is reached, no more follow-up tasks are created.
+ */
+const MAX_STAGE_DEPTH = 50;
+const maxComputedEventLogItems = 10;
+const maxComputedEventLogFieldIds = 20;
+const maxComputedEventLogRecordIds = 10;
+
+const buildFailureDiagnostics = (
+  error: DomainError,
+  failure: ComputedTaskFailureClassification,
+  phase: string
+): ComputedTaskFailureDiagnostics => {
+  const execution = error.details?.postgresSql as PostgresSqlExecutionDiagnostics | undefined;
+  return {
+    version: 1,
+    failure: {
+      kind: failure.failureKind,
+      reason: failure.failureReason,
+      retryable: failure.retryable,
+      directDeadLetter: !failure.retryable,
+      phase,
+    },
+    ...(execution ? { execution } : {}),
+  };
+};
+
+type SeedRecordChunk = {
+  seedRecordIds: string[];
+  extraSeedRecords: ComputedUpdateSeedGroupDto[];
+};
+
+type LoadTaskTableResult =
+  | {
+      status: 'loaded';
+      table: Table;
+    }
+  | {
+      status: 'blocked';
+    };
+
+const countSeedRecordDtos = (
+  seedRecordIds: ReadonlyArray<string>,
+  extraSeedRecords: ReadonlyArray<ComputedUpdateSeedGroupDto>
+): number =>
+  seedRecordIds.length + extraSeedRecords.reduce((sum, group) => sum + group.recordIds.length, 0);
+
+const splitSeedRecordDtos = (params: {
+  seedTableId: string;
+  seedRecordIds: ReadonlyArray<string>;
+  extraSeedRecords: ReadonlyArray<ComputedUpdateSeedGroupDto>;
+  maxSeedRecordsPerTask: number;
+}): SeedRecordChunk[] => {
+  const maxSeedRecordsPerTask = Math.max(1, Math.trunc(params.maxSeedRecordsPerTask));
+  const totalSeedRecords = countSeedRecordDtos(params.seedRecordIds, params.extraSeedRecords);
+  if (totalSeedRecords <= maxSeedRecordsPerTask) return [];
+
+  const chunks: SeedRecordChunk[] = [];
+  let current: SeedRecordChunk = { seedRecordIds: [], extraSeedRecords: [] };
+  let currentCount = 0;
+
+  const pushCurrent = () => {
+    if (currentCount === 0) return;
+    chunks.push(current);
+    current = { seedRecordIds: [], extraSeedRecords: [] };
+    currentCount = 0;
+  };
+
+  const appendRecords = (tableId: string, recordIds: ReadonlyArray<string>) => {
+    for (const recordId of recordIds) {
+      if (currentCount >= maxSeedRecordsPerTask) {
+        pushCurrent();
+      }
+
+      if (tableId === params.seedTableId) {
+        current.seedRecordIds.push(recordId);
+      } else {
+        let group = current.extraSeedRecords.find((entry) => entry.tableId === tableId);
+        if (!group) {
+          group = { tableId, recordIds: [] };
+          current.extraSeedRecords.push(group);
+        }
+        group.recordIds.push(recordId);
+      }
+      currentCount += 1;
+    }
+  };
+
+  appendRecords(params.seedTableId, params.seedRecordIds);
+  for (const group of params.extraSeedRecords) {
+    appendRecords(group.tableId, group.recordIds);
+  }
+  pushCurrent();
+
+  return chunks;
+};
+
+const withChunkedPlanHash = (planHash: string, chunkIndex: number, chunkCount: number): string =>
+  `${planHash}:chunk:${chunkIndex + 1}/${chunkCount}`;
+
+const filterBeforeImageRecords = (
+  beforeImageRecords: ReadonlyArray<ComputedBeforeImageRecordDto> | undefined,
+  seedRecordIds: ReadonlyArray<string>
+): ComputedBeforeImageRecordDto[] => {
+  if (!beforeImageRecords || beforeImageRecords.length === 0 || seedRecordIds.length === 0) {
+    return [];
+  }
+  const seedRecordIdSet = new Set(seedRecordIds);
+  return beforeImageRecords.filter((record) => seedRecordIdSet.has(record.recordId));
+};
+
+/**
+ * Bound how many child tasks fanout-aware seed split may create. Large seed batches
+ * (hundreds of ids) already amortize work per task; exploding them into tiny chunks
+ * overwhelms outbox drain loops (e2e + workers) without improving parallelism much.
+ */
+const MAX_FANOUT_CHUNKS = 16;
+
+/**
+ * Effective seed cap for a claimed computed task.
+ *
+ * - Hard cap: maxSeedRecordsPerTask (existing behavior).
+ * - Fanout path: when dirtyStats predicts a large cascade, the plan has no
+ *   allTargetRecords edges, and the seed set is still small enough to stay within
+ *   MAX_FANOUT_CHUNKS, use fanoutSeedSplitMaxSeeds so small seed sets still split
+ *   into parallel chunk planHashes. Never fanout-split allTarget plans — each
+ *   child would still full-host-dirty and multiply work.
+ */
+export const resolveEffectiveMaxSeedRecordsPerTask = (
+  task: Pick<
+    ComputedUpdateOutboxItem,
+    'edges' | 'dirtyStats' | 'seedRecordIds' | 'extraSeedRecords'
+  >,
+  config: Pick<
+    ComputedUpdateOutboxConfig,
+    'maxSeedRecordsPerTask' | 'fanoutDirtyRecordsThreshold' | 'fanoutSeedSplitMaxSeeds'
+  >
+): number => {
+  const hardCap = Math.max(1, config.maxSeedRecordsPerTask);
+  const fanoutThreshold = config.fanoutDirtyRecordsThreshold;
+  if (fanoutThreshold <= 0) return hardCap;
+
+  const hasAllTargetEdge = task.edges.some((edge) => edge.propagationMode === 'allTargetRecords');
+  if (hasAllTargetEdge) return hardCap;
+
+  const totalDirty = (task.dirtyStats ?? []).reduce(
+    (sum, row) => sum + Math.max(0, Number(row.recordCount) || 0),
+    0
+  );
+  if (totalDirty < fanoutThreshold) return hardCap;
+
+  const seedCount = countSeedRecordDtos(task.seedRecordIds, task.extraSeedRecords);
+  if (seedCount < 2) return hardCap;
+
+  const fanoutCap = Math.max(1, config.fanoutSeedSplitMaxSeeds);
+  // Skip fanout when seed set would create more than MAX_FANOUT_CHUNKS children.
+  if (seedCount > fanoutCap * MAX_FANOUT_CHUNKS) return hardCap;
+
+  return Math.min(hardCap, fanoutCap);
+};
+
+export const splitComputedTaskForSeedRecordLimit = (
+  task: ComputedUpdateOutboxItem,
+  maxSeedRecordsPerTask: number
+): ComputedUpdateOutboxTaskInput[] => {
+  if (task.seedAllTableIds && task.seedAllTableIds.length > 0) return [];
+
+  const chunks = splitSeedRecordDtos({
+    seedTableId: task.seedTableId,
+    seedRecordIds: task.seedRecordIds,
+    extraSeedRecords: task.extraSeedRecords,
+    maxSeedRecordsPerTask,
+  });
+  if (chunks.length <= 1) return [];
+
+  return chunks.map((chunk, index) => ({
+    baseId: task.baseId,
+    seedTableId: task.seedTableId,
+    seedRecordIds: chunk.seedRecordIds,
+    extraSeedRecords: chunk.extraSeedRecords,
+    beforeImageRecords: filterBeforeImageRecords(task.beforeImageRecords, chunk.seedRecordIds),
+    steps: task.steps,
+    edges: task.edges,
+    estimatedComplexity: Math.max(1, Math.ceil(task.estimatedComplexity / chunks.length)),
+    changeType: task.changeType,
+    runId: task.runId,
+    originRunIds: task.originRunIds,
+    runTotalSteps: task.runTotalSteps,
+    runCompletedStepsBefore: task.runCompletedStepsBefore,
+    stageDepth: task.stageDepth,
+    orchestration: chunkOrchestration(task.orchestration, index, chunks.length),
+    planHash: withChunkedPlanHash(task.planHash, index, chunks.length),
+    dirtyStats: [
+      ...(chunk.seedRecordIds.length > 0
+        ? [{ tableId: task.seedTableId, recordCount: chunk.seedRecordIds.length }]
+        : []),
+      ...chunk.extraSeedRecords.map((group) => ({
+        tableId: group.tableId,
+        recordCount: group.recordIds.length,
+      })),
+    ],
+    affectedTableIds: task.affectedTableIds,
+    affectedFieldIds: task.affectedFieldIds,
+    syncMaxLevel: task.syncMaxLevel,
+  }));
+};
+
+export const splitSeedTaskForSeedRecordLimit = (
+  task: SeedOutboxItem,
+  maxSeedRecordsPerTask: number
+): ComputedUpdateSeedTaskInput[] => {
+  const chunks = splitSeedRecordDtos({
+    seedTableId: task.seedTableId,
+    seedRecordIds: task.seedRecordIds,
+    extraSeedRecords: task.extraSeedRecords,
+    maxSeedRecordsPerTask,
+  });
+  if (chunks.length <= 1) return [];
+
+  return chunks.map((chunk, index) => ({
+    taskType: 'seed',
+    baseId: task.baseId,
+    seedTableId: task.seedTableId,
+    seedRecordIds: chunk.seedRecordIds,
+    extraSeedRecords: chunk.extraSeedRecords,
+    beforeImageRecords: filterBeforeImageRecords(task.beforeImageRecords, chunk.seedRecordIds),
+    changedFieldIds: task.changedFieldIds,
+    changeType: task.changeType,
+    impact: task.impact,
+    cyclePolicy: task.cyclePolicy,
+    orchestration: chunkOrchestration(task.orchestration, index, chunks.length),
+    runId: task.runId,
+    planHash: withChunkedPlanHash(task.planHash, index, chunks.length),
+  }));
+};
+
+const chunkOrchestration = (
+  orchestration: ComputedRealtimeOrchestrationDto | undefined,
+  chunkIndex: number,
+  chunkCount: number
+): ComputedRealtimeOrchestrationDto | undefined => {
+  if (!orchestration) return undefined;
+  return {
+    ...orchestration,
+    totalChunkCount: Math.max(orchestration.totalChunkCount, chunkCount),
+    chunkIndex,
+    scope: 'chunk',
+  };
+};
+
+export type ComputedUpdateWorkerParams = {
+  workerId: string;
+  limit: number;
+  actorId?: ActorId;
+  tracer?: ITracer;
+  /** Request ID for ShareDB src matching (propagated from original request) */
+  requestId?: string;
+};
+
+export type ComputedUpdateWorkerRunTaskByIdParams = {
+  taskId: string;
+  workerId: string;
+  actorId?: ActorId;
+  tracer?: ITracer;
+  requestId?: string;
+  allowProcessingTakeover?: boolean;
+};
+
+class ClaimedTaskLeaseManager {
+  private readonly taskOwners = new Map<string, string>();
+  private readonly lostTaskIds = new Set<string>();
+  private timer: ReturnType<typeof setInterval> | null = null;
+  private heartbeatPromise: Promise<void> | null = null;
+
+  constructor(
+    tasks: ReadonlyArray<AnyOutboxItem>,
+    private readonly outbox: IComputedUpdateOutbox,
+    private readonly logger: ILogger,
+    private readonly heartbeatIntervalMs: number
+  ) {
+    for (const task of tasks) {
+      if (task.lockedBy) {
+        this.taskOwners.set(task.id, task.lockedBy);
+      }
+    }
+  }
+
+  start(): void {
+    if (this.taskOwners.size === 0 || this.heartbeatIntervalMs <= 0 || this.timer) return;
+    this.timer = setInterval(() => {
+      void this.heartbeat();
+    }, this.heartbeatIntervalMs);
+  }
+
+  async stop(): Promise<void> {
+    if (this.timer) {
+      clearInterval(this.timer);
+      this.timer = null;
+    }
+    if (this.heartbeatPromise) {
+      await this.heartbeatPromise;
+    }
+  }
+
+  releaseTask(taskId: string): void {
+    this.taskOwners.delete(taskId);
+    this.lostTaskIds.delete(taskId);
+    if (this.taskOwners.size === 0 && this.timer) {
+      clearInterval(this.timer);
+      this.timer = null;
+    }
+  }
+
+  async ensureTaskActive(taskId: string): Promise<boolean> {
+    if (this.lostTaskIds.has(taskId)) return false;
+    const leaseOwner = this.taskOwners.get(taskId);
+    if (!leaseOwner) return true;
+
+    await this.heartbeat([taskId]);
+    return !this.lostTaskIds.has(taskId);
+  }
+
+  private async heartbeat(taskIds?: string[]): Promise<void> {
+    if (this.taskOwners.size === 0) return;
+    if (this.heartbeatPromise) {
+      await this.heartbeatPromise;
+      if (!taskIds) return;
+    }
+
+    this.heartbeatPromise = this.runHeartbeat(taskIds).finally(() => {
+      this.heartbeatPromise = null;
+    });
+    await this.heartbeatPromise;
+  }
+
+  private async runHeartbeat(taskIds?: string[]): Promise<void> {
+    const groupedTaskIds = this.groupTaskIds(taskIds);
+    if (groupedTaskIds.size === 0) return;
+
+    for (const [leaseOwner, ids] of groupedTaskIds) {
+      const renewResult = await this.outbox.renewLease({
+        taskIds: ids,
+        leaseOwner,
+      });
+
+      if (renewResult.isErr()) {
+        this.logger.warn('computed:worker:lease_renew_failed', {
+          leaseOwner,
+          taskIds: ids,
+          error: renewResult.error.message,
+        });
+        continue;
+      }
+
+      const renewedIds = new Set(renewResult.value);
+      const lostIds = ids.filter((id) => !renewedIds.has(id));
+      if (lostIds.length === 0) continue;
+
+      for (const lostId of lostIds) {
+        this.taskOwners.delete(lostId);
+        this.lostTaskIds.add(lostId);
+      }
+
+      this.logger.warn('computed:worker:lease_lost', {
+        leaseOwner,
+        taskIds: lostIds,
+      });
+    }
+  }
+
+  private groupTaskIds(taskIds?: string[]): Map<string, string[]> {
+    const grouped = new Map<string, string[]>();
+    const ids = taskIds ?? [...this.taskOwners.keys()];
+
+    for (const taskId of ids) {
+      const leaseOwner = this.taskOwners.get(taskId);
+      if (!leaseOwner) continue;
+      const group = grouped.get(leaseOwner) ?? [];
+      group.push(taskId);
+      grouped.set(leaseOwner, group);
+    }
+
+    return grouped;
+  }
+}
+
+/**
+ * Background worker that processes computed update outbox tasks.
+ *
+ * Example
+ * ```typescript
+ * const processed = await worker.runOnce({ workerId: 'worker-1', limit: 10 });
+ * ```
+ */
+@injectable()
+export class ComputedUpdateWorker {
+  constructor(
+    @inject(v2RecordRepositoryPostgresTokens.computedUpdateOutbox)
+    private readonly outbox: IComputedUpdateOutbox,
+    @inject(v2RecordRepositoryPostgresTokens.computedUpdateOutboxConfig)
+    private readonly outboxConfig: ComputedUpdateOutboxConfig,
+    @inject(v2RecordRepositoryPostgresTokens.computedFieldUpdater)
+    private readonly updater: ComputedFieldUpdater,
+    @inject(v2RecordRepositoryPostgresTokens.computedUpdatePlanner)
+    private readonly planner: ComputedUpdatePlanner,
+    @inject(v2CoreTokens.unitOfWork)
+    private readonly unitOfWork: IUnitOfWork,
+    @inject(v2CoreTokens.logger)
+    private readonly logger: ILogger,
+    @inject(v2CoreTokens.hasher)
+    private readonly hasher: IHasher,
+    @inject(v2CoreTokens.tableRepository)
+    private readonly tableRepository: ITableRepository,
+    @inject(v2RecordRepositoryPostgresTokens.computedFieldBackfillService)
+    private readonly backfillService: ComputedFieldBackfillService,
+    @inject(v2CoreTokens.eventBus)
+    private readonly eventBus: IEventBus
+  ) {}
+
+  async runOnce(params: ComputedUpdateWorkerParams): Promise<Result<number, DomainError>> {
+    const span = params.tracer?.startSpan('teable.worker.runOnce', {
+      'worker.id': params.workerId,
+      'worker.limit': params.limit,
+    });
+
+    const executeRunOnce = async (): Promise<Result<number, DomainError>> => {
+      return safeTry<number, DomainError>(
+        async function* (this: ComputedUpdateWorker) {
+          const actorIdResult = params.actorId ? ok(params.actorId) : ActorId.create('system');
+          if (actorIdResult.isErr()) return err(actorIdResult.error);
+
+          const baseContext: IExecutionContext = {
+            actorId: actorIdResult.value,
+            tracer: params.tracer,
+            requestId: params.requestId,
+          };
+
+          const claimed = yield* await this.outbox.claimBatch(
+            {
+              workerId: params.workerId,
+              limit: params.limit,
+            },
+            baseContext
+          );
+
+          if (claimed.length === 0) return ok(0);
+
+          this.logger.debug('computed:worker:runOnce:start', {
+            claimedTasks: claimed.length,
+            taskTypes: claimed.map((t) =>
+              isFieldBackfillOutboxItem(t) ? 'backfill' : isSeedOutboxItem(t) ? 'seed' : 'computed'
+            ),
+          });
+
+          const leaseManager = this.createLeaseManager(claimed);
+          leaseManager.start();
+
+          let processed = 0;
+          try {
+            for (const task of claimed) {
+              if (!(await leaseManager.ensureTaskActive(task.id))) {
+                this.logger.warn('computed:worker:task_skipped_lost_lease', {
+                  taskId: task.id,
+                  leaseOwner: task.lockedBy ?? null,
+                });
+                leaseManager.releaseTask(task.id);
+                continue;
+              }
+
+              try {
+                const processResult = await this.processClaimedTask(
+                  task,
+                  actorIdResult.value,
+                  params.tracer,
+                  params.requestId
+                );
+                if (processResult.isOk() && processResult.value) {
+                  processed += 1;
+                }
+              } finally {
+                leaseManager.releaseTask(task.id);
+              }
+            }
+          } finally {
+            await leaseManager.stop();
+          }
+
+          return ok(processed);
+        }.bind(this)
+      );
+    };
+
+    try {
+      if (span && params.tracer) {
+        return await params.tracer.withSpan(span, executeRunOnce);
+      }
+      return await executeRunOnce();
+    } finally {
+      span?.end();
+    }
+  }
+
+  async runTaskById(
+    params: ComputedUpdateWorkerRunTaskByIdParams
+  ): Promise<Result<boolean, DomainError>> {
+    const span = params.tracer?.startSpan('teable.worker.runTaskById', {
+      'worker.id': params.workerId,
+      'outbox.taskId': params.taskId,
+    });
+
+    const executeRunTaskById = async (): Promise<Result<boolean, DomainError>> => {
+      return safeTry<boolean, DomainError>(
+        async function* (this: ComputedUpdateWorker) {
+          const actorIdResult = params.actorId ? ok(params.actorId) : ActorId.create('system');
+          if (actorIdResult.isErr()) return err(actorIdResult.error);
+
+          const context: IExecutionContext = {
+            actorId: actorIdResult.value,
+            tracer: params.tracer,
+            requestId: params.requestId,
+          };
+
+          const claimed = yield* await this.outbox.claimById(
+            {
+              taskId: params.taskId,
+              workerId: params.workerId,
+              allowProcessingTakeover: params.allowProcessingTakeover ?? false,
+            },
+            context
+          );
+
+          if (!claimed) return ok(false);
+
+          const leaseManager = this.createLeaseManager([claimed]);
+          leaseManager.start();
+          try {
+            if (!(await leaseManager.ensureTaskActive(claimed.id))) {
+              return ok(false);
+            }
+
+            const processResult = await this.processClaimedTask(
+              claimed,
+              actorIdResult.value,
+              params.tracer,
+              params.requestId
+            );
+            if (processResult.isErr()) return err(processResult.error);
+            return ok(processResult.value);
+          } finally {
+            leaseManager.releaseTask(claimed.id);
+            await leaseManager.stop();
+          }
+        }.bind(this)
+      );
+    };
+
+    try {
+      if (span && params.tracer) {
+        return await params.tracer.withSpan(span, executeRunTaskById);
+      }
+      return await executeRunTaskById();
+    } finally {
+      span?.end();
+    }
+  }
+
+  private createLeaseManager(tasks: ReadonlyArray<AnyOutboxItem>): ClaimedTaskLeaseManager {
+    return new ClaimedTaskLeaseManager(
+      tasks,
+      this.outbox,
+      this.logger,
+      this.outboxConfig.heartbeatIntervalMs
+    );
+  }
+
+  private async applyTaskStatementTimeout(
+    context: IExecutionContext,
+    logContext: Record<string, unknown>
+  ): Promise<Result<void, DomainError>> {
+    const timeoutMs = this.outboxConfig.taskStatementTimeoutMs;
+    if (timeoutMs <= 0) return ok(undefined);
+
+    const trx = getPostgresTransaction(context);
+    if (!trx) return ok(undefined);
+
+    try {
+      await trx.executeQuery(sql.raw(`SET LOCAL statement_timeout = ${timeoutMs}`).compile(trx));
+      this.logger.debug('computed:worker:statement_timeout_set', {
+        taskStatementTimeoutMs: timeoutMs,
+        ...logContext,
+      });
+      return ok(undefined);
+    } catch (error) {
+      return err(
+        domainError.infrastructure({
+          message: `Failed to set computed task statement timeout: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        })
+      );
+    }
+  }
+
+  private async processClaimedTask(
+    task: AnyOutboxItem,
+    actorId: ActorId,
+    tracer?: ITracer,
+    requestId?: string
+  ): Promise<Result<boolean, DomainError>> {
+    if (isFieldBackfillOutboxItem(task)) {
+      return this.processFieldBackfillTask(task, actorId, tracer, requestId);
+    }
+
+    if (isSeedOutboxItem(task)) {
+      return this.processSeedTask(task, actorId, tracer, requestId);
+    }
+
+    return this.processComputedTask(task as ComputedUpdateOutboxItem, actorId, tracer, requestId);
+  }
+
+  private async processComputedTask(
+    computedTask: ComputedUpdateOutboxItem,
+    actorId: ActorId,
+    tracer?: ITracer,
+    requestId?: string
+  ): Promise<Result<boolean, DomainError>> {
+    const context: IExecutionContext = { actorId, tracer, requestId };
+    const runLogContext = {
+      computedRunId: computedTask.runId,
+      computedOriginRunIds: computedTask.originRunIds,
+      computedTaskId: computedTask.id,
+    };
+    let failurePhase:
+      | 'deserialize_plan'
+      | 'set_statement_timeout'
+      | 'collect_seed_field_ids'
+      | 'collect_seed_table_ids'
+      | 'acquire_locks'
+      | 'execute_plan'
+      | 'publish_events'
+      | 'collect_dirty_seed_groups'
+      | 'plan_next_stage'
+      | 'enqueue_next_stage'
+      | 'mark_done' = 'deserialize_plan';
+    const logTaskFailure = (error: unknown, failure?: ComputedTaskFailureClassification) => {
+      this.logger.error('computed:outbox:task_failed', {
+        taskId: computedTask.id,
+        phase: failurePhase,
+        stageDepth: computedTask.stageDepth ?? 0,
+        stepCount: computedTask.steps.length,
+        edgeCount: computedTask.edges.length,
+        seedRecordCount: computedTask.seedRecordIds.length,
+        extraSeedGroupCount: computedTask.extraSeedRecords.length,
+        affectedFieldCount: computedTask.affectedFieldIds.length,
+        ...failure,
+        ...toErrorLogFields(error),
+        ...runLogContext,
+      });
+    };
+
+    const splitResult = await this.splitLargeComputedTask(computedTask, context, runLogContext);
+    if (splitResult.isErr()) {
+      logTaskFailure(splitResult.error);
+      await this.handleTaskFailure(computedTask, splitResult.error.message, context);
+      return err(splitResult.error);
+    }
+    if (splitResult.value) return ok(true);
+
+    const payload = toPayload(computedTask);
+    const planResult = deserializeComputedUpdatePlan(payload);
+    if (planResult.isErr()) {
+      logTaskFailure(planResult.error);
+      await this.handleTaskFailure(computedTask, planResult.error.message, context);
+      return err(planResult.error);
+    }
+
+    const totalSteps =
+      computedTask.runTotalSteps > 0
+        ? computedTask.runTotalSteps
+        : computedTask.runCompletedStepsBefore + computedTask.steps.length;
+    const runId = computedTask.runId?.length ? computedTask.runId : undefined;
+    const originRunIds = computedTask.originRunIds?.length ? computedTask.originRunIds : undefined;
+
+    failurePhase = 'collect_seed_field_ids';
+    const stageFieldIdsResult = collectSeedFieldIds(computedTask);
+    if (stageFieldIdsResult.isErr()) {
+      logTaskFailure(stageFieldIdsResult.error);
+      await this.handleTaskFailure(computedTask, stageFieldIdsResult.error.message, context);
+      return err(stageFieldIdsResult.error);
+    }
+
+    failurePhase = 'collect_seed_table_ids';
+    const stageTableIdsResult = collectSeedTableIds(computedTask);
+    if (stageTableIdsResult.isErr()) {
+      logTaskFailure(stageTableIdsResult.error);
+      await this.handleTaskFailure(computedTask, stageTableIdsResult.error.message, context);
+      return err(stageTableIdsResult.error);
+    }
+
+    const executeResult = await this.unitOfWork.withTransaction(context, async (txContext) => {
+      failurePhase = 'set_statement_timeout';
+      const timeoutResult = await this.applyTaskStatementTimeout(txContext, runLogContext);
+      if (timeoutResult.isErr()) return err(timeoutResult.error);
+
+      const run = createComputedUpdateRun({
+        runId,
+        originRunIds,
+        totalSteps,
+        completedStepsBefore: computedTask.runCompletedStepsBefore,
+        phase: 'async',
+        taskId: computedTask.id,
+      });
+
+      failurePhase = 'acquire_locks';
+      const lockResult = await this.updater.acquireLocks(planResult.value, txContext, {
+        logContext: runLogContext,
+        wait: false,
+      });
+      if (lockResult.isErr()) return err(lockResult.error);
+
+      failurePhase = 'execute_plan';
+      const stageResult = await this.updater.execute(planResult.value, txContext, run, {
+        collectChanges: true,
+        // Non-blocking target locks: overlapping writers requeue instead of overwriting
+        // computed columns with stale concurrent snapshots.
+        lockWait: false,
+      });
+      if (stageResult.isErr()) return err(stageResult.error);
+
+      const events = buildComputedUpdateEvents(
+        stageResult.value.changesByStep,
+        planResult.value.baseId,
+        computedTask.orchestration
+      );
+      if (events.length > 0) {
+        failurePhase = 'publish_events';
+        await this.publishComputedUpdateEvents(txContext, events, {
+          failed: 'computed:worker:events_publish_failed',
+          published: 'computed:worker:events_published',
+          deferred: 'computed:worker:events_publish_deferred',
+          logContext: runLogContext,
+        });
+      }
+
+      const completedStepsAfter = computedTask.runCompletedStepsBefore + computedTask.steps.length;
+      failurePhase = 'collect_dirty_seed_groups';
+      const seedGroupsResult = await this.updater.collectDirtySeedGroups(
+        txContext,
+        stageTableIdsResult.value
+      );
+      if (seedGroupsResult.isErr()) return err(seedGroupsResult.error);
+
+      const { groups: seedGroups, seedAllTableIds } = seedGroupsResult.value;
+
+      failurePhase = 'plan_next_stage';
+      const nextPlanResult = await this.planNextStage(
+        planResult.value,
+        txContext,
+        stageFieldIdsResult.value,
+        seedGroups,
+        seedAllTableIds,
+        stageResult.value.changesByStep
+      );
+      if (nextPlanResult.isErr()) return err(nextPlanResult.error);
+
+      const currentStageDepth = computedTask.stageDepth ?? 0;
+
+      if (nextPlanResult.value.steps.length > 0) {
+        if (currentStageDepth >= MAX_STAGE_DEPTH) {
+          this.logger.warn('computed:worker:max_stage_depth_reached', {
+            taskId: computedTask.id,
+            stageDepth: currentStageDepth,
+            skippedSteps: nextPlanResult.value.steps.length,
+            ...runLogContext,
+          });
+        } else {
+          const nextTotalSteps =
+            Math.max(totalSteps, completedStepsAfter) + nextPlanResult.value.steps.length;
+          const nextTask = buildOutboxTaskInput({
+            plan: nextPlanResult.value,
+            dirtyStats: seedGroups.map((group) => ({
+              tableId: group.tableId.toString(),
+              recordCount: group.recordIds.length,
+            })),
+            syncMaxLevel: 0,
+            hasher: this.hasher,
+            runId: run.runId,
+            originRunIds: [...run.originRunIds],
+            runTotalSteps: nextTotalSteps,
+            runCompletedStepsBefore: completedStepsAfter,
+            stageDepth: currentStageDepth + 1,
+            orchestration: computedTask.orchestration,
+          });
+
+          failurePhase = 'enqueue_next_stage';
+          const enqueueResult = await this.outbox.enqueueOrMerge(nextTask, txContext);
+          if (enqueueResult.isErr()) return err(enqueueResult.error);
+        }
+      }
+
+      failurePhase = 'mark_done';
+      const doneResult = await this.outbox.markDone(computedTask, txContext);
+      if (doneResult.isErr()) return err(doneResult.error);
+      if (!doneResult.value) return ok(false);
+
+      return ok(true);
+    });
+    if (executeResult.isErr()) {
+      if (isComputedUpdateLockUnavailable(executeResult.error)) {
+        await this.releaseTaskForRetry(
+          computedTask,
+          executeResult.error.message,
+          context,
+          this.outboxConfig.lockUnavailableRetryDelayMs
+        );
+        return ok(false);
+      }
+      const failure = classifyComputedTaskFailure(executeResult.error);
+      logTaskFailure(executeResult.error, failure);
+      await this.handleTaskFailure(computedTask, executeResult.error.message, context, {
+        forceDeadLetter: !failure.retryable,
+        failure,
+        diagnostics: buildFailureDiagnostics(executeResult.error, failure, failurePhase),
+      });
+      return err(executeResult.error);
+    }
+
+    return ok(executeResult.value);
+  }
+
+  private async publishComputedUpdateEvents(
+    context: IExecutionContext,
+    events: ReadonlyArray<RecordsBatchUpdated>,
+    logs: {
+      failed: string;
+      published: string;
+      deferred: string;
+      logContext: Record<string, unknown>;
+    }
+  ): Promise<void> {
+    const publish = async () => {
+      const publishResult = await this.eventBus.publishMany(withoutTransaction(context), events);
+      if (publishResult.isErr()) {
+        this.logger.warn(logs.failed, {
+          error: publishResult.error.message,
+          eventCount: events.length,
+          ...logs.logContext,
+        });
+        return;
+      }
+
+      this.logger.info(logs.published, {
+        ...buildComputedUpdateEventLogContext(events),
+        ...logs.logContext,
+      });
+    };
+
+    if (registerAfterCommit(context, publish)) {
+      this.logger.debug(logs.deferred, {
+        eventCount: events.length,
+        ...logs.logContext,
+      });
+      return;
+    }
+
+    await publish();
+  }
+
+  private async handleTaskFailure(
+    task: AnyOutboxItem,
+    message: string,
+    context?: IExecutionContext,
+    options: {
+      forceDeadLetter?: boolean;
+      failure?: ComputedTaskFailureClassification;
+      diagnostics?: ComputedTaskFailureDiagnostics;
+    } = {}
+  ): Promise<boolean> {
+    const forceDeadLetter = options.forceDeadLetter ?? options.failure?.retryable === false;
+    const result = await this.outbox.markFailed(task, message, context, {
+      ...options.failure,
+      directDeadLetter: forceDeadLetter || undefined,
+      diagnostics: options.diagnostics,
+    });
+    if (result.isErr()) {
+      this.logger.warn('computed:outbox:markFailed_failed', {
+        taskId: task.id,
+        error: result.error.message,
+      });
+      return false;
+    }
+
+    if (!result.value) {
+      this.logger.warn('computed:outbox:markFailed_skipped', {
+        taskId: task.id,
+        leaseOwner: task.lockedBy ?? null,
+      });
+    }
+
+    return result.value;
+  }
+
+  private async releaseTaskForRetry(
+    task: AnyOutboxItem,
+    reason: string,
+    context?: IExecutionContext,
+    retryDelayMs?: number
+  ): Promise<boolean> {
+    const result = await this.outbox.releaseForRetry(
+      {
+        task,
+        reason,
+        retryDelayMs,
+      },
+      context
+    );
+    if (result.isErr()) {
+      this.logger.warn('computed:outbox:release_retry_failed', {
+        taskId: task.id,
+        error: result.error.message,
+      });
+      return false;
+    }
+
+    if (!result.value) {
+      this.logger.warn('computed:outbox:release_retry_skipped', {
+        taskId: task.id,
+        leaseOwner: task.lockedBy ?? null,
+      });
+      return false;
+    }
+
+    this.logger.debug('computed:worker:lock_unavailable_requeued', {
+      taskId: task.id,
+      reason,
+    });
+    return true;
+  }
+
+  private async loadActiveTableForTask(params: {
+    task: AnyOutboxItem;
+    tableId: TableId;
+    context: IExecutionContext;
+    logContext: Record<string, unknown>;
+  }): Promise<Result<LoadTaskTableResult, DomainError>> {
+    const tableSpec = TableByIdSpec.create(params.tableId);
+    const activeResult = await this.tableRepository.findOne(params.context, tableSpec);
+    if (activeResult.isOk()) return ok({ status: 'loaded', table: activeResult.value });
+    if (!isNotFoundError(activeResult.error)) return err(activeResult.error);
+
+    const anyStateResult = await this.tableRepository.findOne(params.context, tableSpec, {
+      state: 'all',
+    });
+    if (anyStateResult.isErr()) {
+      return err(isNotFoundError(anyStateResult.error) ? activeResult.error : anyStateResult.error);
+    }
+
+    const tableId = params.tableId.toString();
+    const message = `Computed update blocked by inactive table: tableId=${tableId}`;
+    this.logger.warn('computed:worker:inactive_table_blocked', {
+      taskId: params.task.id,
+      tableId,
+      ...params.logContext,
+    });
+    await this.releaseTaskForRetry(
+      params.task,
+      message,
+      params.context,
+      this.outboxConfig.maxBackoffMs
+    );
+    return ok({ status: 'blocked' });
+  }
+
+  private async splitLargeComputedTask(
+    task: ComputedUpdateOutboxItem,
+    context: IExecutionContext,
+    logContext: Record<string, unknown>
+  ): Promise<Result<boolean, DomainError>> {
+    const maxSeedRecordsPerTask = resolveEffectiveMaxSeedRecordsPerTask(task, this.outboxConfig);
+    const chunks = splitComputedTaskForSeedRecordLimit(task, maxSeedRecordsPerTask);
+    if (chunks.length === 0) return ok(false);
+
+    for (const chunk of chunks) {
+      const enqueueResult = await this.outbox.enqueueOrMerge(chunk, context);
+      if (enqueueResult.isErr()) return err(enqueueResult.error);
+    }
+
+    const doneResult = await this.outbox.markDone(task, context);
+    if (doneResult.isErr()) return err(doneResult.error);
+    if (!doneResult.value) return ok(false);
+
+    this.logger.info('computed:worker:large_task_split', {
+      taskId: task.id,
+      chunkCount: chunks.length,
+      seedRecordCount: countSeedRecordDtos(task.seedRecordIds, task.extraSeedRecords),
+      maxSeedRecordsPerTask,
+      configuredMaxSeedRecordsPerTask: this.outboxConfig.maxSeedRecordsPerTask,
+      fanoutDirtyRecordsThreshold: this.outboxConfig.fanoutDirtyRecordsThreshold,
+      ...logContext,
+    });
+    return ok(true);
+  }
+
+  private async splitLargeSeedTask(
+    task: SeedOutboxItem,
+    context: IExecutionContext,
+    logContext: Record<string, unknown>
+  ): Promise<Result<boolean, DomainError>> {
+    const chunks = splitSeedTaskForSeedRecordLimit(task, this.outboxConfig.maxSeedRecordsPerTask);
+    if (chunks.length === 0) return ok(false);
+
+    for (const chunk of chunks) {
+      const enqueueResult = await this.outbox.enqueueSeedTask(chunk, context);
+      if (enqueueResult.isErr()) return err(enqueueResult.error);
+    }
+
+    const doneResult = await this.outbox.markDone(task, context);
+    if (doneResult.isErr()) return err(doneResult.error);
+    if (!doneResult.value) return ok(false);
+
+    this.logger.info('computed:worker:large_seed_task_split', {
+      taskId: task.id,
+      chunkCount: chunks.length,
+      seedRecordCount: countSeedRecordDtos(task.seedRecordIds, task.extraSeedRecords),
+      maxSeedRecordsPerTask: this.outboxConfig.maxSeedRecordsPerTask,
+      ...logContext,
+    });
+    return ok(true);
+  }
+
+  /**
+   * Process a field backfill task.
+   * Loads the table, resolves field IDs, and executes the backfill.
+   */
+  private async processFieldBackfillTask(
+    task: FieldBackfillOutboxItem,
+    actorId: ActorId,
+    tracer?: ITracer,
+    requestId?: string
+  ): Promise<Result<boolean, DomainError>> {
+    const context: IExecutionContext = { actorId, tracer, requestId };
+    const runLogContext = {
+      computedRunId: task.runId,
+      computedTaskId: task.id,
+      taskType: 'field-backfill',
+    };
+
+    this.logger.debug('computed:worker:field_backfill_start', {
+      taskId: task.id,
+      tableId: task.tableId,
+      fieldIds: task.fieldIds,
+      ...runLogContext,
+    });
+
+    // Parse field IDs
+    const fieldIdsResult = task.fieldIds.reduce<Result<FieldId[], DomainError>>(
+      (acc, fieldId) =>
+        acc.andThen((ids) =>
+          FieldId.create(fieldId).map((id) => {
+            ids.push(id);
+            return ids;
+          })
+        ),
+      ok([])
+    );
+    if (fieldIdsResult.isErr()) {
+      this.logger.error('computed:worker:field_backfill_failed', {
+        taskId: task.id,
+        error: fieldIdsResult.error.message,
+        ...runLogContext,
+      });
+      await this.handleTaskFailure(task, fieldIdsResult.error.message, context);
+      return err(fieldIdsResult.error);
+    }
+
+    // Parse table ID
+    const tableIdResult = TableId.create(task.tableId);
+    if (tableIdResult.isErr()) {
+      this.logger.error('computed:worker:field_backfill_failed', {
+        taskId: task.id,
+        error: tableIdResult.error.message,
+        ...runLogContext,
+      });
+      await this.handleTaskFailure(task, tableIdResult.error.message, context);
+      return err(tableIdResult.error);
+    }
+
+    // Load table with fields
+    const tableResult = await this.loadActiveTableForTask({
+      task,
+      tableId: tableIdResult.value,
+      context,
+      logContext: runLogContext,
+    });
+    if (tableResult.isErr()) {
+      this.logger.error('computed:worker:field_backfill_failed', {
+        taskId: task.id,
+        error: tableResult.error.message,
+        ...runLogContext,
+      });
+      await this.handleTaskFailure(task, tableResult.error.message, context);
+      return err(tableResult.error);
+    }
+    if (tableResult.value.status === 'blocked') return ok(false);
+
+    const table = tableResult.value.table;
+
+    // Get fields to backfill
+    const fieldsToBackfill: ReturnType<typeof table.getFields> = [];
+    for (const fieldId of fieldIdsResult.value) {
+      const fieldResult = table.getField((f) => f.id().equals(fieldId));
+      if (fieldResult.isOk()) {
+        (fieldsToBackfill as Array<typeof fieldResult.value>).push(fieldResult.value);
+      }
+    }
+
+    if (fieldsToBackfill.length === 0) {
+      this.logger.warn('computed:worker:field_backfill_no_fields', {
+        taskId: task.id,
+        ...runLogContext,
+      });
+      // Mark as done since there's nothing to backfill
+      const doneResult = await this.outbox.markDone(task, context);
+      return doneResult;
+    }
+
+    // Execute backfill within a transaction
+    const executeResult: Result<boolean, DomainError> = await this.unitOfWork.withTransaction(
+      context,
+      async (txContext) => {
+        const timeoutResult = await this.applyTaskStatementTimeout(txContext, runLogContext);
+        if (timeoutResult.isErr()) return err(timeoutResult.error);
+
+        // Execute sync backfill for all fields
+        const backfillResult = await this.backfillService.executeSyncMany(txContext, {
+          table,
+          fields: fieldsToBackfill,
+        });
+        if (backfillResult.isErr()) return err(backfillResult.error);
+
+        // Mark task as done
+        const doneResult = await this.outbox.markDone(task, txContext);
+        if (doneResult.isErr()) return doneResult;
+        if (!doneResult.value) return ok(false);
+
+        return ok(true);
+      }
+    );
+
+    if (executeResult.isErr()) {
+      const failure = classifyComputedTaskFailure(executeResult.error);
+      this.logger.error('computed:worker:field_backfill_failed', {
+        taskId: task.id,
+        error: executeResult.error.message,
+        ...failure,
+        ...runLogContext,
+      });
+      await this.handleTaskFailure(task, executeResult.error.message, context, {
+        forceDeadLetter: !failure.retryable,
+        failure,
+        diagnostics: buildFailureDiagnostics(executeResult.error, failure, 'execute_backfill'),
+      });
+      return err(executeResult.error);
+    }
+
+    this.logger.debug('computed:worker:field_backfill_done', {
+      taskId: task.id,
+      tableId: task.tableId,
+      fieldCount: fieldsToBackfill.length,
+      ...runLogContext,
+    });
+
+    return ok(true);
+  }
+
+  /**
+   * Process a seed task.
+   * Seed tasks contain minimal trigger information - we compute the full plan here
+   * and then execute it.
+   */
+  private async processSeedTask(
+    task: SeedOutboxItem,
+    actorId: ActorId,
+    tracer?: ITracer,
+    requestId?: string
+  ): Promise<Result<boolean, DomainError>> {
+    const context: IExecutionContext = { actorId, tracer, requestId };
+    const runLogContext = {
+      computedRunId: task.runId,
+      computedTaskId: task.id,
+      taskType: 'seed',
+    };
+    let failurePhase:
+      | 'deserialize_seed_payload'
+      | 'set_statement_timeout'
+      | 'load_seed_table'
+      | 'plan_seed'
+      | 'project_activity'
+      | 'acquire_locks'
+      | 'execute_plan'
+      | 'publish_events'
+      | 'collect_dirty_seed_groups'
+      | 'plan_next_stage'
+      | 'enqueue_next_stage'
+      | 'mark_done' = 'deserialize_seed_payload';
+    const logSeedFailure = (
+      error: unknown,
+      logType:
+        | 'computed:worker:seed_failed'
+        | 'computed:worker:seed_plan_failed' = 'computed:worker:seed_failed',
+      failure?: ComputedTaskFailureClassification
+    ) => {
+      this.logger.error(logType, {
+        taskId: task.id,
+        phase: failurePhase,
+        seedTableId: task.seedTableId,
+        seedRecordCount: task.seedRecordIds.length,
+        changedFieldCount: task.changedFieldIds.length,
+        ...failure,
+        ...toErrorLogFields(error),
+        ...runLogContext,
+      });
+    };
+
+    this.logger.debug('computed:worker:seed_start', {
+      taskId: task.id,
+      seedTableId: task.seedTableId,
+      seedRecordCount: task.seedRecordIds.length,
+      changedFieldIds: task.changedFieldIds,
+      ...runLogContext,
+    });
+
+    // Deserialize seed payload to domain objects
+    const seedPayloadResult = deserializeSeedPayload(task);
+    if (seedPayloadResult.isErr()) {
+      logSeedFailure(seedPayloadResult.error);
+      await this.handleTaskFailure(task, seedPayloadResult.error.message, context);
+      return err(seedPayloadResult.error);
+    }
+
+    const splitResult = await this.splitLargeSeedTask(task, context, runLogContext);
+    if (splitResult.isErr()) {
+      logSeedFailure(splitResult.error);
+      await this.handleTaskFailure(task, splitResult.error.message, context);
+      return err(splitResult.error);
+    }
+    if (splitResult.value) return ok(true);
+
+    const seedData = seedPayloadResult.value;
+
+    // Load table with fields
+    failurePhase = 'load_seed_table';
+    const tableResult = await this.loadActiveTableForTask({
+      task,
+      tableId: seedData.seedTableId,
+      context,
+      logContext: runLogContext,
+    });
+    if (tableResult.isErr()) {
+      logSeedFailure(tableResult.error);
+      await this.handleTaskFailure(task, tableResult.error.message, context);
+      return err(tableResult.error);
+    }
+    if (tableResult.value.status === 'blocked') return ok(false);
+
+    const table = tableResult.value.table;
+
+    // Compute the full plan from seed data
+    failurePhase = 'plan_seed';
+    const planResult = await this.planner.planStage(
+      {
+        baseId: table.baseId(),
+        seedTableId: table.id(),
+        seedRecordIds: seedData.seedRecordIds,
+        extraSeedRecords: seedData.extraSeedRecords,
+        beforeImageRecords: seedData.beforeImageRecords,
+        table,
+        changedFieldIds: seedData.changedFieldIds,
+        changeType: seedData.changeType,
+        cyclePolicy: seedData.cyclePolicy,
+        impact: seedData.impact
+          ? {
+              valueFieldIds: seedData.impact.valueFieldIds,
+              linkFieldIds: seedData.impact.linkFieldIds,
+            }
+          : undefined,
+      },
+      context
+    );
+    if (planResult.isErr()) {
+      logSeedFailure(planResult.error, 'computed:worker:seed_plan_failed');
+      await this.handleTaskFailure(task, planResult.error.message, context);
+      return err(planResult.error);
+    }
+
+    const plan: ComputedUpdatePlan = planResult.value;
+
+    // If no steps, nothing to do
+    if (plan.steps.length === 0) {
+      this.logger.debug('computed:worker:seed_no_steps', {
+        taskId: task.id,
+        ...runLogContext,
+      });
+      const doneResult = await this.outbox.markDone(task, context);
+      return doneResult;
+    }
+
+    failurePhase = 'project_activity';
+    const batchProgress = toComputedActivityBatch(task.orchestration);
+    const activityResult = await this.outbox.registerPlannedTaskActivity(
+      {
+        taskId: task.id,
+        baseId: plan.baseId.toString(),
+        targets: resolveFieldTargetsFromPlan(plan),
+        metrics: {
+          estimatedComplexity: plan.estimatedComplexity,
+          estimatedDirtyRecords: countSeedRecordDtos(task.seedRecordIds, task.extraSeedRecords),
+          hasAllTargetRecords: hasAllTargetRecordsEdge(plan.edges),
+          ...(batchProgress ? { batchProgress } : {}),
+        },
+      },
+      context
+    );
+    if (activityResult.isErr()) {
+      logSeedFailure(activityResult.error);
+      await this.handleTaskFailure(task, activityResult.error.message, context);
+      return err(activityResult.error);
+    }
+
+    // Execute the plan within a transaction
+    const executeResult = await this.unitOfWork.withTransaction(context, async (txContext) => {
+      failurePhase = 'set_statement_timeout';
+      const timeoutResult = await this.applyTaskStatementTimeout(txContext, runLogContext);
+      if (timeoutResult.isErr()) return err(timeoutResult.error);
+
+      const run = createComputedUpdateRun({
+        runId: task.runId,
+        totalSteps: plan.steps.length,
+        completedStepsBefore: 0,
+        phase: 'async',
+        taskId: task.id,
+      });
+
+      failurePhase = 'acquire_locks';
+      const lockResult = await this.updater.acquireLocks(plan, txContext, {
+        logContext: runLogContext,
+        wait: false,
+      });
+      if (lockResult.isErr()) return err(lockResult.error);
+
+      failurePhase = 'execute_plan';
+      const stageResult = await this.updater.execute(plan, txContext, run, {
+        collectChanges: true,
+        lockWait: false,
+      });
+      if (stageResult.isErr()) return err(stageResult.error);
+
+      // Publish events for computed updates
+      const events = buildComputedUpdateEvents(
+        stageResult.value.changesByStep,
+        plan.baseId,
+        task.orchestration
+      );
+      if (events.length > 0) {
+        failurePhase = 'publish_events';
+        await this.publishComputedUpdateEvents(txContext, events, {
+          failed: 'computed:worker:seed_events_publish_failed',
+          published: 'computed:worker:seed_events_published',
+          deferred: 'computed:worker:seed_events_publish_deferred',
+          logContext: runLogContext,
+        });
+      }
+
+      // Collect seed groups for next stage
+      const stageTableIds = plan.steps.map((step) => step.tableId);
+      failurePhase = 'collect_dirty_seed_groups';
+      const seedGroupsResult = await this.updater.collectDirtySeedGroups(txContext, stageTableIds);
+      if (seedGroupsResult.isErr()) return err(seedGroupsResult.error);
+
+      const { groups: seedGroups, seedAllTableIds } = seedGroupsResult.value;
+
+      // Plan next stage if needed
+      // If there are no cross-record propagation edges, the plan is purely same-record
+      // (e.g. same-table formula chains) and should not enqueue follow-up stages.
+      if (plan.edges.length === 0) {
+        const doneResult = await this.outbox.markDone(task, txContext);
+        if (doneResult.isErr()) return err(doneResult.error);
+        if (!doneResult.value) return ok(false);
+        return ok(true);
+      }
+      const stageFieldIds = plan.steps.flatMap((step) => step.fieldIds);
+      failurePhase = 'plan_next_stage';
+      const nextPlanResult = await this.planNextStage(
+        plan,
+        txContext,
+        stageFieldIds,
+        seedGroups,
+        seedAllTableIds,
+        stageResult.value.changesByStep
+      );
+      if (nextPlanResult.isErr()) return err(nextPlanResult.error);
+
+      // Enqueue next stage if there are more steps
+      // Seed tasks start at depth 0, so the first follow-up is depth 1
+      if (nextPlanResult.value.steps.length > 0) {
+        const nextTask = buildOutboxTaskInput({
+          plan: nextPlanResult.value,
+          dirtyStats: seedGroups.map((group) => ({
+            tableId: group.tableId.toString(),
+            recordCount: group.recordIds.length,
+          })),
+          syncMaxLevel: 0,
+          hasher: this.hasher,
+          runId: run.runId,
+          originRunIds: [...run.originRunIds],
+          runTotalSteps: plan.steps.length + nextPlanResult.value.steps.length,
+          runCompletedStepsBefore: plan.steps.length,
+          stageDepth: 1,
+          orchestration: task.orchestration,
+        });
+
+        failurePhase = 'enqueue_next_stage';
+        const enqueueResult = await this.outbox.enqueueOrMerge(nextTask, txContext);
+        if (enqueueResult.isErr()) return err(enqueueResult.error);
+      }
+
+      // Mark seed task as done
+      failurePhase = 'mark_done';
+      const doneResult = await this.outbox.markDone(task, txContext);
+      if (doneResult.isErr()) return err(doneResult.error);
+      if (!doneResult.value) return ok(false);
+
+      return ok(true);
+    });
+
+    if (executeResult.isErr()) {
+      if (isComputedUpdateLockUnavailable(executeResult.error)) {
+        await this.releaseTaskForRetry(
+          task,
+          executeResult.error.message,
+          context,
+          this.outboxConfig.lockUnavailableRetryDelayMs
+        );
+        return ok(false);
+      }
+      const failure = classifyComputedTaskFailure(executeResult.error);
+      logSeedFailure(executeResult.error, 'computed:worker:seed_failed', failure);
+      await this.handleTaskFailure(task, executeResult.error.message, context, {
+        forceDeadLetter: !failure.retryable,
+        failure,
+        diagnostics: buildFailureDiagnostics(executeResult.error, failure, failurePhase),
+      });
+      return err(executeResult.error);
+    }
+
+    this.logger.debug('computed:worker:seed_done', {
+      taskId: task.id,
+      seedTableId: task.seedTableId,
+      stepCount: plan.steps.length,
+      ...runLogContext,
+    });
+
+    return ok(executeResult.value);
+  }
+
+  private async planNextStage(
+    plan: ComputedUpdatePlan,
+    context: IExecutionContext,
+    seedFieldIds: ReadonlyArray<FieldId>,
+    seedGroups: ReadonlyArray<ComputedSeedGroup>,
+    seedAllTableIds?: ReadonlyArray<TableId>,
+    changesByStep: ReadonlyArray<StepChangeData> = []
+  ): Promise<Result<ComputedUpdatePlan, DomainError>> {
+    if (plan.edges.length === 0) return ok({ ...plan, steps: [], edges: [] });
+    if (seedFieldIds.length === 0 && (!seedAllTableIds || seedAllTableIds.length === 0))
+      return ok({ ...plan, steps: [], edges: [] });
+
+    const seedSplit = splitSeedGroupsForPlan(seedGroups, plan.seedTableId);
+    if (!seedSplit && (!seedAllTableIds || seedAllTableIds.length === 0))
+      return ok({ ...plan, steps: [], edges: [] });
+
+    // Prefer step-change snapshots for this stage, but always carry forward any
+    // before-image already on the plan (e.g. filter-field values from the original
+    // user mutation). Dropping them forces conditional edges into allTargetRecords.
+    let beforeImageRecords: ComputedUpdatePlan['beforeImageRecords'] = [
+      ...(plan.beforeImageRecords ?? []),
+    ];
+    if (seedSplit && changesByStep.length > 0) {
+      const tableSpec = TableByIdSpec.create(seedSplit.seedTableId);
+      const tableResult = await this.tableRepository.findOne(context, tableSpec);
+      if (tableResult.isErr()) return err(tableResult.error);
+
+      const beforeImageResult = buildBeforeImageRecordsFromStepChanges({
+        seedTableId: seedSplit.seedTableId,
+        seedRecordIds: seedSplit.seedRecordIds,
+        seedFieldIds,
+        changesByStep,
+        tableById: new Map([[seedSplit.seedTableId.toString(), tableResult.value]]),
+      });
+      if (beforeImageResult.isErr()) return err(beforeImageResult.error);
+      beforeImageRecords = mergeBeforeImageRecords(beforeImageRecords, beforeImageResult.value);
+    }
+
+    const startTime = Date.now();
+    const result = await this.planner.planStage(
+      {
+        baseId: plan.baseId,
+        seedTableId: seedSplit?.seedTableId ?? plan.seedTableId,
+        seedRecordIds: seedSplit?.seedRecordIds ?? [],
+        extraSeedRecords: seedSplit?.extraSeedRecords ?? [],
+        beforeImageRecords,
+        changedFieldIds: seedFieldIds,
+        // After the initial insert/delete is processed, subsequent stages should behave like
+        // updates. Follow-up stages are recomputing surviving records based on computed-field
+        // changes, not replaying the original row deletion/insertion semantics.
+        changeType:
+          plan.changeType === 'insert' || plan.changeType === 'delete' ? 'update' : plan.changeType,
+        cyclePolicy: plan.cyclePolicy,
+        impact: {
+          valueFieldIds: seedFieldIds,
+          linkFieldIds: [],
+        },
+      },
+      context
+    );
+
+    const elapsedMs = Date.now() - startTime;
+    if (result.isOk() && (elapsedMs > 100 || result.value.steps.length > 0)) {
+      this.logger.debug('computed:worker:planNextStage', {
+        elapsedMs,
+        inputSeedFieldIds: seedFieldIds.length,
+        inputSeedGroups: seedGroups.length,
+        inputSeedRecords: seedGroups.reduce((acc, g) => acc + g.recordIds.length, 0),
+        inputSeedAllTableIds: seedAllTableIds?.length ?? 0,
+        outputSteps: result.value.steps.length,
+        outputEdges: result.value.edges.length,
+        seedTableId: (seedSplit?.seedTableId ?? plan.seedTableId).toString(),
+      });
+    }
+
+    // Carry seedAllTableIds through to the next plan
+    if (result.isOk() && seedAllTableIds && seedAllTableIds.length > 0) {
+      return ok({ ...result.value, seedAllTableIds });
+    }
+
+    return result;
+  }
+}
+
+const toPayload = (task: ComputedUpdateOutboxItem): ComputedUpdateOutboxPayload => ({
+  baseId: task.baseId,
+  seedTableId: task.seedTableId,
+  seedRecordIds: task.seedRecordIds,
+  extraSeedRecords: task.extraSeedRecords,
+  beforeImageRecords: task.beforeImageRecords,
+  steps: task.steps,
+  edges: task.edges,
+  estimatedComplexity: task.estimatedComplexity,
+  changeType: task.changeType,
+  seedAllTableIds: task.seedAllTableIds,
+});
+
+const collectSeedFieldIds = (
+  task: ComputedUpdateOutboxItem
+): Result<ReadonlyArray<FieldId>, DomainError> => {
+  const ids = new Map<string, FieldId>();
+  const candidates = task.affectedFieldIds.length ? task.affectedFieldIds : [];
+
+  for (const fieldId of candidates) {
+    const parsed = FieldId.create(fieldId);
+    if (parsed.isErr()) return err(parsed.error);
+    ids.set(parsed.value.toString(), parsed.value);
+  }
+
+  if (ids.size > 0) return ok([...ids.values()]);
+
+  for (const step of task.steps) {
+    for (const fieldId of step.fieldIds) {
+      const parsed = FieldId.create(fieldId);
+      if (parsed.isErr()) return err(parsed.error);
+      ids.set(parsed.value.toString(), parsed.value);
+    }
+  }
+
+  return ok([...ids.values()]);
+};
+
+const collectSeedTableIds = (
+  task: ComputedUpdateOutboxItem
+): Result<ReadonlyArray<TableId>, DomainError> => {
+  const ids = new Map<string, TableId>();
+  const candidates = task.affectedTableIds.length ? task.affectedTableIds : [];
+
+  for (const tableId of candidates) {
+    const parsed = TableId.create(tableId);
+    if (parsed.isErr()) return err(parsed.error);
+    ids.set(parsed.value.toString(), parsed.value);
+  }
+
+  if (ids.size > 0) return ok([...ids.values()]);
+
+  for (const step of task.steps) {
+    const parsed = TableId.create(step.tableId);
+    if (parsed.isErr()) return err(parsed.error);
+    ids.set(parsed.value.toString(), parsed.value);
+  }
+
+  return ok([...ids.values()]);
+};
+
+/**
+ * Build RecordsBatchUpdated events from step change data.
+ * Groups changes by tableId and creates one event per table.
+ */
+const buildComputedUpdateEvents = (
+  changesByStep: ReadonlyArray<StepChangeData>,
+  baseId: BaseId,
+  orchestration?: ComputedUpdateOutboxItem['orchestration']
+): RecordsBatchUpdated[] => {
+  if (changesByStep.length === 0) return [];
+
+  // Group changes by tableId
+  const changesByTable = new Map<string, StepChangeData['recordChanges']>();
+  for (const stepChange of changesByStep) {
+    const existing = changesByTable.get(stepChange.tableId) ?? [];
+    changesByTable.set(stepChange.tableId, [...existing, ...stepChange.recordChanges]);
+  }
+
+  const events: RecordsBatchUpdated[] = [];
+
+  for (const [tableIdStr, recordChanges] of changesByTable) {
+    if (recordChanges.length === 0) continue;
+
+    const tableIdResult = TableId.create(tableIdStr);
+    if (tableIdResult.isErr()) continue;
+
+    // Convert recordChanges to RecordUpdateDTO format
+    // Use actual oldVersion from computed update (version before update)
+    const updates = recordChanges.map((change) => ({
+      recordId: change.recordId,
+      oldVersion: change.oldVersion,
+      newVersion: change.oldVersion + 1,
+      changes: change.changes.map((fieldChange) => ({
+        fieldId: fieldChange.fieldId,
+        oldValue: fieldChange.oldValue,
+        newValue: fieldChange.newValue,
+      })),
+    }));
+
+    events.push(
+      RecordsBatchUpdated.create({
+        tableId: tableIdResult.value,
+        baseId,
+        updates,
+        source: 'computed',
+        orchestration,
+      })
+    );
+  }
+
+  return events;
+};
+
+const buildComputedUpdateEventLogContext = (events: ReadonlyArray<RecordsBatchUpdated>) => ({
+  eventCount: events.length,
+  tableIds: [...new Set(events.map((event) => event.tableId.toString()))],
+  events: events.slice(0, maxComputedEventLogItems).map((event) => {
+    const fieldIds = [
+      ...new Set(event.updates.flatMap((update) => update.changes.map((change) => change.fieldId))),
+    ];
+    const recordIds = event.updates.map((update) => update.recordId);
+    return {
+      tableId: event.tableId.toString(),
+      recordCount: event.updates.length,
+      recordIds: recordIds.slice(0, maxComputedEventLogRecordIds),
+      hasMoreRecordIds: recordIds.length > maxComputedEventLogRecordIds,
+      fieldIds: fieldIds.slice(0, maxComputedEventLogFieldIds),
+      hasMoreFieldIds: fieldIds.length > maxComputedEventLogFieldIds,
+    };
+  }),
+  hasMoreEvents: events.length > maxComputedEventLogItems,
+});

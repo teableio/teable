@@ -1,0 +1,181 @@
+import {
+  type AttachmentField,
+  type AutoNumberField,
+  type ButtonField,
+  type CheckboxField,
+  type ConditionalLookupField,
+  type ConditionalRollupField,
+  type CreatedByField,
+  type CreatedTimeField,
+  type DateField,
+  type DomainError,
+  type Field,
+  type FieldId,
+  type FormulaField,
+  type IFieldVisitor,
+  type LastModifiedByField,
+  type LastModifiedTimeField,
+  type LinkField,
+  type LongTextField,
+  type LookupField,
+  type MultipleSelectField,
+  type NumberField,
+  type RatingField,
+  type RollupField,
+  type SingleLineTextField,
+  type SingleSelectField,
+  type Table,
+  type UserField,
+} from '@teable/v2-core';
+import { ok, safeTry } from 'neverthrow';
+import type { Result } from 'neverthrow';
+
+export type FieldOutputColumn = {
+  readonly fieldId: FieldId;
+  readonly columnAlias: string;
+  readonly valueKind?: 'user';
+};
+
+/**
+ * Visitor to collect field id -> output column alias mapping.
+ * User-like fields are tagged so read-model value transforms can be gated by
+ * field semantics instead of cell object shape.
+ */
+export class FieldOutputColumnVisitor implements IFieldVisitor<FieldOutputColumn> {
+  private readonly columns: FieldOutputColumn[] = [];
+
+  /**
+   * Collect output column mappings for all fields in a table.
+   */
+  collect(
+    table: Table,
+    projection?: ReadonlyArray<FieldId>
+  ): Result<ReadonlyArray<FieldOutputColumn>, DomainError> {
+    return safeTry<ReadonlyArray<FieldOutputColumn>, DomainError>(
+      function* (this: FieldOutputColumnVisitor) {
+        const projectionFieldIdSet =
+          projection !== undefined
+            ? new Set(projection.map((fieldId) => fieldId.toString()))
+            : undefined;
+
+        for (const field of table.getFields()) {
+          if (projectionFieldIdSet && !projectionFieldIdSet.has(field.id().toString())) {
+            continue;
+          }
+          yield* field.accept(this);
+        }
+        return ok([...this.columns]);
+      }.bind(this)
+    );
+  }
+
+  /**
+   * Get the column alias for a single field.
+   */
+  getColumnAlias(field: Field): Result<string, DomainError> {
+    return field.dbFieldName().andThen((dbFieldName) => dbFieldName.value());
+  }
+
+  private addColumn(
+    field: Field,
+    valueKind?: FieldOutputColumn['valueKind']
+  ): Result<FieldOutputColumn, DomainError> {
+    return this.getColumnAlias(field).map((columnAlias) => {
+      const column = { fieldId: field.id(), columnAlias, valueKind };
+      this.columns.push(column);
+      return column;
+    });
+  }
+
+  visitSingleLineTextField(field: SingleLineTextField): Result<FieldOutputColumn, DomainError> {
+    return this.addColumn(field);
+  }
+
+  visitLongTextField(field: LongTextField): Result<FieldOutputColumn, DomainError> {
+    return this.addColumn(field);
+  }
+
+  visitNumberField(field: NumberField): Result<FieldOutputColumn, DomainError> {
+    return this.addColumn(field);
+  }
+
+  visitCheckboxField(field: CheckboxField): Result<FieldOutputColumn, DomainError> {
+    return this.addColumn(field);
+  }
+
+  visitDateField(field: DateField): Result<FieldOutputColumn, DomainError> {
+    return this.addColumn(field);
+  }
+
+  visitSingleSelectField(field: SingleSelectField): Result<FieldOutputColumn, DomainError> {
+    return this.addColumn(field);
+  }
+
+  visitMultipleSelectField(field: MultipleSelectField): Result<FieldOutputColumn, DomainError> {
+    return this.addColumn(field);
+  }
+
+  visitUserField(field: UserField): Result<FieldOutputColumn, DomainError> {
+    return this.addColumn(field, 'user');
+  }
+
+  visitAttachmentField(field: AttachmentField): Result<FieldOutputColumn, DomainError> {
+    return this.addColumn(field);
+  }
+
+  visitCreatedTimeField(field: CreatedTimeField): Result<FieldOutputColumn, DomainError> {
+    return this.addColumn(field);
+  }
+
+  visitLastModifiedTimeField(field: LastModifiedTimeField): Result<FieldOutputColumn, DomainError> {
+    return this.addColumn(field);
+  }
+
+  visitAutoNumberField(field: AutoNumberField): Result<FieldOutputColumn, DomainError> {
+    return this.addColumn(field);
+  }
+
+  visitCreatedByField(field: CreatedByField): Result<FieldOutputColumn, DomainError> {
+    return this.addColumn(field, 'user');
+  }
+
+  visitLastModifiedByField(field: LastModifiedByField): Result<FieldOutputColumn, DomainError> {
+    return this.addColumn(field, 'user');
+  }
+
+  visitRatingField(field: RatingField): Result<FieldOutputColumn, DomainError> {
+    return this.addColumn(field);
+  }
+
+  visitButtonField(field: ButtonField): Result<FieldOutputColumn, DomainError> {
+    return this.addColumn(field);
+  }
+
+  visitFormulaField(field: FormulaField): Result<FieldOutputColumn, DomainError> {
+    return this.addColumn(field);
+  }
+
+  visitLinkField(field: LinkField): Result<FieldOutputColumn, DomainError> {
+    return this.addColumn(field);
+  }
+
+  visitLookupField(field: LookupField): Result<FieldOutputColumn, DomainError> {
+    return this.addColumn(field);
+  }
+
+  visitRollupField(field: RollupField): Result<FieldOutputColumn, DomainError> {
+    return this.addColumn(field);
+  }
+
+  visitConditionalRollupField(
+    field: ConditionalRollupField
+  ): Result<FieldOutputColumn, DomainError> {
+    return this.addColumn(field);
+  }
+
+  visitConditionalLookupField(
+    field: ConditionalLookupField
+  ): Result<FieldOutputColumn, DomainError> {
+    return this.addColumn(field);
+  }
+}

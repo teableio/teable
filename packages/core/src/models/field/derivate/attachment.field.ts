@@ -1,0 +1,112 @@
+import { z } from 'zod';
+import { IdPrefix } from '../../../utils';
+import { FieldType, CellValueType } from '../constant';
+import { FieldCore } from '../field';
+import type { IFieldVisitor } from '../field-visitor.interface';
+import {
+  attachmentFieldOptionsSchema,
+  type IAttachmentFieldOptions,
+} from './attachment-option.schema';
+
+export const attachmentItemSchema = z.object({
+  id: z.string().startsWith(IdPrefix.Attachment), // partial in Ro
+  name: z.string(),
+  path: z.string(),
+  token: z.string(),
+  size: z.number(),
+  mimetype: z.string(),
+  presignedUrl: z.string().optional(),
+  width: z.number().optional(),
+  height: z.number().optional(),
+  smThumbnailUrl: z.string().optional(),
+  lgThumbnailUrl: z.string().optional(),
+});
+
+// Simplified format: only name and token (backend will fetch other fields from DB)
+// Optional id: if provided and exists in DB, the attachment will reuse that id
+const attachmentItemRoSchema = attachmentItemSchema.partial().required({ name: true, token: true });
+
+export type IAttachmentItem = z.infer<typeof attachmentItemSchema>;
+
+export type IAttachmentItemRo = z.infer<typeof attachmentItemRoSchema>;
+
+export const attachmentCellValueSchema = z.array(attachmentItemSchema);
+
+export const attachmentCellValueRoSchema = z.array(attachmentItemRoSchema);
+
+export type IAttachmentCellValue = z.infer<typeof attachmentCellValueSchema>;
+
+export type IAttachmentCellValueRo = z.infer<typeof attachmentCellValueRoSchema>;
+
+export class AttachmentFieldCore extends FieldCore {
+  type: FieldType.Attachment = FieldType.Attachment;
+
+  options!: IAttachmentFieldOptions;
+
+  meta?: undefined;
+
+  cellValueType = CellValueType.String;
+
+  isMultipleCellValue = true;
+
+  static CELL_VALUE_STRING_SPLITTER = ',';
+
+  static defaultOptions(): IAttachmentFieldOptions {
+    return {};
+  }
+
+  static itemString(name: string, token: string) {
+    return `${name} (${token})`;
+  }
+
+  cellValue2String(cellValue?: unknown) {
+    // TODO: The path is currently empty
+    return cellValue
+      ? (cellValue as IAttachmentCellValue)
+          .map(this.item2String)
+          .join(AttachmentFieldCore.CELL_VALUE_STRING_SPLITTER)
+      : '';
+  }
+
+  // attachments are excluded from search: server-side matching could only
+  // run over the stored JSON text (mimetype/path/property names included),
+  // which produces noise hits for keywords like "png" or "pdf"
+  isSearchable() {
+    return false;
+  }
+
+  convertStringToCellValue(_value: string, _ctx?: unknown): IAttachmentCellValue | null {
+    return null;
+  }
+
+  repair(value: unknown) {
+    if (this.isLookup) {
+      return null;
+    }
+
+    if (this.validateCellValue(value).success) {
+      return value;
+    }
+    return null;
+  }
+
+  validateOptions() {
+    return attachmentFieldOptionsSchema.safeParse(this.options);
+  }
+
+  validateCellValue(cellValue: unknown) {
+    return attachmentCellValueRoSchema.nonempty().nullable().safeParse(cellValue);
+  }
+
+  item2String(value: unknown) {
+    if (value == null) {
+      return '';
+    }
+    const { name, token } = value as IAttachmentItem;
+    return AttachmentFieldCore.itemString(name, token);
+  }
+
+  accept<T>(visitor: IFieldVisitor<T>): T {
+    return visitor.visitAttachmentField(this);
+  }
+}

@@ -1,0 +1,16 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# build
+/dist
+/build
+/storybook-static
+
+# dependencies
+node_modules
+
+# testing
+/coverage
+
+# misc
+.DS_Store
+*.pem

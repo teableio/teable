@@ -1,0 +1,51 @@
+{
+  "toolbar": {
+    "design": "Design",
+    "preview": "Preview",
+    "share": "Share",
+    "insertCell": "Insert Cell",
+    "submit": "submit"
+  },
+  "tooltips": {
+    "insertCellTips": "Please select a field first",
+    "unSupportFieldType": "UnSupport field type",
+    "selected": "This field has been selected",
+    "submitSuccess": "Submit success",
+    "onlyPreview": "This is only for preview, please share the view first then to submit"
+  },
+  "validation": {
+    "coordinate": "coordinate",
+    "validateError": "validate error",
+    "errorInfo": "error message",
+    "unknownError": "unknown error",
+    "unTitle": "unTitle"
+  },
+  "share": {
+    "label": "Share",
+    "statusLabel": "Sharing",
+    "noPermission": "No permission to share view",
+    "shareLink": "Share Link",
+    "copied": "Copied",
+    "genLink": "Generate new link",
+    "allowCopy": "Allow viewers to copy data out of this view",
+    "showAllFields": "Show all fields in expanded records",
+    "restrict": "Restrict by password",
+    "tips": "People who have the link can see the view.",
+    "passwordTitle": "Enter a password",
+    "passwordTips": "Password restrictions for accessing shared views",
+    "embed": "Embed",
+    "embedPreview": "Embed preview",
+    "hideToolbar": "Hide toolbar",
+    "URLSetting": "URL parameters config",
+    "URLSettingDescription": "Adjusting the following settings will not affect the shared links. You need to copy the link with new parameters to make it take effect",
+    "cancel": "Cancel",
+    "save": "Save",
+    "requireLogin": "Require login submit",
+    "theme": {
+      "label": "Theme",
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    }
+  }
+}

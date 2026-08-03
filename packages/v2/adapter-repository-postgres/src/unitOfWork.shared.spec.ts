@@ -1,0 +1,204 @@
+import {
+  getPostgresTransaction,
+  PostgresUnitOfWork,
+  PostgresUnitOfWorkTransaction,
+} from '@teable/v2-adapter-db-postgres-shared';
+import type { IExecutionContext, IUnitOfWorkTransaction } from '@teable/v2-core';
+import type { Transaction } from 'kysely';
+import { ok } from 'neverthrow';
+import { describe, expect, it, vi } from 'vitest';
+
+const createContext = (transaction?: IUnitOfWorkTransaction): IExecutionContext => ({
+  actorId: 'usrTest' as never,
+  ...(transaction ? { transaction } : {}),
+});
+
+describe('shared Postgres unit of work helpers', () => {
+  it('runs afterCommit handlers registered after the transaction has committed', async () => {
+    const transaction = new PostgresUnitOfWorkTransaction(
+      {} as unknown as Transaction<unknown>,
+      'data'
+    );
+    const calls: string[] = [];
+
+    transaction.afterCommit(() => {
+      calls.push('before');
+    });
+    await transaction.runAfterCommitHandlers();
+    transaction.afterCommit(() => {
+      calls.push('after');
+    });
+
+    expect(transaction.committed).toBe(true);
+    expect(calls).toEqual(['before', 'after']);
+  });
+
+  it('awaits afterCommit handlers registered while commit handlers are running', async () => {
+    const transaction = new PostgresUnitOfWorkTransaction(
+      {} as unknown as Transaction<unknown>,
+      'data'
+    );
+    const calls: string[] = [];
+
+    transaction.afterCommit(() => {
+      calls.push('outer');
+      transaction.afterCommit(() => {
+        calls.push('inner');
+      });
+    });
+
+    await transaction.runAfterCommitHandlers();
+
+    expect(transaction.committed).toBe(true);
+    expect(calls).toEqual(['outer', 'inner']);
+  });
+
+  it('ignores afterCommit handlers registered after rollback', async () => {
+    const transaction = new PostgresUnitOfWorkTransaction(
+      {} as unknown as Transaction<unknown>,
+      'data'
+    );
+    const calls: string[] = [];
+
+    transaction.afterRollback(() => {
+      calls.push('rollback');
+    });
+    await transaction.runAfterRollbackHandlers();
+    transaction.afterCommit(() => {
+      calls.push('commit');
+    });
+
+    expect(transaction.rolledBack).toBe(true);
+    expect(calls).toEqual(['rollback']);
+  });
+
+  it('recognizes transaction-like objects from another package instance', () => {
+    const db = { marker: 'data' } as unknown as Transaction<unknown>;
+    const transaction = {
+      kind: 'unitOfWorkTransaction',
+      scope: 'data',
+      db,
+    } as IUnitOfWorkTransaction & { db: Transaction<unknown> };
+
+    expect(getPostgresTransaction(createContext(transaction))).toBe(db);
+  });
+
+  it('reuses a sibling scope transaction when meta and data share the same physical database', async () => {
+    const db = { marker: 'shared' } as unknown as Transaction<unknown>;
+    const transaction = {
+      kind: 'unitOfWorkTransaction',
+      scope: 'data',
+      db,
+    } as IUnitOfWorkTransaction & { db: Transaction<unknown> };
+    const metaDb = {
+      transaction: vi.fn(),
+    };
+    const unitOfWork = new PostgresUnitOfWork(
+      metaDb as never,
+      {} as never,
+      { pg: { connectionString: 'postgresql://local/teable' } },
+      { pg: { connectionString: 'postgresql://local/teable' } }
+    );
+
+    let observedContext: IExecutionContext | undefined;
+    const result = await unitOfWork.withTransaction(
+      {
+        ...createContext(transaction),
+        transactions: { data: transaction },
+      },
+      async (transactionContext) => {
+        observedContext = transactionContext;
+        return ok('done');
+      },
+      { scope: 'meta' }
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(metaDb.transaction).not.toHaveBeenCalled();
+    expect(observedContext?.transaction).toBe(transaction);
+    expect(observedContext?.transactions?.meta).toBe(transaction);
+    expect(getPostgresTransaction(observedContext, 'meta')).toBe(db);
+  });
+
+  it('binds a new transaction to both scopes when meta and data share one database', async () => {
+    const db = { marker: 'shared' } as unknown as Transaction<unknown>;
+    const metaDb = { transaction: vi.fn() };
+    const dataDb = {
+      transaction: () => ({
+        execute: async <T>(work: (trx: Transaction<unknown>) => Promise<T>) => work(db),
+      }),
+    };
+    const unitOfWork = new PostgresUnitOfWork(
+      metaDb as never,
+      dataDb as never,
+      { pg: { connectionString: 'postgresql://local/teable' } },
+      { pg: { connectionString: 'postgresql://local/teable' } }
+    );
+
+    let observedMetaTransaction: Transaction<unknown> | null = null;
+    const result = await unitOfWork.withTransaction(createContext(), async (transactionContext) => {
+      observedMetaTransaction = getPostgresTransaction(transactionContext, 'meta');
+      return ok('done');
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(metaDb.transaction).not.toHaveBeenCalled();
+    expect(observedMetaTransaction).toBe(db);
+  });
+
+  it('keeps meta and data scopes separate when they use different databases', async () => {
+    const dataTransaction = { marker: 'data' } as unknown as Transaction<unknown>;
+    const dataDb = {
+      transaction: () => ({
+        execute: async <T>(work: (trx: Transaction<unknown>) => Promise<T>) =>
+          work(dataTransaction),
+      }),
+    };
+    const unitOfWork = new PostgresUnitOfWork(
+      { transaction: vi.fn() } as never,
+      dataDb as never,
+      { pg: { connectionString: 'postgresql://local/meta' } },
+      { pg: { connectionString: 'postgresql://local/data' } }
+    );
+
+    let observedMetaTransaction: Transaction<unknown> | null = dataTransaction;
+    const result = await unitOfWork.withTransaction(createContext(), async (transactionContext) => {
+      observedMetaTransaction = getPostgresTransaction(transactionContext, 'meta');
+      return ok('done');
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(observedMetaTransaction).toBeNull();
+  });
+
+  it('does not reuse a sibling transaction when the same database uses different schemas', async () => {
+    const siblingTransaction = {
+      kind: 'unitOfWorkTransaction',
+      scope: 'data',
+      db: { marker: 'data' },
+    } as unknown as IUnitOfWorkTransaction;
+    const execute = vi.fn().mockRejectedValue(new Error('stop after opening transaction'));
+    const metaDb = {
+      transaction: vi.fn(() => ({ execute })),
+    };
+    const unitOfWork = new PostgresUnitOfWork(
+      metaDb as never,
+      {} as never,
+      { pg: { connectionString: 'postgresql://local/teable' } },
+      { pg: { connectionString: 'postgresql://local/teable', schema: 'teable_data' } }
+    );
+
+    const result = await unitOfWork.withTransaction(
+      {
+        ...createContext(siblingTransaction),
+        transactions: { data: siblingTransaction },
+      },
+      async () => ok('done'),
+      { scope: 'meta' }
+    );
+
+    expect(result.isErr()).toBe(true);
+    expect(metaDb.transaction).toHaveBeenCalledOnce();
+    expect(execute).toHaveBeenCalledOnce();
+  });
+});

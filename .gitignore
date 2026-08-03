@@ -1,0 +1,81 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# and https://github.com/github/gitignore for examples
+
+# local env files (followinf dotenv-flow / nextjs convention)
+
+.env.local
+.env.*.local
+
+# security: atlassian/changeset
+
+**/.netrc
+
+# dependencies
+node_modules
+.pnpm-store/
+.pnp.*
+
+# testing
+/coverage
+.out/
+
+# Debug
+
+**/.debug
+
+# Build directories (next.js...)
+/.next/
+/out/
+/build
+/dist/
+
+# v2 packages build output
+packages/v2/**/dist/
+
+# Next.js auto-generated type definitions
+**/next-env.d.ts
+
+# Cache
+*.tsbuildinfo
+**/.eslintcache
+.cache/*
+.swc/
+apps/playground/src/routeTree.gen.ts
+
+# Misc
+.DS_Store
+*.pem
+.worktrees/
+
+# Debug
+npm-debug.log*
+pnpm-debug.log*
+
+
+# IDE
+**/.idea/*
+!**/.idea/modules.xml
+!**/.idea/*.iml
+.project
+.classpath
+*.launch
+*.sublime-workspace
+
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+
+# Docker overrides
+
+./docker-compose.override.yml
+
+# Deployment platforms
+
+.vercel
+
+# LocalStorage assets
+
+**/.assets

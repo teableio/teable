@@ -1,0 +1,75 @@
+import { parseDsn, type DriverClient, type IHttpError } from '@teable/core';
+import type { IUserMeVo, ShareViewGetVo } from '@teable/openapi';
+import type { GetServerSideProps } from 'next';
+import { SsrApi } from '@/backend/api/rest/ssr-api';
+import type { IShareViewPageProps } from '@/features/app/blocks/share/view/ShareViewPage';
+import { ShareViewPage } from '@/features/app/blocks/share/view/ShareViewPage';
+import { shareConfig } from '@/features/i18n/share.config';
+import { getAppDatabaseUrl } from '@/lib/database-url';
+import { getTranslationsProps } from '@/lib/i18n';
+import withEnv from '@/lib/withEnv';
+
+export const getServerSideProps: GetServerSideProps<IShareViewPageProps> =
+  withEnv<IShareViewPageProps>(async (context) => {
+    const { res, req, query } = context;
+    const { shareId } = query;
+    const { i18nNamespaces } = shareConfig;
+    res.setHeader('Content-Security-Policy', 'frame-ancestors *;');
+
+    try {
+      const ssrApi = new SsrApi();
+      ssrApi.axios.defaults.headers['cookie'] = req.headers.cookie || '';
+      const shareViewData = await ssrApi.getShareView(shareId as string);
+      const driver = parseDsn(getAppDatabaseUrl()).driver as DriverClient;
+      if (shareViewData.shareMeta?.submit?.requireLogin) {
+        const user = await ssrApi.getUserMe().catch(() => null);
+        if (!user) {
+          return {
+            redirect: {
+              destination: `/auth/login?redirect=${encodeURIComponent(req?.url || '')}`,
+              permanent: false,
+            },
+          };
+        }
+      }
+      // For allowEdit shares, probe the viewer's identity server-side so the
+      // client doesn't need to fire a userMe request (which would 401 for
+      // anonymous viewers and trip the global 401-redirect handler).
+      const ssrUser = shareViewData.shareMeta?.allowEdit
+        ? await ssrApi.getUserMe().catch(() => null)
+        : null;
+      return {
+        props: {
+          shareViewData,
+          driver,
+          ssrUser,
+          ...(await getTranslationsProps(context, i18nNamespaces)),
+        },
+      };
+    } catch (e) {
+      const error = e as IHttpError;
+      if (error.status === 401) {
+        return {
+          redirect: {
+            destination: `/share/${shareId}/view/auth`,
+            permanent: false,
+          },
+        };
+      }
+      return {
+        notFound: true,
+      };
+    }
+  });
+
+export default function ShareView({
+  shareViewData,
+  driver,
+  ssrUser,
+}: {
+  shareViewData: ShareViewGetVo;
+  driver: DriverClient;
+  ssrUser?: IUserMeVo | null;
+}) {
+  return <ShareViewPage shareViewData={shareViewData} driver={driver} ssrUser={ssrUser ?? null} />;
+}

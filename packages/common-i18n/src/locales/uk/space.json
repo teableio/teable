@@ -1,0 +1,256 @@
+{
+  "crossSpace": {
+    "duplicateBaseTitle": "Сповіщення",
+    "duplicateBaseDescription": "Перехресні посилання між просторами не підтримуються. Копія буде перетворена на однорядкове текстове поле.",
+    "affectedTableSuffix": "({{count}} поле(ів))",
+    "convertAndDuplicate": "Перетворити та дублювати"
+  },
+  "initialSpaceName": "Простір {{name}}",
+  "action": {
+    "createBase": "Створіть базу",
+    "createSpace": "Створіть простір",
+    "invite": "Запросити",
+    "startFromScratch": "Почати з нуля"
+  },
+  "allSpaces": "Всі простори",
+  "emptySpaceTitle": "У цьому просторі немає баз",
+  "spaceIsEmpty": "Створіть свою першу базу, щоб розпочати",
+  "baseModal": {
+    "copy": "Копіювати",
+    "duplicate": "Дублювати \"{{baseName}}\"",
+    "createBaseFromTemplate": "Створити базу з шаблону",
+    "duplicateRecords": "Дублювати записи",
+    "duplicateRecordsTip": "Ваша історія ревізій і співавтори не дублюватимуться.",
+    "toSpace": "До простору",
+    "copyToSpace": "Скопіювати в простір",
+    "duplicateBase": "Дублювати базу",
+    "missTargetTip": "Будь ласка, виберіть місце для створення копії бази.",
+    "copying": "Копіювання бази, це може зайняти деякий час...",
+    "howToCreate": "Як ти хочеш почати?",
+    "fromScratch": "З нуля",
+    "fromTemplate": "З шаблону",
+    "moveBaseToAnotherSpace": "Перемістити {{baseName}} в інший простір",
+    "chooseSpace": "Виберіть простір"
+  },
+  "spaceSetting": {
+    "title": "Налаштування простору",
+    "general": "Загальний",
+    "collaborators": "Співавтори",
+    "generalDescription": "Змініть налаштування поточного місця тут",
+    "spaceName": "Назва простору",
+    "spaceId": "ID простору"
+  },
+  "pin": {
+    "add": "Додати до закріплення",
+    "remove": "Видалити з закріплених",
+    "pin": "Закріпити",
+    "empty": "Тут з'являться ваші закріплені бази та простори"
+  },
+  "tooltip": {
+    "noPermissionToCreateBase": "У вас немає дозволу створювати базу"
+  },
+  "tip": {
+    "delete": "Ви впевнені, що хочете видалити <0/>?",
+    "exportTips2": "Ви можете імпортувати файл .tea в простір -> більше -> імпорт",
+    "exportTips3": "Поля зв'язку між базами будуть перетворені на однорядковий текст.",
+    "exportIncludeDataLabel": "Включити записи",
+    "exportIncludeDataDescription": "При вимкненні експортується лише структура та конфігурація",
+    "exportTitle": "Експорт",
+    "exportDescription": "Експортувати поточну базу даних у файл .tea, це може зайняти деякий час.",
+    "exportStartButton": "Почати експорт",
+    "exportSlowTip": "Обсяг даних великий. Експорт може зайняти деякий час. Ви можете тимчасово залишити сторінку.",
+    "exportReadyDescription": "Будь ласка, завантажте файл .tea, {{importHint}}",
+    "moveBaseSuccessTitle": "Переміщення успішне",
+    "moveBaseSuccessDescription": "{{baseName}} успішно переміщено до {{spaceName}}",
+    "moveBaseCrossSpaceTitle": "Сповіщення",
+    "moveBaseCrossSpaceDataLossWarning": "Перехресні посилання між просторами не підтримуються. Пов'язані поля будуть перетворені на текстові поля. Цю дію не можна скасувати."
+  },
+  "deleteSpaceModal": {
+    "title": "Видалити простір",
+    "blockedTitle": "Неможливо видалити цей простір",
+    "blockedDesc": "Цей простір має активну підписку. Будь ласка, скасуйте підписку перед видаленням простору."
+  },
+  "sharedBase": {
+    "title": "Спільні бази",
+    "description": "Всі бази, до яких мене запросили приєднатися",
+    "empty": "Ще немає спільних баз"
+  },
+  "integration": {},
+  "aiSetting": {
+    "title": "Налаштування ШІ",
+    "description": "Керування налаштуваннями ШІ вашого простору",
+    "enable": "Ініціалізувати налаштування ШІ"
+  },
+  "import": {
+    "importing": "Імпорт",
+    "baseImportTips": "Натисніть або перетягніть файл .tea у цю область для завантаження",
+    "confirm": "Підтвердити та продовжити",
+    "phase": {
+      "parsingStructure": "Parsing structure",
+      "creatingBase": "Creating base: {{detail}}",
+      "creatingTable": "Creating table: {{detail}}",
+      "creatingCommonFields": "Creating basic fields for {{table}}: {{fields}}",
+      "creatingButtonFields": "Creating button fields for {{table}}: {{fields}}",
+      "creatingFormulaFields": "Creating formula fields for {{table}}: {{fields}}",
+      "creatingLinkFields": "Creating link fields for {{table}}: {{fields}}",
+      "creatingLookupFields": "Creating lookup fields for {{table}}: {{fields}}",
+      "creatingTableViews": "Creating views for {{table}}: {{fields}}",
+      "creatingPlugins": "Creating plugins",
+      "creatingFolders": "Creating folders",
+      "creatingWorkflows": "Creating workflows",
+      "creatingApps": "Creating apps",
+      "creatingAuthorityMatrix": "Creating authority matrix",
+      "queuingAttachments": "Queuing attachment uploads",
+      "uploadingAppFiles": "Uploading app files",
+      "queuingDataImport": "Queuing data import",
+      "done": "Import completed",
+      "clickToView": "Натисніть для перегляду"
+    }
+  },
+  "template": {
+    "title": "Шаблон",
+    "description": "Швидко створити нову базу з шаблону",
+    "noTemplatesAvailable": "Немає доступних шаблонів",
+    "noTemplatesDescription": "Тут зараз нічого немає"
+  },
+  "recentlyBase": {
+    "title": "Нещодавно відвідані"
+  },
+  "noBases": {
+    "title": "Привіт, {{userName}}!",
+    "description": "Почнімо керувати вашою роботою з вашої першої бази."
+  },
+  "noSpaces": {
+    "title": "Привіт, {{userName}}!",
+    "description": "Створіть свій перший простір, щоб почати шлях співпраці з даними."
+  },
+  "baseList": {
+    "allBases": "Усі бази",
+    "creator": "Творець",
+    "createdTime": "Створено",
+    "lastOpened": "Останнє відкриття",
+    "enter": "Увійти",
+    "noTables": "Немає таблиць",
+    "empty": "Баз поки немає"
+  },
+  "publishBase": {
+    "title": "Опублікувати в центрі шаблонів",
+    "description": "Публікація бази в центрі шаблонів в один клік! Дозвольте більшій кількості людей бачити, використовувати та реміксувати вашу творчість, будуючи разом потужніший бізнес",
+    "infoTitle": "Основна інформація",
+    "form": {
+      "title": "Назва",
+      "description": "Опис",
+      "security": "Безпека",
+      "advanced": "Додатково",
+      "publishNode": "Опублікувати вузли",
+      "includeData": "Включити дані",
+      "defaultActiveNode": "Активний вузол за замовчуванням",
+      "descriptionPlaceholder": "Коротко опишіть свою ідею...",
+      "titlePlaceholder": "Назвіть свою роботу..."
+    },
+    "publishToCommunity": "Опублікувати в центрі шаблонів",
+    "publish": "Опублікувати",
+    "publishSuccess": "Успішно опубліковано!",
+    "previewTips": "Покажіть свою роботу світові",
+    "update": "Оновити",
+    "unPublish": "Зняти з публікації",
+    "unPublishSuccess": "Базу успішно знято з публікації!",
+    "unPublishConfirmTitle": "Підтвердити зняття з публікації",
+    "unPublishConfirmDescription": "Ви впевнені, що хочете зняти цю базу з публікації? Вона більше не буде видимою в центрі шаблонів.",
+    "uploadCover": "Натисніть, щоб завантажити обкладинку",
+    "changeCover": "Натисніть, щоб змінити обкладинку",
+    "uploading": "Завантаження зображення...",
+    "uploadSuccess": "Зображення успішно завантажено",
+    "uploadFailed": "Помилка завантаження",
+    "invalidImageType": "Будь ласка, виберіть файл зображення",
+    "tips": {
+      "publishValidation": "назва та опис обов'язкові",
+      "atLeastOneNode": "Виберіть принаймні один вузол для публікації"
+    },
+    "urlCopied": "URL скопійовано в буфер обміну!",
+    "urlCopiedForDiscord": "URL скопійовано в буфер обміну! Ви можете вставити його в Discord.",
+    "featuredLabel": "Featured",
+    "unfeaturedLabel": "Unfeatured",
+    "featuredTip": "Офіційно обрано як рекомендований. Ваш шаблон отримає більше уваги.",
+    "unfeaturedTip": "Ще не обрано. Продовжуйте вдосконалювати, щоб отримати шанс на рекомендацію. Нехай більше людей побачать вашу роботу.",
+    "publishSuccessDescription": "Поділіться своєю роботою зі світом",
+    "shareWith": "Поділитися з",
+    "unpublishedApps": {
+      "title": "Виявлено неопубліковані додатки",
+      "description": "Неопубліковані додатки можуть спричинити помилки попереднього перегляду шаблону. Опублікуйте їх зараз або продовжте.",
+      "publishAll": "Опублікувати всі",
+      "publish": "Опублікувати",
+      "published": "Опубліковано",
+      "publishing": "Публікація...",
+      "publishFailed": "Помилка публікації",
+      "publishFailedTip1": "Перевірте, чи може вихідний додаток бути успішно опублікований",
+      "publishFailedTip2": "Спробуйте повторно опублікувати цей шаблон",
+      "notPublished": "Не опубліковано",
+      "ignoreAndContinue": "Ігнорувати та продовжити",
+      "goToFix": "Перейти до виправлення",
+      "redeploy": "Повторне розгортання",
+      "unnamedApp": "Безіменний додаток"
+    }
+  },
+  "airtableImport": {
+    "title": "Імпорт з Airtable",
+    "close": "Закрити",
+    "pickBase": "Виберіть базу для імпорту",
+    "noBases": "Для цього токена не знайдено доступних баз.",
+    "optionRecords": "Імпортувати записи",
+    "optionAttachments": "Завантажити та імпортувати вкладення",
+    "import": "Почати імпорт",
+    "done": "Імпорт завершено",
+    "failed": "Не вдалося імпортувати",
+    "openBase": "Відкрити базу",
+    "issuesSummary": "Під час імпорту скориговано елементів: {{count}}",
+    "issuesMore": "+{{count}} ще",
+    "issue": {
+      "fieldDegraded": "{{tableName}} / {{fieldName}}: {{fromType}} → {{toType}}",
+      "fieldSkipped": "{{tableName}} / {{fieldName}} ({{fromType}}) пропущено: {{reason}}",
+      "viewSkipped": "{{tableName}} / подання «{{viewName}}» ({{fromType}}) пропущено",
+      "valuesDropped": "{{tableName}} / {{fieldName}}: відкинуто значень: {{count}} ({{reason}})",
+      "viewConfigDegraded": "{{tableName}} / подання «{{viewName}}»: {{reason}}"
+    },
+    "phase": {
+      "fetchingSchema": "Читання структури бази Airtable",
+      "creatingBase": "Створення бази: {{detail}}",
+      "creatingTable": "Створення таблиці: {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "creatingLinks": "Створення полів зв’язку",
+      "fillingLinks": "{{tableName}} (зв’язки)",
+      "applyingViewConfig": "Імпорт конфігурації подань"
+    },
+    "searchBases": "Пошук баз",
+    "noSearchResults": "Немає баз, що відповідають запиту.",
+    "detecting": "Перевірка підключення до Airtable…",
+    "connectWithAirtable": "Підключити обліковий запис Airtable",
+    "waitingOAuth": "Завершіть авторизацію у спливаючому вікні…",
+    "connectedAs": "Підключено: {{account}}",
+    "permission": {
+      "create": "Створювач",
+      "edit": "Редактор",
+      "comment": "Коментатор",
+      "read": "Лише читання"
+    },
+    "integrationRequired": "Інтеграцію з Airtable не налаштовано в цьому екземплярі. Зверніться до адміністратора.",
+    "optionViewConfig": "Імпортувати фільтри, сортування та групування подань",
+    "viewConfig": {
+      "help": "API Airtable не надає налаштування подань, тому потрібне посилання лише для читання.",
+      "helpStep1": "В Airtable відкрийте меню «Share» бази",
+      "helpStep2": "Виберіть «Share to web» та увімкніть повний доступ до бази",
+      "helpStep3": "Скопіюйте посилання лише для читання та вставте його в поле вище",
+      "linkPlaceholder": "Вставте посилання для спільного доступу",
+      "mismatch": "Це посилання вказує на іншу базу, а не на вибрану.",
+      "disableReminder": "Готово — тепер можна вимкнути посилання спільного доступу в Airtable."
+    }
+  },
+  "createBaseDialog": {
+    "title": "Як ви хочете почати?"
+  },
+  "importBaseDialog": {
+    "title": "Імпорт бази",
+    "fromFile": "Імпорт з файлу",
+    "fromFileDesc": "Завантажте файл бази .tea",
+    "fromAirtableDesc": "Підключіть обліковий запис Airtable"
+  }
+}

@@ -1,0 +1,1514 @@
+{
+  "common": {
+    "empty": "Boş",
+    "noRecords": "Kayıt bulunamadı",
+    "unnamedRecord": "İsimsiz kayıt",
+    "untitled": "Başlıksız",
+    "cancel": "İptal",
+    "confirm": "Onayla",
+    "clear": "Temizle",
+    "back": "Geri",
+    "done": "Tamam",
+    "create": "Oluştur",
+    "search": {
+      "placeholder": "Ara...",
+      "empty": "Sonuç bulunamadı"
+    },
+    "readOnlyTip": "Bu görünüm kilitli. Görünüm seçeneklerini düzenlemek için <button>kişisel modu</button> etkinleştirebilirsiniz, ve değişiklikler sadece size etkili olacaktır.",
+    "selectPlaceHolder": "Seç...",
+    "loading": "Yükleniyor...",
+    "loadMore": "Daha Fazla Yükle",
+    "uploadFailed": "Yükleme başarısız",
+    "rowCount": "{{count}} kayıt",
+    "summary": "Özet",
+    "summaryTip": "Özet seçmek için fareyle üzerine gelin",
+    "actions": "İşlemler",
+    "remove": "Sil",
+    "runStatus": {
+      "success": "{{name}} başarılı",
+      "failed": "{{name}} başarısız",
+      "running": "{{name}} çalışıyor"
+    },
+    "resetSuccess": "Sıfırlama başarılı",
+    "click": "Tıkla",
+    "clickedCount": "{{label}}: Tıklanma sayısı {{text}}",
+    "atLeastOne": "En az bir {{noun}} bulunmalıdır"
+  },
+  "notification": {
+    "title": "Bildirim"
+  },
+  "preview": {
+    "previewFileLimit": "Önizleme dosya boyutu sınırı: {{size}}MB, lütfen görüntülemek için indirin.",
+    "loadFileError": "Dosya yüklenemedi"
+  },
+  "undoRedo": {
+    "undo": "Geri Al",
+    "redo": "Yinele",
+    "undoFailed": "Geri alma başarısız",
+    "redoFailed": "Yineleme başarısız",
+    "nothingToUndo": "Geri alınacak bir şey yok",
+    "nothingToRedo": "Yinelenecek bir şey yok",
+    "undoSucceed": "Geri alma başarılı",
+    "redoSucceed": "Yineleme başarılı",
+    "undoing": "geri alınıyor...",
+    "redoing": "yineleniyor..."
+  },
+  "editor": {
+    "attachment": {
+      "uploadDragOver": "Yüklemek için bırakın",
+      "uploadBaseTextPrefix": "Click to upload ",
+      "uploadBaseText": "or paste or drag and drop here",
+      "uploadDragDefault": "Yapıştırın veya buraya sürükleyip bırakın",
+      "upload": "yükle"
+    },
+    "date": {
+      "placeholder": "Bir tarih seçin",
+      "today": "Bugün"
+    },
+    "formula": {
+      "title": "Formül Düzenleyici",
+      "guideSyntax": "Sözdizimi",
+      "guideExample": "Örnek",
+      "helperExample": "Örnek: ",
+      "fieldValue": "{{fieldName}} alanındaki hücrelerin değerini döndürür.",
+      "placeholder": "Bir ifade girin",
+      "placeholderForAIPrompt": "Oluşturmak istediğiniz formülü açıklayın",
+      "editExpression": "Formülü düzenle",
+      "generateExpressionByAI": "AI ile formül oluştur",
+      "inputPrompt": "Giriş komutu",
+      "generateExpression": "Oluşturulan formül",
+      "generatingByAI": "AI ile formül oluşturuluyor...",
+      "generatedExpressionTips": "Oluşturulan formülü uygulamak için Uygula düğmesine tıklayın",
+      "action": {
+        "generating": "Oluşturuluyor...",
+        "generate": "Oluştur",
+        "apply": "Uygula"
+      },
+      "expressionRequired": "İfade gereklidir"
+    },
+    "link": {
+      "placeholder": "Bağlanacak kayıtları seçin",
+      "searchPlaceholder": "Kayıtlarda ara",
+      "globalSearch": "Global arama",
+      "fieldSearch": "Alan araması",
+      "maxFieldTips": "Maksimum {{count}} alan sayısı aşıldı, fazla alanlar göz ardı edilecek",
+      "create": "Kayıt Ekle",
+      "selectRecord": "Kayıt Seç",
+      "all": "Tümü",
+      "selected": "Seçilmiş",
+      "alreadyOpen": "Bu kayıt zaten açık.",
+      "linkedTo": "Bağlantılı",
+      "foreignTableIdRequired": "Yabancı tablo gereklidir",
+      "linkFieldIdRequired": "Bağlantı alanı gereklidir",
+      "selectTooManyRecords": "Seçilen kayıtlar {{maxCount}} değerini aşmamalıdır",
+      "rangeSelectFailed": "Aralıktaki kayıtları seçme başarısız oldu"
+    },
+    "user": {
+      "searchPlaceholder": "İsme göre kullanıcı ara",
+      "notify": "Seçildiklerinde kullanıcıları bilgilendir"
+    },
+    "select": {
+      "addOption": "'{{option}}' seçeneğini ekle",
+      "choicesNameRequired": "Seçenek adı boş olamaz"
+    },
+    "lookup": {
+      "lookupFieldIdRequired": "Arama alanı gereklidir",
+      "lookupOptionsNotAllowed": "isLookup özniteliği doğru olduğunda veya alan türü rollup olduğunda arama seçenekleri izin verilmez.",
+      "lookupOptionsRequired": "Arama seçenekleri gereklidir"
+    },
+    "rollup": {
+      "expressionRequired": "İfade gereklidir"
+    },
+    "conditionalRollup": {
+      "filterRequired": "Filtre en az bir koşul içermelidir"
+    },
+    "conditionalLookup": {
+      "filterRequired": "Koşullu arama için en az bir filtre koşulu gereklidir"
+    },
+    "aiConfig": {
+      "modelKeyRequired": "Model gereklidir",
+      "typeNotSupported": "Desteklenmeyen AI türü",
+      "sourceFieldIdRequired": "Kaynak alan gereklidir",
+      "targetLanguageRequired": "Hedef dil gereklidir",
+      "promptRequired": "İstem gereklidir"
+    },
+    "error": {
+      "refineOptionsError": "Alan seçenekleri ayrıştırma hatası {{message}}",
+      "optionsRequired": "Alan seçenekleri gereklidir"
+    }
+  },
+  "filter": {
+    "label": "Filtre",
+    "displayLabel": "Filtrele: ",
+    "displayLabel_other": "{{fieldName}} ve {{count}} diğer alan ile filtrele",
+    "addCondition": "Koşul ekle",
+    "addConditionGroup": "Koşul grubu ekle",
+    "nestedLimitTip": "Filtre koşulları yalnızca {{depth}} seviye derinliğinde iç içe geçebilir",
+    "linkInputPlaceholder": "Bir değer girin",
+    "currentUser": "Ben (mevcut kullanıcı)",
+    "tips": {},
+    "invalidateSelected": "Geçersiz değer",
+    "invalidateSelectedTips": "Seçilen değer silindi, lütfen tekrar seçin",
+    "invalidConditionTip": "Bu filtre koşulu geçersiz ve yok sayılacak. Lütfen değeri ayarlayın.",
+    "default": {
+      "empty": "Filtre koşulu uygulanmadı",
+      "placeholder": "Bir değer girin"
+    },
+    "conjunction": {
+      "and": "ve",
+      "or": "veya",
+      "where": "şu durumda",
+      "meetingAll": "Tüm koşulları karşıla",
+      "meetingAny": "Herhangi bir koşulu karşıla"
+    },
+    "operator": {
+      "is": "şudur",
+      "isNot": "şu değildir",
+      "contains": "içerir",
+      "doesNotContain": "içermez",
+      "isEmpty": "boştur",
+      "isNotEmpty": "boş değildir",
+      "isGreater": "büyüktür",
+      "isGreaterEqual": "büyük eşittir",
+      "isLess": "küçüktür",
+      "isLessEqual": "küçük eşittir",
+      "isAnyOf": "şunlardan biridir",
+      "isNoneOf": "şunlardan hiçbiri değildir",
+      "hasAnyOf": "şunlardan herhangi birine sahiptir",
+      "hasAllOf": "şunların tümüne sahiptir",
+      "hasNoneOf": "şunların hiçbirine sahip değildir",
+      "isExactly": "tam olarak şudur",
+      "isWithIn": "şunun içindedir",
+      "isBefore": "şundan öncedir",
+      "isAfter": "şundan sonradır",
+      "isOnOrBefore": "şu tarihte veya öncesindedir",
+      "isOnOrAfter": "şu tarihte veya sonrasındadır",
+      "number": {
+        "is": "=",
+        "isNot": "≠",
+        "isGreater": ">",
+        "isGreaterEqual": "≥",
+        "isLess": "<",
+        "isLessEqual": "≤"
+      }
+    },
+    "conditionalRollup": {
+      "switchToField": "Use field value",
+      "switchToValue": "Use manual value"
+    },
+    "component": {
+      "date": {
+        "today": "bugün",
+        "tomorrow": "yarın",
+        "yesterday": "dün",
+        "oneWeekAgo": "bir hafta önce",
+        "oneWeekFromNow": "bir hafta sonra",
+        "oneMonthAgo": "bir ay önce",
+        "oneMonthFromNow": "bir ay sonra",
+        "daysAgo": "gün önce",
+        "daysFromNow": "gün sonra",
+        "exactDate": "tam tarih",
+        "exactDateTime": "tam zaman damgası",
+        "exactFormatDate": "tam tarih (biçimlendirildi)",
+        "currentWeek": "current week",
+        "currentMonth": "current month",
+        "currentYear": "current year",
+        "lastWeek": "last week",
+        "lastMonth": "last month",
+        "lastYear": "last year",
+        "nextWeekPeriod": "next week",
+        "nextMonthPeriod": "next month",
+        "nextYearPeriod": "next year",
+        "pastWeek": "geçen hafta",
+        "pastMonth": "geçen ay",
+        "pastYear": "geçen yıl",
+        "nextWeek": "gelecek hafta",
+        "nextMonth": "gelecek ay",
+        "nextYear": "gelecek yıl",
+        "pastNumberOfDays": "geçmiş gün sayısı",
+        "nextNumberOfDays": "gelecek gün sayısı"
+      }
+    }
+  },
+  "color": {
+    "label": "renk"
+  },
+  "rowHeight": {
+    "short": "kısa",
+    "medium": "orta",
+    "tall": "uzun",
+    "extraTall": "çok uzun",
+    "title": "Satır yüksekliği"
+  },
+  "fieldNameConfig": {
+    "title": "Alan adı",
+    "displayLines": "{{count}} satır"
+  },
+  "share": {},
+  "extensions": {},
+  "hidden": {
+    "label": "Gizli Alanlar",
+    "configLabel_other": "{{count}} gizli alan",
+    "configLabel_other_visible": "{{count}} görünür alan",
+    "showAll": "Tümünü Göster",
+    "hideAll": "Tümünü Gizle",
+    "primaryKey": "Birincil alan: Kayıtları tanımlar\ngizlenemez veya silinemez, bağlantılı kayıtlarda görünür.",
+    "notInCurrentView": "\"{{fieldName}}\" alanı mevcut görünümde görünmüyor, bu yüzden alana gidilemiyor"
+  },
+  "expandRecord": {
+    "copy": "Panoya kopyala",
+    "duplicateRecord": "Kaydı çoğalt",
+    "copyRecordUrl": "Kayıt URL'sini kopyala",
+    "deleteRecord": "Kaydı sil",
+    "addRecordComment": "Yorum ekle",
+    "viewRecordHistory": "Kayıt geçmişini görüntüle",
+    "recordHistory": {
+      "hiddenRecordHistory": "Kayıt geçmişini gizle",
+      "showRecordHistory": "Kayıt geçmişini göster",
+      "createdTime": "Değiştirilme zamanı",
+      "createdBy": "Değiştiren",
+      "before": "Önce",
+      "after": "Sonra",
+      "buttonClicked": "Düğmeye tıklandı",
+      "filterTime": "Zaman aralığı",
+      "allFields": "Tüm alanlar",
+      "allUsers": "Tüm kullanıcılar",
+      "clearFilter": "Filtreleri temizle",
+      "viewRecord": "Kaydı görüntüle"
+    },
+    "showHiddenFields": "{{count}} gizli alanı göster",
+    "hideHiddenFields": "{{count}} gizli alanı gizle",
+    "showMore": "Show more",
+    "showLess": "Show less",
+    "recordFrom": "Kaynak tablo"
+  },
+  "sort": {
+    "label": "Sırala",
+    "displayLabel_one": "{{count}} alana göre sırala",
+    "displayLabel_other": "{{count}} alana göre sırala",
+    "setTips": "Sıralama kriteri",
+    "addButton": "Başka bir sıralama ekle",
+    "autoSort": "Kayıtları otomatik sırala",
+    "selectASCLabel": "ilk → son",
+    "selectDESCLabel": "son → ilk"
+  },
+  "group": {
+    "label": "Grupla",
+    "displayLabel_one": "{{count}} alana göre grupla",
+    "displayLabel_other": "{{count}} alana göre grupla",
+    "setTips": "Gruplama kriteri",
+    "addButton": "Alt Grup Ekle"
+  },
+  "field": {
+    "title": {
+      "singleLineText": "Tek satır metin",
+      "longText": "Uzun metin",
+      "singleSelect": "Tek seçim",
+      "number": "Sayı",
+      "multipleSelect": "Çoklu seçim",
+      "link": "Başka bir kayda bağlantı",
+      "formula": "Formül",
+      "date": "Tarih",
+      "createdTime": "Oluşturulma zamanı",
+      "lastModifiedTime": "Son değiştirilme zamanı",
+      "attachment": "Ek",
+      "checkbox": "Onay kutusu",
+      "rollup": "Toplama",
+      "conditionalRollup": "Koşullu toplama",
+      "user": "Kullanıcı",
+      "rating": "Değerlendirme",
+      "autoNumber": "Otomatik sayı",
+      "lookup": "Arama",
+      "conditionalLookup": "Koşullu arama",
+      "button": "Düğme",
+      "createdBy": "Oluşturan",
+      "lastModifiedBy": "Son değiştiren"
+    },
+    "description": {
+      "singleLineText": "Ad veya başlık gibi kısa metinleri saklar.",
+      "longText": "Daha uzun notları ve açıklamaları kaydeder.",
+      "singleSelect": "Listeden tek bir seçenek seçer.",
+      "number": "Biçimli sayısal değerleri takip eder.",
+      "multipleSelect": "Kayıtları birden fazla seçenekle etiketler.",
+      "link": "Bu kaydı başka bir tabloya bağlar.",
+      "formula": "Diğer alanlara dayanarak değerler hesaplar.",
+      "date": "Tarih veya saatleri kaydeder.",
+      "createdTime": "Kaydın ne zaman oluşturulduğunu gösterir.",
+      "lastModifiedTime": "Son güncellenme zamanını gösterir.",
+      "attachment": "Dosya yükleyebilir veya yapay zeka ile görsel oluşturabilir, 🍌 Nano banana pro gibi modelleri destekler",
+      "checkbox": "Basit bir evet/hayır anahtarını değiştirir.",
+      "rollup": "Bağlı kayıtları formüllerle özetler.",
+      "conditionalRollup": "Koşullara göre verileri özetler.",
+      "user": "Kayıtları çalışma alanı üyelerine atar.",
+      "rating": "Ögeleri ayarlanabilir simgelerle puanlar.",
+      "autoNumber": "Her kayda benzersiz bir sıra numarası verir.",
+      "lookup": "Bağlı kayıtlardan değerleri gösterir.",
+      "conditionalLookup": "Tanımladığınız filtrelere uyan bağlı değerleri gösterir.",
+      "button": "Tıklanabilir bir düğmeyle eylemler çalıştırır.",
+      "createdBy": "Kaydı kimin oluşturduğunu gösterir.",
+      "lastModifiedBy": "Kaydı en son kimin değiştirdiğini gösterir."
+    },
+    "link": {
+      "oneWay": "Tek yönlü",
+      "twoWay": "Çift yönlü"
+    },
+    "button": {
+      "confirm": {
+        "title": "Eylem onayı",
+        "description": "Bu eylemi gerçekleştirmek istediğinize emin misiniz?"
+      }
+    }
+  },
+  "permission": {
+    "actionDescription": {
+      "spaceCreate": "Alan oluştur",
+      "spaceDelete": "Alan sil",
+      "spaceRead": "Alan oku",
+      "spaceUpdate": "Alan güncelle",
+      "spaceInviteEmail": "Alanda e-posta ile davet et",
+      "spaceInviteLink": "Alanda bağlantı ile davet et",
+      "spaceGrantRole": "Alanda rol ata",
+      "baseCreate": "Veritabanı oluştur",
+      "baseDelete": "Veritabanı sil",
+      "baseRead": "Veritabanı oku",
+      "baseReadAll": "Read all bases",
+      "baseUpdate": "Veritabanı güncelle",
+      "baseInviteEmail": "Veritabanında e-posta ile davet et",
+      "baseInviteLink": "Veritabanında bağlantı ile davet et",
+      "baseAuthorityMatrixConfig": "Yetki matrisini yapılandır",
+      "baseDbConnect": "Veritabanına bağlan",
+      "tableCreate": "Tablo oluştur",
+      "tableRead": "Tablo oku",
+      "tableDelete": "Tablo sil",
+      "tableUpdate": "Tablo güncelle",
+      "tableImport": "Tabloya veri aktar",
+      "tableExport": "Tablodan veri dışa aktar",
+      "tableTrashRead": "Read table trash",
+      "tableTrashUpdate": "Update table trash",
+      "tableTrashReset": "Reset table trash",
+      "viewCreate": "Görünüm oluştur",
+      "viewDelete": "Görünüm sil",
+      "viewRead": "Görünüm oku",
+      "viewUpdate": "Görünüm güncelle",
+      "viewShare": "Görünüm paylaş",
+      "fieldCreate": "Alan oluştur",
+      "fieldDelete": "Alan sil",
+      "fieldRead": "Alan oku",
+      "fieldUpdate": "Alan güncelle",
+      "recordCreate": "Kayıt oluştur",
+      "recordComment": "Kayıt yorumla",
+      "recordDelete": "Kayıt sil",
+      "recordRead": "Kayıt oku",
+      "recordUpdate": "Kayıt güncelle",
+      "recordCopy": "Copy record",
+      "automationCreate": "Otomasyon oluştur",
+      "automationDelete": "Otomasyon sil",
+      "automationRead": "Otomasyon oku",
+      "automationUpdate": "Otomasyon güncelle",
+      "appCreate": "Uygulama oluştur",
+      "appDelete": "Uygulama sil",
+      "appRead": "Uygulama oku",
+      "appUpdate": "Uygulama güncelle",
+      "userEmailRead": "Kullanıcı e-postası oku",
+      "userIntegrations": "Manage user integrations",
+      "recordHistoryRead": "Kayıt geçmişi oku",
+      "baseQuery": "Veritabanı sorgula",
+      "instanceRead": "Örnek oku",
+      "instanceUpdate": "Örnek güncelle",
+      "enterpriseRead": "Read enterprise configuration",
+      "enterpriseUpdate": "Update enterprise configuration"
+    }
+  },
+  "noun": {
+    "table": "Tablo",
+    "view": "Görünüm",
+    "space": "Alan",
+    "base": "Veritabanı",
+    "field": "Alan",
+    "record": "Kayıt",
+    "automation": "Otomasyon",
+    "app": "Uygulama",
+    "user": "Kullanıcı",
+    "recordHistory": "Kayıt geçmişi",
+    "you": "Sen",
+    "instance": "Örnek",
+    "enterprise": "Kurumsal",
+    "history": "Geçmiş",
+    "global": "Global"
+  },
+  "formula": {
+    "SUM": {
+      "summary": "Sayıları toplar. number1 + number2 + ... ile eşdeğerdir.",
+      "example": "SUM(100, 200, 300) => 600"
+    },
+    "AVERAGE": {
+      "summary": "Sayıların ortalamasını döndürür.",
+      "example": "AVERAGE(100, 200, 300) => 200"
+    },
+    "MAX": {
+      "summary": "Verilen sayıların en büyüğünü döndürür.",
+      "example": "MAX(100, 200, 300) => 300"
+    },
+    "MIN": {
+      "summary": "Verilen sayıların en küçüğünü döndürür.",
+      "example": "MIN(100, 200, 300) => 100"
+    },
+    "ROUND": {
+      "summary": "Değeri, \"precision\" ile belirtilen ondalık basamak sayısına yuvarlar (Özellikle, ROUND belirtilen hassasiyette en yakın tam sayıya yuvarlar, bağlar pozitif sonsuzluğa doğru yukarı yuvarlanarak çözülür.)",
+      "example": "ROUND(1.99, 0) => 2\nROUND(16.8, -1) => 20"
+    },
+    "ROUNDUP": {
+      "summary": "Değeri, \"precision\" ile belirtilen ondalık basamak sayısına her zaman yukarı yuvarlayarak, yani sıfırdan uzaklaşarak yuvarlar. (Fonksiyonun çalışması için hassasiyet değeri vermelisiniz.)",
+      "example": "ROUNDUP(1.1, 0) => 2\nROUNDUP(-1.1, 0) => -2"
+    },
+    "ROUNDDOWN": {
+      "summary": "Değeri, \"precision\" ile belirtilen ondalık basamak sayısına her zaman aşağı yuvarlayarak, yani sıfıra doğru yuvarlar. (Fonksiyonun çalışması için hassasiyet değeri vermelisiniz.)",
+      "example": "ROUNDDOWN(1.9, 0) => 1\nROUNDDOWN(-1.9, 0) => -1"
+    },
+    "CEILING": {
+      "summary": "Değerden büyük veya eşit olan en yakın significance katını döndürür. Eğer significance belirtilmezse, 1 varsayılır.",
+      "example": "CEILING(2.49) => 3\nCEILING(2.49, 1) => 2.5\nCEILING(2.49, -1) => 10"
+    },
+    "FLOOR": {
+      "summary": "Değerden küçük veya eşit olan en yakın significance katını döndürür. Eğer significance belirtilmezse, 1 varsayılır.",
+      "example": "FLOOR(2.49) => 2\nFLOOR(2.49, 1) => 2.4\nFLOOR(2.49, -1) => 0"
+    },
+    "EVEN": {
+      "summary": "Belirtilen değerden büyük veya eşit olan en küçük çift tam sayıyı döndürür.",
+      "example": "EVEN(0.1) => 2\nEVEN(-0.1) => -2"
+    },
+    "ODD": {
+      "summary": "Pozitif değeri yukarı, negatif değeri aşağı en yakın tek sayıya yuvarlar.",
+      "example": "ODD(0.1) => 1\nODD(-0.1) => -1"
+    },
+    "INT": {
+      "summary": "Bir sayıyı en yakın tam sayıya aşağı doğru yuvarlar.",
+      "example": "INT(1.9) => 1\nINT(-1.9) => -2"
+    },
+    "ABS": {
+      "summary": "Mutlak değeri döndürür.",
+      "example": "ABS(-1) => 1"
+    },
+    "SQRT": {
+      "summary": "Negatif olmayan bir sayının karekökünü döndürür.",
+      "example": "SQRT(4) => 2"
+    },
+    "POWER": {
+      "summary": "Belirtilen tabanı belirtilen üsse yükseltir.",
+      "example": "POWER(2) => 4"
+    },
+    "EXP": {
+      "summary": "Euler sayısını (e) belirtilen üsse yükseltir.",
+      "example": "EXP(0) => 1\nEXP(1) => 2.718"
+    },
+    "LOG": {
+      "summary": "Değerin belirtilen tabandaki logaritmasını hesaplar. Taban belirtilmezse 10 varsayılır.",
+      "example": "LOG(100) => 2\nLOG(1024, 2) => 10"
+    },
+    "MOD": {
+      "summary": "İlk argümanın ikinciye bölümünden kalanı döndürür.",
+      "example": "MOD(9, 2) => 1\nMOD(9, 3) => 0"
+    },
+    "VALUE": {
+      "summary": "Metin dizesini sayıya dönüştürür.",
+      "example": "VALUE(\"$1,000,000\") => 1000000"
+    },
+    "CONCATENATE": {
+      "summary": "Çeşitli değer türlerindeki argümanları tek bir metin değerinde birleştirir.",
+      "example": "CONCATENATE(\"Merhaba \", \"Teable\") => Merhaba Teable"
+    },
+    "FIND": {
+      "summary": "whereToSearch dizesinde stringToFind'ın bir oluşumunu isteğe bağlı startFromPosition'dan başlayarak arar.(startFromPosition varsayılan olarak 0'dır.) Eğer stringToFind bulunamazsa, sonuç 0 olacaktır.",
+      "example": "FIND(\"Teable\", \"Merhaba Teable\") => 7\nFIND(\"Teable\", \"Merhaba Teable\", 5) => 7\nFIND(\"Teable\", \"Merhaba Teable\", 10) => 0"
+    },
+    "SEARCH": {
+      "summary": "whereToSearch dizesinde stringToFind'ın bir oluşumunu isteğe bağlı startFromPosition'dan başlayarak arar. (startFromPosition varsayılan olarak 0'dır.) Eğer stringToFind bulunamazsa, sonuç boş olacaktır.\nFIND()'a benzer, ancak FIND() stringToFind bulunamazsa 0 döndürür.",
+      "example": "SEARCH(\"Teable\", \"Merhaba Teable\") => 7\nSEARCH(\"Teable\", \"Merhaba Teable\", 5) => 7\nSEARCH(\"Teable\", \"Merhaba Teable\", 10) => \"\""
+    },
+    "MID": {
+      "summary": "whereToStart'tan başlayarak count karakter uzunluğunda bir alt dize çıkarır.",
+      "example": "MID(\"Merhaba Teable\", 6, 6) => \"Teable\""
+    },
+    "LEFT": {
+      "summary": "Dizenin başından howMany karakter çıkarır.",
+      "example": "LEFT(\"2023-09-06\", 4) => \"2023\""
+    },
+    "RIGHT": {
+      "summary": "Dizenin sonundan howMany karakter çıkarır.",
+      "example": "RIGHT(\"2023-09-06\", 5) => \"09-06\""
+    },
+    "REPLACE": {
+      "summary": "Başlangıç karakterinden itibaren belirtilen sayıda karakteri replacement metni ile değiştirir.\n(Eğer old_text'in tüm oluşumlarını new_text ile değiştirmek için bir yol arıyorsanız, SUBSTITUTE()'e bakın.)",
+      "example": "REPLACE(\"Merhaba Table\", 7, 5, \"Teable\") => \"Merhaba Teable\""
+    },
+    "REGEXP_REPLACE": {
+      "summary": "Düzenli ifadeyle eşleşen tüm alt dizeleri replacement ile değiştirir.",
+      "example": "REGEXP_REPLACE(\"Merhaba Table\", \"M.* \", \"\") => \"Teable\""
+    },
+    "SUBSTITUTE": {
+      "summary": "old_text'in oluşumlarını new_text ile değiştirir.\nİsteğe bağlı olarak old_text'in belirli bir oluşumunu (1'den başlayarak) değiştirmek için bir dizin numarası belirtebilirsiniz. Dizin numarası belirtilmezse, old_text'in tüm oluşumları değiştirilir.",
+      "example": "SUBSTITUTE(\"Merhaba Table\", \"Table\", \"Teable\") => \"Merhaba Teable\""
+    },
+    "LOWER": {
+      "summary": "Bir dizeyi küçük harfe dönüştürür.",
+      "example": "LOWER(\"Merhaba Teable\") => \"merhaba teable\""
+    },
+    "UPPER": {
+      "summary": "Bir dizeyi büyük harfe dönüştürür.",
+      "example": "UPPER(\"Merhaba Teable\") => \"MERHABA TEABLE\""
+    },
+    "REPT": {
+      "summary": "Dizeyi belirtilen sayıda tekrarlar.",
+      "example": "REPT(\"Merhaba!\") => \"Merhaba!Merhaba!Merhaba!\""
+    },
+    "TRIM": {
+      "summary": "Dizenin başındaki ve sonundaki boşlukları kaldırır.",
+      "example": "TRIM(\" Merhaba \") => \"Merhaba\""
+    },
+    "LEN": {
+      "summary": "Dizenin başından howMany karakter çıkarır.",
+      "example": "LEN(\"Merhaba\") => 5"
+    },
+    "T": {
+      "summary": "Argüman metin ise onu döndürür, değilse boş döndürür.",
+      "example": "T(\"Merhaba\") => \"Merhaba\"\nT(100) => null"
+    },
+    "ENCODE_URL_COMPONENT": {
+      "summary": "URL veya URI oluşturmak için kullanılmak üzere belirli karakterleri kodlanmış eşdeğerleriyle değiştirir. Şu karakterleri kodlamaz: - _ . ~",
+      "example": "ENCODE_URL_COMPONENT(\"Merhaba Teable\") => \"Merhaba%20Teable\""
+    },
+    "IF": {
+      "summary": "Mantıksal argüman doğruysa value1'i, değilse value2'yi döndürür. İç içe IF ifadeleri yapmak için de kullanılabilir.\nAyrıca bir hücrenin boş olup olmadığını kontrol etmek için de kullanılabilir.",
+      "example": "IF(2 > 1, \"A\", \"B\") => \"A\"\nIF(2 > 1, TRUE, FALSE) => TRUE"
+    },
+    "SWITCH": {
+      "summary": "Bir ifade, o ifade için olası değerler listesi ve her biri için ifadenin o durumda alması gereken bir değer alır. Ayrıca, ifade girişi tanımlanan kalıplardan hiçbiriyle eşleşmezse bir varsayılan değer de alabilir. Birçok durumda, SWITCH() iç içe IF() formülü yerine kullanılabilir.",
+      "example": "SWITCH(\"B\", \"A\", \"Değer A\", \"B\", \"Değer B\", \"Varsayılan Değer\") => \"Değer B\""
+    },
+    "AND": {
+      "summary": "Tüm argümanlar doğruysa true, değilse false döndürür.",
+      "example": "AND(1 < 2, 5 > 3) => true\nAND(1 < 2, 5 < 3) => false"
+    },
+    "OR": {
+      "summary": "Argümanlardan herhangi biri doğruysa true döndürür.",
+      "example": "OR(1 < 2, 5 < 3) => true\nOR(1 > 2, 5 < 3) => false"
+    },
+    "XOR": {
+      "summary": "Tek sayıda argüman doğruysa true döndürür.",
+      "example": "XOR(1 < 2, 5 < 3, 8 < 10) => false\nXOR(1 > 2, 5 < 3, 8 < 10) => true"
+    },
+    "NOT": {
+      "summary": "Argümanının mantıksal değerini tersine çevirir.",
+      "example": "NOT(1 < 2) => false\nNOT(1 > 2) => true"
+    },
+    "BLANK": {
+      "summary": "Boş bir değer döndürür.",
+      "example": "BLANK() => null\nIF(2 > 3, \"Evet\", BLANK()) => null"
+    },
+    "ERROR": {
+      "summary": "Hata değerini döndürür.",
+      "example": "IF(2 > 3, \"Evet\", ERROR(\"Hesaplama\")) => \"#ERROR: Hesaplama\""
+    },
+    "IS_ERROR": {
+      "summary": "İfade bir hataya neden oluyorsa true döndürür.",
+      "example": "IS_ERROR(ERROR()) => true"
+    },
+    "TODAY": {
+      "summary": "Geçerli tarihi döndürür.",
+      "example": "TODAY() => \"2023-09-08 00:00\""
+    },
+    "NOW": {
+      "summary": "Geçerli tarih ve saati döndürür.",
+      "example": "NOW() => \"2023-09-08 16:50\""
+    },
+    "YEAR": {
+      "summary": "Bir tarih/saatin dört haneli yılını döndürür.",
+      "example": "YEAR(\"2023-09-08\") => 2023"
+    },
+    "MONTH": {
+      "summary": "Bir tarih/saatin ayını 1 (Ocak) ile 12 (Aralık) arasında bir sayı olarak döndürür.",
+      "example": "MONTH(\"2023-09-08\") => 9"
+    },
+    "WEEKNUM": {
+      "summary": "Yıldaki hafta numarasını döndürür.",
+      "example": "WEEKNUM(\"2023-09-08\") => 36"
+    },
+    "WEEKDAY": {
+      "summary": "Haftanın gününü 0 ile 6 arasında bir tam sayı olarak döndürür. İsteğe bağlı olarak ikinci bir argüman (\"Sunday\" veya \"Monday\") sağlayarak haftaların o günden başlamasını sağlayabilirsiniz. Belirtilmezse, haftalar varsayılan olarak Pazar gününden başlar.",
+      "example": "WEEKDAY(\"2023-09-08\") => 5"
+    },
+    "DAY": {
+      "summary": "Bir tarih/saatin gününü 1-31 arasında bir sayı olarak döndürür.",
+      "example": "DAY(\"2023-09-08\") => 8"
+    },
+    "HOUR": {
+      "summary": "Bir tarih/saatin saatini 0 (12:00am) ile 23 (11:00pm) arasında bir sayı olarak döndürür.",
+      "example": "HOUR(\"2023-09-08 16:50\") => 16"
+    },
+    "MINUTE": {
+      "summary": "Bir tarih/saatin dakikasını 0 ile 59 arasında bir tam sayı olarak döndürür.",
+      "example": "MINUTE(\"2023-09-08 16:50\") => 50"
+    },
+    "SECOND": {
+      "summary": "Bir tarih/saatin saniyesini 0 ile 59 arasında bir tam sayı olarak döndürür.",
+      "example": "SECOND(\"2023-09-08 16:50:30\") => 30"
+    },
+    "FROMNOW": {
+      "summary": "Geçerli tarih ile başka bir tarih arasındaki gün sayısını hesaplar.",
+      "example": "FROMNOW({Date}, \"day\") => 25"
+    },
+    "TONOW": {
+      "summary": "Geçerli tarih ile başka bir tarih arasındaki gün sayısını hesaplar.",
+      "example": "TONOW({Date}, \"day\") => 25"
+    },
+    "DATETIME_DIFF": {
+      "summary": "Tarih/saatler arasındaki farkı belirtilen birimde döndürür. Varsayılan birim \"day\"dir.\nDesteklenen birimler: \"millisecond\" (ms), \"second\" (s), \"minute\" (m), \"hour\" (h), \"day\" (d), \"week\" (w), \"month\" (M), \"year\" (y).\nTarih/saatler arasındaki fark [date2]'nin [date1]'den çıkarılmasıyla belirlenir. Bu, eğer [date2] [date1]'den sonraysa, sonuç değerinin negatif olacağı anlamına gelir.",
+      "example": "DATETIME_DIFF(\"2023-09-08\", \"2022-08-01\", \"day\") => 403"
+    },
+    "WORKDAY": {
+      "summary": "Başlangıç tarihinden itibaren belirtilen tatiller hariç iş gününü döndürür",
+      "example": "WORKDAY(\"2023-09-08\", 200) => \"2024-06-14 00:00:00\"\nWORKDAY(\"2023-09-08\", 200, \"2024-01-22, 2024-01-23, 2024-01-24, 2024-01-25\") => \"2024-06-20 00:00:00\""
+    },
+    "WORKDAY_DIFF": {
+      "summary": "date1 ve date2 arasındaki iş günü sayısını döndürür. İş günleri hafta sonlarını ve isteğe bağlı olarak ISO formatında virgülle ayrılmış tarihler listesi olarak biçimlendirilmiş tatil listesini hariç tutar.",
+      "example": "WORKDAY_DIFF(\"2023-06-18\", \"2023-10-01\") => 75\nWORKDAY(\"2023-06-18\", \"2023-10-01\", \"2023-07-12, 2023-08-18, 2023-08-19\") => 73"
+    },
+    "IS_SAME": {
+      "summary": "İki tarihi bir birime kadar karşılaştırır ve aynı olup olmadıklarını belirler. Evetse true, hayırsa false döndürür.",
+      "example": "IS_SAME(\"2023-09-08\", \"2023-09-10\") => false\nIS_SAME(\"2023-09-08\", \"2023-09-10\", \"month\") => true"
+    },
+    "IS_AFTER": {
+      "summary": "date1'in date2'den sonra olup olmadığını belirler. Evetse true, hayırsa false döndürür.",
+      "example": "IS_AFTER(\"2023-09-10\", \"2023-09-08\") => true\nIS_AFTER(\"2023-09-10\", \"2023-09-08\", \"month\") => false"
+    },
+    "IS_BEFORE": {
+      "summary": "date1'in date2'den önce olup olmadığını belirler. Evetse true, hayırsa false döndürür.",
+      "example": "IS_BEFORE(\"2023-09-08\", \"2023-09-10\") => true\nIS_BEFORE(\"2023-09-08\", \"2023-09-10\", \"month\") => false"
+    },
+    "DATE_ADD": {
+      "summary": "Bir tarih/saate belirtilen \"count\" birimlerini ekler.",
+      "example": "DATE_ADD(\"2023-09-08 18:00:00\", 10, \"day\") => \"2023-09-18 18:00:00\""
+    },
+    "DATESTR": {
+      "summary": "Bir tarih/saati dizeye biçimlendirir (YYYY-MM-DD).",
+      "example": "DATESTR(\"2023/09/08\") => \"2023-09-08\""
+    },
+    "TIMESTR": {
+      "summary": "Bir tarih/saati yalnızca saat dizesine biçimlendirir (HH:mm:ss).",
+      "example": "DATESTR(\"2023/09/08 16:50:30\") => \"16:50:30\""
+    },
+    "DATETIME_FORMAT": {
+      "summary": "Bir tarih/saati belirtilen dizeye biçimlendirir. Bu fonksiyonu tarih alanlarıyla nasıl kullanacağınıza dair bir açıklama için buraya tıklayın. Desteklenen biçim belirteçlerinin listesi için lütfen buraya tıklayın.",
+      "example": "DATETIME_FORMAT(\"2023-09-08\", \"DD-MM-YYYY\") => \"08-09-2023\""
+    },
+    "DATETIME_PARSE": {
+      "summary": "Bir metin dizesini isteğe bağlı giriş biçimi ve yerel ayar parametreleriyle yapılandırılmış bir tarih olarak yorumlar. Çıktı biçimi her zaman \"M/D/YYYY h:mm a\" olarak biçimlendirilecektir.",
+      "example": "DATETIME_PARSE(\"8 Eyl 2023 18:00\", \"D MMM YYYY HH:mm\") => \"2023-09-08 18:00:00\""
+    },
+    "CREATED_TIME": {
+      "summary": "Mevcut kaydın oluşturulma zamanını döndürür.",
+      "example": "CREATED_TIME() => \"2023-09-08 18:00:00\""
+    },
+    "LAST_MODIFIED_TIME": {
+      "summary": "Tablodaki hesaplanmayan bir alanda bir kullanıcı tarafından yapılan en son değişikliğin tarih ve saatini döndürür.",
+      "example": "LAST_MODIFIED_TIME() => \"2023-09-08 18:00:00\"; LAST_MODIFIED_TIME({Due Date}) => \"2023-09-09 12:00:00\""
+    },
+    "COUNTALL": {
+      "summary": "Metin ve boşluklar dahil tüm öğelerin sayısını döndürür.",
+      "example": "COUNTALL(100, 200, \"\", \"Teable\", TRUE()) => 5"
+    },
+    "COUNTA": {
+      "summary": "Boş olmayan değerlerin sayısını döndürür. Bu fonksiyon hem sayısal hem de metin değerlerini sayar.",
+      "example": "COUNTA(100, 200, 300, \"\", \"Teable\", TRUE) => 4"
+    },
+    "COUNT": {
+      "summary": "Sayısal öğelerin sayısını döndürür.",
+      "example": "COUNT(100, 200, 300, \"\", \"Teable\", TRUE) => 3"
+    },
+    "ARRAY_JOIN": {
+      "summary": "Toplama öğelerinin dizisini bir ayırıcı ile dizeye birleştirir.",
+      "example": "ARRAY_JOIN([\"Tom\", \"Jerry\", \"Mike\"], \"; \") => \"Tom; Jerry; Mike\""
+    },
+    "ARRAY_UNIQUE": {
+      "summary": "Dizideki yalnızca benzersiz öğeleri döndürür.",
+      "example": "ARRAY_UNIQUE([1, 2, 3, 2, 1]) => [1, 2, 3]"
+    },
+    "ARRAY_FLATTEN": {
+      "summary": "Dizi iç içe geçmesini kaldırarak diziyi düzleştirir. Tüm öğeler tek bir dizinin elemanları haline gelir.",
+      "example": "ARRAY_FLATTEN([1, 2, \" \", 3, true], [\"ABC\"]) => [1, 2, 3, \" \", true, \"ABC\"]"
+    },
+    "ARRAY_COMPACT": {
+      "summary": "Diziden boş dizeleri ve null değerleri kaldırır. \"false\" ve bir veya daha fazla boşluk karakteri içeren dizeleri korur.",
+      "example": "ARRAY_COMPACT([1, 2, 3, \"\", null, \"ABC\"]) => [1, 2, 3, \"ABC\"]"
+    },
+    "TEXT_ALL": {
+      "summary": "Tüm metin değerlerini döndürür",
+      "example": "TEXT_ALL(\"t\") => t"
+    },
+    "RECORD_ID": {
+      "summary": "Mevcut kaydın kimliğini döndürür.",
+      "example": "RECORD_ID() => \"recxxxxxx\""
+    },
+    "AUTO_NUMBER": {
+      "summary": "Her kayıt için benzersiz ve artan sayılar döndürür.",
+      "example": "AUTO_NUMBER() => 1"
+    },
+    "FORMULA": {
+      "summary": "Hesaplamalar için formüller oluşturmak üzere değişkenler, işlem karakterleri ve fonksiyonlar doldurun.",
+      "example": "Sütun Alıntılama: {Alan adı}\n\nOperatör kullanma: 100 * 2 + 300\n\nFonksiyon kullanma: SUM({Sayı Alanı 1}, 100)\n\nIF ifadesi kullanma: \nIF(mantıksal koşul, \"değer 1\", \"değer 2\")"
+    }
+  },
+  "functionType": {
+    "fields": "Alanlar",
+    "numeric": "Sayısal",
+    "text": "Metin",
+    "logical": "Mantıksal",
+    "date": "Tarih",
+    "array": "Dizi",
+    "system": "Sistem"
+  },
+  "statisticFunc": {
+    "none": "Yok",
+    "count": "Sayı",
+    "empty": "Boş",
+    "filled": "Dolu",
+    "unique": "Benzersiz",
+    "max": "Maksimum",
+    "min": "Minimum",
+    "sum": "Toplam",
+    "average": "Ortalama",
+    "checked": "İşaretli",
+    "unChecked": "İşaretsiz",
+    "percentEmpty": "Boş Yüzdesi",
+    "percentFilled": "Dolu Yüzdesi",
+    "percentUnique": "Benzersiz Yüzdesi",
+    "percentChecked": "İşaretli Yüzdesi",
+    "percentUnChecked": "İşaretsiz Yüzdesi",
+    "earliestDate": "En Erken Tarih",
+    "latestDate": "En Son Tarih",
+    "dateRangeOfDays": "Tarih Aralığı (gün)",
+    "dateRangeOfMonths": "Tarih Aralığı (ay)",
+    "totalAttachmentSize": "Toplam Ek Boyutu"
+  },
+  "selectionStatistic": {
+    "tip": "Yalnızca Sayı türündeki alanlar toplanır.",
+    "copyTip": "Kopyalamak için tıklayın",
+    "copied": "Kopyalandı"
+  },
+  "baseQuery": {
+    "add": "Ekle",
+    "error": {
+      "invalidCol": "Geçersiz sütun, lütfen tekrar seçin",
+      "invalidCols": "Geçersiz sütunlar: {{colNames}}",
+      "invalidTable": "Geçersiz tablo, lütfen tekrar seçin",
+      "requiredSelect": "Bir tane seçmelisiniz"
+    },
+    "from": {
+      "title": "Kaynak",
+      "fromTable": "Tablo Seç",
+      "fromQuery": "Sorgudan"
+    },
+    "select": {
+      "title": "Seç"
+    },
+    "where": {
+      "title": "Koşul"
+    },
+    "groupBy": {
+      "title": "Grupla"
+    },
+    "orderBy": {
+      "title": "Sırala",
+      "asc": "Artan",
+      "desc": "Azalan"
+    },
+    "limit": {
+      "title": "Limit"
+    },
+    "offset": {
+      "title": "Ofset"
+    },
+    "join": {
+      "title": "Birleştir",
+      "joinType": "Birleştirme Türü",
+      "leftJoin": "Sol Birleştirme",
+      "rightJoin": "Sağ Birleştirme",
+      "innerJoin": "İç Birleştirme",
+      "fullJoin": "Tam Birleştirme",
+      "data": "Kaynak"
+    },
+    "aggregation": {
+      "title": "Toplama"
+    }
+  },
+  "comment": {
+    "title": "Yorum",
+    "placeholder": "Bir yorum bırakın...",
+    "emptyComment": "Bir konuşma başlatın",
+    "deletedComment": "Silinmiş Yorum",
+    "tip": {
+      "editing": "Düzenleme...",
+      "edited": "(Düzenlendi)",
+      "notifyAll": "Tüm yorumları bildir",
+      "notifyRelatedToMe": "Benimle ilgili yorumları bildir",
+      "all": "Tümü",
+      "relatedToMe": "Benimle ilgili",
+      "reactionUserSuffix": "{{emoji}} emoji ile tepki verdi",
+      "me": "Sen",
+      "connection": "ve"
+    },
+    "toolbar": {
+      "link": "Bağlantı",
+      "image": "Görsel",
+      "mention": "Bahset"
+    },
+    "floatToolbar": {
+      "editLink": "Bağlantıyı Düzenle",
+      "linkText": "Bağlantı Metni",
+      "enterUrl": "URL Girin"
+    }
+  },
+  "memberSelector": {
+    "title": "Select Members",
+    "memberSelectorSearchPlaceholder": "Search members...",
+    "departmentSelectorSearchPlaceholder": "Search departments...",
+    "selected": "Selected",
+    "empty": "No members",
+    "emptyDepartment": "No departments"
+  },
+  "httpErrors": {
+    "validationError": "Doğrulama Hatası",
+    "invalidCaptcha": "Geçersiz Captcha",
+    "invalidCredentials": "Geçersiz Kimlik Bilgileri",
+    "unauthorized": "Yetkisiz",
+    "unauthorizedShare": "Yetkisiz Paylaşım",
+    "paymentRequired": "Ödeme Gerekli",
+    "creditLimitExceeded": "Kredi Limiti Aşıldı",
+    "restrictedResource": "Kısıtlı Kaynak",
+    "notFound": "Bulunamadı",
+    "conflict": "Çatışma",
+    "unprocessableEntity": "İşlenemeyen Varlık",
+    "userLimitExceeded": "Kullanıcı Limit Aşıldı",
+    "tooManyRequests": "Çok Fazla İstek",
+    "internalServerError": "Sunucu Hatası",
+    "databaseConnectionUnavailable": "Veritabanı Bağlantısı Mevcut Değil",
+    "gatewayTimeout": "Ağ Geçidi Zaman Aşımı",
+    "unknownErrorCode": "Bilinmeyen Hata Kodu",
+    "networkError": "Ağ bağlantı sorunu",
+    "requestTimeout": "İstek Zaman Aşımı",
+    "failedDependency": "Bağımlılık Hatası",
+    "automationNodeParseError": "Otomasyon Düğümü Ayrıştırma Hatası",
+    "automationNodeNeedTest": "Otomasyon Düğümü Test Gereksinimi",
+    "automationNodeTestOutdated": "Otomasyon Düğümü Testi Güncel Değil",
+    "invalidToken": "Geçersiz token",
+    "limit": {
+      "fieldOptionsMaxBytes": "Alan seçenekleri çok büyük. En fazla {{max}} bayt olabilir.",
+      "selectChoicesMax": "Bu seçim alanında çok fazla seçenek var. En fazla {{max}} seçenek olabilir.",
+      "selectChoiceNameMaxLength": "Seçim seçeneği adları çok uzun. En fazla {{max}} karakter olabilir.",
+      "selectDefaultValuesMax": "Bu seçim alanında çok fazla varsayılan değer var. En fazla {{max}} değer olabilir.",
+      "cellValueMaxBytes": "Hücre değeri çok büyük. En fazla {{max}} bayt olabilir.",
+      "recordFieldsMaxBytes": "Kayıt içeriği çok büyük. En fazla {{max}} bayt olabilir.",
+      "recordsPerMutationMax": "Bu işlem çok fazla kaydı değiştiriyor. Tek seferde en fazla {{max}} kayıt olabilir.",
+      "computedCellValueMaxBytes": "Hesaplanan hücre değeri çok büyük. En fazla {{max}} bayt olabilir.",
+      "formulaMaxLength": "Formül çok uzun. En fazla {{max}} karakter olabilir.",
+      "tablesPerBaseMax": "Bu base tablo sınırına ulaştı. En fazla {{max}} tablo olabilir.",
+      "fieldsPerTableMax": "Bu tabloda çok fazla alan var. En fazla {{max}} alan olabilir.",
+      "rowsPerTableMax": "Bu tabloda çok fazla kayıt var. En fazla {{max}} kayıt olabilir.",
+      "viewsPerTableMax": "Bu tablo görünüm sınırına ulaştı. En fazla {{max}} görünüm olabilir.",
+      "createTableFieldsMax": "Yeni tabloda çok fazla alan var. En fazla {{max}} alan olabilir.",
+      "createTableViewsMax": "Yeni tabloda çok fazla görünüm var. En fazla {{max}} görünüm olabilir.",
+      "createTableRecordsMax": "Yeni tabloda çok fazla kayıt var. En fazla {{max}} kayıt olabilir.",
+      "viewFilterItemsMax": "Bu görünümde çok fazla filtre koşulu var. En fazla {{max}} koşul olabilir.",
+      "viewFilterDepthMax": "Bu görünüm filtresi çok derin iç içe geçmiş. En fazla derinlik {{max}} olabilir.",
+      "viewSortItemsMax": "Bu görünümde çok fazla sıralama kuralı var. En fazla {{max}} kural olabilir.",
+      "viewGroupItemsMax": "Bu görünümde çok fazla gruplama kuralı var. En fazla {{max}} kural olabilir.",
+      "viewOptionsMaxBytes": "Görünüm seçenekleri çok büyük. En fazla {{max}} bayt olabilir.",
+      "nameMaxLength": "Ad çok uzun. En fazla {{max}} karakter olabilir.",
+      "descriptionMaxLength": "Açıklama çok uzun. En fazla {{max}} karakter olabilir."
+    },
+    "validation": {
+      "field": {
+        "unique": "Alan benzersiz bir değere sahip olmalıdır"
+      }
+    },
+    "custom": {
+      "fieldValueNotNull": "\"{{tableName}}\" alanı \"{{fieldName}}\" boş değerlere izin vermiyor, lütfen tamamlayınız ve gönderimden önce doldurun.",
+      "fieldValueDuplicate": "\"{{tableName}}\" alanı \"{{fieldName}}\" tekrarlayan değerlere izin vermiyor, lütfen benzersiz bir değer doldurun ve gönderimden önce doldurun.",
+      "linkFieldValueDuplicate": "\"{{fieldName}}\" alanı aynı kayıtla tekrarlayan değerlere izin vermiyor.",
+      "requestTimeout": "İşlem kapsamı çok büyük, lütfen kapsamı daraltıp tekrar deneyin.",
+      "searchTimeOut": "Arama tamamlandı, arama kapsamını azaltarak tekrar deneyin.",
+      "dependencyNodeRequire": "Bağımlı düğüm test edilmedi, lütfen önceki düğümleri test edin",
+      "invalidOperation": "Geçersiz işlem tespit edildi, lütfen işlem parametrelerini kontrol edin"
+    },
+    "comment": {
+      "listCountExceeded": "İstenen yorum sayısı 1000 maksimum sınırını aşıyor",
+      "invalidContentType": "Geçersiz yorum içerik türü"
+    },
+    "attachment": {
+      "tokenExpireInTooLong": "Token süresinin 7 günden az olması gerekir",
+      "s3RegionRequired": "S3 bölgesi gerekli",
+      "s3EndpointRequired": "S3 uç noktası gerekli",
+      "s3AccessKeyRequired": "S3 erişim anahtarı gerekli",
+      "s3SecretKeyRequired": "S3 gizli anahtarı gerekli",
+      "s3UploadMethodMustBePut": "S3 yükleme yöntemi PUT olmalıdır",
+      "presignedError": "Önceden imzalanmış URL oluşturulamadı",
+      "invalidObjectMeta": "Geçersiz nesne meta verisi",
+      "invalidImageStream": "Geçersiz görüntü akışı",
+      "calculateImageSizeFailed": "Görüntü boyutu hesaplanamadı",
+      "uploadFailed": "Yükleme başarısız",
+      "invalidImage": "Geçersiz görüntü",
+      "cantGetImageStream": "Görüntü akışı alınamıyor",
+      "invalidProvider": "Geçersiz depolama sağlayıcısı",
+      "failedToDeleteDirectory": "Dizin silinemedi",
+      "invalidToken": "Geçersiz token",
+      "tokenExpired": "Token süresi doldu",
+      "sizeMismatch": "Dosya boyutu uyuşmuyor",
+      "notAllowUploadFileType": "{{mimetype}} dosya türü yüklemeye izin verilmiyor",
+      "notFound": "Ek bulunamadı",
+      "invalidPath": "Geçersiz ek yolu",
+      "fileSizeExceedsMaximumLimit": "Dosya boyutu maksimum sınır {{maxSize}} aşıyor",
+      "invalidUploadType": "Geçersiz yükleme türü",
+      "urlReject": "URL reddedildi veya erişilemiyor"
+    },
+    "email": {
+      "testEmailError": "Posta yapılandırma hatası {{message}}"
+    },
+    "auth": {
+      "invalidConfirm": "Invalid confirmation input",
+      "emailNotRegistered": "This email is not registered",
+      "passwordNotSet": "Password has not been set for this account",
+      "systemUser": "This is a system user account",
+      "alreadyRegistered": "This email is already registered",
+      "passwordIncorrect": "The password is incorrect",
+      "tokenInvalid": "The token is invalid or has expired",
+      "passwordAlreadyExists": "Password has already been set for this account",
+      "verificationCodeInvalid": "The verification code is invalid or has expired",
+      "newEmailSameAsCurrentEmail": "The new email address is the same as the current one",
+      "emailAlreadyRegistered": "This email address is already registered",
+      "waitlistNotEnabled": "The waitlist feature is not enabled",
+      "emailOrPasswordIncorrect": "Email or password is incorrect",
+      "accountDeactivated": "This account has been deactivated by the administrator",
+      "accountLockedOut": "Your account has been locked due to too many failed login attempts. Please try again later."
+    },
+    "automation": {
+      "buttonClickTriggerDuplicated": "Bu buton alanı zaten {{name}}[{{id}}] otomasyon işlemine bağlı, lütfen başka bir buton alanı seçin",
+      "triggerNotFound": "Otomasyon bir tetikleyici düğümüne sahip olmalı",
+      "nodeNotFound": "{{nodeId}} düğümü bulunamadı",
+      "triggerTestFailed": "Tetikleyici testi başarısız, lütfen tetikleyici yapılandırmasını kontrol edin",
+      "testFailed": "Otomasyon testi başarısız, otomasyon yapılandırmasını kontrol edin",
+      "runFailed": "Otomasyon çalıştırması başarısız oldu",
+      "nodeParseError": "{{name}} düğüm yapılandırması eksik veya hatalı, lütfen düğüm yapılandırmasını kontrol edin",
+      "nodeNeedTest": "{{name}} düğümün test edilmesi gerekiyor",
+      "nodeTestOutdated": "{{name}} düğüm testi güncel değil",
+      "notFound": "Otomasyon bulunamadı",
+      "currentSnapshotEmpty": "Otomasyonun mevcut anlık görüntüsü boş",
+      "runNotFound": "Otomasyon çalıştırması bulunamadı",
+      "anchorNotFound": "Bağlantı otomasyonu bulunamadı",
+      "validationError": "Otomasyon yapılandırması doğrulama hatası",
+      "tableNotInBase": "Yalnızca veritabanınızdaki bir tabloya abone olabilirsiniz",
+      "alreadyActiveAndNotDraft": "Otomasyon zaten aktif ve taslak değil",
+      "noActiveSnapshot": "Otomasyonun aktif anlık görüntüsü yok",
+      "onlyFailedRunsCanRerun": "Yalnızca başarısız çalıştırmalar yeniden çalıştırılabilir",
+      "workflowMustBeActiveToRerun": "Yeniden çalıştırmak için iş akışı etkin olmalıdır",
+      "snapshotChangedOnlyFullRerun": "Bu çalıştırmadan sonra iş akışı değiştirildi. Yalnızca tam yeniden çalıştırmaya izin verilir.",
+      "controlStepsMissingOnlyFullRerun": "Bu çalıştırma için kontrol düğümü verileri eksik. Yalnızca tam yeniden çalıştırma desteklenmektedir.",
+      "triggerNodeAlreadyExists": "Bu otomasyonun zaten bir tetikleyici düğümü var",
+      "generateLogicError": "Mantık düğümü oluşturma hatası",
+      "logicNotFound": "Otomasyon mantık düğümü bulunamadı",
+      "actionNotFound": "Otomasyon eylem düğümü bulunamadı",
+      "unSupportDuplicateWorkflowNodeType": "Bu otomasyon düğüm türünün çoğaltılması desteklenmiyor",
+      "unSupportLogicType": "Desteklenmeyen mantık türü",
+      "groupEndNotFound": "Mantık için GroupEnd bulunamadı",
+      "insertNodeError": "Düğüm ekleme hatası",
+      "controlNodeNotBeTested": "Kontrol düğümü test edilmemeli",
+      "invalidNodeType": "Geçersiz düğüm türü",
+      "unsupportedCategory": "Desteklenmeyen kategori",
+      "unknownConnectionType": "Bilinmeyen e-posta bağlantı türü",
+      "imapPasswordNotConfigured": "IMAP şifresi yapılandırılmamış",
+      "integrationNotFound": "Entegrasyon bulunamadı veya kimlik bilgileri yok",
+      "webhookTriggerNotFound": "Webhook tetikleyicisi bulunamadı",
+      "emailReceivedTriggerNotFound": "E-posta alım tetikleyicisi bulunamadı",
+      "emailConnectorNotAvailable": "E-posta bağlayıcı hizmeti kullanılamıyor",
+      "listMailboxesFailed": "Posta kutuları listelenemedi: {{detail}}"
+    },
+    "scrape": {
+      "unknownDataset": "Bilinmeyen veri seti: {{datasetId}}",
+      "apiKeyNotConfigured": "Kazıma servisi yapılandırılmamış",
+      "triggerFailed": "Kazıma tetiklemesi başarısız: {{detail}}",
+      "snapshotError": "Kazıma anlık görüntü hatası: {{detail}}",
+      "timeout": "Kazıma {{seconds}}s sonra zaman aşımına uğradı"
+    },
+    "integration": {
+      "oauthCodeExchangeFailed": "Failed to exchange OAuth code: {{detail}}",
+      "oauthTokenRefreshFailed": "Failed to refresh OAuth token: {{detail}}",
+      "userInfoFetchFailed": "Failed to get user info: {{detail}}"
+    },
+    "space": {
+      "notFound": "Alan bulunamadı",
+      "noPermission": "Bu alana erişim izniniz yok",
+      "disallowSpaceCreation": "Alan oluşturma yönetici tarafından devre dışı bırakıldı",
+      "cannotChangeOnlyOwnerRole": "Alanın tek sahibinin rolü değiştirilemez",
+      "cannotDeleteOnlyOwner": "Alanın tek sahibi silinemez",
+      "deleted": "Space has been deleted",
+      "cannotOperate": "Bir alan üzerinde işlem yapılamıyor, alanda organizasyon üyelerinin bulunduğunu ve sahip olduklarını doğrulayın",
+      "notBelongToOrg": "Bu alan organizasyona ait değil",
+      "invalidSpaceIds": "Alan kimlikleri geçersiz: {{spaceIds}}",
+      "freeOwnedSpaceLimitExceeded": "You have reached the maximum number of free spaces you can own ({{max}}). Please upgrade an existing space or delete one to create a new free space.",
+      "freeOwnedSpaceLimitExceededOther": "{{name}} has reached the maximum number of free spaces they can own ({{max}})."
+    },
+    "base": {
+      "notFound": "Base bulunamadı",
+      "cannotAccess": "Base {{baseId}} erişim izniniz yok",
+      "anchorNotFound": "Bağlantı base'i {{anchorId}} bulunamadı",
+      "baseAndSpaceMismatch": "Base {{baseId}} ve alan {{spaceId}} eşleşmiyor",
+      "templateNotFound": "Şablon {{templateId}} bulunamadı"
+    },
+    "baseNode": {
+      "baseIdIsRequired": "Base ID gereklidir",
+      "nodeIdIsRequired": "Node ID gereklidir",
+      "invalidResourceType": "Geçersiz kaynak türü",
+      "notFound": "Temel düğüm bulunamadı",
+      "parentMustBeFolder": "Üst öğe bir klasör olmalıdır",
+      "cannotDuplicateFolder": "Klasör çoğaltılamaz",
+      "cannotDeleteEmptyFolder": "Klasör boş olmadığı için silinemez",
+      "onlyOneOfParentIdOrAnchorIdRequired": "Yalnızca parentId veya anchorId belirtilmelidir",
+      "cannotMoveToItself": "Düğüm kendisine taşınamaz",
+      "cannotMoveToCircularReference": "Düğüm kendi alt düğümüne taşınamaz (döngüsel referans)",
+      "anchorIdOrParentIdRequired": "En az parentId veya anchorId belirtilmelidir",
+      "parentNotFound": "Üst düğüm bulunamadı",
+      "parentIsNotFolder": "Üst öğe bir klasör değil",
+      "circularReference": "Döngüsel referans algılandı",
+      "folderDepthLimitExceeded": "Klasör derinlik sınırı aşıldı",
+      "folderNotFound": "Klasör bulunamadı",
+      "anchorNotFound": "Bağlantı düğümü bulunamadı",
+      "nameAlreadyExists": "İsim zaten mevcut"
+    },
+    "dashboard": {
+      "notFound": "Gösterge paneli bulunamadı"
+    },
+    "plugin": {
+      "notFound": "Eklenti bulunamadı",
+      "notSupportInstallInView": "Eklenti görünümde yüklemeyi desteklemiyor",
+      "userNotFound": "Eklenti kullanıcısı bulunamadı",
+      "invalidSecret": "Geçersiz gizli anahtar",
+      "invalidRefreshToken": "Geçersiz yenileme belirteci",
+      "anomalousToken": "Anormal belirteç"
+    },
+    "pluginPanel": {
+      "notFound": "Eklenti paneli bulunamadı"
+    },
+    "pluginInstall": {
+      "notFound": "Eklenti yüklenmemiş"
+    },
+    "share": {
+      "incorrectPassword": "Yanlış şifre",
+      "notAllowedToSubmit": "Form gönderimi izin verilmiyor",
+      "notAllowedToEdit": "Bu paylaşımda düzenlemeye izin verilmiyor",
+      "viewRequired": "Bu işlem için görünüm gereklidir",
+      "hiddenFieldsSubmissionNotAllowed": "Gizli alanlar dahil edildiğinde form gönderimi izin verilmiyor",
+      "submitRecordsError": "Kayıt gönderimi başarısız oldu",
+      "notAllowedToCopy": "Kopyalama işlemi izin verilmiyor",
+      "fieldHiddenNotAllowed": "Alan gizli ve erişilemez",
+      "fieldTypeNotLinkField": "Alan bir bağlantı alanı değil",
+      "fieldIdRequired": "Alan kimliği gereklidir",
+      "fieldNotUserRelatedField": "Alan kullanıcıyla ilgili bir alan değil",
+      "viewTypeNotAllowed": "Bu görünüm türü bu işlem için izin verilmiyor"
+    },
+    "shareAuth": {
+      "passwordRestrictionNotEnabled": "Bu paylaşılan görünüm için şifre kısıtlaması etkin değil",
+      "shareViewNotFound": "Paylaşılan görünüm bulunamadı veya paylaşım devre dışı",
+      "linkFieldNotFound": "Bağlantı alanı bulunamadı",
+      "loginRequired": "Bu paylaşılan görünümü düzenlemek için oturum açın"
+    },
+    "baseShare": {
+      "notFound": "Taban paylaşımı bulunamadı veya paylaşım devre dışı",
+      "alreadyExists": "Bu düğüm için zaten bir paylaşım mevcut",
+      "copyNotAllowed": "Bu paylaşım kopyalamaya izin vermiyor"
+    },
+    "shareSocket": {
+      "viewPermissionNotAllowed": "Bu görünüme erişim izniniz yok",
+      "fieldPermissionNotAllowed": "Bu alanlara erişim izniniz yok",
+      "recordPermissionNotAllowed": "Bu kayıtlara erişim izniniz yok"
+    },
+    "pluginContextMenu": {
+      "notFound": "Eklenti bağlam menüsü bulunamadı",
+      "anchorNotFound": "Eklenti bağlam menüsü bağlantısı bulunamadı"
+    },
+    "pluginChart": {
+      "queryNotFound": "Eklenti grafik sorgusu bulunamadı"
+    },
+    "dbConnection": {
+      "unsupportedDriver": "Desteklenmeyen veritabanı sürücüsü: {{driver}}",
+      "onlyOwnerCanRemove": "Yalnızca base sahibi, base {{baseId}} için veritabanı bağlantısını kaldırabilir",
+      "onlyOwnerCanCreate": "Yalnızca base sahibi, base {{baseId}} için veritabanı bağlantısı oluşturabilir",
+      "roleNotExist": "Veritabanı rolü {{role}} mevcut değil"
+    },
+    "baseQuery": {
+      "queryFailed": "Sorgu başarısız: {{message}}",
+      "invalidJoinType": "Geçersiz birleştirme türü: {{joinType}}",
+      "tableNotFound": "Tablo {{tableId}}, base {{baseId}} içinde bulunamadı"
+    },
+    "baseSqlExecutor": {
+      "notAllowedToExecuteSqlWithKeyword": "{{keyword}} anahtar kelimesiyle SQL çalıştırılmasına izin verilmiyor",
+      "whiteListCheckError": "Tablo erişimi kontrol edilirken bir hata oluştu: {{message}}",
+      "databaseConnectionFailed": "Veritabanı bağlantısı başarısız oldu: {{message}}",
+      "executeQuerySqlFailed": "Sorgu SQL'i çalıştırılamadı: {{message}}",
+      "sqlSyntaxError": "SQL sözdizimi hatası, lütfen sorgunuzu kontrol edin"
+    },
+    "permission": {
+      "createRecordWithDeniedFields": "Alanları({{fields}}) olan kayıtlar oluşturma izniniz yok",
+      "deleteRecords": "Kayıtları({{recordIds}}) silme izniniz yok",
+      "readRecordWithDeniedFields": "Kayıt({{recordId}}) içindeki alanları({{fields}}) okuma izniniz yok",
+      "updateRecordWithDeniedFields": "Kayıt({{recordId}}) içindeki alanları({{fields}}) güncelleme izniniz yok",
+      "checkIdNotExist": "İzin kontrol kimliği mevcut değil",
+      "userNotAdmin": "Kullanıcı yönetici değil",
+      "accessTokenNoPermission": "Erişim jetonu gerekli izne sahip değil",
+      "invalidResource": "Kaynak geçerli değil",
+      "notAllowedSpace": "Bu alana erişim izniniz yok",
+      "notAllowedBase": "Bu tabana erişim izniniz yok",
+      "notAllowedTables": "Bu tablolar({{tableIds}}) erişim izniniz yok",
+      "notAllowedOperationTable": "Bu tablo üzerinde işlem yapma izniniz yok",
+      "notAllowedOperationRecord": "Bu kayıt üzerinde işlem yapma izniniz yok",
+      "notAllowedRecordUpdate": "Bu kaydı güncelleme izniniz yok",
+      "notAllowedOperationView": "Bu görünüm üzerinde işlem yapma izniniz yok",
+      "deniedByEnabledAuthorityMatrix": "Etkin yetki matrisi tarafından reddedildi",
+      "invalidRequestPath": "İstek yolu geçerli değil",
+      "notAllowedOperation": "Bu işlemi gerçekleştirme izniniz yok",
+      "notAllowedDepartment": "Bu departmana erişiminiz yok"
+    },
+    "authorityMatrix": {
+      "defaultRoleNotFound": "Varsayılan rol bulunamadı",
+      "alreadyDisabled": "Yetki matrisi zaten devre dışı",
+      "alreadyEnabled": "Yetki matrisi zaten etkin",
+      "notFound": "Yetki matrisi bulunamadı",
+      "primaryFieldCannotBeDisabledForRead": "Birincil alan okuma erişimi için devre dışı bırakılamaz",
+      "fieldDuplicated": "Alan izin yapılandırmasında yineleniyor",
+      "cannotSetRecordPermissionGroup": "Bu kayıt izinleri kombinasyonu({{actions}}) ayarlanamıyor",
+      "notFoundBaseAndTable": "Taban kimliği ve tablo kimliği bulunamadı",
+      "roleTablesShouldNotBeEmpty": "Yetki matrisi rol tabloları boş olmamalı"
+    },
+    "selection": {
+      "invalidReturnType": "Geçersiz dönüş türü",
+      "exceedMaxReadRows": "Maksimum okuma satırı sınırı aşıldı",
+      "invalidCellValueType": "Geçersiz hücre değeri türü",
+      "exceedMaxCopyCells": "Maksimum kopyalama hücresi sınırı aşıldı",
+      "exceedMaxPasteCells": "Maksimum yapıştırma hücresi sınırı aşıldı"
+    },
+    "field": {
+      "unsupportedFieldType": "Desteklenmeyen alan türü {{type}}",
+      "unsupportedPrimaryFieldType": "Birincil alan olarak desteklenmeyen alan türü {{type}}",
+      "primaryFieldNotSupported": "Alan türü birincil alan olarak desteklenmiyor",
+      "calculateRecordNotFound": "Kayıt bulunamadı: {{value}}, fieldId: {{fieldId}}, {{recordId}} hesaplanırken",
+      "toRecordIdsOrFromRecordIdsRequired": "Normal hesaplanan alan için toRecordIds veya fromRecordIds gereklidir",
+      "recordFieldsRequired": "Kayıt alanları tanımsız",
+      "uniqueUnsupportedType": "Alan {{name}}[{{fieldId}}] alan değeri benzersizlik doğrulamasını desteklemiyor",
+      "notNullValidationWhenCreateField": "Alan {{name}}[{{fieldId}}] yeni bir alan oluştururken null olmayan doğrulamayı desteklemiyor",
+      "dbFieldNameAlreadyExists": "Veritabanı alan adı {{dbFieldName}} zaten mevcut",
+      "fieldValidationError": "Alan {{name}}[{{fieldId}}] alan doğrulama hatası",
+      "fieldNameAlreadyExists": "Alan adı {{name}} zaten mevcut",
+      "notFound": "Alan bulunamadı",
+      "fieldKeyTypeNotFound": "Alan \"{{fieldKeyType}}: {{missedFields}}\" bulunamadı",
+      "notFoundInTable": "Alan {{fieldId}} tablo {{tableId}} içinde bulunamadı",
+      "deleteFieldsNotFound": "Silinecek alanlar {{fieldIds}} tablo {{tableId}} içinde bulunamadı",
+      "lookupValuesShouldBeArray": "Bağlantı alanı birden fazla hücre değerine sahip olduğunda lookupValues dizi olmalıdır",
+      "linkCellValuesShouldBeArray": "Bağlantı alanı birden fazla hücre değerine sahip olduğunda linkCellValues dizi olmalıdır",
+      "lookupAndLinkLengthMatch": "lookupValues uzunluğu linkCellValues uzunluğu ile aynı olmalıdır",
+      "cycleDetected": "Döngü tespit edildi",
+      "cycleDetectedCreateField": "Döngü tespit edildi, alan {{name}}[{{id}}] oluşturulamıyor",
+      "recordMapNotFound": "Tablo {{tableName}} içinde alan {{fieldName}} için kayıt bulunamadı",
+      "forbidDeletePrimaryField": "Birincil alanı silmek yasaktır",
+      "foreignTableIdInvalid": "Yabancı tablo {{foreignTableId}} geçersiz",
+      "crossSpaceLinkForbidden": "Alanlar arası referanslar desteklenmiyor. Lütfen aynı alandaki bir tablo seçin (hedef {{foreignTableId}} farklı bir alanda).",
+      "relationshipInvalid": "İlişki {{relationship}} geçersiz",
+      "linkFieldIdInvalid": "Bağlantı alanı {{linkFieldId}} geçersiz",
+      "lookupFieldIdInvalid": "Arama alanı {{lookupFieldId}} geçersiz",
+      "formulaExpressionParseError": "Formül ifadesi ayrıştırma hatası",
+      "formulaReferenceNotFound": "Formül referans alanı {{fieldIds}} bulunamadı",
+      "rollupExpressionParseError": "Toplama ifadesi ayrıştırma hatası",
+      "choiceNameAlreadyExists": "Seçenek adı {{name}} zaten mevcut",
+      "symmetricFieldIdRequired": "Simetrik alan kimliği gereklidir",
+      "foreignKeyNameCannotUseId": "Yabancı anahtar adı __id kullanamaz",
+      "createForeignKeyError": "Yabancı anahtar oluşturma hatası",
+      "lookupFieldTypeNotEqual": "Mevcut alan türü {{fieldType}} arama alanı türü {{lookupFieldType}} ile eşit değil",
+      "recordNotFound": "Kayıt {{recordId}} {{tableId}} içinde bulunamadı",
+      "linkCellRecordIdAlreadyExists": "Aynı hücrede yinelenen recordId ayarlanamaz: {{recordId}}",
+      "oneOneLinkCellValueCannotBeArray": "Bire-bir bağlantı alanı değerleri dizi olamaz",
+      "manyOneLinkCellValueCannotBeArray": "Çoka-bir bağlantı alanı değerleri dizi olamaz",
+      "foreignKeyDuplicate": "Yabancı anahtar yineleniyor",
+      "linkConsistencyError": "Tutarlılık hatası, recordId {{recordId}} mevcut değil",
+      "oneManyLinkCellValueShouldBeArray": "Bire-çok bağlantı alanı değerleri dizi olmalıdır",
+      "manyManyLinkCellValueShouldBeArray": "Çoka-çok bağlantı alanı değerleri dizi olmalıdır",
+      "onlyLinkFieldCanBeFiltered": "Yalnızca bağlantı alanları filtreleme için kullanılabilir",
+      "notLinkedToCurrentTable": "Alan mevcut tabloya bağlı değil",
+      "notAttachment": "Alan bir ek alanı değil",
+      "isComputed": "Alan hesaplanmış ve değiştirilemez",
+      "notFoundAICofig": "Alan AI yapılandırmasına sahip değil",
+      "foreignTableIdRequired": "Dış tablo gereklidir",
+      "lookupFieldIdRequired": "Arama alanı gereklidir",
+      "lookupFieldNotExist": "Arama alanı {{lookupFieldId}} mevcut değil",
+      "lookupFieldNotBelongToTable": "Arama alanı {{lookupFieldId}}, {{foreignTableId}} tablosuna ait değil",
+      "lookupFieldTypeNotMatch": "Geçerli alan türü {{fieldType}}, arama alanı türü {{lookupFieldType}} ile eşleşmiyor",
+      "conditionalRollupOptionsRequired": "Koşullu toplama alanı seçenekleri gereklidir",
+      "conditionalRollupParseError": "Koşullu toplama ayrıştırma hatası: {{message}}",
+      "conditionalLookupOptionsRequired": "Koşullu arama alanı seçenekleri gereklidir",
+      "button": {
+        "clickCountReachedMaxCount": "Düğme tıklama sayısı maksimum sınıra ulaştı",
+        "notSupportReset": "Düğme sıfırlamayı desteklemiyor"
+      },
+      "primaryCannotBeLookup": "Birincil alan Lookup alanı olarak yapılandırılamaz",
+      "primaryFieldAlreadyExists": "Tablonun zaten bir birincil alanı var"
+    },
+    "view": {
+      "notFound": "Görünüm bulunamadı",
+      "defaultViewNotFound": "Varsayılan görünüm bulunamadı",
+      "propertyParseError": "Görünüm özelliği ayrıştırılamadı",
+      "primaryFieldCannotBeHidden": "Birincil alan gizlenemez",
+      "filterUnsupportedFieldType": "Filtre desteklenmeyen alan türü",
+      "sortUnsupportedFieldType": "Sıralama desteklenmeyen alan türü",
+      "groupUnsupportedFieldType": "Gruplama desteklenmeyen alan türü",
+      "anchorNotFound": "Bağlantı görünümü bulunamadı",
+      "notEnoughGapToShuffleRow": "Satırı karıştırmak için yeterli boşluk yok",
+      "shareNotEnabled": "Görünüm paylaşımı etkinleştirilmedi",
+      "shareAlreadyEnabled": "Görünüm paylaşımı zaten etkinleştirildi",
+      "shareAlreadyDisabled": "Görünüm paylaşımı zaten devre dışı bırakıldı"
+    },
+    "billing": {
+      "insufficientCredit": "Yetersiz kredi",
+      "exceedMaxRowLimit": "Maksimum satır sınırı {{maxRowCount}} aşıldı",
+      "exceedMaxAutomationRunLimit": "Aylık maksimum otomasyon çalıştırma sayısına ulaşıldı",
+      "manualSubscriptionNotSupported": "Bu alan için self-servis abonelik kullanılamamaktadır. Yükseltme, düşürme veya diğer abonelik değişiklikleri için lütfen Teable desteğiyle iletişime geçin.",
+      "appSumoSubscriptionNotSupported": "AppSumo abonelikleri bu arayüz üzerinden değiştirilemez. Lütfen aboneliğinizi AppSumo'da yönetin.",
+      "customerNotFound": "Bu alan için fatura müşteri kaydı bulunamadı."
+    },
+    "aggregation": {
+      "searchQueryRequired": "Arama sorgusu gereklidir",
+      "maxSearchIndexResult": "Maksimum arama indeksi sonucu 1000'dir",
+      "queryCollectionMustBeTableId": "Sorgu koleksiyonu tablo kimliği olmalıdır",
+      "searchTimeOut": "Arama tamamlandı, arama kapsamını azaltarak tekrar deneyin.",
+      "indexNotFound": "İndeks bulunamadı",
+      "invalidStartDateFieldId": "Geçersiz başlangıç tarihi alan kimliği",
+      "invalidEndDateFieldId": "Geçersiz bitiş tarihi alan kimliği",
+      "fieldMapRequired": "Arama ayarlandığında alan haritası gereklidir",
+      "filterLinkCellQueryConflict": "filterLinkCellSelected ve filterLinkCellCandidate aynı anda ayarlanamaz"
+    },
+    "ai": {
+      "chatModelLgNotSet": "AI sohbet modeli lg ayarlanmamış",
+      "chatModelLgProviderNotSet": "AI sohbet modeli lg sağlayıcısı ayarlanmamış",
+      "chatModelSmNotSet": "AI sohbet modeli sm ayarlanmamış",
+      "chatModelMdNotSet": "AI sohbet modeli md ayarlanmamış",
+      "configurationNotSet": "AI yapılandırması ayarlanmamış",
+      "unsupportedProvider": "Desteklenmeyen AI sağlayıcısı {{type}}",
+      "providerConfigurationNotSet": "AI sağlayıcı yapılandırması ayarlanmamış",
+      "testLLMFailed": "LLM bağlantı testi başarısız oldu",
+      "audioNotSupported": "Bu model {{model}} ses girişini desteklemiyor",
+      "imageNotSupported": "Bu model {{model}} görüntü girişini desteklemiyor",
+      "modelNotSet": "AI modeli ayarlanmamış",
+      "unsupportedFileType": "Desteklenmeyen dosya türü {{mimetype}}",
+      "unsupportedModelType": "Desteklenmeyen model türü",
+      "embeddingModelNotSet": "Gömme modeli ayarlanmamış",
+      "validateActionFailed": "Alan AI eyleminin doğrulanması başarısız oldu",
+      "generateFailed": "AI üretimi başarısız oldu",
+      "unsupportedActionType": "Desteklenmeyen AI eylem türü"
+    },
+    "skill": {
+      "notFound": "Beceri bulunamadı",
+      "onlyGithubCanSync": "Yalnızca GitHub kaynaklı beceriler senkronize edilebilir",
+      "syncFailed": "Senkronizasyon başarısız: {{errorCode}}",
+      "skillMdNotFoundAtSource": "Kaynak konumda SKILL.md bulunamadı",
+      "slugChangedUpstream": "Beceri slug'ı kaynakta \"{{oldSlug}}\" yerine \"{{newSlug}}\" olarak değişti. Yeni slug'ı benimsemek için silin ve yeniden içe aktarın.",
+      "skillMdNotFoundAtPath": "{{path}}/SKILL.md konumunda SKILL.md bulunamadı",
+      "invalidSkillFile": "Geçersiz beceri dosyası. .skill veya .zip arşivi bekleniyor",
+      "tooManyResourceFiles": "Beceri çok fazla dosya içeriyor (maks. {{max}})",
+      "noSkillMdInPackage": "Pakette SKILL.md bulunamadı",
+      "multipleSkillMdInPackage": "Aynı seviyede {{count}} SKILL.md dosyası bulundu. Paket tam olarak bir beceri içermelidir.",
+      "invalidResourcePaths": "Geçersiz kaynak yolları: {{paths}}",
+      "nameFieldRequired": "SKILL.md'nin frontmatter bölümünde \"name\" alanı bulunmalıdır",
+      "invalidSlugFormat": "Beceri slug'ı küçük harf, rakam ve tire içermelidir",
+      "filesExceedSizeLimit": "Dosyalar {{maxSizeKB}}KB sınırını aşıyor: {{files}}",
+      "binaryFilesNotAllowed": "İkili dosyalara izin verilmiyor: {{files}}",
+      "totalSizeExceedsLimit": "Toplam kaynak boyutu {{maxSizeMB}}MB sınırını aşıyor",
+      "invalidGithubUrl": "Geçersiz GitHub URL'si. Beklenen: https://github.com/owner/repo/tree/<branch>/path/to/skill",
+      "directoryTooDeep": "Beceri dizini maksimum {{maxDepth}} seviye derinliği aşıyor. İç içe dizinler: {{dirs}}",
+      "importFailed": "İçe aktarma başarısız: {{errorCode}}"
+    },
+    "sandbox": {
+      "fileNotFound": "Dosya sandbox içinde bulunamadı",
+      "onlyRegularFiles": "Yalnızca normal dosyalar indirilebilir",
+      "fileTooLarge": "Dosya indirilemeyecek kadar büyük (en fazla {{max}} bayt)",
+      "cannotDeleteRoot": "uploads/outputs kök klasörü silinemez",
+      "deleteFailed": "Dosyalar silinemedi",
+      "uploadFailed": "Dosya sandbox'a yüklenemedi",
+      "fileEndpointUnavailable": "Sandbox erişilebilir bir dosya uç noktası sunmuyor",
+      "invalidPath": "Geçersiz dosya yolu: sandbox'ın uploads veya outputs dizininde olmalıdır",
+      "tooManyDownloads": "Çok fazla indirme isteği",
+      "dailyLimitExceeded": "Günlük indirme boyutu sınırı aşıldı",
+      "storageFull": "Sandbox depolama alanı dolu",
+      "tooManyFiles": "Mesaj başına en fazla {{max}} dosyaya izin verilir",
+      "noActiveSandbox": "Etkin bir sandbox bulunamadı"
+    },
+    "role": {
+      "notFound": "Rol bulunamadı"
+    },
+    "collaborator": {
+      "alreadyExisted": "İşbirlikçi zaten mevcut",
+      "notFound": "İşbirlikçi bulunamadı",
+      "userNotFoundInCollaborator": "İşbirlikçiler arasında kullanıcı bulunamadı",
+      "noPermissionToDelete": "Bu işbirlikçiyi silme izniniz yok",
+      "noPermissionToUpdate": "Bu işbirlikçiyi güncelleme izniniz yok",
+      "noPermissionToOperateRole": "Bu rolü yönetme izniniz yok",
+      "alreadyExistedInBase": "İşbirlikçi zaten veritabanında mevcut",
+      "userNotFound": "Kullanıcı bulunamadı: {{userIds}}",
+      "baseNotFound": "Veritabanı bulunamadı",
+      "noPermissionToAddRole": "Bu rolle işbirlikçi ekleme izniniz yok",
+      "departmentNotFound": "Departman bulunamadı"
+    },
+    "table": {
+      "notFound": "Tablo bulunamadı",
+      "dbTableNameAlreadyExists": "Veritabanı tablo adı zaten mevcut",
+      "anchorNotFound": "Bağlantı tablosu bulunamadı",
+      "notInTrash": "Tablo çöp kutusunda değil",
+      "notSupportTableIndex": "Tablo dizin türü desteklenmiyor",
+      "createTableIndexError": "Tablo dizini oluşturulamadı",
+      "dropTableIndexError": "Tablo dizini silinemedi",
+      "notFoundPrimaryField": "Tabloda birincil alan bulunamadı"
+    },
+    "export": {
+      "notSupportViewType": "{{viewType}} görünüm türü dışa aktarma için desteklenmiyor"
+    },
+    "import": {
+      "notSupportedFileFormat": "Dosya biçimi desteklenmiyor, yalnızca {{supportType}} destekleniyor, dosyanızın içerik türü {{fileFormat}}",
+      "notSupportedFileType": "İçe aktarma dosya türü desteklenmiyor",
+      "exceedMaxFieldsLength": "Tablodaki alan sayısı {{maxFieldsLength}} değerini aşamaz, mevcut değer {{length}}",
+      "tooManyConcurrentImports": "Too many import tasks in progress ({{current}}/{{max}}). Please try again later."
+    },
+    "invitation": {
+      "disallowSpaceInvitation": "Mevcut örnek, yönetici tarafından alan davetine izin vermiyor",
+      "invalidCode": "Geçersiz davet kodu",
+      "linkNotFound": "Davet bağlantısı bulunamadı",
+      "linkExpired": "Davet bağlantısının süresi doldu",
+      "limitExceeded": "Saatte maksimum davet sayısına ulaştınız"
+    },
+    "pin": {
+      "alreadyExists": "Favori zaten mevcut",
+      "notFound": "Favori bulunamadı",
+      "anchorNotFound": "Favori bağlantı noktası bulunamadı"
+    },
+    "trash": {
+      "invalidResourceType": "Geçersiz kaynak türü",
+      "notFound": "Çöp kutusu öğesi bulunamadı",
+      "parentSpaceTrashed": "Üst alan da çöp kutusunda olduğu için bu taban geri yüklenemiyor",
+      "parentBaseOrSpaceTrashed": "Üst taban veya alan da çöp kutusunda olduğu için bu tablo geri yüklenemiyor",
+      "parentBaseTrashed": "Üst taban da çöp kutusunda olduğu için bu öğe geri yüklenemiyor",
+      "parentNotFound": "Üst kaynak bulunamadı",
+      "tableNotFound": "Tablo çöp kutusu öğesi bulunamadı"
+    },
+    "license": {
+      "invalid": "Lisans geçersiz",
+      "instanceIdMismatch": "Gelen örnek ID'si mevcut örneğin örnek ID'si ile eşleşmiyor",
+      "expired": "Lisansın süresi doldu",
+      "userLimitExceeded": "Mevcut örnekteki kullanıcı sayısı lisansın koltuk sınırını aşıyor. Lütfen bazı kullanıcıları devre dışı bırakın veya lisansı yükseltin"
+    },
+    "organization": {
+      "notFound": "Organizasyon bulunamadı",
+      "emailNotSpaceUser": "E-posta alan kullanıcısı değil",
+      "authenticationNotFound": "Kimlik doğrulama bulunamadı",
+      "spaceShouldExist": "Organizasyon alanı mevcut olmalı",
+      "emailsNotInOrgDomain": "Bu e-postalar {{emails}} organizasyon etki alanında değil"
+    },
+    "user": {
+      "disallowSignUp": "Mevcut örnek, yönetici tarafından kayıt olmaya izin vermiyor",
+      "emailDomainBanned": "Bu e-posta alan adı kural ihlalleri nedeniyle yasaklandı",
+      "waitlistInviteCodeRequired": "Bekleme listesi etkin, davetiye kodu gerekli",
+      "waitlistInviteCodeInvalid": "Bekleme listesi etkin, davetiye kodu geçersiz",
+      "systemUser": "Kullanıcı bir sistem kullanıcısıdır",
+      "collaboratorsInSpaces": "Kullanıcının alanlarda işbirlikçileri var (veya çöp kutusunda silinmiş alanlar)",
+      "notFound": "Kullanıcı bulunamadı",
+      "cannotDeleteAdmin": "Yönetici kullanıcı silinemez",
+      "cannotDeactivateAdmin": "Yönetici kullanıcı devre dışı bırakılamaz",
+      "cannotRemoveLastAdmin": "Son aktif yönetici kullanıcıdan yönetici ayrıcalığı kaldırılamaz",
+      "permanentDeleted": "Kullanıcı kalıcı olarak silindi",
+      "cannotDeleteSelf": "Kendinizi silemezsiniz",
+      "alreadyInDepartment": "Kullanıcı {{userId}} zaten hedef departmanda",
+      "emailsNotFound": "E-postalar {{emails}} bulunamadı",
+      "deleted": "Kullanıcı {{userId}} silindi",
+      "alreadyInOrg": "Kullanıcı {{userId}} zaten organizasyonda",
+      "notInOrg": "Kullanıcı {{userId}} organizasyonda değil"
+    },
+    "record": {
+      "notFound": "Kayıt bulunamadı",
+      "deletedIdsNotFound": "Silinecek bazı kayıtlar bulunamadı",
+      "updateFailed": "Kayıt güncelleme başarısız",
+      "noFileOrUrlProvided": "Dosya veya URL sağlanmadı",
+      "createRecordsEmpty": "Kayıt oluşturma boş olamaz",
+      "duplicateFailed": "Kayıt çoğaltma başarısız"
+    },
+    "typecast": {
+      "cellValueValidationFailed": "Hücre değeri doğrulama başarısız"
+    },
+    "workflow": {
+      "notActive": "Otomasyon açık değil"
+    },
+    "lastVisit": {
+      "invalidResourceType": "Geçersiz kaynak türü"
+    },
+    "template": {
+      "categoryNotFound": "Şablon kategorisi bulunamadı",
+      "snapshotRequired": "Anlık görüntü eksik olduğu için bu şablon yayınlanamadı",
+      "sourceTemplateNotFound": "Kaynak şablon bulunamadı",
+      "noMinOrderFound": "Minimum sıra bulunamadı",
+      "takeCountTooLarge": "İstenen şablon sayısı maksimum sınırı aşıyor",
+      "categoryLimitReached": "Şablon kategori sınırına ulaşıldı (maksimum {{maxCount}})"
+    },
+    "domainVerification": {
+      "notFound": "Domain doğrulama kodu bulunamadı",
+      "invalidCode": "Geçersiz doğrulama kodu",
+      "resendCooldown": "Yeni bir kod istemeden önce lütfen 1 dakika bekleyin"
+    },
+    "mail": {
+      "failedToSendEmail": "E-posta gönderimi başarısız"
+    },
+    "department": {
+      "parentNotFound": "Üst departman bulunamadı",
+      "notFound": "Departman bulunamadı",
+      "cannotMoveToItself": "Departman kendisine taşınamaz",
+      "cannotMoveToSub": "Departman alt departmanına taşınamaz"
+    },
+    "app": {
+      "notFound": "Uygulama bulunamadı",
+      "noFilesToUpdate": "Güncellenecek dosya yok",
+      "noChatIdFound": "Bu uygulama için sohbet ID'si bulunamadı",
+      "noChatFound": "Bu uygulama için sohbet bulunamadı",
+      "versionNotFound": "Sürüm bulunamadı",
+      "cannotRollbackToLatestVersion": "En son sürüme geri alınamaz",
+      "noChatOrProjectTokenFound": "Sohbet veya proje jetonu bulunamadı",
+      "apiKeyNotSet": "Uygulama oluşturucu API anahtarı ayarlanmamış",
+      "cannotDeployAppBeforeInitialization": "Başlatmadan önce uygulama dağıtılamaz",
+      "noProjectOrVersionFound": "Proje veya sürüm bulunamadı",
+      "noDeploymentUrlAvailable": "Dağıtım URL'si mevcut değil"
+    },
+    "reward": {
+      "notFound": "Ödül bulunamadı",
+      "unsupportedSourceType": "Desteklenmeyen ödül kaynak türü",
+      "maxClaimsReached": "Bu hafta için maksimum ödül talebine (2) ulaştınız",
+      "verificationFailed": "Doğrulama başarısız: {{errors}}",
+      "alreadyClaimedThisWeek": "Bu hesap için bu hafta zaten bir ödül talep ettiniz",
+      "invalidPostUrl": "Geçersiz gönderi URL formatı",
+      "postAlreadyUsed": "Bu gönderi zaten bir ödül talep etmek için kullanıldı",
+      "unsupportedPlatformUrl": "Desteklenmeyen sosyal platform URL'si",
+      "unsupportedPlatform": "Desteklenmeyen platform: {{platform}}",
+      "minCharCount": "Gönderi en az {{count}} karakter içermelidir",
+      "minFollowerCount": "Hesapta en az {{count}} takipçi olmalıdır",
+      "mustMention": "Gönderi {{mention}} kişisinden bahsetmelidir",
+      "fetchTweetFailed": "X tweeti alınamadı: {{error}}",
+      "tweetNotFound": "X tweeti bulunamadı: {{postId}}",
+      "fetchUserFailed": "X kullanıcısı alınamadı: {{error}}",
+      "xUserNotFound": "X kullanıcısı bulunamadı: {{username}}",
+      "fetchLinkedInPostFailed": "LinkedIn gönderisi alınamadı: {{error}}",
+      "linkedInPostNotFound": "LinkedIn gönderisi bulunamadı: {{postId}}",
+      "linkedInAuthorNotFound": "LinkedIn yazarı bulunamadı: {{postId}}",
+      "fetchLinkedInUserFailed": "LinkedIn kullanıcısı alınamadı: {{error}}",
+      "domainAlreadyInUse": "Bu alan adı zaten başka bir uygulamaya bağlı",
+      "domainReserved": "Alt alan adı ayrılmış"
+    }
+  }
+}

@@ -1,0 +1,13 @@
+# npm-check-updates configuration used by yarn deps:check && yarn deps:update
+# convenience scripts.
+# @link https://github.com/raineorshine/npm-check-updates
+
+# Add here exclusions on packages if any
+reject: [
+    'vite-plugin-svgr',
+
+    # Too early cause in esm
+    'is-port-reachable',
+    'nanoid',
+    'node-fetch',
+  ]

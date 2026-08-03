@@ -1,0 +1,72 @@
+
+services:
+  teable:
+    image: ghcr.io/teableio/teable:latest
+    restart: always
+    ports:
+      - '3000:3000'
+    volumes:
+      - teable-data:/app/.assets:rw
+      # you may use a bind-mounted host directory instead,
+      # so that it is harder to accidentally remove the volume and lose all your data!
+      # - ./docker/teable/data:/app/.assets:rw
+    env_file:
+      - .env
+    environment:
+      - TZ=${TIMEZONE}
+    networks:
+      - teable-standalone
+    depends_on:
+      teable-db:
+        condition: service_healthy
+      teable-cache:
+        condition: service_healthy
+
+  teable-db:
+    image: postgres:15.4
+    restart: always
+    ports:
+      - '42345:5432'
+    volumes:
+      - teable-db:/var/lib/postgresql/data:rw
+      # you may use a bind-mounted host directory instead,
+      # so that it is harder to accidentally remove the volume and lose all your data!
+      # - ./docker/db/data:/var/lib/postgresql/data:rw
+    environment:
+      - TZ=${TIMEZONE}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    networks:
+      - teable-standalone
+    healthcheck:
+      test: ['CMD-SHELL', "sh -c 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}'"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+  teable-cache:
+    image: redis:7.2.4
+    restart: always
+    expose:
+      - '6379'
+    volumes:
+      - teable-cache:/data:rw
+    networks:
+      - teable-standalone
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    healthcheck:
+      test: ['CMD', 'redis-cli', '--raw', 'incr', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+
+networks:
+  teable-standalone:
+    name: teable-standalone-network
+    driver: bridge
+
+volumes:
+  teable-data: {}
+  teable-db: {} 
+  teable-cache: {}

@@ -1,0 +1,360 @@
+import type { INestApplication } from '@nestjs/common';
+import type {
+  IFieldVo,
+  IGridColumnMeta,
+  ISelectFieldChoice,
+  ISelectFieldOptions,
+  IFormColumn,
+} from '@teable/core';
+import { FieldKeyType, FieldType, ViewType, SortFunc, Colors, StatisticsFunc } from '@teable/core';
+import { updateRecords } from '@teable/openapi';
+import {
+  createTable,
+  createView,
+  deleteField,
+  permanentDeleteTable,
+  initApp,
+  getViews,
+  updateViewColumnMeta,
+  convertField,
+  getRecords,
+} from './utils/init-app';
+
+describe('OpenAPI FieldController (e2e)', () => {
+  let app: INestApplication;
+  const baseId = globalThis.testConfig.baseId;
+  let tableId: string;
+  let fields: IFieldVo[];
+
+  beforeAll(async () => {
+    const appCtx = await initApp();
+    app = appCtx.app;
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  beforeEach(async () => {
+    const { id, fields: fieldsVo } = await createTable(baseId, { name: 'table' });
+    tableId = id;
+    fields = fieldsVo;
+  });
+  afterEach(async () => {
+    await permanentDeleteTable(baseId, tableId);
+  });
+
+  it('should delete relative view conditions when deleting a field', async () => {
+    const numberField = fields.find(({ type }) => type === FieldType.Number) as IFieldVo;
+
+    const statusField = fields.find(({ type }) => type === FieldType.SingleSelect) as IFieldVo;
+
+    // create all views with some view conditions
+    const gridView = await createView(tableId, {
+      type: ViewType.Grid,
+      filter: {
+        conjunction: 'and',
+        filterSet: [
+          { fieldId: numberField.id, operator: 'isGreater', value: 1 },
+          { fieldId: statusField.id, operator: 'is', value: 'done' },
+        ],
+      },
+      sort: {
+        sortObjs: [
+          { fieldId: numberField.id, order: SortFunc.Asc },
+          {
+            fieldId: statusField.id,
+            order: SortFunc.Asc,
+          },
+        ],
+      },
+      group: [
+        { fieldId: numberField.id, order: SortFunc.Asc },
+        { fieldId: statusField.id, order: SortFunc.Asc },
+      ],
+    });
+
+    const kanbanView = await createView(tableId, {
+      type: ViewType.Kanban,
+      options: {
+        stackFieldId: statusField.id,
+      },
+      filter: {
+        conjunction: 'and',
+        filterSet: [
+          { fieldId: numberField.id, operator: 'isGreater', value: 1 },
+          { fieldId: statusField.id, operator: 'is', value: 'done' },
+        ],
+      },
+      group: [
+        { fieldId: numberField.id, order: SortFunc.Asc },
+        { fieldId: statusField.id, order: SortFunc.Asc },
+      ],
+    });
+
+    const formView = await createView(tableId, {
+      type: ViewType.Form,
+    });
+
+    // delete the used field
+    await deleteField(tableId, numberField.id);
+
+    // get all views
+    const views = await getViews(tableId);
+
+    const gridViewAfterDelete = views.find(({ id }) => id === gridView.id);
+
+    const kanbanViewAfterDelete = views.find(({ id }) => id === kanbanView.id);
+
+    const formViewAfterDelete = views.find(({ id }) => id === formView.id);
+
+    // should delete the view conditions relative to the field
+    expect(gridViewAfterDelete).toEqual({
+      ...gridViewAfterDelete,
+      filter: {
+        conjunction: 'and',
+        filterSet: [{ fieldId: statusField.id, operator: 'is', value: 'done' }],
+      },
+      sort: {
+        sortObjs: [
+          {
+            fieldId: statusField.id,
+            order: SortFunc.Asc,
+          },
+        ],
+        manualSort: false,
+      },
+      group: [
+        {
+          fieldId: statusField.id,
+          order: SortFunc.Asc,
+        },
+      ],
+    });
+
+    expect(gridViewAfterDelete?.columnMeta).not.haveOwnProperty(numberField.id);
+
+    expect(kanbanViewAfterDelete).toEqual({
+      ...kanbanViewAfterDelete,
+      filter: {
+        conjunction: 'and',
+        filterSet: [{ fieldId: statusField.id, operator: 'is', value: 'done' }],
+      },
+      group: [
+        {
+          fieldId: statusField.id,
+          order: SortFunc.Asc,
+        },
+      ],
+    });
+
+    expect(kanbanViewAfterDelete?.columnMeta).not.haveOwnProperty(numberField.id);
+    expect(formViewAfterDelete?.columnMeta).not.haveOwnProperty(numberField.id);
+  });
+
+  it('should set form column visible after setting field notNull without default', async () => {
+    const textField = fields.find(({ type }) => type === FieldType.SingleLineText) as IFieldVo;
+
+    const formView = await createView(tableId, {
+      type: ViewType.Form,
+      name: 'Form',
+    });
+
+    const recordResult = await getRecords(tableId);
+    await updateRecords(tableId, {
+      fieldKeyType: FieldKeyType.Id,
+      records: recordResult.records.map((rec) => ({
+        id: rec.id,
+        fields: { [textField.id]: 'filled' },
+      })),
+    });
+
+    await convertField(tableId, textField.id, {
+      name: textField.name,
+      dbFieldName: textField.dbFieldName,
+      type: textField.type,
+      options: {},
+      notNull: true,
+    });
+
+    const views = await getViews(tableId);
+    const formAfter = views.find(({ id }) => id === formView.id)!;
+    const formColumnMeta = formAfter.columnMeta as unknown as Record<string, IFormColumn>;
+    expect(formColumnMeta[textField.id]?.visible ?? false).toBe(true);
+  });
+
+  it('should sync the selected value after update select type field option name', async () => {
+    const statusField = fields.find(({ type }) => type === FieldType.SingleSelect) as IFieldVo;
+    const defaultSelectValue = (statusField.options as ISelectFieldOptions)?.choices[0].name;
+
+    // create all views with some view conditions
+    const gridView = await createView(tableId, {
+      type: ViewType.Grid,
+      filter: {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: statusField.id,
+            operator: 'is',
+            value: defaultSelectValue,
+          },
+        ],
+      },
+    });
+
+    await convertField(tableId, statusField.id, {
+      name: statusField.name,
+      dbFieldName: statusField.dbFieldName,
+      type: statusField.type,
+      options: {
+        choices: [
+          { id: (statusField.options as ISelectFieldOptions)?.choices[0].id, name: 'newName' },
+          { ...(statusField.options as ISelectFieldOptions)?.choices[1] },
+          { ...(statusField.options as ISelectFieldOptions)?.choices[2] },
+        ],
+      },
+    });
+
+    // get all views
+    const views = await getViews(tableId);
+
+    const gridViewAfterChange = views.find(({ id }) => id === gridView.id);
+
+    expect(gridViewAfterChange).toEqual({
+      ...gridViewAfterChange,
+      filter: {
+        conjunction: 'and',
+        filterSet: [{ fieldId: statusField.id, operator: 'is', value: 'newName' }],
+      },
+    });
+  });
+
+  it('should delete filter item when the field convert to another field type', async () => {
+    const numberField = fields.find(({ type }) => type === FieldType.Number) as IFieldVo;
+    const selectField = fields.find(({ type }) => type === FieldType.SingleSelect) as IFieldVo;
+
+    // create all views with some view conditions
+    const gridView = await createView(tableId, {
+      type: ViewType.Grid,
+      filter: {
+        conjunction: 'and',
+        filterSet: [
+          { fieldId: numberField.id, operator: 'isGreater', value: 1 },
+          {
+            fieldId: selectField.id,
+            operator: 'is',
+            value: (selectField.options as ISelectFieldOptions)?.choices[0].name,
+          },
+        ],
+      },
+    });
+
+    // number field convert to text field
+    await convertField(tableId, numberField.id, {
+      name: numberField.name,
+      dbFieldName: numberField.dbFieldName,
+      type: FieldType.SingleLineText,
+      options: {},
+    });
+
+    const views = await getViews(tableId);
+
+    const gridViewAfterChange = views.find(({ id }) => id === gridView.id);
+
+    expect(gridViewAfterChange).toEqual({
+      ...gridViewAfterChange,
+      filter: {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: selectField.id,
+            operator: 'is',
+            value: (selectField.options as ISelectFieldOptions)?.choices[0].name,
+          },
+        ],
+      },
+    });
+  });
+
+  it('should still intact for filter condition when add select option', async () => {
+    const numberField = fields.find(({ type }) => type === FieldType.Number) as IFieldVo;
+    const selectField = fields.find(({ type }) => type === FieldType.SingleSelect) as IFieldVo;
+
+    // create all views with some view conditions
+    const gridView = await createView(tableId, {
+      type: ViewType.Grid,
+      filter: {
+        conjunction: 'and',
+        filterSet: [
+          { fieldId: numberField.id, operator: 'isGreater', value: 1 },
+          {
+            fieldId: selectField.id,
+            operator: 'is',
+            value: (selectField.options as ISelectFieldOptions)?.choices[0].name,
+          },
+        ],
+      },
+    });
+
+    const newChoices = [
+      ...(selectField.options as ISelectFieldOptions).choices,
+    ] as Partial<ISelectFieldChoice>[];
+
+    newChoices.push({ name: 'test-add-choice', color: Colors.YellowLight2 });
+
+    // number field convert to text field
+    await convertField(tableId, selectField.id, {
+      name: selectField.name,
+      dbFieldName: selectField.dbFieldName,
+      type: FieldType.SingleSelect,
+      options: {
+        ...selectField.options,
+        choices: newChoices,
+      } as ISelectFieldOptions,
+    });
+
+    const views = await getViews(tableId);
+
+    const gridViewAfterChange = views.find(({ id }) => id === gridView.id);
+
+    expect(gridViewAfterChange?.filter).toEqual({
+      conjunction: 'and',
+      filterSet: [
+        { fieldId: numberField.id, operator: 'isGreater', value: 1 },
+        {
+          fieldId: selectField.id,
+          operator: 'is',
+          value: (selectField.options as ISelectFieldOptions)?.choices[0].name,
+        },
+      ],
+    });
+  });
+
+  it('should clear invalid statisticFunc in columnMeta when field type changes', async () => {
+    const numberField = fields.find(({ type }) => type === FieldType.Number) as IFieldVo;
+
+    const views = await getViews(tableId);
+    const gridView = views.find(({ type }) => type === ViewType.Grid) || views[0];
+
+    await updateViewColumnMeta(tableId, gridView.id, [
+      {
+        fieldId: numberField.id,
+        columnMeta: {
+          statisticFunc: StatisticsFunc.Sum,
+        },
+      },
+    ]);
+
+    await convertField(tableId, numberField.id, {
+      name: numberField.name,
+      dbFieldName: numberField.dbFieldName,
+      type: FieldType.SingleLineText,
+      options: {},
+    });
+
+    const updatedViews = await getViews(tableId);
+    const updatedGridView = updatedViews.find(({ id }) => id === gridView.id)!;
+    const updatedColumnMeta = updatedGridView.columnMeta as unknown as IGridColumnMeta;
+    expect(updatedColumnMeta[numberField.id]?.statisticFunc ?? null).toBe(null);
+  });
+});

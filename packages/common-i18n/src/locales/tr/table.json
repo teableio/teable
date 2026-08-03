@@ -1,0 +1,992 @@
+{
+  "crossSpace": {
+    "duplicateFieldTitle": "Bildirim",
+    "duplicateFieldDescription": "Alanlar arası referanslar desteklenmiyor. Kopya tek satırlı bir metin alanına dönüştürülecek.",
+    "duplicateTableTitle": "Bildirim",
+    "duplicateTableDescription": "Alanlar arası referanslar desteklenmiyor. Kopya tek satırlı bir metin alanına dönüştürülecek.",
+    "convertAndDuplicate": "Dönüştür ve kopyala"
+  },
+  "toolbar": {
+    "viewFilterInShare": "Bu görünüm bir görünüm paylaşım bağlantısında kullanılıyor. Görünüm yapılandırmasındaki değişiklikler görünüm paylaşım bağlantısını da değiştirecektir.",
+    "createFieldButtonText": "Yeni bir <0/> alanı oluştur",
+    "others": {
+      "share": {
+        "label": "Paylaş",
+        "statusLabel": "Görünümü web'de paylaş",
+        "noPermission": "Görünümü paylaşma izni yok",
+        "genLink": "Yeni bağlantı oluştur",
+        "allowCopy": "İzleyicilerin bu görünümden veri kopyalamasına izin ver",
+        "allowEdit": "Oturum açmış kullanıcıların görünür verileri düzenlemesine izin ver",
+        "showAllFields": "Genişletilmiş kayıtlarda tüm alanları göster",
+        "restrict": "Şifre ile kısıtla",
+        "tips": "Bağlantıya sahip kişiler görünümü görebilir.",
+        "passwordTitle": "Bir şifre girin",
+        "passwordTips": "Paylaşılan görünümlere erişim için şifre kısıtlamaları",
+        "embed": "Yerleştir",
+        "embedPreview": "Yerleştirme önizlemesi",
+        "hideToolbar": "Araç çubuğunu gizle",
+        "URLSetting": "URL parametreleri yapılandırması",
+        "URLSettingDescription": "Aşağıdaki ayarları değiştirmek paylaşılan bağlantıları etkilemez. Yeni parametrelerin etkili olması için bağlantıyı yeni parametrelerle kopyalamanız gerekir",
+        "cancel": "İptal",
+        "save": "Kaydet",
+        "requireLogin": "Giriş yapılmasını gerektir"
+      },
+      "api": {
+        "title": "API erişimi",
+        "aiContext": "AI bağlantısı",
+        "advanced": "Gelişmiş",
+        "recommended": "Önerilen",
+        "apiDocGroupTitle": "API bağlamı",
+        "apiDocGroupDescription": "Aşağıdaki belgeyi AI'ya kopyalayın. AI mevcut tablo şemasını, alanları ve API örneklerini anlayarak isteğinize göre kayıtları okuyabilir, oluşturabilir, güncelleyebilir veya silebilir.",
+        "generatingToken": "Oluşturuluyor...",
+        "generateToken": "Token oluştur",
+        "confirmTitle": "API token oluştur",
+        "confirmDescription": "Bu base için aşağıdaki izinlere sahip yeni bir API token oluşturur:",
+        "scopeTableRead": "Tablo bilgilerini oku",
+        "scopeFieldRead": "Alanları oku",
+        "scopeRead": "Kayıtları oku",
+        "scopeCreate": "Kayıt oluştur",
+        "scopeUpdate": "Kayıtları güncelle",
+        "scopeDelete": "Kayıtları sil",
+        "confirmExpiry": "Token 1 yıl geçerli olacaktır.",
+        "confirmButton": "Oluşturmayı onayla",
+        "tokenInfo": "Token süresi: {{expiry}}",
+        "copied": "Kopyalandı!",
+        "copyAIDoc": "Belgeyi kopyala",
+        "aiDocPreview": "Bağlam önizlemesi",
+        "manageToken": "Token yönet",
+        "openInNewTab": "Yeni sekmede aç",
+        "queryBuilderTitle": "API sorgu oluşturucu",
+        "queryBuilderDesc": "Filtreleri, sıralamayı ve diğer parametreleri görsel olarak yapılandırarak çalıştırılabilir API istek kodu üretin.",
+        "viewApiDocs": "Tam API belgelerini görüntüle"
+      },
+      "personalView": {
+        "personal": "Kişisel",
+        "tip": "Etkinleştirildiğinde, görünüm ayarları yalnızca size uygulanacaktır",
+        "dialog": {
+          "title": "Kişisel moddan çık",
+          "description": "Kişisel görünüm yapılandırması, gerçek zamanlı iş birliği durumuna geri yüklenecek. Ayrıca kişisel görünüm ayarlarını kaydedip herkese senkronize edebilirsiniz.",
+          "cancelText": "Çık ve senkronize et",
+          "confirmText": "Çıkışı onayla"
+        }
+      }
+    }
+  },
+  "welcome": {
+    "title": "Hoş Geldiniz",
+    "emptyTitle": "Veritabanınızı Oluşturmaya Başlayın",
+    "description": "Kaynak eklemek için kenar çubuğundaki \"+\" düğmesine tıklayın",
+    "help": "Daha fazla bilgi için <HelpCenter /> adresini ziyaret edin",
+    "helpCenter": "Yardım Merkezi"
+  },
+  "validation": {
+    "link": {
+      "batch_duplicate": "Kayıt bağlanamıyor: aynı grupta bu kayıt zaten başka bir kayıt tarafından bağlanmış. Bire-çok ilişkilerde her alt kayıt yalnızca bir üst kayda ait olabilir.",
+      "one_many_duplicate": "Kayıt bağlanamıyor: bu kayıt zaten başka bir kayda bağlı. Bire-çok ilişkilerde her alt kayıt yalnızca bir üst kayda ait olabilir.",
+      "one_one_duplicate": "Kayıt bağlanamıyor: hedef kayıt bire-bir ilişkide zaten başka bir kayıt tarafından bağlanmış."
+    },
+    "field": {
+      "maxColumnLimit": "\"{{tableName}}\" tablosunda en fazla {{maxFieldCount}} alan olabilir.",
+      "requiredExistingValues": "\"{{fieldName}}\" alanı zorunlu olarak işaretlenemez çünkü mevcut kayıtlarda boş değerler var."
+    }
+  },
+  "field": {
+    "advancedProps": "Gelişmiş özellikler",
+    "hide": "gizle",
+    "default": {
+      "singleLineText": {
+        "title": "Etiket"
+      },
+      "longText": {
+        "title": "Notlar"
+      },
+      "number": {
+        "title": "Sayı",
+        "formatType": "Format Türü",
+        "currencySymbol": "Para Birimi Sembolü",
+        "defaultSymbol": "₺",
+        "precision": "Hassasiyet",
+        "decimalExample": "Sayı (123)",
+        "currencyExample": "Para Birimi (₺100)",
+        "percentExample": "Yüzde (%20)"
+      },
+      "singleSelect": {
+        "title": "Durum",
+        "options": {
+          "todo": "Yapılacak",
+          "inProgress": "Devam Ediyor",
+          "done": "Tamamlandı"
+        }
+      },
+      "multipleSelect": {
+        "title": "Etiketler"
+      },
+      "attachment": {
+        "title": "Ekler"
+      },
+      "user": {
+        "title": "İşbirlikçi"
+      },
+      "date": {
+        "title": "Tarih",
+        "dateFormatting": "Tarih Biçimlendirme",
+        "timeFormatting": "Saat Biçimlendirme",
+        "timeZone": "Saat Dilimi",
+        "yearMonth": "Yıl/Ay",
+        "monthDay": "Ay/Gün",
+        "year": "Yıl",
+        "month": "Ay",
+        "day": "Gün",
+        "local": "Yerel",
+        "friendly": "Kullanıcı Dostu",
+        "us": "ABD",
+        "european": "Avrupa",
+        "asia": "Asya",
+        "custom": "Özel",
+        "12Hour": "12 saat",
+        "24Hour": "24 saat",
+        "noDisplay": "Gösterme"
+      },
+      "autoNumber": {
+        "title": "Kimlik"
+      },
+      "createdTime": {
+        "title": "Oluşturulma zamanı"
+      },
+      "lastModifiedTime": {
+        "title": "Son değiştirilme zamanı"
+      },
+      "createdBy": {
+        "title": "Oluşturan"
+      },
+      "lastModifiedBy": {
+        "title": "Son değiştiren"
+      },
+      "rating": {
+        "title": "Değerlendirme"
+      },
+      "checkbox": {
+        "title": "Tamamlandı"
+      },
+      "button": {
+        "title": "Düğme",
+        "label": "Düğme metni",
+        "limitCount": "Tıklama sayısını sınırla",
+        "resetCount": "Tıklama sayısını sıfırlamaya izin ver",
+        "maxCount": "Maksimum tıklama sayısı",
+        "automation": "Otomasyon",
+        "customAutomation": "Özel otomasyon",
+        "clickConfirm": "Tıklamadan önce onayla",
+        "confirmTitle": "Başlık",
+        "confirmDescription": "Açıklama",
+        "confirmButtonText": "Onay düğmesi metni"
+      },
+      "formula": {
+        "title": "Hesaplama",
+        "formula": "Formül"
+      },
+      "lookup": {
+        "title": "{{lookupFieldName}} ({{linkFieldName}} üzerinden)"
+      },
+      "conditionalLookup": {
+        "title": "{{lookupFieldName}} ({{tableName}} üzerinden filtrelenmiş)"
+      },
+      "rollup": {
+        "title": "{{lookupFieldName}} Toplama ({{linkFieldName}} üzerinden)",
+        "rollup": "Toplama",
+        "selectAnRollupFunction": "Bir toplama fonksiyonu seçin",
+        "func": {
+          "and": "VE",
+          "arrayCompact": "DİZİ_SIKIŞTIR",
+          "arrayJoin": "DİZİ_BİRLEŞTİR",
+          "arrayUnique": "DİZİ_BENZERSİZ",
+          "average": "ORTALAMA",
+          "concatenate": "BİRLEŞTİR",
+          "count": "SAY",
+          "countA": "SAY_A",
+          "countAll": "TÜMÜNÜ_SAY",
+          "max": "MAKSİMUM",
+          "min": "MİNİMUM",
+          "or": "VEYA",
+          "sum": "TOPLAM",
+          "xor": "XOR"
+        },
+        "funcDesc": {
+          "and": "Tüm değerler doğruysa true döndürür",
+          "arrayCompact": "Diziden boş dizeleri ve null değerleri kaldırır. 'false' ve bir veya daha fazla boşluk karakteri içeren dizeleri korur.",
+          "arrayJoin": "Tüm değerleri tek bir virgülle ayrılmış dizede birleştirir.",
+          "arrayUnique": "Yalnızca benzersiz öğeleri döndürür.",
+          "average": "Değerlerin aritmetik ortalaması.",
+          "concatenate": "Metin değerlerini tek bir metin değerinde birleştirir.",
+          "count": "Yalnızca boş olmayan sayısal değerleri sayar. Tüm kayıtları saymak için COUNTALL kullanın.",
+          "countA": "Boş olmayan değerlerin sayısını sayar. Bu fonksiyon hem sayısal hem de metin değerlerini sayar.",
+          "countAll": "Boş kayıtlar dahil tüm değerleri sayar.",
+          "max": "Verilen sayıların en büyüğünü döndürür.",
+          "min": "Verilen sayıların en küçüğünü döndürür.",
+          "or": "Değerlerden herhangi biri doğruysa true döndürür.",
+          "sum": "Değerleri toplar.",
+          "xor": "Yalnızca tek sayıda değer doğruysa true döndürür."
+        }
+      },
+      "conditionalRollup": {
+        "title": "{{lookupFieldName}} koşullu toplama"
+      }
+    },
+    "editor": {
+      "addField": "Alan Ekle",
+      "editField": "Alan Düzenle",
+      "insertField": "Alan Ekle",
+      "graph": "Grafik",
+      "defaultValue": "Varsayılan değer",
+      "reset": "Sıfırla",
+      "fieldUpdated": "Alan güncellendi",
+      "fieldCreated": "Alan oluşturuldu",
+      "confirmFieldChange": "Confirm Field Change",
+      "areYouSurePerformIt": "Bunu gerçekleştirmek istediğinizden emin misiniz?",
+      "addDescription": "Açıklama Ekle",
+      "descriptionPlaceholder": "Bu alanı açıklayın (isteğe bağlı)",
+      "type": "Tür",
+      "showAs": "Gösterim Şekli",
+      "color": "Renk",
+      "number": "Sayı",
+      "chartBar": "Çubuk Grafik",
+      "chartLine": "Çizgi Grafik",
+      "ring": "Halka",
+      "bar": "Çubuk",
+      "text": "Metin",
+      "markdown": "Markdown",
+      "url": "URL",
+      "email": "E-posta",
+      "phone": "Telefon",
+      "maxNumber": "Maksimum Sayı",
+      "showNumber": "Sayıyı Göster",
+      "autoFillDate": "Mevcut tarihle otomatik doldur",
+      "createSymmetricLink": "Bağlantı tablosunda geri bağlantı alanı oluştur",
+      "allowLinkMultipleRecords": "Çoklu seçime izin ver",
+      "allowLinkToDuplicateRecords": "Kayıtların birden fazla kez seçilmesine izin ver",
+      "allowSymmetricFieldLinkMultipleRecords": "Kayıtların birden fazla kez seçilmesine izin ver",
+      "oneToOne": "bire-bir",
+      "oneToMany": "bire-çok",
+      "manyToOne": "çoka-bir",
+      "manyToMany": "çoka-çok",
+      "self": "Kendisi",
+      "selectTable": "Tablo seç...",
+      "selectBase": "Veritabanı seç...",
+      "linkFromAnotherBase": "Harici veritabanından bağlantı",
+      "inSelfLink": "kendi içinde bağlantı",
+      "betweenTwoTables": "iki tablo arasında",
+      "linkTipMessage": "İpucu: bu yapılandırma<br></br> <b>{{relationship}}</b> ilişkisini temsil eder <span>{{linkType}}</span>",
+      "style": "Stil",
+      "maximum": "Maksimum",
+      "addOption": "Seçenek ekle",
+      "allowMultiUsers": "Birden fazla kullanıcı eklemeye izin ver",
+      "notifyUsers": "Seçildiklerinde kullanıcıları bilgilendir",
+      "searchTable": "Tablo ara...",
+      "calculating": "Hesaplanıyor...",
+      "doSaveChanges": "Yaptığınız değişiklikleri kaydetmek istiyor musunuz?",
+      "linkFieldToLookup": "Arama için kullanılacak bağlantılı kayıt alanı",
+      "lookupToTable": "Bağlantı veritabanındaki <bold>{{tableName}}</bold> alanı",
+      "rollupToTable": "Bağlantı veritabanındaki <bold>{{tableName}}</bold> alanı",
+      "selectField": "Bir alan seç...",
+      "linkTable": "Bağlantı tablosu",
+      "linkBase": "Bağlantı veritabanı",
+      "tableNoPermission": "İzin olmayan tablo",
+      "baseNoPermission": "İzin olmayan veritabanı",
+      "noLinkTip": "Aranacak bağlantılı kayıt yok. Başka bir kayda bağlantı alanı ekleyin, ardından aramanızı tekrar yapılandırmayı deneyin.",
+      "fieldValidationRules": "Alan değeri doğrulama kuralları",
+      "enableValidateFieldUnique": "Yinelenen değerleri yasakla",
+      "enableValidateFieldNotNull": "Gerekli",
+      "knowMore": "daha fazla bilgi",
+      "linkFieldKnowMoreLink": "https://help.teable.ai/en/basic/field/advanced/link",
+      "showByField": "Alanlara göre kayıtları göster",
+      "filterByView": "Görünüme göre kayıtları filtrele",
+      "filter": "Kayıtları filtrele",
+      "hideFields": "Alanları gizle",
+      "moreOptions": "Daha fazla seçenek",
+      "allowNewOptionsWhenEditing": "Düzenlerken yeni seçeneklere izin ver",
+      "deleteField": {
+        "title": "Alanı Sil",
+        "simpleConfirm": "<b>{{fieldName}}</b> alanını silmek istediğinizden emin misiniz?",
+        "withDependencies": "<b>{{fieldName}}</b> alanını silmek aşağıdaki alanları etkileyecektir:",
+        "deleteCount": "{{count}} alanı sil",
+        "riskIdentified": "Risk tespit edildi({{count}})",
+        "noDependencies": "Bağımlılık yok({{count}})",
+        "safeToDelete": "Güvenle silinebilir",
+        "safeToDeleteDesc": "Bu alan diğer alanlar tarafından referans alınmıyor, güvenle silinebilir",
+        "affectedItems": "Etkilenen öğeler",
+        "type": "Tür",
+        "source": "Kaynak",
+        "sourceTable": "Kaynak tablo",
+        "typeField": "Alan"
+      },
+      "conditionalLookup": {
+        "sortLimitToggleLabel": "Sort linked records and limit the number of matches",
+        "sortLabel": "Sort results",
+        "limitLabel": "Maximum records to include",
+        "limitPlaceholder": "Leave blank to include all matches",
+        "limitHint": "We only keep up to {{limit}} matching records.",
+        "sortMissingWarningTitle": "Sorting field unavailable",
+        "sortMissingWarningDescription": "The field that powered this sort was deleted. Results ignore the sort and only enforce the limit."
+      }
+    },
+    "subTitle": {
+      "link": "Seçtiğiniz tablodaki kayıtlara bağlantı oluşturun",
+      "singleLineText": "Metin girin veya her yeni hücreyi varsayılan bir değerle doldurun.",
+      "longText": "Birden fazla satır metin girin.",
+      "attachment": "Resimler ekleyin veya yapay zeka ile oluşturun, ya da görüntülenecek veya indirilecek belgeler veya diğer dosyalar yükleyin.",
+      "checkbox": "Durumu belirtmek için işaretleyin veya işareti kaldırın.",
+      "multipleSelect": "Listeden bir veya daha fazla önceden tanımlanmış seçenek seçin.",
+      "singleSelect": "Listeden bir önceden tanımlanmış seçenek seçin veya her yeni hücreyi varsayılan bir seçenekle doldurun.",
+      "user": "Bir kayda kullanıcı ekleyin.",
+      "date": "Bir tarih girin (örn. 11/12/2023) veya takvimden seçin.",
+      "number": "Bir sayı girin veya her yeni hücreyi varsayılan bir değerle doldurun.",
+      "rating": "Önceden tanımlanmış bir ölçekte değerlendirme ekleyin.",
+      "formula": "Alanlara dayalı değerler hesaplayın.",
+      "rollup": "Bağlantılı kayıtlardan veri özetleyin.",
+      "conditionalLookup": "Tanımladığınız filtreleri karşılayan bağlı değerleri gösterir.",
+      "createdTime": "Her kaydın oluşturulduğu tarih ve saati görün.",
+      "lastModifiedTime": "Bir kayıttaki bazı veya tüm alanlarda yapılan en son düzenlemenin tarih ve saatini görün.",
+      "createdBy": "Kaydı hangi kullanıcının oluşturduğunu görün.",
+      "lastModifiedBy": "Bir kayıttaki bazı veya tüm alanlarda en son düzenlemeyi hangi kullanıcının yaptığını görün.",
+      "autoNumber": "Her kayıt için otomatik olarak benzersiz artan sayılar oluşturun.",
+      "button": "Özelleştirilmiş bir eylem tetikleyin.",
+      "lookup": "Bağlantılı bir kayıttaki bir alanın değerlerini görün."
+    },
+    "fieldName": "Alan Adı",
+    "fieldNameOptional": "Alan Adı (İsteğe bağlı)",
+    "fieldType": "Alan Türü",
+    "aiConfig": {
+      "title": "AI Yapılandırması",
+      "type": {
+        "summary": "Özet",
+        "translation": "Çevir",
+        "extraction": "Bilgi Çıkarma",
+        "improvement": "İyileştir",
+        "tag": "Akıllı Etiket",
+        "classification": "Akıllı Sınıflandırma",
+        "customization": "Özelleştir",
+        "imageGeneration": "Görüntü Oluşturma",
+        "rating": "Görüntü Değerlendirme"
+      },
+      "label": {
+        "type": "AI Eylem Türü",
+        "model": "AI Model",
+        "targetLanguage": "Hedef Dil",
+        "sourceField": "Kaynak Alan",
+        "sourceFieldForTag": "Bir alan seçin, oluşturulan etiketlerle eşleştirin",
+        "sourceFieldForClassify": "Bir alan seçin, oluşturulan sınıflandırmalarla eşleştirin",
+        "attachPrompt": "Gereksinimleri ekleyin",
+        "prompt": "Özel Prompt",
+        "sourceFieldForAttachment": "Ek alanın kaynak alanı",
+        "imageSize": "Görüntü boyutu",
+        "imageQuality": "Görüntü kalitesi",
+        "imageCount": "Görüntü sayısı"
+      },
+      "placeholder": {
+        "summarize": "İçerik özetini",
+        "translate": "Kısa ve anlaşılır, hafif tonlu çeviri",
+        "extractInfo": "Email, telefon, ad, adres...",
+        "extractDate": "Başlangıç saatini çıkar",
+        "improveText": "Resmi, arkadaşça, komik...",
+        "attachPromptForTag": "Üç etiketden fazla izin verilmiyor",
+        "attachPromptForClassify": "“Devam Ediyor” olarak “Risk Yok” olarak sınıflandır",
+        "prompt": "Özel Prompt",
+        "type": "AI Eylemi Seçin",
+        "targetLanguage": "İngilizce, Çince, Fransızca...",
+        "imageSize": "Lütfen görüntü boyutunu girin",
+        "imageQuality": "Lütfen görüntü kalitesini girin",
+        "attachPromptForImageGeneration": "Görüntünün canlı ve doğal olması gerekiyor",
+        "attachPromptForRating": "Görüntü kalitesini değerlendirin"
+      },
+      "imageQuality": {
+        "low": "Düşük",
+        "medium": "Orta",
+        "high": "Yüksek"
+      },
+      "tip": {
+        "gptImageResolution": "Toplam piksel sınırı nedeniyle 4K modunda bazı en-boy oranları için üretilebilen en büyük uyumlu çıktı boyutu kullanılır."
+      },
+      "autoFill": {
+        "title": "Otomatik Güncelle",
+        "tip": "Etkinleştirdiğinizde, mevcut alan, AI yapılandırmasının içerik değişiklikleriyle senkronize olarak güncellenecektir"
+      },
+      "autoFillFieldDialog": {
+        "title": "Tüm kayıtları güncelle",
+        "description": "Mevcut görünümdeki tüm kayıtlar güncellenecektir, mevcut alanın oluşturduğu tüm ilgili verileri içerecektir"
+      },
+      "autoFillConfirm": {
+        "title": "Tüm sütunu oluşturulsun mu?",
+        "description": "Tüm sütunu oluşturmak {{rowCount}} satırı güncelleyecektir. Bu işlem çok sayıda yapay zeka kaynağı tüketebilir.",
+        "saveConfigOnly": "Yalnızca yapılandırmayı kaydet",
+        "generateFailed": "Oluşturma başarısız oldu"
+      }
+    }
+  },
+  "table": {
+    "newTableLabel": "Yeni tablo",
+    "rename": "Yeniden adlandır",
+    "tableRecordHistory": "Tablo kayıt geçmişi",
+    "deleteConfirm": "\"{{tableName}}\" tablosunu silmek istediğinizden emin misiniz?",
+    "dbTableName": "Fiziksel veritabanındaki tablo adı",
+    "schemaName": "Fiziksel veritabanındaki şema adı",
+    "tableInfo": "Tablo Bilgisi",
+    "tableInfoDetail": "Tablo için temel bilgiler",
+    "typeOfDatabase": "Veritabanı türü",
+    "descriptionForTable": "Bu tablo için açıklama",
+    "loginUserTable": "Uygulama girişi",
+    "linkedApps": "Bağlı uygulamalar",
+    "nameForTable": "Bu tablo için ad",
+    "deleteTip1": "Diğer tablolardaki bu tabloyla bağlantılı bağlantı alanları silinecek.",
+    "operator": {
+      "createBlank": "Yeni tablo"
+    },
+    "actionTips": {
+      "copyAndPasteEnvironment": "Kopyala ve yapıştır yalnızca HTTPS veya localhost'ta çalışır",
+      "copyAndPasteBrowser": "Bu tarayıcıda kopyala ve yapıştır desteklenmiyor",
+      "copying": "Kopyalanıyor...",
+      "copySuccessful": "Kopyalama başarılı",
+      "copyFailed": "Kopyalama başarısız",
+      "pasting": "Yapıştırılıyor...",
+      "pasteSuccessful": "Yapıştırma başarılı",
+      "pasteFailed": "Yapıştırma başarısız",
+      "filling": "Doldurma...",
+      "fillSuccessful": "Doldurma başarılı",
+      "fillFailed": "Doldurma başarısız",
+      "clearing": "Temizleniyor...",
+      "clearSuccessful": "Temizleme başarılı",
+      "deleting": "Siliniyor...",
+      "deleteSuccessful": "Silme başarılı",
+      "deleteStream": {
+        "preparing": "Preparing selection",
+        "deleting": "Deleting records",
+        "descriptionWithIssues": "Some delete chunks failed. Review the details below.",
+        "completedWithIssues": "Deletion completed with issues",
+        "issuesBadge": "{{count}} issues",
+        "chunkFailureTitle": "Chunk failure details",
+        "chunkFailureSummary": "{{count}} chunk(s) reported an error while the stream kept running.",
+        "chunkLabel": "Chunk {{index}}",
+        "rowsLabel": "{{count}} rows",
+        "phaseLabel": {
+          "preparing": "Preparing",
+          "guarding": "Checking",
+          "deleting": "Deleting",
+          "publishing": "Publishing",
+          "finalizing": "Finalizing"
+        }
+      },
+      "pasteFileFailed": "Dosyalar yalnızca bir ek alanına yapıştırılabilir",
+      "copyError": {
+        "noFocus": "Lütfen pencereyi değiştirmeyin"
+      },
+      "crossBaseCopyTitle": "Düz metin olarak kopyalansın mı?",
+      "crossBaseCopyDescription": "Bu seçim, tabanlar arası bir bağlantı alanı içeriyor. Verileri orijinal tabanı içinde tutmak için alan düz metin olarak kopyalanacak ve bağlantı ilişkilerini kaybedecek.",
+      "crossBaseCopyConfirm": "Düz metin olarak kopyala",
+      "crossBaseCopyLoadFirst": "Tabanlar arası alanları kopyalamadan önce seçili tüm satırları yüklemek için lütfen kaydırın."
+    },
+    "graph": {
+      "effectCells": "Etkilenebilecek hücreler",
+      "estimatedTime": "Tahmini süre",
+      "linkFieldCount": "Etkilenebilecek bağlantılı alan sayısı"
+    },
+    "integrity": {
+      "check": "Kontrol et",
+      "title": "Bütünlük kontrolü",
+      "loading": "Bütünlük kontrol ediliyor...",
+      "allGood": "Her şey yolunda!",
+      "fixIssues": "Sorunları düzelt",
+      "v2": {
+        "dialogTitle": "Şema Bütünlüğü",
+        "dialogDescription": "{{tableName}} için v2 şema denetimi ve onarım akışını çalıştır.",
+        "dialogDescriptionNoTable": "Geçerli base için v2 şema denetimi ve onarım akışını çalıştır.",
+        "runCheck": "Kontrolü başlat",
+        "recheck": "Tekrar kontrol et",
+        "repair": "Onar",
+        "repairWarnings": "Yalnızca uyarıları onar",
+        "repairWarningsAndErrors": "Uyarıları ve hataları onar",
+        "repairRule": "Kuralı onar",
+        "repairUnavailable": "Bu kural otomatik olarak onarılamaz",
+        "manual": "Manuel",
+        "manualRepairNotice": "Bu sorun manuel onarım gerektiriyor",
+        "manualRepairNoticeWithCount": "{{count}} sorun manuel onarım gerektiriyor. Onarım penceresini açmak için her kuralın sağındaki \"Manuel\" eylemini kullanın.",
+        "manualRepairDialogTitle": "Manuel onarım gerekli",
+        "manualRepairDialogDescription": "Bu sorun otomatik olarak onarılamaz. Aşağıdaki yönlendirmeyi inceleyin ve nasıl düzeltileceğini seçin.",
+        "manualRepairDialogReason": "Neden manuel onarım gerekiyor",
+        "manualRepairDialogHint": "Bu pencere şu anda yalnızca kuralın istediği onarım seçeneklerini gösterir. Gerçek çalıştırma daha sonra bu sözleşmenin üzerine eklenebilir.",
+        "manualRepairDialogClose": "Kapat",
+        "checking": "Şema kontrol ediliyor...",
+        "repairing": "Şema onarılıyor...",
+        "streamError": "Şema bütünlüğü sonuçları akış halinde alınamadı.",
+        "noTableSelected": "v2 şema denetimini çalıştırmak için önce bir tablo seçin.",
+        "noResults": "Henüz şema sonucu yok.",
+        "noFilteredResults": "Mevcut filtrelerle eşleşen sonuç yok.",
+        "systemColumns": "Sistem sütunları",
+        "general": "Genel",
+        "optional": "İsteğe bağlı",
+        "statementCount": "{{count}} komut",
+        "detailsMissing": "Eksik: {{details}}",
+        "detailsExtra": "Fazladan: {{details}}",
+        "message": {
+          "schemaValid": "Schema is valid",
+          "schemaValidationFailed": "Schema validation failed",
+          "schemaElementMissing": "Schema element missing",
+          "schemaAlreadyValid": "Schema is already valid",
+          "schemaRepaired": "Schema repaired successfully",
+          "manualRepair": "Rule requires manual repair",
+          "noRepairStatements": "No repair statements available",
+          "skippedDependencies": "Skipped because dependencies are not satisfied",
+          "checkStreamConnected": "Schema integrity check stream connected",
+          "baseCheckStreamConnected": "Base schema integrity check stream connected",
+          "repairStreamConnected": "Schema integrity repair stream connected",
+          "baseRepairStreamConnected": "Base schema integrity repair stream connected",
+          "checkCompleted": "Schema integrity check completed",
+          "baseCheckCompleted": "Base schema integrity check completed",
+          "repairCompleted": "Schema integrity repair completed",
+          "baseRepairCompleted": "Base schema integrity repair completed"
+        },
+        "rule": {
+          "column": "Physical column",
+          "columnTyped": "Physical column ({{dataType}})",
+          "notNull": "NOT NULL constraint",
+          "columnUnique": "UNIQUE constraint",
+          "fkColumn": "Foreign key column",
+          "index": "Index",
+          "uniqueIndex": "Unique index",
+          "primaryKey": "PRIMARY KEY",
+          "defaultExpression": "Default expression",
+          "foreignKey": "Foreign key constraint",
+          "junctionTable": "Junction table",
+          "junctionUnique": "Junction table unique constraint",
+          "junctionIndex": "Junction table index",
+          "junctionForeignKey": "Junction table foreign key",
+          "reference": "Reference records",
+          "generatedColumn": "Generated column",
+          "generatedMeta": "Generated column state",
+          "linkValueColumn": "Link value column",
+          "orderColumn": "Order column",
+          "fieldMeta": "Field metadata",
+          "symmetricField": "Symmetric field relationship",
+          "systemColumn": "System column \"{{columnName}}\"",
+          "connection": "Connection",
+          "completion": "Completion",
+          "unexpected": "Unexpected error"
+        },
+        "detail": {
+          "systemColumnMissing": "System column \"{{columnName}}\" not found",
+          "systemColumnNotNull": "System column \"{{columnName}}\" should be NOT NULL",
+          "systemColumnUnique": "System column \"{{columnName}}\" should have a UNIQUE index",
+          "systemColumnPrimaryKey": "System column \"{{columnName}}\" should be PRIMARY KEY",
+          "systemColumnDefault": "System column \"{{columnName}}\" should have a default expression",
+          "foreignKeyOrphanRows": "Field \"{{fieldName}}\" still has {{count}} rows pointing to missing linked records",
+          "foreignKeyOrphanRowsDescription": "Automatic repair cannot restore the foreign key for \"{{fieldName}}\" until the {{count}} invalid references to \"{{targetTableName}}\" are cleaned up.",
+          "junctionForeignKeyMissing": "The junction table for \"{{fieldName}}\" is missing one of its foreign keys",
+          "junctionForeignKeyMissingDescription": "Restore the junction foreign key for \"{{fieldName}}\" so relation rows stay linked to existing records in \"{{targetTableName}}\".",
+          "junctionForeignKeyTargetTableMissing": "The linked table for the junction of \"{{fieldName}}\" cannot be found",
+          "junctionForeignKeyTargetTableMissingDescription": "Automatic repair cannot restore the junction foreign key for \"{{fieldName}}\" because the target table \"{{targetPhysicalTableName}}\" does not exist.",
+          "junctionForeignKeyOrphanRows": "The junction table for \"{{fieldName}}\" still has {{count}} rows pointing to missing linked records",
+          "junctionForeignKeyOrphanRowsDescription": "Automatic repair cannot restore the junction foreign key for \"{{fieldName}}\" until the {{count}} invalid relation rows referencing \"{{targetTableName}}\" are cleaned up."
+        },
+        "phase": {
+          "check": "Kontrol sonuçları",
+          "repair": "Onarım sonuçları"
+        },
+        "summary": {
+          "checks": "{{count}} kontrol",
+          "success": "{{count}} başarılı",
+          "warn": "{{count}} uyarı",
+          "error": "{{count}} hata",
+          "skipped": "{{count}} atlandı",
+          "repaired": "{{count}} onarıldı",
+          "manual": "{{count}} manuel",
+          "problems": "{{count}} sorun"
+        },
+        "status": {
+          "success": "Başarılı",
+          "error": "Hata",
+          "warn": "Uyarı",
+          "pending": "Bekliyor",
+          "running": "Çalışıyor",
+          "skipped": "Atlandı"
+        },
+        "outcome": {
+          "repaired": "Onarıldı",
+          "unchanged": "Değişmedi",
+          "manual": "Manuel",
+          "skipped": "Atlandı"
+        },
+        "repairMeta": {
+          "reason": {
+            "alreadyValid": "This rule is already valid",
+            "manualRule": "This rule requires a manual decision",
+            "statementGenerationFailed": "The system could not generate a safe repair statement",
+            "noStatements": "This rule has no automatic repair statement",
+            "symmetricFieldConflict": "This symmetric link conflict needs a manual choice",
+            "foreignKeyTargetTableMissing": "Automatic repair is unavailable because the linked table is missing",
+            "foreignKeyOrphanRows": "Automatic repair is unavailable because invalid linked rows still exist",
+            "junctionForeignKeyTargetTableMissing": "Automatic repair is unavailable because the junction target table is missing",
+            "junctionForeignKeyOrphanRows": "Automatic repair is unavailable because invalid junction rows still exist"
+          },
+          "description": {
+            "symmetricFieldConflict": "More than one field points at the same symmetric link target. Pick which field should own the two-way relationship before repairing.",
+            "foreignKeyTargetTableMissing": "Check whether the linked table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
+            "foreignKeyOrphanRows": "Clean up the invalid linked rows for \"{{fieldName}}\" before adding the foreign key constraint again.",
+            "junctionForeignKeyTargetTableMissing": "Check whether the target table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
+            "junctionForeignKeyOrphanRows": "Clean up the invalid junction rows for \"{{fieldName}}\" before adding the foreign key back."
+          },
+          "manual": {
+            "apply": "Apply manual repair",
+            "symmetricField": {
+              "title": "Resolve symmetric link conflict",
+              "description": "Pick how this duplicate symmetric link should be repaired.",
+              "resolutionLabel": "Repair strategy",
+              "resolutionDescription": "Choose which field should keep the two-way link behavior.",
+              "option": {
+                "keepCurrent": "Keep the current field as the two-way link",
+                "convertDuplicate": "Convert the duplicate field to a one-way link"
+              }
+            }
+          }
+        }
+      },
+      "errorType": {
+        "InvalidPrimaryLookup": "Birincil alan Lookup olarak yanlış yapılandırıldı",
+        "InvalidPrimaryType": "Birincil alanın türü desteklenmiyor",
+        "MissingPrimary": "Tabloda birincil alan yok"
+      }
+    }
+  },
+  "import": {
+    "title": {
+      "upload": "Yükle",
+      "import": "İçe Aktar",
+      "localFile": "Yerel Dosyalar",
+      "linkUrl": "Bağlantı(URL)",
+      "linkUrlInputTitle": "URL'den dosya ekle",
+      "importTitle": "Yeni bir tablo oluştur",
+      "incrementImportTitle": "İçe Aktar — ",
+      "optionsTitle": "İçe aktarma seçeneği",
+      "primitiveFields": "Temel Alanlar",
+      "importFields": "İçe Aktarma Alanı",
+      "primaryField": "Birincil Alan",
+      "tipsTitle": "İpuçları",
+      "confirm": "Onayla ve devam et"
+    },
+    "menu": {
+      "addFromOtherSource": "Diğer kaynaklardan ekle",
+      "excelFile": "Microsoft Excel",
+      "airtable": "Airtable",
+      "csvFile": "Csv dosyası",
+      "importCsvData": "CSV verilerini içe aktar",
+      "importExcelData": "Microsoft Excel verilerini içe aktar",
+      "cancel": "İptal",
+      "downAsCsv": "csv İndir",
+      "importData": "Veri İçe Aktar",
+      "duplicate": "Çoğalt",
+      "duplicating": "Çoğaltılıyor...",
+      "duplicateSuccess": "Başarıyla çoğaltıldı",
+      "duplicateFailed": "Çoğaltılamadı",
+      "importing": "İçe aktarılıyor",
+      "includeRecords": "Kayıtları dahil et"
+    },
+    "tips": {
+      "importWayTip": "Yüklemek için dosyayı bu alana tıklayın veya sürükleyin",
+      "fileExceedSizeTip": "Bu tür dosya boyutu şu sınırı aşıyor:",
+      "analyzing": "analiz ediliyor",
+      "importing": "İçe aktarılıyor",
+      "notSupportFieldType": "Alan türü desteklenmiyor",
+      "resultEmpty": "Sonuç bulunamadı.",
+      "searchPlaceholder": "Ara...",
+      "importAlert": "İçe aktarma başladıktan sonra, başarıyla tamamlanana veya başarısızlık nedeniyle sonlandırılana kadar durdurulamaz. İçe aktarma durumu tablonun sağ üst köşesinde görüntülenir. İçe aktarma işleminin sonuçları tamamlandığında size bildirilecektir. Hatalara neden olabileceğinden içe aktarma sırasında alanı güncellememeli.",
+      "noTips": "Anladım, bir daha gösterme"
+    },
+    "options": {
+      "autoSelectFieldOptionName": "Alan türlerini otomatik seç",
+      "useFirstRowAsHeaderOptionName": "İlk satırı başlık olarak kullan",
+      "importDataOptionName": "Veri İçe Aktar",
+      "sheetKey": "SayfaAdı: ",
+      "excludeFirstRow": "İçe aktarmada ilk satırı hariç tut"
+    },
+    "form": {
+      "defaultFieldName": "Alan",
+      "error": {
+        "urlEmptyTip": "URL boş olmamalı!",
+        "errorFileFormat": "Dosya formatı yanlış!",
+        "uniqueFieldName": "Alan adı benzersiz olmalı!",
+        "fieldNameEmpty": "Alan adı boş olmamalı!",
+        "atLeastAImportField": "Lütfen en az bir içe aktarma alanı ayarlayın",
+        "urlValidateTip": "URL ayrıştırılamadı. Farklı bir URL deneyin!"
+      },
+      "option": {
+        "doNotImport": "İçe aktarma"
+      }
+    }
+  },
+  "grid": {
+    "prefillingRowTitle": "Yeni kayıt ekle",
+    "prefillingRowTooltip": "Lütfen yeni kayıt verilerini aşağıya girin. Bu satırın dışına tıkladığınızda kayıt otomatik olarak kaydedilecektir.",
+    "presortRowTitle": "Bu kayıt sıralama kuralları nedeniyle filtrelendi veya taşındı"
+  },
+  "form": {
+    "fieldsManagement": "Alanlar",
+    "addAll": "Tümünü göster",
+    "removeAll": "Tümünü gizle",
+    "createField": "Alan oluştur",
+    "hideFieldTip": "Alanı buraya gizle",
+    "unableAddFieldTip": "Bu tür alan eklenemiyor",
+    "removeFromFormTip": "Formdan kaldır",
+    "descriptionPlaceholder": "Form açıklaması girin",
+    "dragToFormTip": "Alanı forma eklemek için buraya sürükleyin",
+    "protectedFieldTip": "Bu alan \"gerekli\" alan olarak ayarlanmıştır ve form görünümünde kaldırılamaz. Lütfen alan ayarlarından değiştirin."
+  },
+  "kanban": {
+    "toolbar": {
+      "hideFieldName": "Alan adını gizle",
+      "customizeCards": "Kartları özelleştir",
+      "stackedBy": "<0/> ile yığınlandı",
+      "chooseStackingField": "Bir yığınlama alanı seçin",
+      "chooseStackingFieldDescription": "Bu kanban görünümü için hangi alanı kullanmak istersiniz? Kayıtlarınız bu alana göre yığınlanacak.",
+      "hideEmptyStack": "Boş yığını gizle",
+      "imageSetting": "Görsel Ayarı",
+      "fit": "Sığdır",
+      "noImage": "Görsel yok",
+      "chooseAttachmentField": "Ek alanı seç"
+    },
+    "stack": {
+      "addStack": "Yığın Ekle",
+      "noCards": "Kart yok",
+      "uncategorized": "Kategorisiz"
+    },
+    "stackMenu": {
+      "collapseStack": "Yığını daralt",
+      "renameStack": "Yığını yeniden adlandır",
+      "deleteStack": "Yığını sil"
+    },
+    "cardMenu": {
+      "insertCardAbove": "Üste kart ekle",
+      "insertCardBelow": "Alta kart ekle",
+      "expandCard": "Kartı genişlet",
+      "deleteCard": "Kartı sil",
+      "duplicateCard": "Kartı çoğalt"
+    }
+  },
+  "calendar": {
+    "toolbar": {
+      "config": "Takvim Yapılandırması",
+      "startDateField": "Başlangıç tarihi alanı",
+      "endDateField": "Bitiş tarihi alanı",
+      "titleField": "Başlık alanı",
+      "colorField": "Renk alanı",
+      "colorType": "Renk görüntüleme",
+      "customColor": "Rengi özelleştir",
+      "alignWithRecords": "Kayıtlarla hizala"
+    },
+    "placeholder": {
+      "selectColorField": "Bir renk alanı seçin"
+    },
+    "dialog": {
+      "startDate": "Başlangıç tarihi",
+      "endDate": "Bitiş tarihi",
+      "notAdd": "Ekleme",
+      "addDateField": "Tarih alanları ekle",
+      "content": "Takvim görünümü programı oluşturmak için tablonun iki tarih alanına ihtiyacı var: başlangıç tarihi ve bitiş tarihi"
+    },
+    "moreLinkText": "Tüm {{count}} kaydı göster"
+  },
+  "menu": {
+    "insertRecordAbove": "Üste <input /> kayıt ekle",
+    "insertRecordBelow": "Alta <input /> kayıt ekle",
+    "deleteRecord": "Kaydı sil",
+    "deleteAllSelectedRecords": "Seçili tüm kayıtları sil",
+    "editField": "Alanı düzenle",
+    "insertFieldLeft": "Sola ekle",
+    "insertFieldRight": "Sağa ekle",
+    "freezeUpField": "Bu alana kadar dondur",
+    "freezeFieldWindowTooNarrow": "Geçerli pencere çok dar olduğu için bu alana kadar dondurulamıyor",
+    "hideField": "Alanı gizle",
+    "deleteField": "Alanı sil",
+    "deleteAllSelectedFields": "Seçili tüm alanları sil",
+    "filterField": "Bu alana göre filtrele",
+    "sortField": "Bu alana göre sırala",
+    "groupField": "Bu alana göre grupla",
+    "autoFill": "Tüm kayıtları güncelle",
+    "groupMenuTitle": "Grup menüsü",
+    "expandGroup": "Bu grup ve alt gruplarını genişlet",
+    "collapseGroup": "Bu grup ve alt gruplarını daralt",
+    "expandAllGroups": "Tüm grupları genişlet",
+    "collapseAllGroups": "Tüm grupları daralt",
+    "addToChat": "Sohbete ekle"
+  },
+  "connection": {
+    "title": "Veritabanı Bağlantısı",
+    "description": "Veritabanına doğrudan veritabanı bağlantısı üzerinden erişebilirsiniz, mevcut veritabanı altındaki tüm tablolar dahil",
+    "noPermission": "Veritabanına erişim izniniz yok",
+    "connectionCountTip": "Maksimum veritabanı bağlantısı sayısı <b>{{max}}</b> ve mevcut bağlantı sayısı <b>{{current}}</b>",
+    "createFailed": "Please ensure that the PUBLIC_DATABASE_PROXY environment variable is set correctly",
+    "readonlyUnavailable": "Readonly database sharing is unavailable for this data database. Grant the Teable database user permission to create roles and grants, or use a target database that supports readonly roles."
+  },
+  "view": {
+    "addRecord": "Kayıt ekle",
+    "searchView": "Görünüm ara...",
+    "dragToolTip": "Otomatik sıralama açık, manuel sürükleme kullanılamaz",
+    "insertToolTip": "Otomatik sıralama açık, sırayla ekleme kullanılamaz",
+    "action": {
+      "rename": "Yeniden adlandır",
+      "delete": "Sil",
+      "enable": "Etkinleştir"
+    },
+    "category": {
+      "table": "Izgara Görünümü",
+      "form": "Form Görünümü",
+      "kanban": "Kanban Görünümü",
+      "gallery": "Galeri Görünümü",
+      "calendar": "Takvim Görünümü"
+    },
+    "crash": {
+      "title": "Çöktü!",
+      "description": "Bu görünüm bozuk. Yenileme hala başarısız olursa, lütfen bizimle iletişime geçin. support@teable.ai"
+    },
+    "addPluginView": "Eklenti Görünümü Ekle",
+    "search": {
+      "field_one": "{{name}}",
+      "field_other": "alan({{length}})"
+    },
+    "locked": {
+      "tip": "Bu görünüm kilitlenmiştir. Kişisel modu etkinleştirerek görünüm seçeneklerini düzenleyebilirsiniz ve değişiklikler sadece kendinize etkili olacaktır."
+    },
+    "noView": "Görünüm yok"
+  },
+  "lastModifiedTime": "Son değiştirilme zamanı",
+  "lastModify": "Son değişiklik: ",
+  "pasteNewRecords": {
+    "title": "Birden fazla kayıt eklemek istiyor musunuz?",
+    "description": "{{count}} kayıt tabloya eklenecek."
+  },
+  "download": {
+    "allAttachments": {
+      "title": "Tüm ekleri indir",
+      "rowsWithAttachments": "Ekli satırlar",
+      "totalAttachments": "Ekler",
+      "totalSize": "Toplam boyut",
+      "cancel": "İptal",
+      "downloading": "İndiriliyor...",
+      "completed": "İndirme tamamlandı",
+      "cancelled": "İndirme iptal edildi",
+      "noAttachments": "İndirilecek ek yok",
+      "error": "İndirme başarısız",
+      "errorPartial": "{{failedCount}} dosya indirilemedi",
+      "requireHttps": "Toplu indirme HTTPS gerektirir. Lütfen HTTPS veya localhost üzerinden erişin.",
+      "advancedOptions": "Gelişmiş seçenekler",
+      "namingFieldLabel": "Ek adı öneki",
+      "selectField": "Varsayılan: ek dizini",
+      "noPrefixOption": "Önek yok",
+      "noPrefixOptionDesc": "Orijinal dosya adını koru",
+      "groupByRow": "Klasörlere arşivle",
+      "groupByRowTip": "Bir satırda birden fazla ek varsa, aynı klasöre yerleştirilir; yalnızca bir eki olan satırlar klasör oluşturmaz."
+    }
+  },
+  "baseShare": {
+    "shareTitle": "Paylaş",
+    "shareToWeb": "Web'de paylaş",
+    "refreshLink": "Bağlantıyı yenile",
+    "deleteConfirmTitle": "Paylaşım bağlantısını sil",
+    "deleteConfirmDescription": "Bu işlem geri alınamaz. Bu bağlantıya sahip kişiler artık paylaşılan tabana erişemeyecek.",
+    "createSuccess": "Paylaşım bağlantısı oluşturuldu",
+    "createFailed": "Paylaşım bağlantısı oluşturulamadı",
+    "updateFailed": "Paylaşım ayarları güncellenemedi",
+    "deleteSuccess": "Paylaşım bağlantısı silindi",
+    "deleteFailed": "Paylaşım bağlantısı silinemedi",
+    "refreshSuccess": "Paylaşım bağlantısı yenilendi",
+    "refreshFailed": "Paylaşım bağlantısı yenilenemedi",
+    "linkHolderLabel": "Bağlantıyı alan kişi",
+    "linkHolderCanView": "Görüntüleyebilir",
+    "linkHolderCanViewDesc": "Anyone with the link can view the data",
+    "linkHolderCanEdit": "Düzenleyebilir",
+    "linkHolderCanEditDesc": "Logged-in users can edit records in the table",
+    "viewLinkHolderCanViewDesc": "Bağlantıya sahip herkes bu görünümün verilerini görüntüleyebilir",
+    "viewLinkHolderCanEditDesc": "Oturum açmış kullanıcılar görünüm kapsamında veri düzenleyebilir",
+    "linkExposureNoticeOne": "Visitors can see data from \"{{name}}\"",
+    "linkExposureNoticeMany": "Visitors can see data from \"{{name}}\" and {{count}} tables in total",
+    "linkExposureNoticeGeneric": "Visitors can see data from linked tables",
+    "restrictScope": "Restrict scope",
+    "linkScopeDesc": "Restrict which records and fields are selectable in this views link fields. The setting applies to the field itself and affects every view that uses it.",
+    "linkScopeDialogTitle": "Link field scope",
+    "linkHolderCanCopyAndSave": "Kopya olarak kaydedebilir",
+    "linkHolderCanCopyAndSaveDesc": "Anyone with the link can save a copy to their space",
+    "editRequiresLogin": "Users must log in to edit records",
+    "enterPassword": "Şifre girin",
+    "allowCopyData": "İzleyicilerin veri kopyalamasına izin ver",
+    "sharedNode": "Paylaşılan düğüm",
+    "restrictByPassword": "Şifre ile kısıtla",
+    "advanced": "Gelişmiş",
+    "embedConfig": "Yerleştirme yapılandırması",
+    "appPublicLink": "Uygulama herkese açık bağlantısı",
+    "appNotPublished": "Bu uygulama henüz yayınlanmadı. Paylaşmadan önce lütfen uygulamayı yayınlayın.",
+    "goToPublish": "Yayınlamaya git",
+    "publishSuccess": "Uygulama başarıyla yayınlandı",
+    "publishFailed": "Uygulama yayınlanamadı",
+    "openLink": "Bağlantıyı aç",
+    "appPublished": "Uygulama yayınlandı",
+    "shareTableTab": "Tabloyu paylaş",
+    "shareViewTab": "Görünümü paylaş"
+  },
+  "aiChat": {
+    "integrationConnect": {
+      "title": "{{provider}} hesabını bağla",
+      "reconnectTitle": "{{provider}} hesabını yeniden bağla",
+      "defaultReason": "Devam etmek için ajanın {{provider}} hesabınıza erişmesi gerekiyor.",
+      "connect": "Bağlan",
+      "connecting": "Bağlanıyor…",
+      "giveUp": "Vazgeç",
+      "failed": "Bağlantı başarısız",
+      "status": {
+        "connected": "Bağlandı",
+        "cancelled": "Atlandı",
+        "failed": "Başarısız"
+      }
+    },
+    "agent": {
+      "askUserQuestion": {
+        "otherPlaceholder": "Veya yanıtınızı yazın…"
+      },
+      "messageActions": {
+        "copy": "Kopyala",
+        "copyToInput": "Girişe kopyala"
+      }
+    },
+    "showUI": {
+      "skip": "Atla",
+      "next": "Sonraki",
+      "submit": "Gönder"
+    },
+    "mention": {
+      "tables": "Tablolar",
+      "apps": "Uygulamalar",
+      "workflows": "Otomasyonlar",
+      "folders": "Klasörler"
+    },
+    "slashCommand": {
+      "skills": "Skills",
+      "searchEmpty": "No results found"
+    },
+    "inputPlaceholder": "@ düğüm ekler, / beceri çalıştırır",
+    "inputPlaceholderFiles": "Dosyaları buraya yapıştırın veya bırakın",
+    "attachment": {
+      "pastedTextFileName": "Yapıştırılan metin",
+      "imageNotSupported": "Görsel desteklenmiyor",
+      "tooManyFiles": "Mesaj başına en fazla {{count}} dosya ekleyebilirsiniz",
+      "storageFull": "Sandbox depolama alanı dolu. Bazı dosyaları silip tekrar deneyin."
+    }
+  },
+  "baseNode": {
+    "info": {
+      "menu": "Düğüm bilgisi",
+      "createdBy": "Oluşturan",
+      "createdTime": "Oluşturulma zamanı",
+      "lastModifiedBy": "Değiştiren",
+      "lastModifiedTime": "Değiştirilme zamanı",
+      "folderId": "Klasör ID",
+      "tableId": "Tablo ID",
+      "automationId": "Otomasyon ID",
+      "appId": "Uygulama ID"
+    }
+  }
+}

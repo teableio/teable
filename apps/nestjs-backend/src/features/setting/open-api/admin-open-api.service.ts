@@ -1,0 +1,204 @@
+/* eslint-disable sonarjs/no-duplicate-string */
+import { Session } from 'node:inspector';
+import { Readable } from 'node:stream';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
+import { NotificationSeverityEnum, NotificationTypeEnum } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
+import type { IAdminSendNotificationRo } from '@teable/openapi';
+import { PluginStatus, UploadType } from '@teable/openapi';
+import { Response } from 'express';
+import { Knex } from 'knex';
+import { InjectModel } from 'nest-knexjs';
+import { ClsService } from 'nestjs-cls';
+import { PerformanceCacheService } from '../../../performance-cache';
+import type { IClsStore } from '../../../types/cls';
+import { Timing } from '../../../utils/timing';
+import { AttachmentsCropQueueProcessor } from '../../attachments/attachments-crop.processor';
+import StorageAdapter from '../../attachments/plugins/adapter';
+import { NotificationService } from '../../notification/notification.service';
+
+@Injectable()
+export class AdminOpenApiService {
+  private readonly logger = new Logger(AdminOpenApiService.name);
+  constructor(
+    private readonly prismaService: PrismaService,
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    private readonly attachmentsCropQueueProcessor: AttachmentsCropQueueProcessor,
+    private readonly performanceCacheService: PerformanceCacheService,
+    private readonly notificationService: NotificationService,
+    private readonly cls: ClsService<IClsStore>
+  ) {}
+
+  async publishPlugin(pluginId: string) {
+    return this.prismaService.plugin.update({
+      where: { id: pluginId, status: PluginStatus.Reviewing },
+      data: { status: PluginStatus.Published },
+    });
+  }
+
+  async unpublishPlugin(pluginId: string) {
+    return this.prismaService.plugin.update({
+      where: { id: pluginId, status: PluginStatus.Published },
+      data: { status: PluginStatus.Developing },
+    });
+  }
+
+  async repairTableAttachmentThumbnail() {
+    const take = 1000;
+    let total = 0;
+    let lastToken: string | null = null;
+    for (;;) {
+      const query = this.knex('attachments_table')
+        .select(
+          'attachments.token',
+          'attachments.height',
+          'attachments.mimetype',
+          'attachments.path'
+        )
+        .leftJoin('attachments', 'attachments_table.token', 'attachments.token')
+        .where((qb) =>
+          qb
+            .where((image) =>
+              image
+                .where('attachments.mimetype', 'like', 'image/%')
+                .whereNotNull('attachments.height')
+            )
+            .orWhereIn('attachments.mimetype', ['application/pdf', 'application/x-pdf'])
+        )
+        .whereNull('attachments.deleted_time')
+        .whereNull('attachments.thumbnail_path')
+        .groupBy(
+          'attachments.token',
+          'attachments.height',
+          'attachments.mimetype',
+          'attachments.path'
+        )
+        .orderBy('attachments.token')
+        .limit(take);
+      if (lastToken) {
+        query.where('attachments.token', '>', lastToken);
+      }
+      const sqlNative = query.toSQL().toNative();
+      const attachments = await this.prismaService.$queryRawUnsafe<
+        { token: string; height?: number; mimetype: string; path: string }[]
+      >(sqlNative.sql, ...sqlNative.bindings);
+      this.logger.log('attachments', attachments, sqlNative.sql);
+      if (attachments.length === 0) {
+        break;
+      }
+      lastToken = attachments[attachments.length - 1].token;
+      total += attachments.length;
+      await this.attachmentsCropQueueProcessor.queue.addBulk(
+        attachments.map((attachment) => ({
+          name: 'admin_attachment_crop_image',
+          data: {
+            ...attachment,
+            bucket: StorageAdapter.getBucket(UploadType.Table),
+          },
+        }))
+      );
+      this.logger.log(`Processed ${attachments.length} attachments`);
+    }
+    this.logger.log(`Total processed ${total} attachments`);
+  }
+
+  @Timing()
+  async getHeapSnapshot(res: Response) {
+    const podName = process.env.HOSTNAME || 'unknown';
+    const session = new Session();
+    const timestamp = new Date().toISOString();
+    const filename = `heap-${podName}-${timestamp}.heapsnapshot`;
+    try {
+      const snapshotStream = new Readable({
+        // eslint-disable-next-line @typescript-eslint/no-empty-function
+        read() {},
+      });
+
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+      session.connect();
+      session.on('HeapProfiler.addHeapSnapshotChunk', (m) => {
+        snapshotStream.push(m.params.chunk);
+      });
+
+      const snapshotPromise = new Promise<void>((resolve, reject) => {
+        session.post('HeapProfiler.takeHeapSnapshot', undefined, (err) => {
+          if (err) {
+            reject(err);
+          } else {
+            snapshotStream.push(null);
+            resolve();
+          }
+        });
+      });
+
+      snapshotStream.on('error', (error) => {
+        this.logger.error(`Stream error for pod ${podName}:`, error);
+        throw new InternalServerErrorException(`Stream error: ${error.message}`);
+      });
+
+      snapshotStream.pipe(res);
+
+      await new Promise<void>((resolve, reject) => {
+        res.on('finish', () => {
+          this.logger.log(`Heap snapshot streaming completed for pod ${podName}`);
+          resolve();
+        });
+
+        res.on('error', (error) => {
+          this.logger.error(`Response error for pod ${podName}:`, error);
+          reject(error);
+        });
+
+        snapshotStream.on('error', reject);
+      });
+
+      await snapshotPromise;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
+      throw new InternalServerErrorException(
+        `Failed to get heap snapshot: ${error.message}, podName: ${podName}, timestamp: ${timestamp}`
+      );
+    } finally {
+      session.disconnect();
+      this.logger.log(`Session disconnected for pod ${podName}`);
+    }
+  }
+
+  async getPerformanceCache() {
+    return {
+      stats: this.performanceCacheService.getStats(),
+      typeStats: this.performanceCacheService.getTypeStats(),
+    };
+  }
+
+  async deletePerformanceCache(key?: string) {
+    if (!key) {
+      throw new BadRequestException('key is required');
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await this.performanceCacheService.del(key as any);
+  }
+
+  async sendAdminNotification(ro: IAdminSendNotificationRo) {
+    const fromUserId = this.cls.get('user.id');
+    const { message, severity, userIds, emails } = ro;
+
+    return this.notificationService.sendCommonNotify(
+      {
+        fromUserId,
+        toUserId: userIds,
+        toEmail: emails,
+        message,
+        severity,
+      },
+      NotificationTypeEnum.AdminNotice
+    );
+  }
+}

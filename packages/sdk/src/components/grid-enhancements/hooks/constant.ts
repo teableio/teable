@@ -1,0 +1,1 @@
+export const LARGE_QUERY_THRESHOLD = 600;

@@ -1,0 +1,1849 @@
+/* eslint-disable sonarjs/no-duplicate-string */
+import type { INestApplication } from '@nestjs/common';
+import type { IButtonFieldCellValue, IFieldRo, IFieldVo, ISelectFieldOptions } from '@teable/core';
+import {
+  CellFormat,
+  Colors,
+  FieldKeyType,
+  FieldType,
+  generateWorkflowId,
+  Relationship,
+} from '@teable/core';
+import { axios, buttonClick, buttonReset, updateRecords, type ITableFullVo } from '@teable/openapi';
+import {
+  convertField,
+  createField,
+  createRecords,
+  createTable,
+  deleteField,
+  deleteRecord,
+  deleteRecords,
+  permanentDeleteTable,
+  duplicateRecord,
+  getField,
+  getRecord,
+  getRecords,
+  initApp,
+  updateRecord,
+  updateRecordByApi,
+} from './utils/init-app';
+import { X_TEABLE_V2_HEADER } from '../src/features/canary/interceptors/v2-indicator.interceptor';
+
+describe('OpenAPI RecordController (e2e)', () => {
+  let app: INestApplication;
+
+  const baseId = globalThis.testConfig.baseId;
+  const userId = globalThis.testConfig.userId;
+
+  beforeAll(async () => {
+    const appCtx = await initApp();
+    app = appCtx.app;
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  describe('simple crud', () => {
+    let table: ITableFullVo;
+    beforeEach(async () => {
+      table = await createTable(baseId, { name: 'table1' });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, table.id);
+    });
+
+    it('should get records', async () => {
+      const result = await getRecords(table.id);
+      expect(result.records).toBeInstanceOf(Array);
+    });
+
+    it('should get string records', async () => {
+      const createdRecord = await createRecords(table.id, {
+        records: [
+          {
+            fields: {
+              [table.fields[0].id]: 'text value',
+              [table.fields[1].id]: 123,
+            },
+          },
+        ],
+      });
+
+      const { records } = await getRecords(table.id, {
+        cellFormat: CellFormat.Text,
+        fieldKeyType: FieldKeyType.Id,
+      });
+      expect(records[3].fields[table.fields[0].id]).toEqual('text value');
+      expect(records[3].fields[table.fields[1].id]).toEqual('123.00');
+
+      const record = await getRecord(table.id, createdRecord.records[0].id, CellFormat.Text);
+
+      expect(record.fields[table.fields[0].id]).toEqual('text value');
+      expect(record.fields[table.fields[1].id]).toEqual('123.00');
+    });
+
+    it('should get records with projections', async () => {
+      await updateRecord(table.id, table.records[0].id, {
+        record: {
+          fields: {
+            [table.fields[0].name]: 'text',
+            [table.fields[1].name]: 1,
+          },
+        },
+      });
+
+      const result = await getRecords(table.id, {
+        projection: [table.fields[0].name],
+      });
+
+      expect(Object.keys(result.records[0].fields).length).toEqual(1);
+    });
+
+    it('should get records with single projection parameter', async () => {
+      // Test case for when projection has only one value passed as query param
+      // This tests the fix for schema validation when projection=id is passed
+      const { axios } = await import('@teable/openapi');
+      await updateRecord(table.id, table.records[0].id, {
+        record: {
+          fields: {
+            [table.fields[0].name]: 'text',
+            [table.fields[1].name]: 1,
+          },
+        },
+      });
+
+      // Simulate HTTP query param: ?projection=fieldName
+      // When only one value is passed, it's parsed as string not array
+      const response = await axios.get(`/table/${table.id}/record`, {
+        params: {
+          projection: table.fields[0].name, // Single string value
+          fieldKeyType: FieldKeyType.Name,
+        },
+      });
+
+      expect(response.status).toEqual(200);
+      expect(response.data.records).toBeInstanceOf(Array);
+      expect(response.data.records.length).toBeGreaterThan(0);
+      // Should only return the projected field
+      expect(Object.keys(response.data.records[0].fields).length).toEqual(1);
+      expect(response.data.records[0].fields[table.fields[0].name]).toBeDefined();
+    });
+
+    it('should create a record', async () => {
+      const value1 = 'New Record' + new Date();
+      const res1 = await createRecords(table.id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: [
+          {
+            fields: {
+              [table.fields[0].name]: value1,
+            },
+          },
+        ],
+      });
+      expect(res1.records[0].fields[table.fields[0].name]).toEqual(value1);
+
+      const result = await getRecords(table.id, { skip: 0, take: 1000 });
+      expect(result.records).toHaveLength(4);
+
+      const value2 = 'New Record' + new Date();
+      // test fieldKeyType is id
+      const res2 = await createRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {
+              [table.fields[0].id]: value2,
+            },
+          },
+        ],
+      });
+
+      expect(res2.records[0].fields[table.fields[0].id]).toEqual(value2);
+    });
+
+    it('should update record', async () => {
+      const record = await updateRecordByApi(
+        table.id,
+        table.records[0].id,
+        table.fields[0].id,
+        'new value'
+      );
+
+      expect(record.fields[table.fields[0].id]).toEqual('new value');
+
+      const result = await getRecords(table.id, { skip: 0, take: 1000 });
+
+      expect(result.records).toHaveLength(3);
+      expect(result.records[0].fields[table.fields[0].name]).toEqual('new value');
+    });
+
+    it('should update and typecast record', async () => {
+      const singleUserField = await createField(table.id, {
+        type: FieldType.User,
+        options: {
+          isMultiple: false,
+        },
+      });
+
+      const multiUserField = await createField(table.id, {
+        type: FieldType.User,
+        options: {
+          isMultiple: true,
+        },
+      });
+
+      const dateField = await createField(table.id, {
+        type: FieldType.Date,
+      });
+
+      const res1 = await updateRecord(table.id, table.records[0].id, {
+        record: { fields: { [singleUserField.id]: 'test' } },
+        fieldKeyType: FieldKeyType.Id,
+        typecast: true,
+      });
+
+      const res2 = await updateRecord(table.id, table.records[0].id, {
+        record: { fields: { [multiUserField.id]: 'test@e2e.com' } },
+        fieldKeyType: FieldKeyType.Id,
+        typecast: true,
+      });
+
+      const beforeNowTypecast = Date.now();
+      const res3 = await updateRecord(table.id, table.records[0].id, {
+        record: { fields: { [dateField.id]: 'now' } },
+        fieldKeyType: FieldKeyType.Id,
+        typecast: true,
+      });
+      const afterNowTypecast = Date.now();
+
+      expect(res1.fields[singleUserField.id]).toMatchObject({
+        email: 'test@e2e.com',
+        title: 'test',
+      });
+      expect(res2.fields[multiUserField.id]).toMatchObject([
+        {
+          email: 'test@e2e.com',
+          title: 'test',
+        },
+      ]);
+
+      expect(res3.fields[dateField.id]).toBeDefined();
+      const typecastTime = new Date(res3.fields[dateField.id] as string).getTime();
+      expect(typecastTime).toBeGreaterThanOrEqual(beforeNowTypecast - 1000);
+      expect(typecastTime).toBeLessThanOrEqual(afterNowTypecast + 1000);
+    });
+
+    it('should not auto create options when preventAutoNewOptions is true', async () => {
+      const singleSelectField = await createField(table.id, {
+        type: FieldType.SingleSelect,
+        options: {
+          choices: [{ name: 'red' }],
+          preventAutoNewOptions: true,
+        },
+      });
+
+      const multiSelectField = await createField(table.id, {
+        type: FieldType.MultipleSelect,
+        options: {
+          choices: [{ name: 'red' }],
+          preventAutoNewOptions: true,
+        },
+      });
+
+      const records1 = (
+        await updateRecords(table.id, {
+          records: [
+            {
+              id: table.records[0].id,
+              fields: { [singleSelectField.id]: 'red' },
+            },
+            {
+              id: table.records[1].id,
+              fields: { [singleSelectField.id]: 'blue' },
+            },
+          ],
+          fieldKeyType: FieldKeyType.Id,
+          typecast: true,
+        })
+      ).data;
+
+      expect(records1[0].fields[singleSelectField.id]).toEqual('red');
+      expect(records1[1].fields[singleSelectField.id]).toBeUndefined();
+
+      const records2 = (
+        await updateRecords(table.id, {
+          records: [
+            {
+              id: table.records[0].id,
+              fields: { [multiSelectField.id]: ['red', 'blue'] },
+            },
+          ],
+          fieldKeyType: FieldKeyType.Id,
+          typecast: true,
+        })
+      ).data;
+
+      expect(records2[0].fields[multiSelectField.id]).toEqual(['red']);
+    });
+
+    it('should batch create records', async () => {
+      const count = 100;
+      console.time(`create ${count} records`);
+      const records = Array.from({ length: count }).map((_, i) => ({
+        fields: {
+          [table.fields[0].name]: 'New Record' + new Date(),
+          [table.fields[1].name]: i,
+          [table.fields[2].name]: 'light',
+        },
+      }));
+
+      await createRecords(table.id, {
+        fieldKeyType: FieldKeyType.Name,
+        records,
+      });
+
+      console.timeEnd(`create ${count} records`);
+    });
+
+    it('should delete a record', async () => {
+      const value1 = 'New Record' + new Date();
+      const addRecordRes = await createRecords(table.id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: [
+          {
+            fields: {
+              [table.fields[0].name]: value1,
+            },
+          },
+        ],
+      });
+
+      await getRecord(table.id, addRecordRes.records[0].id, undefined, 200);
+
+      await deleteRecord(table.id, addRecordRes.records[0].id);
+
+      await getRecord(table.id, addRecordRes.records[0].id, undefined, 404);
+    });
+
+    it('should batch delete records', async () => {
+      const value1 = 'New Record' + new Date();
+      const addRecordsRes = await createRecords(table.id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: [
+          {
+            fields: {
+              [table.fields[0].name]: value1,
+            },
+          },
+          {
+            fields: {
+              [table.fields[0].name]: value1,
+            },
+          },
+        ],
+      });
+      const records = addRecordsRes.records;
+
+      await getRecord(table.id, records[0].id, undefined, 200);
+      await getRecord(table.id, records[1].id, undefined, 200);
+
+      await deleteRecords(
+        table.id,
+        records.map((record) => record.id)
+      );
+
+      await getRecord(table.id, records[0].id, undefined, 404);
+      await getRecord(table.id, records[1].id, undefined, 404);
+    });
+
+    it('should create a record after delete a record', async () => {
+      const value1 = 'New Record' + new Date();
+      await deleteRecord(table.id, table.records[0].id);
+
+      await createRecords(table.id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: [
+          {
+            fields: {
+              [table.fields[0].name]: value1,
+            },
+          },
+        ],
+      });
+    });
+
+    it('should duplicate a record', async () => {
+      const value1 = 'New Record';
+      const addRecordRes = await createRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {
+              [table.fields[0].id]: value1,
+            },
+          },
+        ],
+      });
+      const addRecord = await getRecord(table.id, addRecordRes.records[0].id, undefined, 200);
+      expect(addRecord.fields[table.fields[0].id]).toEqual(value1);
+
+      const viewId = table.views[0].id;
+      const duplicateRes = await duplicateRecord(table.id, addRecord.id, {
+        viewId,
+        anchorId: addRecord.id,
+        position: 'after',
+      });
+      const record = await getRecord(table.id, duplicateRes.id, undefined, 200);
+      expect(record.fields[table.fields[0].id]).toEqual(value1);
+    });
+  });
+
+  describe('validate record value by field validation', () => {
+    let table: ITableFullVo;
+
+    beforeAll(async () => {
+      table = await createTable(baseId, {
+        name: 'table1',
+      });
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, table.id);
+    });
+
+    const clearRecords = async () => {
+      const table2Records = await getRecords(table.id, { fieldKeyType: FieldKeyType.Id });
+
+      await deleteRecords(
+        table.id,
+        table2Records.records.map((record) => record.id)
+      );
+    };
+
+    it('should validate the unique values of the unique field', async () => {
+      const sourceFieldRo: IFieldRo = {
+        name: 'TextField',
+        type: FieldType.SingleLineText,
+        unique: true,
+      };
+
+      await clearRecords();
+
+      const sourceField = await createField(table.id, sourceFieldRo);
+
+      await createRecords(table.id, {
+        records: [
+          {
+            fields: {
+              [sourceField.id]: '100',
+            },
+          },
+        ],
+      });
+
+      await createRecords(
+        table.id,
+        {
+          records: [
+            {
+              fields: {
+                [sourceField.id]: '100',
+              },
+            },
+          ],
+        },
+        400
+      );
+
+      await createRecords(table.id, {
+        records: [
+          {
+            fields: {
+              [sourceField.id]: '200',
+            },
+          },
+        ],
+      });
+    });
+
+    it('should validate the not null values of the not null field', async () => {
+      const sourceFieldRo: IFieldRo = {
+        name: 'TextField2',
+        type: FieldType.SingleLineText,
+      };
+      const convertFieldRo: IFieldRo = {
+        name: 'TextField2',
+        type: FieldType.SingleLineText,
+        notNull: true,
+      };
+
+      await clearRecords();
+
+      const sourceField = await createField(table.id, sourceFieldRo);
+      await convertField(table.id, sourceField.id, convertFieldRo);
+
+      await createRecords(
+        table.id,
+        {
+          records: [
+            {
+              fields: {},
+            },
+          ],
+        },
+        400
+      );
+
+      await createRecords(table.id, {
+        records: [
+          {
+            fields: {
+              [sourceField.id]: '100',
+            },
+          },
+        ],
+      });
+    });
+  });
+
+  describe('calculate', () => {
+    let table: ITableFullVo;
+    beforeAll(async () => {
+      table = await createTable(baseId, {
+        name: 'table1',
+      });
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, table.id);
+    });
+
+    it('should create a record and auto calculate computed field', async () => {
+      const formulaFieldRo1: IFieldRo = {
+        type: FieldType.Formula,
+        options: {
+          expression: `1 + 1`,
+        },
+      };
+
+      const formulaFieldRo2: IFieldRo = {
+        type: FieldType.Formula,
+        options: {
+          expression: `{${table.fields[0].id}} + 1`,
+        },
+      };
+
+      const formulaField1 = await createField(table.id, formulaFieldRo1);
+      const formulaField2 = await createField(table.id, formulaFieldRo2);
+
+      const { records } = await createRecords(table.id, {
+        records: [
+          {
+            fields: {
+              [table.fields[0].id]: 'text value',
+            },
+          },
+        ],
+      });
+
+      expect(records[0].fields[formulaField1.id]).toEqual(2);
+      expect(records[0].fields[formulaField2.id]).toEqual('text value1');
+    });
+
+    it('should create a record with typecast', async () => {
+      const selectFieldRo: IFieldRo = {
+        type: FieldType.SingleSelect,
+      };
+
+      const selectField = await createField(table.id, selectFieldRo);
+
+      // reject data when typecast is false
+      await createRecords(
+        table.id,
+        {
+          records: [
+            {
+              fields: {
+                [selectField.id]: 'select value',
+              },
+            },
+          ],
+        },
+        400
+      );
+
+      const { records } = await createRecords(table.id, {
+        typecast: true,
+        records: [
+          {
+            fields: {
+              [selectField.id]: 'select value',
+            },
+          },
+        ],
+      });
+
+      const fieldAfter = await getField(table.id, selectField.id);
+
+      expect(records[0].fields[selectField.id]).toEqual('select value');
+      expect((fieldAfter.options as ISelectFieldOptions).choices.length).toEqual(1);
+      expect((fieldAfter.options as ISelectFieldOptions).choices).toMatchObject([
+        { name: 'select value' },
+      ]);
+    });
+  });
+
+  describe('calculate when create', () => {
+    let table1: ITableFullVo;
+    let table2: ITableFullVo;
+    beforeEach(async () => {
+      table1 = await createTable(baseId, {
+        name: 'table1',
+      });
+      table2 = await createTable(baseId, {
+        name: 'table2',
+      });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, table1.id);
+      await permanentDeleteTable(baseId, table2.id);
+    });
+
+    it('should create a record with error field formula', async () => {
+      const fieldToDel = table1.fields[2];
+
+      const formulaRo = {
+        type: FieldType.Formula,
+        options: {
+          expression: `{${fieldToDel.id}}`,
+        },
+      };
+
+      const formulaField = await createField(table1.id, formulaRo);
+
+      await deleteField(table1.id, fieldToDel.id);
+
+      const data = await createRecords(table1.id, {
+        records: [
+          {
+            fields: {},
+          },
+        ],
+      });
+
+      expect(data.records[0].fields[formulaField.id]).toBeUndefined();
+    });
+
+    it('should create a record with error lookup and rollup field', async () => {
+      const fieldToDel = table2.fields[2];
+
+      const linkFieldRo: IFieldRo = {
+        name: 'linkField',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table2.id,
+        },
+      };
+
+      const linkField = await createField(table1.id, linkFieldRo);
+
+      const lookupFieldRo: IFieldRo = {
+        type: fieldToDel.type,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: fieldToDel.id,
+          linkFieldId: linkField.id,
+        },
+      };
+
+      const rollupFieldRo: IFieldRo = {
+        type: FieldType.Rollup,
+        options: {
+          expression: 'sum({values})',
+        },
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: fieldToDel.id,
+          linkFieldId: linkField.id,
+        },
+      };
+
+      const lookupField = await createField(table1.id, lookupFieldRo);
+      const rollup = await createField(table1.id, rollupFieldRo);
+
+      await deleteField(table2.id, fieldToDel.id);
+
+      const data = await createRecords(table1.id, {
+        records: [
+          {
+            fields: {
+              [linkField.id]: { id: table2.records[0].id },
+            },
+          },
+        ],
+      });
+
+      expect(data.records[0].fields[lookupField.id]).toBeUndefined();
+      expect(data.records[0].fields[rollup.id]).toBeUndefined();
+    });
+
+    it('should create a record by name when duplicate name field is deleted', async () => {
+      const fieldName = 'test-field';
+      const fieldRo: IFieldRo = {
+        name: fieldName,
+        type: FieldType.SingleLineText,
+      };
+      for (let i = 0; i < 10; i++) {
+        const field = await createField(table1.id, fieldRo);
+        await deleteField(table1.id, field.id);
+      }
+
+      await createField(table1.id, fieldRo);
+      const cellValue = 'test';
+      const res = await createRecords(table1.id, {
+        records: [
+          {
+            fields: {
+              [fieldName]: cellValue,
+            },
+          },
+        ],
+        fieldKeyType: FieldKeyType.Name,
+        typecast: true,
+      });
+
+      expect(res.records[0].fields[fieldName]).toEqual(cellValue);
+    });
+  });
+
+  describe('create record with default value', () => {
+    let table: ITableFullVo;
+    beforeAll(async () => {
+      table = await createTable(baseId, {
+        name: 'table1',
+      });
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, table.id);
+    });
+
+    it('should create a record with default single select', async () => {
+      const field = await createField(table.id, {
+        type: FieldType.SingleSelect,
+        options: {
+          choices: [{ name: 'default value' }],
+          defaultValue: 'default value',
+        },
+      });
+
+      const { records } = await createRecords(table.id, {
+        records: [
+          {
+            fields: {},
+          },
+        ],
+      });
+
+      expect(records[0].fields[field.id]).toEqual('default value');
+    });
+
+    it('should create a record with default multiple select', async () => {
+      const field = await createField(table.id, {
+        type: FieldType.MultipleSelect,
+        options: {
+          choices: [{ name: 'default value' }, { name: 'default value2' }],
+          defaultValue: ['default value', 'default value2'],
+        },
+      });
+
+      const { records } = await createRecords(table.id, {
+        records: [
+          {
+            fields: {},
+          },
+        ],
+      });
+
+      expect(records[0].fields[field.id]).toEqual(['default value', 'default value2']);
+    });
+
+    it('should create a record with default number', async () => {
+      const field = await createField(table.id, {
+        type: FieldType.Number,
+        options: {
+          defaultValue: 1,
+        },
+      });
+
+      const { records } = await createRecords(table.id, {
+        records: [
+          {
+            fields: {},
+          },
+        ],
+      });
+
+      expect(records[0].fields[field.id]).toEqual(1);
+    });
+
+    it('should create a record with default user', async () => {
+      const field = await createField(table.id, {
+        type: FieldType.User,
+        options: {
+          defaultValue: userId,
+        },
+      });
+      const field2 = await createField(table.id, {
+        type: FieldType.User,
+        options: {
+          isMultiple: true,
+          defaultValue: ['me'],
+        },
+      });
+      const field3 = await createField(table.id, {
+        type: FieldType.User,
+        options: {
+          isMultiple: true,
+          defaultValue: [userId],
+        },
+      });
+
+      const { records } = await createRecords(table.id, {
+        records: [
+          {
+            fields: {},
+          },
+        ],
+      });
+
+      expect(records[0].fields[field.id]).toMatchObject({
+        id: userId,
+        title: expect.any(String),
+        email: expect.any(String),
+        avatarUrl: expect.any(String),
+      });
+      expect(records[0].fields[field2.id]).toMatchObject([
+        {
+          id: userId,
+          title: expect.any(String),
+          email: expect.any(String),
+          avatarUrl: expect.any(String),
+        },
+      ]);
+      expect(records[0].fields[field3.id]).toMatchObject([
+        {
+          id: userId,
+          title: expect.any(String),
+          email: expect.any(String),
+          avatarUrl: expect.any(String),
+        },
+      ]);
+    });
+
+    it('should use false to reset checkbox field', async () => {
+      const field = await createField(table.id, {
+        type: FieldType.Checkbox,
+      });
+      const { records } = await createRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {
+              [field.id]: true,
+            },
+          },
+        ],
+      });
+      expect(records[0].fields[field.id]).toEqual(true);
+
+      await updateRecord(table.id, records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+        record: {
+          fields: {
+            [field.id]: false,
+          },
+        },
+      });
+
+      const { records: records2 } = await getRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+      });
+      expect(records2[0].fields[field.id]).toEqual(undefined);
+    });
+  });
+
+  describe('create record with link field', () => {
+    let table: ITableFullVo;
+    let table2: ITableFullVo;
+    beforeAll(async () => {
+      table = await createTable(baseId, {
+        name: 'table1',
+        records: [],
+      });
+      table2 = await createTable(baseId, {
+        name: 'table2',
+      });
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, table.id);
+      await permanentDeleteTable(baseId, table2.id);
+    });
+
+    it('should create a record with constraint link field', async () => {
+      const linkField = await createField(table.id, {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: table2.id,
+          isOneWay: true,
+        },
+        name: 'link field',
+        dbFieldName: 'link_field',
+      });
+
+      await convertField(table.id, linkField.id, {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: table2.id,
+          isOneWay: true,
+        },
+        name: 'link field',
+        dbFieldName: 'link_field',
+        notNull: true,
+      });
+
+      const textField = await table2.fields[0];
+      await createField(table.id, {
+        dbFieldName: 'lookup_field',
+        type: textField.type,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: textField.id,
+          linkFieldId: linkField.id,
+        },
+      });
+
+      const { records } = await createRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {
+              [linkField.id]: [{ id: table2.records[0].id, title: '' }],
+            },
+          },
+        ],
+      });
+
+      expect(records).toBeDefined();
+    });
+  });
+
+  describe('ops index conflict', () => {
+    let table: ITableFullVo;
+    let tableLinkField: IFieldVo;
+    let linkTable: ITableFullVo;
+    beforeAll(async () => {
+      table = await createTable(baseId, {
+        name: 'table1',
+        fields: [
+          {
+            type: FieldType.SingleLineText,
+            name: 'field1',
+          },
+        ],
+      });
+      linkTable = await createTable(baseId, {
+        name: 'linkTable',
+        fields: [
+          {
+            type: FieldType.SingleLineText,
+            name: 'field1',
+          },
+        ],
+        records: [
+          {
+            fields: {
+              field1: 'test1',
+            },
+          },
+          {
+            fields: {
+              field1: 'test2',
+            },
+          },
+          {
+            fields: {
+              field1: 'test3',
+            },
+          },
+          {
+            fields: {
+              field1: 'test4',
+            },
+          },
+        ],
+      });
+      tableLinkField = await createField(table.id, {
+        name: 'linkField',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: linkTable.id,
+        },
+      });
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, table.id);
+      await permanentDeleteTable(baseId, linkTable.id);
+    });
+
+    it('should create a record with link field', async () => {
+      await Promise.all([
+        createRecords(table.id, {
+          records: [
+            {
+              fields: {
+                [tableLinkField.id]: [{ id: linkTable.records[0].id }],
+              },
+            },
+            {
+              fields: {
+                [tableLinkField.id]: [{ id: linkTable.records[1].id }],
+              },
+            },
+            {
+              fields: {
+                [tableLinkField.id]: [{ id: linkTable.records[2].id }],
+              },
+            },
+            {
+              fields: {
+                [tableLinkField.id]: [{ id: linkTable.records[3].id }],
+              },
+            },
+          ],
+        }),
+        createRecords(table.id, {
+          records: [
+            {
+              fields: {
+                [tableLinkField.id]: [{ id: linkTable.records[0].id }],
+              },
+            },
+            {
+              fields: {
+                [tableLinkField.id]: [{ id: linkTable.records[1].id }],
+              },
+            },
+            {
+              fields: {
+                [tableLinkField.id]: [{ id: linkTable.records[2].id }],
+              },
+            },
+            {
+              fields: {
+                [tableLinkField.id]: [{ id: linkTable.records[3].id }],
+              },
+            },
+          ],
+        }),
+      ]);
+    });
+  });
+
+  describe('button field click and reset', () => {
+    let table: ITableFullVo;
+    beforeAll(async () => {
+      table = await createTable(baseId, {
+        name: 'table1',
+      });
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, table.id);
+    });
+
+    it('should click a button field', async () => {
+      const field = await createField(table.id, {
+        type: FieldType.Button,
+        options: {
+          label: 'Button',
+          color: Colors.Teal,
+          workflow: {
+            id: generateWorkflowId(),
+            name: 'Workflow',
+            isActive: true,
+          },
+        },
+      });
+
+      const res = await buttonClick(table.id, table.records[0].id, field.id);
+      const value = res.data.record.fields[field.id] as IButtonFieldCellValue;
+      expect(value.count).toEqual(1);
+    });
+
+    it('should not click a button field without workflow', async () => {
+      const field = await createField(table.id, {
+        type: FieldType.Button,
+        options: {
+          label: 'Button',
+          color: Colors.Teal,
+        },
+      });
+
+      expect(buttonClick(table.id, table.records[0].id, field.id)).rejects.toThrow();
+    });
+
+    it('should not click a button field with exceed max count', async () => {
+      const field = await createField(table.id, {
+        type: FieldType.Button,
+        options: {
+          label: 'Button',
+          color: Colors.Teal,
+          maxCount: 1,
+          workflow: {
+            id: generateWorkflowId(),
+            name: 'Workflow',
+            isActive: true,
+          },
+        },
+      });
+
+      const res = await buttonClick(table.id, table.records[0].id, field.id);
+      const value = res.data.record.fields[field.id] as IButtonFieldCellValue;
+      expect(value.count).toEqual(1);
+
+      expect(buttonClick(table.id, table.records[0].id, field.id)).rejects.toThrow();
+    });
+
+    it('should reset a button field', async () => {
+      const field = await createField(table.id, {
+        type: FieldType.Button,
+        options: {
+          label: 'Button',
+          color: Colors.Teal,
+          resetCount: true,
+          workflow: {
+            id: generateWorkflowId(),
+            name: 'Workflow',
+            isActive: true,
+          },
+        },
+      });
+
+      const clickRes = await buttonClick(table.id, table.records[0].id, field.id);
+      const clickValue = clickRes.data.record.fields[field.id] as IButtonFieldCellValue;
+      expect(clickValue.count).toEqual(1);
+
+      const resetRes = await buttonReset(table.id, table.records[0].id, field.id);
+      const resetValue = resetRes.data.fields[field.id] as IButtonFieldCellValue;
+      expect(resetValue).toBeUndefined();
+    });
+
+    it('should not reset a button field without resetCount', async () => {
+      const field = await createField(table.id, {
+        type: FieldType.Button,
+        options: {
+          label: 'Button',
+          color: Colors.Teal,
+          workflow: {
+            id: generateWorkflowId(),
+            name: 'Workflow',
+            isActive: true,
+          },
+        },
+      });
+
+      expect(buttonReset(table.id, table.records[0].id, field.id)).rejects.toThrow();
+    });
+  });
+
+  describe('duplicate updates merging', () => {
+    let mainTable: ITableFullVo;
+    let foreignTable: ITableFullVo;
+
+    beforeEach(async () => {
+      mainTable = await createTable(baseId, { name: 'dup-main' });
+      foreignTable = await createTable(baseId, { name: 'dup-foreign' });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, mainTable.id);
+      await permanentDeleteTable(baseId, foreignTable.id);
+    });
+
+    it('merges duplicate basic field updates to the latest', async () => {
+      const recordId = mainTable.records[0].id;
+      const textField = await createField(mainTable.id, { type: FieldType.SingleLineText });
+
+      const res = await updateRecords(mainTable.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          { id: recordId, fields: { [textField.id]: 'v1' } },
+          { id: recordId, fields: { [textField.id]: 'v2' } },
+        ],
+      });
+      expect(res.status).toBe(200);
+
+      const updated = await getRecord(mainTable.id, recordId);
+      expect(updated.fields[textField.id]).toEqual('v2');
+    });
+
+    it('merges duplicate link updates (ManyOne) so the last wins', async () => {
+      const recordId = mainTable.records[0].id;
+      const foreignId1 = foreignTable.records[0].id;
+      const foreignId2 = foreignTable.records[1].id;
+
+      const linkField = await createField(mainTable.id, {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: foreignTable.id,
+        },
+      });
+
+      const res = await updateRecords(mainTable.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          { id: recordId, fields: { [linkField.id]: { id: foreignId1 } } },
+          { id: recordId, fields: { [linkField.id]: { id: foreignId2 } } },
+        ],
+      });
+      expect(res.status).toBe(200);
+
+      const updated = await getRecord(mainTable.id, recordId);
+      expect(updated.fields[linkField.id]).toMatchObject({ id: foreignId2 });
+    });
+
+    it('merges duplicate updates with formula: computed value reflects the latest', async () => {
+      const recordId = mainTable.records[0].id;
+      const textField = await createField(mainTable.id, { type: FieldType.SingleLineText });
+      const formulaField = await createField(mainTable.id, {
+        type: FieldType.Formula,
+        options: { expression: `{${textField.id}}` },
+      });
+
+      const res = await updateRecords(mainTable.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          { id: recordId, fields: { [textField.id]: 'first' } },
+          { id: recordId, fields: { [textField.id]: 'second' } },
+        ],
+      });
+      expect(res.status).toBe(200);
+
+      const updated = await getRecord(mainTable.id, recordId);
+      expect(updated.fields[formulaField.id]).toEqual('second');
+    });
+
+    it('merges duplicate updates with lookup: value reflects the latest link target', async () => {
+      const recordId = mainTable.records[0].id;
+      const foreignLabelFieldId = foreignTable.fields[0].id; // text label
+
+      // Prepare foreign labels
+      await updateRecord(foreignTable.id, foreignTable.records[0].id, {
+        record: { fields: { [foreignLabelFieldId]: 'A' } },
+        fieldKeyType: FieldKeyType.Id,
+      });
+      await updateRecord(foreignTable.id, foreignTable.records[1].id, {
+        record: { fields: { [foreignLabelFieldId]: 'B' } },
+        fieldKeyType: FieldKeyType.Id,
+      });
+
+      const linkField = await createField(mainTable.id, {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: foreignTable.id,
+        },
+      });
+
+      const lookupField = await createField(mainTable.id, {
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: foreignTable.id,
+          lookupFieldId: foreignLabelFieldId,
+          linkFieldId: linkField.id,
+        },
+      });
+
+      const res = await updateRecords(mainTable.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          { id: recordId, fields: { [linkField.id]: { id: foreignTable.records[0].id } } },
+          { id: recordId, fields: { [linkField.id]: { id: foreignTable.records[1].id } } },
+        ],
+      });
+      expect(res.status).toBe(200);
+
+      const updated = await getRecord(mainTable.id, recordId);
+      expect(updated.fields[lookupField.id]).toEqual('B');
+    });
+
+    it('merges duplicate updates with rollup: sum reflects the latest link set', async () => {
+      const recordId = mainTable.records[0].id;
+      const foreignNumberFieldId = foreignTable.fields[1].id; // number
+
+      // Prepare foreign numbers
+      await updateRecord(foreignTable.id, foreignTable.records[0].id, {
+        record: { fields: { [foreignNumberFieldId]: 10 } },
+        fieldKeyType: FieldKeyType.Id,
+      });
+      await updateRecord(foreignTable.id, foreignTable.records[1].id, {
+        record: { fields: { [foreignNumberFieldId]: 7 } },
+        fieldKeyType: FieldKeyType.Id,
+      });
+      await updateRecord(foreignTable.id, foreignTable.records[2].id, {
+        record: { fields: { [foreignNumberFieldId]: 5 } },
+        fieldKeyType: FieldKeyType.Id,
+      });
+
+      const linkField = await createField(mainTable.id, {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: foreignTable.id,
+        },
+      });
+
+      const rollupField = await createField(mainTable.id, {
+        type: FieldType.Rollup,
+        options: { expression: 'sum({values})' },
+        lookupOptions: {
+          foreignTableId: foreignTable.id,
+          lookupFieldId: foreignNumberFieldId,
+          linkFieldId: linkField.id,
+        },
+      });
+
+      const res = await updateRecords(mainTable.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            id: recordId,
+            fields: {
+              [linkField.id]: [
+                { id: foreignTable.records[0].id },
+                { id: foreignTable.records[1].id },
+              ],
+            },
+          },
+          {
+            id: recordId,
+            fields: {
+              [linkField.id]: [{ id: foreignTable.records[2].id }],
+            },
+          },
+        ],
+      });
+      expect(res.status).toBe(200);
+
+      const updated = await getRecord(mainTable.id, recordId);
+      expect(updated.fields[rollupField.id]).toEqual(5);
+    });
+  });
+
+  describe('compute on create: link + lookup + rollup', () => {
+    describe('sparse single select batch updates in v1', () => {
+      let table: ITableFullVo;
+
+      const updateRecordsV1 = async (tableId: string, body: Record<string, unknown>) => {
+        return await axios.patch(`/table/${tableId}/record`, body, {
+          headers: {
+            'x-canary': 'false',
+          },
+        });
+      };
+
+      beforeEach(async () => {
+        table = await createTable(baseId, {
+          name: 'v1 sparse update single select',
+          fields: [
+            { name: 'Title', type: FieldType.SingleLineText, isPrimary: true },
+            {
+              name: 'Status',
+              type: FieldType.SingleSelect,
+              options: {
+                choices: [{ name: 'Open' }, { name: 'Closed' }],
+                preventAutoNewOptions: true,
+              },
+            },
+            { name: 'Notes', type: FieldType.SingleLineText },
+          ],
+        });
+      });
+
+      afterEach(async () => {
+        await permanentDeleteTable(baseId, table.id);
+      });
+
+      it('preserves omitted singleSelect values in sparse explicit batch updates for v1', async () => {
+        const titleFieldId = table.fields.find((field) => field.name === 'Title')?.id ?? '';
+        const statusFieldId = table.fields.find((field) => field.name === 'Status')?.id ?? '';
+        const notesFieldId = table.fields.find((field) => field.name === 'Notes')?.id ?? '';
+
+        const created = await createRecords(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          records: [
+            {
+              fields: {
+                [titleFieldId]: 'Alpha',
+                [statusFieldId]: 'Open',
+              },
+            },
+            {
+              fields: {
+                [titleFieldId]: 'Beta',
+                [statusFieldId]: 'Open',
+              },
+            },
+          ],
+        });
+
+        const response = await updateRecordsV1(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          records: [
+            {
+              id: created.records[0]!.id,
+              fields: {
+                [notesFieldId]: 'Touched',
+              },
+            },
+            {
+              id: created.records[1]!.id,
+              fields: {
+                [statusFieldId]: 'Closed',
+              },
+            },
+          ],
+        });
+
+        expect(response.status).toBe(200);
+        expect(response.headers[X_TEABLE_V2_HEADER]).toBe('false');
+
+        const refreshed = await getRecords(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          skip: 0,
+          take: 100,
+        });
+        const recordsByTitle = new Map(
+          refreshed.records.map((record) => [record.fields[titleFieldId], record])
+        );
+
+        expect(recordsByTitle.get('Alpha')?.fields[statusFieldId]).toBe('Open');
+        expect(recordsByTitle.get('Alpha')?.fields[notesFieldId]).toBe('Touched');
+        expect(recordsByTitle.get('Beta')?.fields[statusFieldId]).toBe('Closed');
+      });
+
+      it('does not fail required singleSelect validation when omitted in another batch row for v1', async () => {
+        const titleFieldId = table.fields.find((field) => field.name === 'Title')?.id ?? '';
+        const statusFieldId = table.fields.find((field) => field.name === 'Status')?.id ?? '';
+        const notesFieldId = table.fields.find((field) => field.name === 'Notes')?.id ?? '';
+        const statusField = table.fields.find((field) => field.id === statusFieldId);
+
+        if (!statusField) {
+          throw new Error('Status field not found');
+        }
+
+        const initialRows = await getRecords(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          skip: 0,
+          take: 100,
+        });
+
+        const primeResponse = await updateRecordsV1(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          records: initialRows.records.map((record) => ({
+            id: record.id,
+            fields: {
+              [statusFieldId]: 'Open',
+            },
+          })),
+        });
+
+        expect(primeResponse.status).toBe(200);
+        expect(primeResponse.headers[X_TEABLE_V2_HEADER]).toBe('false');
+
+        await convertField(table.id, statusFieldId, {
+          name: statusField.name,
+          type: statusField.type,
+          dbFieldName: statusField.dbFieldName,
+          notNull: true,
+          options: {
+            ...(statusField.options as ISelectFieldOptions),
+            choices: (statusField.options as ISelectFieldOptions).choices,
+          },
+        });
+
+        const created = await createRecords(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          records: [
+            {
+              fields: {
+                [titleFieldId]: 'Alpha',
+                [statusFieldId]: 'Open',
+              },
+            },
+            {
+              fields: {
+                [titleFieldId]: 'Beta',
+                [statusFieldId]: 'Open',
+              },
+            },
+          ],
+        });
+
+        const response = await updateRecordsV1(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          records: [
+            {
+              id: created.records[0]!.id,
+              fields: {
+                [statusFieldId]: 'Closed',
+              },
+            },
+            {
+              id: created.records[1]!.id,
+              fields: {
+                [notesFieldId]: 'Still open',
+              },
+            },
+          ],
+        });
+
+        expect(response.status).toBe(200);
+        expect(response.headers[X_TEABLE_V2_HEADER]).toBe('false');
+
+        const refreshed = await getRecords(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          skip: 0,
+          take: 100,
+        });
+        const recordsByTitle = new Map(
+          refreshed.records.map((record) => [record.fields[titleFieldId], record])
+        );
+
+        expect(recordsByTitle.get('Alpha')?.fields[statusFieldId]).toBe('Closed');
+        expect(recordsByTitle.get('Beta')?.fields[statusFieldId]).toBe('Open');
+        expect(recordsByTitle.get('Beta')?.fields[notesFieldId]).toBe('Still open');
+      });
+    });
+
+    let mainTable: ITableFullVo;
+    let foreignTable: ITableFullVo;
+
+    beforeEach(async () => {
+      mainTable = await createTable(baseId, { name: 'create-main' });
+      foreignTable = await createTable(baseId, { name: 'create-foreign' });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, mainTable.id);
+      await permanentDeleteTable(baseId, foreignTable.id);
+    });
+
+    it('creates with link and computes lookup immediately', async () => {
+      const foreignLabelFieldId = foreignTable.fields[0].id; // text
+      const foreignId = foreignTable.records[0].id;
+
+      // Set known label
+      await updateRecord(foreignTable.id, foreignId, {
+        record: { fields: { [foreignLabelFieldId]: 'LABEL_A' } },
+        fieldKeyType: FieldKeyType.Id,
+      });
+
+      const linkField = await createField(mainTable.id, {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: foreignTable.id,
+        },
+      });
+
+      const lookupField = await createField(mainTable.id, {
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: foreignTable.id,
+          lookupFieldId: foreignLabelFieldId,
+          linkFieldId: linkField.id,
+        },
+      });
+
+      const { records } = await createRecords(mainTable.id, {
+        records: [{ fields: { [linkField.id]: { id: foreignId } } }],
+      });
+
+      expect(records[0].fields[lookupField.id]).toEqual('LABEL_A');
+    });
+
+    it('creates with link and computes rollup immediately', async () => {
+      const foreignNumberFieldId = foreignTable.fields[1].id; // number
+      // Set numbers
+      await updateRecord(foreignTable.id, foreignTable.records[0].id, {
+        record: { fields: { [foreignNumberFieldId]: 11 } },
+        fieldKeyType: FieldKeyType.Id,
+      });
+      await updateRecord(foreignTable.id, foreignTable.records[1].id, {
+        record: { fields: { [foreignNumberFieldId]: 9 } },
+        fieldKeyType: FieldKeyType.Id,
+      });
+
+      const linkField = await createField(mainTable.id, {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: foreignTable.id,
+        },
+      });
+
+      const rollupField = await createField(mainTable.id, {
+        type: FieldType.Rollup,
+        options: { expression: 'sum({values})' },
+        lookupOptions: {
+          foreignTableId: foreignTable.id,
+          lookupFieldId: foreignNumberFieldId,
+          linkFieldId: linkField.id,
+        },
+      });
+
+      const { records } = await createRecords(mainTable.id, {
+        records: [
+          {
+            fields: {
+              [linkField.id]: [
+                { id: foreignTable.records[0].id },
+                { id: foreignTable.records[1].id },
+              ],
+            },
+          },
+        ],
+      });
+
+      expect(records[0].fields[rollupField.id]).toEqual(20);
+    });
+  });
+
+  describe('compute on create: chained formulas', () => {
+    let table: ITableFullVo;
+
+    beforeEach(async () => {
+      table = await createTable(baseId, { name: 'create-formula-chain' });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, table.id);
+    });
+
+    it('creates with chained numeric formulas (f2 depends on f1)', async () => {
+      const baseNum = await createField(table.id, { type: FieldType.Number });
+
+      const f1 = await createField(table.id, {
+        type: FieldType.Formula,
+        options: { expression: `{${baseNum.id}} + 1` },
+      });
+
+      const f2 = await createField(table.id, {
+        type: FieldType.Formula,
+        options: { expression: `{${f1.id}} + 2` },
+      });
+
+      const { records } = await createRecords(table.id, {
+        records: [
+          {
+            fields: { [baseNum.id]: 10 },
+          },
+        ],
+      });
+
+      expect(records[0].fields[f1.id]).toEqual(11);
+      expect(records[0].fields[f2.id]).toEqual(13);
+    });
+
+    it('creates with chained string formulas', async () => {
+      const txt = await createField(table.id, { type: FieldType.SingleLineText });
+
+      const f1 = await createField(table.id, {
+        type: FieldType.Formula,
+        options: { expression: `{${txt.id}} & '-x'` },
+      });
+
+      const f2 = await createField(table.id, {
+        type: FieldType.Formula,
+        options: { expression: `{${f1.id}} & '-y'` },
+      });
+
+      const { records } = await createRecords(table.id, {
+        records: [
+          {
+            fields: { [txt.id]: 'abc' },
+          },
+        ],
+      });
+
+      expect(records[0].fields[f1.id]).toEqual('abc-x');
+      expect(records[0].fields[f2.id]).toEqual('abc-x-y');
+    });
+  });
+
+  describe('compute on update: cascades across tables', () => {
+    let t1: ITableFullVo;
+    let t2: ITableFullVo;
+    let t3: ITableFullVo;
+
+    beforeEach(async () => {
+      t1 = await createTable(baseId, { name: 'cascade-t1' });
+      t2 = await createTable(baseId, { name: 'cascade-t2' });
+      t3 = await createTable(baseId, { name: 'cascade-t3' });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, t1.id);
+      await permanentDeleteTable(baseId, t2.id);
+      await permanentDeleteTable(baseId, t3.id);
+    });
+
+    it('updates cascade: formula -> formula -> lookup -> nested lookup', async () => {
+      // Table 1: base number, f1 = n1 + 1, f2 = f1 * 2
+      const n1 = await createField(t1.id, { type: FieldType.Number });
+      const f1 = await createField(t1.id, {
+        type: FieldType.Formula,
+        options: { expression: `{${n1.id}} + 1` },
+      });
+      const f2 = await createField(t1.id, {
+        type: FieldType.Formula,
+        options: { expression: `{${f1.id}} * 2` },
+      });
+
+      // Set base value
+      const t1RecId = t1.records[0].id;
+      await updateRecord(t1.id, t1RecId, {
+        record: { fields: { [n1.id]: 3 } },
+        fieldKeyType: FieldKeyType.Id,
+      });
+
+      // Table 2: link -> t1 (ManyOne), lookup f2
+      const link12 = await createField(t2.id, {
+        type: FieldType.Link,
+        options: { relationship: Relationship.ManyOne, foreignTableId: t1.id },
+      });
+      const lookup2 = await createField(t2.id, {
+        type: FieldType.Formula,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: t1.id,
+          lookupFieldId: f2.id,
+          linkFieldId: link12.id,
+        },
+      });
+
+      const t2RecId = t2.records[0].id;
+      await updateRecord(t2.id, t2RecId, {
+        record: { fields: { [link12.id]: { id: t1RecId } } },
+        fieldKeyType: FieldKeyType.Id,
+      });
+
+      // Verify initial computed values at t1 and t2: n1=3 -> f1=4 -> f2=8 -> lookup2=8
+      const t1Rec0 = await getRecord(t1.id, t1RecId);
+      const t2Rec0 = await getRecord(t2.id, t2RecId);
+      expect(t1Rec0.fields[f1.id]).toEqual(4);
+      expect(t1Rec0.fields[f2.id]).toEqual(8);
+      expect(t2Rec0.fields[lookup2.id]).toEqual(8);
+
+      // Update base: n1=10 -> f1=11 -> f2=22, and lookup2 should update
+      await updateRecord(t1.id, t1RecId, {
+        record: { fields: { [n1.id]: 10 } },
+        fieldKeyType: FieldKeyType.Id,
+      });
+
+      const t1Rec = await getRecord(t1.id, t1RecId);
+      const t2Rec = await getRecord(t2.id, t2RecId);
+      expect(t1Rec.fields[f1.id]).toEqual(11);
+      expect(t1Rec.fields[f2.id]).toEqual(22);
+      expect(t2Rec.fields[lookup2.id]).toEqual(22);
+    });
+
+    it('updates cascade with rollup across link set and nested lookup', async () => {
+      // Table 1: number field
+      const n = await createField(t1.id, { type: FieldType.Number });
+
+      // Create two specific records in t1 with values 5 and 7
+      const created = await createRecords(t1.id, {
+        records: [{ fields: { [n.id]: 5 } }, { fields: { [n.id]: 7 } }],
+        fieldKeyType: FieldKeyType.Id,
+      });
+      const t1IdA = created.records[0].id;
+      const t1IdB = created.records[1].id;
+
+      // Table 2: ManyMany link to t1, rollup sum of n
+      const link = await createField(t2.id, {
+        type: FieldType.Link,
+        options: { relationship: Relationship.ManyMany, foreignTableId: t1.id },
+      });
+      const roll = await createField(t2.id, {
+        type: FieldType.Rollup,
+        options: { expression: 'sum({values})' },
+        lookupOptions: {
+          foreignTableId: t1.id,
+          lookupFieldId: n.id,
+          linkFieldId: link.id,
+        },
+      });
+
+      const t2RecId2 = t2.records[0].id;
+      await updateRecord(t2.id, t2RecId2, {
+        record: { fields: { [link.id]: [{ id: t1IdA }, { id: t1IdB }] } },
+        fieldKeyType: FieldKeyType.Id,
+      });
+
+      // Table 3: link to t2, lookup rollup
+      const link2 = await createField(t3.id, {
+        type: FieldType.Link,
+        options: { relationship: Relationship.ManyOne, foreignTableId: t2.id },
+      });
+      const nested = await createField(t3.id, {
+        type: FieldType.Rollup,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: t2.id,
+          lookupFieldId: roll.id,
+          linkFieldId: link2.id,
+        },
+      });
+
+      const t3RecId2 = t3.records[0].id;
+      await updateRecord(t3.id, t3RecId2, {
+        record: { fields: { [link2.id]: { id: t2RecId2 } } },
+        fieldKeyType: FieldKeyType.Id,
+      });
+
+      // Initial: 5 + 7 = 12
+      let rec2 = await getRecord(t2.id, t2RecId2);
+      let rec3 = await getRecord(t3.id, t3RecId2);
+      expect(rec2.fields[roll.id]).toEqual(12);
+      expect(rec3.fields[nested.id]).toEqual(12);
+
+      // Update one base number to 20 -> rollup becomes 25, nested lookup 25
+      await updateRecord(t1.id, t1IdA, {
+        record: { fields: { [n.id]: 20 } },
+        fieldKeyType: FieldKeyType.Id,
+      });
+      rec2 = await getRecord(t2.id, t2RecId2);
+      rec3 = await getRecord(t3.id, t3RecId2);
+      expect(rec2.fields[roll.id]).toEqual(27);
+      expect(rec3.fields[nested.id]).toEqual(27);
+    });
+  });
+});

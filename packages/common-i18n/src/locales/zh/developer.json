@@ -1,0 +1,34 @@
+{
+  "apiQueryBuilder": "API 查询构建器",
+  "subTitle": "你可以通过可视化的用户界面快速构建查询请求，并复制可直接运行的代码",
+  "apiList": "完整 API 列表",
+  "cellFormat": "返回值格式",
+  "fieldKeyType": "字段 key 类型",
+  "chooseSource": "选择数据源",
+  "action": {
+    "selectBase": "选择一个数据库...",
+    "selectTable": "选择一个表..."
+  },
+  "pickParams": "选择需要的参数进行配置",
+  "buildResult": "构造结果",
+  "buildResultEmpty": "请先选择一个表",
+  "previewReturnValue": "返回值预览",
+  "replaceToken": "替换 Token",
+  "createNewToken": "创建新 Token",
+  "showPagination": "分页参数在 JSON 模式下显示",
+  "addSort": "添加一个排序",
+  "tabs": {
+    "apiBuilder": "API 构建器",
+    "aiContext": "AI 上下文"
+  },
+  "aiContext": {
+    "title": "AI 友好的表格上下文",
+    "description": "复制此上下文到你的 AI 助手（ChatGPT、Claude 等），帮助它理解如何操作你的表格数据。",
+    "selectTableFirst": "请先选择一个表格以生成 AI 上下文",
+    "fullContext": "完整上下文",
+    "compactContext": "精简版",
+    "copyToClipboard": "复制到剪贴板",
+    "copied": "已复制！",
+    "compactDescription": "适用于快速分享的精简版本，考虑到 AI 对话的 Token 限制。"
+  }
+}

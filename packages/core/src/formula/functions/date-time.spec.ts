@@ -1,0 +1,1497 @@
+/* eslint-disable sonarjs/no-duplicate-string */
+import type { IRecord } from '../../models';
+import { CellValueType } from '../../models/field/constant';
+import type { FieldCore } from '../../models/field/field';
+import { TypedValue } from '../typed-value';
+import {
+  CreatedTime,
+  DateAdd,
+  Datestr,
+  DatetimeDiff,
+  DatetimeFormat,
+  DatetimeParse,
+  Day,
+  FromNow,
+  ToNow,
+  Hour,
+  IsAfter,
+  IsBefore,
+  IsSame,
+  LastModifiedTime,
+  Minute,
+  Month,
+  Second,
+  Timestr,
+  Today,
+  WeekNum,
+  Weekday,
+  Workday,
+  WorkdayDiff,
+  Year,
+  dayjs,
+} from './date-time';
+
+describe('DateTime', () => {
+  describe('Today', () => {
+    const todayFunc = new Today();
+
+    it('should return the current date', () => {
+      const timeZone = 'America/Los_Angeles';
+      const result = todayFunc.eval([], {
+        record: {} as IRecord,
+        dependencies: {},
+        timeZone,
+      });
+
+      expect(result).toBe(dayjs().tz(timeZone).startOf('d').toISOString());
+    });
+  });
+
+  describe('Year', () => {
+    const yearFunc = new Year();
+
+    it('should return the year from a given date string', () => {
+      const result = yearFunc.eval([new TypedValue('2023-09-08', CellValueType.String, false)], {
+        record: {} as IRecord,
+        dependencies: {},
+        timeZone: 'Asia/Shanghai',
+      });
+
+      expect(result).toBe(2023);
+    });
+
+    it('should return the year from a given date iso string', () => {
+      // time zone test America/Los_Angeles -7 ~ -8
+      expect(
+        yearFunc.eval(
+          [
+            new TypedValue(
+              new Date('2023-01-01T07:00:00.000Z').toISOString(),
+              CellValueType.DateTime,
+              false
+            ),
+          ],
+          {
+            record: {} as IRecord,
+            dependencies: {},
+            timeZone: 'America/Los_Angeles',
+          }
+        )
+      ).toBe(2022);
+
+      expect(
+        yearFunc.eval(
+          [
+            new TypedValue(
+              new Date('2023-01-01T09:00:00.000Z').toISOString(),
+              CellValueType.DateTime,
+              false
+            ),
+          ],
+          {
+            record: {} as IRecord,
+            dependencies: {},
+            timeZone: 'America/Los_Angeles',
+          }
+        )
+      ).toBe(2023);
+    });
+  });
+
+  describe('Month', () => {
+    const monthFunc = new Month();
+
+    it('should return the month from a given date string', () => {
+      const result = monthFunc.eval([new TypedValue('2023-09-01', CellValueType.String, false)], {
+        record: {} as IRecord,
+        dependencies: {},
+        timeZone: 'America/Los_Angeles',
+      });
+
+      expect(result).toBe(9);
+    });
+
+    it('should return the month from a given date iso string', () => {
+      expect(
+        monthFunc.eval(
+          [
+            new TypedValue(
+              new Date('2023-09-01T06:00:00.000Z').toISOString(),
+              CellValueType.DateTime,
+              false
+            ),
+          ],
+          {
+            record: {} as IRecord,
+            dependencies: {},
+            timeZone: 'America/Los_Angeles',
+          }
+        )
+      ).toBe(8);
+
+      expect(
+        monthFunc.eval(
+          [
+            new TypedValue(
+              new Date('2023-09-01T09:00:00.000Z').toISOString(),
+              CellValueType.DateTime,
+              false
+            ),
+          ],
+          {
+            record: {} as IRecord,
+            dependencies: {},
+            timeZone: 'America/Los_Angeles',
+          }
+        )
+      ).toBe(9);
+    });
+  });
+
+  describe('WeekNum', () => {
+    const weekNumFunc = new WeekNum();
+
+    it('should return the weeknum from a given date string', () => {
+      const result = weekNumFunc.eval([new TypedValue('2023-09-08', CellValueType.String, false)], {
+        record: {} as IRecord,
+        dependencies: {},
+        timeZone: 'America/Los_Angeles',
+      });
+
+      expect(result).toBe(36);
+    });
+
+    it('should return the weeknum from a given date iso string', () => {
+      const result = weekNumFunc.eval(
+        [
+          new TypedValue(
+            new Date('2023-09-08T07:00:00.000Z').toISOString(),
+            CellValueType.DateTime,
+            false
+          ),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe(36);
+    });
+  });
+
+  describe('Weekday', () => {
+    const weekdayFunc = new Weekday();
+    it('should return the weekday from a given date string', () => {
+      const result = weekdayFunc.eval([new TypedValue('2023-09-08', CellValueType.String, false)], {
+        record: {} as IRecord,
+        dependencies: {},
+        timeZone: 'America/Los_Angeles',
+      });
+
+      expect(result).toBe(5);
+    });
+
+    it('should return the weekday from a given date iso string', () => {
+      const result = weekdayFunc.eval(
+        [
+          new TypedValue(
+            new Date('2023-09-08T00:00:00.000Z').toISOString(),
+            CellValueType.DateTime,
+            false
+          ),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe(4);
+    });
+
+    it('should return the weekday from a given date iso string', () => {
+      const result = weekdayFunc.eval(
+        [
+          new TypedValue(
+            new Date('2023-09-08T00:00:00.000Z').toISOString(),
+            CellValueType.DateTime,
+            false
+          ),
+          new TypedValue('monday', CellValueType.String, false),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe(3);
+    });
+  });
+
+  describe('Day', () => {
+    const dayFunc = new Day();
+
+    it('should return the day from a given date string', () => {
+      const result = dayFunc.eval([new TypedValue('2023-09-08', CellValueType.String, false)], {
+        record: {} as IRecord,
+        dependencies: {},
+        timeZone: 'America/Los_Angeles',
+      });
+
+      expect(result).toBe(8);
+    });
+
+    it('should return the day from a given date iso string', () => {
+      expect(
+        dayFunc.eval(
+          [
+            new TypedValue(
+              new Date('2023-09-08T00:00:00.000Z').toISOString(),
+              CellValueType.DateTime,
+              false
+            ),
+          ],
+          {
+            record: {} as IRecord,
+            dependencies: {},
+            timeZone: 'America/Los_Angeles',
+          }
+        )
+      ).toBe(7);
+
+      expect(
+        dayFunc.eval(
+          [
+            new TypedValue(
+              new Date('2023-09-07T20:00:00.000Z').toISOString(),
+              CellValueType.DateTime,
+              false
+            ),
+          ],
+          {
+            record: {} as IRecord,
+            dependencies: {},
+            timeZone: 'Asia/Shanghai',
+          }
+        )
+      ).toBe(8);
+
+      expect(
+        dayFunc.eval(
+          [
+            new TypedValue(
+              new Date('2023-09-07T00:00:00+09:00').toISOString(),
+              CellValueType.DateTime,
+              false
+            ),
+          ],
+          {
+            record: {} as IRecord,
+            dependencies: {},
+            timeZone: 'Asia/Shanghai',
+          }
+        )
+      ).toBe(6);
+    });
+  });
+
+  describe('Hour', () => {
+    const hourFunc = new Hour();
+
+    it('should return the hours from a given date-time string', () => {
+      const result = hourFunc.eval(
+        [new TypedValue('2023-09-08 18:28:38', CellValueType.String, false)],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe(18);
+    });
+
+    it('should return the hours from a given date-time iso string', () => {
+      const result = hourFunc.eval(
+        [
+          new TypedValue(
+            new Date('2023-09-08T18:00:00.000Z').toISOString(),
+            CellValueType.DateTime,
+            false
+          ),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe(11);
+    });
+  });
+
+  describe('Minute', () => {
+    const minuteFunc = new Minute();
+
+    it('should return the minutes from a given date-time string', () => {
+      const result = minuteFunc.eval(
+        [new TypedValue('2023-09-08 18:28:38', CellValueType.String, false)],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe(28);
+    });
+
+    it('should return the minutes from a given date-time iso string', () => {
+      const result = minuteFunc.eval(
+        [
+          new TypedValue(
+            new Date('2023-09-08T18:28:00.000Z').toISOString(),
+            CellValueType.DateTime,
+            false
+          ),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe(28);
+    });
+  });
+
+  describe('Second', () => {
+    const secondFunc = new Second();
+
+    it('should return the seconds from a given date-time string', () => {
+      const result = secondFunc.eval(
+        [new TypedValue('2023-09-08 18:28:38', CellValueType.String, false)],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe(38);
+    });
+
+    it('should return the seconds from a given date-time iso string', () => {
+      const result = secondFunc.eval(
+        [
+          new TypedValue(
+            new Date('2023-09-08 18:28:38').toISOString(),
+            CellValueType.DateTime,
+            false
+          ),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe(38);
+    });
+  });
+
+  describe('FromNow', () => {
+    const fromNowFunc = new FromNow();
+    // Calculate a date 36 days in the past
+    const date = new Date(Date.now() - 36 * 24 * 60 * 60 * 1000).toISOString();
+
+    it('should return the difference in years from the current date to the given date', () => {
+      const result = fromNowFunc.eval(
+        [
+          new TypedValue(date, CellValueType.DateTime, false),
+          new TypedValue('year', CellValueType.String, false),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe(0);
+    });
+
+    it('should return the difference in months from the current date to the given date', () => {
+      const result = fromNowFunc.eval(
+        [
+          new TypedValue(date, CellValueType.DateTime, false),
+          new TypedValue('month', CellValueType.String, false),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe(1);
+    });
+
+    it('should return the difference in days from the current date to the given date', () => {
+      const result = fromNowFunc.eval(
+        [
+          new TypedValue(date, CellValueType.DateTime, false),
+          new TypedValue('day', CellValueType.String, false),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe(36);
+    });
+
+    it('should return the difference in hours from the current date to the given date', () => {
+      const result = fromNowFunc.eval(
+        [
+          new TypedValue(date, CellValueType.DateTime, false),
+          new TypedValue('hour', CellValueType.String, false),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+      expect(result).toBe(864);
+    });
+
+    it('should return the difference in minutes from the current date to the given date', () => {
+      const result = fromNowFunc.eval(
+        [
+          new TypedValue(date, CellValueType.DateTime, false),
+          new TypedValue('minute', CellValueType.String, false),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe(51840);
+    });
+
+    it('should return the approximate difference in years from the current date to the given date', () => {
+      const result = fromNowFunc.eval(
+        [
+          new TypedValue(date, CellValueType.DateTime, false),
+          new TypedValue('year', CellValueType.String, false),
+          new TypedValue(true, CellValueType.Boolean, false),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBeCloseTo(0.1, 1);
+    });
+  });
+
+  describe('DatetimeDiff', () => {
+    const datetimeDiffFunc = new DatetimeDiff();
+    const startDate = new Date('2022-08-01T16:30:00.000Z').toISOString();
+    const endDate = new Date('2023-09-08T19:20:00.000Z').toISOString();
+
+    it('should return the difference in seconds between two dates by default', () => {
+      expect(
+        datetimeDiffFunc.eval(
+          [
+            new TypedValue(startDate, CellValueType.DateTime, false),
+            new TypedValue(endDate, CellValueType.DateTime, false),
+          ],
+          {
+            record: {} as IRecord,
+            dependencies: {},
+            timeZone: 'America/Los_Angeles',
+          }
+        )
+      ).toBe(-34829400);
+
+      expect(
+        datetimeDiffFunc.eval(
+          [
+            new TypedValue(
+              new Date('2023-09-09T00:00:00.000Z').toISOString(),
+              CellValueType.DateTime,
+              false
+            ),
+            new TypedValue(
+              new Date('2023-09-08T00:00:00.000Z').toISOString(),
+              CellValueType.DateTime,
+              false
+            ),
+          ],
+          {
+            record: {} as IRecord,
+            dependencies: {},
+            timeZone: 'America/Los_Angeles',
+          }
+        )
+      ).toBe(86400);
+    });
+
+    it('should return the difference in years between two dates', () => {
+      const result = datetimeDiffFunc.eval(
+        [
+          new TypedValue(startDate, CellValueType.DateTime, false),
+          new TypedValue(endDate, CellValueType.DateTime, false),
+          new TypedValue('year', CellValueType.String, false),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe(-1);
+    });
+
+    it('should return the difference in months between two dates', () => {
+      const result = datetimeDiffFunc.eval(
+        [
+          new TypedValue(startDate, CellValueType.DateTime, false),
+          new TypedValue(endDate, CellValueType.DateTime, false),
+          new TypedValue('month', CellValueType.String, false),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe(-13);
+    });
+
+    it('should return the difference in days between two dates', () => {
+      const result = datetimeDiffFunc.eval(
+        [
+          new TypedValue(startDate, CellValueType.DateTime, false),
+          new TypedValue(endDate, CellValueType.DateTime, false),
+          new TypedValue('day', CellValueType.String, false),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe(-403);
+    });
+
+    it('should return the difference in hours between two dates', () => {
+      const result = datetimeDiffFunc.eval(
+        [
+          new TypedValue(startDate, CellValueType.DateTime, false),
+          new TypedValue(endDate, CellValueType.DateTime, false),
+          new TypedValue('hour', CellValueType.String, false),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe(-9674);
+    });
+
+    it('should return the difference in minutes between two dates', () => {
+      const result = datetimeDiffFunc.eval(
+        [
+          new TypedValue(startDate, CellValueType.DateTime, false),
+          new TypedValue(endDate, CellValueType.DateTime, false),
+          new TypedValue('minute', CellValueType.String, false),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe(-580490);
+    });
+
+    it('should return the difference in seconds between two dates', () => {
+      const result = datetimeDiffFunc.eval(
+        [
+          new TypedValue(startDate, CellValueType.DateTime, false),
+          new TypedValue(endDate, CellValueType.DateTime, false),
+          new TypedValue('second', CellValueType.String, false),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe(-34829400);
+    });
+
+    it('should return an approximate difference in months between two dates', () => {
+      const result = datetimeDiffFunc.eval(
+        [
+          new TypedValue(startDate, CellValueType.DateTime, false),
+          new TypedValue(endDate, CellValueType.DateTime, false),
+          new TypedValue('month', CellValueType.String, false),
+          new TypedValue(true, CellValueType.Boolean, false),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBeCloseTo(-13.23, 2);
+    });
+  });
+
+  describe('Workday', () => {
+    const workdayFunc = new Workday();
+    const startDate = new Date('2023-09-08 00:00:00').toISOString();
+    const holidayStr = '2024-01-22, 2024-01-23, 2024-01-24, 2024-01-25';
+
+    it('should add 200 workdays to the start date', () => {
+      const result = workdayFunc.eval(
+        [
+          new TypedValue(startDate, CellValueType.DateTime, false),
+          new TypedValue(200, CellValueType.Number, false),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe(new Date('2024-06-14 00:00:00').toISOString());
+    });
+
+    it('should add 200 workdays to the start date, excluding the specified holidays', () => {
+      const result = workdayFunc.eval(
+        [
+          new TypedValue(startDate, CellValueType.DateTime, false),
+          new TypedValue(200, CellValueType.Number, false),
+          new TypedValue(holidayStr, CellValueType.String, false),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe(new Date('2024-06-20 00:00:00').toISOString());
+    });
+
+    it('should subtract 100 workdays from the start date', () => {
+      const result = workdayFunc.eval(
+        [
+          new TypedValue(startDate, CellValueType.DateTime, false),
+          new TypedValue(-100, CellValueType.Number, false),
+        ],
+        { record: {} as IRecord, dependencies: {}, timeZone: 'America/Los_Angeles' }
+      );
+
+      expect(result).toBe(new Date('2023-04-21 00:00:00').toISOString());
+    });
+
+    it('should subtract 100 workdays from the start date, excluding the specified holidays', () => {
+      const result = workdayFunc.eval(
+        [
+          new TypedValue(startDate, CellValueType.DateTime, false),
+          new TypedValue(-100, CellValueType.Number, false),
+          new TypedValue('2023-08-03, 2023-08-11', CellValueType.String, false),
+        ],
+        { record: {} as IRecord, dependencies: {}, timeZone: 'America/Los_Angeles' }
+      );
+
+      expect(result).toBe(new Date('2023-04-19 00:00:00').toISOString());
+    });
+
+    it('should skip the start date when it is considered a holiday', () => {
+      const result = workdayFunc.eval(
+        [
+          new TypedValue('2023-09-07 00:00:00', CellValueType.String, false),
+          new TypedValue(2, CellValueType.Number, false),
+          new TypedValue(startDate, CellValueType.DateTime, false),
+        ],
+        { record: {} as IRecord, dependencies: {}, timeZone: 'America/Los_Angeles' }
+      );
+
+      expect(result).toBe(new Date('2023-09-12T07:00:00.000Z').toISOString());
+    });
+  });
+
+  describe('WorkdayDiff', () => {
+    const workdayDiffFunc = new WorkdayDiff();
+    const startDate = new Date('2023-06-18').toISOString();
+    const endDate = new Date('2023-10-01').toISOString();
+    const holidayStr = '2023-07-12, 2023-08-18, 2023-08-19';
+
+    it('should return the difference in workdays between two dates', () => {
+      const result = workdayDiffFunc.eval(
+        [
+          new TypedValue(startDate, CellValueType.DateTime, false),
+          new TypedValue(endDate, CellValueType.DateTime, false),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe(75);
+    });
+
+    it('should return the difference in workdays between two dates, excluding the specified holidays', () => {
+      const result = workdayDiffFunc.eval(
+        [
+          new TypedValue(startDate, CellValueType.DateTime, false),
+          new TypedValue(endDate, CellValueType.DateTime, false),
+          new TypedValue(holidayStr, CellValueType.String, false),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe(73);
+    });
+
+    it('should exclude the start date when calculating forward workday ranges', () => {
+      const result = workdayDiffFunc.eval(
+        [
+          new TypedValue(new Date('2026-02-23').toISOString(), CellValueType.DateTime, false),
+          new TypedValue(new Date('2026-02-27').toISOString(), CellValueType.DateTime, false),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe(4);
+    });
+  });
+
+  describe('IsSame', () => {
+    const isSameFunc = new IsSame();
+    const date1 = new Date('2023-09-08 18:00:00').toISOString();
+    const date2 = new Date('2023-09-10 18:00:00').toISOString();
+
+    it('should return false when checking if two distinct dates are the same without any granularity', () => {
+      const result = isSameFunc.eval(
+        [
+          new TypedValue(date1, CellValueType.DateTime, false),
+          new TypedValue(date2, CellValueType.DateTime, false),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe(false);
+    });
+
+    it('should return true when checking if two distinct dates are from the same year', () => {
+      const result = isSameFunc.eval(
+        [
+          new TypedValue(date1, CellValueType.DateTime, false),
+          new TypedValue(date2, CellValueType.DateTime, false),
+          new TypedValue('year', CellValueType.DateTime, false),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe(true);
+    });
+
+    it('should return true when checking if two distinct dates are from the same month', () => {
+      const result = isSameFunc.eval(
+        [
+          new TypedValue(date1, CellValueType.DateTime, false),
+          new TypedValue(date2, CellValueType.DateTime, false),
+          new TypedValue('month', CellValueType.DateTime, false),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe(true);
+    });
+
+    it('should return true when checking if two distinct dates are the same day', () => {
+      expect(
+        isSameFunc.eval(
+          [
+            new TypedValue(
+              new Date('2023-09-08T23:00:00.000Z').toISOString(),
+              CellValueType.DateTime,
+              false
+            ),
+            new TypedValue(
+              new Date('2023-09-09T03:00:00.000Z').toISOString(),
+              CellValueType.DateTime,
+              false
+            ),
+            new TypedValue('day', CellValueType.DateTime, false),
+          ],
+          {
+            record: {} as IRecord,
+            dependencies: {},
+            timeZone: 'America/Los_Angeles',
+          }
+        )
+      ).toBe(true);
+
+      expect(
+        isSameFunc.eval(
+          [
+            new TypedValue(
+              new Date('2023-09-09T23:00:00.000Z').toISOString(),
+              CellValueType.DateTime,
+              false
+            ),
+            new TypedValue(
+              new Date('2023-09-09T03:00:00.000Z').toISOString(),
+              CellValueType.DateTime,
+              false
+            ),
+            new TypedValue('day', CellValueType.DateTime, false),
+          ],
+          {
+            record: {} as IRecord,
+            dependencies: {},
+            timeZone: 'America/Los_Angeles',
+          }
+        )
+      ).toBe(false);
+    });
+  });
+
+  describe('IsAfter', () => {
+    const isAfterFunc = new IsAfter();
+    const date1 = new Date('2023-09-10 18:00:00').toISOString();
+    const date2 = new Date('2023-09-08 18:00:00').toISOString();
+
+    it('should return true when date1 is after date2 without any granularity', () => {
+      const result = isAfterFunc.eval(
+        [
+          new TypedValue(date1, CellValueType.DateTime, false),
+          new TypedValue(date2, CellValueType.DateTime, false),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe(true);
+    });
+
+    it('should return false when date1 and date2 are in the same year', () => {
+      const result = isAfterFunc.eval(
+        [
+          new TypedValue(date1, CellValueType.DateTime, false),
+          new TypedValue(date2, CellValueType.DateTime, false),
+          new TypedValue('year', CellValueType.DateTime, false),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe(false);
+    });
+
+    it('should return false when date1 and date2 are in the same month', () => {
+      const result = isAfterFunc.eval(
+        [
+          new TypedValue(date1, CellValueType.DateTime, false),
+          new TypedValue(date2, CellValueType.DateTime, false),
+          new TypedValue('month', CellValueType.DateTime, false),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe(false);
+    });
+
+    it('should return true when date1 is after date2 in terms of day', () => {
+      const result = isAfterFunc.eval(
+        [
+          new TypedValue(date1, CellValueType.DateTime, false),
+          new TypedValue(date2, CellValueType.DateTime, false),
+          new TypedValue('day', CellValueType.DateTime, false),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe(true);
+    });
+  });
+
+  describe('IsBefore', () => {
+    const isBeforeFunc = new IsBefore();
+    const date1 = new Date('2023-09-08 18:00:00').toISOString();
+    const date2 = new Date('2023-09-10 18:00:00').toISOString();
+
+    it('should return true when date1 is before date2 without any granularity', () => {
+      const result = isBeforeFunc.eval(
+        [
+          new TypedValue(date1, CellValueType.DateTime, false),
+          new TypedValue(date2, CellValueType.DateTime, false),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe(true);
+    });
+
+    it('should return false when date1 and date2 are in the same year', () => {
+      const result = isBeforeFunc.eval(
+        [
+          new TypedValue(date1, CellValueType.DateTime, false),
+          new TypedValue(date2, CellValueType.DateTime, false),
+          new TypedValue('year', CellValueType.DateTime, false),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe(false);
+    });
+
+    it('should return false when date1 and date2 are in the same month', () => {
+      const result = isBeforeFunc.eval(
+        [
+          new TypedValue(date1, CellValueType.DateTime, false),
+          new TypedValue(date2, CellValueType.DateTime, false),
+          new TypedValue('month', CellValueType.DateTime, false),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe(false);
+    });
+
+    it('should return true when date1 is before date2 in terms of day', () => {
+      const result = isBeforeFunc.eval(
+        [
+          new TypedValue(
+            new Date('2023-09-09T03:00:00.000Z').toISOString(),
+            CellValueType.DateTime,
+            false
+          ),
+          new TypedValue(
+            new Date('2023-09-09T13:00:00.000Z').toISOString(),
+            CellValueType.DateTime,
+            false
+          ),
+          new TypedValue('day', CellValueType.DateTime, false),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe(true);
+    });
+  });
+
+  describe('DateAdd', () => {
+    const dateAddFunc = new DateAdd();
+    const date = new Date('2023-09-08 18:00:00').toISOString();
+
+    it('should add 10 days to the given date', () => {
+      const result = dateAddFunc.eval(
+        [
+          new TypedValue(date, CellValueType.DateTime, false),
+          new TypedValue(10, CellValueType.Number, false),
+          new TypedValue('day', CellValueType.Number, false),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe(new Date('2023-09-18 18:00:00').toISOString());
+    });
+
+    it('should add 2 months to the given date', () => {
+      const result = dateAddFunc.eval(
+        [
+          new TypedValue(date, CellValueType.DateTime, false),
+          new TypedValue(2, CellValueType.Number, false),
+          new TypedValue('month', CellValueType.Number, false),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe(new Date('2023-11-08 18:00:00').toISOString());
+    });
+  });
+
+  describe('Datestr', () => {
+    const datestrFunc = new Datestr();
+    const date = new Date('2023-09-08 18:00:00').toISOString();
+
+    it('should return only the date part of a DateTime value', () => {
+      const result = datestrFunc.eval([new TypedValue(date, CellValueType.DateTime, false)], {
+        record: {} as IRecord,
+        dependencies: {},
+        timeZone: 'America/Los_Angeles',
+      });
+
+      expect(result).toBe('2023-09-08');
+    });
+  });
+
+  describe('Timestr', () => {
+    const timestrFunc = new Timestr();
+    const date = new Date('2023-09-08T18:56:00.000Z').toISOString();
+
+    it('should return only the time part of a DateTime value', () => {
+      const result = timestrFunc.eval([new TypedValue(date, CellValueType.DateTime, false)], {
+        record: {} as IRecord,
+        dependencies: {},
+        timeZone: 'America/Los_Angeles',
+      });
+
+      expect(result).toBe('11:56:00');
+    });
+  });
+
+  describe('DatetimeFormat', () => {
+    const datetimeFormatFunc = new DatetimeFormat();
+    const date = new Date('2023-09-08T18:56:00.000Z').toISOString();
+
+    it('The function returns a formatted date-time string when no specific format string is provided', () => {
+      const result = datetimeFormatFunc.eval(
+        [new TypedValue(date, CellValueType.DateTime, false)],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe('2023-09-08 11:56');
+    });
+
+    it('The function returns the date-time in a custom format when a format string is provided', () => {
+      const result = datetimeFormatFunc.eval(
+        [
+          new TypedValue(date, CellValueType.DateTime, false),
+          new TypedValue('M/D/YYYY', CellValueType.String, false),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe('9/8/2023');
+    });
+  });
+
+  describe('DatetimeParse', () => {
+    const datetimeParseFunc = new DatetimeParse();
+    const date = new Date('2023-09-08 18:56:00').toISOString();
+
+    it('The function returns an ISO string when given a date-time ISO string without a specific format', () => {
+      const result = datetimeParseFunc.eval([new TypedValue(date, CellValueType.DateTime, false)], {
+        record: {} as IRecord,
+        dependencies: {},
+        timeZone: 'America/Los_Angeles',
+      });
+
+      expect(result).toBe(date);
+    });
+
+    it('The function parses a date-time ISO string into a new date-time format, returning a new date-time ISO string', () => {
+      const result = datetimeParseFunc.eval(
+        [
+          new TypedValue('8 Sep 2023 18:00', CellValueType.String, false),
+          new TypedValue('D MMM YYYY HH:mm', CellValueType.String, false),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'America/Los_Angeles',
+        }
+      );
+
+      expect(result).toBe(
+        dayjs.tz('8 Sep 2023 18:00', 'D MMM YYYY HH:mm', 'America/Los_Angeles').toISOString()
+      );
+    });
+
+    it('reparses datetime inputs through the provided format before returning an ISO string', () => {
+      const result = datetimeParseFunc.eval(
+        [
+          new TypedValue('2025-01-05T00:00:00.000Z', CellValueType.DateTime, false),
+          new TypedValue('MMYYYY', CellValueType.String, false),
+        ],
+        {
+          record: {} as IRecord,
+          dependencies: {},
+          timeZone: 'UTC',
+        }
+      );
+
+      expect(result).toBe('2025-01-01T00:00:00.000Z');
+    });
+  });
+
+  describe('CreatedTime', () => {
+    const createdTimeFunc = new CreatedTime();
+    const date = new Date().toISOString();
+    const record: IRecord = {
+      id: 'recTest',
+      fields: {},
+      createdTime: date,
+    };
+    const context = {
+      record,
+      dependencies: {},
+      timeZone: 'America/Los_Angeles',
+    };
+
+    it('Should return created time', () => {
+      const result = createdTimeFunc.eval([], context);
+
+      expect(result).toBe(date);
+    });
+  });
+
+  describe('LastModifiedTime', () => {
+    const lastModifiedTimeFunc = new LastModifiedTime();
+    const date = new Date().toISOString();
+    const record: IRecord = {
+      id: 'recTest',
+      fields: {},
+      createdTime: date,
+      lastModifiedTime: date,
+    };
+    const context = {
+      record,
+      dependencies: {},
+      timeZone: 'America/Los_Angeles',
+    };
+
+    it('Should return last modified time', () => {
+      const result = lastModifiedTimeFunc.eval([], context);
+
+      expect(result).toBe(date);
+    });
+
+    it('should allow a field reference parameter', () => {
+      const mockField = { id: 'fldTracked' } as unknown as FieldCore;
+      const fieldParam = new TypedValue('ignored', CellValueType.String, false, mockField);
+      const result = lastModifiedTimeFunc.eval([fieldParam], context);
+
+      expect(result).toBe(date);
+    });
+
+    it('should allow multiple field reference parameters', () => {
+      const fieldA = { id: 'fldA' } as unknown as FieldCore;
+      const fieldB = { id: 'fldB' } as unknown as FieldCore;
+      const fieldParams = [
+        new TypedValue('ignored', CellValueType.String, false, fieldA),
+        new TypedValue('ignored', CellValueType.Number, false, fieldB),
+      ];
+
+      const result = lastModifiedTimeFunc.eval(fieldParams, context);
+
+      expect(result).toBe(date);
+    });
+
+    it('should throw when the parameter is not a field reference', () => {
+      const literalParam = new TypedValue('2023-09-08', CellValueType.String, false);
+
+      expect(() => lastModifiedTimeFunc.eval([literalParam], context)).toThrow(
+        'LAST_MODIFIED_TIME parameter must be a field reference'
+      );
+    });
+
+    it('should throw when any parameter is not a field reference', () => {
+      const mockField = { id: 'fldTracked' } as unknown as FieldCore;
+      const fieldParam = new TypedValue('ignored', CellValueType.String, false, mockField);
+      const literalParam = new TypedValue('bad', CellValueType.String, false);
+
+      expect(() => lastModifiedTimeFunc.eval([fieldParam, literalParam], context)).toThrow(
+        'LAST_MODIFIED_TIME parameter must be a field reference'
+      );
+    });
+  });
+
+  describe('DateAdd permutations', () => {
+    const context = {
+      record: {} as IRecord,
+      dependencies: {},
+      timeZone: 'UTC',
+    };
+    const baseDateIso = '2025-01-01T00:00:00.000Z';
+    const baseNumberValue = 3;
+    const dateAddFunc = new DateAdd();
+    const baseDate = new TypedValue(baseDateIso, CellValueType.DateTime, false);
+    const unitDay = new TypedValue('day', CellValueType.String, false);
+
+    const literalCount = new TypedValue(1, CellValueType.Number, false);
+    const fieldCount = new TypedValue(baseNumberValue, CellValueType.Number, false);
+    const formulaCount = new TypedValue(baseNumberValue * 2, CellValueType.Number, false);
+
+    [
+      { label: 'literal numeric count', count: literalCount, expectedOffset: 1 },
+      { label: 'number field count', count: fieldCount, expectedOffset: baseNumberValue },
+      {
+        label: 'numeric formula field count',
+        count: formulaCount,
+        expectedOffset: baseNumberValue * 2,
+      },
+    ].forEach(({ label, count, expectedOffset }) => {
+      it(`should add days when count argument comes from ${label}`, () => {
+        const result = dateAddFunc.eval([baseDate, count, unitDay], context);
+
+        expect(typeof result).toBe('string');
+        const expectedIso = dayjs(baseDateIso).add(expectedOffset, 'day').toISOString();
+        expect(result).toBe(expectedIso);
+      });
+    });
+  });
+
+  describe('DatetimeParse permutations', () => {
+    const context = {
+      record: {} as IRecord,
+      dependencies: {},
+      timeZone: 'UTC',
+    };
+    const datetimeParseFunc = new DatetimeParse();
+
+    it('should parse ISO strings from text literals', () => {
+      const textIso = '2025-05-04T12:34:56Z';
+      const result = datetimeParseFunc.eval(
+        [
+          new TypedValue(textIso, CellValueType.String, false),
+          new TypedValue('YYYY-MM-DDTHH:mm:ss[Z]', CellValueType.String, false),
+        ],
+        context
+      );
+
+      expect(result).toBe(dayjs(textIso).toISOString());
+    });
+
+    it('should parse ISO strings from formula text output', () => {
+      const formulaIso = '2024-12-31T00:00:00Z';
+      const result = datetimeParseFunc.eval(
+        [
+          new TypedValue(formulaIso, CellValueType.String, false),
+          new TypedValue('YYYY-MM-DD[T]HH:mm:ss[Z]', CellValueType.String, false),
+        ],
+        context
+      );
+
+      expect(result).toBe(dayjs(formulaIso).toISOString());
+    });
+  });
+
+  describe('FromNow / ToNow permutations', () => {
+    const context = {
+      record: {} as IRecord,
+      dependencies: {},
+      timeZone: 'UTC',
+    };
+    const fromNowFunc = new FromNow();
+    const toNowFunc = new ToNow();
+
+    it('should evaluate FROMNOW using literal offsets', () => {
+      const targetIso = dayjs().subtract(5, 'day').toISOString();
+      const result = fromNowFunc.eval(
+        [
+          new TypedValue(targetIso, CellValueType.DateTime, false),
+          new TypedValue('day', CellValueType.String, false),
+          new TypedValue(true, CellValueType.Boolean, false),
+        ],
+        context
+      );
+
+      const expectedDiff = Math.abs(dayjs().diff(dayjs(targetIso), 'day', true));
+      expect(typeof result).toBe('number');
+      expect(Math.abs((result as number) - expectedDiff)).toBeLessThan(0.05);
+    });
+
+    it('should evaluate TONOW using literal offsets', () => {
+      const targetIso = dayjs().add(2, 'day').toISOString();
+      const result = toNowFunc.eval(
+        [
+          new TypedValue(targetIso, CellValueType.DateTime, false),
+          new TypedValue('day', CellValueType.String, false),
+          new TypedValue(true, CellValueType.Boolean, false),
+        ],
+        context
+      );
+
+      const expectedDiff = Math.abs(dayjs(targetIso).diff(dayjs(), 'day', true));
+      expect(typeof result).toBe('number');
+      expect(Math.abs((result as number) - expectedDiff)).toBeLessThan(0.05);
+    });
+  });
+
+  describe('WorkdayDiff permutations', () => {
+    const context = {
+      record: {} as IRecord,
+      dependencies: {},
+      timeZone: 'UTC',
+    };
+    const workdayDiffFunc = new WorkdayDiff();
+    const workdayFunc = new Workday();
+
+    it('should calculate workday difference with literal holidays', () => {
+      const start = new TypedValue('2025-01-01T00:00:00.000Z', CellValueType.DateTime, false);
+      const end = new TypedValue('2025-01-10T00:00:00.000Z', CellValueType.DateTime, false);
+      const holidays = new TypedValue('2025-01-06', CellValueType.String, false);
+
+      const result = workdayDiffFunc.eval([start, end, holidays], context);
+
+      expect(result).toBe(6);
+    });
+
+    it('should return a negative count for reverse workday ranges', () => {
+      const start = new TypedValue('2026-03-02T00:00:00.000Z', CellValueType.DateTime, false);
+      const end = new TypedValue('2026-02-23T00:00:00.000Z', CellValueType.DateTime, false);
+
+      const result = workdayDiffFunc.eval([start, end], context);
+
+      expect(result).toBe(-5);
+    });
+
+    it('should stay inverse to WORKDAY for business-day offsets', () => {
+      const start = new TypedValue('2026-02-23T00:00:00.000Z', CellValueType.DateTime, false);
+      const offset = new TypedValue(5, CellValueType.Number, false);
+      const end = workdayFunc.eval([start, offset], context);
+
+      expect(end).toBeTruthy();
+      if (end == null) return;
+
+      const result = workdayDiffFunc.eval(
+        [start, new TypedValue(end, CellValueType.DateTime, false)],
+        context
+      );
+
+      expect(result).toBe(5);
+    });
+  });
+
+  describe('CreatedTime / LastModifiedTime permutations', () => {
+    const created = '2025-02-01T00:00:00.000Z';
+    const modified = '2025-02-02T12:00:00.000Z';
+    const record: IRecord = {
+      id: 'recMatrix',
+      fields: {},
+      createdTime: created,
+      lastModifiedTime: modified,
+    };
+    const context = {
+      record,
+      dependencies: {},
+      timeZone: 'UTC',
+    };
+    const createdTimeFunc = new CreatedTime();
+    const lastModifiedTimeFunc = new LastModifiedTime();
+    const datetimeDiffFunc = new DatetimeDiff();
+
+    it('should evaluate chained formulas using created and last modified timestamps', () => {
+      const createdTime = createdTimeFunc.eval([], context);
+      const lastModifiedTime = lastModifiedTimeFunc.eval([], context);
+
+      expect(createdTime).toBe(created);
+      expect(lastModifiedTime).toBe(modified);
+
+      const diff = datetimeDiffFunc.eval(
+        [
+          new TypedValue(lastModifiedTime, CellValueType.DateTime, false),
+          new TypedValue(createdTime, CellValueType.DateTime, false),
+          new TypedValue('hour', CellValueType.String, false),
+        ],
+        context
+      );
+
+      expect(typeof diff).toBe('number');
+      expect(diff as number).toBeCloseTo(36, 6);
+    });
+  });
+});

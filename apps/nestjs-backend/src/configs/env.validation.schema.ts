@@ -1,0 +1,87 @@
+/* eslint-disable @typescript-eslint/naming-convention */
+import Joi from 'joi';
+
+export const envValidationSchema = Joi.object({
+  NODE_ENV: Joi.string().valid('test', 'development', 'production').default('development'),
+  PORT: Joi.number().default(3000),
+
+  NEXTJS_DIR: Joi.string(),
+
+  SWAGGER_DISABLED: Joi.string().equal('true').optional(),
+
+  // logger
+  LOG_LEVEL: Joi.string().valid('fatal', 'error', 'warn', 'info', 'debug', 'trace').default('info'),
+
+  // database_url
+  PRISMA_DATABASE_URL: Joi.string(),
+  PRISMA_META_DATABASE_URL: Joi.string(),
+  DATABASE_URL: Joi.string(),
+  V2_COMPUTED_UPDATE_MODE: Joi.string().valid('sync').optional(),
+
+  STORAGE_PREFIX: Joi.string().uri().optional(),
+
+  PUBLIC_ORIGIN: Joi.string().uri().required(),
+
+  // Express `trust proxy`: 'true' | 'false' | hop count | IP/CIDR/preset list.
+  // Unset = trust private-network proxies (see parseTrustProxy in bootstrap.config).
+  BACKEND_TRUST_PROXY: Joi.string().optional(),
+
+  // cache
+  BACKEND_CACHE_PROVIDER: Joi.string().valid('memory', 'sqlite', 'redis').default('sqlite'),
+  // cache-sqlite
+  BACKEND_CACHE_SQLITE_URI: Joi.when('BACKEND_CACHE_PROVIDER', {
+    is: 'sqlite',
+    then: Joi.string()
+      .pattern(/^sqlite:\/\//)
+      .message('Cache `sqlite` the URI must start with the protocol `sqlite://`'),
+  }),
+  // cache-redis
+  BACKEND_CACHE_REDIS_URI: Joi.string()
+    .pattern(/^(redis:\/\/|rediss:\/\/)/)
+    .message('Cache `redis` the URI must start with the protocol `redis://` or `rediss://`')
+    .required(),
+
+  V2_COMPUTED_OUTBOX_TRIGGER_PRODUCER_ENABLED: Joi.boolean().optional(),
+  V2_COMPUTED_OUTBOX_TRIGGER_CONSUMER_ENABLED: Joi.boolean().optional(),
+  V2_COMPUTED_OUTBOX_TRIGGER_CONCURRENCY: Joi.number().integer().positive().default(8),
+  V2_COMPUTED_OUTBOX_TRIGGER_PUBLISH_TIMEOUT_MS: Joi.number().integer().positive().default(1000),
+  V2_COMPUTED_OUTBOX_MONITOR_CONCURRENCY: Joi.number().integer().positive().default(4),
+  V2_COMPUTED_OUTBOX_MONITOR_INTERVAL_MS: Joi.number().integer().positive().default(30000),
+  // github auth
+  BACKEND_GITHUB_CLIENT_ID: Joi.when('SOCIAL_AUTH_PROVIDERS', {
+    is: Joi.string()
+      .regex(/(^|,)(github)(,|$)/)
+      .required(),
+    then: Joi.string().required().messages({
+      'any.required':
+        'The `BACKEND_GITHUB_CLIENT_ID` is required when `SOCIAL_AUTH_PROVIDERS` includes `github`',
+    }),
+  }),
+  BACKEND_GITHUB_CLIENT_SECRET: Joi.when('SOCIAL_AUTH_PROVIDERS', {
+    is: Joi.string()
+      .regex(/(^|,)(github)(,|$)/)
+      .required(),
+    then: Joi.string().required().messages({
+      'any.required':
+        'The `BACKEND_GITHUB_CLIENT_SECRET` is required when `SOCIAL_AUTH_PROVIDERS` includes `github`',
+    }),
+  }),
+
+  PASSWORD_LOGIN_DISABLED: Joi.string().equal('true').optional(),
+})
+  .custom((env: Record<string, unknown>, helpers) => {
+    if (
+      env.V2_COMPUTED_OUTBOX_TRIGGER_PRODUCER_ENABLED === false &&
+      env.V2_COMPUTED_OUTBOX_TRIGGER_CONSUMER_ENABLED === false
+    ) {
+      return helpers.message({
+        custom: 'BullMQ computed outbox requires a producer or consumer role',
+      });
+    }
+    return env;
+  })
+  .or('PRISMA_META_DATABASE_URL', 'PRISMA_DATABASE_URL', 'DATABASE_URL')
+  .messages({
+    'object.missing':
+      'One of `PRISMA_META_DATABASE_URL`, legacy `PRISMA_DATABASE_URL`, or `DATABASE_URL` is required',
+  });

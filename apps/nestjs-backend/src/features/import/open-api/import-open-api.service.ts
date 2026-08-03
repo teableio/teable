@@ -1,0 +1,467 @@
+import { Injectable, Logger, Optional } from '@nestjs/common';
+import type { IFieldRo } from '@teable/core';
+import { FieldType, getRandomString, HttpErrorCode, TimeFormatting } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
+import {
+  CreateRecordAction,
+  type IAnalyzeRo,
+  type IImportOptionRo,
+  type IImportStatusVo,
+  type IInplaceImportOptionRo,
+  type ITableFullVo,
+} from '@teable/openapi';
+import { chunk, difference } from 'lodash';
+import { ClsService } from 'nestjs-cls';
+import { CacheService } from '../../../cache/cache.service';
+import { CustomHttpException } from '../../../custom.exception';
+import { ShareDbService } from '../../../share-db/share-db.service';
+import type { IClsStore } from '../../../types/cls';
+import { AuditScope } from '../../audit/audit-scope';
+import { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
+import { NotificationService } from '../../notification/notification.service';
+import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
+import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migration-guard.service';
+import { DEFAULT_VIEWS, DEFAULT_FIELDS } from '../../table/constant';
+import { TableOpenApiService } from '../../table/open-api/table-open-api.service';
+import { ImportMetricsService } from '../metrics/import-metrics.service';
+import {
+  ImportTableCsvChunkQueueProcessor,
+  TABLE_IMPORT_CSV_CHUNK_QUEUE,
+} from './import-csv-chunk.processor';
+import {
+  getImportLatestJobKey,
+  getImportResultManifestKey,
+  IMPORT_LATEST_JOB_TTL_SECONDS,
+} from './import-result-manifest';
+import { importerFactory } from './import.class';
+
+const maxFieldsLength = 500;
+const maxFieldsChunkSize = 30;
+
+/**
+ * System-wide cap on **waiting** (queued but not yet processing) import jobs.
+ * This is a global limit across all pods (BullMQ queue is shared via Redis).
+ * Active jobs are excluded — they are already consuming workers and will complete.
+ * Only the backlog of waiting jobs is capped to prevent unbounded queue growth
+ * and excessive user wait times.
+ *
+ * Default 50 is generous enough for multi-pod deployments (e.g. 5 pods × ~10 each).
+ * Tune via IMPORT_MAX_WAITING_JOBS env variable based on cluster size.
+ */
+const maxWaitingImports = Number(process.env.IMPORT_MAX_WAITING_JOBS ?? Infinity);
+
+@Injectable()
+export class ImportOpenApiService {
+  private logger = new Logger(ImportOpenApiService.name);
+  constructor(
+    private readonly tableOpenApiService: TableOpenApiService,
+    private readonly cls: ClsService<IClsStore>,
+    private readonly prismaService: PrismaService,
+    private readonly recordOpenApiService: RecordOpenApiService,
+    private readonly notificationService: NotificationService,
+    private readonly shareDbService: ShareDbService,
+    private readonly importTableCsvChunkQueueProcessor: ImportTableCsvChunkQueueProcessor,
+    private readonly fieldOpenApiService: FieldOpenApiService,
+    private readonly cacheService: CacheService,
+    private readonly audit: AuditScope,
+    @Optional()
+    private readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService,
+    @Optional() private readonly importMetrics?: ImportMetricsService
+  ) {}
+
+  /**
+   * Reject new imports when the global queue backlog (waiting jobs) is too deep.
+   * Active jobs are excluded — they are already being processed by workers.
+   */
+  private async checkImportConcurrencyLimit() {
+    try {
+      const queue = this.importTableCsvChunkQueueProcessor.queue;
+      const waitingJobs = await queue.getJobCountByTypes('waiting');
+
+      if (waitingJobs >= maxWaitingImports) {
+        this.logger.warn(
+          `Import queue backlog limit reached: ${waitingJobs}/${maxWaitingImports} waiting jobs`
+        );
+        throw new CustomHttpException(
+          `Too many import tasks queued (${waitingJobs}/${maxWaitingImports}). Please try again later.`,
+          HttpErrorCode.TOO_MANY_REQUESTS,
+          {
+            localization: {
+              i18nKey: 'httpErrors.import.tooManyConcurrentImports',
+              context: {
+                current: waitingJobs,
+                max: maxWaitingImports,
+              },
+            },
+          }
+        );
+      }
+    } catch (e) {
+      if (e instanceof CustomHttpException) {
+        throw e;
+      }
+      this.logger.warn('Failed to check import queue backlog, allowing import to proceed', e);
+    }
+  }
+
+  async analyze(analyzeRo: IAnalyzeRo) {
+    const { attachmentUrl, fileType } = analyzeRo;
+
+    const importer = importerFactory(fileType, {
+      url: attachmentUrl,
+      type: fileType,
+    });
+
+    return await importer.genColumns();
+  }
+
+  async createTableFromImport(baseId: string, importRo: IImportOptionRo, maxRowCount?: number) {
+    await this.spaceDataDbMigrationGuard?.assertBaseWritable(baseId);
+    await this.checkImportConcurrencyLimit();
+
+    const userId = this.cls.get('user.id');
+    const origin = this.cls.get('origin');
+    const { worksheets, notification = false, tz, fileType, attachmentUrl } = importRo;
+
+    this.importMetrics?.recordImportQueued({ fileType, operationType: 'create_table' });
+
+    // only record base table info, not include records
+    const tableResult: ITableFullVo[] = [];
+
+    for (const [sheetKey, value] of Object.entries(worksheets)) {
+      const { importData, useFirstRowAsHeader, columns, name } = value;
+
+      const columnInfo = columns.length ? columns : [...DEFAULT_FIELDS];
+      const fieldsRo = columnInfo.map((col, index) => {
+        const result: IFieldRo & {
+          isPrimary?: boolean;
+        } = {
+          ...col,
+        };
+
+        if (index === 0) {
+          result.isPrimary = true;
+        }
+
+        // Date Field should have default tz
+        if (col.type === FieldType.Date) {
+          result.options = {
+            formatting: {
+              timeZone: tz,
+              date: 'YYYY-MM-DD',
+              time: TimeFormatting.None,
+            },
+          };
+        }
+
+        return result;
+      });
+
+      const table = await this.audit.withOperation(
+        {
+          rootAction: CreateRecordAction.Import,
+          resourceId: baseId,
+          params: { fileType },
+        },
+        async () => {
+          const logId = this.audit.current()!.operationId;
+          let created: ITableFullVo;
+          try {
+            created = await this.createSingleTable(baseId, name, fieldsRo);
+          } catch (e) {
+            this.logger.error(e);
+            throw e;
+          }
+          tableResult.push(created);
+
+          const jobId = `${ImportTableCsvChunkQueueProcessor.JOB_ID_PREFIX}:${created.id}:${getRandomString(6)}`;
+
+          if (importData && columns.length) {
+            await this.importTableCsvChunkQueueProcessor.queue.add(
+              `${TABLE_IMPORT_CSV_CHUNK_QUEUE}_job`,
+              {
+                baseId,
+                table: { id: created.id, name: created.name },
+                userId,
+                origin,
+                importerParams: { attachmentUrl, fileType, maxRowCount },
+                options: {
+                  skipFirstNLines: useFirstRowAsHeader ? 1 : 0,
+                  sheetKey,
+                  notification,
+                },
+                recordsCal: {
+                  fields: created.fields.map((f) => ({ id: f.id, name: f.name, type: f.type })),
+                  columnInfo: columns,
+                },
+                ro: importRo,
+                logId,
+              },
+              { jobId, removeOnComplete: 1000, removeOnFail: 1000 }
+            );
+            await this.cacheService
+              .setDetail(getImportLatestJobKey(created.id), jobId, IMPORT_LATEST_JOB_TTL_SECONDS)
+              .catch((e) => {
+                this.logger.warn(
+                  `Failed to set latest import job index for table ${created.id}, job ${jobId}`,
+                  e
+                );
+              });
+          }
+          return created;
+        }
+      );
+      void table;
+    }
+    return tableResult;
+  }
+
+  async createSingleTable(baseId: string, name: string, fieldsRo: IFieldRo[]) {
+    const length = fieldsRo.length;
+
+    if (length > maxFieldsLength) {
+      throw new CustomHttpException(
+        `The number of fields in the table cannot exceed ${maxFieldsLength}, current is ${length}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.import.exceedMaxFieldsLength',
+            context: {
+              length,
+              maxFieldsLength,
+            },
+          },
+        }
+      );
+    }
+
+    const chunkFields = chunk(fieldsRo, maxFieldsChunkSize) as IFieldRo[][];
+
+    let tableId: string | undefined;
+
+    for (const chunk of chunkFields) {
+      if (!tableId) {
+        const table = await this.tableOpenApiService.createTable(baseId, {
+          name,
+          fields: chunk,
+          views: DEFAULT_VIEWS,
+          records: [],
+        });
+        tableId = table.id;
+        continue;
+      }
+
+      await this.fieldOpenApiService.createFieldsByRo(tableId, chunk);
+    }
+
+    const table = (await this.tableOpenApiService.getTable(baseId, tableId!)) as ITableFullVo;
+    const fields = await this.fieldOpenApiService.getFields(tableId!, {});
+
+    table.fields = fields;
+
+    return table;
+  }
+
+  async inplaceImportTable(
+    baseId: string,
+    tableId: string,
+    inplaceImportRo: IInplaceImportOptionRo,
+    maxRowCount?: number,
+    projection?: string[]
+  ) {
+    await this.spaceDataDbMigrationGuard?.assertTableWritable(tableId);
+    await this.checkImportConcurrencyLimit();
+
+    const userId = this.cls.get('user.id');
+    const origin = this.cls.get('origin');
+    const { attachmentUrl, fileType, insertConfig, notification = false } = inplaceImportRo;
+
+    this.importMetrics?.recordImportQueued({ fileType, operationType: 'inplace' });
+
+    const { sourceColumnMap, sourceWorkSheetKey, excludeFirstRow } = insertConfig;
+
+    const tableRaw = await this.prismaService.tableMeta
+      .findUnique({
+        where: { id: tableId, deletedTime: null },
+        select: { name: true },
+      })
+      .catch(() => {
+        throw new CustomHttpException('Table not found', HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.table.notFound',
+          },
+        });
+      });
+
+    const fieldRaws = await this.prismaService.field.findMany({
+      where: { tableId, deletedTime: null, hasError: null },
+      select: {
+        id: true,
+        name: true,
+        type: true,
+      },
+    });
+
+    if (projection) {
+      const inplaceFieldIds = Object.keys(sourceColumnMap);
+      const noUpdateFields = difference(inplaceFieldIds, projection);
+      if (noUpdateFields.length !== 0) {
+        const tips = noUpdateFields.join(',');
+        throw new CustomHttpException(
+          `There is no permission to update there field ${tips}`,
+          HttpErrorCode.RESTRICTED_RESOURCE,
+          {
+            localization: {
+              i18nKey: 'httpErrors.permission.updateRecordWithDeniedFields',
+              context: {
+                fields: tips,
+              },
+            },
+          }
+        );
+      }
+    }
+
+    if (!tableRaw || !fieldRaws) {
+      return;
+    }
+
+    await this.audit.withOperation(
+      {
+        rootAction: CreateRecordAction.InplaceImport,
+        resourceId: tableId,
+        params: { fileType },
+      },
+      async () => {
+        const jobId = await this.generateChunkJobId(tableId);
+        const logId = this.audit.current()!.operationId;
+
+        await this.importTableCsvChunkQueueProcessor.queue.add(
+          `${TABLE_IMPORT_CSV_CHUNK_QUEUE}_job`,
+          {
+            baseId,
+            table: {
+              id: tableId,
+              name: tableRaw.name,
+            },
+            userId,
+            origin,
+            importerParams: {
+              attachmentUrl,
+              fileType,
+              maxRowCount,
+            },
+            options: {
+              skipFirstNLines: excludeFirstRow ? 1 : 0,
+              sheetKey: sourceWorkSheetKey,
+              notification,
+            },
+            recordsCal: {
+              sourceColumnMap,
+              fields: fieldRaws as { id: string; name: string; type: FieldType }[],
+            },
+            ro: inplaceImportRo,
+            logId,
+          },
+          {
+            jobId,
+            removeOnComplete: 1000,
+            removeOnFail: 1000,
+          }
+        );
+        await this.cacheService
+          .setDetail(getImportLatestJobKey(tableId), jobId, IMPORT_LATEST_JOB_TTL_SECONDS)
+          .catch((e) => {
+            this.logger.warn(
+              `Failed to set latest import job index for table ${tableId}, job ${jobId}`,
+              e
+            );
+          });
+      }
+    );
+  }
+
+  async getImportStatus(tableId: string): Promise<IImportStatusVo> {
+    const queue = this.importTableCsvChunkQueueProcessor.queue;
+    const latestJobId = await this.cacheService.get(getImportLatestJobKey(tableId));
+    if (!latestJobId) {
+      return { tableId, status: 'not_found' };
+    }
+    const job = await queue.getJob(latestJobId);
+    if (!job) {
+      return { tableId, status: 'not_found' };
+    }
+
+    const state = await job.getState();
+    const status = this.mapQueueStateToImportStatus(state);
+    const result: IImportStatusVo = { tableId, status };
+
+    if (status === 'completed' || status === 'failed') {
+      const manifest = await this.cacheService.get(getImportResultManifestKey(latestJobId));
+      this.fillCompletedOrFailedCounts(result, manifest, job.returnvalue);
+    }
+
+    if (status === 'running' || status === 'pending') {
+      this.fillRunningCounts(result, job.progress);
+    }
+
+    if (status === 'failed') {
+      result.message = job.failedReason ?? 'Import failed';
+    }
+
+    return result;
+  }
+
+  async generateChunkJobId(tableId: string) {
+    return `${ImportTableCsvChunkQueueProcessor.JOB_ID_PREFIX}:${tableId}:${getRandomString(6)}`;
+  }
+
+  private mapQueueStateToImportStatus(state: string): IImportStatusVo['status'] {
+    if (state === 'waiting' || state === 'delayed') {
+      return 'pending';
+    }
+    if (state === 'active') {
+      return 'running';
+    }
+    if (state === 'completed') {
+      return 'completed';
+    }
+    if (state === 'failed') {
+      return 'failed';
+    }
+    return 'not_found';
+  }
+
+  private fillCompletedOrFailedCounts(
+    result: IImportStatusVo,
+    manifest: unknown,
+    returnValue: unknown
+  ) {
+    if (manifest && typeof manifest === 'object') {
+      const m = manifest as {
+        successCount?: number;
+        failedCount?: number;
+        errorReportUrl?: string;
+      };
+      result.successCount = m.successCount;
+      result.failedCount = m.failedCount;
+      result.errorReportUrl = m.errorReportUrl;
+      return;
+    }
+
+    if (returnValue && typeof returnValue === 'object') {
+      const rv = returnValue as { success?: number; failed?: number };
+      result.successCount = rv.success;
+      result.failedCount = rv.failed;
+    }
+  }
+
+  private fillRunningCounts(result: IImportStatusVo, progress: unknown) {
+    if (!progress || typeof progress !== 'object') {
+      return;
+    }
+    const p = progress as { successCount?: number; failedCount?: number };
+    result.successCount = p.successCount;
+    result.failedCount = p.failedCount;
+  }
+}

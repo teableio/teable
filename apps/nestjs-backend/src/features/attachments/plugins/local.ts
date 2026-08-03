@@ -1,0 +1,444 @@
+/* eslint-disable sonarjs/no-duplicate-string */
+/* eslint-disable @typescript-eslint/naming-convention */
+import { createReadStream, createWriteStream, unlinkSync, existsSync, rmSync } from 'fs';
+import { type Readable as ReadableStream } from 'node:stream';
+import { join, resolve } from 'path';
+import { Injectable, Logger } from '@nestjs/common';
+import { getRandomString, HttpErrorCode, isImage } from '@teable/core';
+import { READ_PATH } from '@teable/openapi';
+import type { Request } from 'express';
+import * as fse from 'fs-extra';
+import { ClsService } from 'nestjs-cls';
+import sharp from 'sharp';
+import { CacheService } from '../../../cache/cache.service';
+import { BaseConfig, IBaseConfig } from '../../../configs/base.config';
+import { IStorageConfig, StorageConfig } from '../../../configs/storage';
+import { CustomHttpException } from '../../../custom.exception';
+import type { IClsStore } from '../../../types/cls';
+import { FileUtils } from '../../../utils';
+import { Encryptor } from '../../../utils/encryptor';
+import { normalizeImageDimensions } from '../../../utils/image-orientation';
+import { second } from '../../../utils/second';
+import StorageAdapter from './adapter';
+import type {
+  ILocalFileUpload,
+  IListObjectsOptions,
+  IListObjectsResult,
+  IObjectMeta,
+  IPresignParams,
+  IRespHeaders,
+} from './types';
+import { isBodyParserFallback } from './utils';
+
+interface ITokenEncryptor {
+  expiresDate: number;
+  respHeaders?: IRespHeaders;
+}
+
+@Injectable()
+export class LocalStorage implements StorageAdapter {
+  private logger = new Logger(LocalStorage.name);
+  path: string;
+  storageDir: string;
+  expireTokenEncryptor: Encryptor<ITokenEncryptor>;
+  static readPath = READ_PATH;
+
+  constructor(
+    @StorageConfig() readonly config: IStorageConfig,
+    @BaseConfig() readonly baseConfig: IBaseConfig,
+    private readonly cacheService: CacheService,
+    private readonly cls: ClsService<IClsStore>
+  ) {
+    this.expireTokenEncryptor = new Encryptor(this.config.encryption);
+    this.path = this.config.local.path;
+    this.storageDir = resolve(process.cwd(), this.path);
+    fse.ensureDirSync(StorageAdapter.TEMPORARY_DIR);
+    fse.ensureDirSync(this.storageDir);
+  }
+
+  private getUploadUrl(token: string, internal?: boolean) {
+    const baseUrl = internal ? `http://localhost:${process.env.PORT}` : '';
+    return `${baseUrl}/api/attachments/upload/${token}`;
+  }
+
+  private deleteLocalFile(filePath: string) {
+    try {
+      unlinkSync(filePath);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
+      if (error?.code === 'ENOENT') {
+        return;
+      }
+      throw error;
+    }
+  }
+
+  private getUrl(bucket: string, path: string, params: ITokenEncryptor) {
+    const token = this.expireTokenEncryptor.encrypt(params);
+    const responseContentDisposition = params.respHeaders?.['Content-Disposition'];
+    return `${join(LocalStorage.readPath, bucket, path)}?token=${token}${responseContentDisposition ? `&response-content-disposition=${encodeURIComponent(responseContentDisposition)}` : ''}`;
+  }
+
+  parsePath(path: string) {
+    const parts = path.split('/');
+    return {
+      bucket: parts[0],
+      token: parts[parts.length - 1],
+    };
+  }
+
+  async presigned(_bucket: string, dir: string, params: IPresignParams) {
+    const { contentType, contentLength, hash, internal } = params;
+    const token = getRandomString(12);
+    const filename = hash ?? token;
+    const expiresIn = params?.expiresIn ?? second(this.config.tokenExpireIn);
+    await this.cacheService.set(
+      `attachment:local-signature:${token}`,
+      {
+        expiresDate: Math.floor(Date.now() / 1000) + expiresIn,
+        contentLength,
+        contentType,
+      },
+      expiresIn
+    );
+
+    const path = join(dir, filename);
+    return {
+      token,
+      path,
+      url: this.getUploadUrl(token, internal),
+      uploadMethod: 'PUT',
+      requestHeaders: {
+        'Content-Type': contentType,
+        'Content-Length': contentLength,
+      },
+    };
+  }
+
+  async validateToken(token: string, file: ILocalFileUpload) {
+    const validateMeta = await this.cacheService.get(`attachment:local-signature:${token}`);
+    if (!validateMeta) {
+      throw new CustomHttpException('Invalid token', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.attachment.invalidToken',
+        },
+      });
+    }
+    const { expiresDate, contentLength, contentType } = validateMeta;
+
+    const { size, mimetype } = file;
+    if (Math.floor(Date.now() / 1000) > expiresDate) {
+      throw new CustomHttpException('Token has expired', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.attachment.tokenExpired',
+        },
+      });
+    }
+    if (contentLength && contentLength !== size) {
+      throw new CustomHttpException('Size mismatch', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.attachment.sizeMismatch',
+        },
+      });
+    }
+    if (mimetype && !isBodyParserFallback(mimetype, contentType) && mimetype !== contentType) {
+      throw new CustomHttpException(
+        `Not allow upload ${mimetype} file`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.attachment.notAllowUploadFileType',
+            context: {
+              mimetype,
+            },
+          },
+        }
+      );
+    }
+  }
+
+  async saveTemporaryFile(req: Request) {
+    const name = getRandomString(12);
+    const path = resolve(StorageAdapter.TEMPORARY_DIR, name);
+    let size = 0;
+    return new Promise<ILocalFileUpload>((resolve, reject) => {
+      try {
+        const fileStream = createWriteStream(path);
+        req.on('data', (chunk) => {
+          fileStream.write(chunk);
+          size += chunk.length;
+        });
+
+        req.on('end', () => {
+          fileStream.end();
+        });
+        req.on('error', (err) => {
+          fileStream.end();
+          reject(err.message);
+        });
+
+        fileStream.on('error', (err) => {
+          reject(err.message);
+        });
+
+        fileStream.on('finish', () => {
+          resolve({
+            size,
+            mimetype: req.headers['content-type'] as string,
+            path,
+          });
+        });
+      } catch (error) {
+        this.logger.error('saveTemporaryFile error', error);
+        this.deleteLocalFile(path);
+        reject(error);
+      }
+    });
+  }
+
+  async save(filePath: string, rename: string, isDelete: boolean = true) {
+    const distPath = resolve(this.storageDir);
+    const newFilePath = resolve(distPath, rename);
+    await fse.copy(filePath, newFilePath);
+    if (isDelete) {
+      this.deleteLocalFile(filePath);
+    }
+    return join(this.path, rename);
+  }
+
+  read(path: string) {
+    return createReadStream(resolve(this.storageDir, path));
+  }
+
+  getLastModifiedTime(path: string) {
+    const url = resolve(this.storageDir, path);
+    if (!fse.existsSync(url)) {
+      return;
+    }
+    return fse.statSync(url).mtimeMs;
+  }
+
+  async getFileMate(path: string) {
+    try {
+      const info = await sharp(path).metadata();
+      return normalizeImageDimensions(info);
+    } catch (error) {
+      return {};
+    }
+  }
+
+  async getObjectMeta(bucket: string, path: string, token: string): Promise<IObjectMeta> {
+    const uploadCache = await this.cacheService.get(`attachment:upload:${token}`);
+    if (!uploadCache) {
+      throw new CustomHttpException('Invalid token', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.attachment.invalidToken',
+        },
+      });
+    }
+    const { mimetype, hash, size } = uploadCache;
+
+    const meta = {
+      hash,
+      mimetype,
+      size,
+      url: this.getUrl(bucket, path, {
+        respHeaders: { 'Content-Type': mimetype },
+        expiresDate: -1,
+      }),
+    };
+
+    if (!isImage(mimetype ?? '')) {
+      return meta;
+    }
+    return {
+      ...meta,
+      ...(await this.getFileMate(resolve(this.storageDir, bucket, path))),
+    };
+  }
+
+  async getPreviewUrl(
+    bucket: string,
+    path: string,
+    expiresIn: number = second(this.config.urlExpireIn),
+    respHeaders?: IRespHeaders
+  ): Promise<string> {
+    const url = this.getUrl(bucket, path, {
+      expiresDate: Math.floor(Date.now() / 1000) + expiresIn,
+      respHeaders,
+    });
+    const origin = this.cls.get('origin');
+    const prefix = origin?.byApi ? this.baseConfig.storagePrefix : '';
+    return prefix + join('/', url);
+  }
+
+  verifyReadToken(token: string) {
+    let payload: ITokenEncryptor;
+    try {
+      payload = this.expireTokenEncryptor.decrypt(token);
+    } catch (error) {
+      throw new CustomHttpException('Invalid token', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.attachment.invalidToken',
+        },
+      });
+    }
+    const { expiresDate, respHeaders } = payload;
+    if (expiresDate > 0 && Math.floor(Date.now() / 1000) > expiresDate) {
+      throw new CustomHttpException('Token has expired', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.attachment.tokenExpired',
+        },
+      });
+    }
+    return { respHeaders };
+  }
+
+  async uploadFileWidthPath(
+    bucket: string,
+    path: string,
+    filePath: string,
+    _metadata: Record<string, unknown>
+  ) {
+    const hash = await FileUtils.getHash(filePath);
+    await this.save(filePath, join(bucket, path), false);
+    return {
+      hash,
+      path,
+    };
+  }
+
+  async uploadFile(
+    bucket: string,
+    path: string,
+    stream: Buffer | ReadableStream,
+    _metadata?: Record<string, unknown>
+  ) {
+    const name = getRandomString(12);
+    const temPath = resolve(StorageAdapter.TEMPORARY_DIR, name);
+    if (stream instanceof Buffer) {
+      await fse.writeFile(temPath, stream);
+    } else {
+      const writer = createWriteStream(temPath);
+      await new Promise<void>((resolve, reject) => {
+        stream.pipe(writer);
+        stream.on('error', reject);
+        writer.on('finish', resolve);
+        writer.on('error', reject);
+      }).catch((err) => {
+        this.deleteLocalFile(temPath);
+        throw err;
+      });
+    }
+    const hash = await FileUtils.getHash(temPath);
+    await this.save(temPath, join(bucket, path));
+    return {
+      hash,
+      path,
+    };
+  }
+
+  async uploadFileStream(
+    bucket: string,
+    path: string,
+    stream: Buffer | ReadableStream,
+    _metadata?: Record<string, unknown>
+  ) {
+    return await this.uploadFile(bucket, path, stream, _metadata);
+  }
+
+  async cropImage(
+    bucket: string,
+    path: string,
+    width?: number,
+    height?: number,
+    _newPath?: string
+  ) {
+    const newPath = _newPath || `${path}_${width ?? 0}_${height ?? 0}`;
+    const resizedImagePath = resolve(this.storageDir, bucket, newPath);
+    if (fse.existsSync(resizedImagePath)) {
+      return newPath;
+    }
+
+    const imagePath = resolve(this.storageDir, bucket, path);
+    const image = sharp(imagePath, { failOn: 'none', unlimited: true }).rotate();
+    const metadata = await image.metadata();
+    if (!metadata.width || !metadata.height) {
+      throw new CustomHttpException('Invalid image', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.attachment.invalidImage',
+        },
+      });
+    }
+    const resizedImage = image.resize(width, height);
+    const tmpPath = `${resizedImagePath}_tmp_${getRandomString(8)}`;
+    try {
+      await resizedImage.toFile(tmpPath);
+      await fse.move(tmpPath, resizedImagePath, { overwrite: true });
+    } finally {
+      await fse.remove(tmpPath);
+    }
+    return newPath;
+  }
+
+  async downloadFile(bucket: string, path: string): Promise<ReadableStream> {
+    return createReadStream(resolve(this.storageDir, bucket, path));
+  }
+
+  async listObjects(
+    bucket: string,
+    prefix: string,
+    options?: IListObjectsOptions
+  ): Promise<IListObjectsResult> {
+    const objects: IListObjectsResult['objects'] = [];
+    const prefixes = new Set<string>();
+    const bucketDir = resolve(this.storageDir, bucket);
+    // emulate S3 prefix semantics on the filesystem: prefix is a key prefix, keys use '/'
+    const isRelevant = (key: string) =>
+      key.startsWith(prefix) || prefix.startsWith(`${key}/`) || prefix.startsWith(key);
+    const walk = (dir: string, keyPrefix: string) => {
+      if (!existsSync(dir)) return;
+      for (const entry of fse.readdirSync(dir, { withFileTypes: true })) {
+        const key = keyPrefix ? `${keyPrefix}/${entry.name}` : entry.name;
+        if (!isRelevant(key)) continue;
+        if (entry.isFile()) {
+          if (key.startsWith(prefix)) {
+            objects.push({ key, size: fse.statSync(join(dir, entry.name)).size });
+          }
+          continue;
+        }
+        if (!entry.isDirectory()) continue;
+        if (options?.delimiter && key.startsWith(prefix)) {
+          prefixes.add(`${key}${options.delimiter}`);
+          continue;
+        }
+        walk(join(dir, entry.name), key);
+      }
+    };
+    walk(bucketDir, '');
+    objects.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+    return { objects, prefixes: [...prefixes].sort() };
+  }
+
+  async deleteFile(bucket: string, path: string): Promise<void> {
+    const filePath = resolve(this.storageDir, bucket, path);
+    this.deleteLocalFile(filePath);
+  }
+
+  async deleteDir(bucket: string, path: string, throwError: boolean = true) {
+    const dirPath = resolve(this.storageDir, bucket, path);
+    try {
+      if (existsSync(dirPath)) {
+        rmSync(dirPath, { recursive: true, force: true });
+      } else {
+        this.logger.error('delete dir failed: no such dir', dirPath);
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
+      if (error?.code === 'ENOENT' || !throwError) {
+        return;
+      }
+      throw error;
+    }
+  }
+}

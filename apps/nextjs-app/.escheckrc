@@ -1,0 +1,6 @@
+{
+  "ecmaVersion": "es2018",
+  "module": false,
+  "files": "./.next/static/chunks/**/*.js",
+  "not": ["./.next/static/chunks/**/89fde0c3*.js"]
+}

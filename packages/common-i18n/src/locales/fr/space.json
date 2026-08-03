@@ -1,0 +1,256 @@
+{
+  "crossSpace": {
+    "duplicateBaseTitle": "Avis",
+    "duplicateBaseDescription": "Les références inter-espaces ne sont pas prises en charge. La copie sera convertie en un champ de texte sur une seule ligne.",
+    "affectedTableSuffix": "({{count}} champ(s))",
+    "convertAndDuplicate": "Convertir et dupliquer"
+  },
+  "initialSpaceName": "Espace de {{name}}",
+  "action": {
+    "createBase": "Créer une base",
+    "createSpace": "Créer un espace",
+    "invite": "Inviter",
+    "startFromScratch": "Partir de zéro"
+  },
+  "allSpaces": "Tous les espaces",
+  "emptySpaceTitle": "Aucune base dans cet espace",
+  "spaceIsEmpty": "Créez votre première base pour commencer",
+  "baseModal": {
+    "copy": "Copier",
+    "duplicate": "Dupliquer \"{{baseName}}\"",
+    "createBaseFromTemplate": "Créer une base à partir d'un modèle",
+    "duplicateRecords": "Dupliquer les enregistrements",
+    "duplicateRecordsTip": "Votre historique des révisions et vos collaborateurs ne seront pas dupliqués.",
+    "toSpace": "Vers l'espace",
+    "copyToSpace": "Copier vers l'espace",
+    "duplicateBase": "Dupliquer la base",
+    "missTargetTip": "Veuillez sélectionner un espace pour dupliquer la base.",
+    "copying": "Duplication de la base, cela peut prendre un certain temps...",
+    "howToCreate": "Comment souhaitez-vous commencer ?",
+    "fromScratch": "À partir de zéro",
+    "fromTemplate": "À partir d'un modèle",
+    "moveBaseToAnotherSpace": "Déplacer {{baseName}} vers un autre espace",
+    "chooseSpace": "Choisir un espace"
+  },
+  "spaceSetting": {
+    "title": "Paramètres de l'espace",
+    "general": "Général",
+    "collaborators": "Collaborateurs",
+    "generalDescription": "Modifiez ici les paramètres de votre espace actuel",
+    "spaceName": "Nom de l'espace",
+    "spaceId": "ID de l'espace"
+  },
+  "pin": {
+    "add": "Ajouter aux favoris",
+    "remove": "Retirer des favoris",
+    "pin": "Épingler",
+    "empty": "Vos bases et espaces favoris apparaîtront ici"
+  },
+  "tooltip": {
+    "noPermissionToCreateBase": "Vous n'avez pas la permission de créer une base"
+  },
+  "tip": {
+    "delete": "Êtes-vous sûr de vouloir supprimer <0/> ?",
+    "exportTips2": "Vous pouvez importer le fichier .tea dans espace -> plus -> importer",
+    "exportTips3": "Les champs de relation inter-base seront convertis en texte sur une seule ligne.",
+    "exportIncludeDataLabel": "Inclure les enregistrements",
+    "exportIncludeDataDescription": "Exporter uniquement la structure et la configuration lorsque désactivé",
+    "exportTitle": "Exporter",
+    "exportDescription": "Exporter la base de données actuelle en fichier .tea, cela peut prendre un certain temps.",
+    "exportStartButton": "Commencer l'exportation",
+    "exportSlowTip": "Le volume de données est important. L'exportation peut prendre du temps. Vous pouvez quitter temporairement.",
+    "exportReadyDescription": "Veuillez télécharger le fichier .tea, {{importHint}}",
+    "moveBaseSuccessTitle": "Déplacement réussi",
+    "moveBaseSuccessDescription": "{{baseName}} a été déplacé avec succès vers {{spaceName}}",
+    "moveBaseCrossSpaceTitle": "Avis",
+    "moveBaseCrossSpaceDataLossWarning": "Les références inter-espaces ne sont pas prises en charge. Les champs associés seront convertis en champs de texte. Cette action est irréversible."
+  },
+  "deleteSpaceModal": {
+    "title": "Supprimer l'espace",
+    "blockedTitle": "Impossible de supprimer cet espace",
+    "blockedDesc": "Cet espace a un abonnement actif. Veuillez annuler l'abonnement avant de supprimer l'espace."
+  },
+  "sharedBase": {
+    "title": "Partagé avec moi",
+    "description": "Toutes les bases auxquelles j'ai été invité à rejoindre",
+    "empty": "Aucune base partagée avec moi pour le moment"
+  },
+  "integration": {},
+  "aiSetting": {
+    "title": "Paramètres IA",
+    "description": "Gérer les paramètres IA de votre espace",
+    "enable": "Initialiser les paramètres IA"
+  },
+  "import": {
+    "importing": "Importation en cours",
+    "baseImportTips": "Cliquez ou glissez-déposez le fichier .tea dans cette zone pour télécharger",
+    "confirm": "Confirmer et continuer",
+    "phase": {
+      "parsingStructure": "Parsing structure",
+      "creatingBase": "Creating base: {{detail}}",
+      "creatingTable": "Creating table: {{detail}}",
+      "creatingCommonFields": "Creating basic fields for {{table}}: {{fields}}",
+      "creatingButtonFields": "Creating button fields for {{table}}: {{fields}}",
+      "creatingFormulaFields": "Creating formula fields for {{table}}: {{fields}}",
+      "creatingLinkFields": "Creating link fields for {{table}}: {{fields}}",
+      "creatingLookupFields": "Creating lookup fields for {{table}}: {{fields}}",
+      "creatingTableViews": "Creating views for {{table}}: {{fields}}",
+      "creatingPlugins": "Creating plugins",
+      "creatingFolders": "Creating folders",
+      "creatingWorkflows": "Creating workflows",
+      "creatingApps": "Creating apps",
+      "creatingAuthorityMatrix": "Creating authority matrix",
+      "queuingAttachments": "Queuing attachment uploads",
+      "uploadingAppFiles": "Uploading app files",
+      "queuingDataImport": "Queuing data import",
+      "done": "Import completed",
+      "clickToView": "Cliquer pour voir"
+    }
+  },
+  "template": {
+    "title": "Modèle",
+    "description": "Créer rapidement une nouvelle base à partir d'un modèle",
+    "noTemplatesAvailable": "Aucun modèle disponible",
+    "noTemplatesDescription": "Il n'y a rien ici pour le moment"
+  },
+  "recentlyBase": {
+    "title": "Consulté récemment"
+  },
+  "noBases": {
+    "title": "Bonjour {{userName}} !",
+    "description": "Commençons à gérer votre travail avec votre première base."
+  },
+  "noSpaces": {
+    "title": "Bonjour {{userName}} !",
+    "description": "Créez votre premier espace pour commencer votre voyage de collaboration de données."
+  },
+  "baseList": {
+    "allBases": "Toutes les bases",
+    "creator": "Créateur",
+    "createdTime": "Créé",
+    "lastOpened": "Dernière ouverture",
+    "enter": "Entrer",
+    "noTables": "Aucun tableau",
+    "empty": "Aucune base pour le moment"
+  },
+  "publishBase": {
+    "title": "Publier dans le centre de modèles",
+    "description": "Publiez votre base dans le centre de modèles en un clic ! Laissez plus de gens voir, utiliser et remixer votre créativité, et construisez ensemble une entreprise plus puissante",
+    "infoTitle": "Infos de base",
+    "form": {
+      "title": "Titre",
+      "description": "Description",
+      "security": "Sécurité",
+      "advanced": "Avancé",
+      "publishNode": "Publier les nœuds",
+      "includeData": "Inclure les données",
+      "defaultActiveNode": "Nœud actif par défaut",
+      "descriptionPlaceholder": "Décrivez brièvement votre idée...",
+      "titlePlaceholder": "Nommez votre travail..."
+    },
+    "publishToCommunity": "Publier dans le centre de modèles",
+    "publish": "Publier",
+    "publishSuccess": "Publication réussie !",
+    "previewTips": "Montrez votre travail au monde",
+    "update": "Mettre à jour",
+    "unPublish": "Dépublier",
+    "unPublishSuccess": "Base dépubliée avec succès !",
+    "unPublishConfirmTitle": "Confirmer la dépublication",
+    "unPublishConfirmDescription": "Êtes-vous sûr de vouloir dépublier cette base ? Elle ne sera plus visible dans le centre de modèles.",
+    "uploadCover": "Cliquez pour télécharger l'image de couverture",
+    "changeCover": "Cliquez pour changer la couverture",
+    "uploading": "Téléchargement de l'image...",
+    "uploadSuccess": "Image téléchargée avec succès",
+    "uploadFailed": "Échec du téléchargement",
+    "invalidImageType": "Veuillez sélectionner un fichier image",
+    "tips": {
+      "publishValidation": "le titre et la description sont requis",
+      "atLeastOneNode": "Sélectionnez au moins un nœud à publier"
+    },
+    "urlCopied": "URL copiée dans le presse-papiers !",
+    "urlCopiedForDiscord": "URL copiée dans le presse-papiers ! Vous pouvez la coller dans Discord.",
+    "featuredLabel": "Featured",
+    "unfeaturedLabel": "Unfeatured",
+    "featuredTip": "Officiellement sélectionné comme vedette. Votre modèle recevra plus de visibilité.",
+    "unfeaturedTip": "Pas encore mis en vedette. Continuez à améliorer pour avoir une chance d'être recommandé. Laissez plus de gens voir votre travail.",
+    "publishSuccessDescription": "Partagez votre travail avec le monde",
+    "shareWith": "Partager avec",
+    "unpublishedApps": {
+      "title": "Applications non publiées détectées",
+      "description": "Les applications non publiées peuvent provoquer des erreurs d'aperçu du modèle. Publiez-les maintenant ou continuez.",
+      "publishAll": "Tout publier",
+      "publish": "Publier",
+      "published": "Publiée",
+      "publishing": "Publication...",
+      "publishFailed": "Échec de la publication",
+      "publishFailedTip1": "Vérifiez si l'application source peut être publiée avec succès",
+      "publishFailedTip2": "Essayez de republier ce modèle",
+      "notPublished": "Non publiée",
+      "ignoreAndContinue": "Ignorer et continuer",
+      "goToFix": "Aller corriger",
+      "redeploy": "Redéployer",
+      "unnamedApp": "Application sans nom"
+    }
+  },
+  "airtableImport": {
+    "title": "Importer depuis Airtable",
+    "close": "Fermer",
+    "pickBase": "Choisissez la base à importer",
+    "noBases": "Aucune base accessible n'a été trouvée pour ce jeton.",
+    "optionRecords": "Importer les enregistrements",
+    "optionAttachments": "Télécharger et importer les pièces jointes",
+    "import": "Lancer l'import",
+    "done": "Import terminé",
+    "failed": "Échec de l'import",
+    "openBase": "Ouvrir la base",
+    "issuesSummary": "{{count}} éléments ont été ajustés pendant l'import :",
+    "issuesMore": "+{{count}} de plus",
+    "issue": {
+      "fieldDegraded": "{{tableName}} / {{fieldName}} : {{fromType}} → {{toType}}",
+      "fieldSkipped": "{{tableName}} / {{fieldName}} ({{fromType}}) ignoré : {{reason}}",
+      "viewSkipped": "{{tableName}} / vue « {{viewName}} » ({{fromType}}) ignorée",
+      "valuesDropped": "{{tableName}} / {{fieldName}} : {{count}} valeurs ignorées ({{reason}})",
+      "viewConfigDegraded": "{{tableName}} / vue « {{viewName}} » : {{reason}}"
+    },
+    "phase": {
+      "fetchingSchema": "Lecture de la structure de la base Airtable",
+      "creatingBase": "Création de la base : {{detail}}",
+      "creatingTable": "Création de la table : {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "creatingLinks": "Création des champs de lien",
+      "fillingLinks": "{{tableName}} (liens)",
+      "applyingViewConfig": "Importation de la configuration des vues"
+    },
+    "searchBases": "Rechercher des bases",
+    "noSearchResults": "Aucune base ne correspond à la recherche.",
+    "detecting": "Vérification de la connexion Airtable…",
+    "connectWithAirtable": "Connecter un compte Airtable",
+    "waitingOAuth": "Terminez l'autorisation dans la fenêtre…",
+    "connectedAs": "Connecté : {{account}}",
+    "permission": {
+      "create": "Créateur",
+      "edit": "Éditeur",
+      "comment": "Commentateur",
+      "read": "Lecture seule"
+    },
+    "integrationRequired": "L'intégration Airtable n'est pas configurée sur cette instance. Demandez à un administrateur de la configurer.",
+    "optionViewConfig": "Importer les filtres, tris et regroupements des vues",
+    "viewConfig": {
+      "help": "L’API Airtable n’expose pas la configuration des vues ; un lien de partage en lecture seule est donc nécessaire.",
+      "helpStep1": "Dans Airtable, ouvrez le menu « Share » de la base",
+      "helpStep2": "Choisissez « Share to web » et activez l’accès complet à la base",
+      "helpStep3": "Copiez le lien en lecture seule et collez-le dans le champ ci-dessus",
+      "linkPlaceholder": "Collez le lien de partage ici",
+      "mismatch": "Ce lien de partage pointe vers une base différente de celle sélectionnée.",
+      "disableReminder": "Terminé — vous pouvez désormais désactiver le lien de partage dans Airtable."
+    }
+  },
+  "createBaseDialog": {
+    "title": "Comment voulez-vous commencer ?"
+  },
+  "importBaseDialog": {
+    "title": "Importer une base",
+    "fromFile": "Importer depuis un fichier",
+    "fromFileDesc": "Téléverser un fichier de base .tea",
+    "fromAirtableDesc": "Connecter votre compte Airtable"
+  }
+}

@@ -1,0 +1,103 @@
+name: Publish Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_id:
+        description: 'Release tag name, e.g. release.2026-04-20T10-38-57Z.1507'
+        required: true
+        type: string
+      release_note:
+        description: 'Final English release note in Markdown'
+        required: true
+        type: string
+      publish_latest:
+        description: 'Whether GitHub should mark this release as latest'
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout develop
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 0
+
+      - name: Build release body
+        env:
+          RELEASE_NOTE: ${{ inputs.release_note }}
+        run: |
+          printf '%s\n' "$RELEASE_NOTE" > release-body.md
+
+      - name: Create or update GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ inputs.release_id }}
+          PUBLISH_LATEST: ${{ inputs.publish_latest && 'true' || 'false' }}
+        run: |
+          set -euo pipefail
+
+          ensure_tag() {
+            local target_sha
+            target_sha="$(git rev-parse HEAD)"
+
+            if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_ID}" >/dev/null 2>&1; then
+              echo "Tag ${RELEASE_ID} already exists"
+              return 0
+            fi
+
+            gh api "repos/${GITHUB_REPOSITORY}/git/refs" \
+              --method POST \
+              --field ref="refs/tags/${RELEASE_ID}" \
+              --field sha="${target_sha}"
+          }
+
+          upsert_release() {
+            local release_body release_payload response_file release_api_id
+            response_file="$(mktemp)"
+            release_body="$(cat release-body.md)"
+            release_payload="$(jq -nc \
+              --arg tag_name "${RELEASE_ID}" \
+              --arg name "${RELEASE_ID}" \
+              --arg target_commitish "develop" \
+              --arg body "${release_body}" \
+              --arg make_latest "${PUBLISH_LATEST}" \
+              '{
+                tag_name: $tag_name,
+                name: $name,
+                target_commitish: $target_commitish,
+                body: $body,
+                draft: false,
+                prerelease: false,
+                make_latest: $make_latest
+              }')"
+
+            if gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_ID}" >"${response_file}" 2>/dev/null; then
+              release_api_id="$(jq -r '.id' "${response_file}")"
+              gh api "repos/${GITHUB_REPOSITORY}/releases/${release_api_id}" \
+                --method PATCH \
+                --input - <<<"${release_payload}" >"${response_file}"
+            else
+              gh api "repos/${GITHUB_REPOSITORY}/releases" \
+                --method POST \
+                --input - <<<"${release_payload}" >"${response_file}"
+            fi
+
+            release_url="$(jq -r '.html_url // empty' "${response_file}")"
+            if [ -z "${release_url}" ]; then
+              echo "Missing html_url in GitHub release response" >&2
+              cat "${response_file}" >&2
+              return 1
+            fi
+          }
+
+          ensure_tag
+          upsert_release

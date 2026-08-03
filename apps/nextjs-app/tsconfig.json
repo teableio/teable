@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": "./src",
+    "target": "esnext",
+    "experimentalDecorators": true,
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "module": "esnext",
+    "jsx": "preserve",
+    "incremental": true,
+    "moduleResolution": "Bundler",
+    "paths": {
+      "@/test-utils": ["../config/tests/test-utils"],
+      "@/config/*": ["./config/*"],
+      "@/lib/*": ["./lib/*"],
+      "@/components/*": ["./components/*"],
+      "@/backend/*": ["./backend/*"],
+      "@/features/*": ["./features/*"],
+      "@/pages/*": ["./pages/*"],
+      "@/public/*": ["../public/*"],
+      "@/themes/*": ["./themes/*"],
+      "@/styles/*": ["./styles/*"],
+      "@/api/*": ["./api/*"],
+      "@overridable/SpaceInnerSettingModal": [
+        "./features/app/blocks/space-setting/SpaceInnerSettingModal"
+      ],
+      "@overridable/WorkFlowPanel": ["./features/app/automation/workflow-panel/WorkFlowPanel"],
+      "@overridable/SettingDialog": ["./features/app/components/setting/SettingDialog"],
+      "@teable/common-i18n": ["../../../packages/common-i18n/src/index"],
+      "@teable/common-i18n/locales/*": ["../../../packages/common-i18n/src/locales/*"],
+      "@teable/ui-lib/*": ["../../../packages/ui-lib/src/*"],
+      "@teable/ui-lib": ["../../../packages/ui-lib/src/index"],
+      "@teable/sdk/*": ["../../../packages/sdk/src/*"],
+      "@teable/sdk": ["../../../packages/sdk/src/index"],
+      "@teable/db-main-prisma": ["../../../packages/db-main-prisma/src/index"],
+      "@teable/core": ["../../../packages/core/src/index"],
+      "@teable/openapi": ["../../../packages/openapi/src/index"],
+      "@teable/icons": ["../../../packages/icons/src/index"],
+      "@teable/formula": ["../../../packages/formula/src/index"]
+    },
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "types": ["vitest/globals", "node"]
+  },
+  "exclude": ["**/node_modules", "**/.*/"],
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    "**/*.mts",
+    "**/*.js",
+    "**/*.cjs",
+    "**/*.mjs",
+    "**/*.jsx",
+    "**/*.json",
+    ".next/types/**/*.ts"
+  ]
+}

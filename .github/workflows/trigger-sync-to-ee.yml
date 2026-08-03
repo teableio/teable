@@ -1,0 +1,54 @@
+name: Trigger Sync to EE
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  check-and-trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get latest commit info
+        id: commit-info
+        run: |
+          COMMIT_MSG=$(git log -1 --format="%s")
+          COMMIT_AUTHOR=$(git log -1 --format="%an")
+          
+          echo "message=$COMMIT_MSG" >> $GITHUB_OUTPUT
+          echo "author=$COMMIT_AUTHOR" >> $GITHUB_OUTPUT
+
+      - name: Check if should trigger sync
+        id: check-trigger
+        run: |
+          COMMIT_MSG="${{ steps.commit-info.outputs.message }}"
+          COMMIT_AUTHOR="${{ steps.commit-info.outputs.author }}"
+          
+          # Skip if commit message contains [sync] marker or author is the sync bot
+          # This prevents circular sync loops
+          if [[ "$COMMIT_MSG" == *"[sync]"* ]] || [[ "$COMMIT_AUTHOR" == "teable-bot" ]]; then
+            echo "trigger=false" >> $GITHUB_OUTPUT
+            echo "⏭️ Skipping trigger: commit is from sync workflow"
+          else
+            echo "trigger=true" >> $GITHUB_OUTPUT
+            echo "✅ Will trigger sync to EE"
+          fi
+
+      - name: Trigger sync to EE
+        if: steps.check-trigger.outputs.trigger == 'true'
+        run: |
+          curl -X POST \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: token ${{ secrets.BOT_TOKEN }}" \
+            https://api.github.com/repos/teableio/teable-ee/dispatches \
+            -d '{"event_type": "sync-from-opensource"}'
+          
+          echo "✅ Triggered sync workflow in teable-ee"
+
+      - name: Skipped
+        if: steps.check-trigger.outputs.trigger == 'false'
+        run: echo "⏭️ Sync trigger skipped to avoid circular dependency"
+

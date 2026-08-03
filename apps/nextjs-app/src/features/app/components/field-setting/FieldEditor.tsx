@@ -1,0 +1,304 @@
+import { useQuery } from '@tanstack/react-query';
+import type { IFieldOptionsRo, IFieldVo } from '@teable/core';
+import {
+  FieldType,
+  checkFieldNotNullValidationEnabled,
+  checkFieldUniqueValidationEnabled,
+  isConditionalLookupOptions,
+  isLinkLookupOptions,
+} from '@teable/core';
+import { Plus } from '@teable/icons';
+import { getField } from '@teable/openapi';
+import { useFieldStaticGetter } from '@teable/sdk';
+import { useFields } from '@teable/sdk/hooks';
+import { Button, Textarea } from '@teable/ui-lib/shadcn';
+import { Input } from '@teable/ui-lib/shadcn/ui/input';
+import { useTranslation } from 'next-i18next';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { tableConfig } from '@/features/i18n/table.config';
+import { useIsCloud } from '../../hooks/useIsCloud';
+import { useIsEE } from '../../hooks/useIsEE';
+import { FieldAiConfig } from './field-ai-config';
+import { FieldValidation } from './field-validation/FieldValidation';
+import { FieldOptions } from './FieldOptions';
+import type { IFieldOptionsProps } from './FieldOptions';
+import { hydrateLookupFieldState } from './hooks/hydrateLookupFieldState';
+import { useUpdateConditionalLookupOptions } from './hooks/useUpdateConditionalLookupOptions';
+import { useUpdateLookupOptions } from './hooks/useUpdateLookupOptions';
+import { LookupOptions } from './lookup-options/LookupOptions';
+import { ConditionalLookupOptions } from './options/ConditionalLookupOptions';
+import { SelectFieldType } from './SelectFieldType';
+import { SystemInfo } from './SystemInfo';
+import { FieldOperator } from './type';
+import type { IFieldEditorRo } from './type';
+import { useFieldTypeSubtitle } from './useFieldTypeSubtitle';
+
+const useSelectedLookupField = (field: Partial<IFieldEditorRo>) => {
+  const fields = useFields({ withHidden: true, withDenied: true });
+  const lookupOptions = isLinkLookupOptions(field.lookupOptions) ? field.lookupOptions : undefined;
+  const lookupFieldId = lookupOptions?.lookupFieldId;
+  const foreignTableId = lookupOptions?.foreignTableId;
+
+  const localLookupField = useMemo(() => {
+    if (!lookupFieldId) return undefined;
+    return fields.find((candidate) => candidate.id === lookupFieldId);
+  }, [fields, lookupFieldId]);
+
+  const shouldFetchLookupField = Boolean(field.isLookup && foreignTableId && lookupFieldId);
+
+  const { data: remoteLookupField } = useQuery({
+    queryKey: ['field-editor-lookup-field', foreignTableId, lookupFieldId],
+    queryFn: async () => {
+      const res = await getField(foreignTableId!, lookupFieldId!);
+      return res.data;
+    },
+    enabled: shouldFetchLookupField && !localLookupField,
+  });
+
+  return localLookupField ?? remoteLookupField;
+};
+
+export const FieldEditor = (props: {
+  isPrimary?: boolean;
+  field: Partial<IFieldEditorRo>;
+  operator: FieldOperator;
+  onChange?: (field: IFieldEditorRo) => void;
+  onSave?: () => void;
+}) => {
+  const { isPrimary, field, operator, onChange, onSave } = props;
+  const [showDescription, setShowDescription] = useState<boolean>(Boolean(field.description));
+  const setFieldFn = useCallback(
+    (field: IFieldEditorRo) => {
+      onChange?.(field);
+    },
+    [onChange]
+  );
+  const getFieldSubtitle = useFieldTypeSubtitle();
+  const getFieldStatic = useFieldStaticGetter();
+  const fields = useFields({ withHidden: true, withDenied: true });
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const selectedLookupField = useSelectedLookupField(field);
+
+  const isEE = useIsEE();
+  const isCloud = useIsCloud();
+
+  const updateFieldProps = (props: Partial<IFieldEditorRo>) => {
+    setFieldFn({
+      ...field,
+      ...props,
+    });
+  };
+
+  const updateFieldTypeWithLookup = (type: FieldType | 'lookup' | 'conditionalLookup') => {
+    if (type === 'lookup') {
+      return setFieldFn({
+        ...field,
+        type: FieldType.SingleLineText, // reset fieldType to default
+        options: undefined, // reset options
+        aiConfig: undefined,
+        isLookup: true,
+        isConditionalLookup: undefined,
+        unique: undefined,
+        notNull: undefined,
+      });
+    }
+
+    if (type === 'conditionalLookup') {
+      return setFieldFn({
+        ...field,
+        type: FieldType.SingleLineText,
+        options: undefined,
+        aiConfig: undefined,
+        isLookup: true,
+        isConditionalLookup: true,
+        unique: undefined,
+        notNull: undefined,
+        lookupOptions: undefined,
+      });
+    }
+
+    let options: IFieldOptionsRo | undefined = getFieldStatic(type, {
+      isLookup: false,
+      hasAiConfig: false,
+    }).defaultOptions as IFieldOptionsRo;
+
+    if (
+      [field.type, type].every((t) =>
+        [FieldType.MultipleSelect, FieldType.SingleSelect].includes(t as FieldType)
+      )
+    ) {
+      options = field.options;
+    }
+
+    setFieldFn({
+      ...field,
+      type,
+      isLookup: undefined,
+      isConditionalLookup: undefined,
+      lookupOptions: undefined,
+      aiConfig: undefined,
+      options,
+      unique: checkFieldUniqueValidationEnabled(type, field.isLookup) ? field.unique : undefined,
+      notNull:
+        operator === FieldOperator.Edit && checkFieldNotNullValidationEnabled(type, field.isLookup)
+          ? field.notNull
+          : undefined,
+    });
+  };
+
+  const updateFieldOptions: IFieldOptionsProps['onChange'] = useCallback(
+    (options) => {
+      setFieldFn({
+        ...field,
+        options: {
+          ...(field.options || {}),
+          ...options,
+        } as IFieldVo['options'],
+      });
+    },
+    [field, setFieldFn]
+  );
+
+  const updateLookupOptions = useUpdateLookupOptions(field, setFieldFn);
+  const updateConditionalLookupOptions = useUpdateConditionalLookupOptions(field, setFieldFn);
+
+  useEffect(() => {
+    if (!field.isLookup || field.isConditionalLookup || !selectedLookupField) {
+      return;
+    }
+
+    const lookupOptions = isLinkLookupOptions(field.lookupOptions)
+      ? field.lookupOptions
+      : undefined;
+    const linkField = lookupOptions?.linkFieldId
+      ? fields.find((candidate) => candidate.id === lookupOptions.linkFieldId)
+      : undefined;
+
+    const hydratedField = hydrateLookupFieldState({
+      field: field as IFieldEditorRo,
+      lookupField: selectedLookupField,
+      linkField,
+    });
+
+    if (hydratedField) {
+      setFieldFn(hydratedField);
+    }
+  }, [field, fields, selectedLookupField, setFieldFn]);
+
+  const getUnionOptions = () => {
+    if (field.isLookup) {
+      if (field.isConditionalLookup) {
+        const conditionalLookupOptions = isConditionalLookupOptions(field.lookupOptions)
+          ? field.lookupOptions
+          : undefined;
+
+        return (
+          <>
+            <ConditionalLookupOptions
+              fieldId={field.id}
+              options={conditionalLookupOptions}
+              onOptionsChange={updateConditionalLookupOptions}
+            />
+            <FieldOptions field={field} onChange={updateFieldOptions} onSave={onSave} />
+          </>
+        );
+      }
+
+      return (
+        <>
+          <LookupOptions
+            fieldId={field.id}
+            options={field.lookupOptions}
+            onChange={updateLookupOptions}
+          />
+          <FieldOptions field={field} onChange={updateFieldOptions} onSave={onSave} />
+        </>
+      );
+    }
+
+    if (field.type === FieldType.Rollup) {
+      return (
+        <>
+          <LookupOptions options={field.lookupOptions} onChange={updateLookupOptions} />
+          {field.lookupOptions && (
+            <FieldOptions field={field} onChange={updateFieldOptions} onSave={onSave} />
+          )}
+        </>
+      );
+    }
+
+    return <FieldOptions field={field} onChange={updateFieldOptions} onSave={onSave} />;
+  };
+
+  return (
+    <div className="flex w-full flex-1 flex-col gap-4 overflow-y-auto p-4 text-sm">
+      <div className="relative flex w-full flex-col gap-2">
+        <p className="text-sm font-medium">{t('common:name')}</p>
+        <Input
+          placeholder={t('table:field.fieldNameOptional')}
+          type="text"
+          size="lg"
+          value={field['name'] || ''}
+          data-1p-ignore="true"
+          autoComplete="off"
+          onChange={(e) => updateFieldProps({ name: e.target.value || undefined })}
+        />
+        {/* should place after the name input to make sure tab index correct */}
+        <SystemInfo field={field as IFieldVo} updateFieldProps={updateFieldProps} />
+        {!showDescription && (
+          <div className="text-left text-xs">
+            <Button
+              type="button"
+              variant="outline"
+              size="xs"
+              className=""
+              onClick={() => setShowDescription(true)}
+            >
+              <Plus className="size-4" />
+              {t('table:field.editor.addDescription')}
+            </Button>
+          </div>
+        )}
+      </div>
+      {showDescription && (
+        <div className="flex w-full flex-col gap-2">
+          <div>
+            <span className="mb-2 text-sm font-medium">{t('common:description')}</span>
+          </div>
+          <Textarea
+            className="min-h-12 resize-y"
+            value={field['description'] || undefined}
+            placeholder={t('table:field.editor.descriptionPlaceholder')}
+            onChange={(e) => updateFieldProps({ description: e.target.value || null })}
+          />
+        </div>
+      )}
+      <div className="flex w-full flex-col gap-2">
+        <div>
+          <span className="mb-2 text-sm font-medium">{t('table:field.editor.type')}</span>
+        </div>
+        <SelectFieldType
+          isPrimary={isPrimary}
+          value={
+            field.isLookup
+              ? field.isConditionalLookup
+                ? 'conditionalLookup'
+                : 'lookup'
+              : field.type
+          }
+          onChange={updateFieldTypeWithLookup}
+        />
+        <p className="text-left text-xs font-normal text-muted-foreground">
+          {field.isLookup
+            ? field.isConditionalLookup
+              ? t('table:field.subTitle.conditionalLookup')
+              : t('table:field.subTitle.lookup')
+            : getFieldSubtitle(field.type as FieldType)}
+        </p>
+      </div>
+      <FieldValidation field={field} operator={operator} onChange={updateFieldProps} />
+      {(isCloud || isEE) && <FieldAiConfig field={field} onChange={updateFieldProps} />}
+      {getUnionOptions()}
+    </div>
+  );
+};

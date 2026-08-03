@@ -1,0 +1,34 @@
+{
+  "apiQueryBuilder": "API query builder",
+  "subTitle": "You can quickly build your query requests through a interactive UI and copy the code that can be run directly",
+  "apiList": "Complete API list",
+  "cellFormat": "Cell result format",
+  "fieldKeyType": "Field key type",
+  "chooseSource": "Choose a data source",
+  "action": {
+    "selectBase": "Select a database...",
+    "selectTable": "Select a table..."
+  },
+  "pickParams": "Select and configure the parameters",
+  "buildResult": "Build result",
+  "buildResultEmpty": "Please select a table first",
+  "previewReturnValue": "Return value preview",
+  "replaceToken": "Replace token",
+  "createNewToken": "Create new token",
+  "showPagination": "Pagination parameters are displayed in JSON mode",
+  "addSort": "Add a sort",
+  "tabs": {
+    "apiBuilder": "API Builder",
+    "aiContext": "AI Context"
+  },
+  "aiContext": {
+    "title": "AI-Friendly Table Context",
+    "description": "Copy this context to your AI assistant (ChatGPT, Claude, etc.) to help it understand how to interact with your table data.",
+    "selectTableFirst": "Please select a table to generate AI context",
+    "fullContext": "Full Context",
+    "compactContext": "Compact",
+    "copyToClipboard": "Copy to Clipboard",
+    "copied": "Copied!",
+    "compactDescription": "A shorter version suitable for quick context sharing with token limits in mind."
+  }
+}

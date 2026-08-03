@@ -1,0 +1,236 @@
+import { DraggableHandle } from '@teable/icons';
+import type { DragEndEvent } from '@teable/ui-lib';
+import {
+  Switch,
+  Label,
+  Button,
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+  DndKitContext,
+  Draggable,
+  Droppable,
+} from '@teable/ui-lib';
+import { map } from 'lodash';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { useTranslation } from '../../context/app/i18n';
+import { useFieldStaticGetter } from '../../hooks';
+import type { IFieldInstance } from '../../model';
+import { ReadOnlyTip } from '../ReadOnlyTip';
+
+interface IHideFieldsBaseProps {
+  fields: IFieldInstance[];
+  hidden: string[];
+  footer?: React.ReactNode;
+  children: React.ReactNode;
+  onChange: (hidden: string[]) => void;
+  onOrderChange?: (fieldId: string, fromIndex: number, toIndex: number) => void;
+  onFieldClick?: (field: IFieldInstance) => void;
+}
+
+export const HideFieldsBase = (props: IHideFieldsBaseProps) => {
+  const { fields, hidden, footer, children, onChange, onOrderChange, onFieldClick } = props;
+  const { t } = useTranslation();
+  const fieldStaticGetter = useFieldStaticGetter();
+
+  const [innerFields, setInnerFields] = useState([...fields]);
+  const [dragHandleVisible, setDragHandleVisible] = useState(true);
+  const dragEnabled = Boolean(onOrderChange) && dragHandleVisible;
+
+  useEffect(() => {
+    setInnerFields([...fields]);
+  }, [fields]);
+
+  const statusMap = useMemo(() => {
+    return fields.reduce(
+      (acc, field) => {
+        acc[field.id] = !hidden.includes(field.id);
+        return acc;
+      },
+      {} as Record<string, boolean>
+    );
+  }, [fields, hidden]);
+
+  const switchChange = (id: string, checked: boolean) => {
+    if (checked) {
+      onChange(hidden.filter((fieldId) => fieldId !== id));
+      return;
+    }
+    onChange([...hidden, id]);
+  };
+
+  const showAll = () => {
+    onChange([]);
+  };
+
+  const hideAll = () => {
+    const hiddenFields = fields.filter((field) => !field.isPrimary);
+    onChange(map(hiddenFields, 'id'));
+  };
+
+  const dragEndHandler = (event: DragEndEvent) => {
+    const { over, active } = event;
+    const to = over?.data?.current?.sortable?.index;
+    const from = active?.data?.current?.sortable?.index;
+
+    if (!over || to === from) {
+      return;
+    }
+
+    const list = [...fields];
+    const [field] = list.splice(from, 1);
+    list.splice(to, 0, field);
+    setInnerFields(list);
+
+    onOrderChange?.(field.id, from, to);
+  };
+
+  const commandFilter = useCallback(
+    (fieldId: string, searchValue: string) => {
+      const currentField = fields.find(
+        ({ id }) => fieldId.toLocaleLowerCase() === id.toLocaleLowerCase()
+      );
+      const name = currentField?.name?.toLocaleLowerCase() || t('common.untitled');
+      const containWord = name.indexOf(searchValue.toLowerCase()) > -1;
+      return Number(containWord);
+    },
+    [fields, t]
+  );
+
+  const searchHandle = (value: string) => {
+    setDragHandleVisible(!value);
+  };
+
+  const content = () => (
+    <div className="rounded-lg">
+      <Command filter={commandFilter}>
+        <CommandInput
+          placeholder={t('common.search.placeholder')}
+          className="h-10 text-xs"
+          onValueChange={(value) => searchHandle(value)}
+        />
+        <CommandList className="max-h-[280px] p-2">
+          <CommandEmpty>{t('common.search.empty')}</CommandEmpty>
+          <DndKitContext onDragEnd={dragEndHandler}>
+            <Droppable items={innerFields.map(({ id }) => ({ id }))}>
+              {innerFields.map((field) => {
+                const { id, name, type, isLookup, isPrimary, aiConfig, canReadFieldRecord } = field;
+                const { Icon } = fieldStaticGetter(type, {
+                  isLookup,
+                  isConditionalLookup: field.isConditionalLookup,
+                  hasAiConfig: Boolean(aiConfig),
+                  deniedReadRecord: !canReadFieldRecord,
+                });
+                const handleFieldClick = () => {
+                  if (onFieldClick) {
+                    onFieldClick(field);
+                    return;
+                  }
+                  if (!isPrimary) {
+                    switchChange(id, !statusMap[id]);
+                  }
+                };
+                return (
+                  <Draggable key={id} id={id} disabled={!dragEnabled}>
+                    {({ setNodeRef, listeners, attributes, style, isDragging }) => (
+                      <>
+                        {
+                          <CommandItem
+                            className="flex flex-1 rounded-md p-0"
+                            key={id}
+                            value={id}
+                            ref={setNodeRef}
+                            style={{
+                              ...style,
+                              opacity: isDragging ? '0.6' : '1',
+                            }}
+                          >
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="flex flex-1 cursor-pointer items-center truncate p-0">
+                                    <Label
+                                      htmlFor={id}
+                                      className="flex cursor-pointer items-center p-2"
+                                    >
+                                      <Switch
+                                        id={id}
+                                        size="sm"
+                                        checked={statusMap[id]}
+                                        onCheckedChange={(checked) => {
+                                          switchChange(id, checked);
+                                        }}
+                                        disabled={isPrimary}
+                                      />
+                                    </Label>
+                                    <button
+                                      type="button"
+                                      className="flex min-w-0 flex-1 items-center truncate py-2 pr-2 text-left"
+                                      onClick={handleFieldClick}
+                                    >
+                                      <Icon className="size-4 shrink-0" />
+                                      <span className="h-full flex-1 cursor-pointer truncate pl-1 text-sm">
+                                        {name}
+                                      </span>
+                                    </button>
+                                    {/* forbid drag when search */}
+                                    {dragEnabled && (
+                                      <div {...attributes} {...listeners} className="pr-2">
+                                        <DraggableHandle></DraggableHandle>
+                                      </div>
+                                    )}
+                                  </div>
+                                </TooltipTrigger>
+                                {isPrimary ? (
+                                  <TooltipContent className="max-w-[360px]">
+                                    <span className="whitespace-normal break-words">
+                                      {t('hidden.primaryKey')}
+                                    </span>
+                                  </TooltipContent>
+                                ) : null}
+                              </Tooltip>
+                            </TooltipProvider>
+                          </CommandItem>
+                        }
+                      </>
+                    )}
+                  </Draggable>
+                );
+              })}
+            </Droppable>
+          </DndKitContext>
+        </CommandList>
+      </Command>
+      {dragHandleVisible && (
+        <div className="flex justify-between gap-3 border-t px-4 pb-4 pt-3">
+          <Button variant="outline" size="xs" className="w-32" onClick={showAll}>
+            {t('hidden.showAll')}
+          </Button>
+          <Button variant="outline" size="xs" className="w-32" onClick={hideAll}>
+            {t('hidden.hideAll')}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <Popover modal>
+      <PopoverTrigger asChild>{children}</PopoverTrigger>
+      <PopoverContent side="bottom" align="start" className="relative rounded-lg p-0">
+        <ReadOnlyTip />
+        {content()}
+        {footer}
+      </PopoverContent>
+    </Popover>
+  );
+};

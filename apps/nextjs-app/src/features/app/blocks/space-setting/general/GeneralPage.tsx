@@ -1,0 +1,208 @@
+/* eslint-disable jsx-a11y/no-autofocus */
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { hasPermission } from '@teable/core';
+import { Edit } from '@teable/icons';
+import {
+  deleteSpace,
+  getSpaceById,
+  permanentDeleteSpace,
+  updateSpace,
+  updateSpaceAvatar,
+  SPACE_NAME_MAX_LENGTH,
+} from '@teable/openapi';
+import { ReactQueryKeys } from '@teable/sdk/config';
+import { Button, Input } from '@teable/ui-lib/shadcn';
+import { useRouter } from 'next/router';
+import { useTranslation } from 'next-i18next';
+import { useState } from 'react';
+import { CopyButton } from '@/features/app/components/CopyButton';
+import { DeleteSpaceConfirm } from '@/features/app/components/space/DeleteSpaceConfirm';
+import { SpaceAvatar } from '@/features/app/components/space/SpaceAvatar';
+import { SpaceSettingContainer } from '@/features/app/components/SpaceSettingContainer';
+import { spaceConfig } from '@/features/i18n/space.config';
+
+export const GeneralPage = ({ spaceId: spaceIdProp }: { spaceId?: string } = {}) => {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const { t } = useTranslation(spaceConfig.i18nNamespaces);
+  const spaceId = (spaceIdProp ?? router.query.spaceId) as string;
+  const [isEditing, setIsEditing] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+
+  const { data: space } = useQuery({
+    queryKey: ReactQueryKeys.space(spaceId),
+    queryFn: ({ queryKey }) => getSpaceById(queryKey[1]).then((res) => res.data),
+    enabled: Boolean(spaceId),
+  });
+
+  const { mutateAsync: updateSpaceMutator } = useMutation({
+    mutationFn: updateSpace,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.spaceList() });
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.space(spaceId) });
+    },
+  });
+
+  const { mutate: updateSpaceAvatarMutator } = useMutation({
+    mutationFn: (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      return updateSpaceAvatar(spaceId, formData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.space(spaceId) });
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.spaceList() });
+    },
+  });
+
+  const uploadAvatar = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      return;
+    }
+    updateSpaceAvatarMutator(file);
+  };
+
+  const { mutate: deleteSpaceMutator } = useMutation({
+    mutationFn: deleteSpace,
+    onSuccess: () => {
+      router.push('/space');
+    },
+  });
+
+  const { mutate: permanentDeleteSpaceMutator } = useMutation({
+    mutationFn: permanentDeleteSpace,
+    onSuccess: () => {
+      router.push('/space');
+    },
+  });
+
+  const onBlur = async (e: React.FocusEvent<HTMLInputElement, Element>) => {
+    const value = e.target.value;
+    if (!value || value === space?.name) {
+      return setIsEditing(false);
+    }
+    await updateSpaceMutator({
+      spaceId,
+      updateSpaceRo: { name: value },
+    });
+    setIsEditing(false);
+  };
+
+  const onKeydown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      const value = e.currentTarget.value;
+      if (!value || value === space?.name) {
+        return setIsEditing(false);
+      }
+      await updateSpaceMutator({
+        spaceId,
+        updateSpaceRo: { name: value },
+      });
+      setIsEditing(false);
+    }
+  };
+
+  return (
+    <>
+      <SpaceSettingContainer
+        title={t('space:spaceSetting.general')}
+        description={t('space:spaceSetting.generalDescription')}
+      >
+        {!!space && (
+          <div className="flex h-full flex-col justify-between">
+            <div className="flex flex-col gap-y-4">
+              {/* Avatar */}
+              <div className="group relative size-14">
+                <SpaceAvatar
+                  name={space.name}
+                  avatar={space.avatar}
+                  className="size-14 rounded-md text-2xl"
+                />
+                {hasPermission(space.role, 'space|update') && (
+                  <div
+                    className="absolute inset-0 flex items-center justify-center rounded-md bg-black/60 opacity-0 group-hover:opacity-100"
+                    title={t('common:settings.account.updatePhoto')}
+                  >
+                    <Edit className="size-5 text-white" />
+                    <input
+                      type="file"
+                      className="absolute inset-0 size-full cursor-pointer opacity-0"
+                      accept="image/*"
+                      onChange={uploadAvatar}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Space name */}
+              <div className="flex w-full flex-col gap-y-2 overflow-visible sm:max-w-sm">
+                <label className="text-sm font-medium">{t('space:spaceSetting.spaceName')}</label>
+                {isEditing ? (
+                  <Input
+                    defaultValue={space.name}
+                    maxLength={SPACE_NAME_MAX_LENGTH}
+                    onBlur={onBlur}
+                    onKeyDown={onKeydown}
+                    autoFocus
+                    className="px-3"
+                  />
+                ) : (
+                  <Input
+                    value={space.name}
+                    readOnly
+                    onClick={() => hasPermission(space.role, 'space|update') && setIsEditing(true)}
+                    className={`px-3 ${hasPermission(space.role, 'space|update') ? 'cursor-pointer' : 'cursor-default'}`}
+                  />
+                )}
+              </div>
+
+              {/* Space ID */}
+              <div className="flex w-full flex-col gap-y-2 sm:max-w-sm">
+                <label className="text-sm font-medium">{t('space:spaceSetting.spaceId')}</label>
+                <div className="relative">
+                  <Input
+                    value={spaceId}
+                    readOnly
+                    tabIndex={-1}
+                    className="cursor-default px-3 pr-10"
+                  />
+                  <CopyButton
+                    variant="ghost"
+                    text={spaceId}
+                    size="xs"
+                    iconClassName="size-4"
+                    className="absolute right-1 top-1/2 -translate-y-1/2"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Delete space button */}
+            {hasPermission(space.role, 'space|delete') && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-fit text-destructive hover:text-destructive/80"
+                onClick={() => setDeleteConfirm(true)}
+              >
+                {t('space:deleteSpaceModal.title')}
+              </Button>
+            )}
+          </div>
+        )}
+      </SpaceSettingContainer>
+
+      {space && (
+        <DeleteSpaceConfirm
+          open={deleteConfirm}
+          onOpenChange={setDeleteConfirm}
+          spaceId={space.id}
+          spaceName={space.name}
+          onConfirm={() => deleteSpaceMutator(space.id)}
+          onPermanentConfirm={() => permanentDeleteSpaceMutator(space.id)}
+        />
+      )}
+    </>
+  );
+};

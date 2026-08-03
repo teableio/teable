@@ -1,0 +1,378 @@
+{
+  "crossSpace": {
+    "duplicateBaseTitle": "Notice",
+    "duplicateBaseDescription": "Cross-space references are not supported. The duplicate will be converted to a single line text field.",
+    "affectedTableSuffix": "({{count}} field(s))",
+    "convertAndDuplicate": "Convert & duplicate"
+  },
+  "initialSpaceName": "{{name}}'s space",
+  "action": {
+    "createBase": "Create a base",
+    "createSpace": "Create a space",
+    "invite": "Invite",
+    "startFromScratch": "Start from scratch"
+  },
+  "allSpaces": "All spaces",
+  "emptySpaceTitle": "No bases in this space",
+  "spaceIsEmpty": "Create your first base to start",
+  "baseModal": {
+    "copy": "Copy",
+    "duplicate": "Duplicate \"{{baseName}}\"",
+    "createBaseFromTemplate": "Create base from template",
+    "duplicateRecords": "Duplicate records",
+    "duplicateRecordsTip": "Your revision history and collaborators will not be duplicated.",
+    "toSpace": "To space",
+    "copyToSpace": "Copy to space",
+    "duplicateBase": "Duplicate base",
+    "missTargetTip": "Please select a space to duplicate the base.",
+    "copying": "Duplicating base, it may take a while...",
+    "howToCreate": "How do you want to start?",
+    "fromScratch": "From scratch",
+    "fromTemplate": "From template",
+    "moveBaseToAnotherSpace": "Move {{baseName}} to another space",
+    "chooseSpace": "Choose space",
+    "duplicateBaseSucceedAndJump": "Success, click to jump"
+  },
+  "spaceSetting": {
+    "title": "Settings",
+    "general": "General",
+    "collaborators": "Collaborators",
+    "generalDescription": "Change the settings for your current space here",
+    "spaceName": "Space name",
+    "spaceId": "Space ID",
+    "importBase": "Import"
+  },
+  "collaborators": "Collaborators",
+  "more": "More",
+  "pin": {
+    "add": "Add to pin",
+    "remove": "Remove from pin",
+    "pin": "Pin",
+    "empty": "Your pined bases and space will appear here"
+  },
+  "tooltip": {
+    "noPermissionToCreateBase": "You don't have permission to create base"
+  },
+  "tip": {
+    "delete": "Are you sure you want to delete <0/>?",
+    "exportTips2": "You can import the .tea file in space -> more -> import",
+    "exportTips3": "Cross-base relation fields will be converted to single line text.",
+    "exportIncludeDataLabel": "Include records",
+    "exportIncludeDataDescription": "Export only structure and configuration when closing",
+    "exportTitle": "Export",
+    "exportDescription": "Export the current database to a .tea file, which may take some time.",
+    "exportStartButton": "Start exporting",
+    "exportSlowTip": "The data volume is large. Export may take a while. You can leave temporarily.",
+    "exportReadyDescription": "Please download the .tea file, {{importHint}}",
+    "moveBaseSuccessTitle": "Move base success",
+    "moveBaseSuccessDescription": "{{baseName}} has been moved to {{spaceName}}",
+    "moveBaseCrossSpaceTitle": "Notice",
+    "moveBaseCrossSpaceDataLossWarning": "Cross-space references aren't supported. The related fields will be converted to text fields. This action cannot be undone.",
+    "moveBaseCrossDataDbTitle": "Cross data-database move",
+    "moveBaseCrossDataDbWarning": "The source and target spaces use different data databases. This move will copy base data to the target database and may take a while. Writes to this base are paused during the transfer.",
+    "moveBaseProgressTitle": "Moving base…",
+    "moveBaseProgressPhase": "Stage: {{phase}}",
+    "moveBaseProgressPercent": "{{percent}}%",
+    "moveBaseFailedTitle": "Move failed",
+    "moveBaseFailedDescription": "Stage {{phase}}: {{error}}",
+    "moveBaseRetry": "Retry",
+    "moveBaseCancel": "Cancel"
+  },
+  "deleteSpaceModal": {
+    "title": "Delete space",
+    "blockedTitle": "Cannot delete this space",
+    "blockedDesc": "This space has an active subscription. Please cancel the subscription before deleting the space."
+  },
+  "sharedBase": {
+    "title": "Shared with me",
+    "description": "All the bases that invited me to join",
+    "empty": "No bases shared with me yet"
+  },
+  "integration": {},
+  "aiSetting": {
+    "title": "AI settings",
+    "description": "Manage AI settings of your space",
+    "enable": "Initialize AI settings"
+  },
+  "import": {
+    "importing": "Importing",
+    "baseImportTips": "Click or drag and drop .tea file to upload in this area",
+    "confirm": "Confirm and continue",
+    "phase": {
+      "importingV2": "Importing",
+      "parsingStructure": "Parsing structure",
+      "creatingBase": "Creating base: {{detail}}",
+      "creatingTable": "Creating table: {{detail}}",
+      "tableStructureStarted": "Preparing table structure: {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "tableStructureValidating": "Validating table relations",
+      "tableStructureCommitting": "Saving table structure",
+      "tableStructureDone": "Saved table structure: {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "tableStructureData": "Table structure",
+      "tableStructureTablesProgress": "{{count}}/{{total}} tables prepared",
+      "tableStructureTablesDone": "{{count}}/{{total}} tables saved",
+      "creatingCommonFields": "Creating basic fields for {{table}}: {{fields}}",
+      "creatingButtonFields": "Creating button fields for {{table}}: {{fields}}",
+      "creatingFormulaFields": "Creating formula fields for {{table}}: {{fields}}",
+      "creatingLinkFields": "Creating link fields for {{table}}: {{fields}}",
+      "creatingLookupFields": "Creating lookup fields for {{table}}: {{fields}}",
+      "creatingTableViews": "Creating views for {{table}}: {{fields}}",
+      "creatingPlugins": "Creating plugins",
+      "creatingFolders": "Creating folders",
+      "creatingWorkflows": "Creating workflows",
+      "creatingApps": "Creating apps",
+      "creatingAuthorityMatrix": "Creating authority matrix",
+      "restoringBaseNodes": "Restoring folder hierarchy",
+      "queuingAttachments": "Queuing attachment uploads",
+      "uploadingAppFiles": "Uploading app files",
+      "queuingDataImport": "Queuing data import",
+      "importingTableData": "Importing table data",
+      "restoringLinkRelations": "Restoring linked record data",
+      "tableDataStarted": "Importing records: {{tableName}}",
+      "tableDataProgress": "Importing records: {{tableName}}",
+      "tableDataDone": "Record import completed: {{tableName}}",
+      "linkFieldsData": "Linked record data",
+      "linkFieldsProgress": "Restoring linked record data",
+      "linkFieldsDone": "Linked record data restored",
+      "tableDataRowsProgress": "{{count}} rows imported",
+      "tableDataRowsDone": "{{count}} rows imported",
+      "tableDataRowsTotalProgress": "{{count}}/{{total}} rows processed",
+      "tableDataRowsTotalDone": "{{count}}/{{total}} rows processed",
+      "tableDataBatch": "batch {{batch}}",
+      "tableDataBatchRows": "{{count}} rows in this batch",
+      "tableDataEmpty": "No table data to import",
+      "done": "Import completed",
+      "clickToView": "Click to view"
+    }
+  },
+  "export": {
+    "phase": {
+      "preparing": "Preparing export",
+      "exportingArchive": "Creating export file",
+      "exportingStructure": "Exporting structure",
+      "exportingAttachments": "Exporting attachments",
+      "exportingAttachmentMetadata": "Exporting attachment metadata",
+      "exportingTableData": "Exporting records",
+      "tableDataStarted": "Exporting records: {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "tableDataProgress": "Exporting records: {{tableName}}",
+      "tableDataDone": "Record export completed: {{tableName}}",
+      "exportingExtraFiles": "Exporting extra files",
+      "exportingAppFiles": "Exporting app files",
+      "uploadingArchive": "Uploading export file",
+      "generatingDownloadUrl": "Generating download link",
+      "rowsProgress": "{{count}} rows exported",
+      "done": "Export completed"
+    }
+  },
+  "template": {
+    "title": "Template",
+    "description": "Create a new base from a template quickly",
+    "noTemplatesAvailable": "No templates available",
+    "noTemplatesDescription": "There is nothing here right now"
+  },
+  "recentlyBase": {
+    "title": "Recently visited"
+  },
+  "noBases": {
+    "title": "Hi {{userName}}!",
+    "description": "Let's start managing your work with your first base."
+  },
+  "noSpaces": {
+    "title": "Hi {{userName}}!",
+    "description": "Create your first space to start your data collaboration journey."
+  },
+  "baseList": {
+    "allBases": "All bases",
+    "creator": "Creator",
+    "createdTime": "Created",
+    "lastOpened": "Last opened",
+    "enter": "Enter",
+    "noTables": "No tables",
+    "empty": "No bases yet",
+    "recent": "Recent",
+    "manual": "Manual order"
+  },
+  "publishBase": {
+    "title": "Publish to Template Center",
+    "description": "One-click publish base to the Template Center! Let more people see, use, and Remix your creativity, and build a more powerful business together",
+    "infoTitle": "Basic info",
+    "form": {
+      "title": "Work title",
+      "description": "Description",
+      "security": "Security",
+      "advanced": "Advanced",
+      "publishNode": "Publish nodes",
+      "includeData": "Include data",
+      "defaultActiveNode": "Default active node",
+      "descriptionPlaceholder": "Briefly describe your idea...",
+      "titlePlaceholder": "Name your work..."
+    },
+    "publishToCommunity": "Publish to template center",
+    "publish": "Publish",
+    "publishSuccess": "Publish success!",
+    "previewTips": "Let the world see your work",
+    "update": "Update",
+    "unPublish": "Unpublish",
+    "unPublishSuccess": "Base unpublished successfully!",
+    "unPublishConfirmTitle": "Confirm unpublish",
+    "unPublishConfirmDescription": "Are you sure you want to unpublish this base? It will no longer be visible in the Template Center.",
+    "uploadCover": "Click to upload cover image",
+    "changeCover": "Click to change cover",
+    "uploading": "Uploading image...",
+    "uploadSuccess": "Image uploaded successfully",
+    "uploadFailed": "Upload failed",
+    "invalidImageType": "Please select an image file",
+    "tips": {
+      "publishValidation": "Title and description are required",
+      "atLeastOneNode": "At least select one node to publish"
+    },
+    "urlCopied": "URL copied to clipboard!",
+    "urlCopiedForDiscord": "URL copied to clipboard! You can paste it in Discord.",
+    "featuredLabel": "Featured",
+    "unfeaturedLabel": "Unfeatured",
+    "featuredTip": "Officially featured. Your template will receive more exposure.",
+    "unfeaturedTip": "Not featured yet. Keep improving for a chance to be highlighted. Let more people see your work.",
+    "publishSuccessDescription": "Share your work to the world",
+    "shareWith": "Share with",
+    "unpublishedApps": {
+      "title": "Unpublished Apps Detected",
+      "description": "Unpublished apps may cause template preview failures. Publish them now or continue anyway.",
+      "publishAll": "Publish All",
+      "publish": "Publish",
+      "published": "Published",
+      "publishing": "Publishing",
+      "notPublished": "Not Published",
+      "publishFailed": "Publish failed",
+      "publishFailedTip1": "Check if the source app can be published successfully",
+      "publishFailedTip2": "Try republishing this template",
+      "ignoreAndContinue": "Ignore & Continue",
+      "goToFix": "Go to Fix",
+      "redeploy": "Redeploy",
+      "unnamedApp": "Unnamed App"
+    }
+  },
+  "dataDb": {
+    "create": {
+      "title": "Data database",
+      "description": "Choose where this space stores base schemas and records.",
+      "defaultHint": "Recommended for most spaces.",
+      "byodbOption": "Use my PostgreSQL database",
+      "byodbHint": "Initialize this space in a Teable internal schema inside your customer-managed database.",
+      "urlLabel": "PostgreSQL connection URL",
+      "sslHint": "Use the same SSL parameters required by your PostgreSQL server. The password is never shown after testing.",
+      "testConnection": "Test connection",
+      "testing": "Testing...",
+      "retestRequired": "Test again after changing the URL.",
+      "databaseLabel": "Database",
+      "databasePlaceholder": "Select a database",
+      "databaseHint": "Choose the PostgreSQL database for this space, then test the connection again.",
+      "preflightPassed": "Connection checks passed",
+      "preflightFailed": "Connection checks failed",
+      "missingCapabilities": "Missing privileges",
+      "testFailed": "Failed to test the database connection.",
+      "errors": {
+        "INVALID_DATABASE_URL": {
+          "message": "The PostgreSQL connection URL is invalid."
+        },
+        "PRIVATE_NETWORK_BLOCKED": {
+          "message": "Private network database hosts are blocked by default.",
+          "remediation": "Set TEABLE_SSRF_PROTECTION_DISABLED=true only in trusted self-hosted deployments."
+        },
+        "CONNECTION_FAILED": {
+          "message": "Failed to connect to the database.",
+          "remediation": "Check host, port, database name, username, password, and SSL parameters."
+        },
+        "IPV6_NETWORK_UNREACHABLE": {
+          "message": "The database host resolved to an IPv6 address, but this Teable deployment cannot reach IPv6 networks.",
+          "remediation": "Use an IPv4-reachable database endpoint or connection pooler, or enable IPv6 outbound networking for this Teable deployment."
+        },
+        "PRIVILEGE_CHECK_FAILED": {
+          "message": "Database privilege checks failed."
+        },
+        "DDL_PRIVILEGE_CHECK_FAILED": {
+          "message": "The account is missing DDL privileges required to initialize a Teable data database.",
+          "remediation": "Grant privileges to create schemas, tables, functions, and triggers."
+        },
+        "NON_EMPTY_UNKNOWN_DATABASE": {
+          "message": "Teable's internal schema already contains objects that are not managed by Teable.",
+          "remediation": "Use a database without a conflicting internal schema, or remove the unknown objects from that schema."
+        },
+        "INCOMPATIBLE_TEABLE_DATABASE": {
+          "message": "This database contains incomplete or incompatible Teable data objects.",
+          "remediation": "Use an empty database or a compatible Teable data database migration/adopt flow."
+        }
+      }
+    },
+    "fields": {
+      "host": "Host",
+      "database": "Database",
+      "internalSchema": "Internal schema",
+      "version": "Version",
+      "classification": "Classification"
+    },
+    "badge": {
+      "label": "Dedicated",
+      "tooltip": "This space is hosted on a dedicated database, isolated from other spaces"
+    }
+  },
+  "airtableImport": {
+    "title": "Import from Airtable",
+    "close": "Close",
+    "pickBase": "Choose a base to import",
+    "noBases": "No accessible bases were found for this token.",
+    "optionRecords": "Import records",
+    "optionAttachments": "Download and import attachments",
+    "import": "Start import",
+    "done": "Import completed",
+    "failed": "Import failed",
+    "openBase": "Open base",
+    "issuesSummary": "{{count}} items were adjusted during import:",
+    "issuesMore": "+{{count}} more",
+    "issue": {
+      "fieldDegraded": "{{tableName}} / {{fieldName}}: {{fromType}} → {{toType}}",
+      "fieldSkipped": "{{tableName}} / {{fieldName}} ({{fromType}}) skipped: {{reason}}",
+      "viewSkipped": "{{tableName}} / view \"{{viewName}}\" ({{fromType}}) skipped",
+      "valuesDropped": "{{tableName}} / {{fieldName}}: {{count}} values dropped ({{reason}})",
+      "viewConfigDegraded": "{{tableName}} / view \"{{viewName}}\": {{reason}}"
+    },
+    "phase": {
+      "fetchingSchema": "Reading Airtable base schema",
+      "creatingBase": "Creating base: {{detail}}",
+      "creatingTable": "Creating table: {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "creatingLinks": "Creating link fields",
+      "fillingLinks": "{{tableName}} (links)",
+      "applyingViewConfig": "Importing view configuration"
+    },
+    "searchBases": "Search bases",
+    "noSearchResults": "No bases match your search.",
+    "detecting": "Checking Airtable connection…",
+    "connectWithAirtable": "Connect Airtable account",
+    "waitingOAuth": "Finish authorizing in the popup…",
+    "connectedAs": "Connected: {{account}}",
+    "permission": {
+      "create": "Creator",
+      "edit": "Editor",
+      "comment": "Commenter",
+      "read": "Read-only"
+    },
+    "integrationRequired": "The Airtable integration is not configured on this instance. Ask an administrator to set it up.",
+    "optionViewConfig": "Import view filters, sorts and grouping",
+    "viewConfig": {
+      "help": "The Airtable API does not expose view settings, so a read-only shared-base link is required.",
+      "helpStep1": "In Airtable, open the base’s Share menu",
+      "helpStep2": "Choose \"Share to web\" and turn on full base access",
+      "helpStep3": "Copy the read-only link and paste it into the field above",
+      "linkPlaceholder": "Paste the share link here",
+      "mismatch": "This shared link points to a different base than the one selected.",
+      "disableReminder": "Done — you can now turn off the shared-base link in Airtable."
+    }
+  },
+  "createBaseDialog": {
+    "title": "How do you want to start?"
+  },
+  "importBaseDialog": {
+    "title": "Import base",
+    "fromFile": "Import from file",
+    "fromFileDesc": "Upload a .tea database file",
+    "fromAirtableDesc": "Connect your Airtable account"
+  }
+}

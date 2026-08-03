@@ -1,0 +1,20 @@
+{
+  "apiQueryBuilder": "Costruttore di query API",
+  "subTitle": "Puoi costruire rapidamente le tue richieste di query tramite un'interfaccia utente interattiva e copiare il codice che può essere eseguito direttamente",
+  "apiList": "Elenco completo delle API",
+  "cellFormat": "Formato del risultato della cella",
+  "fieldKeyType": "Tipo di chiave del campo",
+  "chooseSource": "Scegli una fonte di dati",
+  "action": {
+    "selectBase": "Seleziona un database...",
+    "selectTable": "Seleziona una tabella..."
+  },
+  "pickParams": "Seleziona e configura i parametri",
+  "buildResult": "Costruisci risultato",
+  "buildResultEmpty": "Nessun risultato ancora",
+  "previewReturnValue": "Anteprima del valore di ritorno",
+  "replaceToken": "Sostituisci token",
+  "createNewToken": "Crea nuovo token",
+  "showPagination": "I parametri di paginazione sono visualizzati in modalità JSON",
+  "addSort": "Aggiungi un ordinamento"
+}

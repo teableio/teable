@@ -1,0 +1,56 @@
+{
+  "add": "Yeni Eklentiler",
+  "title": {
+    "add": "Yeni Eklentiler",
+    "edit": "Eklentileri Düzenle"
+  },
+  "pluginUser": {
+    "name": "Eklenti Kullanıcısı",
+    "description": "Sistem tarafından otomatik oluşturulan bir eklenti olarak Eklenti Kullanıcısı"
+  },
+  "secret": "Gizli Anahtar",
+  "regenerateSecret": "Gizli Anahtarı Yeniden Oluştur",
+  "form": {
+    "name": {
+      "label": "İsim",
+      "description": "eklentinin adı"
+    },
+    "description": {
+      "label": "Açıklama",
+      "description": "eklentinin açıklaması"
+    },
+    "detailDesc": {
+      "label": "Detaylı Açıklama",
+      "description": "eklentinin detaylı açıklaması"
+    },
+    "logo": {
+      "label": "Logo",
+      "description": "eklentinin logosu, bir resim yükleyebilir veya URL kullanabilirsiniz",
+      "upload": "Yükle",
+      "clear": "Temizle",
+      "placeholder": "Logonuzu buraya sürükleyip bırakın veya yüklemek için tıklayın",
+      "lengthError": "Sadece bir dosyaya izin verilir.",
+      "typeError": "Sadece görsel dosyasına izin verilir."
+    },
+    "helpUrl": {
+      "label": "Yardım URL'si",
+      "description": "Eklentinin yardım belgesinin URL'si"
+    },
+    "positions": {
+      "label": "Konumlar",
+      "description": "eklentinin konumları"
+    },
+    "i18n": {
+      "label": "Yerelleştirme",
+      "description": "eklentinin yerelleştirmesi, içerir(isim, açıklama, detaylı açıklama)"
+    },
+    "url": {
+      "label": "URL",
+      "description": "Eklentinin URL'si"
+    }
+  },
+  "markdown": {
+    "write": "Yaz",
+    "preview": "Önizleme"
+  }
+}

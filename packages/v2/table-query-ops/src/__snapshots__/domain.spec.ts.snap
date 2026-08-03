@@ -1,0 +1,123 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`TableQueryRiskPolicy advisor matrix > 'aggregation fanout without conservati…' > aggregation fanout without conservative index candidate stays manual 1`] = `
+{
+  "reasonCodes": [
+    "critical_latency",
+    "large_table",
+    "aggregation_fanout",
+  ],
+  "remediationCandidates": [
+    {
+      "executableInPhase1": true,
+      "kind": "manual_investigation",
+      "reason": "Query is risky but no conservative table access-path candidate was found",
+    },
+  ],
+  "riskLevel": "medium",
+  "riskScore": 55,
+}
+`;
+
+exports[`TableQueryRiskPolicy advisor matrix > 'multi-field table access path can rec…' > multi-field table access path can recommend one composite btree index 1`] = `
+{
+  "reasonCodes": [
+    "critical_latency",
+    "large_table",
+    "expensive_filter",
+    "missing_useful_index",
+  ],
+  "remediationCandidates": [
+    {
+      "accessPath": "composite",
+      "executableInPhase1": true,
+      "fieldDbName": "status",
+      "fieldId": "fld_status",
+      "fields": [
+        {
+          "fieldDbName": "status",
+          "fieldId": "fld_status",
+          "role": "filter",
+        },
+        {
+          "fieldDbName": "due_date",
+          "fieldId": "fld_due",
+          "role": "filter",
+        },
+      ],
+      "indexKind": "btree",
+      "kind": "create_filter_index",
+      "reason": "Table query shape can use one composite btree index",
+    },
+  ],
+  "riskLevel": "high",
+  "riskScore": 75,
+}
+`;
+
+exports[`TableQueryRiskPolicy advisor matrix > 'single equality filter recommends a b…' > single equality filter recommends a btree filter index 1`] = `
+{
+  "reasonCodes": [
+    "critical_latency",
+    "large_table",
+    "missing_useful_index",
+  ],
+  "remediationCandidates": [
+    {
+      "executableInPhase1": true,
+      "fieldDbName": "status",
+      "fieldId": "fld_status",
+      "indexKind": "btree",
+      "kind": "create_filter_index",
+      "reason": "Filter predicate can use btree index",
+    },
+  ],
+  "riskLevel": "high",
+  "riskScore": 65,
+}
+`;
+
+exports[`TableQueryRiskPolicy advisor matrix > 'single range filter recommends a btre…' > single range filter recommends a btree filter index 1`] = `
+{
+  "reasonCodes": [
+    "critical_latency",
+    "large_table",
+    "missing_useful_index",
+  ],
+  "remediationCandidates": [
+    {
+      "executableInPhase1": true,
+      "fieldDbName": "due_date",
+      "fieldId": "fld_due",
+      "indexKind": "btree",
+      "kind": "create_filter_index",
+      "reason": "Filter predicate can use btree index",
+    },
+  ],
+  "riskLevel": "high",
+  "riskScore": 65,
+}
+`;
+
+exports[`TableQueryRiskPolicy advisor matrix > 'sort field recommends a btree sort in…' > sort field recommends a btree sort index 1`] = `
+{
+  "reasonCodes": [
+    "critical_latency",
+    "large_table",
+    "expensive_sort",
+    "missing_useful_index",
+  ],
+  "remediationCandidates": [
+    {
+      "executableInPhase1": true,
+      "fieldDbName": "created_at",
+      "fieldId": "fld_created",
+      "indexKind": "btree",
+      "kind": "create_sort_index",
+      "reason": "Sort or group field can use btree index",
+    },
+  ],
+  "riskLevel": "high",
+  "riskScore": 75,
+}
+`;

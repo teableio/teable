@@ -1,0 +1,180 @@
+import type { RowHeightLevel, IGridViewOptions } from '@teable/core';
+import {
+  ArrowUpDown,
+  Filter as FilterIcon,
+  EyeOff,
+  LayoutList,
+  Share2,
+  AlertTriangle,
+} from '@teable/icons';
+import { HideFields, RowHeight, Sort, Group, ViewFilter } from '@teable/sdk';
+import { useFields } from '@teable/sdk/hooks';
+import { useView } from '@teable/sdk/hooks/use-view';
+import { cn } from '@teable/ui-lib/shadcn';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
+import { useTranslation } from 'next-i18next';
+import { useEffect, useRef } from 'react';
+import { tableConfig } from '@/features/i18n/table.config';
+import { useGridSearchStore } from '../../grid/useGridSearchStore';
+import { useToolbarChange } from '../../hooks/useToolbarChange';
+import { ToolBarButton } from '../ToolBarButton';
+import { ScrollableToolbarGroup } from './ScrollableToolbarGroup';
+import { useToolBarStore } from './useToolBarStore';
+
+export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
+  const { disabled } = props;
+  const view = useView();
+  const fields = useFields();
+  const allFields = useFields({ withHidden: true, withDenied: true });
+  const { gridRef, setHighlightedFieldId } = useGridSearchStore();
+  const {
+    onFilterChange,
+    onRowHeightChange,
+    onFieldNameDisplayLinesChange,
+    onSortChange,
+    onGroupChange,
+  } = useToolbarChange();
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const { setFilterRef, setSortRef, setGroupRef } = useToolBarStore();
+  const filterRef = useRef<HTMLButtonElement>(null);
+  const sortRef = useRef<HTMLButtonElement>(null);
+  const groupRef = useRef<HTMLButtonElement>(null);
+  const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setFilterRef(filterRef);
+    setSortRef(sortRef);
+    setGroupRef(groupRef);
+  }, [setFilterRef, setGroupRef, setSortRef]);
+
+  useEffect(() => {
+    return () => {
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current);
+      }
+      setHighlightedFieldId(null);
+    };
+  }, [setHighlightedFieldId]);
+
+  if (!view) {
+    return <div></div>;
+  }
+  return (
+    <ScrollableToolbarGroup>
+      <HideFields
+        onFieldClick={(field) => {
+          const columnIndex = fields.findIndex(({ id }) => id === field.id);
+          if (columnIndex === -1) {
+            const fieldName = allFields.find(({ id }) => id === field.id)?.name ?? field.name;
+            toast.warning(t('sdk:hidden.notInCurrentView', { fieldName }));
+            return;
+          }
+          gridRef?.current?.scrollToItem([columnIndex, 0]);
+          setHighlightedFieldId(field.id);
+          if (highlightTimeoutRef.current) {
+            clearTimeout(highlightTimeoutRef.current);
+          }
+          highlightTimeoutRef.current = setTimeout(() => {
+            setHighlightedFieldId(null);
+            highlightTimeoutRef.current = null;
+          }, 1000);
+        }}
+      >
+        {(text, isActive) => (
+          <ToolBarButton
+            disabled={disabled}
+            isActive={isActive}
+            text={text}
+            textClassName="@2xl/toolbar:inline"
+          >
+            <EyeOff className="size-4 text-sm" />
+          </ToolBarButton>
+        )}
+      </HideFields>
+      <ViewFilter
+        filters={view?.filter || null}
+        onChange={onFilterChange}
+        contentHeader={
+          view.enableShare && (
+            <div className="mb-2 flex max-w-full items-center justify-start rounded-md border bg-muted px-3 py-2 text-xs text-muted-foreground dark:bg-white/5">
+              <Share2 className="mr-2 size-4 shrink-0" />
+              <span className="text-muted-foreground">{t('table:toolbar.viewFilterInShare')}</span>
+            </div>
+          )
+        }
+      >
+        {(text, isActive, hasWarning) => (
+          <ToolBarButton
+            disabled={disabled}
+            isActive={isActive}
+            text={text}
+            ref={filterRef}
+            className={cn(
+              'max-w-[200px]',
+              isActive &&
+                'bg-violet-100 dark:bg-[#241A31] hover:bg-violet-200 dark:hover:bg-[#322245]',
+              hasWarning && 'border-yellow-500'
+            )}
+            textClassName="@2xl/toolbar:inline"
+          >
+            <>
+              <FilterIcon className="size-4 shrink-0 text-sm" />
+              {hasWarning && <AlertTriangle className="size-3.5 shrink-0 text-yellow-500" />}
+            </>
+          </ToolBarButton>
+        )}
+      </ViewFilter>
+      <Sort sorts={view?.sort || null} onChange={onSortChange}>
+        {(text: string, isActive) => (
+          <ToolBarButton
+            disabled={disabled}
+            isActive={isActive}
+            text={text}
+            ref={sortRef}
+            className={cn(
+              'max-w-[200px]',
+              isActive &&
+                'bg-orange-100 dark:bg-[#2F2518] hover:bg-orange-200 dark:hover:bg-[#392C1B]'
+            )}
+            textClassName="@2xl/toolbar:inline"
+          >
+            <ArrowUpDown className="size-4 shrink-0 text-sm" />
+          </ToolBarButton>
+        )}
+      </Sort>
+      <Group group={view?.group || null} onChange={onGroupChange}>
+        {(text: string, isActive) => (
+          <ToolBarButton
+            disabled={disabled}
+            isActive={isActive}
+            text={text}
+            ref={groupRef}
+            className={cn(
+              'max-w-[200px]',
+              isActive &&
+                'bg-emerald-100 dark:bg-[#0C3026] hover:bg-emerald-200 dark:hover:bg-[#0D3A2D]'
+            )}
+            textClassName="@2xl/toolbar:inline"
+          >
+            <LayoutList className="size-4 shrink-0 text-sm" />
+          </ToolBarButton>
+        )}
+      </Group>
+
+      <RowHeight
+        rowHeight={(view?.options as IGridViewOptions)?.rowHeight}
+        fieldNameDisplayLines={(view?.options as IGridViewOptions)?.fieldNameDisplayLines}
+        onChange={(type, value) => {
+          if (type === 'rowHeight') onRowHeightChange(value as RowHeightLevel);
+          if (type === 'fieldNameDisplayLines') onFieldNameDisplayLinesChange(value as number);
+        }}
+      >
+        {(_, isActive, Icon) => (
+          <ToolBarButton disabled={disabled} isActive={isActive}>
+            <Icon className="text-sm" />
+          </ToolBarButton>
+        )}
+      </RowHeight>
+    </ScrollableToolbarGroup>
+  );
+};

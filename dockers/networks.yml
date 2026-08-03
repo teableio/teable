@@ -1,0 +1,5 @@
+
+networks:
+  teable-net:
+    name: ${NETWORK_MODE:-teablenet}
+    external: true

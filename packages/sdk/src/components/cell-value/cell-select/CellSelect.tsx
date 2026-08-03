@@ -1,0 +1,93 @@
+import type { Colors, ISelectFieldOptions } from '@teable/core';
+import { useTheme } from '@teable/next-themes';
+import { cn } from '@teable/ui-lib';
+import { keyBy } from 'lodash';
+import { useMemo } from 'react';
+import { getSelectColorPairs } from '../../../utils/select-color';
+import type { ICellValue } from '../type';
+import { SelectTag } from './SelectTag';
+
+export const getColorPairs = (
+  color: Colors,
+  theme: string = 'light'
+): {
+  color: string;
+  backgroundColor: string;
+} => getSelectColorPairs(color, theme);
+
+export const transformSelectOptions = (
+  choices: ISelectFieldOptions['choices'],
+  theme: string = 'light'
+) => {
+  return choices.map(({ name, color }) => ({
+    label: name,
+    value: name,
+    sourceColor: color,
+    ...getSelectColorPairs(color, theme),
+  }));
+};
+
+export interface ISelectOption {
+  label: string;
+  value: string;
+  sourceColor?: Colors;
+  color?: string;
+  backgroundColor?: string;
+}
+
+interface ICellSelect extends ICellValue<string | string[]> {
+  options?: ISelectOption[] | null;
+  ellipsis?: boolean;
+  itemClassName?: string;
+}
+
+export const CellSelect = (props: ICellSelect) => {
+  const { value, options, className, style, ellipsis, itemClassName } = props;
+  const { resolvedTheme } = useTheme();
+
+  const innerValue = useMemo(() => {
+    if (value == null || Array.isArray(value)) return value;
+    return [value];
+  }, [value]);
+
+  const optionMap = useMemo(() => {
+    return keyBy(
+      options?.map((option) => {
+        const { sourceColor } = option;
+        return sourceColor
+          ? {
+              ...option,
+              ...getSelectColorPairs(sourceColor, resolvedTheme),
+            }
+          : option;
+      }),
+      'value'
+    );
+  }, [options, resolvedTheme]);
+
+  return (
+    <div
+      className={cn(
+        'flex gap-1',
+        ellipsis ? 'flex-nowrap overflow-hidden' : 'flex-wrap',
+        className
+      )}
+      style={style}
+    >
+      {innerValue?.map((itemVal) => {
+        const option = optionMap[itemVal];
+        if (option == null) return null;
+        const { label, value, color, backgroundColor } = option;
+        return (
+          <SelectTag
+            key={value}
+            label={label || 'Untitled'}
+            color={color}
+            backgroundColor={backgroundColor}
+            className={itemClassName}
+          />
+        );
+      })}
+    </div>
+  );
+};

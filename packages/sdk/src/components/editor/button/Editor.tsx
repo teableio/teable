@@ -1,0 +1,109 @@
+/* eslint-disable @typescript-eslint/naming-convention */
+import type { IButtonFieldCellValue } from '@teable/core';
+import { checkButtonClickable, Colors } from '@teable/core';
+import { useTheme } from '@teable/next-themes';
+import {
+  Button,
+  cn,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@teable/ui-lib';
+import { type FC, useMemo } from 'react';
+import { useTranslation } from '../../../context/app/i18n';
+import type { IButtonClickStatusHook } from '../../../hooks';
+import type { Record } from '../../../model';
+import type { ButtonField } from '../../../model/field/button.field';
+import { getSelectColorPairs } from '../../../utils/select-color';
+import type { ICellEditor } from '../type';
+
+interface IButtonEditor extends ICellEditor<IButtonFieldCellValue> {
+  field: ButtonField;
+  recordId?: string;
+  statusHook?: IButtonClickStatusHook;
+  record?: Record;
+}
+
+export const ButtonEditor: FC<IButtonEditor> = (props) => {
+  const { t } = useTranslation();
+  const { resolvedTheme } = useTheme();
+  const { className, field, recordId, value, statusHook, record } = props;
+
+  const { options: fieldOptions, isLookup } = field;
+  const { tableId, id: fieldId } = field;
+
+  const count = value?.count ?? 0;
+  const maxCount = fieldOptions.maxCount ?? 0;
+
+  const isLoading = () => {
+    if (!recordId || !statusHook) {
+      return false;
+    }
+    return statusHook.checkLoading(fieldId, recordId);
+  };
+  const isClickable = useMemo(() => {
+    return Boolean(
+      tableId && fieldId && recordId && !isLookup && checkButtonClickable(fieldOptions, value)
+    );
+  }, [tableId, fieldId, recordId, isLookup, fieldOptions, value]);
+
+  const button = useMemo(() => {
+    const rectColor = isClickable ? fieldOptions.color : Colors.Gray;
+    const { color: textColor, backgroundColor: bgColor } = getSelectColorPairs(
+      rectColor,
+      resolvedTheme
+    );
+
+    return {
+      bgColor,
+      textColor,
+      label: fieldOptions.label,
+    };
+  }, [fieldOptions, isClickable, resolvedTheme]);
+
+  return (
+    <div className={cn('flex items-center h-8')}>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (!recordId || !isClickable || !statusHook || isLoading()) {
+                  return;
+                }
+
+                statusHook.buttonClick({
+                  tableId,
+                  recordId,
+                  fieldId,
+                  name: button.label,
+                  confirm: fieldOptions.confirm,
+                  record,
+                });
+              }}
+              className={cn('flex h-6 min-w-16 max-w-32 px-2', className)}
+              style={{
+                backgroundColor: button.bgColor,
+                borderColor: button.bgColor,
+                color: button.textColor,
+                opacity: isLoading() ? 0.8 : 1,
+              }}
+            >
+              <span className="w-full truncate text-xs">{button.label}</span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <span>
+              {t('common.clickedCount', {
+                label: button.label,
+                text: maxCount > 0 ? `${count}/${maxCount}` : `${count}`,
+              })}
+            </span>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    </div>
+  );
+};

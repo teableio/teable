@@ -1,0 +1,37 @@
+Copyright (c) 2023-2025 Teable, Inc.
+
+Teable Project Licensing
+
+This project is a combination of components under different licenses to balance open source principles with the ability to provide commercial services:
+
+1. Core Applications:
+   - apps/nestjs-backend
+   - apps/nextjs-app
+   These core applications are licensed under the GNU Affero General Public License v3.0 (AGPL-3.0).
+   The full text of this license can be found at ./AGPL_LICENSE
+
+2. SDK and Utility Packages:
+   All packages under the 'packages' directory are licensed under the MIT License.
+   For the full text of the MIT License, please see the individual LICENSE files in each package directory.
+
+As a whole, this project is primarily under the AGPL-3.0 license, with the exception of the packages in the 'packages' directory, which are available under the more permissive MIT License to facilitate wider adoption and integration.
+
+For any questions regarding licensing, please contact support@teable.ai
+
+Additional Terms under GNU Affero General Public License Version 3 (AGPLv3)
+
+In accordance with Section 7 of the GNU Affero General Public License Version 3,
+the following additional terms apply to this software:
+
+Brand Protection (Under Section 7(e)):
+
+The Teable brand assets (including but not limited to the Teable name, logo,
+icons, and visual identity elements) are protected intellectual property and
+are not covered by the AGPLv3 license. While the software code may be modified
+under the terms of AGPL, any modification, replacement, or removal of these
+brand assets is explicitly prohibited.
+
+Specifically:
+1. You may not modify or replace the Teable brand assets
+2. You may not remove the Teable brand assets
+3. You may not use the brand assets in a way that suggests endorsement

@@ -1,0 +1,67 @@
+{
+  "add": "New OAuth Apps",
+  "title": {
+    "add": "New OAuth Apps",
+    "edit": "Edit OAuth Apps",
+    "description": "Teable Apps can act on their own behalf, directly performing operations through the API, without impersonating a user. See our <a>Help documentation</a> for more information."
+  },
+  "form": {
+    "name": {
+      "label": "OAuth App name",
+      "description": "The name of your OAuth App."
+    },
+    "description": {
+      "label": "Description"
+    },
+    "homePageUrl": {
+      "label": "Homepage URL",
+      "description": "The full URL to your OAuth App’s website."
+    },
+    "logo": {
+      "label": "Logo",
+      "description": "A square image is recommended.",
+      "placeholder": "Drag and drop your logo here or click to upload",
+      "button": "Upload a logo",
+      "clear": "Clear",
+      "lengthError": "Only one file is allowed.",
+      "typeError": "Only image file is allowed."
+    },
+    "callbackUrl": {
+      "label": "Callback URL",
+      "description": "The full URL to redirect to after a user authorizing your integration.",
+      "add": "Add Callback URL"
+    },
+    "secret": {
+      "label": "Client secrets",
+      "add": "Generate a new client secret",
+      "newDescription": "Make sure to copy your new client secret now. You won’t be able to see it again.",
+      "empty": "You need a client secret to authenticate as the application to the API.",
+      "lastUsed": "Last used at {{date}}",
+      "tag": "Client secret",
+      "neverUsed": "Never used"
+    },
+    "clientId": {
+      "label": "Client ID: "
+    }
+  },
+  "formType": {
+    "basic": "Basic information",
+    "scopes": "Scopes",
+    "identify": "Identifying and authorizing users",
+    "clientInfo": "Client information"
+  },
+  "decision": {
+    "title": "{{name}} is requesting access to your account",
+    "scopes": "This application will be able to get the following scopes:",
+    "redirectDescription": "Authorizing will redirect to",
+    "authorize": "Authorize"
+  },
+  "help": {
+    "link": "https://help.teable.ai/en/api-doc/oauth",
+    "title": "Learn more"
+  },
+  "deleteConfirm": {
+    "title": "Delete OAuth App",
+    "description": "Are you sure you want to delete the {{name}} OAuth App? This action cannot be undone."
+  }
+}

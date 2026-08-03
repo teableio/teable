@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "esnext",
+    "jsx": "react-jsx",
+    "sourceMap": false,
+    "rootDir": "src",
+    "paths": {}
+  },
+  "exclude": ["dist", "**/__tests__/*", "**/*spec.ts", "**/*spec.tsx"],
+  "include": ["src"]
+}

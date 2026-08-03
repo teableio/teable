@@ -1,0 +1,243 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/client"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("PRISMA_DATABASE_URL")
+}
+
+model ComputedUpdateOutbox {
+  id                      String                     @id @default(cuid())
+  baseId                  String                     @map("base_id")
+  seedTableId             String                     @map("seed_table_id")
+  seedRecordIds           Json?                      @map("seed_record_ids")
+  changeType              String                     @map("change_type")
+  steps                   Json?
+  edges                   Json?
+  status                  String
+  attempts                Int                        @default(0)
+  maxAttempts             Int                        @default(8) @map("max_attempts")
+  nextRunAt               DateTime                   @default(now()) @map("next_run_at")
+  lockedAt                DateTime?                  @map("locked_at")
+  lockedBy                String?                    @map("locked_by")
+  lastError               String?                    @map("last_error")
+  estimatedComplexity     Int                        @default(0) @map("estimated_complexity")
+  planHash                String                     @map("plan_hash")
+  dirtyStats              Json?                      @map("dirty_stats")
+  runId                   String                     @map("run_id")
+  originRunIds            String[]                   @default([]) @map("origin_run_ids")
+  runTotalSteps           Int                        @default(0) @map("run_total_steps")
+  runCompletedStepsBefore Int                        @default(0) @map("run_completed_steps_before")
+  affectedTableIds        String[]                   @default([]) @map("affected_table_ids")
+  affectedFieldIds        String[]                   @default([]) @map("affected_field_ids")
+  syncMaxLevel            Int?                       @map("sync_max_level")
+  createdAt               DateTime                   @default(now()) @map("created_at")
+  updatedAt               DateTime                   @updatedAt @map("updated_at")
+
+  seeds ComputedUpdateOutboxSeed[]
+
+  @@index([status, nextRunAt])
+  @@index([baseId, seedTableId])
+  @@index([planHash])
+  @@index([runId])
+  @@map("computed_update_outbox")
+}
+
+model ComputedUpdateOutboxSeed {
+  id       String               @id @default(cuid())
+  taskId   String               @map("task_id")
+  tableId  String               @map("table_id")
+  recordId String               @map("record_id")
+  task     ComputedUpdateOutbox @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, tableId, recordId])
+  @@index([taskId])
+  @@map("computed_update_outbox_seed")
+}
+
+model ComputedUpdateDeadLetter {
+  id                      String   @id
+  baseId                  String   @map("base_id")
+  seedTableId             String   @map("seed_table_id")
+  seedRecordIds           Json?    @map("seed_record_ids")
+  changeType              String   @map("change_type")
+  steps                   Json?
+  edges                   Json?
+  status                  String
+  attempts                Int      @default(0)
+  maxAttempts             Int      @default(8) @map("max_attempts")
+  nextRunAt               DateTime @map("next_run_at")
+  lockedAt                DateTime? @map("locked_at")
+  lockedBy                String?  @map("locked_by")
+  lastError               String?  @map("last_error")
+  estimatedComplexity     Int      @default(0) @map("estimated_complexity")
+  planHash                String   @map("plan_hash")
+  dirtyStats              Json?    @map("dirty_stats")
+  runId                   String   @map("run_id")
+  originRunIds            String[] @default([]) @map("origin_run_ids")
+  runTotalSteps           Int      @default(0) @map("run_total_steps")
+  runCompletedStepsBefore Int      @default(0) @map("run_completed_steps_before")
+  affectedTableIds        String[] @default([]) @map("affected_table_ids")
+  affectedFieldIds        String[] @default([]) @map("affected_field_ids")
+  syncMaxLevel            Int?     @map("sync_max_level")
+  traceData               Json?    @map("trace_data")
+  failedAt                DateTime @map("failed_at")
+  createdAt               DateTime @map("created_at")
+  updatedAt               DateTime @map("updated_at")
+
+  @@index([baseId, seedTableId])
+  @@index([planHash])
+  @@index([runId])
+  @@map("computed_update_dead_letter")
+}
+
+model ComputedUpdatePauseScope {
+  id        String    @id
+  scopeType String    @map("scope_type")
+  scopeId   String    @map("scope_id")
+  pausedAt  DateTime  @default(now()) @map("paused_at")
+  pausedBy  String?   @map("paused_by")
+  resumeAt  DateTime? @map("resume_at")
+  reason    String?
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  updatedBy String?   @map("updated_by")
+
+  @@unique([scopeType, scopeId])
+  @@index([resumeAt])
+  @@map("computed_update_pause_scope")
+}
+
+/// Projection of async computed activity per field (co-located with outbox on data plane).
+model ComputedFieldActivity {
+  fieldId               String    @id @map("field_id")
+  tableId               String    @map("table_id")
+  baseId                String    @map("base_id")
+  status                String
+  activeTaskCount       Int       @default(0) @map("active_task_count")
+  processingTaskCount   Int       @default(0) @map("processing_task_count")
+  generation            BigInt    @default(0)
+  estimatedComplexity   BigInt    @default(0) @map("estimated_complexity")
+  estimatedDirtyRecords BigInt    @default(0) @map("estimated_dirty_records")
+  hasAllTargetRecords   Boolean   @default(false) @map("has_all_target_records")
+  queuedAt              DateTime? @map("queued_at")
+  startedAt             DateTime? @map("started_at")
+  lastCompletedAt       DateTime? @map("last_completed_at")
+  lastDurationMs        Int?      @map("last_duration_ms")
+  lastError             Json?     @map("last_error")
+  extensions            Json?
+  updatedAt             DateTime  @default(now()) @map("updated_at")
+
+  @@index([tableId, status])
+  @@index([baseId, status])
+  @@map("computed_field_activity")
+}
+
+/// Projection of async computed activity per table.
+model ComputedTableActivity {
+  tableId               String   @id @map("table_id")
+  baseId                String   @map("base_id")
+  status                String
+  calculatingFieldCount Int      @default(0) @map("calculating_field_count")
+  queuedFieldCount      Int      @default(0) @map("queued_field_count")
+  estimatedComplexity   BigInt   @default(0) @map("estimated_complexity")
+  recentCompletions     Json     @default("[]") @map("recent_completions")
+  generation            BigInt   @default(0)
+  updatedAt             DateTime @default(now()) @map("updated_at")
+
+  @@index([baseId, status])
+  @@map("computed_table_activity")
+}
+
+/// Task→field refset for activity refcounting (prevents merge double-count).
+model ComputedTaskFieldRef {
+  taskId        String   @map("task_id")
+  fieldId       String   @map("field_id")
+  tableId       String   @map("table_id")
+  baseId        String   @map("base_id")
+  wasProcessing Boolean  @default(false) @map("was_processing")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@id([taskId, fieldId])
+  @@index([fieldId])
+  @@map("computed_task_field_ref")
+}
+
+model RecordHistory {
+  id          String   @id @default(cuid())
+  tableId     String   @map("table_id")
+  recordId    String   @map("record_id")
+  fieldId     String   @map("field_id")
+  before      String   @map("before")
+  after       String   @map("after")
+  createdTime DateTime @default(now()) @map("created_time")
+  createdBy   String   @map("created_by")
+
+  @@index([tableId, recordId, createdTime])
+  @@index([tableId, createdTime])
+  @@map("record_history")
+}
+
+model TableTrash {
+  id           String   @id @default(cuid())
+  tableId      String   @map("table_id")
+  resourceType String   @map("resource_type")
+  snapshot     String   @map("snapshot")
+  createdTime  DateTime @default(now()) @map("created_time")
+  createdBy    String   @map("created_by")
+
+  @@index([tableId])
+  @@map("table_trash")
+}
+
+model RecordTrash {
+  id          String   @id @default(cuid())
+  tableId     String   @map("table_id")
+  recordId    String   @map("record_id")
+  snapshot    String   @map("snapshot")
+  createdTime DateTime @default(now()) @map("created_time")
+  createdBy   String   @map("created_by")
+
+  @@index([tableId, recordId])
+  @@map("record_trash")
+}
+
+model Attachments {
+  id             String    @id @default(cuid())
+  token          String    @unique
+  hash           String
+  size           BigInt
+  mimetype       String
+  path           String
+  width          Int?
+  height         Int?
+  deletedTime    DateTime? @map("deleted_time")
+  createdTime    DateTime  @default(now()) @map("created_time")
+  createdBy      String    @map("created_by")
+  lastModifiedBy String?   @map("last_modified_by")
+  thumbnailPath  String?   @map("thumbnail_path")
+
+  @@map("attachments")
+}
+
+model AttachmentsTable {
+  id               String    @id @default(cuid())
+  attachmentId     String    @map("attachment_id")
+  name             String
+  token            String
+  tableId          String    @map("table_id")
+  recordId         String    @map("record_id")
+  fieldId          String    @map("field_id")
+  createdTime      DateTime  @default(now()) @map("created_time")
+  createdBy        String    @map("created_by")
+  lastModifiedBy   String?   @map("last_modified_by")
+  lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
+
+  @@index([tableId, recordId])
+  @@index([tableId, fieldId])
+  @@index([attachmentId])
+  @@index([token])
+  @@map("attachments_table")
+}

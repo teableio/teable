@@ -1,0 +1,864 @@
+import type {
+  TableQueryOpsIndexNextAction,
+  TableQueryObservationWindowSnapshot,
+  TableQueryRecommendation,
+  TableQueryRiskReport,
+} from '@teable/v2-table-query-ops';
+import type { Effect } from 'effect';
+import { Context } from 'effect';
+import type { CliError } from '../errors';
+
+export interface TableQueryOpsScopeInput {
+  readonly organizationId?: string;
+  readonly spaceId?: string;
+  readonly baseId?: string;
+  readonly tableId?: string;
+}
+
+export interface TableQueryOpsOverviewInput extends TableQueryOpsScopeInput {
+  readonly limit?: number;
+  readonly ensureSchema?: boolean;
+}
+
+export interface TableQueryOpsAnalyzeSavedViewsInput extends TableQueryOpsScopeInput {
+  readonly limit?: number;
+  readonly ensureSchema?: boolean;
+}
+
+export interface TableQueryOpsExecuteRecommendationsInput extends TableQueryOpsScopeInput {
+  readonly limit?: number;
+  readonly ensureSchema?: boolean;
+  readonly execute?: boolean;
+  readonly maxIndexes?: number;
+}
+
+export interface TableQueryOpsExplainSavedViewsInput extends TableQueryOpsScopeInput {
+  readonly limit?: number;
+  readonly ensureSchema?: boolean;
+  readonly maxIndexes?: number;
+}
+
+export interface TableQueryOpsAnalyzeObservationInput {
+  readonly observation: unknown;
+  readonly recordObservation?: boolean;
+  readonly ensureSchema?: boolean;
+}
+
+export interface TableQueryOpsAnalyzeSearchVectorsInput extends TableQueryOpsScopeInput {
+  readonly limit?: number;
+  readonly fieldIds?: readonly string[];
+  readonly languageConfig?: string;
+  readonly sampleSearch?: string;
+  readonly includeResultSamples?: boolean;
+  readonly sampleResultLimit?: number;
+  readonly maxRecommendations?: number;
+  readonly ensureSchema?: boolean;
+}
+
+export interface TableQueryOpsExecuteSearchVectorInput extends TableQueryOpsScopeInput {
+  readonly mode?: 'create' | 'rebuild';
+  readonly fieldIds?: readonly string[];
+  readonly languageConfig?: string;
+  readonly sampleSearch?: string;
+  readonly validationMode?: 'plan' | 'real_ddl';
+  readonly execute?: boolean;
+  readonly allowLargeTableRewrite?: boolean;
+  readonly ensureSchema?: boolean;
+}
+
+export interface TableQueryOpsValidateSearchVectorTempTableInput extends TableQueryOpsScopeInput {
+  readonly connection?: string;
+  readonly fieldIds?: readonly string[];
+  readonly languageConfig?: string;
+  readonly sampleSearches: readonly string[];
+  readonly queryLimit?: number;
+  readonly rowLimit?: number;
+  readonly keepTempTable?: boolean;
+  readonly ensureSchema?: boolean;
+}
+
+export interface TableQueryOpsSearchVectorTempTableValidationScope
+  extends Omit<TableQueryOpsValidateSearchVectorTempTableInput, 'sampleSearches'> {
+  readonly sampleSearchCount: number;
+  readonly sampleSearchLengthBuckets: readonly ('none' | 'short' | 'medium' | 'long')[];
+}
+
+export interface TableQueryOpsSummary {
+  readonly enabled: boolean;
+  readonly observationWindowCount: number;
+  readonly requestCount: number;
+  readonly slowCount: number;
+  readonly timeoutCount: number;
+  readonly dbErrorCount: number;
+  readonly recommendationCount: number;
+  readonly openRecommendationCount: number;
+  readonly acceptedRecommendationCount: number;
+  readonly taskCount: number;
+  readonly runningTaskCount: number;
+  readonly failedTaskCount: number;
+}
+
+export interface TableQueryOpsHotTable {
+  readonly spaceId: string | null;
+  readonly baseId: string;
+  readonly tableId: string;
+  readonly requestCount: number;
+  readonly slowCount: number;
+  readonly timeoutCount: number;
+  readonly dbErrorCount: number;
+  readonly maxDurationMs: number;
+  readonly latestWindowStart: string | null;
+}
+
+export interface TableQueryOpsRecommendationSummary {
+  readonly id: string;
+  readonly spaceId: string | null;
+  readonly baseId: string;
+  readonly tableId: string;
+  readonly shapeHash: string;
+  readonly policyVersion: string;
+  readonly status: string;
+  readonly riskLevel: string;
+  readonly riskScore: number;
+  readonly reasonCodes: readonly string[];
+  readonly remediationKinds: readonly string[];
+  readonly queryKind?: string;
+  readonly createdTime: string | null;
+  readonly lastModifiedTime: string | null;
+}
+
+export interface TableQueryOpsTaskSummary {
+  readonly id: string;
+  readonly recommendationId: string | null;
+  readonly baseId: string;
+  readonly tableId: string;
+  readonly kind: string;
+  readonly status: string;
+  readonly attempts: number;
+  readonly maxAttempts: number;
+  readonly lastError: string | null;
+  readonly createdTime: string | null;
+  readonly lastModifiedTime: string | null;
+}
+
+export interface TableQueryOpsIndexPlanSummary {
+  readonly viewId?: string;
+  readonly queryKind: string;
+  readonly shapeHash: string;
+  readonly riskLevel: string;
+  readonly riskScore: number;
+  readonly reasonCodes: readonly string[];
+  readonly candidateIndexes: readonly TableQueryOpsIndexCandidateSummary[];
+  readonly shapeSummary: TableQueryOpsQueryRiskShapeSummary;
+  readonly physicalStats: { readonly estimatedRows: number };
+  readonly indexState: string;
+  readonly existingIndexStructures: readonly string[];
+  readonly candidateIndexStructures: readonly string[];
+  readonly abnormalIndexes: readonly string[];
+  readonly explainStatus?: string;
+  readonly explainMethod?: string;
+  readonly explainReason?: string;
+  readonly explainCostBefore?: number;
+  readonly explainCostAfter?: number;
+  readonly explainCostDelta?: number;
+  readonly explainCostDeltaPct?: number;
+  readonly explainPlanNodeBefore?: string;
+  readonly explainPlanNodeAfter?: string;
+  readonly explainUsesCandidateIndex?: boolean;
+  readonly hypotheticalIndexStatements: readonly string[];
+  readonly nextAction: string;
+}
+
+export interface TableQueryOpsQueryRiskShapeSummary {
+  readonly filterFields: readonly {
+    readonly fieldId: string;
+    readonly operatorFamily: string;
+    readonly sourceKind?: string;
+  }[];
+  readonly sortFields: readonly {
+    readonly fieldId?: string;
+    readonly systemColumn?: string;
+    readonly direction: 'asc' | 'desc';
+    readonly source: string;
+  }[];
+  readonly search?: {
+    readonly fieldCount: number;
+    readonly allFields: boolean;
+    readonly valueLengthBucket: string;
+  };
+  readonly aggregation?: {
+    readonly groupFieldCount: number;
+    readonly metricCount: number;
+    readonly hasFilter: boolean;
+  };
+  readonly relation?: {
+    readonly relationKind: string;
+    readonly sourceTableId: string;
+    readonly targetTableId: string;
+    readonly fieldReferenceCount: number;
+    readonly hasTargetFilter: boolean;
+    readonly hasTargetSort: boolean;
+  };
+  readonly formulaFields: readonly TableQueryOpsFormulaEvidenceSummary[];
+}
+
+export interface TableQueryOpsIndexFieldSummary {
+  readonly fieldId?: string;
+  readonly fieldDbName?: string;
+  readonly direction?: 'asc' | 'desc';
+  readonly role?: string;
+  readonly sourceKind?: 'direct_field' | 'formula_result' | 'formula_source' | 'formula_expression';
+  readonly formulaFieldId?: string;
+  readonly formulaFunctionNames?: readonly string[];
+  readonly formulaSkippedReasons?: readonly string[];
+  readonly formulaPredicatePushdown?: {
+    readonly supported: boolean;
+    readonly operatorFamilies: readonly string[];
+    readonly sourceFunctionNames: readonly string[];
+    readonly skippedReasons: readonly string[];
+  };
+}
+
+export interface TableQueryOpsFormulaEvidenceSummary {
+  readonly formulaFieldId?: string;
+  readonly referencedFieldIds: readonly string[];
+  readonly functionNames: readonly string[];
+  readonly sourceKind?: 'formula_result' | 'formula_source' | 'formula_expression';
+  readonly skippedReasons: readonly string[];
+  readonly expressionIndexable?: boolean;
+  readonly expressionIndexSkippedReasons?: readonly string[];
+  readonly predicatePushdown?: {
+    readonly supported: boolean;
+    readonly operatorFamilies: readonly string[];
+    readonly sourceFunctionNames: readonly string[];
+    readonly skippedReasons: readonly string[];
+  };
+}
+
+export interface TableQueryOpsIndexCandidateSummary {
+  readonly indexKey: string;
+  readonly indexKind: string;
+  readonly accessPath: string;
+  readonly indexStructure: string;
+  readonly fields: readonly TableQueryOpsIndexFieldSummary[];
+  readonly reason: string;
+}
+
+export interface TableQueryOpsPlanEvidenceSummary {
+  readonly source: string;
+  readonly queryKind: string;
+  readonly shapeHash: string;
+  readonly riskLevel: string;
+  readonly riskScore: number;
+  readonly reasonCodes: readonly string[];
+  readonly explainStatus?: string;
+  readonly explainMethod?: string;
+  readonly explainReason?: string;
+  readonly explainCostBefore?: number;
+  readonly explainCostAfter?: number;
+  readonly explainCostDelta?: number;
+  readonly explainCostDeltaPct?: number;
+  readonly explainPlanNodeBefore?: string;
+  readonly explainPlanNodeAfter?: string;
+  readonly explainUsesCandidateIndex?: boolean;
+  readonly hypotheticalIndexStatements: readonly string[];
+}
+
+export interface TableQueryOpsRecommendedIndexSummary {
+  readonly indexKey: string;
+  readonly indexKind: string;
+  readonly accessPath: string;
+  readonly indexStructure: string;
+  readonly fields: readonly TableQueryOpsIndexFieldSummary[];
+  readonly sourceKind?: 'direct_field' | 'formula_result' | 'formula_source' | 'formula_expression';
+  readonly formulaEvidence?: TableQueryOpsFormulaEvidenceSummary;
+  readonly optimizedSources: readonly string[];
+  readonly optimizedQueryKinds: readonly string[];
+  readonly optimizedShapeHashes: readonly string[];
+  readonly optimizedFields: readonly string[];
+  readonly reasonCodes: readonly string[];
+  readonly riskLevels: readonly string[];
+  readonly confidence: string;
+  readonly planEvidence: readonly TableQueryOpsPlanEvidenceSummary[];
+  readonly nextAction: string;
+}
+
+export interface TableQueryOpsExecutedRecommendedIndexSummary {
+  readonly recommendedIndex: TableQueryOpsRecommendedIndexSummary;
+  readonly action: 'dry_run' | 'executed' | 'skipped' | 'failed';
+  readonly validation?: TableQueryOpsExplainRecommendedIndexSummary;
+  readonly task?: unknown;
+  readonly error?: string;
+}
+
+export interface TableQueryOpsExplainRecommendedIndexSummary {
+  readonly recommendedIndex: TableQueryOpsRecommendedIndexSummary;
+  readonly proposedIndexName: string;
+  readonly proposedIndexKind: string;
+  readonly proposedIndexAccessPath: string;
+  readonly proposedIndexFields: readonly TableQueryOpsIndexFieldSummary[];
+  readonly sourceKind?: 'direct_field' | 'formula_result' | 'formula_source' | 'formula_expression';
+  readonly formulaEvidence?: TableQueryOpsFormulaEvidenceSummary;
+  readonly representativeViewId?: string;
+  readonly explainStatus: 'validated' | 'skipped' | 'failed';
+  readonly explainMethod?: 'explain' | 'hypothetical_index';
+  readonly explainReason?: string;
+  readonly explainCostBefore?: number;
+  readonly explainCostAfter?: number;
+  readonly explainCostDelta?: number;
+  readonly explainCostDeltaPct?: number;
+  readonly explainPlanNodeBefore?: string;
+  readonly explainPlanNodeAfter?: string;
+  readonly explainUsesCandidateIndex?: boolean;
+  readonly hypotheticalIndexStatement?: string;
+  readonly nextAction: string;
+  readonly error?: string;
+}
+
+export type TableQueryOpsSourceCoverageStatus =
+  | 'scanned'
+  | 'parsed'
+  | 'shape_created'
+  | 'candidate_generated'
+  | 'explain_validated'
+  | 'rejected'
+  | 'skipped';
+
+export interface TableQueryOpsSourceCoverageSummary {
+  readonly sourceType: 'saved_view' | 'relation_field' | 'runtime_observation' | 'manual';
+  readonly sourceId: string;
+  readonly tableId: string;
+  readonly statuses: readonly TableQueryOpsSourceCoverageStatus[];
+  readonly shapeHash?: string;
+  readonly queryKind?: string;
+  readonly candidateIndexKeys: readonly string[];
+  readonly recommendedIndexKeys: readonly string[];
+  readonly rejectedIndexKeys: readonly string[];
+  readonly skippedReason?: string;
+  readonly error?: string;
+}
+
+export interface TableQueryOpsQueryRiskReportSummary {
+  readonly sourceType: 'saved_view' | 'relation_field' | 'runtime_observation' | 'manual';
+  readonly sourceId: string;
+  readonly sourceName?: string;
+  readonly tableId: string;
+  readonly queryKind: string;
+  readonly shapeHash: string;
+  readonly riskLevel: 'none' | 'low' | 'medium' | 'high' | 'critical';
+  readonly riskScore: number;
+  readonly reasonCodes: readonly string[];
+  readonly shapeSummary: TableQueryOpsQueryRiskShapeSummary;
+  readonly physicalStats: { readonly estimatedRows: number };
+  readonly indexInventory: {
+    readonly state: string;
+    readonly existingIndexStructures: readonly string[];
+    readonly candidateIndexStructures: readonly string[];
+    readonly abnormalIndexes: readonly string[];
+  };
+  readonly planEvidence?: {
+    readonly explainStatus: 'validated' | 'skipped' | 'failed';
+    readonly explainMethod?: 'explain' | 'hypothetical_index';
+    readonly explainReason?: string;
+    readonly costBefore?: number;
+    readonly costAfter?: number;
+    readonly costDeltaPct?: number;
+    readonly planNodeBefore?: string;
+    readonly planNodeAfter?: string;
+    readonly usesCandidateIndex?: boolean;
+  };
+  readonly remediationSummary: {
+    readonly hasIndexRecommendation: boolean;
+    readonly recommendedIndexKeys: readonly string[];
+    readonly rejectedIndexKeys: readonly string[];
+    readonly nextAction: TableQueryOpsIndexNextAction;
+  };
+}
+
+export interface TableQueryOpsCoverageReportSummary {
+  readonly scannedSourceCount: number;
+  readonly parsedSourceCount: number;
+  readonly shapeCreatedSourceCount: number;
+  readonly candidateGeneratedSourceCount: number;
+  readonly explainValidatedSourceCount: number;
+  readonly rejectedSourceCount: number;
+  readonly skippedSourceCount: number;
+  readonly skippedReasons: Readonly<Record<string, number>>;
+  readonly formulaFields: readonly TableQueryOpsFormulaEvidenceSummary[];
+  readonly scannedFormulaFieldCount: number;
+  readonly validatedFormulaFieldCount: number;
+  readonly rejectedFormulaFieldCount: number;
+  readonly skippedFormulaFieldCount: number;
+  readonly formulaSkippedReasons: Readonly<Record<string, number>>;
+  readonly sources: readonly TableQueryOpsSourceCoverageSummary[];
+}
+
+export interface TableQueryOpsRecommendedIndexSetSummary {
+  readonly indexKey: string;
+  readonly indexName: string;
+  readonly indexKind: string;
+  readonly accessPath: string;
+  readonly indexStructure: string;
+  readonly fields: readonly TableQueryOpsIndexFieldSummary[];
+  readonly sourceKind?: 'direct_field' | 'formula_result' | 'formula_source' | 'formula_expression';
+  readonly formulaEvidence?: TableQueryOpsFormulaEvidenceSummary;
+  readonly coveredSourceIds: readonly string[];
+  readonly coveredViewIds: readonly string[];
+  readonly coveredQueryKinds: readonly string[];
+  readonly coveredShapeHashes: readonly string[];
+  readonly costBefore?: number;
+  readonly costAfter?: number;
+  readonly costDelta?: number;
+  readonly costDeltaPct?: number;
+  readonly plannerUsedIndex?: boolean;
+  readonly nextAction: TableQueryOpsIndexNextAction;
+  readonly coveredCandidateIds: readonly string[];
+  readonly rejectedCandidateIds: readonly string[];
+  readonly evidence: readonly TableQueryOpsExplainRecommendedIndexSummary[];
+}
+
+export interface TableQueryOpsRejectedIndexCandidateSummary {
+  readonly indexKey: string;
+  readonly indexName: string;
+  readonly indexKind: string;
+  readonly accessPath: string;
+  readonly fields: readonly TableQueryOpsIndexFieldSummary[];
+  readonly sourceKind?: 'direct_field' | 'formula_result' | 'formula_source' | 'formula_expression';
+  readonly formulaEvidence?: TableQueryOpsFormulaEvidenceSummary;
+  readonly coveredSourceIds: readonly string[];
+  readonly nextAction: TableQueryOpsIndexNextAction;
+  readonly rejectionReason: string;
+  readonly coveredByIndexKey?: string;
+  readonly evidence?: TableQueryOpsExplainRecommendedIndexSummary;
+}
+
+export interface TableQueryOpsOverviewResult {
+  readonly scope: TableQueryOpsScopeInput;
+  readonly summary: TableQueryOpsSummary;
+  readonly hotTables: readonly TableQueryOpsHotTable[];
+  readonly recommendations: {
+    readonly total: number;
+    readonly data: readonly TableQueryOpsRecommendationSummary[];
+  };
+  readonly tasks: {
+    readonly total: number;
+    readonly data: readonly TableQueryOpsTaskSummary[];
+  };
+}
+
+export interface TableQueryOpsSavedViewAnalysis {
+  readonly viewId: string;
+  readonly spaceId: string | null;
+  readonly baseId: string;
+  readonly tableId: string;
+  readonly shapeHash?: string;
+  readonly queryKind?: string;
+  readonly report?: ReturnType<TableQueryRiskReport['snapshot']>;
+  readonly indexPlan?: TableQueryOpsIndexPlanSummary;
+  readonly recommendation?: ReturnType<TableQueryRecommendation['snapshot']>;
+  readonly skipped?: string;
+  readonly error?: string;
+  readonly errorDetails?: unknown;
+}
+
+export interface TableQueryOpsAnalyzeSavedViewsResult {
+  readonly scope: TableQueryOpsScopeInput;
+  readonly scannedViewCount: number;
+  readonly observationCount: number;
+  readonly recommendationCount: number;
+  readonly recommendedIndexes: readonly TableQueryOpsRecommendedIndexSummary[];
+  readonly analyses: readonly TableQueryOpsSavedViewAnalysis[];
+}
+
+export interface TableQueryOpsAnalyzeObservationResult {
+  readonly recorded: boolean;
+  readonly observation: TableQueryObservationWindowSnapshot;
+  readonly report: ReturnType<TableQueryRiskReport['snapshot']>;
+  readonly indexPlan: TableQueryOpsIndexPlanSummary;
+  readonly recommendedIndexes: readonly TableQueryOpsRecommendedIndexSummary[];
+  readonly recommendation?: ReturnType<TableQueryRecommendation['snapshot']>;
+}
+
+export interface TableQueryOpsExecuteRecommendationsResult {
+  readonly scope: TableQueryOpsScopeInput;
+  readonly dryRun: boolean;
+  readonly scannedViewCount: number;
+  readonly recommendationCount: number;
+  readonly recommendedIndexCount: number;
+  readonly executedCount: number;
+  readonly failedCount: number;
+  readonly skippedCount: number;
+  readonly results: readonly TableQueryOpsExecutedRecommendedIndexSummary[];
+}
+
+export interface TableQueryOpsExplainSavedViewsResult {
+  readonly scope: TableQueryOpsScopeInput;
+  readonly scannedViewCount: number;
+  readonly parsedViewCount: number;
+  readonly recommendationCount: number;
+  readonly candidateIndexCount: number;
+  readonly recommendedIndexCount: number;
+  readonly validatedRecommendationCount: number;
+  readonly rejectedCandidateCount: number;
+  readonly skippedViewCount: number;
+  readonly manualInvestigationCount: number;
+  readonly explainedIndexCount: number;
+  readonly recommendedIndexSet: readonly TableQueryOpsRecommendedIndexSetSummary[];
+  readonly queryRiskReports: readonly TableQueryOpsQueryRiskReportSummary[];
+  readonly coverageReport: TableQueryOpsCoverageReportSummary;
+  readonly rejectedCandidates: readonly TableQueryOpsRejectedIndexCandidateSummary[];
+  readonly skippedSources: readonly TableQueryOpsSourceCoverageSummary[];
+  readonly validatedRecommendations: readonly TableQueryOpsExplainRecommendedIndexSummary[];
+  readonly manualInvestigationCandidates: readonly TableQueryOpsExplainRecommendedIndexSummary[];
+  readonly results: readonly TableQueryOpsExplainRecommendedIndexSummary[];
+}
+
+export interface TableQueryOpsSearchVectorFieldSummary {
+  readonly fieldId: string;
+  readonly fieldDbName?: string;
+  readonly fieldType: string;
+  readonly valueType?: string;
+  readonly included: boolean;
+  readonly skippedReason?: string;
+}
+
+export interface TableQueryOpsSearchVectorRecommendationSummary {
+  readonly candidateKey: string;
+  readonly tableId: string;
+  readonly baseId: string;
+  readonly generatedColumnName: string;
+  readonly indexName: string;
+  readonly indexKind: 'gin_tsvector';
+  readonly accessPath: 'generated_tsvector';
+  readonly languageConfig: string;
+  readonly searchScope: 'selected_fields' | 'all_fields';
+  readonly coveredFields: readonly TableQueryOpsSearchVectorFieldSummary[];
+  readonly skippedFields: readonly TableQueryOpsSearchVectorFieldSummary[];
+  readonly estimatedRows: number;
+  readonly tableSizeBytes?: number;
+  readonly inventory: {
+    readonly state: string;
+    readonly existingGeneratedColumn?: string;
+    readonly existingIndexName?: string;
+    readonly existingIndexValid?: boolean;
+    readonly staleReasons: readonly string[];
+  };
+  readonly planEvidence: {
+    readonly explainStatus: 'validated' | 'skipped' | 'failed';
+    readonly explainMethod?: 'explain' | 'hypothetical_index' | 'real_index';
+    readonly explainReason?: string;
+    readonly costBefore?: number;
+    readonly costAfter?: number;
+    readonly costDeltaPct?: number;
+    readonly planNodeBefore?: string;
+    readonly planNodeAfter?: string;
+    readonly usesCandidateIndex?: boolean;
+    readonly hypotheticalIndexStatement?: string;
+    readonly sqlDetails?: {
+      readonly beforeSql: string;
+      readonly afterSql: string;
+      readonly searchProbeLengthBucket: 'none' | 'short' | 'medium' | 'long';
+      readonly placeholders: {
+        readonly likePattern: string;
+        readonly tsquery: string;
+      };
+      readonly redaction: 'search_probe_parameterized';
+    };
+  };
+  readonly semanticsReport?: TableQueryOpsSearchSemanticsReportSummary;
+  readonly nextAction: TableQueryOpsIndexNextAction;
+}
+
+export interface TableQueryOpsSearchScopeHeatEntrySummary {
+  readonly scopeKey: string;
+  readonly searchedFieldIds: readonly string[];
+  readonly searchMode: 'ilike' | 'trigram' | 'full_text';
+  readonly languageConfig?: string;
+  readonly requestCount: number;
+  readonly slowCount: number;
+  readonly timeoutCount: number;
+  readonly totalDurationMs: number;
+  readonly maxDurationMs: number;
+  readonly averageDurationMs: number;
+  readonly heatScore: number;
+  readonly hot: boolean;
+  readonly reasonCodes: readonly string[];
+  readonly nextAction: 'needs_plan_validation' | 'no_index_change';
+}
+
+export interface TableQueryOpsSearchScopeHeatReportSummary {
+  readonly tableId: string;
+  readonly estimatedRows: number;
+  readonly scannedObservationCount: number;
+  readonly scopes: readonly TableQueryOpsSearchScopeHeatEntrySummary[];
+}
+
+export interface TableQueryOpsScopedSearchIndexRecommendationSummary {
+  readonly candidateKey: string;
+  readonly tableId: string;
+  readonly baseId: string;
+  readonly indexName: string;
+  readonly indexKind: 'gin_tsvector_expression';
+  readonly accessPath: 'scoped_expression_gin';
+  readonly languageConfig: string;
+  readonly searchedFieldIds: readonly string[];
+  readonly coveredFields: readonly TableQueryOpsSearchVectorFieldSummary[];
+  readonly scopeHeat: TableQueryOpsSearchScopeHeatEntrySummary;
+  readonly planEvidence: TableQueryOpsSearchVectorRecommendationSummary['planEvidence'];
+  readonly nextAction: TableQueryOpsIndexNextAction;
+}
+
+export type TableQueryOpsSearchSemanticsStrategy =
+  | 'ilike'
+  | 'trigram'
+  | 'tsvector_simple'
+  | 'tsvector_english'
+  | 'tsvector_pg_jieba';
+
+export interface TableQueryOpsSearchSemanticsTokenSummary {
+  readonly token: string;
+  readonly alias?: string;
+  readonly lexemes: readonly string[];
+}
+
+export interface TableQueryOpsSearchSemanticsSampleResultSummary {
+  readonly recordId?: string;
+  readonly fieldPreviews: readonly {
+    readonly fieldId: string;
+    readonly fieldDbName: string;
+    readonly preview: string;
+    readonly previewLength: number;
+    readonly truncated: boolean;
+  }[];
+}
+
+export interface TableQueryOpsSearchSemanticsComparisonSummary {
+  readonly strategy: TableQueryOpsSearchSemanticsStrategy;
+  readonly label: string;
+  readonly semantics: 'substring' | 'trigram_substring' | 'full_text';
+  readonly available: boolean;
+  readonly availabilityReason?: string;
+  readonly tokenizer?: string;
+  readonly languageConfig?: string;
+  readonly indexSupport:
+    | 'none'
+    | 'existing_or_manual_trigram'
+    | 'generated_tsvector_gin'
+    | 'extension_required';
+  readonly tokenPreview: readonly TableQueryOpsSearchSemanticsTokenSummary[];
+  readonly tokenCount?: number;
+  readonly explainStatus: 'validated' | 'skipped' | 'failed';
+  readonly explainReason?: string;
+  readonly cost?: number;
+  readonly planNode?: string;
+  readonly usesIndex?: boolean;
+  readonly matchCount?: number;
+  readonly matchCountDeltaFromIlike?: number;
+  readonly matchCountDeltaPctFromIlike?: number;
+  readonly sampleOverlapWithIlike?: number;
+  readonly sampleResults: readonly TableQueryOpsSearchSemanticsSampleResultSummary[];
+  readonly reasonablenessAssessment: {
+    readonly status: 'needs_llm_review' | 'not_evaluated';
+    readonly reasonCodes: readonly string[];
+    readonly instruction: string;
+  };
+}
+
+export interface TableQueryOpsSearchSemanticsReportSummary {
+  readonly searchProbeLengthBucket: 'none' | 'short' | 'medium' | 'long';
+  readonly comparedStrategies: readonly TableQueryOpsSearchSemanticsStrategy[];
+  readonly baselineStrategy: 'ilike';
+  readonly comparisons: readonly TableQueryOpsSearchSemanticsComparisonSummary[];
+  readonly llmEvaluationInput: {
+    readonly status: 'needs_llm_review';
+    readonly redaction: 'ephemeral_operator_probe_not_persisted';
+    readonly searchProbe: string;
+    readonly instruction: string;
+    readonly criteria: readonly string[];
+    readonly strategies: readonly {
+      readonly strategy: TableQueryOpsSearchSemanticsStrategy;
+      readonly label: string;
+      readonly tokenPreview: readonly TableQueryOpsSearchSemanticsTokenSummary[];
+      readonly matchCount?: number;
+      readonly cost?: number;
+      readonly sampleResults: readonly TableQueryOpsSearchSemanticsSampleResultSummary[];
+    }[];
+  };
+}
+
+export interface TableQueryOpsAnalyzeSearchVectorsResult {
+  readonly scope: TableQueryOpsAnalyzeSearchVectorsInput;
+  readonly tableCount: number;
+  readonly searchProbeLengthBucket: 'none' | 'short' | 'medium' | 'long';
+  readonly scannedFieldCount: number;
+  readonly coveredFieldCount: number;
+  readonly skippedFieldCount: number;
+  readonly recommendations: readonly TableQueryOpsSearchVectorRecommendationSummary[];
+  readonly scopeHeatReports: readonly TableQueryOpsSearchScopeHeatReportSummary[];
+  readonly scopedExpressionRecommendations: readonly TableQueryOpsScopedSearchIndexRecommendationSummary[];
+  readonly coverageReport: {
+    readonly scannedFieldCount: number;
+    readonly coveredFieldCount: number;
+    readonly skippedFieldCount: number;
+    readonly skippedReasons: Readonly<Record<string, number>>;
+  };
+}
+
+export interface TableQueryOpsExecuteSearchVectorResult {
+  readonly scope: TableQueryOpsExecuteSearchVectorInput;
+  readonly dryRun: boolean;
+  readonly action: 'dry_run' | 'executed' | 'failed';
+  readonly result?: unknown;
+  readonly error?: string;
+}
+
+export interface TableQueryOpsSearchVectorTempTableValidationResult {
+  readonly scope: TableQueryOpsSearchVectorTempTableValidationScope;
+  readonly tableId: string;
+  readonly baseId: string;
+  readonly languageConfig: string;
+  readonly candidateKey: string;
+  readonly generatedColumnName: string;
+  readonly recommendedIndexName: string;
+  readonly tempIndexName: string;
+  readonly tempTable: {
+    readonly schemaName: string;
+    readonly tableName: string;
+    readonly fullName: string;
+    readonly sourceTableName: string;
+    readonly copiedRows: number;
+    readonly rowLimit?: number;
+    readonly kept: boolean;
+  };
+  readonly coveredFields: readonly TableQueryOpsSearchVectorFieldSummary[];
+  readonly skippedFields: readonly TableQueryOpsSearchVectorFieldSummary[];
+  readonly samples: readonly {
+    readonly searchProbeLengthBucket: 'none' | 'short' | 'medium' | 'long';
+    readonly defaultPath: {
+      readonly durationMs: number;
+      readonly total: number;
+      readonly returnedCount: number;
+      readonly recordIds: readonly string[];
+    };
+    readonly generatedTsvectorPath: {
+      readonly durationMs: number;
+      readonly total: number;
+      readonly returnedCount: number;
+      readonly recordIds: readonly string[];
+    };
+    readonly totalDeltaFromDefault: number;
+    readonly totalDeltaPctFromDefault: number;
+    readonly durationDeltaPctFromDefault: number;
+    readonly sampleOverlapWithDefault: number;
+    readonly planEvidence: {
+      readonly explainStatus: 'validated' | 'failed';
+      readonly costBefore?: number;
+      readonly costAfter?: number;
+      readonly costDeltaPct?: number;
+      readonly planNodeBefore?: string;
+      readonly planNodeAfter?: string;
+      readonly usesGinIndex: boolean;
+      readonly ginExpected: boolean;
+      readonly ginDecisionReason: string;
+      readonly indexName: string;
+      readonly error?: string;
+    };
+    readonly llmReasonableness:
+      | 'reasonable'
+      | 'semantic_drift'
+      | 'needs_language_config'
+      | 'manual_review';
+  }[];
+  readonly summary: {
+    readonly sampleCount: number;
+    readonly ginValidatedSampleCount: number;
+    readonly allSelectiveSamplesUsedGinIndex: boolean;
+    readonly allSamplesImprovedDuration: boolean;
+    readonly hasMaterialSemanticDrift: boolean;
+    readonly nextAction:
+      | 'ready_for_confirmation'
+      | 'needs_language_config'
+      | 'needs_plan_validation'
+      | 'manual_investigation';
+  };
+}
+
+export interface TableQueryOpsObservabilitySchemaResult {
+  readonly spans: readonly {
+    readonly name: string;
+    readonly layer: 'api' | 'application' | 'repository' | 'admin' | 'advisor';
+    readonly purpose: string;
+    readonly attributes: readonly string[];
+  }[];
+  readonly metrics: readonly {
+    readonly name: string;
+    readonly type: 'counter' | 'histogram';
+    readonly purpose: string;
+    readonly safeAttributes: readonly string[];
+  }[];
+  readonly traceOnlyAttributes: readonly string[];
+  readonly redactionRules: readonly string[];
+  readonly environment: {
+    readonly tableIdMetricAllowlist: string;
+  };
+}
+
+export interface TableQueryOpsSignozDashboardTemplateResult {
+  readonly dashboards: readonly {
+    readonly title: string;
+    readonly panels: readonly {
+      readonly title: string;
+      readonly signal: 'traces' | 'metrics';
+      readonly query: string;
+      readonly groupBy?: readonly string[];
+    }[];
+  }[];
+  readonly alerts: readonly {
+    readonly name: string;
+    readonly signal: 'traces' | 'metrics';
+    readonly query: string;
+    readonly condition: string;
+  }[];
+  readonly drilldownFilters: readonly string[];
+}
+
+export class TableQueryOps extends Context.Tag('TableQueryOps')<
+  TableQueryOps,
+  {
+    readonly getOverview: (
+      input: TableQueryOpsOverviewInput
+    ) => Effect.Effect<TableQueryOpsOverviewResult, CliError>;
+    readonly analyzeSavedViews: (
+      input: TableQueryOpsAnalyzeSavedViewsInput
+    ) => Effect.Effect<TableQueryOpsAnalyzeSavedViewsResult, CliError>;
+    readonly executeRecommendations: (
+      input: TableQueryOpsExecuteRecommendationsInput
+    ) => Effect.Effect<TableQueryOpsExecuteRecommendationsResult, CliError>;
+    readonly explainSavedViews: (
+      input: TableQueryOpsExplainSavedViewsInput
+    ) => Effect.Effect<TableQueryOpsExplainSavedViewsResult, CliError>;
+    readonly analyzeSearchVectors: (
+      input: TableQueryOpsAnalyzeSearchVectorsInput
+    ) => Effect.Effect<TableQueryOpsAnalyzeSearchVectorsResult, CliError>;
+    readonly explainSearchVectors: (
+      input: TableQueryOpsAnalyzeSearchVectorsInput
+    ) => Effect.Effect<TableQueryOpsAnalyzeSearchVectorsResult, CliError>;
+    readonly executeSearchVector: (
+      input: TableQueryOpsExecuteSearchVectorInput
+    ) => Effect.Effect<TableQueryOpsExecuteSearchVectorResult, CliError>;
+    readonly validateSearchVectorTempTable: (
+      input: TableQueryOpsValidateSearchVectorTempTableInput
+    ) => Effect.Effect<TableQueryOpsSearchVectorTempTableValidationResult, CliError>;
+    readonly analyzeObservation: (
+      input: TableQueryOpsAnalyzeObservationInput
+    ) => Effect.Effect<TableQueryOpsAnalyzeObservationResult, CliError>;
+    readonly observabilitySchema: () => Effect.Effect<
+      TableQueryOpsObservabilitySchemaResult,
+      CliError
+    >;
+    readonly signozDashboardTemplate: () => Effect.Effect<
+      TableQueryOpsSignozDashboardTemplateResult,
+      CliError
+    >;
+  }
+>() {}

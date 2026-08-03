@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style type="text/css">
+        /* Client-specific styles */
+        #outlook a {
+            padding: 0;
+        }
+
+        .ReadMsgBody {
+            width: 100%;
+        }
+
+        .ExternalClass {
+            width: 100%;
+        }
+
+        .ExternalClass * {
+            line-height: 100%;
+        }
+
+        /* External styles */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            -webkit-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
+        }
+
+        body, table, td, a {
+            -webkit-font-smoothing: antialiased;
+        }
+
+        img {
+            border: 0;
+            outline: none;
+            text-decoration: none;
+            -ms-interpolation-mode: bicubic;
+        }
+
+        /* Embedded styles */
+        .email-container {
+            min-width: 320px;
+            max-width: 600px;
+            margin: auto;
+        }
+
+        .button:hover {
+            background-color: #20aa5c !important;
+        }
+
+        /* Responsive styles */
+        @media screen and (max-width: 480px) {
+            .fluid {
+                width: 100% !important;
+                max-width: 100% !important;
+                height: auto !important;
+                margin-left: auto !important;
+                margin-right: auto !important;
+            }
+
+            .stack-column, .stack-column-center {
+                display: block !important;
+                width: 100% !important;
+                max-width: 100% !important;
+                direction: ltr !important;
+            }
+
+            .stack-column-center {
+                text-align: center !important;
+            }
+        }
+    </style>
+</head>
+<body style="background-color: #f7f7f7; margin: 0; padding: 0;">
+<table width="100%" bgcolor="#f7f7f7" border="0" cellpadding="0" cellspacing="0">
+    <tr>
+        <td>
+            <table align="center" class="email-container" bgcolor="#ffffff"
+                   style="background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05);"
+                   border="0" cellpadding="0" cellspacing="0">
+                <!-- Header -->
+                {{> header }}
+                <!-- Boby -->
+                {{> (lookup . 'partialBody') }}
+                <!-- Footer -->
+                {{> footer }}
+            </table>
+        </td>
+    </tr>
+</table>
+</body>
+</html>

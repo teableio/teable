@@ -1,0 +1,40 @@
+import { z } from '../../../zod';
+import { CellValueType, FieldType } from '../constant';
+import { longTextShowAsSchema } from '../derivate/long-text-option.schema';
+import { multiNumberShowAsSchema, numberShowAsSchema, singleNumberShowAsSchema } from './number';
+import { singleLineTextShowAsSchema } from './text';
+
+export * from './number';
+export * from './text';
+
+export const getShowAsSchema = (
+  cellValueType: CellValueType,
+  isMultipleCellValue: boolean | undefined,
+  fieldType?: FieldType
+) => {
+  if (cellValueType === CellValueType.Number) {
+    return isMultipleCellValue
+      ? multiNumberShowAsSchema.optional()
+      : singleNumberShowAsSchema.optional();
+  }
+
+  if (cellValueType === CellValueType.String) {
+    if (fieldType === FieldType.LongText) {
+      return longTextShowAsSchema.optional();
+    }
+    return singleLineTextShowAsSchema.optional();
+  }
+
+  return z.undefined().meta({
+    description: 'Only string or number cell value type support show as',
+  });
+};
+
+export const unionShowAsSchema = z
+  .union([singleLineTextShowAsSchema.strict(), numberShowAsSchema])
+  .meta({
+    description:
+      'According to the results of expression parsing to determine different visual effects, where strings, numbers will provide customized "show as"',
+  });
+
+export type IUnionShowAs = z.infer<typeof unionShowAsSchema>;

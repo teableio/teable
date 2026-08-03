@@ -1,0 +1,175 @@
+import { useMutation } from '@tanstack/react-query';
+import type { HttpError } from '@teable/core';
+import { changePassword, changePasswordRoSchema } from '@teable/openapi';
+import { useSession } from '@teable/sdk/hooks';
+import { Spin } from '@teable/ui-lib/base';
+import {
+  Button,
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  Input,
+  Label,
+} from '@teable/ui-lib/shadcn';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
+import { useRouter } from 'next/router';
+import { useTranslation } from 'next-i18next';
+import { useState } from 'react';
+
+interface IChangePasswordDialogProps {
+  children?: React.ReactNode;
+}
+export const ChangePasswordDialog = (props: IChangePasswordDialogProps) => {
+  const { children } = props;
+  const { t } = useTranslation('common');
+  const router = useRouter();
+  const { user } = useSession();
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const {
+    mutate: changePasswordMutate,
+    isPending: isLoading,
+    isSuccess,
+  } = useMutation({
+    mutationFn: changePassword,
+    onSuccess: () => {
+      toast.success(t('settings.account.changePasswordSuccess.title'), {
+        description: t('settings.account.changePasswordSuccess.desc'),
+      });
+      setTimeout(() => {
+        router.reload();
+      }, 2000);
+    },
+    onError: (err: HttpError) => {
+      console.error(err.message);
+      setError(t('settings.account.changePasswordError.invalid'));
+    },
+  });
+
+  const checkConfirmEqual = () => {
+    if (newPassword && confirmPassword && newPassword !== confirmPassword) {
+      setError(t('settings.account.changePasswordError.disMatch'));
+      return;
+    }
+    if (newPassword && confirmPassword && currentPassword === newPassword) {
+      setError(t('settings.account.changePasswordError.equal'));
+      return;
+    }
+    setError('');
+  };
+
+  const reset = () => {
+    setNewPassword('');
+    setConfirmPassword('');
+    setCurrentPassword('');
+    setError('');
+  };
+
+  const disableSubmitBtn =
+    !currentPassword || !newPassword || !confirmPassword || newPassword !== confirmPassword;
+
+  const handleSubmit = async () => {
+    const valid = changePasswordRoSchema.safeParse({ password: currentPassword, newPassword });
+    if (!valid.success) {
+      setError(t('password.setInvalid'));
+      return;
+    }
+    changePasswordMutate({ password: currentPassword, newPassword });
+  };
+
+  return (
+    <Dialog onOpenChange={reset}>
+      <DialogTrigger asChild>{children}</DialogTrigger>
+      <DialogContent className="md:w-[400px]">
+        <DialogHeader>
+          <DialogTitle className="text-base">
+            {t('settings.account.changePassword.title')}
+          </DialogTitle>
+          <DialogDescription className="text-sm">
+            {t('settings.account.changePassword.desc')}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2">
+          <div className="space-y-1">
+            <Input
+              className="visible m-0 h-0 border-0 p-0 text-[0]"
+              type="text"
+              name="email"
+              autoComplete="email"
+              readOnly
+              value={user.email}
+            />
+            <Label className="font-normal text-foreground" htmlFor="currentPassword">
+              {t('settings.account.changePassword.current')}
+            </Label>
+            <Input
+              size="sm"
+              id="currentPassword"
+              autoComplete="current-password"
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              aria-autocomplete="inline"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="font-normal text-foreground" htmlFor="newPassword">
+              {t('settings.account.changePassword.new')}
+            </Label>
+            <Input
+              size="sm"
+              id="newPassword"
+              autoComplete="new-password"
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              onBlur={checkConfirmEqual}
+              aria-autocomplete="inline"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="font-normal text-foreground" htmlFor="confirmPassword">
+              {t('settings.account.changePassword.confirm')}
+            </Label>
+            <Input
+              size="sm"
+              id="confirmPassword"
+              autoComplete="new-password"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              onBlur={checkConfirmEqual}
+              aria-autocomplete="inline"
+            />
+          </div>
+          {error && <div className="!mt-4 text-xs text-destructive">{error}</div>}
+        </div>
+        <DialogFooter className="flex flex-col gap-2 sm:flex-row">
+          <DialogClose asChild>
+            <Button size={'sm'} className="w-full" variant={'outline'}>
+              {t('actions.cancel')}
+            </Button>
+          </DialogClose>
+          <Button
+            size={'sm'}
+            className="m-0 w-full"
+            type="submit"
+            disabled={disableSubmitBtn || isSuccess || isLoading}
+            onClick={handleSubmit}
+          >
+            {isLoading && <Spin className="mr-1 size-4" />}
+            {t('settings.account.changePassword.title')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};

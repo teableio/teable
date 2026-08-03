@@ -1,0 +1,78 @@
+import { FieldType } from '@teable/core';
+import { useFields } from '@teable/sdk/hooks';
+import {
+  Label,
+  Select,
+  SelectItem,
+  SelectContent,
+  SelectTrigger,
+  SelectValue,
+  Switch,
+  cn,
+} from '@teable/ui-lib/shadcn';
+import { useTranslation } from 'next-i18next';
+import { useMemo } from 'react';
+import { tableConfig } from '@/features/i18n/table.config';
+
+interface ICoverFieldSelect {
+  fieldId?: string | null;
+  isCoverFit?: boolean;
+  className?: string;
+  onSelectChange?: (fieldId: string | null) => void;
+  onCheckedChange?: (checked: boolean) => void;
+}
+
+const COVER_FIELD_EMPTY_ID = 'cover_field_empty_id';
+
+export const CoverFieldSelect = (props: ICoverFieldSelect) => {
+  const { fieldId, isCoverFit, className, onCheckedChange, onSelectChange } = props;
+  const allFields = useFields({ withHidden: true, withDenied: true });
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
+
+  const filteredFields = useMemo(
+    () => allFields.filter((f) => f.type === FieldType.Attachment),
+    [allFields]
+  );
+
+  return (
+    <div className={cn('w-full flex flex-col gap-2 px-4 py-3', className)}>
+      <div className="flex items-center justify-between">
+        <span className="text-sm">{t('table:kanban.toolbar.imageSetting')}</span>
+        {fieldId && (
+          <div className="flex items-center gap-2">
+            <Label
+              htmlFor="attachment-field-select"
+              className="text-xs font-normal text-muted-foreground"
+            >
+              {t('table:kanban.toolbar.fit')}
+            </Label>
+            <Switch
+              id="attachment-field-select"
+              size={'sm'}
+              checked={isCoverFit}
+              onCheckedChange={(checked) => onCheckedChange?.(checked)}
+            />
+          </div>
+        )}
+      </div>
+      <Select
+        value={fieldId ?? undefined}
+        onValueChange={(value) => onSelectChange?.(value === COVER_FIELD_EMPTY_ID ? null : value)}
+      >
+        <SelectTrigger className="bg-background">
+          <SelectValue placeholder={t('table:kanban.toolbar.chooseAttachmentField')} />
+        </SelectTrigger>
+        <SelectContent className=" w-72">
+          {filteredFields.map(({ id, name }) => (
+            <SelectItem key={id} value={id} className="text-sm">
+              {name}
+            </SelectItem>
+          ))}
+          <SelectItem value={COVER_FIELD_EMPTY_ID} className="flex">
+            {t('table:kanban.toolbar.noImage')}
+          </SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+  );
+};

@@ -1,0 +1,26 @@
+version: '3.9'
+
+services:
+  teable-cache:
+    image: redis:7.2.4
+    container_name: teable-cache
+    hostname: teable-cache
+    restart: always
+    ports:
+      - '6379:6379'
+    networks:
+      - teable-net
+    volumes:
+      - cache_data:/data:rw
+      # you may use a bind-mounted host directory instead,
+      # so that it is harder to accidentally remove the volume and lose all your data!
+      # - ./docker/cache/data:/data:rw
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    healthcheck:
+      test: ['CMD', 'redis-cli', '--raw', 'incr', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  cache_data:

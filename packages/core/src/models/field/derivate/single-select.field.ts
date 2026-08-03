@@ -1,0 +1,56 @@
+import { z } from 'zod';
+import type { FieldType, CellValueType } from '../constant';
+import type { IFieldVisitor } from '../field-visitor.interface';
+import { SelectFieldCore } from './abstract/select.field.abstract';
+
+export const singleSelectCelValueSchema = z.string();
+
+export type ISingleSelectCellValue = z.infer<typeof singleSelectCelValueSchema>;
+
+export class SingleSelectFieldCore extends SelectFieldCore {
+  type!: FieldType.SingleSelect;
+
+  cellValueType!: CellValueType.String;
+
+  convertStringToCellValue(value: string, shouldExtend?: boolean): string | null {
+    if (this.isLookup) {
+      return null;
+    }
+
+    if (value === '' || value == null) {
+      return null;
+    }
+
+    const cellValue = String(value).replace(/\n|\r/g, ' ').trim();
+    if (shouldExtend) {
+      return cellValue;
+    }
+
+    if (this.options.choices.find((c) => c.name === cellValue)) {
+      return cellValue;
+    }
+
+    return null;
+  }
+
+  repair(value: unknown) {
+    if (this.isLookup) {
+      return null;
+    }
+
+    if (Array.isArray(value)) {
+      const firstValidValue = value.find((item): item is string => typeof item === 'string');
+      return firstValidValue == null ? null : this.convertStringToCellValue(firstValidValue);
+    }
+
+    if (typeof value === 'string') {
+      return this.convertStringToCellValue(value);
+    }
+
+    return null;
+  }
+
+  accept<T>(visitor: IFieldVisitor<T>): T {
+    return visitor.visitSingleSelectField(this);
+  }
+}

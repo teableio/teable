@@ -1,0 +1,18 @@
+{
+  "empty": {
+    "title": "No dashboards yet",
+    "description": "Dashboards help you visualize and manage your data more effectively.",
+    "create": "Create dashboard"
+  },
+  "addPlugin": "Add a plugin",
+  "createDashboard": {
+    "button": "Create dashboard",
+    "title": "Create new dashboard",
+    "placeholder": "Enter dashboard name"
+  },
+  "findDashboard": "Find a dashboard...",
+  "deprecation": {
+    "title": "Dashboard node feature will be discontinued",
+    "description": "To bring you a smarter and more efficient experience, we will discontinue support for the dashboard node feature. You can easily create new dashboards through AI in the AI-generated application for a smoother experience."
+  }
+}

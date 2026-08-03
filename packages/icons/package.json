@@ -1,0 +1,61 @@
+{
+  "name": "@teable/icons",
+  "version": "1.10.0",
+  "license": "MIT",
+  "homepage": "https://github.com/teableio/teable",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/teableio/teable",
+    "directory": "packages/icons"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "@teable/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rimraf ./dist ./build ./tsconfig.tsbuildinfo ./node_modules/.cache",
+    "dev": "rm -rf dist && tsc --watch",
+    "test": "echo \"Error: no test specified\"",
+    "lint": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs,.mdx --cache --cache-location ../../.cache/eslint/icons.eslintcache",
+    "typecheck": "tsc --project ./tsconfig.json --noEmit",
+    "generate": "rm -rf src/components && node ./scripts/generate.mjs"
+  },
+  "peerDependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@svgr/core": "8.1.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "@svgr/plugin-jsx": "8.1.0",
+    "@svgr/plugin-prettier": "8.1.0",
+    "@svgr/plugin-svgo": "8.1.0",
+    "@types/fs-extra": "11.0.4",
+    "@types/node": "22.18.0",
+    "@types/react": "18.3.18",
+    "axios": "1.7.7",
+    "chalk": "5.3.0",
+    "dotenv": "16.4.5",
+    "eslint": "8.57.0",
+    "figma-js": "1.16.0",
+    "fs-extra": "11.2.0",
+    "lodash": "4.17.21",
+    "rimraf": "5.0.5",
+    "typescript": "5.4.3"
+  }
+}

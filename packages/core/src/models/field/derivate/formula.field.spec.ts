@@ -1,0 +1,494 @@
+import { plainToInstance } from 'class-transformer';
+import { TableDomain } from '../../table/table-domain';
+import { Colors } from '../colors';
+import { DbFieldType, FieldType, CellValueType } from '../constant';
+import { DateFormattingPreset, NumberFormattingType, TimeFormatting } from '../formatting';
+import {
+  MultiNumberDisplayType,
+  SingleLineTextDisplayType,
+  SingleNumberDisplayType,
+} from '../show-as';
+import { FormulaFieldCore } from './formula.field';
+import { NumberFieldCore } from './number.field';
+
+describe('FormulaFieldCore', () => {
+  const singleNumberShowAsProps = {
+    type: SingleNumberDisplayType.Ring,
+    color: Colors.TealBright,
+    showValue: false,
+    maxValue: 100,
+  };
+
+  const multiNumberShowAsProps = {
+    type: MultiNumberDisplayType.Line,
+    color: Colors.TealBright,
+  };
+
+  const numberFormulaJson = {
+    id: 'fld666',
+    name: 'formulaField',
+    description: 'A test formula field',
+    notNull: false,
+    unique: false,
+    isPrimary: false,
+    columnMeta: {
+      index: 0,
+      columnIndex: 0,
+    },
+    type: FieldType.Formula,
+    dbFieldType: DbFieldType.Real,
+    options: {
+      expression: '{fld123} + 2',
+      formatting: { type: NumberFormattingType.Decimal, precision: 2 },
+      timeZone: 'Asia/Shanghai',
+      showAs: singleNumberShowAsProps,
+    },
+    meta: {
+      persistedAsGeneratedColumn: true,
+    },
+    cellValueType: CellValueType.Number,
+    isComputed: true,
+  };
+
+  const numberFormulaField = plainToInstance(FormulaFieldCore, numberFormulaJson);
+
+  const numberField = plainToInstance(NumberFieldCore, {
+    id: 'fld123',
+    name: 'testField',
+    description: 'A test number field',
+    notNull: true,
+    unique: true,
+    isPrimary: true,
+    columnMeta: {
+      index: 0,
+      columnIndex: 0,
+    },
+    type: FieldType.Number,
+    dbFieldType: DbFieldType.Real,
+    options: {
+      formatting: { type: NumberFormattingType.Decimal, precision: 2 },
+    },
+    cellValueType: CellValueType.Number,
+    isComputed: false,
+  });
+
+  const stringFormulaField = plainToInstance(FormulaFieldCore, {
+    ...numberFormulaJson,
+    options: {
+      expression: 'text',
+      showAs: {
+        type: SingleLineTextDisplayType.Url,
+      },
+    },
+    cellValueType: CellValueType.String,
+  });
+
+  const dateFormulaField = plainToInstance(FormulaFieldCore, {
+    ...numberFormulaJson,
+    options: {
+      ...numberFormulaJson.options,
+      formatting: {
+        date: DateFormattingPreset.US,
+        time: TimeFormatting.None,
+        timeZone: 'utc',
+      },
+      showAs: undefined,
+    },
+    cellValueType: CellValueType.DateTime,
+  });
+
+  const booleanFormulaField = plainToInstance(FormulaFieldCore, {
+    ...numberFormulaJson,
+    options: {
+      ...numberFormulaJson.options,
+      formatting: undefined,
+      showAs: undefined,
+    },
+    cellValueType: CellValueType.Boolean,
+  });
+
+  const lookupMultipleFormulaField = plainToInstance(FormulaFieldCore, {
+    ...numberFormulaJson,
+    options: {
+      ...numberFormulaJson.options,
+      formatting: { type: NumberFormattingType.Decimal, precision: 2 },
+      showAs: multiNumberShowAsProps,
+    },
+    cellValueType: CellValueType.Number,
+    isLookup: true,
+    isMultipleCellValue: true,
+  });
+
+  const invalidShowAsTestCases = [
+    {
+      ...numberFormulaJson,
+      options: {
+        ...numberFormulaJson.options,
+        showAs: singleNumberShowAsProps,
+      },
+      cellValueType: CellValueType.Number,
+      isMultipleCellValue: true,
+      isLookup: true,
+    },
+    {
+      ...numberFormulaJson,
+      options: {
+        ...numberFormulaJson.options,
+        showAs: multiNumberShowAsProps,
+      },
+      cellValueType: CellValueType.Number,
+      isMultipleCellValue: false,
+    },
+    {
+      ...numberFormulaJson,
+      options: {
+        ...numberFormulaJson.options,
+        showAs: singleNumberShowAsProps,
+      },
+      cellValueType: CellValueType.String,
+      isMultipleCellValue: false,
+    },
+    {
+      ...numberFormulaJson,
+      options: {
+        expression: '"abc"',
+        showAs: {
+          type: 'test',
+        },
+      },
+      cellValueType: CellValueType.String,
+      isMultipleCellValue: false,
+    },
+    {
+      ...numberFormulaJson,
+      options: {
+        ...numberFormulaJson.options,
+        showAs: singleNumberShowAsProps,
+      },
+      cellValueType: CellValueType.DateTime,
+      isMultipleCellValue: false,
+    },
+    {
+      ...numberFormulaJson,
+      options: {
+        ...numberFormulaJson.options,
+        showAs: singleNumberShowAsProps,
+      },
+      cellValueType: CellValueType.Boolean,
+      isMultipleCellValue: false,
+    },
+  ];
+
+  describe('basic function', () => {
+    it('should convert cellValue to string', () => {
+      expect(numberFormulaField.cellValue2String(1)).toBe('1.00');
+      expect(stringFormulaField.cellValue2String('text')).toBe('text');
+      expect(dateFormulaField.cellValue2String('2023-06-19T06:50:48.017Z')).toBe('6/19/2023');
+      expect(booleanFormulaField.cellValue2String(true)).toBe('true');
+      expect(lookupMultipleFormulaField.cellValue2String([1, 2, 3])).toBe('1.00, 2.00, 3.00');
+    });
+
+    it('should validate cellValue', () => {
+      expect(numberFormulaField.validateCellValue(1).success).toBe(true);
+      expect(numberFormulaField.validateCellValue('1').success).toBe(false);
+      expect(stringFormulaField.validateCellValue('text').success).toBe(true);
+      expect(stringFormulaField.validateCellValue(666).success).toBe(false);
+      expect(dateFormulaField.validateCellValue('date').success).toBe(false);
+      expect(dateFormulaField.validateCellValue('2023-06-19T06:50:48.017Z').success).toBe(true);
+      expect(booleanFormulaField.validateCellValue(true).success).toBe(true);
+      expect(booleanFormulaField.validateCellValue('true').success).toBe(false);
+      expect(lookupMultipleFormulaField.validateCellValue([1]).success).toBe(true);
+      expect(lookupMultipleFormulaField.validateCellValue(1).success).toBe(false);
+    });
+
+    it('should convert string to cellValue', () => {
+      expect(numberFormulaField.convertStringToCellValue('1')).toBe(null);
+    });
+
+    it('should repair invalid value', () => {
+      expect(numberFormulaField.repair(1)).toBe(null);
+    });
+  });
+
+  describe('calculation', () => {
+    it('should parse the expression correctly', () => {
+      const expression = '2 + 2';
+      const parsed = FormulaFieldCore.parse(expression);
+      expect(parsed).toBeDefined();
+      // add more specific checks based on the return type of parse()
+    });
+
+    it('should convert field ids to names correctly', () => {
+      const expression = '{fld123} + 1';
+      const dependFieldMap = {
+        fld123: { name: 'testField' },
+        // add more fields if needed
+      };
+      const converted = FormulaFieldCore.convertExpressionIdToName(expression, dependFieldMap);
+      expect(converted).toBe('{testField} + 1');
+    });
+
+    it('should convert field names to ids correctly', () => {
+      const expression = '{testField} + 1';
+      const dependFieldMap = {
+        fld123: { name: 'testField' },
+        // add more fields if needed
+      };
+      const converted = FormulaFieldCore.convertExpressionNameToId(expression, dependFieldMap);
+      expect(converted).toBe('{fld123} + 1');
+    });
+
+    it('should convert localized BLANK comparisons with spaced function calls', () => {
+      const dependFieldMap = {
+        fldWeight: { name: '入职体重(kg)' },
+      };
+
+      expect(
+        FormulaFieldCore.convertExpressionNameToId('{入职体重(kg)} !=BLANK()', dependFieldMap)
+      ).toBe('{fldWeight} !=BLANK()');
+      expect(
+        FormulaFieldCore.convertExpressionNameToId('{入职体重(kg)} != BLANK()', dependFieldMap)
+      ).toBe('{fldWeight} != BLANK()');
+    });
+
+    it('should return current typed value with field context', () => {
+      expect(FormulaFieldCore.getParsedValueType('2 + 2', {})).toEqual({
+        cellValueType: CellValueType.Number,
+      });
+
+      expect(
+        FormulaFieldCore.getParsedValueType('{fld123}', {
+          fld123: numberField,
+        })
+      ).toEqual({
+        cellValueType: CellValueType.Number,
+      });
+
+      expect(
+        FormulaFieldCore.getParsedValueType('{fld123}', {
+          fld123: numberField,
+        })
+      ).toEqual({
+        cellValueType: CellValueType.Number,
+      });
+    });
+
+    it('should reject LAST_MODIFIED_TIME with non-field parameters during parsing', () => {
+      expect(() => FormulaFieldCore.getParsedValueType('LAST_MODIFIED_TIME("oops")', {})).toThrow(
+        'LAST_MODIFIED_TIME parameter must be a field reference'
+      );
+    });
+
+    it('should return current fieldIds by getReferenceFieldIds', () => {
+      expect(numberFormulaField.getReferenceFieldIds()).toEqual(['fld123']);
+    });
+
+    it('should return eval result by evaluate', () => {
+      expect(
+        numberFormulaField
+          .evaluate(
+            {
+              fld123: numberField,
+            },
+            {
+              id: 'rec123',
+              fields: {
+                fld123: 1,
+              },
+            }
+          )
+          .toPlain()
+      ).toEqual(3);
+    });
+  });
+
+  describe('reference resolution', () => {
+    it('should detect missing references recursively', () => {
+      // f1 references missing fld999
+      const f1 = plainToInstance(FormulaFieldCore, {
+        id: 'fldF1',
+        name: 'F1',
+        type: FieldType.Formula,
+        dbFieldType: DbFieldType.Real,
+        options: { expression: '{fld999} * 2' },
+        cellValueType: CellValueType.Number,
+        isComputed: true,
+      });
+
+      // f2 references f1
+      const f2 = plainToInstance(FormulaFieldCore, {
+        id: 'fldF2',
+        name: 'F2',
+        type: FieldType.Formula,
+        dbFieldType: DbFieldType.Real,
+        options: { expression: '{fldF1} * 2' },
+        cellValueType: CellValueType.Number,
+        isComputed: true,
+      });
+
+      const table = new TableDomain({
+        id: 'tbl',
+        name: 'tbl',
+        dbTableName: 'tbl',
+        lastModifiedTime: new Date().toISOString(),
+        fields: [f1, f2],
+      });
+
+      expect(f1.hasUnresolvedReferences(table)).toBe(true);
+      expect(f2.hasUnresolvedReferences(table)).toBe(true);
+    });
+
+    it('should return false when all references exist', () => {
+      const num = numberField; // fld123 exists
+      const f1 = plainToInstance(FormulaFieldCore, {
+        id: 'fldF1',
+        name: 'F1',
+        type: FieldType.Formula,
+        dbFieldType: DbFieldType.Real,
+        options: { expression: '{fld123} * 2' },
+        cellValueType: CellValueType.Number,
+        isComputed: true,
+      });
+      const f2 = plainToInstance(FormulaFieldCore, {
+        id: 'fldF2',
+        name: 'F2',
+        type: FieldType.Formula,
+        dbFieldType: DbFieldType.Real,
+        options: { expression: '{fldF1} * 2' },
+        cellValueType: CellValueType.Number,
+        isComputed: true,
+      });
+
+      const table = new TableDomain({
+        id: 'tbl',
+        name: 'tbl',
+        dbTableName: 'tbl',
+        lastModifiedTime: new Date().toISOString(),
+        fields: [num, f1, f2],
+      });
+
+      expect(f1.hasUnresolvedReferences(table)).toBe(false);
+      expect(f2.hasUnresolvedReferences(table)).toBe(false);
+    });
+  });
+
+  describe('validateOptions', () => {
+    it('should return success if options are valid', () => {
+      expect(numberFormulaField.validateOptions().success).toBeTruthy();
+      expect(stringFormulaField.validateOptions().success).toBeTruthy();
+      expect(dateFormulaField.validateOptions().success).toBeTruthy();
+      expect(booleanFormulaField.validateOptions().success).toBeTruthy();
+      expect(lookupMultipleFormulaField.validateOptions().success).toBeTruthy();
+    });
+
+    it('should return failure if options are invalid', () => {
+      expect(
+        plainToInstance(FormulaFieldCore, {
+          ...numberFormulaJson,
+          options: {
+            expression: '',
+          },
+          cellValueType: CellValueType.Number,
+          isMultipleCellValue: false,
+        }).validateOptions().success
+      ).toBeFalsy();
+
+      expect(
+        plainToInstance(FormulaFieldCore, {
+          ...numberFormulaJson,
+          options: {
+            expression: '',
+            formatting: {
+              date: DateFormattingPreset.US,
+              time: TimeFormatting.None,
+              timeZone: 'xxx/xxx',
+            },
+          },
+          cellValueType: CellValueType.DateTime,
+          isMultipleCellValue: false,
+        }).validateOptions().success
+      ).toBeFalsy();
+
+      expect(
+        plainToInstance(FormulaFieldCore, {
+          ...numberFormulaJson,
+          options: {
+            expression: '',
+            formatting: {
+              type: NumberFormattingType.Decimal,
+              precision: 2,
+            },
+          },
+          cellValueType: CellValueType.String,
+          isMultipleCellValue: false,
+        }).validateOptions().success
+      ).toBeFalsy();
+
+      expect(
+        plainToInstance(FormulaFieldCore, {
+          ...numberFormulaJson,
+          options: {
+            expression: '',
+            formatting: {
+              type: NumberFormattingType.Decimal,
+              precision: 2,
+            },
+          },
+          cellValueType: CellValueType.Boolean,
+          isMultipleCellValue: false,
+        }).validateOptions().success
+      ).toBeFalsy();
+
+      invalidShowAsTestCases.forEach((field) => {
+        expect(plainToInstance(FormulaFieldCore, field).validateOptions().success).toBeFalsy();
+      });
+    });
+
+    it('should get default options', () => {
+      expect(FormulaFieldCore.defaultOptions(CellValueType.Number)).toMatchObject({
+        expression: '',
+        formatting: {
+          type: NumberFormattingType.Decimal,
+          precision: 2,
+        },
+      });
+    });
+  });
+
+  describe('meta field', () => {
+    it('should support meta field with persistedAsGeneratedColumn', () => {
+      const formulaWithMeta = plainToInstance(FormulaFieldCore, {
+        ...numberFormulaJson,
+        meta: {
+          persistedAsGeneratedColumn: true,
+        },
+      });
+
+      expect(formulaWithMeta.meta).toEqual({
+        persistedAsGeneratedColumn: true,
+      });
+    });
+
+    it('should support meta field with default value', () => {
+      const formulaWithMeta = plainToInstance(FormulaFieldCore, {
+        ...numberFormulaJson,
+        meta: {
+          persistedAsGeneratedColumn: false,
+        },
+      });
+
+      expect(formulaWithMeta.meta).toEqual({
+        persistedAsGeneratedColumn: false,
+      });
+    });
+
+    it('should work without meta field', () => {
+      const formulaWithoutMeta = plainToInstance(FormulaFieldCore, {
+        ...numberFormulaJson,
+        meta: undefined,
+      });
+
+      expect(formulaWithoutMeta.meta).toBeUndefined();
+    });
+  });
+});

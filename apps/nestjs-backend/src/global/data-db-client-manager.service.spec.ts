@@ -1,0 +1,444 @@
+import { describe, expect, it, vi } from 'vitest';
+import { encryptDataDbUrl } from '../features/space/data-db-url-secret';
+import { DataDbClientManager } from './data-db-client-manager.service';
+import { DataDbRuntimeCacheService } from './data-db-runtime-cache.service';
+
+const withTxClient = <T extends object>(txClient: T) => ({
+  ...txClient,
+  txClient: vi.fn(() => txClient),
+});
+
+const dataUrl = 'postgresql://teable:secret@example.com:5432/teable_data';
+const internalSchema = 'teable_meta_test';
+const connectionId = 'dcnxxx';
+const displayHost = 'example.com';
+const displayDatabase = 'teable_data';
+const urlFingerprint = 'fp_xxx';
+
+describe('DataDbClientManager', () => {
+  it('includes BYODB base-to-space routing needed to honor space pauses', async () => {
+    vi.stubEnv('PRISMA_DATABASE_URL', 'postgresql://meta.example/teable');
+    const prismaService = withTxClient({
+      dataDbConnection: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: connectionId,
+            encryptedUrl: encryptDataDbUrl(dataUrl),
+            internalSchema,
+            spaceBindings: [{ spaceId: 'spc_a' }, { spaceId: 'spc_b' }],
+          },
+        ]),
+      },
+      base: {
+        findMany: vi.fn().mockResolvedValue([
+          { id: 'bse_a', spaceId: 'spc_a' },
+          { id: 'bse_b', spaceId: 'spc_b' },
+        ]),
+      },
+    });
+    const manager = new DataDbClientManager(
+      prismaService as never,
+      {} as never,
+      {} as never,
+      new DataDbRuntimeCacheService()
+    );
+
+    const targets = await manager.listComputedOutboxMaintenanceTargets();
+
+    expect(targets[1]).toMatchObject({
+      storage: 'byodb',
+      baseSpaceMapping: [
+        { baseId: 'bse_a', spaceId: 'spc_a' },
+        { baseId: 'bse_b', spaceId: 'spc_b' },
+      ],
+    });
+  });
+
+  it('falls back to the meta DB clients when a space has no BYODB binding', async () => {
+    const prismaService = withTxClient({
+      spaceDataDbBinding: {
+        findUnique: vi.fn().mockResolvedValue(null),
+      },
+    });
+    const metaFallbackDataPrisma = {};
+    const metaFallbackDataKnex = {};
+    const manager = new DataDbClientManager(
+      prismaService as never,
+      metaFallbackDataPrisma as never,
+      metaFallbackDataKnex as never,
+      new DataDbRuntimeCacheService()
+    );
+
+    await expect(manager.dataPrismaForSpace('spcxxx')).resolves.toBe(metaFallbackDataPrisma);
+    await expect(manager.dataKnexForSpace('spcxxx')).resolves.toBe(metaFallbackDataKnex);
+  });
+
+  it('resolves base scoped clients through the base space', async () => {
+    const prismaService = withTxClient({
+      base: {
+        findUnique: vi.fn().mockResolvedValue({ spaceId: 'spcxxx' }),
+      },
+      spaceDataDbBinding: {
+        findUnique: vi.fn().mockResolvedValue(null),
+      },
+    });
+    const metaFallbackDataPrisma = {};
+    const metaFallbackDataKnex = {};
+    const manager = new DataDbClientManager(
+      prismaService as never,
+      metaFallbackDataPrisma as never,
+      metaFallbackDataKnex as never,
+      new DataDbRuntimeCacheService()
+    );
+
+    await expect(manager.dataPrismaForBase('bsexxx')).resolves.toBe(metaFallbackDataPrisma);
+    await expect(manager.dataKnexForBase('bsexxx')).resolves.toBe(metaFallbackDataKnex);
+    expect(prismaService.base.findUnique).toHaveBeenCalledWith({
+      where: { id: 'bsexxx' },
+      select: { spaceId: true },
+    });
+    expect(prismaService.txClient).not.toHaveBeenCalled();
+  });
+
+  it('resolves table scoped clients through the table base space', async () => {
+    const prismaService = withTxClient({
+      tableMeta: {
+        findUnique: vi.fn().mockResolvedValue({ base: { spaceId: 'spcxxx' } }),
+      },
+      spaceDataDbBinding: {
+        findUnique: vi.fn().mockResolvedValue(null),
+      },
+    });
+    const metaFallbackDataPrisma = {};
+    const metaFallbackDataKnex = {};
+    const manager = new DataDbClientManager(
+      prismaService as never,
+      metaFallbackDataPrisma as never,
+      metaFallbackDataKnex as never,
+      new DataDbRuntimeCacheService()
+    );
+
+    await expect(manager.dataPrismaForTable('tblxxx')).resolves.toBe(metaFallbackDataPrisma);
+    await expect(manager.dataKnexForTable('tblxxx')).resolves.toBe(metaFallbackDataKnex);
+    expect(prismaService.tableMeta.findUnique).toHaveBeenCalledWith({
+      where: { id: 'tblxxx' },
+      select: { base: { select: { spaceId: true } } },
+    });
+    expect(prismaService.txClient).not.toHaveBeenCalled();
+  });
+
+  it('uses the active transaction when explicitly requested', async () => {
+    const txClient = {
+      tableMeta: {
+        findUnique: vi.fn().mockResolvedValue({ base: { spaceId: 'spc_in_tx' } }),
+      },
+      spaceDataDbBinding: {
+        findUnique: vi.fn().mockResolvedValue(null),
+      },
+    };
+    const prismaService = {
+      ...withTxClient(txClient),
+      tableMeta: {
+        findUnique: vi.fn().mockResolvedValue(null),
+      },
+    };
+    const metaFallbackDataPrisma = {};
+    const metaFallbackDataKnex = {};
+    const manager = new DataDbClientManager(
+      prismaService as never,
+      metaFallbackDataPrisma as never,
+      metaFallbackDataKnex as never,
+      new DataDbRuntimeCacheService()
+    );
+
+    await expect(
+      manager.dataPrismaForTable('tbl_new_in_tx', { useTransaction: true })
+    ).resolves.toBe(metaFallbackDataPrisma);
+    expect(txClient.tableMeta.findUnique).toHaveBeenCalledWith({
+      where: { id: 'tbl_new_in_tx' },
+      select: { base: { select: { spaceId: true } } },
+    });
+    expect(prismaService.tableMeta.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('uses the root meta client by default even when transaction context exists', async () => {
+    const txClient = {
+      tableMeta: {
+        findUnique: vi.fn().mockResolvedValue({ base: { spaceId: 'spc_in_tx' } }),
+      },
+      spaceDataDbBinding: {
+        findUnique: vi.fn().mockResolvedValue(null),
+      },
+    };
+    const prismaService = {
+      ...withTxClient(txClient),
+      tableMeta: {
+        findUnique: vi.fn().mockResolvedValue({ base: { spaceId: 'spc_after_tx' } }),
+      },
+      spaceDataDbBinding: {
+        findUnique: vi.fn().mockResolvedValue(null),
+      },
+    };
+    const metaFallbackDataPrisma = {};
+    const metaFallbackDataKnex = {};
+    const manager = new DataDbClientManager(
+      prismaService as never,
+      metaFallbackDataPrisma as never,
+      metaFallbackDataKnex as never,
+      new DataDbRuntimeCacheService()
+    );
+
+    await expect(manager.dataPrismaForTable('tbl_after_tx')).resolves.toBe(metaFallbackDataPrisma);
+    expect(txClient.tableMeta.findUnique).not.toHaveBeenCalled();
+    expect(prismaService.tableMeta.findUnique).toHaveBeenCalledWith({
+      where: { id: 'tbl_after_tx' },
+      select: { base: { select: { spaceId: true } } },
+    });
+    expect(prismaService.spaceDataDbBinding.findUnique).toHaveBeenCalledWith({
+      where: { spaceId: 'spc_after_tx' },
+      include: { dataDbConnection: true },
+    });
+  });
+
+  it('resolves BYODB connection details from a ready space binding', async () => {
+    const cls = {
+      isActive: vi.fn().mockReturnValue(true),
+      set: vi.fn(),
+    };
+    const prismaService = withTxClient({
+      spaceDataDbBinding: {
+        findUnique: vi.fn().mockResolvedValue({
+          mode: 'byodb',
+          state: 'ready',
+          dataDbConnection: {
+            id: connectionId,
+            status: 'ready',
+            internalSchema,
+            displayHost,
+            displayDatabase,
+            urlFingerprint,
+            encryptedUrl: encryptDataDbUrl(dataUrl),
+          },
+        }),
+      },
+    });
+    const metaFallbackDataPrisma = {};
+    const metaFallbackDataKnex = {};
+    const manager = new DataDbClientManager(
+      prismaService as never,
+      metaFallbackDataPrisma as never,
+      metaFallbackDataKnex as never,
+      new DataDbRuntimeCacheService(),
+      undefined,
+      cls as never
+    );
+
+    await expect(manager.getDataDatabaseUrlForSpace('spcxxx')).resolves.toBe(
+      `${dataUrl}?schema=${internalSchema}&options=-c+search_path%3D${internalSchema}`
+    );
+    await expect(manager.getDataDatabaseForSpace('spcxxx')).resolves.toMatchObject({
+      cacheKey: connectionId,
+      connectionId,
+      isMetaFallback: false,
+      url: `${dataUrl}?schema=${internalSchema}&options=-c+search_path%3D${internalSchema}`,
+    });
+    expect(cls.set).toHaveBeenCalledWith('dataDb', {
+      mode: 'byodb',
+      spaceId: 'spcxxx',
+      connectionId,
+      urlFingerprint,
+      displayHost,
+      displayDatabase,
+      internalSchema,
+    });
+    await expect(manager.dataKnexForSpace('spcxxx')).resolves.not.toBe(metaFallbackDataKnex);
+    await manager.onModuleDestroy();
+  });
+
+  it('can preview a BYODB route for a space without writing a binding', async () => {
+    const prismaService = withTxClient({
+      spaceDataDbBinding: {
+        findUnique: vi.fn().mockResolvedValue(null),
+      },
+    });
+    const manager = new DataDbClientManager(
+      prismaService as never,
+      {} as never,
+      {} as never,
+      new DataDbRuntimeCacheService()
+    );
+
+    await expect(
+      manager.getDataDatabaseForSpace('spcxxx', {
+        previewBinding: {
+          spaceId: 'spcxxx',
+          connectionId,
+          encryptedUrl: encryptDataDbUrl(dataUrl),
+          internalSchema,
+          urlFingerprint,
+          displayHost,
+          displayDatabase,
+        },
+      })
+    ).resolves.toMatchObject({
+      cacheKey: connectionId,
+      connectionId,
+      internalSchema,
+      isMetaFallback: false,
+      url: `${dataUrl}?schema=${internalSchema}&options=-c+search_path%3D${internalSchema}`,
+    });
+    expect(prismaService.spaceDataDbBinding.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('can force the original source route to meta fallback during migration', async () => {
+    vi.stubEnv('PRISMA_DATABASE_URL', 'postgresql://meta.example/teable');
+    const prismaService = withTxClient({
+      dataDbConnection: {
+        findUnique: vi.fn(),
+      },
+      spaceDataDbBinding: {
+        findUnique: vi.fn().mockResolvedValue({
+          mode: 'byodb',
+          state: 'migrating',
+          dataDbConnection: {
+            id: connectionId,
+            status: 'migrating',
+            internalSchema,
+            encryptedUrl: encryptDataDbUrl(dataUrl),
+          },
+        }),
+      },
+    });
+    const manager = new DataDbClientManager(
+      prismaService as never,
+      {} as never,
+      {} as never,
+      new DataDbRuntimeCacheService()
+    );
+
+    await expect(
+      manager.getDataDatabaseForSpace('spcxxx', { sourceConnectionId: null })
+    ).resolves.toMatchObject({
+      cacheKey: 'meta-fallback',
+      isMetaFallback: true,
+    });
+    expect(prismaService.spaceDataDbBinding.findUnique).not.toHaveBeenCalled();
+    expect(prismaService.dataDbConnection.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('can resolve the original source BYODB connection during migration', async () => {
+    const sourceConnectionId = 'dcnsource';
+    const sourceSchema = 'source_schema';
+    const sourceUrl = 'postgresql://teable:secret@source.example.com:5432/teable_data';
+    const prismaService = withTxClient({
+      dataDbConnection: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: sourceConnectionId,
+          internalSchema: sourceSchema,
+          encryptedUrl: encryptDataDbUrl(sourceUrl),
+        }),
+      },
+      spaceDataDbBinding: {
+        findUnique: vi.fn(),
+      },
+    });
+    const manager = new DataDbClientManager(
+      prismaService as never,
+      {} as never,
+      {} as never,
+      new DataDbRuntimeCacheService()
+    );
+
+    await expect(
+      manager.getDataDatabaseForSpace('spcxxx', { sourceConnectionId })
+    ).resolves.toMatchObject({
+      cacheKey: sourceConnectionId,
+      connectionId: sourceConnectionId,
+      internalSchema: sourceSchema,
+      isMetaFallback: false,
+      url: `${sourceUrl}?schema=${sourceSchema}&options=-c+search_path%3D${sourceSchema}`,
+    });
+    expect(prismaService.dataDbConnection.findUnique).toHaveBeenCalledWith({
+      where: { id: sourceConnectionId },
+    });
+    expect(prismaService.spaceDataDbBinding.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('resolves BYODB connection details when no CLS context is active', async () => {
+    const cls = {
+      isActive: vi.fn().mockReturnValue(false),
+      set: vi.fn(() => {
+        throw new Error('No CLS context available');
+      }),
+    };
+    const prismaService = withTxClient({
+      spaceDataDbBinding: {
+        findUnique: vi.fn().mockResolvedValue({
+          mode: 'byodb',
+          state: 'ready',
+          dataDbConnection: {
+            id: connectionId,
+            status: 'ready',
+            internalSchema,
+            displayHost,
+            displayDatabase,
+            urlFingerprint,
+            encryptedUrl: encryptDataDbUrl(dataUrl),
+          },
+        }),
+      },
+    });
+    const manager = new DataDbClientManager(
+      prismaService as never,
+      {} as never,
+      {} as never,
+      new DataDbRuntimeCacheService(),
+      undefined,
+      cls as never
+    );
+
+    await expect(manager.getDataDatabaseUrlForSpace('spcxxx')).resolves.toBe(
+      `${dataUrl}?schema=${internalSchema}&options=-c+search_path%3D${internalSchema}`
+    );
+    expect(cls.set).not.toHaveBeenCalled();
+  });
+
+  it('ensures the BYODB internal schema is migrated before returning a scoped URL', async () => {
+    const dataDbMigrationService = {
+      ensureConnectionMigrated: vi.fn().mockResolvedValue([]),
+    };
+    const prismaService = withTxClient({
+      spaceDataDbBinding: {
+        findUnique: vi.fn().mockResolvedValue({
+          mode: 'byodb',
+          state: 'migrating',
+          dataDbConnection: {
+            id: connectionId,
+            status: 'migrating',
+            internalSchema,
+            encryptedUrl: encryptDataDbUrl(dataUrl),
+          },
+        }),
+      },
+    });
+    const manager = new DataDbClientManager(
+      prismaService as never,
+      {} as never,
+      {} as never,
+      new DataDbRuntimeCacheService(),
+      dataDbMigrationService as never
+    );
+
+    await expect(manager.getDataDatabaseForSpace('spcxxx')).resolves.toMatchObject({
+      cacheKey: connectionId,
+      connectionId,
+      internalSchema,
+      isMetaFallback: false,
+    });
+    expect(dataDbMigrationService.ensureConnectionMigrated).toHaveBeenCalledWith({
+      connectionId,
+      internalSchema,
+      url: dataUrl,
+    });
+  });
+});

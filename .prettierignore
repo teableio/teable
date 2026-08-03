@@ -1,0 +1,10 @@
+.idea/
+.vscode/
+pnpm-lock.yaml
+**/.next
+**/.out
+**/dist
+**/build
+**/.tmp
+**/.cache
+apps/playground/src/routeTree.gen.ts

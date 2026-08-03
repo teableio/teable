@@ -1,0 +1,32 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`TableSchemaUpdateVisitor > visitUpdateLinkRelationship > should generate FK → junction migration SQL (oneMany twoWay → manyMany twoWay) 1`] = `
+[
+  "CREATE TABLE IF NOT EXISTS "bseTestBase000000001"."junction_fldSrcField00000001_fldSymField00000001" ("__id" serial PRIMARY KEY, "__fk_fldSymField00000001" text, "__fk_fldSrcField00000001" text, "__order" double precision)",
+  "INSERT INTO "bseTestBase000000001"."junction_fldSrcField00000001_fldSymField00000001" ("__fk_fldSymField00000001", "__fk_fldSrcField00000001") SELECT "__fk_fldSymField00000001", "__id" FROM "bseTestBase000000001"."tblForeignTbl000001" WHERE "__fk_fldSymField00000001" IS NOT NULL",
+  "ALTER TABLE "bseTestBase000000001"."tblForeignTbl000001" DROP COLUMN IF EXISTS "__fk_fldSymField00000001"",
+  "ALTER TABLE "bseTestBase000000001"."tblForeignTbl000001" DROP COLUMN IF EXISTS "__fk_fldSymField00000001_order"",
+]
+`;
+
+exports[`TableSchemaUpdateVisitor > visitUpdateLinkRelationship > should generate junction → FK migration SQL (manyMany twoWay → oneMany twoWay) 1`] = `
+[
+  "ALTER TABLE "bseTestBase000000001"."tblForeignTbl000001" ADD COLUMN IF NOT EXISTS "__fk_fldSymField00000001" text",
+  "ALTER TABLE "bseTestBase000000001"."tblForeignTbl000001" ADD COLUMN IF NOT EXISTS "__fk_fldSymField00000001_order" double precision",
+  "UPDATE "bseTestBase000000001"."tblForeignTbl000001" AS h
+                SET "__fk_fldSymField00000001" = (
+                  SELECT j."__fk_fldSymField00000001"
+                  FROM "bseTestBase000000001"."junction_fldSrcField00000001_fldSymField00000001" AS j
+                  WHERE j."__fk_fldSrcField00000001" = h."__id"
+                  ORDER BY j."__order", j."__id"
+                  LIMIT 1
+                )
+                WHERE EXISTS (
+                  SELECT 1
+                  FROM "bseTestBase000000001"."junction_fldSrcField00000001_fldSymField00000001" AS j
+                  WHERE j."__fk_fldSrcField00000001" = h."__id"
+                )",
+  "DROP TABLE IF EXISTS "bseTestBase000000001"."junction_fldSrcField00000001_fldSymField00000001" CASCADE",
+  "DO $v2_link_trim$ BEGIN RETURN; END $v2_link_trim$;",
+]
+`;

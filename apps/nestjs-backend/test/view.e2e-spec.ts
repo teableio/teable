@@ -1,0 +1,1061 @@
+/* eslint-disable sonarjs/no-duplicate-string */
+import type { INestApplication } from '@nestjs/common';
+
+import type {
+  IColumn,
+  IFieldRo,
+  IFieldVo,
+  IFormColumn,
+  IFormColumnMeta,
+  IPluginViewOptions,
+  IViewRo,
+} from '@teable/core';
+import {
+  ColorConfigType,
+  Colors,
+  FieldKeyType,
+  FieldType,
+  generatePluginInstallId,
+  generateViewId,
+  Relationship,
+  RowHeightLevel,
+  SortFunc,
+  ViewType,
+} from '@teable/core';
+import { PrismaService, type Prisma } from '@teable/db-main-prisma';
+import type { ICreateTableRo, ITableFullVo } from '@teable/openapi';
+import {
+  updateViewDescription,
+  updateViewName,
+  getViewFilterLinkRecords,
+  updateViewShareMeta,
+  enableShareView,
+  updateViewColumnMeta,
+  updateRecord,
+  getRecords,
+  updateViewLocked,
+  duplicateView,
+  installViewPlugin,
+  getViewInstallPlugin,
+  updateViewPluginStorage,
+  deleteView,
+} from '@teable/openapi';
+import { sample } from 'lodash';
+import { X_TEABLE_V2_HEADER } from '../src/features/canary/interceptors/v2-indicator.interceptor';
+import { ViewService } from '../src/features/view/view.service';
+import { x_20 } from './data-helpers/20x';
+import { VIEW_DEFAULT_SHARE_META } from './data-helpers/caces/view-default-share-meta';
+import {
+  createField,
+  getFields,
+  initApp,
+  createView,
+  permanentDeleteTable,
+  createTable,
+  deleteField,
+  getViews,
+  getView,
+  getTable,
+} from './utils/init-app';
+
+const defaultViews = [
+  {
+    name: 'Grid view',
+    type: ViewType.Grid,
+  },
+];
+const isForceV2 = process.env.FORCE_V2_ALL === 'true';
+
+describe('OpenAPI ViewController (e2e)', () => {
+  let app: INestApplication;
+  let table: ITableFullVo;
+  const baseId = globalThis.testConfig.baseId;
+  let prismaService: PrismaService;
+  let viewService: ViewService;
+  beforeAll(async () => {
+    const appCtx = await initApp();
+    app = appCtx.app;
+    prismaService = app.get(PrismaService);
+    viewService = app.get(ViewService);
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  beforeEach(async () => {
+    table = await createTable(baseId, { name: 'table1' });
+  });
+
+  afterEach(async () => {
+    const result = await permanentDeleteTable(baseId, table.id);
+    console.log('clear table: ', result);
+  });
+
+  it('/api/table/{tableId}/view (GET)', async () => {
+    const viewsResult = await getViews(table.id);
+    expect(viewsResult).toMatchObject(defaultViews);
+  });
+
+  it('should reject reading a view through another table', async () => {
+    const anotherTable = await createTable(baseId, { name: 'another_table' });
+
+    try {
+      const [anotherView] = await getViews(anotherTable.id);
+
+      await expect(getView(table.id, anotherView.id)).rejects.toThrow();
+    } finally {
+      await permanentDeleteTable(baseId, anotherTable.id);
+    }
+  });
+
+  it('/api/table/{tableId}/view (POST)', async () => {
+    const viewRo: IViewRo = {
+      name: 'New view',
+      description: 'the new view',
+      type: ViewType.Grid,
+    };
+
+    const createdView = await createView(table.id, viewRo);
+
+    const { dbTableName } = await prismaService.tableMeta.findUniqueOrThrow({
+      where: { id: table.id },
+      select: { dbTableName: true },
+    });
+    const rowOrderColumn = await viewService.existIndex(
+      dbTableName,
+      createdView.id,
+      prismaService.txClient()
+    );
+    expect(rowOrderColumn).toBe(`__row_${createdView.id}`);
+
+    const result = await getViews(table.id);
+    expect(result).toMatchObject([
+      ...defaultViews,
+      {
+        name: 'New view',
+        description: 'the new view',
+        type: ViewType.Grid,
+      },
+    ]);
+  });
+
+  it('/api/table/{tableId}/view (POST) with gallery view', async () => {
+    const viewRo: IViewRo = {
+      name: 'New gallery view',
+      description: 'the new gallery view',
+      type: ViewType.Gallery,
+    };
+
+    const fieldVo = await createField(table.id, {
+      name: 'Attachment',
+      type: FieldType.Attachment,
+    });
+    await createView(table.id, viewRo);
+
+    const result = await getViews(table.id);
+    expect(result).toMatchObject([
+      ...defaultViews,
+      {
+        name: 'New gallery view',
+        description: 'the new gallery view',
+        type: ViewType.Gallery,
+        options: {
+          coverFieldId: fieldVo.id,
+        },
+      },
+    ]);
+  });
+
+  it('should update view simple properties', async () => {
+    const viewRo: IViewRo = {
+      name: 'New view',
+      description: 'the new view',
+      type: ViewType.Grid,
+    };
+
+    const view = await createView(table.id, viewRo);
+
+    await updateViewName(table.id, view.id, { name: 'New view 2' });
+    await updateViewDescription(table.id, view.id, { description: 'description2' });
+    await updateViewLocked(table.id, view.id, { isLocked: true });
+    const viewNew = await getView(table.id, view.id);
+
+    expect(viewNew.name).toEqual('New view 2');
+    expect(viewNew.description).toEqual('description2');
+    expect(viewNew.isLocked).toBeTruthy();
+  });
+
+  it('should create view with field order', async () => {
+    // get fields
+    const fields = await getFields(table.id);
+    const testFieldId = fields?.[0].id;
+    const assertOrder = 10;
+    const columnMeta = fields.reduce<Record<string, IColumn>>(
+      (pre, cur, index) => {
+        pre[cur.id] = {} as IColumn;
+        pre[cur.id].order = index === 0 ? assertOrder : index;
+        return pre;
+      },
+      {} as Record<string, IColumn>
+    );
+
+    const viewResponse = await createView(table.id, {
+      name: 'view',
+      columnMeta,
+      type: ViewType.Grid,
+    });
+
+    const { columnMeta: columnMetaResponse } = viewResponse;
+    const order = columnMetaResponse?.[testFieldId]?.order;
+    expect(order).toEqual(assertOrder);
+    expect(fields.length).toEqual(Object.keys(columnMetaResponse).length);
+  });
+
+  it('should set all eligible fields visible when creating form view', async () => {
+    const formView = await createView(table.id, {
+      name: 'Form view',
+      type: ViewType.Form,
+    });
+
+    const views = await getViews(table.id);
+    const createdForm = views.find(({ id }) => id === formView.id)!;
+    const formColumnMeta = createdForm.columnMeta as unknown as Record<string, IFormColumn>;
+
+    const eligibleFieldIds = table.fields
+      .filter((f) => !f.isComputed && !f.isLookup && f.type !== FieldType.Button)
+      .map((f) => f.id);
+
+    eligibleFieldIds.forEach((fieldId) => {
+      expect(formColumnMeta[fieldId]?.visible ?? false).toBe(true);
+    });
+  });
+
+  it('should batch update view when create field', async () => {
+    const initialColumnMeta = await viewService.generateViewOrderColumnMeta(table.id);
+    const createData: Prisma.ViewCreateManyInput[] = [];
+    const num = 100;
+    for (let i = 0; i < num; i++) {
+      const data: Prisma.ViewCreateManyInput = {
+        id: generateViewId(),
+        tableId: table.id,
+        name: `New view ${i}`,
+        type: ViewType.Grid,
+        version: 1,
+        order: i + 1,
+        createdBy: globalThis.testConfig.userId,
+        columnMeta: JSON.stringify(initialColumnMeta ?? {}),
+      };
+
+      createData.push(data);
+    }
+    const result = await prismaService.txClient().view.createMany({ data: createData });
+    expect(result.count).toEqual(num);
+
+    await createField(table.id, { type: FieldType.SingleLineText });
+    const fields = await getFields(table.id);
+    const assertFieldIds = fields.map((field) => field.id).sort();
+    const randomViewId = sample(createData.map((data) => data.id));
+    const view = await getView(table.id, randomViewId!);
+    const columnMetaFieldIds = Object.keys(view.columnMeta).sort();
+    expect(columnMetaFieldIds).toEqual(assertFieldIds);
+  });
+
+  it('should ignore stale column meta for deleted fields when reading views', async () => {
+    const staleField = await createField(table.id, {
+      name: 'deleted column meta field',
+      type: FieldType.SingleLineText,
+    });
+    const view = await createView(table.id, {
+      name: 'view with stale column meta',
+      type: ViewType.Grid,
+    });
+
+    await deleteField(table.id, staleField.id);
+    const activeFields = await getFields(table.id);
+    const activeColumnMeta = activeFields.reduce<Record<string, IColumn>>((acc, field, index) => {
+      acc[field.id] = { order: index };
+      return acc;
+    }, {});
+
+    await prismaService.txClient().view.update({
+      where: { id: view.id },
+      data: {
+        columnMeta: JSON.stringify({
+          ...activeColumnMeta,
+          [staleField.id]: { order: activeFields.length + 1, visible: true },
+        }),
+      },
+    });
+
+    const activeFieldIds = activeFields.map((field) => field.id).sort();
+    const viewAfter = await getView(table.id, view.id);
+    const viewsAfter = await getViews(table.id);
+    const viewFromList = viewsAfter.find(({ id }) => id === view.id);
+    const [viewSnapshot] = await viewService.getSnapshotBulk(table.id, [view.id]);
+
+    expect(viewAfter.columnMeta?.[staleField.id]).toBeUndefined();
+    expect(Object.keys(viewAfter.columnMeta ?? {}).sort()).toEqual(activeFieldIds);
+    expect(viewFromList?.columnMeta?.[staleField.id]).toBeUndefined();
+    expect(Object.keys(viewFromList?.columnMeta ?? {}).sort()).toEqual(activeFieldIds);
+    expect(viewSnapshot.data.columnMeta?.[staleField.id]).toBeUndefined();
+    expect(Object.keys(viewSnapshot.data.columnMeta ?? {}).sort()).toEqual(activeFieldIds);
+  });
+
+  it('fields in new view should sort by created time and primary field is always first', async () => {
+    const viewRo: IViewRo = {
+      name: 'New view',
+      description: 'the new view',
+      type: ViewType.Grid,
+    };
+
+    const oldFields: IFieldVo[] = [];
+    oldFields.push(await createField(table.id, { type: FieldType.SingleLineText }));
+    oldFields.push(await createField(table.id, { type: FieldType.SingleLineText }));
+    oldFields.push(await createField(table.id, { type: FieldType.SingleLineText }));
+
+    const newView = await createView(table.id, viewRo);
+    const newFields = await getFields(table.id, newView.id);
+
+    expect(newFields.slice(3)).toMatchObject(oldFields);
+  });
+
+  describe('/api/table/{tableId}/view/:viewId/filter-link-records (GET)', () => {
+    let table: ITableFullVo;
+    let linkTable1: ITableFullVo;
+    let linkTable2: ITableFullVo;
+
+    const linkTable1FieldRo: IFieldRo[] = [
+      {
+        name: 'single_line_text_field',
+        type: FieldType.SingleLineText,
+      },
+    ];
+
+    const linkTable2FieldRo: IFieldRo[] = [
+      {
+        name: 'single_line_text_field',
+        type: FieldType.SingleLineText,
+      },
+    ];
+
+    const linkTable1RecordRo: ICreateTableRo['records'] = [
+      {
+        fields: {
+          single_line_text_field: 'link_table1_record1',
+        },
+      },
+      {
+        fields: {
+          single_line_text_field: 'link_table1_record2',
+        },
+      },
+      {
+        fields: {
+          single_line_text_field: 'link_table1_record3',
+        },
+      },
+    ];
+    const linkTable2RecordRo: ICreateTableRo['records'] = [
+      {
+        fields: {
+          single_line_text_field: 'link_table2_record1',
+        },
+      },
+      {
+        fields: {
+          single_line_text_field: 'link_table2_record2',
+        },
+      },
+      {
+        fields: {
+          single_line_text_field: 'link_table2_record3',
+        },
+      },
+    ];
+
+    beforeAll(async () => {
+      const fullTable = await createTable(baseId, {
+        name: 'filter_link_records',
+        fields: [
+          {
+            name: 'link_field1',
+            type: FieldType.SingleLineText,
+          },
+        ],
+        records: [],
+      });
+
+      linkTable1 = await createTable(baseId, {
+        name: 'link_table1',
+        fields: [
+          ...linkTable1FieldRo,
+          {
+            type: FieldType.Link,
+            options: {
+              foreignTableId: fullTable.id,
+              relationship: Relationship.OneMany,
+            },
+          },
+        ],
+        records: linkTable1RecordRo,
+      });
+
+      linkTable2 = await createTable(baseId, {
+        name: 'link_table2',
+        fields: [
+          ...linkTable2FieldRo,
+          {
+            type: FieldType.Link,
+            options: {
+              foreignTableId: fullTable.id,
+              relationship: Relationship.OneMany,
+            },
+          },
+        ],
+        records: linkTable2RecordRo,
+      });
+
+      table = (await getTable(baseId, fullTable.id, { includeContent: true })) as ITableFullVo;
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, table.id);
+      await permanentDeleteTable(baseId, linkTable1.id);
+      await permanentDeleteTable(baseId, linkTable2.id);
+    });
+
+    it('should return filter link records', async () => {
+      const viewRo: IViewRo = {
+        name: 'New view',
+        description: 'the new view',
+        type: ViewType.Grid,
+        filter: {
+          filterSet: [
+            {
+              fieldId: table.fields![1].id,
+              value: linkTable1.records[0].id,
+              operator: 'is',
+            },
+            {
+              filterSet: [
+                {
+                  fieldId: table.fields![1].id,
+                  value: [linkTable1.records[1].id, linkTable1.records[2].id],
+                  operator: 'isAnyOf',
+                },
+              ],
+              conjunction: 'and',
+            },
+            {
+              fieldId: table.fields![2].id,
+              value: linkTable2.records[0].id,
+              operator: 'is',
+            },
+            {
+              filterSet: [
+                {
+                  fieldId: table.fields![2].id,
+                  value: [linkTable2.records[2].id],
+                  operator: 'isAnyOf',
+                },
+              ],
+              conjunction: 'and',
+            },
+          ],
+          conjunction: 'and',
+        },
+      };
+
+      const view = await createView(table.id, viewRo);
+
+      const { data: records } = await getViewFilterLinkRecords(table.id, view.id);
+
+      expect(records).toMatchObject([
+        {
+          tableId: linkTable1.id,
+          records: linkTable1.records.map(({ id, name }) => ({ id, title: name })),
+        },
+        {
+          tableId: linkTable2.id,
+          records: [
+            { id: linkTable2.records[0].id, title: linkTable2.records[0].name },
+            {
+              id: linkTable2.records[2].id,
+              title: linkTable2.records[2].name,
+            },
+          ],
+        },
+      ]);
+    });
+  });
+
+  describe('/api/table/{tableId}/view/:viewId/column-meta (PUT)', () => {
+    let tableId: string;
+    let gridViewId: string;
+    let formViewId: string;
+    beforeAll(async () => {
+      const table = await createTable(baseId, { name: 'table' });
+      tableId = table.id;
+      const gridView = await createView(table.id, {
+        name: 'Grid view',
+        type: ViewType.Grid,
+      });
+      gridViewId = gridView.id;
+      const formView = await createView(table.id, {
+        name: 'Form view',
+        type: ViewType.Form,
+      });
+      formViewId = formView.id;
+      await enableShareView({ tableId, viewId: formViewId });
+      await enableShareView({ tableId, viewId: gridViewId });
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, tableId);
+    });
+
+    it('update allowCopy success', async () => {
+      await updateViewShareMeta(tableId, gridViewId, { allowCopy: true });
+      const view = await getView(tableId, gridViewId);
+      expect(view.shareMeta?.allowCopy).toBe(true);
+    });
+
+    it.each(VIEW_DEFAULT_SHARE_META)(
+      'viewType($viewType) with enabled share with default shareMeta',
+      async (viewShareDefault) => {
+        const view = await createView(tableId, {
+          name: `${viewShareDefault.viewType} view`,
+          type: viewShareDefault.viewType,
+        });
+        await enableShareView({ tableId, viewId: view.id });
+        const { shareMeta } = await getView(tableId, view.id);
+        expect(shareMeta).toEqual(viewShareDefault.defaultShareMeta);
+      }
+    );
+
+    it('stores submit.requireLogin on form views', async () => {
+      await updateViewShareMeta(tableId, formViewId, { submit: { requireLogin: true } });
+      const view = await getView(tableId, formViewId);
+      expect(view.shareMeta?.submit?.requireLogin).toBe(true);
+    });
+  });
+
+  describe('filter by view ', () => {
+    let table: ITableFullVo;
+    beforeEach(async () => {
+      table = await createTable(baseId, { name: 'table1' });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, table.id);
+    });
+
+    it('should get records with a field filtered view', async () => {
+      const res = await createView(table.id, {
+        name: 'view1',
+        type: ViewType.Grid,
+      });
+
+      await updateViewColumnMeta(table.id, res.id, [
+        {
+          fieldId: table.fields[1].id,
+          columnMeta: {
+            hidden: true,
+          },
+        },
+      ]);
+
+      await updateRecord(table.id, table.records[0].id, {
+        fieldKeyType: FieldKeyType.Id,
+        record: {
+          fields: {
+            [table.fields[0].id]: 'text',
+            [table.fields[1].id]: 1,
+          },
+        },
+      });
+
+      const recordResult = await getRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        viewId: res.id,
+      });
+      const fieldResult = await getFields(table.id, res.id);
+
+      expect(recordResult.data.records[0].fields[table.fields[0].id]).toEqual('text');
+      expect(recordResult.data.records[0].fields[table.fields[1].id]).toBeUndefined();
+
+      expect(fieldResult.length).toEqual(table.fields.length - 1);
+      expect(fieldResult.find((field) => field.id === table.fields[1].id)).toBeUndefined();
+    });
+  });
+
+  it('should reject reading filter link records through another table', async () => {
+    const anotherTable = await createTable(baseId, { name: 'another_filter_table' });
+
+    try {
+      const [anotherView] = await getViews(anotherTable.id);
+
+      await expect(getViewFilterLinkRecords(table.id, anotherView.id)).rejects.toThrow();
+    } finally {
+      await permanentDeleteTable(baseId, anotherTable.id);
+    }
+  });
+
+  describe('view plugin parent binding', () => {
+    let anotherTable: ITableFullVo;
+
+    beforeEach(async () => {
+      anotherTable = await createTable(baseId, { name: 'another_plugin_table' });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, anotherTable.id);
+    });
+
+    it('should reject reading a plugin installation through another table', async () => {
+      const plugin = (
+        await installViewPlugin(anotherTable.id, {
+          name: 'another_sheet_view',
+          pluginId: 'plgsheetform',
+        })
+      ).data;
+
+      await expect(getViewInstallPlugin(table.id, plugin.viewId)).rejects.toThrow();
+    });
+
+    it('should reject updating storage with a plugin installation from another view', async () => {
+      const ownPlugin = (
+        await installViewPlugin(table.id, {
+          name: 'own_sheet_view',
+          pluginId: 'plgsheetform',
+        })
+      ).data;
+      const anotherPlugin = (
+        await installViewPlugin(anotherTable.id, {
+          name: 'another_sheet_view',
+          pluginId: 'plgsheetform',
+        })
+      ).data;
+
+      await expect(
+        updateViewPluginStorage(table.id, ownPlugin.viewId, anotherPlugin.pluginInstallId, {
+          unauthorized: true,
+        })
+      ).rejects.toThrow();
+      await expect(
+        updateViewPluginStorage(table.id, anotherPlugin.viewId, anotherPlugin.pluginInstallId, {
+          unauthorized: true,
+        })
+      ).rejects.toThrow();
+
+      const pluginAfter = await getViewInstallPlugin(table.id, ownPlugin.viewId);
+      const anotherPluginAfter = await getViewInstallPlugin(anotherTable.id, anotherPlugin.viewId);
+      expect(pluginAfter.data.storage).toBeUndefined();
+      expect(anotherPluginAfter.data.storage).toBeUndefined();
+    });
+  });
+
+  describe('/api/table/{tableId}/view/:viewId/duplicate (POST)', () => {
+    let table: ITableFullVo;
+    beforeEach(async () => {
+      table = await createTable(baseId, {
+        name: 'record_query_x_20',
+        fields: x_20.fields,
+        records: x_20.records,
+      });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, table.id);
+    });
+
+    it('should reject duplicating a view through another table', async () => {
+      const anotherTable = await createTable(baseId, { name: 'another_duplicate_table' });
+
+      try {
+        const [anotherView] = await getViews(anotherTable.id);
+
+        await expect(duplicateView(table.id, anotherView.id)).rejects.toThrow();
+      } finally {
+        await permanentDeleteTable(baseId, anotherTable.id);
+      }
+    });
+
+    it('should duplicate grid view', async () => {
+      const view = await createView(table.id, {
+        name: 'grid_view',
+        type: ViewType.Grid,
+        filter: {
+          filterSet: [
+            {
+              fieldId: table.fields[0].id,
+              value: 'text',
+              operator: 'is',
+            },
+          ],
+          conjunction: 'and',
+        },
+        isLocked: true,
+        sort: {
+          sortObjs: [
+            {
+              fieldId: table.fields[0].id,
+              order: SortFunc.Asc,
+            },
+          ],
+        },
+        group: [
+          {
+            fieldId: table.fields[0].id,
+            order: SortFunc.Asc,
+          },
+        ],
+        options: {
+          rowHeight: RowHeightLevel.Medium,
+        },
+        columnMeta: {
+          [table.fields[0].id]: {
+            hidden: true,
+            order: 1,
+          },
+        },
+      });
+
+      const duplicatedViewResponse = await duplicateView(table.id, view.id);
+      const duplicatedView = duplicatedViewResponse.data;
+      const { dbTableName } = await prismaService.tableMeta.findUniqueOrThrow({
+        where: { id: table.id },
+        select: { dbTableName: true },
+      });
+      const duplicatedRowOrderColumn = await viewService.existIndex(
+        dbTableName,
+        duplicatedView.id,
+        prismaService.txClient()
+      );
+
+      expect(duplicatedView.name).toEqual('grid_view 2');
+      expect(duplicatedView.type).toEqual(ViewType.Grid);
+      expect(duplicatedView.filter).toEqual(view.filter);
+      expect(duplicatedView.sort).toEqual(view.sort);
+      expect(duplicatedView.group).toEqual(view.group);
+      expect(duplicatedView.options).toEqual(view.options);
+      expect(duplicatedView.columnMeta).toEqual(view.columnMeta);
+      expect(duplicatedView.isLocked).toBeTruthy();
+      const duplicatedViaV2 = duplicatedViewResponse.headers[X_TEABLE_V2_HEADER] === 'true';
+      if (isForceV2) {
+        expect(duplicatedViewResponse.headers[X_TEABLE_V2_HEADER]).toBe('true');
+      }
+      if (duplicatedViaV2) {
+        expect(duplicatedRowOrderColumn).toBeUndefined();
+      }
+    });
+
+    it('should duplicate form view', async () => {
+      const initialColumnMeta = table.fields.reduce<Record<string, IFormColumnMeta>>(
+        (pre, cur, index) => {
+          pre[cur.id] = {
+            order: index,
+          } as unknown as IFormColumnMeta;
+          if (index === 0) {
+            (pre[cur.id] as unknown as IFormColumn).required = true;
+          }
+          if (!cur.isComputed && cur.type !== FieldType.Button) {
+            (pre[cur.id] as unknown as IFormColumn).visible = true;
+          }
+          return pre;
+        },
+        {} as Record<string, IFormColumnMeta>
+      );
+      const formView = await createView(table.id, {
+        name: 'form_view',
+        type: ViewType.Form,
+        columnMeta: {
+          ...(initialColumnMeta as unknown as Record<string, IColumn>),
+        },
+      });
+
+      const duplicatedView = (await duplicateView(table.id, formView.id)).data;
+
+      expect(duplicatedView.name).toEqual('form_view 2');
+      expect(duplicatedView.type).toEqual(ViewType.Form);
+      expect(duplicatedView.options).toEqual(formView.options);
+      expect(duplicatedView.columnMeta).toEqual(initialColumnMeta);
+    });
+
+    it('should duplicate gallery view', async () => {
+      const attachmentField = await createField(table.id, {
+        name: 'Attachment',
+        type: FieldType.Attachment,
+      });
+      const galleryView = await createView(table.id, {
+        name: 'gallery_view',
+        type: ViewType.Gallery,
+        filter: {
+          filterSet: [
+            {
+              fieldId: table.fields[0].id,
+              value: 'text',
+              operator: 'is',
+            },
+          ],
+          conjunction: 'and',
+        },
+        sort: {
+          sortObjs: [
+            {
+              fieldId: table.fields[0].id,
+              order: SortFunc.Asc,
+            },
+          ],
+        },
+        options: {
+          coverFieldId: attachmentField.id,
+        },
+      });
+
+      const duplicatedView = (await duplicateView(table.id, galleryView.id)).data;
+      expect(duplicatedView.name).toEqual('gallery_view 2');
+      expect(duplicatedView.type).toEqual(ViewType.Gallery);
+      expect(duplicatedView.filter).toEqual(galleryView.filter);
+      expect(duplicatedView.sort).toEqual(galleryView.sort);
+      expect(duplicatedView.options).toEqual({
+        coverFieldId: attachmentField.id,
+      });
+    });
+
+    it('should duplicate kanban view', async () => {
+      const kanbanView = await createView(table.id, {
+        name: 'kanban_view',
+        type: ViewType.Kanban,
+        filter: {
+          filterSet: [
+            {
+              fieldId: table.fields[0].id,
+              value: 'text',
+              operator: 'is',
+            },
+          ],
+          conjunction: 'and',
+        },
+        sort: {
+          sortObjs: [
+            {
+              fieldId: table.fields[0].id,
+              order: SortFunc.Asc,
+            },
+          ],
+        },
+        options: {
+          stackFieldId: table.fields[0].id,
+        },
+      });
+
+      const duplicatedView = (await duplicateView(table.id, kanbanView.id)).data;
+      expect(duplicatedView.name).toEqual('kanban_view 2');
+      expect(duplicatedView.type).toEqual(ViewType.Kanban);
+      expect(duplicatedView.filter).toEqual(kanbanView.filter);
+      expect(duplicatedView.sort).toEqual(kanbanView.sort);
+      expect(duplicatedView.columnMeta).toEqual(kanbanView.columnMeta);
+      expect(duplicatedView.options).toEqual({
+        stackFieldId: table.fields[0].id,
+      });
+    });
+
+    it('should duplicate calendar view', async () => {
+      const startDateField = await createField(table.id, {
+        name: 'Start Date',
+        type: FieldType.Date,
+      });
+      const endDateField = await createField(table.id, {
+        name: 'End Date',
+        type: FieldType.Date,
+      });
+      const calendarView = await createView(table.id, {
+        name: 'calendar_view',
+        type: ViewType.Calendar,
+        filter: {
+          filterSet: [
+            {
+              fieldId: table.fields[0].id,
+              value: 'text',
+              operator: 'is',
+            },
+          ],
+          conjunction: 'and',
+        },
+        options: {
+          startDateFieldId: startDateField.id,
+          endDateFieldId: endDateField.id,
+          colorConfig: {
+            type: ColorConfigType.Custom,
+            color: Colors.PurpleLight2,
+          },
+          titleFieldId: table.fields[0].id,
+        },
+      });
+
+      const duplicatedView = (await duplicateView(table.id, calendarView.id)).data;
+      expect(duplicatedView.name).toEqual('calendar_view 2');
+      expect(duplicatedView.type).toEqual(ViewType.Calendar);
+      expect(duplicatedView.filter).toEqual(calendarView.filter);
+      expect(duplicatedView.sort).toEqual(calendarView.sort);
+      expect(duplicatedView.options).toEqual(calendarView.options);
+      expect(duplicatedView.columnMeta).toEqual(calendarView.columnMeta);
+      expect(duplicatedView.options).toEqual({
+        startDateFieldId: startDateField.id,
+        endDateFieldId: endDateField.id,
+        colorConfig: {
+          type: ColorConfigType.Custom,
+          color: Colors.PurpleLight2,
+        },
+        titleFieldId: table.fields[0].id,
+      });
+    });
+
+    it('should duplicate a plugin view with historical stale install options', async () => {
+      const sheetPlugin = (
+        await installViewPlugin(table.id, {
+          name: 'sheet_view',
+          pluginId: 'plgsheetform',
+        })
+      ).data;
+      const storage = { imported: true };
+      await updateViewPluginStorage(
+        table.id,
+        sheetPlugin.viewId,
+        sheetPlugin.pluginInstallId,
+        storage
+      );
+      const sheetView = await getView(table.id, sheetPlugin.viewId);
+      await prismaService.view.update({
+        where: { id: sheetView.id },
+        data: {
+          options: JSON.stringify({
+            ...(sheetView.options as IPluginViewOptions),
+            pluginInstallId: generatePluginInstallId(),
+          }),
+        },
+      });
+
+      const resolvedInstall = (await getViewInstallPlugin(table.id, sheetView.id)).data;
+      expect(resolvedInstall.pluginInstallId).toBe(sheetPlugin.pluginInstallId);
+
+      const duplicatedView = (await duplicateView(table.id, sheetView.id)).data;
+      const duplicatedInstall = (await getViewInstallPlugin(table.id, duplicatedView.id)).data;
+      expect(duplicatedView.name).toEqual('sheet_view 2');
+      expect(duplicatedView.type).toEqual(ViewType.Plugin);
+      expect(duplicatedView.options).contain({
+        pluginLogo: (sheetView.options as IPluginViewOptions).pluginLogo,
+      });
+      expect(duplicatedInstall.pluginInstallId).toBe(
+        (duplicatedView.options as IPluginViewOptions).pluginInstallId
+      );
+      expect(duplicatedInstall.pluginInstallId).not.toBe(sheetPlugin.pluginInstallId);
+      expect(duplicatedInstall.storage).toEqual(storage);
+    });
+  });
+
+  describe('concurrent view deletion with row-level locking', () => {
+    let table: ITableFullVo;
+    let view1Id: string;
+    let view2Id: string;
+
+    beforeEach(async () => {
+      table = await createTable(baseId, { name: 'concurrent_test_table' });
+      const view1 = await createView(table.id, {
+        name: 'View 1',
+        type: ViewType.Grid,
+      });
+      view1Id = view1.id;
+      const view2 = await createView(table.id, {
+        name: 'View 2',
+        type: ViewType.Grid,
+      });
+      view2Id = view2.id;
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, table.id);
+    });
+
+    it('should prevent concurrent deletion of the last view using SELECT FOR UPDATE', async () => {
+      // Delete view1 first (should succeed since there are still 2 views left)
+      await deleteView(table.id, view1Id);
+
+      // Verify view1 was deleted
+      const views = await getViews(table.id);
+      expect(views.length).toBe(2); // default view + view2
+
+      // Try to delete the second custom view (should succeed, leaving only the default view)
+      await deleteView(table.id, view2Id);
+
+      const finalViews = await getViews(table.id);
+      expect(finalViews.length).toBe(1);
+      expect(finalViews[0].name).toBe('Grid view'); // Only default view remains
+
+      // Try to delete the last view (should fail)
+      await expect(deleteView(table.id, finalViews[0].id)).rejects.toThrow(
+        'Cannot delete the last view in a table'
+      );
+    });
+
+    it('should handle concurrent deletion attempts with proper locking', async () => {
+      // Create a scenario with exactly 2 views (default + view1)
+      // Delete view2 first to have only 2 views
+      await deleteView(table.id, view2Id);
+
+      const remainingViews = await getViews(table.id);
+      expect(remainingViews.length).toBe(2); // default view + view1
+
+      // Attempt to delete both views concurrently
+      // One should succeed, one should fail because it would be the last view
+      const deletePromises = remainingViews.map((view) =>
+        deleteView(table.id, view.id).catch((error) => error)
+      );
+
+      const results = await Promise.all(deletePromises);
+
+      // One should succeed (undefined or success), one should fail with error
+      const successCount = results.filter((r) => !r || r.message === undefined).length;
+      const failureCount = results.filter(
+        (r) => r && r.message && r.message.includes('Cannot delete the last view')
+      ).length;
+
+      expect(successCount).toBe(1);
+      expect(failureCount).toBe(1);
+
+      // Verify exactly one view remains
+      const finalViews = await getViews(table.id);
+      expect(finalViews.length).toBe(1);
+    });
+
+    it('should use SELECT FOR UPDATE to prevent race conditions', async () => {
+      // This test verifies that the locking mechanism works correctly
+      // by attempting rapid concurrent deletions
+      const view3 = await createView(table.id, {
+        name: 'View 3',
+        type: ViewType.Grid,
+      });
+
+      // Now we have 4 views: default, view1, view2, view3
+      const allViews = await getViews(table.id);
+      expect(allViews.length).toBe(4);
+
+      // Delete 3 views concurrently, leaving only 1
+      const viewsToDelete = [view1Id, view2Id, view3.id];
+      const deleteResults = await Promise.allSettled(
+        viewsToDelete.map((viewId) => deleteView(table.id, viewId))
+      );
+
+      // All 3 deletions should succeed
+      const successfulDeletions = deleteResults.filter((r) => r.status === 'fulfilled').length;
+      expect(successfulDeletions).toBe(3);
+
+      // Verify only the default view remains
+      const finalViews = await getViews(table.id);
+      expect(finalViews.length).toBe(1);
+      expect(finalViews[0].name).toBe('Grid view');
+    });
+  });
+});

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "@teable/v2-adapter-db-postgres-pg",
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "target": "esnext",
+    "lib": ["esnext"],
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "noEmit": false,
+    "incremental": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationDir": "dist",
+    "composite": true,
+    "rootDir": "../",
+    "outDir": "dist",
+    "paths": {
+      "@teable/v2-adapter-db-postgres-shared": ["../adapter-db-postgres-shared/src"],
+      "@teable/v2-core": ["../core/src"],
+      "@teable/v2-di": ["../di/src"]
+    }
+  },
+  "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage"],
+  "include": ["src", "../adapter-db-postgres-shared/src", "../core/src", "../di/src"]
+}

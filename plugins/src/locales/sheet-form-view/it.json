@@ -1,0 +1,51 @@
+{
+  "toolbar": {
+    "design": "Design",
+    "preview": "Anteprima",
+    "share": "Condividi",
+    "insertCell": "Inserisci Cella",
+    "submit": "Invia"
+  },
+  "tooltips": {
+    "insertCellTips": "Seleziona prima un campo",
+    "unSupportFieldType": "Tipo di campo non supportato",
+    "selected": "Questo campo è stato selezionato",
+    "submitSuccess": "Invio riuscito",
+    "onlyPreview": "Questa è solo un'anteprima, per favore condividi la vista prima di inviare"
+  },
+  "validation": {
+    "coordinate": "coordinata",
+    "validateError": "errore di validazione",
+    "errorInfo": "messaggio di errore",
+    "unknownError": "errore sconosciuto",
+    "unTitle": "senza titolo"
+  },
+  "share": {
+    "label": "Condividi",
+    "statusLabel": "Condivisione",
+    "noPermission": "Nessun permesso per condividere la vista",
+    "shareLink": "Condividi Link",
+    "copied": "Copiato",
+    "genLink": "Genera nuovo link",
+    "allowCopy": "Consenti ai visualizzatori di copiare i dati da questa vista",
+    "showAllFields": "Mostra tutti i campi nei record espansi",
+    "restrict": "Restringi con password",
+    "tips": "Le persone che hanno il link possono vedere la vista.",
+    "passwordTitle": "Inserisci una password",
+    "passwordTips": "Restrizioni di password per accedere alle viste condivise",
+    "embed": "Incorpora",
+    "embedPreview": "Anteprima incorporamento",
+    "hideToolbar": "Nascondi barra degli strumenti",
+    "URLSetting": "Configurazione parametri URL",
+    "URLSettingDescription": "Regolare le seguenti impostazioni non influirà sui link condivisi. È necessario copiare il link con i nuovi parametri per renderlo effettivo",
+    "cancel": "Annulla",
+    "save": "Salva",
+    "requireLogin": "Richiedi accesso per inviare",
+    "theme": {
+      "label": "Tema",
+      "light": "Chiaro",
+      "dark": "Scuro",
+      "system": "Sistema"
+    }
+  }
+}

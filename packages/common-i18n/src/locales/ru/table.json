@@ -1,0 +1,1076 @@
+{
+  "crossSpace": {
+    "duplicateFieldTitle": "Уведомление",
+    "duplicateFieldDescription": "Перекрёстные ссылки между пространствами не поддерживаются. Копия будет преобразована в однострочное текстовое поле.",
+    "duplicateTableTitle": "Уведомление",
+    "duplicateTableDescription": "Перекрёстные ссылки между пространствами не поддерживаются. Копия будет преобразована в однострочное текстовое поле.",
+    "convertAndDuplicate": "Преобразовать и дублировать"
+  },
+  "toolbar": {
+    "viewFilterInShare": "Этот вид используется в ссылке для общего доступа. Изменения в настройках вида также изменят ссылку для общего доступа.",
+    "createFieldButtonText": "Создать новое поле <0/>",
+    "others": {
+      "share": {
+        "label": "Поделиться",
+        "statusLabel": "Поделиться видом в интернете",
+        "genLink": "Создать новую ссылку",
+        "allowCopy": "Разрешить зрителям копировать данные из этого вида",
+        "allowEdit": "Разрешить авторизованным пользователям редактировать видимые данные",
+        "showAllFields": "Показать все поля в развернутых записях",
+        "restrict": "Ограничить паролем",
+        "tips": "Люди, у которых есть ссылка, могут видеть этот вид.",
+        "passwordTitle": "Введите пароль",
+        "passwordTips": "Ограничения по паролю для доступа к общим видам",
+        "embed": "Встроить",
+        "embedPreview": "Предпросмотр встраивания",
+        "hideToolbar": "Скрыть панель инструментов",
+        "URLSetting": "Настройка параметров URL",
+        "URLSettingDescription": "Изменение следующих настроек не повлияет на уже созданные ссылки. Вам нужно скопировать ссылку с новыми параметрами, чтобы они вступили в силу",
+        "cancel": "Отмена",
+        "save": "Сохранить"
+      },
+      "api": {
+        "title": "Доступ к API",
+        "aiContext": "Подключение AI",
+        "advanced": "Расширенно",
+        "recommended": "Рекомендуется",
+        "apiDocGroupTitle": "Контекст API",
+        "apiDocGroupDescription": "Скопируйте документ ниже в AI. Он получит текущую структуру таблицы, поля и примеры API и сможет читать, создавать, обновлять или удалять записи по вашему запросу.",
+        "generatingToken": "Генерация...",
+        "generateToken": "Создать токен",
+        "confirmTitle": "Создать API-токен",
+        "confirmDescription": "Будет создан новый API-токен со следующими разрешениями для этой базы:",
+        "scopeTableRead": "Читать информацию о таблице",
+        "scopeFieldRead": "Читать поля",
+        "scopeRead": "Читать записи",
+        "scopeCreate": "Создавать записи",
+        "scopeUpdate": "Обновлять записи",
+        "scopeDelete": "Удалять записи",
+        "confirmExpiry": "Токен будет действителен 1 год.",
+        "confirmButton": "Подтвердить создание",
+        "tokenInfo": "Срок действия токена: {{expiry}}",
+        "copied": "Скопировано!",
+        "copyAIDoc": "Скопировать документ",
+        "aiDocPreview": "Предпросмотр контекста",
+        "manageToken": "Управлять токеном",
+        "openInNewTab": "Открыть в новой вкладке",
+        "queryBuilderTitle": "Конструктор API-запросов",
+        "queryBuilderDesc": "Визуально настройте фильтры, сортировку и другие параметры, чтобы создать готовый к запуску код API-запроса.",
+        "viewApiDocs": "Посмотреть полную документацию API"
+      },
+      "personalView": {
+        "personal": "Личное",
+        "tip": "После включения настройка вида будет применяться только к вам",
+        "dialog": {
+          "title": "Выйти из личного режима",
+          "description": "Настройка личного отображения будет восстановлена до состояния совместной работы в реальном времени. Вы также можете сохранить настройки личного отображения и синхронизировать их для всех.",
+          "cancelText": "Выйти и синхронизировать",
+          "confirmText": "Подтвердить выход"
+        }
+      }
+    }
+  },
+  "welcome": {
+    "title": "Добро пожаловать",
+    "emptyTitle": "Начните создавать свою базу данных",
+    "description": "Нажмите кнопку «+» в боковой панели, чтобы добавить ресурсы и начать эффективно управлять своими данными",
+    "help": "Посетите <HelpCenter /> для получения дополнительной информации.",
+    "helpCenter": "Центр помощи"
+  },
+  "validation": {
+    "link": {
+      "batch_duplicate": "Невозможно связать запись: в этом же пакете она уже связана другой записью. В отношениях один-ко-многим каждая дочерняя запись может принадлежать только одной родительской записи.",
+      "one_many_duplicate": "Невозможно связать запись: она уже связана с другой записью. В отношениях один-ко-многим каждая дочерняя запись может принадлежать только одной родительской записи.",
+      "one_one_duplicate": "Невозможно связать запись: целевая запись уже связана другой записью в отношении один-к-одному."
+    },
+    "field": {
+      "maxColumnLimit": "Таблица \"{{tableName}}\" может содержать не более {{maxFieldCount}} полей.",
+      "requiredExistingValues": "Нельзя сделать поле \"{{fieldName}}\" обязательным, поскольку существующие записи содержат пустые значения."
+    }
+  },
+  "field": {
+    "advancedProps": "Расширенные свойства",
+    "hide": "скрыть",
+    "default": {
+      "singleLineText": {
+        "title": "Метка"
+      },
+      "longText": {
+        "title": "Заметки"
+      },
+      "number": {
+        "title": "Число",
+        "formatType": "Тип формата",
+        "currencySymbol": "Символ валюты",
+        "defaultSymbol": "₽",
+        "precision": "Точность",
+        "decimalExample": "Число (123)",
+        "currencyExample": "Валюта (100₽)",
+        "percentExample": "Процент (20%)"
+      },
+      "singleSelect": {
+        "title": "Статус",
+        "options": {
+          "todo": "К выполнению",
+          "inProgress": "В процессе",
+          "done": "Выполнено"
+        }
+      },
+      "multipleSelect": {
+        "title": "Теги"
+      },
+      "attachment": {
+        "title": "Вложения"
+      },
+      "user": {
+        "title": "Соавтор"
+      },
+      "date": {
+        "title": "Дата",
+        "dateFormatting": "Формат даты",
+        "timeFormatting": "Формат времени",
+        "timeZone": "Часовой пояс",
+        "yearMonth": "Год/Месяц",
+        "monthDay": "Месяц/День",
+        "year": "Год",
+        "month": "Месяц",
+        "day": "День",
+        "local": "Местный",
+        "friendly": "Дружественный",
+        "us": "США",
+        "european": "Европейский",
+        "asia": "Азиатский",
+        "custom": "Пользовательский",
+        "12Hour": "12-часовой",
+        "24Hour": "24-часовой",
+        "noDisplay": "Не отображать"
+      },
+      "autoNumber": {
+        "title": "ID"
+      },
+      "createdTime": {
+        "title": "Время создания"
+      },
+      "lastModifiedTime": {
+        "title": "Время последнего изменения"
+      },
+      "createdBy": {
+        "title": "Создано"
+      },
+      "lastModifiedBy": {
+        "title": "Последнее изменение"
+      },
+      "rating": {
+        "title": "Рейтинг"
+      },
+      "checkbox": {
+        "title": "Выполнено"
+      },
+      "button": {
+        "title": "Кнопка",
+        "label": "Текст кнопки",
+        "limitCount": "Ограничить количество кликов",
+        "resetCount": "Разрешить сброс счетчика кликов",
+        "maxCount": "Максимальное количество кликов",
+        "automation": "Автоматизация",
+        "customAutomation": "Настраиваемая автоматизация",
+        "clickConfirm": "Подтвердить перед кликом",
+        "confirmTitle": "Заголовок",
+        "confirmDescription": "Описание",
+        "confirmButtonText": "Текст кнопки подтверждения"
+      },
+      "formula": {
+        "title": "Вычисление",
+        "formula": "Формула"
+      },
+      "lookup": {
+        "title": "{{lookupFieldName}} (из {{linkFieldName}})"
+      },
+      "conditionalLookup": {
+        "title": "{{lookupFieldName}} (отфильтровано из {{tableName}})"
+      },
+      "rollup": {
+        "title": "{{lookupFieldName}} Сводка (из {{linkFieldName}})",
+        "rollup": "Сводка",
+        "selectAnRollupFunction": "Выберите функцию сводки",
+        "func": {
+          "and": "AND",
+          "arrayCompact": "ARRAYCOMPACT",
+          "arrayJoin": "ARRAYJOIN",
+          "arrayUnique": "ARRAYUNIQUE",
+          "average": "AVERAGE",
+          "concatenate": "CONCATENATE",
+          "count": "COUNT",
+          "countA": "COUNTA",
+          "countAll": "COUNTALL",
+          "max": "MAX",
+          "min": "MIN",
+          "or": "OR",
+          "sum": "SUM",
+          "xor": "XOR"
+        },
+        "funcDesc": {
+          "and": "Возвращает истину, если все значения истинны",
+          "arrayCompact": "Удаляет пустые строки и нулевые значения из массива. Сохраняет 'false' и строки, содержащие один или более пробельных символов.",
+          "arrayJoin": "Объединяет все значения в одну строку, разделенную запятыми.",
+          "arrayUnique": "Возвращает только уникальные элементы.",
+          "average": "Среднее арифметическое значений.",
+          "concatenate": "Объединяет текстовые значения в одно текстовое значение.",
+          "count": "Считает только непустые числовые значения. Если вы хотите посчитать все записи, используйте КОЛИЧЕСТВОВСЕ.",
+          "countA": "Считает количество непустых значений. Эта функция считает как числовые, так и текстовые значения.",
+          "countAll": "считает все значения, включая пустые записи.",
+          "max": "Возвращает наибольшее из заданных чисел.",
+          "min": "Возвращает наименьшее из заданных чисел.",
+          "or": "Возвращает истину, если хотя бы одно из значений истинно.",
+          "sum": "Суммирует значения.",
+          "xor": "Возвращает истину тогда и только тогда, когда нечетное количество значений истинно."
+        }
+      },
+      "conditionalRollup": {
+        "title": "{{lookupFieldName}} условная сводка"
+      }
+    },
+    "editor": {
+      "addField": "Добавить поле",
+      "editField": "Редактировать поле",
+      "insertField": "Вставить поле",
+      "graph": "График",
+      "fieldUpdated": "Поле обновлено",
+      "fieldCreated": "Поле создано",
+      "confirmFieldChange": "Confirm Field Change",
+      "areYouSurePerformIt": "Вы уверены, что хотите выполнить это?",
+      "addDescription": "Добавить описание",
+      "dbFieldName": "Физическое имя поля",
+      "descriptionPlaceholder": "Опишите это поле (необязательно)",
+      "type": "Тип",
+      "showAs": "Отображать как",
+      "color": "Цвет",
+      "number": "Число",
+      "chartBar": "Столбчатая диаграмма",
+      "chartLine": "Линейная диаграмма",
+      "ring": "Кольцо",
+      "bar": "Полоса",
+      "text": "Текст",
+      "markdown": "Markdown",
+      "url": "URL",
+      "email": "Email",
+      "phone": "Телефон",
+      "maxNumber": "Максимальное число",
+      "showNumber": "Показать число",
+      "autoFillDate": "Автозаполнение текущей датой",
+      "createSymmetricLink": "Создать обратную связь в связанной таблице",
+      "allowLinkMultipleRecords": "Разрешить множественный выбор",
+      "allowLinkToDuplicateRecords": "Разрешить выбирать записи более одного раза",
+      "allowSymmetricFieldLinkMultipleRecords": "Разрешить выбирать записи более одного раза",
+      "oneToOne": "один-к-одному",
+      "oneToMany": "один-ко-многим",
+      "manyToOne": "многие-к-одному",
+      "manyToMany": "многие-ко-многим",
+      "self": "Сам",
+      "selectTable": "Выберите таблицу...",
+      "inSelfLink": "в самосвязи",
+      "betweenTwoTables": "между двумя таблицами",
+      "tips": "Подсказка",
+      "linkTipMessage": "эта конфигурация представляет<br></br> <b>{{relationship}}</b> отношение <span>{{linkType}}</span>",
+      "style": "Стиль",
+      "maximum": "Максимум",
+      "addOption": "Добавить вариант",
+      "allowMultiUsers": "Разрешить добавление нескольких пользователей",
+      "notifyUsers": "Уведомлять пользователей после их выбора",
+      "searchTable": "Поиск таблицы...",
+      "calculating": "Вычисление...",
+      "doSaveChanges": "Вы хотите сохранить внесенные изменения?",
+      "linkFieldToLookup": "Связанное поле записи для поиска",
+      "lookupToTable": "Поле из <bold>{{tableName}}</bold>, которое вы хотите искать",
+      "rollupToTable": "Поле из <bold>{{tableName}}</bold>, которое вы хотите искать",
+      "selectField": "Выберите поле...",
+      "linkTable": "Связать таблицу",
+      "noLinkTip": "Нет связанных записей для поиска. Добавьте поле Ссылка на другую запись, затем попробуйте настроить поиск снова.",
+      "fieldValidationRules": "Правила проверки значения поля",
+      "enableValidateFieldUnique": "Только уникальные значения",
+      "enableValidateFieldNotNull": "Обязательное",
+      "knowMore": "узнать больше",
+      "linkFieldKnowMoreLink": "https://help.teable.ai/en/basic/field/advanced/link",
+      "showByField": "Показать записи по полю",
+      "filterByView": "Фильтровать записи по представлению",
+      "filter": "Фильтровать записи",
+      "hideFields": "Скрыть поля",
+      "moreOptions": "Дополнительные параметры",
+      "allowNewOptionsWhenEditing": "Разрешить новые варианты при редактировании",
+      "deleteField": {
+        "title": "Удалить поле",
+        "simpleConfirm": "Вы уверены, что хотите удалить поле <b>{{fieldName}}</b>?",
+        "withDependencies": "Удаление поля <b>{{fieldName}}</b> повлияет на следующие поля:",
+        "deleteCount": "Удалить {{count}} полей",
+        "riskIdentified": "Риск обнаружен({{count}})",
+        "noDependencies": "Нет зависимостей({{count}})",
+        "safeToDelete": "Безопасно удалить",
+        "safeToDeleteDesc": "Это поле не используется другими полями, его можно безопасно удалить",
+        "affectedItems": "Затронутые элементы",
+        "type": "Тип",
+        "source": "Источник",
+        "sourceTable": "Исходная таблица",
+        "typeField": "Поле"
+      },
+      "conditionalLookup": {
+        "sortLimitToggleLabel": "Sort linked records and limit the number of matches",
+        "sortLabel": "Sort results",
+        "limitLabel": "Maximum records to include",
+        "limitPlaceholder": "Leave blank to include all matches",
+        "limitHint": "We only keep up to {{limit}} matching records.",
+        "sortMissingWarningTitle": "Sorting field unavailable",
+        "sortMissingWarningDescription": "The field that powered this sort was deleted. Results ignore the sort and only enforce the limit."
+      }
+    },
+    "subTitle": {
+      "link": "Связать с записями в выбранной таблице",
+      "singleLineText": "Введите текст или предварительно заполните каждую новую ячейку значением по умолчанию.",
+      "longText": "Введите несколько строк текста.",
+      "attachment": "Добавьте или сгенерируйте с помощью ИИ изображения, или загрузите документы и другие файлы для просмотра или скачивания.",
+      "checkbox": "Отметьте или снимите отметку для указания статуса.",
+      "multipleSelect": "Выберите один или несколько предопределенных вариантов из списка.",
+      "singleSelect": "Выберите один предопределенный вариант из списка или предварительно заполните каждую новую ячейку вариантом по умолчанию.",
+      "user": "Добавьте пользователя к записи.",
+      "date": "Введите дату (например, 12.11.2023) или выберите из календаря.",
+      "number": "Введите число или предварительно заполните каждую новую ячейку значением по умолчанию.",
+      "rating": "Добавьте оценку по предопределенной шкале.",
+      "formula": "Вычислите значения на основе полей.",
+      "rollup": "Суммируйте данные из связанных записей.",
+      "conditionalLookup": "Показывает связанные значения, соответствующие заданным фильтрам.",
+      "createdTime": "Посмотрите дату и время создания каждой записи.",
+      "lastModifiedTime": "Посмотрите дату и время последнего редактирования некоторых или всех полей в записи.",
+      "createdBy": "Посмотрите, какой пользователь создал запись.",
+      "lastModifiedBy": "Посмотрите, какой пользователь внес последние изменения в некоторые или все поля в записи.",
+      "autoNumber": "Автоматически генерируйте уникальные возрастающие числа для каждой записи.",
+      "button": "Запустите настраиваемое действие.",
+      "lookup": "Просмотрите значения из поля в связанной записи."
+    },
+    "fieldName": "Имя поля",
+    "fieldNameOptional": "Имя поля (Необязательно)",
+    "fieldType": "Тип поля",
+    "aiConfig": {
+      "title": "Конфигурация AI",
+      "type": {
+        "summary": "Сводка",
+        "translation": "Перевод",
+        "extraction": "Извлечение информации",
+        "improvement": "Улучшение",
+        "tag": "Смарт-тег",
+        "classification": "Смарт-классификация",
+        "customization": "Настройка",
+        "imageGeneration": "Генерация изображений",
+        "rating": "Оценка изображений"
+      },
+      "label": {
+        "type": "Тип действия AI",
+        "model": "Модель AI",
+        "targetLanguage": "Целевой язык",
+        "sourceField": "Исходное поле",
+        "sourceFieldForTag": "Выберите поле, сопоставьте его с созданными тегами",
+        "sourceFieldForClassify": "Выберите поле, сопоставьте его с созданными классификациями",
+        "attachPrompt": "Прикрепить требования",
+        "prompt": "Настройка подсказки",
+        "sourceFieldForAttachment": "Исходное поле для вложения",
+        "imageSize": "Размер изображения",
+        "imageQuality": "Качество изображения",
+        "imageCount": "Количество изображений"
+      },
+      "placeholder": {
+        "summarize": "Сводка содержимого",
+        "translate": "Перевод краткого и легкого для понимания, легкого",
+        "extractInfo": "Извлечь email, телефон, имя, адрес...",
+        "extractDate": "Извлечь время начала",
+        "improveText": "Формальный, дружелюбный, юмористический...",
+        "attachPromptForTag": "Не разрешено превышать три тега",
+        "attachPromptForClassify": "Классифицировать “В процессе” как “Без риска”",
+        "prompt": "Пожалуйста, введите пользовательскую подсказку",
+        "type": "Выберите действие AI",
+        "targetLanguage": "Английский, китайский, французский...",
+        "imageSize": "Пожалуйста, введите размер изображения",
+        "imageQuality": "Пожалуйста, введите качество изображения",
+        "attachPromptForImageGeneration": "Изображение должно быть ярким и естественным",
+        "attachPromptForRating": "Оцените качество изображения"
+      },
+      "imageQuality": {
+        "low": "Низкое",
+        "medium": "Среднее",
+        "high": "Высокое"
+      },
+      "tip": {
+        "gptImageResolution": "Из-за ограничения на общее число пикселей режим 4K для некоторых соотношений сторон использует максимально допустимый размер."
+      },
+      "autoFill": {
+        "title": "Автоматическое обновление",
+        "tip": "После включения текущее поле будет синхронно обновляться с изменениями содержимого конфигурации AI"
+      },
+      "autoFillFieldDialog": {
+        "title": "Обновить все записи",
+        "description": "Все записи в текущем представлении будут обновлены, включая все связанные данные, сгенерированные полем"
+      },
+      "autoFillConfirm": {
+        "title": "Сгенерировать весь столбец?",
+        "description": "Генерация всего столбца обновит {{rowCount}} строк. Эта операция может потреблять большое количество ресурсов ИИ.",
+        "saveConfigOnly": "Сохранить только конфигурацию",
+        "generateFailed": "Не удалось выполнить генерацию"
+      }
+    }
+  },
+  "table": {
+    "newTableLabel": "Новая таблица",
+    "rename": "Переименовать",
+    "tableRecordHistory": "История записей таблицы",
+    "deleteConfirm": "Вы уверены, что хотите удалить \"{{tableName}}\"?",
+    "dbTableName": "Имя таблицы в физической базе данных",
+    "schemaName": "Имя схемы в физической базе данных",
+    "baseInfo": "Базовая информация",
+    "typeOfDatabase": "Тип базы данных",
+    "descriptionForTable": "Описание этой таблицы",
+    "loginUserTable": "Вход в приложение",
+    "linkedApps": "Связанные приложения",
+    "nameForTable": "Название этой таблицы",
+    "deleteTip1": "Связанные поля в других таблицах, связанные с этой таблицей, будут удалены.",
+    "operator": {
+      "createBlank": "Новая таблица"
+    },
+    "actionTips": {
+      "copyAndPasteEnvironment": "Копирование и вставка работают только в HTTPS или localhost",
+      "copyAndPasteBrowser": "Копирование и вставка не поддерживаются в этом браузере",
+      "copying": "Копирование...",
+      "copySuccessful": "Копирование успешно",
+      "copyFailed": "Копирование не удалось",
+      "pasting": "Вставка...",
+      "pasteSuccessful": "Вставка успешна",
+      "pasteFailed": "Вставка не удалась",
+      "filling": "Заполнение...",
+      "fillSuccessful": "Заполнение успешно",
+      "fillFailed": "Заполнение не удалось",
+      "clearing": "Очистка...",
+      "clearSuccessful": "Очистка успешна",
+      "deleting": "Удаление...",
+      "deleteSuccessful": "Удаление успешно",
+      "deleteStream": {
+        "preparing": "Preparing selection",
+        "deleting": "Deleting records",
+        "descriptionWithIssues": "Some delete chunks failed. Review the details below.",
+        "completedWithIssues": "Deletion completed with issues",
+        "issuesBadge": "{{count}} issues",
+        "chunkFailureTitle": "Chunk failure details",
+        "chunkFailureSummary": "{{count}} chunk(s) reported an error while the stream kept running.",
+        "chunkLabel": "Chunk {{index}}",
+        "rowsLabel": "{{count}} rows",
+        "phaseLabel": {
+          "preparing": "Preparing",
+          "guarding": "Checking",
+          "deleting": "Deleting",
+          "publishing": "Publishing",
+          "finalizing": "Finalizing"
+        }
+      },
+      "pasteFileFailed": "Файлы можно вставлять только в поле вложений",
+      "copyError": {
+        "noFocus": "Пожалуйста, не меняйте окно"
+      },
+      "crossBaseCopyTitle": "Скопировать как обычный текст?",
+      "crossBaseCopyDescription": "Выделение содержит поле-ссылку между базами. Чтобы данные оставались в своей исходной базе, поле будет скопировано как обычный текст и потеряет связи.",
+      "crossBaseCopyConfirm": "Скопировать как обычный текст",
+      "crossBaseCopyLoadFirst": "Прокрутите, чтобы загрузить все выбранные строки, прежде чем копировать поля между базами."
+    },
+    "graph": {
+      "effectCells": "Может повлиять на ячейки",
+      "estimatedTime": "Расчетное время",
+      "linkFieldCount": "Влияет на количество связанных полей"
+    },
+    "integrity": {
+      "check": "Проверить",
+      "title": "Проверка целостности",
+      "loading": "Проверка целостности...",
+      "allGood": "Все хорошо!",
+      "fixIssues": "Исправить проблемы",
+      "v2": {
+        "dialogTitle": "Целостность схемы",
+        "dialogDescription": "Запустите проверку и восстановление схемы v2 для {{tableName}}.",
+        "dialogDescriptionNoTable": "Запустите проверку и восстановление схемы v2 для текущей базы.",
+        "runCheck": "Запустить проверку",
+        "recheck": "Проверить снова",
+        "repair": "Исправить",
+        "repairWarnings": "Исправить только предупреждения",
+        "repairWarningsAndErrors": "Исправить предупреждения и ошибки",
+        "repairRule": "Исправить правило",
+        "repairUnavailable": "Это правило нельзя исправить автоматически",
+        "manual": "Вручную",
+        "manualRepairNotice": "Эта проблема требует ручного исправления",
+        "manualRepairNoticeWithCount": "{{count}} проблем требуют ручного исправления. Используйте действие «Вручную» справа от нужного правила, чтобы открыть диалог исправления.",
+        "manualRepairDialogTitle": "Требуется ручное исправление",
+        "manualRepairDialogDescription": "Эту проблему нельзя исправить автоматически. Ознакомьтесь с подсказками ниже и выберите способ исправления.",
+        "manualRepairDialogReason": "Почему требуется ручное исправление",
+        "manualRepairDialogHint": "Сейчас это окно только показывает параметры исправления, которые требует правило. Позже на основе этого контракта можно добавить фактическое выполнение.",
+        "manualRepairDialogClose": "Закрыть",
+        "checking": "Проверка схемы...",
+        "repairing": "Исправление схемы...",
+        "streamError": "Ошибка потока целостности схемы.",
+        "noTableSelected": "Сначала выберите таблицу, чтобы запустить проверку схемы v2.",
+        "noResults": "Пока нет результатов схемы.",
+        "noFilteredResults": "Нет результатов, соответствующих текущим фильтрам.",
+        "systemColumns": "Системные столбцы",
+        "general": "Общее",
+        "optional": "Необязательно",
+        "statementCount": "{{count}} инструкций",
+        "detailsMissing": "Отсутствует: {{details}}",
+        "detailsExtra": "Лишнее: {{details}}",
+        "message": {
+          "schemaValid": "Schema is valid",
+          "schemaValidationFailed": "Schema validation failed",
+          "schemaElementMissing": "Schema element missing",
+          "schemaAlreadyValid": "Schema is already valid",
+          "schemaRepaired": "Schema repaired successfully",
+          "manualRepair": "Rule requires manual repair",
+          "noRepairStatements": "No repair statements available",
+          "skippedDependencies": "Skipped because dependencies are not satisfied",
+          "checkStreamConnected": "Schema integrity check stream connected",
+          "baseCheckStreamConnected": "Base schema integrity check stream connected",
+          "repairStreamConnected": "Schema integrity repair stream connected",
+          "baseRepairStreamConnected": "Base schema integrity repair stream connected",
+          "checkCompleted": "Schema integrity check completed",
+          "baseCheckCompleted": "Base schema integrity check completed",
+          "repairCompleted": "Schema integrity repair completed",
+          "baseRepairCompleted": "Base schema integrity repair completed"
+        },
+        "rule": {
+          "column": "Physical column",
+          "columnTyped": "Physical column ({{dataType}})",
+          "notNull": "NOT NULL constraint",
+          "columnUnique": "UNIQUE constraint",
+          "fkColumn": "Foreign key column",
+          "index": "Index",
+          "uniqueIndex": "Unique index",
+          "primaryKey": "PRIMARY KEY",
+          "defaultExpression": "Default expression",
+          "foreignKey": "Foreign key constraint",
+          "junctionTable": "Junction table",
+          "junctionUnique": "Junction table unique constraint",
+          "junctionIndex": "Junction table index",
+          "junctionForeignKey": "Junction table foreign key",
+          "reference": "Reference records",
+          "generatedColumn": "Generated column",
+          "generatedMeta": "Generated column state",
+          "linkValueColumn": "Link value column",
+          "orderColumn": "Order column",
+          "fieldMeta": "Field metadata",
+          "symmetricField": "Symmetric field relationship",
+          "systemColumn": "System column \"{{columnName}}\"",
+          "connection": "Connection",
+          "completion": "Completion",
+          "unexpected": "Unexpected error"
+        },
+        "detail": {
+          "systemColumnMissing": "System column \"{{columnName}}\" not found",
+          "systemColumnNotNull": "System column \"{{columnName}}\" should be NOT NULL",
+          "systemColumnUnique": "System column \"{{columnName}}\" should have a UNIQUE index",
+          "systemColumnPrimaryKey": "System column \"{{columnName}}\" should be PRIMARY KEY",
+          "systemColumnDefault": "System column \"{{columnName}}\" should have a default expression",
+          "foreignKeyOrphanRows": "Field \"{{fieldName}}\" still has {{count}} rows pointing to missing linked records",
+          "foreignKeyOrphanRowsDescription": "Automatic repair cannot restore the foreign key for \"{{fieldName}}\" until the {{count}} invalid references to \"{{targetTableName}}\" are cleaned up.",
+          "junctionForeignKeyMissing": "The junction table for \"{{fieldName}}\" is missing one of its foreign keys",
+          "junctionForeignKeyMissingDescription": "Restore the junction foreign key for \"{{fieldName}}\" so relation rows stay linked to existing records in \"{{targetTableName}}\".",
+          "junctionForeignKeyTargetTableMissing": "The linked table for the junction of \"{{fieldName}}\" cannot be found",
+          "junctionForeignKeyTargetTableMissingDescription": "Automatic repair cannot restore the junction foreign key for \"{{fieldName}}\" because the target table \"{{targetPhysicalTableName}}\" does not exist.",
+          "junctionForeignKeyOrphanRows": "The junction table for \"{{fieldName}}\" still has {{count}} rows pointing to missing linked records",
+          "junctionForeignKeyOrphanRowsDescription": "Automatic repair cannot restore the junction foreign key for \"{{fieldName}}\" until the {{count}} invalid relation rows referencing \"{{targetTableName}}\" are cleaned up."
+        },
+        "phase": {
+          "check": "Результаты проверки",
+          "repair": "Результаты исправления"
+        },
+        "summary": {
+          "checks": "{{count}} проверок",
+          "success": "{{count}} успешно",
+          "warn": "{{count}} предупреждений",
+          "error": "{{count}} ошибок",
+          "skipped": "{{count}} пропущено",
+          "repaired": "{{count}} исправлено",
+          "manual": "{{count}} вручную",
+          "problems": "{{count}} проблем"
+        },
+        "status": {
+          "success": "Успех",
+          "error": "Ошибка",
+          "warn": "Предупреждение",
+          "pending": "Ожидание",
+          "running": "Выполняется",
+          "skipped": "Пропущено"
+        },
+        "outcome": {
+          "repaired": "Исправлено",
+          "unchanged": "Без изменений",
+          "manual": "Вручную",
+          "skipped": "Пропущено"
+        },
+        "repairMeta": {
+          "reason": {
+            "alreadyValid": "This rule is already valid",
+            "manualRule": "This rule requires a manual decision",
+            "statementGenerationFailed": "The system could not generate a safe repair statement",
+            "noStatements": "This rule has no automatic repair statement",
+            "symmetricFieldConflict": "This symmetric link conflict needs a manual choice",
+            "foreignKeyTargetTableMissing": "Automatic repair is unavailable because the linked table is missing",
+            "foreignKeyOrphanRows": "Automatic repair is unavailable because invalid linked rows still exist",
+            "junctionForeignKeyTargetTableMissing": "Automatic repair is unavailable because the junction target table is missing",
+            "junctionForeignKeyOrphanRows": "Automatic repair is unavailable because invalid junction rows still exist"
+          },
+          "description": {
+            "symmetricFieldConflict": "More than one field points at the same symmetric link target. Pick which field should own the two-way relationship before repairing.",
+            "foreignKeyTargetTableMissing": "Check whether the linked table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
+            "foreignKeyOrphanRows": "Clean up the invalid linked rows for \"{{fieldName}}\" before adding the foreign key constraint again.",
+            "junctionForeignKeyTargetTableMissing": "Check whether the target table {{targetPhysicalTableName}} was deleted or renamed. Recreate the table, or update/remove the link configuration for \"{{fieldName}}\", then run the check again.",
+            "junctionForeignKeyOrphanRows": "Clean up the invalid junction rows for \"{{fieldName}}\" before adding the foreign key back."
+          },
+          "manual": {
+            "apply": "Apply manual repair",
+            "symmetricField": {
+              "title": "Resolve symmetric link conflict",
+              "description": "Pick how this duplicate symmetric link should be repaired.",
+              "resolutionLabel": "Repair strategy",
+              "resolutionDescription": "Choose which field should keep the two-way link behavior.",
+              "option": {
+                "keepCurrent": "Keep the current field as the two-way link",
+                "convertDuplicate": "Convert the duplicate field to a one-way link"
+              }
+            }
+          }
+        }
+      },
+      "errorType": {
+        "InvalidPrimaryLookup": "Основное поле неправильно настроено как Lookup",
+        "InvalidPrimaryType": "Основное поле имеет неподдерживаемый тип",
+        "MissingPrimary": "В таблице отсутствует основное поле"
+      }
+    },
+    "index": {
+      "description": "Индексы могут значительно повысить производительность поиска, особенно при большом объеме данных (более {{rowCount}} строк). Недостаток — операции записи становятся немного медленнее. Если вы часто выполняете поиск или у вас много данных, рекомендуется включить индексы",
+      "repair": "Обновить индекс",
+      "repairTip": "Обнаружены аномалии индекса, которые могут снизить производительность поиска. Рекомендуется нажать кнопку Обновить индекс, чтобы обновить индекс",
+      "enableIndexTip": "Вы создаете индекс. Необходимое время зависит от размера таблицы. Во время этого процесса производительность чтения и записи таблицы может быть затронута. Пожалуйста, подождите",
+      "fieldSearchTip_limited": "Когда выключено, нечеткий поиск выполняется по всем полям. Поля даты, флажка и кнопки не поддерживаются. Поддерживается до {{count}} полей",
+      "fieldSearchTip_infinity": "Когда выключено, нечеткий поиск выполняется по всем полям. Поля даты, флажка и кнопки не поддерживаются",
+      "globalSearchFieldTip": "Включен режим глобального поиска. Нечеткий поиск выполняется по всем полям. Поля даты, флажка и кнопки не поддерживаются",
+      "hideNotMatchRowTip": "Когда выключено, показывать все строки",
+      "autoIndexTip": "Ваша таблица превысила {{rowCount}} строк. Рекомендуется включить индексы для повышения производительности поиска. Включение индексов может немного снизить скорость записи. Во время создания индекса производительность чтения/записи таблицы может быть затронута. Пожалуйста, подождите",
+      "enableIndex": "Включить",
+      "keepAsIs": "Оставить как есть",
+      "ignoreIndexError": "временно игнорировать"
+    }
+  },
+  "import": {
+    "title": {
+      "upload": "Загрузить",
+      "import": "Импорт",
+      "localFile": "Локальные файлы",
+      "linkUrl": "Ссылка (URL)",
+      "linkUrlInputTitle": "Добавить файл по URL",
+      "importTitle": "Создать новую таблицу",
+      "incrementImportTitle": "Импорт в — ",
+      "optionsTitle": "Параметры импорта",
+      "primitiveFields": "Простые поля",
+      "importFields": "Поля импорта",
+      "primaryField": "Основное поле",
+      "tipsTitle": "Советы",
+      "confirm": "Подтвердить и продолжить"
+    },
+    "menu": {
+      "addFromOtherSource": "Добавить из других источников",
+      "excelFile": "Microsoft Excel",
+      "airtable": "Airtable",
+      "csvFile": "Csv файл",
+      "importCsvData": "Импортировать данные CSV",
+      "importExcelData": "Импортировать данные Microsoft Excel",
+      "cancel": "Отмена",
+      "downAsCsv": "Скачать csv",
+      "importData": "Импортировать данные",
+      "duplicate": "Дублировать",
+      "duplicating": "Дублирование...",
+      "duplicateSuccess": "Успешно дублировано",
+      "duplicateFailed": "Не удалось дублировать",
+      "importing": "Импорт",
+      "includeRecords": "Включить записи"
+    },
+    "tips": {
+      "importWayTip": "Нажмите или перетащите файл в эту область для загрузки",
+      "fileExceedSizeTip": "Размер файла этого типа превышает лимит в",
+      "analyzing": "анализ",
+      "importing": "Импорт",
+      "notSupportFieldType": "Тип поля не поддерживается",
+      "resultEmpty": "Результаты не найдены.",
+      "searchPlaceholder": "Поиск...",
+      "importAlert": "После начала импорта его невозможно остановить до успешного завершения или прерывания из-за ошибки. Статус импорта отображается в правом верхнем углу таблицы. О результатах процесса импорта вам будет сообщено по завершении. Не следует обновлять поле во время импорта, так как это может вызвать ошибки.",
+      "noTips": "Я понял, больше не показывать"
+    },
+    "options": {
+      "autoSelectFieldOptionName": "Автоматический выбор типов полей",
+      "useFirstRowAsHeaderOptionName": "Использовать первую строку как заголовок",
+      "importDataOptionName": "Импортировать данные",
+      "sheetKey": "Имя листа: ",
+      "excludeFirstRow": "Исключить первую строку при импорте"
+    },
+    "form": {
+      "defaultFieldName": "Поле",
+      "error": {
+        "urlEmptyTip": "URL не должен быть пустым!",
+        "errorFileFormat": "Неправильный формат файла!",
+        "uniqueFieldName": "Имя поля должно быть уникальным!",
+        "fieldNameEmpty": "Имя поля не должно быть пустым!",
+        "atLeastAImportField": "Пожалуйста, установите хотя бы одно поле для импорта",
+        "urlValidateTip": "Не удалось разобрать URL. Попробуйте другой URL!"
+      },
+      "option": {
+        "doNotImport": "Не импортировать"
+      }
+    }
+  },
+  "grid": {
+    "prefillingRowTitle": "Добавить новую запись",
+    "prefillingRowTooltip": "Пожалуйста, введите данные новой записи ниже. Запись будет сохранена автоматически, как только вы кликнете вне этой строки.",
+    "presortRowTitle": "Эта запись была отфильтрована или перемещена из-за правил сортировки"
+  },
+  "form": {
+    "fieldsManagement": "Поля",
+    "addAll": "Показать все",
+    "removeAll": "Скрыть все",
+    "createField": "Создать поле",
+    "hideFieldTip": "Скрыть поле сюда",
+    "unableAddFieldTip": "Невозможно добавить поле этого типа",
+    "removeFromFormTip": "Удалить из формы",
+    "descriptionPlaceholder": "Введите описание формы",
+    "dragToFormTip": "Перетащите поле сюда, чтобы добавить его в форму",
+    "protectedFieldTip": "Это поле было установлено как \"обязательное\" поле и не может быть удалено в виде формы. Пожалуйста, измените его в настройках поля."
+  },
+  "kanban": {
+    "toolbar": {
+      "hideFieldName": "Скрыть имя поля",
+      "customizeCards": "Настроить карточки",
+      "stackedBy": "Сгруппировано по <0/>",
+      "chooseStackingField": "Выберите поле для группировки",
+      "chooseStackingFieldDescription": "Какое поле вы хотите использовать для настройки канбана? Ваши записи будут сгруппированы на основе этого поля.",
+      "hideEmptyStack": "Скрыть пустые группы",
+      "imageSetting": "Настройка изображения",
+      "fit": "По размеру",
+      "noImage": "Без изображения",
+      "chooseAttachmentField": "Выберите поле вложений"
+    },
+    "stack": {
+      "addStack": "Добавить группу",
+      "noCards": "Нет карточек",
+      "uncategorized": "Без категории"
+    },
+    "stackMenu": {
+      "collapseStack": "Свернуть группу",
+      "renameStack": "Переименовать группу",
+      "deleteStack": "Удалить группу"
+    },
+    "cardMenu": {
+      "insertCardAbove": "Вставить карточку выше",
+      "insertCardBelow": "Вставить карточку ниже",
+      "expandCard": "Развернуть карточку",
+      "deleteCard": "Удалить карточку",
+      "duplicateCard": "Дублировать карточку"
+    }
+  },
+  "calendar": {
+    "toolbar": {
+      "config": "Настройка календаря",
+      "startDateField": "Начальная дата",
+      "endDateField": "Конечная дата",
+      "titleField": "Заголовок",
+      "colorField": "Цвет",
+      "colorType": "Отображение цвета",
+      "customColor": "Настроить цвет",
+      "alignWithRecords": "Соответствовать записям"
+    },
+    "placeholder": {
+      "selectColorField": "Выберите поле цвета"
+    },
+    "dialog": {
+      "startDate": "Начальная дата",
+      "endDate": "Конечная дата",
+      "notAdd": "Не добавлять",
+      "addDateField": "Добавить дату",
+      "content": "Создать календарный вид, и в таблице должно быть два поля даты: начальная дата и конечная дата"
+    },
+    "moreLinkText": "Показать все {{count}} записей"
+  },
+  "menu": {
+    "insertRecordAbove": "Вставить запись выше",
+    "insertRecordBelow": "Вставить запись ниже",
+    "deleteRecord": "Удалить запись",
+    "deleteAllSelectedRecords": "Удалить все выбранные записи",
+    "editField": "Редактировать поле",
+    "insertFieldLeft": "Вставить слева",
+    "insertFieldRight": "Вставить справа",
+    "freezeUpField": "Закрепить до этого поля",
+    "freezeFieldWindowTooNarrow": "Невозможно закрепить до этой области, так как текущее окно слишком узкое",
+    "hideField": "Скрыть поле",
+    "deleteField": "Удалить поле",
+    "deleteAllSelectedFields": "Удалить все выбранные поля",
+    "autoFill": "Обновить все записи",
+    "groupMenuTitle": "Меню группы",
+    "expandGroup": "Развернуть эту группу и ее подгруппы",
+    "collapseGroup": "Свернуть эту группу и ее подгруппы",
+    "expandAllGroups": "Развернуть все группы",
+    "collapseAllGroups": "Свернуть все группы",
+    "addToChat": "Добавить в чат"
+  },
+  "connection": {
+    "title": "Подключение к базе данных",
+    "description": "Вы можете получить прямой доступ к базе данных через подключение к базе данных, включая все таблицы в текущей базе",
+    "noPermission": "У вас нет разрешения на доступ к базе данных",
+    "connectionCountTip": "Максимальное количество подключений к базе данных - <b>{{max}}</b>, текущее количество подключений - <b>{{current}}</b>",
+    "createFailed": "Пожалуйста, убедитесь, что переменная окружения PUBLIC_DATABASE_PROXY установлена правильно",
+    "readonlyUnavailable": "Readonly database sharing is unavailable for this data database. Grant the Teable database user permission to create roles and grants, or use a target database that supports readonly roles."
+  },
+  "view": {
+    "addRecord": "Добавить запись",
+    "searchView": "Поиск вида...",
+    "dragToolTip": "Включена автоматическая сортировка, ручное перетаскивание недоступно",
+    "insertToolTip": "Включена автоматическая сортировка, вставка с порядком недоступна",
+    "action": {
+      "rename": "Переименовать",
+      "duplicate": "Дублировать",
+      "delete": "Удалить",
+      "lock": "Заблокировать",
+      "unlock": "Разблокировать",
+      "enable": "Включить"
+    },
+    "category": {
+      "table": "Табличный вид",
+      "form": "Вид формы",
+      "kanban": "Канбан-вид",
+      "gallery": "Галерея вид",
+      "calendar": "Календарь вид"
+    },
+    "crash": {
+      "title": "Сбой!",
+      "description": "Этот вид сломан. Если обновление все еще не помогает, пожалуйста, свяжитесь с нами. support@teable.ai"
+    },
+    "locked": {
+      "tip": "Этот вид заблокирован. Вы можете включить персональный режим для редактирования параметров вида, и изменения будут действовать только для вас."
+    },
+    "noView": "Нет видов"
+  },
+  "lastModifiedTime": "Время последнего изменения",
+  "lastModify": "Последнее изменение: ",
+  "tableTrash": {
+    "title": "Корзина таблицы",
+    "resourceType": "Тип",
+    "deletedResource": "Ресурс"
+  },
+  "baseShare": {
+    "shareTitle": "Поделиться",
+    "shareToWeb": "Поделиться в Интернете",
+    "refreshLink": "Обновить ссылку",
+    "deleteConfirmTitle": "Удалить ссылку для общего доступа",
+    "deleteConfirmDescription": "Это действие нельзя отменить. Люди с этой ссылкой больше не смогут получить доступ к общей базе.",
+    "createSuccess": "Ссылка для общего доступа создана",
+    "createFailed": "Не удалось создать ссылку для общего доступа",
+    "updateFailed": "Не удалось обновить настройки общего доступа",
+    "deleteSuccess": "Ссылка для общего доступа удалена",
+    "deleteFailed": "Не удалось удалить ссылку для общего доступа",
+    "refreshSuccess": "Ссылка для общего доступа обновлена",
+    "refreshFailed": "Не удалось обновить ссылку для общего доступа",
+    "linkHolderLabel": "Человек, получивший ссылку",
+    "linkHolderCanView": "Может просматривать",
+    "linkHolderCanViewDesc": "Anyone with the link can view the data",
+    "linkHolderCanEdit": "Может редактировать",
+    "linkHolderCanEditDesc": "Logged-in users can edit records in the table",
+    "viewLinkHolderCanViewDesc": "Любой, у кого есть ссылка, может просматривать данные этого представления",
+    "viewLinkHolderCanEditDesc": "Авторизованные пользователи могут редактировать данные в пределах представления",
+    "linkExposureNoticeOne": "Visitors can see data from \"{{name}}\"",
+    "linkExposureNoticeMany": "Visitors can see data from \"{{name}}\" and {{count}} tables in total",
+    "linkExposureNoticeGeneric": "Visitors can see data from linked tables",
+    "restrictScope": "Restrict scope",
+    "linkScopeDesc": "Restrict which records and fields are selectable in this views link fields. The setting applies to the field itself and affects every view that uses it.",
+    "linkScopeDialogTitle": "Link field scope",
+    "linkHolderCanCopyAndSave": "Может сохранить как копию",
+    "linkHolderCanCopyAndSaveDesc": "Anyone with the link can save a copy to their space",
+    "editRequiresLogin": "Users must log in to edit records",
+    "enterPassword": "Введите пароль",
+    "allowCopyData": "Разрешить зрителям копировать данные",
+    "sharedNode": "Общий узел",
+    "restrictByPassword": "Ограничить паролем",
+    "advanced": "Дополнительно",
+    "embedConfig": "Настройка встраивания",
+    "appPublicLink": "Публичная ссылка приложения",
+    "appNotPublished": "Это приложение еще не опубликовано. Пожалуйста, сначала опубликуйте приложение перед публикацией общего доступа.",
+    "goToPublish": "Перейти к публикации",
+    "publishSuccess": "Приложение успешно опубликовано",
+    "publishFailed": "Не удалось опубликовать приложение",
+    "openLink": "Открыть ссылку",
+    "appPublished": "Приложение опубликовано",
+    "shareTableTab": "Поделиться таблицей",
+    "shareViewTab": "Поделиться представлением"
+  },
+  "aiChat": {
+    "integrationConnect": {
+      "title": "Подключить {{provider}}",
+      "reconnectTitle": "Переподключить {{provider}}",
+      "defaultReason": "Агенту нужен доступ к вашей учётной записи {{provider}}, чтобы продолжить.",
+      "connect": "Подключить",
+      "connecting": "Подключение…",
+      "giveUp": "Отказаться",
+      "failed": "Не удалось подключиться",
+      "status": {
+        "connected": "Подключено",
+        "cancelled": "Пропущено",
+        "failed": "Ошибка"
+      }
+    },
+    "agent": {
+      "askUserQuestion": {
+        "otherPlaceholder": "Или введите ответ…"
+      },
+      "messageActions": {
+        "copy": "Копировать",
+        "copyToInput": "Копировать в поле ввода"
+      }
+    },
+    "tool": {
+      "showLess": "Показать меньше",
+      "generateApp": {
+        "creatingApp": "Создание приложения",
+        "updatingApp": "Обновление приложения",
+        "viewProgress": "Просмотр прогресса"
+      },
+      "htmlPreview": {
+        "preview": "Предпросмотр",
+        "code": "Код",
+        "download": "Скачать",
+        "downloadHtml": "HTML",
+        "downloadImage": "Изображение (PNG)",
+        "copy": "Копировать",
+        "copied": "Скопировано!",
+        "fullscreen": "Полный экран",
+        "exitFullscreen": "Выйти из полноэкранного режима",
+        "downloadSuccess": "Изображение успешно загружено",
+        "downloadFailed": "Не удалось захватить изображение",
+        "iframeFailed": "Не удалось захватить: iframe недоступен"
+      }
+    },
+    "action": {
+      "locateResource": "Найти"
+    },
+    "showUI": {
+      "skip": "Пропустить",
+      "next": "Далее",
+      "submit": "Отправить"
+    },
+    "newChat": "Новый чат",
+    "expand": "Развернуть",
+    "history": "История",
+    "close": "Свернуть",
+    "addAttachment": "Добавить вложение",
+    "noHistory": "Нет истории чата",
+    "noFoundHistory": "Нет истории чата, пожалуйста, начните новую беседу",
+    "timeGroup": {
+      "today": "Сегодня",
+      "oneWeek": "Одна неделя",
+      "twoWeek": "Две недели",
+      "oneMonth": "Один месяц",
+      "other": "Другое"
+    },
+    "context": {
+      "searchEmpty": "Не найден соответствующий контекст",
+      "selectionRow": "Row {{row}}",
+      "selectionRows": "Строки {{start}}-{{end}}",
+      "selectionColumn": "Col {{col}}",
+      "selectionColumns": "Col {{start}}-{{end}}",
+      "selectionColumnsNamed": "{{names}} +{{count}}"
+    },
+    "mention": {
+      "tables": "Таблицы",
+      "apps": "Приложения",
+      "workflows": "Автоматизации",
+      "folders": "Папки"
+    },
+    "slashCommand": {
+      "skills": "Skills",
+      "searchEmpty": "No results found"
+    },
+    "inputPlaceholder": "@ добавляет узлы, / запускает навыки",
+    "inputPlaceholderFiles": "Вставьте или перетащите файлы сюда",
+    "thought": "Мысли",
+    "stage": {
+      "initializing": "Инициализация",
+      "working": "Работает",
+      "committing": "Фиксация",
+      "recovering": "Восстановление"
+    },
+    "meta": {
+      "input": "Ввод",
+      "output": "Вывод"
+    },
+    "attachment": {
+      "pastedTextFileName": "Вставленный текст",
+      "imageNotSupported": "Изображение не поддерживается",
+      "tooManyFiles": "Вы можете прикрепить не более {{count}} файлов к одному сообщению",
+      "storageFull": "Хранилище песочницы заполнено. Удалите несколько файлов и повторите попытку."
+    },
+    "suggestions": {
+      "title": "Чем могу помочь?",
+      "whatCanIDo": "Что я могу сделать?",
+      "createOrModifyDatabase": "Создать или изменить базу данных",
+      "buildAutomations": "Создать автоматизации",
+      "buildApps": "Создать приложения",
+      "buildMeCRM": "Создайте мне CRM",
+      "addAIField": "Добавить AI-поле для анализа каждого клиента",
+      "createDataAnalysis": "Создайте отчёт по анализу данных",
+      "emailWhenRecordCreated": "Отправьте мне письмо при создании записи",
+      "syncStatusToSlack": "Синхронизировать обновления статуса со Slack",
+      "buildDashboard": "Создать панель из этой таблицы",
+      "buildLeadCapture": "Создайте страницу захвата лидов"
+    },
+    "buildApp": {
+      "task": {
+        "foundResults": "Найдено {{count}} результатов"
+      }
+    },
+    "scriptPreview": {
+      "writeCodeHint": "Напишите код, чтобы увидеть предварительный просмотр блок-схемы.",
+      "noPreview": "Предварительный просмотр блок-схемы недоступен.",
+      "codeChanged": "Код изменился с момента генерации этого предварительного просмотра."
+    }
+  },
+  "download": {
+    "allAttachments": {
+      "title": "Скачать все вложения",
+      "rowsWithAttachments": "Строки с влож.",
+      "totalAttachments": "Вложения",
+      "totalSize": "Общий размер",
+      "cancel": "Отмена",
+      "downloading": "Загрузка...",
+      "completed": "Загрузка завершена",
+      "cancelled": "Загрузка отменена",
+      "noAttachments": "Нет вложений для скачивания",
+      "error": "Ошибка загрузки",
+      "errorPartial": "{{failedCount}} файлов не удалось загрузить",
+      "requireHttps": "Пакетная загрузка требует HTTPS. Пожалуйста, используйте HTTPS или localhost.",
+      "advancedOptions": "Дополнительные параметры",
+      "namingFieldLabel": "Префикс имени вложения",
+      "selectField": "По умолчанию: индекс вложения",
+      "noPrefixOption": "Без префикса",
+      "noPrefixOptionDesc": "Сохранить исходное имя файла",
+      "groupByRow": "Архивировать в папки",
+      "groupByRowTip": "Когда в строке несколько вложений, они будут помещены в одну папку; строки с одним вложением не создадут папку."
+    }
+  },
+  "baseNode": {
+    "info": {
+      "menu": "Информация об узле",
+      "createdBy": "Создал",
+      "createdTime": "Время создания",
+      "lastModifiedBy": "Изменил",
+      "lastModifiedTime": "Время изменения",
+      "folderId": "ID папки",
+      "tableId": "ID таблицы",
+      "automationId": "ID автоматизации",
+      "appId": "ID приложения"
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "apiQueryBuilder": "APIクエリビルダー",
+  "subTitle": "インタラクティブなUIを使用してクエリリクエストをすばやく構築し、直接実行できるコードをコピーできます。",
+  "apiList": "完全なAPIリスト",
+  "cellFormat": "セル結果の形式",
+  "fieldKeyType": "フィールドキータイプ",
+  "chooseSource": "データソースを選択",
+  "action": {
+    "selectBase": "データベースを選択...",
+    "selectTable": "テーブルを選択..."
+  },
+  "pickParams": "パラメータを選択して設定する",
+  "buildResult": "構築結果",
+  "buildResultEmpty": "まだ結果はありません",
+  "previewReturnValue": "戻り値のプレビュー",
+  "replaceToken": "トークンを置き換える",
+  "createNewToken": "新しいトークンを作成する",
+  "only10Records": "最初の10件のレコードのみが表示されます",
+  "addSort": "並べ替えを追加"
+}

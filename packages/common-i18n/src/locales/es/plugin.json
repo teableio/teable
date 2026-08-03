@@ -1,0 +1,56 @@
+{
+  "add": "Nuevos Plugins",
+  "title": {
+    "add": "Nuevos Plugins",
+    "edit": "Editar Plugins"
+  },
+  "pluginUser": {
+    "name": "Usuario del Plugin",
+    "description": "Usuario del Plugin generado automáticamente por el sistema"
+  },
+  "secret": "Secret",
+  "regenerateSecret": "Regenerar Secret",
+  "form": {
+    "name": {
+      "label": "Nombre",
+      "description": "nombre del plugin"
+    },
+    "description": {
+      "label": "Descripción",
+      "description": "descripción del plugin"
+    },
+    "detailDesc": {
+      "label": "Descripción Detallada",
+      "description": "descripción detallada del plugin"
+    },
+    "logo": {
+      "label": "Logo",
+      "description": "logo del plugin, puedes subir una imagen o usar una URL",
+      "upload": "Subir",
+      "clear": "Limpiar",
+      "placeholder": "Arrastra y suelta tu logo aquí o haz clic para subir",
+      "lengthError": "Solo se permite un archivo.",
+      "typeError": "Solo se permiten archivos de imagen."
+    },
+    "helpUrl": {
+      "label": "URL de Ayuda",
+      "description": "URL del documento de ayuda del plugin"
+    },
+    "positions": {
+      "label": "Posiciones",
+      "description": "posiciones del plugin"
+    },
+    "i18n": {
+      "label": "i18n",
+      "description": "i18n del plugin, contiene (nombre, descripción, descripción detallada)"
+    },
+    "url": {
+      "label": "URL",
+      "description": "URL del plugin"
+    }
+  },
+  "markdown": {
+    "write": "Escribir",
+    "preview": "Avance"
+  }
+}

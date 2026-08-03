@@ -1,0 +1,306 @@
+import { inject, injectable } from '@teable/v2-di';
+import { err, ok, safeTry } from 'neverthrow';
+import type { Result } from 'neverthrow';
+
+import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
+import { FieldOperationPluginRunner } from '../application/services/FieldOperationPluginRunner';
+import {
+  collectFieldCreationAddSideEffects,
+  prepareFieldAddSideEffectPlugins,
+} from '../application/services/FieldOperationSideEffectPluginSupport';
+import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
+import {
+  type IRecordChangedValueDecoratorService,
+  NullRecordChangedValueDecoratorService,
+} from '../application/services/RecordChangedValueDecoratorService';
+import { aggregateRecordCreatedEvents } from '../application/services/recordEventFieldValues';
+import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
+import { TableOperationPluginRunner } from '../application/services/TableOperationPluginRunner';
+import {
+  beginTableSchemaOperation,
+  completeTableSchemaOperation,
+  failTableSchemaOperation,
+} from '../application/services/TableSchemaOperationLifecycleService';
+import type { DomainError } from '../domain/shared/DomainError';
+import type { IDomainEvent } from '../domain/shared/DomainEvent';
+import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
+import type { Table } from '../domain/table/Table';
+import { NoopLogger } from '../ports/defaults/NoopLogger';
+import * as EventBusPort from '../ports/EventBus';
+import * as ExecutionContextPort from '../ports/ExecutionContext';
+import { FieldOperationKind } from '../ports/FieldOperationPlugin';
+import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
+import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
+import { TableOperationKind } from '../ports/TableOperationPlugin';
+import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
+import * as TableRepositoryPort from '../ports/TableRepository';
+import * as TableSchemaRepositoryPort from '../ports/TableSchemaRepository';
+import { v2CoreTokens } from '../ports/tokens';
+import { TraceSpan } from '../ports/TraceSpan';
+import * as UnitOfWorkPort from '../ports/UnitOfWork';
+import { CommandHandler, type ICommandHandler } from './CommandHandler';
+import { buildTable, CreateTableCommand } from './CreateTableCommand';
+import { buildOperationBatchMutation } from './shared/batchMutationOrchestration';
+
+export class CreateTableResult {
+  private constructor(
+    readonly table: Table,
+    readonly events: ReadonlyArray<IDomainEvent>
+  ) {}
+
+  static create(table: Table, events: ReadonlyArray<IDomainEvent>): CreateTableResult {
+    return new CreateTableResult(table, [...events]);
+  }
+}
+
+@CommandHandler(CreateTableCommand)
+@injectable()
+export class CreateTableHandler implements ICommandHandler<CreateTableCommand, CreateTableResult> {
+  constructor(
+    @inject(v2CoreTokens.tableRepository)
+    private readonly tableRepository: TableRepositoryPort.ITableRepository,
+    @inject(v2CoreTokens.tableSchemaRepository)
+    private readonly tableSchemaRepository: TableSchemaRepositoryPort.ITableSchemaRepository,
+    @inject(v2CoreTokens.tableRecordRepository)
+    private readonly tableRecordRepository: TableRecordRepositoryPort.ITableRecordRepository,
+    @inject(v2CoreTokens.fieldCreationSideEffectService)
+    private readonly fieldCreationSideEffectService: FieldCreationSideEffectService,
+    @inject(v2CoreTokens.foreignTableLoaderService)
+    private readonly foreignTableLoaderService: ForeignTableLoaderService,
+    @inject(v2CoreTokens.eventBus)
+    private readonly eventBus: EventBusPort.IEventBus,
+    @inject(v2CoreTokens.unitOfWork)
+    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork,
+    @inject(v2CoreTokens.recordWritePluginRunner)
+    private readonly recordWritePluginRunner: RecordWritePluginRunner = new RecordWritePluginRunner(
+      [],
+      new NoopLogger(),
+      new DefaultTableMapper()
+    ),
+    @inject(v2CoreTokens.tableOperationPluginRunner)
+    private readonly tableOperationPluginRunner: TableOperationPluginRunner = new TableOperationPluginRunner(
+      [],
+      new NoopLogger()
+    ),
+    @inject(v2CoreTokens.fieldOperationPluginRunner)
+    private readonly fieldOperationPluginRunner: FieldOperationPluginRunner = new FieldOperationPluginRunner(
+      [],
+      new NoopLogger(),
+      new DefaultTableMapper()
+    ),
+    @inject(v2CoreTokens.recordChangedValueDecoratorService)
+    private readonly recordChangedValueDecoratorService: IRecordChangedValueDecoratorService = new NullRecordChangedValueDecoratorService()
+  ) {}
+
+  @TraceSpan()
+  async handle(
+    context: ExecutionContextPort.IExecutionContext,
+    command: CreateTableCommand
+  ): Promise<Result<CreateTableResult, DomainError>> {
+    const handler = this;
+    return safeTry<CreateTableResult, DomainError>(async function* () {
+      const foreignTableReferences = yield* command.foreignTableReferences();
+      const selfTableId = command.tableId;
+      const referencesToLoad = selfTableId
+        ? foreignTableReferences.filter(
+            (reference) => !reference.foreignTableId.equals(selfTableId)
+          )
+        : foreignTableReferences;
+      const foreignTables = yield* await handler.foreignTableLoaderService.load(context, {
+        // Foreign references can point to tables in other bases.
+        references: referencesToLoad,
+      });
+      const includeSelf =
+        selfTableId !== undefined &&
+        foreignTableReferences.some((reference) => reference.foreignTableId.equals(selfTableId));
+
+      const span = context.tracer?.startSpan('teable.CreateTableHandler.buildTable');
+      const table = yield* buildTable(command, { foreignTables, includeSelf });
+      span?.end();
+      const tablePluginExecution = yield* await handler.tableOperationPluginRunner.prepare({
+        kind: TableOperationKind.create,
+        executionContext: context,
+        payload: {
+          baseId: command.baseId,
+          tableName: command.tableName,
+          table,
+          fieldCount: table.getFields().length,
+          viewCount: table.views().length,
+          recordCount: command.records.length,
+          viewNames: table.views().map((view) => view.name().toString()),
+        },
+        isTransactionBound: false,
+      });
+      yield* await tablePluginExecution.guard();
+
+      const tableFields = table.getFields();
+      const recordsFieldValues = command.records;
+      const foreignTablesForSideEffects = includeSelf
+        ? [
+            ...new Map(
+              [...foreignTables, table].map((value) => [value.id().toString(), value] as const)
+            ).values(),
+          ]
+        : foreignTables;
+      const domainContext = ExecutionContextPort.getDomainContext(context);
+      const plannedSideEffects = yield* collectFieldCreationAddSideEffects(
+        table,
+        tableFields,
+        foreignTablesForSideEffects,
+        domainContext
+      );
+      const sideEffectPluginExecution = yield* await prepareFieldAddSideEffectPlugins({
+        runner: handler.fieldOperationPluginRunner,
+        executionContext: context,
+        sourceOperation: FieldOperationKind.create,
+        sourceTable: table,
+        foreignTables: foreignTablesForSideEffects,
+        domainContext,
+        sideEffects: plannedSideEffects,
+      });
+      yield* await sideEffectPluginExecution.guard();
+      const persistedTable = yield* await handler.unitOfWork.withTransaction(
+        context,
+        async (metaTransactionContext) =>
+          safeTry<Table, DomainError>(async function* () {
+            const persistedTable = yield* await handler.tableRepository.insert(
+              metaTransactionContext,
+              table
+            );
+            yield* await beginTableSchemaOperation(
+              handler.unitOfWork,
+              handler.tableRepository,
+              metaTransactionContext,
+              persistedTable,
+              {
+                type: 'table.create',
+                payload: {
+                  recordCount: recordsFieldValues.length,
+                },
+              }
+            );
+            return ok(persistedTable);
+          }),
+        { scope: 'meta' }
+      );
+
+      const recordBatchMutation =
+        recordsFieldValues.length > 0
+          ? buildOperationBatchMutation(context.requestId, recordsFieldValues.length)
+          : undefined;
+      const dataResult = await handler.unitOfWork.withTransaction(
+        context,
+        async (dataTransactionContext) =>
+          safeTry<
+            {
+              sideEffectEvents: ReadonlyArray<IDomainEvent>;
+              recordMutation?: TableRecordRepositoryPort.BatchRecordMutationResult;
+              decoratedChangedFieldsByRecord?: ReadonlyMap<string, ReadonlyMap<string, unknown>>;
+            },
+            DomainError
+          >(async function* () {
+            let recordMutation: TableRecordRepositoryPort.BatchRecordMutationResult | undefined;
+            let decoratedChangedFieldsByRecord:
+              | ReadonlyMap<string, ReadonlyMap<string, unknown>>
+              | undefined;
+            yield* await handler.tableSchemaRepository.insert(
+              dataTransactionContext,
+              persistedTable
+            );
+            yield* await sideEffectPluginExecution.beforePersist(dataTransactionContext);
+            const sideEffectResult = yield* await handler.fieldCreationSideEffectService.execute(
+              dataTransactionContext,
+              {
+                table,
+                fields: tableFields,
+                foreignTables: foreignTablesForSideEffects,
+                domainContext,
+              }
+            );
+            if (recordsFieldValues.length > 0) {
+              const pluginExecution = yield* await handler.recordWritePluginRunner.prepare({
+                kind: RecordWriteOperationKind.createMany,
+                executionContext: dataTransactionContext,
+                table: persistedTable,
+                payload: {
+                  recordsFieldValues: recordsFieldValues.map((record) => record.fieldValues),
+                  fieldKeyType: FieldKeyType.Id,
+                  typecast: false,
+                  recordCount: recordsFieldValues.length,
+                },
+                isTransactionBound: true,
+              });
+              yield* await pluginExecution.guard();
+              const recordSpan = dataTransactionContext.tracer?.startSpan(
+                'teable.CreateTableHandler.createRecords'
+              );
+              const { records } = yield* persistedTable.createRecords(recordsFieldValues);
+              recordSpan?.end();
+              yield* await pluginExecution.beforePersist(dataTransactionContext);
+              recordMutation = yield* await handler.tableRecordRepository.insertMany(
+                dataTransactionContext,
+                persistedTable,
+                records,
+                {
+                  orchestration: recordBatchMutation,
+                  allowPendingTableProvisionForComputedUpdates: true,
+                }
+              );
+            }
+            if (recordMutation) {
+              decoratedChangedFieldsByRecord =
+                yield* await handler.recordChangedValueDecoratorService.decorateChangedFieldsByRecord(
+                  persistedTable,
+                  recordMutation.changedFieldsByRecord
+                );
+            }
+            return ok({
+              sideEffectEvents: sideEffectResult.events,
+              recordMutation,
+              decoratedChangedFieldsByRecord,
+            });
+          }),
+        { scope: 'data' }
+      );
+
+      if (dataResult.isErr()) {
+        yield* await failTableSchemaOperation(
+          handler.unitOfWork,
+          handler.tableRepository,
+          context,
+          persistedTable,
+          {
+            lastError: dataResult.error.message,
+            type: 'table.create',
+            payload: {
+              recordCount: recordsFieldValues.length,
+            },
+          }
+        );
+        return err(dataResult.error);
+      }
+
+      yield* await completeTableSchemaOperation(
+        handler.unitOfWork,
+        handler.tableRepository,
+        context,
+        persistedTable,
+        { type: 'table.create' }
+      );
+
+      const events = [
+        ...aggregateRecordCreatedEvents({
+          events: [...table.pullDomainEvents(), ...persistedTable.pullDomainEvents()],
+          mutationResult: dataResult.value.recordMutation,
+          decoratedChangedFieldsByRecord: dataResult.value.decoratedChangedFieldsByRecord,
+          orchestration: recordBatchMutation,
+          preserveEventOrder: true,
+        }),
+        ...dataResult.value.sideEffectEvents,
+      ];
+      yield* await handler.eventBus.publishMany(context, events);
+      await sideEffectPluginExecution.afterCommit();
+      return ok(CreateTableResult.create(persistedTable, events));
+    });
+  }
+}

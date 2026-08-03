@@ -1,0 +1,1165 @@
+import {
+  CellValueType,
+  DbFieldType,
+  FieldKeyType,
+  FieldType,
+  SortFunc,
+  TimeFormatting,
+} from '@teable/core';
+import {
+  CreateRecordResult,
+  CreateRecordsResult,
+  DuplicateRecordResult,
+  FieldId,
+  ListTableRecordsQuery,
+  ListTableRecordsResult,
+  UpdateRecordResult,
+  UpdateRecordsResult,
+  TableRecord,
+  TableId,
+  v2CoreTokens,
+} from '@teable/v2-core';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { createFieldInstanceByVo } from '../../field/model/factory';
+import { RecordOpenApiV2Service } from './record-open-api-v2.service';
+
+describe('RecordOpenApiV2Service', () => {
+  const createdTimeIso = '2026-03-19T01:02:03.000Z';
+  const statusFieldId = `fld${'s'.repeat(16)}`;
+  const noteFieldId = `fld${'n'.repeat(16)}`;
+  const countFieldId = `fld${'c'.repeat(16)}`;
+  const getDocIdsByQuery = vi.fn();
+  const getSnapshotBulkWithPermission = vi.fn();
+  const createContext = vi.fn();
+  const getReadQuerySource = vi.fn();
+  const getFieldsByQuery = vi.fn();
+  const getFieldInstances = vi.fn();
+  const performRowCount = vi.fn();
+  const execute = vi.fn();
+  const commandExecute = vi.fn();
+  const resolve = vi.fn();
+  const getContainer = vi.fn();
+  const clsGet = vi.fn();
+  const clsSet = vi.fn();
+  const clsRunWith = vi.fn();
+  const cacheDel = vi.fn();
+  const cacheSetDetail = vi.fn();
+  const getDataDatabaseForTable = vi.fn();
+  const dataPrismaForTable = vi.fn();
+  const resolveForRecordSearch = vi.fn();
+  const assertTableRecordWritable = vi.fn();
+
+  let service: RecordOpenApiV2Service;
+
+  const createUpdateRecordResult = (params: {
+    recordId: string;
+    tableId: string;
+    fields: Record<string, unknown>;
+    fieldKeyMapping?: Map<string, string>;
+  }) => {
+    const record = TableRecord.fromRawFieldValues({
+      id: params.recordId,
+      tableId: TableId.create(params.tableId)._unsafeUnwrap(),
+      fields: params.fields,
+    })._unsafeUnwrap();
+
+    return UpdateRecordResult.create(record, [], params.fieldKeyMapping ?? new Map());
+  };
+
+  const createUpdateRecordsResult = (params: {
+    tableId: string;
+    records: Array<{
+      id: string;
+      fields: Record<string, unknown>;
+    }>;
+    fieldKeyMapping?: Map<string, string>;
+  }) => {
+    const records = params.records.map(({ id, fields }) =>
+      TableRecord.fromRawFieldValues({
+        id,
+        tableId: TableId.create(params.tableId)._unsafeUnwrap(),
+        fields,
+      })._unsafeUnwrap()
+    );
+
+    return UpdateRecordsResult.create(
+      records.length,
+      [],
+      records,
+      params.fieldKeyMapping ?? new Map()
+    );
+  };
+
+  const createCreateRecordResult = (params: {
+    recordId: string;
+    tableId: string;
+    fields: Record<string, unknown>;
+    fieldKeyMapping?: Map<string, string>;
+  }) => {
+    const record = TableRecord.fromRawFieldValues({
+      id: params.recordId,
+      tableId: TableId.create(params.tableId)._unsafeUnwrap(),
+      fields: params.fields,
+    })._unsafeUnwrap();
+
+    return CreateRecordResult.create(record, [], params.fieldKeyMapping ?? new Map());
+  };
+
+  const createCreateRecordsResult = (params: {
+    tableId: string;
+    records: Array<{
+      id: string;
+      fields: Record<string, unknown>;
+    }>;
+    fieldKeyMapping?: Map<string, string>;
+  }) => {
+    const records = params.records.map(({ id, fields }) =>
+      TableRecord.fromRawFieldValues({
+        id,
+        tableId: TableId.create(params.tableId)._unsafeUnwrap(),
+        fields,
+      })._unsafeUnwrap()
+    );
+
+    return CreateRecordsResult.create(records, [], params.fieldKeyMapping ?? new Map());
+  };
+
+  const createDuplicateRecordResult = (params: {
+    recordId: string;
+    tableId: string;
+    fields: Record<string, unknown>;
+    fieldKeyMapping?: Map<string, string>;
+  }) => {
+    const record = TableRecord.fromRawFieldValues({
+      id: params.recordId,
+      tableId: TableId.create(params.tableId)._unsafeUnwrap(),
+      fields: params.fields,
+    })._unsafeUnwrap();
+
+    return DuplicateRecordResult.create(record, [], params.fieldKeyMapping ?? new Map());
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    assertTableRecordWritable.mockResolvedValue(undefined);
+
+    resolve.mockImplementation((token) => {
+      if (token === v2CoreTokens.queryBus) {
+        return { execute };
+      }
+      if (token === v2CoreTokens.commandBus) {
+        return { execute: commandExecute };
+      }
+      return undefined;
+    });
+    getContainer.mockResolvedValue({ resolve });
+    createContext.mockResolvedValue({});
+    clsGet.mockImplementation((key: string) => {
+      if (key == null) {
+        return {};
+      }
+      if (key === 'user.id') {
+        return `usr${'h'.repeat(16)}`;
+      }
+      if (key === 'windowId') {
+        return `win${'i'.repeat(16)}`;
+      }
+      return undefined;
+    });
+    clsRunWith.mockImplementation((_store, fn: () => unknown) => fn());
+    getReadQuerySource.mockResolvedValue(undefined);
+    getFieldsByQuery.mockResolvedValue([]);
+    getFieldInstances.mockResolvedValue([]);
+    performRowCount.mockResolvedValue({ rowCount: 1 });
+    getDataDatabaseForTable.mockResolvedValue({
+      cacheKey: 'meta-fallback',
+      url: 'postgresql://meta',
+      isMetaFallback: true,
+    });
+    resolveForRecordSearch.mockResolvedValue(undefined);
+    commandExecute.mockResolvedValue({
+      isErr: () => false,
+      value: UpdateRecordsResult.create(2, []),
+    });
+    execute.mockResolvedValue({
+      isErr: () => false,
+      value: ListTableRecordsResult.create(
+        [
+          { id: 'rec1111111111111111', fields: {}, version: 1 },
+          { id: 'rec2222222222222222', fields: {}, version: 1 },
+        ],
+        2,
+        0,
+        2
+      ),
+    });
+    getSnapshotBulkWithPermission.mockResolvedValue([
+      { data: { id: 'rec1111111111111111', fields: {} } },
+      { data: { id: 'rec2222222222222222', fields: {} } },
+    ]);
+    service = new RecordOpenApiV2Service(
+      { getContainerForTable: getContainer } as never,
+      { createContext } as never,
+      { getDocIdsByQuery, getSnapshotBulkWithPermission } as never,
+      {} as never,
+      { get: clsGet, set: clsSet, runWith: clsRunWith } as never,
+      { del: cacheDel, setDetail: cacheSetDetail } as never,
+      { getFieldsByQuery, getFieldInstances } as never,
+      { getReadQuerySource } as never,
+      { performRowCount } as never,
+      { getDataDatabaseForTable, dataPrismaForTable } as never,
+      {
+        current: vi.fn().mockReturnValue(undefined),
+        emitAtomic: vi.fn().mockResolvedValue(undefined),
+        withOperation: vi.fn().mockImplementation((_operation, fn: () => Promise<unknown>) => fn()),
+      } as never,
+      { assertTableRecordWritable } as never,
+      undefined,
+      { resolveForRecordSearch } as never
+    );
+  });
+
+  it('converts copied link cell values to titles when preparing v2 paste into text fields', async () => {
+    const tableId = `tbl${'c'.repeat(16)}`;
+    const viewId = `viw${'v'.repeat(16)}`;
+    const targetFieldId = `fld${'t'.repeat(16)}`;
+    const sourceFieldId = `fld${'l'.repeat(16)}`;
+    const foreignTableId = `tbl${'f'.repeat(16)}`;
+    const lookupFieldId = `fld${'p'.repeat(16)}`;
+
+    performRowCount.mockResolvedValueOnce({ rowCount: 2 });
+    getFieldInstances.mockResolvedValueOnce([
+      createFieldInstanceByVo({
+        id: targetFieldId,
+        dbFieldName: 'label',
+        name: 'Label',
+        type: FieldType.SingleLineText,
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Text,
+        options: {},
+      }),
+    ]);
+
+    const prepared = await (
+      service as unknown as {
+        preparePasteCommandInput: (
+          tableId: string,
+          pasteRo: {
+            viewId: string;
+            ranges: [[number, number], [number, number]];
+            content: unknown[][];
+            header: unknown[];
+          }
+        ) => Promise<{ commandInput: { content: unknown[][] } }>;
+      }
+    ).preparePasteCommandInput(tableId, {
+      viewId,
+      ranges: [
+        [0, 0],
+        [0, 1],
+      ],
+      content: [
+        [{ id: `rec${'1'.repeat(16)}`, title: 'Alpha' }],
+        [{ id: `rec${'2'.repeat(16)}`, title: 'Beta' }],
+      ],
+      header: [
+        {
+          id: sourceFieldId,
+          name: 'Related',
+          type: FieldType.Link,
+          cellValueType: CellValueType.String,
+          dbFieldType: 'json',
+          isMultipleCellValue: true,
+          options: {
+            relationship: 'manyMany',
+            foreignTableId,
+            lookupFieldId,
+          },
+        },
+      ],
+    });
+
+    expect(prepared.commandInput.content).toEqual([['Alpha'], ['Beta']]);
+  });
+
+  it('preserves structured link titles when preparing v2 paste into link fields (T6106)', async () => {
+    const tableId = `tbl${'c'.repeat(16)}`;
+    const viewId = `viw${'v'.repeat(16)}`;
+    const targetFieldId = `fld${'t'.repeat(16)}`;
+    const sourceFieldId = `fld${'l'.repeat(16)}`;
+    const foreignTableId = `tbl${'f'.repeat(16)}`;
+    const lookupFieldId = `fld${'p'.repeat(16)}`;
+    const linkFieldVo = {
+      id: targetFieldId,
+      dbFieldName: 'related',
+      name: 'Related',
+      type: FieldType.Link,
+      cellValueType: CellValueType.String,
+      dbFieldType: DbFieldType.Json,
+      isMultipleCellValue: false,
+      options: {
+        relationship: 'manyOne',
+        foreignTableId,
+        lookupFieldId,
+        isOneWay: true,
+      },
+    };
+
+    performRowCount.mockResolvedValueOnce({ rowCount: 2 });
+    getFieldInstances.mockResolvedValueOnce([createFieldInstanceByVo(linkFieldVo as never)]);
+
+    const prepared = await (
+      service as unknown as {
+        preparePasteCommandInput: (
+          tableId: string,
+          pasteRo: {
+            viewId: string;
+            ranges: [[number, number], [number, number]];
+            content: unknown[][];
+            header: unknown[];
+          }
+        ) => Promise<{ commandInput: { content: unknown[][] } }>;
+      }
+    ).preparePasteCommandInput(tableId, {
+      viewId,
+      ranges: [
+        [0, 0],
+        [0, 1],
+      ],
+      content: [
+        [{ id: `rec${'1'.repeat(16)}`, title: 'Alpha' }],
+        [{ id: `rec${'2'.repeat(16)}`, title: 'Beta' }],
+      ],
+      header: [
+        {
+          ...linkFieldVo,
+          id: sourceFieldId,
+        },
+      ],
+    });
+
+    expect(prepared.commandInput.content).toEqual([
+      [{ id: `rec${'1'.repeat(16)}`, title: 'Alpha' }],
+      [{ id: `rec${'2'.repeat(16)}`, title: 'Beta' }],
+    ]);
+  });
+
+  it('should ignore unreadable fields in orderBy and groupBy', () => {
+    const query = {
+      orderBy: [
+        { fieldId: 'fldReadable', order: SortFunc.Asc },
+        { fieldId: 'fldHidden', order: SortFunc.Desc },
+      ],
+      groupBy: [
+        { fieldId: 'fldHidden', order: SortFunc.Asc },
+        { fieldId: 'fldReadable', order: SortFunc.Desc },
+      ],
+    };
+
+    expect(
+      (
+        service as unknown as {
+          sanitizeReadableSortAndGroup: (
+            input: typeof query,
+            enabledFieldIds?: string[]
+          ) => typeof query;
+        }
+      ).sanitizeReadableSortAndGroup(query, ['fldReadable'])
+    ).toEqual({
+      orderBy: [{ fieldId: 'fldReadable', order: SortFunc.Asc }],
+      groupBy: [{ fieldId: 'fldReadable', order: SortFunc.Desc }],
+    });
+  });
+
+  it('should keep orderBy and groupBy unchanged when all fields are readable', () => {
+    const query = {
+      orderBy: [{ fieldId: 'fldReadable', order: SortFunc.Asc }],
+      groupBy: [{ fieldId: 'fldReadable', order: SortFunc.Desc }],
+    };
+
+    expect(
+      (
+        service as unknown as {
+          sanitizeReadableSortAndGroup: (
+            input: typeof query,
+            enabledFieldIds?: string[]
+          ) => typeof query;
+        }
+      ).sanitizeReadableSortAndGroup(query, ['fldReadable'])
+    ).toEqual(query);
+  });
+
+  it('forwards advanced link filters into the v2 query handler instead of using docIds fallback', async () => {
+    const filterLinkCellCandidate: [string, string] = [
+      `fld${'d'.repeat(16)}`,
+      `rec${'e'.repeat(16)}`,
+    ];
+    const selectedRecordIds = [`rec${'f'.repeat(16)}`];
+    const viewId = `viw${'g'.repeat(16)}`;
+
+    const result = await service.getRecords(`tbl${'c'.repeat(16)}`, {
+      fieldKeyType: FieldKeyType.Id,
+      filterLinkCellCandidate,
+      selectedRecordIds,
+      skip: 0,
+      take: 2,
+      viewId,
+      ignoreViewQuery: true,
+    });
+
+    expect(getDocIdsByQuery).not.toHaveBeenCalled();
+    expect(execute).toHaveBeenCalledTimes(1);
+
+    const query = execute.mock.calls[0]?.[1];
+    expect(query).toBeInstanceOf(ListTableRecordsQuery);
+    expect((query as ListTableRecordsQuery).filterLinkCellCandidate).toEqual(
+      filterLinkCellCandidate
+    );
+    expect((query as ListTableRecordsQuery).selectedRecordIds).toEqual(selectedRecordIds);
+    expect((query as ListTableRecordsQuery).projection).toEqual([]);
+    expect((query as ListTableRecordsQuery).includeTotal).toBe(false);
+    expect((query as ListTableRecordsQuery).viewId).toBe(viewId);
+    expect((query as ListTableRecordsQuery).ignoreViewQuery).toBe(true);
+    expect(getReadQuerySource).toHaveBeenCalledWith(`tbl${'c'.repeat(16)}`, {
+      viewId,
+      keepPrimaryKey: false,
+    });
+
+    expect(result.records).toEqual([
+      { id: 'rec1111111111111111', fields: {} },
+      { id: 'rec2222222222222222', fields: {} },
+    ]);
+  });
+
+  it('passes a meta-backed generated search vector access path into v2 list queries', async () => {
+    const tableId = `tbl${'c'.repeat(16)}`;
+    const search = ['order 123'] as [string];
+    const accessPath = {
+      kind: 'generated_tsvector' as const,
+      generatedColumnName: '__tqops_search_vector',
+      languageConfig: 'simple',
+      searchScope: 'all_fields' as const,
+      coveredFieldIds: [FieldId.create(noteFieldId)._unsafeUnwrap()],
+    };
+    resolveForRecordSearch.mockResolvedValueOnce(accessPath);
+
+    await service.getRecords(tableId, {
+      fieldKeyType: FieldKeyType.Id,
+      search,
+      skip: 0,
+      take: 2,
+    });
+
+    expect(resolveForRecordSearch).toHaveBeenCalledWith({
+      container: { resolve },
+      tableId,
+      search,
+    });
+    expect(getDocIdsByQuery).not.toHaveBeenCalled();
+    const query = execute.mock.calls[0]?.[1];
+    expect(query).toBeInstanceOf(ListTableRecordsQuery);
+    expect((query as ListTableRecordsQuery).recordSearchAccessPath).toBe(accessPath);
+  });
+
+  it('normalizes legacy ISO date filters for v2 date comparisons', async () => {
+    const tableId = `tbl${'c'.repeat(16)}`;
+    const dateFieldId = `fld${'d'.repeat(16)}`;
+    const exactDate = '2026-06-02T00:00:00.000Z';
+
+    getFieldInstances.mockResolvedValueOnce([
+      createFieldInstanceByVo({
+        id: dateFieldId,
+        dbFieldName: 'created_date',
+        name: 'Created Date',
+        type: FieldType.Date,
+        cellValueType: CellValueType.DateTime,
+        dbFieldType: DbFieldType.DateTime,
+        options: {
+          formatting: {
+            date: 'YYYY-MM-DD',
+            time: TimeFormatting.None,
+            timeZone: 'Asia/Shanghai',
+          },
+        },
+      }),
+    ]);
+
+    await service.getRecords(tableId, {
+      fieldKeyType: FieldKeyType.Id,
+      skip: 0,
+      take: 2,
+      filter: {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: dateFieldId,
+            operator: 'isOnOrAfter',
+            value: exactDate,
+          },
+        ],
+      } as never,
+    });
+
+    const query = execute.mock.calls[0]?.[1];
+    expect(query).toBeInstanceOf(ListTableRecordsQuery);
+    expect((query as ListTableRecordsQuery).filter).toEqual({
+      conjunction: 'and',
+      items: [
+        {
+          fieldId: dateFieldId,
+          operator: 'isOnOrAfter',
+          value: {
+            mode: 'exactDate',
+            exactDate,
+            timeZone: 'Asia/Shanghai',
+          },
+        },
+      ],
+    });
+  });
+
+  it('loads grouped query extra by default for grouped record reads', async () => {
+    const tableId = `tbl${'c'.repeat(16)}`;
+    const groupBy = [{ fieldId: statusFieldId, order: SortFunc.Asc }];
+    const extra = {
+      groupPoints: [{ type: 1, count: 2 }],
+      allGroupHeaderRefs: [],
+    };
+    getDocIdsByQuery.mockResolvedValueOnce({ extra });
+
+    const result = await service.getRecords(tableId, {
+      fieldKeyType: FieldKeyType.Id,
+      skip: 0,
+      take: 2,
+      groupBy,
+    });
+
+    expect(getDocIdsByQuery).toHaveBeenCalledWith(
+      tableId,
+      expect.objectContaining({ groupBy }),
+      true
+    );
+    expect(result.extra).toEqual(extra);
+  });
+
+  it('skips grouped query extra when includeQueryExtra is false', async () => {
+    const tableId = `tbl${'c'.repeat(16)}`;
+    const groupBy = [{ fieldId: statusFieldId, order: SortFunc.Asc }];
+
+    const result = await service.getRecords(tableId, {
+      fieldKeyType: FieldKeyType.Id,
+      skip: 0,
+      take: 2,
+      groupBy,
+      includeQueryExtra: false,
+    });
+
+    expect(getDocIdsByQuery).not.toHaveBeenCalled();
+    expect(result.extra).toBeUndefined();
+
+    const query = execute.mock.calls[0]?.[1];
+    expect(query).toBeInstanceOf(ListTableRecordsQuery);
+    expect((query as ListTableRecordsQuery).sort).toEqual(groupBy);
+    expect((query as ListTableRecordsQuery).groupBy).toEqual([statusFieldId]);
+  });
+
+  it('skips grouped query extra by default for projected record reads', async () => {
+    const tableId = `tbl${'c'.repeat(16)}`;
+    const groupBy = [{ fieldId: statusFieldId, order: SortFunc.Asc }];
+
+    const result = await service.getRecords(tableId, {
+      fieldKeyType: FieldKeyType.Id,
+      skip: 0,
+      take: 2,
+      groupBy,
+      projection: [statusFieldId, noteFieldId],
+    });
+
+    expect(getDocIdsByQuery).not.toHaveBeenCalled();
+    expect(result.extra).toBeUndefined();
+
+    const query = execute.mock.calls[0]?.[1];
+    expect(query).toBeInstanceOf(ListTableRecordsQuery);
+    expect((query as ListTableRecordsQuery).sort).toEqual(groupBy);
+    expect((query as ListTableRecordsQuery).groupBy).toEqual([statusFieldId]);
+  });
+
+  it('loads grouped query extra for projected record reads when explicitly requested', async () => {
+    const tableId = `tbl${'c'.repeat(16)}`;
+    const groupBy = [{ fieldId: statusFieldId, order: SortFunc.Asc }];
+    const extra = {
+      groupPoints: [{ type: 1, count: 2 }],
+      allGroupHeaderRefs: [],
+    };
+    getDocIdsByQuery.mockResolvedValueOnce({ extra });
+
+    const result = await service.getRecords(tableId, {
+      fieldKeyType: FieldKeyType.Id,
+      skip: 0,
+      take: 2,
+      groupBy,
+      projection: [statusFieldId, noteFieldId],
+      includeQueryExtra: true,
+    });
+
+    expect(getDocIdsByQuery).toHaveBeenCalledWith(
+      tableId,
+      expect.objectContaining({ groupBy, projection: [statusFieldId, noteFieldId] }),
+      true
+    );
+    expect(result.extra).toEqual(extra);
+  });
+
+  it('runs legacy snapshot compatibility reads against the table data client for BYODB tables', async () => {
+    const tableId = `tbl${'c'.repeat(16)}`;
+    const dataPrisma = { $queryRawUnsafe: vi.fn() };
+    getDataDatabaseForTable.mockResolvedValue({
+      cacheKey: 'ddc-byodb',
+      url: 'postgresql://byodb',
+      isMetaFallback: false,
+    });
+    dataPrismaForTable.mockResolvedValue(dataPrisma);
+
+    const result = await service.getRecords(tableId, {
+      fieldKeyType: FieldKeyType.Id,
+      skip: 0,
+      take: 2,
+    });
+
+    expect(result.records).toEqual([
+      { id: 'rec1111111111111111', fields: {} },
+      { id: 'rec2222222222222222', fields: {} },
+    ]);
+    expect(dataPrismaForTable).toHaveBeenCalledWith(tableId);
+    expect(clsRunWith).toHaveBeenCalled();
+    expect(clsSet).toHaveBeenCalledWith('dataTx.client', dataPrisma);
+    expect(clsSet).toHaveBeenLastCalledWith('dataTx.client', undefined);
+    expect(getSnapshotBulkWithPermission).toHaveBeenCalledTimes(1);
+  });
+
+  it('formats sorted top-level system datetime fields in the final OpenAPI response', async () => {
+    execute.mockResolvedValue({
+      isErr: () => false,
+      value: ListTableRecordsResult.create(
+        [{ id: 'rec1111111111111111', fields: {}, version: 1 }],
+        1,
+        0,
+        1
+      ),
+    });
+    getSnapshotBulkWithPermission.mockResolvedValue([
+      {
+        data: {
+          id: 'rec1111111111111111',
+          createdTime: createdTimeIso,
+          fields: {
+            createdTime: createdTimeIso,
+          },
+        },
+      },
+    ]);
+    getFieldsByQuery.mockResolvedValue([
+      {
+        id: 'fldCreatedTime0001',
+        name: 'createdTime',
+        type: FieldType.CreatedTime,
+        cellValueType: CellValueType.DateTime,
+        isMultipleCellValue: false,
+        dbFieldType: 'timestamp',
+        options: {
+          formatting: {
+            date: 'YYYY-MM-DD',
+            time: 'None',
+            timeZone: 'UTC',
+          },
+        },
+      },
+    ]);
+
+    const result = await service.getRecords(`tbl${'c'.repeat(16)}`, {
+      fieldKeyType: FieldKeyType.Name,
+      skip: 0,
+      take: 1,
+      orderBy: [{ fieldId: 'fldCreatedTime0001', order: SortFunc.Asc }],
+    });
+
+    expect(result.records).toEqual([
+      {
+        id: 'rec1111111111111111',
+        createdTime: '2026-03-19',
+        fields: {
+          createdTime: '2026-03-19T01:02:03.000Z',
+        },
+      },
+    ]);
+    expect(getSnapshotBulkWithPermission).toHaveBeenCalledTimes(1);
+    expect(getFieldsByQuery).toHaveBeenCalledWith(`tbl${'c'.repeat(16)}`, {
+      projection: ['fldCreatedTime0001'],
+    });
+  });
+
+  it('does not normalize system datetime fields when they are not part of the active sort', async () => {
+    execute.mockResolvedValue({
+      isErr: () => false,
+      value: ListTableRecordsResult.create(
+        [{ id: 'rec1111111111111111', fields: {}, version: 1 }],
+        1,
+        0,
+        1
+      ),
+    });
+    getSnapshotBulkWithPermission.mockResolvedValue([
+      {
+        data: {
+          id: 'rec1111111111111111',
+          createdTime: createdTimeIso,
+          fields: {
+            createdTime: createdTimeIso,
+          },
+        },
+      },
+    ]);
+
+    const result = await service.getRecords(`tbl${'c'.repeat(16)}`, {
+      fieldKeyType: FieldKeyType.Name,
+      skip: 0,
+      take: 1,
+    });
+
+    expect(result.records).toEqual([
+      {
+        id: 'rec1111111111111111',
+        createdTime: createdTimeIso,
+        fields: {
+          createdTime: createdTimeIso,
+        },
+      },
+    ]);
+    expect(getSnapshotBulkWithPermission).toHaveBeenCalledTimes(1);
+    expect(getFieldsByQuery).not.toHaveBeenCalled();
+  });
+
+  it('reuses enabled field ids from the read source for snapshot projection', async () => {
+    getReadQuerySource.mockResolvedValue({
+      tableName: 'test_table',
+      cteName: 'view_cte',
+      cteSql: 'select 1',
+      enabledFieldIds: ['fldVisible0000000001'],
+    });
+    execute.mockResolvedValue({
+      isErr: () => false,
+      value: ListTableRecordsResult.create(
+        [{ id: 'rec1111111111111111', fields: {}, version: 1 }],
+        1,
+        0,
+        1
+      ),
+    });
+    getSnapshotBulkWithPermission.mockResolvedValue([
+      {
+        data: {
+          id: 'rec1111111111111111',
+          fields: {
+            Visible: 'alpha',
+          },
+        },
+      },
+    ]);
+    getFieldsByQuery.mockResolvedValue([
+      {
+        id: 'fldVisible0000000001',
+        name: 'Visible',
+        type: FieldType.SingleLineText,
+        cellValueType: CellValueType.String,
+        isMultipleCellValue: false,
+        dbFieldType: 'text',
+      },
+    ]);
+
+    const result = await service.getRecords(`tbl${'c'.repeat(16)}`, {
+      fieldKeyType: FieldKeyType.Name,
+      skip: 0,
+      take: 1,
+      viewId: `viw${'v'.repeat(16)}`,
+    });
+
+    expect(result.records).toEqual([
+      {
+        id: 'rec1111111111111111',
+        fields: {
+          Visible: 'alpha',
+        },
+      },
+    ]);
+    expect(getFieldsByQuery).toHaveBeenCalledWith(`tbl${'c'.repeat(16)}`, {
+      projection: ['fldVisible0000000001'],
+    });
+    expect(getSnapshotBulkWithPermission).toHaveBeenCalledWith(
+      `tbl${'c'.repeat(16)}`,
+      ['rec1111111111111111'],
+      { Visible: true },
+      FieldKeyType.Name,
+      undefined,
+      true
+    );
+  });
+
+  it('keeps snapshot fallback when an explicit projection is requested', async () => {
+    execute.mockResolvedValue({
+      isErr: () => false,
+      value: ListTableRecordsResult.create(
+        [{ id: 'rec1111111111111111', fields: { Title: 'Alpha' }, version: 1 }],
+        1,
+        0,
+        1
+      ),
+    });
+    getSnapshotBulkWithPermission.mockResolvedValue([
+      {
+        data: {
+          id: 'rec1111111111111111',
+          name: 'Alpha',
+          fields: {
+            Title: 'Alpha',
+          },
+        },
+      },
+    ]);
+
+    const result = await service.getRecords(`tbl${'c'.repeat(16)}`, {
+      fieldKeyType: FieldKeyType.Name,
+      projection: ['Title'],
+      skip: 0,
+      take: 1,
+    });
+
+    expect(result.records).toEqual([
+      {
+        id: 'rec1111111111111111',
+        name: 'Alpha',
+        fields: {
+          Title: 'Alpha',
+        },
+      },
+    ]);
+    expect(getSnapshotBulkWithPermission).toHaveBeenCalledTimes(1);
+  });
+
+  it('routes explicit batch field updates through native v2 updateRecords', async () => {
+    commandExecute.mockResolvedValueOnce({
+      isErr: () => false,
+      value: createUpdateRecordsResult({
+        tableId: `tbl${'c'.repeat(16)}`,
+        records: [
+          { id: 'rec1111111111111111', fields: { [statusFieldId]: 'Done' } },
+          { id: 'rec2222222222222222', fields: { [statusFieldId]: 'Open' } },
+        ],
+        fieldKeyMapping: new Map([[statusFieldId, statusFieldId]]),
+      }),
+    });
+
+    const result = await service.updateRecords(`tbl${'c'.repeat(16)}`, {
+      fieldKeyType: FieldKeyType.Id,
+      records: [
+        { id: 'rec1111111111111111', fields: { [statusFieldId]: 'Done' } },
+        { id: 'rec2222222222222222', fields: { [statusFieldId]: 'Open' } },
+      ],
+    });
+
+    expect(commandExecute).toHaveBeenCalledTimes(1);
+    expect(commandExecute.mock.calls[0]?.[1].records).toHaveLength(2);
+    expect(commandExecute.mock.calls[0]?.[1].records?.[0]?.recordId.toString()).toBe(
+      'rec1111111111111111'
+    );
+    expect(commandExecute.mock.calls[0]?.[1].records?.[1]?.fieldValues.get(statusFieldId)).toBe(
+      'Open'
+    );
+    expect(commandExecute.mock.calls[0]?.[1].order).toBeUndefined();
+    expect(result).toEqual([
+      { id: 'rec1111111111111111', fields: { [statusFieldId]: 'Done' } },
+      { id: 'rec2222222222222222', fields: { [statusFieldId]: 'Open' } },
+    ]);
+    expect(getSnapshotBulkWithPermission).not.toHaveBeenCalled();
+    expect(cacheDel).toHaveBeenCalledWith(
+      `operations:engine:usr${'h'.repeat(16)}:tbl${'c'.repeat(16)}:win${'i'.repeat(16)}`
+    );
+  });
+
+  it('checks the record-level migration guard before v2 mutations', async () => {
+    const error = new Error('space data database migration is switching');
+    assertTableRecordWritable.mockRejectedValueOnce(error);
+
+    await expect(
+      service.updateRecords(`tbl${'c'.repeat(16)}`, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [{ id: 'rec1111111111111111', fields: { [statusFieldId]: 'Done' } }],
+      })
+    ).rejects.toBe(error);
+
+    expect(assertTableRecordWritable).toHaveBeenCalledWith(`tbl${'c'.repeat(16)}`);
+    expect(commandExecute).not.toHaveBeenCalled();
+  });
+
+  it('returns the v2 updateRecord payload directly without reloading legacy snapshots', async () => {
+    commandExecute.mockResolvedValueOnce({
+      isErr: () => false,
+      value: createUpdateRecordResult({
+        recordId: 'rec1111111111111111',
+        tableId: `tbl${'c'.repeat(16)}`,
+        fields: {
+          [`fld${'s'.repeat(16)}`]: 'Done',
+          [countFieldId]: '1',
+        },
+        fieldKeyMapping: new Map([
+          [`fld${'s'.repeat(16)}`, 'status'],
+          [countFieldId, countFieldId],
+        ]),
+      }),
+    });
+
+    const result = await service.updateRecord(`tbl${'c'.repeat(16)}`, 'rec1111111111111111', {
+      fieldKeyType: FieldKeyType.Name,
+      record: {
+        fields: {
+          status: 'Done',
+        },
+      },
+    });
+
+    expect(result).toEqual({
+      id: 'rec1111111111111111',
+      fields: {
+        status: 'Done',
+        [countFieldId]: '1',
+      },
+    });
+    expect(getSnapshotBulkWithPermission).not.toHaveBeenCalled();
+    expect(cacheDel).toHaveBeenCalledWith(
+      `operations:engine:usr${'h'.repeat(16)}:tbl${'c'.repeat(16)}:win${'i'.repeat(16)}`
+    );
+  });
+
+  it('passes batch order through native v2 updateRecords', async () => {
+    commandExecute.mockResolvedValueOnce({
+      isErr: () => false,
+      value: createUpdateRecordsResult({
+        tableId: `tbl${'c'.repeat(16)}`,
+        records: [
+          { id: 'rec1111111111111111', fields: { fldStatus: 'Done' } },
+          { id: 'rec2222222222222222', fields: { fldStatus: 'Open' } },
+        ],
+      }),
+    });
+
+    await service.updateRecords(`tbl${'c'.repeat(16)}`, {
+      fieldKeyType: FieldKeyType.Id,
+      records: [
+        { id: 'rec1111111111111111', fields: { fldStatus: 'Done' } },
+        { id: 'rec2222222222222222', fields: { fldStatus: 'Open' } },
+      ],
+      order: {
+        viewId: `viw${'c'.repeat(16)}`,
+        anchorId: 'rec1111111111111111',
+        position: 'after',
+      },
+    });
+
+    expect(commandExecute).toHaveBeenCalledTimes(1);
+    expect(commandExecute.mock.calls[0]?.[1].order?.viewId.toString()).toBe(`viw${'c'.repeat(16)}`);
+    expect(commandExecute.mock.calls[0]?.[1].order?.position).toBe('after');
+  });
+
+  it('returns reorder-only batch updates from the native v2 payload without reloading snapshots', async () => {
+    commandExecute.mockResolvedValueOnce({
+      isErr: () => false,
+      value: createUpdateRecordsResult({
+        tableId: `tbl${'c'.repeat(16)}`,
+        records: [
+          { id: 'rec1111111111111111', fields: { [statusFieldId]: 'Done' } },
+          { id: 'rec2222222222222222', fields: { [statusFieldId]: 'Open' } },
+        ],
+        fieldKeyMapping: new Map([[statusFieldId, 'status']]),
+      }),
+    });
+
+    const result = await service.updateRecords(`tbl${'c'.repeat(16)}`, {
+      fieldKeyType: FieldKeyType.Name,
+      records: [
+        { id: 'rec1111111111111111', fields: {} },
+        { id: 'rec2222222222222222', fields: {} },
+      ],
+      order: {
+        viewId: `viw${'c'.repeat(16)}`,
+        anchorId: 'rec1111111111111111',
+        position: 'after',
+      },
+    });
+
+    expect(result).toEqual([
+      { id: 'rec1111111111111111', fields: { status: 'Done' } },
+      { id: 'rec2222222222222222', fields: { status: 'Open' } },
+    ]);
+    expect(getSnapshotBulkWithPermission).not.toHaveBeenCalled();
+  });
+
+  it('merges duplicate record updates before calling native v2 updateRecords', async () => {
+    commandExecute.mockResolvedValueOnce({
+      isErr: () => false,
+      value: createUpdateRecordsResult({
+        tableId: `tbl${'c'.repeat(16)}`,
+        records: [
+          {
+            id: 'rec1111111111111111',
+            fields: { [statusFieldId]: 'Done', [noteFieldId]: 'latest' },
+          },
+        ],
+        fieldKeyMapping: new Map([
+          [statusFieldId, statusFieldId],
+          [noteFieldId, noteFieldId],
+        ]),
+      }),
+    });
+
+    const result = await service.updateRecords(`tbl${'c'.repeat(16)}`, {
+      fieldKeyType: FieldKeyType.Id,
+      records: [
+        { id: 'rec1111111111111111', fields: { [statusFieldId]: 'Open', [noteFieldId]: 'first' } },
+        { id: 'rec1111111111111111', fields: { [statusFieldId]: 'Done' } },
+        { id: 'rec1111111111111111', fields: { [noteFieldId]: 'latest' } },
+      ],
+    });
+
+    expect(commandExecute).toHaveBeenCalledTimes(1);
+    expect(commandExecute.mock.calls[0]?.[1].records).toHaveLength(1);
+    expect(commandExecute.mock.calls[0]?.[1].records?.[0]?.recordId.toString()).toBe(
+      'rec1111111111111111'
+    );
+    expect(commandExecute.mock.calls[0]?.[1].records?.[0]?.fieldValues.get(statusFieldId)).toBe(
+      'Done'
+    );
+    expect(commandExecute.mock.calls[0]?.[1].records?.[0]?.fieldValues.get(noteFieldId)).toBe(
+      'latest'
+    );
+    expect(getSnapshotBulkWithPermission).not.toHaveBeenCalled();
+    expect(result).toEqual([
+      { id: 'rec1111111111111111', fields: { [statusFieldId]: 'Done', [noteFieldId]: 'latest' } },
+    ]);
+  });
+
+  it('returns the v2 createRecords payload directly without reloading legacy snapshots', async () => {
+    commandExecute.mockResolvedValueOnce({
+      isErr: () => false,
+      value: createCreateRecordsResult({
+        tableId: `tbl${'c'.repeat(16)}`,
+        records: [
+          { id: 'rec1111111111111111', fields: { [statusFieldId]: 'Done' } },
+          { id: 'rec2222222222222222', fields: { [statusFieldId]: 'Open' } },
+        ],
+        fieldKeyMapping: new Map([[statusFieldId, 'status']]),
+      }),
+    });
+
+    const result = await service.createRecords(`tbl${'c'.repeat(16)}`, {
+      fieldKeyType: FieldKeyType.Name,
+      records: [{ fields: { status: 'Done' } }, { fields: { status: 'Open' } }],
+    });
+
+    expect(result).toEqual({
+      records: [
+        { id: 'rec1111111111111111', fields: { status: 'Done' } },
+        { id: 'rec2222222222222222', fields: { status: 'Open' } },
+      ],
+    });
+    expect(getSnapshotBulkWithPermission).not.toHaveBeenCalled();
+    expect(cacheDel).toHaveBeenCalledWith(
+      `operations:engine:usr${'h'.repeat(16)}:tbl${'c'.repeat(16)}:win${'i'.repeat(16)}`
+    );
+  });
+
+  it('returns the v2 formSubmit payload directly without reloading legacy snapshots', async () => {
+    commandExecute.mockResolvedValueOnce({
+      isErr: () => false,
+      value: createCreateRecordResult({
+        recordId: 'rec1111111111111111',
+        tableId: `tbl${'c'.repeat(16)}`,
+        fields: { [statusFieldId]: 'Done' },
+        fieldKeyMapping: new Map([[statusFieldId, 'status']]),
+      }),
+    });
+
+    const result = await service.formSubmit(`tbl${'c'.repeat(16)}`, {
+      viewId: `viw${'c'.repeat(16)}`,
+      fields: { status: 'Done' },
+    });
+
+    expect(result).toEqual({
+      id: 'rec1111111111111111',
+      fields: { status: 'Done' },
+    });
+    expect(getSnapshotBulkWithPermission).not.toHaveBeenCalled();
+    expect(cacheDel).toHaveBeenCalledWith(
+      `operations:engine:usr${'h'.repeat(16)}:tbl${'c'.repeat(16)}:win${'i'.repeat(16)}`
+    );
+  });
+
+  it('returns the v2 duplicateRecord payload directly without reloading legacy snapshots', async () => {
+    commandExecute.mockResolvedValueOnce({
+      isErr: () => false,
+      value: createDuplicateRecordResult({
+        recordId: 'rec2222222222222222',
+        tableId: `tbl${'c'.repeat(16)}`,
+        fields: { [statusFieldId]: 'Copied' },
+        fieldKeyMapping: new Map([[statusFieldId, 'status']]),
+      }),
+    });
+
+    const result = await service.duplicateRecord(`tbl${'c'.repeat(16)}`, 'rec1111111111111111', {
+      viewId: `viw${'c'.repeat(16)}`,
+      anchorId: 'rec1111111111111111',
+      position: 'after',
+    });
+
+    expect(result).toEqual({
+      id: 'rec2222222222222222',
+      fields: { status: 'Copied' },
+    });
+    expect(getSnapshotBulkWithPermission).not.toHaveBeenCalled();
+    expect(cacheDel).toHaveBeenCalledWith(
+      `operations:engine:usr${'h'.repeat(16)}:tbl${'c'.repeat(16)}:win${'i'.repeat(16)}`
+    );
+  });
+
+  it('routes reorder-only single-record updates through native v2 updateRecord without reloading snapshots', async () => {
+    commandExecute.mockResolvedValueOnce({
+      isErr: () => false,
+      value: createUpdateRecordResult({
+        recordId: 'rec1111111111111111',
+        tableId: `tbl${'c'.repeat(16)}`,
+        fields: { [statusFieldId]: 'Done' },
+        fieldKeyMapping: new Map([[statusFieldId, 'status']]),
+      }),
+    });
+
+    const result = await service.updateRecord(`tbl${'c'.repeat(16)}`, 'rec1111111111111111', {
+      fieldKeyType: FieldKeyType.Name,
+      record: {
+        fields: {},
+      },
+      order: {
+        viewId: `viw${'c'.repeat(16)}`,
+        anchorId: 'rec1111111111111111',
+        position: 'after',
+      },
+    });
+
+    expect(result).toEqual({
+      id: 'rec1111111111111111',
+      fields: { status: 'Done' },
+    });
+    expect(commandExecute).toHaveBeenCalledTimes(1);
+    expect(commandExecute.mock.calls[0]?.[1].fieldValues.size).toBe(0);
+    expect(commandExecute.mock.calls[0]?.[1].order?.viewId.toString()).toBe(`viw${'c'.repeat(16)}`);
+    expect(getSnapshotBulkWithPermission).not.toHaveBeenCalled();
+  });
+});

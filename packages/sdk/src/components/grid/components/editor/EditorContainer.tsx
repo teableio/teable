@@ -1,0 +1,352 @@
+/* eslint-disable jsx-a11y/no-static-element-interactions */
+import { getRandomString } from '@teable/core';
+import { clamp } from 'lodash';
+import type { CSSProperties, ForwardRefRenderFunction } from 'react';
+import { useEffect, useRef, useMemo, useImperativeHandle, forwardRef } from 'react';
+import type { IGridTheme } from '../../configs';
+import { useKeyboardSelection } from '../../hooks';
+import type { IInteractionLayerProps } from '../../InteractionLayer';
+import {
+  SelectionRegionType,
+  type IActiveCellBound,
+  type ICellItem,
+  type IRectangle,
+  type IScrollState,
+} from '../../interface';
+import type { CombinedSelection } from '../../managers';
+import type { ICell, IInnerCell } from '../../renderers/cell-renderer/interface';
+import { CellType } from '../../renderers/cell-renderer/interface';
+import { isPrintableKey } from '../../utils';
+import { BooleanEditor } from './BooleanEditor';
+import { RatingEditor } from './RatingEditor';
+import { SelectEditor } from './SelectEditor';
+import { TextEditor } from './TextEditor';
+
+export interface IEditorContainerProps
+  extends Pick<
+    IInteractionLayerProps,
+    | 'theme'
+    | 'coordInstance'
+    | 'scrollToItem'
+    | 'real2RowIndex'
+    | 'getCellContent'
+    | 'onUndo'
+    | 'onRedo'
+    | 'onCopy'
+    | 'onPaste'
+    | 'onDelete'
+    | 'onRowAppend'
+    | 'onRowExpand'
+    | 'scrollBy'
+    | 'disableEnterMoveDown'
+  > {
+  isEditing?: boolean;
+  scrollState: IScrollState;
+  activeCell: ICellItem | null;
+  selection: CombinedSelection;
+  activeCellBound: IActiveCellBound | null;
+  setActiveCell: React.Dispatch<React.SetStateAction<ICellItem | null>>;
+  setSelection: React.Dispatch<React.SetStateAction<CombinedSelection>>;
+  setEditing: React.Dispatch<React.SetStateAction<boolean>>;
+  onChange?: (cell: ICellItem, cellValue: IInnerCell) => void;
+}
+
+export interface IEditorRef<T extends IInnerCell = IInnerCell> {
+  focus?: () => void;
+  setValue?: (data: T['data']) => void;
+  saveValue?: () => void;
+}
+
+export interface IEditorProps<T extends IInnerCell = IInnerCell> {
+  cell: T;
+  rect: IRectangle & { editorId: string };
+  theme: IGridTheme;
+  style?: CSSProperties;
+  isEditing?: boolean;
+  isScrolling?: boolean;
+  initialSearch?: string;
+  setEditing?: React.Dispatch<React.SetStateAction<boolean>>;
+  onChange?: (value: unknown) => void;
+}
+
+export interface IEditorContainerRef {
+  focus?: () => void;
+  saveValue?: () => void;
+}
+
+const NO_EDITING_CELL_TYPES = new Set([CellType.Boolean, CellType.Rating]);
+
+export const EditorContainerBase: ForwardRefRenderFunction<
+  IEditorContainerRef,
+  IEditorContainerProps
+> = (props, ref) => {
+  const {
+    theme,
+    isEditing,
+    coordInstance,
+    scrollState,
+    activeCell,
+    selection,
+    activeCellBound,
+    scrollToItem,
+    onUndo,
+    onRedo,
+    onCopy,
+    onPaste,
+    onChange,
+    onDelete,
+    onRowExpand,
+    setEditing,
+    setActiveCell,
+    setSelection,
+    real2RowIndex,
+    getCellContent,
+    scrollBy,
+    disableEnterMoveDown,
+  } = props;
+  const { scrollLeft, scrollTop, isScrolling } = scrollState;
+  const { rowIndex, realRowIndex, columnIndex } = useMemo(() => {
+    const [columnIndex, realRowIndex] = activeCell ?? [-1, -1];
+    return {
+      rowIndex: real2RowIndex(realRowIndex) ?? -1,
+      realRowIndex,
+      columnIndex,
+    };
+  }, [activeCell, real2RowIndex]);
+  const cellContent = useMemo(() => {
+    return getCellContent([columnIndex, realRowIndex]) as IInnerCell;
+  }, [columnIndex, realRowIndex, getCellContent]);
+  const { type: cellType, readonly, editorWidth } = cellContent;
+  const enableReadonlyCustomEditor = Boolean(readonly && cellContent.readonlyCustomEditor);
+  const editingEnable = Boolean(
+    (!readonly && isEditing && activeCell) || enableReadonlyCustomEditor
+  );
+  const width = editorWidth ?? coordInstance.getColumnWidth(columnIndex);
+  const height = activeCellBound?.height ?? coordInstance.getRowHeight(rowIndex);
+  const editorRef = useRef<IEditorRef | null>(null);
+  const defaultFocusRef = useRef<HTMLInputElement | null>(null);
+  const editorId = useMemo(() => `editor-container-${getRandomString(8)}`, []);
+  const initialSearchRef = useRef<string>('');
+
+  useImperativeHandle(ref, () => ({
+    focus: () => editorRef.current?.focus?.(),
+    saveValue: () => editorRef.current?.saveValue?.(),
+  }));
+
+  useEffect(() => {
+    if ((cellContent as ICell).type === CellType.Loading) return;
+    if (!activeCell || isEditing) return;
+    editorRef.current?.setValue?.(cellContent.data);
+  }, [cellContent, activeCell, isEditing]);
+
+  useEffect(() => {
+    if ((cellType as CellType) === CellType.Loading) return;
+    if (!activeCell || selection.type === SelectionRegionType.None) return;
+
+    initialSearchRef.current = '';
+
+    requestAnimationFrame(() => {
+      // Don't steal focus from dialogs/modals/sheets
+      if (document.activeElement?.closest('[role="dialog"]')) return;
+      (editorRef.current || defaultFocusRef.current)?.focus?.();
+    });
+  }, [cellType, activeCell, selection, isEditing]);
+
+  useKeyboardSelection({
+    editorRef,
+    isEditing,
+    activeCell,
+    selection,
+    coordInstance,
+    onUndo,
+    onRedo,
+    onDelete,
+    onRowExpand,
+    setEditing,
+    setActiveCell,
+    setSelection,
+    scrollToItem,
+    scrollBy,
+    disableEnterMoveDown,
+  });
+
+  const editorStyle = useMemo(
+    () =>
+      (editingEnable
+        ? { pointerEvents: 'auto', minWidth: width, minHeight: height }
+        : { pointerEvents: 'none', opacity: 0, width: 0, height: 0 }) as React.CSSProperties,
+    [editingEnable, height, width]
+  );
+
+  const rect = useMemo(() => {
+    const { rowInitSize, columnInitSize, containerWidth, containerHeight } = coordInstance;
+    const x = clamp(
+      coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft),
+      columnInitSize,
+      containerWidth - width
+    );
+    const y = clamp(
+      coordInstance.getRowOffset(rowIndex) - scrollTop,
+      rowInitSize,
+      containerHeight - height
+    );
+
+    return {
+      x,
+      y,
+      width,
+      height,
+      editorId,
+    };
+  }, [coordInstance, rowIndex, columnIndex, width, height, scrollLeft, scrollTop, editorId]);
+
+  const EditorRenderer = useMemo(() => {
+    if (readonly && !enableReadonlyCustomEditor) return null;
+
+    const onChangeInner = (value: unknown) => {
+      if (readonly) return;
+      onChange?.([columnIndex, realRowIndex], {
+        ...cellContent,
+        data: value,
+      } as IInnerCell);
+    };
+
+    const { customEditor } = cellContent;
+
+    if (customEditor) {
+      return customEditor(
+        {
+          rect,
+          theme,
+          style: editorStyle,
+          cell: cellContent as IInnerCell,
+          isEditing,
+          isScrolling,
+          setEditing,
+          onChange: onChangeInner,
+          initialSearch: initialSearchRef.current,
+        },
+        editorRef
+      );
+    }
+
+    switch (cellType) {
+      case CellType.Text:
+      case CellType.Link:
+      case CellType.Number: {
+        return (
+          <TextEditor
+            ref={editorRef}
+            rect={rect}
+            theme={theme}
+            style={editorStyle}
+            cell={cellContent}
+            isEditing={isEditing}
+            onChange={onChangeInner}
+          />
+        );
+      }
+      case CellType.Boolean:
+        return (
+          <BooleanEditor
+            ref={editorRef}
+            rect={rect}
+            theme={theme}
+            cell={cellContent}
+            onChange={onChangeInner}
+          />
+        );
+      case CellType.Rating:
+        return (
+          <RatingEditor
+            ref={editorRef}
+            rect={rect}
+            theme={theme}
+            cell={cellContent}
+            onChange={onChangeInner}
+          />
+        );
+      case CellType.Select:
+        return (
+          <SelectEditor
+            ref={editorRef}
+            rect={rect}
+            theme={theme}
+            cell={cellContent}
+            style={editorStyle}
+            isEditing={isEditing}
+            initialSearch={initialSearchRef.current}
+            setEditing={setEditing}
+            onChange={onChangeInner}
+          />
+        );
+      default:
+        return null;
+    }
+  }, [
+    readonly,
+    enableReadonlyCustomEditor,
+    cellContent,
+    cellType,
+    onChange,
+    columnIndex,
+    realRowIndex,
+    rect,
+    theme,
+    editorStyle,
+    isEditing,
+    isScrolling,
+    setEditing,
+  ]);
+
+  const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!activeCell || isEditing) return;
+    if (!isPrintableKey(event.nativeEvent)) return;
+    if (NO_EDITING_CELL_TYPES.has(cellType)) return;
+
+    const key = event.key;
+    if (key && key.length === 1) {
+      initialSearchRef.current = key;
+    } else {
+      initialSearchRef.current = '';
+    }
+
+    setEditing(true);
+    editorRef.current?.setValue?.(null);
+  };
+
+  const onPasteInner = (e: React.ClipboardEvent) => {
+    if (!activeCell || isEditing) return;
+    onPaste?.(selection, e);
+  };
+
+  const onCopyInner = (e: React.ClipboardEvent) => {
+    if (isEditing || selection.type === SelectionRegionType.None) return;
+    onCopy?.(selection, e);
+  };
+
+  return (
+    <div
+      id={editorId}
+      className="click-outside-ignore pointer-events-none absolute left-0 top-0 w-full"
+    >
+      <div
+        className="absolute z-10"
+        style={{
+          top: rect.y,
+          left: rect.x,
+          minWidth: width,
+          minHeight: height,
+        }}
+        onKeyDown={onKeyDown}
+        onPaste={onPasteInner}
+        onCopy={onCopyInner}
+      >
+        {EditorRenderer}
+        <input className="size-0 opacity-0" ref={defaultFocusRef} />
+      </div>
+    </div>
+  );
+};
+
+export const EditorContainer = forwardRef(EditorContainerBase);

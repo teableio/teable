@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/packages/common-i18n/.idea/common-i18n.iml" filepath="$PROJECT_DIR$/packages/common-i18n/.idea/common-i18n.iml" />
+      <module fileurl="file://$PROJECT_DIR$/packages/core/.idea/core.iml" filepath="$PROJECT_DIR$/packages/core/.idea/core.iml" />
+      <module fileurl="file://$PROJECT_DIR$/packages/db-main-prisma/.idea/db-main-prisma.iml" filepath="$PROJECT_DIR$/packages/db-main-prisma/.idea/db-main-prisma.iml" />
+      <module fileurl="file://$PROJECT_DIR$/packages/eslint-config-bases/.idea/eslint-config-bases.iml" filepath="$PROJECT_DIR$/packages/eslint-config-bases/.idea/eslint-config-bases.iml" />
+      <module fileurl="file://$PROJECT_DIR$/packages/icons/.idea/icons.iml" filepath="$PROJECT_DIR$/packages/icons/.idea/icons.iml" />
+      <module fileurl="file://$PROJECT_DIR$/apps/nestjs-backend/.idea/nestjs-backend.iml" filepath="$PROJECT_DIR$/apps/nestjs-backend/.idea/nestjs-backend.iml" />
+      <module fileurl="file://$PROJECT_DIR$/apps/nextjs-app/.idea/nextjs-app.iml" filepath="$PROJECT_DIR$/apps/nextjs-app/.idea/nextjs-app.iml" />
+      <module fileurl="file://$PROJECT_DIR$/packages/openapi/.idea/openapi.iml" filepath="$PROJECT_DIR$/packages/openapi/.idea/openapi.iml" />
+      <module fileurl="file://$PROJECT_DIR$/plugins/.idea/plugins.iml" filepath="$PROJECT_DIR$/plugins/.idea/plugins.iml" />
+      <module fileurl="file://$PROJECT_DIR$/packages/sdk/.idea/sdk.iml" filepath="$PROJECT_DIR$/packages/sdk/.idea/sdk.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/teable.iml" filepath="$PROJECT_DIR$/.idea/teable.iml" />
+      <module fileurl="file://$PROJECT_DIR$/packages/ui-lib/.idea/ui-lib.iml" filepath="$PROJECT_DIR$/packages/ui-lib/.idea/ui-lib.iml" />
+    </modules>
+  </component>
+</project>

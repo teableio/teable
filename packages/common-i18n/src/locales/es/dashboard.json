@@ -1,0 +1,19 @@
+{
+  "empty": {
+    "title": "Aún No Hay Tableros",
+    "description": "Parece que aún no has creado ningún tablero. Los tableros te ayudan a visualizar y gestionar tus datos de manera más efectiva.",
+    "create": "Crear Tu Primer Tablero"
+  },
+  "addPlugin": "Agregar un Complemento",
+  "createDashboard": {
+    "button": "Crear Tablero",
+    "title": "Crear Nuevo Tablero",
+    "placeholder": "Ingresa el nombre del tablero"
+  },
+  "findDashboard": "Buscar un tablero...",
+  "expand": "Expandir",
+  "deprecation": {
+    "title": "La función de nodo del tablero será descontinuada",
+    "description": "Para brindarte una experiencia más inteligente y eficiente, descontinuaremos el soporte para la función de nodo del tablero. Podrás crear nuevos tableros fácilmente a través de IA en la aplicación generada por IA."
+  }
+}

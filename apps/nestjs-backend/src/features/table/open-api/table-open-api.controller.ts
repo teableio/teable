@@ -1,0 +1,299 @@
+/* eslint-disable sonarjs/no-duplicate-string */
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Query,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
+import type {
+  IDuplicateFieldCheckVo,
+  IDuplicateTableCheckVo,
+  IDuplicateTableVo,
+  IGetAbnormalVo,
+  ITableFullVo,
+  ITableListVo,
+  ITableSearchVectorStatusVo,
+  ITableVo,
+} from '@teable/openapi';
+import {
+  tableRoSchema,
+  ICreateTableWithDefault,
+  dbTableNameRoSchema,
+  IDbTableNameRo,
+  ITableDescriptionRo,
+  ITableIconRo,
+  ITableNameRo,
+  IUpdateOrderRo,
+  tableDescriptionRoSchema,
+  tableIconRoSchema,
+  tableNameRoSchema,
+  updateOrderRoSchema,
+  IToggleIndexRo,
+  toggleIndexRoSchema,
+  TableIndex,
+  duplicateTableRoSchema,
+  IDuplicateTableRo,
+} from '@teable/openapi';
+import { ClsService } from 'nestjs-cls';
+import type { IClsStore } from '../../../types/cls';
+import { ZodValidationPipe } from '../../../zod.validation.pipe';
+import { AllowAnonymous } from '../../auth/decorators/allow-anonymous.decorator';
+import { Permissions } from '../../auth/decorators/permissions.decorator';
+import { UseV2Feature } from '../../canary/decorators/use-v2-feature.decorator';
+import { V2FeatureGuard } from '../../canary/guards/v2-feature.guard';
+import { V2IndicatorInterceptor } from '../../canary/interceptors/v2-indicator.interceptor';
+import { TableBaseScopeGuard } from '../guard/table-base-scope.guard';
+import { TableDuplicateService } from '../table-duplicate.service';
+import { TableIndexService } from '../table-index.service';
+import { TablePermissionService } from '../table-permission.service';
+import { TableService } from '../table.service';
+import { TableOpenApiV2Service } from './table-open-api-v2.service';
+import { TableOpenApiService } from './table-open-api.service';
+import { TablePipe } from './table.pipe';
+
+@UseGuards(V2FeatureGuard, TableBaseScopeGuard)
+@UseInterceptors(V2IndicatorInterceptor)
+@Controller('api/base/:baseId/table')
+@AllowAnonymous()
+export class TableController {
+  constructor(
+    private readonly tableService: TableService,
+    private readonly tableOpenApiService: TableOpenApiService,
+    private readonly tableIndexService: TableIndexService,
+    private readonly tablePermissionService: TablePermissionService,
+    private readonly tableOpenApiV2Service: TableOpenApiV2Service,
+    private readonly tableDuplicateService: TableDuplicateService,
+    private readonly cls: ClsService<IClsStore>
+  ) {}
+
+  @Permissions('table|read')
+  @Get(':tableId/default-view-id')
+  async getDefaultViewId(@Param('tableId') tableId: string): Promise<{ id: string }> {
+    return await this.tableService.getDefaultViewId(tableId);
+  }
+
+  @Permissions('table|read')
+  @Get(':tableId')
+  async getTable(
+    @Param('baseId') baseId: string,
+    @Param('tableId') tableId: string
+  ): Promise<ITableVo> {
+    return await this.tableOpenApiService.getTable(baseId, tableId);
+  }
+
+  @Permissions('table|read')
+  @Get()
+  async getTables(@Param('baseId') baseId: string): Promise<ITableListVo> {
+    return await this.tableOpenApiService.getTables(baseId);
+  }
+
+  @Permissions('table|update')
+  @Put(':tableId/name')
+  async updateName(
+    @Param('baseId') baseId: string,
+    @Param('tableId') tableId: string,
+    @Body(new ZodValidationPipe(tableNameRoSchema)) tableNameRo: ITableNameRo
+  ) {
+    return await this.tableOpenApiService.updateName(baseId, tableId, tableNameRo.name);
+  }
+
+  @Permissions('table|update')
+  @Put(':tableId/icon')
+  async updateIcon(
+    @Param('baseId') baseId: string,
+    @Param('tableId') tableId: string,
+    @Body(new ZodValidationPipe(tableIconRoSchema)) tableIconRo: ITableIconRo
+  ) {
+    return await this.tableOpenApiService.updateIcon(baseId, tableId, tableIconRo.icon);
+  }
+
+  @Permissions('table|update')
+  @Put(':tableId/description')
+  async updateDescription(
+    @Param('baseId') baseId: string,
+    @Param('tableId') tableId: string,
+    @Body(new ZodValidationPipe(tableDescriptionRoSchema)) tableDescriptionRo: ITableDescriptionRo
+  ) {
+    return await this.tableOpenApiService.updateDescription(
+      baseId,
+      tableId,
+      tableDescriptionRo.description
+    );
+  }
+
+  @Permissions('table|update')
+  @Put(':tableId/db-table-name')
+  async updateDbTableName(
+    @Param('baseId') baseId: string,
+    @Param('tableId') tableId: string,
+    @Body(new ZodValidationPipe(dbTableNameRoSchema)) dbTableNameRo: IDbTableNameRo
+  ) {
+    return await this.tableOpenApiService.updateDbTableName(
+      baseId,
+      tableId,
+      dbTableNameRo.dbTableName
+    );
+  }
+
+  @Permissions('table|update')
+  @Put(':tableId/order')
+  async updateOrder(
+    @Param('baseId') baseId: string,
+    @Param('tableId') tableId: string,
+    @Body(new ZodValidationPipe(updateOrderRoSchema)) updateOrderRo: IUpdateOrderRo
+  ) {
+    return await this.tableOpenApiService.updateOrder(baseId, tableId, updateOrderRo);
+  }
+
+  @Post()
+  @UseV2Feature('createTable')
+  @Permissions('table|create')
+  async createTable(
+    @Param('baseId') baseId: string,
+    @Body(new ZodValidationPipe(tableRoSchema), TablePipe) createTableRo: ICreateTableWithDefault
+  ): Promise<ITableFullVo> {
+    if (this.cls.get('useV2')) {
+      return await this.tableOpenApiV2Service.createTable(baseId, createTableRo);
+    }
+    return await this.tableOpenApiService.createTable(baseId, createTableRo);
+  }
+
+  @UseV2Feature('duplicateTable')
+  @Permissions('table|create')
+  @Permissions('table|read')
+  @Post(':tableId/duplicate')
+  async duplicateTable(
+    @Param('baseId') baseId: string,
+    @Param('tableId') tableId: string,
+    @Body(new ZodValidationPipe(duplicateTableRoSchema), TablePipe)
+    duplicateTableRo: IDuplicateTableRo
+  ): Promise<IDuplicateTableVo> {
+    if (this.cls.get('useV2')) {
+      return await this.tableOpenApiV2Service.duplicateTable(baseId, tableId, duplicateTableRo);
+    }
+    return await this.tableOpenApiService.duplicateTable(baseId, tableId, duplicateTableRo);
+  }
+
+  @Permissions('table|read')
+  @Get(':tableId/duplicate-check')
+  async duplicateTableCheck(@Param('tableId') tableId: string): Promise<IDuplicateTableCheckVo> {
+    const affectedFields =
+      await this.tableDuplicateService.previewCrossSpaceAffectedFields(tableId);
+    return { affectedFields };
+  }
+
+  @Permissions('field|create')
+  @Get(':tableId/field/:fieldId/duplicate-check')
+  async duplicateFieldCheck(
+    @Param('tableId') tableId: string,
+    @Param('fieldId') fieldId: string
+  ): Promise<IDuplicateFieldCheckVo> {
+    const affectedFields = await this.tableDuplicateService.previewFieldDuplicateCrossSpace(
+      tableId,
+      fieldId
+    );
+    return { affectedFields };
+  }
+
+  @UseV2Feature('deleteTable')
+  @Delete(':tableId')
+  @Permissions('table|delete')
+  async archiveTable(@Param('baseId') baseId: string, @Param('tableId') tableId: string) {
+    if (this.cls.get('useV2')) {
+      await this.tableOpenApiV2Service.deleteTable(baseId, tableId);
+      return;
+    }
+    return await this.tableOpenApiService.deleteTable(baseId, tableId);
+  }
+
+  @UseV2Feature('deleteTable')
+  @Delete(':tableId/permanent')
+  @Permissions('table|delete')
+  async permanentDeleteTable(@Param('baseId') baseId: string, @Param('tableId') tableId: string) {
+    if (this.cls.get('useV2')) {
+      await this.tableOpenApiV2Service.deleteTable(baseId, tableId, 'permanent');
+      return;
+    }
+    return this.tableOpenApiService.permanentDeleteTables(baseId, [tableId]);
+  }
+
+  @Permissions('table|read')
+  @Get(':tableId/permission')
+  async getPermission(@Param('baseId') baseId: string, @Param('tableId') tableId: string) {
+    return await this.tableOpenApiService.getPermission(baseId, tableId);
+  }
+
+  @Permissions('table|read')
+  @Get('/socket/snapshot-bulk')
+  async getSnapshotBulk(@Param('baseId') baseId: string, @Query('ids') ids: string[]) {
+    const permissionMap = await this.tablePermissionService.getTablePermissionMapByBaseId(
+      baseId,
+      ids
+    );
+    const snapshotBulk = await this.tableService.getSnapshotBulk(baseId, ids);
+    return snapshotBulk.map((snapshot) => {
+      return {
+        ...snapshot,
+        data: {
+          ...snapshot.data,
+          permission: permissionMap[snapshot.id],
+        },
+      };
+    });
+  }
+
+  @Permissions('table|read')
+  @Get('/socket/doc-ids')
+  async getDocIds(@Param('baseId') baseId: string) {
+    return this.tableService.getDocIdsByQuery(baseId, undefined);
+  }
+
+  @Post(':tableId/index')
+  @Permissions('table|update')
+  async toggleIndex(
+    @Param('baseId') baseId: string,
+    @Param('tableId') tableId: string,
+    @Body(new ZodValidationPipe(toggleIndexRoSchema)) searchIndexRo: IToggleIndexRo
+  ) {
+    return this.tableIndexService.toggleIndex(tableId, searchIndexRo);
+  }
+
+  @Get(':tableId/activated-index')
+  @Permissions('table|read')
+  async getTableIndex(@Param('tableId') tableId: string): Promise<string[]> {
+    return this.tableIndexService.getActivatedTableIndexes(tableId);
+  }
+
+  @Get(':tableId/search-vector-status')
+  @Permissions('table|read')
+  async getSearchVectorStatus(
+    @Param('tableId') tableId: string
+  ): Promise<ITableSearchVectorStatusVo> {
+    return this.tableIndexService.getSearchVectorStatus(tableId);
+  }
+
+  @Get(':tableId/abnormal-index')
+  @Permissions('table|read')
+  async getAbnormalTableIndex(
+    @Param('tableId') tableId: string,
+    @Query('type') tableIndexType: TableIndex
+  ): Promise<IGetAbnormalVo> {
+    return this.tableIndexService.getAbnormalTableIndex(tableId, tableIndexType);
+  }
+
+  @Patch(':tableId/index/repair')
+  @Permissions('table|update')
+  async repairIndex(
+    @Param('tableId') tableId: string,
+    @Query('type') tableIndexType: TableIndex
+  ): Promise<void> {
+    return this.tableIndexService.repairIndex(tableId, tableIndexType);
+  }
+}
