@@ -34,10 +34,12 @@ export function SearchInput({
   className,
   container,
   globalOnly,
+  autoFocus,
 }: {
   className?: string;
   container?: HTMLElement;
   globalOnly?: boolean;
+  autoFocus?: boolean;
 }) {
   const { maxSearchFieldCount = DEFAULT_MAX_SEARCH_FIELD_COUNT } = useContext(AppContext) ?? {};
   const fields = useFields();
@@ -57,6 +59,13 @@ export function SearchInput({
   useEffect(() => {
     setHideNotMatchRow(true);
   }, [setHideNotMatchRow]);
+
+  useEffect(() => {
+    if (autoFocus) {
+      ref.current?.focus();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [, cancel] = useDebounce(
     () => {
