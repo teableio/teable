@@ -19,6 +19,7 @@ import { useTranslation } from 'next-i18next';
 import { Fragment, useMemo } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useContextMenu } from '../../hooks/useContextMenu';
+import { useExpandRecord } from '../../hooks/useExpandRecord';
 import { useGallery } from '../hooks';
 import { CARD_COVER_HEIGHT, CARD_STYLE } from '../utils';
 import { CardCarousel } from './CardCarousel';
@@ -33,16 +34,10 @@ export const Card = (props: IKanbanCardProps) => {
   const viewId = useViewId();
   const getFieldStatic = useFieldStaticGetter();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
-  const {
-    coverField,
-    primaryField,
-    displayFields,
-    permission,
-    isCoverFit,
-    isFieldNameHidden,
-    setExpandRecordId,
-  } = useGallery();
+  const { coverField, primaryField, displayFields, permission, isCoverFit, isFieldNameHidden } =
+    useGallery();
   const { copyRecordUrl, viewRecordHistory, addRecordComment } = useContextMenu();
+  const expandRecord = useExpandRecord();
 
   const { cardCreatable, cardDeletable, cardEditable, cardCommentCreatable } = permission;
   const coverFieldId = coverField?.id;
@@ -59,8 +54,8 @@ export const Card = (props: IKanbanCardProps) => {
     );
   }, [card, primaryField, t]);
 
-  const onExpand = () => {
-    setExpandRecordId(card.id);
+  const onExpand = async () => {
+    await expandRecord(card.id);
   };
 
   const onDelete = () => {
@@ -87,7 +82,7 @@ export const Card = (props: IKanbanCardProps) => {
     const record = res.data.records[0];
 
     if (record != null) {
-      setExpandRecordId(record.id);
+      await expandRecord(record.id);
     }
   };
 
@@ -96,12 +91,10 @@ export const Card = (props: IKanbanCardProps) => {
   };
 
   const onViewRecordHistory = async () => {
-    setExpandRecordId(card.id);
     await viewRecordHistory(card.id);
   };
 
   const onAddRecordComment = async () => {
-    setExpandRecordId(card.id);
     await addRecordComment(card.id);
   };
 

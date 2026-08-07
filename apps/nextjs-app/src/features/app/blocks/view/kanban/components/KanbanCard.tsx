@@ -21,6 +21,7 @@ import { useMemo } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
 import { CardCarousel } from '../../gallery/components';
 import { useContextMenu } from '../../hooks/useContextMenu';
+import { useExpandRecord } from '../../hooks/useExpandRecord';
 import type { IKanbanContext } from '../context';
 import { useKanban } from '../hooks';
 import type { IStackData } from '../type';
@@ -47,9 +48,9 @@ export const KanbanCard = (props: IKanbanCardProps) => {
     coverField,
     isCoverFit,
     isFieldNameHidden,
-    setExpandRecordId,
   } = useKanban() as Required<IKanbanContext>;
   const { copyRecordUrl, viewRecordHistory, addRecordComment } = useContextMenu();
+  const expandRecord = useExpandRecord();
 
   const { cardCreatable, cardDeletable, cardEditable, cardCommentCreatable } = permission;
   const { id: fieldId } = stackField;
@@ -67,8 +68,8 @@ export const KanbanCard = (props: IKanbanCardProps) => {
     );
   }, [card, primaryField, t]);
 
-  const onExpand = () => {
-    setExpandRecordId(card.id);
+  const onExpand = async () => {
+    await expandRecord(card.id);
   };
 
   const onDelete = () => {
@@ -100,7 +101,7 @@ export const KanbanCard = (props: IKanbanCardProps) => {
     const record = res.data.records[0];
 
     if (record != null) {
-      setExpandRecordId(record.id);
+      await expandRecord(record.id);
     }
   };
 
@@ -109,12 +110,10 @@ export const KanbanCard = (props: IKanbanCardProps) => {
   };
 
   const onViewRecordHistory = async () => {
-    setExpandRecordId(card.id);
     await viewRecordHistory(card.id);
   };
 
   const onAddRecordComment = async () => {
-    setExpandRecordId(card.id);
     await addRecordComment(card.id);
   };
 
