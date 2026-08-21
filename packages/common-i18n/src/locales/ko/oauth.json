@@ -1,0 +1,67 @@
+{
+  "add": "새 OAuth 앱",
+  "title": {
+    "add": "새 OAuth 앱",
+    "edit": "OAuth 앱 편집",
+    "description": "Teable 앱은 사용자를 대신하지 않고 자기 자격으로 API를 직접 호출할 수 있습니다. 자세한 내용은 <a>도움말 문서</a>를 보세요."
+  },
+  "form": {
+    "name": {
+      "label": "OAuth 앱 이름",
+      "description": "OAuth 앱의 이름입니다."
+    },
+    "description": {
+      "label": "설명"
+    },
+    "homePageUrl": {
+      "label": "홈페이지 주소",
+      "description": "OAuth 앱 웹사이트의 전체 주소입니다."
+    },
+    "logo": {
+      "label": "로고",
+      "description": "정사각형 이미지를 권합니다.",
+      "placeholder": "로고를 끌어다 놓거나 눌러서 올리세요",
+      "button": "로고 올리기",
+      "clear": "지우기",
+      "lengthError": "파일은 하나만 올릴 수 있습니다.",
+      "typeError": "이미지 파일만 올릴 수 있습니다."
+    },
+    "callbackUrl": {
+      "label": "콜백 주소",
+      "description": "사용자가 연동을 승인한 뒤 돌아올 전체 주소입니다.",
+      "add": "콜백 주소 추가"
+    },
+    "secret": {
+      "label": "클라이언트 시크릿",
+      "add": "새 클라이언트 시크릿 만들기",
+      "newDescription": "지금 시크릿을 복사해 두세요. 이 화면을 벗어나면 다시 볼 수 없습니다.",
+      "empty": "앱 자격으로 API를 쓰려면 클라이언트 시크릿이 필요합니다.",
+      "lastUsed": "마지막 사용 {{date}}",
+      "tag": "클라이언트 시크릿",
+      "neverUsed": "사용한 적 없음"
+    },
+    "clientId": {
+      "label": "클라이언트 ID: "
+    }
+  },
+  "formType": {
+    "basic": "기본 정보",
+    "scopes": "권한 범위",
+    "identify": "사용자 확인 및 승인",
+    "clientInfo": "클라이언트 정보"
+  },
+  "decision": {
+    "title": "{{name}}이(가) 계정 접근을 요청합니다",
+    "scopes": "이 앱은 다음 권한을 갖게 됩니다:",
+    "redirectDescription": "승인하면 다음 주소로 이동합니다",
+    "authorize": "승인"
+  },
+  "help": {
+    "link": "https://help.teable.ai/en/api-doc/oauth",
+    "title": "자세히 보기"
+  },
+  "deleteConfirm": {
+    "title": "OAuth 앱 삭제",
+    "description": "{{name}} OAuth 앱을 삭제할까요? 되돌릴 수 없습니다."
+  }
+}

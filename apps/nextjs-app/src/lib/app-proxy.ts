@@ -13,7 +13,7 @@ export function proxy(request: NextRequest) {
     req: request,
     i18n: {
       defaultLocale: 'en',
-      locales: ['en', 'it', 'de', 'zh', 'fr', 'ja', 'ru', 'uk', 'tr', 'es'],
+      locales: ['en', 'it', 'de', 'zh', 'fr', 'ja', 'ru', 'uk', 'tr', 'es', 'ko'],
     },
   });
 

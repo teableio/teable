@@ -1,0 +1,20 @@
+{
+  "auth": {
+    "title": "이 페이지를 보려면 비밀번호를 입력하세요",
+    "submit": "확인",
+    "password": "비밀번호",
+    "passwordTooShort": "비밀번호는 3자 이상이어야 합니다"
+  },
+  "form": {
+    "requireLoginTip": "이 폼은 제출하기 전에 로그인해야 합니다",
+    "login": "로그인"
+  },
+  "toolbar": {
+    "filterLinkSelectPlaceholder": "선택..."
+  },
+  "view": {
+    "signInToEdit": "편집하려면 <a>로그인</a>하세요"
+  },
+  "openOnNewPage": "새 페이지에서 열기",
+  "errorTips": "공유 원본에 권한 매트릭스가 켜져 있어 볼 수 없습니다"
+}

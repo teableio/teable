@@ -1,0 +1,378 @@
+{
+  "crossSpace": {
+    "duplicateBaseTitle": "알림",
+    "duplicateBaseDescription": "스페이스를 넘나드는 연결은 지원하지 않습니다. 복제본에서는 한 줄 텍스트 필드로 바뀝니다.",
+    "affectedTableSuffix": "(필드 {{count}}개)",
+    "convertAndDuplicate": "변환 후 복제"
+  },
+  "initialSpaceName": "{{name}}의 스페이스",
+  "action": {
+    "createBase": "베이스 만들기",
+    "createSpace": "스페이스 만들기",
+    "invite": "초대",
+    "startFromScratch": "처음부터 만들기"
+  },
+  "allSpaces": "모든 스페이스",
+  "emptySpaceTitle": "이 스페이스에 베이스가 없습니다",
+  "spaceIsEmpty": "첫 베이스를 만들어 시작하세요",
+  "baseModal": {
+    "copy": "복사",
+    "duplicate": "\"{{baseName}}\" 복제",
+    "createBaseFromTemplate": "템플릿으로 베이스 만들기",
+    "duplicateRecords": "레코드도 함께 복제",
+    "duplicateRecordsTip": "변경 이력과 협업자는 복제되지 않습니다.",
+    "toSpace": "대상 스페이스",
+    "copyToSpace": "스페이스로 복사",
+    "duplicateBase": "베이스 복제",
+    "missTargetTip": "복제할 대상 스페이스를 선택하세요.",
+    "copying": "베이스를 복제하고 있습니다. 시간이 걸릴 수 있습니다...",
+    "howToCreate": "어떻게 시작할까요?",
+    "fromScratch": "처음부터",
+    "fromTemplate": "템플릿에서",
+    "moveBaseToAnotherSpace": "{{baseName}}을(를) 다른 스페이스로 옮기기",
+    "chooseSpace": "스페이스 선택",
+    "duplicateBaseSucceedAndJump": "완료했습니다. 눌러서 이동하세요"
+  },
+  "spaceSetting": {
+    "title": "설정",
+    "general": "일반",
+    "collaborators": "협업자",
+    "generalDescription": "현재 스페이스의 설정을 바꿉니다",
+    "spaceName": "스페이스 이름",
+    "spaceId": "스페이스 ID",
+    "importBase": "가져오기"
+  },
+  "collaborators": "협업자",
+  "more": "더보기",
+  "pin": {
+    "add": "고정하기",
+    "remove": "고정 해제",
+    "pin": "고정",
+    "empty": "고정한 베이스와 스페이스가 여기에 나옵니다"
+  },
+  "tooltip": {
+    "noPermissionToCreateBase": "베이스를 만들 권한이 없습니다"
+  },
+  "tip": {
+    "delete": "<0/>을(를) 삭제할까요?",
+    "exportTips2": ".tea 파일은 스페이스 → 더보기 → 가져오기에서 넣을 수 있습니다",
+    "exportTips3": "베이스를 넘나드는 연결 필드는 한 줄 텍스트로 바뀝니다.",
+    "exportIncludeDataLabel": "레코드 포함",
+    "exportIncludeDataDescription": "끄면 구조와 설정만 내보냅니다",
+    "exportTitle": "내보내기",
+    "exportDescription": "현재 데이터베이스를 .tea 파일로 내보냅니다. 시간이 걸릴 수 있습니다.",
+    "exportStartButton": "내보내기 시작",
+    "exportSlowTip": "데이터가 많아 내보내는 데 시간이 걸립니다. 이 화면을 벗어나도 됩니다.",
+    "exportReadyDescription": ".tea 파일을 내려받으세요. {{importHint}}",
+    "moveBaseSuccessTitle": "베이스를 옮겼습니다",
+    "moveBaseSuccessDescription": "{{baseName}}을(를) {{spaceName}}(으)로 옮겼습니다",
+    "moveBaseCrossSpaceTitle": "알림",
+    "moveBaseCrossSpaceDataLossWarning": "스페이스를 넘나드는 연결은 지원하지 않습니다. 관련 필드가 텍스트 필드로 바뀌며, 되돌릴 수 없습니다.",
+    "moveBaseCrossDataDbTitle": "다른 데이터베이스로 이동",
+    "moveBaseCrossDataDbWarning": "원본과 대상 스페이스가 서로 다른 데이터베이스를 씁니다. 데이터를 대상 데이터베이스로 복사하므로 시간이 걸리고, 옮기는 동안에는 이 베이스에 쓸 수 없습니다.",
+    "moveBaseProgressTitle": "베이스를 옮기는 중...",
+    "moveBaseProgressPhase": "단계: {{phase}}",
+    "moveBaseProgressPercent": "{{percent}}%",
+    "moveBaseFailedTitle": "옮기지 못했습니다",
+    "moveBaseFailedDescription": "{{phase}} 단계: {{error}}",
+    "moveBaseRetry": "다시 시도",
+    "moveBaseCancel": "취소"
+  },
+  "deleteSpaceModal": {
+    "title": "스페이스 삭제",
+    "blockedTitle": "이 스페이스는 삭제할 수 없습니다",
+    "blockedDesc": "구독이 진행 중인 스페이스입니다. 구독을 해지한 뒤 삭제해 주세요."
+  },
+  "sharedBase": {
+    "title": "나와 공유됨",
+    "description": "나를 초대한 모든 베이스",
+    "empty": "공유된 베이스가 아직 없습니다"
+  },
+  "integration": {},
+  "aiSetting": {
+    "title": "AI 설정",
+    "description": "스페이스의 AI 설정을 관리합니다",
+    "enable": "AI 설정 시작하기"
+  },
+  "import": {
+    "importing": "가져오는 중",
+    "baseImportTips": "이 영역에 .tea 파일을 끌어다 놓거나 눌러서 올리세요",
+    "confirm": "확인하고 계속",
+    "phase": {
+      "importingV2": "가져오는 중",
+      "parsingStructure": "구조를 읽는 중",
+      "creatingBase": "베이스 만드는 중: {{detail}}",
+      "creatingTable": "테이블 만드는 중: {{detail}}",
+      "tableStructureStarted": "테이블 구조 준비 중: {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "tableStructureValidating": "테이블 관계 확인 중",
+      "tableStructureCommitting": "테이블 구조 저장 중",
+      "tableStructureDone": "테이블 구조 저장 완료: {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "tableStructureData": "테이블 구조",
+      "tableStructureTablesProgress": "테이블 {{count}}/{{total}}개 준비됨",
+      "tableStructureTablesDone": "테이블 {{count}}/{{total}}개 저장됨",
+      "creatingCommonFields": "{{table}}의 기본 필드 만드는 중: {{fields}}",
+      "creatingButtonFields": "{{table}}의 버튼 필드 만드는 중: {{fields}}",
+      "creatingFormulaFields": "{{table}}의 수식 필드 만드는 중: {{fields}}",
+      "creatingLinkFields": "{{table}}의 연결 필드 만드는 중: {{fields}}",
+      "creatingLookupFields": "{{table}}의 조회 필드 만드는 중: {{fields}}",
+      "creatingTableViews": "{{table}}의 뷰 만드는 중: {{fields}}",
+      "creatingPlugins": "플러그인 만드는 중",
+      "creatingFolders": "폴더 만드는 중",
+      "creatingWorkflows": "워크플로 만드는 중",
+      "creatingApps": "앱 만드는 중",
+      "creatingAuthorityMatrix": "권한 매트릭스 만드는 중",
+      "restoringBaseNodes": "폴더 구조 복원 중",
+      "queuingAttachments": "첨부파일 업로드 대기 중",
+      "uploadingAppFiles": "앱 파일 올리는 중",
+      "queuingDataImport": "데이터 가져오기 대기 중",
+      "importingTableData": "테이블 데이터 가져오는 중",
+      "restoringLinkRelations": "연결된 레코드 복원 중",
+      "tableDataStarted": "레코드 가져오는 중: {{tableName}}",
+      "tableDataProgress": "레코드 가져오는 중: {{tableName}}",
+      "tableDataDone": "레코드 가져오기 완료: {{tableName}}",
+      "linkFieldsData": "연결된 레코드 데이터",
+      "linkFieldsProgress": "연결된 레코드 복원 중",
+      "linkFieldsDone": "연결된 레코드를 복원했습니다",
+      "tableDataRowsProgress": "{{count}}행 가져옴",
+      "tableDataRowsDone": "{{count}}행 가져옴",
+      "tableDataRowsTotalProgress": "{{count}}/{{total}}행 처리됨",
+      "tableDataRowsTotalDone": "{{count}}/{{total}}행 처리됨",
+      "tableDataBatch": "{{batch}}번째 묶음",
+      "tableDataBatchRows": "이 묶음 {{count}}행",
+      "tableDataEmpty": "가져올 테이블 데이터가 없습니다",
+      "done": "가져오기 완료",
+      "clickToView": "눌러서 보기"
+    }
+  },
+  "export": {
+    "phase": {
+      "preparing": "내보내기 준비 중",
+      "exportingArchive": "내보내기 파일 만드는 중",
+      "exportingStructure": "구조 내보내는 중",
+      "exportingAttachments": "첨부파일 내보내는 중",
+      "exportingAttachmentMetadata": "첨부파일 정보 내보내는 중",
+      "exportingTableData": "레코드 내보내는 중",
+      "tableDataStarted": "레코드 내보내는 중: {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "tableDataProgress": "레코드 내보내는 중: {{tableName}}",
+      "tableDataDone": "레코드 내보내기 완료: {{tableName}}",
+      "exportingExtraFiles": "추가 파일 내보내는 중",
+      "exportingAppFiles": "앱 파일 내보내는 중",
+      "uploadingArchive": "내보내기 파일 올리는 중",
+      "generatingDownloadUrl": "다운로드 링크 만드는 중",
+      "rowsProgress": "{{count}}행 내보냄",
+      "done": "내보내기 완료"
+    }
+  },
+  "template": {
+    "title": "템플릿",
+    "description": "템플릿으로 새 베이스를 빠르게 만듭니다",
+    "noTemplatesAvailable": "쓸 수 있는 템플릿이 없습니다",
+    "noTemplatesDescription": "지금은 아무것도 없습니다"
+  },
+  "recentlyBase": {
+    "title": "최근 본 것"
+  },
+  "noBases": {
+    "title": "{{userName}}님, 안녕하세요!",
+    "description": "첫 베이스를 만들어 업무를 정리해 보세요."
+  },
+  "noSpaces": {
+    "title": "{{userName}}님, 안녕하세요!",
+    "description": "첫 스페이스를 만들어 데이터 협업을 시작해 보세요."
+  },
+  "baseList": {
+    "allBases": "모든 베이스",
+    "creator": "만든 사람",
+    "createdTime": "만든 날짜",
+    "lastOpened": "마지막 연 날짜",
+    "enter": "들어가기",
+    "noTables": "테이블 없음",
+    "empty": "아직 베이스가 없습니다",
+    "recent": "최근순",
+    "manual": "직접 정한 순서"
+  },
+  "publishBase": {
+    "title": "템플릿 센터에 게시",
+    "description": "베이스를 한 번에 템플릿 센터에 올리세요. 더 많은 사람이 보고, 쓰고, 리믹스하며 함께 키워 갑니다",
+    "infoTitle": "기본 정보",
+    "form": {
+      "title": "작품 제목",
+      "description": "설명",
+      "security": "보안",
+      "advanced": "고급",
+      "publishNode": "게시할 항목",
+      "includeData": "데이터 포함",
+      "defaultActiveNode": "기본으로 열릴 항목",
+      "descriptionPlaceholder": "어떤 아이디어인지 짧게 적어 주세요...",
+      "titlePlaceholder": "작품 이름을 정하세요..."
+    },
+    "publishToCommunity": "템플릿 센터에 게시",
+    "publish": "게시",
+    "publishSuccess": "게시했습니다!",
+    "previewTips": "작품을 세상에 보여 주세요",
+    "update": "수정",
+    "unPublish": "게시 취소",
+    "unPublishSuccess": "게시를 취소했습니다!",
+    "unPublishConfirmTitle": "게시 취소 확인",
+    "unPublishConfirmDescription": "이 베이스의 게시를 취소할까요? 템플릿 센터에서 더 이상 보이지 않습니다.",
+    "uploadCover": "눌러서 표지 이미지 올리기",
+    "changeCover": "눌러서 표지 바꾸기",
+    "uploading": "이미지 올리는 중...",
+    "uploadSuccess": "이미지를 올렸습니다",
+    "uploadFailed": "올리지 못했습니다",
+    "invalidImageType": "이미지 파일을 선택해 주세요",
+    "tips": {
+      "publishValidation": "제목과 설명은 필수입니다",
+      "atLeastOneNode": "게시할 항목을 하나 이상 선택하세요"
+    },
+    "urlCopied": "주소를 클립보드에 복사했습니다!",
+    "urlCopiedForDiscord": "주소를 클립보드에 복사했습니다! Discord에 붙여 넣으세요.",
+    "featuredLabel": "추천됨",
+    "unfeaturedLabel": "추천 안 됨",
+    "featuredTip": "공식 추천 템플릿입니다. 더 많은 사람에게 노출됩니다.",
+    "unfeaturedTip": "아직 추천되지 않았습니다. 다듬어 나가면 추천될 수 있습니다.",
+    "publishSuccessDescription": "작품을 널리 알려 보세요",
+    "shareWith": "공유 대상",
+    "unpublishedApps": {
+      "title": "게시되지 않은 앱이 있습니다",
+      "description": "게시되지 않은 앱이 있으면 템플릿 미리보기가 실패할 수 있습니다. 지금 게시하거나 그대로 진행하세요.",
+      "publishAll": "모두 게시",
+      "publish": "게시",
+      "published": "게시됨",
+      "publishing": "게시 중",
+      "notPublished": "게시 안 됨",
+      "publishFailed": "게시하지 못했습니다",
+      "publishFailedTip1": "원본 앱이 정상적으로 게시되는지 확인하세요",
+      "publishFailedTip2": "이 템플릿을 다시 게시해 보세요",
+      "ignoreAndContinue": "무시하고 계속",
+      "goToFix": "고치러 가기",
+      "redeploy": "다시 배포",
+      "unnamedApp": "이름 없는 앱"
+    }
+  },
+  "dataDb": {
+    "create": {
+      "title": "데이터 데이터베이스",
+      "description": "이 스페이스의 구조와 레코드를 어디에 저장할지 고르세요.",
+      "defaultHint": "대부분의 경우 이쪽을 권합니다.",
+      "byodbOption": "내 PostgreSQL 데이터베이스 사용",
+      "byodbHint": "직접 관리하는 데이터베이스 안의 Teable 내부 스키마에 이 스페이스를 만듭니다.",
+      "urlLabel": "PostgreSQL 접속 주소",
+      "sslHint": "PostgreSQL 서버가 요구하는 SSL 설정을 그대로 쓰세요. 비밀번호는 확인 후 다시 보이지 않습니다.",
+      "testConnection": "연결 확인",
+      "testing": "확인 중...",
+      "retestRequired": "주소를 바꿨으면 다시 확인하세요.",
+      "databaseLabel": "데이터베이스",
+      "databasePlaceholder": "데이터베이스를 선택하세요",
+      "databaseHint": "이 스페이스가 쓸 PostgreSQL 데이터베이스를 고른 뒤 연결을 다시 확인하세요.",
+      "preflightPassed": "연결 확인을 통과했습니다",
+      "preflightFailed": "연결 확인에 실패했습니다",
+      "missingCapabilities": "부족한 권한",
+      "testFailed": "데이터베이스 연결을 확인하지 못했습니다.",
+      "errors": {
+        "INVALID_DATABASE_URL": {
+          "message": "PostgreSQL 접속 주소가 올바르지 않습니다."
+        },
+        "PRIVATE_NETWORK_BLOCKED": {
+          "message": "사설망에 있는 데이터베이스는 기본적으로 막혀 있습니다.",
+          "remediation": "믿을 수 있는 셀프호스팅 환경에서만 TEABLE_SSRF_PROTECTION_DISABLED=true 를 설정하세요."
+        },
+        "CONNECTION_FAILED": {
+          "message": "데이터베이스에 연결하지 못했습니다.",
+          "remediation": "호스트, 포트, 데이터베이스 이름, 사용자, 비밀번호, SSL 설정을 확인하세요."
+        },
+        "IPV6_NETWORK_UNREACHABLE": {
+          "message": "데이터베이스 호스트가 IPv6 주소로 해석되었지만, 이 Teable 환경은 IPv6에 접근할 수 없습니다.",
+          "remediation": "IPv4로 접근할 수 있는 주소나 커넥션 풀러를 쓰거나, 이 환경에서 IPv6 외부 통신을 켜세요."
+        },
+        "PRIVILEGE_CHECK_FAILED": {
+          "message": "데이터베이스 권한 확인에 실패했습니다."
+        },
+        "DDL_PRIVILEGE_CHECK_FAILED": {
+          "message": "Teable 데이터베이스를 초기화하는 데 필요한 DDL 권한이 없습니다.",
+          "remediation": "스키마, 테이블, 함수, 트리거를 만들 수 있는 권한을 주세요."
+        },
+        "NON_EMPTY_UNKNOWN_DATABASE": {
+          "message": "Teable 내부 스키마에 Teable이 관리하지 않는 객체가 이미 있습니다.",
+          "remediation": "충돌하는 내부 스키마가 없는 데이터베이스를 쓰거나, 그 스키마에서 알 수 없는 객체를 지우세요."
+        },
+        "INCOMPATIBLE_TEABLE_DATABASE": {
+          "message": "이 데이터베이스에는 불완전하거나 호환되지 않는 Teable 객체가 있습니다.",
+          "remediation": "빈 데이터베이스를 쓰거나, 호환되는 Teable 데이터베이스 이관 절차를 따르세요."
+        }
+      }
+    },
+    "fields": {
+      "host": "호스트",
+      "database": "데이터베이스",
+      "internalSchema": "내부 스키마",
+      "version": "버전",
+      "classification": "분류"
+    },
+    "badge": {
+      "label": "전용",
+      "tooltip": "이 스페이스는 다른 스페이스와 분리된 전용 데이터베이스를 씁니다"
+    }
+  },
+  "airtableImport": {
+    "title": "Airtable에서 가져오기",
+    "close": "닫기",
+    "pickBase": "가져올 베이스를 선택하세요",
+    "noBases": "이 토큰으로 접근할 수 있는 베이스가 없습니다.",
+    "optionRecords": "레코드 가져오기",
+    "optionAttachments": "첨부파일 내려받아 가져오기",
+    "import": "가져오기 시작",
+    "done": "가져오기 완료",
+    "failed": "가져오지 못했습니다",
+    "openBase": "베이스 열기",
+    "issuesSummary": "가져오는 동안 {{count}}건이 조정되었습니다:",
+    "issuesMore": "외 {{count}}건",
+    "issue": {
+      "fieldDegraded": "{{tableName}} / {{fieldName}}: {{fromType}} → {{toType}}",
+      "fieldSkipped": "{{tableName}} / {{fieldName}} ({{fromType}}) 건너뜀: {{reason}}",
+      "viewSkipped": "{{tableName}} / 뷰 \"{{viewName}}\" ({{fromType}}) 건너뜀",
+      "valuesDropped": "{{tableName}} / {{fieldName}}: 값 {{count}}개 제외됨 ({{reason}})",
+      "viewConfigDegraded": "{{tableName}} / 뷰 \"{{viewName}}\": {{reason}}"
+    },
+    "phase": {
+      "fetchingSchema": "Airtable 베이스 구조를 읽는 중",
+      "creatingBase": "베이스 만드는 중: {{detail}}",
+      "creatingTable": "테이블 만드는 중: {{tableName}} ({{tableIndex}}/{{totalTables}})",
+      "creatingLinks": "연결 필드 만드는 중",
+      "fillingLinks": "{{tableName}} (연결)",
+      "applyingViewConfig": "뷰 설정 가져오는 중"
+    },
+    "searchBases": "베이스 검색",
+    "noSearchResults": "검색 결과가 없습니다.",
+    "detecting": "Airtable 연결 확인 중...",
+    "connectWithAirtable": "Airtable 계정 연결",
+    "waitingOAuth": "팝업에서 승인을 마쳐 주세요...",
+    "connectedAs": "연결됨: {{account}}",
+    "permission": {
+      "create": "생성 권한",
+      "edit": "편집 권한",
+      "comment": "댓글 권한",
+      "read": "읽기 전용"
+    },
+    "integrationRequired": "이 서버에는 Airtable 연동이 설정돼 있지 않습니다. 관리자에게 요청하세요.",
+    "optionViewConfig": "뷰의 필터, 정렬, 그룹 설정 가져오기",
+    "viewConfig": {
+      "help": "Airtable API는 뷰 설정을 제공하지 않아, 읽기 전용 공유 링크가 필요합니다.",
+      "helpStep1": "Airtable에서 베이스의 Share 메뉴를 엽니다",
+      "helpStep2": "\"Share to web\"을 고르고 베이스 전체 접근을 켭니다",
+      "helpStep3": "읽기 전용 링크를 복사해 위 칸에 붙여 넣습니다",
+      "linkPlaceholder": "공유 링크를 여기에 붙여 넣으세요",
+      "mismatch": "이 공유 링크는 선택한 베이스와 다른 베이스를 가리킵니다.",
+      "disableReminder": "끝났습니다. 이제 Airtable에서 공유 링크를 꺼도 됩니다."
+    }
+  },
+  "createBaseDialog": {
+    "title": "어떻게 시작할까요?"
+  },
+  "importBaseDialog": {
+    "title": "베이스 가져오기",
+    "fromFile": "파일에서 가져오기",
+    "fromFileDesc": ".tea 데이터베이스 파일을 올립니다",
+    "fromAirtableDesc": "Airtable 계정을 연결합니다"
+  }
+}

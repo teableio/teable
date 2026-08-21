@@ -1,0 +1,1552 @@
+{
+  "common": {
+    "empty": "비어 있음",
+    "noRecords": "레코드가 없습니다",
+    "unnamedRecord": "이름 없는 레코드",
+    "untitled": "제목 없음",
+    "cancel": "취소",
+    "confirm": "확인",
+    "clear": "지우기",
+    "back": "뒤로",
+    "done": "완료",
+    "create": "만들기",
+    "search": {
+      "placeholder": "검색...",
+      "empty": "결과가 없습니다"
+    },
+    "readOnlyTip": "이 뷰는 잠겨 있습니다. <button>개인 설정</button>을 켜면 뷰 설정을 바꿀 수 있고, 그 변경은 나에게만 적용됩니다.",
+    "selectPlaceHolder": "선택...",
+    "loading": "불러오는 중...",
+    "loadMore": "더 보기",
+    "uploadFailed": "올리지 못했습니다",
+    "rowCount": "레코드 {{count}}개",
+    "summary": "요약",
+    "summaryTip": "마우스를 올려 요약 항목을 고르세요",
+    "actions": "동작",
+    "remove": "빼기",
+    "runStatus": {
+      "success": "{{name}} 성공",
+      "failed": "{{name}} 실패",
+      "running": "{{name}} 진행 중"
+    },
+    "resetSuccess": "초기화했습니다",
+    "click": "클릭",
+    "clickedCount": "{{label}}: {{text}}번 눌림",
+    "atLeastOne": "{{noun}}은(는) 하나 이상 남겨야 합니다"
+  },
+  "notification": {
+    "title": "알림"
+  },
+  "aiError": {
+    "title": "AI 생성에 실패했습니다",
+    "retry": "다시 시도",
+    "dismiss": "닫기"
+  },
+  "preview": {
+    "previewFileLimit": "미리보기는 {{size}}MB 까지만 됩니다. 내려받아서 확인해 주세요.",
+    "loadFileError": "파일을 불러오지 못했습니다"
+  },
+  "undoRedo": {
+    "undo": "되돌리기",
+    "redo": "다시 실행",
+    "undoFailed": "되돌리지 못했습니다",
+    "redoFailed": "다시 실행하지 못했습니다",
+    "nothingToUndo": "되돌릴 것이 없습니다",
+    "nothingToRedo": "다시 실행할 것이 없습니다",
+    "undoSucceed": "되돌렸습니다",
+    "redoSucceed": "다시 실행했습니다",
+    "undoing": "되돌리는 중...",
+    "redoing": "다시 실행하는 중..."
+  },
+  "editor": {
+    "attachment": {
+      "uploadDragOver": "여기에 놓으면 올라갑니다",
+      "uploadBaseTextPrefix": "눌러서 올리거나",
+      "uploadBaseText": " 붙여 넣거나 끌어다 놓으세요",
+      "uploadDragDefault": "붙여 넣거나 끌어다 놓아서 올리세요",
+      "upload": "파일 올리기",
+      "downloadAll": "모두 내려받기",
+      "downloadSuccess": "내려받았습니다",
+      "downloadFailed": "내려받지 못했습니다",
+      "downloadCancelled": "내려받기를 취소했습니다",
+      "requireHttps": "한꺼번에 내려받으려면 HTTPS가 필요합니다. HTTPS 또는 localhost 로 접속하세요"
+    },
+    "date": {
+      "placeholder": "날짜 선택",
+      "today": "오늘",
+      "rangePlaceholder": "기간 선택",
+      "rangeSelected": "선택됨",
+      "invalidTimeRange": "종료 시각은 시작 시각보다 뒤여야 합니다",
+      "from": "시작",
+      "to": "끝"
+    },
+    "formula": {
+      "title": "수식 편집기",
+      "guideSyntax": "문법",
+      "guideExample": "예시",
+      "helperExample": "예: ",
+      "fieldValue": "{{fieldName}} 필드의 셀 값을 돌려줍니다.",
+      "placeholder": "수식을 입력하세요",
+      "placeholderForAIPrompt": "만들고 싶은 수식을 설명해 주세요",
+      "editExpression": "수식 편집",
+      "generateExpressionByAI": "AI로 수식 만들기",
+      "inputPrompt": "요청 내용",
+      "generateExpression": "만들어진 수식",
+      "generatingByAI": "AI가 수식을 만드는 중...",
+      "generatedExpressionTips": "만들어진 뒤 적용을 누르면 수식이 바로 들어갑니다",
+      "action": {
+        "generating": "만드는 중...",
+        "generate": "만들기",
+        "apply": "적용"
+      },
+      "expressionRequired": "수식을 입력하세요"
+    },
+    "link": {
+      "placeholder": "연결할 레코드를 고르세요",
+      "searchPlaceholder": "레코드 검색",
+      "globalSearch": "전체 검색",
+      "fieldSearch": "필드 검색",
+      "maxFieldTips": "최대 {{count}}개 필드를 넘어, 나머지 필드는 제외됩니다",
+      "create": "레코드 추가",
+      "selectRecord": "레코드 선택",
+      "all": "전체",
+      "selected": "선택함",
+      "alreadyOpen": "이미 열려 있는 레코드입니다.",
+      "linkedTo": "연결 대상",
+      "foreignTableIdRequired": "연결할 테이블을 지정하세요",
+      "linkFieldIdRequired": "연결 필드를 지정하세요",
+      "selectTooManyRecords": "레코드는 최대 {{maxCount}}개까지 고를 수 있습니다",
+      "rangeSelectFailed": "범위 안의 레코드를 고르지 못했습니다"
+    },
+    "user": {
+      "searchPlaceholder": "이름으로 찾기",
+      "notify": "선택되면 해당 사용자에게 알리기"
+    },
+    "select": {
+      "addOption": "'{{option}}' 선택지 추가",
+      "choicesNameRequired": "선택지 이름을 입력하세요"
+    },
+    "lookup": {
+      "lookupFieldIdRequired": "조회할 필드를 지정하세요",
+      "lookupOptionsNotAllowed": "isLookup 이 true 이거나 필드 종류가 rollup 일 때는 조회 설정을 쓸 수 없습니다.",
+      "lookupOptionsRequired": "조회 설정이 필요합니다"
+    },
+    "rollup": {
+      "expressionRequired": "수식을 입력하세요"
+    },
+    "conditionalRollup": {
+      "filterRequired": "조건을 하나 이상 넣어야 합니다"
+    },
+    "conditionalLookup": {
+      "filterRequired": "조건부 조회에는 조건이 하나 이상 필요합니다"
+    },
+    "aiConfig": {
+      "modelKeyRequired": "모델을 선택하세요",
+      "typeNotSupported": "지원하지 않는 AI 종류입니다",
+      "sourceFieldIdRequired": "원본 필드를 선택하세요",
+      "targetLanguageRequired": "번역할 언어를 선택하세요",
+      "promptRequired": "프롬프트를 입력하세요"
+    },
+    "error": {
+      "refineOptionsError": "필드 설정을 읽지 못했습니다 {{message}}",
+      "optionsRequired": "필드 설정이 필요합니다"
+    }
+  },
+  "filter": {
+    "label": "필터",
+    "displayLabel": "필터 기준 ",
+    "displayLabel_other": "{{fieldName}} 외 {{count}}개 필드로 거름",
+    "addCondition": "조건 추가",
+    "addConditionGroup": "조건 묶음 추가",
+    "nestedLimitTip": "조건은 {{depth}}단계까지만 중첩할 수 있습니다",
+    "linkInputPlaceholder": "값을 입력하세요",
+    "currentUser": "나 (현재 사용자)",
+    "tips": {},
+    "invalidateSelected": "잘못된 값",
+    "invalidateSelectedTips": "선택했던 값이 삭제되었습니다. 다시 골라 주세요",
+    "invalidConditionTip": "이 조건은 올바르지 않아 무시됩니다. 값을 고쳐 주세요.",
+    "default": {
+      "empty": "적용된 필터가 없습니다",
+      "placeholder": "값을 입력하세요"
+    },
+    "conjunction": {
+      "and": "그리고",
+      "or": "또는",
+      "where": "조건",
+      "meetingAll": "모든 조건을 만족",
+      "meetingAny": "조건 중 하나라도 만족"
+    },
+    "operator": {
+      "is": "같음",
+      "isNot": "같지 않음",
+      "contains": "포함",
+      "doesNotContain": "포함하지 않음",
+      "isEmpty": "비어 있음",
+      "isNotEmpty": "비어 있지 않음",
+      "isGreater": "보다 큼",
+      "isGreaterEqual": "보다 크거나 같음",
+      "isLess": "보다 작음",
+      "isLessEqual": "보다 작거나 같음",
+      "isAnyOf": "다음 중 하나",
+      "isNoneOf": "다음 중 어느 것도 아님",
+      "hasAnyOf": "다음 중 하나를 가짐",
+      "hasAllOf": "다음을 모두 가짐",
+      "hasNoneOf": "다음 중 어느 것도 갖지 않음",
+      "isExactly": "정확히 일치",
+      "isWithIn": "다음 기간 안",
+      "isBefore": "이전",
+      "isAfter": "이후",
+      "isOnOrBefore": "그날 이전(포함)",
+      "isOnOrAfter": "그날 이후(포함)",
+      "number": {
+        "is": "=",
+        "isNot": "≠",
+        "isGreater": ">",
+        "isGreaterEqual": "≥",
+        "isLess": "<",
+        "isLessEqual": "≤"
+      }
+    },
+    "conditionalRollup": {
+      "switchToField": "필드 값 사용",
+      "switchToValue": "직접 입력한 값 사용"
+    },
+    "component": {
+      "date": {
+        "today": "오늘",
+        "tomorrow": "내일",
+        "yesterday": "어제",
+        "oneWeekAgo": "일주일 전",
+        "oneWeekFromNow": "일주일 뒤",
+        "oneMonthAgo": "한 달 전",
+        "oneMonthFromNow": "한 달 뒤",
+        "daysAgo": "며칠 전",
+        "daysFromNow": "며칠 뒤",
+        "exactDate": "특정 날짜",
+        "exactDateTime": "특정 시각",
+        "exactFormatDate": "특정 날짜(형식 지정)",
+        "dateRange": "직접 지정한 기간",
+        "currentWeek": "이번 주",
+        "currentMonth": "이번 달",
+        "currentYear": "올해",
+        "lastWeek": "지난주",
+        "lastMonth": "지난달",
+        "lastYear": "작년",
+        "nextWeekPeriod": "다음 주",
+        "nextMonthPeriod": "다음 달",
+        "nextYearPeriod": "내년",
+        "pastWeek": "최근 일주일",
+        "pastMonth": "최근 한 달",
+        "pastYear": "최근 1년",
+        "nextWeek": "앞으로 일주일",
+        "nextMonth": "앞으로 한 달",
+        "nextYear": "앞으로 1년",
+        "pastNumberOfDays": "최근 며칠",
+        "nextNumberOfDays": "앞으로 며칠"
+      }
+    }
+  },
+  "color": {
+    "label": "색"
+  },
+  "rowHeight": {
+    "short": "낮게",
+    "medium": "보통",
+    "tall": "높게",
+    "extraTall": "아주 높게",
+    "title": "행 높이"
+  },
+  "fieldNameConfig": {
+    "title": "필드 이름",
+    "displayLines": "{{count}}줄"
+  },
+  "share": {},
+  "extensions": {},
+  "hidden": {
+    "label": "숨긴 필드",
+    "configLabel_other": "숨긴 필드 {{count}}개",
+    "configLabel_other_visible": "보이는 필드 {{count}}개",
+    "showAll": "모두 보이기",
+    "hideAll": "모두 숨기기",
+    "primaryKey": "기본 필드: 레코드를 대표합니다\n숨기거나 지울 수 없으며, 연결된 레코드에도 이 값이 보입니다.",
+    "notInCurrentView": "\"{{fieldName}}\" 필드는 현재 뷰에서 보이지 않아 이동할 수 없습니다"
+  },
+  "expandRecord": {
+    "copy": "클립보드에 복사",
+    "duplicateRecord": "레코드 복제",
+    "copyRecordUrl": "레코드 주소 복사",
+    "deleteRecord": "레코드 삭제",
+    "addRecordComment": "댓글 달기",
+    "viewRecordHistory": "레코드 이력 보기",
+    "recordHistory": {
+      "hiddenRecordHistory": "이력 숨기기",
+      "showRecordHistory": "이력 보기",
+      "createdTime": "수정 시각",
+      "createdBy": "수정한 사람",
+      "before": "이전",
+      "after": "이후",
+      "buttonClicked": "버튼 누름",
+      "filterTime": "기간",
+      "allFields": "모든 필드",
+      "allUsers": "모든 사용자",
+      "clearFilter": "필터 지우기",
+      "viewRecord": "레코드 보기"
+    },
+    "showHiddenFields": "숨긴 필드 {{count}}개 보이기",
+    "hideHiddenFields": "숨긴 필드 {{count}}개 숨기기",
+    "showMore": "더 보기",
+    "showLess": "접기",
+    "recordFrom": "출처"
+  },
+  "sort": {
+    "label": "정렬",
+    "displayLabel_one": "필드 {{count}}개로 정렬",
+    "displayLabel_other": "필드 {{count}}개로 정렬",
+    "setTips": "정렬 기준",
+    "addButton": "정렬 조건 추가",
+    "autoSort": "레코드 자동 정렬",
+    "selectASCLabel": "처음 → 마지막",
+    "selectDESCLabel": "마지막 → 처음"
+  },
+  "group": {
+    "label": "그룹",
+    "displayLabel_one": "필드 {{count}}개로 묶음",
+    "displayLabel_other": "필드 {{count}}개로 묶음",
+    "setTips": "묶음 기준",
+    "addButton": "하위 그룹 추가"
+  },
+  "field": {
+    "title": {
+      "singleLineText": "한 줄 텍스트",
+      "longText": "긴 텍스트",
+      "singleSelect": "단일 선택",
+      "number": "숫자",
+      "multipleSelect": "다중 선택",
+      "link": "레코드 연결",
+      "formula": "수식",
+      "date": "날짜",
+      "createdTime": "만든 시각",
+      "lastModifiedTime": "마지막 수정 시각",
+      "attachment": "첨부파일",
+      "checkbox": "체크박스",
+      "rollup": "집계",
+      "conditionalRollup": "조건부 집계",
+      "user": "사용자",
+      "rating": "평점",
+      "autoNumber": "자동 번호",
+      "lookup": "조회",
+      "conditionalLookup": "조건부 조회",
+      "button": "버튼",
+      "createdBy": "만든 사람",
+      "lastModifiedBy": "마지막 수정한 사람"
+    },
+    "description": {
+      "singleLineText": "이름이나 제목처럼 짧은 텍스트를 담습니다.",
+      "longText": "긴 메모나 설명을 담습니다.",
+      "singleSelect": "목록에서 하나를 고릅니다.",
+      "number": "숫자를 표시 형식과 함께 관리합니다.",
+      "multipleSelect": "여러 선택지로 태그를 붙입니다.",
+      "link": "이 레코드를 다른 테이블과 연결합니다.",
+      "formula": "다른 필드로 값을 계산합니다.",
+      "date": "날짜나 시각을 기록합니다.",
+      "createdTime": "레코드가 언제 만들어졌는지 보여 줍니다.",
+      "lastModifiedTime": "가장 최근에 수정한 시각을 보여 줍니다.",
+      "attachment": "파일을 올리거나 AI로 이미지를 만듭니다. 🍌 Nano banana pro 같은 모델을 지원합니다",
+      "checkbox": "예/아니오를 간단히 표시합니다.",
+      "rollup": "연결된 레코드를 수식으로 요약합니다.",
+      "conditionalRollup": "조건에 맞는 데이터만 모아 요약합니다.",
+      "user": "레코드에 구성원을 지정합니다.",
+      "rating": "아이콘으로 점수를 매깁니다.",
+      "autoNumber": "레코드마다 겹치지 않는 번호를 매깁니다.",
+      "lookup": "연결된 레코드의 값을 가져와 보여 줍니다.",
+      "conditionalLookup": "직접 정한 조건에 맞는 연결 값만 보여 줍니다.",
+      "button": "눌러서 정해진 동작을 실행합니다.",
+      "createdBy": "레코드를 만든 사람을 보여 줍니다.",
+      "lastModifiedBy": "레코드를 마지막으로 수정한 사람을 보여 줍니다."
+    },
+    "link": {
+      "oneWay": "단방향",
+      "twoWay": "양방향"
+    },
+    "button": {
+      "confirm": {
+        "title": "동작 확인",
+        "description": "이 버튼의 동작을 실행할까요?"
+      }
+    }
+  },
+  "permission": {
+    "actionDescription": {
+      "spaceCreate": "스페이스 만들기",
+      "spaceDelete": "스페이스 삭제",
+      "spaceRead": "스페이스 읽기",
+      "spaceUpdate": "스페이스 수정",
+      "spaceInviteEmail": "스페이스에 이메일로 초대",
+      "spaceInviteLink": "스페이스에 링크로 초대",
+      "spaceGrantRole": "스페이스 역할 부여",
+      "baseCreate": "베이스 만들기",
+      "baseDelete": "베이스 삭제",
+      "baseRead": "베이스 읽기",
+      "baseReadAll": "모든 베이스 읽기",
+      "baseUpdate": "베이스 수정",
+      "baseInviteEmail": "베이스에 이메일로 초대",
+      "baseInviteLink": "베이스에 링크로 초대",
+      "baseAuthorityMatrixConfig": "권한 매트릭스 설정",
+      "baseDbConnect": "데이터베이스 연결",
+      "tableCreate": "테이블 만들기",
+      "tableRead": "테이블 읽기",
+      "tableDelete": "테이블 삭제",
+      "tableUpdate": "테이블 수정",
+      "tableImport": "테이블로 데이터 가져오기",
+      "tableExport": "테이블 데이터 내보내기",
+      "tableTrashRead": "테이블 휴지통 읽기",
+      "tableTrashUpdate": "테이블 휴지통 수정",
+      "tableTrashReset": "테이블 휴지통 비우기",
+      "viewCreate": "뷰 만들기",
+      "viewDelete": "뷰 삭제",
+      "viewRead": "뷰 읽기",
+      "viewUpdate": "뷰 수정",
+      "viewShare": "뷰 공유",
+      "fieldCreate": "필드 만들기",
+      "fieldDelete": "필드 삭제",
+      "fieldRead": "필드 읽기",
+      "fieldUpdate": "필드 수정",
+      "recordCreate": "레코드 만들기",
+      "recordComment": "레코드에 댓글 달기",
+      "recordDelete": "레코드 삭제",
+      "recordRead": "레코드 읽기",
+      "recordUpdate": "레코드 수정",
+      "recordCopy": "레코드 복사",
+      "automationCreate": "자동화 만들기",
+      "automationDelete": "자동화 삭제",
+      "automationRead": "자동화 읽기",
+      "automationUpdate": "자동화 수정",
+      "appCreate": "앱 만들기",
+      "appDelete": "앱 삭제",
+      "appRead": "앱 읽기",
+      "appUpdate": "앱 수정",
+      "userEmailRead": "현재 사용자 이메일 읽기",
+      "userIntegrations": "사용자 연동 관리",
+      "recordHistoryRead": "레코드 이력 읽기",
+      "baseQuery": "베이스 조회",
+      "instanceRead": "인스턴스 읽기",
+      "instanceUpdate": "인스턴스 수정",
+      "enterpriseRead": "기업 설정 읽기",
+      "enterpriseUpdate": "기업 설정 수정"
+    }
+  },
+  "noun": {
+    "table": "테이블",
+    "view": "뷰",
+    "space": "스페이스",
+    "base": "베이스",
+    "field": "필드",
+    "record": "레코드",
+    "automation": "자동화",
+    "app": "앱",
+    "user": "사용자",
+    "recordHistory": "레코드 이력",
+    "you": "나",
+    "instance": "인스턴스",
+    "enterprise": "기업",
+    "history": "이력",
+    "global": "전체"
+  },
+  "formula": {
+    "SUM": {
+      "summary": "숫자를 모두 더합니다. number1 + number2 + ... 와 같습니다.",
+      "example": "SUM(100, 200, 300) => 600"
+    },
+    "AVERAGE": {
+      "summary": "숫자들의 평균을 돌려줍니다.",
+      "example": "AVERAGE(100, 200, 300) => 200"
+    },
+    "MAX": {
+      "summary": "주어진 숫자 중 가장 큰 값을 돌려줍니다.",
+      "example": "MAX(100, 200, 300) => 300"
+    },
+    "MIN": {
+      "summary": "주어진 숫자 중 가장 작은 값을 돌려줍니다.",
+      "example": "MIN(100, 200, 300) => 100"
+    },
+    "ROUND": {
+      "summary": "\"precision\"으로 지정한 소수 자릿수에 맞춰 반올림합니다. (정확히는 해당 자릿수에서 가장 가까운 값으로 맞추고, 가운데 값은 큰 쪽으로 올립니다.)",
+      "example": "ROUND(1.99, 0) => 2\nROUND(16.8, -1) => 20"
+    },
+    "ROUNDUP": {
+      "summary": "\"precision\"으로 지정한 소수 자릿수에 맞춰 항상 0에서 멀어지는 쪽으로 올립니다. (자릿수를 반드시 지정해야 동작합니다.)",
+      "example": "ROUNDUP(1.1, 0) => 2\nROUNDUP(-1.1, 0) => -2"
+    },
+    "ROUNDDOWN": {
+      "summary": "\"precision\"으로 지정한 소수 자릿수에 맞춰 항상 0에 가까워지는 쪽으로 내립니다. (자릿수를 반드시 지정해야 동작합니다.)",
+      "example": "ROUNDDOWN(1.9, 0) => 1\nROUNDDOWN(-1.9, 0) => -1"
+    },
+    "CEILING": {
+      "summary": "지정한 배수 중 값보다 크거나 같은 가장 가까운 값을 돌려줍니다. 배수를 지정하지 않으면 1로 봅니다.",
+      "example": "CEILING(2.49) => 3\nCEILING(2.49, 1) => 2.5\nCEILING(2.49, -1) => 10"
+    },
+    "FLOOR": {
+      "summary": "지정한 배수 중 값보다 작거나 같은 가장 가까운 값을 돌려줍니다. 배수를 지정하지 않으면 1로 봅니다.",
+      "example": "FLOOR(2.49) => 2\nFLOOR(2.49, 1) => 2.4\nFLOOR(2.49, -1) => 0"
+    },
+    "EVEN": {
+      "summary": "값보다 크거나 같은 가장 작은 짝수를 돌려줍니다.",
+      "example": "EVEN(0.1) => 2\nEVEN(-0.1) => -2"
+    },
+    "ODD": {
+      "summary": "양수는 가장 가까운 홀수로 올리고, 음수는 가장 가까운 홀수로 내립니다.",
+      "example": "ODD(0.1) => 1\nODD(-0.1) => -1"
+    },
+    "INT": {
+      "summary": "숫자의 정수 부분을 돌려줍니다. 음의 무한대 쪽으로 내립니다.",
+      "example": "INT(1.9) => 1\nINT(-1.9) => -2"
+    },
+    "ABS": {
+      "summary": "절댓값을 돌려줍니다.",
+      "example": "ABS(-1) => 1"
+    },
+    "SQRT": {
+      "summary": "0 이상인 숫자의 제곱근을 돌려줍니다.",
+      "example": "SQRT(4) => 2"
+    },
+    "POWER": {
+      "summary": "밑을 지정한 지수만큼 거듭제곱합니다.",
+      "example": "POWER(2) => 4"
+    },
+    "EXP": {
+      "summary": "자연상수 e 를 지정한 지수만큼 거듭제곱합니다.",
+      "example": "EXP(0) => 1\nEXP(1) => 2.718"
+    },
+    "LOG": {
+      "summary": "지정한 밑에 대한 로그를 구합니다. 밑을 지정하지 않으면 10 으로 봅니다.",
+      "example": "LOG(100) => 2\nLOG(1024, 2) => 10"
+    },
+    "MOD": {
+      "summary": "첫 번째 값을 두 번째 값으로 나눈 나머지를 돌려줍니다.",
+      "example": "MOD(9, 2) => 1\nMOD(9, 3) => 0"
+    },
+    "VALUE": {
+      "summary": "텍스트를 숫자로 바꿉니다.",
+      "example": "VALUE(\"$1,000,000\") => 1000000"
+    },
+    "CONCATENATE": {
+      "summary": "여러 값을 이어 하나의 텍스트로 만듭니다.",
+      "example": "CONCATENATE(\"Hello \", \"Teable\") => Hello Teable"
+    },
+    "FIND": {
+      "summary": "whereToSearch 안에서 stringToFind 를 찾습니다. startFromPosition 부터 찾게 할 수도 있습니다(기본값 0). 찾지 못하면 0 을 돌려줍니다.",
+      "example": "FIND(\"Teable\", \"Hello Teable\") => 7\nFIND(\"Teable\", \"Hello Teable\", 5) => 7\nFIND(\"Teable\", \"Hello Teable\", 10) => 0"
+    },
+    "SEARCH": {
+      "summary": "whereToSearch 안에서 stringToFind 를 찾습니다. startFromPosition 부터 찾게 할 수도 있습니다(기본값 0). 찾지 못하면 빈 값을 돌려줍니다.\nFIND() 와 비슷하지만, FIND() 는 못 찾았을 때 빈 값 대신 0 을 돌려줍니다.",
+      "example": "SEARCH(\"Teable\", \"Hello Teable\") => 7\nSEARCH(\"Teable\", \"Hello Teable\", 5) => 7\nSEARCH(\"Teable\", \"Hello Teable\", 10) => \"\""
+    },
+    "MID": {
+      "summary": "whereToStart 위치부터 count 글자만큼 잘라 냅니다.",
+      "example": "MID(\"Hello Teable\", 6, 6) => \"Teable\""
+    },
+    "LEFT": {
+      "summary": "문자열 앞에서 howMany 글자만큼 잘라 냅니다.",
+      "example": "LEFT(\"2023-09-06\", 4) => \"2023\""
+    },
+    "RIGHT": {
+      "summary": "문자열 뒤에서 howMany 글자만큼 잘라 냅니다.",
+      "example": "RIGHT(\"2023-09-06\", 5) => \"09-06\""
+    },
+    "REPLACE": {
+      "summary": "start 위치부터 지정한 글자 수만큼을 다른 텍스트로 바꿉니다.\n(old_text 가 나오는 곳을 모두 바꾸려면 SUBSTITUTE() 를 쓰세요.)",
+      "example": "REPLACE(\"Hello Table\", 7, 5, \"Teable\") => \"Hello Teable\""
+    },
+    "REGEXP_REPLACE": {
+      "summary": "정규식에 맞는 부분을 모두 바꿉니다.",
+      "example": "REGEXP_REPLACE(\"Hello Table\", \"H.* \", \"\") => \"Teable\""
+    },
+    "SUBSTITUTE": {
+      "summary": "old_text 를 new_text 로 바꿉니다.\n번호(1부터)를 지정하면 그 번째 것만 바꿉니다. 지정하지 않으면 모두 바꿉니다.",
+      "example": "SUBSTITUTE(\"Hello Table\", \"Table\", \"Teable\") => \"Hello Teable\""
+    },
+    "TEXTBEFORE": {
+      "summary": "구분자 앞의 텍스트를 돌려줍니다.",
+      "example": "TEXTBEFORE(\"20, 04, 79\", \",\") => \"20\""
+    },
+    "TEXTSPLIT": {
+      "summary": "구분자로 텍스트를 나눠 여러 값으로 돌려줍니다.",
+      "example": "TEXTSPLIT(\"20, 04, 79\", \",\") => [\"20\", \" 04\", \" 79\"]"
+    },
+    "LOWER": {
+      "summary": "문자열을 소문자로 바꿉니다.",
+      "example": "LOWER(\"Hello Teable\") => \"hello teable\""
+    },
+    "UPPER": {
+      "summary": "문자열을 대문자로 바꿉니다.",
+      "example": "UPPER(\"Hello Teable\") => \"HELLO TEABLE\""
+    },
+    "REPT": {
+      "summary": "문자열을 지정한 횟수만큼 반복합니다.",
+      "example": "REPT(\"Hello!\") => \"Hello!Hello!Hello!\""
+    },
+    "TRIM": {
+      "summary": "문자열 앞뒤의 공백을 없앱니다.",
+      "example": "TRIM(\" Hello \") => \"Hello\""
+    },
+    "LEN": {
+      "summary": "문자열의 글자 수를 돌려줍니다.",
+      "example": "LEN(\"Hello\") => 5"
+    },
+    "T": {
+      "summary": "값이 텍스트면 그대로 돌려주고, 아니면 빈 값을 돌려줍니다.",
+      "example": "T(\"Hello\") => \"Hello\"\nT(100) => null"
+    },
+    "ENCODE_URL_COMPONENT": {
+      "summary": "URL 이나 URI 를 만들 때 쓰도록 일부 문자를 인코딩합니다. 다음 문자는 바꾸지 않습니다: - _ . ~",
+      "example": "ENCODE_URL_COMPONENT(\"Hello Teable\") => \"Hello%20Teable\""
+    },
+    "IF": {
+      "summary": "조건이 참이면 value1, 아니면 value2 를 돌려줍니다. IF 를 겹쳐 쓸 수도 있습니다.\n셀이 비었는지 확인할 때도 씁니다.",
+      "example": "IF(2 > 1, \"A\", \"B\") => \"A\"\nIF(2 > 1, TRUE, FALSE) => TRUE"
+    },
+    "SWITCH": {
+      "summary": "식과 그 식이 가질 수 있는 값들, 그리고 각 경우에 돌려줄 값을 받습니다. 어느 것에도 맞지 않을 때 쓸 기본값도 정할 수 있습니다. IF 를 여러 겹 쓰는 대신 쓰면 편합니다.",
+      "example": "SWITCH(\"B\", \"A\", \"Value A\", \"B\", \"Value B\", \"Default Value\") => \"Value B\""
+    },
+    "AND": {
+      "summary": "모든 값이 참이면 참, 아니면 거짓을 돌려줍니다.",
+      "example": "AND(1 < 2, 5 > 3) => true\nAND(1 < 2, 5 < 3) => false"
+    },
+    "OR": {
+      "summary": "값 중 하나라도 참이면 참을 돌려줍니다.",
+      "example": "OR(1 < 2, 5 < 3) => true\nOR(1 > 2, 5 < 3) => false"
+    },
+    "XOR": {
+      "summary": "참인 값의 개수가 홀수일 때 참을 돌려줍니다.",
+      "example": "XOR(1 < 2, 5 < 3, 8 < 10) => false\nXOR(1 > 2, 5 < 3, 8 < 10) => true"
+    },
+    "NOT": {
+      "summary": "참과 거짓을 뒤집습니다.",
+      "example": "NOT(1 < 2) => false\nNOT(1 > 2) => true"
+    },
+    "BLANK": {
+      "summary": "빈 값을 돌려줍니다.",
+      "example": "BLANK() => null\nIF(2 > 3, \"Yes\", BLANK()) => null"
+    },
+    "ERROR": {
+      "summary": "오류 값을 돌려줍니다.",
+      "example": "IF(2 > 3, \"Yes\", ERROR(\"Calculation\")) => \"#ERROR: Calculation\""
+    },
+    "IS_ERROR": {
+      "summary": "식이 오류를 내면 참을 돌려줍니다.",
+      "example": "IS_ERROR(ERROR()) => true"
+    },
+    "TODAY": {
+      "summary": "오늘 날짜를 돌려줍니다.",
+      "example": "TODAY() => \"2023-09-08 00:00\""
+    },
+    "NOW": {
+      "summary": "지금 날짜와 시각을 돌려줍니다.",
+      "example": "NOW() => \"2023-09-08 16:50\""
+    },
+    "YEAR": {
+      "summary": "날짜의 연도를 네 자리로 돌려줍니다.",
+      "example": "YEAR(\"2023-09-08\") => 2023"
+    },
+    "MONTH": {
+      "summary": "날짜의 월을 1(1월)에서 12(12월) 사이 숫자로 돌려줍니다.",
+      "example": "MONTH(\"2023-09-08\") => 9"
+    },
+    "WEEKNUM": {
+      "summary": "그 해의 몇 번째 주인지 돌려줍니다.",
+      "example": "WEEKNUM(\"2023-09-08\") => 36"
+    },
+    "WEEKDAY": {
+      "summary": "요일을 0에서 6 사이 정수로 돌려줍니다. 두 번째 값으로 \"Sunday\" 또는 \"Monday\"를 넣어 주의 시작 요일을 정할 수 있습니다. 지정하지 않으면 일요일부터 셉니다. 예:\nWEEKDAY(TODAY(), \"Monday\")",
+      "example": "WEEKDAY(\"2023-09-08\") => 5"
+    },
+    "DAY": {
+      "summary": "날짜의 일을 1에서 31 사이 숫자로 돌려줍니다.",
+      "example": "DAY(\"2023-09-08\") => 8"
+    },
+    "HOUR": {
+      "summary": "시각의 시를 0(오전 12시)에서 23(오후 11시) 사이 숫자로 돌려줍니다.",
+      "example": "HOUR(\"2023-09-08 16:50\") => 16"
+    },
+    "MINUTE": {
+      "summary": "시각의 분을 0에서 59 사이 정수로 돌려줍니다.",
+      "example": "MINUTE(\"2023-09-08 16:50\") => 50"
+    },
+    "SECOND": {
+      "summary": "시각의 초를 0에서 59 사이 정수로 돌려줍니다.",
+      "example": "SECOND(\"2023-09-08 16:50:30\") => 30"
+    },
+    "FROMNOW": {
+      "summary": "지금과 다른 날짜 사이의 일수를 계산합니다.",
+      "example": "FROMNOW({Date}, \"day\") => 25"
+    },
+    "TONOW": {
+      "summary": "지금과 다른 날짜 사이의 일수를 계산합니다.",
+      "example": "TONOW({Date}, \"day\") => 25"
+    },
+    "DATETIME_DIFF": {
+      "summary": "두 날짜의 차이를 지정한 단위로 돌려줍니다. 기본 단위는 \"second\" 입니다.\n쓸 수 있는 단위: \"millisecond\"(ms), \"second\"(s), \"minute\"(m), \"hour\"(h), \"day\"(d), \"week\"(w), \"month\"(M), \"year\"(y).\n항상 첫 번째에서 두 번째를 뺍니다(`date1 - date2`). 시작일부터 종료일까지의 경과 시간을 구하려면 `DATETIME_DIFF(endDate, startDate, unit)` 처럼 쓰세요.",
+      "example": "DATETIME_DIFF(\"2026-03-13\", \"2026-03-09\") => 345600\nDATETIME_DIFF(\"2026-03-13\", \"2026-03-09\", \"day\") => 4"
+    },
+    "WORKDAY": {
+      "summary": "지정한 휴일을 뺀 영업일 기준으로, 시작일로부터 며칠 뒤의 날짜를 돌려줍니다",
+      "example": "WORKDAY(\"2023-09-08\", 200) => \"2024-06-14 00:00:00\"\nWORKDAY(\"2023-09-08\", 200, \"2024-01-22, 2024-01-23, 2024-01-24, 2024-01-25\") => \"2024-06-20 00:00:00\""
+    },
+    "WORKDAY_DIFF": {
+      "summary": "[startDate] 다음날부터 [endDate] 까지의 영업일 수를 돌려줍니다. 달력상 일수가 아니라 영업일 수이므로 주말과 지정한 휴일은 빠집니다. 달력 기준 경과 일수는 `DATETIME_DIFF(endDate, startDate, \"day\")` 를 쓰세요. [endDate] 가 [startDate] 보다 앞이면 음수가 되고, WORKDAY_DIFF(startDate, WORKDAY(startDate, n)) 는 n 을 돌려줍니다.",
+      "example": "WORKDAY_DIFF(\"2026-03-09\", \"2026-03-13\") => 4\nWORKDAY_DIFF(\"2026-03-09\", WORKDAY(\"2026-03-09\", 5)) => 5"
+    },
+    "IS_SAME": {
+      "summary": "두 날짜를 지정한 단위까지 비교해 같은지 봅니다. 같으면 참, 아니면 거짓입니다.",
+      "example": "IS_SAME(\"2023-09-08\", \"2023-09-10\") => false\nIS_SAME(\"2023-09-08\", \"2023-09-10\", \"month\") => true"
+    },
+    "IS_AFTER": {
+      "summary": "date1 이 date2 보다 뒤인지 봅니다. 뒤면 참, 아니면 거짓입니다.",
+      "example": "IS_AFTER(\"2023-09-10\", \"2023-09-08\") => true\nIS_AFTER(\"2023-09-10\", \"2023-09-08\", \"month\") => false"
+    },
+    "IS_BEFORE": {
+      "summary": "date1 이 date2 보다 앞인지 봅니다. 앞이면 참, 아니면 거짓입니다.",
+      "example": "IS_BEFORE(\"2023-09-08\", \"2023-09-10\") => true\nIS_BEFORE(\"2023-09-08\", \"2023-09-10\", \"month\") => false"
+    },
+    "DATE_ADD": {
+      "summary": "날짜에 지정한 \"count\" 만큼의 단위를 더합니다.",
+      "example": "DATE_ADD(\"2023-09-08 18:00:00\", 10, \"day\") => \"2023-09-18 18:00:00\""
+    },
+    "DATESTR": {
+      "summary": "날짜를 문자열(YYYY-MM-DD)로 만듭니다.",
+      "example": "DATESTR(\"2023/09/08\") => \"2023-09-08\""
+    },
+    "TIMESTR": {
+      "summary": "날짜에서 시각만 문자열(HH:mm:ss)로 만듭니다.",
+      "example": "DATESTR(\"2023/09/08 16:50:30\") => \"16:50:30\""
+    },
+    "DATETIME_FORMAT": {
+      "summary": "날짜를 지정한 형식의 문자열로 만듭니다. 쓸 수 있는 기호: YY, YYYY, M, MM, MMM, MMMM, D, DD, d, dd, ddd, dddd, H, HH, h, hh, m, mm, s, ss, SSS, Z, ZZ, A, a, LT, LTS, L, LL, LLL, LLLL, l, ll, lll, llll.",
+      "example": "DATETIME_FORMAT(\"2023-09-08\", \"DD-MM-YYYY\") => \"08-09-2023\""
+    },
+    "DATETIME_PARSE": {
+      "summary": "텍스트를 날짜로 해석합니다. 입력 형식과 지역 설정을 함께 넣을 수 있습니다. 결과는 항상 \"M/D/YYYY h:mm a\" 형식입니다.",
+      "example": "DATETIME_PARSE(\"8 Sep 2023 18:00\", \"D MMM YYYY HH:mm\") => \"2023-09-08 18:00:00\""
+    },
+    "CREATED_TIME": {
+      "summary": "현재 레코드가 만들어진 시각을 돌려줍니다.",
+      "example": "CREATED_TIME() => \"2023-09-08 18:00:00\""
+    },
+    "LAST_MODIFIED_TIME": {
+      "summary": "테이블에서 계산 필드가 아닌 곳을 사람이 마지막으로 고친 날짜와 시각을 돌려줍니다. 필드를 지정하면 그 열만 봅니다.",
+      "example": "LAST_MODIFIED_TIME() => \"2023-09-08 18:00:00\"; LAST_MODIFIED_TIME({Due Date}) => \"2023-09-09 12:00:00\""
+    },
+    "COUNTALL": {
+      "summary": "텍스트와 빈 값을 포함해 모든 항목의 개수를 돌려줍니다.",
+      "example": "COUNTALL(100, 200, \"\", \"Teable\", TRUE()) => 5"
+    },
+    "COUNTA": {
+      "summary": "비어 있지 않은 값의 개수를 돌려줍니다. 숫자와 텍스트를 모두 셉니다.",
+      "example": "COUNTA(100, 200, 300, \"\", \"Teable\", TRUE) => 4"
+    },
+    "COUNT": {
+      "summary": "숫자 항목의 개수를 돌려줍니다.",
+      "example": "COUNT(100, 200, 300, \"\", \"Teable\", TRUE) => 3"
+    },
+    "ARRAY_JOIN": {
+      "summary": "집계된 항목들을 구분자로 이어 하나의 문자열로 만듭니다.",
+      "example": "ARRAY_JOIN([\"Tom\", \"Jerry\", \"Mike\"], \"; \") => \"Tom; Jerry; Mike\""
+    },
+    "ARRAY_UNIQUE": {
+      "summary": "배열에서 중복을 뺀 항목만 돌려줍니다.",
+      "example": "ARRAY_UNIQUE([1, 2, 3, 2, 1]) => [1, 2, 3]"
+    },
+    "ARRAY_FLATTEN": {
+      "summary": "겹쳐진 배열을 평평하게 폅니다. 모든 항목이 하나의 배열에 들어갑니다.",
+      "example": "ARRAY_FLATTEN([1, 2, \" \", 3, true], [\"ABC\"]) => [1, 2, 3, \" \", true, \"ABC\"]"
+    },
+    "ARRAY_COMPACT": {
+      "summary": "배열에서 빈 문자열과 빈 값을 없앱니다. \"false\" 와 공백만 있는 문자열은 남깁니다.",
+      "example": "ARRAY_COMPACT([1, 2, 3, \"\", null, \"ABC\"]) => [1, 2, 3, \"ABC\"]"
+    },
+    "TEXT_ALL": {
+      "summary": "모든 텍스트 값을 돌려줍니다",
+      "example": "TEXT_ALL(\"t\") => t"
+    },
+    "RECORD_ID": {
+      "summary": "현재 레코드의 ID 를 돌려줍니다.",
+      "example": "RECORD_ID() => \"recxxxxxx\""
+    },
+    "AUTO_NUMBER": {
+      "summary": "레코드마다 겹치지 않는 순번을 돌려줍니다.",
+      "example": "AUTO_NUMBER() => 1"
+    },
+    "FORMULA": {
+      "summary": "변수, 연산자, 함수를 조합해 계산식을 만듭니다.",
+      "example": "Quoting the Column: {Field name}\n\nUsing operator: 100 * 2 + 300\n\nUsing function: SUM({Number Field 1}, 100)\n\nUsing IF statement: \nIF(logical condition, \"value 1\", \"value 2\")"
+    }
+  },
+  "functionType": {
+    "fields": "필드",
+    "numeric": "숫자",
+    "text": "텍스트",
+    "logical": "논리",
+    "date": "날짜",
+    "array": "배열",
+    "system": "시스템"
+  },
+  "statisticFunc": {
+    "none": "없음",
+    "count": "개수",
+    "empty": "빈 칸",
+    "filled": "채운 칸",
+    "unique": "고유값",
+    "max": "최댓값",
+    "min": "최솟값",
+    "sum": "합계",
+    "average": "평균",
+    "checked": "체크됨",
+    "unChecked": "체크 안 됨",
+    "percentEmpty": "빈 칸 비율",
+    "percentFilled": "채운 칸 비율",
+    "percentUnique": "고유값 비율",
+    "percentChecked": "체크됨 비율",
+    "percentUnChecked": "체크 안 됨 비율",
+    "earliestDate": "가장 이른 날짜",
+    "latestDate": "가장 늦은 날짜",
+    "dateRangeOfDays": "기간 (일)",
+    "dateRangeOfMonths": "기간 (개월)",
+    "totalAttachmentSize": "첨부파일 총 용량"
+  },
+  "selectionStatistic": {
+    "tip": "숫자 필드만 계산합니다.",
+    "copyTip": "눌러서 복사",
+    "copied": "복사했습니다"
+  },
+  "baseQuery": {
+    "add": "추가",
+    "error": {
+      "invalidCol": "잘못된 열입니다. 다시 골라 주세요",
+      "invalidCols": "잘못된 열: {{colNames}}",
+      "invalidTable": "잘못된 테이블입니다. 다시 골라 주세요",
+      "requiredSelect": "하나는 골라야 합니다"
+    },
+    "from": {
+      "title": "From",
+      "fromTable": "테이블 선택",
+      "fromQuery": "쿼리 결과에서"
+    },
+    "select": {
+      "title": "Select"
+    },
+    "where": {
+      "title": "Where"
+    },
+    "groupBy": {
+      "title": "Group by"
+    },
+    "orderBy": {
+      "title": "Order by",
+      "asc": "오름차순",
+      "desc": "내림차순"
+    },
+    "limit": {
+      "title": "Limit"
+    },
+    "offset": {
+      "title": "Offset"
+    },
+    "join": {
+      "title": "Join",
+      "joinType": "조인 종류",
+      "leftJoin": "Left join",
+      "rightJoin": "Right join",
+      "innerJoin": "Inner join",
+      "fullJoin": "Full join",
+      "data": "From"
+    },
+    "aggregation": {
+      "title": "집계"
+    }
+  },
+  "comment": {
+    "title": "댓글",
+    "placeholder": "댓글을 남겨 보세요...",
+    "emptyComment": "대화를 시작해 보세요",
+    "deletedComment": "삭제된 댓글",
+    "tip": {
+      "editing": "수정 중...",
+      "edited": "(수정됨)",
+      "notifyAll": "모든 댓글 알림",
+      "notifyRelatedToMe": "나와 관련된 댓글만 알림",
+      "all": "전체",
+      "relatedToMe": "나와 관련된 것",
+      "reactionUserSuffix": "님이 {{emoji}}로 반응했습니다",
+      "me": "나",
+      "connection": "그리고"
+    },
+    "toolbar": {
+      "link": "링크",
+      "image": "이미지",
+      "mention": "멘션"
+    },
+    "floatToolbar": {
+      "editLink": "링크 편집",
+      "linkText": "링크 문구",
+      "enterUrl": "주소 입력"
+    }
+  },
+  "memberSelector": {
+    "title": "구성원 선택",
+    "memberSelectorSearchPlaceholder": "구성원 검색...",
+    "departmentSelectorSearchPlaceholder": "부서 검색...",
+    "selected": "선택함",
+    "empty": "구성원이 없습니다",
+    "emptyDepartment": "부서가 없습니다"
+  },
+  "httpErrors": {
+    "validationError": "값 검사에 실패했습니다",
+    "invalidCaptcha": "캡차가 올바르지 않습니다",
+    "invalidCredentials": "아이디 또는 비밀번호가 올바르지 않습니다",
+    "unauthorized": "권한이 없습니다",
+    "unauthorizedShare": "이 공유에 접근할 권한이 없습니다",
+    "paymentRequired": "결제가 필요합니다",
+    "creditLimitExceeded": "크레딧 한도를 넘었습니다",
+    "restrictedResource": "접근이 제한된 항목입니다",
+    "notFound": "찾을 수 없습니다",
+    "conflict": "충돌이 발생했습니다",
+    "unprocessableEntity": "처리할 수 없는 요청입니다",
+    "userLimitExceeded": "사용자 수 한도를 넘었습니다",
+    "tooManyRequests": "요청이 너무 많습니다",
+    "internalServerError": "서버 오류가 발생했습니다",
+    "databaseConnectionUnavailable": "데이터베이스에 연결할 수 없습니다",
+    "gatewayTimeout": "게이트웨이 응답 시간이 초과되었습니다",
+    "unknownErrorCode": "알 수 없는 오류 코드입니다",
+    "networkError": "네트워크 연결에 문제가 있습니다",
+    "requestTimeout": "요청 시간이 초과되었습니다",
+    "failedDependency": "먼저 처리돼야 할 작업이 실패했습니다",
+    "automationNodeParseError": "자동화 단계를 읽지 못했습니다",
+    "automationNodeNeedTest": "자동화 단계를 테스트해야 합니다",
+    "automationNodeTestOutdated": "자동화 단계의 테스트 결과가 오래되었습니다",
+    "invalidToken": "토큰이 올바르지 않습니다",
+    "limit": {
+      "fieldOptionsMaxBytes": "필드 설정이 너무 큽니다. 최대 {{max}} 바이트입니다.",
+      "selectChoicesMax": "선택지가 너무 많습니다. 최대 {{max}}개입니다.",
+      "selectChoiceNameMaxLength": "선택지 이름이 너무 깁니다. 최대 {{max}}자입니다.",
+      "selectDefaultValuesMax": "기본값이 너무 많습니다. 최대 {{max}}개입니다.",
+      "cellValueMaxBytes": "셀 값이 너무 큽니다. 최대 {{max}} 바이트입니다.",
+      "recordFieldsMaxBytes": "레코드 내용이 너무 큽니다. 최대 {{max}} 바이트입니다.",
+      "recordsPerMutationMax": "한 번에 바꾸는 레코드가 너무 많습니다. 최대 {{max}}개입니다.",
+      "computedCellValueMaxBytes": "계산된 셀 값이 너무 큽니다. 최대 {{max}} 바이트입니다.",
+      "formulaMaxLength": "수식이 너무 깁니다. 최대 {{max}}자입니다.",
+      "tablesPerBaseMax": "이 베이스의 테이블 수 한도에 도달했습니다. 최대 {{max}}개입니다.",
+      "fieldsPerTableMax": "필드가 너무 많습니다. 최대 {{max}}개입니다.",
+      "rowsPerTableMax": "레코드가 너무 많습니다. 최대 {{max}}개입니다.",
+      "viewsPerTableMax": "이 테이블의 뷰 수 한도에 도달했습니다. 최대 {{max}}개입니다.",
+      "createTableFieldsMax": "새 테이블의 필드가 너무 많습니다. 최대 {{max}}개입니다.",
+      "createTableViewsMax": "새 테이블의 뷰가 너무 많습니다. 최대 {{max}}개입니다.",
+      "createTableRecordsMax": "새 테이블의 레코드가 너무 많습니다. 최대 {{max}}개입니다.",
+      "viewFilterItemsMax": "필터 조건이 너무 많습니다. 최대 {{max}}개입니다.",
+      "viewFilterDepthMax": "필터가 너무 깊게 중첩되었습니다. 최대 {{max}}단계입니다.",
+      "viewSortItemsMax": "정렬 규칙이 너무 많습니다. 최대 {{max}}개입니다.",
+      "viewGroupItemsMax": "그룹 규칙이 너무 많습니다. 최대 {{max}}개입니다.",
+      "viewOptionsMaxBytes": "뷰 설정이 너무 큽니다. 최대 {{max}} 바이트입니다.",
+      "nameMaxLength": "이름이 너무 깁니다. 최대 {{max}}자입니다.",
+      "descriptionMaxLength": "설명이 너무 깁니다. 최대 {{max}}자입니다."
+    },
+    "validation": {
+      "field": {
+        "unique": "값이 겹치지 않아야 합니다"
+      }
+    },
+    "custom": {
+      "fieldValueNotNull": "\"{{tableName}}\"의 \"{{fieldName}}\" 은(는) 비워 둘 수 없습니다. 모두 채운 뒤 제출해 주세요.",
+      "fieldValueDuplicate": "\"{{tableName}}\"의 \"{{fieldName}}\" 은(는) 값이 겹칠 수 없습니다. 겹치지 않는 값을 넣어 주세요.",
+      "linkFieldValueDuplicate": "\"{{fieldName}}\" 은(는) 같은 레코드를 여러 번 연결할 수 없습니다",
+      "requestTimeout": "한 번에 처리하기에 범위가 너무 큽니다. 범위를 줄여 다시 시도해 주세요.",
+      "searchTimeOut": "검색 시간이 초과되었습니다. 범위를 줄여 다시 시도해 주세요",
+      "dependencyNodeRequire": "앞선 단계가 테스트되지 않았습니다. 이전 단계들을 모두 테스트했는지 확인해 주세요",
+      "invalidOperation": "잘못된 동작입니다. 설정한 값을 확인해 주세요"
+    },
+    "comment": {
+      "listCountExceeded": "한 번에 가져올 수 있는 댓글은 1000개까지입니다",
+      "invalidContentType": "댓글 내용 형식이 올바르지 않습니다"
+    },
+    "attachment": {
+      "tokenExpireInTooLong": "토큰 만료는 7일 미만이어야 합니다",
+      "s3RegionRequired": "S3 리전을 입력하세요",
+      "s3EndpointRequired": "S3 엔드포인트를 입력하세요",
+      "s3AccessKeyRequired": "S3 액세스 키를 입력하세요",
+      "s3SecretKeyRequired": "S3 시크릿 키를 입력하세요",
+      "s3UploadMethodMustBePut": "S3 업로드 방식은 PUT 이어야 합니다",
+      "presignedError": "서명된 주소를 만들지 못했습니다",
+      "invalidObjectMeta": "객체 메타데이터가 올바르지 않습니다",
+      "invalidImageStream": "이미지 스트림이 올바르지 않습니다",
+      "calculateImageSizeFailed": "이미지 크기를 계산하지 못했습니다",
+      "uploadFailed": "올리지 못했습니다",
+      "invalidImage": "올바르지 않은 이미지입니다",
+      "cantGetImageStream": "이미지 스트림을 가져올 수 없습니다",
+      "invalidProvider": "올바르지 않은 저장소 공급자입니다",
+      "failedToDeleteDirectory": "폴더를 지우지 못했습니다",
+      "invalidToken": "토큰이 올바르지 않습니다",
+      "tokenExpired": "토큰이 만료되었습니다",
+      "sizeMismatch": "파일 크기가 맞지 않습니다",
+      "notAllowUploadFileType": "{{mimetype}} 형식은 올릴 수 없습니다",
+      "notFound": "첨부파일을 찾을 수 없습니다",
+      "invalidPath": "첨부파일 경로가 올바르지 않습니다",
+      "fileSizeExceedsMaximumLimit": "파일 크기가 최대 {{maxSize}} 를 넘었습니다",
+      "invalidUploadType": "올바르지 않은 업로드 종류입니다",
+      "urlReject": "주소가 거부되었거나 접근할 수 없습니다"
+    },
+    "email": {
+      "testEmailError": "메일 설정 오류 {{message}}"
+    },
+    "auth": {
+      "invalidConfirm": "확인 입력이 올바르지 않습니다",
+      "emailNotRegistered": "가입되지 않은 이메일입니다",
+      "passwordNotSet": "이 계정에는 비밀번호가 설정돼 있지 않습니다",
+      "systemUser": "시스템 계정입니다",
+      "alreadyRegistered": "이미 가입된 이메일입니다",
+      "passwordIncorrect": "비밀번호가 올바르지 않습니다",
+      "tokenInvalid": "토큰이 올바르지 않거나 만료되었습니다",
+      "passwordAlreadyExists": "이 계정에는 이미 비밀번호가 설정돼 있습니다",
+      "verificationCodeInvalid": "인증 코드가 올바르지 않거나 만료되었습니다",
+      "newEmailSameAsCurrentEmail": "새 이메일이 지금 쓰는 이메일과 같습니다",
+      "emailAlreadyRegistered": "이미 가입된 이메일 주소입니다",
+      "waitlistNotEnabled": "대기자 명단 기능이 꺼져 있습니다",
+      "emailOrPasswordIncorrect": "이메일 또는 비밀번호가 올바르지 않습니다",
+      "accountDeactivated": "관리자가 이 계정을 비활성화했습니다",
+      "accountLockedOut": "로그인을 여러 번 실패해 계정이 잠겼습니다. 잠시 뒤에 다시 시도해 주세요.",
+      "passwordLoginDisabled": "비밀번호 로그인이 꺼져 있습니다"
+    },
+    "automation": {
+      "buttonClickTriggerDuplicated": "이 버튼 필드는 이미 {{name}}[{{id}}] 자동화에 연결돼 있습니다. 다른 버튼 필드를 골라 주세요",
+      "triggerNotFound": "자동화에는 시작 단계가 있어야 합니다",
+      "nodeNotFound": "{{nodeId}} 단계를 찾을 수 없습니다",
+      "triggerTestFailed": "시작 단계 테스트에 실패했습니다. 설정을 확인해 주세요",
+      "testFailed": "자동화 테스트에 실패했습니다. 설정을 확인해 주세요",
+      "runFailed": "자동화 실행에 실패했습니다",
+      "nodeParseError": "{{name}} 단계의 설정이 비었거나 잘못되었습니다. 설정을 확인해 주세요",
+      "nodeNeedTest": "{{name}} 단계를 테스트해야 합니다",
+      "nodeTestOutdated": "{{name}} 단계의 테스트 결과가 오래되었습니다",
+      "notFound": "자동화를 찾을 수 없습니다",
+      "currentSnapshotEmpty": "자동화의 현재 스냅샷이 비어 있습니다",
+      "runNotFound": "자동화 실행 기록을 찾을 수 없습니다",
+      "anchorNotFound": "기준 자동화를 찾을 수 없습니다",
+      "validationError": "자동화 설정 검사에 실패했습니다",
+      "tableNotInBase": "같은 베이스 안의 테이블만 구독할 수 있습니다",
+      "alreadyActiveAndNotDraft": "이미 켜져 있고 초안 상태가 아닙니다",
+      "noActiveSnapshot": "켜져 있는 스냅샷이 없습니다",
+      "onlyFailedRunsCanRerun": "실패한 실행만 다시 돌릴 수 있습니다",
+      "workflowMustBeActiveToRerun": "다시 돌리려면 워크플로가 켜져 있어야 합니다",
+      "snapshotChangedOnlyFullRerun": "이 실행 이후 워크플로가 바뀌었습니다. 전체 재실행만 가능합니다.",
+      "controlStepsMissingOnlyFullRerun": "제어 단계 데이터가 없습니다. 전체 재실행만 가능합니다.",
+      "triggerNodeAlreadyExists": "이 자동화에는 이미 시작 단계가 있습니다",
+      "unSupportLogicType": "지원하지 않는 논리 종류입니다",
+      "generateLogicError": "논리 단계를 만들지 못했습니다",
+      "logicNotFound": "논리 단계를 찾을 수 없습니다",
+      "groupEndNotFound": "논리에 대응하는 GroupEnd 를 찾을 수 없습니다",
+      "insertNodeError": "단계를 넣지 못했습니다",
+      "actionNotFound": "동작 단계를 찾을 수 없습니다",
+      "unSupportDuplicateWorkflowNodeType": "복제할 수 없는 자동화 단계 종류입니다",
+      "controlNodeNotBeTested": "제어 단계는 테스트할 수 없습니다",
+      "invalidNodeType": "올바르지 않은 단계 종류입니다",
+      "unsupportedCategory": "지원하지 않는 분류입니다",
+      "unknownConnectionType": "알 수 없는 메일 연결 방식입니다",
+      "imapPasswordNotConfigured": "IMAP 비밀번호가 설정돼 있지 않습니다",
+      "integrationNotFound": "연동을 찾을 수 없거나 자격 정보가 없습니다",
+      "webhookTriggerNotFound": "웹훅 시작 단계를 찾을 수 없습니다",
+      "emailReceivedTriggerNotFound": "메일 수신 시작 단계를 찾을 수 없습니다",
+      "emailConnectorNotAvailable": "메일 연결 서비스를 쓸 수 없습니다",
+      "listMailboxesFailed": "메일함 목록을 가져오지 못했습니다: {{detail}}"
+    },
+    "scrape": {
+      "unknownDataset": "알 수 없는 데이터셋입니다: {{datasetId}}",
+      "apiKeyNotConfigured": "스크랩 서비스가 설정돼 있지 않습니다",
+      "triggerFailed": "스크랩을 시작하지 못했습니다: {{detail}}",
+      "snapshotError": "스크랩 스냅샷 오류: {{detail}}",
+      "timeout": "스크랩이 {{seconds}}초 만에 시간 초과되었습니다"
+    },
+    "integration": {
+      "oauthCodeExchangeFailed": "OAuth 코드를 교환하지 못했습니다: {{detail}}",
+      "oauthTokenRefreshFailed": "OAuth 토큰을 갱신하지 못했습니다: {{detail}}",
+      "userInfoFetchFailed": "사용자 정보를 가져오지 못했습니다: {{detail}}"
+    },
+    "space": {
+      "notFound": "스페이스를 찾을 수 없습니다",
+      "noPermission": "이 스페이스에 접근할 권한이 없습니다",
+      "disallowSpaceCreation": "관리자가 스페이스 생성을 막아 두었습니다",
+      "cannotChangeOnlyOwnerRole": "스페이스에 소유자가 한 명뿐이라 역할을 바꿀 수 없습니다",
+      "cannotDeleteOnlyOwner": "스페이스에 소유자가 한 명뿐이라 삭제할 수 없습니다",
+      "deleted": "삭제된 스페이스입니다",
+      "cannotOperate": "이 스페이스에서 작업할 수 없습니다. 스페이스에 조직 구성원이 있고 그들이 소유자인지 확인해 주세요",
+      "notBelongToOrg": "이 스페이스는 해당 조직에 속해 있지 않습니다",
+      "invalidSpaceIds": "올바르지 않은 스페이스 ID 입니다: {{spaceIds}}",
+      "freeOwnedSpaceLimitExceeded": "무료로 가질 수 있는 스페이스 수({{max}}개)를 모두 썼습니다. 기존 스페이스를 업그레이드하거나 하나를 삭제한 뒤 다시 만들어 주세요.",
+      "freeOwnedSpaceLimitExceededOther": "{{name}} 님이 무료로 가질 수 있는 스페이스 수({{max}}개)를 모두 썼습니다."
+    },
+    "base": {
+      "notFound": "베이스를 찾을 수 없습니다",
+      "cannotAccess": "베이스 {{baseId}} 에 접근할 권한이 없습니다",
+      "anchorNotFound": "기준 베이스 {{anchorId}} 를 찾을 수 없습니다",
+      "baseAndSpaceMismatch": "베이스 {{baseId}} 와 스페이스 {{spaceId}} 가 맞지 않습니다",
+      "templateNotFound": "템플릿 {{templateId}} 를 찾을 수 없습니다"
+    },
+    "baseNode": {
+      "baseIdIsRequired": "베이스 ID 가 필요합니다",
+      "nodeIdIsRequired": "항목 ID 가 필요합니다",
+      "invalidResourceType": "올바르지 않은 항목 종류입니다",
+      "notFound": "항목을 찾을 수 없습니다",
+      "parentMustBeFolder": "상위 항목은 폴더여야 합니다",
+      "cannotDuplicateFolder": "폴더는 복제할 수 없습니다",
+      "cannotDeleteEmptyFolder": "폴더가 비어 있지 않아 삭제할 수 없습니다",
+      "onlyOneOfParentIdOrAnchorIdRequired": "parentId 와 anchorId 중 하나만 넣어야 합니다",
+      "cannotMoveToItself": "자기 자신 아래로 옮길 수 없습니다",
+      "cannotMoveToCircularReference": "자기 하위 항목 아래로 옮길 수 없습니다",
+      "anchorIdOrParentIdRequired": "parentId 또는 anchorId 중 하나는 있어야 합니다",
+      "parentNotFound": "상위 항목을 찾을 수 없습니다",
+      "parentIsNotFolder": "상위 항목이 폴더가 아닙니다",
+      "circularReference": "순환 참조가 발견되었습니다",
+      "folderDepthLimitExceeded": "폴더 깊이 한도를 넘었습니다",
+      "folderNotFound": "폴더를 찾을 수 없습니다",
+      "anchorNotFound": "기준 항목을 찾을 수 없습니다",
+      "nameAlreadyExists": "같은 이름이 이미 있습니다"
+    },
+    "dashboard": {
+      "notFound": "대시보드를 찾을 수 없습니다"
+    },
+    "plugin": {
+      "notFound": "플러그인을 찾을 수 없습니다",
+      "notSupportInstallInView": "이 플러그인은 뷰에 설치할 수 없습니다",
+      "userNotFound": "플러그인 사용자를 찾을 수 없습니다",
+      "invalidSecret": "시크릿이 올바르지 않습니다",
+      "invalidRefreshToken": "갱신 토큰이 올바르지 않습니다",
+      "anomalousToken": "비정상적인 토큰입니다"
+    },
+    "pluginPanel": {
+      "notFound": "플러그인 패널을 찾을 수 없습니다"
+    },
+    "pluginInstall": {
+      "notFound": "설치되지 않은 플러그인입니다"
+    },
+    "share": {
+      "incorrectPassword": "비밀번호가 올바르지 않습니다",
+      "notAllowedToSubmit": "폼 제출이 허용되지 않았습니다",
+      "notAllowedToEdit": "이 공유에서는 편집할 수 없습니다",
+      "viewRequired": "이 작업에는 뷰가 필요합니다",
+      "hiddenFieldsSubmissionNotAllowed": "숨긴 필드가 포함되어 폼을 제출할 수 없습니다",
+      "submitRecordsError": "레코드를 제출하지 못했습니다",
+      "notAllowedToCopy": "복사가 허용되지 않았습니다",
+      "fieldHiddenNotAllowed": "숨겨진 필드라 접근할 수 없습니다",
+      "fieldTypeNotLinkField": "연결 필드가 아닙니다",
+      "fieldIdRequired": "필드 ID 가 필요합니다",
+      "fieldNotUserRelatedField": "사용자와 관련된 필드가 아닙니다",
+      "viewTypeNotAllowed": "이 작업에는 쓸 수 없는 뷰 종류입니다"
+    },
+    "shareAuth": {
+      "passwordRestrictionNotEnabled": "이 공유에는 비밀번호 제한이 켜져 있지 않습니다",
+      "shareViewNotFound": "공유된 뷰를 찾을 수 없거나 공유가 꺼져 있습니다",
+      "linkFieldNotFound": "연결 필드를 찾을 수 없습니다",
+      "loginRequired": "공유된 뷰를 편집하려면 로그인해 주세요"
+    },
+    "baseShare": {
+      "notFound": "베이스 공유를 찾을 수 없거나 공유가 꺼져 있습니다",
+      "alreadyExists": "이 항목에는 이미 공유가 있습니다",
+      "copyNotAllowed": "이 공유에서는 복사할 수 없습니다"
+    },
+    "shareSocket": {
+      "viewPermissionNotAllowed": "이 뷰에 접근할 권한이 없습니다",
+      "fieldPermissionNotAllowed": "이 필드들에 접근할 권한이 없습니다",
+      "recordPermissionNotAllowed": "이 레코드들에 접근할 권한이 없습니다"
+    },
+    "pluginContextMenu": {
+      "notFound": "오른쪽 클릭 메뉴 플러그인을 찾을 수 없습니다",
+      "anchorNotFound": "오른쪽 클릭 메뉴 플러그인의 기준 위치를 찾을 수 없습니다"
+    },
+    "pluginChart": {
+      "queryNotFound": "차트 플러그인의 조회 설정을 찾을 수 없습니다"
+    },
+    "dbConnection": {
+      "unsupportedDriver": "지원하지 않는 데이터베이스 드라이버입니다: {{driver}}",
+      "onlyOwnerCanRemove": "베이스 {{baseId}} 의 데이터베이스 연결은 소유자만 삭제할 수 있습니다",
+      "onlyOwnerCanCreate": "베이스 {{baseId}} 의 데이터베이스 연결은 소유자만 만들 수 있습니다",
+      "roleNotExist": "데이터베이스 역할 {{role}} 이(가) 없습니다"
+    },
+    "baseQuery": {
+      "queryFailed": "조회에 실패했습니다: {{message}}",
+      "invalidJoinType": "올바르지 않은 조인 종류입니다: {{joinType}}",
+      "tableNotFound": "베이스 {{baseId}} 에서 테이블 {{tableId}} 를 찾을 수 없습니다"
+    },
+    "baseSqlExecutor": {
+      "notAllowedToExecuteSqlWithKeyword": "{{keyword}} 키워드가 들어간 SQL 은 실행할 수 없습니다",
+      "whiteListCheckError": "테이블 접근 권한을 확인하는 중 오류가 났습니다: {{message}}",
+      "databaseConnectionFailed": "데이터베이스 연결에 실패했습니다: {{message}}",
+      "executeQuerySqlFailed": "조회 SQL 실행에 실패했습니다: {{message}}",
+      "readOnlyCheckFailed": "읽기 전용 확인에 실패했습니다: {{message}}",
+      "sqlSyntaxError": "SQL 문법 오류입니다. 쿼리를 확인해 주세요"
+    },
+    "permission": {
+      "createRecordWithDeniedFields": "{{fields}} 필드가 포함된 레코드를 만들 권한이 없습니다",
+      "deleteRecords": "레코드({{recordIds}})를 삭제할 권한이 없습니다",
+      "readRecordWithDeniedFields": "레코드({{recordId}})의 {{fields}} 필드를 볼 권한이 없습니다",
+      "updateRecordWithDeniedFields": "레코드({{recordId}})의 {{fields}} 필드를 수정할 권한이 없습니다",
+      "checkIdNotExist": "권한 확인 ID 가 없습니다",
+      "userNotAdmin": "관리자가 아닙니다",
+      "accessTokenNoPermission": "액세스 토큰에 필요한 권한이 없습니다",
+      "invalidResource": "올바르지 않은 항목입니다",
+      "notAllowedSpace": "이 스페이스에 접근할 권한이 없습니다",
+      "notAllowedBase": "이 베이스에 접근할 권한이 없습니다",
+      "notAllowedTables": "테이블({{tableIds}})에 접근할 권한이 없습니다",
+      "notAllowedOperationTable": "이 테이블에서 작업할 권한이 없습니다",
+      "notAllowedOperationRecord": "이 레코드에서 작업할 권한이 없습니다",
+      "notAllowedRecordUpdate": "이 레코드를 수정할 권한이 없습니다",
+      "notAllowedOperationView": "이 뷰에서 작업할 권한이 없습니다",
+      "deniedByEnabledAuthorityMatrix": "권한 매트릭스 설정 때문에 거부되었습니다",
+      "invalidRequestPath": "올바르지 않은 요청 경로입니다",
+      "notAllowedOperation": "이 작업을 할 권한이 없습니다",
+      "notAllowedDepartment": "이 부서에 접근할 권한이 없습니다",
+      "templateHeaderInvalid": "템플릿 헤더가 올바르지 않습니다"
+    },
+    "authorityMatrix": {
+      "defaultRoleNotFound": "기본 역할을 찾을 수 없습니다",
+      "alreadyDisabled": "권한 매트릭스가 이미 꺼져 있습니다",
+      "alreadyEnabled": "권한 매트릭스가 이미 켜져 있습니다",
+      "notFound": "권한 매트릭스를 찾을 수 없습니다",
+      "primaryFieldCannotBeDisabledForRead": "기본 필드는 읽기 권한을 끌 수 없습니다",
+      "fieldDuplicated": "권한 설정에 같은 필드가 중복되어 있습니다",
+      "cannotSetRecordPermissionGroup": "이 조합의 레코드 권한({{actions}})은 설정할 수 없습니다",
+      "notFoundBaseAndTable": "베이스 ID 와 테이블 ID 를 찾을 수 없습니다",
+      "roleTablesShouldNotBeEmpty": "권한 매트릭스 역할의 테이블 목록이 비어 있으면 안 됩니다"
+    },
+    "selection": {
+      "invalidReturnType": "올바르지 않은 반환 형식입니다",
+      "exceedMaxReadRows": "한 번에 읽을 수 있는 행 수를 넘었습니다",
+      "invalidCellValueType": "올바르지 않은 셀 값 형식입니다",
+      "exceedMaxCopyCells": "한 번에 복사할 수 있는 셀 수를 넘었습니다",
+      "exceedMaxPasteCells": "한 번에 붙여넣을 수 있는 셀 수를 넘었습니다"
+    },
+    "field": {
+      "unsupportedFieldType": "지원하지 않는 필드 종류입니다: {{type}}",
+      "unsupportedPrimaryFieldType": "{{type}} 은(는) 기본 필드로 쓸 수 없습니다",
+      "primaryFieldNotSupported": "이 종류는 기본 필드로 쓸 수 없습니다",
+      "calculateRecordNotFound": "{{recordId}} 를 계산하는 중 레코드를 찾지 못했습니다: {{value}}, fieldId: {{fieldId}}",
+      "toRecordIdsOrFromRecordIdsRequired": "계산 필드에는 toRecordIds 또는 fromRecordIds 가 필요합니다",
+      "recordFieldsRequired": "레코드 필드가 비어 있습니다",
+      "uniqueUnsupportedType": "필드 {{name}}[{{fieldId}}] 은(는) 값 중복 검사를 지원하지 않습니다",
+      "notNullValidationWhenCreateField": "필드 {{name}}[{{fieldId}}] 은(는) 만들 때 필수 검사를 지원하지 않습니다",
+      "dbFieldNameAlreadyExists": "데이터베이스 필드 이름 {{dbFieldName}} 이(가) 이미 있습니다",
+      "fieldValidationError": "필드 {{name}}[{{fieldId}}] 검사에 실패했습니다",
+      "fieldNameAlreadyExists": "필드 이름 {{name}} 이(가) 이미 있습니다",
+      "notFound": "필드를 찾을 수 없습니다",
+      "fieldKeyTypeNotFound": "필드 \"{{fieldKeyType}}: {{missedFields}}\" 를 찾을 수 없습니다",
+      "notFoundInTable": "테이블 {{tableId}} 에서 필드 {{fieldId}} 를 찾을 수 없습니다",
+      "deleteFieldsNotFound": "테이블 {{tableId}} 에서 삭제할 필드 {{fieldIds}} 를 찾을 수 없습니다",
+      "lookupValuesShouldBeArray": "연결 필드가 여러 값을 가질 때 lookupValues 는 배열이어야 합니다",
+      "linkCellValuesShouldBeArray": "연결 필드가 여러 값을 가질 때 linkCellValues 는 배열이어야 합니다",
+      "lookupAndLinkLengthMatch": "lookupValues 와 linkCellValues 의 길이가 같아야 합니다",
+      "cycleDetected": "순환 참조가 발견되었습니다",
+      "cycleDetectedCreateField": "순환 참조가 있어 필드 {{name}}[{{id}}] 를 만들 수 없습니다",
+      "recordMapNotFound": "필드 {{fieldName}} 에 대해 테이블 {{tableName}} 에서 레코드를 찾지 못했습니다",
+      "forbidDeletePrimaryField": "기본 필드는 삭제할 수 없습니다",
+      "foreignTableIdInvalid": "연결 대상 테이블 {{foreignTableId}} 이(가) 올바르지 않습니다",
+      "crossSpaceLinkForbidden": "스페이스를 넘나드는 연결은 지원하지 않습니다. 같은 스페이스의 테이블을 골라 주세요(대상 {{foreignTableId}} 는 다른 스페이스에 있습니다).",
+      "relationshipInvalid": "관계 {{relationship}} 이(가) 올바르지 않습니다",
+      "linkFieldIdInvalid": "연결 필드 {{linkFieldId}} 이(가) 올바르지 않습니다",
+      "lookupFieldIdInvalid": "조회 필드 {{lookupFieldId}} 이(가) 올바르지 않습니다",
+      "formulaExpressionParseError": "수식을 읽지 못했습니다",
+      "formulaReferenceNotFound": "수식이 참조하는 필드 {{fieldIds}} 를 찾을 수 없습니다",
+      "formulaReferenceNotFieldId": "수식이 참조하는 {{fieldIds}} 를 찾을 수 없습니다. 수식에는 필드 이름이 아니라 필드 ID(fldXXXXXXXXXXXXXXXX 형식)를 써야 합니다.",
+      "rollupExpressionParseError": "집계 수식을 읽지 못했습니다",
+      "choiceNameAlreadyExists": "선택지 이름 {{name}} 이(가) 이미 있습니다",
+      "symmetricFieldIdRequired": "양방향 연결 필드 ID 가 필요합니다",
+      "foreignKeyNameCannotUseId": "외래 키 이름으로 __id 를 쓸 수 없습니다",
+      "createForeignKeyError": "외래 키를 만들지 못했습니다",
+      "lookupFieldTypeNotEqual": "현재 필드 종류 {{fieldType}} 이(가) 조회 필드 종류 {{lookupFieldType}} 와 다릅니다",
+      "recordNotFound": "{{tableId}} 에서 레코드 {{recordId}} 를 찾을 수 없습니다",
+      "linkCellRecordIdAlreadyExists": "같은 셀에 레코드 {{recordId}} 를 중복해서 넣을 수 없습니다",
+      "linkConsistencyError": "정합성 오류입니다. 레코드 ID {{recordId}} 가 존재하지 않습니다",
+      "oneOneLinkCellValueCannotBeArray": "일대일 연결 필드 값은 배열일 수 없습니다",
+      "manyOneLinkCellValueCannotBeArray": "다대일 연결 필드 값은 배열일 수 없습니다",
+      "oneManyLinkCellValueShouldBeArray": "일대다 연결 필드 값은 배열이어야 합니다",
+      "manyManyLinkCellValueShouldBeArray": "다대다 연결 필드 값은 배열이어야 합니다",
+      "foreignKeyDuplicate": "외래 키가 중복되었습니다",
+      "onlyLinkFieldCanBeFiltered": "연결 필드만 필터에 쓸 수 있습니다",
+      "notLinkedToCurrentTable": "현재 테이블과 연결된 필드가 아닙니다",
+      "notAttachment": "첨부파일 필드가 아닙니다",
+      "isComputed": "계산 필드라 수정할 수 없습니다",
+      "notFoundAICofig": "이 필드에는 AI 설정이 없습니다",
+      "foreignTableIdRequired": "연결 대상 테이블을 지정하세요",
+      "lookupFieldIdRequired": "조회 필드를 지정하세요",
+      "lookupFieldNotExist": "조회 필드 {{lookupFieldId}} 이(가) 없습니다",
+      "lookupFieldNotBelongToTable": "조회 필드 {{lookupFieldId}} 은(는) 테이블 {{foreignTableId}} 에 속하지 않습니다",
+      "lookupFieldTypeNotMatch": "현재 필드 종류 {{fieldType}} 이(가) 조회 필드 종류 {{lookupFieldType}} 와 맞지 않습니다",
+      "conditionalRollupOptionsRequired": "조건부 집계 설정이 필요합니다",
+      "conditionalRollupParseError": "조건부 집계를 읽지 못했습니다: {{message}}",
+      "conditionalLookupOptionsRequired": "조건부 조회 설정이 필요합니다",
+      "button": {
+        "clickCountReachedMaxCount": "버튼 클릭 횟수 한도에 도달했습니다",
+        "notSupportReset": "이 버튼 필드는 초기화를 지원하지 않습니다"
+      },
+      "primaryCannotBeLookup": "기본 필드는 조회 필드로 설정할 수 없습니다",
+      "primaryFieldAlreadyExists": "이 테이블에는 이미 기본 필드가 있습니다"
+    },
+    "view": {
+      "notFound": "뷰를 찾을 수 없습니다",
+      "cannotDeleteLastView": "마지막 뷰는 삭제할 수 없습니다. 테이블에는 뷰가 하나 이상 있어야 합니다.",
+      "defaultViewNotFound": "기본 뷰를 찾을 수 없습니다",
+      "propertyParseError": "뷰 설정을 읽지 못했습니다",
+      "primaryFieldCannotBeHidden": "기본 필드는 숨길 수 없습니다",
+      "filterUnsupportedFieldType": "이 필드 종류는 필터를 지원하지 않습니다",
+      "filterInvalidOperator": "이 필드 종류에 쓸 수 없는 필터 조건입니다",
+      "filterInvalidOperatorMode": "필터 조건과 방식의 조합이 올바르지 않습니다",
+      "sortUnsupportedFieldType": "이 필드 종류는 정렬을 지원하지 않습니다",
+      "groupUnsupportedFieldType": "이 필드 종류는 그룹을 지원하지 않습니다",
+      "anchorNotFound": "기준 뷰를 찾을 수 없습니다",
+      "notEnoughGapToShuffleRow": "행 순서를 조정할 여유가 없습니다",
+      "shareNotEnabled": "뷰 공유가 켜져 있지 않습니다",
+      "shareAlreadyEnabled": "뷰 공유가 이미 켜져 있습니다",
+      "shareAlreadyDisabled": "뷰 공유가 이미 꺼져 있습니다"
+    },
+    "billing": {
+      "insufficientCredit": "크레딧이 부족합니다",
+      "exceedMaxRowLimit": "행 수 한도 {{maxRowCount}} 를 넘었습니다",
+      "exceedMaxAutomationRunLimit": "자동화 실행 횟수 한도를 넘었습니다",
+      "manualSubscriptionNotSupported": "이 스페이스는 직접 구독을 변경할 수 없습니다. 업그레이드나 그 밖의 변경은 Teable 지원팀에 문의해 주세요.",
+      "appSumoSubscriptionNotSupported": "AppSumo 구독은 여기서 바꿀 수 없습니다. AppSumo 에서 관리해 주세요.",
+      "customerNotFound": "이 스페이스의 결제 정보를 찾을 수 없습니다."
+    },
+    "aggregation": {
+      "searchQueryRequired": "검색어를 입력해 주세요",
+      "maxSearchIndexResult": "검색 색인 결과는 최대 1000개까지입니다",
+      "queryCollectionMustBeTableId": "조회 대상은 테이블 ID 여야 합니다",
+      "searchTimeOut": "검색 시간이 초과되었습니다. 범위를 줄여 다시 시도해 주세요",
+      "indexNotFound": "인덱스를 찾을 수 없습니다",
+      "invalidStartDateFieldId": "시작일 필드 ID 가 올바르지 않습니다",
+      "invalidEndDateFieldId": "종료일 필드 ID 가 올바르지 않습니다",
+      "fieldMapRequired": "검색을 쓸 때는 필드 지정이 필요합니다",
+      "filterLinkCellQueryConflict": "filterLinkCellSelected 와 filterLinkCellCandidate 는 함께 쓸 수 없습니다"
+    },
+    "ai": {
+      "chatModelLgNotSet": "AI 대화 모델(대)이 설정돼 있지 않습니다",
+      "chatModelLgProviderNotSet": "AI 대화 모델(대)의 공급자가 설정돼 있지 않습니다",
+      "chatModelSmNotSet": "AI 대화 모델(소)이 설정돼 있지 않습니다",
+      "chatModelMdNotSet": "AI 대화 모델(중)이 설정돼 있지 않습니다",
+      "configurationNotSet": "AI 설정이 돼 있지 않습니다",
+      "unsupportedProvider": "지원하지 않는 AI 공급자입니다: {{type}}",
+      "providerConfigurationNotSet": "AI 공급자 설정이 돼 있지 않습니다",
+      "gatewayApiKeyNotSet": "AI 게이트웨이 API 키가 설정돼 있지 않습니다",
+      "testLLMFailed": "LLM 연결 확인에 실패했습니다",
+      "audioNotSupported": "이 모델({{model}})은 음성 입력을 지원하지 않습니다",
+      "imageNotSupported": "이 모델({{model}})은 이미지 입력을 지원하지 않습니다",
+      "modelNotSet": "AI 모델이 설정돼 있지 않습니다",
+      "unsupportedFileType": "지원하지 않는 파일 형식입니다: {{mimetype}}",
+      "unsupportedModelType": "지원하지 않는 모델 종류입니다",
+      "embeddingModelNotSet": "임베딩 모델이 설정돼 있지 않습니다",
+      "validateActionFailed": "AI 필드 동작을 확인하지 못했습니다",
+      "generateFailed": "AI 생성에 실패했습니다",
+      "unsupportedActionType": "지원하지 않는 AI 동작 종류입니다",
+      "geminiImageNotSupportedViaGateway": "AI 게이트웨이로는 Gemini 이미지 생성을 쓸 수 없습니다. Google 공급자를 직접 설정해 주세요."
+    },
+    "skill": {
+      "notFound": "스킬을 찾을 수 없습니다",
+      "onlyGithubCanSync": "GitHub 에서 가져온 스킬만 동기화할 수 있습니다",
+      "syncFailed": "동기화에 실패했습니다: {{errorCode}}",
+      "skillMdNotFoundAtSource": "원본 위치에서 SKILL.md 를 찾을 수 없습니다",
+      "slugChangedUpstream": "스킬 식별자가 원본에서 \"{{oldSlug}}\" 에서 \"{{newSlug}}\" 로 바뀌었습니다. 삭제한 뒤 다시 가져오면 새 식별자가 적용됩니다.",
+      "skillMdNotFoundAtPath": "{{path}}/SKILL.md 를 찾을 수 없습니다",
+      "invalidSkillFile": "올바르지 않은 스킬 파일입니다. .skill 또는 .zip 이어야 합니다",
+      "tooManyResourceFiles": "스킬에 파일이 너무 많습니다(최대 {{max}}개)",
+      "noSkillMdInPackage": "스킬 패키지에 SKILL.md 가 없습니다",
+      "multipleSkillMdInPackage": "같은 깊이에 SKILL.md 가 {{count}}개 있습니다. 패키지에는 스킬이 하나만 들어 있어야 합니다.",
+      "invalidResourcePaths": "올바르지 않은 리소스 경로입니다: {{paths}}",
+      "nameFieldRequired": "SKILL.md 의 frontmatter 에 \"name\" 항목이 있어야 합니다",
+      "invalidSlugFormat": "스킬 식별자는 소문자, 숫자, 하이픈만 쓸 수 있습니다",
+      "filesExceedSizeLimit": "{{maxSizeKB}}KB 제한을 넘은 파일이 있습니다: {{files}}",
+      "binaryFilesNotAllowed": "바이너리 파일은 넣을 수 없습니다: {{files}}",
+      "totalSizeExceedsLimit": "전체 리소스 크기가 {{maxSizeMB}}MB 제한을 넘었습니다",
+      "invalidGithubUrl": "올바르지 않은 GitHub 주소입니다. 형식: https://github.com/owner/repo/tree/<branch>/path/to/skill",
+      "directoryTooDeep": "스킬 폴더가 최대 깊이 {{maxDepth}}단계를 넘었습니다. 중첩된 폴더: {{dirs}}",
+      "importFailed": "가져오지 못했습니다: {{errorCode}}",
+      "alreadyInScope": "이미 대상 범위에 있는 스킬입니다"
+    },
+    "sandbox": {
+      "fileNotFound": "샌드박스에서 파일을 찾을 수 없습니다",
+      "onlyRegularFiles": "일반 파일만 내려받을 수 있습니다",
+      "fileTooLarge": "파일이 너무 커서 내려받을 수 없습니다(최대 {{max}} 바이트)",
+      "cannotDeleteRoot": "uploads/outputs 최상위 폴더는 지울 수 없습니다",
+      "deleteFailed": "파일을 지우지 못했습니다",
+      "uploadFailed": "샌드박스에 파일을 올리지 못했습니다",
+      "fileEndpointUnavailable": "샌드박스에 접근 가능한 파일 엔드포인트가 없습니다",
+      "invalidPath": "올바르지 않은 경로입니다. 샌드박스의 uploads 또는 outputs 안이어야 합니다",
+      "tooManyDownloads": "내려받기 요청이 너무 많습니다",
+      "dailyLimitExceeded": "하루 내려받기 용량 한도를 넘었습니다",
+      "storageFull": "샌드박스 저장 공간이 가득 찼습니다",
+      "tooManyFiles": "메시지 하나에 파일은 최대 {{max}}개까지입니다",
+      "noActiveSandbox": "실행 중인 샌드박스가 없습니다"
+    },
+    "role": {
+      "notFound": "역할을 찾을 수 없습니다"
+    },
+    "collaborator": {
+      "alreadyExisted": "이미 협업자로 등록돼 있습니다",
+      "notFound": "협업자를 찾을 수 없습니다",
+      "userNotFoundInCollaborator": "협업자 목록에 없는 사용자입니다",
+      "noPermissionToDelete": "이 협업자를 삭제할 권한이 없습니다",
+      "noPermissionToUpdate": "이 협업자를 수정할 권한이 없습니다",
+      "noPermissionToOperateRole": "이 역할을 다룰 권한이 없습니다",
+      "alreadyExistedInBase": "이미 이 베이스의 협업자입니다",
+      "userNotFound": "사용자를 찾을 수 없습니다: {{userIds}}",
+      "baseNotFound": "베이스를 찾을 수 없습니다",
+      "noPermissionToAddRole": "이 역할의 협업자를 추가할 권한이 없습니다",
+      "departmentNotFound": "부서를 찾을 수 없습니다"
+    },
+    "table": {
+      "notFound": "테이블을 찾을 수 없습니다",
+      "dbTableNameAlreadyExists": "같은 이름의 데이터베이스 테이블이 이미 있습니다",
+      "anchorNotFound": "기준 테이블을 찾을 수 없습니다",
+      "notInTrash": "휴지통에 없는 테이블입니다",
+      "notSupportTableIndex": "지원하지 않는 인덱스 종류입니다",
+      "createTableIndexError": "인덱스를 만들지 못했습니다",
+      "dropTableIndexError": "인덱스를 지우지 못했습니다",
+      "notFoundPrimaryField": "테이블에 기본 필드가 없습니다"
+    },
+    "export": {
+      "notSupportViewType": "{{viewType}} 뷰는 내보내기를 지원하지 않습니다"
+    },
+    "import": {
+      "notSupportedFileFormat": "지원하지 않는 파일 형식입니다. {{supportType}} 만 가능하며, 올린 파일은 {{fileFormat}} 입니다",
+      "notSupportedFileType": "지원하지 않는 가져오기 파일 종류입니다",
+      "exceedMaxFieldsLength": "테이블의 필드는 {{maxFieldsLength}}개를 넘을 수 없습니다. 지금 {{length}}개입니다",
+      "tooManyConcurrentImports": "진행 중인 가져오기가 너무 많습니다({{current}}/{{max}}). 잠시 뒤에 다시 시도해 주세요."
+    },
+    "invitation": {
+      "disallowSpaceInvitation": "관리자가 스페이스 초대를 막아 두었습니다",
+      "invalidCode": "초대 코드가 올바르지 않습니다",
+      "linkNotFound": "초대 링크를 찾을 수 없습니다",
+      "linkExpired": "초대 링크가 만료되었습니다",
+      "limitExceeded": "시간당 초대 횟수 한도를 넘었습니다"
+    },
+    "pin": {
+      "alreadyExists": "이미 고정돼 있습니다",
+      "notFound": "고정 항목을 찾을 수 없습니다",
+      "anchorNotFound": "고정 기준 항목을 찾을 수 없습니다"
+    },
+    "trash": {
+      "invalidResourceType": "올바르지 않은 항목 종류입니다",
+      "notFound": "휴지통에서 찾을 수 없습니다",
+      "parentSpaceTrashed": "상위 스페이스도 휴지통에 있어 이 베이스를 되살릴 수 없습니다",
+      "parentBaseOrSpaceTrashed": "상위 베이스나 스페이스도 휴지통에 있어 이 테이블을 되살릴 수 없습니다",
+      "parentBaseTrashed": "상위 베이스도 휴지통에 있어 되살릴 수 없습니다",
+      "parentNotFound": "상위 항목을 찾을 수 없습니다",
+      "tableNotFound": "휴지통에서 테이블을 찾을 수 없습니다"
+    },
+    "license": {
+      "invalid": "라이선스가 올바르지 않습니다",
+      "instanceIdMismatch": "전달된 instanceId 가 현재 인스턴스의 것과 다릅니다",
+      "expired": "라이선스가 만료되었습니다",
+      "userLimitExceeded": "사용자 수가 라이선스 좌석 수를 넘었습니다. 일부 사용자를 비활성화하거나 라이선스를 늘려 주세요"
+    },
+    "domainVerification": {
+      "notFound": "도메인 인증 코드를 찾을 수 없습니다",
+      "invalidCode": "인증 코드가 올바르지 않습니다",
+      "resendCooldown": "1분 뒤에 새 코드를 요청할 수 있습니다",
+      "alreadyVerified": "이미 인증된 도메인입니다"
+    },
+    "organization": {
+      "notFound": "조직을 찾을 수 없습니다",
+      "authenticationNotFound": "인증 설정을 찾을 수 없습니다",
+      "spaceShouldExist": "조직 스페이스가 있어야 합니다",
+      "emailsNotInOrgDomain": "다음 이메일은 조직 도메인에 속하지 않습니다: {{emails}}",
+      "emailNotSpaceUser": "이 스페이스의 사용자가 아닌 이메일입니다"
+    },
+    "mail": {
+      "failedToSendEmail": "메일을 보내지 못했습니다"
+    },
+    "user": {
+      "disallowSignUp": "관리자가 회원가입을 막아 두었습니다",
+      "emailDomainBanned": "정책 위반으로 차단된 이메일 도메인입니다",
+      "waitlistInviteCodeRequired": "대기자 명단이 켜져 있어 초대 코드가 필요합니다",
+      "waitlistInviteCodeInvalid": "대기자 명단이 켜져 있으며 초대 코드가 올바르지 않습니다",
+      "systemUser": "시스템 계정입니다",
+      "collaboratorsInSpaces": "이 사용자가 스페이스(휴지통의 스페이스 포함)에 협업자로 남아 있습니다",
+      "notFound": "사용자를 찾을 수 없습니다",
+      "cannotDeleteAdmin": "관리자 계정은 삭제할 수 없습니다",
+      "cannotDeactivateAdmin": "관리자 계정은 비활성화할 수 없습니다",
+      "cannotRemoveLastAdmin": "마지막 관리자의 권한은 뺄 수 없습니다",
+      "permanentDeleted": "영구 삭제된 사용자입니다",
+      "cannotDeleteSelf": "자기 자신은 삭제할 수 없습니다",
+      "alreadyInDepartment": "사용자 {{userId}} 은(는) 이미 해당 부서에 있습니다",
+      "emailsNotFound": "이메일 {{emails}} 을(를) 찾을 수 없습니다",
+      "deleted": "사용자 {{userId}} 은(는) 삭제되었습니다",
+      "alreadyInOrg": "사용자 {{userId}} 은(는) 이미 조직에 있습니다",
+      "notInOrg": "사용자 {{userId}} 은(는) 조직에 없습니다"
+    },
+    "record": {
+      "notFound": "레코드를 찾을 수 없습니다",
+      "deletedIdsNotFound": "삭제할 레코드 중 일부를 찾을 수 없습니다",
+      "updateFailed": "레코드를 수정하지 못했습니다",
+      "noFileOrUrlProvided": "파일이나 주소가 없습니다",
+      "createRecordsEmpty": "만들 레코드가 비어 있습니다",
+      "duplicateFailed": "레코드를 복제하지 못했습니다"
+    },
+    "typecast": {
+      "cellValueValidationFailed": "셀 값 검사에 실패했습니다"
+    },
+    "workflow": {
+      "notActive": "워크플로가 꺼져 있습니다"
+    },
+    "lastVisit": {
+      "invalidResourceType": "올바르지 않은 항목 종류입니다"
+    },
+    "template": {
+      "categoryNotFound": "템플릿 분류를 찾을 수 없습니다",
+      "snapshotRequired": "스냅샷이 없어 이 템플릿을 게시할 수 없습니다",
+      "sourceTemplateNotFound": "원본 템플릿을 찾을 수 없습니다",
+      "noMinOrderFound": "최소 순서를 찾을 수 없습니다",
+      "takeCountTooLarge": "한 번에 가져올 수 있는 템플릿 수를 넘었습니다",
+      "categoryLimitReached": "템플릿 분류 수 한도({{maxCount}}개)에 도달했습니다"
+    },
+    "department": {
+      "parentNotFound": "상위 부서를 찾을 수 없습니다",
+      "notFound": "부서를 찾을 수 없습니다",
+      "cannotMoveToItself": "부서를 자기 자신 아래로 옮길 수 없습니다",
+      "cannotMoveToSub": "부서를 자기 하위 부서 아래로 옮길 수 없습니다"
+    },
+    "app": {
+      "notFound": "앱을 찾을 수 없습니다",
+      "noFilesToUpdate": "수정할 파일이 없습니다",
+      "noChatIdFound": "이 앱의 대화 ID 를 찾을 수 없습니다",
+      "noChatFound": "이 앱의 대화를 찾을 수 없습니다",
+      "versionNotFound": "버전을 찾을 수 없습니다",
+      "cannotRollbackToLatestVersion": "최신 버전으로는 되돌릴 수 없습니다",
+      "noChatOrProjectTokenFound": "대화 또는 프로젝트 토큰을 찾을 수 없습니다",
+      "apiKeyNotSet": "앱 빌더 API 키가 설정돼 있지 않습니다",
+      "cannotDeployAppBeforeInitialization": "초기화 전에는 앱을 배포할 수 없습니다",
+      "noProjectOrVersionFound": "프로젝트나 버전을 찾을 수 없습니다",
+      "noDeploymentUrlAvailable": "배포 주소가 없습니다",
+      "noFilesInZip": "ZIP 안에 파일이 없습니다",
+      "zipFileTooLarge": "ZIP 파일이 5MB 제한을 넘었습니다",
+      "invalidZip": "올바르지 않은 ZIP 파일입니다",
+      "domainAlreadyInUse": "이 도메인은 다른 앱이 쓰고 있습니다",
+      "domainReserved": "예약된 서브도메인입니다"
+    },
+    "reward": {
+      "notFound": "리워드를 찾을 수 없습니다",
+      "unsupportedSourceType": "지원하지 않는 리워드 출처입니다",
+      "maxClaimsReached": "이번 주 리워드 수령 한도(2회)에 도달했습니다",
+      "verificationFailed": "확인에 실패했습니다: {{errors}}",
+      "alreadyClaimedThisWeek": "이번 주에 이 계정으로 이미 리워드를 받았습니다",
+      "invalidPostUrl": "게시물 주소 형식이 올바르지 않습니다",
+      "postAlreadyUsed": "이미 리워드에 사용된 게시물입니다",
+      "unsupportedPlatformUrl": "지원하지 않는 소셜 플랫폼 주소입니다",
+      "unsupportedPlatform": "지원하지 않는 플랫폼입니다: {{platform}}",
+      "minCharCount": "게시물은 {{count}}자 이상이어야 합니다",
+      "minFollowerCount": "팔로워가 {{count}}명 이상이어야 합니다",
+      "mustMention": "게시물에 {{mention}} 을(를) 언급해야 합니다",
+      "fetchTweetFailed": "X 게시물을 가져오지 못했습니다: {{error}}",
+      "tweetNotFound": "X 게시물을 찾을 수 없습니다: {{postId}}",
+      "fetchUserFailed": "X 사용자를 가져오지 못했습니다: {{error}}",
+      "xUserNotFound": "X 사용자를 찾을 수 없습니다: {{username}}",
+      "fetchLinkedInPostFailed": "LinkedIn 게시물을 가져오지 못했습니다: {{error}}",
+      "linkedInPostNotFound": "LinkedIn 게시물을 찾을 수 없습니다: {{postId}}",
+      "linkedInAuthorNotFound": "LinkedIn 작성자를 찾을 수 없습니다: {{postId}}",
+      "fetchLinkedInUserFailed": "LinkedIn 사용자를 가져오지 못했습니다: {{error}}"
+    }
+  }
+}
