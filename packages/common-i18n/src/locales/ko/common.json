@@ -1,0 +1,1666 @@
+{
+  "actions": {
+    "title": "동작",
+    "add": "추가",
+    "save": "저장",
+    "doNotSave": "저장 안 함",
+    "submit": "제출",
+    "confirm": "확인",
+    "continue": "계속",
+    "close": "닫기",
+    "edit": "편집",
+    "fill": "채우기",
+    "update": "수정",
+    "create": "만들기",
+    "delete": "삭제",
+    "clear": "지우기",
+    "cancel": "취소",
+    "zoomIn": "확대",
+    "zoomOut": "축소",
+    "back": "뒤로",
+    "download": "내려받기",
+    "remove": "빼기",
+    "removeConfig": "설정 지우기",
+    "retry": "다시 시도",
+    "saveSucceed": "저장했습니다",
+    "submitSucceed": "제출했습니다",
+    "editSucceed": "수정했습니다",
+    "updateSucceed": "수정했습니다",
+    "deleteSucceed": "삭제했습니다",
+    "resetSucceed": "휴지통을 비웠습니다",
+    "restoreSucceed": "되살렸습니다",
+    "loading": "불러오는 중...",
+    "refreshPage": "새로고침",
+    "yesDelete": "네, 삭제합니다",
+    "rename": "이름 바꾸기",
+    "duplicate": "복제",
+    "export": "내보내기",
+    "import": "가져오기",
+    "change": "바꾸기",
+    "upgrade": "업그레이드",
+    "upgradeToLevel": "{{level}} 로 업그레이드",
+    "search": "검색",
+    "loadMore": "더 보기",
+    "collapseSidebar": "사이드바 접기",
+    "restore": "되살리기",
+    "permanentDelete": "영구 삭제",
+    "globalSearch": "전체 검색",
+    "fieldSearch": "필드 검색",
+    "tableIndex": "인덱스",
+    "showAllRow": "모든 행 보이기",
+    "hideNotMatchRow": "맞지 않는 행 숨기기",
+    "more": "더보기",
+    "expand": "펼치기",
+    "view": "보기",
+    "preview": "미리보기",
+    "viewAndEdit": "보기 및 편집",
+    "deleteTip": "\"{{name}}\" 을(를) 삭제할까요?",
+    "move": "옮기기",
+    "turnOn": "켜기",
+    "exit": "나가기",
+    "next": "다음",
+    "previous": "이전",
+    "select": "선택",
+    "refresh": "새로고침",
+    "login": "로그인",
+    "useTemplate": "템플릿 사용",
+    "copyToMySpace": "내 스페이스로 복사",
+    "saveToMySpace": "내 스페이스에 저장",
+    "supportSaveCopy": "복사본 저장 허용",
+    "copyLink": "링크 복사",
+    "openLink": "링크 열기",
+    "backToSpace": "스페이스로 돌아가기",
+    "switchBase": "베이스 바꾸기",
+    "collapse": "접기",
+    "viewDetails": "자세히 보기",
+    "getMore": "더 알아보기",
+    "copySuccess": "복사했습니다",
+    "share": "공유"
+  },
+  "quickAction": {
+    "title": "빠른 실행",
+    "placeHolder": "명령을 입력하거나 검색하세요..."
+  },
+  "password": {
+    "setInvalid": "비밀번호는 8자 이상이어야 하고 영문과 숫자를 하나 이상 넣어야 합니다."
+  },
+  "template": {
+    "non": {
+      "share": "공유",
+      "copy": "복사했습니다"
+    },
+    "aiTitle": "함께 만들어 봐요",
+    "aiGreeting": "{{name}}님, 무엇을 도와드릴까요",
+    "aiSubTitle": "팀이 데이터를 함께 다루고 실제 쓸 수 있는 앱까지 만드는 첫 AI 플랫폼",
+    "guideTitle": "내 상황에서 시작하기",
+    "watchVideo": "영상 보기",
+    "title": "템플릿",
+    "description": "템플릿으로 새 베이스를 만듭니다",
+    "browseAll": "전체 보기",
+    "templateTitle": "템플릿으로 시작",
+    "loadMore": "더 보기",
+    "allTemplatesLoaded": "템플릿을 모두 불러왔습니다",
+    "createTemplate": "템플릿 만들기",
+    "promptBox": {
+      "placeholder": "Teable 로 업무용 앱을 만들어 보세요",
+      "start": "시작하기",
+      "carouselGuides": {
+        "guide1": "영수증을 붙여 넣고 → 핵심 정보를 자동으로 뽑아 달라고 하세요",
+        "guide2": "리드와 후속 관리 테이블이 있는 AI CRM 만들기",
+        "guide3": "고객 의견을 붙여 넣고 → 인사이트를 찾아 보고서로 만들어 달라고 하세요",
+        "guide4": "할 일과 마감일이 있는 프로젝트 추적표 만들기",
+        "guide5": "리드 시트를 붙여 넣고 → 똑똑한 CRM 으로 만들어 달라고 하세요",
+        "guide6": "게시물과 발행일이 있는 콘텐츠 계획표 만들기",
+        "guide7": "이력서를 붙여 넣고 → 정리하고 후보를 추려 달라고 하세요"
+      }
+    },
+    "useTemplateDialog": {
+      "title": "스페이스 선택",
+      "description": "템플릿을 적용할 스페이스를 고르세요",
+      "noSpaceDescription": "아직 스페이스가 없습니다. 하나 만들어 주세요.",
+      "newSpacePlaceholder": "스페이스 이름",
+      "createSpace": "만들기"
+    }
+  },
+  "baseShare": {
+    "shareTitle": "공유",
+    "shareToWeb": "웹에 공유",
+    "linkHolderLabel": "링크를 가진 사람",
+    "linkHolderCanView": "볼 수 있음",
+    "linkHolderCanViewDesc": "링크를 가진 사람은 누구나 데이터를 볼 수 있습니다",
+    "linkHolderCanEdit": "편집할 수 있음",
+    "linkHolderCanEditDesc": "로그인한 사람은 테이블의 레코드를 편집할 수 있습니다",
+    "linkHolderCanCopyAndSave": "복사본으로 저장 가능",
+    "linkHolderCanCopyAndSaveDesc": "링크를 가진 사람은 자기 스페이스에 복사본을 저장할 수 있습니다",
+    "refreshLink": "링크 새로 만들기",
+    "advanced": "고급",
+    "allowCopyData": "보는 사람이 데이터를 복사할 수 있게 허용",
+    "restrictByPassword": "비밀번호로 제한",
+    "embedConfig": "삽입 설정",
+    "embedPreview": "미리보기",
+    "copyCode": "코드 복사",
+    "enterPassword": "비밀번호 입력",
+    "passwordTitle": "비밀번호 설정",
+    "deleteConfirmTitle": "공유 링크 삭제",
+    "deleteConfirmDescription": "되돌릴 수 없습니다. 이 링크를 가진 사람은 더 이상 공유된 베이스에 접근할 수 없습니다.",
+    "createSuccess": "공유 링크를 만들었습니다",
+    "createFailed": "공유 링크를 만들지 못했습니다",
+    "updateFailed": "공유 설정을 저장하지 못했습니다",
+    "deleteSuccess": "공유 링크를 삭제했습니다",
+    "deleteFailed": "공유 링크를 삭제하지 못했습니다",
+    "refreshSuccess": "공유 링크를 새로 만들었습니다",
+    "refreshFailed": "공유 링크를 새로 만들지 못했습니다"
+  },
+  "share": {
+    "copyToSpaceDialog": {
+      "title": "스페이스로 복사",
+      "description": "이 베이스를 복사할 스페이스를 고르세요",
+      "baseName": "베이스 이름",
+      "baseNamePlaceholder": "베이스 이름을 입력하세요",
+      "selectSpace": "스페이스 선택",
+      "noSpaceDescription": "관리할 수 있는 스페이스가 없습니다. 새 스페이스를 만들어 주세요.",
+      "newSpacePlaceholder": "스페이스 이름",
+      "createSpace": "만들기",
+      "copyTarget": "복사 위치",
+      "createNewBase": "새 베이스",
+      "copyToExistingBase": "기존 베이스",
+      "selectBase": "베이스 선택",
+      "selectBasePlaceholder": "베이스를 고르세요",
+      "noBaseInSpace": "이 스페이스에 관리할 수 있는 베이스가 없습니다. \"새 베이스\"를 골라 주세요."
+    }
+  },
+  "settings": {
+    "title": "인스턴스 설정",
+    "allSetting": "스페이스 및 개인 설정",
+    "personal": {
+      "title": "개인"
+    },
+    "templateAdmin": {
+      "title": "템플릿 관리",
+      "noData": "데이터가 없습니다",
+      "importing": "가져오는 중...",
+      "usageCount": "사용 횟수: {{count}}",
+      "useTemplate": "이 템플릿 쓰기",
+      "createdBy": "{{user}} 만듦",
+      "backToTemplateList": "템플릿 목록으로",
+      "tips": {
+        "errorCategoryName": "분류가 없거나 삭제되었습니다",
+        "needSnapshot": "게시하기 전에 스냅샷을 만들어야 하며, 템플릿 이름과 설명은 비워 둘 수 없습니다",
+        "needPublish": "추천으로 지정하려면 먼저 템플릿을 게시해 주세요",
+        "needBaseSource": "스냅샷을 만들기 전에 원본 베이스를 골라 주세요",
+        "forbiddenUpdateSystemTemplate": "시스템 템플릿은 수정할 수 없습니다",
+        "addCategoryTips": "먼저 검색창에 분류 이름을 입력해 주세요.",
+        "categoryNamePlaceholder": "분류 이름을 입력하세요",
+        "duplicateCategoryName": "같은 이름의 분류가 이미 있습니다"
+      },
+      "category": {
+        "menu": {
+          "getStarted": "시작하기",
+          "recommended": "추천",
+          "all": "전체",
+          "browseByCategory": "분류별 보기"
+        }
+      },
+      "header": {
+        "cover": "표지",
+        "name": "이름",
+        "description": "설명",
+        "markdownDescription": "마크다운 설명",
+        "category": "분류",
+        "isSystem": "시스템",
+        "source": "출처",
+        "status": "게시됨",
+        "publishSnapshot": "스냅샷 게시",
+        "snapshotTime": "스냅샷 시각",
+        "actions": "동작",
+        "featured": "추천",
+        "createdBy": "만든 사람",
+        "userNonExistent": "없는 사용자",
+        "preview": "미리보기",
+        "usage": "사용",
+        "visit": "방문"
+      },
+      "actions": {
+        "title": "동작",
+        "publish": "게시",
+        "delete": "삭제",
+        "duplicate": "복제",
+        "preview": "미리보기",
+        "use": "사용",
+        "pinTop": "맨 위 고정",
+        "addCategory": "분류 추가",
+        "selectCategory": "분류 선택",
+        "viewTemplate": "템플릿 보기",
+        "manageCategory": "분류 관리"
+      },
+      "relatedTemplates": "관련 템플릿",
+      "noImage": "이미지 없음",
+      "baseSelectPanel": {
+        "title": "템플릿 원본 선택",
+        "description": "템플릿으로 쓸 베이스를 고르세요",
+        "confirm": "확인",
+        "search": "검색...",
+        "cancel": "취소",
+        "selectBase": "베이스 선택",
+        "createTemplate": "템플릿 만들기",
+        "abnormalBase": "베이스가 없거나 삭제되었습니다"
+      }
+    },
+    "back": "홈으로",
+    "account": {
+      "title": "프로필",
+      "tab": "프로필",
+      "updatePhoto": "사진 바꾸기",
+      "updateNameDesc": "Teable 에서 불릴 이름입니다. 별명이나 이름 아무거나 좋습니다",
+      "securityTitle": "계정 보안",
+      "email": "이메일",
+      "password": "비밀번호",
+      "passwordDesc": "로그인에 쓸 비밀번호를 설정합니다.",
+      "changePassword": {
+        "title": "비밀번호 바꾸기",
+        "desc": "지금 비밀번호를 입력하고 새 비밀번호를 정하세요",
+        "current": "현재 비밀번호",
+        "new": "새 비밀번호",
+        "confirm": "새 비밀번호 확인"
+      },
+      "changePasswordError": {
+        "disMatch": "새 비밀번호가 서로 다릅니다.",
+        "equal": "새 비밀번호는 지금 비밀번호와 달라야 합니다.",
+        "invalid": "현재 비밀번호가 올바르지 않습니다."
+      },
+      "changePasswordSuccess": {
+        "title": "🎉 비밀번호를 바꿨습니다.",
+        "desc": "2초 뒤 로그인 화면으로 이동합니다."
+      },
+      "manageToken": "액세스 토큰",
+      "addPassword": {
+        "title": "비밀번호 추가",
+        "desc": "로그인에 쓸 비밀번호를 설정합니다.",
+        "password": "비밀번호를 입력하세요",
+        "confirm": "비밀번호를 다시 입력하세요"
+      },
+      "addPasswordError": {
+        "disMatch": "비밀번호가 서로 다릅니다."
+      },
+      "addPasswordSuccess": {
+        "title": "🎉 비밀번호를 설정했습니다."
+      },
+      "changeEmail": {
+        "title": "이메일 주소 바꾸기",
+        "desc": "비밀번호를 확인하고 새 이메일 주소를 인증해 주세요",
+        "current": "현재 비밀번호",
+        "new": "새 이메일",
+        "code": "인증 코드",
+        "getCode": "코드 보내기",
+        "error": {
+          "invalidCode": "인증 코드가 올바르지 않습니다.",
+          "invalidPassword": "비밀번호가 올바르지 않습니다.",
+          "invalidConflict": "이미 가입된 이메일입니다.",
+          "invalidSameEmail": "지금 쓰는 이메일과 같습니다.",
+          "sendMailRateLimit": "{{seconds}}초 뒤에 메일을 다시 보낼 수 있습니다"
+        },
+        "success": {
+          "title": "🎉 이메일을 바꿨습니다.",
+          "desc": "2초 뒤 로그인 화면으로 이동합니다.",
+          "sendSuccess": "인증 코드를 보냈습니다."
+        }
+      },
+      "deleteAccount": {
+        "title": "계정 삭제",
+        "desc": "되돌릴 수 없습니다. 계정과 관련된 모든 데이터가 영구히 지워집니다.",
+        "error": {
+          "title": "계정을 삭제할 수 없습니다",
+          "desc": "먼저 아래를 정리해야 합니다:",
+          "spacesError": "계정을 지우기 전에 참여 중인 스페이스에서 나가거나(또는 삭제해 휴지통으로 보낸 뒤) 진행해 주세요."
+        },
+        "confirm": {
+          "title": "확인하려면 <code>DELETE</code> 를 입력하세요",
+          "placeholder": "DELETE"
+        },
+        "loading": "삭제하는 중..."
+      }
+    },
+    "notify": {
+      "title": "알림",
+      "label": "내 스페이스의 활동",
+      "desc": "댓글, 멘션, 초대, 알림, 접근 요청, 속성 변경이 있을 때 메일을 받습니다."
+    },
+    "setting": {
+      "title": "환경설정",
+      "theme": "화면 테마",
+      "themeDesc": "화면 색 구성을 고르세요",
+      "dark": "어둡게",
+      "light": "밝게",
+      "system": "시스템 설정",
+      "version": "앱 버전",
+      "infraVersion": "인프라 버전",
+      "language": "언어",
+      "interactionMode": "조작 방식",
+      "mouseMode": "마우스",
+      "touchMode": "터치",
+      "systemMode": "시스템 설정 따르기",
+      "buySelfHostedLicense": "셀프호스팅 라이선스 구매",
+      "teableSkill": "Teable 스킬"
+    },
+    "teableSkill": {
+      "intro": "AI 에이전트를 베이스에 연결해 데이터를 조회하고, 테이블·필드·뷰를 관리하고, 레코드를 넣거나 고치고, 자동화와 앱까지 만들 수 있습니다.",
+      "worksWith": "주요 에이전트를 모두 지원합니다",
+      "more": "+ 더보기",
+      "copy": "복사",
+      "installPromptLabel": "스킬 설치 프롬프트",
+      "installCommandLabel": "스킬 설치 명령",
+      "installPrompt": "https://github.com/teableio/agent-skills 를 읽고 안내에 따라 Teable 에이전트 스킬을 설치한 뒤 Teable CLI 인증까지 끝내 주세요.",
+      "step1Title": "스킬 설치",
+      "step1Description": "이 프롬프트를 AI 에이전트에 붙여 넣으세요. Teable 스킬을 설치하고 브라우저를 열어 Teable CLI 인증을 끝냅니다.",
+      "step3Title": "Teable 스킬 써 보기",
+      "step3Description": "설치가 끝나면 아래 프롬프트를 시도해 보세요.",
+      "tryPrompts": {
+        "schema": {
+          "prompt": "이 베이스에 간단한 CRM 테이블을 만들어 줘.",
+          "note": "간단한 시작 프롬프트"
+        },
+        "template": {
+          "prompt": "이 폴더의 모든 청구서를 <영수증 테이블> {테이블 주소 붙여넣기} 에 올리고 핵심 항목을 뽑아 줘.",
+          "note": "내 파일 → Teable"
+        },
+        "validate": {
+          "prompt": "새 GitHub 이슈를 <버그 추적> {테이블 주소 붙여넣기} 에 넣어 줘.",
+          "note": "다른 서비스 데이터 → Teable"
+        },
+        "trace": {
+          "prompt": "<업무 테이블> {테이블 주소 붙여넣기} 을 보고 기한이 지난 항목을 표시해 줘.",
+          "note": "Teable 데이터 정리"
+        }
+      }
+    },
+    "nav": {
+      "settings": "설정",
+      "logout": "로그아웃",
+      "contactSupport": "고객 지원 문의"
+    },
+    "integration": {
+      "title": "연동",
+      "thirdPartyIntegrations": {
+        "title": "외부 앱 연동",
+        "description": "{{count}}개 앱에 계정 접근을 허용했습니다.",
+        "lastUsed": "마지막 사용 {{date}}",
+        "revoke": "권한 해제",
+        "owner": "{{user}} 소유",
+        "revokeTitle": "권한을 해제할까요?",
+        "revokeDesc": "{{name}} 은(는) 더 이상 Teable API 에 접근할 수 없습니다. 되돌릴 수 없습니다.",
+        "scopeTitle": "권한",
+        "scopeDesc": "이 앱은 다음 권한을 갖게 됩니다:"
+      },
+      "userIntegration": {
+        "title": "연결된 계정",
+        "description": "외부 계정을 연결하면 Teable 이 그 자원에 접근하고 동기화할 수 있습니다.",
+        "emptyDescription": "연결된 계정이 없습니다",
+        "actions": {
+          "reconnect": "다시 연결"
+        },
+        "slack": {
+          "user": "Slack 사용자",
+          "workspace": "Slack 워크스페이스"
+        },
+        "email": {
+          "user": "사용자",
+          "email": "이메일"
+        },
+        "deleteTitle": "연결된 계정 제거",
+        "deleteDesc": "{{name}} 을(를) 제거할까요?",
+        "create": "새 계정 연결",
+        "manage": "연결된 계정 관리",
+        "searchPlaceholder": "연결된 계정 검색",
+        "defaultName": "{{name}} 연동",
+        "callback": {
+          "error": "인증에 실패했습니다",
+          "title": "인증에 성공했습니다",
+          "desc": "이 창을 닫으셔도 됩니다."
+        }
+      }
+    }
+  },
+  "noun": {
+    "table": "테이블",
+    "view": "뷰",
+    "space": "스페이스",
+    "base": "베이스",
+    "field": "필드",
+    "record": "레코드",
+    "dashboard": "대시보드",
+    "automation": "자동화",
+    "authorityMatrix": "권한 매트릭스",
+    "design": "설계",
+    "adminPanel": "시스템 관리",
+    "license": "셀프호스팅 라이선스",
+    "instanceId": "인스턴스 ID",
+    "beta": "베타",
+    "trash": "휴지통",
+    "global": "전체",
+    "organizationPanel": "조직 설정",
+    "unknownError": "알 수 없는 오류",
+    "pluginPanel": "패널",
+    "pluginContextMenu": "오른쪽 클릭 메뉴",
+    "plugin": "플러그인",
+    "copy": "복사",
+    "credits": "크레딧",
+    "aiChat": "AI 대화",
+    "app": "앱",
+    "webSearch": "웹 검색",
+    "folder": "폴더",
+    "newAutomation": "새 자동화",
+    "newApp": "새 앱",
+    "newFolder": "새 폴더",
+    "template": "템플릿"
+  },
+  "level": {
+    "free": "무료",
+    "plus": "Plus",
+    "pro": "Pro",
+    "business": "Business",
+    "enterprise": "Enterprise"
+  },
+  "noResult": "결과가 없습니다.",
+  "allNodes": "모든 항목",
+  "noDescription": "설명 없음",
+  "untitled": "제목 없음",
+  "name": "이름",
+  "description": "설명",
+  "required": "필수",
+  "characters": "자",
+  "atLeastOne": "{{noun}}은(는) 하나 이상 남겨야 합니다",
+  "guide": {
+    "prev": "이전",
+    "next": "다음",
+    "done": "완료",
+    "skip": "건너뛰기",
+    "createSpaceTooltipTitle": "스페이스 만들기",
+    "createSpaceTooltipContent": "팀과 함께 일할 스페이스를 만드세요.",
+    "createBaseTooltipTitle": "베이스 만들기",
+    "createBaseTooltipContent": "베이스에 데이터가 담기고, 여기서 자동화와 앱 대시보드로 갈 수 있습니다.",
+    "createTableTooltipTitle": "테이블 만들기",
+    "createTableTooltipContent": "여기서 새 테이블을 만들거나 기존 자료를 가져옵니다.",
+    "createViewTooltipTitle": "뷰 만들기",
+    "createViewTooltipContent": "그리드, 갤러리, 칸반, 폼 뷰를 만들 수 있습니다. 캘린더 뷰도 곧 나옵니다. <br></br>데이터를 다루기에 가장 알맞은 뷰를 고르세요.",
+    "viewFilteringTooltipTitle": "레코드 거르기",
+    "viewFilteringTooltipContent": "조건을 걸어 레코드를 거릅니다. 걸러진 레코드는 숨겨질 뿐 지워지지 않습니다. <br></br>현재 뷰에만 적용되고 실제 데이터는 그대로입니다.",
+    "viewSortingTooltipTitle": "레코드 정렬",
+    "viewSortingTooltipContent": "필드 값으로 레코드를 원하는 순서로 정렬합니다. <br></br>현재 뷰에만 적용되고 같은 테이블의 다른 뷰에는 영향을 주지 않습니다.",
+    "viewGroupingTooltipTitle": "레코드 묶기",
+    "viewGroupingTooltipContent": "조건에 따라 레코드를 묶어 뷰 안에서 정리합니다.",
+    "apiButtonTooltipTitle": "API",
+    "apiButtonTooltipContent": "<a>토큰</a>으로 거의 모든 기능을 쓸 수 있는 Teable API 에 접근하세요."
+  },
+  "token": "토큰",
+  "poweredBy": "Powered by <0></0>",
+  "invite": {
+    "dialog": {
+      "title": "{{spaceName}} 스페이스 공유",
+      "desc_one": "이 스페이스에는 <b>협업자 {{count}}명</b>이 있습니다. 스페이스 협업자를 추가하면 이 스페이스의 모든 베이스에 접근할 수 있게 됩니다.",
+      "desc_other": "이 스페이스에는 <b>협업자 {{count}}명</b>이 있습니다. 스페이스 협업자를 추가하면 이 스페이스의 모든 베이스에 접근할 수 있게 됩니다.",
+      "desc_billable_one": "이 스페이스에는 <b>협업자 {{count}}명</b>과 <b>과금 대상 {{billableCount}}명</b>이 있습니다. 스페이스 협업자를 추가하면 이 스페이스의 모든 베이스에 접근할 수 있게 됩니다.",
+      "desc_billable_other": "이 스페이스에는 <b>협업자 {{count}}명</b>과 <b>과금 대상 {{billableCount}}명</b>이 있습니다. 스페이스 협업자를 추가하면 이 스페이스의 모든 베이스에 접근할 수 있게 됩니다.",
+      "tabEmail": "이메일로 초대",
+      "emailPlaceholder": "이메일 주소를 입력하고 Enter 로 구분하세요",
+      "tabLink": "링크로 초대",
+      "linkPlaceholder": "여는 사람에게 <0/> 권한을 주는 초대 링크를 만듭니다.",
+      "emailSend": "초대 보내기",
+      "directAccessDescription": "초대받은 사람은 아래 링크로 바로 들어와 함께 작업할 수 있습니다",
+      "linkSend": "링크 만들기",
+      "spaceTitle": "스페이스 협업자",
+      "spaceTitleWithCount": "스페이스 협업자 ({{count}})",
+      "baseTitle": "베이스 협업자",
+      "allCollaboratorsTitle": "전체 협업자 (스페이스 및 베이스)",
+      "baseOnly": "베이스만",
+      "collaboratorSearchPlaceholder": "이름이나 이메일로 스페이스 협업자 찾기",
+      "collaboratorJoin": "{{joinTime}} 합류",
+      "collaboratorRemove": "협업자 빼기",
+      "linkTitle": "초대 링크",
+      "linkCreatedTime": "{{createdTime}} 생성",
+      "linkCopySuccess": "링크를 복사했습니다",
+      "linkRemove": "링크 삭제",
+      "noInviteLinks": "초대 링크가 없습니다",
+      "linkDescription": "초대 링크를 만들고 권한을 지정합니다",
+      "haveAccess": "접근 가능"
+    },
+    "base": {
+      "title": "{{baseName}} 공유",
+      "desc_one": "이 베이스는 협업자 {{count}}명과 공유되어 있습니다.",
+      "desc_other": "이 베이스는 협업자 {{count}}명과 공유되어 있습니다.",
+      "baseTitle": "베이스 협업자",
+      "collaboratorSearchPlaceholder": "이름이나 이메일로 베이스 협업자 찾기",
+      "baseTitleWithCount": "베이스 협업자 ({{count}})"
+    },
+    "addOrgCollaborator": {
+      "title": "조직 협업자 추가",
+      "button": "조직에서 추가",
+      "placeholder": "조직 구성원 또는 부서를 고르세요"
+    },
+    "sendInvitationSuccess": "초대를 보냈습니다",
+    "table": {
+      "collaborator": "협업자",
+      "accessPermission": "접근 권한",
+      "joinAt": "합류 시각",
+      "lastLogin": "마지막 로그인"
+    },
+    "authority": {
+      "title": "권한 매트릭스가 켜져 있습니다",
+      "description": "협업자의 실제 권한은 그에게 지정된 역할에 따라 달라집니다. 역할이 지정되지 않은 사람은 기본 역할을 씁니다",
+      "viewDetail": "자세히 보기"
+    },
+    "app": {
+      "previewAppError": "앱 오류"
+    }
+  },
+  "help": {
+    "title": "도움말",
+    "appLink": "https://app.teable.ai",
+    "mainLink": "https://help.teable.ai/en",
+    "apiLink": "https://help.teable.ai/en/api-doc/token"
+  },
+  "pagePermissionChangeTip": "페이지 권한이 바뀌었습니다. 새로고침이 필요합니다.",
+  "listEmptyTips": "목록이 비어 있습니다",
+  "billing": {
+    "overLimits": "한도 초과",
+    "overLimitsDescription": "지금 구독의 사용 한도를 넘었습니다. 끊김 없이 계속 쓰시려면 요금제를 올려 주세요.",
+    "userLimitExceededDescription": "라이선스가 허용하는 사용자 수를 넘었습니다. 일부 사용자를 비활성화하거나 라이선스를 늘려 주세요.",
+    "unavailableInPlanTips": "지금 요금제에서는 쓸 수 없는 기능입니다",
+    "unavailableConnectionTips": "데이터베이스 연결 기능은 없어질 예정이며, Enterprise 요금제와 셀프호스팅에서만 쓸 수 있습니다.",
+    "levelTips": "이 스페이스는 지금 {{level}} 요금제입니다",
+    "enterpriseFeature": "Enterprise 기능",
+    "automationRequiresUpgrade": "자동화를 쓰려면 Enterprise 에디션(EE)으로 올려야 합니다",
+    "authorityMatrixRequiresUpgrade": "권한 매트릭스를 쓰려면 Enterprise 에디션(EE)으로 올려야 합니다",
+    "viewPricing": "요금제 보기",
+    "billable": "과금 대상",
+    "billableByAuthorityMatrix": "권한 매트릭스로 인해 발생한 과금",
+    "licenseExpiredGracePeriod": "셀프호스팅 라이선스가 만료되어 {{expiredTime}} 에 무료 요금제로 내려갑니다. 유료 기능을 계속 쓰시려면 라이선스를 갱신해 주세요.",
+    "licenseAutoFetchFailed": "라이선스 자동 갱신에 실패했습니다. 요금제가 내려가기까지 {{days}}일 남았습니다.",
+    "licenseAutoFetchRetryFailed": "자동 갱신이 계속 실패합니다. Teable 서버와의 연결을 확인하거나 라이선스를 직접 갱신해 주세요.",
+    "licenseExpiredGracePeriodDays": "라이선스가 만료되었습니다. 요금제가 내려가기까지 {{days}}일 남았습니다.",
+    "spaceSubscriptionModal": {
+      "title": "스페이스 요금제 올리기",
+      "description": "본인이 소유자인 스페이스만 올릴 수 있습니다"
+    },
+    "contactAdminToUpgrade": "요금제 변경은 스페이스 소유자에게 요청해 주세요.",
+    "status": {
+      "active": "사용 중",
+      "canceled": "해지됨",
+      "incomplete": "미완료",
+      "incompleteExpired": "미완료 만료",
+      "trialing": "체험 중",
+      "pastDue": "결제 지연",
+      "unpaid": "미결제",
+      "paused": "일시정지",
+      "seatLimitExceeded": "좌석 수 초과"
+    }
+  },
+  "admin": {
+    "setting": {
+      "instanceTitle": "인스턴스 설정",
+      "description": "지금 인스턴스의 설정을 바꿉니다",
+      "allowSignUp": "새 계정 만들기 허용",
+      "allowSignUpDescription": "끄면 새 사용자가 가입할 수 없고, 로그인 화면에서 가입 버튼이 사라집니다.",
+      "bannedEmailDomains": "차단할 메일 도메인",
+      "bannedEmailDomainsDescription": "이 도메인의 메일 주소로는 가입할 수 없고, 해당 주소로 초대 메일도 보내지 않습니다. 도메인을 입력하고 Enter 를 누르면 추가됩니다.",
+      "bannedEmailDomainsInvalid": "올바른 도메인을 입력하세요. 예: example.com",
+      "allowSpaceInvitation": "스페이스 초대 보내기 허용",
+      "allowSpaceInvitationDescription": "끄면 관리자 외에는 다른 사람을 스페이스에 초대할 수 없습니다. 켜 두면 메일로 초대받은 새 사용자가 메일 속 초대 링크로 가입을 마칠 수 있지만, 공유 초대 링크는 동작하지 않습니다.",
+      "allowSpaceCreation": "누구나 새 스페이스 만들기 허용",
+      "allowSpaceCreationDescription": "끄면 관리자 외에는 새 스페이스를 만들 수 없습니다.",
+      "enableEmailVerification": "이메일 인증 사용",
+      "enableEmailVerificationDescription": "켜면 새 계정을 만들 때 메일 주소를 인증해야 합니다.",
+      "enableWaitlist": "대기자 명단 사용",
+      "enableWaitlistDescription": "켜면 초대 코드가 있어야만 가입할 수 있습니다.",
+      "generalSettings": "일반 설정",
+      "aiSettings": "AI 설정",
+      "brandingSettings": {
+        "title": "브랜드 설정",
+        "description": "엔터프라이즈 에디션에서만 쓸 수 있습니다",
+        "brandName": "브랜드 이름",
+        "logo": "로고",
+        "logoUpload": "로고 올리기",
+        "logoUploadDescription": "로고 이미지를 올리세요. PNG, JPEG 를 지원하며 권장 크기는 100x100px, 최대 500KB 입니다."
+      },
+      "ai": {
+        "name": "이름",
+        "nameDescription": "화면에서 제공자를 구분하기 위한 이름입니다. 자유롭게 정하세요",
+        "customModel": "직접 추가한 모델",
+        "customModelDescription": "직접 추가한 모델은 AI 필드, AI 자동화, AI 채팅에서 쓸 수 있습니다. 이미지 생성 모델은 따로 표시해 두어야 테스트됩니다",
+        "updateLLMProvider": "LLM 제공자 수정",
+        "addProvider": "LLM 제공자 추가",
+        "addProviderDescription": "목록에 새 LLM 제공자를 추가합니다",
+        "providerType": "제공자 종류",
+        "baseUrl": "기본 URL",
+        "apiKey": "API 키",
+        "baseUrlDescription": "LLM 제공자의 기본 URL",
+        "apiKeyDescription": "LLM 제공자의 API 키",
+        "models": "모델",
+        "modelsDescription": "이 LLM 제공자가 지원하는 모델",
+        "modelsSelectedCount": "모델 {{count}}개 선택됨",
+        "clearAllModels": "모델 모두 지우기",
+        "customModelPlaceholder": "모델 이름을 직접 입력하세요",
+        "addModelFill": "추가",
+        "modelIdReservedAt": "모델 ID 에는 '@' 를 쓸 수 없습니다",
+        "baseUrlRequired": "기본 URL 은 필수입니다",
+        "fetchModelListError": "모델 목록을 가져오지 못했습니다",
+        "provider": "LLM 제공자",
+        "aiAbilitySettings": "AI 기능 설정",
+        "aiAbilitySettingsDescription": "AI 기능을 설정합니다",
+        "modelPreferences": "모델 기본값",
+        "modelPreferencesDescription": "이 LLM 제공자에서 쓸 기본 모델",
+        "embeddingModel": "임베딩 모델",
+        "embeddingModelDescription": "선택 사항. 문서 Q&A 에 씁니다. 보통 모델 ID 에 \"embedding\" 이 들어갑니다.",
+        "translationModel": "번역 모델",
+        "translationModelDescription": "번역에 쓸 모델",
+        "chatModel": "채팅 모델",
+        "chatModelDescription": "채팅에 쓸 모델입니다. 참고: Teable 의 AI 기능에는 도구 호출(tool calling)이 필요합니다",
+        "chatModels": {
+          "lg": "고급 채팅 모델",
+          "lgDescription": "계획 수립, 코딩 등 복잡한 작업에 씁니다. 권장: claude-sonnet-4.5",
+          "md": "중간 작업 모델",
+          "mdDescription": "일상적인 대화와 일반 작업에 씁니다",
+          "sm": "가벼운 작업 모델",
+          "smDescription": "단순한 질의와 빠른 응답에 씁니다",
+          "inheritHint": "기본 주 모델({{model}})과 같음",
+          "modelTiers": "모델 등급",
+          "modelTiersDescription": "중간·가벼운 작업에 다른 모델을 지정합니다. 지정하지 않은 등급은 위의 기본 주 모델을 씁니다.",
+          "allInheriting": "모든 등급이 기본 주 모델을 씁니다",
+          "customized": "{{count}}개 따로 지정됨"
+        },
+        "actions": {
+          "title": "AI 기능",
+          "aiField": {
+            "title": "AI 필드",
+            "description": "자동 채우기와 필드 설정의 AI 구성을 포함한 AI 필드 기능"
+          },
+          "aiChat": {
+            "title": "AI 채팅",
+            "description": "AI 채팅 사이드바와 에이전트 기능 전체",
+            "sandboxWarning": "쓰기 전에 아래에서 AI 채팅 실행 환경을 설정해야 합니다"
+          },
+          "modelSelection": {
+            "title": "모델 선택 허용",
+            "description": "AI 채팅과 앱 빌더에서 사용자가 모델을 고를 수 있게 합니다"
+          }
+        },
+        "chatModelTest": {
+          "text": "모델 테스트",
+          "description": "이미지와 PDF 를 다룰 수 있는지 확인합니다.",
+          "notConfigLgModel": "먼저 고급 채팅 모델을 설정해 주세요",
+          "confirmTitle": "모델 성능 테스트",
+          "confirmDescription": "고급 채팅 모델의 성능을 테스트할까요?",
+          "confirm": "모델 테스트",
+          "cancel": "취소",
+          "missingCapabilitiesWarning": "이 모델은 이미지나 PDF 처리를 지원하지 않아 일부 기능을 쓸 수 없습니다.",
+          "modelNotSuitable": "이 모델은 고급 AI 기능에 맞지 않을 수 있습니다:",
+          "enableAITitle": "직접 추가한 모델 켜기",
+          "enableAIDescription": "모델 테스트를 마쳤습니다. 직접 추가한 모델이 아직 꺼져 있습니다. 이 모델의 기능을 쓰려면 켤까요?",
+          "enableAI": "직접 추가한 모델 켜기",
+          "skipTest": "건너뛰기"
+        },
+        "chatModelAbility": {
+          "image": "이미지",
+          "pdf": "PDF",
+          "webSearch": "웹 검색",
+          "toolCall": "도구 호출",
+          "reasoning": "추론",
+          "imageGeneration": "이미지 생성",
+          "disabledWebSearch": "웹 검색 꺼짐",
+          "lgModelAbility": "모델 기능",
+          "missingVision": "이미지·PDF 처리를 지원하지 않습니다",
+          "missingToolCall": "도구/함수 호출을 지원하지 않습니다",
+          "notTested": "아직 모델 기능을 테스트하지 않았습니다. 제공자 설정에서 먼저 테스트해 주세요",
+          "supportedFormats": "지원 형식"
+        },
+        "imageModelAbility": {
+          "generation": "텍스트 → 이미지",
+          "imageToImage": "이미지 → 이미지"
+        },
+        "configUpdated": "AI 설정을 저장했습니다",
+        "noModelFound": "모델이 없습니다.",
+        "searchModel": "모델 검색...",
+        "selectModel": "모델 선택...",
+        "defaultModel": "{{name}} (기본)",
+        "moreModels": "모델 더 보기",
+        "agentModelWarningConfirm": "알겠습니다",
+        "recommendedModelNudge": {
+          "title": "{{model}} 써 보기",
+          "description": "크레딧을 훨씬 적게 쓰면서 더 나은 결과를 얻습니다.",
+          "use": "{{model}} 쓰기",
+          "later": "나중에"
+        },
+        "noModelsAvailable": "쓸 수 있는 모델이 없습니다",
+        "input": "입력 {{ratio}}",
+        "output": "출력 {{ratio}}",
+        "inputOrOutputTip": "비율은 크레딧과 토큰의 교환 비율입니다. 예를 들어 \"1:1000\" 은 1 크레딧 ≈ 1000 토큰을 뜻합니다.<br></br>참고: 한 번 쓸 때마다 최소 1 크레딧이 차감됩니다. 실제 사용량이 1 크레딧보다 적어도 1 크레딧으로 계산합니다.",
+        "imageOutput": "이미지당 {{credits}}",
+        "imageOutputTip": "이미지 생성에는 크레딧이 듭니다. 한 장당 {{credits}} 크레딧을 씁니다",
+        "supportImageOutputTip": "이 모델은 이미지 생성을 지원합니다",
+        "supportVisionTip": "이 모델은 이미지 입력을 지원합니다",
+        "supportAudioTip": "이 모델은 오디오 입력을 지원합니다",
+        "supportVideoTip": "이 모델은 동영상 입력을 지원합니다",
+        "supportDeepThinkTip": "이 모델은 깊은 사고를 지원합니다",
+        "testConnection": "테스트",
+        "testing": "테스트 중...",
+        "testSuccess": "테스트에 성공했습니다",
+        "testCompleteWithCount": "테스트 완료: 모델 {{success}}/{{total}}개 통과",
+        "allTestsFailed": "모든 모델 테스트에 실패했습니다",
+        "testFailed": "테스트에 실패했습니다",
+        "batchTest": "모델 기능 테스트",
+        "test": "테스트",
+        "testProvider": "테스트",
+        "testProviderTooltip": "이 제공자의 모델 {{count}}개를 모두 테스트합니다",
+        "batchTesting": "모든 모델을 테스트하는 중...",
+        "batchTestComplete": "일괄 테스트를 마쳤습니다",
+        "batchTestResults": "일괄 테스트 결과",
+        "batchTestResultsSummary": "모델 {{total}}개 중 {{tested}}개 테스트: {{success}}개 통과, {{failed}}개 실패",
+        "batchTestNoModels": "테스트할 모델이 없습니다",
+        "modelStatus": "모델 상태",
+        "imageSupport": "이미지 지원",
+        "basicGeneration": "기본 생성",
+        "supported": "지원함",
+        "notSupported": "지원 안 함",
+        "partialSupport": "일부 지원",
+        "urlSupport": "URL",
+        "base64Support": "Base64",
+        "closeResults": "닫기",
+        "retryFailed": "실패한 것 다시 시도",
+        "stopTest": "중지",
+        "pending": "대기 중",
+        "configuredModels": "설정된 모델",
+        "fillRequiredFields": "필수 항목을 모두 채워 주세요",
+        "modelsRequired": "모델을 하나 이상 입력해 주세요",
+        "noValidModel": "쓸 수 있는 모델이 없습니다",
+        "addCustomModel": "모델 직접 추가",
+        "isOpenRouter": "OpenRouter",
+        "modelRates": "모델 요금",
+        "modelSettings": "모델 설정",
+        "model": "모델",
+        "inputRate": "입력 USD/토큰",
+        "outputRate": "출력 USD/토큰",
+        "inputRateTip": "직접 추가한 제공자의 입력 단가(토큰당 USD)",
+        "outputRateTip": "직접 추가한 제공자의 출력 단가(토큰당 USD)",
+        "rateExplanationTitle": "직접 추가한 제공자의 요금 설정",
+        "rateExplanationFormula": "AI Gateway 기준 대비 배수를 넣으세요. 예를 들어 0.1 은 기준가의 10% 라는 뜻입니다.",
+        "rateExplanationExample": "입력·출력·캐시·추론·이미지·웹 검색 요금이 같은 배수로 AI Gateway 기준가에서 계산됩니다. 청구 시 1 USD = 100 크레딧으로 환산합니다.",
+        "ratesDescription": "계산된 값은 modelConfigs[model].pricing 에 저장되어 인스턴스 단위의 직접 추가 제공자 청구에 쓰입니다. 배율 열은 기존 Claude Opus 4.6 = 1배 기준의 비용 수준을 그대로 보여 줍니다.",
+        "advancedRates": "계산된 상세 요금",
+        "advancedRatesDescription": "설정한 배수로 AI Gateway 기준가에서 계산한 상세 요금입니다. 확인용으로 보여 주며 모델 요금과 함께 저장됩니다.",
+        "cacheRead": "캐시↓",
+        "cacheWrite": "캐시↑",
+        "reasoning": "추론",
+        "perImage": "이미지",
+        "cacheReadRateTip": "이 제공자가 캐시된 입력을 따로 청구할 때, 캐시 입력 토큰당 USD",
+        "cacheWriteRateTip": "이 제공자가 캐시 쓰기를 따로 청구할 때, 캐시 쓰기 토큰당 USD",
+        "reasoningRateTip": "이 제공자가 추론 토큰을 따로 청구할 때, 추론 토큰당 USD",
+        "imageRateTip": "이 제공자가 이미지 단위로 청구할 때, 생성 이미지 한 장당 USD",
+        "imageModel": "이미지 모델",
+        "imageGeneration": "이미지 생성",
+        "imageToImage": "이미지 → 이미지",
+        "clickToToggleImageModel": "💡 눌러서 이미지 생성 모델로 표시하세요",
+        "markAsImageModel": "이미지 생성 모델로 표시",
+        "imageGenerationModel": "이미지 생성 모델",
+        "markedAsImageModel": "이미지 생성 모델로 표시했습니다. 텍스트→이미지, 이미지→이미지 기능을 테스트합니다.",
+        "markedAsTextModel": "텍스트 모델로 표시했습니다. 이미지 입력(비전) 기능을 테스트합니다.",
+        "fetchPricingError": "요금을 가져오지 못했습니다",
+        "openRouterId": "게이트웨이 모델 ID",
+        "notFound": "찾을 수 없음",
+        "applyPricing": "적용 ({{count}})",
+        "pricingApplied": "요금을 적용했습니다",
+        "pricingAppliedCount": "모델 {{count}}개의 요금을 갱신했습니다",
+        "relativeRatio": "배율",
+        "webSearch": "웹",
+        "referencePricingTip": "AI Gateway 모델 목록에서 가져온 기준 가격",
+        "applyReferencePricingTip": "이 AI Gateway 기준 가격으로 직접 추가한 제공자의 요금을 계산합니다",
+        "optionalPricing": "선택 사항",
+        "gatewayRatio": "게이트웨이 배수",
+        "gatewayRatioTip": "AI Gateway 기준가 대비 배수입니다. 0.1 은 기준가의 10% 를 뜻합니다.",
+        "generatedPricing": "계산된 요금",
+        "generatedPricingTip": "modelConfigs[model].pricing 에 저장되는, 직접 추가한 제공자의 입력·출력 요금",
+        "rateExplanationManual": "자동으로 맞는 기준을 못 찾았나요? 모델 편집 창에서 기준 모델을 직접 고르세요.",
+        "referenceModelLabel": "기준 모델",
+        "contextWindowCap": "컨텍스트",
+        "contextWindowCapTip": "모델이 받을 수 있는 최대 입력 토큰 수로, 컨텍스트 압축 기준이 됩니다. 비워 두면 레지스트리 또는 기본 한도를 씁니다.",
+        "maxOutputTokensCap": "최대 출력",
+        "maxOutputTokensCapTip": "한 번의 응답에서 모델이 만들 수 있는 최대 토큰 수입니다. 비워 두면 레지스트리 또는 기본 한도를 씁니다.",
+        "rateExplanationCaps": "컨텍스트와 최대 출력은 기준 모델 값을 기본으로 하며 수정할 수 있습니다. 비워 두면 레지스트리나 기본값을 씁니다.",
+        "relativeRatioTip": "기존 가중치 계산으로 구한, Claude Opus 4.6 = 1배 기준의 비용 수준",
+        "hint": {
+          "title": "이렇게 해 보세요",
+          "missingV1Suffix": "기본 URL 끝에 \"/v1\" 이 빠졌을 수 있습니다. OpenAI 호환 API 는 대부분 \"/v1\" 로 끝나는 주소가 필요합니다 (예: https://api.openai.com/v1)",
+          "removeTrailingSlash": "기본 URL 끝의 슬래시를 빼고 시도해 보세요",
+          "checkApiKey": "API 키가 맞는지, 만료되지 않았는지 확인해 주세요",
+          "azureDeployment": "Azure 라면 기본 URL 에 올바른 리소스 이름과 배포가 들어갔는지 확인해 주세요",
+          "checkQuotaOrPermission": "API 키의 권한이 모자라거나 할당량을 다 썼을 수 있습니다. 계정 상태를 확인해 주세요",
+          "checkModelName": "모델 이름이 틀렸을 수 있습니다. 제공자가 지원하는 이름과 같은지 확인해 주세요",
+          "checkConnection": "서버에 연결할 수 없습니다. 기본 URL 이 맞는지, 서버에 접근할 수 있는지 확인해 주세요",
+          "ollamaRunning": "Ollama 가 로컬에서 실행 중인지 확인해 주세요. 'ollama serve' 명령으로 띄울 수 있습니다",
+          "sslCertificate": "SSL 인증서 문제가 있습니다. 자체 서명 인증서를 쓴다면 추가 설정이 필요할 수 있습니다",
+          "checkConfiguration": "설정을 확인해 주세요. 기본 URL, API 키, 모델 이름이 모두 맞아야 합니다"
+        },
+        "recommended": "추천",
+        "enabled": "켜짐",
+        "gatewayModels": "AI Gateway 모델",
+        "gatewayModelsDescription": "AI SDK 를 가장 잘 지원하도록 Vercel AI Gateway 로 추천 모델을 설정합니다",
+        "gatewayDescription": "호환성과 안정성이 가장 좋은 AI Gateway 를 쓰세요. API 키는 아래 앱 항목에서 설정합니다.",
+        "providerDescription": "고급: 특정 용도나 직접 운영하는 모델을 위해 AI 제공자를 직접 설정합니다.",
+        "noGatewayModels": "설정된 게이트웨이 모델이 없습니다. 모델을 추가해 시작하세요.",
+        "addModel": "모델 추가",
+        "addGatewayModel": "게이트웨이 모델 추가",
+        "popularModels": "많이 쓰는 모델",
+        "modelId": "모델 ID",
+        "modelIdHint": "AI Gateway 가 쓰는 모델 식별자입니다 (예: anthropic/claude-sonnet-4)",
+        "searchModelPlaceholder": "입력해서 모델 검색...",
+        "noMatchingModels": "맞는 모델이 없습니다",
+        "typeToSearch": "검색어를 입력해 쓸 수 있는 모델을 찾으세요",
+        "modelNotFound": "이 모델 ID 를 목록에서 찾지 못했습니다. 철자를 확인해 주세요",
+        "testModel": "모델 테스트",
+        "testModelSuccess": "모델 테스트 성공! API 가 정상으로 응답했습니다",
+        "testModelImageSuccess": "이미지 모델이 API 에 있는 것을 확인했습니다",
+        "testModelNotFound": "API 목록에서 모델을 찾지 못했습니다",
+        "displayLabel": "표시 이름",
+        "isImageModel": "이미지 생성 모델입니다",
+        "capabilities": "기능",
+        "setAsDefault": "기본 채팅 모델로 지정",
+        "quickAdd": "많이 쓰는 모델 빠르게 추가:",
+        "guide": {
+          "configStatus": "설정 상태",
+          "ready": "준비됨",
+          "needsAttention": "확인 필요",
+          "incomplete": "미완료",
+          "aiEnabled": "AI 켜짐",
+          "aiEnabledDesc": "이 인스턴스에서 직접 추가한 모델을 쓸 수 있습니다",
+          "aiDisabledDesc": "직접 추가한 AI 모델을 쓰려면 켜세요",
+          "gatewayKey": "게이트웨이 API 키",
+          "gatewayKeyConfigured": "AI Gateway 키가 설정되었습니다",
+          "gatewayKeyMissing": "권장 설정을 쓰려면 AI Gateway API 키를 넣어 주세요",
+          "gatewayKeyRequired": "아래 앱 항목에서 AI Gateway API 키를 먼저 설정해 주세요",
+          "gatewayModels": "게이트웨이 모델",
+          "gatewayModelsConfigured": "모델 {{count}}개 켜짐",
+          "gatewayModelsEmpty": "사용자가 고를 수 있게 게이트웨이 모델을 추가하세요",
+          "providers": "직접 추가한 제공자",
+          "providersConfigured": "제공자 {{count}}개 설정됨",
+          "providersEmpty": "직접 추가한 제공자가 없습니다",
+          "chatModel": "기본 채팅 모델",
+          "chatModelGateway": "게이트웨이 모델 사용 중",
+          "chatModelProvider": "직접 추가한 제공자의 모델 사용 중",
+          "chatModelMissing": "기본 채팅 모델을 고르세요"
+        },
+        "enableCard": {
+          "title": "AI 서비스",
+          "ready": "설정을 마쳐 바로 쓸 수 있습니다",
+          "needsConfig": "켜져 있지만 아래 설정이 더 필요합니다",
+          "disabled": "AI 기능이 꺼져 있습니다",
+          "missingConfig": "빠진 설정:",
+          "allConfigured": "설정을 모두 마쳤습니다"
+        },
+        "wizard": {
+          "setupProgress": "설정 진행률",
+          "checklist": "확인 목록",
+          "allComplete": "필요한 설정을 모두 마쳤습니다. AI 를 쓸 수 있습니다.",
+          "nextStep": "다음: {{step}}",
+          "configureAI": "AI 를 쓰려면 아래 단계를 마쳐 주세요",
+          "optional": "선택",
+          "gatewayHelp": "AI Gateway: API 키 하나로 수백 개 모델을 씁니다. 처음 쓸 때는 Vercel 에 신용카드를 등록해야 합니다.",
+          "gatewayByok": "지원함 (내 제공자 키 사용 가능)",
+          "getApiKey": "API 키 받기",
+          "keyInvalid": "API 키가 올바르지 않습니다. 확인 후 다시 시도해 주세요",
+          "gatewayErrorUnauthorized": "API 키가 올바르지 않습니다. 제대로 복사했는지 확인해 주세요",
+          "gatewayErrorNeedCreditCard": "AI Gateway 를 쓰려면 신용카드가 필요합니다. Vercel 대시보드에서 등록해 주세요",
+          "gatewayErrorInsufficientQuota": "계정 잔액이 모자랍니다. 충전 후 다시 시도해 주세요",
+          "gatewayErrorForbidden": "접근이 거부되었습니다. Vercel 대시보드에서 계정 상태를 확인해 주세요",
+          "gatewayErrorNetwork": "네트워크 오류입니다. 연결이나 프록시 설정을 확인해 주세요",
+          "pleaseTest": "테스트를 눌러 API 키를 확인해 주세요",
+          "test": "테스트",
+          "testing": "테스트 중...",
+          "attachmentTest": {
+            "title": "첨부파일 전송 방식",
+            "urlMode": "URL 방식",
+            "base64Mode": "Base64 방식",
+            "accessible": "사용 가능",
+            "inaccessible": "사용 불가",
+            "urlNotAccessibleWarning": "AI 서비스가 첨부파일 URL 에 접근하지 못합니다. 사내망 설치에서는 흔한 일이며, Base64 방식을 자동으로 켰습니다.",
+            "useBase64Mode": "Base64 방식 쓰기",
+            "base64ModeDescription": "첨부파일을 Base64 로 바꿔 보냅니다 (외부에서 Teable 에 접근할 수 없을 때)",
+            "originChanged": "PUBLIC_ORIGIN 이 바뀌었습니다",
+            "originChangedDesc": "지난 테스트 이후 서버 주소가 바뀌었습니다. 첨부파일 접근이 되는지 다시 테스트해 주세요."
+          },
+          "saveAndContinue": "저장하고 계속",
+          "completeStep1First": "1단계 LLM API 설정을 먼저 마쳐 주세요",
+          "completeStep2First": "2단계에서 모델을 하나 이상 추가해 주세요",
+          "addCustom": "직접 입력...",
+          "enabledModels": "켜진 모델",
+          "chatDefault": "채팅 기본값",
+          "noModelsAvailable": "쓸 수 있는 모델이 없습니다. 2단계에서 모델을 먼저 추가해 주세요",
+          "quickSetup": "빠른 설정",
+          "useRecommended": "권장값 쓰기",
+          "useRecommendedDesc": "{{model}} 을(를) 모든 채팅 상황의 기본값으로 한 번에 지정합니다",
+          "chatModels": "기본 주 모델",
+          "chatModelTip": "사이드바 AI 채팅의 기본 주 모델입니다. 관리자가 정하며 사용자는 바꿀 수 없습니다. 따로 모델을 지정하지 않은 작업 등급도 이 모델을 씁니다",
+          "selectChatModel": "채팅 모델 선택...",
+          "lgDesc": "복잡한 작업, 깊은 분석",
+          "mdDesc": "일상 대화, 일반 작업",
+          "smDesc": "단순 질의, 빠른 응답",
+          "readyToUse": "AI 설정을 마쳤습니다. 이제 쓸 수 있습니다!",
+          "customProviderHelp": "쓰던 AI 제공자(OpenAI, Anthropic, Azure 등)를 추가하고 API 키와 모델을 설정합니다.",
+          "testModelCapabilities": "모델 기능 테스트",
+          "customModelsAutoImported": "제공자의 모델을 모델 목록에 자동으로 넣었습니다.",
+          "modelsCount": "모델 {{count}}개 사용 가능",
+          "customModelsHint": "모델 설정을 바꾸려면 1단계로 돌아가 제공자 설정을 고치세요.",
+          "gatewayOption": {
+            "title": "AI Gateway (권장)",
+            "desc": "Vercel AI Gateway 로 수백 개 모델을 가장 안정적으로 씁니다"
+          },
+          "customOption": {
+            "title": "제공자 직접 설정",
+            "desc": "직접 운영하는 모델이나 사내 모델에 연결하며, 여러 제공자를 함께 쓸 수 있습니다"
+          },
+          "step": {
+            "llmApi": "LLM API 설정",
+            "llmApiDesc": "AI Gateway 를 쓰거나 제공자를 직접 설정합니다",
+            "modelPool": "추천 모델 설정",
+            "modelPoolDesc": "AI 필드와 자동화에서 사용자가 고를 추천 모델",
+            "chatModel": "채팅 모델 지정",
+            "chatModelDesc": "사이드바 AI 채팅에 쓸 모델 (추천 모델 중에서 선택)",
+            "providers": "제공자 설정",
+            "providersDesc": "AI 제공자를 추가하고 관리합니다"
+          }
+        }
+      },
+      "app": {
+        "domain": "도메인",
+        "customDomain": "직접 쓰는 도메인 (선택)",
+        "customDomainDescription": "앱 배포에 쓸 도메인을 지정합니다. <a>Vercel 도메인</a> 에서 도메인을 받으세요",
+        "vercelToken": "Vercel API 토큰",
+        "vercelTokenDescription": "<a>Vercel 설정</a> 에서 API 토큰을 받으세요",
+        "aiGateway": "Vercel AI Gateway",
+        "aiGatewayDescription": "엔드포인트 하나로 수백 개 모델을 쓰려면 Vercel AI Gateway 를 설정하세요. <a>AI Gateway 설정</a> 에서 API 키를 받습니다",
+        "aiGatewayApiKey": "AI Gateway API 키",
+        "aiGatewayKeyConfigured": "API 키가 설정되었습니다",
+        "aiGatewayBaseUrl": "게이트웨이 URL 직접 지정"
+      }
+    },
+    "action": {
+      "enterApiKey": "API 키 입력",
+      "goToConfiguration": "설정으로 가기"
+    },
+    "tips": {
+      "thankYouForUsingTeable": "Teable 을 써 주셔서 고맙습니다",
+      "pleaseGoToConfiguration": "설정 화면에서 초기 설정을 마치면 Teable 의 기능을 온전히 쓸 수 있습니다",
+      "pleaseContactAdmin": "관리자에게 문의해 주세요"
+    },
+    "configuration": {
+      "title": "남은 설정",
+      "description": "이 설정을 마치면 모든 기능을 쓸 수 있습니다",
+      "progressTitle": "설정 진행률",
+      "allComplete": "설정을 모두 마쳤습니다",
+      "incomplete": "아직 마치지 않은 설정이 있습니다",
+      "optional": "선택",
+      "completed": "완료",
+      "group": {
+        "system": "기본",
+        "ai": "AI 서비스",
+        "appBuilder": "앱 빌더"
+      },
+      "copyInstance": "ID 복사",
+      "list": {
+        "publicOrigin": {
+          "title": "PUBLIC_ORIGIN 환경 변수",
+          "description": "<strong>{{envPublicOrigin}}</strong> 환경 변수 설정이 지금 접속 주소 <underline>{{currentPublicOrigin}}</underline> 와 다릅니다. xlsx·csv 가져오기와 첨부파일 필드가 제대로 동작하지 않을 수 있으니 <underline>{{envPublicOrigin}}</underline> 로 맞춰 주세요"
+        },
+        "https": {
+          "title": "HTTPS 켜기",
+          "description": "HTTPS 가 꺼져 있어 대량 복사(300행 이상) 기능을 쓸 수 없습니다. 켜는 것을 권합니다."
+        },
+        "llmApi": {
+          "title": "LLM API",
+          "description": "AI LLM API 를 설정하지 않아 AI 채팅과 AI 자동화를 쓸 수 없습니다. <anchor>설정으로 가기</anchor>",
+          "errorTips": "AI LLM API 를 설정하지 않아 AI 채팅과 AI 자동화를 쓸 수 없습니다"
+        },
+        "aiEnable": {
+          "title": "AI 서비스 (채팅 / AI 필드)",
+          "description": "AI 채팅, AI 필드, 자동화를 쓰려면 켜 주세요. <anchor>설정으로 가기</anchor>"
+        },
+        "aiLlmApi": {
+          "title": "AI: LLM API 설정",
+          "description": "AI Gateway 를 쓰거나 제공자를 직접 설정하세요. <anchor>설정으로 가기</anchor>"
+        },
+        "aiModelPool": {
+          "title": "AI: 쓸 모델 설정",
+          "description": "AI 필드와 자동화를 위해 모델을 하나 이상 켜 주세요. <anchor>설정으로 가기</anchor>"
+        },
+        "aiChatModel": {
+          "title": "AI: 채팅 모델 지정",
+          "description": "사이드바 AI 채팅의 기본 모델을 골라 주세요. <anchor>설정으로 가기</anchor>"
+        },
+        "appBuilderEngine": {
+          "title": "앱 빌더: 배포 엔진",
+          "description": "앱을 게시할 배포 엔진(Vercel 또는 Teable Infra)을 설정하세요. <anchor>설정으로 가기</anchor>"
+        },
+        "appBuilderDomain": {
+          "title": "앱 빌더: 도메인 직접 지정",
+          "description": "직접 쓰는 도메인으로 앱을 게시하려면 도메인과 Vercel 토큰을 설정하세요. <anchor>설정으로 가기</anchor>"
+        },
+        "email": {
+          "title": "메일",
+          "description": "메일을 설정하지 않아 비밀번호 재설정과 알림 메일을 쓸 수 없습니다. <anchor>설정으로 가기</anchor>",
+          "errorTips": "메일을 설정하지 않아 비밀번호 재설정과 인증·알림 메일을 쓸 수 없습니다"
+        },
+        "sandboxOpenSandbox": {
+          "title": "AI 채팅 실행 환경",
+          "description": "AI 채팅용 OpenSandbox 실행 환경을 설정하세요. <anchor>설정으로 가기</anchor>"
+        }
+      }
+    },
+    "canary": {
+      "title": "카나리 배포",
+      "enable": "카나리 사용",
+      "enableDescription": "켜면 지정한 스페이스에서 카나리 기능이 활성화됩니다",
+      "spaces": "카나리 스페이스",
+      "spacesDescription": "스페이스 {{count}}개 지정됨",
+      "configure": "설정",
+      "spaceIds": "스페이스 ID",
+      "spaceIdsDescription": "스페이스 ID 를 한 줄에 하나씩, 또는 쉼표나 공백으로 구분해 입력하세요",
+      "spaceIdsPlaceholder": "spcXXXXXXXXXXX\nspcYYYYYYYYYYY",
+      "preview": "미리보기 (ID {{count}}개)",
+      "noSpaceIds": "입력된 스페이스 ID 가 없습니다"
+    }
+  },
+  "notification": {
+    "title": "알림",
+    "unread": "읽지 않음",
+    "read": "읽음",
+    "markAs": "이 알림을 {{status}} 으로 표시",
+    "markAllAsRead": "모두 읽음으로 표시",
+    "noUnread": "{{status}} 알림이 없습니다",
+    "noAttention": "확인이 필요한 알림이 없습니다",
+    "noSeverity": "{{severity}} 알림이 없습니다",
+    "changeSetting": "페이지 알림 설정 바꾸기",
+    "new": "새 알림 {{count}}건",
+    "showMore": "더 보기",
+    "sections": {
+      "needsAction": "중요",
+      "all": "전체"
+    },
+    "severity": {
+      "critical": "중요",
+      "warning": "경고",
+      "info": "일반"
+    },
+    "exportBase": {
+      "successText": "내보낸 데이터가 준비되었습니다",
+      "failedText": "내보내기에 실패했습니다. 다시 시도해 주세요"
+    },
+    "importantNotice": {
+      "title": "중요 공지",
+      "acknowledge": "확인했습니다"
+    }
+  },
+  "role": {
+    "title": {
+      "owner": "소유자",
+      "creator": "제작자",
+      "editor": "편집자",
+      "commenter": "댓글 작성자",
+      "viewer": "보기 전용"
+    },
+    "description": {
+      "owner": "베이스·자동화·권한 매트릭스를 모두 설정하고 편집할 수 있으며, 스페이스 설정과 결제도 관리합니다",
+      "creator": "베이스와 자동화를 모두 설정하고 편집할 수 있으며 권한 매트릭스를 켤 수 있습니다",
+      "editor": "레코드와 뷰를 편집할 수 있지만 테이블이나 필드는 설정할 수 없습니다",
+      "commenter": "레코드에 댓글을 달 수 있습니다",
+      "viewer": "편집도 댓글도 할 수 없습니다"
+    }
+  },
+  "trash": {
+    "spaceTrash": "스페이스 휴지통",
+    "type": "종류",
+    "resetTrash": "휴지통 비우기",
+    "deletedBy": "지운 사람",
+    "deletedTime": "지운 시각",
+    "fromSpace": "\"{{name}}\" 스페이스에서",
+    "permanentDeleteTips": "\"{{name}}\" {{resource}} 을(를) 영구 삭제할까요?",
+    "resetTrashConfirm": "휴지통을 비울까요?",
+    "addToTrash": "휴지통으로 옮기기",
+    "description": "휴지통에 있는 데이터도 레코드와 첨부파일 사용량을 차지합니다.",
+    "spaceDescription": "최근 {{retentionDays}}일 안에 지운 스페이스를 되살립니다",
+    "spaceInnerDescription": "이 스페이스에서 최근 {{retentionDays}}일 안에 지운 베이스를 되살립니다",
+    "baseDescription": "이 베이스에서 최근 {{retentionDays}}일 안에 지운 항목을 되살립니다"
+  },
+  "pluginCenter": {
+    "pluginUrlEmpty": "플러그인 주소가 설정돼 있지 않습니다",
+    "install": "설치",
+    "publisher": "만든 곳",
+    "lastUpdated": "마지막 수정",
+    "pluginNotFound": "플러그인을 찾을 수 없습니다",
+    "pluginEmpty": {
+      "title": "아직 플러그인이 없습니다"
+    }
+  },
+  "automation": {
+    "turnOnTip": "이 자동화를 켤까요?"
+  },
+  "email": {
+    "title": "메일",
+    "send": "보내기",
+    "config": "메일 설정",
+    "customConfig": "직접 설정한 메일 서버",
+    "notify": "알림 메일",
+    "automation": "자동화 메일",
+    "customNotifyConfig": "알림 메일 직접 설정",
+    "customAutomationConfig": "자동화 메일 직접 설정",
+    "addConfig": "설정 추가",
+    "editConfig": "설정 편집",
+    "resetConfig": "초기화",
+    "testEmail": "테스트 메일",
+    "testEmailPlaceholder": "테스트로 받을 메일 주소를 입력하세요",
+    "testEmailError": "올바른 메일 주소를 입력해 주세요",
+    "testEmailSend": "테스트 메일을 보냈습니다. 받은편지함을 확인해 주세요",
+    "configError": "메일 설정을 올바르게 입력해 주세요",
+    "host": "서버 주소",
+    "hostDescription": "SMTP 메일 서버 주소를 입력하세요. 예: smtp.example.com",
+    "port": "포트",
+    "secure": "SSL/TLS",
+    "auth": "인증",
+    "username": "사용자 이름",
+    "password": "비밀번호",
+    "sender": "보내는 주소",
+    "senderName": "보내는 이름",
+    "subscribe": "수신 동의",
+    "unsubscribe": "수신 거부",
+    "unsubscribeList": "수신 거부 목록",
+    "unsubscribeTime": "수신 거부 시각",
+    "source": "출처",
+    "sourceAutomationDeleted": "자동화 또는 단계가 삭제됨",
+    "sourceApiSend": "API 로 보낸 메일",
+    "processing": "처리 중...",
+    "unsubscribeH1": "수신을 거부할까요?",
+    "unsubscribeH2": "앞으로 Teable 의 소식과 제품 안내 메일을 받지 않게 됩니다. 계속할까요?",
+    "subscribeH1": "수신에 동의할까요?",
+    "subscribeH2": "앞으로 Teable 의 소식과 제품 안내 메일을 받게 됩니다. 계속할까요?",
+    "unsubscribeListTip": "아래 사용자들은 이 베이스에서 수신을 거부했습니다. 이들에게는 메일을 보낼 수 없습니다. 메일 주소를 가져올 때는 첫 번째 열에 넣고 머리글을 \"email\" 로 지정하세요.",
+    "templates": {
+      "resetPassword": {
+        "subject": "비밀번호 재설정 - {{brandName}}",
+        "title": "비밀번호를 재설정하세요",
+        "message": "요청하지 않으셨다면 이 메일을 무시하셔도 됩니다. 재설정하시려면 아래 버튼을 눌러 주세요.",
+        "buttonText": "비밀번호 재설정"
+      },
+      "emailVerifyCode": {
+        "signupVerification": {
+          "subject": "회원가입 인증 - {{brandName}}",
+          "title": "회원가입 인증",
+          "message": "인증 코드는 {{code}} 입니다. {{expiresIn}}분 안에 입력해 주세요."
+        },
+        "domainVerification": {
+          "subject": "도메인 인증 - {{brandName}}",
+          "title": "도메인 인증",
+          "message": "인증 코드는 {{code}} 입니다. {{expiresIn}}분 안에 입력해 주세요."
+        },
+        "changeEmailVerification": {
+          "subject": "이메일 변경 인증 - {{brandName}}",
+          "title": "이메일 변경 인증",
+          "message": "인증 코드는 {{code}} 입니다. {{expiresIn}}분 안에 입력해 주세요."
+        }
+      },
+      "collaboratorCellTag": {
+        "subject": "{{fromUserName}}님이 {{tableName}} 의 레코드 {{fieldName}} 필드에 회원님을 넣었습니다",
+        "title": "<strong>{{fromUserName}}</strong>님이 <strong>{{tableName}}</strong> 의 레코드 <strong>{{fieldName}}</strong> 필드에 회원님을 넣었습니다",
+        "buttonText": "레코드 보기"
+      },
+      "collaboratorMultiRowTag": {
+        "subject": "{{fromUserName}}님이 {{tableName}} 의 레코드 {{refLength}}건에 회원님을 넣었습니다",
+        "title": "<strong>{{fromUserName}}</strong>님이 <strong>{{tableName}}</strong> 의 레코드 <strong>{{refLength}}</strong>건에 회원님을 넣었습니다",
+        "buttonText": "레코드 보기"
+      },
+      "invite": {
+        "subject": "{{name}} ({{email}}) 님이 {{resourceAlias}} {{resourceName}} 에 초대했습니다 - {{brandName}}",
+        "title": "협업 초대",
+        "message": "<strong>{{name}}</strong> ({{email}}) 님이 {{resourceAlias}} <strong>{{resourceName}}</strong> 에 초대했습니다.",
+        "buttonText": "초대 수락"
+      },
+      "waitlistInvite": {
+        "subject": "환영합니다 - {{brandName}}",
+        "title": "환영합니다",
+        "message": "{{brandName}} 대기자 명단에 등록되었습니다. 아래 초대 코드로 가입해 주세요: {{code}} ({{times}}회 사용 가능)",
+        "buttonText": "가입하기"
+      },
+      "test": {
+        "subject": "테스트 메일 - {{brandName}}",
+        "title": "테스트 메일",
+        "message": "테스트 메일입니다. 무시하셔도 됩니다."
+      },
+      "notify": {
+        "subject": "알림 - {{brandName}}",
+        "title": "알림",
+        "buttonText": "보기",
+        "import": {
+          "title": "가져오기 결과 알림",
+          "table": {
+            "aborted": {
+              "message": "❌ {{tableName}} 가져오기가 중단되었습니다: {{errorMessage}} 실패한 행 범위: [{{range}}]. 해당 범위의 데이터를 확인한 뒤 다시 시도해 주세요."
+            },
+            "failed": {
+              "message": "❌ {{tableName}} 가져오기에 실패했습니다: {{errorMessage}}"
+            },
+            "planLimitExceeded": {
+              "message": "❌ {{tableName}} 가져오기 실패: 행 수 한도에 도달했습니다. 더 많은 레코드를 넣으려면 요금제를 올려 주세요"
+            },
+            "noRecordsProcessed": {
+              "message": "❌ {{tableName}} 가져오기 실패: 처리된 레코드가 없습니다"
+            },
+            "success": {
+              "message": "🎉 {{tableName}} 을(를) 가져왔습니다.",
+              "inplace": "🎉 {{tableName}} 에 덮어쓰기로 가져왔습니다."
+            },
+            "partialSuccess": {
+              "message": "⚠️ {{tableName}} 일부만 가져왔습니다: {{successCount}}행 성공, {{failedCount}}행 실패. <a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 오류 보고서 내려받기</a>",
+              "messageNoReport": "⚠️ {{tableName}} 일부만 가져왔습니다: {{successCount}}행 성공, {{failedCount}}행 실패."
+            },
+            "allFailed": {
+              "message": "❌ {{tableName}} 가져오기 실패: {{failedCount}}행 모두 실패했습니다. <a href=\"{{errorReportUrl}}\" target=\"_blank\" rel=\"noopener\" download=\"error_report.csv\" style=\"color:#2563eb;text-decoration:underline;\">📥 오류 보고서 내려받기</a>",
+              "messageNoReport": "❌ {{tableName}} 가져오기 실패: {{failedCount}}행 모두 실패했습니다."
+            }
+          }
+        },
+        "recordComment": {
+          "title": "레코드 댓글 알림",
+          "message": "{{fromUserName}}님이 {{baseName}} 의 {{tableName}} 에 있는 {{recordName}} 에 댓글을 남겼습니다"
+        },
+        "collaboratorInvite": {
+          "space": "{{fromUserName}}님이 스페이스 {{resourceName}} 에 초대했습니다",
+          "base": "{{fromUserName}}님이 베이스 {{resourceName}} 에 초대했습니다"
+        },
+        "automation": {
+          "title": "자동화 알림",
+          "failed": {
+            "title": "자동화 {{name}} 실행 실패",
+            "message": "자동화 {{name}} 실행 중 오류가 났습니다. 실행 기록에서 자세히 확인해 주세요."
+          },
+          "insufficientCredit": {
+            "title": "AI 크레딧 부족으로 자동화 {{name}} 실행 실패",
+            "message": "AI 크레딧이 부족해 자동화 {{name}} 이(가) 실패했습니다. 크레딧을 추가하거나 요금제를 올려 주세요."
+          },
+          "runQuotaExceeded": {
+            "title": "실행 횟수 한도로 자동화 {{name}} 실행 실패",
+            "message": "자동화 {{name}} 이(가) 월 실행 횟수 한도에 도달했습니다. 요금제를 올리거나 실행 횟수를 추가로 구매해 주세요."
+          },
+          "failedSummary": {
+            "title": "자동화 {{name}} 이(가) {{failCount}}번 실패했습니다",
+            "message": "자동화 {{name}} 이(가) 연속으로 {{failCount}}번 실패했습니다. 실행 기록에서 자세히 확인해 주세요."
+          }
+        },
+        "billing": {
+          "title": "결제 알림",
+          "credit": {
+            "warning80": {
+              "title": "{{spaceName}} 스페이스 AI 크레딧 80% 사용",
+              "message": "{{spaceName}} 스페이스가 AI 크레딧의 80%를 썼습니다. 요금제를 올리거나 크레딧을 추가하는 것을 검토해 주세요."
+            },
+            "warning90": {
+              "title": "{{spaceName}} 스페이스 AI 크레딧 90% 사용",
+              "message": "{{spaceName}} 스페이스가 AI 크레딧의 90%를 썼습니다. 끊기지 않게 곧 조치해 주세요."
+            },
+            "anomaly": {
+              "dailySpike": {
+                "title": "{{spaceName}} 스페이스에서 비정상적인 AI 크레딧 급증 감지",
+                "message": "{{spaceName}} 스페이스: 오늘 AI 크레딧 사용량({{todayValue}})이 최근 일평균({{ewma}})의 {{multiplier}}배입니다. 예상치 못한 사용일 수 있으니 확인해 주세요. 주요 사용처: {{topContributors}}"
+              },
+              "burst": {
+                "title": "{{spaceName}} 스페이스 AI 크레딧 급증 감지",
+                "message": "{{spaceName}} 스페이스가 최근 {{windowMinutes}}분 동안 AI 크레딧 {{recentValue}} 를 썼습니다. 이는 과거 시간당 P95({{hourlyP95}})의 {{multiplier}}배입니다. 예상치 못한 사용일 수 있습니다. 주요 사용처: {{topContributors}}"
+              }
+            }
+          },
+          "automationRun": {
+            "warning80": {
+              "title": "{{spaceName}} 스페이스 자동화 실행 한도 80% 사용",
+              "message": "{{spaceName}} 스페이스가 자동화 실행 {{totalLimit}}회 중 {{usedRuns}}회(80%)를 썼습니다. 요금제 상향을 검토해 주세요."
+            },
+            "warning90": {
+              "title": "{{spaceName}} 스페이스 자동화 실행 한도 90% 사용",
+              "message": "{{spaceName}} 스페이스가 자동화 실행 {{totalLimit}}회 중 {{usedRuns}}회(90%)를 썼습니다. 끊기지 않게 곧 조치해 주세요."
+            },
+            "gracePeriod": {
+              "title": "{{spaceName}} 스페이스 자동화 실행 한도 초과 — 유예 기간",
+              "message": "{{spaceName}} 스페이스가 자동화 실행 한도를 넘었습니다. {{remainingHours}}시간 뒤에는 자동화가 멈춥니다. 요금제를 올려 주세요."
+            },
+            "anomaly": {
+              "dailySpike": {
+                "title": "{{spaceName}} 스페이스 자동화 실행 급증",
+                "message": "{{spaceName}} 스페이스: 오늘 자동화 실행({{todayValue}})이 최근 일평균({{ewma}})의 {{multiplier}}배입니다. 자동화가 폭주하고 있을 수 있으니 확인해 주세요. 주요 원인: {{topContributors}}"
+              },
+              "burst": {
+                "title": "{{spaceName}} 스페이스 자동화 실행 급증 감지",
+                "message": "{{spaceName}} 스페이스에서 최근 {{windowMinutes}}분 동안 자동화가 {{recentValue}}회 실행됐습니다. 이는 과거 시간당 P95({{hourlyP95}})의 {{multiplier}}배입니다. 반복 실행이나 설정 오류일 수 있습니다. 주요 원인: {{topContributors}}"
+              }
+            }
+          }
+        },
+        "exportBase": {
+          "title": "베이스 내보내기 결과 알림",
+          "success": {
+            "message": "{{baseName}} 내보내기 완료: <a href=\"{{previewUrl}}\" name=\"{{name}}\" class=\"hover:text-blue-500 underline\">🗂️ {{name}}</a>"
+          },
+          "failed": {
+            "message": "❌ {{baseName}} 내보내기 실패: {{errorMessage}}"
+          }
+        },
+        "task": {
+          "ai": {
+            "failed": {
+              "title": "{{tableName}} 테이블의 AI 작업 실패",
+              "message": "테이블 \"{{tableName}}\" 의 \"{{fieldName}}\" 필드 AI 작업이 실패했습니다: {{errorMsg}}"
+            },
+            "cancelled": {
+              "title": "AI 작업이 취소되었습니다",
+              "rateLimit": "요청 한도(429)에 걸려 테이블 \"{{tableName}}\" 의 AI 작업이 취소되었습니다. 잠시 뒤에 다시 시도해 주세요.",
+              "creditExhausted": "크레딧이 모두 소진되어 테이블 \"{{tableName}}\" 의 AI 작업이 취소되었습니다. 요금제를 올리거나 크레딧이 갱신될 때까지 기다려 주세요.",
+              "authFailed": "인증에 실패해 테이블 \"{{tableName}}\" 의 AI 작업이 취소되었습니다. API 키 설정을 확인해 주세요.",
+              "serviceUnavailable": "AI 서비스를 잠시 쓸 수 없어 테이블 \"{{tableName}}\" 의 AI 작업이 취소되었습니다. 나중에 다시 시도해 주세요.",
+              "unknown": "테이블 \"{{tableName}}\" 의 AI 작업이 취소되었습니다. 오류: {{errorMessage}}"
+            }
+          }
+        },
+        "rewardRejected": {
+          "title": "리워드 신청이 반려되었습니다",
+          "message": "<a href=\"{{spaceUrl}}\">{{spaceName}}</a> 리워드 신청이 다음 이유로 반려되었습니다: {{errorMessages}}. 확인 후 다시 신청해 주세요.",
+          "buttonText": "스페이스 보기"
+        },
+        "rewardApproved": {
+          "title": "리워드 신청이 승인되었습니다",
+          "message": "축하합니다! <a href=\"{{spaceUrl}}\">{{spaceName}}</a> 리워드 신청이 승인되었습니다. 크레딧 {{amount}} 이(가) 지급되었으며 {{expiredDays}}일간 쓸 수 있습니다.",
+          "buttonText": "스페이스 보기"
+        }
+      }
+    }
+  },
+  "waitlist": {
+    "title": "대기자 명단",
+    "email": "이메일",
+    "joinTitle": "수요에 맞춰 빠르게 늘려 가고 있습니다.",
+    "joinDesc": "대기자 명단에 올려 두시면 준비되는 대로 알려 드리겠습니다.",
+    "emailPlaceholder": "이메일을 입력하세요...",
+    "youAreOnTheList": "명단에 올랐습니다!",
+    "thanksForJoining": "대기자 명단에 참여해 주셔서 고맙습니다. 소식이 생기면 바로 알려 드리겠습니다.",
+    "back": "뒤로",
+    "inviteCodePlaceholder": "초대 코드를 입력하세요",
+    "join": "대기자 명단 참여",
+    "joining": "참여하는 중...",
+    "invite": "초대",
+    "inviteTime": "초대 시각",
+    "createdTime": "참여 시각",
+    "yes": "예",
+    "no": "아니오",
+    "generateCode": "초대 코드 만들기",
+    "count": "개수",
+    "times": "횟수",
+    "generate": "만들기",
+    "code": "초대 코드",
+    "inviteSuccess": "초대했습니다"
+  },
+  "noPermissionToCreateBase": "어느 스페이스에도 베이스를 만들 권한이 없습니다",
+  "base": {
+    "deleteTip": "\"{{name}}\" 베이스를 삭제할까요?",
+    "createResource": "만들기",
+    "noPermissionToCreateResource": "만들 권한이 없습니다. 소유자에게 문의해 주세요"
+  },
+  "credit": {
+    "title": "크레딧",
+    "leftAmount": "남은 크레딧",
+    "winFreeCredits": "사용 후기 공유",
+    "getCredits": "무료 크레딧 1000 받기",
+    "winCredit": {
+      "title": "후기를 공유하고 받으세요",
+      "freeCredits": "무료 크레딧 1000",
+      "guidelinesTitle": "공유 조건",
+      "tagTeableio": "<bold>@teableio</bold> 태그하기",
+      "minCharacters": "<bold>80자</bold> 이상 후기 작성",
+      "minFollowers": "팔로워 <bold>10명</bold> 이상",
+      "limitPerWeek": "게시물당 500 크레딧, 주당 최대 2건(X + LinkedIn)",
+      "postOnX": "X에 올리기",
+      "postOnLinkedIn": "LinkedIn에 올리기",
+      "preFilledDraft": "🌟 미리 작성된 초안을 준비했습니다!",
+      "claimTitle": "게시물 주소를 붙여 넣고 크레딧을 받으세요",
+      "userEmail": "사용자 이메일",
+      "postUrlLabel": "게시물 주소 (X 또는 LinkedIn)",
+      "postUrlPlaceholder": "게시물 링크를 여기에 붙여 넣으세요",
+      "invalidUrl": "올바른 X 또는 LinkedIn 게시물 주소를 입력해 주세요",
+      "claiming": "받는 중...",
+      "claimCredits": "크레딧 받기",
+      "congratulations": "축하합니다!",
+      "claimSuccess": "크레딧 500을 받았습니다!",
+      "verifying": "게시물을 확인하는 중...",
+      "verifyingDescription": "게시물 내용을 확인하고 있습니다. 보통 몇 초 걸립니다",
+      "verifyFailed": "확인에 실패했습니다",
+      "tryAgain": "다시 시도"
+    },
+    "error": {
+      "verificationFailed": "확인에 실패했습니다"
+    }
+  },
+  "reward": {
+    "title": "리워드",
+    "rewardCredits": "리워드 크레딧",
+    "minCharCount": "게시물은 {{count}}자 이상이어야 합니다",
+    "minFollowerCount": "팔로워가 {{count}}명 이상이어야 합니다",
+    "mustMention": "게시물에 {{mention}} 을(를) 언급해야 합니다",
+    "fetchSnapshotFailed": "게시물 스냅샷을 가져오지 못했습니다",
+    "alreadyClaimedThisWeek": "이번 주에 이 계정으로 이미 리워드를 받았습니다",
+    "manage": {
+      "title": "리워드 관리",
+      "description": "모든 스페이스의 리워드 기록을 보고 관리합니다",
+      "overview": "요약",
+      "records": "기록",
+      "searchSpace": "스페이스 검색...",
+      "searchRecords": "게시물 주소/사용자 ID 검색...",
+      "dateRange": "기간 선택",
+      "from": "시작",
+      "to": "끝",
+      "totalSpaces": "전체 {{count}}개 스페이스",
+      "totalRecords": "전체 {{count}}건",
+      "space": "스페이스",
+      "allSpaces": "모든 스페이스",
+      "user": "사용자",
+      "creator": "만든 사람",
+      "sourceType": "출처 종류",
+      "platform": "플랫폼",
+      "allStatuses": "모든 상태",
+      "allSourceTypes": "모든 출처",
+      "allPlatforms": "모든 플랫폼",
+      "pendingCount": "대기 건수",
+      "approvedCount": "승인 건수",
+      "rejectedCount": "반려 건수",
+      "approvedAmount": "승인 금액",
+      "consumedAmount": "사용 금액",
+      "availableAmount": "쓸 수 있는 금액",
+      "expiringSoonAmount": "곧 만료(7일) 금액",
+      "amount": "금액",
+      "remainingAmount": "남은 금액",
+      "createdTime": "만든 시각",
+      "rewardTime": "지급 시각",
+      "expiredTime": "만료 시각",
+      "lastModified": "마지막 수정",
+      "viewDetails": "자세히 보기",
+      "details": "리워드 상세",
+      "basicInfo": "기본 정보",
+      "amountInfo": "금액 정보",
+      "timeInfo": "시간 정보",
+      "socialInfo": "소셜 정보",
+      "verifyResult": "확인 결과",
+      "uniqueKey": "고유 키",
+      "verify": "확인",
+      "valid": "유효",
+      "invalid": "무효",
+      "errors": "오류",
+      "copied": "{{label}} 을(를) 복사했습니다",
+      "openPost": "게시물 열기",
+      "noData": "데이터가 없습니다",
+      "page": "{{total}} 쪽 중 {{current}} 쪽",
+      "status": {
+        "label": "상태",
+        "pending": "대기",
+        "approved": "승인",
+        "rejected": "반려"
+      }
+    }
+  },
+  "chat": {
+    "responseInterrupted": "응답이 중단되었습니다",
+    "serverError": "서버 오류가 발생했습니다",
+    "serverErrorHint": "새 대화를 시작해 다시 시도해 주세요.",
+    "modelNotSupported": "선택한 모델은 에이전트 모드를 지원하지 않습니다. Claude Opus 4.6 으로 바꾸면 가장 잘 동작합니다.",
+    "byokModelNotSupported": "직접 설정한 모델은 에이전트 모드와 맞지 않습니다. Claude Opus 4.6 으로 바꾸면 가장 잘 동작합니다.",
+    "modelServiceUnavailable": "모델 서비스를 잠시 쓸 수 없습니다. 나중에 다시 시도해 주세요.",
+    "modelServiceError": "모델 서비스에서 오류가 났습니다. 다시 시도하거나 다른 모델로 바꿔 보세요.",
+    "imageProcessingFailed": "이미지 처리 실패",
+    "imageProcessingFailedDescription": "AI 모델이 이미지를 처리하지 못했습니다. 다시 보내거나 이미지 없이 진행해 주세요.",
+    "sandboxActiveRunBusy": "아직 작업 중입니다. 끝난 뒤에 다시 보내 주세요.",
+    "sandboxCapacityFull": "동시 대화 한도({{max}})에 도달했습니다. 하나가 끝날 때까지 기다려 주세요.",
+    "sandboxTransient": "준비 중입니다. 잠시 뒤에 다시 시도해 주세요.",
+    "sandboxSnapshotNotFound": "실행 환경이 아직 준비되지 않았습니다. 관리자에게 샌드박스 스냅샷 생성을 요청해 주세요.",
+    "sandboxProviderError": "샌드박스 실행 오류",
+    "sandboxProviderErrorDescription": "샌드박스 호출에 실패했습니다. 다시 시도하거나 관리자에게 확인을 요청해 주세요.",
+    "agentStartFailed": "AI 엔진을 시작하지 못했습니다. 다시 시도하거나 새 대화를 시작해 주세요.",
+    "idleTimeout": "명령 실행이 제한 시간({{seconds}}초)을 넘었습니다. 다시 시도해 주세요.",
+    "danglingToolUse": "이전 대화가 중단되어 자동으로 복구했습니다. 메시지를 다시 보내 주세요.",
+    "contextImportFailed": "이전 대화 내용을 되살리지 못했습니다. 이전 맥락 없이 계속하려면 다시 시도해 주세요."
+  },
+  "system": {
+    "notFound": {
+      "title": "페이지를 찾을 수 없습니다",
+      "description": "링크가 잘못되었거나 페이지가 옮겨졌을 수 있습니다."
+    },
+    "links": {
+      "backToHome": "홈으로"
+    },
+    "forbidden": {
+      "title": "접근이 제한되었습니다",
+      "description": "이 항목에 접근하려면 권한이 필요합니다.\n관리자에게 문의해 주세요."
+    },
+    "paymentRequired": {
+      "title": "유료 기능입니다",
+      "description": "상위 요금제에서 쓸 수 있는 기능입니다.\n업그레이드하면 더 많은 것을 할 수 있습니다."
+    },
+    "error": {
+      "title": "문제가 발생했습니다",
+      "description": "예상치 못한 오류입니다. 잠시 뒤에 다시 시도해 주세요."
+    }
+  },
+  "import": {
+    "error": {
+      "dateOutOfRange": "{{fieldHint}}날짜를 읽지 못했습니다. \"{{value}}\" 은(는) 다룰 수 있는 범위를 벗어났습니다",
+      "planRowLimit": "행 수 한도에 도달했습니다. 더 많은 레코드를 넣으려면 요금제를 올려 주세요",
+      "notNullValidation": "{{fieldHint}}필수 항목은 비워 둘 수 없습니다",
+      "uniqueValidation": "{{fieldHint}}값이 겹치면 안 되는 필드에 중복이 있습니다",
+      "requestTimeout": "요청 시간이 초과되었습니다",
+      "chunkProcessingFailed": "묶음 처리에 실패했습니다: {{reason}}",
+      "unknown": "{{fieldHint}}{{message}}"
+    }
+  },
+  "skills": {
+    "title": "스킬",
+    "tabs": {
+      "mySkills": "내 스킬"
+    },
+    "actions": {
+      "import": "스킬 가져오기",
+      "sync": "동기화",
+      "delete": "삭제",
+      "enable": "켜기",
+      "disable": "끄기",
+      "edit": "편집",
+      "tryInChat": "대화에서 써 보기",
+      "replace": "교체",
+      "download": "내려받기",
+      "uninstall": "제거",
+      "copyToBase": "베이스로 복사",
+      "copyToPersonal": "개인으로 복사",
+      "copyToApp": "앱으로 복사"
+    },
+    "import": {
+      "title": "스킬 가져오기",
+      "description": "GitHub 저장소나 ZIP 파일에서 스킬을 가져옵니다",
+      "githubTab": "GitHub 주소",
+      "fileTab": "ZIP / 스킬 파일",
+      "githubTitle": "GitHub 에서 스킬 가져오기",
+      "githubPlaceholder": "https://github.com/owner/repo/tree/main/skills/my-skill",
+      "fileHint": "SKILL.md 가 들어 있는 .zip 또는 .skill 파일을 올리세요",
+      "or": "또는",
+      "selectFile": "파일 선택",
+      "replaceWarning": "같은 이름의 스킬이 이미 있으면 덮어씁니다.",
+      "importing": "가져오는 중...",
+      "submit": "가져오기",
+      "success": "스킬을 가져왔습니다",
+      "error": "스킬을 가져오지 못했습니다"
+    },
+    "detail": {
+      "slug": "식별자",
+      "type": "종류",
+      "description": "설명",
+      "source": "출처",
+      "addedBy": "추가한 사람",
+      "skillLabel": "스킬",
+      "syncStatus": "동기화 상태",
+      "preview": "SKILL.md 미리보기"
+    },
+    "scope": {
+      "label": "범위",
+      "system": "시스템",
+      "base": "현재 베이스",
+      "user": "개인",
+      "userDescription": "나만 쓸 수 있습니다",
+      "baseDescription": "이 베이스의 협업자와 함께 씁니다",
+      "app": "앱",
+      "appDescription": "이 앱에서만 쓸 수 있습니다",
+      "cuppyclaw": "봇",
+      "cuppyclawDescription": "이 봇에서만 쓸 수 있습니다"
+    },
+    "source": {
+      "github": "GitHub",
+      "file": "파일 업로드",
+      "manual": "직접 등록"
+    },
+    "status": {
+      "enabled": "켜짐",
+      "disabled": "꺼짐",
+      "synced": "동기화됨",
+      "failed": "동기화 실패"
+    },
+    "empty": {
+      "mySkills": "아직 개인 스킬이 없습니다. 하나 가져와 시작해 보세요."
+    },
+    "confirm": {
+      "deleteTitle": "스킬 삭제",
+      "deleteDescription": "이 스킬을 삭제할까요? 되돌릴 수 없습니다.",
+      "copyTitle": "스킬 복사",
+      "copyDescription": "스킬 파일이 대상 범위로 복사됩니다. 원본은 그대로 남습니다.",
+      "copyOverwriteWarning": "대상 범위에 같은 이름의 스킬이 있으면 덮어씁니다."
+    },
+    "toast": {
+      "syncing": "스킬을 동기화하는 중...",
+      "syncSuccess": "동기화했습니다",
+      "syncError": "동기화하지 못했습니다",
+      "deleting": "스킬을 삭제하는 중...",
+      "deleteSuccess": "삭제했습니다",
+      "deleteError": "삭제하지 못했습니다",
+      "updateSuccess": "수정했습니다",
+      "copying": "복사하는 중...",
+      "copySuccess": "복사했습니다",
+      "copyError": "복사하지 못했습니다"
+    }
+  },
+  "changelog": {
+    "newUpdate": "7월 28일 업데이트",
+    "title": "AI 에이전트를 위한 Teable 스킬",
+    "url": "https://help.teable.ai/en/changelog#jul-28-2026",
+    "id": "changelog-2026-07-28-teable-skill-for-ai-agents"
+  },
+  "resourceDescription": {
+    "addDescription": "설명 추가",
+    "nodeDescription": "항목 설명",
+    "descriptionSaving": "저장하는 중...",
+    "descriptionSaveFailed": "설명을 저장하지 못했습니다. 다시 시도해 주세요",
+    "descriptionPlaceholder": "이 항목에 대한 설명을 적어 주세요"
+  }
+}

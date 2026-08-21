@@ -1,0 +1,92 @@
+{
+  "notBaseId": "baseId가 없습니다",
+  "notPositionId": "positionId가 없습니다",
+  "notPluginInstallId": "pluginInstallId가 없습니다",
+  "initBridge": "연결하는 중...",
+  "actions": {
+    "cancel": "취소",
+    "save": "저장"
+  },
+  "queryTitle": "데이터 조회 설정",
+  "notSupport": "지원하지 않습니다",
+  "chart": {
+    "bar": "막대",
+    "line": "선",
+    "pie": "원형",
+    "area": "영역",
+    "table": "표"
+  },
+  "form": {
+    "chartType": {
+      "placeholder": "차트 종류 선택",
+      "label": "차트 종류"
+    },
+    "pie": {
+      "dimension": "분류 기준",
+      "measure": "값",
+      "showTotal": "합계 표시"
+    },
+    "combo": {
+      "xAxis": {
+        "label": "X축"
+      },
+      "yAxis": {
+        "label": "Y축",
+        "position": "Y축 위치"
+      },
+      "xDisplay": {
+        "label": "X축 표시"
+      },
+      "yDisplay": {
+        "label": "Y축 표시"
+      },
+      "addXAxis": "계열 나누기 추가",
+      "addYAxis": "계열 추가",
+      "stack": "누적",
+      "position": {
+        "auto": "자동",
+        "left": "왼쪽",
+        "right": "오른쪽"
+      },
+      "goalLine": {
+        "label": "목표선"
+      },
+      "range": {
+        "label": "범위",
+        "min": "최소",
+        "max": "최대"
+      },
+      "lineStyle": {
+        "label": "선 모양",
+        "normal": "곡선",
+        "linear": "직선",
+        "step": "계단"
+      },
+      "displayType": "표시 방식"
+    },
+    "typeError": "폼: 지원하지 않는 차트 종류입니다",
+    "updateQuery": "적용",
+    "queryError": "조회에 실패했습니다",
+    "querySuccess": "조회 설정을 저장했습니다",
+    "decimal": "소수 자릿수",
+    "prefix": "앞에 붙일 말",
+    "suffix": "뒤에 붙일 말",
+    "showLabel": "차트에 값 표시",
+    "showLegend": "범례 표시",
+    "value": "값",
+    "label": "이름표",
+    "padding": {
+      "label": "여백",
+      "top": "위",
+      "right": "오른쪽",
+      "bottom": "아래",
+      "left": "왼쪽"
+    },
+    "tableConfig": "표 설정",
+    "width": "너비"
+  },
+  "reloadQuery": "다시 조회",
+  "noStorage": "차트 플러그인을 먼저 설정해 주세요",
+  "noPermission": "접근 권한이 없습니다",
+  "goConfig": "설정하러 가기"
+}

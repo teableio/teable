@@ -1,0 +1,1521 @@
+{
+  "computeActivity": {
+    "currentCalculations": "진행 중인 계산",
+    "thisTableOnly": "이 테이블만",
+    "calculatingNow": "지금 계산 중",
+    "calculating": "계산 중",
+    "waiting": "대기 중",
+    "failed": "실패",
+    "calculationFailed": "계산 실패",
+    "calculatingSummary": "계산 중 ({{count}})",
+    "failedSummary": "실패 ({{count}})",
+    "fieldsCalculating_one": "필드 {{count}}개 계산 중",
+    "fieldsCalculating_other": "필드 {{count}}개 계산 중",
+    "fieldCalculationsFailed_one": "필드 {{count}}개 계산 실패",
+    "fieldCalculationsFailed_other": "필드 {{count}}개 계산 실패",
+    "batchesRunning_one": "묶음 {{count}}개 처리 중",
+    "batchesRunning_other": "묶음 {{count}}개 처리 중",
+    "batchesQueued_one": "묶음 {{count}}개 대기 중",
+    "batchesQueued_other": "묶음 {{count}}개 대기 중",
+    "records_one": "레코드 {{formattedCount}}개",
+    "records_other": "레코드 {{formattedCount}}개",
+    "batchesComplete": "완료한 묶음 {{completed}}/{{total}}",
+    "progressAriaLabel": "{{fieldName}} 계산 진행률"
+  },
+  "crossSpace": {
+    "duplicateFieldTitle": "알림",
+    "duplicateFieldDescription": "스페이스를 넘나드는 연결은 지원하지 않습니다. 복제본에서는 한 줄 텍스트 필드로 바뀝니다.",
+    "duplicateTableTitle": "알림",
+    "duplicateTableDescription": "스페이스를 넘나드는 연결은 지원하지 않습니다. 복제본에서는 한 줄 텍스트 필드로 바뀝니다.",
+    "convertAndDuplicate": "변환 후 복제"
+  },
+  "toolbar": {
+    "viewFilterInShare": "이 뷰는 공유 링크로 쓰이고 있습니다. 뷰 설정을 바꾸면 공유 링크에 보이는 내용도 함께 바뀝니다.",
+    "createFieldButtonText": "새 <0/> 필드 만들기",
+    "others": {
+      "share": {
+        "label": "공유",
+        "statusLabel": "뷰를 웹에 공유",
+        "noPermission": "뷰를 공유할 권한이 없습니다",
+        "genLink": "새 링크 만들기",
+        "allowCopy": "보는 사람이 이 뷰의 데이터를 복사할 수 있게 허용",
+        "allowEdit": "로그인한 사람이 보이는 데이터를 편집할 수 있게 허용",
+        "showAllFields": "레코드를 펼쳤을 때 모든 필드 보이기",
+        "restrict": "비밀번호로 제한",
+        "tips": "링크를 가진 사람은 이 뷰를 볼 수 있습니다.",
+        "passwordTitle": "비밀번호 입력",
+        "passwordTips": "공유된 뷰에 들어올 때 요구할 비밀번호",
+        "embed": "삽입",
+        "embedPreview": "미리보기",
+        "copyCode": "코드 복사",
+        "hideToolbar": "도구 모음 숨기기",
+        "URLSetting": "URL 파라미터 설정",
+        "URLSettingDescription": "아래 설정을 바꿔도 삽입 코드에는 자동으로 반영되지 않습니다. 새 파라미터가 들어간 코드를 다시 복사해야 적용됩니다",
+        "cancel": "취소",
+        "save": "저장",
+        "requireLogin": "제출하려면 로그인 필요"
+      },
+      "api": {
+        "title": "API 접근",
+        "aiContext": "AI 연결",
+        "advanced": "고급",
+        "recommended": "권장",
+        "apiDocGroupTitle": "API 컨텍스트",
+        "apiDocGroupDescription": "아래 문서를 AI에 붙여 넣으면 현재 테이블의 구조, 필드, API 예시를 이해하고 레코드를 읽고 만들고 고치고 지울 수 있습니다.",
+        "generatingToken": "만드는 중...",
+        "generateToken": "토큰 만들기",
+        "confirmTitle": "API 토큰 만들기",
+        "confirmDescription": "이 베이스에 대해 아래 권한을 가진 새 API 토큰을 만듭니다:",
+        "scopeTableRead": "테이블 정보 읽기",
+        "scopeFieldRead": "필드 읽기",
+        "scopeRead": "레코드 읽기",
+        "scopeCreate": "레코드 만들기",
+        "scopeUpdate": "레코드 수정",
+        "scopeDelete": "레코드 삭제",
+        "confirmExpiry": "토큰은 1년간 유효합니다.",
+        "confirmButton": "확인하고 만들기",
+        "tokenInfo": "토큰 만료: {{expiry}}",
+        "copied": "복사했습니다!",
+        "copyAIDoc": "문서 복사",
+        "aiDocPreview": "컨텍스트 미리보기",
+        "manageToken": "토큰 관리",
+        "openInNewTab": "새 탭에서 열기",
+        "queryBuilderTitle": "API 쿼리 빌더",
+        "queryBuilderDesc": "필터, 정렬 등을 화면에서 설정해 바로 실행할 수 있는 API 요청 코드를 만듭니다.",
+        "viewApiDocs": "전체 API 문서 보기"
+      },
+      "personalView": {
+        "personal": "개인 설정",
+        "tip": "켜면 이 뷰 설정이 나에게만 적용됩니다",
+        "dialog": {
+          "title": "개인 설정 끄기",
+          "description": "뷰 설정이 모두가 함께 보는 상태로 돌아갑니다. 개인 설정을 저장해 모두에게 반영할 수도 있습니다",
+          "cancelText": "끄고 모두에게 반영",
+          "confirmText": "끄기"
+        }
+      }
+    }
+  },
+  "welcome": {
+    "title": "환영합니다",
+    "emptyTitle": "베이스를 만들어 보세요",
+    "description": "사이드바의 \"+\" 버튼을 눌러 항목을 추가하세요",
+    "help": "자세한 내용은 <HelpCenter />에서 보세요",
+    "helpCenter": "도움말 센터"
+  },
+  "validation": {
+    "link": {
+      "batch_duplicate": "연결할 수 없습니다. 같은 묶음 안의 다른 레코드가 이미 연결했습니다. 일대다 관계에서는 레코드마다 부모가 하나뿐입니다.",
+      "one_many_duplicate": "연결할 수 없습니다. 이미 다른 레코드에 연결돼 있습니다. 일대다 관계에서는 레코드마다 부모가 하나뿐입니다.",
+      "one_one_duplicate": "연결할 수 없습니다. 일대일 관계에서 대상 레코드가 이미 다른 레코드와 연결돼 있습니다."
+    },
+    "field": {
+      "maxColumnLimit": "테이블 \"{{tableName}}\"에는 필드를 최대 {{maxFieldCount}}개까지 만들 수 있습니다.",
+      "requiredExistingValues": "이미 값이 비어 있는 레코드가 있어 \"{{fieldName}}\" 필드를 필수로 만들 수 없습니다."
+    }
+  },
+  "field": {
+    "advancedProps": "고급 설정",
+    "hide": "숨기기",
+    "default": {
+      "singleLineText": {
+        "title": "이름표"
+      },
+      "longText": {
+        "title": "메모"
+      },
+      "number": {
+        "title": "숫자",
+        "formatType": "표시 형식",
+        "currencySymbol": "통화 기호",
+        "defaultSymbol": "₩",
+        "precision": "소수 자릿수",
+        "decimalExample": "숫자 (123)",
+        "currencyExample": "통화 (₩100)",
+        "percentExample": "백분율 (20%)"
+      },
+      "singleSelect": {
+        "title": "상태",
+        "options": {
+          "todo": "할 일",
+          "inProgress": "진행 중",
+          "done": "완료"
+        }
+      },
+      "multipleSelect": {
+        "title": "태그"
+      },
+      "attachment": {
+        "title": "첨부파일"
+      },
+      "user": {
+        "title": "협업자"
+      },
+      "date": {
+        "title": "날짜",
+        "dateFormatting": "날짜 형식",
+        "timeFormatting": "시간 형식",
+        "timeZone": "시간대",
+        "yearMonth": "년/월",
+        "monthDay": "월/일",
+        "year": "년",
+        "month": "월",
+        "day": "일",
+        "local": "현지 방식",
+        "friendly": "읽기 쉽게",
+        "us": "미국식",
+        "european": "유럽식",
+        "asia": "아시아식",
+        "custom": "직접 지정",
+        "12Hour": "12시간제",
+        "24Hour": "24시간제",
+        "noDisplay": "표시 안 함"
+      },
+      "autoNumber": {
+        "title": "번호"
+      },
+      "createdTime": {
+        "title": "만든 시각"
+      },
+      "lastModifiedTime": {
+        "title": "마지막 수정 시각"
+      },
+      "createdBy": {
+        "title": "만든 사람"
+      },
+      "lastModifiedBy": {
+        "title": "마지막 수정한 사람"
+      },
+      "rating": {
+        "title": "평점"
+      },
+      "checkbox": {
+        "title": "완료"
+      },
+      "button": {
+        "title": "버튼",
+        "label": "버튼 이름",
+        "limitCount": "클릭 횟수 제한",
+        "resetCount": "초기화 허용",
+        "maxCount": "최대 클릭 횟수",
+        "automation": "자동화",
+        "customAutomation": "직접 만든 자동화",
+        "clickConfirm": "누르기 전에 확인",
+        "confirmTitle": "제목",
+        "confirmDescription": "내용",
+        "confirmButtonText": "확인 버튼 문구"
+      },
+      "formula": {
+        "title": "계산",
+        "formula": "수식"
+      },
+      "lookup": {
+        "title": "{{lookupFieldName}} ({{linkFieldName}}에서)"
+      },
+      "conditionalLookup": {
+        "title": "{{lookupFieldName}} ({{tableName}}에서 조건에 맞는 것)"
+      },
+      "rollup": {
+        "title": "{{lookupFieldName}} 집계 ({{linkFieldName}}에서)",
+        "rollup": "집계",
+        "selectAnRollupFunction": "집계 함수를 선택하세요",
+        "func": {
+          "and": "AND",
+          "arrayCompact": "ARRAYCOMPACT",
+          "arrayJoin": "ARRAYJOIN",
+          "arrayUnique": "ARRAYUNIQUE",
+          "average": "AVERAGE",
+          "concatenate": "CONCATENATE",
+          "count": "COUNT",
+          "countA": "COUNTA",
+          "countAll": "COUNTALL",
+          "max": "MAX",
+          "min": "MIN",
+          "or": "OR",
+          "sum": "SUM",
+          "xor": "XOR"
+        },
+        "funcDesc": {
+          "and": "모든 값이 참이면 참을 돌려줍니다",
+          "arrayCompact": "빈 문자열과 빈 값을 제거합니다. 'false'와 공백만 있는 문자열은 남깁니다.",
+          "arrayJoin": "모든 값을 쉼표로 이어 하나의 문자열로 만듭니다.",
+          "arrayUnique": "중복을 뺀 값만 돌려줍니다.",
+          "average": "값들의 평균입니다.",
+          "concatenate": "여러 텍스트를 하나로 이어 붙입니다.",
+          "count": "비어 있지 않은 숫자만 셉니다. 모든 레코드를 세려면 COUNTALL 을 쓰세요.",
+          "countA": "비어 있지 않은 값을 셉니다. 숫자와 텍스트를 모두 셉니다.",
+          "countAll": "빈 레코드까지 포함해 모두 셉니다.",
+          "max": "주어진 숫자 중 가장 큰 값입니다.",
+          "min": "주어진 숫자 중 가장 작은 값입니다.",
+          "or": "값 중 하나라도 참이면 참을 돌려줍니다.",
+          "sum": "값을 모두 더합니다.",
+          "xor": "참인 값의 개수가 홀수일 때만 참을 돌려줍니다."
+        }
+      },
+      "conditionalRollup": {
+        "title": "{{lookupFieldName}} 조건부 집계"
+      }
+    },
+    "editor": {
+      "addField": "필드 추가",
+      "editField": "필드 편집",
+      "insertField": "필드 삽입",
+      "graph": "관계도",
+      "defaultValue": "기본값",
+      "reset": "초기화",
+      "fieldUpdated": "필드를 수정했습니다",
+      "fieldCreated": "필드를 만들었습니다",
+      "fieldUnavailable": "이 필드를 쓸 수 없습니다. 테이블을 새로고침한 뒤 다시 시도하세요.",
+      "confirmFieldChange": "필드 변경 확인",
+      "areYouSurePerformIt": "이대로 진행할까요?",
+      "addDescription": "설명 추가",
+      "dbFieldName": "DB 필드 이름",
+      "descriptionPlaceholder": "이 필드에 대한 설명 (선택)",
+      "type": "종류",
+      "showAs": "표시 방식",
+      "color": "색",
+      "number": "숫자",
+      "chartBar": "막대 차트",
+      "chartLine": "선 차트",
+      "ring": "링",
+      "bar": "막대",
+      "text": "텍스트",
+      "markdown": "마크다운",
+      "url": "주소",
+      "email": "이메일",
+      "phone": "전화번호",
+      "maxNumber": "최댓값",
+      "showNumber": "숫자 표시",
+      "autoFillDate": "오늘 날짜로 자동 입력",
+      "createSymmetricLink": "연결된 테이블에도 되돌아오는 필드 만들기",
+      "allowLinkMultipleRecords": "여러 개 선택 허용",
+      "allowLinkToDuplicateRecords": "같은 레코드를 여러 번 선택 허용",
+      "allowSymmetricFieldLinkMultipleRecords": "같은 레코드를 여러 번 선택 허용",
+      "oneToOne": "일대일",
+      "oneToMany": "일대다",
+      "manyToOne": "다대일",
+      "manyToMany": "다대다",
+      "self": "자기 자신",
+      "selectTable": "테이블 선택...",
+      "selectBase": "베이스 선택...",
+      "linkFromAnotherBase": "다른 베이스와 연결",
+      "inSelfLink": "같은 테이블 안에서",
+      "betweenTwoTables": "두 테이블 사이에서",
+      "tips": "안내",
+      "linkTipMessage": "이 설정은<br></br> <span>{{linkType}}</span> <b>{{relationship}}</b> 관계를 뜻합니다",
+      "style": "모양",
+      "maximum": "최대",
+      "addOption": "선택지 추가",
+      "allowMultiUsers": "여러 명 추가 허용",
+      "notifyUsers": "선택되면 해당 사용자에게 알리기",
+      "searchTable": "테이블 검색...",
+      "calculating": "계산 중...",
+      "doSaveChanges": "바꾼 내용을 저장할까요?",
+      "linkFieldToLookup": "조회에 쓸 연결 필드",
+      "lookupToTable": "<bold>{{tableName}}</bold>에서 가져올 필드",
+      "rollupToTable": "<bold>{{tableName}}</bold>에서 집계할 필드",
+      "selectField": "필드 선택...",
+      "lastModifiedScope": "대상 필드",
+      "lastModifiedAll": "편집 가능한 모든 필드",
+      "lastModifiedSpecific": "지정한 필드",
+      "lastModifiedSelect": "추적할 필드",
+      "noEditableFields": "편집할 수 있는 필드가 없습니다",
+      "conditionalLookup": {
+        "sortLimitToggleLabel": "연결된 레코드를 정렬하고 개수를 제한",
+        "sortLabel": "결과 정렬",
+        "limitLabel": "가져올 최대 레코드 수",
+        "limitPlaceholder": "비워 두면 조건에 맞는 것을 모두 가져옵니다",
+        "limitHint": "조건에 맞는 레코드를 최대 {{limit}}개까지만 가져옵니다.",
+        "sortMissingWarningTitle": "정렬 기준 필드가 없습니다",
+        "sortMissingWarningDescription": "정렬에 쓰던 필드가 삭제되었습니다. 정렬은 무시하고 개수 제한만 적용합니다."
+      },
+      "linkTable": "연결할 테이블",
+      "linkBase": "연결할 베이스",
+      "tableNoPermission": "권한 없는 테이블",
+      "baseNoPermission": "권한 없는 베이스",
+      "noLinkTip": "조회할 연결 레코드가 없습니다. 다른 레코드로 가는 연결 필드를 먼저 만든 뒤 조회를 설정하세요.",
+      "fieldValidationRules": "값 검사 규칙",
+      "enableValidateFieldUnique": "값이 겹치지 않게",
+      "enableValidateFieldNotNull": "필수 입력",
+      "knowMore": "자세히 보기",
+      "linkFieldKnowMoreLink": "https://help.teable.ai/en/basic/field/advanced/link",
+      "showByField": "필드 기준으로 레코드 표시",
+      "filterByView": "뷰 기준으로 레코드 거르기",
+      "filter": "레코드 거르기",
+      "hideFields": "필드 숨기기",
+      "moreOptions": "더 많은 설정",
+      "allowNewOptionsWhenEditing": "입력하면서 새 선택지 만들기 허용",
+      "deleteField": {
+        "title": "필드 삭제",
+        "simpleConfirm": "<b>{{fieldName}}</b> 필드를 삭제할까요?",
+        "withDependencies": "<b>{{fieldName}}</b> 필드를 삭제하면 아래 필드에 영향이 갑니다:",
+        "deleteCount": "필드 {{count}}개 삭제",
+        "riskIdentified": "영향 있음({{count}})",
+        "noDependencies": "참조 없음({{count}})",
+        "safeToDelete": "안전하게 삭제 가능",
+        "safeToDeleteDesc": "다른 필드가 이 필드를 참조하지 않아 안전하게 지울 수 있습니다",
+        "affectedItems": "영향받는 항목",
+        "type": "종류",
+        "source": "출처",
+        "loginEmailFieldWarning": "이 필드는 로그인 이메일로 쓰이고 있습니다. 삭제하면 아래 앱의 로그인이 동작하지 않습니다:",
+        "loginEmailFieldConvertWarning": "이 필드는 앱의 로그인 이메일 필드입니다. 종류를 바꾸면 아래 앱의 로그인이 동작하지 않습니다:"
+      }
+    },
+    "subTitle": {
+      "link": "선택한 테이블의 레코드와 연결합니다",
+      "singleLineText": "텍스트를 입력하거나, 새 칸에 기본값을 미리 넣어 둡니다.",
+      "longText": "여러 줄 텍스트를 입력합니다.",
+      "attachment": "이미지를 올리거나 AI로 만들고, 문서나 다른 파일을 올려 보거나 내려받습니다.",
+      "checkbox": "체크로 상태를 표시합니다.",
+      "multipleSelect": "미리 정한 선택지 중 하나 이상을 고릅니다.",
+      "singleSelect": "미리 정한 선택지 중 하나를 고르거나, 새 칸에 기본 선택지를 미리 넣어 둡니다.",
+      "user": "레코드에 사용자를 지정합니다.",
+      "date": "날짜를 입력하거나(예: 2026-11-12) 달력에서 고릅니다.",
+      "number": "숫자를 입력하거나, 새 칸에 기본값을 미리 넣어 둡니다.",
+      "rating": "미리 정한 단계로 평점을 매깁니다.",
+      "formula": "다른 필드를 이용해 값을 계산합니다.",
+      "rollup": "연결된 레코드의 값을 모아 요약합니다.",
+      "conditionalRollup": "조건에 맞는 연결 레코드의 값만 모아 요약합니다.",
+      "conditionalLookup": "조건에 맞는 연결 값만 보여 줍니다.",
+      "createdTime": "레코드가 만들어진 날짜와 시각을 봅니다.",
+      "lastModifiedTime": "레코드의 일부 또는 전체 필드가 마지막으로 수정된 날짜와 시각을 봅니다.",
+      "createdBy": "레코드를 만든 사람을 봅니다.",
+      "lastModifiedBy": "레코드를 마지막으로 수정한 사람을 봅니다.",
+      "autoNumber": "레코드마다 겹치지 않는 번호를 자동으로 매깁니다.",
+      "button": "정해 둔 동작을 실행합니다.",
+      "lookup": "연결된 레코드의 필드 값을 가져와 보여 줍니다."
+    },
+    "fieldName": "필드 이름",
+    "fieldNameOptional": "필드 이름 (선택)",
+    "fieldType": "필드 종류",
+    "aiConfig": {
+      "title": "AI 설정",
+      "type": {
+        "summary": "요약",
+        "translation": "번역",
+        "extraction": "정보 추출",
+        "improvement": "다듬기",
+        "tag": "자동 태그",
+        "classification": "자동 분류",
+        "customization": "직접 지정",
+        "imageGeneration": "이미지 생성",
+        "rating": "평점"
+      },
+      "label": {
+        "type": "AI 동작 종류",
+        "model": "AI 모델",
+        "targetLanguage": "번역할 언어",
+        "sourceField": "원본 필드",
+        "sourceFieldForTag": "필드를 고르면 만들어 둔 태그와 맞춥니다",
+        "sourceFieldForClassify": "필드를 고르면 만들어 둔 분류와 맞춥니다",
+        "attachPrompt": "추가 요구사항",
+        "prompt": "프롬프트 직접 작성",
+        "sourceFieldForAttachment": "첨부파일을 가져올 필드",
+        "imageSize": "이미지 크기",
+        "imageQuality": "이미지 품질",
+        "imageCount": "이미지 개수",
+        "aspectRatio": "가로세로 비율",
+        "resolution": "해상도",
+        "advancedSettings": "고급 설정"
+      },
+      "placeholder": {
+        "summarize": "내용 요약",
+        "translate": "간결하고 이해하기 쉽게, 가볍게",
+        "extractInfo": "이메일, 전화번호, 이름, 주소 추출...",
+        "extractDate": "시작 시각 추출",
+        "improveText": "격식 있게, 친근하게, 유머 있게...",
+        "attachPromptForTag": "태그는 세 개를 넘지 않게",
+        "attachPromptForClassify": "\"진행 중\"은 \"위험 없음\"으로 분류",
+        "prompt": "참조할 필드를 입력하거나 선택하세요",
+        "type": "AI 동작을 선택하세요",
+        "targetLanguage": "한국어, 영어, 일본어...",
+        "imageSize": "이미지 크기를 입력하세요",
+        "imageQuality": "이미지 품질을 입력하세요",
+        "aspectRatio": "가로세로 비율 선택",
+        "resolution": "해상도 선택",
+        "attachPromptForImageGeneration": "생생하고 자연스러운 이미지로",
+        "attachPromptForRating": "이미지 품질을 평가"
+      },
+      "imageQuality": {
+        "low": "낮음",
+        "medium": "보통",
+        "high": "높음"
+      },
+      "hint": {
+        "imageInputSupported": "💡 이 모델은 이미지 입력을 지원합니다. 첨부파일 필드를 골라 참고 이미지로 쓸 수 있습니다.",
+        "attachmentNotSupported": "💡 이 모델은 첨부파일 입력을 지원하지 않습니다. 이미지를 바탕으로 이미지를 만드는 것은 Gemini 계열만 가능합니다.",
+        "singleImageOnly": "이 모델은 한 번에 이미지 하나만 만들 수 있습니다"
+      },
+      "tip": {
+        "gptImageResolution": "4K도 전체 픽셀 상한을 넘을 수 없어, 비율에 따라 3840px 대신 허용되는 최대 크기로 만들어집니다."
+      },
+      "auto": "자동",
+      "resolution": {
+        "1K": "1K (일반)",
+        "2K": "2K (고화질)",
+        "4K": "4K (초고화질)"
+      },
+      "autoFill": {
+        "title": "자동 갱신",
+        "tip": "켜면 AI 설정 내용이 바뀔 때 이 필드도 함께 갱신됩니다"
+      },
+      "autoFillFieldDialog": {
+        "title": "AI 필드 다시 생성",
+        "description": "현재 뷰의 {{count}}행에 대해 생성합니다. 작업은 백그라운드에서 진행됩니다."
+      },
+      "autoFillConfirm": {
+        "title": "AI 필드 설정 적용",
+        "description": "현재 뷰의 {{count}}행에 대해 생성합니다. 작업은 백그라운드에서 진행됩니다.",
+        "emptyOnlyMode": "빈 칸만 채우기",
+        "emptyOnlyModeDesc": "빈 칸에만 생성하고, 이미 있는 내용은 덮어쓰지 않습니다",
+        "allMode": "열 전체 생성",
+        "allModeDesc": "모든 행에 생성하며, 이미 있는 내용을 덮어씁니다",
+        "saveOnlyMode": "설정만 저장",
+        "saveOnlyModeDesc": "필드 설정만 저장하고 칸에는 아무것도 쓰지 않습니다",
+        "saveConfigOnly": "설정만 저장",
+        "fillEmptyCells": "빈 칸 채우기",
+        "generateAll": "전체 생성",
+        "recommended": "권장",
+        "generateFailed": "생성하지 못했습니다",
+        "limitWarning": "한 작업당 1,000행 제한이 있어 처음 1,000행만 처리합니다. 나머지는 작업을 다시 실행해 처리하세요."
+      }
+    }
+  },
+  "table": {
+    "newTableLabel": "새 테이블",
+    "rename": "이름 바꾸기",
+    "tableRecordHistory": "레코드 이력",
+    "deleteConfirm": "\"{{tableName}}\"을(를) 삭제할까요?",
+    "dbTableName": "실제 데이터베이스의 테이블 이름",
+    "schemaName": "실제 데이터베이스의 스키마 이름",
+    "baseInfo": "베이스 정보",
+    "loginUserTable": "앱 로그인",
+    "linkedApps": "연결된 앱",
+    "typeOfDatabase": "데이터베이스 종류",
+    "descriptionForTable": "이 테이블 설명",
+    "nameForTable": "이 테이블 이름",
+    "deleteTip1": "다른 테이블에서 이 테이블을 가리키던 연결 필드도 함께 삭제됩니다.",
+    "loginDeleteWarning": "이 테이블을 사용자 테이블로 쓰는 앱이 있습니다. 삭제하면 해당 앱의 로그인이 동작하지 않습니다.",
+    "operator": {
+      "createBlank": "새 테이블"
+    },
+    "actionTips": {
+      "copyAndPasteEnvironment": "복사·붙여넣기는 HTTPS 또는 localhost 에서만 됩니다",
+      "copyAndPasteBrowser": "이 브라우저에서는 복사·붙여넣기를 지원하지 않습니다",
+      "copying": "복사하는 중...",
+      "copySuccessful": "복사했습니다",
+      "copyFailed": "복사하지 못했습니다",
+      "pasting": "붙여넣는 중...",
+      "pasteSuccessful": "붙여넣었습니다",
+      "pasteFailed": "붙여넣지 못했습니다",
+      "pasteNoEditableFields": "선택한 필드는 읽기 전용이라 붙여넣을 수 없습니다.",
+      "filling": "채우는 중...",
+      "fillSuccessful": "채웠습니다",
+      "fillFailed": "채우지 못했습니다",
+      "clearing": "지우는 중...",
+      "clearSuccessful": "지웠습니다",
+      "clearFailed": "지우지 못했습니다",
+      "clearConfirmTitle": "데이터 지우기",
+      "clearConfirmDescription": "레코드 {{rowCount}}개의 셀 {{cellCount}}개를 지웁니다. 계속할까요?",
+      "deleteRecordConfirmTitle": "레코드 삭제",
+      "deleteRecordConfirmDescription": "레코드 {{recordCount}}개를 삭제합니다. 계속할까요?",
+      "duplicateRecordsConfirmTitle": "레코드 복제",
+      "duplicateRecordsConfirmDescription": "레코드 {{recordCount}}개를 복제합니다. 계속할까요?",
+      "pasteConfirmTitle": "붙여넣기 실행",
+      "pasteConfirmDescription": "레코드 {{recordCount}}개를 덮어쓰게 됩니다. 계속할까요?",
+      "paste": "붙여넣기",
+      "deleteRecord": "삭제",
+      "clear": "지우기",
+      "deleting": "삭제하는 중...",
+      "duplicating": "복제하는 중...",
+      "deleteFailed": "삭제하지 못했습니다",
+      "deleteSuccessful": "삭제했습니다",
+      "duplicateFailed": "복제하지 못했습니다",
+      "duplicateSuccessful": "복제했습니다",
+      "duplicateRecords": "복제",
+      "deleteStream": {
+        "preparing": "선택 항목 준비 중",
+        "deleting": "삭제 중",
+        "descriptionWithIssues": "일부 묶음이 실패했습니다. 아래 내용을 확인하세요.",
+        "completedWithIssues": "삭제을(를) 마쳤지만 문제가 있었습니다",
+        "issuesBadge": "문제 {{count}}건",
+        "chunkFailureTitle": "실패한 묶음 상세",
+        "chunkFailureSummary": "처리는 계속됐지만 {{count}}개 묶음에서 오류가 있었습니다.",
+        "chunkLabel": "{{index}}번째 묶음",
+        "rowsLabel": "{{count}}행",
+        "phaseLabel": {
+          "preparing": "준비 중",
+          "guarding": "확인 중",
+          "deleting": "삭제 중",
+          "publishing": "반영 중",
+          "finalizing": "마무리 중"
+        }
+      },
+      "duplicateStream": {
+        "preparing": "선택 항목 준비 중",
+        "duplicating": "복제 중",
+        "descriptionWithIssues": "일부 묶음이 실패했습니다. 아래 내용을 확인하세요.",
+        "completedWithIssues": "복제을(를) 마쳤지만 문제가 있었습니다",
+        "issuesBadge": "문제 {{count}}건",
+        "chunkFailureTitle": "실패한 묶음 상세",
+        "chunkFailureSummary": "처리는 계속됐지만 {{count}}개 묶음에서 오류가 있었습니다.",
+        "chunkLabel": "{{index}}번째 묶음",
+        "rowsLabel": "{{count}}행",
+        "phaseLabel": {
+          "preparing": "준비 중",
+          "guarding": "확인 중",
+          "processing": "복제 중",
+          "publishing": "반영 중",
+          "finalizing": "마무리 중"
+        }
+      },
+      "pasteStream": {
+        "preparing": "선택 항목 준비 중",
+        "pasting": "붙여넣기 중",
+        "descriptionWithIssues": "일부 묶음이 실패했습니다. 아래 내용을 확인하세요.",
+        "completedWithIssues": "붙여넣기을(를) 마쳤지만 문제가 있었습니다",
+        "issuesBadge": "문제 {{count}}건",
+        "chunkFailureTitle": "실패한 묶음 상세",
+        "chunkFailureSummary": "처리는 계속됐지만 {{count}}개 묶음에서 오류가 있었습니다.",
+        "chunkLabel": "{{index}}번째 묶음",
+        "rowsLabel": "{{count}}행",
+        "phaseLabel": {
+          "preparing": "준비 중",
+          "guarding": "확인 중",
+          "processing": "붙여넣는 중",
+          "publishing": "반영 중",
+          "finalizing": "마무리 중"
+        }
+      },
+      "clearStream": {
+        "confirmDescription": "레코드 {{recordCount}}개의 값을 지웁니다. 계속할까요?",
+        "preparing": "선택 항목 준비 중",
+        "clearing": "지우기 중",
+        "descriptionWithIssues": "일부 묶음이 실패했습니다. 아래 내용을 확인하세요.",
+        "completedWithIssues": "지우기을(를) 마쳤지만 문제가 있었습니다",
+        "issuesBadge": "문제 {{count}}건",
+        "chunkFailureTitle": "실패한 묶음 상세",
+        "chunkFailureSummary": "처리는 계속됐지만 {{count}}개 묶음에서 오류가 있었습니다.",
+        "chunkLabel": "{{index}}번째 묶음",
+        "rowsLabel": "{{count}}행",
+        "phaseLabel": {
+          "preparing": "준비 중",
+          "guarding": "확인 중",
+          "processing": "지우는 중",
+          "publishing": "반영 중",
+          "finalizing": "마무리 중"
+        }
+      },
+      "restoreFieldStream": {
+        "confirmTitle": "필드 복원",
+        "confirmDescription": "삭제된 필드와 그 값들을 되살립니다.",
+        "preparing": "필드 복원 준비 중",
+        "restoring": "필드를 복원하는 중...",
+        "restoringRecords": "레코드 값을 복원하는 중",
+        "restoreFailed": "복원하지 못했습니다",
+        "descriptionWithIssues": "일부 묶음이 실패했습니다. 아래 내용을 확인하세요.",
+        "completedWithIssues": "복원을 마쳤지만 문제가 있었습니다",
+        "issuesBadge": "문제 {{count}}건",
+        "chunkFailureTitle": "실패한 묶음 상세",
+        "chunkFailureSummary": "처리는 계속됐지만 {{count}}개 묶음에서 오류가 있었습니다.",
+        "chunkLabel": "{{index}}번째 묶음",
+        "rowsLabel": "{{count}}행",
+        "phaseLabel": {
+          "preparing": "준비 중",
+          "guarding": "확인 중",
+          "processing": "복원 중",
+          "publishing": "반영 중",
+          "finalizing": "마무리 중"
+        }
+      },
+      "pasteFileFailed": "파일은 첨부파일 필드에만 붙여넣을 수 있습니다",
+      "copyError": {
+        "noFocus": "창을 바꾸지 말고 이 화면을 켜 둔 채로 진행해 주세요",
+        "noPermission": "레코드를 복사할 권한이 없습니다"
+      },
+      "crossBaseCopyTitle": "일반 텍스트로 복사할까요?",
+      "crossBaseCopyDescription": "선택 범위에 베이스를 넘나드는 연결 필드가 있습니다. 데이터를 원래 베이스 안에 두기 위해 이 필드는 일반 텍스트로 복사되고 연결 관계는 사라집니다.",
+      "crossBaseCopyConfirm": "일반 텍스트로 복사",
+      "crossBaseCopyLoadFirst": "베이스를 넘나드는 필드를 복사하려면 먼저 스크롤해서 선택한 행을 모두 불러오세요."
+    },
+    "graph": {
+      "effectCells": "영향받을 수 있는 셀",
+      "estimatedTime": "예상 소요 시간",
+      "linkFieldCount": "영향받는 연결 필드 수"
+    },
+    "integrity": {
+      "check": "검사",
+      "title": "무결성 검사",
+      "loading": "무결성을 검사하는 중...",
+      "allGood": "이상 없습니다!",
+      "fixIssues": "문제 고치기",
+      "type": "종류",
+      "message": "오류 메시지",
+      "v2": {
+        "dialogTitle": "스키마 무결성",
+        "dialogDescription": "{{tableName}}에 대해 v2 스키마 검사와 복구를 실행합니다.",
+        "dialogDescriptionNoTable": "현재 베이스에 대해 v2 스키마 검사와 복구를 실행합니다.",
+        "runCheck": "검사 실행",
+        "recheck": "다시 검사",
+        "repair": "복구",
+        "repairWarnings": "경고만 복구",
+        "repairWarningsAndErrors": "경고와 오류 모두 복구",
+        "repairRule": "복구 규칙",
+        "repairUnavailable": "이 규칙은 자동으로 복구할 수 없습니다",
+        "manual": "직접 처리",
+        "manualRepairNotice": "이 문제는 직접 고쳐야 합니다",
+        "manualRepairNoticeWithCount": "{{count}}건은 직접 고쳐야 합니다. 각 규칙 오른쪽의 \"직접 처리\"를 눌러 복구 창을 여세요.",
+        "manualRepairDialogTitle": "직접 복구가 필요합니다",
+        "manualRepairDialogDescription": "이 문제는 자동으로 고칠 수 없습니다. 아래 안내를 보고 어떻게 고칠지 정하세요.",
+        "manualRepairDialogReason": "직접 복구가 필요한 이유",
+        "manualRepairDialogHint": "지금은 규칙이 요구하는 선택지를 안내하는 단계까지만 제공합니다. 실행은 이후에 추가될 수 있습니다.",
+        "manualRepairDialogClose": "닫기",
+        "repairPreviewTitle": "복구 내용 확인",
+        "repairPreviewDescription": "아래는 실제로 실행하지 않고 미리 계산한 결과입니다. 확인을 눌러야 복구가 실행됩니다.",
+        "repairPreviewTooltip": "미리 계산한 복구 계획을 엽니다. 실행될 SQL을 보여 주거나, 없으면 없다고 알려 줍니다.",
+        "repairPreviewMissingTable": "이 검사 결과에는 테이블 정보가 없어 복구 대상을 정할 수 없습니다.",
+        "repairPreviewUnavailableStatus": "이 상태는 복구할 필요가 없어 복구 계획을 만들 수 없습니다.",
+        "repairPreviewWhat": "무엇을 복구하나요",
+        "repairPreviewTarget": "필드 \"{{fieldName}}\"의 \"{{ruleName}}\" 규칙",
+        "repairPreviewPrinciple": "어떻게 복구하나요",
+        "repairPreviewNoPrinciple": "이 규칙은 추가 안내를 제공하지 않습니다.",
+        "repairPreviewSql": "실행할 SQL",
+        "repairPreviewNoSql": "실행할 SQL이 없어 자동 복구를 바로 실행할 수 없습니다.",
+        "repairPreviewCannotConfirm": "SQL은 만들어졌지만 지금은 자동 복구를 확정할 수 없습니다. 복구 계획은 확인하실 수 있습니다.",
+        "repairPreviewParameters": "파라미터",
+        "repairPreviewConfirm": "복구 실행",
+        "checking": "스키마를 검사하는 중...",
+        "repairing": "스키마를 복구하는 중...",
+        "streamError": "스키마 무결성 결과를 받아오지 못했습니다.",
+        "noTableSelected": "v2 스키마 검사를 하려면 먼저 테이블을 선택하세요.",
+        "noResults": "아직 검사 결과가 없습니다.",
+        "noFilteredResults": "지금 필터에 맞는 결과가 없습니다.",
+        "systemColumns": "시스템 열",
+        "general": "일반",
+        "optional": "선택",
+        "statementCount": "구문 {{count}}개",
+        "detailsMissing": "누락: {{details}}",
+        "detailsExtra": "여분: {{details}}",
+        "message": {
+          "schemaValid": "스키마가 정상입니다",
+          "schemaValidationFailed": "스키마 검사에 실패했습니다",
+          "schemaElementMissing": "스키마 항목이 없습니다",
+          "schemaAlreadyValid": "스키마가 이미 정상입니다",
+          "schemaRepaired": "스키마를 복구했습니다",
+          "manualRepair": "직접 복구가 필요한 규칙입니다",
+          "noRepairStatements": "실행할 복구 구문이 없습니다",
+          "skippedDependencies": "선행 조건이 충족되지 않아 건너뜀",
+          "checkStreamConnected": "스키마 무결성 검사에 연결되었습니다",
+          "baseCheckStreamConnected": "베이스 스키마 무결성 검사에 연결되었습니다",
+          "repairStreamConnected": "스키마 무결성 복구에 연결되었습니다",
+          "baseRepairStreamConnected": "베이스 스키마 무결성 복구에 연결되었습니다",
+          "checkCompleted": "스키마 무결성 검사를 마쳤습니다",
+          "baseCheckCompleted": "베이스 스키마 무결성 검사를 마쳤습니다",
+          "repairCompleted": "스키마 무결성 복구를 마쳤습니다",
+          "baseRepairCompleted": "베이스 스키마 무결성 복구를 마쳤습니다",
+          "skippedStatusNotSelected": "이 등급은 복구 대상으로 선택되지 않아 건너뜀",
+          "skippedRepairUnavailable": "지금 상태에서는 자동 복구를 쓸 수 없어 건너뜀"
+        },
+        "rule": {
+          "column": "물리 열",
+          "columnTyped": "물리 열 ({{dataType}})",
+          "notNull": "NOT NULL 제약",
+          "columnUnique": "UNIQUE 제약",
+          "fkColumn": "외래 키 열",
+          "index": "인덱스",
+          "uniqueIndex": "고유 인덱스",
+          "primaryKey": "기본 키",
+          "defaultExpression": "기본값 식",
+          "foreignKey": "외래 키 제약",
+          "junctionTable": "연결 테이블",
+          "junctionUnique": "연결 테이블 고유 제약",
+          "junctionIndex": "연결 테이블 인덱스",
+          "junctionForeignKey": "연결 테이블 외래 키",
+          "reference": "참조 레코드",
+          "generatedColumn": "생성 열",
+          "generatedMeta": "생성 열 상태",
+          "linkValueColumn": "연결 값 열",
+          "orderColumn": "정렬 열",
+          "fieldMeta": "필드 메타데이터",
+          "symmetricField": "양방향 연결 관계",
+          "systemColumn": "시스템 열 \"{{columnName}}\"",
+          "connection": "연결",
+          "completion": "완료",
+          "unexpected": "예상치 못한 오류"
+        },
+        "detail": {
+          "systemColumnMissing": "시스템 열 \"{{columnName}}\"이(가) 없습니다",
+          "systemColumnNotNull": "시스템 열 \"{{columnName}}\"은(는) NOT NULL 이어야 합니다",
+          "systemColumnUnique": "시스템 열 \"{{columnName}}\"에는 고유 인덱스가 있어야 합니다",
+          "systemColumnPrimaryKey": "시스템 열 \"{{columnName}}\"은(는) 기본 키여야 합니다",
+          "systemColumnDefault": "시스템 열 \"{{columnName}}\"에는 기본값 식이 있어야 합니다",
+          "columnUniqueMissing": "필드 \"{{fieldName}}\"은(는) 고유해야 합니다",
+          "columnUniqueMissingDescription": "중복 값이 저장되지 않도록 \"{{fieldName}}\"에 UNIQUE 제약을 추가합니다.",
+          "columnUniqueIndexMismatch": "필드 \"{{fieldName}}\"에 있어야 할 고유 인덱스가 없습니다",
+          "columnUniqueIndexMismatchDescription": "필드의 고유성 규칙대로 읽고 쓰도록 \"{{fieldName}}\"의 인덱스를 고유 인덱스로 다시 만듭니다.",
+          "foreignKeyMissing": "필드 \"{{fieldName}}\"에 외래 키 제약이 없습니다",
+          "foreignKeyMissingDescription": "연결된 레코드가 어긋나지 않도록 \"{{fieldName}}\"에서 \"{{targetTableName}}\"으로 가는 외래 키를 되살립니다.",
+          "foreignKeyTargetTableMissing": "\"{{fieldName}}\"이(가) 가리키는 테이블을 찾을 수 없습니다",
+          "foreignKeyTargetTableMissingDescription": "대상 테이블 \"{{targetPhysicalTableName}}\"이(가) 없어 \"{{fieldName}}\"의 외래 키를 자동으로 되살릴 수 없습니다.",
+          "foreignKeyOrphanRows": "필드 \"{{fieldName}}\"에 없는 레코드를 가리키는 행이 {{count}}개 남아 있습니다",
+          "foreignKeyOrphanRowsDescription": "\"{{targetTableName}}\"을(를) 잘못 가리키는 {{count}}건을 정리해야 \"{{fieldName}}\"의 외래 키를 되살릴 수 있습니다.",
+          "junctionForeignKeyMissing": "\"{{fieldName}}\"의 연결 테이블에 외래 키 하나가 없습니다",
+          "junctionForeignKeyMissingDescription": "관계 행이 \"{{targetTableName}}\"의 실제 레코드와 이어지도록 \"{{fieldName}}\"의 연결 테이블 외래 키를 되살립니다.",
+          "junctionForeignKeyTargetTableMissing": "\"{{fieldName}}\" 연결 테이블이 가리키는 테이블을 찾을 수 없습니다",
+          "junctionForeignKeyTargetTableMissingDescription": "대상 테이블 \"{{targetPhysicalTableName}}\"이(가) 없어 \"{{fieldName}}\"의 연결 테이블 외래 키를 자동으로 되살릴 수 없습니다.",
+          "junctionForeignKeyOrphanRows": "\"{{fieldName}}\"의 연결 테이블에 없는 레코드를 가리키는 행이 {{count}}개 남아 있습니다",
+          "junctionForeignKeyOrphanRowsDescription": "\"{{targetTableName}}\"을(를) 잘못 가리키는 관계 행 {{count}}건을 정리해야 \"{{fieldName}}\"의 연결 테이블 외래 키를 되살릴 수 있습니다.",
+          "referenceMissing": "필드 \"{{fieldName}}\"의 참조 정보가 없습니다",
+          "referenceMissingDescription": "조회와 관계 갱신이 제대로 전파되도록 \"{{fieldName}}\"과 의존 필드 사이의 참조 정보를 되살립니다.",
+          "symmetricFieldTargetMissing": "\"{{fieldName}}\"과 짝을 이루는 연결 필드를 찾을 수 없습니다",
+          "symmetricFieldWrongType": "\"{{fieldName}}\"의 짝 필드가 연결 필드가 아닙니다",
+          "symmetricFieldInvalidOptions": "\"{{fieldName}}\"의 짝 필드에 잘못된 연결 설정이 있습니다",
+          "symmetricFieldMissingBackReference": "\"{{fieldName}}\"의 짝 필드가 현재 필드를 다시 가리키지 않습니다",
+          "symmetricFieldWrongBackReference": "\"{{fieldName}}\"의 짝 필드가 현재 필드가 아닌 다른 필드를 가리킵니다",
+          "symmetricFieldDuplicateUsage": "양방향 연결 대상 \"{{symmetricFieldId}}\"을(를) \"{{conflictFieldName}}\"도 함께 쓰고 있습니다",
+          "symmetricFieldDuplicateUsageDescription": "양방향 연결은 짝이 하나뿐이어야 합니다. 복구하기 전에 어느 필드가 이 관계를 가질지 정하세요."
+        },
+        "repairMeta": {
+          "reason": {
+            "alreadyValid": "이 규칙은 이미 정상입니다",
+            "manualRule": "이 규칙은 사람이 판단해야 합니다",
+            "statementGenerationFailed": "안전한 복구 구문을 만들지 못했습니다",
+            "noStatements": "이 규칙에는 자동 복구 구문이 없습니다",
+            "symmetricFieldConflict": "양방향 연결이 겹쳐 사람이 선택해야 합니다",
+            "symmetricFieldMissing": "짝 연결 필드가 없어 복구 전에 확인이 필요합니다",
+            "symmetricFieldBroken": "짝 연결 필드가 깨져 복구 전에 확인이 필요합니다",
+            "foreignKeyTargetTableMissing": "연결 대상 테이블이 없어 자동 복구를 쓸 수 없습니다",
+            "foreignKeyOrphanRows": "잘못된 연결 행이 남아 있어 자동 복구를 쓸 수 없습니다",
+            "junctionForeignKeyTargetTableMissing": "연결 테이블의 대상 테이블이 없어 자동 복구를 쓸 수 없습니다",
+            "junctionForeignKeyOrphanRows": "잘못된 관계 행이 남아 있어 자동 복구를 쓸 수 없습니다"
+          },
+          "description": {
+            "autoRule": "이 규칙이 만든 스키마 구문을 실행한 뒤, 다시 검사해 정상인지 확인합니다.",
+            "symmetricFieldConflict": "둘 이상의 필드가 같은 양방향 연결 대상을 가리킵니다. 복구 전에 어느 필드가 양방향 관계를 가질지 정하세요.",
+            "symmetricFieldMissing": "현재 연결을 단방향으로 바꾼 뒤 다시 복구하면, 필요한 연결 테이블 규칙이 다시 만들어집니다.",
+            "symmetricFieldBroken": "현재 연결을 단방향으로 바꾼 뒤 다시 복구하면, 연결 스키마 규칙을 다시 검사할 수 있습니다.",
+            "foreignKeyTargetTableMissing": "연결 대상 테이블 {{targetPhysicalTableName}}이(가) 삭제되었거나 이름이 바뀌었는지 확인하세요. 테이블을 다시 만들거나 \"{{fieldName}}\"의 연결 설정을 바꾸거나 지운 뒤 다시 검사하세요.",
+            "foreignKeyOrphanRows": "외래 키를 다시 걸기 전에 \"{{fieldName}}\"의 잘못된 연결 행을 정리하세요.",
+            "junctionForeignKeyTargetTableMissing": "대상 테이블 {{targetPhysicalTableName}}이(가) 삭제되었거나 이름이 바뀌었는지 확인하세요. 테이블을 다시 만들거나 \"{{fieldName}}\"의 연결 설정을 바꾸거나 지운 뒤 다시 검사하세요.",
+            "junctionForeignKeyOrphanRows": "외래 키를 다시 걸기 전에 \"{{fieldName}}\"의 잘못된 관계 행을 정리하세요."
+          },
+          "manual": {
+            "apply": "직접 복구 적용",
+            "symmetricField": {
+              "title": "양방향 연결 충돌 해결",
+              "description": "겹친 양방향 연결을 어떻게 고칠지 고르세요.",
+              "resolutionLabel": "복구 방법",
+              "resolutionDescription": "어느 필드가 양방향 연결을 유지할지 고르세요.",
+              "option": {
+                "keepCurrent": "현재 필드를 양방향 연결로 유지",
+                "convertDuplicate": "겹친 필드를 단방향 연결로 바꾸기"
+              }
+            },
+            "symmetricFieldMissing": {
+              "title": "사라진 짝 연결 필드 해결",
+              "description": "짝 연결 필드가 삭제되었습니다. 복구하려면 이 필드를 단방향 연결로 바꾸는 데 동의해 주세요.",
+              "resolutionLabel": "복구 방법",
+              "resolutionDescription": "현재 연결을 단방향으로 바꿔, 지금 있는 관계 데이터를 그대로 쓸 수 있게 합니다.",
+              "option": {
+                "convertCurrent": "현재 연결을 단방향으로 바꾸기"
+              }
+            },
+            "symmetricFieldBroken": {
+              "title": "깨진 짝 연결 필드 해결",
+              "description": "짝 연결 필드는 있지만 올바른 양방향 짝이 아닙니다. 복구하려면 이 필드를 단방향 연결로 바꾸는 데 동의해 주세요.",
+              "resolutionLabel": "복구 방법",
+              "resolutionDescription": "현재 연결을 단방향으로 바꿔, 깨진 짝에 의존하지 않게 합니다.",
+              "option": {
+                "convertCurrent": "현재 연결을 단방향으로 바꾸기"
+              }
+            },
+            "foreignKeyOrphanRows": {
+              "title": "잘못된 연결 값 지우기",
+              "description": "없는 레코드를 가리키는 외래 키 값을 지운 뒤 외래 키 제약을 되살립니다.",
+              "resolutionLabel": "복구 방법",
+              "resolutionDescription": "잘못된 연결 값은 이미 사라진 레코드를 가리킵니다. 외래 키를 되살리기 전에 그 값들을 지우는 데 동의해 주세요.",
+              "option": {
+                "clearOrphanValues": "잘못된 연결 값 지우기"
+              }
+            },
+            "junctionForeignKeyOrphanRows": {
+              "title": "잘못된 관계 행 정리",
+              "description": "없는 레코드를 가리키는 관계 행을 지운 뒤 외래 키 제약을 되살립니다.",
+              "resolutionLabel": "복구 방법",
+              "resolutionDescription": "잘못된 관계 행은 이미 사라진 레코드를 가리킵니다. 외래 키를 되살리기 전에 그 행들을 지우는 데 동의해 주세요.",
+              "option": {
+                "deleteOrphanRows": "잘못된 관계 행 삭제"
+              }
+            }
+          }
+        },
+        "phase": {
+          "check": "검사 결과",
+          "repair": "복구 결과"
+        },
+        "summary": {
+          "checks": "검사 {{count}}건",
+          "success": "통과 {{count}}건",
+          "warn": "경고 {{count}}건",
+          "error": "오류 {{count}}건",
+          "skipped": "건너뜀 {{count}}건",
+          "repaired": "복구 {{count}}건",
+          "manual": "직접 처리 {{count}}건",
+          "problems": "문제 {{count}}건"
+        },
+        "status": {
+          "success": "통과",
+          "error": "오류",
+          "warn": "경고",
+          "pending": "대기",
+          "running": "진행 중",
+          "skipped": "건너뜀"
+        },
+        "outcome": {
+          "repaired": "복구됨",
+          "unchanged": "변경 없음",
+          "manual": "직접 처리",
+          "skipped": "건너뜀"
+        }
+      },
+      "errorType": {
+        "ForeignTableNotFound": "ForeignTableNotFound",
+        "ForeignKeyNotFound": "ForeignKeyNotFound",
+        "SelfKeyNotFound": "SelfKeyNotFound",
+        "SymmetricFieldNotFound": "SymmetricFieldNotFound",
+        "MissingRecordReference": "MissingRecordReference",
+        "InvalidLinkReference": "InvalidLinkReference",
+        "ForeignKeyHostTableNotFound": "ForeignKeyHostTableNotFound",
+        "ReferenceFieldNotFound": "ReferenceFieldNotFound",
+        "UniqueIndexNotFound": "UniqueIndexNotFound",
+        "EmptyString": "EmptyString",
+        "InvalidFilterOperator": "InvalidFilterOperator",
+        "InvalidPrimaryLookup": "기본 필드가 조회 필드로 잘못 설정됨",
+        "InvalidPrimaryType": "기본 필드의 타입이 지원되지 않음",
+        "MissingPrimary": "테이블에 기본 필드가 없음"
+      }
+    },
+    "index": {
+      "description": "인덱스를 만들면 검색이 크게 빨라집니다. 데이터가 많을수록({{rowCount}}행 이상) 효과가 큽니다. 대신 쓰기 속도가 조금 느려집니다. 검색을 자주 하거나 데이터가 많다면 켜는 것을 권합니다",
+      "repair": "인덱스 갱신",
+      "repairTip": "인덱스에 이상이 있어 검색이 느려질 수 있습니다. 인덱스 갱신 버튼을 눌러 주세요",
+      "enableIndexTip": "인덱스를 만드는 중입니다. 테이블 크기에 따라 시간이 걸리며, 그동안 읽기·쓰기 성능이 영향을 받을 수 있습니다. 잠시 기다려 주세요",
+      "fieldSearchTip_limited": "끄면 모든 필드에서 검색합니다. 날짜, 체크박스, 버튼 필드는 지원하지 않습니다. 최대 {{count}}개 필드까지 지원합니다",
+      "fieldSearchTip_infinity": "끄면 모든 필드에서 검색합니다. 날짜, 체크박스, 버튼 필드는 지원하지 않습니다",
+      "globalSearchFieldTip": "전체 검색 모드입니다. 모든 필드에서 검색하며, 날짜·체크박스·버튼 필드는 지원하지 않습니다",
+      "hideNotMatchRowTip": "끄면 모든 행을 보여 줍니다",
+      "autoIndexTip": "테이블이 {{rowCount}}행을 넘었습니다. 검색 속도를 위해 인덱스를 켜는 것을 권합니다. 인덱스를 켜면 쓰기 속도가 조금 느려질 수 있고, 만드는 동안 읽기·쓰기 성능이 영향을 받을 수 있습니다. 잠시 기다려 주세요",
+      "enableIndex": "켜기",
+      "keepAsIs": "그대로 두기",
+      "ignoreIndexError": "무시"
+    },
+    "searchTips": {
+      "maxFieldTips_limited": "최대 {{count}}개 필드를 넘어, 나머지 필드는 검색에서 제외됩니다"
+    }
+  },
+  "import": {
+    "title": {
+      "upload": "올리기",
+      "import": "가져오기",
+      "localFile": "내 파일",
+      "linkUrl": "링크(URL)",
+      "linkUrlInputTitle": "URL로 파일 추가",
+      "importTitle": "새 테이블 만들기",
+      "incrementImportTitle": "가져올 대상 — ",
+      "optionsTitle": "가져오기 설정",
+      "primitiveFields": "원본 필드",
+      "importFields": "가져올 필드",
+      "primaryField": "기본 필드",
+      "tipsTitle": "안내",
+      "confirm": "확인하고 계속"
+    },
+    "menu": {
+      "addFromOtherSource": "다른 곳에서 가져오기",
+      "excelFile": "Microsoft Excel",
+      "airtable": "Airtable",
+      "csvFile": "CSV 파일",
+      "importCsvData": "CSV 데이터 가져오기",
+      "importExcelData": "Microsoft Excel 데이터 가져오기",
+      "cancel": "취소",
+      "downAsCsv": "CSV 내려받기",
+      "importData": "데이터 가져오기",
+      "duplicate": "복제",
+      "duplicating": "복제하는 중...",
+      "duplicateSuccess": "복제했습니다",
+      "duplicateFailed": "복제하지 못했습니다",
+      "includeRecords": "레코드 포함"
+    },
+    "tips": {
+      "importWayTip": "이 영역에 파일을 끌어다 놓거나 눌러서 올리세요",
+      "fileExceedSizeTip": "이 파일 형식의 용량 제한을 넘었습니다:",
+      "analyzing": "분석 중",
+      "importing": "가져오는 중",
+      "notSupportFieldType": "지원하지 않는 필드 종류입니다",
+      "resultEmpty": "결과가 없습니다.",
+      "searchPlaceholder": "검색...",
+      "importAlert": "가져오기를 시작하면 완료되거나 실패할 때까지 멈출 수 없습니다. 진행 상태는 테이블 오른쪽 위에 표시되고, 끝나면 알려 드립니다. 가져오는 동안에는 필드를 수정하지 마세요. 오류가 생길 수 있습니다.",
+      "noTips": "알겠습니다. 다시 보지 않기"
+    },
+    "options": {
+      "autoSelectFieldOptionName": "필드 종류 자동 선택",
+      "useFirstRowAsHeaderOptionName": "첫 줄을 제목으로 쓰기",
+      "importDataOptionName": "데이터 가져오기",
+      "sheetKey": "시트 이름: ",
+      "excludeFirstRow": "첫 줄은 가져오지 않기"
+    },
+    "form": {
+      "defaultFieldName": "필드",
+      "error": {
+        "urlEmptyTip": "URL을 입력하세요!",
+        "errorFileFormat": "파일 형식이 올바르지 않습니다!",
+        "uniqueFieldName": "필드 이름이 겹치면 안 됩니다!",
+        "fieldNameEmpty": "필드 이름을 입력하세요!",
+        "atLeastAImportField": "가져올 필드를 하나 이상 지정하세요",
+        "urlValidateTip": "URL을 읽지 못했습니다. 다른 주소로 시도해 보세요!"
+      },
+      "option": {
+        "doNotImport": "가져오지 않음"
+      }
+    }
+  },
+  "download": {
+    "allAttachments": {
+      "title": "첨부파일 모두 내려받기",
+      "rowsWithAttachments": "첨부가 있는 행",
+      "totalAttachments": "첨부파일",
+      "totalSize": "전체 용량",
+      "cancel": "취소",
+      "downloading": "내려받는 중...",
+      "completed": "내려받기 완료",
+      "cancelled": "내려받기를 취소했습니다",
+      "noAttachments": "내려받을 첨부파일이 없습니다",
+      "error": "내려받지 못했습니다",
+      "errorPartial": "파일 {{failedCount}}개를 내려받지 못했습니다",
+      "requireHttps": "한꺼번에 내려받으려면 HTTPS가 필요합니다. HTTPS 또는 localhost 로 접속하세요.",
+      "advancedOptions": "고급 설정",
+      "namingFieldLabel": "파일 이름 앞에 붙일 값",
+      "selectField": "기본값: 첨부 순번",
+      "noPrefixOption": "붙이지 않음",
+      "noPrefixOptionDesc": "원래 파일 이름을 그대로 씁니다",
+      "groupByRow": "폴더로 묶기",
+      "groupByRowTip": "한 행에 첨부가 여러 개면 같은 폴더에 넣습니다. 하나뿐이면 폴더를 만들지 않습니다."
+    }
+  },
+  "grid": {
+    "prefillingRowTitle": "새 레코드 추가",
+    "prefillingRowTooltip": "아래에 새 레코드 내용을 입력하세요. 이 행 밖을 누르면 자동으로 저장됩니다.",
+    "presortRowTitle": "이 레코드는 필터나 정렬 규칙 때문에 자리가 바뀌었습니다"
+  },
+  "form": {
+    "fieldsManagement": "필드",
+    "addAll": "모두 보이기",
+    "removeAll": "모두 숨기기",
+    "createField": "필드 만들기",
+    "hideFieldTip": "여기로 끌어다 놓으면 폼에서 숨깁니다",
+    "unableAddFieldTip": "이 종류의 필드는 추가할 수 없습니다",
+    "removeFromFormTip": "폼에서 숨기기",
+    "descriptionPlaceholder": "폼 설명을 입력하세요",
+    "dragToFormTip": "여기로 끌어다 놓으면 폼에 표시합니다",
+    "protectedFieldTip": "\"필수\"로 설정된 필드라 폼 뷰에서 뺄 수 없습니다. 필드 설정에서 바꿔 주세요."
+  },
+  "kanban": {
+    "toolbar": {
+      "hideFieldName": "필드 이름 숨기기",
+      "customizeCards": "카드 꾸미기",
+      "stackedBy": "<0/> 기준으로 묶음",
+      "chooseStackingField": "묶음 기준 필드 선택",
+      "chooseStackingFieldDescription": "이 칸반 뷰에서 어떤 필드로 묶을까요? 이 필드 값에 따라 레코드가 나뉩니다.",
+      "hideEmptyStack": "빈 묶음 숨기기",
+      "imageSetting": "이미지 설정",
+      "fit": "맞춤",
+      "noImage": "이미지 없음",
+      "chooseAttachmentField": "첨부파일 필드 선택"
+    },
+    "stack": {
+      "addStack": "묶음 추가",
+      "noCards": "카드 없음",
+      "uncategorized": "분류 없음"
+    },
+    "stackMenu": {
+      "collapseStack": "묶음 접기",
+      "renameStack": "묶음 이름 바꾸기",
+      "deleteStack": "묶음 삭제"
+    },
+    "cardMenu": {
+      "insertCardAbove": "위에 카드 넣기",
+      "insertCardBelow": "아래에 카드 넣기",
+      "expandCard": "카드 펼치기",
+      "deleteCard": "카드 삭제",
+      "duplicateCard": "카드 복제"
+    }
+  },
+  "calendar": {
+    "toolbar": {
+      "config": "캘린더 설정",
+      "startDateField": "시작일 필드",
+      "endDateField": "종료일 필드",
+      "titleField": "제목 필드",
+      "colorField": "색 기준 필드",
+      "colorType": "색 표시 방식",
+      "customColor": "색 직접 지정",
+      "alignWithRecords": "레코드에 맞추기"
+    },
+    "placeholder": {
+      "selectColorField": "색 기준 필드를 선택하세요"
+    },
+    "dialog": {
+      "startDate": "시작일",
+      "endDate": "종료일",
+      "notAdd": "추가 안 함",
+      "addDateField": "날짜 필드 추가",
+      "content": "캘린더 뷰를 만들려면 테이블에 시작일과 종료일, 두 개의 날짜 필드가 있어야 합니다"
+    },
+    "moreLinkText": "{{count}}개 모두 보기"
+  },
+  "menu": {
+    "insertRecordAbove": "위에 <input />개 레코드 넣기",
+    "insertRecordBelow": "아래에 <input />개 레코드 넣기",
+    "deleteRecord": "레코드 삭제",
+    "deleteAllSelectedRecords": "선택한 레코드 모두 삭제",
+    "duplicateRecords": "선택한 레코드 복제",
+    "editField": "필드 편집",
+    "duplicateField": "필드 복제",
+    "insertFieldLeft": "왼쪽에 넣기",
+    "insertFieldRight": "오른쪽에 넣기",
+    "freezeUpField": "여기까지 고정",
+    "freezeFieldWindowTooNarrow": "창이 좁아 여기까지 고정할 수 없습니다",
+    "hideField": "필드 숨기기",
+    "deleteField": "필드 삭제",
+    "deleteAllSelectedFields": "선택한 필드 모두 삭제",
+    "filterField": "이 필드로 거르기",
+    "sortField": "이 필드로 정렬",
+    "groupField": "이 필드로 묶기",
+    "downloadAllAttachments": "파일 모두 내려받기",
+    "autoFill": "생성",
+    "groupMenuTitle": "그룹 메뉴",
+    "expandGroup": "이 그룹과 하위 그룹 펼치기",
+    "collapseGroup": "이 그룹과 하위 그룹 접기",
+    "expandAllGroups": "모든 그룹 펼치기",
+    "collapseAllGroups": "모든 그룹 접기",
+    "addToChat": "채팅에 추가"
+  },
+  "connection": {
+    "title": "데이터베이스 연결",
+    "description": "데이터베이스에 직접 접속해 현재 베이스의 모든 테이블을 다룰 수 있습니다",
+    "noPermission": "데이터베이스에 접근할 권한이 없습니다",
+    "connectionCountTip": "최대 연결 수는 <b>{{max}}</b>개이고 지금 <b>{{current}}</b>개를 쓰고 있습니다",
+    "createFailed": "PUBLIC_DATABASE_PROXY 환경변수가 올바르게 설정돼 있는지 확인하세요",
+    "readonlyUnavailable": "이 데이터베이스에서는 읽기 전용 공유를 쓸 수 없습니다. Teable 계정에 역할과 권한을 만들 수 있는 권한을 주거나, 읽기 전용 역할을 지원하는 데이터베이스를 쓰세요."
+  },
+  "view": {
+    "addRecord": "레코드 추가",
+    "searchView": "뷰 검색...",
+    "dragToolTip": "자동 정렬이 켜져 있어 직접 끌어 옮길 수 없습니다",
+    "insertToolTip": "자동 정렬이 켜져 있어 순서를 지정해 넣을 수 없습니다",
+    "action": {
+      "rename": "이름 바꾸기",
+      "duplicate": "복제",
+      "delete": "삭제",
+      "lock": "뷰 잠그기",
+      "unlock": "뷰 잠금 해제",
+      "enable": "켜기"
+    },
+    "category": {
+      "table": "그리드 뷰",
+      "form": "폼 뷰",
+      "kanban": "칸반 뷰",
+      "gallery": "갤러리 뷰",
+      "calendar": "캘린더 뷰"
+    },
+    "crash": {
+      "title": "오류!",
+      "description": "이 뷰가 깨졌습니다. 새로고침해도 안 되면 support@teable.ai 로 알려 주세요."
+    },
+    "addPluginView": "플러그인 뷰 추가",
+    "search": {
+      "field_one": "{{name}}",
+      "field_other": "필드({{length}}개)"
+    },
+    "locked": {
+      "tip": "이 뷰는 잠겨 있습니다. 개인 설정을 켜면 뷰 설정을 바꿀 수 있고, 그 변경은 나에게만 적용됩니다."
+    },
+    "noView": "뷰 없음"
+  },
+  "lastModifiedTime": "마지막 수정 시각",
+  "lastModify": "마지막 수정: ",
+  "pasteNewRecords": {
+    "title": "레코드를 여러 개 추가할까요?",
+    "description": "레코드 {{count}}개가 테이블에 추가됩니다."
+  },
+  "tableTrash": {
+    "title": "휴지통",
+    "resourceType": "종류",
+    "deletedResource": "항목",
+    "moreResources": "외 {{count}}개"
+  },
+  "pluginPanel": {
+    "empty": {
+      "description": "아직 추가된 플러그인 패널이 없습니다."
+    },
+    "createPluginPanel": {
+      "button": "플러그인 패널 만들기",
+      "title": "플러그인 패널 만들기"
+    },
+    "namePlaceholder": "플러그인 패널 이름을 입력하세요"
+  },
+  "addPlugin": "플러그인 추가",
+  "pluginContextMenu": {
+    "mangeButton": "플러그인 관리",
+    "manage": "오른쪽 클릭 메뉴 플러그인 관리",
+    "noPlugin": "오른쪽 클릭 메뉴 플러그인이 없습니다",
+    "delete": "삭제",
+    "deleteDescription": "이 플러그인을 삭제할까요?"
+  },
+  "permission": {
+    "cell": {
+      "deniedRead": "이 셀을 볼 권한이 없습니다",
+      "deniedUpdate": "이 셀을 수정할 권한이 없습니다"
+    }
+  },
+  "baseShare": {
+    "shareTitle": "공유",
+    "shareToWeb": "웹에 공유",
+    "refreshLink": "링크 새로 만들기",
+    "deleteConfirmTitle": "공유 링크 삭제",
+    "deleteConfirmDescription": "되돌릴 수 없습니다. 이 링크를 가진 사람은 더 이상 공유된 베이스에 접근할 수 없습니다.",
+    "createSuccess": "공유 링크를 만들었습니다",
+    "createFailed": "공유 링크를 만들지 못했습니다",
+    "updateFailed": "공유 설정을 저장하지 못했습니다",
+    "deleteSuccess": "공유 링크를 삭제했습니다",
+    "deleteFailed": "공유 링크를 삭제하지 못했습니다",
+    "refreshSuccess": "공유 링크를 새로 만들었습니다",
+    "refreshFailed": "공유 링크를 새로 만들지 못했습니다",
+    "linkHolderLabel": "링크를 가진 사람",
+    "linkHolderCanView": "볼 수 있음",
+    "linkHolderCanViewDesc": "링크를 가진 사람은 누구나 데이터를 볼 수 있습니다",
+    "linkHolderCanEdit": "편집할 수 있음",
+    "linkHolderCanEditDesc": "로그인한 사람은 테이블의 레코드를 편집할 수 있습니다",
+    "viewLinkHolderCanViewDesc": "링크를 가진 사람은 누구나 이 뷰의 데이터를 볼 수 있습니다",
+    "viewLinkHolderCanEditDesc": "로그인한 사람은 이 뷰 범위 안의 데이터를 편집할 수 있습니다",
+    "linkExposureNoticeOne": "방문자는 \"{{name}}\"의 데이터를 볼 수 있습니다",
+    "linkExposureNoticeMany": "방문자는 \"{{name}}\"을 포함해 테이블 {{count}}개의 데이터를 볼 수 있습니다",
+    "linkExposureNoticeGeneric": "방문자는 연결된 테이블의 데이터를 볼 수 있습니다",
+    "restrictScope": "범위 제한",
+    "linkScopeDesc": "이 뷰의 연결 필드에서 고를 수 있는 레코드와 필드를 제한합니다. 이 설정은 필드 자체에 적용되어 그 필드를 쓰는 모든 뷰에 영향을 줍니다.",
+    "linkScopeDialogTitle": "연결 필드 범위",
+    "linkHolderCanCopyAndSave": "복사본으로 저장 가능",
+    "linkHolderCanCopyAndSaveDesc": "링크를 가진 사람은 자기 스페이스에 복사본을 저장할 수 있습니다",
+    "editRequiresLogin": "레코드를 편집하려면 로그인해야 합니다",
+    "enterPassword": "비밀번호 입력",
+    "allowCopyData": "보는 사람이 데이터를 복사할 수 있게 허용",
+    "sharedNode": "공유된 항목",
+    "restrictByPassword": "비밀번호로 제한",
+    "advanced": "고급",
+    "embedConfig": "삽입 설정",
+    "appPublicLink": "앱 공개 링크",
+    "appNotPublished": "아직 게시되지 않은 앱입니다. 공유하기 전에 먼저 게시해 주세요.",
+    "goToPublish": "게시하러 가기",
+    "publishSuccess": "앱을 게시했습니다",
+    "publishFailed": "앱을 게시하지 못했습니다",
+    "openLink": "링크 열기",
+    "appPublished": "앱이 게시됨",
+    "shareTableTab": "테이블 공유",
+    "shareViewTab": "뷰 공유"
+  },
+  "aiChat": {
+    "integrationConnect": {
+      "title": "{{provider}} 연결",
+      "reconnectTitle": "{{provider}} 다시 연결",
+      "defaultReason": "계속하려면 {{provider}} 계정 접근 권한이 필요합니다.",
+      "connect": "연결",
+      "connecting": "연결하는 중...",
+      "giveUp": "그만두기",
+      "failed": "연결하지 못했습니다",
+      "status": {
+        "connected": "연결됨",
+        "cancelled": "건너뜀",
+        "failed": "실패"
+      }
+    },
+    "agent": {
+      "askUserQuestion": {
+        "otherPlaceholder": "직접 답을 적어도 됩니다...",
+        "asked": "질문함",
+        "skipped": "건너뜀",
+        "pendingAnswer": "답을 기다리는 중",
+        "notSelected": "선택 안 함",
+        "timedOut": "시간 초과",
+        "timedOutWithDuration": "시간 초과 ({{duration}})",
+        "cancelled": "취소됨",
+        "previousQuestion": "이전 질문",
+        "nextQuestion": "다음 질문"
+      },
+      "completion": {
+        "noDetails": "표시할 내용이 없습니다",
+        "model": "모델",
+        "contextWindow": "컨텍스트 창",
+        "contextTooltip": "에이전트가 기억하고 있는 양입니다. 한도에 가까워지면 앞선 대화를 자동으로 요약해 자리를 만듭니다.",
+        "contextTipNewChat": "주제가 바뀌면 새 대화를 시작하세요. 크레딧을 크게 아낄 수 있습니다.",
+        "contextTipMemory": "\"기억해 줘\"라고 하면 장기 기억에 저장되어 다른 대화에서도 쓸 수 있습니다."
+      },
+      "messageActions": {
+        "helpful": "도움됨",
+        "notHelpful": "도움 안 됨",
+        "commentTitle": "어떻게 하면 더 나았을까요? (선택)",
+        "commentPlaceholder": "예: 요점을 놓침, 부정확함, 잘못된 도구 사용...",
+        "saveFailed": "의견을 저장하지 못했습니다",
+        "copy": "복사",
+        "copyToInput": "입력창에 복사"
+      },
+      "contextCompaction": {
+        "auto": "대화 내용을 자동으로 줄였습니다",
+        "manual": "대화 내용을 줄였습니다",
+        "compacting": "대화 내용을 줄이는 중..."
+      },
+      "taskProgress": {
+        "title": "작업 진행 상황"
+      },
+      "tool": {
+        "copy": "복사",
+        "copied": "복사했습니다!",
+        "collapse": "접기",
+        "linesHidden": "{{count}}줄 숨김 — 눌러서 펼치기"
+      }
+    },
+    "tool": {
+      "retrying": "다시 시도하는 중 ({{attempt}}/{{maxRetries}})...",
+      "showLess": "접기",
+      "generateApp": {
+        "creatingApp": "앱 만드는 중",
+        "updatingApp": "앱 수정하는 중",
+        "viewProgress": "진행 상황 보기"
+      },
+      "htmlPreview": {
+        "preview": "미리보기",
+        "code": "코드",
+        "download": "내려받기",
+        "downloadHtml": "HTML",
+        "downloadImage": "이미지 (PNG)",
+        "copy": "복사",
+        "copied": "복사했습니다!",
+        "fullscreen": "전체 화면",
+        "exitFullscreen": "전체 화면 끄기",
+        "downloadSuccess": "이미지를 내려받았습니다",
+        "downloadFailed": "이미지를 만들지 못했습니다",
+        "iframeFailed": "만들지 못했습니다: 미리보기 프레임에 접근할 수 없습니다",
+        "iframeTitle": "HTML 미리보기"
+      }
+    },
+    "action": {
+      "locateResource": "위치 찾기"
+    },
+    "showUI": {
+      "skip": "건너뛰기",
+      "next": "다음",
+      "submit": "제출"
+    },
+    "newChat": "새 대화",
+    "clearChat": "대화 지우기",
+    "expand": "펼치기",
+    "history": "지난 대화",
+    "close": "접기",
+    "clearChatConfirmTitle": "대화를 지울까요?",
+    "clearChatConfirmDesc": "지금 대화 내용은 저장되지 않습니다. 지울까요?",
+    "dontShowAgain": "다시 보지 않기",
+    "modelSwitchTitle": "모델 바꾸기",
+    "modelSwitchHint": "지금은 {{previous}}(으)로 동작 중입니다. 다음 메시지부터 새 모델이 이어받으며, 최근 3개 대화만 보게 됩니다.",
+    "effort": {
+      "title": "성능",
+      "low": "낮음",
+      "medium": "보통",
+      "high": "높음",
+      "xhigh": "매우 높음"
+    },
+    "sandboxExpiry": {
+      "expiresIn": "에이전트 컴퓨터가 {{time}} 뒤에 만료됩니다",
+      "reset": "연장",
+      "resetTitle": "에이전트 컴퓨터 연장",
+      "runningTasks_one": "진행 중인 작업이 {{count}}개 있습니다. 연장하면 중단됩니다.",
+      "runningTasks_other": "진행 중인 작업이 {{count}}개 있습니다. 연장하면 중단됩니다.",
+      "noRunningTasks": "지금 진행 중인 작업이 없습니다.",
+      "newSandboxHint": "연장한 뒤에도 그대로 쓰실 수 있습니다.",
+      "cancel": "취소",
+      "confirmReset": "연장",
+      "confirmResetWithTasks": "그래도 연장",
+      "expiresSoon": "에이전트 컴퓨터 만료가 얼마 남지 않았습니다",
+      "resetFailed": "에이전트 컴퓨터를 연장하지 못했습니다"
+    },
+    "addAttachment": "첨부파일 추가",
+    "noHistory": "지난 대화가 없습니다",
+    "noFoundHistory": "지난 대화가 없습니다. 새 대화를 시작해 보세요",
+    "timeGroup": {
+      "today": "오늘",
+      "oneWeek": "일주일",
+      "twoWeek": "2주",
+      "oneMonth": "한 달",
+      "other": "그 이전"
+    },
+    "context": {
+      "searchEmpty": "맞는 항목이 없습니다",
+      "selectionRow": "{{row}}행",
+      "selectionRows": "{{start}}-{{end}}행",
+      "selectionColumn": "{{col}}열",
+      "selectionColumns": "{{start}}-{{end}}열",
+      "selectionColumnsNamed": "{{names}} 외 {{count}}개"
+    },
+    "mention": {
+      "tables": "테이블",
+      "apps": "앱",
+      "workflows": "자동화",
+      "folders": "폴더",
+      "envs": "시크릿"
+    },
+    "slashCommand": {
+      "skills": "스킬",
+      "searchEmpty": "결과가 없습니다"
+    },
+    "inputPlaceholder": "@ 로 항목 추가, / 로 스킬 실행",
+    "inputPlaceholderFiles": "파일을 붙여 넣거나 끌어다 놓으세요",
+    "thought": "생각 중",
+    "stage": {
+      "initializing": "준비 중",
+      "working": "작업 중",
+      "committing": "반영 중",
+      "recovering": "복구 중"
+    },
+    "meta": {
+      "input": "입력",
+      "output": "출력"
+    },
+    "attachment": {
+      "pastedTextFileName": "붙여 넣은 텍스트",
+      "imageNotSupported": "이미지는 지원하지 않습니다",
+      "tooManyFiles": "메시지 하나에 파일은 최대 {{count}}개까지 붙일 수 있습니다",
+      "storageFull": "저장 공간이 가득 찼습니다. 파일을 지우고 다시 시도하세요."
+    },
+    "suggestions": {
+      "title": "무엇을 도와드릴까요?",
+      "whatCanIDo": "무엇을 할 수 있나요?",
+      "createOrModifyDatabase": "데이터베이스 만들기 또는 고치기",
+      "buildAutomations": "자동화 만들기",
+      "buildApps": "앱 만들기",
+      "buildMeCRM": "CRM 만들어 줘",
+      "addAIField": "고객마다 분석해 주는 AI 필드 추가해 줘",
+      "createDataAnalysis": "데이터 분석 보고서 만들어 줘",
+      "emailWhenRecordCreated": "레코드가 생기면 메일로 알려 줘",
+      "syncStatusToSlack": "상태가 바뀌면 Slack에 보내 줘",
+      "buildDashboard": "이 테이블로 대시보드 만들어 줘",
+      "buildLeadCapture": "고객 문의 받는 랜딩페이지 만들어 줘"
+    },
+    "buildApp": {
+      "task": {
+        "foundResults": "결과 {{count}}건 찾음"
+      }
+    },
+    "scriptPreview": {
+      "writeCodeHint": "코드를 작성하면 흐름도 미리보기가 나옵니다.",
+      "noPreview": "보여 줄 흐름도가 없습니다.",
+      "codeChanged": "이 미리보기를 만든 뒤 코드가 바뀌었습니다."
+    },
+    "queue": {
+      "nQueued": "{{count}}개 대기 중",
+      "edit": "수정",
+      "steerNow": "중단하지 않고 방향 바꾸기",
+      "steerFailed": "방향을 바꾸지 못했습니다. 메시지는 대기열에 남아 있습니다.",
+      "conversationInputMarker": "방향을 바꿈",
+      "removeFromQueue": "빼기"
+    },
+    "partTool": {
+      "bash": "명령 실행",
+      "read": "파일 읽기",
+      "write": "파일 만들기",
+      "edit": "파일 수정",
+      "glob": "파일 찾기",
+      "find": "파일 찾기",
+      "grep": "파일 안에서 검색",
+      "ls": "폴더 목록",
+      "webSearch": "웹 검색",
+      "skill": "스킬 불러오는 중",
+      "foundFiles": "파일 {{count}}개 찾음",
+      "listedEntries": "항목 {{count}}개",
+      "moreTools": "도구 {{count}}개 더",
+      "moreItems": "{{count}}개 더",
+      "fallbackName": "도구",
+      "questionCount_one": "질문 {{count}}개",
+      "questionCount_other": "질문 {{count}}개",
+      "presentFiles": "보여 준 파일",
+      "download": "내려받기",
+      "installSkill": "설치",
+      "installSkillTitle": "스킬 설치",
+      "installSkillDescription": "이 스킬을 어디에 설치할지 고르세요",
+      "skillInstalled": "설치됨",
+      "installSkillFailed": "스킬을 설치하지 못했습니다",
+      "installSkillReplaceWarning": "같은 이름의 스킬이 이미 있으면 덮어씁니다."
+    },
+    "retry": {
+      "interrupted": "응답이 중단되었습니다",
+      "button": "다시 시도",
+      "offline": "오프라인 상태입니다. 연결되면 다시 시도합니다.",
+      "pausedHidden": "재시도가 멈춰 있습니다. 이 탭을 열어야 다시 연결됩니다.",
+      "maxAttemptsReached": "자동으로 다시 연결하지 못했습니다. 페이지를 새로고침해 주세요."
+    },
+    "initChatFailed": "대화를 시작하지 못했습니다",
+    "app": {
+      "loadingChatHistory": "지난 대화를 불러오는 중...",
+      "generatorTitle": "AI 앱 생성기",
+      "generatorDesc": "만들고 싶은 것을 설명해 주세요"
+    },
+    "voice": {
+      "start": "음성 입력 시작",
+      "stop": "음성 입력 멈춤",
+      "accept": "음성 입력 끝내기",
+      "cancel": "음성 입력 취소",
+      "permissionTip": "마이크 사용을 허용해 주세요.",
+      "recording": "녹음 중...",
+      "transcribing": "받아쓰는 중...",
+      "error": {
+        "microphoneDenied": "마이크 사용이 막혀 있습니다.",
+        "microphoneUnavailable": "마이크를 찾을 수 없습니다.",
+        "unsupportedBrowser": "이 브라우저는 녹음을 지원하지 않습니다.",
+        "recordingFailed": "녹음에 실패했습니다.",
+        "missingServerKey": "음성 입력이 설정돼 있지 않습니다.",
+        "unauthenticated": "다시 로그인해 주세요.",
+        "rateLimited": "너무 자주 시도했습니다. 잠시 뒤에 다시 해 주세요.",
+        "upstreamAuthFailed": "받아쓰기 API 키가 올바르지 않습니다.",
+        "upstreamBadRequest": "음성 서버 주소가 올바르지 않습니다.",
+        "upstreamUnavailable": "음성 기능을 쓸 수 없습니다."
+      }
+    }
+  },
+  "upload": {
+    "panelUploading": "파일 {{count}}개 올리는 중",
+    "panelFailed": "파일 {{count}}개 실패",
+    "panelCompleted": "파일 {{count}}개 완료",
+    "statusFailed": "실패",
+    "statusCompleted": "완료",
+    "statusCancel": "올리기 취소",
+    "statusRetry": "다시 올리기"
+  },
+  "baseNode": {
+    "info": {
+      "menu": "항목 정보",
+      "createdBy": "만든 사람",
+      "createdTime": "만든 시각",
+      "lastModifiedBy": "수정한 사람",
+      "lastModifiedTime": "수정 시각",
+      "folderId": "폴더 ID",
+      "tableId": "테이블 ID",
+      "automationId": "자동화 ID",
+      "appId": "앱 ID",
+      "searchVector": "전문 검색",
+      "searchVectorFields": "필드",
+      "searchVectorStatus": {
+        "ready": "사용 중",
+        "configured": "설정됨",
+        "rebuildPending": "정비 대기",
+        "stale": "다시 만들어야 함",
+        "unknown": "알 수 없음"
+      }
+    }
+  }
+}

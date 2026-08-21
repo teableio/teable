@@ -1,0 +1,72 @@
+{
+  "add": "새 플러그인",
+  "title": {
+    "add": "새 플러그인",
+    "edit": "플러그인 편집"
+  },
+  "pluginUser": {
+    "name": "플러그인 사용자",
+    "description": "플러그인용으로 시스템이 자동으로 만든 사용자입니다"
+  },
+  "secret": "시크릿",
+  "regenerateSecret": "시크릿 다시 만들기",
+  "form": {
+    "name": {
+      "label": "이름",
+      "description": "플러그인 이름"
+    },
+    "description": {
+      "label": "설명",
+      "description": "플러그인 설명"
+    },
+    "detailDesc": {
+      "label": "상세 설명",
+      "description": "플러그인 상세 설명"
+    },
+    "logo": {
+      "label": "로고",
+      "description": "플러그인 로고입니다. 이미지를 올리거나 주소를 넣을 수 있습니다",
+      "upload": "올리기",
+      "clear": "지우기",
+      "placeholder": "로고를 끌어다 놓거나 눌러서 올리세요",
+      "lengthError": "파일은 하나만 올릴 수 있습니다.",
+      "typeError": "이미지 파일만 올릴 수 있습니다."
+    },
+    "helpUrl": {
+      "label": "도움말 주소",
+      "description": "플러그인 도움말 문서 주소"
+    },
+    "positions": {
+      "label": "위치",
+      "description": "플러그인이 놓일 위치"
+    },
+    "i18n": {
+      "label": "다국어",
+      "description": "플러그인의 다국어 정보(이름, 설명, 상세 설명)"
+    },
+    "url": {
+      "label": "주소",
+      "description": "플러그인 주소"
+    },
+    "autoCreateMember": {
+      "label": "구성원 자동 생성",
+      "description": "플러그인용 구성원을 자동으로 만듭니다"
+    },
+    "config": {
+      "label": "설정",
+      "description": "플러그인 설정"
+    }
+  },
+  "markdown": {
+    "write": "작성",
+    "preview": "미리보기"
+  },
+  "status": {
+    "reviewing": "검토 중",
+    "published": "게시됨",
+    "developing": "개발 중"
+  },
+  "button": {
+    "submitApproved": "승인 요청"
+  }
+}

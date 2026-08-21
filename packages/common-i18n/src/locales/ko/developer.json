@@ -1,0 +1,34 @@
+{
+  "apiQueryBuilder": "API 쿼리 빌더",
+  "subTitle": "화면에서 쿼리 요청을 만들고, 바로 실행할 수 있는 코드를 복사할 수 있습니다",
+  "apiList": "전체 API 목록",
+  "cellFormat": "셀 결과 형식",
+  "fieldKeyType": "필드 키 유형",
+  "chooseSource": "데이터 원본 선택",
+  "action": {
+    "selectBase": "베이스를 선택하세요...",
+    "selectTable": "테이블을 선택하세요..."
+  },
+  "pickParams": "파라미터 선택 및 설정",
+  "buildResult": "생성 결과",
+  "buildResultEmpty": "먼저 테이블을 선택하세요",
+  "previewReturnValue": "반환값 미리보기",
+  "replaceToken": "토큰 교체",
+  "createNewToken": "새 토큰 만들기",
+  "showPagination": "페이지 파라미터는 JSON 모드에서 표시됩니다",
+  "addSort": "정렬 추가",
+  "tabs": {
+    "apiBuilder": "API 빌더",
+    "aiContext": "AI 컨텍스트"
+  },
+  "aiContext": {
+    "title": "AI가 이해하기 쉬운 테이블 컨텍스트",
+    "description": "이 내용을 AI 도구(ChatGPT, Claude 등)에 붙여 넣으면 테이블 데이터를 어떻게 다뤄야 하는지 이해시킬 수 있습니다.",
+    "selectTableFirst": "AI 컨텍스트를 만들려면 테이블을 선택하세요",
+    "fullContext": "전체 컨텍스트",
+    "compactContext": "간략",
+    "copyToClipboard": "클립보드에 복사",
+    "copied": "복사했습니다!",
+    "compactDescription": "토큰 제한을 고려해 짧게 줄인 형태입니다. 빠르게 공유할 때 쓰세요."
+  }
+}

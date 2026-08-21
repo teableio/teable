@@ -1,0 +1,113 @@
+{
+  "errors": {
+    "invalid_type": "{{expected}}이(가) 필요한데 {{received}}이(가) 들어왔습니다",
+    "invalid_type_received_undefined": "필수 항목입니다",
+    "invalid_type_received_null": "필수 항목입니다",
+    "invalid_literal": "값이 올바르지 않습니다. {{expected}}이어야 합니다",
+    "unrecognized_keys": "알 수 없는 키가 있습니다: {{- keys}}",
+    "invalid_union": "값이 올바르지 않습니다",
+    "invalid_union_discriminator": "구분 값이 올바르지 않습니다. 가능한 값: {{- options}}",
+    "invalid_enum_value": "선택할 수 없는 값입니다. 가능한 값: {{- options}} (들어온 값 '{{received}}')",
+    "invalid_arguments": "함수 인자가 올바르지 않습니다",
+    "invalid_return_type": "함수 반환 형식이 올바르지 않습니다",
+    "invalid_date": "날짜가 올바르지 않습니다",
+    "custom": "값이 올바르지 않습니다",
+    "invalid_intersection_types": "교집합 결과를 합칠 수 없습니다",
+    "not_multiple_of": "{{multipleOf}}의 배수여야 합니다",
+    "not_finite": "유한한 숫자여야 합니다",
+    "invalid_string": {
+      "email": "{{validation}} 형식이 올바르지 않습니다",
+      "url": "{{validation}} 형식이 올바르지 않습니다",
+      "uuid": "{{validation}} 형식이 올바르지 않습니다",
+      "cuid": "{{validation}} 형식이 올바르지 않습니다",
+      "regex": "형식이 올바르지 않습니다",
+      "datetime": "{{validation}} 형식이 올바르지 않습니다",
+      "startsWith": "\"{{startsWith}}\"(으)로 시작해야 합니다",
+      "endsWith": "\"{{endsWith}}\"(으)로 끝나야 합니다"
+    },
+    "too_small": {
+      "array": {
+        "exact": "항목이 정확히 {{minimum}}개여야 합니다",
+        "inclusive": "항목이 {{minimum}}개 이상이어야 합니다",
+        "not_inclusive": "항목이 {{minimum}}개를 넘어야 합니다"
+      },
+      "string": {
+        "exact": "정확히 {{minimum}}자여야 합니다",
+        "inclusive": "{{minimum}}자 이상이어야 합니다",
+        "not_inclusive": "{{minimum}}자를 넘어야 합니다"
+      },
+      "number": {
+        "exact": "정확히 {{minimum}}이어야 합니다",
+        "inclusive": "{{minimum}} 이상이어야 합니다",
+        "not_inclusive": "{{minimum}}보다 커야 합니다"
+      },
+      "set": {
+        "exact": "값이 올바르지 않습니다",
+        "inclusive": "값이 올바르지 않습니다",
+        "not_inclusive": "값이 올바르지 않습니다"
+      },
+      "date": {
+        "exact": "날짜가 정확히 {{- minimum, datetime}}이어야 합니다",
+        "inclusive": "날짜가 {{- minimum, datetime}} 이후여야 합니다",
+        "not_inclusive": "날짜가 {{- minimum, datetime}}보다 뒤여야 합니다"
+      }
+    },
+    "too_big": {
+      "array": {
+        "exact": "항목이 정확히 {{maximum}}개여야 합니다",
+        "inclusive": "항목이 {{maximum}}개 이하여야 합니다",
+        "not_inclusive": "항목이 {{maximum}}개 미만이어야 합니다"
+      },
+      "string": {
+        "exact": "정확히 {{maximum}}자여야 합니다",
+        "inclusive": "{{maximum}}자 이하여야 합니다",
+        "not_inclusive": "{{maximum}}자 미만이어야 합니다"
+      },
+      "number": {
+        "exact": "정확히 {{maximum}}이어야 합니다",
+        "inclusive": "{{maximum}} 이하여야 합니다",
+        "not_inclusive": "{{maximum}}보다 작아야 합니다"
+      },
+      "set": {
+        "exact": "값이 올바르지 않습니다",
+        "inclusive": "값이 올바르지 않습니다",
+        "not_inclusive": "값이 올바르지 않습니다"
+      },
+      "date": {
+        "exact": "날짜가 정확히 {{- maximum, datetime}}이어야 합니다",
+        "inclusive": "날짜가 {{- maximum, datetime}} 이전이어야 합니다",
+        "not_inclusive": "날짜가 {{- maximum, datetime}}보다 앞이어야 합니다"
+      }
+    }
+  },
+  "validations": {
+    "email": "이메일",
+    "url": "주소",
+    "uuid": "uuid",
+    "cuid": "cuid",
+    "regex": "정규식",
+    "datetime": "날짜/시간"
+  },
+  "types": {
+    "function": "함수",
+    "number": "숫자",
+    "string": "문자열",
+    "nan": "숫자 아님",
+    "integer": "정수",
+    "float": "실수",
+    "boolean": "참/거짓",
+    "date": "날짜",
+    "bigint": "큰 정수",
+    "undefined": "undefined",
+    "symbol": "심볼",
+    "null": "null",
+    "array": "배열",
+    "object": "객체",
+    "unknown": "알 수 없음",
+    "promise": "프로미스",
+    "void": "void",
+    "never": "never",
+    "map": "맵",
+    "set": "집합"
+  }
+}
